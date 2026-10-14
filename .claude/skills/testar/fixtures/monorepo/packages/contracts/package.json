@@ -1,0 +1,1 @@
+{ "name": "@fixture/contracts", "private": true, "type": "module", "exports": { ".": "./src/index.ts" }, "dependencies": { "zod": "0.0.0" } }
