@@ -1,0 +1,6 @@
+{
+  "name": "@fixture/game-core",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" }
+}

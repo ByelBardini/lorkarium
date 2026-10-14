@@ -1,0 +1,12 @@
+{
+  "name": "@fixture/server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@fixture/contracts": "workspace:*",
+    "@fixture/game-core": "workspace:*",
+    "drizzle-orm": "0.0.0",
+    "fastify": "0.0.0",
+    "socket.io": "0.0.0"
+  }
+}

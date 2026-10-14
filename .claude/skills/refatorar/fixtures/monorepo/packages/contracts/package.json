@@ -1,0 +1,7 @@
+{
+  "name": "@fixture/contracts",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@fixture/game-core": "workspace:*", "zod": "0.0.0" }
+}
