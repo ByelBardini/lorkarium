@@ -34,7 +34,7 @@ docs/plans/              # Planos do /planejamento, /construir-tela e /refatorar
 .claude/skills/desenvolver-server/ # /desenvolver-server <pedido>: fatia nova do server camada por camada, com driver de conferência de camadas
 ```
 
-Pastas que **ainda não existem**, mas têm lugar definido (spec §10 e as skills): `server/src/realtime/`, `client/src/renderer/`.
+Pastas que **ainda não existem**, mas têm lugar definido (spec §10 e as skills): `client/src/renderer/`. O Socket.IO do server vive em `server/src/realtime/` (ver `docs/context/server.md`, Tempo real).
 
 Comandos da raiz (`package.json`):
 
@@ -42,7 +42,7 @@ Comandos da raiz (`package.json`):
 - `pnpm build` / `pnpm typecheck` — em todos os workspaces
 - `pnpm test` — Vitest de todos os workspaces, sem a integração do server · `pnpm test:integration` — só `server/test/integration/` (exige Postgres; receita no `/testar`) · `pnpm test:packages` / `test:client` / `test:server` — uma camada, com cobertura (ver `docs/context/ci.md`) · `pnpm exec vitest run <spec>` — um spec · `pnpm exec vitest run --project @lorkarium/<nome>` — um workspace
 - `pnpm lint` · `pnpm format` · `pnpm format:check`
-- `pnpm db:up` / `pnpm db:down` — Postgres de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL`
+- `pnpm db:up` / `pnpm db:down` — Postgres de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção)
 
 ## Camadas do server
 
@@ -72,6 +72,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | server    | Encanamento: env, banco, migrações, app, unit × integração       | [`docs/context/server.md`](docs/context/server.md)       |
 | auth      | Contas, login, sessão por cookie, papel global (server + client) | [`docs/context/auth.md`](docs/context/auth.md)           |
 | campaigns | Mesas: criação, participação, lista, detalhe, entrada por código | [`docs/context/campaigns.md`](docs/context/campaigns.md) |
+| sessions  | Sessão ao vivo da mesa (Socket.IO): presença, snapshot, versão   | [`docs/context/sessions.md`](docs/context/sessions.md)   |
 | client    | SPA: estrutura, rotas, shell e home, testes, design system       | [`docs/context/client.md`](docs/context/client.md)       |
 | ci        | Testes por camada, cobertura, build, pipeline do GitHub Actions  | [`docs/context/ci.md`](docs/context/ci.md)               |
 | health    | `GET /api/health` (ping no Postgres, 200/503, pública)           | [`docs/context/health.md`](docs/context/health.md)       |

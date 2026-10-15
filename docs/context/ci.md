@@ -28,16 +28,16 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 
 Roda em todo `pull_request` e em `push` na `main`. `permissions: contents: read`; `concurrency` por ref, cancelando só run antigo de PR. Todo job começa com `actions/checkout` + o composite `./.github/actions/setup` (pnpm pelo `packageManager`, Node pelo `.nvmrc`, cache do store, `pnpm install --frozen-lockfile` com `HUSKY=0`).
 
-| Job                | Comando                                                                            | O que barra                                                         |
-| ------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `quality`          | `lint`, `format:check`, `typecheck`, os 3 `autoteste.mjs` das skills               | estilo, formato, tipo (inclusive de spec), driver de skill quebrado |
-| `test-packages`    | `pnpm test:packages`                                                               | regra do game-core, DTO do contracts                                |
-| `test-client`      | `pnpm test:client`                                                                 | lógica do client                                                    |
-| `test-server`      | `pnpm test:server`                                                                 | unit do server                                                      |
-| `test-integration` | service `postgres:17-alpine` (tmpfs) → `pnpm db:migrate` → `pnpm test:integration` | borda, DAO, migração quebrada                                       |
-| `build`            | `pnpm build`                                                                       | client ou server que não empacota                                   |
-| `e2e`              | mesmo Postgres de serviço → `db:migrate` → `e2e:install` → `test:e2e` (15 min)     | client que não abre ou não alcança o server pelo proxy              |
-| `ci-ok`            | `if: always()`, `needs` de todos; falha se algum `failure`/`cancelled`             | é o **único** check obrigatório da `main`                           |
+| Job                | Comando                                                                                        | O que barra                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `quality`          | `lint`, `format:check`, `typecheck`, os 3 `autoteste.mjs` das skills                           | estilo, formato, tipo (inclusive de spec), driver de skill quebrado |
+| `test-packages`    | `pnpm test:packages`                                                                           | regra do game-core, DTO do contracts                                |
+| `test-client`      | `pnpm test:client`                                                                             | lógica do client                                                    |
+| `test-server`      | `pnpm test:server`                                                                             | unit do server                                                      |
+| `test-integration` | service `postgres:17-alpine` (tmpfs) → `pnpm db:migrate` → `pnpm test:integration`             | borda, DAO, migração quebrada                                       |
+| `build`            | `pnpm build`                                                                                   | client ou server que não empacota                                   |
+| `e2e`              | mesmo Postgres de serviço → `db:migrate` → `db:seed-dev` → `e2e:install` → `test:e2e` (15 min) | client que não abre ou não alcança o server pelo proxy              |
+| `ci-ok`            | `if: always()`, `needs` de todos; falha se algum `failure`/`cancelled`                         | é o **único** check obrigatório da `main`                           |
 
 - `pnpm audit --prod --audit-level high` roda no `quality` com `continue-on-error`: informativo.
 - O `coverage/` de cada job de teste sobe como artefato (`coverage-<camada>`, 7 dias), mesmo com teste vermelho.
@@ -71,14 +71,18 @@ Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do V
 
 - O `webServer` de `e2e/playwright.config.ts` sobe o server (`pnpm --filter @lorkarium/server start`, pronto quando `/api/health` dá 200) e o client: `vite` local; no CI (`CI=1`), `vite build` + `vite preview` na 5173, que herda o `server.proxy` de `/api`.
 - Fora do CI, `reuseExistingServer`: um `pnpm dev` já de pé é reaproveitado.
-- O server precisa de `DATABASE_URL` apontando para um Postgres **migrado** (o descartável da receita do `/testar` + `pnpm db:migrate`).
+- O server precisa de `DATABASE_URL` apontando para um Postgres **migrado e com o seed de dev** (o descartável da receita do `/testar` + `pnpm db:migrate` + `pnpm db:seed-dev`).
 - No CI: `forbidOnly`, `retries: 2`, `workers: 1`, `trace: 'on-first-retry'`, reporter `github` + `html` (`e2e/playwright-report/`).
 - `e2e/test/smoke.spec.ts`: a home abre sem erro de página/console e `/api/health` responde 200 **pela origem do client** (prova proxy + server + banco).
 - `e2e/test/home.spec.ts`: loga com o admin semeado, cria "Mesa E2E <timestamp>" (Tormenta20), vê "Mesa criada" com código `XXXX-XXXX`, acha a linha na lista, abre o modal, "Entrar na mesa" chega a "O tabuleiro abre aqui." e, de volta, a faixa "Continuar" mostra a mesa.
+- `e2e/test/table-presence.spec.ts`: dois `browser.newContext()`. O admin cria "Mesa ao vivo <timestamp>" e lê o código; Bia (do seed de dev) loga, entra pelo código e abre a mesa; o admin abre a mesa; no painel "Na mesa" de cada um o outro aparece "online". Bia fecha a página e, em até 10 s (tolerância de 5 s + margem), o admin a vê "offline". Critérios 5, 6 e 12 do §13.
+- `e2e/test/support/sign-in.ts` (`adminCredentials()`, `signIn(page, credenciais)`, compartilhados pelos specs) e `dev-players.ts` (`BIA`, as credenciais do `pnpm db:seed-dev`; mudam junto com o `dev-players-seed.bo.ts`).
 - Credenciais: o spec lê `ADMIN_EMAIL`/`ADMIN_PASSWORD` do ambiente (o mesmo admin que o server semeia no boot). No CI o job `e2e` define um admin descartável no `env`; localmente o `playwright.config.ts` carrega o `server/.env` sem sobrescrever o que já está exportado.
 - Local: o `webServer` reaproveita o que já roda na 3333/5173 (`reuseExistingServer`). Um `pnpm dev` antigo, ou um banco sem `pnpm db:migrate`, faz o e2e falhar por 404/500 que não são do código.
 
 ## Armadilhas
+
+- Tirar o `ws: true` do proxy do Vite **não** derruba o e2e de presença: o `socket.io-client` começa em long-polling HTTP, que passa pelo proxy comum, e só depois tenta o upgrade para websocket. O `ws: true` é o que permite o websocket; a prova de que o spec morde é quebrar a conversa (outro `path` no transporte do client), que deixa o painel sem participantes.
 
 - `--coverage.include` é relativo à **pasta de cada projeto**, não à raiz: `src/**` funciona; `server/src/**` ou `packages/*/src/**` dão `Unknown% (0/0)` sem erro nenhum.
 - Com algum teste vermelho o Vitest não imprime a cobertura; o relatório só sai com a suíte verde.
