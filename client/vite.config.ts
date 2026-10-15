@@ -13,7 +13,9 @@ export default defineConfig({
   server: {
     port: 5173,
     // Same origin as production: the session cookie stays first-party and no CORS is needed.
-    proxy: { '/api': 'http://localhost:3333' },
+    // `ws` carries the Socket.IO upgrade; the Host stays as is (no changeOrigin), since the
+    // server only accepts a handshake whose Origin matches it.
+    proxy: { '/api': { target: 'http://localhost:3333', ws: true } },
   },
   test: {
     name: '@lorkarium/client',

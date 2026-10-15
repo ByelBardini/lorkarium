@@ -11,6 +11,8 @@ import { ANA_ID } from './auth-factories';
 
 export const VHARN_ID = '3b1e9a52-6c4d-4f8a-9e2b-1a7c5d3f8e10';
 export const BIA_ID = '9c2f4e61-7a3b-4d5c-8e9f-0b1a2c3d4e5f';
+export const CAIO_ID = 'b4d6e8f0-1a2b-4c3d-8e5f-6a7b8c9d0e1f';
+export const QUELM_ID = '5e8d2c1b-4a3f-4b6e-9d7c-2f1a0b9c8d7e';
 
 /** A campaign row as it would be inserted (no id, visibility or dates: the database fills them).
  *

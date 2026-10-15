@@ -38,6 +38,16 @@ export class ForbiddenRoleError extends AuthError {
   }
 }
 
+// Outside AuthError on purpose: it never reaches the HTTP edge, so it has no status to map.
+export class DevSeedRefusedError extends Error {
+  readonly code = 'DEV_SEED_REFUSED';
+
+  constructor(readonly nodeEnv: string) {
+    super(`the dev players seed only runs outside production; received NODE_ENV=${nodeEnv}`);
+    this.name = 'DevSeedRefusedError';
+  }
+}
+
 export class RateLimitedError extends AuthError {
   constructor(readonly retryAfterSeconds: number) {
     super('RATE_LIMITED', `too many login attempts; retry after ${retryAfterSeconds} s`);

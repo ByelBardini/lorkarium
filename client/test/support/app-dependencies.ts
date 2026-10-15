@@ -5,11 +5,13 @@ import { AuthApiFake } from './auth-api-fake';
 import { CampaignsApiFake } from './campaigns-api-fake';
 import { ClipboardFake } from './clipboard-fake';
 import { StorageFake } from './storage-fake';
+import { TableSessionApiFake } from './table-session-api-fake';
 
 export type TestDependencies = AppDependencies & {
   authApi: AuthApiFake;
   campaignsApi: CampaignsApiFake;
   clipboard: ClipboardFake;
+  tableSessionApi: TableSessionApiFake;
 };
 
 // Wednesday, 14 October 2026, local time: the date the overline is written against.
@@ -23,6 +25,7 @@ export function testDependencies(): TestDependencies {
     authApi: new AuthApiFake(),
     campaignsApi: new CampaignsApiFake(),
     clipboard: new ClipboardFake(),
+    tableSessionApi: new TableSessionApiFake(),
     sessionStore: createSessionStore(),
     railStore: createRailStore(new StorageFake()),
     now: () => TEST_NOW,

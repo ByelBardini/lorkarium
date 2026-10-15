@@ -6,7 +6,7 @@ import type {
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import type { CampaignCodePort } from './campaign-code.port';
-import type { CampaignMembersDao } from './campaign-members.dao';
+import type { CampaignMemberRow, CampaignMembersDao } from './campaign-members.dao';
 import type { CampaignsDao } from './campaigns.dao';
 import { CampaignCodeExhaustedError } from './campaigns.error';
 import {
@@ -14,6 +14,7 @@ import {
   toCampaignDetailDto,
   toCampaignSummaryDto,
   toNewCampaignPo,
+  orderedMembers,
   type CampaignView,
 } from './campaigns.mapper';
 import type { CampaignPo } from './campaigns.po';
@@ -66,6 +67,16 @@ export class CampaignsService {
 
   async detail(userId: string, campaignId: string): Promise<CampaignDetailDto> {
     return toCampaignDetailDto(await this.viewOf(userId, campaignId));
+  }
+
+  /** The members with their ids, for another module (the live table session); same isolation as
+   *  `detail`: someone who is not a member gets CAMPAIGN_NOT_FOUND.
+   *
+   *  Example: `await campaignsService.rosterOf(user.id, campaignId) // [{ userId, name, role }]` */
+  async rosterOf(userId: string, campaignId: string): Promise<CampaignMemberRow[]> {
+    const membership = await this.deps.members.findMembership(campaignId, userId);
+    toCampaignAccessBo(campaignId, userId, membership).requireMember();
+    return orderedMembers(await this.deps.members.listMembers(campaignId));
   }
 
   private async viewOf(userId: string, campaignId: string): Promise<CampaignView> {

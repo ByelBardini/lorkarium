@@ -6,6 +6,8 @@ import { HttpAuthApi } from '@/services/auth-api';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
 import { NavigatorClipboard } from '@/services/clipboard';
 import { FetchHttpTransport } from '@/services/http-transport';
+import { SocketIoRealtimeTransport } from '@/services/realtime-transport';
+import { RealtimeTableSessionApi } from '@/services/table-session-api';
 import { createRailStore } from '@/stores/rail-store';
 import { sessionStore } from '@/stores/session-store';
 import './index.css';
@@ -24,6 +26,9 @@ const router = createBrowserRouter(
     authApi: new HttpAuthApi(transport),
     campaignsApi: new HttpCampaignsApi(transport),
     clipboard: new NavigatorClipboard(),
+    tableSessionApi: new RealtimeTableSessionApi(new SocketIoRealtimeTransport(), () =>
+      crypto.randomUUID(),
+    ),
     sessionStore,
     railStore: createRailStore(browserStorage),
     now: () => new Date(),

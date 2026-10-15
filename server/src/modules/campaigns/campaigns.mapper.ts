@@ -94,10 +94,15 @@ function masterNameOf(view: CampaignView): string {
   throw new Error(`campaign ${view.campaign.id} has no member with role master`);
 }
 
+/** The order every member list is shown in: the master first, then by name in pt-BR.
+ *
+ *  Example: `orderedMembers(await dao.listMembers(campaignId))[0].role // 'master'` */
+export function orderedMembers(members: readonly CampaignMemberRow[]): CampaignMemberRow[] {
+  return [...members].sort((a, b) => masterFirst(a, b) || a.name.localeCompare(b.name, 'pt-BR'));
+}
+
 function sortedMembers(members: readonly CampaignMemberRow[]): CampaignMemberDto[] {
-  return [...members]
-    .sort((a, b) => masterFirst(a, b) || a.name.localeCompare(b.name, 'pt-BR'))
-    .map(({ name, role }) => ({ name, role }));
+  return orderedMembers(members).map(({ name, role }) => ({ name, role }));
 }
 
 function masterFirst(a: CampaignMemberRow, b: CampaignMemberRow): number {

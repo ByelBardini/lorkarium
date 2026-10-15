@@ -79,12 +79,14 @@ export class CampaignsDaoFake implements Pick<
   }
 }
 
-/** In-memory campaign_members; names come from `userNames`, listings from `campaigns.rows`. */
+/** In-memory campaign_members; names come from `userNames`, listings from `campaigns.rows`.
+ *  `listedFor` records `listOfUser` calls and `membersListedFor` records `listMembers` calls. */
 export class CampaignMembersDaoFake implements Pick<
   CampaignMembersDao,
   'insert' | 'findMembership' | 'listOfUser' | 'listMembers' | 'markEntered'
 > {
   readonly listedFor: string[] = [];
+  readonly membersListedFor: string[] = [];
   readonly entered: Array<{ campaignId: string; userId: string; at: Date }> = [];
 
   constructor(
@@ -109,6 +111,7 @@ export class CampaignMembersDaoFake implements Pick<
   }
 
   async listMembers(campaignId: string): Promise<CampaignMemberRow[]> {
+    this.membersListedFor.push(campaignId);
     return this.rows
       .filter((row) => row.campaignId === campaignId)
       .map((row) => ({ userId: row.userId, name: this.nameOf(row.userId), role: row.role }));

@@ -11,12 +11,12 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 
 ## Estrutura
 
-- `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `NavigatorClipboard`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`)
-- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, clipboard, sessionStore, railStore, now, random }`, para o teste injetar fakes
+- `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `RealtimeTableSessionApi` sobre `SocketIoRealtimeTransport` com `crypto.randomUUID`, `NavigatorClipboard`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`)
+- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, clipboard, tableSessionApi, sessionStore, railStore, now, random }`, para o teste injetar fakes
 - `src/app/route-access.ts` — `decideAccess(session, access, url)`: decisão pura `allow` | `redirect` por `RouteAccess` (`public-only`, `signed-in`, `admin`); `loginPathFor(url)` → `/login?next=…`
 - `src/app/splash-screen.tsx` (`role="status"`, "Carregando…") e `src/app/route-error-screen.tsx`
 - `src/app/shell/` — `AppShell`, trilho, menu do usuário, gaveta e `api-loader.ts` (ver [`client/home.md`](client/home.md))
-- `src/features/auth/` — tela de login (ver [`auth.md`](auth.md)); `src/features/home/` e `src/features/campaigns/` — ver [`client/home.md`](client/home.md); `src/features/admin/admin-page.tsx` — placeholder
+- `src/features/auth/` — tela de login (ver [`auth.md`](auth.md)); `src/features/home/`, `src/features/campaigns/` e `src/features/sessions/` (painel "Na mesa" e `useTableSession`) — ver [`client/home.md`](client/home.md); `src/features/admin/admin-page.tsx` — placeholder
 - `index.html` + `public/favicon.svg` — favicon: o cristal da `BrandMark` em dourado num círculo `#0c0e11` (o `panel`), traço mais grosso para ler em 16px
 - `src/assets/` — imagens importadas pelo Vite (`evolutiva-mark.png`)
 - `src/index.css` — tokens do tema (único, escuro) e as fontes self-host (`@fontsource-variable`)
@@ -36,8 +36,11 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/services/api-call.ts` — o comum a todo serviço: `callApi(transport, método, caminho, corpo?)` → `ok` (status < 300) | `refused` (com a resposta, para o serviço nomear o `kind`) | `offline`; `parseOk(dto, corpo, pick)` (corpo fora do DTO → `unexpected`); `retryAfterOf(resposta)` (`Retry-After`, senão `retryAfterSeconds` do corpo, senão 60); `errorCodeOf(resposta)`
 - `src/services/auth-api.ts` — `AuthApi` / `HttpAuthApi`: devolve `AuthResult` (nunca lança); falhas `invalid_credentials` (401), `rate_limited` (429), `offline`, `unexpected`
 - `src/services/campaigns-api.ts` — `CampaignsApi` / `HttpCampaignsApi`: `list`, `create`, `detail`, `join`, `enter`, cada um devolvendo `CampaignsResult<T>`; falhas (`CampaignsFailure`): `unauthenticated` (401), `not_found` (404), `invalid` (400), `password_required` / `password_invalid` (403 pelo `code`), `rate_limited` (429), `offline`, `unexpected`
+- `src/services/realtime-transport.ts` — `RealtimeTransport` (interface: `connect`, `disconnect`, `emit`, `emitWithAck(evento, payload, ms)`, `on(evento)` e `onLifecycle` → `connected` | `disconnected { willRetry }` | `connect_failed { code, willRetry }`) e `SocketIoRealtimeTransport` (`io({ path: REALTIME_PATH, autoConnect: false, withCredentials: true })`; casca fina provada pelo e2e). O `socket.io-client` só aparece aqui.
+- `src/services/table-session-api.ts` — `TableSessionApi` / `RealtimeTableSessionApi(transport, newActionId)`: `open(campaignId, listener)` → `{ close }`. Entrega ao listener `status` (`connecting` → `live`; queda com nova tentativa → `reconnecting`), `state` (o snapshot do ack do `session:join`), `memberJoined`/`memberLeft` (só os da mesa aberta e válidos pelo DTO) e `failed` (`not_found`, `unauthenticated` — ack ou `connect_error` —, `unexpected`, `offline` — ack que não chega em 5 s ou queda sem nova tentativa). A cada `connected` (inclusive reconexão) reemite `session:join` e recebe snapshot novo. `close()` emite `session:leave`, desconecta e nada mais chega ao listener.
 - `src/services/clipboard.ts` — `Clipboard` (interface) e `NavigatorClipboard` (`copy(texto)` → `false` quando o navegador recusa)
 - `src/stores/rail-store.ts` — `createRailStore(storage)` (Zustand vanilla), `useRail(store)`; `rail` = `expanded` (padrão) | `collapsed`, gravado em `localStorage` (`lorkarium.rail`); storage que lança cai na memória
+- `src/stores/table-presence-store.ts` — `createTablePresenceStore(campaignId)` (Zustand vanilla, **uma por visita** à mesa), `useTablePresence(store, seletor)`, `selectOnlineCount(estado)`. Estado `{ campaignId, status (connecting | live | reconnecting | failed), failure, version (null até o snapshot), members }`; `apply(update)` recebe o `TableSessionUpdate` do serviço. Regra de versão: o snapshot **sempre** substitui (inclusive de versão menor, depois de o server reiniciar); evento só se aplica com versão **maior** que a atual, da mesma mesa e depois de algum snapshot. `memberJoined` de quem está na lista marca online no lugar; de quem não está, entra no fim. `memberLeft` marca offline e mantém na lista.
 - `src/stores/session-store.ts` — `createSessionStore()` (Zustand vanilla), singleton `sessionStore`, hook `useSession(store)`; estado `unknown` → `authenticated { user }` | `anonymous`
 
 ## Rotas
@@ -62,7 +65,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - Texto de interface em pt-BR; identificadores em inglês.
 - Rede só por `src/services/` sobre `HttpTransport`; serviço devolve falha como valor, a tela só traduz o `kind` em mensagem.
 - Dados de tela pelo modo data: lista e detalhe por `loader`, mutação por `action` (o router revalida sozinho); envio sem navegação por `useFetcher`. O Zustand fica para sessão, trilho e (depois) tempo real.
-- Em dev, o Vite faz proxy de `/api` para `http://localhost:3333` (`client/vite.config.ts`); em produção é a mesma origem. Sem CORS e com cookie first-party.
+- Em dev, o Vite faz proxy de `/api` para `http://localhost:3333` com `ws: true` (o upgrade do Socket.IO em `/api/socket.io`) e sem `changeOrigin` (o server compara `Origin` com `Host`); o `vite preview` herda o mesmo proxy. Em produção é a mesma origem. Sem CORS e com cookie first-party.
 
 ## Testes
 
@@ -72,6 +75,8 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `client/test/support/app-dependencies.ts` — `testDependencies()`: todo o `AppDependencies` em fakes, `now` fixo (`TEST_NOW`, quarta 14/10/2026) e `random` = 0 ("E aí, {nome}.").
 - `client/test/support/http-transport-fake.ts` — `HttpTransportFake` (`respondWith(status, body, headers)`, `failWithNetworkDown()`, `requests`).
 - `client/test/support/campaigns-api-fake.ts` — `CampaignsApiFake` (`answer(método, resultado)`, `hold(método)`, `callsOf(método)`), mesas `VHARN` (mestre, entrou por último) e `QUELM` (jogador, pública, Tormenta20) e `detailOf(resumo, overrides)`.
+- `client/test/support/realtime-transport-fake.ts` — `RealtimeTransportFake` (`sent`, `connects`, `disconnects`; `answerAck(resposta)` / `timeOutAck()` resolvem o ack mais antigo; `serverEmits(evento, payload)`; `lifecycle(mudança)`). `table-session-fixtures.ts` — membros `ANA_AT_TABLE`, `BIA_AT_TABLE` (offline), `CAIO_AT_TABLE`, `vharnState(overrides)`, `biaJoined()`, `biaLeft()`.
+- `client/test/support/table-session-api-fake.ts` — `TableSessionApiFake` (`opened`, `closed`, `emit(...updates)` dentro de `act`); está no `testDependencies()`.
 - `client/test/support/clipboard-fake.ts` (`ClipboardFake`, `copied`) e `storage-fake.ts` (`StorageFake`, `values`; `new StorageFake(true)` lança como storage bloqueado).
 - Tela com `loader`/`action` se prova pelo router inteiro (`createMemoryRouter(buildRoutes(testDependencies()))`); os subcomponentes de diálogo e da home não têm spec próprio, são provados pelo spec do pai.
 - Componente se prova pelo que o usuário vê: `getByRole`/`getByLabelText` + `toHaveTextContent`/`toBeDisabled`/`toHaveAttribute`, não classe CSS.
@@ -89,3 +94,4 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `pnpm exec shadcn add` pergunta se sobrescreve o `button.tsx` (dependência de `dialog`/`sheet`) e, sem resposta, não cria nada: rode `yes n | pnpm exec shadcn add <nome>`.
 - `asChild` do Radix (o `Slot` de `TooltipTrigger`, `DropdownMenuItem`, `SheetTrigger`…) junta `className` como texto: um `NavLink` com `className={({ isActive }) => …}` vira o código-fonte da função e perde todas as classes. Dentro de `asChild`, passe string (no trilho, o ativo vem de `useMatch`). Regressão em `client/test/app/shell/app-shell.spec.tsx`.
 - Diálogo que troca de etapa (formulário → "Mesa criada"): o X do formulário também se chama "Fechar". `findByRole('button', { name: 'Fechar' })` logo depois do envio pode achar o X, que some quando a etapa troca, e o clique cai num nó solto (falha intermitente, só com resposta lenta). Espere o texto da etapa nova antes de procurar o botão.
+- Em dev, o `StrictMode` monta, desmonta e remonta a tela da mesa: o server vê um `session:leave` + `session:join` imediatos (e uma reconexão do socket). Não é bug; em produção a montagem é uma só.

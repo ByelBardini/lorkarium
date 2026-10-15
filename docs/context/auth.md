@@ -25,6 +25,7 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 ## Guardas (para os outros módulos)
 
 - `app.authGuards` (decorado na raiz por `buildApp`): `requireAuth` e `requireRole('admin')` são `preHandler`; respondem 401 `UNAUTHENTICATED` / 403 `FORBIDDEN_ROLE` em `ApiErrorDto`. `userOf(request)` devolve o `AuthUserDto` de quem passou pela guarda (lança se nenhuma guarda rodou).
+- `authenticateToken(token?)` → `AuthUserDto | null`: para o handshake do Socket.IO, que não tem request para guardar (`null` = sem sessão válida; erro inesperado relança).
 - Uso: `app.get('/x', { preHandler: app.authGuards.requireAuth }, (request) => service.do(app.authGuards.userOf(request).id))`. A identidade vem daqui, nunca do corpo.
 - O papel por campanha (mestre/jogador/espectador) **não** passa por estas guardas: é regra do BO do módulo de campanhas.
 
@@ -61,6 +62,13 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
   - `logout(token?)`: apaga a sessão do token; idempotente.
 - `AuthService.authorize(token?, papel)`: sessão válida com o papel, ou lança `UnauthenticatedError` / `ForbiddenRoleError` (é o que as guardas chamam).
 - `AdminSeedService.seed(env.adminSeed)` (`admin-seed.service.ts`): `'created'` (hash da senha + insert) ou `'skipped'`. Roda a cada boot, dentro do `createAuthModule`.
+- `DevPlayersSeedService.seed(nodeEnv)` (`dev-players-seed.service.ts`): recusa antes de qualquer consulta em produção; cria só os jogadores de teste que faltam e devolve `{ created, skipped }` (e-mails). Não roda no boot: só pelo `pnpm db:seed-dev`.
+
+## Seed de desenvolvimento
+
+- `pnpm db:seed-dev` (entrada `server/src/dev-seed.ts`) cria **Bia** (`bia@lorkarium.dev`) e **Caio** (`caio@lorkarium.dev`), papel `user`, senha `lorkarium-dev` (`DEV_PLAYERS` e `DEV_PLAYER_PASSWORD` em `dev-players-seed.bo.ts`). Serve para testar a mesa com duas pessoas enquanto o cadastro não existe.
+- `DevPlayersSeedBo(nodeEnv)`: `requireAllowed()` lança `DevSeedRefusedError` (`DEV_SEED_REFUSED`, cita o `NODE_ENV`) em `production`; `decide(emailsExistentes)` → `{ create, skipped }`. Conta que já existe nunca é reescrita (nem senha nem papel).
+- `DevSeedRefusedError` fica fora do `AuthError`: nunca chega à borda HTTP, então não tem status.
 
 ## Portas e adaptadores
 
@@ -78,7 +86,7 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 - Integração: `server/test/integration/auth-dao.spec.ts` (DAOs) e `auth.spec.ts` (borda via `buildApp` + `inject`: cookie, 401/400/429, `/me`, logout revoga, guarda 401/403/200, seed no boot). Um app novo por `describe`: o limitador guarda estado em memória.
 - `server/test/support/test-database.ts` — `openTestDatabase()` (conecta no `DATABASE_URL` e migra) e `truncateAllTables(db)`; tabela nova entra no `TRUNCATE` dele.
 - `server/test/support/auth-factories.ts` — `newUserPo`, `userPo`, `newAuthSessionPo`, `authSessionPo` (e `ANA_ID`).
-- `server/test/support/auth-fakes.ts` — `UsersDaoFake` (`rows`, `inserted`), `AuthSessionsDaoFake` (`rows` por hash), `PasswordHasherFake` (`hashed:<senha>`, registra `verifications`), `SessionTokenFake` (`token-1`…, hash `sha:<token>`), `ClockFake` (`current`).
+- `server/test/support/auth-fakes.ts` — `UsersDaoFake` (`rows`, `inserted`, `lookedUp`: e-mails consultados), `AuthSessionsDaoFake` (`rows` por hash), `PasswordHasherFake` (`hashed:<senha>`, registra `verifications`), `SessionTokenFake` (`token-1`…, hash `sha:<token>`), `ClockFake` (`current`).
 - Unit: `server/test/modules/auth/*.spec.ts` (BO, mapper, services).
 
 ## Armadilhas

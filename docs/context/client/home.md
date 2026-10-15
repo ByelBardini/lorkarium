@@ -27,9 +27,11 @@ A tela que a pessoa vê ao logar e a moldura que as telas logadas herdam. Plano 
 ## Mesa (`src/features/campaigns/`)
 
 - `campaign-routes.tsx` — `campaignDetailRoute(deps)` (filha da home, `campaigns/:campaignId`: `loader` do detalhe, `action` = `enter` + `redirect` para `/table`, ou `{ failure }`) e `campaignTableRoute(deps)` (filha do shell, `campaigns/:campaignId/table`).
-- `campaign-detail-dialog.tsx` — `CampaignDetailDialog`: "Você mestra"/"Você joga", nome (título), meta, visibilidade ("Privada · com senha"), descrição, código + "Copiar código" (só mestre), "Participantes (N)" com o mestre primeiro e lugar reservado para o indicador de online, "Fechar" e "Entrar na mesa". Fechar/Esc navega para `/`. `CampaignDetailErrorRoute`: "Mesa não encontrada" dentro do diálogo.
+- `campaign-detail-dialog.tsx` — `CampaignDetailDialog`: "Você mestra"/"Você joga", nome (título), meta, visibilidade ("Privada · com senha"), descrição, código + "Copiar código" (só mestre), "Participantes (N)" com o mestre primeiro e lugar reservado para o indicador de online (o online por enquanto só aparece na tela da mesa), "Fechar" e "Entrar na mesa". Fechar/Esc navega para `/`. `CampaignDetailErrorRoute`: "Mesa não encontrada" dentro do diálogo.
 - `enter-campaign-button.tsx` — "Entrar na mesa" por `useFetcher` (POST em `/campaigns/:id`), "Entrando…" enquanto vai; falha fica num `role="alert"` ao lado. Usado no modal e na faixa "Continuar".
-- `campaign-table-page.tsx` — `CampaignTablePage` ("O tabuleiro abre aqui.", "Voltar para as mesas", `<title>Lorkarium · {nome}</title>`), `CampaignTableRoute` e `CampaignTableErrorPage` ("Mesa não encontrada.").
+- `campaign-table-page.tsx` — `CampaignTablePage({ campaign, tableSessionApi, sessionStore })`: "O tabuleiro abre aqui." ao centro e o painel "Na mesa" à direita em `lg+` (abaixo em telas menores), "Voltar para as mesas", `<title>Lorkarium · {nome}</title>`; `CampaignTableErrorPage` ("Mesa não encontrada."). A rota (`tableRoute` em `campaign-routes.tsx`) monta a página com `key={campaign.id}`: outra mesa é outra visita.
+- `features/sessions/use-table-session.ts` — `useTableSession(campaignId, api, sessionStore)`: cria a store de presença **uma vez por visita**, `open` no efeito e `close` na limpeza (sair da página sai da mesa); `unauthenticated` → `signedOut()` + `/login?next=<a mesa>` (com `replace`).
+- `features/sessions/session-presence-panel.tsx` — `SessionPresencePanel({ store })`: região "Na mesa" com o estado da conexão em `role="status"` ("Conectando à mesa…" até o snapshot, "Ao vivo", "Reconectando…"), "N de M online" e uma linha por participante na ordem do server (mestre primeiro): ponto `size-2` dourado (online) ou apagado (offline), `aria-hidden`, nome, papel ("Mestre"/"Jogador") e "online"/"offline" em texto. Falha em `role="alert"` pelo `failureMessage` (`not_found` → "Essa mesa não existe ou você não participa dela."). Sem animação.
 - `campaign-messages.ts` — `failureMessage(kind)` e as mensagens de offline, inesperado e "Essa mesa não existe ou você não participa dela.".
 
 ## Mensagens
@@ -39,5 +41,5 @@ A tela que a pessoa vê ao logar e a moldura que as telas logadas herdam. Plano 
 
 ## Testes
 
-- `client/test/app/shell/` (shell, menu, gaveta, `api-loader`), `client/test/features/home/` (linha, lista, página, rota, os dois diálogos) e `client/test/features/campaigns/` (modal de detalhe e tela da mesa), com `testDependencies()`.
+- `client/test/app/shell/` (shell, menu, gaveta, `api-loader`), `client/test/features/home/` (linha, lista, página, rota, os dois diálogos) e `client/test/features/campaigns/` (modal de detalhe e tela da mesa — o painel "Na mesa" e o `useTableSession` são provados aqui, pelo router inteiro com o `TableSessionApiFake`), com `testDependencies()`.
 - E2E: `e2e/test/home.spec.ts` (ver [`../ci.md`](../ci.md)).

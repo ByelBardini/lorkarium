@@ -14,6 +14,7 @@ import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AuthApi } from '@/services/auth-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
 import type { Clipboard } from '@/services/clipboard';
+import type { TableSessionApi } from '@/services/table-session-api';
 import type { RailStore } from '@/stores/rail-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
 import { decideAccess, type RouteAccess } from './route-access';
@@ -25,6 +26,7 @@ export type AppDependencies = Readonly<{
   authApi: AuthApi;
   campaignsApi: CampaignsApi;
   clipboard: Clipboard;
+  tableSessionApi: TableSessionApi;
   sessionStore: StoreApi<SessionStore>;
   railStore: StoreApi<RailStore>;
   /** The instant of the overline date; a parameter so tests fix the day. */

@@ -1,0 +1,32 @@
+import type { FastifyBaseLogger } from 'fastify';
+import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
+import type { ClockPort } from '../auth/clock.port';
+import type { CampaignsService } from '../campaigns/campaigns.service';
+import type { PresenceRegistryPort } from './presence-registry.port';
+import type { SchedulerPort } from './scheduler.port';
+import type { SessionPublisherPort } from './session-publisher.port';
+import { createSessionsGateway } from './sessions.gateway';
+import { TableSessionService } from './sessions.service';
+
+export type SessionsModuleOptions = Readonly<{
+  campaigns: Pick<CampaignsService, 'rosterOf'>;
+  clock: ClockPort;
+  registry: PresenceRegistryPort;
+  scheduler: SchedulerPort;
+  publisher: SessionPublisherPort;
+  realtime: Pick<Realtime, 'reauthenticate'>;
+  log: FastifyBaseLogger;
+}>;
+
+export type SessionsModule = Readonly<{ gateway: (socket: RealtimeSocket) => void }>;
+
+/** Wires the live table session: the service over the presence ports, and its Socket.IO edge.
+ *
+ *  Example: `realtime.onConnection(createSessionsModule(options).gateway)` */
+export function createSessionsModule(options: SessionsModuleOptions): SessionsModule {
+  const { campaigns, clock, registry, scheduler, publisher } = options;
+  const service = new TableSessionService({ campaigns, registry, scheduler, publisher, clock });
+  return {
+    gateway: createSessionsGateway({ service, realtime: options.realtime, log: options.log }),
+  };
+}

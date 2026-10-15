@@ -1,6 +1,7 @@
 import { campaignDetailDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  orderedMembers,
   toCampaignDetailDto,
   toCampaignSummaryDto,
 } from '../../../src/modules/campaigns/campaigns.mapper';
@@ -94,5 +95,15 @@ describe('campaigns mapper', () => {
         members: [campaignMemberRow({ role: 'player' })],
       });
     expect(build).toThrow(VHARN_ID);
+  });
+});
+
+describe('orderedMembers', () => {
+  it('keeps each member id and puts the master first, then names in pt-BR order', () => {
+    expect(orderedMembers(MEMBERS)).toEqual([
+      { userId: ANA_ID, name: 'Ana', role: 'master' },
+      { userId: BIA_ID, name: 'Ágata', role: 'player' },
+      { userId: CAIO_ID, name: 'Bia', role: 'player' },
+    ]);
   });
 });
