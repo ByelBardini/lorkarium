@@ -31,7 +31,7 @@
 
 ## Tests
 
-- `pnpm test` at the root runs Vitest for every workspace (`projects` in `vitest.config.ts`). One spec: `pnpm exec vitest run <path>`; one workspace: `pnpm exec vitest run --project @lorkarium/<name>`. `pnpm typecheck` is mandatory too: Vitest does not type-check.
+- `pnpm test` at the root runs Vitest for every workspace (`projects` in `vitest.config.ts`). One spec: `pnpm exec vitest run <path>`; one workspace: `pnpm exec vitest run --project @lorkarium/<name>`. One layer with coverage (what CI runs): `pnpm test:packages`, `test:client`, `test:server`, `test:integration`. `pnpm typecheck` is mandatory too: Vitest does not type-check (it does check specs: `test` is in every tsconfig).
 - Every new function gets a test. Bug fixes get a regression test.
 - Tests NEVER live next to source code. Each workspace keeps its specs in `<workspace>/test/`, mirroring `src/`. Server integration specs (Fastify `inject`, real Postgres, real Socket.IO client) go in `server/test/integration/`.
 - Specs import production code via the workspace alias (`@/...` in `client/`), never by relative path into `src/`. Workspaces without an alias yet (`server/`, `packages/*`) import relatively until the alias is configured — configuring it is a decision to ask for.
