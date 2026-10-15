@@ -103,7 +103,7 @@ describe('campaign detail dialog', () => {
     const dialog = await screen.findByRole('dialog', { name: VHARN.name });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Fechar' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/'));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('searchbox', { name: 'Buscar mesa' })).toHaveValue('vharn');
   });
 

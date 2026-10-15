@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -124,7 +124,8 @@ describe('CreateCampaignDialog', () => {
     await userEvent.type(within(dialog).getByLabelText('Nome da mesa'), 'Mesa Nova');
     await submit(dialog);
     await userEvent.click(await within(dialog).findByRole('button', { name: 'Fechar' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // Radix unmounts the dialog a tick after close; asserting at once was flaky (2026-10-15).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(await screen.findByRole('link', { name: /Mesa Nova/ })).toBeInTheDocument();
   });
 });
