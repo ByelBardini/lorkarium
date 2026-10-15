@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Entrar</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#101216}
+a{color:#C5A46D;text-decoration:none}a:hover{color:#E2C793;text-decoration:underline}
+.lk-input::placeholder{color:#6F7480}
+.lk-input:focus{outline:none;border-color:#C5A46D;box-shadow:0 0 0 3px rgba(197,164,109,.18)}
+.lk-primary:hover{background:#D4B57E}
+.lk-primary:focus-visible,.lk-ghost:focus-visible,.lk-eye:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.lk-ghost:hover{border-color:#C5A46D;color:#EAE5DA}
+.lk-eye:hover{color:#EAE5DA}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; background: #101216; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<section style="position: relative; flex: 1 1 560px; min-height: 480px; min-width: 0; overflow: hidden; box-sizing: border-box; padding: 48px 56px; display: flex; flex-direction: column; justify-content: space-between; background: #0C0E11; border-right: 1px solid #23272E">
+<svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<defs>
+<pattern id="lkGrid" width="56" height="56" patternUnits="userSpaceOnUse"><path d="M56 0H0V56" fill="none" stroke="#C5A46D" stroke-opacity=".09" stroke-width="1"></path></pattern>
+<radialGradient id="lkFade" cx="64%" cy="40%" r="62%"><stop offset="0" stop-color="#fff"></stop><stop offset=".5" stop-color="#fff" stop-opacity=".55"></stop><stop offset="1" stop-color="#fff" stop-opacity="0"></stop></radialGradient>
+<mask id="lkMask"><rect width="1000" height="1000" fill="url(#lkFade)"></rect></mask>
+</defs>
+<g mask="url(#lkMask)">
+<rect width="1000" height="1000" fill="url(#lkGrid)"></rect>
+<g fill="none" stroke="#C5A46D" stroke-width="1.2">
+<path stroke-opacity=".14" d="M440 60 C640 20 900 110 930 290 C960 470 800 580 620 560 C440 540 330 450 330 300 C330 170 360 80 440 60 Z"></path>
+<path stroke-opacity=".18" d="M520 120 C640 90 780 150 810 260 C840 370 760 460 640 470 C520 480 430 410 420 300 C410 200 440 140 520 120 Z"></path>
+<path stroke-opacity=".22" d="M560 190 C650 175 740 220 750 290 C760 360 700 410 620 412 C540 414 490 370 485 305 C480 240 500 200 560 190 Z"></path>
+<path stroke-opacity=".26" d="M600 250 C660 245 700 270 702 305 C704 340 670 362 625 362 C580 362 552 340 550 308 C548 276 565 254 600 250 Z"></path>
+<path stroke-opacity=".14" d="M140 520 C220 480 320 510 330 580 C340 650 270 700 190 690 C110 680 70 620 90 570 C100 545 115 532 140 520 Z"></path>
+<path stroke-opacity=".2" d="M175 560 C230 540 285 560 288 600 C291 640 245 660 195 652 C150 645 130 615 140 590 C146 575 158 566 175 560 Z"></path>
+<path stroke-opacity=".2" stroke-width="2" d="M0 790 C120 750 220 810 330 770 C440 730 470 650 580 670 C690 690 760 790 1000 750"></path>
+<path stroke-opacity=".1" stroke-width="1" d="M0 802 C120 762 220 822 330 782 C440 742 470 662 580 682 C690 702 760 802 1000 762"></path>
+</g>
+<g fill="#C5A46D" fill-opacity=".07">
+<rect x="588" y="532" width="56" height="56"></rect><rect x="644" y="532" width="56" height="56"></rect><rect x="532" y="588" width="56" height="56"></rect><rect x="588" y="588" width="56" height="56"></rect><rect x="532" y="644" width="56" height="56"></rect><rect x="476" y="644" width="56" height="56"></rect><rect x="644" y="476" width="56" height="56"></rect>
+</g>
+<path d="M476 700 L532 644 L588 644 L644 588" fill="none" stroke="#EAE5DA" stroke-opacity=".55" stroke-width="2" stroke-dasharray="6 7" stroke-linecap="round"></path>
+<circle cx="476" cy="700" r="4" fill="#EAE5DA" fill-opacity=".5"></circle>
+<circle cx="812" cy="420" r="118" fill="#B5654F" fill-opacity=".05" stroke="#B5654F" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="4 6"></circle>
+<g>
+<circle cx="644" cy="588" r="21" fill="#16191E" stroke="#EAE5DA" stroke-opacity=".8" stroke-width="1.6"></circle>
+<path d="M644 576 L651 588 L644 600 L637 588 Z" fill="none" stroke="#C5A46D" stroke-width="1.4"></path>
+<rect x="626" y="614" width="36" height="4" rx="2" fill="#303640"></rect><rect x="626" y="614" width="27" height="4" rx="2" fill="#C5A46D"></rect>
+</g>
+<g>
+<circle cx="700" cy="644" r="21" fill="#16191E" stroke="#EAE5DA" stroke-opacity=".6" stroke-width="1.6"></circle>
+<circle cx="700" cy="644" r="6" fill="none" stroke="#C5A46D" stroke-width="1.4"></circle>
+<rect x="682" y="670" width="36" height="4" rx="2" fill="#303640"></rect><rect x="682" y="670" width="33" height="4" rx="2" fill="#C5A46D"></rect>
+</g>
+<g>
+<circle cx="812" cy="420" r="21" fill="#16191E" stroke="#B5654F" stroke-width="1.8"></circle>
+<path d="M804 412 L820 428 M820 412 L804 428" stroke="#B5654F" stroke-width="1.6" stroke-linecap="round"></path>
+<rect x="794" y="446" width="36" height="4" rx="2" fill="#303640"></rect><rect x="794" y="446" width="13" height="4" rx="2" fill="#B5654F"></rect>
+</g>
+<g fill="none" stroke="#C5A46D" stroke-opacity=".45" stroke-width="1.2">
+<circle cx="890" cy="130" r="38"></circle>
+<circle cx="890" cy="130" r="30" stroke-opacity=".25"></circle>
+<path d="M890 80 L897 123 L940 130 L897 137 L890 180 L883 137 L840 130 L883 123 Z"></path>
+</g>
+<text x="890" y="70" text-anchor="middle" fill="#C5A46D" fill-opacity=".6" font-family="Cinzel, serif" font-size="14" letter-spacing="2">N</text>
+</g>
+</svg>
+
+<div style="position: relative; display: flex; align-items: center; gap: 14px">
+<svg viewBox="0 0 120 120" width="40" height="40" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round" style="color: {{accent}}" aria-hidden="true">
+<g stroke-width="4"><path d="M60 9 L78 42 L60 99 L42 42 Z"></path><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z"></path></g>
+<g stroke-width="2.6" stroke-opacity=".55"><path d="M42 42 L51 45 L60 37 L69 45 L78 42"></path><path d="M60 9 V99 M51 45 L60 99 L69 45"></path></g>
+</svg>
+<span style="font-family: Cinzel, serif; font-weight: 600; font-size: 19px; letter-spacing: 0.32em; color: #EAE5DA">LORKARIUM</span>
+</div>
+
+<div style="position: relative; display: flex; flex-direction: column; gap: 20px; max-width: 520px">
+<div style="display: flex; align-items: center; gap: 12px; color: {{accent}}; font-size: 12px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase">
+<span style="width: 28px; height: 1px; background: currentColor"></span>
+<span>GRID DINÂMICO</span>
+</div>
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 68px; line-height: 1.02; letter-spacing: -0.01em; color: #EAE5DA">Puxa uma cadeira.<br><em style="font-style: italic; color: {{accent}}">A mesa tá montada.</em></h1>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #A9A497; max-width: 420px">O mapa está aberto. Pode rolar iniciativa.</p>
+</div>
+</section>
+
+<main style="flex: 0 1 560px; min-width: 0; box-sizing: border-box; padding: 40px 32px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; gap: 40px; background: #101216">
+<div style="height: 1px"></div>
+
+<div style="width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px; color: {{accent}}" aria-hidden="true">
+<span style="width: 22px; height: 1px; background: currentColor; opacity: .6"></span>
+<span style="width: 7px; height: 7px; transform: rotate(45deg); border: 1px solid currentColor"></span>
+<span style="width: 22px; height: 1px; background: currentColor; opacity: .6"></span>
+</div>
+<h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 40px; line-height: 1.1; color: #EAE5DA">Bem-vindo de volta</h2>
+<p style="margin: 0; font-size: 15px; color: #A9A497">Entre para continuar sua aventura.</p>
+</div>
+
+<form onSubmit="{{onSubmit}}" style="display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="lk-email" style="font-size: 13px; font-weight: 500; color: #D5D0C4">E-mail</label>
+<input id="lk-email" class="lk-input" type="email" autocomplete="email" placeholder="seu@email.com" style="height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 8px; border: 1px solid #303640; background: #15181D; color: #EAE5DA; font: inherit; font-size: 15px">
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<label for="lk-senha" style="font-size: 13px; font-weight: 500; color: #D5D0C4">Senha</label>
+<a href="#recuperar" style="font-size: 13px">Esqueceu a senha?</a>
+</div>
+<div style="position: relative">
+<input id="lk-senha" class="lk-input" type="{{pwType}}" autocomplete="current-password" placeholder="••••••••" style="width: 100%; height: 48px; box-sizing: border-box; padding: 0 52px 0 14px; border-radius: 8px; border: 1px solid #303640; background: #15181D; color: #EAE5DA; font: inherit; font-size: 15px">
+<button type="button" class="lk-eye" onClick="{{togglePw}}" aria-label="{{pwLabel}}" style="position: absolute; top: 2px; right: 2px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; color: #8A8F99; cursor: pointer">
+<sc-if value="{{showPw}}" hint-placeholder-val="{{ false }}">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 5.1A9.8 9.8 0 0 1 12 5c5.5 0 9 5.5 9 7a9.6 9.6 0 0 1-2.3 3.2M6.6 6.6C4.4 8 3 10.6 3 12c0 1.5 3.5 7 9 7a9 9 0 0 0 4.4-1.1"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+</sc-if>
+<sc-if value="{{hidePw}}" hint-placeholder-val="{{ true }}">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c0-1.5 3.5-7 9-7s9 5.5 9 7-3.5 7-9 7-9-5.5-9-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+</sc-if>
+</button>
+</div>
+</div>
+
+<label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #A9A497; cursor: pointer; min-height: 24px">
+<input type="checkbox" style="width: 18px; height: 18px; margin: 0; accent-color: {{accent}}">
+Manter conectado
+</label>
+
+<button type="submit" class="lk-primary" style="height: 50px; margin-top: 4px; border: 0; border-radius: 8px; background: {{accent}}; color: #15130F; font: inherit; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; cursor: pointer">Entrar</button>
+</form>
+
+<div style="display: flex; align-items: center; gap: 14px; color: #6F7480; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase">
+<span style="flex: 1; height: 1px; background: #262B33"></span>ou<span style="flex: 1; height: 1px; background: #262B33"></span>
+</div>
+
+<button type="button" class="lk-ghost" style="height: 50px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid #303640; border-radius: 8px; background: transparent; color: #D5D0C4; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9Z"></path><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"></path></svg>
+Entrar com código da mesa
+</button>
+
+
+</div>
+
+<nav aria-label="Links legais" style="display: flex; gap: 20px; font-size: 12px">
+<a href="#termos" style="color: #7D8089">Termos de uso</a>
+<a href="#privacidade" style="color: #7D8089">Privacidade</a>
+</nav>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#C5A46D","options":["#C5A46D","#B8925A","#D6BE8E","#9FB4D9"]},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { showPw: false };
+  }
+  renderVals() {
+    const showPw = !!this.state.showPw;
+    return {
+      accent: this.props.accent ?? '#C5A46D',
+      showPw: showPw,
+      hidePw: !showPw,
+      pwType: showPw ? 'text' : 'password',
+      pwLabel: showPw ? 'Ocultar senha' : 'Mostrar senha',
+      togglePw: () => this.setState({ showPw: !this.state.showPw }),
+      onSubmit: (e) => { if (e && e.preventDefault) e.preventDefault(); }
+    };
+  }
+}
+</script>
+</body>
+</html>
