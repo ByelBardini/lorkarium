@@ -123,8 +123,10 @@ describe('CreateCampaignDialog', () => {
     deps.campaignsApi.answer('list', { ok: true, value: [NEW_CAMPAIGN, VHARN] });
     await userEvent.type(within(dialog).getByLabelText('Nome da mesa'), 'Mesa Nova');
     await submit(dialog);
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Fechar' }));
-    // Radix unmounts the dialog a tick after close; asserting at once was flaky (2026-10-15).
+    // Regression (2026-10-15, CI): the form step's X is also named "Fechar"; on a slow answer the
+    // query found it, the step swapped and the click hit a detached node. Wait for the created step.
+    await within(dialog).findByText('Mesa criada');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Fechar' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(await screen.findByRole('link', { name: /Mesa Nova/ })).toBeInTheDocument();
   });
