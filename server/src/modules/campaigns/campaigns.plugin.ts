@@ -17,12 +17,16 @@ export type CampaignsModuleOptions = Readonly<{
   clock: ClockPort;
 }>;
 
+export type CampaignsModule = Readonly<{
+  plugin: (app: FastifyInstance) => Promise<void>;
+  /** For other modules: the live session asks it who the members of a table are. */
+  service: CampaignsService;
+}>;
+
 /** Wires the campaigns module: DAOs, both services and the HTTP edge. Needs `app.authGuards`.
  *
- *  Example: `await app.register(createCampaignsModule({ db, hasher, codes, clock }), { prefix: '/api' })` */
-export function createCampaignsModule(
-  options: CampaignsModuleOptions,
-): (app: FastifyInstance) => Promise<void> {
+ *  Example: `const campaigns = createCampaignsModule(options); await app.register(campaigns.plugin, { prefix: '/api' })` */
+export function createCampaignsModule(options: CampaignsModuleOptions): CampaignsModule {
   const campaigns = new CampaignsDao(options.db);
   const members = new CampaignMembersDao(options.db);
   const transaction: CampaignTransactionRunner = (work) =>
@@ -30,8 +34,7 @@ export function createCampaignsModule(
       work({ campaigns: new CampaignsDao(tx), members: new CampaignMembersDao(tx) }),
     );
   const { hasher, codes, clock } = options;
-  return campaignsRoutes({
-    campaigns: new CampaignsService({ campaigns, members, transaction, codes, hasher, clock }),
-    join: new CampaignJoinService({ campaigns, members, hasher, clock }),
-  });
+  const service = new CampaignsService({ campaigns, members, transaction, codes, hasher, clock });
+  const join = new CampaignJoinService({ campaigns, members, hasher, clock });
+  return { plugin: campaignsRoutes({ campaigns: service, join }), service };
 }

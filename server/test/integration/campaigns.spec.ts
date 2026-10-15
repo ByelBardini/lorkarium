@@ -10,8 +10,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
-import { Argon2PasswordHasher } from '../../src/infrastructure/password-hasher/argon2-password-hasher';
-import { UsersDao } from '../../src/modules/auth/users.dao';
+import { signUpAndLogin } from '../support/sign-in';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
@@ -30,20 +29,6 @@ describe('campaigns HTTP edge', () => {
   });
 
   afterAll(() => connection.close());
-
-  async function signUpAndLogin(name: string): Promise<string> {
-    const email = `${name.toLowerCase()}@mesa.com`;
-    const passwordHash = await new Argon2PasswordHasher().hash('senha-de-teste');
-    await new UsersDao(connection.db).insert({ name, email, passwordHash });
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/auth/login',
-      payload: { email, password: 'senha-de-teste' },
-    });
-    const cookie = response.cookies.find((candidate) => candidate.name === 'lk_session');
-    if (!cookie) throw new Error(`login of ${email} answered ${response.statusCode}`);
-    return cookie.value;
-  }
 
   function call(
     method: Method,
@@ -75,8 +60,8 @@ describe('campaigns HTTP edge', () => {
   async function freshAppWithAnaAndBia(): Promise<void> {
     await truncateAllTables(connection.db);
     app = await buildApp({ env, db: connection.db });
-    ana = await signUpAndLogin('Ana');
-    bia = await signUpAndLogin('Bia');
+    ana = (await signUpAndLogin(app, connection.db, 'Ana')).token;
+    bia = (await signUpAndLogin(app, connection.db, 'Bia')).token;
   }
 
   describe('list, create and detail', () => {

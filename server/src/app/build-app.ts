@@ -7,9 +7,17 @@ import { SystemClock } from '../infrastructure/clock/system-clock';
 import { Argon2PasswordHasher } from '../infrastructure/password-hasher/argon2-password-hasher';
 import { CryptoSessionToken } from '../infrastructure/session-token/crypto-session-token';
 import { createAuthModule } from '../modules/auth/auth.plugin';
-import type { AuthGuards } from '../modules/auth/auth.routes';
+import { SESSION_COOKIE, type AuthGuards } from '../modules/auth/auth.routes';
 import { createCampaignsModule } from '../modules/campaigns/campaigns.plugin';
+import { InMemoryPresenceRegistry } from '../infrastructure/presence-registry/in-memory-presence-registry';
+import { TimerScheduler } from '../infrastructure/scheduler/timer-scheduler';
+import { SocketIoSessionPublisher } from '../infrastructure/session-publisher/socket-io-session-publisher';
 import { healthPlugin } from '../modules/health/health.plugin';
+import {
+  createSessionsModule,
+  type SessionsModuleOptions,
+} from '../modules/sessions/sessions.plugin';
+import { attachRealtime } from '../realtime/realtime-server';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -39,9 +47,30 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   await app.register(auth.plugin, { prefix: API_PREFIX });
   const codes = new CryptoCampaignCode();
   const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock });
-  await app.register(campaigns, { prefix: API_PREFIX });
+  await app.register(campaigns.plugin, { prefix: API_PREFIX });
   await app.register(healthPlugin, { prefix: API_PREFIX, db: deps.db });
+  wireRealtime(app, auth.guards, { campaigns: campaigns.service, clock });
   return app;
+}
+
+function wireRealtime(
+  app: FastifyInstance,
+  guards: AuthGuards,
+  modules: Pick<SessionsModuleOptions, 'campaigns' | 'clock'>,
+): void {
+  const authenticate = guards.authenticateToken;
+  const realtime = attachRealtime(app, { authenticate, sessionCookie: SESSION_COOKIE });
+  const scheduler = new TimerScheduler();
+  app.addHook('onClose', async () => scheduler.cancelAll());
+  const sessions = createSessionsModule({
+    ...modules,
+    registry: new InMemoryPresenceRegistry(),
+    scheduler,
+    publisher: new SocketIoSessionPublisher(realtime.io),
+    realtime,
+    log: app.log,
+  });
+  realtime.onConnection(sessions.gateway);
 }
 
 function loggerOptions(env: Env): FastifyServerOptions['logger'] {
