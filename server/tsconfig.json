@@ -1,4 +1,4 @@
 {
   "extends": "@lorkarium/tsconfig/node.json",
-  "include": ["src"]
+  "include": ["src", "test", "*.ts"]
 }
