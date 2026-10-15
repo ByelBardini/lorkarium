@@ -10,20 +10,39 @@
     "dev": "pnpm --parallel --filter @lorkarium/client --filter @lorkarium/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "vitest run",
+    "test": "vitest run --project=!@lorkarium/server-integration",
+    "test:integration": "vitest run --project=@lorkarium/server-integration",
+    "test:packages": "vitest run --project=@lorkarium/game-core --project=@lorkarium/contracts --coverage --coverage.include=src/**",
+    "test:client": "vitest run --project=@lorkarium/client --coverage --coverage.include=src/**",
+    "test:server": "vitest run --project=@lorkarium/server --coverage --coverage.include=src/**",
+    "test:e2e": "pnpm --filter @lorkarium/e2e exec playwright test",
+    "e2e:install": "pnpm --filter @lorkarium/e2e exec playwright install --with-deps chromium",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:up": "docker compose -f infra/compose/compose.yaml up -d",
-    "db:down": "docker compose -f infra/compose/compose.yaml down"
+    "db:down": "docker compose -f infra/compose/compose.yaml down",
+    "db:generate": "pnpm --filter @lorkarium/server db:generate",
+    "db:migrate": "pnpm --filter @lorkarium/server db:migrate",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{json,md,css,yml,yaml}": "prettier --write"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^5.0.4",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "typescript": "^6.0.3",

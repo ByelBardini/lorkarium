@@ -60,17 +60,29 @@ O fluxo é o da skill `testar`: driver → contexto da área → cenários do co
 
 ## Lente do client
 
-| o que                                                                                                | camada     | onde                                       | fake                                                                            |
-| ---------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
-| Lógica sem DOM (`src/lib/`)                                                                          | sem DOM    | `client/test/lib/<x>.spec.ts`              | nenhum                                                                          |
-| Store (Zustand): aplicar snapshot, evento confirmado, descartar evento de versão velha, prévia local | sem DOM    | `client/test/stores/<x>.spec.ts`           | nenhum; a store real                                                            |
-| Serviço (`src/services/`): valida resposta/evento pelo DTO, traduz falha                             | sem DOM    | `client/test/services/<x>.spec.ts`         | transporte falso nomeado (HTTP e socket), nunca `vi.fn()` em `globalThis.fetch` |
-| Renderer: conta mundo ↔ tela, diff entre dois estados, o que recriar                                 | sem DOM    | `client/test/renderer/<x>.spec.ts`         | nenhum; sem `Application` nem WebGL                                             |
-| Componente (`features/`, `components/`)                                                              | componente | `client/test/features/<área>/<x>.spec.tsx` | Testing Library + jsdom (**ainda não instalados**: dependência nova é pergunta) |
+| o que                                                                                                | camada     | onde                                       | fake                                                                                                |
+| ---------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Lógica sem DOM (`src/lib/`)                                                                          | sem DOM    | `client/test/lib/<x>.spec.ts`              | nenhum                                                                                              |
+| Store (Zustand): aplicar snapshot, evento confirmado, descartar evento de versão velha, prévia local | sem DOM    | `client/test/stores/<x>.spec.ts`           | nenhum; a store real                                                                                |
+| Serviço (`src/services/`): valida resposta/evento pelo DTO, traduz falha                             | sem DOM    | `client/test/services/<x>.spec.ts`         | transporte falso nomeado (HTTP e socket), nunca `vi.fn()` em `globalThis.fetch`                     |
+| Renderer: conta mundo ↔ tela, diff entre dois estados, o que recriar                                 | sem DOM    | `client/test/renderer/<x>.spec.ts`         | nenhum; sem `Application` nem WebGL                                                                 |
+| Componente (`features/`, `components/`)                                                              | componente | `client/test/features/<área>/<x>.spec.tsx` | Testing Library + jsdom (`client/test/setup.ts`); fake nomeado do serviço em `client/test/support/` |
 
 - **Asserção pelo que o usuário vê**: `getByRole`/`getByText` + `toHaveTextContent`/`toBeDisabled`, não `container.querySelector` nem classe CSS.
 - **Callback de UI** prova os dois lados: dispara com os argumentos certos no cenário certo **e** não dispara no oposto.
 - **`pnpm typecheck` é obrigatório em toda rodada**: o transpile do Vitest não checa tipo.
+
+## Lente do e2e
+
+| o que                                                                                | camada | onde                       | fake                                                                           |
+| ------------------------------------------------------------------------------------ | ------ | -------------------------- | ------------------------------------------------------------------------------ |
+| Fluxo que atravessa client + server + Postgres (smoke, login, proxy `/api`)          | e2e    | `e2e/test/<fluxo>.spec.ts` | nenhum: Chromium real, `webServer` do server e do client, Postgres descartável |
+| Multiplayer: dois navegadores vendo o mesmo estado (critérios 5, 6 e 12 do spec §13) | e2e    | `e2e/test/<fluxo>.spec.ts` | dois `browser.newContext()`, um por usuário                                    |
+
+- **Só o que precisa de ponta a ponta mora aqui**: regra, permissão, status e shape já estão provados no unit e na integração; o e2e prova que as peças conversam.
+- **Morde pelo motivo certo**: com o server fora, o `it` fica vermelho por status/asserção, não por timeout de `goto`.
+- O driver do `/testar` ainda não reconhece `e2e/` (exige `src/`); a auditoria aqui é manual, pela régua da skill.
+- Rodar: `pnpm test:e2e` (com `DATABASE_URL` de um Postgres migrado); `CI=1` sobe o client por `vite build` + `vite preview`.
 
 ## Verificação
 

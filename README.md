@@ -75,17 +75,21 @@ pnpm dev
 
 Executados na raiz do repositório:
 
-| Script              | Descrição                                          |
-| ------------------- | -------------------------------------------------- |
-| `pnpm dev`          | Inicia client e server em paralelo                 |
-| `pnpm build`        | Gera o build de todos os pacotes que possuem build |
-| `pnpm typecheck`    | Verifica tipos em todo o workspace                 |
-| `pnpm lint`         | Executa o ESLint                                   |
-| `pnpm test`         | Executa os testes (Vitest) de todos os projetos    |
-| `pnpm format`       | Formata o código com Prettier                      |
-| `pnpm format:check` | Verifica a formatação sem alterar arquivos         |
-| `pnpm db:up`        | Sobe o PostgreSQL via Docker Compose               |
-| `pnpm db:down`      | Derruba os containers locais                       |
+| Script                  | Descrição                                                         |
+| ----------------------- | ----------------------------------------------------------------- |
+| `pnpm dev`              | Inicia client e server em paralelo                                |
+| `pnpm build`            | Gera o build de todos os pacotes que possuem build                |
+| `pnpm typecheck`        | Verifica tipos em todo o workspace                                |
+| `pnpm lint`             | Executa o ESLint                                                  |
+| `pnpm test`             | Executa os testes (Vitest) de todos os projetos, sem a integração |
+| `pnpm test:packages`    | Testes de game-core e contracts, com cobertura                    |
+| `pnpm test:client`      | Testes do client, com cobertura                                   |
+| `pnpm test:server`      | Testes unitários do server, com cobertura                         |
+| `pnpm test:integration` | Testes de integração do server (exige Postgres)                   |
+| `pnpm format`           | Formata o código com Prettier                                     |
+| `pnpm format:check`     | Verifica a formatação sem alterar arquivos                        |
+| `pnpm db:up`            | Sobe o PostgreSQL via Docker Compose                              |
+| `pnpm db:down`          | Derruba os containers locais                                      |
 
 Para rodar um script em um pacote específico: `pnpm --filter @lorkarium/client <script>`.
 

@@ -1,0 +1,4 @@
+{
+  "extends": "@lorkarium/tsconfig/node.json",
+  "include": ["test", "playwright.config.ts"]
+}

@@ -62,7 +62,7 @@ client ──DTO──► gateway/routes ──► service ──► DAO ──�
                                      └─► mapper: BO/PO → DTO ──► ack + evento com versão
 ```
 
-Não existe ainda um módulo real no server: o molde vivo é o módulo `campaigns` da fixture (`.claude/skills/desenvolver-server/fixtures/monorepo/server/src/modules/campaigns/`), que tem todas as camadas e passa no driver com zero achado. Quando o primeiro módulo de verdade passar no driver limpo, ele vira o molde e esta linha muda.
+O molde vivo é o módulo `server/src/modules/auth/` (doc em `docs/context/auth.md`): PO, DAO, BO, mapper, service, routes, port, plugin e error, com adaptadores em `src/infrastructure/`, unit em `server/test/modules/auth/` e integração em `server/test/integration/auth*.spec.ts`; passa no driver com zero achado. Ele não tem gateway nem dado de campanha: para essas duas camadas, a referência continua sendo o módulo `campaigns` da fixture (`.claude/skills/desenvolver-server/fixtures/monorepo/server/src/modules/campaigns/`).
 
 ## Pré-requisitos
 
@@ -153,20 +153,20 @@ Re-rode o driver no alvo com `--min aviso`: os achados da sua fatia sumiram e **
 
 Cada item abaixo é uma decisão que **não é sua**. Junte as que aparecerem e pergunte com `AskUserQuestion` no passo 2, com a recomendação do projeto na frente:
 
-| Gatilho                                                                                      | Por que é pergunta                                                                                                                          |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tabela, coluna, índice ou enum novo**                                                      | é migração do Drizzle, entrega própria; e o `drizzle-kit` ainda não está configurado no server (`drizzle.config.ts` não existe)             |
-| **Primeiro encanamento** (`src/app/`, `src/database/`, `src/realtime/`, `src/config/env.ts`) | o server hoje é só o `src/index.ts`; a forma do app, da conexão e do servidor Socket.IO vale para todos os módulos que vierem               |
-| **Env var nova**                                                                             | entra no schema Zod de `src/config/`, no `server/.env.example` e em quem a recebe                                                           |
-| **Mudança de contrato** (DTO, endpoint, nome ou payload de evento)                           | o client consome pelo mesmo `@lorkarium/contracts`; as duas pontas mudam juntas ou o front quebra                                           |
-| **Lib de terceiro nova**                                                                     | exige porta + adaptador, e a escolha da lib é do usuário                                                                                    |
-| **Rota ou evento sem autenticação**                                                          | é furo consciente na sessão (spec §8.2), não detalhe de implementação                                                                       |
-| **Dado que não filtra pela campanha da sessão**                                              | isolamento por campanha é critério do MVP (spec §13.14); exceção é decisão                                                                  |
-| **Transação própria ou estado em memória**                                                   | o estado das sessões ativas vive em memória e o banco é a fonte persistente (spec §5.5); como os dois não divergem é decisão de arquitetura |
-| **Evento confirmado antes de persistir, ou sem versão**                                      | spec §5.5: persistir antes de confirmar; eventos com identificador e versão                                                                 |
-| **Comando crítico sem `actionId`**                                                           | a deduplicação por `ProcessedCommand` (spec §6) é o que impede aplicar duas vezes na retransmissão                                          |
-| **Regra nova: game-core ou BO?**                                                             | mecânica genérica que o client também precisa calcular vai para o game-core; decisão de permissão e de caso de uso fica no BO do server     |
-| **Arquivo que não cabe em nenhuma camada**                                                   | sufixo novo é mudança de arquitetura, não decisão de tarefa                                                                                 |
+| Gatilho                                                                                            | Por que é pergunta                                                                                                                          |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tabela, coluna, índice ou enum novo**                                                            | é migração do Drizzle (`pnpm db:generate` gera o SQL em `server/drizzle/`), entrega própria                                                 |
+| **Encanamento novo ou mudado** (`src/app/`, `src/database/`, `src/realtime/`, `src/config/env.ts`) | a forma do app, da conexão e do servidor Socket.IO vale para todos os módulos (o que existe está em `docs/context/server.md`)               |
+| **Env var nova**                                                                                   | entra no schema Zod de `src/config/`, no `server/.env.example` e em quem a recebe                                                           |
+| **Mudança de contrato** (DTO, endpoint, nome ou payload de evento)                                 | o client consome pelo mesmo `@lorkarium/contracts`; as duas pontas mudam juntas ou o front quebra                                           |
+| **Lib de terceiro nova**                                                                           | exige porta + adaptador, e a escolha da lib é do usuário                                                                                    |
+| **Rota ou evento sem autenticação**                                                                | é furo consciente na sessão (spec §8.2), não detalhe de implementação                                                                       |
+| **Dado que não filtra pela campanha da sessão**                                                    | isolamento por campanha é critério do MVP (spec §13.14); exceção é decisão                                                                  |
+| **Transação própria ou estado em memória**                                                         | o estado das sessões ativas vive em memória e o banco é a fonte persistente (spec §5.5); como os dois não divergem é decisão de arquitetura |
+| **Evento confirmado antes de persistir, ou sem versão**                                            | spec §5.5: persistir antes de confirmar; eventos com identificador e versão                                                                 |
+| **Comando crítico sem `actionId`**                                                                 | a deduplicação por `ProcessedCommand` (spec §6) é o que impede aplicar duas vezes na retransmissão                                          |
+| **Regra nova: game-core ou BO?**                                                                   | mecânica genérica que o client também precisa calcular vai para o game-core; decisão de permissão e de caso de uso fica no BO do server     |
+| **Arquivo que não cabe em nenhuma camada**                                                         | sufixo novo é mudança de arquitetura, não decisão de tarefa                                                                                 |
 
 ## Autoteste do driver
 

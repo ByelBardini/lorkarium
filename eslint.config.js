@@ -6,8 +6,18 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  // As fixtures dos drivers de .claude/skills violam regras de propósito.
-  { ignores: ['**/dist', '**/coverage', '**/node_modules', '.claude/skills/*/fixtures'] },
+  // As fixtures dos drivers de .claude/skills violam regras de propósito; docs/pages é mockup exportado (com runtime vendorizado), não código.
+  {
+    ignores: [
+      '**/dist',
+      '**/coverage',
+      '**/node_modules',
+      '**/playwright-report',
+      '**/test-results',
+      '.claude/skills/*/fixtures',
+      'docs/pages',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -20,7 +30,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['server/**/*.ts', 'packages/**/*.ts', '*.{js,ts}', '.claude/**/*.mjs'],
+    files: ['server/**/*.ts', 'packages/**/*.ts', 'e2e/**/*.ts', '*.{js,ts}', '.claude/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
   prettier,
