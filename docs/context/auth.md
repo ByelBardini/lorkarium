@@ -30,13 +30,13 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 
 ## Client
 
-- Rotas, guardas e splash em [`client.md`](client.md) (seção Rotas). Login bem-sucedido: `sessionStore.signedIn(user)` + navegação para o `next` seguro; Sair: `POST /api/auth/logout`, `signedOut()`, `/login`.
+- Rotas, guardas e splash em [`client.md`](client.md) (seção Rotas). Login bem-sucedido: `sessionStore.signedIn(user)` + navegação para o `next` seguro; Sair (no menu do usuário do shell, ver [`client/home.md`](client/home.md)): `POST /api/auth/logout`, `signedOut()`, `/login`.
 - `LoginPage` (`features/auth/login-page.tsx`): duas colunas em `lg+` (painel `bg-panel` com `LoginHeroArt`, SVG estático `aria-hidden`, e a manchete como `p` de display); abaixo de `lg`, só o formulário com a `BrandMark` compacta. O `h1` é "Bem-vindo de volta". `<title>Lorkarium · Entrar</title>`.
 - Escondidos até existirem: "Esqueceu a senha?", "Entrar com código da mesa", Termos/Privacidade.
 - Boot: `GET /api/auth/me` decide `authenticated`/`anonymous` no `sessionStore` (a guarda do client só evita mostrar a tela errada; quem decide é o server).
 - Serviço `HttpAuthApi` e store em [`client.md`](client.md); a tela vive em `client/src/features/auth/`.
 - `LoginForm` (`features/auth/login-form.tsx`, props `authApi`, `onAuthenticated(user)`): valida pelo `loginRequestDto` (sem regra duplicada), `noValidate`, erro inline com `aria-invalid` + `aria-describedby` e foco no primeiro inválido; envio com botão desabilitado, spinner e "Entrando…" e `aria-busy` no form; recusa em `Alert` (`role="alert"`). `invalid_credentials` mantém o e-mail, limpa a senha e foca nela.
-- `PasswordField` (`features/auth/password-field.tsx`): mostrar/ocultar com nome acessível "Mostrar senha" ↔ "Ocultar senha".
+- `PasswordField` (`components/password-field.tsx`, compartilhado com os diálogos de mesa): mostrar/ocultar com nome acessível "Mostrar senha" ↔ "Ocultar senha".
 - Mensagens: campo — "Informe seu e-mail.", "Informe um e-mail válido, como voce@exemplo.com.", "Informe sua senha.", "A senha pode ter no máximo 256 caracteres."; recusa — "E-mail ou senha incorretos.", "Muitas tentativas. Tente de novo em N s.", "Sem conexão com o servidor. Confira sua internet e tente de novo.", "Algo deu errado do nosso lado. Tente de novo em instantes."
 - Teste: `client/test/support/auth-api-fake.ts` — `AuthApiFake` (`answerLoginWith`, `holdLogin()`, `answerMeWith`, `holdMe()`, `loginCalls`, `logoutCalls`; usuários `ANA` e `ROOT_ADMIN`).
 

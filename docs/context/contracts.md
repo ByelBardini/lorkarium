@@ -6,6 +6,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 - `src/auth/` — login e usuário autenticado
 - `src/http/` — formas transversais da API HTTP (erro)
+- `src/campaigns/` — mesa (campanha): resumo, detalhe, criação e entrada por código
 - `test/<área>/` — specs só de DTO com regra própria (`transform`, `pipe`, `refine`)
 
 ## DTOs
@@ -17,6 +18,15 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `meResponseDto` — `{ user: AuthUserDto | null }` (`null` = visitante anônimo).
 - `apiErrorDto` / `ApiErrorDto` (`http/api-error.dto.ts`) — corpo de todo erro da API: `{ code, message, retryAfterSeconds? }`.
 - `healthResponseDto` / `HealthResponseDto` (`http/health.dto.ts`) — corpo do 200 de `GET /api/health`: `{ status: 'ok' }`.
+
+### Mesas (`campaigns/`)
+
+- `campaignRoleDto` (`'master' | 'player'`, papel **por mesa**) e `campaignVisibilityDto` (`'public' | 'private'`) em `campaign.dto.ts`.
+- `campaignSummaryDto` — linha da lista: `{ id, name, system | null, status | null, description | null, visibility, myRole, masterName, memberCount, lastEnteredAt (ISO | null) }`.
+- `campaignDetailDto` — resumo + `members: { name, role }[]` + `joinCode | null` (só o mestre recebe) + `hasPassword`. Nunca leva senha nem hash.
+- `listCampaignsResponseDto` `{ campaigns }`, `campaignResponseDto` `{ campaign: detalhe }`, `campaignIdParamsDto` `{ campaignId: uuid }`.
+- `createCampaignRequestDto` (`create-campaign.dto.ts`) — corpo de `POST /api/campaigns`: `name` aparado, 1 a `CAMPAIGN_NAME_MAX_LENGTH` (80); `system`/`status` até `CAMPAIGN_LABEL_MAX_LENGTH` (40) e `description` até `CAMPAIGN_DESCRIPTION_MAX_LENGTH` (500), aparados, vazio/só espaço/ausente → `null`; `visibility` padrão `private`; `password` opcional de `CAMPAIGN_PASSWORD_MIN_LENGTH` (4) a `CAMPAIGN_PASSWORD_MAX_LENGTH` (128), `''` vale como ausente. Tipos `CreateCampaignRequestDto` (saída) e `CreateCampaignRequestInput` (entrada).
+- `join-campaign.dto.ts` — `CAMPAIGN_CODE_ALPHABET` (`23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, sem 0/O/1/I) e `CAMPAIGN_CODE_LENGTH` (8); `campaignCodeDto` tira espaços e hífens e põe em caixa alta antes de validar (`' vhrn-7k2q '` → `'VHRN7K2Q'`); `joinCampaignRequestDto` `{ code, password? }` (senha de 1 a 128: a regra de tamanho mínimo é da criação); `joinCampaignResponseDto` `{ campaign: resumo }`.
 
 ## Regras de arquitetura
 
