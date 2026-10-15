@@ -8,23 +8,35 @@ import {
 } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { LoginPage } from '@/features/auth/login-page';
-import { HomePage } from '@/features/home/home-page';
+import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
+import { homeRoutes } from '@/features/home/home-route';
 import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AuthApi } from '@/services/auth-api';
+import type { CampaignsApi } from '@/services/campaigns-api';
+import type { Clipboard } from '@/services/clipboard';
+import type { RailStore } from '@/stores/rail-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
 import { decideAccess, type RouteAccess } from './route-access';
 import { RouteErrorScreen } from './route-error-screen';
+import { AppShell } from './shell/app-shell';
 import { SplashScreen } from './splash-screen';
 
 export type AppDependencies = Readonly<{
   authApi: AuthApi;
+  campaignsApi: CampaignsApi;
+  clipboard: Clipboard;
   sessionStore: StoreApi<SessionStore>;
+  railStore: StoreApi<RailStore>;
+  /** The instant of the overline date; a parameter so tests fix the day. */
+  now: () => Date;
+  /** A draw in [0, 1) for the greeting; `Math.random` in the app. */
+  random: () => number;
 }>;
 
 /** Every route of the SPA, with the session resolved once at the root and a guard per route.
- *  Dependencies come in so tests can pass an `AuthApiFake` and a fresh store.
+ *  Dependencies come in so tests can pass fakes and fresh stores.
  *
- *  Example: `createBrowserRouter(buildRoutes({ authApi, sessionStore }))` */
+ *  Example: `createBrowserRouter(buildRoutes(dependencies))` */
 export function buildRoutes(deps: AppDependencies): RouteObject[] {
   return [
     {
@@ -34,7 +46,6 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
       HydrateFallback: SplashScreen,
       ErrorBoundary: RouteErrorScreen,
       children: [
-        { index: true, middleware: [guard(deps, 'signed-in')], Component: homeRoute(deps) },
         { path: 'login', middleware: [guard(deps, 'public-only')], Component: loginRoute(deps) },
         {
           path: 'admin',
@@ -42,6 +53,12 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
           lazy: async () => ({
             Component: (await import('@/features/admin/admin-page')).AdminPage,
           }),
+        },
+        {
+          id: 'shell',
+          middleware: [guard(deps, 'signed-in')],
+          Component: shellRoute(deps),
+          children: [...homeRoutes(deps), campaignTableRoute(deps)],
         },
         { path: '*', loader: () => redirect('/') },
       ],
@@ -84,8 +101,9 @@ function loginRoute({ authApi, sessionStore }: AppDependencies): () => React.JSX
   };
 }
 
-function homeRoute({ authApi, sessionStore }: AppDependencies): () => React.JSX.Element | null {
-  return function HomeRoute(): React.JSX.Element | null {
+function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
+  const { authApi, sessionStore, railStore } = deps;
+  return function ShellRoute(): React.JSX.Element | null {
     const session = useSession(sessionStore);
     const navigate = useNavigate();
     if (session.status !== 'authenticated') return null;
@@ -94,6 +112,6 @@ function homeRoute({ authApi, sessionStore }: AppDependencies): () => React.JSX.
       sessionStore.getState().signedOut();
       await navigate('/login', { replace: true });
     };
-    return <HomePage user={session.user} onSignOut={signOut} />;
+    return <AppShell railStore={railStore} user={session.user} onSignOut={signOut} />;
   };
 }

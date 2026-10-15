@@ -1,4 +1,15 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
+
+// Locally the specs sign in with the admin the server seeds from server/.env; an exported
+// variable (the CI job env) wins over the file.
+const SERVER_ENV_FILE = new URL('../server/.env', import.meta.url);
+if (existsSync(SERVER_ENV_FILE)) {
+  for (const [key, value] of Object.entries(parseEnv(readFileSync(SERVER_ENV_FILE, 'utf8')))) {
+    process.env[key] ??= value;
+  }
+}
 
 const isCi = Boolean(process.env.CI);
 

@@ -20,5 +20,7 @@ export async function openTestDatabase(): Promise<DatabaseConnection> {
  *
  *  Example: `beforeEach(() => truncateAllTables(db))` */
 export async function truncateAllTables(db: Database): Promise<void> {
-  await db.execute(sql`TRUNCATE TABLE users, auth_sessions RESTART IDENTITY CASCADE`);
+  await db.execute(
+    sql`TRUNCATE TABLE users, auth_sessions, campaigns, campaign_members RESTART IDENTITY CASCADE`,
+  );
 }

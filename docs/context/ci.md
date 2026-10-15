@@ -74,6 +74,9 @@ Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do V
 - O server precisa de `DATABASE_URL` apontando para um Postgres **migrado** (o descartável da receita do `/testar` + `pnpm db:migrate`).
 - No CI: `forbidOnly`, `retries: 2`, `workers: 1`, `trace: 'on-first-retry'`, reporter `github` + `html` (`e2e/playwright-report/`).
 - `e2e/test/smoke.spec.ts`: a home abre sem erro de página/console e `/api/health` responde 200 **pela origem do client** (prova proxy + server + banco).
+- `e2e/test/home.spec.ts`: loga com o admin semeado, cria "Mesa E2E <timestamp>" (Tormenta20), vê "Mesa criada" com código `XXXX-XXXX`, acha a linha na lista, abre o modal, "Entrar na mesa" chega a "O tabuleiro abre aqui." e, de volta, a faixa "Continuar" mostra a mesa.
+- Credenciais: o spec lê `ADMIN_EMAIL`/`ADMIN_PASSWORD` do ambiente (o mesmo admin que o server semeia no boot). No CI o job `e2e` define um admin descartável no `env`; localmente o `playwright.config.ts` carrega o `server/.env` sem sobrescrever o que já está exportado.
+- Local: o `webServer` reaproveita o que já roda na 3333/5173 (`reuseExistingServer`). Um `pnpm dev` antigo, ou um banco sem `pnpm db:migrate`, faz o e2e falhar por 404/500 que não são do código.
 
 ## Armadilhas
 

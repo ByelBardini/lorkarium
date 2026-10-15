@@ -6,13 +6,14 @@ import {
 } from '@lorkarium/contracts';
 import { Loader2Icon } from 'lucide-react';
 import { useId, useRef, useState, type FormEvent, type RefObject } from 'react';
+import { FormField } from '@/components/form-field';
+import { PasswordField } from '@/components/password-field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { AuthApi, AuthFailure } from '@/services/auth-api';
-import { PasswordField } from './password-field';
 
 export type LoginFormProps = Readonly<{
   authApi: AuthApi;
@@ -54,7 +55,7 @@ export function LoginForm({ authApi, onAuthenticated }: LoginFormProps): React.J
           {failureMessage(failure)}
         </Alert>
       )}
-      <FieldBlock id={ids.email} label="E-mail" error={errors.email}>
+      <FormField id={ids.email} label="E-mail" error={errors.email}>
         <Input
           ref={emailRef}
           id={ids.email}
@@ -66,8 +67,8 @@ export function LoginForm({ authApi, onAuthenticated }: LoginFormProps): React.J
           aria-invalid={errors.email !== undefined}
           aria-describedby={errors.email ? `${ids.email}-error` : undefined}
         />
-      </FieldBlock>
-      <FieldBlock id={ids.password} label="Senha" error={errors.password}>
+      </FormField>
+      <FormField id={ids.password} label="Senha" error={errors.password}>
         <PasswordField
           ref={passwordRef}
           id={ids.password}
@@ -76,7 +77,7 @@ export function LoginForm({ authApi, onAuthenticated }: LoginFormProps): React.J
           invalid={errors.password !== undefined}
           describedBy={errors.password ? `${ids.password}-error` : undefined}
         />
-      </FieldBlock>
+      </FormField>
       <RememberMe
         id={ids.remember}
         checked={values.rememberMe}
@@ -163,32 +164,6 @@ function failureMessage(failure: AuthFailure): string {
     case 'unexpected':
       return 'Algo deu errado do nosso lado. Tente de novo em instantes.';
   }
-}
-
-function FieldBlock({
-  id,
-  label,
-  error,
-  children,
-}: Readonly<{
-  id: string;
-  label: string;
-  error: string | undefined;
-  children: React.ReactNode;
-}>): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id} className="text-[13px] text-label">
-        {label}
-      </Label>
-      {children}
-      {error && (
-        <p id={`${id}-error`} className="text-[13px] text-destructive-text">
-          {error}
-        </p>
-      )}
-    </div>
-  );
 }
 
 function RememberMe({

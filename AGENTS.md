@@ -34,7 +34,7 @@ docs/plans/              # Planos do /planejamento, /construir-tela e /refatorar
 .claude/skills/desenvolver-server/ # /desenvolver-server <pedido>: fatia nova do server camada por camada, com driver de conferência de camadas
 ```
 
-Pastas que **ainda não existem**, mas têm lugar definido (spec §10 e as skills): `server/src/{realtime,infrastructure,lib,modules}/`, `client/src/{app,components,features,renderer,services,stores}/`, `client/test/`.
+Pastas que **ainda não existem**, mas têm lugar definido (spec §10 e as skills): `server/src/realtime/`, `client/src/renderer/`.
 
 Comandos da raiz (`package.json`):
 
@@ -71,7 +71,8 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | contracts | DTOs Zod compartilhados (auth, erro da API, health)              | [`docs/context/contracts.md`](docs/context/contracts.md) |
 | server    | Encanamento: env, banco, migrações, app, unit × integração       | [`docs/context/server.md`](docs/context/server.md)       |
 | auth      | Contas, login, sessão por cookie, papel global (server + client) | [`docs/context/auth.md`](docs/context/auth.md)           |
-| client    | SPA: estrutura, testes de componente, design system (tokens)     | [`docs/context/client.md`](docs/context/client.md)       |
+| campaigns | Mesas: criação, participação, lista, detalhe, entrada por código | [`docs/context/campaigns.md`](docs/context/campaigns.md) |
+| client    | SPA: estrutura, rotas, shell e home, testes, design system       | [`docs/context/client.md`](docs/context/client.md)       |
 | ci        | Testes por camada, cobertura, build, pipeline do GitHub Actions  | [`docs/context/ci.md`](docs/context/ci.md)               |
 | health    | `GET /api/health` (ping no Postgres, 200/503, pública)           | [`docs/context/health.md`](docs/context/health.md)       |
 

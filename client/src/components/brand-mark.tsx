@@ -1,12 +1,16 @@
 import { cn } from '@/lib/utils';
 
-export type BrandMarkProps = Readonly<{ variant?: 'full' | 'compact'; className?: string }>;
+export type BrandMarkProps = Readonly<{
+  variant?: 'full' | 'compact' | 'icon';
+  className?: string;
+}>;
 
 /** The Lorkarium logo: crystal icon + Cinzel wordmark, announced once as "LORKARIUM".
+ *  `icon` drops the wordmark (collapsed rail) and keeps the name.
  *
  *  Example: `<BrandMark variant="compact" className="lg:hidden" />` */
 export function BrandMark({ variant = 'full', className }: BrandMarkProps): React.JSX.Element {
-  const compact = variant === 'compact';
+  const compact = variant !== 'full';
   return (
     // role="img" makes the letter-spaced wordmark one name instead of nine spelled-out letters.
     <div
@@ -15,15 +19,21 @@ export function BrandMark({ variant = 'full', className }: BrandMarkProps): Reac
       className={cn('flex items-center', compact ? 'gap-2.5' : 'gap-3.5', className)}
     >
       <BrandIcon className={compact ? 'size-8' : 'size-10'} />
-      <span
-        className={cn(
-          'font-brand font-semibold tracking-[0.32em] text-foreground',
-          compact ? 'text-base' : 'text-[19px]',
-        )}
-      >
-        LORKARIUM
-      </span>
+      {variant !== 'icon' && <Wordmark compact={compact} />}
     </div>
+  );
+}
+
+function Wordmark({ compact }: Readonly<{ compact: boolean }>): React.JSX.Element {
+  return (
+    <span
+      className={cn(
+        'font-brand font-semibold tracking-[0.32em] text-foreground',
+        compact ? 'text-base' : 'text-[19px]',
+      )}
+    >
+      LORKARIUM
+    </span>
   );
 }
 

@@ -29,6 +29,9 @@ function decidePublicOnly(session: KnownSession, url: URL): AccessDecision {
   return { kind: 'redirect', to: safeRedirectTarget(url.searchParams.get('next')) };
 }
 
-function loginPathFor(url: URL): string {
+/** The login path that comes back to `url` after signing in.
+ *
+ *  Example: `loginPathFor(new URL(request.url)) // "/login?next=%2Fcampaigns"` */
+export function loginPathFor(url: URL): string {
   return `/login?next=${encodeURIComponent(url.pathname + url.search)}`;
 }

@@ -1,0 +1,88 @@
+import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import type { DatabaseExecutor } from '../../database/transaction';
+import { users } from '../auth/users.po';
+import { campaignMembers } from './campaign-members.po';
+import type { CampaignMemberPo, NewCampaignMemberPo } from './campaign-members.po';
+import { campaigns, type CampaignPo } from './campaigns.po';
+
+export type CampaignListingRow = Readonly<{
+  campaign: CampaignPo;
+  role: CampaignMemberPo['role'];
+  joinedAt: Date;
+  lastEnteredAt: Date | null;
+  masterName: string;
+  memberCount: number;
+}>;
+
+export type CampaignMemberRow = Readonly<{
+  userId: string;
+  name: string;
+  role: CampaignMemberPo['role'];
+}>;
+
+const masterMembers = alias(campaignMembers, 'master_member');
+const masterUsers = alias(users, 'master_user');
+
+const memberCountOfCampaign = sql<number>`(
+  select count(*)::int from campaign_members counted
+  where counted.campaign_id = ${campaigns.id}
+)`;
+
+export class CampaignMembersDao {
+  constructor(private readonly db: DatabaseExecutor) {}
+
+  async insert(member: NewCampaignMemberPo): Promise<CampaignMemberPo> {
+    const [row] = await this.db.insert(campaignMembers).values(member).returning();
+    if (!row) throw new Error(`insert into campaign_members returned no row for ${member.userId}`);
+    return row;
+  }
+
+  async findMembership(campaignId: string, userId: string): Promise<CampaignMemberPo | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(campaignMembers)
+      .where(and(eq(campaignMembers.campaignId, campaignId), eq(campaignMembers.userId, userId)));
+    return row;
+  }
+
+  /** The campaigns the user is a member of; the only filter is the user's own membership. */
+  async listOfUser(userId: string): Promise<CampaignListingRow[]> {
+    return this.db
+      .select({
+        campaign: getTableColumns(campaigns),
+        role: campaignMembers.role,
+        joinedAt: campaignMembers.joinedAt,
+        lastEnteredAt: campaignMembers.lastEnteredAt,
+        masterName: masterUsers.name,
+        memberCount: memberCountOfCampaign,
+      })
+      .from(campaignMembers)
+      .innerJoin(campaigns, eq(campaigns.id, campaignMembers.campaignId))
+      .innerJoin(
+        masterMembers,
+        and(eq(masterMembers.campaignId, campaigns.id), eq(masterMembers.role, 'master')),
+      )
+      .innerJoin(masterUsers, eq(masterUsers.id, masterMembers.userId))
+      .where(eq(campaignMembers.userId, userId))
+      .orderBy(
+        sql`${campaignMembers.lastEnteredAt} desc nulls last`,
+        desc(campaignMembers.joinedAt),
+      );
+  }
+
+  async listMembers(campaignId: string): Promise<CampaignMemberRow[]> {
+    return this.db
+      .select({ userId: users.id, name: users.name, role: campaignMembers.role })
+      .from(campaignMembers)
+      .innerJoin(users, eq(users.id, campaignMembers.userId))
+      .where(eq(campaignMembers.campaignId, campaignId));
+  }
+
+  async markEntered(campaignId: string, userId: string, at: Date): Promise<void> {
+    await this.db
+      .update(campaignMembers)
+      .set({ lastEnteredAt: at })
+      .where(and(eq(campaignMembers.campaignId, campaignId), eq(campaignMembers.userId, userId)));
+  }
+}

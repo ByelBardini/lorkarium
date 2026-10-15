@@ -13,6 +13,7 @@ import type {
   preHandlerAsyncHookHandler,
 } from 'fastify';
 import { ZodError } from 'zod';
+import { invalidBodyError } from '../../lib/invalid-body';
 import { PERSISTENT_SESSION_MS } from './auth-session.bo';
 import { AuthError, RateLimitedError, type AuthErrorCode } from './auth.error';
 import type { AuthService, ResolvedSession } from './auth.service';
@@ -169,7 +170,7 @@ async function replyWithApiError(
 ): Promise<FastifyReply> {
   if (error instanceof AuthError)
     return reply.code(STATUS_BY_CODE[error.code]).send(toApiError(error));
-  if (error instanceof ZodError) return reply.code(400).send(invalidBody(error));
+  if (error instanceof ZodError) return reply.code(400).send(invalidBodyError(error));
   if (error.statusCode !== undefined && error.statusCode < 500) {
     return reply
       .code(error.statusCode)
@@ -179,12 +180,4 @@ async function replyWithApiError(
   return reply
     .code(500)
     .send({ code: 'INTERNAL_ERROR', message: 'Unexpected server error' } satisfies ApiErrorDto);
-}
-
-// Zod messages name the path and the rule, never the received value (the password stays out).
-function invalidBody(error: ZodError): ApiErrorDto {
-  const problems = error.issues.map(
-    (issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`,
-  );
-  return { code: 'INVALID_BODY', message: problems.join('; ') };
 }

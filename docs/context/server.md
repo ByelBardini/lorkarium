@@ -9,7 +9,9 @@ API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento
 - `src/config/drizzle-kit-env.ts` — `readDrizzleKitCredentials()`: o `DATABASE_URL` para o `drizzle-kit` (carrega `server/.env` se existir)
 - `src/database/database.ts` — `createDatabase(url)` → `{ db, close }` (Drizzle sobre `pg.Pool`); tipo `Database`
 - `src/database/schema.ts` — reexporta toda tabela (PO); é o `schema` do `drizzle-kit` e do cliente
+- `src/database/transaction.ts` — `runInTransaction(db, (tx) => …)`: confirma se o callback resolve, desfaz e relança o mesmo erro se ele lança; tipos `Transaction` e `DatabaseExecutor` (`Database | Transaction`), que é o que o construtor de DAO novo aceita
 - `src/database/migrate.ts` — `runMigrations(db)` aplica `server/drizzle/` (usado pelos testes de integração)
+- `src/lib/invalid-body.ts` — `invalidBodyError(zodError)`: o corpo 400 `INVALID_BODY` que toda borda devolve quando o DTO recusa (cita caminho e regra, nunca o valor)
 - `src/app/build-app.ts` — `buildApp({ env, db })`: Fastify com logger pino (JSON), `@fastify/cookie`; módulos registrados sob o prefixo `/api` (`API_PREFIX`); instancia os adaptadores do auth e decora `app.authGuards` na raiz (guardas para qualquer módulo, ver `auth.md`)
 - `drizzle.config.ts` — config do `drizzle-kit` (schema → `drizzle/`)
 - `vitest.config.ts` / `vitest.integration.config.ts` — projetos `@lorkarium/server` (unit) e `@lorkarium/server-integration`
@@ -38,6 +40,7 @@ API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento
 - `process.env` só em `src/config/` e `src/index.ts` (o driver do `desenvolver-server` cobra).
 - Quem cria a conexão a fecha: `index.ts` e o suporte de teste chamam `close()`; `buildApp` recebe o `db` pronto e não o fecha.
 - O logger redige `req.headers.cookie` e `res.headers["set-cookie"]`; corpo de requisição nunca é logado.
+- Transação: quem abre é o **service**, pelo `runInTransaction` (recebido por dependência, para o unit trocá-lo por fake); o DAO só recebe o `tx` no construtor e nunca abre transação.
 - Rotas HTTP ficam sob `/api` (o proxy do Vite e a mesma origem em produção dependem disso).
 
 ## Testes
