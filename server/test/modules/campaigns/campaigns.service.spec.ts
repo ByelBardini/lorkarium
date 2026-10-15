@@ -8,7 +8,14 @@ import {
   CampaignsDaoFake,
   TransactionRunnerFake,
 } from '../../support/campaigns-fakes';
-import { BIA_ID, campaignMemberPo, campaignPo } from '../../support/campaigns-factories';
+import {
+  BIA_ID,
+  CAIO_ID,
+  QUELM_ID,
+  VHARN_ID,
+  campaignMemberPo,
+  campaignPo,
+} from '../../support/campaigns-factories';
 
 const NOW = new Date('2026-10-14T21:00:00Z');
 const NEW_CAMPAIGN = {
@@ -40,7 +47,11 @@ describe('CampaignsService', () => {
 
   beforeEach(() => {
     campaigns = new CampaignsDaoFake();
-    members = new CampaignMembersDaoFake(campaigns, { [ANA_ID]: 'Ana', [BIA_ID]: 'Bia' });
+    members = new CampaignMembersDaoFake(campaigns, {
+      [ANA_ID]: 'Ana',
+      [BIA_ID]: 'Bia',
+      [CAIO_ID]: 'Caio',
+    });
     runner = new TransactionRunnerFake({ campaigns, members });
     build(['VHRN7K2Q', 'PNTN2345', 'QLMR2345', 'ZZZZ2345']);
   });
@@ -114,5 +125,42 @@ describe('CampaignsService', () => {
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: ANA_ID, role: 'player' }));
     const detail = await service.detail(ANA_ID, 'vharn');
     expect(detail).toMatchObject({ id: 'vharn', myRole: 'player', joinCode: null });
+  });
+
+  describe('rosterOf', () => {
+    beforeEach(() => {
+      campaigns.rows.push(campaignPo({ id: VHARN_ID }), campaignPo({ id: QUELM_ID }));
+      members.rows.push(
+        campaignMemberPo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' }),
+        campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
+        campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
+        campaignMemberPo({ campaignId: QUELM_ID, userId: CAIO_ID, role: 'master' }),
+      );
+    });
+
+    it('a player of the table gets every member with id, master first and then by name', async () => {
+      expect(await service.rosterOf(BIA_ID, VHARN_ID)).toEqual([
+        { userId: ANA_ID, name: 'Ana', role: 'master' },
+        { userId: BIA_ID, name: 'Bia', role: 'player' },
+        { userId: CAIO_ID, name: 'Caio', role: 'player' },
+      ]);
+    });
+
+    it('someone who is not a member is refused with CAMPAIGN_NOT_FOUND before any member is listed', async () => {
+      members.rows.splice(0, 1);
+      await expect(service.rosterOf(CAIO_ID, VHARN_ID)).rejects.toMatchObject({
+        code: 'CAMPAIGN_NOT_FOUND',
+        message: `campaign ${VHARN_ID} has no member ${CAIO_ID}`,
+      });
+      expect(members.membersListedFor).toEqual([]);
+    });
+
+    it('the master of another table asking for this one gets the same CAMPAIGN_NOT_FOUND', async () => {
+      await expect(service.rosterOf(CAIO_ID, QUELM_ID)).resolves.toHaveLength(1);
+      members.rows.splice(0, 1);
+      await expect(service.rosterOf(CAIO_ID, VHARN_ID)).rejects.toMatchObject({
+        code: 'CAMPAIGN_NOT_FOUND',
+      });
+    });
   });
 });
