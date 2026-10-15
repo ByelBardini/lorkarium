@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import { PasswordField } from '@/features/auth/password-field';
+import { PasswordField } from '@/components/password-field';
 
 function Harness(): React.JSX.Element {
   const [value, setValue] = useState('segredo');

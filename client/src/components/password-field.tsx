@@ -8,6 +8,9 @@ export type PasswordFieldProps = Readonly<{
   onValueChange: (value: string) => void;
   invalid: boolean;
   describedBy?: string;
+  /** `new-password` when the field sets a password instead of typing an existing one. */
+  autoComplete?: 'current-password' | 'new-password';
+  autoFocus?: boolean;
   ref?: Ref<HTMLInputElement>;
 }>;
 
@@ -20,6 +23,8 @@ export function PasswordField({
   onValueChange,
   invalid,
   describedBy,
+  autoComplete = 'current-password',
+  autoFocus,
   ref,
 }: PasswordFieldProps): React.JSX.Element {
   const [visible, setVisible] = useState(false);
@@ -30,7 +35,8 @@ export function PasswordField({
         ref={ref}
         id={id}
         type={visible ? 'text' : 'password'}
-        autoComplete="current-password"
+        autoComplete={autoComplete}
+        autoFocus={autoFocus}
         placeholder="••••••••"
         value={value}
         onChange={(event) => onValueChange(event.target.value)}
