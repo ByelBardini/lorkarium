@@ -1,31 +1,11 @@
-import { expect, test, type Page } from '@playwright/test';
-
-// The admin the server seeds at boot (ADMIN_EMAIL / ADMIN_PASSWORD); there is no sign-up yet.
-function adminCredentials(): { email: string; password: string } {
-  const email = process.env.ADMIN_EMAIL;
-  const password = process.env.ADMIN_PASSWORD;
-  if (!email || !password) {
-    throw new Error(
-      `the home e2e signs in with the seeded admin; expected ADMIN_EMAIL and ADMIN_PASSWORD, received ${email ?? 'nothing'} and ${password ? 'a password' : 'nothing'}`,
-    );
-  }
-  return { email, password };
-}
-
-async function signIn(page: Page): Promise<void> {
-  const { email, password } = adminCredentials();
-  await page.goto('/login');
-  await page.getByLabel('E-mail').fill(email);
-  await page.getByLabel('Senha', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible();
-}
+import { expect, test } from '@playwright/test';
+import { adminCredentials, signIn } from './support/sign-in';
 
 test('create a campaign, see its code, open it, enter the table and continue from the home', async ({
   page,
 }) => {
   const name = `Mesa E2E ${Date.now()}`;
-  await signIn(page);
+  await signIn(page, adminCredentials());
 
   await page.getByRole('button', { name: 'Nova mesa' }).first().click();
   const create = page.getByRole('dialog', { name: 'Nova mesa' });
