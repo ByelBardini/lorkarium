@@ -17,6 +17,8 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/app/splash-screen.tsx` (`role="status"`, "Carregando…") e `src/app/route-error-screen.tsx`
 - `src/app/shell/` — `AppShell`, trilho, menu do usuário, gaveta e `api-loader.ts` (ver [`client/home.md`](client/home.md))
 - `src/features/auth/` — tela de login (ver [`auth.md`](auth.md)); `src/features/home/` e `src/features/campaigns/` — ver [`client/home.md`](client/home.md); `src/features/admin/admin-page.tsx` — placeholder
+- `index.html` + `public/favicon.svg` — favicon: o cristal da `BrandMark` em dourado num círculo `#0c0e11` (o `panel`), traço mais grosso para ler em 16px
+- `src/assets/` — imagens importadas pelo Vite (`evolutiva-mark.png`)
 - `src/index.css` — tokens do tema (único, escuro) e as fontes self-host (`@fontsource-variable`)
 - `src/components/ui/` — componentes shadcn (`button`, `input`, `label`, `checkbox`, `alert`, `textarea`, `radio-group`, `dialog`, `sheet`, `dropdown-menu`, `tooltip`), já ajustados ao design system
 - `src/components/brand-mark.tsx` — `BrandMark` (logo; variantes `full`, `compact` e `icon`, só o cristal, sempre anunciado como "LORKARIUM")
