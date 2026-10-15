@@ -31,7 +31,7 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 ## Client
 
 - Rotas, guardas e splash em [`client.md`](client.md) (seção Rotas). Login bem-sucedido: `sessionStore.signedIn(user)` + navegação para o `next` seguro; Sair (no menu do usuário do shell, ver [`client/home.md`](client/home.md)): `POST /api/auth/logout`, `signedOut()`, `/login`.
-- `LoginPage` (`features/auth/login-page.tsx`): duas colunas em `lg+` (painel `bg-panel` com `LoginHeroArt`, SVG estático `aria-hidden`, e a manchete como `p` de display); abaixo de `lg`, só o formulário com a `BrandMark` compacta. O `h1` é "Bem-vindo de volta". `<title>Lorkarium · Entrar</title>`.
+- `LoginPage` (`features/auth/login-page.tsx`): duas colunas em `lg+` (painel `bg-panel` com `LoginHeroArt`, SVG estático `aria-hidden`, e a manchete como `p` de display); abaixo de `lg`, só o formulário com a `BrandMark` compacta. O `h1` é "Bem-vindo de volta". `<title>Lorkarium · Entrar</title>`. No pé da coluna do formulário, `DeveloperCredit` (`features/auth/developer-credit.tsx`): "Desenvolvido por Evolutiva Sistemas", centralizado, com o símbolo e "Evolutiva Sistemas" como link para https://evolutivasistemas.com.br (nova aba, `noopener noreferrer`) (`src/assets/evolutiva-mark.png`, 96px reduzido de `LOGO BRANCA 2.png` da raiz, `alt=""` porque o texto já nomeia). Só no login: crédito de fornecedor dentro do app logado é ruído.
 - Escondidos até existirem: "Esqueceu a senha?", "Entrar com código da mesa", Termos/Privacidade.
 - Boot: `GET /api/auth/me` decide `authenticated`/`anonymous` no `sessionStore` (a guarda do client só evita mostrar a tela errada; quem decide é o server).
 - Serviço `HttpAuthApi` e store em [`client.md`](client.md); a tela vive em `client/src/features/auth/`.

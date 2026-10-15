@@ -1,6 +1,7 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
 import { BrandMark } from '@/components/brand-mark';
 import type { AuthApi } from '@/services/auth-api';
+import { DeveloperCredit } from './developer-credit';
 import { LoginForm } from './login-form';
 import { LoginHeroArt } from './login-hero-art';
 
@@ -17,8 +18,8 @@ export function LoginPage({ authApi, onAuthenticated }: LoginPageProps): React.J
     <div className="flex min-h-svh bg-background text-foreground">
       <title>Lorkarium · Entrar</title>
       <HeroPanel />
-      <main className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 py-10 sm:px-8 lg:max-w-[560px]">
-        <div className="flex w-full max-w-[380px] flex-col gap-7">
+      <main className="flex min-w-0 flex-1 flex-col items-center px-4 py-10 sm:px-8 lg:max-w-[560px]">
+        <div className="my-auto flex w-full max-w-[380px] flex-col gap-7">
           <BrandMark variant="compact" className="lg:hidden" />
           <header className="flex flex-col gap-2.5">
             <Ornament />
@@ -29,6 +30,9 @@ export function LoginPage({ authApi, onAuthenticated }: LoginPageProps): React.J
           </header>
           <LoginForm authApi={authApi} onAuthenticated={onAuthenticated} />
         </div>
+        <footer className="mt-10 flex w-full max-w-[380px] justify-center">
+          <DeveloperCredit />
+        </footer>
       </main>
     </div>
   );
