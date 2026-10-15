@@ -13,4 +13,10 @@ describe('BrandMark', () => {
     render(<BrandMark variant="compact" />);
     expect(screen.getByRole('img', { name: 'LORKARIUM' })).toBeInTheDocument();
   });
+
+  it('the icon variant shows only the crystal and keeps the accessible name', () => {
+    render(<BrandMark variant="icon" />);
+    const mark = screen.getByRole('img', { name: 'LORKARIUM' });
+    expect(mark).not.toHaveTextContent('LORKARIUM');
+  });
 });

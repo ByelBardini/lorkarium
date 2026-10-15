@@ -1,41 +1,44 @@
-import type { AuthUserDto } from '@lorkarium/contracts';
-import { LogOutIcon, ShieldIcon } from 'lucide-react';
+import type { AuthUserDto, CampaignSummaryDto } from '@lorkarium/contracts';
 import { useState } from 'react';
-import { Link } from 'react-router';
-import { BrandMark } from '@/components/brand-mark';
-import { Button } from '@/components/ui/button';
+import { Outlet } from 'react-router';
+import { continueCandidate } from '@/lib/campaign-list';
+import type { Clipboard } from '@/services/clipboard';
+import { CampaignList } from './campaign-list';
+import { ContinueBand } from './continue-band';
+import { GreetingHeader } from './greeting-header';
+import { HomeActions } from './home-actions';
+import { HomeDialogs, type HomeDialog } from './home-dialogs';
 
-export type HomePageProps = Readonly<{ user: AuthUserDto; onSignOut: () => Promise<void> }>;
+export type HomePageProps = Readonly<{
+  user: AuthUserDto;
+  campaigns: readonly CampaignSummaryDto[];
+  now: Date;
+  /** Drawn once per visit, so the greeting does not change on every render. */
+  greetingDraw: number;
+  clipboard: Clipboard;
+}>;
 
-/** Signed-in landing (placeholder until campaigns exist): greeting, sign out, backoffice for admins.
+/** "Suas mesas": greeting, the campaign to continue, the list, and the create/join dialogs.
+ *  The campaign detail modal renders through the `Outlet`.
  *
- *  Example: `<HomePage user={user} onSignOut={signOut} />` */
-export function HomePage({ user, onSignOut }: HomePageProps): React.JSX.Element {
-  const [leaving, setLeaving] = useState(false);
-  const signOut = async (): Promise<void> => {
-    setLeaving(true);
-    await onSignOut();
-  };
+ *  Example: `<HomePage user={user} campaigns={campaigns} now={new Date()} greetingDraw={0.4} clipboard={clipboard} />` */
+export function HomePage(props: HomePageProps): React.JSX.Element {
+  const { user, campaigns, now, greetingDraw, clipboard } = props;
+  const [dialog, setDialog] = useState<HomeDialog>(null);
+  const candidate = continueCandidate(campaigns);
+  const openCreate = (): void => setDialog('create');
+  const openJoin = (): void => setDialog('join');
   return (
-    <div className="min-h-svh bg-background text-foreground">
-      <title>Lorkarium · Início</title>
-      <header className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-8">
-        <BrandMark variant="compact" />
-        <Button variant="outline" size="lg" onClick={signOut} disabled={leaving}>
-          <LogOutIcon aria-hidden="true" />
-          Sair
-        </Button>
+    <div className="flex w-full flex-col gap-10 px-4 py-8 sm:px-8 sm:py-10 lg:px-12">
+      <title>Lorkarium · Mesas</title>
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <GreetingHeader name={user.name} now={now} draw={greetingDraw} />
+        {campaigns.length > 0 && <HomeActions onCreate={openCreate} onJoin={openJoin} />}
       </header>
-      <main className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-16 sm:px-8">
-        <h1 className="font-display text-[40px] leading-[1.1] font-semibold">Olá, {user.name}</h1>
-        <p className="text-muted-foreground">Suas campanhas vão aparecer aqui.</p>
-        {user.role === 'admin' && (
-          <Link to="/admin" className="inline-flex w-fit items-center gap-2">
-            <ShieldIcon aria-hidden="true" className="size-4" />
-            Backoffice
-          </Link>
-        )}
-      </main>
+      {candidate && <ContinueBand campaign={candidate} />}
+      <CampaignList campaigns={campaigns} onCreate={openCreate} onJoin={openJoin} />
+      <HomeDialogs dialog={dialog} clipboard={clipboard} onClose={() => setDialog(null)} />
+      <Outlet />
     </div>
   );
 }
