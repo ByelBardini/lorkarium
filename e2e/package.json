@@ -1,0 +1,14 @@
+{
+  "name": "@lorkarium/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@lorkarium/tsconfig": "workspace:*",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^22.20.5"
+  }
+}
