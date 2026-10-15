@@ -8,13 +8,15 @@ import type { NewUserPo, UserPo } from '../../src/modules/auth/users.po';
 
 const FAKE_CREATED_AT = new Date('2026-10-01T12:00:00Z');
 
-/** In-memory users table; `inserted` keeps every insert in order. */
+/** In-memory users table; `inserted` keeps every insert in order, `lookedUp` every e-mail asked. */
 export class UsersDaoFake implements Pick<UsersDao, 'findByEmail' | 'findById' | 'insert'> {
   readonly inserted: NewUserPo[] = [];
+  readonly lookedUp: string[] = [];
 
   constructor(readonly rows: UserPo[] = []) {}
 
   async findByEmail(email: string): Promise<UserPo | undefined> {
+    this.lookedUp.push(email);
     return this.rows.find((row) => row.email === email);
   }
 
