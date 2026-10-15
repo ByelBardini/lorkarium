@@ -9,7 +9,7 @@ import {
 import type { AppDependencies } from '@/app/router';
 import { redirectIfSignedOut, valueOrThrow } from '@/app/shell/api-loader';
 import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detail-dialog';
-import { CampaignTableErrorPage, CampaignTableRoute } from './campaign-table-page';
+import { CampaignTableErrorPage, CampaignTablePage } from './campaign-table-page';
 import type { CampaignLoaderData } from './campaign-loader-data';
 import type { EnterCampaignResult } from './enter-campaign-button';
 
@@ -34,7 +34,7 @@ export function campaignTableRoute(deps: AppDependencies): RouteObject {
   return {
     path: 'campaigns/:campaignId/table',
     loader: campaignLoader(deps),
-    Component: CampaignTableRoute,
+    Component: tableRoute(deps),
     ErrorBoundary: CampaignTableErrorPage,
   };
 }
@@ -65,6 +65,21 @@ function detailRoute({ clipboard }: AppDependencies): () => React.JSX.Element {
         campaign={campaign}
         clipboard={clipboard}
         onClose={() => void navigate('/')}
+      />
+    );
+  };
+}
+
+function tableRoute({ tableSessionApi, sessionStore }: AppDependencies): () => React.JSX.Element {
+  return function TableRoute(): React.JSX.Element {
+    const { campaign } = useLoaderData<CampaignLoaderData>();
+    // A new table is a new visit: a fresh presence store and session, not the previous one's.
+    return (
+      <CampaignTablePage
+        key={campaign.id}
+        campaign={campaign}
+        tableSessionApi={tableSessionApi}
+        sessionStore={sessionStore}
       />
     );
   };

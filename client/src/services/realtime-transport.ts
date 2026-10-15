@@ -1,0 +1,76 @@
+import { REALTIME_PATH } from '@lorkarium/contracts';
+import { io, type Socket } from 'socket.io-client';
+
+/** What happened to the connection itself, apart from the events it carries.
+ *  `willRetry` is whether the client reconnects on its own (a network blip) or gave up
+ *  (refused by the server, or closed by it). */
+export type RealtimeLifecycle =
+  | Readonly<{ kind: 'connected' }>
+  | Readonly<{ kind: 'disconnected'; willRetry: boolean }>
+  | Readonly<{ kind: 'connect_failed'; code: string; willRetry: boolean }>;
+
+export type Unsubscribe = () => void;
+
+/** The only door from the client to Socket.IO; services depend on this, tests on a fake.
+ *
+ *  Example: `transport.connect(); await transport.emitWithAck('session:join', command, 5000)` */
+export interface RealtimeTransport {
+  connect(): void;
+  disconnect(): void;
+  emit(event: string, payload: unknown): void;
+  /** Rejects when no ack arrives within `timeoutMs`. */
+  emitWithAck(event: string, payload: unknown, timeoutMs: number): Promise<unknown>;
+  on(event: string, listener: (payload: unknown) => void): Unsubscribe;
+  onLifecycle(listener: (change: RealtimeLifecycle) => void): Unsubscribe;
+}
+
+/** `RealtimeTransport` over `socket.io-client` at `/api/socket.io`, same origin, cookie included.
+ *  Proven end to end by `e2e/test/table-presence.spec.ts`.
+ *
+ *  Example: `new RealtimeTableSessionApi(new SocketIoRealtimeTransport(), () => crypto.randomUUID())` */
+export class SocketIoRealtimeTransport implements RealtimeTransport {
+  constructor(
+    private readonly socket: Socket = io({
+      path: REALTIME_PATH,
+      autoConnect: false,
+      withCredentials: true,
+    }),
+  ) {}
+
+  connect(): void {
+    this.socket.connect();
+  }
+
+  disconnect(): void {
+    this.socket.disconnect();
+  }
+
+  emit(event: string, payload: unknown): void {
+    this.socket.emit(event, payload);
+  }
+
+  emitWithAck(event: string, payload: unknown, timeoutMs: number): Promise<unknown> {
+    return this.socket.timeout(timeoutMs).emitWithAck(event, payload);
+  }
+
+  on(event: string, listener: (payload: unknown) => void): Unsubscribe {
+    this.socket.on(event, listener);
+    return () => void this.socket.off(event, listener);
+  }
+
+  onLifecycle(listener: (change: RealtimeLifecycle) => void): Unsubscribe {
+    const connected = (): void => listener({ kind: 'connected' });
+    const disconnected = (): void =>
+      listener({ kind: 'disconnected', willRetry: this.socket.active });
+    const failed = (error: Error): void =>
+      listener({ kind: 'connect_failed', code: error.message, willRetry: this.socket.active });
+    this.socket.on('connect', connected);
+    this.socket.on('disconnect', disconnected);
+    this.socket.on('connect_error', failed);
+    return () => {
+      this.socket.off('connect', connected);
+      this.socket.off('disconnect', disconnected);
+      this.socket.off('connect_error', failed);
+    };
+  }
+}

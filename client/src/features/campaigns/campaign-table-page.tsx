@@ -1,18 +1,32 @@
 import type { CampaignDetailDto } from '@lorkarium/contracts';
 import { ArrowLeftIcon } from 'lucide-react';
-import { Link, useLoaderData, useRouteError } from 'react-router';
+import { Link, useRouteError } from 'react-router';
+import type { StoreApi } from 'zustand/vanilla';
 import { ApiLoadError } from '@/app/shell/api-loader';
 import { CampaignCover } from '@/components/campaign-cover';
+import { SessionPresencePanel } from '@/features/sessions/session-presence-panel';
+import { useTableSession } from '@/features/sessions/use-table-session';
 import { campaignMeta } from '@/lib/campaign-meta';
-import type { CampaignLoaderData } from './campaign-loader-data';
+import type { TableSessionApi } from '@/services/table-session-api';
+import type { SessionStore } from '@/stores/session-store';
 import { failureMessage } from './campaign-messages';
 
-export type CampaignTablePageProps = Readonly<{ campaign: CampaignDetailDto }>;
+export type CampaignTablePageProps = Readonly<{
+  campaign: CampaignDetailDto;
+  tableSessionApi: TableSessionApi;
+  sessionStore: StoreApi<SessionStore>;
+}>;
 
-/** Where "Entrar na mesa" lands until the board exists; the board will take the middle.
+/** The table: the live session of the campaign while the page is open, with who is at it on
+ *  the side; the board (spec §11, phase 1) will take the middle.
  *
- *  Example: `<CampaignTablePage campaign={campaign} />` */
-export function CampaignTablePage({ campaign }: CampaignTablePageProps): React.JSX.Element {
+ *  Example: `<CampaignTablePage key={campaign.id} campaign={campaign} tableSessionApi={api} sessionStore={sessionStore} />` */
+export function CampaignTablePage({
+  campaign,
+  tableSessionApi,
+  sessionStore,
+}: CampaignTablePageProps): React.JSX.Element {
+  const presence = useTableSession(campaign.id, tableSessionApi, sessionStore);
   return (
     <div className="flex w-full flex-col gap-8 px-4 py-8 sm:px-8 sm:py-10 lg:px-12">
       <title>{`Lorkarium · ${campaign.name}`}</title>
@@ -21,22 +35,17 @@ export function CampaignTablePage({ campaign }: CampaignTablePageProps): React.J
         <h1 className="font-display text-[40px] leading-[1.05] font-semibold">{campaign.name}</h1>
         <p className="text-sm text-muted-foreground">{campaignMeta(campaign)}</p>
       </header>
-      <div className="relative">
-        <CampaignCover campaignId={campaign.id} className="h-72 border-y border-border" />
-        <p className="absolute inset-0 grid place-items-center font-display text-2xl text-label">
-          O tabuleiro abre aqui.
-        </p>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="relative">
+          <CampaignCover campaignId={campaign.id} className="h-72 border-y border-border" />
+          <p className="absolute inset-0 grid place-items-center font-display text-2xl text-label">
+            O tabuleiro abre aqui.
+          </p>
+        </div>
+        <SessionPresencePanel store={presence} />
       </div>
     </div>
   );
-}
-
-/** The table route: the page over the campaign its loader brought.
- *
- *  Example: `{ path: 'campaigns/:campaignId/table', loader, Component: CampaignTableRoute }` */
-export function CampaignTableRoute(): React.JSX.Element {
-  const { campaign } = useLoaderData<CampaignLoaderData>();
-  return <CampaignTablePage campaign={campaign} />;
 }
 
 /** The table route when its campaign could not load.
