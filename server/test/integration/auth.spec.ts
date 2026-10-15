@@ -1,0 +1,241 @@
+import { apiErrorDto, loginResponseDto, meResponseDto } from '@lorkarium/contracts';
+import { eq } from 'drizzle-orm';
+import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { buildApp } from '../../src/app/build-app';
+import { readEnv, type Env } from '../../src/config/env';
+import type { DatabaseConnection } from '../../src/database/database';
+import { Argon2PasswordHasher } from '../../src/infrastructure/password-hasher/argon2-password-hasher';
+import { authSessions } from '../../src/modules/auth/auth-sessions.po';
+import { UsersDao } from '../../src/modules/auth/users.dao';
+import { users, type UserPo } from '../../src/modules/auth/users.po';
+import { openTestDatabase, truncateAllTables } from '../support/test-database';
+
+const ADMIN_SEED = { email: 'root@lorkarium.dev', password: 'root-password-123' };
+
+describe('auth HTTP edge', () => {
+  const env: Env = { ...readEnv(process.env), adminSeed: null };
+  let connection: DatabaseConnection;
+
+  beforeAll(async () => {
+    connection = await openTestDatabase();
+  });
+
+  afterAll(() => connection.close());
+
+  async function freshApp(overrides: Partial<Env> = {}): Promise<FastifyInstance> {
+    return buildApp({ env: { ...env, ...overrides }, db: connection.db });
+  }
+
+  async function insertAccount(email: string, password: string): Promise<UserPo> {
+    const passwordHash = await new Argon2PasswordHasher().hash(password);
+    return new UsersDao(connection.db).insert({ name: 'Ana', email, passwordHash });
+  }
+
+  function login(app: FastifyInstance, payload: object): Promise<LightMyRequestResponse> {
+    return app.inject({ method: 'POST', url: '/api/auth/login', payload });
+  }
+
+  function sessionCookieOf(response: LightMyRequestResponse): string {
+    const cookie = response.cookies.find((candidate) => candidate.name === 'lk_session');
+    if (!cookie)
+      throw new Error(`expected a lk_session cookie, got ${response.headers['set-cookie']}`);
+    return cookie.value;
+  }
+
+  function me(app: FastifyInstance, token?: string): Promise<LightMyRequestResponse> {
+    return app.inject({
+      method: 'GET',
+      url: '/api/auth/me',
+      cookies: token ? { lk_session: token } : {},
+    });
+  }
+
+  describe('POST /api/auth/login', () => {
+    let app: FastifyInstance;
+
+    beforeAll(async () => {
+      await truncateAllTables(connection.db);
+      await insertAccount('ana@mesa.com', 'segredo-da-ana');
+      app = await freshApp();
+    });
+
+    afterAll(() => app.close());
+
+    it('right credentials answer 200 with the user and an HttpOnly Lax session cookie without Max-Age', async () => {
+      const response = await login(app, { email: 'Ana@Mesa.com', password: 'segredo-da-ana' });
+      expect(response.statusCode).toBe(200);
+      expect(loginResponseDto.parse(response.json()).user).toMatchObject({
+        email: 'ana@mesa.com',
+        role: 'user',
+      });
+      const setCookie = String(response.headers['set-cookie']);
+      expect(setCookie).toMatch(/^lk_session=[\w-]+;/);
+      expect(setCookie).toContain('HttpOnly');
+      expect(setCookie).toContain('SameSite=Lax');
+      expect(setCookie).toContain('Path=/');
+      expect(setCookie).not.toContain('Max-Age');
+    });
+
+    it('rememberMe makes the cookie last 30 days', async () => {
+      const response = await login(app, {
+        email: 'ana@mesa.com',
+        password: 'segredo-da-ana',
+        rememberMe: true,
+      });
+      expect(String(response.headers['set-cookie'])).toContain('Max-Age=2592000');
+    });
+
+    it('a wrong password and an unknown e-mail answer 401 with the same body', async () => {
+      const wrongPassword = await login(app, { email: 'ana@mesa.com', password: 'errada' });
+      const unknownEmail = await login(app, { email: 'bia@mesa.com', password: 'errada' });
+      expect(wrongPassword.statusCode).toBe(401);
+      expect(unknownEmail.statusCode).toBe(401);
+      expect(apiErrorDto.parse(wrongPassword.json()).code).toBe('INVALID_CREDENTIALS');
+      expect(unknownEmail.json()).toEqual(wrongPassword.json());
+    });
+
+    it('a body carrying a forged role answers 400 and sets no cookie', async () => {
+      const response = await login(app, { email: 'bia@mesa.com', password: 'x', role: 'admin' });
+      expect(response.statusCode).toBe(400);
+      expect(apiErrorDto.parse(response.json()).code).toBe('INVALID_BODY');
+      expect(response.headers['set-cookie']).toBeUndefined();
+    });
+  });
+
+  describe('login rate limit', () => {
+    let app: FastifyInstance;
+
+    beforeAll(async () => {
+      await truncateAllTables(connection.db);
+      app = await freshApp();
+    });
+
+    afterAll(() => app.close());
+
+    it('the 6th attempt for the same e-mail within a minute answers 429 with Retry-After', async () => {
+      for (let attempt = 1; attempt <= 5; attempt += 1) {
+        expect((await login(app, { email: 'alvo@mesa.com', password: 'x' })).statusCode).toBe(401);
+      }
+      const blocked = await login(app, { email: 'alvo@mesa.com', password: 'x' });
+      expect(blocked.statusCode).toBe(429);
+      expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
+      expect(apiErrorDto.parse(blocked.json())).toMatchObject({ code: 'RATE_LIMITED' });
+    });
+  });
+
+  describe('GET /api/auth/me and POST /api/auth/logout', () => {
+    let app: FastifyInstance;
+    let token: string;
+
+    beforeAll(async () => {
+      await truncateAllTables(connection.db);
+      await insertAccount('ana@mesa.com', 'segredo-da-ana');
+      app = await freshApp();
+    });
+
+    afterAll(() => app.close());
+
+    async function signIn(): Promise<string> {
+      return sessionCookieOf(
+        await login(app, { email: 'ana@mesa.com', password: 'segredo-da-ana' }),
+      );
+    }
+
+    it('with the session cookie it answers the signed-in user', async () => {
+      token = await signIn();
+      const response = await me(app, token);
+      expect(meResponseDto.parse(response.json()).user).toMatchObject({ email: 'ana@mesa.com' });
+    });
+
+    it('without a cookie it answers 200 with user null', async () => {
+      const response = await me(app);
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ user: null });
+    });
+
+    it('with a session expired in the database it answers user null', async () => {
+      const expired = await signIn();
+      await connection.db.update(authSessions).set({ expiresAt: new Date('2020-01-01T00:00:00Z') });
+      expect((await me(app, expired)).json()).toEqual({ user: null });
+    });
+
+    it('logout answers 204 and the same cookie then resolves to user null', async () => {
+      token = await signIn();
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/auth/logout',
+        cookies: { lk_session: token },
+      });
+      expect(response.statusCode).toBe(204);
+      expect((await me(app, token)).json()).toEqual({ user: null });
+    });
+  });
+
+  describe('role guard', () => {
+    let app: FastifyInstance;
+
+    beforeAll(async () => {
+      await truncateAllTables(connection.db);
+      await insertAccount('ana@mesa.com', 'segredo-da-ana');
+      app = await freshApp({ adminSeed: ADMIN_SEED });
+      app.get(
+        '/api/spec/admin-only',
+        { preHandler: app.authGuards.requireRole('admin') },
+        async () => ({
+          reached: true,
+        }),
+      );
+    });
+
+    afterAll(() => app.close());
+
+    async function adminOnlyAs(
+      email: string | null,
+      password = '',
+    ): Promise<LightMyRequestResponse> {
+      const cookies: Record<string, string> = email
+        ? { lk_session: sessionCookieOf(await login(app, { email, password })) }
+        : {};
+      return app.inject({ method: 'GET', url: '/api/spec/admin-only', cookies });
+    }
+
+    it('without a session it answers 401 UNAUTHENTICATED', async () => {
+      const response = await adminOnlyAs(null);
+      expect(response.statusCode).toBe(401);
+      expect(apiErrorDto.parse(response.json()).code).toBe('UNAUTHENTICATED');
+    });
+
+    it('a user answers 403 FORBIDDEN_ROLE', async () => {
+      const response = await adminOnlyAs('ana@mesa.com', 'segredo-da-ana');
+      expect(response.statusCode).toBe(403);
+      expect(apiErrorDto.parse(response.json()).code).toBe('FORBIDDEN_ROLE');
+    });
+
+    it('the seeded admin answers 200', async () => {
+      const response = await adminOnlyAs(ADMIN_SEED.email, ADMIN_SEED.password);
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ reached: true });
+    });
+  });
+
+  describe('admin seed at boot', () => {
+    beforeAll(() => truncateAllTables(connection.db));
+
+    async function seededRows(): Promise<UserPo[]> {
+      return connection.db.select().from(users).where(eq(users.email, ADMIN_SEED.email));
+    }
+
+    it('buildApp with ADMIN_* creates the admin, and a second boot neither duplicates it nor changes its hash', async () => {
+      await (await freshApp({ adminSeed: ADMIN_SEED })).close();
+      const [first] = await seededRows();
+      await (
+        await freshApp({ adminSeed: { ...ADMIN_SEED, password: 'another-password-456' } })
+      ).close();
+      const rows = await seededRows();
+      expect(first?.role).toBe('admin');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.passwordHash).toBe(first?.passwordHash);
+    });
+  });
+});

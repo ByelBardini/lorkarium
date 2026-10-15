@@ -1,8 +1,14 @@
-import Fastify from 'fastify';
+import { buildApp } from './app/build-app';
+import { readEnv } from './config/env';
+import { createDatabase } from './database/database';
 
-const port = Number(process.env.PORT ?? 3333);
-const host = process.env.HOST ?? '0.0.0.0';
+const env = readEnv(process.env);
+const database = createDatabase(env.databaseUrl);
+const app = await buildApp({ env, db: database.db });
 
-const app = Fastify({ logger: true });
+app.addHook('onClose', database.close);
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => void app.close());
+}
 
-await app.listen({ port, host });
+await app.listen({ port: env.port, host: env.host });
