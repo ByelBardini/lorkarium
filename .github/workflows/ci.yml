@@ -145,6 +145,9 @@ jobs:
           --health-retries 20
     env:
       DATABASE_URL: postgres://lorkarium:lorkarium@localhost:5432/lorkarium
+      # Throwaway admin for the disposable database: the server seeds it at boot and the home e2e signs in with it.
+      ADMIN_EMAIL: e2e-admin@lorkarium.dev
+      ADMIN_PASSWORD: e2e-admin-password
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
