@@ -192,15 +192,15 @@ pnpm exec vitest run packages/game-core/test/turn-cycle.spec.ts   # 1 failed: o 
 cp "$SCRATCHPAD/turn-cycle.ts.bak" packages/game-core/src/turn-cycle.ts
 ```
 
-Cobertura **ainda não existe**: `@vitest/coverage-v8` não está instalado (`--coverage` dá `MISSING DEPENDENCY`). Instalar é dependência nova — pergunta para o usuário, nunca de passagem. Até lá, a régua é a tabela de cenários do passo 3.
+Cobertura é só relatório: `pnpm test:packages`, `test:client` e `test:server` rodam com `@vitest/coverage-v8`, sem limiar. A régua continua sendo a tabela de cenários do passo 3; linha descoberta é pista para achar cenário, nunca motivo para um `it`.
 
-Integração do server (quando houver Postgres e migrations): nunca contra o banco do `pnpm db:up`, que é o de desenvolvimento. Postgres descartável numa porta própria, em memória:
+Integração do server: nunca contra o banco do `pnpm db:up`, que é o de desenvolvimento. Postgres descartável numa porta própria, em memória. O `pnpm test` não roda a integração; ela é o projeto `@lorkarium/server-integration`:
 
 ```bash
 MSYS_NO_PATHCONV=1 docker run -d --name lorkarium-testar -e POSTGRES_USER=lorkarium -e POSTGRES_PASSWORD=lorkarium -e POSTGRES_DB=lorkarium -p 5434:5432 --tmpfs /var/lib/postgresql/data postgres:17-alpine
 export DATABASE_URL=postgres://lorkarium:lorkarium@localhost:5434/lorkarium
-# aplicar as migrations do Drizzle (o comando entra aqui quando existir)
-pnpm exec vitest run server/test/integration/<area>.spec.ts
+pnpm db:migrate                       # opcional: o openTestDatabase (test/support) já migra; o DATABASE_URL exportado vence o server/.env
+pnpm exec vitest run server/test/integration/<area>.spec.ts   # ou pnpm test:integration (todos)
 docker rm -f lorkarium-testar
 ```
 
@@ -227,7 +227,7 @@ Ele roda o driver em `fixtures/monorepo/` (server sem alias, client com `@/*`, g
 - **`eco-do-mock` olha os ganchos também.** Valor devolvido em `beforeEach` e conferido no `it` conta; primitivos (`null`, `true`, `1`, `''`, `[]`, `{}`) não contam, senão todo `toBe(true)` viraria eco.
 - **`mock-da-unidade-sob-teste` resolve alias e relativo.** `vi.mock('@/lib/x')` num spec de `test/lib/x.spec.ts` é o próprio arquivo; `vi.mock` de um serviço do client num spec de componente é dependência e passa.
 - **`spec-importa-src-relativo` não dispara no server nem nos pacotes** enquanto eles não tiverem alias no `tsconfig.json`: o relativo é o único caminho.
-- **O client ainda não tem ambiente de DOM.** Não há `@testing-library/react` nem `jsdom` instalados, e o projeto `client` do Vitest roda em `node`. Spec de componente exige essas dependências e o `environment` do projeto: é pergunta para o usuário, não instalação de passagem. Lógica sem DOM (`src/lib/`, stores, a conta do renderer) já roda hoje.
+- **O client roda em `jsdom`** (bloco `test` do `client/vite.config.ts`, setup em `client/test/setup.ts` com `cleanup` explícito, porque não há globals). Os matchers do jest-dom são tipados por `client/test/jest-dom.d.ts` (o jest-dom 7 aumenta `Assertion<T>`, e o Vitest 5 só aceita `Matchers<R, T>`).
 - **PixiJS não é testado pelo desenho.** O que se prova no renderer é a parte pura (mundo ↔ tela, diff do que mudou entre dois estados, qual objeto recriar); `Application` e WebGL ficam fora do unit.
 - **`regressao-sem-referencia` procura no nome e nos comentários do `it`** por `#123`, SHA de 7+ hex, data (`2026-10-14` ou `14/10/2026`), `§5.4`, `issue`, `PR` ou `armadilha`. Comentário acima do `it` conta.
 - **`cenario-longo` mede linhas úteis** (sem vazias nem comentários), teto 40. A saída é fábrica ou `beforeEach`, não apagar asserção.
