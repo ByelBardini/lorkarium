@@ -1,0 +1,76 @@
+export type HttpMethod = 'GET' | 'POST';
+
+/** `body` is the parsed JSON, `null` when empty, `undefined` when the answer is not JSON. */
+export type HttpResponse = Readonly<{
+  status: number;
+  body: unknown;
+  header: (name: string) => string | null;
+}>;
+
+/** The only door from the client to the HTTP API; services depend on this, tests on a fake.
+ *
+ *  Example: `await transport.request('POST', '/auth/login', credentials)` */
+export interface HttpTransport {
+  request(method: HttpMethod, path: string, body?: unknown): Promise<HttpResponse>;
+}
+
+export class NetworkUnavailableError extends Error {
+  constructor(
+    readonly path: string,
+    readonly reason: unknown,
+  ) {
+    super(`the server could not be reached for ${path}`);
+    this.name = 'NetworkUnavailableError';
+  }
+}
+
+// Same origin in production and through the Vite proxy in dev: the session cookie is first-party.
+const API_BASE = '/api';
+
+/** `HttpTransport` over `fetch`, JSON in and out, carrying the session cookie.
+ *
+ *  Example: `new HttpAuthApi(new FetchHttpTransport())` */
+export class FetchHttpTransport implements HttpTransport {
+  constructor(private readonly fetchImpl: typeof fetch = (...args) => fetch(...args)) {}
+
+  async request(method: HttpMethod, path: string, body?: unknown): Promise<HttpResponse> {
+    const response = await this.send(method, path, body);
+    return {
+      status: response.status,
+      body: await readJson(response),
+      header: (name) => response.headers.get(name),
+    };
+  }
+
+  private async send(method: HttpMethod, path: string, body: unknown): Promise<Response> {
+    try {
+      return await this.fetchImpl(`${API_BASE}${path}`, requestInit(method, body));
+    } catch (reason) {
+      throw new NetworkUnavailableError(path, reason);
+    }
+  }
+}
+
+function requestInit(method: HttpMethod, body: unknown): RequestInit {
+  const init: RequestInit = {
+    method,
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+  };
+  if (body === undefined) return init;
+  return {
+    ...init,
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
+async function readJson(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (text === '') return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
+}
