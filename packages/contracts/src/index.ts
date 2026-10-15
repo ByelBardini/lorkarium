@@ -5,3 +5,4 @@ export * from './http/health.dto';
 export * from './campaigns/campaign.dto';
 export * from './campaigns/create-campaign.dto';
 export * from './campaigns/join-campaign.dto';
+export * from './sessions/session.dto';
