@@ -223,17 +223,152 @@ describe('live table session over Socket.IO', () => {
     expect(await dropped).toBe('io server disconnect');
   });
 
-  it('Ana joining QUELM on the connection she used for VHARN makes Bia in VHARN receive memberLeft', async () => {
-    await joinByCode(ana, quelm);
-    const biaEvents = recordEventsOf(await connect(bia));
-    await joined(biaEvents.client, vharn.id);
-    const anaClient = await connect(ana);
-    await joined(anaClient, vharn.id);
-    await joined(anaClient, quelm.id);
-    await biaEvents.until(2);
-    expect(biaEvents.events[1]).toMatchObject({
-      name: 'session:memberLeft',
-      payload: { campaignId: vharn.id, userId: ana.id },
+  describe('several tables on one connection', () => {
+    async function leave(client: RealtimeClient, campaignId: string): Promise<unknown> {
+      return client.timeout(2000).emitWithAck('session:leave', command(campaignId));
+    }
+
+    async function createTablesOf(master: SignedInUser, count: number): Promise<string[]> {
+      const names = Array.from({ length: count }, (_, index) => `Mesa ${index + 2}`);
+      const tables = await Promise.all(names.map((name) => createTable(master, name)));
+      return tables.map(({ id }) => id);
+    }
+
+    it('Ana joining VHARN and then QUELM keeps her in VHARN and announces her in QUELM', async () => {
+      await joinByCode(ana, quelm);
+      const biaEvents = recordEventsOf(await connect(bia));
+      await joined(biaEvents.client, vharn.id);
+      const caioEvents = recordEventsOf(await connect(caio));
+      await joined(caioEvents.client, quelm.id);
+      const anaClient = await connect(ana);
+      expect((await join(anaClient, vharn.id)).ok).toBe(true);
+      expect((await join(anaClient, quelm.id)).ok).toBe(true);
+      await caioEvents.until(1);
+      await silence();
+      expect(namesOf(biaEvents.events)).toEqual(['session:memberJoined']);
+      expect(caioEvents.events).toEqual([
+        {
+          name: 'session:memberJoined',
+          payload: expect.objectContaining({
+            campaignId: quelm.id,
+            member: expect.objectContaining({ userId: ana.id }) as unknown,
+          }) as unknown,
+        },
+      ]);
+    });
+
+    it('the connection of Ana in both tables receives the events of each with its campaignId', async () => {
+      await joinByCode(ana, quelm);
+      const anaEvents = recordEventsOf(await connect(ana));
+      await joined(anaEvents.client, vharn.id);
+      await joined(anaEvents.client, quelm.id);
+      await joined(await connect(bia), vharn.id);
+      await joined(await connect(caio), quelm.id);
+      await anaEvents.until(2);
+      expect(anaEvents.events).toEqual([
+        {
+          name: 'session:memberJoined',
+          payload: expect.objectContaining({ campaignId: vharn.id }) as unknown,
+        },
+        {
+          name: 'session:memberJoined',
+          payload: expect.objectContaining({ campaignId: quelm.id }) as unknown,
+        },
+      ]);
+    });
+
+    it('Caio, only in QUELM, receives nothing when Bia enters VHARN while Ana is in both', async () => {
+      await joinByCode(ana, quelm);
+      const anaEvents = recordEventsOf(await connect(ana));
+      await joined(anaEvents.client, vharn.id);
+      await joined(anaEvents.client, quelm.id);
+      const caioEvents = recordEventsOf(await connect(caio));
+      await joined(caioEvents.client, quelm.id);
+      await joined(await connect(bia), vharn.id);
+      await anaEvents.until(2);
+      await silence();
+      expect(caioEvents.events).toEqual([]);
+    });
+
+    it('Ana leaving VHARN makes Bia receive memberLeft at once, Caio nothing, and QUELM still reaches Ana', async () => {
+      await joinByCode(ana, quelm);
+      const biaEvents = recordEventsOf(await connect(bia));
+      await joined(biaEvents.client, vharn.id);
+      const caioEvents = recordEventsOf(await connect(caio));
+      await joined(caioEvents.client, quelm.id);
+      const anaEvents = recordEventsOf(await connect(ana));
+      await joined(anaEvents.client, vharn.id);
+      await joined(anaEvents.client, quelm.id);
+      expect(await leave(anaEvents.client, vharn.id)).toEqual({ ok: true });
+      await biaEvents.until(2);
+      expect(biaEvents.events[1]).toMatchObject({
+        name: 'session:memberLeft',
+        payload: { campaignId: vharn.id, userId: ana.id },
+      });
+      await leave(caioEvents.client, quelm.id);
+      await anaEvents.until(1);
+      expect(anaEvents.events).toEqual([
+        {
+          name: 'session:memberLeft',
+          payload: expect.objectContaining({ campaignId: quelm.id, userId: caio.id }) as unknown,
+        },
+      ]);
+      expect(namesOf(caioEvents.events)).toEqual(['session:memberJoined']);
+    });
+
+    it('Ana is refused the 6th table with TOO_MANY_TABLES, may re-join an open one, and gets the 6th after leaving one', async () => {
+      const [fifth, sixth, ...others] = [vharn.id, ...(await createTablesOf(ana, 5))].reverse();
+      if (!fifth || !sixth) throw new Error(`expected 6 tables, got ${others.length + 2}`);
+      const anaClient = await connect(ana);
+      for (const id of [...others, fifth]) await joined(anaClient, id);
+      expect(await join(anaClient, sixth)).toEqual({
+        ok: false,
+        error: { code: 'TOO_MANY_TABLES', message: 'Too many open tables' },
+      });
+      expect((await join(anaClient, fifth)).ok).toBe(true);
+      await leave(anaClient, fifth);
+      expect((await join(anaClient, sixth)).ok).toBe(true);
+    });
+
+    // Ten, not six: with six the joins rarely overlap enough to expose a check made after the await.
+    it('ten joins emitted without waiting for the acks admit exactly five and refuse five with TOO_MANY_TABLES', async () => {
+      const ids = [vharn.id, ...(await createTablesOf(ana, 9))];
+      const anaClient = await connect(ana);
+      const acks = await Promise.all(ids.map((id) => join(anaClient, id)));
+      const refused = acks.filter((ack) => !ack.ok);
+      expect(refused).toHaveLength(5);
+      expect(refused[0]).toEqual({
+        ok: false,
+        error: { code: 'TOO_MANY_TABLES', message: 'Too many open tables' },
+      });
+    });
+
+    it('a refused join of a table Ana is not a member of does not take one of her slots', async () => {
+      const [fifth, ...four] = [vharn.id, ...(await createTablesOf(ana, 4))];
+      if (!fifth) throw new Error(`expected 5 tables, got ${four.length}`);
+      const anaClient = await connect(ana);
+      for (const id of four) await joined(anaClient, id);
+      expect(await join(anaClient, quelm.id)).toMatchObject({
+        ok: false,
+        error: { code: 'CAMPAIGN_NOT_FOUND' },
+      });
+      expect((await join(anaClient, fifth)).ok).toBe(true);
+    });
+
+    it('the connection of Ana in VHARN and QUELM dropping makes neither Bia nor Caio receive memberLeft', async () => {
+      await joinByCode(ana, quelm);
+      const biaEvents = recordEventsOf(await connect(bia));
+      await joined(biaEvents.client, vharn.id);
+      const caioEvents = recordEventsOf(await connect(caio));
+      await joined(caioEvents.client, quelm.id);
+      const anaClient = await connect(ana);
+      await joined(anaClient, vharn.id);
+      await joined(anaClient, quelm.id);
+      await caioEvents.until(1);
+      anaClient.close();
+      await silence();
+      expect(namesOf(biaEvents.events)).toEqual(['session:memberJoined']);
+      expect(namesOf(caioEvents.events)).toEqual(['session:memberJoined']);
     });
   });
 });

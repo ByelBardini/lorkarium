@@ -4,6 +4,7 @@ import {
   type SessionCommandDto,
   type SessionJoinAckDto,
   type SessionLeaveAckDto,
+  type SessionStateDto,
 } from '@lorkarium/contracts';
 import type { FastifyBaseLogger } from 'fastify';
 import { ZodError } from 'zod';
@@ -11,6 +12,7 @@ import { invalidBodyError } from '../../lib/invalid-body';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
 import { campaignRoom } from '../../realtime/rooms';
 import { CampaignError } from '../campaigns/campaigns.error';
+import type { ConnectionTablesChange } from './connection-tables.bo';
 import { SessionEndedError, SessionError } from './sessions.error';
 import type { TableSessionService } from './sessions.service';
 
@@ -28,10 +30,12 @@ type AckOf<T> = (answer: T | SessionAckFailure) => void;
 const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   CAMPAIGN_NOT_FOUND: 'Campaign not found',
   UNAUTHENTICATED: 'A valid session is required',
+  TOO_MANY_TABLES: 'Too many open tables',
 };
 
 /** Socket.IO edge of the live table session: validates the command, re-reads the session of the
- *  connection, delegates to the service and answers in the ack. One table per connection.
+ *  connection, delegates to the service and answers in the ack. A connection may be in up to
+ *  `MAX_OPEN_TABLES` tables, one room each.
  *
  *  Example: `realtime.onConnection(createSessionsGateway({ service, realtime, log }))` */
 export function createSessionsGateway(deps: SessionsGatewayDeps): (socket: RealtimeSocket) => void {
@@ -42,9 +46,11 @@ export function createSessionsGateway(deps: SessionsGatewayDeps): (socket: Realt
     socket.on('session:leave', (payload, ack) => {
       void answer(deps, socket, ack, () => leaveTable(deps, socket, payload));
     });
-    socket.on('disconnect', () => dropTable(deps, socket));
+    socket.on('disconnect', () => dropTables(deps, socket));
   };
 }
+
+type TableCommand = Readonly<{ userId: string; campaignId: string }>;
 
 async function joinTable(
   deps: SessionsGatewayDeps,
@@ -52,17 +58,36 @@ async function joinTable(
   payload: unknown,
 ): Promise<Extract<SessionJoinAckDto, { ok: true }>> {
   const { campaignId, userId } = await commandOf(deps, socket, payload);
-  const state = await deps.service.join(userId, campaignId, socket.id);
+  const admission = deps.service.admitTable(socket.data.campaignIds, campaignId);
+  // Reserved before the await: six joins at once must not all pass the limit check.
+  socket.data.campaignIds = admission.tables;
+  const state = await joinOrRelease(deps, socket, { userId, campaignId }, admission.change);
   // The socket may have gone while the roster was read; it must not stay online in the roster.
   if (socket.disconnected) {
     deps.service.drop(userId, campaignId, socket.id);
     return { ok: true, state };
   }
-  const previous = socket.data.campaignId;
-  if (previous && previous !== campaignId) leaveRoom(deps, socket, userId, previous);
+  // A leave of this table arrived while the roster was read: it already gave the slot back.
+  if (!socket.data.campaignIds.has(campaignId)) {
+    deps.service.leave(userId, campaignId, socket.id);
+    return { ok: true, state };
+  }
   await socket.join(campaignRoom(campaignId));
-  socket.data.campaignId = campaignId;
   return { ok: true, state };
+}
+
+async function joinOrRelease(
+  deps: SessionsGatewayDeps,
+  socket: RealtimeSocket,
+  { userId, campaignId }: TableCommand,
+  change: ConnectionTablesChange,
+): Promise<SessionStateDto> {
+  try {
+    return await deps.service.join(userId, campaignId, socket.id);
+  } catch (error) {
+    if (change === 'admitted') releaseSlot(deps, socket, campaignId);
+    throw error;
+  }
 }
 
 async function leaveTable(
@@ -71,25 +96,26 @@ async function leaveTable(
   payload: unknown,
 ): Promise<Extract<SessionLeaveAckDto, { ok: true }>> {
   const { campaignId, userId } = await commandOf(deps, socket, payload);
-  if (socket.data.campaignId === campaignId) leaveRoom(deps, socket, userId, campaignId);
+  if (!releaseSlot(deps, socket, campaignId)) return { ok: true };
+  // Out of the room first, so the one leaving does not hear their own memberLeft.
+  void socket.leave(campaignRoom(campaignId));
+  deps.service.leave(userId, campaignId, socket.id);
   return { ok: true };
 }
 
-// Out of the room first, so the one leaving does not hear their own memberLeft.
-function leaveRoom(
+function releaseSlot(
   deps: SessionsGatewayDeps,
   socket: RealtimeSocket,
-  userId: string,
   campaignId: string,
-): void {
-  void socket.leave(campaignRoom(campaignId));
-  socket.data.campaignId = null;
-  deps.service.leave(userId, campaignId, socket.id);
+): boolean {
+  const release = deps.service.releaseTable(socket.data.campaignIds, campaignId);
+  socket.data.campaignIds = release.tables;
+  return release.change === 'released';
 }
 
-function dropTable(deps: SessionsGatewayDeps, socket: RealtimeSocket): void {
-  const { campaignId, user } = socket.data;
-  if (campaignId) deps.service.drop(user.id, campaignId, socket.id);
+function dropTables(deps: SessionsGatewayDeps, socket: RealtimeSocket): void {
+  const { campaignIds, user } = socket.data;
+  for (const campaignId of campaignIds) deps.service.drop(user.id, campaignId, socket.id);
 }
 
 async function commandOf(
