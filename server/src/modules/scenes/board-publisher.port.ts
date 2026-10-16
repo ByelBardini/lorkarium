@@ -9,6 +9,7 @@ import type {
   SceneUpdatedDto,
   TokenCreatedDto,
   TokenDeletedDto,
+  TokenDraggedDto,
   TokenMovedDto,
   TokenUpdatedDto,
 } from '@lorkarium/contracts';
@@ -28,6 +29,8 @@ export interface BoardPublisherPort {
   sceneUpdated(event: SceneUpdatedDto): void;
   tokenChanged(change: TokenChange): void;
   tokenMoved(event: TokenMovedDto): void;
+  /** A drag preview: nothing was saved. `exceptConnectionId` is the dragger, who draws it locally. */
+  tokenDragged(event: TokenDraggedDto, exceptConnectionId: string): void;
   tokenDeleted(event: TokenDeletedDto): void;
   conditionDefined(event: ConditionDefinedDto): void;
   conditionApplied(event: ConditionAppliedDto): void;

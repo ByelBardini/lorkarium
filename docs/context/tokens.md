@@ -34,8 +34,15 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 | `token:create`    | mestre                | `token:created` `{ token }` (por público) |
 | `token:update`    | mestre                | `token:updated` `{ token }` (por público) |
 | `token:move`      | mestre, quem controla | `token:moved` `{ tokenId, col, row }`     |
+| `token:drag`      | mestre, quem controla | `token:dragged` `{ tokenId, cell }`       |
 | `token:adjustBar` | mestre, quem controla | `token:updated` `{ token }` (por público) |
 | `token:delete`    | mestre                | `token:deleted` `{ tokenId }`             |
+
+## Arraste ao vivo (`token:drag`)
+
+- `TokensService.drag(userId, campaignId, { tokenId, cell }, connectionId)`: participação → cena ativa (`findActiveOf`, **sem trava**) → token da cena → `requireControl('drag')` → `place` se houver casa (`OUT_OF_SCENE`). **Não grava nem soma versão**; o ack devolve a versão atual. Publica `token:dragged` à mesa **exceto a conexão de quem arrasta** (`BoardPublisherPort.tokenDragged(evento, exceptConnectionId)`; o gateway passa `socket.id`, que é uma sala do Socket.IO). `cell: null` = arraste encerrado sem mover.
+- A ordem é do client: ele só manda o próximo `token:drag` (e o `token:move` final) depois do ack do anterior, e o server publica antes de responder — assim o `token:moved` é a última palavra.
+- Conta no limite de frequência como qualquer comando; o client manda no máximo 10/s.
 
 ## Testes
 

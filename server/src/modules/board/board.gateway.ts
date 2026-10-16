@@ -7,6 +7,7 @@ import {
   createTokenCommandDto,
   defineConditionCommandDto,
   deleteTokenCommandDto,
+  dragTokenCommandDto,
   endCombatCommandDto,
   moveInTieCommandDto,
   moveTokenCommandDto,
@@ -44,7 +45,7 @@ import { CommandRateBo, fullBucket, type CommandBucket } from './command-rate.bo
 export type BoardGatewayDeps = Readonly<{
   board: BoardService;
   scenes: Pick<ScenesService, 'configure'>;
-  tokens: Pick<TokensService, 'create' | 'update' | 'move' | 'adjustBar' | 'delete'>;
+  tokens: Pick<TokensService, 'create' | 'update' | 'move' | 'drag' | 'adjustBar' | 'delete'>;
   conditions: Pick<ConditionsService, 'define' | 'apply' | 'remove'>;
   combat: Pick<
     CombatService,
@@ -114,6 +115,12 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     socket.on('token:create', mutate(createTokenCommandDto, tokens.create.bind(tokens)));
     socket.on('token:update', mutate(updateTokenCommandDto, tokens.update.bind(tokens)));
     socket.on('token:move', mutate(moveTokenCommandDto, tokens.move.bind(tokens)));
+    socket.on(
+      'token:drag',
+      bind(dragTokenCommandDto, (userId, command) =>
+        versionOf(tokens.drag(userId, command.campaignId, command, socket.id)),
+      ),
+    );
     socket.on('token:adjustBar', mutate(adjustBarCommandDto, tokens.adjustBar.bind(tokens)));
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
     socket.on(
