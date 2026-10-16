@@ -1,5 +1,6 @@
 import type { AuthUserDto, LoginRequestDto } from '@lorkarium/contracts';
 import type { AuthApi, AuthResult } from '@/services/auth-api';
+import { CallJournal } from './call-journal';
 
 export const ANA: AuthUserDto = {
   id: '7d0f8c39-2b8e-4f4e-9d1a-5c6b7a8e9f01',
@@ -25,7 +26,8 @@ function pending<T>(): Pending<T> {
   return { promise, resolve };
 }
 
-/** Scripted `AuthApi`: each call answers what the test set, or waits until the test releases it. */
+/** Scripted `AuthApi`: each call answers what the test set, or waits until the test releases it.
+ *  `logout` writes `logout` to the journal. */
 export class AuthApiFake implements AuthApi {
   readonly loginCalls: LoginRequestDto[] = [];
   logoutCalls = 0;
@@ -37,6 +39,8 @@ export class AuthApiFake implements AuthApi {
     ok: true,
     value: null,
   };
+
+  constructor(private readonly journal: CallJournal = new CallJournal()) {}
 
   answerLoginWith(result: AuthResult<AuthUserDto>): this {
     this.loginAnswer = result;
@@ -72,6 +76,7 @@ export class AuthApiFake implements AuthApi {
 
   async logout(): Promise<AuthResult<null>> {
     this.logoutCalls += 1;
+    this.journal.entries.push('logout');
     return { ok: true, value: null };
   }
 }
