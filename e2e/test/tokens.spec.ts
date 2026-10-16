@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+import { test } from './support/player-pages';
 import { BIA, CAIO } from './support/dev-players';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
@@ -65,13 +66,13 @@ async function cellCenterOf(
 }
 
 test('tokens live: the hidden bar never reaches another player, only the controller moves, and an F5 keeps it all', async ({
-  browser,
+  newPlayerPage,
 }) => {
   test.setTimeout(90_000);
   const name = `Mesa tokens ${Date.now()}`;
-  const admin = await (await browser.newContext()).newPage();
-  const bia = await (await browser.newContext()).newPage();
-  const caio = await (await browser.newContext()).newPage();
+  const admin = await newPlayerPage();
+  const bia = await newPlayerPage();
+  const caio = await newPlayerPage();
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   for (const [page, who] of [
@@ -104,7 +105,7 @@ test('tokens live: the hidden bar never reaches another player, only the control
   await caio.keyboard.press('ArrowLeft');
   await expect(statusOf(caio)).toContainText('Esse token não é seu.');
 
-  const pv = bia.getByLabel('PV de Lyra');
+  const pv = bia.getByRole('textbox', { name: 'PV de Lyra' });
   await pv.fill('−50');
   await pv.press('Enter');
   await expect(cardOf(admin, 'Lyra')).toContainText('−40 / 10');

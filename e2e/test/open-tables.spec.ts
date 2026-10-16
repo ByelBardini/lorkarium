@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+import { test } from './support/player-pages';
 import { BIA } from './support/dev-players';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
@@ -17,14 +18,14 @@ function openTablesOf(page: Page): Locator {
 }
 
 test('Bia stays online at two tables at once, an F5 keeps her there, and leaving from the rail takes her out of one', async ({
-  browser,
+  newPlayerPage,
 }) => {
   // It waits out the grace period on purpose; the 30 s default leaves no room on a cold client.
   test.setTimeout(60_000);
   const stamp = Date.now();
   const [tableA, tableB] = [`Mesa A ${stamp}`, `Mesa B ${stamp}`];
-  const admin = await (await browser.newContext()).newPage();
-  const bia = await (await browser.newContext()).newPage();
+  const admin = await newPlayerPage();
+  const bia = await newPlayerPage();
   await signIn(admin, adminCredentials());
   const codeA = await createTableAndReadCode(admin, tableA);
   const codeB = await createTableAndReadCode(admin, tableB);

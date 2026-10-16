@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './support/player-pages';
 import { BIA } from './support/dev-players';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
@@ -22,11 +23,11 @@ async function configureGrid(master: Page, width: string, height: string): Promi
 }
 
 test('the room fills the screen, the grid changes live for everyone, the camera moves and an F5 keeps the grid', async ({
-  browser,
+  newPlayerPage,
 }) => {
   const name = `Mesa tabuleiro ${Date.now()}`;
-  const admin = await (await browser.newContext()).newPage();
-  const bia = await (await browser.newContext()).newPage();
+  const admin = await newPlayerPage();
+  const bia = await newPlayerPage();
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await enterFromTheList(admin, name);
@@ -45,6 +46,8 @@ test('the room fills the screen, the grid changes live for everyone, the camera 
   await configureGrid(admin, '30', '20');
   await expect(boardOf(bia)).toHaveAccessibleName('Tabuleiro: Cena 1, 30 × 20 casas');
 
+  // A new grid keeps the camera where it was: frame the bigger scene before reading its zoom.
+  await admin.getByRole('button', { name: 'Enquadrar cena (0)' }).click();
   const before = await zoomLabelOf(admin).textContent();
   await adminBoard.hover();
   await admin.keyboard.down('Control');

@@ -1,10 +1,16 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+import { test } from './support/player-pages';
 import { BIA, CAIO } from './support/dev-players';
 import { adminCredentials, signIn } from './support/sign-in';
 import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
 
 function order(page: Page): Locator {
   return page.getByRole('list', { name: 'Ordem de iniciativa' }).getByRole('listitem');
+}
+
+// The row's button is named after the token, then its conditions ("Lyra 1 condição: Atordoado").
+function rowOf(page: Page, name: string): Locator {
+  return order(page).getByRole('button', { name: new RegExp(`^${name}`) });
 }
 
 function turnLine(page: Page): Locator {
@@ -31,13 +37,13 @@ async function setInitiative(page: Page, name: string, value: string): Promise<v
 }
 
 test('a whole combat: order, turns, rounds, a condition that expires, passing the turn, a tie and an F5', async ({
-  browser,
+  newPlayerPage,
 }) => {
   test.setTimeout(120_000);
   const name = `Mesa combate ${Date.now()}`;
-  const admin = await (await browser.newContext()).newPage();
-  const bia = await (await browser.newContext()).newPage();
-  const caio = await (await browser.newContext()).newPage();
+  const admin = await newPlayerPage();
+  const bia = await newPlayerPage();
+  const caio = await newPlayerPage();
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   for (const [page, who] of [
@@ -67,11 +73,13 @@ test('a whole combat: order, turns, rounds, a condition that expires, passing th
     await expect(order(page)).toHaveText([/Kael/, /Lyra/, /Goblin/]);
   }
 
-  await order(admin).filter({ hasText: 'Lyra' }).getByRole('button', { name: 'Lyra' }).click();
+  await rowOf(admin, 'Lyra').click();
   await admin.getByLabel('Adicionar condição').selectOption('Atordoado');
   await admin.getByLabel('Rodadas').fill('1');
   await admin.getByRole('button', { name: 'Aplicar' }).click();
   await expect(order(caio).filter({ hasText: 'Lyra' })).toContainText('Atordoado');
+  // Closed again: the open card lists every condition of the table in its select.
+  await rowOf(admin, 'Lyra').click();
 
   await expect(caio.getByRole('button', { name: 'Passar a vez' })).toHaveCount(0);
   await bia.getByRole('button', { name: 'Passar a vez' }).click();

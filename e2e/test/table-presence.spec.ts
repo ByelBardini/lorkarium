@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './support/player-pages';
 import { BIA } from './support/dev-players';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
@@ -10,11 +11,11 @@ import {
 } from './support/tables';
 
 test('two people at the same table see each other online, and a closed page goes offline', async ({
-  browser,
+  newPlayerPage,
 }) => {
   const name = `Mesa ao vivo ${Date.now()}`;
-  const admin = await (await browser.newContext()).newPage();
-  const bia = await (await browser.newContext()).newPage();
+  const admin = await newPlayerPage();
+  const bia = await newPlayerPage();
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
 

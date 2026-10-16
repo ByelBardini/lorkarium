@@ -1,4 +1,6 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type BrowserContext, type Page } from '@playwright/test';
+
+type SessionCookies = Awaited<ReturnType<BrowserContext['cookies']>>;
 
 export type Credentials = Readonly<{ email: string; password: string }>;
 
@@ -16,10 +18,24 @@ export function adminCredentials(): Credentials {
   return { email, password };
 }
 
-/** Signs in through the login screen and waits for the signed-in shell.
+// The login allows 5 attempts a minute per IP and e-mail, and every spec signs the admin in:
+// one real login per worker and e-mail, then the session cookie is reused.
+const sessionsByEmail = new Map<string, SessionCookies>();
+
+/** Signs in (through the login screen the first time, by the saved session cookie after that)
+ *  and waits for the signed-in shell.
  *
  *  Example: `await signIn(page, BIA)` */
-export async function signIn(page: Page, { email, password }: Credentials): Promise<void> {
+export async function signIn(page: Page, credentials: Credentials): Promise<void> {
+  const saved = sessionsByEmail.get(credentials.email);
+  if (saved) await page.context().addCookies(saved);
+  else await signInThroughTheForm(page, credentials);
+  await page.goto('/');
+  await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible();
+  sessionsByEmail.set(credentials.email, await page.context().cookies());
+}
+
+async function signInThroughTheForm(page: Page, { email, password }: Credentials): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('E-mail').fill(email);
   await page.getByLabel('Senha', { exact: true }).fill(password);
