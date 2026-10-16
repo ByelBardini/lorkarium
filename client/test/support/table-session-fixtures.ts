@@ -1,9 +1,16 @@
 import type {
+  ActiveConditionDto,
+  BoardStateDto,
+  CombatDto,
+  SceneDto,
+  SceneUpdatedDto,
   SessionMemberDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
   SessionStateDto,
+  TokenDto,
 } from '@lorkarium/contracts';
+import type { BoardEvent } from '@/services/board-events';
 import { ANA } from './auth-api-fake';
 import { VHARN } from './campaigns-api-fake';
 
@@ -62,3 +69,163 @@ export function biaJoined(overrides: Partial<SessionMemberJoinedDto> = {}): Sess
 export function biaLeft(overrides: Partial<SessionMemberLeftDto> = {}): SessionMemberLeftDto {
   return { campaignId: VHARN.id, version: 3, userId: BIA_AT_TABLE.userId, at: AT, ...overrides };
 }
+
+export const VHARN_SCENE: SceneDto = {
+  id: '7d3c2b1a-0f9e-4d8c-b7a6-5e4d3c2b1a0f',
+  name: 'Cena 1',
+  widthCells: 20,
+  heightCells: 12,
+  cellDistance: 1.5,
+  cellUnit: 'm',
+  gridVisible: true,
+  gridOpacity: 30,
+};
+
+/** The VHARN board as Ana (master) sees it at version 4: the empty default scene, no combat.
+ *
+ *  Example: `vharnBoard({ version: 7, viewer: { userId: BIA_AT_TABLE.userId, role: 'player' } })` */
+export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDto {
+  return {
+    campaignId: VHARN.id,
+    version: 4,
+    at: AT,
+    viewer: { userId: ANA.id, role: 'master' },
+    scene: VHARN_SCENE,
+    tokens: [],
+    combat: null,
+    conditionDefinitions: [],
+    ...overrides,
+  };
+}
+
+/** `scene:updated` of VHARN with a 30×20 grid, one version after `vharnBoard()`.
+ *
+ *  Example: `sceneUpdated({ version: 6 })` */
+export function sceneUpdated(overrides: Partial<SceneUpdatedDto> = {}): SceneUpdatedDto {
+  return {
+    campaignId: VHARN.id,
+    version: 5,
+    at: AT,
+    scene: { ...VHARN_SCENE, widthCells: 30, heightCells: 20 },
+    ...overrides,
+  };
+}
+
+export const LYRA_ID = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
+export const LYRA_PV_ID = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
+
+/** Lyra, Bia's ally at (3, 4), as the master (privileged) sees it: hidden PV 32/45 and
+ *  Inspiração 1/1.
+ *
+ *  Example: `lyra({ canControl: false, bars: [] })` */
+export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
+  return {
+    id: LYRA_ID,
+    name: 'Lyra',
+    initials: 'LY',
+    side: 'ally',
+    size: 1,
+    col: 3,
+    row: 4,
+    controllerIds: [BIA_AT_TABLE.userId],
+    canControl: true,
+    bars: [
+      {
+        id: LYRA_PV_ID,
+        position: 0,
+        label: 'PV',
+        current: 32,
+        max: 45,
+        color: 'ember',
+        visibility: 'controllers',
+      },
+      {
+        id: 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e',
+        position: 1,
+        label: 'Inspiração',
+        current: 1,
+        max: 1,
+        color: 'gold',
+        visibility: 'everyone',
+      },
+    ],
+    conditions: [],
+    ...overrides,
+  };
+}
+
+/** `token:created` of `token` at VHARN, as a board event.
+ *
+ *  Example: `tokenCreatedAt(5, lyra())` */
+export function tokenCreatedAt(version: number, token: TokenDto): BoardEvent {
+  return { type: 'tokenCreated', payload: { campaignId: VHARN.id, version, at: AT, token } };
+}
+
+/** `token:updated` of `token` at VHARN, as a board event. */
+export function tokenUpdatedAt(version: number, token: TokenDto): BoardEvent {
+  return { type: 'tokenUpdated', payload: { campaignId: VHARN.id, version, at: AT, token } };
+}
+
+/** `token:moved` of Lyra (unless told otherwise) at VHARN, as a board event.
+ *
+ *  Example: `tokenMovedAt(6, { col: 8, row: 6 })` */
+export function tokenMovedAt(
+  version: number,
+  { col, row, tokenId = LYRA_ID }: Readonly<{ col: number; row: number; tokenId?: string }>,
+): BoardEvent {
+  return {
+    type: 'tokenMoved',
+    payload: { campaignId: VHARN.id, version, at: AT, tokenId, col, row },
+  };
+}
+
+/** `token:deleted` of `tokenId` at VHARN, as a board event. */
+export function tokenDeletedAt(version: number, tokenId = LYRA_ID): BoardEvent {
+  return {
+    type: 'tokenDeleted',
+    payload: { campaignId: VHARN.id, version, at: AT, tokenId, combat: null },
+  };
+}
+
+export const KAEL_COMBATANT = 'c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c';
+export const LYRA_COMBATANT = 'c2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d';
+
+/** A combat at VHARN: round 1, Kael (18) on turn, then Lyra (14).
+ *
+ *  Example: `vharnCombat({ round: 3 })` */
+export function vharnCombat(overrides: Partial<CombatDto> = {}): CombatDto {
+  return {
+    id: 'c3c4d5e6-f7a8-4b9c-8d1e-2f3a4b5c6d7e',
+    round: 1,
+    currentCombatantId: KAEL_COMBATANT,
+    combatants: [
+      { id: KAEL_COMBATANT, tokenId: 'kael-token', initiative: 18, tieOrder: 0 },
+      { id: LYRA_COMBATANT, tokenId: LYRA_ID, initiative: 14, tieOrder: 1 },
+    ],
+    ...overrides,
+  };
+}
+
+/** A condition active on a token. */
+export function activeCondition(overrides: Partial<ActiveConditionDto> = {}): ActiveConditionDto {
+  return {
+    id: 'a4d5e6f7-a8b9-4c0d-9e2f-3a4b5c6d7e8f',
+    conditionId: 'd5e6f7a8-b9c0-4d1e-8f3a-4b5c6d7e8f90',
+    name: 'Envenenado',
+    tone: 'harm',
+    remainingRounds: 2,
+    ...overrides,
+  };
+}
+
+/** Any board event of VHARN at `version`, built from its type and the fields of its payload. */
+export function eventAt(version: number, event: DistributiveOmit<BoardEvent>): BoardEvent {
+  return {
+    ...event,
+    payload: { ...event.payload, campaignId: VHARN.id, version, at: AT },
+  } as BoardEvent;
+}
+
+type DistributiveOmit<E> = E extends { type: infer T; payload: infer P }
+  ? { type: T; payload: Omit<P, 'campaignId' | 'version' | 'at'> }
+  : never;

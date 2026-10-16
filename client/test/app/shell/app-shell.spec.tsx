@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppShell } from '@/app/shell/app-shell';
+import { COMPACT_RAIL_HANDLE } from '@/app/shell/rail-handle';
 import { createOpenTablesStore, type OpenTablesStore } from '@/stores/open-tables-store';
-import { createRailStore, type RailStore } from '@/stores/rail-store';
+import { RAIL_STORAGE_KEY, createRailStore, type RailStore } from '@/stores/rail-store';
 import type { StoreApi } from 'zustand/vanilla';
 import { ANA } from '../../support/auth-api-fake';
 import { QUELM, VHARN } from '../../support/campaigns-api-fake';
@@ -13,17 +14,19 @@ import { TableSessionApiFake } from '../../support/table-session-api-fake';
 import { biaJoined, vharnState } from '../../support/table-session-fixtures';
 
 describe('AppShell', () => {
+  let railStorage: StorageFake;
   let railStore: StoreApi<RailStore>;
   let tableSessionApi: TableSessionApiFake;
   let openTables: StoreApi<OpenTablesStore>;
 
   beforeEach(() => {
-    railStore = createRailStore(new StorageFake());
+    railStorage = new StorageFake();
+    railStore = createRailStore(railStorage);
     tableSessionApi = new TableSessionApiFake();
     openTables = createOpenTablesStore({ api: tableSessionApi, storage: new StorageFake() });
   });
 
-  function renderShellAt(path: string): void {
+  function renderShellAt(path: string): ReturnType<typeof createMemoryRouter> {
     const shell = (): React.JSX.Element => (
       <AppShell
         railStore={railStore}
@@ -39,13 +42,18 @@ describe('AppShell', () => {
           children: [
             { index: true, element: <h1>Conteúdo das mesas</h1> },
             { path: 'outra', element: <h1>Outra página</h1> },
-            { path: 'campaigns/:campaignId/table', element: <h1>Tela da mesa</h1> },
+            {
+              path: 'campaigns/:campaignId/table',
+              handle: COMPACT_RAIL_HANDLE,
+              element: <h1>Tela da mesa</h1>,
+            },
           ],
         },
       ],
       { initialEntries: [path] },
     );
     render(<RouterProvider router={router} />);
+    return router;
   }
 
   function rail(): HTMLElement {
@@ -100,6 +108,35 @@ describe('AppShell', () => {
     const link = within(rail()).getByRole('link', { name: 'Mesas' });
     expect(link.className).not.toMatch(/=>|isActive/);
     expect(link.className.split(' ')).toContain('justify-center');
+  });
+
+  describe('compact rail on the play room', () => {
+    it('at a table the names go sr-only, there is no toggle and the stored preference stays expanded', async () => {
+      railStore.getState().toggle();
+      railStore.getState().toggle();
+      renderShellAt(`/campaigns/${VHARN.id}/table`);
+      await screen.findByRole('heading', { name: 'Tela da mesa' });
+      const mesas = within(rail()).getByRole('link', { name: 'Mesas' });
+      expect(within(mesas).getByText('Mesas')).toHaveClass('sr-only');
+      expect(within(rail()).queryByRole('button', { name: /menu$/ })).not.toBeInTheDocument();
+      expect(railStorage.values.get(RAIL_STORAGE_KEY)).toBe('expanded');
+    });
+
+    it('going back to / shows the rail expanded as it was', async () => {
+      const router = renderShellAt(`/campaigns/${VHARN.id}/table`);
+      await screen.findByRole('heading', { name: 'Tela da mesa' });
+      await act(() => router.navigate('/'));
+      expect(await screen.findByRole('button', { name: 'Recolher menu' })).toBeInTheDocument();
+      expect(within(rail()).getByText('Mesas')).not.toHaveClass('sr-only');
+    });
+
+    it('with the preference collapsed, the table keeps the rail collapsed and the preference', async () => {
+      railStore.getState().toggle();
+      renderShellAt(`/campaigns/${VHARN.id}/table`);
+      await screen.findByRole('heading', { name: 'Tela da mesa' });
+      expect(within(rail()).getByText('Mesas')).toHaveClass('sr-only');
+      expect(railStore.getState().rail).toBe('collapsed');
+    });
   });
 
   describe('open tables', () => {

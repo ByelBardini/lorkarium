@@ -1,12 +1,15 @@
 import type { AppDependencies } from '@/app/router';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore } from '@/stores/rail-store';
+import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { createSessionStore } from '@/stores/session-store';
 import { AuthApiFake } from './auth-api-fake';
+import { BoardRenderersFake } from './board-renderer-fake';
 import { CallJournal } from './call-journal';
 import { CampaignsApiFake } from './campaigns-api-fake';
 import { ClipboardFake } from './clipboard-fake';
 import { StorageFake } from './storage-fake';
+import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
 
 export type TestDependencies = AppDependencies & {
@@ -17,6 +20,11 @@ export type TestDependencies = AppDependencies & {
   tableSessionApi: TableSessionApiFake;
   /** The `sessionStorage` under `openTables`. */
   tabStorage: StorageFake;
+  /** The `localStorage` under `roomLayout`. */
+  roomLayoutStorage: StorageFake;
+  /** Every board renderer the room created, behind `createBoardRenderer`. */
+  boardRenderers: BoardRenderersFake;
+  boardCommands: TableBoardCommandsFake;
   /** Where the auth and table session fakes write, in call order. */
   journal: CallJournal;
 };
@@ -31,6 +39,8 @@ export function testDependencies(): TestDependencies {
   const journal = new CallJournal();
   const tableSessionApi = new TableSessionApiFake(journal);
   const tabStorage = new StorageFake();
+  const roomLayoutStorage = new StorageFake();
+  const boardRenderers = new BoardRenderersFake();
   return {
     journal,
     authApi: new AuthApiFake(journal),
@@ -38,9 +48,14 @@ export function testDependencies(): TestDependencies {
     clipboard: new ClipboardFake(),
     tableSessionApi,
     tabStorage,
+    roomLayoutStorage,
+    boardRenderers,
+    createBoardRenderer: boardRenderers.create,
+    boardCommands: new TableBoardCommandsFake(),
     openTables: createOpenTablesStore({ api: tableSessionApi, storage: tabStorage }),
     sessionStore: createSessionStore(),
     railStore: createRailStore(new StorageFake()),
+    roomLayout: createRoomLayoutStore(roomLayoutStorage),
     now: () => TEST_NOW,
     random: () => 0,
   };

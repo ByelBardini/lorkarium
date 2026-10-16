@@ -16,6 +16,8 @@ import { CallJournal } from './call-journal';
 export class TableSessionApiFake implements TableSessionApi {
   readonly opened: string[] = [];
   readonly closedIds: string[] = [];
+  /** Each `resync()` the stores asked for, by table. */
+  readonly resyncedIds: string[] = [];
   private listener: TableSessionListener | null = null;
   private readonly listeners = new Map<string, TableSessionListener>();
 
@@ -33,6 +35,9 @@ export class TableSessionApiFake implements TableSessionApi {
       close: () => {
         this.closedIds.push(campaignId);
         this.journal.entries.push(`close:${campaignId}`);
+      },
+      resync: () => {
+        this.resyncedIds.push(campaignId);
       },
     };
   }

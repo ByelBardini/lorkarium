@@ -96,7 +96,12 @@ describe('RealtimeTableSessionApi', () => {
       { kind: 'state', state: vharnState({ version: 4 }) },
       { kind: 'status', status: 'live' },
     ]);
-    expect(transport.sent.map(({ event }) => event)).toEqual(['session:join', 'session:join']);
+    expect(transport.sent.map(({ event }) => event)).toEqual([
+      'session:join',
+      'board:sync',
+      'session:join',
+      'board:sync',
+    ]);
   });
 
   it('closing sends session:leave and disconnects; later events no longer reach the listener', async () => {
