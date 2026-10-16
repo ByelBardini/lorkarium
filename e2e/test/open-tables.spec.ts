@@ -31,7 +31,7 @@ test('Bia stays online at two tables at once, an F5 keeps her there, and leaving
 
   await signIn(bia, BIA);
   await joinByCodeAndEnter(bia, codeA);
-  await bia.getByRole('link', { name: 'Voltar para as mesas' }).click();
+  await bia.getByRole('link', { name: 'Mesas', exact: true }).click();
   await joinByCodeAndEnter(bia, codeB);
   await enterFromTheList(admin, tableA);
 

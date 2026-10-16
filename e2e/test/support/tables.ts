@@ -3,7 +3,22 @@ import { expect, type Locator, type Page } from '@playwright/test';
 // Above the 5 s grace period of a dropped connection, with room for the CI runner.
 export const GRACE_AND_MARGIN_MS = 10_000;
 
-/** The row of `name` in the "Na mesa" panel of the table on screen.
+/** The board of the play room on screen, named after its scene ("Tabuleiro: Cena 1, 20 × 12 casas").
+ *
+ *  Example: `await expect(boardOf(bia)).toHaveAccessibleName(/30 × 20 casas/)` */
+export function boardOf(page: Page): Locator {
+  return page.getByRole('application', { name: /^Tabuleiro/ });
+}
+
+/** Waits for the room's board, then opens the "Na mesa" tab, where the presence is.
+ *
+ *  Example: `await openRoomPeople(admin); await expect(presenceOf(admin, 'Bia')).toContainText(/online$/)` */
+export async function openRoomPeople(page: Page): Promise<void> {
+  await expect(boardOf(page)).toBeVisible();
+  await page.getByRole('tab', { name: 'Na mesa' }).click();
+}
+
+/** The row of `name` in the "Na mesa" tab of the room on screen (open it with `openRoomPeople`).
  *
  *  Example: `await expect(presenceOf(admin, 'Bia')).toContainText(/online$/)` */
 export function presenceOf(page: Page, name: string): Locator {
@@ -30,7 +45,7 @@ export async function createTableAndReadCode(admin: Page, name: string): Promise
   return text;
 }
 
-/** From the home: joins a table by its code and opens it.
+/** From the home: joins a table by its code and opens it on the "Na mesa" tab.
  *
  *  Example: `await joinByCodeAndEnter(bia, code)` */
 export async function joinByCodeAndEnter(player: Page, code: string): Promise<void> {
@@ -40,14 +55,15 @@ export async function joinByCodeAndEnter(player: Page, code: string): Promise<vo
   await join.getByRole('button', { name: 'Entrar', exact: true }).click();
   // Inside the detail dialog: the "Continuar" band behind it has an "Entrar na mesa" too.
   await player.getByRole('dialog').getByRole('button', { name: 'Entrar na mesa' }).click();
-  await expect(player.getByText('O tabuleiro abre aqui.')).toBeVisible();
+  await openRoomPeople(player);
 }
 
-/** From the home: opens a table the person is already in, through its row and detail.
+/** From the home: opens a table the person is already in, through its row and detail, on the
+ *  "Na mesa" tab.
  *
  *  Example: `await enterFromTheList(admin, 'Mesa ao vivo 1')` */
 export async function enterFromTheList(page: Page, name: string): Promise<void> {
   await page.getByRole('link', { name: new RegExp(name) }).click();
   await page.getByRole('dialog', { name }).getByRole('button', { name: 'Entrar na mesa' }).click();
-  await expect(page.getByText('O tabuleiro abre aqui.')).toBeVisible();
+  await openRoomPeople(page);
 }
