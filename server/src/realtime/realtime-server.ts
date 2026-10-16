@@ -2,8 +2,8 @@ import {
   REALTIME_PATH,
   type ApiErrorDto,
   type AuthUserDto,
-  type SessionClientEvents,
-  type SessionServerEvents,
+  type TableClientEvents,
+  type TableServerEvents,
 } from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
 import { Server, type Socket } from 'socket.io';
@@ -19,15 +19,15 @@ export type RealtimeSocketData = {
 type NoInterServerEvents = Record<string, never>;
 
 export type RealtimeServer = Server<
-  SessionClientEvents,
-  SessionServerEvents,
+  TableClientEvents,
+  TableServerEvents,
   NoInterServerEvents,
   RealtimeSocketData
 >;
 
 export type RealtimeSocket = Socket<
-  SessionClientEvents,
-  SessionServerEvents,
+  TableClientEvents,
+  TableServerEvents,
   NoInterServerEvents,
   RealtimeSocketData
 >;

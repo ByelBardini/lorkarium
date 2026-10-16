@@ -16,6 +16,13 @@ export class CampaignsDao {
     return row;
   }
 
+  async setActiveScene(campaignId: string, sceneId: string): Promise<void> {
+    await this.db
+      .update(campaigns)
+      .set({ activeSceneId: sceneId })
+      .where(eq(campaigns.id, campaignId));
+  }
+
   async findByJoinCode(joinCode: string): Promise<CampaignPo | undefined> {
     const [row] = await this.db.select().from(campaigns).where(eq(campaigns.joinCode, joinCode));
     return row;

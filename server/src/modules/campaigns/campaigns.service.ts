@@ -5,6 +5,9 @@ import type {
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
+import { DEFAULT_CONDITIONS } from '../conditions/condition-rules.bo';
+import type { ConditionsDao } from '../conditions/conditions.dao';
+import type { ScenesDao } from '../scenes/scenes.dao';
 import type { CampaignCodePort } from './campaign-code.port';
 import type { CampaignMemberRow, CampaignMembersDao } from './campaign-members.dao';
 import type { CampaignsDao } from './campaigns.dao';
@@ -21,8 +24,10 @@ import type { CampaignPo } from './campaigns.po';
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type CampaignWriteDaos = Readonly<{
-  campaigns: Pick<CampaignsDao, 'insert'>;
+  campaigns: Pick<CampaignsDao, 'insert' | 'setActiveScene'>;
   members: Pick<CampaignMembersDao, 'insert'>;
+  scenes: Pick<ScenesDao, 'insert'>;
+  conditions: Pick<ConditionsDao, 'insertDefinitions'>;
 }>;
 
 export type CampaignTransactionRunner = <T>(
@@ -100,7 +105,10 @@ export class CampaignsService {
         const campaign = await daos.campaigns.insert(row);
         const joinedAt = this.deps.clock.now();
         await daos.members.insert({ campaignId: campaign.id, userId, role: 'master', joinedAt });
-        return campaign;
+        const scene = await daos.scenes.insert({ campaignId: campaign.id });
+        await daos.campaigns.setActiveScene(campaign.id, scene.id);
+        await daos.conditions.insertDefinitions(campaign.id, DEFAULT_CONDITIONS);
+        return { ...campaign, activeSceneId: scene.id };
       });
     } catch (error) {
       if (isUniqueViolation(error)) return null;

@@ -4,7 +4,8 @@ export type CampaignErrorCode =
   | 'CAMPAIGN_PASSWORD_INVALID'
   | 'CAMPAIGN_CODE_EXHAUSTED'
   | 'RATE_LIMITED'
-  | 'INVALID_PARAMS';
+  | 'INVALID_PARAMS'
+  | 'FORBIDDEN';
 
 /** Every campaign refusal; the edge translates `code` into the HTTP status and public message. */
 export class CampaignError extends Error {
@@ -68,5 +69,20 @@ export class CampaignJoinRateLimitedError extends CampaignError {
 export class InvalidCampaignIdError extends CampaignError {
   constructor(readonly received: unknown) {
     super('INVALID_PARAMS', `the campaign id must be a uuid; received ${String(received)}`);
+  }
+}
+
+// A member asking for something their role at the table does not allow (spec §3.9).
+export class ForbiddenActionError extends CampaignError {
+  constructor(
+    readonly campaignId: string,
+    readonly userId: string,
+    readonly action: string,
+    readonly required: string,
+  ) {
+    super(
+      'FORBIDDEN',
+      `user ${userId} may not ${action} in campaign ${campaignId}: requires ${required}`,
+    );
   }
 }

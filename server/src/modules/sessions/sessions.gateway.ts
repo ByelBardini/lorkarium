@@ -9,8 +9,9 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 import { ZodError } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
+import { answerAck } from '../../realtime/realtime-ack';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
-import { campaignRoom } from '../../realtime/rooms';
+import { campaignMastersRoom, campaignRoom, campaignUserRoom } from '../../realtime/rooms';
 import { CampaignError } from '../campaigns/campaigns.error';
 import type { ConnectionTablesChange } from './connection-tables.bo';
 import { SessionEndedError, SessionError } from './sessions.error';
@@ -21,10 +22,6 @@ export type SessionsGatewayDeps = Readonly<{
   realtime: Pick<Realtime, 'reauthenticate'>;
   log: FastifyBaseLogger;
 }>;
-
-type SessionAckFailure = Extract<SessionJoinAckDto, { ok: false }>;
-
-type AckOf<T> = (answer: T | SessionAckFailure) => void;
 
 // Public text only: the internal message cites ids and stays in the log.
 const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
@@ -40,11 +37,15 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
  *  Example: `realtime.onConnection(createSessionsGateway({ service, realtime, log }))` */
 export function createSessionsGateway(deps: SessionsGatewayDeps): (socket: RealtimeSocket) => void {
   return (socket) => {
+    const failureOf = (error: unknown): ApiErrorDto => toAckError(deps, error);
+    const dropIfEnded = (error: unknown): void => {
+      if (error instanceof SessionEndedError) socket.disconnect(true);
+    };
     socket.on('session:join', (payload, ack) => {
-      void answer(deps, socket, ack, () => joinTable(deps, socket, payload));
+      void answerAck(ack, () => joinTable(deps, socket, payload), failureOf, dropIfEnded);
     });
     socket.on('session:leave', (payload, ack) => {
-      void answer(deps, socket, ack, () => leaveTable(deps, socket, payload));
+      void answerAck(ack, () => leaveTable(deps, socket, payload), failureOf, dropIfEnded);
     });
     socket.on('disconnect', () => dropTables(deps, socket));
   };
@@ -72,8 +73,16 @@ async function joinTable(
     deps.service.leave(userId, campaignId, socket.id);
     return { ok: true, state };
   }
-  await socket.join(campaignRoom(campaignId));
+  await socket.join(audienceRoomsOf(state, campaignId, userId));
   return { ok: true, state };
+}
+
+// The table room for everyone, plus the rooms that receive the unredacted board (§3.9).
+function audienceRoomsOf(state: SessionStateDto, campaignId: string, userId: string): string[] {
+  const rooms = [campaignRoom(campaignId), campaignUserRoom(campaignId, userId)];
+  const role = state.members.find((member) => member.userId === userId)?.role;
+  if (role === 'master') rooms.push(campaignMastersRoom(campaignId));
+  return rooms;
 }
 
 async function joinOrRelease(
@@ -97,8 +106,9 @@ async function leaveTable(
 ): Promise<Extract<SessionLeaveAckDto, { ok: true }>> {
   const { campaignId, userId } = await commandOf(deps, socket, payload);
   if (!releaseSlot(deps, socket, campaignId)) return { ok: true };
-  // Out of the room first, so the one leaving does not hear their own memberLeft.
-  void socket.leave(campaignRoom(campaignId));
+  // Out of the rooms first, so the one leaving does not hear their own memberLeft.
+  for (const room of [campaignRoom, campaignMastersRoom]) void socket.leave(room(campaignId));
+  void socket.leave(campaignUserRoom(campaignId, userId));
   deps.service.leave(userId, campaignId, socket.id);
   return { ok: true };
 }
@@ -127,25 +137,6 @@ async function commandOf(
   const user = await deps.realtime.reauthenticate(socket);
   if (!user) throw new SessionEndedError(socket.id);
   return { ...command, userId: user.id };
-}
-
-async function answer<T>(
-  deps: SessionsGatewayDeps,
-  socket: RealtimeSocket,
-  ack: AckOf<T> | undefined,
-  work: () => Promise<T>,
-): Promise<void> {
-  try {
-    reply(ack, await work());
-  } catch (error) {
-    reply(ack, { ok: false, error: toAckError(deps, error) });
-    if (error instanceof SessionEndedError) socket.disconnect(true);
-  }
-}
-
-// A client may emit without an ack callback; there is nothing to answer then.
-function reply<T>(ack: AckOf<T> | undefined, body: Parameters<AckOf<T>>[0]): void {
-  if (typeof ack === 'function') ack(body);
 }
 
 function toAckError(deps: SessionsGatewayDeps, error: unknown): ApiErrorDto {
