@@ -39,6 +39,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `sessionStateDto` `{ campaignId, version (inteiro ≥ 0), members, at (ISO) }` — o `session:state` do §7.2 **não** é um evento: chega como ack do `session:join`.
 - `sessionMemberJoinedDto` `{ campaignId, version, member (com online: true), at }` e `sessionMemberLeftDto` `{ campaignId, version, userId, at }`.
 - `sessionJoinAckDto` (`{ ok: true, state }` | `{ ok: false, error: ApiErrorDto }`) e `sessionLeaveAckDto` (`{ ok: true }` | a mesma falha), uniões discriminadas por `ok`.
+- `MAX_OPEN_TABLES` = `5` — mesas abertas ao mesmo tempo por conexão: o server recusa a 6ª (`TOO_MANY_TABLES`) e o client avisa antes de pedir.
 - `SessionClientEvents` / `SessionServerEvents` — mapas de tipo para os genéricos do Socket.IO no server e no client.
 
 ## Regras de arquitetura
