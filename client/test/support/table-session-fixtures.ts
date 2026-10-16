@@ -8,6 +8,7 @@ import type {
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
   SessionStateDto,
+  TokenDraggedDto,
   TokenDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
@@ -177,6 +178,16 @@ export function tokenMovedAt(
     type: 'tokenMoved',
     payload: { campaignId: VHARN.id, version, at: AT, tokenId, col, row },
   };
+}
+
+/** `token:dragged` of Lyra (unless told otherwise) at VHARN; `null` ends the drag.
+ *
+ *  Example: `lyraDraggedOver({ col: 5, row: 4 })` */
+export function lyraDraggedOver(
+  cell: Readonly<{ col: number; row: number }> | null,
+  overrides: Partial<TokenDraggedDto> = {},
+): TokenDraggedDto {
+  return { campaignId: VHARN.id, at: AT, tokenId: LYRA_ID, cell, ...overrides };
 }
 
 /** `token:deleted` of `tokenId` at VHARN, as a board event. */

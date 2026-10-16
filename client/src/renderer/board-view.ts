@@ -5,13 +5,21 @@ import type {
   TokenDto,
   TokenSideDto,
 } from '@lorkarium/contracts';
-import { cellDistance, type Cell, type SceneSize } from '@lorkarium/game-core';
+import { pathDistance, type Cell, type SceneSize } from '@lorkarium/game-core';
 import { barFill, type BarFillState } from '@/lib/bar-display';
 import { rulerLabel } from '@/lib/ruler-label';
-import { CELL_WORLD_SIZE, type Size } from './camera';
+import { routePath, type TokenRoute } from '@/lib/token-route';
+import { CELL_WORLD_SIZE, type Point, type Size } from './camera';
 
 /** A ruler being measured: local to this viewer, never sent to the server. */
 export type RulerState = Readonly<{ from: Cell; to: Cell }>;
+
+/** A ruler as drawn: world px through the centers it passes (two for the tool, one more per
+ *  bend of a drag), and its reading. */
+export type RulerView = Readonly<{ points: readonly Point[]; label: string }>;
+
+/** The token this viewer drags and the path it traced. */
+export type DragRouteView = Readonly<{ tokenId: string; route: TokenRoute }>;
 
 /** The bar drawn under a token: always the one at position 0, when the viewer may see it. */
 export type TokenBarView = Readonly<{ fraction: number; state: BarFillState; color: BarColorDto }>;
@@ -40,7 +48,7 @@ export type GhostView = Readonly<{ tokenId: string; col: number; row: number; si
 export type BoardView = Readonly<{
   sceneSize: Size;
   grid: Readonly<{ visible: boolean; opacity: number; cells: SceneSize }>;
-  ruler: (RulerState & Readonly<{ label: string }>) | null;
+  ruler: RulerView | null;
   tokens: readonly TokenView[];
   ghost: GhostView | null;
   /** With the ruler, a press on a token measures from it instead of grabbing it. */
@@ -57,6 +65,10 @@ export type BoardViewInput = Readonly<{
   ruler: RulerState | null;
   selectedTokenId: string | null;
   preview: Readonly<{ tokenId: string; col: number; row: number }> | null;
+  /** This viewer's drag: the ghost on the cell it is over and the ruler of its path. */
+  drag: DragRouteView | null;
+  /** Where other people are dragging tokens, by id: drawn there instead of the confirmed cell. */
+  dragged: Readonly<Record<string, Cell>>;
   /** Reconnecting: nothing is draggable. */
   readOnly: boolean;
   tool: BoardViewTool;
@@ -70,7 +82,7 @@ const MAX_MARKS = 3;
  *
  *  Example: `renderer.draw(buildBoardView({ scene, tokens, localGridVisible, ruler, selectedTokenId, preview, readOnly }))` */
 export function buildBoardView(input: BoardViewInput): BoardView {
-  const { scene, ruler } = input;
+  const { scene } = input;
   const cells = { widthCells: scene.widthCells, heightCells: scene.heightCells };
   return {
     sceneSize: {
@@ -82,21 +94,41 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       opacity: scene.gridOpacity / 100,
       cells,
     },
-    ruler: ruler && { ...ruler, label: rulerLabel(cellDistance(ruler.from, ruler.to), scene) },
+    ruler: rulerOf(input),
     tokens: input.tokens.map((token) => tokenViewOf(token, input)),
     ghost: ghostOf(input),
     tool: input.tool,
   };
 }
 
+// The drag wins over the tool: a press on a token with the ruler measures instead of dragging.
+function rulerOf({ drag, ruler, scene, tokens }: BoardViewInput): RulerView | null {
+  if (drag) {
+    const size = tokens.find(({ id }) => id === drag.tokenId)?.size ?? 1;
+    const path = routePath(drag.route);
+    return rulerAlong(path, size, scene);
+  }
+  return ruler && rulerAlong([ruler.from, ruler.to], 1, scene);
+}
+
+function rulerAlong(path: readonly Cell[], size: number, scene: SceneDto): RulerView {
+  const half = (size * CELL_WORLD_SIZE) / 2;
+  const points = path.map(({ col, row }) => ({
+    x: col * CELL_WORLD_SIZE + half,
+    y: row * CELL_WORLD_SIZE + half,
+  }));
+  return { points, label: rulerLabel(pathDistance(path), scene) };
+}
+
 function tokenViewOf(token: TokenDto, input: BoardViewInput): TokenView {
   const first = token.bars.find(({ position }) => position === 0);
+  const at = input.dragged[token.id] ?? token;
   return {
     id: token.id,
     initials: token.initials,
     ring: token.side,
-    col: token.col,
-    row: token.row,
+    col: at.col,
+    row: at.row,
     size: token.size,
     bar: first ? { ...barFill(first), color: first.color } : null,
     selected: token.id === input.selectedTokenId,
@@ -107,8 +139,10 @@ function tokenViewOf(token: TokenDto, input: BoardViewInput): TokenView {
   };
 }
 
-function ghostOf({ preview, tokens }: BoardViewInput): GhostView | null {
-  if (!preview) return null;
-  const token = tokens.find(({ id }) => id === preview.tokenId);
-  return token ? { ...preview, size: token.size } : null;
+// While dragging, the ghost marks the cell the token would land on; then the move asked for.
+function ghostOf({ drag, preview, tokens }: BoardViewInput): GhostView | null {
+  const target = drag ? { tokenId: drag.tokenId, ...drag.route.current } : preview;
+  if (!target) return null;
+  const token = tokens.find(({ id }) => id === target.tokenId);
+  return token ? { ...target, size: token.size } : null;
 }

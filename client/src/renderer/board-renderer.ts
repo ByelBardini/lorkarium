@@ -8,9 +8,12 @@ export type BoardPointerIntent = Readonly<{
   cell: Cell | null;
 }>;
 
-/** A token clicked (selected) or dragged and released over a cell (`null` off the scene). */
+/** A token clicked (selected), dragged over a new cell (from its confirmed `origin`), dragged
+ *  and then put back by Esc, or released over a cell. `cell` is `null` off the scene. */
 export type BoardTokenIntent =
   | Readonly<{ kind: 'tokenPicked'; tokenId: string }>
+  | Readonly<{ kind: 'tokenDragged'; tokenId: string; origin: Cell; cell: Cell | null }>
+  | Readonly<{ kind: 'tokenDragCancelled'; tokenId: string }>
   | Readonly<{ kind: 'tokenDropped'; tokenId: string; cell: Cell | null }>;
 
 /** What the board tells React: it never changes state itself. */

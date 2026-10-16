@@ -8,6 +8,7 @@ import type {
   ConditionRemovedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
+  TokenDraggedDto,
   TokenMovedDto,
 } from '@lorkarium/contracts';
 import type {
@@ -76,6 +77,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly tokenChanges: TokenChange[] = [];
   readonly tokenMoves: TokenMovedDto[] = [];
   readonly tokenDeletes: TokenDeletedDto[] = [];
+  readonly tokenDrags: Array<Readonly<{ event: TokenDraggedDto; exceptConnectionId: string }>> = [];
   readonly combatEvents: Array<
     | Readonly<{ name: 'combat:started'; event: CombatStartedDto }>
     | Readonly<{ name: 'combat:updated'; event: CombatUpdatedDto }>
@@ -98,6 +100,11 @@ export class BoardPublisherFake implements BoardPublisherPort {
   tokenMoved(event: TokenMovedDto): void {
     this.journal.push('publish');
     this.tokenMoves.push(event);
+  }
+
+  tokenDragged(event: TokenDraggedDto, exceptConnectionId: string): void {
+    this.journal.push('publish');
+    this.tokenDrags.push({ event, exceptConnectionId });
   }
 
   tokenDeleted(event: TokenDeletedDto): void {
@@ -147,6 +154,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
       this.tokenChanges.length +
       this.tokenMoves.length +
       this.tokenDeletes.length +
+      this.tokenDrags.length +
       this.conditionEvents.length +
       this.combatEvents.length
     );

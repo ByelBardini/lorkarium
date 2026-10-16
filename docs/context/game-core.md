@@ -16,6 +16,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `Cell` `{ col, row }` — coluna e linha a partir do canto superior esquerdo, inteiros ≥ 0. `cell(col, row)` devolve o valor congelado e lança `RangeError` citando o eixo e o valor recebido quando não é "inteiro ≥ 0". `sameCell(a, b)` compara pelo valor.
 - `SceneSize` `{ widthCells, heightCells }` — tamanho da cena em casas.
 - `cellDistance(a, b)` — distância em casas com a diagonal valendo 1 (Chebyshev): `(0,0)` → `(3,2)` = 3. É a régua do §3.2; outras regras de diagonal são do §12.
+- `pathDistance(caminho)` — soma das pernas pelo `cellDistance` (a régua com curvas do arraste): `(0,0)` → `(3,0)` → `(3,4)` = 7; um ponto ou nenhum = 0.
 - `footprintFits(scene, origin, size)` — o token é um quadrado de `size` casas ancorado no canto superior esquerdo (`origin`); cabe se `origin + size ≤` largura/altura. Encostar na última coluna cabe. `size` que não é inteiro ≥ 1 lança `RangeError`. Sem colisão entre tokens (colisão é do §12).
 
 ## Barra

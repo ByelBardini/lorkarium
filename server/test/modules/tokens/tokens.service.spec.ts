@@ -153,6 +153,57 @@ describe('TokensService', () => {
     });
   });
 
+  it('Bia dragging Lyra over (8, 6) publishes token:dragged to all but her connection, saving nothing', async () => {
+    const version = await service.drag(
+      BIA_ID,
+      VHARN_ID,
+      { tokenId: LYRA_ID, cell: { col: 8, row: 6 } },
+      'bia-socket',
+    );
+    expect(version).toBe(4);
+    expect(scenes.journal).toEqual(['commit', 'publish']);
+    expect(tokens.rows[0]?.token).toMatchObject({ col: 3, row: 4 });
+    expect(publisher.tokenDrags).toEqual([
+      {
+        event: {
+          campaignId: VHARN_ID,
+          at: NOW.toISOString(),
+          tokenId: LYRA_ID,
+          cell: { col: 8, row: 6 },
+        },
+        exceptConnectionId: 'bia-socket',
+      },
+    ]);
+  });
+
+  it('a drag that ended without a move publishes cell null', async () => {
+    await service.drag(BIA_ID, VHARN_ID, { tokenId: LYRA_ID, cell: null }, 'bia-socket');
+    expect(publisher.tokenDrags[0]?.event.cell).toBeNull();
+  });
+
+  it('Caio dragging Bia’s Lyra is refused with FORBIDDEN and nothing is published', async () => {
+    const drag = { tokenId: LYRA_ID, cell: { col: 8, row: 6 } };
+    await expect(service.drag(CAIO_ID, VHARN_ID, drag, 'caio-socket')).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(publisher.published).toBe(0);
+  });
+
+  it('a drag past the edge of the scene is refused with OUT_OF_SCENE', async () => {
+    const drag = { tokenId: LYRA_ID, cell: { col: 20, row: 0 } };
+    await expect(service.drag(BIA_ID, VHARN_ID, drag, 'bia-socket')).rejects.toMatchObject({
+      code: 'OUT_OF_SCENE',
+    });
+    expect(publisher.published).toBe(0);
+  });
+
+  it('dragging a token of another table is TOKEN_NOT_FOUND', async () => {
+    const drag = { tokenId: LYRA_ID, cell: null };
+    await expect(service.drag(CAIO_ID, QUELM_ID, drag, 'caio-socket')).rejects.toMatchObject({
+      code: 'TOKEN_NOT_FOUND',
+    });
+  });
+
   it('Bia subtracting 7 from the PV of Lyra saves 25 and publishes token:updated', async () => {
     await service.adjustBar(BIA_ID, VHARN_ID, {
       tokenId: LYRA_ID,

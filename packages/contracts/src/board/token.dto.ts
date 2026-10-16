@@ -98,6 +98,19 @@ export const moveTokenCommandDto = z.strictObject({
 });
 export type MoveTokenCommandDto = z.infer<typeof moveTokenCommandDto>;
 
+const draggedCellDto = z.strictObject({ col: cellIndexDto, row: cellIndexDto }).nullable();
+
+/** `token:drag` (master or a controller): the cell a token is being dragged over, before it is
+ *  dropped; `null` when the drag ended without a move. Nothing is saved and the version stays.
+ *
+ *  Example: `dragTokenCommandDto.parse({ actionId, campaignId, tokenId, cell: { col: 4, row: 2 } })` */
+export const dragTokenCommandDto = z.strictObject({
+  ...boardCommandShape,
+  tokenId: z.uuid(),
+  cell: draggedCellDto,
+});
+export type DragTokenCommandDto = z.infer<typeof dragTokenCommandDto>;
+
 /** "−7" subtracts, "+5" adds, "12" sets (the field is parsed on the client). */
 export const barChangeDto = z.discriminatedUnion('op', [
   z.strictObject({
@@ -138,6 +151,18 @@ export const tokenMovedDto = z.strictObject({
   row: cellIndexDto,
 });
 export type TokenMovedDto = z.infer<typeof tokenMovedDto>;
+
+/** `token:dragged`: a preview, not a confirmed change, so it carries no version (§5.5 covers the
+ *  confirmed `token:moved` that ends the drag). `cell: null` puts the token back where it is.
+ *
+ *  Example: `tokenDraggedDto.parse(payload).cell // { col: 4, row: 2 } | null` */
+export const tokenDraggedDto = z.strictObject({
+  campaignId: z.uuid(),
+  at: z.iso.datetime(),
+  tokenId: z.uuid(),
+  cell: draggedCellDto,
+});
+export type TokenDraggedDto = z.infer<typeof tokenDraggedDto>;
 
 /** `combat` is the combat after the token left it (the turn may have passed), or `null` with none. */
 export const tokenDeletedDto = z.strictObject({

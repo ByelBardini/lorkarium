@@ -40,6 +40,13 @@ export interface TableBoardCommands {
   createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult>;
   updateToken(campaignId: string, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult>;
   moveToken(campaignId: string, tokenId: string, to: CellTarget): Promise<BoardCommandResult>;
+  /** The cell a token is dragged over, for the others to see; `null` ends a drag with no move.
+   *  Nothing is saved: the ack carries the version as it stands. */
+  dragToken(
+    campaignId: string,
+    tokenId: string,
+    over: CellTarget | null,
+  ): Promise<BoardCommandResult>;
   adjustBar(
     campaignId: string,
     tokenId: string,
@@ -125,6 +132,15 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
 
   moveToken(campaignId: string, tokenId: string, to: CellTarget): Promise<BoardCommandResult> {
     return this.send(BOARD_EVENTS.moveToken, campaignId, { tokenId, col: to.col, row: to.row });
+  }
+
+  dragToken(
+    campaignId: string,
+    tokenId: string,
+    over: CellTarget | null,
+  ): Promise<BoardCommandResult> {
+    const cell = over && { col: over.col, row: over.row };
+    return this.send(BOARD_EVENTS.dragToken, campaignId, { tokenId, cell });
   }
 
   adjustBar(

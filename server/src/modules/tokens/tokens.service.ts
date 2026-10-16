@@ -3,6 +3,7 @@ import type {
   AdjustBarCommandDto,
   CreateTokenCommandDto,
   DeleteTokenCommandDto,
+  DragTokenCommandDto,
   MoveTokenCommandDto,
   UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
@@ -28,12 +29,13 @@ type Envelope = 'actionId' | 'campaignId';
 export type CreateToken = Omit<CreateTokenCommandDto, Envelope>;
 export type UpdateToken = Omit<UpdateTokenCommandDto, Envelope>;
 export type MoveToken = Omit<MoveTokenCommandDto, Envelope>;
+export type DragToken = Omit<DragTokenCommandDto, Envelope>;
 export type AdjustBar = Omit<AdjustBarCommandDto, Envelope>;
 export type DeleteToken = Omit<DeleteTokenCommandDto, Envelope>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type TokenWriteDaos = Readonly<{
-  scenes: Pick<ScenesDao, 'lockActiveOf' | 'bumpVersion'>;
+  scenes: Pick<ScenesDao, 'findActiveOf' | 'lockActiveOf' | 'bumpVersion'>;
   tokens: Pick<
     TokensDao,
     'insert' | 'findInScene' | 'move' | 'setBarCurrent' | 'update' | 'delete'
@@ -117,6 +119,29 @@ export class TokensService {
     return saved.version;
   }
 
+  /** A drag preview: checked like a move (control, scene edge) but neither saved nor versioned,
+   *  and published to the table except the dragger's connection. Returns the version as it stands.
+   *
+   *  Example: `await tokensService.drag(user.id, campaignId, { tokenId, cell }, socket.id)` */
+  async drag(
+    userId: string,
+    campaignId: string,
+    command: DragToken,
+    connectionId: string,
+  ): Promise<number> {
+    const access = await this.accessOf(userId, campaignId);
+    const version = await this.deps.transaction(async (daos) => {
+      const scene = activeScene(campaignId, await daos.scenes.findActiveOf(campaignId));
+      const found = await tokenIn(daos, scene, campaignId, command.tokenId);
+      tokenAccessOf(access, found).requireControl('drag');
+      if (command.cell) this.rulesFor(scene, []).place(command.cell, found.token.size);
+      return scene.version;
+    });
+    const { tokenId, cell } = command;
+    this.deps.publisher.tokenDragged({ campaignId, at: this.now(), tokenId, cell }, connectionId);
+    return version;
+  }
+
   async adjustBar(userId: string, campaignId: string, command: AdjustBar): Promise<number> {
     const access = await this.accessOf(userId, campaignId);
     const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
@@ -170,9 +195,7 @@ export class TokensService {
     work: (locked: Locked) => Promise<T>,
   ): Promise<Saved<T>> {
     return this.deps.transaction(async (daos) => {
-      const scene = await daos.scenes.lockActiveOf(campaignId);
-      if (!scene)
-        throw new Error(`campaign ${campaignId} has no active scene; every campaign has one`);
+      const scene = activeScene(campaignId, await daos.scenes.lockActiveOf(campaignId));
       const value = await work({ daos, scene });
       return { value, version: await daos.scenes.bumpVersion(scene.id) };
     });
@@ -204,6 +227,11 @@ export class TokensService {
   private now(): string {
     return this.deps.clock.now().toISOString();
   }
+}
+
+function activeScene(campaignId: string, scene: ScenePo | undefined): ScenePo {
+  if (scene) return scene;
+  throw new Error(`campaign ${campaignId} has no active scene; every campaign has one`);
 }
 
 type TokenWithConditions = Readonly<{ row: TokenRow; conditions: ActiveConditionDto[] }>;

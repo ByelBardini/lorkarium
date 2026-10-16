@@ -3,6 +3,7 @@ import type {
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
   SessionStateDto,
+  TokenDraggedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from './board-events';
 import type { RealtimeTransport } from './realtime-transport';
@@ -23,6 +24,8 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'failed'; failure: TableSessionFailure }>
   | Readonly<{ kind: 'board'; state: BoardStateDto }>
   | Readonly<{ kind: 'boardEvent'; event: BoardEvent }>
+  /** Someone else's drag preview: unversioned, so it never goes through the version check. */
+  | Readonly<{ kind: 'tokenDragged'; drag: TokenDraggedDto }>
   | Readonly<{ kind: 'boardFailed'; failure: BoardSyncFailure }>;
 
 export type TableSessionListener = (update: TableSessionUpdate) => void;

@@ -38,7 +38,7 @@ Pastas que **ainda não existem**, mas têm lugar definido (spec §10 e as skill
 
 Comandos da raiz (`package.json`):
 
-- `pnpm dev` — client e server em paralelo
+- `pnpm dev` — sobe o Postgres (`db:up`, espera o healthcheck), aplica as migrações e roda client e server em paralelo (exige o Docker Desktop aberto)
 - `pnpm build` / `pnpm typecheck` — em todos os workspaces
 - `pnpm test` — Vitest de todos os workspaces, sem a integração do server · `pnpm test:integration` — só `server/test/integration/` (exige Postgres; receita no `/testar`) · `pnpm test:packages` / `test:client` / `test:server` — uma camada, com cobertura (ver `docs/context/ci.md`) · `pnpm exec vitest run <spec>` — um spec · `pnpm exec vitest run --project @lorkarium/<nome>` — um workspace
 - `pnpm lint` · `pnpm format` · `pnpm format:check`

@@ -7,6 +7,7 @@
     "node": ">=22.12"
   },
   "scripts": {
+    "predev": "pnpm db:up && pnpm db:migrate",
     "dev": "pnpm --parallel --filter @lorkarium/client --filter @lorkarium/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
@@ -20,7 +21,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:up": "docker compose -f infra/compose/compose.yaml up -d",
+    "db:up": "docker compose -f infra/compose/compose.yaml up -d --wait",
     "db:down": "docker compose -f infra/compose/compose.yaml down",
     "db:generate": "pnpm --filter @lorkarium/server db:generate",
     "db:migrate": "pnpm --filter @lorkarium/server db:migrate",

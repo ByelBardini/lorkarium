@@ -1,3 +1,4 @@
+import { cell, type Cell } from '@lorkarium/game-core';
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { BoardIntentListener, BoardRenderer, CreateBoardRenderer } from './board-renderer';
 import type { BoardView } from './board-view';
@@ -52,6 +53,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private rightDrag: RightDrag | null = null;
   private primaryDown = false;
   private tokenPress: TokenPress | null = null;
+  private dragCellKey: string | null = null;
   private readonly tokens = new PixiTokenLayer(prefersReducedMotion);
   private readonly heldPanKeys = new Set<PanKey>();
   private readonly disposers: Array<() => void> = [];
@@ -171,17 +173,23 @@ class PixiBoardRenderer implements BoardRenderer {
     this.grid.stroke({ width, color: GOLD_COLOR, alpha: view.grid.opacity });
   }
 
+  // A line through each point (the bends of a drag), a dot on every bend, the reading at the end.
   private drawRuler(view: BoardView): void {
     this.rulerShape.clear();
-    this.rulerText.visible = view.ruler !== null;
-    if (!view.ruler) return;
-    const from = cellCenter(view.ruler.from);
-    const to = cellCenter(view.ruler.to);
-    const width = 2 / this.camera.zoom;
-    this.rulerShape.moveTo(from.x, from.y).lineTo(to.x, to.y).stroke({ width, color: GOLD_COLOR });
+    const points = view.ruler?.points ?? [];
+    const [first, ...rest] = points;
+    const last = points.at(-1);
+    this.rulerText.visible = Boolean(view.ruler && first && last);
+    if (!view.ruler || !first || !last) return;
+    const zoom = this.camera.zoom;
+    this.rulerShape.moveTo(first.x, first.y);
+    for (const point of rest) this.rulerShape.lineTo(point.x, point.y);
+    this.rulerShape.stroke({ width: 2 / zoom, color: GOLD_COLOR });
+    for (const bend of points.slice(1, -1)) this.rulerShape.circle(bend.x, bend.y, 4 / zoom);
+    this.rulerShape.fill(GOLD_COLOR);
     this.rulerText.text = view.ruler.label;
-    this.rulerText.scale.set(1 / this.camera.zoom);
-    this.rulerText.position.set(to.x + 12 / this.camera.zoom, to.y - 24 / this.camera.zoom);
+    this.rulerText.scale.set(1 / zoom);
+    this.rulerText.position.set(last.x + 12 / zoom, last.y - 24 / zoom);
   }
 
   private listen(host: HTMLElement, canvas: HTMLCanvasElement): void {
@@ -228,18 +236,42 @@ class PixiBoardRenderer implements BoardRenderer {
   private dragToken(event: PointerEvent, current: TokenPress): void {
     const { press, dragging } = movePress(current, pointOf(event));
     this.tokenPress = press;
-    if (dragging) this.tokens.drag(press.tokenId, this.worldOf(event));
+    if (!dragging) return;
+    this.tokens.drag(press.tokenId, this.worldOf(event));
+    this.reportDragCell(press.tokenId, this.dropCellAt(press.tokenId, event));
+  }
+
+  // Only a new cell is news: the pointer moves many times inside one.
+  private reportDragCell(tokenId: string, over: Cell | null): void {
+    const key = over ? `${over.col},${over.row}` : 'off';
+    if (key === this.dragCellKey) return;
+    this.dragCellKey = key;
+    const token = this.view?.tokens.find(({ id }) => id === tokenId);
+    if (!token) return;
+    const origin = cell(token.col, token.row);
+    this.onIntent({ kind: 'tokenDragged', tokenId, origin, cell: over });
+  }
+
+  private cancelTokenDrag(press: TokenPress): void {
+    this.tokenPress = null;
+    this.dragCellKey = null;
+    this.tokens.release();
+    this.onIntent({ kind: 'tokenDragCancelled', tokenId: press.tokenId });
+  }
+
+  private dropCellAt(tokenId: string, event: PointerEvent): Cell | null {
+    const size = this.view?.tokens.find(({ id }) => id === tokenId)?.size ?? 1;
+    const cells = this.view?.grid.cells;
+    return cells ? dropCellOf(cells, size, this.worldOf(event)) : null;
   }
 
   private releaseToken(event: PointerEvent, press: TokenPress): void {
     this.tokenPress = null;
+    this.dragCellKey = null;
     this.tokens.release();
     const { tokenId } = press;
     if (releasePress(press) === 'pick') return this.onIntent({ kind: 'tokenPicked', tokenId });
-    const size = this.view?.tokens.find(({ id }) => id === tokenId)?.size ?? 1;
-    const cells = this.view?.grid.cells;
-    const cell = cells ? dropCellOf(cells, size, this.worldOf(event)) : null;
-    this.onIntent({ kind: 'tokenDropped', tokenId, cell });
+    this.onIntent({ kind: 'tokenDropped', tokenId, cell: this.dropCellAt(tokenId, event) });
   }
 
   private onPointerUp(event: PointerEvent): void {
@@ -253,6 +285,9 @@ class PixiBoardRenderer implements BoardRenderer {
   }
 
   private onKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.tokenPress?.dragging) {
+      return this.cancelTokenDrag(this.tokenPress);
+    }
     const modified = event.ctrlKey || event.metaKey || event.altKey;
     const panKey = modified ? null : panKeyOf(event.key);
     if (panKey) return void this.heldPanKeys.add(panKey);
@@ -311,7 +346,7 @@ function wheelFields(event: WheelEvent): Omit<Parameters<typeof wheelIntent>[0],
   return { deltaX, deltaY, deltaMode, ctrlKey, metaKey, shiftKey };
 }
 
-function cellCenter(cell: Readonly<{ col: number; row: number }>): Point {
+function cellCenter(target: Readonly<{ col: number; row: number }>): Point {
   const half = CELL_WORLD_SIZE / 2;
-  return { x: cell.col * CELL_WORLD_SIZE + half, y: cell.row * CELL_WORLD_SIZE + half };
+  return { x: target.col * CELL_WORLD_SIZE + half, y: target.row * CELL_WORLD_SIZE + half };
 }

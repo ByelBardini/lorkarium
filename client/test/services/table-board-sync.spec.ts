@@ -6,7 +6,12 @@ import {
 } from '@/services/table-session-api';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
-import { sceneUpdated, vharnBoard, vharnState } from '../support/table-session-fixtures';
+import {
+  lyraDraggedOver,
+  sceneUpdated,
+  vharnBoard,
+  vharnState,
+} from '../support/table-session-fixtures';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const COMMAND = { actionId: ACTION_ID, campaignId: VHARN.id };
@@ -91,6 +96,28 @@ describe('board sync of a table visit', () => {
     transport.serverEmits('scene:updated', { ...sceneUpdated(), scene: { widthCells: 0 } });
     expect(boardUpdates()).toEqual([]);
     expect(syncsSent()).toBe(2);
+  });
+
+  it('a token:dragged of this table arrives as a drag preview', async () => {
+    await joined();
+    transport.serverEmits('token:dragged', lyraDraggedOver({ col: 5, row: 4 }));
+    expect(updates.at(-1)).toEqual({
+      kind: 'tokenDragged',
+      drag: lyraDraggedOver({ col: 5, row: 4 }),
+    });
+  });
+
+  it('a token:dragged of another table is ignored', async () => {
+    await joined();
+    transport.serverEmits('token:dragged', lyraDraggedOver(null, { campaignId: QUELM.id }));
+    expect(updates.map(({ kind }) => kind)).not.toContain('tokenDragged');
+  });
+
+  it('a token:dragged outside the DTO is dropped without a resync: it confirmed nothing', async () => {
+    await joined();
+    transport.serverEmits('token:dragged', { ...lyraDraggedOver(null), cell: { col: -1 } });
+    expect(updates.map(({ kind }) => kind)).not.toContain('tokenDragged');
+    expect(syncsSent()).toBe(1);
   });
 
   it('resync() sends a new board:sync', async () => {

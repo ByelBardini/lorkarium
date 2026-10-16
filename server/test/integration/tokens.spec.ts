@@ -132,6 +132,44 @@ describe('tokens over Socket.IO', () => {
     }
   });
 
+  it('Bia dragging Lyra reaches the others as token:dragged, not herself, and the version stays', async () => {
+    const master = recordEventsOf(await atTable(ana, vharn));
+    const biaEvents = recordEventsOf(await atTable(bia, vharn));
+    const caioEvents = recordEventsOf(await atTable(caio, vharn));
+    await send(master.client, 'token:create', lyraFor(vharn, bia.id));
+    const lyra = await createdTokenOf(caioEvents);
+    const ack = await send(biaEvents.client, 'token:drag', {
+      ...envelope(vharn.id),
+      tokenId: lyra.id,
+      cell: { col: 5, row: 4 },
+    });
+    expect(ack).toEqual({ ok: true, version: 1 });
+    for (const recorder of [master, caioEvents]) {
+      expect(await eventPayload(recorder, 'token:dragged')).toMatchObject({
+        tokenId: lyra.id,
+        cell: { col: 5, row: 4 },
+      });
+    }
+    await silence();
+    expect(biaEvents.events.map(({ name }) => name)).not.toContain('token:dragged');
+    expect((await synced(master.client, vharn)).tokens[0]).toMatchObject({ col: 3, row: 4 });
+  });
+
+  it('Caio dragging Lyra of Bia is FORBIDDEN and nobody hears a drag', async () => {
+    const master = recordEventsOf(await atTable(ana, vharn));
+    const caioClient = await atTable(caio, vharn);
+    await send(master.client, 'token:create', lyraFor(vharn, bia.id));
+    const lyra = await createdTokenOf(master);
+    const ack = await send(caioClient, 'token:drag', {
+      ...envelope(vharn.id),
+      tokenId: lyra.id,
+      cell: { col: 1, row: 1 },
+    });
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+    await silence();
+    expect(master.events.map(({ name }) => name)).not.toContain('token:dragged');
+  });
+
   it('the board:sync of Caio comes redacted and the one of the master whole', async () => {
     const master = await atTable(ana, vharn);
     await send(master, 'token:create', lyraFor(vharn, bia.id));

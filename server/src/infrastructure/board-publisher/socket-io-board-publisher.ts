@@ -8,6 +8,7 @@ import type {
   ConditionRemovedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
+  TokenDraggedDto,
   TokenMovedDto,
 } from '@lorkarium/contracts';
 import type { BoardPublisherPort, TokenChange } from '../../modules/scenes/board-publisher.port';
@@ -39,6 +40,14 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
 
   tokenMoved(event: TokenMovedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('token:moved', event);
+  }
+
+  // Every socket is in a room named by its own id: leaving it out skips the dragger's echo.
+  tokenDragged(event: TokenDraggedDto, exceptConnectionId: string): void {
+    this.io
+      .to(campaignRoom(event.campaignId))
+      .except(exceptConnectionId)
+      .emit('token:dragged', event);
   }
 
   tokenDeleted(event: TokenDeletedDto): void {

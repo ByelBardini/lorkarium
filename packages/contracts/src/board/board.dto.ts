@@ -32,9 +32,11 @@ import {
   type AdjustBarCommandDto,
   type CreateTokenCommandDto,
   type DeleteTokenCommandDto,
+  type DragTokenCommandDto,
   type MoveTokenCommandDto,
   type TokenCreatedDto,
   type TokenDeletedDto,
+  type TokenDraggedDto,
   type TokenMovedDto,
   type TokenUpdatedDto,
   type UpdateTokenCommandDto,
@@ -48,11 +50,13 @@ export const BOARD_EVENTS = {
   createToken: 'token:create',
   updateToken: 'token:update',
   moveToken: 'token:move',
+  dragToken: 'token:drag',
   adjustBar: 'token:adjustBar',
   deleteToken: 'token:delete',
   tokenCreated: 'token:created',
   tokenUpdated: 'token:updated',
   tokenMoved: 'token:moved',
+  tokenDragged: 'token:dragged',
   tokenDeleted: 'token:deleted',
   defineCondition: 'condition:define',
   applyCondition: 'condition:apply',
@@ -133,6 +137,7 @@ export type BoardClientEvents = {
   'token:create': Command<CreateTokenCommandDto>;
   'token:update': Command<UpdateTokenCommandDto>;
   'token:move': Command<MoveTokenCommandDto>;
+  'token:drag': Command<DragTokenCommandDto>;
   'token:adjustBar': Command<AdjustBarCommandDto>;
   'token:delete': Command<DeleteTokenCommandDto>;
   'condition:define': Command<DefineConditionCommandDto>;
@@ -154,6 +159,7 @@ export type BoardServerEvents = {
   'token:created': (event: TokenCreatedDto) => void;
   'token:updated': (event: TokenUpdatedDto) => void;
   'token:moved': (event: TokenMovedDto) => void;
+  'token:dragged': (event: TokenDraggedDto) => void;
   'token:deleted': (event: TokenDeletedDto) => void;
   'condition:defined': (event: ConditionDefinedDto) => void;
   'condition:applied': (event: ConditionAppliedDto) => void;

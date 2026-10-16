@@ -20,7 +20,7 @@ A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o r
 - `camera.ts` — `Camera { offsetX, offsetY, zoom }` (tela = mundo × zoom + offset), `CELL_WORLD_SIZE = 64`, `ZOOM_LIMITS` 0,25–4; `worldToScreen`/`screenToWorld`, `panBy`, `zoomAt` (o ponto sob o cursor fica parado), `fitScene` (centraliza com 32px de margem), `clampToScene` (25% da cena sempre na tela).
 - `camera-input.ts` — mapa de entradas: roda move (Shift = horizontal; `deltaMode` linhas × 16), Ctrl/⌘ + roda e pinça aproximam no cursor; W A S D a 600 px/s com a diagonal normalizada (`keyboardPan`); `cameraKeyAction`: `+`/`=`, `-`, `0` (com Ctrl/⌘/Alt é do navegador); botão direito arrastado (`startRightDrag`/`moveRightDrag`, a partir de 4 px).
 - `grid-geometry.ts` — `visibleWorldRect`, `gridLines(cena, visível)` (só as linhas na tela; sem as horizontais quando a vista não cruza a largura da cena, e vice-versa), `cellAtWorld` (a borda final é da última casa; fora → `null`).
-- `board-view.ts` — `buildBoardView({ scene, localGridVisible, ruler })` → `BoardView { sceneSize, grid { visible (cena **e** local), opacity 0–1, cells }, ruler + label }`; régua pelo `cellDistance` do game-core e o `rulerLabel` (`src/lib/ruler-label.ts`: "3 casas · 4,5 m").
+- `board-view.ts` — `buildBoardView({ scene, localGridVisible, ruler, drag, dragged, … })` → `BoardView { sceneSize, grid { visible (cena **e** local), opacity 0–1, cells }, ruler { points, label } }`; régua pelo `pathDistance` do game-core (desenhada como polilinha com ponto em cada curva) e o `rulerLabel` (`src/lib/ruler-label.ts`: "3 casas · 4,5 m").
 - `board-renderer.ts` — `BoardRenderer` (`mount`, `draw`, `zoomBy`, `fitScene`, `destroy`) e as intenções (`cameraChanged`, `pointerDown/Move/Up` com a casa). `CreateBoardRenderer` está no `AppDependencies` (`createBoardRenderer`).
 - `pixi-board-renderer.ts` — `createPixiBoardRenderer`: casca fina sobre PixiJS 8 (`Application.init({ resizeTo: host })`, fundo `panel`, cena `card`, grid dourado em linhas finas `1/zoom` só no visível, régua dourada com rótulo). Roda com `{ passive: false }`; `contextmenu` cancelado no canvas; teclas no host focável, não na `window`; W A S D pelo `ticker`. Provado pelo e2e.
 
@@ -37,15 +37,15 @@ A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o r
 
 ## Atalhos
 
-| Tecla            | Onde                | Faz                              |
-| ---------------- | ------------------- | -------------------------------- |
-| F                | sala                | liga/desliga o modo foco         |
-| Esc              | sala                | sai do modo foco e limpa a régua |
-| V / R / G        | sala                | Selecionar / Régua / grid local  |
-| + = / − / 0      | tabuleiro focado    | aproxima / afasta / enquadra     |
-| W A S D          | tabuleiro focado    | move a câmera                    |
-| Roda / Ctrl+roda | sobre o tabuleiro   | move / aproxima no cursor        |
-| Botão direito    | arrastado no canvas | move a câmera                    |
+| Tecla            | Onde                | Faz                                           |
+| ---------------- | ------------------- | --------------------------------------------- |
+| F                | sala                | liga/desliga o modo foco                      |
+| Esc              | sala / arrastando   | sai do foco, limpa a régua, cancela o arraste |
+| V / R / G        | sala                | Selecionar / Régua / grid local               |
+| + = / − / 0      | tabuleiro focado    | aproxima / afasta / enquadra                  |
+| W A S D          | tabuleiro focado    | move a câmera                                 |
+| Roda / Ctrl+roda | sobre o tabuleiro   | move / aproxima no cursor                     |
+| Botão direito    | arrastado no canvas | move a câmera                                 |
 
 Ignorados em `input`, `textarea`, `select`, `contenteditable`, dentro de diálogo/menu e com Ctrl/⌘/Alt (`src/lib/board-shortcuts.ts`).
 
