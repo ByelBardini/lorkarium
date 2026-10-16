@@ -35,6 +35,7 @@ export function campaignPo(overrides: Partial<CampaignPo> = {}): CampaignPo {
     visibility: 'private',
     joinCode: 'VHRN7K2Q',
     passwordHash: null,
+    activeSceneId: null,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     updatedAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,

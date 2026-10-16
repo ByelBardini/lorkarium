@@ -1,4 +1,4 @@
-export type SessionErrorCode = 'UNAUTHENTICATED';
+export type SessionErrorCode = 'UNAUTHENTICATED' | 'TOO_MANY_TABLES';
 
 /** Every live session refusal of its own; the gateway turns `code` into the ack error. */
 export class SessionError extends Error {
@@ -17,6 +17,18 @@ export class SessionEndedError extends SessionError {
     super(
       'UNAUTHENTICATED',
       `the session behind socket ${socketId} ended; a valid session is required`,
+    );
+  }
+}
+
+export class TooManyTablesError extends SessionError {
+  constructor(
+    readonly campaignId: string,
+    readonly limit: number,
+  ) {
+    super(
+      'TOO_MANY_TABLES',
+      `cannot open table ${campaignId}: the connection already has ${limit} of ${limit} tables open`,
     );
   }
 }

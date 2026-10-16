@@ -1,17 +1,32 @@
 import type { AppDependencies } from '@/app/router';
+import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore } from '@/stores/rail-store';
+import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { createSessionStore } from '@/stores/session-store';
 import { AuthApiFake } from './auth-api-fake';
+import { BoardRenderersFake } from './board-renderer-fake';
+import { CallJournal } from './call-journal';
 import { CampaignsApiFake } from './campaigns-api-fake';
 import { ClipboardFake } from './clipboard-fake';
 import { StorageFake } from './storage-fake';
+import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
 
 export type TestDependencies = AppDependencies & {
   authApi: AuthApiFake;
   campaignsApi: CampaignsApiFake;
   clipboard: ClipboardFake;
+  /** The session api under `openTables`, for specs to play the server. */
   tableSessionApi: TableSessionApiFake;
+  /** The `sessionStorage` under `openTables`. */
+  tabStorage: StorageFake;
+  /** The `localStorage` under `roomLayout`. */
+  roomLayoutStorage: StorageFake;
+  /** Every board renderer the room created, behind `createBoardRenderer`. */
+  boardRenderers: BoardRenderersFake;
+  boardCommands: TableBoardCommandsFake;
+  /** Where the auth and table session fakes write, in call order. */
+  journal: CallJournal;
 };
 
 // Wednesday, 14 October 2026, local time: the date the overline is written against.
@@ -21,13 +36,26 @@ export const TEST_NOW = new Date(2026, 9, 14, 20, 0);
  *
  *  Example: `const deps = testDependencies(); createMemoryRouter(buildRoutes(deps), …)` */
 export function testDependencies(): TestDependencies {
+  const journal = new CallJournal();
+  const tableSessionApi = new TableSessionApiFake(journal);
+  const tabStorage = new StorageFake();
+  const roomLayoutStorage = new StorageFake();
+  const boardRenderers = new BoardRenderersFake();
   return {
-    authApi: new AuthApiFake(),
+    journal,
+    authApi: new AuthApiFake(journal),
     campaignsApi: new CampaignsApiFake(),
     clipboard: new ClipboardFake(),
-    tableSessionApi: new TableSessionApiFake(),
+    tableSessionApi,
+    tabStorage,
+    roomLayoutStorage,
+    boardRenderers,
+    createBoardRenderer: boardRenderers.create,
+    boardCommands: new TableBoardCommandsFake(),
+    openTables: createOpenTablesStore({ api: tableSessionApi, storage: tabStorage }),
     sessionStore: createSessionStore(),
     railStore: createRailStore(new StorageFake()),
+    roomLayout: createRoomLayoutStore(roomLayoutStorage),
     now: () => TEST_NOW,
     random: () => 0,
   };

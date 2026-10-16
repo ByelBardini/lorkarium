@@ -1,7 +1,7 @@
 import type { SessionMemberDto } from '@lorkarium/contracts';
 import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { failureMessage } from '@/features/campaigns/campaign-messages';
+import { sessionFailureMessage } from '@/features/campaigns/campaign-messages';
 import { ROLE_LABEL } from '@/lib/campaign-meta';
 import { cn } from '@/lib/utils';
 import {
@@ -21,7 +21,7 @@ const STATUS_LABEL: Readonly<Record<Exclude<TablePresenceState['status'], 'faile
 
 /** "Na mesa": who is at the table right now, as the server confirmed, and the connection state.
  *
- *  Example: `<SessionPresencePanel store={useTableSession(campaign.id, api, sessionStore)} />` */
+ *  Example: `<SessionPresencePanel store={openTable.presence} />` */
 export function SessionPresencePanel({ store }: SessionPresencePanelProps): React.JSX.Element {
   const titleId = useId();
   const status = useTablePresence(store, (state) => state.status);
@@ -40,7 +40,7 @@ export function SessionPresencePanel({ store }: SessionPresencePanelProps): Reac
       </header>
       {failure && failure !== 'unauthenticated' ? (
         <p role="alert" className="text-sm text-destructive-text">
-          {failureMessage(failure)}
+          {sessionFailureMessage(failure)}
         </p>
       ) : (
         <PresenceRoster store={store} />

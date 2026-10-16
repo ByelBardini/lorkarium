@@ -6,16 +6,22 @@ import type {
 
 export type SentMessage = Readonly<{ event: string; payload: unknown }>;
 
-type PendingAck = Readonly<{ resolve: (answer: unknown) => void; reject: (error: Error) => void }>;
+type PendingAck = Readonly<{
+  event: string;
+  resolve: (answer: unknown) => void;
+  reject: (error: Error) => void;
+}>;
 
 /** A socket the test drives: `sent` keeps what the client emitted, `answerAck` / `timeOutAck`
- *  settle the oldest pending ack, `serverEmits` and `lifecycle` play the server's side.
+ *  settle the oldest pending ack of one event (`session:join` unless told otherwise), `serverEmits` and `lifecycle` play the server's side;
+ *  `isConnected()` follows the last `lifecycle` change.
  *
  *  Example: `transport.lifecycle({ kind: 'connected' }); transport.answerAck({ ok: true, state })` */
 export class RealtimeTransportFake implements RealtimeTransport {
   readonly sent: SentMessage[] = [];
   connects = 0;
   disconnects = 0;
+  private connected = false;
   private readonly pendingAcks: PendingAck[] = [];
   private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
   private readonly lifecycleListeners = new Set<(change: RealtimeLifecycle) => void>();
@@ -26,6 +32,11 @@ export class RealtimeTransportFake implements RealtimeTransport {
 
   disconnect(): void {
     this.disconnects += 1;
+    this.connected = false;
+  }
+
+  isConnected(): boolean {
+    return this.connected;
   }
 
   emit(event: string, payload: unknown): void {
@@ -34,7 +45,7 @@ export class RealtimeTransportFake implements RealtimeTransport {
 
   emitWithAck(event: string, payload: unknown): Promise<unknown> {
     this.sent.push({ event, payload });
-    return new Promise((resolve, reject) => this.pendingAcks.push({ resolve, reject }));
+    return new Promise((resolve, reject) => this.pendingAcks.push({ event, resolve, reject }));
   }
 
   on(event: string, listener: (payload: unknown) => void): Unsubscribe {
@@ -49,14 +60,19 @@ export class RealtimeTransportFake implements RealtimeTransport {
     return () => void this.lifecycleListeners.delete(listener);
   }
 
-  async answerAck(answer: unknown): Promise<void> {
-    this.oldestPendingAck().resolve(answer);
+  async answerAck(answer: unknown, event = 'session:join'): Promise<void> {
+    this.oldestPendingAck(event).resolve(answer);
     await settle();
   }
 
-  async timeOutAck(): Promise<void> {
-    this.oldestPendingAck().reject(new Error('operation has timed out'));
+  async timeOutAck(event = 'session:join'): Promise<void> {
+    this.oldestPendingAck(event).reject(new Error('operation has timed out'));
     await settle();
+  }
+
+  /** How many acks of `event` still wait for an answer. */
+  pendingAcksOf(event: string): number {
+    return this.pendingAcks.filter((pending) => pending.event === event).length;
   }
 
   serverEmits(event: string, payload: unknown): void {
@@ -64,12 +80,16 @@ export class RealtimeTransportFake implements RealtimeTransport {
   }
 
   lifecycle(change: RealtimeLifecycle): void {
+    this.connected = change.kind === 'connected';
     for (const listener of this.lifecycleListeners) listener(change);
   }
 
-  private oldestPendingAck(): PendingAck {
-    const pending = this.pendingAcks.shift();
-    if (!pending) throw new Error(`no ack pending; sent so far: ${JSON.stringify(this.sent)}`);
+  private oldestPendingAck(event: string): PendingAck {
+    const index = this.pendingAcks.findIndex((pending) => pending.event === event);
+    const [pending] = index === -1 ? [] : this.pendingAcks.splice(index, 1);
+    if (!pending) {
+      throw new Error(`no ${event} ack pending; sent so far: ${JSON.stringify(this.sent)}`);
+    }
     return pending;
   }
 }

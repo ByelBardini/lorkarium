@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { adminCredentials, signIn } from './support/sign-in';
+import { boardOf } from './support/tables';
 
 test('create a campaign, see its code, open it, enter the table and continue from the home', async ({
   page,
@@ -23,9 +24,9 @@ test('create a campaign, see its code, open it, enter the table and continue fro
 
   const detail = page.getByRole('dialog', { name });
   await detail.getByRole('button', { name: 'Entrar na mesa' }).click();
-  await expect(page.getByText('O tabuleiro abre aqui.')).toBeVisible();
+  await expect(boardOf(page)).toBeVisible();
 
-  await page.getByRole('link', { name: 'Voltar para as mesas' }).click();
+  await page.getByRole('link', { name: 'Mesas', exact: true }).click();
   const band = page.getByRole('region', { name: 'Continuar' });
   await expect(band.getByRole('heading', { name })).toBeVisible();
 });

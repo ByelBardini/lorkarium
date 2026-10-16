@@ -3,6 +3,8 @@ import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
+import { ConditionsDao } from '../conditions/conditions.dao';
+import { ScenesDao } from '../scenes/scenes.dao';
 import type { CampaignCodePort } from './campaign-code.port';
 import { CampaignJoinService } from './campaign-join.service';
 import { CampaignMembersDao } from './campaign-members.dao';
@@ -31,7 +33,12 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
   const members = new CampaignMembersDao(options.db);
   const transaction: CampaignTransactionRunner = (work) =>
     runInTransaction(options.db, (tx) =>
-      work({ campaigns: new CampaignsDao(tx), members: new CampaignMembersDao(tx) }),
+      work({
+        campaigns: new CampaignsDao(tx),
+        members: new CampaignMembersDao(tx),
+        scenes: new ScenesDao(tx),
+        conditions: new ConditionsDao(tx),
+      }),
     );
   const { hasher, codes, clock } = options;
   const service = new CampaignsService({ campaigns, members, transaction, codes, hasher, clock });

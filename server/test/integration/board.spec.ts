@@ -1,0 +1,187 @@
+import {
+  boardCommandAckDto,
+  boardSyncAckDto,
+  sessionJoinAckDto,
+  type BoardCommandAckDto,
+  type BoardStateDto,
+  type BoardSyncAckDto,
+  type ConfigureSceneCommandDto,
+} from '@lorkarium/contracts';
+import type { FastifyInstance } from 'fastify';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { buildApp } from '../../src/app/build-app';
+import { readEnv, type Env } from '../../src/config/env';
+import type { DatabaseConnection } from '../../src/database/database';
+import { connectRealtime, recordEventsOf, type RealtimeClient } from '../support/realtime-client';
+import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
+import { createTable, joinByCode, type Table } from '../support/tables';
+import { openTestDatabase, truncateAllTables } from '../support/test-database';
+
+const SILENCE_MS = 300;
+const GRID_30_BY_20 = {
+  widthCells: 30,
+  heightCells: 20,
+  cellDistance: 1.5,
+  cellUnit: 'm',
+  gridVisible: true,
+  gridOpacity: 15,
+};
+
+describe('board over Socket.IO', () => {
+  const env: Env = { ...readEnv(process.env), adminSeed: null };
+  const clients: RealtimeClient[] = [];
+  let connection: DatabaseConnection;
+  let app: FastifyInstance;
+  let baseUrl: string;
+  let ana: SignedInUser;
+  let bia: SignedInUser;
+  let vharn: Table;
+
+  beforeAll(async () => {
+    connection = await openTestDatabase();
+  });
+
+  afterAll(() => connection.close());
+
+  async function startApp(): Promise<void> {
+    app = await buildApp({ env, db: connection.db });
+    baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
+  }
+
+  beforeEach(async () => {
+    await truncateAllTables(connection.db);
+    await startApp();
+    ana = await signUpAndLogin(app, connection.db, 'Ana');
+    bia = await signUpAndLogin(app, connection.db, 'Bia');
+    vharn = await createTable(app, ana, 'Os Sinos de Vharn');
+    await joinByCode(app, bia, vharn);
+  });
+
+  afterEach(async () => {
+    for (const client of clients.splice(0)) client.close();
+    await app.close();
+  });
+
+  function command(campaignId: string): { actionId: string; campaignId: string } {
+    return { actionId: crypto.randomUUID(), campaignId };
+  }
+
+  async function atTable(user: SignedInUser, table: Table): Promise<RealtimeClient> {
+    const client = await connectRealtime(baseUrl, { token: user.token });
+    clients.push(client);
+    const ack = sessionJoinAckDto.parse(
+      await client.timeout(2000).emitWithAck('session:join', command(table.id)),
+    );
+    if (!ack.ok) throw new Error(`join of ${table.id} refused with ${ack.error.code}`);
+    return client;
+  }
+
+  async function sync(client: RealtimeClient, campaignId: string): Promise<BoardSyncAckDto> {
+    return boardSyncAckDto.parse(
+      await client.timeout(2000).emitWithAck('board:sync', command(campaignId)),
+    );
+  }
+
+  async function synced(client: RealtimeClient, campaignId: string): Promise<BoardStateDto> {
+    const ack = await sync(client, campaignId);
+    if (!ack.ok) throw new Error(`sync of ${campaignId} refused with ${ack.error.code}`);
+    return ack.state;
+  }
+
+  async function configure(
+    client: RealtimeClient,
+    payload: ConfigureSceneCommandDto,
+  ): Promise<BoardCommandAckDto> {
+    return boardCommandAckDto.parse(
+      await client.timeout(2000).emitWithAck('scene:configure', payload),
+    );
+  }
+
+  it("Bia's board:sync answers her as player with the 20×12 scene at version 0", async () => {
+    const state = await synced(await atTable(bia, vharn), vharn.id);
+    expect(state).toMatchObject({
+      campaignId: vharn.id,
+      version: 0,
+      viewer: { userId: bia.id, role: 'player' },
+      scene: { widthCells: 20, heightCells: 12, cellDistance: 1.5, cellUnit: 'm' },
+      tokens: [],
+      combat: null,
+    });
+  });
+
+  it('the master configuring the grid acks version 1 and both receive scene:updated with it', async () => {
+    const anaEvents = recordEventsOf(await atTable(ana, vharn));
+    const biaEvents = recordEventsOf(await atTable(bia, vharn));
+    const ack = await configure(anaEvents.client, { ...command(vharn.id), ...GRID_30_BY_20 });
+    expect(ack).toEqual({ ok: true, version: 1 });
+    for (const recorder of [anaEvents, biaEvents]) {
+      await recorder.until(recorder === anaEvents ? 2 : 1);
+      const updated = recorder.events.find(({ name }) => name === 'scene:updated');
+      expect(updated?.payload).toMatchObject({
+        campaignId: vharn.id,
+        version: 1,
+        scene: GRID_30_BY_20,
+      });
+    }
+  });
+
+  it('a player configuring the grid gets FORBIDDEN and nobody receives scene:updated', async () => {
+    const anaEvents = recordEventsOf(await atTable(ana, vharn));
+    const biaClient = await atTable(bia, vharn);
+    const ack = await configure(biaClient, { ...command(vharn.id), ...GRID_30_BY_20 });
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+    await new Promise((resolve) => setTimeout(resolve, SILENCE_MS));
+    expect(anaEvents.events.map(({ name }) => name)).not.toContain('scene:updated');
+  });
+
+  it('a board:sync of a table not open on the connection gets CAMPAIGN_NOT_FOUND', async () => {
+    const client = await connectRealtime(baseUrl, { token: ana.token });
+    clients.push(client);
+    const ack = await sync(client, vharn.id);
+    expect(ack).toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: 'CAMPAIGN_NOT_FOUND' }),
+    });
+  });
+
+  it('a board:sync carrying a forged userId gets INVALID_BODY naming the field', async () => {
+    const client = await atTable(ana, vharn);
+    const forged = { ...command(vharn.id), userId: bia.id };
+    const ack = boardSyncAckDto.parse(await client.timeout(2000).emitWithAck('board:sync', forged));
+    expect(ack).toEqual({
+      ok: false,
+      error: { code: 'INVALID_BODY', message: expect.stringContaining('userId') },
+    });
+  });
+
+  it('after Bia logs out, her board:sync gets UNAUTHENTICATED', async () => {
+    const client = await atTable(bia, vharn);
+    await app.inject({
+      method: 'POST',
+      url: '/api/auth/logout',
+      cookies: { lk_session: bia.token },
+    });
+    const ack = await sync(client, vharn.id);
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'UNAUTHENTICATED' }) });
+  });
+
+  it('after a restart on the same database, board:sync returns the configured grid and version', async () => {
+    await configure(await atTable(ana, vharn), { ...command(vharn.id), ...GRID_30_BY_20 });
+    for (const client of clients.splice(0)) client.close();
+    await app.close();
+    await startApp();
+    const state = await synced(await atTable(ana, vharn), vharn.id);
+    expect(state).toMatchObject({ version: 1, scene: GRID_30_BY_20 });
+  });
+
+  it('the 41st command of a burst gets RATE_LIMITED with when to retry, and another connection does not', async () => {
+    const anaClient = await atTable(ana, vharn);
+    const acks = await Promise.all(Array.from({ length: 41 }, () => sync(anaClient, vharn.id)));
+    expect(acks.slice(0, 40).every((ack) => ack.ok)).toBe(true);
+    expect(acks[40]).toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: 'RATE_LIMITED', retryAfterSeconds: 1 }),
+    });
+    expect((await sync(await atTable(bia, vharn), vharn.id)).ok).toBe(true);
+  });
+});

@@ -134,3 +134,40 @@ describe('TableSessionService', () => {
     expect(state.version).toBe(1);
   });
 });
+
+describe('TableSessionService tables of a connection', () => {
+  const FIVE_OPEN: ReadonlySet<string> = new Set([
+    'a1000000-0000-4000-8000-000000000001',
+    'a1000000-0000-4000-8000-000000000002',
+    'a1000000-0000-4000-8000-000000000003',
+    'a1000000-0000-4000-8000-000000000004',
+    QUELM_ID,
+  ]);
+  let journal: SessionsJournal;
+  let service: TableSessionService;
+
+  beforeEach(() => {
+    journal = new SessionsJournal();
+    service = new TableSessionService({
+      campaigns: new CampaignRosterFake({ [VHARN_ID]: [ANA] }),
+      registry: new PresenceRegistryFake(journal),
+      scheduler: new SchedulerFake(),
+      publisher: new SessionPublisherFake(journal),
+      clock: new ClockFake(NOW),
+    });
+  });
+
+  it('admitting a 6th table throws TOO_MANY_TABLES without touching the registry or the publisher', () => {
+    expect(() => service.admitTable(FIVE_OPEN, VHARN_ID)).toThrow(
+      expect.objectContaining({ code: 'TOO_MANY_TABLES' }),
+    );
+    expect(journal.entries).toEqual([]);
+  });
+
+  it('admitting and then releasing a table hands back the new set each time', () => {
+    const admitted = service.admitTable(new Set([QUELM_ID]), VHARN_ID);
+    expect(admitted.tables).toEqual(new Set([QUELM_ID, VHARN_ID]));
+    const released = service.releaseTable(admitted.tables, QUELM_ID);
+    expect(released.tables).toEqual(new Set([VHARN_ID]));
+  });
+});

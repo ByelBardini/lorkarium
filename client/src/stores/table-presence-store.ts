@@ -63,6 +63,8 @@ function applyUpdate(
     return { version: update.state.version, members: update.state.members };
   if (update.kind === 'status') return { status: update.status, failure: null };
   if (update.kind === 'failed') return { status: 'failed', failure: update.failure };
+  // The board updates of the same visit belong to the board store.
+  if (update.kind !== 'memberJoined' && update.kind !== 'memberLeft') return {};
   if (!isNewer(state, update.event)) return {};
   if (update.kind === 'memberJoined') return memberCameOnline(state, update.event);
   return memberWentOffline(state, update.event);

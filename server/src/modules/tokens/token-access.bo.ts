@@ -1,0 +1,34 @@
+import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+
+export type TokenControl = Readonly<{ tokenId: string; controllerIds: readonly string[] }>;
+
+/** Who sees a token whole: the master and its controllers (`privileged`), or everyone else. */
+export type TokenAudience = 'privileged' | 'others';
+
+/** What one member may do with one token (spec §3.9): the master and the token's controllers
+ *  move it and touch its bars; anyone else only sees it, redacted.
+ *
+ *  Example: `new TokenAccessBo(campaignAccess, { tokenId, controllerIds }).requireControl('move')` */
+export class TokenAccessBo {
+  constructor(
+    private readonly campaign: CampaignAccessBo,
+    private readonly token: TokenControl,
+  ) {}
+
+  canControl(): boolean {
+    if (this.campaign.isMaster()) return true;
+    return this.token.controllerIds.some((userId) => this.campaign.isUser(userId));
+  }
+
+  requireControl(action: string): void {
+    if (this.canControl()) return;
+    this.campaign.forbid(
+      `${action} token ${this.token.tokenId}`,
+      'the master role or control of the token',
+    );
+  }
+
+  audience(): TokenAudience {
+    return this.canControl() ? 'privileged' : 'others';
+  }
+}

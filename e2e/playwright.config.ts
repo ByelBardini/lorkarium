@@ -11,6 +11,10 @@ if (existsSync(SERVER_ENV_FILE)) {
   }
 }
 
+// The e2e gets a database of its own (<db>_e2e), emptied on every run, so it never fills the dev
+// one. The server and its prepare step inherit this from the webServer environment.
+process.env.DATABASE_URL = e2eDatabaseUrl(process.env.DATABASE_URL);
+
 const isCi = Boolean(process.env.CI);
 
 const SERVER_HEALTH_URL = 'http://localhost:3333/api/health';
@@ -35,9 +39,11 @@ export default defineConfig({
   webServer: [
     {
       name: 'server',
-      command: 'pnpm --filter @lorkarium/server start',
+      command:
+        'pnpm --filter @lorkarium/server e2e:database && pnpm --filter @lorkarium/server start',
       url: SERVER_HEALTH_URL,
-      reuseExistingServer: !isCi,
+      // Never reuse: a running `pnpm dev` server writes to the dev database.
+      reuseExistingServer: false,
       timeout: 60_000,
     },
     {
@@ -49,3 +55,14 @@ export default defineConfig({
     },
   ],
 });
+
+// Idempotent: the config is loaded again by every worker.
+function e2eDatabaseUrl(base: string | undefined): string {
+  if (!base)
+    throw new Error(
+      'the e2e needs DATABASE_URL (server/.env or the environment); received nothing',
+    );
+  const url = new URL(base);
+  if (!url.pathname.endsWith('_e2e')) url.pathname = `${url.pathname}_e2e`;
+  return url.toString();
+}

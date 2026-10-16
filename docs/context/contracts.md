@@ -39,7 +39,21 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `sessionStateDto` `{ campaignId, version (inteiro ≥ 0), members, at (ISO) }` — o `session:state` do §7.2 **não** é um evento: chega como ack do `session:join`.
 - `sessionMemberJoinedDto` `{ campaignId, version, member (com online: true), at }` e `sessionMemberLeftDto` `{ campaignId, version, userId, at }`.
 - `sessionJoinAckDto` (`{ ok: true, state }` | `{ ok: false, error: ApiErrorDto }`) e `sessionLeaveAckDto` (`{ ok: true }` | a mesma falha), uniões discriminadas por `ok`.
+- `MAX_OPEN_TABLES` = `5` — mesas abertas ao mesmo tempo por conexão: o server recusa a 6ª (`TOO_MANY_TABLES`) e o client avisa antes de pedir.
 - `SessionClientEvents` / `SessionServerEvents` — mapas de tipo para os genéricos do Socket.IO no server e no client.
+
+### Tempo real comum (`http/realtime-ack.dto.ts`)
+
+- `stateVersionDto` (inteiro ≥ 0) e `realtimeAckFailureDto` (`{ ok: false, error: ApiErrorDto }`): a versão e a falha de ack que sessão e tabuleiro compartilham.
+
+### Tabuleiro (`board/`)
+
+Detalhe do fluxo em [`board.md`](board.md).
+
+- `scene.dto.ts` — `sceneGridDto` (só os campos do grid, o que o formulário do client valida); `sceneDto` `{ id, name, widthCells, heightCells, cellDistance, cellUnit, gridVisible, gridOpacity }`; `configureSceneCommandDto` `{ actionId, campaignId, …grid }` (estrito). Limites: casas de `SCENE_CELLS_MIN` (1) a `SCENE_CELLS_MAX` (100), inteiras; `cellDistance` > 0 e ≤ `CELL_DISTANCE_MAX` (9999); `cellUnit` aparado, 1 a `CELL_UNIT_MAX_LENGTH` (8); `gridOpacity` inteiro de 0 a `GRID_OPACITY_MAX` (100). `SceneGridDto` = só os campos do grid.
+- `board-event.dto.ts` — `boardCommandShape` (`actionId`, `campaignId`) e `boardEventShape` (`campaignId`, `version`, `at`): os campos de todo comando e todo evento do tabuleiro.
+- `token.dto.ts` — `MAX_BARS_PER_TOKEN` (8), `BAR_VALUE_LIMIT` (99 999), `TOKEN_NAME_MAX_LENGTH` (60), `TOKEN_INITIALS_MAX_LENGTH` (3), `BAR_LABEL_MAX_LENGTH` (24), `TOKEN_SIZE_MAX` (4); `tokenSideDto` (`ally` | `enemy` | `neutral`), `barColorDto` (`gold` | `steel` | `ember` | `moss` | `ash`, nunca hex), `barVisibilityDto` (`everyone` | `controllers`); `barInputDto` `{ label (aparado, 1–24), current (±99 999), max (1–99 999), color, visibility }` e `tokenBarDto` (+ `id`, `position` 0–7: a 0 é a que aparece no token); `tokenDto` `{ id, name (aparado), initials (1–3), side, size (1–4), col, row, controllerIds, canControl, bars }` — redigido: a barra `controllers` simplesmente não vem, e as outras guardam a `position`; comandos `createTokenCommandDto` (+ `col`, `row`, `bars`), `updateTokenCommandDto` (`tokenId` + campos + `bars`, sem posição), `moveTokenCommandDto` `{ tokenId, col, row }`, `adjustBarCommandDto` `{ tokenId, barId, change }` com `barChangeDto` (`{ op: 'add', amount }` | `{ op: 'set', value }`, inteiros) e `deleteTokenCommandDto`; eventos `tokenCreatedDto`/`tokenUpdatedDto` `{ …, token }`, `tokenMovedDto` `{ …, tokenId, col, row }`, `tokenDeletedDto` `{ …, tokenId }`. `canControl` num comando é recusado (estrito).
+- `board.dto.ts` — `BOARD_EVENTS` (`board:sync`, `scene:configure`, `scene:updated`, `token:create|update|move|adjustBar|delete`, `token:created|updated|moved|deleted`); `boardCommandDto` `{ actionId, campaignId }` (base de todo comando e payload do `board:sync`); `boardStateDto` `{ campaignId, version, at, viewer: { userId, role }, scene, tokens: TokenDto[], combat, conditionDefinitions }` (snapshot já redigido para quem pede); `boardSyncAckDto` (`{ ok: true, state }` | falha); `boardCommandAckDto` (`{ ok: true, version }` | falha); `sceneUpdatedDto` `{ campaignId, version, at, scene }`; `BoardClientEvents` / `BoardServerEvents` e `TableClientEvents` / `TableServerEvents` (sessão + tabuleiro, os genéricos do Socket.IO).
 
 ## Regras de arquitetura
 

@@ -6,8 +6,10 @@ import {
   CampaignCodeFake,
   CampaignMembersDaoFake,
   CampaignsDaoFake,
+  ConditionDefinitionsFake,
   TransactionRunnerFake,
 } from '../../support/campaigns-fakes';
+import { ScenesDaoFake } from '../../support/scenes-fakes';
 import {
   BIA_ID,
   CAIO_ID,
@@ -29,6 +31,8 @@ const NEW_CAMPAIGN = {
 describe('CampaignsService', () => {
   let campaigns: CampaignsDaoFake;
   let members: CampaignMembersDaoFake;
+  let scenes: ScenesDaoFake;
+  let conditions: ConditionDefinitionsFake;
   let runner: TransactionRunnerFake;
   let codes: CampaignCodeFake;
   let service: CampaignsService;
@@ -52,13 +56,24 @@ describe('CampaignsService', () => {
       [BIA_ID]: 'Bia',
       [CAIO_ID]: 'Caio',
     });
-    runner = new TransactionRunnerFake({ campaigns, members });
+    scenes = new ScenesDaoFake();
+    conditions = new ConditionDefinitionsFake();
+    runner = new TransactionRunnerFake({ campaigns, members, scenes, conditions });
     build(['VHRN7K2Q', 'PNTN2345', 'QLMR2345', 'ZZZZ2345']);
   });
 
-  it('create writes the campaign with the generated code and the creator as master, both inside the transaction', async () => {
+  it('create writes the campaign, the master, the active scene and the initial conditions, all in the transaction', async () => {
     const detail = await service.create(ANA_ID, NEW_CAMPAIGN);
-    expect(runner.writesInside).toEqual(['campaigns.insert', 'members.insert']);
+    expect(runner.writesInside).toEqual([
+      'campaigns.insert',
+      'members.insert',
+      'scenes.insert',
+      'campaigns.setActiveScene',
+      'conditions.insertDefinitions',
+    ]);
+    expect(conditions.seeded.get(campaigns.rows[0]?.id ?? '')).toHaveLength(11);
+    expect(scenes.rows).toEqual([expect.objectContaining({ campaignId: campaigns.rows[0]?.id })]);
+    expect(campaigns.rows[0]?.activeSceneId).toBe(scenes.rows[0]?.id);
     expect(campaigns.rows[0]).toMatchObject({ ownerId: ANA_ID, joinCode: 'VHRN7K2Q' });
     expect(members.rows[0]).toMatchObject({ userId: ANA_ID, role: 'master', joinedAt: NOW });
     expect(detail).toMatchObject({
@@ -88,6 +103,12 @@ describe('CampaignsService', () => {
     const detail = await service.create(ANA_ID, NEW_CAMPAIGN);
     expect(detail.joinCode).toBe('PNTN2345');
     expect(runner.runs).toBe(2);
+  });
+
+  it('a code collision retries without leaving a second scene behind', async () => {
+    campaigns.rows.push(campaignPo({ id: 'taken', joinCode: 'VHRN7K2Q' }));
+    await service.create(ANA_ID, NEW_CAMPAIGN);
+    expect(scenes.rows).toHaveLength(1);
   });
 
   it('three collisions in a row give up with an error citing the attempts', async () => {

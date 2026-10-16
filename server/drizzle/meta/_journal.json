@@ -15,6 +15,34 @@
       "when": 1792029633114,
       "tag": "0001_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792112896135,
+      "tag": "0002_scenes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792115926978,
+      "tag": "0003_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792118892089,
+      "tag": "0004_conditions",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792119504157,
+      "tag": "0005_combat",
+      "breakpoints": true
     }
   ]
 }

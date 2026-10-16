@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Os Sinos de Vharn</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0A0B0E}
+a{color:#C5A46D;text-decoration:none}a:hover{color:#E2C793}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.lk-tool{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:transparent;color:#8C8F98;cursor:pointer}
+.lk-tool:hover{background:#1B1E24;color:#EAE5DA}
+.lk-tool.is-active{background:rgba(197,164,109,.16);color:#E2C793;box-shadow:inset 0 0 0 1px rgba(197,164,109,.4)}
+.lk-tab{flex:1;height:44px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8C8F98;font:inherit;font-size:13px;font-weight:600;letter-spacing:.06em;cursor:pointer}
+.lk-tab:hover{color:#EAE5DA}
+.lk-tab.is-active{color:#EAE5DA;border-bottom-color:#C5A46D}
+.lk-token{position:absolute;padding:0;border:0;background:transparent;cursor:pointer;transition:left .25s ease,top .25s ease}
+.lk-token .lk-disc{position:absolute;inset:11%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;letter-spacing:.04em;color:#EAE5DA;background:#1F232A;box-shadow:0 0 0 2px #D9D2C2,0 4px 10px rgba(0,0,0,.6)}
+.lk-token.is-enemy .lk-disc{background:#2A1D1A;box-shadow:0 0 0 2px #C9705A,0 4px 10px rgba(0,0,0,.6)}
+.lk-token.is-big .lk-disc{font-size:16px}
+.lk-token.is-turn .lk-disc{box-shadow:0 0 0 2px #C5A46D,0 0 0 5px rgba(197,164,109,.3),0 4px 10px rgba(0,0,0,.6)}
+.lk-token.is-sel .lk-disc{outline:2px dashed #EAE5DA;outline-offset:4px}
+.lk-token.is-down .lk-disc{opacity:.45;filter:grayscale(1)}
+.lk-tokens-dim .lk-token{opacity:.4;pointer-events:none}
+.lk-row{border-radius:10px;border:1px solid transparent;background:#14171C;transition:background .15s}
+.lk-row:hover{background:#171A20}
+.lk-row.is-turn{background:#1C1A15;border-color:rgba(197,164,109,.45)}
+.lk-row.is-sel{border-color:#3A404A}
+.lk-row.is-turn.is-sel{border-color:#C5A46D}
+.lk-rowhead{width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.lk-init{width:30px;height:30px;flex-shrink:0;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;background:#1F232A;color:#D5D0C4}
+.lk-row.is-turn .lk-init{background:#C5A46D;color:#15130F}
+.lk-chip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+.lk-chip.is-bad{background:rgba(201,112,90,.14);color:#E6A28F;box-shadow:inset 0 0 0 1px rgba(201,112,90,.35)}
+.lk-chip.is-good{background:rgba(143,179,154,.14);color:#A9D1B4;box-shadow:inset 0 0 0 1px rgba(143,179,154,.35)}
+.lk-x{width:16px;height:16px;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;font:inherit;font-size:13px;line-height:1;cursor:pointer;opacity:.7}
+.lk-x:hover{opacity:1;background:rgba(255,255,255,.08)}
+.lk-mini{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #303640;border-radius:6px;background:transparent;color:#D5D0C4;font:inherit;font-size:15px;line-height:1;cursor:pointer}
+.lk-mini:hover{border-color:#C5A46D;color:#EAE5DA}
+.lk-btn{height:36px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid #303640;border-radius:8px;background:transparent;color:#D5D0C4;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.lk-btn:hover{border-color:#C5A46D;color:#EAE5DA}
+.lk-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.lk-btn.is-gold:hover{background:#D4B57E}
+.lk-btn.is-dmg:hover{border-color:#C9705A;color:#E6A28F}
+.lk-btn.is-heal:hover{border-color:#8FB39A;color:#A9D1B4}
+.lk-field{height:32px;box-sizing:border-box;padding:0 8px;border-radius:6px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:13px}
+.lk-field:focus{outline:none;border-color:#C5A46D}
+.lk-die{height:36px;min-width:44px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:#D5D0C4;font-family:Cinzel,serif;font-size:13px;font-weight:600;cursor:pointer}
+.lk-die:hover{background:#1F232A;color:#E2C793}
+.lk-layer{width:100%;display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:#A9A497;font:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left}
+.lk-layer:hover{background:#1F232A;color:#EAE5DA}
+.lk-layer.is-active{color:#E2C793;background:rgba(197,164,109,.1)}
+</style>
+</helmet>
+<div style="height: 100vh; overflow: auto; display: flex; flex-direction: column; background: #0A0B0E; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<header style="flex-shrink: 0; min-height: 56px; box-sizing: border-box; padding: 8px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; background: #0C0E11; border-bottom: 1px solid #1F2329">
+<a href="Home.dc.html" style="display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px 0 6px; border-radius: 8px; color: #A9A497; font-size: 13px; font-weight: 500">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+Mesas
+</a>
+<span style="width: 1px; height: 24px; background: #262B33"></span>
+<svg viewBox="0 0 120 120" width="22" height="22" fill="none" stroke="#C5A46D" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><g stroke-width="7"><path d="M60 9 L78 42 L60 99 L42 42 Z"></path><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z"></path></g></svg>
+<div style="display: flex; align-items: baseline; gap: 10px; min-width: 0">
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 22px; white-space: nowrap">Os Sinos de Vharn</h1>
+<span style="font-size: 12px; color: #8C8F98; white-space: nowrap">Sessão 15 · D&amp;D 5e · {{roleText}}</span>
+</div>
+<div style="flex: 1"></div>
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="display: flex" aria-label="4 pessoas online">
+<span style="position: relative; width: 30px; height: 30px; border-radius: 50%; background: #3A4A5B; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; box-shadow: 0 0 0 2px #0C0E11">LU</span>
+<span style="width: 30px; height: 30px; margin-left: -8px; border-radius: 50%; background: #56404A; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; box-shadow: 0 0 0 2px #0C0E11">BI</span>
+<span style="width: 30px; height: 30px; margin-left: -8px; border-radius: 50%; background: #3F5247; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; box-shadow: 0 0 0 2px #0C0E11">TH</span>
+<span style="width: 30px; height: 30px; margin-left: -8px; border-radius: 50%; background: #5B4A3A; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; box-shadow: 0 0 0 2px #0C0E11">CA</span>
+</div>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8FD0A8"><span style="width: 7px; height: 7px; border-radius: 50%; background: #8FD0A8"></span>4 online</span>
+<button type="button" class="lk-btn" style="font-family: Cinzel, serif; letter-spacing: 0.12em">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>
+VHRN-7K2Q
+</button>
+</div>
+</header>
+
+<div style="flex: 1; min-height: 0; display: flex; flex-wrap: wrap">
+
+<nav aria-label="Ferramentas do mapa" style="position: relative; flex: 0 0 60px; box-sizing: border-box; padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: #0C0E11; border-right: 1px solid #1F2329">
+<button type="button" class="lk-tool {{toolCls.select}}" onClick="{{setTool.select}}" aria-label="Selecionar e mover" title="Selecionar e mover (V)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l14 8-6.5 1.5L11 19Z"></path></svg>
+</button>
+<button type="button" class="lk-tool {{toolCls.medir}}" onClick="{{setTool.medir}}" aria-label="Régua" title="Régua (R)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17L17 3l4 4L7 21Z"></path><path d="M7 13l2 2M10 10l2 2M13 7l2 2"></path></svg>
+</button>
+<button type="button" class="lk-tool {{toolCls.area}}" onClick="{{setTool.area}}" aria-label="Área de efeito" title="Área de efeito (A)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"></circle><circle cx="12" cy="12" r="1.5"></circle></svg>
+</button>
+<div style="width: 28px; height: 1px; margin: 6px 0; background: #262B33"></div>
+<button type="button" class="lk-tool {{gridCls}}" onClick="{{toggleGrid}}" aria-label="Mostrar grid" aria-pressed="{{showGrid}}" title="Grid (G)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="1"></rect><path d="M4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16"></path></svg>
+</button>
+<sc-if value="{{isGM}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="lk-tool {{layersCls}}" onClick="{{toggleLayers}}" aria-label="Camadas" aria-expanded="{{layersOpen}}" title="Camadas">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5Z"></path><path d="M3 13l9 5 9-5"></path></svg>
+</button>
+</sc-if>
+<div style="flex: 1"></div>
+<button type="button" class="lk-tool" onClick="{{zoomIn}}" aria-label="Aproximar" title="Aproximar">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5M8.5 11h5M11 8.5v5"></path></svg>
+</button>
+<span style="font-size: 11px; color: #8C8F98; padding: 2px 0">{{zoomLabel}}</span>
+<button type="button" class="lk-tool" onClick="{{zoomOut}}" aria-label="Afastar" title="Afastar">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5M8.5 11h5"></path></svg>
+</button>
+
+<sc-if value="{{layersOpen}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="Camada ativa" style="position: absolute; z-index: 5; left: 64px; top: 176px; width: 200px; box-sizing: border-box; padding: 8px; border-radius: 10px; background: #15181D; border: 1px solid #303640; box-shadow: 0 12px 40px rgba(0,0,0,.5); display: flex; flex-direction: column; gap: 2px">
+<span style="padding: 6px 10px 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #8C8F98">Editando camada</span>
+<button type="button" class="lk-layer {{layerCls.tokens}}" onClick="{{setLayer.tokens}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle></svg>Tokens</button>
+<button type="button" class="lk-layer {{layerCls.objetos}}" onClick="{{setLayer.objetos}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9Z"></path></svg>Objetos</button>
+<button type="button" class="lk-layer {{layerCls.fundo}}" onClick="{{setLayer.fundo}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2Z"></path></svg>Fundo (mapa)</button>
+</div>
+</sc-if>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; min-height: 520px; box-sizing: border-box; padding: 14px 20px 14px; display: flex; flex-direction: column; gap: 12px; background: #0A0B0E">
+<div style="display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap">
+<div style="display: inline-flex; align-items: center; gap: 12px; height: 40px; padding: 0 6px 0 16px; border-radius: 999px; background: #15181D; border: 1px solid #303640">
+<span style="font-family: Cinzel, serif; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; color: #C5A46D">RODADA {{round}}</span>
+<span style="width: 1px; height: 16px; background: #303640"></span>
+<span style="font-size: 13px; color: #D5D0C4">Vez de <strong style="color: #EAE5DA">{{turnName}}</strong></span>
+<sc-if value="{{canAdvance}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="lk-btn is-gold" onClick="{{nextTurn}}" style="height: 30px; border-radius: 999px; font-size: 12px">{{advanceLabel}}</button>
+</sc-if>
+</div>
+<sc-if value="{{hasHint}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #8C8F98">{{hint}}</span>
+</sc-if>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: #08090B">
+<div style="position: relative; width: 100%; max-width: 1100px; aspect-ratio: 20 / 12; flex-shrink: 0; transform: scale({{zoom}}); transform-origin: center center; transition: transform .2s">
+<svg viewBox="0 0 960 576" style="position: absolute; inset: 0; width: 100%; height: 100%; display: block" aria-hidden="true">
+<defs>
+<pattern id="lkMesaGrid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#C5A46D" stroke-width="1"></path></pattern>
+<pattern id="lkStone" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M0 24L24 0" stroke="#252931" stroke-width="1"></path></pattern>
+</defs>
+<rect width="960" height="576" fill="#0B0C0F"></rect>
+<path d="M48 48 H528 V192 H624 V96 H912 V480 H624 V336 H528 V528 H48 Z" fill="#1A1D23"></path>
+<path d="M48 48 H528 V192 H624 V96 H912 V480 H624 V336 H528 V528 H48 Z" fill="url(#lkStone)" opacity=".5"></path>
+<rect x="232" y="58" width="112" height="36" rx="3" fill="#2A2620" stroke="#7A6F5C" stroke-width="1.5"></rect>
+<path d="M276 76 h24 M288 64 v24" stroke="#C5A46D" stroke-opacity=".6" stroke-width="1.5"></path>
+<g fill="#262A31" stroke="#5E5749" stroke-width="1.5">
+<rect x="128" y="128" width="32" height="32" rx="3"></rect><rect x="368" y="128" width="32" height="32" rx="3"></rect>
+<rect x="128" y="416" width="32" height="32" rx="3"></rect><rect x="368" y="416" width="32" height="32" rx="3"></rect>
+</g>
+<ellipse cx="808" cy="392" rx="78" ry="52" fill="#16212C" stroke="#4D6A8A" stroke-opacity=".7" stroke-width="1.5"></ellipse>
+<ellipse cx="800" cy="388" rx="46" ry="26" fill="none" stroke="#4D6A8A" stroke-opacity=".35" stroke-width="1"></ellipse>
+<g fill="#2B2E35" stroke="#4A4740" stroke-width="1">
+<path d="M690 140 l14 -6 l10 10 l-8 12 l-14 -2 Z"></path><path d="M722 160 l9 -3 l6 7 l-6 7 l-9 -3 Z"></path><path d="M672 168 l8 -2 l4 7 l-7 4 Z"></path>
+</g>
+<rect x="618" y="216" width="12" height="96" rx="2" fill="#5A4A33" stroke="#8A7350" stroke-width="1"></rect>
+<path d="M48 48 H528 V192 H624 V96 H912 V480 H624 V336 H528 V528 H48 Z" fill="none" stroke="#7A6F5C" stroke-width="6" stroke-linejoin="miter"></path>
+<rect width="960" height="576" fill="url(#lkMesaGrid)" opacity="{{gridOpacity}}"></rect>
+<circle cx="{{aoe.cx}}" cy="{{aoe.cy}}" r="{{aoe.r}}" fill="#C9705A" fill-opacity="{{aoe.fillOp}}" stroke="#C9705A" stroke-opacity="{{aoe.op}}" stroke-width="2" stroke-dasharray="6 6"></circle>
+<line x1="{{ms.x1}}" y1="{{ms.y1}}" x2="{{ms.x2}}" y2="{{ms.y2}}" stroke="#EAE5DA" stroke-opacity="{{ms.op}}" stroke-width="2.5" stroke-dasharray="8 6" stroke-linecap="round"></line>
+<circle cx="{{ms.x2}}" cy="{{ms.y2}}" r="6" fill="#EAE5DA" fill-opacity="{{ms.op}}"></circle>
+</svg>
+
+<div onClick="{{onMapClick}}" style="position: absolute; inset: 0; cursor: {{cursor}}" aria-hidden="true"></div>
+
+<div class="{{tokensWrapCls}}" style="position: absolute; inset: 0; pointer-events: none">
+<sc-for list="{{tokens}}" as="t" hint-placeholder-count="6">
+<button type="button" class="{{t.cls}}" onClick="{{t.pick}}" aria-label="{{t.aria}}" style="left: {{t.left}}; top: {{t.top}}; width: {{t.w}}; height: {{t.h}}; pointer-events: auto">
+<span class="lk-disc">{{t.ini}}</span>
+<sc-if value="{{t.hasCond}}" hint-placeholder-val="{{ false }}">
+<span style="position: absolute; top: 2%; right: 2%; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 999px; background: #C9705A; color: #15130F; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{t.condCount}}</span>
+</sc-if>
+<span style="position: absolute; left: 12%; right: 12%; top: 92%; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{t.bars}}" as="b" hint-placeholder-count="1">
+<span style="display: block; height: 3px; border-radius: 2px; background: #2A2E36; overflow: hidden"><span style="display: block; height: 100%; width: {{b.w}}; background: {{b.color}}"></span></span>
+</sc-for>
+</span>
+</button>
+</sc-for>
+</div>
+
+<sc-if value="{{ms.show}}" hint-placeholder-val="{{ false }}">
+<span style="position: absolute; left: {{ms.lx}}; top: {{ms.ly}}; transform: translate(-50%, -150%); padding: 4px 10px; border-radius: 6px; background: #EAE5DA; color: #101216; font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none">{{ms.label}}</span>
+</sc-if>
+<sc-if value="{{aoe.show}}" hint-placeholder-val="{{ false }}">
+<span style="position: absolute; left: {{aoe.lx}}; top: {{aoe.ly}}; transform: translate(-50%, -50%); padding: 3px 8px; border-radius: 6px; background: rgba(16,18,22,.85); color: #E6A28F; font-size: 11px; font-weight: 600; white-space: nowrap; pointer-events: none">Esfera · 3 m</span>
+</sc-if>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap">
+<div role="group" aria-label="Rolar dados" style="display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 12px; background: #15181D; border: 1px solid #303640">
+<button type="button" class="lk-die" onClick="{{roll.d4}}">d4</button>
+<button type="button" class="lk-die" onClick="{{roll.d6}}">d6</button>
+<button type="button" class="lk-die" onClick="{{roll.d8}}">d8</button>
+<button type="button" class="lk-die" onClick="{{roll.d10}}">d10</button>
+<button type="button" class="lk-die" onClick="{{roll.d12}}">d12</button>
+<button type="button" class="lk-die" onClick="{{roll.d20}}" style="color: #E2C793">d20</button>
+</div>
+<sc-if value="{{hasRoll}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 16px; border-radius: 12px; background: #15181D; border: 1px solid {{rollBorder}}">
+<span style="font-size: 13px; color: #A9A497">{{rollWho}} rolou {{rollDie}}</span>
+<strong style="font-family: 'Cormorant Garamond', serif; font-size: 28px; line-height: 1; color: {{rollColor}}">{{rollValue}}</strong>
+</div>
+</sc-if>
+</div>
+</main>
+
+<aside style="flex: 1 1 340px; max-width: 100%; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; background: #0F1114; border-left: 1px solid #1F2329">
+<div role="tablist" aria-label="Painel da mesa" style="flex-shrink: 0; display: flex; padding: 0 12px; border-bottom: 1px solid #1F2329">
+<button type="button" role="tab" class="lk-tab {{tabCls.combate}}" aria-selected="{{tabSel.combate}}" onClick="{{setTab.combate}}">Combate</button>
+<button type="button" role="tab" class="lk-tab {{tabCls.grupo}}" aria-selected="{{tabSel.grupo}}" onClick="{{setTab.grupo}}">Grupo</button>
+<button type="button" role="tab" class="lk-tab {{tabCls.notas}}" aria-selected="{{tabSel.notas}}" onClick="{{setTab.notas}}">Notas</button>
+</div>
+
+<sc-if value="{{tabSel.combate}}" hint-placeholder-val="{{ true }}">
+<div style="flex-shrink: 0; padding: 16px 16px 12px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #1F2329">
+<div style="width: 56px; height: 56px; flex-shrink: 0; border-radius: 12px; border: 1px solid rgba(197,164,109,.45); display: flex; flex-direction: column; align-items: center; justify-content: center">
+<span style="font-size: 9px; font-weight: 600; letter-spacing: 0.16em; color: #C5A46D">RODADA</span>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; line-height: 1">{{round}}</span>
+</div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #8C8F98">{{combatCount}} no combate</span>
+<span style="font-size: 15px; font-weight: 600">Vez de {{turnName}}</span>
+</div>
+<sc-if value="{{isGM}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 6px">
+<button type="button" class="lk-mini" onClick="{{prevTurn}}" aria-label="Turno anterior" style="width: 36px; height: 36px">‹</button>
+<button type="button" class="lk-mini" onClick="{{nextTurn}}" aria-label="Próximo turno" style="width: 36px; height: 36px; border-color: #C5A46D; color: #E2C793">›</button>
+</div>
+</sc-if>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<div class="{{r.cls}}">
+<button type="button" class="lk-rowhead" onClick="{{r.pick}}" aria-expanded="{{r.open}}">
+<span class="lk-init">{{r.init}}</span>
+<span style="position: relative; width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; background: {{r.discBg}}; box-shadow: 0 0 0 2px {{r.ring}}; opacity: {{r.opacity}}">{{r.ini}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px">
+<span style="display: flex; align-items: baseline; gap: 8px; min-width: 0">
+<span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</span>
+<span style="font-size: 11px; color: #8C8F98; white-space: nowrap">{{r.sub}}</span>
+<span style="margin-left: auto; font-size: 12px; font-weight: 600; color: {{r.pvColor}}; white-space: nowrap">{{r.pvText}}</span>
+</span>
+<sc-if value="{{r.showNums}}" hint-placeholder-val="{{ true }}">
+<span style="display: flex; flex-direction: column; gap: 3px">
+<sc-for list="{{r.bars}}" as="b" hint-placeholder-count="1">
+<span style="display: block; height: 4px; border-radius: 2px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: {{b.w}}; background: {{b.color}}"></span></span>
+</sc-for>
+</span>
+</sc-if>
+<sc-if value="{{r.hasConds}}" hint-placeholder-val="{{ false }}">
+<span style="display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{r.conds}}" as="c" hint-placeholder-count="1">
+<span class="{{c.cls}}">{{c.name}}<span style="opacity: .75">{{c.dur}}</span></span>
+</sc-for>
+</span>
+</sc-if>
+</span>
+</button>
+
+<sc-if value="{{r.open}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 4px 12px 14px 52px; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{r.showNums}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{r.bars}}" as="b" hint-placeholder-count="1">
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #A9A497">{{b.label}}</span>
+<span style="margin-left: auto; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">{{b.text}}</span>
+<sc-if value="{{r.canEdit}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="lk-mini" onClick="{{b.dec}}" aria-label="{{b.decLabel}}">−</button>
+<button type="button" class="lk-mini" onClick="{{b.inc}}" aria-label="{{b.incLabel}}">+</button>
+</sc-if>
+</div>
+<span style="display: block; height: 8px; border-radius: 4px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: {{b.w}}; background: {{b.color}}; transition: width .2s"></span></span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{r.hideNums}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 13px; color: #A9A497">Estado: <strong style="color: #E6A28F">{{r.status}}</strong> · o mestre vê os números.</p>
+</sc-if>
+
+<sc-if value="{{r.canEdit}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap">
+<label style="font-size: 12px; color: #A9A497" for="{{r.amountId}}">PV</label>
+<input id="{{r.amountId}}" class="lk-field" type="number" min="0" value="{{amount}}" onChange="{{onAmount}}" style="width: 64px">
+<button type="button" class="lk-btn is-dmg" onClick="{{r.damage}}">Dano</button>
+<button type="button" class="lk-btn is-heal" onClick="{{r.heal}}">Cura</button>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #A9A497">Condições</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+<sc-for list="{{r.conds}}" as="c" hint-placeholder-count="1">
+<span class="{{c.cls}}">{{c.name}}<span style="opacity: .75">{{c.durLong}}</span>
+<sc-if value="{{r.canEdit}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="lk-x" onClick="{{c.remove}}" aria-label="{{c.removeLabel}}">×</button>
+</sc-if>
+</span>
+</sc-for>
+<sc-if value="{{r.noConds}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #6F7480">Nenhuma</span>
+</sc-if>
+</div>
+<sc-if value="{{r.canEdit}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 6px; align-items: center">
+<select class="lk-field" aria-label="Adicionar condição" onChange="{{r.addCond}}" value="" style="flex: 1">
+<option value="">+ Adicionar condição…</option>
+<option value="Abençoado">Abençoado</option>
+<option value="Agarrado">Agarrado</option>
+<option value="Amedrontado">Amedrontado</option>
+<option value="Atordoado">Atordoado</option>
+<option value="Caído">Caído</option>
+<option value="Cego">Cego</option>
+<option value="Concentrando">Concentrando</option>
+<option value="Envenenado">Envenenado</option>
+<option value="Invisível">Invisível</option>
+<option value="Paralisado">Paralisado</option>
+</select>
+<input class="lk-field" type="number" min="0" value="{{condDur}}" onChange="{{onCondDur}}" aria-label="Duração em rodadas (0 = sem limite)" title="Rodadas (0 = sem limite)" style="width: 56px">
+<span style="font-size: 11px; color: #6F7480">rod.</span>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{isGM}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; gap: 8px">
+<label style="font-size: 12px; color: #A9A497" for="{{r.initId}}">Iniciativa</label>
+<input id="{{r.initId}}" class="lk-field" type="number" value="{{r.init}}" onChange="{{r.setInit}}" style="width: 64px">
+<button type="button" class="lk-btn" onClick="{{r.remove}}" style="margin-left: auto; height: 32px; font-size: 12px; color: #A9A497">Tirar do combate</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+
+<sc-if value="{{isGM}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="lk-btn" onClick="{{addFoe}}" style="height: 44px; border-style: dashed; color: #A9A497">+ Adicionar combatente</button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{tabSel.grupo}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{party}}" as="p" hint-placeholder-count="3">
+<div style="padding: 14px; border-radius: 10px; background: #14171C; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; background: #1F232A; box-shadow: 0 0 0 2px #D9D2C2">{{p.ini}}</span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; line-height: 1.1">{{p.name}}</span>
+<span style="font-size: 12px; color: #8C8F98">Jogado por {{p.sub}}</span>
+</div>
+</div>
+<sc-for list="{{p.bars}}" as="b" hint-placeholder-count="1">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; font-size: 12px"><span style="font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #A9A497">{{b.label}}</span><span style="font-weight: 600">{{b.text}}</span></div>
+<span style="display: block; height: 6px; border-radius: 3px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: {{b.w}}; background: {{b.color}}"></span></span>
+</div>
+</sc-for>
+<sc-if value="{{p.hasConds}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{p.conds}}" as="c" hint-placeholder-count="1">
+<span class="{{c.cls}}">{{c.name}}<span style="opacity: .75">{{c.dur}}</span></span>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{tabSel.notas}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; min-height: 0; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<label for="lk-notas" style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #A9A497">Anotações da sessão</label>
+<textarea id="lk-notas" placeholder="O que rolou hoje, nomes de NPCs, aquele plano maluco do Thoren…" style="flex: 1; min-height: 240px; box-sizing: border-box; padding: 12px; border-radius: 8px; border: 1px solid #303640; background: #14171C; color: #EAE5DA; font: inherit; font-size: 14px; line-height: 1.6; resize: none"></textarea>
+</div>
+</sc-if>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"visao":{"editor":"enum","options":["mestre","jogador"],"default":"mestre"},"$preview":{"width":1440,"height":900}}'>
+var LK_COLS = 20, LK_ROWS = 12, LK_CELL = 48;
+var LK_BAR = { 'PV': '#C9705A', 'Escudo': '#D9D2C2', 'Fôlego': '#8FB39A', 'Mana': '#7F9BD6' };
+var LK_BUFFS = ['Abençoado', 'Invisível', 'Concentrando'];
+var LK_START = [
+  { id: 'kael', name: 'Kael', sub: 'Lucas', ini: 'KA', side: 'ally', owner: true, init: 18, col: 7, row: 5, size: 1, bars: [{ l: 'PV', c: 32, m: 45 }, { l: 'Escudo', c: 8, m: 10 }, { l: 'Fôlego', c: 2, m: 3 }], conds: [{ n: 'Concentrando', d: 0 }] },
+  { id: 'gob1', name: 'Goblin arqueiro', sub: 'Inimigo', ini: 'GA', side: 'enemy', init: 16, col: 15, row: 3, size: 1, bars: [{ l: 'PV', c: 4, m: 7 }], conds: [] },
+  { id: 'lyra', name: 'Lyra', sub: 'Bia', ini: 'LY', side: 'ally', init: 14, col: 4, row: 7, size: 1, bars: [{ l: 'PV', c: 21, m: 28 }, { l: 'Mana', c: 9, m: 16 }], conds: [{ n: 'Abençoado', d: 2 }] },
+  { id: 'ogro', name: 'Ogro das Cinzas', sub: 'Inimigo', ini: 'OG', side: 'enemy', init: 11, col: 8, row: 4, size: 2, bars: [{ l: 'PV', c: 41, m: 59 }], conds: [{ n: 'Envenenado', d: 2 }, { n: 'Agarrado', d: 0 }] },
+  { id: 'thoren', name: 'Thoren', sub: 'Thiago', ini: 'TH', side: 'ally', init: 7, col: 7, row: 8, size: 1, bars: [{ l: 'PV', c: 6, m: 38 }], conds: [{ n: 'Envenenado', d: 1 }, { n: 'Amedrontado', d: 3 }] },
+  { id: 'gob2', name: 'Goblin lanceiro', sub: 'Inimigo', ini: 'GL', side: 'enemy', init: 5, col: 11, row: 5, size: 1, bars: [{ l: 'PV', c: 7, m: 7 }], conds: [] }
+];
+function lkPct(b) { return b.m > 0 ? Math.max(0, Math.min(100, Math.round(b.c / b.m * 100))) : 0; }
+function lkSort(list) { return list.slice().sort(function (a, b) { return b.init - a.init; }); }
+function lkStatus(c) {
+  var p = c.bars[0].c / c.bars[0].m;
+  if (p <= 0) return 'Caído';
+  if (p < 0.34) return 'Muito ferido';
+  if (p < 0.99) return 'Ferido';
+  return 'Ileso';
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      tool: 'select', layer: 'tokens', layersOpen: false, showGrid: true, zoom: 1, tab: 'combate',
+      round: 3, turnId: 'kael', selId: 'kael', list: JSON.parse(JSON.stringify(LK_START)),
+      measure: null, aoe: null, roll: null, amount: 5, condDur: 3
+    };
+  }
+  patch(id, fn) {
+    this.setState({ list: this.state.list.map(function (c) {
+      if (c.id !== id) return c;
+      var copy = JSON.parse(JSON.stringify(c));
+      fn(copy);
+      return copy;
+    }) });
+  }
+  setBar(id, idx, delta) {
+    this.patch(id, function (c) {
+      var b = c.bars[idx];
+      b.c = Math.max(0, Math.min(b.m, b.c + delta));
+      if (idx === 0) {
+        var down = c.conds.some(function (x) { return x.n === 'Caído'; });
+        if (b.c === 0 && !down) c.conds.push({ n: 'Caído', d: 0 });
+        if (b.c > 0 && down) c.conds = c.conds.filter(function (x) { return x.n !== 'Caído'; });
+      }
+    });
+  }
+  advance(dir) {
+    var order = lkSort(this.state.list);
+    if (!order.length) return;
+    var i = order.findIndex(function (c) { return c.id === this.state.turnId; }, this);
+    var round = this.state.round;
+    var list = this.state.list;
+    var ni = i + dir;
+    if (ni >= order.length) {
+      ni = 0; round += 1;
+      list = list.map(function (c) {
+        var copy = JSON.parse(JSON.stringify(c));
+        copy.conds = copy.conds.map(function (x) { return x.d > 0 ? { n: x.n, d: x.d - 1, gone: x.d - 1 === 0 } : x; }).filter(function (x) { return !x.gone; });
+        return copy;
+      });
+    } else if (ni < 0) {
+      if (round <= 1) { ni = 0; } else { ni = order.length - 1; round -= 1; }
+    }
+    this.setState({ round: round, turnId: order[ni].id, selId: order[ni].id, list: list });
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var isGM = (this.props.visao ?? 'mestre') === 'mestre';
+    var order = lkSort(s.list);
+    var byId = {};
+    s.list.forEach(function (c) { byId[c.id] = c; });
+    var turn = byId[s.turnId] || order[0];
+    var sel = byId[s.selId];
+
+    var condView = function (c, canEdit) {
+      return c.conds.map(function (x) {
+        return {
+          name: x.n, cls: 'lk-chip ' + (LK_BUFFS.indexOf(x.n) >= 0 ? 'is-good' : 'is-bad'),
+          dur: x.d > 0 ? ' ' + x.d : '', durLong: x.d > 0 ? ' · ' + x.d + ' rod.' : ' · ∞',
+          removeLabel: 'Remover ' + x.n,
+          remove: function (e) { if (e && e.stopPropagation) e.stopPropagation(); self.patch(c.id, function (cc) { cc.conds = cc.conds.filter(function (y) { return y.n !== x.n; }); }); }
+        };
+      });
+    };
+    var barView = function (c) {
+      return c.bars.map(function (b, idx) {
+        return {
+          label: b.l, text: b.c + ' / ' + b.m, w: lkPct(b) + '%', color: LK_BAR[b.l] || '#C5A46D',
+          dec: function () { self.setBar(c.id, idx, -1); }, inc: function () { self.setBar(c.id, idx, 1); },
+          decLabel: 'Diminuir ' + b.l + ' de ' + c.name, incLabel: 'Aumentar ' + b.l + ' de ' + c.name
+        };
+      });
+    };
+
+    var tokens = s.list.map(function (c) {
+      var visible = isGM || c.side === 'ally';
+      var down = c.bars[0].c <= 0;
+      return {
+        ini: c.ini, left: (c.col / LK_COLS * 100) + '%', top: (c.row / LK_ROWS * 100) + '%',
+        w: (c.size / LK_COLS * 100) + '%', h: (c.size / LK_ROWS * 100) + '%',
+        cls: 'lk-token' + (c.side === 'enemy' ? ' is-enemy' : '') + (c.size > 1 ? ' is-big' : '') + (c.id === s.turnId ? ' is-turn' : '') + (c.id === s.selId ? ' is-sel' : '') + (down ? ' is-down' : ''),
+        hasCond: c.conds.length > 0, condCount: c.conds.length,
+        bars: visible ? c.bars.map(function (b) { return { w: lkPct(b) + '%', color: LK_BAR[b.l] || '#C5A46D' }; }) : [],
+        aria: c.name + (visible ? ', PV ' + c.bars[0].c + ' de ' + c.bars[0].m : ''),
+        pick: function (e) { if (e && e.stopPropagation) e.stopPropagation(); self.setState({ selId: c.id, tab: 'combate', measure: null }); }
+      };
+    });
+
+    var rows = order.map(function (c) {
+      var showNums = isGM || c.side === 'ally';
+      var canEdit = isGM || !!c.owner;
+      var conds = condView(c, canEdit);
+      var pv = c.bars[0];
+      var pvRatio = pv.c / pv.m;
+      return {
+        name: c.name, sub: c.sub, ini: c.ini, init: c.init,
+        cls: 'lk-row' + (c.id === s.turnId ? ' is-turn' : '') + (c.id === s.selId ? ' is-sel' : ''),
+        open: c.id === s.selId,
+        discBg: c.side === 'enemy' ? '#2A1D1A' : '#1F232A', ring: c.side === 'enemy' ? '#C9705A' : '#D9D2C2',
+        opacity: pv.c <= 0 ? '.45' : '1',
+        pvText: showNums ? pv.c + '/' + pv.m : lkStatus(c),
+        pvColor: !showNums ? '#A9A497' : (pvRatio < 0.25 ? '#E6A28F' : '#D5D0C4'),
+        showNums: showNums, hideNums: !showNums, status: lkStatus(c), canEdit: canEdit,
+        bars: barView(c), conds: conds, hasConds: conds.length > 0, noConds: conds.length === 0,
+        amountId: 'lk-amt-' + c.id, initId: 'lk-ini-' + c.id,
+        pick: function () { self.setState({ selId: s.selId === c.id ? null : c.id }); },
+        damage: function () { self.setBar(c.id, 0, -Math.abs(Number(self.state.amount) || 0)); },
+        heal: function () { self.setBar(c.id, 0, Math.abs(Number(self.state.amount) || 0)); },
+        addCond: function (e) {
+          var n = e.target.value;
+          if (!n) return;
+          var d = Math.max(0, parseInt(self.state.condDur, 10) || 0);
+          self.patch(c.id, function (cc) { cc.conds = cc.conds.filter(function (y) { return y.n !== n; }); cc.conds.push({ n: n, d: d }); });
+          e.target.value = '';
+        },
+        setInit: function (e) { var v = parseInt(e.target.value, 10); if (!isNaN(v)) self.patch(c.id, function (cc) { cc.init = v; }); },
+        remove: function () {
+          var rest = self.state.list.filter(function (x) { return x.id !== c.id; });
+          var patchState = { list: rest, selId: null };
+          if (self.state.turnId === c.id && rest.length) patchState.turnId = lkSort(rest)[0].id;
+          self.setState(patchState);
+        }
+      };
+    });
+
+    var party = s.list.filter(function (c) { return c.side === 'ally'; }).map(function (c) {
+      var conds = condView(c, false);
+      return { name: c.name, sub: c.sub, ini: c.ini, bars: barView(c), conds: conds, hasConds: conds.length > 0 };
+    });
+
+    var ms = { op: 0, x1: 0, y1: 0, x2: 0, y2: 0, show: false, lx: '0%', ly: '0%', label: '' };
+    if (s.measure && byId[s.measure.from]) {
+      var f = byId[s.measure.from];
+      var fx = (f.col + f.size / 2) * LK_CELL, fy = (f.row + f.size / 2) * LK_CELL;
+      var tx = (s.measure.col + 0.5) * LK_CELL, ty = (s.measure.row + 0.5) * LK_CELL;
+      var dc = Math.max(Math.abs(s.measure.col - f.col), Math.abs(s.measure.row - f.row));
+      ms = { op: 0.9, x1: fx, y1: fy, x2: tx, y2: ty, show: true, lx: (tx / 960 * 100) + '%', ly: (ty / 576 * 100) + '%', label: dc + (dc === 1 ? ' quadrado · ' : ' quadrados · ') + String(dc * 1.5).replace('.', ',') + ' m' };
+    }
+    var aoe = { cx: 0, cy: 0, r: 0, op: 0, fillOp: 0, show: false, lx: '0%', ly: '0%' };
+    if (s.aoe) {
+      var ax = (s.aoe.col + 0.5) * LK_CELL, ay = (s.aoe.row + 0.5) * LK_CELL;
+      aoe = { cx: ax, cy: ay, r: LK_CELL * 2.5, op: 0.8, fillOp: 0.12, show: true, lx: (ax / 960 * 100) + '%', ly: (ay / 576 * 100) + '%' };
+    }
+
+    var tools = ['select', 'medir', 'area'];
+    var toolCls = {}, setTool = {};
+    tools.forEach(function (k) {
+      toolCls[k] = s.tool === k ? 'is-active' : '';
+      setTool[k] = function () { self.setState({ tool: k, layersOpen: false, measure: k === 'medir' ? self.state.measure : null, aoe: k === 'area' ? self.state.aoe : null }); };
+    });
+    var layerCls = {}, setLayer = {};
+    ['tokens', 'objetos', 'fundo'].forEach(function (k) {
+      layerCls[k] = s.layer === k ? 'is-active' : '';
+      setLayer[k] = function () { self.setState({ layer: k, layersOpen: false }); };
+    });
+    var tabCls = {}, tabSel = {}, setTab = {};
+    ['combate', 'grupo', 'notas'].forEach(function (k) {
+      tabCls[k] = s.tab === k ? 'is-active' : '';
+      tabSel[k] = s.tab === k;
+      setTab[k] = function () { self.setState({ tab: k }); };
+    });
+    var roll = {};
+    [4, 6, 8, 10, 12, 20].forEach(function (n) {
+      roll['d' + n] = function () { self.setState({ roll: { die: 'd' + n, n: n, v: 1 + Math.floor(Math.random() * n) } }); };
+    });
+
+    var myTurn = !!(turn && turn.owner);
+    var hints = {
+      select: sel ? 'Clique numa casa para mover ' + sel.name : 'Clique num token para selecionar',
+      medir: sel ? 'Clique numa casa para medir a partir de ' + sel.name : 'Selecione um token e clique no destino',
+      area: 'Clique numa casa para posicionar a área'
+    };
+    var cursors = { select: sel ? 'pointer' : 'default', medir: 'crosshair', area: 'cell' };
+    var rr = s.roll;
+
+    return {
+      isGM: isGM, roleText: isGM ? 'você é o mestre' : 'você joga com Kael',
+      round: s.round, turnName: turn ? turn.name : '—', combatCount: s.list.length,
+      canAdvance: isGM || myTurn, advanceLabel: isGM ? 'Próximo turno' : 'Passar a vez',
+      hasHint: true, hint: s.layer !== 'tokens' && isGM ? 'Editando a camada ' + (s.layer === 'fundo' ? 'Fundo' : 'Objetos') + ' · tokens travados' : hints[s.tool],
+      tokens: tokens, tokensWrapCls: s.layer !== 'tokens' && isGM ? 'lk-tokens-dim' : '',
+      rows: rows, party: party, ms: ms, aoe: aoe,
+      gridOpacity: s.showGrid ? 0.14 : 0, gridCls: s.showGrid ? 'is-active' : '', showGrid: s.showGrid ? 'true' : 'false',
+      toolCls: toolCls, setTool: setTool, cursor: cursors[s.tool],
+      layersOpen: s.layersOpen, layersCls: s.layersOpen ? 'is-active' : '', layerCls: layerCls, setLayer: setLayer,
+      toggleLayers: function () { self.setState({ layersOpen: !self.state.layersOpen }); },
+      toggleGrid: function () { self.setState({ showGrid: !self.state.showGrid }); },
+      zoom: s.zoom, zoomLabel: Math.round(s.zoom * 100) + '%',
+      zoomIn: function () { self.setState({ zoom: Math.min(2, Math.round((self.state.zoom + 0.1) * 10) / 10) }); },
+      zoomOut: function () { self.setState({ zoom: Math.max(0.6, Math.round((self.state.zoom - 0.1) * 10) / 10) }); },
+      tabCls: tabCls, tabSel: tabSel, setTab: setTab,
+      amount: s.amount, onAmount: function (e) { self.setState({ amount: e.target.value }); },
+      condDur: s.condDur, onCondDur: function (e) { self.setState({ condDur: e.target.value }); },
+      nextTurn: function () { self.advance(1); }, prevTurn: function () { self.advance(-1); },
+      addFoe: function () {
+        var n = self.state.list.filter(function (c) { return c.ini === 'GB'; }).length + 1;
+        var foe = { id: 'gb' + Date.now(), name: 'Goblin ' + n, sub: 'Inimigo', ini: 'GB', side: 'enemy', init: 1 + Math.floor(Math.random() * 20), col: 16, row: 6 + (n % 4), size: 1, bars: [{ l: 'PV', c: 7, m: 7 }], conds: [] };
+        self.setState({ list: self.state.list.concat([foe]), selId: foe.id });
+      },
+      roll: roll, hasRoll: !!rr, rollWho: 'Lucas', rollDie: rr ? rr.die : '', rollValue: rr ? rr.v : '',
+      rollColor: rr && rr.v === rr.n ? '#E2C793' : (rr && rr.v === 1 ? '#E6A28F' : '#EAE5DA'),
+      rollBorder: rr && rr.v === rr.n ? '#C5A46D' : '#303640',
+      onMapClick: function (e) {
+        var rect = e.currentTarget.getBoundingClientRect();
+        var col = Math.floor((e.clientX - rect.left) / rect.width * LK_COLS);
+        var row = Math.floor((e.clientY - rect.top) / rect.height * LK_ROWS);
+        if (col < 0 || row < 0 || col >= LK_COLS || row >= LK_ROWS) return;
+        var st = self.state;
+        if (st.tool === 'area') { self.setState({ aoe: { col: col, row: row } }); return; }
+        var cur = st.list.find(function (c) { return c.id === st.selId; });
+        if (!cur) return;
+        if (st.tool === 'medir') { self.setState({ measure: { from: cur.id, col: col, row: row } }); return; }
+        if (!isGM && !cur.owner) return;
+        if (isGM && st.layer !== 'tokens') return;
+        var nc = Math.min(col, LK_COLS - cur.size), nr = Math.min(row, LK_ROWS - cur.size);
+        var blocked = st.list.some(function (o) {
+          if (o.id === cur.id) return false;
+          return nc < o.col + o.size && nc + cur.size > o.col && nr < o.row + o.size && nr + cur.size > o.row;
+        });
+        if (blocked) return;
+        self.patch(cur.id, function (cc) { cc.col = nc; cc.row = nr; });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

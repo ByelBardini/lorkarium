@@ -10,6 +10,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
+import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
+import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { signUpAndLogin } from '../support/sign-in';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
@@ -90,6 +92,17 @@ describe('campaigns HTTP edge', () => {
       const { campaign } = campaignResponseDto.parse(response.json());
       expect(campaign).toMatchObject({ name: 'Vharn', myRole: 'master', masterName: 'Ana' });
       expect(campaign.joinCode).toMatch(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/);
+    });
+
+    it('POST creates the campaign with its active 20×12 scene', async () => {
+      const campaign = await createCampaign(ana);
+      const scene = await new ScenesDao(connection.db).findActiveOf(campaign.id);
+      expect(scene).toMatchObject({ campaignId: campaign.id, widthCells: 20, heightCells: 12 });
+    });
+
+    it('POST creates the campaign with the 11 initial conditions', async () => {
+      const campaign = await createCampaign(ana);
+      expect(await new ConditionsDao(connection.db).listDefinitions(campaign.id)).toHaveLength(11);
     });
 
     it.each([

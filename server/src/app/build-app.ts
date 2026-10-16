@@ -12,6 +12,12 @@ import { createCampaignsModule } from '../modules/campaigns/campaigns.plugin';
 import { InMemoryPresenceRegistry } from '../infrastructure/presence-registry/in-memory-presence-registry';
 import { TimerScheduler } from '../infrastructure/scheduler/timer-scheduler';
 import { SocketIoSessionPublisher } from '../infrastructure/session-publisher/socket-io-session-publisher';
+import { SocketIoBoardPublisher } from '../infrastructure/board-publisher/socket-io-board-publisher';
+import { createBoardModule } from '../modules/board/board.plugin';
+import { createScenesModule } from '../modules/scenes/scenes.plugin';
+import { createTokensModule } from '../modules/tokens/tokens.plugin';
+import { createConditionsModule } from '../modules/conditions/conditions.plugin';
+import { createCombatModule } from '../modules/combat/combat.plugin';
 import { healthPlugin } from '../modules/health/health.plugin';
 import {
   createSessionsModule,
@@ -49,21 +55,20 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock });
   await app.register(campaigns.plugin, { prefix: API_PREFIX });
   await app.register(healthPlugin, { prefix: API_PREFIX, db: deps.db });
-  wireRealtime(app, auth.guards, { campaigns: campaigns.service, clock });
+  wireRealtime(app, auth.guards, { campaigns: campaigns.service, clock, db: deps.db });
   return app;
 }
 
-function wireRealtime(
-  app: FastifyInstance,
-  guards: AuthGuards,
-  modules: Pick<SessionsModuleOptions, 'campaigns' | 'clock'>,
-): void {
+type RealtimeModules = Pick<SessionsModuleOptions, 'campaigns' | 'clock'> & { db: Database };
+
+function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: RealtimeModules): void {
   const authenticate = guards.authenticateToken;
   const realtime = attachRealtime(app, { authenticate, sessionCookie: SESSION_COOKIE });
   const scheduler = new TimerScheduler();
   app.addHook('onClose', async () => scheduler.cancelAll());
+  const { db, ...sessionModules } = modules;
   const sessions = createSessionsModule({
-    ...modules,
+    ...sessionModules,
     registry: new InMemoryPresenceRegistry(),
     scheduler,
     publisher: new SocketIoSessionPublisher(realtime.io),
@@ -71,6 +76,23 @@ function wireRealtime(
     log: app.log,
   });
   realtime.onConnection(sessions.gateway);
+  const { clock } = modules;
+  const publisher = new SocketIoBoardPublisher(realtime.io);
+  const scenes = createScenesModule({ db, publisher, clock }).service;
+  const tokens = createTokensModule({ db, publisher, clock }).service;
+  const conditions = createConditionsModule({ db, publisher, clock }).service;
+  const combat = createCombatModule({ db, publisher, clock }).service;
+  const board = createBoardModule({
+    db,
+    scenes,
+    tokens,
+    conditions,
+    combat,
+    clock,
+    realtime,
+    log: app.log,
+  });
+  realtime.onConnection(board.gateway);
 }
 
 function loggerOptions(env: Env): FastifyServerOptions['logger'] {

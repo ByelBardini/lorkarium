@@ -2,8 +2,8 @@ import {
   REALTIME_PATH,
   type ApiErrorDto,
   type AuthUserDto,
-  type SessionClientEvents,
-  type SessionServerEvents,
+  type TableClientEvents,
+  type TableServerEvents,
 } from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
 import { Server, type Socket } from 'socket.io';
@@ -13,21 +13,21 @@ import { isSameOrigin } from './same-origin';
 export type RealtimeSocketData = {
   user: AuthUserDto;
   token: string;
-  campaignId: string | null;
+  campaignIds: ReadonlySet<string>;
 };
 
 type NoInterServerEvents = Record<string, never>;
 
 export type RealtimeServer = Server<
-  SessionClientEvents,
-  SessionServerEvents,
+  TableClientEvents,
+  TableServerEvents,
   NoInterServerEvents,
   RealtimeSocketData
 >;
 
 export type RealtimeSocket = Socket<
-  SessionClientEvents,
-  SessionServerEvents,
+  TableClientEvents,
+  TableServerEvents,
   NoInterServerEvents,
   RealtimeSocketData
 >;
@@ -84,7 +84,7 @@ async function authenticateHandshake(
   try {
     const user = await options.authenticate(token);
     if (!user || !token) return refusal(UNAUTHENTICATED);
-    socket.data = { user, token, campaignId: null };
+    socket.data = { user, token, campaignIds: new Set() };
     app.log.info({ userId: user.id, socketId: socket.id }, 'realtime connection');
     return undefined;
   } catch (error) {

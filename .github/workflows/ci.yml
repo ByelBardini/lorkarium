@@ -153,9 +153,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - run: pnpm db:migrate
-      # Bia and Caio (password lorkarium-dev): the table presence e2e signs in as Bia.
-      - run: pnpm db:seed-dev
+      # No database step: the e2e webServer creates, migrates, empties and seeds <db>_e2e itself.
       # No browser cache: --with-deps installs the OS libraries on every run anyway (Playwright docs).
       - run: pnpm e2e:install
       - run: pnpm test:e2e

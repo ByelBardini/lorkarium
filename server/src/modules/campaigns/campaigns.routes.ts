@@ -30,6 +30,7 @@ const STATUS_BY_CODE: Readonly<Record<CampaignErrorCode, number>> = {
   CAMPAIGN_CODE_EXHAUSTED: 500,
   RATE_LIMITED: 429,
   INVALID_PARAMS: 400,
+  FORBIDDEN: 403,
 };
 
 // Public text only: the internal message cites ids and codes and stays in the log.
@@ -40,6 +41,7 @@ const PUBLIC_MESSAGE: Readonly<Record<CampaignErrorCode, string>> = {
   CAMPAIGN_CODE_EXHAUSTED: 'Unexpected server error',
   RATE_LIMITED: 'Too many join attempts',
   INVALID_PARAMS: 'The campaign id must be a uuid',
+  FORBIDDEN: 'Your role at this table does not allow it',
 };
 
 export type CampaignsRoutesServices = Readonly<{

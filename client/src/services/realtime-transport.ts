@@ -17,6 +17,7 @@ export type Unsubscribe = () => void;
 export interface RealtimeTransport {
   connect(): void;
   disconnect(): void;
+  isConnected(): boolean;
   emit(event: string, payload: unknown): void;
   /** Rejects when no ack arrives within `timeoutMs`. */
   emitWithAck(event: string, payload: unknown, timeoutMs: number): Promise<unknown>;
@@ -43,6 +44,10 @@ export class SocketIoRealtimeTransport implements RealtimeTransport {
 
   disconnect(): void {
     this.socket.disconnect();
+  }
+
+  isConnected(): boolean {
+    return this.socket.connected;
   }
 
   emit(event: string, payload: unknown): void {

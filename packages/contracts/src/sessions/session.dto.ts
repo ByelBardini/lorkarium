@@ -1,9 +1,13 @@
 import { z } from 'zod';
 import { campaignRoleDto } from '../campaigns/campaign.dto';
-import { apiErrorDto } from '../http/api-error.dto';
+import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto';
 
 /** Socket.IO path: under `/api` like every route, so the Vite proxy and production share it. */
 export const REALTIME_PATH = '/api/socket.io';
+
+/** Tables one connection may have open at once. Caps the presence the server keeps per
+ *  connection, and still fits the rail without scrolling. */
+export const MAX_OPEN_TABLES = 5;
 
 /** Live table session event names (spec §7.2); the campaign itself is the session. */
 export const SESSION_EVENTS = {
@@ -22,8 +26,6 @@ export const sessionCommandDto = z.strictObject({
 });
 
 export type SessionCommandDto = z.infer<typeof sessionCommandDto>;
-
-const stateVersionDto = z.number().int().nonnegative();
 
 export const sessionMemberDto = z.strictObject({
   userId: z.uuid(),
@@ -64,12 +66,10 @@ export const sessionMemberLeftDto = z.strictObject({
 
 export type SessionMemberLeftDto = z.infer<typeof sessionMemberLeftDto>;
 
-const sessionAckFailureDto = z.strictObject({ ok: z.literal(false), error: apiErrorDto });
-
 /** Answer to `session:join`: the snapshot, or the same error body as the HTTP API. */
 export const sessionJoinAckDto = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true), state: sessionStateDto }),
-  sessionAckFailureDto,
+  realtimeAckFailureDto,
 ]);
 
 export type SessionJoinAckDto = z.infer<typeof sessionJoinAckDto>;
@@ -77,7 +77,7 @@ export type SessionJoinAckDto = z.infer<typeof sessionJoinAckDto>;
 /** Answer to `session:leave`; leaving twice is still `ok`. */
 export const sessionLeaveAckDto = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true) }),
-  sessionAckFailureDto,
+  realtimeAckFailureDto,
 ]);
 
 export type SessionLeaveAckDto = z.infer<typeof sessionLeaveAckDto>;
