@@ -5,6 +5,10 @@ import { apiErrorDto } from '../http/api-error.dto';
 /** Socket.IO path: under `/api` like every route, so the Vite proxy and production share it. */
 export const REALTIME_PATH = '/api/socket.io';
 
+/** Tables one connection may have open at once. Caps the presence the server keeps per
+ *  connection, and still fits the rail without scrolling. */
+export const MAX_OPEN_TABLES = 5;
+
 /** Live table session event names (spec §7.2); the campaign itself is the session. */
 export const SESSION_EVENTS = {
   join: 'session:join',

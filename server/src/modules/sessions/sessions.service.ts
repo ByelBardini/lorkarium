@@ -1,7 +1,8 @@
-import type { SessionStateDto } from '@lorkarium/contracts';
+import { MAX_OPEN_TABLES, type SessionStateDto } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMemberRow } from '../campaigns/campaign-members.dao';
 import type { CampaignsService } from '../campaigns/campaigns.service';
+import { ConnectionTablesBo, type ConnectionTablesOutcome } from './connection-tables.bo';
 import type { PresenceRegistryPort } from './presence-registry.port';
 import type { SchedulerPort } from './scheduler.port';
 import type { SessionPublisherPort } from './session-publisher.port';
@@ -57,6 +58,17 @@ export class TableSessionService {
 
   expire(campaignId: string, userId: string): void {
     this.apply(campaignId, userId, this.presenceAt(campaignId).expireGrace(userId));
+  }
+
+  /** Reserves a slot for `campaignId` among the connection's tables; throws `TOO_MANY_TABLES`.
+   *
+   *  Example: `socket.data.campaignIds = sessions.admitTable(socket.data.campaignIds, id).tables` */
+  admitTable(open: ReadonlySet<string>, campaignId: string): ConnectionTablesOutcome {
+    return new ConnectionTablesBo(open, MAX_OPEN_TABLES).admit(campaignId);
+  }
+
+  releaseTable(open: ReadonlySet<string>, campaignId: string): ConnectionTablesOutcome {
+    return new ConnectionTablesBo(open, MAX_OPEN_TABLES).release(campaignId);
   }
 
   private announceArrival(
