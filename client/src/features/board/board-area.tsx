@@ -71,15 +71,18 @@ type IntentStores = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
 }>;
 
-// A dropped token is a move command (none off the scene); everything else is local state.
+// Dragging and dropping a token are commands (a preview, then the move); the rest is local state.
 function routeIntent({ board, interaction }: IntentStores, intent: BoardIntent): void {
   const local = interaction.getState();
+  if (intent.kind === 'tokenDragged') {
+    return local.dragOver(intent.tokenId, intent.origin, intent.cell);
+  }
+  if (intent.kind === 'tokenDragCancelled') return local.cancelDrag();
   if (intent.kind !== 'tokenDropped') return local.pointer(intent);
-  if (!intent.cell) return;
   const token = board.getState().board?.tokens.find(({ id }) => id === intent.tokenId);
-  const { col, row } = intent.cell;
-  const announce = token && movedAnnouncement(token.name, col, row);
-  void local.moveToken(intent.tokenId, intent.cell, announce);
+  const announce =
+    token && intent.cell && movedAnnouncement(token.name, intent.cell.col, intent.cell.row);
+  void local.dropToken(intent.tokenId, intent.cell, announce ?? undefined);
 }
 
 type BoardAlertProps = Readonly<{ message: string; onRetry?: () => void }>;

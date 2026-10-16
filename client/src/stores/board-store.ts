@@ -1,4 +1,4 @@
-import type { BoardStateDto } from '@lorkarium/contracts';
+import type { BoardStateDto, TokenDraggedDto } from '@lorkarium/contracts';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { BoardEvent } from '@/services/board-events';
@@ -6,6 +6,9 @@ import type { BoardSyncFailure, TableSessionUpdate } from '@/services/table-sess
 import { applyBoardEvent } from './board-reducer';
 
 export type BoardStatus = 'loading' | 'ready' | 'failed';
+
+/** The cell each token is being dragged over by someone else, by token id. */
+export type DraggedCells = Readonly<Record<string, Readonly<{ col: number; row: number }>>>;
 
 /** The confirmed board of one open table. `held` are events that cannot apply yet: before the
  *  first snapshot, or after a version gap while the resync is on its way. */
@@ -18,6 +21,8 @@ export type BoardStoreState = Readonly<{
   resyncAsked: boolean;
   /** How many snapshots arrived: each one replaces the board, so local previews are void. */
   snapshots: number;
+  /** Other people's drags: drawn over the confirmed cell until the move or the drag's end. */
+  dragged: DraggedCells;
 }>;
 
 export type BoardStore = BoardStoreState &
@@ -47,6 +52,7 @@ export function createBoardStore(
       held: [],
       resyncAsked: false,
       snapshots: 0,
+      dragged: {},
       apply: (update) => set(nextState(get(), update, resyncOnce)),
       retry: () => {
         set({ status: 'loading', failure: null });
@@ -70,10 +76,29 @@ function nextState(
 ): Partial<BoardStoreState> {
   if (update.kind === 'board') return snapshotState(state, update.state, resyncOnce);
   if (update.kind === 'boardFailed') return failedState(state, update.failure);
+  if (update.kind === 'tokenDragged') return draggedState(state, update.drag);
   if (update.kind !== 'boardEvent') return {};
   if (update.event.payload.campaignId !== state.campaignId) return {};
-  if (!state.board) return { held: [...state.held, update.event] };
-  return eventState(state, state.board, update.event, resyncOnce);
+  const dragged = withoutDragOf(state.dragged, update.event);
+  if (!state.board) return { held: [...state.held, update.event], dragged };
+  return { ...eventState(state, state.board, update.event, resyncOnce), dragged };
+}
+
+function draggedState(state: BoardStoreState, drag: TokenDraggedDto): Partial<BoardStoreState> {
+  if (drag.campaignId !== state.campaignId) return {};
+  const others = withoutToken(state.dragged, drag.tokenId);
+  return { dragged: drag.cell ? { ...others, [drag.tokenId]: drag.cell } : others };
+}
+
+// The confirmed move (or the token's end) closes its drag, whatever its version did.
+function withoutDragOf(dragged: DraggedCells, event: BoardEvent): DraggedCells {
+  if (event.type !== 'tokenMoved' && event.type !== 'tokenDeleted') return dragged;
+  if (!(event.payload.tokenId in dragged)) return dragged;
+  return withoutToken(dragged, event.payload.tokenId);
+}
+
+function withoutToken(dragged: DraggedCells, tokenId: string): DraggedCells {
+  return Object.fromEntries(Object.entries(dragged).filter(([id]) => id !== tokenId));
 }
 
 function snapshotState(
@@ -81,7 +106,7 @@ function snapshotState(
   snapshot: BoardStateDto,
   resyncOnce: () => Partial<BoardStoreState>,
 ): Partial<BoardStoreState> {
-  const fresh = { ...state, board: snapshot, held: [], resyncAsked: false };
+  const fresh = { ...state, board: snapshot, held: [], resyncAsked: false, dragged: {} };
   const replayed = state.held.reduce<BoardStoreState>((current, event) => {
     if (!current.board) return current;
     return { ...current, ...eventState(current, current.board, event, resyncOnce) };

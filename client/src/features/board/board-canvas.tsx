@@ -79,10 +79,11 @@ function useBoardView({ board, interaction }: BoardCanvasProps): BoardView | nul
   const scene = useBoard(board, (state) => state.board?.scene ?? null);
   const tokens = useBoard(board, (state) => state.board?.tokens ?? NO_TOKENS);
   const currentTokenId = useBoard(board, (state) => currentTokenOf(state.board));
+  const dragged = useBoard(board, (state) => state.dragged);
   const local = useLocalBoardView(interaction);
   return useMemo(
-    () => scene && buildBoardView({ scene, tokens, currentTokenId, ...local }),
-    [scene, tokens, currentTokenId, local],
+    () => scene && buildBoardView({ scene, tokens, currentTokenId, dragged, ...local }),
+    [scene, tokens, currentTokenId, dragged, local],
   );
 }
 

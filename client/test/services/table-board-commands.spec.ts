@@ -74,6 +74,12 @@ describe('RealtimeTableBoardCommands', () => {
         { tokenId: LYRA, col: 8, row: 6 },
       ],
       [
+        'token:drag',
+        () => commands.dragToken(VHARN.id, LYRA, { col: 5, row: 4 }),
+        { tokenId: LYRA, cell: { col: 5, row: 4 } },
+      ],
+      ['token:drag', () => commands.dragToken(VHARN.id, LYRA, null), { tokenId: LYRA, cell: null }],
+      [
         'token:adjustBar',
         () => commands.adjustBar(VHARN.id, LYRA, PV, { op: 'add', amount: -7 }),
         { tokenId: LYRA, barId: PV, change: { op: 'add', amount: -7 } },

@@ -6,7 +6,9 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
+import { ROUTE_BEND_DWELL_MS, routePath } from '@/lib/token-route';
 import { VHARN } from '../support/campaigns-api-fake';
+import { InteractionClockFake } from '../support/interaction-clock-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import { LYRA_ID } from '../support/table-session-fixtures';
 
@@ -155,6 +157,127 @@ describe('board interaction store', () => {
       store.getState().setReadOnly(true);
       expect(await store.getState().command((c, id) => c.endCombat(id))).toBe(false);
       expect(commands.sent).toEqual([]);
+    });
+  });
+
+  describe('dragging a token', () => {
+    const ORIGIN = cell(3, 4);
+    let clock: InteractionClockFake;
+
+    beforeEach(() => {
+      clock = new InteractionClockFake();
+      store = createBoardInteractionStore({
+        campaignId: VHARN.id,
+        commands,
+        describeRefusal: (failure) => `recusado: ${failure}`,
+        clock,
+      });
+    });
+
+    function over(at: ReturnType<typeof cell> | null): void {
+      store.getState().dragOver(LYRA_ID, ORIGIN, at);
+    }
+
+    function dragCells(): unknown[] {
+      return commands.sentAs('dragToken').map(({ fields }) => fields);
+    }
+
+    it('each new cell becomes the end of the route and goes to the table as a preview', () => {
+      over(cell(4, 4));
+      expect(store.getState().drag?.route.current).toEqual(cell(4, 4));
+      expect(dragCells()).toEqual([{ tokenId: LYRA_ID, cell: cell(4, 4) }]);
+    });
+
+    it('standing still 2 s on a cell bends the route there', () => {
+      over(cell(6, 4));
+      clock.advance(ROUTE_BEND_DWELL_MS);
+      over(cell(6, 1));
+      const route = store.getState().drag?.route;
+      expect(route && routePath(route)).toEqual([ORIGIN, cell(6, 4), cell(6, 1)]);
+    });
+
+    it('the bend shows while the token is still standing there, before any other move', () => {
+      over(cell(6, 4));
+      clock.advance(ROUTE_BEND_DWELL_MS);
+      expect(store.getState().drag?.route.bends).toEqual([cell(6, 4)]);
+    });
+
+    it('moving on before 2 s bends nothing', () => {
+      over(cell(6, 4));
+      clock.advance(ROUTE_BEND_DWELL_MS - 1);
+      over(cell(6, 1));
+      expect(store.getState().drag?.route.bends).toEqual([]);
+    });
+
+    it('off the scene the route keeps its last cell and nothing is sent', () => {
+      over(cell(4, 4));
+      over(null);
+      expect(store.getState().drag?.route.current).toEqual(cell(4, 4));
+      expect(dragCells()).toHaveLength(1);
+    });
+
+    it('the drop ends the drag and sends the move, with the ghost on the way', async () => {
+      over(cell(6, 4));
+      const dropped = store.getState().dropToken(LYRA_ID, cell(6, 4));
+      expect(store.getState()).toMatchObject({
+        drag: null,
+        preview: { tokenId: LYRA_ID, col: 6, row: 4 },
+      });
+      await dropped;
+      expect(commands.sentAs('moveToken').map(({ fields }) => fields)).toEqual([
+        { tokenId: LYRA_ID, col: 6, row: 4 },
+      ]);
+    });
+
+    it('the move waits for the preview still on its way, so token:moved comes last', async () => {
+      commands.hold();
+      over(cell(6, 4));
+      const dropped = store.getState().dropToken(LYRA_ID, cell(6, 4));
+      await Promise.resolve();
+      expect(commands.sentAs('moveToken')).toHaveLength(0);
+      commands.release();
+      await dropped;
+      expect(commands.sent.map(({ name }) => name)).toEqual(['dragToken', 'moveToken']);
+    });
+
+    it('a drop back on its own cell moves nothing and puts the token back for the others', async () => {
+      over(cell(4, 4));
+      clock.advance(1000);
+      await store.getState().dropToken(LYRA_ID, ORIGIN);
+      expect(commands.sentAs('moveToken')).toEqual([]);
+      expect(dragCells().at(-1)).toEqual({ tokenId: LYRA_ID, cell: null });
+    });
+
+    it('a drop off the scene moves nothing and puts the token back for the others', async () => {
+      over(cell(4, 4));
+      await store.getState().dropToken(LYRA_ID, null);
+      expect(store.getState().drag).toBeNull();
+      expect(commands.sentAs('moveToken')).toEqual([]);
+      expect(dragCells().at(-1)).toEqual({ tokenId: LYRA_ID, cell: null });
+    });
+
+    it('Esc cancels the drag: no move, and null tells the others after the cell before it', async () => {
+      over(cell(4, 4));
+      store.getState().escape();
+      expect(store.getState().drag).toBeNull();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(commands.sentAs('moveToken')).toEqual([]);
+      expect(dragCells().at(-1)).toEqual({ tokenId: LYRA_ID, cell: null });
+    });
+
+    it('a bend timer that fires after the drag ended changes nothing', () => {
+      over(cell(6, 4));
+      store.getState().cancelDrag();
+      clock.advance(ROUTE_BEND_DWELL_MS);
+      expect(store.getState().drag).toBeNull();
+    });
+
+    it('read only (reconnecting) drops the drag and drags nothing more', () => {
+      over(cell(4, 4));
+      store.getState().setReadOnly(true);
+      over(cell(5, 4));
+      expect(store.getState().drag).toBeNull();
+      expect(dragCells()).toHaveLength(1);
     });
   });
 });

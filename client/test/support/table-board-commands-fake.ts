@@ -49,6 +49,14 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('moveToken', campaignId, { tokenId, ...to });
   }
 
+  dragToken(
+    campaignId: string,
+    tokenId: string,
+    over: CellTarget | null,
+  ): Promise<BoardCommandResult> {
+    return this.record('dragToken', campaignId, { tokenId, cell: over });
+  }
+
   adjustBar(
     campaignId: string,
     tokenId: string,

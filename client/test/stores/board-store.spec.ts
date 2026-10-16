@@ -10,6 +10,7 @@ import {
   KAEL_COMBATANT,
   LYRA_COMBATANT,
   LYRA_ID,
+  lyraDraggedOver,
   tokenCreatedAt,
   tokenDeletedAt,
   tokenMovedAt,
@@ -146,6 +147,52 @@ describe('board store', () => {
     it('counts the snapshots, so the room can drop its previews on each one', () => {
       apply({ kind: 'board', state: vharnBoard() }, { kind: 'board', state: vharnBoard() });
       expect(store.getState().snapshots).toBe(2);
+    });
+  });
+
+  describe('drags of other people', () => {
+    function dragged(cell: Parameters<typeof lyraDraggedOver>[0]) {
+      return { kind: 'tokenDragged', drag: lyraDraggedOver(cell) } as const;
+    }
+
+    beforeEach(() => apply({ kind: 'board', state: vharnBoard({ version: 5, tokens: [lyra()] }) }));
+
+    it('a token:dragged keeps the cell over the confirmed one, with no version change', () => {
+      apply(dragged({ col: 5, row: 4 }), dragged({ col: 6, row: 4 }));
+      expect(store.getState().dragged).toEqual({ [LYRA_ID]: { col: 6, row: 4 } });
+      expect(store.getState().board?.tokens[0]).toMatchObject({ col: 3, row: 4 });
+      expect(store.getState().board?.version).toBe(5);
+    });
+
+    it('a drag that ends with null puts the token back on its confirmed cell', () => {
+      apply(dragged({ col: 5, row: 4 }), dragged(null));
+      expect(store.getState().dragged).toEqual({});
+    });
+
+    it('the confirmed token:moved ends the drag', () => {
+      apply(dragged({ col: 5, row: 4 }), {
+        kind: 'boardEvent',
+        event: tokenMovedAt(6, { col: 8, row: 6 }),
+      });
+      expect(store.getState().dragged).toEqual({});
+    });
+
+    it('token:deleted ends the drag of the token that left', () => {
+      apply(dragged({ col: 5, row: 4 }), { kind: 'boardEvent', event: tokenDeletedAt(6) });
+      expect(store.getState().dragged).toEqual({});
+    });
+
+    it('a snapshot drops every drag: whoever was dragging may be gone', () => {
+      apply(dragged({ col: 5, row: 4 }), { kind: 'board', state: vharnBoard() });
+      expect(store.getState().dragged).toEqual({});
+    });
+
+    it('a drag of another table is ignored', () => {
+      apply({
+        kind: 'tokenDragged',
+        drag: lyraDraggedOver({ col: 1, row: 1 }, { campaignId: QUELM.id }),
+      });
+      expect(store.getState().dragged).toEqual({});
     });
   });
 
