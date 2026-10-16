@@ -7,6 +7,7 @@ import type {
   TableSessionHandle,
   TableSessionUpdate,
 } from '@/services/table-session-api';
+import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import type { KeyValueStorage } from '@/stores/rail-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 
@@ -17,7 +18,8 @@ export type TabStorage = KeyValueStorage & Pick<Storage, 'removeItem'>;
 
 export type OpenTableRef = Readonly<{ campaignId: string; name: string }>;
 
-export type OpenTable = OpenTableRef & Readonly<{ presence: StoreApi<TablePresenceStore> }>;
+export type OpenTable = OpenTableRef &
+  Readonly<{ presence: StoreApi<TablePresenceStore>; board: StoreApi<BoardStore> }>;
 
 export type OpenTableResult = 'opened' | 'already-open' | 'full';
 
@@ -123,8 +125,12 @@ class OpenTablesActions {
     if (tables.some(({ campaignId }) => campaignId === table.campaignId)) return 'already-open';
     if (tables.length >= MAX_OPEN_TABLES) return 'full';
     const presence = createTablePresenceStore(table.campaignId);
-    this.set({ tables: [...tables, { ...table, presence }] });
-    const listener = (update: TableSessionUpdate): void => applyUpdate(this.set, presence, update);
+    const board = createBoardStore(table.campaignId, () =>
+      this.handles.get(table.campaignId)?.resync(),
+    );
+    this.set({ tables: [...tables, { ...table, presence, board }] });
+    const stores = { presence, board };
+    const listener = (update: TableSessionUpdate): void => applyUpdate(this.set, stores, update);
     this.handles.set(table.campaignId, this.deps.api.open(table.campaignId, listener));
     return 'opened';
   }
@@ -140,15 +146,16 @@ export function useOpenTables<T>(
   return useStore(store, selector);
 }
 
-function applyUpdate(
-  set: SetOpenTables,
-  presence: StoreApi<TablePresenceStore>,
-  update: TableSessionUpdate,
-): void {
-  presence.getState().apply(update);
-  if (update.kind === 'failed' && update.failure === 'unauthenticated') {
-    set({ sessionRefused: true });
-  }
+type TableStores = Readonly<{
+  presence: StoreApi<TablePresenceStore>;
+  board: StoreApi<BoardStore>;
+}>;
+
+function applyUpdate(set: SetOpenTables, stores: TableStores, update: TableSessionUpdate): void {
+  stores.presence.getState().apply(update);
+  stores.board.getState().apply(update);
+  const refused = update.kind === 'failed' || update.kind === 'boardFailed';
+  if (refused && update.failure === 'unauthenticated') set({ sessionRefused: true });
 }
 
 // Private mode or blocked site data throws on access: the list then lives only in memory.
