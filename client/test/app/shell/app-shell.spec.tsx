@@ -1,23 +1,36 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppShell } from '@/app/shell/app-shell';
+import { createOpenTablesStore, type OpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore, type RailStore } from '@/stores/rail-store';
 import type { StoreApi } from 'zustand/vanilla';
 import { ANA } from '../../support/auth-api-fake';
+import { QUELM, VHARN } from '../../support/campaigns-api-fake';
 import { StorageFake } from '../../support/storage-fake';
+import { TableSessionApiFake } from '../../support/table-session-api-fake';
+import { biaJoined, vharnState } from '../../support/table-session-fixtures';
 
 describe('AppShell', () => {
   let railStore: StoreApi<RailStore>;
+  let tableSessionApi: TableSessionApiFake;
+  let openTables: StoreApi<OpenTablesStore>;
 
   beforeEach(() => {
     railStore = createRailStore(new StorageFake());
+    tableSessionApi = new TableSessionApiFake();
+    openTables = createOpenTablesStore({ api: tableSessionApi, storage: new StorageFake() });
   });
 
   function renderShellAt(path: string): void {
     const shell = (): React.JSX.Element => (
-      <AppShell railStore={railStore} user={ANA} onSignOut={async () => undefined} />
+      <AppShell
+        railStore={railStore}
+        openTables={openTables}
+        user={ANA}
+        onSignOut={async () => undefined}
+      />
     );
     const router = createMemoryRouter(
       [
@@ -26,6 +39,7 @@ describe('AppShell', () => {
           children: [
             { index: true, element: <h1>Conteúdo das mesas</h1> },
             { path: 'outra', element: <h1>Outra página</h1> },
+            { path: 'campaigns/:campaignId/table', element: <h1>Tela da mesa</h1> },
           ],
         },
       ],
@@ -86,5 +100,112 @@ describe('AppShell', () => {
     const link = within(rail()).getByRole('link', { name: 'Mesas' });
     expect(link.className).not.toMatch(/=>|isActive/);
     expect(link.className.split(' ')).toContain('justify-center');
+  });
+
+  describe('open tables', () => {
+    function openVharnAndQuelm(): void {
+      openTables.getState().open({ campaignId: VHARN.id, name: 'Vharn' });
+      openTables.getState().open({ campaignId: QUELM.id, name: 'Quelm' });
+    }
+
+    function openTablesNav(): HTMLElement {
+      return within(rail()).getByRole('navigation', { name: 'Mesas abertas' });
+    }
+
+    function tableLink(name: RegExp): HTMLElement {
+      return within(openTablesNav()).getByRole('link', { name });
+    }
+
+    it('with no table open there is no "Mesas abertas" nav', async () => {
+      renderShellAt('/');
+      await screen.findByRole('navigation', { name: 'Principal' });
+      expect(screen.queryByRole('navigation', { name: 'Mesas abertas' })).not.toBeInTheDocument();
+    });
+
+    it('VHARN and QUELM open are listed in the order they were opened, linking to their tables', async () => {
+      openVharnAndQuelm();
+      renderShellAt('/');
+      await screen.findByRole('navigation', { name: 'Principal' });
+      const links = within(openTablesNav()).getAllByRole('link');
+      expect(links.map((link) => link.getAttribute('href'))).toEqual([
+        `/campaigns/${VHARN.id}/table`,
+        `/campaigns/${QUELM.id}/table`,
+      ]);
+      expect(links[0]).toHaveTextContent('Vharn');
+    });
+
+    it('the VHARN link counts who is online from the snapshot and follows memberJoined', async () => {
+      openVharnAndQuelm();
+      renderShellAt('/');
+      await screen.findByRole('navigation', { name: 'Principal' });
+      tableSessionApi.emitTo(
+        VHARN.id,
+        { kind: 'state', state: vharnState() },
+        { kind: 'status', status: 'live' },
+      );
+      expect(tableLink(/Vharn/)).toHaveTextContent('2 online');
+      tableSessionApi.emitTo(VHARN.id, { kind: 'memberJoined', event: biaJoined() });
+      expect(tableLink(/Vharn/)).toHaveTextContent('3 online');
+    });
+
+    it.each([
+      ['connecting', 'conectando…', { kind: 'status', status: 'connecting' }],
+      ['reconnecting', 'conectando…', { kind: 'status', status: 'reconnecting' }],
+      ['failed', 'indisponível', { kind: 'failed', failure: 'not_found' }],
+    ] as const)('a table %s reads "%s"', async (_, label, update) => {
+      openVharnAndQuelm();
+      renderShellAt('/');
+      await screen.findByRole('navigation', { name: 'Principal' });
+      tableSessionApi.emitTo(VHARN.id, update);
+      expect(tableLink(/Vharn/)).toHaveTextContent(label);
+    });
+
+    it('at the VHARN table its link is the current page and the QUELM one is not', async () => {
+      openVharnAndQuelm();
+      renderShellAt(`/campaigns/${VHARN.id}/table`);
+      await screen.findByRole('heading', { name: 'Tela da mesa' });
+      expect(tableLink(/Vharn/)).toHaveAttribute('aria-current', 'page');
+      expect(tableLink(/Quelm/)).not.toHaveAttribute('aria-current');
+    });
+
+    it('collapsed, the link keeps the name of the table and the tooltip reads "Vharn · 2 online"', async () => {
+      openVharnAndQuelm();
+      railStore.getState().toggle();
+      renderShellAt('/');
+      await screen.findByRole('button', { name: 'Expandir menu' });
+      tableSessionApi.emitTo(
+        VHARN.id,
+        { kind: 'state', state: vharnState() },
+        { kind: 'status', status: 'live' },
+      );
+      await userEvent.hover(tableLink(/Vharn/));
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Vharn · 2 online');
+    });
+
+    it('right-clicking QUELM offers "Sair da mesa", which closes QUELM and keeps the person at VHARN', async () => {
+      openVharnAndQuelm();
+      renderShellAt(`/campaigns/${VHARN.id}/table`);
+      await screen.findByRole('heading', { name: 'Tela da mesa' });
+      fireEvent.contextMenu(tableLink(/Quelm/));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair da mesa' }));
+      expect(tableSessionApi.closedIds).toEqual([QUELM.id]);
+      expect(
+        within(openTablesNav()).queryByRole('link', { name: /Quelm/ }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Tela da mesa' })).toBeInTheDocument();
+    });
+
+    it('Esc closes the context menu without closing the table and gives the focus back to the link', async () => {
+      openVharnAndQuelm();
+      renderShellAt('/');
+      await screen.findByRole('navigation', { name: 'Principal' });
+      tableLink(/Quelm/).focus();
+      fireEvent.contextMenu(tableLink(/Quelm/));
+      await screen.findByRole('menu');
+      await userEvent.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+      expect(tableSessionApi.closedIds).toEqual([]);
+      expect(tableLink(/Quelm/)).toHaveFocus();
+    });
   });
 });

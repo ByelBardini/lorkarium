@@ -70,17 +70,10 @@ function detailRoute({ clipboard }: AppDependencies): () => React.JSX.Element {
   };
 }
 
-function tableRoute({ tableSessionApi, sessionStore }: AppDependencies): () => React.JSX.Element {
+function tableRoute({ openTables }: AppDependencies): () => React.JSX.Element {
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
-    // A new table is a new visit: a fresh presence store and session, not the previous one's.
-    return (
-      <CampaignTablePage
-        key={campaign.id}
-        campaign={campaign}
-        tableSessionApi={tableSessionApi}
-        sessionStore={sessionStore}
-      />
-    );
+    // Another table is another screen: its own pending presence, not the previous one's.
+    return <CampaignTablePage key={campaign.id} campaign={campaign} openTables={openTables} />;
   };
 }

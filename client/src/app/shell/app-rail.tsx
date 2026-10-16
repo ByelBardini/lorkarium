@@ -7,22 +7,27 @@ import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { useRail, type RailStore } from '@/stores/rail-store';
+import { OpenTablesNav } from './open-tables-nav';
+import { railLinkClass } from './rail-link-class';
 import { UserMenu } from './user-menu';
 
 export type AppRailProps = Readonly<{
   railStore: StoreApi<RailStore>;
+  openTables: StoreApi<OpenTablesStore>;
   user: AuthUserDto;
   onSignOut: () => Promise<void>;
   className?: string;
 }>;
 
-/** Desktop navigation rail: brand, "Principal" nav, user menu and the expand/collapse toggle.
- *  The frame steps back (panel surface, small icons) so the content leads.
+/** Desktop navigation rail: brand, "Principal" nav, the open tables, user menu and the
+ *  expand/collapse toggle. The frame steps back (panel surface, small icons) so the content leads.
  *
- *  Example: `<AppRail railStore={railStore} user={user} onSignOut={signOut} className="hidden md:flex" />` */
+ *  Example: `<AppRail railStore={railStore} openTables={openTables} user={user} onSignOut={signOut} className="hidden md:flex" />` */
 export function AppRail({
   railStore,
+  openTables,
   user,
   onSignOut,
   className,
@@ -40,6 +45,7 @@ export function AppRail({
     >
       <RailBrand expanded={expanded} />
       <RailNav expanded={expanded} />
+      <OpenTablesNav openTables={openTables} expanded={expanded} />
       <div className="mt-auto flex flex-col gap-1 border-t border-border p-2">
         <UserMenu user={user} expanded={expanded} onSignOut={onSignOut} />
         <RailToggle expanded={expanded} onToggle={toggle} />
@@ -91,7 +97,6 @@ function RailLink({
   expanded,
   onNavigate,
 }: RailLinkProps): React.JSX.Element {
-  // A string, not NavLink's className function: the tooltip's Slot (asChild) stringifies functions.
   const active = useMatch({ path: to, end: true }) !== null;
   const link = (
     <NavLink to={to} end onClick={onNavigate} className={railLinkClass(active, expanded)}>
@@ -105,16 +110,6 @@ function RailLink({
       <TooltipTrigger asChild>{link}</TooltipTrigger>
       <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>
-  );
-}
-
-// The active item is a gold stroke on the left edge, not a filled box.
-function railLinkClass(isActive: boolean, expanded: boolean): string {
-  return cn(
-    'relative flex h-10 items-center gap-3 rounded-lg text-sm font-medium text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline',
-    expanded ? 'px-3' : 'justify-center',
-    isActive &&
-      'text-foreground before:absolute before:inset-y-2 before:-left-2 before:w-0.5 before:bg-primary',
   );
 }
 

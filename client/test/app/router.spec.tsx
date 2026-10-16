@@ -1,10 +1,11 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
 import { ANA, ROOT_ADMIN } from '../support/auth-api-fake';
 import { testDependencies, type TestDependencies } from '../support/app-dependencies';
+import { VHARN } from '../support/campaigns-api-fake';
 
 describe('app router', () => {
   let deps: TestDependencies;
@@ -82,5 +83,53 @@ describe('app router', () => {
     deps.authApi.answerMeWith(ROOT_ADMIN);
     renderAt('/admin');
     expect(await screen.findByRole('heading', { name: 'Backoffice' })).toBeInTheDocument();
+  });
+
+  describe('open tables of the tab', () => {
+    const VHARN_TABLE = { campaignId: VHARN.id, name: VHARN.name };
+
+    beforeEach(() => {
+      deps.tabStorage.values.set(
+        'lorkarium.openTables',
+        JSON.stringify({ userId: ANA.id, tables: [VHARN_TABLE] }),
+      );
+    });
+
+    it('after an F5 at /, the shell reopens the tables of the tab once, and navigating does not reopen them', async () => {
+      deps.authApi.answerMeWith(ANA);
+      const router = renderAt('/');
+      await screen.findByRole('heading', { level: 1, name: /Ana/ });
+      await router.navigate(`/campaigns/${VHARN.id}`);
+      await screen.findByRole('dialog');
+      expect(deps.tableSessionApi.opened).toEqual([VHARN.id]);
+    });
+
+    it('a visitor at /login reopens nothing', async () => {
+      renderAt('/login');
+      await screen.findByRole('heading', { name: 'Bem-vindo de volta' });
+      expect(deps.tableSessionApi.opened).toEqual([]);
+    });
+
+    it('"Sair" closes every open table before logging out on the server and clears the tab list', async () => {
+      deps.authApi.answerMeWith(ANA);
+      renderAt('/');
+      await userEvent.click(await screen.findByRole('button', { name: /Ana/ }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair' }));
+      await screen.findByRole('heading', { name: 'Bem-vindo de volta' });
+      expect(deps.journal.entries).toEqual([`close:${VHARN.id}`, 'logout']);
+      expect(deps.tabStorage.values.has('lorkarium.openTables')).toBe(false);
+    });
+
+    it('a session refused at an open table while at / signs out and goes to the login with next=/', async () => {
+      deps.authApi.answerMeWith(ANA);
+      const router = renderAt('/');
+      await screen.findByRole('heading', { level: 1, name: /Ana/ });
+      deps.tableSessionApi.emitTo(VHARN.id, { kind: 'failed', failure: 'unauthenticated' });
+      await waitFor(() =>
+        expect(router.state.location.pathname + router.state.location.search).toBe(
+          '/login?next=%2F',
+        ),
+      );
+    });
   });
 });

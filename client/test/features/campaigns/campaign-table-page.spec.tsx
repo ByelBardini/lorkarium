@@ -1,11 +1,11 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
-import { VHARN } from '../../support/campaigns-api-fake';
+import { QUELM, VHARN, detailOf } from '../../support/campaigns-api-fake';
 import { biaJoined, biaLeft, vharnState } from '../../support/table-session-fixtures';
 
 describe('campaign table page', () => {
@@ -129,11 +129,86 @@ describe('campaign table page', () => {
     expect(deps.sessionStore.getState().session).toEqual({ status: 'anonymous' });
   });
 
-  it('going back to the campaigns closes the live session once', async () => {
+  it('going back to the campaigns keeps the table open', async () => {
     await renderLiveTable();
-    expect(deps.tableSessionApi.closed).toBe(0);
     await userEvent.click(screen.getByRole('link', { name: 'Voltar para as mesas' }));
     await screen.findByRole('heading', { level: 1, name: /E aí/ });
-    expect(deps.tableSessionApi.closed).toBe(1);
+    expect(deps.tableSessionApi.closedIds).toEqual([]);
+  });
+
+  it('coming back to the table opens nothing new and shows the current presence at once', async () => {
+    await renderLiveTable();
+    await userEvent.click(screen.getByRole('link', { name: 'Voltar para as mesas' }));
+    await screen.findByRole('heading', { level: 1, name: /E aí/ });
+    await router.navigate(`/campaigns/${VHARN.id}/table`);
+    await screen.findByRole('heading', { level: 1, name: VHARN.name });
+    expect(deps.tableSessionApi.opened).toEqual([VHARN.id]);
+    expect(within(presencePanel()).getByText('2 de 3 online')).toBeInTheDocument();
+    expect(within(presencePanel()).getByRole('status')).toHaveTextContent('Ao vivo');
+  });
+
+  it('visiting QUELM after VHARN keeps both open', async () => {
+    await renderLiveTable();
+    deps.campaignsApi.answer('detail', { ok: true, value: detailOf(QUELM) });
+    await router.navigate(`/campaigns/${QUELM.id}/table`);
+    await screen.findByRole('heading', { level: 1, name: QUELM.name });
+    expect(deps.tableSessionApi.opened).toEqual([VHARN.id, QUELM.id]);
+    expect(deps.tableSessionApi.closedIds).toEqual([]);
+  });
+
+  describe('with 5 tables already open', () => {
+    const OTHER_TABLES = [1, 2, 3, 4, 5].map((n) => ({
+      campaignId: `a1000000-0000-4000-8000-00000000000${n}`,
+      name: `Mesa ${n}`,
+    }));
+    const TOO_MANY = 'Você já tem 5 mesas abertas. Feche uma no menu lateral para abrir esta.';
+
+    beforeEach(() => {
+      for (const table of OTHER_TABLES) deps.openTables.getState().open(table);
+    });
+
+    it('visiting a 6th table says why and opens nothing', async () => {
+      renderTable();
+      await screen.findByRole('heading', { level: 1 });
+      expect(screen.getByRole('alert')).toHaveTextContent(TOO_MANY);
+      expect(deps.tableSessionApi.opened).not.toContain(VHARN.id);
+    });
+
+    it('closing one of the 5 opens the 6th on its own', async () => {
+      renderTable();
+      await screen.findByRole('heading', { level: 1 });
+      act(() => deps.openTables.getState().close(OTHER_TABLES[0]?.campaignId ?? ''));
+      expect(deps.tableSessionApi.opened.at(-1)).toBe(VHARN.id);
+      expect(within(presencePanel()).getByRole('status')).toHaveTextContent('Conectando à mesa…');
+    });
+  });
+
+  it('a join the server refuses as too_many_tables reads the same message in the panel', async () => {
+    renderTable();
+    await screen.findByRole('heading', { level: 1 });
+    deps.tableSessionApi.emit({ kind: 'failed', failure: 'too_many_tables' });
+    expect(within(presencePanel()).getByRole('alert')).toHaveTextContent(
+      'Você já tem 5 mesas abertas. Feche uma no menu lateral para abrir esta.',
+    );
+  });
+
+  it('"Sair da mesa" closes the table once and goes to the home without reopening it', async () => {
+    await renderLiveTable();
+    await userEvent.click(screen.getByRole('button', { name: 'Sair da mesa' }));
+    await screen.findByRole('heading', { level: 1, name: /E aí/ });
+    expect(deps.tableSessionApi.closedIds).toEqual([VHARN.id]);
+    expect(deps.tableSessionApi.opened).toEqual([VHARN.id]);
+  });
+
+  it('leaving the table on screen from the rail goes home, closes it once and does not reopen it', async () => {
+    await renderLiveTable();
+    const rail = screen.getByRole('complementary', { name: 'Menu lateral' });
+    const nav = within(rail).getByRole('navigation', { name: 'Mesas abertas' });
+    fireEvent.contextMenu(within(nav).getByRole('link', { name: new RegExp(VHARN.name) }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair da mesa' }));
+    await screen.findByRole('heading', { level: 1, name: /E aí/ });
+    expect(router.state.location.pathname).toBe('/');
+    expect(deps.tableSessionApi.closedIds).toEqual([VHARN.id]);
+    expect(deps.tableSessionApi.opened).toEqual([VHARN.id]);
   });
 });
