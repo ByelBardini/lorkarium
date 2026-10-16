@@ -18,6 +18,8 @@ export type AppRailProps = Readonly<{
   openTables: StoreApi<OpenTablesStore>;
   user: AuthUserDto;
   onSignOut: () => Promise<void>;
+  /** Forced collapsed with no toggle, leaving the stored preference alone (the play room). */
+  compact?: boolean;
   className?: string;
 }>;
 
@@ -30,10 +32,11 @@ export function AppRail({
   openTables,
   user,
   onSignOut,
+  compact = false,
   className,
 }: AppRailProps): React.JSX.Element {
   const { rail, toggle } = useRail(railStore);
-  const expanded = rail === 'expanded';
+  const expanded = rail === 'expanded' && !compact;
   return (
     <aside
       aria-label="Menu lateral"
@@ -48,7 +51,7 @@ export function AppRail({
       <OpenTablesNav openTables={openTables} expanded={expanded} />
       <div className="mt-auto flex flex-col gap-1 border-t border-border p-2">
         <UserMenu user={user} expanded={expanded} onSignOut={onSignOut} />
-        <RailToggle expanded={expanded} onToggle={toggle} />
+        {!compact && <RailToggle expanded={expanded} onToggle={toggle} />}
       </div>
     </aside>
   );

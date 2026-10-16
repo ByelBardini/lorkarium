@@ -1,0 +1,94 @@
+import type { TokenBarDto } from '@lorkarium/contracts';
+import { MinusIcon, PlusIcon } from 'lucide-react';
+import { useId, useState } from 'react';
+import type { StoreApi } from 'zustand/vanilla';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { parseBarInput } from '@/lib/bar-input';
+import type { BoardInteractionStore } from '@/stores/board-interaction-store';
+
+export type BarFieldProps = Readonly<{
+  tokenId: string;
+  tokenName: string;
+  bar: TokenBarDto;
+  interaction: StoreApi<BoardInteractionStore>;
+  disabled: boolean;
+}>;
+
+const HOW_TO_WRITE = 'Escreva −7 para tirar, +5 para somar ou 12 para definir.';
+
+/** The adjust field of one bar: "−7" subtracts, "+5" adds, "12" sets, Enter sends; − and + step
+ *  by one. The field empties on send: the value shown is always the confirmed one.
+ *
+ *  Example: `<BarField tokenId={token.id} tokenName={token.name} bar={bar} interaction={interaction} disabled={readOnly} />` */
+export function BarField({ tokenId, tokenName, bar, interaction, disabled }: BarFieldProps) {
+  const id = useId();
+  const [text, setText] = useState('');
+  const [invalid, setInvalid] = useState(false);
+  const name = `${bar.label} de ${tokenName}`;
+  const adjust = interaction.getState().adjustBar;
+  const submit = (): void => {
+    const parsed = parseBarInput(text);
+    setInvalid(parsed.kind === 'invalid');
+    if (parsed.kind === 'invalid') return;
+    setText('');
+    void adjust(tokenId, bar.id, parsed.change);
+  };
+  return (
+    <div className="flex items-center gap-1">
+      <StepButton
+        label={`Tirar 1 de ${name}`}
+        disabled={disabled}
+        icon={MinusIcon}
+        onClick={() => void adjust(tokenId, bar.id, { op: 'add', amount: -1 })}
+      />
+      <Input
+        id={id}
+        aria-label={name}
+        value={text}
+        disabled={disabled}
+        placeholder="−7, +5, 12"
+        aria-invalid={invalid ? true : undefined}
+        aria-describedby={`${id}-how`}
+        className="h-9 w-24 text-sm"
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          submit();
+        }}
+      />
+      <span id={`${id}-how`} className="sr-only">
+        {HOW_TO_WRITE}
+      </span>
+      <StepButton
+        label={`Somar 1 a ${name}`}
+        disabled={disabled}
+        icon={PlusIcon}
+        onClick={() => void adjust(tokenId, bar.id, { op: 'add', amount: 1 })}
+      />
+    </div>
+  );
+}
+
+type StepButtonProps = Readonly<{
+  label: string;
+  disabled: boolean;
+  icon: React.ComponentType<{ 'aria-hidden'?: boolean | 'true' }>;
+  onClick: () => void;
+}>;
+
+function StepButton({ label, disabled, icon: Icon, onClick }: StepButtonProps): React.JSX.Element {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <Icon aria-hidden="true" />
+    </Button>
+  );
+}

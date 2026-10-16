@@ -1,11 +1,13 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
-import { Outlet, useNavigation } from 'react-router';
+import { Outlet, useMatches, useNavigation } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { BrandMark } from '@/components/brand-mark';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { RailStore } from '@/stores/rail-store';
 import { AppRail } from './app-rail';
 import { MobileRail } from './mobile-rail';
+import { wantsCompactRail } from './rail-handle';
+import { cn } from '@/lib/utils';
 
 export type AppShellProps = Readonly<{
   railStore: StoreApi<RailStore>;
@@ -15,6 +17,8 @@ export type AppShellProps = Readonly<{
 }>;
 
 /** The frame of every signed-in screen: rail on desktop, top bar + drawer on mobile, route in `main`.
+ *  A route whose `handle` is `COMPACT_RAIL_HANDLE` (the play room) gets the rail collapsed and
+ *  a `main` exactly as tall as the viewport.
  *
  *  Example: `{ Component: () => <AppShell railStore={railStore} openTables={openTables} user={user} onSignOut={signOut} />, children }` */
 export function AppShell({
@@ -23,13 +27,20 @@ export function AppShell({
   user,
   onSignOut,
 }: AppShellProps): React.JSX.Element {
+  const compact = wantsCompactRail(useMatches());
   return (
-    <div className="flex min-h-svh bg-background text-foreground">
+    <div
+      className={cn(
+        'flex bg-background text-foreground',
+        compact ? 'h-svh overflow-hidden' : 'min-h-svh',
+      )}
+    >
       <AppRail
         railStore={railStore}
         openTables={openTables}
         user={user}
         onSignOut={onSignOut}
+        compact={compact}
         className="hidden md:flex"
       />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -38,7 +49,7 @@ export function AppShell({
           <MobileRail openTables={openTables} user={user} onSignOut={onSignOut} />
           <BrandMark variant="compact" />
         </header>
-        <main className="min-w-0 flex-1">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <Outlet />
         </main>
       </div>

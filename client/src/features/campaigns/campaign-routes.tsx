@@ -8,8 +8,10 @@ import {
 } from 'react-router';
 import type { AppDependencies } from '@/app/router';
 import { redirectIfSignedOut, valueOrThrow } from '@/app/shell/api-loader';
+import { COMPACT_RAIL_HANDLE } from '@/app/shell/rail-handle';
 import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detail-dialog';
-import { CampaignTableErrorPage, CampaignTablePage } from './campaign-table-page';
+import { PlayRoomPage } from '@/features/board/play-room-page';
+import { CampaignTableErrorPage } from './campaign-table-page';
 import type { CampaignLoaderData } from './campaign-loader-data';
 import type { EnterCampaignResult } from './enter-campaign-button';
 
@@ -27,12 +29,13 @@ export function campaignDetailRoute(deps: AppDependencies): RouteObject {
   };
 }
 
-/** The provisional table at `/campaigns/:campaignId/table`; the board (spec §11, phase 1) takes it.
+/** The play room at `/campaigns/:campaignId/table`, with the rail compact around it.
  *
  *  Example: `{ id: 'shell', children: [...homeRoutes(deps), campaignTableRoute(deps)] }` */
 export function campaignTableRoute(deps: AppDependencies): RouteObject {
   return {
     path: 'campaigns/:campaignId/table',
+    handle: COMPACT_RAIL_HANDLE,
     loader: campaignLoader(deps),
     Component: tableRoute(deps),
     ErrorBoundary: CampaignTableErrorPage,
@@ -70,10 +73,26 @@ function detailRoute({ clipboard }: AppDependencies): () => React.JSX.Element {
   };
 }
 
-function tableRoute({ openTables }: AppDependencies): () => React.JSX.Element {
+function tableRoute({
+  openTables,
+  roomLayout,
+  clipboard,
+  createBoardRenderer,
+  boardCommands,
+}: AppDependencies): () => React.JSX.Element {
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
     // Another table is another screen: its own pending presence, not the previous one's.
-    return <CampaignTablePage key={campaign.id} campaign={campaign} openTables={openTables} />;
+    return (
+      <PlayRoomPage
+        key={campaign.id}
+        campaign={campaign}
+        openTables={openTables}
+        roomLayout={roomLayout}
+        clipboard={clipboard}
+        createBoardRenderer={createBoardRenderer}
+        boardCommands={boardCommands}
+      />
+    );
   };
 }

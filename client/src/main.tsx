@@ -7,9 +7,12 @@ import { HttpCampaignsApi } from '@/services/campaigns-api';
 import { NavigatorClipboard } from '@/services/clipboard';
 import { FetchHttpTransport } from '@/services/http-transport';
 import { SocketIoRealtimeTransport } from '@/services/realtime-transport';
+import { RealtimeTableBoardCommands } from '@/services/table-board-commands';
 import { RealtimeTableSessionApi } from '@/services/table-session-api';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
+import { createPixiBoardRenderer } from '@/renderer/pixi-board-renderer';
 import { createRailStore } from '@/stores/rail-store';
+import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { sessionStore } from '@/stores/session-store';
 import './index.css';
 
@@ -27,9 +30,10 @@ const tabStorage = {
   removeItem: (key: string) => window.sessionStorage.removeItem(key),
 };
 const transport = new FetchHttpTransport();
-const tableSessionApi = new RealtimeTableSessionApi(new SocketIoRealtimeTransport(), () =>
-  crypto.randomUUID(),
-);
+const newActionId = (): string => crypto.randomUUID();
+// One socket for every open table: the session, the board sync and the board commands.
+const realtime = new SocketIoRealtimeTransport();
+const tableSessionApi = new RealtimeTableSessionApi(realtime, newActionId);
 const router = createBrowserRouter(
   buildRoutes({
     authApi: new HttpAuthApi(transport),
@@ -38,6 +42,9 @@ const router = createBrowserRouter(
     openTables: createOpenTablesStore({ api: tableSessionApi, storage: tabStorage }),
     sessionStore,
     railStore: createRailStore(browserStorage),
+    roomLayout: createRoomLayoutStore(browserStorage),
+    createBoardRenderer: createPixiBoardRenderer,
+    boardCommands: new RealtimeTableBoardCommands(realtime, newActionId),
     now: () => new Date(),
     random: Math.random,
   }),

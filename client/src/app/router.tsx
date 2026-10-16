@@ -15,8 +15,11 @@ import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AuthApi } from '@/services/auth-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
 import type { Clipboard } from '@/services/clipboard';
+import type { TableBoardCommands } from '@/services/table-board-commands';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
+import type { CreateBoardRenderer } from '@/renderer/board-renderer';
 import type { RailStore } from '@/stores/rail-store';
+import type { RoomLayoutStore } from '@/stores/room-layout-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
 import { decideAccess, type RouteAccess } from './route-access';
 import { RouteErrorScreen } from './route-error-screen';
@@ -30,6 +33,10 @@ export type AppDependencies = Readonly<{
   openTables: StoreApi<OpenTablesStore>;
   sessionStore: StoreApi<SessionStore>;
   railStore: StoreApi<RailStore>;
+  roomLayout: StoreApi<RoomLayoutStore>;
+  /** The board canvas; PixiJS in the app, a fake in tests (jsdom has no WebGL). */
+  createBoardRenderer: CreateBoardRenderer;
+  boardCommands: TableBoardCommands;
   /** The instant of the overline date; a parameter so tests fix the day. */
   now: () => Date;
   /** A draw in [0, 1) for the greeting; `Math.random` in the app. */
