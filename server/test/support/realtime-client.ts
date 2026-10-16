@@ -1,11 +1,11 @@
 import {
   REALTIME_PATH,
-  type SessionClientEvents,
-  type SessionServerEvents,
+  type TableClientEvents,
+  type TableServerEvents,
 } from '@lorkarium/contracts';
 import { io, type Socket } from 'socket.io-client';
 
-export type RealtimeClient = Socket<SessionServerEvents, SessionClientEvents>;
+export type RealtimeClient = Socket<TableServerEvents, TableClientEvents>;
 
 export type RealtimeClientOptions = Readonly<{ token?: string; origin?: string }>;
 

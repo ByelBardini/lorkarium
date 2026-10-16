@@ -32,4 +32,37 @@ describe('CampaignAccessBo', () => {
   it('someone without membership cannot see the join code', () => {
     expect(accessOf(null).canSeeJoinCode()).toBe(false);
   });
+
+  it('requireMaster lets the master through', () => {
+    expect(() => accessOf('master').requireMaster('configure the grid')).not.toThrow();
+  });
+
+  it('requireMaster refuses a player with FORBIDDEN citing user, action and campaign', () => {
+    expect(() => accessOf('player').requireMaster('configure the grid')).toThrow(
+      expect.objectContaining({
+        code: 'FORBIDDEN',
+        message: expect.stringMatching(new RegExp(`${ANA_ID}.*configure the grid.*${VHARN_ID}`)),
+      }),
+    );
+  });
+
+  it('requireMaster refuses someone without membership with CAMPAIGN_NOT_FOUND, not FORBIDDEN', () => {
+    expect(() => accessOf(null).requireMaster('configure the grid')).toThrow(
+      expect.objectContaining({ code: 'CAMPAIGN_NOT_FOUND' }),
+    );
+  });
+
+  it('isMaster is true only for the master', () => {
+    expect(accessOf('master').isMaster()).toBe(true);
+    expect(accessOf('player').isMaster()).toBe(false);
+  });
+
+  it('isUser compares with the member the access was built for', () => {
+    expect(accessOf('player').isUser(ANA_ID)).toBe(true);
+    expect(accessOf('player').isUser(VHARN_ID)).toBe(false);
+  });
+
+  it('campaignIdOf names the table', () => {
+    expect(accessOf('player').campaignIdOf()).toBe(VHARN_ID);
+  });
 });

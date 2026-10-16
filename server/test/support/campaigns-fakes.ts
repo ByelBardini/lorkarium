@@ -57,7 +57,7 @@ export class UniqueViolationFake extends Error {
 /** In-memory campaigns table; a repeated join code throws like the unique index does. */
 export class CampaignsDaoFake implements Pick<
   CampaignsDao,
-  'insert' | 'findById' | 'findByJoinCode'
+  'insert' | 'findById' | 'findByJoinCode' | 'setActiveScene'
 > {
   constructor(readonly rows: CampaignPo[] = []) {}
 
@@ -76,6 +76,12 @@ export class CampaignsDaoFake implements Pick<
 
   async findByJoinCode(joinCode: string): Promise<CampaignPo | undefined> {
     return this.rows.find((row) => row.joinCode === joinCode);
+  }
+
+  async setActiveScene(campaignId: string, sceneId: string): Promise<void> {
+    const row = this.rows.find((candidate) => candidate.id === campaignId);
+    if (!row) throw new Error(`CampaignsDaoFake has no campaign ${campaignId}`);
+    row.activeSceneId = sceneId;
   }
 }
 
@@ -153,9 +159,22 @@ export class TransactionRunnerFake {
     return work({
       campaigns: {
         insert: (row) => this.record('campaigns.insert', () => this.daos.campaigns.insert(row)),
+        setActiveScene: (campaignId, sceneId) =>
+          this.record('campaigns.setActiveScene', () =>
+            this.daos.campaigns.setActiveScene(campaignId, sceneId),
+          ),
       },
       members: {
         insert: (row) => this.record('members.insert', () => this.daos.members.insert(row)),
+      },
+      scenes: {
+        insert: (row) => this.record('scenes.insert', () => this.daos.scenes.insert(row)),
+      },
+      conditions: {
+        insertDefinitions: (campaignId, list) =>
+          this.record('conditions.insertDefinitions', () =>
+            this.daos.conditions.insertDefinitions(campaignId, list),
+          ),
       },
     });
   };
@@ -164,5 +183,20 @@ export class TransactionRunnerFake {
     const result = await perform();
     this.writesInside.push(write);
     return result;
+  }
+}
+
+/** The condition definitions a fake transaction seeded, by campaign. */
+export class ConditionDefinitionsFake {
+  readonly seeded = new Map<string, readonly string[]>();
+
+  async insertDefinitions(
+    campaignId: string,
+    list: readonly Readonly<{ name: string }>[],
+  ): Promise<void> {
+    this.seeded.set(
+      campaignId,
+      list.map(({ name }) => name),
+    );
   }
 }

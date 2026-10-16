@@ -1,5 +1,4 @@
 import {
-  campaignResponseDto,
   sessionJoinAckDto,
   type SessionCommandDto,
   type SessionJoinAckDto,
@@ -18,12 +17,11 @@ import {
   type RecordedEvent,
 } from '../support/realtime-client';
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
+import { createTable, joinByCode, type Table } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 // Long enough for an event already emitted to arrive on localhost; far below the 5 s grace.
 const SILENCE_MS = 300;
-
-type Table = Readonly<{ id: string; joinCode: string }>;
 
 describe('live table session over Socket.IO', () => {
   const env: Env = { ...readEnv(process.env), adminSeed: null };
@@ -50,36 +48,15 @@ describe('live table session over Socket.IO', () => {
     ana = await signUpAndLogin(app, connection.db, 'Ana');
     bia = await signUpAndLogin(app, connection.db, 'Bia');
     caio = await signUpAndLogin(app, connection.db, 'Caio');
-    vharn = await createTable(ana, 'Os Sinos de Vharn');
-    quelm = await createTable(caio, 'Quelm');
-    await joinByCode(bia, vharn);
+    vharn = await createTable(app, ana, 'Os Sinos de Vharn');
+    quelm = await createTable(app, caio, 'Quelm');
+    await joinByCode(app, bia, vharn);
   });
 
   afterEach(async () => {
     for (const client of clients.splice(0)) client.close();
     await app.close();
   });
-
-  async function createTable(master: SignedInUser, name: string): Promise<Table> {
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/campaigns',
-      cookies: { lk_session: master.token },
-      payload: { name },
-    });
-    const { id, joinCode } = campaignResponseDto.parse(response.json()).campaign;
-    if (!joinCode) throw new Error(`campaign ${id} came back without a join code`);
-    return { id, joinCode };
-  }
-
-  async function joinByCode(user: SignedInUser, table: Table): Promise<void> {
-    await app.inject({
-      method: 'POST',
-      url: '/api/campaigns/join',
-      cookies: { lk_session: user.token },
-      payload: { code: table.joinCode },
-    });
-  }
 
   async function connect(user: SignedInUser): Promise<RealtimeClient> {
     const client = await connectRealtime(baseUrl, { token: user.token });
@@ -230,12 +207,12 @@ describe('live table session over Socket.IO', () => {
 
     async function createTablesOf(master: SignedInUser, count: number): Promise<string[]> {
       const names = Array.from({ length: count }, (_, index) => `Mesa ${index + 2}`);
-      const tables = await Promise.all(names.map((name) => createTable(master, name)));
+      const tables = await Promise.all(names.map((name) => createTable(app, master, name)));
       return tables.map(({ id }) => id);
     }
 
     it('Ana joining VHARN and then QUELM keeps her in VHARN and announces her in QUELM', async () => {
-      await joinByCode(ana, quelm);
+      await joinByCode(app, ana, quelm);
       const biaEvents = recordEventsOf(await connect(bia));
       await joined(biaEvents.client, vharn.id);
       const caioEvents = recordEventsOf(await connect(caio));
@@ -258,7 +235,7 @@ describe('live table session over Socket.IO', () => {
     });
 
     it('the connection of Ana in both tables receives the events of each with its campaignId', async () => {
-      await joinByCode(ana, quelm);
+      await joinByCode(app, ana, quelm);
       const anaEvents = recordEventsOf(await connect(ana));
       await joined(anaEvents.client, vharn.id);
       await joined(anaEvents.client, quelm.id);
@@ -278,7 +255,7 @@ describe('live table session over Socket.IO', () => {
     });
 
     it('Caio, only in QUELM, receives nothing when Bia enters VHARN while Ana is in both', async () => {
-      await joinByCode(ana, quelm);
+      await joinByCode(app, ana, quelm);
       const anaEvents = recordEventsOf(await connect(ana));
       await joined(anaEvents.client, vharn.id);
       await joined(anaEvents.client, quelm.id);
@@ -291,7 +268,7 @@ describe('live table session over Socket.IO', () => {
     });
 
     it('Ana leaving VHARN makes Bia receive memberLeft at once, Caio nothing, and QUELM still reaches Ana', async () => {
-      await joinByCode(ana, quelm);
+      await joinByCode(app, ana, quelm);
       const biaEvents = recordEventsOf(await connect(bia));
       await joined(biaEvents.client, vharn.id);
       const caioEvents = recordEventsOf(await connect(caio));
@@ -356,7 +333,7 @@ describe('live table session over Socket.IO', () => {
     });
 
     it('the connection of Ana in VHARN and QUELM dropping makes neither Bia nor Caio receive memberLeft', async () => {
-      await joinByCode(ana, quelm);
+      await joinByCode(app, ana, quelm);
       const biaEvents = recordEventsOf(await connect(bia));
       await joined(biaEvents.client, vharn.id);
       const caioEvents = recordEventsOf(await connect(caio));
