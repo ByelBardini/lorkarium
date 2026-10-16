@@ -12,7 +12,8 @@ import type { RealtimeLifecycle, RealtimeTransport, Unsubscribe } from './realti
 
 export type TableSessionStatus = 'connecting' | 'live' | 'reconnecting';
 
-export type TableSessionFailure = 'not_found' | 'unauthenticated' | 'unexpected' | 'offline';
+export type TableSessionFailure =
+  'not_found' | 'unauthenticated' | 'too_many_tables' | 'unexpected' | 'offline';
 
 export type TableSessionUpdate =
   | Readonly<{ kind: 'state'; state: SessionStateDto }>
@@ -38,13 +39,17 @@ const JOIN_ACK_TIMEOUT_MS = 5000;
 const FAILURE_BY_CODE: Readonly<Record<string, TableSessionFailure>> = {
   CAMPAIGN_NOT_FOUND: 'not_found',
   UNAUTHENTICATED: 'unauthenticated',
+  TOO_MANY_TABLES: 'too_many_tables',
 };
 
 /** `TableSessionApi` over the realtime transport; rejoins on every reconnection, since the
- *  snapshot (not the socket's own recovery) is the source of truth (spec §5.6).
+ *  snapshot (not the socket's own recovery) is the source of truth (spec §5.6). Every open table
+ *  shares one connection: it connects with the first and disconnects after the last closes.
  *
  *  Example: `new RealtimeTableSessionApi(new SocketIoRealtimeTransport(), () => crypto.randomUUID())` */
 export class RealtimeTableSessionApi implements TableSessionApi {
+  private readonly visits = new Set<TableVisit>();
+
   constructor(
     private readonly transport: RealtimeTransport,
     private readonly newActionId: () => string,
@@ -52,8 +57,17 @@ export class RealtimeTableSessionApi implements TableSessionApi {
 
   open(campaignId: string, listener: TableSessionListener): TableSessionHandle {
     const visit = new TableVisit(this.transport, this.newActionId, campaignId, listener);
-    visit.start();
-    return { close: () => visit.close() };
+    const isFirst = this.visits.size === 0;
+    this.visits.add(visit);
+    visit.start(this.transport.isConnected());
+    if (isFirst) this.transport.connect();
+    return { close: () => this.close(visit) };
+  }
+
+  private close(visit: TableVisit): void {
+    if (!this.visits.delete(visit)) return;
+    visit.close();
+    if (this.visits.size === 0) this.transport.disconnect();
   }
 }
 
@@ -68,14 +82,15 @@ class TableVisit {
     private readonly listener: TableSessionListener,
   ) {}
 
-  start(): void {
+  /** `alreadyConnected`: the connection another table opened is up, so no `connected` will come. */
+  start(alreadyConnected: boolean): void {
     this.notify({ kind: 'status', status: 'connecting' });
     this.unsubscribes.push(
       this.transport.onLifecycle((change) => this.onLifecycle(change)),
       this.transport.on(SESSION_EVENTS.memberJoined, (payload) => this.onMemberJoined(payload)),
       this.transport.on(SESSION_EVENTS.memberLeft, (payload) => this.onMemberLeft(payload)),
     );
-    this.transport.connect();
+    if (alreadyConnected) void this.join();
   }
 
   close(): void {
@@ -83,7 +98,6 @@ class TableVisit {
     this.closed = true;
     for (const unsubscribe of this.unsubscribes.splice(0)) unsubscribe();
     this.transport.emit(SESSION_EVENTS.leave, this.command());
-    this.transport.disconnect();
   }
 
   private onLifecycle(change: RealtimeLifecycle): void {

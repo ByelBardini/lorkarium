@@ -119,3 +119,125 @@ describe('RealtimeTableSessionApi', () => {
     expect(updates).toEqual([{ kind: 'status', status: 'connecting' }]);
   });
 });
+
+describe('RealtimeTableSessionApi with several tables on one connection', () => {
+  let transport: RealtimeTransportFake;
+  let api: RealtimeTableSessionApi;
+  let vharnUpdates: TableSessionUpdate[];
+  let quelmUpdates: TableSessionUpdate[];
+
+  beforeEach(() => {
+    transport = new RealtimeTransportFake();
+    api = new RealtimeTableSessionApi(transport, () => ACTION_ID);
+    vharnUpdates = [];
+    quelmUpdates = [];
+  });
+
+  function openVharn(): TableSessionHandle {
+    return api.open(VHARN.id, (update) => vharnUpdates.push(update));
+  }
+
+  function openQuelm(): TableSessionHandle {
+    return api.open(QUELM.id, (update) => quelmUpdates.push(update));
+  }
+
+  function joinsSent(): unknown[] {
+    return transport.sent
+      .filter(({ event }) => event === 'session:join')
+      .map(({ payload }) => payload);
+  }
+
+  it('opening QUELM after the connection is up sends its session:join at once without connecting again', async () => {
+    openVharn();
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+    openQuelm();
+    expect(transport.connects).toBe(1);
+    expect(joinsSent()).toEqual([
+      { actionId: ACTION_ID, campaignId: VHARN.id },
+      { actionId: ACTION_ID, campaignId: QUELM.id },
+    ]);
+  });
+
+  it('two tables opened while connecting both send session:join on connected, over one connect', () => {
+    openVharn();
+    openQuelm();
+    expect(joinsSent()).toEqual([]);
+    transport.lifecycle({ kind: 'connected' });
+    expect(transport.connects).toBe(1);
+    expect(joinsSent()).toEqual([
+      { actionId: ACTION_ID, campaignId: VHARN.id },
+      { actionId: ACTION_ID, campaignId: QUELM.id },
+    ]);
+  });
+
+  it('a memberJoined of QUELM reaches only the QUELM listener, and one of VHARN only the VHARN one', async () => {
+    openVharn();
+    openQuelm();
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+    await transport.answerAck({ ok: true, state: vharnState({ campaignId: QUELM.id }) });
+    transport.serverEmits('session:memberJoined', biaJoined({ campaignId: QUELM.id }));
+    transport.serverEmits('session:memberJoined', biaJoined());
+    expect(quelmUpdates.at(-1)).toEqual({
+      kind: 'memberJoined',
+      event: biaJoined({ campaignId: QUELM.id }),
+    });
+    expect(vharnUpdates.at(-1)).toEqual({ kind: 'memberJoined', event: biaJoined() });
+    expect(vharnUpdates.filter(({ kind }) => kind === 'memberJoined')).toHaveLength(1);
+  });
+
+  it('a drop with retry puts both tables reconnecting, and coming back rejoins both and turns them live', async () => {
+    openVharn();
+    openQuelm();
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+    await transport.answerAck({ ok: true, state: vharnState({ campaignId: QUELM.id }) });
+    transport.lifecycle({ kind: 'disconnected', willRetry: true });
+    expect(vharnUpdates.at(-1)).toEqual({ kind: 'status', status: 'reconnecting' });
+    expect(quelmUpdates.at(-1)).toEqual({ kind: 'status', status: 'reconnecting' });
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState({ version: 4 }) });
+    await transport.answerAck({ ok: true, state: vharnState({ campaignId: QUELM.id }) });
+    expect(joinsSent()).toHaveLength(4);
+    expect(vharnUpdates.at(-1)).toEqual({ kind: 'status', status: 'live' });
+    expect(quelmUpdates.at(-1)).toEqual({ kind: 'status', status: 'live' });
+  });
+
+  it('closing VHARN sends its session:leave and keeps the connection, and QUELM still receives events', async () => {
+    const vharn = openVharn();
+    openQuelm();
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+    await transport.answerAck({ ok: true, state: vharnState({ campaignId: QUELM.id }) });
+    vharn.close();
+    transport.serverEmits('session:memberLeft', biaLeft({ campaignId: QUELM.id }));
+    expect(transport.sent.at(-1)).toEqual({
+      event: 'session:leave',
+      payload: { actionId: ACTION_ID, campaignId: VHARN.id },
+    });
+    expect(transport.disconnects).toBe(0);
+    expect(quelmUpdates.at(-1)).toEqual({
+      kind: 'memberLeft',
+      event: biaLeft({ campaignId: QUELM.id }),
+    });
+  });
+
+  it('closing the last open table disconnects, and opening one again connects again', () => {
+    const vharn = openVharn();
+    const quelm = openQuelm();
+    transport.lifecycle({ kind: 'connected' });
+    vharn.close();
+    quelm.close();
+    expect(transport.disconnects).toBe(1);
+    openVharn();
+    expect(transport.connects).toBe(2);
+  });
+
+  it('a join refused with TOO_MANY_TABLES fails as too_many_tables', async () => {
+    openVharn();
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: false, error: { code: 'TOO_MANY_TABLES', message: 'x' } });
+    expect(vharnUpdates.at(-1)).toEqual({ kind: 'failed', failure: 'too_many_tables' });
+  });
+});

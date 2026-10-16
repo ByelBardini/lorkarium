@@ -9,13 +9,15 @@ export type SentMessage = Readonly<{ event: string; payload: unknown }>;
 type PendingAck = Readonly<{ resolve: (answer: unknown) => void; reject: (error: Error) => void }>;
 
 /** A socket the test drives: `sent` keeps what the client emitted, `answerAck` / `timeOutAck`
- *  settle the oldest pending ack, `serverEmits` and `lifecycle` play the server's side.
+ *  settle the oldest pending ack, `serverEmits` and `lifecycle` play the server's side;
+ *  `isConnected()` follows the last `lifecycle` change.
  *
  *  Example: `transport.lifecycle({ kind: 'connected' }); transport.answerAck({ ok: true, state })` */
 export class RealtimeTransportFake implements RealtimeTransport {
   readonly sent: SentMessage[] = [];
   connects = 0;
   disconnects = 0;
+  private connected = false;
   private readonly pendingAcks: PendingAck[] = [];
   private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
   private readonly lifecycleListeners = new Set<(change: RealtimeLifecycle) => void>();
@@ -26,6 +28,11 @@ export class RealtimeTransportFake implements RealtimeTransport {
 
   disconnect(): void {
     this.disconnects += 1;
+    this.connected = false;
+  }
+
+  isConnected(): boolean {
+    return this.connected;
   }
 
   emit(event: string, payload: unknown): void {
@@ -64,6 +71,7 @@ export class RealtimeTransportFake implements RealtimeTransport {
   }
 
   lifecycle(change: RealtimeLifecycle): void {
+    this.connected = change.kind === 'connected';
     for (const listener of this.lifecycleListeners) listener(change);
   }
 
