@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cell } from '../src/cell.vo';
-import { cellDistance, footprintFits } from '../src/grid';
+import { cellDistance, footprintFits, pathDistance } from '../src/grid';
 
 const SCENE_20_BY_12 = { widthCells: 20, heightCells: 12 };
 
@@ -19,6 +19,26 @@ describe('cellDistance', () => {
 
   it('a cell to itself is 0', () => {
     expect(cellDistance(cell(7, 7), cell(7, 7))).toBe(0);
+  });
+});
+
+describe('pathDistance', () => {
+  it('a path with a bend sums its legs: (0,0) → (3,0) → (3,4) is 7', () => {
+    expect(pathDistance([cell(0, 0), cell(3, 0), cell(3, 4)])).toBe(7);
+  });
+
+  it('the bend costs more than the straight diagonal it replaces', () => {
+    const bent = pathDistance([cell(0, 0), cell(3, 0), cell(3, 3)]);
+    expect(bent).toBeGreaterThan(cellDistance(cell(0, 0), cell(3, 3)));
+  });
+
+  it('each leg counts a diagonal step as one cell', () => {
+    expect(pathDistance([cell(0, 0), cell(2, 2), cell(4, 0)])).toBe(4);
+  });
+
+  it('one cell or an empty path is 0', () => {
+    expect(pathDistance([cell(5, 5)])).toBe(0);
+    expect(pathDistance([])).toBe(0);
   });
 });
 

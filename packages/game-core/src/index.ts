@@ -1,5 +1,5 @@
 export { cell, sameCell, type Cell } from './cell.vo';
-export { cellDistance, footprintFits, type SceneSize } from './grid';
+export { cellDistance, footprintFits, pathDistance, type SceneSize } from './grid';
 export { applyBarChange, type BarChange } from './bar';
 export { INITIATIVE_LIMIT, initiative, type Initiative } from './initiative.vo';
 export {
