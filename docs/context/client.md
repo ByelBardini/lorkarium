@@ -1,18 +1,21 @@
 # Client
 
-SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro (futuro) em `src/renderer/`.
+SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board.md`](client/board.md)).
 
 > **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda a estrutura, as rotas e os testes.
 
 | Assunto                                                                      | Arquivo                                       |
 | ---------------------------------------------------------------------------- | --------------------------------------------- |
 | Tokens de cor, tipografia, forma, componentes base e regras anti-template    | [`design-system.md`](client/design-system.md) |
-| Shell (trilho, menu, gaveta), home, diálogos de mesa, detalhe e tela da mesa | [`home.md`](client/home.md)                   |
+| Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe               | [`home.md`](client/home.md)                   |
+| Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos      | [`board.md`](client/board.md)                 |
+| Tokens na sala: arraste, teclado, lista "Na cena", cartão, diálogo e barras  | [`tokens.md`](client/tokens.md)               |
+| Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro | [`combat.md`](client/combat.md)               |
 
 ## Estrutura
 
 - `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `createOpenTablesStore` sobre a `RealtimeTableSessionApi` (sobre `SocketIoRealtimeTransport` com `crypto.randomUUID`) e o `sessionStorage`, `NavigatorClipboard`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`)
-- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, clipboard, openTables, sessionStore, railStore, now, random }`, para o teste injetar fakes
+- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, clipboard, openTables, sessionStore, railStore, roomLayout, createBoardRenderer, boardCommands, now, random }`, para o teste injetar fakes
 - `src/app/route-access.ts` — `decideAccess(session, access, url)`: decisão pura `allow` | `redirect` por `RouteAccess` (`public-only`, `signed-in`, `admin`); `loginPathFor(url)` → `/login?next=…`
 - `src/app/splash-screen.tsx` (`role="status"`, "Carregando…") e `src/app/route-error-screen.tsx`
 - `src/app/shell/` — `AppShell`, trilho, menu do usuário, gaveta e `api-loader.ts` (ver [`client/home.md`](client/home.md))
@@ -25,6 +28,9 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/components/form-field.tsx` — `FormField` (rótulo + controle + erro `<id>-error` ou dica); `password-field.tsx` — `PasswordField` (mostrar/ocultar, `autoComplete` e `autoFocus` opcionais)
 - `src/components/campaign-cover.tsx` (capa SVG `aria-hidden`) e `copy-code-button.tsx` ("Copiar código" + `role="status"`)
 - `src/lib/utils.ts` — `cn`
+- `src/lib/stored-choice.ts` — `readStoredChoice(storage, chave, opções, padrão)` / `writeStoredChoice`: preferência de UI no `localStorage` que cai na memória se o storage lança (trilho e painel da sala)
+- `src/lib/use-media-query.ts` — `useMediaQuery(query)` e `DESKTOP_QUERY` (`md`); sem `matchMedia` (jsdom) responde `true`
+- `src/lib/board-shortcuts.ts`, `ruler-label.ts` — atalhos e régua da sala (ver [`client/board.md`](client/board.md))
 - `src/lib/safe-redirect.ts` — `safeRedirectTarget(next)`: só caminho interno; `//x`, `/\x`, URL absoluta, `javascript:`, vazio e `/login` viram `/`
 - `src/lib/greeting.ts` — `GREETINGS` (as 10 saudações da home) e `greetingFor(nome, sorteio ∈ [0, 1))` com o primeiro nome; sorteio fora do intervalo → `RangeError`
 - `src/lib/overline-date.ts` — `formatOverlineDate(data)` → "Quarta, 14 de outubro" (sem "-feira", hora local)
@@ -51,7 +57,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | `/login`                       | `public-only` | `LoginPage`; logado vai para o `next` seguro ou `/`                                         |
 | `/`                            | `signed-in`   | shell + `HomePage` (`loader` da lista, `action` de criar/entrar por código)                 |
 | `/campaigns/:campaignId`       | `signed-in`   | a home com o modal de detalhes por cima (`loader` do detalhe, `action` de "Entrar na mesa") |
-| `/campaigns/:campaignId/table` | `signed-in`   | shell + tela provisória da mesa (`loader` do detalhe)                                       |
+| `/campaigns/:campaignId/table` | `signed-in`   | shell (trilho compacto) + sala de jogo (`loader` do detalhe, `handle: COMPACT_RAIL_HANDLE`) |
 | `/admin`                       | `admin`       | `AdminPage`, carregada por `lazy` (fora do shell)                                           |
 | `*`                            | —             | redireciona para `/`                                                                        |
 

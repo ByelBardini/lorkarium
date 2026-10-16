@@ -47,11 +47,11 @@ Mesas (campanhas): criação, participação (mestre/jogador), listagem do usuá
 ## Services
 
 - `CampaignsService` (`CampaignsServiceDeps`: DAOs de leitura, `transaction: CampaignTransactionRunner`, `codes`, `hasher`, `clock`):
-  - `create(userId, dto)`: hash da senha (se houver) → até 3 tentativas, cada uma **numa transação própria** (a violação de unicidade aborta a transação no Postgres): gera o código, grava a mesa e o criador como `master` (`joinedAt` do relógio); `23505` → próximo código; 3 colisões → `CampaignCodeExhaustedError` citando os códigos. Devolve o detalhe.
+  - `create(userId, dto)`: hash da senha (se houver) → até 3 tentativas, cada uma **numa transação própria** (a violação de unicidade aborta a transação no Postgres): gera o código, grava a mesa, o criador como `master` (`joinedAt` do relógio) e **a cena ativa** (`scenes` com o grid padrão + `campaigns.active_scene_id`, ver `board.md`), tudo na mesma transação; `23505` → próximo código; 3 colisões → `CampaignCodeExhaustedError` citando os códigos. Devolve o detalhe.
   - `listMine(userId)` e `detail(userId, campaignId)` (participação → `requireMember` → mesa → membros).
   - `rosterOf(userId, campaignId)` → `CampaignMemberRow[]` (`{ userId, name, role }`, em `orderedMembers`): participação → `requireMember` → membros. É a porta de entrada de **outro módulo** (a sessão ao vivo, `sessions.md`) aos membros da mesa; quem não é membro recebe `CampaignNotFoundError` sem chegar ao `listMembers`.
 - `CampaignJoinService` (DAOs, `hasher`, `clock`): `join(userId, { code, password? })` acha pelo código (senão `CampaignNotFoundError` citando o código), verifica a senha só quando `needsPasswordCheck()`, grava `player` e devolve o resumo; `enter(userId, campaignId)` exige participação e grava `last_entered_at` com o relógio.
-- O runner de transação (`CampaignTransactionRunner`) entrega DAOs presos ao `tx`; o plugin o monta sobre `runInTransaction`.
+- O runner de transação (`CampaignTransactionRunner`) entrega DAOs presos ao `tx` (`campaigns`, `members`, `scenes`); o plugin o monta sobre `runInTransaction`.
 
 ## Testes
 

@@ -15,8 +15,9 @@ API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento
 - `src/database/migrate.ts` — `runMigrations(db)` aplica `server/drizzle/` (usado pelos testes de integração)
 - `src/lib/invalid-body.ts` — `invalidBodyError(zodError)`: o corpo 400 `INVALID_BODY` que toda borda devolve quando o DTO recusa (cita caminho e regra, nunca o valor)
 - `src/app/build-app.ts` — `buildApp({ env, db })`: Fastify com logger pino (JSON), `@fastify/cookie`; módulos registrados sob o prefixo `/api` (`API_PREFIX`); instancia os adaptadores do auth e decora `app.authGuards` na raiz (guardas para qualquer módulo, ver `auth.md`); `wireRealtime` liga o Socket.IO e o módulo `sessions` (ver `sessions.md`)
-- `src/realtime/` — Socket.IO (seção Tempo real): `realtime-server.ts` (`attachRealtime`), `same-origin.ts` (`isSameOrigin`), `rooms.ts` (`campaignRoom(id)` → `campaign:<id>`)
+- `src/realtime/` — Socket.IO (seção Tempo real): `realtime-server.ts` (`attachRealtime`), `same-origin.ts` (`isSameOrigin`), `rooms.ts` (`campaignRoom(id)` → `campaign:<id>`, `campaignUserRoom`, `campaignMastersRoom`), `realtime-ack.ts` (`answerAck(ack, work, failureOf, onFailure)`: responde o ack com o resultado ou com o `ApiErrorDto`)
 - `drizzle.config.ts` — config do `drizzle-kit` (schema → `drizzle/`)
+- `drizzle/` — migrações: `0000_auth`, `0001_campaigns`, `0002_scenes` (tabela `scenes`, `campaigns.active_scene_id` e o `INSERT … SELECT` que dá cena às mesas existentes), `0003_tokens`, `0004_conditions` (com a lista inicial para as mesas existentes) e `0005_combat`. O `db:generate` gera nome aleatório: renomear o `.sql` e o `tag` no `meta/_journal.json`; SQL de dados vai à mão no fim do arquivo, depois de um `--> statement-breakpoint`
 - `vitest.config.ts` / `vitest.integration.config.ts` — projetos `@lorkarium/server` (unit) e `@lorkarium/server-integration`
 
 ## Env (`server/.env.example`)
@@ -54,7 +55,8 @@ API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento
 - **Revalidação:** `reauthenticate(socket)` relê a sessão pelo token do handshake (`null` depois de logout ou expiração); os gateways chamam a cada comando.
 - **Origem:** `allowRequest` aceita só `Origin` cujo host é igual ao `Host`; sem `Origin` (cliente que não é navegador) passa, mas o cookie continua obrigatório. Sem env var.
 - **Fechamento:** `preClose` desconecta os sockets e fecha o engine (`io.close()` fecharia o `app.server`, que o Fastify fecha logo depois).
-- Log por `app.log` com `userId` e `socketId`, nunca com o cookie. Tipos `RealtimeServer`/`RealtimeSocket` com `SessionClientEvents`/`SessionServerEvents` do contracts.
+- Limite de comandos do tabuleiro por conexão (40 de uma vez, 20/s): no gateway do `board` (ver `board.md`).
+- Log por `app.log` com `userId` e `socketId`, nunca com o cookie. Tipos `RealtimeServer`/`RealtimeSocket` com `TableClientEvents`/`TableServerEvents` do contracts (sessão + tabuleiro). O `wireRealtime` liga `sessions` e `board` (este com o `scenes`).
 
 ## Testes
 
