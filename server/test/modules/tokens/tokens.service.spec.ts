@@ -276,6 +276,29 @@ describe('TokensService', () => {
       ]);
     });
 
+    it('a move whose precondition matches where Lyra is goes through (undo)', async () => {
+      const moves = [{ ...LYRA_TO_8_6, expect: { col: 3, row: 4 } }];
+
+      await service.moveMany(BIA_ID, VHARN_ID, { moves });
+
+      expect(tokens.rows[0]?.token).toMatchObject({ col: 8, row: 6 });
+      expect(publisher.tokensMoves[0]?.moves).toEqual([LYRA_TO_8_6]);
+    });
+
+    it('an undo after someone moved Bram since is STALE_UNDO, and none of the group moves', async () => {
+      const moves = [LYRA_TO_8_6, { ...BRAM_TO_9_6, expect: { col: 1, row: 1 } }];
+
+      await expect(service.moveMany(ANA_ID, VHARN_ID, { moves })).rejects.toMatchObject({
+        code: 'STALE_UNDO',
+        message: `token ${BRAM_ID} is at (6, 4); the undo expected (1, 1)`,
+      });
+      expect(tokens.rows.map(({ token }) => [token.col, token.row])).toEqual([
+        [3, 4],
+        [6, 4],
+      ]);
+      expect(scenes.journal).toEqual(['lock']);
+    });
+
     it('one token of the group past the edge is OUT_OF_SCENE, and none of them moves', async () => {
       const moves = [LYRA_TO_8_6, { tokenId: BRAM_ID, col: 20, row: 6 }];
       await expect(service.moveMany(ANA_ID, VHARN_ID, { moves })).rejects.toMatchObject({

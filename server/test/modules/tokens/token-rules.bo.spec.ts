@@ -43,3 +43,22 @@ describe('TokenRulesBo', () => {
     expect(rules().adjustBar(32, { op: 'set', value: 12 })).toBe(12);
   });
 });
+
+describe('TokenRulesBo.requireAt', () => {
+  it('no precondition (a normal move) never refuses', () => {
+    expect(() => rules().requireAt('lyra', undefined, { col: 9, row: 9 })).not.toThrow();
+  });
+
+  it('a precondition equal to where the token is passes (undo)', () => {
+    expect(() => rules().requireAt('lyra', { col: 6, row: 4 }, { col: 6, row: 4 })).not.toThrow();
+  });
+
+  it('a token moved by someone else since is STALE_UNDO citing the token, expected and current', () => {
+    expect(() => rules().requireAt('lyra', { col: 6, row: 4 }, { col: 2, row: 2 })).toThrow(
+      expect.objectContaining({
+        code: 'STALE_UNDO',
+        message: 'token lyra is at (2, 2); the undo expected (6, 4)',
+      }),
+    );
+  });
+});

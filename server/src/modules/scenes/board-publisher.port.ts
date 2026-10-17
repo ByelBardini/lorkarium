@@ -7,12 +7,17 @@ import type {
   ConditionsAppliedDto,
   ConditionDefinedDto,
   ConditionRemovedDto,
+  DrawingsCreatedDto,
+  DrawingsDeletedDto,
+  DrawingsMovedDto,
   SceneUpdatedDto,
   TokenCreatedDto,
   TokenDeletedDto,
   TokenLayerChangedDto,
   TokenMovedDto,
+  TokenDto,
   TokenUpdatedDto,
+  TokensDeletedDto,
   TokensDraggedDto,
   TokensMovedDto,
 } from '@lorkarium/contracts';
@@ -27,6 +32,16 @@ export type TokenChange = Readonly<{
   others: TokenCreatedDto | TokenUpdatedDto;
 }>;
 
+/** A paste of tokens: each one whole for the masters and its controllers, redacted for the rest. */
+export type TokensCreation = Readonly<{
+  campaignId: string;
+  version: number;
+  at: string;
+  tokens: ReadonlyArray<
+    Readonly<{ controllerIds: readonly string[]; privileged: TokenDto; others: TokenDto }>
+  >;
+}>;
+
 /** Sends a confirmed board change to the table; called only after the transaction committed. */
 export interface BoardPublisherPort {
   sceneUpdated(event: SceneUpdatedDto): void;
@@ -37,7 +52,13 @@ export interface BoardPublisherPort {
    *  the dragger, who draws it locally. */
   tokensDragged(event: TokensDraggedDto, exceptConnectionId: string): void;
   tokenDeleted(event: TokenDeletedDto): void;
+  tokensCreated(creation: TokensCreation): void;
+  tokensDeleted(event: TokensDeletedDto): void;
   tokenLayerChanged(event: TokenLayerChangedDto): void;
+  /** Drawings have no secret: the whole table gets the same events. */
+  drawingsCreated(event: DrawingsCreatedDto): void;
+  drawingsMoved(event: DrawingsMovedDto): void;
+  drawingsDeleted(event: DrawingsDeletedDto): void;
   conditionDefined(event: ConditionDefinedDto): void;
   conditionApplied(event: ConditionAppliedDto): void;
   conditionsApplied(event: ConditionsAppliedDto): void;

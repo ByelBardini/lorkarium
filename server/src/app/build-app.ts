@@ -14,6 +14,7 @@ import { TimerScheduler } from '../infrastructure/scheduler/timer-scheduler';
 import { SocketIoSessionPublisher } from '../infrastructure/session-publisher/socket-io-session-publisher';
 import { SocketIoBoardPublisher } from '../infrastructure/board-publisher/socket-io-board-publisher';
 import { createBoardModule } from '../modules/board/board.plugin';
+import { createDrawingsModule } from '../modules/drawings/drawings.plugin';
 import { createScenesModule } from '../modules/scenes/scenes.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
 import { createConditionsModule } from '../modules/conditions/conditions.plugin';
@@ -79,15 +80,18 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
   const { clock } = modules;
   const publisher = new SocketIoBoardPublisher(realtime.io);
   const scenes = createScenesModule({ db, publisher, clock }).service;
-  const tokens = createTokensModule({ db, publisher, clock }).service;
+  const { service: tokens, batch: tokenBatch } = createTokensModule({ db, publisher, clock });
   const conditions = createConditionsModule({ db, publisher, clock }).service;
   const combat = createCombatModule({ db, publisher, clock }).service;
+  const drawings = createDrawingsModule({ db, publisher, clock }).service;
   const board = createBoardModule({
     db,
     scenes,
     tokens,
+    tokenBatch,
     conditions,
     combat,
+    drawings,
     clock,
     realtime,
     log: app.log,

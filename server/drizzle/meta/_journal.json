@@ -57,6 +57,13 @@
       "when": 1792197216900,
       "tag": "0007_condition_applied_round",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792200108659,
+      "tag": "0008_drawings",
+      "breakpoints": true
     }
   ]
 }

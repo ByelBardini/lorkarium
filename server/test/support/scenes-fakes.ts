@@ -7,9 +7,13 @@ import type {
   ConditionsAppliedDto,
   ConditionDefinedDto,
   ConditionRemovedDto,
+  DrawingsCreatedDto,
+  DrawingsDeletedDto,
+  DrawingsMovedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
   TokenLayerChangedDto,
+  TokensDeletedDto,
   TokensDraggedDto,
   TokensMovedDto,
   TokenMovedDto,
@@ -17,6 +21,7 @@ import type {
 import type {
   BoardPublisherPort,
   TokenChange,
+  TokensCreation,
 } from '../../src/modules/scenes/board-publisher.port';
 import type { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import type { SceneTransactionRunner } from '../../src/modules/scenes/scenes.service';
@@ -82,6 +87,8 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly tokenDeletes: TokenDeletedDto[] = [];
   readonly tokenLayerChanges: TokenLayerChangedDto[] = [];
   readonly tokensMoves: TokensMovedDto[] = [];
+  readonly tokensCreations: TokensCreation[] = [];
+  readonly tokensDeletes: TokensDeletedDto[] = [];
   readonly tokensDrags: Array<Readonly<{ event: TokensDraggedDto; exceptConnectionId: string }>> =
     [];
   readonly combatEvents: Array<
@@ -93,6 +100,9 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly conditionEvents: Array<ConditionDefinedDto | ConditionAppliedDto | ConditionRemovedDto> =
     [];
   readonly conditionsApplies: ConditionsAppliedDto[] = [];
+  readonly drawingsCreates: DrawingsCreatedDto[] = [];
+  readonly drawingsMoves: DrawingsMovedDto[] = [];
+  readonly drawingsDeletes: DrawingsDeletedDto[] = [];
 
   sceneUpdated(event: SceneUpdatedDto): void {
     this.journal.push('publish');
@@ -114,6 +124,16 @@ export class BoardPublisherFake implements BoardPublisherPort {
     this.tokenDeletes.push(event);
   }
 
+  tokensCreated(creation: TokensCreation): void {
+    this.journal.push('publish');
+    this.tokensCreations.push(creation);
+  }
+
+  tokensDeleted(event: TokensDeletedDto): void {
+    this.journal.push('publish');
+    this.tokensDeletes.push(event);
+  }
+
   tokensMoved(event: TokensMovedDto): void {
     this.journal.push('publish');
     this.tokensMoves.push(event);
@@ -127,6 +147,21 @@ export class BoardPublisherFake implements BoardPublisherPort {
   tokenLayerChanged(event: TokenLayerChangedDto): void {
     this.journal.push('publish');
     this.tokenLayerChanges.push(event);
+  }
+
+  drawingsCreated(event: DrawingsCreatedDto): void {
+    this.journal.push('publish');
+    this.drawingsCreates.push(event);
+  }
+
+  drawingsMoved(event: DrawingsMovedDto): void {
+    this.journal.push('publish');
+    this.drawingsMoves.push(event);
+  }
+
+  drawingsDeleted(event: DrawingsDeletedDto): void {
+    this.journal.push('publish');
+    this.drawingsDeletes.push(event);
   }
 
   conditionDefined(event: ConditionDefinedDto): void {
@@ -178,8 +213,14 @@ export class BoardPublisherFake implements BoardPublisherPort {
       this.tokenDeletes.length +
       this.tokenLayerChanges.length +
       this.tokensMoves.length +
+      this.tokensCreations.length +
+      this.tokensDeletes.length +
       this.tokensDrags.length +
       this.conditionEvents.length +
+      this.conditionsApplies.length +
+      this.drawingsCreates.length +
+      this.drawingsMoves.length +
+      this.drawingsDeletes.length +
       this.combatEvents.length
     );
   }

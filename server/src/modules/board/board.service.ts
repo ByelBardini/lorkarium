@@ -7,6 +7,8 @@ import type { CombatDao } from '../combat/combat.dao';
 import { toCombatDto } from '../combat/combat.mapper';
 import type { ConditionsDao } from '../conditions/conditions.dao';
 import { conditionsByToken, toConditionDefinitionDto } from '../conditions/conditions.mapper';
+import type { DrawingsDao } from '../drawings/drawings.dao';
+import { toDrawingDto } from '../drawings/drawings.mapper';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import { TokenAccessBo } from '../tokens/token-access.bo';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
@@ -19,11 +21,12 @@ export type BoardServiceDeps = Readonly<{
   tokens: Pick<TokensDao, 'listOfScene'>;
   conditions: Pick<ConditionsDao, 'listDefinitions' | 'listOfTokens'>;
   combat: Pick<CombatDao, 'findOfScene'>;
+  drawings: Pick<DrawingsDao, 'listOfScene'>;
   clock: ClockPort;
 }>;
 
 /** The board snapshot of one table, as one member may see it (spec §5.6, §3.9): each token whole
- *  for its controllers and the master, redacted for everyone else.
+ *  for its controllers and the master, redacted for everyone else; drawings whole for everyone.
  *
  *  Example: `const state = await board.snapshotFor(user.id, campaignId)` */
 export class BoardService {
@@ -43,11 +46,12 @@ export class BoardService {
     const tokens = rows.map((row) => tokenFor(access, row, byToken.get(row.token.id) ?? []));
     const combatRow = await this.deps.combat.findOfScene(scene.id);
     const combat = combatRow ? toCombatDto(combatRow) : null;
+    const drawings = (await this.deps.drawings.listOfScene(scene.id)).map(toDrawingDto);
     const definitions = await this.deps.conditions.listDefinitions(campaignId);
     const conditionDefinitions = definitions.map(toConditionDefinitionDto);
     const at = this.deps.clock.now();
     const viewer = { userId, role };
-    const parts = { campaignId, viewer, scene, tokens, combat, conditionDefinitions, at };
+    const parts = { campaignId, viewer, scene, tokens, drawings, combat, conditionDefinitions, at };
     return toBoardStateDto(parts);
   }
 }

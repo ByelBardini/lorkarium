@@ -5,11 +5,16 @@ import {
   applyConditionsCommandDto,
   boardCommandDto,
   configureSceneCommandDto,
+  createDrawingsCommandDto,
   createTokenCommandDto,
+  createTokensCommandDto,
   defineConditionCommandDto,
+  deleteDrawingsCommandDto,
   deleteTokenCommandDto,
+  deleteTokensCommandDto,
   dragTokensCommandDto,
   endCombatCommandDto,
+  moveDrawingsCommandDto,
   moveInTieCommandDto,
   moveTokenCommandDto,
   moveTokensCommandDto,
@@ -36,10 +41,14 @@ import type { CombatService } from '../combat/combat.service';
 import { ConditionError } from '../conditions/conditions.error';
 import type { ConditionsService } from '../conditions/conditions.service';
 import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
+import { DrawingError } from '../drawings/drawings.error';
+import type { DrawingsService } from '../drawings/drawings.service';
 import { toSceneGrid } from '../scenes/scenes.mapper';
+import type { CreatedInScene } from '../scenes/locked-scene';
 import type { ScenesService } from '../scenes/scenes.service';
 import { SessionEndedError, SessionError } from '../sessions/sessions.error';
 import { TokenError } from '../tokens/tokens.error';
+import type { TokenBatchService } from '../tokens/token-batch.service';
 import type { TokensService } from '../tokens/tokens.service';
 import { BoardError, CommandRateLimitedError } from './board.error';
 import type { BoardService } from './board.service';
@@ -52,6 +61,7 @@ export type BoardGatewayDeps = Readonly<{
     TokensService,
     'create' | 'update' | 'move' | 'moveMany' | 'dragMany' | 'setLayer' | 'adjustBar' | 'delete'
   >;
+  tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany'>;
   conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove'>;
   combat: Pick<
     CombatService,
@@ -64,6 +74,7 @@ export type BoardGatewayDeps = Readonly<{
     | 'nextTurn'
     | 'previousTurn'
   >;
+  drawings: Pick<DrawingsService, 'createMany' | 'moveMany' | 'deleteMany'>;
   realtime: Pick<Realtime, 'reauthenticate'>;
   clock: ClockPort;
   log: FastifyBaseLogger;
@@ -74,6 +85,11 @@ type CampaignCommand = Readonly<{ campaignId: string }>;
 type Handler<Command, Answer> = (userId: string, command: Command) => Promise<Answer>;
 // The service reads the payload fields; the envelope (actionId, campaignId) rides along unread.
 type Mutation<Command> = (userId: string, campaignId: string, command: Command) => Promise<number>;
+type Creation<Command> = (
+  userId: string,
+  campaignId: string,
+  command: Command,
+) => Promise<CreatedInScene>;
 
 // Public text only: the internal message cites ids and stays in the log.
 const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
@@ -82,7 +98,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   UNAUTHENTICATED: 'A valid session is required',
   TOKEN_NOT_FOUND: 'Token not found',
   BAR_NOT_FOUND: 'Bar not found',
-  OUT_OF_SCENE: 'The token does not fit the scene there',
+  OUT_OF_SCENE: 'It does not fit the scene there',
   INVALID_CONTROLLER: 'Only members of the table can control a token',
   CONDITION_NOT_FOUND: 'Condition not found',
   COMBAT_NOT_ACTIVE: 'There is no combat in this scene',
@@ -90,6 +106,9 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   TURN_ALREADY_CHANGED: 'The turn already moved',
   COMBATANT_NOT_FOUND: 'Combatant not found',
   RATE_LIMITED: 'Too many commands in a row',
+  STALE_UNDO: 'Someone changed it after the action being undone',
+  DRAWING_NOT_FOUND: 'Drawing not found',
+  DRAWING_LIMIT: 'This scene has too many drawings',
 };
 
 /** Socket.IO edge of the board (scene and tokens): validates the command, re-reads the session,
@@ -98,7 +117,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
  *
  *  Example: `realtime.onConnection(createBoardGateway({ board, scenes, tokens, realtime, log }))` */
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
-  const { tokens, conditions, combat } = deps;
+  const { tokens, tokenBatch, conditions, combat, drawings } = deps;
   const rate = new CommandRateGuard(deps.clock);
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
@@ -118,6 +137,12 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     );
     const mutate = <C extends CampaignCommand>(schema: z.ZodType<C>, run: Mutation<C>) =>
       bind(schema, (userId, command) => versionOf(run(userId, command.campaignId, command)));
+    // A creating batch also answers the ids it gave: the sender's undo needs them.
+    const create = <C extends CampaignCommand>(schema: z.ZodType<C>, run: Creation<C>) =>
+      bind(schema, async (userId, command): Promise<CommandOk> => {
+        const { version, createdIds } = await run(userId, command.campaignId, command);
+        return { ok: true, version, createdIds };
+      });
     socket.on('token:create', mutate(createTokenCommandDto, tokens.create.bind(tokens)));
     socket.on('token:update', mutate(updateTokenCommandDto, tokens.update.bind(tokens)));
     socket.on('token:move', mutate(moveTokenCommandDto, tokens.move.bind(tokens)));
@@ -131,6 +156,23 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     socket.on('token:setLayer', mutate(setTokenLayerCommandDto, tokens.setLayer.bind(tokens)));
     socket.on('token:adjustBar', mutate(adjustBarCommandDto, tokens.adjustBar.bind(tokens)));
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
+    socket.on(
+      'token:createMany',
+      create(createTokensCommandDto, tokenBatch.createMany.bind(tokenBatch)),
+    );
+    socket.on(
+      'token:deleteMany',
+      mutate(deleteTokensCommandDto, tokenBatch.deleteMany.bind(tokenBatch)),
+    );
+    socket.on(
+      'drawing:createMany',
+      create(createDrawingsCommandDto, drawings.createMany.bind(drawings)),
+    );
+    socket.on('drawing:moveMany', mutate(moveDrawingsCommandDto, drawings.moveMany.bind(drawings)));
+    socket.on(
+      'drawing:deleteMany',
+      mutate(deleteDrawingsCommandDto, drawings.deleteMany.bind(drawings)),
+    );
     socket.on(
       'condition:define',
       mutate(defineConditionCommandDto, conditions.define.bind(conditions)),
@@ -244,6 +286,7 @@ function toAckError(deps: BoardGatewayDeps, error: unknown): ApiErrorDto {
     error instanceof TokenError ||
     error instanceof ConditionError ||
     error instanceof CombatError ||
+    error instanceof DrawingError ||
     error instanceof BoardError;
   if (known) {
     const message = PUBLIC_MESSAGE[error.code];

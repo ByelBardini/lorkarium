@@ -128,8 +128,35 @@ describe('CombatBo', () => {
     expect(as(ANA_ID).moveInTie('c-lyra', 'up')).toEqual([]);
   });
 
-  it('turnWithoutToken moves the turn when the token on turn is deleted, and is null otherwise', () => {
-    expect(as(ANA_ID).turnWithoutToken('t-kael')).toEqual({ round: 1, currentId: 'c-lyra' });
-    expect(as(ANA_ID).turnWithoutToken('t-ogro')).toBeNull();
+  it('turnWithoutTokens moves the turn when the token on turn is deleted, and is null otherwise', () => {
+    expect(as(ANA_ID).turnWithoutTokens(['t-kael'])).toEqual({ round: 1, currentId: 'c-lyra' });
+    expect(as(ANA_ID).turnWithoutTokens(['t-ogro'])).toBeNull();
+  });
+
+  it('deleting the one on turn with the next passes the turn past both', () => {
+    expect(as(ANA_ID).turnWithoutTokens(['t-lyra', 't-kael'])).toEqual({
+      round: 1,
+      currentId: 'c-goblin',
+    });
+  });
+
+  it('deleting the one on turn and everyone after it opens the next round on the first left', () => {
+    const lyraOnTurn = combat({ currentCombatantId: 'c-lyra' });
+
+    expect(as(ANA_ID, lyraOnTurn).turnWithoutTokens(['t-goblin', 't-lyra'])).toEqual({
+      round: 2,
+      currentId: 'c-kael',
+    });
+  });
+
+  it('deleting every combatant leaves nobody on turn', () => {
+    expect(as(ANA_ID).turnWithoutTokens(['t-kael', 't-lyra', 't-goblin'])).toEqual({
+      round: 1,
+      currentId: null,
+    });
+  });
+
+  it('deleting someone who is not on turn keeps the turn where it is', () => {
+    expect(as(ANA_ID).turnWithoutTokens(['t-goblin'])).toEqual({ round: 1, currentId: 'c-kael' });
   });
 });

@@ -180,4 +180,20 @@ describe('TokensDao on Postgres', () => {
       cause: { code: UNIQUE_VIOLATION },
     });
   });
+
+  it('insertMany saves each token with its bars, and deleteMany removes only the ones of the scene', async () => {
+    const [mine, theirs] = await tokens.insertMany([
+      lyra(),
+      lyra({ token: { ...lyra().token, sceneId: otherSceneId } }),
+    ]);
+    if (!mine || !theirs) throw new Error('insertMany returned fewer tokens');
+    expect(mine.bars).toHaveLength(2);
+
+    await tokens.deleteMany(sceneId, [mine.token.id, theirs.token.id]);
+
+    expect(await tokens.listOfScene(sceneId)).toEqual([]);
+    expect((await tokens.listOfScene(otherSceneId)).map(({ token }) => token.id)).toEqual([
+      theirs.token.id,
+    ]);
+  });
 });
