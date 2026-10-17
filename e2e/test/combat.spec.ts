@@ -74,20 +74,22 @@ test('a whole combat: order, turns, rounds, a condition that expires, passing th
   }
 
   await rowOf(admin, 'Lyra').click();
-  await admin.getByLabel('Adicionar condição').selectOption('Atordoado');
+  await admin.getByRole('combobox', { name: 'Adicionar condição' }).fill('Atordoado');
   await admin.getByLabel('Rodadas').fill('1');
   await admin.getByRole('button', { name: 'Aplicar' }).click();
   await expect(order(caio).filter({ hasText: 'Lyra' })).toContainText('Atordoado');
-  // Closed again: the open card lists every condition of the table in its select.
+  // Closed again: the open card lists every condition of the table in its suggestions.
   await rowOf(admin, 'Lyra').click();
 
   await expect(caio.getByRole('button', { name: 'Passar a vez' })).toHaveCount(0);
   await bia.getByRole('button', { name: 'Passar a vez' }).click();
   await expect(turnLine(caio)).toHaveText('Rodada 1 · Vez de Lyra');
 
+  // Applied in round 1: the end of Lyra's round-1 turn does not count it (it goes in round 2).
   await caio.getByRole('button', { name: 'Passar a vez' }).click();
+  await expect(turnLine(caio)).toHaveText('Rodada 1 · Vez de Goblin');
   for (const page of [admin, bia, caio]) {
-    await expect(order(page).filter({ hasText: 'Lyra' })).not.toContainText('Atordoado');
+    await expect(order(page).filter({ hasText: 'Lyra' })).toContainText('Atordoado');
   }
 
   await admin.getByRole('button', { name: 'Próximo turno' }).click();
