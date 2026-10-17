@@ -5,6 +5,7 @@ export type BoardShortcut =
   | 'escape'
   | 'select-tool'
   | 'ruler-tool'
+  | 'draw-tool'
   | 'toggle-grid'
   | 'layer-tokens'
   | 'layer-objects'
@@ -23,6 +24,7 @@ const SHORTCUT_BY_KEY: Readonly<Record<string, BoardShortcut>> = {
   f: 'toggle-focus',
   v: 'select-tool',
   r: 'ruler-tool',
+  b: 'draw-tool',
   g: 'toggle-grid',
   '1': 'layer-tokens',
   '2': 'layer-objects',
@@ -38,6 +40,29 @@ export function shortcutFor(press: ShortcutKey): BoardShortcut | null {
   if (press.ctrlKey || press.metaKey || press.altKey) return null;
   if (belongsToAnotherControl(press.target)) return null;
   return SHORTCUT_BY_KEY[press.key.toLowerCase()] ?? null;
+}
+
+/** Editing the board: copy and paste the selection, undo and redo this user's own actions. */
+export type EditShortcut = 'copy' | 'paste' | 'undo' | 'redo';
+
+export type EditShortcutKey = ShortcutKey & Readonly<{ shiftKey: boolean }>;
+
+const EDIT_BY_KEY: Readonly<Record<string, EditShortcut>> = {
+  c: 'copy',
+  v: 'paste',
+  z: 'undo',
+  y: 'redo',
+};
+
+/** The edit shortcut of a key press with Ctrl or ⌘ (Ctrl+Shift+Z also redoes), or `null`: in a
+ *  field, a dialog or a menu the keys copy and undo there, not on the board.
+ *
+ *  Example: `editShortcutFor(event) // 'undo' for Ctrl+Z on the board` */
+export function editShortcutFor(press: EditShortcutKey): EditShortcut | null {
+  if (!(press.ctrlKey || press.metaKey) || press.altKey) return null;
+  if (belongsToAnotherControl(press.target)) return null;
+  const shortcut = EDIT_BY_KEY[press.key.toLowerCase()] ?? null;
+  return shortcut === 'undo' && press.shiftKey ? 'redo' : shortcut;
 }
 
 function belongsToAnotherControl(target: EventTarget | null): boolean {

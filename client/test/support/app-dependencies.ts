@@ -1,4 +1,5 @@
 import type { AppDependencies } from '@/app/router';
+import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore } from '@/stores/rail-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
@@ -22,6 +23,8 @@ export type TestDependencies = AppDependencies & {
   tabStorage: StorageFake;
   /** The `localStorage` under `roomLayout`. */
   roomLayoutStorage: StorageFake;
+  /** The `localStorage` under `drawingStyle`. */
+  drawingStyleStorage: StorageFake;
   /** Every board renderer the room created, behind `createBoardRenderer`. */
   boardRenderers: BoardRenderersFake;
   boardCommands: TableBoardCommandsFake;
@@ -40,6 +43,7 @@ export function testDependencies(): TestDependencies {
   const tableSessionApi = new TableSessionApiFake(journal);
   const tabStorage = new StorageFake();
   const roomLayoutStorage = new StorageFake();
+  const drawingStyleStorage = new StorageFake();
   const boardRenderers = new BoardRenderersFake();
   return {
     journal,
@@ -49,6 +53,7 @@ export function testDependencies(): TestDependencies {
     tableSessionApi,
     tabStorage,
     roomLayoutStorage,
+    drawingStyleStorage,
     boardRenderers,
     createBoardRenderer: boardRenderers.create,
     boardCommands: new TableBoardCommandsFake(),
@@ -56,6 +61,7 @@ export function testDependencies(): TestDependencies {
     sessionStore: createSessionStore(),
     railStore: createRailStore(new StorageFake()),
     roomLayout: createRoomLayoutStore(roomLayoutStorage),
+    drawingStyle: createDrawingStyleStore(drawingStyleStorage),
     now: () => TEST_NOW,
     random: () => 0,
   };

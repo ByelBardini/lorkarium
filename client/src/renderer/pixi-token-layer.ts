@@ -44,8 +44,17 @@ export class PixiTokenLayer {
   private dragging: string | null = null;
   private drawn: readonly TokenView[] = [];
 
-  constructor(private readonly reducedMotion: () => boolean) {
+  /** `beneath`: what each layer draws under its tokens (the drawings of that layer). */
+  constructor(
+    private readonly reducedMotion: () => boolean,
+    beneath?: Readonly<Record<TokenLayerDto, Container>>,
+  ) {
     const { background, objects, tokens } = this.layers;
+    if (beneath) {
+      for (const layer of ['background', 'objects', 'tokens'] as const) {
+        this.layers[layer].addChild(beneath[layer]);
+      }
+    }
     this.container.addChild(background, objects, tokens, this.ghost);
   }
 

@@ -29,7 +29,8 @@ const STEP: Readonly<Record<'up' | 'down' | 'left' | 'right', readonly [number, 
 };
 
 /** Playing without a mouse: ] and [ select one, the arrows move the selection a cell (one
- *  command, for a group too), Enter opens its card; every step is said on the status line.
+ *  command, for a group too), Enter opens its card, Delete deletes the selected drawings; every
+ *  step is said on the status line.
  *
  *  Example: `<div onKeyDown={useBoardKeyboard({ board, interaction, onOpen })} />` */
 export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.KeyboardEvent) => void {
@@ -46,6 +47,7 @@ export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.Keyboar
 }
 
 function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
+  if (key === 'delete') return deleteSelectedDrawings(deps);
   const tokens = deps.board.getState().board?.tokens ?? [];
   const { selectedTokenIds } = deps.interaction.getState();
   const selected = tokens.filter(({ id }) => selectedTokenIds.includes(id));
@@ -55,6 +57,14 @@ function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
   if (key === 'open') return deps.onOpen(only.id);
   if (selected.length === 1) return moveByKey(only, STEP[key], deps.interaction);
   moveGroupByKey(deps, inSelectionOrder(selected, selectedTokenIds), STEP[key]);
+}
+
+// A token is deleted from its dialog, never by a key: Delete only takes the drawings.
+function deleteSelectedDrawings({ board, interaction }: BoardKeyboardDeps): void {
+  const { selectedDrawingIds } = interaction.getState();
+  const drawings = board.getState().board?.drawings ?? [];
+  const selected = drawings.filter(({ id }) => selectedDrawingIds.includes(id));
+  if (selected.length > 0) void interaction.getState().deleteDrawings(selected);
 }
 
 function inSelectionOrder(tokens: readonly TokenDto[], ids: readonly string[]): TokenDto[] {
@@ -76,11 +86,7 @@ function moveGroupByKey(
   const to = { col: anchor.col + dx, row: anchor.row + dy };
   const moves = shiftGroup(scene, members, anchor, to);
   if (!moves) return local.say(OUT_OF_SCENE);
-  void local.command(async (commands, campaignId) => {
-    const result = await commands.moveTokens(campaignId, moves);
-    if (result.ok) local.say(groupMovedAnnouncement(moves.length));
-    return result;
-  });
+  void local.moveTokens(moves, groupMovedAnnouncement(moves.length));
 }
 
 function selectStep(

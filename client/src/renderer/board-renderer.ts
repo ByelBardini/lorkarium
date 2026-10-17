@@ -1,4 +1,5 @@
 import type { Cell } from '@lorkarium/game-core';
+import type { CellPoint } from '@/lib/drawing-geometry';
 import type { BoardView } from './board-view';
 
 /** A primary-button pointer step over the board, in cells (`null` off the scene). The renderer
@@ -20,9 +21,32 @@ export type BoardTokenIntent =
   | Readonly<{ kind: 'tokenDragCancelled'; tokenId: string }>
   | Readonly<{ kind: 'tokenDropped'; tokenId: string; cell: Cell | null }>;
 
+/** A drawing clicked (Shift: `additive` toggles it), the drawings a marquee touched, the
+ *  drawings dropped after a drag (by `dx, dy` cells; `anchorId` is the one under the pointer),
+ *  and a sketch of the draw tool finished (its pointer points in cells, `snap` = Shift). */
+export type BoardDrawingIntent =
+  | Readonly<{ kind: 'drawingPicked'; drawingId: string; additive: boolean }>
+  | Readonly<{ kind: 'drawingsMarqueed'; drawingIds: readonly string[]; additive: boolean }>
+  | Readonly<{
+      kind: 'drawingsDropped';
+      anchorId: string;
+      drawingIds: readonly string[];
+      dx: number;
+      dy: number;
+    }>
+  | Readonly<{ kind: 'sketchFinished'; points: readonly CellPoint[]; snap: boolean }>;
+
+/** The cell under the pointer while it hovers the board (`null` once it leaves): where a paste
+ *  lands. */
+export type BoardHoverIntent = Readonly<{ kind: 'pointerHovered'; cell: Cell | null }>;
+
 /** What the board tells React: it never changes state itself. */
 export type BoardIntent =
-  Readonly<{ kind: 'cameraChanged'; zoom: number }> | BoardPointerIntent | BoardTokenIntent;
+  | Readonly<{ kind: 'cameraChanged'; zoom: number }>
+  | BoardPointerIntent
+  | BoardTokenIntent
+  | BoardDrawingIntent
+  | BoardHoverIntent;
 
 export type BoardIntentListener = (intent: BoardIntent) => void;
 

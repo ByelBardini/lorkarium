@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTables, type OpenTable, type OpenTablesStore } from '@/stores/open-tables-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createTableEditStore, type TableEditStore } from '@/stores/table-edit-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 
 export type OpenTableView =
@@ -10,6 +11,7 @@ export type OpenTableView =
       kind: 'open';
       presence: StoreApi<TablePresenceStore>;
       board: StoreApi<BoardStore>;
+      edits: StoreApi<TableEditStore>;
     }>
   | Readonly<{ kind: 'full' }>;
 
@@ -26,6 +28,7 @@ export function useOpenTable(
   const [pending] = useState(() => ({
     presence: createTablePresenceStore(campaign.id),
     board: createBoardStore(campaign.id, () => undefined),
+    edits: createTableEditStore(campaign.id),
   }));
   const table = useOpenTables(openTables, (state) => tableOf(state, campaign.id));
   const isFull = useOpenTables(
@@ -37,8 +40,8 @@ export function useOpenTable(
     if (!isFull) openTables.getState().open({ campaignId: campaign.id, name: campaign.name });
   }, [campaign.id, campaign.name, isFull, openTables]);
   if (isFull) return { kind: 'full' };
-  const { presence, board } = table ?? pending;
-  return { kind: 'open', presence, board };
+  const { presence, board, edits } = table ?? pending;
+  return { kind: 'open', presence, board, edits };
 }
 
 function tableOf(state: OpenTablesStore, campaignId: string): OpenTable | null {

@@ -1,5 +1,6 @@
 import { sameCell, type Cell } from '@lorkarium/game-core';
 import type { StoreApi } from 'zustand/vanilla';
+import type { TokenMove } from '@/lib/edit-history';
 import { browserClock, type InteractionClock } from '@/lib/interaction-clock';
 import { shiftGroup, type GroupPlacement } from '@/lib/token-group';
 import { ROUTE_BEND_DWELL_MS, settleRoute, startRoute, stepRoute } from '@/lib/token-route';
@@ -77,6 +78,11 @@ export class TokenDragFlow {
     if (!landing) return this.cancel();
     this.forget();
     if (drag.members.length === 1) return this.move({ tokenId, to, announce });
+    await this.moveGroup(landing, announce);
+  }
+
+  /** A group move in one command (a drop, the arrows), recorded as one undo entry. */
+  async moveGroup(landing: readonly GroupPlacement[], announce: string | undefined): Promise<void> {
     const send = () => this.deps.commands.moveTokens(this.deps.campaignId, landing);
     await this.sendMove(landing, send, announce);
   }
@@ -97,13 +103,24 @@ export class TokenDragFlow {
     if (getState().readOnly) return;
     const preview: readonly TokenPreview[] = landing;
     setState({ preview });
+    // Read before the command: its confirmed event lands before its ack.
+    const moves = this.movesFrom(landing);
     const onItsWay = this.relay.settle();
     if (onItsWay) await onItsWay;
     const result = await send();
     // The confirmed move arrives before its ack, so the board already shows the new cells.
     if (getState().preview === preview) setState({ preview: [] });
     if (result.ok && announce) setState({ notice: announce });
+    if (result.ok && moves.length > 0) this.deps.recordEdit?.([{ kind: 'tokensMoved', moves }]);
     this.onAnswer(result);
+  }
+
+  private movesFrom(landing: readonly GroupPlacement[]): TokenMove[] {
+    return landing.flatMap(({ tokenId, col, row }) => {
+      const from = this.deps.tokenCellOf?.(tokenId);
+      if (!from || (from.col === col && from.row === row)) return [];
+      return [{ tokenId, from, to: { col, row } }];
+    });
   }
 
   private dragOf(anchorId: string, origin: Cell, group: DragGroup, nowMs: number): TokenDrag {

@@ -2,6 +2,7 @@ import { cell } from '@lorkarium/game-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import {
+  DRAW_HINT,
   RULER_HINT,
   createBoardInteractionStore,
   singleSelectedOf,
@@ -11,6 +12,8 @@ import { ROUTE_BEND_DWELL_MS, routePath } from '@/lib/token-route';
 import { VHARN } from '../support/campaigns-api-fake';
 import { InteractionClockFake } from '../support/interaction-clock-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
+import type { EditEntry } from '@/lib/edit-history';
+import { PATH_ID, SQUARE_ID } from '../support/drawing-fixtures';
 import { KAEL_ID, LYRA_ID } from '../support/table-session-fixtures';
 
 describe('board interaction store', () => {
@@ -388,6 +391,142 @@ describe('board interaction store', () => {
       over(cell(5, 4));
       expect(store.getState().drag).toBeNull();
       expect(dragCells()).toHaveLength(1);
+    });
+  });
+
+  describe('drawings in the selection', () => {
+    it('the draw tool hints how to draw and drops the selection', () => {
+      store.getState().pointer({ kind: 'drawingPicked', drawingId: SQUARE_ID, additive: false });
+
+      store.getState().setTool('draw');
+
+      expect(store.getState()).toMatchObject({ notice: DRAW_HINT, selectedDrawingIds: [] });
+    });
+
+    it('a click on a drawing selects only it, dropping the tokens', () => {
+      store.getState().select(LYRA_ID);
+
+      store.getState().pointer({ kind: 'drawingPicked', drawingId: SQUARE_ID, additive: false });
+
+      expect(store.getState()).toMatchObject({
+        selectedTokenIds: [],
+        selectedDrawingIds: [SQUARE_ID],
+      });
+    });
+
+    it('Shift+click adds a drawing to the tokens selected and takes it out again', () => {
+      store.getState().select(LYRA_ID);
+      const shiftClick = { kind: 'drawingPicked', drawingId: SQUARE_ID, additive: true } as const;
+
+      store.getState().pointer(shiftClick);
+      expect(store.getState()).toMatchObject({
+        selectedTokenIds: [LYRA_ID],
+        selectedDrawingIds: [SQUARE_ID],
+      });
+
+      store.getState().pointer(shiftClick);
+      expect(store.getState().selectedDrawingIds).toEqual([]);
+    });
+
+    it('a marquee takes tokens and drawings at once, replacing what was selected', () => {
+      store.getState().pointer({ kind: 'drawingPicked', drawingId: PATH_ID, additive: false });
+
+      store.getState().pointer({ kind: 'tokensMarqueed', tokenIds: [KAEL_ID], additive: false });
+      store
+        .getState()
+        .pointer({ kind: 'drawingsMarqueed', drawingIds: [SQUARE_ID], additive: false });
+
+      expect(store.getState()).toMatchObject({
+        selectedTokenIds: [KAEL_ID],
+        selectedDrawingIds: [SQUARE_ID],
+      });
+    });
+
+    it('Esc and a click on the empty board drop the drawings too', () => {
+      store.getState().pointer({ kind: 'drawingPicked', drawingId: SQUARE_ID, additive: false });
+      store.getState().escape();
+      expect(store.getState().selectedDrawingIds).toEqual([]);
+
+      store.getState().pointer({ kind: 'drawingPicked', drawingId: SQUARE_ID, additive: false });
+      store.getState().pointer({ kind: 'pointerDown', cell: cell(9, 9) });
+      expect(store.getState().selectedDrawingIds).toEqual([]);
+    });
+
+    it('the cell under the pointer is kept for the paste, and cleared when it leaves', () => {
+      store.getState().pointer({ kind: 'pointerHovered', cell: cell(10, 6) });
+      expect(store.getState().hoverCell).toEqual(cell(10, 6));
+
+      store.getState().pointer({ kind: 'pointerHovered', cell: null });
+      expect(store.getState().hoverCell).toBeNull();
+    });
+  });
+
+  describe('undo stack', () => {
+    it('a confirmed token move goes on the undo stack from the cell it was on', async () => {
+      const recorded: EditEntry[] = [];
+      const recording = createBoardInteractionStore({
+        campaignId: VHARN.id,
+        commands,
+        describeRefusal: (failure) => `recusado: ${failure}`,
+        recordEdit: (entry) => recorded.push(entry),
+        tokenCellOf: (tokenId) => (tokenId === LYRA_ID ? cell(4, 4) : null),
+      });
+
+      await recording.getState().moveToken(LYRA_ID, cell(6, 4));
+
+      expect(recorded).toEqual([
+        [
+          {
+            kind: 'tokensMoved',
+            moves: [{ tokenId: LYRA_ID, from: cell(4, 4), to: { col: 6, row: 4 } }],
+          },
+        ],
+      ]);
+    });
+
+    it('a refused token move is not recorded', async () => {
+      const recorded: EditEntry[] = [];
+      commands.answerWith({ ok: false, failure: 'forbidden' });
+      const recording = createBoardInteractionStore({
+        campaignId: VHARN.id,
+        commands,
+        describeRefusal: (failure) => `recusado: ${failure}`,
+        recordEdit: (entry) => recorded.push(entry),
+        tokenCellOf: () => cell(4, 4),
+      });
+
+      await recording.getState().moveToken(LYRA_ID, cell(6, 4));
+
+      expect(recorded).toEqual([]);
+    });
+
+    it('the arrows moving a group are one entry for the whole group', async () => {
+      const recorded: EditEntry[] = [];
+      const cells: Record<string, ReturnType<typeof cell>> = {
+        [LYRA_ID]: cell(3, 4),
+        [KAEL_ID]: cell(5, 4),
+      };
+      const recording = createBoardInteractionStore({
+        campaignId: VHARN.id,
+        commands,
+        describeRefusal: (failure) => `recusado: ${failure}`,
+        recordEdit: (entry) => recorded.push(entry),
+        tokenCellOf: (tokenId) => cells[tokenId] ?? null,
+      });
+      const moves = [
+        { tokenId: LYRA_ID, col: 4, row: 4 },
+        { tokenId: KAEL_ID, col: 6, row: 4 },
+      ];
+
+      await recording.getState().moveTokens(moves, 'andaram');
+
+      expect(commands.sentAs('moveTokens')).toHaveLength(1);
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]?.[0]).toMatchObject({
+        kind: 'tokensMoved',
+        moves: [{ tokenId: LYRA_ID }, { tokenId: KAEL_ID }],
+      });
+      expect(recording.getState().notice).toBe('andaram');
     });
   });
 });

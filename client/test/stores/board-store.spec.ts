@@ -3,6 +3,7 @@ import type { BoardEvent } from '@/services/board-events';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import type { StoreApi } from 'zustand/vanilla';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
+import { SQUARE_ID, square } from '../support/drawing-fixtures';
 import {
   VHARN_SCENE,
   activeCondition,
@@ -384,6 +385,19 @@ describe('board store', () => {
         on(eventAt(6, { type: 'tokenDeleted', payload: { tokenId: 'kael-token', combat: after } })),
       );
       expect(store.getState().board?.combat?.currentCombatantId).toBe(LYRA_COMBATANT);
+    });
+  });
+
+  describe('drawings', () => {
+    it('a drawing event one version above applies; one that skips a version asks for a resync', () => {
+      apply({ kind: 'board', state: vharnBoard() });
+      const created = eventAt(5, { type: 'drawingsCreated', payload: { drawings: [square()] } });
+      const skipped = eventAt(7, { type: 'drawingsDeleted', payload: { drawingIds: [SQUARE_ID] } });
+
+      apply({ kind: 'boardEvent', event: created }, { kind: 'boardEvent', event: skipped });
+
+      expect(store.getState().board?.drawings).toEqual([square()]);
+      expect(resyncs).toBe(1);
     });
   });
 });

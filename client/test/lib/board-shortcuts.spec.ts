@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { shortcutFor, type ShortcutKey } from '@/lib/board-shortcuts';
+import { editShortcutFor, shortcutFor, type ShortcutKey } from '@/lib/board-shortcuts';
 
 function press(key: string, overrides: Partial<ShortcutKey> = {}): ShortcutKey {
   return {
@@ -24,6 +24,10 @@ function mounted(html: string): Element {
 describe('shortcutFor', () => {
   afterEach(() => {
     document.body.innerHTML = '';
+  });
+
+  it.each(['b', 'B'])('%s picks the draw tool', (key) => {
+    expect(shortcutFor(press(key))).toBe('draw-tool');
   });
 
   it.each(['f', 'F'])('%s on the board toggles focus mode', (key) => {
@@ -79,5 +83,45 @@ describe('shortcutFor', () => {
   it('F pressed inside an open dialog is not a shortcut', () => {
     const target = mounted('<div role="dialog"><button data-target>Salvar</button></div>');
     expect(shortcutFor(press('f', { target }))).toBeNull();
+  });
+});
+
+describe('editShortcutFor', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  function edit(key: string, overrides: Partial<ShortcutKey> & { shiftKey?: boolean } = {}) {
+    return editShortcutFor({ ...press(key, { ctrlKey: true }), shiftKey: false, ...overrides });
+  }
+
+  it.each([
+    ['c', 'copy'],
+    ['v', 'paste'],
+    ['z', 'undo'],
+    ['y', 'redo'],
+    ['C', 'copy'],
+  ])('Ctrl+%s is %s', (key, shortcut) => {
+    expect(edit(key)).toBe(shortcut);
+  });
+
+  it('Ctrl+Shift+Z redoes too', () => {
+    expect(edit('Z', { shiftKey: true })).toBe('redo');
+  });
+
+  it('⌘ works like Ctrl (macOS)', () => {
+    expect(edit('c', { ctrlKey: false, metaKey: true })).toBe('copy');
+  });
+
+  it('the letter alone, or with Alt, is not an edit', () => {
+    expect(edit('c', { ctrlKey: false })).toBeNull();
+    expect(edit('c', { altKey: true })).toBeNull();
+  });
+
+  it('Ctrl+C in a text field or a dialog belongs to them, not to the board', () => {
+    expect(edit('c', { target: mounted('<input data-target />') })).toBeNull();
+    expect(
+      edit('v', { target: mounted('<div role="dialog"><p data-target></p></div>') }),
+    ).toBeNull();
   });
 });

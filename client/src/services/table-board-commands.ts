@@ -4,6 +4,7 @@ import {
   type BarChangeDto,
   type ConditionToneDto,
   type CreateTokenCommandInput,
+  type DrawingShapeInput,
   type SceneGridDto,
   type TokenLayerDto,
   type UpdateTokenCommandDto,
@@ -15,6 +16,9 @@ export type BoardCommandFailure =
   | 'not_found'
   | 'token_not_found'
   | 'out_of_scene'
+  | 'drawing_not_found'
+  | 'drawing_limit'
+  | 'stale_undo'
   | 'turn_changed'
   | 'combat_active'
   | 'combat_inactive'
@@ -24,8 +28,11 @@ export type BoardCommandFailure =
   | 'offline'
   | 'unexpected';
 
+/** `createdIds` only on a creating command (`createTokens`, `createDrawings`): the ids the server
+ *  gave, in the order sent. */
 export type BoardCommandResult =
-  Readonly<{ ok: true; version: number }> | Readonly<{ ok: false; failure: BoardCommandFailure }>;
+  | Readonly<{ ok: true; version: number; createdIds?: readonly string[] }>
+  | Readonly<{ ok: false; failure: BoardCommandFailure }>;
 
 type Envelope = 'actionId' | 'campaignId';
 // The input type: a token sent without `layer` lands on `tokens`.
@@ -34,6 +41,13 @@ export type TokenEdit = Omit<UpdateTokenCommandDto, Envelope | 'tokenId'>;
 export type CellTarget = Readonly<{ col: number; row: number }>;
 /** Where one token of a group lands. */
 export type TokenPlacement = Readonly<{ tokenId: string; col: number; row: number }>;
+/** A token move; `expect` (an undo) is the cell it must still be on, or STALE_UNDO. */
+export type TokenMoveTarget = TokenPlacement & Readonly<{ expect?: CellTarget }>;
+export type DrawingPosition = Readonly<{ x: number; y: number }>;
+/** Where one drawing of a group is (or must still be), in fractional cells. */
+export type DrawingPlacement = Readonly<{ drawingId: string }> & DrawingPosition;
+/** A drawing move; `expect` (an undo) is where it must still be, or STALE_UNDO. */
+export type DrawingMoveTarget = DrawingPlacement & Readonly<{ expect?: DrawingPosition }>;
 /** The cell one token of a group is dragged over; `null` ends its drag with no move. */
 export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | null }>;
 
@@ -47,7 +61,28 @@ export interface TableBoardCommands {
   updateToken(campaignId: string, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult>;
   moveToken(campaignId: string, tokenId: string, to: CellTarget): Promise<BoardCommandResult>;
   /** A group move: all or nothing, in one version. */
-  moveTokens(campaignId: string, moves: readonly TokenPlacement[]): Promise<BoardCommandResult>;
+  moveTokens(campaignId: string, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult>;
+  /** A paste of tokens (master): all or nothing, in one version. */
+  createTokens(campaignId: string, tokens: readonly NewToken[]): Promise<BoardCommandResult>;
+  /** Deletes tokens (undoing a paste); `expect` is where each must still be. */
+  deleteTokens(
+    campaignId: string,
+    tokenIds: readonly string[],
+    expect?: readonly TokenPlacement[],
+  ): Promise<BoardCommandResult>;
+  createDrawings(
+    campaignId: string,
+    drawings: readonly DrawingShapeInput[],
+  ): Promise<BoardCommandResult>;
+  moveDrawings(
+    campaignId: string,
+    moves: readonly DrawingMoveTarget[],
+  ): Promise<BoardCommandResult>;
+  deleteDrawings(
+    campaignId: string,
+    drawingIds: readonly string[],
+    expect?: readonly DrawingPlacement[],
+  ): Promise<BoardCommandResult>;
   /** The cells a group (one token is a group of one) is dragged over, for the others to see;
    *  a `null` cell ends that token's drag with no move. Nothing is saved: the ack carries the
    *  version as it stands. */
@@ -114,6 +149,9 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   TOKEN_NOT_FOUND: 'token_not_found',
   BAR_NOT_FOUND: 'token_not_found',
   OUT_OF_SCENE: 'out_of_scene',
+  DRAWING_NOT_FOUND: 'drawing_not_found',
+  DRAWING_LIMIT: 'drawing_limit',
+  STALE_UNDO: 'stale_undo',
   CONDITION_NOT_FOUND: 'token_not_found',
   COMBATANT_NOT_FOUND: 'token_not_found',
   TURN_ALREADY_CHANGED: 'turn_changed',
@@ -150,9 +188,66 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
     return this.send(BOARD_EVENTS.moveToken, campaignId, { tokenId, col: to.col, row: to.row });
   }
 
-  moveTokens(campaignId: string, moves: readonly TokenPlacement[]): Promise<BoardCommandResult> {
-    const placed = moves.map(({ tokenId, col, row }) => ({ tokenId, col, row }));
+  moveTokens(campaignId: string, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult> {
+    const placed = moves.map(({ tokenId, col, row, expect }) => ({
+      tokenId,
+      col,
+      row,
+      ...(expect && { expect: { col: expect.col, row: expect.row } }),
+    }));
     return this.send(BOARD_EVENTS.moveTokens, campaignId, { moves: placed });
+  }
+
+  createTokens(campaignId: string, tokens: readonly NewToken[]): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.createTokens, campaignId, { tokens: [...tokens] });
+  }
+
+  deleteTokens(
+    campaignId: string,
+    tokenIds: readonly string[],
+    expect?: readonly TokenPlacement[],
+  ): Promise<BoardCommandResult> {
+    const precondition = expect && {
+      expect: expect.map(({ tokenId, col, row }) => ({ tokenId, col, row })),
+    };
+    return this.send(BOARD_EVENTS.deleteTokens, campaignId, {
+      tokenIds: [...tokenIds],
+      ...precondition,
+    });
+  }
+
+  createDrawings(
+    campaignId: string,
+    drawings: readonly DrawingShapeInput[],
+  ): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.createDrawings, campaignId, { drawings: [...drawings] });
+  }
+
+  moveDrawings(
+    campaignId: string,
+    moves: readonly DrawingMoveTarget[],
+  ): Promise<BoardCommandResult> {
+    const placed = moves.map(({ drawingId, x, y, expect }) => ({
+      drawingId,
+      x,
+      y,
+      ...(expect && { expect: { x: expect.x, y: expect.y } }),
+    }));
+    return this.send(BOARD_EVENTS.moveDrawings, campaignId, { moves: placed });
+  }
+
+  deleteDrawings(
+    campaignId: string,
+    drawingIds: readonly string[],
+    expect?: readonly DrawingPlacement[],
+  ): Promise<BoardCommandResult> {
+    const precondition = expect && {
+      expect: expect.map(({ drawingId, x, y }) => ({ drawingId, x, y })),
+    };
+    return this.send(BOARD_EVENTS.deleteDrawings, campaignId, {
+      drawingIds: [...drawingIds],
+      ...precondition,
+    });
   }
 
   dragTokens(campaignId: string, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult> {
@@ -280,6 +375,9 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
 function resultOf(answer: unknown): BoardCommandResult {
   const parsed = boardCommandAckDto.safeParse(answer);
   if (!parsed.success) return { ok: false, failure: 'unexpected' };
-  if (parsed.data.ok) return { ok: true, version: parsed.data.version };
+  if (parsed.data.ok) {
+    const { version, createdIds } = parsed.data;
+    return createdIds ? { ok: true, version, createdIds } : { ok: true, version };
+  }
   return { ok: false, failure: FAILURE_BY_CODE[parsed.data.error.code] ?? 'unexpected' };
 }

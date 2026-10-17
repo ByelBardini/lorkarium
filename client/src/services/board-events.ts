@@ -8,12 +8,17 @@ import {
   conditionDefinedDto,
   conditionRemovedDto,
   conditionsAppliedDto,
+  drawingsCreatedDto,
+  drawingsDeletedDto,
+  drawingsMovedDto,
   sceneUpdatedDto,
   tokenCreatedDto,
   tokenDeletedDto,
   tokenLayerChangedDto,
   tokenMovedDto,
   tokenUpdatedDto,
+  tokensCreatedDto,
+  tokensDeletedDto,
   tokensMovedDto,
   type CombatEndedDto,
   type CombatStartedDto,
@@ -23,12 +28,17 @@ import {
   type ConditionDefinedDto,
   type ConditionRemovedDto,
   type ConditionsAppliedDto,
+  type DrawingsCreatedDto,
+  type DrawingsDeletedDto,
+  type DrawingsMovedDto,
   type SceneUpdatedDto,
   type TokenCreatedDto,
   type TokenDeletedDto,
   type TokenLayerChangedDto,
   type TokenMovedDto,
   type TokenUpdatedDto,
+  type TokensCreatedDto,
+  type TokensDeletedDto,
   type TokensMovedDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
@@ -42,6 +52,11 @@ export type BoardEvent =
   | Readonly<{ type: 'tokenDeleted'; payload: TokenDeletedDto }>
   | Readonly<{ type: 'tokensMoved'; payload: TokensMovedDto }>
   | Readonly<{ type: 'tokenLayerChanged'; payload: TokenLayerChangedDto }>
+  | Readonly<{ type: 'tokensCreated'; payload: TokensCreatedDto }>
+  | Readonly<{ type: 'tokensDeleted'; payload: TokensDeletedDto }>
+  | Readonly<{ type: 'drawingsCreated'; payload: DrawingsCreatedDto }>
+  | Readonly<{ type: 'drawingsMoved'; payload: DrawingsMovedDto }>
+  | Readonly<{ type: 'drawingsDeleted'; payload: DrawingsDeletedDto }>
   | Readonly<{ type: 'conditionDefined'; payload: ConditionDefinedDto }>
   | Readonly<{ type: 'conditionApplied'; payload: ConditionAppliedDto }>
   | Readonly<{ type: 'conditionsApplied'; payload: ConditionsAppliedDto }>
@@ -75,6 +90,11 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.tokenDeleted]: specOf('tokenDeleted', tokenDeletedDto),
   [BOARD_EVENTS.tokensMoved]: specOf('tokensMoved', tokensMovedDto),
   [BOARD_EVENTS.tokenLayerChanged]: specOf('tokenLayerChanged', tokenLayerChangedDto),
+  [BOARD_EVENTS.tokensCreated]: specOf('tokensCreated', tokensCreatedDto),
+  [BOARD_EVENTS.tokensDeleted]: specOf('tokensDeleted', tokensDeletedDto),
+  [BOARD_EVENTS.drawingsCreated]: specOf('drawingsCreated', drawingsCreatedDto),
+  [BOARD_EVENTS.drawingsMoved]: specOf('drawingsMoved', drawingsMovedDto),
+  [BOARD_EVENTS.drawingsDeleted]: specOf('drawingsDeleted', drawingsDeletedDto),
   [BOARD_EVENTS.conditionDefined]: specOf('conditionDefined', conditionDefinedDto),
   [BOARD_EVENTS.conditionApplied]: specOf('conditionApplied', conditionAppliedDto),
   [BOARD_EVENTS.conditionsApplied]: specOf('conditionsApplied', conditionsAppliedDto),

@@ -14,6 +14,10 @@ export type ChoiceFieldProps<T extends string> = Readonly<{
   value: T;
   options: readonly ChoiceOption<T>[];
   onChange: (value: T) => void;
+  /** The whole group off, with `hint` saying why. */
+  disabled?: boolean;
+  /** A line under the group, tied to it for screen readers. */
+  hint?: string;
 }>;
 
 /** A labelled radio group laid out in a row: one choice among a few, each named in text.
@@ -24,12 +28,19 @@ export function ChoiceField<T extends string>({
   value,
   options,
   onChange,
+  disabled,
+  hint,
 }: ChoiceFieldProps<T>): React.JSX.Element {
   const groupId = useId();
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 text-[13px] text-label">{legend}</legend>
+      <legend id={`${groupId}-legend`} className="mb-2 text-[13px] text-label">
+        {legend}
+      </legend>
       <RadioGroup
+        aria-labelledby={`${groupId}-legend`}
+        aria-describedby={hint ? `${groupId}-hint` : undefined}
+        disabled={disabled}
         value={value}
         onValueChange={(next) => {
           const chosen = options.find((option) => option.value === next);
@@ -41,6 +52,11 @@ export function ChoiceField<T extends string>({
           <ChoiceItem key={option.value} id={`${groupId}-${option.value}`} option={option} />
         ))}
       </RadioGroup>
+      {hint && (
+        <p id={`${groupId}-hint`} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
     </fieldset>
   );
 }

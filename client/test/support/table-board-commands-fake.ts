@@ -1,16 +1,20 @@
 import type {
   BarChangeDto,
   ConditionToneDto,
+  DrawingShapeInput,
   SceneGridDto,
   TokenLayerDto,
 } from '@lorkarium/contracts';
 import type {
   BoardCommandResult,
   CellTarget,
+  DrawingMoveTarget,
+  DrawingPlacement,
   NewToken,
   TableBoardCommands,
   TokenDragTarget,
   TokenEdit,
+  TokenMoveTarget,
   TokenPlacement,
 } from '@/services/table-board-commands';
 
@@ -56,8 +60,42 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('moveToken', campaignId, { tokenId, ...to });
   }
 
-  moveTokens(campaignId: string, moves: readonly TokenPlacement[]): Promise<BoardCommandResult> {
+  moveTokens(campaignId: string, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult> {
     return this.record('moveTokens', campaignId, { moves: [...moves] });
+  }
+
+  createTokens(campaignId: string, tokens: readonly NewToken[]): Promise<BoardCommandResult> {
+    return this.record('createTokens', campaignId, { tokens: [...tokens] });
+  }
+
+  deleteTokens(
+    campaignId: string,
+    tokenIds: readonly string[],
+    expect?: readonly TokenPlacement[],
+  ): Promise<BoardCommandResult> {
+    return this.record('deleteTokens', campaignId, { tokenIds: [...tokenIds], expect });
+  }
+
+  createDrawings(
+    campaignId: string,
+    drawings: readonly DrawingShapeInput[],
+  ): Promise<BoardCommandResult> {
+    return this.record('createDrawings', campaignId, { drawings: [...drawings] });
+  }
+
+  moveDrawings(
+    campaignId: string,
+    moves: readonly DrawingMoveTarget[],
+  ): Promise<BoardCommandResult> {
+    return this.record('moveDrawings', campaignId, { moves: [...moves] });
+  }
+
+  deleteDrawings(
+    campaignId: string,
+    drawingIds: readonly string[],
+    expect?: readonly DrawingPlacement[],
+  ): Promise<BoardCommandResult> {
+    return this.record('deleteDrawings', campaignId, { drawingIds: [...drawingIds], expect });
   }
 
   dragTokens(campaignId: string, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult> {

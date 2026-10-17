@@ -25,6 +25,9 @@ describe('boardCommandFailureMessage', () => {
     ['forbidden', 'Só o mestre pode fazer isso.'],
     ['rate_limited', 'Muitas ações seguidas. Espere um instante.'],
     ['offline', 'Sem conexão com o servidor. Confira sua internet e tente de novo.'],
+    ['stale_undo', 'Alguém mexeu nisso depois; não dá para desfazer.'],
+    ['drawing_limit', 'A cena já tem desenhos demais. Apague alguns antes.'],
+    ['drawing_not_found', 'Esse desenho não está mais na mesa.'],
   ] as const)('%s reads "%s"', (failure, message) => {
     expect(boardCommandFailureMessage(failure)).toBe(message);
   });

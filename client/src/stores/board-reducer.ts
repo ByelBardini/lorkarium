@@ -2,6 +2,8 @@ import type {
   ActiveConditionDto,
   BoardStateDto,
   ConditionChangeDto,
+  DrawingDto,
+  DrawingsMovedDto,
   TokenDto,
   TokensMovedDto,
 } from '@lorkarium/contracts';
@@ -38,8 +40,40 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
         combat: event.payload.combat,
       };
     default:
-      return combatChangesOf(board, event);
+      return batchChangesOf(board, event) ?? combatChangesOf(board, event);
   }
+}
+
+// Pastes, their undo and drawings; `null` when the event is none of these.
+function batchChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> | null {
+  switch (event.type) {
+    case 'tokensCreated':
+      return { tokens: event.payload.tokens.reduce(withToken, [...board.tokens]) };
+    case 'tokensDeleted': {
+      const { tokenIds, combat } = event.payload;
+      return { tokens: board.tokens.filter(({ id }) => !tokenIds.includes(id)), combat };
+    }
+    case 'drawingsCreated':
+      return { drawings: [...board.drawings, ...event.payload.drawings] };
+    case 'drawingsMoved':
+      return { drawings: withDrawingMoves(board.drawings, event.payload.moves) };
+    case 'drawingsDeleted': {
+      const { drawingIds } = event.payload;
+      return { drawings: board.drawings.filter(({ id }) => !drawingIds.includes(id)) };
+    }
+    default:
+      return null;
+  }
+}
+
+function withDrawingMoves(
+  drawings: readonly DrawingDto[],
+  moves: DrawingsMovedDto['moves'],
+): DrawingDto[] {
+  return drawings.map((drawing) => {
+    const move = moves.find(({ drawingId }) => drawingId === drawing.id);
+    return move ? { ...drawing, x: move.x, y: move.y } : drawing;
+  });
 }
 
 function combatChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> {

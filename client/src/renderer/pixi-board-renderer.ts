@@ -26,6 +26,7 @@ import {
 } from './camera-input';
 import { cellAtWorld, gridLines, visibleWorldRect } from './grid-geometry';
 import {
+  drawingsInMarquee,
   layerMenuTarget,
   marqueeRect,
   moveMarquee,
@@ -33,6 +34,8 @@ import {
   tokensInMarquee,
   type Marquee,
 } from './marquee';
+import { DrawingGestures } from './drawing-gestures';
+import { PixiDrawingLayer } from './pixi-drawing-layer';
 import { drawMarqueeShape } from './pixi-marquee';
 import { PixiTokenLayer } from './pixi-token-layer';
 import { dropCellOf, movePress, pressToken, releasePress, type TokenPress } from './token-drag';
@@ -65,7 +68,10 @@ class PixiBoardRenderer implements BoardRenderer {
   private tokenPress: TokenPress | null = null;
   private marquee: Marquee | null = null;
   private dragCellKey: string | null = null;
-  private readonly tokens = new PixiTokenLayer(prefersReducedMotion);
+  private hoverCellKey: string | null = null;
+  private readonly drawings = new PixiDrawingLayer();
+  private readonly tokens = new PixiTokenLayer(prefersReducedMotion, this.drawings.layers);
+  private readonly gestures = new DrawingGestures(this.drawings, (intent) => this.onIntent(intent));
   private readonly heldPanKeys = new Set<PanKey>();
   private readonly disposers: Array<() => void> = [];
   private readonly world = new Container();
@@ -92,6 +98,7 @@ class PixiBoardRenderer implements BoardRenderer {
       this.sceneShape,
       this.grid,
       tokenLayer,
+      this.drawings.draft,
       this.rulerShape,
       this.rulerText,
       this.marqueeShape,
@@ -110,6 +117,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.view = view;
     if (!this.app) return;
     this.drawScene(view);
+    this.drawings.sync(view.drawings);
     this.tokens.sync(view.tokens, view.ghosts, performance.now());
     if (!this.framed) {
       this.framed = true;
@@ -217,6 +225,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.on(canvas, 'pointerdown', (event) => this.onPointerDown(event, canvas));
     this.on(canvas, 'pointermove', (event) => this.onPointerMove(event));
     this.on(canvas, 'pointerup', (event) => this.onPointerUp(event));
+    this.on(canvas, 'pointerleave', () => this.reportHover(null));
     // Keys on the focusable host, not on the window: typing elsewhere never moves the board.
     this.on(host, 'keydown', (event) => this.onKeyDown(event));
     this.on(host, 'keyup', (event) => this.onKeyUp(event));
@@ -234,11 +243,15 @@ class PixiBoardRenderer implements BoardRenderer {
     canvas.setPointerCapture(event.pointerId);
     if (event.button === SECONDARY_BUTTON) this.rightDrag = startRightDrag(pointOf(event));
     if (event.button !== PRIMARY_BUTTON) return;
-    const token = this.view?.tool === 'select' ? this.tokens.tokenAt(this.worldOf(event)) : null;
+    const world = this.worldOf(event);
+    if (this.view?.tool === 'draw') return this.gestures.startSketch(this.view, world);
+    const selecting = this.view?.tool === 'select';
+    const token = selecting ? this.tokens.tokenAt(world) : null;
     if (token)
       return void (this.tokenPress = pressToken(token.id, token.draggable, pointOf(event)));
+    // A token over a drawing wins the press; a drawing under the pointer is picked or dragged.
+    if (selecting && this.view && this.gestures.press(this.view, pointOf(event), world)) return;
     this.primaryDown = true;
-    const selecting = this.view?.tool === 'select';
     if (selecting) this.marquee = startMarquee(pointOf(event), this.worldOf(event));
     // Shift keeps the selection: the marquee about to be drawn adds to it.
     if (selecting && event.shiftKey) return;
@@ -253,7 +266,9 @@ class PixiBoardRenderer implements BoardRenderer {
       return;
     }
     if (this.tokenPress) return this.dragToken(event, this.tokenPress);
+    if (this.gestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
     if (this.marquee) return this.growMarquee(event, this.marquee);
+    if (event.buttons === 0) this.reportHover(this.cellAt(event));
     if (this.primaryDown) this.onIntent({ kind: 'pointerMove', cell: this.cellAt(event) });
   }
 
@@ -272,8 +287,15 @@ class PixiBoardRenderer implements BoardRenderer {
     this.marquee = null;
     this.marqueeShape.clear();
     if (!current.active || !this.view) return;
-    const tokenIds = tokensInMarquee(marqueeRect(current), this.view.tokens);
-    this.onIntent({ kind: 'tokensMarqueed', tokenIds, additive: event.shiftKey });
+    const rect = marqueeRect(current);
+    const additive = event.shiftKey;
+    this.onIntent({
+      kind: 'tokensMarqueed',
+      tokenIds: tokensInMarquee(rect, this.view.tokens),
+      additive,
+    });
+    const drawingIds = drawingsInMarquee(rect, this.view.drawings);
+    this.onIntent({ kind: 'drawingsMarqueed', drawingIds, additive });
   }
 
   private dragToken(event: PointerEvent, current: TokenPress): void {
@@ -319,8 +341,18 @@ class PixiBoardRenderer implements BoardRenderer {
     this.onIntent({ kind: 'tokenDropped', tokenId, cell: this.dropCellAt(tokenId, event) });
   }
 
+  // Only a new cell is news, as with a drag: the pointer moves many times inside one.
+  private reportHover(over: Cell | null): void {
+    const key = over ? `${over.col},${over.row}` : 'off';
+    if (key === this.hoverCellKey) return;
+    this.hoverCellKey = key;
+    this.onIntent({ kind: 'pointerHovered', cell: over });
+  }
+
   private onPointerUp(event: PointerEvent): void {
     if (event.button === SECONDARY_BUTTON) return this.endRightClick(event);
+    const primary = event.button === PRIMARY_BUTTON;
+    if (primary && this.gestures.release(this.worldOf(event), event.shiftKey)) return;
     if (event.button === PRIMARY_BUTTON && this.tokenPress) {
       return this.releaseToken(event, this.tokenPress);
     }
@@ -344,6 +376,7 @@ class PixiBoardRenderer implements BoardRenderer {
     if (event.key === 'Escape' && this.tokenPress?.dragging) {
       return this.cancelTokenDrag(this.tokenPress);
     }
+    if (event.key === 'Escape' && this.gestures.cancel()) return;
     const modified = event.ctrlKey || event.metaKey || event.altKey;
     const panKey = modified ? null : panKeyOf(event.key);
     if (panKey) return void this.heldPanKeys.add(panKey);

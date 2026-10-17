@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseBoardEvent } from '@/services/board-events';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
+import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { sceneUpdated } from '../support/table-session-fixtures';
 
 describe('parseBoardEvent', () => {
@@ -58,5 +59,36 @@ describe('parseBoardEvent', () => {
       VHARN.id,
     );
     expect(parsed).toEqual({ kind: 'invalid' });
+  });
+
+  describe('drawings and token batches', () => {
+    const base = { campaignId: VHARN.id, version: 6, at: '2026-10-16T12:00:00.000Z' };
+
+    it.each([
+      ['drawing:createdMany', 'drawingsCreated', { drawings: [square(), path()] }],
+      ['drawing:movedMany', 'drawingsMoved', { moves: [{ drawingId: SQUARE_ID, x: 4.5, y: 1 }] }],
+      ['drawing:deletedMany', 'drawingsDeleted', { drawingIds: [SQUARE_ID] }],
+      ['token:deletedMany', 'tokensDeleted', { tokenIds: [SQUARE_ID], combat: null }],
+    ])('a valid %s of the table is a %s event', (name, type, fields) => {
+      const payload = { ...base, ...fields };
+      expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type, payload },
+      });
+    });
+
+    it('a drawing:createdMany with a filled freehand path is outside the DTO and invalid', () => {
+      const payload = { ...base, drawings: [{ ...path(), fill: 'ember' }] };
+      expect(parseBoardEvent('drawing:createdMany', payload, VHARN.id)).toEqual({
+        kind: 'invalid',
+      });
+    });
+
+    it('a drawing:createdMany of another table is not ours', () => {
+      const payload = { ...base, campaignId: QUELM.id, drawings: [square()] };
+      expect(parseBoardEvent('drawing:createdMany', payload, VHARN.id)).toEqual({
+        kind: 'other-table',
+      });
+    });
   });
 });

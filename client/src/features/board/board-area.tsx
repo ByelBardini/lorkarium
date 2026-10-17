@@ -6,12 +6,20 @@ import {
 } from '@/features/campaigns/campaign-messages';
 import type { OpenTableView } from '@/features/sessions/use-open-table';
 import type { BoardIntent, BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
+import { selectionMoveOf } from '@/lib/selection-move';
 import type { BoardInteractionStore, DragGroup } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
+import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
+import { DrawingsSummary } from '@/features/drawings/drawings-summary';
 import { BoardCanvas } from './board-canvas';
 import type { TokenMenuRequest } from './token-context-menu';
-import { BOARD_LOAD_FAILED, movedAnnouncement, tokensMovedAnnouncement } from './board-messages';
+import {
+  BOARD_LOAD_FAILED,
+  OUT_OF_SCENE,
+  movedAnnouncement,
+  tokensMovedAnnouncement,
+} from './board-messages';
 import { useBoardKeyboard } from './use-board-keyboard';
 
 export type BoardAreaProps = Readonly<{
@@ -23,6 +31,8 @@ export type BoardAreaProps = Readonly<{
   onOpenToken: (tokenId: string) => void;
   /** A short right click on a token (master): open "Mover para camada" there. */
   onTokenMenu: (request: TokenMenuRequest) => void;
+  /** The style a finished sketch is drawn with. */
+  drawingStyle: StoreApi<DrawingStyleStore>;
 }>;
 
 /** What fills the room behind the floating UI: the canvas once the board is ready, or why not.
@@ -56,21 +66,26 @@ function InteractiveCanvas({
   onRenderer,
   onOpenToken,
   onTokenMenu,
+  drawingStyle,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({ board, interaction, onOpen: onOpenToken });
   return (
-    <BoardCanvas
-      board={board}
-      interaction={interaction}
-      createBoardRenderer={createBoardRenderer}
-      onIntent={(intent) =>
-        intent.kind === 'tokenMenuRequested'
-          ? onTokenMenu({ tokenId: intent.tokenId, x: intent.x, y: intent.y })
-          : routeIntent({ board, interaction }, intent)
-      }
-      onRenderer={onRenderer}
-      onKeyDown={onKeyDown}
-    />
+    <>
+      <DrawingsSummary board={board} />
+      <BoardCanvas
+        board={board}
+        interaction={interaction}
+        drawingStyle={drawingStyle}
+        createBoardRenderer={createBoardRenderer}
+        onIntent={(intent) =>
+          intent.kind === 'tokenMenuRequested'
+            ? onTokenMenu({ tokenId: intent.tokenId, x: intent.x, y: intent.y })
+            : routeIntent({ board, interaction, drawingStyle }, intent)
+        }
+        onRenderer={onRenderer}
+        onKeyDown={onKeyDown}
+      />
+    </>
   );
 }
 
@@ -79,9 +94,18 @@ type IntentStores = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
 }>;
 
+type RoutedStores = IntentStores & Readonly<{ drawingStyle: StoreApi<DrawingStyleStore> }>;
+
 // Dragging and dropping a token are commands (a preview, then the move); the rest is local state.
-function routeIntent({ board, interaction }: IntentStores, intent: BoardIntent): void {
+function routeIntent(
+  { board, interaction, drawingStyle }: RoutedStores,
+  intent: BoardIntent,
+): void {
   const local = interaction.getState();
+  if (intent.kind === 'sketchFinished') {
+    return void local.finishSketch(intent, styleOf(drawingStyle.getState()));
+  }
+  if (intent.kind === 'drawingsDropped') return dropDrawings({ board, interaction }, intent);
   if (intent.kind === 'tokenDragged') {
     const group = dragGroupOf({ board, interaction }, intent.tokenId);
     if (group) local.dragOver(intent.tokenId, intent.origin, intent.cell, group);
@@ -94,6 +118,21 @@ function routeIntent({ board, interaction }: IntentStores, intent: BoardIntent):
     intent.cell,
     dropAnnouncement({ board, interaction }, intent),
   );
+}
+
+// The drawings dragged carry the tokens selected with them; past the edge, nothing moves.
+function dropDrawings(
+  { board, interaction }: IntentStores,
+  intent: Extract<BoardIntent, { kind: 'drawingsDropped' }>,
+): void {
+  const state = board.getState().board;
+  const local = interaction.getState();
+  if (!state) return;
+  const { selectedTokenIds, activeLayer } = local;
+  const { drawingIds, dx, dy } = intent;
+  const move = selectionMoveOf(state, { drawingIds, dx, dy, selectedTokenIds, activeLayer });
+  if (!move) return local.say(OUT_OF_SCENE);
+  void local.moveSelection(move);
 }
 
 // The token picked up carries the selection it is in: the members this viewer may move.

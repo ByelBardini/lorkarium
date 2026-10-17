@@ -9,7 +9,8 @@ import { ANA } from '../support/auth-api-fake';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { StorageFake } from '../support/storage-fake';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
-import { BIA_AT_TABLE, vharnState } from '../support/table-session-fixtures';
+import { copiedOf } from '@/lib/paste-placement';
+import { BIA_AT_TABLE, lyra, vharnState } from '../support/table-session-fixtures';
 
 const VHARN_TABLE = { campaignId: VHARN.id, name: 'Vharn' };
 const QUELM_TABLE = { campaignId: QUELM.id, name: 'Quelm' };
@@ -168,5 +169,31 @@ describe('open tables store', () => {
     expect(store.getState().sessionRefused).toBe(false);
     api.emitTo(QUELM.id, { kind: 'failed', failure: 'unauthenticated' });
     expect(store.getState().sessionRefused).toBe(true);
+  });
+
+  it('each open table keeps its own copy area: a copy at VHARN is not there at QUELM', () => {
+    store.getState().restore(ANA.id);
+    store.getState().open(VHARN_TABLE);
+    store.getState().open(QUELM_TABLE);
+    const [vharn, quelm] = store.getState().tables;
+
+    vharn?.edits.getState().copy(copiedOf([lyra()], []));
+
+    expect(vharn?.edits.getState().copied?.tokens).toHaveLength(1);
+    expect(quelm?.edits.getState().copied).toBeNull();
+  });
+
+  it('the copy of a table stays while it is open, whatever table the room shows', () => {
+    store.getState().restore(ANA.id);
+    store.getState().open(VHARN_TABLE);
+    store
+      .getState()
+      .tables[0]?.edits.getState()
+      .copy(copiedOf([lyra()], []));
+
+    store.getState().open(QUELM_TABLE);
+
+    const vharn = store.getState().tables.find(({ campaignId }) => campaignId === VHARN.id);
+    expect(vharn?.edits.getState().copied?.tokens).toHaveLength(1);
   });
 });

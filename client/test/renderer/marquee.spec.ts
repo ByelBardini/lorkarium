@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { TokenView } from '@/renderer/board-view';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
+import { drawingViewsOf } from '@/renderer/drawing-view';
 import {
+  drawingsInMarquee,
   layerMenuTarget,
   marqueeRect,
   moveMarquee,
   startMarquee,
   tokensInMarquee,
 } from '@/renderer/marquee';
+
+import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
+import { BIA_AT_TABLE } from '../support/table-session-fixtures';
 
 const CELL = CELL_WORLD_SIZE;
 
@@ -88,5 +93,34 @@ describe('layerMenuTarget', () => {
   it('a right click on the empty board or on a token off the active layer opens nothing', () => {
     expect(layerMenuTarget({ layerMenu: true }, null)).toBeNull();
     expect(layerMenuTarget({ layerMenu: true }, tokenView({ pickable: false }))).toBeNull();
+  });
+});
+
+describe('drawingsInMarquee', () => {
+  const drawings = drawingViewsOf({
+    drawings: [square(), path()],
+    viewer: { userId: BIA_AT_TABLE.userId, isMaster: false },
+    activeLayer: 'tokens',
+    selectedDrawingIds: [],
+    drawingPreview: [],
+    readOnly: false,
+  });
+
+  it('a rectangle that touches the box of a pickable drawing takes it', () => {
+    const rect = { x: 4 * CELL_WORLD_SIZE, y: 4.5 * CELL_WORLD_SIZE, width: 64, height: 64 };
+
+    expect(drawingsInMarquee(rect, drawings)).toEqual([SQUARE_ID]);
+  });
+
+  it('a drawing the viewer may not pick up is left out even inside the rectangle', () => {
+    const everything = { x: 0, y: 0, width: 20 * CELL_WORLD_SIZE, height: 12 * CELL_WORLD_SIZE };
+
+    expect(drawingsInMarquee(everything, drawings)).toEqual([SQUARE_ID]);
+  });
+
+  it('a rectangle away from every drawing takes none', () => {
+    const rect = { x: 12 * CELL_WORLD_SIZE, y: 8 * CELL_WORLD_SIZE, width: 64, height: 64 };
+
+    expect(drawingsInMarquee(rect, drawings)).toEqual([]);
   });
 });

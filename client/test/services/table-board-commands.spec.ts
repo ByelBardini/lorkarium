@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { RealtimeTableBoardCommands, type TokenEdit } from '@/services/table-board-commands';
+import {
+  RealtimeTableBoardCommands,
+  type NewToken,
+  type TokenEdit,
+} from '@/services/table-board-commands';
 import { VHARN } from '../support/campaigns-api-fake';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
 
@@ -205,6 +209,101 @@ describe('RealtimeTableBoardCommands', () => {
       const result = commands.nextTurn(VHARN.id, KAEL);
       await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'combat:nextTurn');
       expect(await result).toEqual({ ok: false, failure });
+    });
+  });
+
+  describe('drawings, token batches and the undo precondition', () => {
+    const LYRA = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
+    const SQUARE = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
+    const CIRCLE = {
+      kind: 'ellipse',
+      x: 4,
+      y: 4,
+      width: 2,
+      height: 2,
+      fill: null,
+      stroke: 'gold',
+      strokeWidth: 'thin',
+      layer: 'tokens',
+    } as const;
+    const GOBLIN: NewToken = {
+      name: 'Goblin 2',
+      initials: 'G2',
+      side: 'enemy',
+      size: 1,
+      col: 6,
+      row: 6,
+      layer: 'tokens',
+      controllerIds: [],
+      bars: [],
+    };
+
+    it.each([
+      [
+        'drawing:createMany',
+        () => commands.createDrawings(VHARN.id, [CIRCLE]),
+        { drawings: [CIRCLE] },
+      ],
+      [
+        'drawing:moveMany',
+        () =>
+          commands.moveDrawings(VHARN.id, [
+            { drawingId: SQUARE, x: 6, y: 1, expect: { x: 2.5, y: 3 } },
+          ]),
+        { moves: [{ drawingId: SQUARE, x: 6, y: 1, expect: { x: 2.5, y: 3 } }] },
+      ],
+      [
+        'drawing:deleteMany',
+        () => commands.deleteDrawings(VHARN.id, [SQUARE], [{ drawingId: SQUARE, x: 2.5, y: 3 }]),
+        { drawingIds: [SQUARE], expect: [{ drawingId: SQUARE, x: 2.5, y: 3 }] },
+      ],
+      ['token:createMany', () => commands.createTokens(VHARN.id, [GOBLIN]), { tokens: [GOBLIN] }],
+      [
+        'token:deleteMany',
+        () => commands.deleteTokens(VHARN.id, [LYRA], [{ tokenId: LYRA, col: 3, row: 4 }]),
+        { tokenIds: [LYRA], expect: [{ tokenId: LYRA, col: 3, row: 4 }] },
+      ],
+      [
+        'token:moveMany',
+        () =>
+          commands.moveTokens(VHARN.id, [
+            { tokenId: LYRA, col: 3, row: 4, expect: { col: 6, row: 4 } },
+          ]),
+        { moves: [{ tokenId: LYRA, col: 3, row: 4, expect: { col: 6, row: 4 } }] },
+      ],
+    ])('%s goes with the action id, the table and its fields', (event, send, fields) => {
+      void send();
+      expect(transport.sent).toEqual([
+        { event, payload: { actionId: ACTION_ID, campaignId: VHARN.id, ...fields } },
+      ]);
+    });
+
+    it('a delete with no precondition sends no expect at all (a normal command)', () => {
+      void commands.deleteDrawings(VHARN.id, [SQUARE]);
+      expect(transport.sent[0]?.payload).not.toHaveProperty('expect');
+    });
+
+    it.each([
+      ['STALE_UNDO', 'stale_undo'],
+      ['DRAWING_LIMIT', 'drawing_limit'],
+      ['DRAWING_NOT_FOUND', 'drawing_not_found'],
+    ])('a refusal with %s is the %s failure', async (code, failure) => {
+      const result = commands.moveDrawings(VHARN.id, [{ drawingId: SQUARE, x: 0, y: 0 }]);
+      await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'drawing:moveMany');
+      expect(await result).toEqual({ ok: false, failure });
+    });
+
+    it('a creating command answers the ids the server gave, in the order sent', async () => {
+      const result = commands.createDrawings(VHARN.id, [CIRCLE, CIRCLE]);
+      const createdIds = [SQUARE, LYRA];
+      await transport.answerAck({ ok: true, version: 7, createdIds }, 'drawing:createMany');
+      expect(await result).toEqual({ ok: true, version: 7, createdIds });
+    });
+
+    it('a drawing command whose ack never arrives is offline', async () => {
+      const result = commands.createDrawings(VHARN.id, [CIRCLE]);
+      await transport.timeOutAck('drawing:createMany');
+      expect(await result).toEqual({ ok: false, failure: 'offline' });
     });
   });
 });

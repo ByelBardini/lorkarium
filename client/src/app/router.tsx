@@ -19,6 +19,7 @@ import type { TableBoardCommands } from '@/services/table-board-commands';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { CreateBoardRenderer } from '@/renderer/board-renderer';
 import type { RailStore } from '@/stores/rail-store';
+import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { RoomLayoutStore } from '@/stores/room-layout-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
 import { decideAccess, type RouteAccess } from './route-access';
@@ -34,6 +35,8 @@ export type AppDependencies = Readonly<{
   sessionStore: StoreApi<SessionStore>;
   railStore: StoreApi<RailStore>;
   roomLayout: StoreApi<RoomLayoutStore>;
+  /** How the next drawing looks, remembered in the browser. */
+  drawingStyle: StoreApi<DrawingStyleStore>;
   /** The board canvas; PixiJS in the app, a fake in tests (jsdom has no WebGL). */
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;

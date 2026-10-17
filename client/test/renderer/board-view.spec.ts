@@ -1,8 +1,10 @@
 import { cell } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_DRAWING_STYLE } from '@/lib/drawing-style';
 import { ROUTE_BEND_DWELL_MS, settleRoute, startRoute, stepRoute } from '@/lib/token-route';
 import { buildBoardView } from '@/renderer/board-view';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
+import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import {
   KAEL_ID,
   LYRA_ID,
@@ -23,6 +25,11 @@ const NO_TOKENS = {
   readOnly: false,
   tool: 'select',
   currentTokenId: null,
+  drawings: [],
+  viewer: { userId: 'ana', isMaster: true },
+  selectedDrawingIds: [],
+  drawingPreview: [],
+  drawingStyle: DEFAULT_DRAWING_STYLE,
 } as const;
 
 describe('buildBoardView', () => {
@@ -288,5 +295,35 @@ describe('buildBoardView', () => {
       expect(token?.marks).toEqual(['harm', 'benefit']);
       expect(token?.moreMarks).toBe(false);
     });
+  });
+});
+
+describe('buildBoardView, drawings', () => {
+  function viewWith(overrides: Partial<Parameters<typeof buildBoardView>[0]>) {
+    return buildBoardView({
+      ...NO_TOKENS,
+      scene: VHARN_SCENE,
+      localGridVisible: true,
+      ruler: null,
+      ...overrides,
+    });
+  }
+
+  it('puts each drawing on its layer, pickable by the master on the active one', () => {
+    const view = viewWith({ drawings: [square({ layer: 'objects' }), path()] });
+
+    expect(view.drawings.map(({ id, layer, pickable }) => [id, layer, pickable])).toEqual([
+      [SQUARE_ID, 'objects', false],
+      [PATH_ID, 'tokens', true],
+    ]);
+  });
+
+  it('nothing is pickable while reconnecting', () => {
+    expect(viewWith({ drawings: [path()], readOnly: true }).drawings[0]?.pickable).toBe(false);
+  });
+
+  it('the sketch style shows only with the draw tool', () => {
+    expect(viewWith({ tool: 'draw' }).sketch).toEqual(DEFAULT_DRAWING_STYLE);
+    expect(viewWith({ tool: 'select' }).sketch).toBeNull();
   });
 });

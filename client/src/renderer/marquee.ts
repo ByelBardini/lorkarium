@@ -1,5 +1,7 @@
+import { boxTouches } from '@/lib/drawing-geometry';
 import type { BoardView, TokenView } from './board-view';
 import { CELL_WORLD_SIZE, type Point } from './camera';
+import type { DrawingView } from './drawing-view';
 
 // The same 4 px as a token press: below it the press on the empty board is a click.
 const MARQUEE_THRESHOLD_PX = 4;
@@ -51,6 +53,21 @@ export function marqueeRect(marquee: Marquee): WorldRect {
  *  Example: `onIntent({ kind: 'tokensMarqueed', tokenIds: tokensInMarquee(rect, view.tokens), additive })` */
 export function tokensInMarquee(rect: WorldRect, tokens: readonly TokenView[]): string[] {
   return tokens.filter((token) => token.draggable && touches(rect, token)).map(({ id }) => id);
+}
+
+/** The drawings the rectangle touches among the pickable ones (on the active layer, the
+ *  viewer's own or any for the master), in drawing order.
+ *
+ *  Example: `onIntent({ kind: 'drawingsMarqueed', drawingIds: drawingsInMarquee(rect, view.drawings), additive })` */
+export function drawingsInMarquee(rect: WorldRect, drawings: readonly DrawingView[]): string[] {
+  const inCells = {
+    x: rect.x / CELL_WORLD_SIZE,
+    y: rect.y / CELL_WORLD_SIZE,
+    width: rect.width / CELL_WORLD_SIZE,
+    height: rect.height / CELL_WORLD_SIZE,
+  };
+  const touched = drawings.filter((view) => view.pickable && boxTouches(view.geometry, inCells));
+  return touched.map(({ id }) => id);
 }
 
 /** The token a short right click opens "Mover para camada" on, or `null` (a player, the empty

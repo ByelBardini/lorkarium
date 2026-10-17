@@ -12,6 +12,8 @@ describe('boardKeyOf', () => {
     ['ArrowLeft', 'left'],
     ['ArrowRight', 'right'],
     ['Enter', 'open'],
+    ['Delete', 'delete'],
+    ['Backspace', 'delete'],
     ['Tab', null],
     ['q', null],
   ])('%s → %s', (key, action) => {

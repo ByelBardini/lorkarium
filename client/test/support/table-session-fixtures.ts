@@ -93,6 +93,7 @@ export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDt
     viewer: { userId: ANA.id, role: 'master' },
     scene: VHARN_SCENE,
     tokens: [],
+    drawings: [],
     combat: null,
     conditionDefinitions: [],
     ...overrides,
