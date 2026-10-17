@@ -21,9 +21,20 @@ const FIELD_ERROR: Readonly<Record<GridFormField, string>> = {
   widthCells: 'Use de 1 a 100 casas.',
   heightCells: 'Use de 1 a 100 casas.',
   cellDistance: 'Use uma distância maior que zero, como 1,5.',
-  cellUnit: 'Use de 1 a 8 letras, como m ou ft.',
+  cellUnit: 'Escolha cm, m ou km.',
   gridOpacity: 'Use de 0 a 100.',
 };
+
+/** The units offered in "Unidade". */
+export const CELL_UNITS: readonly string[] = ['cm', 'm', 'km'];
+
+/** The units to offer: cm, m and km, plus the scene's own when it is another one (a scene saved
+ *  before the list existed keeps its unit until the master picks one).
+ *
+ *  Example: `unitOptionsOf('ft') // ['cm', 'm', 'km', 'ft']` */
+export function unitOptionsOf(current: string): readonly string[] {
+  return CELL_UNITS.includes(current) || current === '' ? CELL_UNITS : [...CELL_UNITS, current];
+}
 
 const DECIMAL = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2, useGrouping: false });
 

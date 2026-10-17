@@ -1,19 +1,19 @@
-import type { Cell } from '@lorkarium/game-core';
 import type { InteractionClock } from '@/lib/interaction-clock';
+import type { TokenDragTarget } from '@/services/table-board-commands';
 
 // 10 previews a second at most: a fast drag stays well under the command rate (§8.4).
 export const DRAG_SEND_INTERVAL_MS = 100;
 
-export type SendDrag = (tokenId: string, over: Cell | null) => Promise<unknown>;
-
-type DragStep = Readonly<{ tokenId: string; over: Cell | null }>;
+/** Sends one preview of the whole dragged group (one token is a group of one). */
+export type SendDrag = (drags: readonly TokenDragTarget[]) => Promise<unknown>;
 
 /** Takes the cells of a drag and sends them to the table: the latest one wins, at most one per
  *  `DRAG_SEND_INTERVAL_MS`, and one at a time, so they reach the server in the order they left.
+ *  A group goes out as one preview, never one per token.
  *
- *  Example: `relay.push(tokenId, cell(5, 4)); … await relay.settle(); commands.moveToken(…)` */
+ *  Example: `relay.push([{ tokenId, cell: cell(5, 4) }]); … await relay.settle(); commands.moveToken(…)` */
 export class TokenDragRelay {
-  private waiting: DragStep | null = null;
+  private waiting: readonly TokenDragTarget[] | null = null;
   private lastSentMs = Number.NEGATIVE_INFINITY;
   private inFlight: Promise<void> | null = null;
   private cancelTimer: (() => void) | null = null;
@@ -23,21 +23,22 @@ export class TokenDragRelay {
     private readonly clock: InteractionClock,
   ) {}
 
-  push(tokenId: string, over: Cell): void {
-    this.waiting = { tokenId, over };
+  push(drags: readonly TokenDragTarget[]): void {
+    this.waiting = drags;
     this.pump();
   }
 
-  /** The drag ended with no move: what waits is dropped and `null` goes out without waiting. */
-  end(tokenId: string): void {
+  /** The drag ended with no move: what waits is dropped and `null` goes out for every token,
+   *  without waiting. */
+  end(tokenIds: readonly string[]): void {
     this.stopTimer();
-    this.waiting = { tokenId, over: null };
+    this.waiting = tokenIds.map((tokenId) => ({ tokenId, cell: null }));
     this.lastSentMs = Number.NEGATIVE_INFINITY;
     this.pump();
   }
 
   /** Before the move: drops what waits and answers the preview still on its way (`null` when
-   *  none), so the confirmed `token:moved` is the last word the table hears. */
+   *  none), so the confirmed move is the last word the table hears. */
   settle(): Promise<void> | null {
     this.stopTimer();
     this.waiting = null;
@@ -51,7 +52,7 @@ export class TokenDragRelay {
     const step = this.waiting;
     this.waiting = null;
     this.lastSentMs = this.clock.now();
-    this.inFlight = this.send(step.tokenId, step.over).then(() => this.onAnswered());
+    this.inFlight = this.send(step).then(() => this.onAnswered());
   }
 
   private onTimer(): void {

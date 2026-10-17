@@ -3,6 +3,7 @@ import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
+import { CombatDao } from '../combat/combat.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { TokensDao } from '../tokens/tokens.dao';
 import { ConditionsDao } from './conditions.dao';
@@ -26,6 +27,7 @@ export function createConditionsModule(options: ConditionsModuleOptions): Condit
         scenes: new ScenesDao(tx),
         tokens: new TokensDao(tx),
         conditions: new ConditionsDao(tx),
+        combat: new CombatDao(tx),
       }),
     );
   const members = new CampaignMembersDao(options.db);

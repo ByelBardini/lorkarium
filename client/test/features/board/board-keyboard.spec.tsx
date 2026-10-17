@@ -94,6 +94,46 @@ describe('board keyboard', () => {
     expect(status()).toHaveTextContent('Fora da cena.');
   });
 
+  function marquee(...tokenIds: string[]): void {
+    deps.boardRenderers.latest().emit({ kind: 'tokensMarqueed', tokenIds, additive: false });
+  }
+
+  it('with Lyra and Kael selected an arrow moves both one cell, as one group command', async () => {
+    marquee(LYRA_ID, KAEL_ID);
+    await userEvent.keyboard('{ArrowRight}');
+    expect(deps.boardCommands.sentAs('moveTokens')).toEqual([
+      {
+        name: 'moveTokens',
+        campaignId: VHARN.id,
+        fields: {
+          moves: [
+            { tokenId: LYRA_ID, col: 4, row: 4 },
+            { tokenId: KAEL_ID, col: 8, row: 5 },
+          ],
+        },
+      },
+    ]);
+    expect(deps.boardCommands.sentAs('moveToken')).toEqual([]);
+  });
+
+  it('a group with one token on the edge says "Fora da cena." and sends nothing', async () => {
+    deps.tableSessionApi.emit({
+      kind: 'boardEvent',
+      event: tokenMovedAt(5, { tokenId: KAEL_ID, col: 19, row: 5 }),
+    });
+    marquee(LYRA_ID, KAEL_ID);
+    await userEvent.keyboard('{ArrowRight}');
+    expect(status()).toHaveTextContent('Fora da cena.');
+    expect(deps.boardCommands.sent).toEqual([]);
+  });
+
+  it('] after a group goes back to a selection of one', async () => {
+    marquee(LYRA_ID, KAEL_ID);
+    await userEvent.keyboard(']');
+    const view = deps.boardRenderers.latest().lastView;
+    expect(view?.tokens.filter((token) => token.selected)).toHaveLength(1);
+  });
+
   it('Esc clears the selection', async () => {
     await userEvent.keyboard(']');
     await userEvent.keyboard('{Escape}');

@@ -7,11 +7,14 @@ import {
   conditionAppliedDto,
   conditionDefinedDto,
   conditionRemovedDto,
+  conditionsAppliedDto,
   sceneUpdatedDto,
   tokenCreatedDto,
   tokenDeletedDto,
+  tokenLayerChangedDto,
   tokenMovedDto,
   tokenUpdatedDto,
+  tokensMovedDto,
   type CombatEndedDto,
   type CombatStartedDto,
   type CombatTurnChangedDto,
@@ -19,11 +22,14 @@ import {
   type ConditionAppliedDto,
   type ConditionDefinedDto,
   type ConditionRemovedDto,
+  type ConditionsAppliedDto,
   type SceneUpdatedDto,
   type TokenCreatedDto,
   type TokenDeletedDto,
+  type TokenLayerChangedDto,
   type TokenMovedDto,
   type TokenUpdatedDto,
+  type TokensMovedDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
 
@@ -34,8 +40,11 @@ export type BoardEvent =
   | Readonly<{ type: 'tokenUpdated'; payload: TokenUpdatedDto }>
   | Readonly<{ type: 'tokenMoved'; payload: TokenMovedDto }>
   | Readonly<{ type: 'tokenDeleted'; payload: TokenDeletedDto }>
+  | Readonly<{ type: 'tokensMoved'; payload: TokensMovedDto }>
+  | Readonly<{ type: 'tokenLayerChanged'; payload: TokenLayerChangedDto }>
   | Readonly<{ type: 'conditionDefined'; payload: ConditionDefinedDto }>
   | Readonly<{ type: 'conditionApplied'; payload: ConditionAppliedDto }>
+  | Readonly<{ type: 'conditionsApplied'; payload: ConditionsAppliedDto }>
   | Readonly<{ type: 'conditionRemoved'; payload: ConditionRemovedDto }>
   | Readonly<{ type: 'combatStarted'; payload: CombatStartedDto }>
   | Readonly<{ type: 'combatUpdated'; payload: CombatUpdatedDto }>
@@ -64,8 +73,11 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.tokenUpdated]: specOf('tokenUpdated', tokenUpdatedDto),
   [BOARD_EVENTS.tokenMoved]: specOf('tokenMoved', tokenMovedDto),
   [BOARD_EVENTS.tokenDeleted]: specOf('tokenDeleted', tokenDeletedDto),
+  [BOARD_EVENTS.tokensMoved]: specOf('tokensMoved', tokensMovedDto),
+  [BOARD_EVENTS.tokenLayerChanged]: specOf('tokenLayerChanged', tokenLayerChangedDto),
   [BOARD_EVENTS.conditionDefined]: specOf('conditionDefined', conditionDefinedDto),
   [BOARD_EVENTS.conditionApplied]: specOf('conditionApplied', conditionAppliedDto),
+  [BOARD_EVENTS.conditionsApplied]: specOf('conditionsApplied', conditionsAppliedDto),
   [BOARD_EVENTS.conditionRemoved]: specOf('conditionRemoved', conditionRemovedDto),
   [BOARD_EVENTS.combatStarted]: specOf('combatStarted', combatStartedDto),
   [BOARD_EVENTS.combatUpdated]: specOf('combatUpdated', combatUpdatedDto),

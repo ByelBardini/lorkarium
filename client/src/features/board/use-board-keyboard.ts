@@ -3,11 +3,13 @@ import { cell } from '@lorkarium/game-core';
 import { useCallback } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { boardKeyOf, readingOrder, stepFrom, type BoardKey } from '@/lib/board-keys';
-import type { BoardInteractionStore } from '@/stores/board-interaction-store';
+import { shiftGroup } from '@/lib/token-group';
+import { singleSelectedOf, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
 import {
   NOT_YOUR_TOKEN,
   OUT_OF_SCENE,
+  groupMovedAnnouncement,
   movedAnnouncement,
   selectedAnnouncement,
 } from './board-messages';
@@ -26,8 +28,8 @@ const STEP: Readonly<Record<'up' | 'down' | 'left' | 'right', readonly [number, 
   right: [1, 0],
 };
 
-/** Playing without a mouse: ] and [ select, the arrows move the selection a cell (a command),
- *  Enter opens its card; every step is said on the status line.
+/** Playing without a mouse: ] and [ select one, the arrows move the selection a cell (one
+ *  command, for a group too), Enter opens its card; every step is said on the status line.
  *
  *  Example: `<div onKeyDown={useBoardKeyboard({ board, interaction, onOpen })} />` */
 export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.KeyboardEvent) => void {
@@ -45,12 +47,40 @@ export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.Keyboar
 
 function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
   const tokens = deps.board.getState().board?.tokens ?? [];
-  const local = deps.interaction.getState();
-  const selected = tokens.find(({ id }) => id === local.selectedTokenId) ?? null;
+  const { selectedTokenIds } = deps.interaction.getState();
+  const selected = tokens.filter(({ id }) => selectedTokenIds.includes(id));
   if (key === 'next' || key === 'previous') return selectStep(tokens, key, deps.interaction);
-  if (!selected) return;
-  if (key === 'open') return deps.onOpen(selected.id);
-  moveByKey(selected, STEP[key], deps.interaction);
+  const [only] = selected;
+  if (!only) return;
+  if (key === 'open') return deps.onOpen(only.id);
+  if (selected.length === 1) return moveByKey(only, STEP[key], deps.interaction);
+  moveGroupByKey(deps, inSelectionOrder(selected, selectedTokenIds), STEP[key]);
+}
+
+function inSelectionOrder(tokens: readonly TokenDto[], ids: readonly string[]): TokenDto[] {
+  return [...tokens].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+}
+
+// The whole group or nothing: one token on the edge stops all of them.
+function moveGroupByKey(
+  deps: BoardKeyboardDeps,
+  group: readonly TokenDto[],
+  [dx, dy]: readonly [number, number],
+): void {
+  const local = deps.interaction.getState();
+  const scene = deps.board.getState().board?.scene;
+  const [anchor] = group;
+  if (!scene || !anchor) return;
+  if (group.some(({ canControl }) => !canControl)) return local.say(NOT_YOUR_TOKEN);
+  const members = group.map(({ id, col, row, size }) => ({ tokenId: id, col, row, size }));
+  const to = { col: anchor.col + dx, row: anchor.row + dy };
+  const moves = shiftGroup(scene, members, anchor, to);
+  if (!moves) return local.say(OUT_OF_SCENE);
+  void local.command(async (commands, campaignId) => {
+    const result = await commands.moveTokens(campaignId, moves);
+    if (result.ok) local.say(groupMovedAnnouncement(moves.length));
+    return result;
+  });
 }
 
 function selectStep(
@@ -60,7 +90,8 @@ function selectStep(
 ): void {
   const local = interaction.getState();
   const order = readingOrder(tokens).map(({ id }) => id);
-  const nextId = stepFrom(order, local.selectedTokenId, direction);
+  const current = singleSelectedOf(local.selectedTokenIds) ?? local.selectedTokenIds.at(-1);
+  const nextId = stepFrom(order, current ?? null, direction);
   const token = tokens.find(({ id }) => id === nextId);
   local.select(token?.id ?? null);
   if (token) local.say(selectedAnnouncement(token.name, token.col, token.row));

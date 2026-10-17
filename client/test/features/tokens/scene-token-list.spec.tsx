@@ -74,7 +74,7 @@ describe('SceneTokenList', () => {
     renderList();
     await userEvent.click(row('Lyra'));
     expect(row('Lyra')).toHaveAttribute('aria-expanded', 'true');
-    expect(interaction.getState().selectedTokenId).toBe(LYRA_ID);
+    expect(interaction.getState().selectedTokenIds).toEqual([LYRA_ID]);
     expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).toHaveTextContent(
       'Coluna 4, linha 5',
     );
@@ -84,6 +84,25 @@ describe('SceneTokenList', () => {
     renderList();
     act(() => interaction.getState().select(LYRA_ID));
     expect(row('Lyra')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('two selected mark both rows, open no card and say "2 selecionados"', () => {
+    renderList([lyra(), lyra({ id: KAEL_ID, name: 'Kael' })]);
+    act(() => interaction.getState().selectMany([LYRA_ID, KAEL_ID], { additive: false }));
+    const marked = screen.getAllByRole('button', { current: true });
+    expect(marked.map((button) => button.textContent)).toEqual([
+      expect.stringContaining('Kael'),
+      expect.stringContaining('Lyra'),
+    ]);
+    expect(screen.queryByRole('region', { name: /^Cartão de/ })).toBeNull();
+    expect(screen.getByText('2 selecionados')).not.toBeNull();
+  });
+
+  it('one selected opens its card and says no count', () => {
+    renderList([lyra(), lyra({ id: KAEL_ID, name: 'Kael' })]);
+    act(() => interaction.getState().select(LYRA_ID));
+    expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).not.toBeNull();
+    expect(screen.queryByText(/selecionados$/)).toBeNull();
   });
 
   it('the card shows every bar it received; "−7" + Enter sends add −7 and clears the field', async () => {

@@ -38,11 +38,11 @@ describe('ConfigureGridDialog', () => {
   it('opens with the values of the scene', () => {
     renderDialog();
     expect(screen.getByRole('dialog', { name: 'Configurar grid' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Largura (casas)')).toHaveValue(20);
-    expect(screen.getByLabelText('Altura (casas)')).toHaveValue(12);
+    expect(screen.getByLabelText('Largura (casas)')).toHaveValue('20');
+    expect(screen.getByLabelText('Altura (casas)')).toHaveValue('12');
     expect(screen.getByLabelText('Distância de uma casa')).toHaveValue('1,5');
     expect(screen.getByLabelText('Unidade')).toHaveValue('m');
-    expect(screen.getByLabelText('Opacidade do grid (%)')).toHaveValue(30);
+    expect(screen.getByLabelText('Opacidade do grid (%)')).toHaveValue('30');
     expect(screen.getByRole('checkbox', { name: 'Grid visível' })).toBeChecked();
   });
 
@@ -67,6 +67,25 @@ describe('ConfigureGridDialog', () => {
       },
     ]);
     expect(closed).toBe(1);
+  });
+
+  it('has no spin buttons: the numbers are text fields that keep only what makes a number', async () => {
+    renderDialog();
+    expect(screen.queryAllByRole('spinbutton')).toEqual([]);
+    await replace('Largura (casas)', '2a5-');
+    expect(screen.getByLabelText('Largura (casas)')).toHaveValue('25');
+    await replace('Distância de uma casa', '1,,5m');
+    expect(screen.getByLabelText('Distância de uma casa')).toHaveValue('1,5');
+  });
+
+  it('"Unidade" is a choice of cm, m and km, and km is sent as chosen', async () => {
+    renderDialog();
+    const unit = screen.getByRole('combobox', { name: 'Unidade' });
+    const options = screen.getAllByRole('option').map((option) => option.textContent);
+    expect(options).toEqual(['cm', 'm', 'km']);
+    await userEvent.selectOptions(unit, 'km');
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(commands.sentAs('configureScene')[0]?.fields).toMatchObject({ cellUnit: 'km' });
   });
 
   it('while the command is on its way it reads "Salvando…", busy and disabled', async () => {

@@ -13,6 +13,8 @@ import { users } from '../auth/users.po';
 import { scenes } from '../scenes/scenes.po';
 
 export const tokenSide = pgEnum('token_side', ['ally', 'enemy', 'neutral']);
+// The order is the drawing order, top to bottom (`tokenLayerDto`).
+export const tokenLayer = pgEnum('token_layer', ['tokens', 'objects', 'background']);
 export const barColor = pgEnum('bar_color', ['gold', 'steel', 'ember', 'moss', 'ash']);
 export const barVisibility = pgEnum('bar_visibility', ['everyone', 'controllers']);
 
@@ -30,6 +32,7 @@ export const tokens = pgTable(
     size: integer('size').notNull().default(1),
     col: integer('col').notNull(),
     row: integer('row').notNull(),
+    layer: tokenLayer('layer').notNull().default('tokens'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -72,4 +75,5 @@ export type TokenPo = typeof tokens.$inferSelect;
 export type NewTokenPo = typeof tokens.$inferInsert;
 export type TokenBarPo = typeof tokenBars.$inferSelect;
 export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenId' | 'position'>;
+export type TokenLayerPo = TokenPo['layer'];
 export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'size'>;

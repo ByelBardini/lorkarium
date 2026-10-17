@@ -3,12 +3,21 @@ import { describe, expect, it } from 'vitest';
 import { ROUTE_BEND_DWELL_MS, settleRoute, startRoute, stepRoute } from '@/lib/token-route';
 import { buildBoardView } from '@/renderer/board-view';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
-import { LYRA_ID, VHARN_SCENE, activeCondition, lyra } from '../support/table-session-fixtures';
+import {
+  KAEL_ID,
+  LYRA_ID,
+  VHARN_SCENE,
+  activeCondition,
+  kael,
+  lyra,
+} from '../support/table-session-fixtures';
 
 const NO_TOKENS = {
   tokens: [],
-  selectedTokenId: null,
-  preview: null,
+  selectedTokenIds: [],
+  activeLayer: 'tokens',
+  canChooseLayer: false,
+  preview: [],
   drag: null,
   dragged: {},
   readOnly: false,
@@ -109,17 +118,63 @@ describe('buildBoardView', () => {
     });
 
     it('the selected token is marked', () => {
-      expect(viewOf({ selectedTokenId: LYRA_ID }).tokens[0]?.selected).toBe(true);
+      expect(viewOf({ selectedTokenIds: [LYRA_ID] }).tokens[0]?.selected).toBe(true);
+    });
+
+    it('every token of a selection of two is marked', () => {
+      const view = viewOf({ tokens: [lyra(), kael()], selectedTokenIds: [LYRA_ID, KAEL_ID] });
+      expect(view.tokens.map(({ selected }) => selected)).toEqual([true, true]);
     });
 
     it('the preview shows a ghost at the cell asked for', () => {
-      const view = viewOf({ preview: { tokenId: LYRA_ID, col: 8, row: 6 } });
-      expect(view.ghost).toEqual({ tokenId: LYRA_ID, col: 8, row: 6, size: 1 });
+      const view = viewOf({ preview: [{ tokenId: LYRA_ID, col: 8, row: 6 }] });
+      expect(view.ghosts).toEqual([{ tokenId: LYRA_ID, col: 8, row: 6, size: 1 }]);
     });
 
     it('a token the viewer cannot control, or any token while read only, is not draggable', () => {
       expect(viewOf({ tokens: [lyra({ canControl: false })] }).tokens[0]?.draggable).toBe(false);
       expect(viewOf({ readOnly: true }).tokens[0]?.draggable).toBe(false);
+    });
+  });
+
+  describe('layers', () => {
+    function viewOf(overrides: Partial<Parameters<typeof buildBoardView>[0]> = {}) {
+      return buildBoardView({
+        ...NO_TOKENS,
+        scene: VHARN_SCENE,
+        localGridVisible: true,
+        ruler: null,
+        ...overrides,
+      });
+    }
+
+    it('a chest on objects with the tokens layer active is neither pickable nor draggable', () => {
+      const chest = kael({ layer: 'objects' });
+      expect(viewOf({ tokens: [chest] }).tokens[0]).toMatchObject({
+        layer: 'objects',
+        pickable: false,
+        draggable: false,
+      });
+    });
+
+    it('with the objects layer active the chest is pickable and Lyra is not', () => {
+      const view = viewOf({ tokens: [lyra(), kael({ layer: 'objects' })], activeLayer: 'objects' });
+      expect(view.tokens.map(({ id, pickable }) => [id, pickable])).toEqual([
+        [KAEL_ID, true],
+        [LYRA_ID, false],
+      ]);
+    });
+
+    it('the layer menu is offered only to whoever may choose the layer (the master)', () => {
+      expect(viewOf({ canChooseLayer: true }).layerMenu).toBe(true);
+      expect(viewOf({ canChooseLayer: false }).layerMenu).toBe(false);
+    });
+
+    it('tokens are drawn background first, then objects, then tokens, in list order inside each', () => {
+      const map = kael({ id: 'map', layer: 'background' });
+      const chest = kael({ id: 'chest', layer: 'objects' });
+      const view = viewOf({ tokens: [lyra(), chest, kael(), map] });
+      expect(view.tokens.map(({ id }) => id)).toEqual(['map', 'chest', LYRA_ID, KAEL_ID]);
     });
   });
 
@@ -146,14 +201,35 @@ describe('buildBoardView', () => {
       return { x: col * CELL_WORLD_SIZE + half, y: row * CELL_WORLD_SIZE + half };
     }
 
+    function dragOf(route = bentRoute(), landing = [{ tokenId: LYRA_ID, col: 6, row: 1 }]) {
+      return { anchorId: LYRA_ID, route, landing };
+    }
+
     it('the ghost marks the cell the token is over, not only where it was dropped', () => {
-      const drag = { tokenId: LYRA_ID, route: bentRoute() };
-      expect(viewOf({ drag }).ghost).toEqual({ tokenId: LYRA_ID, col: 6, row: 1, size: 1 });
+      expect(viewOf({ drag: dragOf() }).ghosts).toEqual([
+        { tokenId: LYRA_ID, col: 6, row: 1, size: 1 },
+      ]);
+    });
+
+    it('a group drag draws a ghost where each member would land', () => {
+      const landing = [
+        { tokenId: LYRA_ID, col: 6, row: 1 },
+        { tokenId: KAEL_ID, col: 8, row: 1 },
+      ];
+      const tokens = [lyra(), kael({ size: 2 })];
+      expect(viewOf({ tokens, drag: dragOf(bentRoute(), landing) }).ghosts).toEqual([
+        { tokenId: LYRA_ID, col: 6, row: 1, size: 1 },
+        { tokenId: KAEL_ID, col: 8, row: 1, size: 2 },
+      ]);
+    });
+
+    it('a group drag that would push a member off the scene draws no ghost', () => {
+      const drag = { anchorId: LYRA_ID, route: bentRoute(), landing: null };
+      expect(viewOf({ drag }).ghosts).toEqual([]);
     });
 
     it('the ruler runs from the start through each bend to the token, summing the legs', () => {
-      const drag = { tokenId: LYRA_ID, route: bentRoute() };
-      expect(viewOf({ drag }).ruler).toEqual({
+      expect(viewOf({ drag: dragOf() }).ruler).toEqual({
         points: [centerOf(3, 4), centerOf(6, 4), centerOf(6, 1)],
         label: '6 casas · 9 m',
       });
@@ -161,20 +237,19 @@ describe('buildBoardView', () => {
 
     it('the ruler of a size 2 token runs through the middle of its footprint', () => {
       const route = stepRoute(startRoute(cell(3, 4), 0), cell(5, 4), 0);
-      const view = viewOf({ tokens: [lyra({ size: 2 })], drag: { tokenId: LYRA_ID, route } });
+      const view = viewOf({ tokens: [lyra({ size: 2 })], drag: dragOf(route) });
       expect(view.ruler?.points).toEqual([centerOf(3, 4, 2), centerOf(5, 4, 2)]);
     });
 
     it('the drag wins over a ruler left by the tool', () => {
-      const drag = { tokenId: LYRA_ID, route: bentRoute() };
-      const view = viewOf({ drag, ruler: { from: cell(0, 0), to: cell(1, 0) } });
+      const view = viewOf({ drag: dragOf(), ruler: { from: cell(0, 0), to: cell(1, 0) } });
       expect(view.ruler?.label).toBe('6 casas · 9 m');
     });
 
     it('someone else dragging Lyra draws her on that cell, ruler and ghost aside', () => {
       const view = viewOf({ dragged: { [LYRA_ID]: cell(7, 2) } });
       expect(view.tokens[0]).toMatchObject({ col: 7, row: 2 });
-      expect(view.ghost).toBeNull();
+      expect(view.ghosts).toEqual([]);
       expect(view.ruler).toBeNull();
     });
   });

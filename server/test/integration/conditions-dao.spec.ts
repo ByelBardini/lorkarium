@@ -81,29 +81,42 @@ describe('ConditionsDao on Postgres', () => {
     });
   });
 
-  it('apply saves the active condition with its name and tone, and applying again replaces the duration', async () => {
+  it('apply saves the active condition with its name and tone, and applying again replaces the duration and the round', async () => {
     const envenenado = await definitionNamed('Envenenado');
-    await conditions.apply(lyraId, envenenado, 2);
-    const again = await conditions.apply(lyraId, envenenado, 5);
+    await conditions.apply(lyraId, envenenado, { remainingRounds: 2, appliedRound: null });
+    const again = await conditions.apply(lyraId, envenenado, {
+      remainingRounds: 5,
+      appliedRound: 3,
+    });
     expect(again).toMatchObject({
       tokenId: lyraId,
       name: 'Envenenado',
       tone: 'harm',
       remainingRounds: 5,
+      appliedRound: 3,
     });
     expect(await conditions.listOfTokens([lyraId])).toHaveLength(1);
   });
 
   it('remove takes the condition off the token, and only from that token', async () => {
-    const applied = await conditions.apply(lyraId, await definitionNamed('Caído'), null);
+    const applied = await conditions.apply(lyraId, await definitionNamed('Caído'), {
+      remainingRounds: null,
+      appliedRound: null,
+    });
     expect(await conditions.remove('00000000-0000-4000-8000-000000000000', applied.id)).toBe(false);
     expect(await conditions.remove(lyraId, applied.id)).toBe(true);
     expect(await conditions.listOfTokens([lyraId])).toEqual([]);
   });
 
   it('setRemaining and deleteActive keep the countdown of the turns', async () => {
-    const atordoado = await conditions.apply(lyraId, await definitionNamed('Atordoado'), 1);
-    const envenenado = await conditions.apply(lyraId, await definitionNamed('Envenenado'), 3);
+    const atordoado = await conditions.apply(lyraId, await definitionNamed('Atordoado'), {
+      remainingRounds: 1,
+      appliedRound: null,
+    });
+    const envenenado = await conditions.apply(lyraId, await definitionNamed('Envenenado'), {
+      remainingRounds: 3,
+      appliedRound: null,
+    });
     await conditions.setRemaining(envenenado.id, 2);
     await conditions.deleteActive([atordoado.id]);
     expect(await conditions.listOfTokens([lyraId])).toEqual([

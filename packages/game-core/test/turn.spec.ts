@@ -98,20 +98,36 @@ describe('nextAfterRemoval', () => {
 describe('tickAtTurnEnd', () => {
   it('counts each condition down and lets the ones at their last round expire', () => {
     const conditions = [
-      { id: 'envenenado', remainingRounds: 2 },
-      { id: 'atordoado', remainingRounds: 1 },
-      { id: 'abencoado', remainingRounds: null },
+      { id: 'envenenado', remainingRounds: 2, appliedRound: 1 },
+      { id: 'atordoado', remainingRounds: 1, appliedRound: 1 },
+      { id: 'abencoado', remainingRounds: null, appliedRound: 1 },
     ];
-    expect(tickAtTurnEnd(conditions)).toEqual({
+    expect(tickAtTurnEnd(conditions, 2)).toEqual({
       kept: [
-        { id: 'envenenado', remainingRounds: 1 },
-        { id: 'abencoado', remainingRounds: null },
+        { id: 'envenenado', remainingRounds: 1, appliedRound: 1 },
+        { id: 'abencoado', remainingRounds: null, appliedRound: 1 },
       ],
-      expired: [{ id: 'atordoado', remainingRounds: 1 }],
+      expired: [{ id: 'atordoado', remainingRounds: 1, appliedRound: 1 }],
     });
   });
 
+  it('a condition applied this round does not count down at the end of this round’s turn', () => {
+    const caido = { id: 'caido', remainingRounds: 1, appliedRound: 1 };
+    expect(tickAtTurnEnd([caido], 1)).toEqual({ kept: [caido], expired: [] });
+  });
+
+  it('"1 rodada" applied in round 1 goes at the end of the holder’s turn in round 2', () => {
+    const caido = { id: 'caido', remainingRounds: 1, appliedRound: 1 };
+    const afterRound1 = tickAtTurnEnd([caido], 1).kept;
+    expect(tickAtTurnEnd(afterRound1, 2).expired).toEqual([caido]);
+  });
+
+  it('a condition applied out of combat counts down from the first turn', () => {
+    const caido = { id: 'caido', remainingRounds: 1, appliedRound: null };
+    expect(tickAtTurnEnd([caido], 1).expired).toEqual([caido]);
+  });
+
   it('nothing to tick gives nothing', () => {
-    expect(tickAtTurnEnd([])).toEqual({ kept: [], expired: [] });
+    expect(tickAtTurnEnd([], 1)).toEqual({ kept: [], expired: [] });
   });
 });

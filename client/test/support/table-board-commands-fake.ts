@@ -1,10 +1,17 @@
-import type { BarChangeDto, ConditionToneDto, SceneGridDto } from '@lorkarium/contracts';
+import type {
+  BarChangeDto,
+  ConditionToneDto,
+  SceneGridDto,
+  TokenLayerDto,
+} from '@lorkarium/contracts';
 import type {
   BoardCommandResult,
   CellTarget,
   NewToken,
   TableBoardCommands,
+  TokenDragTarget,
   TokenEdit,
+  TokenPlacement,
 } from '@/services/table-board-commands';
 
 export type SentBoardCommand = Readonly<{ name: string; campaignId: string; fields: unknown }>;
@@ -49,12 +56,20 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('moveToken', campaignId, { tokenId, ...to });
   }
 
-  dragToken(
+  moveTokens(campaignId: string, moves: readonly TokenPlacement[]): Promise<BoardCommandResult> {
+    return this.record('moveTokens', campaignId, { moves: [...moves] });
+  }
+
+  dragTokens(campaignId: string, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult> {
+    return this.record('dragTokens', campaignId, { drags: [...drags] });
+  }
+
+  setTokenLayer(
     campaignId: string,
-    tokenId: string,
-    over: CellTarget | null,
+    tokenIds: readonly string[],
+    layer: TokenLayerDto,
   ): Promise<BoardCommandResult> {
-    return this.record('dragToken', campaignId, { tokenId, cell: over });
+    return this.record('setTokenLayer', campaignId, { tokenIds: [...tokenIds], layer });
   }
 
   adjustBar(
@@ -85,6 +100,19 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     rounds: number,
   ): Promise<BoardCommandResult> {
     return this.record('applyCondition', campaignId, { tokenId, conditionId, rounds });
+  }
+
+  applyConditions(
+    campaignId: string,
+    tokenIds: readonly string[],
+    conditionId: string,
+    rounds: number,
+  ): Promise<BoardCommandResult> {
+    return this.record('applyConditions', campaignId, {
+      tokenIds: [...tokenIds],
+      conditionId,
+      rounds,
+    });
   }
 
   removeCondition(

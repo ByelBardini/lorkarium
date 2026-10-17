@@ -74,7 +74,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | auth      | Contas, login, sessão por cookie, papel global (server + client) | [`docs/context/auth.md`](docs/context/auth.md)           |
 | campaigns | Mesas: criação, participação, lista, detalhe, entrada por código | [`docs/context/campaigns.md`](docs/context/campaigns.md) |
 | board     | Tabuleiro: cena (grid), versão por cena, depois tokens e combate | [`docs/context/board.md`](docs/context/board.md)         |
-| tokens    | Tokens da cena: barras, controladores, redação por público       | [`docs/context/tokens.md`](docs/context/tokens.md)       |
+| tokens    | Tokens da cena: barras, controladores, redação, camadas e grupos | [`docs/context/tokens.md`](docs/context/tokens.md)       |
 | combat    | Condições da mesa e combate: iniciativa, turno, rodada, duração  | [`docs/context/combat.md`](docs/context/combat.md)       |
 | sessions  | Sessão ao vivo da mesa (Socket.IO): presença, snapshot, versão   | [`docs/context/sessions.md`](docs/context/sessions.md)   |
 | client    | SPA: estrutura, rotas, shell e home, testes, design system       | [`docs/context/client.md`](docs/context/client.md)       |

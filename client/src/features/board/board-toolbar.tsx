@@ -1,7 +1,11 @@
 import type { LucideIcon } from 'lucide-react';
+import type { TokenLayerDto } from '@lorkarium/contracts';
 import {
+  BoxIcon,
+  CircleUserRoundIcon,
   FrameIcon,
   Grid3x3Icon,
+  MapIcon,
   MinusIcon,
   MousePointer2Icon,
   PlusIcon,
@@ -14,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { BoardRenderer } from '@/renderer/board-renderer';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
+import { LAYER_LABEL } from './board-messages';
 
 export type BoardToolbarProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
@@ -27,6 +32,14 @@ export type BoardToolbarProps = Readonly<{
 export const ZOOM_STEP = 1.25;
 
 const PERCENT = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0 });
+
+const LAYER_TOOLS: ReadonlyArray<
+  Readonly<{ layer: TokenLayerDto; key: string; icon: LucideIcon }>
+> = [
+  { layer: 'tokens', key: '1', icon: CircleUserRoundIcon },
+  { layer: 'objects', key: '2', icon: BoxIcon },
+  { layer: 'background', key: '3', icon: MapIcon },
+];
 
 /** The floating tools at the left of the board: select, ruler, local grid, zoom and framing,
  *  plus "Configurar grid" for the master. Every tool also has its key (in the name).
@@ -91,6 +104,7 @@ export function BoardToolbar({
           disabled={!renderer}
           onClick={() => renderer?.fitScene()}
         />
+        <LayerTools interaction={interaction} />
         {canConfigure && (
           <>
             <span aria-hidden="true" className="my-1 h-px bg-divider" />
@@ -100,6 +114,27 @@ export function BoardToolbar({
         )}
       </div>
     </TooltipProvider>
+  );
+}
+
+// The master's active layer: only what is on it is picked up on the board.
+function LayerTools({ interaction }: Pick<BoardToolbarProps, 'interaction'>) {
+  const canChoose = useBoardInteraction(interaction, (state) => state.canChooseLayer);
+  const active = useBoardInteraction(interaction, (state) => state.activeLayer);
+  if (!canChoose) return null;
+  return (
+    <div role="group" aria-label="Camada" className="flex flex-col gap-1">
+      <span aria-hidden="true" className="my-1 h-px bg-divider" />
+      {LAYER_TOOLS.map(({ layer, key, icon }) => (
+        <ToolButton
+          key={layer}
+          label={`${LAYER_LABEL[layer]} (${key})`}
+          icon={icon}
+          pressed={active === layer}
+          onClick={() => interaction.getState().setActiveLayer(layer)}
+        />
+      ))}
+    </div>
   );
 }
 

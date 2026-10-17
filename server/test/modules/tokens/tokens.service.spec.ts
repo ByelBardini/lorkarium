@@ -14,7 +14,7 @@ import {
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import { TokenTransactionRunnerFake, TokensDaoFake } from '../../support/tokens-fakes';
-import { LYRA_ID, LYRA_PV_ID, lyraRow } from '../../support/tokens-factories';
+import { BRAM_ID, LYRA_ID, LYRA_PV_ID, bramRow, lyraRow } from '../../support/tokens-factories';
 
 const NOW = new Date('2026-10-15T21:00:00Z');
 const PV: BarInputDto = {
@@ -31,6 +31,7 @@ const NEW_TOKEN: CreateToken = {
   size: 1,
   col: 2,
   row: 2,
+  layer: 'tokens',
   controllerIds: [BIA_ID],
   bars: [PV],
 };
@@ -59,7 +60,7 @@ describe('TokensService', () => {
     ]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
     scenes.activeOf.set(QUELM_ID, 'quelm-scene');
-    tokens = new TokensDaoFake(scenes.journal, [lyraRow()]);
+    tokens = new TokensDaoFake(scenes.journal, [lyraRow(), bramRow()]);
     publisher = new BoardPublisherFake(scenes.journal);
     const transaction = new TokenTransactionRunnerFake(scenes, tokens);
     service = new TokensService({
@@ -99,7 +100,7 @@ describe('TokensService', () => {
       code: 'FORBIDDEN',
     });
     expect(scenes.journal).toEqual([]);
-    expect(tokens.rows).toHaveLength(1);
+    expect(tokens.rows).toHaveLength(2);
   });
 
   it('a token placed outside the scene is refused with OUT_OF_SCENE and nothing is published', async () => {
@@ -153,57 +154,6 @@ describe('TokensService', () => {
     });
   });
 
-  it('Bia dragging Lyra over (8, 6) publishes token:dragged to all but her connection, saving nothing', async () => {
-    const version = await service.drag(
-      BIA_ID,
-      VHARN_ID,
-      { tokenId: LYRA_ID, cell: { col: 8, row: 6 } },
-      'bia-socket',
-    );
-    expect(version).toBe(4);
-    expect(scenes.journal).toEqual(['commit', 'publish']);
-    expect(tokens.rows[0]?.token).toMatchObject({ col: 3, row: 4 });
-    expect(publisher.tokenDrags).toEqual([
-      {
-        event: {
-          campaignId: VHARN_ID,
-          at: NOW.toISOString(),
-          tokenId: LYRA_ID,
-          cell: { col: 8, row: 6 },
-        },
-        exceptConnectionId: 'bia-socket',
-      },
-    ]);
-  });
-
-  it('a drag that ended without a move publishes cell null', async () => {
-    await service.drag(BIA_ID, VHARN_ID, { tokenId: LYRA_ID, cell: null }, 'bia-socket');
-    expect(publisher.tokenDrags[0]?.event.cell).toBeNull();
-  });
-
-  it('Caio dragging Bia’s Lyra is refused with FORBIDDEN and nothing is published', async () => {
-    const drag = { tokenId: LYRA_ID, cell: { col: 8, row: 6 } };
-    await expect(service.drag(CAIO_ID, VHARN_ID, drag, 'caio-socket')).rejects.toMatchObject({
-      code: 'FORBIDDEN',
-    });
-    expect(publisher.published).toBe(0);
-  });
-
-  it('a drag past the edge of the scene is refused with OUT_OF_SCENE', async () => {
-    const drag = { tokenId: LYRA_ID, cell: { col: 20, row: 0 } };
-    await expect(service.drag(BIA_ID, VHARN_ID, drag, 'bia-socket')).rejects.toMatchObject({
-      code: 'OUT_OF_SCENE',
-    });
-    expect(publisher.published).toBe(0);
-  });
-
-  it('dragging a token of another table is TOKEN_NOT_FOUND', async () => {
-    const drag = { tokenId: LYRA_ID, cell: null };
-    await expect(service.drag(CAIO_ID, QUELM_ID, drag, 'caio-socket')).rejects.toMatchObject({
-      code: 'TOKEN_NOT_FOUND',
-    });
-  });
-
   it('Bia subtracting 7 from the PV of Lyra saves 25 and publishes token:updated', async () => {
     await service.adjustBar(BIA_ID, VHARN_ID, {
       tokenId: LYRA_ID,
@@ -254,7 +204,7 @@ describe('TokensService', () => {
 
   it('the master deleting Lyra removes it and publishes token:deleted', async () => {
     await service.delete(ANA_ID, VHARN_ID, { tokenId: LYRA_ID });
-    expect(tokens.rows).toEqual([]);
+    expect(tokens.rows.map(({ token }) => token.id)).toEqual([BRAM_ID]);
     expect(publisher.tokenDeletes).toEqual([
       { campaignId: VHARN_ID, version: 5, at: NOW.toISOString(), tokenId: LYRA_ID, combat: null },
     ]);
@@ -263,6 +213,133 @@ describe('TokensService', () => {
   it('a player deleting a token is refused with FORBIDDEN', async () => {
     await expect(service.delete(BIA_ID, VHARN_ID, { tokenId: LYRA_ID })).rejects.toMatchObject({
       code: 'FORBIDDEN',
+    });
+  });
+
+  describe('setLayer', () => {
+    it('the master moving Lyra and Bram to objects saves once, bumps once, then publishes', async () => {
+      const version = await service.setLayer(ANA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID, BRAM_ID],
+        layer: 'objects',
+      });
+      expect(version).toBe(5);
+      expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+      expect(tokens.rows.map(({ token }) => token.layer)).toEqual(['objects', 'objects']);
+      expect(publisher.tokenLayerChanges).toEqual([
+        {
+          campaignId: VHARN_ID,
+          version: 5,
+          at: NOW.toISOString(),
+          tokenIds: [LYRA_ID, BRAM_ID],
+          layer: 'objects',
+        },
+      ]);
+    });
+
+    it('a player changing a layer is refused with FORBIDDEN, and nothing is saved nor published', async () => {
+      await expect(
+        service.setLayer(BIA_ID, VHARN_ID, { tokenIds: [LYRA_ID], layer: 'background' }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(scenes.journal).toEqual([]);
+      expect(tokens.rows[0]?.token.layer).toBe('tokens');
+    });
+
+    it('one id outside the scene is TOKEN_NOT_FOUND naming it, and no token changes', async () => {
+      const stranger = '00000000-0000-4000-8000-000000000009';
+      const change = service.setLayer(ANA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID, stranger],
+        layer: 'objects',
+      });
+      await expect(change).rejects.toMatchObject({
+        code: 'TOKEN_NOT_FOUND',
+        message: expect.stringContaining(stranger),
+      });
+      expect(tokens.rows.map(({ token }) => token.layer)).toEqual(['tokens', 'tokens']);
+      expect(publisher.published).toBe(0);
+    });
+  });
+  describe('moveMany and dragMany', () => {
+    const LYRA_TO_8_6 = { tokenId: LYRA_ID, col: 8, row: 6 };
+    const BRAM_TO_9_6 = { tokenId: BRAM_ID, col: 9, row: 6 };
+
+    it('the master moving Lyra and Bram saves once, bumps once and publishes one token:movedMany', async () => {
+      const moves = [LYRA_TO_8_6, BRAM_TO_9_6];
+      const version = await service.moveMany(ANA_ID, VHARN_ID, { moves });
+      expect(version).toBe(5);
+      expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+      expect(tokens.rows.map(({ token }) => [token.col, token.row])).toEqual([
+        [8, 6],
+        [9, 6],
+      ]);
+      expect(publisher.tokensMoves).toEqual([
+        { campaignId: VHARN_ID, version: 5, at: NOW.toISOString(), moves },
+      ]);
+    });
+
+    it('one token of the group past the edge is OUT_OF_SCENE, and none of them moves', async () => {
+      const moves = [LYRA_TO_8_6, { tokenId: BRAM_ID, col: 20, row: 6 }];
+      await expect(service.moveMany(ANA_ID, VHARN_ID, { moves })).rejects.toMatchObject({
+        code: 'OUT_OF_SCENE',
+      });
+      expect(tokens.rows.map(({ token }) => [token.col, token.row])).toEqual([
+        [3, 4],
+        [6, 4],
+      ]);
+      expect(publisher.published).toBe(0);
+    });
+
+    it('Bia moving her Lyra with the Bram of Caio is FORBIDDEN naming Bram, and none moves', async () => {
+      const moves = [LYRA_TO_8_6, BRAM_TO_9_6];
+      await expect(service.moveMany(BIA_ID, VHARN_ID, { moves })).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+        message: expect.stringContaining(BRAM_ID),
+      });
+      expect(scenes.journal).toEqual(['lock']);
+    });
+
+    it('Bia moving her Lyra once it is on objects is FORBIDDEN', async () => {
+      tokens.rows[0] = lyraRow({ token: { ...lyraRow().token, layer: 'objects' } });
+      await expect(
+        service.moveMany(BIA_ID, VHARN_ID, { moves: [LYRA_TO_8_6] }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+
+    it('the master dragging the group publishes token:draggedMany to all but the connection, saving nothing', async () => {
+      const drags = [
+        { tokenId: LYRA_ID, cell: { col: 8, row: 6 } },
+        { tokenId: BRAM_ID, cell: null },
+      ];
+      const version = await service.dragMany(ANA_ID, VHARN_ID, { drags }, 'ana-socket');
+      expect(version).toBe(4);
+      expect(scenes.journal).toEqual(['commit', 'publish']);
+      expect(publisher.tokensDrags).toEqual([
+        {
+          event: { campaignId: VHARN_ID, at: NOW.toISOString(), drags },
+          exceptConnectionId: 'ana-socket',
+        },
+      ]);
+    });
+
+    it('Caio dragging the Lyra of Bia with his Bram is FORBIDDEN and nothing is published', async () => {
+      const drags = [
+        { tokenId: BRAM_ID, cell: { col: 1, row: 1 } },
+        { tokenId: LYRA_ID, cell: { col: 2, row: 1 } },
+      ];
+      const dragging = service.dragMany(CAIO_ID, VHARN_ID, { drags }, 'caio-socket');
+      await expect(dragging).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(publisher.published).toBe(0);
+    });
+
+    it('dragging a token of another table is TOKEN_NOT_FOUND', async () => {
+      const drags = [{ tokenId: LYRA_ID, cell: null }];
+      const dragging = service.dragMany(CAIO_ID, QUELM_ID, { drags }, 'caio-socket');
+      await expect(dragging).rejects.toMatchObject({ code: 'TOKEN_NOT_FOUND' });
+    });
+
+    it('a drag of the group past the edge is OUT_OF_SCENE', async () => {
+      const drags = [{ tokenId: BRAM_ID, cell: { col: 20, row: 1 } }];
+      const dragging = service.dragMany(ANA_ID, VHARN_ID, { drags }, 'ana-socket');
+      await expect(dragging).rejects.toMatchObject({ code: 'OUT_OF_SCENE' });
     });
   });
 });

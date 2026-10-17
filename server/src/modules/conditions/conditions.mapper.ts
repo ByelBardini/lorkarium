@@ -1,4 +1,8 @@
-import type { ActiveConditionDto, ConditionDefinitionDto } from '@lorkarium/contracts';
+import type {
+  ActiveConditionDto,
+  ConditionDefinitionDto,
+  TokenConditionDto,
+} from '@lorkarium/contracts';
 import type { ActiveConditionRow } from './conditions.dao';
 import type { ConditionDefinitionPo } from './conditions.po';
 
@@ -10,10 +14,15 @@ export function toConditionDefinitionDto(
   return { id, name, tone };
 }
 
-/** Example: `toActiveConditionDto(await conditions.apply(tokenId, conditionId, rounds))` */
+/** Example: `toActiveConditionDto(await conditions.apply(tokenId, conditionId, duration))` */
 export function toActiveConditionDto(row: ActiveConditionRow): ActiveConditionDto {
   const { id, conditionId, name, tone, remainingRounds } = row;
   return { id, conditionId, name, tone, remainingRounds };
+}
+
+/** Example: `applied.map(toTokenConditionDto)` after a `condition:applyMany` */
+export function toTokenConditionDto(row: ActiveConditionRow): TokenConditionDto {
+  return { tokenId: row.tokenId, condition: toActiveConditionDto(row) };
 }
 
 /** Active conditions grouped by token, for the snapshot and the token events.

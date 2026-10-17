@@ -15,6 +15,13 @@ export type ActiveConditionRow = Readonly<{
   name: string;
   tone: ConditionDefinitionPo['tone'];
   remainingRounds: number | null;
+  appliedRound: number | null;
+}>;
+
+/** How long an applied condition lasts: `null` rounds = until removed; `null` round = out of combat. */
+export type ConditionDuration = Readonly<{
+  remainingRounds: number | null;
+  appliedRound: number | null;
 }>;
 
 const activeRowColumns = {
@@ -24,6 +31,7 @@ const activeRowColumns = {
   name: conditionDefinitions.name,
   tone: conditionDefinitions.tone,
   remainingRounds: activeConditions.remainingRounds,
+  appliedRound: activeConditions.appliedRound,
 };
 
 /** Condition definitions of a campaign and the conditions active on its tokens. */
@@ -96,14 +104,14 @@ export class ConditionsDao {
   async apply(
     tokenId: string,
     conditionId: string,
-    remainingRounds: number | null,
+    duration: ConditionDuration,
   ): Promise<ActiveConditionRow> {
     const [saved] = await this.db
       .insert(activeConditions)
-      .values({ tokenId, conditionId, remainingRounds })
+      .values({ tokenId, conditionId, ...duration })
       .onConflictDoUpdate({
         target: [activeConditions.tokenId, activeConditions.conditionId],
-        set: { remainingRounds, appliedAt: sql`now()` },
+        set: { ...duration, appliedAt: sql`now()` },
       })
       .returning({ id: activeConditions.id });
     if (!saved) throw new Error(`apply of ${conditionId} on ${tokenId} returned no row`);

@@ -8,6 +8,7 @@ import {
   type TokenBarInputPo,
   type TokenBarPo,
   type TokenFieldsPo,
+  type TokenLayerPo,
   type TokenPo,
 } from './tokens.po';
 
@@ -23,6 +24,9 @@ export type NewTokenRow = Readonly<{
   bars: readonly TokenBarInputPo[];
   controllerIds: readonly string[];
 }>;
+
+/** Where one token of a group lands. */
+export type TokenMovePo = Readonly<{ tokenId: string; col: number; row: number }>;
 
 export type TokenUpdatePo = Readonly<{
   fields: TokenFieldsPo;
@@ -60,11 +64,33 @@ export class TokensDao {
     return token && this.rowOf(token);
   }
 
+  /** The asked tokens that are in `sceneId`, in one query; ids from elsewhere are skipped. */
+  async findManyInScene(sceneId: string, tokenIds: readonly string[]): Promise<TokenRow[]> {
+    if (tokenIds.length === 0) return [];
+    const found = await this.db
+      .select()
+      .from(tokens)
+      .where(and(eq(tokens.sceneId, sceneId), inArray(tokens.id, [...tokenIds])));
+    return this.rowsOf(found);
+  }
+
+  async setLayer(tokenIds: readonly string[], layer: TokenLayerPo): Promise<void> {
+    await this.db
+      .update(tokens)
+      .set({ layer, updatedAt: sql`now()` })
+      .where(inArray(tokens.id, [...tokenIds]));
+  }
+
   async move(tokenId: string, col: number, row: number): Promise<void> {
     await this.db
       .update(tokens)
       .set({ col, row, updatedAt: sql`now()` })
       .where(eq(tokens.id, tokenId));
+  }
+
+  /** One `UPDATE` per token (a group is at most 64): run it on the DAO built with the `tx`. */
+  async moveMany(moves: readonly TokenMovePo[]): Promise<void> {
+    for (const { tokenId, col, row } of moves) await this.move(tokenId, col, row);
   }
 
   async setBarCurrent(barId: string, current: number): Promise<void> {

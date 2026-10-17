@@ -18,7 +18,7 @@ export function toTokenDto(
   audience: TokenAudience,
   conditions: readonly ActiveConditionDto[] = [],
 ): TokenDto {
-  const { id, name, initials, side, size, col, row: tokenRow } = row.token;
+  const { id, name, initials, side, size, col, row: tokenRow, layer } = row.token;
   const bars = row.bars.filter((bar) => audience === 'privileged' || bar.visibility === 'everyone');
   return {
     id,
@@ -28,6 +28,7 @@ export function toTokenDto(
     size,
     col,
     row: tokenRow,
+    layer,
     controllerIds: [...row.controllerIds],
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),

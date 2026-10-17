@@ -20,7 +20,9 @@ import {
 import {
   conditionDefinitionDto,
   type ApplyConditionCommandDto,
+  type ApplyConditionsCommandDto,
   type ConditionAppliedDto,
+  type ConditionsAppliedDto,
   type ConditionDefinedDto,
   type ConditionRemovedDto,
   type DefineConditionCommandDto,
@@ -32,15 +34,21 @@ import {
   type AdjustBarCommandDto,
   type CreateTokenCommandDto,
   type DeleteTokenCommandDto,
-  type DragTokenCommandDto,
   type MoveTokenCommandDto,
   type TokenCreatedDto,
   type TokenDeletedDto,
-  type TokenDraggedDto,
   type TokenMovedDto,
   type TokenUpdatedDto,
   type UpdateTokenCommandDto,
 } from './token.dto';
+import type {
+  DragTokensCommandDto,
+  MoveTokensCommandDto,
+  SetTokenLayerCommandDto,
+  TokenLayerChangedDto,
+  TokensDraggedDto,
+  TokensMovedDto,
+} from './token-group.dto';
 
 /** Board command and event names (spec §7.2). */
 export const BOARD_EVENTS = {
@@ -50,19 +58,25 @@ export const BOARD_EVENTS = {
   createToken: 'token:create',
   updateToken: 'token:update',
   moveToken: 'token:move',
-  dragToken: 'token:drag',
+  moveTokens: 'token:moveMany',
+  dragTokens: 'token:dragMany',
+  setTokenLayer: 'token:setLayer',
   adjustBar: 'token:adjustBar',
   deleteToken: 'token:delete',
   tokenCreated: 'token:created',
   tokenUpdated: 'token:updated',
   tokenMoved: 'token:moved',
-  tokenDragged: 'token:dragged',
+  tokensMoved: 'token:movedMany',
+  tokensDragged: 'token:draggedMany',
+  tokenLayerChanged: 'token:layerChanged',
   tokenDeleted: 'token:deleted',
   defineCondition: 'condition:define',
   applyCondition: 'condition:apply',
+  applyConditions: 'condition:applyMany',
   removeCondition: 'condition:remove',
   conditionDefined: 'condition:defined',
   conditionApplied: 'condition:applied',
+  conditionsApplied: 'condition:appliedMany',
   conditionRemoved: 'condition:removed',
   startCombat: 'combat:start',
   endCombat: 'combat:end',
@@ -137,11 +151,14 @@ export type BoardClientEvents = {
   'token:create': Command<CreateTokenCommandDto>;
   'token:update': Command<UpdateTokenCommandDto>;
   'token:move': Command<MoveTokenCommandDto>;
-  'token:drag': Command<DragTokenCommandDto>;
+  'token:moveMany': Command<MoveTokensCommandDto>;
+  'token:dragMany': Command<DragTokensCommandDto>;
+  'token:setLayer': Command<SetTokenLayerCommandDto>;
   'token:adjustBar': Command<AdjustBarCommandDto>;
   'token:delete': Command<DeleteTokenCommandDto>;
   'condition:define': Command<DefineConditionCommandDto>;
   'condition:apply': Command<ApplyConditionCommandDto>;
+  'condition:applyMany': Command<ApplyConditionsCommandDto>;
   'condition:remove': Command<RemoveConditionCommandDto>;
   'combat:start': Command<StartCombatCommandDto>;
   'combat:end': Command<EndCombatCommandDto>;
@@ -159,10 +176,13 @@ export type BoardServerEvents = {
   'token:created': (event: TokenCreatedDto) => void;
   'token:updated': (event: TokenUpdatedDto) => void;
   'token:moved': (event: TokenMovedDto) => void;
-  'token:dragged': (event: TokenDraggedDto) => void;
+  'token:movedMany': (event: TokensMovedDto) => void;
+  'token:draggedMany': (event: TokensDraggedDto) => void;
+  'token:layerChanged': (event: TokenLayerChangedDto) => void;
   'token:deleted': (event: TokenDeletedDto) => void;
   'condition:defined': (event: ConditionDefinedDto) => void;
   'condition:applied': (event: ConditionAppliedDto) => void;
+  'condition:appliedMany': (event: ConditionsAppliedDto) => void;
   'condition:removed': (event: ConditionRemovedDto) => void;
   'combat:started': (event: CombatStartedDto) => void;
   'combat:updated': (event: CombatUpdatedDto) => void;

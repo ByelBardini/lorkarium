@@ -8,8 +8,8 @@ import type {
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
   SessionStateDto,
-  TokenDraggedDto,
   TokenDto,
+  TokensDraggedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
 import { ANA } from './auth-api-fake';
@@ -128,6 +128,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     size: 1,
     col: 3,
     row: 4,
+    layer: 'tokens',
     controllerIds: [BIA_AT_TABLE.userId],
     canControl: true,
     bars: [
@@ -180,22 +181,39 @@ export function tokenMovedAt(
   };
 }
 
-/** `token:dragged` of Lyra (unless told otherwise) at VHARN; `null` ends the drag.
- *
- *  Example: `lyraDraggedOver({ col: 5, row: 4 })` */
-export function lyraDraggedOver(
-  cell: Readonly<{ col: number; row: number }> | null,
-  overrides: Partial<TokenDraggedDto> = {},
-): TokenDraggedDto {
-  return { campaignId: VHARN.id, at: AT, tokenId: LYRA_ID, cell, ...overrides };
-}
-
 /** `token:deleted` of `tokenId` at VHARN, as a board event. */
 export function tokenDeletedAt(version: number, tokenId = LYRA_ID): BoardEvent {
   return {
     type: 'tokenDeleted',
     payload: { campaignId: VHARN.id, version, at: AT, tokenId, combat: null },
   };
+}
+
+export const KAEL_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
+
+/** Kael, a second ally at (5, 4) under the master's control, with no bars.
+ *
+ *  Example: `vharnBoard({ tokens: [lyra(), kael()] })` */
+export function kael(overrides: Partial<TokenDto> = {}): TokenDto {
+  return lyra({
+    id: KAEL_ID,
+    name: 'Kael',
+    initials: 'KA',
+    col: 5,
+    row: 4,
+    bars: [],
+    ...overrides,
+  });
+}
+
+/** `token:draggedMany` at VHARN; a `null` cell ends that token's drag.
+ *
+ *  Example: `groupDraggedOver([{ tokenId: LYRA_ID, cell: { col: 5, row: 4 } }])` */
+export function groupDraggedOver(
+  drags: TokensDraggedDto['drags'],
+  overrides: Partial<TokensDraggedDto> = {},
+): TokensDraggedDto {
+  return { campaignId: VHARN.id, at: AT, drags, ...overrides };
 }
 
 export const KAEL_COMBATANT = 'c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c';

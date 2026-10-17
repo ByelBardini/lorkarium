@@ -25,6 +25,7 @@ describe('TokenDialog', () => {
         campaignId={VHARN.id}
         token={token}
         placeAt={cell(9, 5)}
+        layer="tokens"
         players={PLAYERS}
         commands={commands}
         connected
@@ -57,6 +58,7 @@ describe('TokenDialog', () => {
           bars: [],
           col: 9,
           row: 5,
+          layer: 'tokens',
         },
       },
     ]);

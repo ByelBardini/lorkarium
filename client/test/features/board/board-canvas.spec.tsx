@@ -111,6 +111,6 @@ describe('BoardCanvas', () => {
       interaction.getState().select(LYRA_ID);
     });
     expect(renderers.latest().lastView?.tokens[0]).toMatchObject({ id: LYRA_ID, selected: true });
-    expect(renderers.latest().lastView?.ghost).toBeNull();
+    expect(renderers.latest().lastView?.ghosts).toEqual([]);
   });
 });

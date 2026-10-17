@@ -43,6 +43,19 @@ describe('shortcutFor', () => {
     expect(shortcutFor(press(key))).toBe(shortcut);
   });
 
+  it.each([
+    ['1', 'layer-tokens'],
+    ['2', 'layer-objects'],
+    ['3', 'layer-background'],
+  ])('%s is %s', (key, shortcut) => {
+    expect(shortcutFor(press(key))).toBe(shortcut);
+  });
+
+  it('2 typed in a field is text, and 2 with Ctrl belongs to the browser', () => {
+    expect(shortcutFor(press('2', { target: mounted('<input data-target />') }))).toBeNull();
+    expect(shortcutFor(press('2', { ctrlKey: true }))).toBeNull();
+  });
+
   it('an unknown key is no shortcut', () => {
     expect(shortcutFor(press('q'))).toBeNull();
   });

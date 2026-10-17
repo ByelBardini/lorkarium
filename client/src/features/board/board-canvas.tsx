@@ -8,7 +8,12 @@ import type {
   CreateBoardRenderer,
 } from '@/renderer/board-renderer';
 import { buildBoardView, type BoardView } from '@/renderer/board-view';
-import { useLocalBoardView, type BoardInteractionStore } from '@/stores/board-interaction-store';
+import {
+  singleSelectedOf,
+  useBoardInteraction,
+  useLocalBoardView,
+  type BoardInteractionStore,
+} from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 
 export type BoardCanvasProps = Readonly<{
@@ -88,11 +93,14 @@ function useBoardView({ board, interaction }: BoardCanvasProps): BoardView | nul
 }
 
 // A token picked in the panel may be off screen: bring it into view (a no-op when it is shown).
+// A marquee selection is already on screen, so only a single selection centers.
 function useCenterOnSelection(
   { board, interaction }: BoardCanvasProps,
   renderer: BoardRenderer | null,
 ): void {
-  const selectedId = useLocalBoardView(interaction).selectedTokenId;
+  const selectedId = useBoardInteraction(interaction, (state) =>
+    singleSelectedOf(state.selectedTokenIds),
+  );
   useEffect(() => {
     if (!renderer || !selectedId) return;
     const token = board.getState().board?.tokens.find(({ id }) => id === selectedId);

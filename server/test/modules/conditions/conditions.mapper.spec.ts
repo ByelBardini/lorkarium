@@ -12,6 +12,7 @@ const ENVENENADO = {
   name: 'Envenenado',
   tone: 'harm',
   remainingRounds: 2,
+  appliedRound: 1,
 } as const;
 
 describe('conditions mapper', () => {
@@ -26,7 +27,7 @@ describe('conditions mapper', () => {
     expect(toConditionDefinitionDto(po)).toEqual({ id: 'env', name: 'Envenenado', tone: 'harm' });
   });
 
-  it('an active condition carries its definition and its rounds, not the token', () => {
+  it('an active condition carries its definition and its rounds, not the token nor the round it was applied in', () => {
     expect(toActiveConditionDto(ENVENENADO)).toEqual({
       id: 'active-1',
       conditionId: 'env',

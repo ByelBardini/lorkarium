@@ -94,13 +94,13 @@ describe('CombatService', () => {
     });
   });
 
-  it('at the end of the Ogro’s turn its "Envenenado 1" expires inside the same combat:turnChanged', async () => {
+  it('at the end of the Ogro’s turn in round 2 its "Envenenado 1" of round 1 expires inside the same combat:turnChanged', async () => {
     await started();
     const envenenado = conditions.define(VHARN_ID, 'Envenenado', 'harm');
     const caido = conditions.define(VHARN_ID, 'Caído', 'harm');
-    await conditions.apply('ogro', envenenado, 1);
-    await conditions.apply('ogro', caido, 3);
-    await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 1, 'c-ogro');
+    await conditions.apply('ogro', envenenado, { remainingRounds: 1, appliedRound: 1 });
+    await conditions.apply('ogro', caido, { remainingRounds: 3, appliedRound: 1 });
+    await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 2, 'c-ogro');
     publisher.combatEvents.splice(0);
     const version = await service.nextTurn(ANA_ID, VHARN_ID, { fromCombatantId: 'c-ogro' });
     expect(publisher.combatEvents).toHaveLength(1);
@@ -117,6 +117,17 @@ describe('CombatService', () => {
       },
     });
     expect(conditions.active.map(({ name }) => name)).toEqual(['Caído']);
+  });
+
+  it('"Caído 1" applied in round 1 survives the end of the Ogro’s turn in round 1, untouched', async () => {
+    await started();
+    const caido = conditions.define(VHARN_ID, 'Caído', 'harm');
+    await conditions.apply('ogro', caido, { remainingRounds: 1, appliedRound: 1 });
+    await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 1, 'c-ogro');
+    await service.nextTurn(ANA_ID, VHARN_ID, { fromCombatantId: 'c-ogro' });
+    expect(conditions.active).toEqual([
+      expect.objectContaining({ name: 'Caído', remainingRounds: 1, appliedRound: 1 }),
+    ]);
   });
 
   it('Bia passes the turn of her Kael', async () => {
@@ -162,7 +173,10 @@ describe('CombatService', () => {
 
   it('ending deletes the combat and keeps the conditions on the tokens', async () => {
     await started();
-    await conditions.apply('ogro', conditions.define(VHARN_ID, 'Caído', 'harm'), null);
+    await conditions.apply('ogro', conditions.define(VHARN_ID, 'Caído', 'harm'), {
+      remainingRounds: null,
+      appliedRound: 1,
+    });
     await service.end(ANA_ID, VHARN_ID);
     expect(combat.rows.size).toBe(0);
     expect(conditions.active).toHaveLength(1);

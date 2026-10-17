@@ -30,4 +30,33 @@ describe('parseBoardEvent', () => {
       /token:teleported.*scene:updated/,
     );
   });
+
+  it.each([
+    [
+      'token:movedMany',
+      'tokensMoved',
+      { moves: [{ tokenId: '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a', col: 8, row: 6 }] },
+    ],
+    [
+      'token:layerChanged',
+      'tokenLayerChanged',
+      { tokenIds: ['5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a'], layer: 'objects' },
+    ],
+  ])('a valid %s of the table is a %s event', (name, type, fields) => {
+    const payload = { campaignId: VHARN.id, version: 6, at: '2026-10-16T12:00:00.000Z', ...fields };
+    expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
+      kind: 'event',
+      event: { type, payload },
+    });
+  });
+
+  it('a token:layerChanged of the table on an unknown layer is invalid', () => {
+    const payload = { campaignId: VHARN.id, version: 6, at: '2026-10-16T12:00:00.000Z' };
+    const parsed = parseBoardEvent(
+      'token:layerChanged',
+      { ...payload, tokenIds: [], layer: 'gm' },
+      VHARN.id,
+    );
+    expect(parsed).toEqual({ kind: 'invalid' });
+  });
 });

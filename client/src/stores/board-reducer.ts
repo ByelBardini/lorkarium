@@ -3,6 +3,7 @@ import type {
   BoardStateDto,
   ConditionChangeDto,
   TokenDto,
+  TokensMovedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
 
@@ -25,6 +26,12 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
       const { tokenId, col, row } = event.payload;
       return { tokens: mapToken(board.tokens, tokenId, (token) => ({ ...token, col, row })) };
     }
+    case 'tokensMoved':
+      return { tokens: withMoves(board.tokens, event.payload.moves) };
+    case 'tokenLayerChanged': {
+      const { tokenIds, layer } = event.payload;
+      return { tokens: mapTokens(board.tokens, tokenIds, (token) => ({ ...token, layer })) };
+    }
     case 'tokenDeleted':
       return {
         tokens: board.tokens.filter((token) => token.id !== event.payload.tokenId),
@@ -45,6 +52,14 @@ function combatChangesOf(board: BoardStateDto, event: BoardEvent): Partial<Board
         tokens: mapToken(board.tokens, tokenId, (token) => withCondition(token, condition)),
       };
     }
+    case 'conditionsApplied':
+      return {
+        tokens: event.payload.applied.reduce(
+          (tokens, { tokenId, condition }) =>
+            mapToken(tokens, tokenId, (token) => withCondition(token, condition)),
+          board.tokens,
+        ),
+      };
     case 'conditionRemoved': {
       const { tokenId, activeConditionId } = event.payload;
       const without = (token: TokenDto): TokenDto => ({
@@ -72,6 +87,21 @@ function combatChangesOf(board: BoardStateDto, event: BoardEvent): Partial<Board
 function withToken(tokens: readonly TokenDto[], token: TokenDto): TokenDto[] {
   if (!tokens.some(({ id }) => id === token.id)) return [...tokens, token];
   return tokens.map((current) => (current.id === token.id ? token : current));
+}
+
+function withMoves(tokens: readonly TokenDto[], moves: TokensMovedDto['moves']): TokenDto[] {
+  return tokens.map((token) => {
+    const move = moves.find(({ tokenId }) => tokenId === token.id);
+    return move ? { ...token, col: move.col, row: move.row } : token;
+  });
+}
+
+function mapTokens(
+  tokens: readonly TokenDto[],
+  tokenIds: readonly string[],
+  change: (token: TokenDto) => TokenDto,
+): TokenDto[] {
+  return tokens.map((token) => (tokenIds.includes(token.id) ? change(token) : token));
 }
 
 function mapToken(

@@ -9,6 +9,7 @@ export {
   barVisibility,
   tokenBars,
   tokenControllers,
+  tokenLayer,
   tokenSide,
   tokens,
 } from '../modules/tokens/tokens.po';

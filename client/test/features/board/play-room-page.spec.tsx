@@ -439,11 +439,11 @@ describe('play room page', () => {
       expect(deps.boardCommands.sentAs('moveToken')).toEqual([
         { name: 'moveToken', campaignId: VHARN.id, fields: { tokenId: LYRA_ID, col: 8, row: 6 } },
       ]);
-      expect(lastView()?.ghost).toEqual({ tokenId: LYRA_ID, col: 8, row: 6, size: 1 });
+      expect(lastView()?.ghosts).toEqual([{ tokenId: LYRA_ID, col: 8, row: 6, size: 1 }]);
       deps.tableSessionApi.emit({ kind: 'boardEvent', event: tokenMovedAt(5, { col: 8, row: 6 }) });
       await act(async () => deps.boardCommands.release());
       expect(lastView()?.tokens[0]).toMatchObject({ col: 8, row: 6 });
-      expect(lastView()?.ghost).toBeNull();
+      expect(lastView()?.ghosts).toEqual([]);
     });
 
     it('dropping Lyra off the scene sends nothing', async () => {
@@ -459,14 +459,14 @@ describe('play room page', () => {
         .latest()
         .emit({ kind: 'tokenDropped', tokenId: LYRA_ID, cell: cell(8, 6) });
       await act(() => Promise.resolve());
-      expect(lastView()?.ghost).toBeNull();
+      expect(lastView()?.ghosts).toEqual([]);
       expect(lastView()?.tokens[0]).toMatchObject({ col: 3, row: 4 });
       expect(boardStatus()).toHaveTextContent('Esse token não é seu.');
     });
 
     it('clicking Lyra selects her, and clicking the empty board clears it', async () => {
       await renderRoomWithLyra();
-      deps.boardRenderers.latest().emit({ kind: 'tokenPicked', tokenId: LYRA_ID });
+      deps.boardRenderers.latest().emit({ kind: 'tokenPicked', tokenId: LYRA_ID, additive: false });
       expect(lastView()?.tokens[0]?.selected).toBe(true);
       deps.boardRenderers.latest().emit({ kind: 'pointerDown', cell: cell(0, 0) });
       expect(lastView()?.tokens[0]?.selected).toBe(false);
@@ -489,7 +489,7 @@ describe('play room page', () => {
         .latest()
         .emit({ kind: 'tokenDropped', tokenId: LYRA_ID, cell: cell(8, 6) });
       deps.tableSessionApi.emit({ kind: 'board', state: vharnBoard({ tokens: [lyra()] }) });
-      expect(lastView()?.ghost).toBeNull();
+      expect(lastView()?.ghosts).toEqual([]);
     });
   });
 

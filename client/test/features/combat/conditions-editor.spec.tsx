@@ -88,17 +88,46 @@ describe('ConditionsEditor', () => {
     ]);
   });
 
-  it('"Adicionar condição" with "Rodadas" sends condition:apply, 0 meaning no limit', async () => {
+  function nameField(): HTMLElement {
+    return screen.getByRole('combobox', { name: 'Adicionar condição' });
+  }
+
+  it('"Adicionar condição" is typed, any case or accent, and sends condition:apply, 0 meaning no limit', async () => {
     renderEditor(lyra());
-    await userEvent.selectOptions(screen.getByLabelText('Adicionar condição'), 'Concentrando');
+    await userEvent.type(nameField(), 'concentrando');
     await userEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+    await userEvent.type(nameField(), 'Concentrando');
     await userEvent.clear(screen.getByLabelText('Rodadas'));
-    await userEvent.type(screen.getByLabelText('Rodadas'), '3');
+    await userEvent.type(screen.getByLabelText('Rodadas'), '3x');
     await userEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     expect(commands.sentAs('applyCondition').map(({ fields }) => fields)).toEqual([
       { tokenId: LYRA_ID, conditionId: CONCENTRANDO.conditionId, rounds: 0 },
       { tokenId: LYRA_ID, conditionId: CONCENTRANDO.conditionId, rounds: 3 },
     ]);
+  });
+
+  it('the confirmed apply empties the name', async () => {
+    renderEditor(lyra());
+    await userEvent.type(nameField(), 'Envenenado{Enter}');
+    expect(commands.sentAs('applyCondition')).toHaveLength(1);
+    expect(nameField()).toHaveValue('');
+  });
+
+  it('the suggestions follow what is typed; ↓ and Enter take one', async () => {
+    renderEditor(lyra());
+    await userEvent.type(nameField(), 'ven');
+    const options = screen.getAllByRole('option').map((option) => option.textContent);
+    expect(options).toEqual(['Envenenado']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    expect(nameField()).toHaveValue('Envenenado');
+    expect(commands.sent).toEqual([]);
+  });
+
+  it('a click on a suggestion takes it', async () => {
+    renderEditor(lyra());
+    await userEvent.click(nameField());
+    await userEvent.click(screen.getByRole('option', { name: 'Concentrando' }));
+    expect(nameField()).toHaveValue('Concentrando');
   });
 
   it('with no condition it reads "Nenhuma"', () => {
@@ -108,8 +137,8 @@ describe('ConditionsEditor', () => {
 
   it('the master creates "Sangrando" and it is applied right after', async () => {
     renderEditor(lyra(), true);
-    await userEvent.click(screen.getByRole('button', { name: 'Nova condição…' }));
-    await userEvent.type(screen.getByLabelText('Nome da condição'), 'Sangrando');
+    await userEvent.type(nameField(), 'Sangrando');
+    expect(screen.getByRole('group', { name: 'Natureza' })).toBeInTheDocument();
     commands.hold();
     await userEvent.click(screen.getByRole('button', { name: 'Criar e aplicar' }));
     const definition = {
@@ -132,9 +161,12 @@ describe('ConditionsEditor', () => {
     });
   });
 
-  it('a player never sees "Nova condição…"', () => {
+  it('a player typing a name not on the list cannot apply it and is told why', async () => {
     renderEditor(lyra(), false);
-    expect(screen.queryByRole('button', { name: 'Nova condição…' })).toBeNull();
+    await userEvent.type(nameField(), 'Sangrando');
+    expect(screen.getByRole('button', { name: 'Aplicar' })).toBeDisabled();
+    expect(screen.getByText('Só o mestre cria condição nova.')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Natureza' })).toBeNull();
   });
 
   it('without canControl it is read only', () => {
