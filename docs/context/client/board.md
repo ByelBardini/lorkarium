@@ -9,7 +9,7 @@ A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o r
 - `room-panel.tsx` — `RoomSidePanel`: `aside` "Painel da mesa" de 320px sobre a direita (`md+`, quando aberto) ou `Sheet` inferior aberta pelo botão "Painel" (abaixo de `md`, pelo `useMediaQuery(DESKTOP_QUERY)`). Abas (`tabs` do shadcn, sublinhado dourado): "Combate" ("Fora de combate" por enquanto) e "Na mesa" (`SessionPresencePanel`). `PanelToggle`: "Recolher painel" ↔ "Abrir painel" (`aria-expanded`), só no desktop.
 - `board-area.tsx` — `BoardArea`: o que fica atrás da UI. Limite de mesas → alerta `TOO_MANY_TABLES_MESSAGE`; falha da sessão → `sessionFailureMessage`; falha do sync → "Não deu para carregar o tabuleiro." + "Tentar de novo" (`board.retry()`); carregando → nada; pronto → `BoardCanvas` com o grid local e a régua da store de interação.
 - `board-canvas.tsx` — `BoardCanvas`: o host do renderer. `div` `role="application"`, `aria-roledescription="tabuleiro"`, `aria-label` "Tabuleiro: Cena 1, 20 × 12 casas", `tabIndex=0`, instruções de teclado em `aria-describedby`. Um renderer por montagem (`createBoardRenderer(onIntent)` → `mount(host)` → `draw(BoardView)` a cada mudança); destruído na desmontagem, inclusive com o `mount` ainda pendente. `mount` que rejeita → "Seu navegador não conseguiu abrir o tabuleiro.".
-- `board-toolbar.tsx` — `BoardToolbar`: `toolbar` vertical "Ferramentas do tabuleiro" à esquerda: Selecionar (V), Régua (R), Grid (G, só local), Aproximar (+), o zoom em % (`pt-BR`), Afastar (−), Enquadrar cena (0), o grupo "Camada" (`role="group"`, só com `canChooseLayer`: Tokens (1), Objetos (2), Fundo (3), `aria-pressed` na ativa) e, para o mestre, "Novo token" e "Configurar grid". Ferramenta ativa = `aria-pressed` + ícone dourado; sem renderer, os botões de câmera ficam desabilitados.
+- `board-toolbar.tsx` — `BoardToolbar`: `toolbar` vertical "Ferramentas do tabuleiro" à esquerda: Selecionar (V), Régua (R), Desenhar (B, abre o painel de estilo; ver [`drawings.md`](drawings.md)), Grid (G, só local), Aproximar (+), o zoom em % (`pt-BR`), Afastar (−), Enquadrar cena (0), o grupo "Camada" (`role="group"`, só com `canChooseLayer`: Tokens (1), Objetos (2), Fundo (3), `aria-pressed` na ativa) e, para o mestre, "Novo token" e "Configurar grid". Ferramenta ativa = `aria-pressed` + ícone dourado; sem renderer, os botões de câmera ficam desabilitados.
 - `configure-grid-dialog.tsx` — `ConfigureGridDialog` (montado só aberto): largura e altura em casas, distância de uma casa ("1,5"), unidade, opacidade (%) e "Grid visível". Os números são campos de texto (`inputMode`, **nunca** `type="number"`: sem setas) filtrados ao digitar (`digitsOnly`; a distância pelo `decimalText`, uma vírgula ou ponto); "Unidade" é um `select` com cm, m e km (`unitOptionsOf(atual)` mantém uma unidade antiga, como ft, como opção a mais; o DTO continua aceitando texto de 1 a 8). Valida pelo `sceneGridDto` do contracts (`grid-form.ts`: `gridFormOf(cena)`, `parseGridForm(form)` com a mensagem por campo, `aria-invalid` + `aria-describedby`); "Salvando…" com `aria-busy`; ok fecha; recusa em `Alert` (`boardCommandFailureMessage`). Sem conexão (`presence.status !== 'live'`): "Salvar" desabilitado e "Sem conexão. Aguarde reconectar." (não há fila).
 - `board-status-line.tsx` — `BoardStatusLine`: `role="status"` "Status do tabuleiro", `aria-live="polite"`: a conexão enquanto não está pronta (`connectionStatusLine`: "Conectando à mesa…", "Reconectando…", "Carregando o tabuleiro…") e depois o aviso da store de interação (dica da ferramenta, motivo de recusa).
 - `focus-toggle.tsx` — "Modo foco" (`aria-pressed`), sempre visível. `use-room-shortcuts.ts` — atalhos na `window` pelo `shortcutFor`: F (foco), Esc (sai do foco e limpa a régua), V, R, G, e 1 / 2 / 3 (camada ativa; o jogador fica em Tokens porque `setActiveLayer` não faz nada sem `canChooseLayer`).
@@ -29,7 +29,7 @@ A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o r
 ## Estado (`src/stores/`)
 
 - `board-store.ts` — `createBoardStore(campaignId, requestResync)`, **uma por mesa aberta** (criada pela `open-tables-store` ao lado da presença; o `useOpenTable` devolve `{ kind: 'open', presence, board }`). `{ status: loading | ready | failed, failure, board, held, resyncAsked }`. Snapshot sempre substitui e reaplica os eventos guardados acima dele; evento com `version = atual + 1` aplica (`board-reducer.ts`), `≤ atual` é duplicado, salto guarda o evento e pede **um** resync até o próximo snapshot; evento antes do primeiro snapshot espera; de outra mesa é ignorado. Falha de resync mantém o tabuleiro; `retry()` volta a `loading` e pede o sync.
-- `board-interaction-store.ts` — `createBoardInteractionStore()`, uma por visita: `tool` (`select` | `ruler`), `localGridVisible`, `ruler` (de onde apertou até onde está; fica depois de soltar), `notice`, `zoom`; `pointer(intent)`, `setTool`, `toggleLocalGrid`, `escape`, `say(aviso)`. Nada daqui vai ao server.
+- `board-interaction-store.ts` — `createBoardInteractionStore()`, uma por visita: `tool` (`select` | `ruler` | `draw`), `localGridVisible`, `ruler` (de onde apertou até onde está; fica depois de soltar), `notice`, `zoom`; `pointer(intent)`, `setTool`, `toggleLocalGrid`, `escape`, `say(aviso)`. Nada daqui vai ao server.
   - Seleção: `selectedTokenIds` (a lista) e `selectedTokenId` (derivado: o id quando há exatamente um, senão `null` — o que o cartão e as teclas usam); `select(id | null)`, `toggleSelection(id)` (Shift: soma ou tira), `selectMany(ids, { additive })` (o retângulo: substitui ou soma sem repetir). Esc e clicar no vazio esvaziam.
   - Camada ativa: `activeLayer` (`tokens` de início) e `canChooseLayer` (`allowLayerChoice(true)` para o mestre; `false` volta a `tokens`); `setActiveLayer(camada)` só com a escolha liberada, e limpa a seleção e a régua; `setTokensLayer(ids, camada)` manda o `token:setLayer` (recusa → aviso; `readOnly` → nada).
 - `room-layout-store.ts` — `createRoomLayoutStore(storage)` no `AppDependencies` (`roomLayout`): `panel` (`open`/`closed`, gravado em `lorkarium.roomPanel`), `tab` (`combat`/`people`, `isRoomTab`) e `focus` (não gravados). `showTab` abre o painel.
@@ -45,7 +45,7 @@ A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o r
 | ----------------- | ------------------- | --------------------------------------------- |
 | F                 | sala                | liga/desliga o modo foco                      |
 | Esc               | sala / arrastando   | sai do foco, limpa a régua, cancela o arraste |
-| V / R / G         | sala                | Selecionar / Régua / grid local               |
+| V / R / B / G     | sala                | Selecionar / Régua / Desenhar / grid local    |
 | 1 / 2 / 3         | sala (mestre)       | camada ativa: Tokens / Objetos / Fundo        |
 | + = / − / 0       | tabuleiro focado    | aproxima / afasta / enquadra                  |
 | W A S D           | tabuleiro focado    | move a câmera                                 |
@@ -53,9 +53,13 @@ A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o r
 | Botão direito     | arrastado no canvas | move a câmera                                 |
 | Botão direito     | clique sobre token  | "Aplicar condição…" e camada (só o mestre)    |
 | Arrastar no vazio | Selecionar          | retângulo de seleção (Shift soma)             |
-| Shift+clique      | token               | soma/tira da seleção                          |
+| Shift+clique      | token ou desenho    | soma/tira da seleção                          |
+| Delete / ⌫        | tabuleiro focado    | apaga os desenhos selecionados                |
+| Ctrl/⌘ + C / V    | sala                | copia a seleção / cola sob o cursor           |
+| Ctrl/⌘ + Z        | sala                | desfaz a última ação sua                      |
+| Ctrl/⌘ + Y, ⇧Z    | sala                | refaz                                         |
 
-Ignorados em `input`, `textarea`, `select`, `contenteditable`, dentro de diálogo/menu e com Ctrl/⌘/Alt (`src/lib/board-shortcuts.ts`).
+Ignorados em `input`, `textarea`, `select`, `contenteditable`, dentro de diálogo/menu e com Ctrl/⌘/Alt (`src/lib/board-shortcuts.ts`). Os de edição (`editShortcutFor`) exigem Ctrl/⌘, sem Alt, com as mesmas exceções de alvo.
 
 ## Testes
 

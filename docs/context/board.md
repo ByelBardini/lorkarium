@@ -20,14 +20,15 @@ O tabuleiro da mesa: a cena (só o grid por enquanto), e depois os tokens e o co
 
 ## Módulo `board` (`server/src/modules/board/`) e contrato
 
-- `BoardService.snapshotFor(userId, campaignId)`: participação → cena ativa → tokens da cena, cada um redigido para quem pede (`TokenAccessBo.audience()`) com as condições ativas → o combate da cena (`toCombatDto`) e a lista de condições da mesa → `toBoardStateDto` (`board.mapper.ts`; versão = a da cena).
+- `BoardService.snapshotFor(userId, campaignId)`: participação → cena ativa → tokens da cena, cada um redigido para quem pede (`TokenAccessBo.audience()`) com as condições ativas → os desenhos da cena (inteiros, ver [`drawings.md`](drawings.md)) → o combate da cena (`toCombatDto`) e a lista de condições da mesa → `toBoardStateDto` (`board.mapper.ts`; versão = a da cena).
 - `board.gateway.ts` (`createBoardGateway`): cada comando passa por `onCommand(schema, handler)` — valida o DTO (estrito: `userId` forjado → `INVALID_BODY`), relê a sessão (`reauthenticate`; encerrada → `UNAUTHENTICATED` e a conexão cai), exige a mesa em `socket.data.campaignIds` (senão `CAMPAIGN_NOT_FOUND`) e responde no ack pelo `answerAck` de `src/realtime/realtime-ack.ts`.
-- `board.plugin.ts` (`createBoardModule({ db, scenes, tokens, conditions, combat, clock, realtime, log })` → `{ gateway }`), ligado no `wireRealtime`. **Um gateway para o tabuleiro todo** (cena, tokens, condições e combate): cada módulo entrega o seu service e o gateway liga o comando (`bind(schema, handler)` / `mutate(schema, service.método)`), em vez de um gateway por módulo que repetiria a borda.
+- `board.plugin.ts` (`createBoardModule({ db, scenes, tokens, conditions, combat, drawings, clock, realtime, log })` → `{ gateway }`), ligado no `wireRealtime`. **Um gateway para o tabuleiro todo** (cena, tokens, desenhos, condições e combate): cada módulo entrega o seu service e o gateway liga o comando (`bind(schema, handler)` / `mutate(schema, service.método)`), em vez de um gateway por módulo que repetiria a borda.
 
-| Comando           | Quem   | Ack                                             | Evento                                                      |
-| ----------------- | ------ | ----------------------------------------------- | ----------------------------------------------------------- |
-| `board:sync`      | membro | `{ ok: true, state }` (redigido para quem pede) | —                                                           |
-| `scene:configure` | mestre | `{ ok: true, version }`                         | `scene:updated` `{ campaignId, version, at, scene }` à mesa |
+| Comando           | Quem   | Ack                                             | Evento                                                                            |
+| ----------------- | ------ | ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| `board:sync`      | membro | `{ ok: true, state }` (redigido para quem pede) | —                                                                                 |
+| `scene:configure` | mestre | `{ ok: true, version }`                         | `scene:updated` `{ campaignId, version, at, scene }` à mesa                       |
+| `drawing:*Many`   | membro | `{ ok: true, version }`                         | `drawing:createdMany/movedMany/deletedMany` à mesa ([`drawings.md`](drawings.md)) |
 
 ## Limite de frequência (§8.4)
 
@@ -39,7 +40,8 @@ O tabuleiro da mesa: a cena (só o grid por enquanto), e depois os tokens e o co
 
 ## Versão
 
-- Um contador por cena (`scenes.version`), persistido: sobrevive ao reinício do server (critério 13). Toda mutação do tabuleiro roda numa transação que trava a cena (`lockActiveOf`), aplica, soma 1 (`bumpVersion`) e só publica depois do commit (§5.5).
+- Um contador por cena (`scenes.version`), persistido: sobrevive ao reinício do server (critério 13). Toda mutação do tabuleiro roda numa transação que trava a cena (`lockActiveOf`), aplica, soma 1 (`bumpVersion`) e só publica depois do commit (§5.5). O molde comum é o `inLockedScene(transaction, campaignId, work)` de `scenes/locked-scene.ts` (com `activeSceneOf`), usado por desenhos e tokens.
+- **Precondição do desfazer.** Mover e apagar (token e desenho) aceitam `expect`; o service confere dentro da transação que trava a cena e recusa com `STALE_UNDO` (`StaleUndoError`, `board.error.ts`) se o elemento não está mais onde o desfazer espera.
 
 ## Testes
 
