@@ -1,11 +1,12 @@
 import type { TokenRow } from '../../src/modules/tokens/tokens.dao';
 import type { TokenBarPo, TokenPo } from '../../src/modules/tokens/tokens.po';
-import { BIA_ID } from './campaigns-factories';
+import { BIA_ID, CAIO_ID } from './campaigns-factories';
 import { VHARN_SCENE_ID } from './scenes-factories';
 
 export const LYRA_ID = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
 export const LYRA_PV_ID = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 export const LYRA_INSPIRATION_ID = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e';
+export const BRAM_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
 
 const CREATED = new Date('2026-10-15T12:00:00Z');
 
@@ -20,6 +21,7 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     size: 1,
     col: 3,
     row: 4,
+    layer: 'tokens',
     createdAt: CREATED,
     updatedAt: CREATED,
     ...overrides,
@@ -63,6 +65,18 @@ export function lyraRow(overrides: Partial<TokenRow> = {}): TokenRow {
     token: lyraPo(),
     bars: [pvBar(), inspirationBar()],
     controllerIds: [BIA_ID],
+    ...overrides,
+  };
+}
+
+/** Bram, Caio's ally on the VHARN scene at (6, 4), with no bars.
+ *
+ *  Example: `new TokensDaoFake(journal, [lyraRow(), bramRow()])` */
+export function bramRow(overrides: Partial<TokenRow> = {}): TokenRow {
+  return {
+    token: lyraPo({ id: BRAM_ID, name: 'Bram', initials: 'BR', col: 6, row: 4 }),
+    bars: [],
+    controllerIds: [CAIO_ID],
     ...overrides,
   };
 }

@@ -35,4 +35,31 @@ describe('TokenAccessBo', () => {
     expect(accessOf(BIA_ID, 'player').audience()).toBe('privileged');
     expect(accessOf(CAIO_ID, 'player').audience()).toBe('others');
   });
+
+  describe('requireMove', () => {
+    it('Bia moves her token on the tokens layer', () => {
+      expect(() => accessOf(BIA_ID, 'player').requireMove('move', 'tokens')).not.toThrow();
+    });
+
+    it('Bia moving her token on the objects layer is FORBIDDEN citing her, the move, the token and the layer', () => {
+      expect(() => accessOf(BIA_ID, 'player').requireMove('drag', 'objects')).toThrow(
+        expect.objectContaining({
+          code: 'FORBIDDEN',
+          message: expect.stringMatching(
+            new RegExp(`${BIA_ID}.*drag token ${LYRA_ID} on the objects layer`),
+          ),
+        }),
+      );
+    });
+
+    it('the master moves a token on the background layer', () => {
+      expect(() => accessOf(ANA_ID, 'master').requireMove('move', 'background')).not.toThrow();
+    });
+
+    it('Caio moving Bia’s token on the tokens layer is still FORBIDDEN', () => {
+      expect(() => accessOf(CAIO_ID, 'player').requireMove('move', 'tokens')).toThrow(
+        expect.objectContaining({ code: 'FORBIDDEN' }),
+      );
+    });
+  });
 });

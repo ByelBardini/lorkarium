@@ -4,14 +4,17 @@ import type {
   CombatTurnChangedDto,
   CombatUpdatedDto,
   ConditionAppliedDto,
+  ConditionsAppliedDto,
   ConditionDefinedDto,
   ConditionRemovedDto,
   SceneUpdatedDto,
   TokenCreatedDto,
   TokenDeletedDto,
-  TokenDraggedDto,
+  TokenLayerChangedDto,
   TokenMovedDto,
   TokenUpdatedDto,
+  TokensDraggedDto,
+  TokensMovedDto,
 } from '@lorkarium/contracts';
 
 /** A token event in its two versions: whole for the masters and the token's controllers,
@@ -29,11 +32,15 @@ export interface BoardPublisherPort {
   sceneUpdated(event: SceneUpdatedDto): void;
   tokenChanged(change: TokenChange): void;
   tokenMoved(event: TokenMovedDto): void;
-  /** A drag preview: nothing was saved. `exceptConnectionId` is the dragger, who draws it locally. */
-  tokenDragged(event: TokenDraggedDto, exceptConnectionId: string): void;
+  tokensMoved(event: TokensMovedDto): void;
+  /** A drag preview (one token is a group of one): nothing was saved. `exceptConnectionId` is
+   *  the dragger, who draws it locally. */
+  tokensDragged(event: TokensDraggedDto, exceptConnectionId: string): void;
   tokenDeleted(event: TokenDeletedDto): void;
+  tokenLayerChanged(event: TokenLayerChangedDto): void;
   conditionDefined(event: ConditionDefinedDto): void;
   conditionApplied(event: ConditionAppliedDto): void;
+  conditionsApplied(event: ConditionsAppliedDto): void;
   conditionRemoved(event: ConditionRemovedDto): void;
   combatStarted(event: CombatStartedDto): void;
   combatUpdated(event: CombatUpdatedDto): void;

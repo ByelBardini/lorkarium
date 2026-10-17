@@ -46,6 +46,8 @@ export const activeConditions = pgTable(
       .notNull()
       .references(() => conditionDefinitions.id, { onDelete: 'cascade' }),
     remainingRounds: integer('remaining_rounds'),
+    // The combat round it was applied in (null out of combat): that round's turn end skips it.
+    appliedRound: integer('applied_round'),
     appliedAt: timestamp('applied_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

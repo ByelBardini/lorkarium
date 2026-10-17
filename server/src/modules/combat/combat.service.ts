@@ -142,7 +142,8 @@ export class CombatService {
       const turn = bo.nextTurn(command.fromCombatantId);
       await saveTurn(daos, row, turn);
       const ended = row?.combatants.find(({ id }) => id === turn.endedTurnOf);
-      const conditionChanges = ended ? [await tickConditions(daos, ended.tokenId)] : [];
+      const round = row?.combat.round ?? turn.round;
+      const conditionChanges = ended ? [await tickConditions(daos, ended.tokenId, round)] : [];
       return { combat: await combatOf(daos, scene), conditionChanges };
     });
     this.publishTurn(campaignId, saved);
@@ -238,10 +239,14 @@ async function combatOf(daos: CombatWriteDaos, scene: ScenePo): Promise<CombatDt
   return toCombatDto(row);
 }
 
-// The end of `tokenId`'s turn: its conditions count down, and the ones at their last round go.
-async function tickConditions(daos: CombatWriteDaos, tokenId: string): Promise<ConditionChangeDto> {
+// The end of `tokenId`'s turn in `round`: its conditions count down, the ones at their last round go.
+async function tickConditions(
+  daos: CombatWriteDaos,
+  tokenId: string,
+  round: number,
+): Promise<ConditionChangeDto> {
   const active = await daos.conditions.listOfTokens([tokenId]);
-  const { kept, expired } = tickAtTurnEnd(active);
+  const { kept, expired } = tickAtTurnEnd(active, round);
   for (const condition of kept) {
     if (condition.remainingRounds !== null)
       await daos.conditions.setRemaining(condition.id, condition.remainingRounds);

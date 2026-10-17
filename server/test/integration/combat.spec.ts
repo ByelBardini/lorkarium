@@ -128,7 +128,7 @@ describe('combat over Socket.IO', () => {
     );
   });
 
-  it('"next" on the last combatant becomes round 2, and the Ogro’s "Envenenado 1" expires in the same event', async () => {
+  it('"Envenenado 1" put on the Ogro in round 1 lasts a whole round: it goes at the end of his turn in round 2, in that same event', async () => {
     const combat = await startCombat();
     const envenenado = (await synced(master.client, vharn)).conditionDefinitions.find(
       (d) => d.name === 'Envenenado',
@@ -141,18 +141,32 @@ describe('combat over Socket.IO', () => {
     });
     const next = (from: string) =>
       send(master.client, 'combat:nextTurn', { ...envelope(vharn.id), fromCombatantId: from });
-    await next(combatantOf(combat, tokenIds.kael));
-    await next(combatantOf(combat, tokenIds.lyra));
-    const before = master.events.length;
-    const ack = await next(combatantOf(combat, tokenIds.ogro));
-    const turn = combatTurnChangedDto.parse(
-      await eventPayload({ ...master, events: master.events.slice(before) }, 'combat:turnChanged'),
-    );
-    expect(turn).toMatchObject({
+    const turnOf = async (tokenId: string) => {
+      const before = master.events.length;
+      const ack = await next(combatantOf(combat, tokenId));
+      const events = { ...master, events: master.events.slice(before) };
+      return {
+        ack,
+        turn: combatTurnChangedDto.parse(await eventPayload(events, 'combat:turnChanged')),
+      };
+    };
+    await turnOf(tokenIds.kael);
+    await turnOf(tokenIds.lyra);
+    const endOfRound1 = await turnOf(tokenIds.ogro);
+    expect(endOfRound1.turn).toMatchObject({
       combat: { round: 2 },
+      conditionChanges: [
+        { tokenId: tokenIds.ogro, conditions: [expect.objectContaining({ remainingRounds: 1 })] },
+      ],
+    });
+    await turnOf(tokenIds.kael);
+    await turnOf(tokenIds.lyra);
+    const endOfRound2 = await turnOf(tokenIds.ogro);
+    expect(endOfRound2.turn).toMatchObject({
+      combat: { round: 3 },
       conditionChanges: [{ tokenId: tokenIds.ogro, conditions: [] }],
     });
-    expect(ack).toEqual({ ok: true, version: turn.version });
+    expect(endOfRound2.ack).toEqual({ ok: true, version: endOfRound2.turn.version });
   });
 
   it('Bia passes the turn of her Kael', async () => {

@@ -1,5 +1,6 @@
 import type {
   ActiveConditionRow,
+  ConditionDuration,
   ConditionsDao,
 } from '../../src/modules/conditions/conditions.dao';
 import type {
@@ -7,6 +8,7 @@ import type {
   NewConditionDefinition,
 } from '../../src/modules/conditions/conditions.po';
 import type { ConditionTransactionRunner } from '../../src/modules/conditions/conditions.service';
+import { CombatDaoFake } from './combat-fakes';
 import type { ScenesDaoFake } from './scenes-fakes';
 import type { TokensDaoFake } from './tokens-fakes';
 
@@ -72,7 +74,7 @@ export class ConditionsDaoFake implements Pick<
   async apply(
     tokenId: string,
     conditionId: string,
-    remainingRounds: number | null,
+    duration: ConditionDuration,
   ): Promise<ActiveConditionRow> {
     this.journal.push('save');
     const definition = this.definitions.find((d) => d.id === conditionId);
@@ -86,7 +88,7 @@ export class ConditionsDaoFake implements Pick<
       conditionId,
       name: definition.name,
       tone: definition.tone,
-      remainingRounds,
+      ...duration,
     };
     this.active = [...kept, row];
     return row;
@@ -122,6 +124,8 @@ export class ConditionTransactionRunnerFake {
     private readonly scenes: ScenesDaoFake,
     private readonly tokens: TokensDaoFake,
     private readonly conditions: ConditionsDaoFake,
+    /** The scene's combat, if any: its round stamps the conditions applied. */
+    private readonly combat: CombatDaoFake = new CombatDaoFake(),
   ) {}
 
   readonly run: ConditionTransactionRunner = async (work) => {
@@ -129,6 +133,7 @@ export class ConditionTransactionRunnerFake {
       scenes: this.scenes,
       tokens: this.tokens,
       conditions: this.conditions,
+      combat: this.combat,
     });
     this.scenes.journal.push('commit');
     return result;

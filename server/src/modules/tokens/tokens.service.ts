@@ -3,8 +3,10 @@ import type {
   AdjustBarCommandDto,
   CreateTokenCommandDto,
   DeleteTokenCommandDto,
-  DragTokenCommandDto,
+  DragTokensCommandDto,
   MoveTokenCommandDto,
+  MoveTokensCommandDto,
+  SetTokenLayerCommandDto,
   UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
@@ -29,16 +31,27 @@ type Envelope = 'actionId' | 'campaignId';
 export type CreateToken = Omit<CreateTokenCommandDto, Envelope>;
 export type UpdateToken = Omit<UpdateTokenCommandDto, Envelope>;
 export type MoveToken = Omit<MoveTokenCommandDto, Envelope>;
-export type DragToken = Omit<DragTokenCommandDto, Envelope>;
 export type AdjustBar = Omit<AdjustBarCommandDto, Envelope>;
 export type DeleteToken = Omit<DeleteTokenCommandDto, Envelope>;
+export type SetTokenLayer = Omit<SetTokenLayerCommandDto, Envelope>;
+export type MoveTokens = Omit<MoveTokensCommandDto, Envelope>;
+export type DragTokens = Omit<DragTokensCommandDto, Envelope>;
+type GroupCell = Readonly<{ tokenId: string; cell: Readonly<{ col: number; row: number }> | null }>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type TokenWriteDaos = Readonly<{
   scenes: Pick<ScenesDao, 'findActiveOf' | 'lockActiveOf' | 'bumpVersion'>;
   tokens: Pick<
     TokensDao,
-    'insert' | 'findInScene' | 'move' | 'setBarCurrent' | 'update' | 'delete'
+    | 'insert'
+    | 'findInScene'
+    | 'findManyInScene'
+    | 'move'
+    | 'moveMany'
+    | 'setLayer'
+    | 'setBarCurrent'
+    | 'update'
+    | 'delete'
   >;
   conditions: Pick<ConditionsDao, 'listOfTokens'>;
   combat: Pick<CombatDao, 'findOfScene' | 'setTurn'>;
@@ -72,7 +85,13 @@ export class TokensService {
     const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
       const rules = this.rulesFor(scene, memberIds);
       const { col, row } = rules.place(command, command.size);
-      const token = { sceneId: scene.id, ...tokenFieldsOf(command), col, row };
+      const token = {
+        sceneId: scene.id,
+        ...tokenFieldsOf(command),
+        col,
+        row,
+        layer: command.layer,
+      };
       const controllerIds = rules.controllers(command.controllerIds);
       const bars = toBarInputsPo(command.bars);
       return withConditions(daos, await daos.tokens.insert({ token, bars, controllerIds }));
@@ -101,7 +120,7 @@ export class TokensService {
     const access = await this.accessOf(userId, campaignId);
     const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
-      tokenAccessOf(access, found).requireControl('move');
+      tokenAccessOf(access, found).requireMove('move', found.token.layer);
       const { col, row } = this.rulesFor(scene, []).place(command, found.token.size);
       await daos.tokens.move(found.token.id, col, row);
       return { col, row };
@@ -119,27 +138,64 @@ export class TokensService {
     return saved.version;
   }
 
-  /** A drag preview: checked like a move (control, scene edge) but neither saved nor versioned,
-   *  and published to the table except the dragger's connection. Returns the version as it stands.
+  /** Moves 1 to 64 tokens at once, all or nothing, in one version; each must be movable by
+   *  the requester (control and layer) and fit the scene.
    *
-   *  Example: `await tokensService.drag(user.id, campaignId, { tokenId, cell }, socket.id)` */
-  async drag(
+   *  Example: `await tokensService.moveMany(user.id, campaignId, { moves: [{ tokenId, col, row }] })` */
+  async moveMany(userId: string, campaignId: string, command: MoveTokens): Promise<number> {
+    const access = await this.accessOf(userId, campaignId);
+    const cells = command.moves.map(({ tokenId, col, row }) => ({ tokenId, cell: { col, row } }));
+    const saved = await this.inScene(campaignId, async (locked) => {
+      await this.placeGroup(locked, access, cells, 'move');
+      await locked.daos.tokens.moveMany(command.moves);
+    });
+    const at = this.now();
+    const moves = command.moves.map(({ tokenId, col, row }) => ({ tokenId, col, row }));
+    this.deps.publisher.tokensMoved({ campaignId, version: saved.version, at, moves });
+    return saved.version;
+  }
+
+  /** The drag preview of a group, checked like `moveMany` but neither saved nor versioned, and
+   *  published to the table except the dragger's connection.
+   *
+   *  Example: `await tokensService.dragMany(user.id, campaignId, { drags }, socket.id)` */
+  async dragMany(
     userId: string,
     campaignId: string,
-    command: DragToken,
+    command: DragTokens,
     connectionId: string,
   ): Promise<number> {
     const access = await this.accessOf(userId, campaignId);
     const version = await this.deps.transaction(async (daos) => {
       const scene = activeScene(campaignId, await daos.scenes.findActiveOf(campaignId));
-      const found = await tokenIn(daos, scene, campaignId, command.tokenId);
-      tokenAccessOf(access, found).requireControl('drag');
-      if (command.cell) this.rulesFor(scene, []).place(command.cell, found.token.size);
+      await this.placeGroup({ daos, scene }, access, command.drags, 'drag');
       return scene.version;
     });
-    const { tokenId, cell } = command;
-    this.deps.publisher.tokenDragged({ campaignId, at: this.now(), tokenId, cell }, connectionId);
+    const drags = command.drags.map(({ tokenId, cell }) => ({ tokenId, cell }));
+    this.deps.publisher.tokensDragged({ campaignId, at: this.now(), drags }, connectionId);
     return version;
+  }
+
+  /** Moves 1 to 64 tokens of the active scene to one layer, all or nothing, in one version.
+   *
+   *  Example: `await tokensService.setLayer(user.id, campaignId, { tokenIds, layer: 'objects' })` */
+  async setLayer(userId: string, campaignId: string, command: SetTokenLayer): Promise<number> {
+    const access = await this.accessOf(userId, campaignId);
+    access.requireMaster('change the layer of tokens');
+    const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
+      await tokensIn(daos, scene, campaignId, command.tokenIds);
+      await daos.tokens.setLayer(command.tokenIds, command.layer);
+    });
+    const { tokenIds, layer } = command;
+    const at = this.now();
+    this.deps.publisher.tokenLayerChanged({
+      campaignId,
+      version: saved.version,
+      at,
+      tokenIds: [...tokenIds],
+      layer,
+    });
+    return saved.version;
   }
 
   async adjustBar(userId: string, campaignId: string, command: AdjustBar): Promise<number> {
@@ -198,6 +254,23 @@ export class TokensService {
       const scene = activeScene(campaignId, await daos.scenes.lockActiveOf(campaignId));
       const value = await work({ daos, scene });
       return { value, version: await daos.scenes.bumpVersion(scene.id) };
+    });
+  }
+
+  // Every token found, movable by the requester and fitting where it goes, before any write.
+  private async placeGroup(
+    { daos, scene }: Locked,
+    access: CampaignAccessBo,
+    cells: readonly GroupCell[],
+    action: 'move' | 'drag',
+  ): Promise<void> {
+    const tokenIds = cells.map(({ tokenId }) => tokenId);
+    const rows = await tokensIn(daos, scene, access.campaignIdOf(), tokenIds);
+    const rules = this.rulesFor(scene, []);
+    rows.forEach((row, index) => {
+      tokenAccessOf(access, row).requireMove(action, row.token.layer);
+      const cell = cells[index]?.cell;
+      if (cell) rules.place(cell, row.token.size);
     });
   }
 
@@ -264,6 +337,22 @@ async function tokenIn(
   const found = await daos.tokens.findInScene(scene.id, tokenId);
   if (!found) throw new TokenNotFoundError(campaignId, tokenId);
   return found;
+}
+
+// Every id must be on the scene: the first one missing (another table's too) refuses them all.
+async function tokensIn(
+  daos: TokenWriteDaos,
+  scene: ScenePo,
+  campaignId: string,
+  tokenIds: readonly string[],
+): Promise<TokenRow[]> {
+  const found = await daos.tokens.findManyInScene(scene.id, tokenIds);
+  const byId = new Map(found.map((row) => [row.token.id, row]));
+  return tokenIds.map((tokenId) => {
+    const row = byId.get(tokenId);
+    if (!row) throw new TokenNotFoundError(campaignId, tokenId);
+    return row;
+  });
 }
 
 function tokenAccessOf(access: CampaignAccessBo, row: TokenRow): TokenAccessBo {

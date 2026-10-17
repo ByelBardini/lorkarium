@@ -1,0 +1,1 @@
+ALTER TABLE "active_conditions" ADD COLUMN "applied_round" integer;

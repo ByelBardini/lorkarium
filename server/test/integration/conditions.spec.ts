@@ -1,4 +1,9 @@
-import { conditionAppliedDto, tokenCreatedDto, type BoardStateDto } from '@lorkarium/contracts';
+import {
+  conditionAppliedDto,
+  conditionsAppliedDto,
+  tokenCreatedDto,
+  type BoardStateDto,
+} from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
@@ -47,16 +52,25 @@ describe('conditions over Socket.IO', () => {
   });
 
   async function lyraOfBia(master: RealtimeClient): Promise<string> {
+    return placedToken(master, 'Lyra', bia.id, 1);
+  }
+
+  async function placedToken(
+    master: RealtimeClient,
+    name: string,
+    controllerId: string,
+    col: number,
+  ): Promise<string> {
     const recorder = recordEventsOf(master);
     await send(master, 'token:create', {
       ...envelope(vharn.id),
-      name: 'Lyra',
-      initials: 'LY',
+      name,
+      initials: name.slice(0, 2).toUpperCase(),
       side: 'ally',
       size: 1,
-      col: 1,
+      col,
       row: 1,
-      controllerIds: [bia.id],
+      controllerIds: [controllerId],
       bars: [],
     });
     return tokenCreatedDto.parse(await eventPayload(recorder, 'token:created')).token.id;
@@ -147,5 +161,39 @@ describe('conditions over Socket.IO', () => {
     await silence();
     expect(biaEvents.events.map(({ name }) => name)).not.toContain('condition:defined');
     expect((await synced(master, vharn)).conditionDefinitions).toHaveLength(11);
+  });
+
+  it('the master applying "Caído" to two tokens at once reaches everyone in one event', async () => {
+    const master = await atTable(baseUrl, clients, ana, vharn);
+    const lyraId = await lyraOfBia(master);
+    const bramId = await placedToken(master, 'Bram', caio.id, 3);
+    const biaEvents = recordEventsOf(await atTable(baseUrl, clients, bia, vharn));
+    const caido = definitionId(await synced(master, vharn), 'Caído');
+    const applyMany = { ...envelope(vharn.id), tokenIds: [lyraId, bramId], conditionId: caido };
+    expect(await send(master, 'condition:applyMany', { ...applyMany, rounds: 0 })).toMatchObject({
+      ok: true,
+    });
+    const event = conditionsAppliedDto.parse(
+      await eventPayload(biaEvents, 'condition:appliedMany'),
+    );
+    expect(event.applied.map(({ tokenId }) => tokenId)).toEqual([lyraId, bramId]);
+    const state = await synced(biaEvents.client, vharn);
+    expect(state.version).toBe(event.version);
+    expect(state.tokens.every(({ conditions }) => conditions[0]?.name === 'Caído')).toBe(true);
+  });
+
+  it('Bia applying to her Lyra and Caio’s Bram at once is FORBIDDEN and touches neither', async () => {
+    const master = await atTable(baseUrl, clients, ana, vharn);
+    const lyraId = await lyraOfBia(master);
+    const bramId = await placedToken(master, 'Bram', caio.id, 3);
+    const biaClient = await atTable(baseUrl, clients, bia, vharn);
+    const cego = definitionId(await synced(biaClient, vharn), 'Cego');
+    const applyMany = { ...envelope(vharn.id), tokenIds: [lyraId, bramId], conditionId: cego };
+    expect(await send(biaClient, 'condition:applyMany', { ...applyMany, rounds: 1 })).toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: 'FORBIDDEN' }),
+    });
+    const state = await synced(biaClient, vharn);
+    expect(state.tokens.flatMap(({ conditions }) => conditions)).toEqual([]);
   });
 });

@@ -10,17 +10,19 @@ import {
   VHARN_ID,
   campaignMemberPo,
 } from '../../support/campaigns-factories';
+import { CombatDaoFake } from '../../support/combat-fakes';
 import { ConditionTransactionRunnerFake, ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
-import { LYRA_ID, lyraRow } from '../../support/tokens-factories';
+import { BRAM_ID, LYRA_ID, bramRow, lyraRow } from '../../support/tokens-factories';
 
 const NOW = new Date('2026-10-15T21:00:00Z');
 
 describe('ConditionsService', () => {
   let scenes: ScenesDaoFake;
   let conditions: ConditionsDaoFake;
+  let combat: CombatDaoFake;
   let publisher: BoardPublisherFake;
   let service: ConditionsService;
   let abencoado: string;
@@ -34,12 +36,13 @@ describe('ConditionsService', () => {
     ]);
     scenes = new ScenesDaoFake([scenePo({ version: 4 })]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
-    const tokens = new TokensDaoFake(scenes.journal, [lyraRow()]);
+    const tokens = new TokensDaoFake(scenes.journal, [lyraRow(), bramRow()]);
     conditions = new ConditionsDaoFake(scenes.journal);
     abencoado = conditions.define(VHARN_ID, 'Abençoado', 'benefit');
     conditions.define(QUELM_ID, 'Sangrando', 'harm');
     publisher = new BoardPublisherFake(scenes.journal);
-    const transaction = new ConditionTransactionRunnerFake(scenes, tokens, conditions);
+    combat = new CombatDaoFake();
+    const transaction = new ConditionTransactionRunnerFake(scenes, tokens, conditions, combat);
     service = new ConditionsService({
       members,
       transaction: transaction.run,
@@ -69,6 +72,23 @@ describe('ConditionsService', () => {
         }),
       },
     ]);
+  });
+
+  it('out of combat the condition is stamped with no round', async () => {
+    await service.apply(ANA_ID, VHARN_ID, { tokenId: LYRA_ID, conditionId: abencoado, rounds: 1 });
+    expect(conditions.active[0]?.appliedRound).toBeNull();
+  });
+
+  it('in round 3 of a combat the condition is stamped with round 3, one by one or in a group', async () => {
+    await combat.start(VHARN_SCENE_ID, [LYRA_ID, BRAM_ID]);
+    await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 3, null);
+    await service.apply(ANA_ID, VHARN_ID, { tokenId: LYRA_ID, conditionId: abencoado, rounds: 1 });
+    await service.applyMany(ANA_ID, VHARN_ID, {
+      tokenIds: [LYRA_ID, BRAM_ID],
+      conditionId: abencoado,
+      rounds: 2,
+    });
+    expect(conditions.active.map(({ appliedRound }) => appliedRound)).toEqual([3, 3]);
   });
 
   it('0 rounds applies a condition without limit', async () => {
@@ -136,5 +156,62 @@ describe('ConditionsService', () => {
     await expect(
       service.remove(ANA_ID, VHARN_ID, { tokenId: LYRA_ID, activeConditionId: 'nope' }),
     ).rejects.toMatchObject({ code: 'CONDITION_NOT_FOUND' });
+  });
+
+  describe('applyMany', () => {
+    it('the master applying "Abençoado" to Lyra and Bram saves both in one version and one event', async () => {
+      const version = await service.applyMany(ANA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID, BRAM_ID],
+        conditionId: abencoado,
+        rounds: 3,
+      });
+      expect(version).toBe(5);
+      expect(scenes.journal).toEqual(['lock', 'save', 'save', 'bump', 'commit', 'publish']);
+      expect(publisher.conditionsApplies).toEqual([
+        {
+          campaignId: VHARN_ID,
+          version: 5,
+          at: NOW.toISOString(),
+          applied: [
+            { tokenId: LYRA_ID, condition: expect.objectContaining({ remainingRounds: 3 }) },
+            { tokenId: BRAM_ID, condition: expect.objectContaining({ name: 'Abençoado' }) },
+          ],
+        },
+      ]);
+    });
+
+    it('Bia including Caio’s Bram refuses the whole group: FORBIDDEN and nothing saved', async () => {
+      await expect(
+        service.applyMany(BIA_ID, VHARN_ID, {
+          tokenIds: [LYRA_ID, BRAM_ID],
+          conditionId: abencoado,
+          rounds: 1,
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(conditions.active).toEqual([]);
+      expect(publisher.published).toBe(0);
+    });
+
+    it('a token outside the scene refuses the group as TOKEN_NOT_FOUND', async () => {
+      const ghost = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+      await expect(
+        service.applyMany(ANA_ID, VHARN_ID, {
+          tokenIds: [LYRA_ID, ghost],
+          conditionId: abencoado,
+          rounds: 1,
+        }),
+      ).rejects.toMatchObject({ code: 'TOKEN_NOT_FOUND' });
+      expect(conditions.active).toEqual([]);
+    });
+
+    it('a condition of another table is CONDITION_NOT_FOUND', async () => {
+      await expect(
+        service.applyMany(ANA_ID, VHARN_ID, {
+          tokenIds: [LYRA_ID],
+          conditionId: `${QUELM_ID}-Sangrando`,
+          rounds: 1,
+        }),
+      ).rejects.toMatchObject({ code: 'CONDITION_NOT_FOUND' });
+    });
   });
 });

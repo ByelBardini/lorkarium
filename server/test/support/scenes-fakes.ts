@@ -4,11 +4,14 @@ import type {
   CombatTurnChangedDto,
   CombatUpdatedDto,
   ConditionAppliedDto,
+  ConditionsAppliedDto,
   ConditionDefinedDto,
   ConditionRemovedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
-  TokenDraggedDto,
+  TokenLayerChangedDto,
+  TokensDraggedDto,
+  TokensMovedDto,
   TokenMovedDto,
 } from '@lorkarium/contracts';
 import type {
@@ -77,7 +80,10 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly tokenChanges: TokenChange[] = [];
   readonly tokenMoves: TokenMovedDto[] = [];
   readonly tokenDeletes: TokenDeletedDto[] = [];
-  readonly tokenDrags: Array<Readonly<{ event: TokenDraggedDto; exceptConnectionId: string }>> = [];
+  readonly tokenLayerChanges: TokenLayerChangedDto[] = [];
+  readonly tokensMoves: TokensMovedDto[] = [];
+  readonly tokensDrags: Array<Readonly<{ event: TokensDraggedDto; exceptConnectionId: string }>> =
+    [];
   readonly combatEvents: Array<
     | Readonly<{ name: 'combat:started'; event: CombatStartedDto }>
     | Readonly<{ name: 'combat:updated'; event: CombatUpdatedDto }>
@@ -86,6 +92,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
   > = [];
   readonly conditionEvents: Array<ConditionDefinedDto | ConditionAppliedDto | ConditionRemovedDto> =
     [];
+  readonly conditionsApplies: ConditionsAppliedDto[] = [];
 
   sceneUpdated(event: SceneUpdatedDto): void {
     this.journal.push('publish');
@@ -102,14 +109,24 @@ export class BoardPublisherFake implements BoardPublisherPort {
     this.tokenMoves.push(event);
   }
 
-  tokenDragged(event: TokenDraggedDto, exceptConnectionId: string): void {
-    this.journal.push('publish');
-    this.tokenDrags.push({ event, exceptConnectionId });
-  }
-
   tokenDeleted(event: TokenDeletedDto): void {
     this.journal.push('publish');
     this.tokenDeletes.push(event);
+  }
+
+  tokensMoved(event: TokensMovedDto): void {
+    this.journal.push('publish');
+    this.tokensMoves.push(event);
+  }
+
+  tokensDragged(event: TokensDraggedDto, exceptConnectionId: string): void {
+    this.journal.push('publish');
+    this.tokensDrags.push({ event, exceptConnectionId });
+  }
+
+  tokenLayerChanged(event: TokenLayerChangedDto): void {
+    this.journal.push('publish');
+    this.tokenLayerChanges.push(event);
   }
 
   conditionDefined(event: ConditionDefinedDto): void {
@@ -120,6 +137,11 @@ export class BoardPublisherFake implements BoardPublisherPort {
   conditionApplied(event: ConditionAppliedDto): void {
     this.journal.push('publish');
     this.conditionEvents.push(event);
+  }
+
+  conditionsApplied(event: ConditionsAppliedDto): void {
+    this.journal.push('publish');
+    this.conditionsApplies.push(event);
   }
 
   conditionRemoved(event: ConditionRemovedDto): void {
@@ -154,7 +176,9 @@ export class BoardPublisherFake implements BoardPublisherPort {
       this.tokenChanges.length +
       this.tokenMoves.length +
       this.tokenDeletes.length +
-      this.tokenDrags.length +
+      this.tokenLayerChanges.length +
+      this.tokensMoves.length +
+      this.tokensDrags.length +
       this.conditionEvents.length +
       this.combatEvents.length
     );

@@ -1,5 +1,6 @@
 import type {
   ApplyConditionCommandDto,
+  ApplyConditionsCommandDto,
   DefineConditionCommandDto,
   RemoveConditionCommandDto,
 } from '@lorkarium/contracts';
@@ -14,19 +15,26 @@ import { TokenAccessBo } from '../tokens/token-access.bo';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { TokenNotFoundError } from '../tokens/tokens.error';
 import { ConditionRulesBo } from './condition-rules.bo';
-import type { ConditionsDao } from './conditions.dao';
+import type { CombatDao } from '../combat/combat.dao';
+import type { ActiveConditionRow, ConditionDuration, ConditionsDao } from './conditions.dao';
 import { ConditionNotFoundError } from './conditions.error';
-import { toActiveConditionDto, toConditionDefinitionDto } from './conditions.mapper';
+import {
+  toActiveConditionDto,
+  toConditionDefinitionDto,
+  toTokenConditionDto,
+} from './conditions.mapper';
 
 type Envelope = 'actionId' | 'campaignId';
 export type DefineCondition = Omit<DefineConditionCommandDto, Envelope>;
 export type ApplyCondition = Omit<ApplyConditionCommandDto, Envelope>;
+export type ApplyConditions = Omit<ApplyConditionsCommandDto, Envelope>;
 export type RemoveCondition = Omit<RemoveConditionCommandDto, Envelope>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type ConditionWriteDaos = Readonly<{
   scenes: Pick<ScenesDao, 'lockActiveOf' | 'bumpVersion'>;
-  tokens: Pick<TokensDao, 'findInScene'>;
+  tokens: Pick<TokensDao, 'findInScene' | 'findManyInScene'>;
+  combat: Pick<CombatDao, 'findOfScene'>;
   conditions: Pick<
     ConditionsDao,
     'findDefinitionByName' | 'insertDefinition' | 'findDefinitionInCampaign' | 'apply' | 'remove'
@@ -77,13 +85,30 @@ export class ConditionsService {
     const access = await this.accessOf(userId, campaignId);
     const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
       const token = await controlledToken(daos, scene, access, command.tokenId);
-      const known = await daos.conditions.findDefinitionInCampaign(campaignId, command.conditionId);
-      if (!known) throw new ConditionNotFoundError(campaignId, command.conditionId);
-      return daos.conditions.apply(token.token.id, known.id, RULES.durationOf(command.rounds));
+      const known = await knownDefinition(daos, campaignId, command.conditionId);
+      const duration = await durationIn(daos, scene, command.rounds);
+      return daos.conditions.apply(token.token.id, known, duration);
     });
     const condition = toActiveConditionDto(saved.value);
     const event = { ...this.base(campaignId, saved.version), tokenId: command.tokenId, condition };
     this.deps.publisher.conditionApplied(event);
+    return saved.version;
+  }
+
+  /** All or nothing: one token missing or not controlled refuses the whole group, one version. */
+  async applyMany(userId: string, campaignId: string, command: ApplyConditions): Promise<number> {
+    const access = await this.accessOf(userId, campaignId);
+    const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
+      const tokens = await controlledTokens(daos, scene, access, command.tokenIds);
+      const known = await knownDefinition(daos, campaignId, command.conditionId);
+      const duration = await durationIn(daos, scene, command.rounds);
+      const applied: ActiveConditionRow[] = [];
+      for (const row of tokens)
+        applied.push(await daos.conditions.apply(row.token.id, known, duration));
+      return applied;
+    });
+    const applied = saved.value.map(toTokenConditionDto);
+    this.deps.publisher.conditionsApplied({ ...this.base(campaignId, saved.version), applied });
     return saved.version;
   }
 
@@ -129,6 +154,47 @@ async function lockedScene(daos: ConditionWriteDaos, campaignId: string): Promis
   return scene;
 }
 
+// Stamped with the combat round so the end of the holder's turn in this round does not count it.
+async function durationIn(
+  daos: ConditionWriteDaos,
+  scene: ScenePo,
+  rounds: number,
+): Promise<ConditionDuration> {
+  const combat = await daos.combat.findOfScene(scene.id);
+  return { remainingRounds: RULES.durationOf(rounds), appliedRound: combat?.combat.round ?? null };
+}
+
+async function knownDefinition(
+  daos: ConditionWriteDaos,
+  campaignId: string,
+  conditionId: string,
+): Promise<string> {
+  const known = await daos.conditions.findDefinitionInCampaign(campaignId, conditionId);
+  if (!known) throw new ConditionNotFoundError(campaignId, conditionId);
+  return known.id;
+}
+
+async function controlledTokens(
+  daos: ConditionWriteDaos,
+  scene: ScenePo,
+  access: CampaignAccessBo,
+  tokenIds: readonly string[],
+): Promise<TokenRow[]> {
+  const found = await daos.tokens.findManyInScene(scene.id, tokenIds);
+  const byId = new Map(found.map((row) => [row.token.id, row]));
+  return tokenIds.map((tokenId) => {
+    const row = byId.get(tokenId);
+    if (!row) throw new TokenNotFoundError(scene.campaignId, tokenId);
+    return requireControlOf(access, row);
+  });
+}
+
+function requireControlOf(access: CampaignAccessBo, token: TokenRow): TokenRow {
+  const control = { tokenId: token.token.id, controllerIds: token.controllerIds };
+  new TokenAccessBo(access, control).requireControl('change the conditions of');
+  return token;
+}
+
 async function controlledToken(
   daos: ConditionWriteDaos,
   scene: ScenePo,
@@ -137,7 +203,5 @@ async function controlledToken(
 ): Promise<TokenRow> {
   const token = await daos.tokens.findInScene(scene.id, tokenId);
   if (!token) throw new TokenNotFoundError(scene.campaignId, tokenId);
-  const control = { tokenId, controllerIds: token.controllerIds };
-  new TokenAccessBo(access, control).requireControl('change the conditions of');
-  return token;
+  return requireControlOf(access, token);
 }

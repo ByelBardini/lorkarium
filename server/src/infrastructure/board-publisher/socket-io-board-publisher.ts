@@ -4,12 +4,15 @@ import type {
   CombatTurnChangedDto,
   CombatUpdatedDto,
   ConditionAppliedDto,
+  ConditionsAppliedDto,
   ConditionDefinedDto,
   ConditionRemovedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
-  TokenDraggedDto,
+  TokenLayerChangedDto,
   TokenMovedDto,
+  TokensDraggedDto,
+  TokensMovedDto,
 } from '@lorkarium/contracts';
 import type { BoardPublisherPort, TokenChange } from '../../modules/scenes/board-publisher.port';
 import type { RealtimeServer } from '../../realtime/realtime-server';
@@ -42,16 +45,25 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     this.io.to(campaignRoom(event.campaignId)).emit('token:moved', event);
   }
 
+  tokensMoved(event: TokensMovedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('token:movedMany', event);
+  }
+
   // Every socket is in a room named by its own id: leaving it out skips the dragger's echo.
-  tokenDragged(event: TokenDraggedDto, exceptConnectionId: string): void {
+  tokensDragged(event: TokensDraggedDto, exceptConnectionId: string): void {
     this.io
       .to(campaignRoom(event.campaignId))
       .except(exceptConnectionId)
-      .emit('token:dragged', event);
+      .emit('token:draggedMany', event);
   }
 
   tokenDeleted(event: TokenDeletedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('token:deleted', event);
+  }
+
+  // The layer is not a secret: the whole table gets the same event.
+  tokenLayerChanged(event: TokenLayerChangedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('token:layerChanged', event);
   }
 
   // Conditions are on the token for everyone to see: nothing to redact (spec §3.7).
@@ -61,6 +73,10 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
 
   conditionApplied(event: ConditionAppliedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('condition:applied', event);
+  }
+
+  conditionsApplied(event: ConditionsAppliedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('condition:appliedMany', event);
   }
 
   conditionRemoved(event: ConditionRemovedDto): void {

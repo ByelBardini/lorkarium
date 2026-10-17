@@ -1,5 +1,7 @@
+import type { TokenLayerPo } from '../../src/modules/tokens/tokens.po';
 import type {
   NewTokenRow,
+  TokenMovePo,
   TokenRow,
   TokenUpdatePo,
   TokensDao,
@@ -16,7 +18,16 @@ import { lyraPo, pvBar } from './tokens-factories';
  *  Example: `const tokens = new TokensDaoFake(scenes.journal, [lyraRow()])` */
 export class TokensDaoFake implements Pick<
   TokensDao,
-  'insert' | 'findInScene' | 'listOfScene' | 'move' | 'setBarCurrent' | 'update' | 'delete'
+  | 'insert'
+  | 'findInScene'
+  | 'findManyInScene'
+  | 'listOfScene'
+  | 'move'
+  | 'moveMany'
+  | 'setLayer'
+  | 'setBarCurrent'
+  | 'update'
+  | 'delete'
 > {
   constructor(
     private readonly journal: string[],
@@ -39,12 +50,37 @@ export class TokensDaoFake implements Pick<
     return this.rows.find(({ token }) => token.id === tokenId && token.sceneId === sceneId);
   }
 
+  async findManyInScene(sceneId: string, tokenIds: readonly string[]): Promise<TokenRow[]> {
+    return this.rows.filter(
+      ({ token }) => token.sceneId === sceneId && tokenIds.includes(token.id),
+    );
+  }
+
+  // One write for the whole group, as the real DAO does it in one UPDATE.
+  async setLayer(tokenIds: readonly string[], layer: TokenLayerPo): Promise<void> {
+    this.journal.push('save');
+    for (const [index, found] of this.rows.entries()) {
+      if (!tokenIds.includes(found.token.id)) continue;
+      this.rows[index] = { ...found, token: { ...found.token, layer } };
+    }
+  }
+
   async listOfScene(sceneId: string): Promise<TokenRow[]> {
     return this.rows.filter(({ token }) => token.sceneId === sceneId);
   }
 
   async move(tokenId: string, col: number, row: number): Promise<void> {
     this.replace(tokenId, (found) => ({ ...found, token: { ...found.token, col, row } }));
+  }
+
+  // One 'save' for the whole group: it is one write in the transaction.
+  async moveMany(moves: readonly TokenMovePo[]): Promise<void> {
+    this.journal.push('save');
+    for (const { tokenId, col, row } of moves) {
+      const index = this.rows.findIndex(({ token }) => token.id === tokenId);
+      const found = this.rows[index];
+      if (found) this.rows[index] = { ...found, token: { ...found.token, col, row } };
+    }
   }
 
   async setBarCurrent(barId: string, current: number): Promise<void> {

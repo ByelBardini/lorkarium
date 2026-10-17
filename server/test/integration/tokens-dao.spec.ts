@@ -73,6 +73,49 @@ describe('TokensDao on Postgres', () => {
     expect(saved.controllerIds).toEqual([biaId]);
   });
 
+  it('insert without a layer puts the token on the tokens layer', async () => {
+    expect((await tokens.insert(lyra())).token.layer).toBe('tokens');
+  });
+
+  it('insert on the background layer reads back on the background layer', async () => {
+    const saved = await tokens.insert(lyra({ token: { ...lyra().token, layer: 'background' } }));
+    expect((await tokens.findInScene(sceneId, saved.token.id))?.token.layer).toBe('background');
+  });
+
+  it('findManyInScene returns the asked tokens of the scene and skips one of another scene', async () => {
+    const lyraRow = await tokens.insert(lyra());
+    const bramRow = await tokens.insert(lyra({ controllerIds: [], bars: [] }));
+    const elsewhere = await tokens.insert(
+      lyra({ token: { ...lyra().token, sceneId: otherSceneId } }),
+    );
+    const found = await tokens.findManyInScene(sceneId, [
+      bramRow.token.id,
+      elsewhere.token.id,
+      lyraRow.token.id,
+    ]);
+    expect(found.map(({ token }) => token.id).sort()).toEqual(
+      [lyraRow.token.id, bramRow.token.id].sort(),
+    );
+    expect(found.find(({ token }) => token.id === lyraRow.token.id)?.controllerIds).toEqual([
+      biaId,
+    ]);
+  });
+
+  it('setLayer moves every listed token to the layer and leaves the others', async () => {
+    const lyraRow = await tokens.insert(lyra());
+    const bramRow = await tokens.insert(lyra({ controllerIds: [], bars: [] }));
+    const kept = await tokens.insert(lyra({ controllerIds: [], bars: [] }));
+    await tokens.setLayer([lyraRow.token.id, bramRow.token.id], 'background');
+    const layers = (await tokens.listOfScene(sceneId)).map(({ token }) => [token.id, token.layer]);
+    expect(layers).toEqual(
+      expect.arrayContaining([
+        [lyraRow.token.id, 'background'],
+        [bramRow.token.id, 'background'],
+        [kept.token.id, 'tokens'],
+      ]),
+    );
+  });
+
   it('listOfScene returns every token of the scene with its bars and controllers', async () => {
     await tokens.insert(lyra());
     await tokens.insert(lyra({ controllerIds: [], bars: [] }));

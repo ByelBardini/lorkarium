@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { toTokenDto, toTokenUpdatePo } from '../../../src/modules/tokens/tokens.mapper';
 import { BIA_ID } from '../../support/campaigns-factories';
-import { LYRA_ID, lyraRow } from '../../support/tokens-factories';
+import { LYRA_ID, lyraPo, lyraRow } from '../../support/tokens-factories';
 
 describe('tokens mapper', () => {
   it('the privileged audience gets every bar and canControl', () => {
@@ -19,6 +19,14 @@ describe('tokens mapper', () => {
     expect(dto.bars.map(({ label, position }) => [label, position])).toEqual([['Inspiração', 1]]);
     expect(JSON.stringify(dto)).not.toContain('"PV"');
   });
+
+  it.each(['privileged', 'others'] as const)(
+    'a token on the objects layer reaches the %s audience on the objects layer',
+    (audience) => {
+      const row = lyraRow({ token: lyraPo({ layer: 'objects' }) });
+      expect(toTokenDto(row, audience).layer).toBe('objects');
+    },
+  );
 
   it('the token DTO carries no persistence fields', () => {
     expect(toTokenDto(lyraRow(), 'others')).not.toHaveProperty('sceneId');

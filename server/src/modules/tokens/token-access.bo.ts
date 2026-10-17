@@ -1,4 +1,5 @@
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import type { TokenLayerPo } from './tokens.po';
 
 export type TokenControl = Readonly<{ tokenId: string; controllerIds: readonly string[] }>;
 
@@ -25,6 +26,19 @@ export class TokenAccessBo {
     this.campaign.forbid(
       `${action} token ${this.token.tokenId}`,
       'the master role or control of the token',
+    );
+  }
+
+  /** Moving or dragging: control, and for anyone but the master the token must be on the
+   *  `tokens` layer — the players never pick up the objects or the background.
+   *
+   *  Example: `access.requireMove('drag', row.token.layer)` */
+  requireMove(action: string, layer: TokenLayerPo): void {
+    this.requireControl(action);
+    if (layer === 'tokens' || this.campaign.isMaster()) return;
+    this.campaign.forbid(
+      `${action} token ${this.token.tokenId} on the ${layer} layer`,
+      'the master role, or control of a token on the tokens layer',
     );
   }
 
