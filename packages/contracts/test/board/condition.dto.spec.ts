@@ -17,22 +17,41 @@ const KAEL_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
 
 describe('defineConditionCommandDto', () => {
   it('a name padded with spaces is trimmed', () => {
-    const parsed = defineConditionCommandDto.parse({ ...BASE, name: '  Sangrando ', tone: 'harm' });
+    const parsed = defineConditionCommandDto.parse({
+      ...BASE,
+      name: '  Sangrando ',
+      tone: 'harm',
+      icon: 'skull',
+    });
     expect(parsed.name).toBe('Sangrando');
   });
 
   it.each(['S', 'x'.repeat(32)])('a name of %s characters passes', (name) => {
-    expect(defineConditionCommandDto.safeParse({ ...BASE, name, tone: 'harm' }).success).toBe(true);
+    expect(
+      defineConditionCommandDto.safeParse({ ...BASE, name, tone: 'harm', icon: 'skull' }).success,
+    ).toBe(true);
   });
 
   it.each(['', '   ', 'x'.repeat(33)])('the name "%s" is refused', (name) => {
-    expect(defineConditionCommandDto.safeParse({ ...BASE, name, tone: 'harm' }).success).toBe(
-      false,
-    );
+    expect(
+      defineConditionCommandDto.safeParse({ ...BASE, name, tone: 'harm', icon: 'skull' }).success,
+    ).toBe(false);
   });
 
   it('a tone other than benefit or harm is refused', () => {
-    expect(defineConditionCommandDto.safeParse({ ...BASE, name: 'X', tone: 'meh' }).success).toBe(
+    expect(
+      defineConditionCommandDto.safeParse({ ...BASE, name: 'X', tone: 'meh', icon: 'skull' })
+        .success,
+    ).toBe(false);
+  });
+
+  it('an icon outside the closed list is refused', () => {
+    const command = { ...BASE, name: 'X', tone: 'harm', icon: '<svg onload=x>' };
+    expect(defineConditionCommandDto.safeParse(command).success).toBe(false);
+  });
+
+  it('a command without an icon is refused', () => {
+    expect(defineConditionCommandDto.safeParse({ ...BASE, name: 'X', tone: 'harm' }).success).toBe(
       false,
     );
   });
@@ -88,6 +107,7 @@ describe('conditionsAppliedDto', () => {
       conditionId: CONDITION_ID,
       name: 'Caído',
       tone: 'harm',
+      icon: 'arrow-down-to-line',
       remainingRounds: null,
     };
     const event = { campaignId: BASE.campaignId, version: 4, at: '2026-10-16T12:00:00.000Z' };
