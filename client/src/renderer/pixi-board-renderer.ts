@@ -1,6 +1,7 @@
 import { cell, type Cell } from '@lorkarium/game-core';
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { BoardIntentListener, BoardRenderer, CreateBoardRenderer } from './board-renderer';
+import { boardCursorOf } from './board-cursor';
 import type { BoardView } from './board-view';
 import {
   CELL_WORLD_SIZE,
@@ -117,6 +118,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.view = view;
     if (!this.app) return;
     this.drawScene(view);
+    this.showCursor();
     this.drawings.sync(view.drawings);
     this.tokens.sync(view.tokens, view.ghosts, performance.now());
     if (!this.framed) {
@@ -232,6 +234,13 @@ class PixiBoardRenderer implements BoardRenderer {
     this.on(host, 'blur', () => this.heldPanKeys.clear());
   }
 
+  private showCursor(): void {
+    if (!this.app || !this.view) return;
+    const drawKind = this.view.sketch?.kind ?? null;
+    const panning = this.rightDrag?.panning ?? false;
+    this.app.canvas.style.cursor = boardCursorOf({ tool: this.view.tool, drawKind, panning });
+  }
+
   private onWheel(event: WheelEvent): void {
     event.preventDefault();
     const intent = wheelIntent({ ...wheelFields(event), x: event.offsetX, y: event.offsetY });
@@ -263,6 +272,7 @@ class PixiBoardRenderer implements BoardRenderer {
       const { drag, pan } = moveRightDrag(this.rightDrag, pointOf(event));
       this.rightDrag = drag;
       if (pan) this.applyCamera(panBy(this.camera, pan.dx, pan.dy));
+      if (pan) this.showCursor();
       return;
     }
     if (this.tokenPress) return this.dragToken(event, this.tokenPress);
@@ -366,6 +376,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private endRightClick(event: PointerEvent): void {
     const drag = this.rightDrag;
     this.rightDrag = null;
+    this.showCursor();
     if (!drag || !this.view || endRightDrag(drag) !== 'context') return;
     const tokenId = layerMenuTarget(this.view, this.tokens.tokenAt(this.worldOf(event)));
     if (!tokenId) return;
