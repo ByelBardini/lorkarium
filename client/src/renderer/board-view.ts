@@ -3,6 +3,7 @@ import type {
   ConditionToneDto,
   SceneDto,
   TokenDto,
+  TokenLayerDto,
   TokenSideDto,
 } from '@lorkarium/contracts';
 import { pathDistance, type Cell, type SceneSize } from '@lorkarium/game-core';
@@ -18,8 +19,13 @@ export type RulerState = Readonly<{ from: Cell; to: Cell }>;
  *  bend of a drag), and its reading. */
 export type RulerView = Readonly<{ points: readonly Point[]; label: string }>;
 
-/** The token this viewer drags and the path it traced. */
-export type DragRouteView = Readonly<{ tokenId: string; route: TokenRoute }>;
+/** The group this viewer drags: the anchor's path, and where each member would land (`null`:
+ *  one would leave the scene, so there is nowhere to show). */
+export type DragRouteView = Readonly<{
+  anchorId: string;
+  route: TokenRoute;
+  landing: readonly Readonly<{ tokenId: string; col: number; row: number }>[] | null;
+}>;
 
 /** The bar drawn under a token: always the one at position 0, when the viewer may see it. */
 export type TokenBarView = Readonly<{ fraction: number; state: BarFillState; color: BarColorDto }>;
@@ -32,6 +38,9 @@ export type TokenView = Readonly<{
   row: number;
   size: number;
   bar: TokenBarView | null;
+  layer: TokenLayerDto;
+  /** On the active layer: a click or a marquee may take it. */
+  pickable: boolean;
   selected: boolean;
   draggable: boolean;
   /** The token of the combatant on turn: the gold ring. */
@@ -50,9 +59,11 @@ export type BoardView = Readonly<{
   grid: Readonly<{ visible: boolean; opacity: number; cells: SceneSize }>;
   ruler: RulerView | null;
   tokens: readonly TokenView[];
-  ghost: GhostView | null;
+  ghosts: readonly GhostView[];
   /** With the ruler, a press on a token measures from it instead of grabbing it. */
   tool: BoardViewTool;
+  /** A short right click on a token opens "Mover para camada" (only the master). */
+  layerMenu: boolean;
 }>;
 
 export type BoardViewTool = 'select' | 'ruler';
@@ -63,9 +74,12 @@ export type BoardViewInput = Readonly<{
   /** The "Grid" tool: hides the grid for this viewer only. */
   localGridVisible: boolean;
   ruler: RulerState | null;
-  selectedTokenId: string | null;
-  preview: Readonly<{ tokenId: string; col: number; row: number }> | null;
-  /** This viewer's drag: the ghost on the cell it is over and the ruler of its path. */
+  selectedTokenIds: readonly string[];
+  activeLayer: TokenLayerDto;
+  /** The master: picks the active layer and moves tokens between layers. */
+  canChooseLayer: boolean;
+  preview: readonly Readonly<{ tokenId: string; col: number; row: number }>[];
+  /** This viewer's drag: a ghost where each member would land and the ruler of its path. */
   drag: DragRouteView | null;
   /** Where other people are dragging tokens, by id: drawn there instead of the confirmed cell. */
   dragged: Readonly<Record<string, Cell>>;
@@ -80,7 +94,7 @@ const MAX_MARKS = 3;
 
 /** Confirmed board + local tools → what to draw.
  *
- *  Example: `renderer.draw(buildBoardView({ scene, tokens, localGridVisible, ruler, selectedTokenId, preview, readOnly }))` */
+ *  Example: `renderer.draw(buildBoardView({ scene, tokens, selectedTokenIds, activeLayer, … }))` */
 export function buildBoardView(input: BoardViewInput): BoardView {
   const { scene } = input;
   const cells = { widthCells: scene.widthCells, heightCells: scene.heightCells };
@@ -95,16 +109,17 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       cells,
     },
     ruler: rulerOf(input),
-    tokens: input.tokens.map((token) => tokenViewOf(token, input)),
-    ghost: ghostOf(input),
+    tokens: inDrawingOrder(input.tokens).map((token) => tokenViewOf(token, input)),
+    ghosts: ghostsOf(input),
     tool: input.tool,
+    layerMenu: input.canChooseLayer,
   };
 }
 
 // The drag wins over the tool: a press on a token with the ruler measures instead of dragging.
 function rulerOf({ drag, ruler, scene, tokens }: BoardViewInput): RulerView | null {
   if (drag) {
-    const size = tokens.find(({ id }) => id === drag.tokenId)?.size ?? 1;
+    const size = tokens.find(({ id }) => id === drag.anchorId)?.size ?? 1;
     const path = routePath(drag.route);
     return rulerAlong(path, size, scene);
   }
@@ -123,6 +138,7 @@ function rulerAlong(path: readonly Cell[], size: number, scene: SceneDto): Ruler
 function tokenViewOf(token: TokenDto, input: BoardViewInput): TokenView {
   const first = token.bars.find(({ position }) => position === 0);
   const at = input.dragged[token.id] ?? token;
+  const pickable = token.layer === input.activeLayer;
   return {
     id: token.id,
     initials: token.initials,
@@ -131,18 +147,32 @@ function tokenViewOf(token: TokenDto, input: BoardViewInput): TokenView {
     row: at.row,
     size: token.size,
     bar: first ? { ...barFill(first), color: first.color } : null,
-    selected: token.id === input.selectedTokenId,
-    draggable: token.canControl && !input.readOnly,
+    layer: token.layer,
+    pickable,
+    selected: input.selectedTokenIds.includes(token.id),
+    draggable: pickable && token.canControl && !input.readOnly,
     onTurn: token.id === input.currentTokenId,
     marks: token.conditions.slice(0, MAX_MARKS).map(({ tone }) => tone),
     moreMarks: token.conditions.length > MAX_MARKS,
   };
 }
 
-// While dragging, the ghost marks the cell the token would land on; then the move asked for.
-function ghostOf({ drag, preview, tokens }: BoardViewInput): GhostView | null {
-  const target = drag ? { tokenId: drag.tokenId, ...drag.route.current } : preview;
-  if (!target) return null;
-  const token = tokens.find(({ id }) => id === target.tokenId);
-  return token ? { ...target, size: token.size } : null;
+// Bottom first: what is drawn later covers it. `toSorted` keeps the list order inside a layer.
+const DRAWING_RANK: Readonly<Record<TokenLayerDto, number>> = {
+  background: 0,
+  objects: 1,
+  tokens: 2,
+};
+
+function inDrawingOrder(tokens: readonly TokenDto[]): TokenDto[] {
+  return tokens.toSorted((a, b) => DRAWING_RANK[a.layer] - DRAWING_RANK[b.layer]);
+}
+
+// While dragging, a ghost where each member would land; then the moves asked for.
+function ghostsOf({ drag, preview, tokens }: BoardViewInput): GhostView[] {
+  const targets = drag ? (drag.landing ?? []) : preview;
+  return targets.flatMap(({ tokenId, col, row }) => {
+    const token = tokens.find(({ id }) => id === tokenId);
+    return token ? [{ tokenId, col, row, size: token.size }] : [];
+  });
 }

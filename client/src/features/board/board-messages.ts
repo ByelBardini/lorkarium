@@ -1,3 +1,4 @@
+import type { TokenLayerDto } from '@lorkarium/contracts';
 import {
   NOT_MEMBER_MESSAGE,
   OFFLINE_MESSAGE,
@@ -71,5 +72,22 @@ export function movedAnnouncement(name: string, col: number, row: number): strin
   return `${name} foi para a ${cellWords(col, row)}`;
 }
 
+/** Example: `groupMovedAnnouncement(3) // "3 tokens andaram uma casa."` */
+export function groupMovedAnnouncement(count: number): string {
+  return `${count} tokens andaram uma casa.`;
+}
+
+/** Example: `tokensMovedAnnouncement(2) // "2 tokens foram movidos."` */
+export function tokensMovedAnnouncement(count: number): string {
+  return `${count} tokens foram movidos.`;
+}
+
 export const NOT_YOUR_TOKEN = 'Esse token não é seu.';
 export const OUT_OF_SCENE = OUT_OF_SCENE_TEXT;
+
+/** The three layers as the toolbar and the "Mover para camada" menu name them. */
+export const LAYER_LABEL: Readonly<Record<TokenLayerDto, string>> = {
+  tokens: 'Tokens',
+  objects: 'Objetos',
+  background: 'Fundo',
+};

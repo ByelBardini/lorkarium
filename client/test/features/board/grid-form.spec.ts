@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gridFormOf, parseGridForm } from '@/features/board/grid-form';
+import { gridFormOf, parseGridForm, unitOptionsOf } from '@/features/board/grid-form';
 import { VHARN_SCENE } from '../../support/table-session-fixtures';
 
 describe('grid form', () => {
@@ -28,7 +28,7 @@ describe('grid form', () => {
     ['widthCells', '2,5', 'Use de 1 a 100 casas.'],
     ['cellDistance', '', 'Use uma distância maior que zero, como 1,5.'],
     ['cellDistance', 'abc', 'Use uma distância maior que zero, como 1,5.'],
-    ['cellUnit', 'quadrados', 'Use de 1 a 8 letras, como m ou ft.'],
+    ['cellUnit', 'quadrados', 'Escolha cm, m ou km.'],
     ['gridOpacity', '150', 'Use de 0 a 100.'],
   ] as const)('%s = "%s" reads "%s"', (field, value, message) => {
     const result = parseGridForm({ ...gridFormOf(VHARN_SCENE), [field]: value });
@@ -44,3 +44,13 @@ const VHARN_SCENE_GRID = {
   gridVisible: true,
   gridOpacity: 30,
 };
+
+describe('unitOptionsOf', () => {
+  it('a scene in m offers cm, m and km', () => {
+    expect(unitOptionsOf('m')).toEqual(['cm', 'm', 'km']);
+  });
+
+  it('a scene saved in ft keeps ft as one more option', () => {
+    expect(unitOptionsOf('ft')).toEqual(['cm', 'm', 'km', 'ft']);
+  });
+});

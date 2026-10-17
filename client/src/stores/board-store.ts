@@ -1,4 +1,4 @@
-import type { BoardStateDto, TokenDraggedDto } from '@lorkarium/contracts';
+import type { BoardStateDto, TokensDraggedDto } from '@lorkarium/contracts';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { BoardEvent } from '@/services/board-events';
@@ -76,7 +76,7 @@ function nextState(
 ): Partial<BoardStoreState> {
   if (update.kind === 'board') return snapshotState(state, update.state, resyncOnce);
   if (update.kind === 'boardFailed') return failedState(state, update.failure);
-  if (update.kind === 'tokenDragged') return draggedState(state, update.drag);
+  if (update.kind === 'tokensDragged') return groupDraggedState(state, update.drag);
   if (update.kind !== 'boardEvent') return {};
   if (update.event.payload.campaignId !== state.campaignId) return {};
   const dragged = withoutDragOf(state.dragged, update.event);
@@ -84,21 +84,38 @@ function nextState(
   return { ...eventState(state, state.board, update.event, resyncOnce), dragged };
 }
 
-function draggedState(state: BoardStoreState, drag: TokenDraggedDto): Partial<BoardStoreState> {
+function groupDraggedState(
+  state: BoardStoreState,
+  drag: TokensDraggedDto,
+): Partial<BoardStoreState> {
   if (drag.campaignId !== state.campaignId) return {};
-  const others = withoutToken(state.dragged, drag.tokenId);
-  return { dragged: drag.cell ? { ...others, [drag.tokenId]: drag.cell } : others };
+  const others = withoutTokens(
+    state.dragged,
+    drag.drags.map(({ tokenId }) => tokenId),
+  );
+  const over = drag.drags.flatMap(({ tokenId, cell }) => (cell ? [[tokenId, cell] as const] : []));
+  return { dragged: { ...others, ...Object.fromEntries(over) } };
 }
 
 // The confirmed move (or the token's end) closes its drag, whatever its version did.
 function withoutDragOf(dragged: DraggedCells, event: BoardEvent): DraggedCells {
+  if (event.type === 'tokensMoved') {
+    return withoutTokens(
+      dragged,
+      event.payload.moves.map(({ tokenId }) => tokenId),
+    );
+  }
   if (event.type !== 'tokenMoved' && event.type !== 'tokenDeleted') return dragged;
   if (!(event.payload.tokenId in dragged)) return dragged;
   return withoutToken(dragged, event.payload.tokenId);
 }
 
 function withoutToken(dragged: DraggedCells, tokenId: string): DraggedCells {
-  return Object.fromEntries(Object.entries(dragged).filter(([id]) => id !== tokenId));
+  return withoutTokens(dragged, [tokenId]);
+}
+
+function withoutTokens(dragged: DraggedCells, tokenIds: readonly string[]): DraggedCells {
+  return Object.fromEntries(Object.entries(dragged).filter(([id]) => !tokenIds.includes(id)));
 }
 
 function snapshotState(

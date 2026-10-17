@@ -42,7 +42,7 @@ export function readingOrder<T extends Placed>(tokens: readonly T[]): T[] {
 /** The id after (or before) `current` in `order`, wrapping around; from nothing, the first
  *  (or the last).
  *
- *  Example: `stepFrom(ids, selectedTokenId, 'next')` */
+ *  Example: `stepFrom(ids, singleSelectedOf(selectedTokenIds), 'next')` */
 export function stepFrom(
   order: readonly string[],
   current: string | null,

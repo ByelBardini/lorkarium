@@ -74,17 +74,31 @@ describe('RealtimeTableBoardCommands', () => {
         { tokenId: LYRA, col: 8, row: 6 },
       ],
       [
-        'token:drag',
-        () => commands.dragToken(VHARN.id, LYRA, { col: 5, row: 4 }),
-        { tokenId: LYRA, cell: { col: 5, row: 4 } },
+        'token:dragMany',
+        () => commands.dragTokens(VHARN.id, [{ tokenId: LYRA, cell: { col: 5, row: 4 } }]),
+        { drags: [{ tokenId: LYRA, cell: { col: 5, row: 4 } }] },
       ],
-      ['token:drag', () => commands.dragToken(VHARN.id, LYRA, null), { tokenId: LYRA, cell: null }],
       [
         'token:adjustBar',
         () => commands.adjustBar(VHARN.id, LYRA, PV, { op: 'add', amount: -7 }),
         { tokenId: LYRA, barId: PV, change: { op: 'add', amount: -7 } },
       ],
       ['token:delete', () => commands.deleteToken(VHARN.id, LYRA), { tokenId: LYRA }],
+      [
+        'token:moveMany',
+        () => commands.moveTokens(VHARN.id, [{ tokenId: LYRA, col: 8, row: 6 }]),
+        { moves: [{ tokenId: LYRA, col: 8, row: 6 }] },
+      ],
+      [
+        'token:dragMany',
+        () => commands.dragTokens(VHARN.id, [{ tokenId: LYRA, cell: null }]),
+        { drags: [{ tokenId: LYRA, cell: null }] },
+      ],
+      [
+        'token:setLayer',
+        () => commands.setTokenLayer(VHARN.id, [LYRA], 'objects'),
+        { tokenIds: [LYRA], layer: 'objects' },
+      ],
     ] as const)(
       '%s goes out with the action id, the table and its fields',
       (event, send, fields) => {
@@ -120,6 +134,22 @@ describe('RealtimeTableBoardCommands', () => {
       await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'token:move');
       expect(await result).toEqual({ ok: false, failure });
     });
+
+    it.each([
+      ['FORBIDDEN', 'forbidden'],
+      ['TOKEN_NOT_FOUND', 'token_not_found'],
+      ['OUT_OF_SCENE', 'out_of_scene'],
+    ])('a group move refused with %s is %s', async (code, failure) => {
+      const result = commands.moveTokens(VHARN.id, [{ tokenId: LYRA, col: 1, row: 1 }]);
+      await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'token:moveMany');
+      expect(await result).toEqual({ ok: false, failure });
+    });
+
+    it('a layer change whose ack never arrives is offline', async () => {
+      const result = commands.setTokenLayer(VHARN.id, [LYRA], 'background');
+      await transport.timeOutAck('token:setLayer');
+      expect(await result).toEqual({ ok: false, failure: 'offline' });
+    });
   });
 
   describe('combat and condition commands', () => {
@@ -153,6 +183,11 @@ describe('RealtimeTableBoardCommands', () => {
         'condition:apply',
         () => commands.applyCondition(VHARN.id, KAEL, KAEL, 2),
         { tokenId: KAEL, conditionId: KAEL, rounds: 2 },
+      ],
+      [
+        'condition:applyMany',
+        () => commands.applyConditions(VHARN.id, [KAEL], KAEL, 0),
+        { tokenIds: [KAEL], conditionId: KAEL, rounds: 0 },
       ],
     ] as const)('%s goes out with its fields', (event, sendIt, fields) => {
       void sendIt();

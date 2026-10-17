@@ -1,7 +1,14 @@
 /** What a key press on the play room means. Zoom (+, −, 0) and W A S D belong to the board
  *  itself, which only hears them while focused. */
 export type BoardShortcut =
-  'toggle-focus' | 'escape' | 'select-tool' | 'ruler-tool' | 'toggle-grid';
+  | 'toggle-focus'
+  | 'escape'
+  | 'select-tool'
+  | 'ruler-tool'
+  | 'toggle-grid'
+  | 'layer-tokens'
+  | 'layer-objects'
+  | 'layer-background';
 
 /** The part of a `KeyboardEvent` the mapping reads, so it is testable without the DOM event. */
 export type ShortcutKey = Readonly<{
@@ -17,6 +24,9 @@ const SHORTCUT_BY_KEY: Readonly<Record<string, BoardShortcut>> = {
   v: 'select-tool',
   r: 'ruler-tool',
   g: 'toggle-grid',
+  '1': 'layer-tokens',
+  '2': 'layer-objects',
+  '3': 'layer-background',
   escape: 'escape',
 };
 

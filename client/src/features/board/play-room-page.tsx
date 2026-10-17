@@ -1,7 +1,8 @@
 import type { CampaignDetailDto } from '@lorkarium/contracts';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTable } from '@/features/sessions/use-open-table';
+import { ApplyConditionDialog } from '@/features/combat/apply-condition-dialog';
 import { TurnLine } from '@/features/combat/turn-line';
 import { RoomTokenDialog } from '@/features/tokens/room-token-dialog';
 import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
@@ -18,6 +19,7 @@ import { BoardStatusLine } from './board-status-line';
 import { BoardToolbar } from './board-toolbar';
 import { ConfigureGridDialog } from './configure-grid-dialog';
 import { FocusToggle } from './focus-toggle';
+import { TokenContextMenu, type TokenMenuRequest } from './token-context-menu';
 import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
@@ -50,6 +52,10 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [gridDialog, setGridDialog] = useState(false);
   // `{ tokenId: null }` is "Novo token"; a token id is "Editar token".
   const [tokenDialog, setTokenDialog] = useState<Readonly<{ tokenId: string | null }> | null>(null);
+  const [tokenMenu, setTokenMenu] = useState<TokenMenuRequest | null>(null);
+  const [conditionTargets, setConditionTargets] = useState<readonly string[] | null>(null);
+  const isMaster = campaign.myRole === 'master';
+  useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
   useRoomShortcuts({ roomLayout, interaction });
   const table = view.kind === 'open' ? view : null;
@@ -77,7 +83,26 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             interaction.getState().select(tokenId);
             roomLayout.getState().showTab('combat');
           }}
+          onTokenMenu={setTokenMenu}
         />
+        {tokenMenu && table && (
+          <TokenContextMenu
+            request={tokenMenu}
+            board={table.board}
+            interaction={interaction}
+            onApplyCondition={setConditionTargets}
+            onClose={() => setTokenMenu(null)}
+          />
+        )}
+        {conditionTargets && table && (
+          <ApplyConditionDialog
+            tokenIds={conditionTargets}
+            board={table.board}
+            interaction={interaction}
+            isMaster={isMaster}
+            onClose={() => setConditionTargets(null)}
+          />
+        )}
         <BoardStatusLine table={table} interaction={interaction} />
         <FocusToggle roomLayout={roomLayout} />
         {focus && table && (
@@ -109,6 +134,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             table={table}
             tokenId={tokenDialog.tokenId}
             renderer={renderer}
+            interaction={interaction}
             commands={props.boardCommands}
             onClose={() => setTokenDialog(null)}
           />

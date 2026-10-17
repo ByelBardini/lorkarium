@@ -14,11 +14,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { decimalText, digitsOnly } from '@/lib/numeric-text';
 import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-board-commands';
 import { DISCONNECTED_COMMAND, boardCommandFailureMessage } from './board-messages';
 import {
   gridFormOf,
   parseGridForm,
+  unitOptionsOf,
   type GridForm,
   type GridFormErrors,
   type GridFormField,
@@ -97,16 +99,23 @@ type GridFieldsProps = Readonly<{
   onChange: (form: GridForm) => void;
 }>;
 
+type NumericField = Exclude<GridFormField, 'cellUnit'>;
+
+// Text, not type="number": no spinner arrows, and what is typed is filtered to a number as it goes.
+const KEEP: Readonly<Record<'numeric' | 'decimal', (typed: string) => string>> = {
+  numeric: digitsOnly,
+  decimal: decimalText,
+};
+
 function GridFields({ form, errors, onChange }: GridFieldsProps): React.JSX.Element {
   const visibleId = useId();
-  const field = (name: GridFormField, label: string, inputMode: 'numeric' | 'decimal' | 'text') => (
+  const field = (name: NumericField, label: string, inputMode: 'numeric' | 'decimal') => (
     <TextField
       label={label}
       value={form[name]}
       error={errors[name]}
-      type={inputMode === 'numeric' ? 'number' : 'text'}
       inputMode={inputMode}
-      onChange={(value) => onChange({ ...form, [name]: value })}
+      onChange={(value) => onChange({ ...form, [name]: KEEP[inputMode](value) })}
     />
   );
   return (
@@ -115,7 +124,11 @@ function GridFields({ form, errors, onChange }: GridFieldsProps): React.JSX.Elem
         {field('widthCells', 'Largura (casas)', 'numeric')}
         {field('heightCells', 'Altura (casas)', 'numeric')}
         {field('cellDistance', 'Distância de uma casa', 'decimal')}
-        {field('cellUnit', 'Unidade', 'text')}
+        <UnitField
+          value={form.cellUnit}
+          error={errors.cellUnit}
+          onChange={(cellUnit) => onChange({ ...form, cellUnit })}
+        />
       </div>
       {field('gridOpacity', 'Opacidade do grid (%)', 'numeric')}
       <div className="flex items-center gap-3">
@@ -132,22 +145,49 @@ function GridFields({ form, errors, onChange }: GridFieldsProps): React.JSX.Elem
   );
 }
 
+type UnitFieldProps = Readonly<{
+  value: string;
+  error: string | undefined;
+  onChange: (unit: string) => void;
+}>;
+
+function UnitField({ value, error, onChange }: UnitFieldProps): React.JSX.Element {
+  const id = useId();
+  return (
+    <FormField id={id} label="Unidade" error={error}>
+      <select
+        id={id}
+        value={value}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full rounded-lg border border-input bg-card px-3 text-[15px] text-foreground outline-none focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-ring/20"
+      >
+        {unitOptionsOf(value).map((unit) => (
+          <option key={unit} value={unit}>
+            {unit}
+          </option>
+        ))}
+      </select>
+    </FormField>
+  );
+}
+
 type TextFieldProps = Readonly<{
   label: string;
   value: string;
   error: string | undefined;
-  type: 'number' | 'text';
-  inputMode: 'numeric' | 'decimal' | 'text';
+  inputMode: 'numeric' | 'decimal';
   onChange: (value: string) => void;
 }>;
 
-function TextField({ label, value, error, type, inputMode, onChange }: TextFieldProps) {
+function TextField({ label, value, error, inputMode, onChange }: TextFieldProps) {
   const id = useId();
   return (
     <FormField id={id} label={label} error={error}>
       <Input
         id={id}
-        type={type}
+        type="text"
         inputMode={inputMode}
         value={value}
         aria-invalid={error ? true : undefined}

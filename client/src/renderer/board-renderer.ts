@@ -8,10 +8,14 @@ export type BoardPointerIntent = Readonly<{
   cell: Cell | null;
 }>;
 
-/** A token clicked (selected), dragged over a new cell (from its confirmed `origin`), dragged
- *  and then put back by Esc, or released over a cell. `cell` is `null` off the scene. */
+/** A token clicked (selected; with Shift, `additive` toggles it in the selection), dragged over
+ *  a new cell (from its confirmed `origin`), dragged and then put back by Esc, or released over
+ *  a cell. `cell` is `null` off the scene. A marquee names the pickable tokens it touched. */
 export type BoardTokenIntent =
-  | Readonly<{ kind: 'tokenPicked'; tokenId: string }>
+  | Readonly<{ kind: 'tokenPicked'; tokenId: string; additive: boolean }>
+  | Readonly<{ kind: 'tokensMarqueed'; tokenIds: readonly string[]; additive: boolean }>
+  /** A short right click on a token, with the menu allowed: where (viewport px) to open it. */
+  | Readonly<{ kind: 'tokenMenuRequested'; tokenId: string; x: number; y: number }>
   | Readonly<{ kind: 'tokenDragged'; tokenId: string; origin: Cell; cell: Cell | null }>
   | Readonly<{ kind: 'tokenDragCancelled'; tokenId: string }>
   | Readonly<{ kind: 'tokenDropped'; tokenId: string; cell: Cell | null }>;

@@ -6,11 +6,12 @@ import {
 } from '@/features/campaigns/campaign-messages';
 import type { OpenTableView } from '@/features/sessions/use-open-table';
 import type { BoardIntent, BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
-import type { BoardInteractionStore } from '@/stores/board-interaction-store';
+import type { BoardInteractionStore, DragGroup } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { BoardCanvas } from './board-canvas';
-import { BOARD_LOAD_FAILED, movedAnnouncement } from './board-messages';
+import type { TokenMenuRequest } from './token-context-menu';
+import { BOARD_LOAD_FAILED, movedAnnouncement, tokensMovedAnnouncement } from './board-messages';
 import { useBoardKeyboard } from './use-board-keyboard';
 
 export type BoardAreaProps = Readonly<{
@@ -20,6 +21,8 @@ export type BoardAreaProps = Readonly<{
   onRenderer: (renderer: BoardRenderer | null) => void;
   /** Enter on a selected token: show its card. */
   onOpenToken: (tokenId: string) => void;
+  /** A short right click on a token (master): open "Mover para camada" there. */
+  onTokenMenu: (request: TokenMenuRequest) => void;
 }>;
 
 /** What fills the room behind the floating UI: the canvas once the board is ready, or why not.
@@ -52,6 +55,7 @@ function InteractiveCanvas({
   createBoardRenderer,
   onRenderer,
   onOpenToken,
+  onTokenMenu,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({ board, interaction, onOpen: onOpenToken });
   return (
@@ -59,7 +63,11 @@ function InteractiveCanvas({
       board={board}
       interaction={interaction}
       createBoardRenderer={createBoardRenderer}
-      onIntent={(intent) => routeIntent({ board, interaction }, intent)}
+      onIntent={(intent) =>
+        intent.kind === 'tokenMenuRequested'
+          ? onTokenMenu({ tokenId: intent.tokenId, x: intent.x, y: intent.y })
+          : routeIntent({ board, interaction }, intent)
+      }
       onRenderer={onRenderer}
       onKeyDown={onKeyDown}
     />
@@ -75,14 +83,47 @@ type IntentStores = Readonly<{
 function routeIntent({ board, interaction }: IntentStores, intent: BoardIntent): void {
   const local = interaction.getState();
   if (intent.kind === 'tokenDragged') {
-    return local.dragOver(intent.tokenId, intent.origin, intent.cell);
+    const group = dragGroupOf({ board, interaction }, intent.tokenId);
+    if (group) local.dragOver(intent.tokenId, intent.origin, intent.cell, group);
+    return;
   }
   if (intent.kind === 'tokenDragCancelled') return local.cancelDrag();
   if (intent.kind !== 'tokenDropped') return local.pointer(intent);
+  void local.dropToken(
+    intent.tokenId,
+    intent.cell,
+    dropAnnouncement({ board, interaction }, intent),
+  );
+}
+
+// The token picked up carries the selection it is in: the members this viewer may move.
+function dragGroupOf({ board, interaction }: IntentStores, anchorId: string): DragGroup | null {
+  const state = board.getState().board;
+  if (!state) return null;
+  const { selectedTokenIds, activeLayer } = interaction.getState();
+  const grouped = selectedTokenIds.includes(anchorId) ? selectedTokenIds : [anchorId];
+  const movable = (id: string): boolean => {
+    const token = state.tokens.find((candidate) => candidate.id === id);
+    return id === anchorId || (!!token && token.canControl && token.layer === activeLayer);
+  };
+  const ids = [anchorId, ...grouped.filter((id) => id !== anchorId && movable(id))];
+  const members = ids.flatMap((id) => {
+    const token = state.tokens.find((candidate) => candidate.id === id);
+    return token ? [{ tokenId: id, col: token.col, row: token.row, size: token.size }] : [];
+  });
+  const { widthCells, heightCells } = state.scene;
+  return { members, scene: { widthCells, heightCells } };
+}
+
+function dropAnnouncement(
+  { board, interaction }: IntentStores,
+  intent: Extract<BoardIntent, { kind: 'tokenDropped' }>,
+): string | undefined {
+  const members = interaction.getState().drag?.members.length ?? 1;
+  if (members > 1) return tokensMovedAnnouncement(members);
   const token = board.getState().board?.tokens.find(({ id }) => id === intent.tokenId);
-  const announce =
-    token && intent.cell && movedAnnouncement(token.name, intent.cell.col, intent.cell.row);
-  void local.dropToken(intent.tokenId, intent.cell, announce ?? undefined);
+  if (!token || !intent.cell) return undefined;
+  return movedAnnouncement(token.name, intent.cell.col, intent.cell.row);
 }
 
 type BoardAlertProps = Readonly<{ message: string; onRetry?: () => void }>;

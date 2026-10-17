@@ -1,18 +1,27 @@
 import { sameCell, type Cell } from '@lorkarium/game-core';
 import type { StoreApi } from 'zustand/vanilla';
 import { browserClock, type InteractionClock } from '@/lib/interaction-clock';
+import { shiftGroup, type GroupPlacement } from '@/lib/token-group';
 import { ROUTE_BEND_DWELL_MS, settleRoute, startRoute, stepRoute } from '@/lib/token-route';
 import type { BoardCommandResult } from '@/services/table-board-commands';
-import type { BoardInteractionDeps, BoardInteractionStore } from './board-interaction-store';
+import type {
+  BoardInteractionDeps,
+  BoardInteractionStore,
+  DragGroup,
+  TokenDrag,
+  TokenPreview,
+} from './board-interaction-store';
 import { TokenDragRelay } from './token-drag-relay';
 
 type MoveRequest = Readonly<{ tokenId: string; to: Cell; announce: string | undefined }>;
 type DropRequest = Omit<MoveRequest, 'to'> & Readonly<{ to: Cell | null }>;
 type StoreAccess = Pick<StoreApi<BoardInteractionStore>, 'getState' | 'setState'>;
 type RefusalSink = (result: BoardCommandResult) => void;
+type SendMove = () => Promise<BoardCommandResult>;
 
-/** The move of one token by this viewer: the route and its bend timer while dragging, the
- *  previews the table sees, and the move command that ends it. One per interaction store.
+/** The move of one token, or of a group anchored on the token picked up, by this viewer: the
+ *  anchor's route and its bend timer while dragging, the previews the table sees, and the move
+ *  command that ends it. One per interaction store.
  *
  *  Example: `const drags = new TokenDragFlow(deps, { getState: get, setState: set }, sayIfRefused)` */
 export class TokenDragFlow {
@@ -26,28 +35,30 @@ export class TokenDragFlow {
     private readonly onAnswer: RefusalSink,
   ) {
     this.clock = deps.clock ?? browserClock;
-    const send = (tokenId: string, over: Cell | null) =>
-      deps.commands.dragToken(deps.campaignId, tokenId, over);
+    const send = (drags: Parameters<TokenDragRelay['push']>[0]) =>
+      deps.commands.dragTokens(deps.campaignId, drags);
     this.relay = new TokenDragRelay(send, this.clock);
   }
 
-  over(tokenId: string, origin: Cell, over: Cell | null): void {
+  over(anchorId: string, origin: Cell, over: Cell | null, group: DragGroup): void {
     const { getState, setState } = this.store;
     if (getState().readOnly) return;
-    const drag = getState().drag;
     const now = this.clock.now();
-    const started = drag?.tokenId === tokenId ? drag.route : startRoute(origin, now);
-    if (!over) return setState({ drag: { tokenId, route: started } });
-    setState({ drag: { tokenId, route: stepRoute(started, over, now) } });
+    const drag = this.dragOf(anchorId, origin, group, now);
+    if (!over) return setState({ drag });
+    const route = stepRoute(drag.route, over, now);
+    const landing = shiftGroup(drag.scene, drag.members, drag.route.origin, over);
+    setState({ drag: { ...drag, route, landing } });
     this.waitForBend();
-    this.relay.push(tokenId, over);
+    if (landing)
+      this.relay.push(landing.map(({ tokenId, col, row }) => ({ tokenId, cell: { col, row } })));
   }
 
   cancel(): void {
     const drag = this.store.getState().drag;
     if (!drag) return;
     this.forget();
-    this.relay.end(drag.tokenId);
+    this.relay.end(drag.members.map(({ tokenId }) => tokenId));
   }
 
   /** Drops the drag without telling the table (reconnecting: there is no one to tell). */
@@ -57,26 +68,49 @@ export class TokenDragFlow {
     this.store.setState({ drag: null });
   }
 
+  // Off the scene, back home or with a member pushed off: the group goes back, nothing moves.
   async drop({ tokenId, to, announce }: DropRequest): Promise<void> {
-    const origin = this.store.getState().drag?.route.origin;
-    if (!to || (origin && sameCell(to, origin))) return this.cancel();
+    const drag = this.store.getState().drag;
+    if (!drag) return to ? this.move({ tokenId, to, announce }) : undefined;
+    if (!to || sameCell(to, drag.route.origin)) return this.cancel();
+    const landing = shiftGroup(drag.scene, drag.members, drag.route.origin, to);
+    if (!landing) return this.cancel();
     this.forget();
-    await this.move({ tokenId, to, announce });
+    if (drag.members.length === 1) return this.move({ tokenId, to, announce });
+    const send = () => this.deps.commands.moveTokens(this.deps.campaignId, landing);
+    await this.sendMove(landing, send, announce);
   }
 
-  // The ghost shows at once; the command waits for the drag previews still on their way.
   async move({ tokenId, to, announce }: MoveRequest): Promise<void> {
+    const preview = [{ tokenId, col: to.col, row: to.row }];
+    const send = () => this.deps.commands.moveToken(this.deps.campaignId, tokenId, to);
+    await this.sendMove(preview, send, announce);
+  }
+
+  // The ghosts show at once; the command waits for the drag previews still on their way.
+  private async sendMove(
+    landing: readonly GroupPlacement[],
+    send: SendMove,
+    announce: string | undefined,
+  ): Promise<void> {
     const { getState, setState } = this.store;
     if (getState().readOnly) return;
-    const preview = { tokenId, col: to.col, row: to.row };
+    const preview: readonly TokenPreview[] = landing;
     setState({ preview });
     const onItsWay = this.relay.settle();
     if (onItsWay) await onItsWay;
-    const result = await this.deps.commands.moveToken(this.deps.campaignId, tokenId, to);
-    // The confirmed token:moved arrives before its ack, so the board already shows the new cell.
-    if (getState().preview === preview) setState({ preview: null });
+    const result = await send();
+    // The confirmed move arrives before its ack, so the board already shows the new cells.
+    if (getState().preview === preview) setState({ preview: [] });
     if (result.ok && announce) setState({ notice: announce });
     this.onAnswer(result);
+  }
+
+  private dragOf(anchorId: string, origin: Cell, group: DragGroup, nowMs: number): TokenDrag {
+    const drag = this.store.getState().drag;
+    if (drag?.anchorId === anchorId) return drag;
+    const route = startRoute(origin, nowMs);
+    return { anchorId, members: group.members, scene: group.scene, route, landing: null };
   }
 
   private waitForBend(): void {

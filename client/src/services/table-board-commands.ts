@@ -3,8 +3,9 @@ import {
   boardCommandAckDto,
   type BarChangeDto,
   type ConditionToneDto,
-  type CreateTokenCommandDto,
+  type CreateTokenCommandInput,
   type SceneGridDto,
+  type TokenLayerDto,
   type UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
 import type { RealtimeTransport } from './realtime-transport';
@@ -27,9 +28,14 @@ export type BoardCommandResult =
   Readonly<{ ok: true; version: number }> | Readonly<{ ok: false; failure: BoardCommandFailure }>;
 
 type Envelope = 'actionId' | 'campaignId';
-export type NewToken = Omit<CreateTokenCommandDto, Envelope>;
+// The input type: a token sent without `layer` lands on `tokens`.
+export type NewToken = Omit<CreateTokenCommandInput, Envelope>;
 export type TokenEdit = Omit<UpdateTokenCommandDto, Envelope | 'tokenId'>;
 export type CellTarget = Readonly<{ col: number; row: number }>;
+/** Where one token of a group lands. */
+export type TokenPlacement = Readonly<{ tokenId: string; col: number; row: number }>;
+/** The cell one token of a group is dragged over; `null` ends its drag with no move. */
+export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | null }>;
 
 /** Board commands of an open table; each answers with its ack, never throws. The confirmed
  *  change itself arrives as an event, like everyone else's.
@@ -40,12 +46,16 @@ export interface TableBoardCommands {
   createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult>;
   updateToken(campaignId: string, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult>;
   moveToken(campaignId: string, tokenId: string, to: CellTarget): Promise<BoardCommandResult>;
-  /** The cell a token is dragged over, for the others to see; `null` ends a drag with no move.
-   *  Nothing is saved: the ack carries the version as it stands. */
-  dragToken(
+  /** A group move: all or nothing, in one version. */
+  moveTokens(campaignId: string, moves: readonly TokenPlacement[]): Promise<BoardCommandResult>;
+  /** The cells a group (one token is a group of one) is dragged over, for the others to see;
+   *  a `null` cell ends that token's drag with no move. Nothing is saved: the ack carries the
+   *  version as it stands. */
+  dragTokens(campaignId: string, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult>;
+  setTokenLayer(
     campaignId: string,
-    tokenId: string,
-    over: CellTarget | null,
+    tokenIds: readonly string[],
+    layer: TokenLayerDto,
   ): Promise<BoardCommandResult>;
   adjustBar(
     campaignId: string,
@@ -62,6 +72,12 @@ export interface TableBoardCommands {
   applyCondition(
     campaignId: string,
     tokenId: string,
+    conditionId: string,
+    rounds: number,
+  ): Promise<BoardCommandResult>;
+  applyConditions(
+    campaignId: string,
+    tokenIds: readonly string[],
     conditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult>;
@@ -134,13 +150,25 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
     return this.send(BOARD_EVENTS.moveToken, campaignId, { tokenId, col: to.col, row: to.row });
   }
 
-  dragToken(
+  moveTokens(campaignId: string, moves: readonly TokenPlacement[]): Promise<BoardCommandResult> {
+    const placed = moves.map(({ tokenId, col, row }) => ({ tokenId, col, row }));
+    return this.send(BOARD_EVENTS.moveTokens, campaignId, { moves: placed });
+  }
+
+  dragTokens(campaignId: string, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult> {
+    const over = drags.map(({ tokenId, cell }) => ({
+      tokenId,
+      cell: cell && { col: cell.col, row: cell.row },
+    }));
+    return this.send(BOARD_EVENTS.dragTokens, campaignId, { drags: over });
+  }
+
+  setTokenLayer(
     campaignId: string,
-    tokenId: string,
-    over: CellTarget | null,
+    tokenIds: readonly string[],
+    layer: TokenLayerDto,
   ): Promise<BoardCommandResult> {
-    const cell = over && { col: over.col, row: over.row };
-    return this.send(BOARD_EVENTS.dragToken, campaignId, { tokenId, cell });
+    return this.send(BOARD_EVENTS.setTokenLayer, campaignId, { tokenIds: [...tokenIds], layer });
   }
 
   adjustBar(
@@ -171,6 +199,19 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
     rounds: number,
   ): Promise<BoardCommandResult> {
     return this.send(BOARD_EVENTS.applyCondition, campaignId, { tokenId, conditionId, rounds });
+  }
+
+  applyConditions(
+    campaignId: string,
+    tokenIds: readonly string[],
+    conditionId: string,
+    rounds: number,
+  ): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.applyConditions, campaignId, {
+      tokenIds: [...tokenIds],
+      conditionId,
+      rounds,
+    });
   }
 
   removeCondition(

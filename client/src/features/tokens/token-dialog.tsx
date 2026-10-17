@@ -1,4 +1,4 @@
-import type { TokenDto } from '@lorkarium/contracts';
+import type { TokenDto, TokenLayerDto } from '@lorkarium/contracts';
 import type { Cell } from '@lorkarium/game-core';
 import { useState } from 'react';
 import { Alert } from '@/components/ui/alert';
@@ -33,6 +33,8 @@ export type TokenDialogProps = Readonly<{
   token: TokenDto | null;
   /** Where a new token goes: the cell at the center of the view. */
   placeAt: Cell;
+  /** The layer a new token lands on (the master's active one). */
+  layer: TokenLayerDto;
   players: readonly TokenPlayer[];
   commands: TableBoardCommands;
   connected: boolean;
@@ -42,7 +44,7 @@ export type TokenDialogProps = Readonly<{
 /** "Novo token" / "Editar token" (master). Mounted only while open; saving closes on the ack, and
  *  the change itself arrives as the event everyone gets.
  *
- *  Example: `{dialog && <TokenDialog campaignId={id} token={null} placeAt={center} players={players} commands={commands} connected onClose={close} />}` */
+ *  Example: `{dialog && <TokenDialog campaignId={id} token={null} placeAt={center} layer="tokens" players={players} commands={commands} connected onClose={close} />}` */
 export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
   const { token, players, connected, onClose } = props;
   const [form, setForm] = useState(() => (token ? tokenFormOf(token) : emptyTokenForm()));
@@ -113,9 +115,9 @@ export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
 }
 
 function sendToken(props: TokenDialogProps, edit: TokenEdit): Promise<BoardCommandResult> {
-  const { commands, campaignId, token, placeAt } = props;
+  const { commands, campaignId, token, placeAt, layer } = props;
   if (token) return commands.updateToken(campaignId, token.id, edit);
-  return commands.createToken(campaignId, { ...edit, col: placeAt.col, row: placeAt.row });
+  return commands.createToken(campaignId, { ...edit, col: placeAt.col, row: placeAt.row, layer });
 }
 
 type DeleteTokenProps = Readonly<{ name: string; disabled: boolean; onConfirm: () => void }>;

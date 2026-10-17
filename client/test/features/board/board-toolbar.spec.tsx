@@ -81,6 +81,22 @@ describe('BoardToolbar', () => {
     expect(screen.queryByRole('button', { name: 'Novo token' })).toBeNull();
   });
 
+  it('the master sees the "Camada" group with Tokens pressed, and choosing Objetos presses it', async () => {
+    act(() => interaction.getState().allowLayerChoice(true));
+    renderToolbar();
+    expect(screen.getByRole('group', { name: 'Camada' })).not.toBeNull();
+    expect(tool('Tokens (1)')).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(tool('Objetos (2)'));
+    expect(tool('Objetos (2)')).toHaveAttribute('aria-pressed', 'true');
+    expect(tool('Tokens (1)')).toHaveAttribute('aria-pressed', 'false');
+    expect(tool('Fundo (3)')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('a player sees no "Camada" group', () => {
+    renderToolbar(false);
+    expect(screen.queryByRole('group', { name: 'Camada' })).toBeNull();
+  });
+
   it('without a renderer yet, the zoom buttons are disabled', () => {
     render(
       <BoardToolbar

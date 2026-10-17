@@ -1,5 +1,5 @@
 import { Container, Graphics, Text } from 'pixi.js';
-import type { BarColorDto, TokenSideDto } from '@lorkarium/contracts';
+import type { BarColorDto, TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
 import type { GhostView, TokenView } from './board-view';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 
@@ -30,18 +30,27 @@ type TokenSprite = Readonly<{
 }> & { view: TokenView; from: Point; to: Point; startedMs: number };
 
 /** The tokens on the canvas: one `Container` per token, kept by id so a change redraws only that
- *  token (spec §14, rendering risk). Positions are world px of the token's top-left corner. */
+ *  token (spec §14, rendering risk), inside one `Container` per layer (Fundo under Objetos under
+ *  Tokens). Positions are world px of the token's top-left corner. */
 export class PixiTokenLayer {
   readonly container = new Container();
+  private readonly layers: Readonly<Record<TokenLayerDto, Container>> = {
+    background: new Container(),
+    objects: new Container(),
+    tokens: new Container(),
+  };
   private readonly sprites = new Map<string, TokenSprite>();
   private readonly ghost = new Graphics();
   private dragging: string | null = null;
+  private drawn: readonly TokenView[] = [];
 
   constructor(private readonly reducedMotion: () => boolean) {
-    this.container.addChild(this.ghost);
+    const { background, objects, tokens } = this.layers;
+    this.container.addChild(background, objects, tokens, this.ghost);
   }
 
-  sync(tokens: readonly TokenView[], ghost: GhostView | null, nowMs: number): void {
+  sync(tokens: readonly TokenView[], ghosts: readonly GhostView[], nowMs: number): void {
+    this.drawn = tokens;
     const alive = new Set(tokens.map(({ id }) => id));
     for (const [id, sprite] of this.sprites) {
       if (alive.has(id)) continue;
@@ -49,13 +58,13 @@ export class PixiTokenLayer {
       this.sprites.delete(id);
     }
     for (const view of tokens) this.place(view, nowMs);
-    this.drawGhost(ghost);
+    this.drawGhosts(ghosts);
   }
 
-  /** The topmost token under a world point. */
+  /** The topmost token of the active layer under a world point: the others cannot be taken. */
   tokenAt(world: Point): TokenView | null {
-    const views = [...this.sprites.values()].map(({ view }) => view).reverse();
-    return views.find((view) => contains(view, world)) ?? null;
+    const topFirst = [...this.drawn].reverse();
+    return topFirst.find((view) => view.pickable && contains(view, world)) ?? null;
   }
 
   /** Follows the pointer while a token is dragged (centered on it). */
@@ -100,6 +109,7 @@ export class PixiTokenLayer {
       known.to = target;
       known.startedMs = nowMs;
     }
+    if (known.view.layer !== view.layer) this.layers[view.layer].addChild(known.root);
     known.view = view;
     drawToken(known);
   }
@@ -118,20 +128,21 @@ export class PixiTokenLayer {
     label.anchor.set(0.5);
     root.addChild(shape, label);
     root.position.set(at.x, at.y);
-    this.container.addChild(root);
+    this.layers[view.layer].addChild(root);
     const sprite: TokenSprite = { root, shape, label, view, from: at, to: at, startedMs: nowMs };
     this.sprites.set(view.id, sprite);
     drawToken(sprite);
   }
 
-  private drawGhost(ghost: GhostView | null): void {
+  private drawGhosts(ghosts: readonly GhostView[]): void {
     this.ghost.clear();
-    if (!ghost) return;
-    const size = ghost.size * CELL_WORLD_SIZE;
-    const corner = { x: ghost.col * CELL_WORLD_SIZE, y: ghost.row * CELL_WORLD_SIZE };
-    this.ghost
-      .circle(corner.x + size / 2, corner.y + size / 2, size * 0.42)
-      .stroke({ width: 2, color: GOLD_COLOR, alpha: 0.6 });
+    for (const ghost of ghosts) {
+      const size = ghost.size * CELL_WORLD_SIZE;
+      const corner = { x: ghost.col * CELL_WORLD_SIZE, y: ghost.row * CELL_WORLD_SIZE };
+      this.ghost
+        .circle(corner.x + size / 2, corner.y + size / 2, size * 0.42)
+        .stroke({ width: 2, color: GOLD_COLOR, alpha: 0.6 });
+    }
   }
 }
 

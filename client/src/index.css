@@ -118,6 +118,14 @@
   a {
     @apply text-primary underline-offset-4 hover:text-primary-hover hover:underline;
   }
+  /* Tailwind v4 preflight resets buttons to cursor: default; the app wants the hand everywhere. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    @apply cursor-pointer;
+  }
+  button:disabled {
+    @apply cursor-not-allowed;
+  }
   /* Chrome paints autofilled fields pale yellow, which breaks the dark surface. */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,

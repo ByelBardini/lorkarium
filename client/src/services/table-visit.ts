@@ -5,7 +5,7 @@ import {
   sessionJoinAckDto,
   sessionMemberJoinedDto,
   sessionMemberLeftDto,
-  tokenDraggedDto,
+  tokensDraggedDto,
   type ApiErrorDto,
   type SessionJoinAckDto,
 } from '@lorkarium/contracts';
@@ -50,7 +50,7 @@ export class TableVisit {
       this.transport.onLifecycle((change) => this.onLifecycle(change)),
       this.transport.on(SESSION_EVENTS.memberJoined, (payload) => this.onMemberJoined(payload)),
       this.transport.on(SESSION_EVENTS.memberLeft, (payload) => this.onMemberLeft(payload)),
-      this.transport.on(BOARD_EVENTS.tokenDragged, (payload) => this.onTokenDragged(payload)),
+      this.transport.on(BOARD_EVENTS.tokensDragged, (payload) => this.onTokensDragged(payload)),
       ...Object.keys(BOARD_EVENT_SPECS).map((name) =>
         this.transport.on(name, (payload) => this.onBoardEvent(name, payload)),
       ),
@@ -124,10 +124,10 @@ export class TableVisit {
   }
 
   // A malformed preview is dropped: it changed nothing confirmed, so there is nothing to resync.
-  private onTokenDragged(payload: unknown): void {
-    const parsed = tokenDraggedDto.safeParse(payload);
+  private onTokensDragged(payload: unknown): void {
+    const parsed = tokensDraggedDto.safeParse(payload);
     if (parsed.success && parsed.data.campaignId === this.campaignId) {
-      this.notify({ kind: 'tokenDragged', drag: parsed.data });
+      this.notify({ kind: 'tokensDragged', drag: parsed.data });
     }
   }
 

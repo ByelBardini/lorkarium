@@ -3,9 +3,14 @@ import { PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
-import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
+import {
+  singleSelectedOf,
+  useBoardInteraction,
+  type BoardInteractionStore,
+} from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { CombatantRow } from './combatant-row';
+import { SelectionConditions } from './selection-conditions';
 import { StartCombatDialog } from './start-combat-dialog';
 
 export type CombatantListProps = Readonly<{
@@ -21,7 +26,9 @@ export type CombatantListProps = Readonly<{
  *  Example: `<CombatantList board={board} interaction={interaction} isMaster onEditToken={edit} />` */
 export function CombatantList(props: CombatantListProps): React.JSX.Element | null {
   const state = useBoard(props.board, (current) => current.board);
-  const selected = useBoardInteraction(props.interaction, (current) => current.selectedTokenId);
+  const selected = useBoardInteraction(props.interaction, (current) =>
+    singleSelectedOf(current.selectedTokenIds),
+  );
   const combat = state?.combat;
   if (!state || !combat) return null;
   const rows = combat.combatants.flatMap((combatant, index) => {
@@ -33,6 +40,11 @@ export function CombatantList(props: CombatantListProps): React.JSX.Element | nu
   });
   return (
     <div className="flex flex-col gap-3">
+      <SelectionConditions
+        board={props.board}
+        interaction={props.interaction}
+        isMaster={props.isMaster}
+      />
       <ol aria-label="Ordem de iniciativa" className="flex flex-col">
         {rows.map((row) => (
           <CombatantRow

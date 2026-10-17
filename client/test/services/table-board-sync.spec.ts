@@ -7,7 +7,8 @@ import {
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
 import {
-  lyraDraggedOver,
+  LYRA_ID,
+  groupDraggedOver,
   sceneUpdated,
   vharnBoard,
   vharnState,
@@ -98,26 +99,33 @@ describe('board sync of a table visit', () => {
     expect(syncsSent()).toBe(2);
   });
 
-  it('a token:dragged of this table arrives as a drag preview', async () => {
+  it('a token:draggedMany of this table arrives as a group drag preview', async () => {
     await joined();
-    transport.serverEmits('token:dragged', lyraDraggedOver({ col: 5, row: 4 }));
-    expect(updates.at(-1)).toEqual({
-      kind: 'tokenDragged',
-      drag: lyraDraggedOver({ col: 5, row: 4 }),
-    });
+    const drag = groupDraggedOver([{ tokenId: LYRA_ID, cell: { col: 5, row: 4 } }]);
+    transport.serverEmits('token:draggedMany', drag);
+    expect(updates.at(-1)).toEqual({ kind: 'tokensDragged', drag });
   });
 
-  it('a token:dragged of another table is ignored', async () => {
+  it('a token:draggedMany of another table is ignored', async () => {
     await joined();
-    transport.serverEmits('token:dragged', lyraDraggedOver(null, { campaignId: QUELM.id }));
-    expect(updates.map(({ kind }) => kind)).not.toContain('tokenDragged');
+    const drag = groupDraggedOver([{ tokenId: LYRA_ID, cell: null }], { campaignId: QUELM.id });
+    transport.serverEmits('token:draggedMany', drag);
+    expect(updates.map(({ kind }) => kind)).not.toContain('tokensDragged');
   });
 
-  it('a token:dragged outside the DTO is dropped without a resync: it confirmed nothing', async () => {
+  it('a token:draggedMany outside the DTO is dropped without a resync: it confirmed nothing', async () => {
     await joined();
-    transport.serverEmits('token:dragged', { ...lyraDraggedOver(null), cell: { col: -1 } });
-    expect(updates.map(({ kind }) => kind)).not.toContain('tokenDragged');
+    transport.serverEmits('token:draggedMany', { ...groupDraggedOver([]), drags: 'all' });
+    expect(updates.map(({ kind }) => kind)).not.toContain('tokensDragged');
     expect(syncsSent()).toBe(1);
+  });
+
+  it('a token:movedMany of this table outside the DTO is dropped and the board syncs again', async () => {
+    await joined();
+    const at = '2026-10-16T12:00:00.000Z';
+    transport.serverEmits('token:movedMany', { campaignId: VHARN.id, version: 6, at, moves: 1 });
+    expect(boardUpdates()).toEqual([]);
+    expect(syncsSent()).toBe(2);
   });
 
   it('resync() sends a new board:sync', async () => {

@@ -8,9 +8,11 @@ import {
   activeCondition,
   eventAt,
   KAEL_COMBATANT,
+  KAEL_ID,
+  groupDraggedOver,
+  kael,
   LYRA_COMBATANT,
   LYRA_ID,
-  lyraDraggedOver,
   tokenCreatedAt,
   tokenDeletedAt,
   tokenMovedAt,
@@ -144,6 +146,43 @@ describe('board store', () => {
       expect(resyncs).toBe(1);
     });
 
+    it('token:movedMany one version above moves every token of the group', () => {
+      apply({ kind: 'board', state: vharnBoard({ tokens: [lyra(), kael()] }) });
+      const moves = [
+        { tokenId: LYRA_ID, col: 8, row: 6 },
+        { tokenId: KAEL_ID, col: 9, row: 6 },
+      ];
+      apply(event(eventAt(5, { type: 'tokensMoved', payload: { moves } })));
+      const cells = store.getState().board?.tokens.map(({ col, row }) => [col, row]);
+      expect(cells).toEqual([
+        [8, 6],
+        [9, 6],
+      ]);
+      expect(store.getState().board?.version).toBe(5);
+    });
+
+    it('token:layerChanged puts every listed token on the layer and leaves the others', () => {
+      apply({ kind: 'board', state: vharnBoard({ tokens: [lyra(), kael()] }) });
+      const payload = { tokenIds: [KAEL_ID], layer: 'background' } as const;
+      apply(
+        event(
+          eventAt(5, { type: 'tokenLayerChanged', payload: { ...payload, tokenIds: [KAEL_ID] } }),
+        ),
+      );
+      expect(store.getState().board?.tokens.map(({ layer }) => layer)).toEqual([
+        'tokens',
+        'background',
+      ]);
+    });
+
+    it('a token:movedMany that skips a version waits for the resync', () => {
+      apply({ kind: 'board', state: vharnBoard({ tokens: [lyra()] }) });
+      const moves = [{ tokenId: LYRA_ID, col: 8, row: 6 }];
+      apply(event(eventAt(6, { type: 'tokensMoved', payload: { moves } })));
+      expect(store.getState().board?.tokens[0]).toMatchObject({ col: 3, row: 4 });
+      expect(resyncs).toBe(1);
+    });
+
     it('counts the snapshots, so the room can drop its previews on each one', () => {
       apply({ kind: 'board', state: vharnBoard() }, { kind: 'board', state: vharnBoard() });
       expect(store.getState().snapshots).toBe(2);
@@ -151,13 +190,17 @@ describe('board store', () => {
   });
 
   describe('drags of other people', () => {
-    function dragged(cell: Parameters<typeof lyraDraggedOver>[0]) {
-      return { kind: 'tokenDragged', drag: lyraDraggedOver(cell) } as const;
+    // Lyra dragged alone: a group of one.
+    function dragged(cell: Readonly<{ col: number; row: number }> | null) {
+      return {
+        kind: 'tokensDragged',
+        drag: groupDraggedOver([{ tokenId: LYRA_ID, cell }]),
+      } as const;
     }
 
     beforeEach(() => apply({ kind: 'board', state: vharnBoard({ version: 5, tokens: [lyra()] }) }));
 
-    it('a token:dragged keeps the cell over the confirmed one, with no version change', () => {
+    it('a drag preview of Lyra keeps the cell over the confirmed one, with no version change', () => {
       apply(dragged({ col: 5, row: 4 }), dragged({ col: 6, row: 4 }));
       expect(store.getState().dragged).toEqual({ [LYRA_ID]: { col: 6, row: 4 } });
       expect(store.getState().board?.tokens[0]).toMatchObject({ col: 3, row: 4 });
@@ -187,10 +230,36 @@ describe('board store', () => {
       expect(store.getState().dragged).toEqual({});
     });
 
+    it('a token:draggedMany keeps the cell of each token, and null clears that one', () => {
+      const first = groupDraggedOver([
+        { tokenId: LYRA_ID, cell: { col: 5, row: 4 } },
+        { tokenId: KAEL_ID, cell: { col: 6, row: 4 } },
+      ]);
+      const end = groupDraggedOver([{ tokenId: KAEL_ID, cell: null }]);
+      apply({ kind: 'tokensDragged', drag: first }, { kind: 'tokensDragged', drag: end });
+      expect(store.getState().dragged).toEqual({ [LYRA_ID]: { col: 5, row: 4 } });
+      expect(store.getState().board?.version).toBe(5);
+    });
+
+    it('the confirmed token:movedMany ends the drag of every moved token', () => {
+      const drags = [
+        { tokenId: LYRA_ID, cell: { col: 5, row: 4 } },
+        { tokenId: KAEL_ID, cell: { col: 6, row: 4 } },
+      ];
+      const moves = [{ tokenId: LYRA_ID, col: 5, row: 4 }];
+      apply(
+        { kind: 'tokensDragged', drag: groupDraggedOver(drags) },
+        { kind: 'boardEvent', event: eventAt(6, { type: 'tokensMoved', payload: { moves } }) },
+      );
+      expect(store.getState().dragged).toEqual({ [KAEL_ID]: { col: 6, row: 4 } });
+    });
+
     it('a drag of another table is ignored', () => {
       apply({
-        kind: 'tokenDragged',
-        drag: lyraDraggedOver({ col: 1, row: 1 }, { campaignId: QUELM.id }),
+        kind: 'tokensDragged',
+        drag: groupDraggedOver([{ tokenId: LYRA_ID, cell: { col: 1, row: 1 } }], {
+          campaignId: QUELM.id,
+        }),
       });
       expect(store.getState().dragged).toEqual({});
     });
@@ -236,6 +305,22 @@ describe('board store', () => {
       );
       expect(store.getState().board?.combat?.currentCombatantId).toBe(LYRA_COMBATANT);
       expect(store.getState().board?.tokens[0]?.conditions).toEqual([]);
+    });
+
+    it('condition:appliedMany puts the condition on each listed token, leaving the others', () => {
+      apply({ kind: 'board', state: vharnBoard({ tokens: [lyra(), kael()] }) });
+      const caido = activeCondition({ remainingRounds: null });
+      apply(
+        on(
+          eventAt(5, {
+            type: 'conditionsApplied',
+            payload: { applied: [{ tokenId: KAEL_ID, condition: caido }] },
+          }),
+        ),
+      );
+      const tokens = store.getState().board?.tokens ?? [];
+      expect(tokens.find(({ id }) => id === KAEL_ID)?.conditions).toEqual([caido]);
+      expect(tokens.find(({ id }) => id === LYRA_ID)?.conditions).toEqual([]);
     });
 
     it('condition:applied twice replaces the duration, and condition:removed takes it off', () => {

@@ -1,17 +1,20 @@
 import { cell, type Cell } from '@lorkarium/game-core';
+import type { TokenDragTarget } from '@/services/table-board-commands';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DRAG_SEND_INTERVAL_MS, TokenDragRelay } from '@/stores/token-drag-relay';
 import { InteractionClockFake } from '../support/interaction-clock-fake';
 
 const LYRA = 'lyra';
 
-/** Plays the server: each preview waits for `answer()`. */
+/** Plays the server: each preview waits for `answer()`; `sent` keeps the cell of Lyra in each. */
 class DragSendsFake {
   readonly sent: Array<Cell | null> = [];
+  readonly groups: Array<readonly TokenDragTarget[]> = [];
   private answers: Array<() => void> = [];
 
-  readonly send = (_tokenId: string, over: Cell | null): Promise<void> => {
-    this.sent.push(over);
+  readonly send = (drags: readonly TokenDragTarget[]): Promise<void> => {
+    this.groups.push(drags);
+    this.sent.push(drags.find(({ tokenId }) => tokenId === LYRA)?.cell ?? null);
     return new Promise((resolve) => this.answers.push(resolve));
   };
 
@@ -34,14 +37,14 @@ describe('TokenDragRelay', () => {
   });
 
   it('the first cell goes out at once', () => {
-    relay.push(LYRA, cell(2, 6));
+    relay.push([{ tokenId: LYRA, cell: cell(2, 6) }]);
     expect(sends.sent).toEqual([cell(2, 6)]);
   });
 
   it('cells while one is on its way collapse into the latest, sent after the answer', async () => {
-    relay.push(LYRA, cell(2, 6));
-    relay.push(LYRA, cell(3, 6));
-    relay.push(LYRA, cell(4, 6));
+    relay.push([{ tokenId: LYRA, cell: cell(2, 6) }]);
+    relay.push([{ tokenId: LYRA, cell: cell(3, 6) }]);
+    relay.push([{ tokenId: LYRA, cell: cell(4, 6) }]);
     clock.advance(DRAG_SEND_INTERVAL_MS);
     expect(sends.sent).toEqual([cell(2, 6)]);
     await sends.answer();
@@ -49,35 +52,35 @@ describe('TokenDragRelay', () => {
   });
 
   it('never sends two within 100 ms, even with quick answers', async () => {
-    relay.push(LYRA, cell(2, 6));
+    relay.push([{ tokenId: LYRA, cell: cell(2, 6) }]);
     await sends.answer();
-    relay.push(LYRA, cell(3, 6));
+    relay.push([{ tokenId: LYRA, cell: cell(3, 6) }]);
     expect(sends.sent).toHaveLength(1);
     clock.advance(DRAG_SEND_INTERVAL_MS);
     expect(sends.sent).toEqual([cell(2, 6), cell(3, 6)]);
   });
 
   it('end sends null right away, dropping the cell that waited', async () => {
-    relay.push(LYRA, cell(2, 6));
+    relay.push([{ tokenId: LYRA, cell: cell(2, 6) }]);
     await sends.answer();
-    relay.push(LYRA, cell(3, 6));
-    relay.end(LYRA);
+    relay.push([{ tokenId: LYRA, cell: cell(3, 6) }]);
+    relay.end([LYRA]);
     expect(sends.sent).toEqual([cell(2, 6), null]);
     clock.advance(DRAG_SEND_INTERVAL_MS);
     expect(sends.sent).toEqual([cell(2, 6), null]);
   });
 
   it('end while a preview is on its way goes out after its answer, in order', async () => {
-    relay.push(LYRA, cell(2, 6));
-    relay.end(LYRA);
+    relay.push([{ tokenId: LYRA, cell: cell(2, 6) }]);
+    relay.end([LYRA]);
     expect(sends.sent).toEqual([cell(2, 6)]);
     await sends.answer();
     expect(sends.sent).toEqual([cell(2, 6), null]);
   });
 
   it('settle drops what waits and resolves only after the preview on its way was answered', async () => {
-    relay.push(LYRA, cell(2, 6));
-    relay.push(LYRA, cell(3, 6));
+    relay.push([{ tokenId: LYRA, cell: cell(2, 6) }]);
+    relay.push([{ tokenId: LYRA, cell: cell(3, 6) }]);
     let settled = false;
     void relay.settle()?.then(() => (settled = true));
     await Promise.resolve();
@@ -88,8 +91,18 @@ describe('TokenDragRelay', () => {
   });
 
   it('settle with nothing on its way answers null, so a move goes out at once', async () => {
-    relay.push(LYRA, cell(2, 6));
+    relay.push([{ tokenId: LYRA, cell: cell(2, 6) }]);
     await sends.answer();
     expect(relay.settle()).toBeNull();
+  });
+
+  it('the end of a group sends null for every member in one preview', () => {
+    relay.end([LYRA, 'kael']);
+    expect(sends.groups).toEqual([
+      [
+        { tokenId: LYRA, cell: null },
+        { tokenId: 'kael', cell: null },
+      ],
+    ]);
   });
 });
