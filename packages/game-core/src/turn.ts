@@ -4,7 +4,9 @@ export type TurnState = Readonly<{ round: number; currentId: string | null }>;
 export type AdvancedTurn = TurnState & Readonly<{ endedTurnOf: string | null }>;
 
 /** A condition counting rounds down; `null` lasts until removed. */
-export type Timed = Readonly<{ remainingRounds: number | null }>;
+/** A condition's duration: `remainingRounds` (`null` = until removed) and the combat round it was
+ *  applied in (`null` = out of combat). */
+export type Timed = Readonly<{ remainingRounds: number | null; appliedRound: number | null }>;
 
 /** "Próximo turno" / "Passar a vez": the next combatant in the current order, and a new round
  *  after the last. `endedTurnOf` is whose conditions count down now.
@@ -51,18 +53,20 @@ export function nextAfterRemoval(
   return { round: state.round + 1, currentId: remaining[0] ?? null };
 }
 
-/** The end of a combatant's turn for its conditions: each one counts down a round, and the ones
- *  at their last round expire ("Atordoado 1" takes exactly the next turn of whoever got it).
+/** The end of a combatant's turn in `round` for its conditions: each one counts down a round, and
+ *  the ones at their last round expire. One applied in this same round is not counted yet, so
+ *  "Caído 1" applied in round 1 lasts until the end of the holder's turn in round 2.
  *
- *  Example: `const { kept, expired } = tickAtTurnEnd(conditionsOf(endedTurnOf))` */
+ *  Example: `const { kept, expired } = tickAtTurnEnd(conditionsOf(endedTurnOf), combat.round)` */
 export function tickAtTurnEnd<T extends Timed>(
   conditions: readonly T[],
+  round: number,
 ): Readonly<{ kept: T[]; expired: T[] }> {
   const kept: T[] = [];
   const expired: T[] = [];
   for (const condition of conditions) {
     const left = condition.remainingRounds;
-    if (left === null) kept.push(condition);
+    if (left === null || condition.appliedRound === round) kept.push(condition);
     else if (left <= 1) expired.push(condition);
     else kept.push({ ...condition, remainingRounds: left - 1 });
   }
