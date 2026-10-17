@@ -27,7 +27,8 @@ async function settle(page: Page): Promise<void> {
 test('layers: a player never picks what is off the tokens layer, a marquee moves a group, and an F5 keeps it all', async ({
   newPlayerPage,
 }) => {
-  test.setTimeout(120_000);
+  // Three pages drawing PixiJS without a GPU: on the CI runner this spec went over 120 s (1.1 min locally).
+  test.setTimeout(240_000);
   const name = `Mesa camadas ${Date.now()}`;
   const admin = await newPlayerPage();
   const bia = await newPlayerPage();
