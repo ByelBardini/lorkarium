@@ -37,6 +37,7 @@ Identidade visual do Lorkarium, em tokens de `client/src/index.css` (variável C
 - `Input`: 48px (`h-12`), `bg-card`, texto 15px. `Button` `size="xl"`: 50px, 15px semibold; `variant="default"` dourado; `variant="outline"` é o botão secundário (borda `input`, texto `label`, hover dourado).
 - `Checkbox`: 18px, marcado em dourado. `Alert variant="destructive"`: fundo `destructive/10`, borda `destructive/60`, texto `destructive-text`.
 - O autofill do Chrome é neutralizado no `index.css` (fundo `card`, texto `foreground`).
+- Cursor: o `@layer base` do `index.css` dá `cursor-pointer` a todo `button` e `[role=button]` habilitado e `cursor-not-allowed` ao `button:disabled` (o preflight do Tailwind v4 volta o botão para `default`). Não repetir `cursor-pointer` em botão.
 
 ## Regras anti-template
 

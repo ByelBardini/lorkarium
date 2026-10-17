@@ -29,7 +29,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `orderCombatants(lista)` — do maior para o menor, sem iniciativa no fim, empate pela `tieOrder` (a ordem de entrada); `moveWithinTie(lista, id, 'up' | 'down')` troca a `tieOrder` com o vizinho **só** se tiver a mesma iniciativa (o ↑/↓ do mestre). `OrderEntry` = `{ id, initiative, tieOrder }`.
 - `TurnState` `{ round, currentId }` — a vez segue o combatente, não a posição: mudar a iniciativa no meio da rodada não muda quem joga.
 - `advanceTurn(ordem, estado)` → o próximo, e o primeiro com `round + 1` depois do último; `endedTurnOf` é de quem as condições contam agora (sem ninguém na vez, começa o primeiro e nenhum turno acaba). `retreatTurn` volta um (atravessando a rodada; o primeiro da rodada 1 fica) e não devolve condição expirada (§12). `nextAfterRemoval(ordemAntes, id, estado)`: quem sai na vez passa ao seguinte (o último na vez abre a rodada seguinte); sem ninguém, `currentId: null`.
-- `tickAtTurnEnd(condições)` → `{ kept, expired }`: cada uma desce uma rodada no **fim do turno de quem a tem**; a da última rodada expira ("Atordoado 1" tira exatamente o próximo turno); `null` dura até ser removida.
+- `tickAtTurnEnd(condições, rodada)` → `{ kept, expired }`: cada uma desce uma rodada no **fim do turno de quem a tem**; a da última rodada expira; `null` dura até ser removida. A aplicada **nesta mesma rodada** (`appliedRound === rodada`) não conta ainda: "Caído 1" aplicada na rodada 1 sai no fim do turno de quem a tem na rodada 2 (dura uma rodada inteira). `appliedRound: null` (aplicada fora de combate) conta desde o primeiro turno.
 
 ## Armadilhas
 
