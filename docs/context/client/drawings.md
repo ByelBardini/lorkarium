@@ -30,7 +30,8 @@ Desenho no tabuleiro (mão livre, quadrado, círculo, triângulo), a área de c�
 - `drawing-style-store.ts` — `createDrawingStyleStore(storage)` no `AppDependencies` (`drawingStyle`): forma, traço, preenchimento e espessura, cada um lembrado em `lorkarium.drawingStyle.*` (preenchimento "Nenhum" gravado como `none`); valor fora da paleta ou storage que lança → padrão. `styleOf`, `useDrawingStyle`.
 - `drawing-tool-flow.ts` — `sendSketch(deps, { points, snap }, { style, layer, readOnly, say })`: o traço vira **um** `createDrawings` (`shapeInputOf`: só forma fixa leva `fill`) na camada ativa (o jogador está sempre em Tokens); confirmado, entra na pilha (`drawingsAdded` com o id do `createdIds`); recusado, a linha de status diz o motivo; `readOnly` ou traço sem nada → nada vai.
 - `board-interaction-store`: `tool` ganhou `draw` (`DRAW_HINT` "Arraste para desenhar; Shift encaixa a forma na grade."; entrar nela limpa a seleção) e `finishSketch(traço, estilo)`.
-- `features/drawings/draw-style-panel.tsx` — `DrawStylePanel` (`section` "Estilo do desenho", flutua ao lado do toolbar enquanto a ferramenta está ligada e fora do foco): "Forma", "Cor do traço" (com amostra), "Preenchimento" (com "Nenhum"; desabilitado na mão livre com a dica `FILL_ONLY_FIXED_HINT` "Só formas fixas têm preenchimento.") e "Espessura", todos `ChoiceField` (que ganhou `disabled`, `hint` e o `radiogroup` nomeado pela legenda).
+- `features/drawings/draw-style-panel.tsx` — `DrawStylePanel` (`section` "Estilo do desenho", flutua ao lado do toolbar enquanto a ferramenta está ligada e fora do foco): "Forma" (ícones), "Cor do traço" (amostras), "Preenchimento" ("Nenhum" = círculo vazio cortado em vermelho; desabilitado na mão livre com a dica `FILL_ONLY_FIXED_HINT` "Só formas fixas têm preenchimento.") e "Espessura" (a própria linha), todos `StyleTileGroup`.
+- `features/drawings/style-tile-group.tsx` — `StyleTileGroup({ legend, value, tiles, onChange, shape, disabled, hint })`: `radiogroup` nomeado pela legenda, desenhado como ladrilhos só com imagem (`StyleTile { value, label, picture }`: o `label` é o nome acessível e o `title`); o escolhido ganha o anel dourado. `shape`: `round` (amostra de cor, quebra linha), `square` (ícones que dividem a linha) ou `grid` (ícones de 32px que quebram linha; a grade de ícone da condição, ver [`combat.md`](combat.md)). Reaproveite para qualquer escolha visual em vez de um `ChoiceField` de texto.
 
 ## Seleção, arraste e Delete
 
@@ -48,7 +49,7 @@ Desenho no tabuleiro (mão livre, quadrado, círculo, triângulo), a área de c�
 ## Testes
 
 - Sem DOM: `test/lib/` (`drawing-geometry`, `drawing-style`, `selection-move`, `paste-placement`, `edit-history`, `board-keys`, `board-shortcuts`), `test/renderer/` (`drawing-view`, `drawing-gestures`, `board-view`, `marquee`), `test/stores/` (`board-reducer`, `drawing-style-store`, `drawing-tool-flow`, `drawing-edit-flow`, `table-edit-store`, `open-tables-store`, interação), `test/services/` (eventos e comandos).
-- Componentes: `test/features/drawings/draw-style-panel.spec.tsx` e `test/features/board/play-room-page-drawings.spec.tsx` (B e o painel, traço → `createDrawings`, arrastar desenho com token, Delete, Ctrl+C/V sob o cursor, Ctrl+C num diálogo, Ctrl+Z/Y e o aviso do `stale_undo`).
+- Componentes: `test/features/drawings/draw-style-panel.spec.tsx`, `style-tile-group.spec.tsx` e `test/features/board/play-room-page-drawings.spec.tsx` (B e o painel, traço → `createDrawings`, arrastar desenho com token, Delete, Ctrl+C/V sob o cursor, Ctrl+C num diálogo, Ctrl+Z/Y e o aviso do `stale_undo`).
 - Fixtures `square()` (de Bia), `path()` (de Caio), `SQUARE_ID`, `PATH_ID`, `vharnEventBase(versão)` em `test/support/drawing-fixtures.ts`; `deps.drawingStyleStorage`.
 
 ## Armadilhas
