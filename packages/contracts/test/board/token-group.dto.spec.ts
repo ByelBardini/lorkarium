@@ -1,0 +1,158 @@
+import { describe, expect, it } from 'vitest';
+import {
+  dragTokensCommandDto,
+  moveTokensCommandDto,
+  setTokenLayerCommandDto,
+  tokensDraggedDto,
+} from '../../src/board/token-group.dto';
+import { TOKEN_GROUP_MAX } from '../../src/board/token-id-group.dto';
+
+const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
+const CAMPAIGN_ID = '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a';
+const LYRA_ID = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
+const BRAM_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
+const CHEST_ID = '7f6e5d4c-3b2a-4f1e-8d9c-8b7a6f5e4d3c';
+const BASE = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID };
+
+function tokenIdNumber(index: number): string {
+  return `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
+}
+
+function idsOf(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => tokenIdNumber(index + 1));
+}
+
+function messagesOf(result: { success: boolean; error?: { issues: { message: string }[] } }) {
+  return result.error?.issues.map((issue) => issue.message) ?? [];
+}
+
+describe('moveTokensCommandDto', () => {
+  it('three distinct tokens with their cells are accepted as sent', () => {
+    const command = {
+      ...BASE,
+      moves: [
+        { tokenId: LYRA_ID, col: 2, row: 2 },
+        { tokenId: BRAM_ID, col: 3, row: 2 },
+        { tokenId: CHEST_ID, col: 5, row: 5 },
+      ],
+    };
+
+    expect(moveTokensCommandDto.parse(command)).toEqual(command);
+  });
+
+  it('a group of one token is accepted', () => {
+    const command = { ...BASE, moves: [{ tokenId: LYRA_ID, col: 0, row: 0 }] };
+
+    expect(moveTokensCommandDto.safeParse(command).success).toBe(true);
+  });
+
+  it(`a group of ${TOKEN_GROUP_MAX} tokens is accepted`, () => {
+    const moves = idsOf(64).map((tokenId) => ({ tokenId, col: 1, row: 1 }));
+
+    expect(moveTokensCommandDto.safeParse({ ...BASE, moves }).success).toBe(true);
+  });
+
+  it('a group of 65 tokens is refused', () => {
+    const moves = idsOf(65).map((tokenId) => ({ tokenId, col: 1, row: 1 }));
+
+    expect(moveTokensCommandDto.safeParse({ ...BASE, moves }).success).toBe(false);
+  });
+
+  it('an empty group is refused', () => {
+    expect(moveTokensCommandDto.safeParse({ ...BASE, moves: [] }).success).toBe(false);
+  });
+
+  it('the same token twice is refused naming the repeated id', () => {
+    const moves = [
+      { tokenId: LYRA_ID, col: 1, row: 1 },
+      { tokenId: LYRA_ID, col: 2, row: 1 },
+    ];
+
+    const result = moveTokensCommandDto.safeParse({ ...BASE, moves });
+
+    expect(messagesOf(result)).toEqual([expect.stringContaining(LYRA_ID)]);
+  });
+
+  it('a forged userId is refused (the author comes from the connection)', () => {
+    const command = { ...BASE, userId: BRAM_ID, moves: [{ tokenId: LYRA_ID, col: 1, row: 1 }] };
+
+    expect(moveTokensCommandDto.safeParse(command).success).toBe(false);
+  });
+});
+
+describe('dragTokensCommandDto', () => {
+  it('every cell null (the drag ended) is accepted as sent', () => {
+    const command = {
+      ...BASE,
+      drags: [
+        { tokenId: LYRA_ID, cell: null },
+        { tokenId: BRAM_ID, cell: null },
+      ],
+    };
+
+    expect(dragTokensCommandDto.parse(command)).toEqual(command);
+  });
+
+  it('the same token twice is refused naming the repeated id', () => {
+    const drags = [
+      { tokenId: BRAM_ID, cell: { col: 1, row: 1 } },
+      { tokenId: BRAM_ID, cell: null },
+    ];
+
+    const result = dragTokensCommandDto.safeParse({ ...BASE, drags });
+
+    expect(messagesOf(result)).toEqual([expect.stringContaining(BRAM_ID)]);
+  });
+});
+
+describe('dragTokensCommandDto, edges', () => {
+  it('a negative cell is refused', () => {
+    const drags = [{ tokenId: LYRA_ID, cell: { col: -1, row: 2 } }];
+    expect(dragTokensCommandDto.safeParse({ ...BASE, drags }).success).toBe(false);
+  });
+
+  it('a forged userId is refused (the author comes from the connection)', () => {
+    const command = { ...BASE, userId: BRAM_ID, drags: [{ tokenId: LYRA_ID, cell: null }] };
+    expect(dragTokensCommandDto.safeParse(command).success).toBe(false);
+  });
+});
+
+describe('tokensDraggedDto', () => {
+  it('carries the cells and no version: it is a preview, not a confirmed change', () => {
+    const event = {
+      campaignId: CAMPAIGN_ID,
+      at: '2026-10-16T21:00:00.000Z',
+      drags: [{ tokenId: LYRA_ID, cell: { col: 1, row: 1 } }],
+    };
+    expect(tokensDraggedDto.parse(event)).not.toHaveProperty('version');
+    expect(tokensDraggedDto.safeParse({ ...event, version: 3 }).success).toBe(false);
+  });
+});
+
+describe('setTokenLayerCommandDto', () => {
+  it('two tokens moved to the objects layer are accepted as sent', () => {
+    const command = { ...BASE, tokenIds: [LYRA_ID, BRAM_ID], layer: 'objects' };
+
+    expect(setTokenLayerCommandDto.parse(command)).toEqual(command);
+  });
+
+  it('a layer outside tokens, objects and background is refused', () => {
+    const command = { ...BASE, tokenIds: [LYRA_ID], layer: 'gm' };
+
+    expect(setTokenLayerCommandDto.safeParse(command).success).toBe(false);
+  });
+
+  it('the same token twice is refused naming the repeated id', () => {
+    const command = { ...BASE, tokenIds: [CHEST_ID, LYRA_ID, CHEST_ID], layer: 'background' };
+
+    const result = setTokenLayerCommandDto.safeParse(command);
+
+    expect(messagesOf(result)).toEqual([expect.stringContaining(CHEST_ID)]);
+  });
+
+  it('a group of 65 tokens is refused', () => {
+    const command = { ...BASE, tokenIds: idsOf(65), layer: 'tokens' };
+
+    expect(setTokenLayerCommandDto.safeParse(command).success).toBe(false);
+  });
+});

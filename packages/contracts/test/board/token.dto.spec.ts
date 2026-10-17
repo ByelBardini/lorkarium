@@ -4,8 +4,6 @@ import {
   MAX_BARS_PER_TOKEN,
   adjustBarCommandDto,
   createTokenCommandDto,
-  dragTokenCommandDto,
-  tokenDraggedDto,
   tokenDto,
 } from '../../src/board/token.dto';
 
@@ -54,8 +52,12 @@ function keysOf(issue: object): string[] {
 }
 
 describe('createTokenCommandDto', () => {
-  it('a token with two bars is accepted as sent', () => {
-    expect(createTokenCommandDto.parse(CREATE)).toEqual(CREATE);
+  it('a token with two bars and no layer is accepted on the tokens layer', () => {
+    expect(createTokenCommandDto.parse(CREATE)).toEqual({ ...CREATE, layer: 'tokens' });
+  });
+
+  it('a token sent on the objects layer keeps it', () => {
+    expect(createTokenCommandDto.parse({ ...CREATE, layer: 'objects' }).layer).toBe('objects');
   });
 
   it('the name is trimmed', () => {
@@ -132,45 +134,12 @@ describe('tokenDto', () => {
       size: 1,
       col: 3,
       row: 4,
+      layer: 'tokens',
       controllerIds: [BIA_ID],
       canControl: false,
       bars: [bar(1), bar(2)],
       conditions: [],
     };
     expect(tokenDto.parse(token).bars.map((b) => b.position)).toEqual([1, 2]);
-  });
-});
-
-describe('dragTokenCommandDto', () => {
-  const DRAG = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID, tokenId: TOKEN_ID };
-
-  it('accepts the cell the token is over', () => {
-    const parsed = dragTokenCommandDto.parse({ ...DRAG, cell: { col: 4, row: 2 } });
-    expect(parsed.cell).toEqual({ col: 4, row: 2 });
-  });
-
-  it('accepts null, the drag that ended without a move', () => {
-    expect(dragTokenCommandDto.parse({ ...DRAG, cell: null }).cell).toBeNull();
-  });
-
-  it('refuses a negative cell', () => {
-    expect(dragTokenCommandDto.safeParse({ ...DRAG, cell: { col: -1, row: 2 } }).success).toBe(
-      false,
-    );
-  });
-
-  it('refuses a forged userId (identity comes from the connection)', () => {
-    const forged = { ...DRAG, cell: null, userId: BIA_ID };
-    expect(dragTokenCommandDto.safeParse(forged).success).toBe(false);
-  });
-});
-
-describe('tokenDraggedDto', () => {
-  const DRAGGED = { campaignId: CAMPAIGN_ID, at: '2026-10-16T21:00:00.000Z', tokenId: TOKEN_ID };
-
-  it('carries the cell and no version: it is a preview, not a confirmed change', () => {
-    const parsed = tokenDraggedDto.parse({ ...DRAGGED, cell: { col: 1, row: 1 } });
-    expect(parsed).not.toHaveProperty('version');
-    expect(tokenDraggedDto.safeParse({ ...DRAGGED, cell: null, version: 3 }).success).toBe(false);
   });
 });

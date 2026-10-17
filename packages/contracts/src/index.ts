@@ -11,5 +11,7 @@ export * from './board/scene.dto';
 export * from './board/board.dto';
 export * from './board/board-event.dto';
 export * from './board/token.dto';
+export * from './board/token-group.dto';
+export * from './board/token-id-group.dto';
 export * from './board/condition.dto';
 export * from './board/combat.dto';

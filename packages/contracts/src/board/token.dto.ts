@@ -14,6 +14,10 @@ export const TOKEN_SIZE_MAX = 4;
 export const tokenSideDto = z.enum(['ally', 'enemy', 'neutral']);
 export type TokenSideDto = z.infer<typeof tokenSideDto>;
 
+/** The three drawing layers of a scene; the order is the drawing order, top to bottom. */
+export const tokenLayerDto = z.enum(['tokens', 'objects', 'background']);
+export type TokenLayerDto = z.infer<typeof tokenLayerDto>;
+
 /** The five bar colors of the design system (`chart-1..4` and ash), never a free hex. */
 export const barColorDto = z.enum(['gold', 'steel', 'ember', 'moss', 'ash']);
 export type BarColorDto = z.infer<typeof barColorDto>;
@@ -23,7 +27,7 @@ export const barVisibilityDto = z.enum(['everyone', 'controllers']);
 export type BarVisibilityDto = z.infer<typeof barVisibilityDto>;
 
 const barCurrentDto = z.number().int().min(-BAR_VALUE_LIMIT).max(BAR_VALUE_LIMIT);
-const cellIndexDto = z.number().int().nonnegative();
+export const cellIndexDto = z.number().int().nonnegative();
 
 /** A bar as the master writes it (create or edit); its position is its index in the list. */
 export const barInputDto = z.strictObject({
@@ -63,18 +67,22 @@ export const tokenDto = z.strictObject({
   ...tokenFieldsShape,
   col: cellIndexDto,
   row: cellIndexDto,
+  layer: tokenLayerDto,
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
   conditions: z.array(activeConditionDto),
 });
 export type TokenDto = z.infer<typeof tokenDto>;
 
-/** `token:create` (master). Example: `createTokenCommandDto.parse({ actionId, campaignId, name, … })` */
+/** `token:create` (master); without a `layer` the token lands on `tokens`.
+ *
+ *  Example: `createTokenCommandDto.parse({ actionId, campaignId, name, …, layer: 'objects' })` */
 export const createTokenCommandDto = z.strictObject({
   ...boardCommandShape,
   ...tokenFieldsShape,
   col: cellIndexDto,
   row: cellIndexDto,
+  layer: tokenLayerDto.default('tokens'),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type CreateTokenCommandDto = z.infer<typeof createTokenCommandDto>;
@@ -98,18 +106,8 @@ export const moveTokenCommandDto = z.strictObject({
 });
 export type MoveTokenCommandDto = z.infer<typeof moveTokenCommandDto>;
 
-const draggedCellDto = z.strictObject({ col: cellIndexDto, row: cellIndexDto }).nullable();
-
-/** `token:drag` (master or a controller): the cell a token is being dragged over, before it is
- *  dropped; `null` when the drag ended without a move. Nothing is saved and the version stays.
- *
- *  Example: `dragTokenCommandDto.parse({ actionId, campaignId, tokenId, cell: { col: 4, row: 2 } })` */
-export const dragTokenCommandDto = z.strictObject({
-  ...boardCommandShape,
-  tokenId: z.uuid(),
-  cell: draggedCellDto,
-});
-export type DragTokenCommandDto = z.infer<typeof dragTokenCommandDto>;
+/** The cell a token is dragged over, or `null` when its drag ended without a move. */
+export const draggedCellDto = z.strictObject({ col: cellIndexDto, row: cellIndexDto }).nullable();
 
 /** "−7" subtracts, "+5" adds, "12" sets (the field is parsed on the client). */
 export const barChangeDto = z.discriminatedUnion('op', [
@@ -151,18 +149,6 @@ export const tokenMovedDto = z.strictObject({
   row: cellIndexDto,
 });
 export type TokenMovedDto = z.infer<typeof tokenMovedDto>;
-
-/** `token:dragged`: a preview, not a confirmed change, so it carries no version (§5.5 covers the
- *  confirmed `token:moved` that ends the drag). `cell: null` puts the token back where it is.
- *
- *  Example: `tokenDraggedDto.parse(payload).cell // { col: 4, row: 2 } | null` */
-export const tokenDraggedDto = z.strictObject({
-  campaignId: z.uuid(),
-  at: z.iso.datetime(),
-  tokenId: z.uuid(),
-  cell: draggedCellDto,
-});
-export type TokenDraggedDto = z.infer<typeof tokenDraggedDto>;
 
 /** `combat` is the combat after the token left it (the turn may have passed), or `null` with none. */
 export const tokenDeletedDto = z.strictObject({
