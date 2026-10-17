@@ -1,6 +1,5 @@
 import type {
   BarChangeDto,
-  ConditionToneDto,
   DrawingShapeInput,
   SceneGridDto,
   TokenLayerDto,
@@ -10,6 +9,7 @@ import type {
   CellTarget,
   DrawingMoveTarget,
   DrawingPlacement,
+  NewConditionDefinition,
   NewToken,
   TableBoardCommands,
   TokenDragTarget,
@@ -125,10 +125,9 @@ export class TableBoardCommandsFake implements TableBoardCommands {
 
   defineCondition(
     campaignId: string,
-    name: string,
-    tone: ConditionToneDto,
+    definition: NewConditionDefinition,
   ): Promise<BoardCommandResult> {
-    return this.record('defineCondition', campaignId, { name, tone });
+    return this.record('defineCondition', campaignId, { ...definition });
   }
 
   applyCondition(

@@ -278,22 +278,29 @@ describe('buildBoardView', () => {
       expect(viewWith({}).tokens[0]?.onTurn).toBe(false);
     });
 
-    it('up to 3 condition marks, colored by tone, and a "+" past that', () => {
+    it('up to 3 condition icons in their tone, and the count of the rest', () => {
+      const icons = ['skull', 'sparkles', 'lock', 'zap', 'moon'] as const;
       const tones = ['harm', 'benefit', 'harm', 'harm', 'benefit'] as const;
-      const conditions = tones.map((tone, index) => activeCondition({ id: `c-${index}`, tone }));
+      const conditions = icons.map((icon, index) =>
+        activeCondition({ id: `c-${index}`, icon, tone: tones[index] }),
+      );
       const token = viewWith({ tokens: [lyra({ conditions })] }).tokens[0];
-      expect(token?.marks).toEqual(['harm', 'benefit', 'harm']);
-      expect(token?.moreMarks).toBe(true);
+      expect(token?.marks).toEqual([
+        { icon: 'skull', tone: 'harm' },
+        { icon: 'sparkles', tone: 'benefit' },
+        { icon: 'lock', tone: 'harm' },
+      ]);
+      expect(token?.moreMarks).toBe(2);
     });
 
-    it('a token with two conditions has two marks and no "+"', () => {
+    it('a token with two conditions has two marks and nothing past them', () => {
       const conditions = [
         activeCondition({ id: 'a' }),
         activeCondition({ id: 'b', tone: 'benefit' }),
       ];
       const token = viewWith({ tokens: [lyra({ conditions })] }).tokens[0];
-      expect(token?.marks).toEqual(['harm', 'benefit']);
-      expect(token?.moreMarks).toBe(false);
+      expect(token?.marks.map(({ tone }) => tone)).toEqual(['harm', 'benefit']);
+      expect(token?.moreMarks).toBe(0);
     });
   });
 });

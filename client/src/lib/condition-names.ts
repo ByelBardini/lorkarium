@@ -40,3 +40,14 @@ export function conditionSuggestions(
   });
   return [...starting, ...containing];
 }
+
+/** The suggestions in the order the list shows them (benefits, then harms), so ↑/↓ walk them as
+ *  they are seen.
+ *
+ *  Example: `orderedByTone(conditionSuggestions(definitions, 'en'))` */
+export function orderedByTone(
+  suggestions: readonly ConditionDefinitionDto[],
+): ConditionDefinitionDto[] {
+  const tones: readonly ConditionDefinitionDto['tone'][] = ['benefit', 'harm'];
+  return tones.flatMap((tone) => suggestions.filter((item) => item.tone === tone));
+}

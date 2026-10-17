@@ -2,7 +2,7 @@ import {
   BOARD_EVENTS,
   boardCommandAckDto,
   type BarChangeDto,
-  type ConditionToneDto,
+  type DefineConditionCommandDto,
   type CreateTokenCommandInput,
   type DrawingShapeInput,
   type SceneGridDto,
@@ -37,6 +37,7 @@ export type BoardCommandResult =
 type Envelope = 'actionId' | 'campaignId';
 // The input type: a token sent without `layer` lands on `tokens`.
 export type NewToken = Omit<CreateTokenCommandInput, Envelope>;
+export type NewConditionDefinition = Omit<DefineConditionCommandDto, Envelope>;
 export type TokenEdit = Omit<UpdateTokenCommandDto, Envelope | 'tokenId'>;
 export type CellTarget = Readonly<{ col: number; row: number }>;
 /** Where one token of a group lands. */
@@ -101,8 +102,7 @@ export interface TableBoardCommands {
   deleteToken(campaignId: string, tokenId: string): Promise<BoardCommandResult>;
   defineCondition(
     campaignId: string,
-    name: string,
-    tone: ConditionToneDto,
+    definition: NewConditionDefinition,
   ): Promise<BoardCommandResult>;
   applyCondition(
     campaignId: string,
@@ -281,10 +281,9 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
 
   defineCondition(
     campaignId: string,
-    name: string,
-    tone: ConditionToneDto,
+    definition: NewConditionDefinition,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.defineCondition, campaignId, { name, tone });
+    return this.send(BOARD_EVENTS.defineCondition, campaignId, { ...definition });
   }
 
   applyCondition(

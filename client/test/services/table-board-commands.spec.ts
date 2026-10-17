@@ -180,8 +180,9 @@ describe('RealtimeTableBoardCommands', () => {
       ['combat:end', () => commands.endCombat(VHARN.id), {}],
       [
         'condition:define',
-        () => commands.defineCondition(VHARN.id, 'Sangrando', 'harm'),
-        { name: 'Sangrando', tone: 'harm' },
+        () =>
+          commands.defineCondition(VHARN.id, { name: 'Sangrando', tone: 'harm', icon: 'droplet' }),
+        { name: 'Sangrando', tone: 'harm', icon: 'droplet' },
       ],
       [
         'condition:apply',

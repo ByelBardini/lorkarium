@@ -1,5 +1,6 @@
 import type {
   BarColorDto,
+  ConditionIconDto,
   ConditionToneDto,
   SceneDto,
   TokenDto,
@@ -47,10 +48,13 @@ export type TokenView = Readonly<{
   draggable: boolean;
   /** The token of the combatant on turn: the gold ring. */
   onTurn: boolean;
-  /** Up to 3 condition marks, by tone; `moreMarks` draws a "+" past that. */
-  marks: readonly ConditionToneDto[];
-  moreMarks: boolean;
+  /** Up to 3 condition icons in their tone; `moreMarks` counts the rest, drawn as "+N". */
+  marks: readonly ConditionMarkView[];
+  moreMarks: number;
 }>;
+
+/** A condition drawn on a token: its icon in its tone's color. */
+export type ConditionMarkView = Readonly<{ icon: ConditionIconDto; tone: ConditionToneDto }>;
 
 /** Where a move was asked for, drawn as a ghost until the server answers. */
 export type GhostView = Readonly<{ tokenId: string; col: number; row: number; size: number }>;
@@ -165,8 +169,8 @@ function tokenViewOf(token: TokenDto, input: BoardViewInput): TokenView {
     selected: input.selectedTokenIds.includes(token.id),
     draggable: pickable && token.canControl && !input.readOnly,
     onTurn: token.id === input.currentTokenId,
-    marks: token.conditions.slice(0, MAX_MARKS).map(({ tone }) => tone),
-    moreMarks: token.conditions.length > MAX_MARKS,
+    marks: token.conditions.slice(0, MAX_MARKS).map(({ icon, tone }) => ({ icon, tone })),
+    moreMarks: Math.max(0, token.conditions.length - MAX_MARKS),
   };
 }
 

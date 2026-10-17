@@ -1,9 +1,8 @@
 import type { ConditionDefinitionDto } from '@lorkarium/contracts';
 import { useId, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { conditionSuggestions } from '@/lib/condition-names';
-import { cn } from '@/lib/utils';
-import { ConditionMark } from './condition-marks';
+import { conditionSuggestions, orderedByTone } from '@/lib/condition-names';
+import { ConditionSuggestionList } from './condition-suggestion-list';
 
 const STEP: Readonly<Record<string, number>> = { ArrowDown: 1, ArrowUp: -1 };
 
@@ -26,8 +25,9 @@ export function ConditionNameField(props: ConditionNameFieldProps): React.JSX.El
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const suggestions = conditionSuggestions(definitions, value);
-  const shown = open && suggestions.length > 0;
+  const suggestions = orderedByTone(conditionSuggestions(definitions, value));
+  const total = suggestions.length;
+  const shown = open && total > 0;
   const take = (name: string): void => {
     onChange(name);
     setOpen(false);
@@ -38,7 +38,7 @@ export function ConditionNameField(props: ConditionNameFieldProps): React.JSX.El
     if (step !== undefined) {
       event.preventDefault();
       setOpen(true);
-      setActive((current) => wrapIndex(current, step, suggestions.length));
+      setActive((current) => wrapIndex(current, step, total));
       return;
     }
     if (event.key === 'Escape' && shown) {
@@ -53,7 +53,7 @@ export function ConditionNameField(props: ConditionNameFieldProps): React.JSX.El
     else onSubmit();
   };
   return (
-    <div className="relative">
+    <div className="relative min-w-0 flex-1">
       <Input
         id={id}
         role="combobox"
@@ -74,34 +74,15 @@ export function ConditionNameField(props: ConditionNameFieldProps): React.JSX.El
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
-        className="h-9 w-44 text-sm"
+        className="h-9 w-full text-sm"
       />
-      <ul
+      <ConditionSuggestionList
         id={listId}
-        role="listbox"
-        aria-label="Condições da mesa"
         hidden={!shown}
-        className="absolute top-full left-0 z-20 mt-1 max-h-56 w-44 overflow-y-auto border border-border bg-popover py-1 shadow-md"
-      >
-        {suggestions.map((definition, index) => (
-          <li
-            key={definition.id}
-            id={`${listId}-${index}`}
-            role="option"
-            aria-selected={index === active}
-            // Before the blur: the click must still find the list open.
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => take(definition.name)}
-            className={cn(
-              'flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm',
-              index === active && 'bg-accent text-accent-foreground',
-            )}
-          >
-            <ConditionMark tone={definition.tone} />
-            {definition.name}
-          </li>
-        ))}
-      </ul>
+        suggestions={suggestions}
+        active={active}
+        onTake={take}
+      />
     </div>
   );
 }

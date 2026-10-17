@@ -360,6 +360,7 @@ describe('board store', () => {
         id: activeCondition().conditionId,
         name: 'Sangrando',
         tone: 'harm',
+        icon: 'droplet',
       } as const;
       apply(on(eventAt(5, { type: 'conditionDefined', payload: { definition } })));
       expect(store.getState().board?.conditionDefinitions).toEqual([definition]);

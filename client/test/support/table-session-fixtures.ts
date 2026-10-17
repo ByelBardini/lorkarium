@@ -243,6 +243,7 @@ export function activeCondition(overrides: Partial<ActiveConditionDto> = {}): Ac
     conditionId: 'd5e6f7a8-b9c0-4d1e-8f3a-4b5c6d7e8f90',
     name: 'Envenenado',
     tone: 'harm',
+    icon: 'flask-conical',
     remainingRounds: 2,
     ...overrides,
   };

@@ -31,7 +31,7 @@ function tokenView(overrides: Partial<TokenView> = {}): TokenView {
     draggable: true,
     onTurn: false,
     marks: [],
-    moreMarks: false,
+    moreMarks: 0,
     ...overrides,
   };
 }

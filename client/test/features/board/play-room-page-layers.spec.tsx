@@ -15,7 +15,12 @@ import {
   vharnState,
 } from '../../support/table-session-fixtures';
 
-const CAIDO = { id: 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f', name: 'Caído', tone: 'harm' } as const;
+const CAIDO = {
+  id: 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f',
+  name: 'Caído',
+  tone: 'harm',
+  icon: 'skull',
+} as const;
 
 describe('play room: layers', () => {
   let deps: TestDependencies;

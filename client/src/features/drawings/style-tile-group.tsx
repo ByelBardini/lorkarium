@@ -14,8 +14,9 @@ export type StyleTileGroupProps<T extends string> = Readonly<{
   value: T;
   tiles: readonly StyleTile<T>[];
   onChange: (value: T) => void;
-  /** `round` for color swatches, `square` for icon buttons (the Excalidraw/tldraw toolbar look). */
-  shape: 'round' | 'square';
+  /** `round` for color swatches, `square` for icon buttons (the Excalidraw/tldraw toolbar look),
+   *  `grid` for many fixed-size icon buttons that wrap. */
+  shape: 'round' | 'square' | 'grid';
   disabled?: boolean;
   hint?: string;
 }>;
@@ -23,6 +24,7 @@ export type StyleTileGroupProps<T extends string> = Readonly<{
 const TILE_SHAPE = {
   round: 'size-7 rounded-full',
   square: 'h-8 flex-1 rounded-md bg-input/30 hover:bg-input/60',
+  grid: 'size-8 rounded-md bg-input/30 hover:bg-input/60',
 } as const;
 
 /** A radio group drawn as a row of picture tiles: the checked one gets a gold ring.
@@ -52,7 +54,7 @@ export function StyleTileGroup<T extends string>({
           const chosen = tiles.find((tile) => tile.value === next);
           if (chosen) onChange(chosen.value);
         }}
-        className={cn('flex gap-2', shape === 'round' && 'flex-wrap')}
+        className={cn('flex gap-2', shape !== 'square' && 'flex-wrap')}
       >
         {tiles.map((tile) => (
           <RadioGroupPrimitive.Item

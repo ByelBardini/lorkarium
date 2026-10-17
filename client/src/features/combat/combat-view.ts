@@ -1,4 +1,4 @@
-import type { ActiveConditionDto, BoardStateDto, CombatDto, TokenDto } from '@lorkarium/contracts';
+import type { BoardStateDto, CombatDto, TokenDto } from '@lorkarium/contracts';
 
 /** The combat as the panel reads it: the token on turn and how many are in. */
 export type CombatSummary = Readonly<{
@@ -42,10 +42,3 @@ export function initiativeText(value: number | null): string {
 }
 
 export const END_COMBAT_QUESTION = 'Encerrar o combate? A ordem e a rodada se perdem.';
-
-/** "Envenenado · 2 rod." / "Concentrando · sem limite". */
-export function conditionLabel(condition: ActiveConditionDto): string {
-  const rounds =
-    condition.remainingRounds === null ? 'sem limite' : `${condition.remainingRounds} rod.`;
-  return `${condition.name} · ${rounds}`;
-}
