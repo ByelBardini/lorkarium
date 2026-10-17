@@ -35,9 +35,14 @@ export class ConditionsDaoFake implements Pick<
   constructor(private readonly journal: string[] = []) {}
 
   /** Seeds a definition without touching the journal. */
-  define(campaignId: string, name: string, tone: ConditionDefinitionPo['tone']): string {
+  define(
+    campaignId: string,
+    name: string,
+    tone: ConditionDefinitionPo['tone'],
+    icon: ConditionDefinitionPo['icon'] = 'circle-dot',
+  ): string {
     const id = `${campaignId}-${name}`;
-    this.definitions.push({ id, campaignId, name, tone, createdAt: CREATED });
+    this.definitions.push({ id, campaignId, name, tone, icon, createdAt: CREATED });
     return id;
   }
 
@@ -56,7 +61,7 @@ export class ConditionsDaoFake implements Pick<
     input: NewConditionDefinition,
   ): Promise<ConditionDefinitionPo> {
     this.journal.push('save');
-    const id = this.define(campaignId, input.name, input.tone);
+    const id = this.define(campaignId, input.name, input.tone, input.icon);
     return this.definitions.find((d) => d.id === id) as ConditionDefinitionPo;
   }
 
@@ -88,6 +93,7 @@ export class ConditionsDaoFake implements Pick<
       conditionId,
       name: definition.name,
       tone: definition.tone,
+      icon: definition.icon,
       ...duration,
     };
     this.active = [...kept, row];

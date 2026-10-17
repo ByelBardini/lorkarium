@@ -64,6 +64,13 @@
       "when": 1792200108659,
       "tag": "0008_drawings",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792204406649,
+      "tag": "0009_condition_icons",
+      "breakpoints": true
     }
   ]
 }

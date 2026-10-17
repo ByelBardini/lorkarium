@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
 import { MIGRATIONS_FOLDER } from '../../src/database/migrate';
+import { DEFAULT_CONDITIONS } from '../../src/modules/conditions/condition-rules.bo';
 
 const SCRATCH_DATABASE = 'lorkarium_scenes_migration';
 const LAST_MIGRATION_BEFORE_SCENES = '0001_campaigns';
@@ -31,7 +32,7 @@ function urlOf(database: string): string {
   return url.toString();
 }
 
-describe('migrations 0002_scenes and 0004_conditions on a database with campaigns', () => {
+describe('migrations 0002_scenes, 0004_conditions and 0009_condition_icons on a database with campaigns', () => {
   let admin: DatabaseConnection;
   let scratch: DatabaseConnection;
   let partialFolder: string;
@@ -52,7 +53,7 @@ describe('migrations 0002_scenes and 0004_conditions on a database with campaign
     await rm(partialFolder, { recursive: true, force: true });
   });
 
-  it('a campaign created before the migrations gets its active 20×12 scene and the 11 initial conditions', async () => {
+  it('a campaign created before the migrations gets its active 20×12 scene and the 11 initial conditions with their icons', async () => {
     await scratch.db.execute(sql`
       INSERT INTO users (id, name, email, password_hash)
       VALUES ('6a1d2c3b-4e5f-4a7b-8c9d-0e1f2a3b4c5d', 'Ana', 'ana@x.com', 'hash')`);
@@ -69,5 +70,9 @@ describe('migrations 0002_scenes and 0004_conditions on a database with campaign
       SELECT count(*)::int AS total FROM condition_definitions
       WHERE campaign_id = '3b1e9a52-6c4d-4f8a-9e2b-1a7c5d3f8e10'`);
     expect(conditions.rows).toEqual([{ total: 11 }]);
+    const icons = await scratch.db.execute<{ name: string; icon: string }>(sql`
+      SELECT name, icon FROM condition_definitions ORDER BY name`);
+    const expected = DEFAULT_CONDITIONS.map(({ name, icon }) => ({ name, icon }));
+    expect(icons.rows).toEqual(expect.arrayContaining(expected));
   });
 });

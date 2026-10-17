@@ -7,13 +7,14 @@ import {
   type NewConditionDefinition,
 } from './conditions.po';
 
-/** An active condition with the name and tone of its definition. */
+/** An active condition with the name, tone and icon of its definition. */
 export type ActiveConditionRow = Readonly<{
   id: string;
   tokenId: string;
   conditionId: string;
   name: string;
   tone: ConditionDefinitionPo['tone'];
+  icon: ConditionDefinitionPo['icon'];
   remainingRounds: number | null;
   appliedRound: number | null;
 }>;
@@ -30,6 +31,7 @@ const activeRowColumns = {
   conditionId: activeConditions.conditionId,
   name: conditionDefinitions.name,
   tone: conditionDefinitions.tone,
+  icon: conditionDefinitions.icon,
   remainingRounds: activeConditions.remainingRounds,
   appliedRound: activeConditions.appliedRound,
 };

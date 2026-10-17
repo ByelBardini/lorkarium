@@ -74,7 +74,11 @@ describe('ConditionsDao on Postgres', () => {
   });
 
   it('defining "envenenado" when "Envenenado" exists violates the unique index, whatever the case', async () => {
-    const duplicate = conditions.insertDefinition(vharnId, { name: 'envenenado', tone: 'harm' });
+    const duplicate = conditions.insertDefinition(vharnId, {
+      name: 'envenenado',
+      tone: 'harm',
+      icon: 'skull',
+    });
     await expect(duplicate).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } });
     expect(await conditions.findDefinitionByName(vharnId, 'ENVENENADO')).toMatchObject({
       name: 'Envenenado',
@@ -92,6 +96,7 @@ describe('ConditionsDao on Postgres', () => {
       tokenId: lyraId,
       name: 'Envenenado',
       tone: 'harm',
+      icon: 'flask-conical',
       remainingRounds: 5,
       appliedRound: 3,
     });
