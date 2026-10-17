@@ -8,6 +8,7 @@ import {
   MapIcon,
   MinusIcon,
   MousePointer2Icon,
+  PencilIcon,
   PlusIcon,
   RulerIcon,
   Settings2Icon,
@@ -41,7 +42,7 @@ const LAYER_TOOLS: ReadonlyArray<
   { layer: 'background', key: '3', icon: MapIcon },
 ];
 
-/** The floating tools at the left of the board: select, ruler, local grid, zoom and framing,
+/** The floating tools at the left of the board: select, ruler, draw, local grid, zoom and framing,
  *  plus "Configurar grid" for the master. Every tool also has its key (in the name).
  *
  *  Example: `<BoardToolbar interaction={interaction} renderer={renderer} canConfigure={isMaster} onConfigure={openGridDialog} />` */
@@ -75,6 +76,12 @@ export function BoardToolbar({
           icon={RulerIcon}
           pressed={tool === 'ruler'}
           onClick={() => actions.setTool('ruler')}
+        />
+        <ToolButton
+          label="Desenhar (B)"
+          icon={PencilIcon}
+          pressed={tool === 'draw'}
+          onClick={() => actions.setTool('draw')}
         />
         <ToolButton
           label="Grid (G)"

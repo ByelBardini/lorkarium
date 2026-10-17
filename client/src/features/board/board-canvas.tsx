@@ -1,4 +1,4 @@
-import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
+import type { BoardStateDto, DrawingDto, TokenDto } from '@lorkarium/contracts';
 import { cell } from '@lorkarium/game-core';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
@@ -15,6 +15,9 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
+import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
+import { useStore } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 
 export type BoardCanvasProps = Readonly<{
   board: StoreApi<BoardStore>;
@@ -26,9 +29,12 @@ export type BoardCanvasProps = Readonly<{
   onRenderer: (renderer: BoardRenderer | null) => void;
   /** Keys while the board has the focus (select, move, open); the camera keys are the renderer's. */
   onKeyDown?: (event: React.KeyboardEvent) => void;
+  /** The style the sketch of the draw tool shows. */
+  drawingStyle: StoreApi<DrawingStyleStore>;
 }>;
 
 const NO_TOKENS: readonly TokenDto[] = [];
+const NO_DRAWINGS: readonly DrawingDto[] = [];
 
 function currentTokenOf(board: BoardStateDto | null): string | null {
   const combat = board?.combat;
@@ -80,16 +86,22 @@ export function BoardCanvas(props: BoardCanvasProps): React.JSX.Element {
   );
 }
 
-function useBoardView({ board, interaction }: BoardCanvasProps): BoardView | null {
+function useBoardView({ board, interaction, drawingStyle }: BoardCanvasProps): BoardView | null {
   const scene = useBoard(board, (state) => state.board?.scene ?? null);
   const tokens = useBoard(board, (state) => state.board?.tokens ?? NO_TOKENS);
+  const drawings = useBoard(board, (state) => state.board?.drawings ?? NO_DRAWINGS);
+  const viewerId = useBoard(board, (state) => state.board?.viewer.userId ?? '');
+  const isMaster = useBoard(board, (state) => state.board?.viewer.role === 'master');
   const currentTokenId = useBoard(board, (state) => currentTokenOf(state.board));
   const dragged = useBoard(board, (state) => state.dragged);
   const local = useLocalBoardView(interaction);
-  return useMemo(
-    () => scene && buildBoardView({ scene, tokens, currentTokenId, dragged, ...local }),
-    [scene, tokens, currentTokenId, dragged, local],
-  );
+  const style = useStore(drawingStyle, useShallow(styleOf));
+  return useMemo(() => {
+    if (!scene) return null;
+    const viewer = { userId: viewerId, isMaster };
+    const extra = { tokens, drawings, viewer, currentTokenId, dragged, drawingStyle: style };
+    return buildBoardView({ scene, ...extra, ...local });
+  }, [scene, tokens, drawings, viewerId, isMaster, currentTokenId, dragged, local, style]);
 }
 
 // A token picked in the panel may be off screen: bring it into view (a no-op when it is shown).

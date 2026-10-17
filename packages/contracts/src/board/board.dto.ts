@@ -28,6 +28,15 @@ import {
   type DefineConditionCommandDto,
   type RemoveConditionCommandDto,
 } from './condition.dto';
+import {
+  drawingDto,
+  type CreateDrawingsCommandDto,
+  type DeleteDrawingsCommandDto,
+  type DrawingsCreatedDto,
+  type DrawingsDeletedDto,
+  type DrawingsMovedDto,
+  type MoveDrawingsCommandDto,
+} from './drawing.dto';
 import { sceneDto, type ConfigureSceneCommandDto } from './scene.dto';
 import {
   tokenDto,
@@ -42,10 +51,14 @@ import {
   type UpdateTokenCommandDto,
 } from './token.dto';
 import type {
+  CreateTokensCommandDto,
+  DeleteTokensCommandDto,
   DragTokensCommandDto,
   MoveTokensCommandDto,
   SetTokenLayerCommandDto,
   TokenLayerChangedDto,
+  TokensCreatedDto,
+  TokensDeletedDto,
   TokensDraggedDto,
   TokensMovedDto,
 } from './token-group.dto';
@@ -56,6 +69,7 @@ export const BOARD_EVENTS = {
   configureScene: 'scene:configure',
   sceneUpdated: 'scene:updated',
   createToken: 'token:create',
+  createTokens: 'token:createMany',
   updateToken: 'token:update',
   moveToken: 'token:move',
   moveTokens: 'token:moveMany',
@@ -63,13 +77,22 @@ export const BOARD_EVENTS = {
   setTokenLayer: 'token:setLayer',
   adjustBar: 'token:adjustBar',
   deleteToken: 'token:delete',
+  deleteTokens: 'token:deleteMany',
   tokenCreated: 'token:created',
+  tokensCreated: 'token:createdMany',
   tokenUpdated: 'token:updated',
   tokenMoved: 'token:moved',
   tokensMoved: 'token:movedMany',
   tokensDragged: 'token:draggedMany',
   tokenLayerChanged: 'token:layerChanged',
   tokenDeleted: 'token:deleted',
+  tokensDeleted: 'token:deletedMany',
+  createDrawings: 'drawing:createMany',
+  moveDrawings: 'drawing:moveMany',
+  deleteDrawings: 'drawing:deleteMany',
+  drawingsCreated: 'drawing:createdMany',
+  drawingsMoved: 'drawing:movedMany',
+  drawingsDeleted: 'drawing:deletedMany',
   defineCondition: 'condition:define',
   applyCondition: 'condition:apply',
   applyConditions: 'condition:applyMany',
@@ -115,6 +138,7 @@ export const boardStateDto = z.strictObject({
   viewer: boardViewerDto,
   scene: sceneDto,
   tokens: z.array(tokenDto),
+  drawings: z.array(drawingDto),
   combat: combatDto.nullable(),
   conditionDefinitions: z.array(conditionDefinitionDto),
 });
@@ -129,9 +153,15 @@ export const boardSyncAckDto = z.discriminatedUnion('ok', [
 
 export type BoardSyncAckDto = z.infer<typeof boardSyncAckDto>;
 
-/** Answer to every board mutation: the version it produced, or the API error. */
+/** Answer to every board mutation: the version it produced, or the API error. A command that
+ *  creates (`token:createMany`, `drawing:createMany`) also names the ids it gave, in the order
+ *  sent: undoing it, or remapping an undo stack after re-creating, needs them. */
 export const boardCommandAckDto = z.discriminatedUnion('ok', [
-  z.strictObject({ ok: z.literal(true), version: stateVersionDto }),
+  z.strictObject({
+    ok: z.literal(true),
+    version: stateVersionDto,
+    createdIds: z.array(z.uuid()).optional(),
+  }),
   realtimeAckFailureDto,
 ]);
 
@@ -149,6 +179,7 @@ export type BoardClientEvents = {
   'board:sync': (command: BoardCommandDto, ack: BoardAck<BoardSyncAckDto>) => void;
   'scene:configure': Command<ConfigureSceneCommandDto>;
   'token:create': Command<CreateTokenCommandDto>;
+  'token:createMany': Command<CreateTokensCommandDto>;
   'token:update': Command<UpdateTokenCommandDto>;
   'token:move': Command<MoveTokenCommandDto>;
   'token:moveMany': Command<MoveTokensCommandDto>;
@@ -156,6 +187,10 @@ export type BoardClientEvents = {
   'token:setLayer': Command<SetTokenLayerCommandDto>;
   'token:adjustBar': Command<AdjustBarCommandDto>;
   'token:delete': Command<DeleteTokenCommandDto>;
+  'token:deleteMany': Command<DeleteTokensCommandDto>;
+  'drawing:createMany': Command<CreateDrawingsCommandDto>;
+  'drawing:moveMany': Command<MoveDrawingsCommandDto>;
+  'drawing:deleteMany': Command<DeleteDrawingsCommandDto>;
   'condition:define': Command<DefineConditionCommandDto>;
   'condition:apply': Command<ApplyConditionCommandDto>;
   'condition:applyMany': Command<ApplyConditionsCommandDto>;
@@ -174,12 +209,17 @@ export type BoardClientEvents = {
 export type BoardServerEvents = {
   'scene:updated': (event: SceneUpdatedDto) => void;
   'token:created': (event: TokenCreatedDto) => void;
+  'token:createdMany': (event: TokensCreatedDto) => void;
   'token:updated': (event: TokenUpdatedDto) => void;
   'token:moved': (event: TokenMovedDto) => void;
   'token:movedMany': (event: TokensMovedDto) => void;
   'token:draggedMany': (event: TokensDraggedDto) => void;
   'token:layerChanged': (event: TokenLayerChangedDto) => void;
   'token:deleted': (event: TokenDeletedDto) => void;
+  'token:deletedMany': (event: TokensDeletedDto) => void;
+  'drawing:createdMany': (event: DrawingsCreatedDto) => void;
+  'drawing:movedMany': (event: DrawingsMovedDto) => void;
+  'drawing:deletedMany': (event: DrawingsDeletedDto) => void;
   'condition:defined': (event: ConditionDefinedDto) => void;
   'condition:applied': (event: ConditionAppliedDto) => void;
   'condition:appliedMany': (event: ConditionsAppliedDto) => void;

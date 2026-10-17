@@ -8,7 +8,10 @@ import { RoomTokenDialog } from '@/features/tokens/room-token-dialog';
 import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
 import type { Clipboard } from '@/services/clipboard';
 import type { TableBoardCommands } from '@/services/table-board-commands';
-import { createBoardInteractionStore } from '@/stores/board-interaction-store';
+import { DrawStylePanel } from '@/features/drawings/draw-style-panel';
+import type { EditEntry } from '@/lib/edit-history';
+import { createBoardInteractionStore, useBoardInteraction } from '@/stores/board-interaction-store';
+import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
@@ -23,12 +26,14 @@ import { TokenContextMenu, type TokenMenuRequest } from './token-context-menu';
 import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
+import { useEditShortcuts } from './use-edit-shortcuts';
 import { useRoomShortcuts } from './use-room-shortcuts';
 
 export type PlayRoomPageProps = Readonly<{
   campaign: CampaignDetailDto;
   openTables: StoreApi<OpenTablesStore>;
   roomLayout: StoreApi<RoomLayoutStore>;
+  drawingStyle: StoreApi<DrawingStyleStore>;
   clipboard: Clipboard;
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
@@ -46,6 +51,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
       campaignId: campaign.id,
       commands: props.boardCommands,
       describeRefusal: tokenCommandFailureMessage,
+      ...undoStackOf(openTables, campaign.id),
     }),
   );
   const [renderer, setRenderer] = useState<BoardRenderer | null>(null);
@@ -60,6 +66,9 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   useRoomShortcuts({ roomLayout, interaction });
   const table = view.kind === 'open' ? view : null;
   useInteractionFollowsTable(table, interaction);
+  const commands = props.boardCommands;
+  useEditShortcuts({ campaignId: campaign.id, table, interaction, commands, isMaster });
+  const drawing = useBoardInteraction(interaction, (state) => state.tool === 'draw');
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
       <title>{`Lorkarium · ${campaign.name}`}</title>
@@ -84,7 +93,9 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             roomLayout.getState().showTab('combat');
           }}
           onTokenMenu={setTokenMenu}
+          drawingStyle={props.drawingStyle}
         />
+        {drawing && !focus && <DrawStylePanel drawingStyle={props.drawingStyle} />}
         {tokenMenu && table && (
           <TokenContextMenu
             request={tokenMenu}
@@ -151,6 +162,28 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
       </div>
     </div>
   );
+}
+
+// The open table's undo stack and its confirmed cells, read when a move is confirmed (the table
+// opens after the room's first render, so it is looked up then, not captured now).
+function undoStackOf(
+  openTables: StoreApi<OpenTablesStore>,
+  campaignId: string,
+): Readonly<{
+  recordEdit: (entry: EditEntry) => void;
+  tokenCellOf: (tokenId: string) => Readonly<{ col: number; row: number }> | null;
+}> {
+  const tableOf = () =>
+    openTables.getState().tables.find((table) => table.campaignId === campaignId);
+  return {
+    recordEdit: (entry) => tableOf()?.edits.getState().record(entry),
+    tokenCellOf: (tokenId) => {
+      const token = tableOf()
+        ?.board.getState()
+        .board?.tokens.find(({ id }) => id === tokenId);
+      return token ? { col: token.col, row: token.row } : null;
+    },
+  };
 }
 
 type RoomGridDialogProps = Readonly<{

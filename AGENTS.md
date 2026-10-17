@@ -76,6 +76,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | board     | Tabuleiro: cena (grid), versão por cena, depois tokens e combate | [`docs/context/board.md`](docs/context/board.md)         |
 | tokens    | Tokens da cena: barras, controladores, redação, camadas e grupos | [`docs/context/tokens.md`](docs/context/tokens.md)       |
 | combat    | Condições da mesa e combate: iniciativa, turno, rodada, duração  | [`docs/context/combat.md`](docs/context/combat.md)       |
+| drawings  | Desenhos da cena: formas, cor, dono, camada, lote e precondição  | [`docs/context/drawings.md`](docs/context/drawings.md)   |
 | sessions  | Sessão ao vivo da mesa (Socket.IO): presença, snapshot, versão   | [`docs/context/sessions.md`](docs/context/sessions.md)   |
 | client    | SPA: estrutura, rotas, shell e home, testes, design system       | [`docs/context/client.md`](docs/context/client.md)       |
 | ci        | Testes por camada, cobertura, build, pipeline do GitHub Actions  | [`docs/context/ci.md`](docs/context/ci.md)               |

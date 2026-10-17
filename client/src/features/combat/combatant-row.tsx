@@ -68,7 +68,7 @@ export function CombatantRow(props: CombatantRowProps): React.JSX.Element {
           className="min-w-0 flex-1 truncate text-left text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
         >
           <span className="block truncate">{token.name}</span>
-          <ConditionSummary conditions={token.conditions} />
+          {!open && <ConditionSummary conditions={token.conditions} />}
         </button>
         {isMaster && <MasterActions {...props} disabled={readOnly} />}
       </div>

@@ -1,0 +1,141 @@
+import type { ActiveConditionDto, CombatDto, NewTokenDto, TokenDto } from '@lorkarium/contracts';
+import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import { CombatBo } from '../combat/combat.bo';
+import type { CombatDao } from '../combat/combat.dao';
+import { toCombatDto, toCombatState } from '../combat/combat.mapper';
+import type { ConditionsDao } from '../conditions/conditions.dao';
+import { toActiveConditionDto } from '../conditions/conditions.mapper';
+import type { SceneTransaction } from '../scenes/locked-scene';
+import type { ScenesDao } from '../scenes/scenes.dao';
+import type { ScenePo } from '../scenes/scenes.po';
+import { TokenAccessBo } from './token-access.bo';
+import type { TokenRulesBo } from './token-rules.bo';
+import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
+import { TokenNotFoundError } from './tokens.error';
+import { toBarInputsPo, toTokenDto } from './tokens.mapper';
+
+/** The DAOs a token transaction hands out, bound to the open `tx`. */
+export type TokenWriteDaos = Readonly<{
+  scenes: Pick<ScenesDao, 'findActiveOf' | 'lockActiveOf' | 'bumpVersion'>;
+  tokens: Pick<
+    TokensDao,
+    | 'insert'
+    | 'insertMany'
+    | 'findInScene'
+    | 'findManyInScene'
+    | 'move'
+    | 'moveMany'
+    | 'setLayer'
+    | 'setBarCurrent'
+    | 'update'
+    | 'delete'
+    | 'deleteMany'
+  >;
+  conditions: Pick<ConditionsDao, 'listOfTokens'>;
+  combat: Pick<CombatDao, 'findOfScene' | 'setTurn'>;
+}>;
+
+export type TokenTransactionRunner = SceneTransaction<TokenWriteDaos>;
+
+export type TokenWithConditions = Readonly<{ row: TokenRow; conditions: ActiveConditionDto[] }>;
+
+/** A token in its two versions: whole for the master and its controllers, redacted for the rest. */
+export type TokenAudiences = Readonly<{
+  controllerIds: readonly string[];
+  privileged: TokenDto;
+  others: TokenDto;
+}>;
+
+/** A token row with its active conditions, as every token event carries it.
+ *
+ *  Example: `await withConditions(daos, await daos.tokens.insert(row))` */
+export async function withConditions(
+  daos: TokenWriteDaos,
+  row: TokenRow,
+): Promise<TokenWithConditions> {
+  const active = await daos.conditions.listOfTokens([row.token.id]);
+  return { row, conditions: active.map(toActiveConditionDto) };
+}
+
+/** The token as each audience sees it.
+ *
+ *  Example: `publisher.tokensCreated({ …, tokens: saved.map(audiencesOf) })` */
+export function audiencesOf({ row, conditions }: TokenWithConditions): TokenAudiences {
+  return {
+    controllerIds: row.controllerIds,
+    privileged: toTokenDto(row, 'privileged', conditions),
+    others: toTokenDto(row, 'others', conditions),
+  };
+}
+
+/** A token as the master sent it → the row to insert, placed and with checked controllers.
+ *
+ *  Example: `await daos.tokens.insert(newTokenRowOf(scene.id, rules, command))` */
+export function newTokenRowOf(
+  sceneId: string,
+  rules: TokenRulesBo,
+  token: NewTokenDto,
+): NewTokenRow {
+  const { col, row } = rules.place(token, token.size);
+  const { name, initials, side, size, layer } = token;
+  return {
+    token: { sceneId, name, initials, side, size, col, row, layer },
+    bars: toBarInputsPo(token.bars),
+    controllerIds: rules.controllers(token.controllerIds),
+  };
+}
+
+/** A combatant on turn whose token is deleted hands the turn on, in the same transaction.
+ *
+ *  Example: `await passTurnIfLeaving(daos, scene, access, [tokenId])` */
+export async function passTurnIfLeaving(
+  daos: TokenWriteDaos,
+  scene: ScenePo,
+  access: CampaignAccessBo,
+  leavingTokenIds: readonly string[],
+): Promise<void> {
+  const combat = await daos.combat.findOfScene(scene.id);
+  if (!combat) return;
+  const state = toCombatState(combat, () => []);
+  const turn = new CombatBo(access, state).turnWithoutTokens(leavingTokenIds);
+  if (turn) await daos.combat.setTurn(combat.combat.id, turn.round, turn.currentId);
+}
+
+/** The combat of the scene as clients see it, or `null` with none. */
+export async function combatOf(daos: TokenWriteDaos, scene: ScenePo): Promise<CombatDto | null> {
+  const combat = await daos.combat.findOfScene(scene.id);
+  return combat ? toCombatDto(combat) : null;
+}
+
+/** The token only if it is on the scene of the table; another table's is TOKEN_NOT_FOUND. */
+export async function tokenIn(
+  daos: TokenWriteDaos,
+  scene: ScenePo,
+  campaignId: string,
+  tokenId: string,
+): Promise<TokenRow> {
+  const found = await daos.tokens.findInScene(scene.id, tokenId);
+  if (!found) throw new TokenNotFoundError(campaignId, tokenId);
+  return found;
+}
+
+/** Every id must be on the scene: the first one missing (another table's too) refuses them all.
+ *  The rows come back in the order of the ids. */
+export async function tokensIn(
+  daos: TokenWriteDaos,
+  scene: ScenePo,
+  campaignId: string,
+  tokenIds: readonly string[],
+): Promise<TokenRow[]> {
+  const found = await daos.tokens.findManyInScene(scene.id, tokenIds);
+  const byId = new Map(found.map((row) => [row.token.id, row]));
+  return tokenIds.map((tokenId) => {
+    const row = byId.get(tokenId);
+    if (!row) throw new TokenNotFoundError(campaignId, tokenId);
+    return row;
+  });
+}
+
+export function tokenAccessOf(access: CampaignAccessBo, row: TokenRow): TokenAccessBo {
+  return new TokenAccessBo(access, { tokenId: row.token.id, controllerIds: row.controllerIds });
+}

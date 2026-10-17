@@ -1,7 +1,8 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import type { BarColorDto, TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
 import type { GhostView, TokenView } from './board-view';
-import { CELL_WORLD_SIZE, type Point } from './camera';
+import { CELL_WORLD_SIZE, type Point, zoomProofTextResolution } from './camera';
+import { PixiConditionMarks } from './pixi-condition-marks';
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const DISC_COLOR = 0x1b1f25;
@@ -27,6 +28,7 @@ type TokenSprite = Readonly<{
   root: Container;
   shape: Graphics;
   label: Text;
+  marks: PixiConditionMarks;
 }> & { view: TokenView; from: Point; to: Point; startedMs: number };
 
 /** The tokens on the canvas: one `Container` per token, kept by id so a change redraws only that
@@ -44,8 +46,17 @@ export class PixiTokenLayer {
   private dragging: string | null = null;
   private drawn: readonly TokenView[] = [];
 
-  constructor(private readonly reducedMotion: () => boolean) {
+  /** `beneath`: what each layer draws under its tokens (the drawings of that layer). */
+  constructor(
+    private readonly reducedMotion: () => boolean,
+    beneath?: Readonly<Record<TokenLayerDto, Container>>,
+  ) {
     const { background, objects, tokens } = this.layers;
+    if (beneath) {
+      for (const layer of ['background', 'objects', 'tokens'] as const) {
+        this.layers[layer].addChild(beneath[layer]);
+      }
+    }
     this.container.addChild(background, objects, tokens, this.ghost);
   }
 
@@ -119,6 +130,7 @@ export class PixiTokenLayer {
     const shape = new Graphics();
     const label = new Text({
       text: '',
+      resolution: zoomProofTextResolution(globalThis.devicePixelRatio),
       style: {
         fontFamily: 'Hanken Grotesk Variable, sans-serif',
         fontWeight: '600',
@@ -126,10 +138,20 @@ export class PixiTokenLayer {
       },
     });
     label.anchor.set(0.5);
-    root.addChild(shape, label);
+    const marks = new PixiConditionMarks();
+    root.addChild(shape, label, marks.container);
     root.position.set(at.x, at.y);
     this.layers[view.layer].addChild(root);
-    const sprite: TokenSprite = { root, shape, label, view, from: at, to: at, startedMs: nowMs };
+    const sprite: TokenSprite = {
+      root,
+      shape,
+      label,
+      marks,
+      view,
+      from: at,
+      to: at,
+      startedMs: nowMs,
+    };
     this.sprites.set(view.id, sprite);
     drawToken(sprite);
   }
@@ -146,7 +168,7 @@ export class PixiTokenLayer {
   }
 }
 
-function drawToken({ shape, label, view }: TokenSprite): void {
+function drawToken({ shape, label, marks, view }: TokenSprite): void {
   const size = view.size * CELL_WORLD_SIZE;
   const center = size / 2;
   const radius = size * 0.42;
@@ -159,7 +181,7 @@ function drawToken({ shape, label, view }: TokenSprite): void {
     shape.circle(center, center, radius + 5).stroke({ width: 2, color: GOLD_COLOR });
   }
   drawBar(shape, view, size);
-  drawMarks(shape, view, size);
+  marks.draw(view, size);
   label.text = view.initials;
   label.style.fontSize = Math.round(size * 0.3);
   label.position.set(center, center);
@@ -173,22 +195,6 @@ function drawBar(shape: Graphics, view: TokenView, size: number): void {
   shape.rect(left, top, width, 5).fill(BAR_TRACK_COLOR);
   shape.rect(left, top, width * view.bar.fraction, 5).fill(BAR_COLOR[view.bar.color]);
   if (view.bar.state === 'negative') shape.rect(left, top, 2, 5).fill(NEGATIVE_COLOR);
-}
-
-// Small squares at the top right, one per condition (up to 3), and a "+" when there are more.
-function drawMarks(shape: Graphics, view: TokenView, size: number): void {
-  view.marks.forEach((tone, index) => {
-    const left = size - 12 - index * 11;
-    shape.rect(left, 2, 8, 8).fill(tone === 'benefit' ? GOLD_COLOR : NEGATIVE_COLOR);
-  });
-  if (!view.moreMarks) return;
-  const left = size - 12 - view.marks.length * 11;
-  shape
-    .moveTo(left, 6)
-    .lineTo(left + 8, 6)
-    .moveTo(left + 4, 2)
-    .lineTo(left + 4, 10);
-  shape.stroke({ width: 2, color: TEXT_COLOR });
 }
 
 function cornerOf(view: TokenView): Point {

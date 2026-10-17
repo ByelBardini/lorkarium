@@ -76,6 +76,7 @@ function detailRoute({ clipboard }: AppDependencies): () => React.JSX.Element {
 function tableRoute({
   openTables,
   roomLayout,
+  drawingStyle,
   clipboard,
   createBoardRenderer,
   boardCommands,
@@ -89,6 +90,7 @@ function tableRoute({
         campaign={campaign}
         openTables={openTables}
         roomLayout={roomLayout}
+        drawingStyle={drawingStyle}
         clipboard={clipboard}
         createBoardRenderer={createBoardRenderer}
         boardCommands={boardCommands}

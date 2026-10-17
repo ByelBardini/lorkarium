@@ -71,11 +71,18 @@ export class CombatBo {
     return nextAfterRemoval(this.order(), combatantId, turnOf(combat));
   }
 
-  /** The turn once `tokenId` (being deleted) leaves the combat, or `null` when it was not in it. */
-  turnWithoutToken(tokenId: string): TurnState | null {
-    const leaving = this.combat?.combatants.find((c) => c.tokenId === tokenId);
-    if (!this.combat || !leaving) return null;
-    return nextAfterRemoval(this.order(), leaving.id, turnOf(this.combat));
+  /** The turn once the tokens being deleted leave the combat, or `null` when none was in it.
+   *  Removing them one at a time from the shrinking order passes the turn past all of them. */
+  turnWithoutTokens(tokenIds: readonly string[]): TurnState | null {
+    const leaving = this.combat?.combatants.filter((c) => tokenIds.includes(c.tokenId)) ?? [];
+    if (!this.combat || leaving.length === 0) return null;
+    let order = this.order();
+    let turn = turnOf(this.combat);
+    for (const { id } of leaving) {
+      turn = nextAfterRemoval(order, id, turn);
+      order = order.filter((candidate) => candidate !== id);
+    }
+    return turn;
   }
 
   moveInTie(combatantId: string, direction: TieDirection): TieOrderChange[] {

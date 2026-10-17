@@ -22,7 +22,12 @@ import {
 } from '../../support/table-session-fixtures';
 
 const GOBLIN_ID = '7f6e5d4c-3b2a-4f1e-8d9c-0b1a2c3d4e5f';
-const CAIDO = { id: activeCondition().conditionId, name: 'Caído', tone: 'harm' } as const;
+const CAIDO = {
+  id: activeCondition().conditionId,
+  name: 'Caído',
+  tone: 'harm',
+  icon: 'skull',
+} as const;
 
 describe('condition on several tokens', () => {
   let board: StoreApi<BoardStore>;

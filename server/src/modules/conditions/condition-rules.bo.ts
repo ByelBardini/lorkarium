@@ -1,19 +1,20 @@
 import type { NewConditionDefinition } from './conditions.po';
 
 /** The list every table starts with (spec §3.7): generic names, no rule attached. The master
- *  adds more by name; the migration `0004_conditions` gave it to the tables that already existed. */
+ *  adds more by name; the migration `0004_conditions` gave it to the tables that already existed
+ *  and `0009_condition_icons` their icons. */
 export const DEFAULT_CONDITIONS: readonly NewConditionDefinition[] = [
-  { name: 'Abençoado', tone: 'benefit' },
-  { name: 'Concentrando', tone: 'benefit' },
-  { name: 'Invisível', tone: 'benefit' },
-  { name: 'Agarrado', tone: 'harm' },
-  { name: 'Amedrontado', tone: 'harm' },
-  { name: 'Atordoado', tone: 'harm' },
-  { name: 'Caído', tone: 'harm' },
-  { name: 'Cego', tone: 'harm' },
-  { name: 'Envenenado', tone: 'harm' },
-  { name: 'Imobilizado', tone: 'harm' },
-  { name: 'Paralisado', tone: 'harm' },
+  { name: 'Abençoado', tone: 'benefit', icon: 'sparkles' },
+  { name: 'Concentrando', tone: 'benefit', icon: 'crosshair' },
+  { name: 'Invisível', tone: 'benefit', icon: 'ghost' },
+  { name: 'Agarrado', tone: 'harm', icon: 'hand' },
+  { name: 'Amedrontado', tone: 'harm', icon: 'angry' },
+  { name: 'Atordoado', tone: 'harm', icon: 'zap' },
+  { name: 'Caído', tone: 'harm', icon: 'arrow-down-to-line' },
+  { name: 'Cego', tone: 'harm', icon: 'eye-off' },
+  { name: 'Envenenado', tone: 'harm', icon: 'flask-conical' },
+  { name: 'Imobilizado', tone: 'harm', icon: 'link' },
+  { name: 'Paralisado', tone: 'harm', icon: 'lock' },
 ];
 
 export type DefineDecision<D> =

@@ -135,17 +135,19 @@ describe('conditions over Socket.IO', () => {
         ...envelope(vharn.id),
         name: 'Sangrando',
         tone: 'harm',
+        icon: 'droplet',
       }),
     ).toMatchObject({
       ok: true,
     });
     expect(await eventPayload(biaEvents, 'condition:defined')).toMatchObject({
-      definition: { name: 'Sangrando', tone: 'harm' },
+      definition: { name: 'Sangrando', tone: 'harm', icon: 'droplet' },
     });
     const refused = await send(biaEvents.client, 'condition:define', {
       ...envelope(vharn.id),
       name: 'Furtivo',
       tone: 'benefit',
+      icon: 'ghost',
     });
     expect(refused).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
   });
@@ -157,6 +159,7 @@ describe('conditions over Socket.IO', () => {
       ...envelope(vharn.id),
       name: 'envenenado',
       tone: 'harm',
+      icon: 'skull',
     });
     await silence();
     expect(biaEvents.events.map(({ name }) => name)).not.toContain('condition:defined');

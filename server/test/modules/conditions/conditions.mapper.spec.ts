@@ -11,20 +11,27 @@ const ENVENENADO = {
   conditionId: 'env',
   name: 'Envenenado',
   tone: 'harm',
+  icon: 'flask-conical',
   remainingRounds: 2,
   appliedRound: 1,
 } as const;
 
 describe('conditions mapper', () => {
-  it('a definition carries id, name and tone only', () => {
+  it('a definition carries id, name, tone and icon only', () => {
     const po = {
       id: 'env',
       campaignId: 'vharn',
       name: 'Envenenado',
       tone: 'harm',
+      icon: 'flask-conical',
       createdAt: new Date(),
     } as const;
-    expect(toConditionDefinitionDto(po)).toEqual({ id: 'env', name: 'Envenenado', tone: 'harm' });
+    expect(toConditionDefinitionDto(po)).toEqual({
+      id: 'env',
+      name: 'Envenenado',
+      tone: 'harm',
+      icon: 'flask-conical',
+    });
   });
 
   it('an active condition carries its definition and its rounds, not the token nor the round it was applied in', () => {
@@ -33,6 +40,7 @@ describe('conditions mapper', () => {
       conditionId: 'env',
       name: 'Envenenado',
       tone: 'harm',
+      icon: 'flask-conical',
       remainingRounds: 2,
     });
   });

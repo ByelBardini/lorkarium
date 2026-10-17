@@ -13,7 +13,12 @@ describe('ConditionRulesBo', () => {
   });
 
   it('a name already on the list (any case) reuses the existing definition', () => {
-    const existing = { id: 'env', name: 'Envenenado', tone: 'harm' } as const;
+    const existing = {
+      id: 'env',
+      name: 'Envenenado',
+      tone: 'harm',
+      icon: 'flask-conical',
+    } as const;
     expect(rules.defineOrReuse(existing)).toEqual({ kind: 'reuse', definition: existing });
   });
 
@@ -24,5 +29,11 @@ describe('ConditionRulesBo', () => {
   it('the initial list has 3 benefits and 8 harms', () => {
     expect(DEFAULT_CONDITIONS.filter(({ tone }) => tone === 'benefit')).toHaveLength(3);
     expect(DEFAULT_CONDITIONS.filter(({ tone }) => tone === 'harm')).toHaveLength(8);
+  });
+
+  it('each initial condition has its own icon, none left on the generic one', () => {
+    const icons = DEFAULT_CONDITIONS.map(({ icon }) => icon);
+    expect(new Set(icons).size).toBe(DEFAULT_CONDITIONS.length);
+    expect(icons).not.toContain('circle-dot');
   });
 });

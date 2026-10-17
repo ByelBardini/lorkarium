@@ -28,6 +28,7 @@ const STATE = {
   viewer: { userId: USER_ID, role: 'player' },
   scene: SCENE,
   tokens: [],
+  drawings: [],
   combat: null,
   conditionDefinitions: [],
 };
@@ -65,6 +66,25 @@ describe('board acks', () => {
 
   it('a command ack carries the new version', () => {
     expect(boardCommandAckDto.parse({ ok: true, version: 4 })).toEqual({ ok: true, version: 4 });
+  });
+
+  it('a creating command ack also carries the ids the server gave, in the order sent', () => {
+    const createdIds = [
+      '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a',
+      '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b',
+    ];
+
+    expect(boardCommandAckDto.parse({ ok: true, version: 4, createdIds })).toEqual({
+      ok: true,
+      version: 4,
+      createdIds,
+    });
+  });
+
+  it('a created id that is not a uuid is refused', () => {
+    expect(boardCommandAckDto.safeParse({ ok: true, version: 4, createdIds: ['x'] }).success).toBe(
+      false,
+    );
   });
 
   it('a failure whose error is not an ApiErrorDto is refused', () => {

@@ -6,6 +6,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 
 - `src/cell.vo.ts` — a célula do grid (VO)
 - `src/grid.ts` — distância entre células e pegada do token na cena
+- `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
 - `src/bar.ts` — ajuste de barra (PV e qualquer outra)
 - `src/initiative.vo.ts` — o valor da iniciativa (VO)
 - `src/initiative-order.ts` — a ordem de turno e o empate
@@ -18,6 +19,12 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `cellDistance(a, b)` — distância em casas com a diagonal valendo 1 (Chebyshev): `(0,0)` → `(3,2)` = 3. É a régua do §3.2; outras regras de diagonal são do §12.
 - `pathDistance(caminho)` — soma das pernas pelo `cellDistance` (a régua com curvas do arraste): `(0,0)` → `(3,0)` → `(3,4)` = 7; um ponto ou nenhum = 0.
 - `footprintFits(scene, origin, size)` — o token é um quadrado de `size` casas ancorado no canto superior esquerdo (`origin`); cabe se `origin + size ≤` largura/altura. Encostar na última coluna cabe. `size` que não é inteiro ≥ 1 lança `RangeError`. Sem colisão entre tokens (colisão é do §12).
+
+## Desenho
+
+- `DrawingBox` `{ x, y, width, height }` — a caixa de um desenho em **casas fracionárias** (x = 3,5 é o meio da quarta coluna), nunca em pixels: zoom e tamanho de pixel do renderer não movem desenho. `drawingBox(x, y, w, h)` devolve o valor congelado e lança `RangeError` citando o eixo e o valor quando não é "número finito ≥ 0" (NaN e Infinity também). Largura ou altura 0 vale (linha reta da mão livre).
+- `boxFits(scene, box)` — cabe se `x + width ≤ widthCells` e `y + height ≤ heightCells`; encostar na borda cabe. A comparação é em centésimos (o desenho é guardado a 0,01), então `19,9 + 0,1` não estoura 20. É a regra que o client (corte antes do comando) e o server (`OUT_OF_SCENE`) dividem.
+- `translateBox(box, dx, dy)` — a caixa nova deslocada; a original fica intacta; sair antes da origem lança o `RangeError` do `drawingBox`.
 
 ## Barra
 

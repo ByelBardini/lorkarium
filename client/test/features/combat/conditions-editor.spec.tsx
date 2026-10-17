@@ -26,11 +26,12 @@ const CONCENTRANDO = activeCondition({
   conditionId: 'e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b',
   name: 'Concentrando',
   tone: 'benefit',
+  icon: 'crosshair',
   remainingRounds: null,
 });
 const DEFINITIONS = [
-  { id: ENVENENADO.conditionId, name: 'Envenenado', tone: 'harm' },
-  { id: CONCENTRANDO.conditionId, name: 'Concentrando', tone: 'benefit' },
+  { id: ENVENENADO.conditionId, name: 'Envenenado', tone: 'harm', icon: 'skull' },
+  { id: CONCENTRANDO.conditionId, name: 'Concentrando', tone: 'benefit', icon: 'sparkles' },
 ] as const;
 
 describe('ConditionsEditor', () => {
@@ -70,10 +71,14 @@ describe('ConditionsEditor', () => {
     return screen.getByRole('region', { name: 'Condições de Lyra' });
   }
 
-  it('lists the active conditions in text with their rounds', () => {
+  it('lists the active conditions with their rounds, "∞" read as "sem limite"', () => {
     renderEditor();
-    expect(section()).toHaveTextContent('Envenenado · 2 rod.');
-    expect(section()).toHaveTextContent('Concentrando · sem limite');
+    const rows = within(section()).getAllByRole('listitem');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      'Envenenado2 rod.',
+      'Concentrando∞sem limite',
+    ]);
+    expect(within(rows[1]!).getByText('∞')).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('"Remover Envenenado" sends condition:remove', async () => {
@@ -123,11 +128,59 @@ describe('ConditionsEditor', () => {
     expect(commands.sent).toEqual([]);
   });
 
+  it('the suggestions are grouped by nature, benefits first', async () => {
+    renderEditor(lyra());
+    await userEvent.click(nameField());
+    const groups = screen.getAllByRole('group').map((group) => group.getAttribute('aria-label'));
+    expect(groups).toEqual(['Benéficas', 'Prejudiciais']);
+    const options = screen.getAllByRole('option').map((option) => option.textContent);
+    expect(options).toEqual(['Concentrando', 'Envenenado']);
+  });
+
+  it('a new name with nothing alike opens no list over the icon and nature', async () => {
+    renderEditor(lyra(), true);
+    await userEvent.type(nameField(), 'Sangrando');
+    expect(nameField()).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('a click on a suggestion takes it', async () => {
     renderEditor(lyra());
     await userEvent.click(nameField());
     await userEvent.click(screen.getByRole('option', { name: 'Concentrando' }));
     expect(nameField()).toHaveValue('Concentrando');
+  });
+
+  it('each active condition shows its own icon, colored by its nature', () => {
+    renderEditor();
+    const active = section().querySelector('ul:not([role=listbox])');
+    const icons = [...(active?.querySelectorAll('svg[data-icon]') ?? [])];
+    expect(icons.map((icon) => icon.getAttribute('data-icon'))).toEqual([
+      'flask-conical',
+      'crosshair',
+    ]);
+    expect(icons[0]).toHaveClass('text-destructive');
+    expect(icons[1]).toHaveClass('text-primary');
+  });
+
+  it('the master picks the icon of a new condition and it goes with the definition', async () => {
+    renderEditor(lyra(), true);
+    await userEvent.type(nameField(), 'Sangrando');
+    await userEvent.click(screen.getByRole('button', { name: 'Ícone: Marca' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Gota' }));
+    expect(screen.queryByRole('radiogroup', { name: 'Ícone' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ícone: Gota' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Criar e aplicar' }));
+    expect(commands.sentAs('defineCondition')[0]?.fields).toEqual({
+      name: 'Sangrando',
+      tone: 'harm',
+      icon: 'droplet',
+    });
+  });
+
+  it('a name already on the list offers no icon choice', async () => {
+    renderEditor(lyra(), true);
+    await userEvent.type(nameField(), 'Envenenado');
+    expect(screen.queryByRole('button', { name: /^Ícone/ })).toBeNull();
   });
 
   it('with no condition it reads "Nenhuma"', () => {
@@ -138,13 +191,14 @@ describe('ConditionsEditor', () => {
   it('the master creates "Sangrando" and it is applied right after', async () => {
     renderEditor(lyra(), true);
     await userEvent.type(nameField(), 'Sangrando');
-    expect(screen.getByRole('group', { name: 'Natureza' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Natureza' })).toBeInTheDocument();
     commands.hold();
     await userEvent.click(screen.getByRole('button', { name: 'Criar e aplicar' }));
     const definition = {
       id: 'f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c',
       name: 'Sangrando',
       tone: 'harm',
+      icon: 'droplet',
     } as const;
     act(() =>
       board.getState().apply({
@@ -166,7 +220,7 @@ describe('ConditionsEditor', () => {
     await userEvent.type(nameField(), 'Sangrando');
     expect(screen.getByRole('button', { name: 'Aplicar' })).toBeDisabled();
     expect(screen.getByText('Só o mestre cria condição nova.')).toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Natureza' })).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: 'Natureza' })).toBeNull();
   });
 
   it('without canControl it is read only', () => {

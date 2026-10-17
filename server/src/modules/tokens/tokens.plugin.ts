@@ -8,7 +8,9 @@ import { CombatDao } from '../combat/combat.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { TokensDao } from './tokens.dao';
-import { TokensService, type TokenTransactionRunner } from './tokens.service';
+import { TokenBatchService } from './token-batch.service';
+import type { TokenTransactionRunner } from './token-transaction';
+import { TokensService } from './tokens.service';
 
 export type TokensModuleOptions = Readonly<{
   db: Database;
@@ -16,9 +18,10 @@ export type TokensModuleOptions = Readonly<{
   clock: ClockPort;
 }>;
 
-export type TokensModule = Readonly<{ service: TokensService }>;
+export type TokensModule = Readonly<{ service: TokensService; batch: TokenBatchService }>;
 
-/** Wires the tokens module; its edge is the board gateway, which receives this service.
+/** Wires the tokens module (one token, and the batches of a paste); its edge is the board
+ *  gateway, which receives both services.
  *
  *  Example: `const tokens = createTokensModule({ db, publisher, clock })` */
 export function createTokensModule(options: TokensModuleOptions): TokensModule {
@@ -33,12 +36,6 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
     );
   const members = new CampaignMembersDao(options.db);
   const { publisher, clock } = options;
-  const service = new TokensService({
-    members,
-    transaction,
-    publisher,
-    clock,
-    barLimit: BAR_VALUE_LIMIT,
-  });
-  return { service };
+  const deps = { members, transaction, publisher, clock, barLimit: BAR_VALUE_LIMIT };
+  return { service: new TokensService(deps), batch: new TokenBatchService(deps) };
 }

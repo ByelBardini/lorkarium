@@ -16,7 +16,7 @@ const LAYER_OF: Partial<Record<BoardShortcut, TokenLayerDto>> = {
   'layer-background': 'background',
 };
 
-/** The room keys anywhere on the page (F, Esc, V, R, G, and 1 2 3 for the master's layer),
+/** The room keys anywhere on the page (F, Esc, V, R, B, G, and 1 2 3 for the master's layer),
  *  except while typing or in a dialog.
  *
  *  Example: `useRoomShortcuts({ roomLayout, interaction })` */
@@ -37,6 +37,7 @@ function runShortcut(shortcut: BoardShortcut, stores: RoomShortcutStores): void 
   if (shortcut === 'toggle-focus') return layout.toggleFocus();
   if (shortcut === 'select-tool') return board.setTool('select');
   if (shortcut === 'ruler-tool') return board.setTool('ruler');
+  if (shortcut === 'draw-tool') return board.setTool('draw');
   if (shortcut === 'toggle-grid') return board.toggleLocalGrid();
   const layer = LAYER_OF[shortcut];
   if (layer) return board.setActiveLayer(layer);

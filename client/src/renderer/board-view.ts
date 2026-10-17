@@ -1,5 +1,6 @@
 import type {
   BarColorDto,
+  ConditionIconDto,
   ConditionToneDto,
   SceneDto,
   TokenDto,
@@ -8,9 +9,11 @@ import type {
 } from '@lorkarium/contracts';
 import { pathDistance, type Cell, type SceneSize } from '@lorkarium/game-core';
 import { barFill, type BarFillState } from '@/lib/bar-display';
+import type { DrawingStyle } from '@/lib/drawing-style';
 import { rulerLabel } from '@/lib/ruler-label';
 import { routePath, type TokenRoute } from '@/lib/token-route';
 import { CELL_WORLD_SIZE, type Point, type Size } from './camera';
+import { drawingViewsOf, type DrawingView, type DrawingViewInput } from './drawing-view';
 
 /** A ruler being measured: local to this viewer, never sent to the server. */
 export type RulerState = Readonly<{ from: Cell; to: Cell }>;
@@ -45,10 +48,13 @@ export type TokenView = Readonly<{
   draggable: boolean;
   /** The token of the combatant on turn: the gold ring. */
   onTurn: boolean;
-  /** Up to 3 condition marks, by tone; `moreMarks` draws a "+" past that. */
-  marks: readonly ConditionToneDto[];
-  moreMarks: boolean;
+  /** Up to 3 condition icons in their tone; `moreMarks` counts the rest, drawn as "+N". */
+  marks: readonly ConditionMarkView[];
+  moreMarks: number;
 }>;
+
+/** A condition drawn on a token: its icon in its tone's color. */
+export type ConditionMarkView = Readonly<{ icon: ConditionIconDto; tone: ConditionToneDto }>;
 
 /** Where a move was asked for, drawn as a ghost until the server answers. */
 export type GhostView = Readonly<{ tokenId: string; col: number; row: number; size: number }>;
@@ -60,35 +66,44 @@ export type BoardView = Readonly<{
   ruler: RulerView | null;
   tokens: readonly TokenView[];
   ghosts: readonly GhostView[];
+  /** Under the tokens of each layer, in drawing order. */
+  drawings: readonly DrawingView[];
+  /** With the draw tool: how the sketch under the pointer looks; `null` with another tool. */
+  sketch: DrawingStyle | null;
   /** With the ruler, a press on a token measures from it instead of grabbing it. */
   tool: BoardViewTool;
   /** A short right click on a token opens "Mover para camada" (only the master). */
   layerMenu: boolean;
 }>;
 
-export type BoardViewTool = 'select' | 'ruler';
+export type BoardViewTool = 'select' | 'ruler' | 'draw';
 
-export type BoardViewInput = Readonly<{
-  scene: SceneDto;
-  tokens: readonly TokenDto[];
-  /** The "Grid" tool: hides the grid for this viewer only. */
-  localGridVisible: boolean;
-  ruler: RulerState | null;
-  selectedTokenIds: readonly string[];
-  activeLayer: TokenLayerDto;
-  /** The master: picks the active layer and moves tokens between layers. */
-  canChooseLayer: boolean;
-  preview: readonly Readonly<{ tokenId: string; col: number; row: number }>[];
-  /** This viewer's drag: a ghost where each member would land and the ruler of its path. */
-  drag: DragRouteView | null;
-  /** Where other people are dragging tokens, by id: drawn there instead of the confirmed cell. */
-  dragged: Readonly<Record<string, Cell>>;
-  /** Reconnecting: nothing is draggable. */
-  readOnly: boolean;
-  tool: BoardViewTool;
-  /** The token on turn in the combat, or `null` out of combat. */
-  currentTokenId: string | null;
-}>;
+export type BoardViewInput = Omit<DrawingViewInput, 'activeLayer' | 'readOnly'> &
+  Readonly<{
+    /** The style of the next drawing, shown on the sketch while the draw tool is on. */
+    drawingStyle: DrawingStyle;
+  }> &
+  Readonly<{
+    scene: SceneDto;
+    tokens: readonly TokenDto[];
+    /** The "Grid" tool: hides the grid for this viewer only. */
+    localGridVisible: boolean;
+    ruler: RulerState | null;
+    selectedTokenIds: readonly string[];
+    activeLayer: TokenLayerDto;
+    /** The master: picks the active layer and moves tokens between layers. */
+    canChooseLayer: boolean;
+    preview: readonly Readonly<{ tokenId: string; col: number; row: number }>[];
+    /** This viewer's drag: a ghost where each member would land and the ruler of its path. */
+    drag: DragRouteView | null;
+    /** Where other people are dragging tokens, by id: drawn there instead of the confirmed cell. */
+    dragged: Readonly<Record<string, Cell>>;
+    /** Reconnecting: nothing is draggable. */
+    readOnly: boolean;
+    tool: BoardViewTool;
+    /** The token on turn in the combat, or `null` out of combat. */
+    currentTokenId: string | null;
+  }>;
 
 const MAX_MARKS = 3;
 
@@ -111,6 +126,8 @@ export function buildBoardView(input: BoardViewInput): BoardView {
     ruler: rulerOf(input),
     tokens: inDrawingOrder(input.tokens).map((token) => tokenViewOf(token, input)),
     ghosts: ghostsOf(input),
+    drawings: drawingViewsOf(input),
+    sketch: input.tool === 'draw' ? input.drawingStyle : null,
     tool: input.tool,
     layerMenu: input.canChooseLayer,
   };
@@ -152,8 +169,8 @@ function tokenViewOf(token: TokenDto, input: BoardViewInput): TokenView {
     selected: input.selectedTokenIds.includes(token.id),
     draggable: pickable && token.canControl && !input.readOnly,
     onTurn: token.id === input.currentTokenId,
-    marks: token.conditions.slice(0, MAX_MARKS).map(({ tone }) => tone),
-    moreMarks: token.conditions.length > MAX_MARKS,
+    marks: token.conditions.slice(0, MAX_MARKS).map(({ icon, tone }) => ({ icon, tone })),
+    moreMarks: Math.max(0, token.conditions.length - MAX_MARKS),
   };
 }
 

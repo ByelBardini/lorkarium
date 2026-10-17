@@ -11,6 +11,7 @@ import type { TablePresenceState } from '@/stores/table-presence-store';
 export const BOARD_LOAD_FAILED = 'Não deu para carregar o tabuleiro.';
 
 const OUT_OF_SCENE_TEXT = 'Fora da cena.';
+const STALE_UNDO_TEXT = 'Alguém mexeu nisso depois; não dá para desfazer.';
 
 /** What the status line says about the connection and the board while they are not live.
  *  Once the board is ready the line belongs to tool hints and refusals.
@@ -34,6 +35,9 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   combat_active: 'Já há um combate nesta cena.',
   combat_inactive: 'Não há combate nesta cena.',
   out_of_scene: OUT_OF_SCENE_TEXT,
+  drawing_not_found: 'Esse desenho não está mais na mesa.',
+  drawing_limit: 'A cena já tem desenhos demais. Apague alguns antes.',
+  stale_undo: STALE_UNDO_TEXT,
   invalid: 'Confira os campos e tente de novo.',
   rate_limited: 'Muitas ações seguidas. Espere um instante.',
   unauthenticated: 'Sua sessão terminou. Entre de novo.',
@@ -82,6 +86,12 @@ export function tokensMovedAnnouncement(count: number): string {
   return `${count} tokens foram movidos.`;
 }
 
+/** Example: `copiedAnnouncement(3) // "3 itens copiados."` */
+export function copiedAnnouncement(count: number): string {
+  return count === 1 ? '1 item copiado.' : `${count} itens copiados.`;
+}
+
+export const PASTE_TOKENS_MASTER_ONLY = 'Só o mestre cola tokens.';
 export const NOT_YOUR_TOKEN = 'Esse token não é seu.';
 export const OUT_OF_SCENE = OUT_OF_SCENE_TEXT;
 

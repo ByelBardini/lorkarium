@@ -1,3 +1,4 @@
+import type { ConditionIconDto } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
 import {
   integer,
@@ -24,6 +25,8 @@ export const conditionDefinitions = pgTable(
       .references(() => campaigns.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     tone: conditionTone('tone').notNull(),
+    // Text, not a pg enum: the closed list lives in the contract, so adding an icon needs no migration.
+    icon: text('icon').$type<ConditionIconDto>().notNull().default('circle-dot'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -57,5 +60,9 @@ export const activeConditions = pgTable(
 
 export type ConditionDefinitionPo = typeof conditionDefinitions.$inferSelect;
 export type ConditionToneValue = ConditionDefinitionPo['tone'];
-export type NewConditionDefinition = Readonly<{ name: string; tone: ConditionToneValue }>;
+export type NewConditionDefinition = Readonly<{
+  name: string;
+  tone: ConditionToneValue;
+  icon: ConditionDefinitionPo['icon'];
+}>;
 export type ActiveConditionPo = typeof activeConditions.$inferSelect;

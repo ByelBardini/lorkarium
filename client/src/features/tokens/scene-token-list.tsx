@@ -113,7 +113,7 @@ function TokenRow({ token, members, open, marked, ...props }: TokenRowProps) {
           <span className="truncate text-xs text-muted-foreground">
             {controllers.map(({ name }) => name).join(', ') || 'Sem controlador'}
           </span>
-          <ConditionSummary conditions={token.conditions} />
+          {!open && <ConditionSummary conditions={token.conditions} />}
         </span>
         {first && (
           <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{`${first.label} ${formatBarValue(first)}`}</span>

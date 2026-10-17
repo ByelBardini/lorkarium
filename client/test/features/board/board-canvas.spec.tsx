@@ -9,6 +9,8 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createDrawingStyleStore } from '@/stores/drawing-style-store';
+import { StorageFake } from '../../support/storage-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { BoardRenderersFake } from '../../support/board-renderer-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
@@ -40,6 +42,7 @@ describe('BoardCanvas', () => {
         interaction={interaction}
         onIntent={(intent) => intents.push(intent)}
         onRenderer={() => undefined}
+        drawingStyle={createDrawingStyleStore(new StorageFake())}
       />
     );
   }

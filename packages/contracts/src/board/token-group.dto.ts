@@ -1,20 +1,44 @@
 import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
-import { cellIndexDto, draggedCellDto, tokenLayerDto } from './token.dto';
-import { tokenGroupOf, tokenIdGroupDto } from './token-id-group.dto';
+import { combatDto } from './combat.dto';
+import {
+  cellIndexDto,
+  createTokenCommandDto,
+  draggedCellDto,
+  tokenDto,
+  tokenLayerDto,
+} from './token.dto';
+import {
+  strayExpectation,
+  TOKEN_GROUP_MAX,
+  tokenGroupOf,
+  tokenIdGroupDto,
+} from './token-id-group.dto';
 
 const tokenCellDto = z.strictObject({ tokenId: z.uuid(), col: cellIndexDto, row: cellIndexDto });
 export type TokenCellDto = z.infer<typeof tokenCellDto>;
 
+/** A move as sent: `expect` is the cell the token must still be on (the undo precondition). */
+const tokenMoveDto = tokenCellDto.extend({
+  expect: z.strictObject({ col: cellIndexDto, row: cellIndexDto }).optional(),
+});
+export type TokenMoveDto = z.infer<typeof tokenMoveDto>;
+
+/** One token of `token:createMany`: the body of `token:create` without `actionId`/`campaignId`. */
+export const newTokenDto = createTokenCommandDto.omit({ actionId: true, campaignId: true });
+export type NewTokenDto = z.infer<typeof newTokenDto>;
+export type NewTokenInput = z.input<typeof newTokenDto>;
+
 const tokenDragDto = z.strictObject({ tokenId: z.uuid(), cell: draggedCellDto });
 export type TokenDragDto = z.infer<typeof tokenDragDto>;
 
-/** `token:moveMany` (master or a controller of every token): all or nothing, one version.
+/** `token:moveMany` (master or a controller of every token): all or nothing, one version. A move
+ *  with `expect` is refused with `STALE_UNDO` when the token is no longer there.
  *
  *  Example: `moveTokensCommandDto.parse({ actionId, campaignId, moves: [{ tokenId, col: 4, row: 2 }] })` */
 export const moveTokensCommandDto = z.strictObject({
   ...boardCommandShape,
-  moves: tokenGroupOf(tokenCellDto, (move) => move.tokenId),
+  moves: tokenGroupOf(tokenMoveDto, (move) => move.tokenId),
 });
 export type MoveTokensCommandDto = z.infer<typeof moveTokensCommandDto>;
 
@@ -37,6 +61,50 @@ export const setTokenLayerCommandDto = z.strictObject({
   layer: tokenLayerDto,
 });
 export type SetTokenLayerCommandDto = z.infer<typeof setTokenLayerCommandDto>;
+
+/** `token:createMany` (master): 1 to 64 tokens (a paste), all or nothing, one version.
+ *
+ *  Example: `createTokensCommandDto.parse({ actionId, campaignId, tokens: [goblin, goblin] })` */
+export const createTokensCommandDto = z.strictObject({
+  ...boardCommandShape,
+  tokens: z.array(newTokenDto).min(1).max(TOKEN_GROUP_MAX),
+});
+export type CreateTokensCommandDto = z.infer<typeof createTokensCommandDto>;
+
+/** `token:deleteMany` (master): all or nothing, one version; `expect` lists the cell each token must
+ *  still be on (undoing a paste), and the turn passes on as in `token:delete`.
+ *
+ *  Example: `deleteTokensCommandDto.parse({ actionId, campaignId, tokenIds: [id] })` */
+export const deleteTokensCommandDto = z
+  .strictObject({
+    ...boardCommandShape,
+    tokenIds: tokenIdGroupDto,
+    expect: z.array(tokenCellDto).max(TOKEN_GROUP_MAX).optional(),
+  })
+  .superRefine((command, context) => {
+    const stray = strayExpectation(
+      command.tokenIds,
+      (command.expect ?? []).map((expected) => expected.tokenId),
+    );
+    if (stray === undefined) return;
+    context.addIssue({
+      code: 'custom',
+      message: `token ${stray} is not being deleted; expected only ids in tokenIds`,
+    });
+  });
+export type DeleteTokensCommandDto = z.infer<typeof deleteTokensCommandDto>;
+
+/** `token:createdMany`: each audience gets its own redacted copy, as in `token:created`. */
+export const tokensCreatedDto = z.strictObject({ ...boardEventShape, tokens: z.array(tokenDto) });
+export type TokensCreatedDto = z.infer<typeof tokensCreatedDto>;
+
+/** `combat` is the combat after the tokens left it (the turn may have passed), or `null` with none. */
+export const tokensDeletedDto = z.strictObject({
+  ...boardEventShape,
+  tokenIds: z.array(z.uuid()),
+  combat: combatDto.nullable(),
+});
+export type TokensDeletedDto = z.infer<typeof tokensDeletedDto>;
 
 export const tokensMovedDto = z.strictObject({ ...boardEventShape, moves: z.array(tokenCellDto) });
 export type TokensMovedDto = z.infer<typeof tokensMovedDto>;

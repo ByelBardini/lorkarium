@@ -9,6 +9,7 @@ import type {
 } from '@/services/table-session-api';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import type { KeyValueStorage } from '@/stores/rail-store';
+import { createTableEditStore, type TableEditStore } from '@/stores/table-edit-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 
 export const OPEN_TABLES_STORAGE_KEY = 'lorkarium.openTables';
@@ -18,8 +19,14 @@ export type TabStorage = KeyValueStorage & Pick<Storage, 'removeItem'>;
 
 export type OpenTableRef = Readonly<{ campaignId: string; name: string }>;
 
+/** An open table: its live presence, its confirmed board, and this user's copy area and undo
+ *  stack for it (kept while the table stays open). */
 export type OpenTable = OpenTableRef &
-  Readonly<{ presence: StoreApi<TablePresenceStore>; board: StoreApi<BoardStore> }>;
+  Readonly<{
+    presence: StoreApi<TablePresenceStore>;
+    board: StoreApi<BoardStore>;
+    edits: StoreApi<TableEditStore>;
+  }>;
 
 export type OpenTableResult = 'opened' | 'already-open' | 'full';
 
@@ -128,7 +135,8 @@ class OpenTablesActions {
     const board = createBoardStore(table.campaignId, () =>
       this.handles.get(table.campaignId)?.resync(),
     );
-    this.set({ tables: [...tables, { ...table, presence, board }] });
+    const edits = createTableEditStore(table.campaignId);
+    this.set({ tables: [...tables, { ...table, presence, board, edits }] });
     const stores = { presence, board };
     const listener = (update: TableSessionUpdate): void => applyUpdate(this.set, stores, update);
     this.handles.set(table.campaignId, this.deps.api.open(table.campaignId, listener));

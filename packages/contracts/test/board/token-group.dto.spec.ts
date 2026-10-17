@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createTokensCommandDto,
+  deleteTokensCommandDto,
   dragTokensCommandDto,
   moveTokensCommandDto,
   setTokenLayerCommandDto,
@@ -154,5 +156,99 @@ describe('setTokenLayerCommandDto', () => {
     const command = { ...BASE, tokenIds: idsOf(65), layer: 'tokens' };
 
     expect(setTokenLayerCommandDto.safeParse(command).success).toBe(false);
+  });
+});
+
+const GOBLIN_WITHOUT_LAYER = {
+  name: 'Goblin',
+  initials: 'G',
+  side: 'enemy',
+  size: 1,
+  controllerIds: [],
+  col: 3,
+  row: 4,
+  bars: [{ label: 'PV', current: 7, max: 7, color: 'ember', visibility: 'everyone' }],
+} as const;
+const GOBLIN = { ...GOBLIN_WITHOUT_LAYER, layer: 'tokens' } as const;
+
+function tokensOf(count: number) {
+  return Array.from({ length: count }, () => GOBLIN);
+}
+
+describe('createTokensCommandDto', () => {
+  it('two tokens shaped like token:create without actionId and campaignId are accepted', () => {
+    const parsed = createTokensCommandDto.parse({ ...BASE, tokens: tokensOf(2) });
+
+    expect(parsed.tokens).toEqual([GOBLIN, GOBLIN]);
+  });
+
+  it('a token sent without a layer lands on tokens, as in token:create', () => {
+    const parsed = createTokensCommandDto.parse({ ...BASE, tokens: [GOBLIN_WITHOUT_LAYER] });
+
+    expect(parsed.tokens[0]?.layer).toBe('tokens');
+  });
+
+  it(`${TOKEN_GROUP_MAX} tokens are accepted and 65 refused`, () => {
+    expect(createTokensCommandDto.safeParse({ ...BASE, tokens: tokensOf(64) }).success).toBe(true);
+    expect(createTokensCommandDto.safeParse({ ...BASE, tokens: tokensOf(65) }).success).toBe(false);
+  });
+
+  it('a token carrying its own actionId is refused (strict item)', () => {
+    const tokens = [{ ...GOBLIN, actionId: ACTION_ID }];
+
+    expect(createTokensCommandDto.safeParse({ ...BASE, tokens }).success).toBe(false);
+  });
+});
+
+describe('deleteTokensCommandDto', () => {
+  it('ids with the cell each token must still be on (undo) are accepted as sent', () => {
+    const command = {
+      ...BASE,
+      tokenIds: [LYRA_ID, BRAM_ID],
+      expect: [{ tokenId: LYRA_ID, col: 4, row: 4 }],
+    };
+
+    expect(deleteTokensCommandDto.parse(command)).toEqual(command);
+  });
+
+  it('an expected cell of a token not being deleted is refused naming its id', () => {
+    const command = {
+      ...BASE,
+      tokenIds: [LYRA_ID],
+      expect: [{ tokenId: CHEST_ID, col: 1, row: 1 }],
+    };
+
+    const result = deleteTokensCommandDto.safeParse(command);
+
+    expect(messagesOf(result)).toEqual([
+      expect.stringContaining(`token ${CHEST_ID} is not being deleted`),
+    ]);
+  });
+
+  it('an expected cell with a negative column is refused', () => {
+    const command = {
+      ...BASE,
+      tokenIds: [LYRA_ID],
+      expect: [{ tokenId: LYRA_ID, col: -1, row: 1 }],
+    };
+
+    expect(deleteTokensCommandDto.safeParse(command).success).toBe(false);
+  });
+});
+
+describe('moveTokensCommandDto, undo precondition', () => {
+  it('a move with the expected cell of the token is accepted as sent', () => {
+    const command = {
+      ...BASE,
+      moves: [{ tokenId: LYRA_ID, col: 4, row: 4, expect: { col: 6, row: 4 } }],
+    };
+
+    expect(moveTokensCommandDto.parse(command)).toEqual(command);
+  });
+
+  it('an expected cell with a negative column is refused', () => {
+    const moves = [{ tokenId: LYRA_ID, col: 4, row: 4, expect: { col: -1, row: 4 } }];
+
+    expect(moveTokensCommandDto.safeParse({ ...BASE, moves }).success).toBe(false);
   });
 });

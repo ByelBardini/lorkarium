@@ -10,12 +10,12 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 
 ## DAO (`tokens.dao.ts`)
 
-- `TokenRow` = `{ token, bars (por posição), controllerIds }`. `insert(row)`, `listOfScene(sceneId)`, `findInScene(sceneId, tokenId)` (só acha na própria cena: id de outra mesa → `undefined`), `findManyInScene(sceneId, ids)` (numa consulta; id de outra cena fica de fora), `move`, `moveMany(moves)` (um `UPDATE` por token, no `tx`), `setLayer(ids, layer)` (um `UPDATE` para o grupo), `setBarCurrent(barId, valor)`, `update(tokenId, { fields, bars, controllerIds })` (troca as barras e os controladores inteiros), `delete` (cascade). As escritas de várias tabelas rodam no DAO montado com o `tx`.
+- `TokenRow` = `{ token, bars (por posição), controllerIds }`. `insert(row)`, `listOfScene(sceneId)`, `findInScene(sceneId, tokenId)` (só acha na própria cena: id de outra mesa → `undefined`), `findManyInScene(sceneId, ids)` (numa consulta; id de outra cena fica de fora), `move`, `moveMany(moves)` (um `UPDATE` por token, no `tx`), `setLayer(ids, layer)` (um `UPDATE` para o grupo), `setBarCurrent(barId, valor)`, `update(tokenId, { fields, bars, controllerIds })` (troca as barras e os controladores inteiros), `delete` (cascade), `insertMany(rows)` (um `insert` por token, no `tx`) e `deleteMany(sceneId, ids)` (só os da cena). As escritas de várias tabelas rodam no DAO montado com o `tx`.
 
 ## Regra
 
 - `TokenAccessBo(campaignAccess, { tokenId, controllerIds })`: o mestre controla tudo; quem está em `controllerIds` controla o token. `requireControl(ação)` → `FORBIDDEN` citando quem, a ação e o token; `audience()` → `privileged` (mestre ou controlador) | `others`. `requireMove(ação, camada)` (mover e arrastar, um ou em grupo) = `requireControl` + a camada: quem não é mestre só move token da camada `tokens`; fora dela → `FORBIDDEN` citando quem, a ação, o token e a camada. Barras, condições e combate não olham a camada (só `requireControl`).
-- `TokenRulesBo({ scene, memberIds, barLimit })`: `place(célula, tamanho)` pelo `footprintFits` (fora → `OutOfSceneError` `OUT_OF_SCENE` citando a célula, o tamanho e a cena; sem colisão, §12); `controllers(ids)` só aceita membros, sem repetir (`InvalidControllerError` `INVALID_CONTROLLER` citando quem não é); `adjustBar(atual, mudança)` pelo `applyBarChange` com o `BAR_VALUE_LIMIT` (passado pelo plugin).
+- `TokenRulesBo({ scene, memberIds, barLimit })`: `place(célula, tamanho)` pelo `footprintFits` (fora → `OutOfSceneError` `OUT_OF_SCENE` citando a célula, o tamanho e a cena; sem colisão, §12); `controllers(ids)` só aceita membros, sem repetir (`InvalidControllerError` `INVALID_CONTROLLER` citando quem não é); `adjustBar(atual, mudança)` pelo `applyBarChange` com o `BAR_VALUE_LIMIT` (passado pelo plugin); `requireAt(tokenId, esperado?, atual)` — a precondição do desfazer: sem `expect` passa, casa diferente → `STALE_UNDO` citando o token, o esperado e o atual.
 - Erros (`tokens.error.ts`): `TOKEN_NOT_FOUND` (também para token de outra mesa), `BAR_NOT_FOUND`, `OUT_OF_SCENE`, `INVALID_CONTROLLER`. Permissão de mesa (`FORBIDDEN`, `CAMPAIGN_NOT_FOUND`) vem do `CampaignAccessBo`.
 
 ## Redação por público
@@ -27,23 +27,30 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 
 ## Service (`tokens.service.ts`)
 
-`TokensService.create | update | move | moveMany | setLayer | adjustBar | delete(userId, campaignId, comando)` → versão nova; `drag` e `dragMany` recebem também a conexão e devolvem a versão atual. Participação → permissão (`requireMaster` para criar, editar e excluir; `requireControl` para mover e ajustar barra) → transação (`lockActiveOf` → token **da cena da mesa** → regra → grava → `bumpVersion`) → **depois do commit** publica. Recusa não grava nem publica. `TokenTransactionRunner` entrega `ScenesDao` e `TokensDao` presos ao `tx`; `tokens.plugin.ts` (`createTokensModule({ db, publisher, clock })`) monta o service, ligado no `wireRealtime` e entregue ao `board`.
+`TokensService.create | update | move | moveMany | setLayer | adjustBar | delete(userId, campaignId, comando)` → versão nova; `drag` e `dragMany` recebem também a conexão e devolvem a versão atual. Participação (`memberAccessOf`, `campaigns/member-access.ts`) → permissão (`requireMaster` para criar, editar e excluir; `requireControl` para mover e ajustar barra) → transação (`inLockedScene`: `lockActiveOf` → token **da cena da mesa** → regra → grava → `bumpVersion`) → **depois do commit** publica. Recusa não grava nem publica. `tokens.plugin.ts` (`createTokensModule({ db, publisher, clock })` → `{ service, batch }`) monta os dois services, ligados no `wireRealtime` e entregues ao `board`.
 
-| Comando           | Quem                  | Evento                                                           |
-| ----------------- | --------------------- | ---------------------------------------------------------------- |
-| `token:create`    | mestre                | `token:created` `{ token }` (por público)                        |
-| `token:update`    | mestre                | `token:updated` `{ token }` (por público)                        |
-| `token:move`      | mestre, quem controla | `token:moved` `{ tokenId, col, row }`                            |
-| `token:moveMany`  | mestre, quem controla | `token:movedMany` `{ moves }` (à mesa toda, uma versão)          |
-| `token:dragMany`  | mestre, quem controla | `token:draggedMany` `{ drags }` (sem versão, menos quem arrasta) |
-| `token:setLayer`  | mestre                | `token:layerChanged` `{ tokenIds, layer }` (à mesa toda)         |
-| `token:adjustBar` | mestre, quem controla | `token:updated` `{ token }` (por público)                        |
-| `token:delete`    | mestre                | `token:deleted` `{ tokenId }`                                    |
+- `token-transaction.ts` (sem camada: peças comuns dos dois services): `TokenWriteDaos` / `TokenTransactionRunner` (`ScenesDao`, `TokensDao`, `ConditionsDao` e `CombatDao` presos ao `tx`), `withConditions`, `audiencesOf` (o token nos dois públicos), `newTokenRowOf(sceneId, regra, token)` (posição e controladores conferidos), `passTurnIfLeaving(daos, cena, acesso, tokenIds)`, `combatOf`, `tokenIn`, `tokensIn` e `tokenAccessOf`.
+- `TokenBatchService` (`token-batch.service.ts`, colar e o desfazer dele, só mestre): `createMany` (todos conferidos pelo `newTokenRowOf` antes do `insertMany`; publica **um** `BoardPublisherPort.tokensCreated({ …, tokens: TokenAudiences[] })`) e `deleteMany` (o `expect` de cada token pelo `requireAt`; a vez passa por **todos** os que saem — `CombatBo.turnWithoutTokens`, que tira um a um da ordem — na mesma transação; publica `tokensDeleted` com o combate já sem eles).
+
+| Comando            | Quem                  | Evento                                                           |
+| ------------------ | --------------------- | ---------------------------------------------------------------- |
+| `token:create`     | mestre                | `token:created` `{ token }` (por público)                        |
+| `token:update`     | mestre                | `token:updated` `{ token }` (por público)                        |
+| `token:move`       | mestre, quem controla | `token:moved` `{ tokenId, col, row }`                            |
+| `token:moveMany`   | mestre, quem controla | `token:movedMany` `{ moves }` (à mesa toda, uma versão)          |
+| `token:dragMany`   | mestre, quem controla | `token:draggedMany` `{ drags }` (sem versão, menos quem arrasta) |
+| `token:setLayer`   | mestre                | `token:layerChanged` `{ tokenIds, layer }` (à mesa toda)         |
+| `token:adjustBar`  | mestre, quem controla | `token:updated` `{ token }` (por público)                        |
+| `token:delete`     | mestre                | `token:deleted` `{ tokenId }`                                    |
+| `token:createMany` | mestre                | `token:createdMany` `{ tokens }` (cada público a sua mistura)    |
+| `token:deleteMany` | mestre                | `token:deletedMany` `{ tokenIds, combat }` (à mesa toda)         |
 
 ## Comandos de grupo
 
 - **Tudo ou nada, uma versão.** O caso de grupo trava a cena, busca todos os ids pelo `findManyInScene` e recusa no primeiro que faltar (`TOKEN_NOT_FOUND` citando esse id, inclusive token de outra mesa) antes de gravar qualquer um; depois grava numa escrita só e soma **uma** versão.
 - `moveMany` / `dragMany`: `placeGroup` confere cada token (`requireMove` com a camada da linha, `place` pelo `footprintFits`) antes de qualquer escrita; um token alheio, fora da cena ou fora da camada recusa o grupo inteiro. O `moveMany` grava pelo `TokensDao.moveMany` e publica **um** `token:movedMany` com as casas de todos; o `dragMany` não trava, não grava nem soma versão e publica `token:draggedMany` exceto a conexão de quem arrasta (`BoardPublisherPort.tokensDragged(evento, exceptConnectionId)`). O server não conhece "grupo rígido": recebe a casa final de cada token (o deslocamento é conta do client).
+- **Precondição do desfazer (`expect`).** `moveMany` e `deleteMany` conferem o `expect` de cada token contra a linha travada (`TokenRulesBo.requireAt`) depois da permissão e antes de qualquer escrita; um só diferente recusa o grupo com `STALE_UNDO`.
+- **Redação do lote.** O adaptador manda a lista inteira a `campaign:<id>:masters`; a cada controlador (exceto quem está na sala dos mestres, para ninguém ouvir duas vezes) a sua mistura — inteiro o que ele controla, redigido o resto; e a redigida à mesa menos essas salas.
 - `setLayer`: `requireMaster('change the layer of tokens')` → `tokensIn` → `setLayer` → `bumpVersion` → depois do commit `BoardPublisherPort.tokenLayerChanged` (sem redação: a camada não é segredo).
 
 ## Arraste ao vivo (`token:dragMany`)
@@ -55,6 +62,7 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 ## Testes
 
 - Integração da camada: `token-layers.spec.ts`; do grupo: `token-groups.spec.ts`. Fixture `bramRow()` (Bram, de Caio, em (6, 4)) ao lado da `lyraRow()`; o `BoardPublisherFake` guarda `tokenLayerChanges`, `tokensMoves` e `tokensDrags`. O `token-table.ts` (`useTokenTable()` → Ana mestre de Vharn com Bia e Caio, Caio mestre de Quelm; `tokenCommandFor`, `createdTokenOf`, `restart()`) é a montagem dos specs de três clientes do token.
+- Lote: unit `token-batch.service.spec.ts` (o `TokensDaoFake` grava um `save` por `insertMany`) e integração `token-batch.spec.ts` (redação por público num evento só por cliente, mestre que controla ouve uma vez, `FORBIDDEN`, `OUT_OF_SCENE` sem criar nenhum, apagar com `expect`, a vez passa, `STALE_UNDO` do mover, `TOKEN_NOT_FOUND` da Quelm). O `BoardPublisherFake` guarda `tokensCreations` e `tokensDeletes`.
 - Unit: `server/test/modules/tokens/` (acesso, regra, mapper, service com o diário `lock → save → bump → commit → publish`); fakes `TokensDaoFake` e `TokenTransactionRunnerFake` (`test/support/tokens-fakes.ts`), fixtures `lyraRow`, `pvBar`, `inspirationBar` (`tokens-factories.ts`).
 - Integração: `tokens-dao.spec.ts` (DAO, isolamento por cena, índice único) e `tokens.spec.ts` (três clientes reais: redação no evento e no sync, `FORBIDDEN`, `OUT_OF_SCENE`, `TOKEN_NOT_FOUND` de outra mesa, mesa fora da conexão, `userId` forjado, reinício do app).
 

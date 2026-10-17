@@ -7,14 +7,22 @@ import type {
   ConditionsAppliedDto,
   ConditionDefinedDto,
   ConditionRemovedDto,
+  DrawingsCreatedDto,
+  DrawingsDeletedDto,
+  DrawingsMovedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
   TokenLayerChangedDto,
   TokenMovedDto,
+  TokensDeletedDto,
   TokensDraggedDto,
   TokensMovedDto,
 } from '@lorkarium/contracts';
-import type { BoardPublisherPort, TokenChange } from '../../modules/scenes/board-publisher.port';
+import type {
+  BoardPublisherPort,
+  TokenChange,
+  TokensCreation,
+} from '../../modules/scenes/board-publisher.port';
 import type { RealtimeServer } from '../../realtime/realtime-server';
 import { campaignMastersRoom, campaignRoom, campaignUserRoom } from '../../realtime/rooms';
 
@@ -61,9 +69,51 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     this.io.to(campaignRoom(event.campaignId)).emit('token:deleted', event);
   }
 
+  // Each controller gets their own mix (whole for theirs, redacted for the rest); a master who
+  // also controls a token only hears the masters' cut, so nobody hears the paste twice.
+  tokensCreated(creation: TokensCreation): void {
+    const { campaignId, tokens } = creation;
+    const base = { campaignId, version: creation.version, at: creation.at };
+    const masters = campaignMastersRoom(campaignId);
+    const whole = tokens.map((token) => token.privileged);
+    this.io.to(masters).emit('token:createdMany', { ...base, tokens: whole });
+    const controllerIds = [...new Set(tokens.flatMap((token) => token.controllerIds))];
+    for (const userId of controllerIds) {
+      const mix = tokens.map((t) => (t.controllerIds.includes(userId) ? t.privileged : t.others));
+      const room = campaignUserRoom(campaignId, userId);
+      this.io
+        .to(room)
+        .except(masters)
+        .emit('token:createdMany', { ...base, tokens: mix });
+    }
+    const privileged = [masters, ...controllerIds.map((id) => campaignUserRoom(campaignId, id))];
+    const redacted = tokens.map((token) => token.others);
+    this.io
+      .to(campaignRoom(campaignId))
+      .except(privileged)
+      .emit('token:createdMany', { ...base, tokens: redacted });
+  }
+
+  tokensDeleted(event: TokensDeletedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('token:deletedMany', event);
+  }
+
   // The layer is not a secret: the whole table gets the same event.
   tokenLayerChanged(event: TokenLayerChangedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('token:layerChanged', event);
+  }
+
+  // A drawing is not a secret: the layer only decides who picks it up, not who sees it.
+  drawingsCreated(event: DrawingsCreatedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('drawing:createdMany', event);
+  }
+
+  drawingsMoved(event: DrawingsMovedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('drawing:movedMany', event);
+  }
+
+  drawingsDeleted(event: DrawingsDeletedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('drawing:deletedMany', event);
   }
 
   // Conditions are on the token for everyone to see: nothing to redact (spec §3.7).

@@ -1,16 +1,21 @@
-import type { ActiveConditionDto, ConditionToneDto } from '@lorkarium/contracts';
+import type { ActiveConditionDto, ConditionIconDto, ConditionToneDto } from '@lorkarium/contracts';
+import { CONDITION_ICON_ENTRIES } from '@/lib/condition-icons';
 import { cn } from '@/lib/utils';
 
-/** The 8px square of a condition: gold for a benefit, the error color for a harm. Never alone:
- *  the name always goes with it. */
-export function ConditionMark({ tone }: Readonly<{ tone: ConditionToneDto }>): React.JSX.Element {
+/** The icon of a condition, gold for a benefit and the error color for a harm. Never alone: the
+ *  name always goes with it.
+ *
+ *  Example: `<ConditionMark icon={condition.icon} tone={condition.tone} />` */
+export function ConditionMark({
+  icon,
+  tone,
+}: Readonly<{ icon: ConditionIconDto; tone: ConditionToneDto }>): React.JSX.Element {
+  const Glyph = CONDITION_ICON_ENTRIES[icon].glyph;
   return (
-    <span
+    <Glyph
       aria-hidden="true"
-      className={cn(
-        'inline-block size-2 shrink-0',
-        tone === 'benefit' ? 'bg-primary' : 'bg-destructive',
-      )}
+      data-icon={icon}
+      className={cn('size-4 shrink-0', tone === 'benefit' ? 'text-primary' : 'text-destructive')}
     />
   );
 }
@@ -27,7 +32,7 @@ export function ConditionSummary({
     <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
       <span className="sr-only">{`${total}: `}</span>
       {conditions.slice(0, 1).map((condition) => (
-        <ConditionMark key={condition.id} tone={condition.tone} />
+        <ConditionMark key={condition.id} icon={condition.icon} tone={condition.tone} />
       ))}
       <span className="truncate">{conditions.map(({ name }) => name).join(', ')}</span>
     </span>

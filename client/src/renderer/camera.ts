@@ -3,6 +3,14 @@ export const CELL_WORLD_SIZE = 64;
 
 export const ZOOM_LIMITS = { min: 0.25, max: 4 } as const;
 
+/** Raster resolution for canvas text inside the zoomed world: drawn for the deepest zoom on this
+ *  screen, so zooming in never magnifies its pixels.
+ *
+ *  Example: `new Text({ text, resolution: zoomProofTextResolution(window.devicePixelRatio) })` */
+export function zoomProofTextResolution(devicePixelRatio: number): number {
+  return ZOOM_LIMITS.max * Math.max(1, devicePixelRatio);
+}
+
 // Screen pixels left around the scene when it is framed.
 const FIT_MARGIN_PX = 32;
 

@@ -46,6 +46,13 @@ export class TokensDao {
     return this.rowOf(token);
   }
 
+  /** One insert per token (bars and controllers are other tables): run it on the `tx` DAO. */
+  async insertMany(rows: readonly NewTokenRow[]): Promise<TokenRow[]> {
+    const saved: TokenRow[] = [];
+    for (const row of rows) saved.push(await this.insert(row));
+    return saved;
+  }
+
   async listOfScene(sceneId: string): Promise<TokenRow[]> {
     const found = await this.db
       .select()
@@ -110,6 +117,14 @@ export class TokensDao {
 
   async delete(tokenId: string): Promise<void> {
     await this.db.delete(tokens).where(eq(tokens.id, tokenId));
+  }
+
+  /** Deletes only the tokens of `sceneId`; bars, controllers and combatants go by cascade. */
+  async deleteMany(sceneId: string, tokenIds: readonly string[]): Promise<void> {
+    if (tokenIds.length === 0) return;
+    await this.db
+      .delete(tokens)
+      .where(and(eq(tokens.sceneId, sceneId), inArray(tokens.id, [...tokenIds])));
   }
 
   private async writeBars(tokenId: string, bars: readonly TokenBarInputPo[]): Promise<void> {

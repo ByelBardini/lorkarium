@@ -8,6 +8,7 @@ import {
   screenToWorld,
   worldToScreen,
   zoomAt,
+  zoomProofTextResolution,
   type Camera,
 } from '@/renderer/camera';
 
@@ -78,5 +79,15 @@ describe('camera', () => {
   it('clampToScene leaves a camera that already shows the scene alone', () => {
     const fitted = fitScene(SCENE_20_BY_12, VIEWPORT);
     expect(clampToScene(fitted, SCENE_20_BY_12, VIEWPORT)).toEqual(fitted);
+  });
+});
+
+describe('zoomProofTextResolution', () => {
+  it('is the deepest zoom times the screen density', () => {
+    expect(zoomProofTextResolution(2)).toBe(ZOOM_LIMITS.max * 2);
+  });
+
+  it('never goes under the deepest zoom, even on a screen reporting less than 1', () => {
+    expect(zoomProofTextResolution(0.5)).toBe(ZOOM_LIMITS.max);
   });
 });

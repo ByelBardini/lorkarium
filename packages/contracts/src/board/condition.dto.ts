@@ -10,11 +10,47 @@ export const CONDITION_ROUNDS_MAX = 99;
 export const conditionToneDto = z.enum(['benefit', 'harm']);
 export type ConditionToneDto = z.infer<typeof conditionToneDto>;
 
+/** The icon of a condition, a closed list so the client only ever draws a known glyph. The keys
+ *  are the client icon set's names (lucide). */
+export const CONDITION_ICONS = [
+  'circle-dot',
+  'skull',
+  'eye-off',
+  'flask-conical',
+  'ghost',
+  'shield',
+  'sparkles',
+  'link',
+  'zap',
+  'flame',
+  'snowflake',
+  'moon',
+  'crosshair',
+  'arrow-down-to-line',
+  'hand',
+  'heart',
+  'droplet',
+  'brain',
+  'footprints',
+  'lock',
+  'ear-off',
+  'angry',
+  'swords',
+  'wind',
+  'sun',
+  'biohazard',
+  'hourglass',
+  'anchor',
+] as const;
+export const conditionIconDto = z.enum(CONDITION_ICONS);
+export type ConditionIconDto = z.infer<typeof conditionIconDto>;
+
 /** A condition of the table's list ("Envenenado", "Abençoado"…). */
 export const conditionDefinitionDto = z.strictObject({
   id: z.uuid(),
   name: z.string(),
   tone: conditionToneDto,
+  icon: conditionIconDto,
 });
 export type ConditionDefinitionDto = z.infer<typeof conditionDefinitionDto>;
 
@@ -24,6 +60,7 @@ export const activeConditionDto = z.strictObject({
   conditionId: z.uuid(),
   name: z.string(),
   tone: conditionToneDto,
+  icon: conditionIconDto,
   remainingRounds: z.number().int().min(1).max(CONDITION_ROUNDS_MAX).nullable(),
 });
 export type ActiveConditionDto = z.infer<typeof activeConditionDto>;
@@ -33,6 +70,7 @@ export const defineConditionCommandDto = z.strictObject({
   ...boardCommandShape,
   name: z.string().trim().min(1).max(CONDITION_NAME_MAX_LENGTH),
   tone: conditionToneDto,
+  icon: conditionIconDto,
 });
 export type DefineConditionCommandDto = z.infer<typeof defineConditionCommandDto>;
 

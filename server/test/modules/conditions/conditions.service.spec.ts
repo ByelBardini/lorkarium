@@ -115,17 +115,25 @@ describe('ConditionsService', () => {
   });
 
   it('the master defining "Sangrando" adds it and publishes condition:defined', async () => {
-    const version = await service.define(ANA_ID, VHARN_ID, { name: 'Sangrando', tone: 'harm' });
+    const version = await service.define(ANA_ID, VHARN_ID, {
+      name: 'Sangrando',
+      tone: 'harm',
+      icon: 'droplet',
+    });
     expect(version).toBe(5);
     expect(publisher.conditionEvents).toEqual([
       expect.objectContaining({
-        definition: expect.objectContaining({ name: 'Sangrando', tone: 'harm' }),
+        definition: expect.objectContaining({ name: 'Sangrando', tone: 'harm', icon: 'droplet' }),
       }),
     ]);
   });
 
   it('defining a name the list has (any case) reuses it: no new row, no bump, no event', async () => {
-    const version = await service.define(ANA_ID, VHARN_ID, { name: 'abençoado', tone: 'benefit' });
+    const version = await service.define(ANA_ID, VHARN_ID, {
+      name: 'abençoado',
+      tone: 'benefit',
+      icon: 'sun',
+    });
     expect(version).toBe(4);
     expect(conditions.definitions.filter(({ campaignId }) => campaignId === VHARN_ID)).toHaveLength(
       1,
@@ -135,7 +143,7 @@ describe('ConditionsService', () => {
 
   it('a player defining a condition is FORBIDDEN', async () => {
     await expect(
-      service.define(BIA_ID, VHARN_ID, { name: 'Sangrando', tone: 'harm' }),
+      service.define(BIA_ID, VHARN_ID, { name: 'Sangrando', tone: 'harm', icon: 'droplet' }),
     ).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });

@@ -1,5 +1,5 @@
 /** What a key means while the board itself has the focus (the camera keys are the renderer's). */
-export type BoardKey = 'next' | 'previous' | 'up' | 'down' | 'left' | 'right' | 'open';
+export type BoardKey = 'next' | 'previous' | 'up' | 'down' | 'left' | 'right' | 'open' | 'delete';
 
 export type BoardKeyPress = Readonly<{
   key: string;
@@ -17,9 +17,12 @@ const BOARD_KEY: Readonly<Record<string, BoardKey>> = {
   ArrowLeft: 'left',
   ArrowRight: 'right',
   Enter: 'open',
+  Delete: 'delete',
+  Backspace: 'delete',
 };
 
-/** ] and [ walk the tokens, the arrows move the selected one a cell, Enter opens its card. Tab
+/** ] and [ walk the tokens, the arrows move the selected one a cell, Enter opens its card,
+ *  Delete and Backspace delete the selected drawings. Tab
  *  is never taken, so the focus always leaves the board.
  *
  *  Example: `boardKeyOf(event) // 'next' for ]` */

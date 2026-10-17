@@ -3,6 +3,7 @@ import type {
   BoardViewerDto,
   CombatDto,
   ConditionDefinitionDto,
+  DrawingDto,
   TokenDto,
 } from '@lorkarium/contracts';
 import { toSceneDto } from '../scenes/scenes.mapper';
@@ -14,6 +15,7 @@ export type BoardSnapshotParts = Readonly<{
   scene: ScenePo;
   /** Already redacted for the viewer. */
   tokens: readonly TokenDto[];
+  drawings: readonly DrawingDto[];
   combat: CombatDto | null;
   conditionDefinitions: readonly ConditionDefinitionDto[];
   at: Date;
@@ -30,6 +32,7 @@ export function toBoardStateDto(parts: BoardSnapshotParts): BoardStateDto {
     viewer: parts.viewer,
     scene: toSceneDto(parts.scene),
     tokens: [...parts.tokens],
+    drawings: [...parts.drawings],
     combat: parts.combat,
     conditionDefinitions: [...parts.conditionDefinitions],
   };

@@ -6,7 +6,7 @@ import type {
   TokenUpdatePo,
   TokensDao,
 } from '../../src/modules/tokens/tokens.dao';
-import type { TokenTransactionRunner } from '../../src/modules/tokens/tokens.service';
+import type { TokenTransactionRunner } from '../../src/modules/tokens/token-transaction';
 import { CombatDaoFake } from './combat-fakes';
 import { ConditionsDaoFake } from './conditions-fakes';
 import type { ScenesDaoFake } from './scenes-fakes';
@@ -19,6 +19,7 @@ import { lyraPo, pvBar } from './tokens-factories';
 export class TokensDaoFake implements Pick<
   TokensDao,
   | 'insert'
+  | 'insertMany'
   | 'findInScene'
   | 'findManyInScene'
   | 'listOfScene'
@@ -28,6 +29,7 @@ export class TokensDaoFake implements Pick<
   | 'setBarCurrent'
   | 'update'
   | 'delete'
+  | 'deleteMany'
 > {
   constructor(
     private readonly journal: string[],
@@ -43,6 +45,14 @@ export class TokensDaoFake implements Pick<
     );
     const saved: TokenRow = { token, bars, controllerIds: [...row.controllerIds] };
     this.rows.push(saved);
+    return saved;
+  }
+
+  // One 'save' for the whole paste: it is one write in the transaction.
+  async insertMany(rows: readonly NewTokenRow[]): Promise<TokenRow[]> {
+    const saved: TokenRow[] = [];
+    for (const row of rows) saved.push(await this.insert(row));
+    this.journal.splice(this.journal.length - rows.length, rows.length, 'save');
     return saved;
   }
 
@@ -106,6 +116,14 @@ export class TokensDaoFake implements Pick<
     this.journal.push('save');
     const index = this.rows.findIndex(({ token }) => token.id === tokenId);
     if (index !== -1) this.rows.splice(index, 1);
+  }
+
+  async deleteMany(sceneId: string, tokenIds: readonly string[]): Promise<void> {
+    this.journal.push('save');
+    const kept = this.rows.filter(
+      ({ token }) => token.sceneId !== sceneId || !tokenIds.includes(token.id),
+    );
+    this.rows.splice(0, this.rows.length, ...kept);
   }
 
   private replace(tokenId: string, change: (found: TokenRow) => TokenRow): void {
