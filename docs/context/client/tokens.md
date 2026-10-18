@@ -52,6 +52,8 @@ Os tokens na sala: o que cada um vê, como se move e como se ajustam as barras. 
 - `src/components/choice-field.tsx` — `ChoiceField`: grupo de rádio em linha com legenda e rótulo em texto (lado, tamanho, cor com amostra, visibilidade); `disabled` com `hint` dizendo por quê. Escolha só por imagem é o `StyleTileGroup` (ver [`drawings.md`](drawings.md)).
 - Libs: `bar-display.ts` (`barFill` → `{ fraction, state: normal | negative | over }`, `formatBarValue` com o sinal tipográfico, `barToneVar(cor)` → `var(--chart-n)`, `BAR_COLOR_LABEL`), `token-initials.ts` (`initialsOf`: "Ogro das Cinzas" → "OC", "Kael" → "KA").
 
+- **Visão no formulário.** O `TokenForm` ganhou a seção "Visão" (`SightSection`: "Enxerga", "Visão plena" e "Penumbra" na unidade da cena); detalhe em [`vision.md`](vision.md).
+
 ## Testes
 
 - `client/test/lib/` (barra, entrada, iniciais, teclas), `client/test/renderer/` (`board-view` com tokens, `token-drag`), `client/test/stores/` (tokens na store, interação), `client/test/features/tokens/` (estado do formulário, diálogo, editor de barras, lista e cartão), `client/test/features/board/board-keyboard.spec.tsx` e os casos de arrastar/soltar no `play-room-page.spec.tsx`. Fixtures `lyra()`, `kael()` (segundo token, em (5, 4)), `groupDraggedOver(drags)`, `tokenCreatedAt`, `tokenMovedAt`, `tokenUpdatedAt`, `tokenDeletedAt`.

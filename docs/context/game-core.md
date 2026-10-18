@@ -18,6 +18,12 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/effect-area.vo.ts` — a área de efeito (gabarito de magia) por forma (VO) e a origem na cena
 - `src/effect-area-cells.ts` — as casas que a área pinta, o ponto dentro da forma e a caixa dela
 - `src/effect-area-shaping.ts` — o raio até o ponteiro, o giro e o deslocamento da área
+- `src/wall.vo.ts` — a parede (tipo, forma, porta) e o que cada tipo bloqueia (VO)
+- `src/wall-segments.ts` — os segmentos retos de uma parede
+- `src/wall-erase.ts` — o que sobra de uma parede sem um dos seus trechos ou fora da caixa da borracha
+- `src/passage.ts` — o trecho do caminho que uma parede barra e o centro do token
+- `src/sight-area.ts` — o polígono que um olho enxerga e a linha de visão
+- `src/token-sight.ts` — o alcance de visão, o olho, o nível de visão de um token e a porta vista
 
 ## Célula e grid
 
@@ -83,8 +89,40 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 - `turnEffectArea(área, graus)` — cone horizontal e semicírculo de casa encaixam em 90°, o diagonal em 45 + 90k; os **cones giram em torno do centro da casa de onde saem** (o cone (5; 5,5) → 90 vira (4,5; 6)); semicírculo de casa mantém a origem; linha e semicírculo perfeito giram livres; sem direção, a mesma área.
 - `shiftEffectArea(área, dx, dy)` — forma de casa anda casas inteiras (a origem continua onde a forma nasce), a perfeita anda o delta ao centésimo; sair antes de (0, 0) lança o `RangeError` do `effectArea`.
 
+## Parede
+
+| Tipo (`kind`) | Bloqueia visão (`blocksSight`)    | Bloqueia passagem (`blocksMovement`) |
+| ------------- | --------------------------------- | ------------------------------------ |
+| `wall`        | sim                               | sim                                  |
+| `grate`       | não (vidro, grade)                | sim                                  |
+| `curtain`     | sim (véu)                         | não                                  |
+| `door`        | `closed`/`locked` sim; `open` não | idem                                 |
+
+- `Wall` = a caixa do desenho (`x, y, width, height` em casas fracionárias) + `shape` (`line | freehand | rectangle | ellipse`) + `points` (`WallPoint` `[x, y]` relativos a `(x, y)`, só na reta e na mão livre; `null` nas outras) + `doorState` (`DoorState` `closed | open | locked`, só na porta).
+- `wall(forma)` confere e devolve congelado; erro é `RangeError` citando o valor e o esperado: a caixa pelo `drawingBox`; "line has 3 points; expected 2", "freehand has 1 points; expected at least 2", "point (5, 0) is outside the 4 × 0 box", "rectangle width 0 … expected more than 0"; porta: "door must be a line; got rectangle", "door has doorState null; expected closed, open or locked"; não porta: "wall has doorState open; expected null". Folga de 1e-9 no ponto dentro da caixa.
+- `wallSegments(parede)` → `Segment[]` (`{ from, to }` absolutos): reta e mão livre = um por par de pontos; quadrado = 4 lados fechados a partir do canto (x, y); círculo = `ELLIPSE_WALL_SEGMENTS` (32) na elipse inscrita na caixa, começando no ângulo 0 e fechando no primeiro vértice. A mesma parede dá sempre a mesma lista (client e server concordam).
+- `wallWithoutSegment(parede, trecho)` → `Wall[]`: tira o trecho de índice `trecho` do `wallSegments`. Caminho aberto parte em dois (ou fica uma ponta); contorno fechado (quadrado, círculo, mão livre que volta ao início) **abre** ali, numa peça só que começa no vértice depois do trecho. Cada peça com 2 vértices vira `line`, com mais vira `freehand`, do mesmo tipo, ao centésimo; reta (e porta) não deixa nada. Índice fora → `RangeError` "Wall segment 4 is out of range: the wall has 4 segments." O server corta com ela e o client monta a pilha de desfazer com ela.
+- `wallOutsideBox(parede, caixa)` → `Wall[] | null` (`EraseBox` `{ x, y, width, height }` em casas): cada trecho que a caixa cobre (borda inclusa; Liang–Barsky) é cortado **exatamente** na borda; o que segue ligado de um lado é uma parede só; contorno fechado abre onde foi cortado (a última peça emenda na primeira); peças de reta/mão livre do mesmo tipo (porta vira `wall`) ao centésimo, e lasca menor que 0,01 some. `null` = a caixa não pega nada (encostar só na ponta não pega): a parede fica como está; `[]` = a caixa cobre tudo.
+
+## Passagem
+
+- `blockedPassage(pontos, paredes)` → `{ legIndex, wallIndex } | null`: os pontos são os **centros** do token (origem, curvas, destino; `tokenCenter(posição, tamanho)`); o primeiro trecho que encontra uma parede que bloqueia passagem, e qual parede (índices das listas recebidas). Um ponto, nenhum ponto ou nenhuma parede → `null`.
+- `legTouchesSegment(trecho, segmento)` — o trecho encontra o segmento **depois do seu início**: cruzar, encostar (o destino sobre a linha, a ponta da parede no meio do trecho) e correr colinear por cima contam; tocar só no ponto de partida não conta, para o token parado sobre a linha poder sair. Folga 1e-9 (as coordenadas são guardadas a 0,01, então a folga nunca fecha fresta real). É a mesma conta da linha de visão.
+- A passagem é pelo centro: um token grande passa por fresta menor que ele (colisão da pegada é do §12).
+
+## Visão
+
+- `sightArea(olho, paredes, cena, raio)` → o polígono (`Vector2[]`, em ordem de ângulo) que o olho vê: raios param na parede mais perto que bloqueia visão ou na borda da cena; depois no `raio` (`Infinity` = até a borda). Raios em cada vértice de parede e da cena (e a ±1e-5 rad dele, para ver atrás da quina), nos cruzamentos entre paredes, onde a parede sai do círculo e em `SIGHT_ARC_SAMPLES` (64) amostras do arco (uma a cada 5,625°; a corda fica a ≤ 0,12% do raio para dentro). Só entram as paredes da caixa do raio. É o "Sight & Light" (ncase) / Red Blob Games; O(raios × segmentos), com o teto de segmentos por cena do contracts. Todo vértice é cortado à cena.
+- `insidePolygon(ponto, polígono)` (par-ímpar) e `lineOfSight(de, até, paredes)` (nenhuma parede que bloqueia visão encontra o trecho pelo `legTouchesSegment`: o olho sobre a linha vê os dois lados; o alvo sobre a linha está atrás dela).
+- `sightRange(plena, penumbra)` — cada lado de 0 a `SIGHT_RANGE_MAX` (100) casas, finito; senão `RangeError` "Sight bright 101 … 0 to 100 cells". A penumbra é **a mais**, além da plena (o raio de fora é `bright + dim`).
+- `SightMode` = `off | dark | daylight`. `eyeOf(centro, alcance, modo)` → `Eye { center, range }`: no `dark`, token sem alcance não é olho (`null`); na Luz do dia todo token é olho, com ou sem alcance.
+- `sightLevel({ eyes, walls, mode }, { box, scenery })` → `seen | silhouette | hidden`. Pontos de teste: o centro da pegada e os quatro cantos **recuados 10%**. `seen` se algum ponto está a ≤ plena de algum olho, com linha de visão; `silhouette` a ≤ plena + penumbra; senão `hidden`. Cenário (`scenery`, o token de Fundo) é `seen` onde seria silhueta. `daylight`: sem limite de distância, só a linha de visão (a penumbra não conta). `off`: sempre `seen`. Sem olhos no escuro: `hidden`. Quem decide que o token do próprio viewer é sempre visto é quem chama (o client).
+- `doorSeenBy(contexto, porta)` — algum olho vê (plena ou penumbra) um dos pontos a 10%, 50% e 90% da porta, com as outras paredes no caminho; a porta não esconde a si mesma. `off` → sempre. É a única regra de visão que o server calcula (para o jogador abrir porta).
+
 ## Armadilhas
 
 - Ordem e turno trabalham com combatentes (com `id`): não são VO. O driver acusa `vo-com-identidade` num `.vo.ts` com `id`; o VO é só o valor (`initiative.vo.ts`).
 - A distância das áreas de efeito é **euclidiana** (do centro da casa até a forma) e **não** é a da régua (`cellDistance`, diagonal valendo 1). Não troque uma pela outra; unificar a regra de diagonal é do §12.
 - Na união `EffectArea`, `RoundArea` tem `kind` união (`'circle' | 'smooth_circle'`): comparar o `kind` não estreita para fora dela. Estreite por `'facing' in area` (é o que separa `AimedArea`).
+- A **fresta entre pontas** de parede quase encostadas deixa a visão (e a passagem) vazar: o raio passa entre as duas pontas. O game-core não fecha fresta; é o client que **gruda** a ponta nova no vértice vizinho ao desenhar (`WALL_GLUE_DISTANCE`).
+- `doorSeenBy` tira a porta das paredes **pela referência**: passe a mesma instância que está em `walls` (o `find` da lista), nunca uma cópia, senão a porta fechada esconde a si mesma.
