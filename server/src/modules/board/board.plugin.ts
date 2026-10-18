@@ -9,6 +9,7 @@ import { EffectAreasDao } from '../effect-areas/effect-areas.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenesService } from '../scenes/scenes.service';
 import { TokensDao } from '../tokens/tokens.dao';
+import { WallsDao } from '../walls/walls.dao';
 import { createBoardGateway, type BoardGatewayDeps } from './board.gateway';
 import { BoardService } from './board.service';
 import type { FastifyBaseLogger } from 'fastify';
@@ -23,6 +24,7 @@ export type BoardModuleOptions = Readonly<{
   combat: BoardGatewayDeps['combat'];
   drawings: BoardGatewayDeps['drawings'];
   effectAreas: BoardGatewayDeps['effectAreas'];
+  walls: BoardGatewayDeps['walls'];
   clock: ClockPort;
   realtime: Pick<Realtime, 'reauthenticate'>;
   log: FastifyBaseLogger;
@@ -35,7 +37,7 @@ export type BoardModule = Readonly<{ gateway: (socket: RealtimeSocket) => void }
  *  Example: `realtime.onConnection(createBoardModule(options).gateway)` */
 export function createBoardModule(options: BoardModuleOptions): BoardModule {
   const { db, scenes, tokens, tokenBatch, tokenAppearance, conditions, combat, drawings } = options;
-  const { clock, effectAreas } = options;
+  const { clock, effectAreas, walls } = options;
   const { realtime, log } = options;
   const members = new CampaignMembersDao(db);
   const board = new BoardService({
@@ -46,6 +48,7 @@ export function createBoardModule(options: BoardModuleOptions): BoardModule {
     combat: new CombatDao(db),
     drawings: new DrawingsDao(db),
     effectAreas: new EffectAreasDao(db),
+    walls: new WallsDao(db),
     clock,
   });
   const gateway = createBoardGateway({
@@ -58,6 +61,7 @@ export function createBoardModule(options: BoardModuleOptions): BoardModule {
     combat,
     drawings,
     effectAreas,
+    walls,
     realtime,
     clock,
     log,

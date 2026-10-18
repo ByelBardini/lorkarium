@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { WallsDaoFake } from '../../support/walls-fakes';
+import { northWallPo } from '../../support/walls-factories';
 import type { BarInputDto } from '@lorkarium/contracts';
 import { TokensService, type CreateToken } from '../../../src/modules/tokens/tokens.service';
 import { ClockFake } from '../../support/auth-fakes';
@@ -49,6 +51,7 @@ const NEW_TOKEN: CreateToken = {
 describe('TokensService', () => {
   let scenes: ScenesDaoFake;
   let tokens: TokensDaoFake;
+  let walls: WallsDaoFake;
   let publisher: BoardPublisherFake;
   let service: TokensService;
 
@@ -76,12 +79,14 @@ describe('TokensService', () => {
       [],
       [lyraPortraitPo(), lyraPortraitPo({ id: QUELM_MAP_ID, campaignId: QUELM_ID })],
     );
+    walls = new WallsDaoFake(scenes.journal);
     const transaction = new TokenTransactionRunnerFake(
       scenes,
       tokens,
       new ConditionsDaoFake(),
       new CombatDaoFake(),
       assets,
+      walls,
     );
     service = new TokensService({
       members,
@@ -127,6 +132,13 @@ describe('TokensService', () => {
 
     expect(tokens.rows.at(-1)?.token).toMatchObject({ ...look, facing: 0 });
     expect(publisher.tokenChanges[0]?.others.token).toMatchObject(look);
+  });
+
+  it('the master creating Kael with a sight saves both columns and publishes it', async () => {
+    await service.create(ANA_ID, VHARN_ID, { ...NEW_TOKEN, sight: { bright: 12, dim: 4 } });
+
+    expect(tokens.rows.at(-1)?.token).toMatchObject({ sightBright: '12.00', sightDim: '4.00' });
+    expect(publisher.tokenChanges[0]?.others.token.sight).toEqual({ bright: 12, dim: 4 });
   });
 
   it('an image of another table is ASSET_NOT_FOUND, and nothing is saved nor published', async () => {
@@ -302,6 +314,64 @@ describe('TokensService', () => {
       expect(publisher.published).toBe(0);
     });
   });
+  describe('moving past walls', () => {
+    const WALL_AT_5 = northWallPo({
+      x: '5.00',
+      y: '0.00',
+      width: '0.00',
+      height: '10.00',
+      points: [
+        [0, 0],
+        [0, 10],
+      ],
+    });
+
+    beforeEach(() => {
+      walls.rows.push(WALL_AT_5);
+    });
+
+    it('Bia moving Lyra straight across the wall is WALL_BLOCKED, and nothing is saved nor published', async () => {
+      await expect(
+        service.move(BIA_ID, VHARN_ID, { tokenId: LYRA_ID, col: 8, row: 6 }),
+      ).rejects.toMatchObject({ code: 'WALL_BLOCKED' });
+      expect(tokens.rows[0]?.token).toMatchObject({ col: 3, row: 4 });
+      expect(publisher.published).toBe(0);
+    });
+
+    it('Bia moving Lyra around the end of the wall by its bends goes through', async () => {
+      const path = [
+        { col: 3, row: 10 },
+        { col: 8, row: 10 },
+      ];
+
+      await service.move(BIA_ID, VHARN_ID, { tokenId: LYRA_ID, col: 8, row: 6, path });
+
+      expect(tokens.rows[0]?.token).toMatchObject({ col: 8, row: 6 });
+    });
+
+    it('Ana, the master, moves Lyra straight across the wall', async () => {
+      await service.move(ANA_ID, VHARN_ID, { tokenId: LYRA_ID, col: 8, row: 6 });
+
+      expect(tokens.rows[0]?.token).toMatchObject({ col: 8, row: 6 });
+    });
+
+    it('a group of Bia where one token crosses the wall is WALL_BLOCKED, and none moves', async () => {
+      tokens.rows[1] = bramRow({ controllerIds: [BIA_ID] });
+      const moves = [
+        { tokenId: LYRA_ID, col: 3, row: 6 },
+        { tokenId: BRAM_ID, col: 2, row: 4 },
+      ];
+
+      await expect(service.moveMany(BIA_ID, VHARN_ID, { moves })).rejects.toMatchObject({
+        code: 'WALL_BLOCKED',
+      });
+      expect(tokens.rows.map(({ token }) => [token.col, token.row])).toEqual([
+        [3, 4],
+        [6, 4],
+      ]);
+    });
+  });
+
   describe('moveMany and dragMany', () => {
     const LYRA_TO_8_6 = { tokenId: LYRA_ID, col: 8, row: 6 };
     const BRAM_TO_9_6 = { tokenId: BRAM_ID, col: 9, row: 6 };

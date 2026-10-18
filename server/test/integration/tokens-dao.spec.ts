@@ -103,6 +103,25 @@ describe('TokensDao on Postgres', () => {
     await expect(tokens.insert(turned)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
   });
 
+  it('a sight of 12 and 4 reads back as the numeric strings "12.00" and "4.00"', async () => {
+    const seeing = lyra({ token: { ...lyra().token, sightBright: '12', sightDim: '4' } });
+
+    expect((await tokens.insert(seeing)).token).toMatchObject({
+      sightBright: '12.00',
+      sightDim: '4.00',
+    });
+  });
+
+  it.each([
+    ['a bright of 100.5', '100.5', '0'],
+    ['a dim of -1', '3', '-1'],
+    ['only the bright set', '3', null],
+  ])('%s is refused by the sight CHECK of the table', async (_name, bright, dim) => {
+    const broken = lyra({ token: { ...lyra().token, sightBright: bright, sightDim: dim } });
+
+    await expect(tokens.insert(broken)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
+  });
+
   it('a half-cell box (1.5 × 0.5 at 2.5, 3) reads back exactly', async () => {
     const box = { col: 2.5, row: 3, width: 1.5, height: 0.5 };
     const saved = await tokens.insert(lyra({ token: { ...lyra().token, ...box } }));

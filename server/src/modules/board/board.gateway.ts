@@ -9,24 +9,31 @@ import {
   createEffectAreasCommandDto,
   createTokenCommandDto,
   createTokensCommandDto,
+  createWallsCommandDto,
   defineConditionCommandDto,
   deleteDrawingsCommandDto,
   deleteEffectAreasCommandDto,
   deleteTokenCommandDto,
   deleteTokensCommandDto,
+  deleteWallsCommandDto,
+  eraseWallAreaCommandDto,
+  eraseWallSegmentCommandDto,
   dragTokensCommandDto,
   endCombatCommandDto,
   moveDrawingsCommandDto,
   moveInTieCommandDto,
   moveTokenCommandDto,
   moveTokensCommandDto,
+  moveWallsCommandDto,
   nextTurnCommandDto,
   previousTurnCommandDto,
   removeCombatantCommandDto,
   removeConditionCommandDto,
   reshapeEffectAreasCommandDto,
   setInitiativeCommandDto,
+  setDoorCommandDto,
   setTokenLayerCommandDto,
+  setWallKindsCommandDto,
   faceTokensCommandDto,
   restyleTokensCommandDto,
   resizeTokensCommandDto,
@@ -60,6 +67,8 @@ import { TokenError } from '../tokens/tokens.error';
 import type { TokenAppearanceService } from '../tokens/token-appearance.service';
 import type { TokenBatchService } from '../tokens/token-batch.service';
 import type { TokensService } from '../tokens/tokens.service';
+import { WallError } from '../walls/walls.error';
+import type { WallsService } from '../walls/walls.service';
 import { BoardError, CommandRateLimitedError } from './board.error';
 import type { BoardService } from './board.service';
 import { CommandRateBo, fullBucket, type CommandBucket } from './command-rate.bo';
@@ -87,6 +96,16 @@ export type BoardGatewayDeps = Readonly<{
   >;
   drawings: Pick<DrawingsService, 'createMany' | 'moveMany' | 'deleteMany'>;
   effectAreas: Pick<EffectAreasService, 'createMany' | 'reshapeMany' | 'deleteMany'>;
+  walls: Pick<
+    WallsService,
+    | 'createMany'
+    | 'moveMany'
+    | 'deleteMany'
+    | 'setKindMany'
+    | 'setDoor'
+    | 'eraseSegment'
+    | 'eraseArea'
+  >;
   realtime: Pick<Realtime, 'reauthenticate'>;
   clock: ClockPort;
   log: FastifyBaseLogger;
@@ -124,6 +143,12 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   DRAWING_LIMIT: 'This scene has too many drawings',
   EFFECT_AREA_NOT_FOUND: 'Area of effect not found',
   EFFECT_AREA_LIMIT: 'This scene has too many areas of effect',
+  WALL_NOT_FOUND: 'Wall not found',
+  WALL_LIMIT: 'This scene has too many walls',
+  INVALID_DOOR: 'Only a straight wall can be a door',
+  WALL_BLOCKED: 'A wall blocks the way',
+  DOOR_LOCKED: 'The door is locked',
+  WALL_SEGMENT_NOT_FOUND: 'That piece of wall is not there',
 };
 
 /** Socket.IO edge of the board (scene and tokens): validates the command, re-reads the session,
@@ -133,7 +158,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
  *  Example: `realtime.onConnection(createBoardGateway({ board, scenes, tokens, realtime, log }))` */
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
   const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
-  const { effectAreas } = deps;
+  const { effectAreas, walls } = deps;
   const rate = new CommandRateGuard(deps.clock);
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
@@ -154,6 +179,7 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
             command.campaignId,
             toSceneGrid(command),
             command.backgroundAssetId,
+            command.vision,
           ),
         ),
       ),
@@ -217,6 +243,16 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
       'effectArea:deleteMany',
       mutate(deleteEffectAreasCommandDto, effectAreas.deleteMany.bind(effectAreas)),
     );
+    socket.on('wall:createMany', create(createWallsCommandDto, walls.createMany.bind(walls)));
+    socket.on('wall:moveMany', mutate(moveWallsCommandDto, walls.moveMany.bind(walls)));
+    socket.on('wall:deleteMany', mutate(deleteWallsCommandDto, walls.deleteMany.bind(walls)));
+    socket.on('wall:setKindMany', mutate(setWallKindsCommandDto, walls.setKindMany.bind(walls)));
+    socket.on('wall:setDoor', mutate(setDoorCommandDto, walls.setDoor.bind(walls)));
+    socket.on(
+      'wall:eraseSegment',
+      create(eraseWallSegmentCommandDto, walls.eraseSegment.bind(walls)),
+    );
+    socket.on('wall:eraseArea', create(eraseWallAreaCommandDto, walls.eraseArea.bind(walls)));
     socket.on(
       'condition:define',
       mutate(defineConditionCommandDto, conditions.define.bind(conditions)),
@@ -332,6 +368,7 @@ function toAckError(deps: BoardGatewayDeps, error: unknown): ApiErrorDto {
     error instanceof CombatError ||
     error instanceof DrawingError ||
     error instanceof EffectAreaError ||
+    error instanceof WallError ||
     error instanceof AssetError ||
     error instanceof BoardError;
   if (known) {

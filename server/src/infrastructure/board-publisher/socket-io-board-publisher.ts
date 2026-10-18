@@ -13,6 +13,13 @@ import type {
   EffectAreasCreatedDto,
   EffectAreasDeletedDto,
   EffectAreasReshapedDto,
+  DoorChangedDto,
+  WallSegmentErasedDto,
+  WallAreaErasedDto,
+  WallKindsChangedDto,
+  WallsCreatedDto,
+  WallsDeletedDto,
+  WallsMovedDto,
   TokensResizedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
@@ -145,6 +152,34 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
 
   effectAreasDeleted(event: EffectAreasDeletedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('effectArea:deletedMany', event);
+  }
+
+  wallsCreated(event: WallsCreatedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('wall:createdMany', event);
+  }
+
+  wallsMoved(event: WallsMovedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('wall:movedMany', event);
+  }
+
+  wallsDeleted(event: WallsDeletedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('wall:deletedMany', event);
+  }
+
+  wallKindsChanged(event: WallKindsChangedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('wall:kindsChanged', event);
+  }
+
+  doorChanged(event: DoorChangedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('wall:doorChanged', event);
+  }
+
+  wallSegmentErased(event: WallSegmentErasedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('wall:segmentErased', event);
+  }
+
+  wallAreaErased(event: WallAreaErasedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('wall:areaErased', event);
   }
 
   // Conditions are on the token for everyone to see: nothing to redact (spec §3.7).

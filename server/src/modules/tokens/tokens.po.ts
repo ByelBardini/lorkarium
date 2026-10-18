@@ -5,6 +5,7 @@ import {
   doublePrecision,
   index,
   integer,
+  numeric,
   pgEnum,
   pgTable,
   primaryKey,
@@ -48,12 +49,20 @@ export const tokens = pgTable(
     flipY: boolean('flip_y').notNull().default(false),
     // Degrees, 0 = looking right, clockwise on screen (game-core `Facing`).
     facing: smallint('facing').notNull().default(0),
+    // How far it sees, in cells (game-core `SightRange`); both null = it does not see. A CHECK
+    // passes on NULL, so the second branch names both as not null.
+    sightBright: numeric('sight_bright', { precision: 6, scale: 2 }),
+    sightDim: numeric('sight_dim', { precision: 6, scale: 2 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('tokens_scene_id_idx').on(table.sceneId),
     check('tokens_facing_range', sql`${table.facing} >= 0 AND ${table.facing} <= 359`),
+    check(
+      'tokens_sight_range',
+      sql`(${table.sightBright} IS NULL AND ${table.sightDim} IS NULL) OR (${table.sightBright} IS NOT NULL AND ${table.sightDim} IS NOT NULL AND ${table.sightBright} BETWEEN 0 AND 100 AND ${table.sightDim} BETWEEN 0 AND 100)`,
+    ),
     check(
       'tokens_box_half_cells',
       sql`${table.col} >= 0 AND ${table.row} >= 0 AND ${table.width} BETWEEN 0.5 AND 10 AND ${table.height} BETWEEN 0.5 AND 10 AND (${table.col} * 2) = floor(${table.col} * 2) AND (${table.row} * 2) = floor(${table.row} * 2) AND (${table.width} * 2) = floor(${table.width} * 2) AND (${table.height} * 2) = floor(${table.height} * 2)`,
@@ -99,6 +108,8 @@ export type TokenBarPo = typeof tokenBars.$inferSelect;
 export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenId' | 'position'>;
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
+export type TokenSightPo = Pick<TokenPo, 'sightBright' | 'sightDim'>;
 /** What `token:update` saves; an absent look field keeps what the token has. */
 export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width' | 'height'> &
-  Partial<TokenLookPo>;
+  Partial<TokenLookPo> &
+  Partial<TokenSightPo>;

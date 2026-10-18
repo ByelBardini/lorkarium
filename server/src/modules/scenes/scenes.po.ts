@@ -3,6 +3,7 @@ import {
   index,
   integer,
   numeric,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -10,6 +11,10 @@ import {
 } from 'drizzle-orm/pg-core';
 import { assets } from '../assets/assets.po';
 import { campaigns } from '../campaigns/campaigns.po';
+
+// What the scene hides from players: nothing (off), past each token's sight (dark), or only
+// behind walls (daylight).
+export const sceneVision = pgEnum('scene_vision', ['off', 'dark', 'daylight']);
 
 export const scenes = pgTable(
   'scenes',
@@ -30,6 +35,7 @@ export const scenes = pgTable(
     backgroundAssetId: uuid('background_asset_id').references(() => assets.id, {
       onDelete: 'set null',
     }),
+    visionMode: sceneVision('vision_mode').notNull().default('off'),
     // The board state version (spec §5.5): persisted, so it survives a server restart.
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -44,5 +50,5 @@ export type SceneGridPo = Pick<
   ScenePo,
   'widthCells' | 'heightCells' | 'cellDistance' | 'cellUnit' | 'gridVisible' | 'gridOpacity'
 >;
-/** What `scene:configure` saves: the grid and the background. */
-export type SceneConfigPo = SceneGridPo & Pick<ScenePo, 'backgroundAssetId'>;
+/** What `scene:configure` saves: the grid, the background and the vision mode. */
+export type SceneConfigPo = SceneGridPo & Pick<ScenePo, 'backgroundAssetId' | 'visionMode'>;

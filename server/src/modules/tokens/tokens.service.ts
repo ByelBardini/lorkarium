@@ -38,6 +38,7 @@ import {
 import type { TokenRow } from './tokens.dao';
 import { BarNotFoundError } from './tokens.error';
 import { toTokenUpdatePo } from './tokens.mapper';
+import { placedWallOf } from '../walls/walls.mapper';
 
 type Envelope = 'actionId' | 'campaignId';
 export type CreateToken = Omit<CreateTokenCommandDto, Envelope>;
@@ -49,6 +50,9 @@ export type SetTokenLayer = Omit<SetTokenLayerCommandDto, Envelope>;
 export type MoveTokens = Omit<MoveTokensCommandDto, Envelope>;
 export type DragTokens = Omit<DragTokensCommandDto, Envelope>;
 type GroupCell = Readonly<{ tokenId: string; cell: Readonly<{ col: number; row: number }> | null }>;
+type CellAt = Readonly<{ col: number; row: number }>;
+/** One token's way across the scene: from where it stands, by its bends, to `to`. */
+type TokenPassage = Readonly<{ row: TokenRow; path: readonly CellAt[] | undefined; to: CellAt }>;
 
 export type TokensServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership' | 'listMembers'>;
@@ -104,6 +108,8 @@ export class TokensService {
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
       tokenAccessOf(access, found).requireMove('move', found.token.layer);
       const { col, row } = this.rulesFor(scene, []).place(command, found.token);
+      const passage = { row: found, path: command.path, to: command };
+      await this.requirePassages({ daos, scene }, access, [passage]);
       await daos.tokens.move(found.token.id, col, row);
       return { col, row };
     });
@@ -135,6 +141,11 @@ export class TokensService {
       rows.forEach((row, index) => {
         rules.requireAt(row.token.id, command.moves[index]?.expect, row.token);
       });
+      const passages = rows.flatMap((row, index) => {
+        const move = command.moves[index];
+        return move ? [{ row, path: move.path, to: move }] : [];
+      });
+      await this.requirePassages(locked, access, passages);
       await locked.daos.tokens.moveMany(moves);
     });
     const at = this.now();
@@ -247,6 +258,21 @@ export class TokensService {
       if (cell) rules.place(cell, row.token);
     });
     return rows;
+  }
+
+  // The master passes every wall; a player's token walks its path center to center (spec §5.4).
+  private async requirePassages(
+    { daos, scene }: Locked,
+    access: CampaignAccessBo,
+    passages: readonly TokenPassage[],
+  ): Promise<void> {
+    const walking = passages.filter(({ row }) => !tokenAccessOf(access, row).ignoresWalls());
+    if (walking.length === 0) return;
+    const walls = (await daos.walls.listOfScene(scene.id)).map(placedWallOf);
+    const rules = this.rulesFor(scene, []);
+    for (const { row, path, to } of walking) {
+      rules.requirePassage(row.token.id, [row.token, ...(path ?? []), to], row.token, walls);
+    }
   }
 
   private rulesFor(scene: ScenePo, memberIds: readonly string[]): TokenRulesBo {

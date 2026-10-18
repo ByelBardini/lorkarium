@@ -19,7 +19,12 @@ describe('scenes mapper', () => {
       gridVisible: true,
       gridOpacity: 15,
       background: null,
+      vision: 'off',
     });
+  });
+
+  it('a scene saved with vision_mode daylight carries vision daylight', () => {
+    expect(toSceneDto(sceneRow({ visionMode: 'daylight' })).vision).toBe('daylight');
   });
 
   it('a scene with a background carries its asset and the pixels of the image', () => {

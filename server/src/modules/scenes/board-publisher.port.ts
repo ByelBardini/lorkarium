@@ -13,6 +13,13 @@ import type {
   EffectAreasCreatedDto,
   EffectAreasDeletedDto,
   EffectAreasReshapedDto,
+  DoorChangedDto,
+  WallSegmentErasedDto,
+  WallAreaErasedDto,
+  WallKindsChangedDto,
+  WallsCreatedDto,
+  WallsDeletedDto,
+  WallsMovedDto,
   SceneUpdatedDto,
   TokenCreatedDto,
   TokenDeletedDto,
@@ -74,6 +81,14 @@ export interface BoardPublisherPort {
   effectAreasCreated(event: EffectAreasCreatedDto): void;
   effectAreasReshaped(event: EffectAreasReshapedDto): void;
   effectAreasDeleted(event: EffectAreasDeletedDto): void;
+  /** Walls go to the whole table: the player's client needs them for the fog and the route. */
+  wallsCreated(event: WallsCreatedDto): void;
+  wallsMoved(event: WallsMovedDto): void;
+  wallsDeleted(event: WallsDeletedDto): void;
+  wallKindsChanged(event: WallKindsChangedDto): void;
+  doorChanged(event: DoorChangedDto): void;
+  wallSegmentErased(event: WallSegmentErasedDto): void;
+  wallAreaErased(event: WallAreaErasedDto): void;
   conditionDefined(event: ConditionDefinedDto): void;
   conditionApplied(event: ConditionAppliedDto): void;
   conditionsApplied(event: ConditionsAppliedDto): void;

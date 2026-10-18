@@ -28,6 +28,8 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     flipX: false,
     flipY: false,
     facing: 0,
+    sightBright: null,
+    sightDim: null,
     createdAt: CREATED,
     updatedAt: CREATED,
     ...overrides,
