@@ -188,7 +188,7 @@ export class PixiTokenLayer {
 }
 
 // With its image loaded the token is the image (square: no disc; round: cropped with the side
-// ring); until then, or when it fails, the initials disc. The facing mark is on every token.
+// ring); until then, or when it fails, the initials disc. The facing mark only when the view asks.
 function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   const { disc, art, shape, label, marks, view } = sprite;
   const size = view.size * CELL_WORLD_SIZE;
@@ -204,7 +204,7 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
     shape.circle(center, center, radius).stroke({ width: 3, color: RING_COLOR[view.ring] });
   drawOutlines(shape, view, size, square);
   drawBar(shape, view, size);
-  drawFacingMark(shape, view.facing, center, radius);
+  if (view.facingMark) drawFacingMark(shape, view.facing, center, radius);
   marks.draw(view, size);
   label.visible = !image;
   label.text = view.initials;

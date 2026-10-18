@@ -96,6 +96,19 @@ describe('buildBoardView', () => {
       });
     });
 
+    it('only a token on the tokens layer carries the facing mark; objects and background turn without it', () => {
+      const tokens = [
+        lyra(),
+        kael({ id: 'chest', layer: 'objects' }),
+        kael({ id: 'map', layer: 'background' }),
+      ];
+      const marks = viewWith(VHARN_SCENE, tokens).tokens.map(({ id, facingMark }) => [
+        id,
+        facingMark,
+      ]);
+      expect(Object.fromEntries(marks)).toEqual({ [LYRA_ID]: true, chest: false, map: false });
+    });
+
     it('a token without an image keeps the initials disc (no art)', () => {
       expect(viewWith().tokens[0]?.art).toBeNull();
     });

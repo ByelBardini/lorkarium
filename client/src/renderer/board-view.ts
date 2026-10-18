@@ -67,6 +67,8 @@ export type TokenView = Readonly<{
   art: TokenArtView | null;
   /** Where it looks (0 = down, clockwise): the image and the mark on the border turn with it. */
   facing: number;
+  /** The mark on the border: only creatures (tokens layer) look somewhere; a chest just turns. */
+  facingMark: boolean;
 }>;
 
 /** A condition drawn on a token: its icon in its tone's color. */
@@ -194,6 +196,7 @@ function tokenViewOf(token: TokenDto, input: BoardViewInput): TokenView {
     moreMarks: Math.max(0, token.conditions.length - MAX_MARKS),
     art: artOf(token),
     facing: input.facingPreview[token.id] ?? token.facing,
+    facingMark: token.layer === 'tokens',
   };
 }
 
