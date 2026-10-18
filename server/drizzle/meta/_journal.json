@@ -71,6 +71,27 @@
       "when": 1792204406649,
       "tag": "0009_condition_icons",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792256741992,
+      "tag": "0010_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792257408027,
+      "tag": "0011_scene_background",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792257633639,
+      "tag": "0012_token_appearance",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,11 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Text, type Texture } from 'pixi.js';
 import type { BarColorDto, TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
+import { facingVector } from '@lorkarium/game-core';
 import type { GhostView, TokenView } from './board-view';
 import { CELL_WORLD_SIZE, type Point, zoomProofTextResolution } from './camera';
 import { PixiConditionMarks } from './pixi-condition-marks';
+import { PixiTokenArt, ROUND_RADIUS_SHARE } from './pixi-token-art';
+import type { PixiTextureCache } from './pixi-texture-cache';
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const DISC_COLOR = 0x1b1f25;
@@ -26,10 +29,15 @@ const MOVE_ANIMATION_MS = 150;
 
 type TokenSprite = Readonly<{
   root: Container;
+  disc: Graphics;
+  art: PixiTokenArt;
   shape: Graphics;
   label: Text;
   marks: PixiConditionMarks;
 }> & { view: TokenView; from: Point; to: Point; startedMs: number };
+
+const FACING_MARK_LENGTH = 7;
+const FACING_MARK_HALF_WIDTH = 5;
 
 /** The tokens on the canvas: one `Container` per token, kept by id so a change redraws only that
  *  token (spec §14, rendering risk), inside one `Container` per layer (Fundo under Objetos under
@@ -46,10 +54,12 @@ export class PixiTokenLayer {
   private dragging: string | null = null;
   private drawn: readonly TokenView[] = [];
 
-  /** `beneath`: what each layer draws under its tokens (the drawings of that layer). */
+  /** `beneath`: what each layer draws under its tokens (the drawings of that layer); `textures`:
+   *  where the token images come from (without it, every token is the initials disc). */
   constructor(
     private readonly reducedMotion: () => boolean,
     beneath?: Readonly<Record<TokenLayerDto, Container>>,
+    private readonly textures?: PixiTextureCache,
   ) {
     const { background, objects, tokens } = this.layers;
     if (beneath) {
@@ -122,7 +132,12 @@ export class PixiTokenLayer {
     }
     if (known.view.layer !== view.layer) this.layers[view.layer].addChild(known.root);
     known.view = view;
-    drawToken(known);
+    this.draw(known);
+  }
+
+  private draw(sprite: TokenSprite): void {
+    const art = sprite.view.art;
+    drawToken(sprite, art ? (this.textures?.textureOf(art.url) ?? null) : null);
   }
 
   private add(view: TokenView, at: Point, nowMs: number): void {
@@ -139,11 +154,15 @@ export class PixiTokenLayer {
     });
     label.anchor.set(0.5);
     const marks = new PixiConditionMarks();
-    root.addChild(shape, label, marks.container);
+    const disc = new Graphics();
+    const art = new PixiTokenArt();
+    root.addChild(disc, art.container, shape, label, marks.container);
     root.position.set(at.x, at.y);
     this.layers[view.layer].addChild(root);
     const sprite: TokenSprite = {
       root,
+      disc,
+      art,
       shape,
       label,
       marks,
@@ -153,7 +172,7 @@ export class PixiTokenLayer {
       startedMs: nowMs,
     };
     this.sprites.set(view.id, sprite);
-    drawToken(sprite);
+    this.draw(sprite);
   }
 
   private drawGhosts(ghosts: readonly GhostView[]): void {
@@ -168,23 +187,61 @@ export class PixiTokenLayer {
   }
 }
 
-function drawToken({ shape, label, marks, view }: TokenSprite): void {
+// With its image loaded the token is the image (square: no disc; round: cropped with the side
+// ring); until then, or when it fails, the initials disc. The facing mark only when the view asks.
+function drawToken(sprite: TokenSprite, texture: Texture | null): void {
+  const { disc, art, shape, label, marks, view } = sprite;
   const size = view.size * CELL_WORLD_SIZE;
   const center = size / 2;
-  const radius = size * 0.42;
-  shape.clear().circle(center, center, radius).fill(DISC_COLOR);
-  shape.circle(center, center, radius).stroke({ width: 3, color: RING_COLOR[view.ring] });
-  if (view.onTurn) {
-    shape.circle(center, center, radius + 9).stroke({ width: 4, color: GOLD_COLOR });
-  }
-  if (view.selected) {
-    shape.circle(center, center, radius + 5).stroke({ width: 2, color: GOLD_COLOR });
-  }
+  const radius = size * ROUND_RADIUS_SHARE;
+  const image = texture && view.art;
+  const square = Boolean(image && view.art?.frame === 'square');
+  disc.clear();
+  if (!image) disc.circle(center, center, radius).fill(DISC_COLOR);
+  art.draw(view.art, texture, size, view.facing);
+  shape.clear();
+  if (!square)
+    shape.circle(center, center, radius).stroke({ width: 3, color: RING_COLOR[view.ring] });
+  drawOutlines(shape, view, size, square);
   drawBar(shape, view, size);
+  if (view.facingMark) drawFacingMark(shape, view.facing, center, radius);
   marks.draw(view, size);
+  label.visible = !image;
   label.text = view.initials;
   label.style.fontSize = Math.round(size * 0.3);
   label.position.set(center, center);
+}
+
+// The turn and selection rings follow the token's outline: a square image gets square ones.
+function drawOutlines(shape: Graphics, view: TokenView, size: number, square: boolean): void {
+  const outline = (gap: number, width: number): void => {
+    if (square) shape.rect(-gap, -gap, size + gap * 2, size + gap * 2);
+    else shape.circle(size / 2, size / 2, size * ROUND_RADIUS_SHARE + gap);
+    shape.stroke({ width, color: GOLD_COLOR });
+  };
+  if (view.onTurn) outline(9, 4);
+  if (view.selected) outline(5, 2);
+}
+
+// A small triangle on the border pointing where the token looks; it stays when nothing turns.
+function drawFacingMark(shape: Graphics, facing: number, center: number, radius: number): void {
+  const ahead = facingVector(facing);
+  const side = { x: -ahead.y, y: ahead.x };
+  const base = { x: center + ahead.x * radius, y: center + ahead.y * radius };
+  const tip = {
+    x: base.x + ahead.x * FACING_MARK_LENGTH,
+    y: base.y + ahead.y * FACING_MARK_LENGTH,
+  };
+  shape
+    .poly([
+      tip.x,
+      tip.y,
+      base.x + side.x * FACING_MARK_HALF_WIDTH,
+      base.y + side.y * FACING_MARK_HALF_WIDTH,
+      base.x - side.x * FACING_MARK_HALF_WIDTH,
+      base.y - side.y * FACING_MARK_HALF_WIDTH,
+    ])
+    .fill(GOLD_COLOR);
 }
 
 function drawBar(shape: Graphics, view: TokenView, size: number): void {

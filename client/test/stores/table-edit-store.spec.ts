@@ -222,6 +222,18 @@ describe('table edit store', () => {
       ]);
     });
 
+    it('Ctrl+Z after turning Kael from 0 to 45 turns him back, expecting him at 45', async () => {
+      edits
+        .getState()
+        .record([{ kind: 'tokensFaced', turns: [{ tokenId: LYRA_ID, from: 0, to: 45 }] }]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('faceTokens')[0]?.fields).toEqual({
+        faces: [{ tokenId: LYRA_ID, facing: 0, expect: { facing: 45 } }],
+      });
+    });
+
     it('an undo refused with stale_undo leaves the stack: someone moved it after', async () => {
       edits.getState().record(lyraMoved(4, 6));
       commands.answerWith({ ok: false, failure: 'stale_undo' });

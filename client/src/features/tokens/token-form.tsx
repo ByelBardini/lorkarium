@@ -1,9 +1,11 @@
 import { useId } from 'react';
 import { ChoiceField } from '@/components/choice-field';
+import { ImagePicker } from '@/components/image-picker';
 import { FormField } from '@/components/form-field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { AssetsApi } from '@/services/assets-api';
 import { BarsEditor } from './bars-editor';
 import { SIDE_OPTIONS, SIZE_OPTIONS } from './token-messages';
 import { renameToken, type TokenFormErrors, type TokenFormValues } from './token-form-state';
@@ -15,14 +17,17 @@ export type TokenFormProps = Readonly<{
   form: TokenFormValues;
   errors: TokenFormErrors;
   players: readonly TokenPlayer[];
+  /** Where the "Imagem" field sends a chosen image. */
+  image: Readonly<{ campaignId: string; assets: AssetsApi }>;
   onChange: (form: TokenFormValues) => void;
 }>;
 
-/** The fields of a token: name and initials (filled from the name until edited), side, size,
- *  who controls it, and its bars.
+/** The fields of a token: name and initials (filled from the name until edited), its image,
+ *  side, size, who controls it, and its bars.
  *
- *  Example: `<TokenForm form={form} errors={errors} players={players} onChange={setForm} />` */
-export function TokenForm({ form, errors, players, onChange }: TokenFormProps): React.JSX.Element {
+ *  Example: `<TokenForm form={form} errors={errors} players={players} image={{ campaignId, assets }} onChange={setForm} />` */
+export function TokenForm(props: TokenFormProps): React.JSX.Element {
+  const { form, errors, players, image, onChange } = props;
   const nameId = useId();
   const initialsId = useId();
   return (
@@ -54,6 +59,14 @@ export function TokenForm({ form, errors, players, onChange }: TokenFormProps): 
           />
         </FormField>
       </div>
+      <ImagePicker
+        campaignId={image.campaignId}
+        purpose="token"
+        assets={image.assets}
+        value={form.imageAssetId}
+        onChange={(asset) => onChange({ ...form, imageAssetId: asset?.id ?? null })}
+        label="Imagem"
+      />
       <ChoiceField
         legend="Lado"
         value={form.side}

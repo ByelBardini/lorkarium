@@ -20,6 +20,7 @@ describe('TokenContextMenu', () => {
   let commands: TableBoardCommandsFake;
   let closed: number;
   let conditionTargets: Array<readonly string[]>;
+  let imageOf: string[];
 
   beforeEach(() => {
     board = createBoardStore(VHARN.id, () => undefined);
@@ -33,8 +34,10 @@ describe('TokenContextMenu', () => {
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });
+    interaction.getState().allowLayerChoice(true);
     closed = 0;
     conditionTargets = [];
+    imageOf = [];
   });
 
   function openOn(tokenId: string): void {
@@ -45,6 +48,7 @@ describe('TokenContextMenu', () => {
         board={board}
         interaction={interaction}
         onApplyCondition={(tokenIds) => conditionTargets.push(tokenIds)}
+        onChangeImage={(tokenId) => imageOf.push(tokenId)}
         onClose={() => (closed += 1)}
       />,
     );
@@ -107,5 +111,83 @@ describe('TokenContextMenu', () => {
     openOn(KAEL_ID);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Aplicar condição…' }));
     expect(conditionTargets).toEqual([[KAEL_ID]]);
+  });
+
+  describe('the look, for whoever controls the token', () => {
+    const PORTRAIT_ID = '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d';
+
+    function withPortrait(overrides: Parameters<typeof lyra>[0] = {}): void {
+      const portrait = lyra({ imageAssetId: PORTRAIT_ID, ...overrides });
+      board.getState().apply({ kind: 'board', state: vharnBoard({ tokens: [portrait, kael()] }) });
+    }
+
+    function restyled(): unknown[] {
+      return commands.sentAs('restyleTokens').map(({ fields }) => fields);
+    }
+
+    it('a player sees the image items with the state of the token, and no layer group', () => {
+      interaction.getState().allowLayerChoice(false);
+      withPortrait({ flipX: true });
+      openOn(LYRA_ID);
+
+      expect(screen.getByRole('menuitem', { name: 'Imagem…' })).not.toBeNull();
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Borda redonda' })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
+      expect(
+        screen.getByRole('menuitemcheckbox', { name: 'Inverter na horizontal' }),
+      ).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Inverter na vertical' })).not.toBeNull();
+      expect(screen.queryByRole('group', { name: 'Mover para camada' })).toBeNull();
+    });
+
+    it('"Borda redonda" restyles the token to a round frame', async () => {
+      withPortrait();
+      openOn(LYRA_ID);
+
+      await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Borda redonda' }));
+
+      expect(restyled()).toEqual([{ tokenIds: [LYRA_ID], style: { frame: 'round' } }]);
+    });
+
+    it('with Lyra and Kael selected, "Inverter na horizontal" restyles both', async () => {
+      withPortrait();
+      interaction.getState().selectMany([LYRA_ID, KAEL_ID], { additive: false });
+      openOn(LYRA_ID);
+
+      await userEvent.click(
+        screen.getByRole('menuitemcheckbox', { name: 'Inverter na horizontal' }),
+      );
+
+      expect(restyled()).toEqual([{ tokenIds: [LYRA_ID, KAEL_ID], style: { flipX: true } }]);
+    });
+
+    it('without an image the frame and the flips wait for one, and say so', () => {
+      openOn(LYRA_ID);
+
+      const round = screen.getByRole('menuitemcheckbox', { name: 'Borda redonda' });
+      expect(round).toHaveAttribute('aria-disabled', 'true');
+      expect(round).toHaveAccessibleDescription('Ponha uma imagem primeiro.');
+    });
+
+    it('"Imagem…" asks for the image dialog of that token', async () => {
+      openOn(KAEL_ID);
+
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Imagem…' }));
+
+      expect(imageOf).toEqual([KAEL_ID]);
+    });
+
+    it('a refused restyle says why on the status line', async () => {
+      commands.answerWith({ ok: false, failure: 'forbidden' });
+      withPortrait();
+      openOn(LYRA_ID);
+
+      await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Borda redonda' }));
+      await act(() => Promise.resolve());
+
+      expect(interaction.getState().notice).toBe('recusado: forbidden');
+    });
   });
 });

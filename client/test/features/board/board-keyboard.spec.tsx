@@ -150,4 +150,84 @@ describe('board keyboard', () => {
     await userEvent.tab();
     expect(board()).not.toHaveFocus();
   });
+
+  describe('turning', () => {
+    function faced(): unknown[] {
+      return deps.boardCommands.sentAs('faceTokens').map(({ fields }) => fields);
+    }
+
+    it('E on Kael sends one turn to 45 and says "Kael olha para o sudoeste." once confirmed', async () => {
+      await userEvent.keyboard(']]');
+      await userEvent.keyboard('e');
+      await act(() => Promise.resolve());
+
+      expect(faced()).toEqual([{ faces: [{ tokenId: KAEL_ID, facing: 45 }] }]);
+      expect(status()).toHaveTextContent('Kael olha para o sudoeste.');
+    });
+
+    it('Q on Kael looking down turns him to 315, the southeast', async () => {
+      await userEvent.keyboard(']]');
+      await userEvent.keyboard('q');
+      await act(() => Promise.resolve());
+
+      expect(faced()).toEqual([{ faces: [{ tokenId: KAEL_ID, facing: 315 }] }]);
+      expect(status()).toHaveTextContent('Kael olha para o sudeste.');
+    });
+
+    it('two selected and E turn both 45° in one command', async () => {
+      marquee(LYRA_ID, KAEL_ID);
+      await userEvent.keyboard('e');
+
+      expect(faced()).toEqual([
+        {
+          faces: [
+            { tokenId: KAEL_ID, facing: 45 },
+            { tokenId: LYRA_ID, facing: 45 },
+          ],
+        },
+      ]);
+    });
+
+    it('E on a token the viewer cannot control says so and sends nothing', async () => {
+      await userEvent.keyboard('[[');
+      await userEvent.keyboard('e');
+
+      expect(status()).toHaveTextContent('Esse token não é seu.');
+      expect(faced()).toEqual([]);
+    });
+
+    it('the handle dragged shows the new facing at once, and released sends the turn', async () => {
+      await userEvent.keyboard(']]');
+      const renderer = deps.boardRenderers.latest();
+
+      act(() => renderer.emit({ kind: 'tokenFacingPreviewed', tokenId: KAEL_ID, facing: 90 }));
+      const kael = renderer.lastView?.tokens.find(({ id }) => id === KAEL_ID);
+      await act(async () => renderer.emit({ kind: 'tokenFaced', tokenId: KAEL_ID, facing: 90 }));
+
+      expect(kael?.facing).toBe(90);
+      expect(faced()).toEqual([{ faces: [{ tokenId: KAEL_ID, facing: 90 }] }]);
+      expect(status()).toHaveTextContent('Kael olha para o oeste.');
+    });
+
+    it('a refused turn puts the facing back and says why', async () => {
+      deps.boardCommands.answerWith({ ok: false, failure: 'forbidden' });
+      await userEvent.keyboard(']]');
+      const renderer = deps.boardRenderers.latest();
+
+      await act(async () => renderer.emit({ kind: 'tokenFaced', tokenId: KAEL_ID, facing: 90 }));
+
+      expect(renderer.lastView?.tokens.find(({ id }) => id === KAEL_ID)?.facing).toBe(0);
+      expect(status()).toHaveTextContent('Esse token não é seu.');
+    });
+
+    it('the handle released where the token already looks sends nothing', async () => {
+      await userEvent.keyboard(']]');
+
+      act(() =>
+        deps.boardRenderers.latest().emit({ kind: 'tokenFaced', tokenId: KAEL_ID, facing: 0 }),
+      );
+
+      expect(faced()).toEqual([]);
+    });
+  });
 });

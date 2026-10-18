@@ -24,6 +24,8 @@ import {
   removeConditionCommandDto,
   setInitiativeCommandDto,
   setTokenLayerCommandDto,
+  faceTokensCommandDto,
+  restyleTokensCommandDto,
   startCombatCommandDto,
   updateTokenCommandDto,
   type ApiErrorDto,
@@ -36,6 +38,7 @@ import { invalidBodyError } from '../../lib/invalid-body';
 import { answerAck, type AckOf } from '../../realtime/realtime-ack';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
 import type { ClockPort } from '../auth/clock.port';
+import { AssetError } from '../assets/assets.error';
 import { CombatError } from '../combat/combat.error';
 import type { CombatService } from '../combat/combat.service';
 import { ConditionError } from '../conditions/conditions.error';
@@ -48,6 +51,7 @@ import type { CreatedInScene } from '../scenes/locked-scene';
 import type { ScenesService } from '../scenes/scenes.service';
 import { SessionEndedError, SessionError } from '../sessions/sessions.error';
 import { TokenError } from '../tokens/tokens.error';
+import type { TokenAppearanceService } from '../tokens/token-appearance.service';
 import type { TokenBatchService } from '../tokens/token-batch.service';
 import type { TokensService } from '../tokens/tokens.service';
 import { BoardError, CommandRateLimitedError } from './board.error';
@@ -62,6 +66,7 @@ export type BoardGatewayDeps = Readonly<{
     'create' | 'update' | 'move' | 'moveMany' | 'dragMany' | 'setLayer' | 'adjustBar' | 'delete'
   >;
   tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany'>;
+  tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany'>;
   conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove'>;
   combat: Pick<
     CombatService,
@@ -97,6 +102,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   FORBIDDEN: 'Your role at this table does not allow it',
   UNAUTHENTICATED: 'A valid session is required',
   TOKEN_NOT_FOUND: 'Token not found',
+  ASSET_NOT_FOUND: 'Image not found',
   BAR_NOT_FOUND: 'Bar not found',
   OUT_OF_SCENE: 'It does not fit the scene there',
   INVALID_CONTROLLER: 'Only members of the table can control a token',
@@ -117,7 +123,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
  *
  *  Example: `realtime.onConnection(createBoardGateway({ board, scenes, tokens, realtime, log }))` */
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
-  const { tokens, tokenBatch, conditions, combat, drawings } = deps;
+  const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
   const rate = new CommandRateGuard(deps.clock);
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
@@ -132,7 +138,14 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     socket.on(
       'scene:configure',
       bind(configureSceneCommandDto, (userId, command) =>
-        versionOf(deps.scenes.configure(userId, command.campaignId, toSceneGrid(command))),
+        versionOf(
+          deps.scenes.configure(
+            userId,
+            command.campaignId,
+            toSceneGrid(command),
+            command.backgroundAssetId,
+          ),
+        ),
       ),
     );
     const mutate = <C extends CampaignCommand>(schema: z.ZodType<C>, run: Mutation<C>) =>
@@ -154,6 +167,11 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
       ),
     );
     socket.on('token:setLayer', mutate(setTokenLayerCommandDto, tokens.setLayer.bind(tokens)));
+    socket.on('token:faceMany', mutate(faceTokensCommandDto, appearance.faceMany.bind(appearance)));
+    socket.on(
+      'token:restyleMany',
+      mutate(restyleTokensCommandDto, appearance.restyleMany.bind(appearance)),
+    );
     socket.on('token:adjustBar', mutate(adjustBarCommandDto, tokens.adjustBar.bind(tokens)));
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
     socket.on(
@@ -287,6 +305,7 @@ function toAckError(deps: BoardGatewayDeps, error: unknown): ApiErrorDto {
     error instanceof ConditionError ||
     error instanceof CombatError ||
     error instanceof DrawingError ||
+    error instanceof AssetError ||
     error instanceof BoardError;
   if (known) {
     const message = PUBLIC_MESSAGE[error.code];

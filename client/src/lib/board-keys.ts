@@ -1,5 +1,15 @@
 /** What a key means while the board itself has the focus (the camera keys are the renderer's). */
-export type BoardKey = 'next' | 'previous' | 'up' | 'down' | 'left' | 'right' | 'open' | 'delete';
+export type BoardKey =
+  | 'next'
+  | 'previous'
+  | 'up'
+  | 'down'
+  | 'left'
+  | 'right'
+  | 'open'
+  | 'delete'
+  | 'turnBack'
+  | 'turnOn';
 
 export type BoardKeyPress = Readonly<{
   key: string;
@@ -19,10 +29,15 @@ const BOARD_KEY: Readonly<Record<string, BoardKey>> = {
   Enter: 'open',
   Delete: 'delete',
   Backspace: 'delete',
+  q: 'turnBack',
+  Q: 'turnBack',
+  e: 'turnOn',
+  E: 'turnOn',
 };
 
 /** ] and [ walk the tokens, the arrows move the selected one a cell, Enter opens its card,
- *  Delete and Backspace delete the selected drawings. Tab
+ *  Q and E turn the selection 45° (E clockwise, beside W A S D), Delete and Backspace delete
+ *  the selected drawings. Tab
  *  is never taken, so the focus always leaves the board.
  *
  *  Example: `boardKeyOf(event) // 'next' for ]` */

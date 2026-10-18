@@ -1,0 +1,20 @@
+name: SeaweedFS
+description: A throwaway S3 (SeaweedFS, data in tmpfs) on localhost:8333 with the dev identity of infra/compose/seaweedfs/s3.json.
+
+# A service container takes no command, so the S3 starts here, after the checkout that brings s3.json.
+runs:
+  using: composite
+  steps:
+    - name: Start SeaweedFS
+      shell: bash
+      run: |
+        docker run -d --name seaweedfs -p 8333:8333 --tmpfs /data \
+          -v "$GITHUB_WORKSPACE/infra/compose/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro" \
+          chrislusf/seaweedfs:4.48 \
+          server -dir=/data -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=64 -volume.max=200 -s3 -s3.config=/etc/seaweedfs/s3.json -s3.port=8333
+        for _ in $(seq 1 60); do
+          if curl -sf -o /dev/null http://localhost:8333/healthz; then exit 0; fi
+          sleep 1
+        done
+        docker logs seaweedfs
+        exit 1

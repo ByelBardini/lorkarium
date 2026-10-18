@@ -75,9 +75,9 @@ describe('BoardToolbar', () => {
     expect(renderer.fits).toBe(1);
   });
 
-  it('the master sees "Novo token" and "Configurar grid", and a player sees neither', () => {
+  it('the master sees "Novo token" and "Configurar cena", and a player sees neither', () => {
     renderToolbar(false);
-    expect(screen.queryByRole('button', { name: 'Configurar grid' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Configurar cena' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Novo token' })).toBeNull();
   });
 

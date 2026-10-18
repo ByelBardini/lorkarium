@@ -80,6 +80,7 @@ function tableRoute({
   clipboard,
   createBoardRenderer,
   boardCommands,
+  assets,
 }: AppDependencies): () => React.JSX.Element {
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
@@ -94,6 +95,7 @@ function tableRoute({
         clipboard={clipboard}
         createBoardRenderer={createBoardRenderer}
         boardCommands={boardCommands}
+        assets={assets}
       />
     );
   };

@@ -26,6 +26,29 @@ export type BarColorDto = z.infer<typeof barColorDto>;
 export const barVisibilityDto = z.enum(['everyone', 'controllers']);
 export type BarVisibilityDto = z.infer<typeof barVisibilityDto>;
 
+/** `square` shows the whole image (contain); `round` crops it to a circle (cover) with the side ring. */
+export const tokenFrameDto = z.enum(['square', 'round']);
+export type TokenFrameDto = z.infer<typeof tokenFrameDto>;
+
+export const FACING_MAX = 359;
+
+/** Where a token looks, in whole degrees: 0 = down, clockwise on screen (game-core `Facing`). */
+export const facingDto = z.number().superRefine((value, context) => {
+  if (Number.isInteger(value) && value >= 0 && value <= FACING_MAX) return;
+  context.addIssue({
+    code: 'custom',
+    message: `facing ${value} is invalid; expected a whole number from 0 to ${FACING_MAX}`,
+  });
+});
+
+/** The look of a token; not a secret, so every audience gets the same values. */
+const tokenAppearanceShape = {
+  imageAssetId: z.uuid().nullable(),
+  frame: tokenFrameDto,
+  flipX: z.boolean(),
+  flipY: z.boolean(),
+};
+
 const barCurrentDto = z.number().int().min(-BAR_VALUE_LIMIT).max(BAR_VALUE_LIMIT);
 export const cellIndexDto = z.number().int().nonnegative();
 
@@ -68,13 +91,16 @@ export const tokenDto = z.strictObject({
   col: cellIndexDto,
   row: cellIndexDto,
   layer: tokenLayerDto,
+  ...tokenAppearanceShape,
+  facing: facingDto,
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
   conditions: z.array(activeConditionDto),
 });
 export type TokenDto = z.infer<typeof tokenDto>;
 
-/** `token:create` (master); without a `layer` the token lands on `tokens`.
+/** `token:create` (master); without a `layer` the token lands on `tokens`, and without appearance
+ *  it is the initials disc looking down (a paste sends the copied look and facing).
  *
  *  Example: `createTokenCommandDto.parse({ actionId, campaignId, name, …, layer: 'objects' })` */
 export const createTokenCommandDto = z.strictObject({
@@ -83,16 +109,26 @@ export const createTokenCommandDto = z.strictObject({
   col: cellIndexDto,
   row: cellIndexDto,
   layer: tokenLayerDto.default('tokens'),
+  imageAssetId: tokenAppearanceShape.imageAssetId.default(null),
+  frame: tokenFrameDto.default('square'),
+  flipX: z.boolean().default(false),
+  flipY: z.boolean().default(false),
+  facing: facingDto.default(0),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type CreateTokenCommandDto = z.infer<typeof createTokenCommandDto>;
 export type CreateTokenCommandInput = z.input<typeof createTokenCommandDto>;
 
-/** `token:update` (master): everything but the position; the bars are replaced as a list. */
+/** `token:update` (master): everything but the position and the facing; the bars are replaced as a
+ *  list, and an absent appearance field keeps what the token has. */
 export const updateTokenCommandDto = z.strictObject({
   ...boardCommandShape,
   tokenId: z.uuid(),
   ...tokenFieldsShape,
+  imageAssetId: tokenAppearanceShape.imageAssetId.optional(),
+  frame: tokenFrameDto.optional(),
+  flipX: z.boolean().optional(),
+  flipY: z.boolean().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type UpdateTokenCommandDto = z.infer<typeof updateTokenCommandDto>;

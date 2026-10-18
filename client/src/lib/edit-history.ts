@@ -6,6 +6,8 @@ export const HISTORY_LIMIT = 50;
 
 export type DrawingPosition = Readonly<{ x: number; y: number }>;
 export type TokenMove = Readonly<{ tokenId: string; from: Cell; to: Cell }>;
+/** A turn of a token: the facing it had and the one it got. */
+export type TokenTurn = Readonly<{ tokenId: string; from: number; to: number }>;
 export type DrawingMove = Readonly<{
   drawingId: string;
   from: DrawingPosition;
@@ -19,6 +21,7 @@ export type PlacedDrawing = Readonly<{ id: string; shape: DrawingShapeInput }>;
 /** One thing an action did, enough to redo it and to build its inverse. */
 export type EditOp =
   | Readonly<{ kind: 'tokensMoved'; moves: readonly TokenMove[] }>
+  | Readonly<{ kind: 'tokensFaced'; turns: readonly TokenTurn[] }>
   | Readonly<{ kind: 'drawingsMoved'; moves: readonly DrawingMove[] }>
   | Readonly<{ kind: 'tokensAdded'; tokens: readonly PlacedToken[] }>
   | Readonly<{ kind: 'tokensRemoved'; tokens: readonly PlacedToken[] }>
@@ -106,6 +109,11 @@ function inverseOp(op: EditOp): EditOp {
         kind: 'drawingsMoved',
         moves: op.moves.map(({ drawingId, from, to }) => ({ drawingId, from: to, to: from })),
       };
+    case 'tokensFaced':
+      return {
+        kind: 'tokensFaced',
+        turns: op.turns.map(({ tokenId, from, to }) => ({ tokenId, from: to, to: from })),
+      };
     case 'tokensAdded':
       return { kind: 'tokensRemoved', tokens: op.tokens };
     case 'tokensRemoved':
@@ -122,6 +130,8 @@ function remapOp(op: EditOp, mapping: IdMapping): EditOp {
   switch (op.kind) {
     case 'tokensMoved':
       return { ...op, moves: op.moves.map((move) => ({ ...move, tokenId: idOf(move.tokenId) })) };
+    case 'tokensFaced':
+      return { ...op, turns: op.turns.map((turn) => ({ ...turn, tokenId: idOf(turn.tokenId) })) };
     case 'drawingsMoved':
       return {
         ...op,

@@ -2,7 +2,7 @@ import { cell } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_DRAWING_STYLE } from '@/lib/drawing-style';
 import { ROUTE_BEND_DWELL_MS, settleRoute, startRoute, stepRoute } from '@/lib/token-route';
-import { buildBoardView } from '@/renderer/board-view';
+import { buildBoardView, imageUrlsOf } from '@/renderer/board-view';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import {
@@ -20,6 +20,7 @@ const NO_TOKENS = {
   activeLayer: 'tokens',
   canChooseLayer: false,
   preview: [],
+  facingPreview: {},
   drag: null,
   dragged: {},
   readOnly: false,
@@ -76,6 +77,75 @@ describe('buildBoardView', () => {
         { x: 3 * CELL_WORLD_SIZE + 32, y: 2 * CELL_WORLD_SIZE + 32 },
       ],
       label: '3 casas · 4,5 m',
+    });
+  });
+
+  describe('images and facing', () => {
+    const PORTRAIT_ID = '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d';
+
+    function viewWith(scene = VHARN_SCENE, tokens = [lyra()]) {
+      return buildBoardView({ ...NO_TOKENS, tokens, scene, localGridVisible: true, ruler: null });
+    }
+
+    it('a token with an image carries its url, frame and flips, and its facing', () => {
+      const token = lyra({ imageAssetId: PORTRAIT_ID, frame: 'round', flipX: true, facing: 90 });
+
+      expect(viewWith(VHARN_SCENE, [token]).tokens[0]).toMatchObject({
+        art: { url: `/api/assets/${PORTRAIT_ID}`, frame: 'round', flipX: true, flipY: false },
+        facing: 90,
+      });
+    });
+
+    it('only a token on the tokens layer carries the facing mark; objects and background turn without it', () => {
+      const tokens = [
+        lyra(),
+        kael({ id: 'chest', layer: 'objects' }),
+        kael({ id: 'map', layer: 'background' }),
+      ];
+      const marks = viewWith(VHARN_SCENE, tokens).tokens.map(({ id, facingMark }) => [
+        id,
+        facingMark,
+      ]);
+      expect(Object.fromEntries(marks)).toEqual({ [LYRA_ID]: true, chest: false, map: false });
+    });
+
+    it('a token without an image keeps the initials disc (no art)', () => {
+      expect(viewWith().tokens[0]?.art).toBeNull();
+    });
+
+    it('a token another viewer cannot control shows the same image (not a secret)', () => {
+      const token = lyra({ imageAssetId: PORTRAIT_ID, canControl: false, bars: [] });
+
+      expect(viewWith(VHARN_SCENE, [token]).tokens[0]?.art?.url).toBe(`/api/assets/${PORTRAIT_ID}`);
+    });
+
+    it('a scene with a background stretches it over the cells in world px', () => {
+      const scene = {
+        ...VHARN_SCENE,
+        widthCells: 30,
+        heightCells: 10,
+        background: { assetId: PORTRAIT_ID, width: 1400, height: 700 },
+      };
+
+      expect(viewWith(scene).background).toEqual({
+        url: `/api/assets/${PORTRAIT_ID}`,
+        width: 30 * CELL_WORLD_SIZE,
+        height: 10 * CELL_WORLD_SIZE,
+      });
+    });
+
+    it('a scene without a background has none', () => {
+      expect(viewWith().background).toBeNull();
+    });
+
+    it('the image urls of a view are the background and each token art, once each', () => {
+      const scene = { ...VHARN_SCENE, background: { assetId: KAEL_ID, width: 10, height: 10 } };
+      const tokens = [lyra({ imageAssetId: PORTRAIT_ID }), kael({ imageAssetId: PORTRAIT_ID })];
+
+      expect([...imageUrlsOf(viewWith(scene, tokens))]).toEqual([
+        `/api/assets/${KAEL_ID}`,
+        `/api/assets/${PORTRAIT_ID}`,
+      ]);
     });
   });
 

@@ -19,7 +19,11 @@ export type BoardTokenIntent =
   | Readonly<{ kind: 'tokenMenuRequested'; tokenId: string; x: number; y: number }>
   | Readonly<{ kind: 'tokenDragged'; tokenId: string; origin: Cell; cell: Cell | null }>
   | Readonly<{ kind: 'tokenDragCancelled'; tokenId: string }>
-  | Readonly<{ kind: 'tokenDropped'; tokenId: string; cell: Cell | null }>;
+  | Readonly<{ kind: 'tokenDropped'; tokenId: string; cell: Cell | null }>
+  /** The handle being dragged points the token at `facing` (`null`: let go by Esc). */
+  | Readonly<{ kind: 'tokenFacingPreviewed'; tokenId: string; facing: number | null }>
+  /** The handle released: where the token should look now. */
+  | Readonly<{ kind: 'tokenFaced'; tokenId: string; facing: number }>;
 
 /** A drawing clicked (Shift: `additive` toggles it), the drawings a marquee touched, the
  *  drawings dropped after a drag (by `dx, dy` cells; `anchorId` is the one under the pointer),

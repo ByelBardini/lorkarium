@@ -18,3 +18,12 @@ export {
   type Timed,
   type TurnState,
 } from './turn';
+export { facing, type Facing } from './facing.vo';
+export {
+  facingToward,
+  facingVector,
+  normalizeFacing,
+  snapFacing,
+  turnFacing,
+  type Vector2,
+} from './facing';

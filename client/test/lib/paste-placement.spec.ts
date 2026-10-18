@@ -7,6 +7,18 @@ import { activeCondition, kael, lyra } from '../support/table-session-fixtures';
 const SCENE = { widthCells: 20, heightCells: 12 };
 
 describe('copiedOf', () => {
+  it('a copied token keeps its image, frame, flips and facing', () => {
+    const look = {
+      imageAssetId: '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d',
+      frame: 'round',
+      flipX: true,
+      flipY: true,
+      facing: 135,
+    } as const;
+
+    expect(copiedOf([lyra(look)], []).tokens[0]).toMatchObject(look);
+  });
+
   it('a copied token keeps name, side, size, bars, controllers and layer, and no conditions', () => {
     const copied = copiedOf([lyra({ conditions: [activeCondition()], layer: 'objects' })], []);
 
@@ -20,6 +32,11 @@ describe('copiedOf', () => {
         row: 4,
         layer: 'objects',
         controllerIds: lyra().controllerIds,
+        imageAssetId: null,
+        frame: 'square',
+        flipX: false,
+        flipY: false,
+        facing: 0,
         bars: [
           { label: 'PV', current: 32, max: 45, color: 'ember', visibility: 'controllers' },
           { label: 'Inspiração', current: 1, max: 1, color: 'gold', visibility: 'everyone' },

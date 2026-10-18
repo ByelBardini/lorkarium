@@ -16,6 +16,7 @@ import { BoardCanvas } from './board-canvas';
 import type { TokenMenuRequest } from './token-context-menu';
 import {
   BOARD_LOAD_FAILED,
+  facedAnnouncement,
   OUT_OF_SCENE,
   movedAnnouncement,
   tokensMovedAnnouncement,
@@ -112,12 +113,28 @@ function routeIntent(
     return;
   }
   if (intent.kind === 'tokenDragCancelled') return local.cancelDrag();
+  if (intent.kind === 'tokenFacingPreviewed') {
+    return local.previewFacing(intent.tokenId, intent.facing);
+  }
+  if (intent.kind === 'tokenFaced') return faceByHandle({ board, interaction }, intent);
   if (intent.kind !== 'tokenDropped') return local.pointer(intent);
   void local.dropToken(
     intent.tokenId,
     intent.cell,
     dropAnnouncement({ board, interaction }, intent),
   );
+}
+
+// Released where it already looked (or over its center), the handle turns nothing.
+function faceByHandle(
+  { board, interaction }: IntentStores,
+  intent: Extract<BoardIntent, { kind: 'tokenFaced' }>,
+): void {
+  const local = interaction.getState();
+  const token = board.getState().board?.tokens.find(({ id }) => id === intent.tokenId);
+  if (!token || token.facing === intent.facing) return local.previewFacing(intent.tokenId, null);
+  const turn = { tokenId: token.id, from: token.facing, to: intent.facing };
+  void local.faceTokens([turn], facedAnnouncement(token.name, intent.facing));
 }
 
 // The drawings dragged carry the tokens selected with them; past the edge, nothing moves.

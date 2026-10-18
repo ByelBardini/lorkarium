@@ -7,6 +7,7 @@ import {
   type DrawingShapeInput,
   type SceneGridDto,
   type TokenLayerDto,
+  type TokenStyleDto,
   type UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
 import type { RealtimeTransport } from './realtime-transport';
@@ -19,6 +20,7 @@ export type BoardCommandFailure =
   | 'drawing_not_found'
   | 'drawing_limit'
   | 'stale_undo'
+  | 'asset_not_found'
   | 'turn_changed'
   | 'combat_active'
   | 'combat_inactive'
@@ -49,6 +51,14 @@ export type DrawingPosition = Readonly<{ x: number; y: number }>;
 export type DrawingPlacement = Readonly<{ drawingId: string }> & DrawingPosition;
 /** A drawing move; `expect` (an undo) is where it must still be, or STALE_UNDO. */
 export type DrawingMoveTarget = DrawingPlacement & Readonly<{ expect?: DrawingPosition }>;
+/** Where one token of a group turns to; `expect` (an undo) is the facing it must still have. */
+export type TokenFacingTarget = Readonly<{
+  tokenId: string;
+  facing: number;
+  expect?: Readonly<{ facing: number }>;
+}>;
+/** The look fields to change on a group; an absent field stays, `imageAssetId: null` drops it. */
+export type TokenStyle = TokenStyleDto;
 /** The cell one token of a group is dragged over; `null` ends its drag with no move. */
 export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | null }>;
 
@@ -57,7 +67,13 @@ export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | nul
  *
  *  Example: `const result = await boardCommands.moveToken(campaignId, tokenId, { col, row })` */
 export interface TableBoardCommands {
-  configureScene(campaignId: string, grid: SceneGridDto): Promise<BoardCommandResult>;
+  /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
+   *  absent keeps it. */
+  configureScene(
+    campaignId: string,
+    grid: SceneGridDto,
+    backgroundAssetId?: string | null,
+  ): Promise<BoardCommandResult>;
   createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult>;
   updateToken(campaignId: string, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult>;
   moveToken(campaignId: string, tokenId: string, to: CellTarget): Promise<BoardCommandResult>;
@@ -92,6 +108,14 @@ export interface TableBoardCommands {
     campaignId: string,
     tokenIds: readonly string[],
     layer: TokenLayerDto,
+  ): Promise<BoardCommandResult>;
+  /** Turns a group (master or controllers, tokens layer), all or nothing in one version. */
+  faceTokens(campaignId: string, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult>;
+  /** Changes the look of a group (master or controllers), all or nothing in one version. */
+  restyleTokens(
+    campaignId: string,
+    tokenIds: readonly string[],
+    style: TokenStyle,
   ): Promise<BoardCommandResult>;
   adjustBar(
     campaignId: string,
@@ -152,6 +176,7 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   DRAWING_NOT_FOUND: 'drawing_not_found',
   DRAWING_LIMIT: 'drawing_limit',
   STALE_UNDO: 'stale_undo',
+  ASSET_NOT_FOUND: 'asset_not_found',
   CONDITION_NOT_FOUND: 'token_not_found',
   COMBATANT_NOT_FOUND: 'token_not_found',
   TURN_ALREADY_CHANGED: 'turn_changed',
@@ -172,8 +197,13 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
     private readonly newActionId: () => string,
   ) {}
 
-  configureScene(campaignId: string, grid: SceneGridDto): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.configureScene, campaignId, grid);
+  configureScene(
+    campaignId: string,
+    grid: SceneGridDto,
+    backgroundAssetId?: string | null,
+  ): Promise<BoardCommandResult> {
+    const background = backgroundAssetId === undefined ? {} : { backgroundAssetId };
+    return this.send(BOARD_EVENTS.configureScene, campaignId, { ...grid, ...background });
   }
 
   createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult> {
@@ -264,6 +294,26 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
     layer: TokenLayerDto,
   ): Promise<BoardCommandResult> {
     return this.send(BOARD_EVENTS.setTokenLayer, campaignId, { tokenIds: [...tokenIds], layer });
+  }
+
+  faceTokens(campaignId: string, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult> {
+    const turned = faces.map(({ tokenId, facing, expect }) => ({
+      tokenId,
+      facing,
+      ...(expect && { expect: { facing: expect.facing } }),
+    }));
+    return this.send(BOARD_EVENTS.faceTokens, campaignId, { faces: turned });
+  }
+
+  restyleTokens(
+    campaignId: string,
+    tokenIds: readonly string[],
+    style: TokenStyle,
+  ): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.restyleTokens, campaignId, {
+      tokenIds: [...tokenIds],
+      style: { ...style },
+    });
   }
 
   adjustBar(

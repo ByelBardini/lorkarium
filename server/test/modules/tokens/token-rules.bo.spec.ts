@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TokenRulesBo } from '../../../src/modules/tokens/token-rules.bo';
+import { TokenRulesBo, requireFacing } from '../../../src/modules/tokens/token-rules.bo';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, CAIO_ID } from '../../support/campaigns-factories';
 
@@ -58,6 +58,25 @@ describe('TokenRulesBo.requireAt', () => {
       expect.objectContaining({
         code: 'STALE_UNDO',
         message: 'token lyra is at (2, 2); the undo expected (6, 4)',
+      }),
+    );
+  });
+});
+
+describe('requireFacing', () => {
+  it('no precondition (a normal turn) never refuses', () => {
+    expect(() => requireFacing('lyra', undefined, 180)).not.toThrow();
+  });
+
+  it('a precondition equal to where the token looks passes (undo)', () => {
+    expect(() => requireFacing('lyra', 90, 90)).not.toThrow();
+  });
+
+  it('a token turned by someone else since is STALE_UNDO citing the token, 90 and 180', () => {
+    expect(() => requireFacing('lyra', 90, 180)).toThrow(
+      expect.objectContaining({
+        code: 'STALE_UNDO',
+        message: 'token lyra is at facing 180; the undo expected facing 90',
       }),
     );
   });

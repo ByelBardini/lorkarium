@@ -7,7 +7,7 @@ import type {
 } from '@lorkarium/contracts';
 import type { TokenAudience } from './token-access.bo';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
-import type { TokenBarInputPo, TokenBarPo } from './tokens.po';
+import type { TokenBarInputPo, TokenBarPo, TokenLookPo } from './tokens.po';
 
 /** A token as one audience may see it: `others` never receive a `controllers` bar, and the bars
  *  they do receive keep their position (the second does not become "the first").
@@ -19,6 +19,7 @@ export function toTokenDto(
   conditions: readonly ActiveConditionDto[] = [],
 ): TokenDto {
   const { id, name, initials, side, size, col, row: tokenRow, layer } = row.token;
+  const { imageAssetId, frame, flipX, flipY, facing } = row.token;
   const bars = row.bars.filter((bar) => audience === 'privileged' || bar.visibility === 'everyone');
   return {
     id,
@@ -30,6 +31,11 @@ export function toTokenDto(
     row: tokenRow,
     layer,
     controllerIds: [...row.controllerIds],
+    imageAssetId,
+    frame,
+    flipX,
+    flipY,
+    facing,
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],
@@ -49,22 +55,34 @@ export function toBarInputsPo(bars: readonly BarInputDto[]): TokenBarInputPo[] {
   }));
 }
 
-/** `token:update` fields → what to save, with the controllers already checked by the rule.
+type UpdatedFields = Pick<
+  UpdateTokenCommandDto,
+  'name' | 'initials' | 'side' | 'size' | 'controllerIds' | 'bars' | keyof TokenLookPo
+>;
+
+/** `token:update` fields → what to save, with the controllers already checked by the rule; a look
+ *  field the command left out is not written (the token keeps it).
  *
  *  Example: `toTokenUpdatePo(command, rules.controllers(command.controllerIds))` */
 export function toTokenUpdatePo(
-  command: Pick<
-    UpdateTokenCommandDto,
-    'name' | 'initials' | 'side' | 'size' | 'controllerIds' | 'bars'
-  >,
+  command: UpdatedFields,
   controllerIds: readonly string[],
 ): TokenUpdatePo {
   const { name, initials, side, size } = command;
   return {
-    fields: { name, initials, side, size },
+    fields: { name, initials, side, size, ...definedLookOf(command) },
     bars: toBarInputsPo(command.bars),
     controllerIds,
   };
+}
+
+function definedLookOf(command: Partial<TokenLookPo>): Partial<TokenLookPo> {
+  const look: Partial<TokenLookPo> = {};
+  if (command.imageAssetId !== undefined) look.imageAssetId = command.imageAssetId;
+  if (command.frame !== undefined) look.frame = command.frame;
+  if (command.flipX !== undefined) look.flipX = command.flipX;
+  if (command.flipY !== undefined) look.flipY = command.flipY;
+  return look;
 }
 
 function toTokenBarDto(bar: TokenBarPo): TokenBarDto {

@@ -8,6 +8,7 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { assets } from '../assets/assets.po';
 import { campaigns } from '../campaigns/campaigns.po';
 
 export const scenes = pgTable(
@@ -25,6 +26,10 @@ export const scenes = pgTable(
     cellUnit: text('cell_unit').notNull().default('m'),
     gridVisible: boolean('grid_visible').notNull().default(true),
     gridOpacity: integer('grid_opacity').notNull().default(30),
+    // The image stretched over the whole scene; losing the asset only takes the background away.
+    backgroundAssetId: uuid('background_asset_id').references(() => assets.id, {
+      onDelete: 'set null',
+    }),
     // The board state version (spec §5.5): persisted, so it survives a server restart.
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -39,3 +44,5 @@ export type SceneGridPo = Pick<
   ScenePo,
   'widthCells' | 'heightCells' | 'cellDistance' | 'cellUnit' | 'gridVisible' | 'gridOpacity'
 >;
+/** What `scene:configure` saves: the grid and the background. */
+export type SceneConfigPo = SceneGridPo & Pick<ScenePo, 'backgroundAssetId'>;

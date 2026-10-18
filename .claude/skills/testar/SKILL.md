@@ -199,9 +199,12 @@ Integração do server: nunca contra o banco do `pnpm db:up`, que é o de desenv
 ```bash
 MSYS_NO_PATHCONV=1 docker run -d --name lorkarium-testar -e POSTGRES_USER=lorkarium -e POSTGRES_PASSWORD=lorkarium -e POSTGRES_DB=lorkarium -p 5434:5432 --tmpfs /var/lib/postgresql/data postgres:17-alpine
 export DATABASE_URL=postgres://lorkarium:lorkarium@localhost:5434/lorkarium
+# S3 descartável (o buildApp garante o bucket no onReady; todo spec de integração precisa dele)
+MSYS_NO_PATHCONV=1 docker run -d --name lorkarium-testar-s3 -p 8334:8333 --tmpfs /data -v "$PWD/infra/compose/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro" chrislusf/seaweedfs:4.48 server -dir=/data -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=64 -volume.max=200 -s3 -s3.config=/etc/seaweedfs/s3.json -s3.port=8333
+export S3_ENDPOINT=http://localhost:8334 S3_BUCKET=lorkarium-test S3_ACCESS_KEY_ID=lorkarium S3_SECRET_ACCESS_KEY=lorkarium-dev-secret
 pnpm db:migrate                       # opcional: o openTestDatabase (test/support) já migra; o DATABASE_URL exportado vence o server/.env
 pnpm exec vitest run server/test/integration/<area>.spec.ts   # ou pnpm test:integration (todos)
-docker rm -f lorkarium-testar
+docker rm -f lorkarium-testar lorkarium-testar-s3
 ```
 
 ## Autoteste do driver

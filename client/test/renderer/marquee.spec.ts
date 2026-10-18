@@ -4,7 +4,7 @@ import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { drawingViewsOf } from '@/renderer/drawing-view';
 import {
   drawingsInMarquee,
-  layerMenuTarget,
+  tokenMenuTarget,
   marqueeRect,
   moveMarquee,
   startMarquee,
@@ -32,6 +32,9 @@ function tokenView(overrides: Partial<TokenView> = {}): TokenView {
     onTurn: false,
     marks: [],
     moreMarks: 0,
+    art: null,
+    facing: 0,
+    facingMark: true,
     ...overrides,
   };
 }
@@ -81,18 +84,22 @@ describe('marquee', () => {
   });
 });
 
-describe('layerMenuTarget', () => {
+describe('tokenMenuTarget', () => {
   it('a short right click on a pickable token, with the menu allowed, opens it on that token', () => {
-    expect(layerMenuTarget({ layerMenu: true }, tokenView())).toBe('lyra');
+    expect(tokenMenuTarget({ layerMenu: true }, tokenView())).toBe('lyra');
   });
 
-  it('a player (no menu) gets nothing', () => {
-    expect(layerMenuTarget({ layerMenu: false }, tokenView())).toBeNull();
+  it('a player gets the menu on a token they may move (Bia on her Lyra)', () => {
+    expect(tokenMenuTarget({ layerMenu: false }, tokenView({ draggable: true }))).toBe('lyra');
+  });
+
+  it('a player gets nothing on a token of someone else (Caio on the Lyra of Bia)', () => {
+    expect(tokenMenuTarget({ layerMenu: false }, tokenView({ draggable: false }))).toBeNull();
   });
 
   it('a right click on the empty board or on a token off the active layer opens nothing', () => {
-    expect(layerMenuTarget({ layerMenu: true }, null)).toBeNull();
-    expect(layerMenuTarget({ layerMenu: true }, tokenView({ pickable: false }))).toBeNull();
+    expect(tokenMenuTarget({ layerMenu: true }, null)).toBeNull();
+    expect(tokenMenuTarget({ layerMenu: true }, tokenView({ pickable: false }))).toBeNull();
   });
 });
 

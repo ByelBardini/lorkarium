@@ -5,7 +5,11 @@ import { runInTransaction } from '../../src/database/transaction';
 import { UsersDao } from '../../src/modules/auth/users.dao';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
 import { campaigns } from '../../src/modules/campaigns/campaigns.po';
+import { AssetsDao } from '../../src/modules/assets/assets.dao';
+import { assets } from '../../src/modules/assets/assets.po';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
+import { scenes } from '../../src/modules/scenes/scenes.po';
+import { newAssetPo } from '../support/assets-factories';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
@@ -91,6 +95,7 @@ describe('ScenesDao on Postgres', () => {
       cellUnit: 'ft',
       gridVisible: false,
       gridOpacity: 15,
+      backgroundAssetId: null,
     };
     const saved = await scenesDao.update(sceneId, grid);
     expect(saved).toMatchObject({ ...grid, cellDistance: '3.00' });
@@ -100,5 +105,55 @@ describe('ScenesDao on Postgres', () => {
     const sceneId = await activeSceneOf(vharnId);
     await connection.db.delete(campaigns).where(eq(campaigns.id, vharnId));
     expect(await scenesDao.findById(sceneId)).toBeUndefined();
+  });
+
+  describe('background', () => {
+    async function withBackground(campaignId: string, assetCampaignId: string): Promise<string> {
+      const sceneId = await activeSceneOf(campaignId);
+      const map = newAssetPo({ campaignId: assetCampaignId, width: 1400, height: 700 });
+      const asset = await new AssetsDao(connection.db).insert(map);
+      await connection.db
+        .update(scenes)
+        .set({ backgroundAssetId: asset.id })
+        .where(eq(scenes.id, sceneId));
+      return asset.id;
+    }
+
+    it('findActiveOf brings the width and height of the background image', async () => {
+      const assetId = await withBackground(vharnId, vharnId);
+
+      expect(await scenesDao.findActiveOf(vharnId)).toMatchObject({
+        backgroundAssetId: assetId,
+        backgroundWidth: 1400,
+        backgroundHeight: 700,
+      });
+    });
+
+    it('the locked scene brings the background pixels too', async () => {
+      await withBackground(vharnId, vharnId);
+
+      const locked = await runInTransaction(connection.db, (tx) =>
+        new ScenesDao(tx).lockActiveOf(vharnId),
+      );
+
+      expect(locked).toMatchObject({ backgroundWidth: 1400, backgroundHeight: 700 });
+    });
+
+    it('a background id of another campaign joins no pixels', async () => {
+      await withBackground(vharnId, quelmId);
+
+      expect(await scenesDao.findActiveOf(vharnId)).toMatchObject({
+        backgroundWidth: null,
+        backgroundHeight: null,
+      });
+    });
+
+    it('deleting the background asset leaves the scene without one', async () => {
+      const assetId = await withBackground(vharnId, vharnId);
+
+      await connection.db.delete(assets).where(eq(assets.id, assetId));
+
+      expect((await scenesDao.findActiveOf(vharnId))?.backgroundAssetId).toBeNull();
+    });
   });
 });

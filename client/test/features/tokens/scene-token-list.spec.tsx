@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
@@ -20,6 +20,7 @@ import {
 } from '../../support/table-session-fixtures';
 
 const KAEL_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
+const PORTRAIT_ID = '0c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f';
 
 describe('SceneTokenList', () => {
   let board: StoreApi<BoardStore>;
@@ -70,6 +71,29 @@ describe('SceneTokenList', () => {
     expect(row('Lyra')).toHaveTextContent('PV 32 / 45');
   });
 
+  it('a token without image shows its initials in the row', () => {
+    renderList();
+    expect(row('Lyra').querySelector('img')).toBeNull();
+    expect(row('Lyra')).toHaveTextContent(lyra().initials);
+  });
+
+  it('a token with image shows it in the row instead of the initials, in its round frame', () => {
+    renderList([lyra({ imageAssetId: PORTRAIT_ID, frame: 'round' })]);
+    const portrait = row('Lyra').querySelector('img');
+    expect(portrait).toHaveAttribute('src', `/api/assets/${PORTRAIT_ID}`);
+    expect(portrait).toHaveClass('rounded-full');
+    expect(row('Lyra')).not.toHaveTextContent(lyra().initials);
+  });
+
+  it('an image that fails to load falls back to the initials', () => {
+    renderList([lyra({ imageAssetId: PORTRAIT_ID })]);
+    const portrait = row('Lyra').querySelector('img');
+    expect(portrait).not.toHaveClass('rounded-full');
+    fireEvent.error(portrait as HTMLImageElement);
+    expect(row('Lyra').querySelector('img')).toBeNull();
+    expect(row('Lyra')).toHaveTextContent(lyra().initials);
+  });
+
   it('clicking a row expands its card and selects the token on the board', async () => {
     renderList();
     await userEvent.click(row('Lyra'));
@@ -77,6 +101,19 @@ describe('SceneTokenList', () => {
     expect(interaction.getState().selectedTokenIds).toEqual([LYRA_ID]);
     expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).toHaveTextContent(
       'Coluna 4, linha 5',
+    );
+  });
+
+  it('the card says where the token looks: "Olha para o sul" looking down, "oeste" at 90', () => {
+    renderList([lyra(), lyra({ id: KAEL_ID, name: 'Kael', facing: 90 })]);
+
+    act(() => interaction.getState().select(LYRA_ID));
+    expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).toHaveTextContent(
+      'Olha para o sul',
+    );
+    act(() => interaction.getState().select(KAEL_ID));
+    expect(screen.getByRole('region', { name: 'Cartão de Kael' })).toHaveTextContent(
+      'Olha para o oeste',
     );
   });
 

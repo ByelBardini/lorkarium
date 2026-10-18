@@ -10,10 +10,22 @@ const ENV_KEYS = [
   'DATABASE_URL',
   'ADMIN_EMAIL',
   'ADMIN_PASSWORD',
+  'S3_ENDPOINT',
+  'S3_REGION',
+  'S3_BUCKET',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+  'S3_FORCE_PATH_STYLE',
 ] as const;
 
 // Values that must never reach a log line or a boot error message.
-const SECRET_KEYS: ReadonlySet<string> = new Set(['DATABASE_URL', 'ADMIN_PASSWORD']);
+const SECRET_KEYS: ReadonlySet<string> = new Set([
+  'DATABASE_URL',
+  'ADMIN_PASSWORD',
+  'S3_SECRET_ACCESS_KEY',
+]);
+
+export const S3_SECRET_MIN_LENGTH = 8;
 
 const PORT_RULE = 'must be an integer between 1 and 65535';
 
@@ -35,6 +47,17 @@ const envSchema = z
       .pipe(z.email({ error: 'must be an e-mail address' }))
       .optional(),
     ADMIN_PASSWORD: z.string().optional(),
+    S3_ENDPOINT: z.url({ error: 'must be a URL (http://localhost:8333)' }),
+    S3_REGION: z.string().default('us-east-1'),
+    S3_BUCKET: z.string({ error: 'is required (the bucket that keeps the assets)' }),
+    S3_ACCESS_KEY_ID: z.string({ error: 'is required' }),
+    S3_SECRET_ACCESS_KEY: z.string({ error: 'is required' }).min(S3_SECRET_MIN_LENGTH, {
+      error: `must have at least ${S3_SECRET_MIN_LENGTH} characters`,
+    }),
+    S3_FORCE_PATH_STYLE: z
+      .enum(['true', 'false'], { error: 'must be true or false' })
+      .default('true')
+      .transform((value) => value === 'true'),
   })
   .superRefine(requireAdminPair)
   .superRefine(requireStrongAdminPasswordInProduction);
@@ -45,12 +68,23 @@ export type NodeEnv = ParsedEnv['NODE_ENV'];
 
 export type AdminSeedConfig = Readonly<{ email: string; password: string }>;
 
+/** Where the assets live: any S3-compatible service (SeaweedFS in dev, §4.3). */
+export type StorageConfig = Readonly<{
+  endpoint: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  forcePathStyle: boolean;
+}>;
+
 export type Env = Readonly<{
   nodeEnv: NodeEnv;
   port: number;
   host: string;
   databaseUrl: string;
   adminSeed: AdminSeedConfig | null;
+  storage: StorageConfig;
 }>;
 
 export class InvalidEnvError extends Error {
@@ -134,5 +168,13 @@ function toEnv(parsed: ParsedEnv): Env {
     host: parsed.HOST,
     databaseUrl: parsed.DATABASE_URL,
     adminSeed: email && password ? { email, password } : null,
+    storage: {
+      endpoint: parsed.S3_ENDPOINT,
+      region: parsed.S3_REGION,
+      bucket: parsed.S3_BUCKET,
+      accessKeyId: parsed.S3_ACCESS_KEY_ID,
+      secretAccessKey: parsed.S3_SECRET_ACCESS_KEY,
+      forcePathStyle: parsed.S3_FORCE_PATH_STYLE,
+    },
   };
 }

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { buildRoutes } from '@/app/router';
 import { HttpAuthApi } from '@/services/auth-api';
+import { HttpAssetsApi } from '@/services/assets-api';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
 import { NavigatorClipboard } from '@/services/clipboard';
 import { FetchHttpTransport } from '@/services/http-transport';
@@ -39,6 +40,7 @@ const router = createBrowserRouter(
   buildRoutes({
     authApi: new HttpAuthApi(transport),
     campaignsApi: new HttpCampaignsApi(transport),
+    assets: new HttpAssetsApi(transport),
     clipboard: new NavigatorClipboard(),
     openTables: createOpenTablesStore({ api: tableSessionApi, storage: tabStorage }),
     sessionStore,

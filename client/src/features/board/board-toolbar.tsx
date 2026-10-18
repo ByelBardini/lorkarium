@@ -24,7 +24,7 @@ import { LAYER_LABEL } from './board-messages';
 export type BoardToolbarProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   renderer: BoardRenderer | null;
-  /** The master: shows "Configurar grid". */
+  /** The master: shows "Configurar cena". */
   canConfigure: boolean;
   onConfigure: () => void;
   onNewToken: () => void;
@@ -43,7 +43,7 @@ const LAYER_TOOLS: ReadonlyArray<
 ];
 
 /** The floating tools at the left of the board: select, ruler, draw, local grid, zoom and framing,
- *  plus "Configurar grid" for the master. Every tool also has its key (in the name).
+ *  plus "Configurar cena" for the master. Every tool also has its key (in the name).
  *
  *  Example: `<BoardToolbar interaction={interaction} renderer={renderer} canConfigure={isMaster} onConfigure={openGridDialog} />` */
 export function BoardToolbar({
@@ -116,7 +116,7 @@ export function BoardToolbar({
           <>
             <span aria-hidden="true" className="my-1 h-px bg-divider" />
             <ToolButton label="Novo token" icon={UserPlusIcon} onClick={onNewToken} />
-            <ToolButton label="Configurar grid" icon={Settings2Icon} onClick={onConfigure} />
+            <ToolButton label="Configurar cena" icon={Settings2Icon} onClick={onConfigure} />
           </>
         )}
       </div>

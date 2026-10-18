@@ -1,6 +1,12 @@
 import { sceneGridDto, type SceneDto, type SceneGridDto } from '@lorkarium/contracts';
+import {
+  heightForWidth,
+  widthForHeight,
+  type ImageSize,
+  type SceneCells,
+} from '@/lib/scene-proportion';
 
-/** The "Configurar grid" fields as typed: text, so "1,5" and an empty field are possible. */
+/** The "Configurar cena" grid fields as typed: text, so "1,5" and an empty field are possible. */
 export type GridForm = Readonly<{
   widthCells: string;
   heightCells: string;
@@ -71,6 +77,36 @@ export function parseGridForm(form: GridForm): GridFormResult {
     if (isGridFormField(field)) errors[field] = FIELD_ERROR[field];
   }
   return { ok: false, errors };
+}
+
+/** The form with these cells in the width and height fields.
+ *
+ *  Example: `withCells(form, cellsForImage(image, 20))` */
+export function withCells(form: GridForm, cells: SceneCells): GridForm {
+  return { ...form, widthCells: String(cells.widthCells), heightCells: String(cells.heightCells) };
+}
+
+/** With the lock on: the field just typed (width or height) drives the other by the image's
+ *  proportion; a field that is not a whole number yet leaves the other alone.
+ *
+ *  Example: `keepProportion(before, after, { width: 1400, height: 700 })` */
+export function keepProportion(before: GridForm, after: GridForm, image: ImageSize): GridForm {
+  if (after.widthCells !== before.widthCells) {
+    const width = wholeOf(after.widthCells);
+    return width ? { ...after, heightCells: String(heightForWidth(image, width)) } : after;
+  }
+  if (after.heightCells === before.heightCells) return after;
+  const height = wholeOf(after.heightCells);
+  return height ? { ...after, widthCells: String(widthForHeight(image, height)) } : after;
+}
+
+/** A positive whole number typed in a cells field, or `null`.
+ *
+ *  Example: `wholeOf('20') // 20` */
+export function wholeOf(text: string): number | null {
+  if (!/^\d+$/.test(text)) return null;
+  const value = Number(text);
+  return value > 0 ? value : null;
 }
 
 // pt-BR decimal comma; an empty field is no number at all, never 0.

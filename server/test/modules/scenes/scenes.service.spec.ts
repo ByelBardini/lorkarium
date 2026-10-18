@@ -10,6 +10,8 @@ import {
   SceneTransactionRunnerFake,
 } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
+import { AssetsDaoFake } from '../../support/assets-fakes';
+import { LYRA_PORTRAIT_ID, QUELM_MAP_ID, lyraPortraitPo } from '../../support/assets-factories';
 
 const NOW = new Date('2026-10-15T21:00:00Z');
 const GRID_30_BY_20 = {
@@ -35,7 +37,14 @@ describe('ScenesService', () => {
     scenes = new ScenesDaoFake([scenePo({ version: 4 })]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
     publisher = new BoardPublisherFake(scenes.journal);
-    const transaction = new SceneTransactionRunnerFake(scenes);
+    const assets = new AssetsDaoFake(
+      [],
+      [
+        lyraPortraitPo({ width: 1400, height: 700 }),
+        lyraPortraitPo({ id: QUELM_MAP_ID, campaignId: QUELM_ID }),
+      ],
+    );
+    const transaction = new SceneTransactionRunnerFake(scenes, assets);
     service = new ScenesService({
       members,
       transaction: transaction.run,
@@ -75,5 +84,44 @@ describe('ScenesService', () => {
       code: 'CAMPAIGN_NOT_FOUND',
     });
     expect(scenes.journal).toEqual([]);
+  });
+
+  it('a background of the campaign is saved and published with the pixels of the image', async () => {
+    await service.configure(ANA_ID, VHARN_ID, GRID_30_BY_20, LYRA_PORTRAIT_ID);
+
+    expect(scenes.rows[0]?.backgroundAssetId).toBe(LYRA_PORTRAIT_ID);
+    expect(publisher.sceneUpdates[0]?.scene.background).toEqual({
+      assetId: LYRA_PORTRAIT_ID,
+      width: 1400,
+      height: 700,
+    });
+    expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+  });
+
+  it('a null background takes it away and keeps the cells sent', async () => {
+    scenes.rows[0]!.backgroundAssetId = LYRA_PORTRAIT_ID;
+
+    await service.configure(ANA_ID, VHARN_ID, GRID_30_BY_20, null);
+
+    expect(scenes.rows[0]).toMatchObject({ backgroundAssetId: null, widthCells: 30 });
+    expect(publisher.sceneUpdates[0]?.scene.background).toBeNull();
+  });
+
+  it('no background in the command keeps the one the scene has', async () => {
+    scenes.rows[0]!.backgroundAssetId = LYRA_PORTRAIT_ID;
+    scenes.backgrounds.set(LYRA_PORTRAIT_ID, { width: 1400, height: 700 });
+
+    await service.configure(ANA_ID, VHARN_ID, GRID_30_BY_20);
+
+    expect(scenes.rows[0]?.backgroundAssetId).toBe(LYRA_PORTRAIT_ID);
+    expect(publisher.sceneUpdates[0]?.scene.background?.width).toBe(1400);
+  });
+
+  it('an asset of another campaign is ASSET_NOT_FOUND without saving, bumping or publishing', async () => {
+    const configure = service.configure(ANA_ID, VHARN_ID, GRID_30_BY_20, QUELM_MAP_ID);
+
+    await expect(configure).rejects.toMatchObject({ code: 'ASSET_NOT_FOUND' });
+    expect(scenes.journal).toEqual(['lock']);
+    expect(scenes.rows[0]).toMatchObject({ widthCells: 20, version: 4, backgroundAssetId: null });
   });
 });

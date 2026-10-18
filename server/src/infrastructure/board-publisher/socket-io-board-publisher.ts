@@ -16,7 +16,9 @@ import type {
   TokenMovedDto,
   TokensDeletedDto,
   TokensDraggedDto,
+  TokensFacedDto,
   TokensMovedDto,
+  TokensRestyledDto,
 } from '@lorkarium/contracts';
 import type {
   BoardPublisherPort,
@@ -101,6 +103,14 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
   // The layer is not a secret: the whole table gets the same event.
   tokenLayerChanged(event: TokenLayerChangedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('token:layerChanged', event);
+  }
+
+  tokensFaced(event: TokensFacedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('token:facedMany', event);
+  }
+
+  tokensRestyled(event: TokensRestyledDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('token:restyledMany', event);
   }
 
   // A drawing is not a secret: the layer only decides who picks it up, not who sees it.

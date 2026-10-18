@@ -20,6 +20,7 @@ function boardView(overrides: Partial<Parameters<typeof buildBoardView>[0]> = {}
     activeLayer: 'tokens',
     canChooseLayer: false,
     preview: [],
+    facingPreview: {},
     drag: null,
     dragged: {},
     readOnly: false,

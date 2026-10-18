@@ -2,6 +2,10 @@ import cookie from '@fastify/cookie';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { Env } from '../config/env';
 import type { Database } from '../database/database';
+import { S3AssetStorage } from '../infrastructure/asset-storage/s3-asset-storage';
+import { GuardedImageFetcher } from '../infrastructure/image-fetcher/guarded-image-fetcher';
+import { SharpImageProcessor } from '../infrastructure/image-processor/sharp-image-processor';
+import { createAssetsModule } from '../modules/assets/assets.plugin';
 import { CryptoCampaignCode } from '../infrastructure/campaign-code/crypto-campaign-code';
 import { SystemClock } from '../infrastructure/clock/system-clock';
 import { Argon2PasswordHasher } from '../infrastructure/password-hasher/argon2-password-hasher';
@@ -56,6 +60,11 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock });
   await app.register(campaigns.plugin, { prefix: API_PREFIX });
   await app.register(healthPlugin, { prefix: API_PREFIX, db: deps.db });
+  const storage = wireAssetStorage(app, new S3AssetStorage(deps.env.storage));
+  const processor = new SharpImageProcessor();
+  const fetcher = new GuardedImageFetcher();
+  const assets = createAssetsModule({ db: deps.db, storage, processor, fetcher });
+  await app.register(assets.plugin, { prefix: API_PREFIX });
   wireRealtime(app, auth.guards, { campaigns: campaigns.service, clock, db: deps.db });
   return app;
 }
@@ -80,7 +89,8 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
   const { clock } = modules;
   const publisher = new SocketIoBoardPublisher(realtime.io);
   const scenes = createScenesModule({ db, publisher, clock }).service;
-  const { service: tokens, batch: tokenBatch } = createTokensModule({ db, publisher, clock });
+  const tokensModule = createTokensModule({ db, publisher, clock });
+  const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
   const conditions = createConditionsModule({ db, publisher, clock }).service;
   const combat = createCombatModule({ db, publisher, clock }).service;
   const drawings = createDrawingsModule({ db, publisher, clock }).service;
@@ -89,6 +99,7 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
     scenes,
     tokens,
     tokenBatch,
+    tokenAppearance,
     conditions,
     combat,
     drawings,
@@ -97,6 +108,13 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
     log: app.log,
   });
   realtime.onConnection(board.gateway);
+}
+
+// The bucket is ensured once per boot (dev, CI and integration alike), before the first request.
+function wireAssetStorage(app: FastifyInstance, storage: S3AssetStorage): S3AssetStorage {
+  app.addHook('onReady', async () => storage.ensureBucket());
+  app.addHook('onClose', async () => storage.destroy());
+  return storage;
 }
 
 function loggerOptions(env: Env): FastifyServerOptions['logger'] {

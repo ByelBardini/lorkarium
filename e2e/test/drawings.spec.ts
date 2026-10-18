@@ -53,16 +53,17 @@ test('drawings, copy and undo: drawn for everyone, moved by the master, pasted, 
   }
   await enterFromTheList(admin, name);
 
-  // Bia draws a filled square from the middle of (2, 2) to the middle of (4, 4): corner (2.5, 2.5).
-  await drawSquare(bia, [2, 2], [4, 4]);
-  await expect(drawingsOf(admin)).toHaveText(['Quadrado, coluna 3, linha 3']);
+  // Bia draws a filled square from the middle of (5, 2) to the middle of (7, 4): corner (5.5, 2.5).
+  // Past column 4: the style panel floats over the first columns and would take the press.
+  await drawSquare(bia, [5, 2], [7, 4]);
+  await expect(drawingsOf(admin)).toHaveText(['Quadrado, coluna 6, linha 3']);
 
   // The master drags it three cells right; Bia sees it there, and after an F5 too.
   await admin.getByRole('button', { name: 'Selecionar (V)' }).click();
-  await dragBetweenCells(admin, [3, 3], [6, 3]);
-  await expect(drawingsOf(bia)).toHaveText(['Quadrado, coluna 6, linha 3']);
+  await dragBetweenCells(admin, [6, 3], [9, 3]);
+  await expect(drawingsOf(bia)).toHaveText(['Quadrado, coluna 9, linha 3']);
   await bia.reload();
-  await expect(drawingsOf(bia)).toHaveText(['Quadrado, coluna 6, linha 3']);
+  await expect(drawingsOf(bia)).toHaveText(['Quadrado, coluna 9, linha 3']);
 
   // A Goblin for Caio lands at (10, 6); the master copies it and pastes it under the cursor.
   await createTokenFor(admin, 'Goblin', 'Caio');
@@ -73,6 +74,8 @@ test('drawings, copy and undo: drawn for everyone, moved by the master, pasted, 
   const target = await cellCenterOf(admin, 14, 3);
   await admin.mouse.move(target.x, target.y);
   await admin.keyboard.press('Control+v');
+  // "Na cena" lives on the "Combate" tab; entering the table opens "Na mesa".
+  for (const page of [admin, bia, caio]) await page.getByRole('tab', { name: 'Combate' }).click();
   for (const page of [admin, bia, caio]) await expect(goblinsOf(page)).toHaveCount(2);
 
   // Ctrl+Z undoes the paste for the three of them.

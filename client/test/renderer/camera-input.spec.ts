@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   KEYBOARD_PAN_SPEED,
+  blocksBrowserMenu,
   cameraKeyAction,
   endRightDrag,
   keyboardPan,
@@ -131,5 +132,23 @@ describe('right drag', () => {
 
   it('under 4 px nothing pans yet', () => {
     expect(moveRightDrag(startRightDrag({ x: 0, y: 0 }), { x: 2, y: 2 }).pan).toBeNull();
+  });
+});
+
+describe('blocksBrowserMenu', () => {
+  const board = { left: 100, top: 50, right: 900, bottom: 650 };
+
+  it('holds back the browser menu on a click inside the board, even when it lands on the page under a modal menu', () => {
+    expect(blocksBrowserMenu({ x: 400, y: 300, editable: false }, board)).toBe(true);
+    expect(blocksBrowserMenu({ x: 100, y: 650, editable: false }, board)).toBe(true);
+  });
+
+  it('lets the browser menu open outside the board', () => {
+    expect(blocksBrowserMenu({ x: 99, y: 300, editable: false }, board)).toBe(false);
+    expect(blocksBrowserMenu({ x: 400, y: 651, editable: false }, board)).toBe(false);
+  });
+
+  it('lets the browser menu open on a text field over the board (paste, spelling)', () => {
+    expect(blocksBrowserMenu({ x: 400, y: 300, editable: true }, board)).toBe(false);
   });
 });

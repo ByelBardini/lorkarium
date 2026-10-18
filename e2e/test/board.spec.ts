@@ -14,8 +14,8 @@ function zoomLabelOf(page: Page) {
 }
 
 async function configureGrid(master: Page, width: string, height: string): Promise<void> {
-  await master.getByRole('button', { name: 'Configurar grid' }).click();
-  const dialog = master.getByRole('dialog', { name: 'Configurar grid' });
+  await master.getByRole('button', { name: 'Configurar cena' }).click();
+  const dialog = master.getByRole('dialog', { name: 'Configurar cena' });
   await dialog.getByLabel('Largura (casas)').fill(width);
   await dialog.getByLabel('Altura (casas)').fill(height);
   await dialog.getByRole('button', { name: 'Salvar' }).click();

@@ -1,7 +1,8 @@
 import type { SessionMemberDto, TokenDto } from '@lorkarium/contracts';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { formatBarValue } from '@/lib/bar-display';
+import { assetUrlOf } from '@/services/assets-api';
 import { cn } from '@/lib/utils';
 import {
   singleSelectedOf,
@@ -102,12 +103,7 @@ function TokenRow({ token, members, open, marked, ...props }: TokenRowProps) {
           marked && 'text-primary',
         )}
       >
-        <span
-          aria-hidden="true"
-          className="grid size-7 shrink-0 place-items-center border border-border text-[11px] font-semibold"
-        >
-          {token.initials}
-        </span>
+        <TokenAvatar token={token} />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm">{token.name}</span>
           <span className="truncate text-xs text-muted-foreground">
@@ -129,5 +125,35 @@ function TokenRow({ token, members, open, marked, ...props }: TokenRowProps) {
         />
       )}
     </li>
+  );
+}
+
+/** The token's image in its frame when it has one; the initials when it has none or the image
+ *  fails to load (the board falls back the same way). */
+function TokenAvatar({ token }: Readonly<{ token: TokenDto }>): React.JSX.Element {
+  const [brokenId, setBrokenId] = useState<string | null>(null);
+  const assetId = token.imageAssetId;
+  const frameClass = cn(
+    'size-7 shrink-0 border border-border',
+    token.frame === 'round' && 'rounded-full',
+  );
+  if (assetId === null || brokenId === assetId) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(frameClass, 'grid place-items-center text-[11px] font-semibold')}
+      >
+        {token.initials}
+      </span>
+    );
+  }
+  const markBroken = (): void => setBrokenId(assetId);
+  return (
+    <img
+      src={assetUrlOf(assetId)}
+      alt=""
+      onError={markBroken}
+      className={cn(frameClass, 'object-cover')}
+    />
   );
 }

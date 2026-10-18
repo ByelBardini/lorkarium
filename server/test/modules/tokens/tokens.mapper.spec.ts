@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toTokenDto, toTokenUpdatePo } from '../../../src/modules/tokens/tokens.mapper';
+import { LYRA_PORTRAIT_ID } from '../../support/assets-factories';
 import { BIA_ID } from '../../support/campaigns-factories';
 import { LYRA_ID, lyraPo, lyraRow } from '../../support/tokens-factories';
 
@@ -27,6 +28,47 @@ describe('tokens mapper', () => {
       expect(toTokenDto(row, audience).layer).toBe('objects');
     },
   );
+
+  it('others receive the image, frame, flips and facing exactly as the privileged (not a secret)', () => {
+    const look = {
+      imageAssetId: LYRA_PORTRAIT_ID,
+      frame: 'round',
+      flipX: true,
+      flipY: false,
+      facing: 135,
+    } as const;
+    const row = lyraRow({ token: lyraPo(look) });
+
+    expect(toTokenDto(row, 'others')).toMatchObject(look);
+    expect(toTokenDto(row, 'privileged')).toMatchObject(look);
+  });
+
+  it('an update with a new image writes it, and one without the look leaves the look out', () => {
+    const base = {
+      name: 'Lyra',
+      initials: 'LY',
+      side: 'ally',
+      size: 1,
+      controllerIds: [BIA_ID],
+      bars: [],
+    } as const;
+
+    const withImage = toTokenUpdatePo(
+      { ...base, bars: [], controllerIds: [BIA_ID], imageAssetId: null },
+      [BIA_ID],
+    );
+    const without = toTokenUpdatePo({ ...base, bars: [], controllerIds: [BIA_ID] }, [BIA_ID]);
+
+    expect(withImage.fields).toEqual({
+      name: 'Lyra',
+      initials: 'LY',
+      side: 'ally',
+      size: 1,
+      imageAssetId: null,
+    });
+    expect(without.fields).not.toHaveProperty('imageAssetId');
+    expect(without.fields).not.toHaveProperty('frame');
+  });
 
   it('the token DTO carries no persistence fields', () => {
     expect(toTokenDto(lyraRow(), 'others')).not.toHaveProperty('sceneId');

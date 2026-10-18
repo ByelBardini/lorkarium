@@ -28,8 +28,23 @@ export async function callApi(
   path: string,
   body?: unknown,
 ): Promise<ApiCall> {
+  return exchange(() => transport.request(method, path, body));
+}
+
+/** Posts a file as the raw body (its own content type), with the same outcomes as `callApi`.
+ *
+ *  Example: `await callUpload(transport, '/campaigns/<id>/assets?purpose=token', file)` */
+export async function callUpload(
+  transport: HttpTransport,
+  path: string,
+  file: Blob,
+): Promise<ApiCall> {
+  return exchange(() => transport.upload(path, file));
+}
+
+async function exchange(send: () => Promise<HttpResponse>): Promise<ApiCall> {
   try {
-    const response = await transport.request(method, path, body);
+    const response = await send();
     if (response.status < 300) return { kind: 'ok', body: response.body };
     return { kind: 'refused', response };
   } catch (error) {

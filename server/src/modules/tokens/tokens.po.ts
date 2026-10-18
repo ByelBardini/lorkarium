@@ -1,14 +1,19 @@
+import { sql } from 'drizzle-orm';
 import {
+  boolean,
+  check,
   index,
   integer,
   pgEnum,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   unique,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { assets } from '../assets/assets.po';
 import { users } from '../auth/users.po';
 import { scenes } from '../scenes/scenes.po';
 
@@ -17,6 +22,7 @@ export const tokenSide = pgEnum('token_side', ['ally', 'enemy', 'neutral']);
 export const tokenLayer = pgEnum('token_layer', ['tokens', 'objects', 'background']);
 export const barColor = pgEnum('bar_color', ['gold', 'steel', 'ember', 'moss', 'ash']);
 export const barVisibility = pgEnum('bar_visibility', ['everyone', 'controllers']);
+export const tokenFrame = pgEnum('token_frame', ['square', 'round']);
 
 export const tokens = pgTable(
   'tokens',
@@ -33,10 +39,20 @@ export const tokens = pgTable(
     col: integer('col').notNull(),
     row: integer('row').notNull(),
     layer: tokenLayer('layer').notNull().default('tokens'),
+    // The look: not a secret, every audience gets it. Losing the asset brings the initials back.
+    imageAssetId: uuid('image_asset_id').references(() => assets.id, { onDelete: 'set null' }),
+    frame: tokenFrame('frame').notNull().default('square'),
+    flipX: boolean('flip_x').notNull().default(false),
+    flipY: boolean('flip_y').notNull().default(false),
+    // Degrees, 0 = looking down, clockwise on screen (game-core `Facing`).
+    facing: smallint('facing').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('tokens_scene_id_idx').on(table.sceneId)],
+  (table) => [
+    index('tokens_scene_id_idx').on(table.sceneId),
+    check('tokens_facing_range', sql`${table.facing} >= 0 AND ${table.facing} <= 359`),
+  ],
 );
 
 // Spec §6 TokenController: the members who may move the token and touch its bars.
@@ -76,4 +92,7 @@ export type NewTokenPo = typeof tokens.$inferInsert;
 export type TokenBarPo = typeof tokenBars.$inferSelect;
 export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenId' | 'position'>;
 export type TokenLayerPo = TokenPo['layer'];
-export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'size'>;
+export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
+/** What `token:update` saves; an absent look field keeps what the token has. */
+export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'size'> &
+  Partial<TokenLookPo>;

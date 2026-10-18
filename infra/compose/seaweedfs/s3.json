@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "lorkarium",
+      "credentials": [{ "accessKey": "lorkarium", "secretKey": "lorkarium-dev-secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

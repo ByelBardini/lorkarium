@@ -22,6 +22,10 @@ export class HttpTransportFake implements HttpTransport {
     return this;
   }
 
+  async upload(path: string, file: Blob): Promise<HttpResponse> {
+    return this.request('POST', path, file);
+  }
+
   async request(method: HttpMethod, path: string, body?: unknown): Promise<HttpResponse> {
     this.requests.push({ method, path, body });
     const next = this.queue.shift();

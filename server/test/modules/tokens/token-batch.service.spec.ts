@@ -12,6 +12,8 @@ import {
   campaignMemberPo,
 } from '../../support/campaigns-factories';
 import { CombatDaoFake } from '../../support/combat-fakes';
+import { AssetsDaoFake } from '../../support/assets-fakes';
+import { LYRA_PORTRAIT_ID, QUELM_MAP_ID, lyraPortraitPo } from '../../support/assets-factories';
 import { ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
@@ -29,6 +31,11 @@ const GOBLIN: NewTokenDto = {
   row: 6,
   layer: 'tokens',
   controllerIds: [CAIO_ID],
+  imageAssetId: null,
+  frame: 'square',
+  flipX: false,
+  flipY: false,
+  facing: 0,
   bars: [{ label: 'PV', current: 7, max: 7, color: 'ember', visibility: 'controllers' }],
 };
 
@@ -60,11 +67,16 @@ describe('TokenBatchService', () => {
     tokens = new TokensDaoFake(scenes.journal, [lyraRow(), bramRow(), quelmToken]);
     combat = new CombatDaoFake();
     publisher = new BoardPublisherFake(scenes.journal);
+    const assets = new AssetsDaoFake(
+      [],
+      [lyraPortraitPo(), lyraPortraitPo({ id: QUELM_MAP_ID, campaignId: QUELM_ID })],
+    );
     const transaction = new TokenTransactionRunnerFake(
       scenes,
       tokens,
       new ConditionsDaoFake(),
       combat,
+      assets,
     );
     service = new TokenBatchService({
       members,
@@ -114,6 +126,20 @@ describe('TokenBatchService', () => {
           tokens: [GOBLIN, { ...GOBLIN, col: 20 }, { ...GOBLIN, col: 12 }],
         }),
       ).rejects.toMatchObject({ code: 'OUT_OF_SCENE' });
+      expect(tokens.rows).toHaveLength(3);
+      expect(scenes.journal).toEqual(['lock']);
+    });
+
+    it('one image of another table among three is ASSET_NOT_FOUND and none of them is created', async () => {
+      const pasted = [
+        { ...GOBLIN, imageAssetId: LYRA_PORTRAIT_ID },
+        { ...GOBLIN, imageAssetId: QUELM_MAP_ID },
+        GOBLIN,
+      ];
+
+      const created = service.createMany(ANA_ID, VHARN_ID, { tokens: pasted });
+
+      await expect(created).rejects.toMatchObject({ code: 'ASSET_NOT_FOUND' });
       expect(tokens.rows).toHaveLength(3);
       expect(scenes.journal).toEqual(['lock']);
     });

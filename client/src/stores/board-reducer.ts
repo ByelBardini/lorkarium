@@ -5,6 +5,7 @@ import type {
   DrawingDto,
   DrawingsMovedDto,
   TokenDto,
+  TokensFacedDto,
   TokensMovedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
@@ -33,6 +34,12 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
     case 'tokenLayerChanged': {
       const { tokenIds, layer } = event.payload;
       return { tokens: mapTokens(board.tokens, tokenIds, (token) => ({ ...token, layer })) };
+    }
+    case 'tokensFaced':
+      return { tokens: withFacings(board.tokens, event.payload.faces) };
+    case 'tokensRestyled': {
+      const { tokenIds, style } = event.payload;
+      return { tokens: mapTokens(board.tokens, tokenIds, (token) => ({ ...token, ...style })) };
     }
     case 'tokenDeleted':
       return {
@@ -127,6 +134,13 @@ function withMoves(tokens: readonly TokenDto[], moves: TokensMovedDto['moves']):
   return tokens.map((token) => {
     const move = moves.find(({ tokenId }) => tokenId === token.id);
     return move ? { ...token, col: move.col, row: move.row } : token;
+  });
+}
+
+function withFacings(tokens: readonly TokenDto[], faces: TokensFacedDto['faces']): TokenDto[] {
+  return tokens.map((token) => {
+    const face = faces.find(({ tokenId }) => tokenId === token.id);
+    return face ? { ...token, facing: face.facing } : token;
   });
 }
 

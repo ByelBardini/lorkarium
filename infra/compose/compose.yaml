@@ -17,5 +17,21 @@ services:
       timeout: 5s
       retries: 10
 
+  # S3 of development (the community MinIO was discontinued); only the S3 port is published.
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    command: server -dir=/data -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=64 -volume.max=200 -s3 -s3.config=/etc/seaweedfs/s3.json -s3.port=8333
+    ports:
+      - '8333:8333'
+    volumes:
+      - seaweedfs-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/healthz']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
 volumes:
   postgres-data:
+  seaweedfs-data:

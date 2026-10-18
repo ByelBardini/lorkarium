@@ -4,14 +4,14 @@ Leia este arquivo **antes** de explorar ou alterar o código. O produto está de
 
 ## Stack
 
-| Workspace            | Tecnologias                                                                                                                                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `client/`            | React 19, Vite 8, TypeScript, Tailwind v4 (`@tailwindcss/vite`), shadcn/ui (estilo `radix-nova`, sobre `radix-ui`, ícones `lucide-react`), React Router 8, PixiJS 8 (tabuleiro), Zustand 5 (estado), Socket.IO Client 4, Zod 4 |
-| `server/`            | Node 22, Fastify 5, Socket.IO 4, Drizzle ORM 0.45 + `pg` (PostgreSQL 17), Pino 10, Zod 4, `tsx` (dev), `tsdown` (build → `server/dist/`), `drizzle-kit` (`server/drizzle.config.ts`, SQL em `server/drizzle/`)                 |
-| `packages/game-core` | TypeScript puro, sem dependência: regra de jogo usada pelo server e pelo client                                                                                                                                                |
-| `packages/contracts` | DTOs em Zod 4 (o que atravessa client ↔ server por HTTP e Socket.IO)                                                                                                                                                           |
-| `packages/tsconfig`  | `base.json` (strict, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`), `node.json`, `react.json`                                                                                                                            |
-| Ferramentas          | pnpm 11 workspaces, TypeScript 6, ESLint 10 (flat config na raiz), Prettier 3 (+ plugin do Tailwind), Vitest 5 (`projects` na raiz), Husky + lint-staged (pre-commit), Docker Compose                                          |
+| Workspace            | Tecnologias                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `client/`            | React 19, Vite 8, TypeScript, Tailwind v4 (`@tailwindcss/vite`), shadcn/ui (estilo `radix-nova`, sobre `radix-ui`, ícones `lucide-react`), React Router 8, PixiJS 8 (tabuleiro), Zustand 5 (estado), Socket.IO Client 4, Zod 4                                                                                                 |
+| `server/`            | Node 22, Fastify 5, Socket.IO 4, Drizzle ORM 0.45 + `pg` (PostgreSQL 17), Pino 10, Zod 4, `@aws-sdk/client-s3` 3 (assets num S3 compatível; SeaweedFS no dev), `sharp` 0.35 (normaliza a imagem enviada), `tsx` (dev), `tsdown` (build → `server/dist/`), `drizzle-kit` (`server/drizzle.config.ts`, SQL em `server/drizzle/`) |
+| `packages/game-core` | TypeScript puro, sem dependência: regra de jogo usada pelo server e pelo client                                                                                                                                                                                                                                                |
+| `packages/contracts` | DTOs em Zod 4 (o que atravessa client ↔ server por HTTP e Socket.IO)                                                                                                                                                                                                                                                           |
+| `packages/tsconfig`  | `base.json` (strict, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`), `node.json`, `react.json`                                                                                                                                                                                                                            |
+| Ferramentas          | pnpm 11 workspaces, TypeScript 6, ESLint 10 (flat config na raiz), Prettier 3 (+ plugin do Tailwind), Vitest 5 (`projects` na raiz), Husky + lint-staged (pre-commit), Docker Compose                                                                                                                                          |
 
 ## Layout do repositório
 
@@ -24,7 +24,7 @@ packages/contracts/      # DTOs Zod compartilhados
 packages/tsconfig/       # tsconfigs base
 e2e/                     # @lorkarium/e2e: Playwright (playwright.config.ts sobe server + client), specs em e2e/test/
 .github/                 # CI: workflows/ci.yml, actions/setup (composite), dependabot.yml
-infra/compose/compose.yaml # Postgres 17 de desenvolvimento (pnpm db:up), usuário/senha/db lorkarium na 5432
+infra/compose/compose.yaml # Postgres 17 (5432, usuário/senha/db lorkarium) e SeaweedFS/S3 (8333, identidade em seaweedfs/s3.json) de desenvolvimento (pnpm db:up)
 docs/spec.md             # Planejamento e arquitetura do produto (escopo, modelo, API, eventos, segurança, fases)
 docs/context/            # Memória do projeto para agentes de IA: <area>.md é o índice, <area>/ o detalhe
 docs/plans/              # Planos do /planejamento, /construir-tela e /refatorar
@@ -38,11 +38,11 @@ Pastas que **ainda não existem**, mas têm lugar definido (spec §10 e as skill
 
 Comandos da raiz (`package.json`):
 
-- `pnpm dev` — sobe o Postgres (`db:up`, espera o healthcheck), aplica as migrações e roda client e server em paralelo (exige o Docker Desktop aberto)
+- `pnpm dev` — sobe o Postgres e o SeaweedFS (`db:up`, espera os healthchecks), aplica as migrações e roda client e server em paralelo (exige o Docker Desktop aberto)
 - `pnpm build` / `pnpm typecheck` — em todos os workspaces
 - `pnpm test` — Vitest de todos os workspaces, sem a integração do server · `pnpm test:integration` — só `server/test/integration/` (exige Postgres; receita no `/testar`) · `pnpm test:packages` / `test:client` / `test:server` — uma camada, com cobertura (ver `docs/context/ci.md`) · `pnpm exec vitest run <spec>` — um spec · `pnpm exec vitest run --project @lorkarium/<nome>` — um workspace
 - `pnpm lint` · `pnpm format` · `pnpm format:check`
-- `pnpm db:up` / `pnpm db:down` — Postgres de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção)
+- `pnpm db:up` / `pnpm db:down` — Postgres e SeaweedFS (S3) de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção)
 
 ## Camadas do server
 
@@ -78,6 +78,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | combat    | Condições da mesa e combate: iniciativa, turno, rodada, duração  | [`docs/context/combat.md`](docs/context/combat.md)       |
 | drawings  | Desenhos da cena: formas, cor, dono, camada, lote e precondição  | [`docs/context/drawings.md`](docs/context/drawings.md)   |
 | sessions  | Sessão ao vivo da mesa (Socket.IO): presença, snapshot, versão   | [`docs/context/sessions.md`](docs/context/sessions.md)   |
+| assets    | Imagens da mesa: S3, envio, link seguro, leitura pela origem     | [`docs/context/assets.md`](docs/context/assets.md)       |
 | client    | SPA: estrutura, rotas, shell e home, testes, design system       | [`docs/context/client.md`](docs/context/client.md)       |
 | ci        | Testes por camada, cobertura, build, pipeline do GitHub Actions  | [`docs/context/ci.md`](docs/context/ci.md)               |
 | health    | `GET /api/health` (ping no Postgres, 200/503, pública)           | [`docs/context/health.md`](docs/context/health.md)       |

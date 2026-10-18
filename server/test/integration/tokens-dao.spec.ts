@@ -10,6 +10,7 @@ import { newCampaignPo } from '../support/campaigns-factories';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const UNIQUE_VIOLATION = '23505';
+const CHECK_VIOLATION = '23514';
 const PV = {
   label: 'PV',
   current: 32,
@@ -75,6 +76,22 @@ describe('TokensDao on Postgres', () => {
 
   it('insert without a layer puts the token on the tokens layer', async () => {
     expect((await tokens.insert(lyra())).token.layer).toBe('tokens');
+  });
+
+  it('a token inserted without a look is the square disc with no image looking down', async () => {
+    expect((await tokens.insert(lyra())).token).toMatchObject({
+      imageAssetId: null,
+      frame: 'square',
+      flipX: false,
+      flipY: false,
+      facing: 0,
+    });
+  });
+
+  it('a facing of 360 is refused by the CHECK of the table', async () => {
+    const turned = lyra({ token: { ...lyra().token, facing: 360 } });
+
+    await expect(tokens.insert(turned)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
   });
 
   it('insert on the background layer reads back on the background layer', async () => {

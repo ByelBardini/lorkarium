@@ -4,9 +4,11 @@ import type {
   ConditionToneDto,
   SceneDto,
   TokenDto,
+  TokenFrameDto,
   TokenLayerDto,
   TokenSideDto,
 } from '@lorkarium/contracts';
+import { assetUrlOf } from '@/services/assets-api';
 import { pathDistance, type Cell, type SceneSize } from '@lorkarium/game-core';
 import { barFill, type BarFillState } from '@/lib/bar-display';
 import type { DrawingStyle } from '@/lib/drawing-style';
@@ -30,6 +32,17 @@ export type DragRouteView = Readonly<{
   landing: readonly Readonly<{ tokenId: string; col: number; row: number }>[] | null;
 }>;
 
+/** The image of a token; `null` keeps the initials disc. Not a secret: every viewer gets it. */
+export type TokenArtView = Readonly<{
+  url: string;
+  frame: TokenFrameDto;
+  flipX: boolean;
+  flipY: boolean;
+}>;
+
+/** The background image, stretched over the whole scene (world px). */
+export type SceneBackgroundView = Readonly<{ url: string; width: number; height: number }>;
+
 /** The bar drawn under a token: always the one at position 0, when the viewer may see it. */
 export type TokenBarView = Readonly<{ fraction: number; state: BarFillState; color: BarColorDto }>;
 
@@ -51,6 +64,11 @@ export type TokenView = Readonly<{
   /** Up to 3 condition icons in their tone; `moreMarks` counts the rest, drawn as "+N". */
   marks: readonly ConditionMarkView[];
   moreMarks: number;
+  art: TokenArtView | null;
+  /** Where it looks (0 = down, clockwise): the image and the mark on the border turn with it. */
+  facing: number;
+  /** The mark on the border: only creatures (tokens layer) look somewhere; a chest just turns. */
+  facingMark: boolean;
 }>;
 
 /** A condition drawn on a token: its icon in its tone's color. */
@@ -62,6 +80,8 @@ export type GhostView = Readonly<{ tokenId: string; col: number; row: number; si
 /** Everything the renderer draws, already decided: it only turns this into pixels. */
 export type BoardView = Readonly<{
   sceneSize: Size;
+  /** Under the grid; `null` without a background. */
+  background: SceneBackgroundView | null;
   grid: Readonly<{ visible: boolean; opacity: number; cells: SceneSize }>;
   ruler: RulerView | null;
   tokens: readonly TokenView[];
@@ -94,6 +114,8 @@ export type BoardViewInput = Omit<DrawingViewInput, 'activeLayer' | 'readOnly'> 
     /** The master: picks the active layer and moves tokens between layers. */
     canChooseLayer: boolean;
     preview: readonly Readonly<{ tokenId: string; col: number; row: number }>[];
+    /** A turn of this viewer waiting for the server, by token id: drawn with it already. */
+    facingPreview: Readonly<Record<string, number>>;
     /** This viewer's drag: a ghost where each member would land and the ruler of its path. */
     drag: DragRouteView | null;
     /** Where other people are dragging tokens, by id: drawn there instead of the confirmed cell. */
@@ -118,6 +140,7 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       width: cells.widthCells * CELL_WORLD_SIZE,
       height: cells.heightCells * CELL_WORLD_SIZE,
     },
+    background: backgroundOf(scene),
     grid: {
       visible: scene.gridVisible && input.localGridVisible,
       opacity: scene.gridOpacity / 100,
@@ -171,7 +194,37 @@ function tokenViewOf(token: TokenDto, input: BoardViewInput): TokenView {
     onTurn: token.id === input.currentTokenId,
     marks: token.conditions.slice(0, MAX_MARKS).map(({ icon, tone }) => ({ icon, tone })),
     moreMarks: Math.max(0, token.conditions.length - MAX_MARKS),
+    art: artOf(token),
+    facing: input.facingPreview[token.id] ?? token.facing,
+    facingMark: token.layer === 'tokens',
   };
+}
+
+function artOf(token: TokenDto): TokenArtView | null {
+  if (token.imageAssetId === null) return null;
+  const { frame, flipX, flipY } = token;
+  return { url: assetUrlOf(token.imageAssetId), frame, flipX, flipY };
+}
+
+// Stretched to the cells, whatever the image's own proportion (the lock decided that before).
+function backgroundOf(scene: SceneDto): SceneBackgroundView | null {
+  if (!scene.background) return null;
+  return {
+    url: assetUrlOf(scene.background.assetId),
+    width: scene.widthCells * CELL_WORLD_SIZE,
+    height: scene.heightCells * CELL_WORLD_SIZE,
+  };
+}
+
+/** Every image url a view draws: the background and each token with art (the texture cache
+ *  keeps these and unloads the rest).
+ *
+ *  Example: `textures.retain(imageUrlsOf(view))` */
+export function imageUrlsOf(view: Pick<BoardView, 'background' | 'tokens'>): ReadonlySet<string> {
+  const urls = new Set<string>();
+  if (view.background) urls.add(view.background.url);
+  for (const token of view.tokens) if (token.art) urls.add(token.art.url);
+  return urls;
 }
 
 // Bottom first: what is drawn later covers it. `toSorted` keeps the list order inside a layer.

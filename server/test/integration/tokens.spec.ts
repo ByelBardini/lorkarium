@@ -141,4 +141,35 @@ describe('tokens over Socket.IO', () => {
     expect(state.tokens[0]).toMatchObject({ col: 5, row: 5 });
     expect(state.tokens[0]?.bars).toHaveLength(2);
   });
+
+  describe('appearance', () => {
+    it('the master creates Lyra with an image and Bia and Caio receive the same look', async () => {
+      const portrait = await live.sendImage(live.ana, live.vharn);
+      const master = await live.atTable(live.ana, live.vharn);
+      const biaEvents = recordEventsOf(await live.atTable(live.bia, live.vharn));
+      const caioEvents = recordEventsOf(await live.atTable(live.caio, live.vharn));
+      const look = { imageAssetId: portrait.id, frame: 'round', flipX: true, flipY: false };
+
+      await send(master, 'token:create', tokenCommandFor(live.vharn, live.bia.id, look));
+
+      expect(await createdTokenOf(biaEvents)).toMatchObject({ ...look, facing: 0 });
+      expect(await createdTokenOf(caioEvents)).toMatchObject({ ...look, facing: 0 });
+    });
+
+    it('an image of Quelm on a Vharn token is ASSET_NOT_FOUND and nobody hears of it', async () => {
+      const quelmImage = await live.sendImage(live.caio, live.quelm);
+      const master = await live.atTable(live.ana, live.vharn);
+      const biaEvents = recordEventsOf(await live.atTable(live.bia, live.vharn));
+      const payload = tokenCommandFor(live.vharn, live.bia.id, { imageAssetId: quelmImage.id });
+
+      const ack = await send(master, 'token:create', payload);
+
+      expect(ack).toEqual({
+        ok: false,
+        error: expect.objectContaining({ code: 'ASSET_NOT_FOUND' }),
+      });
+      await silence();
+      expect(biaEvents.events.map(({ name }) => name)).not.toContain('token:created');
+    });
+  });
 });

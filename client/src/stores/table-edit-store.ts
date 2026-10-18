@@ -204,6 +204,14 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
       }));
       return created(await commands.moveTokens(campaignId, moves), []);
     }
+    case 'tokensFaced': {
+      const faces = op.turns.map(({ tokenId, from, to }) => ({
+        tokenId,
+        facing: to,
+        expect: { facing: from },
+      }));
+      return created(await commands.faceTokens(campaignId, faces), []);
+    }
     case 'drawingsMoved': {
       const moves = op.moves.map(({ drawingId, from, to }) => ({
         drawingId,
