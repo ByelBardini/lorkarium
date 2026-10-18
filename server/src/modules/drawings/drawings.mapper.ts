@@ -1,6 +1,6 @@
 import type { DrawingDto, DrawingShapeDto } from '@lorkarium/contracts';
 import { drawingBox, type DrawingBox } from '@lorkarium/game-core';
-import type { DrawingOwnership } from './drawing-access.bo';
+import type { AuthoredPiece } from '../scenes/authored-access.bo';
 import type { DrawingPosition } from './drawing-rules.bo';
 import type { DrawingMovePo, DrawingPo, NewDrawingPo } from './drawings.po';
 
@@ -69,8 +69,8 @@ export function positionOf(row: DrawingPo): DrawingPosition {
 }
 
 /** Who may edit a saved drawing: its id, author and layer, for the access rule. */
-export function ownershipOf(row: DrawingPo): DrawingOwnership {
-  return { drawingId: row.id, authorId: row.authorId, layer: row.layer };
+export function ownershipOf(row: DrawingPo): AuthoredPiece {
+  return { id: row.id, authorId: row.authorId, layer: row.layer };
 }
 
 /** A move as sent → the numeric strings to save, to the hundredth.
