@@ -14,6 +14,8 @@ if (existsSync(SERVER_ENV_FILE)) {
 // The e2e gets a database of its own (<db>_e2e), emptied on every run, so it never fills the dev
 // one. The server and its prepare step inherit this from the webServer environment.
 process.env.DATABASE_URL = e2eDatabaseUrl(process.env.DATABASE_URL);
+// The same for the images: a bucket of its own (<bucket>-e2e), created by the server at boot.
+process.env.S3_BUCKET = e2eBucket(process.env.S3_BUCKET);
 
 const isCi = Boolean(process.env.CI);
 
@@ -65,4 +67,10 @@ function e2eDatabaseUrl(base: string | undefined): string {
   const url = new URL(base);
   if (!url.pathname.endsWith('_e2e')) url.pathname = `${url.pathname}_e2e`;
   return url.toString();
+}
+
+function e2eBucket(base: string | undefined): string {
+  if (!base)
+    throw new Error('the e2e needs S3_BUCKET (server/.env or the environment); received nothing');
+  return base.endsWith('-e2e') ? base : `${base}-e2e`;
 }
