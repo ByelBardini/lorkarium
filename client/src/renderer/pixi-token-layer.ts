@@ -8,7 +8,7 @@ import { PixiTokenArt, ROUND_RADIUS_SHARE } from './pixi-token-art';
 import type { PixiTextureCache } from './pixi-texture-cache';
 import { showsNameTag } from './name-tag';
 import { PixiNameTag } from './pixi-name-tag';
-import { tokenContains, tokenWorldRect } from './token-box';
+import { tokenWorldRect } from './token-box';
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const DISC_COLOR = 0x1b1f25;
@@ -57,7 +57,6 @@ export class PixiTokenLayer {
   private readonly ghost = new Graphics();
   private dragging: string | null = null;
   private hovered: string | null = null;
-  private drawn: readonly TokenView[] = [];
 
   /** `beneath`: what each layer draws under its tokens (the drawings of that layer); `textures`:
    *  where the token images come from (without it, every token is the initials disc). */
@@ -76,7 +75,6 @@ export class PixiTokenLayer {
   }
 
   sync(tokens: readonly TokenView[], ghosts: readonly GhostView[], nowMs: number): void {
-    this.drawn = tokens;
     const alive = new Set(tokens.map(({ id }) => id));
     for (const [id, sprite] of this.sprites) {
       if (alive.has(id)) continue;
@@ -85,12 +83,6 @@ export class PixiTokenLayer {
     }
     for (const view of tokens) this.place(view, nowMs);
     this.drawGhosts(ghosts);
-  }
-
-  /** The topmost token of the active layer under a world point: the others cannot be taken. */
-  tokenAt(world: Point): TokenView | null {
-    const topFirst = [...this.drawn].reverse();
-    return topFirst.find((view) => view.pickable && tokenContains(view, world)) ?? null;
   }
 
   /** The token under the pointer shows its name (selected ones always do); `null` hides it. */

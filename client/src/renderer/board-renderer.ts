@@ -1,3 +1,4 @@
+import type { EffectAreaShapeDto } from '@lorkarium/contracts';
 import type { Cell, TokenBox } from '@lorkarium/game-core';
 import type { CellPoint } from '@/lib/drawing-geometry';
 import type { BoardView } from './board-view';
@@ -39,10 +40,27 @@ export type BoardDrawingIntent =
       kind: 'drawingsDropped';
       anchorId: string;
       drawingIds: readonly string[];
+      /** The selected areas of effect carried with them (an area dragged is the anchor too). */
+      effectAreaIds?: readonly string[];
       dx: number;
       dy: number;
     }>
   | Readonly<{ kind: 'sketchFinished'; points: readonly CellPoint[]; snap: boolean }>;
+
+/** An area of effect drawn by the area tool and released (the shape to create), clicked
+ *  (Shift: `additive` toggles it), or touched by a marquee. */
+export type BoardEffectAreaIntent =
+  | Readonly<{ kind: 'effectAreaSketched'; shape: EffectAreaShapeDto }>
+  | Readonly<{ kind: 'effectAreaPicked'; effectAreaId: string; additive: boolean }>
+  | Readonly<{ kind: 'effectAreasMarqueed'; effectAreaIds: readonly string[]; additive: boolean }>
+  /** A handle being dragged on an area gives it `shape` (`null`: let go by Esc). */
+  | Readonly<{
+      kind: 'effectAreaReshapePreviewed';
+      effectAreaId: string;
+      shape: EffectAreaShapeDto | null;
+    }>
+  /** A handle released on an area: the shape it should have now. */
+  | Readonly<{ kind: 'effectAreaReshaped'; effectAreaId: string; shape: EffectAreaShapeDto }>;
 
 /** The cell under the pointer while it hovers the board (`null` once it leaves): where a paste
  *  lands. */
@@ -54,6 +72,7 @@ export type BoardIntent =
   | BoardPointerIntent
   | BoardTokenIntent
   | BoardDrawingIntent
+  | BoardEffectAreaIntent
   | BoardHoverIntent;
 
 export type BoardIntentListener = (intent: BoardIntent) => void;

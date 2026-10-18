@@ -1,18 +1,19 @@
 import { Graphics } from 'pixi.js';
 import type { BoardIntentListener } from './board-renderer';
-import type { BoardView, TokenView } from './board-view';
+import type { BoardView } from './board-view';
 import type { Point } from './camera';
-import { facingFromDrag, handleAt, handleStemOf, handleTokenOf } from './facing-handle';
+import { handleAt, type FacingTarget } from './facing-handle';
+import { boardFacingTargetOf } from './handle-targets';
 
 // Design system token (client/src/index.css): the canvas cannot read CSS variables.
 const GOLD_COLOR = 0xc5a46d;
 const HANDLE_SIDE = 10;
 
-type Turning = { token: TokenView; facing: number };
+type Turning = { target: FacingTarget; facing: number };
 
-/** The handle of the one selected token: a line from its edge to a small square where it
- *  looks. Dragging the square turns the token (Shift snaps to 45°): this viewer sees it at once,
- *  the turn is sent on release and Esc lets go without turning. */
+/** The handle of the one selected piece that turns (`boardFacingTargetOf`): a line from its edge to a
+ *  small square where it looks. Dragging the square turns it: this viewer sees it at once, the
+ *  turn is sent on release and Esc lets go without turning. */
 export class PixiFacingHandle {
   readonly shape = new Graphics();
   private turning: Turning | null = null;
@@ -22,9 +23,9 @@ export class PixiFacingHandle {
   /** Hairlines whatever the zoom, like the grid. */
   draw(view: BoardView, zoom: number): void {
     this.shape.clear();
-    const token = handleTokenOf(view);
-    if (!token) return;
-    const { from, to: handle } = handleStemOf(token);
+    const target = boardFacingTargetOf(view);
+    if (!target) return;
+    const { from, to: handle } = target.stem;
     const half = HANDLE_SIDE / 2 / zoom;
     this.shape.moveTo(from.x, from.y).lineTo(handle.x, handle.y);
     this.shape.stroke({ width: 1.5 / zoom, color: GOLD_COLOR });
@@ -33,35 +34,35 @@ export class PixiFacingHandle {
 
   /** A press on the handle starts turning (and wins over the token under it). */
   press(view: BoardView, world: Point): boolean {
-    const token = handleTokenOf(view);
-    if (!token || !handleAt(token, world)) return false;
-    this.turning = { token, facing: token.facing };
+    const target = boardFacingTargetOf(view);
+    if (!target || !handleAt(target, world)) return false;
+    this.turning = { target, facing: target.facing };
     return true;
   }
 
   move(world: Point, snap: boolean): boolean {
     if (!this.turning) return false;
-    const { token, facing } = this.turning;
-    const next = facingFromDrag(token, world, facing, snap);
+    const { target, facing } = this.turning;
+    const next = target.facingAt(world, facing, snap);
     if (next === facing) return true;
-    this.turning = { token, facing: next };
-    this.onIntent({ kind: 'tokenFacingPreviewed', tokenId: token.id, facing: next });
+    this.turning = { target, facing: next };
+    this.onIntent(target.previewed(next));
     return true;
   }
 
   release(): boolean {
     if (!this.turning) return false;
-    const { token, facing } = this.turning;
+    const { target, facing } = this.turning;
     this.turning = null;
-    this.onIntent({ kind: 'tokenFaced', tokenId: token.id, facing });
+    this.onIntent(target.turned(facing));
     return true;
   }
 
   cancel(): boolean {
     if (!this.turning) return false;
-    const { token } = this.turning;
+    const { target } = this.turning;
     this.turning = null;
-    this.onIntent({ kind: 'tokenFacingPreviewed', tokenId: token.id, facing: null });
+    this.onIntent(target.previewed(null));
     return true;
   }
 }

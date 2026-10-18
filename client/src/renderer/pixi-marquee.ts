@@ -1,10 +1,60 @@
-import type { Graphics } from 'pixi.js';
+import { Graphics } from 'pixi.js';
+import type { BoardIntentListener } from './board-renderer';
+import type { BoardView } from './board-view';
 import type { Point } from './camera';
-import type { WorldRect } from './marquee';
+import {
+  drawingsInMarquee,
+  effectAreasInMarquee,
+  marqueeRect,
+  moveMarquee,
+  startMarquee,
+  tokensInMarquee,
+  type Marquee,
+  type WorldRect,
+} from './marquee';
 
 // Design system token (client/src/index.css): the canvas cannot read CSS variables.
 const GOLD_COLOR = 0xc5a46d;
 const DASH_SCREEN_PX = 6;
+
+/** The selection rectangle of a press on the empty board with Selecionar: it grows with the
+ *  pointer (from 4 px) and, on release, reports what it touches; Shift adds to the selection. */
+export class PixiMarquee {
+  readonly shape = new Graphics();
+  private marquee: Marquee | null = null;
+
+  constructor(private readonly onIntent: BoardIntentListener) {}
+
+  start(screen: Point, world: Point): void {
+    this.marquee = startMarquee(screen, world);
+  }
+
+  /** Whether a marquee took the move. */
+  grow(screen: Point, world: Point, zoom: number): boolean {
+    if (!this.marquee) return false;
+    this.marquee = moveMarquee(this.marquee, { screen, world });
+    this.shape.clear();
+    if (this.marquee.active) drawMarqueeShape(this.shape, marqueeRect(this.marquee), zoom);
+    return true;
+  }
+
+  end(view: BoardView | null, additive: boolean): void {
+    const current = this.marquee;
+    this.marquee = null;
+    this.shape.clear();
+    if (!current?.active || !view) return;
+    const rect = marqueeRect(current);
+    this.onIntent({
+      kind: 'tokensMarqueed',
+      tokenIds: tokensInMarquee(rect, view.tokens),
+      additive,
+    });
+    const drawingIds = drawingsInMarquee(rect, view.drawings);
+    this.onIntent({ kind: 'drawingsMarqueed', drawingIds, additive });
+    const effectAreaIds = effectAreasInMarquee(rect, view.effectAreas);
+    this.onIntent({ kind: 'effectAreasMarqueed', effectAreaIds, additive });
+  }
+}
 
 /** Draws the selection rectangle: dashed gold hairline and a faint fill, the same on screen
  *  whatever the zoom. Proven by the e2e, like the rest of the PixiJS shell.

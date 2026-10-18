@@ -90,7 +90,14 @@ describe('DrawingGestures', () => {
       expect(canvas.offsets).toEqual([{ ids: [SQUARE_ID], x: 2.5 * CELL, y: CELL }]);
       expect(canvas.released).toBe(1);
       expect(intents).toEqual([
-        { kind: 'drawingsDropped', anchorId: SQUARE_ID, drawingIds: [SQUARE_ID], dx: 2.5, dy: 1 },
+        {
+          kind: 'drawingsDropped',
+          anchorId: SQUARE_ID,
+          drawingIds: [SQUARE_ID],
+          effectAreaIds: [],
+          dx: 2.5,
+          dy: 1,
+        },
       ]);
     });
 

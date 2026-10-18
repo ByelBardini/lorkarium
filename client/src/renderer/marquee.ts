@@ -3,6 +3,8 @@ import type { BoardView, TokenView } from './board-view';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 import type { DrawingView } from './drawing-view';
 import { tokenWorldRect } from './token-box';
+import { effectAreaBounds, isSmoothArea } from '@lorkarium/game-core';
+import type { EffectAreaView } from './effect-area-view';
 
 // The same 4 px as a token press: below it the press on the empty board is a click.
 const MARQUEE_THRESHOLD_PX = 4;
@@ -71,11 +73,34 @@ export function drawingsInMarquee(rect: WorldRect, drawings: readonly DrawingVie
   return touched.map(({ id }) => id);
 }
 
+/** The areas of effect the rectangle touches among the pickable ones: a grid shape by any cell
+ *  it paints, a smooth one by its box.
+ *
+ *  Example: `onIntent({ kind: 'effectAreasMarqueed', effectAreaIds: effectAreasInMarquee(rect, view.effectAreas), additive })` */
+export function effectAreasInMarquee(rect: WorldRect, areas: readonly EffectAreaView[]): string[] {
+  const touched = areas.filter((view) => view.pickable && areaTouches(rect, view));
+  return touched.map(({ id }) => id);
+}
+
+function areaTouches(rect: WorldRect, view: EffectAreaView): boolean {
+  const cellBox = (x: number, y: number, width: number, height: number): WorldRect => ({
+    x: x * CELL_WORLD_SIZE,
+    y: y * CELL_WORLD_SIZE,
+    width: width * CELL_WORLD_SIZE,
+    height: height * CELL_WORLD_SIZE,
+  });
+  if (isSmoothArea(view.area)) {
+    const { x, y, width, height } = effectAreaBounds(view.area);
+    return overlaps(rect, cellBox(x, y, width, height));
+  }
+  return view.cells.some(({ col, row }) => overlaps(rect, cellBox(col, row, 1, 1)));
+}
+
 /** The token a short right click opens its menu on, or `null`: the master's on any token of the
  *  active layer, a player's only on a token they may move (the empty board, someone else's
  *  token or one off the active layer open nothing).
  *
- *  Example: `const tokenId = tokenMenuTarget(view, layer.tokenAt(world))` */
+ *  Example: `const tokenId = tokenMenuTarget(view, topTokenAt(view.tokens, world))` */
 export function tokenMenuTarget(
   view: Pick<BoardView, 'layerMenu'>,
   token: TokenView | null,
@@ -85,7 +110,10 @@ export function tokenMenuTarget(
 }
 
 function touches(rect: WorldRect, token: TokenView): boolean {
-  const box = tokenWorldRect(token);
+  return overlaps(rect, tokenWorldRect(token));
+}
+
+function overlaps(rect: WorldRect, box: WorldRect): boolean {
   return (
     rect.x < box.x + box.width &&
     rect.x + rect.width > box.x &&
