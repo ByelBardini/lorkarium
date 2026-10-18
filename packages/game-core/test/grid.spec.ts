@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cell } from '../src/cell.vo';
 import { cellDistance, footprintFits, pathDistance } from '../src/grid';
+import { tokenSize } from '../src/token-size.vo';
 
 const SCENE_20_BY_12 = { widthCells: 20, heightCells: 12 };
 
@@ -43,26 +44,22 @@ describe('pathDistance', () => {
 });
 
 describe('footprintFits', () => {
-  it('a size 2 token at (18, 10) fits a 20×12 scene', () => {
-    expect(footprintFits(SCENE_20_BY_12, cell(18, 10), 2)).toBe(true);
+  it('a 2×2 token at (18, 10) fits a 20×12 scene', () => {
+    expect(footprintFits(SCENE_20_BY_12, cell(18, 10), tokenSize(2, 2))).toBe(true);
   });
 
   it('a token touching the last column fits, and one cell past it does not', () => {
-    expect(footprintFits(SCENE_20_BY_12, cell(19, 0), 1)).toBe(true);
-    expect(footprintFits(SCENE_20_BY_12, cell(20, 0), 1)).toBe(false);
+    expect(footprintFits(SCENE_20_BY_12, cell(19, 0), tokenSize(1, 1))).toBe(true);
+    expect(footprintFits(SCENE_20_BY_12, cell(20, 0), tokenSize(1, 1))).toBe(false);
   });
 
-  it('a size 2 token one cell from the bottom edge spills out', () => {
-    expect(footprintFits(SCENE_20_BY_12, cell(0, 11), 2)).toBe(false);
+  it('width and height are checked on their own axis: a 1×2 token at the bottom row spills', () => {
+    expect(footprintFits(SCENE_20_BY_12, cell(19, 10), tokenSize(1, 2))).toBe(true);
+    expect(footprintFits(SCENE_20_BY_12, cell(19, 11), tokenSize(1, 2))).toBe(false);
   });
 
-  it('a size 4 token at (0, 0) fills a 4×4 scene exactly', () => {
-    expect(footprintFits({ widthCells: 4, heightCells: 4 }, cell(0, 0), 4)).toBe(true);
-  });
-
-  it.each([0, 1.5, -1])('size %s is refused citing the value and the expected shape', (size) => {
-    expect(() => footprintFits(SCENE_20_BY_12, cell(0, 0), size)).toThrow(
-      new RegExp(`${size}.*inteiro ≥ 1`),
-    );
+  it('a 1.5-wide token at 18.5 ends exactly on the edge, half a cell more spills', () => {
+    expect(footprintFits(SCENE_20_BY_12, cell(18.5, 0), tokenSize(1.5, 0.5))).toBe(true);
+    expect(footprintFits(SCENE_20_BY_12, cell(19, 0), tokenSize(1.5, 0.5))).toBe(false);
   });
 });

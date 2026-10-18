@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { AssetsApi } from '@/services/assets-api';
 import { BarsEditor } from './bars-editor';
-import { SIDE_OPTIONS, SIZE_OPTIONS } from './token-messages';
+import { decimalText } from '@/lib/numeric-text';
+import { SIDE_OPTIONS } from './token-messages';
 import { renameToken, type TokenFormErrors, type TokenFormValues } from './token-form-state';
 
 /** Someone at the table who may control a token. */
@@ -73,14 +74,37 @@ export function TokenForm(props: TokenFormProps): React.JSX.Element {
         options={SIDE_OPTIONS}
         onChange={(side) => onChange({ ...form, side })}
       />
-      <ChoiceField
-        legend="Tamanho"
-        value={SIZE_OPTIONS.find(({ value }) => Number(value) === form.size)?.value ?? '1'}
-        options={SIZE_OPTIONS}
-        onChange={(size) => onChange({ ...form, size: Number(size) })}
-      />
+      <SizeFields form={form} errors={errors} onChange={onChange} />
       <ControllersField form={form} players={players} onChange={onChange} />
       <BarsEditor form={form} errors={errors.bars} onChange={onChange} />
+    </div>
+  );
+}
+
+// Text, not type="number": no spinner arrows, and "1,5" is typed the Brazilian way.
+function SizeFields({
+  form,
+  errors,
+  onChange,
+}: Pick<TokenFormProps, 'form' | 'errors' | 'onChange'>): React.JSX.Element {
+  const widthId = useId();
+  const heightId = useId();
+  const field = (id: string, side: 'width' | 'height', label: string) => (
+    <FormField id={id} label={label} error={errors[side]}>
+      <Input
+        id={id}
+        inputMode="decimal"
+        value={form[side]}
+        aria-invalid={errors[side] ? true : undefined}
+        aria-describedby={errors[side] ? `${id}-error` : undefined}
+        onChange={(event) => onChange({ ...form, [side]: decimalText(event.target.value) })}
+      />
+    </FormField>
+  );
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      {field(widthId, 'width', 'Largura (casas)')}
+      {field(heightId, 'height', 'Altura (casas)')}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import type { BoardStateDto, TokenLayerDto } from '@lorkarium/contracts';
 import { boxFits, cell } from '@lorkarium/game-core';
 import { toHundredth } from './drawing-geometry';
 import type { DrawingMove, TokenMove } from './edit-history';
-import { shiftGroup } from './token-group';
+import { groupMemberOf, shiftGroup } from './token-group';
 
 /** The drawings dropped after a drag, by how many cells, and what else was selected. */
 export type DrawingDrop = Readonly<{
@@ -58,7 +58,7 @@ function tokenMovesOf(board: BoardStateDto, drop: DrawingDrop): TokenMove[] | nu
   );
   const [anchor] = movable;
   if (!anchor) return [];
-  const members = movable.map(({ id, col, row, size }) => ({ tokenId: id, col, row, size }));
+  const members = movable.map(groupMemberOf);
   const from = cell(anchor.col, anchor.row);
   const landing = shiftGroup(board.scene, members, from, {
     col: anchor.col + dCol,

@@ -3,17 +3,17 @@ import { facingLabel } from '@/lib/facing-label';
 
 describe('facingLabel', () => {
   it.each([
-    [0, 'sul'],
-    [22, 'sul'],
-    [23, 'sudoeste'],
-    [45, 'sudoeste'],
-    [90, 'oeste'],
-    [135, 'noroeste'],
-    [180, 'norte'],
-    [225, 'nordeste'],
-    [270, 'leste'],
-    [315, 'sudeste'],
-    [340, 'sul'],
+    [0, 'leste'],
+    [22, 'leste'],
+    [23, 'sudeste'],
+    [45, 'sudeste'],
+    [90, 'sul'],
+    [135, 'sudoeste'],
+    [180, 'oeste'],
+    [225, 'noroeste'],
+    [270, 'norte'],
+    [315, 'nordeste'],
+    [340, 'leste'],
   ])('facing %s reads "%s"', (facing, label) => {
     expect(facingLabel(facing)).toBe(label);
   });

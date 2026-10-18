@@ -6,6 +6,8 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 
 - `src/cell.vo.ts` — a célula do grid (VO)
 - `src/grid.ts` — distância entre células e pegada do token na cena
+- `src/token-size.vo.ts` — largura e altura do token (VO)
+- `src/token-resize.ts` — a caixa do token depois de arrastar uma alça
 - `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
 - `src/bar.ts` — ajuste de barra (PV e qualquer outra)
 - `src/initiative.vo.ts` — o valor da iniciativa (VO)
@@ -16,11 +18,16 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 
 ## Célula e grid
 
-- `Cell` `{ col, row }` — coluna e linha a partir do canto superior esquerdo, inteiros ≥ 0. `cell(col, row)` devolve o valor congelado e lança `RangeError` citando o eixo e o valor recebido quando não é "inteiro ≥ 0". `sameCell(a, b)` compara pelo valor.
+- `Cell` `{ col, row }` — a posição de um token a partir do canto superior esquerdo, **de meia em meia casa** e ≥ 0 (um token de 0,5 fica em 1,5). `cell(col, row)` devolve o valor congelado e lança `RangeError` citando o eixo e o valor recebido quando não é "multiple of 0.5 ≥ 0" (1,25, −0,5, NaN). `sameCell(a, b)` compara pelo valor.
 - `SceneSize` `{ widthCells, heightCells }` — tamanho da cena em casas.
 - `cellDistance(a, b)` — distância em casas com a diagonal valendo 1 (Chebyshev): `(0,0)` → `(3,2)` = 3. É a régua do §3.2; outras regras de diagonal são do §12.
 - `pathDistance(caminho)` — soma das pernas pelo `cellDistance` (a régua com curvas do arraste): `(0,0)` → `(3,0)` → `(3,4)` = 7; um ponto ou nenhum = 0.
-- `footprintFits(scene, origin, size)` — o token é um quadrado de `size` casas ancorado no canto superior esquerdo (`origin`); cabe se `origin + size ≤` largura/altura. Encostar na última coluna cabe. `size` que não é inteiro ≥ 1 lança `RangeError`. Sem colisão entre tokens (colisão é do §12).
+- `footprintFits(scene, origin, size)` — o token é um retângulo `size.width × size.height` ancorado no canto superior esquerdo (`origin`); cabe se `col + width ≤ widthCells` e `row + height ≤ heightCells`, cada eixo por si. Encostar na borda cabe (18,5 + 1,5 = 20). Sem colisão entre tokens (colisão é do §12).
+- `TokenSize` `{ width, height }` — `tokenSize(w, h)` aceita múltiplos de 0,5 de `TOKEN_SIZE_MIN` (0,5) a `TOKEN_SIZE_MAX` (10); fora disso, `RangeError` citando o lado e o valor ("width 0.25 … multiple of 0.5 from 0.5 to 10"). O contracts repete os limites no `tokenSideLengthDto` (só depende do `zod`).
+
+## Redimensionar
+
+- `TokenBox` `{ col, row, width, height }`, `ResizeHandle` (`n`, `s`, `e`, `w`, `ne`, `nw`, `se`, `sw`) e `resizeTokenBox(scene, box, alça, { x, y })` (o deslocamento em casas). **Lateral** estica só o seu eixo; **canto** escala os dois mantendo a proporção (`escala = 1 + crescimento / (largura + altura)`, onde o crescimento soma o deslocamento no sentido de cada eixo puxado). A alça oeste/norte move a origem e o lado oposto fica parado. Cada lado vai ao múltiplo do `step` mais perto (`RESIZE_STEP` = 0,5 por padrão; `step` 0 = livre, a prévia que segue o ponteiro) e fica entre 0,5, 10 e a borda da cena para onde é puxado; o canto limita a escala para nenhum lado sair disso (um 2×1 encolhendo para em 1 × 0,5). O client usa na prévia da alça; o server só confere o resultado pelo `footprintFits`.
 
 ## Desenho
 
@@ -42,12 +49,12 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 
 ## Direção
 
-- `Facing` — para onde o token olha, em graus inteiros de 0 a 359: **0 = olhando para baixo** (a convenção do Foundry, que a arte top-down de VTT segue), crescendo no sentido **horário da tela** (90 = esquerda, 180 = cima, 270 = direita). Com o eixo y para baixo, a rotação positiva do PixiJS aplicada à imagem bate com o número. `facing(valor)` lança `RangeError` citando o valor e "whole number from 0 to 359" (360, −1, 12,5 e NaN).
+- `Facing` — para onde o token olha, em graus inteiros de 0 a 359: **0 = olhando para a direita** (a alça e a marca nascem do lado direito, longe do nome sob o token), crescendo no sentido **horário da tela** (90 = baixo, 180 = esquerda, 270 = cima). A imagem no 0 fica como foi desenhada. Com o eixo y para baixo, a rotação positiva do PixiJS aplicada à imagem bate com o número. `facing(valor)` lança `RangeError` citando o valor e "whole number from 0 to 359" (360, −1, 12,5 e NaN).
 - `normalizeFacing(graus)` — arredonda e dá a volta: −90 → 270, 359,6 → 0 (nunca 360).
 - `facingToward(de, para)` — a direção que olha de um ponto a outro (coordenadas de tela); o mesmo ponto → `null` (a alça mantém a atual).
 - `snapFacing(graus, passo)` — o múltiplo de `passo` mais perto (o Shift da alça, 45°): 22 → 0, 23 → 45, 350 → 0.
 - `turnFacing(atual, delta)` — gira e dá a volta (Q = −45, E = +45): 0 − 45 → 315.
-- `facingVector(direção)` — o vetor unitário (`Vector2`) da direção: 0 → `{ x: 0, y: 1 }`, 90 → `{ x: −1, y: 0 }`. É onde ficam a marca e a alça.
+- `facingVector(direção)` — o vetor unitário (`Vector2`) da direção: 0 → `{ x: 1, y: 0 }`, 90 → `{ x: 0, y: 1 }`. É onde ficam a marca e a alça.
 
 ## Armadilhas
 

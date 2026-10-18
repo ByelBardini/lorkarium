@@ -88,9 +88,9 @@ test('background, token image and facing reach three browsers, survive an F5 and
   await boardOf(bia).focus();
   await bia.keyboard.press(']');
   await bia.keyboard.press('e');
-  await expect(statusOf(bia)).toContainText('Lyra olha para o sudoeste.');
+  await expect(statusOf(bia)).toContainText('Lyra olha para o sudeste.');
   await openCard(admin, 'Lyra');
-  await expect(cardOf(admin, 'Lyra')).toContainText('Olha para o sudoeste');
+  await expect(cardOf(admin, 'Lyra')).toContainText('Olha para o sudeste');
 
   const scene = { widthCells: 20, heightCells: 10 };
   await rightClickLyra(bia, scene);
@@ -118,7 +118,7 @@ test('background, token image and facing reach three browsers, survive an F5 and
   await bia.reload();
   await expect(boardOf(bia)).toHaveAccessibleName('Tabuleiro: Cena 1, 30 × 10 casas');
   await openCard(bia, 'Lyra');
-  await expect(cardOf(bia, 'Lyra')).toContainText('Olha para o sudoeste');
+  await expect(cardOf(bia, 'Lyra')).toContainText('Olha para o sudeste');
   await expect.poll(() => biaAssets.length).toBeGreaterThanOrEqual(2);
   expect(biaAssets.map((answer) => answer.status()).every((status) => status === 200)).toBe(true);
   await rightClickLyra(bia, { widthCells: 30, heightCells: 10 });

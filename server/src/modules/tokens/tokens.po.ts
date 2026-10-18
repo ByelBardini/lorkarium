@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  doublePrecision,
   index,
   integer,
   pgEnum,
@@ -34,17 +35,18 @@ export const tokens = pgTable(
     name: text('name').notNull(),
     initials: text('initials').notNull(),
     side: tokenSide('side').notNull(),
-    // In cells; the token is a size × size square anchored at (col, row).
-    size: integer('size').notNull().default(1),
-    col: integer('col').notNull(),
-    row: integer('row').notNull(),
+    // In cells, in steps of half a cell: a width × height box anchored at (col, row).
+    width: doublePrecision('width').notNull().default(1),
+    height: doublePrecision('height').notNull().default(1),
+    col: doublePrecision('col').notNull(),
+    row: doublePrecision('row').notNull(),
     layer: tokenLayer('layer').notNull().default('tokens'),
     // The look: not a secret, every audience gets it. Losing the asset brings the initials back.
     imageAssetId: uuid('image_asset_id').references(() => assets.id, { onDelete: 'set null' }),
     frame: tokenFrame('frame').notNull().default('square'),
     flipX: boolean('flip_x').notNull().default(false),
     flipY: boolean('flip_y').notNull().default(false),
-    // Degrees, 0 = looking down, clockwise on screen (game-core `Facing`).
+    // Degrees, 0 = looking right, clockwise on screen (game-core `Facing`).
     facing: smallint('facing').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -52,6 +54,10 @@ export const tokens = pgTable(
   (table) => [
     index('tokens_scene_id_idx').on(table.sceneId),
     check('tokens_facing_range', sql`${table.facing} >= 0 AND ${table.facing} <= 359`),
+    check(
+      'tokens_box_half_cells',
+      sql`${table.col} >= 0 AND ${table.row} >= 0 AND ${table.width} BETWEEN 0.5 AND 10 AND ${table.height} BETWEEN 0.5 AND 10 AND (${table.col} * 2) = floor(${table.col} * 2) AND (${table.row} * 2) = floor(${table.row} * 2) AND (${table.width} * 2) = floor(${table.width} * 2) AND (${table.height} * 2) = floor(${table.height} * 2)`,
+    ),
   ],
 );
 
@@ -94,5 +100,5 @@ export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenI
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
 /** What `token:update` saves; an absent look field keeps what the token has. */
-export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'size'> &
+export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width' | 'height'> &
   Partial<TokenLookPo>;

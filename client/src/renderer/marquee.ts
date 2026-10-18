@@ -2,6 +2,7 @@ import { boxTouches } from '@/lib/drawing-geometry';
 import type { BoardView, TokenView } from './board-view';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 import type { DrawingView } from './drawing-view';
+import { tokenWorldRect } from './token-box';
 
 // The same 4 px as a token press: below it the press on the empty board is a click.
 const MARQUEE_THRESHOLD_PX = 4;
@@ -84,13 +85,11 @@ export function tokenMenuTarget(
 }
 
 function touches(rect: WorldRect, token: TokenView): boolean {
-  const left = token.col * CELL_WORLD_SIZE;
-  const top = token.row * CELL_WORLD_SIZE;
-  const side = token.size * CELL_WORLD_SIZE;
+  const box = tokenWorldRect(token);
   return (
-    rect.x < left + side &&
-    rect.x + rect.width > left &&
-    rect.y < top + side &&
-    rect.y + rect.height > top
+    rect.x < box.x + box.width &&
+    rect.x + rect.width > box.x &&
+    rect.y < box.y + box.height &&
+    rect.y + rect.height > box.y
   );
 }

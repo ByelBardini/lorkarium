@@ -29,6 +29,7 @@ export type TokenWriteDaos = Readonly<{
     | 'moveMany'
     | 'faceMany'
     | 'restyle'
+    | 'resizeMany'
     | 'setLayer'
     | 'setBarCurrent'
     | 'update'
@@ -81,12 +82,12 @@ export function newTokenRowOf(
   rules: TokenRulesBo,
   token: NewTokenDto,
 ): NewTokenRow {
-  const { col, row } = rules.place(token, token.size);
-  const { name, initials, side, size, layer } = token;
+  const { col, row } = rules.place(token, token);
+  const { name, initials, side, width, height, layer } = token;
   const { imageAssetId, frame, flipX, flipY, facing } = token;
   const look = { imageAssetId, frame, flipX, flipY, facing };
   return {
-    token: { sceneId, name, initials, side, size, col, row, layer, ...look },
+    token: { sceneId, name, initials, side, width, height, col, row, layer, ...look },
     bars: toBarInputsPo(token.bars),
     controllerIds: rules.controllers(token.controllerIds),
   };

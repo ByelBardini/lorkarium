@@ -69,12 +69,12 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | Área      | O que cobre                                                      | Arquivo                                                  |
 | --------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
 | contracts | DTOs Zod compartilhados (auth, mesas, sessão, tabuleiro, erro)   | [`docs/context/contracts.md`](docs/context/contracts.md) |
-| game-core | Regra de jogo pura: célula, distância, barra, iniciativa, turno  | [`docs/context/game-core.md`](docs/context/game-core.md) |
+| game-core | Regra de jogo pura: célula, distância, tamanho, barra, turno     | [`docs/context/game-core.md`](docs/context/game-core.md) |
 | server    | Encanamento: env, banco, migrações, app, unit × integração       | [`docs/context/server.md`](docs/context/server.md)       |
 | auth      | Contas, login, sessão por cookie, papel global (server + client) | [`docs/context/auth.md`](docs/context/auth.md)           |
 | campaigns | Mesas: criação, participação, lista, detalhe, entrada por código | [`docs/context/campaigns.md`](docs/context/campaigns.md) |
 | board     | Tabuleiro: cena (grid), versão por cena, depois tokens e combate | [`docs/context/board.md`](docs/context/board.md)         |
-| tokens    | Tokens da cena: barras, controladores, redação, camadas e grupos | [`docs/context/tokens.md`](docs/context/tokens.md)       |
+| tokens    | Tokens da cena: tamanho, barras, controle, redação, camadas      | [`docs/context/tokens.md`](docs/context/tokens.md)       |
 | combat    | Condições da mesa e combate: iniciativa, turno, rodada, duração  | [`docs/context/combat.md`](docs/context/combat.md)       |
 | drawings  | Desenhos da cena: formas, cor, dono, camada, lote e precondição  | [`docs/context/drawings.md`](docs/context/drawings.md)   |
 | sessions  | Sessão ao vivo da mesa (Socket.IO): presença, snapshot, versão   | [`docs/context/sessions.md`](docs/context/sessions.md)   |

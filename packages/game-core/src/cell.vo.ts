@@ -1,7 +1,8 @@
-/** A grid cell of the scene: column and row from the top-left corner, both whole and ≥ 0. */
+/** A position on the scene grid: column and row from the top-left corner, in steps of half a cell
+ *  and ≥ 0 (a half-cell token stands at 1.5). */
 export type Cell = Readonly<{ col: number; row: number }>;
 
-/** Builds a cell, refusing a coordinate that is not a whole number ≥ 0.
+/** Builds a cell, refusing a coordinate that is not a multiple of 0.5 ≥ 0.
  *
  *  Example: `cell(3, 4)` → `{ col: 3, row: 4 }` */
 export function cell(col: number, row: number): Cell {
@@ -18,6 +19,6 @@ export function sameCell(left: Cell, right: Cell): boolean {
 }
 
 function assertCellCoordinate(axis: 'col' | 'row', value: number): void {
-  if (Number.isInteger(value) && value >= 0) return;
-  throw new RangeError(`Cell ${axis} ${String(value)} is invalid: expected inteiro ≥ 0.`);
+  if (Number.isInteger(value * 2) && value >= 0) return;
+  throw new RangeError(`Cell ${axis} ${String(value)} is invalid: expected a multiple of 0.5 ≥ 0.`);
 }

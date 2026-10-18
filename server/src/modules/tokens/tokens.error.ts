@@ -33,17 +33,19 @@ export class BarNotFoundError extends TokenError {
 
 export type CellRef = Readonly<{ col: number; row: number }>;
 
+export type SizeRef = Readonly<{ width: number; height: number }>;
+
 export type SceneCells = Readonly<{ widthCells: number; heightCells: number }>;
 
 export class OutOfSceneError extends TokenError {
   constructor(
     readonly cell: CellRef,
-    readonly size: number,
+    readonly size: SizeRef,
     readonly scene: SceneCells,
   ) {
     super(
       'OUT_OF_SCENE',
-      `a token at (${cell.col}, ${cell.row}) of size ${size} does not fit the ${scene.widthCells}×${scene.heightCells} scene`,
+      `a token at (${cell.col}, ${cell.row}) of size ${size.width}×${size.height} does not fit the ${scene.widthCells}×${scene.heightCells} scene`,
     );
   }
 }

@@ -49,6 +49,21 @@ describe('parseBoardEvent', () => {
       { faces: [{ tokenId: '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a', facing: 45 }] },
     ],
     [
+      'token:resizedMany',
+      'tokensResized',
+      {
+        resizes: [
+          {
+            tokenId: '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a',
+            col: 1.5,
+            row: 0,
+            width: 2,
+            height: 1,
+          },
+        ],
+      },
+    ],
+    [
       'token:restyledMany',
       'tokensRestyled',
       { tokenIds: ['5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a'], style: { frame: 'round' } },
@@ -69,6 +84,18 @@ describe('parseBoardEvent', () => {
       faces: [{ tokenId: '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a', facing: 360 }],
     };
     expect(parseBoardEvent('token:facedMany', payload, VHARN.id)).toEqual({ kind: 'invalid' });
+  });
+
+  it('a token:resizedMany with a quarter cell is invalid (resync)', () => {
+    const payload = {
+      campaignId: VHARN.id,
+      version: 6,
+      at: '2026-10-16T12:00:00.000Z',
+      resizes: [
+        { tokenId: '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a', col: 0, row: 0, width: 1.25, height: 1 },
+      ],
+    };
+    expect(parseBoardEvent('token:resizedMany', payload, VHARN.id)).toEqual({ kind: 'invalid' });
   });
 
   it('a token:layerChanged of the table on an unknown layer is invalid', () => {

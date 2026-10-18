@@ -281,7 +281,7 @@ describe('board interaction store', () => {
 
     const ALONE = {
       scene: { widthCells: 20, heightCells: 12 },
-      members: [{ tokenId: LYRA_ID, col: 3, row: 4, size: 1 }],
+      members: [{ tokenId: LYRA_ID, col: 3, row: 4, width: 1, height: 1 }],
     };
 
     function over(at: ReturnType<typeof cell> | null): void {

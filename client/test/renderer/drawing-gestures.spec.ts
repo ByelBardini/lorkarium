@@ -21,6 +21,7 @@ function boardView(overrides: Partial<Parameters<typeof buildBoardView>[0]> = {}
     canChooseLayer: false,
     preview: [],
     facingPreview: {},
+    resizePreview: {},
     drag: null,
     dragged: {},
     readOnly: false,

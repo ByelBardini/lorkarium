@@ -163,7 +163,8 @@ const GOBLIN_WITHOUT_LAYER = {
   name: 'Goblin',
   initials: 'G',
   side: 'enemy',
-  size: 1,
+  width: 1,
+  height: 1,
   controllerIds: [],
   col: 3,
   row: 4,
@@ -186,7 +187,7 @@ describe('createTokensCommandDto', () => {
     ]);
   });
 
-  it('a token sent without appearance has no image, a square frame, no flip and looks down', () => {
+  it('a token sent without appearance has no image, a square frame, no flip and looks right (facing 0)', () => {
     const parsed = createTokensCommandDto.parse({ ...BASE, tokens: [GOBLIN] });
 
     expect(parsed.tokens[0]).toMatchObject(PLAIN_LOOK);

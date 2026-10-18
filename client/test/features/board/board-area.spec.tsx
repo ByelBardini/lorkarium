@@ -79,4 +79,42 @@ describe('board area: a group on the board', () => {
     ]);
     expect(deps.boardCommands.sentAs('moveTokens')).toEqual([]);
   });
+
+  describe('resizing by the handles', () => {
+    const WIDE = { col: 5, row: 4, width: 2, height: 1 };
+
+    function resized(): unknown[] {
+      return deps.boardCommands.sentAs('resizeTokens').map(({ fields }) => fields);
+    }
+
+    function kaelView() {
+      return renderer().lastView?.tokens.find(({ id }) => id === KAEL_ID);
+    }
+
+    it('a handle dragged shows the new box at once, and released sends the resize', async () => {
+      act(() => renderer().emit({ kind: 'tokenResizePreviewed', tokenId: KAEL_ID, box: WIDE }));
+      expect(kaelView()).toMatchObject(WIDE);
+
+      await act(async () => renderer().emit({ kind: 'tokenResized', tokenId: KAEL_ID, box: WIDE }));
+
+      expect(resized()).toEqual([{ resizes: [{ tokenId: KAEL_ID, ...WIDE }] }]);
+      expect(screen.getByRole('status', { name: 'Status do tabuleiro' })).toHaveTextContent(
+        'Kael agora ocupa 2 × 1 casas.',
+      );
+    });
+
+    it('Esc on the handle (a null preview) puts the token back', () => {
+      act(() => renderer().emit({ kind: 'tokenResizePreviewed', tokenId: KAEL_ID, box: WIDE }));
+      act(() => renderer().emit({ kind: 'tokenResizePreviewed', tokenId: KAEL_ID, box: null }));
+
+      expect(kaelView()).toMatchObject({ col: 5, row: 4, width: 1, height: 1 });
+    });
+
+    it('released on the box it already had, nothing is sent', () => {
+      const same = { col: 5, row: 4, width: 1, height: 1 };
+      act(() => renderer().emit({ kind: 'tokenResized', tokenId: KAEL_ID, box: same }));
+
+      expect(resized()).toEqual([]);
+    });
+  });
 });

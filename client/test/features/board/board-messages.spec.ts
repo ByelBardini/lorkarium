@@ -3,6 +3,7 @@ import {
   boardCommandFailureMessage,
   connectionStatusLine,
   movedAnnouncement,
+  resizedAnnouncement,
   selectedAnnouncement,
   tokenCommandFailureMessage,
 } from '@/features/board/board-messages';
@@ -49,5 +50,13 @@ describe('announcements', () => {
   it('count cells from 1', () => {
     expect(selectedAnnouncement('Kael', 7, 5)).toBe('Kael selecionado, coluna 8, linha 6');
     expect(movedAnnouncement('Kael', 8, 5)).toBe('Kael foi para a coluna 9, linha 6');
+  });
+});
+
+describe('resizedAnnouncement', () => {
+  it('says the new sides in cells, with a comma for half a cell', () => {
+    expect(resizedAnnouncement('Kael', { width: 2, height: 1.5 })).toBe(
+      'Kael agora ocupa 2 × 1,5 casas.',
+    );
   });
 });

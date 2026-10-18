@@ -38,7 +38,8 @@ describe('CombatDao on Postgres', () => {
         name,
         initials: name.slice(0, 2),
         side: 'ally',
-        size: 1,
+        width: 1,
+        height: 1,
         col: 0,
         row: 0,
       } as const;

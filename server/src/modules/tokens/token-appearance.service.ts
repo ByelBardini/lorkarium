@@ -1,10 +1,15 @@
-import type { FaceTokensCommandDto, RestyleTokensCommandDto } from '@lorkarium/contracts';
+import type {
+  FaceTokensCommandDto,
+  ResizeTokensCommandDto,
+  RestyleTokensCommandDto,
+} from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { inLockedScene } from '../scenes/locked-scene';
-import { requireFacing } from './token-rules.bo';
+import { placeInScene, requireBox, requireFacing } from './token-rules.bo';
+import type { TokenBoxPo } from './tokens.dao';
 import {
   requireAssetsOf,
   tokenAccessOf,
@@ -15,6 +20,7 @@ import {
 type Envelope = 'actionId' | 'campaignId';
 export type FaceTokens = Omit<FaceTokensCommandDto, Envelope>;
 export type RestyleTokens = Omit<RestyleTokensCommandDto, Envelope>;
+export type ResizeTokens = Omit<ResizeTokensCommandDto, Envelope>;
 
 export type TokenAppearanceServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
@@ -71,4 +77,37 @@ export class TokenAppearanceService {
     this.deps.publisher.tokensRestyled({ campaignId, version: saved.version, at, tokenIds, style });
     return saved.version;
   }
+
+  /** The size is the controllers' to choose, on any layer (like the look). The box must fit the
+   *  scene, and a resize with `expect` (the undo) is `STALE_UNDO` once the box changed since. */
+  async resizeMany(userId: string, campaignId: string, command: ResizeTokens): Promise<number> {
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const resizes = command.resizes.map(boxOf);
+    const saved = await inLockedScene(
+      this.deps.transaction,
+      campaignId,
+      async ({ daos, scene }) => {
+        const rows = await tokensIn(
+          daos,
+          scene,
+          campaignId,
+          resizes.map((box) => box.tokenId),
+        );
+        rows.forEach((row, index) => {
+          tokenAccessOf(access, row).requireControl('resize');
+          const resize = command.resizes[index];
+          if (resize) placeInScene(scene, resize, resize);
+          requireBox(row.token.id, resize?.expect, row.token);
+        });
+        await daos.tokens.resizeMany(resizes);
+      },
+    );
+    const at = this.deps.clock.now().toISOString();
+    this.deps.publisher.tokensResized({ campaignId, version: saved.version, at, resizes });
+    return saved.version;
+  }
+}
+
+function boxOf({ tokenId, col, row, width, height }: TokenBoxPo): TokenBoxPo {
+  return { tokenId, col, row, width, height };
 }

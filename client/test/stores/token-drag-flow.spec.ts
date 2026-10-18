@@ -13,11 +13,11 @@ import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import { KAEL_ID, LYRA_ID } from '../support/table-session-fixtures';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
-const LYRA_MEMBER = { tokenId: LYRA_ID, col: 3, row: 4, size: 1 };
+const LYRA_MEMBER = { tokenId: LYRA_ID, col: 3, row: 4, width: 1, height: 1 };
 // Lyra (the anchor) at (3, 4) and Kael at (5, 4), dragged together.
 const PAIR: DragGroup = {
   scene: SCENE,
-  members: [LYRA_MEMBER, { tokenId: KAEL_ID, col: 5, row: 4, size: 1 }],
+  members: [LYRA_MEMBER, { tokenId: KAEL_ID, col: 5, row: 4, width: 1, height: 1 }],
 };
 const ORIGIN = cell(3, 4);
 

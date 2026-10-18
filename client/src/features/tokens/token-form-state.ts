@@ -6,6 +6,7 @@ import {
   type TokenDto,
   type TokenSideDto,
 } from '@lorkarium/contracts';
+import { cellsText } from '@/lib/cells-text';
 import { initialsOf } from '@/lib/token-initials';
 import type { TokenEdit } from '@/services/table-board-commands';
 
@@ -25,7 +26,9 @@ export type TokenFormValues = Readonly<{
   /** Once the master types the initials, the name stops filling them. */
   initialsEdited: boolean;
   side: TokenSideDto;
-  size: number;
+  /** In cells, as typed ("1,5"): half-cell steps from 0,5 to 10. */
+  width: string;
+  height: string;
   controllerIds: readonly string[];
   /** The image of the token, or `null` for the initials disc. */
   imageAssetId: string | null;
@@ -37,6 +40,8 @@ export type BarFormErrors = Partial<Record<'label' | 'current' | 'max', string>>
 export type TokenFormErrors = Readonly<{
   name?: string;
   initials?: string;
+  width?: string;
+  height?: string;
   bars?: Readonly<Record<number, BarFormErrors>>;
 }>;
 
@@ -55,6 +60,8 @@ const BAR_ERROR: Readonly<Record<keyof BarFormErrors, string>> = {
   max: 'O máximo vai de 1 a 99 999.',
 };
 
+const SIDE_ERROR = 'De 0,5 a 10 casas, de meia em meia.';
+
 let barKeys = 0;
 
 /** "Novo token": nothing typed yet. */
@@ -64,7 +71,8 @@ export function emptyTokenForm(): TokenFormValues {
     initials: '',
     initialsEdited: false,
     side: 'ally',
-    size: 1,
+    width: '1',
+    height: '1',
     controllerIds: [],
     imageAssetId: null,
     bars: [],
@@ -75,7 +83,9 @@ export function emptyTokenForm(): TokenFormValues {
  *
  *  Example: `useState(() => tokenFormOf(token))` */
 export function tokenFormOf(token: TokenDto): TokenFormValues {
-  const { name, initials, side, size, controllerIds, imageAssetId } = token;
+  const { name, initials, side, controllerIds, imageAssetId } = token;
+  const width = cellsText(token.width);
+  const height = cellsText(token.height);
   const bars = token.bars.map((bar) => ({
     key: nextBarKey(),
     label: bar.label,
@@ -84,7 +94,8 @@ export function tokenFormOf(token: TokenDto): TokenFormValues {
     color: bar.color,
     visibility: bar.visibility,
   }));
-  return { name, initials, initialsEdited: true, side, size, controllerIds, imageAssetId, bars };
+  const look = { controllerIds, imageAssetId, bars };
+  return { name, initials, initialsEdited: true, side, width, height, ...look };
 }
 
 /** The name changed: the initials follow it until edited by hand. */
@@ -127,7 +138,8 @@ export function parseTokenForm(form: TokenFormValues): TokenFormResult {
     name: form.name,
     initials: form.initials,
     side: form.side,
-    size: form.size,
+    width: cellsOf(form.width),
+    height: cellsOf(form.height),
     controllerIds: form.controllerIds,
     imageAssetId: form.imageAssetId,
     bars: form.bars.map(({ label, current, max, color, visibility }) => ({
@@ -145,16 +157,20 @@ export function parseTokenForm(form: TokenFormValues): TokenFormResult {
 function errorsOf(issues: readonly { path: readonly PropertyKey[] }[]): TokenFormErrors {
   let name: string | undefined;
   let initials: string | undefined;
+  let width: string | undefined;
+  let height: string | undefined;
   const bars: Record<number, BarFormErrors> = {};
   for (const { path } of issues) {
     const [field, index, barField] = path;
     if (field === 'name') name = 'Informe o nome do token.';
     if (field === 'initials') initials = 'Use de 1 a 3 letras.';
+    if (field === 'width') width = SIDE_ERROR;
+    if (field === 'height') height = SIDE_ERROR;
     if (field === 'bars' && typeof index === 'number' && isBarField(barField)) {
       bars[index] = { ...bars[index], [barField]: BAR_ERROR[barField] };
     }
   }
-  return { name, initials, bars };
+  return { name, initials, width, height, bars };
 }
 
 function isBarField(key: unknown): key is keyof BarFormErrors {
@@ -165,6 +181,12 @@ function isBarField(key: unknown): key is keyof BarFormErrors {
 function integerOf(text: string): number {
   const trimmed = text.trim().replace('−', '-');
   return /^-?\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+}
+
+// "1,5" and "1.5" are both a cell and a half; anything else is NaN and the DTO refuses it.
+function cellsOf(text: string): number {
+  const trimmed = text.trim().replace(',', '.');
+  return /^\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : Number.NaN;
 }
 
 function nextBarKey(): string {

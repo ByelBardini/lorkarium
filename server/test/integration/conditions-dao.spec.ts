@@ -38,7 +38,8 @@ describe('ConditionsDao on Postgres', () => {
       name: 'Lyra',
       initials: 'LY',
       side: 'ally',
-      size: 1,
+      width: 1,
+      height: 1,
       col: 0,
       row: 0,
     } as const;

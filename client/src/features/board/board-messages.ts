@@ -4,6 +4,7 @@ import {
   OFFLINE_MESSAGE,
   UNEXPECTED_MESSAGE,
 } from '@/features/campaigns/campaign-messages';
+import { cellsText } from '@/lib/cells-text';
 import { facingLabel } from '@/lib/facing-label';
 import type { BoardCommandFailure } from '@/services/table-board-commands';
 import type { BoardStatus } from '@/stores/board-store';
@@ -65,7 +66,7 @@ export function tokenCommandFailureMessage(failure: BoardCommandFailure): string
 
 /** Cells are announced from 1, as a person counts them. */
 function cellWords(col: number, row: number): string {
-  return `coluna ${col + 1}, linha ${row + 1}`;
+  return `coluna ${cellsText(col + 1)}, linha ${cellsText(row + 1)}`;
 }
 
 /** Example: `selectedAnnouncement('Kael', 7, 5) // 'Kael selecionado, coluna 8, linha 6'` */
@@ -91,6 +92,14 @@ export function tokensMovedAnnouncement(count: number): string {
 /** Example: `facedAnnouncement('Kael', 45) // 'Kael olha para o sudoeste.'` */
 export function facedAnnouncement(name: string, facing: number): string {
   return `${name} olha para o ${facingLabel(facing)}.`;
+}
+
+/** Example: `resizedAnnouncement('Kael', { width: 2, height: 1.5 }) // 'Kael agora ocupa 2 × 1,5 casas.'` */
+export function resizedAnnouncement(
+  name: string,
+  size: Readonly<{ width: number; height: number }>,
+): string {
+  return `${name} agora ocupa ${cellsText(size.width)} × ${cellsText(size.height)} casas.`;
 }
 
 /** Example: `groupTurnedAnnouncement(2) // "2 tokens giraram."` */

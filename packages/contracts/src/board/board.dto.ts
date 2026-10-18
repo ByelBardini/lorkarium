@@ -56,6 +56,7 @@ import type {
   TokensFacedDto,
   TokensRestyledDto,
 } from './token-appearance.dto';
+import type { ResizeTokensCommandDto, TokensResizedDto } from './token-resize.dto';
 import type {
   CreateTokensCommandDto,
   DeleteTokensCommandDto,
@@ -83,6 +84,7 @@ export const BOARD_EVENTS = {
   setTokenLayer: 'token:setLayer',
   faceTokens: 'token:faceMany',
   restyleTokens: 'token:restyleMany',
+  resizeTokens: 'token:resizeMany',
   adjustBar: 'token:adjustBar',
   deleteToken: 'token:delete',
   deleteTokens: 'token:deleteMany',
@@ -95,6 +97,7 @@ export const BOARD_EVENTS = {
   tokenLayerChanged: 'token:layerChanged',
   tokensFaced: 'token:facedMany',
   tokensRestyled: 'token:restyledMany',
+  tokensResized: 'token:resizedMany',
   tokenDeleted: 'token:deleted',
   tokensDeleted: 'token:deletedMany',
   createDrawings: 'drawing:createMany',
@@ -197,6 +200,7 @@ export type BoardClientEvents = {
   'token:setLayer': Command<SetTokenLayerCommandDto>;
   'token:faceMany': Command<FaceTokensCommandDto>;
   'token:restyleMany': Command<RestyleTokensCommandDto>;
+  'token:resizeMany': Command<ResizeTokensCommandDto>;
   'token:adjustBar': Command<AdjustBarCommandDto>;
   'token:delete': Command<DeleteTokenCommandDto>;
   'token:deleteMany': Command<DeleteTokensCommandDto>;
@@ -229,6 +233,7 @@ export type BoardServerEvents = {
   'token:layerChanged': (event: TokenLayerChangedDto) => void;
   'token:facedMany': (event: TokensFacedDto) => void;
   'token:restyledMany': (event: TokensRestyledDto) => void;
+  'token:resizedMany': (event: TokensResizedDto) => void;
   'token:deleted': (event: TokenDeletedDto) => void;
   'token:deletedMany': (event: TokensDeletedDto) => void;
   'drawing:createdMany': (event: DrawingsCreatedDto) => void;

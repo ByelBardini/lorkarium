@@ -44,7 +44,8 @@ describe('TokenDialog', () => {
     await userEvent.type(within(dialog).getByLabelText('Nome'), 'Ogro das Cinzas');
     expect(within(dialog).getByLabelText('Iniciais')).toHaveValue('OC');
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Inimigo' }));
-    await userEvent.click(within(dialog).getByRole('radio', { name: '2 × 2' }));
+    await userEvent.clear(within(dialog).getByLabelText('Largura (casas)'));
+    await userEvent.type(within(dialog).getByLabelText('Largura (casas)'), '2,5');
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Bia' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Criar token' }));
     expect(commands.sentAs('createToken')).toEqual([
@@ -55,7 +56,8 @@ describe('TokenDialog', () => {
           name: 'Ogro das Cinzas',
           initials: 'OC',
           side: 'enemy',
-          size: 2,
+          width: 2.5,
+          height: 1,
           controllerIds: [BIA_AT_TABLE.userId],
           imageAssetId: null,
           bars: [],

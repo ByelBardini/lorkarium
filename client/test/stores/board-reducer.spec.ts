@@ -64,6 +64,25 @@ describe('applyBoardEvent, facing and look', () => {
     expect(next.version).toBe(5);
   });
 
+  it('token:resizedMany gives the listed tokens their new box and leaves the rest', () => {
+    const board = vharnBoard({ tokens: [lyra(), kael()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokensResized',
+      payload: {
+        ...vharnEventBase(5),
+        resizes: [{ tokenId: LYRA_ID, col: 2.5, row: 4, width: 1.5, height: 0.5 }],
+      },
+    });
+
+    expect(
+      next.tokens.map(({ id, col, row, width, height }) => [id, col, row, width, height]),
+    ).toEqual([
+      [LYRA_ID, 2.5, 4, 1.5, 0.5],
+      [KAEL_ID, 5, 4, 1, 1],
+    ]);
+  });
+
   it('token:restyledMany with a flip changes only the flip', () => {
     const board = vharnBoard({ tokens: [lyra({ frame: 'round' })] });
 
