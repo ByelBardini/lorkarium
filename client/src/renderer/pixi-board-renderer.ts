@@ -121,6 +121,7 @@ class PixiBoardRenderer implements BoardRenderer {
     );
     app.stage.addChild(this.world);
     this.listen(host, app.canvas);
+    this.followHostSize(host, app);
     app.ticker.add((ticker) => {
       this.panWithKeys(ticker.deltaMS);
       this.tokens.animate(performance.now());
@@ -251,6 +252,14 @@ class PixiBoardRenderer implements BoardRenderer {
     this.on(host, 'keydown', (event) => this.onKeyDown(event));
     this.on(host, 'keyup', (event) => this.onKeyUp(event));
     this.on(host, 'blur', () => this.heldPanKeys.clear());
+  }
+
+  // `resizeTo` only listens to the window: a host that changes size on its own (the room
+  // settling after entering) left the canvas stale and "Enquadrar cena" off-center.
+  private followHostSize(host: HTMLElement, app: Application): void {
+    const observer = new ResizeObserver(() => app.queueResize());
+    observer.observe(host);
+    this.disposers.push(() => observer.disconnect());
   }
 
   // On the document: the right click that opens our token menu lands on the page, not the canvas.
