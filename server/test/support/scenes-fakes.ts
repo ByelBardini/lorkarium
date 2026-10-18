@@ -15,7 +15,9 @@ import type {
   TokenLayerChangedDto,
   TokensDeletedDto,
   TokensDraggedDto,
+  TokensFacedDto,
   TokensMovedDto,
+  TokensRestyledDto,
   TokenMovedDto,
 } from '@lorkarium/contracts';
 import type {
@@ -23,19 +25,22 @@ import type {
   TokenChange,
   TokensCreation,
 } from '../../src/modules/scenes/board-publisher.port';
-import type { ScenesDao } from '../../src/modules/scenes/scenes.dao';
+import type { SceneRow, ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import type { SceneTransactionRunner } from '../../src/modules/scenes/scenes.service';
-import type { NewScenePo, SceneGridPo, ScenePo } from '../../src/modules/scenes/scenes.po';
+import type { NewScenePo, SceneConfigPo, ScenePo } from '../../src/modules/scenes/scenes.po';
+import { AssetsDaoFake } from './assets-fakes';
 import { scenePo } from './scenes-factories';
 
 /** In-memory scenes table. `activeOf` maps a campaign to its active scene (the
- *  `campaigns.active_scene_id` of the real query); `journal` records lock, update and bump in order. */
+ *  `campaigns.active_scene_id` of the real query); `journal` records lock, update and bump in order.
+ *  `backgrounds` holds the pixels of each background asset id (the join of the real query). */
 export class ScenesDaoFake implements Pick<
   ScenesDao,
   'insert' | 'findActiveOf' | 'lockActiveOf' | 'bumpVersion' | 'update'
 > {
   readonly journal: string[] = [];
   readonly activeOf = new Map<string, string>();
+  readonly backgrounds = new Map<string, { width: number; height: number }>();
 
   constructor(readonly rows: ScenePo[] = []) {}
 
@@ -45,12 +50,13 @@ export class ScenesDaoFake implements Pick<
     return row;
   }
 
-  async findActiveOf(campaignId: string): Promise<ScenePo | undefined> {
+  async findActiveOf(campaignId: string): Promise<SceneRow | undefined> {
     const sceneId = this.activeOf.get(campaignId);
-    return this.rows.find((row) => row.id === sceneId && row.campaignId === campaignId);
+    const row = this.rows.find((each) => each.id === sceneId && each.campaignId === campaignId);
+    return row && this.withBackground(row);
   }
 
-  async lockActiveOf(campaignId: string): Promise<ScenePo | undefined> {
+  async lockActiveOf(campaignId: string): Promise<SceneRow | undefined> {
     this.journal.push('lock');
     return this.findActiveOf(campaignId);
   }
@@ -62,11 +68,20 @@ export class ScenesDaoFake implements Pick<
     return row.version;
   }
 
-  async update(sceneId: string, grid: SceneGridPo): Promise<ScenePo> {
+  async update(sceneId: string, config: SceneConfigPo): Promise<ScenePo> {
     this.journal.push('save');
     const row = this.rowOf(sceneId);
-    Object.assign(row, grid);
+    Object.assign(row, config);
     return { ...row };
+  }
+
+  private withBackground(row: ScenePo): SceneRow {
+    const pixels = row.backgroundAssetId ? this.backgrounds.get(row.backgroundAssetId) : undefined;
+    return {
+      ...row,
+      backgroundWidth: pixels?.width ?? null,
+      backgroundHeight: pixels?.height ?? null,
+    };
   }
 
   private rowOf(sceneId: string): ScenePo {
@@ -86,6 +101,8 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly tokenMoves: TokenMovedDto[] = [];
   readonly tokenDeletes: TokenDeletedDto[] = [];
   readonly tokenLayerChanges: TokenLayerChangedDto[] = [];
+  readonly tokensFacings: TokensFacedDto[] = [];
+  readonly tokensRestylings: TokensRestyledDto[] = [];
   readonly tokensMoves: TokensMovedDto[] = [];
   readonly tokensCreations: TokensCreation[] = [];
   readonly tokensDeletes: TokensDeletedDto[] = [];
@@ -147,6 +164,16 @@ export class BoardPublisherFake implements BoardPublisherPort {
   tokenLayerChanged(event: TokenLayerChangedDto): void {
     this.journal.push('publish');
     this.tokenLayerChanges.push(event);
+  }
+
+  tokensFaced(event: TokensFacedDto): void {
+    this.journal.push('publish');
+    this.tokensFacings.push(event);
+  }
+
+  tokensRestyled(event: TokensRestyledDto): void {
+    this.journal.push('publish');
+    this.tokensRestylings.push(event);
   }
 
   drawingsCreated(event: DrawingsCreatedDto): void {
@@ -228,10 +255,13 @@ export class BoardPublisherFake implements BoardPublisherPort {
 
 /** Runs the work on the fake DAO and writes 'commit' to its journal once the work resolves. */
 export class SceneTransactionRunnerFake {
-  constructor(private readonly scenes: ScenesDaoFake) {}
+  constructor(
+    private readonly scenes: ScenesDaoFake,
+    private readonly assets: AssetsDaoFake = new AssetsDaoFake(),
+  ) {}
 
   readonly run: SceneTransactionRunner = async (work) => {
-    const result = await work({ scenes: this.scenes });
+    const result = await work({ scenes: this.scenes, assets: this.assets });
     this.scenes.journal.push('commit');
     return result;
   };

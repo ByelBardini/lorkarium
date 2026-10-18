@@ -26,6 +26,7 @@ import {
   combatOf,
   newTokenRowOf,
   passTurnIfLeaving,
+  requireAssetsOf,
   tokenAccessOf,
   tokenIn,
   tokensIn,
@@ -73,6 +74,7 @@ export class TokensService {
     const memberIds = await this.memberIdsOf(campaignId);
     const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
       const row = newTokenRowOf(scene.id, this.rulesFor(scene, memberIds), command);
+      await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
       return withConditions(daos, await daos.tokens.insert(row));
     });
     this.publishChange('token:created', campaignId, saved);
@@ -88,6 +90,7 @@ export class TokensService {
       const rules = this.rulesFor(scene, memberIds);
       rules.place(found.token, command.size);
       const update = toTokenUpdatePo(command, rules.controllers(command.controllerIds));
+      await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
       await daos.tokens.update(found.token.id, update);
       return withConditions(daos, await tokenIn(daos, scene, campaignId, command.tokenId));
     });

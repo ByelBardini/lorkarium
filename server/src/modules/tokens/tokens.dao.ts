@@ -9,6 +9,7 @@ import {
   type TokenBarPo,
   type TokenFieldsPo,
   type TokenLayerPo,
+  type TokenLookPo,
   type TokenPo,
 } from './tokens.po';
 
@@ -27,6 +28,9 @@ export type NewTokenRow = Readonly<{
 
 /** Where one token of a group lands. */
 export type TokenMovePo = Readonly<{ tokenId: string; col: number; row: number }>;
+
+/** Where one token of a group looks. */
+export type TokenFacingPo = Readonly<{ tokenId: string; facing: number }>;
 
 export type TokenUpdatePo = Readonly<{
   fields: TokenFieldsPo;
@@ -98,6 +102,24 @@ export class TokensDao {
   /** One `UPDATE` per token (a group is at most 64): run it on the DAO built with the `tx`. */
   async moveMany(moves: readonly TokenMovePo[]): Promise<void> {
     for (const { tokenId, col, row } of moves) await this.move(tokenId, col, row);
+  }
+
+  /** One `UPDATE` per token (a group is at most 64): run it on the DAO built with the `tx`. */
+  async faceMany(faces: readonly TokenFacingPo[]): Promise<void> {
+    for (const { tokenId, facing } of faces) {
+      await this.db
+        .update(tokens)
+        .set({ facing, updatedAt: sql`now()` })
+        .where(eq(tokens.id, tokenId));
+    }
+  }
+
+  /** The same look fields on every listed token; an absent field is not written. */
+  async restyle(tokenIds: readonly string[], look: Partial<TokenLookPo>): Promise<void> {
+    await this.db
+      .update(tokens)
+      .set({ ...look, updatedAt: sql`now()` })
+      .where(inArray(tokens.id, [...tokenIds]));
   }
 
   async setBarCurrent(barId: string, current: number): Promise<void> {

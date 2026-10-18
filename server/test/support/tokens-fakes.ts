@@ -1,12 +1,14 @@
-import type { TokenLayerPo } from '../../src/modules/tokens/tokens.po';
+import type { TokenLayerPo, TokenLookPo } from '../../src/modules/tokens/tokens.po';
 import type {
   NewTokenRow,
+  TokenFacingPo,
   TokenMovePo,
   TokenRow,
   TokenUpdatePo,
   TokensDao,
 } from '../../src/modules/tokens/tokens.dao';
 import type { TokenTransactionRunner } from '../../src/modules/tokens/token-transaction';
+import { AssetsDaoFake } from './assets-fakes';
 import { CombatDaoFake } from './combat-fakes';
 import { ConditionsDaoFake } from './conditions-fakes';
 import type { ScenesDaoFake } from './scenes-fakes';
@@ -25,6 +27,8 @@ export class TokensDaoFake implements Pick<
   | 'listOfScene'
   | 'move'
   | 'moveMany'
+  | 'faceMany'
+  | 'restyle'
   | 'setLayer'
   | 'setBarCurrent'
   | 'update'
@@ -67,6 +71,16 @@ export class TokensDaoFake implements Pick<
   }
 
   // One write for the whole group, as the real DAO does it in one UPDATE.
+  async faceMany(faces: readonly TokenFacingPo[]): Promise<void> {
+    this.journal.push('save');
+    for (const { tokenId, facing } of faces) this.changeToken(tokenId, { facing });
+  }
+
+  async restyle(tokenIds: readonly string[], look: Partial<TokenLookPo>): Promise<void> {
+    this.journal.push('save');
+    for (const tokenId of tokenIds) this.changeToken(tokenId, look);
+  }
+
   async setLayer(tokenIds: readonly string[], layer: TokenLayerPo): Promise<void> {
     this.journal.push('save');
     for (const [index, found] of this.rows.entries()) {
@@ -126,6 +140,13 @@ export class TokensDaoFake implements Pick<
     this.rows.splice(0, this.rows.length, ...kept);
   }
 
+  private changeToken(tokenId: string, fields: Partial<TokenRow['token']>): void {
+    const index = this.rows.findIndex(({ token }) => token.id === tokenId);
+    const found = this.rows[index];
+    if (!found) throw new Error(`TokensDaoFake has no token ${tokenId}`);
+    this.rows[index] = { ...found, token: { ...found.token, ...fields } };
+  }
+
   private replace(tokenId: string, change: (found: TokenRow) => TokenRow): void {
     this.journal.push('save');
     const index = this.rows.findIndex(({ token }) => token.id === tokenId);
@@ -142,6 +163,7 @@ export class TokenTransactionRunnerFake {
     private readonly tokens: TokensDaoFake,
     private readonly conditions: Pick<ConditionsDaoFake, 'listOfTokens'> = new ConditionsDaoFake(),
     private readonly combat: CombatDaoFake = new CombatDaoFake(),
+    private readonly assets: AssetsDaoFake = new AssetsDaoFake(),
   ) {}
 
   readonly run: TokenTransactionRunner = async (work) => {
@@ -150,6 +172,7 @@ export class TokenTransactionRunnerFake {
       tokens: this.tokens,
       conditions: this.conditions,
       combat: this.combat,
+      assets: this.assets,
     });
     this.scenes.journal.push('commit');
     return result;

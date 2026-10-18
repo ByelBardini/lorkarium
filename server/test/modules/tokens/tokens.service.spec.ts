@@ -14,6 +14,10 @@ import {
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import { TokenTransactionRunnerFake, TokensDaoFake } from '../../support/tokens-fakes';
+import { AssetsDaoFake } from '../../support/assets-fakes';
+import { LYRA_PORTRAIT_ID, QUELM_MAP_ID, lyraPortraitPo } from '../../support/assets-factories';
+import { CombatDaoFake } from '../../support/combat-fakes';
+import { ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BRAM_ID, LYRA_ID, LYRA_PV_ID, bramRow, lyraRow } from '../../support/tokens-factories';
 
 const NOW = new Date('2026-10-15T21:00:00Z');
@@ -33,6 +37,11 @@ const NEW_TOKEN: CreateToken = {
   row: 2,
   layer: 'tokens',
   controllerIds: [BIA_ID],
+  imageAssetId: null,
+  frame: 'square',
+  flipX: false,
+  flipY: false,
+  facing: 0,
   bars: [PV],
 };
 
@@ -62,7 +71,17 @@ describe('TokensService', () => {
     scenes.activeOf.set(QUELM_ID, 'quelm-scene');
     tokens = new TokensDaoFake(scenes.journal, [lyraRow(), bramRow()]);
     publisher = new BoardPublisherFake(scenes.journal);
-    const transaction = new TokenTransactionRunnerFake(scenes, tokens);
+    const assets = new AssetsDaoFake(
+      [],
+      [lyraPortraitPo(), lyraPortraitPo({ id: QUELM_MAP_ID, campaignId: QUELM_ID })],
+    );
+    const transaction = new TokenTransactionRunnerFake(
+      scenes,
+      tokens,
+      new ConditionsDaoFake(),
+      new CombatDaoFake(),
+      assets,
+    );
     service = new TokensService({
       members,
       transaction: transaction.run,
@@ -93,6 +112,28 @@ describe('TokensService', () => {
     });
     expect(change?.privileged.token.bars).toHaveLength(1);
     expect(change?.others.token).toMatchObject({ canControl: false, bars: [] });
+  });
+
+  it('the master creating Kael with an image of the table saves the image, frame and flips', async () => {
+    const look = {
+      imageAssetId: LYRA_PORTRAIT_ID,
+      frame: 'round',
+      flipX: true,
+      flipY: false,
+    } as const;
+
+    await service.create(ANA_ID, VHARN_ID, { ...NEW_TOKEN, ...look });
+
+    expect(tokens.rows.at(-1)?.token).toMatchObject({ ...look, facing: 0 });
+    expect(publisher.tokenChanges[0]?.others.token).toMatchObject(look);
+  });
+
+  it('an image of another table is ASSET_NOT_FOUND, and nothing is saved nor published', async () => {
+    const create = service.create(ANA_ID, VHARN_ID, { ...NEW_TOKEN, imageAssetId: QUELM_MAP_ID });
+
+    await expect(create).rejects.toMatchObject({ code: 'ASSET_NOT_FOUND' });
+    expect(scenes.journal).toEqual(['lock']);
+    expect(publisher.tokenChanges).toEqual([]);
   });
 
   it('a player creating a token is refused with FORBIDDEN, and nothing is saved nor published', async () => {

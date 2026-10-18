@@ -7,12 +7,12 @@ import type {
   TokenDto,
 } from '@lorkarium/contracts';
 import { toSceneDto } from '../scenes/scenes.mapper';
-import type { ScenePo } from '../scenes/scenes.po';
+import type { SceneRow } from '../scenes/scenes.dao';
 
 export type BoardSnapshotParts = Readonly<{
   campaignId: string;
   viewer: BoardViewerDto;
-  scene: ScenePo;
+  scene: SceneRow;
   /** Already redacted for the viewer. */
   tokens: readonly TokenDto[];
   drawings: readonly DrawingDto[];

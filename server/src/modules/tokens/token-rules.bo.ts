@@ -48,3 +48,11 @@ export class TokenRulesBo {
     return applyBarChange(current, change, this.state.barLimit);
   }
 }
+
+/** The undo precondition of a turn: no `expected` (a normal turn) always passes.
+ *
+ *  Example: `requireFacing(row.token.id, face.expect?.facing, row.token.facing)` */
+export function requireFacing(tokenId: string, expected: number | undefined, actual: number): void {
+  if (expected === undefined || expected === actual) return;
+  throw new StaleUndoError(`token ${tokenId}`, `facing ${expected}`, `facing ${actual}`);
+}

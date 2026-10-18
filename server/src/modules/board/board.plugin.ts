@@ -17,6 +17,7 @@ export type BoardModuleOptions = Readonly<{
   scenes: Pick<ScenesService, 'configure'>;
   tokens: BoardGatewayDeps['tokens'];
   tokenBatch: BoardGatewayDeps['tokenBatch'];
+  tokenAppearance: BoardGatewayDeps['tokenAppearance'];
   conditions: BoardGatewayDeps['conditions'];
   combat: BoardGatewayDeps['combat'];
   drawings: BoardGatewayDeps['drawings'];
@@ -31,7 +32,8 @@ export type BoardModule = Readonly<{ gateway: (socket: RealtimeSocket) => void }
  *
  *  Example: `realtime.onConnection(createBoardModule(options).gateway)` */
 export function createBoardModule(options: BoardModuleOptions): BoardModule {
-  const { db, scenes, tokens, tokenBatch, conditions, combat, drawings, clock } = options;
+  const { db, scenes, tokens, tokenBatch, tokenAppearance, conditions, combat, drawings } = options;
+  const { clock } = options;
   const { realtime, log } = options;
   const members = new CampaignMembersDao(db);
   const board = new BoardService({
@@ -48,6 +50,7 @@ export function createBoardModule(options: BoardModuleOptions): BoardModule {
     scenes,
     tokens,
     tokenBatch,
+    tokenAppearance,
     conditions,
     combat,
     drawings,

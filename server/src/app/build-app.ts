@@ -89,7 +89,8 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
   const { clock } = modules;
   const publisher = new SocketIoBoardPublisher(realtime.io);
   const scenes = createScenesModule({ db, publisher, clock }).service;
-  const { service: tokens, batch: tokenBatch } = createTokensModule({ db, publisher, clock });
+  const tokensModule = createTokensModule({ db, publisher, clock });
+  const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
   const conditions = createConditionsModule({ db, publisher, clock }).service;
   const combat = createCombatModule({ db, publisher, clock }).service;
   const drawings = createDrawingsModule({ db, publisher, clock }).service;
@@ -98,6 +99,7 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
     scenes,
     tokens,
     tokenBatch,
+    tokenAppearance,
     conditions,
     combat,
     drawings,

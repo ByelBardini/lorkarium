@@ -19,7 +19,9 @@ import type {
   TokenUpdatedDto,
   TokensDeletedDto,
   TokensDraggedDto,
+  TokensFacedDto,
   TokensMovedDto,
+  TokensRestyledDto,
 } from '@lorkarium/contracts';
 
 /** A token event in its two versions: whole for the masters and the token's controllers,
@@ -55,6 +57,9 @@ export interface BoardPublisherPort {
   tokensCreated(creation: TokensCreation): void;
   tokensDeleted(event: TokensDeletedDto): void;
   tokenLayerChanged(event: TokenLayerChangedDto): void;
+  /** The facing and the look are not secrets: the whole table gets the same events. */
+  tokensFaced(event: TokensFacedDto): void;
+  tokensRestyled(event: TokensRestyledDto): void;
   /** Drawings have no secret: the whole table gets the same events. */
   drawingsCreated(event: DrawingsCreatedDto): void;
   drawingsMoved(event: DrawingsMovedDto): void;

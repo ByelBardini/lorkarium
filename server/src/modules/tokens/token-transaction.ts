@@ -1,4 +1,6 @@
 import type { ActiveConditionDto, CombatDto, NewTokenDto, TokenDto } from '@lorkarium/contracts';
+import type { AssetsDao } from '../assets/assets.dao';
+import { AssetNotFoundError } from '../assets/assets.error';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import { CombatBo } from '../combat/combat.bo';
 import type { CombatDao } from '../combat/combat.dao';
@@ -25,6 +27,8 @@ export type TokenWriteDaos = Readonly<{
     | 'findManyInScene'
     | 'move'
     | 'moveMany'
+    | 'faceMany'
+    | 'restyle'
     | 'setLayer'
     | 'setBarCurrent'
     | 'update'
@@ -33,6 +37,7 @@ export type TokenWriteDaos = Readonly<{
   >;
   conditions: Pick<ConditionsDao, 'listOfTokens'>;
   combat: Pick<CombatDao, 'findOfScene' | 'setTurn'>;
+  assets: Pick<AssetsDao, 'findManyInCampaign'>;
 }>;
 
 export type TokenTransactionRunner = SceneTransaction<TokenWriteDaos>;
@@ -78,8 +83,10 @@ export function newTokenRowOf(
 ): NewTokenRow {
   const { col, row } = rules.place(token, token.size);
   const { name, initials, side, size, layer } = token;
+  const { imageAssetId, frame, flipX, flipY, facing } = token;
+  const look = { imageAssetId, frame, flipX, flipY, facing };
   return {
-    token: { sceneId, name, initials, side, size, col, row, layer },
+    token: { sceneId, name, initials, side, size, col, row, layer, ...look },
     bars: toBarInputsPo(token.bars),
     controllerIds: rules.controllers(token.controllerIds),
   };
@@ -134,6 +141,24 @@ export async function tokensIn(
     if (!row) throw new TokenNotFoundError(campaignId, tokenId);
     return row;
   });
+}
+
+/** Every image a command puts on tokens must be an asset of the table: the first one that is not
+ *  (another table's too) refuses the command with ASSET_NOT_FOUND before anything is written.
+ *
+ *  Example: `await requireAssetsOf(daos, campaignId, command.tokens.map((t) => t.imageAssetId))` */
+export async function requireAssetsOf(
+  daos: TokenWriteDaos,
+  campaignId: string,
+  assetIds: readonly (string | null | undefined)[],
+): Promise<void> {
+  const wanted = [...new Set(assetIds.filter((id): id is string => typeof id === 'string'))];
+  if (wanted.length === 0) return;
+  const found = new Set(
+    (await daos.assets.findManyInCampaign(campaignId, wanted)).map((a) => a.id),
+  );
+  const missing = wanted.find((assetId) => !found.has(assetId));
+  if (missing !== undefined) throw new AssetNotFoundError(missing);
 }
 
 export function tokenAccessOf(access: CampaignAccessBo, row: TokenRow): TokenAccessBo {

@@ -4,6 +4,8 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
+import type { AssetDto } from '@lorkarium/contracts';
+import { sendImage } from './images';
 import { atTable, envelope, eventPayload } from './live-table';
 import type { EventRecorder, RealtimeClient } from './realtime-client';
 import { signUpAndLogin, type SignedInUser } from './sign-in';
@@ -54,6 +56,11 @@ export class TokenTableHarness {
 
   atTable(user: SignedInUser, table: Table): Promise<RealtimeClient> {
     return atTable(this.baseUrl, this.clients, user, table);
+  }
+
+  /** A 400×400 PNG sent to `table` by `user` through the real HTTP edge. */
+  sendImage(user: SignedInUser, table: Table): Promise<AssetDto> {
+    return sendImage(this.app, user, table, 400, 400);
   }
 }
 

@@ -9,6 +9,7 @@ export {
   barVisibility,
   tokenBars,
   tokenControllers,
+  tokenFrame,
   tokenLayer,
   tokenSide,
   tokens,

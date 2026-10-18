@@ -14,6 +14,7 @@ import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import { connectRealtime, recordEventsOf, type RealtimeClient } from '../support/realtime-client';
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
+import { sendImage } from '../support/images';
 import { createTable, joinByCode, type Table } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
@@ -183,5 +184,60 @@ describe('board over Socket.IO', () => {
       error: expect.objectContaining({ code: 'RATE_LIMITED', retryAfterSeconds: 1 }),
     });
     expect((await sync(await atTable(bia, vharn), vharn.id)).ok).toBe(true);
+  });
+
+  describe('scene background', () => {
+    it('the master sets an image of the table and Bia receives scene:updated with its pixels', async () => {
+      const map = await sendImage(app, ana, vharn, 1400, 700);
+      const anaClient = await atTable(ana, vharn);
+      const biaEvents = recordEventsOf(await atTable(bia, vharn));
+
+      const ack = await configure(anaClient, {
+        ...command(vharn.id),
+        ...GRID_30_BY_20,
+        backgroundAssetId: map.id,
+      });
+
+      expect(ack).toEqual({ ok: true, version: 1 });
+      await biaEvents.until(1);
+      const updated = biaEvents.events.find(({ name }) => name === 'scene:updated');
+      expect(updated?.payload).toMatchObject({
+        scene: { background: { assetId: map.id, width: 1400, height: 700 } },
+      });
+    });
+
+    it('after a restart, board:sync still carries the background', async () => {
+      const map = await sendImage(app, ana, vharn, 1400, 700);
+      const payload = { ...command(vharn.id), ...GRID_30_BY_20, backgroundAssetId: map.id };
+      await configure(await atTable(ana, vharn), payload);
+      for (const client of clients.splice(0)) client.close();
+      await app.close();
+      await startApp();
+
+      const state = await synced(await atTable(bia, vharn), vharn.id);
+
+      expect(state.scene.background).toEqual({ assetId: map.id, width: 1400, height: 700 });
+    });
+
+    it('an image of another table is refused with ASSET_NOT_FOUND and nobody hears of it', async () => {
+      const caio = await signUpAndLogin(app, connection.db, 'Caio');
+      const quelm = await createTable(app, caio, 'Quelm');
+      const quelmMap = await sendImage(app, caio, quelm, 800, 800);
+      const anaClient = await atTable(ana, vharn);
+      const biaEvents = recordEventsOf(await atTable(bia, vharn));
+
+      const ack = await configure(anaClient, {
+        ...command(vharn.id),
+        ...GRID_30_BY_20,
+        backgroundAssetId: quelmMap.id,
+      });
+
+      expect(ack).toEqual({
+        ok: false,
+        error: expect.objectContaining({ code: 'ASSET_NOT_FOUND' }),
+      });
+      await new Promise((resolve) => setTimeout(resolve, SILENCE_MS));
+      expect(biaEvents.events.map(({ name }) => name)).not.toContain('scene:updated');
+    });
   });
 });

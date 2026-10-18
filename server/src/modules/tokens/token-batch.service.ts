@@ -10,6 +10,7 @@ import {
   audiencesOf,
   combatOf,
   newTokenRowOf,
+  requireAssetsOf,
   passTurnIfLeaving,
   tokensIn,
   withConditions,
@@ -53,6 +54,11 @@ export class TokenBatchService {
       async ({ daos, scene }) => {
         const rules = this.rulesFor(scene, memberIds);
         const rows = command.tokens.map((token) => newTokenRowOf(scene.id, rules, token));
+        await requireAssetsOf(
+          daos,
+          campaignId,
+          command.tokens.map((token) => token.imageAssetId),
+        );
         const created = await daos.tokens.insertMany(rows);
         const withAll: TokenWithConditions[] = [];
         for (const row of created) withAll.push(await withConditions(daos, row));
