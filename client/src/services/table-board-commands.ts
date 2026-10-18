@@ -5,6 +5,7 @@ import {
   type CreateTokenCommandInput,
   type DrawingShapeInput,
   type SceneGridDto,
+  type SceneVisionDto,
   type TokenLayerDto,
   type TokenStyleDto,
   type UpdateTokenCommandDto,
@@ -19,6 +20,17 @@ import {
   type EffectAreaShaped,
 } from './effect-area-commands';
 import type { RealtimeTransport } from './realtime-transport';
+import {
+  RealtimeWallCommands,
+  type DoorState,
+  type WallCommands,
+  type WallKind,
+  type WallKindOf,
+  type WallEraseBox,
+  type WallPosition,
+  type WallPlacement,
+  type WallShape,
+} from './wall-commands';
 
 export type { BoardCommandFailure, BoardCommandResult } from './board-command-sender';
 
@@ -31,7 +43,8 @@ export type CellTarget = Readonly<{ col: number; row: number }>;
 /** Where one token of a group lands. */
 export type TokenPlacement = Readonly<{ tokenId: string; col: number; row: number }>;
 /** A token move; `expect` (an undo) is the cell it must still be on, or STALE_UNDO. */
-export type TokenMoveTarget = TokenPlacement & Readonly<{ expect?: CellTarget }>;
+export type TokenMoveTarget = TokenPlacement &
+  Readonly<{ expect?: CellTarget; path?: readonly CellTarget[] }>;
 export type DrawingPosition = Readonly<{ x: number; y: number }>;
 /** Where one drawing of a group is (or must still be), in fractional cells. */
 export type DrawingPlacement = Readonly<{ drawingId: string }> & DrawingPosition;
@@ -55,17 +68,24 @@ export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | nul
  *  change itself arrives as an event, like everyone else's.
  *
  *  Example: `const result = await boardCommands.moveToken(campaignId, tokenId, { col, row })` */
-export interface TableBoardCommands extends EffectAreaCommands {
+export interface TableBoardCommands extends EffectAreaCommands, WallCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
-   *  absent keeps it. */
+   *  absent keeps it; `vision` absent keeps the scene's mode. */
   configureScene(
     campaignId: string,
     grid: SceneGridDto,
     backgroundAssetId?: string | null,
+    vision?: SceneVisionDto,
   ): Promise<BoardCommandResult>;
   createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult>;
   updateToken(campaignId: string, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult>;
-  moveToken(campaignId: string, tokenId: string, to: CellTarget): Promise<BoardCommandResult>;
+  /** `path`: the bends around walls (absent or empty: a straight move). */
+  moveToken(
+    campaignId: string,
+    tokenId: string,
+    to: CellTarget,
+    path?: readonly CellTarget[],
+  ): Promise<BoardCommandResult>;
   /** A group move: all or nothing, in one version. */
   moveTokens(campaignId: string, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult>;
   /** A paste of tokens (master): all or nothing, in one version. */
@@ -164,10 +184,50 @@ export interface TableBoardCommands extends EffectAreaCommands {
 export class RealtimeTableBoardCommands implements TableBoardCommands {
   private readonly sender: BoardCommandSender;
   private readonly effectAreas: EffectAreaCommands;
+  private readonly walls: WallCommands;
 
   constructor(transport: RealtimeTransport, newActionId: () => string) {
     this.sender = new BoardCommandSender(transport, newActionId);
     this.effectAreas = new RealtimeEffectAreaCommands(this.sender);
+    this.walls = new RealtimeWallCommands(this.sender);
+  }
+
+  createWalls(campaignId: string, shapes: readonly WallShape[]): Promise<BoardCommandResult> {
+    return this.walls.createWalls(campaignId, shapes);
+  }
+
+  eraseWallArea(campaignId: string, box: WallEraseBox): Promise<BoardCommandResult> {
+    return this.walls.eraseWallArea(campaignId, box);
+  }
+
+  eraseWallSegment(
+    campaignId: string,
+    wallId: string,
+    segmentIndex: number,
+    expect?: WallPosition,
+  ): Promise<BoardCommandResult> {
+    return this.walls.eraseWallSegment(campaignId, wallId, segmentIndex, expect);
+  }
+
+  deleteWalls(
+    campaignId: string,
+    wallIds: readonly string[],
+    expect?: readonly WallPlacement[],
+  ): Promise<BoardCommandResult> {
+    return this.walls.deleteWalls(campaignId, wallIds, expect);
+  }
+
+  setWallKinds(
+    campaignId: string,
+    wallIds: readonly string[],
+    kind: WallKind,
+    expect?: readonly WallKindOf[],
+  ): Promise<BoardCommandResult> {
+    return this.walls.setWallKinds(campaignId, wallIds, kind, expect);
+  }
+
+  setDoor(campaignId: string, wallId: string, state: DoorState): Promise<BoardCommandResult> {
+    return this.walls.setDoor(campaignId, wallId, state);
   }
 
   createEffectAreas(
@@ -196,9 +256,11 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
     campaignId: string,
     grid: SceneGridDto,
     backgroundAssetId?: string | null,
+    vision?: SceneVisionDto,
   ): Promise<BoardCommandResult> {
     const background = backgroundAssetId === undefined ? {} : { backgroundAssetId };
-    return this.send(BOARD_EVENTS.configureScene, campaignId, { ...grid, ...background });
+    const mode = vision === undefined ? {} : { vision };
+    return this.send(BOARD_EVENTS.configureScene, campaignId, { ...grid, ...background, ...mode });
   }
 
   createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult> {
@@ -209,16 +271,30 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
     return this.send(BOARD_EVENTS.updateToken, campaignId, { tokenId, ...edit });
   }
 
-  moveToken(campaignId: string, tokenId: string, to: CellTarget): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.moveToken, campaignId, { tokenId, col: to.col, row: to.row });
+  moveToken(
+    campaignId: string,
+    tokenId: string,
+    to: CellTarget,
+    path?: readonly CellTarget[],
+  ): Promise<BoardCommandResult> {
+    const bends =
+      path && path.length > 0 ? { path: path.map(({ col, row }) => ({ col, row })) } : {};
+    return this.send(BOARD_EVENTS.moveToken, campaignId, {
+      tokenId,
+      col: to.col,
+      row: to.row,
+      ...bends,
+    });
   }
 
   moveTokens(campaignId: string, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult> {
-    const placed = moves.map(({ tokenId, col, row, expect }) => ({
+    const placed = moves.map(({ tokenId, col, row, expect, path }) => ({
       tokenId,
       col,
       row,
       ...(expect && { expect: { col: expect.col, row: expect.row } }),
+      ...(path &&
+        path.length > 0 && { path: path.map((bend) => ({ col: bend.col, row: bend.row })) }),
     }));
     return this.send(BOARD_EVENTS.moveTokens, campaignId, { moves: placed });
   }

@@ -11,10 +11,13 @@ import type { Clipboard } from '@/services/clipboard';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import { DrawStylePanel } from '@/features/drawings/draw-style-panel';
 import { EffectAreaPanel } from '@/features/effect-areas/effect-area-panel';
+import { RoomWallPanel } from '@/features/walls/room-wall-panel';
+import { DoorMenu, type DoorMenuRequest } from '@/features/walls/door-menu';
 import type { EditEntry } from '@/lib/edit-history';
 import { createBoardInteractionStore, useBoardInteraction } from '@/stores/board-interaction-store';
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
+import type { WallStyleStore } from '@/stores/wall-style-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
@@ -22,7 +25,7 @@ import { useTablePresence, type TablePresenceStore } from '@/stores/table-presen
 import { BoardArea } from './board-area';
 import { tokenCommandFailureMessage } from './board-messages';
 import { BoardStatusLine } from './board-status-line';
-import { BoardToolbar } from './board-toolbar';
+import { BoardToolbar, type BoardToolbarProps } from './board-toolbar';
 import { ConfigureSceneDialog } from './configure-scene-dialog';
 import { FocusToggle } from './focus-toggle';
 import { TokenContextMenu, type TokenMenuRequest } from './token-context-menu';
@@ -38,6 +41,7 @@ export type PlayRoomPageProps = Readonly<{
   roomLayout: StoreApi<RoomLayoutStore>;
   drawingStyle: StoreApi<DrawingStyleStore>;
   effectAreaStyle: StoreApi<EffectAreaStyleStore>;
+  wallStyle: StoreApi<WallStyleStore>;
   clipboard: Clipboard;
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
@@ -64,6 +68,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   // `{ tokenId: null }` is "Novo token"; a token id is "Editar token".
   const [tokenDialog, setTokenDialog] = useState<Readonly<{ tokenId: string | null }> | null>(null);
   const [tokenMenu, setTokenMenu] = useState<TokenMenuRequest | null>(null);
+  const [doorMenu, setDoorMenu] = useState<DoorMenuRequest | null>(null);
   const [conditionTargets, setConditionTargets] = useState<readonly string[] | null>(null);
   const [imageTokenId, setImageTokenId] = useState<string | null>(null);
   const isMaster = campaign.myRole === 'master';
@@ -99,11 +104,20 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             roomLayout.getState().showTab('combat');
           }}
           onTokenMenu={setTokenMenu}
+          onDoorMenu={(request) => isMaster && setDoorMenu(request)}
           drawingStyle={props.drawingStyle}
           effectAreaStyle={props.effectAreaStyle}
+          wallStyle={props.wallStyle}
         />
         {tool === 'draw' && !focus && <DrawStylePanel drawingStyle={props.drawingStyle} />}
         {tool === 'area' && !focus && <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />}
+        {tool === 'walls' && !focus && table && (
+          <RoomWallPanel
+            board={table.board}
+            interaction={interaction}
+            wallStyle={props.wallStyle}
+          />
+        )}
         {tokenMenu && table && (
           <TokenContextMenu
             request={tokenMenu}
@@ -112,6 +126,14 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             onApplyCondition={setConditionTargets}
             onChangeImage={setImageTokenId}
             onClose={() => setTokenMenu(null)}
+          />
+        )}
+        {doorMenu && table && (
+          <DoorMenu
+            request={doorMenu}
+            board={table.board}
+            interaction={interaction}
+            onClose={() => setDoorMenu(null)}
           />
         )}
         {conditionTargets && table && (
@@ -142,7 +164,8 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           />
         )}
         {!focus && (
-          <BoardToolbar
+          <RoomToolbar
+            board={table?.board ?? null}
             interaction={interaction}
             renderer={renderer}
             canConfigure={campaign.myRole === 'master'}
@@ -230,4 +253,22 @@ function RoomSceneDialog({ campaignId, table, commands, assets, onClose }: RoomS
       onClose={onClose}
     />
   );
+}
+
+type RoomToolbarProps = Omit<BoardToolbarProps, 'sightOn'> &
+  Readonly<{ board: StoreApi<BoardStore> | null }>;
+
+// The toolbar before the table opens has no scene to preview; once it does, Escuro and Luz do dia
+// give the master "Ver como os selecionados".
+function RoomToolbar({ board, ...toolbar }: RoomToolbarProps): React.JSX.Element {
+  if (!board) return <BoardToolbar {...toolbar} />;
+  return <TableToolbar board={board} {...toolbar} />;
+}
+
+function TableToolbar({
+  board,
+  ...toolbar
+}: Omit<BoardToolbarProps, 'sightOn'> & Readonly<{ board: StoreApi<BoardStore> }>) {
+  const vision = useBoard(board, (state) => state.board?.scene.vision);
+  return <BoardToolbar {...toolbar} sightOn={vision === 'dark' || vision === 'daylight'} />;
 }

@@ -14,11 +14,14 @@ import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import { KAEL_ID, LYRA_ID, kael, lyra } from '../support/table-session-fixtures';
+import { shapeOfWall } from '@/lib/wall-geometry';
+import { NORTH_WALL_ID, northWall } from '../support/wall-fixtures';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
 const NEW_GOBLIN = 'e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b';
 const NEW_SQUARE = 'f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c';
 const NEW_AREA = 'a3b4c5d6-e7f8-4a9b-8c1d-2e3f4a5b6c7d';
+const NEW_WALL = 'b4c5d6e7-f8a9-4b0c-9d2e-3f4a5b6c7d8e';
 
 function lyraMoved(from: number, to: number): EditEntry {
   return [
@@ -304,6 +307,93 @@ describe('table edit store', () => {
 
       expect(outcome).toEqual({ kind: 'refused', failure: 'stale_undo' });
       expect(edits.getState().history.past).toEqual([]);
+    });
+
+    it('undoing a created wall deletes it, expecting it where it was created', async () => {
+      const shape = shapeOfWall(northWall());
+      edits.getState().record([{ kind: 'wallsAdded', walls: [{ id: NORTH_WALL_ID, shape }] }]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('deleteWalls')[0]?.fields).toEqual({
+        wallIds: [NORTH_WALL_ID],
+        expect: [{ wallId: NORTH_WALL_ID, x: 2, y: 2 }],
+      });
+    });
+
+    it('undoing a deleted wall creates it again, and the new id replaces the old one later', async () => {
+      const shape = shapeOfWall(northWall());
+      edits.getState().record([{ kind: 'wallsRemoved', walls: [{ id: NORTH_WALL_ID, shape }] }]);
+      commands.answerWith({ ok: true, version: 9, createdIds: [NEW_WALL] });
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('createWalls')[0]?.fields).toEqual({ walls: [shape] });
+      expect(edits.getState().history.future).toEqual([
+        [{ kind: 'wallsRemoved', walls: [{ id: NEW_WALL, shape }] }],
+      ]);
+    });
+
+    it('undoing a change of kind sends the old kind, expecting the new one', async () => {
+      edits.getState().record([
+        {
+          kind: 'wallsKindChanged',
+          changes: [{ wallId: NORTH_WALL_ID, from: 'wall', to: 'door' }],
+        },
+      ]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('setWallKinds')[0]?.fields).toEqual({
+        wallIds: [NORTH_WALL_ID],
+        kind: 'wall',
+        expect: [{ wallId: NORTH_WALL_ID, kind: 'door' }],
+      });
+    });
+
+    it('a wall undo refused with stale_undo drops the entry', async () => {
+      edits.getState().record([
+        {
+          kind: 'wallsKindChanged',
+          changes: [{ wallId: NORTH_WALL_ID, from: 'wall', to: 'grate' }],
+        },
+      ]);
+      commands.answerWith({ ok: false, failure: 'stale_undo' });
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('setWallKinds')[0]?.fields).toMatchObject({
+        wallIds: [NORTH_WALL_ID],
+      });
+      expect(edits.getState().history.past).toEqual([]);
+    });
+
+    it('undoing a move around a wall sends the reversed path, expecting the token where it went', async () => {
+      edits.getState().record([
+        {
+          kind: 'tokensMoved',
+          moves: [
+            { tokenId: LYRA_ID, from: cell(3, 4), to: cell(7, 4), path: [cell(3, 7), cell(7, 7)] },
+          ],
+        },
+      ]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('moveTokens')[0]?.fields).toEqual({
+        moves: [
+          {
+            tokenId: LYRA_ID,
+            col: 3,
+            row: 4,
+            expect: { col: 7, row: 4 },
+            path: [
+              { col: 7, row: 7 },
+              { col: 3, row: 7 },
+            ],
+          },
+        ],
+      });
     });
 
     it('undoing 3 and redoing 3 with nobody in between sends the 3 moves again in order', async () => {

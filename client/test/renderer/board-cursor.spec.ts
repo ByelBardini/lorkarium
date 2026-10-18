@@ -22,6 +22,16 @@ describe('boardCursorOf', () => {
     expect(boardCursorOf({ tool: 'area', drawKind: null, panning: false })).toBe('crosshair');
   });
 
+  it('with the walls tool: a crosshair to draw and to drag the eraser box, a hand over what a click erases', () => {
+    const walls = (wallMode: 'draw' | 'eraseArea' | 'eraseWall' | 'eraseSegment') =>
+      boardCursorOf({ tool: 'walls', drawKind: null, panning: false, wallMode });
+
+    expect(walls('draw')).toBe('crosshair');
+    expect(walls('eraseArea')).toBe('crosshair');
+    expect(walls('eraseWall')).toBe('pointer');
+    expect(walls('eraseSegment')).toBe('pointer');
+  });
+
   it('keeps the default arrow with the select tool', () => {
     expect(boardCursorOf({ tool: 'select', drawKind: null, panning: false })).toBe('default');
   });

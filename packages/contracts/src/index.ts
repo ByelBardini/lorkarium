@@ -17,6 +17,7 @@ export * from './board/token-resize.dto';
 export * from './board/token-id-group.dto';
 export * from './board/drawing.dto';
 export * from './board/effect-area.dto';
+export * from './board/wall.dto';
 export * from './board/condition.dto';
 export * from './board/combat.dto';
 export * from './assets/asset.dto';

@@ -96,6 +96,7 @@ describe('ScenesDao on Postgres', () => {
       gridVisible: false,
       gridOpacity: 15,
       backgroundAssetId: null,
+      visionMode: 'dark' as const,
     };
     const saved = await scenesDao.update(sceneId, grid);
     expect(saved).toMatchObject({ ...grid, cellDistance: '3.00' });

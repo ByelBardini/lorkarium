@@ -1,15 +1,19 @@
 import {
   applyBarChange,
+  blockedPassage,
   cell,
   footprintFits,
+  tokenCenter,
   tokenSize,
   type BarChange,
   type SceneSize,
 } from '@lorkarium/game-core';
 import { StaleUndoError } from '../board/board.error';
+import type { PlacedWall } from '../walls/walls.mapper';
 import {
   InvalidControllerError,
   OutOfSceneError,
+  WallBlockedError,
   type CellRef,
   type SizeRef,
 } from './tokens.error';
@@ -49,6 +53,31 @@ export class TokenRulesBo {
     if (!expected || (expected.col === actual.col && expected.row === actual.row)) return;
     const shown = (at: CellRef): string => `(${at.col}, ${at.row})`;
     throw new StaleUndoError(`token ${tokenId}`, shown(expected), shown(actual));
+  }
+
+  /** The path of a move (origin, bends, destination, in token cells) passes no wall that bars
+   *  movement, checked from center to center; every bend must fit the scene. The caller skips it
+   *  for the master.
+   *
+   *  Example: `rules.requirePassage(tokenId, [row.token, ...path, destination], row.token, walls)` */
+  requirePassage(
+    tokenId: string,
+    cells: readonly CellRef[],
+    size: SizeRef,
+    walls: readonly PlacedWall[],
+  ): void {
+    for (const bend of cells.slice(1, -1)) this.place(bend, size);
+    const footprint = tokenSize(size.width, size.height);
+    const centers = cells.map((at) => tokenCenter(at, footprint));
+    const blocked = blockedPassage(
+      centers,
+      walls.map(({ wall }) => wall),
+    );
+    if (!blocked) return;
+    const from = centers[blocked.legIndex];
+    const to = centers[blocked.legIndex + 1];
+    const wallId = walls[blocked.wallIndex]?.id;
+    if (from && to && wallId) throw new WallBlockedError(tokenId, from, to, wallId);
   }
 
   adjustBar(current: number, change: BarChange): number {

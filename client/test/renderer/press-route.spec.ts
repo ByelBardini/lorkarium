@@ -6,6 +6,7 @@ import { hoverRouteOf, pressRouteOf, topTokenAt } from '@/renderer/press-route';
 import { SQUARE_ID, square } from '../support/drawing-fixtures';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import { BIA_AT_TABLE, LYRA_ID, VHARN_SCENE, lyra } from '../support/table-session-fixtures';
+import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
 
 const CELL = CELL_WORLD_SIZE;
 
@@ -141,5 +142,57 @@ describe('topTokenAt and hoverRouteOf', () => {
 
   it('hovering the empty board shows no token and no handle', () => {
     expect(hoverRouteOf(boardView(), at(10, 10), 1)).toEqual({ tokenId: null, handle: null });
+  });
+});
+
+describe('pressRouteOf with the walls tool', () => {
+  const master = { userId: BIA_AT_TABLE.userId, isMaster: true };
+
+  const walls = (wallMode: 'draw' | 'eraseArea' | 'eraseWall' | 'eraseSegment') =>
+    boardView({ tool: 'walls', wallMode, viewer: master, walls: [northWall()] });
+
+  it('drawing, a press on a wall starts a new wall there: walls chain from each other', () => {
+    expect(pressRouteOf(walls('draw'), at(4, 2.1), 1).kind).toBe('sketch');
+  });
+
+  it('erasing an area, a press anywhere (on a wall too) starts the eraser box', () => {
+    expect(pressRouteOf(walls('eraseArea'), at(4, 2.1), 1).kind).toBe('sketch');
+    expect(pressRouteOf(walls('eraseArea'), at(4, 6), 1).kind).toBe('sketch');
+  });
+
+  it('erasing the wall names it whole; erasing a piece names its segment', () => {
+    expect(pressRouteOf(walls('eraseWall'), at(4, 2.1), 1)).toEqual({
+      kind: 'wallErase',
+      wallId: NORTH_WALL_ID,
+      segmentIndex: null,
+    });
+    expect(pressRouteOf(walls('eraseSegment'), at(4, 2.1), 1)).toEqual({
+      kind: 'wallErase',
+      wallId: NORTH_WALL_ID,
+      segmentIndex: 0,
+    });
+  });
+});
+
+describe('pressRouteOf and the doors', () => {
+  it('the icon of a door the viewer sees wins the press over the token under it', () => {
+    const view = boardView({
+      tokens: [lyra({ col: 6.5, row: 5 })],
+      walls: [cellDoor()],
+      seenDoorIds: new Set([CELL_DOOR_ID]),
+    });
+    const route = pressRouteOf(view, { x: 7 * CELL, y: 5.5 * CELL }, 1);
+
+    expect(route).toEqual({ kind: 'door', wallId: CELL_DOOR_ID });
+  });
+
+  it('a door the viewer does not see is not pressed: the token under it is', () => {
+    const view = boardView({
+      tokens: [lyra({ col: 6.5, row: 5 })],
+      walls: [cellDoor()],
+      seenDoorIds: new Set<string>(),
+    });
+
+    expect(pressRouteOf(view, { x: 7 * CELL, y: 5.5 * CELL }, 1).kind).toBe('token');
   });
 });

@@ -22,6 +22,7 @@ import type { CreateBoardRenderer } from '@/renderer/board-renderer';
 import type { RailStore } from '@/stores/rail-store';
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
+import type { WallStyleStore } from '@/stores/wall-style-store';
 import type { RoomLayoutStore } from '@/stores/room-layout-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
 import { decideAccess, type RouteAccess } from './route-access';
@@ -43,6 +44,8 @@ export type AppDependencies = Readonly<{
   drawingStyle: StoreApi<DrawingStyleStore>;
   /** The shape and color of the next area of effect, remembered in the browser. */
   effectAreaStyle: StoreApi<EffectAreaStyleStore>;
+  /** The kind and shape of the next wall (the master), remembered in the browser. */
+  wallStyle: StoreApi<WallStyleStore>;
   /** The board canvas; PixiJS in the app, a fake in tests (jsdom has no WebGL). */
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;

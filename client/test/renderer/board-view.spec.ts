@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_DRAWING_STYLE } from '@/lib/drawing-style';
 import { ROUTE_BEND_DWELL_MS, settleRoute, startRoute, stepRoute } from '@/lib/token-route';
 import { buildBoardView, imageUrlsOf } from '@/renderer/board-view';
+import { boardSightOf } from '@/lib/board-sight';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import {
@@ -12,6 +13,8 @@ import {
   activeCondition,
   kael,
   lyra,
+  BIA_AT_TABLE,
+  vharnBoard,
 } from '../support/table-session-fixtures';
 
 const NO_TOKENS = {
@@ -421,5 +424,81 @@ describe('buildBoardView, drawings', () => {
   it('the sketch style shows only with the draw tool', () => {
     expect(viewWith({ tool: 'draw' }).sketch).toEqual(DEFAULT_DRAWING_STYLE);
     expect(viewWith({ tool: 'select' }).sketch).toBeNull();
+  });
+});
+
+describe('buildBoardView through the sight of Bia in the dark', () => {
+  // Lyra (hers) at (3, 4) sees 3 + 3 cells: Kael at (8, 4) is 5 away (silhouette), the goblin at
+  // (11, 4) 8 away (hidden).
+  const GOBLIN_ID = 'cc33dd44-ee55-4f66-8a77-112233445566';
+  const others = { canControl: false, controllerIds: [] };
+  const tokens = [
+    lyra({ sight: { bright: 3, dim: 3 } }),
+    kael({ ...others, col: 8, row: 4, conditions: [activeCondition()] }),
+    kael({ ...others, id: GOBLIN_ID, col: 11, row: 4 }),
+  ];
+  const board = vharnBoard({
+    viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+    scene: { ...VHARN_SCENE, vision: 'dark' },
+    tokens,
+  });
+  const view = buildBoardView({
+    ...NO_TOKENS,
+    tokens,
+    viewer: { userId: BIA_AT_TABLE.userId, isMaster: false },
+    scene: board.scene,
+    localGridVisible: true,
+    ruler: null,
+    currentTokenId: KAEL_ID,
+    sight: boardSightOf(board, { previewEyeIds: null }),
+  });
+
+  it('the token in the penumbra is a silhouette with no art, name, bar, marks nor facing, and cannot be taken', () => {
+    expect(view.tokens.find(({ id }) => id === KAEL_ID)).toMatchObject({
+      silhouette: 'square',
+      name: '',
+      initials: '',
+      art: null,
+      bar: null,
+      marks: [],
+      moreMarks: 0,
+      facingMark: false,
+      onTurn: false,
+      pickable: false,
+      draggable: false,
+    });
+  });
+
+  it('the hidden token is not drawn at all, and her own is drawn whole', () => {
+    expect(view.tokens.map(({ id }) => id)).toEqual([LYRA_ID, KAEL_ID]);
+    expect(view.tokens[0]).toMatchObject({ silhouette: null, name: 'Lyra' });
+  });
+});
+
+describe('buildBoardView wall mode', () => {
+  const wallsInput = (more: object) => ({
+    ...NO_TOKENS,
+    scene: VHARN_SCENE,
+    localGridVisible: true,
+    ruler: null,
+    tool: 'walls' as const,
+    ...more,
+  });
+
+  it('erasing an area, the sketch is a thin ember box, never straight', () => {
+    const view = buildBoardView(wallsInput({ wallMode: 'eraseArea' }));
+
+    expect(view.sketch).toEqual({
+      kind: 'rectangle',
+      stroke: 'ember',
+      fill: null,
+      strokeWidth: 'thin',
+    });
+    expect(view.sketchStraight).toBe(false);
+  });
+
+  it('carries the action of the walls tool, Desenhar when absent', () => {
+    expect(buildBoardView(wallsInput({})).wallMode).toBe('draw');
+    expect(buildBoardView(wallsInput({ wallMode: 'eraseSegment' })).wallMode).toBe('eraseSegment');
   });
 });

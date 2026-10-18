@@ -2,6 +2,7 @@ import type {
   BarChangeDto,
   DrawingShapeInput,
   SceneGridDto,
+  SceneVisionDto,
   TokenLayerDto,
 } from '@lorkarium/contracts';
 import type {
@@ -25,6 +26,15 @@ import type {
   EffectAreaShape,
   EffectAreaShaped,
 } from '@/services/effect-area-commands';
+import type {
+  DoorState,
+  WallKind,
+  WallKindOf,
+  WallEraseBox,
+  WallPosition,
+  WallPlacement,
+  WallShape,
+} from '@/services/wall-commands';
 
 export type SentBoardCommand = Readonly<{ name: string; campaignId: string; fields: unknown }>;
 
@@ -56,9 +66,11 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     campaignId: string,
     grid: SceneGridDto,
     backgroundAssetId?: string | null,
+    vision?: SceneVisionDto,
   ): Promise<BoardCommandResult> {
     const background = backgroundAssetId === undefined ? {} : { backgroundAssetId };
-    return this.record('configureScene', campaignId, { ...grid, ...background });
+    const mode = vision === undefined ? {} : { vision };
+    return this.record('configureScene', campaignId, { ...grid, ...background, ...mode });
   }
 
   createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult> {
@@ -69,8 +81,14 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('updateToken', campaignId, { tokenId, ...edit });
   }
 
-  moveToken(campaignId: string, tokenId: string, to: CellTarget): Promise<BoardCommandResult> {
-    return this.record('moveToken', campaignId, { tokenId, ...to });
+  moveToken(
+    campaignId: string,
+    tokenId: string,
+    to: CellTarget,
+    path?: readonly CellTarget[],
+  ): Promise<BoardCommandResult> {
+    const bends = path && path.length > 0 ? { path: [...path] } : {};
+    return this.record('moveToken', campaignId, { tokenId, ...to, ...bends });
   }
 
   moveTokens(campaignId: string, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult> {
@@ -109,6 +127,44 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     expect?: readonly DrawingPlacement[],
   ): Promise<BoardCommandResult> {
     return this.record('deleteDrawings', campaignId, { drawingIds: [...drawingIds], expect });
+  }
+
+  createWalls(campaignId: string, shapes: readonly WallShape[]): Promise<BoardCommandResult> {
+    return this.record('createWalls', campaignId, { walls: [...shapes] });
+  }
+
+  eraseWallArea(campaignId: string, box: WallEraseBox): Promise<BoardCommandResult> {
+    return this.record('eraseWallArea', campaignId, { box: { ...box } });
+  }
+
+  eraseWallSegment(
+    campaignId: string,
+    wallId: string,
+    segmentIndex: number,
+    expect?: WallPosition,
+  ): Promise<BoardCommandResult> {
+    return this.record('eraseWallSegment', campaignId, { wallId, segmentIndex, expect });
+  }
+
+  deleteWalls(
+    campaignId: string,
+    wallIds: readonly string[],
+    expect?: readonly WallPlacement[],
+  ): Promise<BoardCommandResult> {
+    return this.record('deleteWalls', campaignId, { wallIds: [...wallIds], expect });
+  }
+
+  setWallKinds(
+    campaignId: string,
+    wallIds: readonly string[],
+    kind: WallKind,
+    expect?: readonly WallKindOf[],
+  ): Promise<BoardCommandResult> {
+    return this.record('setWallKinds', campaignId, { wallIds: [...wallIds], kind, expect });
+  }
+
+  setDoor(campaignId: string, wallId: string, state: DoorState): Promise<BoardCommandResult> {
+    return this.record('setDoor', campaignId, { wallId, state });
   }
 
   createEffectAreas(

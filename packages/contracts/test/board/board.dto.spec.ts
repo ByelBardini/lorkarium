@@ -21,6 +21,7 @@ const SCENE = {
   gridVisible: true,
   gridOpacity: 30,
   background: null,
+  vision: 'off',
 };
 const STATE = {
   campaignId: CAMPAIGN_ID,
@@ -31,6 +32,7 @@ const STATE = {
   tokens: [],
   drawings: [],
   effectAreas: [],
+  walls: [],
   combat: null,
   conditionDefinitions: [],
 };

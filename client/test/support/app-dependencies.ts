@@ -1,6 +1,7 @@
 import type { AppDependencies } from '@/app/router';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
+import { createWallStyleStore } from '@/stores/wall-style-store';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore } from '@/stores/rail-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
@@ -30,6 +31,8 @@ export type TestDependencies = AppDependencies & {
   drawingStyleStorage: StorageFake;
   /** The `localStorage` under `effectAreaStyle`. */
   effectAreaStyleStorage: StorageFake;
+  /** The `localStorage` under `wallStyle`. */
+  wallStyleStorage: StorageFake;
   /** Every board renderer the room created, behind `createBoardRenderer`. */
   boardRenderers: BoardRenderersFake;
   boardCommands: TableBoardCommandsFake;
@@ -50,6 +53,7 @@ export function testDependencies(): TestDependencies {
   const roomLayoutStorage = new StorageFake();
   const drawingStyleStorage = new StorageFake();
   const effectAreaStyleStorage = new StorageFake();
+  const wallStyleStorage = new StorageFake();
   const boardRenderers = new BoardRenderersFake();
   return {
     journal,
@@ -62,6 +66,7 @@ export function testDependencies(): TestDependencies {
     roomLayoutStorage,
     drawingStyleStorage,
     effectAreaStyleStorage,
+    wallStyleStorage,
     boardRenderers,
     createBoardRenderer: boardRenderers.create,
     boardCommands: new TableBoardCommandsFake(),
@@ -71,6 +76,7 @@ export function testDependencies(): TestDependencies {
     roomLayout: createRoomLayoutStore(roomLayoutStorage),
     drawingStyle: createDrawingStyleStore(drawingStyleStorage),
     effectAreaStyle: createEffectAreaStyleStore(effectAreaStyleStorage),
+    wallStyle: createWallStyleStore(wallStyleStorage),
     now: () => TEST_NOW,
     random: () => 0,
   };

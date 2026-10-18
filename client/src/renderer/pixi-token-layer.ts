@@ -29,6 +29,8 @@ const BAR_COLOR: Readonly<Record<BarColorDto, number>> = {
   ash: 0xa9a497,
 };
 const MOVE_ANIMATION_MS = 150;
+const SILHOUETTE_COLOR = 0x000000;
+const SILHOUETTE_ALPHA = 0.9;
 
 type TokenSprite = Readonly<{
   root: Container;
@@ -214,6 +216,7 @@ function shapeOf(view: TokenView): TokenShape {
 function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   const { disc, art, shape, label, marks, view } = sprite;
   const box = shapeOf(view);
+  if (view.silhouette) return drawSilhouette(sprite, box);
   const center = { x: box.width / 2, y: box.height / 2 };
   const image = texture && view.art;
   const square = Boolean(image && view.art?.frame === 'square');
@@ -233,6 +236,19 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   label.text = view.initials;
   label.style.fontSize = Math.round(Math.min(box.width, box.height) * 0.3);
   label.position.set(center.x, center.y);
+}
+
+// In the penumbra: a black shape of the footprint, nothing that tells who it is.
+function drawSilhouette(sprite: TokenSprite, box: TokenShape): void {
+  const { disc, art, shape, label, marks, view } = sprite;
+  disc.clear();
+  if (view.silhouette === 'square') disc.rect(0, 0, box.width, box.height);
+  else disc.ellipse(box.width / 2, box.height / 2, box.rx, box.ry);
+  disc.fill({ color: SILHOUETTE_COLOR, alpha: SILHOUETTE_ALPHA });
+  art.draw(null, null, box, 0);
+  shape.clear();
+  marks.draw(view, box.width);
+  label.visible = false;
 }
 
 // The turn and selection rings follow the token's outline: a square image gets square ones.

@@ -42,6 +42,11 @@ export class TokenAccessBo {
     );
   }
 
+  /** The master moves through any wall; everyone else is stopped by the walls that bar movement. */
+  ignoresWalls(): boolean {
+    return this.campaign.isMaster();
+  }
+
   audience(): TokenAudience {
     return this.canControl() ? 'privileged' : 'others';
   }

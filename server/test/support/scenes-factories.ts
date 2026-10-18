@@ -19,6 +19,7 @@ export function scenePo(overrides: Partial<ScenePo> = {}): ScenePo {
     gridVisible: true,
     gridOpacity: 30,
     backgroundAssetId: null,
+    visionMode: 'off',
     version: 0,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     updatedAt: new Date('2026-10-01T12:00:00Z'),

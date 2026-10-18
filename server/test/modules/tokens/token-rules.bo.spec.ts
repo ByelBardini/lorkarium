@@ -6,6 +6,9 @@ import {
 } from '../../../src/modules/tokens/token-rules.bo';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, CAIO_ID } from '../../support/campaigns-factories';
+import { placedWallOf } from '../../../src/modules/walls/walls.mapper';
+import type { WallPo } from '../../../src/modules/walls/walls.po';
+import { northWallPo } from '../../support/walls-factories';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
 const LIMIT = 99_999;
@@ -118,6 +121,68 @@ describe('requireBox', () => {
       expect.objectContaining({
         code: 'STALE_UNDO',
         message: expect.stringMatching(/2×1 at \(2, 3\).*1×1 at \(2, 3\)/),
+      }),
+    );
+  });
+});
+
+describe('TokenRulesBo.requirePassage', () => {
+  const ONE_CELL = { width: 1, height: 1 };
+  const LYRA_FROM_1_5 = { col: 1, row: 5 };
+  const LYRA_TO_4_5 = { col: 4, row: 5 };
+
+  function verticalAt2(overrides: Partial<WallPo> = {}) {
+    return placedWallOf(
+      northWallPo({
+        x: '2.00',
+        y: '0.00',
+        width: '0.00',
+        height: '10.00',
+        points: [
+          [0, 0],
+          [0, 10],
+        ],
+        ...overrides,
+      }),
+    );
+  }
+
+  it('a straight move across the wall is WALL_BLOCKED citing the token, the leg and the wall', () => {
+    const wall = verticalAt2();
+    expect(() =>
+      rules().requirePassage('lyra', [LYRA_FROM_1_5, LYRA_TO_4_5], ONE_CELL, [wall]),
+    ).toThrow(
+      expect.objectContaining({
+        code: 'WALL_BLOCKED',
+        message: `token lyra is barred on (1.5, 5.5) → (4.5, 5.5) by wall ${wall.id}`,
+      }),
+    );
+  });
+
+  it('going around the end of the wall through its bends passes', () => {
+    const around = [LYRA_FROM_1_5, { col: 1, row: 10 }, { col: 4, row: 10 }, LYRA_TO_4_5];
+    expect(() => rules().requirePassage('lyra', around, ONE_CELL, [verticalAt2()])).not.toThrow();
+  });
+
+  it.each([
+    ['grate', null, true],
+    ['curtain', null, false],
+    ['door', 'open', false],
+    ['door', 'closed', true],
+  ] as const)('a %s (%s) across the move bars it: %s', (kind, doorState, barred) => {
+    const wall = verticalAt2({ kind, doorState });
+    const check = () =>
+      rules().requirePassage('lyra', [LYRA_FROM_1_5, LYRA_TO_4_5], ONE_CELL, [wall]);
+    if (barred) expect(check).toThrow(expect.objectContaining({ code: 'WALL_BLOCKED' }));
+    else expect(check).not.toThrow();
+  });
+
+  it('a bend past the scene is OUT_OF_SCENE citing the bend', () => {
+    const outside = [LYRA_FROM_1_5, { col: 19.5, row: 5 }, LYRA_TO_4_5];
+    expect(() => rules().requirePassage('lyra', outside, ONE_CELL, [])).toThrow(
+      expect.objectContaining({
+        code: 'OUT_OF_SCENE',
+        message: expect.stringContaining('(19.5, 5)'),
       }),
     );
   });

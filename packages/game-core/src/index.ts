@@ -60,3 +60,30 @@ export {
   type GridCell,
 } from './effect-area-cells';
 export { reachToward, shiftEffectArea, turnEffectArea } from './effect-area-shaping';
+export {
+  blocksMovement,
+  blocksSight,
+  wall,
+  type DoorState,
+  type Wall,
+  type WallKind,
+  type WallPoint,
+  type WallShapeKind,
+} from './wall.vo';
+export { ELLIPSE_WALL_SEGMENTS, wallSegments, type Segment } from './wall-segments';
+export { wallOutsideBox, wallWithoutSegment, type EraseBox } from './wall-erase';
+export { blockedPassage, legTouchesSegment, tokenCenter, type BlockedPassage } from './passage';
+export { SIGHT_ARC_SAMPLES, insidePolygon, lineOfSight, sightArea } from './sight-area';
+export {
+  SIGHT_RANGE_MAX,
+  doorSeenBy,
+  eyeOf,
+  sightLevel,
+  sightRange,
+  type Eye,
+  type SightContext,
+  type SightLevel,
+  type SightMode,
+  type SightRange,
+  type SightTarget,
+} from './token-sight';

@@ -13,6 +13,13 @@ import type {
   EffectAreasCreatedDto,
   EffectAreasDeletedDto,
   EffectAreasReshapedDto,
+  DoorChangedDto,
+  WallSegmentErasedDto,
+  WallAreaErasedDto,
+  WallKindsChangedDto,
+  WallsCreatedDto,
+  WallsDeletedDto,
+  WallsMovedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
   TokenLayerChangedDto,
@@ -128,6 +135,13 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly effectAreasCreates: EffectAreasCreatedDto[] = [];
   readonly effectAreasReshapes: EffectAreasReshapedDto[] = [];
   readonly effectAreasDeletes: EffectAreasDeletedDto[] = [];
+  readonly wallsCreates: WallsCreatedDto[] = [];
+  readonly wallsMoves: WallsMovedDto[] = [];
+  readonly wallsDeletes: WallsDeletedDto[] = [];
+  readonly wallKindChanges: WallKindsChangedDto[] = [];
+  readonly doorChanges: DoorChangedDto[] = [];
+  readonly wallSegmentErasures: WallSegmentErasedDto[] = [];
+  readonly wallAreaErasures: WallAreaErasedDto[] = [];
 
   sceneUpdated(event: SceneUpdatedDto): void {
     this.journal.push('publish');
@@ -217,6 +231,41 @@ export class BoardPublisherFake implements BoardPublisherPort {
   effectAreasDeleted(event: EffectAreasDeletedDto): void {
     this.journal.push('publish');
     this.effectAreasDeletes.push(event);
+  }
+
+  wallsCreated(event: WallsCreatedDto): void {
+    this.journal.push('publish');
+    this.wallsCreates.push(event);
+  }
+
+  wallsMoved(event: WallsMovedDto): void {
+    this.journal.push('publish');
+    this.wallsMoves.push(event);
+  }
+
+  wallsDeleted(event: WallsDeletedDto): void {
+    this.journal.push('publish');
+    this.wallsDeletes.push(event);
+  }
+
+  wallKindsChanged(event: WallKindsChangedDto): void {
+    this.journal.push('publish');
+    this.wallKindChanges.push(event);
+  }
+
+  doorChanged(event: DoorChangedDto): void {
+    this.journal.push('publish');
+    this.doorChanges.push(event);
+  }
+
+  wallSegmentErased(event: WallSegmentErasedDto): void {
+    this.journal.push('publish');
+    this.wallSegmentErasures.push(event);
+  }
+
+  wallAreaErased(event: WallAreaErasedDto): void {
+    this.journal.push('publish');
+    this.wallAreaErasures.push(event);
   }
 
   conditionDefined(event: ConditionDefinedDto): void {

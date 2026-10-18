@@ -15,6 +15,8 @@ import type { ScenesDao } from '../scenes/scenes.dao';
 import { TokenAccessBo } from '../tokens/token-access.bo';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { toTokenDto } from '../tokens/tokens.mapper';
+import type { WallsDao } from '../walls/walls.dao';
+import { toWallDto } from '../walls/walls.mapper';
 import { toBoardStateDto } from './board.mapper';
 
 export type BoardServiceDeps = Readonly<{
@@ -25,11 +27,12 @@ export type BoardServiceDeps = Readonly<{
   combat: Pick<CombatDao, 'findOfScene'>;
   drawings: Pick<DrawingsDao, 'listOfScene'>;
   effectAreas: Pick<EffectAreasDao, 'listOfScene'>;
+  walls: Pick<WallsDao, 'listOfScene'>;
   clock: ClockPort;
 }>;
 
 /** The board snapshot of one table, as one member may see it (spec §5.6, §3.9): each token whole
- *  for its controllers and the master, redacted for everyone else; drawings and areas of effect whole for everyone.
+ *  for its controllers and the master, redacted for everyone else; drawings, areas of effect and walls whole for everyone.
  *
  *  Example: `const state = await board.snapshotFor(user.id, campaignId)` */
 export class BoardService {
@@ -51,11 +54,12 @@ export class BoardService {
     const combat = combatRow ? toCombatDto(combatRow) : null;
     const drawings = (await this.deps.drawings.listOfScene(scene.id)).map(toDrawingDto);
     const effectAreas = (await this.deps.effectAreas.listOfScene(scene.id)).map(toEffectAreaDto);
+    const walls = (await this.deps.walls.listOfScene(scene.id)).map(toWallDto);
     const definitions = await this.deps.conditions.listDefinitions(campaignId);
     const conditionDefinitions = definitions.map(toConditionDefinitionDto);
     const at = this.deps.clock.now();
     const viewer = { userId, role };
-    const pieces = { tokens, drawings, effectAreas, combat, conditionDefinitions };
+    const pieces = { tokens, drawings, effectAreas, walls, combat, conditionDefinitions };
     return toBoardStateDto({ campaignId, viewer, scene, ...pieces, at });
   }
 }

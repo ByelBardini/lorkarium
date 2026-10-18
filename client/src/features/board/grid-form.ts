@@ -1,4 +1,9 @@
-import { sceneGridDto, type SceneDto, type SceneGridDto } from '@lorkarium/contracts';
+import {
+  sceneGridDto,
+  type SceneDto,
+  type SceneGridDto,
+  type SceneVisionDto,
+} from '@lorkarium/contracts';
 import {
   heightForWidth,
   widthForHeight,
@@ -30,6 +35,17 @@ const FIELD_ERROR: Readonly<Record<GridFormField, string>> = {
   cellUnit: 'Escolha cm, m ou km.',
   gridOpacity: 'Use de 0 a 100.',
 };
+
+/** "Visão dos tokens": off (everything shows), dark (each token's sight), daylight (no limit,
+ *  walls still cut). */
+export const VISION_OPTIONS: ReadonlyArray<Readonly<{ value: SceneVisionDto; label: string }>> = [
+  { value: 'off', label: 'Desligada' },
+  { value: 'dark', label: 'Escuro' },
+  { value: 'daylight', label: 'Luz do dia' },
+];
+
+export const VISION_HINT =
+  'Escuro: cada token vê até o seu alcance. Luz do dia: só as paredes escondem.';
 
 /** The units offered in "Unidade". */
 export const CELL_UNITS: readonly string[] = ['cm', 'm', 'km'];

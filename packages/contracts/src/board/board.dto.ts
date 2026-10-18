@@ -48,6 +48,23 @@ import type {
 } from './effect-area.dto';
 import { sceneDto, type ConfigureSceneCommandDto } from './scene.dto';
 import {
+  wallDto,
+  type CreateWallsCommandDto,
+  type DeleteWallsCommandDto,
+  type DoorChangedDto,
+  type EraseWallAreaCommandDto,
+  type EraseWallSegmentCommandDto,
+  type WallAreaErasedDto,
+  type WallSegmentErasedDto,
+  type MoveWallsCommandDto,
+  type SetDoorCommandDto,
+  type SetWallKindsCommandDto,
+  type WallKindsChangedDto,
+  type WallsCreatedDto,
+  type WallsDeletedDto,
+  type WallsMovedDto,
+} from './wall.dto';
+import {
   tokenDto,
   type AdjustBarCommandDto,
   type CreateTokenCommandDto,
@@ -121,6 +138,20 @@ export const BOARD_EVENTS = {
   effectAreasCreated: 'effectArea:createdMany',
   effectAreasReshaped: 'effectArea:reshapedMany',
   effectAreasDeleted: 'effectArea:deletedMany',
+  createWalls: 'wall:createMany',
+  moveWalls: 'wall:moveMany',
+  deleteWalls: 'wall:deleteMany',
+  setWallKinds: 'wall:setKindMany',
+  setDoor: 'wall:setDoor',
+  eraseWallSegment: 'wall:eraseSegment',
+  wallSegmentErased: 'wall:segmentErased',
+  eraseWallArea: 'wall:eraseArea',
+  wallAreaErased: 'wall:areaErased',
+  wallsCreated: 'wall:createdMany',
+  wallsMoved: 'wall:movedMany',
+  wallsDeleted: 'wall:deletedMany',
+  wallKindsChanged: 'wall:kindsChanged',
+  doorChanged: 'wall:doorChanged',
   defineCondition: 'condition:define',
   applyCondition: 'condition:apply',
   applyConditions: 'condition:applyMany',
@@ -168,6 +199,7 @@ export const boardStateDto = z.strictObject({
   tokens: z.array(tokenDto),
   drawings: z.array(drawingDto),
   effectAreas: z.array(effectAreaDto),
+  walls: z.array(wallDto),
   combat: combatDto.nullable(),
   conditionDefinitions: z.array(conditionDefinitionDto),
 });
@@ -183,8 +215,8 @@ export const boardSyncAckDto = z.discriminatedUnion('ok', [
 export type BoardSyncAckDto = z.infer<typeof boardSyncAckDto>;
 
 /** Answer to every board mutation: the version it produced, or the API error. A command that
- *  creates (`token:createMany`, `drawing:createMany`, `effectArea:createMany`) also names the ids it gave, in the order
- *  sent: undoing it, or remapping an undo stack after re-creating, needs them. */
+ *  creates (`token:createMany`, `drawing:createMany`, `effectArea:createMany`, `wall:createMany`, `wall:eraseSegment`, `wall:eraseArea`)
+ *  also names the ids it gave, in the order sent: undoing it, or remapping an undo stack after re-creating, needs them. */
 export const boardCommandAckDto = z.discriminatedUnion('ok', [
   z.strictObject({
     ok: z.literal(true),
@@ -226,6 +258,13 @@ export type BoardClientEvents = {
   'effectArea:createMany': Command<CreateEffectAreasCommandDto>;
   'effectArea:reshapeMany': Command<ReshapeEffectAreasCommandDto>;
   'effectArea:deleteMany': Command<DeleteEffectAreasCommandDto>;
+  'wall:createMany': Command<CreateWallsCommandDto>;
+  'wall:moveMany': Command<MoveWallsCommandDto>;
+  'wall:deleteMany': Command<DeleteWallsCommandDto>;
+  'wall:setKindMany': Command<SetWallKindsCommandDto>;
+  'wall:setDoor': Command<SetDoorCommandDto>;
+  'wall:eraseSegment': Command<EraseWallSegmentCommandDto>;
+  'wall:eraseArea': Command<EraseWallAreaCommandDto>;
   'condition:define': Command<DefineConditionCommandDto>;
   'condition:apply': Command<ApplyConditionCommandDto>;
   'condition:applyMany': Command<ApplyConditionsCommandDto>;
@@ -261,6 +300,13 @@ export type BoardServerEvents = {
   'effectArea:createdMany': (event: EffectAreasCreatedDto) => void;
   'effectArea:reshapedMany': (event: EffectAreasReshapedDto) => void;
   'effectArea:deletedMany': (event: EffectAreasDeletedDto) => void;
+  'wall:createdMany': (event: WallsCreatedDto) => void;
+  'wall:movedMany': (event: WallsMovedDto) => void;
+  'wall:deletedMany': (event: WallsDeletedDto) => void;
+  'wall:kindsChanged': (event: WallKindsChangedDto) => void;
+  'wall:doorChanged': (event: DoorChangedDto) => void;
+  'wall:segmentErased': (event: WallSegmentErasedDto) => void;
+  'wall:areaErased': (event: WallAreaErasedDto) => void;
   'condition:defined': (event: ConditionDefinedDto) => void;
   'condition:applied': (event: ConditionAppliedDto) => void;
   'condition:appliedMany': (event: ConditionsAppliedDto) => void;

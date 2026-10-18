@@ -5,6 +5,7 @@ import {
   cellIndexDto,
   createTokenCommandDto,
   draggedCellDto,
+  movePathDto,
   tokenDto,
   tokenLayerDto,
 } from './token.dto';
@@ -18,9 +19,11 @@ import {
 const tokenCellDto = z.strictObject({ tokenId: z.uuid(), col: cellIndexDto, row: cellIndexDto });
 export type TokenCellDto = z.infer<typeof tokenCellDto>;
 
-/** A move as sent: `expect` is the cell the token must still be on (the undo precondition). */
+/** A move as sent: `expect` is the cell the token must still be on (the undo precondition),
+ *  `path` the bends around walls. */
 const tokenMoveDto = tokenCellDto.extend({
   expect: z.strictObject({ col: cellIndexDto, row: cellIndexDto }).optional(),
+  path: movePathDto.optional(),
 });
 export type TokenMoveDto = z.infer<typeof tokenMoveDto>;
 

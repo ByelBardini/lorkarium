@@ -1,3 +1,4 @@
+import { WallsDaoFake } from './walls-fakes';
 import type { TokenLayerPo, TokenLookPo } from '../../src/modules/tokens/tokens.po';
 import type {
   NewTokenRow,
@@ -171,6 +172,7 @@ export class TokenTransactionRunnerFake {
     private readonly conditions: Pick<ConditionsDaoFake, 'listOfTokens'> = new ConditionsDaoFake(),
     private readonly combat: CombatDaoFake = new CombatDaoFake(),
     private readonly assets: AssetsDaoFake = new AssetsDaoFake(),
+    private readonly walls: Pick<WallsDaoFake, 'listOfScene'> = new WallsDaoFake([]),
   ) {}
 
   readonly run: TokenTransactionRunner = async (work) => {
@@ -180,6 +182,7 @@ export class TokenTransactionRunnerFake {
       conditions: this.conditions,
       combat: this.combat,
       assets: this.assets,
+      walls: this.walls,
     });
     this.scenes.journal.push('commit');
     return result;

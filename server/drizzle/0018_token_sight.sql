@@ -1,0 +1,3 @@
+ALTER TABLE "tokens" ADD COLUMN "sight_bright" numeric(6, 2);--> statement-breakpoint
+ALTER TABLE "tokens" ADD COLUMN "sight_dim" numeric(6, 2);--> statement-breakpoint
+ALTER TABLE "tokens" ADD CONSTRAINT "tokens_sight_range" CHECK (("tokens"."sight_bright" IS NULL AND "tokens"."sight_dim" IS NULL) OR ("tokens"."sight_bright" IS NOT NULL AND "tokens"."sight_dim" IS NOT NULL AND "tokens"."sight_bright" BETWEEN 0 AND 100 AND "tokens"."sight_dim" BETWEEN 0 AND 100));

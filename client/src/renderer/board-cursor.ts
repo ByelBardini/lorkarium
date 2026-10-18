@@ -1,4 +1,5 @@
 import type { BoardViewTool } from './board-view';
+import type { WallMode } from './wall-view';
 import type { DrawingKind } from '@/lib/drawing-geometry';
 
 export type BoardCursorInput = Readonly<{
@@ -7,6 +8,8 @@ export type BoardCursorInput = Readonly<{
   drawKind: DrawingKind | null;
   /** The right button is dragging the camera. */
   panning: boolean;
+  /** What a press does with the walls tool (absent: Desenhar). */
+  wallMode?: WallMode;
 }>;
 
 // CSS has no pen or ruler keyword: small SVGs with the hotspot at the tip / the measuring edge.
@@ -27,13 +30,22 @@ const RULER_SVG =
 export const PEN_CURSOR = svgCursor(PEN_SVG, 3, 21, 'crosshair');
 export const RULER_CURSOR = svgCursor(RULER_SVG, 2, 17, 'crosshair');
 
+const WALL_CURSOR: Readonly<Record<WallMode, string>> = {
+  draw: 'crosshair',
+  eraseArea: 'crosshair',
+  eraseWall: 'pointer',
+  eraseSegment: 'pointer',
+};
+
 /** The CSS cursor of the board: moving while the right button pans, a pen for freehand, a
- *  crosshair for the shapes and the area tool, a ruler while measuring, the default arrow otherwise.
+ *  crosshair for the shapes, the area tool, drawing walls and the eraser box, a hand over walls to
+ *  erase, a ruler while measuring, the default arrow otherwise.
  *
  *  Example: `canvas.style.cursor = boardCursorOf({ tool: 'draw', drawKind: 'freehand', panning: false })` */
-export function boardCursorOf({ tool, drawKind, panning }: BoardCursorInput): string {
+export function boardCursorOf({ tool, drawKind, panning, wallMode }: BoardCursorInput): string {
   if (panning) return 'move';
   if (tool === 'ruler') return RULER_CURSOR;
+  if (tool === 'walls') return WALL_CURSOR[wallMode ?? 'draw'];
   if (tool === 'area') return 'crosshair';
   if (tool !== 'draw') return 'default';
   return drawKind === 'freehand' ? PEN_CURSOR : 'crosshair';

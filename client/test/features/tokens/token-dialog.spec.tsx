@@ -30,6 +30,7 @@ describe('TokenDialog', () => {
         players={PLAYERS}
         commands={commands}
         assets={new AssetsApiFake()}
+        distance={{ cellDistance: 1.5, cellUnit: 'm' }}
         connected
         onClose={() => {
           closed += 1;
@@ -153,5 +154,81 @@ describe('TokenDialog', () => {
       tokenId: LYRA_ID,
       imageAssetId: LYRA_PORTRAIT.id,
     });
+  });
+});
+
+describe('TokenDialog vision', () => {
+  let commands: TableBoardCommandsFake;
+
+  beforeEach(() => {
+    commands = new TableBoardCommandsFake();
+  });
+
+  function renderDialog(token: TokenDto | null = null): void {
+    render(
+      <TokenDialog
+        campaignId={VHARN.id}
+        token={token}
+        placeAt={cell(9, 5)}
+        layer="tokens"
+        players={PLAYERS}
+        commands={commands}
+        assets={new AssetsApiFake()}
+        distance={{ cellDistance: 1.5, cellUnit: 'm' }}
+        connected
+        onClose={() => undefined}
+      />,
+    );
+  }
+
+  it('checking "Enxerga" shows "Visão plena (m)" and "Penumbra (m)" with the hint about the penumbra', async () => {
+    renderDialog();
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Enxerga' }));
+
+    expect(screen.getByLabelText('Visão plena (m)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Penumbra (m)')).toBeInTheDocument();
+    expect(screen.getByText('Na penumbra, vê o mapa, mas não vê tokens.')).toBeInTheDocument();
+  });
+
+  it('a new token seeing 18 m and 6 m more is created with sight { bright: 12, dim: 4 }', async () => {
+    renderDialog();
+    await userEvent.type(screen.getByLabelText('Nome'), 'Lyra');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Enxerga' }));
+    await userEvent.type(screen.getByLabelText('Visão plena (m)'), '18');
+    await userEvent.type(screen.getByLabelText('Penumbra (m)'), '6');
+
+    expect(screen.getByText('= 12 casas')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Criar token' }));
+
+    expect(commands.sentAs('createToken')[0]?.fields).toMatchObject({
+      sight: { bright: 12, dim: 4 },
+    });
+  });
+
+  it('editing Lyra, who sees 12 and 4 cells, shows "18" and "6", and unchecking sends sight null', async () => {
+    renderDialog(lyra({ sight: { bright: 12, dim: 4 } }));
+
+    expect(screen.getByLabelText('Visão plena (m)')).toHaveValue('18');
+    expect(screen.getByLabelText('Penumbra (m)')).toHaveValue('6');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Enxerga' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(commands.sentAs('updateToken')[0]?.fields).toMatchObject({
+      tokenId: LYRA_ID,
+      sight: null,
+    });
+  });
+
+  it('a bright past 150 m is refused on the field and nothing is sent', async () => {
+    renderDialog();
+    await userEvent.type(screen.getByLabelText('Nome'), 'Lyra');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Enxerga' }));
+    await userEvent.type(screen.getByLabelText('Visão plena (m)'), '151');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Criar token' }));
+
+    expect(screen.getByText('De 0 a 150 m.')).toBeInTheDocument();
+    expect(commands.sentAs('createToken')).toEqual([]);
   });
 });

@@ -4,7 +4,7 @@ import type {
   EffectAreaShapeDto,
   TokenLayerDto,
 } from '@lorkarium/contracts';
-import type { Cell, SceneSize, TokenBox } from '@lorkarium/game-core';
+import type { Cell, SceneSize, TokenBox, Wall } from '@lorkarium/game-core';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore, type StoreApi } from 'zustand/vanilla';
@@ -12,15 +12,23 @@ import type { EditEntry, EffectAreaReshape, TokenResize, TokenTurn } from '@/lib
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { GroupMember, GroupPlacement } from '@/lib/token-group';
 import type { TokenRoute } from '@/lib/token-route';
-import type { BoardIntent, BoardPointerIntent } from '@/renderer/board-renderer';
+import type { BoardIntent } from '@/renderer/board-renderer';
 import type { RulerState } from '@/renderer/board-view';
 import type { DrawingPreview } from '@/renderer/drawing-view';
+import type { WallMode } from '@/renderer/wall-view';
+import type { WallEraseBox } from '@/services/wall-commands';
 import type {
   BoardCommandFailure,
   BoardCommandResult,
   TableBoardCommands,
 } from '@/services/table-board-commands';
-import type { DrawingDto } from '@lorkarium/contracts';
+import type {
+  DoorStateDto,
+  DrawingDto,
+  SceneVisionDto,
+  WallDto,
+  WallKindDto,
+} from '@lorkarium/contracts';
 import type { DrawingStyle } from '@/lib/drawing-style';
 import { deleteDrawingsOf, moveSelection, type SelectionMove } from './drawing-edit-flow';
 import { sendSketch, type FinishedSketch } from './drawing-tool-flow';
@@ -30,22 +38,40 @@ import {
   reshapeEffectAreasOf,
 } from './effect-area-edit-flow';
 import { sendEffectArea } from './effect-area-tool-flow';
+import { changeWallKindsOf, deleteWallsOf, eraseWallAreaOf, eraseWallOf } from './wall-edit-flow';
+import { setDoorOf, toggleDoorOf } from './door-flow';
+import { sendWall, type WallToolContext } from './wall-tool-flow';
+import { afterIntent, joined, NO_SELECTION, toggled } from './board-pointer-intents';
 import { TokenDragFlow } from './token-drag-flow';
 import { faceTokensOf, previewFacing } from './token-facing-flow';
 import { previewResize, resizeTokensOf } from './token-resize-flow';
 
-export type BoardTool = 'select' | 'ruler' | 'draw' | 'area';
+export type BoardTool = 'select' | 'ruler' | 'draw' | 'area' | 'walls';
+export type { WallMode };
 
 export const RULER_HINT = 'Arraste para medir.';
 export const DRAW_HINT = 'Arraste para desenhar; Shift encaixa a forma na grade.';
 export const AREA_HINT = 'Arraste a partir de onde a magia nasce; Shift encaixa a forma perfeita.';
+export const WALL_HINT = 'Arraste para criar a parede; Shift encaixa na grade.';
+
+const WALL_MODE_HINT: Readonly<Record<WallMode, string>> = {
+  draw: WALL_HINT,
+  eraseArea: 'Arraste uma caixa para apagar o que estiver dentro; Shift encaixa na grade.',
+  eraseWall: 'Clique numa parede para apagá-la inteira.',
+  eraseSegment: 'Clique num trecho para apagar só ele.',
+};
 
 /** Where a token was asked to go, shown until the server answers. */
 export type TokenPreview = Readonly<{ tokenId: string; col: number; row: number }>;
 
 /** What is picked up with the token under the pointer: the movable selection it is part of
- *  (or itself alone), where each one stands, and the scene they must stay in. */
-export type DragGroup = Readonly<{ members: readonly GroupMember[]; scene: SceneSize }>;
+ *  (or itself alone), where each one stands, the scene they must stay in, and the walls that bar
+ *  them (absent: the master, who passes every wall). */
+export type DragGroup = Readonly<{
+  members: readonly GroupMember[];
+  scene: SceneSize;
+  walls?: readonly Wall[];
+}>;
 
 /** The group this viewer is dragging: the anchor (the token under the pointer) and the path it
  *  traced (the ruler), and where every member would land (`null`: one would leave the scene). */
@@ -66,6 +92,10 @@ export type BoardInteractionState = Readonly<{
   selectedDrawingIds: readonly string[];
   /** Areas of effect in the selection, beside the tokens and drawings. */
   selectedEffectAreaIds: readonly string[];
+  /** The master's walls picked with the walls tool. */
+  selectedWallIds: readonly string[];
+  /** What a press does with the walls tool (it stays when the tool changes). */
+  wallMode: WallMode;
   /** The shape areas get while moved or stretched here and not yet confirmed, by id. */
   effectAreaPreview: Readonly<Record<string, EffectAreaShapeDto>>;
   /** Only tokens on this layer are picked up; a player is always on `tokens`. */
@@ -84,6 +114,8 @@ export type BoardInteractionState = Readonly<{
   hoverCell: Cell | null;
   /** Reconnecting: there is no queue, so nothing is sent and nothing is dragged. */
   readOnly: boolean;
+  /** The master's "Ver como os selecionados": the board through the selected tokens' eyes. */
+  sightPreview: boolean;
 }>;
 
 export type BoardInteractionStore = BoardInteractionState &
@@ -128,6 +160,11 @@ export type BoardInteractionStore = BoardInteractionState &
     finishSketch: (sketch: FinishedSketch, style: DrawingStyle) => Promise<void>;
     /** The area tool released: one area of effect with this shape. */
     finishEffectArea: (shape: EffectAreaShapeDto) => Promise<void>;
+    /** The walls tool released: one wall in `style`, glued to the walls already on `scene`. */
+    finishWall: (
+      sketch: FinishedSketch,
+      board: Pick<WallToolContext, 'style' | 'walls' | 'scene'>,
+    ) => Promise<void>;
     /** Dragged drawings (and the tokens selected with them) dropped where they go. */
     moveSelection: (move: SelectionMove) => Promise<void>;
     /** Delete / Backspace on the selected drawings. */
@@ -141,6 +178,23 @@ export type BoardInteractionStore = BoardInteractionState &
     ) => Promise<void>;
     /** A handle being dragged on an area (`null`: let go without a change). */
     previewEffectArea: (effectAreaId: string, shape: EffectAreaShapeDto | null) => void;
+    setWallMode: (mode: WallMode) => void;
+    /** A click while erasing: the whole wall (`null`) or one piece of it, one undo entry. */
+    eraseWall: (wall: WallDto, segmentIndex: number | null) => Promise<void>;
+    /** The eraser box released: every wall under it cut at its edges, one undo entry. */
+    eraseWallArea: (walls: readonly WallDto[], box: WallEraseBox) => Promise<void>;
+    /** Delete / Backspace on the selected walls. */
+    deleteWalls: (walls: readonly WallDto[]) => Promise<void>;
+    /** The panel with walls selected: they all take the kind (only lines become doors). */
+    changeWallKinds: (walls: readonly WallDto[], kind: WallKindDto) => Promise<void>;
+    /** A click on a door: closed opens, open closes (a locked one only for the master). */
+    toggleDoor: (door: WallDto) => Promise<void>;
+    /** The master's door menu: open, close, lock or unlock. */
+    setDoorState: (door: WallDto, state: DoorStateDto) => Promise<void>;
+    /** The master's "Ver como os selecionados" on and off (a player cannot). */
+    toggleSightPreview: () => void;
+    /** The scene's vision changed: with `off` there is nothing to preview. */
+    followVision: (mode: SceneVisionDto | undefined) => void;
     /** Sends any other board command; a refusal goes to the status line. Nothing is sent while
      *  read only. Answers whether it was confirmed. */
     command: (
@@ -177,13 +231,8 @@ const TOOL_HINT: Readonly<Record<BoardTool, string | null>> = {
   ruler: RULER_HINT,
   draw: DRAW_HINT,
   area: AREA_HINT,
+  walls: WALL_HINT,
 };
-
-const NO_SELECTION = {
-  selectedTokenIds: [],
-  selectedDrawingIds: [],
-  selectedEffectAreaIds: [],
-} as const;
 
 /** The local side of the board for one room visit. Commands go to the server and the board
  *  only changes when its event arrives; a refused move puts the token back and says why.
@@ -205,7 +254,9 @@ export function createBoardInteractionStore(
       selectedTokenIds: [],
       selectedDrawingIds: [],
       selectedEffectAreaIds: [],
+      selectedWallIds: [],
       effectAreaPreview: {},
+      wallMode: 'draw',
       activeLayer: 'tokens',
       canChooseLayer: false,
       preview: [],
@@ -215,15 +266,21 @@ export function createBoardInteractionStore(
       drag: null,
       hoverCell: null,
       readOnly: false,
+      sightPreview: false,
       setTool: (tool) => {
-        const selection = tool === 'draw' || tool === 'area' ? NO_SELECTION : {};
+        // Only the master (who also chooses layers) edits walls.
+        if (tool === 'walls' && !get().canChooseLayer) return;
+        const sketching = tool === 'draw' || tool === 'area' || tool === 'walls';
+        const selection = sketching ? NO_SELECTION : {};
         // What the area tool makes lives on Tokens: the master sees it pickable at once.
         const layer = tool === 'area' ? { activeLayer: 'tokens' as const } : {};
+        // The walls picked belong to the walls tool: any change of tool drops them.
         set({
           tool,
+          selectedWallIds: [],
           ruler: null,
           measuring: false,
-          notice: TOOL_HINT[tool],
+          notice: hintOf(tool, get().wallMode),
           ...selection,
           ...layer,
         });
@@ -232,7 +289,7 @@ export function createBoardInteractionStore(
       pointer: (intent) => set(afterIntent(get(), intent)),
       escape: () => {
         drags.cancel();
-        const notice = TOOL_HINT[get().tool];
+        const notice = hintOf(get().tool, get().wallMode);
         set({ ruler: null, measuring: false, ...NO_SELECTION, notice });
       },
       say: (notice) => set({ notice }),
@@ -242,7 +299,11 @@ export function createBoardInteractionStore(
       selectMany: (tokenIds, { additive }) =>
         set({ selectedTokenIds: joined(get().selectedTokenIds, tokenIds, additive) }),
       allowLayerChoice: (canChooseLayer) =>
-        set(canChooseLayer ? { canChooseLayer } : { canChooseLayer, activeLayer: 'tokens' }),
+        set(
+          canChooseLayer
+            ? { canChooseLayer }
+            : { canChooseLayer, activeLayer: 'tokens', sightPreview: false },
+        ),
       setActiveLayer: (activeLayer) => {
         if (!get().canChooseLayer) return;
         set({ activeLayer, ...NO_SELECTION, ruler: null, measuring: false });
@@ -282,6 +343,28 @@ export function createBoardInteractionStore(
         const recordEdit = deps.recordEdit ?? (() => undefined);
         return sendEffectArea({ ...deps, recordEdit }, shape, { readOnly: get().readOnly, say });
       },
+      finishWall: (sketch, board) => {
+        const say = (notice: string): void => set({ notice });
+        const recordEdit = deps.recordEdit ?? (() => undefined);
+        const context = { ...board, readOnly: get().readOnly, say };
+        return sendWall({ ...deps, recordEdit }, sketch, context);
+      },
+      toggleSightPreview: () => {
+        if (!get().canChooseLayer) return;
+        set({ sightPreview: !get().sightPreview });
+      },
+      followVision: (mode) => {
+        if (mode === 'off' && get().sightPreview) set({ sightPreview: false });
+      },
+      toggleDoor: (door) => toggleDoorOf(deps, store, door),
+      setDoorState: (door, state) => setDoorOf(deps, store, door, state),
+      setWallMode: (wallMode) => {
+        set({ wallMode, notice: WALL_MODE_HINT[wallMode], selectedWallIds: [] });
+      },
+      eraseWall: (wall, segmentIndex) => eraseWallOf(deps, store, wall, segmentIndex),
+      eraseWallArea: (walls, box) => eraseWallAreaOf(deps, store, walls, box),
+      deleteWalls: (walls) => deleteWallsOf(deps, store, walls),
+      changeWallKinds: (walls, kind) => changeWallKindsOf(deps, store, walls, kind),
       moveSelection: (move) => moveSelection(deps, store, move),
       deleteDrawings: (drawings) => deleteDrawingsOf(deps, store, drawings),
       deleteEffectAreas: (areas) => deleteEffectAreasOf(deps, store, areas),
@@ -323,6 +406,8 @@ export function useLocalBoardView(
       selectedTokenIds: state.selectedTokenIds,
       selectedDrawingIds: state.selectedDrawingIds,
       selectedEffectAreaIds: state.selectedEffectAreaIds,
+      selectedWallIds: state.selectedWallIds,
+      wallMode: state.wallMode,
       effectAreaPreview: state.effectAreaPreview,
       drawingPreview: state.drawingPreview,
       activeLayer: state.activeLayer,
@@ -343,6 +428,8 @@ type LocalViewField =
   | 'selectedTokenIds'
   | 'selectedDrawingIds'
   | 'selectedEffectAreaIds'
+  | 'selectedWallIds'
+  | 'wallMode'
   | 'effectAreaPreview'
   | 'drawingPreview'
   | 'activeLayer'
@@ -361,16 +448,8 @@ export function singleSelectedOf(selectedTokenIds: readonly string[]): string | 
   return selectedTokenIds.length === 1 ? (selectedTokenIds[0] ?? null) : null;
 }
 
-function joined(
-  current: readonly string[],
-  tokenIds: readonly string[],
-  additive: boolean,
-): string[] {
-  return [...new Set([...(additive ? current : []), ...tokenIds])];
-}
-
-function toggled(ids: readonly string[], tokenId: string): string[] {
-  return ids.includes(tokenId) ? ids.filter((id) => id !== tokenId) : [...ids, tokenId];
+function hintOf(tool: BoardTool, wallMode: WallMode): string | null {
+  return tool === 'walls' ? WALL_MODE_HINT[wallMode] : TOOL_HINT[tool];
 }
 
 function sayIfRefused(
@@ -379,69 +458,4 @@ function sayIfRefused(
   result: BoardCommandResult,
 ): void {
   if (!result.ok) set({ notice: deps.describeRefusal(result.failure) });
-}
-
-// A plain click or marquee replaces the whole selection (tokens and drawings); Shift adds to it.
-function selectionAfter(
-  state: BoardInteractionState,
-  intent: BoardIntent,
-): Partial<BoardInteractionState> | null {
-  const kept = (additive: boolean) => (additive ? {} : NO_SELECTION);
-  switch (intent.kind) {
-    case 'tokenPicked': {
-      const { tokenId, additive } = intent;
-      const tokens = additive ? toggled(state.selectedTokenIds, tokenId) : [tokenId];
-      return { ...kept(additive), selectedTokenIds: tokens };
-    }
-    case 'drawingPicked': {
-      const { drawingId, additive } = intent;
-      const drawings = additive ? toggled(state.selectedDrawingIds, drawingId) : [drawingId];
-      return { ...kept(additive), selectedDrawingIds: drawings };
-    }
-    case 'tokensMarqueed': {
-      const tokens = joined(state.selectedTokenIds, intent.tokenIds, intent.additive);
-      return { ...kept(intent.additive), selectedTokenIds: tokens };
-    }
-    // Always right after its tokensMarqueed, which already dropped the old drawings.
-    case 'drawingsMarqueed':
-      return { selectedDrawingIds: joined(state.selectedDrawingIds, intent.drawingIds, true) };
-    case 'effectAreaPicked': {
-      const { effectAreaId, additive } = intent;
-      const areas = additive ? toggled(state.selectedEffectAreaIds, effectAreaId) : [effectAreaId];
-      return { ...kept(additive), selectedEffectAreaIds: areas };
-    }
-    // Right after its tokensMarqueed too: only adds.
-    case 'effectAreasMarqueed': {
-      const areas = joined(state.selectedEffectAreaIds, intent.effectAreaIds, true);
-      return { selectedEffectAreaIds: areas };
-    }
-    default:
-      return null;
-  }
-}
-
-// A dragged or dropped token is routed to its own action by the board area, not here.
-function isPointerIntent(intent: BoardIntent): intent is BoardPointerIntent {
-  return (
-    intent.kind === 'pointerDown' || intent.kind === 'pointerMove' || intent.kind === 'pointerUp'
-  );
-}
-
-function afterIntent(
-  state: BoardInteractionState,
-  intent: BoardIntent,
-): Partial<BoardInteractionState> {
-  if (intent.kind === 'cameraChanged') return { zoom: intent.zoom };
-  if (intent.kind === 'pointerHovered') return { hoverCell: intent.cell };
-  const selection = selectionAfter(state, intent);
-  if (selection) return selection;
-  if (!isPointerIntent(intent)) return {};
-  if (state.tool === 'select' && intent.kind === 'pointerDown') return NO_SELECTION;
-  if (state.tool !== 'ruler' || !intent.cell) return {};
-  if (intent.kind === 'pointerDown') {
-    return { ruler: { from: intent.cell, to: intent.cell }, measuring: true };
-  }
-  if (!state.measuring || !state.ruler) return {};
-  const ruler = { ...state.ruler, to: intent.cell };
-  return { ruler, measuring: intent.kind === 'pointerMove' };
 }

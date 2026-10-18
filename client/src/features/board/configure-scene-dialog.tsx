@@ -1,5 +1,6 @@
-import type { AssetDto, SceneBackgroundDto, SceneDto } from '@lorkarium/contracts';
+import type { AssetDto, SceneBackgroundDto, SceneDto, SceneVisionDto } from '@lorkarium/contracts';
 import { useId, useState } from 'react';
+import { ChoiceField } from '@/components/choice-field';
 import { FormField } from '@/components/form-field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,8 @@ import type { AssetsApi } from '@/services/assets-api';
 import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-board-commands';
 import { DISCONNECTED_COMMAND, boardCommandFailureMessage } from './board-messages';
 import {
+  VISION_HINT,
+  VISION_OPTIONS,
   gridFormOf,
   keepProportion,
   parseGridForm,
@@ -43,7 +46,7 @@ export type ConfigureSceneDialogProps = Readonly<{
 }>;
 
 /** "Configurar cena" (master): the background image, then size, cell distance and unit,
- *  visibility and opacity. Mounted only while open, so every opening starts from the scene as it
+ *  visibility and opacity of the grid, and the vision of the tokens. Mounted only while open, so every opening starts from the scene as it
  *  is now.
  *
  *  Example: `{sceneDialog && <ConfigureSceneDialog campaignId={id} scene={scene} commands={commands} assets={assets} connected={live} onClose={close} />}` */
@@ -59,7 +62,12 @@ export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JS
     if (!parsed.ok) return;
     setSaving(true);
     const backgroundAssetId = look.background?.assetId ?? null;
-    const result = await commands.configureScene(campaignId, parsed.grid, backgroundAssetId);
+    const result = await commands.configureScene(
+      campaignId,
+      parsed.grid,
+      backgroundAssetId,
+      look.vision,
+    );
     setSaving(false);
     if (result.ok) return onClose();
     setFailure(result.failure);
@@ -88,6 +96,13 @@ export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JS
             onLocked={look.setLocked}
           />
           <GridFields form={look.form} errors={errors} onChange={look.changeForm} />
+          <ChoiceField
+            legend="Visão dos tokens"
+            value={look.vision}
+            options={VISION_OPTIONS}
+            onChange={look.setVision}
+            hint={VISION_HINT}
+          />
           {failure && (
             <Alert variant="destructive" className="px-3.5 py-3 text-sm">
               {boardCommandFailureMessage(failure)}
@@ -112,6 +127,8 @@ export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JS
 
 type SceneLook = Readonly<{
   form: GridForm;
+  vision: SceneVisionDto;
+  setVision: (vision: SceneVisionDto) => void;
   background: SceneBackgroundDto | null;
   locked: boolean;
   changeForm: (form: GridForm) => void;
@@ -123,6 +140,7 @@ type SceneLook = Readonly<{
 function useSceneLook(scene: SceneDto): SceneLook {
   const [form, setForm] = useState(() => gridFormOf(scene));
   const [background, setBackground] = useState(scene.background);
+  const [vision, setVision] = useState(scene.vision);
   const [locked, setLockedState] = useState(
     () => !scene.background || isProportional(scene, scene.background),
   );
@@ -141,7 +159,7 @@ function useSceneLook(scene: SceneDto): SceneLook {
   };
   const changeForm = (next: GridForm): void =>
     setForm(locked && background ? keepProportion(form, next, background) : next);
-  return { form, background, locked, changeForm, chooseBackground, setLocked };
+  return { form, vision, setVision, background, locked, changeForm, chooseBackground, setLocked };
 }
 
 type GridFieldsProps = Readonly<{

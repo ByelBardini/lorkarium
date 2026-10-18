@@ -1,5 +1,5 @@
 import { cell, type Cell } from '@lorkarium/game-core';
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container } from 'pixi.js';
 import type { BoardIntentListener, BoardRenderer, CreateBoardRenderer } from './board-renderer';
 import { boardCursorOf } from './board-cursor';
 import { imageUrlsOf, type BoardView } from './board-view';
@@ -25,23 +25,27 @@ import {
   type PanKey,
   type RightDrag,
 } from './camera-input';
-import { cellAtWorld, gridLines, visibleWorldRect } from './grid-geometry';
+import { cellAtWorld, visibleWorldRect } from './grid-geometry';
 import { tokenMenuTarget } from './marquee';
 import { DrawingGestures } from './drawing-gestures';
 import { EffectAreaGestures } from './effect-area-gestures';
+import { doorIconAt, erasedStrokesOf, wallTargetAt } from './wall-view';
 import { pointOf, prefersReducedMotion, wheelFields } from './dom-input';
 import { hoverRouteOf, pressRouteOf, topTokenAt, type PressRoute } from './press-route';
 import { tokenCenterOf } from './token-box';
 import { PixiDrawingLayer } from './pixi-drawing-layer';
 import { PixiEffectAreaLayer } from './pixi-effect-area-layer';
+import { PixiFogLayer } from './pixi-fog-layer';
 import { PixiFacingHandle } from './pixi-facing-handle';
 import { PixiResizeHandles } from './pixi-resize-handles';
 import { PixiRuler } from './pixi-ruler';
 import { resizeCursorOf } from './resize-handles';
 import { PixiMarquee } from './pixi-marquee';
 import { PixiSceneBackground } from './pixi-scene-background';
+import { PixiSceneGrid } from './pixi-scene-grid';
 import { PixiTextureCache } from './pixi-texture-cache';
 import { PixiTokenLayer } from './pixi-token-layer';
+import { PixiWallLayer } from './pixi-wall-layer';
 import {
   dropCellOf,
   grabOffsetOf,
@@ -54,8 +58,6 @@ import {
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const PANEL_COLOR = 0x0c0e11;
-const SCENE_COLOR = 0x15181d;
-const GOLD_COLOR = 0xc5a46d;
 const BUTTON_ZOOM_STEP = 1.25;
 const SECONDARY_BUTTON = 2;
 const PRIMARY_BUTTON = 0;
@@ -82,6 +84,8 @@ class PixiBoardRenderer implements BoardRenderer {
   private hoverCellKey: string | null = null;
   private readonly drawings = new PixiDrawingLayer();
   private readonly effectAreas = new PixiEffectAreaLayer();
+  private readonly walls = new PixiWallLayer();
+  private readonly fog = new PixiFogLayer();
   // A texture that arrives later draws the last view again, with the image this time.
   private readonly textures = new PixiTextureCache(() => this.view && this.draw(this.view));
   private readonly background = new PixiSceneBackground(this.textures);
@@ -99,8 +103,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly heldPanKeys = new Set<PanKey>();
   private readonly disposers: Array<() => void> = [];
   private readonly world = new Container();
-  private readonly sceneShape = new Graphics();
-  private readonly grid = new Graphics();
+  private readonly sceneGrid = new PixiSceneGrid();
   private readonly ruler = new PixiRuler();
   private readonly marquee = new PixiMarquee((intent) => this.onIntent(intent));
 
@@ -115,10 +118,13 @@ class PixiBoardRenderer implements BoardRenderer {
     host.appendChild(app.canvas);
     const { container: tokenLayer } = this.tokens;
     this.world.addChild(
-      this.sceneShape,
+      this.sceneGrid.floor,
       this.background.container,
-      this.grid,
+      this.sceneGrid.grid,
       tokenLayer,
+      this.fog.container,
+      this.walls.lines,
+      this.walls.doors,
       this.resizeHandles.shape,
       this.facingHandle.shape,
       this.drawings.draft,
@@ -140,13 +146,14 @@ class PixiBoardRenderer implements BoardRenderer {
   draw(view: BoardView): void {
     this.view = view;
     if (!this.app) return;
-    this.drawScene(view);
+    this.sceneGrid.drawFloor(view);
     this.textures.retain(imageUrlsOf(view));
     this.background.sync(view.background);
     this.showCursor();
     this.drawings.sync(view.drawings);
     this.effectAreas.sync(view.effectAreas, view.sceneSize);
     this.tokens.sync(view.tokens, view.ghosts, performance.now());
+    this.fog.sync(view.fog);
     if (!this.framed) {
       this.framed = true;
       return this.fitScene();
@@ -206,29 +213,12 @@ class PixiBoardRenderer implements BoardRenderer {
     this.onIntent({ kind: 'cameraChanged', zoom: this.camera.zoom });
   }
 
-  private drawScene(view: BoardView): void {
-    this.sceneShape
-      .clear()
-      .rect(0, 0, view.sceneSize.width, view.sceneSize.height)
-      .fill(SCENE_COLOR);
-  }
-
   private drawOverlays(view: BoardView): void {
-    this.drawGrid(view);
+    this.sceneGrid.drawGrid(view, this.camera, this.screenSize());
+    this.walls.draw(view.walls, view.doors, this.camera.zoom);
     this.ruler.draw(view, this.camera.zoom);
     this.resizeHandles.draw(view, this.camera.zoom);
     this.facingHandle.draw(view, this.camera.zoom);
-  }
-
-  // Only the lines on screen, as hairlines whatever the zoom.
-  private drawGrid(view: BoardView): void {
-    this.grid.clear();
-    if (!view.grid.visible) return;
-    const lines = gridLines(view.grid.cells, visibleWorldRect(this.camera, this.screenSize()));
-    for (const x of lines.vertical) this.grid.moveTo(x, 0).lineTo(x, view.sceneSize.height);
-    for (const y of lines.horizontal) this.grid.moveTo(0, y).lineTo(view.sceneSize.width, y);
-    const width = 1 / this.camera.zoom;
-    this.grid.stroke({ width, color: GOLD_COLOR, alpha: view.grid.opacity });
   }
 
   private listen(host: HTMLElement, canvas: HTMLCanvasElement): void {
@@ -271,7 +261,12 @@ class PixiBoardRenderer implements BoardRenderer {
     if (!this.app || !this.view) return;
     const drawKind = this.view.sketch?.kind ?? null;
     const panning = this.rightDrag?.panning ?? false;
-    this.app.canvas.style.cursor = boardCursorOf({ tool: this.view.tool, drawKind, panning });
+    this.app.canvas.style.cursor = boardCursorOf({
+      tool: this.view.tool,
+      drawKind,
+      panning,
+      wallMode: this.view.wallMode,
+    });
   }
 
   private onWheel(event: WheelEvent): void {
@@ -296,6 +291,11 @@ class PixiBoardRenderer implements BoardRenderer {
   private takePress(route: PressRoute, event: PointerEvent, world: Point): void {
     const view = this.view;
     if (view && route.kind === 'sketch') return this.gestures.startSketch(view, world);
+    if (route.kind === 'door') return this.onIntent({ kind: 'doorPressed', wallId: route.wallId });
+    if (route.kind === 'wallErase') {
+      const { wallId, segmentIndex } = route;
+      return this.onIntent({ kind: 'wallErased', wallId, segmentIndex });
+    }
     if (view && route.kind === 'areaSketch') return this.areaGestures.startSketch(view, world);
     if (view && route.kind === 'facingHandle') return void this.facingHandle.press(view, world);
     if (view && route.kind === 'resizeHandle') {
@@ -386,6 +386,8 @@ class PixiBoardRenderer implements BoardRenderer {
     if (!this.view) return;
     const { tokenId, handle } = hoverRouteOf(this.view, world, this.camera.zoom);
     this.tokens.hover(tokenId);
+    const target = wallTargetAt(this.view.walls, world);
+    this.walls.lightErase(erasedStrokesOf(this.view.walls, target, this.view.wallMode));
     if (!handle || !this.app) return this.showCursor();
     this.app.canvas.style.cursor = resizeCursorOf(handle);
   }
@@ -422,6 +424,13 @@ class PixiBoardRenderer implements BoardRenderer {
     this.rightDrag = null;
     this.showCursor();
     if (!drag || !this.view || endRightDrag(drag) !== 'context') return;
+    const door = this.view.layerMenu
+      ? doorIconAt(this.view.doors, this.worldOf(event), this.camera.zoom)
+      : null;
+    if (door) {
+      const at = { x: event.clientX, y: event.clientY };
+      return this.onIntent({ kind: 'doorMenuRequested', wallId: door.wallId, ...at });
+    }
     const tokenId = tokenMenuTarget(this.view, topTokenAt(this.view.tokens, this.worldOf(event)));
     if (!tokenId) return;
     this.onIntent({ kind: 'tokenMenuRequested', tokenId, x: event.clientX, y: event.clientY });

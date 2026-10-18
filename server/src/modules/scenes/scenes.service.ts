@@ -1,4 +1,4 @@
-import type { SceneBackgroundDto } from '@lorkarium/contracts';
+import type { SceneBackgroundDto, SceneVisionDto } from '@lorkarium/contracts';
 import type { AssetsDao } from '../assets/assets.dao';
 import { AssetNotFoundError } from '../assets/assets.error';
 import type { ClockPort } from '../auth/clock.port';
@@ -28,11 +28,13 @@ export type ScenesServiceDeps = Readonly<{
 export type BackgroundChoice = string | null | undefined;
 
 type Background = SceneBackgroundDto | null;
+/** The vision mode a configure asks for; absent keeps the scene's. */
+export type VisionChoice = SceneVisionDto | undefined;
 
-/** Configures the grid and the background of a campaign's active scene: persists, bumps the
- *  version, then publishes.
+/** Configures the grid, the background and the vision mode of a campaign's active scene:
+ *  persists, bumps the version, then publishes.
  *
- *  Example: `const version = await scenesService.configure(user.id, campaignId, grid, assetId)` */
+ *  Example: `const version = await scenesService.configure(user.id, campaignId, grid, assetId, 'dark')` */
 export class ScenesService {
   constructor(private readonly deps: ScenesServiceDeps) {}
 
@@ -41,6 +43,7 @@ export class ScenesService {
     campaignId: string,
     grid: SceneGrid,
     backgroundAssetId?: BackgroundChoice,
+    vision?: VisionChoice,
   ): Promise<number> {
     const membership = await this.deps.members.findMembership(campaignId, userId);
     const access = toCampaignAccessBo(campaignId, userId, membership);
@@ -48,7 +51,11 @@ export class ScenesService {
     const saved = await this.deps.transaction(async ({ scenes, assets }) => {
       const scene = await lockedSceneOf(scenes, campaignId);
       const background = await backgroundFor(assets, scene, backgroundAssetId);
-      const config = { ...toSceneGridPo(decided), backgroundAssetId: background?.assetId ?? null };
+      const config = {
+        ...toSceneGridPo(decided),
+        backgroundAssetId: background?.assetId ?? null,
+        visionMode: vision ?? scene.visionMode,
+      };
       const updated = await scenes.update(scene.id, config);
       const version = await scenes.bumpVersion(scene.id);
       return { ...updated, ...pixelsOf(background), version };

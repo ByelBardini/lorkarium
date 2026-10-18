@@ -72,6 +72,41 @@ describe('tokens mapper', () => {
     expect(without.fields).not.toHaveProperty('frame');
   });
 
+  it('a sight saved as "12.00" and "4.00" becomes { bright: 12, dim: 4 }, the same for both audiences', () => {
+    const row = lyraRow({ token: lyraPo({ sightBright: '12.00', sightDim: '4.00' }) });
+
+    expect(toTokenDto(row, 'privileged').sight).toEqual({ bright: 12, dim: 4 });
+    expect(toTokenDto(row, 'others').sight).toEqual({ bright: 12, dim: 4 });
+  });
+
+  it('a token with both sight columns null does not see (sight null)', () => {
+    expect(toTokenDto(lyraRow(), 'others').sight).toBeNull();
+  });
+
+  it('an update with sight writes both columns, null clears them, and without sight writes none', () => {
+    const base = {
+      name: 'Lyra',
+      initials: 'LY',
+      side: 'ally',
+      width: 1,
+      height: 1,
+      controllerIds: [BIA_ID],
+      bars: [],
+    } as const;
+
+    const lists = { bars: [], controllerIds: [BIA_ID] };
+    const seeing = toTokenUpdatePo({ ...base, ...lists, sight: { bright: 6.666, dim: 2 } }, [
+      BIA_ID,
+    ]);
+    const blind = toTokenUpdatePo({ ...base, ...lists, sight: null }, [BIA_ID]);
+    const kept = toTokenUpdatePo({ ...base, ...lists }, [BIA_ID]);
+
+    expect(seeing.fields).toMatchObject({ sightBright: '6.67', sightDim: '2.00' });
+    expect(blind.fields).toMatchObject({ sightBright: null, sightDim: null });
+    expect(kept.fields).not.toHaveProperty('sightBright');
+    expect(kept.fields).not.toHaveProperty('sightDim');
+  });
+
   it('the token DTO carries no persistence fields', () => {
     expect(toTokenDto(lyraRow(), 'others')).not.toHaveProperty('sceneId');
   });

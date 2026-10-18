@@ -10,6 +10,11 @@ export type BoardCommandFailure =
   | 'drawing_limit'
   | 'effect_area_not_found'
   | 'effect_area_limit'
+  | 'wall_not_found'
+  | 'wall_limit'
+  | 'invalid_door'
+  | 'door_locked'
+  | 'wall_blocked'
   | 'stale_undo'
   | 'asset_not_found'
   | 'turn_changed'
@@ -21,8 +26,8 @@ export type BoardCommandFailure =
   | 'offline'
   | 'unexpected';
 
-/** `createdIds` only on a creating command (`createTokens`, `createDrawings`, `createEffectAreas`): the ids the server
- *  gave, in the order sent. */
+/** `createdIds` only on a creating command (`createTokens`, `createDrawings`, `createEffectAreas`, `eraseWallSegment`,
+ *  `createWalls`): the ids the server gave, in the order sent. */
 export type BoardCommandResult =
   | Readonly<{ ok: true; version: number; createdIds?: readonly string[] }>
   | Readonly<{ ok: false; failure: BoardCommandFailure }>;
@@ -40,6 +45,12 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   DRAWING_LIMIT: 'drawing_limit',
   EFFECT_AREA_NOT_FOUND: 'effect_area_not_found',
   EFFECT_AREA_LIMIT: 'effect_area_limit',
+  WALL_NOT_FOUND: 'wall_not_found',
+  WALL_LIMIT: 'wall_limit',
+  INVALID_DOOR: 'invalid_door',
+  DOOR_LOCKED: 'door_locked',
+  WALL_BLOCKED: 'wall_blocked',
+  WALL_SEGMENT_NOT_FOUND: 'wall_not_found',
   STALE_UNDO: 'stale_undo',
   ASSET_NOT_FOUND: 'asset_not_found',
   CONDITION_NOT_FOUND: 'token_not_found',

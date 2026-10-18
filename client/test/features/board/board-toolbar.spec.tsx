@@ -111,3 +111,43 @@ describe('BoardToolbar', () => {
     expect(tool('Enquadrar cena (0)')).toBeDisabled();
   });
 });
+
+describe('BoardToolbar, "Ver como os selecionados"', () => {
+  function renderWith(canConfigure: boolean, sightOn: boolean) {
+    const interaction = createBoardInteractionStore({
+      campaignId: VHARN.id,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+    interaction.getState().allowLayerChoice(canConfigure);
+    render(
+      <BoardToolbar
+        interaction={interaction}
+        renderer={null}
+        canConfigure={canConfigure}
+        sightOn={sightOn}
+        onConfigure={() => undefined}
+        onNewToken={() => undefined}
+      />,
+    );
+    return interaction;
+  }
+
+  it('the master in a dark scene has the button, and pressing it turns the preview on', async () => {
+    const interaction = renderWith(true, true);
+
+    const button = screen.getByRole('button', { name: 'Ver como os selecionados' });
+    expect(button).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(button);
+
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+    expect(interaction.getState().sightPreview).toBe(true);
+  });
+
+  it('with vision off, or for a player, there is no such button', () => {
+    renderWith(true, false);
+    expect(
+      screen.queryByRole('button', { name: 'Ver como os selecionados' }),
+    ).not.toBeInTheDocument();
+  });
+});

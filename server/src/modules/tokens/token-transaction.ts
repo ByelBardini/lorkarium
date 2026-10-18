@@ -14,7 +14,8 @@ import { TokenAccessBo } from './token-access.bo';
 import type { TokenRulesBo } from './token-rules.bo';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
 import { TokenNotFoundError } from './tokens.error';
-import { toBarInputsPo, toTokenDto } from './tokens.mapper';
+import { toBarInputsPo, toTokenDto, toTokenSightPo } from './tokens.mapper';
+import type { WallsDao } from '../walls/walls.dao';
 
 /** The DAOs a token transaction hands out, bound to the open `tx`. */
 export type TokenWriteDaos = Readonly<{
@@ -39,6 +40,7 @@ export type TokenWriteDaos = Readonly<{
   conditions: Pick<ConditionsDao, 'listOfTokens'>;
   combat: Pick<CombatDao, 'findOfScene' | 'setTurn'>;
   assets: Pick<AssetsDao, 'findManyInCampaign'>;
+  walls: Pick<WallsDao, 'listOfScene'>;
 }>;
 
 export type TokenTransactionRunner = SceneTransaction<TokenWriteDaos>;
@@ -85,7 +87,7 @@ export function newTokenRowOf(
   const { col, row } = rules.place(token, token);
   const { name, initials, side, width, height, layer } = token;
   const { imageAssetId, frame, flipX, flipY, facing } = token;
-  const look = { imageAssetId, frame, flipX, flipY, facing };
+  const look = { imageAssetId, frame, flipX, flipY, facing, ...toTokenSightPo(token.sight) };
   return {
     token: { sceneId, name, initials, side, width, height, col, row, layer, ...look },
     bars: toBarInputsPo(token.bars),

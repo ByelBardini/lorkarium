@@ -117,6 +117,29 @@ describe('ScenesService', () => {
     expect(publisher.sceneUpdates[0]?.scene.background?.width).toBe(1400);
   });
 
+  it('the vision dark is saved and published with the scene', async () => {
+    await service.configure(ANA_ID, VHARN_ID, GRID_30_BY_20, undefined, 'dark');
+
+    expect(scenes.rows[0]?.visionMode).toBe('dark');
+    expect(publisher.sceneUpdates[0]?.scene.vision).toBe('dark');
+  });
+
+  it('no vision in the command keeps the mode the scene has', async () => {
+    scenes.rows[0]!.visionMode = 'daylight';
+
+    await service.configure(ANA_ID, VHARN_ID, GRID_30_BY_20);
+
+    expect(scenes.rows[0]?.visionMode).toBe('daylight');
+    expect(publisher.sceneUpdates[0]?.scene.vision).toBe('daylight');
+  });
+
+  it('a player setting the vision is refused with FORBIDDEN and the mode stays', async () => {
+    await expect(
+      service.configure(BIA_ID, VHARN_ID, GRID_30_BY_20, undefined, 'dark'),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(scenes.rows[0]?.visionMode).toBe('off');
+  });
+
   it('an asset of another campaign is ASSET_NOT_FOUND without saving, bumping or publishing', async () => {
     const configure = service.configure(ANA_ID, VHARN_ID, GRID_30_BY_20, QUELM_MAP_ID);
 

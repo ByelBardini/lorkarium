@@ -1,11 +1,23 @@
-import type { DrawingShapeInput, EffectAreaShapeDto, NewTokenInput } from '@lorkarium/contracts';
+import type {
+  DrawingShapeInput,
+  EffectAreaShapeDto,
+  NewTokenInput,
+  WallKindDto,
+  WallShapeDto,
+} from '@lorkarium/contracts';
 import type { Cell, TokenBox } from '@lorkarium/game-core';
 
 /** Undo stacks kept per user: how many actions go back. */
 export const HISTORY_LIMIT = 50;
 
 export type DrawingPosition = Readonly<{ x: number; y: number }>;
-export type TokenMove = Readonly<{ tokenId: string; from: Cell; to: Cell }>;
+/** A move of a token; `path` is the bends it took around walls (absent: a straight move). */
+export type TokenMove = Readonly<{
+  tokenId: string;
+  from: Cell;
+  to: Cell;
+  path?: readonly Cell[];
+}>;
 /** A turn of a token: the facing it had and the one it got. */
 export type TokenTurn = Readonly<{ tokenId: string; from: number; to: number }>;
 /** A resize of a token: the box it had and the one it got (the origin moves with a left/top handle). */
@@ -29,6 +41,11 @@ export type EffectAreaReshape = Readonly<{
   to: EffectAreaShapeDto;
 }>;
 
+/** A wall on the board as it was created: its id and its shape, at its position. */
+export type DrawnWall = Readonly<{ id: string; shape: WallShapeDto }>;
+/** A change of kind of a wall: the kind it had and the one it got. */
+export type WallKindChange = Readonly<{ wallId: string; from: WallKindDto; to: WallKindDto }>;
+
 /** One thing an action did, enough to redo it and to build its inverse. */
 export type EditOp =
   | Readonly<{ kind: 'tokensMoved'; moves: readonly TokenMove[] }>
@@ -41,7 +58,10 @@ export type EditOp =
   | Readonly<{ kind: 'drawingsRemoved'; drawings: readonly PlacedDrawing[] }>
   | Readonly<{ kind: 'effectAreasAdded'; effectAreas: readonly PlacedEffectArea[] }>
   | Readonly<{ kind: 'effectAreasRemoved'; effectAreas: readonly PlacedEffectArea[] }>
-  | Readonly<{ kind: 'effectAreasReshaped'; reshapes: readonly EffectAreaReshape[] }>;
+  | Readonly<{ kind: 'effectAreasReshaped'; reshapes: readonly EffectAreaReshape[] }>
+  | Readonly<{ kind: 'wallsAdded'; walls: readonly DrawnWall[] }>
+  | Readonly<{ kind: 'wallsRemoved'; walls: readonly DrawnWall[] }>
+  | Readonly<{ kind: 'wallsKindChanged'; changes: readonly WallKindChange[] }>;
 
 /** One user action (a paste with tokens and drawings is one), in the order it was done. */
 export type EditEntry = readonly EditOp[];
@@ -117,7 +137,12 @@ function inverseOp(op: EditOp): EditOp {
     case 'tokensMoved':
       return {
         kind: 'tokensMoved',
-        moves: op.moves.map(({ tokenId, from, to }) => ({ tokenId, from: to, to: from })),
+        moves: op.moves.map(({ tokenId, from, to, path }) => ({
+          tokenId,
+          from: to,
+          to: from,
+          ...(path && { path: path.toReversed() }),
+        })),
       };
     case 'drawingsMoved':
       return {
@@ -143,7 +168,30 @@ function inverseOp(op: EditOp): EditOp {
     case 'drawingsRemoved':
       return { kind: 'drawingsAdded', drawings: op.drawings };
     default:
-      return inverseEffectAreaOp(op);
+      return isWallOp(op) ? inverseWallOp(op) : inverseEffectAreaOp(op);
+  }
+}
+
+type WallOp = Extract<EditOp, { kind: 'wallsAdded' | 'wallsRemoved' | 'wallsKindChanged' }>;
+
+/** Whether the op is about walls (the edit store hands those to `runWallOp`).
+ *
+ *  Example: `if (isWallOp(op)) return runWallOp(op, campaignId, commands)` */
+export function isWallOp(op: EditOp): op is WallOp {
+  return op.kind === 'wallsAdded' || op.kind === 'wallsRemoved' || op.kind === 'wallsKindChanged';
+}
+
+function inverseWallOp(op: WallOp): EditOp {
+  switch (op.kind) {
+    case 'wallsAdded':
+      return { kind: 'wallsRemoved', walls: op.walls };
+    case 'wallsRemoved':
+      return { kind: 'wallsAdded', walls: op.walls };
+    case 'wallsKindChanged':
+      return {
+        kind: 'wallsKindChanged',
+        changes: op.changes.map(({ wallId, from, to }) => ({ wallId, from: to, to: from })),
+      };
   }
 }
 
@@ -206,6 +254,21 @@ function remapOp(op: EditOp, mapping: IdMapping): EditOp {
           ...reshape,
           effectAreaId: idOf(reshape.effectAreaId),
         })),
+      };
+    default:
+      return remapWallOp(op, idOf);
+  }
+}
+
+function remapWallOp(op: WallOp, idOf: (id: string) => string): EditOp {
+  switch (op.kind) {
+    case 'wallsAdded':
+    case 'wallsRemoved':
+      return { ...op, walls: op.walls.map((drawn) => ({ ...drawn, id: idOf(drawn.id) })) };
+    case 'wallsKindChanged':
+      return {
+        ...op,
+        changes: op.changes.map((change) => ({ ...change, wallId: idOf(change.wallId) })),
       };
   }
 }

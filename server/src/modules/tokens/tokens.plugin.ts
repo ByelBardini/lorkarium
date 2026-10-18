@@ -9,6 +9,7 @@ import { CombatDao } from '../combat/combat.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { TokensDao } from './tokens.dao';
+import { WallsDao } from '../walls/walls.dao';
 import { TokenAppearanceService } from './token-appearance.service';
 import { TokenBatchService } from './token-batch.service';
 import type { TokenTransactionRunner } from './token-transaction';
@@ -39,6 +40,7 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
         conditions: new ConditionsDao(tx),
         combat: new CombatDao(tx),
         assets: new AssetsDao(tx),
+        walls: new WallsDao(tx),
       }),
     );
   const members = new CampaignMembersDao(options.db);

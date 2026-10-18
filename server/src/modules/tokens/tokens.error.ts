@@ -1,5 +1,5 @@
 export type TokenErrorCode =
-  'TOKEN_NOT_FOUND' | 'OUT_OF_SCENE' | 'INVALID_CONTROLLER' | 'BAR_NOT_FOUND';
+  'TOKEN_NOT_FOUND' | 'OUT_OF_SCENE' | 'INVALID_CONTROLLER' | 'BAR_NOT_FOUND' | 'WALL_BLOCKED';
 
 /** Every token refusal of its own; the gateway turns `code` into the ack error. */
 export class TokenError extends Error {
@@ -55,6 +55,23 @@ export class InvalidControllerError extends TokenError {
     super(
       'INVALID_CONTROLLER',
       `controllers must be members of the table; not members: ${userIds.join(', ')}`,
+    );
+  }
+}
+
+export type CenterRef = Readonly<{ x: number; y: number }>;
+
+/** A player's token whose path meets a wall that bars movement (the master passes every wall). */
+export class WallBlockedError extends TokenError {
+  constructor(
+    readonly tokenId: string,
+    readonly from: CenterRef,
+    readonly to: CenterRef,
+    readonly wallId: string,
+  ) {
+    super(
+      'WALL_BLOCKED',
+      `token ${tokenId} is barred on (${from.x}, ${from.y}) → (${to.x}, ${to.y}) by wall ${wallId}`,
     );
   }
 }

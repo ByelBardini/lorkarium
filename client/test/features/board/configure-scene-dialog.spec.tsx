@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { act } from '@testing-library/react';
@@ -71,6 +71,7 @@ describe('ConfigureSceneDialog', () => {
           gridVisible: true,
           gridOpacity: 30,
           backgroundAssetId: null,
+          vision: 'off',
         },
       },
     ]);
@@ -239,5 +240,32 @@ describe('ConfigureSceneDialog', () => {
         'Essa imagem não está mais na mesa.',
       );
     });
+  });
+});
+
+describe('ConfigureSceneDialog vision', () => {
+  it('"Visão dos tokens" offers Desligada, Escuro and Luz do dia, and Escuro is sent', async () => {
+    const commands = new TableBoardCommandsFake();
+    render(
+      <ConfigureSceneDialog
+        campaignId={VHARN.id}
+        scene={VHARN_SCENE}
+        commands={commands}
+        assets={new AssetsApiFake()}
+        connected
+        onClose={() => undefined}
+      />,
+    );
+
+    const vision = screen.getByRole('radiogroup', { name: 'Visão dos tokens' });
+    for (const name of ['Desligada', 'Escuro', 'Luz do dia']) {
+      expect(within(vision).getByRole('radio', { name })).toBeInTheDocument();
+    }
+    expect(within(vision).getAllByRole('radio')).toHaveLength(3);
+    expect(within(vision).getByRole('radio', { name: 'Desligada' })).toBeChecked();
+    await userEvent.click(within(vision).getByRole('radio', { name: 'Escuro' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(commands.sentAs('configureScene')[0]?.fields).toMatchObject({ vision: 'dark' });
   });
 });
