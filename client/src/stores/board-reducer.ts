@@ -4,6 +4,8 @@ import type {
   ConditionChangeDto,
   DrawingDto,
   DrawingsMovedDto,
+  EffectAreaDto,
+  EffectAreasReshapedDto,
   TokenDto,
   TokensFacedDto,
   TokensResizedDto,
@@ -50,7 +52,11 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
         combat: event.payload.combat,
       };
     default:
-      return batchChangesOf(board, event) ?? combatChangesOf(board, event);
+      return (
+        batchChangesOf(board, event) ??
+        effectAreaChangesOf(board, event) ??
+        combatChangesOf(board, event)
+      );
   }
 }
 
@@ -74,6 +80,35 @@ function batchChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardS
     default:
       return null;
   }
+}
+
+// Areas of effect: created at the end (the drawing order), reshaped whole, deleted.
+function effectAreaChangesOf(
+  board: BoardStateDto,
+  event: BoardEvent,
+): Partial<BoardStateDto> | null {
+  switch (event.type) {
+    case 'effectAreasCreated':
+      return { effectAreas: [...board.effectAreas, ...event.payload.effectAreas] };
+    case 'effectAreasReshaped':
+      return { effectAreas: withReshapes(board.effectAreas, event.payload.reshapes) };
+    case 'effectAreasDeleted': {
+      const { effectAreaIds } = event.payload;
+      return { effectAreas: board.effectAreas.filter(({ id }) => !effectAreaIds.includes(id)) };
+    }
+    default:
+      return null;
+  }
+}
+
+function withReshapes(
+  areas: readonly EffectAreaDto[],
+  reshapes: EffectAreasReshapedDto['reshapes'],
+): EffectAreaDto[] {
+  return areas.map((area) => {
+    const reshape = reshapes.find(({ effectAreaId }) => effectAreaId === area.id);
+    return reshape ? { ...reshape.shape, id: area.id, authorId: area.authorId } : area;
+  });
 }
 
 function withDrawingMoves(

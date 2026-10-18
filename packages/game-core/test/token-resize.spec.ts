@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resizeTokenBox, type TokenBox } from '../src/token-resize';
+import { resizeBox, resizeTokenBox, type TokenBox } from '../src/token-resize';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
 
@@ -100,5 +100,40 @@ describe('resizeTokenBox — free step (the preview while dragging)', () => {
     );
     expect(tiny.width).toBe(0.5);
     expect(past.col + past.width).toBeCloseTo(20, 10);
+  });
+});
+
+describe('resizeBox — its own step and limits (the square area)', () => {
+  const WHOLE_CELLS = { step: 1, min: 1, max: 100 };
+
+  it('the east handle dragged 1.4 cells widens a 3×2 square to 4×2 (snapped to a whole cell)', () => {
+    expect(resizeBox(SCENE, box(2, 3, 3, 2), 'e', { x: 1.4, y: 0 }, WHOLE_CELLS)).toEqual(
+      box(2, 3, 4, 2),
+    );
+  });
+
+  it('the west handle dragged two cells left moves the origin to column 0', () => {
+    expect(resizeBox(SCENE, box(2, 3, 3, 2), 'w', { x: -2, y: 0 }, WHOLE_CELLS)).toEqual(
+      box(0, 3, 5, 2),
+    );
+  });
+
+  it('the north handle shrinking past the minimum stops at one cell, never flips', () => {
+    expect(resizeBox(SCENE, box(2, 3, 3, 2), 'n', { x: 0, y: 5 }, WHOLE_CELLS)).toEqual(
+      box(2, 4, 3, 1),
+    );
+  });
+
+  it('the south handle stops at the scene edge, in whole cells', () => {
+    expect(resizeBox(SCENE, box(2, 3, 3, 2), 's', { x: 0, y: 30 }, WHOLE_CELLS)).toEqual(
+      box(2, 3, 3, 9),
+    );
+  });
+
+  it('a side may grow past the ten cells of a token up to its own maximum', () => {
+    const wide = { widthCells: 60, heightCells: 12 };
+    expect(resizeBox(wide, box(0, 0, 3, 2), 'e', { x: 37, y: 0 }, WHOLE_CELLS)).toEqual(
+      box(0, 0, 40, 2),
+    );
   });
 });

@@ -38,37 +38,6 @@ describe('RealtimeTableBoardCommands', () => {
     ]);
   });
 
-  it('an ok ack answers ok with the new version', async () => {
-    const result = commands.configureScene(VHARN.id, GRID);
-    await transport.answerAck({ ok: true, version: 5 }, 'scene:configure');
-    expect(await result).toEqual({ ok: true, version: 5 });
-  });
-
-  it.each([
-    ['FORBIDDEN', 'forbidden'],
-    ['CAMPAIGN_NOT_FOUND', 'not_found'],
-    ['INVALID_BODY', 'invalid'],
-    ['RATE_LIMITED', 'rate_limited'],
-    ['UNAUTHENTICATED', 'unauthenticated'],
-    ['WHATEVER', 'unexpected'],
-  ])('a refusal with %s is the %s failure', async (code, failure) => {
-    const result = commands.configureScene(VHARN.id, GRID);
-    await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'scene:configure');
-    expect(await result).toEqual({ ok: false, failure });
-  });
-
-  it('an ack that never arrives is offline', async () => {
-    const result = commands.configureScene(VHARN.id, GRID);
-    await transport.timeOutAck('scene:configure');
-    expect(await result).toEqual({ ok: false, failure: 'offline' });
-  });
-
-  it('an ack outside the DTO is unexpected', async () => {
-    const result = commands.configureScene(VHARN.id, GRID);
-    await transport.answerAck({ ok: true }, 'scene:configure');
-    expect(await result).toEqual({ ok: false, failure: 'unexpected' });
-  });
-
   describe('token commands', () => {
     const LYRA = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
     const PV = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';

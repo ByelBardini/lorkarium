@@ -8,6 +8,8 @@ import {
   handlePointOf,
   handleStemOf,
   handleTokenOf,
+  facingTargetOf,
+  tokenFacingTarget,
 } from '@/renderer/facing-handle';
 
 const CELL = CELL_WORLD_SIZE;
@@ -75,8 +77,44 @@ describe('handleAt', () => {
   it('a press on the handle takes it, and one on the token does not', () => {
     const handle = handlePointOf(kael());
 
-    expect(handleAt(kael(), { x: handle.x + 3, y: handle.y - 3 })).toBe(true);
-    expect(handleAt(kael(), CENTER)).toBe(false);
+    const target = tokenFacingTarget(kael());
+    expect(handleAt(target, { x: handle.x + 3, y: handle.y - 3 })).toBe(true);
+    expect(handleAt(target, CENTER)).toBe(false);
+  });
+
+  it('a target is taken by its own stem end, whatever piece it is', () => {
+    const stem = { from: { x: 0, y: 0 }, to: { x: 100, y: 40 } };
+    expect(handleAt({ stem }, { x: 104, y: 44 })).toBe(true);
+    expect(handleAt({ stem }, { x: 0, y: 0 })).toBe(false);
+  });
+});
+
+describe('tokenFacingTarget', () => {
+  it('the token target turns toward the pointer and keeps the token intents', () => {
+    const target = tokenFacingTarget(kael());
+    expect(target.facingAt({ x: 0, y: CENTER.y }, 0, false)).toBe(180);
+    expect(target.previewed(180)).toEqual({
+      kind: 'tokenFacingPreviewed',
+      tokenId: 'kael',
+      facing: 180,
+    });
+    expect(target.previewed(null)).toEqual({
+      kind: 'tokenFacingPreviewed',
+      tokenId: 'kael',
+      facing: null,
+    });
+    expect(target.turned(180)).toEqual({ kind: 'tokenFaced', tokenId: 'kael', facing: 180 });
+  });
+
+  it('the stem of the target is the stem of the token', () => {
+    expect(tokenFacingTarget(kael()).stem).toEqual(handleStemOf(kael()));
+  });
+});
+
+describe('facingTargetOf', () => {
+  it('the one selected token is the target, and with the ruler there is none', () => {
+    expect(facingTargetOf({ tokens: [kael()], tool: 'select' })?.id).toBe('kael');
+    expect(facingTargetOf({ tokens: [kael()], tool: 'ruler' })).toBeNull();
   });
 });
 

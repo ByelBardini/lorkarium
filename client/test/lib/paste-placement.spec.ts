@@ -2,6 +2,7 @@ import { cell } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { copiedOf, pastePlacement, type CopiedSelection } from '@/lib/paste-placement';
 import { path, square } from '../support/drawing-fixtures';
+import { biaCone } from '../support/effect-area-fixtures';
 import { activeCondition, kael, lyra } from '../support/table-session-fixtures';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
@@ -111,5 +112,38 @@ describe('pastePlacement', () => {
     const wide = copiedOf([], [square({ x: 0, width: 20 }), square({ x: 3, width: 2 })]);
 
     expect(pastePlacement(wide, cell(1, 1), { widthCells: 10, heightCells: 10 })).toBeNull();
+  });
+});
+
+describe('copiedOf and pastePlacement, areas of effect', () => {
+  const SCENE = { widthCells: 20, heightCells: 12 };
+  const sideCone = biaCone({ kind: 'orthogonal_cone', x: 5, y: 5.5, reach: 3, facing: 0 });
+
+  it('a copied area keeps its shape and color, without its id or author', () => {
+    expect(copiedOf([], [], [biaCone()]).effectAreas).toEqual([
+      { kind: 'diagonal_cone', x: 6, y: 6, reach: 3, facing: 45, color: 'ember' },
+    ]);
+  });
+
+  it('an area moves with the group by the same whole cells, a cone keeping the middle of its side', () => {
+    const copied = copiedOf([lyra({ col: 3, row: 4 })], [], [sideCone]);
+    const placed = pastePlacement(copied, cell(8, 6), SCENE);
+    expect(placed?.tokens[0]).toMatchObject({ col: 7, row: 6 });
+    expect(placed?.effectAreas[0]).toMatchObject({ x: 9, y: 7.5, facing: 0 });
+  });
+
+  it('the origin of an area counts when the group is pushed back inside by the edge', () => {
+    const atEdge = biaCone({ kind: 'circle', x: 19, y: 6, reach: 4 });
+    const placed = pastePlacement(copiedOf([], [], [atEdge]), cell(30, 6), SCENE);
+    expect(placed?.effectAreas[0]).toMatchObject({ x: 20 });
+  });
+
+  it('a group whose areas spread wider than the scene cannot be pasted', () => {
+    const far = [
+      biaCone({ kind: 'circle', x: 0, y: 2, reach: 1 }),
+      biaCone({ kind: 'circle', x: 20, y: 2, reach: 1 }),
+    ];
+    const narrow = { widthCells: 10, heightCells: 12 };
+    expect(pastePlacement(copiedOf([], [], far), cell(5, 5), narrow)).toBeNull();
   });
 });

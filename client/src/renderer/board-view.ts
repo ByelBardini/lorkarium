@@ -12,10 +12,17 @@ import { assetUrlOf } from '@/services/assets-api';
 import { pathDistance, type Cell, type SceneSize, type TokenBox } from '@lorkarium/game-core';
 import { barFill, type BarFillState } from '@/lib/bar-display';
 import type { DrawingStyle } from '@/lib/drawing-style';
+import { DEFAULT_EFFECT_AREA_STYLE, type EffectAreaStyle } from '@/lib/effect-area-style';
 import { rulerLabel } from '@/lib/ruler-label';
 import { routePath, type TokenRoute } from '@/lib/token-route';
 import { CELL_WORLD_SIZE, type Point, type Size } from './camera';
 import { drawingViewsOf, type DrawingView, type DrawingViewInput } from './drawing-view';
+import {
+  effectAreaViewsOf,
+  type EffectAreaView,
+  type EffectAreaViewInput,
+} from './effect-area-view';
+import type { EffectAreaSketchView } from './effect-area-gestures';
 
 /** A ruler being measured: local to this viewer, never sent to the server. */
 export type RulerState = Readonly<{ from: Cell; to: Cell }>;
@@ -97,17 +104,28 @@ export type BoardView = Readonly<{
   ghosts: readonly GhostView[];
   /** Under the tokens of each layer, in drawing order. */
   drawings: readonly DrawingView[];
+  /** At the bottom of the Tokens layer, under its drawings and tokens, in creation order. */
+  effectAreas: readonly EffectAreaView[];
   /** With the draw tool: how the sketch under the pointer looks; `null` with another tool. */
   sketch: DrawingStyle | null;
+  /** With the area tool: the shape and color of the next area; `null` with another tool. */
+  effectAreaSketch: EffectAreaSketchView | null;
   /** With the ruler, a press on a token measures from it instead of grabbing it. */
   tool: BoardViewTool;
   /** A short right click on a token opens "Mover para camada" (only the master). */
   layerMenu: boolean;
 }>;
 
-export type BoardViewTool = 'select' | 'ruler' | 'draw';
+export type BoardViewTool = 'select' | 'ruler' | 'draw' | 'area';
+
+/** The areas of effect and what this viewer does to them; absent = none (most specs). */
+type EffectAreaBoardInput = Partial<
+  Pick<EffectAreaViewInput, 'effectAreas' | 'selectedEffectAreaIds' | 'effectAreaPreview'> &
+    Readonly<{ effectAreaStyle: EffectAreaStyle }>
+>;
 
 export type BoardViewInput = Omit<DrawingViewInput, 'activeLayer' | 'readOnly'> &
+  EffectAreaBoardInput &
   Readonly<{
     /** The style of the next drawing, shown on the sketch while the draw tool is on. */
     drawingStyle: DrawingStyle;
@@ -161,9 +179,25 @@ export function buildBoardView(input: BoardViewInput): BoardView {
     tokens: inDrawingOrder(input.tokens).map((token) => tokenViewOf(token, input)),
     ghosts: ghostsOf(input),
     drawings: drawingViewsOf(input),
+    effectAreas: effectAreaViewsOf({
+      ...input,
+      effectAreas: input.effectAreas ?? [],
+      selectedEffectAreaIds: input.selectedEffectAreaIds ?? [],
+      effectAreaPreview: input.effectAreaPreview ?? {},
+    }),
     sketch: input.tool === 'draw' ? input.drawingStyle : null,
+    effectAreaSketch: effectAreaSketchOf(input),
     tool: input.tool,
     layerMenu: input.canChooseLayer,
+  };
+}
+
+function effectAreaSketchOf(input: BoardViewInput): EffectAreaSketchView | null {
+  if (input.tool !== 'area') return null;
+  const { cellDistance, cellUnit } = input.scene;
+  return {
+    style: input.effectAreaStyle ?? DEFAULT_EFFECT_AREA_STYLE,
+    distance: { cellDistance, cellUnit },
   };
 }
 

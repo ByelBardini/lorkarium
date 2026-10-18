@@ -6,10 +6,12 @@ import {
   boardCommandDto,
   configureSceneCommandDto,
   createDrawingsCommandDto,
+  createEffectAreasCommandDto,
   createTokenCommandDto,
   createTokensCommandDto,
   defineConditionCommandDto,
   deleteDrawingsCommandDto,
+  deleteEffectAreasCommandDto,
   deleteTokenCommandDto,
   deleteTokensCommandDto,
   dragTokensCommandDto,
@@ -22,6 +24,7 @@ import {
   previousTurnCommandDto,
   removeCombatantCommandDto,
   removeConditionCommandDto,
+  reshapeEffectAreasCommandDto,
   setInitiativeCommandDto,
   setTokenLayerCommandDto,
   faceTokensCommandDto,
@@ -47,6 +50,8 @@ import type { ConditionsService } from '../conditions/conditions.service';
 import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { DrawingError } from '../drawings/drawings.error';
 import type { DrawingsService } from '../drawings/drawings.service';
+import { EffectAreaError } from '../effect-areas/effect-areas.error';
+import type { EffectAreasService } from '../effect-areas/effect-areas.service';
 import { toSceneGrid } from '../scenes/scenes.mapper';
 import type { CreatedInScene } from '../scenes/locked-scene';
 import type { ScenesService } from '../scenes/scenes.service';
@@ -81,6 +86,7 @@ export type BoardGatewayDeps = Readonly<{
     | 'previousTurn'
   >;
   drawings: Pick<DrawingsService, 'createMany' | 'moveMany' | 'deleteMany'>;
+  effectAreas: Pick<EffectAreasService, 'createMany' | 'reshapeMany' | 'deleteMany'>;
   realtime: Pick<Realtime, 'reauthenticate'>;
   clock: ClockPort;
   log: FastifyBaseLogger;
@@ -116,6 +122,8 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   STALE_UNDO: 'Someone changed it after the action being undone',
   DRAWING_NOT_FOUND: 'Drawing not found',
   DRAWING_LIMIT: 'This scene has too many drawings',
+  EFFECT_AREA_NOT_FOUND: 'Area of effect not found',
+  EFFECT_AREA_LIMIT: 'This scene has too many areas of effect',
 };
 
 /** Socket.IO edge of the board (scene and tokens): validates the command, re-reads the session,
@@ -125,6 +133,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
  *  Example: `realtime.onConnection(createBoardGateway({ board, scenes, tokens, realtime, log }))` */
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
   const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
+  const { effectAreas } = deps;
   const rate = new CommandRateGuard(deps.clock);
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
@@ -195,6 +204,18 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     socket.on(
       'drawing:deleteMany',
       mutate(deleteDrawingsCommandDto, drawings.deleteMany.bind(drawings)),
+    );
+    socket.on(
+      'effectArea:createMany',
+      create(createEffectAreasCommandDto, effectAreas.createMany.bind(effectAreas)),
+    );
+    socket.on(
+      'effectArea:reshapeMany',
+      mutate(reshapeEffectAreasCommandDto, effectAreas.reshapeMany.bind(effectAreas)),
+    );
+    socket.on(
+      'effectArea:deleteMany',
+      mutate(deleteEffectAreasCommandDto, effectAreas.deleteMany.bind(effectAreas)),
     );
     socket.on(
       'condition:define',
@@ -310,6 +331,7 @@ function toAckError(deps: BoardGatewayDeps, error: unknown): ApiErrorDto {
     error instanceof ConditionError ||
     error instanceof CombatError ||
     error instanceof DrawingError ||
+    error instanceof EffectAreaError ||
     error instanceof AssetError ||
     error instanceof BoardError;
   if (known) {

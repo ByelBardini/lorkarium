@@ -13,12 +13,15 @@ export type ResizeDelta = Readonly<{ x: number; y: number }>;
 /** The step a side snaps to on release: half a cell. */
 export const RESIZE_STEP = 0.5;
 
+/** How a side snaps and how far it may go, in cells (`step` 0 = free). */
+export type ResizeLimits = Readonly<{ step: number; min: number; max: number }>;
+
 type Axis = Readonly<{
   start: number;
   length: number;
   sceneLength: number;
   pull: -1 | 0 | 1;
-  step: number;
+  limits: ResizeLimits;
 }>;
 
 /** The box after dragging `handle` by `delta`: a side stretches its axis, a corner scales both
@@ -34,8 +37,22 @@ export function resizeTokenBox(
   delta: ResizeDelta,
   step: number = RESIZE_STEP,
 ): TokenBox {
-  const across = axisOf(box.col, box.width, scene.widthCells, pullOf(handle, 'w', 'e'), step);
-  const down = axisOf(box.row, box.height, scene.heightCells, pullOf(handle, 'n', 's'), step);
+  return resizeBox(scene, box, handle, delta, { step, min: TOKEN_SIZE_MIN, max: TOKEN_SIZE_MAX });
+}
+
+/** `resizeTokenBox` with its own snap and side limits: a square area stretches in whole cells
+ *  from 1 to 100.
+ *
+ *  Example: `resizeBox(scene, { col: 2, row: 3, width: 3, height: 2 }, 'e', { x: 1.4, y: 0 }, { step: 1, min: 1, max: 100 })` → `{ col: 2, row: 3, width: 4, height: 2 }` */
+export function resizeBox(
+  scene: SceneSize,
+  box: TokenBox,
+  handle: ResizeHandle,
+  delta: ResizeDelta,
+  limits: ResizeLimits,
+): TokenBox {
+  const across = axisOf(box.col, box.width, scene.widthCells, pullOf(handle, 'w', 'e'), limits);
+  const down = axisOf(box.row, box.height, scene.heightCells, pullOf(handle, 'n', 's'), limits);
   const isCorner = handle.length === 2;
   const width = isCorner ? box.width : stretched(across, delta.x);
   const height = isCorner ? box.height : stretched(down, delta.y);
@@ -49,9 +66,9 @@ function axisOf(
   length: number,
   sceneLength: number,
   pull: -1 | 0 | 1,
-  step: number,
+  limits: ResizeLimits,
 ): Axis {
-  return { start, length, sceneLength, pull, step };
+  return { start, length, sceneLength, pull, limits };
 }
 
 function pullOf(handle: ResizeHandle, back: 'n' | 'w', forth: 's' | 'e'): -1 | 0 | 1 {
@@ -67,21 +84,23 @@ function stretched(axis: Axis, move: number): number {
 function cornerScale(across: Axis, down: Axis, delta: ResizeDelta): number {
   const growth = across.pull * delta.x + down.pull * delta.y;
   const wanted = 1 + growth / (across.length + down.length);
-  const least = Math.max(TOKEN_SIZE_MIN / across.length, TOKEN_SIZE_MIN / down.length);
+  const least = Math.max(across.limits.min / across.length, down.limits.min / down.length);
   const most = Math.min(roomOf(across) / across.length, roomOf(down) / down.length);
   return Math.min(Math.max(wanted, least), most);
 }
 
-// Room the side can grow into: up to the scene edge it is pulled toward, never past ten cells.
+// Room the side can grow into: up to the scene edge it is pulled toward, never past the maximum.
 function roomOf(axis: Axis): number {
+  const { step, max } = axis.limits;
   const toEdge = axis.pull < 0 ? axis.start + axis.length : axis.sceneLength - axis.start;
-  const room = axis.step > 0 ? Math.floor(toEdge / axis.step) * axis.step : toEdge;
-  return Math.min(TOKEN_SIZE_MAX, room);
+  const room = step > 0 ? Math.floor(toEdge / step) * step : toEdge;
+  return Math.min(max, room);
 }
 
 function sideOf(axis: Axis, wanted: number): number {
-  const snapped = axis.step > 0 ? Math.round(wanted / axis.step) * axis.step : wanted;
-  return Math.min(Math.max(snapped, TOKEN_SIZE_MIN), roomOf(axis));
+  const { step, min } = axis.limits;
+  const snapped = step > 0 ? Math.round(wanted / step) * step : wanted;
+  return Math.min(Math.max(snapped, min), roomOf(axis));
 }
 
 function placed(across: Axis, down: Axis, width: number, height: number): TokenBox {

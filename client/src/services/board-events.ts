@@ -11,6 +11,9 @@ import {
   drawingsCreatedDto,
   drawingsDeletedDto,
   drawingsMovedDto,
+  effectAreasCreatedDto,
+  effectAreasDeletedDto,
+  effectAreasReshapedDto,
   sceneUpdatedDto,
   tokenCreatedDto,
   tokenDeletedDto,
@@ -23,6 +26,9 @@ import {
   tokensFacedDto,
   tokensResizedDto,
   tokensRestyledDto,
+  type EffectAreasCreatedDto,
+  type EffectAreasDeletedDto,
+  type EffectAreasReshapedDto,
   type TokensFacedDto,
   type TokensResizedDto,
   type TokensRestyledDto,
@@ -66,6 +72,9 @@ export type BoardEvent =
   | Readonly<{ type: 'drawingsCreated'; payload: DrawingsCreatedDto }>
   | Readonly<{ type: 'drawingsMoved'; payload: DrawingsMovedDto }>
   | Readonly<{ type: 'drawingsDeleted'; payload: DrawingsDeletedDto }>
+  | Readonly<{ type: 'effectAreasCreated'; payload: EffectAreasCreatedDto }>
+  | Readonly<{ type: 'effectAreasReshaped'; payload: EffectAreasReshapedDto }>
+  | Readonly<{ type: 'effectAreasDeleted'; payload: EffectAreasDeletedDto }>
   | Readonly<{ type: 'conditionDefined'; payload: ConditionDefinedDto }>
   | Readonly<{ type: 'conditionApplied'; payload: ConditionAppliedDto }>
   | Readonly<{ type: 'conditionsApplied'; payload: ConditionsAppliedDto }>
@@ -107,6 +116,9 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.drawingsCreated]: specOf('drawingsCreated', drawingsCreatedDto),
   [BOARD_EVENTS.drawingsMoved]: specOf('drawingsMoved', drawingsMovedDto),
   [BOARD_EVENTS.drawingsDeleted]: specOf('drawingsDeleted', drawingsDeletedDto),
+  [BOARD_EVENTS.effectAreasCreated]: specOf('effectAreasCreated', effectAreasCreatedDto),
+  [BOARD_EVENTS.effectAreasReshaped]: specOf('effectAreasReshaped', effectAreasReshapedDto),
+  [BOARD_EVENTS.effectAreasDeleted]: specOf('effectAreasDeleted', effectAreasDeletedDto),
   [BOARD_EVENTS.conditionDefined]: specOf('conditionDefined', conditionDefinedDto),
   [BOARD_EVENTS.conditionApplied]: specOf('conditionApplied', conditionAppliedDto),
   [BOARD_EVENTS.conditionsApplied]: specOf('conditionsApplied', conditionsAppliedDto),

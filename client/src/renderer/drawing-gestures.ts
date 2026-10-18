@@ -26,6 +26,7 @@ export interface DrawingCanvas {
 type DrawingPress = Readonly<{
   press: TokenPress;
   drawingIds: readonly string[];
+  effectAreaIds: readonly string[];
   startWorld: Point;
 }>;
 
@@ -59,7 +60,8 @@ export class DrawingGestures {
     const carried = view.drawings.filter((other) => other.selected && other.pickable);
     const others = hit.selected ? carried.map(({ id }) => id).filter((id) => id !== hit.id) : [];
     const press = pressToken(hit.id, true, screen);
-    this.pressed = { press, drawingIds: [hit.id, ...others], startWorld: world };
+    const effectAreaIds = hit.selected ? selectedAreaIdsOf(view) : [];
+    this.pressed = { press, drawingIds: [hit.id, ...others], effectAreaIds, startWorld: world };
     return true;
   }
 
@@ -96,8 +98,8 @@ export class DrawingGestures {
     const offset = offsetOf(pressed, world);
     const dx = toHundredth(offset.x / CELL_WORLD_SIZE);
     const dy = toHundredth(offset.y / CELL_WORLD_SIZE);
-    const { drawingIds } = pressed;
-    this.emit({ kind: 'drawingsDropped', anchorId: drawingId, drawingIds, dx, dy });
+    const { drawingIds, effectAreaIds } = pressed;
+    this.emit({ kind: 'drawingsDropped', anchorId: drawingId, drawingIds, effectAreaIds, dx, dy });
     return true;
   }
 
@@ -139,6 +141,15 @@ export class DrawingGestures {
     const geometry = sketchOf(style.kind, points, snap);
     this.canvas.showSketch(geometry && { geometry, style });
   }
+}
+
+/** The selected areas of effect this viewer may take: they go along with a dragged selection.
+ *
+ *  Example: `selectedAreaIdsOf(view) // ['a1b2…']` */
+export function selectedAreaIdsOf(view: Pick<BoardView, 'effectAreas'>): string[] {
+  return view.effectAreas
+    .filter(({ selected, pickable }) => selected && pickable)
+    .map(({ id }) => id);
 }
 
 function cellPointOf(world: Point, scene: BoardView['grid']['cells']): CellPoint {

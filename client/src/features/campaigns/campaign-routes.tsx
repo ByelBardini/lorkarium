@@ -77,6 +77,7 @@ function tableRoute({
   openTables,
   roomLayout,
   drawingStyle,
+  effectAreaStyle,
   clipboard,
   createBoardRenderer,
   boardCommands,
@@ -92,6 +93,7 @@ function tableRoute({
         openTables={openTables}
         roomLayout={roomLayout}
         drawingStyle={drawingStyle}
+        effectAreaStyle={effectAreaStyle}
         clipboard={clipboard}
         createBoardRenderer={createBoardRenderer}
         boardCommands={boardCommands}

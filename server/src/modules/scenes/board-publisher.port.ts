@@ -10,6 +10,9 @@ import type {
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
+  EffectAreasCreatedDto,
+  EffectAreasDeletedDto,
+  EffectAreasReshapedDto,
   SceneUpdatedDto,
   TokenCreatedDto,
   TokenDeletedDto,
@@ -67,6 +70,10 @@ export interface BoardPublisherPort {
   drawingsCreated(event: DrawingsCreatedDto): void;
   drawingsMoved(event: DrawingsMovedDto): void;
   drawingsDeleted(event: DrawingsDeletedDto): void;
+  /** Areas of effect have no secret either. */
+  effectAreasCreated(event: EffectAreasCreatedDto): void;
+  effectAreasReshaped(event: EffectAreasReshapedDto): void;
+  effectAreasDeleted(event: EffectAreasDeletedDto): void;
   conditionDefined(event: ConditionDefinedDto): void;
   conditionApplied(event: ConditionAppliedDto): void;
   conditionsApplied(event: ConditionsAppliedDto): void;

@@ -1,4 +1,5 @@
 import { facingToward, facingVector, snapFacing } from '@lorkarium/game-core';
+import type { BoardIntent } from './board-renderer';
 import type { BoardView, TokenView } from './board-view';
 import type { Point } from './camera';
 import { tokenCenterOf, tokenWorldRect } from './token-box';
@@ -10,6 +11,40 @@ export const HANDLE_REACH = 10;
 const SHIFT_STEP = 45;
 
 type HandleTokenView = Pick<TokenView, 'col' | 'row' | 'width' | 'height' | 'facing'>;
+
+/** Anything the facing handle turns (a token, an area of effect): where the handle and its stem
+ *  are, the facing the pointer asks for, and the intents of the preview and of the release. */
+export type FacingTarget = Readonly<{
+  id: string;
+  facing: number;
+  stem: Readonly<{ from: Point; to: Point }>;
+  facingAt(pointer: Point, current: number, snap: boolean): number;
+  previewed(facing: number | null): BoardIntent;
+  turned(facing: number): BoardIntent;
+}>;
+
+/** The token as a facing target: the stem leaves its edge, Shift snaps to 45°.
+ *
+ *  Example: `tokenFacingTarget(kael).turned(90) // { kind: 'tokenFaced', tokenId, facing: 90 }` */
+export function tokenFacingTarget(token: TokenView): FacingTarget {
+  const tokenId = token.id;
+  return {
+    id: tokenId,
+    facing: token.facing,
+    stem: handleStemOf(token),
+    facingAt: (pointer, current, snap) => facingFromDrag(token, pointer, current, snap),
+    previewed: (facing) => ({ kind: 'tokenFacingPreviewed', tokenId, facing }),
+    turned: (facing) => ({ kind: 'tokenFaced', tokenId, facing }),
+  };
+}
+
+/** What shows the facing handle: the one selected token this viewer may move.
+ *
+ *  Example: `facingTargetOf(view)?.id` */
+export function facingTargetOf(view: Pick<BoardView, 'tokens' | 'tool'>): FacingTarget | null {
+  const token = handleTokenOf(view);
+  return token ? tokenFacingTarget(token) : null;
+}
 
 /** The one token that shows the handle: selected alone, and this viewer may move it. A group or
  *  a token of someone else shows none.
@@ -46,11 +81,11 @@ export function handleStemOf(view: HandleTokenView): Readonly<{ from: Point; to:
   return { from, to: handlePointOf(view) };
 }
 
-/** Whether a press at `world` takes the handle of `view`.
+/** Whether a press at `world` takes the handle of `target`.
  *
- *  Example: `if (handleAt(token, world)) startTurning()` */
-export function handleAt(view: HandleTokenView, world: Point): boolean {
-  const handle = handlePointOf(view);
+ *  Example: `if (handleAt(facingTargetOf(view), world)) startTurning()` */
+export function handleAt(target: Pick<FacingTarget, 'stem'>, world: Point): boolean {
+  const handle = target.stem.to;
   return Math.hypot(world.x - handle.x, world.y - handle.y) <= HANDLE_REACH;
 }
 

@@ -14,6 +14,7 @@ import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createPixiBoardRenderer } from '@/renderer/pixi-board-renderer';
 import { createRailStore } from '@/stores/rail-store';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
+import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { sessionStore } from '@/stores/session-store';
 import './index.css';
@@ -47,6 +48,7 @@ const router = createBrowserRouter(
     railStore: createRailStore(browserStorage),
     roomLayout: createRoomLayoutStore(browserStorage),
     drawingStyle: createDrawingStyleStore(browserStorage),
+    effectAreaStyle: createEffectAreaStyleStore(browserStorage),
     createBoardRenderer: createPixiBoardRenderer,
     boardCommands: new RealtimeTableBoardCommands(realtime, newActionId),
     now: () => new Date(),

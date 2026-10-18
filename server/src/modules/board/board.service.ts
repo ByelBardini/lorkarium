@@ -9,6 +9,8 @@ import type { ConditionsDao } from '../conditions/conditions.dao';
 import { conditionsByToken, toConditionDefinitionDto } from '../conditions/conditions.mapper';
 import type { DrawingsDao } from '../drawings/drawings.dao';
 import { toDrawingDto } from '../drawings/drawings.mapper';
+import type { EffectAreasDao } from '../effect-areas/effect-areas.dao';
+import { toEffectAreaDto } from '../effect-areas/effect-areas.mapper';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import { TokenAccessBo } from '../tokens/token-access.bo';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
@@ -22,11 +24,12 @@ export type BoardServiceDeps = Readonly<{
   conditions: Pick<ConditionsDao, 'listDefinitions' | 'listOfTokens'>;
   combat: Pick<CombatDao, 'findOfScene'>;
   drawings: Pick<DrawingsDao, 'listOfScene'>;
+  effectAreas: Pick<EffectAreasDao, 'listOfScene'>;
   clock: ClockPort;
 }>;
 
 /** The board snapshot of one table, as one member may see it (spec §5.6, §3.9): each token whole
- *  for its controllers and the master, redacted for everyone else; drawings whole for everyone.
+ *  for its controllers and the master, redacted for everyone else; drawings and areas of effect whole for everyone.
  *
  *  Example: `const state = await board.snapshotFor(user.id, campaignId)` */
 export class BoardService {
@@ -47,12 +50,13 @@ export class BoardService {
     const combatRow = await this.deps.combat.findOfScene(scene.id);
     const combat = combatRow ? toCombatDto(combatRow) : null;
     const drawings = (await this.deps.drawings.listOfScene(scene.id)).map(toDrawingDto);
+    const effectAreas = (await this.deps.effectAreas.listOfScene(scene.id)).map(toEffectAreaDto);
     const definitions = await this.deps.conditions.listDefinitions(campaignId);
     const conditionDefinitions = definitions.map(toConditionDefinitionDto);
     const at = this.deps.clock.now();
     const viewer = { userId, role };
-    const parts = { campaignId, viewer, scene, tokens, drawings, combat, conditionDefinitions, at };
-    return toBoardStateDto(parts);
+    const pieces = { tokens, drawings, effectAreas, combat, conditionDefinitions };
+    return toBoardStateDto({ campaignId, viewer, scene, ...pieces, at });
   }
 }
 

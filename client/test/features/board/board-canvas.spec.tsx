@@ -9,6 +9,7 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { StorageFake } from '../../support/storage-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
@@ -43,6 +44,7 @@ describe('BoardCanvas', () => {
         onIntent={(intent) => intents.push(intent)}
         onRenderer={() => undefined}
         drawingStyle={createDrawingStyleStore(new StorageFake())}
+        effectAreaStyle={createEffectAreaStyleStore(new StorageFake())}
       />
     );
   }

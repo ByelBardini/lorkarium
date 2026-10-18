@@ -6,6 +6,7 @@ export type BoardShortcut =
   | 'select-tool'
   | 'ruler-tool'
   | 'draw-tool'
+  | 'area-tool'
   | 'toggle-grid'
   | 'layer-tokens'
   | 'layer-objects'
@@ -25,6 +26,7 @@ const SHORTCUT_BY_KEY: Readonly<Record<string, BoardShortcut>> = {
   v: 'select-tool',
   r: 'ruler-tool',
   b: 'draw-tool',
+  m: 'area-tool',
   g: 'toggle-grid',
   '1': 'layer-tokens',
   '2': 'layer-objects',

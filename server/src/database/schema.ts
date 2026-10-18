@@ -21,4 +21,5 @@ export {
 } from '../modules/conditions/conditions.po';
 export { combatants, combats } from '../modules/combat/combat.po';
 export { drawingColor, drawingKind, drawings, strokeWidth } from '../modules/drawings/drawings.po';
+export { effectAreaKind, effectAreas } from '../modules/effect-areas/effect-areas.po';
 export { assetMimeType, assetPurpose, assets } from '../modules/assets/assets.po';

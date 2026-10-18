@@ -1,12 +1,15 @@
 import type { BoardStateDto, TokenLayerDto } from '@lorkarium/contracts';
-import { boxFits, cell } from '@lorkarium/game-core';
+import { boxFits, cell, effectAreaOriginFits, shiftEffectArea } from '@lorkarium/game-core';
 import { toHundredth } from './drawing-geometry';
-import type { DrawingMove, TokenMove } from './edit-history';
+import type { DrawingMove, EffectAreaReshape, TokenMove } from './edit-history';
+import { sentShapeOf, shapeOfEffectArea } from './effect-area-shape';
 import { groupMemberOf, shiftGroup } from './token-group';
 
 /** The drawings dropped after a drag, by how many cells, and what else was selected. */
 export type DrawingDrop = Readonly<{
   drawingIds: readonly string[];
+  /** The areas of effect dragged with them (none: no area goes). */
+  effectAreaIds?: readonly string[];
   dx: number;
   dy: number;
   selectedTokenIds: readonly string[];
@@ -16,11 +19,13 @@ export type DrawingDrop = Readonly<{
 export type SelectionMoveOf = Readonly<{
   drawings: readonly DrawingMove[];
   tokens: readonly TokenMove[];
+  effectAreas: readonly EffectAreaReshape[];
 }>;
 
-/** What a drawing drag moves: each dragged drawing by the drag, and the selected tokens the
- *  viewer moves on the active layer by its whole cells. `null` when any of them would leave the
- *  scene, so nothing moves by half.
+/** What a selection drag moves: each dragged drawing by the drag, each dragged area of effect by
+ *  its own rule (grid shapes by whole cells, smooth ones to the hundredth), and the selected
+ *  tokens the viewer moves on the active layer by its whole cells. `null` when any of them would
+ *  leave the scene, so nothing moves by half.
  *
  *  Example: `const move = selectionMoveOf(board, { drawingIds, dx, dy, selectedTokenIds, activeLayer })` */
 export function selectionMoveOf(board: BoardStateDto, drop: DrawingDrop): SelectionMoveOf | null {
@@ -31,8 +36,9 @@ export function selectionMoveOf(board: BoardStateDto, drop: DrawingDrop): Select
     return drawing && !boxFits(scene, { ...to, width: drawing.width, height: drawing.height });
   });
   if (outside) return null;
+  const effectAreas = effectAreaMovesOf(board, drop);
   const tokens = tokenMovesOf(board, drop);
-  return tokens && { drawings, tokens };
+  return tokens && effectAreas && { drawings, tokens, effectAreas };
 }
 
 function drawingMovesOf(board: BoardStateDto, drop: DrawingDrop): DrawingMove[] {
@@ -43,6 +49,34 @@ function drawingMovesOf(board: BoardStateDto, drop: DrawingDrop): DrawingMove[] 
     const to = { x: toHundredth(drawing.x + drop.dx), y: toHundredth(drawing.y + drop.dy) };
     return [{ drawingId, from, to }];
   });
+}
+
+// Each area keeps where its shape is born; one whose origin would leave the scene stops them all.
+function effectAreaMovesOf(board: BoardStateDto, drop: DrawingDrop): EffectAreaReshape[] | null {
+  const scene = { widthCells: board.scene.widthCells, heightCells: board.scene.heightCells };
+  const moves: EffectAreaReshape[] = [];
+  for (const effectAreaId of drop.effectAreaIds ?? []) {
+    const area = board.effectAreas.find(({ id }) => id === effectAreaId);
+    if (!area) continue;
+    const from = shapeOfEffectArea(area);
+    const moved = shiftedOrNull(from, drop.dx, drop.dy);
+    if (!moved || !effectAreaOriginFits(scene, moved)) return null;
+    moves.push({ effectAreaId, from, to: sentShapeOf(moved, area.color) });
+  }
+  return moves;
+}
+
+// Before the scene's top-left the game-core refuses the shape: the move is out of the scene.
+function shiftedOrNull(
+  from: ReturnType<typeof shapeOfEffectArea>,
+  dx: number,
+  dy: number,
+): ReturnType<typeof shiftEffectArea> | null {
+  try {
+    return shiftEffectArea(from, dx, dy);
+  } catch {
+    return null;
+  }
 }
 
 // The tokens go by whole cells; under half a cell they stay. `null`: one would leave the scene.

@@ -18,6 +18,10 @@ describe('boardCursorOf', () => {
     );
   });
 
+  it('shows a crosshair with the area of effect tool', () => {
+    expect(boardCursorOf({ tool: 'area', drawKind: null, panning: false })).toBe('crosshair');
+  });
+
   it('keeps the default arrow with the select tool', () => {
     expect(boardCursorOf({ tool: 'select', drawKind: null, panning: false })).toBe('default');
   });

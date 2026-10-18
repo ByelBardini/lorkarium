@@ -20,6 +20,11 @@ import type {
   TokenStyle,
   TokenPlacement,
 } from '@/services/table-board-commands';
+import type {
+  EffectAreaReshapeTarget,
+  EffectAreaShape,
+  EffectAreaShaped,
+} from '@/services/effect-area-commands';
 
 export type SentBoardCommand = Readonly<{ name: string; campaignId: string; fields: unknown }>;
 
@@ -104,6 +109,31 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     expect?: readonly DrawingPlacement[],
   ): Promise<BoardCommandResult> {
     return this.record('deleteDrawings', campaignId, { drawingIds: [...drawingIds], expect });
+  }
+
+  createEffectAreas(
+    campaignId: string,
+    shapes: readonly EffectAreaShape[],
+  ): Promise<BoardCommandResult> {
+    return this.record('createEffectAreas', campaignId, { effectAreas: [...shapes] });
+  }
+
+  reshapeEffectAreas(
+    campaignId: string,
+    reshapes: readonly EffectAreaReshapeTarget[],
+  ): Promise<BoardCommandResult> {
+    return this.record('reshapeEffectAreas', campaignId, { reshapes: [...reshapes] });
+  }
+
+  deleteEffectAreas(
+    campaignId: string,
+    effectAreaIds: readonly string[],
+    expect?: readonly EffectAreaShaped[],
+  ): Promise<BoardCommandResult> {
+    return this.record('deleteEffectAreas', campaignId, {
+      effectAreaIds: [...effectAreaIds],
+      expect,
+    });
   }
 
   dragTokens(campaignId: string, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult> {

@@ -2,6 +2,7 @@ import { cell } from '@lorkarium/game-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import {
+  AREA_HINT,
   DRAW_HINT,
   RULER_HINT,
   createBoardInteractionStore,
@@ -14,6 +15,7 @@ import { InteractionClockFake } from '../support/interaction-clock-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import type { EditEntry } from '@/lib/edit-history';
 import { PATH_ID, SQUARE_ID } from '../support/drawing-fixtures';
+import { BIA_CONE_ID } from '../support/effect-area-fixtures';
 import { KAEL_ID, LYRA_ID } from '../support/table-session-fixtures';
 
 describe('board interaction store', () => {
@@ -401,6 +403,57 @@ describe('board interaction store', () => {
       store.getState().setTool('draw');
 
       expect(store.getState()).toMatchObject({ notice: DRAW_HINT, selectedDrawingIds: [] });
+    });
+
+    it('the area tool hints how to make an area, drops the selection and goes to Tokens', () => {
+      store.getState().allowLayerChoice(true);
+      store.getState().setActiveLayer('objects');
+      store.getState().pointer({ kind: 'drawingPicked', drawingId: SQUARE_ID, additive: false });
+
+      store.getState().setTool('area');
+
+      expect(store.getState()).toMatchObject({
+        notice: AREA_HINT,
+        selectedDrawingIds: [],
+        activeLayer: 'tokens',
+      });
+    });
+
+    it('a click on an area selects only it, dropping tokens and drawings', () => {
+      store.getState().select(LYRA_ID);
+      store
+        .getState()
+        .pointer({ kind: 'effectAreaPicked', effectAreaId: BIA_CONE_ID, additive: false });
+
+      expect(store.getState()).toMatchObject({
+        selectedTokenIds: [],
+        selectedDrawingIds: [],
+        selectedEffectAreaIds: [BIA_CONE_ID],
+      });
+    });
+
+    it('Shift+click adds an area to the selection and takes it out again', () => {
+      store.getState().select(LYRA_ID);
+      const pick = { kind: 'effectAreaPicked', effectAreaId: BIA_CONE_ID, additive: true } as const;
+
+      store.getState().pointer(pick);
+      expect(store.getState().selectedEffectAreaIds).toEqual([BIA_CONE_ID]);
+      expect(store.getState().selectedTokenIds).toEqual([LYRA_ID]);
+
+      store.getState().pointer(pick);
+      expect(store.getState().selectedEffectAreaIds).toEqual([]);
+    });
+
+    it('a marquee adds the areas it touched after replacing the tokens, and Esc clears them', () => {
+      store.getState().pointer({ kind: 'effectAreaPicked', effectAreaId: 'old', additive: false });
+      store.getState().pointer({ kind: 'tokensMarqueed', tokenIds: [], additive: false });
+      store
+        .getState()
+        .pointer({ kind: 'effectAreasMarqueed', effectAreaIds: [BIA_CONE_ID], additive: false });
+
+      expect(store.getState().selectedEffectAreaIds).toEqual([BIA_CONE_ID]);
+      store.getState().escape();
+      expect(store.getState().selectedEffectAreaIds).toEqual([]);
     });
 
     it('a click on a drawing selects only it, dropping the tokens', () => {

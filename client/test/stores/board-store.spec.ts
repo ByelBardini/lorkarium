@@ -23,6 +23,9 @@ import {
   vharnBoard,
   vharnCombat,
 } from '../support/table-session-fixtures';
+import { biaCone } from '../support/effect-area-fixtures';
+
+const AT_OF_AREAS = '2026-10-18T12:00:00.000Z';
 
 function sceneEvent(version: number, widthCells = 30): ReturnType<typeof boardEventOf> {
   return boardEventOf(sceneUpdated({ version, scene: { ...VHARN_SCENE, widthCells } }));
@@ -79,6 +82,21 @@ describe('board store', () => {
     expect(store.getState().board?.version).toBe(4);
     apply({ kind: 'board', state: vharnBoard({ version: 7 }) }, sceneEvent(9));
     expect(resyncs).toBe(2);
+  });
+
+  it('an area event that skips a version is held and asks for one resync, a duplicate is ignored', () => {
+    const created = (version: number) => {
+      const event: BoardEvent = {
+        type: 'effectAreasCreated',
+        payload: { campaignId: VHARN.id, version, at: AT_OF_AREAS, effectAreas: [biaCone()] },
+      };
+      return { kind: 'boardEvent', event } as const;
+    };
+    apply({ kind: 'board', state: vharnBoard() }, created(6));
+    expect(resyncs).toBe(1);
+    expect(store.getState().board?.effectAreas).toEqual([]);
+    apply(created(5), created(5));
+    expect(store.getState().board).toMatchObject({ version: 5, effectAreas: [biaCone()] });
   });
 
   it('events before the first snapshot wait and the ones above it apply after it', () => {

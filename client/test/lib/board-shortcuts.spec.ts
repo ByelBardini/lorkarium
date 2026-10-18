@@ -26,6 +26,10 @@ describe('shortcutFor', () => {
     document.body.innerHTML = '';
   });
 
+  it.each(['m', 'M'])('%s picks the area of effect tool', (key) => {
+    expect(shortcutFor(press(key))).toBe('area-tool');
+  });
+
   it.each(['b', 'B'])('%s picks the draw tool', (key) => {
     expect(shortcutFor(press(key))).toBe('draw-tool');
   });

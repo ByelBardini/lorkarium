@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyBoardEvent } from '@/stores/board-reducer';
 import { PATH_ID, path, SQUARE_ID, square, vharnEventBase } from '../support/drawing-fixtures';
+import { ANA_CIRCLE_ID, BIA_CONE_ID, anaCircle, biaCone } from '../support/effect-area-fixtures';
 import {
   KAEL_ID,
   LYRA_ID,
@@ -11,6 +12,50 @@ import {
   vharnBoard,
   vharnCombat,
 } from '../support/table-session-fixtures';
+
+describe('applyBoardEvent, effect areas', () => {
+  it('the snapshot carries the areas of the scene', () => {
+    expect(vharnBoard({ effectAreas: [biaCone()] }).effectAreas).toEqual([biaCone()]);
+  });
+
+  it('effectArea:createdMany appends the new areas after the ones already there', () => {
+    const board = vharnBoard({ effectAreas: [biaCone()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'effectAreasCreated',
+      payload: { ...vharnEventBase(5), effectAreas: [anaCircle()] },
+    });
+
+    expect(next.effectAreas.map(({ id }) => id)).toEqual([BIA_CONE_ID, ANA_CIRCLE_ID]);
+    expect(next.version).toBe(5);
+  });
+
+  it('effectArea:reshapedMany swaps the whole shape of each area, keeping its id and author', () => {
+    const board = vharnBoard({ effectAreas: [biaCone(), anaCircle()] });
+    const line = { kind: 'line', x: 2.5, y: 2.5, reach: 4, facing: 30, color: 'gold' } as const;
+
+    const next = applyBoardEvent(board, {
+      type: 'effectAreasReshaped',
+      payload: { ...vharnEventBase(5), reshapes: [{ effectAreaId: BIA_CONE_ID, shape: line }] },
+    });
+
+    expect(next.effectAreas).toEqual([
+      { ...line, id: BIA_CONE_ID, authorId: biaCone().authorId },
+      anaCircle(),
+    ]);
+  });
+
+  it('effectArea:deletedMany takes the listed areas off and keeps the rest', () => {
+    const board = vharnBoard({ effectAreas: [biaCone(), anaCircle()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'effectAreasDeleted',
+      payload: { ...vharnEventBase(5), effectAreaIds: [BIA_CONE_ID] },
+    });
+
+    expect(next.effectAreas).toEqual([anaCircle()]);
+  });
+});
 
 describe('applyBoardEvent, drawings', () => {
   it('drawing:createdMany appends the new drawings after the ones already there', () => {

@@ -1,6 +1,5 @@
 import {
   BOARD_EVENTS,
-  boardCommandAckDto,
   type BarChangeDto,
   type DefineConditionCommandDto,
   type CreateTokenCommandInput,
@@ -11,31 +10,17 @@ import {
   type UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
 import type { TokenBox } from '@lorkarium/game-core';
+import { BoardCommandSender, type BoardCommandResult } from './board-command-sender';
+import {
+  RealtimeEffectAreaCommands,
+  type EffectAreaCommands,
+  type EffectAreaReshapeTarget,
+  type EffectAreaShape,
+  type EffectAreaShaped,
+} from './effect-area-commands';
 import type { RealtimeTransport } from './realtime-transport';
 
-export type BoardCommandFailure =
-  | 'forbidden'
-  | 'not_found'
-  | 'token_not_found'
-  | 'out_of_scene'
-  | 'drawing_not_found'
-  | 'drawing_limit'
-  | 'stale_undo'
-  | 'asset_not_found'
-  | 'turn_changed'
-  | 'combat_active'
-  | 'combat_inactive'
-  | 'invalid'
-  | 'rate_limited'
-  | 'unauthenticated'
-  | 'offline'
-  | 'unexpected';
-
-/** `createdIds` only on a creating command (`createTokens`, `createDrawings`): the ids the server
- *  gave, in the order sent. */
-export type BoardCommandResult =
-  | Readonly<{ ok: true; version: number; createdIds?: readonly string[] }>
-  | Readonly<{ ok: false; failure: BoardCommandFailure }>;
+export type { BoardCommandFailure, BoardCommandResult } from './board-command-sender';
 
 type Envelope = 'actionId' | 'campaignId';
 // The input type: a token sent without `layer` lands on `tokens`.
@@ -70,7 +55,7 @@ export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | nul
  *  change itself arrives as an event, like everyone else's.
  *
  *  Example: `const result = await boardCommands.moveToken(campaignId, tokenId, { col, row })` */
-export interface TableBoardCommands {
+export interface TableBoardCommands extends EffectAreaCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
    *  absent keeps it. */
   configureScene(
@@ -173,38 +158,39 @@ export interface TableBoardCommands {
   previousTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult>;
 }
 
-// Same patience as the join: past this the command counts as lost.
-const COMMAND_ACK_TIMEOUT_MS = 5000;
-
-const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
-  FORBIDDEN: 'forbidden',
-  CAMPAIGN_NOT_FOUND: 'not_found',
-  TOKEN_NOT_FOUND: 'token_not_found',
-  BAR_NOT_FOUND: 'token_not_found',
-  OUT_OF_SCENE: 'out_of_scene',
-  DRAWING_NOT_FOUND: 'drawing_not_found',
-  DRAWING_LIMIT: 'drawing_limit',
-  STALE_UNDO: 'stale_undo',
-  ASSET_NOT_FOUND: 'asset_not_found',
-  CONDITION_NOT_FOUND: 'token_not_found',
-  COMBATANT_NOT_FOUND: 'token_not_found',
-  TURN_ALREADY_CHANGED: 'turn_changed',
-  COMBAT_ALREADY_ACTIVE: 'combat_active',
-  COMBAT_NOT_ACTIVE: 'combat_inactive',
-  INVALID_BODY: 'invalid',
-  INVALID_CONTROLLER: 'invalid',
-  RATE_LIMITED: 'rate_limited',
-  UNAUTHENTICATED: 'unauthenticated',
-};
-
 /** `TableBoardCommands` over the same realtime transport as the table session.
  *
  *  Example: `new RealtimeTableBoardCommands(transport, () => crypto.randomUUID())` */
 export class RealtimeTableBoardCommands implements TableBoardCommands {
-  constructor(
-    private readonly transport: RealtimeTransport,
-    private readonly newActionId: () => string,
-  ) {}
+  private readonly sender: BoardCommandSender;
+  private readonly effectAreas: EffectAreaCommands;
+
+  constructor(transport: RealtimeTransport, newActionId: () => string) {
+    this.sender = new BoardCommandSender(transport, newActionId);
+    this.effectAreas = new RealtimeEffectAreaCommands(this.sender);
+  }
+
+  createEffectAreas(
+    campaignId: string,
+    shapes: readonly EffectAreaShape[],
+  ): Promise<BoardCommandResult> {
+    return this.effectAreas.createEffectAreas(campaignId, shapes);
+  }
+
+  reshapeEffectAreas(
+    campaignId: string,
+    reshapes: readonly EffectAreaReshapeTarget[],
+  ): Promise<BoardCommandResult> {
+    return this.effectAreas.reshapeEffectAreas(campaignId, reshapes);
+  }
+
+  deleteEffectAreas(
+    campaignId: string,
+    effectAreaIds: readonly string[],
+    expect?: readonly EffectAreaShaped[],
+  ): Promise<BoardCommandResult> {
+    return this.effectAreas.deleteEffectAreas(campaignId, effectAreaIds, expect);
+  }
 
   configureScene(
     campaignId: string,
@@ -430,29 +416,9 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
     return this.send(BOARD_EVENTS.previousTurn, campaignId, { fromCombatantId });
   }
 
-  private async send(
-    event: string,
-    campaignId: string,
-    fields: object,
-  ): Promise<BoardCommandResult> {
-    const payload = { actionId: this.newActionId(), campaignId, ...fields };
-    try {
-      const answer = await this.transport.emitWithAck(event, payload, COMMAND_ACK_TIMEOUT_MS);
-      return resultOf(answer);
-    } catch {
-      return { ok: false, failure: 'offline' };
-    }
+  private send(event: string, campaignId: string, fields: object): Promise<BoardCommandResult> {
+    return this.sender.send(event, campaignId, fields);
   }
-}
-
-function resultOf(answer: unknown): BoardCommandResult {
-  const parsed = boardCommandAckDto.safeParse(answer);
-  if (!parsed.success) return { ok: false, failure: 'unexpected' };
-  if (parsed.data.ok) {
-    const { version, createdIds } = parsed.data;
-    return createdIds ? { ok: true, version, createdIds } : { ok: true, version };
-  }
-  return { ok: false, failure: FAILURE_BY_CODE[parsed.data.error.code] ?? 'unexpected' };
 }
 
 function boxOf({ col, row, width, height }: TokenBox): TokenBox {

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { TokenView } from '@/renderer/board-view';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { drawingViewsOf } from '@/renderer/drawing-view';
+import { effectAreaViewsOf } from '@/renderer/effect-area-view';
 import {
   drawingsInMarquee,
+  effectAreasInMarquee,
   tokenMenuTarget,
   marqueeRect,
   moveMarquee,
@@ -12,6 +14,8 @@ import {
 } from '@/renderer/marquee';
 
 import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
+import { ANA_CIRCLE_ID, BIA_CONE_ID, anaCircle, biaCone } from '../support/effect-area-fixtures';
+import { VHARN_SCENE } from '../support/table-session-fixtures';
 import { BIA_AT_TABLE } from '../support/table-session-fixtures';
 
 const CELL = CELL_WORLD_SIZE;
@@ -139,5 +143,39 @@ describe('drawingsInMarquee', () => {
     const rect = { x: 12 * CELL_WORLD_SIZE, y: 8 * CELL_WORLD_SIZE, width: 64, height: 64 };
 
     expect(drawingsInMarquee(rect, drawings)).toEqual([]);
+  });
+});
+
+describe('effectAreasInMarquee', () => {
+  function areaViews(isMaster: boolean) {
+    return effectAreaViewsOf({
+      effectAreas: [biaCone(), anaCircle({ kind: 'smooth_circle', x: 15, y: 5, reach: 1 })],
+      viewer: { userId: BIA_AT_TABLE.userId, isMaster },
+      activeLayer: 'tokens',
+      selectedEffectAreaIds: [],
+      effectAreaPreview: {},
+      readOnly: false,
+      scene: VHARN_SCENE,
+    });
+  }
+
+  function rectOf(x: number, y: number, width: number, height: number) {
+    return { x: x * CELL, y: y * CELL, width: width * CELL, height: height * CELL };
+  }
+
+  it('a rectangle touching one painted cell takes the grid area', () => {
+    expect(effectAreasInMarquee(rectOf(7.8, 7.8, 1, 1), areaViews(true))).toEqual([BIA_CONE_ID]);
+  });
+
+  it('a rectangle over a cell the cone does not paint takes nothing', () => {
+    expect(effectAreasInMarquee(rectOf(4, 7.2, 1.5, 0.5), areaViews(true))).toEqual([]);
+  });
+
+  it('a smooth area is taken by its box', () => {
+    expect(effectAreasInMarquee(rectOf(15.8, 5.8, 1, 1), areaViews(true))).toEqual([ANA_CIRCLE_ID]);
+  });
+
+  it('only the areas the viewer may pick: Bia does not take the master’s', () => {
+    expect(effectAreasInMarquee(rectOf(0, 0, 20, 12), areaViews(false))).toEqual([BIA_CONE_ID]);
   });
 });

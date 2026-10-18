@@ -3,7 +3,9 @@ export { cellDistance, footprintFits, pathDistance, type SceneSize } from './gri
 export { TOKEN_SIZE_MAX, TOKEN_SIZE_MIN, tokenSize, type TokenSize } from './token-size.vo';
 export {
   RESIZE_STEP,
+  resizeBox,
   resizeTokenBox,
+  type ResizeLimits,
   type ResizeDelta,
   type ResizeHandle,
   type TokenBox,
@@ -35,3 +37,26 @@ export {
   turnFacing,
   type Vector2,
 } from './facing';
+export {
+  EFFECT_AREA_REACH_MAX,
+  SMOOTH_REACH_MIN,
+  effectArea,
+  effectAreaOriginFits,
+  isSmoothArea,
+  type AimedArea,
+  type AimedAreaKind,
+  type EffectArea,
+  type EffectAreaKind,
+  type EmanationArea,
+  type RoundArea,
+  type SquareArea,
+} from './effect-area.vo';
+export {
+  distanceFromAreaOrigin,
+  effectAreaBounds,
+  effectAreaCells,
+  effectAreaContains,
+  type AreaBounds,
+  type GridCell,
+} from './effect-area-cells';
+export { reachToward, shiftEffectArea, turnEffectArea } from './effect-area-shaping';

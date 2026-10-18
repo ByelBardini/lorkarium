@@ -1,24 +1,40 @@
-import type { DrawingDto, DrawingShapeInput, NewTokenInput, TokenDto } from '@lorkarium/contracts';
-import type { Cell, SceneSize } from '@lorkarium/game-core';
+import type {
+  DrawingDto,
+  DrawingShapeInput,
+  EffectAreaDto,
+  EffectAreaShapeDto,
+  NewTokenInput,
+  TokenDto,
+} from '@lorkarium/contracts';
+import { shiftEffectArea, type Cell, type SceneSize } from '@lorkarium/game-core';
 import { toHundredth } from './drawing-geometry';
+import { sentShapeOf, shapeOfEffectArea } from './effect-area-shape';
 
-/** What Ctrl+C keeps: the tokens and drawings of the selection, ready to be created again. */
+/** What Ctrl+C keeps: the tokens, drawings and areas of effect of the selection, ready to be
+ *  created again. */
 export type CopiedSelection = Readonly<{
   tokens: readonly NewTokenInput[];
   drawings: readonly DrawingShapeInput[];
+  effectAreas: readonly EffectAreaShapeDto[];
 }>;
 
 type Span = Readonly<{ min: number; max: number }>;
 
 /** The selection as the copy area keeps it: a token keeps name, side, size, bars, controllers
- *  and layer (a clean copy: no conditions, out of the turn order); a drawing its shape and style.
+ *  and layer (a clean copy: no conditions, out of the turn order); a drawing its shape and style;
+ *  an area of effect its shape and color (no id, no author).
  *
- *  Example: `edits.getState().copy(copiedOf(selectedTokens, selectedDrawings))` */
+ *  Example: `edits.getState().copy(copiedOf(selectedTokens, selectedDrawings, selectedAreas))` */
 export function copiedOf(
   tokens: readonly TokenDto[],
   drawings: readonly DrawingDto[],
+  effectAreas: readonly EffectAreaDto[] = [],
 ): CopiedSelection {
-  return { tokens: tokens.map(newTokenOf), drawings: drawings.map(shapeOfDrawing) };
+  return {
+    tokens: tokens.map(newTokenOf),
+    drawings: drawings.map(shapeOfDrawing),
+    effectAreas: effectAreas.map(shapeOfEffectArea),
+  };
 }
 
 /** A confirmed drawing as a shape to create again (no id, no author).
@@ -32,8 +48,9 @@ export function shapeOfDrawing(drawing: DrawingDto): DrawingShapeInput {
 }
 
 /** Where a paste lands: the center cell of the group goes to the cell under the cursor (with no
- *  cursor, one cell right and down of the original), every item moves by the same whole cells,
- *  and a group that would leave the scene is pushed back in by the edge. `null` when the group
+ *  cursor, one cell right and down of the original), every item moves by the same whole cells
+ *  (an area keeps where its shape is born), and a group that would leave the scene is pushed back
+ *  in by the edge (an area counts by its origin, the rest of it is clipped). `null` when the group
  *  is bigger than the scene.
  *
  *  Example: `const placed = pastePlacement(copied, interaction.hoverCell, scene)` */
@@ -42,8 +59,16 @@ export function pastePlacement(
   cursor: Cell | null,
   scene: SceneSize,
 ): CopiedSelection | null {
-  const cols = spanOf([...copied.tokens.map(tokenCols), ...copied.drawings.map(drawingCols)]);
-  const rows = spanOf([...copied.tokens.map(tokenRows), ...copied.drawings.map(drawingRows)]);
+  const cols = spanOf([
+    ...copied.tokens.map(tokenCols),
+    ...copied.drawings.map(drawingCols),
+    ...copied.effectAreas.map(({ x }) => ({ min: x, max: x })),
+  ]);
+  const rows = spanOf([
+    ...copied.tokens.map(tokenRows),
+    ...copied.drawings.map(drawingRows),
+    ...copied.effectAreas.map(({ y }) => ({ min: y, max: y })),
+  ]);
   if (!cols || !rows) return null;
   const dx = inside(cols, cursor ? cursor.col - centerOf(cols) : 1, scene.widthCells);
   const dy = inside(rows, cursor ? cursor.row - centerOf(rows) : 1, scene.heightCells);
@@ -55,6 +80,9 @@ export function pastePlacement(
       x: toHundredth(shape.x + dx),
       y: toHundredth(shape.y + dy),
     })),
+    effectAreas: copied.effectAreas.map((shape) =>
+      sentShapeOf(shiftEffectArea(shape, dx, dy), shape.color),
+    ),
   };
 }
 

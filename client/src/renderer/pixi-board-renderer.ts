@@ -26,24 +26,19 @@ import {
   type RightDrag,
 } from './camera-input';
 import { cellAtWorld, gridLines, visibleWorldRect } from './grid-geometry';
-import {
-  drawingsInMarquee,
-  tokenMenuTarget,
-  marqueeRect,
-  moveMarquee,
-  startMarquee,
-  tokensInMarquee,
-  type Marquee,
-} from './marquee';
+import { tokenMenuTarget } from './marquee';
 import { DrawingGestures } from './drawing-gestures';
+import { EffectAreaGestures } from './effect-area-gestures';
 import { pointOf, prefersReducedMotion, wheelFields } from './dom-input';
+import { hoverRouteOf, pressRouteOf, topTokenAt, type PressRoute } from './press-route';
 import { tokenCenterOf } from './token-box';
 import { PixiDrawingLayer } from './pixi-drawing-layer';
+import { PixiEffectAreaLayer } from './pixi-effect-area-layer';
 import { PixiFacingHandle } from './pixi-facing-handle';
 import { PixiResizeHandles } from './pixi-resize-handles';
 import { PixiRuler } from './pixi-ruler';
 import { resizeCursorOf } from './resize-handles';
-import { drawMarqueeShape } from './pixi-marquee';
+import { PixiMarquee } from './pixi-marquee';
 import { PixiSceneBackground } from './pixi-scene-background';
 import { PixiTextureCache } from './pixi-texture-cache';
 import { PixiTokenLayer } from './pixi-token-layer';
@@ -83,19 +78,22 @@ class PixiBoardRenderer implements BoardRenderer {
   private rightDrag: RightDrag | null = null;
   private primaryDown = false;
   private tokenPress: TokenPress | null = null;
-  private marquee: Marquee | null = null;
   private dragCellKey: string | null = null;
   private hoverCellKey: string | null = null;
   private readonly drawings = new PixiDrawingLayer();
+  private readonly effectAreas = new PixiEffectAreaLayer();
   // A texture that arrives later draws the last view again, with the image this time.
   private readonly textures = new PixiTextureCache(() => this.view && this.draw(this.view));
   private readonly background = new PixiSceneBackground(this.textures);
   private readonly tokens = new PixiTokenLayer(
     prefersReducedMotion,
-    this.drawings.layers,
+    this.effectAreas.under(this.drawings.layers),
     this.textures,
   );
   private readonly gestures = new DrawingGestures(this.drawings, (intent) => this.onIntent(intent));
+  private readonly areaGestures = new EffectAreaGestures(this.effectAreas, (intent) =>
+    this.onIntent(intent),
+  );
   private readonly facingHandle = new PixiFacingHandle((intent) => this.onIntent(intent));
   private readonly resizeHandles = new PixiResizeHandles((intent) => this.onIntent(intent));
   private readonly heldPanKeys = new Set<PanKey>();
@@ -104,7 +102,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly sceneShape = new Graphics();
   private readonly grid = new Graphics();
   private readonly ruler = new PixiRuler();
-  private readonly marqueeShape = new Graphics();
+  private readonly marquee = new PixiMarquee((intent) => this.onIntent(intent));
 
   constructor(private readonly onIntent: BoardIntentListener) {}
 
@@ -124,8 +122,9 @@ class PixiBoardRenderer implements BoardRenderer {
       this.resizeHandles.shape,
       this.facingHandle.shape,
       this.drawings.draft,
+      this.effectAreas.draft,
       this.ruler.container,
-      this.marqueeShape,
+      this.marquee.shape,
     );
     app.stage.addChild(this.world);
     this.listen(host, app.canvas);
@@ -146,6 +145,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.background.sync(view.background);
     this.showCursor();
     this.drawings.sync(view.drawings);
+    this.effectAreas.sync(view.effectAreas, view.sceneSize);
     this.tokens.sync(view.tokens, view.ghosts, performance.now());
     if (!this.framed) {
       this.framed = true;
@@ -286,23 +286,34 @@ class PixiBoardRenderer implements BoardRenderer {
     if (event.button === SECONDARY_BUTTON) this.rightDrag = startRightDrag(pointOf(event));
     if (event.button !== PRIMARY_BUTTON) return;
     const world = this.worldOf(event);
-    if (this.view?.tool === 'draw') return this.gestures.startSketch(this.view, world);
-    const selecting = this.view?.tool === 'select';
-    if (selecting && this.view && this.facingHandle.press(this.view, world)) return;
-    if (selecting && this.view && this.resizeHandles.press(this.view, world, this.camera.zoom)) {
-      return;
+    const route: PressRoute = this.view
+      ? pressRouteOf(this.view, world, this.camera.zoom)
+      : { kind: 'pointer' };
+    this.takePress(route, event, world);
+  }
+
+  // The route is decided by `pressRouteOf`; this only starts what it names.
+  private takePress(route: PressRoute, event: PointerEvent, world: Point): void {
+    const view = this.view;
+    if (view && route.kind === 'sketch') return this.gestures.startSketch(view, world);
+    if (view && route.kind === 'areaSketch') return this.areaGestures.startSketch(view, world);
+    if (view && route.kind === 'facingHandle') return void this.facingHandle.press(view, world);
+    if (view && route.kind === 'resizeHandle') {
+      return void this.resizeHandles.press(view, world, this.camera.zoom);
     }
-    const token = selecting ? this.tokens.tokenAt(world) : null;
-    if (token) {
+    if (route.kind === 'token') {
+      const { token } = route;
       const grab = grabOffsetOf(token, world);
       return void (this.tokenPress = pressToken(token.id, token.draggable, pointOf(event), grab));
     }
-    // A token over a drawing wins the press; a drawing under the pointer is picked or dragged.
-    if (selecting && this.view && this.gestures.press(this.view, pointOf(event), world)) return;
+    const screen = pointOf(event);
+    if (view && route.kind === 'drawing') return void this.gestures.press(view, screen, world);
+    if (view && route.kind === 'effectArea')
+      return void this.areaGestures.press(view, screen, world);
     this.primaryDown = true;
-    if (selecting) this.marquee = startMarquee(pointOf(event), this.worldOf(event));
+    if (route.kind === 'marquee') this.marquee.start(pointOf(event), world);
     // Shift keeps the selection: the marquee about to be drawn adds to it.
-    if (selecting && event.shiftKey) return;
+    if (route.kind === 'marquee' && event.shiftKey) return;
     this.onIntent({ kind: 'pointerDown', cell: this.cellAt(event) });
   }
 
@@ -315,38 +326,13 @@ class PixiBoardRenderer implements BoardRenderer {
       return;
     }
     if (this.facingHandle.move(this.worldOf(event), event.shiftKey)) return;
-    if (this.view && this.resizeHandles.move(this.view, this.worldOf(event))) return;
+    if (this.resizeHandles.move(this.worldOf(event), event.shiftKey)) return;
     if (this.tokenPress) return this.dragToken(event, this.tokenPress);
     if (this.gestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
-    if (this.marquee) return this.growMarquee(event, this.marquee);
+    if (this.areaGestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
+    if (this.marquee.grow(pointOf(event), this.worldOf(event), this.camera.zoom)) return;
     if (event.buttons === 0) this.hoverAt(event);
     if (this.primaryDown) this.onIntent({ kind: 'pointerMove', cell: this.cellAt(event) });
-  }
-
-  private growMarquee(event: PointerEvent, current: Marquee): void {
-    this.marquee = moveMarquee(current, { screen: pointOf(event), world: this.worldOf(event) });
-    this.drawMarquee();
-  }
-
-  private drawMarquee(): void {
-    this.marqueeShape.clear();
-    if (!this.marquee?.active) return;
-    drawMarqueeShape(this.marqueeShape, marqueeRect(this.marquee), this.camera.zoom);
-  }
-
-  private endMarquee(event: PointerEvent, current: Marquee): void {
-    this.marquee = null;
-    this.marqueeShape.clear();
-    if (!current.active || !this.view) return;
-    const rect = marqueeRect(current);
-    const additive = event.shiftKey;
-    this.onIntent({
-      kind: 'tokensMarqueed',
-      tokenIds: tokensInMarquee(rect, this.view.tokens),
-      additive,
-    });
-    const drawingIds = drawingsInMarquee(rect, this.view.drawings);
-    this.onIntent({ kind: 'drawingsMarqueed', drawingIds, additive });
   }
 
   private dragToken(event: PointerEvent, current: TokenPress): void {
@@ -397,8 +383,9 @@ class PixiBoardRenderer implements BoardRenderer {
   private hoverAt(event: PointerEvent): void {
     const world = this.worldOf(event);
     this.reportHover(this.cellAt(event));
-    this.tokens.hover(this.tokens.tokenAt(world)?.id ?? null);
-    const handle = this.view && this.resizeHandles.handleAt(this.view, world, this.camera.zoom);
+    if (!this.view) return;
+    const { tokenId, handle } = hoverRouteOf(this.view, world, this.camera.zoom);
+    this.tokens.hover(tokenId);
     if (!handle || !this.app) return this.showCursor();
     this.app.canvas.style.cursor = resizeCursorOf(handle);
   }
@@ -415,14 +402,17 @@ class PixiBoardRenderer implements BoardRenderer {
     if (event.button === SECONDARY_BUTTON) return this.endRightClick(event);
     const primary = event.button === PRIMARY_BUTTON;
     if (primary && this.facingHandle.release()) return;
-    if (primary && this.view && this.resizeHandles.release(this.view)) return;
+    if (primary && this.resizeHandles.release()) return;
     if (primary && this.gestures.release(this.worldOf(event), event.shiftKey)) return;
+    if (primary && this.areaGestures.release(pointOf(event), this.worldOf(event), event.shiftKey)) {
+      return;
+    }
     if (event.button === PRIMARY_BUTTON && this.tokenPress) {
       return this.releaseToken(event, this.tokenPress);
     }
     if (event.button !== PRIMARY_BUTTON || !this.primaryDown) return;
     this.primaryDown = false;
-    if (this.marquee) this.endMarquee(event, this.marquee);
+    this.marquee.end(this.view, event.shiftKey);
     this.onIntent({ kind: 'pointerUp', cell: this.cellAt(event) });
   }
 
@@ -432,7 +422,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.rightDrag = null;
     this.showCursor();
     if (!drag || !this.view || endRightDrag(drag) !== 'context') return;
-    const tokenId = tokenMenuTarget(this.view, this.tokens.tokenAt(this.worldOf(event)));
+    const tokenId = tokenMenuTarget(this.view, topTokenAt(this.view.tokens, this.worldOf(event)));
     if (!tokenId) return;
     this.onIntent({ kind: 'tokenMenuRequested', tokenId, x: event.clientX, y: event.clientY });
   }
@@ -441,7 +431,7 @@ class PixiBoardRenderer implements BoardRenderer {
     if (event.key === 'Escape' && this.tokenPress?.dragging) {
       return this.cancelTokenDrag(this.tokenPress);
     }
-    if (event.key === 'Escape' && this.gestures.cancel()) return;
+    if (event.key === 'Escape' && (this.gestures.cancel() || this.areaGestures.cancel())) return;
     if (event.key === 'Escape' && this.facingHandle.cancel()) return;
     if (event.key === 'Escape' && this.resizeHandles.cancel()) return;
     const modified = event.ctrlKey || event.metaKey || event.altKey;

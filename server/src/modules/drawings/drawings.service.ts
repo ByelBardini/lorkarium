@@ -6,6 +6,7 @@ import type {
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
+import { AuthoredAccessBo } from '../scenes/authored-access.bo';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import {
   inLockedScene,
@@ -15,7 +16,6 @@ import {
   type SceneTransaction,
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
-import { DrawingAccessBo } from './drawing-access.bo';
 import { DrawingRulesBo } from './drawing-rules.bo';
 import type { DrawingsDao } from './drawings.dao';
 import { DrawingNotFoundError } from './drawings.error';
@@ -30,6 +30,8 @@ import {
   toNewDrawingPo,
 } from './drawings.mapper';
 import type { DrawingPo } from './drawings.po';
+
+const DRAWING_NOUN = 'drawing';
 
 type Envelope = 'actionId' | 'campaignId';
 export type CreateDrawings = Omit<CreateDrawingsCommandDto, Envelope>;
@@ -71,7 +73,10 @@ export class DrawingsService {
     campaignId: string,
     command: CreateDrawings,
   ): Promise<CreatedInScene> {
-    const access = new DrawingAccessBo(await memberAccessOf(this.deps.members, campaignId, userId));
+    const access = new AuthoredAccessBo(
+      await memberAccessOf(this.deps.members, campaignId, userId),
+      DRAWING_NOUN,
+    );
     for (const shape of command.drawings) access.requireLayer('draw', shape.layer);
     const saved = await inLockedScene(
       this.deps.transaction,
@@ -98,7 +103,7 @@ export class DrawingsService {
       rows.forEach((row, index) => {
         const move = command.moves[index];
         if (!move) return;
-        new DrawingAccessBo(access).requireEdit('move', ownershipOf(row));
+        new AuthoredAccessBo(access, DRAWING_NOUN).requireEdit('move', ownershipOf(row));
         rules.requireAt(row.id, move.expect, positionOf(row));
         rules.place(boxAt(row, move));
       });
@@ -120,7 +125,7 @@ export class DrawingsService {
       const rows = await drawingsIn(locked, campaignId, drawingIds);
       const rules = this.rulesFor(locked.scene);
       for (const row of rows) {
-        new DrawingAccessBo(access).requireEdit('delete', ownershipOf(row));
+        new AuthoredAccessBo(access, DRAWING_NOUN).requireEdit('delete', ownershipOf(row));
         const expected = command.expect?.find(({ drawingId }) => drawingId === row.id);
         rules.requireAt(row.id, expected, positionOf(row));
       }

@@ -6,8 +6,11 @@ import {
   resizeFromDrag,
   resizeHandleAt,
   resizeHandlePoints,
+  resizeTargetOf,
   resizeTokenOf,
+  tokenResizeTarget,
 } from '@/renderer/resize-handles';
+import { tokenWorldRect } from '@/renderer/token-box';
 
 const C = CELL_WORLD_SIZE;
 const SCENE = { widthCells: 20, heightCells: 12 };
@@ -55,7 +58,7 @@ describe('resizeTokenOf', () => {
 
 describe('resizeHandlePoints', () => {
   it('a 2×1 token at (1, 1) has its corners and the middle of each side', () => {
-    expect(resizeHandlePoints(tokenView())).toEqual({
+    expect(resizeHandlePoints(tokenWorldRect(tokenView()))).toEqual({
       nw: { x: C, y: C },
       n: { x: 2 * C, y: C },
       ne: { x: 3 * C, y: C },
@@ -68,18 +71,74 @@ describe('resizeHandlePoints', () => {
   });
 });
 
+describe('resizeHandlePoints of any rectangle', () => {
+  it('a rectangle in world px has its handles on its corners and the middle of its sides', () => {
+    expect(resizeHandlePoints({ x: 192, y: 192, width: 256, height: 256 })).toMatchObject({
+      nw: { x: 192, y: 192 },
+      e: { x: 448, y: 320 },
+      se: { x: 448, y: 448 },
+      s: { x: 320, y: 448 },
+    });
+  });
+});
+
+describe('tokenResizeTarget', () => {
+  it('the preview follows the pointer freely and the release snaps to half a cell', () => {
+    const target = tokenResizeTarget(tokenView(), SCENE);
+    const start = { x: 3 * C, y: 1.5 * C };
+    const now = { x: 3 * C + 10, y: 1.5 * C };
+    expect(target.previewed('e', start, now, false)).toMatchObject({
+      kind: 'tokenResizePreviewed',
+      tokenId: 'horse',
+    });
+    expect(target.resized('e', start, now, false)).toEqual({
+      kind: 'tokenResized',
+      tokenId: 'horse',
+      box: { col: 1, row: 1, width: 2, height: 1 },
+    });
+  });
+
+  it('Esc clears the preview of the token', () => {
+    expect(tokenResizeTarget(tokenView(), SCENE).cancelled()).toEqual({
+      kind: 'tokenResizePreviewed',
+      tokenId: 'horse',
+      box: null,
+    });
+  });
+
+  it('the squares sit on the token rectangle', () => {
+    expect(tokenResizeTarget(tokenView(), SCENE).rect).toEqual({
+      x: C,
+      y: C,
+      width: 2 * C,
+      height: C,
+    });
+  });
+});
+
+describe('resizeTargetOf', () => {
+  it('the one selected token is the target, and with the ruler there is none', () => {
+    const grid = { visible: true, opacity: 1, cells: SCENE };
+    expect(resizeTargetOf({ tokens: [tokenView()], tool: 'select', grid })?.id).toBe('horse');
+    expect(resizeTargetOf({ tokens: [tokenView()], tool: 'ruler', grid })).toBeNull();
+  });
+});
+
 describe('resizeHandleAt', () => {
   it('a press within reach of the south-east corner takes it', () => {
-    expect(resizeHandleAt(tokenView(), { x: 3 * C + 4, y: 2 * C - 3 }, 8)).toBe('se');
+    expect(resizeHandleAt(tokenWorldRect(tokenView()), { x: 3 * C + 4, y: 2 * C - 3 }, 8)).toBe(
+      'se',
+    );
   });
 
   it('a press in the middle of the token takes no handle', () => {
-    expect(resizeHandleAt(tokenView(), { x: 2 * C, y: 1.5 * C }, 8)).toBeNull();
+    expect(resizeHandleAt(tokenWorldRect(tokenView()), { x: 2 * C, y: 1.5 * C }, 8)).toBeNull();
   });
 
   it('the reach is in world px: zoomed out, the same press is farther', () => {
-    expect(resizeHandleAt(tokenView(), { x: 3 * C + 12, y: 2 * C }, 8)).toBeNull();
-    expect(resizeHandleAt(tokenView(), { x: 3 * C + 12, y: 2 * C }, 16)).toBe('se');
+    const rect = tokenWorldRect(tokenView());
+    expect(resizeHandleAt(rect, { x: 3 * C + 12, y: 2 * C }, 8)).toBeNull();
+    expect(resizeHandleAt(rect, { x: 3 * C + 12, y: 2 * C }, 16)).toBe('se');
   });
 });
 
