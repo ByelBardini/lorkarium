@@ -28,6 +28,7 @@ import {
   type DefineConditionCommandDto,
   type RemoveConditionCommandDto,
 } from './condition.dto';
+import { effectAreaDto } from './effect-area.dto';
 import {
   drawingDto,
   type CreateDrawingsCommandDto,
@@ -37,6 +38,14 @@ import {
   type DrawingsMovedDto,
   type MoveDrawingsCommandDto,
 } from './drawing.dto';
+import type {
+  CreateEffectAreasCommandDto,
+  DeleteEffectAreasCommandDto,
+  EffectAreasCreatedDto,
+  EffectAreasDeletedDto,
+  EffectAreasReshapedDto,
+  ReshapeEffectAreasCommandDto,
+} from './effect-area.dto';
 import { sceneDto, type ConfigureSceneCommandDto } from './scene.dto';
 import {
   tokenDto,
@@ -106,6 +115,12 @@ export const BOARD_EVENTS = {
   drawingsCreated: 'drawing:createdMany',
   drawingsMoved: 'drawing:movedMany',
   drawingsDeleted: 'drawing:deletedMany',
+  createEffectAreas: 'effectArea:createMany',
+  reshapeEffectAreas: 'effectArea:reshapeMany',
+  deleteEffectAreas: 'effectArea:deleteMany',
+  effectAreasCreated: 'effectArea:createdMany',
+  effectAreasReshaped: 'effectArea:reshapedMany',
+  effectAreasDeleted: 'effectArea:deletedMany',
   defineCondition: 'condition:define',
   applyCondition: 'condition:apply',
   applyConditions: 'condition:applyMany',
@@ -152,6 +167,7 @@ export const boardStateDto = z.strictObject({
   scene: sceneDto,
   tokens: z.array(tokenDto),
   drawings: z.array(drawingDto),
+  effectAreas: z.array(effectAreaDto),
   combat: combatDto.nullable(),
   conditionDefinitions: z.array(conditionDefinitionDto),
 });
@@ -167,7 +183,7 @@ export const boardSyncAckDto = z.discriminatedUnion('ok', [
 export type BoardSyncAckDto = z.infer<typeof boardSyncAckDto>;
 
 /** Answer to every board mutation: the version it produced, or the API error. A command that
- *  creates (`token:createMany`, `drawing:createMany`) also names the ids it gave, in the order
+ *  creates (`token:createMany`, `drawing:createMany`, `effectArea:createMany`) also names the ids it gave, in the order
  *  sent: undoing it, or remapping an undo stack after re-creating, needs them. */
 export const boardCommandAckDto = z.discriminatedUnion('ok', [
   z.strictObject({
@@ -207,6 +223,9 @@ export type BoardClientEvents = {
   'drawing:createMany': Command<CreateDrawingsCommandDto>;
   'drawing:moveMany': Command<MoveDrawingsCommandDto>;
   'drawing:deleteMany': Command<DeleteDrawingsCommandDto>;
+  'effectArea:createMany': Command<CreateEffectAreasCommandDto>;
+  'effectArea:reshapeMany': Command<ReshapeEffectAreasCommandDto>;
+  'effectArea:deleteMany': Command<DeleteEffectAreasCommandDto>;
   'condition:define': Command<DefineConditionCommandDto>;
   'condition:apply': Command<ApplyConditionCommandDto>;
   'condition:applyMany': Command<ApplyConditionsCommandDto>;
@@ -239,6 +258,9 @@ export type BoardServerEvents = {
   'drawing:createdMany': (event: DrawingsCreatedDto) => void;
   'drawing:movedMany': (event: DrawingsMovedDto) => void;
   'drawing:deletedMany': (event: DrawingsDeletedDto) => void;
+  'effectArea:createdMany': (event: EffectAreasCreatedDto) => void;
+  'effectArea:reshapedMany': (event: EffectAreasReshapedDto) => void;
+  'effectArea:deletedMany': (event: EffectAreasDeletedDto) => void;
   'condition:defined': (event: ConditionDefinedDto) => void;
   'condition:applied': (event: ConditionAppliedDto) => void;
   'condition:appliedMany': (event: ConditionsAppliedDto) => void;

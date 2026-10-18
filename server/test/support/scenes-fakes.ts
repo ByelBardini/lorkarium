@@ -10,6 +10,9 @@ import type {
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
+  EffectAreasCreatedDto,
+  EffectAreasDeletedDto,
+  EffectAreasReshapedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
   TokenLayerChangedDto,
@@ -122,6 +125,9 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly drawingsCreates: DrawingsCreatedDto[] = [];
   readonly drawingsMoves: DrawingsMovedDto[] = [];
   readonly drawingsDeletes: DrawingsDeletedDto[] = [];
+  readonly effectAreasCreates: EffectAreasCreatedDto[] = [];
+  readonly effectAreasReshapes: EffectAreasReshapedDto[] = [];
+  readonly effectAreasDeletes: EffectAreasDeletedDto[] = [];
 
   sceneUpdated(event: SceneUpdatedDto): void {
     this.journal.push('publish');
@@ -196,6 +202,21 @@ export class BoardPublisherFake implements BoardPublisherPort {
   drawingsDeleted(event: DrawingsDeletedDto): void {
     this.journal.push('publish');
     this.drawingsDeletes.push(event);
+  }
+
+  effectAreasCreated(event: EffectAreasCreatedDto): void {
+    this.journal.push('publish');
+    this.effectAreasCreates.push(event);
+  }
+
+  effectAreasReshaped(event: EffectAreasReshapedDto): void {
+    this.journal.push('publish');
+    this.effectAreasReshapes.push(event);
+  }
+
+  effectAreasDeleted(event: EffectAreasDeletedDto): void {
+    this.journal.push('publish');
+    this.effectAreasDeletes.push(event);
   }
 
   conditionDefined(event: ConditionDefinedDto): void {

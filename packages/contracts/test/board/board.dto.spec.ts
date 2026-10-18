@@ -30,6 +30,7 @@ const STATE = {
   scene: SCENE,
   tokens: [],
   drawings: [],
+  effectAreas: [],
   combat: null,
   conditionDefinitions: [],
 };
@@ -42,6 +43,11 @@ describe('boardStateDto', () => {
   it('a negative version is refused on version', () => {
     const result = boardStateDto.safeParse({ ...STATE, version: -1 });
     expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['version']);
+  });
+
+  it('a snapshot without effectAreas is refused on effectAreas', () => {
+    const result = boardStateDto.safeParse({ ...STATE, effectAreas: undefined });
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['effectAreas']);
   });
 
   it('a viewer role outside master or player is refused on viewer.role', () => {

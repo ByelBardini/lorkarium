@@ -95,6 +95,7 @@ export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDt
     scene: VHARN_SCENE,
     tokens: [],
     drawings: [],
+    effectAreas: [],
     combat: null,
     conditionDefinitions: [],
     ...overrides,

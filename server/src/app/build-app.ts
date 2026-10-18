@@ -19,6 +19,7 @@ import { SocketIoSessionPublisher } from '../infrastructure/session-publisher/so
 import { SocketIoBoardPublisher } from '../infrastructure/board-publisher/socket-io-board-publisher';
 import { createBoardModule } from '../modules/board/board.plugin';
 import { createDrawingsModule } from '../modules/drawings/drawings.plugin';
+import { createEffectAreasModule } from '../modules/effect-areas/effect-areas.plugin';
 import { createScenesModule } from '../modules/scenes/scenes.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
 import { createConditionsModule } from '../modules/conditions/conditions.plugin';
@@ -94,6 +95,7 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
   const conditions = createConditionsModule({ db, publisher, clock }).service;
   const combat = createCombatModule({ db, publisher, clock }).service;
   const drawings = createDrawingsModule({ db, publisher, clock }).service;
+  const effectAreas = createEffectAreasModule({ db, publisher, clock }).service;
   const board = createBoardModule({
     db,
     scenes,
@@ -103,6 +105,7 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
     conditions,
     combat,
     drawings,
+    effectAreas,
     clock,
     realtime,
     log: app.log,

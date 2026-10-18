@@ -10,6 +10,9 @@ import type {
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
+  EffectAreasCreatedDto,
+  EffectAreasDeletedDto,
+  EffectAreasReshapedDto,
   TokensResizedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
@@ -129,6 +132,19 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
 
   drawingsDeleted(event: DrawingsDeletedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('drawing:deletedMany', event);
+  }
+
+  // An area of effect is a template everyone at the table reads: nothing to redact.
+  effectAreasCreated(event: EffectAreasCreatedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('effectArea:createdMany', event);
+  }
+
+  effectAreasReshaped(event: EffectAreasReshapedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('effectArea:reshapedMany', event);
+  }
+
+  effectAreasDeleted(event: EffectAreasDeletedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('effectArea:deletedMany', event);
   }
 
   // Conditions are on the token for everyone to see: nothing to redact (spec §3.7).
