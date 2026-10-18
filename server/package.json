@@ -16,6 +16,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1146.0",
     "@fastify/cookie": "^11.1.3",
     "@fastify/rate-limit": "^11.2.1",
     "@lorkarium/contracts": "workspace:*",
@@ -25,6 +26,7 @@
     "fastify": "^5.12.5",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
+    "sharp": "^0.35.5",
     "socket.io": "^4.8.4",
     "zod": "^4.6.7"
   },
