@@ -270,3 +270,26 @@ describe('moveTokensCommandDto, undo precondition', () => {
     expect(moveTokensCommandDto.safeParse({ ...BASE, moves }).success).toBe(false);
   });
 });
+
+describe('moveTokensCommandDto path', () => {
+  const bends = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({ col: i % 10, row: 1 }));
+
+  it('a move carrying its bends is accepted as sent', () => {
+    const command = { ...BASE, moves: [{ tokenId: LYRA_ID, col: 4, row: 4, path: bends(2) }] };
+    expect(moveTokensCommandDto.parse(command)).toEqual(command);
+  });
+
+  it('a path of 33 bends is refused citing 33 and 32', () => {
+    const command = { ...BASE, moves: [{ tokenId: LYRA_ID, col: 4, row: 4, path: bends(33) }] };
+    expect(messagesOf(moveTokensCommandDto.safeParse(command))).toContain(
+      'path has 33 bends; expected at most 32',
+    );
+  });
+
+  it('a bend at col -1 is refused', () => {
+    const path = [{ col: -1, row: 0 }];
+    const command = { ...BASE, moves: [{ tokenId: LYRA_ID, col: 4, row: 4, path }] };
+    expect(moveTokensCommandDto.safeParse(command).success).toBe(false);
+  });
+});

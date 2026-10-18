@@ -4,7 +4,10 @@ import {
   MAX_BARS_PER_TOKEN,
   adjustBarCommandDto,
   createTokenCommandDto,
+  moveTokenCommandDto,
+  sightDto,
   tokenDto,
+  updateTokenCommandDto,
 } from '../../src/board/token.dto';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
@@ -163,10 +166,73 @@ describe('tokenDto', () => {
       flipX: false,
       flipY: false,
       facing: 0,
+      sight: null,
       canControl: false,
       bars: [bar(1), bar(2)],
       conditions: [],
     };
     expect(tokenDto.parse(token).bars.map((b) => b.position)).toEqual([1, 2]);
+  });
+});
+
+describe('sightDto', () => {
+  it.each([[{ bright: 12, dim: 4 }], [{ bright: 0, dim: 0 }]])(
+    'a sight of %o is accepted as sent',
+    (sight) => {
+      expect(sightDto.parse(sight)).toEqual(sight);
+    },
+  );
+
+  it.each([
+    ['bright', 100.5],
+    ['bright', -1],
+    ['dim', Number.NaN],
+  ])('a %s of %s is refused citing the value and 0 to 100 cells', (side, value) => {
+    const result = sightDto.safeParse({ bright: 3, dim: 3, [side]: value });
+    expect(result.error?.issues.map((issue) => issue.message)).toContain(
+      `sight ${side} ${value} is invalid; expected 0 to 100 cells`,
+    );
+  });
+});
+
+describe('sight on create and update', () => {
+  const UPDATE = { ...CREATE, tokenId: TOKEN_ID } as Record<string, unknown>;
+  delete UPDATE.col;
+  delete UPDATE.row;
+
+  it('a token created with a sight keeps it', () => {
+    const sight = { bright: 12, dim: 4 };
+    expect(createTokenCommandDto.parse({ ...CREATE, sight }).sight).toEqual(sight);
+  });
+
+  it('an update with sight null (it stops seeing) is accepted', () => {
+    expect(updateTokenCommandDto.parse({ ...UPDATE, sight: null }).sight).toBeNull();
+  });
+
+  it('an update without sight keeps it absent (the server keeps the current one)', () => {
+    expect('sight' in updateTokenCommandDto.parse(UPDATE)).toBe(false);
+  });
+});
+
+describe('moveTokenCommandDto path', () => {
+  const MOVE = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID, tokenId: TOKEN_ID, col: 6, row: 4 };
+  const bends = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({ col: i % 10, row: 1 }));
+
+  it('a move with 32 bends is accepted, and without a path too', () => {
+    expect(moveTokenCommandDto.safeParse({ ...MOVE, path: bends(32) }).success).toBe(true);
+    expect(moveTokenCommandDto.safeParse(MOVE).success).toBe(true);
+  });
+
+  it('a path of 33 bends is refused citing 33 and 32', () => {
+    const result = moveTokenCommandDto.safeParse({ ...MOVE, path: bends(33) });
+    expect(result.error?.issues.map((issue) => issue.message)).toContain(
+      'path has 33 bends; expected at most 32',
+    );
+  });
+
+  it('a bend at col -1 is refused', () => {
+    const result = moveTokenCommandDto.safeParse({ ...MOVE, path: [{ col: -1, row: 1 }] });
+    expect(result.success).toBe(false);
   });
 });

@@ -51,6 +51,32 @@ const tokenAppearanceShape = {
   flipY: z.boolean(),
 };
 
+/** The longest bright or dim sight, in cells (game-core `SIGHT_RANGE_MAX`). */
+export const SIGHT_RANGE_MAX = 100;
+/** Bends one move may carry (the drag's path around walls). */
+export const MOVE_PATH_MAX = 32;
+
+// NaN goes through to the refine so the refusal cites it like any other value.
+function sightSideDto(side: 'bright' | 'dim') {
+  return z.union([z.number(), z.nan()]).superRefine((value, context) => {
+    if (Number.isFinite(value) && value >= 0 && value <= SIGHT_RANGE_MAX) return;
+    context.addIssue({
+      code: 'custom',
+      message: `sight ${side} ${value} is invalid; expected 0 to ${SIGHT_RANGE_MAX} cells`,
+    });
+  });
+}
+
+/** How far a token sees, in cells: fully up to `bright`, then `dim` more in silhouettes
+ *  (game-core `sightRange`, rewritten because contracts depends only on zod). `null` = blind.
+ *
+ *  Example: `sightDto.parse({ bright: 12, dim: 4 })` */
+export const sightDto = z.strictObject({
+  bright: sightSideDto('bright'),
+  dim: sightSideDto('dim'),
+});
+export type SightDto = z.infer<typeof sightDto>;
+
 const barCurrentDto = z.number().int().min(-BAR_VALUE_LIMIT).max(BAR_VALUE_LIMIT);
 
 /** A number in steps of half a cell from `min` to `max`, refused citing `noun` and the value.
@@ -112,6 +138,7 @@ export const tokenDto = z.strictObject({
   layer: tokenLayerDto,
   ...tokenAppearanceShape,
   facing: facingDto,
+  sight: sightDto.nullable(),
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
   conditions: z.array(activeConditionDto),
@@ -133,6 +160,7 @@ export const createTokenCommandDto = z.strictObject({
   flipX: z.boolean().default(false),
   flipY: z.boolean().default(false),
   facing: facingDto.default(0),
+  sight: sightDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type CreateTokenCommandDto = z.infer<typeof createTokenCommandDto>;
@@ -148,16 +176,33 @@ export const updateTokenCommandDto = z.strictObject({
   frame: tokenFrameDto.optional(),
   flipX: z.boolean().optional(),
   flipY: z.boolean().optional(),
+  sight: sightDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type UpdateTokenCommandDto = z.infer<typeof updateTokenCommandDto>;
 
-/** `token:move` (master or a controller). */
+/** The bends of a drag between origin and destination, in token cells: the server checks the
+ *  walls on each leg. Without it, the move is a straight line.
+ *
+ *  Example: `movePathDto.parse([{ col: 1, row: 10 }])` */
+export const movePathDto = z
+  .array(z.strictObject({ col: cellIndexDto, row: cellIndexDto }))
+  .superRefine((bends, context) => {
+    if (bends.length <= MOVE_PATH_MAX) return;
+    context.addIssue({
+      code: 'custom',
+      message: `path has ${bends.length} bends; expected at most ${MOVE_PATH_MAX}`,
+    });
+  });
+export type MovePathDto = z.infer<typeof movePathDto>;
+
+/** `token:move` (master or a controller); `path` lists the bends around walls. */
 export const moveTokenCommandDto = z.strictObject({
   ...boardCommandShape,
   tokenId: z.uuid(),
   col: cellIndexDto,
   row: cellIndexDto,
+  path: movePathDto.optional(),
 });
 export type MoveTokenCommandDto = z.infer<typeof moveTokenCommandDto>;
 

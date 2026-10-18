@@ -91,3 +91,17 @@ describe('sceneGridDto', () => {
     expect(sceneGridDto.safeParse({ ...GRID, campaignId: CAMPAIGN_ID }).success).toBe(false);
   });
 });
+
+describe('configureSceneCommandDto vision', () => {
+  it.each(['off', 'dark', 'daylight'])('the vision %s is accepted', (vision) => {
+    expect(configureSceneCommandDto.parse({ ...COMMAND, vision }).vision).toBe(vision);
+  });
+
+  it('the vision "dusk" is refused on vision', () => {
+    expect(issuePathsOf({ ...COMMAND, vision: 'dusk' })).toEqual(['vision']);
+  });
+
+  it('a command without vision is accepted (the scene keeps its mode)', () => {
+    expect(issuePathsOf(COMMAND)).toEqual([]);
+  });
+});
