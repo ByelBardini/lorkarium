@@ -15,11 +15,13 @@ import {
   type IdMapping,
 } from '@/lib/edit-history';
 import { pastePlacement, type CopiedSelection } from '@/lib/paste-placement';
-import type {
-  BoardCommandFailure,
-  BoardCommandResult,
-  TableBoardCommands,
-} from '@/services/table-board-commands';
+import {
+  createdIdsOf,
+  isEffectAreaOp,
+  runEffectAreaOp,
+  type EditOpResult,
+} from './effect-area-edit-ops';
+import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-board-commands';
 
 /** Who edits and how: the commands of the table, whether they may create tokens (the master),
  *  and whether the table is read only right now (nothing is sent then). */
@@ -36,7 +38,7 @@ export type EditOutcome =
   | Readonly<{ kind: 'out_of_scene' }>
   | Readonly<{ kind: 'refused'; failure: BoardCommandFailure }>;
 
-/** `skippedTokens`: a player pasted a selection with tokens, so only the drawings went. */
+/** `skippedTokens`: a player pasted a selection with tokens, so only the drawings and areas went. */
 export type PasteOutcome = Readonly<{ outcome: EditOutcome; skippedTokens: boolean }>;
 
 export type PasteTarget = Readonly<{ cursor: Cell | null; scene: SceneSize }>;
@@ -143,7 +145,7 @@ async function pasteNow(
   if (!copied || context.readOnly) return { outcome: NOTHING, skippedTokens: false };
   const skippedTokens = !context.isMaster && copied.tokens.length > 0;
   const allowed = skippedTokens ? { ...copied, tokens: [] } : copied;
-  if (allowed.tokens.length === 0 && allowed.drawings.length === 0) {
+  if (allowed.tokens.length + allowed.drawings.length + allowed.effectAreas.length === 0) {
     return { outcome: NOTHING, skippedTokens };
   }
   const placed = pastePlacement(allowed, target.cursor, target.scene);
@@ -166,6 +168,13 @@ function pasteOps(placed: CopiedSelection): EditEntry {
   if (placed.drawings.length > 0) {
     const drawings = placed.drawings.map((shape, index) => ({ id: `drawing:${index}`, shape }));
     ops.push({ kind: 'drawingsAdded', drawings });
+  }
+  if (placed.effectAreas.length > 0) {
+    const effectAreas = placed.effectAreas.map((shape, index) => ({
+      id: `effect-area:${index}`,
+      shape,
+    }));
+    ops.push({ kind: 'effectAreasAdded', effectAreas });
   }
   return ops;
 }
@@ -190,11 +199,10 @@ async function runEntry(entry: EditEntry, context: EditContext): Promise<RunOutc
   return { kind: 'done', mapping, done };
 }
 
-type OpResult =
-  | Readonly<{ ok: true; mapping: IdMapping }>
-  | Readonly<{ ok: false; failure: BoardCommandFailure }>;
+type OpResult = EditOpResult;
 
 async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise<OpResult> {
+  if (isEffectAreaOp(op)) return runEffectAreaOp(op, campaignId, commands);
   switch (op.kind) {
     case 'tokensMoved': {
       const moves = op.moves.map(({ tokenId, from, to }) => ({
@@ -202,7 +210,7 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         ...cellOf(to),
         expect: cellOf(from),
       }));
-      return created(await commands.moveTokens(campaignId, moves), []);
+      return createdIdsOf(await commands.moveTokens(campaignId, moves), []);
     }
     case 'tokensFaced': {
       const faces = op.turns.map(({ tokenId, from, to }) => ({
@@ -210,11 +218,11 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         facing: to,
         expect: { facing: from },
       }));
-      return created(await commands.faceTokens(campaignId, faces), []);
+      return createdIdsOf(await commands.faceTokens(campaignId, faces), []);
     }
     case 'tokensResized': {
       const resizes = op.resizes.map(({ tokenId, from, to }) => ({ tokenId, ...to, expect: from }));
-      return created(await commands.resizeTokens(campaignId, resizes), []);
+      return createdIdsOf(await commands.resizeTokens(campaignId, resizes), []);
     }
     case 'drawingsMoved': {
       const moves = op.moves.map(({ drawingId, from, to }) => ({
@@ -223,14 +231,14 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         y: to.y,
         expect: from,
       }));
-      return created(await commands.moveDrawings(campaignId, moves), []);
+      return createdIdsOf(await commands.moveDrawings(campaignId, moves), []);
     }
     case 'tokensAdded': {
       const result = await commands.createTokens(
         campaignId,
         op.tokens.map(({ token }) => token),
       );
-      return created(
+      return createdIdsOf(
         result,
         op.tokens.map(({ id }) => id),
       );
@@ -241,7 +249,7 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         col: token.col,
         row: token.row,
       }));
-      return created(
+      return createdIdsOf(
         await commands.deleteTokens(
           campaignId,
           op.tokens.map(({ id }) => id),
@@ -255,7 +263,7 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         campaignId,
         op.drawings.map(({ shape }) => shape),
       );
-      return created(
+      return createdIdsOf(
         result,
         op.drawings.map(({ id }) => id),
       );
@@ -267,22 +275,9 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         y: shape.y,
       }));
       const ids = op.drawings.map(({ id }) => id);
-      return created(await commands.deleteDrawings(campaignId, ids, expect), []);
+      return createdIdsOf(await commands.deleteDrawings(campaignId, ids, expect), []);
     }
   }
-}
-
-// The old ids, in the order sent, pair with the ids the server answered.
-function created(result: BoardCommandResult, oldIds: readonly string[]): OpResult {
-  if (!result.ok) return { ok: false, failure: result.failure };
-  const newIds = result.createdIds ?? [];
-  const mapping = Object.fromEntries(
-    oldIds.flatMap((id, index) => {
-      const newId = newIds[index];
-      return newId ? [[id, newId] as const] : [];
-    }),
-  );
-  return { ok: true, mapping };
 }
 
 function cellOf(at: Cell): Cell {

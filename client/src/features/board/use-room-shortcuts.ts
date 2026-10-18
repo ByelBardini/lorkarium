@@ -38,6 +38,7 @@ function runShortcut(shortcut: BoardShortcut, stores: RoomShortcutStores): void 
   if (shortcut === 'select-tool') return board.setTool('select');
   if (shortcut === 'ruler-tool') return board.setTool('ruler');
   if (shortcut === 'draw-tool') return board.setTool('draw');
+  if (shortcut === 'area-tool') return board.setTool('area');
   if (shortcut === 'toggle-grid') return board.toggleLocalGrid();
   const layer = LAYER_OF[shortcut];
   if (layer) return board.setActiveLayer(layer);

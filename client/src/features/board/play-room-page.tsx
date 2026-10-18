@@ -10,9 +10,11 @@ import type { AssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import { DrawStylePanel } from '@/features/drawings/draw-style-panel';
+import { EffectAreaPanel } from '@/features/effect-areas/effect-area-panel';
 import type { EditEntry } from '@/lib/edit-history';
 import { createBoardInteractionStore, useBoardInteraction } from '@/stores/board-interaction-store';
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
+import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
@@ -35,6 +37,7 @@ export type PlayRoomPageProps = Readonly<{
   openTables: StoreApi<OpenTablesStore>;
   roomLayout: StoreApi<RoomLayoutStore>;
   drawingStyle: StoreApi<DrawingStyleStore>;
+  effectAreaStyle: StoreApi<EffectAreaStyleStore>;
   clipboard: Clipboard;
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
@@ -71,7 +74,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   useInteractionFollowsTable(table, interaction);
   const commands = props.boardCommands;
   useEditShortcuts({ campaignId: campaign.id, table, interaction, commands, isMaster });
-  const drawing = useBoardInteraction(interaction, (state) => state.tool === 'draw');
+  const tool = useBoardInteraction(interaction, (state) => state.tool);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
       <title>{`Lorkarium · ${campaign.name}`}</title>
@@ -97,8 +100,10 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           }}
           onTokenMenu={setTokenMenu}
           drawingStyle={props.drawingStyle}
+          effectAreaStyle={props.effectAreaStyle}
         />
-        {drawing && !focus && <DrawStylePanel drawingStyle={props.drawingStyle} />}
+        {tool === 'draw' && !focus && <DrawStylePanel drawingStyle={props.drawingStyle} />}
+        {tool === 'area' && !focus && <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />}
         {tokenMenu && table && (
           <TokenContextMenu
             request={tokenMenu}

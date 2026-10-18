@@ -2,8 +2,9 @@ import type { DrawingColorDto, StrokeWidthDto } from '@lorkarium/contracts';
 import { Circle, Pencil, Square, Triangle, type LucideIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DrawingKind } from '@/lib/drawing-geometry';
-import { DRAWING_COLORS, DRAWING_KINDS, STROKE_WIDTHS } from '@/lib/drawing-style';
+import { DRAWING_KINDS, STROKE_WIDTHS } from '@/lib/drawing-style';
 import { useDrawingStyle, type DrawingStyleStore } from '@/stores/drawing-style-store';
+import { COLOR_TILES } from './color-tiles';
 import { StyleTileGroup, type StyleTile } from './style-tile-group';
 
 export type DrawStylePanelProps = Readonly<{ drawingStyle: StoreApi<DrawingStyleStore> }>;
@@ -25,16 +26,6 @@ const KIND_TILES: readonly StyleTile<DrawingKind>[] = DRAWING_KINDS.map(({ kind,
   const Icon = KIND_ICONS[kind];
   return { value: kind, label, picture: <Icon aria-hidden="true" className="size-4" /> };
 });
-
-const COLOR_TILES: readonly StyleTile<DrawingColorDto>[] = DRAWING_COLORS.map(
-  ({ color, label, hex }) => ({
-    value: color,
-    label,
-    picture: (
-      <span aria-hidden="true" className="size-full rounded-full" style={{ background: hex }} />
-    ),
-  }),
-);
 
 // The "none" swatch is the market convention: an empty circle crossed by a red slash.
 const NO_FILL_TILE: StyleTile<FillChoice> = {

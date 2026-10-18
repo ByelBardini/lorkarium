@@ -1,9 +1,14 @@
-import type { BarChangeDto, TokenLayerDto } from '@lorkarium/contracts';
+import type {
+  BarChangeDto,
+  EffectAreaDto,
+  EffectAreaShapeDto,
+  TokenLayerDto,
+} from '@lorkarium/contracts';
 import type { Cell, SceneSize, TokenBox } from '@lorkarium/game-core';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import type { EditEntry, TokenResize, TokenTurn } from '@/lib/edit-history';
+import type { EditEntry, EffectAreaReshape, TokenResize, TokenTurn } from '@/lib/edit-history';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { GroupMember, GroupPlacement } from '@/lib/token-group';
 import type { TokenRoute } from '@/lib/token-route';
@@ -19,14 +24,21 @@ import type { DrawingDto } from '@lorkarium/contracts';
 import type { DrawingStyle } from '@/lib/drawing-style';
 import { deleteDrawingsOf, moveSelection, type SelectionMove } from './drawing-edit-flow';
 import { sendSketch, type FinishedSketch } from './drawing-tool-flow';
+import {
+  deleteEffectAreasOf,
+  previewEffectArea,
+  reshapeEffectAreasOf,
+} from './effect-area-edit-flow';
+import { sendEffectArea } from './effect-area-tool-flow';
 import { TokenDragFlow } from './token-drag-flow';
 import { faceTokensOf, previewFacing } from './token-facing-flow';
 import { previewResize, resizeTokensOf } from './token-resize-flow';
 
-export type BoardTool = 'select' | 'ruler' | 'draw';
+export type BoardTool = 'select' | 'ruler' | 'draw' | 'area';
 
 export const RULER_HINT = 'Arraste para medir.';
 export const DRAW_HINT = 'Arraste para desenhar; Shift encaixa a forma na grade.';
+export const AREA_HINT = 'Arraste a partir de onde a magia nasce; Shift encaixa a forma perfeita.';
 
 /** Where a token was asked to go, shown until the server answers. */
 export type TokenPreview = Readonly<{ tokenId: string; col: number; row: number }>;
@@ -52,6 +64,10 @@ export type BoardInteractionState = Readonly<{
   selectedTokenIds: readonly string[];
   /** Drawings in the selection, beside the tokens. */
   selectedDrawingIds: readonly string[];
+  /** Areas of effect in the selection, beside the tokens and drawings. */
+  selectedEffectAreaIds: readonly string[];
+  /** The shape areas get while moved or stretched here and not yet confirmed, by id. */
+  effectAreaPreview: Readonly<Record<string, EffectAreaShapeDto>>;
   /** Only tokens on this layer are picked up; a player is always on `tokens`. */
   activeLayer: TokenLayerDto;
   canChooseLayer: boolean;
@@ -110,10 +126,21 @@ export type BoardInteractionStore = BoardInteractionState &
     previewResize: (tokenId: string, box: TokenBox | null) => void;
     /** The draw tool released: one drawing on the active layer, in `style`. */
     finishSketch: (sketch: FinishedSketch, style: DrawingStyle) => Promise<void>;
+    /** The area tool released: one area of effect with this shape. */
+    finishEffectArea: (shape: EffectAreaShapeDto) => Promise<void>;
     /** Dragged drawings (and the tokens selected with them) dropped where they go. */
     moveSelection: (move: SelectionMove) => Promise<void>;
     /** Delete / Backspace on the selected drawings. */
     deleteDrawings: (drawings: readonly DrawingDto[]) => Promise<void>;
+    /** Delete / Backspace on the selected areas of effect. */
+    deleteEffectAreas: (areas: readonly EffectAreaDto[]) => Promise<void>;
+    /** The handles released on areas: one command, one entry on the undo stack. */
+    reshapeEffectAreas: (
+      reshapes: readonly EffectAreaReshape[],
+      announce?: string,
+    ) => Promise<void>;
+    /** A handle being dragged on an area (`null`: let go without a change). */
+    previewEffectArea: (effectAreaId: string, shape: EffectAreaShapeDto | null) => void;
     /** Sends any other board command; a refusal goes to the status line. Nothing is sent while
      *  read only. Answers whether it was confirmed. */
     command: (
@@ -137,13 +164,26 @@ export type BoardInteractionDeps = Readonly<{
 
 type SetInteraction = StoreApi<BoardInteractionStore>['setState'];
 
+const NO_PREVIEWS = {
+  preview: [],
+  drawingPreview: [],
+  facingPreview: {},
+  resizePreview: {},
+  effectAreaPreview: {},
+} as const;
+
 const TOOL_HINT: Readonly<Record<BoardTool, string | null>> = {
   select: null,
   ruler: RULER_HINT,
   draw: DRAW_HINT,
+  area: AREA_HINT,
 };
 
-const NO_SELECTION = { selectedTokenIds: [], selectedDrawingIds: [] } as const;
+const NO_SELECTION = {
+  selectedTokenIds: [],
+  selectedDrawingIds: [],
+  selectedEffectAreaIds: [],
+} as const;
 
 /** The local side of the board for one room visit. Commands go to the server and the board
  *  only changes when its event arrives; a refused move puts the token back and says why.
@@ -164,6 +204,8 @@ export function createBoardInteractionStore(
       zoom: 1,
       selectedTokenIds: [],
       selectedDrawingIds: [],
+      selectedEffectAreaIds: [],
+      effectAreaPreview: {},
       activeLayer: 'tokens',
       canChooseLayer: false,
       preview: [],
@@ -174,8 +216,17 @@ export function createBoardInteractionStore(
       hoverCell: null,
       readOnly: false,
       setTool: (tool) => {
-        const selection = tool === 'draw' ? NO_SELECTION : {};
-        set({ tool, ruler: null, measuring: false, notice: TOOL_HINT[tool], ...selection });
+        const selection = tool === 'draw' || tool === 'area' ? NO_SELECTION : {};
+        // What the area tool makes lives on Tokens: the master sees it pickable at once.
+        const layer = tool === 'area' ? { activeLayer: 'tokens' as const } : {};
+        set({
+          tool,
+          ruler: null,
+          measuring: false,
+          notice: TOOL_HINT[tool],
+          ...selection,
+          ...layer,
+        });
       },
       toggleLocalGrid: () => set({ localGridVisible: !get().localGridVisible }),
       pointer: (intent) => set(afterIntent(get(), intent)),
@@ -185,8 +236,7 @@ export function createBoardInteractionStore(
         set({ ruler: null, measuring: false, ...NO_SELECTION, notice });
       },
       say: (notice) => set({ notice }),
-      select: (tokenId) =>
-        set({ selectedTokenIds: tokenId ? [tokenId] : [], selectedDrawingIds: [] }),
+      select: (tokenId) => set({ ...NO_SELECTION, selectedTokenIds: tokenId ? [tokenId] : [] }),
       toggleSelection: (tokenId) =>
         set({ selectedTokenIds: toggled(get().selectedTokenIds, tokenId) }),
       selectMany: (tokenIds, { additive }) =>
@@ -204,7 +254,7 @@ export function createBoardInteractionStore(
       },
       setReadOnly: (readOnly) => {
         if (readOnly) drags.forget();
-        const previews = { preview: [], drawingPreview: [], facingPreview: {}, resizePreview: {} };
+        const previews = { ...NO_PREVIEWS };
         set(readOnly ? { readOnly, ...previews } : { readOnly });
       },
       moveToken: (tokenId, to, announce) => drags.move({ tokenId, to, announce }),
@@ -227,10 +277,18 @@ export function createBoardInteractionStore(
         const recordEdit = deps.recordEdit ?? (() => undefined);
         return sendSketch({ ...deps, recordEdit }, sketch, { style, layer, readOnly, say });
       },
+      finishEffectArea: (shape) => {
+        const say = (notice: string): void => set({ notice });
+        const recordEdit = deps.recordEdit ?? (() => undefined);
+        return sendEffectArea({ ...deps, recordEdit }, shape, { readOnly: get().readOnly, say });
+      },
       moveSelection: (move) => moveSelection(deps, store, move),
       deleteDrawings: (drawings) => deleteDrawingsOf(deps, store, drawings),
-      dropPreview: () =>
-        set({ preview: [], drawingPreview: [], facingPreview: {}, resizePreview: {} }),
+      deleteEffectAreas: (areas) => deleteEffectAreasOf(deps, store, areas),
+      reshapeEffectAreas: (reshapes, announce) =>
+        reshapeEffectAreasOf(deps, store, reshapes, announce),
+      previewEffectArea: (effectAreaId, shape) => previewEffectArea(store, effectAreaId, shape),
+      dropPreview: () => set({ ...NO_PREVIEWS }),
       command: async (send) => {
         if (get().readOnly) return false;
         const result = await send(deps.commands, deps.campaignId);
@@ -264,6 +322,8 @@ export function useLocalBoardView(
       ruler: state.ruler,
       selectedTokenIds: state.selectedTokenIds,
       selectedDrawingIds: state.selectedDrawingIds,
+      selectedEffectAreaIds: state.selectedEffectAreaIds,
+      effectAreaPreview: state.effectAreaPreview,
       drawingPreview: state.drawingPreview,
       activeLayer: state.activeLayer,
       canChooseLayer: state.canChooseLayer,
@@ -282,6 +342,8 @@ type LocalViewField =
   | 'ruler'
   | 'selectedTokenIds'
   | 'selectedDrawingIds'
+  | 'selectedEffectAreaIds'
+  | 'effectAreaPreview'
   | 'drawingPreview'
   | 'activeLayer'
   | 'canChooseLayer'
@@ -343,6 +405,16 @@ function selectionAfter(
     // Always right after its tokensMarqueed, which already dropped the old drawings.
     case 'drawingsMarqueed':
       return { selectedDrawingIds: joined(state.selectedDrawingIds, intent.drawingIds, true) };
+    case 'effectAreaPicked': {
+      const { effectAreaId, additive } = intent;
+      const areas = additive ? toggled(state.selectedEffectAreaIds, effectAreaId) : [effectAreaId];
+      return { ...kept(additive), selectedEffectAreaIds: areas };
+    }
+    // Right after its tokensMarqueed too: only adds.
+    case 'effectAreasMarqueed': {
+      const areas = joined(state.selectedEffectAreaIds, intent.effectAreaIds, true);
+      return { selectedEffectAreaIds: areas };
+    }
     default:
       return null;
   }

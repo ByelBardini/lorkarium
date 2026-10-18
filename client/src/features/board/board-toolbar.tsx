@@ -12,6 +12,7 @@ import {
   PlusIcon,
   RulerIcon,
   Settings2Icon,
+  SparklesIcon,
   UserPlusIcon,
 } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
@@ -42,7 +43,7 @@ const LAYER_TOOLS: ReadonlyArray<
   { layer: 'background', key: '3', icon: MapIcon },
 ];
 
-/** The floating tools at the left of the board: select, ruler, draw, local grid, zoom and framing,
+/** The floating tools at the left of the board: select, ruler, draw, area of effect, local grid, zoom and framing,
  *  plus "Configurar cena" for the master. Every tool also has its key (in the name).
  *
  *  Example: `<BoardToolbar interaction={interaction} renderer={renderer} canConfigure={isMaster} onConfigure={openGridDialog} />` */
@@ -82,6 +83,12 @@ export function BoardToolbar({
           icon={PencilIcon}
           pressed={tool === 'draw'}
           onClick={() => actions.setTool('draw')}
+        />
+        <ToolButton
+          label="Área de efeito (M)"
+          icon={SparklesIcon}
+          pressed={tool === 'area'}
+          onClick={() => actions.setTool('area')}
         />
         <ToolButton
           label="Grid (G)"

@@ -115,6 +115,49 @@ describe('inverseOf', () => {
   });
 });
 
+describe('inverseOf, areas of effect', () => {
+  const cone = { kind: 'diagonal_cone', x: 6, y: 6, reach: 3, facing: 45, color: 'ember' } as const;
+  const grown = { ...cone, reach: 4 };
+
+  it('a created area is undone by removing it with the shape it was created with', () => {
+    const created: EditEntry = [
+      { kind: 'effectAreasAdded', effectAreas: [{ id: 'a', shape: cone }] },
+    ];
+    expect(inverseOf(created)).toEqual([
+      { kind: 'effectAreasRemoved', effectAreas: [{ id: 'a', shape: cone }] },
+    ]);
+  });
+
+  it('a removed area is undone by creating it again', () => {
+    const removed: EditEntry = [
+      { kind: 'effectAreasRemoved', effectAreas: [{ id: 'a', shape: cone }] },
+    ];
+    expect(inverseOf(removed)).toEqual([
+      { kind: 'effectAreasAdded', effectAreas: [{ id: 'a', shape: cone }] },
+    ]);
+  });
+
+  it('a reshape is undone by the reshape back, from the new shape to the old one', () => {
+    const reshaped: EditEntry = [
+      { kind: 'effectAreasReshaped', reshapes: [{ effectAreaId: 'a', from: cone, to: grown }] },
+    ];
+    expect(inverseOf(reshaped)).toEqual([
+      { kind: 'effectAreasReshaped', reshapes: [{ effectAreaId: 'a', from: grown, to: cone }] },
+    ]);
+  });
+
+  it('an area created again takes its new id in the reshapes and removals after it', () => {
+    const later: EditEntry = [
+      { kind: 'effectAreasReshaped', reshapes: [{ effectAreaId: 'a', from: cone, to: grown }] },
+      { kind: 'effectAreasRemoved', effectAreas: [{ id: 'a', shape: grown }] },
+    ];
+    expect(remapEntry(later, { a: 'b' })).toEqual([
+      { kind: 'effectAreasReshaped', reshapes: [{ effectAreaId: 'b', from: cone, to: grown }] },
+      { kind: 'effectAreasRemoved', effectAreas: [{ id: 'b', shape: grown }] },
+    ]);
+  });
+});
+
 describe('afterUndo and afterRedo', () => {
   it('an undone action moves to the redo stack, and redoing it moves it back', () => {
     const undone = afterUndo(record(EMPTY_HISTORY, LYRA_MOVED), {});

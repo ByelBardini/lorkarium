@@ -11,8 +11,11 @@ import { groupMemberOf } from '@/lib/token-group';
 import type { BoardInteractionStore, DragGroup } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
+import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { DrawingsSummary } from '@/features/drawings/drawings-summary';
+import { routeEffectAreaIntent } from '@/features/effect-areas/effect-area-intents';
+import { EffectAreasSummary } from '@/features/effect-areas/effect-areas-summary';
 import { BoardCanvas } from './board-canvas';
 import type { TokenMenuRequest } from './token-context-menu';
 import {
@@ -36,6 +39,8 @@ export type BoardAreaProps = Readonly<{
   onTokenMenu: (request: TokenMenuRequest) => void;
   /** The style a finished sketch is drawn with. */
   drawingStyle: StoreApi<DrawingStyleStore>;
+  /** The style the area tool draws with. */
+  effectAreaStyle: StoreApi<EffectAreaStyleStore>;
 }>;
 
 /** What fills the room behind the floating UI: the canvas once the board is ready, or why not.
@@ -59,7 +64,12 @@ function OpenBoard({ presence, board, ...canvas }: OpenBoardProps): React.JSX.El
     return <BoardAlert message={BOARD_LOAD_FAILED} onRetry={() => board.getState().retry()} />;
   }
   if (status === 'loading') return null;
-  return <InteractiveCanvas board={board} {...canvas} />;
+  return (
+    <>
+      <EffectAreasSummary board={board} presence={presence} />
+      <InteractiveCanvas board={board} {...canvas} />
+    </>
+  );
 }
 
 function InteractiveCanvas({
@@ -70,6 +80,7 @@ function InteractiveCanvas({
   onOpenToken,
   onTokenMenu,
   drawingStyle,
+  effectAreaStyle,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({ board, interaction, onOpen: onOpenToken });
   return (
@@ -79,6 +90,7 @@ function InteractiveCanvas({
         board={board}
         interaction={interaction}
         drawingStyle={drawingStyle}
+        effectAreaStyle={effectAreaStyle}
         createBoardRenderer={createBoardRenderer}
         onIntent={(intent) =>
           intent.kind === 'tokenMenuRequested'
@@ -108,6 +120,7 @@ function routeIntent(
   if (intent.kind === 'sketchFinished') {
     return void local.finishSketch(intent, styleOf(drawingStyle.getState()));
   }
+  if (routeEffectAreaIntent({ board, interaction }, intent)) return;
   if (intent.kind === 'drawingsDropped') return dropDrawings({ board, interaction }, intent);
   if (intent.kind === 'tokenDragged') {
     const group = dragGroupOf({ board, interaction }, intent.tokenId);
@@ -160,7 +173,7 @@ function resizeByHandle(
   void local.resizeTokens([resize], resizedAnnouncement(token.name, intent.box));
 }
 
-// The drawings dragged carry the tokens selected with them; past the edge, nothing moves.
+// The drawings and areas dragged carry the tokens selected with them; past the edge, nothing moves.
 function dropDrawings(
   { board, interaction }: IntentStores,
   intent: Extract<BoardIntent, { kind: 'drawingsDropped' }>,
@@ -169,8 +182,9 @@ function dropDrawings(
   const local = interaction.getState();
   if (!state) return;
   const { selectedTokenIds, activeLayer } = local;
-  const { drawingIds, dx, dy } = intent;
-  const move = selectionMoveOf(state, { drawingIds, dx, dy, selectedTokenIds, activeLayer });
+  const { drawingIds, effectAreaIds, dx, dy } = intent;
+  const drop = { drawingIds, effectAreaIds, dx, dy, selectedTokenIds, activeLayer };
+  const move = selectionMoveOf(state, drop);
   if (!move) return local.say(OUT_OF_SCENE);
   void local.moveSelection(move);
 }

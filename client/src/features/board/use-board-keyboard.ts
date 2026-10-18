@@ -31,7 +31,8 @@ const STEP: Readonly<Record<'up' | 'down' | 'left' | 'right', readonly [number, 
 };
 
 /** Playing without a mouse: ] and [ select one, the arrows move the selection a cell (one
- *  command, for a group too), Enter opens its card, Delete deletes the selected drawings; every
+ *  command, for a group too), Enter opens its card, Delete deletes the selected drawings and
+ *  areas of effect; every
  *  step is said on the status line.
  *
  *  Example: `<div onKeyDown={useBoardKeyboard({ board, interaction, onOpen })} />` */
@@ -52,7 +53,7 @@ export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.Keyboar
 const TURN: Readonly<Record<'turnBack' | 'turnOn', number>> = { turnBack: -45, turnOn: 45 };
 
 function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
-  if (key === 'delete') return deleteSelectedDrawings(deps);
+  if (key === 'delete') return deleteSelectedPieces(deps);
   const tokens = deps.board.getState().board?.tokens ?? [];
   const { selectedTokenIds } = deps.interaction.getState();
   const selected = tokens.filter(({ id }) => selectedTokenIds.includes(id));
@@ -65,12 +66,14 @@ function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
   moveGroupByKey(deps, inSelectionOrder(selected, selectedTokenIds), STEP[key]);
 }
 
-// A token is deleted from its dialog, never by a key: Delete only takes the drawings.
-function deleteSelectedDrawings({ board, interaction }: BoardKeyboardDeps): void {
-  const { selectedDrawingIds } = interaction.getState();
-  const drawings = board.getState().board?.drawings ?? [];
-  const selected = drawings.filter(({ id }) => selectedDrawingIds.includes(id));
-  if (selected.length > 0) void interaction.getState().deleteDrawings(selected);
+// A token is deleted from its dialog, never by a key: Delete takes the drawings and the areas.
+function deleteSelectedPieces({ board, interaction }: BoardKeyboardDeps): void {
+  const { selectedDrawingIds, selectedEffectAreaIds } = interaction.getState();
+  const state = board.getState().board;
+  const drawings = (state?.drawings ?? []).filter(({ id }) => selectedDrawingIds.includes(id));
+  const areas = (state?.effectAreas ?? []).filter(({ id }) => selectedEffectAreaIds.includes(id));
+  if (drawings.length > 0) void interaction.getState().deleteDrawings(drawings);
+  if (areas.length > 0) void interaction.getState().deleteEffectAreas(areas);
 }
 
 // Every selected token turns in one command; one that is not this viewer's stops all of them.

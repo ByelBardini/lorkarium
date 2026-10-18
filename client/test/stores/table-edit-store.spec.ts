@@ -2,6 +2,7 @@ import { cell } from '@lorkarium/game-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import type { EditEntry } from '@/lib/edit-history';
+import { shapeOfEffectArea } from '@/lib/effect-area-shape';
 import { copiedOf } from '@/lib/paste-placement';
 import {
   createTableEditStore,
@@ -10,12 +11,14 @@ import {
 } from '@/stores/table-edit-store';
 import { VHARN } from '../support/campaigns-api-fake';
 import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
+import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import { KAEL_ID, LYRA_ID, kael, lyra } from '../support/table-session-fixtures';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
 const NEW_GOBLIN = 'e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b';
 const NEW_SQUARE = 'f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c';
+const NEW_AREA = 'a3b4c5d6-e7f8-4a9b-8c1d-2e3f4a5b6c7d';
 
 function lyraMoved(from: number, to: number): EditEntry {
   return [
@@ -94,6 +97,45 @@ describe('table edit store', () => {
       expect(pasted.skippedTokens).toBe(true);
       expect(commands.sentAs('createTokens')).toEqual([]);
       expect(commands.sentAs('createDrawings')).toHaveLength(1);
+    });
+
+    it('a paste with an area creates it under the cursor and records it with the new id', async () => {
+      edits.getState().copy(copiedOf([], [], [biaCone()]));
+      commands.answerWith({ ok: true, version: 6, createdIds: [NEW_AREA] });
+
+      await edits.getState().paste(context(), { cursor: cell(10, 6), scene: SCENE });
+
+      const pasted = { kind: 'diagonal_cone', x: 10, y: 6, reach: 3, facing: 45, color: 'ember' };
+      expect(commands.sentAs('createEffectAreas')[0]?.fields).toEqual({ effectAreas: [pasted] });
+      expect(edits.getState().history.past).toEqual([
+        [{ kind: 'effectAreasAdded', effectAreas: [{ id: NEW_AREA, shape: pasted }] }],
+      ]);
+    });
+
+    it('a player pastes areas too: only the tokens are skipped', async () => {
+      edits.getState().copy(copiedOf([lyra()], [], [biaCone()]));
+
+      const pasted = await edits.getState().paste(context({ isMaster: false }), {
+        cursor: cell(10, 6),
+        scene: SCENE,
+      });
+
+      expect(pasted.skippedTokens).toBe(true);
+      expect(commands.sentAs('createTokens')).toEqual([]);
+      expect(commands.sentAs('createEffectAreas')).toHaveLength(1);
+    });
+
+    it('Ctrl+Z after pasting an area deletes it where it was pasted', async () => {
+      edits.getState().copy(copiedOf([], [], [biaCone()]));
+      commands.answerWith({ ok: true, version: 6, createdIds: [NEW_AREA] });
+      await edits.getState().paste(context(), { cursor: cell(10, 6), scene: SCENE });
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('deleteEffectAreas')[0]?.fields).toMatchObject({
+        effectAreaIds: [NEW_AREA],
+        expect: [{ effectAreaId: NEW_AREA, shape: { x: 10, y: 6 } }],
+      });
     });
 
     it('a paste with nothing copied does nothing', async () => {
@@ -203,6 +245,65 @@ describe('table edit store', () => {
       expect(edits.getState().history.future).toEqual([
         [{ kind: 'drawingsRemoved', drawings: [{ id: NEW_SQUARE, shape }] }],
       ]);
+    });
+
+    it('undoing a created area deletes it, expecting the shape it was created with', async () => {
+      const cone = shapeOfEffectArea(biaCone());
+      edits
+        .getState()
+        .record([{ kind: 'effectAreasAdded', effectAreas: [{ id: BIA_CONE_ID, shape: cone }] }]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('deleteEffectAreas')[0]?.fields).toEqual({
+        effectAreaIds: [BIA_CONE_ID],
+        expect: [{ effectAreaId: BIA_CONE_ID, shape: cone }],
+      });
+    });
+
+    it('undoing a deleted area creates it again, and the new id replaces the old one in later entries', async () => {
+      const cone = shapeOfEffectArea(biaCone());
+      edits
+        .getState()
+        .record([{ kind: 'effectAreasRemoved', effectAreas: [{ id: BIA_CONE_ID, shape: cone }] }]);
+      commands.answerWith({ ok: true, version: 9, createdIds: [NEW_AREA] });
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('createEffectAreas')[0]?.fields).toEqual({ effectAreas: [cone] });
+      expect(edits.getState().history.future).toEqual([
+        [{ kind: 'effectAreasRemoved', effectAreas: [{ id: NEW_AREA, shape: cone }] }],
+      ]);
+    });
+
+    it('undoing a reshape sends the old shape, expecting the new one', async () => {
+      const cone = shapeOfEffectArea(biaCone());
+      const grown = shapeOfEffectArea(biaCone({ reach: 4 }));
+      edits.getState().record([
+        {
+          kind: 'effectAreasReshaped',
+          reshapes: [{ effectAreaId: BIA_CONE_ID, from: cone, to: grown }],
+        },
+      ]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('reshapeEffectAreas')[0]?.fields).toEqual({
+        reshapes: [{ effectAreaId: BIA_CONE_ID, shape: cone, expect: grown }],
+      });
+    });
+
+    it('an area undo refused with stale_undo drops the entry: someone changed it after', async () => {
+      const cone = shapeOfEffectArea(biaCone());
+      edits
+        .getState()
+        .record([{ kind: 'effectAreasAdded', effectAreas: [{ id: BIA_CONE_ID, shape: cone }] }]);
+      commands.answerWith({ ok: false, failure: 'stale_undo' });
+
+      const outcome = await edits.getState().undo(context());
+
+      expect(outcome).toEqual({ kind: 'refused', failure: 'stale_undo' });
+      expect(edits.getState().history.past).toEqual([]);
     });
 
     it('undoing 3 and redoing 3 with nobody in between sends the 3 moves again in order', async () => {

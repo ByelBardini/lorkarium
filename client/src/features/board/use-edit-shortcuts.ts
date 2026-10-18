@@ -64,13 +64,15 @@ function editWorkOf(shortcut: EditShortcut, deps: OpenEditDeps): EditWork | null
 
 function copyWorkOf({ table, interaction }: OpenEditDeps): EditWork | null {
   const board = table.board.getState().board;
-  const { selectedTokenIds, selectedDrawingIds } = interaction.getState();
+  const { selectedTokenIds, selectedDrawingIds, selectedEffectAreaIds } = interaction.getState();
   const tokens = board?.tokens.filter(({ id }) => selectedTokenIds.includes(id)) ?? [];
   const drawings = board?.drawings.filter(({ id }) => selectedDrawingIds.includes(id)) ?? [];
-  if (tokens.length + drawings.length === 0) return null;
+  const areas = board?.effectAreas.filter(({ id }) => selectedEffectAreaIds.includes(id)) ?? [];
+  const count = tokens.length + drawings.length + areas.length;
+  if (count === 0) return null;
   return async () => {
-    table.edits.getState().copy(copiedOf(tokens, drawings));
-    interaction.getState().say(copiedAnnouncement(tokens.length + drawings.length));
+    table.edits.getState().copy(copiedOf(tokens, drawings, areas));
+    interaction.getState().say(copiedAnnouncement(count));
   };
 }
 

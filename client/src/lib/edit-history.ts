@@ -1,4 +1,4 @@
-import type { DrawingShapeInput, NewTokenInput } from '@lorkarium/contracts';
+import type { DrawingShapeInput, EffectAreaShapeDto, NewTokenInput } from '@lorkarium/contracts';
 import type { Cell, TokenBox } from '@lorkarium/game-core';
 
 /** Undo stacks kept per user: how many actions go back. */
@@ -20,6 +20,15 @@ export type PlacedToken = Readonly<{ id: string; token: NewTokenInput }>;
 /** A drawing on the board as it was created: its id and its shape, at its position. */
 export type PlacedDrawing = Readonly<{ id: string; shape: DrawingShapeInput }>;
 
+/** An area of effect on the board as it was created: its id and its whole shape. */
+export type PlacedEffectArea = Readonly<{ id: string; shape: EffectAreaShapeDto }>;
+/** A move, stretch or turn of an area: the shape it had and the one it got. */
+export type EffectAreaReshape = Readonly<{
+  effectAreaId: string;
+  from: EffectAreaShapeDto;
+  to: EffectAreaShapeDto;
+}>;
+
 /** One thing an action did, enough to redo it and to build its inverse. */
 export type EditOp =
   | Readonly<{ kind: 'tokensMoved'; moves: readonly TokenMove[] }>
@@ -29,7 +38,10 @@ export type EditOp =
   | Readonly<{ kind: 'tokensAdded'; tokens: readonly PlacedToken[] }>
   | Readonly<{ kind: 'tokensRemoved'; tokens: readonly PlacedToken[] }>
   | Readonly<{ kind: 'drawingsAdded'; drawings: readonly PlacedDrawing[] }>
-  | Readonly<{ kind: 'drawingsRemoved'; drawings: readonly PlacedDrawing[] }>;
+  | Readonly<{ kind: 'drawingsRemoved'; drawings: readonly PlacedDrawing[] }>
+  | Readonly<{ kind: 'effectAreasAdded'; effectAreas: readonly PlacedEffectArea[] }>
+  | Readonly<{ kind: 'effectAreasRemoved'; effectAreas: readonly PlacedEffectArea[] }>
+  | Readonly<{ kind: 'effectAreasReshaped'; reshapes: readonly EffectAreaReshape[] }>;
 
 /** One user action (a paste with tokens and drawings is one), in the order it was done. */
 export type EditEntry = readonly EditOp[];
@@ -130,6 +142,31 @@ function inverseOp(op: EditOp): EditOp {
       return { kind: 'drawingsRemoved', drawings: op.drawings };
     case 'drawingsRemoved':
       return { kind: 'drawingsAdded', drawings: op.drawings };
+    default:
+      return inverseEffectAreaOp(op);
+  }
+}
+
+type EffectAreaOp = Extract<
+  EditOp,
+  { kind: 'effectAreasAdded' | 'effectAreasRemoved' | 'effectAreasReshaped' }
+>;
+
+function inverseEffectAreaOp(op: EffectAreaOp): EditOp {
+  switch (op.kind) {
+    case 'effectAreasAdded':
+      return { kind: 'effectAreasRemoved', effectAreas: op.effectAreas };
+    case 'effectAreasRemoved':
+      return { kind: 'effectAreasAdded', effectAreas: op.effectAreas };
+    case 'effectAreasReshaped':
+      return {
+        kind: 'effectAreasReshaped',
+        reshapes: op.reshapes.map(({ effectAreaId, from, to }) => ({
+          effectAreaId,
+          from: to,
+          to: from,
+        })),
+      };
   }
 }
 
@@ -156,5 +193,19 @@ function remapOp(op: EditOp, mapping: IdMapping): EditOp {
     case 'drawingsAdded':
     case 'drawingsRemoved':
       return { ...op, drawings: op.drawings.map((placed) => ({ ...placed, id: idOf(placed.id) })) };
+    case 'effectAreasAdded':
+    case 'effectAreasRemoved':
+      return {
+        ...op,
+        effectAreas: op.effectAreas.map((placed) => ({ ...placed, id: idOf(placed.id) })),
+      };
+    case 'effectAreasReshaped':
+      return {
+        ...op,
+        reshapes: op.reshapes.map((reshape) => ({
+          ...reshape,
+          effectAreaId: idOf(reshape.effectAreaId),
+        })),
+      };
   }
 }
