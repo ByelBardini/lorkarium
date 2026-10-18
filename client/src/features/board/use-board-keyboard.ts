@@ -1,5 +1,8 @@
-import type { TokenDto } from '@lorkarium/contracts';
-import { cell, turnFacing } from '@lorkarium/game-core';
+import { seenTokensOf } from '@/lib/board-sight';
+import { sightNowOf } from './use-board-sight';
+import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
+import { blockedPassage, cell, tokenCenter, turnFacing, type Cell } from '@lorkarium/game-core';
+import { gameWallOf } from '@/lib/wall-geometry';
 import { useCallback } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { boardKeyOf, readingOrder, stepFrom, type BoardKey } from '@/lib/board-keys';
@@ -9,6 +12,7 @@ import type { BoardStore } from '@/stores/board-store';
 import {
   NOT_YOUR_TOKEN,
   OUT_OF_SCENE,
+  boardCommandFailureMessage,
   facedAnnouncement,
   groupMovedAnnouncement,
   groupTurnedAnnouncement,
@@ -54,7 +58,9 @@ const TURN: Readonly<Record<'turnBack' | 'turnOn', number>> = { turnBack: -45, t
 
 function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
   if (key === 'delete') return deleteSelectedPieces(deps);
-  const tokens = deps.board.getState().board?.tokens ?? [];
+  const state = deps.board.getState().board;
+  // The keys only reach what this viewer sees whole.
+  const tokens = state ? seenTokensOf(state, sightNowOf(state, deps.interaction.getState())) : [];
   const { selectedTokenIds } = deps.interaction.getState();
   const selected = tokens.filter(({ id }) => selectedTokenIds.includes(id));
   if (key === 'next' || key === 'previous') return selectStep(tokens, key, deps.interaction);
@@ -62,18 +68,20 @@ function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
   if (!only) return;
   if (key === 'open') return deps.onOpen(only.id);
   if (key === 'turnBack' || key === 'turnOn') return turnByKey(deps, selected, TURN[key]);
-  if (selected.length === 1) return moveByKey(only, STEP[key], deps.interaction);
+  if (selected.length === 1) return moveByKey(only, STEP[key], deps);
   moveGroupByKey(deps, inSelectionOrder(selected, selectedTokenIds), STEP[key]);
 }
 
-// A token is deleted from its dialog, never by a key: Delete takes the drawings and the areas.
+// A token is deleted from its dialog, never by a key: Delete takes the drawings, areas and walls.
 function deleteSelectedPieces({ board, interaction }: BoardKeyboardDeps): void {
-  const { selectedDrawingIds, selectedEffectAreaIds } = interaction.getState();
+  const { selectedDrawingIds, selectedEffectAreaIds, selectedWallIds } = interaction.getState();
   const state = board.getState().board;
   const drawings = (state?.drawings ?? []).filter(({ id }) => selectedDrawingIds.includes(id));
   const areas = (state?.effectAreas ?? []).filter(({ id }) => selectedEffectAreaIds.includes(id));
   if (drawings.length > 0) void interaction.getState().deleteDrawings(drawings);
   if (areas.length > 0) void interaction.getState().deleteEffectAreas(areas);
+  const walls = (state?.walls ?? []).filter(({ id }) => selectedWallIds.includes(id));
+  if (walls.length > 0) void interaction.getState().deleteWalls(walls);
 }
 
 // Every selected token turns in one command; one that is not this viewer's stops all of them.
@@ -112,6 +120,12 @@ function moveGroupByKey(
   const to = { col: anchor.col + dx, row: anchor.row + dy };
   const moves = shiftGroup(scene, members, anchor, to);
   if (!moves) return local.say(OUT_OF_SCENE);
+  const state = deps.board.getState().board;
+  const crossing = group.some((token) => {
+    const landing = moves.find(({ tokenId }) => tokenId === token.id);
+    return landing ? crossesWall(state, token, landing) : false;
+  });
+  if (crossing) return local.say(boardCommandFailureMessage('wall_blocked'));
   void local.moveTokens(moves, groupMovedAnnouncement(moves.length));
 }
 
@@ -132,12 +146,22 @@ function selectStep(
 function moveByKey(
   token: TokenDto,
   [dx, dy]: readonly [number, number],
-  interaction: StoreApi<BoardInteractionStore>,
+  { board, interaction }: BoardKeyboardDeps,
 ): void {
   const local = interaction.getState();
   if (!token.canControl) return local.say(NOT_YOUR_TOKEN);
   const col = token.col + dx;
   const row = token.row + dy;
   if (col < 0 || row < 0) return local.say(OUT_OF_SCENE);
+  if (crossesWall(board.getState().board, token, { col, row })) {
+    return local.say(boardCommandFailureMessage('wall_blocked'));
+  }
   void local.moveToken(token.id, cell(col, row), movedAnnouncement(token.name, col, row));
+}
+
+// The master passes every wall; a player's step is checked center to center, as the server does.
+function crossesWall(state: BoardStateDto | null, token: TokenDto, to: Cell): boolean {
+  if (!state || state.viewer.role === 'master') return false;
+  const centers = [tokenCenter(token, token), tokenCenter(to, token)];
+  return blockedPassage(centers, state.walls.map(gameWallOf)) !== null;
 }

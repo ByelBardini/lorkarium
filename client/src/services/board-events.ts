@@ -8,6 +8,7 @@ import {
   conditionDefinedDto,
   conditionRemovedDto,
   conditionsAppliedDto,
+  doorChangedDto,
   drawingsCreatedDto,
   drawingsDeletedDto,
   drawingsMovedDto,
@@ -26,6 +27,19 @@ import {
   tokensFacedDto,
   tokensResizedDto,
   tokensRestyledDto,
+  wallKindsChangedDto,
+  wallsCreatedDto,
+  wallsDeletedDto,
+  wallsMovedDto,
+  wallSegmentErasedDto,
+  wallAreaErasedDto,
+  type DoorChangedDto,
+  type WallKindsChangedDto,
+  type WallsCreatedDto,
+  type WallsDeletedDto,
+  type WallsMovedDto,
+  type WallSegmentErasedDto,
+  type WallAreaErasedDto,
   type EffectAreasCreatedDto,
   type EffectAreasDeletedDto,
   type EffectAreasReshapedDto,
@@ -75,6 +89,13 @@ export type BoardEvent =
   | Readonly<{ type: 'effectAreasCreated'; payload: EffectAreasCreatedDto }>
   | Readonly<{ type: 'effectAreasReshaped'; payload: EffectAreasReshapedDto }>
   | Readonly<{ type: 'effectAreasDeleted'; payload: EffectAreasDeletedDto }>
+  | Readonly<{ type: 'wallsCreated'; payload: WallsCreatedDto }>
+  | Readonly<{ type: 'wallsMoved'; payload: WallsMovedDto }>
+  | Readonly<{ type: 'wallsDeleted'; payload: WallsDeletedDto }>
+  | Readonly<{ type: 'wallSegmentErased'; payload: WallSegmentErasedDto }>
+  | Readonly<{ type: 'wallAreaErased'; payload: WallAreaErasedDto }>
+  | Readonly<{ type: 'wallKindsChanged'; payload: WallKindsChangedDto }>
+  | Readonly<{ type: 'doorChanged'; payload: DoorChangedDto }>
   | Readonly<{ type: 'conditionDefined'; payload: ConditionDefinedDto }>
   | Readonly<{ type: 'conditionApplied'; payload: ConditionAppliedDto }>
   | Readonly<{ type: 'conditionsApplied'; payload: ConditionsAppliedDto }>
@@ -119,6 +140,13 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.effectAreasCreated]: specOf('effectAreasCreated', effectAreasCreatedDto),
   [BOARD_EVENTS.effectAreasReshaped]: specOf('effectAreasReshaped', effectAreasReshapedDto),
   [BOARD_EVENTS.effectAreasDeleted]: specOf('effectAreasDeleted', effectAreasDeletedDto),
+  [BOARD_EVENTS.wallsCreated]: specOf('wallsCreated', wallsCreatedDto),
+  [BOARD_EVENTS.wallsMoved]: specOf('wallsMoved', wallsMovedDto),
+  [BOARD_EVENTS.wallsDeleted]: specOf('wallsDeleted', wallsDeletedDto),
+  [BOARD_EVENTS.wallSegmentErased]: specOf('wallSegmentErased', wallSegmentErasedDto),
+  [BOARD_EVENTS.wallAreaErased]: specOf('wallAreaErased', wallAreaErasedDto),
+  [BOARD_EVENTS.wallKindsChanged]: specOf('wallKindsChanged', wallKindsChangedDto),
+  [BOARD_EVENTS.doorChanged]: specOf('doorChanged', doorChangedDto),
   [BOARD_EVENTS.conditionDefined]: specOf('conditionDefined', conditionDefinedDto),
   [BOARD_EVENTS.conditionApplied]: specOf('conditionApplied', conditionAppliedDto),
   [BOARD_EVENTS.conditionsApplied]: specOf('conditionsApplied', conditionsAppliedDto),

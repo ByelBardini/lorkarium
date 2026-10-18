@@ -17,6 +17,8 @@ import {
   lyra,
   vharnBoard,
   vharnState,
+  BIA_AT_TABLE,
+  VHARN_SCENE,
 } from '../../support/table-session-fixtures';
 
 const KAEL_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
@@ -230,5 +232,47 @@ describe('SceneTokenList', () => {
   it('an empty scene for a player says the master has not placed anyone', () => {
     renderList([], false);
     expect(screen.getByText('O mestre ainda não pôs ninguém na cena.')).toBeInTheDocument();
+  });
+});
+
+describe('SceneTokenList through the sight of Bia', () => {
+  it('the list of Bia in the dark leaves out the ogre at 5 cells, even as a silhouette', () => {
+    const board = createBoardStore(VHARN.id, () => undefined);
+    const presence = createTablePresenceStore(VHARN.id);
+    presence.getState().apply({ kind: 'state', state: vharnState() });
+    const interaction = createBoardInteractionStore({
+      campaignId: VHARN.id,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+    const ogre = lyra({
+      id: KAEL_ID,
+      name: 'Ogro',
+      col: 8,
+      row: 4,
+      canControl: false,
+      controllerIds: [],
+    });
+    board.getState().apply({
+      kind: 'board',
+      state: vharnBoard({
+        viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+        scene: { ...VHARN_SCENE, vision: 'dark' },
+        tokens: [lyra({ sight: { bright: 3, dim: 3 } }), ogre],
+      }),
+    });
+
+    render(
+      <SceneTokenList
+        board={board}
+        presence={presence}
+        interaction={interaction}
+        isMaster={false}
+        onEdit={() => undefined}
+      />,
+    );
+
+    const items = within(screen.getByRole('list', { name: 'Na cena' })).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([expect.stringContaining('Lyra')]);
   });
 });

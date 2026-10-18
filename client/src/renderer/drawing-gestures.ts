@@ -34,6 +34,8 @@ type Sketch = Readonly<{
   style: DrawingStyle;
   scene: BoardView['grid']['cells'];
   points: readonly CellPoint[];
+  /** A wall line: only the press and the pointer count. */
+  straight: boolean;
 }>;
 
 // Pointer samples closer than this add nothing to a freehand line (cells).
@@ -69,7 +71,8 @@ export class DrawingGestures {
   startSketch(view: BoardView, world: Point): void {
     if (!view.sketch) return;
     const scene = view.grid.cells;
-    this.sketch = { style: view.sketch, scene, points: [cellPointOf(world, scene)] };
+    const points = [cellPointOf(world, scene)];
+    this.sketch = { style: view.sketch, scene, points, straight: view.sketchStraight };
     this.show(false);
   }
 
@@ -137,8 +140,9 @@ export class DrawingGestures {
 
   private show(snap: boolean): void {
     if (!this.sketch) return;
-    const { style, points } = this.sketch;
-    const geometry = sketchOf(style.kind, points, snap);
+    const { style, points, straight } = this.sketch;
+    const drawn = straight ? [points[0], points.at(-1)].flatMap((point) => point ?? []) : points;
+    const geometry = sketchOf(style.kind, drawn, snap);
     this.canvas.showSketch(geometry && { geometry, style });
   }
 }

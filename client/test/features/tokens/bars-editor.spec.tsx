@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+
 import { BarsEditor } from '@/features/tokens/bars-editor';
 import {
   addBar,
@@ -10,6 +11,8 @@ import {
   type TokenFormErrors,
   type TokenFormValues,
 } from '@/features/tokens/token-form-state';
+
+const METERS = { cellDistance: 1.5, cellUnit: 'm' };
 
 function Harness({ start }: Readonly<{ start: TokenFormValues }>): React.JSX.Element {
   const [form, setForm] = useState(start);
@@ -20,7 +23,7 @@ function Harness({ start }: Readonly<{ start: TokenFormValues }>): React.JSX.Ele
       <button
         type="button"
         onClick={() => {
-          const result = parseTokenForm({ ...form, name: 'Kael' });
+          const result = parseTokenForm({ ...form, name: 'Kael' }, METERS);
           setErrors(result.ok ? {} : result.errors);
         }}
       >

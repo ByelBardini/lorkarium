@@ -217,3 +217,90 @@ describe('remapEntry', () => {
     ]);
   });
 });
+
+describe('inverseOf, walls', () => {
+  const line = {
+    kind: 'wall',
+    shape: 'line',
+    x: 2,
+    y: 2,
+    width: 4,
+    height: 0,
+    points: [
+      [0, 0],
+      [4, 0],
+    ],
+  } as const;
+  const shape = {
+    ...line,
+    points: [
+      [0, 0],
+      [4, 0],
+    ] as [number, number][],
+  };
+
+  it('a created wall is undone by removing it, and a removed one by creating it again', () => {
+    const added: EditEntry = [{ kind: 'wallsAdded', walls: [{ id: 'w', shape }] }];
+
+    expect(inverseOf(added)).toEqual([{ kind: 'wallsRemoved', walls: [{ id: 'w', shape }] }]);
+    expect(inverseOf(inverseOf(added))).toEqual(added);
+  });
+
+  it('a change of kind is undone by the kind it had', () => {
+    const changed: EditEntry = [
+      { kind: 'wallsKindChanged', changes: [{ wallId: 'w', from: 'wall', to: 'door' }] },
+    ];
+    expect(inverseOf(changed)).toEqual([
+      { kind: 'wallsKindChanged', changes: [{ wallId: 'w', from: 'door', to: 'wall' }] },
+    ]);
+  });
+
+  it('a wall created again takes its new id in the kind changes and removals after it', () => {
+    const later: EditEntry = [
+      { kind: 'wallsKindChanged', changes: [{ wallId: 'w', from: 'wall', to: 'grate' }] },
+      { kind: 'wallsRemoved', walls: [{ id: 'w', shape }] },
+    ];
+    expect(remapEntry(later, { w: 'v' })).toEqual([
+      { kind: 'wallsKindChanged', changes: [{ wallId: 'v', from: 'wall', to: 'grate' }] },
+      { kind: 'wallsRemoved', walls: [{ id: 'v', shape }] },
+    ]);
+  });
+});
+
+describe('inverseOf, a token move with a path', () => {
+  it('the undo of a move around a wall walks the same bends backwards', () => {
+    const moved: EditEntry = [
+      {
+        kind: 'tokensMoved',
+        moves: [
+          {
+            tokenId: 'lyra',
+            from: { col: 3, row: 4 },
+            to: { col: 7, row: 4 },
+            path: [
+              { col: 3, row: 7 },
+              { col: 7, row: 7 },
+            ],
+          },
+        ],
+      },
+    ];
+
+    expect(inverseOf(moved)).toEqual([
+      {
+        kind: 'tokensMoved',
+        moves: [
+          {
+            tokenId: 'lyra',
+            from: { col: 7, row: 4 },
+            to: { col: 3, row: 4 },
+            path: [
+              { col: 7, row: 7 },
+              { col: 3, row: 7 },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+});

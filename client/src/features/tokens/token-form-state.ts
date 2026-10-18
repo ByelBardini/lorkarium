@@ -7,6 +7,13 @@ import {
   type TokenSideDto,
 } from '@lorkarium/contracts';
 import { cellsText } from '@/lib/cells-text';
+import {
+  parseSightFields,
+  sightFieldsOf,
+  type SceneDistance,
+  type SightFieldErrors,
+  type SightFields,
+} from '@/lib/sight-form';
 import { initialsOf } from '@/lib/token-initials';
 import type { TokenEdit } from '@/services/table-board-commands';
 
@@ -32,6 +39,8 @@ export type TokenFormValues = Readonly<{
   controllerIds: readonly string[];
   /** The image of the token, or `null` for the initials disc. */
   imageAssetId: string | null;
+  /** "Visão": how far it sees, typed in the unit of the scene. */
+  sight: SightFields;
   bars: readonly BarFormValues[];
 }>;
 
@@ -42,6 +51,7 @@ export type TokenFormErrors = Readonly<{
   initials?: string;
   width?: string;
   height?: string;
+  sight?: SightFieldErrors;
   bars?: Readonly<Record<number, BarFormErrors>>;
 }>;
 
@@ -75,14 +85,15 @@ export function emptyTokenForm(): TokenFormValues {
     height: '1',
     controllerIds: [],
     imageAssetId: null,
+    sight: { sees: false, bright: '', dim: '', saved: false },
     bars: [],
   };
 }
 
-/** "Editar token": the token as it is now.
+/** "Editar token": the token as it is now, its sight in the unit of the scene.
  *
- *  Example: `useState(() => tokenFormOf(token))` */
-export function tokenFormOf(token: TokenDto): TokenFormValues {
+ *  Example: `useState(() => tokenFormOf(token, scene))` */
+export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenFormValues {
   const { name, initials, side, controllerIds, imageAssetId } = token;
   const width = cellsText(token.width);
   const height = cellsText(token.height);
@@ -94,7 +105,7 @@ export function tokenFormOf(token: TokenDto): TokenFormValues {
     color: bar.color,
     visibility: bar.visibility,
   }));
-  const look = { controllerIds, imageAssetId, bars };
+  const look = { controllerIds, imageAssetId, bars, sight: sightFieldsOf(token.sight, distance) };
   return { name, initials, initialsEdited: true, side, width, height, ...look };
 }
 
@@ -130,10 +141,19 @@ export function moveBar(form: TokenFormValues, index: number, offset: -1 | 1): T
   return { ...form, bars };
 }
 
-/** The form → the token fields to send, validated by the same DTO as the server.
+/** The form → the token fields to send, validated by the same DTO as the server; the sight is
+ *  read in the unit of the scene (`distance`).
  *
- *  Example: `const result = parseTokenForm(form); if (result.ok) await commands.updateToken(id, tokenId, result.token)` */
-export function parseTokenForm(form: TokenFormValues): TokenFormResult {
+ *  Example: `const result = parseTokenForm(form, scene); if (result.ok) await commands.updateToken(id, tokenId, result.token)` */
+export function parseTokenForm(form: TokenFormValues, distance: SceneDistance): TokenFormResult {
+  const sight = parseSightFields(form.sight, distance);
+  const fields = parseTokenFields(form, sight.ok ? sight.sight : undefined);
+  if (sight.ok) return fields;
+  const errors = fields.ok ? {} : fields.errors;
+  return { ok: false, errors: { ...errors, sight: sight.errors } };
+}
+
+function parseTokenFields(form: TokenFormValues, sight: TokenEdit['sight']): TokenFormResult {
   const parsed = TOKEN_FIELDS_DTO.safeParse({
     name: form.name,
     initials: form.initials,
@@ -142,6 +162,7 @@ export function parseTokenForm(form: TokenFormValues): TokenFormResult {
     height: cellsOf(form.height),
     controllerIds: form.controllerIds,
     imageAssetId: form.imageAssetId,
+    ...(sight === undefined ? {} : { sight }),
     bars: form.bars.map(({ label, current, max, color, visibility }) => ({
       label,
       current: integerOf(current),

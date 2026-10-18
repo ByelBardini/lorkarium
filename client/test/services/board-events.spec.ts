@@ -5,6 +5,7 @@ import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { shapeOfEffectArea } from '@/lib/effect-area-shape';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import { sceneUpdated } from '../support/table-session-fixtures';
+import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
 
 describe('parseBoardEvent', () => {
   it('a valid scene:updated of the table is a sceneUpdated event', () => {
@@ -136,6 +137,35 @@ describe('parseBoardEvent', () => {
       expect(parseBoardEvent('effectArea:createdMany', payload, VHARN.id)).toEqual({
         kind: 'invalid',
       });
+    });
+  });
+
+  describe('walls', () => {
+    const base = { campaignId: VHARN.id, version: 6, at: '2026-10-18T12:00:00.000Z' };
+
+    it.each([
+      ['wall:createdMany', 'wallsCreated', { walls: [northWall(), cellDoor()] }],
+      ['wall:movedMany', 'wallsMoved', { moves: [{ wallId: NORTH_WALL_ID, x: 3, y: 2 }] }],
+      ['wall:deletedMany', 'wallsDeleted', { wallIds: [NORTH_WALL_ID] }],
+      [
+        'wall:kindsChanged',
+        'wallKindsChanged',
+        { changes: [{ wallId: NORTH_WALL_ID, kind: 'door', doorState: 'closed' }] },
+      ],
+      ['wall:doorChanged', 'doorChanged', { wallId: CELL_DOOR_ID, doorState: 'open' }],
+      ['wall:areaErased', 'wallAreaErased', { wallIds: [NORTH_WALL_ID], walls: [cellDoor()] }],
+      ['wall:segmentErased', 'wallSegmentErased', { wallId: NORTH_WALL_ID, walls: [cellDoor()] }],
+    ])('a valid %s of the table is a %s event', (name, type, fields) => {
+      const payload = { ...base, ...fields };
+      expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type, payload },
+      });
+    });
+
+    it('a wall:doorChanged with the state "ajar" is outside the DTO and invalid (resync)', () => {
+      const payload = { ...base, wallId: CELL_DOOR_ID, doorState: 'ajar' };
+      expect(parseBoardEvent('wall:doorChanged', payload, VHARN.id)).toEqual({ kind: 'invalid' });
     });
   });
 

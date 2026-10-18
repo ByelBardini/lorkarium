@@ -7,6 +7,8 @@ export type StyleTile<T extends string> = Readonly<{
   /** The accessible name and the hover title: the tile itself shows only a picture. */
   label: string;
   picture: React.ReactNode;
+  /** This tile alone cannot be picked (the rest of the group can). */
+  disabled?: boolean;
 }>;
 
 export type StyleTileGroupProps<T extends string> = Readonly<{
@@ -60,6 +62,7 @@ export function StyleTileGroup<T extends string>({
           <RadioGroupPrimitive.Item
             key={tile.value}
             value={tile.value}
+            disabled={tile.disabled}
             aria-label={tile.label}
             title={tile.label}
             className={cn(

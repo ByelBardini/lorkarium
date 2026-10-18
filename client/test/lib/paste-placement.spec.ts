@@ -39,12 +39,19 @@ describe('copiedOf', () => {
         flipX: false,
         flipY: false,
         facing: 0,
+        sight: null,
         bars: [
           { label: 'PV', current: 32, max: 45, color: 'ember', visibility: 'controllers' },
           { label: 'Inspiração', current: 1, max: 1, color: 'gold', visibility: 'everyone' },
         ],
       },
     ]);
+  });
+
+  it('a copied token keeps how far it sees', () => {
+    const sight = { bright: 12, dim: 4 };
+
+    expect(copiedOf([lyra({ sight })], []).tokens[0]?.sight).toEqual(sight);
   });
 
   it('a copied drawing keeps its shape and style, without its id or author', () => {

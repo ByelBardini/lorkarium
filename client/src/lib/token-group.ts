@@ -31,7 +31,12 @@ export function groupMemberOf(
 }
 
 /** Where one token of a group lands. */
-export type GroupPlacement = Readonly<{ tokenId: string; col: number; row: number }>;
+export type GroupPlacement = Readonly<{
+  tokenId: string;
+  col: number;
+  row: number; /** The bends around walls on its way there (absent: a straight move). */
+  path?: readonly Readonly<{ col: number; row: number }>[];
+}>;
 
 /** The group moved as one: every member shifts by what the anchor did from `from` to `to`.
  *  `null` when any member would leave the scene, so a group never moves by half.

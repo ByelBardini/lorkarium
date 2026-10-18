@@ -1,3 +1,4 @@
+import type { WallDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,17 +8,21 @@ import {
 import type { OpenTableView } from '@/features/sessions/use-open-table';
 import type { BoardIntent, BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
 import { selectionMoveOf } from '@/lib/selection-move';
+import { shapeBox } from '@/lib/drawing-geometry';
+import { gameWallOf } from '@/lib/wall-geometry';
 import { groupMemberOf } from '@/lib/token-group';
 import type { BoardInteractionStore, DragGroup } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
+import { wallStyleOf, type WallStyleStore } from '@/stores/wall-style-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { DrawingsSummary } from '@/features/drawings/drawings-summary';
 import { routeEffectAreaIntent } from '@/features/effect-areas/effect-area-intents';
 import { EffectAreasSummary } from '@/features/effect-areas/effect-areas-summary';
 import { BoardCanvas } from './board-canvas';
 import type { TokenMenuRequest } from './token-context-menu';
+import type { DoorMenuRequest } from '@/features/walls/door-menu';
 import {
   BOARD_LOAD_FAILED,
   facedAnnouncement,
@@ -37,10 +42,14 @@ export type BoardAreaProps = Readonly<{
   onOpenToken: (tokenId: string) => void;
   /** A short right click on a token (master): open "Mover para camada" there. */
   onTokenMenu: (request: TokenMenuRequest) => void;
+  /** A short right click on a door (master): open the door menu there. */
+  onDoorMenu: (request: DoorMenuRequest) => void;
   /** The style a finished sketch is drawn with. */
   drawingStyle: StoreApi<DrawingStyleStore>;
   /** The style the area tool draws with. */
   effectAreaStyle: StoreApi<EffectAreaStyleStore>;
+  /** The kind and shape the walls tool draws. */
+  wallStyle: StoreApi<WallStyleStore>;
 }>;
 
 /** What fills the room behind the floating UI: the canvas once the board is ready, or why not.
@@ -79,8 +88,10 @@ function InteractiveCanvas({
   onRenderer,
   onOpenToken,
   onTokenMenu,
+  onDoorMenu,
   drawingStyle,
   effectAreaStyle,
+  wallStyle,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({ board, interaction, onOpen: onOpenToken });
   return (
@@ -91,12 +102,17 @@ function InteractiveCanvas({
         interaction={interaction}
         drawingStyle={drawingStyle}
         effectAreaStyle={effectAreaStyle}
+        wallStyle={wallStyle}
         createBoardRenderer={createBoardRenderer}
-        onIntent={(intent) =>
-          intent.kind === 'tokenMenuRequested'
-            ? onTokenMenu({ tokenId: intent.tokenId, x: intent.x, y: intent.y })
-            : routeIntent({ board, interaction, drawingStyle }, intent)
-        }
+        onIntent={(intent) => {
+          if (intent.kind === 'tokenMenuRequested') {
+            return onTokenMenu({ tokenId: intent.tokenId, x: intent.x, y: intent.y });
+          }
+          if (intent.kind === 'doorMenuRequested') {
+            return onDoorMenu({ wallId: intent.wallId, x: intent.x, y: intent.y });
+          }
+          routeIntent({ board, interaction, drawingStyle, wallStyle }, intent);
+        }}
         onRenderer={onRenderer}
         onKeyDown={onKeyDown}
       />
@@ -109,19 +125,31 @@ type IntentStores = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
 }>;
 
-type RoutedStores = IntentStores & Readonly<{ drawingStyle: StoreApi<DrawingStyleStore> }>;
+type RoutedStores = IntentStores &
+  Readonly<{ drawingStyle: StoreApi<DrawingStyleStore>; wallStyle: StoreApi<WallStyleStore> }>;
 
 // Dragging and dropping a token are commands (a preview, then the move); the rest is local state.
 function routeIntent(
-  { board, interaction, drawingStyle }: RoutedStores,
+  { board, interaction, drawingStyle, wallStyle }: RoutedStores,
   intent: BoardIntent,
 ): void {
   const local = interaction.getState();
+  if (intent.kind === 'sketchFinished' && local.tool === 'walls') {
+    return finishWall({ board, interaction }, intent, wallStyle);
+  }
   if (intent.kind === 'sketchFinished') {
     return void local.finishSketch(intent, styleOf(drawingStyle.getState()));
   }
   if (routeEffectAreaIntent({ board, interaction }, intent)) return;
   if (intent.kind === 'drawingsDropped') return dropDrawings({ board, interaction }, intent);
+  if (intent.kind === 'wallErased') {
+    const wall = board.getState().board?.walls.find(({ id }) => id === intent.wallId);
+    return void (wall && local.eraseWall(wall, intent.segmentIndex));
+  }
+  if (intent.kind === 'doorPressed') {
+    const door = board.getState().board?.walls.find(({ id }) => id === intent.wallId);
+    return void (door && local.toggleDoor(door));
+  }
   if (intent.kind === 'tokenDragged') {
     const group = dragGroupOf({ board, interaction }, intent.tokenId);
     if (group) local.dragOver(intent.tokenId, intent.origin, intent.cell, group);
@@ -142,6 +170,34 @@ function routeIntent(
     intent.cell,
     dropAnnouncement({ board, interaction }, intent),
   );
+}
+
+// A wall glues to the walls already on the confirmed board.
+function finishWall(
+  { board, interaction }: IntentStores,
+  sketch: Extract<BoardIntent, { kind: 'sketchFinished' }>,
+  wallStyle: StoreApi<WallStyleStore>,
+): void {
+  const state = board.getState().board;
+  if (!state) return;
+  const { widthCells, heightCells } = state.scene;
+  const scene = { widthCells, heightCells };
+  const local = interaction.getState();
+  if (local.wallMode === 'eraseArea') return eraseUnder(local, state.walls, sketch);
+  const style = wallStyleOf(wallStyle.getState());
+  void local.finishWall(sketch, { style, walls: state.walls, scene });
+}
+
+// The eraser box runs from the first sample to the last, like a rectangle of the draw tool.
+function eraseUnder(
+  local: BoardInteractionStore,
+  walls: readonly WallDto[],
+  { points, snap }: Extract<BoardIntent, { kind: 'sketchFinished' }>,
+): void {
+  const first = points[0];
+  const last = points.at(-1);
+  const box = first && last ? shapeBox(first, last, snap) : null;
+  if (box) void local.eraseWallArea(walls, box);
 }
 
 // Released where it already looked (or over its center), the handle turns nothing.
@@ -205,7 +261,9 @@ function dragGroupOf({ board, interaction }: IntentStores, anchorId: string): Dr
     return token ? [groupMemberOf(token)] : [];
   });
   const { widthCells, heightCells } = state.scene;
-  return { members, scene: { widthCells, heightCells } };
+  // The master passes every wall; a player's token is stopped by them.
+  const walls = state.viewer.role === 'master' ? undefined : state.walls.map(gameWallOf);
+  return { members, scene: { widthCells, heightCells }, walls };
 }
 
 function dropAnnouncement(

@@ -583,3 +583,41 @@ describe('board interaction store', () => {
     });
   });
 });
+
+describe('the master previewing the sight of the selected tokens', () => {
+  function storeOf(isMaster: boolean) {
+    const store = createBoardInteractionStore({
+      campaignId: VHARN.id,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+    store.getState().allowLayerChoice(isMaster);
+    return store;
+  }
+
+  it('toggleSightPreview turns it on and off for the master', () => {
+    const store = storeOf(true);
+
+    store.getState().toggleSightPreview();
+    expect(store.getState().sightPreview).toBe(true);
+    store.getState().toggleSightPreview();
+    expect(store.getState().sightPreview).toBe(false);
+  });
+
+  it('a player cannot turn it on', () => {
+    const store = storeOf(false);
+
+    store.getState().toggleSightPreview();
+
+    expect(store.getState().sightPreview).toBe(false);
+  });
+
+  it('the scene going back to vision off turns the preview off', () => {
+    const store = storeOf(true);
+    store.getState().toggleSightPreview();
+
+    store.getState().followVision('off');
+
+    expect(store.getState().sightPreview).toBe(false);
+  });
+});

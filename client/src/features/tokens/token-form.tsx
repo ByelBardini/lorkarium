@@ -6,7 +6,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { AssetsApi } from '@/services/assets-api';
+import type { SceneDistance } from '@/lib/sight-form';
 import { BarsEditor } from './bars-editor';
+import { SightSection } from './sight-section';
 import { decimalText } from '@/lib/numeric-text';
 import { SIDE_OPTIONS } from './token-messages';
 import { renameToken, type TokenFormErrors, type TokenFormValues } from './token-form-state';
@@ -20,15 +22,17 @@ export type TokenFormProps = Readonly<{
   players: readonly TokenPlayer[];
   /** Where the "Imagem" field sends a chosen image. */
   image: Readonly<{ campaignId: string; assets: AssetsApi }>;
+  /** The scene's cell: the sight is typed in its unit. */
+  distance: SceneDistance;
   onChange: (form: TokenFormValues) => void;
 }>;
 
 /** The fields of a token: name and initials (filled from the name until edited), its image,
- *  side, size, who controls it, and its bars.
+ *  side, size, who controls it, how far it sees, and its bars.
  *
  *  Example: `<TokenForm form={form} errors={errors} players={players} image={{ campaignId, assets }} onChange={setForm} />` */
 export function TokenForm(props: TokenFormProps): React.JSX.Element {
-  const { form, errors, players, image, onChange } = props;
+  const { form, errors, players, image, distance, onChange } = props;
   const nameId = useId();
   const initialsId = useId();
   return (
@@ -76,6 +80,12 @@ export function TokenForm(props: TokenFormProps): React.JSX.Element {
       />
       <SizeFields form={form} errors={errors} onChange={onChange} />
       <ControllersField form={form} players={players} onChange={onChange} />
+      <SightSection
+        fields={form.sight}
+        errors={errors.sight ?? {}}
+        distance={distance}
+        onChange={(sight) => onChange({ ...form, sight })}
+      />
       <BarsEditor form={form} errors={errors.bars} onChange={onChange} />
     </div>
   );

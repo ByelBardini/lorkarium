@@ -3,6 +3,13 @@ import { applyBoardEvent } from '@/stores/board-reducer';
 import { PATH_ID, path, SQUARE_ID, square, vharnEventBase } from '../support/drawing-fixtures';
 import { ANA_CIRCLE_ID, BIA_CONE_ID, anaCircle, biaCone } from '../support/effect-area-fixtures';
 import {
+  CELL_DOOR_ID,
+  NORTH_WALL_ID,
+  cellDoor,
+  grateBox,
+  northWall,
+} from '../support/wall-fixtures';
+import {
   KAEL_ID,
   LYRA_ID,
   kael,
@@ -184,5 +191,96 @@ describe('applyBoardEvent, token batches', () => {
 
     expect(next.tokens).toEqual([]);
     expect(next.combat).toEqual(after);
+  });
+});
+
+describe('applyBoardEvent, walls', () => {
+  it('wall:createdMany appends the new walls after the ones already there', () => {
+    const board = vharnBoard({ walls: [northWall()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'wallsCreated',
+      payload: { ...vharnEventBase(5), walls: [cellDoor()] },
+    });
+
+    expect(next.walls.map(({ id }) => id)).toEqual([NORTH_WALL_ID, CELL_DOOR_ID]);
+    expect(next.version).toBe(5);
+  });
+
+  it('wall:movedMany changes only x and y of each listed wall', () => {
+    const board = vharnBoard({ walls: [northWall(), cellDoor()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'wallsMoved',
+      payload: { ...vharnEventBase(5), moves: [{ wallId: NORTH_WALL_ID, x: 3, y: 4 }] },
+    });
+
+    expect(next.walls).toEqual([northWall({ x: 3, y: 4 }), cellDoor()]);
+  });
+
+  it('wall:deletedMany takes the listed walls off and keeps the rest', () => {
+    const board = vharnBoard({ walls: [northWall(), cellDoor(), grateBox()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'wallsDeleted',
+      payload: { ...vharnEventBase(5), wallIds: [NORTH_WALL_ID, CELL_DOOR_ID] },
+    });
+
+    expect(next.walls).toEqual([grateBox()]);
+  });
+
+  it('wall:kindsChanged changes the kind and the door state of each listed wall', () => {
+    const board = vharnBoard({ walls: [northWall(), cellDoor()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'wallKindsChanged',
+      payload: {
+        ...vharnEventBase(5),
+        changes: [
+          { wallId: NORTH_WALL_ID, kind: 'door', doorState: 'closed' },
+          { wallId: CELL_DOOR_ID, kind: 'grate', doorState: null },
+        ],
+      },
+    });
+
+    expect(next.walls).toEqual([
+      northWall({ kind: 'door', doorState: 'closed' }),
+      cellDoor({ kind: 'grate', doorState: null }),
+    ]);
+  });
+
+  it('wall:areaErased takes the walls touched out and puts what is left at the end', () => {
+    const board = vharnBoard({ walls: [northWall(), grateBox()] });
+    const rest = northWall({ id: CELL_DOOR_ID, width: 1 });
+
+    const next = applyBoardEvent(board, {
+      type: 'wallAreaErased',
+      payload: { ...vharnEventBase(5), wallIds: [northWall().id], walls: [rest] },
+    });
+
+    expect(next.walls).toEqual([grateBox(), rest]);
+  });
+
+  it('wall:segmentErased takes the wall out and puts what is left at the end', () => {
+    const board = vharnBoard({ walls: [grateBox(), northWall()] });
+    const rest = northWall({ id: CELL_DOOR_ID, x: 9 });
+
+    const next = applyBoardEvent(board, {
+      type: 'wallSegmentErased',
+      payload: { ...vharnEventBase(5), wallId: grateBox().id, walls: [rest] },
+    });
+
+    expect(next.walls).toEqual([northWall(), rest]);
+  });
+
+  it('wall:doorChanged changes only the state of that door', () => {
+    const board = vharnBoard({ walls: [northWall(), cellDoor()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'doorChanged',
+      payload: { ...vharnEventBase(5), wallId: CELL_DOOR_ID, doorState: 'open' },
+    });
+
+    expect(next.walls).toEqual([northWall(), cellDoor({ doorState: 'open' })]);
   });
 });

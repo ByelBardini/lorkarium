@@ -3,15 +3,18 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
+import { northWall } from '../../support/wall-fixtures';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
-import { VHARN } from '../../support/campaigns-api-fake';
+import { VHARN, detailOf } from '../../support/campaigns-api-fake';
 import {
   LYRA_ID,
   lyra,
   tokenMovedAt,
   vharnBoard,
   vharnState,
+  BIA_AT_TABLE,
+  VHARN_SCENE,
 } from '../../support/table-session-fixtures';
 
 const KAEL_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
@@ -229,5 +232,106 @@ describe('board keyboard', () => {
 
       expect(faced()).toEqual([]);
     });
+  });
+});
+
+describe('board keyboard through the sight of Bia', () => {
+  it('] skips Kael and the goblin in the penumbra: the first pick is her Lyra', async () => {
+    const deps = testDependencies();
+    deps.authApi.answerMeWith(ANA);
+    deps.campaignsApi.answer('detail', {
+      ok: true,
+      value: detailOf({ ...VHARN, myRole: 'player' }),
+    });
+    const router = createMemoryRouter(buildRoutes(deps), {
+      initialEntries: [`/campaigns/${VHARN.id}/table`],
+    });
+    render(<RouterProvider router={router} />);
+    await screen.findByRole('heading', { level: 1 });
+    const others = { canControl: false, controllerIds: [] };
+    deps.tableSessionApi.emit(
+      { kind: 'state', state: vharnState() },
+      { kind: 'status', status: 'live' },
+      {
+        kind: 'board',
+        state: vharnBoard({
+          viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+          scene: { ...VHARN_SCENE, vision: 'dark' },
+          tokens: [
+            lyra({ ...others, id: KAEL_ID, name: 'Kael', col: 0, row: 0 }),
+            lyra({ sight: { bright: 3, dim: 3 } }),
+            lyra({ ...others, id: GOBLIN_ID, name: 'Goblin', col: 8, row: 4 }),
+          ],
+        }),
+      },
+    );
+    await act(() => Promise.resolve());
+    screen.getByRole('application').focus();
+
+    await userEvent.keyboard(']');
+
+    const picked = deps.boardRenderers.latest().lastView?.tokens.filter(({ selected }) => selected);
+    expect(picked?.map(({ id }) => id)).toEqual([LYRA_ID]);
+  });
+});
+
+describe('board keyboard against a wall', () => {
+  async function openAs(role: 'master' | 'player') {
+    const deps = testDependencies();
+    deps.authApi.answerMeWith(ANA);
+    if (role === 'player') {
+      deps.campaignsApi.answer('detail', {
+        ok: true,
+        value: detailOf({ ...VHARN, myRole: 'player' }),
+      });
+    }
+    const router = createMemoryRouter(buildRoutes(deps), {
+      initialEntries: [`/campaigns/${VHARN.id}/table`],
+    });
+    render(<RouterProvider router={router} />);
+    await screen.findByRole('heading', { level: 1 });
+    // Lyra at (3, 4); a wall down x = 4 right beside her.
+    const beside = northWall({
+      x: 4,
+      y: 0,
+      width: 0,
+      height: 12,
+      points: [
+        [0, 0],
+        [0, 12],
+      ],
+    } as never);
+    const viewer = role === 'player' ? { userId: BIA_AT_TABLE.userId, role } : undefined;
+    deps.tableSessionApi.emit(
+      { kind: 'state', state: vharnState() },
+      { kind: 'status', status: 'live' },
+      {
+        kind: 'board',
+        state: vharnBoard({ tokens: [lyra()], walls: [beside], ...(viewer && { viewer }) }),
+      },
+    );
+    await act(() => Promise.resolve());
+    screen.getByRole('application').focus();
+    await userEvent.keyboard(']');
+    return deps;
+  }
+
+  it('Bia pressing → into the wall hears that it blocks the way and nothing is sent', async () => {
+    const deps = await openAs('player');
+
+    await userEvent.keyboard('{ArrowRight}');
+
+    expect(deps.boardCommands.sentAs('moveToken')).toEqual([]);
+    expect(screen.getByRole('status', { name: 'Status do tabuleiro' })).toHaveTextContent(
+      'Uma parede bloqueia o caminho.',
+    );
+  });
+
+  it('Ana, the master, steps through the wall', async () => {
+    const deps = await openAs('master');
+
+    await userEvent.keyboard('{ArrowRight}');
+
+    expect(deps.boardCommands.sentAs('moveToken')[0]?.fields).toMatchObject({ col: 4, row: 4 });
   });
 });

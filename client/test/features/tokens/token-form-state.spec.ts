@@ -1,5 +1,6 @@
 import { MAX_BARS_PER_TOKEN } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+
 import {
   addBar,
   emptyTokenForm,
@@ -10,6 +11,8 @@ import {
   type TokenFormValues,
 } from '@/features/tokens/token-form-state';
 import { BIA_AT_TABLE, lyra } from '../../support/table-session-fixtures';
+
+const METERS = { cellDistance: 1.5, cellUnit: 'm' };
 
 function named(name: string): TokenFormValues {
   return renameToken(emptyTokenForm(), name);
@@ -35,7 +38,7 @@ describe('token form state', () => {
   });
 
   it('editing opens with the token as it is', () => {
-    const form = tokenFormOf(lyra());
+    const form = tokenFormOf(lyra(), METERS);
     expect(form).toMatchObject({
       name: 'Lyra',
       initials: 'LY',
@@ -70,7 +73,7 @@ describe('token form state', () => {
   });
 
   it('a valid form becomes the token to send, with numbers in the bars', () => {
-    const result = parseTokenForm(addBar(named('Kael')));
+    const result = parseTokenForm(addBar(named('Kael')), METERS);
     expect(result).toEqual({
       ok: true,
       token: {
@@ -87,14 +90,14 @@ describe('token form state', () => {
   });
 
   it('a width of "1,5" is sent as a cell and a half', () => {
-    const result = parseTokenForm({ ...named('Rato'), width: '1,5', height: '0,5' });
+    const result = parseTokenForm({ ...named('Rato'), width: '1,5', height: '0,5' }, METERS);
     expect(result).toMatchObject({ ok: true, token: { width: 1.5, height: 0.5 } });
   });
 
   it.each(['0', '1,25', '10,5', ''])(
     'a width of "%s" is refused with the side message',
     (width) => {
-      const result = parseTokenForm({ ...named('Rato'), width });
+      const result = parseTokenForm({ ...named('Rato'), width }, METERS);
       expect(result).toMatchObject({
         ok: false,
         errors: { width: 'De 0,5 a 10 casas, de meia em meia.' },
@@ -103,7 +106,7 @@ describe('token form state', () => {
   );
 
   it('editing a 2,5 × 1 token shows its sides with a comma', () => {
-    expect(tokenFormOf(lyra({ width: 2.5, height: 1 }))).toMatchObject({
+    expect(tokenFormOf(lyra({ width: 2.5, height: 1 }), METERS)).toMatchObject({
       width: '2,5',
       height: '1',
     });
@@ -113,12 +116,12 @@ describe('token form state', () => {
     const form = addBar(named('Kael'));
     const [bar] = form.bars;
     if (!bar) throw new Error('no bar');
-    const result = parseTokenForm({ ...form, bars: [{ ...bar, current: '-4' }] });
+    const result = parseTokenForm({ ...form, bars: [{ ...bar, current: '-4' }] }, METERS);
     expect(result.ok && result.token.bars[0]?.current).toBe(-4);
   });
 
   it('an empty name reads "Informe o nome do token."', () => {
-    expect(parseTokenForm(emptyTokenForm())).toMatchObject({
+    expect(parseTokenForm(emptyTokenForm(), METERS)).toMatchObject({
       ok: false,
       errors: { name: 'Informe o nome do token.' },
     });
@@ -128,7 +131,7 @@ describe('token form state', () => {
     const form = addBar(named('Kael'));
     const [bar] = form.bars;
     if (!bar) throw new Error('no bar');
-    const result = parseTokenForm({ ...form, bars: [{ ...bar, label: ' ', max: '0' }] });
+    const result = parseTokenForm({ ...form, bars: [{ ...bar, label: ' ', max: '0' }] }, METERS);
     expect(result).toMatchObject({
       ok: false,
       errors: { bars: { 0: { label: 'Dê um nome à barra.', max: 'O máximo vai de 1 a 99 999.' } } },

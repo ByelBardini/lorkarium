@@ -2,7 +2,8 @@ import type { StoreApi } from 'zustand/vanilla';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
-import { connectionStatusLine } from './board-messages';
+import { connectionStatusLine, NO_EYES, PREVIEW_BLIND } from './board-messages';
+import { useBoardSight } from './use-board-sight';
 
 export type BoardStatusLineTable = Readonly<{
   presence: StoreApi<TablePresenceStore>;
@@ -40,5 +41,7 @@ function StatusText({ table, interaction }: StatusTextProps): string {
   const presence = useTablePresence(table.presence, (state) => state.status);
   const board = useBoard(table.board, (state) => state.status);
   const notice = useBoardInteraction(interaction, (state) => state.notice);
-  return connectionStatusLine(presence, board) || (board === 'ready' ? (notice ?? '') : '');
+  const sight = useBoardSight(table.board, interaction);
+  const blind = sight.noEyes ? NO_EYES : sight.previewBlind ? PREVIEW_BLIND : '';
+  return connectionStatusLine(presence, board) || (board === 'ready' ? (notice ?? blind) : '');
 }

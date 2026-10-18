@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+import { seenTokensOf } from '@/lib/board-sight';
+import { useBoardSight } from '@/features/board/use-board-sight';
 import type { SessionMemberDto, TokenDto } from '@lorkarium/contracts';
 import { useEffect, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
@@ -32,7 +35,10 @@ const NO_TOKENS: readonly TokenDto[] = [];
  *
  *  Example: `<SceneTokenList board={board} presence={presence} interaction={interaction} isMaster onEdit={edit} />` */
 export function SceneTokenList(props: SceneTokenListProps): React.JSX.Element {
-  const tokens = useBoard(props.board, (state) => state.board?.tokens ?? NO_TOKENS);
+  const all = useBoard(props.board, (state) => state.board?.tokens ?? NO_TOKENS);
+  const sight = useBoardSight(props.board, props.interaction);
+  // Only what this viewer sees whole: a silhouette or a hidden token is never named.
+  const tokens = useMemo(() => seenTokensOf({ tokens: all }, sight), [all, sight]);
   const members = useTablePresence(props.presence, (state) => state.members);
   const selectedIds = useBoardInteraction(props.interaction, (state) => state.selectedTokenIds);
   if (tokens.length === 0) return <EmptyScene isMaster={props.isMaster} />;

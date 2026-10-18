@@ -26,6 +26,7 @@ import {
   tokenFormOf,
   type TokenFormErrors,
 } from './token-form-state';
+import type { SceneDistance } from '@/lib/sight-form';
 import { deleteTokenQuestion } from './token-messages';
 
 export type TokenDialogProps = Readonly<{
@@ -39,6 +40,8 @@ export type TokenDialogProps = Readonly<{
   players: readonly TokenPlayer[];
   commands: TableBoardCommands;
   assets: AssetsApi;
+  /** The scene's cell: the sight is typed in its unit. */
+  distance: SceneDistance;
   connected: boolean;
   onClose: () => void;
 }>;
@@ -49,7 +52,8 @@ export type TokenDialogProps = Readonly<{
  *  Example: `{dialog && <TokenDialog campaignId={id} token={null} placeAt={center} layer="tokens" players={players} commands={commands} connected onClose={close} />}` */
 export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
   const { token, players, connected, onClose } = props;
-  const [form, setForm] = useState(() => (token ? tokenFormOf(token) : emptyTokenForm()));
+  const { distance } = props;
+  const [form, setForm] = useState(() => (token ? tokenFormOf(token, distance) : emptyTokenForm()));
   const [errors, setErrors] = useState<TokenFormErrors>({});
   const [failure, setFailure] = useState<BoardCommandFailure | null>(null);
   const [saving, setSaving] = useState(false);
@@ -61,7 +65,7 @@ export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
     setFailure(result.failure);
   };
   const save = (): void => {
-    const parsed = parseTokenForm(form);
+    const parsed = parseTokenForm(form, distance);
     setErrors(parsed.ok ? {} : parsed.errors);
     if (parsed.ok) void run(() => sendToken(props, parsed.token));
   };
@@ -85,6 +89,7 @@ export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
             errors={errors}
             players={players}
             image={{ campaignId: props.campaignId, assets: props.assets }}
+            distance={distance}
             onChange={setForm}
           />
           {failure && (

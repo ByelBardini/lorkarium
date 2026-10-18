@@ -81,6 +81,7 @@ export const VHARN_SCENE: SceneDto = {
   gridVisible: true,
   gridOpacity: 30,
   background: null,
+  vision: 'off',
 };
 
 /** The VHARN board as Ana (master) sees it at version 4: the empty default scene, no combat.
@@ -96,6 +97,7 @@ export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDt
     tokens: [],
     drawings: [],
     effectAreas: [],
+    walls: [],
     combat: null,
     conditionDefinitions: [],
     ...overrides,
@@ -139,6 +141,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     flipX: false,
     flipY: false,
     facing: 0,
+    sight: null,
     canControl: true,
     bars: [
       {

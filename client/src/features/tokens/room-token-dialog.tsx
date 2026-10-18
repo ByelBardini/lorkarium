@@ -34,6 +34,8 @@ export function RoomTokenDialog(props: RoomTokenDialogProps): React.JSX.Element 
     tokenId ? (state.board?.tokens.find(({ id }) => id === tokenId) ?? null) : null,
   );
   const members = useTablePresence(table.presence, (state) => state.members);
+  const cellDistance = useBoard(table.board, (state) => state.board?.scene.cellDistance ?? 1.5);
+  const cellUnit = useBoard(table.board, (state) => state.board?.scene.cellUnit ?? 'm');
   const live = useTablePresence(table.presence, (state) => state.status === 'live');
   const [placeAt] = useState(() => props.renderer?.viewCenterCell() ?? cell(0, 0));
   const [layer] = useState(() => props.interaction.getState().activeLayer);
@@ -50,6 +52,7 @@ export function RoomTokenDialog(props: RoomTokenDialogProps): React.JSX.Element 
       players={players}
       commands={props.commands}
       assets={props.assets}
+      distance={{ cellDistance, cellUnit }}
       connected={live}
       onClose={props.onClose}
     />

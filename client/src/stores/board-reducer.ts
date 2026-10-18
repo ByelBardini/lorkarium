@@ -10,6 +10,9 @@ import type {
   TokensFacedDto,
   TokensResizedDto,
   TokensMovedDto,
+  WallDto,
+  WallKindsChangedDto,
+  WallsMovedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
 
@@ -55,6 +58,7 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
       return (
         batchChangesOf(board, event) ??
         effectAreaChangesOf(board, event) ??
+        wallChangesOf(board, event) ??
         combatChangesOf(board, event)
       );
   }
@@ -99,6 +103,55 @@ function effectAreaChangesOf(
     default:
       return null;
   }
+}
+
+// Walls: created at the end, moved, deleted, cut (what is left at the end), re-kinded (with the door state) and doors set.
+function wallChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> | null {
+  switch (event.type) {
+    case 'wallsCreated':
+      return { walls: [...board.walls, ...event.payload.walls] };
+    case 'wallsMoved':
+      return { walls: withWallMoves(board.walls, event.payload.moves) };
+    case 'wallsDeleted': {
+      const { wallIds } = event.payload;
+      return { walls: board.walls.filter(({ id }) => !wallIds.includes(id)) };
+    }
+    case 'wallAreaErased': {
+      const { wallIds, walls } = event.payload;
+      return { walls: [...board.walls.filter(({ id }) => !wallIds.includes(id)), ...walls] };
+    }
+    case 'wallSegmentErased': {
+      const { wallId, walls } = event.payload;
+      return { walls: [...board.walls.filter(({ id }) => id !== wallId), ...walls] };
+    }
+    case 'wallKindsChanged':
+      return { walls: withWallKinds(board.walls, event.payload.changes) };
+    case 'doorChanged': {
+      const { wallId, doorState } = event.payload;
+      return {
+        walls: board.walls.map((wall) => (wall.id === wallId ? { ...wall, doorState } : wall)),
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function withWallMoves(walls: readonly WallDto[], moves: WallsMovedDto['moves']): WallDto[] {
+  return walls.map((wall) => {
+    const move = moves.find(({ wallId }) => wallId === wall.id);
+    return move ? { ...wall, x: move.x, y: move.y } : wall;
+  });
+}
+
+function withWallKinds(
+  walls: readonly WallDto[],
+  changes: WallKindsChangedDto['changes'],
+): WallDto[] {
+  return walls.map((wall) => {
+    const change = changes.find(({ wallId }) => wallId === wall.id);
+    return change ? { ...wall, kind: change.kind, doorState: change.doorState } : wall;
+  });
 }
 
 function withReshapes(

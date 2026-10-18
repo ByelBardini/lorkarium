@@ -62,6 +62,18 @@ export type BoardEffectAreaIntent =
   /** A handle released on an area: the shape it should have now. */
   | Readonly<{ kind: 'effectAreaReshaped'; effectAreaId: string; shape: EffectAreaShapeDto }>;
 
+/** A wall of the master clicked with the walls tool (Shift: `additive` toggles it), or the
+ *  walls dragged and dropped by `dx, dy` cells. */
+export type BoardWallIntent =
+  | Readonly<{ kind: 'wallPicked'; wallId: string; additive: boolean }>
+  | Readonly<{ kind: 'wallErased'; wallId: string; segmentIndex: number | null }>;
+
+/** The icon of a door this viewer sees, clicked (open or close it), or right clicked by the
+ *  master (the door menu at `x, y` viewport px). */
+export type BoardDoorIntent =
+  | Readonly<{ kind: 'doorPressed'; wallId: string }>
+  | Readonly<{ kind: 'doorMenuRequested'; wallId: string; x: number; y: number }>;
+
 /** The cell under the pointer while it hovers the board (`null` once it leaves): where a paste
  *  lands. */
 export type BoardHoverIntent = Readonly<{ kind: 'pointerHovered'; cell: Cell | null }>;
@@ -73,6 +85,8 @@ export type BoardIntent =
   | BoardTokenIntent
   | BoardDrawingIntent
   | BoardEffectAreaIntent
+  | BoardWallIntent
+  | BoardDoorIntent
   | BoardHoverIntent;
 
 export type BoardIntentListener = (intent: BoardIntent) => void;

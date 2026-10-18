@@ -2,6 +2,8 @@ import type { LucideIcon } from 'lucide-react';
 import type { TokenLayerDto } from '@lorkarium/contracts';
 import {
   BoxIcon,
+  BrickWallIcon,
+  EyeIcon,
   CircleUserRoundIcon,
   FrameIcon,
   Grid3x3Icon,
@@ -27,6 +29,8 @@ export type BoardToolbarProps = Readonly<{
   renderer: BoardRenderer | null;
   /** The master: shows "Configurar cena". */
   canConfigure: boolean;
+  /** The scene hides what tokens do not see (Escuro, Luz do dia): the master may preview it. */
+  sightOn?: boolean;
   onConfigure: () => void;
   onNewToken: () => void;
 }>;
@@ -51,12 +55,14 @@ export function BoardToolbar({
   interaction,
   renderer,
   canConfigure,
+  sightOn = false,
   onConfigure,
   onNewToken,
 }: BoardToolbarProps): React.JSX.Element {
   const tool = useBoardInteraction(interaction, (state) => state.tool);
   const grid = useBoardInteraction(interaction, (state) => state.localGridVisible);
   const zoom = useBoardInteraction(interaction, (state) => state.zoom);
+  const previewing = useBoardInteraction(interaction, (state) => state.sightPreview);
   const actions = interaction.getState();
   return (
     <TooltipProvider>
@@ -90,6 +96,14 @@ export function BoardToolbar({
           pressed={tool === 'area'}
           onClick={() => actions.setTool('area')}
         />
+        {canConfigure && (
+          <ToolButton
+            label="Paredes (P)"
+            icon={BrickWallIcon}
+            pressed={tool === 'walls'}
+            onClick={() => actions.setTool('walls')}
+          />
+        )}
         <ToolButton
           label="Grid (G)"
           icon={Grid3x3Icon}
@@ -124,6 +138,14 @@ export function BoardToolbar({
             <span aria-hidden="true" className="my-1 h-px bg-divider" />
             <ToolButton label="Novo token" icon={UserPlusIcon} onClick={onNewToken} />
             <ToolButton label="Configurar cena" icon={Settings2Icon} onClick={onConfigure} />
+            {sightOn && (
+              <ToolButton
+                label="Ver como os selecionados"
+                icon={EyeIcon}
+                pressed={previewing}
+                onClick={actions.toggleSightPreview}
+              />
+            )}
           </>
         )}
       </div>
