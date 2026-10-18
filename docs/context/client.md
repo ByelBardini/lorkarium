@@ -12,6 +12,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Tokens na sala: arraste, teclado, lista "Na cena", cartão, diálogo e barras  | [`tokens.md`](client/tokens.md)               |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro | [`combat.md`](client/combat.md)               |
 | Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)      | [`drawings.md`](client/drawings.md)           |
+| Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar      | [`effect-areas.md`](client/effect-areas.md)   |
 
 ## Estrutura
 

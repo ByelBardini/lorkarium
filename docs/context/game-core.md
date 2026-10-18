@@ -7,7 +7,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/cell.vo.ts` — a célula do grid (VO)
 - `src/grid.ts` — distância entre células e pegada do token na cena
 - `src/token-size.vo.ts` — largura e altura do token (VO)
-- `src/token-resize.ts` — a caixa do token depois de arrastar uma alça
+- `src/token-resize.ts` — a caixa do token (e de qualquer caixa com limites próprios) depois de arrastar uma alça
 - `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
 - `src/bar.ts` — ajuste de barra (PV e qualquer outra)
 - `src/initiative.vo.ts` — o valor da iniciativa (VO)
@@ -15,6 +15,9 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/turn.ts` — avançar e voltar turno, sair do combate, duração de condição
 - `src/facing.vo.ts` — a direção do token (VO)
 - `src/facing.ts` — ângulo até um ponto, encaixe, giro e vetor da direção
+- `src/effect-area.vo.ts` — a área de efeito (gabarito de magia) por forma (VO) e a origem na cena
+- `src/effect-area-cells.ts` — as casas que a área pinta, o ponto dentro da forma e a caixa dela
+- `src/effect-area-shaping.ts` — o raio até o ponteiro, o giro e o deslocamento da área
 
 ## Célula e grid
 
@@ -28,6 +31,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 ## Redimensionar
 
 - `TokenBox` `{ col, row, width, height }`, `ResizeHandle` (`n`, `s`, `e`, `w`, `ne`, `nw`, `se`, `sw`) e `resizeTokenBox(scene, box, alça, { x, y })` (o deslocamento em casas). **Lateral** estica só o seu eixo; **canto** escala os dois mantendo a proporção (`escala = 1 + crescimento / (largura + altura)`, onde o crescimento soma o deslocamento no sentido de cada eixo puxado). A alça oeste/norte move a origem e o lado oposto fica parado. Cada lado vai ao múltiplo do `step` mais perto (`RESIZE_STEP` = 0,5 por padrão; `step` 0 = livre, a prévia que segue o ponteiro) e fica entre 0,5, 10 e a borda da cena para onde é puxado; o canto limita a escala para nenhum lado sair disso (um 2×1 encolhendo para em 1 × 0,5). O client usa na prévia da alça; o server só confere o resultado pelo `footprintFits`.
+- `resizeBox(scene, caixa, alça, delta, { step, min, max })` é a mesma conta com o passo e os limites por parâmetro (`ResizeLimits`); o `resizeTokenBox` chama com `{ step, min: 0,5, max: 10 }` e o Quadrado da área de efeito com `{ step: 1, min: 1, max: 100 }` (o lado puxado para na borda da cena, em casas inteiras).
 
 ## Desenho
 
@@ -56,6 +60,31 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `turnFacing(atual, delta)` — gira e dá a volta (Q = −45, E = +45): 0 − 45 → 315.
 - `facingVector(direção)` — o vetor unitário (`Vector2`) da direção: 0 → `{ x: 1, y: 0 }`, 90 → `{ x: 0, y: 1 }`. É onde ficam a marca e a alça.
 
+## Área de efeito
+
+O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em casas fracionárias; a cor é uma `string` (a paleta é do DTO, o game-core não importa o contracts).
+
+| Forma (`kind`)                        | Origem `(x, y)`                                                                            | Tamanho                               | Direção (`facing`) |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------- | ------------------ |
+| `square`                              | canto de cima à esquerda, num cruzamento (inteiros)                                        | `width`, `height` inteiros de 1 a 100 | —                  |
+| `circle`                              | centro, num cruzamento                                                                     | `reach` inteiro de 1 a 100            | —                  |
+| `semicircle`                          | cruzamento                                                                                 | `reach`                               | 0, 90, 180, 270    |
+| `orthogonal_cone` (Cone horizontal)   | meio do lado da casa de onde sai (0/180: x inteiro e y em ,5; 90/270: x em ,5 e y inteiro) | `reach`                               | 0, 90, 180, 270    |
+| `diagonal_cone`                       | canto da casa de onde sai (cruzamento)                                                     | `reach`                               | 45, 135, 225, 315  |
+| `line`                                | centro da casa de onde sai (x e y em ,5)                                                   | `reach`                               | 0 a 359            |
+| `emanation`                           | a pegada do token: `x, y, width, height` em meias casas, lados 0,5–10                      | `reach`                               | —                  |
+| `smooth_circle` / `smooth_semicircle` | livre, ao centésimo                                                                        | `reach` de 0,5 a 100, ao centésimo    | — / 0 a 359        |
+
+- `effectArea(forma)` confere pela forma (direção antes da origem, depois raio e lados) e devolve congelado; erro é `RangeError` citando a forma, o valor e o esperado ("circle origin (2.5, 3) … grid intersection", "diagonal_cone facing 90 … 45, 135, 225 or 315", "reach 0 … whole cells from 1 to 100", "smooth_circle reach 0.3 … 0.5 to 100"). `EFFECT_AREA_REACH_MAX` = 100 (o `SCENE_CELLS_MAX`), `SMOOTH_REACH_MIN` = 0,5, `isSmoothArea`. Tipos: `SquareArea`, `RoundArea`, `AimedArea` (`AimedAreaKind`), `EmanationArea`.
+- `effectAreaOriginFits(cena, área)`: só a **origem** precisa estar em `[0, largura] × [0, altura]` (a borda conta, em centésimos); o resto é cortado, então uma emanação de token encostado na borda vale.
+- `effectAreaCells(cena, área)` — **regra do centro**: pinta a casa cujo centro cai dentro da forma, com `≤` e folga de 1e-9 (**a borda conta**: a emanação de um token em meia casa empata e a casa entra). Percorre só a caixa da forma cortada pela cena, em **ordem de leitura** (linha, depois coluna). Cone = raio + até 45° da direção (90° de abertura); semicírculo = raio + do lado da direção; linha = até 0,5 do eixo e avanço em (0, `reach`] (a casa de onde sai fica de fora); quadrado = centro dentro da caixa; emanação = distância até a pegada ≤ `reach` (a pegada inclusa). Forma perfeita → `[]`.
+- `effectAreaContains(área, ponto)` (o mesmo teste, serve ao hit-test do perfeito), `effectAreaBounds(área)` (a **menor** caixa da forma antes do corte, onde a seleção e as alças são desenhadas: nas formas de casa, a caixa das casas pintadas — o cone é só a cunha, não o círculo do raio; no círculo perfeito, o círculo; no semicírculo perfeito, só a metade; quadrado e emanação, a própria caixa / a pegada crescida do raio). Para percorrer casas, o `effectAreaCells` usa a caixa do raio inteiro (`reachBoxOf`, interna) e `distanceFromAreaOrigin(área, ponto)` (da origem, ou da borda da pegada na emanação).
+- `reachToward(área, ponto, passo)` — o raio que leva a borda ao ponteiro: forma de casa sempre em casas inteiras (mínimo 1), perfeita ao centésimo (`passo` 0) ou ao passo (0,5 com Shift, mínimo 0,5); teto 100.
+- `turnEffectArea(área, graus)` — cone horizontal e semicírculo de casa encaixam em 90°, o diagonal em 45 + 90k; os **cones giram em torno do centro da casa de onde saem** (o cone (5; 5,5) → 90 vira (4,5; 6)); semicírculo de casa mantém a origem; linha e semicírculo perfeito giram livres; sem direção, a mesma área.
+- `shiftEffectArea(área, dx, dy)` — forma de casa anda casas inteiras (a origem continua onde a forma nasce), a perfeita anda o delta ao centésimo; sair antes de (0, 0) lança o `RangeError` do `effectArea`.
+
 ## Armadilhas
 
 - Ordem e turno trabalham com combatentes (com `id`): não são VO. O driver acusa `vo-com-identidade` num `.vo.ts` com `id`; o VO é só o valor (`initiative.vo.ts`).
+- A distância das áreas de efeito é **euclidiana** (do centro da casa até a forma) e **não** é a da régua (`cellDistance`, diagonal valendo 1). Não troque uma pela outra; unificar a regra de diagonal é do §12.
+- Na união `EffectArea`, `RoundArea` tem `kind` união (`'circle' | 'smooth_circle'`): comparar o `kind` não estreita para fora dela. Estreite por `'facing' in area` (é o que separa `AimedArea`).
