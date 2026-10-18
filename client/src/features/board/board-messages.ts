@@ -39,6 +39,8 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   out_of_scene: OUT_OF_SCENE_TEXT,
   drawing_not_found: 'Esse desenho não está mais na mesa.',
   drawing_limit: 'A cena já tem desenhos demais. Apague alguns antes.',
+  effect_area_not_found: 'Essa área não está mais na mesa.',
+  effect_area_limit: 'A cena já tem áreas demais. Apague algumas antes.',
   stale_undo: STALE_UNDO_TEXT,
   asset_not_found: 'Essa imagem não está mais na mesa.',
   invalid: 'Confira os campos e tente de novo.',
@@ -49,6 +51,13 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
 };
 
 export const DISCONNECTED_COMMAND = 'Sem conexão. Aguarde reconectar.';
+
+/** What the status line says once an area of effect was stretched or turned by its handles.
+ *
+ *  Example: `effectAreaReshapedAnnouncement('Cone diagonal', '4 casas · 6 m') // 'Cone diagonal agora tem 4 casas · 6 m.'` */
+export function effectAreaReshapedAnnouncement(kind: string, size: string): string {
+  return `${kind} agora tem ${size}.`;
+}
 
 /** Why the server refused a board command, as the person reads it.
  *

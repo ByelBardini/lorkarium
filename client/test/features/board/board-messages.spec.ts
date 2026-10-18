@@ -28,6 +28,8 @@ describe('boardCommandFailureMessage', () => {
     ['offline', 'Sem conexão com o servidor. Confira sua internet e tente de novo.'],
     ['stale_undo', 'Alguém mexeu nisso depois; não dá para desfazer.'],
     ['drawing_limit', 'A cena já tem desenhos demais. Apague alguns antes.'],
+    ['effect_area_not_found', 'Essa área não está mais na mesa.'],
+    ['effect_area_limit', 'A cena já tem áreas demais. Apague algumas antes.'],
     ['drawing_not_found', 'Esse desenho não está mais na mesa.'],
   ] as const)('%s reads "%s"', (failure, message) => {
     expect(boardCommandFailureMessage(failure)).toBe(message);

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { parseBoardEvent } from '@/services/board-events';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
+import { shapeOfEffectArea } from '@/lib/effect-area-shape';
+import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import { sceneUpdated } from '../support/table-session-fixtures';
 
 describe('parseBoardEvent', () => {
@@ -106,6 +108,35 @@ describe('parseBoardEvent', () => {
       VHARN.id,
     );
     expect(parsed).toEqual({ kind: 'invalid' });
+  });
+
+  describe('effect areas', () => {
+    const base = { campaignId: VHARN.id, version: 6, at: '2026-10-18T12:00:00.000Z' };
+    const coneShape = shapeOfEffectArea(biaCone());
+
+    it.each([
+      ['effectArea:createdMany', 'effectAreasCreated', { effectAreas: [biaCone()] }],
+      [
+        'effectArea:reshapedMany',
+        'effectAreasReshaped',
+        { reshapes: [{ effectAreaId: BIA_CONE_ID, shape: { ...coneShape, reach: 4 } }] },
+      ],
+      ['effectArea:deletedMany', 'effectAreasDeleted', { effectAreaIds: [BIA_CONE_ID] }],
+    ])('a valid %s of the table is a %s event', (name, type, fields) => {
+      const payload = { ...base, ...fields };
+      expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type, payload },
+      });
+    });
+
+    it('an orthogonal cone facing 90 with a whole x is outside the DTO and invalid (resync)', () => {
+      const broken = { ...biaCone(), kind: 'orthogonal_cone', x: 5, y: 6, facing: 90 };
+      const payload = { ...base, effectAreas: [broken] };
+      expect(parseBoardEvent('effectArea:createdMany', payload, VHARN.id)).toEqual({
+        kind: 'invalid',
+      });
+    });
   });
 
   describe('drawings and token batches', () => {
