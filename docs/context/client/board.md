@@ -22,11 +22,14 @@ A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o r
 - `camera.ts` — `Camera { offsetX, offsetY, zoom }` (tela = mundo × zoom + offset), `CELL_WORLD_SIZE = 64`, `ZOOM_LIMITS` 0,25–4; `worldToScreen`/`screenToWorld`, `panBy`, `zoomAt` (o ponto sob o cursor fica parado), `fitScene` (centraliza com 32px de margem), `clampToScene` (25% da cena sempre na tela), `zoomProofTextResolution(dpr)` (a `resolution` de todo `Text` do mundo: rasterizado para o zoom máximo, não pixela ao aproximar).
 - `board-cursor.ts` (puro) — `boardCursorOf({ tool, drawKind, panning })`: `move` no pan do botão direito, régua (`RULER_CURSOR`) medindo, caneta (`PEN_CURSOR`) na mão livre, `crosshair` nas formas, seta no resto. Caneta e régua são SVG em data URL com o ponto quente na ponta e `crosshair` de reserva. O `pixi-board-renderer` aplica no canvas a cada `draw` e ao começar/terminar o pan.
 - `camera-input.ts` — mapa de entradas: roda move (Shift = horizontal; `deltaMode` linhas × 16), Ctrl/⌘ + roda e pinça aproximam no cursor; W A S D a 600 px/s com a diagonal normalizada (`keyboardPan`); `cameraKeyAction`: `+`/`=`, `-`, `0` (com Ctrl/⌘/Alt é do navegador); botão direito arrastado (`startRightDrag`/`moveRightDrag`, a partir de 4 px).
+- `dom-input.ts` — o que o renderer lê do DOM: `pointOf(evento)` (px da tela no canvas), `wheelFields(evento)` (o que o `wheelIntent` lê) e `prefersReducedMotion()` (o token pula em vez de deslizar).
 - `grid-geometry.ts` — `visibleWorldRect`, `gridLines(cena, visível)` (só as linhas na tela; sem as horizontais quando a vista não cruza a largura da cena, e vice-versa), `cellAtWorld` (a borda final é da última casa; fora → `null`).
 - `board-view.ts` — `buildBoardView({ scene, localGridVisible, ruler, drag, dragged, selectedTokenIds, activeLayer, canChooseLayer, … })` (`layerMenu` = `canChooseLayer`): os tokens saem na ordem de desenho (Fundo → Objetos → Tokens; dentro da camada, a da lista), cada `TokenView` com `layer`, `pickable` (= está na camada ativa) e `draggable` (= `pickable` e `canControl` e não `readOnly`); → `BoardView { sceneSize, grid { visible (cena **e** local), opacity 0–1, cells }, ruler { points, label } }`; régua pelo `pathDistance` do game-core (desenhada como polilinha com ponto em cada curva) e o `rulerLabel` (`src/lib/ruler-label.ts`: "3 casas · 4,5 m").
 - Fundo e imagens: `BoardView.background` `{ url, width, height }` (o fundo esticado nas casas, em px de mundo; `null` sem fundo) e `imageUrlsOf(view)` (o fundo e a arte de cada token, sem repetir). `pixi-texture-cache.ts` (`PixiTextureCache(onReady)`): `textureOf(url)` carrega uma vez por `Assets.load({ src, parser: 'texture' })` (a url `/api/assets/<id>` não tem extensão; conferido no PixiJS 8.22) e responde `null` até chegar; `retain(urls)` descarta e faz `Assets.unload` do que a vista não usa mais; falha fica `failed` (o token volta ao disco, sem tentar em laço). O renderer redesenha a última vista quando uma textura chega. `pixi-scene-background.ts` (`PixiSceneBackground`): o sprite do fundo **sob o grid**, com `setSize` na largura e altura da cena.
 - `board-renderer.ts` — `BoardRenderer` (`mount`, `draw`, `zoomBy`, `fitScene`, `destroy`) e as intenções (`cameraChanged`, `pointerDown/Move/Up` com a casa, `tokensMarqueed { tokenIds, additive }`, `tokenMenuRequested { tokenId, x, y }` em px da viewport).
+- `token-box.ts` (puro) — `tokenWorldRect(token)` (o retângulo em px de mundo pela largura e altura), `tokenCenterOf` (o meio de cada lado) e `tokenContains` (a borda final é do vizinho). Todo desenho, clique, laço e alça do token parte daqui.
 - `marquee.ts` (puro) — `startMarquee`/`moveMarquee` (vira retângulo a partir de 4 px de tela, como o arraste de token), `marqueeRect` (normalizado, arrastado em qualquer direção), `tokensInMarquee(rect, tokens)` (os `draggable` — na camada ativa e com `canControl` — que o retângulo **toca**: uma casa de um token grande basta) e `tokenMenuTarget(view, token)` (o clique direito curto abre o menu sobre token `pickable` com `view.layerMenu` — o mestre — ou `draggable` — quem controla). `pixi-marquee.ts` desenha o retângulo dourado tracejado. `CreateBoardRenderer` está no `AppDependencies` (`createBoardRenderer`).
+- `pixi-ruler.ts` (`PixiRuler`): a régua (linha, pontos nas curvas e leitura) em tamanho de tela fixo, saída do renderer.
 - `pixi-board-renderer.ts` — `createPixiBoardRenderer`: casca fina sobre PixiJS 8 (apertar no vazio com Selecionar começa o retângulo; Shift não limpa a seleção e soma; soltar manda `tokensMarqueed`; Shift+clique num token = `tokenPicked { additive: true }`; botão direito curto = `tokenMenuRequested`) (`Application.init({ resizeTo: host })`, fundo `panel`, cena `card`, grid dourado em linhas finas `1/zoom` só no visível, régua dourada com rótulo). Roda com `{ passive: false }`; `contextmenu` do navegador cancelado no `document` quando o clique cai dentro do retângulo do host (`blocksBrowserMenu` em `camera-input.ts`; campo de texto continua com o menu); teclas no host focável, não na `window`; W A S D pelo `ticker`. Provado pelo e2e.
 
 ## Estado (`src/stores/`)
@@ -46,25 +49,26 @@ A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o r
 
 ## Atalhos
 
-| Tecla             | Onde                | Faz                                                                |
-| ----------------- | ------------------- | ------------------------------------------------------------------ |
-| F                 | sala                | liga/desliga o modo foco                                           |
-| Esc               | sala / arrastando   | sai do foco, limpa a régua, cancela o arraste                      |
-| V / R / B / G     | sala                | Selecionar / Régua / Desenhar / grid local                         |
-| 1 / 2 / 3         | sala (mestre)       | camada ativa: Tokens / Objetos / Fundo                             |
-| + = / − / 0       | tabuleiro focado    | aproxima / afasta / enquadra                                       |
-| W A S D           | tabuleiro focado    | move a câmera                                                      |
-| Q / E             | tabuleiro focado    | gira a seleção −45° / +45°                                         |
-| Arrastar a alça   | token selecionado   | gira o token (Shift encaixa em 45°)                                |
-| Roda / Ctrl+roda  | sobre o tabuleiro   | move / aproxima no cursor                                          |
-| Botão direito     | arrastado no canvas | move a câmera                                                      |
-| Botão direito     | clique sobre token  | condição, imagem, borda, inverter (quem controla); camada (mestre) |
-| Arrastar no vazio | Selecionar          | retângulo de seleção (Shift soma)                                  |
-| Shift+clique      | token ou desenho    | soma/tira da seleção                                               |
-| Delete / ⌫        | tabuleiro focado    | apaga os desenhos selecionados                                     |
-| Ctrl/⌘ + C / V    | sala                | copia a seleção / cola sob o cursor                                |
-| Ctrl/⌘ + Z        | sala                | desfaz a última ação sua                                           |
-| Ctrl/⌘ + Y, ⇧Z    | sala                | refaz                                                              |
+| Tecla             | Onde                | Faz                                                                  |
+| ----------------- | ------------------- | -------------------------------------------------------------------- |
+| F                 | sala                | liga/desliga o modo foco                                             |
+| Esc               | sala / arrastando   | sai do foco, limpa a régua, cancela o arraste                        |
+| V / R / B / G     | sala                | Selecionar / Régua / Desenhar / grid local                           |
+| 1 / 2 / 3         | sala (mestre)       | camada ativa: Tokens / Objetos / Fundo                               |
+| + = / − / 0       | tabuleiro focado    | aproxima / afasta / enquadra                                         |
+| W A S D           | tabuleiro focado    | move a câmera                                                        |
+| Q / E             | tabuleiro focado    | gira a seleção −45° / +45°                                           |
+| Arrastar a alça   | token selecionado   | gira o token (Shift encaixa em 45°)                                  |
+| Arrastar quadrado | token selecionado   | lateral estica um eixo; canto escala mantendo a proporção; Esc solta |
+| Roda / Ctrl+roda  | sobre o tabuleiro   | move / aproxima no cursor                                            |
+| Botão direito     | arrastado no canvas | move a câmera                                                        |
+| Botão direito     | clique sobre token  | condição, imagem, borda, inverter (quem controla); camada (mestre)   |
+| Arrastar no vazio | Selecionar          | retângulo de seleção (Shift soma)                                    |
+| Shift+clique      | token ou desenho    | soma/tira da seleção                                                 |
+| Delete / ⌫        | tabuleiro focado    | apaga os desenhos selecionados                                       |
+| Ctrl/⌘ + C / V    | sala                | copia a seleção / cola sob o cursor                                  |
+| Ctrl/⌘ + Z        | sala                | desfaz a última ação sua                                             |
+| Ctrl/⌘ + Y, ⇧Z    | sala                | refaz                                                                |
 
 Ignorados em `input`, `textarea`, `select`, `contenteditable`, dentro de diálogo/menu e com Ctrl/⌘/Alt (`src/lib/board-shortcuts.ts`). Os de edição (`editShortcutFor`) exigem Ctrl/⌘, sem Alt, com as mesmas exceções de alvo.
 
