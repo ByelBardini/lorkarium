@@ -4,6 +4,7 @@ import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore } from '@/stores/rail-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { createSessionStore } from '@/stores/session-store';
+import { AssetsApiFake } from './assets-api-fake';
 import { AuthApiFake } from './auth-api-fake';
 import { BoardRenderersFake } from './board-renderer-fake';
 import { CallJournal } from './call-journal';
@@ -16,6 +17,7 @@ import { TableSessionApiFake } from './table-session-api-fake';
 export type TestDependencies = AppDependencies & {
   authApi: AuthApiFake;
   campaignsApi: CampaignsApiFake;
+  assets: AssetsApiFake;
   clipboard: ClipboardFake;
   /** The session api under `openTables`, for specs to play the server. */
   tableSessionApi: TableSessionApiFake;
@@ -49,6 +51,7 @@ export function testDependencies(): TestDependencies {
     journal,
     authApi: new AuthApiFake(journal),
     campaignsApi: new CampaignsApiFake(),
+    assets: new AssetsApiFake(),
     clipboard: new ClipboardFake(),
     tableSessionApi,
     tabStorage,

@@ -12,6 +12,8 @@ export type HttpResponse = Readonly<{
  *  Example: `await transport.request('POST', '/auth/login', credentials)` */
 export interface HttpTransport {
   request(method: HttpMethod, path: string, body?: unknown): Promise<HttpResponse>;
+  /** POSTs `file` as the raw body with its own `Content-Type` (an image upload). */
+  upload(path: string, file: Blob): Promise<HttpResponse>;
 }
 
 export class NetworkUnavailableError extends Error {
@@ -34,21 +36,34 @@ export class FetchHttpTransport implements HttpTransport {
   constructor(private readonly fetchImpl: typeof fetch = (...args) => fetch(...args)) {}
 
   async request(method: HttpMethod, path: string, body?: unknown): Promise<HttpResponse> {
-    const response = await this.send(method, path, body);
-    return {
-      status: response.status,
-      body: await readJson(response),
-      header: (name) => response.headers.get(name),
-    };
+    return responseOf(await this.send(path, requestInit(method, body)));
   }
 
-  private async send(method: HttpMethod, path: string, body: unknown): Promise<Response> {
+  async upload(path: string, file: Blob): Promise<HttpResponse> {
+    const init: RequestInit = {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json', 'content-type': file.type },
+      body: file,
+    };
+    return responseOf(await this.send(path, init));
+  }
+
+  private async send(path: string, init: RequestInit): Promise<Response> {
     try {
-      return await this.fetchImpl(`${API_BASE}${path}`, requestInit(method, body));
+      return await this.fetchImpl(`${API_BASE}${path}`, init);
     } catch (reason) {
       throw new NetworkUnavailableError(path, reason);
     }
   }
+}
+
+async function responseOf(response: Response): Promise<HttpResponse> {
+  return {
+    status: response.status,
+    body: await readJson(response),
+    header: (name) => response.headers.get(name),
+  };
 }
 
 function requestInit(method: HttpMethod, body: unknown): RequestInit {

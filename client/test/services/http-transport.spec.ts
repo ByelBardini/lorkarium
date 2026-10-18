@@ -37,6 +37,26 @@ describe('FetchHttpTransport', () => {
     expect(response.body).toEqual({ ok: 1 });
   });
 
+  it('an upload posts the file itself as the body, with its own content type', async () => {
+    const fake = new FetchFake(Response.json({ asset: {} }, { status: 201 }));
+    const file = new File([new Uint8Array([1, 2, 3])], 'mapa.webp', { type: 'image/webp' });
+
+    const response = await new FetchHttpTransport(fake.fetch).upload('/campaigns/x/assets', file);
+
+    expect(fake.calls).toEqual([
+      {
+        url: '/api/campaigns/x/assets',
+        init: {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { accept: 'application/json', 'content-type': 'image/webp' },
+          body: file,
+        },
+      },
+    ]);
+    expect(response.status).toBe(201);
+  });
+
   it('a GET carries no body nor content-type', async () => {
     const fake = new FetchFake(Response.json({ user: null }));
     await new FetchHttpTransport(fake.fetch).request('GET', '/auth/me');

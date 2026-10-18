@@ -13,6 +13,7 @@ import { homeRoutes } from '@/features/home/home-route';
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
 import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AuthApi } from '@/services/auth-api';
+import type { AssetsApi } from '@/services/assets-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
 import type { Clipboard } from '@/services/clipboard';
 import type { TableBoardCommands } from '@/services/table-board-commands';
@@ -30,6 +31,8 @@ import { SplashScreen } from './splash-screen';
 export type AppDependencies = Readonly<{
   authApi: AuthApi;
   campaignsApi: CampaignsApi;
+  /** Images sent to a table (file or link). */
+  assets: AssetsApi;
   clipboard: Clipboard;
   openTables: StoreApi<OpenTablesStore>;
   sessionStore: StoreApi<SessionStore>;
