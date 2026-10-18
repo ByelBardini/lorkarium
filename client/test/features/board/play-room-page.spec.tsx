@@ -365,20 +365,20 @@ describe('play room page', () => {
       );
     });
 
-    it('the master opens "Configurar grid", saves and the command goes to the server', async () => {
+    it('the master opens "Configurar cena", saves and the command goes to the server', async () => {
       await renderBoardRoom();
-      await userEvent.click(screen.getByRole('button', { name: 'Configurar grid' }));
-      const dialog = await screen.findByRole('dialog', { name: 'Configurar grid' });
+      await userEvent.click(screen.getByRole('button', { name: 'Configurar cena' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Configurar cena' });
       await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
       expect(deps.boardCommands.sent).toEqual([
         expect.objectContaining({ name: 'configureScene', campaignId: VHARN.id }),
       ]);
-      expect(screen.queryByRole('dialog', { name: 'Configurar grid' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Configurar cena' })).toBeNull();
     });
 
     it('keys typed in the grid dialog are not room shortcuts', async () => {
       await renderBoardRoom();
-      await userEvent.click(screen.getByRole('button', { name: 'Configurar grid' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Configurar cena' }));
       await userEvent.type(await screen.findByLabelText('Unidade'), 'fr');
       // The modal hides the rest of the room from assistive tech, so look past it.
       const hidden = { hidden: true };
@@ -412,10 +412,10 @@ describe('play room page', () => {
       ]);
     });
 
-    it('a player does not see "Configurar grid"', async () => {
+    it('a player does not see "Configurar cena"', async () => {
       renderRoom(QUELM);
       await screen.findByRole('heading', { level: 1, name: QUELM.name });
-      expect(screen.queryByRole('button', { name: 'Configurar grid' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Configurar cena' })).toBeNull();
     });
   });
 

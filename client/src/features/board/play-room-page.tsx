@@ -4,8 +4,9 @@ import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTable } from '@/features/sessions/use-open-table';
 import { ApplyConditionDialog } from '@/features/combat/apply-condition-dialog';
 import { TurnLine } from '@/features/combat/turn-line';
-import { RoomTokenDialog } from '@/features/tokens/room-token-dialog';
+import { RoomTokenDialog, RoomTokenImageDialog } from '@/features/tokens/room-token-dialog';
 import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
+import type { AssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import { DrawStylePanel } from '@/features/drawings/draw-style-panel';
@@ -20,7 +21,7 @@ import { BoardArea } from './board-area';
 import { tokenCommandFailureMessage } from './board-messages';
 import { BoardStatusLine } from './board-status-line';
 import { BoardToolbar } from './board-toolbar';
-import { ConfigureGridDialog } from './configure-grid-dialog';
+import { ConfigureSceneDialog } from './configure-scene-dialog';
 import { FocusToggle } from './focus-toggle';
 import { TokenContextMenu, type TokenMenuRequest } from './token-context-menu';
 import { RoomHeader } from './room-header';
@@ -37,6 +38,7 @@ export type PlayRoomPageProps = Readonly<{
   clipboard: Clipboard;
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
+  assets: AssetsApi;
 }>;
 
 /** The play room: the board fills the screen, the top bar, tools and panel float over it, and
@@ -55,11 +57,12 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
     }),
   );
   const [renderer, setRenderer] = useState<BoardRenderer | null>(null);
-  const [gridDialog, setGridDialog] = useState(false);
+  const [sceneDialog, setSceneDialog] = useState(false);
   // `{ tokenId: null }` is "Novo token"; a token id is "Editar token".
   const [tokenDialog, setTokenDialog] = useState<Readonly<{ tokenId: string | null }> | null>(null);
   const [tokenMenu, setTokenMenu] = useState<TokenMenuRequest | null>(null);
   const [conditionTargets, setConditionTargets] = useState<readonly string[] | null>(null);
+  const [imageTokenId, setImageTokenId] = useState<string | null>(null);
   const isMaster = campaign.myRole === 'master';
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
@@ -102,6 +105,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             board={table.board}
             interaction={interaction}
             onApplyCondition={setConditionTargets}
+            onChangeImage={setImageTokenId}
             onClose={() => setTokenMenu(null)}
           />
         )}
@@ -112,6 +116,16 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             interaction={interaction}
             isMaster={isMaster}
             onClose={() => setConditionTargets(null)}
+          />
+        )}
+        {imageTokenId && table && (
+          <RoomTokenImageDialog
+            campaignId={campaign.id}
+            board={table.board}
+            tokenId={imageTokenId}
+            commands={props.boardCommands}
+            assets={props.assets}
+            onClose={() => setImageTokenId(null)}
           />
         )}
         <BoardStatusLine table={table} interaction={interaction} />
@@ -127,16 +141,17 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             interaction={interaction}
             renderer={renderer}
             canConfigure={campaign.myRole === 'master'}
-            onConfigure={() => setGridDialog(true)}
+            onConfigure={() => setSceneDialog(true)}
             onNewToken={() => setTokenDialog({ tokenId: null })}
           />
         )}
-        {gridDialog && table && (
-          <RoomGridDialog
+        {sceneDialog && table && (
+          <RoomSceneDialog
             campaignId={campaign.id}
             table={table}
             commands={props.boardCommands}
-            onClose={() => setGridDialog(false)}
+            assets={props.assets}
+            onClose={() => setSceneDialog(false)}
           />
         )}
         {tokenDialog && table && (
@@ -147,6 +162,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             renderer={renderer}
             interaction={interaction}
             commands={props.boardCommands}
+            assets={props.assets}
             onClose={() => setTokenDialog(null)}
           />
         )}
@@ -186,23 +202,25 @@ function undoStackOf(
   };
 }
 
-type RoomGridDialogProps = Readonly<{
+type RoomSceneDialogProps = Readonly<{
   campaignId: string;
   table: Readonly<{ presence: StoreApi<TablePresenceStore>; board: StoreApi<BoardStore> }>;
   commands: TableBoardCommands;
+  assets: AssetsApi;
   onClose: () => void;
 }>;
 
-// "Configurar grid" over the confirmed scene; while reconnecting it opens but cannot send.
-function RoomGridDialog({ campaignId, table, commands, onClose }: RoomGridDialogProps) {
+// "Configurar cena" over the confirmed scene; while reconnecting it opens but cannot send.
+function RoomSceneDialog({ campaignId, table, commands, assets, onClose }: RoomSceneDialogProps) {
   const scene = useBoard(table.board, (state) => state.board?.scene ?? null);
   const live = useTablePresence(table.presence, (state) => state.status === 'live');
   if (!scene) return null;
   return (
-    <ConfigureGridDialog
+    <ConfigureSceneDialog
       campaignId={campaignId}
       scene={scene}
       commands={commands}
+      assets={assets}
       connected={live}
       onClose={onClose}
     />

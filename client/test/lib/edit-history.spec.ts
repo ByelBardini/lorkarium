@@ -72,6 +72,26 @@ describe('inverseOf', () => {
     ]);
   });
 
+  it('a turn is undone by the turn back, from where it looks to where it looked', () => {
+    const turned: EditEntry = [
+      { kind: 'tokensFaced', turns: [{ tokenId: 'kael', from: 0, to: 45 }] },
+    ];
+
+    expect(inverseOf(turned)).toEqual([
+      { kind: 'tokensFaced', turns: [{ tokenId: 'kael', from: 45, to: 0 }] },
+    ]);
+  });
+
+  it('a turn of a token created again takes its new id', () => {
+    const turned: EditEntry = [
+      { kind: 'tokensFaced', turns: [{ tokenId: 'old', from: 0, to: 90 }] },
+    ];
+
+    expect(remapEntry(turned, { old: 'new' })).toEqual([
+      { kind: 'tokensFaced', turns: [{ tokenId: 'new', from: 0, to: 90 }] },
+    ]);
+  });
+
   it('a deleted drawing is undone by adding it back', () => {
     const drawing = { id: 'square', shape: { kind: 'rectangle' } };
     const deleted = [{ kind: 'drawingsRemoved', drawings: [drawing] }] as unknown as EditEntry;

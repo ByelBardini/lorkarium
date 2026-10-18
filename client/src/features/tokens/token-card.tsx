@@ -2,6 +2,7 @@ import type { TokenBarDto, TokenDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { barFill, barToneVar, formatBarValue } from '@/lib/bar-display';
+import { facingLabel } from '@/lib/facing-label';
 import { cn } from '@/lib/utils';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import { ConditionsEditor } from '@/features/combat/conditions-editor';
@@ -24,7 +25,9 @@ export function TokenCard({ token, board, interaction, isMaster, onEdit }: Token
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
   return (
     <section aria-label={`Cartão de ${token.name}`} className="flex flex-col gap-3 pt-2 pb-3 pl-10">
-      <p className="text-xs text-muted-foreground">{cellLabel(token.col, token.row)}</p>
+      <p className="text-xs text-muted-foreground">
+        {cellLabel(token.col, token.row)} · Olha para o {facingLabel(token.facing)}
+      </p>
       {token.bars.length === 0 && <p className="text-sm text-muted-foreground">Sem barras.</p>}
       <ul className="flex flex-col gap-3">
         {token.bars.map((bar) => (

@@ -14,8 +14,10 @@ describe('boardKeyOf', () => {
     ['Enter', 'open'],
     ['Delete', 'delete'],
     ['Backspace', 'delete'],
+    ['q', 'turnBack'],
+    ['E', 'turnOn'],
     ['Tab', null],
-    ['q', null],
+    ['x', null],
   ])('%s → %s', (key, action) => {
     expect(boardKeyOf({ key, ...PLAIN })).toBe(action);
   });

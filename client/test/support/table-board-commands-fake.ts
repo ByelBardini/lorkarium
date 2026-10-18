@@ -14,7 +14,9 @@ import type {
   TableBoardCommands,
   TokenDragTarget,
   TokenEdit,
+  TokenFacingTarget,
   TokenMoveTarget,
+  TokenStyle,
   TokenPlacement,
 } from '@/services/table-board-commands';
 
@@ -44,8 +46,13 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     this.held = null;
   }
 
-  configureScene(campaignId: string, grid: SceneGridDto): Promise<BoardCommandResult> {
-    return this.record('configureScene', campaignId, grid);
+  configureScene(
+    campaignId: string,
+    grid: SceneGridDto,
+    backgroundAssetId?: string | null,
+  ): Promise<BoardCommandResult> {
+    const background = backgroundAssetId === undefined ? {} : { backgroundAssetId };
+    return this.record('configureScene', campaignId, { ...grid, ...background });
   }
 
   createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult> {
@@ -108,6 +115,18 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     layer: TokenLayerDto,
   ): Promise<BoardCommandResult> {
     return this.record('setTokenLayer', campaignId, { tokenIds: [...tokenIds], layer });
+  }
+
+  faceTokens(campaignId: string, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult> {
+    return this.record('faceTokens', campaignId, { faces: [...faces] });
+  }
+
+  restyleTokens(
+    campaignId: string,
+    tokenIds: readonly string[],
+    style: TokenStyle,
+  ): Promise<BoardCommandResult> {
+    return this.record('restyleTokens', campaignId, { tokenIds: [...tokenIds], style });
   }
 
   adjustBar(

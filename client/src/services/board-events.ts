@@ -20,6 +20,10 @@ import {
   tokensCreatedDto,
   tokensDeletedDto,
   tokensMovedDto,
+  tokensFacedDto,
+  tokensRestyledDto,
+  type TokensFacedDto,
+  type TokensRestyledDto,
   type CombatEndedDto,
   type CombatStartedDto,
   type CombatTurnChangedDto,
@@ -52,6 +56,8 @@ export type BoardEvent =
   | Readonly<{ type: 'tokenDeleted'; payload: TokenDeletedDto }>
   | Readonly<{ type: 'tokensMoved'; payload: TokensMovedDto }>
   | Readonly<{ type: 'tokenLayerChanged'; payload: TokenLayerChangedDto }>
+  | Readonly<{ type: 'tokensFaced'; payload: TokensFacedDto }>
+  | Readonly<{ type: 'tokensRestyled'; payload: TokensRestyledDto }>
   | Readonly<{ type: 'tokensCreated'; payload: TokensCreatedDto }>
   | Readonly<{ type: 'tokensDeleted'; payload: TokensDeletedDto }>
   | Readonly<{ type: 'drawingsCreated'; payload: DrawingsCreatedDto }>
@@ -90,6 +96,8 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.tokenDeleted]: specOf('tokenDeleted', tokenDeletedDto),
   [BOARD_EVENTS.tokensMoved]: specOf('tokensMoved', tokensMovedDto),
   [BOARD_EVENTS.tokenLayerChanged]: specOf('tokenLayerChanged', tokenLayerChangedDto),
+  [BOARD_EVENTS.tokensFaced]: specOf('tokensFaced', tokensFacedDto),
+  [BOARD_EVENTS.tokensRestyled]: specOf('tokensRestyled', tokensRestyledDto),
   [BOARD_EVENTS.tokensCreated]: specOf('tokensCreated', tokensCreatedDto),
   [BOARD_EVENTS.tokensDeleted]: specOf('tokensDeleted', tokensDeletedDto),
   [BOARD_EVENTS.drawingsCreated]: specOf('drawingsCreated', drawingsCreatedDto),

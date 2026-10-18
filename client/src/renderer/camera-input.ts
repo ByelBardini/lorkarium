@@ -110,6 +110,23 @@ export function endRightDrag(drag: RightDrag): 'context' | 'pan-end' {
   return drag.panning ? 'pan-end' : 'context';
 }
 
+/** A right click as the page saw it: viewport px and whether it fell on a text field. */
+export type MenuClick = Readonly<{ x: number; y: number; editable: boolean }>;
+
+/** The board's box in viewport px (a `DOMRect` fits). */
+export type ScreenRect = Readonly<{ left: number; top: number; right: number; bottom: number }>;
+
+/** Whether the browser's own menu is held back: anywhere over the board but on a text field.
+ *  Judged by position, not by target, because with our token menu open the click lands on the
+ *  page under Radix's `pointer-events: none`, never on the canvas.
+ *
+ *  Example: `if (blocksBrowserMenu({ x: e.clientX, y: e.clientY, editable }, host.getBoundingClientRect())) e.preventDefault()` */
+export function blocksBrowserMenu(click: MenuClick, board: ScreenRect): boolean {
+  if (click.editable) return false;
+  const insideX = click.x >= board.left && click.x <= board.right;
+  return insideX && click.y >= board.top && click.y <= board.bottom;
+}
+
 function deltaScaleOf(deltaMode: number): number {
   if (deltaMode === 1) return LINE_HEIGHT_PX;
   return deltaMode === 2 ? PAGE_HEIGHT_PX : 1;

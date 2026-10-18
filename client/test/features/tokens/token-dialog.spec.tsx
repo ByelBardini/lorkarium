@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { TokenDialog } from '@/features/tokens/token-dialog';
 import type { TokenDto } from '@lorkarium/contracts';
 import { VHARN } from '../../support/campaigns-api-fake';
+import { AssetsApiFake, LYRA_PORTRAIT } from '../../support/assets-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { BIA_AT_TABLE, CAIO_AT_TABLE, LYRA_ID, lyra } from '../../support/table-session-fixtures';
 
@@ -28,6 +29,7 @@ describe('TokenDialog', () => {
         layer="tokens"
         players={PLAYERS}
         commands={commands}
+        assets={new AssetsApiFake()}
         connected
         onClose={() => {
           closed += 1;
@@ -55,6 +57,7 @@ describe('TokenDialog', () => {
           side: 'enemy',
           size: 2,
           controllerIds: [BIA_AT_TABLE.userId],
+          imageAssetId: null,
           bars: [],
           col: 9,
           row: 5,
@@ -123,5 +126,30 @@ describe('TokenDialog', () => {
     expect(commands.sentAs('deleteToken')).toEqual([
       { name: 'deleteToken', campaignId: VHARN.id, fields: { tokenId: LYRA_ID } },
     ]);
+  });
+
+  it('the master creates a token with an image chosen in "Imagem"', async () => {
+    renderDialog();
+    const dialog = screen.getByRole('dialog', { name: 'Novo token' });
+    await userEvent.type(within(dialog).getByLabelText('Nome'), 'Lyra');
+    const file = new File([new Uint8Array(4)], 'lyra.png', { type: 'image/png' });
+
+    await userEvent.upload(within(dialog).getByLabelText('Arquivo de imagem'), file);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar token' }));
+
+    expect(commands.sentAs('createToken')[0]?.fields).toMatchObject({
+      imageAssetId: LYRA_PORTRAIT.id,
+    });
+  });
+
+  it('editing a token without touching its image sends the image it has', async () => {
+    renderDialog(lyra({ imageAssetId: LYRA_PORTRAIT.id }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(commands.sentAs('updateToken')[0]?.fields).toMatchObject({
+      tokenId: LYRA_ID,
+      imageAssetId: LYRA_PORTRAIT.id,
+    });
   });
 });

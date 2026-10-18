@@ -4,6 +4,7 @@ import {
   OFFLINE_MESSAGE,
   UNEXPECTED_MESSAGE,
 } from '@/features/campaigns/campaign-messages';
+import { facingLabel } from '@/lib/facing-label';
 import type { BoardCommandFailure } from '@/services/table-board-commands';
 import type { BoardStatus } from '@/stores/board-store';
 import type { TablePresenceState } from '@/stores/table-presence-store';
@@ -38,6 +39,7 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   drawing_not_found: 'Esse desenho não está mais na mesa.',
   drawing_limit: 'A cena já tem desenhos demais. Apague alguns antes.',
   stale_undo: STALE_UNDO_TEXT,
+  asset_not_found: 'Essa imagem não está mais na mesa.',
   invalid: 'Confira os campos e tente de novo.',
   rate_limited: 'Muitas ações seguidas. Espere um instante.',
   unauthenticated: 'Sua sessão terminou. Entre de novo.',
@@ -84,6 +86,16 @@ export function groupMovedAnnouncement(count: number): string {
 /** Example: `tokensMovedAnnouncement(2) // "2 tokens foram movidos."` */
 export function tokensMovedAnnouncement(count: number): string {
   return `${count} tokens foram movidos.`;
+}
+
+/** Example: `facedAnnouncement('Kael', 45) // 'Kael olha para o sudoeste.'` */
+export function facedAnnouncement(name: string, facing: number): string {
+  return `${name} olha para o ${facingLabel(facing)}.`;
+}
+
+/** Example: `groupTurnedAnnouncement(2) // "2 tokens giraram."` */
+export function groupTurnedAnnouncement(count: number): string {
+  return `${count} tokens giraram.`;
 }
 
 /** Example: `copiedAnnouncement(3) // "3 itens copiados."` */

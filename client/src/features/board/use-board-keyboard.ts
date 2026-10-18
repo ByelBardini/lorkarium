@@ -1,5 +1,5 @@
 import type { TokenDto } from '@lorkarium/contracts';
-import { cell } from '@lorkarium/game-core';
+import { cell, turnFacing } from '@lorkarium/game-core';
 import { useCallback } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { boardKeyOf, readingOrder, stepFrom, type BoardKey } from '@/lib/board-keys';
@@ -9,7 +9,9 @@ import type { BoardStore } from '@/stores/board-store';
 import {
   NOT_YOUR_TOKEN,
   OUT_OF_SCENE,
+  facedAnnouncement,
   groupMovedAnnouncement,
+  groupTurnedAnnouncement,
   movedAnnouncement,
   selectedAnnouncement,
 } from './board-messages';
@@ -46,6 +48,9 @@ export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.Keyboar
   );
 }
 
+// E turns clockwise on screen (+45), Q back (−45): the facing grows clockwise.
+const TURN: Readonly<Record<'turnBack' | 'turnOn', number>> = { turnBack: -45, turnOn: 45 };
+
 function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
   if (key === 'delete') return deleteSelectedDrawings(deps);
   const tokens = deps.board.getState().board?.tokens ?? [];
@@ -55,6 +60,7 @@ function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
   const [only] = selected;
   if (!only) return;
   if (key === 'open') return deps.onOpen(only.id);
+  if (key === 'turnBack' || key === 'turnOn') return turnByKey(deps, selected, TURN[key]);
   if (selected.length === 1) return moveByKey(only, STEP[key], deps.interaction);
   moveGroupByKey(deps, inSelectionOrder(selected, selectedTokenIds), STEP[key]);
 }
@@ -65,6 +71,23 @@ function deleteSelectedDrawings({ board, interaction }: BoardKeyboardDeps): void
   const drawings = board.getState().board?.drawings ?? [];
   const selected = drawings.filter(({ id }) => selectedDrawingIds.includes(id));
   if (selected.length > 0) void interaction.getState().deleteDrawings(selected);
+}
+
+// Every selected token turns in one command; one that is not this viewer's stops all of them.
+function turnByKey(deps: BoardKeyboardDeps, selected: readonly TokenDto[], delta: number): void {
+  const local = deps.interaction.getState();
+  if (selected.some(({ canControl }) => !canControl)) return local.say(NOT_YOUR_TOKEN);
+  const turns = selected.map(({ id, facing }) => ({
+    tokenId: id,
+    from: facing,
+    to: turnFacing(facing, delta),
+  }));
+  const [only] = selected;
+  const announce =
+    selected.length === 1 && only && turns[0]
+      ? facedAnnouncement(only.name, turns[0].to)
+      : groupTurnedAnnouncement(selected.length);
+  void local.faceTokens(turns, announce);
 }
 
 function inSelectionOrder(tokens: readonly TokenDto[], ids: readonly string[]): TokenDto[] {

@@ -78,6 +78,7 @@ describe('token form state', () => {
         side: 'ally',
         size: 1,
         controllerIds: [],
+        imageAssetId: null,
         bars: [{ label: 'PV', current: 10, max: 10, color: 'ember', visibility: 'controllers' }],
       },
     });

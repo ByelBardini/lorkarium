@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { DISCONNECTED_COMMAND, tokenCommandFailureMessage } from '@/features/board/board-messages';
+import type { AssetsApi } from '@/services/assets-api';
 import type {
   BoardCommandFailure,
   BoardCommandResult,
@@ -37,6 +38,7 @@ export type TokenDialogProps = Readonly<{
   layer: TokenLayerDto;
   players: readonly TokenPlayer[];
   commands: TableBoardCommands;
+  assets: AssetsApi;
   connected: boolean;
   onClose: () => void;
 }>;
@@ -78,7 +80,13 @@ export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
             save();
           }}
         >
-          <TokenForm form={form} errors={errors} players={players} onChange={setForm} />
+          <TokenForm
+            form={form}
+            errors={errors}
+            players={players}
+            image={{ campaignId: props.campaignId, assets: props.assets }}
+            onChange={setForm}
+          />
           {failure && (
             <Alert variant="destructive" className="px-3.5 py-3 text-sm">
               {tokenCommandFailureMessage(failure)}

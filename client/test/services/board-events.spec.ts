@@ -43,12 +43,32 @@ describe('parseBoardEvent', () => {
       'tokenLayerChanged',
       { tokenIds: ['5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a'], layer: 'objects' },
     ],
+    [
+      'token:facedMany',
+      'tokensFaced',
+      { faces: [{ tokenId: '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a', facing: 45 }] },
+    ],
+    [
+      'token:restyledMany',
+      'tokensRestyled',
+      { tokenIds: ['5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a'], style: { frame: 'round' } },
+    ],
   ])('a valid %s of the table is a %s event', (name, type, fields) => {
     const payload = { campaignId: VHARN.id, version: 6, at: '2026-10-16T12:00:00.000Z', ...fields };
     expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
       kind: 'event',
       event: { type, payload },
     });
+  });
+
+  it('a token:facedMany of the table with facing 360 is invalid (resync)', () => {
+    const payload = {
+      campaignId: VHARN.id,
+      version: 6,
+      at: '2026-10-16T12:00:00.000Z',
+      faces: [{ tokenId: '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a', facing: 360 }],
+    };
+    expect(parseBoardEvent('token:facedMany', payload, VHARN.id)).toEqual({ kind: 'invalid' });
   });
 
   it('a token:layerChanged of the table on an unknown layer is invalid', () => {

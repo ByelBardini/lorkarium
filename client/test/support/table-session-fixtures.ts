@@ -80,6 +80,7 @@ export const VHARN_SCENE: SceneDto = {
   cellUnit: 'm',
   gridVisible: true,
   gridOpacity: 30,
+  background: null,
 };
 
 /** The VHARN board as Ana (master) sees it at version 4: the empty default scene, no combat.
@@ -131,6 +132,11 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     row: 4,
     layer: 'tokens',
     controllerIds: [BIA_AT_TABLE.userId],
+    imageAssetId: null,
+    frame: 'square',
+    flipX: false,
+    flipY: false,
+    facing: 0,
     canControl: true,
     bars: [
       {

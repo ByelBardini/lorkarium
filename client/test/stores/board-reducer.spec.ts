@@ -6,6 +6,8 @@ import {
   LYRA_ID,
   kael,
   lyra,
+  sceneUpdated,
+  VHARN_SCENE,
   vharnBoard,
   vharnCombat,
 } from '../support/table-session-fixtures';
@@ -43,6 +45,55 @@ describe('applyBoardEvent, drawings', () => {
     });
 
     expect(next.drawings).toEqual([path()]);
+  });
+});
+
+describe('applyBoardEvent, facing and look', () => {
+  it('token:facedMany changes only the facing of the listed tokens', () => {
+    const board = vharnBoard({ tokens: [lyra(), kael()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokensFaced',
+      payload: { ...vharnEventBase(5), faces: [{ tokenId: LYRA_ID, facing: 135 }] },
+    });
+
+    expect(next.tokens.map(({ id, facing }) => [id, facing])).toEqual([
+      [LYRA_ID, 135],
+      [KAEL_ID, 0],
+    ]);
+    expect(next.version).toBe(5);
+  });
+
+  it('token:restyledMany with a flip changes only the flip', () => {
+    const board = vharnBoard({ tokens: [lyra({ frame: 'round' })] });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokensRestyled',
+      payload: { ...vharnEventBase(5), tokenIds: [LYRA_ID], style: { flipX: true } },
+    });
+
+    expect(next.tokens[0]).toMatchObject({ flipX: true, flipY: false, frame: 'round' });
+  });
+
+  it('token:restyledMany with a null image takes the image away', () => {
+    const board = vharnBoard({ tokens: [lyra({ imageAssetId: KAEL_ID })] });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokensRestyled',
+      payload: { ...vharnEventBase(5), tokenIds: [LYRA_ID], style: { imageAssetId: null } },
+    });
+
+    expect(next.tokens[0]?.imageAssetId).toBeNull();
+  });
+
+  it('scene:updated with a background brings it into the scene', () => {
+    const background = { assetId: KAEL_ID, width: 1400, height: 700 };
+    const next = applyBoardEvent(vharnBoard(), {
+      type: 'sceneUpdated',
+      payload: sceneUpdated({ scene: { ...VHARN_SCENE, background } }),
+    });
+
+    expect(next.scene.background).toEqual(background);
   });
 });
 

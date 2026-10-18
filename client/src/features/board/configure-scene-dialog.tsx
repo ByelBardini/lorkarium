@@ -1,4 +1,4 @@
-import type { SceneDto } from '@lorkarium/contracts';
+import type { AssetDto, SceneBackgroundDto, SceneDto } from '@lorkarium/contracts';
 import { useId, useState } from 'react';
 import { FormField } from '@/components/form-field';
 import { Alert } from '@/components/ui/alert';
@@ -15,42 +15,51 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { decimalText, digitsOnly } from '@/lib/numeric-text';
+import { cellsForImage, heightForWidth, isProportional } from '@/lib/scene-proportion';
+import type { AssetsApi } from '@/services/assets-api';
 import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-board-commands';
 import { DISCONNECTED_COMMAND, boardCommandFailureMessage } from './board-messages';
 import {
   gridFormOf,
+  keepProportion,
   parseGridForm,
   unitOptionsOf,
+  wholeOf,
+  withCells,
   type GridForm,
   type GridFormErrors,
   type GridFormField,
 } from './grid-form';
+import { SceneBackgroundField } from './scene-background-field';
 
-export type ConfigureGridDialogProps = Readonly<{
+export type ConfigureSceneDialogProps = Readonly<{
   campaignId: string;
   scene: SceneDto;
   commands: TableBoardCommands;
+  assets: AssetsApi;
   /** `false` while reconnecting: there is no queue, so nothing is sent. */
   connected: boolean;
   onClose: () => void;
 }>;
 
-/** "Configurar grid" (master): size, cell distance and unit, visibility and opacity. Mounted only
- *  while open, so every opening starts from the scene as it is now.
+/** "Configurar cena" (master): the background image, then size, cell distance and unit,
+ *  visibility and opacity. Mounted only while open, so every opening starts from the scene as it
+ *  is now.
  *
- *  Example: `{gridDialog && <ConfigureGridDialog campaignId={id} scene={scene} commands={commands} connected={live} onClose={close} />}` */
-export function ConfigureGridDialog(props: ConfigureGridDialogProps): React.JSX.Element {
-  const { campaignId, scene, commands, connected, onClose } = props;
-  const [form, setForm] = useState(() => gridFormOf(scene));
+ *  Example: `{sceneDialog && <ConfigureSceneDialog campaignId={id} scene={scene} commands={commands} assets={assets} connected={live} onClose={close} />}` */
+export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JSX.Element {
+  const { campaignId, scene, commands, assets, connected, onClose } = props;
+  const look = useSceneLook(scene);
   const [errors, setErrors] = useState<GridFormErrors>({});
   const [failure, setFailure] = useState<BoardCommandFailure | null>(null);
   const [saving, setSaving] = useState(false);
   const save = async (): Promise<void> => {
-    const parsed = parseGridForm(form);
+    const parsed = parseGridForm(look.form);
     setErrors(parsed.ok ? {} : parsed.errors);
     if (!parsed.ok) return;
     setSaving(true);
-    const result = await commands.configureScene(campaignId, parsed.grid);
+    const backgroundAssetId = look.background?.assetId ?? null;
+    const result = await commands.configureScene(campaignId, parsed.grid, backgroundAssetId);
     setSaving(false);
     if (result.ok) return onClose();
     setFailure(result.failure);
@@ -59,7 +68,7 @@ export function ConfigureGridDialog(props: ConfigureGridDialogProps): React.JSX.
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Configurar grid</DialogTitle>
+          <DialogTitle>Configurar cena</DialogTitle>
           <DialogDescription>Todos na mesa veem a mudança na hora.</DialogDescription>
         </DialogHeader>
         <form
@@ -70,7 +79,15 @@ export function ConfigureGridDialog(props: ConfigureGridDialogProps): React.JSX.
             void save();
           }}
         >
-          <GridFields form={form} errors={errors} onChange={setForm} />
+          <SceneBackgroundField
+            campaignId={campaignId}
+            assets={assets}
+            background={look.background}
+            locked={look.locked}
+            onBackground={look.chooseBackground}
+            onLocked={look.setLocked}
+          />
+          <GridFields form={look.form} errors={errors} onChange={look.changeForm} />
           {failure && (
             <Alert variant="destructive" className="px-3.5 py-3 text-sm">
               {boardCommandFailureMessage(failure)}
@@ -91,6 +108,40 @@ export function ConfigureGridDialog(props: ConfigureGridDialogProps): React.JSX.
       </DialogContent>
     </Dialog>
   );
+}
+
+type SceneLook = Readonly<{
+  form: GridForm;
+  background: SceneBackgroundDto | null;
+  locked: boolean;
+  changeForm: (form: GridForm) => void;
+  chooseBackground: (asset: AssetDto | null) => void;
+  setLocked: (locked: boolean) => void;
+}>;
+
+// The grid fields and the background move together: with the lock on, the cells follow the image.
+function useSceneLook(scene: SceneDto): SceneLook {
+  const [form, setForm] = useState(() => gridFormOf(scene));
+  const [background, setBackground] = useState(scene.background);
+  const [locked, setLockedState] = useState(
+    () => !scene.background || isProportional(scene, scene.background),
+  );
+  const chooseBackground = (asset: AssetDto | null): void => {
+    if (!asset) return setBackground(null);
+    const image = { assetId: asset.id, width: asset.width, height: asset.height };
+    setBackground(image);
+    setLockedState(true);
+    setForm(withCells(form, cellsForImage(image, wholeOf(form.widthCells) ?? scene.widthCells)));
+  };
+  const setLocked = (next: boolean): void => {
+    setLockedState(next);
+    const width = wholeOf(form.widthCells);
+    if (!next || !background || !width) return;
+    setForm({ ...form, heightCells: String(heightForWidth(background, width)) });
+  };
+  const changeForm = (next: GridForm): void =>
+    setForm(locked && background ? keepProportion(form, next, background) : next);
+  return { form, background, locked, changeForm, chooseBackground, setLocked };
 }
 
 type GridFieldsProps = Readonly<{

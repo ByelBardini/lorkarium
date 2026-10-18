@@ -2,7 +2,7 @@ import { cell, type Cell } from '@lorkarium/game-core';
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { BoardIntentListener, BoardRenderer, CreateBoardRenderer } from './board-renderer';
 import { boardCursorOf } from './board-cursor';
-import type { BoardView } from './board-view';
+import { imageUrlsOf, type BoardView } from './board-view';
 import {
   CELL_WORLD_SIZE,
   clampToScene,
@@ -15,6 +15,7 @@ import {
   type Size,
 } from './camera';
 import {
+  blocksBrowserMenu,
   cameraKeyAction,
   endRightDrag,
   keyboardPan,
@@ -28,7 +29,7 @@ import {
 import { cellAtWorld, gridLines, visibleWorldRect } from './grid-geometry';
 import {
   drawingsInMarquee,
-  layerMenuTarget,
+  tokenMenuTarget,
   marqueeRect,
   moveMarquee,
   startMarquee,
@@ -37,7 +38,10 @@ import {
 } from './marquee';
 import { DrawingGestures } from './drawing-gestures';
 import { PixiDrawingLayer } from './pixi-drawing-layer';
+import { PixiFacingHandle } from './pixi-facing-handle';
 import { drawMarqueeShape } from './pixi-marquee';
+import { PixiSceneBackground } from './pixi-scene-background';
+import { PixiTextureCache } from './pixi-texture-cache';
 import { PixiTokenLayer } from './pixi-token-layer';
 import { dropCellOf, movePress, pressToken, releasePress, type TokenPress } from './token-drag';
 
@@ -49,6 +53,7 @@ const LABEL_COLOR = 0xd5d0c4;
 const BUTTON_ZOOM_STEP = 1.25;
 const SECONDARY_BUTTON = 2;
 const PRIMARY_BUTTON = 0;
+const EDITABLE = 'input, textarea, [contenteditable]:not([contenteditable="false"])';
 
 /** The PixiJS board, as `AppDependencies.createBoardRenderer` in the app.
  *
@@ -71,8 +76,16 @@ class PixiBoardRenderer implements BoardRenderer {
   private dragCellKey: string | null = null;
   private hoverCellKey: string | null = null;
   private readonly drawings = new PixiDrawingLayer();
-  private readonly tokens = new PixiTokenLayer(prefersReducedMotion, this.drawings.layers);
+  // A texture that arrives later draws the last view again, with the image this time.
+  private readonly textures = new PixiTextureCache(() => this.view && this.draw(this.view));
+  private readonly background = new PixiSceneBackground(this.textures);
+  private readonly tokens = new PixiTokenLayer(
+    prefersReducedMotion,
+    this.drawings.layers,
+    this.textures,
+  );
   private readonly gestures = new DrawingGestures(this.drawings, (intent) => this.onIntent(intent));
+  private readonly facingHandle = new PixiFacingHandle((intent) => this.onIntent(intent));
   private readonly heldPanKeys = new Set<PanKey>();
   private readonly disposers: Array<() => void> = [];
   private readonly world = new Container();
@@ -97,8 +110,10 @@ class PixiBoardRenderer implements BoardRenderer {
     const { container: tokenLayer } = this.tokens;
     this.world.addChild(
       this.sceneShape,
+      this.background.container,
       this.grid,
       tokenLayer,
+      this.facingHandle.shape,
       this.drawings.draft,
       this.rulerShape,
       this.rulerText,
@@ -118,6 +133,8 @@ class PixiBoardRenderer implements BoardRenderer {
     this.view = view;
     if (!this.app) return;
     this.drawScene(view);
+    this.textures.retain(imageUrlsOf(view));
+    this.background.sync(view.background);
     this.showCursor();
     this.drawings.sync(view.drawings);
     this.tokens.sync(view.tokens, view.ghosts, performance.now());
@@ -166,6 +183,7 @@ class PixiBoardRenderer implements BoardRenderer {
   destroy(): void {
     this.destroyed = true;
     for (const dispose of this.disposers.splice(0)) dispose();
+    this.textures.destroy();
     this.app?.destroy(true, { children: true });
     this.app = null;
   }
@@ -189,6 +207,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private drawOverlays(view: BoardView): void {
     this.drawGrid(view);
     this.drawRuler(view);
+    this.facingHandle.draw(view, this.camera.zoom);
   }
 
   // Only the lines on screen, as hairlines whatever the zoom.
@@ -223,7 +242,7 @@ class PixiBoardRenderer implements BoardRenderer {
 
   private listen(host: HTMLElement, canvas: HTMLCanvasElement): void {
     this.on(canvas, 'wheel', (event) => this.onWheel(event), { passive: false });
-    this.on(canvas, 'contextmenu', (event) => event.preventDefault());
+    this.holdBackBrowserMenu(host);
     this.on(canvas, 'pointerdown', (event) => this.onPointerDown(event, canvas));
     this.on(canvas, 'pointermove', (event) => this.onPointerMove(event));
     this.on(canvas, 'pointerup', (event) => this.onPointerUp(event));
@@ -232,6 +251,18 @@ class PixiBoardRenderer implements BoardRenderer {
     this.on(host, 'keydown', (event) => this.onKeyDown(event));
     this.on(host, 'keyup', (event) => this.onKeyUp(event));
     this.on(host, 'blur', () => this.heldPanKeys.clear());
+  }
+
+  // On the document: the right click that opens our token menu lands on the page, not the canvas.
+  private holdBackBrowserMenu(host: HTMLElement): void {
+    const doc = host.ownerDocument;
+    const onMenu = (event: MouseEvent): void => {
+      const editable = event.target instanceof Element && event.target.closest(EDITABLE) !== null;
+      const click = { x: event.clientX, y: event.clientY, editable };
+      if (blocksBrowserMenu(click, host.getBoundingClientRect())) event.preventDefault();
+    };
+    doc.addEventListener('contextmenu', onMenu);
+    this.disposers.push(() => doc.removeEventListener('contextmenu', onMenu));
   }
 
   private showCursor(): void {
@@ -255,6 +286,7 @@ class PixiBoardRenderer implements BoardRenderer {
     const world = this.worldOf(event);
     if (this.view?.tool === 'draw') return this.gestures.startSketch(this.view, world);
     const selecting = this.view?.tool === 'select';
+    if (selecting && this.view && this.facingHandle.press(this.view, world)) return;
     const token = selecting ? this.tokens.tokenAt(world) : null;
     if (token)
       return void (this.tokenPress = pressToken(token.id, token.draggable, pointOf(event)));
@@ -275,6 +307,7 @@ class PixiBoardRenderer implements BoardRenderer {
       if (pan) this.showCursor();
       return;
     }
+    if (this.facingHandle.move(this.worldOf(event), event.shiftKey)) return;
     if (this.tokenPress) return this.dragToken(event, this.tokenPress);
     if (this.gestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
     if (this.marquee) return this.growMarquee(event, this.marquee);
@@ -362,6 +395,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private onPointerUp(event: PointerEvent): void {
     if (event.button === SECONDARY_BUTTON) return this.endRightClick(event);
     const primary = event.button === PRIMARY_BUTTON;
+    if (primary && this.facingHandle.release()) return;
     if (primary && this.gestures.release(this.worldOf(event), event.shiftKey)) return;
     if (event.button === PRIMARY_BUTTON && this.tokenPress) {
       return this.releaseToken(event, this.tokenPress);
@@ -372,13 +406,13 @@ class PixiBoardRenderer implements BoardRenderer {
     this.onIntent({ kind: 'pointerUp', cell: this.cellAt(event) });
   }
 
-  // Dragged, the right button moved the camera; a short click asks for the layer menu.
+  // Dragged, the right button moved the camera; a short click asks for the token menu.
   private endRightClick(event: PointerEvent): void {
     const drag = this.rightDrag;
     this.rightDrag = null;
     this.showCursor();
     if (!drag || !this.view || endRightDrag(drag) !== 'context') return;
-    const tokenId = layerMenuTarget(this.view, this.tokens.tokenAt(this.worldOf(event)));
+    const tokenId = tokenMenuTarget(this.view, this.tokens.tokenAt(this.worldOf(event)));
     if (!tokenId) return;
     this.onIntent({ kind: 'tokenMenuRequested', tokenId, x: event.clientX, y: event.clientY });
   }
@@ -388,6 +422,7 @@ class PixiBoardRenderer implements BoardRenderer {
       return this.cancelTokenDrag(this.tokenPress);
     }
     if (event.key === 'Escape' && this.gestures.cancel()) return;
+    if (event.key === 'Escape' && this.facingHandle.cancel()) return;
     const modified = event.ctrlKey || event.metaKey || event.altKey;
     const panKey = modified ? null : panKeyOf(event.key);
     if (panKey) return void this.heldPanKeys.add(panKey);

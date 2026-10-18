@@ -3,7 +3,7 @@ import type { Cell, SceneSize } from '@lorkarium/game-core';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import type { EditEntry } from '@/lib/edit-history';
+import type { EditEntry, TokenTurn } from '@/lib/edit-history';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { GroupMember, GroupPlacement } from '@/lib/token-group';
 import type { TokenRoute } from '@/lib/token-route';
@@ -20,6 +20,7 @@ import type { DrawingStyle } from '@/lib/drawing-style';
 import { deleteDrawingsOf, moveSelection, type SelectionMove } from './drawing-edit-flow';
 import { sendSketch, type FinishedSketch } from './drawing-tool-flow';
 import { TokenDragFlow } from './token-drag-flow';
+import { faceTokensOf, previewFacing } from './token-facing-flow';
 
 export type BoardTool = 'select' | 'ruler' | 'draw';
 
@@ -55,6 +56,8 @@ export type BoardInteractionState = Readonly<{
   canChooseLayer: boolean;
   /** The ghosts of the moves waiting for the server; empty with none. */
   preview: readonly TokenPreview[];
+  /** Where tokens look while turned here and not yet confirmed, by id. */
+  facingPreview: Readonly<Record<string, number>>;
   /** Where drawings were asked to go, until the server answers. */
   drawingPreview: readonly DrawingPreview[];
   drag: TokenDrag | null;
@@ -94,6 +97,10 @@ export type BoardInteractionStore = BoardInteractionState &
     /** The release: a move, unless it fell off the scene or back on its own cell. */
     dropToken: (tokenId: string, to: Cell | null, announce?: string) => Promise<void>;
     adjustBar: (tokenId: string, barId: string, change: BarChangeDto) => Promise<void>;
+    /** The handle or Q/E: one command for every turn, one entry on the undo stack. */
+    faceTokens: (turns: readonly TokenTurn[], announce?: string) => Promise<void>;
+    /** The handle being dragged (`null`: let go without a turn). */
+    previewFacing: (tokenId: string, facing: number | null) => void;
     /** The draw tool released: one drawing on the active layer, in `style`. */
     finishSketch: (sketch: FinishedSketch, style: DrawingStyle) => Promise<void>;
     /** Dragged drawings (and the tokens selected with them) dropped where they go. */
@@ -153,6 +160,7 @@ export function createBoardInteractionStore(
       activeLayer: 'tokens',
       canChooseLayer: false,
       preview: [],
+      facingPreview: {},
       drawingPreview: [],
       drag: null,
       hoverCell: null,
@@ -188,7 +196,8 @@ export function createBoardInteractionStore(
       },
       setReadOnly: (readOnly) => {
         if (readOnly) drags.forget();
-        set(readOnly ? { readOnly, preview: [], drawingPreview: [] } : { readOnly });
+        const previews = { preview: [], drawingPreview: [], facingPreview: {} };
+        set(readOnly ? { readOnly, ...previews } : { readOnly });
       },
       moveToken: (tokenId, to, announce) => drags.move({ tokenId, to, announce }),
       moveTokens: (moves, announce) => drags.moveGroup(moves, announce),
@@ -200,6 +209,8 @@ export function createBoardInteractionStore(
         const result = await deps.commands.adjustBar(deps.campaignId, tokenId, barId, change);
         sayIfRefused(deps, set, result);
       },
+      faceTokens: (turns, announce) => faceTokensOf(deps, store, turns, announce),
+      previewFacing: (tokenId, facing) => previewFacing(store, tokenId, facing),
       finishSketch: (sketch, style) => {
         const { activeLayer: layer, readOnly } = get();
         const say = (notice: string): void => set({ notice });
@@ -208,7 +219,7 @@ export function createBoardInteractionStore(
       },
       moveSelection: (move) => moveSelection(deps, store, move),
       deleteDrawings: (drawings) => deleteDrawingsOf(deps, store, drawings),
-      dropPreview: () => set({ preview: [], drawingPreview: [] }),
+      dropPreview: () => set({ preview: [], drawingPreview: [], facingPreview: {} }),
       command: async (send) => {
         if (get().readOnly) return false;
         const result = await send(deps.commands, deps.campaignId);
@@ -246,6 +257,7 @@ export function useLocalBoardView(
       activeLayer: state.activeLayer,
       canChooseLayer: state.canChooseLayer,
       preview: state.preview,
+      facingPreview: state.facingPreview,
       drag: state.drag,
       readOnly: state.readOnly,
       tool: state.tool,
@@ -262,6 +274,7 @@ type LocalViewField =
   | 'activeLayer'
   | 'canChooseLayer'
   | 'preview'
+  | 'facingPreview'
   | 'drag'
   | 'readOnly'
   | 'tool';

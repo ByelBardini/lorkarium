@@ -27,6 +27,8 @@ export type TokenFormValues = Readonly<{
   side: TokenSideDto;
   size: number;
   controllerIds: readonly string[];
+  /** The image of the token, or `null` for the initials disc. */
+  imageAssetId: string | null;
   bars: readonly BarFormValues[];
 }>;
 
@@ -64,6 +66,7 @@ export function emptyTokenForm(): TokenFormValues {
     side: 'ally',
     size: 1,
     controllerIds: [],
+    imageAssetId: null,
     bars: [],
   };
 }
@@ -72,7 +75,7 @@ export function emptyTokenForm(): TokenFormValues {
  *
  *  Example: `useState(() => tokenFormOf(token))` */
 export function tokenFormOf(token: TokenDto): TokenFormValues {
-  const { name, initials, side, size, controllerIds } = token;
+  const { name, initials, side, size, controllerIds, imageAssetId } = token;
   const bars = token.bars.map((bar) => ({
     key: nextBarKey(),
     label: bar.label,
@@ -81,7 +84,7 @@ export function tokenFormOf(token: TokenDto): TokenFormValues {
     color: bar.color,
     visibility: bar.visibility,
   }));
-  return { name, initials, initialsEdited: true, side, size, controllerIds, bars };
+  return { name, initials, initialsEdited: true, side, size, controllerIds, imageAssetId, bars };
 }
 
 /** The name changed: the initials follow it until edited by hand. */
@@ -126,6 +129,7 @@ export function parseTokenForm(form: TokenFormValues): TokenFormResult {
     side: form.side,
     size: form.size,
     controllerIds: form.controllerIds,
+    imageAssetId: form.imageAssetId,
     bars: form.bars.map(({ label, current, max, color, visibility }) => ({
       label,
       current: integerOf(current),

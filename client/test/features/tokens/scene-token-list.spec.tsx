@@ -80,6 +80,19 @@ describe('SceneTokenList', () => {
     );
   });
 
+  it('the card says where the token looks: "Olha para o sul" looking down, "oeste" at 90', () => {
+    renderList([lyra(), lyra({ id: KAEL_ID, name: 'Kael', facing: 90 })]);
+
+    act(() => interaction.getState().select(LYRA_ID));
+    expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).toHaveTextContent(
+      'Olha para o sul',
+    );
+    act(() => interaction.getState().select(KAEL_ID));
+    expect(screen.getByRole('region', { name: 'Cartão de Kael' })).toHaveTextContent(
+      'Olha para o oeste',
+    );
+  });
+
   it('selecting on the board expands the row', () => {
     renderList();
     act(() => interaction.getState().select(LYRA_ID));

@@ -70,16 +70,17 @@ export function drawingsInMarquee(rect: WorldRect, drawings: readonly DrawingVie
   return touched.map(({ id }) => id);
 }
 
-/** The token a short right click opens "Mover para camada" on, or `null` (a player, the empty
- *  board, or a token off the active layer).
+/** The token a short right click opens its menu on, or `null`: the master's on any token of the
+ *  active layer, a player's only on a token they may move (the empty board, someone else's
+ *  token or one off the active layer open nothing).
  *
- *  Example: `const tokenId = layerMenuTarget(view, layer.tokenAt(world))` */
-export function layerMenuTarget(
+ *  Example: `const tokenId = tokenMenuTarget(view, layer.tokenAt(world))` */
+export function tokenMenuTarget(
   view: Pick<BoardView, 'layerMenu'>,
   token: TokenView | null,
 ): string | null {
-  if (!view.layerMenu || !token?.pickable) return null;
-  return token.id;
+  if (!token?.pickable) return null;
+  return view.layerMenu || token.draggable ? token.id : null;
 }
 
 function touches(rect: WorldRect, token: TokenView): boolean {

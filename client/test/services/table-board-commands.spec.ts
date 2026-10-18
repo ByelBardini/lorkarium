@@ -103,6 +103,21 @@ describe('RealtimeTableBoardCommands', () => {
         () => commands.setTokenLayer(VHARN.id, [LYRA], 'objects'),
         { tokenIds: [LYRA], layer: 'objects' },
       ],
+      [
+        'token:faceMany',
+        () => commands.faceTokens(VHARN.id, [{ tokenId: LYRA, facing: 45 }]),
+        { faces: [{ tokenId: LYRA, facing: 45 }] },
+      ],
+      [
+        'token:faceMany',
+        () => commands.faceTokens(VHARN.id, [{ tokenId: LYRA, facing: 0, expect: { facing: 45 } }]),
+        { faces: [{ tokenId: LYRA, facing: 0, expect: { facing: 45 } }] },
+      ],
+      [
+        'token:restyleMany',
+        () => commands.restyleTokens(VHARN.id, [LYRA], { frame: 'round' }),
+        { tokenIds: [LYRA], style: { frame: 'round' } },
+      ],
     ] as const)(
       '%s goes out with the action id, the table and its fields',
       (event, send, fields) => {
@@ -147,6 +162,25 @@ describe('RealtimeTableBoardCommands', () => {
       const result = commands.moveTokens(VHARN.id, [{ tokenId: LYRA, col: 1, row: 1 }]);
       await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'token:moveMany');
       expect(await result).toEqual({ ok: false, failure });
+    });
+
+    it('a turn without expect sends no expect field at all', () => {
+      void commands.faceTokens(VHARN.id, [{ tokenId: LYRA, facing: 90 }]);
+      expect(transport.sent[0]?.payload).toEqual({
+        actionId: ACTION_ID,
+        campaignId: VHARN.id,
+        faces: [{ tokenId: LYRA, facing: 90 }],
+      });
+      expect(JSON.stringify(transport.sent[0]?.payload)).not.toContain('expect');
+    });
+
+    it('an image of another table refused with ASSET_NOT_FOUND is asset_not_found', async () => {
+      const result = commands.restyleTokens(VHARN.id, [LYRA], { imageAssetId: LYRA });
+      await transport.answerAck(
+        { ok: false, error: { code: 'ASSET_NOT_FOUND', message: 'x' } },
+        'token:restyleMany',
+      );
+      expect(await result).toEqual({ ok: false, failure: 'asset_not_found' });
     });
 
     it('a layer change whose ack never arrives is offline', async () => {
