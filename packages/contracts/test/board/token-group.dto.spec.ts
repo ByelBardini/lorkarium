@@ -170,6 +170,7 @@ const GOBLIN_WITHOUT_LAYER = {
   bars: [{ label: 'PV', current: 7, max: 7, color: 'ember', visibility: 'everyone' }],
 } as const;
 const GOBLIN = { ...GOBLIN_WITHOUT_LAYER, layer: 'tokens' } as const;
+const PLAIN_LOOK = { imageAssetId: null, frame: 'square', flipX: false, flipY: false, facing: 0 };
 
 function tokensOf(count: number) {
   return Array.from({ length: count }, () => GOBLIN);
@@ -179,7 +180,23 @@ describe('createTokensCommandDto', () => {
   it('two tokens shaped like token:create without actionId and campaignId are accepted', () => {
     const parsed = createTokensCommandDto.parse({ ...BASE, tokens: tokensOf(2) });
 
-    expect(parsed.tokens).toEqual([GOBLIN, GOBLIN]);
+    expect(parsed.tokens).toEqual([
+      { ...GOBLIN, ...PLAIN_LOOK },
+      { ...GOBLIN, ...PLAIN_LOOK },
+    ]);
+  });
+
+  it('a token sent without appearance has no image, a square frame, no flip and looks down', () => {
+    const parsed = createTokensCommandDto.parse({ ...BASE, tokens: [GOBLIN] });
+
+    expect(parsed.tokens[0]).toMatchObject(PLAIN_LOOK);
+  });
+
+  it('a copied token keeps its image, frame, flips and facing', () => {
+    const look = { imageAssetId: CHEST_ID, frame: 'round', flipX: true, flipY: true, facing: 135 };
+    const parsed = createTokensCommandDto.parse({ ...BASE, tokens: [{ ...GOBLIN, ...look }] });
+
+    expect(parsed.tokens[0]).toMatchObject(look);
   });
 
   it('a token sent without a layer lands on tokens, as in token:create', () => {

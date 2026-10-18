@@ -20,6 +20,7 @@ const SCENE = {
   cellUnit: 'm',
   gridVisible: true,
   gridOpacity: 30,
+  background: null,
 };
 const STATE = {
   campaignId: CAMPAIGN_ID,

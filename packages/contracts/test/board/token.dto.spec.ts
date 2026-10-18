@@ -53,7 +53,15 @@ function keysOf(issue: object): string[] {
 
 describe('createTokenCommandDto', () => {
   it('a token with two bars and no layer is accepted on the tokens layer', () => {
-    expect(createTokenCommandDto.parse(CREATE)).toEqual({ ...CREATE, layer: 'tokens' });
+    expect(createTokenCommandDto.parse(CREATE)).toEqual({
+      ...CREATE,
+      layer: 'tokens',
+      imageAssetId: null,
+      frame: 'square',
+      flipX: false,
+      flipY: false,
+      facing: 0,
+    });
   });
 
   it('a token sent on the objects layer keeps it', () => {
@@ -136,6 +144,11 @@ describe('tokenDto', () => {
       row: 4,
       layer: 'tokens',
       controllerIds: [BIA_ID],
+      imageAssetId: null,
+      frame: 'square',
+      flipX: false,
+      flipY: false,
+      facing: 0,
       canControl: false,
       bars: [bar(1), bar(2)],
       conditions: [],

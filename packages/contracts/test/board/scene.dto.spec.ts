@@ -28,6 +28,21 @@ describe('configureSceneCommandDto', () => {
     expect(configureSceneCommandDto.parse(COMMAND)).toEqual(COMMAND);
   });
 
+  it('a background asset id or null (take it away) is accepted as sent', () => {
+    const backgroundAssetId = '7f6e5d4c-3b2a-4f1e-8d9c-8b7a6f5e4d3c';
+
+    expect(configureSceneCommandDto.parse({ ...COMMAND, backgroundAssetId })).toMatchObject({
+      backgroundAssetId,
+    });
+    expect(issuePathsOf({ ...COMMAND, backgroundAssetId: null })).toEqual([]);
+  });
+
+  it('a background that is not an asset id is refused on backgroundAssetId', () => {
+    expect(issuePathsOf({ ...COMMAND, backgroundAssetId: 'mapa.png' })).toEqual([
+      'backgroundAssetId',
+    ]);
+  });
+
   it.each([1, 100])('%s cells wide is accepted', (widthCells) => {
     expect(issuePathsOf({ ...COMMAND, widthCells })).toEqual([]);
   });

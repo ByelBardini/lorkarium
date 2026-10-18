@@ -18,6 +18,16 @@ const sceneGridShape = {
   gridOpacity: z.number().int().min(0).max(GRID_OPACITY_MAX),
 };
 
+/** The background image stretched over the whole scene; `width`/`height` are the image's pixels
+ *  (the client derives the proportion from them). */
+export const sceneBackgroundDto = z.strictObject({
+  assetId: z.uuid(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+
+export type SceneBackgroundDto = z.infer<typeof sceneBackgroundDto>;
+
 /** The active scene of a campaign.
  *
  *  Example: `sceneDto.parse(state.scene).widthCells // 20` */
@@ -25,17 +35,21 @@ export const sceneDto = z.strictObject({
   id: z.uuid(),
   name: z.string(),
   ...sceneGridShape,
+  background: sceneBackgroundDto.nullable(),
 });
 
 export type SceneDto = z.infer<typeof sceneDto>;
 
 /** Payload of `scene:configure`, sent by the master; who asks comes from the connection.
+ *  `backgroundAssetId`: an asset of the campaign sets the background, `null` takes it away, absent
+ *  keeps it.
  *
  *  Example: `configureSceneCommandDto.parse({ actionId, campaignId, ...grid })` */
 export const configureSceneCommandDto = z.strictObject({
   actionId: z.uuid(),
   campaignId: z.uuid(),
   ...sceneGridShape,
+  backgroundAssetId: z.uuid().nullable().optional(),
 });
 
 export type ConfigureSceneCommandDto = z.infer<typeof configureSceneCommandDto>;
