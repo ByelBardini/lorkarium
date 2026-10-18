@@ -23,9 +23,9 @@ const LUCIDE_VIEWBOX = 24;
 const iconContexts = new Map<string, GraphicsContext>();
 
 /** The condition icons of one token, in round badges along its top-right corner, and "+N" for
- *  the rest. Rebuilt only when the marks or the token's size change.
+ *  the rest. Rebuilt only when the marks or the token's width change.
  *
- *  Example: `marks.draw(view, view.size * CELL_WORLD_SIZE)` */
+ *  Example: `marks.draw(view, view.width * CELL_WORLD_SIZE)` */
 export class PixiConditionMarks {
   readonly container = new Container();
   private drawnKey = '';

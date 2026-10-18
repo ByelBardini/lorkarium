@@ -6,6 +6,7 @@ import {
   facingFromDrag,
   handleAt,
   handlePointOf,
+  handleStemOf,
   handleTokenOf,
 } from '@/renderer/facing-handle';
 
@@ -14,11 +15,13 @@ const CELL = CELL_WORLD_SIZE;
 function kael(overrides: Partial<TokenView> = {}): TokenView {
   return {
     id: 'kael',
+    name: 'kael',
     initials: 'KA',
     ring: 'ally',
     col: 2,
     row: 2,
-    size: 1,
+    width: 1,
+    height: 1,
     bar: null,
     layer: 'tokens',
     pickable: true,
@@ -37,18 +40,34 @@ function kael(overrides: Partial<TokenView> = {}): TokenView {
 const CENTER = { x: 2 * CELL + CELL / 2, y: 2 * CELL + CELL / 2 };
 
 describe('handlePointOf', () => {
-  it('a token looking down (0) has its handle below its center, past the edge', () => {
+  it('a token looking right (0) has its handle right of its center, past the edge', () => {
     const point = handlePointOf(kael());
+
+    expect(point.x).toBeCloseTo(CENTER.x + CELL / 2 + HANDLE_GAP);
+    expect(point.y).toBeCloseTo(CENTER.y);
+  });
+
+  it('a token looking down (90) has its handle below', () => {
+    const point = handlePointOf(kael({ facing: 90 }));
 
     expect(point.x).toBeCloseTo(CENTER.x);
     expect(point.y).toBeCloseTo(CENTER.y + CELL / 2 + HANDLE_GAP);
   });
+});
 
-  it('a token looking left (90) has its handle to the left', () => {
-    const point = handlePointOf(kael({ facing: 90 }));
+describe('handleStemOf', () => {
+  it('looking right (0), the stem starts at the right edge, not at the center, and ends at the handle', () => {
+    const { from, to } = handleStemOf(kael());
+    expect(from.x).toBeCloseTo(CENTER.x + CELL / 2, 6);
+    expect(from.y).toBeCloseTo(CENTER.y, 6);
+    expect(to.x).toBeCloseTo(CENTER.x + CELL / 2 + HANDLE_GAP, 6);
+  });
 
-    expect(point.x).toBeCloseTo(CENTER.x - CELL / 2 - HANDLE_GAP);
-    expect(point.y).toBeCloseTo(CENTER.y);
+  it('a 2×1 token looking right starts the stem at its right edge', () => {
+    const wide = kael({ width: 2, facing: 0 });
+    const center = { x: 3 * CELL, y: 2.5 * CELL };
+    expect(handleStemOf(wide).from.x).toBeCloseTo(center.x + CELL, 6);
+    expect(handleStemOf(wide).from.y).toBeCloseTo(center.y, 6);
   });
 });
 
@@ -62,12 +81,12 @@ describe('handleAt', () => {
 });
 
 describe('facingFromDrag', () => {
-  it('dragging the handle to the left of the token turns it to 90', () => {
-    expect(facingFromDrag(kael(), { x: CENTER.x - 50, y: CENTER.y }, 0, false)).toBe(90);
+  it('dragging the handle to the left of the token turns it to 180', () => {
+    expect(facingFromDrag(kael(), { x: CENTER.x - 50, y: CENTER.y }, 0, false)).toBe(180);
   });
 
   it('with Shift, 100° snaps to 90', () => {
-    const at100 = { x: CENTER.x - Math.sin(1.745) * 50, y: CENTER.y + Math.cos(1.745) * 50 };
+    const at100 = { x: CENTER.x + Math.cos(1.745) * 50, y: CENTER.y + Math.sin(1.745) * 50 };
 
     expect(facingFromDrag(kael(), at100, 0, false)).toBe(100);
     expect(facingFromDrag(kael(), at100, 0, true)).toBe(90);

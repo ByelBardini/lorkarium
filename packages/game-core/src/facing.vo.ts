@@ -1,4 +1,5 @@
-/** Where a token looks, in whole degrees: 0 = down the screen, growing clockwise (90 = left, 180 = up, 270 = right). */
+/** Where a token looks, in whole degrees: 0 = right, growing clockwise on screen (90 = down, 180 = left, 270 = up): the handle
+ *  and the mark start on the right, clear of the name under the token. */
 export type Facing = number;
 
 const FULL_TURN = 360;

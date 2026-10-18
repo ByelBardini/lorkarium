@@ -10,6 +10,7 @@ import {
   type TokenStyleDto,
   type UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
+import type { TokenBox } from '@lorkarium/game-core';
 import type { RealtimeTransport } from './realtime-transport';
 
 export type BoardCommandFailure =
@@ -51,6 +52,9 @@ export type DrawingPosition = Readonly<{ x: number; y: number }>;
 export type DrawingPlacement = Readonly<{ drawingId: string }> & DrawingPosition;
 /** A drawing move; `expect` (an undo) is where it must still be, or STALE_UNDO. */
 export type DrawingMoveTarget = DrawingPlacement & Readonly<{ expect?: DrawingPosition }>;
+/** The box one token of a group gets; `expect` (an undo) is the box it must still have. */
+export type TokenResizeTarget = TokenBox & Readonly<{ tokenId: string; expect?: TokenBox }>;
+
 /** Where one token of a group turns to; `expect` (an undo) is the facing it must still have. */
 export type TokenFacingTarget = Readonly<{
   tokenId: string;
@@ -111,6 +115,11 @@ export interface TableBoardCommands {
   ): Promise<BoardCommandResult>;
   /** Turns a group (master or controllers, tokens layer), all or nothing in one version. */
   faceTokens(campaignId: string, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult>;
+  /** Sizes and origins after the handles (`token:resizeMany`); the controllers' to choose. */
+  resizeTokens(
+    campaignId: string,
+    resizes: readonly TokenResizeTarget[],
+  ): Promise<BoardCommandResult>;
   /** Changes the look of a group (master or controllers), all or nothing in one version. */
   restyleTokens(
     campaignId: string,
@@ -305,6 +314,21 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
     return this.send(BOARD_EVENTS.faceTokens, campaignId, { faces: turned });
   }
 
+  resizeTokens(
+    campaignId: string,
+    resizes: readonly TokenResizeTarget[],
+  ): Promise<BoardCommandResult> {
+    const boxes = resizes.map(({ tokenId, col, row, width, height, expect }) => ({
+      tokenId,
+      col,
+      row,
+      width,
+      height,
+      ...(expect && { expect: boxOf(expect) }),
+    }));
+    return this.send(BOARD_EVENTS.resizeTokens, campaignId, { resizes: boxes });
+  }
+
   restyleTokens(
     campaignId: string,
     tokenIds: readonly string[],
@@ -429,4 +453,8 @@ function resultOf(answer: unknown): BoardCommandResult {
     return createdIds ? { ok: true, version, createdIds } : { ok: true, version };
   }
   return { ok: false, failure: FAILURE_BY_CODE[parsed.data.error.code] ?? 'unexpected' };
+}
+
+function boxOf({ col, row, width, height }: TokenBox): TokenBox {
+  return { col, row, width, height };
 }

@@ -3,7 +3,7 @@ import { cell, turnFacing } from '@lorkarium/game-core';
 import { useCallback } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { boardKeyOf, readingOrder, stepFrom, type BoardKey } from '@/lib/board-keys';
-import { shiftGroup } from '@/lib/token-group';
+import { groupMemberOf, shiftGroup } from '@/lib/token-group';
 import { singleSelectedOf, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
 import {
@@ -105,7 +105,7 @@ function moveGroupByKey(
   const [anchor] = group;
   if (!scene || !anchor) return;
   if (group.some(({ canControl }) => !canControl)) return local.say(NOT_YOUR_TOKEN);
-  const members = group.map(({ id, col, row, size }) => ({ tokenId: id, col, row, size }));
+  const members = group.map(groupMemberOf);
   const to = { col: anchor.col + dx, row: anchor.row + dy };
   const moves = shiftGroup(scene, members, anchor, to);
   if (!moves) return local.say(OUT_OF_SCENE);

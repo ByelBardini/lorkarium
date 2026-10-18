@@ -17,6 +17,8 @@ const GRID = {
   gridOpacity: 15,
 };
 
+const BOX_1X1 = { col: 3, row: 4, width: 1, height: 1 };
+
 describe('RealtimeTableBoardCommands', () => {
   let transport: RealtimeTransportFake;
   let commands: RealtimeTableBoardCommands;
@@ -114,6 +116,14 @@ describe('RealtimeTableBoardCommands', () => {
         { faces: [{ tokenId: LYRA, facing: 0, expect: { facing: 45 } }] },
       ],
       [
+        'token:resizeMany',
+        () =>
+          commands.resizeTokens(VHARN.id, [
+            { tokenId: LYRA, col: 2.5, row: 4, width: 1.5, height: 1, expect: BOX_1X1 },
+          ]),
+        { resizes: [{ tokenId: LYRA, col: 2.5, row: 4, width: 1.5, height: 1, expect: BOX_1X1 }] },
+      ],
+      [
         'token:restyleMany',
         () => commands.restyleTokens(VHARN.id, [LYRA], { frame: 'round' }),
         { tokenIds: [LYRA], style: { frame: 'round' } },
@@ -133,7 +143,8 @@ describe('RealtimeTableBoardCommands', () => {
         name: 'Lyra',
         initials: 'LY',
         side: 'ally',
-        size: 1,
+        width: 1,
+        height: 1,
         controllerIds: [],
         bars: [],
       };
@@ -162,6 +173,13 @@ describe('RealtimeTableBoardCommands', () => {
       const result = commands.moveTokens(VHARN.id, [{ tokenId: LYRA, col: 1, row: 1 }]);
       await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'token:moveMany');
       expect(await result).toEqual({ ok: false, failure });
+    });
+
+    it('a resize without expect sends no expect field at all', () => {
+      void commands.resizeTokens(VHARN.id, [
+        { tokenId: LYRA, col: 3, row: 4, width: 2, height: 2 },
+      ]);
+      expect(JSON.stringify(transport.sent[0]?.payload)).not.toContain('expect');
     });
 
     it('a turn without expect sends no expect field at all', () => {
@@ -265,7 +283,8 @@ describe('RealtimeTableBoardCommands', () => {
       name: 'Goblin 2',
       initials: 'G2',
       side: 'enemy',
-      size: 1,
+      width: 1,
+      height: 1,
       col: 6,
       row: 6,
       layer: 'tokens',

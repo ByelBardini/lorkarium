@@ -5,11 +5,11 @@ const ORIGIN = { x: 0, y: 0 };
 
 describe('facingToward', () => {
   it.each([
-    ['below', 0, { x: 0, y: 5 }],
-    ['to the left', 90, { x: -3, y: 0 }],
-    ['above', 180, { x: 0, y: -2 }],
-    ['to the right', 270, { x: 4, y: 0 }],
-    ['down and to the left', 45, { x: -1, y: 1 }],
+    ['to the right', 0, { x: 4, y: 0 }],
+    ['below', 90, { x: 0, y: 5 }],
+    ['to the left', 180, { x: -3, y: 0 }],
+    ['above', 270, { x: 0, y: -2 }],
+    ['down and to the left', 135, { x: -1, y: 1 }],
   ])('a point %s gives %s', (_where, expected, target) => {
     expect(facingToward(ORIGIN, target)).toBe(expected);
   });
@@ -20,16 +20,16 @@ describe('facingToward', () => {
 });
 
 describe('facingVector', () => {
-  it('0 points down the screen', () => {
+  it('0 points right, away from the name under the token', () => {
     const vector = facingVector(0);
-    expect(vector.x).toBeCloseTo(0);
-    expect(vector.y).toBeCloseTo(1);
+    expect(vector.x).toBeCloseTo(1);
+    expect(vector.y).toBeCloseTo(0);
   });
 
-  it('90 points left, clockwise on screen', () => {
+  it('90 points down, clockwise on screen', () => {
     const vector = facingVector(90);
-    expect(vector.x).toBeCloseTo(-1);
-    expect(vector.y).toBeCloseTo(0);
+    expect(vector.x).toBeCloseTo(0);
+    expect(vector.y).toBeCloseTo(1);
   });
 });
 

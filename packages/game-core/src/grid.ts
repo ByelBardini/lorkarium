@@ -1,4 +1,5 @@
 import type { Cell } from './cell.vo';
+import type { TokenSize } from './token-size.vo';
 
 /** Scene size in cells. */
 export type SceneSize = Readonly<{ widthCells: number; heightCells: number }>;
@@ -21,15 +22,11 @@ export function pathDistance(path: readonly Cell[]): number {
   }, 0);
 }
 
-/** Whether a square token of `size` cells, anchored at its top-left `origin`, stays inside the scene.
+/** Whether a token of `size`, anchored at its top-left `origin`, stays inside the scene.
  *
- *  Example: `footprintFits({ widthCells: 20, heightCells: 12 }, cell(18, 10), 2)` → `true` */
-export function footprintFits(scene: SceneSize, origin: Cell, size: number): boolean {
-  assertTokenSize(size);
-  return origin.col + size <= scene.widthCells && origin.row + size <= scene.heightCells;
-}
-
-function assertTokenSize(size: number): void {
-  if (Number.isInteger(size) && size >= 1) return;
-  throw new RangeError(`Token size ${String(size)} is invalid: expected inteiro ≥ 1.`);
+ *  Example: `footprintFits({ widthCells: 20, heightCells: 12 }, cell(18, 10), tokenSize(2, 1))` → `true` */
+export function footprintFits(scene: SceneSize, origin: Cell, size: TokenSize): boolean {
+  return (
+    origin.col + size.width <= scene.widthCells && origin.row + size.height <= scene.heightCells
+  );
 }

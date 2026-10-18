@@ -34,7 +34,8 @@ const CREATE = {
   name: 'Lyra',
   initials: 'LY',
   side: 'ally',
-  size: 1,
+  width: 1,
+  height: 1,
   col: 3,
   row: 4,
   controllerIds: [BIA_ID],
@@ -95,8 +96,20 @@ describe('createTokenCommandDto', () => {
     expect(issuePathsOf({ ...CREATE, initials })).toEqual(['initials']);
   });
 
-  it.each([0, 5, 1.5])('size %s is refused', (size) => {
-    expect(issuePathsOf({ ...CREATE, size })).toEqual(['size']);
+  it.each([0.5, 2.5, 10])('width %s passes (half-cell steps up to ten)', (width) => {
+    expect(issuePathsOf({ ...CREATE, width })).toEqual([]);
+  });
+
+  it.each([0, 0.25, 10.5])('height %s is refused', (height) => {
+    expect(issuePathsOf({ ...CREATE, height })).toEqual(['height']);
+  });
+
+  it('a half-cell position passes and a quarter cell is refused citing the value', () => {
+    expect(issuePathsOf({ ...CREATE, col: 1.5 })).toEqual([]);
+    const result = createTokenCommandDto.safeParse({ ...CREATE, row: 1.25 });
+    expect(result.error?.issues.map(({ message }) => message)).toEqual([
+      expect.stringMatching(/1\.25.*multiple of 0\.5/),
+    ]);
   });
 
   it('side "boss" is refused', () => {
@@ -139,7 +152,8 @@ describe('tokenDto', () => {
       name: 'Lyra',
       initials: 'LY',
       side: 'ally',
-      size: 1,
+      width: 1,
+      height: 1,
       col: 3,
       row: 4,
       layer: 'tokens',

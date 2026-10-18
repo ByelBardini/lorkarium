@@ -9,7 +9,9 @@ export const BAR_VALUE_LIMIT = 99_999;
 export const TOKEN_NAME_MAX_LENGTH = 60;
 export const TOKEN_INITIALS_MAX_LENGTH = 3;
 export const BAR_LABEL_MAX_LENGTH = 24;
-export const TOKEN_SIZE_MAX = 4;
+/** A token side goes from half a cell to ten, in steps of half a cell (game-core `tokenSize`). */
+export const TOKEN_SIZE_MIN = 0.5;
+export const TOKEN_SIZE_MAX = 10;
 
 export const tokenSideDto = z.enum(['ally', 'enemy', 'neutral']);
 export type TokenSideDto = z.infer<typeof tokenSideDto>;
@@ -32,7 +34,7 @@ export type TokenFrameDto = z.infer<typeof tokenFrameDto>;
 
 export const FACING_MAX = 359;
 
-/** Where a token looks, in whole degrees: 0 = down, clockwise on screen (game-core `Facing`). */
+/** Where a token looks, in whole degrees: 0 = right, clockwise on screen (game-core `Facing`). */
 export const facingDto = z.number().superRefine((value, context) => {
   if (Number.isInteger(value) && value >= 0 && value <= FACING_MAX) return;
   context.addIssue({
@@ -50,7 +52,23 @@ const tokenAppearanceShape = {
 };
 
 const barCurrentDto = z.number().int().min(-BAR_VALUE_LIMIT).max(BAR_VALUE_LIMIT);
-export const cellIndexDto = z.number().int().nonnegative();
+
+/** A number in steps of half a cell from `min` to `max`, refused citing `noun` and the value.
+ *
+ *  Example: `halfCellDto('width', 0.5, 10).parse(2.5)` → `2.5` */
+export function halfCellDto(noun: string, min: number, max: number) {
+  return z.number().superRefine((value, context) => {
+    if (Number.isInteger(value * 2) && value >= min && value <= max) return;
+    context.addIssue({
+      code: 'custom',
+      message: `${noun} ${value} is invalid; expected a multiple of 0.5 from ${min} to ${max}`,
+    });
+  });
+}
+
+/** A token position on the grid: half cells allowed, so a 0.5 token stands at 1.5. */
+export const cellIndexDto = halfCellDto('cell', 0, Number.MAX_SAFE_INTEGER);
+export const tokenSideLengthDto = halfCellDto('token side', TOKEN_SIZE_MIN, TOKEN_SIZE_MAX);
 
 /** A bar as the master writes it (create or edit); its position is its index in the list. */
 export const barInputDto = z.strictObject({
@@ -77,7 +95,8 @@ const tokenFieldsShape = {
   name: z.string().trim().min(1).max(TOKEN_NAME_MAX_LENGTH),
   initials: z.string().trim().min(1).max(TOKEN_INITIALS_MAX_LENGTH),
   side: tokenSideDto,
-  size: z.number().int().min(1).max(TOKEN_SIZE_MAX),
+  width: tokenSideLengthDto,
+  height: tokenSideLengthDto,
   controllerIds: z.array(z.uuid()).max(32),
 };
 
@@ -100,7 +119,7 @@ export const tokenDto = z.strictObject({
 export type TokenDto = z.infer<typeof tokenDto>;
 
 /** `token:create` (master); without a `layer` the token lands on `tokens`, and without appearance
- *  it is the initials disc looking down (a paste sends the copied look and facing).
+ *  it is the initials disc looking right (a paste sends the copied look and facing).
  *
  *  Example: `createTokenCommandDto.parse({ actionId, campaignId, name, …, layer: 'objects' })` */
 export const createTokenCommandDto = z.strictObject({

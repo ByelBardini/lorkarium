@@ -104,16 +104,25 @@ describe('SceneTokenList', () => {
     );
   });
 
-  it('the card says where the token looks: "Olha para o sul" looking down, "oeste" at 90', () => {
+  it('the card says where the token looks: "Olha para o leste" at 0, "sul" at 90', () => {
     renderList([lyra(), lyra({ id: KAEL_ID, name: 'Kael', facing: 90 })]);
 
     act(() => interaction.getState().select(LYRA_ID));
     expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).toHaveTextContent(
-      'Olha para o sul',
+      'Olha para o leste',
     );
     act(() => interaction.getState().select(KAEL_ID));
     expect(screen.getByRole('region', { name: 'Cartão de Kael' })).toHaveTextContent(
-      'Olha para o oeste',
+      'Olha para o sul',
+    );
+  });
+
+  it('the card says the sides of the token, with a comma for half a cell', () => {
+    renderList([lyra({ width: 2.5, height: 1 })]);
+
+    act(() => interaction.getState().select(LYRA_ID));
+    expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).toHaveTextContent(
+      '2,5 × 1 casas',
     );
   });
 

@@ -2,10 +2,13 @@ import { Container, Graphics, Text, type Texture } from 'pixi.js';
 import type { BarColorDto, TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
 import { facingVector } from '@lorkarium/game-core';
 import type { GhostView, TokenView } from './board-view';
-import { CELL_WORLD_SIZE, type Point, zoomProofTextResolution } from './camera';
+import { type Point, zoomProofTextResolution } from './camera';
 import { PixiConditionMarks } from './pixi-condition-marks';
 import { PixiTokenArt, ROUND_RADIUS_SHARE } from './pixi-token-art';
 import type { PixiTextureCache } from './pixi-texture-cache';
+import { showsNameTag } from './name-tag';
+import { PixiNameTag } from './pixi-name-tag';
+import { tokenContains, tokenWorldRect } from './token-box';
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const DISC_COLOR = 0x1b1f25;
@@ -34,6 +37,7 @@ type TokenSprite = Readonly<{
   shape: Graphics;
   label: Text;
   marks: PixiConditionMarks;
+  nameTag: PixiNameTag;
 }> & { view: TokenView; from: Point; to: Point; startedMs: number };
 
 const FACING_MARK_LENGTH = 7;
@@ -52,6 +56,7 @@ export class PixiTokenLayer {
   private readonly sprites = new Map<string, TokenSprite>();
   private readonly ghost = new Graphics();
   private dragging: string | null = null;
+  private hovered: string | null = null;
   private drawn: readonly TokenView[] = [];
 
   /** `beneath`: what each layer draws under its tokens (the drawings of that layer); `textures`:
@@ -85,16 +90,27 @@ export class PixiTokenLayer {
   /** The topmost token of the active layer under a world point: the others cannot be taken. */
   tokenAt(world: Point): TokenView | null {
     const topFirst = [...this.drawn].reverse();
-    return topFirst.find((view) => view.pickable && contains(view, world)) ?? null;
+    return topFirst.find((view) => view.pickable && tokenContains(view, world)) ?? null;
   }
 
-  /** Follows the pointer while a token is dragged (centered on it). */
+  /** The token under the pointer shows its name (selected ones always do); `null` hides it. */
+  hover(tokenId: string | null): void {
+    if (tokenId === this.hovered) return;
+    const before = this.hovered ? this.sprites.get(this.hovered) : undefined;
+    this.hovered = tokenId;
+    if (before) this.draw(before);
+    const now = tokenId ? this.sprites.get(tokenId) : undefined;
+    if (now) this.draw(now);
+  }
+
+  /** Follows the pointer while a token is dragged: `world` is where its center goes (the hold
+   *  the press took is kept by the caller, `heldCenterOf`). */
   drag(tokenId: string, world: Point): void {
     const sprite = this.sprites.get(tokenId);
     if (!sprite) return;
     this.dragging = tokenId;
-    const half = (sprite.view.size * CELL_WORLD_SIZE) / 2;
-    sprite.root.position.set(world.x - half, world.y - half);
+    const rect = tokenWorldRect(sprite.view);
+    sprite.root.position.set(world.x - rect.width / 2, world.y - rect.height / 2);
   }
 
   /** Back to the confirmed cell: the ghost or the confirmed event shows where it goes. */
@@ -125,8 +141,11 @@ export class PixiTokenLayer {
     const known = this.sprites.get(view.id);
     if (!known) return this.add(view, target, nowMs);
     const moved = known.to.x !== target.x || known.to.y !== target.y;
+    // The glide is for moves; a resize (the size changed) follows the handle at once.
+    const resized = known.view.width !== view.width || known.view.height !== view.height;
     if (moved) {
-      known.from = this.reducedMotion() ? target : { x: known.root.x, y: known.root.y };
+      const instant = this.reducedMotion() || resized;
+      known.from = instant ? target : { x: known.root.x, y: known.root.y };
       known.to = target;
       known.startedMs = nowMs;
     }
@@ -138,6 +157,7 @@ export class PixiTokenLayer {
   private draw(sprite: TokenSprite): void {
     const art = sprite.view.art;
     drawToken(sprite, art ? (this.textures?.textureOf(art.url) ?? null) : null);
+    sprite.nameTag.draw(sprite.view, showsNameTag(sprite.view, this.hovered));
   }
 
   private add(view: TokenView, at: Point, nowMs: number): void {
@@ -156,7 +176,8 @@ export class PixiTokenLayer {
     const marks = new PixiConditionMarks();
     const disc = new Graphics();
     const art = new PixiTokenArt();
-    root.addChild(disc, art.container, shape, label, marks.container);
+    const nameTag = new PixiNameTag();
+    root.addChild(disc, art.container, shape, label, marks.container, nameTag.container);
     root.position.set(at.x, at.y);
     this.layers[view.layer].addChild(root);
     const sprite: TokenSprite = {
@@ -166,6 +187,7 @@ export class PixiTokenLayer {
       shape,
       label,
       marks,
+      nameTag,
       view,
       from: at,
       to: at,
@@ -178,45 +200,54 @@ export class PixiTokenLayer {
   private drawGhosts(ghosts: readonly GhostView[]): void {
     this.ghost.clear();
     for (const ghost of ghosts) {
-      const size = ghost.size * CELL_WORLD_SIZE;
-      const corner = { x: ghost.col * CELL_WORLD_SIZE, y: ghost.row * CELL_WORLD_SIZE };
+      const rect = tokenWorldRect(ghost);
+      const radius = { x: rect.width * ROUND_RADIUS_SHARE, y: rect.height * ROUND_RADIUS_SHARE };
       this.ghost
-        .circle(corner.x + size / 2, corner.y + size / 2, size * 0.42)
+        .ellipse(rect.x + rect.width / 2, rect.y + rect.height / 2, radius.x, radius.y)
         .stroke({ width: 2, color: GOLD_COLOR, alpha: 0.6 });
     }
   }
+}
+
+// The token's size in world px and the radii of its disc (an ellipse once it is stretched).
+type TokenShape = Readonly<{ width: number; height: number; rx: number; ry: number }>;
+
+function shapeOf(view: TokenView): TokenShape {
+  const { width, height } = tokenWorldRect(view);
+  return { width, height, rx: width * ROUND_RADIUS_SHARE, ry: height * ROUND_RADIUS_SHARE };
 }
 
 // With its image loaded the token is the image (square: no disc; round: cropped with the side
 // ring); until then, or when it fails, the initials disc. The facing mark only when the view asks.
 function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   const { disc, art, shape, label, marks, view } = sprite;
-  const size = view.size * CELL_WORLD_SIZE;
-  const center = size / 2;
-  const radius = size * ROUND_RADIUS_SHARE;
+  const box = shapeOf(view);
+  const center = { x: box.width / 2, y: box.height / 2 };
   const image = texture && view.art;
   const square = Boolean(image && view.art?.frame === 'square');
   disc.clear();
-  if (!image) disc.circle(center, center, radius).fill(DISC_COLOR);
-  art.draw(view.art, texture, size, view.facing);
+  if (!image) disc.ellipse(center.x, center.y, box.rx, box.ry).fill(DISC_COLOR);
+  art.draw(view.art, texture, box, view.facing);
   shape.clear();
   if (!square)
-    shape.circle(center, center, radius).stroke({ width: 3, color: RING_COLOR[view.ring] });
-  drawOutlines(shape, view, size, square);
-  drawBar(shape, view, size);
-  if (view.facingMark) drawFacingMark(shape, view.facing, center, radius);
-  marks.draw(view, size);
+    shape
+      .ellipse(center.x, center.y, box.rx, box.ry)
+      .stroke({ width: 3, color: RING_COLOR[view.ring] });
+  drawOutlines(shape, view, box, square);
+  drawBar(shape, view, box);
+  if (view.facingMark) drawFacingMark(shape, view.facing, box);
+  marks.draw(view, box.width);
   label.visible = !image;
   label.text = view.initials;
-  label.style.fontSize = Math.round(size * 0.3);
-  label.position.set(center, center);
+  label.style.fontSize = Math.round(Math.min(box.width, box.height) * 0.3);
+  label.position.set(center.x, center.y);
 }
 
 // The turn and selection rings follow the token's outline: a square image gets square ones.
-function drawOutlines(shape: Graphics, view: TokenView, size: number, square: boolean): void {
+function drawOutlines(shape: Graphics, view: TokenView, box: TokenShape, square: boolean): void {
   const outline = (gap: number, width: number): void => {
-    if (square) shape.rect(-gap, -gap, size + gap * 2, size + gap * 2);
-    else shape.circle(size / 2, size / 2, size * ROUND_RADIUS_SHARE + gap);
+    if (square) shape.rect(-gap, -gap, box.width + gap * 2, box.height + gap * 2);
+    else shape.ellipse(box.width / 2, box.height / 2, box.rx + gap, box.ry + gap);
     shape.stroke({ width, color: GOLD_COLOR });
   };
   if (view.onTurn) outline(9, 4);
@@ -224,10 +255,10 @@ function drawOutlines(shape: Graphics, view: TokenView, size: number, square: bo
 }
 
 // A small triangle on the border pointing where the token looks; it stays when nothing turns.
-function drawFacingMark(shape: Graphics, facing: number, center: number, radius: number): void {
+function drawFacingMark(shape: Graphics, facing: number, box: TokenShape): void {
   const ahead = facingVector(facing);
   const side = { x: -ahead.y, y: ahead.x };
-  const base = { x: center + ahead.x * radius, y: center + ahead.y * radius };
+  const base = { x: box.width / 2 + ahead.x * box.rx, y: box.height / 2 + ahead.y * box.ry };
   const tip = {
     x: base.x + ahead.x * FACING_MARK_LENGTH,
     y: base.y + ahead.y * FACING_MARK_LENGTH,
@@ -244,27 +275,17 @@ function drawFacingMark(shape: Graphics, facing: number, center: number, radius:
     .fill(GOLD_COLOR);
 }
 
-function drawBar(shape: Graphics, view: TokenView, size: number): void {
+function drawBar(shape: Graphics, view: TokenView, box: TokenShape): void {
   if (!view.bar) return;
-  const width = size * 0.8;
-  const left = (size - width) / 2;
-  const top = size - 8;
+  const width = box.width * 0.8;
+  const left = (box.width - width) / 2;
+  const top = box.height - 8;
   shape.rect(left, top, width, 5).fill(BAR_TRACK_COLOR);
   shape.rect(left, top, width * view.bar.fraction, 5).fill(BAR_COLOR[view.bar.color]);
   if (view.bar.state === 'negative') shape.rect(left, top, 2, 5).fill(NEGATIVE_COLOR);
 }
 
 function cornerOf(view: TokenView): Point {
-  return { x: view.col * CELL_WORLD_SIZE, y: view.row * CELL_WORLD_SIZE };
-}
-
-function contains(view: TokenView, world: Point): boolean {
-  const corner = cornerOf(view);
-  const size = view.size * CELL_WORLD_SIZE;
-  return (
-    world.x >= corner.x &&
-    world.x < corner.x + size &&
-    world.y >= corner.y &&
-    world.y < corner.y + size
-  );
+  const { x, y } = tokenWorldRect(view);
+  return { x, y };
 }

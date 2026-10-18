@@ -18,6 +18,7 @@ import type {
   TokenDto,
   TokenUpdatedDto,
   TokensDeletedDto,
+  TokensResizedDto,
   TokensDraggedDto,
   TokensFacedDto,
   TokensMovedDto,
@@ -60,6 +61,8 @@ export interface BoardPublisherPort {
   /** The facing and the look are not secrets: the whole table gets the same events. */
   tokensFaced(event: TokensFacedDto): void;
   tokensRestyled(event: TokensRestyledDto): void;
+  /** The size is not a secret either. */
+  tokensResized(event: TokensResizedDto): void;
   /** Drawings have no secret: the whole table gets the same events. */
   drawingsCreated(event: DrawingsCreatedDto): void;
   drawingsMoved(event: DrawingsMovedDto): void;

@@ -156,22 +156,22 @@ describe('board keyboard', () => {
       return deps.boardCommands.sentAs('faceTokens').map(({ fields }) => fields);
     }
 
-    it('E on Kael sends one turn to 45 and says "Kael olha para o sudoeste." once confirmed', async () => {
+    it('E on Kael sends one turn to 45 and says "Kael olha para o sudeste." once confirmed', async () => {
       await userEvent.keyboard(']]');
       await userEvent.keyboard('e');
       await act(() => Promise.resolve());
 
       expect(faced()).toEqual([{ faces: [{ tokenId: KAEL_ID, facing: 45 }] }]);
-      expect(status()).toHaveTextContent('Kael olha para o sudoeste.');
+      expect(status()).toHaveTextContent('Kael olha para o sudeste.');
     });
 
-    it('Q on Kael looking down turns him to 315, the southeast', async () => {
+    it('Q on Kael looking right turns him to 315, the northeast', async () => {
       await userEvent.keyboard(']]');
       await userEvent.keyboard('q');
       await act(() => Promise.resolve());
 
       expect(faced()).toEqual([{ faces: [{ tokenId: KAEL_ID, facing: 315 }] }]);
-      expect(status()).toHaveTextContent('Kael olha para o sudeste.');
+      expect(status()).toHaveTextContent('Kael olha para o nordeste.');
     });
 
     it('two selected and E turn both 45° in one command', async () => {
@@ -206,7 +206,7 @@ describe('board keyboard', () => {
 
       expect(kael?.facing).toBe(90);
       expect(faced()).toEqual([{ faces: [{ tokenId: KAEL_ID, facing: 90 }] }]);
-      expect(status()).toHaveTextContent('Kael olha para o oeste.');
+      expect(status()).toHaveTextContent('Kael olha para o sul.');
     });
 
     it('a refused turn puts the facing back and says why', async () => {

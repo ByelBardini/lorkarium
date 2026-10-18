@@ -1,9 +1,9 @@
 import type { BarChangeDto, TokenLayerDto } from '@lorkarium/contracts';
-import type { Cell, SceneSize } from '@lorkarium/game-core';
+import type { Cell, SceneSize, TokenBox } from '@lorkarium/game-core';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import type { EditEntry, TokenTurn } from '@/lib/edit-history';
+import type { EditEntry, TokenResize, TokenTurn } from '@/lib/edit-history';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { GroupMember, GroupPlacement } from '@/lib/token-group';
 import type { TokenRoute } from '@/lib/token-route';
@@ -21,6 +21,7 @@ import { deleteDrawingsOf, moveSelection, type SelectionMove } from './drawing-e
 import { sendSketch, type FinishedSketch } from './drawing-tool-flow';
 import { TokenDragFlow } from './token-drag-flow';
 import { faceTokensOf, previewFacing } from './token-facing-flow';
+import { previewResize, resizeTokensOf } from './token-resize-flow';
 
 export type BoardTool = 'select' | 'ruler' | 'draw';
 
@@ -58,6 +59,8 @@ export type BoardInteractionState = Readonly<{
   preview: readonly TokenPreview[];
   /** Where tokens look while turned here and not yet confirmed, by id. */
   facingPreview: Readonly<Record<string, number>>;
+  /** The box tokens get while resized here and not yet confirmed, by id. */
+  resizePreview: Readonly<Record<string, TokenBox>>;
   /** Where drawings were asked to go, until the server answers. */
   drawingPreview: readonly DrawingPreview[];
   drag: TokenDrag | null;
@@ -101,6 +104,10 @@ export type BoardInteractionStore = BoardInteractionState &
     faceTokens: (turns: readonly TokenTurn[], announce?: string) => Promise<void>;
     /** The handle being dragged (`null`: let go without a turn). */
     previewFacing: (tokenId: string, facing: number | null) => void;
+    /** The handles: one command for every resize, one entry on the undo stack. */
+    resizeTokens: (resizes: readonly TokenResize[], announce?: string) => Promise<void>;
+    /** The handle being dragged (`null`: let go without a resize). */
+    previewResize: (tokenId: string, box: TokenBox | null) => void;
     /** The draw tool released: one drawing on the active layer, in `style`. */
     finishSketch: (sketch: FinishedSketch, style: DrawingStyle) => Promise<void>;
     /** Dragged drawings (and the tokens selected with them) dropped where they go. */
@@ -161,6 +168,7 @@ export function createBoardInteractionStore(
       canChooseLayer: false,
       preview: [],
       facingPreview: {},
+      resizePreview: {},
       drawingPreview: [],
       drag: null,
       hoverCell: null,
@@ -196,7 +204,7 @@ export function createBoardInteractionStore(
       },
       setReadOnly: (readOnly) => {
         if (readOnly) drags.forget();
-        const previews = { preview: [], drawingPreview: [], facingPreview: {} };
+        const previews = { preview: [], drawingPreview: [], facingPreview: {}, resizePreview: {} };
         set(readOnly ? { readOnly, ...previews } : { readOnly });
       },
       moveToken: (tokenId, to, announce) => drags.move({ tokenId, to, announce }),
@@ -211,6 +219,8 @@ export function createBoardInteractionStore(
       },
       faceTokens: (turns, announce) => faceTokensOf(deps, store, turns, announce),
       previewFacing: (tokenId, facing) => previewFacing(store, tokenId, facing),
+      resizeTokens: (resizes, announce) => resizeTokensOf(deps, store, resizes, announce),
+      previewResize: (tokenId, box) => previewResize(store, tokenId, box),
       finishSketch: (sketch, style) => {
         const { activeLayer: layer, readOnly } = get();
         const say = (notice: string): void => set({ notice });
@@ -219,7 +229,8 @@ export function createBoardInteractionStore(
       },
       moveSelection: (move) => moveSelection(deps, store, move),
       deleteDrawings: (drawings) => deleteDrawingsOf(deps, store, drawings),
-      dropPreview: () => set({ preview: [], drawingPreview: [], facingPreview: {} }),
+      dropPreview: () =>
+        set({ preview: [], drawingPreview: [], facingPreview: {}, resizePreview: {} }),
       command: async (send) => {
         if (get().readOnly) return false;
         const result = await send(deps.commands, deps.campaignId);
@@ -258,6 +269,7 @@ export function useLocalBoardView(
       canChooseLayer: state.canChooseLayer,
       preview: state.preview,
       facingPreview: state.facingPreview,
+      resizePreview: state.resizePreview,
       drag: state.drag,
       readOnly: state.readOnly,
       tool: state.tool,
@@ -275,6 +287,7 @@ type LocalViewField =
   | 'canChooseLayer'
   | 'preview'
   | 'facingPreview'
+  | 'resizePreview'
   | 'drag'
   | 'readOnly'
   | 'tool';

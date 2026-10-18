@@ -212,6 +212,10 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
       }));
       return created(await commands.faceTokens(campaignId, faces), []);
     }
+    case 'tokensResized': {
+      const resizes = op.resizes.map(({ tokenId, from, to }) => ({ tokenId, ...to, expect: from }));
+      return created(await commands.resizeTokens(campaignId, resizes), []);
+    }
     case 'drawingsMoved': {
       const moves = op.moves.map(({ drawingId, from, to }) => ({
         drawingId,

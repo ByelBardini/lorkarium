@@ -10,6 +10,7 @@ import type {
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
+  TokensResizedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
   TokenLayerChangedDto,
@@ -111,6 +112,10 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
 
   tokensRestyled(event: TokensRestyledDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('token:restyledMany', event);
+  }
+
+  tokensResized(event: TokensResizedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('token:resizedMany', event);
   }
 
   // A drawing is not a secret: the layer only decides who picks it up, not who sees it.

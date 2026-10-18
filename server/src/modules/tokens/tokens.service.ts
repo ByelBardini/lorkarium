@@ -88,7 +88,7 @@ export class TokensService {
     const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
       const rules = this.rulesFor(scene, memberIds);
-      rules.place(found.token, command.size);
+      rules.place(found.token, command);
       const update = toTokenUpdatePo(command, rules.controllers(command.controllerIds));
       await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
       await daos.tokens.update(found.token.id, update);
@@ -103,7 +103,7 @@ export class TokensService {
     const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
       tokenAccessOf(access, found).requireMove('move', found.token.layer);
-      const { col, row } = this.rulesFor(scene, []).place(command, found.token.size);
+      const { col, row } = this.rulesFor(scene, []).place(command, found.token);
       await daos.tokens.move(found.token.id, col, row);
       return { col, row };
     });
@@ -244,7 +244,7 @@ export class TokensService {
     rows.forEach((row, index) => {
       tokenAccessOf(access, row).requireMove(action, row.token.layer);
       const cell = cells[index]?.cell;
-      if (cell) rules.place(cell, row.token.size);
+      if (cell) rules.place(cell, row.token);
     });
     return rows;
   }

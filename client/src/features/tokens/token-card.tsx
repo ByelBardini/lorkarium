@@ -2,6 +2,7 @@ import type { TokenBarDto, TokenDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { barFill, barToneVar, formatBarValue } from '@/lib/bar-display';
+import { cellsText } from '@/lib/cells-text';
 import { facingLabel } from '@/lib/facing-label';
 import { cn } from '@/lib/utils';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
@@ -26,7 +27,8 @@ export function TokenCard({ token, board, interaction, isMaster, onEdit }: Token
   return (
     <section aria-label={`Cartão de ${token.name}`} className="flex flex-col gap-3 pt-2 pb-3 pl-10">
       <p className="text-xs text-muted-foreground">
-        {cellLabel(token.col, token.row)} · Olha para o {facingLabel(token.facing)}
+        {cellLabel(token.col, token.row)} · {sizeLabel(token)} · Olha para o{' '}
+        {facingLabel(token.facing)}
       </p>
       {token.bars.length === 0 && <p className="text-sm text-muted-foreground">Sem barras.</p>}
       <ul className="flex flex-col gap-3">
@@ -92,5 +94,9 @@ export function BarLine({ bar }: Readonly<{ bar: TokenBarDto }>): React.JSX.Elem
 
 // Counted from 1, as a person counts cells (the status line says it the same way).
 function cellLabel(col: number, row: number): string {
-  return `Coluna ${col + 1}, linha ${row + 1}`;
+  return `Coluna ${cellsText(col + 1)}, linha ${cellsText(row + 1)}`;
+}
+
+function sizeLabel({ width, height }: Pick<TokenDto, 'width' | 'height'>): string {
+  return `${cellsText(width)} × ${cellsText(height)} casas`;
 }

@@ -26,6 +26,7 @@ import {
   setTokenLayerCommandDto,
   faceTokensCommandDto,
   restyleTokensCommandDto,
+  resizeTokensCommandDto,
   startCombatCommandDto,
   updateTokenCommandDto,
   type ApiErrorDto,
@@ -66,7 +67,7 @@ export type BoardGatewayDeps = Readonly<{
     'create' | 'update' | 'move' | 'moveMany' | 'dragMany' | 'setLayer' | 'adjustBar' | 'delete'
   >;
   tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany'>;
-  tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany'>;
+  tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany' | 'resizeMany'>;
   conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove'>;
   combat: Pick<
     CombatService,
@@ -171,6 +172,10 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     socket.on(
       'token:restyleMany',
       mutate(restyleTokensCommandDto, appearance.restyleMany.bind(appearance)),
+    );
+    socket.on(
+      'token:resizeMany',
+      mutate(resizeTokensCommandDto, appearance.resizeMany.bind(appearance)),
     );
     socket.on('token:adjustBar', mutate(adjustBarCommandDto, tokens.adjustBar.bind(tokens)));
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));

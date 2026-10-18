@@ -57,7 +57,16 @@ describe('TokensDao on Postgres', () => {
 
   function lyra(overrides: Partial<NewTokenRow> = {}): NewTokenRow {
     return {
-      token: { sceneId, name: 'Lyra', initials: 'LY', side: 'ally', size: 1, col: 3, row: 4 },
+      token: {
+        sceneId,
+        name: 'Lyra',
+        initials: 'LY',
+        side: 'ally',
+        width: 1,
+        height: 1,
+        col: 3,
+        row: 4,
+      },
       bars: [PV, INSPIRATION],
       controllerIds: [biaId],
       ...overrides,
@@ -78,7 +87,7 @@ describe('TokensDao on Postgres', () => {
     expect((await tokens.insert(lyra())).token.layer).toBe('tokens');
   });
 
-  it('a token inserted without a look is the square disc with no image looking down', async () => {
+  it('a token inserted without a look is the square disc with no image looking right (facing 0)', async () => {
     expect((await tokens.insert(lyra())).token).toMatchObject({
       imageAssetId: null,
       frame: 'square',
@@ -92,6 +101,32 @@ describe('TokensDao on Postgres', () => {
     const turned = lyra({ token: { ...lyra().token, facing: 360 } });
 
     await expect(tokens.insert(turned)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
+  });
+
+  it('a half-cell box (1.5 × 0.5 at 2.5, 3) reads back exactly', async () => {
+    const box = { col: 2.5, row: 3, width: 1.5, height: 0.5 };
+    const saved = await tokens.insert(lyra({ token: { ...lyra().token, ...box } }));
+
+    expect((await tokens.findInScene(sceneId, saved.token.id))?.token).toMatchObject(box);
+  });
+
+  it.each([
+    ['width', 0.25],
+    ['height', 10.5],
+    ['col', 1.25],
+  ])('a %s of %s is refused by the CHECK of the table', async (field, value) => {
+    const odd = lyra({ token: { ...lyra().token, [field]: value } });
+
+    await expect(tokens.insert(odd)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
+  });
+
+  it('resizeMany writes the new box of each listed token', async () => {
+    const saved = await tokens.insert(lyra());
+
+    await tokens.resizeMany([{ tokenId: saved.token.id, col: 2, row: 4, width: 2, height: 1 }]);
+
+    const found = await tokens.findInScene(sceneId, saved.token.id);
+    expect(found?.token).toMatchObject({ col: 2, row: 4, width: 2, height: 1 });
   });
 
   it('insert on the background layer reads back on the background layer', async () => {
@@ -171,12 +206,17 @@ describe('TokensDao on Postgres', () => {
   it('update replaces the fields, the bars and the controllers', async () => {
     const saved = await tokens.insert(lyra());
     await tokens.update(saved.token.id, {
-      fields: { name: 'Lyra, a Rubra', initials: 'LR', side: 'neutral', size: 2 },
+      fields: { name: 'Lyra, a Rubra', initials: 'LR', side: 'neutral', width: 2.5, height: 0.5 },
       bars: [INSPIRATION],
       controllerIds: [],
     });
     const found = await tokens.findInScene(sceneId, saved.token.id);
-    expect(found?.token).toMatchObject({ name: 'Lyra, a Rubra', size: 2, side: 'neutral' });
+    expect(found?.token).toMatchObject({
+      name: 'Lyra, a Rubra',
+      width: 2.5,
+      height: 0.5,
+      side: 'neutral',
+    });
     expect(found?.bars.map(({ label, position }) => [label, position])).toEqual([
       ['Inspiração', 0],
     ]);

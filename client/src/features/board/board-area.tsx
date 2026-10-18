@@ -7,6 +7,7 @@ import {
 import type { OpenTableView } from '@/features/sessions/use-open-table';
 import type { BoardIntent, BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
 import { selectionMoveOf } from '@/lib/selection-move';
+import { groupMemberOf } from '@/lib/token-group';
 import type { BoardInteractionStore, DragGroup } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
@@ -17,6 +18,7 @@ import type { TokenMenuRequest } from './token-context-menu';
 import {
   BOARD_LOAD_FAILED,
   facedAnnouncement,
+  resizedAnnouncement,
   OUT_OF_SCENE,
   movedAnnouncement,
   tokensMovedAnnouncement,
@@ -117,6 +119,10 @@ function routeIntent(
     return local.previewFacing(intent.tokenId, intent.facing);
   }
   if (intent.kind === 'tokenFaced') return faceByHandle({ board, interaction }, intent);
+  if (intent.kind === 'tokenResizePreviewed') {
+    return local.previewResize(intent.tokenId, intent.box);
+  }
+  if (intent.kind === 'tokenResized') return resizeByHandle({ board, interaction }, intent);
   if (intent.kind !== 'tokenDropped') return local.pointer(intent);
   void local.dropToken(
     intent.tokenId,
@@ -135,6 +141,23 @@ function faceByHandle(
   if (!token || token.facing === intent.facing) return local.previewFacing(intent.tokenId, null);
   const turn = { tokenId: token.id, from: token.facing, to: intent.facing };
   void local.faceTokens([turn], facedAnnouncement(token.name, intent.facing));
+}
+
+// Released on the box it already had, the handles resize nothing.
+function resizeByHandle(
+  { board, interaction }: IntentStores,
+  intent: Extract<BoardIntent, { kind: 'tokenResized' }>,
+): void {
+  const local = interaction.getState();
+  const token = board.getState().board?.tokens.find(({ id }) => id === intent.tokenId);
+  const { col, row, width, height } = intent.box;
+  const same = token?.col === col && token.row === row;
+  if (!token || (same && token.width === width && token.height === height)) {
+    return local.previewResize(intent.tokenId, null);
+  }
+  const from = { col: token.col, row: token.row, width: token.width, height: token.height };
+  const resize = { tokenId: token.id, from, to: intent.box };
+  void local.resizeTokens([resize], resizedAnnouncement(token.name, intent.box));
 }
 
 // The drawings dragged carry the tokens selected with them; past the edge, nothing moves.
@@ -165,7 +188,7 @@ function dragGroupOf({ board, interaction }: IntentStores, anchorId: string): Dr
   const ids = [anchorId, ...grouped.filter((id) => id !== anchorId && movable(id))];
   const members = ids.flatMap((id) => {
     const token = state.tokens.find((candidate) => candidate.id === id);
-    return token ? [{ tokenId: id, col: token.col, row: token.row, size: token.size }] : [];
+    return token ? [groupMemberOf(token)] : [];
   });
   const { widthCells, heightCells } = state.scene;
   return { members, scene: { widthCells, heightCells } };

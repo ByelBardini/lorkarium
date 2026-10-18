@@ -439,7 +439,9 @@ describe('play room page', () => {
       expect(deps.boardCommands.sentAs('moveToken')).toEqual([
         { name: 'moveToken', campaignId: VHARN.id, fields: { tokenId: LYRA_ID, col: 8, row: 6 } },
       ]);
-      expect(lastView()?.ghosts).toEqual([{ tokenId: LYRA_ID, col: 8, row: 6, size: 1 }]);
+      expect(lastView()?.ghosts).toEqual([
+        { tokenId: LYRA_ID, col: 8, row: 6, width: 1, height: 1 },
+      ]);
       deps.tableSessionApi.emit({ kind: 'boardEvent', event: tokenMovedAt(5, { col: 8, row: 6 }) });
       await act(async () => deps.boardCommands.release());
       expect(lastView()?.tokens[0]).toMatchObject({ col: 8, row: 6 });

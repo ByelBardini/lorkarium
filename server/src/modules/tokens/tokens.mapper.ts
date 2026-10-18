@@ -18,7 +18,7 @@ export function toTokenDto(
   audience: TokenAudience,
   conditions: readonly ActiveConditionDto[] = [],
 ): TokenDto {
-  const { id, name, initials, side, size, col, row: tokenRow, layer } = row.token;
+  const { id, name, initials, side, width, height, col, row: tokenRow, layer } = row.token;
   const { imageAssetId, frame, flipX, flipY, facing } = row.token;
   const bars = row.bars.filter((bar) => audience === 'privileged' || bar.visibility === 'everyone');
   return {
@@ -26,7 +26,8 @@ export function toTokenDto(
     name,
     initials,
     side,
-    size,
+    width,
+    height,
     col,
     row: tokenRow,
     layer,
@@ -57,7 +58,7 @@ export function toBarInputsPo(bars: readonly BarInputDto[]): TokenBarInputPo[] {
 
 type UpdatedFields = Pick<
   UpdateTokenCommandDto,
-  'name' | 'initials' | 'side' | 'size' | 'controllerIds' | 'bars' | keyof TokenLookPo
+  'name' | 'initials' | 'side' | 'width' | 'height' | 'controllerIds' | 'bars' | keyof TokenLookPo
 >;
 
 /** `token:update` fields → what to save, with the controllers already checked by the rule; a look
@@ -68,9 +69,9 @@ export function toTokenUpdatePo(
   command: UpdatedFields,
   controllerIds: readonly string[],
 ): TokenUpdatePo {
-  const { name, initials, side, size } = command;
+  const { name, initials, side, width, height } = command;
   return {
-    fields: { name, initials, side, size, ...definedLookOf(command) },
+    fields: { name, initials, side, width, height, ...definedLookOf(command) },
     bars: toBarInputsPo(command.bars),
     controllerIds,
   };

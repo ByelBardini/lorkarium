@@ -48,7 +48,8 @@ describe('tokens mapper', () => {
       name: 'Lyra',
       initials: 'LY',
       side: 'ally',
-      size: 1,
+      width: 1,
+      height: 1,
       controllerIds: [BIA_ID],
       bars: [],
     } as const;
@@ -63,7 +64,8 @@ describe('tokens mapper', () => {
       name: 'Lyra',
       initials: 'LY',
       side: 'ally',
-      size: 1,
+      width: 1,
+      height: 1,
       imageAssetId: null,
     });
     expect(without.fields).not.toHaveProperty('imageAssetId');
@@ -80,14 +82,15 @@ describe('tokens mapper', () => {
         name: 'Lyra',
         initials: 'LY',
         side: 'ally',
-        size: 1,
+        width: 1,
+        height: 1,
         controllerIds: [BIA_ID],
         bars: [{ label: 'PV', current: 1, max: 9, color: 'ember', visibility: 'everyone' }],
       },
       [BIA_ID],
     );
     expect(update).toEqual({
-      fields: { name: 'Lyra', initials: 'LY', side: 'ally', size: 1 },
+      fields: { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 },
       bars: [{ label: 'PV', current: 1, max: 9, color: 'ember', visibility: 'everyone' }],
       controllerIds: [BIA_ID],
     });

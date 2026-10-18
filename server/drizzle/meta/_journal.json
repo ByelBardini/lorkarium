@@ -92,6 +92,20 @@
       "when": 1792257633639,
       "tag": "0012_token_appearance",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792293713466,
+      "tag": "0013_token_box",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792293714940,
+      "tag": "0014_token_box_drop_size",
+      "breakpoints": true
     }
   ]
 }

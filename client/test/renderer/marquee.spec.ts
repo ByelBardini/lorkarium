@@ -19,11 +19,13 @@ const CELL = CELL_WORLD_SIZE;
 function tokenView(overrides: Partial<TokenView> = {}): TokenView {
   return {
     id: 'lyra',
+    name: 'lyra',
     initials: 'LY',
     ring: 'ally',
     col: 0,
     row: 0,
-    size: 1,
+    width: 1,
+    height: 1,
     bar: null,
     layer: 'tokens',
     pickable: true,
@@ -64,10 +66,18 @@ describe('marquee', () => {
     expect(marqueeRect(backwards)).toEqual({ x: 100, y: 50, width: 200, height: 150 });
   });
 
-  it('takes a size 2 token it touches with only one of its cells', () => {
-    const big = tokenView({ id: 'ogre', col: 2, row: 2, size: 2 });
+  it('takes a 2×2 token it touches with only one of its cells', () => {
+    const big = tokenView({ id: 'ogre', col: 2, row: 2, width: 2, height: 2 });
     const rect = { x: 3 * CELL + 10, y: 3 * CELL + 10, width: CELL, height: CELL };
     expect(tokensInMarquee(rect, [big])).toEqual(['ogre']);
+  });
+
+  it('a 3×1 token is reached at its far right cell, and not one row below it', () => {
+    const wide = tokenView({ id: 'horse', col: 2, row: 2, width: 3, height: 1 });
+    const atRight = { x: 4 * CELL + 10, y: 2 * CELL + 10, width: 10, height: 10 };
+    const below = { x: 4 * CELL + 10, y: 3 * CELL + 10, width: 10, height: 10 };
+    expect(tokensInMarquee(atRight, [wide])).toEqual(['horse']);
+    expect(tokensInMarquee(below, [wide])).toEqual([]);
   });
 
   it('leaves out a token it does not reach', () => {

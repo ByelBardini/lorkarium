@@ -45,7 +45,9 @@ describe('table edit store', () => {
     });
 
     it('a paste under the cursor creates the copied tokens and drawings, shifted together', async () => {
-      edits.getState().copy(copiedOf([lyra({ size: 2, col: 4, row: 4 }), kael()], [path()]));
+      edits
+        .getState()
+        .copy(copiedOf([lyra({ width: 2, height: 2, col: 4, row: 4 }), kael()], [path()]));
 
       const pasted = await edits.getState().paste(context(), { cursor: cell(10, 6), scene: SCENE });
 
@@ -231,6 +233,22 @@ describe('table edit store', () => {
 
       expect(commands.sentAs('faceTokens')[0]?.fields).toEqual({
         faces: [{ tokenId: LYRA_ID, facing: 0, expect: { facing: 45 } }],
+      });
+    });
+
+    it('Ctrl+Z after stretching Lyra to 2×1 shrinks her back, expecting the 2×1 box', async () => {
+      const small = { col: 3, row: 4, width: 1, height: 1 };
+      const wide = { col: 3, row: 4, width: 2, height: 1 };
+      edits
+        .getState()
+        .record([
+          { kind: 'tokensResized', resizes: [{ tokenId: LYRA_ID, from: small, to: wide }] },
+        ]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('resizeTokens')[0]?.fields).toEqual({
+        resizes: [{ tokenId: LYRA_ID, ...small, expect: wide }],
       });
     });
 

@@ -1,6 +1,7 @@
 import type { TokenLayerPo, TokenLookPo } from '../../src/modules/tokens/tokens.po';
 import type {
   NewTokenRow,
+  TokenBoxPo,
   TokenFacingPo,
   TokenMovePo,
   TokenRow,
@@ -29,6 +30,7 @@ export class TokensDaoFake implements Pick<
   | 'moveMany'
   | 'faceMany'
   | 'restyle'
+  | 'resizeMany'
   | 'setLayer'
   | 'setBarCurrent'
   | 'update'
@@ -74,6 +76,11 @@ export class TokensDaoFake implements Pick<
   async faceMany(faces: readonly TokenFacingPo[]): Promise<void> {
     this.journal.push('save');
     for (const { tokenId, facing } of faces) this.changeToken(tokenId, { facing });
+  }
+
+  async resizeMany(boxes: readonly TokenBoxPo[]): Promise<void> {
+    this.journal.push('save');
+    for (const { tokenId, ...box } of boxes) this.changeToken(tokenId, box);
   }
 
   async restyle(tokenIds: readonly string[], look: Partial<TokenLookPo>): Promise<void> {

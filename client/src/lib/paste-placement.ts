@@ -59,7 +59,7 @@ export function pastePlacement(
 }
 
 function newTokenOf(token: TokenDto): NewTokenInput {
-  const { name, initials, side, size, col, row, layer, controllerIds } = token;
+  const { name, initials, side, width, height, col, row, layer, controllerIds } = token;
   const { imageAssetId, frame, flipX, flipY, facing } = token;
   const look = { imageAssetId, frame, flipX, flipY, facing };
   const bars = token.bars.map(({ label, current, max, color, visibility }) => ({
@@ -70,15 +70,27 @@ function newTokenOf(token: TokenDto): NewTokenInput {
     visibility,
   }));
   const controllers = [...controllerIds];
-  return { name, initials, side, size, col, row, layer, controllerIds: controllers, ...look, bars };
+  return {
+    name,
+    initials,
+    side,
+    width,
+    height,
+    col,
+    row,
+    layer,
+    controllerIds: controllers,
+    ...look,
+    bars,
+  };
 }
 
 function tokenCols(token: NewTokenInput): Span {
-  return { min: token.col, max: token.col + token.size };
+  return { min: token.col, max: token.col + token.width };
 }
 
 function tokenRows(token: NewTokenInput): Span {
-  return { min: token.row, max: token.row + token.size };
+  return { min: token.row, max: token.row + token.height };
 }
 
 function drawingCols(shape: DrawingShapeInput): Span {

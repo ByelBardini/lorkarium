@@ -18,12 +18,12 @@ export function normalizeFacing(degrees: number): Facing {
 
 /** The facing that looks from `from` to `to` (screen coordinates, y down); `null` when they coincide.
  *
- *  Example: `facingToward({ x: 0, y: 0 }, { x: -3, y: 0 }) // 90` */
+ *  Example: `facingToward({ x: 0, y: 0 }, { x: -3, y: 0 }) // 180` */
 export function facingToward(from: Vector2, to: Vector2): Facing | null {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   if (dx === 0 && dy === 0) return null;
-  return normalizeFacing(Math.atan2(-dx, dy) / RADIANS_PER_DEGREE);
+  return normalizeFacing(Math.atan2(dy, dx) / RADIANS_PER_DEGREE);
 }
 
 /** Snaps an angle to the nearest multiple of `step` degrees, wrapping 360 back to 0.
@@ -42,8 +42,8 @@ export function turnFacing(current: Facing, delta: number): Facing {
 
 /** The unit vector a facing points to, in screen coordinates (y down).
  *
- *  Example: `facingVector(0) // { x: 0, y: 1 }` */
+ *  Example: `facingVector(0) // { x: 1, y: 0 }` */
 export function facingVector(value: Facing): Vector2 {
   const radians = value * RADIANS_PER_DEGREE;
-  return { x: -Math.sin(radians), y: Math.cos(radians) };
+  return { x: Math.cos(radians), y: Math.sin(radians) };
 }

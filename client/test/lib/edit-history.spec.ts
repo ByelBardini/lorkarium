@@ -82,6 +82,21 @@ describe('inverseOf', () => {
     ]);
   });
 
+  it('a resize is undone by the resize back, from the new box to the old one', () => {
+    const small = { col: 3, row: 3, width: 1, height: 1 };
+    const big = { col: 2, row: 3, width: 2, height: 1 };
+    const resized: EditEntry = [
+      { kind: 'tokensResized', resizes: [{ tokenId: 'kael', from: small, to: big }] },
+    ];
+
+    expect(inverseOf(resized)).toEqual([
+      { kind: 'tokensResized', resizes: [{ tokenId: 'kael', from: big, to: small }] },
+    ]);
+    expect(remapEntry(resized, { kael: 'new' })).toEqual([
+      { kind: 'tokensResized', resizes: [{ tokenId: 'new', from: small, to: big }] },
+    ]);
+  });
+
   it('a turn of a token created again takes its new id', () => {
     const turned: EditEntry = [
       { kind: 'tokensFaced', turns: [{ tokenId: 'old', from: 0, to: 90 }] },

@@ -226,4 +226,64 @@ describe('TokenAppearanceService', () => {
       ]);
     });
   });
+
+  describe('resizeMany', () => {
+    const WIDE_LYRA = { tokenId: LYRA_ID, col: 2.5, row: 4, width: 1.5, height: 1 };
+
+    it('Bia stretching her Lyra to 1.5×1 at (2.5, 4) saves once and publishes token:resizedMany', async () => {
+      const version = await service.resizeMany(BIA_ID, VHARN_ID, { resizes: [WIDE_LYRA] });
+
+      expect(version).toBe(5);
+      expect(tokenOf(LYRA_ID)).toMatchObject({ col: 2.5, row: 4, width: 1.5, height: 1 });
+      expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+      expect(publisher.tokensResizes).toEqual([
+        { campaignId: VHARN_ID, version: 5, at: NOW.toISOString(), resizes: [WIDE_LYRA] },
+      ]);
+    });
+
+    it('Caio resizing the chest he controls on the objects layer passes (size ignores the layer)', async () => {
+      await service.resizeMany(CAIO_ID, VHARN_ID, {
+        resizes: [{ tokenId: CHEST_ID, col: 3, row: 4, width: 2, height: 2 }],
+      });
+
+      expect(tokenOf(CHEST_ID)).toMatchObject({ width: 2, height: 2 });
+    });
+
+    it('Caio resizing the Lyra of Bia is FORBIDDEN and nothing is saved', async () => {
+      const resize = service.resizeMany(CAIO_ID, VHARN_ID, { resizes: [WIDE_LYRA] });
+
+      await expect(resize).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(tokenOf(LYRA_ID)).toMatchObject({ width: 1, height: 1 });
+      expect(publisher.tokensResizes).toEqual([]);
+    });
+
+    it('a box past the scene edge is OUT_OF_SCENE and nothing is saved', async () => {
+      const resize = service.resizeMany(ANA_ID, VHARN_ID, {
+        resizes: [{ ...WIDE_LYRA, col: 0, width: 10, height: 10, row: 10 }],
+      });
+
+      await expect(resize).rejects.toMatchObject({ code: 'OUT_OF_SCENE' });
+      expect(scenes.journal).toEqual(['lock']);
+    });
+
+    it('an undo after someone resized Lyra is STALE_UNDO and nothing is saved', async () => {
+      tokens.rows[0] = lyraRow({ token: lyraPo({ width: 2, height: 2 }) });
+
+      const undo = service.resizeMany(BIA_ID, VHARN_ID, {
+        resizes: [{ ...WIDE_LYRA, expect: { col: 3, row: 4, width: 1, height: 1 } }],
+      });
+
+      await expect(undo).rejects.toMatchObject({ code: 'STALE_UNDO' });
+      expect(scenes.journal).toEqual(['lock']);
+    });
+
+    it('a token of Quelm in the group is TOKEN_NOT_FOUND, and none is resized', async () => {
+      const resize = service.resizeMany(ANA_ID, VHARN_ID, {
+        resizes: [WIDE_LYRA, { ...WIDE_LYRA, tokenId: QUELM_TOKEN_ID }],
+      });
+
+      await expect(resize).rejects.toMatchObject({ code: 'TOKEN_NOT_FOUND' });
+      expect(tokenOf(LYRA_ID)).toMatchObject({ width: 1 });
+    });
+  });
 });

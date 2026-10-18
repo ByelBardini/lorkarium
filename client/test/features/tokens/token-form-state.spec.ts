@@ -16,12 +16,13 @@ function named(name: string): TokenFormValues {
 }
 
 describe('token form state', () => {
-  it('a new token starts empty, an ally of size 1, with no bar and no controller', () => {
+  it('a new token starts empty, an ally of 1 × 1, with no bar and no controller', () => {
     expect(emptyTokenForm()).toMatchObject({
       name: '',
       initials: '',
       side: 'ally',
-      size: 1,
+      width: '1',
+      height: '1',
       controllerIds: [],
       bars: [],
     });
@@ -76,11 +77,35 @@ describe('token form state', () => {
         name: 'Kael',
         initials: 'KA',
         side: 'ally',
-        size: 1,
+        width: 1,
+        height: 1,
         controllerIds: [],
         imageAssetId: null,
         bars: [{ label: 'PV', current: 10, max: 10, color: 'ember', visibility: 'controllers' }],
       },
+    });
+  });
+
+  it('a width of "1,5" is sent as a cell and a half', () => {
+    const result = parseTokenForm({ ...named('Rato'), width: '1,5', height: '0,5' });
+    expect(result).toMatchObject({ ok: true, token: { width: 1.5, height: 0.5 } });
+  });
+
+  it.each(['0', '1,25', '10,5', ''])(
+    'a width of "%s" is refused with the side message',
+    (width) => {
+      const result = parseTokenForm({ ...named('Rato'), width });
+      expect(result).toMatchObject({
+        ok: false,
+        errors: { width: 'De 0,5 a 10 casas, de meia em meia.' },
+      });
+    },
+  );
+
+  it('editing a 2,5 × 1 token shows its sides with a comma', () => {
+    expect(tokenFormOf(lyra({ width: 2.5, height: 1 }))).toMatchObject({
+      width: '2,5',
+      height: '1',
     });
   });
 

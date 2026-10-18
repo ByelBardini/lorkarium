@@ -19,7 +19,7 @@ describe('copiedOf', () => {
     expect(copiedOf([lyra(look)], []).tokens[0]).toMatchObject(look);
   });
 
-  it('a copied token keeps name, side, size, bars, controllers and layer, and no conditions', () => {
+  it('a copied token keeps name, side, width, height, bars, controllers and layer, and no conditions', () => {
     const copied = copiedOf([lyra({ conditions: [activeCondition()], layer: 'objects' })], []);
 
     expect(copied.tokens).toEqual([
@@ -27,7 +27,8 @@ describe('copiedOf', () => {
         name: 'Lyra',
         initials: 'LY',
         side: 'ally',
-        size: 1,
+        width: 1,
+        height: 1,
         col: 3,
         row: 4,
         layer: 'objects',
@@ -65,7 +66,10 @@ describe('copiedOf', () => {
 });
 
 describe('pastePlacement', () => {
-  const group: CopiedSelection = copiedOf([lyra({ size: 2, col: 4, row: 4 }), kael()], []);
+  const group: CopiedSelection = copiedOf(
+    [lyra({ width: 2, height: 2, col: 4, row: 4 }), kael()],
+    [],
+  );
 
   it('the center of the group lands on the cell under the cursor, and the tokens keep their distance', () => {
     const placed = pastePlacement(group, cell(10, 6), SCENE);

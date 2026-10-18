@@ -15,6 +15,7 @@ import type {
   TokenDragTarget,
   TokenEdit,
   TokenFacingTarget,
+  TokenResizeTarget,
   TokenMoveTarget,
   TokenStyle,
   TokenPlacement,
@@ -119,6 +120,13 @@ export class TableBoardCommandsFake implements TableBoardCommands {
 
   faceTokens(campaignId: string, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult> {
     return this.record('faceTokens', campaignId, { faces: [...faces] });
+  }
+
+  resizeTokens(
+    campaignId: string,
+    resizes: readonly TokenResizeTarget[],
+  ): Promise<BoardCommandResult> {
+    return this.record('resizeTokens', campaignId, { resizes: [...resizes] });
   }
 
   restyleTokens(
