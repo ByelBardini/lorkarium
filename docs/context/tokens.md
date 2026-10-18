@@ -2,9 +2,9 @@
 
 Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de cada um (a vida generalizada) e o que cada público recebe. Server em `server/src/modules/tokens/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts.md`](contracts.md) (`token.dto.ts`); regra da barra em [`game-core.md`](game-core.md). O client fica em [`client/board.md`](client/board.md).
 
-## Tabelas (`tokens.po.ts`, migrações `0003_tokens` e `0006_token_layers`)
+## Tabelas (`tokens.po.ts`, migrações `0003_tokens`, `0006_token_layers` e `0012_token_appearance`)
 
-- `tokens`: `id`, `scene_id` (cascade, indexado), `name`, `initials`, `side` (enum `token_side`), `size` (casas), `col`, `row`, `layer` (enum `token_layer`: `tokens` | `objects` | `background`, padrão `tokens`; a `0006` pôs todo token que existia em `tokens`), timestamps. A camada é do token inteiro e não é segredo: vai a todos os públicos.
+- `tokens`: `id`, `scene_id` (cascade, indexado), `name`, `initials`, `side` (enum `token_side`), `size` (casas), `col`, `row`, `layer` (enum `token_layer`: `tokens` | `objects` | `background`, padrão `tokens`; a `0006` pôs todo token que existia em `tokens`), `image_asset_id` (→ `assets`, **set null**: perder o asset devolve as iniciais), `frame` (enum `token_frame`: `square` | `round`, padrão `square`), `flip_x`, `flip_y` (padrão `false`), `facing` (`smallint`, padrão 0, `CHECK tokens_facing_range` 0–359), timestamps. A camada, a aparência e a direção são do token inteiro e não são segredo: vão iguais a todos os públicos. `TokenLookPo` = imagem, borda e inverter; o `TokenFieldsPo` do `update` aceita a aparência parcial (campo ausente não é escrito).
 - `token_controllers`: PK (`token_id`, `user_id`), os dois cascade — o `TokenController` do §6.
 - `token_bars`: `id`, `token_id` (cascade), `position`, `label`, `current`, `max`, `color` (enum `bar_color`), `visibility` (enum `bar_visibility`); único (`token_id`, `position`). Generaliza o `currentHp`/`maxHp` do §6.
 
@@ -20,7 +20,7 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 
 ## Redação por público
 
-- `toTokenDto(row, audience)` (`tokens.mapper.ts`): `privileged` recebe tudo com `canControl: true`; `others` recebe `canControl: false` **sem** as barras `controllers` — e as barras que vêm guardam a `position` (a 2ª não vira "a primeira").
+- `toTokenDto(row, audience)` (`tokens.mapper.ts`): `privileged` recebe tudo com `canControl: true`; `others` recebe `canControl: false` **sem** as barras `controllers` — e as barras que vêm guardam a `position` (a 2ª não vira "a primeira"). `imageAssetId`, `frame`, `flipX`, `flipY` e `facing` vão iguais aos dois. `toTokenUpdatePo` só leva a aparência que o comando mandou (`definedLookOf`).
 - Evento com token (`token:created`, `token:updated`): o `BoardPublisherPort.tokenChanged` leva as duas versões; o adaptador emite a inteira para `campaign:<id>:masters` + `campaign:<id>:user:<controlador>` e a redigida para `campaign:<id>` **exceto** essas salas. `token:moved` e `token:deleted` não têm nada a redigir e vão à mesa toda.
 - O snapshot do `board:sync` redige token a token para quem pede (`BoardService.snapshotFor`).
 - Tirar alguém dos controladores (`token:update`) faz o próximo evento chegar redigido para ele.
@@ -29,21 +29,23 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 
 `TokensService.create | update | move | moveMany | setLayer | adjustBar | delete(userId, campaignId, comando)` → versão nova; `drag` e `dragMany` recebem também a conexão e devolvem a versão atual. Participação (`memberAccessOf`, `campaigns/member-access.ts`) → permissão (`requireMaster` para criar, editar e excluir; `requireControl` para mover e ajustar barra) → transação (`inLockedScene`: `lockActiveOf` → token **da cena da mesa** → regra → grava → `bumpVersion`) → **depois do commit** publica. Recusa não grava nem publica. `tokens.plugin.ts` (`createTokensModule({ db, publisher, clock })` → `{ service, batch }`) monta os dois services, ligados no `wireRealtime` e entregues ao `board`.
 
-- `token-transaction.ts` (sem camada: peças comuns dos dois services): `TokenWriteDaos` / `TokenTransactionRunner` (`ScenesDao`, `TokensDao`, `ConditionsDao` e `CombatDao` presos ao `tx`), `withConditions`, `audiencesOf` (o token nos dois públicos), `newTokenRowOf(sceneId, regra, token)` (posição e controladores conferidos), `passTurnIfLeaving(daos, cena, acesso, tokenIds)`, `combatOf`, `tokenIn`, `tokensIn` e `tokenAccessOf`.
+- `token-transaction.ts` (sem camada: peças comuns dos dois services): `TokenWriteDaos` / `TokenTransactionRunner` (`ScenesDao`, `TokensDao`, `ConditionsDao` e `CombatDao` presos ao `tx`), `withConditions`, `audiencesOf` (o token nos dois públicos), `newTokenRowOf(sceneId, regra, token)` (posição e controladores conferidos), `passTurnIfLeaving(daos, cena, acesso, tokenIds)`, `combatOf`, `tokenIn`, `tokensIn`, `tokenAccessOf` e `requireAssetsOf(daos, campaignId, ids)` — toda imagem que um comando põe em token tem de ser asset **da mesa** (`AssetsDao.findManyInCampaign` preso ao `tx`, agora nos `TokenWriteDaos`); a primeira que não é (de outra mesa também) → `ASSET_NOT_FOUND` antes de gravar. Vale para `create`, `update` e `createMany` (colar). O `newTokenRowOf` grava a aparência e a direção do comando (a colagem leva as copiadas; o padrão é o disco olhando para baixo).
 - `TokenBatchService` (`token-batch.service.ts`, colar e o desfazer dele, só mestre): `createMany` (todos conferidos pelo `newTokenRowOf` antes do `insertMany`; publica **um** `BoardPublisherPort.tokensCreated({ …, tokens: TokenAudiences[] })`) e `deleteMany` (o `expect` de cada token pelo `requireAt`; a vez passa por **todos** os que saem — `CombatBo.turnWithoutTokens`, que tira um a um da ordem — na mesma transação; publica `tokensDeleted` com o combate já sem eles).
 
-| Comando            | Quem                  | Evento                                                           |
-| ------------------ | --------------------- | ---------------------------------------------------------------- |
-| `token:create`     | mestre                | `token:created` `{ token }` (por público)                        |
-| `token:update`     | mestre                | `token:updated` `{ token }` (por público)                        |
-| `token:move`       | mestre, quem controla | `token:moved` `{ tokenId, col, row }`                            |
-| `token:moveMany`   | mestre, quem controla | `token:movedMany` `{ moves }` (à mesa toda, uma versão)          |
-| `token:dragMany`   | mestre, quem controla | `token:draggedMany` `{ drags }` (sem versão, menos quem arrasta) |
-| `token:setLayer`   | mestre                | `token:layerChanged` `{ tokenIds, layer }` (à mesa toda)         |
-| `token:adjustBar`  | mestre, quem controla | `token:updated` `{ token }` (por público)                        |
-| `token:delete`     | mestre                | `token:deleted` `{ tokenId }`                                    |
-| `token:createMany` | mestre                | `token:createdMany` `{ tokens }` (cada público a sua mistura)    |
-| `token:deleteMany` | mestre                | `token:deletedMany` `{ tokenIds, combat }` (à mesa toda)         |
+| Comando             | Quem                                              | Evento                                                           |
+| ------------------- | ------------------------------------------------- | ---------------------------------------------------------------- |
+| `token:create`      | mestre                                            | `token:created` `{ token }` (por público)                        |
+| `token:update`      | mestre                                            | `token:updated` `{ token }` (por público)                        |
+| `token:move`        | mestre, quem controla                             | `token:moved` `{ tokenId, col, row }`                            |
+| `token:moveMany`    | mestre, quem controla                             | `token:movedMany` `{ moves }` (à mesa toda, uma versão)          |
+| `token:dragMany`    | mestre, quem controla                             | `token:draggedMany` `{ drags }` (sem versão, menos quem arrasta) |
+| `token:setLayer`    | mestre                                            | `token:layerChanged` `{ tokenIds, layer }` (à mesa toda)         |
+| `token:faceMany`    | mestre, quem controla (camada Tokens, como mover) | `token:facedMany` `{ faces }` (à mesa toda, uma versão)          |
+| `token:restyleMany` | mestre, quem controla (qualquer camada)           | `token:restyledMany` `{ tokenIds, style }` (à mesa toda)         |
+| `token:adjustBar`   | mestre, quem controla                             | `token:updated` `{ token }` (por público)                        |
+| `token:delete`      | mestre                                            | `token:deleted` `{ tokenId }`                                    |
+| `token:createMany`  | mestre                                            | `token:createdMany` `{ tokens }` (cada público a sua mistura)    |
+| `token:deleteMany`  | mestre                                            | `token:deletedMany` `{ tokenIds, combat }` (à mesa toda)         |
 
 ## Comandos de grupo
 
@@ -53,6 +55,13 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 - **Redação do lote.** O adaptador manda a lista inteira a `campaign:<id>:masters`; a cada controlador (exceto quem está na sala dos mestres, para ninguém ouvir duas vezes) a sua mistura — inteiro o que ele controla, redigido o resto; e a redigida à mesa menos essas salas.
 - `setLayer`: `requireMaster('change the layer of tokens')` → `tokensIn` → `setLayer` → `bumpVersion` → depois do commit `BoardPublisherPort.tokenLayerChanged` (sem redação: a camada não é segredo).
 
+## Direção e aparência (`token-appearance.service.ts`)
+
+- `TokenAppearanceService({ members, transaction, publisher, clock })`, entregue pelo `tokens.plugin.ts` como `appearance` e ligado no gateway do `board` (`tokenAppearance`).
+- `faceMany(userId, campaignId, { faces })`: `inLockedScene` → `tokensIn` (um id de outra mesa → `TOKEN_NOT_FOUND` citando-o, nenhum gira) → para cada um `requireMove('turn', camada)` (**girar é mover**: o jogador só na camada Tokens) e `requireFacing(id, expect?.facing, atual)` (`token-rules.bo.ts`: sem `expect` passa; diferente → `STALE_UNDO` "token X is at facing 180; the undo expected facing 90") → `TokensDao.faceMany` (um `UPDATE` por token) → `bumpVersion` → depois do commit `BoardPublisherPort.tokensFaced`.
+- `restyleMany(userId, campaignId, { tokenIds, style })`: `tokensIn` → `requireControl('restyle')` (sem olhar a camada, como a barra) → `requireAssetsOf` (a imagem do `style`, se houver, tem de ser da mesa) → `TokensDao.restyle(ids, style)` (um `UPDATE`; campo ausente não é escrito) → `tokensRestyled`. O `style` vazio já é recusado pelo DTO.
+- O adaptador Socket.IO emite os dois à sala `campaign:<id>` inteira (nada a redigir). O `BoardPublisherFake` guarda `tokensFacings` e `tokensRestylings`.
+
 ## Arraste ao vivo (`token:dragMany`)
 
 - Não existe arraste de um token só no contrato: um token arrastado sozinho é um grupo de um. `TokensService.dragMany(userId, campaignId, { drags }, connectionId)`: participação → cena ativa (`findActiveOf`, **sem trava**) → `placeGroup` (todos da cena, `requireMove`, `place` de cada casa não nula). **Não grava nem soma versão**; o ack devolve a versão atual. O gateway passa `socket.id` (uma sala do Socket.IO) como a conexão a excluir. `cell: null` = arraste daquele token encerrado sem mover.
@@ -61,10 +70,11 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 
 ## Testes
 
+- Direção e aparência: unit `token-appearance.service.spec.ts` (diário de uma versão, `STALE_UNDO`, a camada no girar e não no reestilizar, `TOKEN_NOT_FOUND` da Quelm, `ASSET_NOT_FOUND`) e integração `token-appearance.spec.ts` (a Bia gira e Ana e Caio recebem; o Caio → `FORBIDDEN` sem evento; borda redonda a todos; reinício mantém direção e borda; `userId` forjado → `INVALID_BODY`).
 - Integração da camada: `token-layers.spec.ts`; do grupo: `token-groups.spec.ts`. Fixture `bramRow()` (Bram, de Caio, em (6, 4)) ao lado da `lyraRow()`; o `BoardPublisherFake` guarda `tokenLayerChanges`, `tokensMoves` e `tokensDrags`. O `token-table.ts` (`useTokenTable()` → Ana mestre de Vharn com Bia e Caio, Caio mestre de Quelm; `tokenCommandFor`, `createdTokenOf`, `restart()`) é a montagem dos specs de três clientes do token.
 - Lote: unit `token-batch.service.spec.ts` (o `TokensDaoFake` grava um `save` por `insertMany`) e integração `token-batch.spec.ts` (redação por público num evento só por cliente, mestre que controla ouve uma vez, `FORBIDDEN`, `OUT_OF_SCENE` sem criar nenhum, apagar com `expect`, a vez passa, `STALE_UNDO` do mover, `TOKEN_NOT_FOUND` da Quelm). O `BoardPublisherFake` guarda `tokensCreations` e `tokensDeletes`.
 - Unit: `server/test/modules/tokens/` (acesso, regra, mapper, service com o diário `lock → save → bump → commit → publish`); fakes `TokensDaoFake` e `TokenTransactionRunnerFake` (`test/support/tokens-fakes.ts`), fixtures `lyraRow`, `pvBar`, `inspirationBar` (`tokens-factories.ts`).
-- Integração: `tokens-dao.spec.ts` (DAO, isolamento por cena, índice único) e `tokens.spec.ts` (três clientes reais: redação no evento e no sync, `FORBIDDEN`, `OUT_OF_SCENE`, `TOKEN_NOT_FOUND` de outra mesa, mesa fora da conexão, `userId` forjado, reinício do app).
+- Integração: `tokens-dao.spec.ts` (DAO, isolamento por cena, índice único, aparência padrão, o `CHECK` recusa `facing` 360) e `tokens.spec.ts` (três clientes reais: redação no evento e no sync, `FORBIDDEN`, `OUT_OF_SCENE`, `TOKEN_NOT_FOUND` de outra mesa, mesa fora da conexão, `userId` forjado, reinício do app, a mesma aparência para Bia e Caio, imagem da Quelm → `ASSET_NOT_FOUND` sem evento). O `TokenTableHarness.sendImage(user, table)` envia um PNG 400 × 400 pela borda HTTP (`test/support/images.ts`).
 
 ## Armadilhas
 

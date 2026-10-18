@@ -17,20 +17,26 @@ API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento
 - `src/app/build-app.ts` — `buildApp({ env, db })`: Fastify com logger pino (JSON), `@fastify/cookie`; módulos registrados sob o prefixo `/api` (`API_PREFIX`); instancia os adaptadores do auth e decora `app.authGuards` na raiz (guardas para qualquer módulo, ver `auth.md`); `wireRealtime` liga o Socket.IO e o módulo `sessions` (ver `sessions.md`)
 - `src/realtime/` — Socket.IO (seção Tempo real): `realtime-server.ts` (`attachRealtime`), `same-origin.ts` (`isSameOrigin`), `rooms.ts` (`campaignRoom(id)` → `campaign:<id>`, `campaignUserRoom`, `campaignMastersRoom`), `realtime-ack.ts` (`answerAck(ack, work, failureOf, onFailure)`: responde o ack com o resultado ou com o `ApiErrorDto`)
 - `drizzle.config.ts` — config do `drizzle-kit` (schema → `drizzle/`)
-- `drizzle/` — migrações: `0000_auth`, `0001_campaigns`, `0002_scenes` (tabela `scenes`, `campaigns.active_scene_id` e o `INSERT … SELECT` que dá cena às mesas existentes), `0003_tokens`, `0004_conditions` (com a lista inicial para as mesas existentes) e `0005_combat`. O `db:generate` gera nome aleatório: renomear o `.sql` e o `tag` no `meta/_journal.json`; SQL de dados vai à mão no fim do arquivo, depois de um `--> statement-breakpoint`
+- `drizzle/` — migrações: `0000_auth`, `0001_campaigns`, `0002_scenes` (tabela `scenes`, `campaigns.active_scene_id` e o `INSERT … SELECT` que dá cena às mesas existentes), `0003_tokens`, `0004_conditions` (com a lista inicial para as mesas existentes), `0005_combat`, … `0010_assets` (tabela `assets`, enums `asset_purpose` e `asset_mime_type`) `0011_scene_background` (`scenes.background_asset_id`) e `0012_token_appearance` (imagem, borda, inverter e direção do token). O `db:generate` gera nome aleatório: renomear o `.sql` e o `tag` no `meta/_journal.json`; SQL de dados vai à mão no fim do arquivo, depois de um `--> statement-breakpoint`
 - `vitest.config.ts` / `vitest.integration.config.ts` — projetos `@lorkarium/server` (unit) e `@lorkarium/server-integration`
 
 ## Env (`server/.env.example`)
 
-| Variável         | Regra                                                                                   |
-| ---------------- | --------------------------------------------------------------------------------------- |
-| `NODE_ENV`       | `development` (padrão) · `test` (logger mudo) · `production`                            |
-| `PORT` / `HOST`  | padrão `3333` / `0.0.0.0`                                                               |
-| `DATABASE_URL`   | obrigatório                                                                             |
-| `ADMIN_EMAIL`    | opcional; só junto com `ADMIN_PASSWORD`; normalizado                                    |
-| `ADMIN_PASSWORD` | opcional; só junto com `ADMIN_EMAIL`; mínimo 12 caracteres só com `NODE_ENV=production` |
+| Variável               | Regra                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------- |
+| `NODE_ENV`             | `development` (padrão) · `test` (logger mudo) · `production`                            |
+| `PORT` / `HOST`        | padrão `3333` / `0.0.0.0`                                                               |
+| `DATABASE_URL`         | obrigatório                                                                             |
+| `ADMIN_EMAIL`          | opcional; só junto com `ADMIN_PASSWORD`; normalizado                                    |
+| `ADMIN_PASSWORD`       | opcional; só junto com `ADMIN_EMAIL`; mínimo 12 caracteres só com `NODE_ENV=production` |
+| `S3_ENDPOINT`          | obrigatório; URL do S3 (`http://localhost:8333`, o SeaweedFS do `pnpm db:up`)           |
+| `S3_REGION`            | padrão `us-east-1`                                                                      |
+| `S3_BUCKET`            | obrigatório; criado no boot se faltar (ver `assets.md`)                                 |
+| `S3_ACCESS_KEY_ID`     | obrigatório                                                                             |
+| `S3_SECRET_ACCESS_KEY` | obrigatório, mínimo 8 caracteres; redigido no erro                                      |
+| `S3_FORCE_PATH_STYLE`  | `true` (padrão) ou `false`; SeaweedFS e MinIO pedem `true`                              |
 
-`KEY=` vazio vale como ausente. O erro de boot cita cada variável e o valor recebido, mas redige `DATABASE_URL` e `ADMIN_PASSWORD`. Os scripts `dev`/`start` carregam `server/.env` por `--env-file-if-exists`; variável exportada no shell vence o `.env`.
+`KEY=` vazio vale como ausente. O erro de boot cita cada variável e o valor recebido, mas redige `DATABASE_URL`, `ADMIN_PASSWORD` e `S3_SECRET_ACCESS_KEY`. O `Env` entrega o S3 como `storage` (`StorageConfig`: `endpoint`, `region`, `bucket`, `accessKeyId`, `secretAccessKey`, `forcePathStyle`). Os scripts `dev`/`start` carregam `server/.env` por `--env-file-if-exists`; variável exportada no shell vence o `.env`.
 
 ## Scripts
 
