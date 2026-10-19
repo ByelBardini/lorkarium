@@ -2,7 +2,7 @@ import type { WallKindDto, WallShapeKindDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import { StyleTileGroup, type StyleTile } from '@/features/drawings/style-tile-group';
 import { WALL_KINDS, WALL_SHAPES } from '@/lib/wall-style';
-import type { WallMode } from '@/stores/board-interaction-store';
+import type { WallMode } from '@/stores/board-tool-state';
 import { useWallStyle, type WallStyleStore } from '@/stores/wall-style-store';
 
 export type WallPanelProps = Readonly<{

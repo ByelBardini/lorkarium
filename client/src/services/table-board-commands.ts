@@ -13,6 +13,14 @@ import type { TokenBox } from '@lorkarium/game-core';
 import { BoardCommandSender, type BoardCommandResult } from './board-command-sender';
 import { RealtimeCombatCommands, type CombatCommands } from './combat-commands';
 import {
+  RealtimeLightCommands,
+  type LightAt,
+  type LightCommands,
+  type LightMoveTarget,
+  type LightPlacement,
+  type LightRangeTarget,
+} from './light-commands';
+import {
   RealtimeEffectAreaCommands,
   type EffectAreaCommands,
   type EffectAreaReshapeTarget,
@@ -68,7 +76,8 @@ export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | nul
  *  change itself arrives as an event, like everyone else's.
  *
  *  Example: `const result = await boardCommands.moveToken(campaignId, tokenId, { col, row })` */
-export interface TableBoardCommands extends CombatCommands, EffectAreaCommands, WallCommands {
+export interface TableBoardCommands
+  extends CombatCommands, EffectAreaCommands, WallCommands, LightCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
    *  absent keeps it; `vision` absent keeps the scene's mode. */
   configureScene(
@@ -149,11 +158,44 @@ export class RealtimeTableBoardCommands
 {
   private readonly effectAreas: EffectAreaCommands;
   private readonly walls: WallCommands;
+  private readonly lights: LightCommands;
 
   constructor(transport: RealtimeTransport, newActionId: () => string) {
     super(new BoardCommandSender(transport, newActionId));
     this.effectAreas = new RealtimeEffectAreaCommands(this.sender);
     this.walls = new RealtimeWallCommands(this.sender);
+    this.lights = new RealtimeLightCommands(this.sender);
+  }
+
+  createLights(campaignId: string, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {
+    return this.lights.createLights(campaignId, lights);
+  }
+
+  moveLights(campaignId: string, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult> {
+    return this.lights.moveLights(campaignId, moves);
+  }
+
+  setLightRanges(
+    campaignId: string,
+    changes: readonly LightRangeTarget[],
+  ): Promise<BoardCommandResult> {
+    return this.lights.setLightRanges(campaignId, changes);
+  }
+
+  setLightsLit(
+    campaignId: string,
+    lightIds: readonly string[],
+    lit: boolean,
+  ): Promise<BoardCommandResult> {
+    return this.lights.setLightsLit(campaignId, lightIds, lit);
+  }
+
+  deleteLights(
+    campaignId: string,
+    lightIds: readonly string[],
+    expect?: readonly LightAt[],
+  ): Promise<BoardCommandResult> {
+    return this.lights.deleteLights(campaignId, lightIds, expect);
   }
 
   createWalls(campaignId: string, shapes: readonly WallShape[]): Promise<BoardCommandResult> {

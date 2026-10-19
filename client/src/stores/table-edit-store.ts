@@ -13,8 +13,10 @@ import {
   type EditHistory,
   type EditOp,
   type IdMapping,
+  isLightOp,
   isWallOp,
 } from '@/lib/edit-history';
+import { runLightOp } from './light-edit-ops';
 import { runWallOp } from './wall-edit-ops';
 import { pastePlacement, type CopiedSelection } from '@/lib/paste-placement';
 import {
@@ -206,6 +208,7 @@ type OpResult = EditOpResult;
 async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise<OpResult> {
   if (isEffectAreaOp(op)) return runEffectAreaOp(op, campaignId, commands);
   if (isWallOp(op)) return runWallOp(op, campaignId, commands);
+  if (isLightOp(op)) return runLightOp(op, campaignId, commands);
   switch (op.kind) {
     case 'tokensMoved': {
       const moves = op.moves.map(({ tokenId, from, to, path }) => ({

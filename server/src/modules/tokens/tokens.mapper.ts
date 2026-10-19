@@ -1,15 +1,32 @@
 import type {
   ActiveConditionDto,
   BarInputDto,
+  LightRangeDto,
   SightDto,
   TokenBarDto,
   TokenDto,
   UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
-import { eyeOf, sightRange, tokenCenter, type Eye, type SightMode } from '@lorkarium/game-core';
+import {
+  eyeOf,
+  lightRange,
+  lightSource,
+  sightRange,
+  tokenCenter,
+  type Eye,
+  type LightSource,
+} from '@lorkarium/game-core';
+import { cellsNumeric } from '../../database/cells-numeric';
 import type { TokenAudience } from './token-access.bo';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
-import type { TokenBarInputPo, TokenBarPo, TokenLookPo, TokenSightPo } from './tokens.po';
+import type {
+  TokenBarInputPo,
+  TokenBarPo,
+  TokenLightPo,
+  TokenLookPo,
+  TokenPo,
+  TokenSightPo,
+} from './tokens.po';
 
 /** A token as one audience may see it: `others` never receive a `controllers` bar, and the bars
  *  they do receive keep their position (the second does not become "the first").
@@ -41,6 +58,8 @@ export function toTokenDto(
     facing,
     defeated,
     sight: sightOfToken(row.token),
+    light: lightOfToken(row.token),
+    lightLit: row.token.lightLit,
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],
@@ -71,6 +90,7 @@ type UpdatedFields = Pick<
   | 'controllerIds'
   | 'bars'
   | 'sight'
+  | 'light'
   | keyof TokenLookPo
 >;
 
@@ -92,6 +112,7 @@ export function toTokenUpdatePo(
       height,
       ...definedLookOf(command),
       ...(command.sight === undefined ? {} : toTokenSightPo(command.sight)),
+      ...(command.light === undefined ? {} : toTokenLightPo(command.light)),
     },
     bars: toBarInputsPo(command.bars),
     controllerIds,
@@ -103,25 +124,50 @@ export function toTokenUpdatePo(
  *  Example: `toTokenSightPo({ bright: 12, dim: 4 }) // { sightBright: '12.00', sightDim: '4.00' }` */
 export function toTokenSightPo(sight: SightDto | null | undefined): TokenSightPo {
   if (!sight) return { sightBright: null, sightDim: null };
-  return { sightBright: sightNumeric(sight.bright), sightDim: sightNumeric(sight.dim) };
+  return { sightBright: cellsNumeric(sight.bright), sightDim: cellsNumeric(sight.dim) };
 }
 
-/** The eye of a saved token in a scene of `mode`, or `null` when it does not see there.
+/** A light as sent → the two numeric columns, to the hundredth; `null` (no light) clears both.
  *
- *  Example: `rows.map((row) => tokenEyeOf(row, scene.visionMode))` */
-export function tokenEyeOf(row: TokenRow, mode: SightMode): Eye | null {
+ *  Example: `toTokenLightPo({ bright: 4, dim: 4 }) // { lightBright: '4.00', lightDim: '4.00' }` */
+export function toTokenLightPo(light: LightRangeDto | null | undefined): TokenLightPo {
+  if (!light) return { lightBright: null, lightDim: null };
+  return { lightBright: cellsNumeric(light.bright), lightDim: cellsNumeric(light.dim) };
+}
+
+/** The light a saved token gives off, from the center of its footprint; `null` without a light
+ *  or with it out.
+ *
+ *  Example: `rows.flatMap((row) => tokenLightOf(row) ?? [])` */
+export function tokenLightOf(row: TokenRow): LightSource | null {
+  const light = lightOfToken(row.token);
+  const range = light ? lightRange(light.bright, light.dim) : null;
+  return lightSource(tokenCenter(row.token, row.token), range, row.token.lightLit);
+}
+
+/** The eye of a saved token: every token is one; without darkvision it sees only what is lit.
+ *
+ *  Example: `rows.map(tokenEyeOf)` */
+export function tokenEyeOf(row: TokenRow): Eye {
   const sight = sightOfToken(row.token);
   const range = sight ? sightRange(sight.bright, sight.dim) : null;
-  return eyeOf(tokenCenter(row.token, row.token), range, mode);
+  return eyeOf(tokenCenter(row.token, row.token), range);
 }
 
 function sightOfToken({ sightBright, sightDim }: TokenSightPo): SightDto | null {
-  if (sightBright === null || sightDim === null) return null;
-  return { bright: Number(sightBright), dim: Number(sightDim) };
+  return rangeOfColumns(sightBright, sightDim);
 }
 
-function sightNumeric(cells: number): string {
-  return (Math.round(cells * 100) / 100).toFixed(2);
+function lightOfToken({ lightBright, lightDim }: TokenLightPo): LightRangeDto | null {
+  return rangeOfColumns(lightBright, lightDim);
+}
+
+function rangeOfColumns(
+  bright: TokenPo['sightBright'],
+  dim: TokenPo['sightDim'],
+): Readonly<{ bright: number; dim: number }> | null {
+  if (bright === null || dim === null) return null;
+  return { bright: Number(bright), dim: Number(dim) };
 }
 
 function definedLookOf(command: Partial<TokenLookPo>): Partial<TokenLookPo> {

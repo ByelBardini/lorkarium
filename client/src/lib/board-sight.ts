@@ -11,6 +11,7 @@ import {
   type SightMode,
   type Wall,
 } from '@lorkarium/game-core';
+import { lightSourcesOf, type TokenLanding } from './light-sources';
 import { gameWallOf } from './wall-geometry';
 
 /** What this viewer sees of the board: the level of each token, the eyes it looks through and the
@@ -24,10 +25,10 @@ export type BoardSight = Readonly<{
   eyes: readonly Eye[];
   /** The tokens whose eyes look: the viewer's own (or the master's preview). */
   eyeTokenIds: readonly string[];
-  /** Dark, and no token of the viewer sees: only their own tokens show. */
+  /** Dark, and the viewer controls no token on the scene: nothing but darkness shows. */
   noEyes: boolean;
   seenDoorIds: ReadonlySet<string> | null;
-  /** The master previews tokens of which none sees: nothing is hidden, and the room says so. */
+  /** The master previews with no token selected: nothing is hidden, and the room says so. */
   previewBlind: boolean;
 }>;
 
@@ -35,14 +36,15 @@ export type BoardSightOptions = Readonly<{
   /** The master's "Ver como os selecionados": these tokens are the eyes; `null` = off. */
   previewEyeIds: readonly string[] | null;
   /** Where the dragged tokens of this viewer would land: their eyes look from there. */
-  landing?: ReadonlyMap<string, Readonly<{ col: number; row: number }>>;
+  landing?: TokenLanding;
 }>;
 
 const ALL_SEEN = new Map<string, SightLevel>();
 
-/** The filter every view of the board goes through for this viewer: a player sees by the tokens
- *  they control, the master sees everything unless previewing the selected tokens. The rule is the
- *  game-core's (`sightLevel`, `doorSeenBy`), the same the server uses for doors.
+/** The filter every view of the board goes through for this viewer: a player sees by every token
+ *  they control (darkvision or not) whatever is in its range or lit, the master sees everything
+ *  unless previewing the selected tokens. The rule is the game-core's (`sightLevel`, `doorSeenBy`,
+ *  with `lightSourcesOf`), the same the server uses for doors.
  *
  *  Example: `const sight = boardSightOf(board, { previewEyeIds: null }); levelOf(sight, ogreId)` */
 export function boardSightOf(board: BoardStateDto, options: BoardSightOptions): BoardSight {
@@ -50,11 +52,12 @@ export function boardSightOf(board: BoardStateDto, options: BoardSightOptions): 
   const watching = watchersOf(board, options.previewEyeIds);
   if (mode === 'off' || !watching) return clearSight(mode);
   const eyeTokens = board.tokens.filter(({ id }) => watching.includes(id));
-  const eyes = eyeTokens.flatMap((token) => eyeOfToken(token, mode, options.landing));
+  const eyes = eyeTokens.map((token) => eyeOfToken(token, options.landing));
   if (options.previewEyeIds && eyes.length === 0)
     return { ...clearSight(mode), previewBlind: true };
   const walls = board.walls.map(gameWallOf);
-  const context: SightContext = { eyes, walls, mode };
+  const lights = lightSourcesOf(board, options.landing);
+  const context: SightContext = { eyes, walls, mode, lights };
   return {
     active: true,
     mode,
@@ -94,15 +97,10 @@ function watchersOf(
   return board.tokens.filter(({ canControl }) => canControl).map(({ id }) => id);
 }
 
-function eyeOfToken(
-  token: TokenDto,
-  mode: SightMode,
-  landing: BoardSightOptions['landing'],
-): Eye[] {
+function eyeOfToken(token: TokenDto, landing: BoardSightOptions['landing']): Eye {
   const at = landing?.get(token.id) ?? token;
   const range = token.sight ? sightRange(token.sight.bright, token.sight.dim) : null;
-  const eye = eyeOf(tokenCenter(at, token), range, mode);
-  return eye ? [eye] : [];
+  return eyeOf(tokenCenter(at, token), range);
 }
 
 function levelsOf(

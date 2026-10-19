@@ -76,7 +76,7 @@ function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
 }
 
 // The master's Delete with tokens asks first and then takes the whole selection; without tokens,
-// or for a player (who never deletes a token), the drawings, areas and walls go at once.
+// or for a player (who never deletes a token), the drawings, areas, walls and lights go at once.
 function deleteSelectedPieces(deps: BoardKeyboardDeps): void {
   const { board, interaction } = deps;
   const local = interaction.getState();
@@ -88,6 +88,7 @@ function deleteSelectedPieces(deps: BoardKeyboardDeps): void {
   const drawings = pick(state?.drawings, local.selectedDrawingIds);
   const effectAreas = pick(state?.effectAreas, local.selectedEffectAreaIds);
   const walls = pick(state?.walls, local.selectedWallIds);
+  const lights = pick(state?.lights, local.selectedLightIds);
   const tokens = pick(state?.tokens, local.selectedTokenIds);
   if (tokens.length > 0 && state?.viewer.role === 'master') {
     return deps.onDeleteSelection({ tokens, drawings, effectAreas, walls });
@@ -95,6 +96,7 @@ function deleteSelectedPieces(deps: BoardKeyboardDeps): void {
   if (drawings.length > 0) void local.deleteDrawings(drawings);
   if (effectAreas.length > 0) void local.deleteEffectAreas(effectAreas);
   if (walls.length > 0) void local.deleteWalls(walls);
+  if (lights.length > 0) void local.deleteLights(lights);
 }
 
 // Every selected token turns in one command; one that is not this viewer's stops all of them.

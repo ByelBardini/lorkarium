@@ -24,6 +24,7 @@ import {
   vharnCombat,
 } from '../support/table-session-fixtures';
 import { biaCone } from '../support/effect-area-fixtures';
+import { corridorTorch } from '../support/light-fixtures';
 
 const AT_OF_AREAS = '2026-10-18T12:00:00.000Z';
 
@@ -97,6 +98,21 @@ describe('board store', () => {
     expect(store.getState().board?.effectAreas).toEqual([]);
     apply(created(5), created(5));
     expect(store.getState().board).toMatchObject({ version: 5, effectAreas: [biaCone()] });
+  });
+
+  it('a light event that skips a version is held and asks for one resync', () => {
+    const created = (version: number) => {
+      const event: BoardEvent = {
+        type: 'lightsCreated',
+        payload: { campaignId: VHARN.id, version, at: AT_OF_AREAS, lights: [corridorTorch()] },
+      };
+      return { kind: 'boardEvent', event } as const;
+    };
+    apply({ kind: 'board', state: vharnBoard() }, created(6));
+    expect(resyncs).toBe(1);
+    expect(store.getState().board?.lights).toEqual([]);
+    apply(created(5));
+    expect(store.getState().board).toMatchObject({ version: 5, lights: [corridorTorch()] });
   });
 
   it('events before the first snapshot wait and the ones above it apply after it', () => {

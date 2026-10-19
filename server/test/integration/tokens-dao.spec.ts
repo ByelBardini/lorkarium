@@ -123,6 +123,37 @@ describe('TokensDao on Postgres', () => {
     await expect(tokens.insert(broken)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
   });
 
+  it('a token inserted without a light has both light columns null and is lit', async () => {
+    expect((await tokens.insert(lyra())).token).toMatchObject({
+      lightBright: null,
+      lightDim: null,
+      lightLit: true,
+    });
+  });
+
+  it.each([
+    ['a light bright of 101', '101', '0'],
+    ['only the light bright set', '4', null],
+  ])('%s is refused by the light CHECK of the table', async (_name, bright, dim) => {
+    const broken = lyra({ token: { ...lyra().token, lightBright: bright, lightDim: dim } });
+
+    await expect(tokens.insert(broken)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
+  });
+
+  it('restyle with lightLit false writes only the switch and keeps the light and the look', async () => {
+    const torch = { lightBright: '4', lightDim: '4', frame: 'round' } as const;
+    const saved = await tokens.insert(lyra({ token: { ...lyra().token, ...torch } }));
+
+    await tokens.restyle([saved.token.id], { lightLit: false });
+
+    expect((await tokens.findInScene(sceneId, saved.token.id))?.token).toMatchObject({
+      lightLit: false,
+      lightBright: '4.00',
+      lightDim: '4.00',
+      frame: 'round',
+    });
+  });
+
   it('a half-cell box (1.5 × 0.5 at 2.5, 3) reads back exactly', async () => {
     const box = { col: 2.5, row: 3, width: 1.5, height: 0.5 };
     const saved = await tokens.insert(lyra({ token: { ...lyra().token, ...box } }));

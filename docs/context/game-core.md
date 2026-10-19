@@ -24,6 +24,9 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/passage.ts` — o trecho do caminho que uma parede barra e o centro do token
 - `src/sight-area.ts` — o polígono que um olho enxerga e a linha de visão
 - `src/token-sight.ts` — o alcance de visão, o olho, o nível de visão de um token e a porta vista
+- `src/reach.ts` — a validação do alcance (plena e penumbra, de 0 a 100 casas) dividida entre visão e luz
+- `src/light.vo.ts` — o alcance da luz e a luz do mapa (VO)
+- `src/lighting.ts` — a fonte de luz e o nível de luz num ponto
 
 ## Célula e grid
 
@@ -110,14 +113,9 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 - `legTouchesSegment(trecho, segmento)` — o trecho encontra o segmento **depois do seu início**: cruzar, encostar (o destino sobre a linha, a ponta da parede no meio do trecho) e correr colinear por cima contam; tocar só no ponto de partida não conta, para o token parado sobre a linha poder sair. Folga 1e-9 (as coordenadas são guardadas a 0,01, então a folga nunca fecha fresta real). É a mesma conta da linha de visão.
 - A passagem é pelo centro: um token grande passa por fresta menor que ele (colisão da pegada é do §12).
 
-## Visão
+## Visão e luz
 
-- `sightArea(olho, paredes, cena, raio)` → o polígono (`Vector2[]`, em ordem de ângulo) que o olho vê: raios param na parede mais perto que bloqueia visão ou na borda da cena; depois no `raio` (`Infinity` = até a borda). Raios em cada vértice de parede e da cena (e a ±1e-5 rad dele, para ver atrás da quina), nos cruzamentos entre paredes, onde a parede sai do círculo e em `SIGHT_ARC_SAMPLES` (64) amostras do arco (uma a cada 5,625°; a corda fica a ≤ 0,12% do raio para dentro). Só entram as paredes da caixa do raio. É o "Sight & Light" (ncase) / Red Blob Games; O(raios × segmentos), com o teto de segmentos por cena do contracts. Todo vértice é cortado à cena.
-- `insidePolygon(ponto, polígono)` (par-ímpar) e `lineOfSight(de, até, paredes)` (nenhuma parede que bloqueia visão encontra o trecho pelo `legTouchesSegment`: o olho sobre a linha vê os dois lados; o alvo sobre a linha está atrás dela).
-- `sightRange(plena, penumbra)` — cada lado de 0 a `SIGHT_RANGE_MAX` (100) casas, finito; senão `RangeError` "Sight bright 101 … 0 to 100 cells". A penumbra é **a mais**, além da plena (o raio de fora é `bright + dim`).
-- `SightMode` = `off | dark | daylight`. `eyeOf(centro, alcance, modo)` → `Eye { center, range }`: no `dark`, token sem alcance não é olho (`null`); na Luz do dia todo token é olho, com ou sem alcance.
-- `sightLevel({ eyes, walls, mode }, { box, scenery })` → `seen | silhouette | hidden`. Pontos de teste: o centro da pegada e os quatro cantos **recuados 10%**. `seen` se algum ponto está a ≤ plena de algum olho, com linha de visão; `silhouette` a ≤ plena + penumbra; senão `hidden`. Cenário (`scenery`, o token de Fundo) é `seen` onde seria silhueta. `daylight`: sem limite de distância, só a linha de visão (a penumbra não conta). `off`: sempre `seen`. Sem olhos no escuro: `hidden`. Quem decide que o token do próprio viewer é sempre visto é quem chama (o client).
-- `doorSeenBy(contexto, porta)` — algum olho vê (plena ou penumbra) um dos pontos a 10%, 50% e 90% da porta, com as outras paredes no caminho; a porta não esconde a si mesma. `off` → sempre. É a única regra de visão que o server calcula (para o jogador abrir porta).
+O detalhe (polígono de visão, alcance, olho, nível de visão, porta vista e a luz) mora em [`game-core/visao-e-luz.md`](game-core/visao-e-luz.md).
 
 ## Armadilhas
 

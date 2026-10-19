@@ -15,6 +15,11 @@ import {
   effectAreasCreatedDto,
   effectAreasDeletedDto,
   effectAreasReshapedDto,
+  lightRangesChangedDto,
+  lightsCreatedDto,
+  lightsDeletedDto,
+  lightsLitChangedDto,
+  lightsMovedDto,
   sceneUpdatedDto,
   tokenCreatedDto,
   tokenDeletedDto,
@@ -34,6 +39,11 @@ import {
   wallSegmentErasedDto,
   wallAreaErasedDto,
   type DoorChangedDto,
+  type LightRangesChangedDto,
+  type LightsCreatedDto,
+  type LightsDeletedDto,
+  type LightsLitChangedDto,
+  type LightsMovedDto,
   type WallKindsChangedDto,
   type WallsCreatedDto,
   type WallsDeletedDto,
@@ -96,6 +106,11 @@ export type BoardEvent =
   | Readonly<{ type: 'wallAreaErased'; payload: WallAreaErasedDto }>
   | Readonly<{ type: 'wallKindsChanged'; payload: WallKindsChangedDto }>
   | Readonly<{ type: 'doorChanged'; payload: DoorChangedDto }>
+  | Readonly<{ type: 'lightsCreated'; payload: LightsCreatedDto }>
+  | Readonly<{ type: 'lightsMoved'; payload: LightsMovedDto }>
+  | Readonly<{ type: 'lightRangesChanged'; payload: LightRangesChangedDto }>
+  | Readonly<{ type: 'lightsLitChanged'; payload: LightsLitChangedDto }>
+  | Readonly<{ type: 'lightsDeleted'; payload: LightsDeletedDto }>
   | Readonly<{ type: 'conditionDefined'; payload: ConditionDefinedDto }>
   | Readonly<{ type: 'conditionApplied'; payload: ConditionAppliedDto }>
   | Readonly<{ type: 'conditionsApplied'; payload: ConditionsAppliedDto }>
@@ -147,6 +162,11 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.wallAreaErased]: specOf('wallAreaErased', wallAreaErasedDto),
   [BOARD_EVENTS.wallKindsChanged]: specOf('wallKindsChanged', wallKindsChangedDto),
   [BOARD_EVENTS.doorChanged]: specOf('doorChanged', doorChangedDto),
+  [BOARD_EVENTS.lightsCreated]: specOf('lightsCreated', lightsCreatedDto),
+  [BOARD_EVENTS.lightsMoved]: specOf('lightsMoved', lightsMovedDto),
+  [BOARD_EVENTS.lightRangesChanged]: specOf('lightRangesChanged', lightRangesChangedDto),
+  [BOARD_EVENTS.lightsLitChanged]: specOf('lightsLitChanged', lightsLitChangedDto),
+  [BOARD_EVENTS.lightsDeleted]: specOf('lightsDeleted', lightsDeletedDto),
   [BOARD_EVENTS.conditionDefined]: specOf('conditionDefined', conditionDefinedDto),
   [BOARD_EVENTS.conditionApplied]: specOf('conditionApplied', conditionAppliedDto),
   [BOARD_EVENTS.conditionsApplied]: specOf('conditionsApplied', conditionsAppliedDto),

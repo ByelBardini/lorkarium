@@ -197,6 +197,38 @@ describe('TokenAppearanceService', () => {
       expect(tokenOf(LYRA_ID)).toMatchObject({ defeated: true, frame: 'round', flipX: true });
     });
 
+    it('Bia putting out the light of her Lyra saves only the switch, in one version, and publishes it', async () => {
+      tokens.rows[0] = lyraRow({ token: lyraPo({ lightBright: '4.00', lightDim: '4.00' }) });
+
+      await service.restyleMany(BIA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID],
+        style: { lightLit: false },
+      });
+
+      expect(tokenOf(LYRA_ID)).toMatchObject({
+        lightLit: false,
+        lightBright: '4.00',
+        lightDim: '4.00',
+      });
+      expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+      expect(publisher.tokensRestylings[0]).toMatchObject({
+        version: 5,
+        tokenIds: [LYRA_ID],
+        style: { lightLit: false },
+      });
+    });
+
+    it('Caio putting out the light of the Lyra of Bia is FORBIDDEN and nothing is saved', async () => {
+      const restyle = service.restyleMany(CAIO_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID],
+        style: { lightLit: false },
+      });
+
+      await expect(restyle).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(tokenOf(LYRA_ID)?.lightLit).toBe(true);
+      expect(scenes.journal).toEqual(['lock']);
+    });
+
     it('Caio restyling the chest he controls on the objects layer passes (the look ignores the layer)', async () => {
       await service.restyleMany(CAIO_ID, VHARN_ID, {
         tokenIds: [CHEST_ID],

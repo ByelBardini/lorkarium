@@ -39,4 +39,8 @@ describe('boardCursorOf', () => {
   it('builds the svg cursors with a keyword fallback', () => {
     expect(PEN_CURSOR).toMatch(/^url\("data:image\/svg\+xml,.+"\) \d+ \d+, crosshair$/);
   });
+
+  it('with the lights tool, a crosshair to put a light where it clicks', () => {
+    expect(boardCursorOf({ tool: 'lights', drawKind: null, panning: false })).toBe('crosshair');
+  });
 });

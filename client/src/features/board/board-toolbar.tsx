@@ -4,6 +4,7 @@ import {
   BoxIcon,
   BrickWallIcon,
   EyeIcon,
+  FlameIcon,
   CircleUserRoundIcon,
   FrameIcon,
   Grid3x3Icon,
@@ -102,6 +103,14 @@ export function BoardToolbar({
             icon={BrickWallIcon}
             pressed={tool === 'walls'}
             onClick={() => actions.setTool('walls')}
+          />
+        )}
+        {canConfigure && (
+          <ToolButton
+            label="Luzes (L)"
+            icon={FlameIcon}
+            pressed={tool === 'lights'}
+            onClick={() => actions.setTool('lights')}
           />
         )}
         <ToolButton

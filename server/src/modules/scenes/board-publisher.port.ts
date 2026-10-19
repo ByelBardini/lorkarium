@@ -15,6 +15,11 @@ import type {
   EffectAreasDeletedDto,
   EffectAreasReshapedDto,
   DoorChangedDto,
+  LightRangesChangedDto,
+  LightsCreatedDto,
+  LightsDeletedDto,
+  LightsLitChangedDto,
+  LightsMovedDto,
   WallSegmentErasedDto,
   WallAreaErasedDto,
   WallKindsChangedDto,
@@ -91,6 +96,13 @@ export interface BoardPublisherPort {
   doorChanged(event: DoorChangedDto): void;
   wallSegmentErased(event: WallSegmentErasedDto): void;
   wallAreaErased(event: WallAreaErasedDto): void;
+  /** Map lights go to the whole table too: the player's client needs them for the fog (only the
+   *  master's board draws the icon). */
+  lightsCreated(event: LightsCreatedDto): void;
+  lightsMoved(event: LightsMovedDto): void;
+  lightRangesChanged(event: LightRangesChangedDto): void;
+  lightsLitChanged(event: LightsLitChangedDto): void;
+  lightsDeleted(event: LightsDeletedDto): void;
   conditionDefined(event: ConditionDefinedDto): void;
   conditionApplied(event: ConditionAppliedDto): void;
   conditionsApplied(event: ConditionsAppliedDto): void;

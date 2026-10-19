@@ -1,6 +1,7 @@
 import type {
   DrawingShapeInput,
   EffectAreaShapeDto,
+  LightPlacementDto,
   NewTokenInput,
   WallKindDto,
   WallShapeDto,
@@ -46,6 +47,15 @@ export type DrawnWall = Readonly<{ id: string; shape: WallShapeDto }>;
 /** A change of kind of a wall: the kind it had and the one it got. */
 export type WallKindChange = Readonly<{ wallId: string; from: WallKindDto; to: WallKindDto }>;
 
+/** A map light on the board as it was placed: its id, its point and its reach. */
+export type PlacedLight = Readonly<{ id: string; placement: LightPlacementDto }>;
+export type LightPoint = Readonly<{ x: number; y: number }>;
+export type LightReach = Readonly<{ bright: number; dim: number }>;
+/** A move of a map light: the point it had and the one it got. */
+export type LightMove = Readonly<{ lightId: string; from: LightPoint; to: LightPoint }>;
+/** A change of reach of a map light: the reach it had and the one it got. */
+export type LightRangeChange = Readonly<{ lightId: string; from: LightReach; to: LightReach }>;
+
 /** One thing an action did, enough to redo it and to build its inverse. */
 export type EditOp =
   | Readonly<{ kind: 'tokensMoved'; moves: readonly TokenMove[] }>
@@ -61,7 +71,11 @@ export type EditOp =
   | Readonly<{ kind: 'effectAreasReshaped'; reshapes: readonly EffectAreaReshape[] }>
   | Readonly<{ kind: 'wallsAdded'; walls: readonly DrawnWall[] }>
   | Readonly<{ kind: 'wallsRemoved'; walls: readonly DrawnWall[] }>
-  | Readonly<{ kind: 'wallsKindChanged'; changes: readonly WallKindChange[] }>;
+  | Readonly<{ kind: 'wallsKindChanged'; changes: readonly WallKindChange[] }>
+  | Readonly<{ kind: 'lightsAdded'; lights: readonly PlacedLight[] }>
+  | Readonly<{ kind: 'lightsRemoved'; lights: readonly PlacedLight[] }>
+  | Readonly<{ kind: 'lightsMoved'; moves: readonly LightMove[] }>
+  | Readonly<{ kind: 'lightRangesChanged'; changes: readonly LightRangeChange[] }>;
 
 /** One user action (a paste with tokens and drawings is one), in the order it was done. */
 export type EditEntry = readonly EditOp[];
@@ -168,7 +182,45 @@ function inverseOp(op: EditOp): EditOp {
     case 'drawingsRemoved':
       return { kind: 'drawingsAdded', drawings: op.drawings };
     default:
-      return isWallOp(op) ? inverseWallOp(op) : inverseEffectAreaOp(op);
+      return inverseGroupOp(op);
+  }
+}
+
+// Walls, lights and areas of effect each keep their own inverse.
+function inverseGroupOp(op: WallOp | LightOp | EffectAreaOp): EditOp {
+  if (isWallOp(op)) return inverseWallOp(op);
+  if (isLightOp(op)) return inverseLightOp(op);
+  return inverseEffectAreaOp(op);
+}
+
+type LightOp = Extract<
+  EditOp,
+  { kind: 'lightsAdded' | 'lightsRemoved' | 'lightsMoved' | 'lightRangesChanged' }
+>;
+
+/** Whether the op is about map lights (the edit store hands those to `runLightOp`).
+ *
+ *  Example: `if (isLightOp(op)) return runLightOp(op, campaignId, commands)` */
+export function isLightOp(op: EditOp): op is LightOp {
+  return op.kind.startsWith('light');
+}
+
+function inverseLightOp(op: LightOp): EditOp {
+  switch (op.kind) {
+    case 'lightsAdded':
+      return { kind: 'lightsRemoved', lights: op.lights };
+    case 'lightsRemoved':
+      return { kind: 'lightsAdded', lights: op.lights };
+    case 'lightsMoved':
+      return {
+        kind: 'lightsMoved',
+        moves: op.moves.map(({ lightId, from, to }) => ({ lightId, from: to, to: from })),
+      };
+    case 'lightRangesChanged':
+      return {
+        kind: 'lightRangesChanged',
+        changes: op.changes.map(({ lightId, from, to }) => ({ lightId, from: to, to: from })),
+      };
   }
 }
 
@@ -254,6 +306,16 @@ function remapOp(op: EditOp, mapping: IdMapping): EditOp {
           ...reshape,
           effectAreaId: idOf(reshape.effectAreaId),
         })),
+      };
+    case 'lightsAdded':
+    case 'lightsRemoved':
+      return { ...op, lights: op.lights.map((placed) => ({ ...placed, id: idOf(placed.id) })) };
+    case 'lightsMoved':
+      return { ...op, moves: op.moves.map((move) => ({ ...move, lightId: idOf(move.lightId) })) };
+    case 'lightRangesChanged':
+      return {
+        ...op,
+        changes: op.changes.map((change) => ({ ...change, lightId: idOf(change.lightId) })),
       };
     default:
       return remapWallOp(op, idOf);

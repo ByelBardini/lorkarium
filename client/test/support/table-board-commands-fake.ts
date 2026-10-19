@@ -36,6 +36,12 @@ import type {
   WallPlacement,
   WallShape,
 } from '@/services/wall-commands';
+import type {
+  LightAt,
+  LightMoveTarget,
+  LightPlacement,
+  LightRangeTarget,
+} from '@/services/light-commands';
 import type { RegroupTarget } from '@/services/combat-commands';
 
 export type SentBoardCommand = Readonly<{ name: string; campaignId: string; fields: unknown }>;
@@ -167,6 +173,37 @@ export class TableBoardCommandsFake implements TableBoardCommands {
 
   setDoor(campaignId: string, wallId: string, state: DoorState): Promise<BoardCommandResult> {
     return this.record('setDoor', campaignId, { wallId, state });
+  }
+
+  createLights(campaignId: string, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {
+    return this.record('createLights', campaignId, { lights: [...lights] });
+  }
+
+  moveLights(campaignId: string, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult> {
+    return this.record('moveLights', campaignId, { moves: [...moves] });
+  }
+
+  setLightRanges(
+    campaignId: string,
+    changes: readonly LightRangeTarget[],
+  ): Promise<BoardCommandResult> {
+    return this.record('setLightRanges', campaignId, { changes: [...changes] });
+  }
+
+  setLightsLit(
+    campaignId: string,
+    lightIds: readonly string[],
+    lit: boolean,
+  ): Promise<BoardCommandResult> {
+    return this.record('setLightsLit', campaignId, { lightIds: [...lightIds], lit });
+  }
+
+  deleteLights(
+    campaignId: string,
+    lightIds: readonly string[],
+    expect?: readonly LightAt[],
+  ): Promise<BoardCommandResult> {
+    return this.record('deleteLights', campaignId, { lightIds: [...lightIds], expect });
   }
 
   createEffectAreas(

@@ -14,7 +14,7 @@ import { TokenAccessBo } from './token-access.bo';
 import type { TokenRulesBo } from './token-rules.bo';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
 import { TokenNotFoundError } from './tokens.error';
-import { toBarInputsPo, toTokenDto, toTokenSightPo } from './tokens.mapper';
+import { toBarInputsPo, toTokenDto, toTokenLightPo, toTokenSightPo } from './tokens.mapper';
 import type { WallsDao } from '../walls/walls.dao';
 
 /** The DAOs a token transaction hands out, bound to the open `tx`. */
@@ -87,7 +87,15 @@ export function newTokenRowOf(
   const { col, row } = rules.place(token, token);
   const { name, initials, side, width, height, layer } = token;
   const { imageAssetId, frame, flipX, flipY, facing } = token;
-  const look = { imageAssetId, frame, flipX, flipY, facing, ...toTokenSightPo(token.sight) };
+  const look = {
+    imageAssetId,
+    frame,
+    flipX,
+    flipY,
+    facing,
+    ...toTokenSightPo(token.sight),
+    ...toTokenLightPo(token.light),
+  };
   return {
     token: { sceneId, name, initials, side, width, height, col, row, layer, ...look },
     bars: toBarInputsPo(token.bars),

@@ -79,6 +79,16 @@ export {
 export { ELLIPSE_WALL_SEGMENTS, wallSegments, type Segment } from './wall-segments';
 export { wallOutsideBox, wallWithoutSegment, type EraseBox } from './wall-erase';
 export { blockedPassage, legTouchesSegment, tokenCenter, type BlockedPassage } from './passage';
+export { REACH_MAX, assertReach } from './reach';
+export {
+  LIGHT_RANGE_MAX,
+  lightFits,
+  lightRange,
+  sceneLight,
+  type LightRange,
+  type SceneLight,
+} from './light.vo';
+export { lightLevelAt, lightSource, type LightSource } from './lighting';
 export { SIGHT_ARC_SAMPLES, insidePolygon, lineOfSight, sightArea } from './sight-area';
 export {
   SIGHT_RANGE_MAX,

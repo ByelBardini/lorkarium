@@ -12,8 +12,10 @@ import {
 } from '../../support/campaigns-factories';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
+import { LightsDaoFake } from '../../support/lights-fakes';
+import { corridorTorchPo } from '../../support/lights-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
-import { lyraPo, lyraRow } from '../../support/tokens-factories';
+import { bramRow, lyraPo, lyraRow } from '../../support/tokens-factories';
 import { WallsDaoFake, WallTransactionRunnerFake } from '../../support/walls-fakes';
 import {
   CELL_DOOR_ID,
@@ -31,6 +33,7 @@ describe('WallsService', () => {
   let scenes: ScenesDaoFake;
   let walls: WallsDaoFake;
   let tokens: TokensDaoFake;
+  let lights: LightsDaoFake;
   let publisher: BoardPublisherFake;
   let service: WallsService;
 
@@ -60,9 +63,10 @@ describe('WallsService', () => {
     tokens = new TokensDaoFake(scenes.journal, [
       lyraRow({ token: lyraPo({ sightBright: '6.00', sightDim: '0.00' }) }),
     ]);
+    lights = new LightsDaoFake(scenes.journal, []);
     service = new WallsService({
       members,
-      transaction: new WallTransactionRunnerFake(scenes, walls, tokens).run,
+      transaction: new WallTransactionRunnerFake(scenes, walls, tokens, lights).run,
       publisher,
       clock: new ClockFake(NOW),
       limits: { walls: 500, segments: 4000 },
@@ -263,6 +267,41 @@ describe('WallsService', () => {
       await service.setDoor(BIA_ID, VHARN_ID, { wallId: CELL_DOOR_ID, state: 'open' });
 
       expect(walls.rows[1]?.doorState).toBe('open');
+    });
+
+    describe('a Lyra without darkvision in the dark', () => {
+      // The torch stands 1 cell past the cell door (x = 7, y from 5 to 6).
+      const torchByTheDoor = { x: '8.00', y: '5.50', bright: '2.00', dim: '0.00' };
+
+      beforeEach(() => {
+        tokens.rows[0] = lyraRow();
+      });
+
+      it('opens the door a lit torch beside it shows her', async () => {
+        lights.rows.push(corridorTorchPo(torchByTheDoor));
+
+        await service.setDoor(BIA_ID, VHARN_ID, { wallId: CELL_DOOR_ID, state: 'open' });
+
+        expect(walls.rows[1]?.doorState).toBe('open');
+      });
+
+      it('is FORBIDDEN when that torch is out, and nothing is saved', async () => {
+        lights.rows.push(corridorTorchPo({ ...torchByTheDoor, lit: false }));
+
+        await expect(
+          service.setDoor(BIA_ID, VHARN_ID, { wallId: CELL_DOOR_ID, state: 'open' }),
+        ).rejects.toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+        expect(walls.rows[1]?.doorState).toBe('closed');
+      });
+
+      it('opens the door the lantern of Bram (a token of Caio) lights', async () => {
+        const lantern = { lightBright: '2.00', lightDim: '0.00', lightLit: true };
+        tokens.rows.push(bramRow({ token: { ...bramRow().token, ...lantern } }));
+
+        await service.setDoor(BIA_ID, VHARN_ID, { wallId: CELL_DOOR_ID, state: 'open' });
+
+        expect(walls.rows[1]?.doorState).toBe('open');
+      });
     });
 
     it('Ana locks and unlocks the door', async () => {

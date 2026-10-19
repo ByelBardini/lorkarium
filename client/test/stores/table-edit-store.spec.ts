@@ -361,6 +361,75 @@ describe('table edit store', () => {
       ]);
     });
 
+    it('undoing a placed light deletes it, expecting it where it was placed', async () => {
+      const placement = { x: 5.5, y: 3, bright: 4, dim: 4 };
+      edits.getState().record([{ kind: 'lightsAdded', lights: [{ id: NEW_WALL, placement }] }]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('deleteLights')[0]?.fields).toEqual({
+        lightIds: [NEW_WALL],
+        expect: [{ lightId: NEW_WALL, x: 5.5, y: 3 }],
+      });
+    });
+
+    it('redoing a placed light places it again and the new id replaces the old one', async () => {
+      const placement = { x: 5.5, y: 3, bright: 4, dim: 4 };
+      edits.getState().record([{ kind: 'lightsRemoved', lights: [{ id: NEW_WALL, placement }] }]);
+      commands.answerWith({ ok: true, version: 9, createdIds: [NEW_AREA] });
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('createLights')[0]?.fields).toEqual({ lights: [placement] });
+      expect(edits.getState().history.future).toEqual([
+        [{ kind: 'lightsRemoved', lights: [{ id: NEW_AREA, placement }] }],
+      ]);
+    });
+
+    it('undoing a light move sends it back, expecting it where it was moved to', async () => {
+      edits.getState().record([
+        {
+          kind: 'lightsMoved',
+          moves: [{ lightId: NEW_WALL, from: { x: 5, y: 5 }, to: { x: 7, y: 5 } }],
+        },
+      ]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('moveLights')[0]?.fields).toEqual({
+        moves: [{ lightId: NEW_WALL, x: 5, y: 5, expect: { x: 7, y: 5 } }],
+      });
+    });
+
+    it('undoing a new reach sends the old one, expecting the new one', async () => {
+      edits.getState().record([
+        {
+          kind: 'lightRangesChanged',
+          changes: [{ lightId: NEW_WALL, from: { bright: 4, dim: 4 }, to: { bright: 6, dim: 0 } }],
+        },
+      ]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('setLightRanges')[0]?.fields).toEqual({
+        changes: [{ lightId: NEW_WALL, bright: 4, dim: 4, expect: { bright: 6, dim: 0 } }],
+      });
+    });
+
+    it('a light undo refused with stale_undo drops the entry', async () => {
+      edits.getState().record([
+        {
+          kind: 'lightsMoved',
+          moves: [{ lightId: NEW_WALL, from: { x: 5, y: 5 }, to: { x: 7, y: 5 } }],
+        },
+      ]);
+      commands.answerWith({ ok: false, failure: 'stale_undo' });
+
+      await edits.getState().undo(context());
+
+      expect(edits.getState().history.past).toEqual([]);
+    });
+
     it('undoing a change of kind sends the old kind, expecting the new one', async () => {
       edits.getState().record([
         {

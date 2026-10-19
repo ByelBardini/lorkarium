@@ -7,11 +7,13 @@ import type {
   SetDoorCommandDto,
   SetWallKindsCommandDto,
 } from '@lorkarium/contracts';
-import { doorSeenBy, type Eye, type Wall } from '@lorkarium/game-core';
+import { doorSeenBy, type LightSource, type Wall } from '@lorkarium/game-core';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
+import type { LightsDao } from '../lights/lights.dao';
+import { lightSourceOfRow } from '../lights/lights.mapper';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import {
   inLockedScene,
@@ -21,8 +23,8 @@ import {
   type SceneTransaction,
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
-import type { TokensDao } from '../tokens/tokens.dao';
-import { tokenEyeOf } from '../tokens/tokens.mapper';
+import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
+import { tokenEyeOf, tokenLightOf } from '../tokens/tokens.mapper';
 import { DoorAccessBo } from './door-access.bo';
 import { WallRulesBo, type WallLimits } from './wall-rules.bo';
 import type { WallsDao } from './walls.dao';
@@ -64,8 +66,11 @@ export type WallWriteDaos = SceneLockDaos &
       | 'setDoor'
       | 'deleteMany'
     >;
-    /** The eyes of a player who opens a door: the tokens they control on the scene. */
+    /** The eyes of a player who opens a door (the tokens they control on the scene) and the
+     *  lights of every token there. */
     tokens: Pick<TokensDao, 'listOfScene'>;
+    /** The map lights that may show a player the door. */
+    lights: Pick<LightsDao, 'listOfScene'>;
   }>;
 
 export type WallTransactionRunner = SceneTransaction<WallWriteDaos>;
@@ -261,21 +266,29 @@ export class WallsService {
   }
 }
 
-// The master never needs to see the door; a player looks through the tokens they control.
+// The master never needs to see the door; a player looks through every token they control, and
+// sees what any lit map light or token of the scene shows them (the same rule as the client's).
 async function doorSeen(
-  { daos, scene }: Locked,
+  locked: Locked,
   access: CampaignAccessBo,
   userId: string,
   placed: readonly PlacedWall[],
   door: Wall,
 ): Promise<boolean> {
   if (access.isMaster()) return true;
-  const mode = scene.visionMode;
-  const mine = (await daos.tokens.listOfScene(scene.id)).filter(({ controllerIds }) =>
-    controllerIds.includes(userId),
-  );
-  const eyes = mine.map((row) => tokenEyeOf(row, mode)).filter((eye): eye is Eye => eye !== null);
-  return doorSeenBy({ eyes, walls: placed.map(({ wall }) => wall), mode }, door);
+  const rows = await locked.daos.tokens.listOfScene(locked.scene.id);
+  const eyes = rows.filter(({ controllerIds }) => controllerIds.includes(userId)).map(tokenEyeOf);
+  const lights = await lightsOfScene(locked, rows);
+  const walls = placed.map(({ wall }) => wall);
+  return doorSeenBy({ eyes, walls, mode: locked.scene.visionMode, lights }, door);
+}
+
+async function lightsOfScene(
+  { daos, scene }: Locked,
+  rows: readonly TokenRow[],
+): Promise<LightSource[]> {
+  const mapLights = (await daos.lights.listOfScene(scene.id)).map(lightSourceOfRow);
+  return [...mapLights, ...rows.map(tokenLightOf)].filter((light) => light !== null);
 }
 
 // Every id must be on the scene: the first one missing (another table's too) refuses them all.

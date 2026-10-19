@@ -30,6 +30,7 @@ export const tokensFacedDto = z.strictObject({
 export type TokensFacedDto = z.infer<typeof tokensFacedDto>;
 
 /** The look fields to change; an absent field stays, `imageAssetId: null` takes the image away.
+ *  `lightLit` lights or puts out the token's light (whoever controls it, like `defeated`).
  *
  *  Example: `tokenStyleDto.parse({ frame: 'round' })` */
 export const tokenStyleDto = z
@@ -39,13 +40,14 @@ export const tokenStyleDto = z
     flipX: z.boolean().optional(),
     flipY: z.boolean().optional(),
     defeated: z.boolean().optional(),
+    lightLit: z.boolean().optional(),
   })
   .superRefine((style, context) => {
     if (Object.keys(style).length > 0) return;
     context.addIssue({
       code: 'custom',
       message:
-        'style is empty; expected at least one of imageAssetId, frame, flipX, flipY, defeated',
+        'style is empty; expected at least one of imageAssetId, frame, flipX, flipY, defeated, lightLit',
     });
   });
 export type TokenStyleDto = z.infer<typeof tokenStyleDto>;

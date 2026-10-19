@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { WallPanel } from '@/features/walls/wall-panel';
 import { createWallStyleStore, wallStyleOf } from '@/stores/wall-style-store';
 import { StorageFake } from '../../support/storage-fake';
-import type { WallMode } from '@/stores/board-interaction-store';
+import type { WallMode } from '@/stores/board-tool-state';
 
 const modes: string[] = [];
 

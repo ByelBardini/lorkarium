@@ -1,10 +1,8 @@
 import { cell } from '@lorkarium/game-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
+import { AREA_HINT, DRAW_HINT, RULER_HINT } from '@/stores/board-tool-state';
 import {
-  AREA_HINT,
-  DRAW_HINT,
-  RULER_HINT,
   createBoardInteractionStore,
   singleSelectedOf,
   type BoardInteractionStore,

@@ -11,6 +11,8 @@ import type { DrawingsDao } from '../drawings/drawings.dao';
 import { toDrawingDto } from '../drawings/drawings.mapper';
 import type { EffectAreasDao } from '../effect-areas/effect-areas.dao';
 import { toEffectAreaDto } from '../effect-areas/effect-areas.mapper';
+import type { LightsDao } from '../lights/lights.dao';
+import { toLightDto } from '../lights/lights.mapper';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import { TokenAccessBo } from '../tokens/token-access.bo';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
@@ -28,11 +30,15 @@ export type BoardServiceDeps = Readonly<{
   drawings: Pick<DrawingsDao, 'listOfScene'>;
   effectAreas: Pick<EffectAreasDao, 'listOfScene'>;
   walls: Pick<WallsDao, 'listOfScene'>;
+  lights: Pick<LightsDao, 'listOfScene'>;
   clock: ClockPort;
 }>;
 
+type SharedPieces = Pick<BoardStateDto, 'drawings' | 'effectAreas' | 'walls' | 'lights'>;
+
 /** The board snapshot of one table, as one member may see it (spec §5.6, §3.9): each token whole
- *  for its controllers and the master, redacted for everyone else; drawings, areas of effect and walls whole for everyone.
+ *  for its controllers and the master, redacted for everyone else; drawings, areas of effect,
+ *  walls and map lights whole for everyone.
  *
  *  Example: `const state = await board.snapshotFor(user.id, campaignId)` */
 export class BoardService {
@@ -52,15 +58,23 @@ export class BoardService {
     const tokens = rows.map((row) => tokenFor(access, row, byToken.get(row.token.id) ?? []));
     const combatRow = await this.deps.combat.findOfScene(scene.id);
     const combat = combatRow ? toCombatDto(combatRow) : null;
-    const drawings = (await this.deps.drawings.listOfScene(scene.id)).map(toDrawingDto);
-    const effectAreas = (await this.deps.effectAreas.listOfScene(scene.id)).map(toEffectAreaDto);
-    const walls = (await this.deps.walls.listOfScene(scene.id)).map(toWallDto);
+    const shared = await this.sharedPiecesOf(scene.id);
     const definitions = await this.deps.conditions.listDefinitions(campaignId);
     const conditionDefinitions = definitions.map(toConditionDefinitionDto);
     const at = this.deps.clock.now();
     const viewer = { userId, role };
-    const pieces = { tokens, drawings, effectAreas, walls, combat, conditionDefinitions };
+    const pieces = { tokens, ...shared, combat, conditionDefinitions };
     return toBoardStateDto({ campaignId, viewer, scene, ...pieces, at });
+  }
+
+  // What every viewer receives whole: nothing in it is redacted.
+  private async sharedPiecesOf(sceneId: string): Promise<SharedPieces> {
+    return {
+      drawings: (await this.deps.drawings.listOfScene(sceneId)).map(toDrawingDto),
+      effectAreas: (await this.deps.effectAreas.listOfScene(sceneId)).map(toEffectAreaDto),
+      walls: (await this.deps.walls.listOfScene(sceneId)).map(toWallDto),
+      lights: (await this.deps.lights.listOfScene(sceneId)).map(toLightDto),
+    };
   }
 }
 

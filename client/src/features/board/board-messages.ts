@@ -12,9 +12,9 @@ import type { TablePresenceState } from '@/stores/table-presence-store';
 
 export const BOARD_LOAD_FAILED = 'Não deu para carregar o tabuleiro.';
 /** A player in the dark with no token that sees: only their own tokens show. */
-export const NO_EYES = 'Nenhum token seu enxerga nesta cena.';
+export const NO_EYES = 'Nenhum token seu está nesta cena.';
 /** The master's preview with no selected token that sees. */
-export const PREVIEW_BLIND = 'Selecione um token que enxerga para ver como ele.';
+export const PREVIEW_BLIND = 'Selecione um token para ver como ele.';
 
 const OUT_OF_SCENE_TEXT = 'Fora da cena.';
 const STALE_UNDO_TEXT = 'Alguém mexeu nisso depois; não dá para desfazer.';
@@ -50,6 +50,8 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   invalid_door: 'Só parede reta vira porta.',
   door_locked: 'A porta está trancada.',
   wall_blocked: 'Uma parede bloqueia o caminho.',
+  light_not_found: 'Essa luz não está mais na mesa.',
+  light_limit: 'A cena já tem luzes demais. Apague algumas antes.',
   stale_undo: STALE_UNDO_TEXT,
   asset_not_found: 'Essa imagem não está mais na mesa.',
   invalid: 'Confira os campos e tente de novo.',

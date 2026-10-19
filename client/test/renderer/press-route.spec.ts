@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_DRAWING_STYLE } from '@/lib/drawing-style';
 import { buildBoardView, type BoardView } from '@/renderer/board-view';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
-import { hoverRouteOf, pressRouteOf, topTokenAt } from '@/renderer/press-route';
+import { hoverRouteOf, menuRouteOf, pressRouteOf, topTokenAt } from '@/renderer/press-route';
 import { SQUARE_ID, square } from '../support/drawing-fixtures';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import { BIA_AT_TABLE, LYRA_ID, VHARN_SCENE, lyra } from '../support/table-session-fixtures';
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
+import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
 
 const CELL = CELL_WORLD_SIZE;
 
@@ -118,6 +119,13 @@ describe('pressRouteOf with other tools', () => {
     expect(pressRouteOf(boardView({ tool: 'area' }), at(3.5, 4.5), 1).kind).toBe('areaSketch');
   });
 
+  it('with the lights tool a press on the empty board puts a light there, even over a token', () => {
+    expect(pressRouteOf(boardView({ tool: 'lights' }), at(3.5, 4.5), 1)).toEqual({
+      kind: 'light',
+      lightId: null,
+    });
+  });
+
   it('with the ruler no select route is taken, even over a token', () => {
     expect(pressRouteOf(boardView({ tool: 'ruler' }), at(3.5, 4.5), 1).kind).toBe('pointer');
   });
@@ -194,5 +202,60 @@ describe('pressRouteOf and the doors', () => {
     });
 
     expect(pressRouteOf(view, { x: 7 * CELL, y: 5.5 * CELL }, 1).kind).toBe('token');
+  });
+});
+
+describe('menuRouteOf, the short right click', () => {
+  const doorOverLyra = { tokens: [lyra({ col: 6.5, row: 5 })], walls: [cellDoor()] };
+  const ON_THE_DOOR = { x: 7 * CELL, y: 5.5 * CELL };
+
+  it('for the master the door icon wins over the token in the doorway', () => {
+    const view = boardView({ ...doorOverLyra, canChooseLayer: true });
+
+    expect(menuRouteOf(view, ON_THE_DOOR, 1)).toEqual({ kind: 'door', wallId: CELL_DOOR_ID });
+  });
+
+  it('for a player the door has no menu: the token they control gets it', () => {
+    const view = boardView({ ...doorOverLyra, seenDoorIds: new Set([CELL_DOOR_ID]) });
+
+    expect(menuRouteOf(view, ON_THE_DOOR, 1)).toEqual({ kind: 'token', tokenId: LYRA_ID });
+  });
+
+  it('the empty board opens nothing', () => {
+    expect(menuRouteOf(boardView(), at(15, 10), 1)).toBeNull();
+  });
+});
+
+describe('menuRouteOf and the map lights', () => {
+  // The torch stands on the corner of Lyra at (7, 5) and on the cell door at x = 7.
+  const ON_THE_TORCH = { x: 7 * CELL, y: 5.5 * CELL };
+  const master = { userId: 'ana', isMaster: true };
+
+  function masterView(more: Partial<Parameters<typeof buildBoardView>[0]> = {}): BoardView {
+    return boardView({
+      viewer: master,
+      canChooseLayer: true,
+      lights: [corridorTorch({ x: 7, y: 5.5 })],
+      ...more,
+    });
+  }
+
+  it('the master right clicking the icon of a light gets the light menu', () => {
+    expect(menuRouteOf(masterView({ tokens: [] }), ON_THE_TORCH, 1)).toEqual({
+      kind: 'light',
+      lightId: CORRIDOR_TORCH_ID,
+    });
+  });
+
+  it('the light wins over the token under it', () => {
+    const view = masterView({ tokens: [lyra({ col: 6.5, row: 5 })] });
+
+    expect(menuRouteOf(view, ON_THE_TORCH, 1)?.kind).toBe('light');
+  });
+
+  it('the door wins over the light on it', () => {
+    const view = masterView({ tokens: [], walls: [cellDoor()] });
+
+    expect(menuRouteOf(view, ON_THE_TORCH, 1)).toEqual({ kind: 'door', wallId: CELL_DOOR_ID });
   });
 });

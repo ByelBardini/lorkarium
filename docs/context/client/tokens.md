@@ -53,7 +53,7 @@ Os tokens na sala: o que cada um vê, como se move e como se ajustam as barras. 
 - `src/components/choice-field.tsx` — `ChoiceField`: grupo de rádio em linha com legenda e rótulo em texto (lado, tamanho, visibilidade e formato da barra); `disabled` com `hint` dizendo por quê. Escolha só por imagem é o `StyleTileGroup` (ver [`drawings.md`](drawings.md)).
 - Libs: `bar-display.ts` (`barFill` → `{ fraction, state: normal | negative | over, excess }` (`excess`: quanto passou do extremo, em fração do máximo, até 1 barra inteira; −10 de 40 → 0,25), `formatBarValue` ("32 / 45", ou "71%" com `display: 'percent'`, arredondado; sinal tipográfico no negativo: "−4 / 38", "−11%"), `barToneVar(cor)` → `var(--chart-n)`, `BAR_COLOR_LABEL`), `token-initials.ts` (`initialsOf`: "Ogro das Cinzas" → "OC", "Kael" → "KA").
 
-- **Visão no formulário.** O `TokenForm` ganhou a seção "Visão" (`SightSection`: "Enxerga", "Visão plena" e "Penumbra" na unidade da cena); detalhe em [`vision.md`](vision.md).
+- **Visão no formulário.** O `TokenForm` tem a seção "Visão" (`SightSection`: "Enxerga no escuro", "Visão plena" e "Penumbra" na unidade da cena; detalhe em [`vision.md`](vision.md)) e a seção "Luz" (`LightSection`; detalhe em [`lights.md`](lights.md)).
 
 ## Testes
 

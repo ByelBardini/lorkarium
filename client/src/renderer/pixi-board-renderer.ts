@@ -26,26 +26,22 @@ import {
   type RightDrag,
 } from './camera-input';
 import { cellAtWorld, visibleWorldRect } from './grid-geometry';
-import { tokenMenuTarget } from './marquee';
 import { DrawingGestures } from './drawing-gestures';
 import { EffectAreaGestures } from './effect-area-gestures';
-import { doorIconAt, erasedStrokesOf, wallTargetAt } from './wall-view';
+import { LightGestures } from './light-gestures';
+import { erasedStrokesOf, wallTargetAt } from './wall-view';
 import { pointOf, prefersReducedMotion, wheelFields } from './dom-input';
-import { hoverRouteOf, pressRouteOf, topTokenAt, type PressRoute } from './press-route';
+import { hoverRouteOf, menuRouteOf, pressRouteOf, type PressRoute } from './press-route';
 import { tokenCenterOf } from './token-box';
 import { PixiDrawingLayer } from './pixi-drawing-layer';
 import { PixiEffectAreaLayer } from './pixi-effect-area-layer';
+import { PixiBoardOverlays } from './pixi-board-overlays';
 import { PixiFogLayer } from './pixi-fog-layer';
-import { PixiFacingHandle } from './pixi-facing-handle';
-import { PixiResizeHandles } from './pixi-resize-handles';
-import { PixiRuler } from './pixi-ruler';
 import { resizeCursorOf } from './resize-handles';
-import { PixiMarquee } from './pixi-marquee';
 import { PixiSceneBackground } from './pixi-scene-background';
 import { PixiSceneGrid } from './pixi-scene-grid';
 import { PixiTextureCache } from './pixi-texture-cache';
 import { PixiTokenLayer } from './pixi-token-layer';
-import { PixiWallLayer } from './pixi-wall-layer';
 import {
   dropCellOf,
   grabOffsetOf,
@@ -84,8 +80,9 @@ class PixiBoardRenderer implements BoardRenderer {
   private hoverCellKey: string | null = null;
   private readonly drawings = new PixiDrawingLayer();
   private readonly effectAreas = new PixiEffectAreaLayer();
-  private readonly walls = new PixiWallLayer();
   private readonly fog = new PixiFogLayer();
+  private readonly overlays = new PixiBoardOverlays((intent) => this.onIntent(intent));
+  private readonly lightGestures = new LightGestures((intent) => this.onIntent(intent));
   // A texture that arrives later draws the last view again, with the image this time.
   private readonly textures = new PixiTextureCache(() => this.view && this.draw(this.view));
   private readonly background = new PixiSceneBackground(this.textures);
@@ -98,14 +95,10 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly areaGestures = new EffectAreaGestures(this.effectAreas, (intent) =>
     this.onIntent(intent),
   );
-  private readonly facingHandle = new PixiFacingHandle((intent) => this.onIntent(intent));
-  private readonly resizeHandles = new PixiResizeHandles((intent) => this.onIntent(intent));
   private readonly heldPanKeys = new Set<PanKey>();
   private readonly disposers: Array<() => void> = [];
   private readonly world = new Container();
   private readonly sceneGrid = new PixiSceneGrid();
-  private readonly ruler = new PixiRuler();
-  private readonly marquee = new PixiMarquee((intent) => this.onIntent(intent));
 
   constructor(private readonly onIntent: BoardIntentListener) {}
 
@@ -117,20 +110,14 @@ class PixiBoardRenderer implements BoardRenderer {
     this.app = app;
     host.appendChild(app.canvas);
     const { container: tokenLayer } = this.tokens;
+    const sketches = [this.drawings.draft, this.effectAreas.draft];
     this.world.addChild(
       this.sceneGrid.floor,
       this.background.container,
       this.sceneGrid.grid,
       tokenLayer,
       this.fog.container,
-      this.walls.lines,
-      this.walls.doors,
-      this.resizeHandles.shape,
-      this.facingHandle.shape,
-      this.drawings.draft,
-      this.effectAreas.draft,
-      this.ruler.container,
-      this.marquee.shape,
+      ...this.overlays.containers(sketches),
     );
     app.stage.addChild(this.world);
     this.listen(host, app.canvas);
@@ -153,7 +140,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.drawings.sync(view.drawings);
     this.effectAreas.sync(view.effectAreas, view.sceneSize);
     this.tokens.sync(view.tokens, view.ghosts, performance.now());
-    this.fog.sync(view.fog);
+    this.fog.sync(view.fog, this.app.renderer);
     if (!this.framed) {
       this.framed = true;
       return this.fitScene();
@@ -200,6 +187,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.destroyed = true;
     for (const dispose of this.disposers.splice(0)) dispose();
     this.textures.destroy();
+    this.fog.destroy();
     this.app?.destroy(true, { children: true });
     this.app = null;
   }
@@ -215,10 +203,7 @@ class PixiBoardRenderer implements BoardRenderer {
 
   private drawOverlays(view: BoardView): void {
     this.sceneGrid.drawGrid(view, this.camera, this.screenSize());
-    this.walls.draw(view.walls, view.doors, this.camera.zoom);
-    this.ruler.draw(view, this.camera.zoom);
-    this.resizeHandles.draw(view, this.camera.zoom);
-    this.facingHandle.draw(view, this.camera.zoom);
+    this.overlays.draw(view, this.camera.zoom);
   }
 
   private listen(host: HTMLElement, canvas: HTMLCanvasElement): void {
@@ -297,9 +282,13 @@ class PixiBoardRenderer implements BoardRenderer {
       return this.onIntent({ kind: 'wallErased', wallId, segmentIndex });
     }
     if (view && route.kind === 'areaSketch') return this.areaGestures.startSketch(view, world);
-    if (view && route.kind === 'facingHandle') return void this.facingHandle.press(view, world);
+    if (view && route.kind === 'light') {
+      return this.lightGestures.press(view.grid.cells, pointOf(event), world, route.lightId);
+    }
+    const { facingHandle, resizeHandles, marquee } = this.overlays;
+    if (view && route.kind === 'facingHandle') return void facingHandle.press(view, world);
     if (view && route.kind === 'resizeHandle') {
-      return void this.resizeHandles.press(view, world, this.camera.zoom);
+      return void resizeHandles.press(view, world, this.camera.zoom);
     }
     if (route.kind === 'token') {
       const { token } = route;
@@ -311,7 +300,7 @@ class PixiBoardRenderer implements BoardRenderer {
     if (view && route.kind === 'effectArea')
       return void this.areaGestures.press(view, screen, world);
     this.primaryDown = true;
-    if (route.kind === 'marquee') this.marquee.start(pointOf(event), world);
+    if (route.kind === 'marquee') marquee.start(pointOf(event), world);
     // Shift keeps the selection: the marquee about to be drawn adds to it.
     if (route.kind === 'marquee' && event.shiftKey) return;
     this.onIntent({ kind: 'pointerDown', cell: this.cellAt(event) });
@@ -325,12 +314,12 @@ class PixiBoardRenderer implements BoardRenderer {
       if (pan) this.showCursor();
       return;
     }
-    if (this.facingHandle.move(this.worldOf(event), event.shiftKey)) return;
-    if (this.resizeHandles.move(this.worldOf(event), event.shiftKey)) return;
+    if (this.overlays.move(this.worldOf(event), event.shiftKey)) return;
+    if (this.lightGestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
     if (this.tokenPress) return this.dragToken(event, this.tokenPress);
     if (this.gestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
     if (this.areaGestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
-    if (this.marquee.grow(pointOf(event), this.worldOf(event), this.camera.zoom)) return;
+    if (this.overlays.marquee.grow(pointOf(event), this.worldOf(event), this.camera.zoom)) return;
     if (event.buttons === 0) this.hoverAt(event);
     if (this.primaryDown) this.onIntent({ kind: 'pointerMove', cell: this.cellAt(event) });
   }
@@ -387,7 +376,7 @@ class PixiBoardRenderer implements BoardRenderer {
     const { tokenId, handle } = hoverRouteOf(this.view, world, this.camera.zoom);
     this.tokens.hover(tokenId);
     const target = wallTargetAt(this.view.walls, world);
-    this.walls.lightErase(erasedStrokesOf(this.view.walls, target, this.view.wallMode));
+    this.overlays.walls.lightErase(erasedStrokesOf(this.view.walls, target, this.view.wallMode));
     if (!handle || !this.app) return this.showCursor();
     this.app.canvas.style.cursor = resizeCursorOf(handle);
   }
@@ -403,8 +392,13 @@ class PixiBoardRenderer implements BoardRenderer {
   private onPointerUp(event: PointerEvent): void {
     if (event.button === SECONDARY_BUTTON) return this.endRightClick(event);
     const primary = event.button === PRIMARY_BUTTON;
-    if (primary && this.facingHandle.release()) return;
-    if (primary && this.resizeHandles.release()) return;
+    if (primary && this.overlays.release()) return;
+    if (
+      primary &&
+      this.lightGestures.release(pointOf(event), this.worldOf(event), event.shiftKey)
+    ) {
+      return;
+    }
     if (primary && this.gestures.release(this.worldOf(event), event.shiftKey)) return;
     if (primary && this.areaGestures.release(pointOf(event), this.worldOf(event), event.shiftKey)) {
       return;
@@ -414,7 +408,7 @@ class PixiBoardRenderer implements BoardRenderer {
     }
     if (event.button !== PRIMARY_BUTTON || !this.primaryDown) return;
     this.primaryDown = false;
-    this.marquee.end(this.view, event.shiftKey);
+    this.overlays.marquee.end(this.view, event.shiftKey);
     this.onIntent({ kind: 'pointerUp', cell: this.cellAt(event) });
   }
 
@@ -424,16 +418,15 @@ class PixiBoardRenderer implements BoardRenderer {
     this.rightDrag = null;
     this.showCursor();
     if (!drag || !this.view || endRightDrag(drag) !== 'context') return;
-    const door = this.view.layerMenu
-      ? doorIconAt(this.view.doors, this.worldOf(event), this.camera.zoom)
-      : null;
-    if (door) {
-      const at = { x: event.clientX, y: event.clientY };
-      return this.onIntent({ kind: 'doorMenuRequested', wallId: door.wallId, ...at });
+    const menu = menuRouteOf(this.view, this.worldOf(event), this.camera.zoom);
+    const at = { x: event.clientX, y: event.clientY };
+    if (menu?.kind === 'light') {
+      this.onIntent({ kind: 'lightMenuRequested', lightId: menu.lightId, ...at });
     }
-    const tokenId = tokenMenuTarget(this.view, topTokenAt(this.view.tokens, this.worldOf(event)));
-    if (!tokenId) return;
-    this.onIntent({ kind: 'tokenMenuRequested', tokenId, x: event.clientX, y: event.clientY });
+    if (menu?.kind === 'door')
+      this.onIntent({ kind: 'doorMenuRequested', wallId: menu.wallId, ...at });
+    if (menu?.kind === 'token')
+      this.onIntent({ kind: 'tokenMenuRequested', tokenId: menu.tokenId, ...at });
   }
 
   private onKeyDown(event: KeyboardEvent): void {
@@ -441,8 +434,7 @@ class PixiBoardRenderer implements BoardRenderer {
       return this.cancelTokenDrag(this.tokenPress);
     }
     if (event.key === 'Escape' && (this.gestures.cancel() || this.areaGestures.cancel())) return;
-    if (event.key === 'Escape' && this.facingHandle.cancel()) return;
-    if (event.key === 'Escape' && this.resizeHandles.cancel()) return;
+    if (event.key === 'Escape' && (this.overlays.cancel() || this.lightGestures.cancel())) return;
     const modified = event.ctrlKey || event.metaKey || event.altKey;
     const panKey = modified ? null : panKeyOf(event.key);
     if (panKey) return void this.heldPanKeys.add(panKey);
