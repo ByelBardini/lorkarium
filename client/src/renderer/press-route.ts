@@ -6,11 +6,14 @@ import { topEffectAreaAt, type EffectAreaView } from './effect-area-view';
 import { handleAt } from './facing-handle';
 import { boardFacingTargetOf, boardResizeTargetOf } from './handle-targets';
 import { RESIZE_HANDLE_REACH, resizeHandleAt } from './resize-handles';
+import { topLightAt } from './light-view';
+import { tokenMenuTarget } from './marquee';
 import { tokenContains } from './token-box';
 import { doorIconAt, wallTargetAt } from './wall-view';
 
 /** Who takes a primary press, in priority order: the draw and area tools sketch, the walls tool
- *  sketches (a wall or the eraser box) or erases by its action; with Selecionar the
+ *  sketches (a wall or the eraser box) or erases by its action, the lights tool puts a light (or
+ *  takes the light under it, `lightId`); with Selecionar the
  *  facing handle, then a resize square, then a token, then a drawing, then an area of effect
  *  (at the bottom of the Tokens layer), then the marquee on the
  *  empty board; any other tool just reports the pointer. */
@@ -19,6 +22,7 @@ export type PressRoute =
   | Readonly<{ kind: 'wallErase'; wallId: string; segmentIndex: number | null }>
   | Readonly<{ kind: 'door'; wallId: string }>
   | Readonly<{ kind: 'areaSketch' }>
+  | Readonly<{ kind: 'light'; lightId: string | null }>
   | Readonly<{ kind: 'facingHandle' }>
   | Readonly<{ kind: 'resizeHandle' }>
   | Readonly<{ kind: 'token'; token: TokenView }>
@@ -26,6 +30,13 @@ export type PressRoute =
   | Readonly<{ kind: 'effectArea'; area: EffectAreaView }>
   | Readonly<{ kind: 'marquee' }>
   | Readonly<{ kind: 'pointer' }>;
+
+/** What a short right click opens: the master's door or light menu, or the menu of a token. */
+export type MenuRoute =
+  | Readonly<{ kind: 'door'; wallId: string }>
+  | Readonly<{ kind: 'light'; lightId: string }>
+  | Readonly<{ kind: 'token'; tokenId: string }>
+  | null;
 
 /** What the pointer without a button shows: the token whose name appears, the handle whose
  *  stretch cursor appears. */
@@ -38,6 +49,9 @@ export function pressRouteOf(view: BoardView, world: Point, zoom: number): Press
   if (view.tool === 'walls') return wallRouteOf(view, world);
   if (view.tool === 'draw') return { kind: 'sketch' };
   if (view.tool === 'area') return { kind: 'areaSketch' };
+  if (view.tool === 'lights') {
+    return { kind: 'light', lightId: topLightAt(view.lights, world, zoom)?.id ?? null };
+  }
   if (view.tool !== 'select') return { kind: 'pointer' };
   const facing = boardFacingTargetOf(view);
   if (facing && handleAt(facing, world)) return { kind: 'facingHandle' };
@@ -63,6 +77,20 @@ function wallRouteOf(view: BoardView, world: Point): PressRoute {
   const { wallId, segmentIndex } = target;
   const piece = view.wallMode === 'eraseSegment' ? segmentIndex : null;
   return { kind: 'wallErase', wallId, segmentIndex: piece };
+}
+
+/** The menu a short right click at `world` (px) opens: for the master, a door icon wins over a
+ *  light icon, and a light icon over the token under it; then the token, when this viewer may
+ *  touch it.
+ *
+ *  Example: `menuRouteOf(view, world, camera.zoom) // { kind: 'door', wallId }` */
+export function menuRouteOf(view: BoardView, world: Point, zoom: number): MenuRoute {
+  const door = view.layerMenu ? doorIconAt(view.doors, world, zoom) : null;
+  if (door) return { kind: 'door', wallId: door.wallId };
+  const light = view.layerMenu ? topLightAt(view.lights, world, zoom) : null;
+  if (light) return { kind: 'light', lightId: light.id };
+  const tokenId = tokenMenuTarget(view, topTokenAt(view.tokens, world));
+  return tokenId ? { kind: 'token', tokenId } : null;
 }
 
 /** The route of the pointer moving with no button pressed.

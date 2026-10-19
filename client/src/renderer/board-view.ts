@@ -2,6 +2,7 @@ import type {
   BarColorDto,
   ConditionIconDto,
   ConditionToneDto,
+  LightDto,
   SceneDto,
   TokenDto,
   TokenFrameDto,
@@ -26,6 +27,7 @@ import {
 } from './effect-area-view';
 import type { EffectAreaSketchView } from './effect-area-gestures';
 import { fogViewOf, type FogView } from './fog-view';
+import { lightViewsOf, type LightView } from './light-view';
 import {
   doorIconsOf,
   wallViewsOf,
@@ -128,6 +130,8 @@ export type BoardView = Readonly<{
   doors: readonly DoorIconView[];
   /** Over the board and its tokens, under the walls and the handles; `null` with nothing hidden. */
   fog: FogView | null;
+  /** The master's map light icons (and, with the lights tool, what they light); none for a player. */
+  lights: readonly LightView[];
   /** With the draw tool: how the sketch under the pointer looks; `null` with another tool. */
   sketch: DrawingStyle | null;
   /** With the area tool: the shape and color of the next area; `null` with another tool. */
@@ -142,7 +146,7 @@ export type BoardView = Readonly<{
   layerMenu: boolean;
 }>;
 
-export type BoardViewTool = 'select' | 'ruler' | 'draw' | 'area' | 'walls';
+export type BoardViewTool = 'select' | 'ruler' | 'draw' | 'area' | 'walls' | 'lights';
 
 /** The walls and what this viewer does to them; absent = none (most specs). */
 type WallBoardInput = Partial<Pick<WallViewInput, 'walls' | 'selectedWallIds' | 'seenDoorIds'>> &
@@ -168,6 +172,12 @@ export type BoardViewInput = Omit<DrawingViewInput, 'activeLayer' | 'readOnly'> 
     drawingStyle: DrawingStyle;
     /** The kind and shape of the next wall, sketched while the walls tool is on (absent: Parede, Reta). */
     wallStyle?: WallStyle;
+    /** The map lights: they open the fog where an eye sees what they light. */
+    lights?: readonly LightDto[];
+    /** The master's map lights picked with the lights tool. */
+    selectedLightIds?: readonly string[];
+    /** Where this viewer drags lights, until the server answers, by id. */
+    lightPreview?: Readonly<Record<string, Readonly<{ x: number; y: number }>>>;
   }> &
   Readonly<{
     scene: SceneDto;
@@ -226,6 +236,14 @@ export function buildBoardView(input: BoardViewInput): BoardView {
     }),
     ...wallsOf(input),
     fog: fogOf(input),
+    lights: lightViewsOf({
+      lights: previewedLightsOf(input),
+      walls: input.walls ?? [],
+      scene: cells,
+      viewer: input.viewer,
+      tool: input.tool,
+      selectedLightIds: input.selectedLightIds ?? [],
+    }),
     sketch: sketchStyleOf(input),
     sketchStraight: input.tool === 'walls' && !erasingArea(input) && wallPreviewOf(input).straight,
     wallMode: input.wallMode ?? 'draw',
@@ -235,6 +253,12 @@ export function buildBoardView(input: BoardViewInput): BoardView {
   };
 }
 
+// A light dragged here is drawn where it goes, before the server confirms it.
+function previewedLightsOf(input: BoardViewInput): readonly LightDto[] {
+  const preview = input.lightPreview ?? {};
+  return (input.lights ?? []).map((light) => ({ ...light, ...preview[light.id] }));
+}
+
 // The fog follows this viewer's drag: their eyes look from where the tokens would land.
 function fogOf(input: BoardViewInput): FogView | null {
   if (!input.sight) return null;
@@ -242,7 +266,8 @@ function fogOf(input: BoardViewInput): FogView | null {
     (input.drag?.landing ?? []).map(({ tokenId, col, row }) => [tokenId, { col, row }]),
   );
   const { sight, scene, tokens } = input;
-  return fogViewOf({ sight, scene, tokens, walls: input.walls ?? [], landing });
+  const walls = input.walls ?? [];
+  return fogViewOf({ sight, scene, tokens, walls, lights: input.lights ?? [], landing });
 }
 
 function wallsOf(input: BoardViewInput): Pick<BoardView, 'walls' | 'doors'> {

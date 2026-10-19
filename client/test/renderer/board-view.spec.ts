@@ -6,6 +6,7 @@ import { buildBoardView, imageUrlsOf } from '@/renderer/board-view';
 import { boardSightOf } from '@/lib/board-sight';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
+import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
 import {
   KAEL_ID,
   LYRA_ID,
@@ -523,5 +524,43 @@ describe('buildBoardView wall mode', () => {
   it('carries the action of the walls tool, Desenhar when absent', () => {
     expect(buildBoardView(wallsInput({})).wallMode).toBe('draw');
     expect(buildBoardView(wallsInput({ wallMode: 'eraseSegment' })).wallMode).toBe('eraseSegment');
+  });
+});
+
+describe('buildBoardView, map lights', () => {
+  const lightsInput = (more: object) => ({
+    ...NO_TOKENS,
+    scene: VHARN_SCENE,
+    localGridVisible: true,
+    ruler: null,
+    lights: [corridorTorch()],
+    ...more,
+  });
+
+  it('the master with the lights tool gets the torch full, selected and with its areas', () => {
+    const view = buildBoardView(
+      lightsInput({ tool: 'lights', selectedLightIds: [CORRIDOR_TORCH_ID] }),
+    );
+
+    expect(view.lights).toEqual([
+      expect.objectContaining({ id: CORRIDOR_TORCH_ID, emphasis: 'full', selected: true }),
+    ]);
+    expect(view.lights[0]?.areas).not.toBeNull();
+  });
+
+  it('the master with another tool gets the torch faint and without areas', () => {
+    const view = buildBoardView(lightsInput({ tool: 'select' }));
+
+    expect(view.lights).toEqual([
+      expect.objectContaining({ emphasis: 'faint', selected: false, areas: null }),
+    ]);
+  });
+
+  it('a player gets no light drawn', () => {
+    const view = buildBoardView(
+      lightsInput({ tool: 'select', viewer: { userId: BIA_AT_TABLE.userId, isMaster: false } }),
+    );
+
+    expect(view.lights).toEqual([]);
   });
 });

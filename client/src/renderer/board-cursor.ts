@@ -38,15 +38,15 @@ const WALL_CURSOR: Readonly<Record<WallMode, string>> = {
 };
 
 /** The CSS cursor of the board: moving while the right button pans, a pen for freehand, a
- *  crosshair for the shapes, the area tool, drawing walls and the eraser box, a hand over walls to
- *  erase, a ruler while measuring, the default arrow otherwise.
+ *  crosshair for the shapes, the area tool, drawing walls, the eraser box and putting lights, a
+ *  hand over walls to erase, a ruler while measuring, the default arrow otherwise.
  *
  *  Example: `canvas.style.cursor = boardCursorOf({ tool: 'draw', drawKind: 'freehand', panning: false })` */
 export function boardCursorOf({ tool, drawKind, panning, wallMode }: BoardCursorInput): string {
   if (panning) return 'move';
   if (tool === 'ruler') return RULER_CURSOR;
   if (tool === 'walls') return WALL_CURSOR[wallMode ?? 'draw'];
-  if (tool === 'area') return 'crosshair';
+  if (tool === 'area' || tool === 'lights') return 'crosshair';
   if (tool !== 'draw') return 'default';
   return drawKind === 'freehand' ? PEN_CURSOR : 'crosshair';
 }
