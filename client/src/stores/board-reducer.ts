@@ -6,6 +6,9 @@ import type {
   DrawingsMovedDto,
   EffectAreaDto,
   EffectAreasReshapedDto,
+  LightDto,
+  LightRangesChangedDto,
+  LightsMovedDto,
   TokenDto,
   TokensFacedDto,
   TokensResizedDto,
@@ -59,6 +62,7 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
         batchChangesOf(board, event) ??
         effectAreaChangesOf(board, event) ??
         wallChangesOf(board, event) ??
+        lightChangesOf(board, event) ??
         combatChangesOf(board, event)
       );
   }
@@ -137,6 +141,47 @@ function wallChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardSt
     default:
       return null;
   }
+}
+
+// Map lights: created at the end, moved, re-ranged, lit or put out, deleted.
+function lightChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> | null {
+  switch (event.type) {
+    case 'lightsCreated':
+      return { lights: [...board.lights, ...event.payload.lights] };
+    case 'lightsMoved':
+      return { lights: withLightMoves(board.lights, event.payload.moves) };
+    case 'lightRangesChanged':
+      return { lights: withLightRanges(board.lights, event.payload.changes) };
+    case 'lightsLitChanged': {
+      const { lightIds, lit } = event.payload;
+      const switched = (light: LightDto): LightDto =>
+        lightIds.includes(light.id) ? { ...light, lit } : light;
+      return { lights: board.lights.map(switched) };
+    }
+    case 'lightsDeleted': {
+      const { lightIds } = event.payload;
+      return { lights: board.lights.filter(({ id }) => !lightIds.includes(id)) };
+    }
+    default:
+      return null;
+  }
+}
+
+function withLightMoves(lights: readonly LightDto[], moves: LightsMovedDto['moves']): LightDto[] {
+  return lights.map((light) => {
+    const move = moves.find(({ lightId }) => lightId === light.id);
+    return move ? { ...light, x: move.x, y: move.y } : light;
+  });
+}
+
+function withLightRanges(
+  lights: readonly LightDto[],
+  changes: LightRangesChangedDto['changes'],
+): LightDto[] {
+  return lights.map((light) => {
+    const change = changes.find(({ lightId }) => lightId === light.id);
+    return change ? { ...light, bright: change.bright, dim: change.dim } : light;
+  });
 }
 
 function withWallMoves(walls: readonly WallDto[], moves: WallsMovedDto['moves']): WallDto[] {

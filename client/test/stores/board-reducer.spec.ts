@@ -22,6 +22,7 @@ import {
   vharnBoard,
   vharnCombat,
 } from '../support/table-session-fixtures';
+import { BRAZIER_ID, CORRIDOR_TORCH_ID, brazier, corridorTorch } from '../support/light-fixtures';
 
 describe('applyBoardEvent, effect areas', () => {
   it('the snapshot carries the areas of the scene', () => {
@@ -328,5 +329,78 @@ describe('applyBoardEvent, walls', () => {
     });
 
     expect(next.walls).toEqual([northWall(), cellDoor({ doorState: 'open' })]);
+  });
+});
+
+describe('applyBoardEvent, lights', () => {
+  it('light:createdMany appends the new lights after the ones already there', () => {
+    const board = vharnBoard({ lights: [corridorTorch()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'lightsCreated',
+      payload: { ...vharnEventBase(5), lights: [brazier()] },
+    });
+
+    expect(next.lights.map(({ id }) => id)).toEqual([CORRIDOR_TORCH_ID, BRAZIER_ID]);
+    expect(next.version).toBe(5);
+  });
+
+  it('light:movedMany changes only x and y of each listed light', () => {
+    const board = vharnBoard({ lights: [corridorTorch(), brazier()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'lightsMoved',
+      payload: { ...vharnEventBase(5), moves: [{ lightId: CORRIDOR_TORCH_ID, x: 3, y: 4.5 }] },
+    });
+
+    expect(next.lights).toEqual([corridorTorch({ x: 3, y: 4.5 }), brazier()]);
+  });
+
+  it('light:rangesChanged changes only bright and dim of each listed light', () => {
+    const board = vharnBoard({ lights: [corridorTorch(), brazier()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'lightRangesChanged',
+      payload: {
+        ...vharnEventBase(5),
+        changes: [{ lightId: BRAZIER_ID, bright: 6, dim: 0 }],
+      },
+    });
+
+    expect(next.lights).toEqual([corridorTorch(), brazier({ bright: 6, dim: 0 })]);
+  });
+
+  it('light:litChanged changes only lit of each listed light', () => {
+    const board = vharnBoard({ lights: [corridorTorch(), brazier()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'lightsLitChanged',
+      payload: { ...vharnEventBase(5), lightIds: [CORRIDOR_TORCH_ID], lit: false },
+    });
+
+    expect(next.lights).toEqual([corridorTorch({ lit: false }), brazier()]);
+  });
+
+  it('light:deletedMany takes the listed lights off and keeps the rest', () => {
+    const board = vharnBoard({ lights: [corridorTorch(), brazier()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'lightsDeleted',
+      payload: { ...vharnEventBase(5), lightIds: [CORRIDOR_TORCH_ID] },
+    });
+
+    expect(next.lights).toEqual([brazier()]);
+  });
+
+  it('token:restyledMany with lightLit changes only the switch of the token light', () => {
+    const torchBearer = lyra({ light: { bright: 4, dim: 4 }, frame: 'round' });
+    const board = vharnBoard({ tokens: [torchBearer] });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokensRestyled',
+      payload: { ...vharnEventBase(5), tokenIds: [LYRA_ID], style: { lightLit: false } },
+    });
+
+    expect(next.tokens).toEqual([{ ...torchBearer, lightLit: false }]);
   });
 });

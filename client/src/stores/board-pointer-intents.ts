@@ -7,6 +7,7 @@ export const NO_SELECTION = {
   selectedDrawingIds: [],
   selectedEffectAreaIds: [],
   selectedWallIds: [],
+  selectedLightIds: [],
 } as const;
 
 /** The ids picked, added to the current ones (`additive`) or in their place, without repeats. */
@@ -56,6 +57,11 @@ function selectionAfter(
     case 'wallPicked': {
       const { wallId, additive } = intent;
       return { selectedWallIds: additive ? toggled(state.selectedWallIds, wallId) : [wallId] };
+    }
+    // Lights are picked with their own tool: a click replaces the lights only.
+    case 'lightPicked': {
+      const { lightId, additive } = intent;
+      return { selectedLightIds: additive ? toggled(state.selectedLightIds, lightId) : [lightId] };
     }
     // Right after its tokensMarqueed too: only adds.
     case 'effectAreasMarqueed': {

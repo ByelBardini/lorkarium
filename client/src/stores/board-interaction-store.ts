@@ -17,6 +17,7 @@ import type { RulerState } from '@/renderer/board-view';
 import type { DrawingPreview } from '@/renderer/drawing-view';
 import type { WallMode } from '@/renderer/wall-view';
 import type { WallEraseBox } from '@/services/wall-commands';
+import type { LightPoint, LightReach } from '@/services/light-commands';
 import type {
   BoardCommandFailure,
   BoardCommandResult,
@@ -25,6 +26,7 @@ import type {
 import type {
   DoorStateDto,
   DrawingDto,
+  LightDto,
   SceneVisionDto,
   WallDto,
   WallKindDto,
@@ -41,25 +43,19 @@ import { sendEffectArea } from './effect-area-tool-flow';
 import { changeWallKindsOf, deleteWallsOf, eraseWallAreaOf, eraseWallOf } from './wall-edit-flow';
 import { setDoorOf, toggleDoorOf } from './door-flow';
 import { sendWall, type WallToolContext } from './wall-tool-flow';
+import { sendLight } from './light-tool-flow';
+import {
+  changeLightRangesOf,
+  deleteLightsOf,
+  moveLightOf,
+  previewLightOf,
+} from './light-edit-flow';
+import { setLightsLitOf } from './light-lit-flow';
 import { afterIntent, joined, NO_SELECTION, toggled } from './board-pointer-intents';
+import { hintOf, toolChangeOf, WALL_MODE_HINT, type BoardTool } from './board-tool-state';
 import { TokenDragFlow } from './token-drag-flow';
 import { faceTokensOf, previewFacing } from './token-facing-flow';
 import { previewResize, resizeTokensOf } from './token-resize-flow';
-
-export type BoardTool = 'select' | 'ruler' | 'draw' | 'area' | 'walls';
-export type { WallMode };
-
-export const RULER_HINT = 'Arraste para medir.';
-export const DRAW_HINT = 'Arraste para desenhar; Shift encaixa a forma na grade.';
-export const AREA_HINT = 'Arraste a partir de onde a magia nasce; Shift encaixa a forma perfeita.';
-export const WALL_HINT = 'Arraste para criar a parede; Shift encaixa na grade.';
-
-const WALL_MODE_HINT: Readonly<Record<WallMode, string>> = {
-  draw: WALL_HINT,
-  eraseArea: 'Arraste uma caixa para apagar o que estiver dentro; Shift encaixa na grade.',
-  eraseWall: 'Clique numa parede para apagá-la inteira.',
-  eraseSegment: 'Clique num trecho para apagar só ele.',
-};
 
 /** Where a token was asked to go, shown until the server answers. */
 export type TokenPreview = Readonly<{ tokenId: string; col: number; row: number }>;
@@ -94,6 +90,10 @@ export type BoardInteractionState = Readonly<{
   selectedEffectAreaIds: readonly string[];
   /** The master's walls picked with the walls tool. */
   selectedWallIds: readonly string[];
+  /** The master's map lights picked with the lights tool. */
+  selectedLightIds: readonly string[];
+  /** Where lights are dragged here and not yet confirmed, by id. */
+  lightPreview: Readonly<Record<string, LightPoint>>;
   /** What a press does with the walls tool (it stays when the tool changes). */
   wallMode: WallMode;
   /** The shape areas get while moved or stretched here and not yet confirmed, by id. */
@@ -165,6 +165,18 @@ export type BoardInteractionStore = BoardInteractionState &
       sketch: FinishedSketch,
       board: Pick<WallToolContext, 'style' | 'walls' | 'scene'>,
     ) => Promise<void>;
+    /** The lights tool clicked on the empty board: one light there with the remembered reach. */
+    placeLight: (point: LightPoint, reach: LightReach) => Promise<void>;
+    /** A light being dragged (`null`: let go without a move). */
+    previewLight: (lightId: string, point: LightPoint | null) => void;
+    /** A light dropped: one move, one undo entry. */
+    moveLight: (light: LightDto, to: LightPoint) => Promise<void>;
+    /** The panel with lights picked: one reach for all of them, one undo entry. */
+    changeLightRanges: (lights: readonly LightDto[], reach: LightReach) => Promise<void>;
+    /** Delete on the lights picked. */
+    deleteLights: (lights: readonly LightDto[]) => Promise<void>;
+    /** The master's menu or panel: light or put out, never on the undo stack. */
+    setLightsLit: (lights: readonly LightDto[], lit: boolean) => Promise<void>;
     /** Dragged drawings (and the tokens selected with them) dropped where they go. */
     moveSelection: (move: SelectionMove) => Promise<void>;
     /** Delete / Backspace on the selected drawings. */
@@ -224,15 +236,8 @@ const NO_PREVIEWS = {
   facingPreview: {},
   resizePreview: {},
   effectAreaPreview: {},
+  lightPreview: {},
 } as const;
-
-const TOOL_HINT: Readonly<Record<BoardTool, string | null>> = {
-  select: null,
-  ruler: RULER_HINT,
-  draw: DRAW_HINT,
-  area: AREA_HINT,
-  walls: WALL_HINT,
-};
 
 /** The local side of the board for one room visit. Commands go to the server and the board
  *  only changes when its event arrives; a refused move puts the token back and says why.
@@ -255,6 +260,8 @@ export function createBoardInteractionStore(
       selectedDrawingIds: [],
       selectedEffectAreaIds: [],
       selectedWallIds: [],
+      selectedLightIds: [],
+      lightPreview: {},
       effectAreaPreview: {},
       wallMode: 'draw',
       activeLayer: 'tokens',
@@ -268,22 +275,8 @@ export function createBoardInteractionStore(
       readOnly: false,
       sightPreview: false,
       setTool: (tool) => {
-        // Only the master (who also chooses layers) edits walls.
-        if (tool === 'walls' && !get().canChooseLayer) return;
-        const sketching = tool === 'draw' || tool === 'area' || tool === 'walls';
-        const selection = sketching ? NO_SELECTION : {};
-        // What the area tool makes lives on Tokens: the master sees it pickable at once.
-        const layer = tool === 'area' ? { activeLayer: 'tokens' as const } : {};
-        // The walls picked belong to the walls tool: any change of tool drops them.
-        set({
-          tool,
-          selectedWallIds: [],
-          ruler: null,
-          measuring: false,
-          notice: hintOf(tool, get().wallMode),
-          ...selection,
-          ...layer,
-        });
+        const change = toolChangeOf(get(), tool);
+        if (change) set(change);
       },
       toggleLocalGrid: () => set({ localGridVisible: !get().localGridVisible }),
       pointer: (intent) => set(afterIntent(get(), intent)),
@@ -349,6 +342,16 @@ export function createBoardInteractionStore(
         const context = { ...board, readOnly: get().readOnly, say };
         return sendWall({ ...deps, recordEdit }, sketch, context);
       },
+      placeLight: (point, reach) => {
+        const say = (notice: string): void => set({ notice });
+        const recordEdit = deps.recordEdit ?? (() => undefined);
+        return sendLight({ ...deps, recordEdit }, point, { reach, readOnly: get().readOnly, say });
+      },
+      previewLight: (lightId, point) => previewLightOf(store, lightId, point),
+      moveLight: (light, to) => moveLightOf(deps, store, light, to),
+      changeLightRanges: (lights, reach) => changeLightRangesOf(deps, store, lights, reach),
+      deleteLights: (lights) => deleteLightsOf(deps, store, lights),
+      setLightsLit: (lights, lit) => setLightsLitOf(deps, store, lights, lit),
       toggleSightPreview: () => {
         if (!get().canChooseLayer) return;
         set({ sightPreview: !get().sightPreview });
@@ -407,6 +410,8 @@ export function useLocalBoardView(
       selectedDrawingIds: state.selectedDrawingIds,
       selectedEffectAreaIds: state.selectedEffectAreaIds,
       selectedWallIds: state.selectedWallIds,
+      selectedLightIds: state.selectedLightIds,
+      lightPreview: state.lightPreview,
       wallMode: state.wallMode,
       effectAreaPreview: state.effectAreaPreview,
       drawingPreview: state.drawingPreview,
@@ -429,6 +434,8 @@ type LocalViewField =
   | 'selectedDrawingIds'
   | 'selectedEffectAreaIds'
   | 'selectedWallIds'
+  | 'selectedLightIds'
+  | 'lightPreview'
   | 'wallMode'
   | 'effectAreaPreview'
   | 'drawingPreview'
@@ -446,10 +453,6 @@ type LocalViewField =
  *  Example: `const openId = singleSelectedOf(useBoardInteraction(store, (s) => s.selectedTokenIds))` */
 export function singleSelectedOf(selectedTokenIds: readonly string[]): string | null {
   return selectedTokenIds.length === 1 ? (selectedTokenIds[0] ?? null) : null;
-}
-
-function hintOf(tool: BoardTool, wallMode: WallMode): string | null {
-  return tool === 'walls' ? WALL_MODE_HINT[wallMode] : TOOL_HINT[tool];
 }
 
 function sayIfRefused(
