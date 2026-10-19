@@ -12,12 +12,15 @@ import type { TableBoardCommands } from '@/services/table-board-commands';
 import { DrawStylePanel } from '@/features/drawings/draw-style-panel';
 import { EffectAreaPanel } from '@/features/effect-areas/effect-area-panel';
 import { RoomWallPanel } from '@/features/walls/room-wall-panel';
+import { RoomLightPanel } from '@/features/lights/room-light-panel';
 import { DoorMenu, type DoorMenuRequest } from '@/features/walls/door-menu';
+import { LightMenu, type LightMenuRequest } from '@/features/lights/light-menu';
 import type { EditEntry } from '@/lib/edit-history';
 import { createBoardInteractionStore, useBoardInteraction } from '@/stores/board-interaction-store';
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import type { WallStyleStore } from '@/stores/wall-style-store';
+import type { LightReachStore } from '@/stores/light-reach-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
@@ -43,6 +46,7 @@ export type PlayRoomPageProps = Readonly<{
   drawingStyle: StoreApi<DrawingStyleStore>;
   effectAreaStyle: StoreApi<EffectAreaStyleStore>;
   wallStyle: StoreApi<WallStyleStore>;
+  lightReach: StoreApi<LightReachStore>;
   clipboard: Clipboard;
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
@@ -70,6 +74,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [tokenDialog, setTokenDialog] = useState<Readonly<{ tokenId: string | null }> | null>(null);
   const [tokenMenu, setTokenMenu] = useState<TokenMenuRequest | null>(null);
   const [doorMenu, setDoorMenu] = useState<DoorMenuRequest | null>(null);
+  const [lightMenu, setLightMenu] = useState<LightMenuRequest | null>(null);
   const [conditionTargets, setConditionTargets] = useState<readonly string[] | null>(null);
   const [imageTokenId, setImageTokenId] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<SelectionToDelete | null>(null);
@@ -109,9 +114,11 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           onDeleteSelection={setDeletion}
           onTokenMenu={setTokenMenu}
           onDoorMenu={(request) => isMaster && setDoorMenu(request)}
+          onLightMenu={(request) => isMaster && setLightMenu(request)}
           drawingStyle={props.drawingStyle}
           effectAreaStyle={props.effectAreaStyle}
           wallStyle={props.wallStyle}
+          lightReach={props.lightReach}
         />
         {tool === 'draw' && !focus && <DrawStylePanel drawingStyle={props.drawingStyle} />}
         {tool === 'area' && !focus && <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />}
@@ -120,6 +127,13 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             board={table.board}
             interaction={interaction}
             wallStyle={props.wallStyle}
+          />
+        )}
+        {tool === 'lights' && !focus && table && (
+          <RoomLightPanel
+            board={table.board}
+            interaction={interaction}
+            lightReach={props.lightReach}
           />
         )}
         {tokenMenu && table && (
@@ -138,6 +152,14 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             board={table.board}
             interaction={interaction}
             onClose={() => setDoorMenu(null)}
+          />
+        )}
+        {lightMenu && table && (
+          <LightMenu
+            request={lightMenu}
+            board={table.board}
+            interaction={interaction}
+            onClose={() => setLightMenu(null)}
           />
         )}
         {conditionTargets && table && (

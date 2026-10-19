@@ -143,6 +143,63 @@ describe('TokenContextMenu', () => {
     });
   });
 
+  describe('"Luz acesa", for whoever controls the token', () => {
+    const TORCH = { bright: 4, dim: 4 };
+
+    function withTokens(...tokens: ReturnType<typeof lyra>[]): void {
+      board.getState().apply({ kind: 'board', state: vharnBoard({ tokens }) });
+    }
+
+    it('the menu of Bia on her Lyra with the torch lit has "Luz acesa" checked', () => {
+      interaction.getState().allowLayerChoice(false);
+      withTokens(lyra({ light: TORCH, lightLit: true, canControl: true }));
+      openOn(LYRA_ID);
+
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Luz acesa' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+    });
+
+    it('clicking it puts out the light of Lyra', async () => {
+      withTokens(lyra({ light: TORCH, lightLit: true, canControl: true }));
+      openOn(LYRA_ID);
+
+      await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Luz acesa' }));
+
+      expect(commands.sentAs('restyleTokens').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [LYRA_ID], style: { lightLit: false } },
+      ]);
+    });
+
+    it('a token without light has no "Luz acesa"', () => {
+      withTokens(lyra({ light: null, canControl: true }));
+      openOn(LYRA_ID);
+
+      expect(screen.queryByRole('menuitemcheckbox', { name: 'Luz acesa' })).toBeNull();
+    });
+
+    it('a player who does not control the token has no "Luz acesa"', () => {
+      interaction.getState().allowLayerChoice(false);
+      withTokens(lyra({ light: TORCH, canControl: false }));
+      openOn(LYRA_ID);
+
+      expect(screen.queryByRole('menuitemcheckbox', { name: 'Luz acesa' })).toBeNull();
+    });
+
+    it('the master lights a brazier token on the objects layer that was out', async () => {
+      const brazier = lyra({ id: GOBLIN_ID, name: 'Braseiro', layer: 'objects' });
+      withTokens({ ...brazier, light: TORCH, lightLit: false, canControl: true });
+      openOn(GOBLIN_ID);
+
+      await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Luz acesa' }));
+
+      expect(commands.sentAs('restyleTokens').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [GOBLIN_ID], style: { lightLit: true } },
+      ]);
+    });
+  });
+
   describe('the look, for whoever controls the token', () => {
     const PORTRAIT_ID = '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d';
 

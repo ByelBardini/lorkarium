@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import type { AssetsApi } from '@/services/assets-api';
 import type { SceneDistance } from '@/lib/sight-form';
 import { BarsEditor } from './bars-editor';
+import { LightSection } from './light-section';
 import { SightSection } from './sight-section';
 import { decimalText } from '@/lib/numeric-text';
 import { SIDE_OPTIONS } from './token-messages';
@@ -85,6 +86,12 @@ export function TokenForm(props: TokenFormProps): React.JSX.Element {
         errors={errors.sight ?? {}}
         distance={distance}
         onChange={(sight) => onChange({ ...form, sight })}
+      />
+      <LightSection
+        fields={form.light}
+        errors={errors.light ?? {}}
+        distance={distance}
+        onChange={(light) => onChange({ ...form, light })}
       />
       <BarsEditor form={form} errors={errors.bars} onChange={onChange} />
     </div>

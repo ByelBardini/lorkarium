@@ -34,7 +34,8 @@ export type TokenContextMenuProps = Readonly<{
 const LAYER_TITLE = 'Mover para camada';
 export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
 
-/** The right click on a token for whoever controls it: "Aplicar condição…", "Morto", "Imagem…",
+/** The right click on a token for whoever controls it: "Aplicar condição…", "Morto", "Luz acesa"
+ *  (only on a token that gives off light), "Imagem…",
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
  *  token alone); the master also gets "Mover para camada". Closing (a choice, Esc, a click away)
  *  tells `onClose`.
@@ -85,6 +86,14 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
         >
           Morto
         </DropdownMenuCheckboxItem>
+        {token.light && token.canControl && (
+          <DropdownMenuCheckboxItem
+            checked={token.lightLit}
+            onSelect={() => restyle({ lightLit: !token.lightLit })}
+          >
+            Luz acesa
+          </DropdownMenuCheckboxItem>
+        )}
         <DropdownMenuSeparator />
         <LookItems
           token={token}

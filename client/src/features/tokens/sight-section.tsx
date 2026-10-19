@@ -1,15 +1,8 @@
 import { useId } from 'react';
-import { FormField } from '@/components/form-field';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { decimalText } from '@/lib/numeric-text';
-import {
-  sightCellsHint,
-  type SceneDistance,
-  type SightFieldErrors,
-  type SightFields,
-} from '@/lib/sight-form';
+import type { SceneDistance, SightFieldErrors, SightFields } from '@/lib/sight-form';
+import { RangeField } from '@/components/range-field';
 
 export type SightSectionProps = Readonly<{
   fields: SightFields;
@@ -20,9 +13,11 @@ export type SightSectionProps = Readonly<{
 }>;
 
 export const PENUMBRA_HINT = 'Na penumbra, vê o mapa, mas não vê tokens.';
+export const DARKVISION_HINT = 'Sem isso, o token vê só onde há luz.';
 
-/** "Visão" of a token: whether it sees, how far fully ("Visão plena") and how much more in
- *  silhouettes ("Penumbra"), in the scene's unit, each with its length in cells under it.
+/** "Visão" of a token: whether it sees in the dark ("Enxerga no escuro"), how far fully ("Visão
+ *  plena") and how much more in silhouettes ("Penumbra"), in the scene's unit, each with its
+ *  length in cells under it. Without it, the token still sees whatever is lit.
  *
  *  Example: `<SightSection fields={form.sight} errors={errors.sight ?? {}} distance={scene} onChange={setSight} />` */
 export function SightSection({ fields, errors, distance, onChange }: SightSectionProps) {
@@ -37,9 +32,10 @@ export function SightSection({ fields, errors, distance, onChange }: SightSectio
           onCheckedChange={(checked) => onChange({ ...fields, sees: checked === true })}
         />
         <Label htmlFor={seesId} className="text-sm text-foreground">
-          Enxerga
+          Enxerga no escuro
         </Label>
       </div>
+      <p className="text-xs text-muted-foreground">{DARKVISION_HINT}</p>
       {fields.sees && (
         <>
           <div className="grid grid-cols-2 gap-4">
@@ -62,31 +58,5 @@ export function SightSection({ fields, errors, distance, onChange }: SightSectio
         </>
       )}
     </fieldset>
-  );
-}
-
-type RangeFieldProps = Readonly<{
-  label: string;
-  value: string;
-  error: string | undefined;
-  distance: SceneDistance;
-  onChange: (value: string) => void;
-}>;
-
-// Text, not type="number": "1,5" is typed the Brazilian way and there are no spinner arrows.
-function RangeField({ label, value, error, distance, onChange }: RangeFieldProps) {
-  const id = useId();
-  const hint = sightCellsHint(value, distance) ?? undefined;
-  return (
-    <FormField id={id} label={label} error={error} hint={hint}>
-      <Input
-        id={id}
-        inputMode="decimal"
-        value={value}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
-        onChange={(event) => onChange(decimalText(event.target.value))}
-      />
-    </FormField>
   );
 }

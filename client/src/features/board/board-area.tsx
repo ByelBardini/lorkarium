@@ -16,6 +16,8 @@ import { useBoard, type BoardStore } from '@/stores/board-store';
 import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { wallStyleOf, type WallStyleStore } from '@/stores/wall-style-store';
+import type { LightReachStore } from '@/stores/light-reach-store';
+import { routeLightIntent } from '@/features/lights/light-intents';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { DrawingsSummary } from '@/features/drawings/drawings-summary';
 import { routeEffectAreaIntent } from '@/features/effect-areas/effect-area-intents';
@@ -23,6 +25,7 @@ import { EffectAreasSummary } from '@/features/effect-areas/effect-areas-summary
 import { BoardCanvas } from './board-canvas';
 import type { TokenMenuRequest } from './token-context-menu';
 import type { DoorMenuRequest } from '@/features/walls/door-menu';
+import type { LightMenuRequest } from '@/features/lights/light-menu';
 import {
   BOARD_LOAD_FAILED,
   facedAnnouncement,
@@ -47,12 +50,16 @@ export type BoardAreaProps = Readonly<{
   onTokenMenu: (request: TokenMenuRequest) => void;
   /** A short right click on a door (master): open the door menu there. */
   onDoorMenu: (request: DoorMenuRequest) => void;
+  /** A short right click on a map light (master): open the light menu there. */
+  onLightMenu: (request: LightMenuRequest) => void;
   /** The style a finished sketch is drawn with. */
   drawingStyle: StoreApi<DrawingStyleStore>;
   /** The style the area tool draws with. */
   effectAreaStyle: StoreApi<EffectAreaStyleStore>;
   /** The kind and shape the walls tool draws. */
   wallStyle: StoreApi<WallStyleStore>;
+  /** The reach the lights tool puts. */
+  lightReach: StoreApi<LightReachStore>;
 }>;
 
 /** What fills the room behind the floating UI: the canvas once the board is ready, or why not.
@@ -93,9 +100,11 @@ function InteractiveCanvas({
   onDeleteSelection,
   onTokenMenu,
   onDoorMenu,
+  onLightMenu,
   drawingStyle,
   effectAreaStyle,
   wallStyle,
+  lightReach,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({
     board,
@@ -120,6 +129,10 @@ function InteractiveCanvas({
           if (intent.kind === 'doorMenuRequested') {
             return onDoorMenu({ wallId: intent.wallId, x: intent.x, y: intent.y });
           }
+          if (intent.kind === 'lightMenuRequested') {
+            return onLightMenu({ lightId: intent.lightId, x: intent.x, y: intent.y });
+          }
+          if (routeLightIntent({ board, interaction, lightReach }, intent)) return;
           routeIntent({ board, interaction, drawingStyle, wallStyle }, intent);
         }}
         onRenderer={onRenderer}

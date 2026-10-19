@@ -9,6 +9,12 @@ import {
 } from '@lorkarium/contracts';
 import { cellsText } from '@/lib/cells-text';
 import {
+  parseRangeFields,
+  rangeFieldsOf,
+  type RangeFieldErrors,
+  type RangeFields,
+} from '@/lib/range-form';
+import {
   parseSightFields,
   sightFieldsOf,
   type SceneDistance,
@@ -42,8 +48,10 @@ export type TokenFormValues = Readonly<{
   controllerIds: readonly string[];
   /** The image of the token, or `null` for the initials disc. */
   imageAssetId: string | null;
-  /** "Visão": how far it sees, typed in the unit of the scene. */
+  /** "Visão": how far it sees in the dark, typed in the unit of the scene. */
   sight: SightFields;
+  /** "Luz": the light it gives off, typed in the unit of the scene. */
+  light: RangeFields;
   bars: readonly BarFormValues[];
 }>;
 
@@ -55,6 +63,7 @@ export type TokenFormErrors = Readonly<{
   width?: string;
   height?: string;
   sight?: SightFieldErrors;
+  light?: RangeFieldErrors;
   bars?: Readonly<Record<number, BarFormErrors>>;
 }>;
 
@@ -75,6 +84,11 @@ const SIDE_ERROR = 'De 0,5 a 10 casas, de meia em meia.';
 
 const NEW_BAR_MAX = 10;
 
+const LIGHT_TEXTS = { missingBright: 'Informe a luz plena.' };
+
+/** The sight and light as read from the form; `undefined` keeps what the token has. */
+type FormRanges = Readonly<{ sight: TokenEdit['sight']; light: TokenEdit['light'] }>;
+
 let barKeys = 0;
 
 /** "Novo token": nothing typed yet. */
@@ -89,6 +103,7 @@ export function emptyTokenForm(): TokenFormValues {
     controllerIds: [],
     imageAssetId: null,
     sight: { sees: false, bright: '', dim: '', saved: false },
+    light: { on: false, bright: '', dim: '', saved: false },
     bars: [],
   };
 }
@@ -109,7 +124,9 @@ export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenForm
     visibility: bar.visibility,
     display: bar.display,
   }));
-  const look = { controllerIds, imageAssetId, bars, sight: sightFieldsOf(token.sight, distance) };
+  const sight = sightFieldsOf(token.sight, distance);
+  const light = rangeFieldsOf(token.light, distance);
+  const look = { controllerIds, imageAssetId, bars, sight, light };
   return { name, initials, initialsEdited: true, side, width, height, ...look };
 }
 
@@ -147,19 +164,28 @@ export function moveBar(form: TokenFormValues, index: number, offset: -1 | 1): T
   return { ...form, bars };
 }
 
-/** The form → the token fields to send, validated by the same DTO as the server; the sight is
- *  read in the unit of the scene (`distance`).
+/** The form → the token fields to send, validated by the same DTO as the server; the sight and
+ *  the light are read in the unit of the scene (`distance`).
  *
  *  Example: `const result = parseTokenForm(form, scene); if (result.ok) await commands.updateToken(id, tokenId, result.token)` */
 export function parseTokenForm(form: TokenFormValues, distance: SceneDistance): TokenFormResult {
   const sight = parseSightFields(form.sight, distance);
-  const fields = parseTokenFields(form, sight.ok ? sight.sight : undefined);
-  if (sight.ok) return fields;
-  const errors = fields.ok ? {} : fields.errors;
-  return { ok: false, errors: { ...errors, sight: sight.errors } };
+  const light = parseRangeFields(form.light, distance, LIGHT_TEXTS);
+  const ranges = {
+    sight: sight.ok ? sight.sight : undefined,
+    light: light.ok ? light.range : undefined,
+  };
+  const fields = parseTokenFields(form, ranges);
+  if (sight.ok && light.ok) return fields;
+  const errors = {
+    ...(fields.ok ? {} : fields.errors),
+    ...(sight.ok ? {} : { sight: sight.errors }),
+    ...(light.ok ? {} : { light: light.errors }),
+  };
+  return { ok: false, errors };
 }
 
-function parseTokenFields(form: TokenFormValues, sight: TokenEdit['sight']): TokenFormResult {
+function parseTokenFields(form: TokenFormValues, { sight, light }: FormRanges): TokenFormResult {
   const parsed = TOKEN_FIELDS_DTO.safeParse({
     name: form.name,
     initials: form.initials,
@@ -169,6 +195,7 @@ function parseTokenFields(form: TokenFormValues, sight: TokenEdit['sight']): Tok
     controllerIds: form.controllerIds,
     imageAssetId: form.imageAssetId,
     ...(sight === undefined ? {} : { sight }),
+    ...(light === undefined ? {} : { light }),
     bars: form.bars.map(({ label, current, max, color, visibility, display }) => ({
       label,
       current,
