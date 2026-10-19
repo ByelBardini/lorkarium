@@ -9,9 +9,10 @@ import { TokenRulesBo } from './token-rules.bo';
 import {
   audiencesOf,
   combatOf,
+  joinPastedToCombat,
   newTokenRowOf,
   requireAssetsOf,
-  passTurnIfLeaving,
+  leaveCombat,
   tokensIn,
   withConditions,
   type TokenTransactionRunner,
@@ -38,7 +39,8 @@ export type TokenBatchServiceDeps = Readonly<{
 export class TokenBatchService {
   constructor(private readonly deps: TokenBatchServiceDeps) {}
 
-  /** Creates 1 to 64 tokens; one outside the scene or with a stranger as controller refuses all. */
+  /** Creates 1 to 64 tokens; one outside the scene or with a stranger as controller refuses all.
+   *  A copy whose original is in the combat joins that entry, in the same version. */
   async createMany(
     userId: string,
     campaignId: string,
@@ -60,18 +62,25 @@ export class TokenBatchService {
           command.tokens.map((token) => token.imageAssetId),
         );
         const created = await daos.tokens.insertMany(rows);
+        const pasted = created.map(({ token }, index) => ({
+          tokenId: token.id,
+          combatantId: command.tokens[index]?.combatantId,
+        }));
+        await joinPastedToCombat(daos, scene, access, pasted);
         const withAll: TokenWithConditions[] = [];
         for (const row of created) withAll.push(await withConditions(daos, row));
-        return withAll;
+        return { tokens: withAll, combat: await combatOf(daos, scene) };
       },
     );
     this.deps.publisher.tokensCreated({
       campaignId,
       version: saved.version,
       at: this.now(),
-      tokens: saved.value.map(audiencesOf),
+      tokens: saved.value.tokens.map(audiencesOf),
+      combat: saved.value.combat,
     });
-    return { version: saved.version, createdIds: saved.value.map(({ row }) => row.token.id) };
+    const createdIds = saved.value.tokens.map(({ row }) => row.token.id);
+    return { version: saved.version, createdIds };
   }
 
   /** Deletes 1 to 64 tokens; `expect` (undoing a paste) must still match where each one is, and
@@ -90,7 +99,7 @@ export class TokenBatchService {
           const expected = command.expect?.find(({ tokenId }) => tokenId === token.id);
           rules.requireAt(token.id, expected, token);
         }
-        await passTurnIfLeaving(daos, scene, access, tokenIds);
+        await leaveCombat(daos, scene, access, tokenIds);
         await daos.tokens.deleteMany(scene.id, tokenIds);
         return combatOf(daos, scene);
       },

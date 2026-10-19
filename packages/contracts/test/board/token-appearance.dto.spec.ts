@@ -55,6 +55,20 @@ describe('restyleTokensCommandDto', () => {
     expect(restyleTokensCommandDto.parse(command)).toEqual(command);
   });
 
+  it('marking the tokens as defeated is a style of its own', () => {
+    const command = { ...BASE, tokenIds: [LYRA_ID], style: { defeated: true } };
+
+    expect(restyleTokensCommandDto.parse(command).style).toEqual({ defeated: true });
+  });
+
+  it('the empty style refusal names defeated among the fields', () => {
+    const command = { ...BASE, tokenIds: [LYRA_ID], style: {} };
+
+    expect(messagesOf(restyleTokensCommandDto.safeParse(command))).toEqual([
+      expect.stringMatching(/defeated/),
+    ]);
+  });
+
   it('a null image takes the image away', () => {
     const command = { ...BASE, tokenIds: [LYRA_ID], style: { imageAssetId: null } };
 

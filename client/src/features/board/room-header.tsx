@@ -6,6 +6,7 @@ import { TurnLine } from '@/features/combat/turn-line';
 import { useLeaveTable } from '@/features/sessions/use-leave-table';
 import { formatCampaignCode } from '@/lib/campaign-code';
 import type { Clipboard } from '@/services/clipboard';
+import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { RoomLayoutStore } from '@/stores/room-layout-store';
@@ -20,6 +21,7 @@ export type RoomHeaderProps = Readonly<{
   campaign: CampaignDetailDto;
   presence: StoreApi<TablePresenceStore> | null;
   board: StoreApi<BoardStore> | null;
+  interaction: StoreApi<BoardInteractionStore>;
   openTables: StoreApi<OpenTablesStore>;
   roomLayout: StoreApi<RoomLayoutStore>;
   clipboard: Clipboard;
@@ -28,11 +30,12 @@ export type RoomHeaderProps = Readonly<{
 /** The 48px top bar of the room: name, who is online, the code (master only), the panel toggle
  *  and "Sair da mesa". Managing the table stays in its detail; this bar only plays.
  *
- *  Example: `<RoomHeader campaign={campaign} presence={presence} openTables={openTables} roomLayout={roomLayout} clipboard={clipboard} />` */
+ *  Example: `<RoomHeader campaign={campaign} presence={presence} interaction={interaction} openTables={openTables} roomLayout={roomLayout} clipboard={clipboard} />` */
 export function RoomHeader({
   campaign,
   presence,
   board,
+  interaction,
   openTables,
   roomLayout,
   clipboard,
@@ -47,7 +50,7 @@ export function RoomHeader({
       {presence && (
         <OnlineCount presence={presence} onShow={() => roomLayout.getState().showTab('people')} />
       )}
-      {board && <TurnLine board={board} className="hidden sm:block" />}
+      {board && <TurnLine board={board} interaction={interaction} className="hidden sm:block" />}
       <div className="ml-auto flex items-center gap-3">
         {campaign.joinCode && <TableCode code={campaign.joinCode} clipboard={clipboard} />}
         <PanelToggle roomLayout={roomLayout} />

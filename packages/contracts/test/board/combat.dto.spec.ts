@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addCombatantsCommandDto,
+  combatantDto,
+  combatEntriesDto,
+  combatEntryInputDto,
   combatTurnChangedDto,
   moveInTieCommandDto,
   nextTurnCommandDto,
+  regroupTokensCommandDto,
+  renameCombatantCommandDto,
   setInitiativeCommandDto,
   startCombatCommandDto,
 } from '../../src/board/combat.dto';
@@ -16,15 +22,46 @@ const IDS = [
   '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b',
   '7f6e5d4c-3b2a-4f1e-8d9c-0b1a2c3d4e5f',
 ];
-const [KAEL, , OGRO] = IDS;
+const [KAEL, GOBLIN, OGRO] = IDS as [string, string, string];
+
+function tokenIdNumber(index: number): string {
+  return `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
+}
+
+function idsOf(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => tokenIdNumber(index + 1));
+}
+
+function messagesOf(result: { success: boolean; error?: { issues: { message: string }[] } }) {
+  return result.error?.issues.map((issue) => issue.message) ?? [];
+}
 
 describe('combat commands', () => {
-  it('combat:start with three tokens is accepted', () => {
-    expect(startCombatCommandDto.parse({ ...BASE, tokenIds: IDS }).tokenIds).toHaveLength(3);
+  it('combat:start with a group, a lone token and an entry without tokens is accepted', () => {
+    const entries = [
+      { name: 'Inimigos', tokenIds: [GOBLIN, OGRO] },
+      { name: null, tokenIds: [KAEL] },
+      { name: 'Covil', tokenIds: [] },
+    ];
+
+    expect(startCombatCommandDto.parse({ ...BASE, entries }).entries).toEqual(entries);
   });
 
-  it('combat:start with no token is refused', () => {
-    expect(startCombatCommandDto.safeParse({ ...BASE, tokenIds: [] }).success).toBe(false);
+  it('combat:start with no entry is refused', () => {
+    expect(startCombatCommandDto.safeParse({ ...BASE, entries: [] }).success).toBe(false);
+  });
+
+  it('combat:start with the old tokenIds is refused', () => {
+    expect(startCombatCommandDto.safeParse({ ...BASE, tokenIds: IDS }).success).toBe(false);
+  });
+
+  it('combat:addCombatants with a token in two entries is refused', () => {
+    const entries = [
+      { name: null, tokenIds: [KAEL] },
+      { name: 'Aliados', tokenIds: [KAEL] },
+    ];
+
+    expect(addCombatantsCommandDto.safeParse({ ...BASE, entries }).success).toBe(false);
   });
 
   it.each([-2, null])('setInitiative with %s is accepted', (initiative) => {
@@ -59,10 +96,121 @@ describe('combatTurnChangedDto', () => {
         id: IDS[1],
         round: 2,
         currentCombatantId: KAEL,
-        combatants: [{ id: KAEL, tokenId: OGRO, initiative: 18, tieOrder: 0 }],
+        combatants: [{ id: KAEL, name: null, tokenIds: [OGRO], initiative: 18, tieOrder: 0 }],
       },
       conditionChanges: [{ tokenId: OGRO, conditions: [] }],
     };
     expect(combatTurnChangedDto.parse(event)).toEqual(event);
+  });
+});
+
+describe('combatEntryInputDto', () => {
+  it('a named entry with two tokens is accepted', () => {
+    const entry = { name: 'Inimigos', tokenIds: [GOBLIN, OGRO] };
+
+    expect(combatEntryInputDto.parse(entry)).toEqual(entry);
+  });
+
+  it('an unnamed entry with one token is accepted', () => {
+    const entry = { name: null, tokenIds: [KAEL] };
+
+    expect(combatEntryInputDto.parse(entry)).toEqual(entry);
+  });
+
+  it('an entry without tokens keeps its trimmed name', () => {
+    expect(combatEntryInputDto.parse({ name: '  Covil  ', tokenIds: [] }).name).toBe('Covil');
+  });
+
+  it('an entry without tokens and without a name is refused, asking for a name', () => {
+    const result = combatEntryInputDto.safeParse({ name: null, tokenIds: [] });
+
+    expect(messagesOf(result).join()).toContain('without tokens needs a name');
+  });
+
+  it.each(['x'.repeat(41), '   '])('the name %j is refused', (name) => {
+    expect(combatEntryInputDto.safeParse({ name, tokenIds: [KAEL] }).success).toBe(false);
+  });
+
+  it('the same token twice in one entry is refused, citing it', () => {
+    const result = combatEntryInputDto.safeParse({ name: null, tokenIds: [GOBLIN, GOBLIN] });
+
+    expect(messagesOf(result).join()).toContain(GOBLIN);
+  });
+
+  it('65 tokens in one entry are refused', () => {
+    expect(combatEntryInputDto.safeParse({ name: 'Horda', tokenIds: idsOf(65) }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe('combatEntriesDto', () => {
+  it('a token in two entries is refused, citing it', () => {
+    const result = combatEntriesDto.safeParse([
+      { name: 'Inimigos', tokenIds: [GOBLIN, OGRO] },
+      { name: null, tokenIds: [GOBLIN] },
+    ]);
+
+    expect(messagesOf(result).join()).toContain(
+      `token ${GOBLIN} is in more than one entry; expected each token in one entry`,
+    );
+  });
+
+  it.each([0, 65])('a list of %i entries is refused', (count) => {
+    const entries = idsOf(count).map((tokenId) => ({ name: null, tokenIds: [tokenId] }));
+
+    expect(combatEntriesDto.safeParse(entries).success).toBe(false);
+  });
+});
+
+describe('regroupTokensCommandDto', () => {
+  it.each([{ kind: 'entry', combatantId: OGRO }, { kind: 'own' }, { kind: 'out' }])(
+    'the target %j is accepted',
+    (target) => {
+      const parsed = regroupTokensCommandDto.parse({ ...BASE, tokenIds: [GOBLIN], target });
+
+      expect(parsed.target).toEqual(target);
+    },
+  );
+
+  it.each([{ kind: 'entry' }, { kind: 'group' }])('the target %j is refused', (target) => {
+    expect(regroupTokensCommandDto.safeParse({ ...BASE, tokenIds: [GOBLIN], target }).success).toBe(
+      false,
+    );
+  });
+
+  it.each([0, 65])('%i tokens are refused', (count) => {
+    const command = { ...BASE, tokenIds: idsOf(count), target: { kind: 'own' } };
+
+    expect(regroupTokensCommandDto.safeParse(command).success).toBe(false);
+  });
+});
+
+describe('renameCombatantCommandDto', () => {
+  it('an empty name is refused', () => {
+    const command = { ...BASE, combatantId: KAEL, name: '' };
+
+    expect(renameCombatantCommandDto.safeParse(command).success).toBe(false);
+  });
+});
+
+describe('combatantDto', () => {
+  it('an entry without tokens and without the old tokenId passes', () => {
+    const entry = { id: KAEL, name: null, tokenIds: [], initiative: null, tieOrder: 0 };
+
+    expect(combatantDto.parse(entry)).toEqual(entry);
+  });
+
+  it('an entry still carrying the old tokenId is refused', () => {
+    const entry = {
+      id: KAEL,
+      name: null,
+      tokenIds: [OGRO],
+      tokenId: OGRO,
+      initiative: 3,
+      tieOrder: 0,
+    };
+
+    expect(combatantDto.safeParse(entry).success).toBe(false);
   });
 });

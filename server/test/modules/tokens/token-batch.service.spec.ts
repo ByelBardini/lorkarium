@@ -11,7 +11,7 @@ import {
   VHARN_ID,
   campaignMemberPo,
 } from '../../support/campaigns-factories';
-import { CombatDaoFake } from '../../support/combat-fakes';
+import { CombatDaoFake, soloEntries } from '../../support/combat-fakes';
 import { AssetsDaoFake } from '../../support/assets-fakes';
 import { LYRA_PORTRAIT_ID, QUELM_MAP_ID, lyraPortraitPo } from '../../support/assets-factories';
 import { ConditionsDaoFake } from '../../support/conditions-fakes';
@@ -37,7 +37,16 @@ const GOBLIN: NewTokenDto = {
   flipX: false,
   flipY: false,
   facing: 0,
-  bars: [{ label: 'PV', current: 7, max: 7, color: 'ember', visibility: 'controllers' }],
+  bars: [
+    {
+      label: 'PV',
+      current: 7,
+      max: 7,
+      color: 'ember',
+      visibility: 'controllers',
+      display: 'number',
+    },
+  ],
 };
 
 describe('TokenBatchService', () => {
@@ -156,6 +165,59 @@ describe('TokenBatchService', () => {
     });
   });
 
+  describe('createMany into the combat', () => {
+    async function inimigos(): Promise<void> {
+      await combat.start(VHARN_SCENE_ID, [{ name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID] }]);
+    }
+
+    it('a Goblin pasted with the entry of Inimigos joins it, published with the combat in one version', async () => {
+      await inimigos();
+
+      const created = await service.createMany(ANA_ID, VHARN_ID, {
+        tokens: [{ ...GOBLIN, combatantId: `c-${LYRA_ID}` }],
+      });
+
+      expect(created.version).toBe(5);
+      expect(scenes.journal.filter((step) => step === 'bump')).toHaveLength(1);
+      expect(publisher.tokensCreations[0]?.combat?.combatants).toEqual([
+        expect.objectContaining({ name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID, 'token-4'] }),
+      ]);
+    });
+
+    it('a copy of an entry that already left is created out of the combat, without error', async () => {
+      await inimigos();
+
+      await service.createMany(ANA_ID, VHARN_ID, {
+        tokens: [{ ...GOBLIN, combatantId: 'c-gone' }],
+      });
+
+      expect(tokens.rows).toHaveLength(4);
+      expect(publisher.tokensCreations[0]?.combat?.combatants[0]?.tokenIds).toEqual([
+        LYRA_ID,
+        BRAM_ID,
+      ]);
+    });
+
+    it('a paste with no combat publishes combat null', async () => {
+      await service.createMany(ANA_ID, VHARN_ID, {
+        tokens: [{ ...GOBLIN, combatantId: `c-${LYRA_ID}` }],
+      });
+
+      expect(publisher.tokensCreations[0]?.combat).toBeNull();
+    });
+
+    it('a token pasted without an entry stays out of the combat', async () => {
+      await inimigos();
+
+      await service.createMany(ANA_ID, VHARN_ID, { tokens: [GOBLIN] });
+
+      expect(publisher.tokensCreations[0]?.combat?.combatants[0]?.tokenIds).toEqual([
+        LYRA_ID,
+        BRAM_ID,
+      ]);
+    });
+  });
+
   describe('deleteMany', () => {
     it('the master deleting Lyra and Bram where the undo expects them publishes one token:deletedMany', async () => {
       const version = await service.deleteMany(ANA_ID, VHARN_ID, {
@@ -180,7 +242,7 @@ describe('TokenBatchService', () => {
     });
 
     it('deleting the token on turn passes the turn to the next one in the same transaction', async () => {
-      const started = await combat.start(VHARN_SCENE_ID, [LYRA_ID, BRAM_ID]);
+      const started = await combat.start(VHARN_SCENE_ID, soloEntries(LYRA_ID, BRAM_ID));
       await combat.setTurn(started.combat.id, 1, `c-${LYRA_ID}`);
 
       await service.deleteMany(ANA_ID, VHARN_ID, { tokenIds: [LYRA_ID] });
@@ -215,10 +277,37 @@ describe('TokenBatchService', () => {
       expect(tokens.rows).toHaveLength(3);
     });
 
-    it('a player deleting tokens is refused with FORBIDDEN', async () => {
+    it('a player deleting tokens is refused with FORBIDDEN, and nothing is deleted', async () => {
       await expect(
         service.deleteMany(CAIO_ID, VHARN_ID, { tokenIds: [BRAM_ID] }),
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(tokens.rows).toHaveLength(3);
+    });
+
+    it('deleting every token of Inimigos, on turn, takes it out and passes the turn once to the Covil', async () => {
+      const started = await combat.start(VHARN_SCENE_ID, [
+        { name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID] },
+        { name: 'Covil', tokenIds: [] },
+      ]);
+      await combat.setTurn(started.combat.id, 1, `c-${LYRA_ID}`);
+
+      await service.deleteMany(ANA_ID, VHARN_ID, { tokenIds: [LYRA_ID, BRAM_ID] });
+
+      expect(publisher.tokensDeletes[0]?.combat).toMatchObject({
+        round: 1,
+        currentCombatantId: 'c-Covil',
+        combatants: [{ id: 'c-Covil', name: 'Covil', tokenIds: [] }],
+      });
+    });
+
+    it('deleting one token of Inimigos keeps the entry with the other one', async () => {
+      await combat.start(VHARN_SCENE_ID, [{ name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID] }]);
+
+      await service.deleteMany(ANA_ID, VHARN_ID, { tokenIds: [LYRA_ID] });
+
+      expect(publisher.tokensDeletes[0]?.combat?.combatants).toEqual([
+        expect.objectContaining({ name: 'Inimigos', tokenIds: [BRAM_ID] }),
+      ]);
     });
   });
 });

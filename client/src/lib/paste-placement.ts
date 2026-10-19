@@ -1,4 +1,5 @@
 import type {
+  CombatDto,
   DrawingDto,
   DrawingShapeInput,
   EffectAreaDto,
@@ -7,6 +8,7 @@ import type {
   TokenDto,
 } from '@lorkarium/contracts';
 import { shiftEffectArea, type Cell, type SceneSize } from '@lorkarium/game-core';
+import { entryOfToken } from './combat-entries';
 import { toHundredth } from './drawing-geometry';
 import { sentShapeOf, shapeOfEffectArea } from './effect-area-shape';
 
@@ -21,17 +23,19 @@ export type CopiedSelection = Readonly<{
 type Span = Readonly<{ min: number; max: number }>;
 
 /** The selection as the copy area keeps it: a token keeps name, side, size, bars, controllers
- *  and layer (a clean copy: no conditions, out of the turn order); a drawing its shape and style;
- *  an area of effect its shape and color (no id, no author).
+ *  and layer (a clean copy: no conditions), and, in the middle of a combat, the entry of its
+ *  original (`combatantId`), which the paste joins; a drawing its shape and style; an area of
+ *  effect its shape and color (no id, no author).
  *
- *  Example: `edits.getState().copy(copiedOf(selectedTokens, selectedDrawings, selectedAreas))` */
+ *  Example: `edits.getState().copy(copiedOf(selectedTokens, selectedDrawings, selectedAreas, board.combat))` */
 export function copiedOf(
   tokens: readonly TokenDto[],
   drawings: readonly DrawingDto[],
   effectAreas: readonly EffectAreaDto[] = [],
+  combat: CombatDto | null = null,
 ): CopiedSelection {
   return {
-    tokens: tokens.map(newTokenOf),
+    tokens: tokens.map((token) => newTokenOf(token, entryOfToken(combat, token.id)?.id)),
     drawings: drawings.map(shapeOfDrawing),
     effectAreas: effectAreas.map(shapeOfEffectArea),
   };
@@ -86,7 +90,7 @@ export function pastePlacement(
   };
 }
 
-function newTokenOf(token: TokenDto): NewTokenInput {
+function newTokenOf(token: TokenDto, combatantId: string | undefined): NewTokenInput {
   const { name, initials, side, width, height, col, row, layer, controllerIds } = token;
   const { imageAssetId, frame, flipX, flipY, facing } = token;
   const look = { imageAssetId, frame, flipX, flipY, facing, sight: token.sight };
@@ -110,6 +114,7 @@ function newTokenOf(token: TokenDto): NewTokenInput {
     controllerIds: controllers,
     ...look,
     bars,
+    ...(combatantId && { combatantId }),
   };
 }
 

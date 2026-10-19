@@ -36,6 +36,7 @@ function tokenView(overrides: Partial<TokenView> = {}): TokenView {
     art: null,
     facing: 0,
     facingMark: true,
+    defeated: false,
     silhouette: null,
     ...overrides,
   };

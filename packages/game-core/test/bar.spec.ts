@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyBarChange } from '../src/bar';
+import { adjustBarValues, applyBarChange } from '../src/bar';
 
 const LIMIT = 99_999;
 
@@ -33,5 +33,26 @@ describe('applyBarChange', () => {
     [{ op: 'set', value: Number.NaN }, 'NaN'],
   ] as const)('%o is refused citing the value and "inteiro"', (change, shown) => {
     expect(() => applyBarChange(10, change, LIMIT)).toThrow(new RegExp(`${shown}.*inteiro`));
+  });
+});
+
+describe('adjustBarValues', () => {
+  it('a current change keeps the maximum: 32/45 minus 7 is 25/45', () => {
+    const bar = { current: 32, max: 45 };
+    expect(adjustBarValues(bar, { op: 'add', amount: -7 }, LIMIT)).toEqual({
+      current: 25,
+      max: 45,
+    });
+  });
+
+  it('a new maximum keeps the current, even when it ends above it: 40/45 to max 30 is 40/30', () => {
+    const bar = { current: 40, max: 45 };
+    expect(adjustBarValues(bar, { op: 'max', value: 30 }, LIMIT)).toEqual({ current: 40, max: 30 });
+  });
+
+  it.each([0, -3, 1.5, 100_000])('a maximum of %s is refused citing it and "1 to"', (value) => {
+    const bar = { current: 10, max: 10 };
+    const change = { op: 'max', value } as const;
+    expect(() => adjustBarValues(bar, change, LIMIT)).toThrow(new RegExp(`${value}.*1 to 99999`));
   });
 });

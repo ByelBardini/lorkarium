@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBarInput } from '@/lib/bar-input';
+import { parseBarInput, parseBarMax } from '@/lib/bar-input';
 
 describe('parseBarInput', () => {
   it.each([
@@ -15,5 +15,19 @@ describe('parseBarInput', () => {
 
   it.each(['', '  ', 'abc', '1,5', '1.5', '--3', '+'])('"%s" is invalid', (text) => {
     expect(parseBarInput(text)).toEqual({ kind: 'invalid' });
+  });
+});
+
+describe('parseBarMax', () => {
+  it.each([
+    ['50', 50],
+    [' 1 ', 1],
+    ['99999', 99_999],
+  ])('"%s" is the maximum %s', (text, max) => {
+    expect(parseBarMax(text)).toBe(max);
+  });
+
+  it.each(['', '0', '-5', '+5', '2,5', '100000', 'abc'])('"%s" is not a maximum', (text) => {
+    expect(parseBarMax(text)).toBeNull();
   });
 });

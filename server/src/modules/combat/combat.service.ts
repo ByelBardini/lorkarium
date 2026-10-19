@@ -3,7 +3,9 @@ import type {
   CombatDto,
   ConditionChangeDto,
   MoveInTieCommandDto,
+  RegroupTokensCommandDto,
   RemoveCombatantCommandDto,
+  RenameCombatantCommandDto,
   SetInitiativeCommandDto,
   StartCombatCommandDto,
   TurnCommandDto,
@@ -20,6 +22,7 @@ import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { CombatBo } from './combat.bo';
+import { CombatRosterBo, type RosterChange } from './combat-roster.bo';
 import type { CombatDao, CombatRow } from './combat.dao';
 import { toCombatDto, toCombatState } from './combat.mapper';
 
@@ -27,6 +30,8 @@ type Envelope = 'actionId' | 'campaignId';
 export type StartCombat = Omit<StartCombatCommandDto, Envelope>;
 export type AddCombatants = Omit<AddCombatantsCommandDto, Envelope>;
 export type RemoveCombatant = Omit<RemoveCombatantCommandDto, Envelope>;
+export type RegroupTokens = Omit<RegroupTokensCommandDto, Envelope>;
+export type RenameCombatant = Omit<RenameCombatantCommandDto, Envelope>;
 export type MoveInTie = Omit<MoveInTieCommandDto, Envelope>;
 export type SetInitiative = Omit<SetInitiativeCommandDto, Envelope>;
 export type TurnCommand = Omit<TurnCommandDto, Envelope>;
@@ -40,7 +45,10 @@ export type CombatWriteDaos = Readonly<{
     | 'start'
     | 'findOfScene'
     | 'addCombatants'
-    | 'removeCombatant'
+    | 'linkTokens'
+    | 'unlinkTokens'
+    | 'removeCombatants'
+    | 'rename'
     | 'setInitiative'
     | 'setTieOrders'
     | 'setTurn'
@@ -67,6 +75,7 @@ type InCombat = Readonly<{
   tokens: readonly TokenRow[];
   row: CombatRow | undefined;
   bo: CombatBo;
+  roster: CombatRosterBo;
 }>;
 
 type Committed<T> = Readonly<{ value: T; version: number }>;
@@ -81,16 +90,17 @@ export class CombatService {
   constructor(private readonly deps: CombatServiceDeps) {}
 
   async start(userId: string, campaignId: string, command: StartCombat): Promise<number> {
-    const saved = await this.inCombat(userId, campaignId, async ({ daos, scene, tokens, bo }) => {
-      const tokenIds = bo.start(
-        command.tokenIds,
-        tokens.map(({ token }) => token.id),
-      );
-      const started = await daos.combat.start(scene.id, tokenIds);
-      const first = orderCombatants(started.combatants)[0]?.id ?? null;
-      await daos.combat.setTurn(started.combat.id, 1, first);
-      return combatOf(daos, scene);
-    });
+    const saved = await this.inCombat(
+      userId,
+      campaignId,
+      async ({ daos, scene, tokens, roster }) => {
+        const entries = roster.start(command.entries, idsOf(tokens));
+        const started = await daos.combat.start(scene.id, entries);
+        const first = orderCombatants(started.combatants)[0]?.id ?? null;
+        await daos.combat.setTurn(started.combat.id, 1, first);
+        return combatOf(daos, scene);
+      },
+    );
     this.deps.publisher.combatStarted({
       ...this.base(campaignId, saved.version),
       combat: saved.value,
@@ -107,20 +117,31 @@ export class CombatService {
   }
 
   addCombatants(userId: string, campaignId: string, command: AddCombatants): Promise<number> {
-    return this.updated(userId, campaignId, async ({ daos, tokens, row, bo }) => {
-      const tokenIds = bo.addCombatants(
-        command.tokenIds,
-        tokens.map(({ token }) => token.id),
-      );
-      await daos.combat.addCombatants(combatIdOf(row), tokenIds);
+    return this.updated(userId, campaignId, async ({ daos, tokens, row, roster }) => {
+      const entries = roster.addCombatants(command.entries, idsOf(tokens));
+      await daos.combat.addCombatants(combatIdOf(row), entries);
     });
   }
 
   removeCombatant(userId: string, campaignId: string, command: RemoveCombatant): Promise<number> {
-    return this.updated(userId, campaignId, async ({ daos, row, bo }) => {
-      const turn = bo.removeCombatant(command.combatantId);
-      await daos.combat.removeCombatant(combatIdOf(row), command.combatantId);
+    return this.updated(userId, campaignId, async ({ daos, row, roster }) => {
+      const turn = roster.removeCombatant(command.combatantId);
+      await daos.combat.removeCombatants(combatIdOf(row), [command.combatantId]);
       await saveTurn(daos, row, turn);
+    });
+  }
+
+  regroupTokens(userId: string, campaignId: string, command: RegroupTokens): Promise<number> {
+    return this.updated(userId, campaignId, async ({ daos, tokens, row, roster }) => {
+      const change = roster.regroup(command.tokenIds, command.target, idsOf(tokens));
+      await applyRoster(daos, combatIdOf(row), change);
+    });
+  }
+
+  renameCombatant(userId: string, campaignId: string, command: RenameCombatant): Promise<number> {
+    return this.updated(userId, campaignId, async ({ daos, roster }) => {
+      const name = roster.rename(command.combatantId, command.name);
+      await daos.combat.rename(command.combatantId, name);
     });
   }
 
@@ -143,7 +164,9 @@ export class CombatService {
       await saveTurn(daos, row, turn);
       const ended = row?.combatants.find(({ id }) => id === turn.endedTurnOf);
       const round = row?.combat.round ?? turn.round;
-      const conditionChanges = ended ? [await tickConditions(daos, ended.tokenId, round)] : [];
+      const conditionChanges: ConditionChangeDto[] = [];
+      for (const tokenId of ended?.tokenIds ?? [])
+        conditionChanges.push(await tickConditions(daos, tokenId, round));
       return { combat: await combatOf(daos, scene), conditionChanges };
     });
     this.publishTurn(campaignId, saved);
@@ -188,8 +211,10 @@ export class CombatService {
         throw new Error(`campaign ${campaignId} has no active scene; every campaign has one`);
       const tokens = await daos.tokens.listOfScene(scene.id);
       const row = await daos.combat.findOfScene(scene.id);
-      const bo = new CombatBo(access, row ? toCombatState(row, controllersIn(tokens)) : null);
-      const value = await work({ daos, scene, tokens, row, bo });
+      const state = row ? toCombatState(row, controllersIn(tokens)) : null;
+      const bo = new CombatBo(access, state);
+      const roster = new CombatRosterBo(access, state);
+      const value = await work({ daos, scene, tokens, row, bo, roster });
       return { value, version: await daos.scenes.bumpVersion(scene.id) };
     });
   }
@@ -220,9 +245,27 @@ function controllersIn(tokens: readonly TokenRow[]): (tokenId: string) => readon
   return (tokenId) => tokens.find(({ token }) => token.id === tokenId)?.controllerIds ?? [];
 }
 
+function idsOf(tokens: readonly TokenRow[]): string[] {
+  return tokens.map(({ token }) => token.id);
+}
+
 function combatIdOf(row: CombatRow | undefined): string {
   if (!row) throw new Error('the combat rule let a command through without a combat');
   return row.combat.id;
+}
+
+// Unlink first, so a token split into an entry of its own is not first linked and then unlinked.
+async function applyRoster(
+  daos: CombatWriteDaos,
+  combatId: string,
+  change: RosterChange,
+): Promise<void> {
+  await daos.combat.unlinkTokens(change.unlink);
+  await daos.combat.removeCombatants(combatId, change.remove);
+  await daos.combat.addCombatants(combatId, change.create);
+  for (const { combatantId, tokenIds } of change.link)
+    await daos.combat.linkTokens(combatantId, tokenIds);
+  if (change.turn) await daos.combat.setTurn(combatId, change.turn.round, change.turn.currentId);
 }
 
 async function saveTurn(

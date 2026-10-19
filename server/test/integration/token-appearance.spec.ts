@@ -75,6 +75,22 @@ describe('token facing and look over Socket.IO', () => {
     expect(state.tokens[0]).toMatchObject({ facing: 270, frame: 'round', flipX: true });
   });
 
+  it('Bia marking her Lyra defeated reaches Caio, and a restart keeps the mark', async () => {
+    const master = await live.atTable(live.ana, live.vharn);
+    const lyraId = await lyraOfBia(master);
+    const caioEvents = recordEventsOf(await live.atTable(live.caio, live.vharn));
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    const ack = await send(bia, 'token:restyleMany', restyle(lyraId, { defeated: true }));
+
+    expect(ack).toEqual({ ok: true, version: 2 });
+    const event = tokensRestyledDto.parse(await eventPayload(caioEvents, 'token:restyledMany'));
+    expect(event.style).toEqual({ defeated: true });
+    await live.restart();
+    const state = await synced(await live.atTable(live.caio, live.vharn), live.vharn);
+    expect(state.tokens[0]?.defeated).toBe(true);
+  });
+
   it('a turn carrying a forged userId gets INVALID_BODY', async () => {
     const master = await live.atTable(live.ana, live.vharn);
     const lyraId = await lyraOfBia(master);

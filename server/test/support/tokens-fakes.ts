@@ -1,5 +1,5 @@
 import { WallsDaoFake } from './walls-fakes';
-import type { TokenLayerPo, TokenLookPo } from '../../src/modules/tokens/tokens.po';
+import type { BarValuesPo, TokenLayerPo, TokenStylePo } from '../../src/modules/tokens/tokens.po';
 import type {
   NewTokenRow,
   TokenBoxPo,
@@ -33,11 +33,12 @@ export class TokensDaoFake implements Pick<
   | 'restyle'
   | 'resizeMany'
   | 'setLayer'
-  | 'setBarCurrent'
+  | 'setBarValues'
   | 'update'
   | 'delete'
   | 'deleteMany'
 > {
+  private cascade: Pick<CombatDaoFake, 'dropToken'> | undefined;
   constructor(
     private readonly journal: string[],
     readonly rows: TokenRow[] = [],
@@ -84,9 +85,9 @@ export class TokensDaoFake implements Pick<
     for (const { tokenId, ...box } of boxes) this.changeToken(tokenId, box);
   }
 
-  async restyle(tokenIds: readonly string[], look: Partial<TokenLookPo>): Promise<void> {
+  async restyle(tokenIds: readonly string[], style: Partial<TokenStylePo>): Promise<void> {
     this.journal.push('save');
-    for (const tokenId of tokenIds) this.changeToken(tokenId, look);
+    for (const tokenId of tokenIds) this.changeToken(tokenId, style);
   }
 
   async setLayer(tokenIds: readonly string[], layer: TokenLayerPo): Promise<void> {
@@ -115,12 +116,12 @@ export class TokensDaoFake implements Pick<
     }
   }
 
-  async setBarCurrent(barId: string, current: number): Promise<void> {
+  async setBarValues(barId: string, { current, max }: BarValuesPo): Promise<void> {
     const owner = this.rows.find(({ bars }) => bars.some((bar) => bar.id === barId));
     if (!owner) throw new Error(`TokensDaoFake has no bar ${barId}`);
     this.replace(owner.token.id, (found) => ({
       ...found,
-      bars: found.bars.map((bar) => (bar.id === barId ? { ...bar, current } : bar)),
+      bars: found.bars.map((bar) => (bar.id === barId ? { ...bar, current, max } : bar)),
     }));
   }
 
@@ -138,6 +139,7 @@ export class TokensDaoFake implements Pick<
     this.journal.push('save');
     const index = this.rows.findIndex(({ token }) => token.id === tokenId);
     if (index !== -1) this.rows.splice(index, 1);
+    this.cascade?.dropToken(tokenId);
   }
 
   async deleteMany(sceneId: string, tokenIds: readonly string[]): Promise<void> {
@@ -146,6 +148,12 @@ export class TokensDaoFake implements Pick<
       ({ token }) => token.sceneId !== sceneId || !tokenIds.includes(token.id),
     );
     this.rows.splice(0, this.rows.length, ...kept);
+    for (const tokenId of tokenIds) this.cascade?.dropToken(tokenId);
+  }
+
+  /** Deleting a token from now on also drops its combat link, as the table's cascade does. */
+  cascadeDeletesTo(combat: Pick<CombatDaoFake, 'dropToken'>): void {
+    this.cascade = combat;
   }
 
   private changeToken(tokenId: string, fields: Partial<TokenRow['token']>): void {
@@ -176,6 +184,7 @@ export class TokenTransactionRunnerFake {
   ) {}
 
   readonly run: TokenTransactionRunner = async (work) => {
+    this.tokens.cascadeDeletesTo(this.combat);
     const result = await work({
       scenes: this.scenes,
       tokens: this.tokens,

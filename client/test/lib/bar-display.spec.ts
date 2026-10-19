@@ -6,28 +6,50 @@ describe('barFill', () => {
     const fill = barFill({ current: 32, max: 45 });
     expect(fill.state).toBe('normal');
     expect(fill.fraction).toBeCloseTo(0.711, 3);
+    expect(fill.excess).toBe(0);
   });
 
   it('0 is an empty normal bar', () => {
-    expect(barFill({ current: 0, max: 10 })).toEqual({ fraction: 0, state: 'normal' });
+    expect(barFill({ current: 0, max: 10 })).toEqual({ fraction: 0, state: 'normal', excess: 0 });
   });
 
-  it('a negative value is empty and negative', () => {
-    expect(barFill({ current: -4, max: 38 })).toEqual({ fraction: 0, state: 'negative' });
+  it('a negative value is empty, and how far below zero is its excess: −10 of 40 is 0.25', () => {
+    expect(barFill({ current: -10, max: 40 })).toEqual({
+      fraction: 0,
+      state: 'negative',
+      excess: 0.25,
+    });
   });
 
-  it('above the maximum is full and over', () => {
-    expect(barFill({ current: 50, max: 45 })).toEqual({ fraction: 1, state: 'over' });
+  it('above the maximum is full, and how far above is its excess: 50 of 40 is 0.25', () => {
+    expect(barFill({ current: 50, max: 40 })).toEqual({ fraction: 1, state: 'over', excess: 0.25 });
+  });
+
+  it.each([
+    [-90, 40],
+    [200, 40],
+  ])('the excess stops at one whole bar: %s of %s is 1', (current, max) => {
+    expect(barFill({ current, max }).excess).toBe(1);
   });
 });
 
 describe('formatBarValue', () => {
   it('reads "32 / 45"', () => {
-    expect(formatBarValue({ current: 32, max: 45 })).toBe('32 / 45');
+    expect(formatBarValue({ current: 32, max: 45, display: 'number' })).toBe('32 / 45');
   });
 
   it('a negative value takes the typographic minus: "−4 / 38"', () => {
-    expect(formatBarValue({ current: -4, max: 38 })).toBe('−4 / 38');
+    expect(formatBarValue({ current: -4, max: 38, display: 'number' })).toBe('−4 / 38');
+  });
+
+  it.each([
+    [32, 45, '71%'],
+    [45, 45, '100%'],
+    [0, 10, '0%'],
+    [60, 45, '133%'],
+    [-4, 38, '−11%'],
+  ])('as percent, %s of %s reads "%s"', (current, max, shown) => {
+    expect(formatBarValue({ current, max, display: 'percent' })).toBe(shown);
   });
 });
 

@@ -27,8 +27,11 @@ const tokenMoveDto = tokenCellDto.extend({
 });
 export type TokenMoveDto = z.infer<typeof tokenMoveDto>;
 
-/** One token of `token:createMany`: the body of `token:create` without `actionId`/`campaignId`. */
-export const newTokenDto = createTokenCommandDto.omit({ actionId: true, campaignId: true });
+/** One token of `token:createMany`: the body of `token:create` without `actionId`/`campaignId`;
+ *  `combatantId` is the entry of the copied original, which the paste joins when it is still there. */
+export const newTokenDto = createTokenCommandDto
+  .omit({ actionId: true, campaignId: true })
+  .extend({ combatantId: z.uuid().optional() });
 export type NewTokenDto = z.infer<typeof newTokenDto>;
 export type NewTokenInput = z.input<typeof newTokenDto>;
 
@@ -97,8 +100,13 @@ export const deleteTokensCommandDto = z
   });
 export type DeleteTokensCommandDto = z.infer<typeof deleteTokensCommandDto>;
 
-/** `token:createdMany`: each audience gets its own redacted copy, as in `token:created`. */
-export const tokensCreatedDto = z.strictObject({ ...boardEventShape, tokens: z.array(tokenDto) });
+/** `token:createdMany`: each audience gets its own redacted copy, as in `token:created`; `combat`
+ *  is the combat after the copies joined the entries of their originals, or `null` with none. */
+export const tokensCreatedDto = z.strictObject({
+  ...boardEventShape,
+  tokens: z.array(tokenDto),
+  combat: combatDto.nullable(),
+});
 export type TokensCreatedDto = z.infer<typeof tokensCreatedDto>;
 
 /** `combat` is the combat after the tokens left it (the turn may have passed), or `null` with none. */

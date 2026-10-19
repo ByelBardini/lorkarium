@@ -31,6 +31,7 @@ import {
   movedAnnouncement,
   tokensMovedAnnouncement,
 } from './board-messages';
+import type { SelectionToDelete } from './delete-selection-dialog';
 import { useBoardKeyboard } from './use-board-keyboard';
 
 export type BoardAreaProps = Readonly<{
@@ -40,6 +41,8 @@ export type BoardAreaProps = Readonly<{
   onRenderer: (renderer: BoardRenderer | null) => void;
   /** Enter on a selected token: show its card. */
   onOpenToken: (tokenId: string) => void;
+  /** The master's Delete with tokens selected: open the confirmation. */
+  onDeleteSelection: (selection: SelectionToDelete) => void;
   /** A short right click on a token (master): open "Mover para camada" there. */
   onTokenMenu: (request: TokenMenuRequest) => void;
   /** A short right click on a door (master): open the door menu there. */
@@ -87,13 +90,19 @@ function InteractiveCanvas({
   createBoardRenderer,
   onRenderer,
   onOpenToken,
+  onDeleteSelection,
   onTokenMenu,
   onDoorMenu,
   drawingStyle,
   effectAreaStyle,
   wallStyle,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
-  const onKeyDown = useBoardKeyboard({ board, interaction, onOpen: onOpenToken });
+  const onKeyDown = useBoardKeyboard({
+    board,
+    interaction,
+    onOpen: onOpenToken,
+    onDeleteSelection,
+  });
   return (
     <>
       <DrawingsSummary board={board} />

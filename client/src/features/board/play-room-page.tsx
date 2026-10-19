@@ -23,6 +23,7 @@ import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { BoardArea } from './board-area';
+import { DeleteSelectionDialog, type SelectionToDelete } from './delete-selection-dialog';
 import { tokenCommandFailureMessage } from './board-messages';
 import { BoardStatusLine } from './board-status-line';
 import { BoardToolbar, type BoardToolbarProps } from './board-toolbar';
@@ -71,6 +72,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [doorMenu, setDoorMenu] = useState<DoorMenuRequest | null>(null);
   const [conditionTargets, setConditionTargets] = useState<readonly string[] | null>(null);
   const [imageTokenId, setImageTokenId] = useState<string | null>(null);
+  const [deletion, setDeletion] = useState<SelectionToDelete | null>(null);
   const isMaster = campaign.myRole === 'master';
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
@@ -88,6 +90,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           campaign={campaign}
           presence={table?.presence ?? null}
           board={table?.board ?? null}
+          interaction={interaction}
           openTables={openTables}
           roomLayout={roomLayout}
           clipboard={clipboard}
@@ -103,6 +106,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             interaction.getState().select(tokenId);
             roomLayout.getState().showTab('combat');
           }}
+          onDeleteSelection={setDeletion}
           onTokenMenu={setTokenMenu}
           onDoorMenu={(request) => isMaster && setDoorMenu(request)}
           drawingStyle={props.drawingStyle}
@@ -155,11 +159,19 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             onClose={() => setImageTokenId(null)}
           />
         )}
+        {deletion && (
+          <DeleteSelectionDialog
+            selection={deletion}
+            interaction={interaction}
+            onClose={() => setDeletion(null)}
+          />
+        )}
         <BoardStatusLine table={table} interaction={interaction} />
         <FocusToggle roomLayout={roomLayout} />
         {focus && table && (
           <TurnLine
             board={table.board}
+            interaction={interaction}
             className="absolute top-3 left-1/2 -translate-x-1/2 bg-panel px-3 py-1"
           />
         )}

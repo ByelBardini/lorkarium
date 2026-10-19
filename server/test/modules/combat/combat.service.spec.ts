@@ -1,3 +1,4 @@
+import type { CombatEntryInput } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CombatService } from '../../../src/modules/combat/combat.service';
 import { ClockFake } from '../../support/auth-fakes';
@@ -12,6 +13,16 @@ import { TokensDaoFake } from '../../support/tokens-fakes';
 import { lyraPo, lyraRow } from '../../support/tokens-factories';
 
 const NOW = new Date('2026-10-15T21:00:00Z');
+const THREE_ALONE: CombatEntryInput[] = [
+  { name: null, tokenIds: ['kael'] },
+  { name: null, tokenIds: ['lyra'] },
+  { name: null, tokenIds: ['ogro'] },
+];
+const GROUPED: CombatEntryInput[] = [
+  { name: 'Inimigos', tokenIds: ['goblin', 'lobo'] },
+  { name: null, tokenIds: ['kael'] },
+  { name: 'Covil', tokenIds: [] },
+];
 
 describe('CombatService', () => {
   let scenes: ScenesDaoFake;
@@ -33,6 +44,8 @@ describe('CombatService', () => {
       lyraRow({ token: lyraPo({ id: 'kael' }), controllerIds: [BIA_ID] }),
       lyraRow({ token: lyraPo({ id: 'lyra' }), controllerIds: [CAIO_ID] }),
       lyraRow({ token: lyraPo({ id: 'ogro' }), controllerIds: [] }),
+      lyraRow({ token: lyraPo({ id: 'goblin' }), controllerIds: [CAIO_ID] }),
+      lyraRow({ token: lyraPo({ id: 'lobo' }), controllerIds: [CAIO_ID] }),
     ]);
     combat = new CombatDaoFake(scenes.journal);
     conditions = new ConditionsDaoFake(scenes.journal);
@@ -46,8 +59,8 @@ describe('CombatService', () => {
     });
   });
 
-  async function started(): Promise<void> {
-    await service.start(ANA_ID, VHARN_ID, { tokenIds: ['kael', 'lyra', 'ogro'] });
+  async function started(entries: CombatEntryInput[] = THREE_ALONE): Promise<void> {
+    await service.start(ANA_ID, VHARN_ID, { entries });
     scenes.journal.splice(0);
     publisher.combatEvents.splice(0);
   }
@@ -57,7 +70,7 @@ describe('CombatService', () => {
   }
 
   it('the master starts with three tokens: saved, the first on turn, then combat:started', async () => {
-    const version = await service.start(ANA_ID, VHARN_ID, { tokenIds: ['kael', 'lyra', 'ogro'] });
+    const version = await service.start(ANA_ID, VHARN_ID, { entries: THREE_ALONE });
     expect(version).toBe(5);
     expect(scenes.journal.at(-2)).toBe('commit');
     expect(scenes.journal.at(-1)).toBe('publish');
@@ -185,7 +198,116 @@ describe('CombatService', () => {
 
   it('adding a combatant who is already in adds no one', async () => {
     await started();
-    await service.addCombatants(ANA_ID, VHARN_ID, { tokenIds: ['kael'] });
+    await service.addCombatants(ANA_ID, VHARN_ID, {
+      entries: [{ name: null, tokenIds: ['kael'] }],
+    });
     expect(combat.rows.get(VHARN_SCENE_ID)?.combatants).toHaveLength(3);
+  });
+
+  it('the master starts with a group and an entry without tokens, saved as sent', async () => {
+    await started(GROUPED);
+
+    expect(
+      combat.rows.get(VHARN_SCENE_ID)?.combatants.map(({ name, tokenIds }) => [name, tokenIds]),
+    ).toEqual([
+      ['Inimigos', ['goblin', 'lobo']],
+      [null, ['kael']],
+      ['Covil', []],
+    ]);
+  });
+
+  it('splitting the Lobo off Inimigos saves, bumps one version, commits, then publishes combat:updated', async () => {
+    await started(GROUPED);
+
+    const version = await service.regroupTokens(ANA_ID, VHARN_ID, {
+      tokenIds: ['lobo'],
+      target: { kind: 'own' },
+    });
+
+    expect(version).toBe(6);
+    expect([...new Set(scenes.journal)]).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+    const last = publisher.combatEvents.at(-1);
+    if (last?.name !== 'combat:updated') throw new Error('expected combat:updated');
+    expect(last.event.combat.combatants.map(({ tokenIds }) => tokenIds)).toEqual([
+      ['goblin'],
+      ['kael'],
+      [],
+      ['lobo'],
+    ]);
+  });
+
+  it('taking the last token of the entry on turn out passes the turn in the same combat:updated', async () => {
+    await started(GROUPED);
+    await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 1, 'c-kael');
+
+    await service.regroupTokens(ANA_ID, VHARN_ID, { tokenIds: ['kael'], target: { kind: 'out' } });
+
+    const last = publisher.combatEvents.at(-1);
+    if (last?.name !== 'combat:updated') throw new Error('expected combat:updated');
+    expect(last.event.combat.currentCombatantId).toBe('c-Covil');
+    expect(last.event.combat.combatants.map(({ id }) => id)).toEqual(['c-goblin', 'c-Covil']);
+  });
+
+  it('renaming Inimigos saves the name, bumps one version and publishes combat:updated', async () => {
+    await started(GROUPED);
+
+    await service.renameCombatant(ANA_ID, VHARN_ID, { combatantId: 'c-goblin', name: 'Goblins' });
+
+    expect([...new Set(scenes.journal)]).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+    expect(publisher.combatEvents.at(-1)).toMatchObject({
+      name: 'combat:updated',
+      event: {
+        version: 6,
+        combat: {
+          combatants: expect.arrayContaining([expect.objectContaining({ name: 'Goblins' })]),
+        },
+      },
+    });
+  });
+
+  it('at the end of the turn of Inimigos in round 2 the conditions of both tokens count down, one change each', async () => {
+    await started(GROUPED);
+    const caido = conditions.define(VHARN_ID, 'Caído', 'harm');
+    const envenenado = conditions.define(VHARN_ID, 'Envenenado', 'harm');
+    await conditions.apply('goblin', caido, { remainingRounds: 1, appliedRound: 1 });
+    await conditions.apply('lobo', envenenado, { remainingRounds: 2, appliedRound: 1 });
+    await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 2, 'c-goblin');
+
+    await service.nextTurn(ANA_ID, VHARN_ID, { fromCombatantId: 'c-goblin' });
+
+    expect(publisher.combatEvents.at(-1)).toMatchObject({
+      name: 'combat:turnChanged',
+      event: {
+        conditionChanges: [
+          { tokenId: 'goblin', conditions: [] },
+          {
+            tokenId: 'lobo',
+            conditions: [expect.objectContaining({ name: 'Envenenado', remainingRounds: 1 })],
+          },
+        ],
+      },
+    });
+  });
+
+  it('the end of the turn of the Covil, without tokens, changes no condition', async () => {
+    await started(GROUPED);
+    await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 1, 'c-Covil');
+
+    await service.nextTurn(ANA_ID, VHARN_ID, { fromCombatantId: 'c-Covil' });
+
+    expect(publisher.combatEvents.at(-1)).toMatchObject({
+      name: 'combat:turnChanged',
+      event: { conditionChanges: [] },
+    });
+  });
+
+  it('a regroup the rule refuses saves and publishes nothing', async () => {
+    await started(GROUPED);
+
+    await expect(
+      service.regroupTokens(CAIO_ID, VHARN_ID, { tokenIds: ['lobo'], target: { kind: 'own' } }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(scenes.journal).toEqual(['lock']);
+    expect(publisher.published).toBe(0);
   });
 });

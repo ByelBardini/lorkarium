@@ -21,7 +21,7 @@ export function toTokenDto(
   conditions: readonly ActiveConditionDto[] = [],
 ): TokenDto {
   const { id, name, initials, side, width, height, col, row: tokenRow, layer } = row.token;
-  const { imageAssetId, frame, flipX, flipY, facing } = row.token;
+  const { imageAssetId, frame, flipX, flipY, facing, defeated } = row.token;
   const bars = row.bars.filter((bar) => audience === 'privileged' || bar.visibility === 'everyone');
   return {
     id,
@@ -39,6 +39,7 @@ export function toTokenDto(
     flipX,
     flipY,
     facing,
+    defeated,
     sight: sightOfToken(row.token),
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
@@ -50,12 +51,13 @@ export function toTokenDto(
  *
  *  Example: `await tokens.insert({ token, bars: toBarInputsPo(command.bars), controllerIds })` */
 export function toBarInputsPo(bars: readonly BarInputDto[]): TokenBarInputPo[] {
-  return bars.map(({ label, current, max, color, visibility }) => ({
+  return bars.map(({ label, current, max, color, visibility, display }) => ({
     label,
     current,
     max,
     color,
     visibility,
+    display,
   }));
 }
 
@@ -132,6 +134,6 @@ function definedLookOf(command: Partial<TokenLookPo>): Partial<TokenLookPo> {
 }
 
 function toTokenBarDto(bar: TokenBarPo): TokenBarDto {
-  const { id, position, label, current, max, color, visibility } = bar;
-  return { id, position, label, current, max, color, visibility };
+  const { id, position, label, current, max, color, visibility, display } = bar;
+  return { id, position, label, current, max, color, visibility, display };
 }

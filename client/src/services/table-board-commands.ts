@@ -1,7 +1,6 @@
 import {
   BOARD_EVENTS,
   type BarChangeDto,
-  type DefineConditionCommandDto,
   type CreateTokenCommandInput,
   type DrawingShapeInput,
   type SceneGridDto,
@@ -12,6 +11,7 @@ import {
 } from '@lorkarium/contracts';
 import type { TokenBox } from '@lorkarium/game-core';
 import { BoardCommandSender, type BoardCommandResult } from './board-command-sender';
+import { RealtimeCombatCommands, type CombatCommands } from './combat-commands';
 import {
   RealtimeEffectAreaCommands,
   type EffectAreaCommands,
@@ -33,11 +33,11 @@ import {
 } from './wall-commands';
 
 export type { BoardCommandFailure, BoardCommandResult } from './board-command-sender';
+export type { NewConditionDefinition } from './combat-commands';
 
 type Envelope = 'actionId' | 'campaignId';
 // The input type: a token sent without `layer` lands on `tokens`.
 export type NewToken = Omit<CreateTokenCommandInput, Envelope>;
-export type NewConditionDefinition = Omit<DefineConditionCommandDto, Envelope>;
 export type TokenEdit = Omit<UpdateTokenCommandDto, Envelope | 'tokenId'>;
 export type CellTarget = Readonly<{ col: number; row: number }>;
 /** Where one token of a group lands. */
@@ -68,7 +68,7 @@ export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | nul
  *  change itself arrives as an event, like everyone else's.
  *
  *  Example: `const result = await boardCommands.moveToken(campaignId, tokenId, { col, row })` */
-export interface TableBoardCommands extends EffectAreaCommands, WallCommands {
+export interface TableBoardCommands extends CombatCommands, EffectAreaCommands, WallCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
    *  absent keeps it; `vision` absent keeps the scene's mode. */
   configureScene(
@@ -138,56 +138,20 @@ export interface TableBoardCommands extends EffectAreaCommands, WallCommands {
     change: BarChangeDto,
   ): Promise<BoardCommandResult>;
   deleteToken(campaignId: string, tokenId: string): Promise<BoardCommandResult>;
-  defineCondition(
-    campaignId: string,
-    definition: NewConditionDefinition,
-  ): Promise<BoardCommandResult>;
-  applyCondition(
-    campaignId: string,
-    tokenId: string,
-    conditionId: string,
-    rounds: number,
-  ): Promise<BoardCommandResult>;
-  applyConditions(
-    campaignId: string,
-    tokenIds: readonly string[],
-    conditionId: string,
-    rounds: number,
-  ): Promise<BoardCommandResult>;
-  removeCondition(
-    campaignId: string,
-    tokenId: string,
-    activeConditionId: string,
-  ): Promise<BoardCommandResult>;
-  startCombat(campaignId: string, tokenIds: readonly string[]): Promise<BoardCommandResult>;
-  endCombat(campaignId: string): Promise<BoardCommandResult>;
-  addCombatants(campaignId: string, tokenIds: readonly string[]): Promise<BoardCommandResult>;
-  removeCombatant(campaignId: string, combatantId: string): Promise<BoardCommandResult>;
-  moveInTie(
-    campaignId: string,
-    combatantId: string,
-    direction: 'up' | 'down',
-  ): Promise<BoardCommandResult>;
-  setInitiative(
-    campaignId: string,
-    combatantId: string,
-    initiative: number | null,
-  ): Promise<BoardCommandResult>;
-  /** `fromCombatantId`: whose turn the sender saw, so two quick "next" never skip two turns. */
-  nextTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult>;
-  previousTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult>;
 }
 
 /** `TableBoardCommands` over the same realtime transport as the table session.
  *
  *  Example: `new RealtimeTableBoardCommands(transport, () => crypto.randomUUID())` */
-export class RealtimeTableBoardCommands implements TableBoardCommands {
-  private readonly sender: BoardCommandSender;
+export class RealtimeTableBoardCommands
+  extends RealtimeCombatCommands
+  implements TableBoardCommands
+{
   private readonly effectAreas: EffectAreaCommands;
   private readonly walls: WallCommands;
 
   constructor(transport: RealtimeTransport, newActionId: () => string) {
-    this.sender = new BoardCommandSender(transport, newActionId);
+    super(new BoardCommandSender(transport, newActionId));
     this.effectAreas = new RealtimeEffectAreaCommands(this.sender);
     this.walls = new RealtimeWallCommands(this.sender);
   }
@@ -413,87 +377,6 @@ export class RealtimeTableBoardCommands implements TableBoardCommands {
 
   deleteToken(campaignId: string, tokenId: string): Promise<BoardCommandResult> {
     return this.send(BOARD_EVENTS.deleteToken, campaignId, { tokenId });
-  }
-
-  defineCondition(
-    campaignId: string,
-    definition: NewConditionDefinition,
-  ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.defineCondition, campaignId, { ...definition });
-  }
-
-  applyCondition(
-    campaignId: string,
-    tokenId: string,
-    conditionId: string,
-    rounds: number,
-  ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.applyCondition, campaignId, { tokenId, conditionId, rounds });
-  }
-
-  applyConditions(
-    campaignId: string,
-    tokenIds: readonly string[],
-    conditionId: string,
-    rounds: number,
-  ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.applyConditions, campaignId, {
-      tokenIds: [...tokenIds],
-      conditionId,
-      rounds,
-    });
-  }
-
-  removeCondition(
-    campaignId: string,
-    tokenId: string,
-    activeConditionId: string,
-  ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.removeCondition, campaignId, { tokenId, activeConditionId });
-  }
-
-  startCombat(campaignId: string, tokenIds: readonly string[]): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.startCombat, campaignId, { tokenIds: [...tokenIds] });
-  }
-
-  endCombat(campaignId: string): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.endCombat, campaignId, {});
-  }
-
-  addCombatants(campaignId: string, tokenIds: readonly string[]): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.addCombatants, campaignId, { tokenIds: [...tokenIds] });
-  }
-
-  removeCombatant(campaignId: string, combatantId: string): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.removeCombatant, campaignId, { combatantId });
-  }
-
-  moveInTie(
-    campaignId: string,
-    combatantId: string,
-    direction: 'up' | 'down',
-  ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.moveInTie, campaignId, { combatantId, direction });
-  }
-
-  setInitiative(
-    campaignId: string,
-    combatantId: string,
-    initiative: number | null,
-  ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.setInitiative, campaignId, { combatantId, initiative });
-  }
-
-  nextTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.nextTurn, campaignId, { fromCombatantId });
-  }
-
-  previousTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.previousTurn, campaignId, { fromCombatantId });
-  }
-
-  private send(event: string, campaignId: string, fields: object): Promise<BoardCommandResult> {
-    return this.sender.send(event, campaignId, fields);
   }
 }
 

@@ -177,63 +177,6 @@ describe('RealtimeTableBoardCommands', () => {
     });
   });
 
-  describe('combat and condition commands', () => {
-    const KAEL = 'c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c';
-
-    it.each([
-      ['combat:nextTurn', () => commands.nextTurn(VHARN.id, KAEL), { fromCombatantId: KAEL }],
-      [
-        'combat:previousTurn',
-        () => commands.previousTurn(VHARN.id, KAEL),
-        { fromCombatantId: KAEL },
-      ],
-      [
-        'combat:setInitiative',
-        () => commands.setInitiative(VHARN.id, KAEL, null),
-        { combatantId: KAEL, initiative: null },
-      ],
-      [
-        'combat:moveInTie',
-        () => commands.moveInTie(VHARN.id, KAEL, 'up'),
-        { combatantId: KAEL, direction: 'up' },
-      ],
-      ['combat:start', () => commands.startCombat(VHARN.id, [KAEL]), { tokenIds: [KAEL] }],
-      ['combat:end', () => commands.endCombat(VHARN.id), {}],
-      [
-        'condition:define',
-        () =>
-          commands.defineCondition(VHARN.id, { name: 'Sangrando', tone: 'harm', icon: 'droplet' }),
-        { name: 'Sangrando', tone: 'harm', icon: 'droplet' },
-      ],
-      [
-        'condition:apply',
-        () => commands.applyCondition(VHARN.id, KAEL, KAEL, 2),
-        { tokenId: KAEL, conditionId: KAEL, rounds: 2 },
-      ],
-      [
-        'condition:applyMany',
-        () => commands.applyConditions(VHARN.id, [KAEL], KAEL, 0),
-        { tokenIds: [KAEL], conditionId: KAEL, rounds: 0 },
-      ],
-    ] as const)('%s goes out with its fields', (event, sendIt, fields) => {
-      void sendIt();
-      expect(transport.sent).toEqual([
-        { event, payload: { actionId: ACTION_ID, campaignId: VHARN.id, ...fields } },
-      ]);
-    });
-
-    it.each([
-      ['TURN_ALREADY_CHANGED', 'turn_changed'],
-      ['COMBAT_ALREADY_ACTIVE', 'combat_active'],
-      ['COMBAT_NOT_ACTIVE', 'combat_inactive'],
-      ['CONDITION_NOT_FOUND', 'token_not_found'],
-    ])('a refusal with %s is %s', async (code, failure) => {
-      const result = commands.nextTurn(VHARN.id, KAEL);
-      await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'combat:nextTurn');
-      expect(await result).toEqual({ ok: false, failure });
-    });
-  });
-
   describe('drawings, token batches and the undo precondition', () => {
     const LYRA = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
     const SQUARE = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';

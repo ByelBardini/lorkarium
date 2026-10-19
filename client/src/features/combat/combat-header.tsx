@@ -1,4 +1,4 @@
-import type { TokenDto } from '@lorkarium/contracts';
+import type { CombatEntryInput, TokenDto } from '@lorkarium/contracts';
 import { useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,9 @@ import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { combatCountLabel, combatSummaryOf, type CombatSummary } from './combat-view';
 import { EndCombatButton } from './end-combat-button';
+import { useBoardSight } from '@/features/board/use-board-sight';
+import { seenTokensOf } from '@/lib/board-sight';
+import { canRunEntry, combatCandidatesOf } from '@/lib/combat-entries';
 import { StartCombatDialog } from './start-combat-dialog';
 
 const NO_TOKENS: readonly TokenDto[] = [];
@@ -22,18 +25,29 @@ export type CombatHeaderProps = Readonly<{
  *  Example: `<CombatHeader board={board} interaction={interaction} isMaster={isMaster} />` */
 export function CombatHeader({ board, interaction, isMaster }: CombatHeaderProps) {
   const current = useBoard(board, (state) => state.board);
-  const summary = useMemo(() => combatSummaryOf(current), [current]);
-  if (!summary) return <OutOfCombat board={board} interaction={interaction} isMaster={isMaster} />;
-  return <InCombat summary={summary} interaction={interaction} isMaster={isMaster} />;
+  const sight = useBoardSight(board, interaction);
+  const summary = useMemo(
+    () => (current ? combatSummaryOf(current, seenTokensOf(current, sight)) : null),
+    [current, sight],
+  );
+  if (!summary || !current) {
+    return <OutOfCombat board={board} interaction={interaction} isMaster={isMaster} />;
+  }
+  const canPass =
+    !isMaster && summary.current !== null && canRunEntry(summary.current, current.tokens, false);
+  return (
+    <InCombat summary={summary} interaction={interaction} isMaster={isMaster} canPass={canPass} />
+  );
 }
 
 function OutOfCombat({ board, interaction, isMaster }: CombatHeaderProps): React.JSX.Element {
-  const tokens = useBoard(board, (state) => state.board?.tokens ?? NO_TOKENS);
+  const all = useBoard(board, (state) => state.board?.tokens ?? NO_TOKENS);
+  const tokens = useMemo(() => combatCandidatesOf(all), [all]);
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
   const [choosing, setChoosing] = useState(false);
-  const start = (tokenIds: string[]): void => {
+  const start = (entries: CombatEntryInput[]): void => {
     setChoosing(false);
-    void interaction.getState().command((commands, id) => commands.startCombat(id, tokenIds));
+    void interaction.getState().command((commands, id) => commands.startCombat(id, entries));
   };
   return (
     <div className="flex flex-col gap-2">
@@ -54,13 +68,7 @@ function OutOfCombat({ board, interaction, isMaster }: CombatHeaderProps): React
         </div>
       )}
       {choosing && (
-        <StartCombatDialog
-          tokens={tokens}
-          title="Iniciar combate"
-          confirmLabel="Iniciar"
-          onConfirm={start}
-          onClose={() => setChoosing(false)}
-        />
+        <StartCombatDialog tokens={tokens} onConfirm={start} onClose={() => setChoosing(false)} />
       )}
     </div>
   );
@@ -70,16 +78,17 @@ type InCombatProps = Readonly<{
   summary: CombatSummary;
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
+  /** A player who controls every token of the entry on turn passes it. */
+  canPass: boolean;
 }>;
 
-function InCombat({ summary, interaction, isMaster }: InCombatProps): React.JSX.Element {
+function InCombat({ summary, interaction, isMaster, canPass }: InCombatProps) {
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
-  const { combat, current } = summary;
+  const { combat, currentLabel } = summary;
   const from = combat.currentCombatantId;
   const send = interaction.getState().command;
   const next = (): void => void (from && send((c, id) => c.nextTurn(id, from)));
   const previous = (): void => void (from && send((c, id) => c.previousTurn(id, from)));
-  const canPass = !isMaster && current?.canControl === true;
   return (
     <section aria-label="Combate em andamento" className="flex flex-col gap-3">
       <div className="flex items-end gap-4">
@@ -91,7 +100,7 @@ function InCombat({ summary, interaction, isMaster }: InCombatProps): React.JSX.
         </p>
         <p className="flex flex-col gap-0.5 text-sm">
           <span className="text-muted-foreground">{combatCountLabel(summary.count)}</span>
-          {current && <span className="text-primary">{`Vez de ${current.name}`}</span>}
+          {currentLabel && <span className="text-primary">{`Vez de ${currentLabel}`}</span>}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">

@@ -1,6 +1,7 @@
 import type {
   ActiveConditionDto,
   BoardStateDto,
+  CombatantDto,
   CombatDto,
   SceneDto,
   SceneUpdatedDto,
@@ -141,6 +142,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     flipX: false,
     flipY: false,
     facing: 0,
+    defeated: false,
     sight: null,
     canControl: true,
     bars: [
@@ -152,6 +154,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
         max: 45,
         color: 'ember',
         visibility: 'controllers',
+        display: 'number',
       },
       {
         id: 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e',
@@ -161,6 +164,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
         max: 1,
         color: 'gold',
         visibility: 'everyone',
+        display: 'number',
       },
     ],
     conditions: [],
@@ -231,6 +235,18 @@ export function groupDraggedOver(
 export const KAEL_COMBATANT = 'c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c';
 export const LYRA_COMBATANT = 'c2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d';
 
+/** A combat entry holding one token and no name, as the tracker had before groups.
+ *
+ *  Example: `soloCombatant(KAEL_COMBATANT, 'kael-token', 18, 0)` */
+export function soloCombatant(
+  id: string,
+  tokenId: string,
+  initiative: number | null,
+  tieOrder: number,
+): CombatantDto {
+  return { id, name: null, tokenIds: [tokenId], initiative, tieOrder };
+}
+
 /** A combat at VHARN: round 1, Kael (18) on turn, then Lyra (14).
  *
  *  Example: `vharnCombat({ round: 3 })` */
@@ -240,8 +256,8 @@ export function vharnCombat(overrides: Partial<CombatDto> = {}): CombatDto {
     round: 1,
     currentCombatantId: KAEL_COMBATANT,
     combatants: [
-      { id: KAEL_COMBATANT, tokenId: 'kael-token', initiative: 18, tieOrder: 0 },
-      { id: LYRA_COMBATANT, tokenId: LYRA_ID, initiative: 14, tieOrder: 1 },
+      soloCombatant(KAEL_COMBATANT, 'kael-token', 18, 0),
+      soloCombatant(LYRA_COMBATANT, LYRA_ID, 14, 1),
     ],
     ...overrides,
   };

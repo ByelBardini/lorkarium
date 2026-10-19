@@ -1,11 +1,13 @@
-import { MAX_BARS_PER_TOKEN } from '@lorkarium/contracts';
+import { MAX_BARS_PER_TOKEN, type BarColorDto } from '@lorkarium/contracts';
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useId } from 'react';
 import { ChoiceField } from '@/components/choice-field';
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { COLOR_OPTIONS, FIRST_BAR_HINT, VISIBILITY_OPTIONS } from './token-messages';
+import { BAR_COLOR_LABEL, barToneVar } from '@/lib/bar-display';
+import { StyleTileGroup, type StyleTile } from '@/features/drawings/style-tile-group';
+import { DISPLAY_OPTIONS, FIRST_BAR_HINT, VISIBILITY_OPTIONS } from './token-messages';
 import {
   addBar,
   moveBar,
@@ -20,8 +22,23 @@ export type BarsEditorProps = Readonly<{
   onChange: (form: TokenFormValues) => void;
 }>;
 
-/** The N bars of a token: label, current and maximum, color, who sees the numbers, and the
- *  order (the first is drawn on the token). Up to `MAX_BARS_PER_TOKEN`.
+const BAR_COLOR_TILES: readonly StyleTile<BarColorDto>[] = (
+  ['gold', 'steel', 'ember', 'moss', 'ash'] as const
+).map((color) => ({
+  value: color,
+  label: BAR_COLOR_LABEL[color],
+  picture: (
+    <span
+      aria-hidden="true"
+      className="size-full rounded-full"
+      style={{ background: barToneVar(color) }}
+    />
+  ),
+}));
+
+/** How the N bars of a token are set up: label, color, who sees the numbers, number or percent,
+ *  and the order (the first is drawn on the token). The values are adjusted on the token card,
+ *  not here. Up to `MAX_BARS_PER_TOKEN`.
  *
  *  Example: `<BarsEditor form={form} errors={errors.bars} onChange={setForm} />` */
 export function BarsEditor({ form, errors, onChange }: BarsEditorProps): React.JSX.Element {
@@ -96,26 +113,11 @@ function BarRow({
       aria-label={`Barra ${index + 1}: ${name}`}
       className="flex flex-col gap-3 border-b border-divider py-3 last:border-b-0"
     >
-      <div className="grid grid-cols-[1fr_5rem_5rem_auto] items-start gap-3">
-        <BarText
-          label="Rótulo"
+      <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+        <BarLabel
           value={bar.label}
           error={errors?.label}
           onChange={(label) => onChange({ ...bar, label })}
-        />
-        <BarText
-          label="Atual"
-          value={bar.current}
-          error={errors?.current}
-          numeric
-          onChange={(current) => onChange({ ...bar, current })}
-        />
-        <BarText
-          label="Máximo"
-          value={bar.max}
-          error={errors?.max}
-          numeric
-          onChange={(max) => onChange({ ...bar, max })}
         />
         <div className="flex gap-1 self-end pb-1">
           <IconAction
@@ -133,10 +135,11 @@ function BarRow({
           <IconAction label={`Remover ${name}`} onClick={onRemove} icon={Trash2Icon} />
         </div>
       </div>
-      <ChoiceField
+      <StyleTileGroup
         legend={`Cor de ${name}`}
         value={bar.color}
-        options={COLOR_OPTIONS}
+        tiles={BAR_COLOR_TILES}
+        shape="round"
         onChange={(color) => onChange({ ...bar, color })}
       />
       <ChoiceField
@@ -145,26 +148,29 @@ function BarRow({
         options={VISIBILITY_OPTIONS}
         onChange={(visibility) => onChange({ ...bar, visibility })}
       />
+      <ChoiceField
+        legend={`Como ${name} aparece`}
+        value={bar.display}
+        options={DISPLAY_OPTIONS}
+        onChange={(display) => onChange({ ...bar, display })}
+      />
     </li>
   );
 }
 
-type BarTextProps = Readonly<{
-  label: string;
+type BarLabelProps = Readonly<{
   value: string;
   error: string | undefined;
-  numeric?: boolean;
   onChange: (value: string) => void;
 }>;
 
-function BarText({ label, value, error, numeric, onChange }: BarTextProps): React.JSX.Element {
+function BarLabel({ value, error, onChange }: BarLabelProps): React.JSX.Element {
   const id = useId();
   return (
-    <FormField id={id} label={label} error={error}>
+    <FormField id={id} label="Rótulo" error={error}>
       <Input
         id={id}
         value={value}
-        inputMode={numeric ? 'numeric' : undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${id}-error` : undefined}
         onChange={(event) => onChange(event.target.value)}

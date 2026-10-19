@@ -1,11 +1,12 @@
 import {
-  applyBarChange,
+  adjustBarValues,
   blockedPassage,
   cell,
   footprintFits,
   tokenCenter,
   tokenSize,
-  type BarChange,
+  type BarAdjustment,
+  type BarValues,
   type SceneSize,
 } from '@lorkarium/game-core';
 import { StaleUndoError } from '../board/board.error';
@@ -80,8 +81,8 @@ export class TokenRulesBo {
     if (from && to && wallId) throw new WallBlockedError(tokenId, from, to, wallId);
   }
 
-  adjustBar(current: number, change: BarChange): number {
-    return applyBarChange(current, change, this.state.barLimit);
+  adjustBar(bar: BarValues, change: BarAdjustment): BarValues {
+    return adjustBarValues(bar, change, this.state.barLimit);
   }
 }
 

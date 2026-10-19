@@ -25,7 +25,7 @@ import {
   audiencesOf,
   combatOf,
   newTokenRowOf,
-  passTurnIfLeaving,
+  leaveCombat,
   requireAssetsOf,
   tokenAccessOf,
   tokenIn,
@@ -203,8 +203,8 @@ export class TokensService {
       tokenAccessOf(access, found).requireControl('adjust a bar of');
       const bar = found.bars.find(({ id }) => id === command.barId);
       if (!bar) throw new BarNotFoundError(command.tokenId, command.barId);
-      const current = this.rulesFor(scene, []).adjustBar(bar.current, command.change);
-      await daos.tokens.setBarCurrent(bar.id, current);
+      const values = this.rulesFor(scene, []).adjustBar(bar, command.change);
+      await daos.tokens.setBarValues(bar.id, values);
       return withConditions(daos, await tokenIn(daos, scene, campaignId, command.tokenId));
     });
     this.publishChange('token:updated', campaignId, saved);
@@ -216,7 +216,7 @@ export class TokensService {
     access.requireMaster('delete a token');
     const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
-      await passTurnIfLeaving(daos, scene, access, [found.token.id]);
+      await leaveCombat(daos, scene, access, [found.token.id]);
       await daos.tokens.delete(found.token.id);
       return combatOf(daos, scene);
     });

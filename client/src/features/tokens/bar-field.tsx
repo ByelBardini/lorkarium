@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { parseBarInput } from '@/lib/bar-input';
+import { parseBarInput, parseBarMax } from '@/lib/bar-input';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 
 export type BarFieldProps = Readonly<{
@@ -17,8 +17,9 @@ export type BarFieldProps = Readonly<{
 
 const HOW_TO_WRITE = 'Escreva −7 para tirar, +5 para somar ou 12 para definir.';
 
-/** The adjust field of one bar: "−7" subtracts, "+5" adds, "12" sets, Enter sends; − and + step
- *  by one. The field empties on send: the value shown is always the confirmed one.
+/** The adjust fields of one bar: "−7" subtracts, "+5" adds, "12" sets, Enter sends; − and + step
+ *  by one; "Máx." sets a new maximum. The fields empty on send: the value shown is always the
+ *  confirmed one.
  *
  *  Example: `<BarField tokenId={token.id} tokenName={token.name} bar={bar} interaction={interaction} disabled={readOnly} />` */
 export function BarField({ tokenId, tokenName, bar, interaction, disabled }: BarFieldProps) {
@@ -67,7 +68,53 @@ export function BarField({ tokenId, tokenName, bar, interaction, disabled }: Bar
         icon={PlusIcon}
         onClick={() => void adjust(tokenId, bar.id, { op: 'add', amount: 1 })}
       />
+      <BarMaxField
+        name={name}
+        max={bar.max}
+        disabled={disabled}
+        onSubmit={(value) => void adjust(tokenId, bar.id, { op: 'max', value })}
+      />
     </div>
+  );
+}
+
+type BarMaxFieldProps = Readonly<{
+  name: string;
+  max: number;
+  disabled: boolean;
+  onSubmit: (max: number) => void;
+}>;
+
+// The current maximum is the placeholder: the field holds only what is about to be sent.
+function BarMaxField({ name, max, disabled, onSubmit }: BarMaxFieldProps): React.JSX.Element {
+  const [text, setText] = useState('');
+  const [invalid, setInvalid] = useState(false);
+  const submit = (): void => {
+    const parsed = parseBarMax(text);
+    setInvalid(parsed === null);
+    if (parsed === null) return;
+    setText('');
+    onSubmit(parsed);
+  };
+  return (
+    <label className="ml-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+      Máx.
+      <Input
+        aria-label={`Máximo de ${name}`}
+        value={text}
+        disabled={disabled}
+        placeholder={String(max)}
+        inputMode="numeric"
+        aria-invalid={invalid ? true : undefined}
+        className="h-9 w-20 text-sm"
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          submit();
+        }}
+      />
+    </label>
   );
 }
 

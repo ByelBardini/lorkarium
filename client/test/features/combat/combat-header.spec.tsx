@@ -56,12 +56,33 @@ describe('CombatHeader', () => {
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Lyra' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Iniciar' }));
     expect(commands.sentAs('startCombat')).toEqual([
-      { name: 'startCombat', campaignId: VHARN.id, fields: { tokenIds: ['kael-token'] } },
+      {
+        name: 'startCombat',
+        campaignId: VHARN.id,
+        fields: { entries: [{ name: null, tokenIds: ['kael-token'] }] },
+      },
     ]);
   });
 
   it('with no token in the scene "Iniciar combate" is disabled and says why', () => {
     renderHeader({ tokens: [] });
+    expect(screen.getByRole('button', { name: 'Iniciar combate' })).toBeDisabled();
+    expect(screen.getByText('Ponha tokens na cena primeiro.')).toBeInTheDocument();
+  });
+
+  it('the chest of the Objetos layer is not offered to start the combat', async () => {
+    renderHeader({ tokens: [KAEL, lyra({ id: 'bau', name: 'Baú', layer: 'objects' })] });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Iniciar combate' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Iniciar combate' });
+    expect(within(dialog).queryByRole('checkbox', { name: 'Baú' })).toBeNull();
+    expect(within(dialog).getByRole('checkbox', { name: 'Kael' })).toBeChecked();
+  });
+
+  it('with only objects in the scene "Iniciar combate" is disabled and says why', () => {
+    renderHeader({ tokens: [lyra({ id: 'bau', name: 'Baú', layer: 'objects' })] });
+
     expect(screen.getByRole('button', { name: 'Iniciar combate' })).toBeDisabled();
     expect(screen.getByText('Ponha tokens na cena primeiro.')).toBeInTheDocument();
   });

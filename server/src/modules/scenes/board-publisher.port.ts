@@ -1,4 +1,5 @@
 import type {
+  CombatDto,
   CombatEndedDto,
   CombatStartedDto,
   CombatTurnChangedDto,
@@ -53,6 +54,7 @@ export type TokensCreation = Readonly<{
   tokens: ReadonlyArray<
     Readonly<{ controllerIds: readonly string[]; privileged: TokenDto; others: TokenDto }>
   >;
+  combat: CombatDto | null;
 }>;
 
 /** Sends a confirmed board change to the table; called only after the transaction committed. */

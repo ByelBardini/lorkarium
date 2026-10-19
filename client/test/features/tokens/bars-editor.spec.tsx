@@ -50,18 +50,47 @@ describe('BarsEditor', () => {
     expect(screen.getByText('A primeira barra aparece no token.')).toBeInTheDocument();
   });
 
-  it('offers the five colors by name', async () => {
+  it('offers the five colors as swatches named by their color', () => {
     render(<Harness start={addBar(emptyTokenForm())} />);
     const [pv] = bars();
     if (!pv) throw new Error('no bar row');
-    const names = within(pv).getByRole('group', { name: 'Cor de PV' }).querySelectorAll('label');
-    expect([...names].map((label) => label.textContent)).toEqual([
+    const colors = within(within(pv).getByRole('group', { name: 'Cor de PV' })).getAllByRole(
+      'radio',
+    );
+    expect(colors.map((swatch) => swatch.getAttribute('aria-label'))).toEqual([
       'Ouro',
       'Aço',
       'Brasa',
       'Musgo',
       'Cinza',
     ]);
+  });
+
+  it('picking a swatch checks that color', async () => {
+    render(<Harness start={addBar(emptyTokenForm())} />);
+    const [pv] = bars();
+    if (!pv) throw new Error('no bar row');
+    await userEvent.click(within(pv).getByRole('radio', { name: 'Musgo' }));
+    expect(within(pv).getByRole('radio', { name: 'Musgo' })).toBeChecked();
+    expect(within(pv).getByRole('radio', { name: 'Brasa' })).not.toBeChecked();
+  });
+
+  it('the values are not typed here: no Atual and no Máximo field', () => {
+    render(<Harness start={addBar(emptyTokenForm())} />);
+    const [pv] = bars();
+    if (!pv) throw new Error('no bar row');
+    expect(within(pv).queryByLabelText('Atual')).not.toBeInTheDocument();
+    expect(within(pv).queryByLabelText('Máximo')).not.toBeInTheDocument();
+  });
+
+  it('a bar starts as "Valor inteiro" and may switch to "Percentual"', async () => {
+    render(<Harness start={addBar(emptyTokenForm())} />);
+    const [pv] = bars();
+    if (!pv) throw new Error('no bar row');
+    const display = within(within(pv).getByRole('group', { name: 'Como PV aparece' }));
+    expect(display.getByRole('radio', { name: 'Valor inteiro' })).toBeChecked();
+    await userEvent.click(display.getByRole('radio', { name: 'Percentual' }));
+    expect(display.getByRole('radio', { name: 'Percentual' })).toBeChecked();
   });
 
   it('↑ and ↓ reorder the bars', async () => {
@@ -78,27 +107,12 @@ describe('BarsEditor', () => {
     expect(screen.getByText('Máximo de 8 barras.')).toBeInTheDocument();
   });
 
-  it('a negative current value is accepted', async () => {
-    render(<Harness start={addBar(emptyTokenForm())} />);
-    const [pv] = bars();
-    if (!pv) throw new Error('no bar row');
-    await userEvent.clear(within(pv).getByLabelText('Atual'));
-    await userEvent.type(within(pv).getByLabelText('Atual'), '-4');
-    await userEvent.click(screen.getByRole('button', { name: 'Validar' }));
-    expect(within(pv).getByLabelText('Atual')).not.toHaveAttribute('aria-invalid');
-  });
-
-  it('a maximum of 0 and an empty label say what is wrong on that bar', async () => {
+  it('an empty label says what is wrong on that bar', async () => {
     render(<Harness start={addBar(emptyTokenForm())} />);
     const [pv] = bars();
     if (!pv) throw new Error('no bar row');
     await userEvent.clear(within(pv).getByLabelText('Rótulo'));
-    await userEvent.clear(within(pv).getByLabelText('Máximo'));
-    await userEvent.type(within(pv).getByLabelText('Máximo'), '0');
     await userEvent.click(screen.getByRole('button', { name: 'Validar' }));
-    expect(within(pv).getByLabelText('Máximo')).toHaveAccessibleDescription(
-      'O máximo vai de 1 a 99 999.',
-    );
     expect(within(pv).getByLabelText('Rótulo')).toHaveAccessibleDescription('Dê um nome à barra.');
   });
 });

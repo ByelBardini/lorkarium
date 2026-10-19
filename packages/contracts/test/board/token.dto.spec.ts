@@ -65,7 +65,21 @@ describe('createTokenCommandDto', () => {
       flipX: false,
       flipY: false,
       facing: 0,
+      bars: [
+        { ...PV, display: 'number' },
+        { ...INSPIRATION, display: 'number' },
+      ],
     });
+  });
+
+  it('a bar sent as percent keeps it', () => {
+    const bars = [{ ...PV, display: 'percent' }];
+    expect(createTokenCommandDto.parse({ ...CREATE, bars }).bars[0]?.display).toBe('percent');
+  });
+
+  it('a bar display other than number or percent is refused on it', () => {
+    const bars = [{ ...PV, display: 'fraction' }];
+    expect(issuePathsOf({ ...CREATE, bars })).toEqual(['bars.0.display']);
   });
 
   it('a token sent on the objects layer keeps it', () => {
@@ -136,8 +150,15 @@ describe('adjustBarCommandDto', () => {
   it.each([
     { op: 'add', amount: -7 },
     { op: 'set', value: 12 },
+    { op: 'max', value: 50 },
   ])('the change %o is accepted', (change) => {
     expect(adjustBarCommandDto.parse({ ...base, change }).change).toEqual(change);
+  });
+
+  it.each([0, BAR_VALUE_LIMIT + 1, 2.5])('a new maximum of %s is refused', (value) => {
+    expect(adjustBarCommandDto.safeParse({ ...base, change: { op: 'max', value } }).success).toBe(
+      false,
+    );
   });
 
   it('a fractional amount is refused', () => {
@@ -166,6 +187,7 @@ describe('tokenDto', () => {
       flipX: false,
       flipY: false,
       facing: 0,
+      defeated: false,
       sight: null,
       canControl: false,
       bars: [bar(1), bar(2)],
@@ -211,6 +233,54 @@ describe('sight on create and update', () => {
 
   it('an update without sight keeps it absent (the server keeps the current one)', () => {
     expect('sight' in updateTokenCommandDto.parse(UPDATE)).toBe(false);
+  });
+});
+
+describe('defeated', () => {
+  const UPDATE: Record<string, unknown> = { ...CREATE, tokenId: TOKEN_ID };
+  delete UPDATE.col;
+  delete UPDATE.row;
+  const LYRA = {
+    id: TOKEN_ID,
+    name: 'Lyra',
+    initials: 'LY',
+    side: 'ally',
+    width: 1,
+    height: 1,
+    col: 3,
+    row: 4,
+    layer: 'tokens',
+    controllerIds: [BIA_ID],
+    imageAssetId: null,
+    frame: 'square',
+    flipX: false,
+    flipY: false,
+    facing: 0,
+    defeated: true,
+    sight: null,
+    canControl: false,
+    bars: [],
+    conditions: [],
+  };
+
+  // Only `token:restyleMany` marks a token: a new token (and a pasted copy) is never defeated.
+  it.each([
+    ['create', createTokenCommandDto, CREATE],
+    ['update', updateTokenCommandDto, UPDATE],
+  ] as const)('%s refuses it as an unknown field', (_name, schema, command) => {
+    expect(schema.safeParse(command).success).toBe(true);
+    expect(schema.safeParse({ ...command, defeated: true }).success).toBe(false);
+  });
+
+  it('a token carries it to every audience', () => {
+    expect(tokenDto.parse(LYRA).defeated).toBe(true);
+  });
+
+  it('a token without it is refused on defeated', () => {
+    const withoutDefeated: Record<string, unknown> = { ...LYRA };
+    delete withoutDefeated.defeated;
+    const result = tokenDto.safeParse(withoutDefeated);
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['defeated']);
   });
 });
 

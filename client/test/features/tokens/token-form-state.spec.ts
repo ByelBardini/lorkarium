@@ -37,7 +37,7 @@ describe('token form state', () => {
     expect(renameToken(edited, 'Ogro Rubro').initials).toBe('OG');
   });
 
-  it('editing opens with the token as it is', () => {
+  it('editing opens with the token as it is, its bar values kept as they are', () => {
     const form = tokenFormOf(lyra(), METERS);
     expect(form).toMatchObject({
       name: 'Lyra',
@@ -46,16 +46,30 @@ describe('token form state', () => {
       controllerIds: [BIA_AT_TABLE.userId],
     });
     expect(form.bars.map(({ label, current, max }) => [label, current, max])).toEqual([
-      ['PV', '32', '45'],
-      ['Inspiração', '1', '1'],
+      ['PV', 32, 45],
+      ['Inspiração', 1, 1],
     ]);
   });
 
-  it('the first bar added is the PV, ember and hidden from the other players', () => {
+  it('the first bar added is the PV, full at 10, ember, hidden and shown as numbers', () => {
     expect(addBar(emptyTokenForm()).bars[0]).toMatchObject({
       label: 'PV',
+      current: 10,
+      max: 10,
       color: 'ember',
       visibility: 'controllers',
+      display: 'number',
+    });
+  });
+
+  it('a bar edited to percent keeps its values and is sent as percent', () => {
+    const form = tokenFormOf(lyra(), METERS);
+    const bars = form.bars.map((bar) => ({ ...bar, display: 'percent' as const }));
+    const result = parseTokenForm({ ...form, bars }, METERS);
+    expect(result.ok && result.token.bars[0]).toMatchObject({
+      current: 32,
+      max: 45,
+      display: 'percent',
     });
   });
 
@@ -84,7 +98,16 @@ describe('token form state', () => {
         height: 1,
         controllerIds: [],
         imageAssetId: null,
-        bars: [{ label: 'PV', current: 10, max: 10, color: 'ember', visibility: 'controllers' }],
+        bars: [
+          {
+            label: 'PV',
+            current: 10,
+            max: 10,
+            color: 'ember',
+            visibility: 'controllers',
+            display: 'number',
+          },
+        ],
       },
     });
   });
@@ -112,11 +135,11 @@ describe('token form state', () => {
     });
   });
 
-  it('a negative current value is accepted', () => {
-    const form = addBar(named('Kael'));
+  it('a token whose bar is negative is saved with it negative', () => {
+    const form = tokenFormOf(lyra(), METERS);
     const [bar] = form.bars;
     if (!bar) throw new Error('no bar');
-    const result = parseTokenForm({ ...form, bars: [{ ...bar, current: '-4' }] }, METERS);
+    const result = parseTokenForm({ ...form, bars: [{ ...bar, current: -4 }] }, METERS);
     expect(result.ok && result.token.bars[0]?.current).toBe(-4);
   });
 
@@ -127,14 +150,14 @@ describe('token form state', () => {
     });
   });
 
-  it('a bar without a label or with a maximum of 0 says so on that bar', () => {
+  it('a bar without a label says so on that bar', () => {
     const form = addBar(named('Kael'));
     const [bar] = form.bars;
     if (!bar) throw new Error('no bar');
-    const result = parseTokenForm({ ...form, bars: [{ ...bar, label: ' ', max: '0' }] }, METERS);
+    const result = parseTokenForm({ ...form, bars: [{ ...bar, label: ' ' }] }, METERS);
     expect(result).toMatchObject({
       ok: false,
-      errors: { bars: { 0: { label: 'Dê um nome à barra.', max: 'O máximo vai de 1 a 99 999.' } } },
+      errors: { bars: { 0: { label: 'Dê um nome à barra.' } } },
     });
   });
 });

@@ -1,4 +1,5 @@
 import { seenTokensOf } from '@/lib/board-sight';
+import type { SelectionToDelete } from './delete-selection-dialog';
 import { sightNowOf } from './use-board-sight';
 import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
 import { blockedPassage, cell, tokenCenter, turnFacing, type Cell } from '@lorkarium/game-core';
@@ -25,6 +26,8 @@ export type BoardKeyboardDeps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   /** Enter on a selected token: its card. */
   onOpen: (tokenId: string) => void;
+  /** The master's Delete with tokens selected: ask first, then delete everything selected. */
+  onDeleteSelection: (selection: SelectionToDelete) => void;
 }>;
 
 const STEP: Readonly<Record<'up' | 'down' | 'left' | 'right', readonly [number, number]>> = {
@@ -35,21 +38,21 @@ const STEP: Readonly<Record<'up' | 'down' | 'left' | 'right', readonly [number, 
 };
 
 /** Playing without a mouse: ] and [ select one, the arrows move the selection a cell (one
- *  command, for a group too), Enter opens its card, Delete deletes the selected drawings and
- *  areas of effect; every
+ *  command, for a group too), Enter opens its card, Delete deletes the selected drawings, areas
+ *  and walls (and, for the master, the selected tokens after `onDeleteSelection` asks); every
  *  step is said on the status line.
  *
- *  Example: `<div onKeyDown={useBoardKeyboard({ board, interaction, onOpen })} />` */
+ *  Example: `<div onKeyDown={useBoardKeyboard({ board, interaction, onOpen, onDeleteSelection })} />` */
 export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.KeyboardEvent) => void {
-  const { board, interaction, onOpen } = deps;
+  const { board, interaction, onOpen, onDeleteSelection } = deps;
   return useCallback(
     (event) => {
       const key = boardKeyOf(event);
       if (!key) return;
       event.preventDefault();
-      runBoardKey(key, { board, interaction, onOpen });
+      runBoardKey(key, { board, interaction, onOpen, onDeleteSelection });
     },
-    [board, interaction, onOpen],
+    [board, interaction, onOpen, onDeleteSelection],
   );
 }
 
@@ -72,16 +75,26 @@ function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
   moveGroupByKey(deps, inSelectionOrder(selected, selectedTokenIds), STEP[key]);
 }
 
-// A token is deleted from its dialog, never by a key: Delete takes the drawings, areas and walls.
-function deleteSelectedPieces({ board, interaction }: BoardKeyboardDeps): void {
-  const { selectedDrawingIds, selectedEffectAreaIds, selectedWallIds } = interaction.getState();
+// The master's Delete with tokens asks first and then takes the whole selection; without tokens,
+// or for a player (who never deletes a token), the drawings, areas and walls go at once.
+function deleteSelectedPieces(deps: BoardKeyboardDeps): void {
+  const { board, interaction } = deps;
+  const local = interaction.getState();
   const state = board.getState().board;
-  const drawings = (state?.drawings ?? []).filter(({ id }) => selectedDrawingIds.includes(id));
-  const areas = (state?.effectAreas ?? []).filter(({ id }) => selectedEffectAreaIds.includes(id));
-  if (drawings.length > 0) void interaction.getState().deleteDrawings(drawings);
-  if (areas.length > 0) void interaction.getState().deleteEffectAreas(areas);
-  const walls = (state?.walls ?? []).filter(({ id }) => selectedWallIds.includes(id));
-  if (walls.length > 0) void interaction.getState().deleteWalls(walls);
+  const pick = <T extends { id: string }>(
+    items: readonly T[] | undefined,
+    ids: readonly string[],
+  ) => (items ?? []).filter(({ id }) => ids.includes(id));
+  const drawings = pick(state?.drawings, local.selectedDrawingIds);
+  const effectAreas = pick(state?.effectAreas, local.selectedEffectAreaIds);
+  const walls = pick(state?.walls, local.selectedWallIds);
+  const tokens = pick(state?.tokens, local.selectedTokenIds);
+  if (tokens.length > 0 && state?.viewer.role === 'master') {
+    return deps.onDeleteSelection({ tokens, drawings, effectAreas, walls });
+  }
+  if (drawings.length > 0) void local.deleteDrawings(drawings);
+  if (effectAreas.length > 0) void local.deleteEffectAreas(effectAreas);
+  if (walls.length > 0) void local.deleteWalls(walls);
 }
 
 // Every selected token turns in one command; one that is not this viewer's stops all of them.

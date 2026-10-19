@@ -168,7 +168,9 @@ const GOBLIN_WITHOUT_LAYER = {
   controllerIds: [],
   col: 3,
   row: 4,
-  bars: [{ label: 'PV', current: 7, max: 7, color: 'ember', visibility: 'everyone' }],
+  bars: [
+    { label: 'PV', current: 7, max: 7, color: 'ember', visibility: 'everyone', display: 'number' },
+  ],
 } as const;
 const GOBLIN = { ...GOBLIN_WITHOUT_LAYER, layer: 'tokens' } as const;
 const PLAIN_LOOK = { imageAssetId: null, frame: 'square', flipX: false, flipY: false, facing: 0 };
@@ -198,6 +200,21 @@ describe('createTokensCommandDto', () => {
     const parsed = createTokensCommandDto.parse({ ...BASE, tokens: [{ ...GOBLIN, ...look }] });
 
     expect(parsed.tokens[0]).toMatchObject(look);
+  });
+
+  it('a pasted token may name the combat entry of its original', () => {
+    const parsed = createTokensCommandDto.parse({
+      ...BASE,
+      tokens: [{ ...GOBLIN, combatantId: BRAM_ID }],
+    });
+
+    expect(parsed.tokens[0]?.combatantId).toBe(BRAM_ID);
+  });
+
+  it('a pasted token with a combatantId that is not a uuid is refused', () => {
+    const tokens = [{ ...GOBLIN, combatantId: 'inimigos' }];
+
+    expect(createTokensCommandDto.safeParse({ ...BASE, tokens }).success).toBe(false);
   });
 
   it('a token sent without a layer lands on tokens, as in token:create', () => {

@@ -71,7 +71,7 @@ function copyWorkOf({ table, interaction }: OpenEditDeps): EditWork | null {
   const count = tokens.length + drawings.length + areas.length;
   if (count === 0) return null;
   return async () => {
-    table.edits.getState().copy(copiedOf(tokens, drawings, areas));
+    table.edits.getState().copy(copiedOf(tokens, drawings, areas, board?.combat ?? null));
     interaction.getState().say(copiedAnnouncement(count));
   };
 }

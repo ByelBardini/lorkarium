@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   boardCommandFailureMessage,
   connectionStatusLine,
+  deleteSelectionQuestion,
   movedAnnouncement,
   resizedAnnouncement,
   selectedAnnouncement,
@@ -60,5 +61,30 @@ describe('resizedAnnouncement', () => {
     expect(resizedAnnouncement('Kael', { width: 2, height: 1.5 })).toBe(
       'Kael agora ocupa 2 × 1,5 casas.',
     );
+  });
+});
+
+describe('deleteSelectionQuestion', () => {
+  it('one token alone is asked by its name', () => {
+    expect(
+      deleteSelectionQuestion({ tokenNames: ['Goblin'], drawings: 0, areas: 0, walls: 0 }),
+    ).toBe('Excluir Goblin?');
+  });
+
+  it.each([
+    [
+      { tokenNames: ['Goblin', 'Lobo'], drawings: 1, areas: 0, walls: 0 },
+      'Excluir 2 tokens e 1 desenho?',
+    ],
+    [
+      { tokenNames: ['Goblin'], drawings: 0, areas: 2, walls: 3 },
+      'Excluir 1 token, 2 áreas e 3 paredes?',
+    ],
+    [
+      { tokenNames: ['Goblin'], drawings: 2, areas: 1, walls: 1 },
+      'Excluir 1 token, 2 desenhos, 1 área e 1 parede?',
+    ],
+  ])('%j reads "%s"', (selection, question) => {
+    expect(deleteSelectionQuestion(selection)).toBe(question);
   });
 });

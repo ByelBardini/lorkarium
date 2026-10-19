@@ -1,9 +1,15 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
-import { combatants, combats, type CombatPo, type CombatantPo } from './combat.po';
+import { combatantTokens, combatants, combats, type CombatPo, type CombatantPo } from './combat.po';
 
-/** A combat with its combatants, in order of entry (the turn order is the game-core's). */
-export type CombatRow = Readonly<{ combat: CombatPo; combatants: readonly CombatantPo[] }>;
+/** An initiative entry with the tokens linked to it (the order of `tokenIds` is not meaningful). */
+export type CombatantRow = CombatantPo & Readonly<{ tokenIds: readonly string[] }>;
+
+/** A combat with its entries, in order of entry (the turn order is the game-core's). */
+export type CombatRow = Readonly<{ combat: CombatPo; combatants: readonly CombatantRow[] }>;
+
+/** An entry to create: the master's name (or `null`) and its tokens; the initiative starts empty. */
+export type NewCombatant = Readonly<{ name: string | null; tokenIds: readonly string[] }>;
 
 export type TieOrderChange = Readonly<{ combatantId: string; tieOrder: number }>;
 
@@ -11,10 +17,10 @@ export type TieOrderChange = Readonly<{ combatantId: string; tieOrder: number }>
 export class CombatDao {
   constructor(private readonly db: DatabaseExecutor) {}
 
-  async start(sceneId: string, tokenIds: readonly string[]): Promise<CombatRow> {
+  async start(sceneId: string, entries: readonly NewCombatant[]): Promise<CombatRow> {
     const [combat] = await this.db.insert(combats).values({ sceneId }).returning();
     if (!combat) throw new Error(`insert into combats returned no row for scene ${sceneId}`);
-    await this.addCombatants(combat.id, tokenIds);
+    await this.addCombatants(combat.id, entries);
     return this.rowOf(combat);
   }
 
@@ -23,27 +29,49 @@ export class CombatDao {
     return combat && this.rowOf(combat);
   }
 
-  /** New combatants enter after the ones already there; a token already in is skipped. */
-  async addCombatants(combatId: string, tokenIds: readonly string[]): Promise<void> {
+  /** The entries enter after the ones already there, in the order sent; returns their ids. */
+  async addCombatants(combatId: string, entries: readonly NewCombatant[]): Promise<string[]> {
+    if (entries.length === 0) return [];
     const present = await this.db
-      .select({ tokenId: combatants.tokenId, tieOrder: combatants.tieOrder })
+      .select({ tieOrder: combatants.tieOrder })
       .from(combatants)
       .where(eq(combatants.combatId, combatId));
-    const newcomers = tokenIds.filter((id) => !present.some(({ tokenId }) => tokenId === id));
-    if (newcomers.length === 0) return;
     const first = Math.max(-1, ...present.map(({ tieOrder }) => tieOrder)) + 1;
-    const rows = newcomers.map((tokenId, index) => ({
-      combatId,
-      tokenId,
-      tieOrder: first + index,
-    }));
-    await this.db.insert(combatants).values(rows);
+    const rows = entries.map(({ name }, index) => ({ combatId, name, tieOrder: first + index }));
+    const created = await this.db
+      .insert(combatants)
+      .values(rows)
+      .returning({ id: combatants.id, tieOrder: combatants.tieOrder });
+    const ids = [...created].sort((a, b) => a.tieOrder - b.tieOrder).map(({ id }) => id);
+    for (const [index, id] of ids.entries())
+      await this.linkTokens(id, entries[index]?.tokenIds ?? []);
+    return ids;
   }
 
-  async removeCombatant(combatId: string, combatantId: string): Promise<void> {
+  /** The tokens join `combatantId`, leaving whatever entry they were in. */
+  async linkTokens(combatantId: string, tokenIds: readonly string[]): Promise<void> {
+    if (tokenIds.length === 0) return;
+    await this.db
+      .insert(combatantTokens)
+      .values(tokenIds.map((tokenId) => ({ tokenId, combatantId })))
+      .onConflictDoUpdate({ target: combatantTokens.tokenId, set: { combatantId } });
+  }
+
+  async unlinkTokens(tokenIds: readonly string[]): Promise<void> {
+    if (tokenIds.length === 0) return;
+    await this.db.delete(combatantTokens).where(inArray(combatantTokens.tokenId, [...tokenIds]));
+  }
+
+  /** Only entries of `combatId` go; their links follow by cascade. */
+  async removeCombatants(combatId: string, combatantIds: readonly string[]): Promise<void> {
+    if (combatantIds.length === 0) return;
     await this.db
       .delete(combatants)
-      .where(and(eq(combatants.combatId, combatId), eq(combatants.id, combatantId)));
+      .where(and(eq(combatants.combatId, combatId), inArray(combatants.id, [...combatantIds])));
+  }
+
+  async rename(combatantId: string, name: string): Promise<void> {
+    await this.db.update(combatants).set({ name }).where(eq(combatants.id, combatantId));
   }
 
   async setInitiative(combatantId: string, initiative: number | null): Promise<void> {
@@ -73,6 +101,21 @@ export class CombatDao {
       .from(combatants)
       .where(eq(combatants.combatId, combat.id))
       .orderBy(asc(combatants.tieOrder));
-    return { combat, combatants: listed };
+    const links = await this.linksOf(listed.map(({ id }) => id));
+    const entries = listed.map((entry) => ({ ...entry, tokenIds: links.get(entry.id) ?? [] }));
+    return { combat, combatants: entries };
+  }
+
+  private async linksOf(combatantIds: readonly string[]): Promise<Map<string, string[]>> {
+    const byEntry = new Map<string, string[]>();
+    if (combatantIds.length === 0) return byEntry;
+    const links = await this.db
+      .select()
+      .from(combatantTokens)
+      .where(inArray(combatantTokens.combatantId, [...combatantIds]));
+    for (const { combatantId, tokenId } of links) {
+      byEntry.set(combatantId, [...(byEntry.get(combatantId) ?? []), tokenId]);
+    }
+    return byEntry;
   }
 }

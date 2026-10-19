@@ -2,7 +2,6 @@ import {
   advanceTurn,
   initiative,
   moveWithinTie,
-  nextAfterRemoval,
   orderCombatants,
   retreatTurn,
   type AdvancedTurn,
@@ -11,20 +10,20 @@ import {
 } from '@lorkarium/game-core';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import { TokenAccessBo } from '../tokens/token-access.bo';
-import { TokenNotFoundError } from '../tokens/tokens.error';
 import {
-  CombatAlreadyActiveError,
   CombatNotActiveError,
   CombatantNotFoundError,
   TurnAlreadyChangedError,
 } from './combat.error';
 
+/** A token of an entry and who controls it. */
+export type CombatantToken = Readonly<{ tokenId: string; controllerIds: readonly string[] }>;
+
 export type CombatantState = Readonly<{
   id: string;
-  tokenId: string;
+  tokens: readonly CombatantToken[];
   initiative: number | null;
   tieOrder: number;
-  controllerIds: readonly string[];
 }>;
 
 export type CombatState = Readonly<{
@@ -36,8 +35,9 @@ export type CombatState = Readonly<{
 
 export type TieOrderChange = Readonly<{ combatantId: string; tieOrder: number }>;
 
-/** The combat decisions (spec §3.5, §3.9): the master runs it; a token's controller sets its
- *  initiative and passes the turn when it is theirs. The order and the turns are the game-core's.
+/** The turn decisions (spec §3.5, §3.9): the master runs the combat; whoever controls every token
+ *  of an entry sets its initiative and passes its turn. Who is in it is the `CombatRosterBo`'s; the
+ *  order and the turns are the game-core's.
  *
  *  Example: `new CombatBo(access, state).nextTurn(command.fromCombatantId)` */
 export class CombatBo {
@@ -46,43 +46,9 @@ export class CombatBo {
     private readonly combat: CombatState | null,
   ) {}
 
-  start(tokenIds: readonly string[], sceneTokenIds: readonly string[]): string[] {
-    this.access.requireMaster('start the combat');
-    if (this.combat) throw new CombatAlreadyActiveError(this.combat.id);
-    return this.knownTokens(tokenIds, sceneTokenIds);
-  }
-
   end(): CombatState {
     this.access.requireMaster('end the combat');
     return this.active();
-  }
-
-  addCombatants(tokenIds: readonly string[], sceneTokenIds: readonly string[]): string[] {
-    this.access.requireMaster('add combatants');
-    const combat = this.active();
-    const fresh = this.knownTokens(tokenIds, sceneTokenIds);
-    return fresh.filter((tokenId) => !combat.combatants.some((c) => c.tokenId === tokenId));
-  }
-
-  removeCombatant(combatantId: string): TurnState {
-    this.access.requireMaster('take a combatant out');
-    const combat = this.active();
-    this.combatant(combatantId);
-    return nextAfterRemoval(this.order(), combatantId, turnOf(combat));
-  }
-
-  /** The turn once the tokens being deleted leave the combat, or `null` when none was in it.
-   *  Removing them one at a time from the shrinking order passes the turn past all of them. */
-  turnWithoutTokens(tokenIds: readonly string[]): TurnState | null {
-    const leaving = this.combat?.combatants.filter((c) => tokenIds.includes(c.tokenId)) ?? [];
-    if (!this.combat || leaving.length === 0) return null;
-    let order = this.order();
-    let turn = turnOf(this.combat);
-    for (const { id } of leaving) {
-      turn = nextAfterRemoval(order, id, turn);
-      order = order.filter((candidate) => candidate !== id);
-    }
-    return turn;
   }
 
   moveInTie(combatantId: string, direction: TieDirection): TieOrderChange[] {
@@ -96,15 +62,14 @@ export class CombatBo {
   }
 
   setInitiative(combatantId: string, value: number | null): number | null {
-    const combatant = this.combatant(combatantId);
-    this.tokenAccess(combatant).requireControl('set the initiative of');
+    this.requireEntryControl(this.combatant(combatantId), 'set the initiative of');
     return initiative(value);
   }
 
   nextTurn(fromCombatantId: string): AdvancedTurn {
     const combat = this.turnFrom(fromCombatantId);
     const current = combat.combatants.find(({ id }) => id === combat.currentCombatantId);
-    if (current) this.tokenAccess(current).requireControl('pass the turn of');
+    if (current) this.requireEntryControl(current, 'pass the turn of');
     else this.access.requireMaster('start the turns');
     return advanceTurn(this.order(), turnOf(combat));
   }
@@ -133,25 +98,29 @@ export class CombatBo {
   }
 
   private combatant(combatantId: string): CombatantState {
-    const combat = this.active();
-    const found = combat.combatants.find(({ id }) => id === combatantId);
-    if (!found) throw new CombatantNotFoundError(combat.id, combatantId);
-    return found;
+    return entryIn(this.active(), combatantId);
   }
 
-  private tokenAccess(combatant: CombatantState): TokenAccessBo {
-    const control = { tokenId: combatant.tokenId, controllerIds: combatant.controllerIds };
-    return new TokenAccessBo(this.access, control);
-  }
-
-  private knownTokens(tokenIds: readonly string[], sceneTokenIds: readonly string[]): string[] {
-    const stranger = tokenIds.find((id) => !sceneTokenIds.includes(id));
-    if (stranger) throw new TokenNotFoundError(this.access.campaignIdOf(), stranger);
-    return [...new Set(tokenIds)];
+  // The master runs any entry; a player only one whose every token they control, and never one
+  // without tokens. The first token they do not control is the one the refusal cites.
+  private requireEntryControl(entry: CombatantState, action: string): void {
+    if (entry.tokens.length === 0) this.access.requireMaster(`${action} entry ${entry.id}`);
+    for (const token of entry.tokens) new TokenAccessBo(this.access, token).requireControl(action);
   }
 }
 
-// The game-core turn speaks of `currentId`; the combat row of `currentCombatantId`.
-function turnOf(combat: CombatState): TurnState {
+/** The entry `combatantId` of the combat; one of another combat is COMBATANT_NOT_FOUND.
+ *
+ *  Example: `entryIn(combat, command.combatantId)` */
+export function entryIn(combat: CombatState, combatantId: string): CombatantState {
+  const found = combat.combatants.find(({ id }) => id === combatantId);
+  if (!found) throw new CombatantNotFoundError(combat.id, combatantId);
+  return found;
+}
+
+/** The game-core turn speaks of `currentId`; the combat row of `currentCombatantId`.
+ *
+ *  Example: `advanceTurn(order, turnOf(combat))` */
+export function turnOf(combat: CombatState): TurnState {
   return { round: combat.round, currentId: combat.currentCombatantId };
 }

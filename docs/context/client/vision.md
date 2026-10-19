@@ -44,6 +44,6 @@ O que cada viewer vê do tabuleiro: o modo de visão da cena, o alcance de cada 
 
 ## Armadilhas
 
-- **Todo consumidor de `board.tokens` que mostra token ao jogador passa pelo filtro** (`useBoardSight` / `sightNowOf` + `seenTokensOf` ou `levelOf`). Uma lista, um anúncio ou um atalho novo que lê `board.tokens` direto mostra o escondido.
+- **Todo consumidor de `board.tokens` que mostra token ao jogador passa pelo filtro** (`useBoardSight` / `sightNowOf` + `seenTokensOf` ou `levelOf`). Uma lista, um anúncio ou um atalho novo que lê `board.tokens` direto mostra o escondido. O tracker, a linha da vez e o anúncio da vez passam (`combatant-list.tsx`, `turn-line.tsx`, `combat-header.tsx`, `use-interaction-follows-table.ts`, pelo `entryLabelOf`/`entryTokensOf` com os vistos).
 - O `DragGroup` sem `walls` é o mestre (passa por tudo); o `dragOf` do `token-drag-flow` precisa copiar o `walls` do grupo, senão a rota nunca dobra.
 - Componentes: "Visão" em `test/features/tokens/token-dialog.spec.tsx` (marcar mostra os campos e a dica; criar manda `{ bright: 12, dim: 4 }`; editar mostra "18" e "6"; desmarcar manda `null`; 151 m é recusado no campo) e "Visão dos tokens" em `test/features/board/configure-scene-dialog.spec.tsx`.

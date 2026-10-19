@@ -132,15 +132,119 @@ describe('token batches and the undo precondition over Socket.IO', () => {
     const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
     const lyra = await createdBy(ana.client, tokenCommandFor(live.vharn, live.bia.id));
     const bram = await createdBy(ana.client, tokenCommandFor(live.vharn, live.caio.id, { col: 6 }));
-    await send(ana.client, 'combat:start', { ...envelope(live.vharn.id), tokenIds: [lyra, bram] });
+    await send(ana.client, 'combat:start', {
+      ...envelope(live.vharn.id),
+      entries: [
+        { name: null, tokenIds: [lyra] },
+        { name: null, tokenIds: [bram] },
+      ],
+    });
     const started = combatStartedDto.parse(await eventPayload(ana, 'combat:started')).combat;
-    const bramCombatant = started.combatants.find(({ tokenId }) => tokenId === bram)?.id;
+    const bramCombatant = started.combatants.find(({ tokenIds }) => tokenIds.includes(bram))?.id;
 
     await send(ana.client, 'token:deleteMany', { ...envelope(live.vharn.id), tokenIds: [lyra] });
 
     expect(await eventPayload(ana, 'token:deletedMany')).toMatchObject({
-      combat: { currentCombatantId: bramCombatant, combatants: [{ tokenId: bram }] },
+      combat: { currentCombatantId: bramCombatant, combatants: [{ tokenIds: [bram] }] },
     });
+  });
+
+  it('deleting both tokens of Inimigos, on turn, takes the entry out, keeps the Covil and passes the turn once', async () => {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const lyra = await createdBy(ana.client, tokenCommandFor(live.vharn, live.bia.id));
+    const bram = await createdBy(ana.client, tokenCommandFor(live.vharn, live.caio.id, { col: 6 }));
+    await send(ana.client, 'combat:start', {
+      ...envelope(live.vharn.id),
+      entries: [
+        { name: 'Inimigos', tokenIds: [lyra, bram] },
+        { name: 'Covil', tokenIds: [] },
+      ],
+    });
+    const started = combatStartedDto.parse(await eventPayload(ana, 'combat:started')).combat;
+    const covil = started.combatants.find(({ name }) => name === 'Covil')?.id;
+
+    await send(ana.client, 'token:deleteMany', {
+      ...envelope(live.vharn.id),
+      tokenIds: [lyra, bram],
+    });
+
+    expect(await eventPayload(ana, 'token:deletedMany')).toMatchObject({
+      combat: { round: 1, currentCombatantId: covil, combatants: [{ id: covil, tokenIds: [] }] },
+    });
+  });
+
+  // Ana fights at Vharn with Inimigos holding Lyra and Bram; returns the entry id.
+  async function vharnInimigos(ana: EventRecorder): Promise<{ entry: string; lyra: string }> {
+    const lyra = await createdBy(ana.client, tokenCommandFor(live.vharn, live.bia.id));
+    const bram = await createdBy(ana.client, tokenCommandFor(live.vharn, live.caio.id, { col: 6 }));
+    await send(ana.client, 'combat:start', {
+      ...envelope(live.vharn.id),
+      entries: [{ name: 'Inimigos', tokenIds: [lyra, bram] }],
+    });
+    const started = combatStartedDto.parse(await eventPayload(ana, 'combat:started')).combat;
+    return { entry: started.combatants[0]?.id ?? '', lyra };
+  }
+
+  it('a copy pasted with the entry of Inimigos joins it, and Bia gets the combat in token:createdMany', async () => {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    const { entry } = await vharnInimigos(ana);
+    const copy = {
+      ...itemOf(tokenCommandFor(live.vharn, live.caio.id, { col: 8 })),
+      combatantId: entry,
+    };
+
+    const ack = await send(ana.client, 'token:createMany', pasteOf([copy]));
+
+    const created = tokensCreatedDto.parse(await eventPayload(bia, 'token:createdMany'));
+    expect(created.version).toBe(ack.ok ? ack.version : -1);
+    expect(created.combat?.combatants[0]?.tokenIds).toHaveLength(3);
+    expect(created.combat?.combatants[0]?.tokenIds).toContain(created.tokens[0]?.id);
+  });
+
+  it('a copy naming an entry of Quelm is created at Vharn out of the combat, and neither combat changes', async () => {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    await vharnInimigos(ana);
+    const quelm = recordEventsOf(await live.atTable(live.caio, live.quelm));
+    const ogro = await createdBy(quelm.client, tokenCommandFor(live.quelm, live.caio.id));
+    await send(quelm.client, 'combat:start', {
+      ...envelope(live.quelm.id),
+      entries: [{ name: null, tokenIds: [ogro] }],
+    });
+    const quelmEntry = combatStartedDto.parse(await eventPayload(quelm, 'combat:started')).combat
+      .combatants[0]?.id;
+    const copy = { ...itemOf(tokenCommandFor(live.vharn, live.caio.id)), combatantId: quelmEntry };
+
+    await send(ana.client, 'token:createMany', pasteOf([copy]));
+
+    const created = tokensCreatedDto.parse(await eventPayload(ana, 'token:createdMany'));
+    expect(created.combat?.combatants.flatMap(({ tokenIds }) => tokenIds)).not.toContain(
+      created.tokens[0]?.id,
+    );
+    expect((await synced(quelm.client, live.quelm)).combat?.combatants).toEqual([
+      expect.objectContaining({ id: quelmEntry, tokenIds: [ogro] }),
+    ]);
+  });
+
+  it('undoing the paste takes the copy out of Inimigos and keeps the entry', async () => {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const { entry } = await vharnInimigos(ana);
+    const copy = {
+      ...itemOf(tokenCommandFor(live.vharn, live.caio.id, { col: 8 })),
+      combatantId: entry,
+    };
+    const pasted = await send(ana.client, 'token:createMany', pasteOf([copy]));
+    const copyId = pasted.ok ? (pasted.createdIds?.[0] ?? '') : '';
+
+    await send(ana.client, 'token:deleteMany', {
+      ...envelope(live.vharn.id),
+      tokenIds: [copyId],
+      expect: [{ tokenId: copyId, col: 8, row: 4 }],
+    });
+
+    const combat = (await synced(ana.client, live.vharn)).combat;
+    expect(combat?.combatants).toEqual([expect.objectContaining({ id: entry })]);
+    expect(combat?.combatants[0]?.tokenIds).toHaveLength(2);
   });
 
   it('an undo of a move after Caio moved the token since is STALE_UNDO and the token stays', async () => {

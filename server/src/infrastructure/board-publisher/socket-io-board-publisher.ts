@@ -85,8 +85,8 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
   // Each controller gets their own mix (whole for theirs, redacted for the rest); a master who
   // also controls a token only hears the masters' cut, so nobody hears the paste twice.
   tokensCreated(creation: TokensCreation): void {
-    const { campaignId, tokens } = creation;
-    const base = { campaignId, version: creation.version, at: creation.at };
+    const { campaignId, tokens, combat } = creation;
+    const base = { campaignId, version: creation.version, at: creation.at, combat };
     const masters = campaignMastersRoom(campaignId);
     const whole = tokens.map((token) => token.privileged);
     this.io.to(masters).emit('token:createdMany', { ...base, tokens: whole });

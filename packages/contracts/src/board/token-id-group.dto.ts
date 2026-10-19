@@ -3,7 +3,10 @@ import { z } from 'zod';
 /** Items one group command may carry; a marquee bigger than this is cut by the client. */
 export const TOKEN_GROUP_MAX = 64;
 
-function firstRepeated(ids: string[]): string | undefined {
+/** The first id that appears twice, if any.
+ *
+ *  Example: `firstRepeated(['a', 'b', 'a'])` → `'a'` */
+export function firstRepeated(ids: string[]): string | undefined {
   const seen = new Set<string>();
   for (const id of ids) {
     if (seen.has(id)) return id;

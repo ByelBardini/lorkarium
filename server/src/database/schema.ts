@@ -6,6 +6,7 @@ export { campaignVisibility, campaigns } from '../modules/campaigns/campaigns.po
 export { sceneVision, scenes } from '../modules/scenes/scenes.po';
 export {
   barColor,
+  barDisplay,
   barVisibility,
   tokenBars,
   tokenControllers,
@@ -19,7 +20,7 @@ export {
   conditionDefinitions,
   conditionTone,
 } from '../modules/conditions/conditions.po';
-export { combatants, combats } from '../modules/combat/combat.po';
+export { combatantTokens, combatants, combats } from '../modules/combat/combat.po';
 export { drawingColor, drawingKind, drawings, strokeWidth } from '../modules/drawings/drawings.po';
 export { effectAreaKind, effectAreas } from '../modules/effect-areas/effect-areas.po';
 export { doorState, wallKind, wallShape, walls } from '../modules/walls/walls.po';

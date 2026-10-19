@@ -1,4 +1,4 @@
-import type { BarChangeDto } from '@lorkarium/contracts';
+import { BAR_VALUE_LIMIT, type BarChangeDto } from '@lorkarium/contracts';
 
 export type ParsedBarInput =
   Readonly<{ kind: 'change'; change: BarChangeDto }> | Readonly<{ kind: 'invalid' }>;
@@ -18,4 +18,15 @@ export function parseBarInput(text: string): ParsedBarInput {
   if (!sign) return { kind: 'change', change: { op: 'set', value: number } };
   const amount = sign === '+' ? number : -number;
   return { kind: 'change', change: { op: 'add', amount } };
+}
+
+/** What the "Máx." field means: a whole number from 1 to `BAR_VALUE_LIMIT`, or `null` (nothing
+ *  is sent). No sign: the maximum is set, never stepped.
+ *
+ *  Example: `parseBarMax('50') // 50` */
+export function parseBarMax(text: string): number | null {
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const max = Number(trimmed);
+  return max >= 1 && max <= BAR_VALUE_LIMIT ? max : null;
 }

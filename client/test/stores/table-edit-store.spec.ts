@@ -13,7 +13,14 @@ import { VHARN } from '../support/campaigns-api-fake';
 import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
-import { KAEL_ID, LYRA_ID, kael, lyra } from '../support/table-session-fixtures';
+import {
+  KAEL_ID,
+  LYRA_COMBATANT,
+  LYRA_ID,
+  kael,
+  lyra,
+  vharnCombat,
+} from '../support/table-session-fixtures';
 import { shapeOfWall } from '@/lib/wall-geometry';
 import { NORTH_WALL_ID, northWall } from '../support/wall-fixtures';
 
@@ -78,6 +85,26 @@ describe('table edit store', () => {
           },
         ],
       ]);
+    });
+
+    it('a paste of a fighting token sends the entry of its original, and the redo sends it again', async () => {
+      edits.getState().copy(copiedOf([lyra()], [], [], vharnCombat()));
+
+      await edits.getState().paste(context(), { cursor: cell(10, 6), scene: SCENE });
+      await edits.getState().undo(context());
+      await edits.getState().redo(context());
+
+      const sent = commands.sentAs('createTokens').map(({ fields }) => fields) as {
+        tokens: { combatantId?: string }[];
+      }[];
+      expect(sent.map(({ tokens }) => tokens[0]?.combatantId)).toEqual([
+        LYRA_COMBATANT,
+        LYRA_COMBATANT,
+      ]);
+      expect(commands.sentAs('deleteTokens')[0]?.fields).toMatchObject({
+        tokenIds: [NEW_GOBLIN],
+        expect: [{ tokenId: NEW_GOBLIN, col: 10, row: 6 }],
+      });
     });
 
     it('pasting twice creates two sets', async () => {

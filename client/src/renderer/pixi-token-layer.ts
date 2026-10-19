@@ -8,14 +8,20 @@ import { PixiTokenArt, ROUND_RADIUS_SHARE } from './pixi-token-art';
 import type { PixiTextureCache } from './pixi-texture-cache';
 import { showsNameTag } from './name-tag';
 import { PixiNameTag } from './pixi-name-tag';
+import { barSegments, type BarTone } from './token-bar';
 import { tokenWorldRect } from './token-box';
+import { defeatedCross } from './token-defeated';
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const DISC_COLOR = 0x1b1f25;
 const TEXT_COLOR = 0xeae5da;
 const GOLD_COLOR = 0xc5a46d;
-const NEGATIVE_COLOR = 0xb5654f;
 const BAR_TRACK_COLOR = 0x262b33;
+const BAR_OUTLINE_COLOR = 0x15130f;
+// Below zero and above the maximum need hues no bar color has: crimson and bone.
+const BAR_NEGATIVE_COLOR = 0xd6455d;
+const BAR_OVER_COLOR = 0xeae5da;
+const BAR_HEIGHT = 6;
 const RING_COLOR: Readonly<Record<TokenSideDto, number>> = {
   ally: 0xd5d0c4,
   enemy: 0xb5654f,
@@ -31,6 +37,10 @@ const BAR_COLOR: Readonly<Record<BarColorDto, number>> = {
 const MOVE_ANIMATION_MS = 150;
 const SILHOUETTE_COLOR = 0x000000;
 const SILHOUETTE_ALPHA = 0.9;
+const DEFEATED_COLOR = BAR_NEGATIVE_COLOR;
+// The token under the cross fades so the cross reads first, but the image still says who fell.
+const DEFEATED_ALPHA = 0.45;
+const DEFEATED_OUTLINE = 3;
 
 type TokenSprite = Readonly<{
   root: Container;
@@ -38,6 +48,7 @@ type TokenSprite = Readonly<{
   art: PixiTokenArt;
   shape: Graphics;
   label: Text;
+  cross: Graphics;
   marks: PixiConditionMarks;
   nameTag: PixiNameTag;
 }> & { view: TokenView; from: Point; to: Point; startedMs: number };
@@ -171,7 +182,8 @@ export class PixiTokenLayer {
     const disc = new Graphics();
     const art = new PixiTokenArt();
     const nameTag = new PixiNameTag();
-    root.addChild(disc, art.container, shape, label, marks.container, nameTag.container);
+    const cross = new Graphics();
+    root.addChild(disc, art.container, shape, label, cross, marks.container, nameTag.container);
     root.position.set(at.x, at.y);
     this.layers[view.layer].addChild(root);
     const sprite: TokenSprite = {
@@ -180,6 +192,7 @@ export class PixiTokenLayer {
       art,
       shape,
       label,
+      cross,
       marks,
       nameTag,
       view,
@@ -236,6 +249,24 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   label.text = view.initials;
   label.style.fontSize = Math.round(Math.min(box.width, box.height) * 0.3);
   label.position.set(center.x, center.y);
+  drawDefeated(sprite, box);
+}
+
+// The rings and the bar stay bright: they are about the table, not about the token's face.
+function drawDefeated(sprite: TokenSprite, box: TokenShape): void {
+  const { disc, art, label, cross, view } = sprite;
+  const alpha = view.defeated ? DEFEATED_ALPHA : 1;
+  for (const faded of [disc, art.container, label]) faded.alpha = alpha;
+  cross.clear();
+  if (!view.defeated) return;
+  const { strokes, width } = defeatedCross(box);
+  for (const [color, stroke] of [
+    [BAR_OUTLINE_COLOR, width + DEFEATED_OUTLINE],
+    [DEFEATED_COLOR, width],
+  ] as const) {
+    for (const [from, to] of strokes) cross.moveTo(from.x, from.y).lineTo(to.x, to.y);
+    cross.stroke({ width: stroke, color, cap: 'round' });
+  }
 }
 
 // In the penumbra: a black shape of the footprint, nothing that tells who it is.
@@ -249,6 +280,7 @@ function drawSilhouette(sprite: TokenSprite, box: TokenShape): void {
   shape.clear();
   marks.draw(view, box.width);
   label.visible = false;
+  drawDefeated(sprite, box);
 }
 
 // The turn and selection rings follow the token's outline: a square image gets square ones.
@@ -287,10 +319,22 @@ function drawBar(shape: Graphics, view: TokenView, box: TokenShape): void {
   if (!view.bar) return;
   const width = box.width * 0.8;
   const left = (box.width - width) / 2;
-  const top = box.height - 8;
-  shape.rect(left, top, width, 5).fill(BAR_TRACK_COLOR);
-  shape.rect(left, top, width * view.bar.fraction, 5).fill(BAR_COLOR[view.bar.color]);
-  if (view.bar.state === 'negative') shape.rect(left, top, 2, 5).fill(NEGATIVE_COLOR);
+  const top = box.height - BAR_HEIGHT - 3;
+  const tones: Readonly<Record<BarTone, number>> = {
+    track: BAR_TRACK_COLOR,
+    fill: BAR_COLOR[view.bar.color],
+    negative: BAR_NEGATIVE_COLOR,
+    over: BAR_OVER_COLOR,
+  };
+  shape
+    .roundRect(left - 1, top - 1, width + 2, BAR_HEIGHT + 2, BAR_HEIGHT / 2 + 1)
+    .fill(BAR_OUTLINE_COLOR);
+  for (const segment of barSegments(view.bar, width)) {
+    const radius = Math.min(BAR_HEIGHT, segment.width) / 2;
+    shape
+      .roundRect(left + segment.left, top, segment.width, BAR_HEIGHT, radius)
+      .fill(tones[segment.tone]);
+  }
 }
 
 function cornerOf(view: TokenView): Point {

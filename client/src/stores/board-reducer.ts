@@ -67,8 +67,10 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
 // Pastes, their undo and drawings; `null` when the event is none of these.
 function batchChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> | null {
   switch (event.type) {
-    case 'tokensCreated':
-      return { tokens: event.payload.tokens.reduce(withToken, [...board.tokens]) };
+    case 'tokensCreated': {
+      const { tokens, combat } = event.payload;
+      return { tokens: tokens.reduce(withToken, [...board.tokens]), combat };
+    }
     case 'tokensDeleted': {
       const { tokenIds, combat } = event.payload;
       return { tokens: board.tokens.filter(({ id }) => !tokenIds.includes(id)), combat };

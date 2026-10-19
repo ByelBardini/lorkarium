@@ -10,11 +10,14 @@ import {
   northWall,
 } from '../support/wall-fixtures';
 import {
+  KAEL_COMBATANT,
   KAEL_ID,
+  LYRA_COMBATANT,
   LYRA_ID,
   kael,
   lyra,
   sceneUpdated,
+  soloCombatant,
   VHARN_SCENE,
   vharnBoard,
   vharnCombat,
@@ -174,10 +177,53 @@ describe('applyBoardEvent, token batches', () => {
 
     const next = applyBoardEvent(board, {
       type: 'tokensCreated',
-      payload: { ...vharnEventBase(5), tokens: [kael()] },
+      payload: { ...vharnEventBase(5), tokens: [kael()], combat: null },
     });
 
     expect(next.tokens.map(({ id }) => id)).toEqual([LYRA_ID, KAEL_ID]);
+  });
+
+  it('token:createdMany brings the combat with the copies in the entry of their original', () => {
+    const board = vharnBoard({ tokens: [lyra()], combat: vharnCombat() });
+    const withCopy = vharnCombat({
+      combatants: [
+        { ...soloCombatant(LYRA_COMBATANT, LYRA_ID, 14, 1), tokenIds: [LYRA_ID, KAEL_ID] },
+      ],
+    });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokensCreated',
+      payload: { ...vharnEventBase(5), tokens: [kael()], combat: withCopy },
+    });
+
+    expect(next.combat).toEqual(withCopy);
+  });
+
+  it('token:createdMany with combat null leaves the board without combat', () => {
+    const board = vharnBoard({ tokens: [lyra()], combat: vharnCombat() });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokensCreated',
+      payload: { ...vharnEventBase(5), tokens: [kael()], combat: null },
+    });
+
+    expect(next.combat).toBeNull();
+  });
+
+  it('combat:updated keeps the name and the tokens of a grouped entry', () => {
+    const inimigos = {
+      ...soloCombatant(KAEL_COMBATANT, 'goblin-token', 15, 0),
+      name: 'Inimigos',
+      tokenIds: ['goblin-token', 'lobo-token'],
+    };
+    const combat = vharnCombat({ combatants: [inimigos] });
+
+    const next = applyBoardEvent(vharnBoard({ combat: vharnCombat() }), {
+      type: 'combatUpdated',
+      payload: { ...vharnEventBase(5), combat },
+    });
+
+    expect(next.combat?.combatants).toEqual([inimigos]);
   });
 
   it('token:deletedMany takes the tokens off and brings the combat as it is after they left', () => {

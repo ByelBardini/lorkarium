@@ -4,7 +4,7 @@ import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
 import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
-import { cardOf, createTokenFor, openCard } from './support/token-cards';
+import { cardOf, createTokenFor, openCard, statusOf } from './support/token-cards';
 
 // Every new token lands at the center of the framed view: cell (10, 6), "Coluna 11, linha 7".
 async function createAndPlace(master: Page, name: string, to: [number, number]): Promise<void> {
@@ -17,6 +17,18 @@ async function createAndPlace(master: Page, name: string, to: [number, number]):
 async function expectCell(page: Page, name: string, col: number, row: number): Promise<void> {
   await openCard(page, name);
   await expect(cardOf(page, name)).toContainText(`Coluna ${col + 1}, linha ${row + 1}`);
+}
+
+// The Baú (Objetos) and Zed (Fundo) are out of the list "Na cena": ] walks the board in reading
+// order and says the cell of the token it picks.
+async function expectPickedCell(page: Page, name: string, col: number, row: number) {
+  await page.getByRole('application', { name: /^Tabuleiro/ }).focus();
+  const picked = `${name} selecionado`;
+  for (let step = 0; step < 5; step += 1) {
+    await page.keyboard.press(']');
+    if ((await statusOf(page).textContent())?.startsWith(picked)) break;
+  }
+  await expect(statusOf(page)).toHaveText(`${picked}, coluna ${col + 1}, linha ${row + 1}`);
 }
 
 // A move the server never gets has nothing to wait for: give the table time to answer, then look.
@@ -51,10 +63,10 @@ test('layers: a player never picks what is off the tokens layer, a marquee moves
     'true',
   );
   await createTokenFor(admin, 'Baú', 'Caio');
-  await expectCell(bia, 'Baú', 10, 6);
+  await expectPickedCell(bia, 'Baú', 10, 6);
   await dragBetweenCells(caio, [10, 6], [13, 6]);
   await settle(caio);
-  await expectCell(caio, 'Baú', 10, 6);
+  await expectPickedCell(caio, 'Baú', 10, 6);
 
   await admin.keyboard.press('1');
   await createAndPlace(admin, 'Kael', [3, 3]);
@@ -70,7 +82,7 @@ test('layers: a player never picks what is off the tokens layer, a marquee moves
   await settle(caio);
   await dragBetweenCells(caio, [6, 8], [8, 8]);
   await settle(caio);
-  await expectCell(caio, 'Zed', 6, 8);
+  await expectPickedCell(caio, 'Zed', 6, 8);
 
   // Caio draws a rectangle over Kael and Bram and drags Kael: both go, in one move.
   await dragBetweenCells(caio, [2, 2], [5, 4]);
@@ -86,5 +98,5 @@ test('layers: a player never picks what is off the tokens layer, a marquee moves
   await caio.reload();
   await dragBetweenCells(caio, [6, 8], [8, 8]);
   await settle(caio);
-  await expectCell(caio, 'Zed', 6, 8);
+  await expectPickedCell(caio, 'Zed', 6, 8);
 });

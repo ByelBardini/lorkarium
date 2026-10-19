@@ -134,6 +134,34 @@
       "when": 1792347332852,
       "tag": "0018_token_sight",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792365635701,
+      "tag": "0019_combatant_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792365650327,
+      "tag": "0020_combatants_drop_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792371134983,
+      "tag": "0021_bar_display",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792372819975,
+      "tag": "0022_token_defeated",
+      "breakpoints": true
     }
   ]
 }

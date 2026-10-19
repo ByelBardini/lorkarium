@@ -6,26 +6,41 @@ import { BIA_ID, CAIO_ID, VHARN_ID } from '../../support/campaigns-factories';
 
 const KAEL = {
   id: 'c-kael',
-  tokenId: 't-kael',
+  tokens: [{ tokenId: 't-kael', controllerIds: [BIA_ID] }],
   initiative: 18,
   tieOrder: 0,
-  controllerIds: [BIA_ID],
 };
 const LYRA = {
   id: 'c-lyra',
-  tokenId: 't-lyra',
+  tokens: [{ tokenId: 't-lyra', controllerIds: [CAIO_ID] }],
   initiative: 14,
   tieOrder: 1,
-  controllerIds: [CAIO_ID],
 };
 const GOBLIN = {
   id: 'c-goblin',
-  tokenId: 't-goblin',
+  tokens: [{ tokenId: 't-goblin', controllerIds: [] }],
   initiative: -2,
   tieOrder: 2,
-  controllerIds: [],
 };
-const SCENE_TOKENS = ['t-kael', 't-lyra', 't-goblin', 't-ogro'];
+const INIMIGOS = {
+  id: 'c-inimigos',
+  tokens: [
+    { tokenId: 't-goblin', controllerIds: [CAIO_ID] },
+    { tokenId: 't-lobo', controllerIds: [CAIO_ID] },
+  ],
+  initiative: 15,
+  tieOrder: 3,
+};
+const FERAS = {
+  id: 'c-feras',
+  tokens: [
+    { tokenId: 't-goblin', controllerIds: [CAIO_ID] },
+    { tokenId: 't-lobo', controllerIds: [] },
+  ],
+  initiative: 15,
+  tieOrder: 3,
+};
+const COVIL = { id: 'c-covil', tokens: [], initiative: 20, tieOrder: 4 };
 
 function combat(overrides: Partial<CombatState> = {}): CombatState {
   return {
@@ -43,34 +58,11 @@ function as(userId: string, state: CombatState | null = combat()): CombatBo {
 }
 
 describe('CombatBo', () => {
-  it('the master starts with the scene tokens, once each', () => {
-    expect(as(ANA_ID, null).start(['t-kael', 't-lyra', 't-kael'], SCENE_TOKENS)).toEqual([
-      't-kael',
-      't-lyra',
-    ]);
-  });
-
-  it('starting with a combat already running is COMBAT_ALREADY_ACTIVE', () => {
-    expect(() => as(ANA_ID).start(['t-kael'], SCENE_TOKENS)).toThrow(
-      expect.objectContaining({ code: 'COMBAT_ALREADY_ACTIVE' }),
-    );
-  });
-
-  it('a token outside the scene is TOKEN_NOT_FOUND', () => {
-    expect(() => as(ANA_ID, null).start(['t-elsewhere'], SCENE_TOKENS)).toThrow(
-      expect.objectContaining({ code: 'TOKEN_NOT_FOUND' }),
-    );
-  });
-
   it.each([
-    ['start', (bo: CombatBo) => bo.start(['t-kael'], SCENE_TOKENS)],
     ['end', (bo: CombatBo) => bo.end()],
     ['previousTurn', (bo: CombatBo) => bo.previousTurn('c-kael')],
-    ['removeCombatant', (bo: CombatBo) => bo.removeCombatant('c-goblin')],
   ])('a player calling %s is FORBIDDEN', (_, call) => {
-    expect(() => call(as(BIA_ID, _ === 'start' ? null : combat()))).toThrow(
-      expect.objectContaining({ code: 'FORBIDDEN' }),
-    );
+    expect(() => call(as(BIA_ID))).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
   });
 
   it('any command with no combat is COMBAT_NOT_ACTIVE', () => {
@@ -115,10 +107,6 @@ describe('CombatBo', () => {
     );
   });
 
-  it('removing the combatant on turn passes the turn to the next', () => {
-    expect(as(ANA_ID).removeCombatant('c-kael')).toEqual({ round: 1, currentId: 'c-lyra' });
-  });
-
   it('moveInTie swaps the tie order with an equal neighbour only', () => {
     const tied = combat({ combatants: [KAEL, { ...LYRA, initiative: 18 }, GOBLIN] });
     expect(as(ANA_ID, tied).moveInTie('c-lyra', 'up')).toEqual([
@@ -128,35 +116,33 @@ describe('CombatBo', () => {
     expect(as(ANA_ID).moveInTie('c-lyra', 'up')).toEqual([]);
   });
 
-  it('turnWithoutTokens moves the turn when the token on turn is deleted, and is null otherwise', () => {
-    expect(as(ANA_ID).turnWithoutTokens(['t-kael'])).toEqual({ round: 1, currentId: 'c-lyra' });
-    expect(as(ANA_ID).turnWithoutTokens(['t-ogro'])).toBeNull();
+  it('Caio, who controls the Goblin and the Lobo, sets the initiative of Inimigos and passes its turn', () => {
+    const state = combat({ currentCombatantId: 'c-inimigos', combatants: [INIMIGOS, KAEL] });
+
+    expect(as(CAIO_ID, state).setInitiative('c-inimigos', 12)).toBe(12);
+    expect(as(CAIO_ID, state).nextTurn('c-inimigos')).toMatchObject({ currentId: 'c-kael' });
   });
 
-  it('deleting the one on turn with the next passes the turn past both', () => {
-    expect(as(ANA_ID).turnWithoutTokens(['t-lyra', 't-kael'])).toEqual({
-      round: 1,
-      currentId: 'c-goblin',
-    });
+  it('the master runs an entry whose tokens nobody controls', () => {
+    const state = combat({ currentCombatantId: 'c-feras', combatants: [FERAS, KAEL] });
+
+    expect(as(ANA_ID, state).nextTurn('c-feras')).toMatchObject({ currentId: 'c-kael' });
   });
 
-  it('deleting the one on turn and everyone after it opens the next round on the first left', () => {
-    const lyraOnTurn = combat({ currentCombatantId: 'c-lyra' });
+  it('Caio, who controls only the Goblin, setting the initiative of the group is FORBIDDEN, citing the Lobo', () => {
+    const state = combat({ combatants: [KAEL, FERAS] });
+    const set = () => as(CAIO_ID, state).setInitiative('c-feras', 12);
 
-    expect(as(ANA_ID, lyraOnTurn).turnWithoutTokens(['t-goblin', 't-lyra'])).toEqual({
-      round: 2,
-      currentId: 'c-kael',
-    });
+    expect(set).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+    expect(set).toThrow(/set the initiative of token t-lobo/);
+    expect(set).toThrow(new RegExp(CAIO_ID));
   });
 
-  it('deleting every combatant leaves nobody on turn', () => {
-    expect(as(ANA_ID).turnWithoutTokens(['t-kael', 't-lyra', 't-goblin'])).toEqual({
-      round: 1,
-      currentId: null,
-    });
-  });
+  it('a player passing the turn of an entry without tokens is FORBIDDEN', () => {
+    const state = combat({ currentCombatantId: 'c-covil', combatants: [COVIL, KAEL] });
 
-  it('deleting someone who is not on turn keeps the turn where it is', () => {
-    expect(as(ANA_ID).turnWithoutTokens(['t-goblin'])).toEqual({ round: 1, currentId: 'c-kael' });
+    expect(() => as(CAIO_ID, state).nextTurn('c-covil')).toThrow(
+      expect.objectContaining({ code: 'FORBIDDEN' }),
+    );
   });
 });
