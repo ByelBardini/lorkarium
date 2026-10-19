@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSightFields, sightCellsHint, sightFieldsOf } from '@/lib/sight-form';
+import { parseSightFields, sightFieldsOf } from '@/lib/sight-form';
 
 const METERS = { cellDistance: 1.5, cellUnit: 'm' };
 const FEET = { cellDistance: 5, cellUnit: 'ft' };
@@ -80,16 +80,5 @@ describe('sightFieldsOf', () => {
 
   it('no sight is "Enxerga" off with empty fields', () => {
     expect(sightFieldsOf(null, METERS)).toEqual({ sees: false, bright: '', dim: '', saved: false });
-  });
-});
-
-describe('sightCellsHint', () => {
-  it('"18" meters in a 1.5 m scene reads "= 12 casas"', () => {
-    expect(sightCellsHint('18', METERS)).toBe('= 12 casas');
-  });
-
-  it('"10" meters reads "= 6,67 casas", and nothing typed reads nothing', () => {
-    expect(sightCellsHint('10', METERS)).toBe('= 6,67 casas');
-    expect(sightCellsHint('', METERS)).toBeNull();
   });
 });

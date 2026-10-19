@@ -267,6 +267,66 @@ describe('inverseOf, walls', () => {
   });
 });
 
+describe('inverseOf and remapEntry, lights', () => {
+  const placement = { x: 5.5, y: 3, bright: 4, dim: 4 };
+
+  it('a placed light is undone by removing it, and a removed one by placing it again', () => {
+    const added: EditEntry = [{ kind: 'lightsAdded', lights: [{ id: 'l', placement }] }];
+
+    expect(inverseOf(added)).toEqual([{ kind: 'lightsRemoved', lights: [{ id: 'l', placement }] }]);
+    expect(inverseOf(inverseOf(added))).toEqual(added);
+  });
+
+  it('a move of a light is undone by the move back', () => {
+    const moved: EditEntry = [
+      { kind: 'lightsMoved', moves: [{ lightId: 'l', from: { x: 5, y: 5 }, to: { x: 7, y: 5 } }] },
+    ];
+
+    expect(inverseOf(moved)).toEqual([
+      { kind: 'lightsMoved', moves: [{ lightId: 'l', from: { x: 7, y: 5 }, to: { x: 5, y: 5 } }] },
+    ]);
+  });
+
+  it('a new reach is undone by the reach the light had', () => {
+    const changed: EditEntry = [
+      {
+        kind: 'lightRangesChanged',
+        changes: [{ lightId: 'l', from: { bright: 4, dim: 4 }, to: { bright: 6, dim: 0 } }],
+      },
+    ];
+
+    expect(inverseOf(changed)).toEqual([
+      {
+        kind: 'lightRangesChanged',
+        changes: [{ lightId: 'l', from: { bright: 6, dim: 0 }, to: { bright: 4, dim: 4 } }],
+      },
+    ]);
+  });
+
+  it('a light placed again takes its new id in the moves and reach changes after it', () => {
+    const later: EditEntry = [
+      { kind: 'lightsMoved', moves: [{ lightId: 'l', from: { x: 5, y: 5 }, to: { x: 7, y: 5 } }] },
+      {
+        kind: 'lightRangesChanged',
+        changes: [{ lightId: 'l', from: { bright: 4, dim: 4 }, to: { bright: 6, dim: 0 } }],
+      },
+    ];
+
+    expect(remapEntry(later, { l: 'm' }).map((op) => JSON.stringify(op).includes('"m"'))).toEqual([
+      true,
+      true,
+    ]);
+  });
+
+  it('a light placed again takes its new id in the removals after it', () => {
+    const later: EditEntry = [{ kind: 'lightsRemoved', lights: [{ id: 'l', placement }] }];
+
+    expect(remapEntry(later, { l: 'm' })).toEqual([
+      { kind: 'lightsRemoved', lights: [{ id: 'm', placement }] },
+    ]);
+  });
+});
+
 describe('inverseOf, a token move with a path', () => {
   it('the undo of a move around a wall walks the same bends backwards', () => {
     const moved: EditEntry = [

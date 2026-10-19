@@ -30,6 +30,10 @@ describe('shortcutFor', () => {
     expect(shortcutFor(press(key))).toBe('area-tool');
   });
 
+  it.each(['l', 'L'])('%s picks the lights tool', (key) => {
+    expect(shortcutFor(press(key))).toBe('lights-tool');
+  });
+
   it.each(['b', 'B'])('%s picks the draw tool', (key) => {
     expect(shortcutFor(press(key))).toBe('draw-tool');
   });

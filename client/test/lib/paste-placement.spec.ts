@@ -68,6 +68,7 @@ describe('copiedOf', () => {
         flipY: false,
         facing: 0,
         sight: null,
+        light: null,
         bars: [
           { label: 'PV', current: 32, max: 45, color: 'ember', visibility: 'controllers' },
           { label: 'Inspiração', current: 1, max: 1, color: 'gold', visibility: 'everyone' },
@@ -80,6 +81,15 @@ describe('copiedOf', () => {
     const sight = { bright: 12, dim: 4 };
 
     expect(copiedOf([lyra({ sight })], []).tokens[0]?.sight).toEqual(sight);
+  });
+
+  it('a copied token keeps the light it gives off (and the copy is born lit)', () => {
+    const light = { bright: 4, dim: 4 };
+
+    const [copy] = copiedOf([lyra({ light, lightLit: false })], []).tokens;
+
+    expect(copy?.light).toEqual(light);
+    expect(copy).not.toHaveProperty('lightLit');
   });
 
   it('a copied drawing keeps its shape and style, without its id or author', () => {

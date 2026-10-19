@@ -1,4 +1,4 @@
-import type { BoardStateDto, SceneVisionDto, TokenDto } from '@lorkarium/contracts';
+import type { BoardStateDto, SceneVisionDto, TokenDto, WallDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { boardSightOf, levelOf, seenTokensOf } from '@/lib/board-sight';
 import {
@@ -11,6 +11,7 @@ import {
   lyra,
   vharnBoard,
 } from '../support/table-session-fixtures';
+import { corridorTorch } from '../support/light-fixtures';
 import { CELL_DOOR_ID, cellDoor, northWall } from '../support/wall-fixtures';
 
 const OGRE_ID = 'aa11bb22-cc33-4d44-8e55-ff6677889900';
@@ -82,14 +83,21 @@ describe('boardSightOf for Bia in the dark', () => {
     expect(sight.seenDoorIds).toEqual(new Set([CELL_DOOR_ID]));
   });
 
-  it('without a token that sees, she has no eyes and only her tokens are seen', () => {
+  // Plan 2026-10-18-iluminacao: every token is an eye; without darkvision and light, it sees nothing.
+  it('with Lyra without darkvision and no light, she is still an eye and only her tokens are seen', () => {
     const blind = lyra({ sight: null });
     const sight = boardSightOf(biaBoard('dark', [blind, KAEL_AT_2]), { previewEyeIds: null });
 
-    expect(sight.noEyes).toBe(true);
+    expect(sight.noEyes).toBe(false);
     expect(seenTokensOf(biaBoard('dark', [blind, KAEL_AT_2]), sight).map(({ id }) => id)).toEqual([
       LYRA_ID,
     ]);
+  });
+
+  it('only when Bia controls no token on the scene she has no eyes', () => {
+    const sight = boardSightOf(biaBoard('dark', [KAEL_AT_2]), { previewEyeIds: null });
+
+    expect(sight.noEyes).toBe(true);
   });
 });
 
@@ -141,12 +149,95 @@ describe('boardSightOf, the master previewing the selected tokens', () => {
     expect(levelOf(ana, OGRE_ID)).toBe('silhouette');
   });
 
-  it('with no selected token that sees, every token is seen and the preview is blind', () => {
+  it('with no token selected, every token is seen and the preview is blind', () => {
     const sight = boardSightOf(anaDark([lyra({ sight: null }), ogreAt(11)]), {
-      previewEyeIds: [LYRA_ID],
+      previewEyeIds: [],
     });
 
     expect(levelOf(sight, OGRE_ID)).toBe('seen');
     expect(sight.previewBlind).toBe(true);
+  });
+
+  it('with a Lyra without darkvision selected, the preview is on and the unlit ogre is hidden', () => {
+    const sight = boardSightOf(anaDark([lyra({ sight: null }), ogreAt(11)]), {
+      previewEyeIds: [LYRA_ID],
+    });
+
+    expect(sight.previewBlind).toBe(false);
+    expect(levelOf(sight, OGRE_ID)).toBe('hidden');
+  });
+});
+
+describe('boardSightOf for Bia with lights', () => {
+  // Lyra (Bia's) at (3, 4) has no darkvision; the ogre stands 8 cells away, at column 11.
+  const BLIND_LYRA = lyra({ sight: null });
+  const TORCH_ON_OGRE = corridorTorch({ x: 11.5, y: 4.5, bright: 2, dim: 0 });
+
+  function litBoard(
+    vision: SceneVisionDto,
+    tokens: TokenDto[],
+    lights = [TORCH_ON_OGRE],
+    walls: WallDto[] = [],
+  ): BoardStateDto {
+    return { ...biaBoard(vision, tokens, walls), lights };
+  }
+
+  function levelOfOgre(board: BoardStateDto): string {
+    return levelOf(boardSightOf(board, { previewEyeIds: null }), OGRE_ID);
+  }
+
+  it('a lit torch over the ogre shows him to a Lyra without darkvision', () => {
+    expect(levelOfOgre(litBoard('dark', [BLIND_LYRA, ogreAt(11)]))).toBe('seen');
+  });
+
+  it('with that torch out the ogre is hidden', () => {
+    const out = [{ ...TORCH_ON_OGRE, lit: false }];
+    expect(levelOfOgre(litBoard('dark', [BLIND_LYRA, ogreAt(11)], out))).toBe('hidden');
+  });
+
+  it('an ogre in the half-light of a torch is a silhouette', () => {
+    const halfLight = [corridorTorch({ x: 8, y: 4.5, bright: 1, dim: 4 })];
+    expect(levelOfOgre(litBoard('dark', [BLIND_LYRA, ogreAt(11)], halfLight))).toBe('silhouette');
+  });
+
+  it('the lantern of Bram, a token of Caio, shows the ogre to Bia', () => {
+    const bram = kael({
+      ...someoneElse,
+      col: 10,
+      row: 4,
+      light: { bright: 2, dim: 0 },
+      lightLit: true,
+    });
+    expect(levelOfOgre(litBoard('dark', [BLIND_LYRA, bram, ogreAt(11)], []))).toBe('seen');
+  });
+
+  it('a wall between Lyra and the lit ogre hides him', () => {
+    const wall = northWall({
+      x: 6,
+      y: 0,
+      width: 0,
+      height: 12,
+      points: [
+        [0, 0],
+        [0, 12],
+      ],
+    } as never);
+    expect(levelOfOgre(litBoard('dark', [BLIND_LYRA, ogreAt(11)], [TORCH_ON_OGRE], [wall]))).toBe(
+      'hidden',
+    );
+  });
+
+  it('by daylight a light that is out changes nothing: the ogre in line of sight is seen', () => {
+    const out = [{ ...TORCH_ON_OGRE, lit: false }];
+    expect(levelOfOgre(litBoard('daylight', [BLIND_LYRA, ogreAt(11)], out))).toBe('seen');
+  });
+
+  it('the door a torch lights is among the doors she sees', () => {
+    const byTheDoor = [corridorTorch({ x: 8, y: 5.5, bright: 2, dim: 0 })];
+    const sight = boardSightOf(litBoard('dark', [BLIND_LYRA], byTheDoor, [cellDoor()]), {
+      previewEyeIds: null,
+    });
+
+    expect(sight.seenDoorIds).toEqual(new Set([CELL_DOOR_ID]));
   });
 });

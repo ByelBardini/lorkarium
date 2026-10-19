@@ -6,6 +6,7 @@ import { shapeOfEffectArea } from '@/lib/effect-area-shape';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import { sceneUpdated } from '../support/table-session-fixtures';
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
+import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
 
 describe('parseBoardEvent', () => {
   it('a valid scene:updated of the table is a sceneUpdated event', () => {
@@ -166,6 +167,33 @@ describe('parseBoardEvent', () => {
     it('a wall:doorChanged with the state "ajar" is outside the DTO and invalid (resync)', () => {
       const payload = { ...base, wallId: CELL_DOOR_ID, doorState: 'ajar' };
       expect(parseBoardEvent('wall:doorChanged', payload, VHARN.id)).toEqual({ kind: 'invalid' });
+    });
+  });
+
+  describe('lights', () => {
+    const base = { campaignId: VHARN.id, version: 6, at: '2026-10-18T12:00:00.000Z' };
+
+    it.each([
+      ['light:createdMany', 'lightsCreated', { lights: [corridorTorch()] }],
+      ['light:movedMany', 'lightsMoved', { moves: [{ lightId: CORRIDOR_TORCH_ID, x: 3, y: 2 }] }],
+      [
+        'light:rangesChanged',
+        'lightRangesChanged',
+        { changes: [{ lightId: CORRIDOR_TORCH_ID, bright: 6, dim: 6 }] },
+      ],
+      ['light:litChanged', 'lightsLitChanged', { lightIds: [CORRIDOR_TORCH_ID], lit: false }],
+      ['light:deletedMany', 'lightsDeleted', { lightIds: [CORRIDOR_TORCH_ID] }],
+    ])('a valid %s of the table is a %s event', (name, type, fields) => {
+      const payload = { ...base, ...fields };
+      expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type, payload },
+      });
+    });
+
+    it('a light:litChanged with lit "yes" is outside the DTO and invalid (resync)', () => {
+      const payload = { ...base, lightIds: [CORRIDOR_TORCH_ID], lit: 'yes' };
+      expect(parseBoardEvent('light:litChanged', payload, VHARN.id)).toEqual({ kind: 'invalid' });
     });
   });
 

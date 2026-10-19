@@ -15,6 +15,8 @@ export type BoardCommandFailure =
   | 'invalid_door'
   | 'door_locked'
   | 'wall_blocked'
+  | 'light_not_found'
+  | 'light_limit'
   | 'stale_undo'
   | 'asset_not_found'
   | 'turn_changed'
@@ -27,7 +29,7 @@ export type BoardCommandFailure =
   | 'unexpected';
 
 /** `createdIds` only on a creating command (`createTokens`, `createDrawings`, `createEffectAreas`, `eraseWallSegment`,
- *  `createWalls`): the ids the server gave, in the order sent. */
+ *  `createWalls`, `createLights`): the ids the server gave, in the order sent. */
 export type BoardCommandResult =
   | Readonly<{ ok: true; version: number; createdIds?: readonly string[] }>
   | Readonly<{ ok: false; failure: BoardCommandFailure }>;
@@ -51,6 +53,8 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   DOOR_LOCKED: 'door_locked',
   WALL_BLOCKED: 'wall_blocked',
   WALL_SEGMENT_NOT_FOUND: 'wall_not_found',
+  LIGHT_NOT_FOUND: 'light_not_found',
+  LIGHT_LIMIT: 'light_limit',
   STALE_UNDO: 'stale_undo',
   ASSET_NOT_FOUND: 'asset_not_found',
   CONDITION_NOT_FOUND: 'token_not_found',

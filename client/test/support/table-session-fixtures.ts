@@ -99,6 +99,7 @@ export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDt
     drawings: [],
     effectAreas: [],
     walls: [],
+    lights: [],
     combat: null,
     conditionDefinitions: [],
     ...overrides,
@@ -144,6 +145,8 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     facing: 0,
     defeated: false,
     sight: null,
+    light: null,
+    lightLit: true,
     canControl: true,
     bars: [
       {
