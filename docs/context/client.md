@@ -15,6 +15,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar      | [`effect-areas.md`](client/effect-areas.md)   |
 | Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas     | [`walls.md`](client/walls.md)                 |
 | Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre | [`vision.md`](client/vision.md)               |
+| Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender       | [`lights.md`](client/lights.md)               |
 
 ## Estrutura
 
