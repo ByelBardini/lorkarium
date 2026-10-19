@@ -63,7 +63,7 @@ async function createSeeingLyra(admin: Page): Promise<void> {
   const dialog = admin.getByRole('dialog', { name: 'Novo token' });
   await dialog.getByLabel('Nome').fill('Lyra');
   await dialog.getByRole('checkbox', { name: 'Bia' }).click();
-  await dialog.getByRole('checkbox', { name: 'Enxerga' }).click();
+  await dialog.getByRole('checkbox', { name: 'Enxerga no escuro' }).click();
   await dialog.getByLabel('Visão plena (m)').fill('3');
   await dialog.getByLabel('Penumbra (m)').fill('3');
   await dialog.getByRole('button', { name: 'Criar token' }).click();
