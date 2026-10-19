@@ -10,7 +10,7 @@ import {
   VHARN_ID,
   campaignMemberPo,
 } from '../../support/campaigns-factories';
-import { CombatDaoFake } from '../../support/combat-fakes';
+import { CombatDaoFake, soloEntries } from '../../support/combat-fakes';
 import { ConditionTransactionRunnerFake, ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
@@ -80,7 +80,7 @@ describe('ConditionsService', () => {
   });
 
   it('in round 3 of a combat the condition is stamped with round 3, one by one or in a group', async () => {
-    await combat.start(VHARN_SCENE_ID, [LYRA_ID, BRAM_ID]);
+    await combat.start(VHARN_SCENE_ID, soloEntries(LYRA_ID, BRAM_ID));
     await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 3, null);
     await service.apply(ANA_ID, VHARN_ID, { tokenId: LYRA_ID, conditionId: abencoado, rounds: 1 });
     await service.applyMany(ANA_ID, VHARN_ID, {

@@ -1,0 +1,1 @@
+ALTER TABLE "tokens" ADD COLUMN "defeated" boolean DEFAULT false NOT NULL;

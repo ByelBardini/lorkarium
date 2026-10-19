@@ -27,8 +27,10 @@ import {
   moveWallsCommandDto,
   nextTurnCommandDto,
   previousTurnCommandDto,
+  regroupTokensCommandDto,
   removeCombatantCommandDto,
   removeConditionCommandDto,
+  renameCombatantCommandDto,
   reshapeEffectAreasCommandDto,
   setInitiativeCommandDto,
   setDoorCommandDto,
@@ -89,6 +91,8 @@ export type BoardGatewayDeps = Readonly<{
     | 'end'
     | 'addCombatants'
     | 'removeCombatant'
+    | 'regroupTokens'
+    | 'renameCombatant'
     | 'moveInTie'
     | 'setInitiative'
     | 'nextTurn'
@@ -278,6 +282,14 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     socket.on(
       'combat:removeCombatant',
       mutate(removeCombatantCommandDto, combat.removeCombatant.bind(combat)),
+    );
+    socket.on(
+      'combat:regroupTokens',
+      mutate(regroupTokensCommandDto, combat.regroupTokens.bind(combat)),
+    );
+    socket.on(
+      'combat:renameCombatant',
+      mutate(renameCombatantCommandDto, combat.renameCombatant.bind(combat)),
     );
     socket.on('combat:moveInTie', mutate(moveInTieCommandDto, combat.moveInTie.bind(combat)));
     socket.on(

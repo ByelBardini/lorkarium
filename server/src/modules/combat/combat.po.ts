@@ -1,4 +1,4 @@
-import { integer, pgTable, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { scenes } from '../scenes/scenes.po';
 import { tokens } from '../tokens/tokens.po';
 
@@ -15,21 +15,32 @@ export const combats = pgTable('combats', {
   startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Spec §6 Combatant; `tie_order` is the order of entry, swapped by the master within a tie.
-export const combatants = pgTable(
-  'combatants',
+// Spec §6 Combatant: an initiative entry of 0 to N tokens (`combatant_tokens`); `tie_order` is the
+// order of entry, swapped by the master within a tie.
+export const combatants = pgTable('combatants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  combatId: uuid('combat_id')
+    .notNull()
+    .references(() => combats.id, { onDelete: 'cascade' }),
+  // The name the master gave; `null` = the screen names the entry after its tokens.
+  name: text('name'),
+  initiative: integer('initiative'),
+  tieOrder: integer('tie_order').notNull(),
+});
+
+// Spec §6 CombatantToken: the primary key on the token keeps it in at most one entry (a scene has
+// one combat, a token one scene).
+export const combatantTokens = pgTable(
+  'combatant_tokens',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    combatId: uuid('combat_id')
-      .notNull()
-      .references(() => combats.id, { onDelete: 'cascade' }),
     tokenId: uuid('token_id')
-      .notNull()
+      .primaryKey()
       .references(() => tokens.id, { onDelete: 'cascade' }),
-    initiative: integer('initiative'),
-    tieOrder: integer('tie_order').notNull(),
+    combatantId: uuid('combatant_id')
+      .notNull()
+      .references(() => combatants.id, { onDelete: 'cascade' }),
   },
-  (table) => [unique('combatants_combat_token_unique').on(table.combatId, table.tokenId)],
+  (table) => [index('combatant_tokens_combatant_idx').on(table.combatantId)],
 );
 
 export type CombatPo = typeof combats.$inferSelect;

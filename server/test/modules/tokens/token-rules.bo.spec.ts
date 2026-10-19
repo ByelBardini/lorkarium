@@ -61,9 +61,15 @@ describe('TokenRulesBo', () => {
     );
   });
 
-  it('adjusting a bar applies the change and may go negative', () => {
-    expect(rules().adjustBar(3, { op: 'add', amount: -10 })).toBe(-7);
-    expect(rules().adjustBar(32, { op: 'set', value: 12 })).toBe(12);
+  it('adjusting a bar applies the change to the current and may go negative', () => {
+    const bar = { current: 3, max: 10 };
+    expect(rules().adjustBar(bar, { op: 'add', amount: -10 })).toEqual({ current: -7, max: 10 });
+    expect(rules().adjustBar(bar, { op: 'set', value: 12 })).toEqual({ current: 12, max: 10 });
+  });
+
+  it('a new maximum keeps the current', () => {
+    const bar = { current: 32, max: 45 };
+    expect(rules().adjustBar(bar, { op: 'max', value: 60 })).toEqual({ current: 32, max: 60 });
   });
 });
 

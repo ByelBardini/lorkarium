@@ -7,9 +7,10 @@ import {
   type NewTokenPo,
   type TokenBarInputPo,
   type TokenBarPo,
+  type BarValuesPo,
   type TokenFieldsPo,
   type TokenLayerPo,
-  type TokenLookPo,
+  type TokenStylePo,
   type TokenPo,
 } from './tokens.po';
 
@@ -131,16 +132,16 @@ export class TokensDao {
     }
   }
 
-  /** The same look fields on every listed token; an absent field is not written. */
-  async restyle(tokenIds: readonly string[], look: Partial<TokenLookPo>): Promise<void> {
+  /** The same look fields (and the defeat mark) on every listed token; an absent field is not written. */
+  async restyle(tokenIds: readonly string[], style: Partial<TokenStylePo>): Promise<void> {
     await this.db
       .update(tokens)
-      .set({ ...look, updatedAt: sql`now()` })
+      .set({ ...style, updatedAt: sql`now()` })
       .where(inArray(tokens.id, [...tokenIds]));
   }
 
-  async setBarCurrent(barId: string, current: number): Promise<void> {
-    await this.db.update(tokenBars).set({ current }).where(eq(tokenBars.id, barId));
+  async setBarValues(barId: string, { current, max }: BarValuesPo): Promise<void> {
+    await this.db.update(tokenBars).set({ current, max }).where(eq(tokenBars.id, barId));
   }
 
   async update(tokenId: string, update: TokenUpdatePo): Promise<void> {

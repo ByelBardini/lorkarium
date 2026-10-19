@@ -3,7 +3,8 @@ import { orderCombatants } from '@lorkarium/game-core';
 import type { CombatState } from './combat.bo';
 import type { CombatRow } from './combat.dao';
 
-/** Combat rows + who controls each token → the state the rule decides on.
+/** Combat rows + who controls each token → the state the rule decides on, each entry with its
+ *  tokens and their controllers.
  *
  *  Example: `toCombatState(row, (tokenId) => controllersByToken.get(tokenId) ?? [])` */
 export function toCombatState(
@@ -11,12 +12,11 @@ export function toCombatState(
   controllersOf: (tokenId: string) => readonly string[],
 ): CombatState {
   const { id, round, currentCombatantId } = row.combat;
-  const combatants = row.combatants.map(({ id: combatantId, tokenId, initiative, tieOrder }) => ({
+  const combatants = row.combatants.map(({ id: combatantId, tokenIds, initiative, tieOrder }) => ({
     id: combatantId,
-    tokenId,
+    tokens: tokenIds.map((tokenId) => ({ tokenId, controllerIds: controllersOf(tokenId) })),
     initiative,
     tieOrder,
-    controllerIds: controllersOf(tokenId),
   }));
   return { id, round, currentCombatantId, combatants };
 }
@@ -27,9 +27,10 @@ export function toCombatState(
 export function toCombatDto(row: CombatRow): CombatDto {
   const { id, round, currentCombatantId } = row.combat;
   const combatants = orderCombatants(row.combatants).map(
-    ({ id: combatantId, tokenId, initiative, tieOrder }) => ({
+    ({ id: combatantId, name, tokenIds, initiative, tieOrder }) => ({
       id: combatantId,
-      tokenId,
+      name,
+      tokenIds: [...tokenIds],
       initiative,
       tieOrder,
     }),

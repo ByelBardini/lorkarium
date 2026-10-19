@@ -84,13 +84,16 @@ describe('combat over Socket.IO', () => {
   }
 
   async function startCombat(): Promise<CombatDto> {
-    const ids = [tokenIds.kael, tokenIds.lyra, tokenIds.ogro];
-    await send(master.client, 'combat:start', { ...envelope(vharn.id), tokenIds: ids });
+    const entries = [tokenIds.kael, tokenIds.lyra, tokenIds.ogro].map((id) => ({
+      name: null,
+      tokenIds: [id],
+    }));
+    await send(master.client, 'combat:start', { ...envelope(vharn.id), entries });
     return combatStartedDto.parse(await eventPayload(master, 'combat:started')).combat;
   }
 
   function combatantOf(combat: CombatDto, tokenId: string): string {
-    const found = combat.combatants.find((c) => c.tokenId === tokenId);
+    const found = combat.combatants.find((c) => c.tokenIds.includes(tokenId));
     if (!found) throw new Error(`no combatant for ${tokenId}`);
     return found.id;
   }
@@ -122,7 +125,7 @@ describe('combat over Socket.IO', () => {
     await set(tokenIds.kael, 14);
     await set(tokenIds.lyra, 18);
     await set(tokenIds.ogro, -2);
-    const ordered = (await lastCombat(master.client)).combatants.map(({ tokenId }) => tokenId);
+    const ordered = (await lastCombat(master.client)).combatants.map(({ tokenIds }) => tokenIds[0]);
     expect(ordered).toEqual([tokenIds.lyra, tokenIds.kael, tokenIds.ogro]);
     expect(combatUpdatedDto.safeParse(await eventPayload(master, 'combat:updated')).success).toBe(
       true,
@@ -230,7 +233,7 @@ describe('combat over Socket.IO', () => {
     const biaClient = await atTable(baseUrl, clients, bia, vharn);
     const ack = await send(biaClient, 'combat:start', {
       ...envelope(vharn.id),
-      tokenIds: [tokenIds.kael],
+      entries: [{ name: null, tokenIds: [tokenIds.kael] }],
     });
     expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
   });

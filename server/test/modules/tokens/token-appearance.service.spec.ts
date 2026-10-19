@@ -186,6 +186,17 @@ describe('TokenAppearanceService', () => {
       });
     });
 
+    it('marking Lyra defeated changes only the mark and keeps the look', async () => {
+      tokens.rows[0] = lyraRow({ token: lyraPo({ frame: 'round', flipX: true }) });
+
+      await service.restyleMany(BIA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID],
+        style: { defeated: true },
+      });
+
+      expect(tokenOf(LYRA_ID)).toMatchObject({ defeated: true, frame: 'round', flipX: true });
+    });
+
     it('Caio restyling the chest he controls on the objects layer passes (the look ignores the layer)', async () => {
       await service.restyleMany(CAIO_ID, VHARN_ID, {
         tokenIds: [CHEST_ID],

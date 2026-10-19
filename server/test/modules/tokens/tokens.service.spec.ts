@@ -29,6 +29,7 @@ const PV: BarInputDto = {
   max: 30,
   color: 'ember',
   visibility: 'controllers',
+  display: 'number',
 };
 const NEW_TOKEN: CreateToken = {
   name: 'Kael',
@@ -52,6 +53,7 @@ describe('TokensService', () => {
   let scenes: ScenesDaoFake;
   let tokens: TokensDaoFake;
   let walls: WallsDaoFake;
+  let combat: CombatDaoFake;
   let publisher: BoardPublisherFake;
   let service: TokensService;
 
@@ -80,11 +82,12 @@ describe('TokensService', () => {
       [lyraPortraitPo(), lyraPortraitPo({ id: QUELM_MAP_ID, campaignId: QUELM_ID })],
     );
     walls = new WallsDaoFake(scenes.journal);
+    combat = new CombatDaoFake();
     const transaction = new TokenTransactionRunnerFake(
       scenes,
       tokens,
       new ConditionsDaoFake(),
-      new CombatDaoFake(),
+      combat,
       assets,
       walls,
     );
@@ -218,6 +221,16 @@ describe('TokensService', () => {
     expect(publisher.tokenChanges[0]?.privileged.token.bars[0]?.current).toBe(25);
   });
 
+  it('Bia setting the PV maximum of Lyra to 60 saves 32 / 60 and publishes token:updated', async () => {
+    await service.adjustBar(BIA_ID, VHARN_ID, {
+      tokenId: LYRA_ID,
+      barId: LYRA_PV_ID,
+      change: { op: 'max', value: 60 },
+    });
+    expect(tokens.rows[0]?.bars[0]).toMatchObject({ current: 32, max: 60 });
+    expect(publisher.tokenChanges[0]?.privileged.token.bars[0]).toMatchObject({ max: 60 });
+  });
+
   it('a bar that is not on the token is BAR_NOT_FOUND', async () => {
     await expect(
       service.adjustBar(BIA_ID, VHARN_ID, {
@@ -266,10 +279,34 @@ describe('TokensService', () => {
     ]);
   });
 
-  it('a player deleting a token is refused with FORBIDDEN', async () => {
+  it('a player deleting a token is refused with FORBIDDEN, and nothing is deleted', async () => {
     await expect(service.delete(BIA_ID, VHARN_ID, { tokenId: LYRA_ID })).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
+    expect(tokens.rows).toHaveLength(2);
+  });
+
+  it('deleting the last token of Inimigos takes the entry out of token:deleted.combat', async () => {
+    await combat.start(VHARN_SCENE_ID, [
+      { name: 'Inimigos', tokenIds: [LYRA_ID] },
+      { name: null, tokenIds: [BRAM_ID] },
+    ]);
+
+    await service.delete(ANA_ID, VHARN_ID, { tokenId: LYRA_ID });
+
+    expect(publisher.tokenDeletes[0]?.combat?.combatants.map(({ id }) => id)).toEqual([
+      `c-${BRAM_ID}`,
+    ]);
+  });
+
+  it('deleting one of the two tokens of Inimigos keeps the entry with the other', async () => {
+    await combat.start(VHARN_SCENE_ID, [{ name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID] }]);
+
+    await service.delete(ANA_ID, VHARN_ID, { tokenId: LYRA_ID });
+
+    expect(publisher.tokenDeletes[0]?.combat?.combatants).toEqual([
+      expect.objectContaining({ name: 'Inimigos', tokenIds: [BRAM_ID] }),
+    ]);
   });
 
   describe('setLayer', () => {

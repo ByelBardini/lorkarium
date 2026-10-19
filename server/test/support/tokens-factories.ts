@@ -28,6 +28,7 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     flipX: false,
     flipY: false,
     facing: 0,
+    defeated: false,
     sightBright: null,
     sightDim: null,
     createdAt: CREATED,
@@ -47,6 +48,7 @@ export function pvBar(overrides: Partial<TokenBarPo> = {}): TokenBarPo {
     max: 45,
     color: 'ember',
     visibility: 'controllers',
+    display: 'number',
     ...overrides,
   };
 }

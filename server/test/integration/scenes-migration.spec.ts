@@ -1,6 +1,4 @@
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { rm } from 'node:fs/promises';
 import { sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -8,29 +6,10 @@ import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
 import { MIGRATIONS_FOLDER } from '../../src/database/migrate';
 import { DEFAULT_CONDITIONS } from '../../src/modules/conditions/condition-rules.bo';
+import { databaseUrlNamed, migrationsUpTo } from '../support/migrations-up-to';
 
 const SCRATCH_DATABASE = 'lorkarium_scenes_migration';
 const LAST_MIGRATION_BEFORE_SCENES = '0001_campaigns';
-
-type JournalEntry = { tag: string };
-
-// Migrations up to (and including) `lastTag`, so a database can be left exactly as it was then.
-async function migrationsUpTo(lastTag: string): Promise<string> {
-  const folder = await mkdtemp(path.join(tmpdir(), 'lorkarium-migrations-'));
-  await cp(MIGRATIONS_FOLDER, folder, { recursive: true });
-  const journalPath = path.join(folder, 'meta', '_journal.json');
-  const journal = JSON.parse(await readFile(journalPath, 'utf8')) as { entries: JournalEntry[] };
-  const cut = journal.entries.findIndex((entry) => entry.tag === lastTag);
-  const entries = journal.entries.slice(0, cut + 1);
-  await writeFile(journalPath, JSON.stringify({ ...journal, entries }));
-  return folder;
-}
-
-function urlOf(database: string): string {
-  const url = new URL(readEnv(process.env).databaseUrl);
-  url.pathname = `/${database}`;
-  return url.toString();
-}
 
 describe('migrations 0002_scenes, 0004_conditions and 0009_condition_icons on a database with campaigns', () => {
   let admin: DatabaseConnection;
@@ -41,7 +20,7 @@ describe('migrations 0002_scenes, 0004_conditions and 0009_condition_icons on a 
     admin = createDatabase(readEnv(process.env).databaseUrl);
     await admin.db.execute(sql.raw(`DROP DATABASE IF EXISTS ${SCRATCH_DATABASE}`));
     await admin.db.execute(sql.raw(`CREATE DATABASE ${SCRATCH_DATABASE}`));
-    scratch = createDatabase(urlOf(SCRATCH_DATABASE));
+    scratch = createDatabase(databaseUrlNamed(SCRATCH_DATABASE));
     partialFolder = await migrationsUpTo(LAST_MIGRATION_BEFORE_SCENES);
     await migrate(scratch.db, { migrationsFolder: partialFolder });
   });

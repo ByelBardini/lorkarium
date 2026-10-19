@@ -2,7 +2,7 @@ import type { ActiveConditionDto, CombatDto, NewTokenDto, TokenDto } from '@lork
 import type { AssetsDao } from '../assets/assets.dao';
 import { AssetNotFoundError } from '../assets/assets.error';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
-import { CombatBo } from '../combat/combat.bo';
+import { CombatRosterBo, type PastedToken } from '../combat/combat-roster.bo';
 import type { CombatDao } from '../combat/combat.dao';
 import { toCombatDto, toCombatState } from '../combat/combat.mapper';
 import type { ConditionsDao } from '../conditions/conditions.dao';
@@ -32,13 +32,13 @@ export type TokenWriteDaos = Readonly<{
     | 'restyle'
     | 'resizeMany'
     | 'setLayer'
-    | 'setBarCurrent'
+    | 'setBarValues'
     | 'update'
     | 'delete'
     | 'deleteMany'
   >;
   conditions: Pick<ConditionsDao, 'listOfTokens'>;
-  combat: Pick<CombatDao, 'findOfScene' | 'setTurn'>;
+  combat: Pick<CombatDao, 'findOfScene' | 'setTurn' | 'removeCombatants' | 'linkTokens'>;
   assets: Pick<AssetsDao, 'findManyInCampaign'>;
   walls: Pick<WallsDao, 'listOfScene'>;
 }>;
@@ -95,10 +95,11 @@ export function newTokenRowOf(
   };
 }
 
-/** A combatant on turn whose token is deleted hands the turn on, in the same transaction.
+/** Deleted tokens leave the combat in the same transaction: the entries they empty go and the turn
+ *  passes past them (`CombatRosterBo.leavingTokens`); the links go by the cascade.
  *
- *  Example: `await passTurnIfLeaving(daos, scene, access, [tokenId])` */
-export async function passTurnIfLeaving(
+ *  Example: `await leaveCombat(daos, scene, access, [tokenId])` */
+export async function leaveCombat(
   daos: TokenWriteDaos,
   scene: ScenePo,
   access: CampaignAccessBo,
@@ -106,9 +107,29 @@ export async function passTurnIfLeaving(
 ): Promise<void> {
   const combat = await daos.combat.findOfScene(scene.id);
   if (!combat) return;
-  const state = toCombatState(combat, () => []);
-  const turn = new CombatBo(access, state).turnWithoutTokens(leavingTokenIds);
-  if (turn) await daos.combat.setTurn(combat.combat.id, turn.round, turn.currentId);
+  const change = new CombatRosterBo(
+    access,
+    toCombatState(combat, () => []),
+  ).leavingTokens(leavingTokenIds);
+  if (!change) return;
+  await daos.combat.removeCombatants(combat.combat.id, change.remove);
+  if (change.turn)
+    await daos.combat.setTurn(combat.combat.id, change.turn.round, change.turn.currentId);
+}
+
+/** Pasted copies join the entries of their originals that are still in the combat of the scene.
+ *
+ *  Example: `await joinPastedToCombat(daos, scene, access, [{ tokenId, combatantId }])` */
+export async function joinPastedToCombat(
+  daos: TokenWriteDaos,
+  scene: ScenePo,
+  access: CampaignAccessBo,
+  pasted: readonly PastedToken[],
+): Promise<void> {
+  const combat = await daos.combat.findOfScene(scene.id);
+  const state = combat ? toCombatState(combat, () => []) : null;
+  for (const { combatantId, tokenIds } of new CombatRosterBo(access, state).pastedLinks(pasted))
+    await daos.combat.linkTokens(combatantId, tokenIds);
 }
 
 /** The combat of the scene as clients see it, or `null` with none. */

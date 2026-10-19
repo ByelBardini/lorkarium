@@ -13,10 +13,38 @@ const ROW: CombatRow = {
     startedAt: STARTED,
   },
   combatants: [
-    { id: 'c-goblin', combatId: 'combat', tokenId: 't-goblin', initiative: -2, tieOrder: 0 },
-    { id: 'c-ogro', combatId: 'combat', tokenId: 't-ogro', initiative: null, tieOrder: 1 },
-    { id: 'c-kael', combatId: 'combat', tokenId: 't-kael', initiative: 18, tieOrder: 2 },
-    { id: 'c-lyra', combatId: 'combat', tokenId: 't-lyra', initiative: 14, tieOrder: 3 },
+    {
+      id: 'c-goblin',
+      combatId: 'combat',
+      name: null,
+      tokenIds: ['t-goblin'],
+      initiative: -2,
+      tieOrder: 0,
+    },
+    {
+      id: 'c-ogro',
+      combatId: 'combat',
+      name: null,
+      tokenIds: ['t-ogro'],
+      initiative: null,
+      tieOrder: 1,
+    },
+    {
+      id: 'c-kael',
+      combatId: 'combat',
+      name: null,
+      tokenIds: ['t-kael'],
+      initiative: 18,
+      tieOrder: 2,
+    },
+    {
+      id: 'c-lyra',
+      combatId: 'combat',
+      name: null,
+      tokenIds: ['t-lyra'],
+      initiative: 14,
+      tieOrder: 3,
+    },
   ],
 };
 
@@ -27,7 +55,8 @@ describe('combat mapper', () => {
     expect(dto).toMatchObject({ id: 'combat', round: 2, currentCombatantId: 'c-lyra' });
     expect(dto.combatants[0]).toEqual({
       id: 'c-kael',
-      tokenId: 't-kael',
+      name: null,
+      tokenIds: ['t-kael'],
       initiative: 18,
       tieOrder: 2,
     });
@@ -35,7 +64,9 @@ describe('combat mapper', () => {
 
   it('the state carries who controls each token', () => {
     const state = toCombatState(ROW, (tokenId) => (tokenId === 't-kael' ? ['bia'] : []));
-    expect(state.combatants.find(({ id }) => id === 'c-kael')?.controllerIds).toEqual(['bia']);
+    expect(state.combatants.find(({ id }) => id === 'c-kael')?.tokens).toEqual([
+      { tokenId: 't-kael', controllerIds: ['bia'] },
+    ]);
     expect(state.currentCombatantId).toBe('c-lyra');
   });
 });

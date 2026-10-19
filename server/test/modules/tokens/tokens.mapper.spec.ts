@@ -4,6 +4,15 @@ import { LYRA_PORTRAIT_ID } from '../../support/assets-factories';
 import { BIA_ID } from '../../support/campaigns-factories';
 import { LYRA_ID, lyraPo, lyraRow } from '../../support/tokens-factories';
 
+const PERCENT_PV = {
+  label: 'PV',
+  current: 1,
+  max: 9,
+  color: 'ember',
+  visibility: 'everyone',
+  display: 'percent',
+} as const;
+
 describe('tokens mapper', () => {
   it('the privileged audience gets every bar and canControl', () => {
     const dto = toTokenDto(lyraRow(), 'privileged');
@@ -29,13 +38,14 @@ describe('tokens mapper', () => {
     },
   );
 
-  it('others receive the image, frame, flips and facing exactly as the privileged (not a secret)', () => {
+  it('others receive the image, frame, flips, facing and defeat exactly as the privileged (not a secret)', () => {
     const look = {
       imageAssetId: LYRA_PORTRAIT_ID,
       frame: 'round',
       flipX: true,
       flipY: false,
       facing: 135,
+      defeated: true,
     } as const;
     const row = lyraRow({ token: lyraPo(look) });
 
@@ -107,6 +117,13 @@ describe('tokens mapper', () => {
     expect(kept.fields).not.toHaveProperty('sightDim');
   });
 
+  it('a bar shown as percent reaches the viewer as percent', () => {
+    const row = lyraRow();
+    const bars = row.bars.map((bar) => ({ ...bar, display: 'percent' as const }));
+    const dto = toTokenDto({ ...row, bars }, 'others');
+    expect(dto.bars.map(({ display }) => display)).toEqual(['percent']);
+  });
+
   it('the token DTO carries no persistence fields', () => {
     expect(toTokenDto(lyraRow(), 'others')).not.toHaveProperty('sceneId');
   });
@@ -120,13 +137,13 @@ describe('tokens mapper', () => {
         width: 1,
         height: 1,
         controllerIds: [BIA_ID],
-        bars: [{ label: 'PV', current: 1, max: 9, color: 'ember', visibility: 'everyone' }],
+        bars: [PERCENT_PV],
       },
       [BIA_ID],
     );
     expect(update).toEqual({
       fields: { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 },
-      bars: [{ label: 'PV', current: 1, max: 9, color: 'ember', visibility: 'everyone' }],
+      bars: [PERCENT_PV],
       controllerIds: [BIA_ID],
     });
   });

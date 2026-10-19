@@ -94,6 +94,7 @@ describe('TokensDao on Postgres', () => {
       flipX: false,
       flipY: false,
       facing: 0,
+      defeated: false,
     });
   });
 
@@ -213,13 +214,29 @@ describe('TokensDao on Postgres', () => {
     });
   });
 
-  it('setBarCurrent changes one bar, even to a negative value', async () => {
+  it('setBarValues changes one bar, even to a negative current', async () => {
     const saved = await tokens.insert(lyra());
     const pv = saved.bars[0];
     if (!pv) throw new Error('Lyra was saved without bars');
-    await tokens.setBarCurrent(pv.id, -4);
+    await tokens.setBarValues(pv.id, { current: -4, max: 50 });
     const found = await tokens.findInScene(sceneId, saved.token.id);
-    expect(found?.bars.map(({ current }) => current)).toEqual([-4, 1]);
+    expect(found?.bars.map(({ current, max }) => [current, max])).toEqual([
+      [-4, 50],
+      [1, 1],
+    ]);
+  });
+
+  it('a bar saved without a display reads back as number, and percent is kept', async () => {
+    const saved = await tokens.insert(lyra());
+    const pv = saved.bars[0];
+    if (!pv) throw new Error('Lyra was saved without bars');
+    await tokens.update(saved.token.id, {
+      fields: { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 },
+      bars: [{ ...INSPIRATION, display: 'percent' }],
+      controllerIds: [],
+    });
+    const found = await tokens.findInScene(sceneId, saved.token.id);
+    expect([pv.display, found?.bars[0]?.display]).toEqual(['number', 'percent']);
   });
 
   it('update replaces the fields, the bars and the controllers', async () => {

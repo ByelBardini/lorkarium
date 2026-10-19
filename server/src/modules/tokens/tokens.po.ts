@@ -24,6 +24,7 @@ export const tokenSide = pgEnum('token_side', ['ally', 'enemy', 'neutral']);
 export const tokenLayer = pgEnum('token_layer', ['tokens', 'objects', 'background']);
 export const barColor = pgEnum('bar_color', ['gold', 'steel', 'ember', 'moss', 'ash']);
 export const barVisibility = pgEnum('bar_visibility', ['everyone', 'controllers']);
+export const barDisplay = pgEnum('bar_display', ['number', 'percent']);
 export const tokenFrame = pgEnum('token_frame', ['square', 'round']);
 
 export const tokens = pgTable(
@@ -47,6 +48,8 @@ export const tokens = pgTable(
     frame: tokenFrame('frame').notNull().default('square'),
     flipX: boolean('flip_x').notNull().default(false),
     flipY: boolean('flip_y').notNull().default(false),
+    // The red cross of a fallen foe: only a restyle marks it, a new token is alive.
+    defeated: boolean('defeated').notNull().default(false),
     // Degrees, 0 = looking right, clockwise on screen (game-core `Facing`).
     facing: smallint('facing').notNull().default(0),
     // How far it sees, in cells (game-core `SightRange`); both null = it does not see. A CHECK
@@ -98,6 +101,7 @@ export const tokenBars = pgTable(
     max: integer('max').notNull(),
     color: barColor('color').notNull(),
     visibility: barVisibility('visibility').notNull(),
+    display: barDisplay('display').notNull().default('number'),
   },
   (table) => [unique('token_bars_token_id_position_unique').on(table.tokenId, table.position)],
 );
@@ -106,8 +110,11 @@ export type TokenPo = typeof tokens.$inferSelect;
 export type NewTokenPo = typeof tokens.$inferInsert;
 export type TokenBarPo = typeof tokenBars.$inferSelect;
 export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenId' | 'position'>;
+export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max'>;
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
+/** What `token:restyleMany` saves: the look plus the defeat mark, which `token:update` never sends. */
+export type TokenStylePo = TokenLookPo & Pick<TokenPo, 'defeated'>;
 export type TokenSightPo = Pick<TokenPo, 'sightBright' | 'sightDim'>;
 /** What `token:update` saves; an absent look field keeps what the token has. */
 export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width' | 'height'> &
