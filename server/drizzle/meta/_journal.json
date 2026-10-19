@@ -162,6 +162,20 @@
       "when": 1792372819975,
       "tag": "0022_token_defeated",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792376763152,
+      "tag": "0023_token_light",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792377048453,
+      "tag": "0024_lights",
+      "breakpoints": true
     }
   ]
 }

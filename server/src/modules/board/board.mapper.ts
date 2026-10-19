@@ -7,6 +7,7 @@ import type {
   EffectAreaDto,
   TokenDto,
   WallDto,
+  LightDto,
 } from '@lorkarium/contracts';
 import { toSceneDto } from '../scenes/scenes.mapper';
 import type { SceneRow } from '../scenes/scenes.dao';
@@ -20,6 +21,7 @@ export type BoardSnapshotParts = Readonly<{
   drawings: readonly DrawingDto[];
   effectAreas: readonly EffectAreaDto[];
   walls: readonly WallDto[];
+  lights: readonly LightDto[];
   combat: CombatDto | null;
   conditionDefinitions: readonly ConditionDefinitionDto[];
   at: Date;
@@ -39,6 +41,7 @@ export function toBoardStateDto(parts: BoardSnapshotParts): BoardStateDto {
     drawings: [...parts.drawings],
     effectAreas: [...parts.effectAreas],
     walls: [...parts.walls],
+    lights: [...parts.lights],
     combat: parts.combat,
     conditionDefinitions: [...parts.conditionDefinitions],
   };

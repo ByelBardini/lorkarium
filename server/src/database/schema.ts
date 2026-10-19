@@ -25,3 +25,4 @@ export { drawingColor, drawingKind, drawings, strokeWidth } from '../modules/dra
 export { effectAreaKind, effectAreas } from '../modules/effect-areas/effect-areas.po';
 export { doorState, wallKind, wallShape, walls } from '../modules/walls/walls.po';
 export { assetMimeType, assetPurpose, assets } from '../modules/assets/assets.po';
+export { lights } from '../modules/lights/lights.po';

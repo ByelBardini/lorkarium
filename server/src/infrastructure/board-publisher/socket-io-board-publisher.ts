@@ -14,6 +14,11 @@ import type {
   EffectAreasDeletedDto,
   EffectAreasReshapedDto,
   DoorChangedDto,
+  LightRangesChangedDto,
+  LightsCreatedDto,
+  LightsDeletedDto,
+  LightsLitChangedDto,
+  LightsMovedDto,
   WallSegmentErasedDto,
   WallAreaErasedDto,
   WallKindsChangedDto,
@@ -180,6 +185,26 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
 
   wallAreaErased(event: WallAreaErasedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('wall:areaErased', event);
+  }
+
+  lightsCreated(event: LightsCreatedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('light:createdMany', event);
+  }
+
+  lightsMoved(event: LightsMovedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('light:movedMany', event);
+  }
+
+  lightRangesChanged(event: LightRangesChangedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('light:rangesChanged', event);
+  }
+
+  lightsLitChanged(event: LightsLitChangedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('light:litChanged', event);
+  }
+
+  lightsDeleted(event: LightsDeletedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('light:deletedMany', event);
   }
 
   // Conditions are on the token for everyone to see: nothing to redact (spec §3.7).

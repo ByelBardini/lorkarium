@@ -154,3 +154,76 @@ describe('doors over Socket.IO', () => {
     ]);
   });
 });
+
+describe('doors lit by a torch over Socket.IO', () => {
+  const live = useTokenTable();
+  // One cell past the door (x = 5, y from 3 to 6), in front of the blind Lyra at (3, 4).
+  const TORCH = { x: 6, y: 4.5, bright: 2, dim: 0 };
+
+  async function darkVharnWithBlindLyra(): Promise<{ doorId: string; ana: EventRecorder }> {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    await send(ana.client, 'scene:configure', {
+      ...envelope(live.vharn.id),
+      ...GRID,
+      vision: 'dark',
+    });
+    await send(ana.client, 'token:create', tokenCommandFor(live.vharn, live.bia.id));
+    const ack = await send(ana.client, 'wall:createMany', {
+      ...envelope(live.vharn.id),
+      walls: [DOOR],
+    });
+    const [doorId] = (ack as { createdIds: string[] }).createdIds;
+    if (!doorId) throw new Error('the door was not created');
+    return { doorId, ana };
+  }
+
+  async function torchOn(table: Table, recorder: EventRecorder): Promise<string> {
+    const ack = await send(recorder.client, 'light:createMany', {
+      ...envelope(table.id),
+      lights: [TORCH],
+    });
+    const [lightId] = (ack as { createdIds: string[] }).createdIds;
+    if (!lightId) throw new Error('the torch was not created');
+    return lightId;
+  }
+
+  function setDoorOn(table: Table, wallId: string, state: string): object {
+    return { ...envelope(table.id), wallId, state };
+  }
+
+  it('Bia opens the door the torch lights, though Lyra has no darkvision', async () => {
+    const { doorId, ana } = await darkVharnWithBlindLyra();
+    await torchOn(live.vharn, ana);
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    const ack = await send(bia, 'wall:setDoor', setDoorOn(live.vharn, doorId, 'open'));
+
+    expect(ack).toMatchObject({ ok: true });
+  });
+
+  it('once Ana puts out the torch, Bia closing the door is FORBIDDEN', async () => {
+    const { doorId, ana } = await darkVharnWithBlindLyra();
+    const torchId = await torchOn(live.vharn, ana);
+    const bia = await live.atTable(live.bia, live.vharn);
+    await send(bia, 'wall:setDoor', setDoorOn(live.vharn, doorId, 'open'));
+    await send(ana.client, 'light:setLitMany', {
+      ...envelope(live.vharn.id),
+      lightIds: [torchId],
+      lit: false,
+    });
+
+    const ack = await send(bia, 'wall:setDoor', setDoorOn(live.vharn, doorId, 'closed'));
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+  });
+
+  it('a torch of Quelm at the same point does not light the door of Vharn', async () => {
+    const { doorId } = await darkVharnWithBlindLyra();
+    await torchOn(live.quelm, recordEventsOf(await live.atTable(live.caio, live.quelm)));
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    const ack = await send(bia, 'wall:setDoor', setDoorOn(live.vharn, doorId, 'open'));
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+  });
+});

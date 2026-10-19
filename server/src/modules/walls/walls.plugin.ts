@@ -4,6 +4,7 @@ import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
+import { LightsDao } from '../lights/lights.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { TokensDao } from '../tokens/tokens.dao';
 import { WallsDao } from './walls.dao';
@@ -23,7 +24,12 @@ export type WallsModule = Readonly<{ service: WallsService }>;
 export function createWallsModule(options: WallsModuleOptions): WallsModule {
   const transaction: WallTransactionRunner = (work) =>
     runInTransaction(options.db, (tx) =>
-      work({ scenes: new ScenesDao(tx), walls: new WallsDao(tx), tokens: new TokensDao(tx) }),
+      work({
+        scenes: new ScenesDao(tx),
+        walls: new WallsDao(tx),
+        tokens: new TokensDao(tx),
+        lights: new LightsDao(tx),
+      }),
     );
   const service = new WallsService({
     members: new CampaignMembersDao(options.db),

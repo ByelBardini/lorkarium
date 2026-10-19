@@ -14,6 +14,11 @@ import type {
   EffectAreasDeletedDto,
   EffectAreasReshapedDto,
   DoorChangedDto,
+  LightRangesChangedDto,
+  LightsCreatedDto,
+  LightsDeletedDto,
+  LightsLitChangedDto,
+  LightsMovedDto,
   WallSegmentErasedDto,
   WallAreaErasedDto,
   WallKindsChangedDto,
@@ -142,6 +147,11 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly doorChanges: DoorChangedDto[] = [];
   readonly wallSegmentErasures: WallSegmentErasedDto[] = [];
   readonly wallAreaErasures: WallAreaErasedDto[] = [];
+  readonly lightsCreates: LightsCreatedDto[] = [];
+  readonly lightsMoves: LightsMovedDto[] = [];
+  readonly lightRangeChanges: LightRangesChangedDto[] = [];
+  readonly lightLitChanges: LightsLitChangedDto[] = [];
+  readonly lightsDeletes: LightsDeletedDto[] = [];
 
   sceneUpdated(event: SceneUpdatedDto): void {
     this.journal.push('publish');
@@ -266,6 +276,31 @@ export class BoardPublisherFake implements BoardPublisherPort {
   wallAreaErased(event: WallAreaErasedDto): void {
     this.journal.push('publish');
     this.wallAreaErasures.push(event);
+  }
+
+  lightsCreated(event: LightsCreatedDto): void {
+    this.journal.push('publish');
+    this.lightsCreates.push(event);
+  }
+
+  lightsMoved(event: LightsMovedDto): void {
+    this.journal.push('publish');
+    this.lightsMoves.push(event);
+  }
+
+  lightRangesChanged(event: LightRangesChangedDto): void {
+    this.journal.push('publish');
+    this.lightRangeChanges.push(event);
+  }
+
+  lightsLitChanged(event: LightsLitChangedDto): void {
+    this.journal.push('publish');
+    this.lightLitChanges.push(event);
+  }
+
+  lightsDeleted(event: LightsDeletedDto): void {
+    this.journal.push('publish');
+    this.lightsDeletes.push(event);
   }
 
   conditionDefined(event: ConditionDefinedDto): void {

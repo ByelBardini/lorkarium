@@ -56,6 +56,11 @@ export const tokens = pgTable(
     // passes on NULL, so the second branch names both as not null.
     sightBright: numeric('sight_bright', { precision: 6, scale: 2 }),
     sightDim: numeric('sight_dim', { precision: 6, scale: 2 }),
+    // The light it gives off, in cells (game-core `LightRange`); both null = no light. Whoever
+    // controls it lights and puts it out (`lightLit`); a new token is lit.
+    lightBright: numeric('light_bright', { precision: 6, scale: 2 }),
+    lightDim: numeric('light_dim', { precision: 6, scale: 2 }),
+    lightLit: boolean('light_lit').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -65,6 +70,10 @@ export const tokens = pgTable(
     check(
       'tokens_sight_range',
       sql`(${table.sightBright} IS NULL AND ${table.sightDim} IS NULL) OR (${table.sightBright} IS NOT NULL AND ${table.sightDim} IS NOT NULL AND ${table.sightBright} BETWEEN 0 AND 100 AND ${table.sightDim} BETWEEN 0 AND 100)`,
+    ),
+    check(
+      'tokens_light_range',
+      sql`(${table.lightBright} IS NULL AND ${table.lightDim} IS NULL) OR (${table.lightBright} IS NOT NULL AND ${table.lightDim} IS NOT NULL AND ${table.lightBright} BETWEEN 0 AND 100 AND ${table.lightDim} BETWEEN 0 AND 100)`,
     ),
     check(
       'tokens_box_half_cells',
@@ -113,10 +122,13 @@ export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenI
 export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max'>;
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
-/** What `token:restyleMany` saves: the look plus the defeat mark, which `token:update` never sends. */
-export type TokenStylePo = TokenLookPo & Pick<TokenPo, 'defeated'>;
+/** What `token:restyleMany` saves: the look plus the defeat mark and the light switch, which
+ *  `token:update` never sends. */
+export type TokenStylePo = TokenLookPo & Pick<TokenPo, 'defeated' | 'lightLit'>;
 export type TokenSightPo = Pick<TokenPo, 'sightBright' | 'sightDim'>;
+export type TokenLightPo = Pick<TokenPo, 'lightBright' | 'lightDim'>;
 /** What `token:update` saves; an absent look field keeps what the token has. */
 export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width' | 'height'> &
   Partial<TokenLookPo> &
-  Partial<TokenSightPo>;
+  Partial<TokenSightPo> &
+  Partial<TokenLightPo>;

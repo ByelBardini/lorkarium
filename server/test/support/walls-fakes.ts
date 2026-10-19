@@ -1,6 +1,7 @@
 import type { WallsDao } from '../../src/modules/walls/walls.dao';
 import type { NewWallPo, WallKindPo, WallMovePo, WallPo } from '../../src/modules/walls/walls.po';
 import type { WallTransactionRunner } from '../../src/modules/walls/walls.service';
+import { LightsDaoFake } from './lights-fakes';
 import type { ScenesDaoFake } from './scenes-fakes';
 import { TokensDaoFake } from './tokens-fakes';
 import { northWallPo } from './walls-factories';
@@ -90,10 +91,12 @@ export class WallTransactionRunnerFake {
     private readonly scenes: ScenesDaoFake,
     private readonly walls: WallsDaoFake,
     private readonly tokens: Pick<TokensDaoFake, 'listOfScene'> = new TokensDaoFake([]),
+    private readonly lights: Pick<LightsDaoFake, 'listOfScene'> = new LightsDaoFake([]),
   ) {}
 
   readonly run: WallTransactionRunner = async (work) => {
-    const result = await work({ scenes: this.scenes, walls: this.walls, tokens: this.tokens });
+    const { scenes, walls, tokens, lights } = this;
+    const result = await work({ scenes, walls, tokens, lights });
     this.scenes.journal.push('commit');
     return result;
   };
