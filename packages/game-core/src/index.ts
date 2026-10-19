@@ -11,7 +11,13 @@ export {
   type TokenBox,
 } from './token-resize';
 export { boxFits, drawingBox, translateBox, type DrawingBox } from './drawing-box.vo';
-export { applyBarChange, type BarChange } from './bar';
+export {
+  adjustBarValues,
+  applyBarChange,
+  type BarAdjustment,
+  type BarChange,
+  type BarValues,
+} from './bar';
 export { INITIATIVE_LIMIT, initiative, type Initiative } from './initiative.vo';
 export {
   moveWithinTie,
