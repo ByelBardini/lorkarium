@@ -75,7 +75,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | campaigns    | Mesas: criação, participação, lista, detalhe, entrada por código | [`docs/context/campaigns.md`](docs/context/campaigns.md)       |
 | board        | Tabuleiro: cena (grid), versão por cena, depois tokens e combate | [`docs/context/board.md`](docs/context/board.md)               |
 | tokens       | Tokens da cena: tamanho, barras, controle, redação, camadas      | [`docs/context/tokens.md`](docs/context/tokens.md)             |
-| combat       | Condições da mesa e combate: iniciativa, turno, rodada, duração  | [`docs/context/combat.md`](docs/context/combat.md)             |
+| combat       | Condições e combate: entradas em grupo, turno, rodada, duração   | [`docs/context/combat.md`](docs/context/combat.md)             |
 | drawings     | Desenhos da cena: formas, cor, dono, camada, lote e precondição  | [`docs/context/drawings.md`](docs/context/drawings.md)         |
 | effect-areas | Áreas de efeito: formas, casas pintadas, autor, alças, versão    | [`docs/context/effect-areas.md`](docs/context/effect-areas.md) |
 | walls        | Paredes e portas: tipos, formas, passagem, porta vista, visão    | [`docs/context/walls.md`](docs/context/walls.md)               |

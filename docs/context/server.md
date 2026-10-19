@@ -74,4 +74,6 @@ API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento
 
 - O proxy na frente do server precisa **preservar o `Host`** (`changeOrigin: false` no Vite, que é o padrão; o proxy reverso de produção também): a conexão Socket.IO compara `Origin` com `Host` e recusa se divergirem.
 
+- Enum novo de PO precisa ser exportado também em `src/database/schema.ts` (o arquivo que o `drizzle-kit` lê): sem isso o `db:generate` escreve a coluna com o tipo, mas **sem** o `CREATE TYPE`, e a migração quebra no banco. Confira o SQL gerado antes de seguir.
+
 - `pnpm db:migrate` com o banco fora do ar falha só com `Exit status 1`, sem mensagem: o `drizzle-kit` engole o `ECONNREFUSED`. Confira se `pnpm db:up` subiu o `lorkarium-postgres-1` e se nada mais ocupa a 5432.

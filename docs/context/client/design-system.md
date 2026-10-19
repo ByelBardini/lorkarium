@@ -22,6 +22,8 @@ Identidade visual do Lorkarium, em tokens de `client/src/index.css` (variável C
 | Divisor fino                     | `bg-divider`                              | `#262B33` |
 | Erro: borda e decoração (~4,4:1) | `border-destructive`                      | `#B5654F` |
 | Erro: **texto** (~6:1)           | `text-destructive-text`                   | `#D0806A` |
+| Barra abaixo de zero             | `bg-bar-negative`                         | `#D6455D` |
+| Barra acima do máximo            | `bg-bar-over`                             | `#EAE5DA` |
 
 ## Tipografia
 

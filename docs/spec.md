@@ -528,9 +528,15 @@ Campos: id, sceneId, status, currentRound, currentTurnIndex, version.
 
 ### Combatant
 
-Participante do combate.
+Entrada de iniciativa: age numa vez só e tem de nenhum a vários tokens (todos os inimigos juntos, o boss sozinho, o "Covil" sem token).
 
-Campos: id, combatId, tokenId, initiative, sortOrder, isActive.
+Campos: id, combatId, name (opcional: sem ele, a tela nomeia pelos tokens), initiative, sortOrder.
+
+### CombatantToken
+
+Liga um token a uma entrada de iniciativa; um token está em no máximo uma.
+
+Campos: tokenId, combatantId.
 
 ### ConditionDefinition
 
