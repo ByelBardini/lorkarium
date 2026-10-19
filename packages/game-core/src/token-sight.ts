@@ -1,20 +1,23 @@
 import type { Vector2 } from './facing';
+import { lightLevelAt, type LightSource } from './lighting';
+import { REACH_MAX, assertReach } from './reach';
 import { lineOfSight } from './sight-area';
 import { wallSegments } from './wall-segments';
 import type { Wall } from './wall.vo';
 
 /** How a scene hides what tokens cannot see: `off` shows everything, `dark` limits each eye to its
- *  range, `daylight` gives every eye an unlimited bright range (walls still cut). */
+ *  range and to what is lit, `daylight` gives every eye an unlimited bright range (walls still cut). */
 export type SightMode = 'off' | 'dark' | 'daylight';
 
 /** The longest bright or dim range, in cells (the widest scene). */
-export const SIGHT_RANGE_MAX = 100;
+export const SIGHT_RANGE_MAX = REACH_MAX;
 
 /** How far a token sees, in cells: fully up to `bright`, then `dim` more where it sees the map
  *  but only silhouettes of tokens. */
 export type SightRange = Readonly<{ bright: number; dim: number }>;
 
-/** A point that sees: the center of a token the viewer controls. `range: null` sees only by daylight. */
+/** A point that sees: the center of a token the viewer controls. `range` is its darkvision;
+ *  `null` sees only what is lit (or everything by daylight). */
 export type Eye = Readonly<{ center: Vector2; range: SightRange | null }>;
 
 /** Everything a level of sight depends on besides the target. */
@@ -22,6 +25,7 @@ export type SightContext = Readonly<{
   eyes: readonly Eye[];
   walls: readonly Wall[];
   mode: SightMode;
+  lights: readonly LightSource[];
 }>;
 
 /** A token as sight sees it: its footprint in cells and whether it is scenery (Background layer). */
@@ -42,31 +46,32 @@ const DOOR_PROBES = [0.1, 0.5, 0.9];
  *
  *  Example: `sightRange(12, 4)` → `{ bright: 12, dim: 4 }` */
 export function sightRange(bright: number, dim: number): SightRange {
-  assertRange('bright', bright);
-  assertRange('dim', dim);
+  assertReach('Sight', 'bright', bright);
+  assertReach('Sight', 'dim', dim);
   return Object.freeze({ bright, dim });
 }
 
-/** The eye of a token centered at `center`, or `null` when it does not see in this mode (no
- *  range in the dark). By daylight every token sees, with or without a range.
+/** The eye of a token centered at `center`. Every token is an eye: without a range it sees only
+ *  what is lit in the dark, and everything in line of sight by daylight.
  *
- *  Example: `eyeOf({ x: 5.5, y: 5.5 }, null, 'daylight')` → `{ center: { x: 5.5, y: 5.5 }, range: null }` */
-export function eyeOf(center: Vector2, range: SightRange | null, mode: SightMode): Eye | null {
-  if (mode === 'dark' && range === null) return null;
+ *  Example: `eyeOf({ x: 5.5, y: 5.5 }, null)` → `{ center: { x: 5.5, y: 5.5 }, range: null }` */
+export function eyeOf(center: Vector2, range: SightRange | null): Eye {
   return { center, range };
 }
 
-/** How well the eyes see a token: its center or an inset corner within bright range and in line
- *  of sight is `seen`, within bright + dim a `silhouette` (scenery is `seen` there), else `hidden`.
- *  Daylight has no range limit; `off` sees everything.
+/** How well the eyes see a token: at each probe (center and inset corners) the level is the
+ *  better of the eye's own range and the light there, and counts only in the eye's line of sight.
+ *  `seen` in bright, `silhouette` in dim (scenery is `seen` there), else `hidden`. Daylight has no
+ *  range limit; `off` sees everything.
  *
- *  Example: `sightLevel({ eyes: [torch], walls: [], mode: 'dark' }, { box: ogreBox, scenery: false })` → `'silhouette'` */
+ *  Example: `sightLevel({ eyes: [blindEye], walls: [], mode: 'dark', lights: [torch] }, { box: ogreBox, scenery: false })` → `'seen'` */
 export function sightLevel(context: SightContext, target: SightTarget): SightLevel {
   if (context.mode === 'off') return 'seen';
   let best: SightLevel = 'hidden';
   for (const point of probesOf(target.box)) {
+    const lit = litLevel(point, context, context.walls);
     for (const eye of context.eyes) {
-      const level = levelAt(eye, point, context, target.scenery);
+      const level = levelAt(eye, point, context, { scenery: target.scenery, lit });
       if (LEVEL_RANK[level] > LEVEL_RANK[best]) best = level;
       if (best === 'seen') return best;
     }
@@ -74,23 +79,36 @@ export function sightLevel(context: SightContext, target: SightTarget): SightLev
   return best;
 }
 
-/** Whether any eye sees a door (bright or dim) through the other walls: the door itself never
- *  hides itself. `door` must be the same object as in `context.walls`, or not be there.
+/** Whether any eye sees a door (bright or dim, by its own range or by light) through the other
+ *  walls: the door hides neither itself nor itself from the light. `door` must be the same object
+ *  as in `context.walls`, or not be there.
  *
- *  Example: `doorSeenBy({ eyes: [torch], walls, mode: 'dark' }, cellarDoor)` → `true` */
+ *  Example: `doorSeenBy({ eyes: [blindEye], walls, mode: 'dark', lights: [torch] }, cellarDoor)` → `true` */
 export function doorSeenBy(context: SightContext, door: Wall): boolean {
   if (context.mode === 'off') return true;
   const others = { ...context, walls: context.walls.filter((value) => value !== door) };
-  return doorProbes(door).some((point) =>
-    context.eyes.some((eye) => levelAt(eye, point, others, true) === 'seen'),
-  );
+  return doorProbes(door).some((point) => {
+    const lit = litLevel(point, context, others.walls);
+    return context.eyes.some(
+      (eye) => levelAt(eye, point, others, { scenery: true, lit }) === 'seen',
+    );
+  });
 }
 
-function levelAt(eye: Eye, point: Vector2, context: SightContext, scenery: boolean): SightLevel {
+type ProbeLight = Readonly<{ scenery: boolean; lit: SightLevel }>;
+
+function levelAt(eye: Eye, point: Vector2, context: SightContext, probe: ProbeLight): SightLevel {
   const distance = Math.hypot(point.x - eye.center.x, point.y - eye.center.y);
-  const inRange = context.mode === 'daylight' ? 'seen' : rangeLevel(eye.range, distance);
-  if (inRange === 'hidden' || !lineOfSight(eye.center, point, context.walls)) return 'hidden';
-  return scenery ? 'seen' : inRange;
+  const own = context.mode === 'daylight' ? 'seen' : rangeLevel(eye.range, distance);
+  const level = LEVEL_RANK[probe.lit] > LEVEL_RANK[own] ? probe.lit : own;
+  if (level === 'hidden' || !lineOfSight(eye.center, point, context.walls)) return 'hidden';
+  return probe.scenery ? 'seen' : level;
+}
+
+// Daylight already lights everything, so lights only matter in the dark.
+function litLevel(point: Vector2, context: SightContext, walls: readonly Wall[]): SightLevel {
+  if (context.mode !== 'dark') return 'hidden';
+  return lightLevelAt(point, context.lights, walls);
 }
 
 function rangeLevel(range: SightRange | null, distance: number): SightLevel {
@@ -119,11 +137,4 @@ function doorProbes(door: Wall): Vector2[] {
     x: from.x + (to.x - from.x) * t,
     y: from.y + (to.y - from.y) * t,
   }));
-}
-
-function assertRange(side: 'bright' | 'dim', value: number): void {
-  if (Number.isFinite(value) && value >= 0 && value <= SIGHT_RANGE_MAX) return;
-  throw new RangeError(
-    `Sight ${side} ${String(value)} is invalid: expected 0 to ${SIGHT_RANGE_MAX} cells.`,
-  );
 }
