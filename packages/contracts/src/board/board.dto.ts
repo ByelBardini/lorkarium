@@ -12,7 +12,9 @@ import {
   type CombatUpdatedDto,
   type EndCombatCommandDto,
   type MoveInTieCommandDto,
+  type RegroupTokensCommandDto,
   type RemoveCombatantCommandDto,
+  type RenameCombatantCommandDto,
   type SetInitiativeCommandDto,
   type StartCombatCommandDto,
   type TurnCommandDto,
@@ -168,6 +170,8 @@ export const BOARD_EVENTS = {
   setInitiative: 'combat:setInitiative',
   nextTurn: 'combat:nextTurn',
   previousTurn: 'combat:previousTurn',
+  regroupTokens: 'combat:regroupTokens',
+  renameCombatant: 'combat:renameCombatant',
   combatStarted: 'combat:started',
   combatUpdated: 'combat:updated',
   combatTurnChanged: 'combat:turnChanged',
@@ -277,6 +281,8 @@ export type BoardClientEvents = {
   'combat:setInitiative': Command<SetInitiativeCommandDto>;
   'combat:nextTurn': Command<TurnCommandDto>;
   'combat:previousTurn': Command<TurnCommandDto>;
+  'combat:regroupTokens': Command<RegroupTokensCommandDto>;
+  'combat:renameCombatant': Command<RenameCombatantCommandDto>;
 };
 
 /** Server → room board events, for the Socket.IO generics on both ends. */

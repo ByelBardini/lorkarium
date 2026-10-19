@@ -28,6 +28,11 @@ export type BarColorDto = z.infer<typeof barColorDto>;
 export const barVisibilityDto = z.enum(['everyone', 'controllers']);
 export type BarVisibilityDto = z.infer<typeof barVisibilityDto>;
 
+/** How every viewer reads the numbers of a bar: "32 / 45" or "71%". Only the display: the
+ *  values travel the same either way. */
+export const barDisplayDto = z.enum(['number', 'percent']);
+export type BarDisplayDto = z.infer<typeof barDisplayDto>;
+
 /** `square` shows the whole image (contain); `round` crops it to a circle (cover) with the side ring. */
 export const tokenFrameDto = z.enum(['square', 'round']);
 export type TokenFrameDto = z.infer<typeof tokenFrameDto>;
@@ -43,12 +48,14 @@ export const facingDto = z.number().superRefine((value, context) => {
   });
 });
 
-/** The look of a token; not a secret, so every audience gets the same values. */
+/** The look of a token; not a secret, so every audience gets the same values. `defeated` (the red
+ *  cross of a fallen foe) changes only by `token:restyleMany`: a new token or a copy is alive. */
 const tokenAppearanceShape = {
   imageAssetId: z.uuid().nullable(),
   frame: tokenFrameDto,
   flipX: z.boolean(),
   flipY: z.boolean(),
+  defeated: z.boolean(),
 };
 
 /** The longest bright or dim sight, in cells (game-core `SIGHT_RANGE_MAX`). */
@@ -78,6 +85,7 @@ export const sightDto = z.strictObject({
 export type SightDto = z.infer<typeof sightDto>;
 
 const barCurrentDto = z.number().int().min(-BAR_VALUE_LIMIT).max(BAR_VALUE_LIMIT);
+const barMaxDto = z.number().int().min(1).max(BAR_VALUE_LIMIT);
 
 /** A number in steps of half a cell from `min` to `max`, refused citing `noun` and the value.
  *
@@ -100,9 +108,10 @@ export const tokenSideLengthDto = halfCellDto('token side', TOKEN_SIZE_MIN, TOKE
 export const barInputDto = z.strictObject({
   label: z.string().trim().min(1).max(BAR_LABEL_MAX_LENGTH),
   current: barCurrentDto,
-  max: z.number().int().min(1).max(BAR_VALUE_LIMIT),
+  max: barMaxDto,
   color: barColorDto,
   visibility: barVisibilityDto,
+  display: barDisplayDto.default('number'),
 });
 export type BarInputDto = z.infer<typeof barInputDto>;
 
@@ -209,7 +218,8 @@ export type MoveTokenCommandDto = z.infer<typeof moveTokenCommandDto>;
 /** The cell a token is dragged over, or `null` when its drag ended without a move. */
 export const draggedCellDto = z.strictObject({ col: cellIndexDto, row: cellIndexDto }).nullable();
 
-/** "−7" subtracts, "+5" adds, "12" sets (the field is parsed on the client). */
+/** "−7" subtracts, "+5" adds, "12" sets (the field is parsed on the client); `max` is the
+ *  "Máx." field of the card, a new maximum that leaves the current alone. */
 export const barChangeDto = z.discriminatedUnion('op', [
   z.strictObject({
     op: z.literal('add'),
@@ -220,6 +230,7 @@ export const barChangeDto = z.discriminatedUnion('op', [
       .max(2 * BAR_VALUE_LIMIT),
   }),
   z.strictObject({ op: z.literal('set'), value: barCurrentDto }),
+  z.strictObject({ op: z.literal('max'), value: barMaxDto }),
 ]);
 export type BarChangeDto = z.infer<typeof barChangeDto>;
 

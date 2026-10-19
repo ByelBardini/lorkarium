@@ -38,12 +38,14 @@ export const tokenStyleDto = z
     frame: tokenFrameDto.optional(),
     flipX: z.boolean().optional(),
     flipY: z.boolean().optional(),
+    defeated: z.boolean().optional(),
   })
   .superRefine((style, context) => {
     if (Object.keys(style).length > 0) return;
     context.addIssue({
       code: 'custom',
-      message: 'style is empty; expected at least one of imageAssetId, frame, flipX, flipY',
+      message:
+        'style is empty; expected at least one of imageAssetId, frame, flipX, flipY, defeated',
     });
   });
 export type TokenStyleDto = z.infer<typeof tokenStyleDto>;
