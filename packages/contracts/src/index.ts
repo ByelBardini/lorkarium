@@ -10,6 +10,8 @@ export * from './sessions/session.dto';
 export * from './board/scene.dto';
 export * from './board/board.dto';
 export * from './board/board-event.dto';
+export * from './board/reach.dto';
+export * from './board/light.dto';
 export * from './board/token.dto';
 export * from './board/token-group.dto';
 export * from './board/token-appearance.dto';

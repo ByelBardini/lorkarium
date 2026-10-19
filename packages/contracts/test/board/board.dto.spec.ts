@@ -33,6 +33,7 @@ const STATE = {
   drawings: [],
   effectAreas: [],
   walls: [],
+  lights: [],
   combat: null,
   conditionDefinitions: [],
 };
@@ -45,6 +46,11 @@ describe('boardStateDto', () => {
   it('a negative version is refused on version', () => {
     const result = boardStateDto.safeParse({ ...STATE, version: -1 });
     expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['version']);
+  });
+
+  it('a snapshot without lights is refused on lights', () => {
+    const result = boardStateDto.safeParse({ ...STATE, lights: undefined });
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['lights']);
   });
 
   it('a snapshot without effectAreas is refused on effectAreas', () => {

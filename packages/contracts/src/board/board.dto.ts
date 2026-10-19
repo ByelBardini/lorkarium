@@ -48,6 +48,19 @@ import type {
   EffectAreasReshapedDto,
   ReshapeEffectAreasCommandDto,
 } from './effect-area.dto';
+import {
+  lightDto,
+  type CreateLightsCommandDto,
+  type DeleteLightsCommandDto,
+  type LightRangesChangedDto,
+  type LightsCreatedDto,
+  type LightsDeletedDto,
+  type LightsLitChangedDto,
+  type LightsMovedDto,
+  type MoveLightsCommandDto,
+  type SetLightRangesCommandDto,
+  type SetLightsLitCommandDto,
+} from './light.dto';
 import { sceneDto, type ConfigureSceneCommandDto } from './scene.dto';
 import {
   wallDto,
@@ -154,6 +167,16 @@ export const BOARD_EVENTS = {
   wallsDeleted: 'wall:deletedMany',
   wallKindsChanged: 'wall:kindsChanged',
   doorChanged: 'wall:doorChanged',
+  createLights: 'light:createMany',
+  moveLights: 'light:moveMany',
+  setLightRanges: 'light:setRangeMany',
+  setLightsLit: 'light:setLitMany',
+  deleteLights: 'light:deleteMany',
+  lightsCreated: 'light:createdMany',
+  lightsMoved: 'light:movedMany',
+  lightRangesChanged: 'light:rangesChanged',
+  lightsLitChanged: 'light:litChanged',
+  lightsDeleted: 'light:deletedMany',
   defineCondition: 'condition:define',
   applyCondition: 'condition:apply',
   applyConditions: 'condition:applyMany',
@@ -204,6 +227,7 @@ export const boardStateDto = z.strictObject({
   drawings: z.array(drawingDto),
   effectAreas: z.array(effectAreaDto),
   walls: z.array(wallDto),
+  lights: z.array(lightDto),
   combat: combatDto.nullable(),
   conditionDefinitions: z.array(conditionDefinitionDto),
 });
@@ -219,7 +243,7 @@ export const boardSyncAckDto = z.discriminatedUnion('ok', [
 export type BoardSyncAckDto = z.infer<typeof boardSyncAckDto>;
 
 /** Answer to every board mutation: the version it produced, or the API error. A command that
- *  creates (`token:createMany`, `drawing:createMany`, `effectArea:createMany`, `wall:createMany`, `wall:eraseSegment`, `wall:eraseArea`)
+ *  creates (`token:createMany`, `drawing:createMany`, `effectArea:createMany`, `wall:createMany`, `wall:eraseSegment`, `wall:eraseArea`, `light:createMany`)
  *  also names the ids it gave, in the order sent: undoing it, or remapping an undo stack after re-creating, needs them. */
 export const boardCommandAckDto = z.discriminatedUnion('ok', [
   z.strictObject({
@@ -269,6 +293,11 @@ export type BoardClientEvents = {
   'wall:setDoor': Command<SetDoorCommandDto>;
   'wall:eraseSegment': Command<EraseWallSegmentCommandDto>;
   'wall:eraseArea': Command<EraseWallAreaCommandDto>;
+  'light:createMany': Command<CreateLightsCommandDto>;
+  'light:moveMany': Command<MoveLightsCommandDto>;
+  'light:setRangeMany': Command<SetLightRangesCommandDto>;
+  'light:setLitMany': Command<SetLightsLitCommandDto>;
+  'light:deleteMany': Command<DeleteLightsCommandDto>;
   'condition:define': Command<DefineConditionCommandDto>;
   'condition:apply': Command<ApplyConditionCommandDto>;
   'condition:applyMany': Command<ApplyConditionsCommandDto>;
@@ -313,6 +342,11 @@ export type BoardServerEvents = {
   'wall:doorChanged': (event: DoorChangedDto) => void;
   'wall:segmentErased': (event: WallSegmentErasedDto) => void;
   'wall:areaErased': (event: WallAreaErasedDto) => void;
+  'light:createdMany': (event: LightsCreatedDto) => void;
+  'light:movedMany': (event: LightsMovedDto) => void;
+  'light:rangesChanged': (event: LightRangesChangedDto) => void;
+  'light:litChanged': (event: LightsLitChangedDto) => void;
+  'light:deletedMany': (event: LightsDeletedDto) => void;
   'condition:defined': (event: ConditionDefinedDto) => void;
   'condition:applied': (event: ConditionAppliedDto) => void;
   'condition:appliedMany': (event: ConditionsAppliedDto) => void;

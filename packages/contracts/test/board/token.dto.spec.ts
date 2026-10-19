@@ -189,6 +189,8 @@ describe('tokenDto', () => {
       facing: 0,
       defeated: false,
       sight: null,
+      light: null,
+      lightLit: true,
       canControl: false,
       bars: [bar(1), bar(2)],
       conditions: [],
@@ -236,6 +238,36 @@ describe('sight on create and update', () => {
   });
 });
 
+describe('light on the token', () => {
+  const UPDATE = { ...CREATE, tokenId: TOKEN_ID } as Record<string, unknown>;
+  delete UPDATE.col;
+  delete UPDATE.row;
+  const torch = { bright: 4, dim: 4 };
+
+  it('a token created with a light keeps it', () => {
+    expect(createTokenCommandDto.parse({ ...CREATE, light: torch }).light).toEqual(torch);
+  });
+
+  it('a token created lit or unlit is refused: a new token is always lit', () => {
+    expect(createTokenCommandDto.safeParse({ ...CREATE, lightLit: false }).success).toBe(false);
+  });
+
+  it('an update with light null (it stops emitting light) is accepted', () => {
+    expect(updateTokenCommandDto.parse({ ...UPDATE, light: null }).light).toBeNull();
+  });
+
+  it('an update without light keeps it absent (the server keeps the current one)', () => {
+    expect('light' in updateTokenCommandDto.parse(UPDATE)).toBe(false);
+  });
+
+  it('an update with a light of 101 is refused citing the value', () => {
+    const result = updateTokenCommandDto.safeParse({ ...UPDATE, light: { bright: 101, dim: 0 } });
+    expect(result.error?.issues.map((issue) => issue.message)).toEqual([
+      'light bright 101 is invalid; expected 0 to 100 cells',
+    ]);
+  });
+});
+
 describe('defeated', () => {
   const UPDATE: Record<string, unknown> = { ...CREATE, tokenId: TOKEN_ID };
   delete UPDATE.col;
@@ -258,6 +290,8 @@ describe('defeated', () => {
     facing: 0,
     defeated: true,
     sight: null,
+    light: null,
+    lightLit: true,
     canControl: false,
     bars: [],
     conditions: [],

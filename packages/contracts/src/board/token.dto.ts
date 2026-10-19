@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { combatDto } from './combat.dto';
 import { activeConditionDto } from './condition.dto';
+import { lightRangeDto } from './light.dto';
+import { REACH_MAX, reachSideDto } from './reach.dto';
 
 export const MAX_BARS_PER_TOKEN = 8;
 /** The bar values stop at ±this (current) and the maximum goes up to it. */
@@ -59,28 +61,17 @@ const tokenAppearanceShape = {
 };
 
 /** The longest bright or dim sight, in cells (game-core `SIGHT_RANGE_MAX`). */
-export const SIGHT_RANGE_MAX = 100;
+export const SIGHT_RANGE_MAX = REACH_MAX;
 /** Bends one move may carry (the drag's path around walls). */
 export const MOVE_PATH_MAX = 32;
-
-// NaN goes through to the refine so the refusal cites it like any other value.
-function sightSideDto(side: 'bright' | 'dim') {
-  return z.union([z.number(), z.nan()]).superRefine((value, context) => {
-    if (Number.isFinite(value) && value >= 0 && value <= SIGHT_RANGE_MAX) return;
-    context.addIssue({
-      code: 'custom',
-      message: `sight ${side} ${value} is invalid; expected 0 to ${SIGHT_RANGE_MAX} cells`,
-    });
-  });
-}
 
 /** How far a token sees, in cells: fully up to `bright`, then `dim` more in silhouettes
  *  (game-core `sightRange`, rewritten because contracts depends only on zod). `null` = blind.
  *
  *  Example: `sightDto.parse({ bright: 12, dim: 4 })` */
 export const sightDto = z.strictObject({
-  bright: sightSideDto('bright'),
-  dim: sightSideDto('dim'),
+  bright: reachSideDto('sight', 'bright'),
+  dim: reachSideDto('sight', 'dim'),
 });
 export type SightDto = z.infer<typeof sightDto>;
 
@@ -136,7 +127,8 @@ const tokenFieldsShape = {
 };
 
 /** A token as one viewer may see it: redacted bars are simply absent, and `canControl` is the
- *  server's answer to "may this viewer move it and touch its bars".
+ *  server's answer to "may this viewer move it and touch its bars". `light` (`null` = emits none)
+ *  and `lightLit` are the same for everyone: the client needs them for the fog.
  *
  *  Example: `tokenDto.parse(event.token).bars[0]?.position // 0 when the first bar is visible` */
 export const tokenDto = z.strictObject({
@@ -148,6 +140,8 @@ export const tokenDto = z.strictObject({
   ...tokenAppearanceShape,
   facing: facingDto,
   sight: sightDto.nullable(),
+  light: lightRangeDto.nullable(),
+  lightLit: z.boolean(),
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
   conditions: z.array(activeConditionDto),
@@ -170,6 +164,7 @@ export const createTokenCommandDto = z.strictObject({
   flipY: z.boolean().default(false),
   facing: facingDto.default(0),
   sight: sightDto.nullable().optional(),
+  light: lightRangeDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type CreateTokenCommandDto = z.infer<typeof createTokenCommandDto>;
@@ -186,6 +181,7 @@ export const updateTokenCommandDto = z.strictObject({
   flipX: z.boolean().optional(),
   flipY: z.boolean().optional(),
   sight: sightDto.nullable().optional(),
+  light: lightRangeDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type UpdateTokenCommandDto = z.infer<typeof updateTokenCommandDto>;

@@ -69,6 +69,26 @@ describe('restyleTokensCommandDto', () => {
     ]);
   });
 
+  it('putting out the light of the tokens is a style of its own', () => {
+    const command = { ...BASE, tokenIds: [LYRA_ID], style: { lightLit: false } };
+
+    expect(restyleTokensCommandDto.parse(command).style).toEqual({ lightLit: false });
+  });
+
+  it('the empty style refusal names lightLit among the fields', () => {
+    const command = { ...BASE, tokenIds: [LYRA_ID], style: {} };
+
+    expect(messagesOf(restyleTokensCommandDto.safeParse(command))).toEqual([
+      expect.stringMatching(/lightLit/),
+    ]);
+  });
+
+  it('a lightLit that is not a boolean is refused', () => {
+    const command = { ...BASE, tokenIds: [LYRA_ID], style: { lightLit: 'yes' } };
+
+    expect(restyleTokensCommandDto.safeParse(command).success).toBe(false);
+  });
+
   it('a null image takes the image away', () => {
     const command = { ...BASE, tokenIds: [LYRA_ID], style: { imageAssetId: null } };
 
