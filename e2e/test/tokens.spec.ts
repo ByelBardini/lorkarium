@@ -64,10 +64,14 @@ test('tokens live: the hidden bar never reaches another player, only the control
   await caio.keyboard.press('ArrowLeft');
   await expect(statusOf(caio)).toContainText('Esse token não é seu.');
 
-  const pv = bia.getByRole('textbox', { name: 'PV de Lyra' });
+  const pv = bia.getByRole('textbox', { name: 'PV de Lyra', exact: true });
   await pv.fill('−50');
   await pv.press('Enter');
   await expect(cardOf(admin, 'Lyra')).toContainText('−40 / 10');
+  const pvMax = bia.getByRole('textbox', { name: 'Máximo de PV de Lyra' });
+  await pvMax.fill('50');
+  await pvMax.press('Enter');
+  await expect(cardOf(admin, 'Lyra')).toContainText('−40 / 50');
 
   await dragBetweenCells(admin, [11, 6], [4, 4]);
   await expect(cardOf(admin, 'Lyra')).toContainText('Coluna 5, linha 5');
@@ -75,5 +79,5 @@ test('tokens live: the hidden bar never reaches another player, only the control
   await bia.reload();
   await openCard(bia, 'Lyra');
   await expect(cardOf(bia, 'Lyra')).toContainText('Coluna 5, linha 5');
-  await expect(cardOf(bia, 'Lyra')).toContainText('−40 / 10');
+  await expect(cardOf(bia, 'Lyra')).toContainText('−40 / 50');
 });
