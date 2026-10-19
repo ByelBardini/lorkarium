@@ -128,12 +128,13 @@ describe('play room: drawings, copy and undo', () => {
       });
     });
 
-    it('Delete with only tokens selected deletes nothing (a token goes by its dialog)', async () => {
+    it('Delete with only Lyra selected asks "Excluir Lyra?" before sending anything', async () => {
       renderer().emit({ kind: 'tokenPicked', tokenId: LYRA_ID, additive: false });
       screen.getByRole('application').focus();
 
       await userEvent.keyboard('{Delete}');
 
+      expect(screen.getByRole('alertdialog', { name: 'Excluir Lyra?' })).toBeInTheDocument();
       expect(deps.boardCommands.sent).toEqual([]);
     });
   });

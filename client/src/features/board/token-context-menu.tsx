@@ -34,8 +34,8 @@ export type TokenContextMenuProps = Readonly<{
 const LAYER_TITLE = 'Mover para camada';
 export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
 
-/** The right click on a token for whoever controls it: "Aplicar condição…", "Imagem…", "Borda
- *  redonda" and the flips (these act on the whole selection when the token is in it, or on that
+/** The right click on a token for whoever controls it: "Aplicar condição…", "Morto", "Imagem…",
+ *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
  *  token alone); the master also gets "Mover para camada". Closing (a choice, Esc, a click away)
  *  tells `onClose`.
  *
@@ -79,6 +79,12 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
         <DropdownMenuItem onSelect={() => props.onApplyCondition(targets())}>
           Aplicar condição…
         </DropdownMenuItem>
+        <DropdownMenuCheckboxItem
+          checked={token.defeated}
+          onSelect={() => restyle({ defeated: !token.defeated })}
+        >
+          Morto
+        </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
         <LookItems
           token={token}

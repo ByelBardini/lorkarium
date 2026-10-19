@@ -10,7 +10,7 @@ import type {
 } from '@lorkarium/contracts';
 import { assetUrlOf } from '@/services/assets-api';
 import { pathDistance, type Cell, type SceneSize, type TokenBox } from '@lorkarium/game-core';
-import { barFill, type BarFillState } from '@/lib/bar-display';
+import { barFill, type BarFill } from '@/lib/bar-display';
 import type { DrawingStyle } from '@/lib/drawing-style';
 import { DEFAULT_EFFECT_AREA_STYLE, type EffectAreaStyle } from '@/lib/effect-area-style';
 import { DEFAULT_WALL_STYLE, wallSketchPreviewOf, type WallStyle } from '@/lib/wall-style';
@@ -62,7 +62,7 @@ export type TokenArtView = Readonly<{
 export type SceneBackgroundView = Readonly<{ url: string; width: number; height: number }>;
 
 /** The bar drawn under a token: always the one at position 0, when the viewer may see it. */
-export type TokenBarView = Readonly<{ fraction: number; state: BarFillState; color: BarColorDto }>;
+export type TokenBarView = BarFill & Readonly<{ color: BarColorDto }>;
 
 export type TokenView = Readonly<{
   id: string;
@@ -90,6 +90,8 @@ export type TokenView = Readonly<{
   facing: number;
   /** The mark on the border: only creatures (tokens layer) look somewhere; a chest just turns. */
   facingMark: boolean;
+  /** A fallen foe: the red cross over a dimmed token, for every viewer. */
+  defeated: boolean;
   /** In the penumbra of this viewer: a black shape of the footprint (round or square), and
    *  nothing else. `null` when it is seen. */
   silhouette: 'round' | 'square' | null;
@@ -189,8 +191,8 @@ export type BoardViewInput = Omit<DrawingViewInput, 'activeLayer' | 'readOnly'> 
     /** Reconnecting: nothing is draggable. */
     readOnly: boolean;
     tool: BoardViewTool;
-    /** The token on turn in the combat, or `null` out of combat. */
-    currentTokenId: string | null;
+    /** The tokens of the entry on turn in the combat; none out of combat. */
+    currentTokenIds: readonly string[];
   }>;
 
 const MAX_MARKS = 3;
@@ -329,6 +331,7 @@ function silhouetteOf(view: TokenView, token: TokenDto): TokenView {
     moreMarks: 0,
     art: null,
     facingMark: false,
+    defeated: false,
     onTurn: false,
     pickable: false,
     draggable: false,
@@ -355,12 +358,13 @@ function tokenViewOf(token: TokenDto, input: BoardViewInput): TokenView {
     pickable,
     selected: input.selectedTokenIds.includes(token.id),
     draggable: pickable && token.canControl && !input.readOnly,
-    onTurn: token.id === input.currentTokenId,
+    onTurn: input.currentTokenIds.includes(token.id),
     marks: token.conditions.slice(0, MAX_MARKS).map(({ icon, tone }) => ({ icon, tone })),
     moreMarks: Math.max(0, token.conditions.length - MAX_MARKS),
     art: artOf(token),
     facing: input.facingPreview[token.id] ?? token.facing,
     facingMark: token.layer === 'tokens',
+    defeated: token.defeated,
     silhouette: null,
   };
 }

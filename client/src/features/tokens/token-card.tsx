@@ -63,7 +63,8 @@ export function TokenCard({ token, board, interaction, isMaster, onEdit }: Token
   );
 }
 
-/** A bar as text and a thin track: label, value ("−4 / 38" in the error color) and the fill. */
+/** A bar as text and a rounded track: label, value ("−4 / 38" in the error color), the fill and,
+ *  past either end, a second bar growing from the left (crimson below zero, bone above the max). */
 export function BarLine({ bar }: Readonly<{ bar: TokenBarDto }>): React.JSX.Element {
   const fill = barFill(bar);
   return (
@@ -79,13 +80,20 @@ export function BarLine({ bar }: Readonly<{ bar: TokenBarDto }>): React.JSX.Elem
           {formatBarValue(bar)}
         </span>
       </div>
-      <span aria-hidden="true" className="relative h-1 bg-divider">
+      <span aria-hidden="true" className="relative h-1.5 overflow-hidden rounded-full bg-divider">
         <span
-          className="absolute inset-y-0 left-0"
+          className="absolute inset-y-0 left-0 rounded-full"
           style={{ width: `${fill.fraction * 100}%`, background: barToneVar(bar.color) }}
         />
-        {fill.state === 'negative' && (
-          <span className="absolute inset-y-0 left-0 w-0.5 bg-destructive" />
+        {fill.state !== 'normal' && (
+          <span
+            data-bar-excess={fill.state}
+            className={cn(
+              'absolute inset-y-0 left-0 rounded-full',
+              fill.state === 'negative' ? 'bg-bar-negative' : 'bg-bar-over',
+            )}
+            style={{ width: `${fill.excess * 100}%` }}
+          />
         )}
       </span>
     </div>

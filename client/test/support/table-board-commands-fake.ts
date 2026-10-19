@@ -1,5 +1,6 @@
 import type {
   BarChangeDto,
+  CombatEntryInput,
   DrawingShapeInput,
   SceneGridDto,
   SceneVisionDto,
@@ -35,6 +36,7 @@ import type {
   WallPlacement,
   WallShape,
 } from '@/services/wall-commands';
+import type { RegroupTarget } from '@/services/combat-commands';
 
 export type SentBoardCommand = Readonly<{ name: string; campaignId: string; fields: unknown }>;
 
@@ -273,16 +275,38 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('removeCondition', campaignId, { tokenId, activeConditionId });
   }
 
-  startCombat(campaignId: string, tokenIds: readonly string[]): Promise<BoardCommandResult> {
-    return this.record('startCombat', campaignId, { tokenIds: [...tokenIds] });
+  startCombat(
+    campaignId: string,
+    entries: readonly CombatEntryInput[],
+  ): Promise<BoardCommandResult> {
+    return this.record('startCombat', campaignId, { entries: [...entries] });
   }
 
   endCombat(campaignId: string): Promise<BoardCommandResult> {
     return this.record('endCombat', campaignId, {});
   }
 
-  addCombatants(campaignId: string, tokenIds: readonly string[]): Promise<BoardCommandResult> {
-    return this.record('addCombatants', campaignId, { tokenIds: [...tokenIds] });
+  addCombatants(
+    campaignId: string,
+    entries: readonly CombatEntryInput[],
+  ): Promise<BoardCommandResult> {
+    return this.record('addCombatants', campaignId, { entries: [...entries] });
+  }
+
+  regroupTokens(
+    campaignId: string,
+    tokenIds: readonly string[],
+    target: RegroupTarget,
+  ): Promise<BoardCommandResult> {
+    return this.record('regroupTokens', campaignId, { tokenIds: [...tokenIds], target });
+  }
+
+  renameCombatant(
+    campaignId: string,
+    combatantId: string,
+    name: string,
+  ): Promise<BoardCommandResult> {
+    return this.record('renameCombatant', campaignId, { combatantId, name });
   }
 
   removeCombatant(campaignId: string, combatantId: string): Promise<BoardCommandResult> {

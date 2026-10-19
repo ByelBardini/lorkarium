@@ -3,11 +3,39 @@ import { describe, expect, it } from 'vitest';
 import { copiedOf, pastePlacement, type CopiedSelection } from '@/lib/paste-placement';
 import { path, square } from '../support/drawing-fixtures';
 import { biaCone } from '../support/effect-area-fixtures';
-import { activeCondition, kael, lyra } from '../support/table-session-fixtures';
+import {
+  activeCondition,
+  kael,
+  LYRA_COMBATANT,
+  LYRA_ID,
+  lyra,
+  vharnCombat,
+} from '../support/table-session-fixtures';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
 
 describe('copiedOf', () => {
+  it('a token copied in the middle of the combat keeps the entry of its original', () => {
+    const copied = copiedOf([lyra()], [], [], vharnCombat());
+
+    expect(copied.tokens[0]?.combatantId).toBe(LYRA_COMBATANT);
+  });
+
+  it('a token out of the combat, or with no combat, is copied with no entry', () => {
+    const outside = copiedOf([lyra({ id: 'urso' })], [], [], vharnCombat());
+    const noCombat = copiedOf([lyra()], [], [], null);
+
+    expect(outside.tokens[0]).not.toHaveProperty('combatantId');
+    expect(noCombat.tokens[0]).not.toHaveProperty('combatantId');
+  });
+
+  it('the drawings and areas copied with a fighting token stay as they are', () => {
+    const copied = copiedOf([lyra({ id: LYRA_ID })], [square()], [biaCone()], vharnCombat());
+
+    expect(copied.drawings).toEqual(copiedOf([], [square()]).drawings);
+    expect(copied.effectAreas).toEqual(copiedOf([], [], [biaCone()]).effectAreas);
+  });
+
   it('a copied token keeps its image, frame, flips and facing', () => {
     const look = {
       imageAssetId: '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d',

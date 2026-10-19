@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { seenTokensOf } from '@/lib/board-sight';
+import { combatCandidatesOf } from '@/lib/combat-entries';
 import { useBoardSight } from '@/features/board/use-board-sight';
 import type { SessionMemberDto, TokenDto } from '@lorkarium/contracts';
 import { useEffect, useRef, useState } from 'react';
@@ -37,8 +38,12 @@ const NO_TOKENS: readonly TokenDto[] = [];
 export function SceneTokenList(props: SceneTokenListProps): React.JSX.Element {
   const all = useBoard(props.board, (state) => state.board?.tokens ?? NO_TOKENS);
   const sight = useBoardSight(props.board, props.interaction);
-  // Only what this viewer sees whole: a silhouette or a hidden token is never named.
-  const tokens = useMemo(() => seenTokensOf({ tokens: all }, sight), [all, sight]);
+  // Only what this viewer sees whole (a silhouette or a hidden token is never named), and only the
+  // Tokens layer: the chest of Objetos is still picked on the board.
+  const tokens = useMemo(
+    () => combatCandidatesOf(seenTokensOf({ tokens: all }, sight)),
+    [all, sight],
+  );
   const members = useTablePresence(props.presence, (state) => state.members);
   const selectedIds = useBoardInteraction(props.interaction, (state) => state.selectedTokenIds);
   if (tokens.length === 0) return <EmptyScene isMaster={props.isMaster} />;

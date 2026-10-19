@@ -2,6 +2,7 @@ import {
   MAX_BARS_PER_TOKEN,
   updateTokenCommandDto,
   type BarColorDto,
+  type BarDisplayDto,
   type BarVisibilityDto,
   type TokenDto,
   type TokenSideDto,
@@ -17,14 +18,16 @@ import {
 import { initialsOf } from '@/lib/token-initials';
 import type { TokenEdit } from '@/services/table-board-commands';
 
-/** One bar as typed: numbers are text until saved. `key` keeps React rows stable on reorder. */
+/** One bar as configured. `current` and `max` are not typed here (the card adjusts them): they
+ *  travel as the token has them, so saving does not reset them. `key` keeps React rows stable. */
 export type BarFormValues = Readonly<{
   key: string;
   label: string;
-  current: string;
-  max: string;
+  current: number;
+  max: number;
   color: BarColorDto;
   visibility: BarVisibilityDto;
+  display: BarDisplayDto;
 }>;
 
 export type TokenFormValues = Readonly<{
@@ -44,7 +47,7 @@ export type TokenFormValues = Readonly<{
   bars: readonly BarFormValues[];
 }>;
 
-export type BarFormErrors = Partial<Record<'label' | 'current' | 'max', string>>;
+export type BarFormErrors = Partial<Record<'label', string>>;
 
 export type TokenFormErrors = Readonly<{
   name?: string;
@@ -66,11 +69,11 @@ const TOKEN_FIELDS_DTO = updateTokenCommandDto.omit({
 
 const BAR_ERROR: Readonly<Record<keyof BarFormErrors, string>> = {
   label: 'Dê um nome à barra.',
-  current: 'Use um número inteiro entre −99 999 e 99 999.',
-  max: 'O máximo vai de 1 a 99 999.',
 };
 
 const SIDE_ERROR = 'De 0,5 a 10 casas, de meia em meia.';
+
+const NEW_BAR_MAX = 10;
 
 let barKeys = 0;
 
@@ -100,10 +103,11 @@ export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenForm
   const bars = token.bars.map((bar) => ({
     key: nextBarKey(),
     label: bar.label,
-    current: String(bar.current),
-    max: String(bar.max),
+    current: bar.current,
+    max: bar.max,
     color: bar.color,
     visibility: bar.visibility,
+    display: bar.display,
   }));
   const look = { controllerIds, imageAssetId, bars, sight: sightFieldsOf(token.sight, distance) };
   return { name, initials, initialsEdited: true, side, width, height, ...look };
@@ -114,17 +118,19 @@ export function renameToken(form: TokenFormValues, name: string): TokenFormValue
   return form.initialsEdited ? { ...form, name } : { ...form, name, initials: initialsOf(name) };
 }
 
-/** A new bar at the end: the first is the PV (ember, hidden from the other players). */
+/** A new bar at the end, full at 10 / 10 and read as numbers; the first is the PV (ember,
+ *  hidden from the other players). */
 export function addBar(form: TokenFormValues): TokenFormValues {
   if (form.bars.length >= MAX_BARS_PER_TOKEN) return form;
   const first = form.bars.length === 0;
   const bar: BarFormValues = {
     key: nextBarKey(),
     label: first ? 'PV' : `Barra ${form.bars.length + 1}`,
-    current: '10',
-    max: '10',
+    current: NEW_BAR_MAX,
+    max: NEW_BAR_MAX,
     color: first ? 'ember' : 'steel',
     visibility: first ? 'controllers' : 'everyone',
+    display: 'number',
   };
   return { ...form, bars: [...form.bars, bar] };
 }
@@ -163,12 +169,13 @@ function parseTokenFields(form: TokenFormValues, sight: TokenEdit['sight']): Tok
     controllerIds: form.controllerIds,
     imageAssetId: form.imageAssetId,
     ...(sight === undefined ? {} : { sight }),
-    bars: form.bars.map(({ label, current, max, color, visibility }) => ({
+    bars: form.bars.map(({ label, current, max, color, visibility, display }) => ({
       label,
-      current: integerOf(current),
-      max: integerOf(max),
+      current,
+      max,
       color,
       visibility,
+      display,
     })),
   });
   if (parsed.success) return { ok: true, token: parsed.data };
@@ -195,13 +202,7 @@ function errorsOf(issues: readonly { path: readonly PropertyKey[] }[]): TokenFor
 }
 
 function isBarField(key: unknown): key is keyof BarFormErrors {
-  return key === 'label' || key === 'current' || key === 'max';
-}
-
-// Accepts the typographic minus a person may paste; anything else that is not whole is NaN.
-function integerOf(text: string): number {
-  const trimmed = text.trim().replace('−', '-');
-  return /^-?\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+  return key === 'label';
 }
 
 // "1,5" and "1.5" are both a cell and a half; anything else is NaN and the DTO refuses it.

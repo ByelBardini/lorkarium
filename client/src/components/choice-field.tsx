@@ -5,8 +5,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 export type ChoiceOption<T extends string> = Readonly<{
   value: T;
   label: string;
-  /** A color shown beside the label (a bar color); never the only way the choice is told. */
-  swatch?: string;
 }>;
 
 export type ChoiceFieldProps<T extends string> = Readonly<{
@@ -68,13 +66,7 @@ function ChoiceItem<T extends string>({
   return (
     <div className="flex items-center gap-2">
       <RadioGroupItem id={id} value={option.value} />
-      <Label
-        htmlFor={id}
-        className="flex cursor-pointer items-center gap-1.5 text-sm text-foreground"
-      >
-        {option.swatch && (
-          <span aria-hidden="true" className="size-2" style={{ background: option.swatch }} />
-        )}
+      <Label htmlFor={id} className="cursor-pointer text-sm text-foreground">
         {option.label}
       </Label>
     </div>

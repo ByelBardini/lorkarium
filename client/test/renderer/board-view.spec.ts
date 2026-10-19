@@ -29,7 +29,7 @@ const NO_TOKENS = {
   dragged: {},
   readOnly: false,
   tool: 'select',
-  currentTokenId: null,
+  currentTokenIds: [],
   drawings: [],
   viewer: { userId: 'ana', isMaster: true },
   selectedDrawingIds: [],
@@ -98,6 +98,15 @@ describe('buildBoardView', () => {
         art: { url: `/api/assets/${PORTRAIT_ID}`, frame: 'round', flipX: true, flipY: false },
         facing: 90,
       });
+    });
+
+    it('a defeated token carries the mark, a living one does not', () => {
+      const tokens = [lyra({ defeated: true }), kael()];
+
+      expect(viewWith(VHARN_SCENE, tokens).tokens.map(({ defeated }) => defeated)).toEqual([
+        true,
+        false,
+      ]);
     });
 
     it('only a token on the tokens layer carries the facing mark; objects and background turn without it', () => {
@@ -184,6 +193,7 @@ describe('buildBoardView', () => {
       expect(viewOf().tokens[0]?.bar).toEqual({
         fraction: 32 / 45,
         state: 'normal',
+        excess: 0,
         color: 'ember',
       });
     });
@@ -366,8 +376,20 @@ describe('buildBoardView', () => {
     }
 
     it('the token on turn gets the gold ring, and without combat nobody does', () => {
-      expect(viewWith({ currentTokenId: LYRA_ID }).tokens[0]?.onTurn).toBe(true);
+      expect(viewWith({ currentTokenIds: [LYRA_ID] }).tokens[0]?.onTurn).toBe(true);
       expect(viewWith({}).tokens[0]?.onTurn).toBe(false);
+    });
+
+    it('every token of the entry on turn gets the ring, and the one out of it does not', () => {
+      const goblins = [lyra({ id: 'goblin-1' }), lyra({ id: 'goblin-2' }), lyra({ id: KAEL_ID })];
+
+      const view = viewWith({ tokens: goblins, currentTokenIds: ['goblin-1', 'goblin-2'] });
+
+      expect(view.tokens.map(({ id, onTurn }) => [id, onTurn])).toEqual([
+        ['goblin-1', true],
+        ['goblin-2', true],
+        [KAEL_ID, false],
+      ]);
     });
 
     it('up to 3 condition icons in their tone, and the count of the rest', () => {
@@ -434,7 +456,7 @@ describe('buildBoardView through the sight of Bia in the dark', () => {
   const others = { canControl: false, controllerIds: [] };
   const tokens = [
     lyra({ sight: { bright: 3, dim: 3 } }),
-    kael({ ...others, col: 8, row: 4, conditions: [activeCondition()] }),
+    kael({ ...others, col: 8, row: 4, conditions: [activeCondition()], defeated: true }),
     kael({ ...others, id: GOBLIN_ID, col: 11, row: 4 }),
   ];
   const board = vharnBoard({
@@ -449,13 +471,14 @@ describe('buildBoardView through the sight of Bia in the dark', () => {
     scene: board.scene,
     localGridVisible: true,
     ruler: null,
-    currentTokenId: KAEL_ID,
+    currentTokenIds: [KAEL_ID],
     sight: boardSightOf(board, { previewEyeIds: null }),
   });
 
-  it('the token in the penumbra is a silhouette with no art, name, bar, marks nor facing, and cannot be taken', () => {
+  it('the token in the penumbra is a silhouette with no art, name, bar, marks, facing nor defeat, and cannot be taken', () => {
     expect(view.tokens.find(({ id }) => id === KAEL_ID)).toMatchObject({
       silhouette: 'square',
+      defeated: false,
       name: '',
       initials: '',
       art: null,

@@ -113,6 +113,36 @@ describe('TokenContextMenu', () => {
     expect(conditionTargets).toEqual([[KAEL_ID]]);
   });
 
+  describe('"Morto", for whoever controls the token', () => {
+    it('marks a living token defeated, with or without an image', async () => {
+      openOn(KAEL_ID);
+
+      const dead = screen.getByRole('menuitemcheckbox', { name: 'Morto' });
+      expect(dead).toHaveAttribute('aria-checked', 'false');
+      await userEvent.click(dead);
+
+      expect(commands.sentAs('restyleTokens').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [KAEL_ID], style: { defeated: true } },
+      ]);
+    });
+
+    it('on a defeated token of the selection, brings the whole selection back', async () => {
+      const fallen = { defeated: true };
+      board.getState().apply({
+        kind: 'board',
+        state: vharnBoard({ tokens: [lyra(fallen), kael(fallen)] }),
+      });
+      interaction.getState().selectMany([LYRA_ID, KAEL_ID], { additive: false });
+      openOn(LYRA_ID);
+
+      await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Morto' }));
+
+      expect(commands.sentAs('restyleTokens').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [LYRA_ID, KAEL_ID], style: { defeated: false } },
+      ]);
+    });
+  });
+
   describe('the look, for whoever controls the token', () => {
     const PORTRAIT_ID = '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d';
 

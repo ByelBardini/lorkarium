@@ -14,6 +14,7 @@ import type {
   CreateBoardRenderer,
 } from '@/renderer/board-renderer';
 import { buildBoardView, type BoardView } from '@/renderer/board-view';
+import { turnTokenIdsOf } from '@/lib/combat-entries';
 import {
   singleSelectedOf,
   useBoardInteraction,
@@ -50,9 +51,9 @@ const NO_DRAWINGS: readonly DrawingDto[] = [];
 const NO_EFFECT_AREAS: readonly EffectAreaDto[] = [];
 const NO_WALLS: readonly WallDto[] = [];
 
-function currentTokenOf(board: BoardStateDto | null): string | null {
-  const combat = board?.combat;
-  return combat?.combatants.find(({ id }) => id === combat.currentCombatantId)?.tokenId ?? null;
+// A text key, not a list: a selector that hands back a new array each call loops the render.
+function turnTokensKeyOf(board: BoardStateDto | null): string {
+  return turnTokenIdsOf(board).join(',');
 }
 
 const KEYBOARD_INSTRUCTIONS =
@@ -114,7 +115,11 @@ function useBoardView({
   const walls = useBoard(board, (state) => state.board?.walls ?? NO_WALLS);
   const viewerId = useBoard(board, (state) => state.board?.viewer.userId ?? '');
   const isMaster = useBoard(board, (state) => state.board?.viewer.role === 'master');
-  const currentTokenId = useBoard(board, (state) => currentTokenOf(state.board));
+  const turnTokensKey = useBoard(board, (state) => turnTokensKeyOf(state.board));
+  const currentTokenIds = useMemo(
+    () => (turnTokensKey ? turnTokensKey.split(',') : []),
+    [turnTokensKey],
+  );
   const dragged = useBoard(board, (state) => state.dragged);
   const local = useLocalBoardView(interaction);
   const style = useStore(drawingStyle, useShallow(styleOf));
@@ -124,7 +129,7 @@ function useBoardView({
   return useMemo(() => {
     if (!scene) return null;
     const viewer = { userId: viewerId, isMaster };
-    const extra = { tokens, drawings, viewer, currentTokenId, dragged, drawingStyle: style };
+    const extra = { tokens, drawings, viewer, currentTokenIds, dragged, drawingStyle: style };
     const areas = { effectAreas, effectAreaStyle: areaStyle, wallStyle: nextWall, walls, sight };
     return buildBoardView({ scene, ...extra, ...areas, ...local });
   }, [
@@ -135,7 +140,7 @@ function useBoardView({
     walls,
     viewerId,
     isMaster,
-    currentTokenId,
+    currentTokenIds,
     dragged,
     local,
     style,

@@ -32,7 +32,7 @@ function boardView(overrides: Partial<Parameters<typeof buildBoardView>[0]> = {}
     dragged: {},
     readOnly: false,
     tool: 'select',
-    currentTokenId: null,
+    currentTokenIds: [],
     drawings: [square()],
     viewer: { userId: ANA_AT_TABLE.userId, isMaster: true },
     selectedDrawingIds: [],

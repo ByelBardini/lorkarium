@@ -140,3 +140,40 @@ export const LAYER_LABEL: Readonly<Record<TokenLayerDto, string>> = {
   objects: 'Objetos',
   background: 'Fundo',
 };
+
+/** What a deletion from the board cannot do: come back. */
+export const DELETE_CANNOT_UNDO = 'Isso não tem volta.';
+export const TOO_MANY_TO_DELETE = 'Selecione até 64 tokens para excluir.';
+
+/** How many of each piece a Delete with tokens takes away. */
+export type DeletionCounts = Readonly<{
+  tokenNames: readonly string[];
+  drawings: number;
+  areas: number;
+  walls: number;
+}>;
+
+/** The question of the Delete dialog: "Excluir Goblin?" for one token alone, otherwise the
+ *  counts ("Excluir 2 tokens e 1 desenho?").
+ *
+ *  Example: `deleteSelectionQuestion({ tokenNames: ['Goblin'], drawings: 0, areas: 0, walls: 0 })` */
+export function deleteSelectionQuestion(counts: DeletionCounts): string {
+  const { tokenNames, drawings, areas, walls } = counts;
+  const [only] = tokenNames;
+  if (only !== undefined && tokenNames.length === 1 && drawings + areas + walls === 0) {
+    return `Excluir ${only}?`;
+  }
+  const parts = [
+    countOf(tokenNames.length, 'token', 'tokens'),
+    countOf(drawings, 'desenho', 'desenhos'),
+    countOf(areas, 'área', 'áreas'),
+    countOf(walls, 'parede', 'paredes'),
+  ].filter((part): part is string => part !== null);
+  const last = parts.pop();
+  return parts.length === 0 ? `Excluir ${last}?` : `Excluir ${parts.join(', ')} e ${last}?`;
+}
+
+function countOf(count: number, one: string, many: string): string | null {
+  if (count === 0) return null;
+  return `${count} ${count === 1 ? one : many}`;
+}

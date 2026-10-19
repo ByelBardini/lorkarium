@@ -73,6 +73,18 @@ describe('SceneTokenList', () => {
     expect(row('Lyra')).toHaveTextContent('PV 32 / 45');
   });
 
+  it('the chest of the Objetos layer and the rug of Fundo are not in the list, and the Goblin is', () => {
+    renderList([
+      lyra({ id: 'goblin', name: 'Goblin' }),
+      lyra({ id: 'bau', name: 'Baú', layer: 'objects' }),
+      lyra({ id: 'tapete', name: 'Tapete', layer: 'background' }),
+    ]);
+
+    const list = screen.getByRole('list', { name: 'Na cena' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+    expect(list).toHaveTextContent('Goblin');
+  });
+
   it('a token without image shows its initials in the row', () => {
     renderList();
     expect(row('Lyra').querySelector('img')).toBeNull();
@@ -189,6 +201,36 @@ describe('SceneTokenList', () => {
     expect(screen.getByLabelText('PV de Lyra')).toHaveAccessibleDescription(/−7.*\+5.*12/);
   });
 
+  it('"60" + Enter in Máx. sends the new maximum and clears the field', async () => {
+    renderList();
+    act(() => interaction.getState().select(LYRA_ID));
+    const field = screen.getByLabelText('Máximo de PV de Lyra');
+    await userEvent.type(field, '60{Enter}');
+    expect(commands.sentAs('adjustBar').map(({ fields }) => fields)).toEqual([
+      { tokenId: LYRA_ID, barId: LYRA_PV_ID, change: { op: 'max', value: 60 } },
+    ]);
+    expect(field).toHaveValue('');
+  });
+
+  it.each(['0', '-5', '2,5'])('"%s" in Máx. sends nothing and is marked invalid', async (text) => {
+    renderList();
+    act(() => interaction.getState().select(LYRA_ID));
+    const field = screen.getByLabelText('Máximo de PV de Lyra');
+    await userEvent.type(field, `${text}{Enter}`);
+    expect(commands.sent).toEqual([]);
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('a bar shown as percent reads "71%" in the list and in the card', () => {
+    const [pv, inspiration] = lyra().bars;
+    if (!pv || !inspiration) throw new Error('lyra() lost its bars');
+    renderList([lyra({ bars: [{ ...pv, display: 'percent' }, inspiration] })]);
+    expect(row('Lyra')).toHaveTextContent('PV 71%');
+    act(() => interaction.getState().select(LYRA_ID));
+    const card = screen.getByRole('region', { name: 'Cartão de Lyra' });
+    expect(within(card).getByText('71%')).toBeInTheDocument();
+  });
+
   it('a negative value reads "−4 / 38" in the error color', () => {
     const [pv, inspiration] = lyra().bars;
     if (!pv || !inspiration) throw new Error('lyra() lost its bars');
@@ -196,6 +238,19 @@ describe('SceneTokenList', () => {
     act(() => interaction.getState().select(LYRA_ID));
     const card = screen.getByRole('region', { name: 'Cartão de Lyra' });
     expect(within(card).getByText('−4 / 38')).toHaveClass('text-destructive-text');
+  });
+
+  it.each([
+    [-10, 'negative'],
+    [50, 'over'],
+  ] as const)('%s of 40 grows a %s bar of 25%% from the left', (current, state) => {
+    const [pv, inspiration] = lyra().bars;
+    if (!pv || !inspiration) throw new Error('lyra() lost its bars');
+    renderList([lyra({ bars: [{ ...pv, current, max: 40 }, inspiration] })]);
+    act(() => interaction.getState().select(LYRA_ID));
+    const card = screen.getByRole('region', { name: 'Cartão de Lyra' });
+    const excess = card.querySelector<HTMLElement>(`[data-bar-excess="${state}"]`);
+    expect(excess?.style.width).toBe('25%');
   });
 
   it('a redacted token shows only the bars that came, and without canControl it is read only', () => {
@@ -215,6 +270,7 @@ describe('SceneTokenList', () => {
       interaction.getState().setReadOnly(true);
     });
     expect(screen.getByLabelText('PV de Lyra')).toBeDisabled();
+    expect(screen.getByLabelText('Máximo de PV de Lyra')).toBeDisabled();
   });
 
   it('the master edits from the card; a player has no "Editar token"', async () => {

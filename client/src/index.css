@@ -29,6 +29,8 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
   --color-chart-5: var(--chart-5);
+  --color-bar-negative: var(--bar-negative);
+  --color-bar-over: var(--bar-over);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
@@ -94,6 +96,9 @@
   --chart-3: #b5654f;
   --chart-4: #7f9a7a;
   --chart-5: #a9a497;
+  /* Past the ends of a bar (the canvas keeps the same hex in pixi-token-layer.ts). */
+  --bar-negative: #d6455d;
+  --bar-over: #eae5da;
   --radius: 0.25rem;
   --sidebar: #0c0e11;
   --sidebar-foreground: #eae5da;
