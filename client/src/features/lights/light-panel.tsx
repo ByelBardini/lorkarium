@@ -51,7 +51,7 @@ export function LightPanel(props: LightPanelProps): React.JSX.Element {
       className="absolute top-16 left-16 flex w-60 flex-col gap-4 rounded-lg border border-border bg-panel p-4"
     >
       <RangeField
-        label={`Plena (${distance.cellUnit})`}
+        label={`Plena até (${distance.cellUnit})`}
         value={fields.bright}
         error={errors.bright}
         distance={distance}
@@ -60,7 +60,7 @@ export function LightPanel(props: LightPanelProps): React.JSX.Element {
         onChange={(bright) => change({ ...fields, bright })}
       />
       <RangeField
-        label={`Penumbra (${distance.cellUnit})`}
+        label={`Penumbra até (${distance.cellUnit})`}
         value={fields.dim}
         error={errors.dim}
         distance={distance}

@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Novo token</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#08090B}
+a{color:#C5A46D}
+button:focus-visible,input:focus-visible,label:focus-within{outline:2px solid #C5A46D;outline-offset:2px}
+.tk-label{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#A9A497}
+.tk-input{height:42px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:14px;width:100%}
+.tk-input::placeholder{color:#6F7480}
+.tk-input:focus{outline:none;border-color:#C5A46D;box-shadow:0 0 0 3px rgba(197,164,109,.16)}
+.tk-input.is-error{border-color:#C9705A}
+.tk-tab{position:relative;height:46px;padding:0 4px;margin-right:22px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8C8F98;font:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.tk-tab:hover{color:#EAE5DA}
+.tk-tab.is-active{color:#EAE5DA;border-bottom-color:#C5A46D}
+.tk-count{min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#262A31;color:#D5D0C4;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+.tk-seg{flex:1;height:42px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:8px;background:transparent;color:#A9A497;font:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.tk-seg:hover{color:#EAE5DA;border-color:#4A505B}
+.tk-seg.is-on{background:#1B1E24;color:#EAE5DA;border-color:#C5A46D}
+.tk-preset{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:52px;border:1px solid #303640;border-radius:8px;background:transparent;color:#A9A497;font:inherit;cursor:pointer}
+.tk-preset:hover{border-color:#4A505B;color:#EAE5DA}
+.tk-preset.is-on{border-color:#C5A46D;background:rgba(197,164,109,.08);color:#EAE5DA}
+.tk-step{width:34px;height:34px;border:0;border-radius:6px;background:transparent;color:#D5D0C4;font:inherit;font-size:18px;line-height:1;cursor:pointer}
+.tk-step:hover{background:#1F232A;color:#E2C793}
+.tk-person{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 5px;border-radius:999px;border:1px solid #303640;background:transparent;color:#A9A497;font:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.tk-person:hover{border-color:#4A505B;color:#EAE5DA}
+.tk-person.is-on{border-color:#C5A46D;color:#EAE5DA;background:rgba(197,164,109,.08)}
+.tk-bar{border-radius:10px;border:1px solid #262B33;background:#13161B;padding:12px;display:flex;flex-direction:column;gap:12px}
+.tk-bar.is-first{border-color:rgba(197,164,109,.4)}
+.tk-icon{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;color:#8C8F98;cursor:pointer}
+.tk-icon:hover{background:#1F232A;color:#EAE5DA}
+.tk-icon:disabled{opacity:.3;cursor:default;background:transparent}
+.tk-icon.is-danger:hover{color:#E6A28F}
+.tk-swatch{width:22px;height:22px;padding:0;border-radius:50%;border:2px solid transparent;cursor:pointer;box-shadow:inset 0 0 0 2px #13161B}
+.tk-swatch.is-on{border-color:#EAE5DA}
+.tk-toggle{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:999px;border:1px solid #303640;background:transparent;color:#A9A497;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.tk-toggle:hover{color:#EAE5DA;border-color:#4A505B}
+.tk-switch{position:relative;width:42px;height:24px;flex-shrink:0;padding:0;border:0;border-radius:999px;background:#303640;cursor:pointer;transition:background .15s}
+.tk-switch .tk-knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#A9A497;transition:left .15s,background .15s}
+.tk-switch.is-on{background:#C5A46D}
+.tk-switch.is-on .tk-knob{left:21px;background:#15130F}
+.tk-sugg{height:34px;padding:0 14px;border-radius:999px;border:1px dashed #3A404A;background:transparent;color:#D5D0C4;font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.tk-sugg:hover{border-color:#C5A46D;color:#EAE5DA}
+.tk-btn{height:42px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:8px;background:transparent;color:#D5D0C4;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.tk-btn:hover{border-color:#4A505B;color:#EAE5DA}
+.tk-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.tk-btn.is-gold:hover{background:#D4B57E}
+.tk-btn.is-danger{color:#E6A28F;border-color:transparent;padding:0 10px}
+.tk-btn.is-danger:hover{border-color:rgba(201,112,90,.5)}
+.tk-btn.is-danger-solid{background:#B85C47;border-color:#B85C47;color:#FFF5F0}
+.tk-drop{position:relative;width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background-color:#0C0E11;background-image:linear-gradient(rgba(197,164,109,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(197,164,109,.08) 1px,transparent 1px);background-size:50px 50px;background-position:-1px -1px;border:1px solid #262B33}
+.tk-drop.is-over{border-color:#C5A46D;box-shadow:inset 0 0 0 2px rgba(197,164,109,.4)}
+</style>
+</helmet>
+<div style="width: 1200px; height: 800px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: #0B0C0F; background-image: linear-gradient(rgba(197,164,109,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(197,164,109,.05) 1px, transparent 1px); background-size: 48px 48px; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+<div style="position: absolute; inset: 0; background: rgba(6,7,9,.7)" aria-hidden="true"></div>
+
+<div role="dialog" aria-modal="true" aria-labelledby="tk-title" style="position: relative; width: 900px; height: 680px; box-sizing: border-box; border-radius: 16px; background: #15181D; border: 1px solid #303640; box-shadow: 0 30px 90px rgba(0,0,0,.6); display: flex; flex-direction: column; overflow: hidden">
+
+<header style="flex-shrink: 0; padding: 22px 24px 18px 28px; display: flex; align-items: flex-start; gap: 16px; border-bottom: 1px solid #23272E">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+<h2 id="tk-title" style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 30px; line-height: 1.1">{{title}}</h2>
+<p style="margin: 0; font-size: 14px; color: #A9A497">{{subtitle}}</p>
+</div>
+<button type="button" class="tk-icon" aria-label="Fechar" style="width: 40px; height: 40px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</header>
+
+<div style="flex: 1; min-height: 0; display: flex">
+
+<aside style="flex: 0 0 300px; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 16px; background: #101216; border-right: 1px solid #23272E">
+<div class="{{dropCls}}" onDragOver="{{onDragOver}}" onDragLeave="{{onDragLeave}}" onDrop="{{onDrop}}">
+<div style="position: absolute; left: 50%; top: 50%; width: {{glow}}; height: {{glow}}; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(226,199,147,.22) 0%, rgba(226,199,147,.08) 55%, rgba(226,199,147,0) 70%); opacity: {{glowOp}}; transition: all .25s" aria-hidden="true"></div>
+<div style="position: absolute; left: 50%; top: 50%; width: {{tokW}}; height: {{tokH}}; transform: translate(-50%, -50%); transition: all .2s">
+<div style="position: absolute; inset: 7%; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #1F232A; box-shadow: 0 0 0 3px {{ring}}, 0 8px 24px rgba(0,0,0,.6); font-weight: 600; font-size: {{iniSize}}; letter-spacing: 0.04em; color: #EAE5DA">
+<sc-if value="{{hasImage}}" hint-placeholder-val="{{ false }}">
+<img src="{{image}}" alt="" style="width: 100%; height: 100%; object-fit: cover">
+</sc-if>
+<sc-if value="{{noImage}}" hint-placeholder-val="{{ true }}">
+<span>{{previewIni}}</span>
+</sc-if>
+</div>
+<sc-if value="{{hasFirstBar}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: 14%; right: 14%; top: calc(100% + 4px); height: 5px; border-radius: 3px; background: #262A31; overflow: hidden"><div style="height: 100%; width: 72%; background: {{firstBarColor}}"></div></div>
+</sc-if>
+</div>
+<sc-if value="{{isOver}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(12,14,17,.8); font-size: 14px; font-weight: 600; color: #E2C793">Solta aqui</div>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 4px; text-align: center">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; line-height: 1.15; color: {{previewNameColor}}">{{previewName}}</span>
+<span style="font-size: 12px; color: #8C8F98">{{previewMeta}}</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px; margin-top: auto">
+<div style="display: flex; gap: 8px">
+<label class="tk-btn" style="flex: 1; height: 38px; font-size: 13px; cursor: pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 16l-5-5-9 9"></path></svg>
+{{pickLabel}}
+<input type="file" accept="image/png,image/jpeg,image/webp" onChange="{{onFile}}" style="position: absolute; width: 1px; height: 1px; opacity: 0">
+</label>
+<sc-if value="{{hasImage}}" hint-placeholder-val="{{ false }}">
+<button type="button" class="tk-icon is-danger" onClick="{{clearImage}}" aria-label="Remover imagem" title="Remover imagem" style="width: 38px; height: 38px; border: 1px solid #303640">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"></path></svg>
+</button>
+</sc-if>
+<button type="button" class="tk-icon" onClick="{{toggleLink}}" aria-label="Usar link de imagem" aria-expanded="{{linkOpen}}" title="Usar link" style="width: 38px; height: 38px; border: 1px solid #303640">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg>
+</button>
+</div>
+<sc-if value="{{linkOpen}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 6px">
+<input class="tk-input" type="url" aria-label="Link da imagem" placeholder="https://…" value="{{link}}" onChange="{{onLink}}" style="height: 36px; font-size: 13px">
+<button type="button" class="tk-btn" onClick="{{useLink}}" style="height: 36px; padding: 0 12px; font-size: 13px">Usar</button>
+</div>
+</sc-if>
+<span style="font-size: 11px; line-height: 1.5; color: #6F7480; text-align: center">Arraste pro quadro ou cole com Ctrl+V · PNG, JPEG ou WebP até 20 MB</span>
+</div>
+</aside>
+
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<div role="tablist" aria-label="Seções do token" style="flex-shrink: 0; padding: 0 28px; display: flex; border-bottom: 1px solid #23272E">
+<button type="button" role="tab" class="tk-tab {{tabCls.basico}}" aria-selected="{{tabSel.basico}}" onClick="{{setTab.basico}}">Básico
+<sc-if value="{{basicoError}}" hint-placeholder-val="{{ false }}"><span style="width: 7px; height: 7px; border-radius: 50%; background: #C9705A"></span></sc-if>
+</button>
+<button type="button" role="tab" class="tk-tab {{tabCls.barras}}" aria-selected="{{tabSel.barras}}" onClick="{{setTab.barras}}">Barras <span class="tk-count">{{barCount}}</span></button>
+<button type="button" role="tab" class="tk-tab {{tabCls.visao}}" aria-selected="{{tabSel.visao}}" onClick="{{setTab.visao}}">Visão e luz</button>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow: auto; padding: 24px 28px">
+
+<sc-if value="{{tabSel.basico}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 26px">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="tk-nome" class="tk-label">Nome</label>
+<input id="tk-nome" class="{{nameCls}}" type="text" maxlength="60" placeholder="Ex.: Ogro das Cinzas" value="{{name}}" onChange="{{onName}}" aria-invalid="{{nameInvalid}}">
+<sc-if value="{{nameError}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #E6A28F">Dá um nome pro token.</span>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<label for="tk-ini" class="tk-label">Iniciais</label>
+<sc-if value="{{iniAuto}}" hint-placeholder-val="{{ true }}">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #C5A46D">auto</span>
+</sc-if>
+<sc-if value="{{iniManual}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{resetIni}}" style="padding: 0; border: 0; background: none; color: #C5A46D; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer">auto</button>
+</sc-if>
+</div>
+<input id="tk-ini" class="tk-input" type="text" maxlength="3" value="{{initials}}" onChange="{{onIni}}" style="text-transform: uppercase; text-align: center; font-family: Cinzel, serif; font-weight: 600; letter-spacing: 0.12em">
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span class="tk-label" id="tk-lado">Lado</span>
+<div role="radiogroup" aria-labelledby="tk-lado" style="display: flex; gap: 8px">
+<button type="button" role="radio" class="tk-seg {{sideCls.aliado}}" aria-checked="{{sideSel.aliado}}" onClick="{{setSide.aliado}}"><span style="width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 2px #D9D2C2"></span>Aliado</button>
+<button type="button" role="radio" class="tk-seg {{sideCls.inimigo}}" aria-checked="{{sideSel.inimigo}}" onClick="{{setSide.inimigo}}"><span style="width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 2px #C9705A"></span>Inimigo</button>
+<button type="button" role="radio" class="tk-seg {{sideCls.neutro}}" aria-checked="{{sideSel.neutro}}" onClick="{{setSide.neutro}}"><span style="width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 2px #8FA3BF"></span>Neutro</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<span class="tk-label">Tamanho</span>
+<span style="font-size: 12px; color: #8C8F98">em casas do grid</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{presets}}" as="p" hint-placeholder-count="5">
+<button type="button" class="{{p.cls}}" onClick="{{p.pick}}" aria-pressed="{{p.on}}">
+<span style="font-size: 15px; font-weight: 600">{{p.size}}</span>
+<span style="font-size: 11px">{{p.name}}</span>
+</button>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<span style="font-size: 13px; color: #8C8F98">Personalizado</span>
+<div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 8px; border: 1px solid #303640">
+<button type="button" class="tk-step" onClick="{{wDec}}" aria-label="Diminuir largura">−</button>
+<span style="min-width: 40px; text-align: center; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums">{{wText}}</span>
+<button type="button" class="tk-step" onClick="{{wInc}}" aria-label="Aumentar largura">+</button>
+</div>
+<span style="color: #6F7480">×</span>
+<div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 8px; border: 1px solid #303640">
+<button type="button" class="tk-step" onClick="{{hDec}}" aria-label="Diminuir altura">−</button>
+<span style="min-width: 40px; text-align: center; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums">{{hText}}</span>
+<button type="button" class="tk-step" onClick="{{hInc}}" aria-label="Aumentar altura">+</button>
+</div>
+<span style="font-size: 12px; color: #6F7480">largura × altura</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<span class="tk-label">Quem controla</span>
+<span style="font-size: 12px; color: #8C8F98">Você, como mestre, já controla tudo</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{people}}" as="pp" hint-placeholder-count="3">
+<button type="button" class="{{pp.cls}}" onClick="{{pp.toggle}}" aria-pressed="{{pp.on}}">
+<span style="width: 30px; height: 30px; border-radius: 50%; background: {{pp.bg}}; color: #EAE5DA; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600">{{pp.i}}</span>
+{{pp.n}}
+<sc-if value="{{pp.on}}" hint-placeholder-val="{{ false }}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+</sc-if>
+</button>
+</sc-for>
+</div>
+<span style="font-size: 12px; line-height: 1.5; color: #6F7480">Quem controla move o token, mexe nas barras e condições e vê as barras escondidas.</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{tabSel.barras}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{hasBars}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; font-size: 13px; color: #8C8F98">A barra de cima é a que aparece no token. Os valores você ajusta depois, no cartão do token.</p>
+</sc-if>
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="2">
+<div class="{{b.cls}}">
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="display: flex; flex-direction: column">
+<button type="button" class="tk-icon" onClick="{{b.up}}" disabled="{{b.isFirst}}" aria-label="{{b.upLabel}}" style="width: 26px; height: 20px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>
+</button>
+<button type="button" class="tk-icon" onClick="{{b.down}}" disabled="{{b.isLast}}" aria-label="{{b.downLabel}}" style="width: 26px; height: 20px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+</button>
+</div>
+<span style="width: 10px; height: 34px; flex-shrink: 0; border-radius: 3px; background: {{b.hex}}"></span>
+<input class="{{b.inputCls}}" type="text" maxlength="24" value="{{b.label}}" onChange="{{b.setLabel}}" aria-label="{{b.inputLabel}}" placeholder="Rótulo" style="height: 38px; font-weight: 600">
+<sc-if value="{{b.isFirst}}" hint-placeholder-val="{{ true }}">
+<span style="flex-shrink: 0; height: 24px; padding: 0 10px; border-radius: 999px; background: rgba(197,164,109,.14); color: #E2C793; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap"><span style="width: 6px; height: 6px; border-radius: 50%; background: #C5A46D"></span>No token</span>
+</sc-if>
+<button type="button" class="tk-icon is-danger" onClick="{{b.remove}}" aria-label="{{b.removeLabel}}" title="Remover barra">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"></path></svg>
+</button>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-left: 36px">
+<div role="radiogroup" aria-label="Cor da barra" style="display: inline-flex; gap: 6px">
+<sc-for list="{{b.swatches}}" as="sw" hint-placeholder-count="5">
+<button type="button" role="radio" class="{{sw.cls}}" aria-checked="{{sw.on}}" aria-label="{{sw.name}}" title="{{sw.name}}" onClick="{{sw.pick}}" style="background: {{sw.hex}}"></button>
+</sc-for>
+</div>
+<span style="width: 1px; height: 20px; background: #303640"></span>
+<button type="button" class="tk-toggle" onClick="{{b.toggleVis}}" title="Quem vê os números">
+<sc-if value="{{b.visAll}}" hint-placeholder-val="{{ true }}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c0-1.5 3.5-7 9-7s9 5.5 9 7-3.5 7-9 7-9-5.5-9-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+</sc-if>
+<sc-if value="{{b.visGm}}" hint-placeholder-val="{{ false }}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+</sc-if>
+{{b.visText}}
+</button>
+<button type="button" class="tk-toggle" onClick="{{b.toggleFmt}}" title="Como aparece">{{b.fmtText}}</button>
+<div style="flex: 1; min-width: 80px; display: flex; align-items: center; gap: 8px">
+<span style="flex: 1; height: 6px; border-radius: 3px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: 70%; background: {{b.hex}}"></span></span>
+<span style="font-size: 12px; font-weight: 600; color: #A9A497; font-variant-numeric: tabular-nums">{{b.sample}}</span>
+</div>
+</div>
+</div>
+</sc-for>
+
+<sc-if value="{{noBars}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 28px; border-radius: 12px; border: 1px dashed #3A404A; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600">Sem barras ainda</span>
+<span style="font-size: 13px; color: #8C8F98">Começa pelo PV ou escolhe uma das sugestões.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{canAdd}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<button type="button" class="tk-btn" onClick="{{addBar}}" style="height: 34px; font-size: 13px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+Nova barra
+</button>
+<sc-for list="{{suggestions}}" as="sg" hint-placeholder-count="3">
+<button type="button" class="tk-sugg" onClick="{{sg.add}}">+ {{sg.label}}</button>
+</sc-for>
+<span style="margin-left: auto; font-size: 12px; color: #6F7480">{{barCount}} de 8</span>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{tabSel.visao}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="border-radius: 12px; border: 1px solid #262B33; background: #13161B; padding: 18px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 14px">
+<span style="width: 40px; height: 40px; border-radius: 10px; background: #1F232A; display: inline-flex; align-items: center; justify-content: center; color: #8FA3BF">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c0-1.5 3.5-7 9-7s9 5.5 9 7-3.5 7-9 7-9-5.5-9-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+</span>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span id="tk-dark-l" style="font-size: 15px; font-weight: 600">Enxerga no escuro</span>
+<span style="font-size: 13px; color: #8C8F98">{{darkHint}}</span>
+</div>
+<button type="button" role="switch" class="tk-switch {{darkCls}}" aria-checked="{{darkAria}}" aria-labelledby="tk-dark-l" onClick="{{toggleDark}}"><span class="tk-knob"></span></button>
+</div>
+<sc-if value="{{dark}}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-left: 54px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="tk-dv" style="font-size: 13px; font-weight: 500; color: #D5D0C4">Visão plena</label>
+<div style="position: relative"><input id="tk-dv" class="tk-input" type="text" inputmode="decimal" value="{{darkFull}}" onChange="{{onDarkFull}}" style="padding-right: 32px"><span style="position: absolute; right: 12px; top: 12px; font-size: 13px; color: #6F7480">m</span></div>
+<span style="font-size: 12px; color: #8C8F98">= {{darkFullCells}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="tk-dp" style="font-size: 13px; font-weight: 500; color: #D5D0C4">Penumbra <span style="color: #6F7480; font-weight: 400">· opcional</span></label>
+<div style="position: relative"><input id="tk-dp" class="tk-input" type="text" inputmode="decimal" placeholder="0" value="{{darkDim}}" onChange="{{onDarkDim}}" style="padding-right: 32px"><span style="position: absolute; right: 12px; top: 12px; font-size: 13px; color: #6F7480">m</span></div>
+<span style="font-size: 12px; color: #8C8F98">= {{darkDimCells}} · vê o mapa, não os tokens</span>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div style="border-radius: 12px; border: 1px solid #262B33; background: #13161B; padding: 18px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 14px">
+<span style="width: 40px; height: 40px; border-radius: 10px; background: #1F232A; display: inline-flex; align-items: center; justify-content: center; color: #E2C793">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c2 3 4 4.5 4 8a4 4 0 0 1-8 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 0-7Z"></path><path d="M10 21h4"></path></svg>
+</span>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span id="tk-light-l" style="font-size: 15px; font-weight: 600">Emite luz</span>
+<span style="font-size: 13px; color: #8C8F98">Como uma tocha. Nasce acesa; quem controla apaga pelo menu do token.</span>
+</div>
+<button type="button" role="switch" class="tk-switch {{lightCls}}" aria-checked="{{lightAria}}" aria-labelledby="tk-light-l" onClick="{{toggleLight}}"><span class="tk-knob"></span></button>
+</div>
+<sc-if value="{{light}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-left: 54px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="tk-lv" style="font-size: 13px; font-weight: 500; color: #D5D0C4">Luz plena</label>
+<div style="position: relative"><input id="tk-lv" class="tk-input" type="text" inputmode="decimal" value="{{lightFull}}" onChange="{{onLightFull}}" style="padding-right: 32px"><span style="position: absolute; right: 12px; top: 12px; font-size: 13px; color: #6F7480">m</span></div>
+<span style="font-size: 12px; color: #8C8F98">= {{lightFullCells}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="tk-lp" style="font-size: 13px; font-weight: 500; color: #D5D0C4">Penumbra <span style="color: #6F7480; font-weight: 400">· opcional</span></label>
+<div style="position: relative"><input id="tk-lp" class="tk-input" type="text" inputmode="decimal" placeholder="0" value="{{lightDim}}" onChange="{{onLightDim}}" style="padding-right: 32px"><span style="position: absolute; right: 12px; top: 12px; font-size: 13px; color: #6F7480">m</span></div>
+<span style="font-size: 12px; color: #8C8F98">= {{lightDimCells}}</span>
+</div>
+</div>
+</sc-if>
+</div>
+<span style="font-size: 12px; color: #6F7480">Distâncias na unidade da cena · 1 casa = 1,5 m · até 100 casas</span>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+
+<footer style="flex-shrink: 0; padding: 14px 24px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #23272E; background: #13161B">
+<sc-if value="{{showDelete}}" hint-placeholder-val="{{ false }}">
+<button type="button" class="tk-btn is-danger" onClick="{{askDelete}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"></path></svg>
+Excluir token
+</button>
+</sc-if>
+<sc-if value="{{confirmDelete}}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="display: flex; align-items: center; gap: 10px">
+<span style="font-size: 14px; color: #E6A28F">Excluir {{previewName}}? Isso não tem volta.</span>
+<button type="button" class="tk-btn is-danger-solid" style="height: 36px" onClick="{{cancelDelete}}">Excluir</button>
+<button type="button" class="tk-btn" style="height: 36px" onClick="{{cancelDelete}}">Manter</button>
+</div>
+</sc-if>
+<sc-if value="{{hasStatus}}" hint-placeholder-val="{{ false }}">
+<span role="status" style="font-size: 13px; color: {{statusColor}}">{{status}}</span>
+</sc-if>
+<div style="flex: 1"></div>
+<span style="font-size: 12px; color: #6F7480">Esc fecha</span>
+<button type="button" class="tk-btn">Cancelar</button>
+<button type="button" class="tk-btn is-gold" onClick="{{submit}}" style="min-width: 130px">{{submitLabel}}</button>
+</footer>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"modo":{"editor":"enum","options":["novo","editar"],"default":"novo"},"$preview":{"width":1200,"height":800}}'>
+var TK_COLORS = [
+  { k: 'ouro', name: 'Ouro', hex: '#C5A46D' },
+  { k: 'aco', name: 'Aço', hex: '#8FA3BF' },
+  { k: 'brasa', name: 'Brasa', hex: '#C9705A' },
+  { k: 'musgo', name: 'Musgo', hex: '#8FB39A' },
+  { k: 'cinza', name: 'Cinza', hex: '#8C8F98' }
+];
+var TK_RING = { aliado: '#D9D2C2', inimigo: '#C9705A', neutro: '#8FA3BF' };
+var TK_SIDE = { aliado: 'Aliado', inimigo: 'Inimigo', neutro: 'Neutro' };
+var TK_PRESETS = [
+  { v: 0.5, name: 'Miúdo' }, { v: 1, name: 'Médio' }, { v: 2, name: 'Grande' }, { v: 3, name: 'Enorme' }, { v: 4, name: 'Imenso' }
+];
+var TK_PEOPLE = [
+  { id: 'bia', n: 'Bia', i: 'BI', bg: '#56404A' },
+  { id: 'thiago', n: 'Thiago', i: 'TH', bg: '#3F5247' },
+  { id: 'carol', n: 'Carol', i: 'CA', bg: '#5B4A3A' }
+];
+var TK_SUGG = [
+  { label: 'PV', color: 'brasa', vis: 'gm' },
+  { label: 'Mana', color: 'aco', vis: 'all' },
+  { label: 'Escudo', color: 'cinza', vis: 'all' },
+  { label: 'Fôlego', color: 'musgo', vis: 'all' }
+];
+var TK_SKIP = ['de', 'da', 'das', 'do', 'dos', 'e', 'a', 'o', 'the', 'of'];
+function tkInitials(name) {
+  var words = (name || '').trim().split(/\s+/).filter(function (w) { return w && TK_SKIP.indexOf(w.toLowerCase()) === -1; });
+  if (!words.length) return '';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+function tkNum(v) { var n = parseFloat(String(v || '').replace(',', '.')); return isNaN(n) ? 0 : n; }
+function tkFmt(n) { return String(n).replace('.', ','); }
+function tkCells(m) { var c = Math.round(tkNum(m) / 1.5 * 10) / 10; return tkFmt(c) + (c === 1 ? ' casa' : ' casas'); }
+var tkSeq = 10;
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      tab: 'basico', name: 'Ogro das Cinzas', ini: '', iniTouched: false, side: 'inimigo', w: 2, h: 2, owners: [],
+      dark: true, darkFull: '18', darkDim: '', light: false, lightFull: '6', lightDim: '6',
+      bars: [
+        { id: 1, label: 'PV', color: 'brasa', vis: 'gm', fmt: 'int' },
+        { id: 2, label: 'Fúria', color: 'ouro', vis: 'all', fmt: 'pct' }
+      ],
+      image: null, linkOpen: false, link: '', over: false, tried: false, confirmDelete: false, saving: false, saved: false
+    };
+  }
+  setBars(fn) { var b = this.state.bars.map(function (x) { return Object.assign({}, x); }); fn(b); this.setState({ bars: b }); }
+  addBar(spec) {
+    if (this.state.bars.length >= 8) return;
+    var first = this.state.bars.length === 0;
+    var b = spec ? { id: ++tkSeq, label: spec.label, color: spec.color, vis: spec.vis, fmt: 'int' }
+      : { id: ++tkSeq, label: first ? 'PV' : 'Barra ' + (this.state.bars.length + 1), color: first ? 'brasa' : 'aco', vis: first ? 'gm' : 'all', fmt: 'int' };
+    this.setState({ bars: this.state.bars.concat([b]) });
+  }
+  readFile(file) {
+    var self = this;
+    if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 20 * 1024 * 1024) return;
+    var r = new FileReader();
+    r.onload = function () { self.setState({ image: r.result }); };
+    r.readAsDataURL(file);
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var editing = (this.props.modo ?? 'novo') === 'editar';
+    var initials = s.iniTouched ? s.ini : tkInitials(s.name);
+    var nameMissing = !s.name.trim();
+    var nameErr = s.tried && nameMissing;
+    var colorHex = function (k) { var c = TK_COLORS.find(function (x) { return x.k === k; }); return c ? c.hex : '#C5A46D'; };
+
+    var cell = 52;
+    var maxPx = 216;
+    var tw = Math.min(maxPx, s.w * cell), th = Math.min(maxPx, s.h * cell);
+    var lightR = s.light ? Math.min(560, (tkNum(s.lightFull) + tkNum(s.lightDim)) / 1.5 * cell * 2 + tw) : 0;
+
+    var tabs = ['basico', 'barras', 'visao'];
+    var tabCls = {}, tabSel = {}, setTab = {};
+    tabs.forEach(function (k) { tabCls[k] = s.tab === k ? 'is-active' : ''; tabSel[k] = s.tab === k; setTab[k] = function () { self.setState({ tab: k }); }; });
+    var sideCls = {}, sideSel = {}, setSide = {};
+    ['aliado', 'inimigo', 'neutro'].forEach(function (k) { sideCls[k] = s.side === k ? 'is-on' : ''; sideSel[k] = s.side === k ? 'true' : 'false'; setSide[k] = function () { self.setState({ side: k }); }; });
+
+    var presets = TK_PRESETS.map(function (p) {
+      var on = s.w === p.v && s.h === p.v;
+      return { size: p.v === 0.5 ? '½' : p.v + '×' + p.v, name: p.name, on: on ? 'true' : 'false', cls: 'tk-preset' + (on ? ' is-on' : ''), pick: function () { self.setState({ w: p.v, h: p.v }); } };
+    });
+    var clamp = function (v) { return Math.max(0.5, Math.min(10, Math.round(v * 2) / 2)); };
+
+    var people = TK_PEOPLE.map(function (p) {
+      var on = s.owners.indexOf(p.id) >= 0;
+      return { n: p.n, i: p.i, bg: p.bg, on: on, cls: 'tk-person' + (on ? ' is-on' : ''),
+        toggle: function () { self.setState({ owners: on ? s.owners.filter(function (x) { return x !== p.id; }) : s.owners.concat([p.id]) }); } };
+    });
+
+    var n = s.bars.length;
+    var bars = s.bars.map(function (b, i) {
+      var labelErr = s.tried && !b.label.trim();
+      return {
+        label: b.label, hex: colorHex(b.color), isFirst: i === 0, isLast: i === n - 1,
+        cls: 'tk-bar' + (i === 0 ? ' is-first' : ''), inputCls: 'tk-input' + (labelErr ? ' is-error' : ''),
+        inputLabel: 'Rótulo da barra ' + (i + 1), upLabel: 'Subir ' + b.label, downLabel: 'Descer ' + b.label, removeLabel: 'Remover ' + b.label,
+        visAll: b.vis === 'all', visGm: b.vis !== 'all', visText: b.vis === 'all' ? 'Todos veem' : 'Só mestre e dono',
+        fmtText: b.fmt === 'int' ? '7 / 10' : '70%', sample: b.fmt === 'int' ? '7/10' : '70%',
+        swatches: TK_COLORS.map(function (c) { return { name: c.name, hex: c.hex, on: b.color === c.k ? 'true' : 'false', cls: 'tk-swatch' + (b.color === c.k ? ' is-on' : ''), pick: function () { self.setBars(function (arr) { arr[i].color = c.k; }); } }; }),
+        setLabel: function (e) { var v = e.target.value; self.setBars(function (arr) { arr[i].label = v; }); },
+        up: function () { if (i > 0) self.setBars(function (arr) { var t = arr[i - 1]; arr[i - 1] = arr[i]; arr[i] = t; }); },
+        down: function () { if (i < n - 1) self.setBars(function (arr) { var t = arr[i + 1]; arr[i + 1] = arr[i]; arr[i] = t; }); },
+        remove: function () { self.setBars(function (arr) { arr.splice(i, 1); }); },
+        toggleVis: function () { self.setBars(function (arr) { arr[i].vis = arr[i].vis === 'all' ? 'gm' : 'all'; }); },
+        toggleFmt: function () { self.setBars(function (arr) { arr[i].fmt = arr[i].fmt === 'int' ? 'pct' : 'int'; }); }
+      };
+    });
+    var have = s.bars.map(function (b) { return b.label.toLowerCase(); });
+    var suggestions = TK_SUGG.filter(function (x) { return have.indexOf(x.label.toLowerCase()) === -1; }).slice(0, 3)
+      .map(function (x) { return { label: x.label, add: function () { self.addBar(x); } }; });
+
+    var sizeText = s.w === s.h ? tkFmt(s.w) + '×' + tkFmt(s.h) : tkFmt(s.w) + '×' + tkFmt(s.h);
+    var metaBits = [TK_SIDE[s.side], sizeText + (s.w * s.h === 1 ? ' casa' : ' casas')];
+    if (s.dark) metaBits.push('vê no escuro');
+    if (s.light) metaBits.push('com luz');
+
+    var status = '', statusColor = '#8C8F98';
+    if (s.saving) status = 'Salvando…';
+    else if (s.saved) { status = editing ? 'Alterações salvas.' : 'Pronto! O token apareceu no centro da tela.'; statusColor = '#A9D1B4'; }
+    else if (s.tried && (nameMissing || s.bars.some(function (b) { return !b.label.trim(); }))) { status = 'Falta preencher o que está marcado.'; statusColor = '#E6A28F'; }
+
+    return {
+      title: editing ? 'Editar token' : 'Novo token',
+      subtitle: editing ? 'As mudanças aparecem pra todo mundo assim que você salvar.' : 'Todo mundo na mesa vê o token assim que você criar.',
+      tabCls: tabCls, tabSel: tabSel, setTab: setTab, basicoError: nameErr,
+      name: s.name, nameCls: 'tk-input' + (nameErr ? ' is-error' : ''), nameError: nameErr, nameInvalid: nameErr ? 'true' : 'false',
+      onName: function (e) { self.setState({ name: e.target.value, saved: false }); },
+      initials: initials, iniAuto: !s.iniTouched, iniManual: s.iniTouched,
+      onIni: function (e) { self.setState({ ini: e.target.value.toUpperCase().slice(0, 3), iniTouched: true }); },
+      resetIni: function () { self.setState({ ini: '', iniTouched: false }); },
+      sideCls: sideCls, sideSel: sideSel, setSide: setSide,
+      presets: presets, wText: tkFmt(s.w), hText: tkFmt(s.h),
+      wDec: function () { self.setState({ w: clamp(s.w - 0.5) }); }, wInc: function () { self.setState({ w: clamp(s.w + 0.5) }); },
+      hDec: function () { self.setState({ h: clamp(s.h - 0.5) }); }, hInc: function () { self.setState({ h: clamp(s.h + 0.5) }); },
+      people: people,
+      bars: bars, barCount: n, hasBars: n > 0, noBars: n === 0, canAdd: n < 8, suggestions: suggestions,
+      addBar: function () { self.addBar(null); },
+      dark: s.dark, darkCls: s.dark ? 'is-on' : '', darkAria: s.dark ? 'true' : 'false',
+      darkHint: s.dark ? 'Vê sem luz até o alcance abaixo.' : 'Desligado, o token só vê onde há luz.',
+      toggleDark: function () { self.setState({ dark: !s.dark }); },
+      darkFull: s.darkFull, darkDim: s.darkDim, darkFullCells: tkCells(s.darkFull), darkDimCells: tkCells(s.darkDim),
+      onDarkFull: function (e) { self.setState({ darkFull: e.target.value }); }, onDarkDim: function (e) { self.setState({ darkDim: e.target.value }); },
+      light: s.light, lightCls: s.light ? 'is-on' : '', lightAria: s.light ? 'true' : 'false',
+      toggleLight: function () { self.setState({ light: !s.light }); },
+      lightFull: s.lightFull, lightDim: s.lightDim, lightFullCells: tkCells(s.lightFull), lightDimCells: tkCells(s.lightDim),
+      onLightFull: function (e) { self.setState({ lightFull: e.target.value }); }, onLightDim: function (e) { self.setState({ lightDim: e.target.value }); },
+      tokW: tw + 'px', tokH: th + 'px', ring: TK_RING[s.side], iniSize: Math.max(14, Math.min(44, Math.min(tw, th) * 0.26)) + 'px',
+      glow: lightR + 'px', glowOp: s.light ? 1 : 0,
+      hasImage: !!s.image, noImage: !s.image, image: s.image || '',
+      previewIni: initials || '?', hasFirstBar: n > 0, firstBarColor: n > 0 ? colorHex(s.bars[0].color) : '#C5A46D',
+      previewName: s.name.trim() || 'Sem nome', previewNameColor: s.name.trim() ? '#EAE5DA' : '#6F7480', previewMeta: metaBits.join(' · '),
+      dropCls: 'tk-drop' + (s.over ? ' is-over' : ''), isOver: s.over,
+      onDragOver: function (e) { e.preventDefault(); if (!self.state.over) self.setState({ over: true }); },
+      onDragLeave: function () { self.setState({ over: false }); },
+      onDrop: function (e) { e.preventDefault(); self.setState({ over: false }); var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; self.readFile(f); },
+      onFile: function (e) { self.readFile(e.target.files && e.target.files[0]); e.target.value = ''; },
+      pickLabel: s.image ? 'Trocar imagem' : 'Escolher imagem',
+      clearImage: function () { self.setState({ image: null }); },
+      linkOpen: s.linkOpen, link: s.link, toggleLink: function () { self.setState({ linkOpen: !s.linkOpen }); },
+      onLink: function (e) { self.setState({ link: e.target.value }); },
+      useLink: function () { if (/^https?:\/\//.test(s.link.trim())) self.setState({ image: s.link.trim(), linkOpen: false }); },
+      showDelete: editing && !s.confirmDelete, confirmDelete: editing && s.confirmDelete,
+      askDelete: function () { self.setState({ confirmDelete: true }); }, cancelDelete: function () { self.setState({ confirmDelete: false }); },
+      hasStatus: !!status && !(editing && s.confirmDelete), status: status, statusColor: statusColor,
+      submitLabel: s.saving ? 'Salvando…' : (editing ? 'Salvar' : 'Criar token'),
+      submit: function () {
+        var bad = !self.state.name.trim() || self.state.bars.some(function (b) { return !b.label.trim(); });
+        if (bad) {
+          var tab = !self.state.name.trim() ? 'basico' : 'barras';
+          self.setState({ tried: true, tab: tab, saved: false });
+          return;
+        }
+        self.setState({ tried: false, saving: true, saved: false });
+        setTimeout(function () { self.setState({ saving: false, saved: true }); }, 900);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

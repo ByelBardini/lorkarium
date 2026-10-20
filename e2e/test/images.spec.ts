@@ -4,7 +4,7 @@ import { cellCenterOf, type SceneCells } from './support/board-cells';
 import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
-import { cardOf, openCard, statusOf } from './support/token-cards';
+import { cardOf, openCard, statusOf, chooseController } from './support/token-cards';
 import {
   boardOf,
   createTableAndReadCode,
@@ -28,7 +28,7 @@ async function createLyraWithImage(admin: Page): Promise<void> {
   await admin.getByRole('button', { name: 'Novo token' }).click();
   const dialog = admin.getByRole('dialog', { name: 'Novo token' });
   await dialog.getByLabel('Nome').fill('Lyra');
-  await dialog.getByRole('checkbox', { name: 'Bia' }).click();
+  await chooseController(dialog, 'Bia');
   await dialog.getByLabel('Arquivo de imagem').setInputFiles(PORTRAIT);
   await expect(dialog.getByRole('img', { name: 'Imagem escolhida' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Criar token' }).click();
@@ -130,6 +130,7 @@ test('background, token image and facing reach three browsers, survive an F5 and
   await bia.keyboard.press('Escape');
 
   const linkDialog = await openSceneDialog(admin);
+  await linkDialog.getByRole('button', { name: 'Usar link de imagem' }).click();
   await linkDialog.getByLabel('Link da imagem').fill('http://127.0.0.1/x.png');
   await linkDialog.getByRole('button', { name: 'Usar link' }).click();
   await expect(linkDialog.getByRole('alert')).toContainText('Esse link não pode ser usado.');

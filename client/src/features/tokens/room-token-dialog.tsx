@@ -9,7 +9,7 @@ import { useBoard, type BoardStore } from '@/stores/board-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { TokenDialog } from './token-dialog';
 import { TokenImageDialog } from './token-image-dialog';
-import type { TokenPlayer } from './token-form';
+import type { TokenPlayer } from './token-form-state';
 
 export type RoomTokenDialogProps = Readonly<{
   campaignId: string;

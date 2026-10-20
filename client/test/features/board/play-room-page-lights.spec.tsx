@@ -66,10 +66,10 @@ describe('play room: the lights tool', () => {
     expect(screen.queryByRole('region', { name: 'Luz' })).not.toBeInTheDocument();
   });
 
-  it('"9" m of bright light in the panel and a click send createLights with bright 6 cells', async () => {
+  it('bright until "9" m in the panel, dim until 12 m kept, and a click send createLights with 6 + 2 cells', async () => {
     const deps = await openRoom();
     await userEvent.keyboard('l');
-    const bright = screen.getByLabelText('Plena (m)');
+    const bright = screen.getByLabelText('Plena até (m)');
     await userEvent.clear(bright);
     await userEvent.type(bright, '9');
 
@@ -77,7 +77,7 @@ describe('play room: the lights tool', () => {
 
     await waitFor(() =>
       expect(deps.boardCommands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-        { lights: [{ x: 5.5, y: 3, bright: 6, dim: 4 }] },
+        { lights: [{ x: 5.5, y: 3, bright: 6, dim: 2 }] },
       ]),
     );
   });
@@ -95,17 +95,17 @@ describe('play room: editing map lights', () => {
     return deps;
   }
 
-  it('picking the brazier (bright 2, dim 6) shows "3" and "9" m in the panel', async () => {
+  it('picking the brazier (bright 2, dim 6) shows bright until "3" and dim until "12" m in the panel', async () => {
     await brazierPicked();
 
     const panel = screen.getByRole('region', { name: 'Luz' });
-    expect(within(panel).getByLabelText('Plena (m)')).toHaveValue('3');
-    expect(within(panel).getByLabelText('Penumbra (m)')).toHaveValue('9');
+    expect(within(panel).getByLabelText('Plena até (m)')).toHaveValue('3');
+    expect(within(panel).getByLabelText('Penumbra até (m)')).toHaveValue('12');
   });
 
-  it('"9" m of bright light with the brazier picked sends one setLightRanges for it on leaving the field', async () => {
+  it('bright until "9" m with the brazier picked (dim until 12 m) sends one setLightRanges of 6 + 2 on leaving the field', async () => {
     const deps = await brazierPicked();
-    const bright = screen.getByLabelText('Plena (m)');
+    const bright = screen.getByLabelText('Plena até (m)');
     await userEvent.clear(bright);
     await userEvent.type(bright, '9');
     await userEvent.tab();
@@ -113,7 +113,7 @@ describe('play room: editing map lights', () => {
     await waitFor(() => expect(deps.boardCommands.sentAs('setLightRanges')).toHaveLength(1));
     await waitFor(() =>
       expect(deps.boardCommands.sentAs('setLightRanges').at(-1)?.fields).toEqual({
-        changes: [{ lightId: BRAZIER_ID, bright: 6, dim: 6, expect: { bright: 2, dim: 6 } }],
+        changes: [{ lightId: BRAZIER_ID, bright: 6, dim: 2, expect: { bright: 2, dim: 6 } }],
       }),
     );
   });
@@ -139,7 +139,7 @@ describe('play room: editing map lights', () => {
     await userEvent.keyboard('v');
     await userEvent.keyboard('l');
 
-    expect(screen.getByLabelText('Plena (m)')).toHaveValue('6');
+    expect(screen.getByLabelText('Plena até (m)')).toHaveValue('6');
   });
 });
 

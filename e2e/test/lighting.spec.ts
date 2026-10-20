@@ -9,7 +9,7 @@ import {
   enterFromTheList,
   joinByCodeAndEnter,
 } from './support/tables';
-import { cardOf, openCard, statusOf } from './support/token-cards';
+import { cardOf, openCard, statusOf, chooseController } from './support/token-cards';
 
 // Runs in the page (the e2e workspace has no DOM types): decodes the PNG and averages its pixels.
 const MEAN_LUMINANCE_OF_PNG = `(async () => {
@@ -55,7 +55,10 @@ async function createBlindLyra(admin: Page): Promise<void> {
   await admin.getByRole('button', { name: 'Novo token' }).click();
   const dialog = admin.getByRole('dialog', { name: 'Novo token' });
   await dialog.getByLabel('Nome').fill('Lyra');
-  await dialog.getByRole('checkbox', { name: 'Bia' }).click();
+  await chooseController(dialog, 'Bia');
+  // A new token sees in the dark by default: the premise here is that she sees only what is lit.
+  await dialog.getByRole('tab', { name: 'Visão e luz' }).click();
+  await dialog.getByRole('switch', { name: 'Enxerga no escuro' }).click();
   await dialog.getByRole('button', { name: 'Criar token' }).click();
   await expect(dialog).toBeHidden();
 }
@@ -76,14 +79,16 @@ async function createFarOgre(admin: Page): Promise<void> {
   }
 }
 
-// "Editar token" on Lyra: a torch of 6 m and 6 m more (4 + 4 cells of 1.5 m).
+// "Editar token" on Lyra: a torch until 6 m and dim until 12 m (4 + 4 cells of 1.5 m).
 async function giveLyraATorch(admin: Page): Promise<void> {
   await openCard(admin, 'Lyra');
   await cardOf(admin, 'Lyra').getByRole('button', { name: 'Editar token' }).click();
   const dialog = admin.getByRole('dialog', { name: 'Editar token' });
-  await dialog.getByRole('checkbox', { name: 'Emite luz' }).click();
-  await dialog.getByLabel('Luz plena (m)').fill('6');
-  await dialog.getByLabel('Penumbra (m)').last().fill('6');
+  await dialog.getByRole('tab', { name: 'Visão e luz' }).click();
+  await dialog.getByRole('switch', { name: 'Emite luz' }).click();
+  const light = dialog.getByRole('group', { name: 'Emite luz' });
+  await light.getByLabel('Plena até (m)').fill('6');
+  await light.getByLabel('Penumbra até (m)').fill('12');
   await dialog.getByRole('button', { name: 'Salvar' }).click();
   await expect(dialog).toBeHidden();
 }

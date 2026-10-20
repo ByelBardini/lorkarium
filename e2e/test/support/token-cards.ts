@@ -22,12 +22,18 @@ export async function openCard(page: Page, name: string): Promise<void> {
   await expect(cardOf(page, name)).toBeVisible();
 }
 
+/** Presses the player's button in "Quem controla" of the token dialog (nobody pressed is the
+ *  master's). */
+export async function chooseController(dialog: Locator, player: string): Promise<void> {
+  await dialog.getByRole('button', { name: player, exact: true }).click();
+}
+
 /** "Novo token" with a name and one player in control, at the center of the view. */
 export async function createTokenFor(master: Page, name: string, player: string): Promise<void> {
   await master.getByRole('button', { name: 'Novo token' }).click();
   const dialog = master.getByRole('dialog', { name: 'Novo token' });
   await dialog.getByLabel('Nome').fill(name);
-  await dialog.getByRole('checkbox', { name: player }).click();
+  await chooseController(dialog, player);
   await dialog.getByRole('button', { name: 'Criar token' }).click();
   await expect(dialog).toBeHidden();
 }

@@ -403,7 +403,7 @@ describe('play room page', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Novo token' }));
       const dialog = await screen.findByRole('dialog', { name: 'Novo token' });
       await userEvent.type(within(dialog).getByLabelText('Nome'), 'Goblin');
-      expect(within(dialog).getByRole('checkbox', { name: 'Caio' })).toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: 'Caio' })).toBeInTheDocument();
       await userEvent.click(within(dialog).getByRole('button', { name: 'Criar token' }));
       expect(deps.boardCommands.sentAs('createToken')).toEqual([
         expect.objectContaining({

@@ -1,7 +1,7 @@
 import type { TokenBarDto, TokenDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
-import { barFill, barToneVar, formatBarValue } from '@/lib/bar-display';
+import { barFill, formatBarValue } from '@/lib/bar-display';
 import { cellsText } from '@/lib/cells-text';
 import { facingLabel } from '@/lib/facing-label';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-
 import { ConditionsEditor } from '@/features/combat/conditions-editor';
 import type { BoardStore } from '@/stores/board-store';
 import { BarField } from './bar-field';
+import { BarTrack } from './bar-track';
 
 export type TokenCardProps = Readonly<{
   token: TokenDto;
@@ -80,22 +81,7 @@ export function BarLine({ bar }: Readonly<{ bar: TokenBarDto }>): React.JSX.Elem
           {formatBarValue(bar)}
         </span>
       </div>
-      <span aria-hidden="true" className="relative h-1.5 overflow-hidden rounded-full bg-divider">
-        <span
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ width: `${fill.fraction * 100}%`, background: barToneVar(bar.color) }}
-        />
-        {fill.state !== 'normal' && (
-          <span
-            data-bar-excess={fill.state}
-            className={cn(
-              'absolute inset-y-0 left-0 rounded-full',
-              fill.state === 'negative' ? 'bg-bar-negative' : 'bg-bar-over',
-            )}
-            style={{ width: `${fill.excess * 100}%` }}
-          />
-        )}
-      </span>
+      <BarTrack fill={fill} color={bar.color} />
     </div>
   );
 }
