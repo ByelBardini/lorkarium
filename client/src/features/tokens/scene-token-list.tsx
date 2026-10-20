@@ -3,10 +3,9 @@ import { seenTokensOf } from '@/lib/board-sight';
 import { combatCandidatesOf } from '@/lib/combat-entries';
 import { useBoardSight } from '@/features/board/use-board-sight';
 import type { SessionMemberDto, TokenDto } from '@lorkarium/contracts';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { formatBarValue } from '@/lib/bar-display';
-import { assetUrlOf } from '@/services/assets-api';
 import { cn } from '@/lib/utils';
 import {
   singleSelectedOf,
@@ -18,6 +17,7 @@ import { useTablePresence, type TablePresenceStore } from '@/stores/table-presen
 import { ConditionSummary } from '@/features/combat/condition-marks';
 import { SelectionConditions } from '@/features/combat/selection-conditions';
 import { TokenCard } from './token-card';
+import { TokenFace } from './token-face';
 
 export type SceneTokenListProps = Readonly<{
   board: StoreApi<BoardStore>;
@@ -142,29 +142,12 @@ function TokenRow({ token, members, open, marked, ...props }: TokenRowProps) {
 /** The token's image in its frame when it has one; the initials when it has none or the image
  *  fails to load (the board falls back the same way). */
 function TokenAvatar({ token }: Readonly<{ token: TokenDto }>): React.JSX.Element {
-  const [brokenId, setBrokenId] = useState<string | null>(null);
-  const assetId = token.imageAssetId;
-  const frameClass = cn(
-    'size-7 shrink-0 border border-border',
-    token.frame === 'round' && 'rounded-full',
-  );
-  if (assetId === null || brokenId === assetId) {
-    return (
-      <span
-        aria-hidden="true"
-        className={cn(frameClass, 'grid place-items-center text-[11px] font-semibold')}
-      >
-        {token.initials}
-      </span>
-    );
-  }
-  const markBroken = (): void => setBrokenId(assetId);
   return (
-    <img
-      src={assetUrlOf(assetId)}
-      alt=""
-      onError={markBroken}
-      className={cn(frameClass, 'object-cover')}
+    <TokenFace
+      initials={token.initials}
+      imageAssetId={token.imageAssetId}
+      round={token.frame === 'round'}
+      className="size-7 shrink-0 border border-border text-[11px]"
     />
   );
 }

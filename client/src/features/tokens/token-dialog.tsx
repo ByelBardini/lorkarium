@@ -7,11 +7,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DISCONNECTED_COMMAND, tokenCommandFailureMessage } from '@/features/board/board-messages';
+import type { SceneDistance } from '@/lib/sight-form';
 import type { AssetsApi } from '@/services/assets-api';
 import type {
   BoardCommandFailure,
@@ -19,15 +20,27 @@ import type {
   TableBoardCommands,
   TokenEdit,
 } from '@/services/table-board-commands';
-import { TokenForm, type TokenPlayer } from './token-form';
+import { BarsEditor } from './bars-editor';
+import { TokenBasicsTab } from './token-basics-tab';
 import {
   emptyTokenForm,
+  firstErrorTab,
   parseTokenForm,
+  tabHasErrors,
   tokenFormOf,
+  type TokenDialogTab,
   type TokenFormErrors,
+  type TokenFormValues,
+  type TokenPlayer,
 } from './token-form-state';
-import type { SceneDistance } from '@/lib/sight-form';
-import { deleteTokenQuestion } from './token-messages';
+import {
+  deleteTokenQuestion,
+  EDIT_TOKEN_SUBTITLE,
+  MISSING_FIELDS,
+  NEW_TOKEN_SUBTITLE,
+} from './token-messages';
+import { TokenPreview } from './token-preview';
+import { VisionLightTab } from './vision-light-tab';
 
 export type TokenDialogProps = Readonly<{
   campaignId: string;
@@ -46,15 +59,68 @@ export type TokenDialogProps = Readonly<{
   onClose: () => void;
 }>;
 
-/** "Novo token" / "Editar token" (master). Mounted only while open; saving closes on the ack, and
- *  the change itself arrives as the event everyone gets.
+/** "Novo token" / "Editar token" (master): the preview at the side (also where the image is
+ *  chosen), the tabs "Básico", "Barras" and "Visão e luz", and the footer. Saving with an error
+ *  goes to the first tab that has one. Mounted only while open; saving closes on the ack, and the
+ *  change itself arrives as the event everyone gets.
  *
- *  Example: `{dialog && <TokenDialog campaignId={id} token={null} placeAt={center} layer="tokens" players={players} commands={commands} connected onClose={close} />}` */
+ *  Example: `{dialog && <TokenDialog campaignId={id} token={null} placeAt={center} layer="tokens" players={players} commands={commands} assets={assets} distance={scene} connected onClose={close} />}` */
 export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
-  const { token, players, connected, onClose } = props;
-  const { distance } = props;
-  const [form, setForm] = useState(() => (token ? tokenFormOf(token, distance) : emptyTokenForm()));
+  const { token, onClose } = props;
+  const dialog = useTokenDialog(props);
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex h-[min(800px,calc(100svh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[900px]">
+        <DialogHeader className="shrink-0 gap-1 border-b border-border py-5 pr-14 pl-6 md:pl-7">
+          <DialogTitle>{token ? 'Editar token' : 'Novo token'}</DialogTitle>
+          <DialogDescription>{token ? EDIT_TOKEN_SUBTITLE : NEW_TOKEN_SUBTITLE}</DialogDescription>
+        </DialogHeader>
+        <form
+          noValidate
+          className="flex min-h-0 flex-1 flex-col"
+          onSubmit={(event) => {
+            event.preventDefault();
+            dialog.save();
+          }}
+        >
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+            <aside className="shrink-0 border-b border-border bg-background p-4 md:w-[300px] md:overflow-y-auto md:border-r md:border-b-0 md:p-6">
+              <TokenPreview
+                form={dialog.form}
+                image={{ campaignId: props.campaignId, assets: props.assets }}
+                onImage={dialog.setImage}
+                distance={props.distance}
+              />
+            </aside>
+            <TokenTabs props={props} dialog={dialog} />
+          </div>
+          <TokenDialogFooter props={props} dialog={dialog} />
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type TokenDialogState = Readonly<{
+  form: TokenFormValues;
+  setForm: (form: TokenFormValues) => void;
+  setImage: (assetId: string | null) => void;
+  errors: TokenFormErrors;
+  tab: TokenDialogTab;
+  setTab: (tab: TokenDialogTab) => void;
+  failure: BoardCommandFailure | null;
+  saving: boolean;
+  save: () => void;
+  remove: () => void;
+}>;
+
+function useTokenDialog(props: TokenDialogProps): TokenDialogState {
+  const { token, distance, onClose } = props;
+  const [form, setForm] = useState(() =>
+    token ? tokenFormOf(token, distance) : emptyTokenForm(distance),
+  );
   const [errors, setErrors] = useState<TokenFormErrors>({});
+  const [tab, setTab] = useState<TokenDialogTab>('basics');
   const [failure, setFailure] = useState<BoardCommandFailure | null>(null);
   const [saving, setSaving] = useState(false);
   const run = async (send: () => Promise<BoardCommandResult>): Promise<void> => {
@@ -67,70 +133,128 @@ export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
   const save = (): void => {
     const parsed = parseTokenForm(form, distance);
     setErrors(parsed.ok ? {} : parsed.errors);
-    if (parsed.ok) void run(() => sendToken(props, parsed.token));
+    if (!parsed.ok) return setTab(firstErrorTab(parsed.errors) ?? tab);
+    void run(() => sendToken(props, parsed.token));
   };
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{token ? 'Editar token' : 'Novo token'}</DialogTitle>
-          <DialogDescription>Todos na mesa veem o token na hora.</DialogDescription>
-        </DialogHeader>
-        <form
-          noValidate
-          className="flex flex-col gap-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            save();
-          }}
-        >
-          <TokenForm
-            form={form}
-            errors={errors}
-            players={players}
-            image={{ campaignId: props.campaignId, assets: props.assets }}
-            distance={distance}
-            onChange={setForm}
-          />
-          {failure && (
-            <Alert variant="destructive" className="px-3.5 py-3 text-sm">
-              {tokenCommandFailureMessage(failure)}
-            </Alert>
-          )}
-          {!connected && (
-            <p className="text-[13px] text-muted-foreground">{DISCONNECTED_COMMAND}</p>
-          )}
-          <DialogFooter className="items-center sm:justify-between">
-            {token ? (
-              <DeleteToken
-                name={token.name}
-                disabled={saving || !connected}
-                onConfirm={() =>
-                  void run(() => props.commands.deleteToken(props.campaignId, token.id))
-                }
-              />
-            ) : (
-              <span />
-            )}
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={saving || !connected} aria-busy={saving}>
-                {saving ? 'Salvando…' : token ? 'Salvar' : 'Criar token'}
-              </Button>
-            </div>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
+  const remove = (): void => {
+    if (token) void run(() => props.commands.deleteToken(props.campaignId, token.id));
+  };
+  // The image arrives after an upload: the fields typed meanwhile are kept.
+  const setImage = (imageAssetId: string | null): void =>
+    setForm((current) => ({ ...current, imageAssetId }));
+  return { form, setForm, setImage, errors, tab, setTab, failure, saving, save, remove };
 }
 
 function sendToken(props: TokenDialogProps, edit: TokenEdit): Promise<BoardCommandResult> {
   const { commands, campaignId, token, placeAt, layer } = props;
   if (token) return commands.updateToken(campaignId, token.id, edit);
   return commands.createToken(campaignId, { ...edit, col: placeAt.col, row: placeAt.row, layer });
+}
+
+type DialogPartProps = Readonly<{ props: TokenDialogProps; dialog: TokenDialogState }>;
+
+const TAB_LABEL: Readonly<Record<TokenDialogTab, string>> = {
+  basics: 'Básico',
+  bars: 'Barras',
+  vision: 'Visão e luz',
+};
+
+function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
+  const { form, errors, setForm } = dialog;
+  return (
+    <Tabs
+      value={dialog.tab}
+      onValueChange={(value) => isDialogTab(value) && dialog.setTab(value)}
+      className="min-w-0 flex-1 md:min-h-0"
+    >
+      <TabsList className="shrink-0 gap-6 px-6 md:px-7" aria-label="Seções do token">
+        {(['basics', 'bars', 'vision'] as const).map((tab) => (
+          <TabsTrigger key={tab} value={tab}>
+            {TAB_LABEL[tab]}
+            {tab === 'bars' && (
+              <>
+                {' '}
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] text-label tabular-nums">
+                  {form.bars.length}
+                </span>
+              </>
+            )}
+            {tabHasErrors(errors, tab) && <ErrorMark />}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      <div className="px-6 py-6 md:min-h-0 md:flex-1 md:overflow-y-auto md:px-7">
+        <TabsContent value="basics">
+          <TokenBasicsTab form={form} errors={errors} players={props.players} onChange={setForm} />
+        </TabsContent>
+        <TabsContent value="bars">
+          <BarsEditor
+            bars={form.bars}
+            errors={errors.bars}
+            onChange={(bars) => setForm({ ...form, bars })}
+          />
+        </TabsContent>
+        <TabsContent value="vision">
+          <VisionLightTab
+            form={form}
+            errors={errors}
+            distance={props.distance}
+            onChange={setForm}
+          />
+        </TabsContent>
+      </div>
+    </Tabs>
+  );
+}
+
+function isDialogTab(value: string): value is TokenDialogTab {
+  return value === 'basics' || value === 'bars' || value === 'vision';
+}
+
+// Never only by color: the tab is named "Básico (com erro)" for the screen reader.
+function ErrorMark(): React.JSX.Element {
+  return (
+    <>
+      <span aria-hidden="true" className="size-1.5 bg-destructive" />{' '}
+      <span className="sr-only">(com erro)</span>
+    </>
+  );
+}
+
+function TokenDialogFooter({ props, dialog }: DialogPartProps): React.JSX.Element {
+  const { token, connected, onClose } = props;
+  const { saving } = dialog;
+  return (
+    <div className="flex shrink-0 flex-col border-t border-border">
+      {dialog.failure && (
+        <Alert variant="destructive" className="mx-6 mt-3 w-auto px-3.5 py-3 text-sm">
+          {tokenCommandFailureMessage(dialog.failure)}
+        </Alert>
+      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-3.5">
+        {token && (
+          <DeleteToken
+            name={token.name}
+            disabled={saving || !connected}
+            onConfirm={dialog.remove}
+          />
+        )}
+        <p role="status" className="text-[13px] text-destructive-text">
+          {firstErrorTab(dialog.errors) ? MISSING_FIELDS : ''}
+        </p>
+        {!connected && <p className="text-[13px] text-muted-foreground">{DISCONNECTED_COMMAND}</p>}
+        <span className="ml-auto hidden text-xs text-placeholder sm:inline">Esc fecha</span>
+        <div className="ml-auto flex gap-2 sm:ml-0">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={saving || !connected} aria-busy={saving}>
+            {saving ? 'Salvando…' : token ? 'Salvar' : 'Criar token'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 type DeleteTokenProps = Readonly<{ name: string; disabled: boolean; onConfirm: () => void }>;

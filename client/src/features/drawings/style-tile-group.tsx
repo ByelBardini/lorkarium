@@ -21,6 +21,8 @@ export type StyleTileGroupProps<T extends string> = Readonly<{
   shape: 'round' | 'square' | 'grid';
   disabled?: boolean;
   hint?: string;
+  /** The legend only for screen readers, where a row has no room for it (the bars of a token). */
+  legendHidden?: boolean;
 }>;
 
 const TILE_SHAPE = {
@@ -40,11 +42,15 @@ export function StyleTileGroup<T extends string>({
   shape,
   disabled,
   hint,
+  legendHidden,
 }: StyleTileGroupProps<T>): React.JSX.Element {
   const groupId = useId();
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend id={`${groupId}-legend`} className="mb-2 text-[13px] text-label">
+      <legend
+        id={`${groupId}-legend`}
+        className={legendHidden ? 'sr-only' : 'mb-2 text-[13px] text-label'}
+      >
         {legend}
       </legend>
       <RadioGroupPrimitive.Root

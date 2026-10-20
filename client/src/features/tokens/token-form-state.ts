@@ -1,9 +1,7 @@
 import {
-  MAX_BARS_PER_TOKEN,
+  TOKEN_SIZE_MAX,
+  TOKEN_SIZE_MIN,
   updateTokenCommandDto,
-  type BarColorDto,
-  type BarDisplayDto,
-  type BarVisibilityDto,
   type TokenDto,
   type TokenSideDto,
 } from '@lorkarium/contracts';
@@ -15,6 +13,7 @@ import {
   type RangeFields,
 } from '@/lib/range-form';
 import {
+  defaultSightFields,
   parseSightFields,
   sightFieldsOf,
   type SceneDistance,
@@ -22,19 +21,16 @@ import {
   type SightFields,
 } from '@/lib/sight-form';
 import { initialsOf } from '@/lib/token-initials';
+import { DEFAULT_LIGHT_REACH } from '@/stores/light-reach-store';
 import type { TokenEdit } from '@/services/table-board-commands';
+import { barDraftsOf, barFormsOf, type BarFormErrors, type BarFormValues } from './bar-form-state';
+import { BAR_MAX_PROBLEM, SIDE_OPTIONS } from './token-messages';
 
-/** One bar as configured. `current` and `max` are not typed here (the card adjusts them): they
- *  travel as the token has them, so saving does not reset them. `key` keeps React rows stable. */
-export type BarFormValues = Readonly<{
-  key: string;
-  label: string;
-  current: number;
-  max: number;
-  color: BarColorDto;
-  visibility: BarVisibilityDto;
-  display: BarDisplayDto;
-}>;
+/** Someone at the table who may control a token. */
+export type TokenPlayer = Readonly<{ userId: string; name: string }>;
+
+/** The tabs of the token dialog, in the order a save looks for the first error. */
+export type TokenDialogTab = 'basics' | 'bars' | 'vision';
 
 export type TokenFormValues = Readonly<{
   name: string;
@@ -42,9 +38,10 @@ export type TokenFormValues = Readonly<{
   /** Once the master types the initials, the name stops filling them. */
   initialsEdited: boolean;
   side: TokenSideDto;
-  /** In cells, as typed ("1,5"): half-cell steps from 0,5 to 10. */
-  width: string;
-  height: string;
+  /** In cells, half-cell steps from 0,5 to 10 (presets and −/+, never typed). */
+  width: number;
+  height: number;
+  /** The players who control it; none is the master's alone. */
   controllerIds: readonly string[];
   /** The image of the token, or `null` for the initials disc. */
   imageAssetId: string | null;
@@ -55,13 +52,9 @@ export type TokenFormValues = Readonly<{
   bars: readonly BarFormValues[];
 }>;
 
-export type BarFormErrors = Partial<Record<'label', string>>;
-
 export type TokenFormErrors = Readonly<{
   name?: string;
   initials?: string;
-  width?: string;
-  height?: string;
   sight?: SightFieldErrors;
   light?: RangeFieldErrors;
   bars?: Readonly<Record<number, BarFormErrors>>;
@@ -78,31 +71,62 @@ const TOKEN_FIELDS_DTO = updateTokenCommandDto.omit({
 
 const BAR_ERROR: Readonly<Record<keyof BarFormErrors, string>> = {
   label: 'Dê um nome à barra.',
+  max: BAR_MAX_PROBLEM,
 };
 
-const SIDE_ERROR = 'De 0,5 a 10 casas, de meia em meia.';
+const TAB_ORDER: readonly TokenDialogTab[] = ['basics', 'bars', 'vision'];
 
-const NEW_BAR_MAX = 10;
+const BASICS_FIELDS = ['name', 'initials'] as const;
 
 const LIGHT_TEXTS = { missingBright: 'Informe a luz plena.' };
 
 /** The sight and light as read from the form; `undefined` keeps what the token has. */
 type FormRanges = Readonly<{ sight: TokenEdit['sight']; light: TokenEdit['light'] }>;
 
-let barKeys = 0;
+/** The first tab, in order, with something to fix; `null` when nothing is wrong.
+ *
+ *  Example: `firstErrorTab({ bars: { 1: { label: 'Dê um nome à barra.' } } }) // 'bars'` */
+export function firstErrorTab(errors: TokenFormErrors): TokenDialogTab | null {
+  return TAB_ORDER.find((tab) => tabHasErrors(errors, tab)) ?? null;
+}
 
-/** "Novo token": nothing typed yet. */
-export function emptyTokenForm(): TokenFormValues {
+/** Whether a tab holds an error, for its mark.
+ *
+ *  Example: `tabHasErrors(errors, 'vision')` */
+export function tabHasErrors(errors: TokenFormErrors, tab: TokenDialogTab): boolean {
+  if (tab === 'basics') return BASICS_FIELDS.some((field) => errors[field] !== undefined);
+  if (tab === 'bars') return Object.keys(errors.bars ?? {}).length > 0;
+  return errors.sight !== undefined || errors.light !== undefined;
+}
+
+/** The line under the name in the preview: side, size and what the token does in the dark.
+ *
+ *  Example: `previewMetaOf(form) // 'Inimigo · 2 × 2 casas · vê no escuro'` */
+export function previewMetaOf(form: TokenFormValues): string {
+  const side = SIDE_OPTIONS.find(({ value }) => value === form.side)?.label ?? '';
+  const single = form.width === 1 && form.height === 1;
+  const size = `${cellsText(form.width)} × ${cellsText(form.height)} ${single ? 'casa' : 'casas'}`;
+  const bits = [side, size];
+  if (form.sight.sees) bits.push('vê no escuro');
+  if (form.light.on) bits.push('com luz');
+  return bits.join(' · ');
+}
+
+/** "Novo token": nothing typed yet, seeing in the dark by the default of the market (9 / 18 m,
+ *  kept in cells so each scene reads it in its own unit) and giving off no light.
+ *
+ *  Example: `useState(() => emptyTokenForm(scene))` */
+export function emptyTokenForm(distance: SceneDistance): TokenFormValues {
   return {
     name: '',
     initials: '',
     initialsEdited: false,
     side: 'ally',
-    width: '1',
-    height: '1',
+    width: 1,
+    height: 1,
     controllerIds: [],
     imageAssetId: null,
-    sight: { sees: false, bright: '', dim: '', saved: false },
+    sight: defaultSightFields(distance),
     light: { on: false, bright: '', dim: '', saved: false },
     bars: [],
   };
@@ -112,22 +136,13 @@ export function emptyTokenForm(): TokenFormValues {
  *
  *  Example: `useState(() => tokenFormOf(token, scene))` */
 export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenFormValues {
-  const { name, initials, side, controllerIds, imageAssetId } = token;
-  const width = cellsText(token.width);
-  const height = cellsText(token.height);
-  const bars = token.bars.map((bar) => ({
-    key: nextBarKey(),
-    label: bar.label,
-    current: bar.current,
-    max: bar.max,
-    color: bar.color,
-    visibility: bar.visibility,
-    display: bar.display,
-  }));
+  const { name, initials, side, width, height, controllerIds, imageAssetId } = token;
+  const initialsEdited = initials !== initialsOf(name);
+  const bars = barFormsOf(token.bars);
   const sight = sightFieldsOf(token.sight, distance);
   const light = rangeFieldsOf(token.light, distance);
   const look = { controllerIds, imageAssetId, bars, sight, light };
-  return { name, initials, initialsEdited: true, side, width, height, ...look };
+  return { name, initials, initialsEdited, side, width, height, ...look };
 }
 
 /** The name changed: the initials follow it until edited by hand. */
@@ -135,33 +150,28 @@ export function renameToken(form: TokenFormValues, name: string): TokenFormValue
   return form.initialsEdited ? { ...form, name } : { ...form, name, initials: initialsOf(name) };
 }
 
-/** A new bar at the end, full at 10 / 10 and read as numbers; the first is the PV (ember,
- *  hidden from the other players). */
-export function addBar(form: TokenFormValues): TokenFormValues {
-  if (form.bars.length >= MAX_BARS_PER_TOKEN) return form;
-  const first = form.bars.length === 0;
-  const bar: BarFormValues = {
-    key: nextBarKey(),
-    label: first ? 'PV' : `Barra ${form.bars.length + 1}`,
-    current: NEW_BAR_MAX,
-    max: NEW_BAR_MAX,
-    color: first ? 'ember' : 'steel',
-    visibility: first ? 'controllers' : 'everyone',
-    display: 'number',
-  };
-  return { ...form, bars: [...form.bars, bar] };
+/** "Emite luz" switched on: empty fields take the torch the lights panel starts with (4 + 4 cells);
+ *  what was typed before stays.
+ *
+ *  Example: `lightSwitchedOn(form, scene).light // { on: true, bright: '6', dim: '12', saved: false }` */
+export function lightSwitchedOn(form: TokenFormValues, distance: SceneDistance): TokenFormValues {
+  const { light } = form;
+  const empty = light.bright.trim() === '' && light.dim.trim() === '';
+  const torch = rangeFieldsOf(DEFAULT_LIGHT_REACH, distance);
+  const typed = empty ? { bright: torch.bright, dim: torch.dim } : {};
+  return { ...form, light: { ...light, ...typed, on: true } };
 }
 
-/** Swaps bar `index` with its neighbour (`-1` up, `1` down); the first one is drawn on the token. */
-export function moveBar(form: TokenFormValues, index: number, offset: -1 | 1): TokenFormValues {
-  const target = index + offset;
-  const moving = form.bars[index];
-  const other = form.bars[target];
-  if (!moving || !other) return form;
-  const bars = [...form.bars];
-  bars[index] = other;
-  bars[target] = moving;
-  return { ...form, bars };
+/** "Voltar às iniciais automáticas": the initials of the name, following it again. */
+export function automaticInitials(form: TokenFormValues): TokenFormValues {
+  return { ...form, initials: initialsOf(form.name), initialsEdited: false };
+}
+
+/** One −/+ of the "Personalizado" size: half a cell, held from 0,5 to 10.
+ *
+ *  Example: `stepSide(2, 1) // 2.5` */
+export function stepSide(cells: number, direction: -1 | 1): number {
+  return Math.min(TOKEN_SIZE_MAX, Math.max(TOKEN_SIZE_MIN, cells + direction * 0.5));
 }
 
 /** The form → the token fields to send, validated by the same DTO as the server; the sight and
@@ -190,20 +200,13 @@ function parseTokenFields(form: TokenFormValues, { sight, light }: FormRanges): 
     name: form.name,
     initials: form.initials,
     side: form.side,
-    width: cellsOf(form.width),
-    height: cellsOf(form.height),
+    width: form.width,
+    height: form.height,
     controllerIds: form.controllerIds,
     imageAssetId: form.imageAssetId,
     ...(sight === undefined ? {} : { sight }),
     ...(light === undefined ? {} : { light }),
-    bars: form.bars.map(({ label, current, max, color, visibility, display }) => ({
-      label,
-      current,
-      max,
-      color,
-      visibility,
-      display,
-    })),
+    bars: barDraftsOf(form.bars),
   });
   if (parsed.success) return { ok: true, token: parsed.data };
   return { ok: false, errors: errorsOf(parsed.error.issues) };
@@ -212,33 +215,18 @@ function parseTokenFields(form: TokenFormValues, { sight, light }: FormRanges): 
 function errorsOf(issues: readonly { path: readonly PropertyKey[] }[]): TokenFormErrors {
   let name: string | undefined;
   let initials: string | undefined;
-  let width: string | undefined;
-  let height: string | undefined;
   const bars: Record<number, BarFormErrors> = {};
   for (const { path } of issues) {
     const [field, index, barField] = path;
     if (field === 'name') name = 'Informe o nome do token.';
     if (field === 'initials') initials = 'Use de 1 a 3 letras.';
-    if (field === 'width') width = SIDE_ERROR;
-    if (field === 'height') height = SIDE_ERROR;
     if (field === 'bars' && typeof index === 'number' && isBarField(barField)) {
       bars[index] = { ...bars[index], [barField]: BAR_ERROR[barField] };
     }
   }
-  return { name, initials, width, height, bars };
+  return { name, initials, bars };
 }
 
 function isBarField(key: unknown): key is keyof BarFormErrors {
-  return key === 'label';
-}
-
-// "1,5" and "1.5" are both a cell and a half; anything else is NaN and the DTO refuses it.
-function cellsOf(text: string): number {
-  const trimmed = text.trim().replace(',', '.');
-  return /^\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : Number.NaN;
-}
-
-function nextBarKey(): string {
-  barKeys += 1;
-  return `bar-${barKeys}`;
+  return key === 'label' || key === 'max';
 }

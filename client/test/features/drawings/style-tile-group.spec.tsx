@@ -19,6 +19,22 @@ describe('StyleTileGroup', () => {
     expect(screen.getByRole('radio', { name: 'Alfa' })).toHaveAttribute('title', 'Alfa');
   });
 
+  it('legendHidden keeps the legend as the name of the group, only for screen readers', () => {
+    render(
+      <StyleTileGroup
+        legend="Cor de PV"
+        legendHidden
+        value="a"
+        tiles={TILES}
+        onChange={vi.fn()}
+        shape="round"
+      />,
+    );
+
+    expect(screen.getByRole('radiogroup', { name: 'Cor de PV' })).toBeInTheDocument();
+    expect(screen.getByText('Cor de PV')).toHaveClass('sr-only');
+  });
+
   it('clicking a tile reports its value', async () => {
     const onChange = vi.fn();
     render(
