@@ -5,6 +5,7 @@ import {
   afterRedo,
   afterUndo,
   inverseOf,
+  isLightOp,
   record,
   remapEntry,
   type EditEntry,
@@ -268,7 +269,7 @@ describe('inverseOf, walls', () => {
 });
 
 describe('inverseOf and remapEntry, lights', () => {
-  const placement = { x: 5.5, y: 3, bright: 4, dim: 4 };
+  const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: null };
 
   it('a placed light is undone by removing it, and a removed one by placing it again', () => {
     const added: EditEntry = [{ kind: 'lightsAdded', lights: [{ id: 'l', placement }] }];
@@ -316,6 +317,30 @@ describe('inverseOf and remapEntry, lights', () => {
       true,
       true,
     ]);
+  });
+
+  it('a color change is undone by swapping from and to', () => {
+    const changed: EditEntry = [
+      { kind: 'lightColorsChanged', changes: [{ lightId: 'l', from: null, to: 'moon' }] },
+    ];
+
+    expect(inverseOf(changed)).toEqual([
+      { kind: 'lightColorsChanged', changes: [{ lightId: 'l', from: 'moon', to: null }] },
+    ]);
+  });
+
+  it('a light placed again takes its new id in the color changes after it', () => {
+    const later: EditEntry = [
+      { kind: 'lightColorsChanged', changes: [{ lightId: 'l', from: null, to: 'moon' }] },
+    ];
+
+    expect(remapEntry(later, { l: 'm' })).toEqual([
+      { kind: 'lightColorsChanged', changes: [{ lightId: 'm', from: null, to: 'moon' }] },
+    ]);
+  });
+
+  it('a color change is a light op', () => {
+    expect(isLightOp({ kind: 'lightColorsChanged', changes: [] })).toBe(true);
   });
 
   it('a light placed again takes its new id in the removals after it', () => {

@@ -17,6 +17,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { assets } from '../assets/assets.po';
 import { users } from '../auth/users.po';
+import { lightColorEnum } from '../lights/lights.po';
 import { scenes } from '../scenes/scenes.po';
 
 export const tokenSide = pgEnum('token_side', ['ally', 'enemy', 'neutral']);
@@ -61,6 +62,8 @@ export const tokens = pgTable(
     lightBright: numeric('light_bright', { precision: 6, scale: 2 }),
     lightDim: numeric('light_dim', { precision: 6, scale: 2 }),
     lightLit: boolean('light_lit').notNull().default(true),
+    // Null is neutral; only a light with a range has a color (CHECK tokens_light_color).
+    lightColor: lightColorEnum('light_color'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -74,6 +77,10 @@ export const tokens = pgTable(
     check(
       'tokens_light_range',
       sql`(${table.lightBright} IS NULL AND ${table.lightDim} IS NULL) OR (${table.lightBright} IS NOT NULL AND ${table.lightDim} IS NOT NULL AND ${table.lightBright} BETWEEN 0 AND 100 AND ${table.lightDim} BETWEEN 0 AND 100)`,
+    ),
+    check(
+      'tokens_light_color',
+      sql`${table.lightColor} IS NULL OR ${table.lightBright} IS NOT NULL`,
     ),
     check(
       'tokens_box_half_cells',
@@ -126,7 +133,7 @@ export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'fl
  *  `token:update` never sends. */
 export type TokenStylePo = TokenLookPo & Pick<TokenPo, 'defeated' | 'lightLit'>;
 export type TokenSightPo = Pick<TokenPo, 'sightBright' | 'sightDim'>;
-export type TokenLightPo = Pick<TokenPo, 'lightBright' | 'lightDim'>;
+export type TokenLightPo = Pick<TokenPo, 'lightBright' | 'lightDim' | 'lightColor'>;
 /** What `token:update` saves; an absent look field keeps what the token has. */
 export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width' | 'height'> &
   Partial<TokenLookPo> &

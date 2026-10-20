@@ -40,6 +40,7 @@ import type {
   LightAt,
   LightMoveTarget,
   LightPlacement,
+  LightColorTarget,
   LightRangeTarget,
 } from '@/services/light-commands';
 import type { RegroupTarget } from '@/services/combat-commands';
@@ -188,6 +189,13 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     changes: readonly LightRangeTarget[],
   ): Promise<BoardCommandResult> {
     return this.record('setLightRanges', campaignId, { changes: [...changes] });
+  }
+
+  setLightColors(
+    campaignId: string,
+    changes: readonly LightColorTarget[],
+  ): Promise<BoardCommandResult> {
+    return this.record('setLightColors', campaignId, { changes: [...changes] });
   }
 
   setLightsLit(

@@ -1,7 +1,7 @@
 import type {
   ActiveConditionDto,
   BarInputDto,
-  LightRangeDto,
+  TokenLightDto,
   SightDto,
   TokenBarDto,
   TokenDto,
@@ -127,12 +127,17 @@ export function toTokenSightPo(sight: SightDto | null | undefined): TokenSightPo
   return { sightBright: cellsNumeric(sight.bright), sightDim: cellsNumeric(sight.dim) };
 }
 
-/** A light as sent → the two numeric columns, to the hundredth; `null` (no light) clears both.
+/** A light as sent → the two numeric columns, to the hundredth, and its color; `null` (no light)
+ *  clears the three.
  *
- *  Example: `toTokenLightPo({ bright: 4, dim: 4 }) // { lightBright: '4.00', lightDim: '4.00' }` */
-export function toTokenLightPo(light: LightRangeDto | null | undefined): TokenLightPo {
-  if (!light) return { lightBright: null, lightDim: null };
-  return { lightBright: cellsNumeric(light.bright), lightDim: cellsNumeric(light.dim) };
+ *  Example: `toTokenLightPo({ bright: 4, dim: 4, color: 'fire' }) // { lightBright: '4.00', lightDim: '4.00', lightColor: 'fire' }` */
+export function toTokenLightPo(light: TokenLightDto | null | undefined): TokenLightPo {
+  if (!light) return { lightBright: null, lightDim: null, lightColor: null };
+  return {
+    lightBright: cellsNumeric(light.bright),
+    lightDim: cellsNumeric(light.dim),
+    lightColor: light.color,
+  };
 }
 
 /** The light a saved token gives off, from the center of its footprint; `null` without a light
@@ -158,8 +163,9 @@ function sightOfToken({ sightBright, sightDim }: TokenSightPo): SightDto | null 
   return rangeOfColumns(sightBright, sightDim);
 }
 
-function lightOfToken({ lightBright, lightDim }: TokenLightPo): LightRangeDto | null {
-  return rangeOfColumns(lightBright, lightDim);
+function lightOfToken({ lightBright, lightDim, lightColor }: TokenLightPo): TokenLightDto | null {
+  const range = rangeOfColumns(lightBright, lightDim);
+  return range && { ...range, color: lightColor };
 }
 
 function rangeOfColumns(

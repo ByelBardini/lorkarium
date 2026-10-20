@@ -77,4 +77,29 @@ describe('LightRulesBo', () => {
       expect(() => rules().requireRange(TORCH_ID, undefined, lightRange(4, 4))).not.toThrow();
     });
   });
+
+  describe('requireColor', () => {
+    it.each([
+      ['no precondition', undefined, 'fire'],
+      ['the same color', { color: 'fire' }, 'fire'],
+      ['neutral expected on a neutral light', { color: null }, null],
+    ] as const)('%s passes', (_name, expected, actual) => {
+      expect(rules().requireColor(TORCH_ID, expected, actual)).toBeUndefined();
+    });
+
+    it('a torch precondition on a fire light is STALE_UNDO citing both colors', () => {
+      expect(() => rules().requireColor(TORCH_ID, { color: 'torch' }, 'fire')).toThrow(
+        expect.objectContaining({
+          code: 'STALE_UNDO',
+          message: 'light torch-1 is at fire; the undo expected torch',
+        }),
+      );
+    });
+
+    it('a neutral precondition on a moon light is STALE_UNDO naming it neutral', () => {
+      expect(() => rules().requireColor(TORCH_ID, { color: null }, 'moon')).toThrow(
+        expect.objectContaining({ message: 'light torch-1 is at moon; the undo expected neutral' }),
+      );
+    });
+  });
 });

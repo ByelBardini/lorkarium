@@ -88,3 +88,23 @@ describe('topLightAt', () => {
     expect(topLightAt(stacked, { x: 5 * CELL, y: 5 * CELL }, 1)?.id).toBe(BRAZIER_ID);
   });
 });
+
+describe('lightViewsOf, the color of the light', () => {
+  it('a fire torch carries the fire tone, 0xff6a2b', () => {
+    const [torch] = lightViewsOf(input({ lights: [corridorTorch({ color: 'fire' })] }));
+
+    expect(torch?.color).toBe(0xff6a2b);
+  });
+
+  it('a neutral torch carries no tone (null)', () => {
+    const [torch] = lightViewsOf(input({ lights: [corridorTorch()] }));
+
+    expect(torch?.color).toBeNull();
+  });
+
+  it('a fire torch that is out keeps its tone (the layer draws it ash)', () => {
+    const [torch] = lightViewsOf(input({ lights: [corridorTorch({ color: 'fire', lit: false })] }));
+
+    expect(torch).toMatchObject({ lit: false, color: 0xff6a2b });
+  });
+});

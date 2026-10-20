@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { UsersDao } from '../../src/modules/auth/users.dao';
@@ -12,6 +12,7 @@ import { newCampaignPo } from '../support/campaigns-factories';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const CHECK_VIOLATION = '23514';
+const INVALID_TEXT = '22P02';
 
 describe('LightsDao on Postgres', () => {
   let connection: DatabaseConnection;
@@ -57,6 +58,31 @@ describe('LightsDao on Postgres', () => {
     expect((await lights.listOfScene(sceneId)).map(({ x }) => x)).toEqual(['9.00', '1.00', '4.00']);
   });
 
+  it('insertMany keeps a fire color and a light sent without color is neutral (null)', async () => {
+    const inserted = await lights.insertMany([wallTorch({ color: 'fire' }), wallTorch()]);
+
+    expect(inserted.map(({ color }) => color)).toEqual(['fire', null]);
+    expect((await lights.listOfScene(sceneId)).map(({ color }) => color)).toEqual(['fire', null]);
+  });
+
+  it('moving, ranging and putting out a fire light keep its color', async () => {
+    const saved = await savedOne(wallTorch({ color: 'fire' }));
+
+    await lights.moveMany(sceneId, [{ lightId: saved.id, x: '7.00', y: '1.00' }]);
+    await lights.setRanges(sceneId, [{ lightId: saved.id, bright: '6.00', dim: '2.00' }]);
+    await lights.setLit(sceneId, [saved.id], false);
+
+    expect((await lights.listOfScene(sceneId))[0]?.color).toBe('fire');
+  });
+
+  it('the light_color enum refuses red written straight to the table', async () => {
+    await expect(
+      connection.db.execute(
+        sql`INSERT INTO lights (scene_id, x, y, bright, dim, color) VALUES (${sceneId}, 1, 1, 1, 1, 'red')`,
+      ),
+    ).rejects.toMatchObject({ cause: { code: INVALID_TEXT } });
+  });
+
   it('a light inserted without lit is born lit, and the numerics come back as strings', async () => {
     const saved = await savedOne({ sceneId, x: '5.5', y: '3', bright: '4', dim: '4' });
 
@@ -99,6 +125,19 @@ describe('LightsDao on Postgres', () => {
     });
   });
 
+  it('setColors changes only the color', async () => {
+    const saved = await savedOne(wallTorch());
+
+    await lights.setColors(sceneId, [{ lightId: saved.id, color: 'necrotic' }]);
+
+    expect((await lights.listOfScene(sceneId))[0]).toMatchObject({
+      x: '5.50',
+      bright: '4.00',
+      lit: true,
+      color: 'necrotic',
+    });
+  });
+
   it('setLit changes only lit', async () => {
     const saved = await savedOne(wallTorch());
 
@@ -120,16 +159,23 @@ describe('LightsDao on Postgres', () => {
     expect((await lights.listOfScene(sceneId)).map(({ id }) => id)).toEqual([second.id]);
   });
 
-  it('moving, ranging, lighting and deleting with an id of Quelm leave the Quelm row intact', async () => {
+  it('moving, ranging, lighting, coloring and deleting with an id of Quelm leave the Quelm row intact', async () => {
     const quelmTorch = await savedOne(wallTorch({ sceneId: otherSceneId }));
 
     await lights.moveMany(sceneId, [{ lightId: quelmTorch.id, x: '9.00', y: '9.00' }]);
     await lights.setRanges(sceneId, [{ lightId: quelmTorch.id, bright: '1.00', dim: '1.00' }]);
     await lights.setLit(sceneId, [quelmTorch.id], false);
+    await lights.setColors(sceneId, [{ lightId: quelmTorch.id, color: 'fire' }]);
     await lights.deleteMany(sceneId, [quelmTorch.id]);
 
     expect(await lights.listOfScene(otherSceneId)).toEqual([
-      expect.objectContaining({ id: quelmTorch.id, x: '5.50', bright: '4.00', lit: true }),
+      expect.objectContaining({
+        id: quelmTorch.id,
+        x: '5.50',
+        bright: '4.00',
+        lit: true,
+        color: null,
+      }),
     ]);
   });
 

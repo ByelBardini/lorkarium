@@ -16,6 +16,7 @@ import { createRailStore } from '@/stores/rail-store';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { createWallStyleStore } from '@/stores/wall-style-store';
+import { createLightColorStore } from '@/stores/light-color-store';
 import { createLightReachStore } from '@/stores/light-reach-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { sessionStore } from '@/stores/session-store';
@@ -53,6 +54,7 @@ const router = createBrowserRouter(
     effectAreaStyle: createEffectAreaStyleStore(browserStorage),
     wallStyle: createWallStyleStore(browserStorage),
     lightReach: createLightReachStore(browserStorage),
+    lightColor: createLightColorStore(browserStorage),
     createBoardRenderer: createPixiBoardRenderer,
     boardCommands: new RealtimeTableBoardCommands(realtime, newActionId),
     now: () => new Date(),

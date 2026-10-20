@@ -14,6 +14,7 @@ import type {
   EffectAreasDeletedDto,
   EffectAreasReshapedDto,
   DoorChangedDto,
+  LightColorsChangedDto,
   LightRangesChangedDto,
   LightsCreatedDto,
   LightsDeletedDto,
@@ -197,6 +198,10 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
 
   lightRangesChanged(event: LightRangesChangedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('light:rangesChanged', event);
+  }
+
+  lightColorsChanged(event: LightColorsChangedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('light:colorsChanged', event);
   }
 
   lightsLitChanged(event: LightsLitChangedDto): void {

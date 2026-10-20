@@ -471,7 +471,7 @@ describe('TokenDialog, vision and light', () => {
   });
 
   it('editing Lyra with a torch shows "6" and "12"; switching it off sends light null', async () => {
-    renderDialog(lyra({ light: { bright: 4, dim: 4 } }));
+    renderDialog(lyra({ light: { bright: 4, dim: 4, color: null } }));
     await openTab('Visão e luz');
     const light = section('Emite luz');
     expect(within(light).getByLabelText('Plena até (m)')).toHaveValue('6');
@@ -481,6 +481,33 @@ describe('TokenDialog, vision and light', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(commands.sentAs('updateToken')[0]?.fields).toMatchObject({ light: null });
+  });
+
+  it('switching the light on, choosing "Lua" and creating sends a moon torch of 4 + 4 cells', async () => {
+    renderDialog();
+    await userEvent.type(screen.getByLabelText('Nome'), 'Lyra');
+    await openTab('Visão e luz');
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Emite luz' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Lua' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Criar token' }));
+
+    expect(commands.sentAs('createToken')[0]?.fields).toMatchObject({
+      light: { bright: 4, dim: 4, color: 'moon' },
+    });
+  });
+
+  it('editing Lyra with a fire light shows "Fogo" checked; choosing "Neutra" keeps the reach', async () => {
+    renderDialog(lyra({ light: { bright: 4, dim: 4, color: 'fire' } }));
+    await openTab('Visão e luz');
+    expect(screen.getByRole('radio', { name: 'Fogo' })).toHaveAttribute('aria-checked', 'true');
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Neutra' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(commands.sentAs('updateToken')[0]?.fields).toMatchObject({
+      light: { bright: 4, dim: 4, color: null },
+    });
   });
 
   it('a token without light saved untouched sends no light at all', async () => {

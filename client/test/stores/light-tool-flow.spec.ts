@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EditEntry } from '@/lib/edit-history';
+import type { LightColor } from '@/lib/light-color';
 import { sendLight } from '@/stores/light-tool-flow';
 import { VHARN } from '../support/campaigns-api-fake';
 import { CORRIDOR_TORCH_ID } from '../support/light-fixtures';
@@ -18,7 +19,7 @@ describe('sendLight', () => {
     notices = [];
   });
 
-  function place(readOnly = false) {
+  function place(readOnly = false, color: LightColor = null) {
     return sendLight(
       {
         campaignId: VHARN.id,
@@ -27,7 +28,7 @@ describe('sendLight', () => {
         recordEdit: (entry) => recorded.push(entry),
       },
       { x: 5.5, y: 3 },
-      { reach: TORCH_REACH, readOnly, say: (notice) => notices.push(notice) },
+      { reach: TORCH_REACH, color, readOnly, say: (notice) => notices.push(notice) },
     );
   }
 
@@ -35,7 +36,7 @@ describe('sendLight', () => {
     await place();
 
     expect(commands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-      { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4 }] },
+      { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4, color: null }] },
     ]);
   });
 
@@ -48,9 +49,25 @@ describe('sendLight', () => {
       [
         {
           kind: 'lightsAdded',
-          lights: [{ id: CORRIDOR_TORCH_ID, placement: { x: 5.5, y: 3, bright: 4, dim: 4 } }],
+          lights: [
+            { id: CORRIDOR_TORCH_ID, placement: { x: 5.5, y: 3, bright: 4, dim: 4, color: null } },
+          ],
         },
       ],
+    ]);
+  });
+
+  it('an arcane light chosen in the panel goes in one createLights and on the stack with its color', async () => {
+    commands.answerWith({ ok: true, version: 2, createdIds: [CORRIDOR_TORCH_ID] });
+
+    await place(false, 'arcane');
+
+    const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: 'arcane' };
+    expect(commands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
+      { lights: [placement] },
+    ]);
+    expect(recorded).toEqual([
+      [{ kind: 'lightsAdded', lights: [{ id: CORRIDOR_TORCH_ID, placement }] }],
     ]);
   });
 

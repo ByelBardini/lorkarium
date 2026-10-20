@@ -78,12 +78,76 @@ describe('editing map lights', () => {
     ]);
   });
 
-  it('deleting the selected torch sends one deleteLights, unselects it and records it', async () => {
+  describe('changeLightColors', () => {
+    it('a torch and a neutral brazier turned fire send one setLightColors expecting each old color, and record it', async () => {
+      await interaction
+        .getState()
+        .changeLightColors([corridorTorch({ color: 'torch' }), brazier()], 'fire');
+
+      expect(commands.sentAs('setLightColors').map(({ fields }) => fields)).toEqual([
+        {
+          changes: [
+            { lightId: CORRIDOR_TORCH_ID, color: 'fire', expect: { color: 'torch' } },
+            { lightId: BRAZIER_ID, color: 'fire', expect: { color: null } },
+          ],
+        },
+      ]);
+      expect(recorded).toEqual([
+        [
+          {
+            kind: 'lightColorsChanged',
+            changes: [
+              { lightId: CORRIDOR_TORCH_ID, from: 'torch', to: 'fire' },
+              { lightId: BRAZIER_ID, from: null, to: 'fire' },
+            ],
+          },
+        ],
+      ]);
+    });
+
+    it('only the lights whose color changes are sent', async () => {
+      await interaction
+        .getState()
+        .changeLightColors([corridorTorch({ color: 'moon' }), brazier()], 'moon');
+
+      expect(commands.sentAs('setLightColors').map(({ fields }) => fields)).toEqual([
+        { changes: [{ lightId: BRAZIER_ID, color: 'moon', expect: { color: null } }] },
+      ]);
+    });
+
+    it('two lights already fire send nothing and record nothing', async () => {
+      const fire = [corridorTorch({ color: 'fire' }), brazier({ color: 'fire' })];
+
+      await interaction.getState().changeLightColors(fire, 'fire');
+
+      expect(commands.sentAs('setLightColors')).toEqual([]);
+      expect(recorded).toEqual([]);
+    });
+
+    it('a refused color says why and records nothing', async () => {
+      commands.answerWith({ ok: false, failure: 'stale_undo' });
+
+      await interaction.getState().changeLightColors([corridorTorch()], 'arcane');
+
+      expect(interaction.getState().notice).toBe('recusado: stale_undo');
+      expect(recorded).toEqual([]);
+    });
+
+    it('read only, nothing is sent', async () => {
+      interaction.getState().setReadOnly(true);
+
+      await interaction.getState().changeLightColors([corridorTorch()], 'arcane');
+
+      expect(commands.sent).toEqual([]);
+    });
+  });
+
+  it('deleting the selected fire torch sends one deleteLights, unselects it and records it with its color', async () => {
     interaction
       .getState()
       .pointer({ kind: 'lightPicked', lightId: CORRIDOR_TORCH_ID, additive: false });
 
-    await interaction.getState().deleteLights([corridorTorch()]);
+    await interaction.getState().deleteLights([corridorTorch({ color: 'fire' })]);
 
     expect(commands.sentAs('deleteLights').map(({ fields }) => fields)).toEqual([
       { lightIds: [CORRIDOR_TORCH_ID], expect: [{ lightId: CORRIDOR_TORCH_ID, x: 5, y: 5 }] },
@@ -93,7 +157,12 @@ describe('editing map lights', () => {
       [
         {
           kind: 'lightsRemoved',
-          lights: [{ id: CORRIDOR_TORCH_ID, placement: { x: 5, y: 5, bright: 4, dim: 4 } }],
+          lights: [
+            {
+              id: CORRIDOR_TORCH_ID,
+              placement: { x: 5, y: 5, bright: 4, dim: 4, color: 'fire' },
+            },
+          ],
         },
       ],
     ]);

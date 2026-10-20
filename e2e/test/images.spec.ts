@@ -132,6 +132,6 @@ test('background, token image and facing reach three browsers, survive an F5 and
   const linkDialog = await openSceneDialog(admin);
   await linkDialog.getByRole('button', { name: 'Usar link de imagem' }).click();
   await linkDialog.getByLabel('Link da imagem').fill('http://127.0.0.1/x.png');
-  await linkDialog.getByRole('button', { name: 'Usar link' }).click();
+  await linkDialog.getByRole('button', { name: 'Usar link', exact: true }).click();
   await expect(linkDialog.getByRole('alert')).toContainText('Esse link não pode ser usado.');
 });

@@ -1,5 +1,6 @@
 import type { LightDto, WallDto } from '@lorkarium/contracts';
 import { lightRange, type SceneSize } from '@lorkarium/game-core';
+import { lightColorHex } from '@/lib/light-color';
 import { gameWallOf } from '@/lib/wall-geometry';
 import type { BoardViewTool } from './board-view';
 import { CELL_WORLD_SIZE, type Point } from './camera';
@@ -15,6 +16,8 @@ export type LightView = Readonly<{
   x: number;
   y: number;
   lit: boolean;
+  /** The tone of the light (`lightColorHex`), kept when it is out; `null` for a neutral light. */
+  color: number | null;
   emphasis: 'full' | 'faint';
   selected: boolean;
   /** The bright and dim areas, cut by the walls; `null` outside the tool or with the light out. */
@@ -43,6 +46,7 @@ export function lightViewsOf(input: LightViewInput): LightView[] {
     x: light.x * CELL_WORLD_SIZE,
     y: light.y * CELL_WORLD_SIZE,
     lit: light.lit,
+    color: lightColorHex(light.color),
     emphasis: tool ? 'full' : 'faint',
     selected: input.selectedLightIds.includes(light.id),
     areas: tool && light.lit ? areasOf(light, walls, input.scene) : null,

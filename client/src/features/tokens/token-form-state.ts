@@ -2,6 +2,7 @@ import {
   TOKEN_SIZE_MAX,
   TOKEN_SIZE_MIN,
   updateTokenCommandDto,
+  type LightColorDto,
   type TokenDto,
   type TokenSideDto,
 } from '@lorkarium/contracts';
@@ -49,6 +50,8 @@ export type TokenFormValues = Readonly<{
   sight: SightFields;
   /** "Luz": the light it gives off, typed in the unit of the scene. */
   light: RangeFields;
+  /** "Cor da luz": `null` is neutral. */
+  lightColor: LightColorDto | null;
   bars: readonly BarFormValues[];
 }>;
 
@@ -80,8 +83,9 @@ const BASICS_FIELDS = ['name', 'initials'] as const;
 
 const LIGHT_TEXTS = { missingBright: 'Informe a luz plena.' };
 
+type LightRange = Readonly<{ bright: number; dim: number }>;
 /** The sight and light as read from the form; `undefined` keeps what the token has. */
-type FormRanges = Readonly<{ sight: TokenEdit['sight']; light: TokenEdit['light'] }>;
+type FormRanges = Readonly<{ sight: TokenEdit['sight']; light: LightRange | null | undefined }>;
 
 /** The first tab, in order, with something to fix; `null` when nothing is wrong.
  *
@@ -128,6 +132,7 @@ export function emptyTokenForm(distance: SceneDistance): TokenFormValues {
     imageAssetId: null,
     sight: defaultSightFields(distance),
     light: { on: false, bright: '', dim: '', saved: false },
+    lightColor: null,
     bars: [],
   };
 }
@@ -141,7 +146,8 @@ export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenForm
   const bars = barFormsOf(token.bars);
   const sight = sightFieldsOf(token.sight, distance);
   const light = rangeFieldsOf(token.light, distance);
-  const look = { controllerIds, imageAssetId, bars, sight, light };
+  const lightColor = token.light?.color ?? null;
+  const look = { controllerIds, imageAssetId, bars, sight, light, lightColor };
   return { name, initials, initialsEdited, side, width, height, ...look };
 }
 
@@ -205,7 +211,7 @@ function parseTokenFields(form: TokenFormValues, { sight, light }: FormRanges): 
     controllerIds: form.controllerIds,
     imageAssetId: form.imageAssetId,
     ...(sight === undefined ? {} : { sight }),
-    ...(light === undefined ? {} : { light }),
+    ...(light === undefined ? {} : { light: light && { ...light, color: form.lightColor } }),
     bars: barDraftsOf(form.bars),
   });
   if (parsed.success) return { ok: true, token: parsed.data };

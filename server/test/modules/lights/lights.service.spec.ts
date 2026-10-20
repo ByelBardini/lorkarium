@@ -17,6 +17,7 @@ import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 const NOW = new Date('2026-10-18T21:00:00Z');
 const QUELM_SCENE_ID = 'quelm-scene';
 const QUELM_TORCH_ID = 'e6f7a8b9-c0d1-4e2f-8a3b-4c5d6e7f8091';
+const CANDLE_ID = 'f7a8b9c0-d1e2-4f3a-9b4c-5d6e7f809102';
 
 describe('LightsService', () => {
   let scenes: ScenesDaoFake;
@@ -72,7 +73,7 @@ describe('LightsService', () => {
         campaignId: VHARN_ID,
         version: 5,
         at: NOW.toISOString(),
-        lights: [{ id: 'light-4', x: 5.5, y: 3, bright: 4, dim: 4, lit: true }],
+        lights: [{ id: 'light-4', x: 5.5, y: 3, bright: 4, dim: 4, lit: true, color: null }],
       });
     });
 
@@ -165,6 +166,70 @@ describe('LightsService', () => {
       });
 
       await expect(change).rejects.toMatchObject({ code: 'STALE_UNDO' });
+    });
+  });
+
+  describe('setColorMany', () => {
+    it('Ana coloring the torch locks, saves only the color, bumps and then publishes without expect', async () => {
+      const version = await service.setColorMany(ANA_ID, VHARN_ID, {
+        changes: [{ lightId: CORRIDOR_TORCH_ID, color: 'fire', expect: { color: null } }],
+      });
+
+      expect(version).toBe(5);
+      expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+      expect(lightOf(CORRIDOR_TORCH_ID)).toMatchObject({ color: 'fire', x: '5.00', lit: true });
+      expect(publisher.lightColorChanges).toEqual([
+        {
+          campaignId: VHARN_ID,
+          version: 5,
+          at: NOW.toISOString(),
+          changes: [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }],
+        },
+      ]);
+    });
+
+    it('Bia (player) coloring is FORBIDDEN before the lock and nothing is saved', async () => {
+      const change = service.setColorMany(BIA_ID, VHARN_ID, {
+        changes: [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }],
+      });
+
+      await expect(change).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(scenes.journal).toEqual([]);
+    });
+
+    it('the second of three ids off the scene is LIGHT_NOT_FOUND and none is colored', async () => {
+      const change = service.setColorMany(ANA_ID, VHARN_ID, {
+        changes: [CORRIDOR_TORCH_ID, QUELM_TORCH_ID, BRAZIER_ID].map((lightId) => ({
+          lightId,
+          color: 'moon' as const,
+        })),
+      });
+
+      await expect(change).rejects.toMatchObject({ code: 'LIGHT_NOT_FOUND' });
+      expect([lightOf(CORRIDOR_TORCH_ID)?.color, lightOf(BRAZIER_ID)?.color]).toEqual([null, null]);
+    });
+
+    it('an undo expecting torch on a neutral light is STALE_UNDO, nothing saved nor published', async () => {
+      const change = service.setColorMany(ANA_ID, VHARN_ID, {
+        changes: [{ lightId: CORRIDOR_TORCH_ID, color: null, expect: { color: 'torch' } }],
+      });
+
+      await expect(change).rejects.toMatchObject({ code: 'STALE_UNDO' });
+      expect(scenes.journal).not.toContain('save');
+      expect(publisher.lightColorChanges).toEqual([]);
+    });
+
+    it('three lights colored at once publish one light:colorsChanged', async () => {
+      lights.rows.push(corridorTorchPo({ id: CANDLE_ID, lightOrder: 3 }));
+
+      await service.setColorMany(ANA_ID, VHARN_ID, {
+        changes: [CORRIDOR_TORCH_ID, BRAZIER_ID, CANDLE_ID].map((lightId) => ({
+          lightId,
+          color: 'arcane' as const,
+        })),
+      });
+
+      expect(publisher.lightColorChanges.map(({ changes }) => changes.length)).toEqual([3]);
     });
   });
 

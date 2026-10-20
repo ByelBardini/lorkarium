@@ -99,6 +99,49 @@ describe('VisionLightTab, "Emite luz"', () => {
   });
 });
 
+describe('VisionLightTab, "Cor da luz"', () => {
+  function Recorder({ initial }: Readonly<{ initial: TokenFormValues }>) {
+    const [form, setForm] = useState(initial);
+    return (
+      <>
+        <VisionLightTab form={form} errors={{}} distance={METERS} onChange={setForm} />
+        <output aria-label="cor">{String(form.lightColor)}</output>
+      </>
+    );
+  }
+
+  it('with "Emite luz" off, there is no "Cor da luz"', () => {
+    render(<Harness />);
+
+    expect(screen.queryByRole('radiogroup', { name: 'Cor da luz' })).not.toBeInTheDocument();
+  });
+
+  it('switched on, "Cor da luz" comes inside "Emite luz" with "Neutra" checked', async () => {
+    render(<Harness />);
+    const light = section('Emite luz');
+
+    await userEvent.click(within(light).getByRole('switch', { name: 'Emite luz' }));
+
+    const colors = within(light).getByRole('radiogroup', { name: 'Cor da luz' });
+    expect(within(colors).getByRole('radio', { name: 'Neutra' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  it('clicking "Fogo" turns the color of the form to fire', async () => {
+    render(
+      <Recorder
+        initial={tokenFormOf(lyra({ light: { bright: 4, dim: 4, color: null } }), METERS)}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Fogo' }));
+
+    expect(screen.getByRole('status', { name: 'cor' })).toHaveTextContent('fire');
+  });
+});
+
 describe('VisionLightTab, the unit', () => {
   it('says the distances are in the unit of the scene, one cell and the limit', () => {
     render(<Harness />);

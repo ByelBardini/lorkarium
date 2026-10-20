@@ -13,7 +13,8 @@ export type StyleTile<T extends string> = Readonly<{
 
 export type StyleTileGroupProps<T extends string> = Readonly<{
   legend: string;
-  value: T;
+  /** `null` checks no tile (the lights picked differ); the arrows still walk the tiles. */
+  value: T | null;
   tiles: readonly StyleTile<T>[];
   onChange: (value: T) => void;
   /** `round` for color swatches, `square` for icon buttons (the Excalidraw/tldraw toolbar look),

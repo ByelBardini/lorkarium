@@ -564,3 +564,31 @@ describe('buildBoardView, map lights', () => {
     expect(view.lights).toEqual([]);
   });
 });
+
+describe('buildBoardView, light tint', () => {
+  const tintInput = (more: object) => ({
+    ...NO_TOKENS,
+    scene: { ...VHARN_SCENE, vision: 'dark' as const },
+    localGridVisible: true,
+    ruler: null,
+    lights: [corridorTorch({ color: 'infernal' })],
+    ...more,
+  });
+
+  it('Ana (the master, without fog) gets the infernal tint', () => {
+    const view = buildBoardView(tintInput({}));
+
+    expect(view.lightTint?.tints.map(({ color }) => color)).toEqual([0xff3b3b]);
+  });
+
+  it('Bia (a player, under her fog) gets the same tint', () => {
+    const viewer = { userId: BIA_AT_TABLE.userId, isMaster: false };
+    const view = buildBoardView(tintInput({ viewer }));
+
+    expect(view.lightTint?.tints.map(({ color }) => color)).toEqual([0xff3b3b]);
+  });
+
+  it('without a colored light there is no tint', () => {
+    expect(buildBoardView(tintInput({ lights: [corridorTorch()] })).lightTint).toBeNull();
+  });
+});

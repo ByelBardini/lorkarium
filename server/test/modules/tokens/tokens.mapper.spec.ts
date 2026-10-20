@@ -122,16 +122,33 @@ describe('tokens mapper', () => {
     expect(kept.fields).not.toHaveProperty('sightDim');
   });
 
-  it('a light saved as "4.00" and "4.00", lit, becomes { bright: 4, dim: 4 } for both audiences', () => {
+  it('a light saved as "4.00" and "4.00", lit, becomes a neutral { bright: 4, dim: 4 } for both audiences', () => {
     const light = { lightBright: '4.00', lightDim: '4.00', lightLit: true };
     const row = lyraRow({ token: lyraPo(light) });
 
     for (const audience of ['privileged', 'others'] as const) {
       expect(toTokenDto(row, audience)).toMatchObject({
-        light: { bright: 4, dim: 4 },
+        light: { bright: 4, dim: 4, color: null },
         lightLit: true,
       });
     }
+  });
+
+  it('a light saved with the color moon carries it to the DTO', () => {
+    const token = lyraPo({ lightBright: '4.00', lightDim: '4.00', lightColor: 'moon' });
+    expect(toTokenDto(lyraRow({ token }), 'others').light).toEqual({
+      bright: 4,
+      dim: 4,
+      color: 'moon',
+    });
+  });
+
+  it('a torch light sent is saved in the three columns', () => {
+    expect(toTokenLightPo({ bright: 4, dim: 4, color: 'torch' })).toEqual({
+      lightBright: '4.00',
+      lightDim: '4.00',
+      lightColor: 'torch',
+    });
   });
 
   it('a token with both light columns null emits no light (light null)', () => {
@@ -146,14 +163,15 @@ describe('tokens mapper', () => {
   });
 
   it('a light of 10/3 and 4 is saved to the hundredth', () => {
-    expect(toTokenLightPo({ bright: 10 / 3, dim: 4 })).toEqual({
+    expect(toTokenLightPo({ bright: 10 / 3, dim: 4, color: null })).toEqual({
       lightBright: '3.33',
       lightDim: '4.00',
+      lightColor: null,
     });
   });
 
-  it('no light clears both columns', () => {
-    expect(toTokenLightPo(null)).toEqual({ lightBright: null, lightDim: null });
+  it('no light clears the three columns', () => {
+    expect(toTokenLightPo(null)).toEqual({ lightBright: null, lightDim: null, lightColor: null });
   });
 
   it('an update with light writes both columns and without light writes none', () => {
@@ -168,7 +186,9 @@ describe('tokens mapper', () => {
     } as const;
     const lists = { bars: [], controllerIds: [BIA_ID] };
 
-    const lit = toTokenUpdatePo({ ...base, ...lists, light: { bright: 4, dim: 2 } }, [BIA_ID]);
+    const lit = toTokenUpdatePo({ ...base, ...lists, light: { bright: 4, dim: 2, color: null } }, [
+      BIA_ID,
+    ]);
     const kept = toTokenUpdatePo({ ...base, ...lists }, [BIA_ID]);
 
     expect(lit.fields).toMatchObject({ lightBright: '4.00', lightDim: '2.00' });

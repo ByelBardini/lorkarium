@@ -1,5 +1,6 @@
 import type { LightDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
+import type { LightColor } from '@/lib/light-color';
 import type { LightPoint, LightReach } from '@/services/light-commands';
 import type { BoardCommandResult } from '@/services/table-board-commands';
 import type { BoardInteractionDeps, BoardInteractionStore } from './board-interaction-store';
@@ -62,6 +63,25 @@ export async function changeLightRangesOf(
   deps.recordEdit?.([{ kind: 'lightRangesChanged', changes: recorded }]);
 }
 
+/** The panel with lights picked: one `setLightColors` for those whose color changes, each
+ *  expecting the color it had; confirmed, one entry on the undo stack.
+ *
+ *  Example: `await changeLightColorsOf(deps, store, [torch, brazier], 'moon')` */
+export async function changeLightColorsOf(
+  deps: BoardInteractionDeps,
+  store: StoreAccess,
+  lights: readonly LightDto[],
+  to: LightColor,
+): Promise<void> {
+  const changing = lights.filter(({ color }) => color !== to);
+  if (store.getState().readOnly || changing.length === 0) return;
+  const changes = changing.map(({ id, color }) => ({ lightId: id, color: to, expect: { color } }));
+  const result = await deps.commands.setLightColors(deps.campaignId, changes);
+  if (!result.ok) return sayRefusal(deps, store, result);
+  const recorded = changes.map(({ lightId, expect }) => ({ lightId, from: expect.color, to }));
+  deps.recordEdit?.([{ kind: 'lightColorsChanged', changes: recorded }]);
+}
+
 /** Delete on the lights picked: one `deleteLights` expecting each where it is; confirmed, they
  *  leave the selection and go on the undo stack (Ctrl+Z puts them back).
  *
@@ -78,9 +98,9 @@ export async function deleteLightsOf(
   if (!result.ok) return sayRefusal(deps, store, result);
   const selected = store.getState().selectedLightIds.filter((id) => !ids.includes(id));
   store.setState({ selectedLightIds: selected });
-  const removed = lights.map(({ id, x, y, bright, dim }) => ({
+  const removed = lights.map(({ id, x, y, bright, dim, color }) => ({
     id,
-    placement: { x, y, bright, dim },
+    placement: { x, y, bright, dim, color },
   }));
   deps.recordEdit?.([{ kind: 'lightsRemoved', lights: removed }]);
 }

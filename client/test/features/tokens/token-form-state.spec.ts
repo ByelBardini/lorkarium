@@ -195,7 +195,7 @@ describe('previewMetaOf', () => {
         width: 0.5,
         height: 0.5,
         sight: { bright: 6, dim: 6 },
-        light: { bright: 4, dim: 4 },
+        light: { bright: 4, dim: 4, color: null },
       }),
       METERS,
     );
@@ -266,5 +266,30 @@ describe('the sight and light of a new token', () => {
       dim: '',
       saved: false,
     });
+  });
+});
+
+describe('the color of the light of the token', () => {
+  it('a token with a moon light opens with the moon color', () => {
+    const form = tokenFormOf(lyra({ light: { bright: 4, dim: 4, color: 'moon' } }), METERS);
+    expect(form.lightColor).toBe('moon');
+  });
+
+  it('a token with a moon light is sent with the range and the color', () => {
+    const form = tokenFormOf(lyra({ light: { bright: 4, dim: 4, color: 'moon' } }), METERS);
+    expect(parseTokenForm(form, METERS)).toMatchObject({
+      ok: true,
+      token: { light: { bright: 4, dim: 4, color: 'moon' } },
+    });
+  });
+
+  it('a new token starts with the neutral color', () => {
+    expect(emptyTokenForm(METERS).lightColor).toBeNull();
+  });
+
+  it('switching off the saved light sends light null, without a color', () => {
+    const form = tokenFormOf(lyra({ light: { bright: 4, dim: 4, color: 'moon' } }), METERS);
+    const off = { ...form, light: { ...form.light, on: false } };
+    expect(parseTokenForm(off, METERS)).toMatchObject({ ok: true, token: { light: null } });
   });
 });

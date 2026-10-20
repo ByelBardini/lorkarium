@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { LightPanel } from '@/features/lights/light-panel';
+import type { LightColor } from '@/lib/light-color';
 import type { LightReach } from '@/services/light-commands';
 
 const METERS = { cellDistance: 1.5, cellUnit: 'm' };
@@ -13,6 +14,8 @@ function renderPanel(): LightReach[] {
       reach={{ bright: 4, dim: 4 }}
       distance={METERS}
       onReach={(reach) => reaches.push(reach)}
+      color={null}
+      onColor={() => undefined}
       commit="change"
     />,
   );
@@ -50,7 +53,16 @@ describe('LightPanel', () => {
   });
 
   it('lights picked with different reaches show empty fields reading "vários"', () => {
-    render(<LightPanel reach={null} distance={METERS} onReach={() => undefined} commit="blur" />);
+    render(
+      <LightPanel
+        reach={null}
+        distance={METERS}
+        onReach={() => undefined}
+        color={null}
+        onColor={() => undefined}
+        commit="blur"
+      />,
+    );
 
     expect(screen.getByLabelText('Plena até (m)')).toHaveAttribute('placeholder', 'vários');
     expect(screen.getByLabelText('Plena até (m)')).toHaveValue('');
@@ -63,6 +75,8 @@ describe('LightPanel', () => {
         reach={{ bright: 2, dim: 6 }}
         distance={METERS}
         onReach={(reach) => reaches.push(reach)}
+        color={null}
+        onColor={() => undefined}
         commit="blur"
       />,
     );
@@ -74,5 +88,41 @@ describe('LightPanel', () => {
     await userEvent.tab();
 
     expect(reaches).toEqual([{ bright: 4, dim: 4 }]);
+  });
+
+  describe('Cor da luz', () => {
+    function renderColors(color: LightColor | undefined): LightColor[] {
+      const colors: LightColor[] = [];
+      render(
+        <LightPanel
+          reach={{ bright: 4, dim: 4 }}
+          distance={METERS}
+          onReach={() => undefined}
+          color={color}
+          onColor={(chosen) => colors.push(chosen)}
+          commit="change"
+        />,
+      );
+      return colors;
+    }
+
+    it('below the reach, offers Neutra and the seven colors, in the palette order', () => {
+      renderColors(null);
+
+      const group = screen.getByRole('radiogroup', { name: 'Cor da luz' });
+      expect(
+        within(group)
+          .getAllByRole('radio')
+          .map((tile) => tile.getAttribute('aria-label')),
+      ).toEqual(['Neutra', 'Tocha', 'Vela', 'Fogo', 'Lua', 'Arcana', 'Necrótica', 'Infernal']);
+    });
+
+    it('clicking "Fogo" sends fire to onColor', async () => {
+      const colors = renderColors(null);
+
+      await userEvent.click(screen.getByRole('radio', { name: 'Fogo' }));
+
+      expect(colors).toEqual(['fire']);
+    });
   });
 });

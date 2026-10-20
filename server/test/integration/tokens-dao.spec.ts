@@ -140,8 +140,21 @@ describe('TokensDao on Postgres', () => {
     await expect(tokens.insert(broken)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
   });
 
-  it('restyle with lightLit false writes only the switch and keeps the light and the look', async () => {
-    const torch = { lightBright: '4', lightDim: '4', frame: 'round' } as const;
+  it('a light color without a light range is refused by the light color CHECK', async () => {
+    const broken = lyra({ token: { ...lyra().token, lightColor: 'fire' } });
+
+    await expect(tokens.insert(broken)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
+  });
+
+  it('a fire light with its range reads back with the color', async () => {
+    const fire = { lightBright: '4', lightDim: '4', lightColor: 'fire' } as const;
+    const saved = await tokens.insert(lyra({ token: { ...lyra().token, ...fire } }));
+
+    expect(saved.token).toMatchObject({ lightBright: '4.00', lightColor: 'fire' });
+  });
+
+  it('restyle with lightLit false writes only the switch and keeps the light, its color and the look', async () => {
+    const torch = { lightBright: '4', lightDim: '4', lightColor: 'moon', frame: 'round' } as const;
     const saved = await tokens.insert(lyra({ token: { ...lyra().token, ...torch } }));
 
     await tokens.restyle([saved.token.id], { lightLit: false });
@@ -150,6 +163,7 @@ describe('TokensDao on Postgres', () => {
       lightLit: false,
       lightBright: '4.00',
       lightDim: '4.00',
+      lightColor: 'moon',
       frame: 'round',
     });
   });

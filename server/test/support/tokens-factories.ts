@@ -34,6 +34,7 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     lightBright: null,
     lightDim: null,
     lightLit: true,
+    lightColor: null,
     createdAt: CREATED,
     updatedAt: CREATED,
     ...overrides,

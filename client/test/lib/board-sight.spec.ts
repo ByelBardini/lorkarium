@@ -205,7 +205,7 @@ describe('boardSightOf for Bia with lights', () => {
       ...someoneElse,
       col: 10,
       row: 4,
-      light: { bright: 2, dim: 0 },
+      light: { bright: 2, dim: 0, color: null },
       lightLit: true,
     });
     expect(levelOfOgre(litBoard('dark', [BLIND_LYRA, bram, ogreAt(11)], []))).toBe('seen');

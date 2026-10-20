@@ -37,6 +37,7 @@ import { PixiDrawingLayer } from './pixi-drawing-layer';
 import { PixiEffectAreaLayer } from './pixi-effect-area-layer';
 import { PixiBoardOverlays } from './pixi-board-overlays';
 import { PixiFogLayer } from './pixi-fog-layer';
+import { PixiLightTintLayer } from './pixi-light-tint-layer';
 import { resizeCursorOf } from './resize-handles';
 import { PixiSceneBackground } from './pixi-scene-background';
 import { PixiSceneGrid } from './pixi-scene-grid';
@@ -80,6 +81,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private hoverCellKey: string | null = null;
   private readonly drawings = new PixiDrawingLayer();
   private readonly effectAreas = new PixiEffectAreaLayer();
+  private readonly lightTint = new PixiLightTintLayer();
   private readonly fog = new PixiFogLayer();
   private readonly overlays = new PixiBoardOverlays((intent) => this.onIntent(intent));
   private readonly lightGestures = new LightGestures((intent) => this.onIntent(intent));
@@ -116,6 +118,7 @@ class PixiBoardRenderer implements BoardRenderer {
       this.background.container,
       this.sceneGrid.grid,
       tokenLayer,
+      this.lightTint.container,
       this.fog.container,
       ...this.overlays.containers(sketches),
     );
@@ -140,6 +143,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.drawings.sync(view.drawings);
     this.effectAreas.sync(view.effectAreas, view.sceneSize);
     this.tokens.sync(view.tokens, view.ghosts, performance.now());
+    this.lightTint.sync(view.lightTint, this.app.renderer);
     this.fog.sync(view.fog, this.app.renderer);
     if (!this.framed) {
       this.framed = true;
@@ -187,6 +191,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.destroyed = true;
     for (const dispose of this.disposers.splice(0)) dispose();
     this.textures.destroy();
+    this.lightTint.destroy();
     this.fog.destroy();
     this.app?.destroy(true, { children: true });
     this.app = null;

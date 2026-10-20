@@ -11,8 +11,8 @@ import {
 } from './support/tables';
 import { cardOf, openCard, statusOf, chooseController } from './support/token-cards';
 
-// Runs in the page (the e2e workspace has no DOM types): decodes the PNG and averages its pixels.
-const MEAN_LUMINANCE_OF_PNG = `(async () => {
+// Runs in the page (the e2e workspace has no DOM types): decodes the PNG and averages each channel.
+const MEAN_CHANNELS_OF_PNG = `(async () => {
   const image = new Image();
   image.src = 'data:image/png;base64,BASE64';
   await image.decode();
@@ -22,17 +22,35 @@ const MEAN_LUMINANCE_OF_PNG = `(async () => {
   const context = canvas.getContext('2d');
   context.drawImage(image, 0, 0);
   const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
-  let total = 0;
+  const total = [0, 0, 0];
   for (let index = 0; index < data.length; index += 4) {
-    total += 0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2];
+    for (let channel = 0; channel < 3; channel += 1) total[channel] += data[index + channel];
   }
-  return total / (data.length / 4) / 255;
+  const pixels = data.length / 4;
+  return { r: total[0] / pixels / 255, g: total[1] / pixels / 255, b: total[2] / pixels / 255 };
 })()`;
 
-// The mean luminance (0–1) of an 8 × 8 px square of the screen, decoded by the page itself.
-async function luminanceAt(page: Page, at: Readonly<{ x: number; y: number }>): Promise<number> {
+type Channels = Readonly<{ r: number; g: number; b: number }>;
+
+// The mean of each channel (0–1) of an 8 × 8 px square of the screen, decoded by the page itself.
+async function meanChannelsAt(
+  page: Page,
+  at: Readonly<{ x: number; y: number }>,
+): Promise<Channels> {
   const shot = await page.screenshot({ clip: { x: at.x - 4, y: at.y - 4, width: 8, height: 8 } });
-  return page.evaluate<number>(MEAN_LUMINANCE_OF_PNG.replace('BASE64', shot.toString('base64')));
+  return page.evaluate<Channels>(MEAN_CHANNELS_OF_PNG.replace('BASE64', shot.toString('base64')));
+}
+
+// The mean luminance (0–1) of the same square.
+async function luminanceAt(page: Page, at: Readonly<{ x: number; y: number }>): Promise<number> {
+  const { r, g, b } = await meanChannelsAt(page, at);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// How much redder than blue the square is: about 0 under a neutral light.
+async function redOverBlueAt(page: Page, at: Readonly<{ x: number; y: number }>): Promise<number> {
+  const { r, b } = await meanChannelsAt(page, at);
+  return r - b;
 }
 
 function sceneTokensOf(page: Page): Locator {
@@ -150,4 +168,43 @@ test('lighting live: a torch on the map shows the ogre, put out it hides it, and
   await expect
     .poll(async () => luminanceAt(bia, await cellCenterOf(bia, 12, 6)))
     .toBeLessThan(0.02);
+});
+
+test('colored light: an infernal torch tints the floor red for Bia, kept on F5, and turned neutral the red goes', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(180_000);
+  const name = `Mesa colorida ${Date.now()}`;
+  const admin = await newPlayerPage();
+  const bia = await newPlayerPage();
+  await signIn(admin, adminCredentials());
+  const code = await createTableAndReadCode(admin, name);
+  await signIn(bia, BIA);
+  await joinByCodeAndEnter(bia, code);
+  await enterFromTheList(admin, name);
+  await setVisionDark(admin);
+  await createBlindLyra(admin);
+
+  // The master chooses "Infernal" and puts the torch two cells right of Lyra, at (12, 6).
+  await admin.keyboard.press('l');
+  const panel = admin.getByRole('region', { name: 'Luz' });
+  await panel.getByRole('radio', { name: 'Infernal' }).click();
+  const torch = await cellCenterOf(admin, 12, 6);
+  await admin.mouse.click(torch.x, torch.y);
+
+  // On the canvas of Bia, the floor between Lyra and the torch is red.
+  const lit = await cellCenterOf(bia, 11, 6);
+  await expect.poll(() => redOverBlueAt(bia, lit)).toBeGreaterThan(0.05);
+
+  await bia.reload();
+  await expect
+    .poll(async () => redOverBlueAt(bia, await cellCenterOf(bia, 11, 6)))
+    .toBeGreaterThan(0.05);
+
+  // The master picks the torch and turns it neutral: the floor is lit, and no longer red.
+  await admin.mouse.click(torch.x, torch.y);
+  await panel.getByRole('radio', { name: 'Neutra' }).click();
+  const litAgain = await cellCenterOf(bia, 11, 6);
+  await expect.poll(() => redOverBlueAt(bia, litAgain)).toBeLessThan(0.04);
+  expect(await luminanceAt(bia, litAgain)).toBeGreaterThan(0.05);
 });

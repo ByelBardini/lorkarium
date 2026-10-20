@@ -64,4 +64,27 @@ describe('StyleTileGroup', () => {
       'Por quê',
     );
   });
+
+  it('a value of null checks no tile, and the arrows still walk the tiles', async () => {
+    const onChange = vi.fn();
+    render(
+      <StyleTileGroup
+        legend="Grupo"
+        value={null}
+        tiles={TILES}
+        onChange={onChange}
+        shape="round"
+      />,
+    );
+    const user = userEvent.setup();
+
+    expect(screen.getAllByRole('radio').map((tile) => tile.getAttribute('aria-checked'))).toEqual([
+      'false',
+      'false',
+    ]);
+    await user.tab();
+    await user.keyboard('{ArrowRight}');
+
+    expect(screen.getByRole('radio', { name: 'Beta' })).toHaveFocus();
+  });
 });

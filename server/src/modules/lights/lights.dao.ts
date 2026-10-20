@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import {
   lights,
+  type LightColorPo,
   type LightMovePo,
   type LightPo,
   type LightRangePo,
@@ -50,6 +51,12 @@ export class LightsDao {
   async setRanges(sceneId: string, ranges: readonly LightRangePo[]): Promise<void> {
     for (const { lightId, bright, dim } of ranges) {
       await this.db.update(lights).set({ bright, dim }).where(this.inScene(sceneId, lightId));
+    }
+  }
+
+  async setColors(sceneId: string, colors: readonly LightColorPo[]): Promise<void> {
+    for (const { lightId, color } of colors) {
+      await this.db.update(lights).set({ color }).where(this.inScene(sceneId, lightId));
     }
   }
 

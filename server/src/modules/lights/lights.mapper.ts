@@ -1,5 +1,6 @@
 import type {
   LightAtDto,
+  LightColorOfDto,
   LightDto,
   LightPlacementDto,
   LightRangeOfDto,
@@ -13,8 +14,8 @@ import {
   type SceneLight,
 } from '@lorkarium/game-core';
 import { cellsHundredth, cellsNumeric } from '../../database/cells-numeric';
-import type { LightPosition } from './light-rules.bo';
-import type { LightMovePo, LightPo, LightRangePo, NewLightPo } from './lights.po';
+import type { LightColor, LightPosition } from './light-rules.bo';
+import type { LightColorPo, LightMovePo, LightPo, LightRangePo, NewLightPo } from './lights.po';
 
 /** Light row → the light clients see; Postgres numeric "5.50" becomes 5.5. A row the game-core
  *  refuses is a broken table and throws citing the light.
@@ -22,7 +23,7 @@ import type { LightMovePo, LightPo, LightRangePo, NewLightPo } from './lights.po
  *  Example: `toLightDto(row).x // 5.5` */
 export function toLightDto(row: LightPo): LightDto {
   const { x, y, range, lit } = sceneLightOf(row);
-  return { id: row.id, x, y, bright: range.bright, dim: range.dim, lit };
+  return { id: row.id, x, y, bright: range.bright, dim: range.dim, lit, color: row.color };
 }
 
 /** Light row → the game-core light the rules and sight work with.
@@ -60,7 +61,7 @@ export function lightSourceOfRow(row: LightPo): LightSource | null {
   return lightSource({ x, y }, range, lit);
 }
 
-/** A placement as sent → the row to insert, to the hundredth and lit.
+/** A placement as sent → the row to insert, to the hundredth, lit and in its color.
  *
  *  Example: `toNewLightPo(scene.id, command.lights[0])` */
 export function toNewLightPo(sceneId: string, placement: LightPlacementDto): NewLightPo {
@@ -71,6 +72,7 @@ export function toNewLightPo(sceneId: string, placement: LightPlacementDto): New
     bright: cellsNumeric(placement.bright),
     dim: cellsNumeric(placement.dim),
     lit: true,
+    color: placement.color,
   };
 }
 
@@ -111,4 +113,23 @@ export function positionOfLight(row: LightPo): LightPosition {
 /** The range of a saved light, in numbers. */
 export function rangeOfLight(row: LightPo): LightRange {
   return { bright: Number(row.bright), dim: Number(row.dim) };
+}
+
+/** A color change as sent → the color to save (`null` = neutral).
+ *
+ *  Example: `toLightColorPo({ lightId, color: 'fire', expect }) // { lightId, color: 'fire' }` */
+export function toLightColorPo({ lightId, color }: LightColorOfDto): LightColorPo {
+  return { lightId, color };
+}
+
+/** A color change as the table publishes it, without the undo precondition.
+ *
+ *  Example: `savedColorOf({ lightId, color: 'fire', expect }) // { lightId, color: 'fire' }` */
+export function savedColorOf({ lightId, color }: LightColorOfDto): LightColorOfDto {
+  return { lightId, color };
+}
+
+/** The color of a saved light, as the rule compares it. */
+export function colorOfLight(row: LightPo): LightColor {
+  return row.color;
 }

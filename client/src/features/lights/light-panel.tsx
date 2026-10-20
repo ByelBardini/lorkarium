@@ -7,7 +7,9 @@ import {
   type RangeFields,
   type SceneDistance,
 } from '@/lib/range-form';
+import type { LightColor } from '@/lib/light-color';
 import type { LightReach } from '@/services/light-commands';
+import { LightColorTiles } from './light-color-tiles';
 
 export type LightPanelProps = Readonly<{
   /** The reach shown, in cells; `null` when the lights picked differ (the fields say "vários"). */
@@ -16,6 +18,9 @@ export type LightPanelProps = Readonly<{
   distance: SceneDistance;
   /** A valid reach typed: in cells, to the hundredth. */
   onReach: (reach: LightReach) => void;
+  /** The color shown; `undefined` when the lights picked differ (no tile checked). */
+  color: LightColor | undefined;
+  onColor: (color: LightColor) => void;
   /** `change` (the next light: every keystroke) or `blur` (lights picked: one command per field). */
   commit: 'change' | 'blur';
   /** Below the fields: the switch of the lights picked. */
@@ -26,8 +31,9 @@ const LIGHT_TEXTS = { missingBright: 'Informe a luz plena.' };
 const MIXED = 'vários';
 
 /** The lights panel, floating beside the toolbar while the lights tool is on: the bright and dim
- *  range in the scene's unit, of the next light or of the lights picked. A valid reach goes to
- *  `onReach` (on each change or on leaving a field); a field out of range says so and sends nothing.
+ *  range in the scene's unit and the color, of the next light or of the lights picked. A valid
+ *  reach goes to `onReach` (on each change or on leaving a field); a field out of range says so
+ *  and sends nothing. A color tile goes to `onColor` at once.
  *
  *  Example: `<LightPanel reach={reach} distance={scene} onReach={setReach} commit="change" />` */
 export function LightPanel(props: LightPanelProps): React.JSX.Element {
@@ -68,6 +74,7 @@ export function LightPanel(props: LightPanelProps): React.JSX.Element {
         onBlur={leave}
         onChange={(dim) => change({ ...fields, dim })}
       />
+      <LightColorTiles value={props.color} onChange={props.onColor} />
       {props.children}
     </section>
   );

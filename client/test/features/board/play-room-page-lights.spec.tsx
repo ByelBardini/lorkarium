@@ -1,3 +1,4 @@
+import type { LightDto } from '@lorkarium/contracts';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
@@ -15,7 +16,18 @@ import {
 import { BIA_AT_TABLE, vharnBoard, vharnState } from '../../support/table-session-fixtures';
 
 async function openRoom(asPlayer = false): Promise<TestDependencies> {
-  const deps = testDependencies();
+  return openRoomWith(testDependencies(), asPlayer);
+}
+
+function pick(deps: TestDependencies, lightId: string, additive: boolean): void {
+  act(() => deps.boardRenderers.latest().emit({ kind: 'lightPicked', lightId, additive }));
+}
+
+async function openRoomWith(
+  deps: TestDependencies,
+  asPlayer = false,
+  lights: readonly LightDto[] = [corridorTorch(), brazier()],
+): Promise<TestDependencies> {
   deps.authApi.answerMeWith(ANA);
   if (asPlayer) {
     deps.campaignsApi.answer('detail', {
@@ -34,7 +46,7 @@ async function openRoom(asPlayer = false): Promise<TestDependencies> {
     { kind: 'status', status: 'live' },
     {
       kind: 'board',
-      state: vharnBoard({ lights: [corridorTorch(), brazier()], ...(viewer && { viewer }) }),
+      state: vharnBoard({ lights: [...lights], ...(viewer && { viewer }) }),
     },
   );
   await act(() => Promise.resolve());
@@ -77,9 +89,36 @@ describe('play room: the lights tool', () => {
 
     await waitFor(() =>
       expect(deps.boardCommands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-        { lights: [{ x: 5.5, y: 3, bright: 6, dim: 2 }] },
+        { lights: [{ x: 5.5, y: 3, bright: 6, dim: 2, color: null }] },
       ]),
     );
+  });
+});
+
+describe('play room: the color of the next light', () => {
+  it('Ana chooses "Infernal" in the panel, clicks the board and sends an infernal light, remembered', async () => {
+    const deps = await openRoom();
+    await userEvent.keyboard('l');
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Infernal' }));
+    deps.boardRenderers.latest().emit({ kind: 'lightPlaced', x: 5.5, y: 3 });
+
+    await waitFor(() =>
+      expect(deps.boardCommands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
+        { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4, color: 'infernal' }] },
+      ]),
+    );
+    expect(deps.lightColorStorage.values.get('lorkarium.lightColor')).toBe('infernal');
+  });
+
+  it('a room opened with "Infernal" remembered shows it checked', async () => {
+    const deps = testDependencies();
+    deps.lightColor.getState().setColor('infernal');
+
+    await openRoomWith(deps);
+    await userEvent.keyboard('l');
+
+    expect(screen.getByRole('radio', { name: 'Infernal' })).toHaveAttribute('aria-checked', 'true');
   });
 });
 
@@ -128,7 +167,58 @@ describe('play room: editing map lights', () => {
 
     await waitFor(() =>
       expect(deps.boardCommands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-        { lights: [{ x: 12, y: 8, bright: 2, dim: 6 }] },
+        { lights: [{ x: 12, y: 8, bright: 2, dim: 6, color: null }] },
+      ]),
+    );
+  });
+
+  it('picking the neutral brazier checks "Neutra"', async () => {
+    await brazierPicked();
+
+    expect(screen.getByRole('radio', { name: 'Neutra' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('picking the brazier and a fire torch checks no color', async () => {
+    const deps = await openRoomWith(testDependencies(), false, [
+      corridorTorch({ color: 'fire' }),
+      brazier(),
+    ]);
+    await userEvent.keyboard('l');
+    pick(deps, CORRIDOR_TORCH_ID, false);
+    pick(deps, BRAZIER_ID, true);
+
+    const group = screen.getByRole('radiogroup', { name: 'Cor da luz' });
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+  });
+
+  it('"Lua" with both picked sends one setLightColors of the two, and Ctrl+Z sends them back', async () => {
+    const deps = await openRoomWith(testDependencies(), false, [
+      corridorTorch({ color: 'fire' }),
+      brazier(),
+    ]);
+    await userEvent.keyboard('l');
+    pick(deps, CORRIDOR_TORCH_ID, false);
+    pick(deps, BRAZIER_ID, true);
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Lua' }));
+    await waitFor(() => expect(deps.boardCommands.sentAs('setLightColors')).toHaveLength(1));
+    screen.getByRole('application').focus();
+    await userEvent.keyboard('{Control>}z{/Control}');
+
+    await waitFor(() =>
+      expect(deps.boardCommands.sentAs('setLightColors').map(({ fields }) => fields)).toEqual([
+        {
+          changes: [
+            { lightId: CORRIDOR_TORCH_ID, color: 'moon', expect: { color: 'fire' } },
+            { lightId: BRAZIER_ID, color: 'moon', expect: { color: null } },
+          ],
+        },
+        {
+          changes: [
+            { lightId: CORRIDOR_TORCH_ID, color: 'fire', expect: { color: 'moon' } },
+            { lightId: BRAZIER_ID, color: null, expect: { color: 'moon' } },
+          ],
+        },
       ]),
     );
   });

@@ -1,12 +1,10 @@
-import { Container, Graphics, RenderTexture, Sprite, Texture, type Renderer } from 'pixi.js';
+import { Container, Graphics, Sprite, Texture, type Renderer } from 'pixi.js';
 import type { Point } from './camera';
 import type { FogRect, FogView } from './fog-view';
+import { SceneRenderTexture } from './scene-render-texture';
 
 const FOG_COLOR = 0x000000;
 const PENUMBRA_ALPHA = 0.55;
-// A scene of 100 cells at 64 px is 6400 px a side (~164 MB in RGBA) and past the GPU's texture
-// limit: the openings are drawn smaller, and a blurred edge does not show in the fog.
-const OPENINGS_SIDE_MAX = 2048;
 
 type FogAreas = FogView['dim'];
 
@@ -58,7 +56,8 @@ class FogOpenings {
   private readonly own = new Graphics();
   private readonly lit = new Graphics();
   private readonly sightLines = new Graphics();
-  private texture: RenderTexture | null = null;
+  // Drawn smaller on a big scene: a blurred edge does not show in the fog.
+  private readonly target = new SceneRenderTexture();
 
   constructor() {
     this.drawing.addChild(this.own, this.lit, this.sightLines);
@@ -66,7 +65,7 @@ class FogOpenings {
   }
 
   draw(renderer: Renderer, fog: FogView, own: FogAreas, lit: FogAreas): void {
-    const target = this.textureOf(fog.width, fog.height);
+    const target = this.target.of(fog.width, fog.height);
     fillAreas(this.own.clear(), own);
     fillHoles(this.own, fog.holes);
     fillAreas(this.lit.clear(), lit);
@@ -76,17 +75,7 @@ class FogOpenings {
   }
 
   destroy(): void {
-    this.texture?.destroy(true);
-    this.texture = null;
-  }
-
-  // A new scene size makes a new texture; the old one is freed.
-  private textureOf(width: number, height: number): RenderTexture {
-    if (this.texture?.width === width && this.texture.height === height) return this.texture;
-    this.texture?.destroy(true);
-    const resolution = Math.min(1, OPENINGS_SIDE_MAX / Math.max(width, height));
-    this.texture = RenderTexture.create({ width, height, resolution });
-    return this.texture;
+    this.target.destroy();
   }
 }
 

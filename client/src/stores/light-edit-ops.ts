@@ -1,14 +1,9 @@
-import type { EditOp } from '@/lib/edit-history';
+import type { LightOp } from '@/lib/edit-history';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import { createdIdsOf, type EditOpResult } from './effect-area-edit-ops';
 
-type LightOp = Extract<
-  EditOp,
-  { kind: 'lightsAdded' | 'lightsRemoved' | 'lightsMoved' | 'lightRangesChanged' }
->;
-
 /** One light op as its command: placing answers the new ids; removing, moving and changing the
- *  reach send where (or how far) each light must still be, so the server refuses (`stale_undo`)
+ *  reach or the color send where (how far, in which color) each light must still be, so the server refuses (`stale_undo`)
  *  when someone changed it.
  *
  *  Example: `await runLightOp(op, campaignId, commands)` */
@@ -35,6 +30,14 @@ export async function runLightOp(
     case 'lightRangesChanged': {
       const changes = op.changes.map(({ lightId, from, to }) => ({ lightId, ...to, expect: from }));
       return createdIdsOf(await commands.setLightRanges(campaignId, changes), []);
+    }
+    case 'lightColorsChanged': {
+      const changes = op.changes.map(({ lightId, from, to }) => ({
+        lightId,
+        color: to,
+        expect: { color: from },
+      }));
+      return createdIdsOf(await commands.setLightColors(campaignId, changes), []);
     }
   }
 }
