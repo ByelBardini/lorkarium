@@ -21,9 +21,10 @@ type HarnessProps = Readonly<{
   assets: AssetsApiFake;
   onChange: (asset: AssetDto | null) => void;
   initial?: string | null;
+  removeLabel?: string;
 }>;
 
-function Harness({ assets, onChange, initial = null }: HarnessProps): React.JSX.Element {
+function Harness({ assets, onChange, initial = null, removeLabel }: HarnessProps) {
   const [value, setValue] = useState<string | null>(initial);
   return (
     <ImagePicker
@@ -32,12 +33,18 @@ function Harness({ assets, onChange, initial = null }: HarnessProps): React.JSX.
       assets={assets}
       value={value}
       label="Imagem"
+      removeLabel={removeLabel}
       onChange={(asset) => {
         setValue(asset?.id ?? null);
         onChange(asset);
       }}
     />
   );
+}
+
+async function openLink(): Promise<HTMLElement> {
+  await userEvent.click(screen.getByRole('button', { name: 'Usar link de imagem' }));
+  return screen.getByLabelText('Link da imagem');
 }
 
 describe('ImagePicker', () => {
@@ -49,7 +56,15 @@ describe('ImagePicker', () => {
     onChange = vi.fn<(asset: AssetDto | null) => void>();
   });
 
-  it('choosing a PNG sends it, shows "Enviando…" busy, then the preview and the new asset', async () => {
+  it('without an image there are "Escolher imagem" and the link button, and no bin', () => {
+    render(<Harness assets={assets} onChange={onChange} />);
+
+    expect(screen.getByRole('button', { name: 'Escolher imagem' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Usar link de imagem' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remover imagem' })).not.toBeInTheDocument();
+  });
+
+  it('a PNG on "Arquivo de imagem" sends it, shows "Enviando…" busy, then the preview and the new asset', async () => {
     assets.hold();
     render(<Harness assets={assets} onChange={onChange} />);
     const png = fileOf('image/png');
@@ -85,7 +100,7 @@ describe('ImagePicker', () => {
     expect(onChange).toHaveBeenCalledWith(LYRA_PORTRAIT);
   });
 
-  it('pasting an image (Ctrl+V) sends it the same way', async () => {
+  it('pasting an image (Ctrl+V) on the area sends it the same way', async () => {
     render(<Harness assets={assets} onChange={onChange} />);
     const area = screen.getByRole('group', { name: 'Área da imagem' });
     const png = fileOf('image/webp');
@@ -101,25 +116,69 @@ describe('ImagePicker', () => {
     ]);
   });
 
-  it('a link and "Usar link" import it with the purpose of the picker', async () => {
+  it('the link button opens a focused "Link da imagem"; "Usar link" imports it and the field closes', async () => {
     render(<Harness assets={assets} onChange={onChange} />);
 
-    await userEvent.type(screen.getByLabelText('Link da imagem'), 'https://x.com/lyra.png');
+    const link = await openLink();
+    expect(link).toHaveFocus();
+    await userEvent.type(link, 'https://x.com/lyra.png');
     await userEvent.click(screen.getByRole('button', { name: 'Usar link' }));
 
     expect(assets.sent).toEqual([
       { kind: 'link', campaignId: VHARN.id, url: 'https://x.com/lyra.png', purpose: 'token' },
     ]);
     expect(onChange).toHaveBeenCalledWith(LYRA_PORTRAIT);
+    expect(screen.queryByLabelText('Link da imagem')).not.toBeInTheDocument();
   });
 
-  it('"Remover imagem" clears the choice with null', async () => {
+  it('Enter in "Link da imagem" imports it too', async () => {
+    render(<Harness assets={assets} onChange={onChange} />);
+
+    await userEvent.type(await openLink(), 'https://x.com/lyra.png{Enter}');
+
+    expect(assets.sent).toEqual([
+      { kind: 'link', campaignId: VHARN.id, url: 'https://x.com/lyra.png', purpose: 'token' },
+    ]);
+  });
+
+  it('"Usar link" is disabled while the link is empty', async () => {
+    render(<Harness assets={assets} onChange={onChange} />);
+
+    await openLink();
+
+    expect(screen.getByRole('button', { name: 'Usar link' })).toBeDisabled();
+  });
+
+  it('Esc in "Link da imagem" closes the field without sending', async () => {
+    render(<Harness assets={assets} onChange={onChange} />);
+
+    await userEvent.type(await openLink(), 'https://x.com/a{Escape}');
+
+    expect(screen.queryByLabelText('Link da imagem')).not.toBeInTheDocument();
+    expect(assets.sent).toEqual([]);
+  });
+
+  it('with an image, the button reads "Trocar imagem" and the bin clears it with null', async () => {
     render(<Harness assets={assets} onChange={onChange} initial={LYRA_PORTRAIT.id} />);
 
+    expect(screen.getByRole('button', { name: 'Trocar imagem' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Remover imagem' }));
 
     expect(onChange).toHaveBeenCalledWith(null);
-    expect(screen.queryByRole('img', { name: 'Imagem escolhida' })).toBeNull();
+    expect(screen.queryByRole('img', { name: 'Imagem escolhida' })).not.toBeInTheDocument();
+  });
+
+  it('the removeLabel names the bin ("Remover fundo")', () => {
+    render(
+      <Harness
+        assets={assets}
+        onChange={onChange}
+        initial={LYRA_PORTRAIT.id}
+        removeLabel="Remover fundo"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Remover fundo' })).toBeInTheDocument();
   });
 
   it('a second file while the first is sending is ignored', async () => {
@@ -163,14 +222,15 @@ describe('ImagePicker', () => {
     [{ kind: 'link_blocked' }, 'Esse link não pode ser usado.'],
     [{ kind: 'rate_limited', retryAfterSeconds: 12 }, 'Muitos envios seguidos. Espere 12 s.'],
     [{ kind: 'offline' }, 'Sem conexão com o servidor. Confira sua internet e tente de novo.'],
-  ] as const)('a refused link (%o) says why and keeps the choice', async (failure, message) => {
+  ] as const)('a refused link (%o) says why and keeps the link typed', async (failure, message) => {
     assets.answerWith({ ok: false, failure });
     render(<Harness assets={assets} onChange={onChange} />);
 
-    await userEvent.type(screen.getByLabelText('Link da imagem'), 'https://x.com/a');
+    await userEvent.type(await openLink(), 'https://x.com/a');
     await userEvent.click(screen.getByRole('button', { name: 'Usar link' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(screen.getByLabelText('Link da imagem')).toHaveValue('https://x.com/a');
     expect(onChange).not.toHaveBeenCalled();
   });
 });
