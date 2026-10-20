@@ -2,6 +2,7 @@ import type {
   CreateLightsCommandDto,
   DeleteLightsCommandDto,
   MoveLightsCommandDto,
+  SetLightColorsCommandDto,
   SetLightRangesCommandDto,
   SetLightsLitCommandDto,
 } from '@lorkarium/contracts';
@@ -21,13 +22,16 @@ import { LightRulesBo } from './light-rules.bo';
 import type { LightsDao } from './lights.dao';
 import { LightNotFoundError } from './lights.error';
 import {
+  colorOfLight,
   lightMovedTo,
   positionOfLight,
   rangeOfLight,
+  savedColorOf,
   savedMoveOf,
   savedRangeOf,
   sceneLightOf,
   sceneLightOfPlacement,
+  toLightColorPo,
   toLightDto,
   toLightMovePo,
   toLightRangePo,
@@ -39,6 +43,7 @@ type Envelope = 'actionId' | 'campaignId';
 export type CreateLights = Omit<CreateLightsCommandDto, Envelope>;
 export type MoveLights = Omit<MoveLightsCommandDto, Envelope>;
 export type SetLightRanges = Omit<SetLightRangesCommandDto, Envelope>;
+export type SetLightColors = Omit<SetLightColorsCommandDto, Envelope>;
 export type SetLightsLit = Omit<SetLightsLitCommandDto, Envelope>;
 export type DeleteLights = Omit<DeleteLightsCommandDto, Envelope>;
 
@@ -52,6 +57,7 @@ export type LightWriteDaos = SceneLockDaos &
       | 'findManyInScene'
       | 'moveMany'
       | 'setRanges'
+      | 'setColors'
       | 'setLit'
       | 'deleteMany'
     >;
@@ -100,47 +106,52 @@ export class LightsService {
   async moveMany(userId: string, campaignId: string, command: MoveLights): Promise<number> {
     await this.requireMaster(userId, campaignId, 'move lights');
     const { moves } = command;
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
-      const rows = await lightsIn(
-        locked,
-        campaignId,
-        moves.map(({ lightId }) => lightId),
-      );
-      const rules = this.rulesFor(locked.scene);
-      rows.forEach((row, index) => {
-        const move = moves[index];
-        if (!move) return;
+    const version = await this.changeEach(
+      campaignId,
+      moves,
+      (rules, row, move) => {
         rules.requireAt(row.id, move.expect, positionOfLight(row));
         rules.place(lightMovedTo(sceneLightOf(row), move));
-      });
-      await locked.daos.lights.moveMany(locked.scene.id, moves.map(toLightMovePo));
+      },
+      (lights, sceneId) => lights.moveMany(sceneId, moves.map(toLightMovePo)),
+    );
+    this.deps.publisher.lightsMoved({
+      ...this.eventBase(campaignId, version),
+      moves: moves.map(savedMoveOf),
     });
-    const event = { ...this.eventBase(campaignId, saved.version), moves: moves.map(savedMoveOf) };
-    this.deps.publisher.lightsMoved(event);
-    return saved.version;
+    return version;
   }
 
   async setRangeMany(userId: string, campaignId: string, command: SetLightRanges): Promise<number> {
     await this.requireMaster(userId, campaignId, 'change the range of lights');
     const { changes } = command;
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
-      const rows = await lightsIn(
-        locked,
-        campaignId,
-        changes.map(({ lightId }) => lightId),
-      );
-      const rules = this.rulesFor(locked.scene);
-      rows.forEach((row, index) =>
-        rules.requireRange(row.id, changes[index]?.expect, rangeOfLight(row)),
-      );
-      await locked.daos.lights.setRanges(locked.scene.id, changes.map(toLightRangePo));
-    });
-    const event = {
-      ...this.eventBase(campaignId, saved.version),
+    const version = await this.changeEach(
+      campaignId,
+      changes,
+      (rules, row, change) => rules.requireRange(row.id, change.expect, rangeOfLight(row)),
+      (lights, sceneId) => lights.setRanges(sceneId, changes.map(toLightRangePo)),
+    );
+    this.deps.publisher.lightRangesChanged({
+      ...this.eventBase(campaignId, version),
       changes: changes.map(savedRangeOf),
-    };
-    this.deps.publisher.lightRangesChanged(event);
-    return saved.version;
+    });
+    return version;
+  }
+
+  async setColorMany(userId: string, campaignId: string, command: SetLightColors): Promise<number> {
+    await this.requireMaster(userId, campaignId, 'change the color of lights');
+    const { changes } = command;
+    const version = await this.changeEach(
+      campaignId,
+      changes,
+      (rules, row, change) => rules.requireColor(row.id, change.expect, colorOfLight(row)),
+      (lights, sceneId) => lights.setColors(sceneId, changes.map(toLightColorPo)),
+    );
+    this.deps.publisher.lightColorsChanged({
+      ...this.eventBase(campaignId, version),
+      changes: changes.map(savedColorOf),
+    });
+    return version;
   }
 
   /** Lights or puts out map lights (master): a game action, like a door, so no undo precondition. */
@@ -169,6 +180,27 @@ export class LightsService {
     });
     const event = { ...this.eventBase(campaignId, saved.version), lightIds: [...lightIds] };
     this.deps.publisher.lightsDeleted(event);
+    return saved.version;
+  }
+
+  /** Locks the scene, finds every light changed (all or none), checks each against its change
+   *  and writes the group; answers the new version. */
+  private async changeEach<Change extends Readonly<{ lightId: string }>>(
+    campaignId: string,
+    changes: readonly Change[],
+    check: (rules: LightRulesBo, row: LightPo, change: Change) => void,
+    write: (lights: LightWriteDaos['lights'], sceneId: string) => Promise<void>,
+  ): Promise<number> {
+    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
+      const ids = changes.map(({ lightId }) => lightId);
+      const rows = await lightsIn(locked, campaignId, ids);
+      const rules = this.rulesFor(locked.scene);
+      rows.forEach((row, index) => {
+        const change = changes[index];
+        if (change) check(rules, row, change);
+      });
+      await write(locked.daos.lights, locked.scene.id);
+    });
     return saved.version;
   }
 

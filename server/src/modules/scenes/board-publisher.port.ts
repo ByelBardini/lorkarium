@@ -15,6 +15,7 @@ import type {
   EffectAreasDeletedDto,
   EffectAreasReshapedDto,
   DoorChangedDto,
+  LightColorsChangedDto,
   LightRangesChangedDto,
   LightsCreatedDto,
   LightsDeletedDto,
@@ -101,6 +102,7 @@ export interface BoardPublisherPort {
   lightsCreated(event: LightsCreatedDto): void;
   lightsMoved(event: LightsMovedDto): void;
   lightRangesChanged(event: LightRangesChangedDto): void;
+  lightColorsChanged(event: LightColorsChangedDto): void;
   lightsLitChanged(event: LightsLitChangedDto): void;
   lightsDeleted(event: LightsDeletedDto): void;
   conditionDefined(event: ConditionDefinedDto): void;

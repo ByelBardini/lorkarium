@@ -9,6 +9,8 @@ export type LightRulesState = Readonly<{
 }>;
 
 export type LightPosition = Readonly<{ x: number; y: number }>;
+/** A palette name, or `null` for neutral: the game-core does not know the palette. */
+export type LightColor = string | null;
 
 /** The rules of a map light on its scene: its point lies inside the scene, the scene keeps at most
  *  so many lights, and an undo finds the light as it left it.
@@ -38,6 +40,15 @@ export class LightRulesBo {
     if (same(expected.bright, actual.bright) && same(expected.dim, actual.dim)) return;
     throw new StaleUndoError(`light ${lightId}`, rangeShown(expected), rangeShown(actual));
   }
+
+  requireColor(
+    lightId: string,
+    expected: Readonly<{ color: LightColor }> | undefined,
+    actual: LightColor,
+  ): void {
+    if (!expected || expected.color === actual) return;
+    throw new StaleUndoError(`light ${lightId}`, colorShown(expected.color), colorShown(actual));
+  }
 }
 
 function same(left: number, right: number): boolean {
@@ -46,6 +57,10 @@ function same(left: number, right: number): boolean {
 
 function pointShown({ x, y }: LightPosition): string {
   return `(${x}, ${y})`;
+}
+
+function colorShown(color: LightColor): string {
+  return color ?? 'neutral';
 }
 
 function rangeShown({ bright, dim }: LightRange): string {

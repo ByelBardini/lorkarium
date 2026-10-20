@@ -176,6 +176,20 @@
       "when": 1792377048453,
       "tag": "0024_lights",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792460610287,
+      "tag": "0025_light_color",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792461490135,
+      "tag": "0026_token_light_color",
+      "breakpoints": true
     }
   ]
 }

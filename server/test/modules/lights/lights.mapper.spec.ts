@@ -17,7 +17,12 @@ describe('lights mapper', () => {
       bright: 4,
       dim: 4,
       lit: false,
+      color: null,
     });
+  });
+
+  it('a saved moon torch carries its color to the DTO', () => {
+    expect(toLightDto(corridorTorchPo({ color: 'moon' })).color).toBe('moon');
   });
 
   it('a row the game-core refuses is a broken table, cited with its id and the cause', () => {
@@ -37,6 +42,14 @@ describe('lights mapper', () => {
       y: '3.00',
       bright: '4.00',
       dim: '2.01',
+      lit: true,
+      color: null,
+    });
+  });
+
+  it('a torch placement keeps its color in the row to insert', () => {
+    expect(toNewLightPo(VHARN_SCENE_ID, newTorch({ color: 'torch' }))).toMatchObject({
+      color: 'torch',
       lit: true,
     });
   });

@@ -1,0 +1,2 @@
+ALTER TABLE "tokens" ADD COLUMN "light_color" "light_color";--> statement-breakpoint
+ALTER TABLE "tokens" ADD CONSTRAINT "tokens_light_color" CHECK ("tokens"."light_color" IS NULL OR "tokens"."light_bright" IS NOT NULL);

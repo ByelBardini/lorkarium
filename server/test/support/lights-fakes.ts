@@ -1,5 +1,6 @@
 import type { LightsDao } from '../../src/modules/lights/lights.dao';
 import type {
+  LightColorPo,
   LightMovePo,
   LightPo,
   LightRangePo,
@@ -15,6 +16,7 @@ type LightsDaoMethods =
   | 'findManyInScene'
   | 'moveMany'
   | 'setRanges'
+  | 'setColors'
   | 'setLit'
   | 'deleteMany';
 
@@ -66,6 +68,11 @@ export class LightsDaoFake implements Pick<LightsDao, LightsDaoMethods> {
   async setRanges(sceneId: string, ranges: readonly LightRangePo[]): Promise<void> {
     this.journal.push('save');
     for (const { lightId, bright, dim } of ranges) this.patch(sceneId, lightId, { bright, dim });
+  }
+
+  async setColors(sceneId: string, colors: readonly LightColorPo[]): Promise<void> {
+    this.journal.push('save');
+    for (const { lightId, color } of colors) this.patch(sceneId, lightId, { color });
   }
 
   async setLit(sceneId: string, lightIds: readonly string[], lit: boolean): Promise<void> {

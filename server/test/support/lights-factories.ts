@@ -20,14 +20,15 @@ export function corridorTorchPo(overrides: Partial<LightPo> = {}): LightPo {
     bright: '4.00',
     dim: '4.00',
     lit: true,
+    color: null,
     createdAt: CREATED,
     ...overrides,
   };
 }
 
-/** A torch as the master places it: (5.5, 3), bright 4, dim 4.
+/** A torch as the master places it: (5.5, 3), bright 4, dim 4, neutral.
  *
  *  Example: `service.createMany(ANA_ID, VHARN_ID, { lights: [newTorch()] })` */
 export function newTorch(overrides: Partial<LightPlacementDto> = {}): LightPlacementDto {
-  return { x: 5.5, y: 3, bright: 4, dim: 4, ...overrides };
+  return { x: 5.5, y: 3, bright: 4, dim: 4, color: null, ...overrides };
 }
