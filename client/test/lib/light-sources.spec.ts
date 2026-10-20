@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { lightSourcesOf } from '@/lib/light-sources';
+import { lightSourcesOf, shiningLightsOf } from '@/lib/light-sources';
 import { brazier, corridorTorch } from '../support/light-fixtures';
 import { LYRA_ID, kael, lyra, vharnBoard } from '../support/table-session-fixtures';
 
-const TORCH = { bright: 4, dim: 4 };
+const TORCH = { bright: 4, dim: 4, color: null };
 
 describe('lightSourcesOf', () => {
   it('gives the lit map lights and the lit token lights, from their point and footprint center', () => {
     const board = vharnBoard({
       lights: [corridorTorch()],
-      tokens: [lyra({ col: 3, row: 4, light: { bright: 2, dim: 1 }, lightLit: true })],
+      tokens: [lyra({ col: 3, row: 4, light: { bright: 2, dim: 1, color: null }, lightLit: true })],
     });
 
     expect(lightSourcesOf(board)).toEqual([
@@ -35,6 +35,37 @@ describe('lightSourcesOf', () => {
 
     expect(lightSourcesOf(board, landing)).toEqual([
       { center: { x: 8.5, y: 2.5 }, range: { bright: 4, dim: 4 } },
+    ]);
+  });
+});
+
+describe('shiningLightsOf', () => {
+  it('gives each lit light with its color: a fire torch and a moon Lyra', () => {
+    const board = vharnBoard({
+      lights: [corridorTorch({ color: 'fire' })],
+      tokens: [lyra({ col: 3, row: 4, light: { ...TORCH, color: 'moon' }, lightLit: true })],
+    });
+
+    expect(shiningLightsOf(board)).toEqual([
+      { source: { center: { x: 5, y: 5 }, range: { bright: 4, dim: 4 } }, color: 'fire' },
+      { source: { center: { x: 3.5, y: 4.5 }, range: { bright: 4, dim: 4 } }, color: 'moon' },
+    ]);
+  });
+
+  it('leaves out a colored light that is out', () => {
+    const board = vharnBoard({ lights: [corridorTorch({ color: 'fire', lit: false })] });
+
+    expect(shiningLightsOf(board)).toEqual([]);
+  });
+
+  it('the colored light of a dragged Lyra shines from where she would land', () => {
+    const board = vharnBoard({
+      tokens: [lyra({ col: 3, row: 4, light: { ...TORCH, color: 'moon' }, lightLit: true })],
+    });
+    const landing = new Map([[LYRA_ID, { col: 8, row: 2 }]]);
+
+    expect(shiningLightsOf(board, landing).map(({ source }) => source.center)).toEqual([
+      { x: 8.5, y: 2.5 },
     ]);
   });
 });
