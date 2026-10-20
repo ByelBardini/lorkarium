@@ -18,7 +18,7 @@ export type RangeFieldProps = Readonly<{
 /** One side of a range (sight or light) typed in the scene's unit, with its length in cells under
  *  it. Text, not type="number": "1,5" is typed the Brazilian way and there are no spinner arrows.
  *
- *  Example: `<RangeField label="Luz plena (m)" value={fields.bright} error={errors.bright} distance={scene} onChange={setBright} />` */
+ *  Example: `<RangeField label="Luz plena até (m)" value={fields.bright} error={errors.bright} distance={scene} onChange={setBright} />` */
 export function RangeField(props: RangeFieldProps) {
   const { label, value, error, distance, onChange } = props;
   const id = useId();
