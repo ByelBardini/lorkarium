@@ -4,7 +4,7 @@ import { BIA, CAIO } from './support/dev-players';
 import { cellCenterOf } from './support/board-cells';
 import { adminCredentials, signIn } from './support/sign-in';
 import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
-import { statusOf } from './support/token-cards';
+import { chooseController, statusOf } from './support/token-cards';
 
 function order(page: Page): Locator {
   return page.getByRole('list', { name: 'Ordem de iniciativa' }).getByRole('listitem');
@@ -58,7 +58,7 @@ async function createToken(
   const dialog = admin.getByRole('dialog', { name: 'Novo token' });
   await dialog.getByLabel('Nome').fill(name);
   await dialog.getByRole('radio', { name: side }).check();
-  if (controller) await dialog.getByRole('checkbox', { name: controller }).click();
+  if (controller) await chooseController(dialog, controller);
   await dialog.getByRole('button', { name: 'Criar token' }).click();
   await expect(dialog).toBeHidden();
 }

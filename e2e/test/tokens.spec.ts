@@ -3,7 +3,7 @@ import { test } from './support/player-pages';
 import { dragBetweenCells } from './support/board-cells';
 import { BIA, CAIO } from './support/dev-players';
 import { adminCredentials, signIn } from './support/sign-in';
-import { cardOf, openCard, statusOf } from './support/token-cards';
+import { cardOf, openCard, statusOf, chooseController } from './support/token-cards';
 import {
   boardOf,
   createTableAndReadCode,
@@ -15,9 +15,10 @@ async function createLyraFor(admin: Page, player: string): Promise<void> {
   await admin.getByRole('button', { name: 'Novo token' }).click();
   const dialog = admin.getByRole('dialog', { name: 'Novo token' });
   await dialog.getByLabel('Nome').fill('Lyra');
-  await dialog.getByRole('checkbox', { name: player }).click();
-  await dialog.getByRole('button', { name: 'Adicionar barra' }).click();
-  await dialog.getByRole('button', { name: 'Adicionar barra' }).click();
+  await chooseController(dialog, player);
+  await dialog.getByRole('tab', { name: /^Barras/ }).click();
+  await dialog.getByRole('button', { name: 'Nova barra' }).click();
+  await dialog.getByRole('button', { name: 'Nova barra' }).click();
   const second = dialog.getByRole('listitem', { name: /^Barra 2/ });
   await second.getByLabel('Rótulo').fill('Inspiração');
   await dialog.getByRole('button', { name: 'Criar token' }).click();
@@ -80,4 +81,45 @@ test('tokens live: the hidden bar never reaches another player, only the control
   await openCard(bia, 'Lyra');
   await expect(cardOf(bia, 'Lyra')).toContainText('Coluna 5, linha 5');
   await expect(cardOf(bia, 'Lyra')).toContainText('−40 / 50');
+});
+
+test('the lean creation: a token with only the name, the controller and a PV of 45 reaches the table full, and an F5 keeps it', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(90_000);
+  const name = `Mesa criação enxuta ${Date.now()}`;
+  const admin = await newPlayerPage();
+  const bia = await newPlayerPage();
+  const caio = await newPlayerPage();
+  await signIn(admin, adminCredentials());
+  const code = await createTableAndReadCode(admin, name);
+  for (const [page, who] of [
+    [bia, BIA],
+    [caio, CAIO],
+  ] as const) {
+    await signIn(page, who);
+    await joinByCodeAndEnter(page, code);
+  }
+  await enterFromTheList(admin, name);
+
+  await admin.getByRole('button', { name: 'Novo token' }).click();
+  const dialog = admin.getByRole('dialog', { name: 'Novo token' });
+  await dialog.getByLabel('Nome').fill('Ogro');
+  await chooseController(dialog, 'Bia');
+  await dialog.getByRole('tab', { name: /^Barras/ }).click();
+  await dialog.getByRole('button', { name: '+ PV' }).click();
+  await dialog.getByLabel('Máximo de PV').fill('45');
+  await dialog.getByRole('button', { name: 'Criar token' }).click();
+  await expect(dialog).toBeHidden();
+
+  await openCard(bia, 'Ogro');
+  await expect(cardOf(bia, 'Ogro')).toContainText('45 / 45');
+  await expect(cardOf(bia, 'Ogro')).toContainText('1 × 1 casas');
+  await openCard(caio, 'Ogro');
+  await expect(cardOf(caio, 'Ogro')).toContainText('1 × 1 casas');
+  await expect(cardOf(caio, 'Ogro')).not.toContainText('PV');
+
+  await bia.reload();
+  await openCard(bia, 'Ogro');
+  await expect(cardOf(bia, 'Ogro')).toContainText('45 / 45');
 });

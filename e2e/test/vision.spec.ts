@@ -9,7 +9,7 @@ import {
   enterFromTheList,
   joinByCodeAndEnter,
 } from './support/tables';
-import { cardOf, openCard, statusOf } from './support/token-cards';
+import { cardOf, openCard, statusOf, chooseController } from './support/token-cards';
 
 const WALL_BLOCKS = 'Uma parede bloqueia o caminho.';
 
@@ -57,15 +57,17 @@ async function setVisionDark(admin: Page): Promise<void> {
   await expect(dialog).toBeHidden();
 }
 
-// Lyra for Bia, seeing 3 m fully and 3 m more (2 + 2 cells of 1.5 m), at the center (10, 6).
+// Lyra for Bia, seeing 3 m fully and dim until 6 m (2 + 2 cells of 1.5 m), at the center (10, 6).
 async function createSeeingLyra(admin: Page): Promise<void> {
   await admin.getByRole('button', { name: 'Novo token' }).click();
   const dialog = admin.getByRole('dialog', { name: 'Novo token' });
   await dialog.getByLabel('Nome').fill('Lyra');
-  await dialog.getByRole('checkbox', { name: 'Bia' }).click();
-  await dialog.getByRole('checkbox', { name: 'Enxerga no escuro' }).click();
-  await dialog.getByLabel('Visão plena (m)').fill('3');
-  await dialog.getByLabel('Penumbra (m)').fill('3');
+  await chooseController(dialog, 'Bia');
+  await dialog.getByRole('tab', { name: 'Visão e luz' }).click();
+  // "Enxerga no escuro" comes on in a new token: only the reach is typed.
+  const vision = dialog.getByRole('group', { name: 'Enxerga no escuro' });
+  await vision.getByLabel('Plena até (m)').fill('3');
+  await vision.getByLabel('Penumbra até (m)').fill('6');
   await dialog.getByRole('button', { name: 'Criar token' }).click();
   await expect(dialog).toBeHidden();
 }
