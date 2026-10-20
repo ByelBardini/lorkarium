@@ -6,7 +6,7 @@ import { CORRIDOR_TORCH_ID } from '../support/light-fixtures';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
-const TORCH: LightPlacement = { x: 5.5, y: 3, bright: 4, dim: 4 };
+const TORCH: LightPlacement = { x: 5.5, y: 3, bright: 4, dim: 4, color: null };
 const BASE = { actionId: ACTION_ID, campaignId: VHARN.id };
 
 describe('RealtimeLightCommands', () => {
@@ -58,6 +58,35 @@ describe('RealtimeLightCommands', () => {
         payload: { ...BASE, changes: [{ lightId: CORRIDOR_TORCH_ID, bright: 6, dim: 6 }] },
       },
     ]);
+  });
+
+  it('setLightColors sends light:setColorMany, with the expected color only when undoing', () => {
+    void commands.setLightColors(VHARN.id, [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }]);
+    void commands.setLightColors(VHARN.id, [
+      { lightId: CORRIDOR_TORCH_ID, color: 'moon', expect: { color: null } },
+    ]);
+    expect(transport.sent).toEqual([
+      {
+        event: 'light:setColorMany',
+        payload: { ...BASE, changes: [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }] },
+      },
+      {
+        event: 'light:setColorMany',
+        payload: {
+          ...BASE,
+          changes: [{ lightId: CORRIDOR_TORCH_ID, color: 'moon', expect: { color: null } }],
+        },
+      },
+    ]);
+  });
+
+  it('a refused setLightColors answers the failure without throwing', async () => {
+    const result = commands.setLightColors(VHARN.id, [{ lightId: CORRIDOR_TORCH_ID, color: null }]);
+    await transport.answerAck(
+      { ok: false, error: { code: 'STALE_UNDO', message: 'Stale undo' } },
+      'light:setColorMany',
+    );
+    expect(await result).toEqual({ ok: false, failure: 'stale_undo' });
   });
 
   it('setLightsLit sends the ids and the switch', () => {

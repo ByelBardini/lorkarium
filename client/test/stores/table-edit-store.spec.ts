@@ -362,7 +362,7 @@ describe('table edit store', () => {
     });
 
     it('undoing a placed light deletes it, expecting it where it was placed', async () => {
-      const placement = { x: 5.5, y: 3, bright: 4, dim: 4 };
+      const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: null };
       edits.getState().record([{ kind: 'lightsAdded', lights: [{ id: NEW_WALL, placement }] }]);
 
       await edits.getState().undo(context());
@@ -373,8 +373,8 @@ describe('table edit store', () => {
       });
     });
 
-    it('redoing a placed light places it again and the new id replaces the old one', async () => {
-      const placement = { x: 5.5, y: 3, bright: 4, dim: 4 };
+    it('redoing a placed arcane light places it again with its color and the new id replaces the old one', async () => {
+      const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: 'arcane' as const };
       edits.getState().record([{ kind: 'lightsRemoved', lights: [{ id: NEW_WALL, placement }] }]);
       commands.answerWith({ ok: true, version: 9, createdIds: [NEW_AREA] });
 
@@ -414,6 +414,33 @@ describe('table edit store', () => {
       expect(commands.sentAs('setLightRanges')[0]?.fields).toEqual({
         changes: [{ lightId: NEW_WALL, bright: 4, dim: 4, expect: { bright: 6, dim: 0 } }],
       });
+    });
+
+    it('undoing a color change sends the old color back, expecting the new one', async () => {
+      edits
+        .getState()
+        .record([
+          { kind: 'lightColorsChanged', changes: [{ lightId: NEW_WALL, from: null, to: 'moon' }] },
+        ]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('setLightColors')[0]?.fields).toEqual({
+        changes: [{ lightId: NEW_WALL, color: null, expect: { color: 'moon' } }],
+      });
+    });
+
+    it('a color undo refused with stale_undo drops the entry', async () => {
+      edits
+        .getState()
+        .record([
+          { kind: 'lightColorsChanged', changes: [{ lightId: NEW_WALL, from: null, to: 'moon' }] },
+        ]);
+      commands.answerWith({ ok: false, failure: 'stale_undo' });
+
+      await edits.getState().undo(context());
+
+      expect(edits.getState().history).toEqual({ past: [], future: [] });
     });
 
     it('a light undo refused with stale_undo drops the entry', async () => {

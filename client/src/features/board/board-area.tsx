@@ -16,6 +16,7 @@ import { useBoard, type BoardStore } from '@/stores/board-store';
 import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { wallStyleOf, type WallStyleStore } from '@/stores/wall-style-store';
+import type { LightColorStore } from '@/stores/light-color-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
 import { routeLightIntent } from '@/features/lights/light-intents';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
@@ -60,6 +61,8 @@ export type BoardAreaProps = Readonly<{
   wallStyle: StoreApi<WallStyleStore>;
   /** The reach the lights tool puts. */
   lightReach: StoreApi<LightReachStore>;
+  /** The color the lights tool puts. */
+  lightColor: StoreApi<LightColorStore>;
 }>;
 
 /** What fills the room behind the floating UI: the canvas once the board is ready, or why not.
@@ -105,6 +108,7 @@ function InteractiveCanvas({
   effectAreaStyle,
   wallStyle,
   lightReach,
+  lightColor,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({
     board,
@@ -132,7 +136,7 @@ function InteractiveCanvas({
           if (intent.kind === 'lightMenuRequested') {
             return onLightMenu({ lightId: intent.lightId, x: intent.x, y: intent.y });
           }
-          if (routeLightIntent({ board, interaction, lightReach }, intent)) return;
+          if (routeLightIntent({ board, interaction, lightReach, lightColor }, intent)) return;
           routeIntent({ board, interaction, drawingStyle, wallStyle }, intent);
         }}
         onRenderer={onRenderer}

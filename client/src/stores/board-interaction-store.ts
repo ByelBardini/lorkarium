@@ -9,6 +9,7 @@ import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { EditEntry, EffectAreaReshape, TokenResize, TokenTurn } from '@/lib/edit-history';
+import type { LightColor } from '@/lib/light-color';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { GroupMember, GroupPlacement } from '@/lib/token-group';
 import type { TokenRoute } from '@/lib/token-route';
@@ -45,6 +46,7 @@ import { setDoorOf, toggleDoorOf } from './door-flow';
 import { sendWall, type WallToolContext } from './wall-tool-flow';
 import { sendLight } from './light-tool-flow';
 import {
+  changeLightColorsOf,
   changeLightRangesOf,
   deleteLightsOf,
   moveLightOf,
@@ -165,14 +167,17 @@ export type BoardInteractionStore = BoardInteractionState &
       sketch: FinishedSketch,
       board: Pick<WallToolContext, 'style' | 'walls' | 'scene'>,
     ) => Promise<void>;
-    /** The lights tool clicked on the empty board: one light there with the remembered reach. */
-    placeLight: (point: LightPoint, reach: LightReach) => Promise<void>;
+    /** The lights tool clicked on the empty board: one light there with the remembered reach and
+     *  color. */
+    placeLight: (point: LightPoint, reach: LightReach, color: LightColor) => Promise<void>;
     /** A light being dragged (`null`: let go without a move). */
     previewLight: (lightId: string, point: LightPoint | null) => void;
     /** A light dropped: one move, one undo entry. */
     moveLight: (light: LightDto, to: LightPoint) => Promise<void>;
     /** The panel with lights picked: one reach for all of them, one undo entry. */
     changeLightRanges: (lights: readonly LightDto[], reach: LightReach) => Promise<void>;
+    /** The panel with lights picked: one color for all of them, one undo entry. */
+    changeLightColors: (lights: readonly LightDto[], color: LightColor) => Promise<void>;
     /** Delete on the lights picked. */
     deleteLights: (lights: readonly LightDto[]) => Promise<void>;
     /** The master's menu or panel: light or put out, never on the undo stack. */
@@ -342,14 +347,16 @@ export function createBoardInteractionStore(
         const context = { ...board, readOnly: get().readOnly, say };
         return sendWall({ ...deps, recordEdit }, sketch, context);
       },
-      placeLight: (point, reach) => {
+      placeLight: (point, reach, color) => {
         const say = (notice: string): void => set({ notice });
         const recordEdit = deps.recordEdit ?? (() => undefined);
-        return sendLight({ ...deps, recordEdit }, point, { reach, readOnly: get().readOnly, say });
+        const context = { reach, color, readOnly: get().readOnly, say };
+        return sendLight({ ...deps, recordEdit }, point, context);
       },
       previewLight: (lightId, point) => previewLightOf(store, lightId, point),
       moveLight: (light, to) => moveLightOf(deps, store, light, to),
       changeLightRanges: (lights, reach) => changeLightRangesOf(deps, store, lights, reach),
+      changeLightColors: (lights, color) => changeLightColorsOf(deps, store, lights, color),
       deleteLights: (lights) => deleteLightsOf(deps, store, lights),
       setLightsLit: (lights, lit) => setLightsLitOf(deps, store, lights, lit),
       toggleSightPreview: () => {

@@ -7,6 +7,7 @@ import type {
   EffectAreaDto,
   EffectAreasReshapedDto,
   LightDto,
+  LightColorsChangedDto,
   LightRangesChangedDto,
   LightsMovedDto,
   TokenDto,
@@ -152,6 +153,8 @@ function lightChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardS
       return { lights: withLightMoves(board.lights, event.payload.moves) };
     case 'lightRangesChanged':
       return { lights: withLightRanges(board.lights, event.payload.changes) };
+    case 'lightColorsChanged':
+      return { lights: withLightColors(board.lights, event.payload.changes) };
     case 'lightsLitChanged': {
       const { lightIds, lit } = event.payload;
       const switched = (light: LightDto): LightDto =>
@@ -181,6 +184,16 @@ function withLightRanges(
   return lights.map((light) => {
     const change = changes.find(({ lightId }) => lightId === light.id);
     return change ? { ...light, bright: change.bright, dim: change.dim } : light;
+  });
+}
+
+function withLightColors(
+  lights: readonly LightDto[],
+  changes: LightColorsChangedDto['changes'],
+): LightDto[] {
+  return lights.map((light) => {
+    const change = changes.find(({ lightId }) => lightId === light.id);
+    return change ? { ...light, color: change.color } : light;
   });
 }
 

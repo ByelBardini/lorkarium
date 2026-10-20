@@ -1,4 +1,5 @@
 import { BOARD_EVENTS, type LightPlacementDto } from '@lorkarium/contracts';
+import type { LightColor } from '@/lib/light-color';
 import type { BoardCommandResult, BoardCommandSender } from './board-command-sender';
 
 /** A map light as the master places it: the point in fractional cells and its range. */
@@ -11,10 +12,16 @@ export type LightAt = Readonly<{ lightId: string }> & LightPoint;
 export type LightMoveTarget = LightAt & Readonly<{ expect?: LightPoint }>;
 /** A range change; `expect` (an undo) is the range it must still have, or STALE_UNDO. */
 export type LightRangeTarget = Readonly<{ lightId: string; expect?: LightReach }> & LightReach;
+/** A color change; `expect` (an undo) is the color it must still have, or STALE_UNDO. */
+export type LightColorTarget = Readonly<{
+  lightId: string;
+  color: LightColor;
+  expect?: Readonly<{ color: LightColor }>;
+}>;
 
 /** The map light commands of an open table (the master's); each answers with its ack, never throws.
  *
- *  Example: `await commands.createLights(campaignId, [{ x: 5.5, y: 3, bright: 4, dim: 4 }])` */
+ *  Example: `await commands.createLights(campaignId, [{ x: 5.5, y: 3, bright: 4, dim: 4, color: null }])` */
 export interface LightCommands {
   /** The ok answers the new ids in `createdIds`, in the order sent. */
   createLights(campaignId: string, lights: readonly LightPlacement[]): Promise<BoardCommandResult>;
@@ -22,6 +29,10 @@ export interface LightCommands {
   setLightRanges(
     campaignId: string,
     changes: readonly LightRangeTarget[],
+  ): Promise<BoardCommandResult>;
+  setLightColors(
+    campaignId: string,
+    changes: readonly LightColorTarget[],
   ): Promise<BoardCommandResult>;
   setLightsLit(
     campaignId: string,
@@ -42,7 +53,7 @@ export class RealtimeLightCommands implements LightCommands {
   constructor(private readonly sender: BoardCommandSender) {}
 
   createLights(campaignId: string, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {
-    const placed = lights.map(({ x, y, bright, dim }) => ({ x, y, bright, dim }));
+    const placed = lights.map(({ x, y, bright, dim, color }) => ({ x, y, bright, dim, color }));
     return this.sender.send(BOARD_EVENTS.createLights, campaignId, { lights: placed });
   }
 
@@ -67,6 +78,18 @@ export class RealtimeLightCommands implements LightCommands {
       ...(expect && { expect: { bright: expect.bright, dim: expect.dim } }),
     }));
     return this.sender.send(BOARD_EVENTS.setLightRanges, campaignId, { changes: sent });
+  }
+
+  setLightColors(
+    campaignId: string,
+    changes: readonly LightColorTarget[],
+  ): Promise<BoardCommandResult> {
+    const sent = changes.map(({ lightId, color, expect }) => ({
+      lightId,
+      color,
+      ...(expect && { expect: { color: expect.color } }),
+    }));
+    return this.sender.send(BOARD_EVENTS.setLightColors, campaignId, { changes: sent });
   }
 
   setLightsLit(

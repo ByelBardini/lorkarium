@@ -181,6 +181,11 @@ describe('parseBoardEvent', () => {
         'lightRangesChanged',
         { changes: [{ lightId: CORRIDOR_TORCH_ID, bright: 6, dim: 6 }] },
       ],
+      [
+        'light:colorsChanged',
+        'lightColorsChanged',
+        { changes: [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }] },
+      ],
       ['light:litChanged', 'lightsLitChanged', { lightIds: [CORRIDOR_TORCH_ID], lit: false }],
       ['light:deletedMany', 'lightsDeleted', { lightIds: [CORRIDOR_TORCH_ID] }],
     ])('a valid %s of the table is a %s event', (name, type, fields) => {
@@ -188,6 +193,13 @@ describe('parseBoardEvent', () => {
       expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
         kind: 'event',
         event: { type, payload },
+      });
+    });
+
+    it('a light:colorsChanged with a hex color is outside the DTO and invalid (resync)', () => {
+      const payload = { ...base, changes: [{ lightId: CORRIDOR_TORCH_ID, color: '#f00' }] };
+      expect(parseBoardEvent('light:colorsChanged', payload, VHARN.id)).toEqual({
+        kind: 'invalid',
       });
     });
 

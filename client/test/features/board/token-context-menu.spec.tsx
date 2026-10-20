@@ -144,7 +144,7 @@ describe('TokenContextMenu', () => {
   });
 
   describe('"Luz acesa", for whoever controls the token', () => {
-    const TORCH = { bright: 4, dim: 4 };
+    const TORCH = { bright: 4, dim: 4, color: null };
 
     function withTokens(...tokens: ReturnType<typeof lyra>[]): void {
       board.getState().apply({ kind: 'board', state: vharnBoard({ tokens }) });

@@ -18,6 +18,7 @@ import {
   type LightCommands,
   type LightMoveTarget,
   type LightPlacement,
+  type LightColorTarget,
   type LightRangeTarget,
 } from './light-commands';
 import {
@@ -180,6 +181,13 @@ export class RealtimeTableBoardCommands
     changes: readonly LightRangeTarget[],
   ): Promise<BoardCommandResult> {
     return this.lights.setLightRanges(campaignId, changes);
+  }
+
+  setLightColors(
+    campaignId: string,
+    changes: readonly LightColorTarget[],
+  ): Promise<BoardCommandResult> {
+    return this.lights.setLightColors(campaignId, changes);
   }
 
   setLightsLit(

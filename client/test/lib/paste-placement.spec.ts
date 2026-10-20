@@ -83,8 +83,16 @@ describe('copiedOf', () => {
     expect(copiedOf([lyra({ sight })], []).tokens[0]?.sight).toEqual(sight);
   });
 
+  it('a copied Lyra with a moon light keeps the color', () => {
+    const light = { bright: 4, dim: 4, color: 'moon' as const };
+
+    const [copy] = copiedOf([lyra({ light })], []).tokens;
+
+    expect(copy?.light).toEqual({ bright: 4, dim: 4, color: 'moon' });
+  });
+
   it('a copied token keeps the light it gives off (and the copy is born lit)', () => {
-    const light = { bright: 4, dim: 4 };
+    const light = { bright: 4, dim: 4, color: null };
 
     const [copy] = copiedOf([lyra({ light, lightLit: false })], []).tokens;
 

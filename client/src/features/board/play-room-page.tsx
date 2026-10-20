@@ -20,6 +20,7 @@ import { createBoardInteractionStore, useBoardInteraction } from '@/stores/board
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import type { WallStyleStore } from '@/stores/wall-style-store';
+import type { LightColorStore } from '@/stores/light-color-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
@@ -47,6 +48,7 @@ export type PlayRoomPageProps = Readonly<{
   effectAreaStyle: StoreApi<EffectAreaStyleStore>;
   wallStyle: StoreApi<WallStyleStore>;
   lightReach: StoreApi<LightReachStore>;
+  lightColor: StoreApi<LightColorStore>;
   clipboard: Clipboard;
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
@@ -119,6 +121,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           effectAreaStyle={props.effectAreaStyle}
           wallStyle={props.wallStyle}
           lightReach={props.lightReach}
+          lightColor={props.lightColor}
         />
         {tool === 'draw' && !focus && <DrawStylePanel drawingStyle={props.drawingStyle} />}
         {tool === 'area' && !focus && <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />}
@@ -134,6 +137,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             board={table.board}
             interaction={interaction}
             lightReach={props.lightReach}
+            lightColor={props.lightColor}
           />
         )}
         {tokenMenu && table && (

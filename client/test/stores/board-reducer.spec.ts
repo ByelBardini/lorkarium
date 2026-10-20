@@ -370,6 +370,37 @@ describe('applyBoardEvent, lights', () => {
     expect(next.lights).toEqual([corridorTorch(), brazier({ bright: 6, dim: 0 })]);
   });
 
+  it('light:colorsChanged changes only the color of each listed light', () => {
+    const board = vharnBoard({ lights: [corridorTorch({ lit: false }), brazier()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'lightColorsChanged',
+      payload: { ...vharnEventBase(5), changes: [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }] },
+    });
+
+    expect(next.lights).toEqual([corridorTorch({ lit: false, color: 'fire' }), brazier()]);
+  });
+
+  it('light:colorsChanged with color null turns the light back to neutral', () => {
+    const board = vharnBoard({ lights: [corridorTorch({ color: 'moon' })] });
+
+    const next = applyBoardEvent(board, {
+      type: 'lightColorsChanged',
+      payload: { ...vharnEventBase(5), changes: [{ lightId: CORRIDOR_TORCH_ID, color: null }] },
+    });
+
+    expect(next.lights).toEqual([corridorTorch()]);
+  });
+
+  it('light:createdMany with an arcane light enters with its color', () => {
+    const next = applyBoardEvent(vharnBoard(), {
+      type: 'lightsCreated',
+      payload: { ...vharnEventBase(5), lights: [brazier({ color: 'arcane' })] },
+    });
+
+    expect(next.lights.map(({ color }) => color)).toEqual(['arcane']);
+  });
+
   it('light:litChanged changes only lit of each listed light', () => {
     const board = vharnBoard({ lights: [corridorTorch(), brazier()] });
 
@@ -393,7 +424,7 @@ describe('applyBoardEvent, lights', () => {
   });
 
   it('token:restyledMany with lightLit changes only the switch of the token light', () => {
-    const torchBearer = lyra({ light: { bright: 4, dim: 4 }, frame: 'round' });
+    const torchBearer = lyra({ light: { bright: 4, dim: 4, color: null }, frame: 'round' });
     const board = vharnBoard({ tokens: [torchBearer] });
 
     const next = applyBoardEvent(board, {

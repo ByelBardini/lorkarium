@@ -7,6 +7,7 @@ import type {
   WallShapeDto,
 } from '@lorkarium/contracts';
 import type { Cell, TokenBox } from '@lorkarium/game-core';
+import type { LightColor } from './light-color';
 
 /** Undo stacks kept per user: how many actions go back. */
 export const HISTORY_LIMIT = 50;
@@ -55,6 +56,8 @@ export type LightReach = Readonly<{ bright: number; dim: number }>;
 export type LightMove = Readonly<{ lightId: string; from: LightPoint; to: LightPoint }>;
 /** A change of reach of a map light: the reach it had and the one it got. */
 export type LightRangeChange = Readonly<{ lightId: string; from: LightReach; to: LightReach }>;
+/** A change of color of a map light: the color it had and the one it got (`null` = neutral). */
+export type LightColorChange = Readonly<{ lightId: string; from: LightColor; to: LightColor }>;
 
 /** One thing an action did, enough to redo it and to build its inverse. */
 export type EditOp =
@@ -75,7 +78,8 @@ export type EditOp =
   | Readonly<{ kind: 'lightsAdded'; lights: readonly PlacedLight[] }>
   | Readonly<{ kind: 'lightsRemoved'; lights: readonly PlacedLight[] }>
   | Readonly<{ kind: 'lightsMoved'; moves: readonly LightMove[] }>
-  | Readonly<{ kind: 'lightRangesChanged'; changes: readonly LightRangeChange[] }>;
+  | Readonly<{ kind: 'lightRangesChanged'; changes: readonly LightRangeChange[] }>
+  | Readonly<{ kind: 'lightColorsChanged'; changes: readonly LightColorChange[] }>;
 
 /** One user action (a paste with tokens and drawings is one), in the order it was done. */
 export type EditEntry = readonly EditOp[];
@@ -193,9 +197,13 @@ function inverseGroupOp(op: WallOp | LightOp | EffectAreaOp): EditOp {
   return inverseEffectAreaOp(op);
 }
 
-type LightOp = Extract<
+/** The ops about map lights, run by `runLightOp`. */
+export type LightOp = Extract<
   EditOp,
-  { kind: 'lightsAdded' | 'lightsRemoved' | 'lightsMoved' | 'lightRangesChanged' }
+  {
+    kind:
+      'lightsAdded' | 'lightsRemoved' | 'lightsMoved' | 'lightRangesChanged' | 'lightColorsChanged';
+  }
 >;
 
 /** Whether the op is about map lights (the edit store hands those to `runLightOp`).
@@ -219,6 +227,11 @@ function inverseLightOp(op: LightOp): EditOp {
     case 'lightRangesChanged':
       return {
         kind: 'lightRangesChanged',
+        changes: op.changes.map(({ lightId, from, to }) => ({ lightId, from: to, to: from })),
+      };
+    case 'lightColorsChanged':
+      return {
+        kind: 'lightColorsChanged',
         changes: op.changes.map(({ lightId, from, to }) => ({ lightId, from: to, to: from })),
       };
   }
@@ -313,6 +326,11 @@ function remapOp(op: EditOp, mapping: IdMapping): EditOp {
     case 'lightsMoved':
       return { ...op, moves: op.moves.map((move) => ({ ...move, lightId: idOf(move.lightId) })) };
     case 'lightRangesChanged':
+      return {
+        ...op,
+        changes: op.changes.map((change) => ({ ...change, lightId: idOf(change.lightId) })),
+      };
+    case 'lightColorsChanged':
       return {
         ...op,
         changes: op.changes.map((change) => ({ ...change, lightId: idOf(change.lightId) })),

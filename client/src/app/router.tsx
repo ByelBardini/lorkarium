@@ -23,6 +23,7 @@ import type { RailStore } from '@/stores/rail-store';
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import type { WallStyleStore } from '@/stores/wall-style-store';
+import type { LightColorStore } from '@/stores/light-color-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
 import type { RoomLayoutStore } from '@/stores/room-layout-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
@@ -49,6 +50,8 @@ export type AppDependencies = Readonly<{
   wallStyle: StoreApi<WallStyleStore>;
   /** The bright and dim range of the next map light (the master), remembered in the browser. */
   lightReach: StoreApi<LightReachStore>;
+  /** The color of the next map light (the master), remembered in the browser. */
+  lightColor: StoreApi<LightColorStore>;
   /** The board canvas; PixiJS in the app, a fake in tests (jsdom has no WebGL). */
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
