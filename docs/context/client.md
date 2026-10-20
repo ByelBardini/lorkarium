@@ -10,6 +10,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe               | [`home.md`](client/home.md)                   |
 | Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos      | [`board.md`](client/board.md)                 |
 | Tokens na sala: arraste, teclado, lista "Na cena", cartão, diálogo e barras  | [`tokens.md`](client/tokens.md)               |
+| Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz | [`token-dialog.md`](client/token-dialog.md)   |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro | [`combat.md`](client/combat.md)               |
 | Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)      | [`drawings.md`](client/drawings.md)           |
 | Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar      | [`effect-areas.md`](client/effect-areas.md)   |
@@ -28,9 +29,11 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `index.html` + `public/favicon.svg` — favicon: o cristal da `BrandMark` em dourado num círculo `#0c0e11` (o `panel`), traço mais grosso para ler em 16px
 - `src/assets/` — imagens importadas pelo Vite (`evolutiva-mark.png`)
 - `src/index.css` — tokens do tema (único, escuro) e as fontes self-host (`@fontsource-variable`)
-- `src/components/ui/` — componentes shadcn (`button`, `input`, `label`, `checkbox`, `alert`, `textarea`, `radio-group`, `dialog`, `alert-dialog` (confirmação destrutiva, `role="alertdialog"`; gerado pelo `shadcn add` com `--overwrite` e o `button.tsx` do projeto restaurado), `sheet`, `dropdown-menu`, `tooltip`, `context-menu`, `popover`), já ajustados ao design system
+- `src/components/ui/` — componentes shadcn (`button`, `input`, `label`, `checkbox`, `alert`, `textarea`, `radio-group`, `dialog`, `alert-dialog` (confirmação destrutiva, `role="alertdialog"`; gerado pelo `shadcn add` com `--overwrite` e o `button.tsx` do projeto restaurado), `sheet`, `dropdown-menu`, `tooltip`, `context-menu`, `popover`, `tabs`, `switch` (escrito à mão sobre o `radix-ui`)), já ajustados ao design system
 - `src/components/brand-mark.tsx` — `BrandMark` (logo; variantes `full`, `compact` e `icon`, só o cristal, sempre anunciado como "LORKARIUM")
+- `src/components/image-picker.tsx` — `ImagePicker` (área de soltar/colar + botões), sobre `use-image-sender.ts` (`useImageSender`: envio de arquivo e link) e `image-source-buttons.tsx` (`ImageSourceButtons`, `ImageLinkField`, `ImageSendNotice`); detalhe em [`client/board.md`](client/board.md)
 - `src/components/range-field.tsx` — `RangeField` (um lado de alcance na unidade da cena, com "= N casas" embaixo; `placeholder` e `onBlur` opcionais), usado pela visão e pela luz do token e pelo painel de luzes
+- `src/components/segment-field.tsx` — `SegmentField` (escolha entre 2–3 segmentos lado a lado, `radiogroup` do Radix, `mark` e `disabled` por opção, `hint`; `fill` faz os segmentos dividirem a linha); o `choice-field.tsx` é a versão círculo + texto
 - `src/components/form-field.tsx` — `FormField` (rótulo + controle + erro `<id>-error` ou dica); `password-field.tsx` — `PasswordField` (mostrar/ocultar, `autoComplete` e `autoFocus` opcionais)
 - `src/components/campaign-cover.tsx` (capa SVG `aria-hidden`) e `copy-code-button.tsx` ("Copiar código" + `role="status"`)
 - `src/lib/utils.ts` — `cn`
@@ -38,6 +41,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` e `DESKTOP_QUERY` (`md`); sem `matchMedia` (jsdom) responde `true`
 - `src/lib/board-shortcuts.ts`, `ruler-label.ts` — atalhos e régua da sala (ver [`client/board.md`](client/board.md))
 - `src/lib/cells-text.ts` — `cellsText(1.5)` → `'1,5'`: casas com vírgula (cartão, anúncio e formulário do token)
+- `src/lib/token-side.ts` — `sideRingVar(lado)` → `var(--label)` / `var(--chart-3)` / `var(--chart-2)`: a cor do anel do token no DOM (a prévia do diálogo; o canvas tem os hex)
 - `src/lib/safe-redirect.ts` — `safeRedirectTarget(next)`: só caminho interno; `//x`, `/\x`, URL absoluta, `javascript:`, vazio e `/login` viram `/`
 - `src/lib/greeting.ts` — `GREETINGS` (as 10 saudações da home) e `greetingFor(nome, sorteio ∈ [0, 1))` com o primeiro nome; sorteio fora do intervalo → `RangeError`
 - `src/lib/overline-date.ts` — `formatOverlineDate(data)` → "Quarta, 14 de outubro" (sem "-feira", hora local)

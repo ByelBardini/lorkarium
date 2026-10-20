@@ -37,7 +37,7 @@ Identidade visual do Lorkarium, em tokens de `client/src/index.css` (variável C
 - `--radius` **0.25rem (4px)**, uma escala só no produto: botão, campo, diálogo, menu e tooltip em `rounded-lg`/`rounded-md` (4px ou menos). Superfícies (lista, faixa, miniatura, capa) são **retas**. Nenhum `rounded-full`, exceto o rádio (o círculo é o que diz "escolha uma").
 - Foco de botão e checkbox: `outline-2 outline-offset-2 outline-ring` (anel dourado afastado). Campo de texto: `border-primary` + `ring-3 ring-ring/20`.
 - `Input`: 48px (`h-12`), `bg-card`, texto 15px. `Button` `size="xl"`: 50px, 15px semibold; `variant="default"` dourado; `variant="outline"` é o botão secundário (borda `input`, texto `label`, hover dourado).
-- `Checkbox`: 18px, marcado em dourado. `Alert variant="destructive"`: fundo `destructive/10`, borda `destructive/60`, texto `destructive-text`.
+- `Checkbox`: 18px, marcado em dourado. `Switch` (`ui/switch.tsx`, sobre o `radix-ui`, escrito à mão sem o `shadcn add`): 42 × 24, trilho `input`, ligado em dourado com o botão escuro, sem sombra; a pílula é a forma que diz "liga/desliga" (exceção, como o rádio). `Alert variant="destructive"`: fundo `destructive/10`, borda `destructive/60`, texto `destructive-text`.
 - O autofill do Chrome é neutralizado no `index.css` (fundo `card`, texto `foreground`).
 - Cursor: o `@layer base` do `index.css` dá `cursor-pointer` a todo `button` e `[role=button]` habilitado e `cursor-not-allowed` ao `button:disabled` (o preflight do Tailwind v4 volta o botão para `default`). Não repetir `cursor-pointer` em botão.
 
@@ -45,7 +45,7 @@ Identidade visual do Lorkarium, em tokens de `client/src/index.css` (variável C
 
 - Sem gradiente decorativo, sem glassmorphism, sem sombra: elevação é superfície mais clara. Os componentes shadcn instalados perdem `shadow-*` e `backdrop-blur`; o overlay de diálogo e gaveta é `bg-black/70`.
 - Card só para item heterogêneo e acionável; itens iguais (mesas) são **lista** em linhas de largura total, separadas por fio (`border-divider`), sem caixa, sombra nem lift; o hover não pinta fundo (faixa de largura total parece solta): o nome fica dourado, a capa acende e surge a seta à direita. Blocos se agrupam por espaço, proximidade e tipografia ("structure should be felt, not seen").
-- Nada de pílula: sem chip, badge ou contador arredondado; papel e status são texto (caixa alta espaçada, `tracking-[0.12em]`).
+- Nada de pílula: sem chip, badge ou contador arredondado; papel e status são texto (caixa alta espaçada, `tracking-[0.12em]`). Exceções combinadas, do exemplo do diálogo do token (`docs/pages/mesa/novo-token/`): o contador da aba "Barras" (badge redondo `bg-muted`) e o avatar de iniciais do jogador em "Quem controla" (círculo `bg-muted`); os botões de jogador continuam `rounded-md`.
 - Ponto de status só quando mapeia um estado definido, dito também em texto; nada de animação decorativa ("Ao vivo" espera o tempo real).
 - Tela logada ocupa a largura toda ao lado do trilho, alinhada à esquerda (`w-full px-4 sm:px-8 lg:px-12`); nada de coluna centralizada com `mx-auto max-w-*`. Limite de largura só em parágrafo, pela leitura (`max-w-prose`).
 - A moldura recua: o trilho é `bg-panel`, ícones de 16px, item ativo marcado por um traço dourado de 2px à esquerda (não caixa com borda).
