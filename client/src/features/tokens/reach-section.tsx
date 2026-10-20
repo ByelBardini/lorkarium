@@ -19,6 +19,8 @@ export type ReachSectionProps = Readonly<{
   onRange: (range: ReachTyped) => void;
   /** A line under the fields, only while on. */
   note?: string;
+  /** More of the reach under the fields, only while on (the color of a light). */
+  children?: React.ReactNode;
 }>;
 
 /** One reach of a token, its vision in the dark or its light: a switch with its title and hint
@@ -66,6 +68,7 @@ export function ReachSection(props: ReachSectionProps): React.JSX.Element {
             />
           </div>
           {props.note && <p className="text-xs text-muted-foreground">{props.note}</p>}
+          {props.children}
         </div>
       )}
     </div>

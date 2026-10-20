@@ -83,6 +83,27 @@ describe('TokenPreview', () => {
     expect(container.querySelector<HTMLElement>('[data-light-glow]')?.style.width).toBe('260px');
   });
 
+  it('an infernal light glows in its tone, #ff3b3b', () => {
+    const { container } = renderPreviewWith({
+      ...emptyTokenForm(METERS),
+      light: { on: true, bright: '6', dim: '12', saved: false },
+      lightColor: 'infernal',
+    });
+
+    const glow = container.querySelector<HTMLElement>('[data-light-glow]');
+    expect(glow?.style.background).toContain('rgba(255, 59, 59, 0.22)');
+  });
+
+  it('a neutral light glows in the gold of today', () => {
+    const { container } = renderPreviewWith({
+      ...emptyTokenForm(METERS),
+      light: { on: true, bright: '6', dim: '12', saved: false },
+    });
+
+    const glow = container.querySelector<HTMLElement>('[data-light-glow]');
+    expect(glow?.style.background).toContain('rgba(226, 199, 147, 0.22)');
+  });
+
   it('without light, nothing glows', () => {
     const { container } = renderPreviewWith(emptyTokenForm(METERS));
 

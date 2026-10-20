@@ -3,6 +3,7 @@ import { ImageSourceButtons } from '@/components/image-source-buttons';
 import { useImageSender, type ImageSender } from '@/components/use-image-sender';
 import { barFill } from '@/lib/bar-display';
 import { imageOfClipboard } from '@/lib/image-file';
+import { lightColorCss } from '@/lib/light-color';
 import { parseRangeFields, type SceneDistance } from '@/lib/range-form';
 import { sideRingVar } from '@/lib/token-side';
 import { cn } from '@/lib/utils';
@@ -127,7 +128,11 @@ const GRID_STYLE: React.CSSProperties = {
   backgroundSize: `${CELL_PX}px ${CELL_PX}px`,
 };
 
-// The light itself (an illustration of the domain, not decoration): as wide as the dim reaches.
+// The warm gold of a neutral light, the glow before lights had a color.
+const NEUTRAL_GLOW_RGB = '226 199 147';
+
+// The light itself (an illustration of the domain, not decoration): as wide as the dim reaches,
+// in the tone of the light.
 function LightGlow({
   form,
   distance,
@@ -144,11 +149,20 @@ function LightGlow({
       style={{
         width: size,
         height: size,
-        background:
-          'radial-gradient(circle, rgb(226 199 147 / 0.22) 0%, rgb(226 199 147 / 0.08) 55%, rgb(226 199 147 / 0) 70%)',
+        background: glowOf(glowRgbOf(form.lightColor)),
       }}
     />
   );
+}
+
+function glowRgbOf(color: TokenFormValues['lightColor']): string {
+  const hex = lightColorCss(color);
+  if (!hex) return NEUTRAL_GLOW_RGB;
+  return [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16)).join(' ');
+}
+
+function glowOf(rgb: string): string {
+  return `radial-gradient(circle, rgb(${rgb} / 0.22) 0%, rgb(${rgb} / 0.08) 55%, rgb(${rgb} / 0) 70%)`;
 }
 
 function PreviewDisc({ form }: Readonly<{ form: TokenFormValues }>): React.JSX.Element {

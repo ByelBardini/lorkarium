@@ -2,6 +2,7 @@ import { REACH_MAX } from '@lorkarium/contracts';
 import { EyeIcon, FlameIcon } from 'lucide-react';
 import { cellsText } from '@/lib/cells-text';
 import type { SceneDistance } from '@/lib/sight-form';
+import { LightColorTiles } from '@/features/lights/light-color-tiles';
 import { ReachSection } from './reach-section';
 import { lightSwitchedOn, type TokenFormErrors, type TokenFormValues } from './token-form-state';
 import { DARKVISION_HINT, LIGHT_HINT, PENUMBRA_HINT, SEES_IN_DARK_HINT } from './token-messages';
@@ -15,7 +16,8 @@ export type VisionLightTabProps = Readonly<{
 }>;
 
 /** "Visão e luz" of the token dialog: "Enxerga no escuro" (on in a new token, 9 / 18 m) and
- *  "Emite luz" (off; switching it on fills the torch), both read from the token.
+ *  "Emite luz" (off; switching it on fills the torch, with its "Cor da luz"), both read from the
+ *  token.
  *
  *  Example: `<VisionLightTab form={form} errors={errors} distance={scene} onChange={setForm} />` */
 export function VisionLightTab(props: VisionLightTabProps): React.JSX.Element {
@@ -47,7 +49,12 @@ export function VisionLightTab(props: VisionLightTabProps): React.JSX.Element {
         errors={errors.light ?? {}}
         distance={distance}
         onRange={(range) => onChange({ ...form, light: { ...light, ...range } })}
-      />
+      >
+        <LightColorTiles
+          value={form.lightColor}
+          onChange={(lightColor) => onChange({ ...form, lightColor })}
+        />
+      </ReachSection>
       <p className="text-xs text-placeholder">{unitNote(distance)}</p>
     </div>
   );
