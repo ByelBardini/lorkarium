@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { combatDto } from './combat.dto';
 import { activeConditionDto } from './condition.dto';
-import { lightRangeDto } from './light.dto';
+import { tokenLightDto } from './light.dto';
 import { REACH_MAX, reachSideDto } from './reach.dto';
 
 export const MAX_BARS_PER_TOKEN = 8;
@@ -140,7 +140,7 @@ export const tokenDto = z.strictObject({
   ...tokenAppearanceShape,
   facing: facingDto,
   sight: sightDto.nullable(),
-  light: lightRangeDto.nullable(),
+  light: tokenLightDto.nullable(),
   lightLit: z.boolean(),
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
@@ -164,7 +164,7 @@ export const createTokenCommandDto = z.strictObject({
   flipY: z.boolean().default(false),
   facing: facingDto.default(0),
   sight: sightDto.nullable().optional(),
-  light: lightRangeDto.nullable().optional(),
+  light: tokenLightDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type CreateTokenCommandDto = z.infer<typeof createTokenCommandDto>;
@@ -181,7 +181,7 @@ export const updateTokenCommandDto = z.strictObject({
   flipX: z.boolean().optional(),
   flipY: z.boolean().optional(),
   sight: sightDto.nullable().optional(),
-  light: lightRangeDto.nullable().optional(),
+  light: tokenLightDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type UpdateTokenCommandDto = z.infer<typeof updateTokenCommandDto>;

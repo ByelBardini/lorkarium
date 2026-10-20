@@ -9,6 +9,7 @@ import {
   tokenDto,
   updateTokenCommandDto,
 } from '../../src/board/token.dto';
+import { newTokenDto } from '../../src/board/token-group.dto';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const CAMPAIGN_ID = '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a';
@@ -244,8 +245,32 @@ describe('light on the token', () => {
   delete UPDATE.row;
   const torch = { bright: 4, dim: 4 };
 
-  it('a token created with a light keeps it', () => {
-    expect(createTokenCommandDto.parse({ ...CREATE, light: torch }).light).toEqual(torch);
+  it('a token created with a light keeps it, neutral when sent without color', () => {
+    expect(createTokenCommandDto.parse({ ...CREATE, light: torch }).light).toEqual({
+      ...torch,
+      color: null,
+    });
+  });
+
+  it('a token created with a fire light keeps the color', () => {
+    const light = { ...torch, color: 'fire' };
+    expect(createTokenCommandDto.parse({ ...CREATE, light }).light).toEqual(light);
+  });
+
+  it('an update with a light of color #f00 is refused on light.color', () => {
+    const result = updateTokenCommandDto.safeParse({
+      ...UPDATE,
+      light: { ...torch, color: '#f00' },
+    });
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['light.color']);
+  });
+
+  it('a pasted token keeps the moon color of its light', () => {
+    const pasted = { ...CREATE } as Record<string, unknown>;
+    delete pasted.actionId;
+    delete pasted.campaignId;
+    const light = { ...torch, color: 'moon' };
+    expect(newTokenDto.parse({ ...pasted, light }).light).toEqual(light);
   });
 
   it('a token created lit or unlit is refused: a new token is always lit', () => {

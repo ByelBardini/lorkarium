@@ -52,12 +52,14 @@ import {
   lightDto,
   type CreateLightsCommandDto,
   type DeleteLightsCommandDto,
+  type LightColorsChangedDto,
   type LightRangesChangedDto,
   type LightsCreatedDto,
   type LightsDeletedDto,
   type LightsLitChangedDto,
   type LightsMovedDto,
   type MoveLightsCommandDto,
+  type SetLightColorsCommandDto,
   type SetLightRangesCommandDto,
   type SetLightsLitCommandDto,
 } from './light.dto';
@@ -170,11 +172,13 @@ export const BOARD_EVENTS = {
   createLights: 'light:createMany',
   moveLights: 'light:moveMany',
   setLightRanges: 'light:setRangeMany',
+  setLightColors: 'light:setColorMany',
   setLightsLit: 'light:setLitMany',
   deleteLights: 'light:deleteMany',
   lightsCreated: 'light:createdMany',
   lightsMoved: 'light:movedMany',
   lightRangesChanged: 'light:rangesChanged',
+  lightColorsChanged: 'light:colorsChanged',
   lightsLitChanged: 'light:litChanged',
   lightsDeleted: 'light:deletedMany',
   defineCondition: 'condition:define',
@@ -296,6 +300,7 @@ export type BoardClientEvents = {
   'light:createMany': Command<CreateLightsCommandDto>;
   'light:moveMany': Command<MoveLightsCommandDto>;
   'light:setRangeMany': Command<SetLightRangesCommandDto>;
+  'light:setColorMany': Command<SetLightColorsCommandDto>;
   'light:setLitMany': Command<SetLightsLitCommandDto>;
   'light:deleteMany': Command<DeleteLightsCommandDto>;
   'condition:define': Command<DefineConditionCommandDto>;
@@ -345,6 +350,7 @@ export type BoardServerEvents = {
   'light:createdMany': (event: LightsCreatedDto) => void;
   'light:movedMany': (event: LightsMovedDto) => void;
   'light:rangesChanged': (event: LightRangesChangedDto) => void;
+  'light:colorsChanged': (event: LightColorsChangedDto) => void;
   'light:litChanged': (event: LightsLitChangedDto) => void;
   'light:deletedMany': (event: LightsDeletedDto) => void;
   'condition:defined': (event: ConditionDefinedDto) => void;
