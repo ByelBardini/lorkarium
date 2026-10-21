@@ -1,7 +1,7 @@
 import type { BoardStateDto } from '@lorkarium/contracts';
 import { useEffect } from 'react';
 import { seenTokensOf, type BoardSight } from '@/lib/board-sight';
-import { entryLabelOf, OUT_OF_SIGHT_LABEL } from '@/lib/combat-entries';
+import { canRunEntry, entryLabelOf, OUT_OF_SIGHT_LABEL } from '@/lib/combat-entries';
 import type { StoreApi } from 'zustand/vanilla';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
@@ -16,7 +16,8 @@ export type FollowedTable = Readonly<{
 /** Keeps the local interaction in step with the table: read only unless the connection is live
  *  (no command queue, spec §5.6), every new snapshot voids the move preview, a scene back to
  *  vision off ends the master's sight preview, and a turn that moves is said on the status line
- *  (by the entry's label, through the sight filter).
+ *  (by the entry's label, through the sight filter) and, when it lands on one token this viewer
+ *  runs, selects it (its detail opens; the board centers it when out of view).
  *
  *  Example: `useInteractionFollowsTable(view.kind === 'open' ? view : null, interaction)` */
 export function useInteractionFollowsTable(
@@ -36,13 +37,30 @@ export function useInteractionFollowsTable(
       if (next.snapshots !== previous.snapshots) return interaction.getState().dropPreview();
       const sight = sightNowOf(next, interaction.getState());
       const announcement = turnAnnouncement(previous.board, next.board, sight);
-      if (announcement) interaction.getState().say(announcement);
+      if (!announcement) return;
+      interaction.getState().say(announcement);
+      selectTurnToken(next.board, interaction);
     });
     return () => {
       stopStatus();
       stopSnapshots();
     };
   }, [presence, board, interaction]);
+}
+
+// Never while something is dragged: the selection would jump under the pointer.
+function selectTurnToken(
+  board: BoardStateDto | null,
+  interaction: StoreApi<BoardInteractionStore>,
+): void {
+  const combat = board?.combat;
+  const entry = combat?.combatants.find(({ id }) => id === combat.currentCombatantId);
+  const [tokenId] = entry?.tokenIds ?? [];
+  if (!board || !entry || !tokenId || entry.tokenIds.length !== 1) return;
+  if (interaction.getState().drag) return;
+  if (canRunEntry(entry, board.tokens, board.viewer.role === 'master')) {
+    interaction.getState().select(tokenId);
+  }
 }
 
 // "Vez de Inimigos." when a confirmed event (not a snapshot) moves the turn to another entry; an

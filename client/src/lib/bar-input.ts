@@ -30,3 +30,12 @@ export function parseBarMax(text: string): number | null {
   const max = Number(trimmed);
   return max >= 1 && max <= BAR_VALUE_LIMIT ? max : null;
 }
+
+/** The amount "Dano" and "Cura" take from the bar field: a plain whole number from 1 to
+ *  `BAR_VALUE_LIMIT`; a sign, zero or text gives `null` (the two buttons stay off).
+ *
+ *  Example: `parseBarAmount('5') // 5` */
+export function parseBarAmount(text: string): number | null {
+  // Same range as a maximum: what "Máx." accepts is what a hit or a cure can move.
+  return parseBarMax(text);
+}

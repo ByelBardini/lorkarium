@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entryDefeated } from '@/features/combat/combat-view';
+import { entryDefeated, roundsLeftText } from '@/features/combat/combat-view';
 import { lyra } from '../../support/table-session-fixtures';
 
 describe('entryDefeated', () => {
@@ -13,5 +13,15 @@ describe('entryDefeated', () => {
 
   it('an entry with no token (the Covil) is never defeated', () => {
     expect(entryDefeated([])).toBe(false);
+  });
+});
+
+describe('roundsLeftText', () => {
+  it.each([
+    [2, '2 rodadas'],
+    [1, '1 rodada'],
+    [null, 'sem limite'],
+  ])('%s left reads "%s"', (rounds, text) => {
+    expect(roundsLeftText(rounds)).toBe(text);
   });
 });

@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import type { TokenDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
-import { ConditionSummary } from '@/features/combat/condition-marks';
 import { ConditionsEditor } from '@/features/combat/conditions-editor';
 import {
   createBoardInteractionStore,
@@ -71,14 +70,61 @@ describe('ConditionsEditor', () => {
     return screen.getByRole('region', { name: 'Condições de Lyra' });
   }
 
-  it('lists the active conditions with their rounds, "∞" read as "sem limite"', () => {
+  it('lists the active conditions as tags with their rounds, "∞" read as "sem limite"', () => {
     renderEditor();
-    const rows = within(section()).getAllByRole('listitem');
+    const tags = within(screen.getByRole('list', { name: 'Condições ativas de Lyra' }));
+    const rows = tags.getAllByRole('listitem');
     expect(rows.map((row) => row.textContent)).toEqual([
-      'Envenenado2 rod.',
-      'Concentrando∞sem limite',
+      'Envenenado2, 2 rodadas',
+      'Concentrando∞, sem limite',
     ]);
     expect(within(rows[1]!).getByText('∞')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('"Mais uma rodada de Envenenado" sends condition:setRounds with 3', async () => {
+    renderEditor();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mais uma rodada de Envenenado' }));
+
+    expect(commands.sentAs('setConditionRounds').map(({ fields }) => fields)).toEqual([
+      { tokenId: LYRA_ID, activeConditionId: ENVENENADO.id, rounds: 3 },
+    ]);
+  });
+
+  it('"Menos uma rodada de Envenenado" sends 1', async () => {
+    renderEditor();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Menos uma rodada de Envenenado' }));
+
+    expect(commands.sentAs('setConditionRounds').map(({ fields }) => fields)).toEqual([
+      { tokenId: LYRA_ID, activeConditionId: ENVENENADO.id, rounds: 1 },
+    ]);
+  });
+
+  it('a condition without limit has no − nor +', () => {
+    renderEditor();
+
+    expect(screen.queryByRole('button', { name: 'Menos uma rodada de Concentrando' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mais uma rodada de Concentrando' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remover Concentrando' })).toBeInTheDocument();
+  });
+
+  it('at 1 round "Menos uma rodada" is off', () => {
+    renderEditor(lyra({ conditions: [{ ...ENVENENADO, remainingRounds: 1 }] }));
+
+    expect(screen.getByRole('button', { name: 'Menos uma rodada de Envenenado' })).toBeDisabled();
+  });
+
+  it('a refused + says why on the status line and keeps the confirmed rounds', async () => {
+    commands.answerWith({ ok: false, failure: 'forbidden' });
+    renderEditor();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mais uma rodada de Envenenado' }));
+
+    expect(interaction.getState().notice).toBe('forbidden');
+    expect(screen.getByRole('list', { name: 'Condições ativas de Lyra' })).toHaveTextContent(
+      'Envenenado2, 2 rodadas',
+    );
   });
 
   it('"Remover Envenenado" sends condition:remove', async () => {
@@ -223,22 +269,11 @@ describe('ConditionsEditor', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Natureza' })).toBeNull();
   });
 
-  it('without canControl it is read only', () => {
+  it('without canControl it is read only: the tags, no button, no picker', () => {
     renderEditor(lyra({ canControl: false, conditions: [ENVENENADO] }));
-    expect(screen.queryByRole('button', { name: 'Remover Envenenado' })).toBeNull();
+
+    expect(screen.getByRole('list', { name: 'Condições de Lyra' })).toHaveTextContent('Envenenado');
+    expect(screen.queryByRole('button', { name: /Envenenado/ })).toBeNull();
     expect(screen.queryByLabelText('Adicionar condição')).toBeNull();
-  });
-});
-
-describe('ConditionSummary', () => {
-  it('lists the names in one line with the total for screen readers', () => {
-    render(<ConditionSummary conditions={[ENVENENADO, CONCENTRANDO]} />);
-    expect(screen.getByText('2 condições:', { exact: false })).toHaveClass('sr-only');
-    expect(screen.getByText('Envenenado, Concentrando')).toHaveClass('truncate');
-  });
-
-  it('renders nothing with no condition', () => {
-    const { container } = render(<ConditionSummary conditions={[]} />);
-    expect(container).toBeEmptyDOMElement();
   });
 });

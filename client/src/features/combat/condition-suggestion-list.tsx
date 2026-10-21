@@ -9,7 +9,6 @@ const GROUPS: readonly Readonly<{ tone: ConditionToneDto; title: string }>[] = [
 
 export type ConditionSuggestionListProps = Readonly<{
   id: string;
-  hidden: boolean;
   /** Already `orderedByTone`. */
   suggestions: readonly ConditionDefinitionDto[];
   /** Index into suggestions. */
@@ -17,18 +16,18 @@ export type ConditionSuggestionListProps = Readonly<{
   onTake: (name: string) => void;
 }>;
 
-/** The listbox of a condition name: one group per nature, benefits first.
+/** The listbox of a condition name: one group per nature, benefits first; as tall as the room
+ *  the popover found (up to 15rem).
  *
- *  Example: `<ConditionSuggestionList id={id} hidden={false} suggestions={s} active={0} onTake={take} />` */
+ *  Example: `<ConditionSuggestionList id={id} suggestions={s} active={0} onTake={take} />` */
 export function ConditionSuggestionList(props: ConditionSuggestionListProps): React.JSX.Element {
-  const { id, hidden, suggestions, active } = props;
+  const { id, suggestions, active } = props;
   return (
     <div
       id={id}
       role="listbox"
       aria-label="Condições da mesa"
-      hidden={hidden}
-      className="absolute top-full right-0 left-0 z-20 mt-1 max-h-60 [scrollbar-width:thin] [scrollbar-color:var(--color-input)_transparent] overflow-y-auto rounded-md border border-input bg-card py-1"
+      className="max-h-[min(15rem,var(--radix-popover-content-available-height))] [scrollbar-width:thin] [scrollbar-color:var(--color-input)_transparent] overflow-y-auto py-1"
     >
       {GROUPS.map(({ tone, title }) => {
         const members = suggestions.filter((item) => item.tone === tone);

@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { parseBarInput, parseBarMax } from '@/lib/bar-input';
+import { parseBarAmount, parseBarInput, parseBarMax } from '@/lib/bar-input';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 
 export type BarFieldProps = Readonly<{
@@ -17,9 +17,9 @@ export type BarFieldProps = Readonly<{
 
 const HOW_TO_WRITE = 'Escreva −7 para tirar, +5 para somar ou 12 para definir.';
 
-/** The adjust fields of one bar: "−7" subtracts, "+5" adds, "12" sets, Enter sends; − and + step
- *  by one; "Máx." sets a new maximum. The fields empty on send: the value shown is always the
- *  confirmed one.
+/** The adjust fields of one bar: "−7" subtracts, "+5" adds, "12" sets, Enter sends; with a plain
+ *  amount typed, "Dano" takes it and "Cura" adds it; − and + step by one; "Máx." sets a new
+ *  maximum. The fields empty on send: the value shown is always the confirmed one.
  *
  *  Example: `<BarField tokenId={token.id} tokenName={token.name} bar={bar} interaction={interaction} disabled={readOnly} />` */
 export function BarField({ tokenId, tokenName, bar, interaction, disabled }: BarFieldProps) {
@@ -28,6 +28,7 @@ export function BarField({ tokenId, tokenName, bar, interaction, disabled }: Bar
   const [invalid, setInvalid] = useState(false);
   const name = `${bar.label} de ${tokenName}`;
   const adjust = interaction.getState().adjustBar;
+  const amount = parseBarAmount(text);
   const submit = (): void => {
     const parsed = parseBarInput(text);
     setInvalid(parsed.kind === 'invalid');
@@ -35,39 +36,67 @@ export function BarField({ tokenId, tokenName, bar, interaction, disabled }: Bar
     setText('');
     void adjust(tokenId, bar.id, parsed.change);
   };
+  const hit = (sign: 1 | -1) => (): void => {
+    if (amount === null) return;
+    setText('');
+    void adjust(tokenId, bar.id, { op: 'add', amount: sign * amount });
+  };
   return (
-    <div className="flex items-center gap-1">
-      <StepButton
-        label={`Tirar 1 de ${name}`}
-        disabled={disabled}
-        icon={MinusIcon}
-        onClick={() => void adjust(tokenId, bar.id, { op: 'add', amount: -1 })}
-      />
-      <Input
-        id={id}
-        aria-label={name}
-        value={text}
-        disabled={disabled}
-        placeholder="−7, +5, 12"
-        aria-invalid={invalid ? true : undefined}
-        aria-describedby={`${id}-how`}
-        className="h-9 w-24 text-sm"
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter') return;
-          event.preventDefault();
-          submit();
-        }}
-      />
-      <span id={`${id}-how`} className="sr-only">
-        {HOW_TO_WRITE}
-      </span>
-      <StepButton
-        label={`Somar 1 a ${name}`}
-        disabled={disabled}
-        icon={PlusIcon}
-        onClick={() => void adjust(tokenId, bar.id, { op: 'add', amount: 1 })}
-      />
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-1">
+        <StepButton
+          label={`Tirar 1 de ${name}`}
+          disabled={disabled}
+          icon={MinusIcon}
+          onClick={() => void adjust(tokenId, bar.id, { op: 'add', amount: -1 })}
+        />
+        <Input
+          id={id}
+          aria-label={name}
+          value={text}
+          disabled={disabled}
+          placeholder="−7, +5, 12"
+          aria-invalid={invalid ? true : undefined}
+          aria-describedby={`${id}-how`}
+          className="h-9 w-20 text-sm"
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            submit();
+          }}
+        />
+        <span id={`${id}-how`} className="sr-only">
+          {HOW_TO_WRITE}
+        </span>
+        <StepButton
+          label={`Somar 1 a ${name}`}
+          disabled={disabled}
+          icon={PlusIcon}
+          onClick={() => void adjust(tokenId, bar.id, { op: 'add', amount: 1 })}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="ml-1"
+          aria-label={`Dano em ${name}`}
+          disabled={disabled || amount === null}
+          onClick={hit(-1)}
+        >
+          Dano
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-label={`Cura em ${name}`}
+          disabled={disabled || amount === null}
+          onClick={hit(1)}
+        >
+          Cura
+        </Button>
+      </div>
       <BarMaxField
         name={name}
         max={bar.max}
@@ -97,7 +126,7 @@ function BarMaxField({ name, max, disabled, onSubmit }: BarMaxFieldProps): React
     onSubmit(parsed);
   };
   return (
-    <label className="ml-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+    <label className="flex items-center gap-1.5 self-end text-xs text-muted-foreground">
       Máx.
       <Input
         aria-label={`Máximo de ${name}`}

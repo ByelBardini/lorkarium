@@ -43,9 +43,12 @@ export function entryDefeated(tokens: readonly TokenDto[]): boolean {
   return tokens.length > 0 && tokens.every(({ defeated }) => defeated);
 }
 
-/** "1 no combate" / "4 no combate". */
-export function combatCountLabel(count: number): string {
-  return `${count} no combate`;
+/** What is left of a condition, as read: "2 rodadas", "1 rodada" or "sem limite".
+ *
+ *  Example: `roundsLeftText(condition.remainingRounds) // '2 rodadas'` */
+export function roundsLeftText(rounds: number | null): string {
+  if (rounds === null) return 'sem limite';
+  return rounds === 1 ? '1 rodada' : `${rounds} rodadas`;
 }
 
 /** A number with the typographic minus: "18", "−2". */
@@ -58,4 +61,6 @@ export function initiativeText(value: number | null): string {
   return value === null ? '—' : signedText(value);
 }
 
-export const END_COMBAT_QUESTION = 'Encerrar o combate? A ordem e a rodada se perdem.';
+export const END_COMBAT_QUESTION = 'Encerrar o combate?';
+export const END_COMBAT_DETAIL =
+  'PV, barras e condições ficam como estão. A ordem de iniciativa e a contagem de rodadas somem.';

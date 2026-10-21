@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBarInput, parseBarMax } from '@/lib/bar-input';
+import { parseBarAmount, parseBarInput, parseBarMax } from '@/lib/bar-input';
 
 describe('parseBarInput', () => {
   it.each([
@@ -29,5 +29,18 @@ describe('parseBarMax', () => {
 
   it.each(['', '0', '-5', '+5', '2,5', '100000', 'abc'])('"%s" is not a maximum', (text) => {
     expect(parseBarMax(text)).toBeNull();
+  });
+});
+
+describe('parseBarAmount', () => {
+  it.each([
+    ['5', 5],
+    [' 12 ', 12],
+  ])('%j is the amount %i', (text, amount) => {
+    expect(parseBarAmount(text)).toBe(amount);
+  });
+
+  it.each(['', '0', '+5', '−7', 'abc', '100000'])('%j is no amount', (text) => {
+    expect(parseBarAmount(text)).toBeNull();
   });
 });

@@ -7,7 +7,6 @@ import {
   entryOfToken,
   entryTokensOf,
   soloEntriesOf,
-  startEntriesOf,
   turnTokenIdsOf,
 } from '@/lib/combat-entries';
 import {
@@ -32,8 +31,8 @@ const COVIL: CombatantDto = { ...soloCombatant('c-covil', 'x', 5, 2), name: 'Cov
 describe('soloEntriesOf', () => {
   it('each token gets an unnamed entry of its own, in the order given', () => {
     expect(soloEntriesOf(['kael', 'goblin'])).toEqual([
-      { name: null, tokenIds: ['kael'] },
-      { name: null, tokenIds: ['goblin'] },
+      { name: null, tokenIds: ['kael'], initiative: null },
+      { name: null, tokenIds: ['goblin'], initiative: null },
     ]);
   });
 
@@ -131,54 +130,5 @@ describe('combatCandidatesOf', () => {
       KAEL_ID,
       'goblin-1',
     ]);
-  });
-});
-
-describe('startEntriesOf', () => {
-  const enemy = (id: string, name: string) => lyra({ id, name, side: 'enemy' });
-  const ORDER = [
-    kael(),
-    enemy('goblin', 'Goblin'),
-    enemy('lobo', 'Lobo'),
-    enemy('gigante', 'Gigante'),
-  ];
-
-  it('the enemies enter as Inimigos where the first of them was, and the Gigante with its own initiative alone', () => {
-    const entries = startEntriesOf(ORDER, { enemiesTogether: true, ownInitiativeIds: ['gigante'] });
-
-    expect(entries).toEqual([
-      { name: null, tokenIds: [KAEL_ID] },
-      { name: 'Inimigos', tokenIds: ['goblin', 'lobo'] },
-      { name: null, tokenIds: ['gigante'] },
-    ]);
-  });
-
-  it('without grouping each token enters on its own', () => {
-    const entries = startEntriesOf(ORDER, { enemiesTogether: false, ownInitiativeIds: [] });
-
-    expect(entries.map(({ tokenIds }) => tokenIds)).toEqual([
-      [KAEL_ID],
-      ['goblin'],
-      ['lobo'],
-      ['gigante'],
-    ]);
-  });
-
-  it('a group of one enemy is a plain entry, without the name', () => {
-    const entries = startEntriesOf(ORDER, {
-      enemiesTogether: true,
-      ownInitiativeIds: ['lobo', 'gigante'],
-    });
-
-    expect(entries[1]).toEqual({ name: null, tokenIds: ['goblin'] });
-  });
-
-  it('every enemy with its own initiative makes no Inimigos', () => {
-    const entries = startEntriesOf(ORDER, {
-      enemiesTogether: true,
-      ownInitiativeIds: ['goblin', 'lobo', 'gigante'],
-    });
-
-    expect(entries.map(({ name }) => name)).toEqual([null, null, null, null]);
   });
 });

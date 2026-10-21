@@ -7,8 +7,11 @@ import { testDependencies, type TestDependencies } from '../../support/app-depen
 import { ANA } from '../../support/auth-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 import {
+  BIA_AT_TABLE,
   KAEL_COMBATANT,
   KAEL_ID,
+  LYRA_COMBATANT,
+  LYRA_ID,
   eventAt,
   kael,
   lyra,
@@ -97,5 +100,106 @@ describe('play room: a grouped entry on turn', () => {
     expect(screen.getByRole('status', { name: 'Status do tabuleiro' })).toHaveTextContent(
       'Vez de Inimigos.',
     );
+  });
+
+  describe('the turn opens the token of whoever runs it', () => {
+    const GOBLIN_COMBATANT = 'c8b7a6d5-e4f3-4a2b-9c1d-0e9f8a7b6c5d';
+    const GOBLIN = lyra({
+      id: 'goblin-1',
+      name: 'Goblin',
+      col: 8,
+      canControl: false,
+      controllerIds: [],
+    });
+
+    function duel(current: string): CombatDto {
+      return vharnCombat({
+        currentCombatantId: current,
+        combatants: [
+          soloCombatant(KAEL_COMBATANT, KAEL_ID, 18, 0),
+          soloCombatant(LYRA_COMBATANT, LYRA_ID, 14, 1),
+          soloCombatant(GOBLIN_COMBATANT, 'goblin-1', 9, 2),
+        ],
+      });
+    }
+
+    function turnTo(version: number, combat: CombatDto): void {
+      act(() =>
+        deps.tableSessionApi.emit({
+          kind: 'boardEvent',
+          event: eventAt(version, {
+            type: 'combatTurnChanged',
+            payload: { combat, conditionChanges: [] },
+          }),
+        }),
+      );
+    }
+
+    const docked = () => screen.queryByRole('region', { name: 'Token selecionado' });
+
+    it('for the master, the turn passing to Kael selects him and opens his detail; the turn is still said', async () => {
+      await fighting(duel(GOBLIN_COMBATANT));
+
+      turnTo(5, duel(KAEL_COMBATANT));
+
+      expect(
+        within(docked() as HTMLElement).getByRole('heading', { name: 'Kael' }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Status do tabuleiro' })).toHaveTextContent(
+        'Vez de Kael.',
+      );
+    });
+
+    it('Bia gets her Lyra selected on its turn, and the Goblin’s turn does not take it away', async () => {
+      deps.tableSessionApi.emit({
+        kind: 'board',
+        state: vharnBoard({
+          viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+          tokens: [kael({ canControl: false }), lyra(), GOBLIN],
+          combat: duel(KAEL_COMBATANT),
+        }),
+      });
+      await act(() => Promise.resolve());
+
+      turnTo(5, duel(LYRA_COMBATANT));
+      expect(
+        within(docked() as HTMLElement).getByRole('heading', { name: 'Lyra' }),
+      ).toBeInTheDocument();
+      turnTo(6, duel(GOBLIN_COMBATANT));
+
+      expect(
+        within(docked() as HTMLElement).getByRole('heading', { name: 'Lyra' }),
+      ).toBeInTheDocument();
+    });
+
+    it('a player does not get the turn of a token they do not run selected', async () => {
+      deps.tableSessionApi.emit({
+        kind: 'board',
+        state: vharnBoard({
+          viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+          tokens: [kael({ canControl: false }), lyra(), GOBLIN],
+          combat: duel(LYRA_COMBATANT),
+        }),
+      });
+      await act(() => Promise.resolve());
+
+      turnTo(5, duel(GOBLIN_COMBATANT));
+
+      expect(docked()).toBeNull();
+    });
+
+    it('the turn of a group selects nobody', async () => {
+      await fighting(groupCombat({ currentCombatantId: KAEL_COMBATANT }));
+
+      turnTo(5, groupCombat());
+
+      expect(docked()).toBeNull();
+    });
+
+    it('a snapshot (F5) on the turn of Kael selects nobody', async () => {
+      await fighting(duel(KAEL_COMBATANT));
+
+      expect(docked()).toBeNull();
+    });
   });
 });

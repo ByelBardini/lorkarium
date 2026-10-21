@@ -33,6 +33,22 @@ describe('SegmentField', () => {
     expect(screen.getByLabelText('Escolhido')).toHaveTextContent('run');
   });
 
+  it('compact keeps the legend as the name of the group but only for screen readers', () => {
+    render(
+      <SegmentField
+        legend="Passo"
+        value="walk"
+        options={PACES}
+        compact
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('radiogroup', { name: 'Passo' })).toBeInTheDocument();
+    expect(screen.getByText('Passo')).toHaveClass('sr-only');
+    expect(screen.getByRole('radio', { name: 'Andar' })).toHaveClass('h-7');
+  });
+
   it('fill makes the segments share the line; without it each keeps its width', () => {
     const { rerender } = render(
       <SegmentField legend="Passo" value="walk" options={PACES} fill onChange={() => undefined} />,

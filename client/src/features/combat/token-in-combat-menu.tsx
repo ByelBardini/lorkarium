@@ -10,9 +10,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-/** An entry a token can be moved into, as the tracker reads it. */
-export type EntryChoice = Readonly<{ id: string; label: string }>;
+import type { EntryChoice } from '@/lib/combat-rows';
 
 export type TokenInCombatMenuProps = Readonly<{
   /** Names the trigger: "Mais ações de Goblin". */
