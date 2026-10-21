@@ -14,6 +14,7 @@ import {
   deleteLightsCommandDto,
   moveLightsCommandDto,
   setLightColorsCommandDto,
+  setLightConesCommandDto,
   setLightRangesCommandDto,
   setLightsLitCommandDto,
   defineConditionCommandDto,
@@ -120,7 +121,13 @@ export type BoardGatewayDeps = Readonly<{
   >;
   lights: Pick<
     LightsService,
-    'createMany' | 'moveMany' | 'setRangeMany' | 'setColorMany' | 'setLitMany' | 'deleteMany'
+    | 'createMany'
+    | 'moveMany'
+    | 'setRangeMany'
+    | 'setColorMany'
+    | 'setConeMany'
+    | 'setLitMany'
+    | 'deleteMany'
   >;
   realtime: Pick<Realtime, 'reauthenticate'>;
   clock: ClockPort;
@@ -280,6 +287,10 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     socket.on(
       'light:setColorMany',
       mutate(setLightColorsCommandDto, lights.setColorMany.bind(lights)),
+    );
+    socket.on(
+      'light:setConeMany',
+      mutate(setLightConesCommandDto, lights.setConeMany.bind(lights)),
     );
     socket.on('light:setLitMany', mutate(setLightsLitCommandDto, lights.setLitMany.bind(lights)));
     socket.on('light:deleteMany', mutate(deleteLightsCommandDto, lights.deleteMany.bind(lights)));

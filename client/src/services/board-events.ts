@@ -16,6 +16,7 @@ import {
   effectAreasDeletedDto,
   effectAreasReshapedDto,
   lightColorsChangedDto,
+  lightConesChangedDto,
   lightRangesChangedDto,
   lightsCreatedDto,
   lightsDeletedDto,
@@ -41,6 +42,7 @@ import {
   wallAreaErasedDto,
   type DoorChangedDto,
   type LightColorsChangedDto,
+  type LightConesChangedDto,
   type LightRangesChangedDto,
   type LightsCreatedDto,
   type LightsDeletedDto,
@@ -112,6 +114,7 @@ export type BoardEvent =
   | Readonly<{ type: 'lightsMoved'; payload: LightsMovedDto }>
   | Readonly<{ type: 'lightRangesChanged'; payload: LightRangesChangedDto }>
   | Readonly<{ type: 'lightColorsChanged'; payload: LightColorsChangedDto }>
+  | Readonly<{ type: 'lightConesChanged'; payload: LightConesChangedDto }>
   | Readonly<{ type: 'lightsLitChanged'; payload: LightsLitChangedDto }>
   | Readonly<{ type: 'lightsDeleted'; payload: LightsDeletedDto }>
   | Readonly<{ type: 'conditionDefined'; payload: ConditionDefinedDto }>
@@ -169,6 +172,7 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.lightsMoved]: specOf('lightsMoved', lightsMovedDto),
   [BOARD_EVENTS.lightRangesChanged]: specOf('lightRangesChanged', lightRangesChangedDto),
   [BOARD_EVENTS.lightColorsChanged]: specOf('lightColorsChanged', lightColorsChangedDto),
+  [BOARD_EVENTS.lightConesChanged]: specOf('lightConesChanged', lightConesChangedDto),
   [BOARD_EVENTS.lightsLitChanged]: specOf('lightsLitChanged', lightsLitChangedDto),
   [BOARD_EVENTS.lightsDeleted]: specOf('lightsDeleted', lightsDeletedDto),
   [BOARD_EVENTS.conditionDefined]: specOf('conditionDefined', conditionDefinedDto),

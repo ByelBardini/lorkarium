@@ -269,7 +269,7 @@ describe('inverseOf, walls', () => {
 });
 
 describe('inverseOf and remapEntry, lights', () => {
-  const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: null };
+  const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: null, facing: 0, angle: 360 };
 
   it('a placed light is undone by removing it, and a removed one by placing it again', () => {
     const added: EditEntry = [{ kind: 'lightsAdded', lights: [{ id: 'l', placement }] }];
@@ -386,6 +386,45 @@ describe('inverseOf, a token move with a path', () => {
           },
         ],
       },
+    ]);
+  });
+});
+
+describe('the cone of a map light on the undo stack', () => {
+  const changed: EditEntry = [
+    {
+      kind: 'lightConesChanged',
+      changes: [{ lightId: 'l', from: { facing: 0, angle: 360 }, to: { facing: 90, angle: 60 } }],
+    },
+  ];
+
+  it('a cone change is undone by swapping from and to', () => {
+    expect(inverseOf(changed)).toEqual([
+      {
+        kind: 'lightConesChanged',
+        changes: [{ lightId: 'l', from: { facing: 90, angle: 60 }, to: { facing: 0, angle: 360 } }],
+      },
+    ]);
+  });
+
+  it('a light placed again takes its new id in the cone changes after it', () => {
+    const [op] = remapEntry(changed, { l: 'm' });
+
+    expect(op?.kind === 'lightConesChanged' && op.changes[0]?.lightId).toBe('m');
+  });
+
+  it('a cone change is a light op', () => {
+    expect(isLightOp({ kind: 'lightConesChanged', changes: [] })).toBe(true);
+  });
+
+  it('a removed spotlight is placed again with its facing and angle', () => {
+    const spotlight = { x: 5, y: 5, bright: 4, dim: 4, color: null, facing: 90, angle: 60 };
+    const removed: EditEntry = [
+      { kind: 'lightsRemoved', lights: [{ id: 'l', placement: spotlight }] },
+    ];
+
+    expect(inverseOf(removed)).toEqual([
+      { kind: 'lightsAdded', lights: [{ id: 'l', placement: spotlight }] },
     ]);
   });
 });

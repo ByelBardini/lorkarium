@@ -73,3 +73,7 @@ export const SEES_IN_DARK_HINT = 'Vê sem luz até o alcance abaixo.';
 export const DARKVISION_HINT = 'Sem isso, o token vê só onde há luz.';
 export const PENUMBRA_HINT = 'Na penumbra, vê o mapa, mas não vê tokens.';
 export const LIGHT_HINT = 'Como uma tocha. Nasce acesa; quem controla apaga pelo menu do token.';
+export const SIGHT_ANGLE_HINT =
+  '360 = vê para todo lado; menos, vê em cone para onde o token olha, e sente o que está a 1 casa em volta.';
+export const LIGHT_ANGLE_HINT =
+  '360 = ilumina em volta; menos, ilumina em cone, como uma lanterna.';

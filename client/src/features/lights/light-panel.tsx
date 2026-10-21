@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { ConeAngleField } from '@/components/cone-angle-field';
 import { RangeField } from '@/components/range-field';
+import { coneFieldOf, parseConeField } from '@/lib/cone-form';
 import {
   parseRangeFields,
   rangeFieldsOf,
@@ -21,6 +23,10 @@ export type LightPanelProps = Readonly<{
   /** The color shown; `undefined` when the lights picked differ (no tile checked). */
   color: LightColor | undefined;
   onColor: (color: LightColor) => void;
+  /** The opening shown, in degrees; `null` when the lights picked differ ("vários"). */
+  angle?: number | null;
+  /** A valid opening typed, whole degrees from 1 to 360. */
+  onAngle?: (angle: number) => void;
   /** `change` (the next light: every keystroke) or `blur` (lights picked: one command per field). */
   commit: 'change' | 'blur';
   /** Below the fields: the switch of the lights picked. */
@@ -31,9 +37,9 @@ const LIGHT_TEXTS = { missingBright: 'Informe a luz plena.' };
 const MIXED = 'vários';
 
 /** The lights panel, floating beside the toolbar while the lights tool is on: the bright and dim
- *  range in the scene's unit and the color, of the next light or of the lights picked. A valid
- *  reach goes to `onReach` (on each change or on leaving a field); a field out of range says so
- *  and sends nothing. A color tile goes to `onColor` at once.
+ *  range in the scene's unit, the color and the opening, of the next light or of the lights picked.
+ *  A valid reach or opening goes to `onReach` / `onAngle` (on each change or on leaving a field); a
+ *  field out of range says so and sends nothing. A color tile goes to `onColor` at once.
  *
  *  Example: `<LightPanel reach={reach} distance={scene} onReach={setReach} commit="change" />` */
 export function LightPanel(props: LightPanelProps): React.JSX.Element {
@@ -75,8 +81,41 @@ export function LightPanel(props: LightPanelProps): React.JSX.Element {
         onChange={(dim) => change({ ...fields, dim })}
       />
       <LightColorTiles value={props.color} onChange={props.onColor} />
+      {props.onAngle && (
+        <AngleField angle={props.angle ?? null} onAngle={props.onAngle} commit={commit} />
+      )}
       {props.children}
     </section>
+  );
+}
+
+type AngleFieldProps = Readonly<{
+  angle: number | null;
+  onAngle: (angle: number) => void;
+  commit: LightPanelProps['commit'];
+}>;
+
+// "Abertura (°)": empty with "vários" when the lights picked differ.
+function AngleField({ angle, onAngle, commit }: AngleFieldProps): React.JSX.Element {
+  const [typed, setTyped] = useState(() => (angle === null ? '' : coneFieldOf(angle)));
+  const [error, setError] = useState<string | undefined>();
+  const send = (text: string): void => {
+    const parsed = parseConeField(text);
+    setError(parsed.ok ? undefined : parsed.error);
+    if (parsed.ok && (text.trim() !== '' || angle !== null)) onAngle(parsed.angle);
+  };
+  return (
+    <ConeAngleField
+      label="Abertura (°)"
+      value={typed}
+      error={error}
+      placeholder={angle === null ? MIXED : undefined}
+      onBlur={commit === 'blur' ? () => send(typed) : undefined}
+      onChange={(text) => {
+        setTyped(text);
+        if (commit === 'change') send(text);
+      }}
+    />
   );
 }
 

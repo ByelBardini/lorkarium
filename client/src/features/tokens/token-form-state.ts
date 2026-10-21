@@ -7,6 +7,7 @@ import {
   type TokenSideDto,
 } from '@lorkarium/contracts';
 import { cellsText } from '@/lib/cells-text';
+import { coneFieldOf, parseConeField, type ConeFieldResult } from '@/lib/cone-form';
 import {
   parseRangeFields,
   rangeFieldsOf,
@@ -46,6 +47,12 @@ export type TokenFormValues = Readonly<{
   controllerIds: readonly string[];
   /** The image of the token, or `null` for the initials disc. */
   imageAssetId: string | null;
+  /** Where it looks (not edited here: the preview aims the lantern with it). */
+  facing: number;
+  /** "Campo de visão (°)": whole degrees as typed, 360 = every side. */
+  sightAngle: string;
+  /** "Abertura do feixe (°)": whole degrees as typed, only sent with "Emite luz". */
+  lightAngle: string;
   /** "Visão": how far it sees in the dark, typed in the unit of the scene. */
   sight: SightFields;
   /** "Luz": the light it gives off, typed in the unit of the scene. */
@@ -60,6 +67,8 @@ export type TokenFormErrors = Readonly<{
   initials?: string;
   sight?: SightFieldErrors;
   light?: RangeFieldErrors;
+  sightAngle?: string;
+  lightAngle?: string;
   bars?: Readonly<Record<number, BarFormErrors>>;
 }>;
 
@@ -84,8 +93,14 @@ const BASICS_FIELDS = ['name', 'initials'] as const;
 const LIGHT_TEXTS = { missingBright: 'Informe a luz plena.' };
 
 type LightRange = Readonly<{ bright: number; dim: number }>;
-/** The sight and light as read from the form; `undefined` keeps what the token has. */
-type FormRanges = Readonly<{ sight: TokenEdit['sight']; light: LightRange | null | undefined }>;
+/** The sight and light as read from the form (`undefined` keeps what the token has), and the
+ *  openings (`undefined` when mistyped). */
+type FormRanges = Readonly<{
+  sight: TokenEdit['sight'];
+  light: LightRange | null | undefined;
+  sightAngle: number | undefined;
+  lightAngle: number | undefined;
+}>;
 
 /** The first tab, in order, with something to fix; `null` when nothing is wrong.
  *
@@ -100,7 +115,9 @@ export function firstErrorTab(errors: TokenFormErrors): TokenDialogTab | null {
 export function tabHasErrors(errors: TokenFormErrors, tab: TokenDialogTab): boolean {
   if (tab === 'basics') return BASICS_FIELDS.some((field) => errors[field] !== undefined);
   if (tab === 'bars') return Object.keys(errors.bars ?? {}).length > 0;
-  return errors.sight !== undefined || errors.light !== undefined;
+  return [errors.sight, errors.light, errors.sightAngle, errors.lightAngle].some(
+    (error) => error !== undefined,
+  );
 }
 
 /** The line under the name in the preview: side, size and what the token does in the dark.
@@ -130,6 +147,9 @@ export function emptyTokenForm(distance: SceneDistance): TokenFormValues {
     height: 1,
     controllerIds: [],
     imageAssetId: null,
+    facing: 0,
+    sightAngle: coneFieldOf(360),
+    lightAngle: coneFieldOf(360),
     sight: defaultSightFields(distance),
     light: { on: false, bright: '', dim: '', saved: false },
     lightColor: null,
@@ -147,7 +167,12 @@ export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenForm
   const sight = sightFieldsOf(token.sight, distance);
   const light = rangeFieldsOf(token.light, distance);
   const lightColor = token.light?.color ?? null;
-  const look = { controllerIds, imageAssetId, bars, sight, light, lightColor };
+  const angles = {
+    facing: token.facing,
+    sightAngle: coneFieldOf(token.sightAngle),
+    lightAngle: coneFieldOf(token.light?.angle ?? 360),
+  };
+  const look = { controllerIds, imageAssetId, bars, sight, light, lightColor, ...angles };
   return { name, initials, initialsEdited, side, width, height, ...look };
 }
 
@@ -187,21 +212,32 @@ export function stepSide(cells: number, direction: -1 | 1): number {
 export function parseTokenForm(form: TokenFormValues, distance: SceneDistance): TokenFormResult {
   const sight = parseSightFields(form.sight, distance);
   const light = parseRangeFields(form.light, distance, LIGHT_TEXTS);
+  const sightAngle = parseConeField(form.sightAngle);
+  // The beam is only read while the token gives off light.
+  const lightAngle: ConeFieldResult = form.light.on
+    ? parseConeField(form.lightAngle)
+    : { ok: true, angle: 360 };
   const ranges = {
     sight: sight.ok ? sight.sight : undefined,
     light: light.ok ? light.range : undefined,
+    sightAngle: sightAngle.ok ? sightAngle.angle : undefined,
+    lightAngle: lightAngle.ok ? lightAngle.angle : undefined,
   };
   const fields = parseTokenFields(form, ranges);
-  if (sight.ok && light.ok) return fields;
+  if (sight.ok && light.ok && sightAngle.ok && lightAngle.ok) return fields;
   const errors = {
     ...(fields.ok ? {} : fields.errors),
     ...(sight.ok ? {} : { sight: sight.errors }),
     ...(light.ok ? {} : { light: light.errors }),
+    ...(sightAngle.ok ? {} : { sightAngle: sightAngle.error }),
+    ...(lightAngle.ok ? {} : { lightAngle: lightAngle.error }),
   };
   return { ok: false, errors };
 }
 
-function parseTokenFields(form: TokenFormValues, { sight, light }: FormRanges): TokenFormResult {
+function parseTokenFields(form: TokenFormValues, ranges: FormRanges): TokenFormResult {
+  const { sight, light, sightAngle, lightAngle } = ranges;
+  const beam = { color: form.lightColor, angle: lightAngle ?? 360 };
   const parsed = TOKEN_FIELDS_DTO.safeParse({
     name: form.name,
     initials: form.initials,
@@ -211,7 +247,8 @@ function parseTokenFields(form: TokenFormValues, { sight, light }: FormRanges): 
     controllerIds: form.controllerIds,
     imageAssetId: form.imageAssetId,
     ...(sight === undefined ? {} : { sight }),
-    ...(light === undefined ? {} : { light: light && { ...light, color: form.lightColor } }),
+    ...(sightAngle === undefined ? {} : { sightAngle }),
+    ...(light === undefined ? {} : { light: light && { ...light, ...beam } }),
     bars: barDraftsOf(form.bars),
   });
   if (parsed.success) return { ok: true, token: parsed.data };

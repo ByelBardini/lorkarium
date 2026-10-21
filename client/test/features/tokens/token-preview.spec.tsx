@@ -131,3 +131,32 @@ describe('TokenPreview', () => {
     expect(screen.getByLabelText('Link da imagem')).toHaveFocus();
   });
 });
+
+describe('TokenPreview, a lantern', () => {
+  function litForm(lightAngle: string, facing: number): TokenFormValues {
+    const form = emptyTokenForm(METERS);
+    return {
+      ...form,
+      facing,
+      lightAngle,
+      light: { on: true, bright: '6', dim: '12', saved: false },
+    };
+  }
+
+  function glow(container: HTMLElement): HTMLElement | null {
+    return container.querySelector('[data-light-glow]');
+  }
+
+  // CSS conic gradients start at the top: facing 90 (down) is 180deg, so 60° opens from 150deg.
+  it('a beam of 60° looking down (90) is a wedge masked from 150deg', () => {
+    const { container } = renderPreviewWith(litForm('60', 90));
+
+    expect(glow(container)?.style.maskImage).toContain('conic-gradient(from 150deg');
+  });
+
+  it('a beam of 360° is the round glow, without a mask', () => {
+    const { container } = renderPreviewWith(litForm('360', 90));
+
+    expect(glow(container)?.style.maskImage).toBe('');
+  });
+});

@@ -90,6 +90,56 @@ describe('LightPanel', () => {
     expect(reaches).toEqual([{ bright: 4, dim: 4 }]);
   });
 
+  describe('Abertura (°)', () => {
+    function renderAngle(angle: number | null): number[] {
+      const angles: number[] = [];
+      render(
+        <LightPanel
+          reach={{ bright: 4, dim: 4 }}
+          distance={METERS}
+          onReach={() => undefined}
+          color={null}
+          onColor={() => undefined}
+          angle={angle}
+          onAngle={(chosen) => angles.push(chosen)}
+          commit="blur"
+        />,
+      );
+      return angles;
+    }
+
+    it('"60" is sent only on leaving the field, once', async () => {
+      const angles = renderAngle(360);
+      const field = screen.getByLabelText('Abertura (°)');
+
+      await userEvent.clear(field);
+      await userEvent.type(field, '60');
+      expect(angles).toEqual([]);
+      await userEvent.tab();
+
+      expect(angles).toEqual([60]);
+    });
+
+    it('lights picked with different angles show an empty field reading "vários"', () => {
+      renderAngle(null);
+
+      expect(screen.getByLabelText('Abertura (°)')).toHaveAttribute('placeholder', 'vários');
+      expect(screen.getByLabelText('Abertura (°)')).toHaveValue('');
+    });
+
+    it('"0" says so on the field and sends nothing', async () => {
+      const angles = renderAngle(360);
+      const field = screen.getByLabelText('Abertura (°)');
+
+      await userEvent.clear(field);
+      await userEvent.type(field, '0');
+      await userEvent.tab();
+
+      expect(field).toHaveAccessibleDescription('De 1 a 360°.');
+      expect(angles).toEqual([]);
+    });
+  });
+
   describe('Cor da luz', () => {
     function renderColors(color: LightColor | undefined): LightColor[] {
       const colors: LightColor[] = [];

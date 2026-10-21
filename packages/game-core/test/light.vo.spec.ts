@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { lightFits, lightRange, sceneLight } from '../src/light.vo';
+import { lightConeOf, lightFits, lightRange, sceneLight } from '../src/light.vo';
 
 const SCENE_20_BY_12 = { widthCells: 20, heightCells: 12 };
 
 function torchAt(x: number, y: number) {
-  return sceneLight({ x, y, range: lightRange(4, 4), lit: true });
+  return sceneLight({ x, y, range: lightRange(4, 4), lit: true, facing: 0, angle: 360 });
 }
 
 describe('lightRange', () => {
@@ -39,7 +39,14 @@ describe('lightRange', () => {
 describe('sceneLight', () => {
   it('a lit torch at (5.5, 3) is kept as sent, frozen', () => {
     const light = torchAt(5.5, 3);
-    expect(light).toEqual({ x: 5.5, y: 3, range: { bright: 4, dim: 4 }, lit: true });
+    expect(light).toEqual({
+      x: 5.5,
+      y: 3,
+      range: { bright: 4, dim: 4 },
+      lit: true,
+      facing: 0,
+      angle: 360,
+    });
     expect(Object.isFrozen(light)).toBe(true);
   });
 
@@ -62,5 +69,32 @@ describe('lightFits', () => {
 
   it('a light at (20.01, 5) is past the right edge and does not fit', () => {
     expect(lightFits(SCENE_20_BY_12, torchAt(20.01, 5))).toBe(false);
+  });
+});
+
+describe('sceneLight aimed', () => {
+  function spotlight(direction: number, angle: number) {
+    return sceneLight({ x: 2, y: 2, range: lightRange(4, 4), lit: true, facing: direction, angle });
+  }
+
+  it('a spotlight facing 90 and opening 60 keeps both, frozen', () => {
+    const light = spotlight(90, 60);
+    expect(light).toMatchObject({ facing: 90, angle: 60 });
+    expect(Object.isFrozen(light)).toBe(true);
+  });
+
+  it('a facing of 360 is refused with the facing error', () => {
+    expect(() => spotlight(360, 60)).toThrow(/Facing 360 is invalid/);
+  });
+
+  it('an angle of 0 is refused naming the light', () => {
+    expect(() => spotlight(0, 0)).toThrow(
+      'Light angle 0 is invalid: expected a whole number from 1 to 360.',
+    );
+  });
+
+  it('the cone of a 360° light is none, and of a 60° light faces where it points', () => {
+    expect(lightConeOf(spotlight(90, 360))).toBeNull();
+    expect(lightConeOf(spotlight(90, 60))).toEqual({ facing: 90, angle: 60 });
   });
 });

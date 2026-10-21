@@ -3,8 +3,8 @@ import type { TableBoardCommands } from '@/services/table-board-commands';
 import { createdIdsOf, type EditOpResult } from './effect-area-edit-ops';
 
 /** One light op as its command: placing answers the new ids; removing, moving and changing the
- *  reach or the color send where (how far, in which color) each light must still be, so the server refuses (`stale_undo`)
- *  when someone changed it.
+ *  reach, the color or the cone send where (how far, in which color, aimed where) each light must
+ *  still be, so the server refuses (`stale_undo`) when someone changed it.
  *
  *  Example: `await runLightOp(op, campaignId, commands)` */
 export async function runLightOp(
@@ -38,6 +38,10 @@ export async function runLightOp(
         expect: { color: from },
       }));
       return createdIdsOf(await commands.setLightColors(campaignId, changes), []);
+    }
+    case 'lightConesChanged': {
+      const changes = op.changes.map(({ lightId, from, to }) => ({ lightId, ...to, expect: from }));
+      return createdIdsOf(await commands.setLightCones(campaignId, changes), []);
     }
   }
 }

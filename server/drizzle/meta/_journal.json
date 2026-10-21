@@ -190,6 +190,20 @@
       "when": 1792461490135,
       "tag": "0026_token_light_color",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792548517395,
+      "tag": "0027_token_cones",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792548786272,
+      "tag": "0028_light_cone",
+      "breakpoints": true
     }
   ]
 }

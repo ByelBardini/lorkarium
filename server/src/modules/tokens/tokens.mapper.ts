@@ -8,6 +8,8 @@ import type {
   UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
 import {
+  coneOf,
+  eyeFieldOf,
   eyeOf,
   lightRange,
   lightSource,
@@ -38,7 +40,7 @@ export function toTokenDto(
   conditions: readonly ActiveConditionDto[] = [],
 ): TokenDto {
   const { id, name, initials, side, width, height, col, row: tokenRow, layer } = row.token;
-  const { imageAssetId, frame, flipX, flipY, facing, defeated } = row.token;
+  const { imageAssetId, frame, flipX, flipY, facing, defeated, sightAngle } = row.token;
   const bars = row.bars.filter((bar) => audience === 'privileged' || bar.visibility === 'everyone');
   return {
     id,
@@ -57,6 +59,7 @@ export function toTokenDto(
     flipY,
     facing,
     defeated,
+    sightAngle,
     sight: sightOfToken(row.token),
     light: lightOfToken(row.token),
     lightLit: row.token.lightLit,
@@ -90,6 +93,7 @@ type UpdatedFields = Pick<
   | 'controllerIds'
   | 'bars'
   | 'sight'
+  | 'sightAngle'
   | 'light'
   | keyof TokenLookPo
 >;
@@ -112,6 +116,7 @@ export function toTokenUpdatePo(
       height,
       ...definedLookOf(command),
       ...(command.sight === undefined ? {} : toTokenSightPo(command.sight)),
+      ...(command.sightAngle === undefined ? {} : { sightAngle: command.sightAngle }),
       ...(command.light === undefined ? {} : toTokenLightPo(command.light)),
     },
     bars: toBarInputsPo(command.bars),
@@ -127,45 +132,50 @@ export function toTokenSightPo(sight: SightDto | null | undefined): TokenSightPo
   return { sightBright: cellsNumeric(sight.bright), sightDim: cellsNumeric(sight.dim) };
 }
 
-/** A light as sent → the two numeric columns, to the hundredth, and its color; `null` (no light)
- *  clears the three.
+/** A light as sent → the two numeric columns, to the hundredth, its color and its beam; `null`
+ *  (no light) clears the three and opens the beam back to 360.
  *
- *  Example: `toTokenLightPo({ bright: 4, dim: 4, color: 'fire' }) // { lightBright: '4.00', lightDim: '4.00', lightColor: 'fire' }` */
+ *  Example: `toTokenLightPo({ bright: 4, dim: 4, color: 'fire', angle: 60 }) // { lightBright: '4.00', lightDim: '4.00', lightColor: 'fire', lightAngle: 60 }` */
 export function toTokenLightPo(light: TokenLightDto | null | undefined): TokenLightPo {
-  if (!light) return { lightBright: null, lightDim: null, lightColor: null };
+  if (!light) return { lightBright: null, lightDim: null, lightColor: null, lightAngle: 360 };
   return {
     lightBright: cellsNumeric(light.bright),
     lightDim: cellsNumeric(light.dim),
     lightColor: light.color,
+    lightAngle: light.angle,
   };
 }
 
-/** The light a saved token gives off, from the center of its footprint; `null` without a light
- *  or with it out.
+/** The light a saved token gives off, from the center of its footprint and in the cone of its
+ *  beam toward its facing; `null` without a light or with it out.
  *
  *  Example: `rows.flatMap((row) => tokenLightOf(row) ?? [])` */
 export function tokenLightOf(row: TokenRow): LightSource | null {
   const light = lightOfToken(row.token);
   const range = light ? lightRange(light.bright, light.dim) : null;
-  return lightSource(tokenCenter(row.token, row.token), range, row.token.lightLit);
+  const cone = coneOf(row.token.facing, row.token.lightAngle);
+  return lightSource(tokenCenter(row.token, row.token), range, row.token.lightLit, cone);
 }
 
-/** The eye of a saved token: every token is one; without darkvision it sees only what is lit.
+/** The eye of a saved token: every token is one; without darkvision it sees only what is lit, and
+ *  below 360° only in its field (the cone toward its facing plus the ring around it).
  *
  *  Example: `rows.map(tokenEyeOf)` */
 export function tokenEyeOf(row: TokenRow): Eye {
   const sight = sightOfToken(row.token);
   const range = sight ? sightRange(sight.bright, sight.dim) : null;
-  return eyeOf(tokenCenter(row.token, row.token), range);
+  const { col, row: tokenRow, width, height, facing, sightAngle } = row.token;
+  const field = eyeFieldOf({ x: col, y: tokenRow, width, height }, facing, sightAngle);
+  return eyeOf(tokenCenter(row.token, row.token), range, field);
 }
 
 function sightOfToken({ sightBright, sightDim }: TokenSightPo): SightDto | null {
   return rangeOfColumns(sightBright, sightDim);
 }
 
-function lightOfToken({ lightBright, lightDim, lightColor }: TokenLightPo): TokenLightDto | null {
-  const range = rangeOfColumns(lightBright, lightDim);
-  return range && { ...range, color: lightColor };
+function lightOfToken(columns: TokenLightPo): TokenLightDto | null {
+  const range = rangeOfColumns(columns.lightBright, columns.lightDim);
+  return range && { ...range, color: columns.lightColor, angle: columns.lightAngle };
 }
 
 function rangeOfColumns(

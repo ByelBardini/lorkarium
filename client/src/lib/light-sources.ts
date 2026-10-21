@@ -1,9 +1,18 @@
 import type { LightDto, TokenDto } from '@lorkarium/contracts';
-import { lightRange, lightSource, tokenCenter, type LightSource } from '@lorkarium/game-core';
+import {
+  coneOf,
+  lightRange,
+  lightSource,
+  tokenCenter,
+  type LightSource,
+} from '@lorkarium/game-core';
 import type { LightColor } from './light-color';
 
-/** Where dragged tokens would land, by id: their eyes and lights follow them before the move. */
-export type TokenLanding = ReadonlyMap<string, Readonly<{ col: number; row: number }>>;
+/** Where a token shows and where it looks: its eye and its lantern follow the pose. */
+export type TokenPose = Readonly<{ col: number; row: number; facing: number }>;
+/** Where tokens show off their confirmed pose, by id (dragged, waiting for the server, turned):
+ *  their eyes and lights follow them before the move or the turn is confirmed. */
+export type TokenLanding = ReadonlyMap<string, TokenPose>;
 
 /** A light shining on the board and the color it tints with (`null` = neutral). */
 export type ShiningLight = Readonly<{ source: LightSource; color: LightColor }>;
@@ -12,7 +21,7 @@ type LitBoard = Readonly<{ lights: readonly LightDto[]; tokens: readonly TokenDt
 
 /** Every light shining on the board: the lit map lights and the lit lights of every token (of
  *  anyone, seen or not — the glow around the corner still lights what the viewer sees), a dragged
- *  token's from the cell where it would land. The same list the sight filter and the fog use.
+ *  or turned token's from the pose where it shows; a lantern or a spotlight shines in its cone. The same list the sight filter and the fog use.
  *
  *  Example: `sightLevel({ eyes, walls, mode, lights: lightSourcesOf(board, landing) }, target)` */
 export function lightSourcesOf(board: LitBoard, landing?: TokenLanding): LightSource[] {
@@ -24,8 +33,8 @@ export function lightSourcesOf(board: LitBoard, landing?: TokenLanding): LightSo
  *
  *  Example: `shiningLightsOf(board, landing).filter(({ color }) => color !== null)` */
 export function shiningLightsOf(board: LitBoard, landing?: TokenLanding): ShiningLight[] {
-  const mapLights = board.lights.map(({ x, y, bright, dim, lit, color }) =>
-    shiningOf(lightSource({ x, y }, lightRange(bright, dim), lit), color),
+  const mapLights = board.lights.map(({ x, y, bright, dim, lit, color, facing, angle }) =>
+    shiningOf(lightSource({ x, y }, lightRange(bright, dim), lit, coneOf(facing, angle)), color),
   );
   const tokenLights = board.tokens.map((token) => tokenLightOf(token, landing));
   return [...mapLights, ...tokenLights].filter((light) => light !== null);
@@ -35,7 +44,9 @@ function tokenLightOf(token: TokenDto, landing: TokenLanding | undefined): Shini
   if (!token.light) return null;
   const at = landing?.get(token.id) ?? token;
   const range = lightRange(token.light.bright, token.light.dim);
-  return shiningOf(lightSource(tokenCenter(at, token), range, token.lightLit), token.light.color);
+  const cone = coneOf(at.facing, token.light.angle);
+  const source = lightSource(tokenCenter(at, token), range, token.lightLit, cone);
+  return shiningOf(source, token.light.color);
 }
 
 function shiningOf(source: LightSource | null, color: LightColor): ShiningLight | null {

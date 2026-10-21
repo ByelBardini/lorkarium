@@ -2,6 +2,7 @@ import type { AimedArea, EffectArea } from './effect-area.vo';
 import { isSmoothArea } from './effect-area.vo';
 import { facingVector, type Vector2 } from './facing';
 import type { SceneSize } from './grid';
+import { distanceToBox } from './view-field';
 
 /** A whole cell of the grid, by column and row from the top-left. */
 export type GridCell = Readonly<{ col: number; row: number }>;
@@ -133,9 +134,7 @@ function insideBox(box: AreaBounds, point: Vector2): boolean {
  *  Example: `distanceFromAreaOrigin(auraAround(5, 5, 1, 1), { x: 8, y: 5.5 })` → `2` */
 export function distanceFromAreaOrigin(area: EffectArea, point: Vector2): number {
   if (area.kind !== 'emanation') return Math.hypot(point.x - area.x, point.y - area.y);
-  const dx = Math.max(area.x - point.x, 0, point.x - (area.x + area.width));
-  const dy = Math.max(area.y - point.y, 0, point.y - (area.y + area.height));
-  return Math.hypot(dx, dy);
+  return distanceToBox(area, point);
 }
 
 function grown(box: AreaBounds, by: number): AreaBounds {

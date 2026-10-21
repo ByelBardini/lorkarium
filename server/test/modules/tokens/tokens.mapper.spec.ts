@@ -3,6 +3,7 @@ import {
   toTokenDto,
   toTokenLightPo,
   toTokenUpdatePo,
+  tokenEyeOf,
   tokenLightOf,
 } from '../../../src/modules/tokens/tokens.mapper';
 import { LYRA_PORTRAIT_ID } from '../../support/assets-factories';
@@ -128,7 +129,7 @@ describe('tokens mapper', () => {
 
     for (const audience of ['privileged', 'others'] as const) {
       expect(toTokenDto(row, audience)).toMatchObject({
-        light: { bright: 4, dim: 4, color: null },
+        light: { bright: 4, dim: 4, color: null, angle: 360 },
         lightLit: true,
       });
     }
@@ -140,14 +141,16 @@ describe('tokens mapper', () => {
       bright: 4,
       dim: 4,
       color: 'moon',
+      angle: 360,
     });
   });
 
   it('a torch light sent is saved in the three columns', () => {
-    expect(toTokenLightPo({ bright: 4, dim: 4, color: 'torch' })).toEqual({
+    expect(toTokenLightPo({ bright: 4, dim: 4, color: 'torch', angle: 360 })).toEqual({
       lightBright: '4.00',
       lightDim: '4.00',
       lightColor: 'torch',
+      lightAngle: 360,
     });
   });
 
@@ -163,15 +166,21 @@ describe('tokens mapper', () => {
   });
 
   it('a light of 10/3 and 4 is saved to the hundredth', () => {
-    expect(toTokenLightPo({ bright: 10 / 3, dim: 4, color: null })).toEqual({
+    expect(toTokenLightPo({ bright: 10 / 3, dim: 4, color: null, angle: 360 })).toEqual({
       lightBright: '3.33',
       lightDim: '4.00',
       lightColor: null,
+      lightAngle: 360,
     });
   });
 
-  it('no light clears the three columns', () => {
-    expect(toTokenLightPo(null)).toEqual({ lightBright: null, lightDim: null, lightColor: null });
+  it('no light clears the three columns and opens the beam back to 360', () => {
+    expect(toTokenLightPo(null)).toEqual({
+      lightBright: null,
+      lightDim: null,
+      lightColor: null,
+      lightAngle: 360,
+    });
   });
 
   it('an update with light writes both columns and without light writes none', () => {
@@ -186,9 +195,10 @@ describe('tokens mapper', () => {
     } as const;
     const lists = { bars: [], controllerIds: [BIA_ID] };
 
-    const lit = toTokenUpdatePo({ ...base, ...lists, light: { bright: 4, dim: 2, color: null } }, [
-      BIA_ID,
-    ]);
+    const lit = toTokenUpdatePo(
+      { ...base, ...lists, light: { bright: 4, dim: 2, color: null, angle: 360 } },
+      [BIA_ID],
+    );
     const kept = toTokenUpdatePo({ ...base, ...lists }, [BIA_ID]);
 
     expect(lit.fields).toMatchObject({ lightBright: '4.00', lightDim: '2.00' });
@@ -203,6 +213,7 @@ describe('tokens mapper', () => {
     expect(tokenLightOf(row)).toEqual({
       center: { x: 4, y: 4.5 },
       range: { bright: 4, dim: 4 },
+      cone: null,
     });
   });
 
@@ -244,5 +255,71 @@ describe('tokens mapper', () => {
       bars: [PERCENT_PV],
       controllerIds: [BIA_ID],
     });
+  });
+});
+
+describe('tokens mapper, the field of view and the lantern', () => {
+  const lyraUpdate = {
+    name: 'Lyra',
+    initials: 'LY',
+    side: 'ally' as const,
+    width: 1,
+    height: 1,
+    controllerIds: [BIA_ID],
+    bars: [],
+  };
+
+  it.each(['privileged', 'others'] as const)(
+    'a token saved with a field of 90° reaches the %s audience with sightAngle 90',
+    (audience) => {
+      const row = lyraRow({ token: lyraPo({ sightAngle: 90 }) });
+      expect(toTokenDto(row, audience).sightAngle).toBe(90);
+    },
+  );
+
+  it('a lantern saved with a beam of 60° reaches the viewer with light.angle 60', () => {
+    const token = lyraPo({ lightBright: '6.00', lightDim: '0.00', lightAngle: 60 });
+    expect(toTokenDto(lyraRow({ token }), 'others').light?.angle).toBe(60);
+  });
+
+  it('a lantern of 60° is saved in the angle column', () => {
+    expect(toTokenLightPo({ bright: 6, dim: 0, color: null, angle: 60 }).lightAngle).toBe(60);
+  });
+
+  it('an update with sightAngle writes the column and without it writes none', () => {
+    const narrowed = toTokenUpdatePo({ ...lyraUpdate, sightAngle: 90 }, [BIA_ID]);
+    const kept = toTokenUpdatePo(lyraUpdate, [BIA_ID]);
+
+    expect(narrowed.fields.sightAngle).toBe(90);
+    expect(kept.fields).not.toHaveProperty('sightAngle');
+  });
+
+  it('the eye of Lyra looking left with 90° is the cone of 180 / 90 around her footprint', () => {
+    const row = lyraRow({ token: lyraPo({ col: 5, row: 5, facing: 180, sightAngle: 90 }) });
+    expect(tokenEyeOf(row)).toEqual({
+      center: { x: 5.5, y: 5.5 },
+      range: null,
+      field: {
+        cone: { facing: 180, angle: 90 },
+        around: { x: 5, y: 5, width: 1, height: 1 },
+      },
+    });
+  });
+
+  it('the eye of a token with a field of 360° sees every side (field null)', () => {
+    expect(tokenEyeOf(lyraRow()).field).toBeNull();
+  });
+
+  it('a lantern of 60° shines in the direction the token looks', () => {
+    const lantern = { lightBright: '6.00', lightDim: '0.00', lightAngle: 60, facing: 90 };
+    expect(tokenLightOf(lyraRow({ token: lyraPo(lantern) }))?.cone).toEqual({
+      facing: 90,
+      angle: 60,
+    });
+  });
+
+  it('a light of 360° shines every side (cone null)', () => {
+    const torch = { lightBright: '4.00', lightDim: '4.00', facing: 90 };
+    expect(tokenLightOf(lyraRow({ token: lyraPo(torch) }))?.cone).toBeNull();
   });
 });

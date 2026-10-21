@@ -195,4 +195,52 @@ describe('LightsDao on Postgres', () => {
       cause: { code: CHECK_VIOLATION },
     });
   });
+
+  it('a light inserted without a cone looks right (facing 0) and shines every side (angle 360)', async () => {
+    expect(await savedOne(wallTorch())).toMatchObject({ facing: 0, angle: 360 });
+  });
+
+  it.each([
+    ['a facing of 360', { facing: 360 }],
+    ['an angle of 0', { angle: 0 }],
+    ['an angle of 361', { angle: 361 }],
+  ])('%s is refused by the cone CHECK of the table', async (_name, cone) => {
+    await expect(savedOne(wallTorch(cone))).rejects.toMatchObject({
+      cause: { code: CHECK_VIOLATION },
+    });
+  });
+
+  it('moving, ranging, coloring and putting out a spotlight keep its cone', async () => {
+    const saved = await savedOne(wallTorch({ facing: 90, angle: 60 }));
+
+    await lights.moveMany(sceneId, [{ lightId: saved.id, x: '7.00', y: '1.00' }]);
+    await lights.setRanges(sceneId, [{ lightId: saved.id, bright: '6.00', dim: '2.00' }]);
+    await lights.setColors(sceneId, [{ lightId: saved.id, color: 'fire' }]);
+    await lights.setLit(sceneId, [saved.id], false);
+
+    expect((await lights.listOfScene(sceneId))[0]).toMatchObject({ facing: 90, angle: 60 });
+  });
+
+  it('setCones changes only the facing and the angle', async () => {
+    const saved = await savedOne(wallTorch({ color: 'moon' }));
+
+    await lights.setCones(sceneId, [{ lightId: saved.id, facing: 90, angle: 60 }]);
+
+    expect((await lights.listOfScene(sceneId))[0]).toMatchObject({
+      x: '5.50',
+      bright: '4.00',
+      lit: true,
+      color: 'moon',
+      facing: 90,
+      angle: 60,
+    });
+  });
+
+  it('setCones with an id of Quelm on the scene of Vharn leaves the Quelm row intact', async () => {
+    const quelmTorch = await savedOne(wallTorch({ sceneId: otherSceneId }));
+
+    await lights.setCones(sceneId, [{ lightId: quelmTorch.id, facing: 90, angle: 60 }]);
+
+    expect((await lights.listOfScene(otherSceneId))[0]).toMatchObject({ facing: 0, angle: 360 });
+  });
 });

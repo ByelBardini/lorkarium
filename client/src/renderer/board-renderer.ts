@@ -76,7 +76,8 @@ export type BoardDoorIntent =
 
 /** The lights tool: a click on the empty board puts a light at `x, y` (fractional cells); a click
  *  on an icon picks it (Shift: `additive` toggles it); a drag shows where it goes (`point: null`
- *  puts it back) and drops it there. The master's right click on an icon, with any tool, asks for
+ *  puts it back) and drops it there; the handle of a spotlight shows where it would point
+ *  (`facing: null` lets go) and aims it on release. The master's right click on an icon, with any tool, asks for
  *  the light menu at `x, y` viewport px. */
 export type BoardLightIntent =
   | Readonly<{ kind: 'lightPlaced'; x: number; y: number }>
@@ -87,6 +88,8 @@ export type BoardLightIntent =
       point: Readonly<{ x: number; y: number }> | null;
     }>
   | Readonly<{ kind: 'lightDropped'; lightId: string; x: number; y: number }>
+  | Readonly<{ kind: 'lightAimPreviewed'; lightId: string; facing: number | null }>
+  | Readonly<{ kind: 'lightAimed'; lightId: string; facing: number }>
   | Readonly<{ kind: 'lightMenuRequested'; lightId: string; x: number; y: number }>;
 
 /** The cell under the pointer while it hovers the board (`null` once it leaves): where a paste

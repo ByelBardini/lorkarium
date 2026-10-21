@@ -66,6 +66,7 @@ describe('createTokenCommandDto', () => {
       flipX: false,
       flipY: false,
       facing: 0,
+      sightAngle: 360,
       bars: [
         { ...PV, display: 'number' },
         { ...INSPIRATION, display: 'number' },
@@ -189,6 +190,7 @@ describe('tokenDto', () => {
       flipY: false,
       facing: 0,
       defeated: false,
+      sightAngle: 360,
       sight: null,
       light: null,
       lightLit: true,
@@ -249,11 +251,12 @@ describe('light on the token', () => {
     expect(createTokenCommandDto.parse({ ...CREATE, light: torch }).light).toEqual({
       ...torch,
       color: null,
+      angle: 360,
     });
   });
 
   it('a token created with a fire light keeps the color', () => {
-    const light = { ...torch, color: 'fire' };
+    const light = { ...torch, color: 'fire', angle: 360 };
     expect(createTokenCommandDto.parse({ ...CREATE, light }).light).toEqual(light);
   });
 
@@ -269,7 +272,7 @@ describe('light on the token', () => {
     const pasted = { ...CREATE } as Record<string, unknown>;
     delete pasted.actionId;
     delete pasted.campaignId;
-    const light = { ...torch, color: 'moon' };
+    const light = { ...torch, color: 'moon', angle: 60 };
     expect(newTokenDto.parse({ ...pasted, light }).light).toEqual(light);
   });
 
@@ -314,6 +317,7 @@ describe('defeated', () => {
     flipY: false,
     facing: 0,
     defeated: true,
+    sightAngle: 360,
     sight: null,
     light: null,
     lightLit: true,
@@ -363,5 +367,66 @@ describe('moveTokenCommandDto path', () => {
   it('a bend at col -1 is refused', () => {
     const result = moveTokenCommandDto.safeParse({ ...MOVE, path: [{ col: -1, row: 1 }] });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('the field of view and the lantern of a token', () => {
+  const UPDATE = { ...CREATE, tokenId: TOKEN_ID } as Record<string, unknown>;
+  delete UPDATE.col;
+  delete UPDATE.row;
+  const torch = { bright: 4, dim: 4 };
+
+  it('a token created without sightAngle sees every side (360)', () => {
+    expect(createTokenCommandDto.parse(CREATE).sightAngle).toBe(360);
+  });
+
+  it('a token created with a sightAngle of 90 keeps it', () => {
+    expect(createTokenCommandDto.parse({ ...CREATE, sightAngle: 90 }).sightAngle).toBe(90);
+  });
+
+  it('an update without sightAngle keeps it absent (the server keeps the current one)', () => {
+    expect('sightAngle' in updateTokenCommandDto.parse(UPDATE)).toBe(false);
+  });
+
+  it('a confirmed token without sightAngle is refused: the event always carries it', () => {
+    const created = createTokenCommandDto.parse(CREATE);
+    const token = {
+      ...created,
+      id: TOKEN_ID,
+      actionId: undefined,
+      campaignId: undefined,
+      defeated: false,
+      sight: null,
+      light: null,
+      lightLit: true,
+      canControl: false,
+      bars: [],
+      conditions: [],
+    } as Record<string, unknown>;
+    delete token.actionId;
+    delete token.campaignId;
+    delete token.sightAngle;
+    const result = tokenDto.safeParse(token);
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['sightAngle']);
+  });
+
+  it('a lantern sent without angle shines every side (360), and with 60 keeps it', () => {
+    expect(createTokenCommandDto.parse({ ...CREATE, light: torch }).light?.angle).toBe(360);
+    const lantern = { ...torch, angle: 60 };
+    expect(createTokenCommandDto.parse({ ...CREATE, light: lantern }).light?.angle).toBe(60);
+  });
+
+  it('a sightAngle of 361 is refused on sightAngle citing the value', () => {
+    const result = updateTokenCommandDto.safeParse({ ...UPDATE, sightAngle: 361 });
+    expect(result.error?.issues.map((issue) => [issue.path.join('.'), issue.message])).toEqual([
+      ['sightAngle', 'sight angle 361 is invalid; expected a whole number from 1 to 360'],
+    ]);
+  });
+
+  it('a lantern angle of 0 is refused on light.angle citing the value', () => {
+    const result = updateTokenCommandDto.safeParse({ ...UPDATE, light: { ...torch, angle: 0 } });
+    expect(result.error?.issues.map((issue) => [issue.path.join('.'), issue.message])).toEqual([
+      ['light.angle', 'light angle 0 is invalid; expected a whole number from 1 to 360'],
+    ]);
   });
 });

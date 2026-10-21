@@ -1,5 +1,5 @@
 import type { BoardStateDto, SceneVisionDto, WallDto } from '@lorkarium/contracts';
-import { insidePolygon } from '@lorkarium/game-core';
+import { coneOf, insidePolygon, withinField } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { boardSightOf } from '@/lib/board-sight';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
@@ -73,7 +73,7 @@ describe('fogViewOf', () => {
   });
 
   it('dragging Lyra to (8, 5) moves her eye there', () => {
-    const fog = fogOf(boardOf('dark'), new Map([[LYRA_ID, { col: 8, row: 5 }]]));
+    const fog = fogOf(boardOf('dark'), new Map([[LYRA_ID, { col: 8, row: 5, facing: 0 }]]));
 
     expect(seesAt(fog?.bright ?? [], 10, 5)).toBe(true);
     expect(fog?.holes[0]).toMatchObject({ x: 8 * CELL });
@@ -100,7 +100,7 @@ describe('fogViewOf', () => {
   it('the same board gives the same drawing key, so the canvas does not redraw for nothing', () => {
     expect(fogOf(boardOf('dark'))?.key).toBe(fogOf(boardOf('dark'))?.key);
     expect(fogOf(boardOf('dark'))?.key).not.toBe(
-      fogOf(boardOf('dark'), new Map([[LYRA_ID, { col: 8, row: 5 }]]))?.key,
+      fogOf(boardOf('dark'), new Map([[LYRA_ID, { col: 8, row: 5, facing: 0 }]]))?.key,
     );
   });
 });
@@ -152,5 +152,80 @@ describe('fogViewOf with lights', () => {
 
     expect(fogOf(litBoard('dark'))?.key).toBe(lit);
     expect(fogOf(litBoard('dark', [{ ...TORCH, lit: false }]))?.key).not.toBe(lit);
+  });
+});
+
+describe('fogViewOf with Lyra looking in a cone', () => {
+  // Lyra (Bia's) at (5, 5), center (5.5, 5.5), looks right in a field of 90° (sight 3 + 3).
+  const NARROW = lyra({ col: 5, row: 5, sight: { bright: 3, dim: 3 }, sightAngle: 90 });
+  const FIELD = { cone: coneOf(0, 90)!, around: { x: 5, y: 5, width: 1, height: 1 } };
+  const APEX = { x: 5.5, y: 5.5 };
+
+  function narrowFog(
+    vision: SceneVisionDto,
+    landing = new Map(),
+    more: Partial<BoardStateDto> = {},
+  ) {
+    const board = vharnBoard({
+      viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+      scene: { ...VHARN_SCENE, vision },
+      tokens: [NARROW],
+      ...more,
+    });
+    return fogOf(board, landing);
+  }
+
+  function inField(polygons: FogView['dim']): boolean {
+    return polygons.every((polygon) =>
+      polygon.every(({ x, y }) => withinField(FIELD, APEX, { x: x / CELL, y: y / CELL })),
+    );
+  }
+
+  it('every vertex of the dim area lies in the cone or the ring', () => {
+    expect(inField(narrowFog('dark')?.dim ?? [])).toBe(true);
+  });
+
+  it('the area straight back stops at the ring: the cell behind is seen, two behind are not', () => {
+    const fog = narrowFog('dark');
+
+    expect(seesAt(fog?.dim ?? [], 4, 5)).toBe(true);
+    expect(seesAt(fog?.dim ?? [], 3, 5)).toBe(false);
+  });
+
+  it('the line of sight that opens what a torch lights is cut to the field too', () => {
+    const fog = narrowFog('dark', new Map(), { lights: [corridorTorch({ x: 2, y: 5.5 })] });
+
+    expect(fog?.sightLines.length).toBeGreaterThan(0);
+    expect(inField(fog?.sightLines ?? [])).toBe(true);
+  });
+
+  it('Lyra turned to 180 before the ack looks left', () => {
+    const fog = narrowFog('dark', new Map([[LYRA_ID, { col: 5, row: 5, facing: 180 }]]));
+
+    expect(seesAt(fog?.dim ?? [], 2, 5)).toBe(true);
+    expect(seesAt(fog?.dim ?? [], 8, 5)).toBe(false);
+  });
+
+  it('the drawing key changes with the facing and with the angle, and not without a change', () => {
+    const still = narrowFog('dark')?.key;
+    const turned = narrowFog('dark', new Map([[LYRA_ID, { col: 5, row: 5, facing: 90 }]]))?.key;
+    const wider = fogOf(
+      vharnBoard({
+        viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+        scene: { ...VHARN_SCENE, vision: 'dark' },
+        tokens: [{ ...NARROW, sightAngle: 120 }],
+      }),
+    )?.key;
+
+    expect(narrowFog('dark')?.key).toBe(still);
+    expect(turned).not.toBe(still);
+    expect(wider).not.toBe(still);
+  });
+
+  it('by daylight the bright area reaches the edge only in the field', () => {
+    const fog = narrowFog('daylight');
+
+    expect(seesAt(fog?.bright ?? [], 19, 5)).toBe(true);
+    expect(seesAt(fog?.bright ?? [], 1, 5)).toBe(false);
   });
 });

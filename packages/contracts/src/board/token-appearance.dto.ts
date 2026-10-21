@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
-import { facingDto, tokenFrameDto } from './token.dto';
+import { facingDto } from './direction.dto';
+import { tokenFrameDto } from './token.dto';
 import { tokenGroupOf, tokenIdGroupDto } from './token-id-group.dto';
 
 const tokenFacingDto = z.strictObject({ tokenId: z.uuid(), facing: facingDto });

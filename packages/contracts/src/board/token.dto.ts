@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { combatDto } from './combat.dto';
 import { activeConditionDto } from './condition.dto';
+import { coneAngleDto, facingDto } from './direction.dto';
 import { tokenLightDto } from './light.dto';
 import { REACH_MAX, reachSideDto } from './reach.dto';
 
@@ -38,17 +39,6 @@ export type BarDisplayDto = z.infer<typeof barDisplayDto>;
 /** `square` shows the whole image (contain); `round` crops it to a circle (cover) with the side ring. */
 export const tokenFrameDto = z.enum(['square', 'round']);
 export type TokenFrameDto = z.infer<typeof tokenFrameDto>;
-
-export const FACING_MAX = 359;
-
-/** Where a token looks, in whole degrees: 0 = right, clockwise on screen (game-core `Facing`). */
-export const facingDto = z.number().superRefine((value, context) => {
-  if (Number.isInteger(value) && value >= 0 && value <= FACING_MAX) return;
-  context.addIssue({
-    code: 'custom',
-    message: `facing ${value} is invalid; expected a whole number from 0 to ${FACING_MAX}`,
-  });
-});
 
 /** The look of a token; not a secret, so every audience gets the same values. `defeated` (the red
  *  cross of a fallen foe) changes only by `token:restyleMany`: a new token or a copy is alive. */
@@ -139,6 +129,7 @@ export const tokenDto = z.strictObject({
   layer: tokenLayerDto,
   ...tokenAppearanceShape,
   facing: facingDto,
+  sightAngle: coneAngleDto('sight'),
   sight: sightDto.nullable(),
   light: tokenLightDto.nullable(),
   lightLit: z.boolean(),
@@ -163,6 +154,7 @@ export const createTokenCommandDto = z.strictObject({
   flipX: z.boolean().default(false),
   flipY: z.boolean().default(false),
   facing: facingDto.default(0),
+  sightAngle: coneAngleDto('sight').default(360),
   sight: sightDto.nullable().optional(),
   light: tokenLightDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
@@ -180,6 +172,7 @@ export const updateTokenCommandDto = z.strictObject({
   frame: tokenFrameDto.optional(),
   flipX: z.boolean().optional(),
   flipY: z.boolean().optional(),
+  sightAngle: coneAngleDto('sight').optional(),
   sight: sightDto.nullable().optional(),
   light: tokenLightDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),

@@ -86,13 +86,14 @@ export function newTokenRowOf(
 ): NewTokenRow {
   const { col, row } = rules.place(token, token);
   const { name, initials, side, width, height, layer } = token;
-  const { imageAssetId, frame, flipX, flipY, facing } = token;
+  const { imageAssetId, frame, flipX, flipY, facing, sightAngle } = token;
   const look = {
     imageAssetId,
     frame,
     flipX,
     flipY,
     facing,
+    sightAngle,
     ...toTokenSightPo(token.sight),
     ...toTokenLightPo(token.light),
   };

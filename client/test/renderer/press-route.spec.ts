@@ -259,3 +259,27 @@ describe('menuRouteOf and the map lights', () => {
     expect(menuRouteOf(view, ON_THE_TORCH, 1)).toEqual({ kind: 'door', wallId: CELL_DOOR_ID });
   });
 });
+
+describe('pressRouteOf and the handle of a spotlight', () => {
+  // The spotlight at (5, 5) looks down (90): its handle stands 16 + 20 px under the icon.
+  const spotlightPicked = boardView({
+    tool: 'lights',
+    viewer: { userId: BIA_AT_TABLE.userId, isMaster: true },
+    lights: [corridorTorch({ facing: 90, angle: 60 })],
+    selectedLightIds: [CORRIDOR_TORCH_ID],
+  });
+
+  it('with the lights tool, a press on the handle takes the handle', () => {
+    const handle = { x: 5 * CELL, y: 5 * CELL + 36 };
+
+    expect(pressRouteOf(spotlightPicked, handle, 1)).toEqual({ kind: 'facingHandle' });
+  });
+
+  it('a press on the icon takes the light, and on the empty board puts one', () => {
+    expect(pressRouteOf(spotlightPicked, at(5, 5), 1)).toEqual({
+      kind: 'light',
+      lightId: CORRIDOR_TORCH_ID,
+    });
+    expect(pressRouteOf(spotlightPicked, at(12, 2), 1)).toEqual({ kind: 'light', lightId: null });
+  });
+});

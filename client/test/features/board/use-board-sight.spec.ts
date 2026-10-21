@@ -17,7 +17,11 @@ import {
 // Lyra (Bia's) at (3, 4) has no darkvision and a lit torch of 3 + 3 cells; the ogre at (11, 4) is
 // hidden from her confirmed cell and seen with Lyra at (9, 4).
 const OGRE_ID = 'aa11bb22-cc33-4d44-8e55-ff6677889900';
-const LYRA = lyra({ sight: null, light: { bright: 3, dim: 3, color: null }, lightLit: true });
+const LYRA = lyra({
+  sight: null,
+  light: { bright: 3, dim: 3, color: null, angle: 360 },
+  lightLit: true,
+});
 const OGRE: TokenDto = kael({
   canControl: false,
   controllerIds: [],
@@ -37,6 +41,7 @@ const IDLE: SightInteraction = {
   selectedTokenIds: [],
   drag: null,
   preview: [],
+  facingPreview: {},
 };
 
 function lyraDraggedTo(col: number, bendAt?: number): TokenDrag {
@@ -97,5 +102,23 @@ describe('sightNowOf', () => {
 
     expect(sight.active).toBe(false);
     expect(levelOf(sight, OGRE_ID)).toBe('seen');
+  });
+});
+
+describe('sightNowOf while Lyra turns', () => {
+  const table = { board: BOARD, dragged: {} };
+
+  it('another facing preview gives a new sight', () => {
+    const still = sightNowOf(table, IDLE);
+    const turning = sightNowOf(table, { ...IDLE, facingPreview: { [LYRA_ID]: 180 } });
+
+    expect(turning).not.toBe(still);
+  });
+
+  it('the same facing preview gives back the very same sight', () => {
+    const first = sightNowOf(table, { ...IDLE, facingPreview: { [LYRA_ID]: 180 } });
+    const again = sightNowOf(table, { ...IDLE, facingPreview: { [LYRA_ID]: 180 } });
+
+    expect(again).toBe(first);
   });
 });

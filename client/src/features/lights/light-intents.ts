@@ -13,8 +13,8 @@ export type LightIntentStores = Readonly<{
 }>;
 
 /** Routes what the board says about map lights: a click on the empty board (put a light there
- *  with the remembered reach and color), a click on an icon (the selection), a drag (the local preview) and
- *  a drop (one move). Answers whether the intent was one of these.
+ *  with the remembered reach, color and opening), a click on an icon (the selection), a drag (the
+ *  local preview) and a drop (one move), the handle of a spotlight (the preview and one aim). Answers whether the intent was one of these.
  *
  *  Example: `if (routeLightIntent({ board, interaction, lightReach, lightColor }, intent)) return;` */
 export function routeLightIntent(stores: LightIntentStores, intent: BoardIntent): boolean {
@@ -23,7 +23,8 @@ export function routeLightIntent(stores: LightIntentStores, intent: BoardIntent)
     case 'lightPlaced': {
       const reach = lightReachOf(stores.lightReach.getState());
       const { color } = stores.lightColor.getState();
-      void local.placeLight({ x: intent.x, y: intent.y }, reach, color);
+      const { angle } = stores.lightReach.getState();
+      void local.placeLight({ x: intent.x, y: intent.y }, reach, color, angle);
       return true;
     }
     case 'lightPicked':
@@ -32,6 +33,14 @@ export function routeLightIntent(stores: LightIntentStores, intent: BoardIntent)
     case 'lightMovePreviewed':
       local.previewLight(intent.lightId, intent.point);
       return true;
+    case 'lightAimPreviewed':
+      local.previewLightAim(intent.lightId, intent.facing);
+      return true;
+    case 'lightAimed': {
+      const light = stores.board.getState().board?.lights.find(({ id }) => id === intent.lightId);
+      if (light) void local.aimLight(light, intent.facing);
+      return true;
+    }
     case 'lightDropped': {
       const light = stores.board.getState().board?.lights.find(({ id }) => id === intent.lightId);
       if (light) void local.moveLight(light, { x: intent.x, y: intent.y });

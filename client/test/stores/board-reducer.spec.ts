@@ -392,6 +392,23 @@ describe('applyBoardEvent, lights', () => {
     expect(next.lights).toEqual([corridorTorch()]);
   });
 
+  it('light:conesChanged changes only where the light points and how wide it opens', () => {
+    const board = vharnBoard({ lights: [corridorTorch({ lit: false, color: 'fire' }), brazier()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'lightConesChanged',
+      payload: {
+        ...vharnEventBase(5),
+        changes: [{ lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60 }],
+      },
+    });
+
+    expect(next.lights).toEqual([
+      corridorTorch({ lit: false, color: 'fire', facing: 90, angle: 60 }),
+      brazier(),
+    ]);
+  });
+
   it('light:createdMany with an arcane light enters with its color', () => {
     const next = applyBoardEvent(vharnBoard(), {
       type: 'lightsCreated',
@@ -424,7 +441,10 @@ describe('applyBoardEvent, lights', () => {
   });
 
   it('token:restyledMany with lightLit changes only the switch of the token light', () => {
-    const torchBearer = lyra({ light: { bright: 4, dim: 4, color: null }, frame: 'round' });
+    const torchBearer = lyra({
+      light: { bright: 4, dim: 4, color: null, angle: 360 },
+      frame: 'round',
+    });
     const board = vharnBoard({ tokens: [torchBearer] });
 
     const next = applyBoardEvent(board, {
@@ -433,5 +453,16 @@ describe('applyBoardEvent, lights', () => {
     });
 
     expect(next.tokens).toEqual([{ ...torchBearer, lightLit: false }]);
+  });
+
+  it('token:updated with a field of view of 90° replaces it', () => {
+    const board = vharnBoard({ tokens: [lyra()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokenUpdated',
+      payload: { ...vharnEventBase(5), token: lyra({ sightAngle: 90 }) },
+    });
+
+    expect(next.tokens.map(({ sightAngle }) => sightAngle)).toEqual([90]);
   });
 });

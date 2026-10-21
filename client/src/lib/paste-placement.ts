@@ -92,13 +92,14 @@ export function pastePlacement(
 
 function newTokenOf(token: TokenDto, combatantId: string | undefined): NewTokenInput {
   const { name, initials, side, width, height, col, row, layer, controllerIds } = token;
-  const { imageAssetId, frame, flipX, flipY, facing } = token;
+  const { imageAssetId, frame, flipX, flipY, facing, sightAngle } = token;
   const look = {
     imageAssetId,
     frame,
     flipX,
     flipY,
     facing,
+    sightAngle,
     sight: token.sight,
     light: token.light,
   };

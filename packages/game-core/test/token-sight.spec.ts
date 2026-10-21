@@ -3,12 +3,14 @@ import { lightRange } from '../src/light.vo';
 import type { LightSource } from '../src/lighting';
 import {
   doorSeenBy,
+  eyeFieldOf,
   eyeOf,
   sightLevel,
   sightRange,
   type Eye,
   type SightContext,
   type SightMode,
+  type SightRange,
 } from '../src/token-sight';
 import { wall, type DoorState, type Wall, type WallKind } from '../src/wall.vo';
 
@@ -35,7 +37,7 @@ function lineWall(
   });
 }
 
-const TORCH_EYE: Eye = { center: { x: 5.5, y: 5.5 }, range: sightRange(3, 3) };
+const TORCH_EYE: Eye = { center: { x: 5.5, y: 5.5 }, range: sightRange(3, 3), field: null };
 
 function context(
   walls: Wall[] = [],
@@ -103,18 +105,18 @@ describe('sightLevel in the dark', () => {
   });
 
   it('with bright 0 and dim 3, a token at 2 is a silhouette', () => {
-    const dimOnly = { center: TORCH_EYE.center, range: sightRange(0, 3) };
+    const dimOnly = { center: TORCH_EYE.center, range: sightRange(0, 3), field: null };
     expect(sightLevel(context([], 'dark', [dimOnly]), tokenAt(7, 5))).toBe('silhouette');
   });
 
   it('a 3 × 3 token whose center is behind a corner is seen by an inset corner in view', () => {
     const corner = [lineWall([8, 2], [8, 6.5])];
-    const wide = { center: TORCH_EYE.center, range: sightRange(10, 0) };
+    const wide = { center: TORCH_EYE.center, range: sightRange(10, 0), field: null };
     expect(sightLevel(context(corner, 'dark', [wide]), tokenAt(8.2, 5.5, false, 3))).toBe('seen');
   });
 
   it('with two eyes, the one that sees wins', () => {
-    const far = { center: { x: 30, y: 30 }, range: sightRange(1, 0) };
+    const far = { center: { x: 30, y: 30 }, range: sightRange(1, 0), field: null };
     expect(sightLevel(context([], 'dark', [far, TORCH_EYE]), tokenAt(7, 5))).toBe('seen');
   });
 
@@ -134,7 +136,7 @@ describe('sightLevel by daylight and off', () => {
   });
 
   it('by daylight an eye without a range still sees', () => {
-    const plain = { center: TORCH_EYE.center, range: null };
+    const plain = { center: TORCH_EYE.center, range: null, field: null };
     expect(sightLevel(context([], 'daylight', [plain]), tokenAt(20, 5))).toBe('seen');
   });
 
@@ -176,20 +178,25 @@ describe('doorSeenBy', () => {
 
 describe('eyeOf', () => {
   it('a token without sight is still an eye, one that sees only what is lit', () => {
-    expect(eyeOf({ x: 1, y: 1 }, null)).toEqual({ center: { x: 1, y: 1 }, range: null });
+    expect(eyeOf({ x: 1, y: 1 }, null)).toEqual({
+      center: { x: 1, y: 1 },
+      range: null,
+      field: null,
+    });
   });
 
   it('a token with sight is an eye with its range', () => {
     expect(eyeOf({ x: 1, y: 1 }, sightRange(2, 1))).toEqual({
       center: { x: 1, y: 1 },
       range: { bright: 2, dim: 1 },
+      field: null,
     });
   });
 });
 
 describe('sightLevel with light', () => {
-  const blindEye: Eye = { center: { x: 2, y: 5 }, range: null };
-  const torch: LightSource = { center: { x: 10, y: 5 }, range: lightRange(2, 2) };
+  const blindEye: Eye = { center: { x: 2, y: 5 }, range: null, field: null };
+  const torch: LightSource = { center: { x: 10, y: 5 }, range: lightRange(2, 2), cone: null };
 
   function lit(
     walls: Wall[] = [],
@@ -213,13 +220,13 @@ describe('sightLevel with light', () => {
   });
 
   it('an eye with only dim sight sees an ogre at 4 as a silhouette in the dark', () => {
-    const dimEye: Eye = { center: { x: 2.5, y: 5.5 }, range: sightRange(0, 6) };
+    const dimEye: Eye = { center: { x: 2.5, y: 5.5 }, range: sightRange(0, 6), field: null };
     expect(sightLevel(lit([], 'dark', [dimEye], []), tokenAt(6, 5))).toBe('silhouette');
   });
 
   it('the same ogre under a bright torch is seen: the better of sight and light wins', () => {
-    const dimEye: Eye = { center: { x: 2.5, y: 5.5 }, range: sightRange(0, 6) };
-    const over: LightSource = { center: { x: 6.5, y: 5.5 }, range: lightRange(2, 0) };
+    const dimEye: Eye = { center: { x: 2.5, y: 5.5 }, range: sightRange(0, 6), field: null };
+    const over: LightSource = { center: { x: 6.5, y: 5.5 }, range: lightRange(2, 0), cone: null };
     expect(sightLevel(lit([], 'dark', [dimEye], [over]), tokenAt(6, 5))).toBe('seen');
   });
 
@@ -242,8 +249,12 @@ describe('sightLevel with light', () => {
 
 describe('doorSeenBy with light', () => {
   const cellDoor = lineWall([7, 5], [7, 6], 'door', 'closed');
-  const corridorEye: Eye = { center: { x: 3, y: 5.5 }, range: null };
-  const torchBeyond: LightSource = { center: { x: 9, y: 5.5 }, range: lightRange(3, 0) };
+  const corridorEye: Eye = { center: { x: 3, y: 5.5 }, range: null, field: null };
+  const torchBeyond: LightSource = {
+    center: { x: 9, y: 5.5 },
+    range: lightRange(3, 0),
+    cone: null,
+  };
 
   it('a torch on the other side lights the closed door for an eye without range', () => {
     const walls = [cellDoor];
@@ -257,5 +268,74 @@ describe('doorSeenBy with light', () => {
   it('a wall between the eye and the lit door hides it', () => {
     const walls = [lineWall([5, 0], [5, 12]), cellDoor];
     expect(doorSeenBy(context(walls, 'dark', [corridorEye], [torchBeyond]), cellDoor)).toBe(false);
+  });
+});
+
+describe('sightLevel of an eye in a cone', () => {
+  const lyraBox = { x: 5, y: 5, width: 1, height: 1 };
+  const lyraCenter = { x: 5.5, y: 5.5 };
+
+  function lyra(direction = 0, angle = 90, range: SightRange | null = sightRange(6, 6)): Eye {
+    return eyeOf(lyraCenter, range, eyeFieldOf(lyraBox, direction, angle));
+  }
+
+  function seenBy(eye: Eye, col: number, mode: SightMode = 'dark', lights: LightSource[] = []) {
+    return sightLevel({ eyes: [eye], walls: [], mode, lights }, tokenAt(col, 5));
+  }
+
+  function torchOver(col: number): LightSource {
+    return { center: { x: col + 0.5, y: 5.5 }, range: lightRange(2, 0), cone: null };
+  }
+
+  it('an ogre ahead, at column 9, is seen', () => {
+    expect(seenBy(lyra(), 9)).toBe('seen');
+  });
+
+  it('an ogre behind, at column 1, is hidden, though a 360° eye sees it', () => {
+    expect(seenBy(lyra(), 1)).toBe('hidden');
+    expect(seenBy(lyra(0, 360), 1)).toBe('seen');
+  });
+
+  it('a goblin right behind (column 4) is felt by the ring, one 2 cells behind (column 3) is not', () => {
+    expect(seenBy(lyra(), 4)).toBe('seen');
+    expect(seenBy(lyra(), 3)).toBe('hidden');
+  });
+
+  it('a blind eye does not see the goblin right behind in the dark, but sees it under a torch', () => {
+    const blind = lyra(0, 90, null);
+    expect(seenBy(blind, 4)).toBe('hidden');
+    expect(seenBy(blind, 4, 'dark', [torchOver(4)])).toBe('seen');
+  });
+
+  it('a blind eye looking right does not see the lit ogre behind it: the cone limits light too', () => {
+    expect(seenBy(lyra(0, 90, null), 1, 'dark', [torchOver(1)])).toBe('hidden');
+  });
+
+  it('by daylight the ogre behind is hidden and the one ahead is seen', () => {
+    expect(seenBy(lyra(), 1, 'daylight')).toBe('hidden');
+    expect(seenBy(lyra(), 9, 'daylight')).toBe('seen');
+  });
+
+  it('with vision off the ogre behind is seen', () => {
+    expect(seenBy(lyra(), 1, 'off')).toBe('seen');
+  });
+
+  it('a field of 360° is no field, and 90° is the cone around the footprint', () => {
+    expect(eyeFieldOf(lyraBox, 0, 360)).toBeNull();
+    expect(eyeFieldOf(lyraBox, 180, 90)).toEqual({
+      cone: { facing: 180, angle: 90 },
+      around: lyraBox,
+    });
+  });
+
+  it('a door behind the eye (x = 3) is not seen looking right, and is seen looking left', () => {
+    const door = lineWall([3, 4], [3, 7], 'door', 'closed');
+    expect(doorSeenBy(context([door], 'dark', [lyra()]), door)).toBe(false);
+    expect(doorSeenBy(context([door], 'dark', [lyra(180)]), door)).toBe(true);
+  });
+
+  it("a door right at the eye's back (x = 4) is felt by the ring", () => {
+    const door = lineWall([4, 4], [4, 7], 'door', 'closed');
+    expect(doorSeenBy(context([door], 'dark', [lyra()]), door)).toBe(true);
   });
 });

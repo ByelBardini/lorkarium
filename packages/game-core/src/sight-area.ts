@@ -1,6 +1,7 @@
 import type { Vector2 } from './facing';
 import type { SceneSize } from './grid';
 import { legTouchesSegment } from './passage';
+import { fieldOutlineAngles, fieldReachAt, type ViewField } from './view-field';
 import { wallSegments, type Segment } from './wall-segments';
 import { blocksSight, type Wall } from './wall.vo';
 
@@ -16,7 +17,8 @@ const FULL_TURN = 2 * Math.PI;
  *  the scene border, then at `reach` (cells; `Infinity` = up to the border). Vertices come in
  *  angle order, so the same input always gives the same polygon. Rays go to every wall vertex
  *  (and just past it), to wall crossings, to where walls leave the reach circle and to 64 arc
- *  samples (ncase's "Sight & Light").
+ *  samples (ncase's "Sight & Light"). A `field` also stops each ray at its edge for that angle
+ *  (the cone, then the ring or the apex), so a cone stays one star-shaped polygon.
  *
  *  Example: `sightArea({ x: 10.5, y: 6.5 }, walls, { widthCells: 20, heightCells: 12 }, 3)` */
 export function sightArea(
@@ -24,13 +26,17 @@ export function sightArea(
   walls: readonly Wall[],
   scene: SceneSize,
   reach: number,
+  field?: ViewField,
 ): Vector2[] {
   const blockers = sightBlockersNear(eye, walls, reach);
   const border = sceneBorder(scene);
   const segments = [...blockers, ...border];
-  return rayAngles(eye, blockers, border, reach).map((angle) =>
-    clampToScene(castRay(eye, angle, segments, reach), scene),
-  );
+  const extra = field ? fieldOutlineAngles(field, eye) : [];
+  const vertices = rayAngles(eye, blockers, border, reach, extra).map((angle) => {
+    const limit = field ? Math.min(reach, fieldReachAt(field, eye, angle)) : reach;
+    return clampToScene(castRay(eye, angle, segments, limit), scene);
+  });
+  return field ? withoutRepeats(vertices) : vertices;
 }
 
 /** Whether a point lies inside a polygon (even-odd rule).
@@ -96,9 +102,10 @@ function rayAngles(
   blockers: readonly Segment[],
   border: readonly Segment[],
   reach: number,
+  fieldAngles: readonly number[],
 ): number[] {
   const outline = [...blockers, ...border];
-  const corners = [...vertexAngles(eye, outline), ...crossingAngles(eye, blockers)];
+  const corners = [...vertexAngles(eye, outline), ...crossingAngles(eye, blockers), ...fieldAngles];
   if (Number.isFinite(reach)) corners.push(...reachExitAngles(eye, outline, reach));
   const nudged = corners.flatMap((angle) => [angle - CORNER_NUDGE, angle, angle + CORNER_NUDGE]);
   const arc = Array.from(
@@ -184,6 +191,18 @@ function clampToScene(point: Vector2, { widthCells, heightCells }: SceneSize): V
     x: Math.min(Math.max(point.x, 0), widthCells),
     y: Math.min(Math.max(point.y, 0), heightCells),
   };
+}
+
+// Many rays of a lantern land on its apex; one vertex there is enough.
+function withoutRepeats(vertices: readonly Vector2[]): Vector2[] {
+  const kept = vertices.filter((vertex, index) => !samePoint(vertex, vertices[index - 1]));
+  if (kept.length > 1 && samePoint(kept[0], kept.at(-1))) kept.pop();
+  return kept;
+}
+
+function samePoint(a: Vector2 | undefined, b: Vector2 | undefined): boolean {
+  if (!a || !b) return false;
+  return Math.abs(a.x - b.x) <= HIT_TOLERANCE && Math.abs(a.y - b.y) <= HIT_TOLERANCE;
 }
 
 function uniqueSorted(angles: number[]): number[] {

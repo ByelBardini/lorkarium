@@ -337,6 +337,7 @@ describe('TokenDialog, create, edit and delete', () => {
           height: 1,
           controllerIds: [BIA_AT_TABLE.userId],
           imageAssetId: null,
+          sightAngle: 360,
           sight: { bright: 6, dim: 6 },
           bars: [],
           col: 9,
@@ -471,7 +472,7 @@ describe('TokenDialog, vision and light', () => {
   });
 
   it('editing Lyra with a torch shows "6" and "12"; switching it off sends light null', async () => {
-    renderDialog(lyra({ light: { bright: 4, dim: 4, color: null } }));
+    renderDialog(lyra({ light: { bright: 4, dim: 4, color: null, angle: 360 } }));
     await openTab('Visão e luz');
     const light = section('Emite luz');
     expect(within(light).getByLabelText('Plena até (m)')).toHaveValue('6');
@@ -493,12 +494,12 @@ describe('TokenDialog, vision and light', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Criar token' }));
 
     expect(commands.sentAs('createToken')[0]?.fields).toMatchObject({
-      light: { bright: 4, dim: 4, color: 'moon' },
+      light: { bright: 4, dim: 4, color: 'moon', angle: 360 },
     });
   });
 
   it('editing Lyra with a fire light shows "Fogo" checked; choosing "Neutra" keeps the reach', async () => {
-    renderDialog(lyra({ light: { bright: 4, dim: 4, color: 'fire' } }));
+    renderDialog(lyra({ light: { bright: 4, dim: 4, color: 'fire', angle: 360 } }));
     await openTab('Visão e luz');
     expect(screen.getByRole('radio', { name: 'Fogo' })).toHaveAttribute('aria-checked', 'true');
 
@@ -506,7 +507,7 @@ describe('TokenDialog, vision and light', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(commands.sentAs('updateToken')[0]?.fields).toMatchObject({
-      light: { bright: 4, dim: 4, color: null },
+      light: { bright: 4, dim: 4, color: null, angle: 360 },
     });
   });
 
@@ -554,5 +555,52 @@ describe('TokenDialog, vision and light', () => {
       within(section('Emite luz')).getByLabelText('Plena até (m)'),
     ).toHaveAccessibleDescription('De 0 a 150 m.');
     expect(commands.sentAs('createToken')).toEqual([]);
+  });
+});
+
+describe('TokenDialog, the field of view and the beam', () => {
+  it('created untouched, the token sees every side: sightAngle 360', async () => {
+    renderDialog();
+    await userEvent.type(screen.getByLabelText('Nome'), 'Ogro');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Criar token' }));
+
+    expect(commands.sentAs('createToken')[0]?.fields).toMatchObject({ sightAngle: 360 });
+  });
+
+  it('editing Lyra to "90" sends token:update with sightAngle 90', async () => {
+    renderDialog(lyra());
+    await openTab('Visão e luz');
+    await userEvent.clear(screen.getByLabelText('Campo de visão (°)'));
+    await userEvent.type(screen.getByLabelText('Campo de visão (°)'), '90');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(commands.sentAs('updateToken')[0]?.fields).toMatchObject({ sightAngle: 90 });
+  });
+
+  it('"0" stays in the dialog with the error, back on the vision tab', async () => {
+    renderDialog(lyra());
+    await openTab('Visão e luz');
+    await userEvent.clear(screen.getByLabelText('Campo de visão (°)'));
+    await userEvent.type(screen.getByLabelText('Campo de visão (°)'), '0');
+    await openTab('Básico');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(commands.sentAs('updateToken')).toEqual([]);
+    expect(screen.getByLabelText('Campo de visão (°)')).toBeInTheDocument();
+    expect(screen.getByText('De 1 a 360°.')).toBeInTheDocument();
+  });
+
+  it('a lantern of "60" is sent as light.angle 60', async () => {
+    renderDialog(lyra({ light: { bright: 4, dim: 0, color: null, angle: 360 } }));
+    await openTab('Visão e luz');
+    await userEvent.clear(screen.getByLabelText('Abertura do feixe (°)'));
+    await userEvent.type(screen.getByLabelText('Abertura do feixe (°)'), '60');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(commands.sentAs('updateToken')[0]?.fields).toMatchObject({ light: { angle: 60 } });
   });
 });

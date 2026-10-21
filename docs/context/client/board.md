@@ -66,6 +66,7 @@ A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o r
 | Arrastar a alça   | token selecionado   | gira o token (Shift encaixa em 45°)                                       |
 | Arrastar quadrado | token selecionado   | lateral estica um eixo; canto escala mantendo a proporção; Esc solta      |
 | Arrastar alça     | área selecionada    | Quadrado estica; as outras mudam o raio; cone/semicírculo/linha giram     |
+| Arrastar alça     | luz em cone pega    | mira o holofote (ferramenta Luzes; Shift 45°; [`cones.md`](cones.md))     |
 | Roda / Ctrl+roda  | sobre o tabuleiro   | move / aproxima no cursor                                                 |
 | Botão direito     | arrastado no canvas | move a câmera                                                             |
 | Botão direito     | clique sobre token  | condição, morto, imagem, borda, inverter (quem controla); camada (mestre) |

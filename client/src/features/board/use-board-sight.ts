@@ -39,7 +39,7 @@ export type SightTable = Pick<BoardStoreState, 'board' | 'dragged'>;
  *  move waiting for the server. */
 export type SightInteraction = Pick<
   BoardInteractionState,
-  'sightPreview' | 'selectedTokenIds' | 'drag' | 'preview'
+  'sightPreview' | 'selectedTokenIds' | 'drag' | 'preview' | 'facingPreview'
 >;
 
 /** What this viewer sees of the board right now, for code outside React (the keys).
@@ -47,8 +47,9 @@ export type SightInteraction = Pick<
  *  Example: `seenTokensOf(board, sightNowOf(board.getState(), interaction.getState()))` */
 export function sightNowOf(table: SightTable, interaction: SightInteraction): BoardSight {
   if (!table.board) return CLEAR_SIGHT;
-  const { drag, preview } = interaction;
-  const landing = shownCellsOf({ dragged: table.dragged, drag, preview });
+  const { drag, preview, facingPreview } = interaction;
+  const { dragged, board } = table;
+  const landing = shownCellsOf({ dragged, drag, preview, facingPreview, tokens: board.tokens });
   return rememberedSightOf(table.board, previewEyeIdsOf(interaction), landing);
 }
 
@@ -71,7 +72,8 @@ function rememberedSightOf(
 }
 
 /** The sight filter of the room, recomputed when the confirmed board, a drag (this viewer's, the
- *  move waiting for the server or other people's) or the master's preview changes: the one filter
+ *  move waiting for the server or other people's), a turn before the ack or the master's preview
+ *  changes: the one filter
  *  the canvas, the list "Na cena" and the keys go through.
  *
  *  Example: `const sight = useBoardSight(board, interaction)` */
@@ -85,8 +87,13 @@ export function useBoardSight(
   const selectedTokenIds = useBoardInteraction(interaction, (current) => current.selectedTokenIds);
   const drag = useBoardInteraction(interaction, (current) => current.drag);
   const preview = useBoardInteraction(interaction, (current) => current.preview);
+  const facingPreview = useBoardInteraction(interaction, (current) => current.facingPreview);
   return useMemo(
-    () => sightNowOf({ board: state, dragged }, { sightPreview, selectedTokenIds, drag, preview }),
-    [state, dragged, sightPreview, selectedTokenIds, drag, preview],
+    () =>
+      sightNowOf(
+        { board: state, dragged },
+        { sightPreview, selectedTokenIds, drag, preview, facingPreview },
+      ),
+    [state, dragged, sightPreview, selectedTokenIds, drag, preview, facingPreview],
   );
 }

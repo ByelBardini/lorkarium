@@ -1,7 +1,9 @@
+import { CONE_ANGLE_MAX } from '@lorkarium/contracts';
 import { useState } from 'react';
 import { ImageSourceButtons } from '@/components/image-source-buttons';
 import { useImageSender, type ImageSender } from '@/components/use-image-sender';
 import { barFill } from '@/lib/bar-display';
+import { parseConeField } from '@/lib/cone-form';
 import { imageOfClipboard } from '@/lib/image-file';
 import { lightColorCss } from '@/lib/light-color';
 import { parseRangeFields, type SceneDistance } from '@/lib/range-form';
@@ -132,7 +134,7 @@ const GRID_STYLE: React.CSSProperties = {
 const NEUTRAL_GLOW_RGB = '226 199 147';
 
 // The light itself (an illustration of the domain, not decoration): as wide as the dim reaches,
-// in the tone of the light.
+// in the tone of the light, and a wedge toward the facing when the beam is narrower than 360°.
 function LightGlow({
   form,
   distance,
@@ -150,9 +152,20 @@ function LightGlow({
         width: size,
         height: size,
         background: glowOf(glowRgbOf(form.lightColor)),
+        ...wedgeOf(form),
       }}
     />
   );
+}
+
+// CSS conic gradients start at the top and turn clockwise; a facing of 0 looks right (90deg).
+function wedgeOf(form: TokenFormValues): React.CSSProperties {
+  const parsed = parseConeField(form.lightAngle);
+  if (!parsed.ok || parsed.angle >= CONE_ANGLE_MAX) return {};
+  const from = form.facing - parsed.angle / 2 + 90;
+  return {
+    maskImage: `conic-gradient(from ${from}deg, #000 0deg ${parsed.angle}deg, transparent ${parsed.angle}deg)`,
+  };
 }
 
 function glowRgbOf(color: TokenFormValues['lightColor']): string {

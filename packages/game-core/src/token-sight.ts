@@ -1,7 +1,9 @@
+import { coneOf } from './cone.vo';
 import type { Vector2 } from './facing';
 import { lightLevelAt, type LightSource } from './lighting';
 import { REACH_MAX, assertReach } from './reach';
 import { lineOfSight } from './sight-area';
+import { withinField, type FieldBox, type ViewField } from './view-field';
 import { wallSegments } from './wall-segments';
 import type { Wall } from './wall.vo';
 
@@ -17,8 +19,9 @@ export const SIGHT_RANGE_MAX = REACH_MAX;
 export type SightRange = Readonly<{ bright: number; dim: number }>;
 
 /** A point that sees: the center of a token the viewer controls. `range` is its darkvision;
- *  `null` sees only what is lit (or everything by daylight). */
-export type Eye = Readonly<{ center: Vector2; range: SightRange | null }>;
+ *  `null` sees only what is lit (or everything by daylight). `field` limits everything it sees to
+ *  its cone and ring; `null` sees every side. */
+export type Eye = Readonly<{ center: Vector2; range: SightRange | null; field: ViewField | null }>;
 
 /** Everything a level of sight depends on besides the target. */
 export type SightContext = Readonly<{
@@ -52,15 +55,34 @@ export function sightRange(bright: number, dim: number): SightRange {
 }
 
 /** The eye of a token centered at `center`. Every token is an eye: without a range it sees only
- *  what is lit in the dark, and everything in line of sight by daylight.
+ *  what is lit in the dark, and everything in line of sight by daylight. Without a `field` it sees
+ *  every side.
  *
- *  Example: `eyeOf({ x: 5.5, y: 5.5 }, null)` → `{ center: { x: 5.5, y: 5.5 }, range: null }` */
-export function eyeOf(center: Vector2, range: SightRange | null): Eye {
-  return { center, range };
+ *  Example: `eyeOf({ x: 5.5, y: 5.5 }, null)` → `{ center: { x: 5.5, y: 5.5 }, range: null, field: null }` */
+export function eyeOf(
+  center: Vector2,
+  range: SightRange | null,
+  field: ViewField | null = null,
+): Eye {
+  return { center, range, field };
+}
+
+/** The field of a token's eye: the cone it faces plus the ring around its footprint, or `null`
+ *  at 360° (every side).
+ *
+ *  Example: `eyeFieldOf({ x: 5, y: 5, width: 1, height: 1 }, 0, 90)` → `{ cone: { facing: 0, angle: 90 }, around: footprint }` */
+export function eyeFieldOf(
+  footprint: FieldBox,
+  direction: number,
+  angle: number,
+): ViewField | null {
+  const cone = coneOf(direction, angle);
+  return cone ? { cone, around: footprint } : null;
 }
 
 /** How well the eyes see a token: at each probe (center and inset corners) the level is the
- *  better of the eye's own range and the light there, and counts only in the eye's line of sight.
+ *  better of the eye's own range and the light there, and counts only in the eye's line of sight
+ *  and field (cone + ring; a probe outside it is hidden whatever lights it).
  *  `seen` in bright, `silhouette` in dim (scenery is `seen` there), else `hidden`. Daylight has no
  *  range limit; `off` sees everything.
  *
@@ -98,6 +120,7 @@ export function doorSeenBy(context: SightContext, door: Wall): boolean {
 type ProbeLight = Readonly<{ scenery: boolean; lit: SightLevel }>;
 
 function levelAt(eye: Eye, point: Vector2, context: SightContext, probe: ProbeLight): SightLevel {
+  if (eye.field && !withinField(eye.field, eye.center, point)) return 'hidden';
   const distance = Math.hypot(point.x - eye.center.x, point.y - eye.center.y);
   const own = context.mode === 'daylight' ? 'seen' : rangeLevel(eye.range, distance);
   const level = LEVEL_RANK[probe.lit] > LEVEL_RANK[own] ? probe.lit : own;

@@ -7,6 +7,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  smallint,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -42,6 +43,10 @@ export const lights = pgTable(
     lit: boolean('lit').notNull().default(true),
     // Null is the neutral light: it reveals without tinting.
     color: lightColorEnum('color'),
+    // Where it points, in degrees (0 = right, clockwise; game-core `Facing`), and how wide it
+    // opens (game-core `ConeAngle`); 360 shines every side, the torch on the wall.
+    facing: smallint('facing').notNull().default(0),
+    angle: smallint('angle').notNull().default(360),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -52,6 +57,8 @@ export const lights = pgTable(
     ),
     // "Inside the scene" is the rule's: the scene can shrink.
     check('lights_position', sql`${table.x} >= 0 AND ${table.y} >= 0`),
+    check('lights_facing', sql`${table.facing} BETWEEN 0 AND 359`),
+    check('lights_angle', sql`${table.angle} BETWEEN 1 AND 360`),
   ],
 );
 
@@ -63,3 +70,5 @@ export type LightMovePo = Readonly<{ lightId: string; x: string; y: string }>;
 export type LightRangePo = Readonly<{ lightId: string; bright: string; dim: string }>;
 /** The color one light of a group takes (`null` = neutral). */
 export type LightColorPo = Readonly<{ lightId: string; color: LightPo['color'] }>;
+/** Where one light of a group points and how wide it opens. */
+export type LightConePo = Readonly<{ lightId: string; facing: number; angle: number }>;

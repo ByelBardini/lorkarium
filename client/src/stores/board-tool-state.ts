@@ -43,6 +43,7 @@ export type ToolChange = Readonly<{
   notice: string | null;
   selectedWallIds: readonly string[];
   selectedLightIds: readonly string[];
+  lightAimPreview: Readonly<Record<string, number>>;
   selectedTokenIds?: readonly string[];
   selectedDrawingIds?: readonly string[];
   selectedEffectAreaIds?: readonly string[];
@@ -69,6 +70,7 @@ export function toolChangeOf(state: ToolSwitchState, tool: BoardTool): ToolChang
     tool,
     selectedWallIds: [],
     selectedLightIds: [],
+    lightAimPreview: {},
     ruler: null,
     measuring: false,
     notice: hintOf(tool, state.wallMode),

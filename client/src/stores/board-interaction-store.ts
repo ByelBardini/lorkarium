@@ -52,6 +52,7 @@ import {
   moveLightOf,
   previewLightOf,
 } from './light-edit-flow';
+import { aimLightOf, changeLightAnglesOf, previewLightAimOf } from './light-cone-flow';
 import { setLightsLitOf } from './light-lit-flow';
 import { afterIntent, joined, NO_SELECTION, toggled } from './board-pointer-intents';
 import { hintOf, toolChangeOf, WALL_MODE_HINT, type BoardTool } from './board-tool-state';
@@ -96,6 +97,8 @@ export type BoardInteractionState = Readonly<{
   selectedLightIds: readonly string[];
   /** Where lights are dragged here and not yet confirmed, by id. */
   lightPreview: Readonly<Record<string, LightPoint>>;
+  /** Where the master aims a light with its handle, not yet confirmed, by id. */
+  lightAimPreview: Readonly<Record<string, number>>;
   /** What a press does with the walls tool (it stays when the tool changes). */
   wallMode: WallMode;
   /** The shape areas get while moved or stretched here and not yet confirmed, by id. */
@@ -169,7 +172,12 @@ export type BoardInteractionStore = BoardInteractionState &
     ) => Promise<void>;
     /** The lights tool clicked on the empty board: one light there with the remembered reach and
      *  color. */
-    placeLight: (point: LightPoint, reach: LightReach, color: LightColor) => Promise<void>;
+    placeLight: (
+      point: LightPoint,
+      reach: LightReach,
+      color: LightColor,
+      angle: number,
+    ) => Promise<void>;
     /** A light being dragged (`null`: let go without a move). */
     previewLight: (lightId: string, point: LightPoint | null) => void;
     /** A light dropped: one move, one undo entry. */
@@ -178,6 +186,12 @@ export type BoardInteractionStore = BoardInteractionState &
     changeLightRanges: (lights: readonly LightDto[], reach: LightReach) => Promise<void>;
     /** The panel with lights picked: one color for all of them, one undo entry. */
     changeLightColors: (lights: readonly LightDto[], color: LightColor) => Promise<void>;
+    /** The panel with lights picked: one opening for all of them, one undo entry. */
+    changeLightAngles: (lights: readonly LightDto[], angle: number) => Promise<void>;
+    /** The handle of a light being dragged (`null`: let go without aiming). */
+    previewLightAim: (lightId: string, facing: number | null) => void;
+    /** The handle of a light released: one aim, one undo entry. */
+    aimLight: (light: LightDto, facing: number) => Promise<void>;
     /** Delete on the lights picked. */
     deleteLights: (lights: readonly LightDto[]) => Promise<void>;
     /** The master's menu or panel: light or put out, never on the undo stack. */
@@ -242,6 +256,7 @@ const NO_PREVIEWS = {
   resizePreview: {},
   effectAreaPreview: {},
   lightPreview: {},
+  lightAimPreview: {},
 } as const;
 
 /** The local side of the board for one room visit. Commands go to the server and the board
@@ -267,6 +282,7 @@ export function createBoardInteractionStore(
       selectedWallIds: [],
       selectedLightIds: [],
       lightPreview: {},
+      lightAimPreview: {},
       effectAreaPreview: {},
       wallMode: 'draw',
       activeLayer: 'tokens',
@@ -347,16 +363,19 @@ export function createBoardInteractionStore(
         const context = { ...board, readOnly: get().readOnly, say };
         return sendWall({ ...deps, recordEdit }, sketch, context);
       },
-      placeLight: (point, reach, color) => {
+      placeLight: (point, reach, color, angle) => {
         const say = (notice: string): void => set({ notice });
         const recordEdit = deps.recordEdit ?? (() => undefined);
-        const context = { reach, color, readOnly: get().readOnly, say };
+        const context = { reach, color, angle, readOnly: get().readOnly, say };
         return sendLight({ ...deps, recordEdit }, point, context);
       },
       previewLight: (lightId, point) => previewLightOf(store, lightId, point),
       moveLight: (light, to) => moveLightOf(deps, store, light, to),
       changeLightRanges: (lights, reach) => changeLightRangesOf(deps, store, lights, reach),
       changeLightColors: (lights, color) => changeLightColorsOf(deps, store, lights, color),
+      changeLightAngles: (lights, angle) => changeLightAnglesOf(deps, store, lights, angle),
+      previewLightAim: (lightId, facing) => previewLightAimOf(store, lightId, facing),
+      aimLight: (light, facing) => aimLightOf(deps, store, light, facing),
       deleteLights: (lights) => deleteLightsOf(deps, store, lights),
       setLightsLit: (lights, lit) => setLightsLitOf(deps, store, lights, lit),
       toggleSightPreview: () => {
@@ -419,6 +438,7 @@ export function useLocalBoardView(
       selectedWallIds: state.selectedWallIds,
       selectedLightIds: state.selectedLightIds,
       lightPreview: state.lightPreview,
+      lightAimPreview: state.lightAimPreview,
       wallMode: state.wallMode,
       effectAreaPreview: state.effectAreaPreview,
       drawingPreview: state.drawingPreview,
@@ -443,6 +463,7 @@ type LocalViewField =
   | 'selectedWallIds'
   | 'selectedLightIds'
   | 'lightPreview'
+  | 'lightAimPreview'
   | 'wallMode'
   | 'effectAreaPreview'
   | 'drawingPreview'

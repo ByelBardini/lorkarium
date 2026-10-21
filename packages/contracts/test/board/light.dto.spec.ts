@@ -8,8 +8,10 @@ import {
   lightRangeDto,
   lightsCreatedDto,
   lightColorsChangedDto,
+  lightConesChangedDto,
   lightsLitChangedDto,
   setLightColorsCommandDto,
+  setLightConesCommandDto,
   setLightsLitCommandDto,
 } from '../../src/board/light.dto';
 
@@ -70,7 +72,7 @@ describe('lightPlacementDto, the light color', () => {
 
 describe('lightDto', () => {
   it('a confirmed light without the color key is refused: the event always carries it', () => {
-    const light = { id: TORCH_ID, ...TORCH, lit: true };
+    const light = { id: TORCH_ID, ...TORCH, lit: true, facing: 0, angle: 360 };
     const result = lightDto.safeParse(light);
     expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['color']);
   });
@@ -80,7 +82,7 @@ describe('lightDto', () => {
       campaignId: CAMPAIGN_ID,
       version: 2,
       at: '2026-10-19T12:00:00.000Z',
-      lights: [{ id: TORCH_ID, ...TORCH, lit: true, color: 'infernal' }],
+      lights: [{ id: TORCH_ID, ...TORCH, lit: true, color: 'infernal', facing: 0, angle: 360 }],
     };
     expect(lightsCreatedDto.parse(event)).toEqual(event);
   });
@@ -91,7 +93,7 @@ describe('createLightsCommandDto', () => {
     const command = { ...BASE, lights: [TORCH] };
     expect(createLightsCommandDto.parse(command)).toEqual({
       ...BASE,
-      lights: [{ ...TORCH, color: null }],
+      lights: [{ ...TORCH, color: null, facing: 0, angle: 360 }],
     });
   });
 
@@ -217,6 +219,87 @@ describe('BOARD_EVENTS, light colors', () => {
     expect([BOARD_EVENTS.setLightColors, BOARD_EVENTS.lightColorsChanged]).toEqual([
       'light:setColorMany',
       'light:colorsChanged',
+    ]);
+  });
+});
+
+describe('the cone of a map light', () => {
+  it('a placement without facing and angle looks right and shines every side', () => {
+    expect(lightPlacementDto.parse(TORCH)).toMatchObject({ facing: 0, angle: 360 });
+  });
+
+  it('a placement aimed at 90 and opening 60 keeps both', () => {
+    expect(lightPlacementDto.parse({ ...TORCH, facing: 90, angle: 60 })).toMatchObject({
+      facing: 90,
+      angle: 60,
+    });
+  });
+
+  it('a confirmed light without facing is refused: the event always carries it', () => {
+    const light = { id: TORCH_ID, ...TORCH, lit: true, color: null, angle: 360 };
+    const result = lightDto.safeParse(light);
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['facing']);
+  });
+});
+
+describe('setLightConesCommandDto', () => {
+  function conesIssuesOf(changes: object[]): string[] {
+    const result = setLightConesCommandDto.safeParse({ ...BASE, changes });
+    return result.error?.issues.map((issue) => issue.message) ?? [];
+  }
+
+  it('a spotlight aimed at 90 and opening 60, with its undo precondition, is accepted as sent', () => {
+    const command = {
+      ...BASE,
+      changes: [{ lightId: TORCH_ID, facing: 90, angle: 60, expect: { facing: 0, angle: 360 } }],
+    };
+    expect(setLightConesCommandDto.parse(command)).toEqual(command);
+  });
+
+  it('the same light twice is refused citing its id', () => {
+    const change = { lightId: TORCH_ID, facing: 90, angle: 60 };
+    expect(conesIssuesOf([change, change])).toEqual([
+      `light ${TORCH_ID} appears more than once; expected distinct light ids`,
+    ]);
+  });
+
+  it('an empty list is refused', () => {
+    expect(conesIssuesOf([]).length).toBeGreaterThan(0);
+  });
+
+  it('65 changes are refused citing 64', () => {
+    const changes = Array.from({ length: 65 }, () => ({ lightId: TORCH_ID, facing: 0, angle: 60 }));
+    expect(conesIssuesOf(changes).join(' ')).toContain('64');
+  });
+
+  it('a facing of 360 is refused on changes.0.facing', () => {
+    const changes = [{ lightId: TORCH_ID, facing: 360, angle: 60 }];
+    const result = setLightConesCommandDto.safeParse({ ...BASE, changes });
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['changes.0.facing']);
+  });
+});
+
+describe('lightConesChangedDto', () => {
+  const EVENT = { campaignId: CAMPAIGN_ID, version: 5, at: '2026-10-20T12:00:00.000Z' };
+
+  it('the cones changed are accepted as sent', () => {
+    const event = { ...EVENT, changes: [{ lightId: TORCH_ID, facing: 90, angle: 60 }] };
+    expect(lightConesChangedDto.parse(event)).toEqual(event);
+  });
+
+  it('an event carrying the undo precondition is refused', () => {
+    const changes = [
+      { lightId: TORCH_ID, facing: 90, angle: 60, expect: { facing: 0, angle: 360 } },
+    ];
+    expect(lightConesChangedDto.safeParse({ ...EVENT, changes }).success).toBe(false);
+  });
+});
+
+describe('BOARD_EVENTS, light cones', () => {
+  it('names the command light:setConeMany and the event light:conesChanged', () => {
+    expect([BOARD_EVENTS.setLightCones, BOARD_EVENTS.lightConesChanged]).toEqual([
+      'light:setConeMany',
+      'light:conesChanged',
     ]);
   });
 });

@@ -1,20 +1,11 @@
 import type { LightDto, SceneDto, TokenDto, WallDto } from '@lorkarium/contracts';
-import {
-  eyeOf,
-  sightArea,
-  sightRange,
-  tokenCenter,
-  type Eye,
-  type LightSource,
-  type SceneSize,
-  type Vector2,
-  type Wall,
-} from '@lorkarium/game-core';
-import type { BoardSight } from '@/lib/board-sight';
+import { type Eye, type LightSource, type SceneSize, type Wall } from '@lorkarium/game-core';
+import { eyeOfToken, type BoardSight } from '@/lib/board-sight';
 import { lightSourcesOf, type TokenLanding } from '@/lib/light-sources';
 import { gameWallOf } from '@/lib/wall-geometry';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 import { lightAreasOf } from './light-areas';
+import { worldAreaOf } from './world-area';
 
 /** A rectangle in world px. */
 export type FogRect = Readonly<{ x: number; y: number; width: number; height: number }>;
@@ -42,7 +33,7 @@ export type FogViewInput = Readonly<{
   walls: readonly WallDto[];
   lights: readonly LightDto[];
   tokens: readonly TokenDto[];
-  /** Where the viewer's dragged tokens would land: the fog (eyes and lights) follows them. */
+  /** Where the viewer's tokens show and look (dragged, waiting, turned): the fog follows them. */
   landing: TokenLanding;
 }>;
 
@@ -64,7 +55,7 @@ export function fogViewOf(input: FogViewInput): FogView | null {
   const sources = sight.mode === 'dark' ? lightSourcesOf(input, input.landing) : [];
   const lit = litAreasOf(sources, geometry);
   const sightLines =
-    lit.dim.length > 0 ? placed.map(({ eye }) => areaOf(eye.center, geometry, Infinity)) : [];
+    lit.dim.length > 0 ? placed.map(({ eye }) => areaOf(eye, geometry, Infinity)) : [];
   const holes = placed.map(({ hole }) => hole);
   const width = size.widthCells * CELL_WORLD_SIZE;
   const height = size.heightCells * CELL_WORLD_SIZE;
@@ -72,20 +63,19 @@ export function fogViewOf(input: FogViewInput): FogView | null {
   return { width, height, ...own, holes, lit, sightLines, key };
 }
 
-// The viewer's own tokens (or the master's preview) at the cell they would land on: every one is
-// an eye and a hole, with or without darkvision.
+// The viewer's own tokens (or the master's preview) in the pose they show: every one is an eye
+// (in its field) and a hole, with or without darkvision.
 function placedEyesOf({ sight, tokens, landing }: FogViewInput): PlacedEye[] {
   const watched = tokens.filter(({ id }) => sight.eyeTokenIds.includes(id));
   return watched.map((token) => {
     const at = landing.get(token.id) ?? token;
-    const range = token.sight ? sightRange(token.sight.bright, token.sight.dim) : null;
     const hole = {
       x: at.col * CELL_WORLD_SIZE,
       y: at.row * CELL_WORLD_SIZE,
       width: token.width * CELL_WORLD_SIZE,
       height: token.height * CELL_WORLD_SIZE,
     };
-    return { eye: eyeOf(tokenCenter(at, token), range), hole };
+    return { eye: eyeOfToken(token, landing), hole };
   });
 }
 
@@ -98,7 +88,7 @@ function ownAreasOf(placed: readonly PlacedEye[], geometry: FogGeometry, dayligh
   };
   const areas = (part: 'bright' | 'both'): Point[][] =>
     placed.flatMap(({ eye }) => {
-      const area = areaOf(eye.center, geometry, reachOf(eye, part));
+      const area = areaOf(eye, geometry, reachOf(eye, part));
       return area.length > 0 ? [area] : [];
     });
   const bright = areas('bright');
@@ -114,12 +104,8 @@ function litAreasOf(sources: readonly LightSource[], { walls, size }: FogGeometr
   };
 }
 
-function areaOf(center: Vector2, { walls, size }: FogGeometry, reach: number): Point[] {
-  if (reach <= 0) return [];
-  return sightArea(center, walls, size, reach).map(({ x, y }) => ({
-    x: x * CELL_WORLD_SIZE,
-    y: y * CELL_WORLD_SIZE,
-  }));
+function areaOf(eye: Eye, { walls, size }: FogGeometry, reach: number): Point[] {
+  return worldAreaOf(eye.center, walls, size, reach, eye.field ?? undefined);
 }
 
 function keyOf(
@@ -128,8 +114,8 @@ function keyOf(
   walls: readonly WallDto[],
   sources: readonly LightSource[],
 ): string {
-  const eyes = placed.map(({ eye, hole }) => [eye.center, eye.range, hole.x, hole.y]);
+  const eyes = placed.map(({ eye, hole }) => [eye.center, eye.range, eye.field, hole.x, hole.y]);
   const blockers = walls.map(({ id, kind, x, y, doorState }) => [id, kind, x, y, doorState]);
-  const lights = sources.map(({ center, range }) => [center, range]);
+  const lights = sources.map(({ center, range, cone }) => [center, range, cone]);
   return JSON.stringify([sight.mode, eyes, blockers, lights]);
 }
