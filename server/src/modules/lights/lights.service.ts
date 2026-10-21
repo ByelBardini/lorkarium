@@ -3,6 +3,7 @@ import type {
   DeleteLightsCommandDto,
   MoveLightsCommandDto,
   SetLightColorsCommandDto,
+  SetLightConesCommandDto,
   SetLightRangesCommandDto,
   SetLightsLitCommandDto,
 } from '@lorkarium/contracts';
@@ -23,15 +24,18 @@ import type { LightsDao } from './lights.dao';
 import { LightNotFoundError } from './lights.error';
 import {
   colorOfLight,
+  coneOfLight,
   lightMovedTo,
   positionOfLight,
   rangeOfLight,
   savedColorOf,
+  savedConeOf,
   savedMoveOf,
   savedRangeOf,
   sceneLightOf,
   sceneLightOfPlacement,
   toLightColorPo,
+  toLightConePo,
   toLightDto,
   toLightMovePo,
   toLightRangePo,
@@ -44,6 +48,7 @@ export type CreateLights = Omit<CreateLightsCommandDto, Envelope>;
 export type MoveLights = Omit<MoveLightsCommandDto, Envelope>;
 export type SetLightRanges = Omit<SetLightRangesCommandDto, Envelope>;
 export type SetLightColors = Omit<SetLightColorsCommandDto, Envelope>;
+export type SetLightCones = Omit<SetLightConesCommandDto, Envelope>;
 export type SetLightsLit = Omit<SetLightsLitCommandDto, Envelope>;
 export type DeleteLights = Omit<DeleteLightsCommandDto, Envelope>;
 
@@ -58,6 +63,7 @@ export type LightWriteDaos = SceneLockDaos &
       | 'moveMany'
       | 'setRanges'
       | 'setColors'
+      | 'setCones'
       | 'setLit'
       | 'deleteMany'
     >;
@@ -150,6 +156,24 @@ export class LightsService {
     this.deps.publisher.lightColorsChanged({
       ...this.eventBase(campaignId, version),
       changes: changes.map(savedColorOf),
+    });
+    return version;
+  }
+
+  /** Aims map lights and opens or narrows their cone (master), all or nothing in one version;
+   *  `expect` is the cone the undo finds. */
+  async setConeMany(userId: string, campaignId: string, command: SetLightCones): Promise<number> {
+    await this.requireMaster(userId, campaignId, 'aim lights');
+    const { changes } = command;
+    const version = await this.changeEach(
+      campaignId,
+      changes,
+      (rules, row, change) => rules.requireCone(row.id, change.expect, coneOfLight(row)),
+      (lights, sceneId) => lights.setCones(sceneId, changes.map(toLightConePo)),
+    );
+    this.deps.publisher.lightConesChanged({
+      ...this.eventBase(campaignId, version),
+      changes: changes.map(savedConeOf),
     });
     return version;
   }

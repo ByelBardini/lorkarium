@@ -15,6 +15,7 @@ import type {
   EffectAreasReshapedDto,
   DoorChangedDto,
   LightColorsChangedDto,
+  LightConesChangedDto,
   LightRangesChangedDto,
   LightsCreatedDto,
   LightsDeletedDto,
@@ -152,6 +153,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly lightsMoves: LightsMovedDto[] = [];
   readonly lightRangeChanges: LightRangesChangedDto[] = [];
   readonly lightColorChanges: LightColorsChangedDto[] = [];
+  readonly lightConeChanges: LightConesChangedDto[] = [];
   readonly lightLitChanges: LightsLitChangedDto[] = [];
   readonly lightsDeletes: LightsDeletedDto[] = [];
 
@@ -298,6 +300,11 @@ export class BoardPublisherFake implements BoardPublisherPort {
   lightColorsChanged(event: LightColorsChangedDto): void {
     this.journal.push('publish');
     this.lightColorChanges.push(event);
+  }
+
+  lightConesChanged(event: LightConesChangedDto): void {
+    this.journal.push('publish');
+    this.lightConeChanges.push(event);
   }
 
   lightsLitChanged(event: LightsLitChangedDto): void {

@@ -1,11 +1,19 @@
 import { REACH_MAX } from '@lorkarium/contracts';
 import { EyeIcon, FlameIcon } from 'lucide-react';
+import { ConeAngleField } from '@/components/cone-angle-field';
 import { cellsText } from '@/lib/cells-text';
 import type { SceneDistance } from '@/lib/sight-form';
 import { LightColorTiles } from '@/features/lights/light-color-tiles';
 import { ReachSection } from './reach-section';
 import { lightSwitchedOn, type TokenFormErrors, type TokenFormValues } from './token-form-state';
-import { DARKVISION_HINT, LIGHT_HINT, PENUMBRA_HINT, SEES_IN_DARK_HINT } from './token-messages';
+import {
+  DARKVISION_HINT,
+  LIGHT_ANGLE_HINT,
+  LIGHT_HINT,
+  PENUMBRA_HINT,
+  SEES_IN_DARK_HINT,
+  SIGHT_ANGLE_HINT,
+} from './token-messages';
 
 export type VisionLightTabProps = Readonly<{
   form: TokenFormValues;
@@ -15,9 +23,10 @@ export type VisionLightTabProps = Readonly<{
   onChange: (form: TokenFormValues) => void;
 }>;
 
-/** "Visão e luz" of the token dialog: "Enxerga no escuro" (on in a new token, 9 / 18 m) and
- *  "Emite luz" (off; switching it on fills the torch, with its "Cor da luz"), both read from the
- *  token.
+/** "Visão e luz" of the token dialog: "Enxerga no escuro" (on in a new token, 9 / 18 m), the
+ *  "Campo de visão (°)" (outside it: a blind token looks in a cone too) and "Emite luz" (off;
+ *  switching it on fills the torch, with its "Cor da luz" and "Abertura do feixe (°)"), all read
+ *  from the token.
  *
  *  Example: `<VisionLightTab form={form} errors={errors} distance={scene} onChange={setForm} />` */
 export function VisionLightTab(props: VisionLightTabProps): React.JSX.Element {
@@ -37,6 +46,13 @@ export function VisionLightTab(props: VisionLightTabProps): React.JSX.Element {
         onRange={(range) => onChange({ ...form, sight: { ...sight, ...range } })}
         note={PENUMBRA_HINT}
       />
+      <ConeAngleField
+        label="Campo de visão (°)"
+        value={form.sightAngle}
+        error={errors.sightAngle}
+        hint={SIGHT_ANGLE_HINT}
+        onChange={(sightAngle) => onChange({ ...form, sightAngle })}
+      />
       <ReachSection
         icon={<FlameIcon aria-hidden="true" className="size-5 text-primary" />}
         title="Emite luz"
@@ -53,6 +69,13 @@ export function VisionLightTab(props: VisionLightTabProps): React.JSX.Element {
         <LightColorTiles
           value={form.lightColor}
           onChange={(lightColor) => onChange({ ...form, lightColor })}
+        />
+        <ConeAngleField
+          label="Abertura do feixe (°)"
+          value={form.lightAngle}
+          error={errors.lightAngle}
+          hint={LIGHT_ANGLE_HINT}
+          onChange={(lightAngle) => onChange({ ...form, lightAngle })}
         />
       </ReachSection>
       <p className="text-xs text-placeholder">{unitNote(distance)}</p>

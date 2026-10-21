@@ -48,7 +48,12 @@ export function lightTintViewOf(input: LightTintInput): LightTintView | null {
   });
   if (tints.length === 0) return null;
   const blockers = input.walls.map(({ id, kind, x, y, doorState }) => [id, kind, x, y, doorState]);
-  const lights = tints.map(({ color, source }) => [color, source.center, source.range]);
+  const lights = tints.map(({ color, source }) => [
+    color,
+    source.center,
+    source.range,
+    source.cone,
+  ]);
   return {
     width: size.widthCells * CELL_WORLD_SIZE,
     height: size.heightCells * CELL_WORLD_SIZE,

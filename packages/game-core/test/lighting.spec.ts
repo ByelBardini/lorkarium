@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { coneOf } from '../src/cone.vo';
 import { lightRange } from '../src/light.vo';
 import { lightLevelAt, lightSource, type LightSource } from '../src/lighting';
 import { wall, type DoorState, type Wall, type WallKind } from '../src/wall.vo';
@@ -19,7 +20,7 @@ function verticalWallAtX7(kind: WallKind = 'wall', doorState: DoorState | null =
   });
 }
 
-const TORCH: LightSource = { center: { x: 5, y: 5 }, range: lightRange(2, 2) };
+const TORCH: LightSource = { center: { x: 5, y: 5 }, range: lightRange(2, 2), cone: null };
 
 describe('lightLevelAt', () => {
   it.each([
@@ -53,7 +54,11 @@ describe('lightLevelAt', () => {
   );
 
   it('with one light leaving the point in half-light and another in bright, the best wins', () => {
-    const lantern: LightSource = { center: { x: 9, y: 5 }, range: lightRange(1, 0) };
+    const lantern: LightSource = {
+      center: { x: 9, y: 5 },
+      range: lightRange(1, 0),
+      cone: null,
+    };
     expect(lightLevelAt({ x: 8, y: 5 }, [TORCH, lantern], [])).toBe('seen');
   });
 
@@ -77,6 +82,37 @@ describe('lightSource', () => {
     expect(lightSource(center, lightRange(4, 4), true)).toEqual({
       center: { x: 3.5, y: 2.5 },
       range: { bright: 4, dim: 4 },
+      cone: null,
     });
+  });
+});
+
+describe('lightLevelAt of a lantern (a light in a cone)', () => {
+  const holder = { x: 5.5, y: 5.5 };
+  const lantern = lightSource(holder, lightRange(6, 0), true, coneOf(0, 60));
+  const lights = lantern ? [lantern] : [];
+
+  it('a point ahead, at (9, 5.5), is lit', () => {
+    expect(lightLevelAt({ x: 9, y: 5.5 }, lights, [])).toBe('seen');
+  });
+
+  it.each([
+    ['behind', { x: 2, y: 5.5 }],
+    ['beside', { x: 5.5, y: 9 }],
+  ])('a point %s the holder is dark', (_, point) => {
+    expect(lightLevelAt(point, lights, [])).toBe('hidden');
+  });
+
+  it('the apex is lit, so whoever holds the lantern shows', () => {
+    expect(lightLevelAt(holder, lights, [])).toBe('seen');
+  });
+
+  it('a point exactly on the 30° edge is lit', () => {
+    const edge = { x: 5.5 + 3 * Math.cos(Math.PI / 6), y: 5.5 + 3 * Math.sin(Math.PI / 6) };
+    expect(lightLevelAt(edge, lights, [])).toBe('seen');
+  });
+
+  it('the source keeps its cone', () => {
+    expect(lantern?.cone).toEqual({ facing: 0, angle: 60 });
   });
 });

@@ -334,4 +334,36 @@ describe('TokensDao on Postgres', () => {
       theirs.token.id,
     ]);
   });
+
+  it('a token inserted without cones sees and shines every side (sight_angle and light_angle 360)', async () => {
+    expect((await tokens.insert(lyra())).token).toMatchObject({ sightAngle: 360, lightAngle: 360 });
+  });
+
+  it.each([
+    ['a sight angle of 0', { sightAngle: 0 }],
+    ['a sight angle of 361', { sightAngle: 361 }],
+    ['a light angle of 0', { lightAngle: 0 }],
+    ['a light angle of 361', { lightAngle: 361 }],
+  ])('%s is refused by the angle CHECK of the table', async (_name, angle) => {
+    const broken = lyra({ token: { ...lyra().token, ...angle } });
+
+    await expect(tokens.insert(broken)).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
+  });
+
+  it('update with a sight angle writes only it and keeps the lantern', async () => {
+    const lantern = { lightBright: '6', lightDim: '0', lightAngle: 60 };
+    const saved = await tokens.insert(lyra({ token: { ...lyra().token, ...lantern } }));
+    const fields = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 } as const;
+
+    await tokens.update(saved.token.id, {
+      fields: { ...fields, sightAngle: 90 },
+      bars: [],
+      controllerIds: [biaId],
+    });
+
+    expect((await tokens.findInScene(sceneId, saved.token.id))?.token).toMatchObject({
+      sightAngle: 90,
+      lightAngle: 60,
+    });
+  });
 });

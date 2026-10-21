@@ -19,8 +19,9 @@ export type RoomLightPanelProps = Readonly<{
 
 const NO_LIGHTS: readonly LightDto[] = [];
 
-/** The lights panel of the room: with lights picked, their reach (one command per field left, on
- *  the undo stack) and color (one command per tile); with none, the reach and color of the next light, remembered in the browser.
+/** The lights panel of the room: with lights picked, their reach and opening (one command per
+ *  field left, on the undo stack) and color (one command per tile); with none, the reach, color and
+ *  opening of the next light, remembered in the browser.
  *  Typed in the unit of the scene.
  *
  *  Example: `<RoomLightPanel board={table.board} interaction={interaction} lightReach={deps.lightReach} lightColor={deps.lightColor} />` */
@@ -38,6 +39,7 @@ export function RoomLightPanel(props: RoomLightPanelProps): React.JSX.Element | 
   const local = interaction.getState();
   const change = (reach: LightReach): void => void local.changeLightRanges(picked, reach);
   const recolor = (color: LightColor): void => void local.changeLightColors(picked, color);
+  const open = (angle: number): void => void local.changeLightAngles(picked, angle);
   // All lit: put them out; any out: light them all.
   const allLit = picked.every(({ lit }) => lit);
   return (
@@ -48,6 +50,8 @@ export function RoomLightPanel(props: RoomLightPanelProps): React.JSX.Element | 
       onReach={change}
       color={commonOf(picked, ({ color }) => color)}
       onColor={recolor}
+      angle={commonOf(picked, ({ angle }) => angle) ?? null}
+      onAngle={open}
       commit="blur"
     >
       <Button variant="outline" onClick={() => void local.setLightsLit(picked, !allLit)}>
@@ -76,6 +80,8 @@ function NextLightPanel(props: NextLightPanelProps): React.JSX.Element {
       onReach={lightReach.getState().setReach}
       color={color}
       onColor={lightColor.getState().setColor}
+      angle={next.angle}
+      onAngle={lightReach.getState().setAngle}
       commit="change"
     />
   );

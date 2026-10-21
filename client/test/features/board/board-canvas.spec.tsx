@@ -88,7 +88,7 @@ describe('BoardCanvas', () => {
 
   it('the ogre a silhouette for Bia is drawn whole once the master drags Lyra’s torch to him', async () => {
     const OGRE_ID = 'aa11bb22-cc33-4d44-8e55-ff6677889900';
-    const torch = { light: { bright: 3, dim: 3, color: null }, lightLit: true };
+    const torch = { light: { bright: 3, dim: 3, color: null, angle: 360 }, lightLit: true };
     const ogre = lyra({ id: OGRE_ID, name: 'Ogro', col: 8, canControl: false, controllerIds: [] });
     board.getState().apply({
       kind: 'board',

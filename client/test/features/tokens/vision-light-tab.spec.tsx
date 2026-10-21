@@ -132,7 +132,10 @@ describe('VisionLightTab, "Cor da luz"', () => {
   it('clicking "Fogo" turns the color of the form to fire', async () => {
     render(
       <Recorder
-        initial={tokenFormOf(lyra({ light: { bright: 4, dim: 4, color: null } }), METERS)}
+        initial={tokenFormOf(
+          lyra({ light: { bright: 4, dim: 4, color: null, angle: 360 } }),
+          METERS,
+        )}
       />,
     );
 
@@ -149,5 +152,38 @@ describe('VisionLightTab, the unit', () => {
     expect(
       screen.getByText('Distâncias na unidade da cena · 1 casa = 1,5 m · até 100 casas'),
     ).toBeInTheDocument();
+  });
+});
+
+describe('VisionLightTab, the openings', () => {
+  it('"Campo de visão (°)" shows with "Enxerga no escuro" off, with its hint', async () => {
+    render(<Harness />);
+    await userEvent.click(screen.getByRole('switch', { name: 'Enxerga no escuro' }));
+
+    expect(screen.getByLabelText('Campo de visão (°)')).toHaveValue('360');
+    expect(
+      screen.getByText(
+        '360 = vê para todo lado; menos, vê em cone para onde o token olha, e sente o que está a 1 casa em volta.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('"Abertura do feixe (°)" shows only with "Emite luz" on, with its hint', async () => {
+    render(<Harness />);
+    expect(screen.queryByLabelText('Abertura do feixe (°)')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Emite luz' }));
+
+    const light = section('Emite luz');
+    expect(within(light).getByLabelText('Abertura do feixe (°)')).toHaveValue('360');
+    expect(
+      within(light).getByText('360 = ilumina em volta; menos, ilumina em cone, como uma lanterna.'),
+    ).toBeInTheDocument();
+  });
+
+  it('an error on the field of view shows under it', () => {
+    render(<Harness errors={{ sightAngle: 'De 1 a 360°.' }} />);
+
+    expect(screen.getByText('De 1 a 360°.')).toBeInTheDocument();
   });
 });

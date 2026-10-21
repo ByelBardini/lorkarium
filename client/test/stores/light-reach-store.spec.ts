@@ -37,4 +37,31 @@ describe('createLightReachStore', () => {
 
     expect(lightReachOf(store.getState())).toEqual({ bright: 8, dim: 0 });
   });
+
+  it('with nothing stored the next light shines every side (360)', () => {
+    expect(createLightReachStore(new StorageFake()).getState().angle).toBe(360);
+  });
+
+  it('an angle set is remembered under lorkarium.lightReach.angle', () => {
+    const storage = new StorageFake();
+
+    createLightReachStore(storage).getState().setAngle(60);
+
+    expect(storage.values.get('lorkarium.lightReach.angle')).toBe('60');
+    expect(createLightReachStore(storage).getState().angle).toBe(60);
+  });
+
+  it.each([['0'], ['361'], ['12.5'], ['sessenta']])(
+    'a stored angle of "%s" falls back to 360',
+    (stored) => {
+      const storage = new StorageFake();
+      storage.values.set('lorkarium.lightReach.angle', stored);
+
+      expect(createLightReachStore(storage).getState().angle).toBe(360);
+    },
+  );
+
+  it('a storage that throws keeps 360 to start with', () => {
+    expect(createLightReachStore(new StorageFake(true)).getState().angle).toBe(360);
+  });
 });

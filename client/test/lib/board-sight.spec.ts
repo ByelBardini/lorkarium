@@ -205,7 +205,7 @@ describe('boardSightOf for Bia with lights', () => {
       ...someoneElse,
       col: 10,
       row: 4,
-      light: { bright: 2, dim: 0, color: null },
+      light: { bright: 2, dim: 0, color: null, angle: 360 },
       lightLit: true,
     });
     expect(levelOfOgre(litBoard('dark', [BLIND_LYRA, bram, ogreAt(11)], []))).toBe('seen');
@@ -245,12 +245,12 @@ describe('boardSightOf for Bia with lights', () => {
 describe('boardSightOf while tokens are dragged', () => {
   // Lyra (Bia's) at (3, 4) has no darkvision and a lit torch of 3 + 3 cells; the ogre stands at
   // (11, 4), hidden from her confirmed cell.
-  const torch = { light: { bright: 3, dim: 3, color: null }, lightLit: true };
+  const torch = { light: { bright: 3, dim: 3, color: null, angle: 360 }, lightLit: true };
   const TORCH_LYRA = lyra({ sight: null, ...torch });
 
   function ogreLevel(
     tokens: TokenDto[],
-    landing: [string, { col: number; row: number }][],
+    landing: [string, { col: number; row: number; facing: number }][],
     walls: WallDto[] = [],
   ): string {
     const sight = boardSightOf(biaBoard('dark', tokens, walls), {
@@ -264,31 +264,41 @@ describe('boardSightOf while tokens are dragged', () => {
     [6, 'silhouette'],
     [9, 'seen'],
   ] as const)('Lyra with her torch landing at (%i, 4) makes the ogre %s', (col, level) => {
-    expect(ogreLevel([TORCH_LYRA, ogreAt(11)], [[LYRA_ID, { col, row: 4 }]])).toBe(level);
+    expect(ogreLevel([TORCH_LYRA, ogreAt(11)], [[LYRA_ID, { col, row: 4, facing: 0 }]])).toBe(
+      level,
+    );
   });
 
   it('Lyra with darkvision of 3 + 3 and no torch landing at (8, 4) sees the ogre', () => {
     const eyed = lyra({ sight: { bright: 3, dim: 3 } });
 
-    expect(ogreLevel([eyed, ogreAt(11)], [[LYRA_ID, { col: 8, row: 4 }]])).toBe('seen');
+    expect(ogreLevel([eyed, ogreAt(11)], [[LYRA_ID, { col: 8, row: 4, facing: 0 }]])).toBe('seen');
   });
 
   it('the ogre dragged by the master into the torchlight at (5, 4) is seen', () => {
-    expect(ogreLevel([TORCH_LYRA, ogreAt(11)], [[OGRE_ID, { col: 5, row: 4 }]])).toBe('seen');
+    expect(ogreLevel([TORCH_LYRA, ogreAt(11)], [[OGRE_ID, { col: 5, row: 4, facing: 0 }]])).toBe(
+      'seen',
+    );
   });
 
   it('the ogre seen at (5, 4) dragged away to (11, 4) is hidden', () => {
-    expect(ogreLevel([TORCH_LYRA, ogreAt(5)], [[OGRE_ID, { col: 11, row: 4 }]])).toBe('hidden');
+    expect(ogreLevel([TORCH_LYRA, ogreAt(5)], [[OGRE_ID, { col: 11, row: 4, facing: 0 }]])).toBe(
+      'hidden',
+    );
   });
 
   it('the door of the cell she does not see from (3, 4) is seen with Lyra landing at (6, 4)', () => {
-    const candle = lyra({ sight: null, light: { bright: 1, dim: 0, color: null }, lightLit: true });
-    const at = (landing: [string, { col: number; row: number }][]) =>
+    const candle = lyra({
+      sight: null,
+      light: { bright: 1, dim: 0, color: null, angle: 360 },
+      lightLit: true,
+    });
+    const at = (landing: [string, { col: number; row: number; facing: number }][]) =>
       boardSightOf(biaBoard('dark', [candle]), { previewEyeIds: null, landing: new Map(landing) })
         .seenDoorIds;
 
     expect(at([])).toEqual(new Set());
-    expect(at([[LYRA_ID, { col: 6, row: 4 }]])).toEqual(new Set([CELL_DOOR_ID]));
+    expect(at([[LYRA_ID, { col: 6, row: 4, facing: 0 }]])).toEqual(new Set([CELL_DOOR_ID]));
   });
 
   it('a wall between where Lyra would land and the ogre keeps him hidden', () => {
@@ -303,20 +313,79 @@ describe('boardSightOf while tokens are dragged', () => {
       ],
     } as never);
 
-    expect(ogreLevel([TORCH_LYRA, ogreAt(11)], [[LYRA_ID, { col: 9, row: 4 }]], [wall])).toBe(
-      'hidden',
-    );
+    expect(
+      ogreLevel([TORCH_LYRA, ogreAt(11)], [[LYRA_ID, { col: 9, row: 4, facing: 0 }]], [wall]),
+    ).toBe('hidden');
   });
 
   it('a landing of a token that is not on the board changes nothing', () => {
     const stranger = 'dd44ee55-ff66-4a77-8b88-223344556677';
 
-    expect(ogreLevel([TORCH_LYRA, ogreAt(8)], [[stranger, { col: 11, row: 4 }]])).toBe(
+    expect(ogreLevel([TORCH_LYRA, ogreAt(8)], [[stranger, { col: 11, row: 4, facing: 0 }]])).toBe(
       ogreLevel([TORCH_LYRA, ogreAt(8)], []),
     );
   });
 
   it('an empty landing leaves the ogre at (11, 4) hidden', () => {
     expect(ogreLevel([TORCH_LYRA, ogreAt(11)], [])).toBe('hidden');
+  });
+});
+
+describe('boardSightOf for Bia with Lyra looking in a cone', () => {
+  // Lyra (Bia's) at (6, 4), center (6.5, 4.5), looks right in a field of 90° with darkvision 6.
+  const NARROW_LYRA = lyra({ col: 6, row: 4, sight: { bright: 6, dim: 0 }, sightAngle: 90 });
+  const GOBLIN_ID = 'cc33dd44-ee55-4f66-8a77-112233445566';
+  const goblinAt = (col: number) =>
+    kael({ ...someoneElse, id: GOBLIN_ID, name: 'Goblin', col, row: 4, side: 'enemy' });
+
+  function levelsOf(
+    tokens: TokenDto[],
+    landing?: Map<string, { col: number; row: number; facing: number }>,
+  ) {
+    return boardSightOf(biaBoard('dark', tokens, []), { previewEyeIds: null, landing });
+  }
+
+  it('the ogre behind her, at (2, 4), is hidden and the one ahead, at (9, 4), is seen', () => {
+    expect(levelOf(levelsOf([NARROW_LYRA, ogreAt(2)]), OGRE_ID)).toBe('hidden');
+    expect(levelOf(levelsOf([NARROW_LYRA, ogreAt(9)]), OGRE_ID)).toBe('seen');
+  });
+
+  it('the goblin right behind her, at (5, 4), is felt by the ring', () => {
+    expect(levelOf(levelsOf([NARROW_LYRA, goblinAt(5)]), GOBLIN_ID)).toBe('seen');
+  });
+
+  it('with Lyra turned to 180 before the ack, the ogre behind is seen', () => {
+    const turned = new Map([[LYRA_ID, { col: 6, row: 4, facing: 180 }]]);
+
+    expect(levelOf(levelsOf([NARROW_LYRA, ogreAt(2)], turned), OGRE_ID)).toBe('seen');
+  });
+
+  it('the lantern of Bram (Caio, 60°) lights the ogre ahead of him for a blind Lyra, not the one behind', () => {
+    const blind = lyra({ col: 6, row: 4, sight: null });
+    const lantern = { bright: 3, dim: 0, color: null, angle: 60 };
+    const bram = kael({ ...someoneElse, col: 10, row: 4, light: lantern, lightLit: true });
+
+    expect(levelOf(levelsOf([blind, bram, ogreAt(12)]), OGRE_ID)).toBe('seen');
+    expect(levelOf(levelsOf([blind, bram, ogreAt(8)]), OGRE_ID)).toBe('hidden');
+  });
+
+  it('Ana previewing the narrow Lyra does not see the ogre behind her', () => {
+    const board = vharnBoard({
+      viewer: { userId: ANA_AT_TABLE.userId, role: 'master' },
+      scene: { ...VHARN_SCENE, vision: 'dark' },
+      tokens: [NARROW_LYRA, ogreAt(2)],
+    });
+
+    expect(levelOf(boardSightOf(board, { previewEyeIds: [LYRA_ID] }), OGRE_ID)).toBe('hidden');
+  });
+
+  it('the door behind her is not among the doors she sees, and turned toward it, it is', () => {
+    const lyraAt = (facing: number) =>
+      lyra({ col: 9, row: 5, sight: { bright: 6, dim: 0 }, sightAngle: 90, facing });
+    const doors = (facing: number) =>
+      boardSightOf(biaBoard('dark', [lyraAt(facing)]), { previewEyeIds: null }).seenDoorIds;
+
+    expect(doors(0)).toEqual(new Set());
+    expect(doors(180)).toEqual(new Set([CELL_DOOR_ID]));
   });
 });

@@ -12,8 +12,8 @@ import { tokenContains } from './token-box';
 import { doorIconAt, wallTargetAt } from './wall-view';
 
 /** Who takes a primary press, in priority order: the draw and area tools sketch, the walls tool
- *  sketches (a wall or the eraser box) or erases by its action, the lights tool puts a light (or
- *  takes the light under it, `lightId`); with Selecionar the
+ *  sketches (a wall or the eraser box) or erases by its action, the lights tool aims the spotlight
+ *  picked by its handle or puts a light (or takes the light under it, `lightId`); with Selecionar the
  *  facing handle, then a resize square, then a token, then a drawing, then an area of effect
  *  (at the bottom of the Tokens layer), then the marquee on the
  *  empty board; any other tool just reports the pointer. */
@@ -49,9 +49,7 @@ export function pressRouteOf(view: BoardView, world: Point, zoom: number): Press
   if (view.tool === 'walls') return wallRouteOf(view, world);
   if (view.tool === 'draw') return { kind: 'sketch' };
   if (view.tool === 'area') return { kind: 'areaSketch' };
-  if (view.tool === 'lights') {
-    return { kind: 'light', lightId: topLightAt(view.lights, world, zoom)?.id ?? null };
-  }
+  if (view.tool === 'lights') return lightRouteOf(view, world, zoom);
   if (view.tool !== 'select') return { kind: 'pointer' };
   const facing = boardFacingTargetOf(view);
   if (facing && handleAt(facing, world)) return { kind: 'facingHandle' };
@@ -66,6 +64,13 @@ export function pressRouteOf(view: BoardView, world: Point, zoom: number): Press
   const area = topEffectAreaAt(view.effectAreas, world);
   if (area) return { kind: 'effectArea', area };
   return { kind: 'marquee' };
+}
+
+// The handle of the spotlight picked wins over its icon and the board under it.
+function lightRouteOf(view: BoardView, world: Point, zoom: number): PressRoute {
+  const aim = boardFacingTargetOf(view);
+  if (aim && handleAt(aim, world)) return { kind: 'facingHandle' };
+  return { kind: 'light', lightId: topLightAt(view.lights, world, zoom)?.id ?? null };
 }
 
 // Desenhar always starts a new wall, even on another one: that is how walls chain. The eraser

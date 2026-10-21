@@ -1,4 +1,4 @@
-import { insidePolygon } from '@lorkarium/game-core';
+import { coneOf, insideCone, insidePolygon } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { lightViewsOf, topLightAt, type LightViewInput } from '@/renderer/light-view';
@@ -106,5 +106,23 @@ describe('lightViewsOf, the color of the light', () => {
     const [torch] = lightViewsOf(input({ lights: [corridorTorch({ color: 'fire', lit: false })] }));
 
     expect(torch).toMatchObject({ lit: false, color: 0xff6a2b });
+  });
+});
+
+describe('lightViewsOf of a spotlight', () => {
+  const SPOTLIGHT = corridorTorch({ facing: 90, angle: 60 });
+
+  it('with the lights tool, the areas of a spotlight of 60° lie in its cone', () => {
+    const [view] = lightViewsOf(input({ lights: [SPOTLIGHT] }));
+    const cone = coneOf(90, 60);
+
+    for (const { x, y } of view?.areas?.dim ?? []) {
+      expect(insideCone(cone, { x: 5, y: 5 }, { x: x / CELL, y: y / CELL })).toBe(true);
+    }
+    expect(insidePolygon({ x: 5 * CELL, y: 7 * CELL }, view?.areas?.dim ?? [])).toBe(true);
+  });
+
+  it('a player still gets no light drawn', () => {
+    expect(lightViewsOf(input({ lights: [SPOTLIGHT], viewer: { isMaster: false } }))).toEqual([]);
   });
 });

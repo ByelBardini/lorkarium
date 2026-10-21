@@ -95,6 +95,7 @@ describe('token form state', () => {
         height: 1,
         controllerIds: [],
         imageAssetId: null,
+        sightAngle: 360,
         sight: { bright: 6, dim: 6 },
         bars: [
           {
@@ -195,7 +196,7 @@ describe('previewMetaOf', () => {
         width: 0.5,
         height: 0.5,
         sight: { bright: 6, dim: 6 },
-        light: { bright: 4, dim: 4, color: null },
+        light: { bright: 4, dim: 4, color: null, angle: 360 },
       }),
       METERS,
     );
@@ -271,15 +272,21 @@ describe('the sight and light of a new token', () => {
 
 describe('the color of the light of the token', () => {
   it('a token with a moon light opens with the moon color', () => {
-    const form = tokenFormOf(lyra({ light: { bright: 4, dim: 4, color: 'moon' } }), METERS);
+    const form = tokenFormOf(
+      lyra({ light: { bright: 4, dim: 4, color: 'moon', angle: 360 } }),
+      METERS,
+    );
     expect(form.lightColor).toBe('moon');
   });
 
   it('a token with a moon light is sent with the range and the color', () => {
-    const form = tokenFormOf(lyra({ light: { bright: 4, dim: 4, color: 'moon' } }), METERS);
+    const form = tokenFormOf(
+      lyra({ light: { bright: 4, dim: 4, color: 'moon', angle: 360 } }),
+      METERS,
+    );
     expect(parseTokenForm(form, METERS)).toMatchObject({
       ok: true,
-      token: { light: { bright: 4, dim: 4, color: 'moon' } },
+      token: { light: { bright: 4, dim: 4, color: 'moon', angle: 360 } },
     });
   });
 
@@ -288,8 +295,49 @@ describe('the color of the light of the token', () => {
   });
 
   it('switching off the saved light sends light null, without a color', () => {
-    const form = tokenFormOf(lyra({ light: { bright: 4, dim: 4, color: 'moon' } }), METERS);
+    const form = tokenFormOf(
+      lyra({ light: { bright: 4, dim: 4, color: 'moon', angle: 360 } }),
+      METERS,
+    );
     const off = { ...form, light: { ...form.light, on: false } };
     expect(parseTokenForm(off, METERS)).toMatchObject({ ok: true, token: { light: null } });
+  });
+});
+
+describe('the field of view and the beam of the token', () => {
+  const LANTERN = { bright: 4, dim: 0, color: null, angle: 60 };
+
+  it('a new token starts seeing and shining every side: "360" in both', () => {
+    expect(emptyTokenForm(METERS)).toMatchObject({ sightAngle: '360', lightAngle: '360' });
+  });
+
+  it('editing Lyra with a field of 90° and a lantern of 60° opens with "90" and "60"', () => {
+    const form = tokenFormOf(lyra({ sightAngle: 90, light: LANTERN }), METERS);
+
+    expect([form.sightAngle, form.lightAngle]).toEqual(['90', '60']);
+  });
+
+  it('a field of "90" and a beam of "60" are sent as sightAngle 90 and light.angle 60', () => {
+    const form = { ...tokenFormOf(lyra({ light: LANTERN }), METERS), sightAngle: '90' };
+    const result = parseTokenForm(form, METERS);
+
+    expect(result.ok && result.token).toMatchObject({ sightAngle: 90, light: { angle: 60 } });
+  });
+
+  it('a field of "0" and a beam of "361" are errors on their fields, and open the vision tab', () => {
+    const lit = tokenFormOf(lyra({ light: LANTERN }), METERS);
+    const result = parseTokenForm({ ...lit, sightAngle: '0', lightAngle: '361' }, METERS);
+
+    const errors = result.ok ? {} : result.errors;
+    expect(errors).toMatchObject({ sightAngle: 'De 1 a 360°.', lightAngle: 'De 1 a 360°.' });
+    expect(firstErrorTab(errors)).toBe('vision');
+  });
+
+  it('without "Emite luz" the beam is neither checked nor sent', () => {
+    const form = { ...named('Ogro'), lightAngle: 'abc' };
+    const result = parseTokenForm(form, METERS);
+
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.token).not.toHaveProperty('light');
   });
 });

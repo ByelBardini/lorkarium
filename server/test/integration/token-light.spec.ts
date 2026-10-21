@@ -6,6 +6,8 @@ import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token
 
 const TORCH = { bright: 4, dim: 4, color: null };
 const FIRE = { bright: 4, dim: 4, color: 'fire' };
+// What the table keeps of a light sent without a beam: it shines every side.
+const SAVED_FIRE = { ...FIRE, angle: 360 };
 
 function without(command: object, keys: readonly string[]): Record<string, unknown> {
   return Object.fromEntries(Object.entries(command).filter(([key]) => !keys.includes(key)));
@@ -59,7 +61,7 @@ describe('token light over Socket.IO', () => {
 
     for (const recorder of [bia, caio]) {
       const { token } = tokenUpdatedDto.parse(await eventPayload(recorder, 'token:updated'));
-      expect(token.light).toEqual(FIRE);
+      expect(token.light).toEqual(SAVED_FIRE);
     }
   });
 
@@ -130,7 +132,7 @@ describe('token light over Socket.IO', () => {
     await send(ana.client, 'token:createMany', { ...envelope(live.vharn.id), tokens: [copied] });
 
     const pasted = tokensCreatedDto.parse(await eventPayload(ana, 'token:createdMany')).tokens;
-    expect(pasted.map(({ light, lightLit }) => [light, lightLit])).toEqual([[FIRE, true]]);
+    expect(pasted.map(({ light, lightLit }) => [light, lightLit])).toEqual([[SAVED_FIRE, true]]);
   });
 
   it('the light, its color and the switch survive a restart of the server', async () => {

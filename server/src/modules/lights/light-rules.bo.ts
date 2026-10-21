@@ -11,6 +11,8 @@ export type LightRulesState = Readonly<{
 export type LightPosition = Readonly<{ x: number; y: number }>;
 /** A palette name, or `null` for neutral: the game-core does not know the palette. */
 export type LightColor = string | null;
+/** Where a light points and how wide it opens, in degrees (360 = every side). */
+export type LightCone = Readonly<{ facing: number; angle: number }>;
 
 /** The rules of a map light on its scene: its point lies inside the scene, the scene keeps at most
  *  so many lights, and an undo finds the light as it left it.
@@ -49,6 +51,11 @@ export class LightRulesBo {
     if (!expected || expected.color === actual) return;
     throw new StaleUndoError(`light ${lightId}`, colorShown(expected.color), colorShown(actual));
   }
+
+  requireCone(lightId: string, expected: LightCone | undefined, actual: LightCone): void {
+    if (!expected || (expected.facing === actual.facing && expected.angle === actual.angle)) return;
+    throw new StaleUndoError(`light ${lightId}`, coneShown(expected), coneShown(actual));
+  }
 }
 
 function same(left: number, right: number): boolean {
@@ -61,6 +68,10 @@ function pointShown({ x, y }: LightPosition): string {
 
 function colorShown(color: LightColor): string {
   return color ?? 'neutral';
+}
+
+function coneShown({ facing, angle }: LightCone): string {
+  return `facing ${facing}, angle ${angle}`;
 }
 
 function rangeShown({ bright, dim }: LightRange): string {

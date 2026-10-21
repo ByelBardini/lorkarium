@@ -8,6 +8,7 @@ import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
 import {
+  ANA_AT_TABLE,
   KAEL_ID,
   LYRA_ID,
   VHARN_SCENE,
@@ -596,7 +597,10 @@ describe('buildBoardView, light tint', () => {
 describe('buildBoardView while a lit token is dragged', () => {
   // Bia in the dark; Lyra (hers) at (3, 4) and Bram (Caio's, Kael's id) at (5, 4) each carry a
   // lit infernal torch of 2 + 2 cells.
-  const torch = { light: { bright: 2, dim: 2, color: 'infernal' as const }, lightLit: true };
+  const torch = {
+    light: { bright: 2, dim: 2, color: 'infernal' as const, angle: 360 },
+    lightLit: true,
+  };
   const bramAt = (col: number) =>
     kael({ canControl: false, controllerIds: [], col, row: 4, ...torch });
   const lyraAt = (col: number) => lyra({ sight: null, col, ...torch });
@@ -656,5 +660,94 @@ describe('buildBoardView while a lit token is dragged', () => {
 
     expect(atNine).not.toBe(atEight);
     expect(over(8)).toBe(atEight);
+  });
+});
+
+describe('buildBoardView while Lyra turns', () => {
+  // Bia in the dark; Lyra (hers) at (3, 4) looks right in a field of 90° with darkvision 3 and
+  // carries a fire lantern of 60°.
+  const NARROW = lyra({
+    sight: { bright: 3, dim: 0 },
+    sightAngle: 90,
+    light: { bright: 2, dim: 0, color: 'fire', angle: 60 },
+    lightLit: true,
+  });
+
+  function biaInput(facingPreview: Record<string, number>) {
+    const board = vharnBoard({
+      viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+      scene: { ...VHARN_SCENE, vision: 'dark' },
+      tokens: [NARROW],
+    });
+    return {
+      ...NO_TOKENS,
+      tokens: [NARROW],
+      viewer: { userId: BIA_AT_TABLE.userId, isMaster: false },
+      scene: board.scene,
+      localGridVisible: true,
+      ruler: null,
+      sight: boardSightOf(board, { previewEyeIds: null }),
+      facingPreview,
+    };
+  }
+
+  it('the facing preview turns the fog and the tint of her lantern before the ack', () => {
+    const still = buildBoardView(biaInput({}));
+    const turning = buildBoardView(biaInput({ [LYRA_ID]: 180 }));
+
+    expect(turning.fog?.key).not.toBe(still.fog?.key);
+    expect(turning.fog?.dim).not.toEqual(still.fog?.dim);
+    expect(turning.lightTint?.key).not.toBe(still.lightTint?.key);
+  });
+});
+
+describe('buildBoardView while the master aims a spotlight', () => {
+  // Ana with the lights tool; the infernal spotlight at (5, 5) looks right (0) and opens 60°.
+  const SPOTLIGHT = corridorTorch({ color: 'infernal', facing: 0, angle: 60 });
+
+  function anaInput(lightAimPreview: Record<string, number>) {
+    return {
+      ...NO_TOKENS,
+      tokens: [],
+      viewer: { userId: ANA_AT_TABLE.userId, isMaster: true },
+      scene: { ...VHARN_SCENE, vision: 'dark' as const },
+      localGridVisible: true,
+      ruler: null,
+      tool: 'lights' as const,
+      lights: [SPOTLIGHT],
+      lightAimPreview,
+    };
+  }
+
+  it('the areas of the tool and the tint follow the handle before it is released', () => {
+    const still = buildBoardView(anaInput({}));
+    const aimed = buildBoardView(anaInput({ [CORRIDOR_TORCH_ID]: 180 }));
+    const there = buildBoardView({ ...anaInput({}), lights: [{ ...SPOTLIGHT, facing: 180 }] });
+
+    expect(aimed.lights[0]?.areas).toEqual(there.lights[0]?.areas);
+    expect(aimed.lights[0]?.areas).not.toEqual(still.lights[0]?.areas);
+    expect(aimed.lightTint?.key).toBe(there.lightTint?.key);
+  });
+});
+
+describe('buildBoardView, the outline of the field of view', () => {
+  const NARROW = lyra({ col: 5, row: 5, sightAngle: 90 });
+
+  function viewFor(isMaster: boolean) {
+    const userId = isMaster ? ANA_AT_TABLE.userId : BIA_AT_TABLE.userId;
+    return buildBoardView({
+      ...NO_TOKENS,
+      tokens: [NARROW],
+      viewer: { userId, isMaster },
+      scene: { ...VHARN_SCENE, vision: 'dark' },
+      localGridVisible: true,
+      ruler: null,
+      selectedTokenIds: [LYRA_ID],
+    });
+  }
+
+  it('Ana with the narrow Lyra selected gets the outline, and Bia does not', () => {
+    expect(viewFor(true).sightCone?.outline.length).toBeGreaterThan(3);
+    expect(viewFor(false).sightCone).toBeNull();
   });
 });

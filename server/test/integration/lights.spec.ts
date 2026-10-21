@@ -44,8 +44,8 @@ describe('map lights over Socket.IO', () => {
     const created = await createdOf(bia);
     expect(ack).toEqual({ ok: true, version: 1, createdIds: created.map(({ id }) => id) });
     expect(created).toEqual([
-      { ...WALL_TORCH, id: expect.any(String), lit: true, color: null },
-      { ...BRAZIER, id: expect.any(String), lit: true, color: null },
+      { ...WALL_TORCH, id: expect.any(String), lit: true, color: null, facing: 0, angle: 360 },
+      { ...BRAZIER, id: expect.any(String), lit: true, color: null, facing: 0, angle: 360 },
     ]);
     expect(await createdOf(caio)).toEqual(created);
   });
@@ -351,5 +351,168 @@ describe('map lights over Socket.IO', () => {
     expect((await synced(again, live.vharn)).lights).toEqual([
       { ...torch, lit: false, color: 'necrotic' },
     ]);
+  });
+
+  const SPOTLIGHT = { ...WALL_TORCH, facing: 90, angle: 60 };
+
+  function aimOn(campaignId: string, changes: object[]): object {
+    return { ...envelope(campaignId), changes };
+  }
+
+  it('Ana creating a spotlight aimed at 90 and opening 60 reaches Bia and Caio with both', async () => {
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    const caio = recordEventsOf(await live.atTable(live.caio, live.vharn));
+    const ana = await live.atTable(live.ana, live.vharn);
+
+    await send(ana, 'light:createMany', createOn(live.vharn.id, [SPOTLIGHT]));
+
+    for (const recorder of [bia, caio]) {
+      expect(await createdOf(recorder)).toMatchObject([{ facing: 90, angle: 60 }]);
+    }
+  });
+
+  it('the spotlight keeps its cone in the sync and after a restart', async () => {
+    const ana = await live.atTable(live.ana, live.vharn);
+    const spotlight = await createdBy(ana, live.vharn.id, [SPOTLIGHT]);
+
+    await live.restart();
+
+    const again = await live.atTable(live.bia, live.vharn);
+    expect((await synced(again, live.vharn)).lights).toEqual([spotlight]);
+  });
+
+  it('a light sent without a cone looks right and shines every side', async () => {
+    const ana = await live.atTable(live.ana, live.vharn);
+
+    expect(await createdBy(ana, live.vharn.id)).toMatchObject({ facing: 0, angle: 360 });
+  });
+
+  it('a light with an angle of 0 is INVALID_BODY and no one hears an event', async () => {
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    const ana = await live.atTable(live.ana, live.vharn);
+
+    const ack = await send(
+      ana,
+      'light:createMany',
+      createOn(live.vharn.id, [{ ...SPOTLIGHT, angle: 0 }]),
+    );
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'INVALID_BODY' }) });
+    await silence();
+    expect(bia.events.map(({ name }) => name)).not.toContain('light:createdMany');
+  });
+
+  it('the sync of Quelm does not carry the spotlight of Vharn', async () => {
+    await createdBy(await live.atTable(live.ana, live.vharn), live.vharn.id, [SPOTLIGHT]);
+
+    const caio = await live.atTable(live.caio, live.quelm);
+
+    expect((await synced(caio, live.quelm)).lights).toEqual([]);
+  });
+
+  it('Ana aiming two lights reaches the three in one light:conesChanged, and the sync keeps it', async () => {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    const caio = recordEventsOf(await live.atTable(live.caio, live.vharn));
+    await send(ana.client, 'light:createMany', createOn(live.vharn.id, [WALL_TORCH, BRAZIER]));
+    const ids = (await createdOf(ana)).map(({ id }) => id);
+    const changes = ids.map((lightId) => ({ lightId, facing: 180, angle: 90 }));
+
+    const ack = await send(ana.client, 'light:setConeMany', aimOn(live.vharn.id, changes));
+
+    expect(ack).toEqual({ ok: true, version: 2 });
+    for (const recorder of [ana, bia, caio]) {
+      expect(await eventPayload(recorder, 'light:conesChanged')).toMatchObject({
+        version: 2,
+        changes,
+      });
+      expect(recorder.events.filter(({ name }) => name === 'light:conesChanged')).toHaveLength(1);
+    }
+    const again = await live.atTable(live.bia, live.vharn);
+    expect(
+      (await synced(again, live.vharn)).lights.map(({ facing, angle }) => [facing, angle]),
+    ).toEqual([
+      [180, 90],
+      [180, 90],
+    ]);
+  });
+
+  it('Bia aiming a light is FORBIDDEN and no one hears an event', async () => {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const torch = await createdBy(ana.client, live.vharn.id);
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    const ack = await send(
+      bia,
+      'light:setConeMany',
+      aimOn(live.vharn.id, [{ lightId: torch.id, facing: 90, angle: 60 }]),
+    );
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+    await silence();
+    expect(ana.events.map(({ name }) => name)).not.toContain('light:conesChanged');
+  });
+
+  it('a light of Quelm in a cone command of Vharn is LIGHT_NOT_FOUND', async () => {
+    const caio = await live.atTable(live.caio, live.quelm);
+    const quelmTorch = await createdBy(caio, live.quelm.id);
+    const ana = await live.atTable(live.ana, live.vharn);
+
+    const ack = await send(
+      ana,
+      'light:setConeMany',
+      aimOn(live.vharn.id, [{ lightId: quelmTorch.id, facing: 90, angle: 60 }]),
+    );
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'LIGHT_NOT_FOUND' }) });
+    expect((await synced(caio, live.quelm)).lights).toEqual([quelmTorch]);
+  });
+
+  it('a cone undo whose light was aimed since is STALE_UNDO', async () => {
+    const ana = await live.atTable(live.ana, live.vharn);
+    const spotlight = await createdBy(ana, live.vharn.id, [SPOTLIGHT]);
+    const undo = {
+      lightId: spotlight.id,
+      facing: 0,
+      angle: 360,
+      expect: { facing: 45, angle: 60 },
+    };
+
+    const ack = await send(ana, 'light:setConeMany', aimOn(live.vharn.id, [undo]));
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'STALE_UNDO' }) });
+  });
+
+  it('a cone set by the master survives a restart', async () => {
+    const ana = await live.atTable(live.ana, live.vharn);
+    const torch = await createdBy(ana, live.vharn.id);
+    await send(
+      ana,
+      'light:setConeMany',
+      aimOn(live.vharn.id, [{ lightId: torch.id, facing: 270, angle: 45 }]),
+    );
+
+    await live.restart();
+
+    const again = await live.atTable(live.bia, live.vharn);
+    expect((await synced(again, live.vharn)).lights).toEqual([
+      { ...torch, facing: 270, angle: 45 },
+    ]);
+  });
+
+  it.each([
+    ['a forged userId', { userId: 'forged' }, { facing: 90 }],
+    ['a facing of 360', {}, { facing: 360 }],
+  ])('a cone command carrying %s is INVALID_BODY', async (_name, extra, cone) => {
+    const ana = await live.atTable(live.ana, live.vharn);
+    const torch = await createdBy(ana, live.vharn.id);
+    const changes = [{ lightId: torch.id, angle: 60, ...cone }];
+
+    const ack = await send(ana, 'light:setConeMany', {
+      ...aimOn(live.vharn.id, changes),
+      ...extra,
+    });
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'INVALID_BODY' }) });
   });
 });

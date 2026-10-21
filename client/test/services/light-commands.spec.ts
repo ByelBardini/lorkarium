@@ -6,7 +6,15 @@ import { CORRIDOR_TORCH_ID } from '../support/light-fixtures';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
-const TORCH: LightPlacement = { x: 5.5, y: 3, bright: 4, dim: 4, color: null };
+const TORCH: LightPlacement = {
+  x: 5.5,
+  y: 3,
+  bright: 4,
+  dim: 4,
+  color: null,
+  facing: 0,
+  angle: 360,
+};
 const BASE = { actionId: ACTION_ID, campaignId: VHARN.id };
 
 describe('RealtimeLightCommands', () => {
@@ -87,6 +95,41 @@ describe('RealtimeLightCommands', () => {
       'light:setColorMany',
     );
     expect(await result).toEqual({ ok: false, failure: 'stale_undo' });
+  });
+
+  it('setLightCones sends light:setConeMany, with the expected cone only when undoing', () => {
+    void commands.setLightCones(VHARN.id, [{ lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60 }]);
+    void commands.setLightCones(VHARN.id, [
+      { lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60, expect: { facing: 0, angle: 360 } },
+    ]);
+    expect(transport.sent).toEqual([
+      {
+        event: 'light:setConeMany',
+        payload: { ...BASE, changes: [{ lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60 }] },
+      },
+      {
+        event: 'light:setConeMany',
+        payload: {
+          ...BASE,
+          changes: [
+            {
+              lightId: CORRIDOR_TORCH_ID,
+              facing: 90,
+              angle: 60,
+              expect: { facing: 0, angle: 360 },
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it('createLights sends the facing and the angle of a spotlight', () => {
+    const spotlight = { ...TORCH, facing: 90, angle: 60 };
+    void commands.createLights(VHARN.id, [spotlight]);
+    expect(transport.sent).toEqual([
+      { event: 'light:createMany', payload: { ...BASE, lights: [spotlight] } },
+    ]);
   });
 
   it('setLightsLit sends the ids and the switch', () => {

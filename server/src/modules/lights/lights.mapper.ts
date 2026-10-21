@@ -1,11 +1,13 @@
 import type {
   LightAtDto,
   LightColorOfDto,
+  LightConeOfDto,
   LightDto,
   LightPlacementDto,
   LightRangeOfDto,
 } from '@lorkarium/contracts';
 import {
+  lightConeOf,
   lightRange,
   lightSource,
   sceneLight,
@@ -14,16 +16,24 @@ import {
   type SceneLight,
 } from '@lorkarium/game-core';
 import { cellsHundredth, cellsNumeric } from '../../database/cells-numeric';
-import type { LightColor, LightPosition } from './light-rules.bo';
-import type { LightColorPo, LightMovePo, LightPo, LightRangePo, NewLightPo } from './lights.po';
+import type { LightColor, LightCone, LightPosition } from './light-rules.bo';
+import type {
+  LightColorPo,
+  LightConePo,
+  LightMovePo,
+  LightPo,
+  LightRangePo,
+  NewLightPo,
+} from './lights.po';
 
 /** Light row → the light clients see; Postgres numeric "5.50" becomes 5.5. A row the game-core
  *  refuses is a broken table and throws citing the light.
  *
  *  Example: `toLightDto(row).x // 5.5` */
 export function toLightDto(row: LightPo): LightDto {
-  const { x, y, range, lit } = sceneLightOf(row);
-  return { id: row.id, x, y, bright: range.bright, dim: range.dim, lit, color: row.color };
+  const { x, y, range, lit, facing, angle } = sceneLightOf(row);
+  const { bright, dim } = range;
+  return { id: row.id, x, y, bright, dim, lit, color: row.color, facing, angle };
 }
 
 /** Light row → the game-core light the rules and sight work with.
@@ -32,7 +42,8 @@ export function toLightDto(row: LightPo): LightDto {
 export function sceneLightOf(row: LightPo): SceneLight {
   try {
     const range = lightRange(Number(row.bright), Number(row.dim));
-    return sceneLight({ x: Number(row.x), y: Number(row.y), range, lit: row.lit });
+    const { lit, facing, angle } = row;
+    return sceneLight({ x: Number(row.x), y: Number(row.y), range, lit, facing, angle });
   } catch (cause) {
     throw new Error(`light ${row.id} was saved broken: ${String(cause)}`, { cause });
   }
@@ -43,7 +54,8 @@ export function sceneLightOf(row: LightPo): SceneLight {
  *  Example: `rules.place(sceneLightOfPlacement(command.lights[0]))` */
 export function sceneLightOfPlacement(placement: LightPlacementDto): SceneLight {
   const range = lightRange(placement.bright, placement.dim);
-  return sceneLight({ x: placement.x, y: placement.y, range, lit: true });
+  const { x, y, facing, angle } = placement;
+  return sceneLight({ x, y, range, lit: true, facing, angle });
 }
 
 /** A saved light moved to `(x, y)`, for the scene rule.
@@ -53,12 +65,13 @@ export function lightMovedTo(light: SceneLight, at: LightPosition): SceneLight {
   return sceneLight({ ...light, x: at.x, y: at.y });
 }
 
-/** The light a saved map light gives off from its point, or `null` when it is out.
+/** The light a saved map light gives off from its point, in its cone (none at 360), or `null`
+ *  when it is out.
  *
  *  Example: `rows.flatMap((row) => lightSourceOfRow(row) ?? [])` */
 export function lightSourceOfRow(row: LightPo): LightSource | null {
-  const { x, y, range, lit } = sceneLightOf(row);
-  return lightSource({ x, y }, range, lit);
+  const light = sceneLightOf(row);
+  return lightSource({ x: light.x, y: light.y }, light.range, light.lit, lightConeOf(light));
 }
 
 /** A placement as sent → the row to insert, to the hundredth, lit and in its color.
@@ -73,6 +86,8 @@ export function toNewLightPo(sceneId: string, placement: LightPlacementDto): New
     dim: cellsNumeric(placement.dim),
     lit: true,
     color: placement.color,
+    facing: placement.facing,
+    angle: placement.angle,
   };
 }
 
@@ -127,6 +142,25 @@ export function toLightColorPo({ lightId, color }: LightColorOfDto): LightColorP
  *  Example: `savedColorOf({ lightId, color: 'fire', expect }) // { lightId, color: 'fire' }` */
 export function savedColorOf({ lightId, color }: LightColorOfDto): LightColorOfDto {
   return { lightId, color };
+}
+
+/** A cone change as sent → where the light points and how wide it opens, to save.
+ *
+ *  Example: `toLightConePo({ lightId, facing: 90, angle: 60, expect }) // { lightId, facing: 90, angle: 60 }` */
+export function toLightConePo({ lightId, facing, angle }: LightConeOfDto): LightConePo {
+  return { lightId, facing, angle };
+}
+
+/** A cone change as the table publishes it, without the undo precondition.
+ *
+ *  Example: `savedConeOf({ lightId, facing: 90, angle: 60, expect }) // { lightId, facing: 90, angle: 60 }` */
+export function savedConeOf({ lightId, facing, angle }: LightConeOfDto): LightConeOfDto {
+  return { lightId, facing, angle };
+}
+
+/** The cone of a saved light, as the rule compares it. */
+export function coneOfLight(row: LightPo): LightCone {
+  return { facing: row.facing, angle: row.angle };
 }
 
 /** The color of a saved light, as the rule compares it. */

@@ -58,6 +58,10 @@ export type LightMove = Readonly<{ lightId: string; from: LightPoint; to: LightP
 export type LightRangeChange = Readonly<{ lightId: string; from: LightReach; to: LightReach }>;
 /** A change of color of a map light: the color it had and the one it got (`null` = neutral). */
 export type LightColorChange = Readonly<{ lightId: string; from: LightColor; to: LightColor }>;
+/** Where a map light points and how wide it opens, in degrees. */
+export type LightCone = Readonly<{ facing: number; angle: number }>;
+/** A change of cone of a map light (aimed or opened): the cone it had and the one it got. */
+export type LightConeChange = Readonly<{ lightId: string; from: LightCone; to: LightCone }>;
 
 /** One thing an action did, enough to redo it and to build its inverse. */
 export type EditOp =
@@ -79,7 +83,8 @@ export type EditOp =
   | Readonly<{ kind: 'lightsRemoved'; lights: readonly PlacedLight[] }>
   | Readonly<{ kind: 'lightsMoved'; moves: readonly LightMove[] }>
   | Readonly<{ kind: 'lightRangesChanged'; changes: readonly LightRangeChange[] }>
-  | Readonly<{ kind: 'lightColorsChanged'; changes: readonly LightColorChange[] }>;
+  | Readonly<{ kind: 'lightColorsChanged'; changes: readonly LightColorChange[] }>
+  | Readonly<{ kind: 'lightConesChanged'; changes: readonly LightConeChange[] }>;
 
 /** One user action (a paste with tokens and drawings is one), in the order it was done. */
 export type EditEntry = readonly EditOp[];
@@ -202,7 +207,12 @@ export type LightOp = Extract<
   EditOp,
   {
     kind:
-      'lightsAdded' | 'lightsRemoved' | 'lightsMoved' | 'lightRangesChanged' | 'lightColorsChanged';
+      | 'lightsAdded'
+      | 'lightsRemoved'
+      | 'lightsMoved'
+      | 'lightRangesChanged'
+      | 'lightColorsChanged'
+      | 'lightConesChanged';
   }
 >;
 
@@ -232,6 +242,11 @@ function inverseLightOp(op: LightOp): EditOp {
     case 'lightColorsChanged':
       return {
         kind: 'lightColorsChanged',
+        changes: op.changes.map(({ lightId, from, to }) => ({ lightId, from: to, to: from })),
+      };
+    case 'lightConesChanged':
+      return {
+        kind: 'lightConesChanged',
         changes: op.changes.map(({ lightId, from, to }) => ({ lightId, from: to, to: from })),
       };
   }
@@ -331,6 +346,11 @@ function remapOp(op: EditOp, mapping: IdMapping): EditOp {
         changes: op.changes.map((change) => ({ ...change, lightId: idOf(change.lightId) })),
       };
     case 'lightColorsChanged':
+      return {
+        ...op,
+        changes: op.changes.map((change) => ({ ...change, lightId: idOf(change.lightId) })),
+      };
+    case 'lightConesChanged':
       return {
         ...op,
         changes: op.changes.map((change) => ({ ...change, lightId: idOf(change.lightId) })),

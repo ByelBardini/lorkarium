@@ -31,6 +31,7 @@ import { shownCellsOf } from '@/lib/shown-cells';
 import { fogViewOf, type FogView } from './fog-view';
 import { lightTintViewOf, type LightTintView } from './light-tint-view';
 import { lightViewsOf, type LightView } from './light-view';
+import { sightConeViewOf, type SightConeView } from './sight-cone-view';
 import {
   doorIconsOf,
   wallViewsOf,
@@ -136,6 +137,8 @@ export type BoardView = Readonly<{
   /** What the colored lights tint on a dark scene, for every viewer: over the tokens, under the
    *  fog (which hides it where a player does not see); `null` with nothing to tint. */
   lightTint: LightTintView | null;
+  /** The master's outline of the field of view of the token selected alone (`sightConeViewOf`). */
+  sightCone: SightConeView | null;
   /** The master's map light icons (and, with the lights tool, what they light); none for a player. */
   lights: readonly LightView[];
   /** With the draw tool: how the sketch under the pointer looks; `null` with another tool. */
@@ -184,6 +187,8 @@ export type BoardViewInput = Omit<DrawingViewInput, 'activeLayer' | 'readOnly'> 
     selectedLightIds?: readonly string[];
     /** Where this viewer drags lights, until the server answers, by id. */
     lightPreview?: Readonly<Record<string, Readonly<{ x: number; y: number }>>>;
+    /** Where this viewer aims spotlights by the handle, until the server answers, by id. */
+    lightAimPreview?: Readonly<Record<string, number>>;
   }> &
   Readonly<{
     scene: SceneDto;
@@ -245,8 +250,16 @@ export function buildBoardView(input: BoardViewInput): BoardView {
     lightTint: lightTintViewOf({
       scene,
       walls: input.walls ?? [],
-      lights: input.lights ?? [],
+      lights: aimedLightsOf(input),
       tokens: input.tokens,
+      landing: landingOf(input),
+    }),
+    sightCone: sightConeViewOf({
+      viewer: input.viewer,
+      scene,
+      tokens: input.tokens,
+      walls: input.walls ?? [],
+      selectedTokenIds: input.selectedTokenIds,
       landing: landingOf(input),
     }),
     lights: lightViewsOf({
@@ -266,10 +279,20 @@ export function buildBoardView(input: BoardViewInput): BoardView {
   };
 }
 
-// A light dragged here is drawn where it goes, before the server confirms it.
+// A light dragged here is drawn where it goes, and aimed where its handle points, before the
+// server confirms it.
 function previewedLightsOf(input: BoardViewInput): readonly LightDto[] {
   const preview = input.lightPreview ?? {};
-  return (input.lights ?? []).map((light) => ({ ...light, ...preview[light.id] }));
+  return aimedLightsOf(input).map((light) => ({ ...light, ...preview[light.id] }));
+}
+
+// The tint follows the handle too: the master sees the spotlight's color turn with it.
+function aimedLightsOf(input: BoardViewInput): readonly LightDto[] {
+  const aim = input.lightAimPreview ?? {};
+  return (input.lights ?? []).map((light) => {
+    const facing = aim[light.id];
+    return facing === undefined ? light : { ...light, facing };
+  });
 }
 
 // The fog follows the tokens where they show: their eyes look from there.
@@ -281,10 +304,11 @@ function fogOf(input: BoardViewInput): FogView | null {
   return fogViewOf({ sight, scene, tokens, walls, lights: input.lights ?? [], landing });
 }
 
-// Where each token shows now (this viewer's drag, the move waiting for the server, other
-// people's drags): its eyes and lights follow it.
-function landingOf({ dragged, drag, preview }: BoardViewInput): TokenLanding {
-  return shownCellsOf({ dragged, drag, preview });
+// Where each token shows now and where it looks (this viewer's drag, the move waiting for the
+// server, other people's drags, a turn before the ack): its eyes and lights follow it.
+function landingOf(input: BoardViewInput): TokenLanding {
+  const { dragged, drag, preview, facingPreview, tokens } = input;
+  return shownCellsOf({ dragged, drag, preview, facingPreview, tokens });
 }
 
 function wallsOf(input: BoardViewInput): Pick<BoardView, 'walls' | 'doors'> {

@@ -10,7 +10,7 @@ function rules(): LightRulesBo {
 }
 
 function torchAt(x: number, y: number) {
-  return sceneLight({ x, y, range: lightRange(4, 4), lit: true });
+  return sceneLight({ x, y, range: lightRange(4, 4), lit: true, facing: 0, angle: 360 });
 }
 
 describe('LightRulesBo', () => {
@@ -99,6 +99,26 @@ describe('LightRulesBo', () => {
     it('a neutral precondition on a moon light is STALE_UNDO naming it neutral', () => {
       expect(() => rules().requireColor(TORCH_ID, { color: null }, 'moon')).toThrow(
         expect.objectContaining({ message: 'light torch-1 is at moon; the undo expected neutral' }),
+      );
+    });
+  });
+
+  describe('requireCone', () => {
+    const SPOT = { facing: 90, angle: 60 };
+
+    it('a command without expect always passes', () => {
+      expect(() => rules().requireCone(TORCH_ID, undefined, SPOT)).not.toThrow();
+    });
+
+    it('an expect equal to the current cone passes', () => {
+      expect(() => rules().requireCone(TORCH_ID, { facing: 90, angle: 60 }, SPOT)).not.toThrow();
+    });
+
+    it('an expect of another cone is STALE_UNDO citing both cones', () => {
+      const undo = () => rules().requireCone(TORCH_ID, { facing: 0, angle: 360 }, SPOT);
+      expect(undo).toThrow(expect.objectContaining({ code: 'STALE_UNDO' }));
+      expect(undo).toThrow(
+        /facing 90, angle 60.*facing 0, angle 360|facing 0, angle 360.*facing 90, angle 60/,
       );
     });
   });

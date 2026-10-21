@@ -1,5 +1,5 @@
 import type { LightDto, WallDto } from '@lorkarium/contracts';
-import { lightRange, type SceneSize } from '@lorkarium/game-core';
+import { coneOf, lightRange, type SceneSize } from '@lorkarium/game-core';
 import { lightColorHex } from '@/lib/light-color';
 import { gameWallOf } from '@/lib/wall-geometry';
 import type { BoardViewTool } from './board-view';
@@ -18,6 +18,9 @@ export type LightView = Readonly<{
   lit: boolean;
   /** The tone of the light (`lightColorHex`), kept when it is out; `null` for a neutral light. */
   color: number | null;
+  /** Where it points and how wide it opens, in degrees (360 = every side). */
+  facing: number;
+  angle: number;
   emphasis: 'full' | 'faint';
   selected: boolean;
   /** The bright and dim areas, cut by the walls; `null` outside the tool or with the light out. */
@@ -47,6 +50,8 @@ export function lightViewsOf(input: LightViewInput): LightView[] {
     y: light.y * CELL_WORLD_SIZE,
     lit: light.lit,
     color: lightColorHex(light.color),
+    facing: light.facing,
+    angle: light.angle,
     emphasis: tool ? 'full' : 'faint',
     selected: input.selectedLightIds.includes(light.id),
     areas: tool && light.lit ? areasOf(light, walls, input.scene) : null,
@@ -71,6 +76,8 @@ function areasOf(
   walls: Parameters<typeof lightAreasOf>[1],
   scene: SceneSize,
 ): LightAreas {
-  const source = { center: { x: light.x, y: light.y }, range: lightRange(light.bright, light.dim) };
+  const range = lightRange(light.bright, light.dim);
+  const cone = coneOf(light.facing, light.angle);
+  const source = { center: { x: light.x, y: light.y }, range, cone };
   return lightAreasOf(source, walls, scene);
 }

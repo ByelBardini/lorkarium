@@ -19,7 +19,7 @@ describe('sendLight', () => {
     notices = [];
   });
 
-  function place(readOnly = false, color: LightColor = null) {
+  function place(readOnly = false, color: LightColor = null, angle = 360) {
     return sendLight(
       {
         campaignId: VHARN.id,
@@ -28,7 +28,7 @@ describe('sendLight', () => {
         recordEdit: (entry) => recorded.push(entry),
       },
       { x: 5.5, y: 3 },
-      { reach: TORCH_REACH, color, readOnly, say: (notice) => notices.push(notice) },
+      { reach: TORCH_REACH, color, angle, readOnly, say: (notice) => notices.push(notice) },
     );
   }
 
@@ -36,7 +36,7 @@ describe('sendLight', () => {
     await place();
 
     expect(commands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-      { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4, color: null }] },
+      { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4, color: null, facing: 0, angle: 360 }] },
     ]);
   });
 
@@ -50,7 +50,10 @@ describe('sendLight', () => {
         {
           kind: 'lightsAdded',
           lights: [
-            { id: CORRIDOR_TORCH_ID, placement: { x: 5.5, y: 3, bright: 4, dim: 4, color: null } },
+            {
+              id: CORRIDOR_TORCH_ID,
+              placement: { x: 5.5, y: 3, bright: 4, dim: 4, color: null, facing: 0, angle: 360 },
+            },
           ],
         },
       ],
@@ -62,7 +65,7 @@ describe('sendLight', () => {
 
     await place(false, 'arcane');
 
-    const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: 'arcane' };
+    const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: 'arcane', facing: 0, angle: 360 };
     expect(commands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
       { lights: [placement] },
     ]);
@@ -84,5 +87,19 @@ describe('sendLight', () => {
     await place(true);
 
     expect(commands.sent).toEqual([]);
+  });
+
+  it('a light placed with a remembered angle of 60 is born looking right with it, and goes so on the stack', async () => {
+    commands.answerWith({ ok: true, version: 2, createdIds: [CORRIDOR_TORCH_ID] });
+
+    await place(false, null, 60);
+
+    const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: null, facing: 0, angle: 60 };
+    expect(commands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
+      { lights: [placement] },
+    ]);
+    expect(recorded).toEqual([
+      [{ kind: 'lightsAdded', lights: [{ id: CORRIDOR_TORCH_ID, placement }] }],
+    ]);
   });
 });

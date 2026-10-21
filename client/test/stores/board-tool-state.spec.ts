@@ -30,6 +30,7 @@ describe('toolChangeOf', () => {
       selectedEffectAreaIds: [],
       selectedWallIds: [],
       selectedLightIds: [],
+      lightAimPreview: {},
     });
   });
 

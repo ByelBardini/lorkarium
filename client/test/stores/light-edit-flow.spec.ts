@@ -160,7 +160,7 @@ describe('editing map lights', () => {
           lights: [
             {
               id: CORRIDOR_TORCH_ID,
-              placement: { x: 5, y: 5, bright: 4, dim: 4, color: 'fire' },
+              placement: { x: 5, y: 5, bright: 4, dim: 4, color: 'fire', facing: 0, angle: 360 },
             },
           ],
         },

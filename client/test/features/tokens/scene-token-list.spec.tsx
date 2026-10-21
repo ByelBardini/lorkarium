@@ -356,7 +356,7 @@ describe('SceneTokenList while a torch is dragged', () => {
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });
-    const torch = { light: { bright: 3, dim: 3, color: null }, lightLit: true };
+    const torch = { light: { bright: 3, dim: 3, color: null, angle: 360 }, lightLit: true };
     const ogre = lyra({ id: KAEL_ID, name: 'Ogro', col: 11, row: 4, canControl: false });
     board.getState().apply({
       kind: 'board',
@@ -429,6 +429,64 @@ describe('SceneTokenList while a torch is dragged', () => {
     expect(listed()).toEqual([expect.stringContaining('Lyra'), expect.stringContaining('Ogro')]);
 
     masterDrags(null);
+    expect(listed()).toEqual([expect.stringContaining('Lyra')]);
+  });
+});
+
+describe('SceneTokenList while Lyra turns', () => {
+  // Bia in the dark: Lyra (hers) at (6, 4) looks right in a field of 90° with darkvision 6; the
+  // ogre at (2, 4) is behind her.
+  let board: StoreApi<BoardStore>;
+  let interaction: StoreApi<BoardInteractionStore>;
+  let commands: TableBoardCommandsFake;
+
+  beforeEach(() => {
+    board = createBoardStore(VHARN.id, () => undefined);
+    const presence = createTablePresenceStore(VHARN.id);
+    presence.getState().apply({ kind: 'state', state: vharnState() });
+    commands = new TableBoardCommandsFake();
+    interaction = createBoardInteractionStore({
+      campaignId: VHARN.id,
+      commands,
+      describeRefusal: (failure) => `recusado: ${failure}`,
+    });
+    const ogre = lyra({ id: KAEL_ID, name: 'Ogro', col: 2, row: 4, canControl: false });
+    const narrow = { col: 6, sight: { bright: 6, dim: 0 }, sightAngle: 90 };
+    board.getState().apply({
+      kind: 'board',
+      state: vharnBoard({
+        viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+        scene: { ...VHARN_SCENE, vision: 'dark' },
+        tokens: [lyra(narrow), { ...ogre, controllerIds: [] }],
+      }),
+    });
+    render(
+      <SceneTokenList
+        board={board}
+        presence={presence}
+        interaction={interaction}
+        isMaster={false}
+        onEdit={() => undefined}
+      />,
+    );
+  });
+
+  function listed(): string[] {
+    const list = within(screen.getByRole('list', { name: 'Na cena' }));
+    return list
+      .getAllByRole('listitem')
+      .map((item) => within(item).getByRole('button').textContent ?? '');
+  }
+
+  it('Bia turning Lyra around shows the ogre before the ack, and a refusal hides him again', async () => {
+    commands.answerWith({ ok: false, failure: 'forbidden' });
+    commands.hold();
+    expect(listed()).toEqual([expect.stringContaining('Lyra')]);
+
+    act(() => void interaction.getState().faceTokens([{ tokenId: LYRA_ID, from: 0, to: 180 }]));
+    expect(listed()).toEqual([expect.stringContaining('Lyra'), expect.stringContaining('Ogro')]);
+
+    await act(async () => commands.release());
     expect(listed()).toEqual([expect.stringContaining('Lyra')]);
   });
 });

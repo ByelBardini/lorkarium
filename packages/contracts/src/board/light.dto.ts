@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
+import { CONE_ANGLE_MAX, coneAngleDto, facingDto } from './direction.dto';
 import { REACH_MAX, reachSideDto } from './reach.dto';
 import { SCENE_CELLS_MAX } from './scene.dto';
 import { idGroupOf, strayExpectation, TOKEN_GROUP_MAX } from './token-id-group.dto';
@@ -35,26 +36,32 @@ export const LIGHT_COLORS = [
 export const lightColorDto = z.enum(LIGHT_COLORS);
 export type LightColorDto = z.infer<typeof lightColorDto>;
 
-/** The light a token gives off: its range and its color (absent is neutral). Only the master sets
- *  it; whoever controls the token only lights and puts it out (`lightLit`).
+/** The light a token gives off: its range, its color (absent is neutral) and how wide its beam
+ *  opens toward the token's facing (absent is 360, every side). Only the master sets it; whoever
+ *  controls the token only lights and puts it out (`lightLit`).
  *
- *  Example: `tokenLightDto.parse({ bright: 4, dim: 4, color: 'torch' })` */
+ *  Example: `tokenLightDto.parse({ bright: 4, dim: 4, color: 'torch', angle: 60 })` (a lantern) */
 export const tokenLightDto = lightRangeDto.extend({
   color: lightColorDto.nullable().default(null),
+  angle: coneAngleDto('light').default(CONE_ANGLE_MAX),
 });
 export type TokenLightDto = z.infer<typeof tokenLightDto>;
 
 const cellCoordinateDto = z.number().min(0).max(SCENE_CELLS_MAX);
 const pointShape = { x: cellCoordinateDto, y: cellCoordinateDto };
+const coneShape = { facing: facingDto, angle: coneAngleDto('light') };
 
-/** A map light as the master places it: a point in fractional cells, its range and its color
- *  (absent is neutral). It is born lit.
+/** A map light as the master places it: a point in fractional cells, its range, its color
+ *  (absent is neutral) and its cone (absent looks right, 0, and shines every side, 360). It is
+ *  born lit.
  *
  *  Example: `lightPlacementDto.parse({ x: 5.5, y: 3, bright: 4, dim: 4, color: 'fire' })` */
 export const lightPlacementDto = z.strictObject({
   ...pointShape,
   ...rangeShape,
   color: lightColorDto.nullable().default(null),
+  facing: coneShape.facing.default(0),
+  angle: coneShape.angle.default(CONE_ANGLE_MAX),
 });
 export type LightPlacementDto = z.infer<typeof lightPlacementDto>;
 
@@ -66,6 +73,7 @@ export const lightDto = z.strictObject({
   ...rangeShape,
   lit: z.boolean(),
   color: lightColorDto.nullable(),
+  ...coneShape,
 });
 export type LightDto = z.infer<typeof lightDto>;
 
@@ -90,6 +98,14 @@ const lightColorChangeDto = lightColorOfDto.extend({
   expect: z.strictObject(lightColorShape).optional(),
 });
 export type LightColorChangeDto = z.infer<typeof lightColorChangeDto>;
+
+const lightConeOfDto = z.strictObject({ lightId: z.uuid(), ...coneShape });
+export type LightConeOfDto = z.infer<typeof lightConeOfDto>;
+
+const lightConeChangeDto = lightConeOfDto.extend({
+  expect: z.strictObject(coneShape).optional(),
+});
+export type LightConeChangeDto = z.infer<typeof lightConeChangeDto>;
 
 const lightIdGroupDto = idGroupOf(z.uuid(), (lightId) => lightId, 'light');
 
@@ -144,6 +160,16 @@ export const setLightColorsCommandDto = z.strictObject({
 });
 export type SetLightColorsCommandDto = z.infer<typeof setLightColorsCommandDto>;
 
+/** `light:setConeMany` (master): where each light points and how wide it opens (360 = every
+ *  side); `expect` is the cone the light must still have (undo).
+ *
+ *  Example: `setLightConesCommandDto.parse({ actionId, campaignId, changes: [{ lightId, facing: 90, angle: 60 }] })` */
+export const setLightConesCommandDto = z.strictObject({
+  ...boardCommandShape,
+  changes: idGroupOf(lightConeChangeDto, (change) => change.lightId, 'light'),
+});
+export type SetLightConesCommandDto = z.infer<typeof setLightConesCommandDto>;
+
 /** `light:setLitMany` (master): lights or puts out every light; never on the undo stack (a game
  *  action, like opening a door).
  *
@@ -184,6 +210,12 @@ export const lightColorsChangedDto = z.strictObject({
   changes: z.array(lightColorOfDto),
 });
 export type LightColorsChangedDto = z.infer<typeof lightColorsChangedDto>;
+
+export const lightConesChangedDto = z.strictObject({
+  ...boardEventShape,
+  changes: z.array(lightConeOfDto),
+});
+export type LightConesChangedDto = z.infer<typeof lightConesChangedDto>;
 
 export const lightsLitChangedDto = z.strictObject({
   ...boardEventShape,

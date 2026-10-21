@@ -1,4 +1,4 @@
-import { lightRange, type Wall } from '@lorkarium/game-core';
+import { coneOf, lightRange, type Wall } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { gameWallOf } from '@/lib/wall-geometry';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
@@ -28,7 +28,7 @@ describe('lightTintViewOf', () => {
   it('an infernal torch at (5, 5) in a dark scene tints its bright and dim areas with 0xff3b3b', () => {
     const view = lightTintViewOf(input());
 
-    const torch = { center: { x: 5, y: 5 }, range: lightRange(4, 4) };
+    const torch = { center: { x: 5, y: 5 }, range: lightRange(4, 4), cone: null };
     const areas = lightAreasOf(torch, NO_WALLS, SIZE);
     expect(view?.tints).toEqual([{ color: 0xff3b3b, bright: areas.bright, dim: areas.dim }]);
     expect(view?.tints[0]?.dim).toBe(areas.dim);
@@ -42,7 +42,7 @@ describe('lightTintViewOf', () => {
     const door = cellDoor();
     const view = lightTintViewOf(input({ walls: [door] }));
 
-    const torch = { center: { x: 5, y: 5 }, range: lightRange(4, 4) };
+    const torch = { center: { x: 5, y: 5 }, range: lightRange(4, 4), cone: null };
     const cut = lightAreasOf(torch, [gameWallOf(door)], SIZE);
     expect(view?.tints[0]?.dim).toEqual(cut.dim);
     expect(view?.tints[0]?.dim).not.toEqual(lightAreasOf(torch, NO_WALLS, SIZE).dim);
@@ -64,7 +64,9 @@ describe('lightTintViewOf', () => {
     const view = lightTintViewOf(
       input({
         lights: [brazier({ color: 'moon' }), INFERNAL_TORCH],
-        tokens: [lyra({ light: { bright: 2, dim: 0, color: 'necrotic' }, lightLit: true })],
+        tokens: [
+          lyra({ light: { bright: 2, dim: 0, color: 'necrotic', angle: 360 }, lightLit: true }),
+        ],
       }),
     );
 
@@ -83,14 +85,32 @@ describe('lightTintViewOf', () => {
     const fire = lyra({
       col: 3,
       row: 4,
-      light: { bright: 2, dim: 2, color: 'fire' },
+      light: { bright: 2, dim: 2, color: 'fire', angle: 360 },
       lightLit: true,
     });
-    const landing = new Map([[LYRA_ID, { col: 8, row: 2 }]]);
+    const landing = new Map([[LYRA_ID, { col: 8, row: 2, facing: 0 }]]);
 
     const view = lightTintViewOf(input({ lights: [], tokens: [fire], landing }));
 
-    const landed = { center: { x: 8.5, y: 2.5 }, range: lightRange(2, 2) };
+    const landed = { center: { x: 8.5, y: 2.5 }, range: lightRange(2, 2), cone: null };
     expect(view?.tints[0]?.dim).toBe(lightAreasOf(landed, NO_WALLS, SIZE).dim);
+  });
+});
+
+describe('lightTintViewOf of a spotlight', () => {
+  const SPOTLIGHT = corridorTorch({ color: 'infernal', facing: 90, angle: 60 });
+
+  it('an infernal spotlight of 60° tints the areas of its cone', () => {
+    const view = lightTintViewOf(input({ lights: [SPOTLIGHT] }));
+
+    const source = { center: { x: 5, y: 5 }, range: lightRange(4, 4), cone: coneOf(90, 60) };
+    expect(view?.tints[0]?.dim).toBe(lightAreasOf(source, NO_WALLS, SIZE).dim);
+  });
+
+  it('aiming the spotlight elsewhere changes the drawing key', () => {
+    const down = lightTintViewOf(input({ lights: [SPOTLIGHT] }))?.key;
+    const left = lightTintViewOf(input({ lights: [{ ...SPOTLIGHT, facing: 180 }] }))?.key;
+
+    expect(left).not.toBe(down);
   });
 });

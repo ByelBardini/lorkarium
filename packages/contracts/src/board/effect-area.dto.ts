@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { drawingColorDto } from './drawing.dto';
 import { SCENE_CELLS_MAX } from './scene.dto';
-import { facingDto, TOKEN_SIZE_MAX, TOKEN_SIZE_MIN } from './token.dto';
+import { facingDto } from './direction.dto';
+import { TOKEN_SIZE_MAX, TOKEN_SIZE_MIN } from './token.dto';
 import { idGroupOf, strayExpectation, TOKEN_GROUP_MAX } from './token-id-group.dto';
 
 /** Areas one scene keeps; checked by the server. */

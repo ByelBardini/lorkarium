@@ -98,9 +98,9 @@ export async function deleteLightsOf(
   if (!result.ok) return sayRefusal(deps, store, result);
   const selected = store.getState().selectedLightIds.filter((id) => !ids.includes(id));
   store.setState({ selectedLightIds: selected });
-  const removed = lights.map(({ id, x, y, bright, dim, color }) => ({
+  const removed = lights.map(({ id, x, y, bright, dim, color, facing, angle }) => ({
     id,
-    placement: { x, y, bright, dim, color },
+    placement: { x, y, bright, dim, color, facing, angle },
   }));
   deps.recordEdit?.([{ kind: 'lightsRemoved', lights: removed }]);
 }

@@ -3,6 +3,7 @@ import type { DatabaseExecutor } from '../../database/transaction';
 import {
   lights,
   type LightColorPo,
+  type LightConePo,
   type LightMovePo,
   type LightPo,
   type LightRangePo,
@@ -57,6 +58,12 @@ export class LightsDao {
   async setColors(sceneId: string, colors: readonly LightColorPo[]): Promise<void> {
     for (const { lightId, color } of colors) {
       await this.db.update(lights).set({ color }).where(this.inScene(sceneId, lightId));
+    }
+  }
+
+  async setCones(sceneId: string, cones: readonly LightConePo[]): Promise<void> {
+    for (const { lightId, facing, angle } of cones) {
+      await this.db.update(lights).set({ facing, angle }).where(this.inScene(sceneId, lightId));
     }
   }
 

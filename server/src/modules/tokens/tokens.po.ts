@@ -53,6 +53,9 @@ export const tokens = pgTable(
     defeated: boolean('defeated').notNull().default(false),
     // Degrees, 0 = looking right, clockwise on screen (game-core `Facing`).
     facing: smallint('facing').notNull().default(0),
+    // How wide it sees around its facing, in whole degrees (game-core `ConeAngle`); 360 = every
+    // side. Outside `sight` because a blind token also looks in a cone.
+    sightAngle: smallint('sight_angle').notNull().default(360),
     // How far it sees, in cells (game-core `SightRange`); both null = it does not see. A CHECK
     // passes on NULL, so the second branch names both as not null.
     sightBright: numeric('sight_bright', { precision: 6, scale: 2 }),
@@ -64,12 +67,17 @@ export const tokens = pgTable(
     lightLit: boolean('light_lit').notNull().default(true),
     // Null is neutral; only a light with a range has a color (CHECK tokens_light_color).
     lightColor: lightColorEnum('light_color'),
+    // How wide the beam opens toward the facing (a lantern); 360 = every side, and no light
+    // brings it back to 360.
+    lightAngle: smallint('light_angle').notNull().default(360),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('tokens_scene_id_idx').on(table.sceneId),
     check('tokens_facing_range', sql`${table.facing} >= 0 AND ${table.facing} <= 359`),
+    check('tokens_sight_angle', sql`${table.sightAngle} BETWEEN 1 AND 360`),
+    check('tokens_light_angle', sql`${table.lightAngle} BETWEEN 1 AND 360`),
     check(
       'tokens_sight_range',
       sql`(${table.sightBright} IS NULL AND ${table.sightDim} IS NULL) OR (${table.sightBright} IS NOT NULL AND ${table.sightDim} IS NOT NULL AND ${table.sightBright} BETWEEN 0 AND 100 AND ${table.sightDim} BETWEEN 0 AND 100)`,
@@ -133,9 +141,10 @@ export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'fl
  *  `token:update` never sends. */
 export type TokenStylePo = TokenLookPo & Pick<TokenPo, 'defeated' | 'lightLit'>;
 export type TokenSightPo = Pick<TokenPo, 'sightBright' | 'sightDim'>;
-export type TokenLightPo = Pick<TokenPo, 'lightBright' | 'lightDim' | 'lightColor'>;
+export type TokenLightPo = Pick<TokenPo, 'lightBright' | 'lightDim' | 'lightColor' | 'lightAngle'>;
 /** What `token:update` saves; an absent look field keeps what the token has. */
 export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width' | 'height'> &
   Partial<TokenLookPo> &
   Partial<TokenSightPo> &
-  Partial<TokenLightPo>;
+  Partial<TokenLightPo> &
+  Partial<Pick<TokenPo, 'sightAngle'>>;

@@ -89,7 +89,7 @@ describe('play room: the lights tool', () => {
 
     await waitFor(() =>
       expect(deps.boardCommands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-        { lights: [{ x: 5.5, y: 3, bright: 6, dim: 2, color: null }] },
+        { lights: [{ x: 5.5, y: 3, bright: 6, dim: 2, color: null, facing: 0, angle: 360 }] },
       ]),
     );
   });
@@ -105,7 +105,7 @@ describe('play room: the color of the next light', () => {
 
     await waitFor(() =>
       expect(deps.boardCommands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-        { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4, color: 'infernal' }] },
+        { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4, color: 'infernal', facing: 0, angle: 360 }] },
       ]),
     );
     expect(deps.lightColorStorage.values.get('lorkarium.lightColor')).toBe('infernal');
@@ -167,7 +167,7 @@ describe('play room: editing map lights', () => {
 
     await waitFor(() =>
       expect(deps.boardCommands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-        { lights: [{ x: 12, y: 8, bright: 2, dim: 6, color: null }] },
+        { lights: [{ x: 12, y: 8, bright: 2, dim: 6, color: null, facing: 0, angle: 360 }] },
       ]),
     );
   });
@@ -217,6 +217,38 @@ describe('play room: editing map lights', () => {
           changes: [
             { lightId: CORRIDOR_TORCH_ID, color: 'fire', expect: { color: 'moon' } },
             { lightId: BRAZIER_ID, color: null, expect: { color: 'moon' } },
+          ],
+        },
+      ]),
+    );
+  });
+
+  it('"60" in "Abertura (°)" with both picked sends one setLightCones on leaving, and Ctrl+Z sends them back', async () => {
+    const deps = await openRoomWith(testDependencies(), false, [corridorTorch(), brazier()]);
+    await userEvent.keyboard('l');
+    pick(deps, CORRIDOR_TORCH_ID, false);
+    pick(deps, BRAZIER_ID, true);
+    const field = screen.getByLabelText('Abertura (°)');
+
+    await userEvent.clear(field);
+    await userEvent.type(field, '60');
+    await userEvent.tab();
+    await waitFor(() => expect(deps.boardCommands.sentAs('setLightCones')).toHaveLength(1));
+    screen.getByRole('application').focus();
+    await userEvent.keyboard('{Control>}z{/Control}');
+
+    await waitFor(() =>
+      expect(deps.boardCommands.sentAs('setLightCones').map(({ fields }) => fields)).toEqual([
+        {
+          changes: [
+            { lightId: CORRIDOR_TORCH_ID, facing: 0, angle: 60, expect: { facing: 0, angle: 360 } },
+            { lightId: BRAZIER_ID, facing: 0, angle: 60, expect: { facing: 0, angle: 360 } },
+          ],
+        },
+        {
+          changes: [
+            { lightId: CORRIDOR_TORCH_ID, facing: 0, angle: 360, expect: { facing: 0, angle: 60 } },
+            { lightId: BRAZIER_ID, facing: 0, angle: 360, expect: { facing: 0, angle: 60 } },
           ],
         },
       ]),
@@ -307,5 +339,49 @@ describe('play room: lighting and putting out map lights', () => {
       ]),
     );
     expect(deps.boardCommands.sentAs('setLightsLit')).toHaveLength(1);
+  });
+});
+
+describe('play room: aiming a spotlight', () => {
+  it('Ana picks the spotlight of 60°, the handle aims it at 180 in one setLightCones, and Ctrl+Z points it back', async () => {
+    const deps = await openRoomWith(testDependencies(), false, [
+      corridorTorch({ facing: 0, angle: 60 }),
+    ]);
+    await userEvent.keyboard('l');
+    pick(deps, CORRIDOR_TORCH_ID, false);
+
+    act(() =>
+      deps.boardRenderers
+        .latest()
+        .emit({ kind: 'lightAimed', lightId: CORRIDOR_TORCH_ID, facing: 180 }),
+    );
+    await waitFor(() => expect(deps.boardCommands.sentAs('setLightCones')).toHaveLength(1));
+    screen.getByRole('application').focus();
+    await userEvent.keyboard('{Control>}z{/Control}');
+
+    await waitFor(() =>
+      expect(deps.boardCommands.sentAs('setLightCones').map(({ fields }) => fields)).toEqual([
+        {
+          changes: [
+            {
+              lightId: CORRIDOR_TORCH_ID,
+              facing: 180,
+              angle: 60,
+              expect: { facing: 0, angle: 60 },
+            },
+          ],
+        },
+        {
+          changes: [
+            {
+              lightId: CORRIDOR_TORCH_ID,
+              facing: 0,
+              angle: 60,
+              expect: { facing: 180, angle: 60 },
+            },
+          ],
+        },
+      ]),
+    );
   });
 });

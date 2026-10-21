@@ -362,7 +362,7 @@ describe('table edit store', () => {
     });
 
     it('undoing a placed light deletes it, expecting it where it was placed', async () => {
-      const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: null };
+      const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: null, facing: 0, angle: 360 };
       edits.getState().record([{ kind: 'lightsAdded', lights: [{ id: NEW_WALL, placement }] }]);
 
       await edits.getState().undo(context());
@@ -374,7 +374,15 @@ describe('table edit store', () => {
     });
 
     it('redoing a placed arcane light places it again with its color and the new id replaces the old one', async () => {
-      const placement = { x: 5.5, y: 3, bright: 4, dim: 4, color: 'arcane' as const };
+      const placement = {
+        x: 5.5,
+        y: 3,
+        bright: 4,
+        dim: 4,
+        color: 'arcane' as const,
+        facing: 0,
+        angle: 360,
+      };
       edits.getState().record([{ kind: 'lightsRemoved', lights: [{ id: NEW_WALL, placement }] }]);
       commands.answerWith({ ok: true, version: 9, createdIds: [NEW_AREA] });
 
@@ -428,6 +436,39 @@ describe('table edit store', () => {
       expect(commands.sentAs('setLightColors')[0]?.fields).toEqual({
         changes: [{ lightId: NEW_WALL, color: null, expect: { color: 'moon' } }],
       });
+    });
+
+    it('undoing an aim sends the old cone back, expecting the new one', async () => {
+      edits.getState().record([
+        {
+          kind: 'lightConesChanged',
+          changes: [
+            { lightId: NEW_WALL, from: { facing: 0, angle: 360 }, to: { facing: 90, angle: 60 } },
+          ],
+        },
+      ]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('setLightCones')[0]?.fields).toEqual({
+        changes: [{ lightId: NEW_WALL, facing: 0, angle: 360, expect: { facing: 90, angle: 60 } }],
+      });
+    });
+
+    it('a cone undo refused with stale_undo drops the entry', async () => {
+      edits.getState().record([
+        {
+          kind: 'lightConesChanged',
+          changes: [
+            { lightId: NEW_WALL, from: { facing: 0, angle: 360 }, to: { facing: 90, angle: 60 } },
+          ],
+        },
+      ]);
+      commands.answerWith({ ok: false, failure: 'stale_undo' });
+
+      await edits.getState().undo(context());
+
+      expect(edits.getState().history).toEqual({ past: [], future: [] });
     });
 
     it('a color undo refused with stale_undo drops the entry', async () => {

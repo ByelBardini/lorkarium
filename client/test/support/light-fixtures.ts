@@ -15,6 +15,8 @@ export function corridorTorch(overrides: Partial<LightDto> = {}): LightDto {
     dim: 4,
     lit: true,
     color: null,
+    facing: 0,
+    angle: 360,
     ...overrides,
   };
 }

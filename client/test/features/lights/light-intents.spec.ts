@@ -44,7 +44,7 @@ describe('routeLightIntent', () => {
       ),
     ).toBe(true);
     expect(commands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-      { lights: [{ x: 5.5, y: 3, bright: 6, dim: 2, color: null }] },
+      { lights: [{ x: 5.5, y: 3, bright: 6, dim: 2, color: null, facing: 0, angle: 360 }] },
     ]);
   });
 
@@ -57,7 +57,7 @@ describe('routeLightIntent', () => {
     );
 
     expect(commands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
-      { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4, color: 'infernal' }] },
+      { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4, color: 'infernal', facing: 0, angle: 360 }] },
     ]);
   });
 

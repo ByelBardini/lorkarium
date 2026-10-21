@@ -11,11 +11,13 @@ export type LightToolDeps = Readonly<{
   recordEdit: (entry: EditEntry) => void;
 }>;
 
-/** How the light is placed: the remembered reach and color, and whether the table is read only
- *  right now. */
+/** How the light is placed: the remembered reach, color and opening, and whether the table is
+ *  read only right now. */
 export type LightToolContext = Readonly<{
   reach: LightReach;
   color: LightColor;
+  /** How wide it opens, in degrees; a new light looks right (facing 0). */
+  angle: number;
   readOnly: boolean;
   say: (notice: string) => void;
 }>;
@@ -32,7 +34,14 @@ export async function sendLight(
   context: LightToolContext,
 ): Promise<void> {
   if (context.readOnly) return;
-  const placement = { x: point.x, y: point.y, ...context.reach, color: context.color };
+  const placement = {
+    x: point.x,
+    y: point.y,
+    ...context.reach,
+    color: context.color,
+    facing: 0,
+    angle: context.angle,
+  };
   const result = await deps.commands.createLights(deps.campaignId, [placement]);
   if (!result.ok) return context.say(deps.describeRefusal(result.failure));
   const [id] = result.createdIds ?? [];

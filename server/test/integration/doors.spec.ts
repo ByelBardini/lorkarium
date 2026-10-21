@@ -227,3 +227,108 @@ describe('doors lit by a torch over Socket.IO', () => {
     expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
   });
 });
+
+describe('doors and the cone of sight over Socket.IO', () => {
+  const live = useTokenTable();
+  // Lyra stands at (5, 5), center (5.5, 5.5), looking right; a door runs down x = 3, behind her.
+  const BEHIND = { ...DOOR, x: 3, y: 4 };
+  const AT_HER_BACK = { ...DOOR, x: 4, y: 4 };
+
+  async function darkVharnWith(door: object, lyra: object): Promise<string> {
+    const ana = await live.atTable(live.ana, live.vharn);
+    await send(ana, 'scene:configure', { ...envelope(live.vharn.id), ...GRID, vision: 'dark' });
+    const place = { col: 5, row: 5, ...lyra };
+    await send(ana, 'token:create', tokenCommandFor(live.vharn, live.bia.id, place));
+    const ack = await send(ana, 'wall:createMany', { ...envelope(live.vharn.id), walls: [door] });
+    const [doorId] = (ack as { createdIds: string[] }).createdIds;
+    if (!doorId) throw new Error('the door was not created');
+    return doorId;
+  }
+
+  function openOn(wallId: string): object {
+    return { ...envelope(live.vharn.id), wallId, state: 'open' };
+  }
+
+  const NARROW_LYRA = { sight: { bright: 6, dim: 0 }, sightAngle: 90 };
+
+  it('Bia opening the door behind Lyra (90°, looking right) is FORBIDDEN', async () => {
+    const doorId = await darkVharnWith(BEHIND, NARROW_LYRA);
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    const ack = await send(bia, 'wall:setDoor', openOn(doorId));
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+    await silence();
+    expect(ana.events.map(({ name }) => name)).not.toContain('wall:doorChanged');
+  });
+
+  it('once Bia turns Lyra around, opening the door reaches Ana and Caio', async () => {
+    const doorId = await darkVharnWith(BEHIND, NARROW_LYRA);
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const caio = recordEventsOf(await live.atTable(live.caio, live.vharn));
+    const bia = await live.atTable(live.bia, live.vharn);
+    const [lyra] = (await synced(bia, live.vharn)).tokens;
+    const faces = [{ tokenId: lyra?.id, facing: 180 }];
+    await send(bia, 'token:faceMany', { ...envelope(live.vharn.id), faces });
+
+    expect(await send(bia, 'wall:setDoor', openOn(doorId))).toMatchObject({ ok: true });
+    for (const recorder of [ana, caio]) {
+      expect(await eventPayload(recorder, 'wall:doorChanged')).toMatchObject({ wallId: doorId });
+    }
+  });
+
+  it('a door right at the back of Lyra is felt by the ring and opens', async () => {
+    const doorId = await darkVharnWith(AT_HER_BACK, NARROW_LYRA);
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    expect(await send(bia, 'wall:setDoor', openOn(doorId))).toMatchObject({ ok: true });
+  });
+
+  it('the lantern of Bram aimed away leaves the door dark for the blind Lyra; aimed at it, it opens', async () => {
+    const doorId = await darkVharnWith(BEHIND, {});
+    const lantern = { light: { bright: 6, dim: 0, angle: 60 }, name: 'Bram', col: 6, row: 5 };
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    await send(ana.client, 'token:create', tokenCommandFor(live.vharn, live.caio.id, lantern));
+    const bramId = (await synced(ana.client, live.vharn)).tokens.find(
+      ({ name }) => name === 'Bram',
+    )?.id;
+    const bia = await live.atTable(live.bia, live.vharn);
+    const caio = await live.atTable(live.caio, live.vharn);
+
+    const away = await send(bia, 'wall:setDoor', openOn(doorId));
+    const faces = [{ tokenId: bramId, facing: 180 }];
+    await send(caio, 'token:faceMany', { ...envelope(live.vharn.id), faces });
+    const aimed = await send(bia, 'wall:setDoor', {
+      ...openOn(doorId),
+      actionId: crypto.randomUUID(),
+    });
+
+    expect(away).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+    expect(aimed).toMatchObject({ ok: true });
+  });
+
+  it('a spotlight of the map aimed away leaves the door dark for the blind Lyra; aimed at it, it opens', async () => {
+    const doorId = await darkVharnWith(BEHIND, {});
+    const ana = await live.atTable(live.ana, live.vharn);
+    // At (6.5, 5.5), right of Lyra: facing 0 lights the far side, facing 180 the door at x = 3.
+    const spotlight = { x: 6.5, y: 5.5, bright: 6, dim: 0, facing: 0, angle: 60 };
+    const created = await send(ana, 'light:createMany', {
+      ...envelope(live.vharn.id),
+      lights: [spotlight],
+    });
+    const [lightId] = (created as { createdIds: string[] }).createdIds;
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    const away = await send(bia, 'wall:setDoor', openOn(doorId));
+    const changes = [{ lightId, facing: 180, angle: 60 }];
+    await send(ana, 'light:setConeMany', { ...envelope(live.vharn.id), changes });
+    const aimed = await send(bia, 'wall:setDoor', {
+      ...openOn(doorId),
+      actionId: crypto.randomUUID(),
+    });
+
+    expect(away).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+    expect(aimed).toMatchObject({ ok: true });
+  });
+});

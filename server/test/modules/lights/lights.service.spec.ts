@@ -73,7 +73,19 @@ describe('LightsService', () => {
         campaignId: VHARN_ID,
         version: 5,
         at: NOW.toISOString(),
-        lights: [{ id: 'light-4', x: 5.5, y: 3, bright: 4, dim: 4, lit: true, color: null }],
+        lights: [
+          {
+            id: 'light-4',
+            x: 5.5,
+            y: 3,
+            bright: 4,
+            dim: 4,
+            lit: true,
+            color: null,
+            facing: 0,
+            angle: 360,
+          },
+        ],
       });
     });
 
@@ -278,6 +290,66 @@ describe('LightsService', () => {
 
       await expect(remove).rejects.toMatchObject({ code: 'STALE_UNDO' });
       expect(lightOf(CORRIDOR_TORCH_ID)?.id).toBe(CORRIDOR_TORCH_ID);
+    });
+  });
+
+  describe('setConeMany', () => {
+    it('Ana aiming two lights locks, saves only the cones once, bumps and then publishes without expect', async () => {
+      const version = await service.setConeMany(ANA_ID, VHARN_ID, {
+        changes: [
+          { lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60, expect: { facing: 0, angle: 360 } },
+          { lightId: BRAZIER_ID, facing: 180, angle: 90 },
+        ],
+      });
+
+      expect(version).toBe(5);
+      expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+      expect(lightOf(CORRIDOR_TORCH_ID)).toMatchObject({ facing: 90, angle: 60, x: '5.00' });
+      expect(publisher.lightConeChanges).toEqual([
+        {
+          campaignId: VHARN_ID,
+          version: 5,
+          at: NOW.toISOString(),
+          changes: [
+            { lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60 },
+            { lightId: BRAZIER_ID, facing: 180, angle: 90 },
+          ],
+        },
+      ]);
+    });
+
+    it('Bia (player) aiming is FORBIDDEN before the lock and nothing is saved', async () => {
+      const change = service.setConeMany(BIA_ID, VHARN_ID, {
+        changes: [{ lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60 }],
+      });
+
+      await expect(change).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(scenes.journal).toEqual([]);
+    });
+
+    it('the second of three ids off the scene is LIGHT_NOT_FOUND and none is aimed', async () => {
+      const change = service.setConeMany(ANA_ID, VHARN_ID, {
+        changes: [CORRIDOR_TORCH_ID, QUELM_TORCH_ID, BRAZIER_ID].map((lightId) => ({
+          lightId,
+          facing: 90,
+          angle: 60,
+        })),
+      });
+
+      await expect(change).rejects.toMatchObject({ code: 'LIGHT_NOT_FOUND' });
+      expect([lightOf(CORRIDOR_TORCH_ID)?.angle, lightOf(BRAZIER_ID)?.angle]).toEqual([360, 360]);
+    });
+
+    it('an undo expecting another cone is STALE_UNDO, nothing saved nor published', async () => {
+      const change = service.setConeMany(ANA_ID, VHARN_ID, {
+        changes: [
+          { lightId: CORRIDOR_TORCH_ID, facing: 0, angle: 360, expect: { facing: 90, angle: 60 } },
+        ],
+      });
+
+      await expect(change).rejects.toMatchObject({ code: 'STALE_UNDO' });
+      expect(scenes.journal).not.toContain('save');
+      expect(publisher.lightConeChanges).toEqual([]);
     });
   });
 });

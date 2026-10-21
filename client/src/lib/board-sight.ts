@@ -1,6 +1,7 @@
 import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
 import {
   doorSeenBy,
+  eyeFieldOf,
   eyeOf,
   sightLevel,
   sightRange,
@@ -35,8 +36,8 @@ export type BoardSight = Readonly<{
 export type BoardSightOptions = Readonly<{
   /** The master's "Ver como os selecionados": these tokens are the eyes; `null` = off. */
   previewEyeIds: readonly string[] | null;
-  /** Where each token shows now (this viewer's drag, the move waiting for the server, other
-   *  people's drags): it looks, shines and is seen from there. */
+  /** Where each token shows now and where it looks (this viewer's drag, the move waiting for the
+   *  server, other people's drags, the turn before the ack): it looks, shines and is seen from there. */
   landing?: TokenLanding;
 }>;
 
@@ -98,10 +99,16 @@ function watchersOf(
   return board.tokens.filter(({ canControl }) => canControl).map(({ id }) => id);
 }
 
-function eyeOfToken(token: TokenDto, landing: BoardSightOptions['landing']): Eye {
+/** The eye of a token in the pose where it shows: its darkvision, and its field (the cone of its
+ *  `sightAngle` toward the facing it shows, plus the ring) turning with a turn not yet confirmed.
+ *
+ *  Example: `eyeOfToken(lyra, shownCellsOf({ dragged, preview, drag, facingPreview, tokens }))` */
+export function eyeOfToken(token: TokenDto, landing: BoardSightOptions['landing']): Eye {
   const at = landing?.get(token.id) ?? token;
   const range = token.sight ? sightRange(token.sight.bright, token.sight.dim) : null;
-  return eyeOf(tokenCenter(at, token), range);
+  const footprint = { x: at.col, y: at.row, width: token.width, height: token.height };
+  const field = eyeFieldOf(footprint, at.facing, token.sightAngle);
+  return eyeOf(tokenCenter(at, token), range, field);
 }
 
 function levelsOf(

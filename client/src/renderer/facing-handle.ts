@@ -8,7 +8,8 @@ import { tokenCenterOf, tokenWorldRect } from './token-box';
 export const HANDLE_GAP = 20;
 /** How close (world px) a press must be to take the handle. */
 export const HANDLE_REACH = 10;
-const SHIFT_STEP = 45;
+/** The step Shift snaps a handle to, in degrees. */
+export const FACING_SNAP_STEP = 45;
 
 type HandleTokenView = Pick<TokenView, 'col' | 'row' | 'width' | 'height' | 'facing'>;
 
@@ -101,5 +102,5 @@ export function facingFromDrag(
 ): number {
   const toward = facingToward(tokenCenterOf(view), pointer);
   if (toward === null) return current;
-  return snap ? snapFacing(toward, SHIFT_STEP) : toward;
+  return snap ? snapFacing(toward, FACING_SNAP_STEP) : toward;
 }

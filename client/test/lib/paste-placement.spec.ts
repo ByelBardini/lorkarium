@@ -67,6 +67,7 @@ describe('copiedOf', () => {
         flipX: false,
         flipY: false,
         facing: 0,
+        sightAngle: 360,
         sight: null,
         light: null,
         bars: [
@@ -84,15 +85,15 @@ describe('copiedOf', () => {
   });
 
   it('a copied Lyra with a moon light keeps the color', () => {
-    const light = { bright: 4, dim: 4, color: 'moon' as const };
+    const light = { bright: 4, dim: 4, color: 'moon' as const, angle: 360 };
 
     const [copy] = copiedOf([lyra({ light })], []).tokens;
 
-    expect(copy?.light).toEqual({ bright: 4, dim: 4, color: 'moon' });
+    expect(copy?.light).toEqual({ bright: 4, dim: 4, color: 'moon', angle: 360 });
   });
 
   it('a copied token keeps the light it gives off (and the copy is born lit)', () => {
-    const light = { bright: 4, dim: 4, color: null };
+    const light = { bright: 4, dim: 4, color: null, angle: 360 };
 
     const [copy] = copiedOf([lyra({ light, lightLit: false })], []).tokens;
 
@@ -198,5 +199,14 @@ describe('copiedOf and pastePlacement, areas of effect', () => {
     ];
     const narrow = { widthCells: 10, heightCells: 12 };
     expect(pastePlacement(copiedOf([], [], far), cell(5, 5), narrow)).toBeNull();
+  });
+});
+
+describe('copiedOf, the openings', () => {
+  it('a copy of Lyra keeps her field of view and the beam of her lantern', () => {
+    const light = { bright: 4, dim: 0, color: null, angle: 60 };
+    const [copy] = copiedOf([lyra({ sightAngle: 90, light })], []).tokens;
+
+    expect([copy?.sightAngle, copy?.light?.angle]).toEqual([90, 60]);
   });
 });

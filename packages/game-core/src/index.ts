@@ -82,6 +82,7 @@ export { blockedPassage, legTouchesSegment, tokenCenter, type BlockedPassage } f
 export { REACH_MAX, assertReach } from './reach';
 export {
   LIGHT_RANGE_MAX,
+  lightConeOf,
   lightFits,
   lightRange,
   sceneLight,
@@ -93,6 +94,7 @@ export { SIGHT_ARC_SAMPLES, insidePolygon, lineOfSight, sightArea } from './sigh
 export {
   SIGHT_RANGE_MAX,
   doorSeenBy,
+  eyeFieldOf,
   eyeOf,
   sightLevel,
   sightRange,
@@ -103,3 +105,13 @@ export {
   type SightRange,
   type SightTarget,
 } from './token-sight';
+export { CONE_ANGLE_MAX, coneAngle, coneOf, type Cone, type ConeAngle } from './cone.vo';
+export {
+  AWARENESS_RANGE,
+  distanceToBox,
+  fieldReachAt,
+  insideCone,
+  withinField,
+  type FieldBox,
+  type ViewField,
+} from './view-field';
