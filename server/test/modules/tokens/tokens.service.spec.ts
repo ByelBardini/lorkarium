@@ -289,8 +289,8 @@ describe('TokensService', () => {
 
   it('deleting the last token of Inimigos takes the entry out of token:deleted.combat', async () => {
     await combat.start(VHARN_SCENE_ID, [
-      { name: 'Inimigos', tokenIds: [LYRA_ID] },
-      { name: null, tokenIds: [BRAM_ID] },
+      { name: 'Inimigos', tokenIds: [LYRA_ID], initiative: null },
+      { name: null, tokenIds: [BRAM_ID], initiative: null },
     ]);
 
     await service.delete(ANA_ID, VHARN_ID, { tokenId: LYRA_ID });
@@ -301,7 +301,9 @@ describe('TokensService', () => {
   });
 
   it('deleting one of the two tokens of Inimigos keeps the entry with the other', async () => {
-    await combat.start(VHARN_SCENE_ID, [{ name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID] }]);
+    await combat.start(VHARN_SCENE_ID, [
+      { name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID], initiative: null },
+    ]);
 
     await service.delete(ANA_ID, VHARN_ID, { tokenId: LYRA_ID });
 

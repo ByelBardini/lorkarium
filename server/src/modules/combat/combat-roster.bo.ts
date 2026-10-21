@@ -1,12 +1,22 @@
 import type { RegroupTargetDto } from '@lorkarium/contracts';
-import { nextAfterRemoval, orderCombatants, type TurnState } from '@lorkarium/game-core';
+import {
+  initiative,
+  nextAfterRemoval,
+  orderCombatants,
+  type TurnState,
+} from '@lorkarium/game-core';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import { TokenNotFoundError } from '../tokens/tokens.error';
 import { entryIn, turnOf, type CombatantState, type CombatState } from './combat.bo';
 import { CombatAlreadyActiveError, CombatNotActiveError } from './combat.error';
 
-/** An entry to create: the master's name (or `null`) and its tokens; the initiative starts empty. */
-export type NewEntry = Readonly<{ name: string | null; tokenIds: readonly string[] }>;
+/** An entry to create: the master's name (or `null`), its tokens and the initiative typed while
+ *  preparing (`null` = not rolled yet). */
+export type NewEntry = Readonly<{
+  name: string | null;
+  tokenIds: readonly string[];
+  initiative: number | null;
+}>;
 
 export type EntryLink = Readonly<{ combatantId: string; tokenIds: readonly string[] }>;
 
@@ -43,7 +53,7 @@ export class CombatRosterBo {
       entries.flatMap(({ tokenIds }) => tokenIds),
       sceneTokenIds,
     );
-    return [...entries];
+    return entries.map(withValidInitiative);
   }
 
   /** The entries to create: a token already in the combat stays where it is, and an entry left
@@ -56,13 +66,12 @@ export class CombatRosterBo {
       sceneTokenIds,
     );
     return entries
-      .map(({ name, tokenIds }) => ({
-        name,
-        tokenIds: tokenIds.filter((tokenId) => !holderOf(combat, tokenId)),
-        bornEmpty: tokenIds.length === 0,
+      .map((entry) => ({
+        entry: withValidInitiative(entry),
+        kept: entry.tokenIds.filter((tokenId) => !holderOf(combat, tokenId)),
       }))
-      .filter(({ tokenIds, bornEmpty }) => bornEmpty || tokenIds.length > 0)
-      .map(({ name, tokenIds }) => ({ name, tokenIds }));
+      .filter(({ entry, kept }) => entry.tokenIds.length === 0 || kept.length > 0)
+      .map(({ entry, kept }) => ({ ...entry, tokenIds: kept }));
   }
 
   regroup(
@@ -140,12 +149,16 @@ function splitOff(combat: CombatState, tokenIds: readonly string[]): RosterChang
   for (const tokenId of tokenIds) {
     const holder = holderOf(combat, tokenId);
     if (holder && remaining.get(holder.id) === 1) continue;
-    create.push({ name: null, tokenIds: [tokenId] });
+    create.push({ name: null, tokenIds: [tokenId], initiative: null });
     if (!holder) continue;
     unlink.push(tokenId);
     remaining.set(holder.id, (remaining.get(holder.id) ?? 1) - 1);
   }
   return { ...NOTHING, create, unlink, turn: null };
+}
+
+function withValidInitiative(entry: NewEntry): NewEntry {
+  return { name: entry.name, tokenIds: entry.tokenIds, initiative: initiative(entry.initiative) };
 }
 
 function withRemoved(combat: CombatState, removed: readonly CombatantState[]): RosterChange {

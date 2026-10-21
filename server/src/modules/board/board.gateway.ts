@@ -37,6 +37,7 @@ import {
   regroupTokensCommandDto,
   removeCombatantCommandDto,
   removeConditionCommandDto,
+  setConditionRoundsCommandDto,
   renameCombatantCommandDto,
   reshapeEffectAreasCommandDto,
   setInitiativeCommandDto,
@@ -93,7 +94,7 @@ export type BoardGatewayDeps = Readonly<{
   >;
   tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany'>;
   tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany' | 'resizeMany'>;
-  conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove'>;
+  conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove' | 'setRounds'>;
   combat: Pick<
     CombatService,
     | 'start'
@@ -309,6 +310,10 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     socket.on(
       'condition:remove',
       mutate(removeConditionCommandDto, conditions.remove.bind(conditions)),
+    );
+    socket.on(
+      'condition:setRounds',
+      mutate(setConditionRoundsCommandDto, conditions.setRounds.bind(conditions)),
     );
     socket.on('combat:start', mutate(startCombatCommandDto, combat.start.bind(combat)));
     socket.on('combat:end', mutate(endCombatCommandDto, combat.end.bind(combat)));

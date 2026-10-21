@@ -3,6 +3,7 @@ import type {
   ApplyConditionsCommandDto,
   DefineConditionCommandDto,
   RemoveConditionCommandDto,
+  SetConditionRoundsCommandDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
@@ -29,6 +30,7 @@ export type DefineCondition = Omit<DefineConditionCommandDto, Envelope>;
 export type ApplyCondition = Omit<ApplyConditionCommandDto, Envelope>;
 export type ApplyConditions = Omit<ApplyConditionsCommandDto, Envelope>;
 export type RemoveCondition = Omit<RemoveConditionCommandDto, Envelope>;
+export type SetConditionRounds = Omit<SetConditionRoundsCommandDto, Envelope>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type ConditionWriteDaos = Readonly<{
@@ -37,7 +39,12 @@ export type ConditionWriteDaos = Readonly<{
   combat: Pick<CombatDao, 'findOfScene'>;
   conditions: Pick<
     ConditionsDao,
-    'findDefinitionByName' | 'insertDefinition' | 'findDefinitionInCampaign' | 'apply' | 'remove'
+    | 'findDefinitionByName'
+    | 'insertDefinition'
+    | 'findDefinitionInCampaign'
+    | 'apply'
+    | 'remove'
+    | 'setRounds'
   >;
 }>;
 
@@ -125,6 +132,28 @@ export class ConditionsService {
       tokenId,
       activeConditionId,
     });
+    return saved.version;
+  }
+
+  /** Only the rounds left change: re-applying would stamp the current round and make the
+   *  condition last one round longer. */
+  async setRounds(
+    userId: string,
+    campaignId: string,
+    command: SetConditionRounds,
+  ): Promise<number> {
+    const access = await this.accessOf(userId, campaignId);
+    const saved = await this.inScene(campaignId, async ({ daos, scene }) => {
+      const token = await controlledToken(daos, scene, access, command.tokenId);
+      const rounds = RULES.durationOf(command.rounds);
+      const { activeConditionId } = command;
+      const changed = await daos.conditions.setRounds(token.token.id, activeConditionId, rounds);
+      if (!changed) throw new ConditionNotFoundError(campaignId, activeConditionId);
+      return changed;
+    });
+    const condition = toActiveConditionDto(saved.value);
+    const event = { ...this.base(campaignId, saved.version), tokenId: command.tokenId, condition };
+    this.deps.publisher.conditionApplied(event);
     return saved.version;
   }
 

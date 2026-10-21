@@ -8,8 +8,13 @@ export type CombatantRow = CombatantPo & Readonly<{ tokenIds: readonly string[] 
 /** A combat with its entries, in order of entry (the turn order is the game-core's). */
 export type CombatRow = Readonly<{ combat: CombatPo; combatants: readonly CombatantRow[] }>;
 
-/** An entry to create: the master's name (or `null`) and its tokens; the initiative starts empty. */
-export type NewCombatant = Readonly<{ name: string | null; tokenIds: readonly string[] }>;
+/** An entry to create: the master's name (or `null`), its tokens and its initiative (`null` = not
+ *  rolled yet). */
+export type NewCombatant = Readonly<{
+  name: string | null;
+  tokenIds: readonly string[];
+  initiative: number | null;
+}>;
 
 export type TieOrderChange = Readonly<{ combatantId: string; tieOrder: number }>;
 
@@ -37,7 +42,12 @@ export class CombatDao {
       .from(combatants)
       .where(eq(combatants.combatId, combatId));
     const first = Math.max(-1, ...present.map(({ tieOrder }) => tieOrder)) + 1;
-    const rows = entries.map(({ name }, index) => ({ combatId, name, tieOrder: first + index }));
+    const rows = entries.map(({ name, initiative }, index) => ({
+      combatId,
+      name,
+      initiative,
+      tieOrder: first + index,
+    }));
     const created = await this.db
       .insert(combatants)
       .values(rows)

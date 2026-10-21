@@ -44,7 +44,9 @@ describe('combat commands', () => {
       { name: 'Covil', tokenIds: [] },
     ];
 
-    expect(startCombatCommandDto.parse({ ...BASE, entries }).entries).toEqual(entries);
+    expect(startCombatCommandDto.parse({ ...BASE, entries }).entries).toEqual(
+      entries.map((entry) => ({ ...entry, initiative: null })),
+    );
   });
 
   it('combat:start with no entry is refused', () => {
@@ -106,13 +108,13 @@ describe('combatTurnChangedDto', () => {
 
 describe('combatEntryInputDto', () => {
   it('a named entry with two tokens is accepted', () => {
-    const entry = { name: 'Inimigos', tokenIds: [GOBLIN, OGRO] };
+    const entry = { name: 'Inimigos', tokenIds: [GOBLIN, OGRO], initiative: null };
 
     expect(combatEntryInputDto.parse(entry)).toEqual(entry);
   });
 
   it('an unnamed entry with one token is accepted', () => {
-    const entry = { name: null, tokenIds: [KAEL] };
+    const entry = { name: null, tokenIds: [KAEL], initiative: null };
 
     expect(combatEntryInputDto.parse(entry)).toEqual(entry);
   });
@@ -141,6 +143,42 @@ describe('combatEntryInputDto', () => {
     expect(combatEntryInputDto.safeParse({ name: 'Horda', tokenIds: idsOf(65) }).success).toBe(
       false,
     );
+  });
+});
+
+describe('combatEntryInputDto initiative', () => {
+  it('an entry with initiative 18 keeps it', () => {
+    expect(
+      combatEntryInputDto.parse({ name: null, tokenIds: [KAEL], initiative: 18 }).initiative,
+    ).toBe(18);
+  });
+
+  it('an entry without tokens takes an initiative too', () => {
+    const entry = { name: 'Covil', tokenIds: [], initiative: 20 };
+
+    expect(combatEntryInputDto.parse(entry)).toEqual(entry);
+  });
+
+  it('an entry without initiative comes out with initiative null', () => {
+    expect(combatEntryInputDto.parse({ name: null, tokenIds: [KAEL] }).initiative).toBeNull();
+  });
+
+  it.each([-999, 999])('the initiative %i is accepted', (initiative) => {
+    expect(combatEntryInputDto.parse({ name: null, tokenIds: [KAEL], initiative }).initiative).toBe(
+      initiative,
+    );
+  });
+
+  it.each([1000, 2.5])('the initiative %s is refused, citing the field', (initiative) => {
+    const result = combatEntryInputDto.safeParse({ name: null, tokenIds: [KAEL], initiative });
+
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('initiative');
+  });
+
+  it('combat:addCombatants carries each entry initiative', () => {
+    const entries = [{ name: null, tokenIds: [GOBLIN], initiative: 15 }];
+
+    expect(addCombatantsCommandDto.parse({ ...BASE, entries }).entries).toEqual(entries);
   });
 });
 

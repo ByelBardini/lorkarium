@@ -16,7 +16,7 @@ const STARTED = new Date('2026-10-15T12:00:00Z');
  *
  *  Example: `await combat.start(VHARN_SCENE_ID, soloEntries(LYRA_ID, BRAM_ID))` */
 export function soloEntries(...tokenIds: string[]): NewCombatant[] {
-  return tokenIds.map((tokenId) => ({ name: null, tokenIds: [tokenId] }));
+  return tokenIds.map((tokenId) => ({ name: null, tokenIds: [tokenId], initiative: null }));
 }
 
 /** In-memory combats by scene; writes go to the shared `journal` ('save'). An entry is
@@ -133,9 +133,9 @@ export class CombatDaoFake implements Pick<
   }
 
   private combatantOf(combatId: string, entry: NewCombatant, tieOrder: number): CombatantRow {
-    const { name, tokenIds } = entry;
+    const { name, tokenIds, initiative } = entry;
     const id = `c-${tokenIds[0] ?? name}`;
-    return { id, combatId, name, tokenIds: [...tokenIds], initiative: null, tieOrder };
+    return { id, combatId, name, tokenIds: [...tokenIds], initiative, tieOrder };
   }
 
   private change(combatId: string, update: (row: CombatRow) => CombatRow): void {

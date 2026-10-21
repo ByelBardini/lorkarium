@@ -114,6 +114,67 @@ describe('combat over Socket.IO', () => {
     });
   });
 
+  async function startWith(initiatives: Record<'kael' | 'lyra' | 'ogro', number | null>) {
+    const entries = (['kael', 'ogro', 'lyra'] as const).map((who) => ({
+      name: null,
+      tokenIds: [tokenIds[who]],
+      initiative: initiatives[who],
+    }));
+    await send(master.client, 'combat:start', { ...envelope(vharn.id), entries });
+    return combatStartedDto.parse(await eventPayload(master, 'combat:started')).combat;
+  }
+
+  it('starting with Kael 12, Ogro 18 and Lyra blank: Bia gets the order Ogro, Kael, Lyra with the Ogro on turn', async () => {
+    const biaEvents = recordEventsOf(await atTable(baseUrl, clients, bia, vharn));
+
+    const combat = await startWith({ kael: 12, ogro: 18, lyra: null });
+
+    const seen = combatStartedDto.parse(await eventPayload(biaEvents, 'combat:started')).combat;
+    expect(seen.combatants.map(({ tokenIds, initiative }) => [tokenIds[0], initiative])).toEqual([
+      [tokenIds.ogro, 18],
+      [tokenIds.kael, 12],
+      [tokenIds.lyra, null],
+    ]);
+    expect(seen.currentCombatantId).toBe(combatantOf(combat, tokenIds.ogro));
+  });
+
+  it('the Lobo added with 15 enters between the Ogro and Kael', async () => {
+    await startWith({ kael: 12, ogro: 18, lyra: null });
+    const lobo = await tokenOf('Lobo', []);
+
+    await send(master.client, 'combat:addCombatants', {
+      ...envelope(vharn.id),
+      entries: [{ name: null, tokenIds: [lobo], initiative: 15 }],
+    });
+
+    const order = (await lastCombat(master.client)).combatants.map(({ tokenIds }) => tokenIds[0]);
+    expect(order).toEqual([tokenIds.ogro, lobo, tokenIds.kael, tokenIds.lyra]);
+  });
+
+  it('an entry with initiative 1000 is INVALID_BODY and no combat starts', async () => {
+    const before = master.events.length;
+
+    const ack = await send(master.client, 'combat:start', {
+      ...envelope(vharn.id),
+      entries: [{ name: null, tokenIds: [tokenIds.kael], initiative: 1000 }],
+    });
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'INVALID_BODY' }) });
+    expect(master.events.slice(before)).toEqual([]);
+    expect((await synced(master.client, vharn)).combat).toBeNull();
+  });
+
+  it('after a restart the initiatives typed at the start are kept', async () => {
+    await startWith({ kael: 12, ogro: 18, lyra: null });
+    for (const client of clients.splice(0)) client.close();
+    await app.close();
+    await startApp();
+
+    const after = await lastCombat(await atTable(baseUrl, clients, ana, vharn));
+
+    expect(after.combatants.map(({ initiative }) => initiative)).toEqual([18, 12, null]);
+  });
+
   it('initiatives 14, 18 and −2 reorder the tracker in combat:updated', async () => {
     const combat = await startCombat();
     const set = (tokenId: string, initiative: number) =>
