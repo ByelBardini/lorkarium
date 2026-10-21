@@ -1,102 +1,101 @@
-import type { CombatantDto, TokenDto } from '@lorkarium/contracts';
-import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
+import type { SessionMemberDto, TokenDto } from '@lorkarium/contracts';
+import { ArrowDownIcon, ArrowUpIcon, SparklesIcon } from 'lucide-react';
 import { useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
-import { TokenCard } from '@/features/tokens/token-card';
+import { TokenLine } from '@/features/tokens/token-line';
+import type { TrackerRow } from '@/lib/combat-rows';
 import { cn } from '@/lib/utils';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
-import type { BoardStore } from '@/stores/board-store';
 import { CombatantActionsMenu } from './combatant-actions-menu';
+import { CombatantGroupRow } from './combatant-group-row';
 import { CombatantNameField } from './combatant-name-field';
-import { CombatantTokenRow } from './combatant-token-row';
-import {
-  DEFEATED_ENTRY_SUFFIX,
-  DEFEATED_TOKEN_SUFFIX,
-  entryDefeated,
-  initiativeText,
-} from './combat-view';
-import { ConditionSummary } from './condition-marks';
-import { DefeatedLabel } from './defeated-label';
+import { initiativeText } from './combat-view';
 import { InitiativeField } from './initiative-field';
-import type { EntryChoice } from './token-in-combat-menu';
 
-export type CombatantRowProps = Readonly<{
-  combatant: CombatantDto;
-  /** "Inimigos", "Kael", "Goblin e mais 1", "Fora de vista". */
-  label: string;
-  /** The tokens of the entry this viewer sees whole, by name. */
-  tokens: readonly TokenDto[];
-  /** The other entries, for "Mover para". */
-  others: readonly EntryChoice[];
-  /** The master, or a player who controls every token of the entry: edits the initiative. */
-  canRun: boolean;
-  current: boolean;
-  /** Tied with the one above / below: only then the master gets ↑ / ↓. */
-  tiedAbove: boolean;
-  tiedBelow: boolean;
-  selectedTokenId: string | null;
-  board: StoreApi<BoardStore>;
-  interaction: StoreApi<BoardInteractionStore>;
-  isMaster: boolean;
-  onEditToken: (tokenId: string) => void;
-}>;
+export type CombatantRowProps = TrackerRow &
+  Readonly<{
+    current: boolean;
+    /** A group's members are shown (by default while it is on turn). */
+    open: boolean;
+    onToggle: () => void;
+    selectedTokenId: string | null;
+    members: readonly SessionMemberDto[];
+    interaction: StoreApi<BoardInteractionStore>;
+    isMaster: boolean;
+  }>;
 
-/** One initiative entry of the tracker: the initiative (a gold box on the turn), the label, ↑/↓
- *  within a tie and the master's menu. An unnamed entry of one token reads as that token and opens
- *  its card; a named or grouped one lists its tokens under it, indented.
+/** One initiative entry of the tracker: the initiative box (gold on the turn), then the token
+ *  (face, name, who plays it, first bar, conditions), a foldable group, or the label of an entry
+ *  without token; ↑/↓ within a tie and the master's menu at the end.
  *
- *  Example: `<CombatantRow combatant={entry} label="Inimigos" tokens={goblins} others={[]} canRun current … />` */
+ *  Example: `<CombatantRow {...row} current open={false} onToggle={flip} selectedTokenId={null} members={members} interaction={interaction} isMaster />` */
 export function CombatantRow(props: CombatantRowProps): React.JSX.Element {
-  const { combatant, tokens, current } = props;
-  const solo = combatant.name === null && combatant.tokenIds.length === 1 ? tokens[0] : undefined;
-  return (
-    <li
-      aria-current={current ? 'true' : undefined}
-      className={cn(
-        'border-b border-l-2 border-divider pl-2 last:border-b-0',
-        current ? 'border-l-primary' : 'border-l-transparent',
-      )}
-    >
-      <EntryLine {...props} solo={solo} />
-      {solo && solo.id === props.selectedTokenId && (
-        <TokenCard
-          token={solo}
-          board={props.board}
-          interaction={props.interaction}
-          isMaster={props.isMaster}
-          onEdit={props.onEditToken}
-        />
-      )}
-      {!solo && tokens.length > 0 && <EntryTokens {...props} />}
-    </li>
-  );
-}
-
-function EntryLine(props: CombatantRowProps & Readonly<{ solo: TokenDto | undefined }>) {
-  const { combatant, label, interaction, isMaster } = props;
+  const { combatant, current, interaction, isMaster } = props;
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
   const [renaming, setRenaming] = useState(false);
   const send = interaction.getState().command;
   return (
-    <div className="flex items-center gap-2 py-1.5">
-      <EntryInitiative {...props} disabled={readOnly} />
-      {renaming ? (
-        <CombatantNameField
-          key={combatant.name ?? ''}
-          label={label}
-          disabled={readOnly}
-          onCommit={(name) => void send((c, id) => c.renameCombatant(id, combatant.id, name))}
-          onClose={() => setRenaming(false)}
-        />
-      ) : (
-        <EntryLabel {...props} />
+    <li
+      aria-current={current ? 'true' : undefined}
+      className={cn(
+        'flex items-start gap-2 border-b border-l-2 border-b-divider py-2 pr-1 pl-2 last:border-b-0',
+        current ? 'border-l-primary bg-primary/10' : 'border-l-transparent',
       )}
+    >
+      <EntryInitiative {...props} disabled={readOnly} />
+      <div className="min-w-0 flex-1 pt-0.5">
+        {renaming ? (
+          <CombatantNameField
+            key={combatant.name ?? ''}
+            label={props.label}
+            disabled={readOnly}
+            onCommit={(name) => void send((c, id) => c.renameCombatant(id, combatant.id, name))}
+            onClose={() => setRenaming(false)}
+          />
+        ) : (
+          <EntryBody {...props} />
+        )}
+      </div>
       {isMaster && (
         <MasterActions {...props} disabled={readOnly} onRename={() => setRenaming(true)} />
       )}
-    </div>
+    </li>
   );
+}
+
+function EntryBody(props: CombatantRowProps): React.JSX.Element {
+  const { combatant, tokens, interaction } = props;
+  const solo = soloTokenOf(combatant.name, combatant.tokenIds, tokens);
+  if (solo) {
+    const selected = solo.id === props.selectedTokenId;
+    return (
+      <TokenLine
+        token={solo}
+        members={props.members}
+        selected={selected}
+        onSelect={() => interaction.getState().select(selected ? null : solo.id)}
+      />
+    );
+  }
+  if (tokens.length > 0) return <CombatantGroupRow {...props} />;
+  return (
+    <span className="flex min-h-8 items-center gap-2.5 text-sm font-semibold">
+      {combatant.tokenIds.length === 0 && (
+        <SparklesIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+      )}
+      <span className="truncate">{props.label}</span>
+    </span>
+  );
+}
+
+// An unnamed entry of one token reads as that token.
+function soloTokenOf(
+  name: string | null,
+  tokenIds: readonly string[],
+  seen: readonly TokenDto[],
+): TokenDto | undefined {
+  return name === null && tokenIds.length === 1 ? seen[0] : undefined;
 }
 
 function EntryInitiative(props: CombatantRowProps & Readonly<{ disabled: boolean }>) {
@@ -105,8 +104,8 @@ function EntryInitiative(props: CombatantRowProps & Readonly<{ disabled: boolean
     return (
       <span
         className={cn(
-          'grid h-9 w-14 shrink-0 place-items-center border text-sm tabular-nums',
-          current ? 'border-primary text-primary' : 'border-border',
+          'grid h-9 w-11 shrink-0 place-items-center rounded-md border text-sm font-semibold tabular-nums',
+          current ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
         )}
       >
         {initiativeText(combatant.initiative)}
@@ -123,58 +122,6 @@ function EntryInitiative(props: CombatantRowProps & Readonly<{ disabled: boolean
       disabled={disabled}
       onCommit={(value) => send((c, id) => c.setInitiative(id, combatant.id, value))}
     />
-  );
-}
-
-function EntryLabel(props: CombatantRowProps & Readonly<{ solo: TokenDto | undefined }>) {
-  const { label, solo, tokens, selectedTokenId, interaction } = props;
-  if (!solo) {
-    return (
-      <DefeatedLabel
-        text={label}
-        defeated={entryDefeated(tokens)}
-        suffix={DEFEATED_ENTRY_SUFFIX}
-        className="min-w-0 flex-1 truncate text-sm"
-      />
-    );
-  }
-  const open = solo.id === selectedTokenId;
-  return (
-    <button
-      type="button"
-      aria-expanded={open}
-      onClick={() => interaction.getState().select(open ? null : solo.id)}
-      className="min-w-0 flex-1 truncate text-left text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
-    >
-      <DefeatedLabel
-        text={label}
-        defeated={solo.defeated}
-        suffix={DEFEATED_TOKEN_SUFFIX}
-        className="block truncate"
-      />
-      {!open && <ConditionSummary conditions={solo.conditions} />}
-    </button>
-  );
-}
-
-function EntryTokens(props: CombatantRowProps) {
-  const { combatant, label, tokens, others } = props;
-  return (
-    <ul aria-label={`Tokens de ${label}`} className="flex flex-col pb-1">
-      {tokens.map((token) => (
-        <CombatantTokenRow
-          key={token.id}
-          token={token}
-          alone={combatant.tokenIds.length === 1}
-          others={others}
-          open={token.id === props.selectedTokenId}
-          board={props.board}
-          interaction={props.interaction}
-          isMaster={props.isMaster}
-          onEditToken={props.onEditToken}
-        />
-      ))}
-    </ul>
   );
 }
 

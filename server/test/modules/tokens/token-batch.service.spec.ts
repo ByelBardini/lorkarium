@@ -168,7 +168,9 @@ describe('TokenBatchService', () => {
 
   describe('createMany into the combat', () => {
     async function inimigos(): Promise<void> {
-      await combat.start(VHARN_SCENE_ID, [{ name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID] }]);
+      await combat.start(VHARN_SCENE_ID, [
+        { name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID], initiative: null },
+      ]);
     }
 
     it('a Goblin pasted with the entry of Inimigos joins it, published with the combat in one version', async () => {
@@ -287,8 +289,8 @@ describe('TokenBatchService', () => {
 
     it('deleting every token of Inimigos, on turn, takes it out and passes the turn once to the Covil', async () => {
       const started = await combat.start(VHARN_SCENE_ID, [
-        { name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID] },
-        { name: 'Covil', tokenIds: [] },
+        { name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID], initiative: null },
+        { name: 'Covil', tokenIds: [], initiative: null },
       ]);
       await combat.setTurn(started.combat.id, 1, `c-${LYRA_ID}`);
 
@@ -302,7 +304,9 @@ describe('TokenBatchService', () => {
     });
 
     it('deleting one token of Inimigos keeps the entry with the other one', async () => {
-      await combat.start(VHARN_SCENE_ID, [{ name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID] }]);
+      await combat.start(VHARN_SCENE_ID, [
+        { name: 'Inimigos', tokenIds: [LYRA_ID, BRAM_ID], initiative: null },
+      ]);
 
       await service.deleteMany(ANA_ID, VHARN_ID, { tokenIds: [LYRA_ID] });
 

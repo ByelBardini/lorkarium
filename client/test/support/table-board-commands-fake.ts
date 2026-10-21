@@ -328,6 +328,15 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('removeCondition', campaignId, { tokenId, activeConditionId });
   }
 
+  setConditionRounds(
+    campaignId: string,
+    tokenId: string,
+    activeConditionId: string,
+    rounds: number,
+  ): Promise<BoardCommandResult> {
+    return this.record('setConditionRounds', campaignId, { tokenId, activeConditionId, rounds });
+  }
+
   startCombat(
     campaignId: string,
     entries: readonly CombatEntryInput[],

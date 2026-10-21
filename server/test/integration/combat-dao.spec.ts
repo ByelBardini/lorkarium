@@ -74,9 +74,9 @@ describe('CombatDao on Postgres', () => {
 
   const startVharn = () =>
     combat.start(vharn.sceneId, [
-      { name: 'Inimigos', tokenIds: [goblin, lobo] },
-      { name: null, tokenIds: [kael] },
-      { name: 'Covil', tokenIds: [] },
+      { name: 'Inimigos', tokenIds: [goblin, lobo], initiative: null },
+      { name: null, tokenIds: [kael], initiative: null },
+      { name: 'Covil', tokenIds: [], initiative: null },
     ]);
 
   it('start saves the combat at round 1 and the entries, with their names and tokens, in the order they entered', async () => {
@@ -107,12 +107,16 @@ describe('CombatDao on Postgres', () => {
   });
 
   it('addCombatants appends the entries after the last one and returns the ids it created', async () => {
-    const started = await combat.start(vharn.sceneId, [{ name: null, tokenIds: [kael] }]);
-    await combat.addCombatants(started.combat.id, [{ name: 'Covil', tokenIds: [] }]);
+    const started = await combat.start(vharn.sceneId, [
+      { name: null, tokenIds: [kael], initiative: null },
+    ]);
+    await combat.addCombatants(started.combat.id, [
+      { name: 'Covil', tokenIds: [], initiative: null },
+    ]);
 
     const created = await combat.addCombatants(started.combat.id, [
-      { name: 'Inimigos', tokenIds: [goblin] },
-      { name: 'Armadilha', tokenIds: [] },
+      { name: 'Inimigos', tokenIds: [goblin], initiative: null },
+      { name: 'Armadilha', tokenIds: [], initiative: null },
     ]);
 
     const found = await combat.findOfScene(vharn.sceneId);
@@ -153,7 +157,9 @@ describe('CombatDao on Postgres', () => {
   it('removeCombatants deletes the entries with their links and leaves another combat untouched', async () => {
     const started = await startVharn();
     const quelm = await sceneWith(connection.db, 'QLMX4P9R', ['Ogro']);
-    await combat.start(quelm.sceneId, [{ name: null, tokenIds: [quelm.tokenIds.Ogro ?? ''] }]);
+    await combat.start(quelm.sceneId, [
+      { name: null, tokenIds: [quelm.tokenIds.Ogro ?? ''], initiative: null },
+    ]);
     const enemies = entryNamed(await combat.findOfScene(vharn.sceneId), 'Inimigos');
     const ogro = entryNamed(await combat.findOfScene(quelm.sceneId), null);
 
@@ -221,7 +227,7 @@ describe('CombatDao on Postgres', () => {
     await startVharn();
     const quelm = await sceneWith(connection.db, 'QLMX4P9R', ['Ogro']);
     const ogro = quelm.tokenIds.Ogro ?? '';
-    await combat.start(quelm.sceneId, [{ name: null, tokenIds: [ogro] }]);
+    await combat.start(quelm.sceneId, [{ name: null, tokenIds: [ogro], initiative: null }]);
 
     const found = await combat.findOfScene(quelm.sceneId);
 

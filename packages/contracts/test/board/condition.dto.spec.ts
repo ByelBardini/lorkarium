@@ -5,6 +5,7 @@ import {
   applyConditionsCommandDto,
   conditionsAppliedDto,
   defineConditionCommandDto,
+  setConditionRoundsCommandDto,
 } from '../../src/board/condition.dto';
 
 const BASE = {
@@ -116,5 +117,33 @@ describe('conditionsAppliedDto', () => {
       applied: [{ tokenId: TOKEN_ID, condition }],
     });
     expect(parsed.applied[0]?.condition.name).toBe('Caído');
+  });
+});
+
+describe('setConditionRoundsCommandDto', () => {
+  const command = { ...BASE, tokenId: TOKEN_ID, activeConditionId: CONDITION_ID };
+
+  it.each([0, CONDITION_ROUNDS_MAX])('%i rounds are accepted', (rounds) => {
+    expect(setConditionRoundsCommandDto.parse({ ...command, rounds }).rounds).toBe(rounds);
+  });
+
+  it.each([CONDITION_ROUNDS_MAX + 1, -1, 1.5])('%s rounds are refused', (rounds) => {
+    expect(setConditionRoundsCommandDto.safeParse({ ...command, rounds }).success).toBe(false);
+  });
+
+  it('a forged userId is refused', () => {
+    const forged = { ...command, rounds: 2, userId: KAEL_ID };
+
+    expect(setConditionRoundsCommandDto.safeParse(forged).success).toBe(false);
+  });
+
+  it('an activeConditionId that is not a uuid is refused', () => {
+    const result = setConditionRoundsCommandDto.safeParse({
+      ...command,
+      activeConditionId: 'envenenado',
+      rounds: 2,
+    });
+
+    expect(result.success).toBe(false);
   });
 });

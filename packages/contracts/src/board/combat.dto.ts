@@ -13,14 +13,16 @@ export const COMBATANT_NAME_MAX_LENGTH = 40;
 const initiativeDto = z.number().int().min(-INITIATIVE_MAX).max(INITIATIVE_MAX).nullable();
 const combatantNameDto = z.string().trim().min(1).max(COMBATANT_NAME_MAX_LENGTH);
 
-/** One initiative entry as the master builds it: 0 to 64 tokens acting at once, and a name the
- *  master gave (`null` = the screen names it after its tokens; required with no token).
+/** One initiative entry as the master builds it: 0 to 64 tokens acting at once, a name the
+ *  master gave (`null` = the screen names it after its tokens; required with no token) and the
+ *  initiative typed while preparing (absent = `null`, so an older client stays valid).
  *
- *  Example: `combatEntryInputDto.parse({ name: 'Inimigos', tokenIds: [goblin, wolf] })` */
+ *  Example: `combatEntryInputDto.parse({ name: 'Bandido', tokenIds: [first, second], initiative: 15 })` */
 export const combatEntryInputDto = z
   .strictObject({
     name: combatantNameDto.nullable(),
     tokenIds: z.array(z.uuid()).max(MAX_ENTRY_TOKENS),
+    initiative: initiativeDto.default(null),
   })
   .superRefine((entry, context) => {
     if (entry.tokenIds.length === 0 && entry.name === null) {
@@ -40,7 +42,7 @@ export type CombatEntryInput = z.infer<typeof combatEntryInputDto>;
 
 /** The entries of `combat:start` / `combat:addCombatants`: 1 to 64, a token in at most one.
  *
- *  Example: `combatEntriesDto.parse([{ name: null, tokenIds: [kael] }])` */
+ *  Example: `combatEntriesDto.parse([{ name: null, tokenIds: [kael], initiative: 18 }])` */
 export const combatEntriesDto = z
   .array(combatEntryInputDto)
   .min(1)

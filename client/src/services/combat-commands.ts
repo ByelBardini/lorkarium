@@ -36,6 +36,13 @@ export interface CombatCommands {
     tokenId: string,
     activeConditionId: string,
   ): Promise<BoardCommandResult>;
+  /** Only the rounds left (0 = no limit); the round it was applied in stays. */
+  setConditionRounds(
+    campaignId: string,
+    tokenId: string,
+    activeConditionId: string,
+    rounds: number,
+  ): Promise<BoardCommandResult>;
   startCombat(
     campaignId: string,
     entries: readonly CombatEntryInput[],
@@ -113,6 +120,19 @@ export class RealtimeCombatCommands implements CombatCommands {
     activeConditionId: string,
   ): Promise<BoardCommandResult> {
     return this.send(BOARD_EVENTS.removeCondition, campaignId, { tokenId, activeConditionId });
+  }
+
+  setConditionRounds(
+    campaignId: string,
+    tokenId: string,
+    activeConditionId: string,
+    rounds: number,
+  ): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.setConditionRounds, campaignId, {
+      tokenId,
+      activeConditionId,
+      rounds,
+    });
   }
 
   startCombat(

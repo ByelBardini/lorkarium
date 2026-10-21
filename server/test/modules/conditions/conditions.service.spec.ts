@@ -166,6 +166,81 @@ describe('ConditionsService', () => {
     ).rejects.toMatchObject({ code: 'CONDITION_NOT_FOUND' });
   });
 
+  describe('setRounds', () => {
+    async function poisonedInRound1(): Promise<string> {
+      await combat.start(VHARN_SCENE_ID, soloEntries(LYRA_ID, BRAM_ID));
+      await service.apply(BIA_ID, VHARN_ID, {
+        tokenId: LYRA_ID,
+        conditionId: abencoado,
+        rounds: 3,
+      });
+      await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 2, null);
+      scenes.journal.splice(0);
+      return conditions.active[0]?.id ?? '';
+    }
+
+    it('Bia setting 2 rounds on her Lyra keeps the round it was applied in and publishes condition:applied once', async () => {
+      const activeId = await poisonedInRound1();
+
+      const version = await service.setRounds(BIA_ID, VHARN_ID, {
+        tokenId: LYRA_ID,
+        activeConditionId: activeId,
+        rounds: 2,
+      });
+
+      expect(version).toBe(6);
+      expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+      expect(conditions.active[0]).toMatchObject({ remainingRounds: 2, appliedRound: 1 });
+      expect(publisher.conditionEvents.at(-1)).toEqual({
+        campaignId: VHARN_ID,
+        version: 6,
+        at: NOW.toISOString(),
+        tokenId: LYRA_ID,
+        condition: expect.objectContaining({ id: activeId, remainingRounds: 2 }),
+      });
+    });
+
+    it('0 rounds leaves the condition without limit', async () => {
+      const activeId = await poisonedInRound1();
+
+      await service.setRounds(ANA_ID, VHARN_ID, {
+        tokenId: LYRA_ID,
+        activeConditionId: activeId,
+        rounds: 0,
+      });
+
+      expect(conditions.active[0]?.remainingRounds).toBeNull();
+    });
+
+    it('the condition of another token is CONDITION_NOT_FOUND and nothing is published', async () => {
+      const activeId = await poisonedInRound1();
+      const published = publisher.conditionEvents.length;
+
+      await expect(
+        service.setRounds(ANA_ID, VHARN_ID, {
+          tokenId: BRAM_ID,
+          activeConditionId: activeId,
+          rounds: 2,
+        }),
+      ).rejects.toMatchObject({ code: 'CONDITION_NOT_FOUND' });
+      expect(publisher.conditionEvents).toHaveLength(published);
+    });
+
+    it('Caio, who does not control the Lyra, is FORBIDDEN before anything is saved', async () => {
+      const activeId = await poisonedInRound1();
+
+      await expect(
+        service.setRounds(CAIO_ID, VHARN_ID, {
+          tokenId: LYRA_ID,
+          activeConditionId: activeId,
+          rounds: 2,
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(scenes.journal).not.toContain('save');
+      expect(conditions.active[0]?.remainingRounds).toBe(3);
+    });
+  });
+
   describe('applyMany', () => {
     it('the master applying "Abençoado" to Lyra and Bram saves both in one version and one event', async () => {
       const version = await service.applyMany(ANA_ID, VHARN_ID, {

@@ -34,33 +34,44 @@ function as(userId: string, state: CombatState | null = combat()): CombatRosterB
 const NO_CHANGE = { create: [], link: [], unlink: [], remove: [], turn: null };
 
 describe('CombatRosterBo.start', () => {
-  it('the master starts with the entries as sent', () => {
+  it('the master starts with the entries as sent, each with the initiative typed', () => {
     const entries = [
-      { name: 'Inimigos', tokenIds: ['t-goblin', 't-lobo'] },
-      { name: 'Covil', tokenIds: [] },
+      { name: 'Inimigos', tokenIds: ['t-goblin', 't-lobo'], initiative: 15 },
+      { name: 'Covil', tokenIds: [], initiative: 20 },
+      { name: null, tokenIds: ['t-kael'], initiative: null },
     ];
 
     expect(as(ANA_ID, null).start(entries, SCENE_TOKENS)).toEqual(entries);
   });
 
+  it('an initiative of 2.5 is refused, citing it', () => {
+    const start = () =>
+      as(ANA_ID, null).start([{ name: null, tokenIds: ['t-kael'], initiative: 2.5 }], SCENE_TOKENS);
+
+    expect(start).toThrow(/Initiative 2\.5 is invalid/);
+  });
+
   it('a token outside the scene is TOKEN_NOT_FOUND, citing it', () => {
     const start = () =>
-      as(ANA_ID, null).start([{ name: null, tokenIds: ['t-elsewhere'] }], SCENE_TOKENS);
+      as(ANA_ID, null).start(
+        [{ name: null, tokenIds: ['t-elsewhere'], initiative: null }],
+        SCENE_TOKENS,
+      );
 
     expect(start).toThrow(expect.objectContaining({ code: 'TOKEN_NOT_FOUND' }));
     expect(start).toThrow(/t-elsewhere/);
   });
 
   it('starting with a combat already running is COMBAT_ALREADY_ACTIVE', () => {
-    expect(() => as(ANA_ID).start([{ name: null, tokenIds: ['t-urso'] }], SCENE_TOKENS)).toThrow(
-      expect.objectContaining({ code: 'COMBAT_ALREADY_ACTIVE' }),
-    );
+    expect(() =>
+      as(ANA_ID).start([{ name: null, tokenIds: ['t-urso'], initiative: null }], SCENE_TOKENS),
+    ).toThrow(expect.objectContaining({ code: 'COMBAT_ALREADY_ACTIVE' }));
   });
 
   it('a player starting is FORBIDDEN', () => {
-    expect(() => as(BIA_ID, null).start([{ name: 'Covil', tokenIds: [] }], SCENE_TOKENS)).toThrow(
-      expect.objectContaining({ code: 'FORBIDDEN' }),
-    );
+    expect(() =>
+      as(BIA_ID, null).start([{ name: 'Covil', tokenIds: [], initiative: null }], SCENE_TOKENS),
+    ).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
   });
 });
 
@@ -68,24 +79,27 @@ describe('CombatRosterBo.addCombatants', () => {
   it('Kael, already in the combat, leaves the new entry, and the entry left empty is not created', () => {
     const added = as(ANA_ID).addCombatants(
       [
-        { name: null, tokenIds: ['t-kael'] },
-        { name: 'Feras', tokenIds: ['t-kael', 't-urso'] },
+        { name: null, tokenIds: ['t-kael'], initiative: 9 },
+        { name: 'Feras', tokenIds: ['t-kael', 't-urso'], initiative: 12 },
       ],
       SCENE_TOKENS,
     );
 
-    expect(added).toEqual([{ name: 'Feras', tokenIds: ['t-urso'] }]);
+    expect(added).toEqual([{ name: 'Feras', tokenIds: ['t-urso'], initiative: 12 }]);
   });
 
   it('an entry born without tokens is created', () => {
-    expect(as(ANA_ID).addCombatants([{ name: 'Covil', tokenIds: [] }], SCENE_TOKENS)).toEqual([
-      { name: 'Covil', tokenIds: [] },
-    ]);
+    const covil = { name: 'Covil', tokenIds: [], initiative: 20 };
+
+    expect(as(ANA_ID).addCombatants([covil], SCENE_TOKENS)).toEqual([covil]);
   });
 
   it('a player adding is FORBIDDEN', () => {
     expect(() =>
-      as(CAIO_ID).addCombatants([{ name: null, tokenIds: ['t-urso'] }], SCENE_TOKENS),
+      as(CAIO_ID).addCombatants(
+        [{ name: null, tokenIds: ['t-urso'], initiative: null }],
+        SCENE_TOKENS,
+      ),
     ).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
   });
 });
@@ -170,7 +184,7 @@ describe('CombatRosterBo.regroup each into its own', () => {
 
     expect(change).toEqual({
       ...NO_CHANGE,
-      create: [{ name: null, tokenIds: ['t-gigante'] }],
+      create: [{ name: null, tokenIds: ['t-gigante'], initiative: null }],
       unlink: ['t-gigante'],
     });
   });
@@ -183,7 +197,7 @@ describe('CombatRosterBo.regroup each into its own', () => {
     const change = as(ANA_ID).regroup(['t-goblin', 't-lobo'], { kind: 'own' }, SCENE_TOKENS);
 
     expect(change).toMatchObject({
-      create: [{ name: null, tokenIds: ['t-goblin'] }],
+      create: [{ name: null, tokenIds: ['t-goblin'], initiative: null }],
       unlink: ['t-goblin'],
       remove: [],
     });
@@ -192,7 +206,7 @@ describe('CombatRosterBo.regroup each into its own', () => {
   it('a token out of the combat enters in an entry of its own', () => {
     expect(as(ANA_ID).regroup(['t-urso'], { kind: 'own' }, SCENE_TOKENS)).toEqual({
       ...NO_CHANGE,
-      create: [{ name: null, tokenIds: ['t-urso'] }],
+      create: [{ name: null, tokenIds: ['t-urso'], initiative: null }],
     });
   });
 });

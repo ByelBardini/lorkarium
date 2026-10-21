@@ -14,14 +14,14 @@ import { lyraPo, lyraRow } from '../../support/tokens-factories';
 
 const NOW = new Date('2026-10-15T21:00:00Z');
 const THREE_ALONE: CombatEntryInput[] = [
-  { name: null, tokenIds: ['kael'] },
-  { name: null, tokenIds: ['lyra'] },
-  { name: null, tokenIds: ['ogro'] },
+  { name: null, tokenIds: ['kael'], initiative: null },
+  { name: null, tokenIds: ['lyra'], initiative: null },
+  { name: null, tokenIds: ['ogro'], initiative: null },
 ];
 const GROUPED: CombatEntryInput[] = [
-  { name: 'Inimigos', tokenIds: ['goblin', 'lobo'] },
-  { name: null, tokenIds: ['kael'] },
-  { name: 'Covil', tokenIds: [] },
+  { name: 'Inimigos', tokenIds: ['goblin', 'lobo'], initiative: null },
+  { name: null, tokenIds: ['kael'], initiative: null },
+  { name: 'Covil', tokenIds: [], initiative: null },
 ];
 
 describe('CombatService', () => {
@@ -79,6 +79,37 @@ describe('CombatService', () => {
       name: 'combat:started',
       event: { version: 5, combat: { round: 1, currentCombatantId: 'c-kael' } },
     });
+  });
+
+  it('starting with Kael 12 and the Ogro 18 puts the Ogro on turn, saved before combat:started', async () => {
+    const version = await service.start(ANA_ID, VHARN_ID, {
+      entries: [
+        { name: null, tokenIds: ['kael'], initiative: 12 },
+        { name: null, tokenIds: ['ogro'], initiative: 18 },
+      ],
+    });
+
+    expect(version).toBe(5);
+    expect([...new Set(scenes.journal)]).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+    expect(current()).toBe('c-ogro');
+    const first = publisher.combatEvents[0];
+    if (first?.name !== 'combat:started') throw new Error('expected combat:started');
+    expect(first.event.combat.combatants.map(({ id, initiative }) => [id, initiative])).toEqual([
+      ['c-ogro', 18],
+      ['c-kael', 12],
+    ]);
+  });
+
+  it('adding the Lobo with 15 keeps its initiative in combat:updated', async () => {
+    await started();
+
+    await service.addCombatants(ANA_ID, VHARN_ID, {
+      entries: [{ name: null, tokenIds: ['lobo'], initiative: 15 }],
+    });
+
+    const last = publisher.combatEvents.at(-1);
+    if (last?.name !== 'combat:updated') throw new Error('expected combat:updated');
+    expect(last.event.combat.combatants[0]).toMatchObject({ id: 'c-lobo', initiative: 15 });
   });
 
   it('initiatives 14, 18 and −2 reorder the combat in combat:updated', async () => {
@@ -199,7 +230,7 @@ describe('CombatService', () => {
   it('adding a combatant who is already in adds no one', async () => {
     await started();
     await service.addCombatants(ANA_ID, VHARN_ID, {
-      entries: [{ name: null, tokenIds: ['kael'] }],
+      entries: [{ name: null, tokenIds: ['kael'], initiative: null }],
     });
     expect(combat.rows.get(VHARN_SCENE_ID)?.combatants).toHaveLength(3);
   });

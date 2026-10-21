@@ -19,6 +19,8 @@ export type SegmentFieldProps<T extends string> = Readonly<{
   hint?: string;
   /** The segments share the whole width of the line. */
   fill?: boolean;
+  /** Small segments in a crowded line, the legend only for screen readers. */
+  compact?: boolean;
   className?: string;
 }>;
 
@@ -31,7 +33,7 @@ export function SegmentField<T extends string>(props: SegmentFieldProps<T>): Rea
   const id = useId();
   return (
     <div className={cn('flex flex-col gap-2.5', props.className)}>
-      <span id={`${id}-legend`} className="text-[13px] text-label">
+      <span id={`${id}-legend`} className={props.compact ? 'sr-only' : 'text-[13px] text-label'}>
         {legend}
       </span>
       <RadioGroupPrimitive.Root
@@ -43,10 +45,10 @@ export function SegmentField<T extends string>(props: SegmentFieldProps<T>): Rea
           if (chosen) onChange(chosen.value);
         }}
         orientation="horizontal"
-        className={cn('flex gap-2', !props.fill && 'flex-wrap')}
+        className={cn('flex', props.compact ? 'gap-1' : 'gap-2', !props.fill && 'flex-wrap')}
       >
         {options.map((option) => (
-          <Segment key={option.value} option={option} fill={props.fill} />
+          <Segment key={option.value} option={option} fill={props.fill} compact={props.compact} />
         ))}
       </RadioGroupPrimitive.Root>
       {hint && (
@@ -58,16 +60,21 @@ export function SegmentField<T extends string>(props: SegmentFieldProps<T>): Rea
   );
 }
 
-type SegmentProps<T extends string> = Readonly<{ option: SegmentOption<T>; fill?: boolean }>;
+type SegmentProps<T extends string> = Readonly<{
+  option: SegmentOption<T>;
+  fill?: boolean;
+  compact?: boolean;
+}>;
 
-function Segment<T extends string>({ option, fill }: SegmentProps<T>) {
+function Segment<T extends string>({ option, fill, compact }: SegmentProps<T>) {
   return (
     <RadioGroupPrimitive.Item
       value={option.value}
       disabled={option.disabled}
       className={cn(
         fill && 'min-w-0 flex-1',
-        'inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input px-4 text-sm font-medium text-muted-foreground outline-offset-2 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-muted data-[state=checked]:text-foreground motion-reduce:transition-none',
+        compact ? 'h-7 px-2 text-xs' : 'h-10 px-4 text-sm',
+        'inline-flex items-center justify-center gap-2 rounded-md border border-input font-medium text-muted-foreground outline-offset-2 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-muted data-[state=checked]:text-foreground motion-reduce:transition-none',
       )}
     >
       {option.mark}

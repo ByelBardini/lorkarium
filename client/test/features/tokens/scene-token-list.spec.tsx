@@ -14,7 +14,6 @@ import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
   LYRA_ID,
-  LYRA_PV_ID,
   groupDraggedOver,
   lyra,
   vharnBoard,
@@ -31,7 +30,6 @@ describe('SceneTokenList', () => {
   let presence: StoreApi<TablePresenceStore>;
   let interaction: StoreApi<BoardInteractionStore>;
   let commands: TableBoardCommandsFake;
-  let edited: string[];
 
   beforeEach(() => {
     board = createBoardStore(VHARN.id, () => undefined);
@@ -43,7 +41,6 @@ describe('SceneTokenList', () => {
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });
-    edited = [];
   });
 
   function renderList(tokens = [lyra()], isMaster = true): void {
@@ -54,7 +51,6 @@ describe('SceneTokenList', () => {
         presence={presence}
         interaction={interaction}
         isMaster={isMaster}
-        onEdit={(tokenId) => edited.push(tokenId)}
       />,
     );
   }
@@ -63,16 +59,63 @@ describe('SceneTokenList', () => {
     return screen.getByRole('button', { name: new RegExp(`^${name}`) });
   }
 
-  it('lists the scene by name with who controls each and the first bar', () => {
+  it('lists the scene by side and by name, with who plays each and the first bar', () => {
     const kael = lyra({ id: KAEL_ID, name: 'Kael', controllerIds: [] });
     renderList([lyra(), kael]);
-    const items = within(screen.getByRole('list', { name: 'Na cena' })).getAllByRole('listitem');
-    expect(items.map((item) => within(item).getByRole('button').textContent)).toEqual([
+
+    expect(screen.getByRole('heading', { name: 'Grupo · 2' })).toBeInTheDocument();
+    const grupo = within(screen.getByRole('list', { name: 'Grupo · 2' }));
+    expect(grupo.getAllByRole('button').map((button) => button.textContent)).toEqual([
       expect.stringContaining('Kael'),
       expect.stringContaining('Lyra'),
     ]);
-    expect(row('Lyra')).toHaveTextContent('Bia');
-    expect(row('Lyra')).toHaveTextContent('PV 32 / 45');
+    expect(row('Lyra')).toHaveTextContent('jogado por Bia');
+    expect(row('Kael')).toHaveTextContent('NPC');
+    expect(screen.getByRole('meter', { name: 'PV de Lyra' })).toHaveAttribute(
+      'aria-valuetext',
+      '32 / 45',
+    );
+  });
+
+  it('the sides come as "Grupo", "Inimigos" and "Neutros", each with how many it has', () => {
+    renderList([
+      lyra(),
+      lyra({ id: 'g', name: 'Goblin', side: 'enemy' }),
+      lyra({ id: 'o', name: 'Ogro', side: 'enemy' }),
+      lyra({ id: 't', name: 'Taverneiro', side: 'neutral' }),
+    ]);
+
+    expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual([
+      'Grupo · 1',
+      'Inimigos · 2',
+      'Neutros · 1',
+    ]);
+  });
+
+  it('the same enemy creature is folded in one group ("Bandido ×6"), and opening it lists them', async () => {
+    const bandits = [1, 2, 3, 4, 5, 6].map((n) =>
+      lyra({ id: `b-${n}`, name: `Bandido ${n}`, side: 'enemy' }),
+    );
+    renderList(bandits);
+    const group = screen.getByRole('button', { name: /^Bandido×6/ });
+    expect(group).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(group);
+
+    const members = screen.getByRole('list', { name: 'Tokens de Bandido' });
+    expect(within(members).getAllByRole('listitem')).toHaveLength(6);
+  });
+
+  it('a group holding the selected token opens by itself', () => {
+    const bandits = [1, 2].map((n) => lyra({ id: `b-${n}`, name: `Bandido ${n}`, side: 'enemy' }));
+    renderList(bandits);
+
+    act(() => interaction.getState().select('b-2'));
+
+    expect(screen.getByRole('button', { name: /^Bandido×2/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 
   it('the chest of the Objetos layer and the rug of Fundo are not in the list, and the Goblin is', () => {
@@ -83,7 +126,7 @@ describe('SceneTokenList', () => {
     ]);
 
     const list = screen.getByRole('list', { name: 'Na cena' });
-    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(list).getAllByRole('button')).toHaveLength(1);
     expect(list).toHaveTextContent('Goblin');
   });
 
@@ -110,179 +153,49 @@ describe('SceneTokenList', () => {
     expect(row('Lyra')).toHaveTextContent(lyra().initials);
   });
 
-  it('clicking a row expands its card and selects the token on the board', async () => {
+  it('clicking a row selects the token on the board and marks it; no card opens in the list', async () => {
     renderList();
+
     await userEvent.click(row('Lyra'));
-    expect(row('Lyra')).toHaveAttribute('aria-expanded', 'true');
+
     expect(interaction.getState().selectedTokenIds).toEqual([LYRA_ID]);
-    expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).toHaveTextContent(
-      'Coluna 4, linha 5',
-    );
+    expect(row('Lyra')).toHaveAttribute('aria-pressed', 'true');
+    expect(within(screen.getByRole('list', { name: 'Na cena' })).queryByRole('region')).toBeNull();
   });
 
-  it('the card says where the token looks: "Olha para o leste" at 0, "sul" at 90', () => {
-    renderList([lyra(), lyra({ id: KAEL_ID, name: 'Kael', facing: 90 })]);
-
-    act(() => interaction.getState().select(LYRA_ID));
-    expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).toHaveTextContent(
-      'Olha para o leste',
-    );
-    act(() => interaction.getState().select(KAEL_ID));
-    expect(screen.getByRole('region', { name: 'Cartão de Kael' })).toHaveTextContent(
-      'Olha para o sul',
-    );
-  });
-
-  it('the card says the sides of the token, with a comma for half a cell', () => {
-    renderList([lyra({ width: 2.5, height: 1 })]);
-
-    act(() => interaction.getState().select(LYRA_ID));
-    expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).toHaveTextContent(
-      '2,5 × 1 casas',
-    );
-  });
-
-  it('selecting on the board expands the row', () => {
+  it('clicking the selected row again clears the selection', async () => {
     renderList();
     act(() => interaction.getState().select(LYRA_ID));
-    expect(row('Lyra')).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(row('Lyra'));
+
+    expect(interaction.getState().selectedTokenIds).toEqual([]);
   });
 
-  it('two selected mark both rows, open no card and say "2 selecionados"', () => {
+  it('selecting on the board marks the row', () => {
+    renderList();
+    act(() => interaction.getState().select(LYRA_ID));
+    expect(row('Lyra')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('two selected mark both rows and say "2 selecionados"', () => {
     renderList([lyra(), lyra({ id: KAEL_ID, name: 'Kael' })]);
     act(() => interaction.getState().selectMany([LYRA_ID, KAEL_ID], { additive: false }));
-    const marked = screen.getAllByRole('button', { current: true });
+    const marked = screen.getAllByRole('button', { pressed: true });
     expect(marked.map((button) => button.textContent)).toEqual([
       expect.stringContaining('Kael'),
       expect.stringContaining('Lyra'),
     ]);
-    expect(screen.queryByRole('region', { name: /^Cartão de/ })).toBeNull();
     expect(screen.getByText('2 selecionados')).not.toBeNull();
   });
 
-  it('one selected opens its card and says no count', () => {
+  it('one selected says no count', () => {
     renderList([lyra(), lyra({ id: KAEL_ID, name: 'Kael' })]);
     act(() => interaction.getState().select(LYRA_ID));
-    expect(screen.getByRole('region', { name: 'Cartão de Lyra' })).not.toBeNull();
     expect(screen.queryByText(/selecionados$/)).toBeNull();
   });
 
-  it('the card shows every bar it received; "−7" + Enter sends add −7 and clears the field', async () => {
-    renderList();
-    act(() => interaction.getState().select(LYRA_ID));
-    const field = screen.getByLabelText('PV de Lyra');
-    await userEvent.type(field, '−7{Enter}');
-    expect(commands.sentAs('adjustBar')).toEqual([
-      {
-        name: 'adjustBar',
-        campaignId: VHARN.id,
-        fields: { tokenId: LYRA_ID, barId: LYRA_PV_ID, change: { op: 'add', amount: -7 } },
-      },
-    ]);
-    expect(field).toHaveValue('');
-  });
-
-  it('"12" + Enter sets 12, and the − and + buttons step by one', async () => {
-    renderList();
-    act(() => interaction.getState().select(LYRA_ID));
-    await userEvent.type(screen.getByLabelText('PV de Lyra'), '12{Enter}');
-    await userEvent.click(screen.getByRole('button', { name: 'Tirar 1 de PV de Lyra' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Somar 1 a PV de Lyra' }));
-    expect(commands.sentAs('adjustBar').map(({ fields }) => fields)).toEqual([
-      expect.objectContaining({ change: { op: 'set', value: 12 } }),
-      expect.objectContaining({ change: { op: 'add', amount: -1 } }),
-      expect.objectContaining({ change: { op: 'add', amount: 1 } }),
-    ]);
-  });
-
-  it('a field that is not a number sends nothing and says how to write it', async () => {
-    renderList();
-    act(() => interaction.getState().select(LYRA_ID));
-    await userEvent.type(screen.getByLabelText('PV de Lyra'), '1,5{Enter}');
-    expect(commands.sent).toEqual([]);
-    expect(screen.getByLabelText('PV de Lyra')).toHaveAccessibleDescription(/−7.*\+5.*12/);
-  });
-
-  it('"60" + Enter in Máx. sends the new maximum and clears the field', async () => {
-    renderList();
-    act(() => interaction.getState().select(LYRA_ID));
-    const field = screen.getByLabelText('Máximo de PV de Lyra');
-    await userEvent.type(field, '60{Enter}');
-    expect(commands.sentAs('adjustBar').map(({ fields }) => fields)).toEqual([
-      { tokenId: LYRA_ID, barId: LYRA_PV_ID, change: { op: 'max', value: 60 } },
-    ]);
-    expect(field).toHaveValue('');
-  });
-
-  it.each(['0', '-5', '2,5'])('"%s" in Máx. sends nothing and is marked invalid', async (text) => {
-    renderList();
-    act(() => interaction.getState().select(LYRA_ID));
-    const field = screen.getByLabelText('Máximo de PV de Lyra');
-    await userEvent.type(field, `${text}{Enter}`);
-    expect(commands.sent).toEqual([]);
-    expect(field).toHaveAttribute('aria-invalid', 'true');
-  });
-
-  it('a bar shown as percent reads "71%" in the list and in the card', () => {
-    const [pv, inspiration] = lyra().bars;
-    if (!pv || !inspiration) throw new Error('lyra() lost its bars');
-    renderList([lyra({ bars: [{ ...pv, display: 'percent' }, inspiration] })]);
-    expect(row('Lyra')).toHaveTextContent('PV 71%');
-    act(() => interaction.getState().select(LYRA_ID));
-    const card = screen.getByRole('region', { name: 'Cartão de Lyra' });
-    expect(within(card).getByText('71%')).toBeInTheDocument();
-  });
-
-  it('a negative value reads "−4 / 38" in the error color', () => {
-    const [pv, inspiration] = lyra().bars;
-    if (!pv || !inspiration) throw new Error('lyra() lost its bars');
-    renderList([lyra({ bars: [{ ...pv, current: -4, max: 38 }, inspiration] })]);
-    act(() => interaction.getState().select(LYRA_ID));
-    const card = screen.getByRole('region', { name: 'Cartão de Lyra' });
-    expect(within(card).getByText('−4 / 38')).toHaveClass('text-destructive-text');
-  });
-
-  it.each([
-    [-10, 'negative'],
-    [50, 'over'],
-  ] as const)('%s of 40 grows a %s bar of 25%% from the left', (current, state) => {
-    const [pv, inspiration] = lyra().bars;
-    if (!pv || !inspiration) throw new Error('lyra() lost its bars');
-    renderList([lyra({ bars: [{ ...pv, current, max: 40 }, inspiration] })]);
-    act(() => interaction.getState().select(LYRA_ID));
-    const card = screen.getByRole('region', { name: 'Cartão de Lyra' });
-    const excess = card.querySelector<HTMLElement>(`[data-bar-excess="${state}"]`);
-    expect(excess?.style.width).toBe('25%');
-  });
-
-  it('a redacted token shows only the bars that came, and without canControl it is read only', () => {
-    const redacted = lyra({ canControl: false, bars: lyra().bars.slice(1) });
-    renderList([redacted], false);
-    act(() => interaction.getState().select(LYRA_ID));
-    const card = screen.getByRole('region', { name: 'Cartão de Lyra' });
-    expect(within(card).queryByText('PV')).toBeNull();
-    expect(within(card).getByText('Inspiração')).toBeInTheDocument();
-    expect(within(card).queryByRole('textbox')).toBeNull();
-  });
-
-  it('while reconnecting the fields are disabled', () => {
-    renderList();
-    act(() => {
-      interaction.getState().select(LYRA_ID);
-      interaction.getState().setReadOnly(true);
-    });
-    expect(screen.getByLabelText('PV de Lyra')).toBeDisabled();
-    expect(screen.getByLabelText('Máximo de PV de Lyra')).toBeDisabled();
-  });
-
-  it('the master edits from the card; a player has no "Editar token"', async () => {
-    renderList();
-    act(() => interaction.getState().select(LYRA_ID));
-    await userEvent.click(screen.getByRole('button', { name: 'Editar token' }));
-    expect(edited).toEqual([LYRA_ID]);
-  });
-
-  it('an empty scene tells the master how to add a token, and a player who adds them', () => {
+  it('an empty scene tells the master how to add a token', () => {
     renderList([]);
     expect(screen.getByText('Crie um token pelo + na barra de ferramentas.')).toBeInTheDocument();
   });
@@ -326,11 +239,10 @@ describe('SceneTokenList through the sight of Bia', () => {
         presence={presence}
         interaction={interaction}
         isMaster={false}
-        onEdit={() => undefined}
       />,
     );
 
-    const items = within(screen.getByRole('list', { name: 'Na cena' })).getAllByRole('listitem');
+    const items = within(screen.getByRole('list', { name: 'Na cena' })).getAllByRole('button');
     expect(items.map((item) => item.textContent)).toEqual([expect.stringContaining('Lyra')]);
   });
 });
@@ -372,16 +284,13 @@ describe('SceneTokenList while a torch is dragged', () => {
         presence={presence}
         interaction={interaction}
         isMaster={false}
-        onEdit={() => undefined}
       />,
     );
   });
 
   function listed(): string[] {
     const list = within(screen.getByRole('list', { name: 'Na cena' }));
-    return list
-      .getAllByRole('listitem')
-      .map((item) => within(item).getByRole('button').textContent ?? '');
+    return list.getAllByRole('button').map((button) => button.textContent ?? '');
   }
 
   function dragLyraTo(col: number): void {
@@ -466,16 +375,13 @@ describe('SceneTokenList while Lyra turns', () => {
         presence={presence}
         interaction={interaction}
         isMaster={false}
-        onEdit={() => undefined}
       />,
     );
   });
 
   function listed(): string[] {
     const list = within(screen.getByRole('list', { name: 'Na cena' }));
-    return list
-      .getAllByRole('listitem')
-      .map((item) => within(item).getByRole('button').textContent ?? '');
+    return list.getAllByRole('button').map((button) => button.textContent ?? '');
   }
 
   it('Bia turning Lyra around shows the ogre before the ack, and a refusal hides him again', async () => {

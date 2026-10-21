@@ -6,15 +6,6 @@ import type {
   TokenDto,
 } from '@lorkarium/contracts';
 
-/** The name the start gives the enemies that act together. */
-export const ENEMIES_ENTRY_NAME = 'Inimigos';
-
-/** How "Iniciar combate" groups: the enemies in one entry, but those with an initiative of their own. */
-export type StartGrouping = Readonly<{
-  enemiesTogether: boolean;
-  ownInitiativeIds: readonly string[];
-}>;
-
 /** What an unnamed entry reads when this viewer sees none of its tokens. */
 export const OUT_OF_SIGHT_LABEL = 'Fora de vista';
 
@@ -22,7 +13,7 @@ export const OUT_OF_SIGHT_LABEL = 'Fora de vista';
  *
  *  Example: `commands.addCombatants(campaignId, soloEntriesOf([goblinId, wolfId]))` */
 export function soloEntriesOf(tokenIds: readonly string[]): CombatEntryInput[] {
-  return tokenIds.map((tokenId) => ({ name: null, tokenIds: [tokenId] }));
+  return tokenIds.map((tokenId) => ({ name: null, tokenIds: [tokenId], initiative: null }));
 }
 
 /** The tokens of the entry this viewer sees whole, by name; pass the seen tokens, never
@@ -80,24 +71,4 @@ export function entryOfToken(combat: CombatDto | null, tokenId: string): Combata
  *  Example: `combatCandidatesOf(board.tokens).map(({ name }) => name)` */
 export function combatCandidatesOf(tokens: readonly TokenDto[]): TokenDto[] {
   return tokens.filter(({ layer }) => layer === 'tokens');
-}
-
-/** The entries of "Iniciar combate", in the order of `tokens`: the enemies without an initiative of
- *  their own become "Inimigos" where the first of them was; a group of one is a plain entry; the
- *  rest enter one each. Grouping by side is the screen's shortcut: the server only sees entries.
- *
- *  Example: `startEntriesOf(chosen, { enemiesTogether: true, ownInitiativeIds: [bossId] })` */
-export function startEntriesOf(
-  tokens: readonly TokenDto[],
-  grouping: StartGrouping,
-): CombatEntryInput[] {
-  const grouped = grouping.enemiesTogether
-    ? tokens.filter(({ id, side }) => side === 'enemy' && !grouping.ownInitiativeIds.includes(id))
-    : [];
-  if (grouped.length < 2) return soloEntriesOf(tokens.map(({ id }) => id));
-  const groupedIds = grouped.map(({ id }) => id);
-  return tokens.flatMap(({ id }): CombatEntryInput[] => {
-    if (!groupedIds.includes(id)) return [{ name: null, tokenIds: [id] }];
-    return id === groupedIds[0] ? [{ name: ENEMIES_ENTRY_NAME, tokenIds: groupedIds }] : [];
-  });
 }

@@ -32,14 +32,14 @@ describe('RealtimeCombatCommands', () => {
     ],
     [
       'combat:start',
-      () => commands.startCombat(VHARN.id, [{ name: null, tokenIds: [KAEL] }]),
-      { entries: [{ name: null, tokenIds: [KAEL] }] },
+      () => commands.startCombat(VHARN.id, [{ name: null, tokenIds: [KAEL], initiative: null }]),
+      { entries: [{ name: null, tokenIds: [KAEL], initiative: null }] },
     ],
     ['combat:end', () => commands.endCombat(VHARN.id), {}],
     [
       'combat:addCombatants',
-      () => commands.addCombatants(VHARN.id, [{ name: 'Covil', tokenIds: [] }]),
-      { entries: [{ name: 'Covil', tokenIds: [] }] },
+      () => commands.addCombatants(VHARN.id, [{ name: 'Covil', tokenIds: [], initiative: null }]),
+      { entries: [{ name: 'Covil', tokenIds: [], initiative: null }] },
     ],
     [
       'combat:regroupTokens',
@@ -72,6 +72,11 @@ describe('RealtimeCombatCommands', () => {
       () => commands.applyConditions(VHARN.id, [KAEL], KAEL, 0),
       { tokenIds: [KAEL], conditionId: KAEL, rounds: 0 },
     ],
+    [
+      'condition:setRounds',
+      () => commands.setConditionRounds(VHARN.id, KAEL, LOBO, 3),
+      { tokenId: KAEL, activeConditionId: LOBO, rounds: 3 },
+    ],
   ] as const)('%s goes out with its fields', (event, sendIt, fields) => {
     void sendIt();
     expect(transport.sent).toEqual([
@@ -89,5 +94,20 @@ describe('RealtimeCombatCommands', () => {
     const result = commands.nextTurn(VHARN.id, KAEL);
     await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'combat:nextTurn');
     expect(await result).toEqual({ ok: false, failure });
+  });
+
+  it.each([
+    ['FORBIDDEN', 'forbidden'],
+    ['CONDITION_NOT_FOUND', 'token_not_found'],
+  ])('condition:setRounds refused with %s is %s', async (code, failure) => {
+    const result = commands.setConditionRounds(VHARN.id, KAEL, LOBO, 2);
+    await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'condition:setRounds');
+    expect(await result).toEqual({ ok: false, failure });
+  });
+
+  it('condition:setRounds without an ack is offline', async () => {
+    const result = commands.setConditionRounds(VHARN.id, KAEL, LOBO, 2);
+    await transport.timeOutAck('condition:setRounds');
+    expect(await result).toEqual({ ok: false, failure: 'offline' });
   });
 });

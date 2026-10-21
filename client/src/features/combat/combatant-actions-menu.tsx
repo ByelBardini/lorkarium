@@ -8,7 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoveToEntry, type EntryChoice } from './token-in-combat-menu';
+import type { EntryChoice } from '@/lib/combat-rows';
+import { MoveToEntry } from './token-in-combat-menu';
 
 export type CombatantActionsMenuProps = Readonly<{
   /** Names the trigger: "Mais ações de Inimigos". */

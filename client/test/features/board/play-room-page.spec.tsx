@@ -527,7 +527,7 @@ describe('play room page', () => {
 
     it('picking a row of the tracker selects the token and brings it into view', async () => {
       await renderCombatRoom();
-      await userEvent.click(screen.getByRole('button', { name: 'Lyra' }));
+      await userEvent.click(screen.getByRole('button', { name: /^Lyra/ }));
       expect(
         deps.boardRenderers.latest().lastView?.tokens.find(({ id }) => id === LYRA_ID)?.selected,
       ).toBe(true);

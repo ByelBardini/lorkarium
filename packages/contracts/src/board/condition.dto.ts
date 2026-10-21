@@ -103,6 +103,18 @@ export const removeConditionCommandDto = z.strictObject({
 });
 export type RemoveConditionCommandDto = z.infer<typeof removeConditionCommandDto>;
 
+/** `condition:setRounds` (master or a controller): only the rounds left change (0 = no limit);
+ *  the round it was applied in stays, so it does not last one round longer.
+ *
+ *  Example: `setConditionRoundsCommandDto.parse({ actionId, campaignId, tokenId, activeConditionId, rounds: 2 })` */
+export const setConditionRoundsCommandDto = z.strictObject({
+  ...boardCommandShape,
+  tokenId: z.uuid(),
+  activeConditionId: z.uuid(),
+  rounds: z.number().int().min(0).max(CONDITION_ROUNDS_MAX),
+});
+export type SetConditionRoundsCommandDto = z.infer<typeof setConditionRoundsCommandDto>;
+
 export const conditionDefinedDto = z.strictObject({
   ...boardEventShape,
   definition: conditionDefinitionDto,

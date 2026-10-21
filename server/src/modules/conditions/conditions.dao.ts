@@ -131,6 +131,23 @@ export class ConditionsDao {
     return removed.length > 0;
   }
 
+  /** Only the rounds left change (the applied round stays); `undefined` when the condition is not
+   *  on that token. */
+  async setRounds(
+    tokenId: string,
+    activeConditionId: string,
+    remainingRounds: number | null,
+  ): Promise<ActiveConditionRow | undefined> {
+    const changed = await this.db
+      .update(activeConditions)
+      .set({ remainingRounds })
+      .where(and(eq(activeConditions.tokenId, tokenId), eq(activeConditions.id, activeConditionId)))
+      .returning({ id: activeConditions.id });
+    if (changed.length === 0) return undefined;
+    const [row] = await this.activeRows(eq(activeConditions.id, activeConditionId));
+    return row;
+  }
+
   async listOfTokens(tokenIds: readonly string[]): Promise<ActiveConditionRow[]> {
     if (tokenIds.length === 0) return [];
     return this.activeRows(inArray(activeConditions.tokenId, [...tokenIds]));

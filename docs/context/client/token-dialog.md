@@ -1,6 +1,6 @@
 # Client · diálogo do token ("Novo token" / "Editar token")
 
-O diálogo em que o mestre cria e ajusta um token: a prévia ao lado (que é também o lugar da imagem), as abas "Básico", "Barras" e "Visão e luz", e o rodapé. Só o mestre o abre (o server recusa `token:create`/`update`/`delete` de quem não é); abre pelo "+" da barra de ferramentas (Novo) e pelo "Editar token" do cartão (Editar). O resto dos tokens na sala está em [`tokens.md`](tokens.md). Plano de origem: [`2026-10-19-tela-novo-token.md`](../../plans/2026-10-19-tela-novo-token.md); exemplo de base em `docs/pages/mesa/novo-token/`.
+O diálogo em que o mestre cria e ajusta um token: a prévia ao lado (que é também o lugar da imagem), as abas "Básico", "Barras" e "Visão e luz", e o rodapé. Só o mestre o abre (o server recusa `token:create`/`update`/`delete` de quem não é); abre pelo "+" da barra de ferramentas (Novo) e pelo "Editar token" do detalhe do token no painel (Editar). O resto dos tokens na sala está em [`tokens.md`](tokens.md). Plano de origem: [`2026-10-19-tela-novo-token.md`](../../plans/2026-10-19-tela-novo-token.md); exemplo de base em `docs/pages/mesa/novo-token/`.
 
 ## A casca (`features/tokens/token-dialog.tsx`)
 
@@ -15,7 +15,7 @@ O diálogo em que o mestre cria e ajusta um token: a prévia ao lado (que é tam
 - `TokenPreview({ form, image, onImage, distance })` — `region` "Prévia do token": grade dourada fraca, o disco do tamanho do token (52 px por casa, até 216 px), o brilho da luz quando ligada (`LightGlow`: tão largo quanto a penumbra, até 560 px; ilustração da própria luz, na cor do `lightColor` pelo `lightColorCss`, a Neutra no dourado `rgb(226 199 147)` de antes), o anel na cor do lado (`sideRingVar` de `src/lib/token-side.ts`: aliado `var(--label)`, inimigo `var(--chart-3)`, neutro `var(--chart-2)`, os tons do `RING_COLOR` do canvas), a `TokenFace` (imagem "Imagem escolhida" ou iniciais, "?" sem nome), a 1ª barra (`BarTrack`), o nome ("Sem nome") e o resumo (`previewMetaOf`: "Inimigo · 2 × 2 casas · vê no escuro · com luz").
 - A imagem, como no exemplo: o quadro ("Imagem do token", `group` focável) aceita soltar ("Solta aqui" por cima) e Ctrl+V; embaixo do nome vêm os `ImageSourceButtons` ("Escolher imagem" / "Trocar imagem", a lixeira e "Usar link de imagem", que abre o campo ali mesmo) e a dica "Arraste pro quadro ou cole com Ctrl+V · PNG, JPEG ou WebP até 20 MB". A imagem chega pelo `setImage` funcional: o que foi digitado durante o envio fica.
 - `token-face.tsx` — `TokenFace({ initials, imageAssetId, round, className, alt? })`: a imagem, ou as iniciais sem imagem ou se ela falhar ao carregar. Usada pela prévia e pelo `TokenAvatar` da lista "Na cena".
-- `bar-track.tsx` — `BarTrack({ fill, color })`: o trilho com o preenchimento e o excesso (carmim abaixo de zero, osso acima do máximo); usado pelo `BarLine` do cartão e pela prévia.
+- `bar-track.tsx` — `BarTrack({ fill, color })`: o trilho com o preenchimento e o excesso (carmim abaixo de zero, osso acima do máximo); usado pelo `BarLine` do detalhe do token (`token-dock.tsx`), pelo `BarMeter` das linhas e pela prévia.
 
 ## As abas
 

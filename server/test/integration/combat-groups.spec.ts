@@ -52,8 +52,8 @@ describe('combat with grouped entries over Socket.IO', () => {
 
   async function started(table: Vharn): Promise<CombatDto> {
     const entries: CombatEntryInput[] = [
-      { name: 'Inimigos', tokenIds: [table.goblin, table.lobo] },
-      { name: null, tokenIds: [table.kael] },
+      { name: 'Inimigos', tokenIds: [table.goblin, table.lobo], initiative: null },
+      { name: null, tokenIds: [table.kael], initiative: null },
     ];
     await send(table.ana, 'combat:start', { ...envelope(live.vharn.id), entries });
     return combatStartedDto.parse(await eventPayload(table.bia, 'combat:started')).combat;

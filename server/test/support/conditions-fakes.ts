@@ -24,6 +24,7 @@ export class ConditionsDaoFake implements Pick<
   | 'findDefinitionInCampaign'
   | 'apply'
   | 'remove'
+  | 'setRounds'
   | 'listDefinitions'
   | 'listOfTokens'
   | 'setRemaining'
@@ -105,6 +106,19 @@ export class ConditionsDaoFake implements Pick<
     const before = this.active.length;
     this.active = this.active.filter((a) => !(a.tokenId === tokenId && a.id === activeConditionId));
     return this.active.length < before;
+  }
+
+  async setRounds(
+    tokenId: string,
+    activeConditionId: string,
+    remainingRounds: number | null,
+  ): Promise<ActiveConditionRow | undefined> {
+    this.journal.push('save');
+    const found = this.active.find((a) => a.tokenId === tokenId && a.id === activeConditionId);
+    if (!found) return undefined;
+    const row = { ...found, remainingRounds };
+    this.active = this.active.map((a) => (a === found ? row : a));
+    return row;
   }
 
   async listOfTokens(tokenIds: readonly string[]): Promise<ActiveConditionRow[]> {

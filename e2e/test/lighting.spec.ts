@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { cellCenterOf, holdDragBetweenCells } from './support/board-cells';
 import { BIA } from './support/dev-players';
 import { test } from './support/player-pages';
@@ -9,7 +9,7 @@ import {
   enterFromTheList,
   joinByCodeAndEnter,
 } from './support/tables';
-import { cardOf, openCard, statusOf, chooseController } from './support/token-cards';
+import { cardOf, openCard, statusOf, chooseController, sceneTokensOf } from './support/token-cards';
 
 // Runs in the page (the e2e workspace has no DOM types): decodes the PNG and averages each channel.
 const MEAN_CHANNELS_OF_PNG = `(async () => {
@@ -51,10 +51,6 @@ async function luminanceAt(page: Page, at: Readonly<{ x: number; y: number }>): 
 async function redOverBlueAt(page: Page, at: Readonly<{ x: number; y: number }>): Promise<number> {
   const { r, b } = await meanChannelsAt(page, at);
   return r - b;
-}
-
-function sceneTokensOf(page: Page): Locator {
-  return page.getByRole('list', { name: 'Na cena' }).getByRole('listitem');
 }
 
 async function setVisionDark(admin: Page): Promise<void> {

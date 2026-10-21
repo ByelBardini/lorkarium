@@ -1,4 +1,6 @@
 import {
+  combatStartedDto,
+  combatTurnChangedDto,
   conditionAppliedDto,
   conditionsAppliedDto,
   tokenCreatedDto,
@@ -199,5 +201,118 @@ describe('conditions over Socket.IO', () => {
     });
     const state = await synced(biaClient, vharn);
     expect(state.tokens.flatMap(({ conditions }) => conditions)).toEqual([]);
+  });
+  describe('condition:setRounds', () => {
+    type Poisoned = Readonly<{
+      master: RealtimeClient;
+      biaClient: RealtimeClient;
+      lyraId: string;
+      activeId: string;
+      lyraEntry: string;
+    }>;
+
+    // Lyra alone in the combat, poisoned for 3 in round 1, now in round 2.
+    async function poisonedLyraInRound2(): Promise<Poisoned> {
+      const master = await atTable(baseUrl, clients, ana, vharn);
+      const lyraId = await lyraOfBia(master);
+      const events = recordEventsOf(master);
+      const entries = [{ name: null, tokenIds: [lyraId], initiative: 10 }];
+      await send(master, 'combat:start', { ...envelope(vharn.id), entries });
+      const combat = combatStartedDto.parse(await eventPayload(events, 'combat:started')).combat;
+      const lyraEntry = combat.combatants[0]?.id ?? '';
+      const biaClient = await atTable(baseUrl, clients, bia, vharn);
+      const envenenado = definitionId(await synced(biaClient, vharn), 'Envenenado');
+      const apply = { ...envelope(vharn.id), tokenId: lyraId, conditionId: envenenado, rounds: 3 };
+      await send(biaClient, 'condition:apply', apply);
+      await send(master, 'combat:nextTurn', { ...envelope(vharn.id), fromCombatantId: lyraEntry });
+      const state = await synced(master, vharn);
+      const activeId = state.tokens[0]?.conditions[0]?.id ?? '';
+      return { master, biaClient, lyraId, activeId, lyraEntry };
+    }
+
+    function setRounds(poisoned: Poisoned, rounds: number) {
+      const { lyraId, activeId } = poisoned;
+      return { ...envelope(vharn.id), tokenId: lyraId, activeConditionId: activeId, rounds };
+    }
+
+    it('Bia setting 2 on her Lyra reaches Ana and Caio as condition:applied with 2 rounds', async () => {
+      const poisoned = await poisonedLyraInRound2();
+      const anaEvents = recordEventsOf(poisoned.master);
+      const caioEvents = recordEventsOf(await atTable(baseUrl, clients, caio, vharn));
+
+      const ack = await send(poisoned.biaClient, 'condition:setRounds', setRounds(poisoned, 2));
+
+      expect(ack).toMatchObject({ ok: true });
+      for (const events of [anaEvents, caioEvents]) {
+        const applied = conditionAppliedDto.parse(await eventPayload(events, 'condition:applied'));
+        expect(applied.condition).toMatchObject({ id: poisoned.activeId, remainingRounds: 2 });
+      }
+    });
+
+    it('set to 2 in round 2, the end of the Lyra’s turn in round 2 counts it down to 1', async () => {
+      const poisoned = await poisonedLyraInRound2();
+      await send(poisoned.biaClient, 'condition:setRounds', setRounds(poisoned, 2));
+      const events = recordEventsOf(poisoned.master);
+
+      await send(poisoned.master, 'combat:nextTurn', {
+        ...envelope(vharn.id),
+        fromCombatantId: poisoned.lyraEntry,
+      });
+
+      const turn = combatTurnChangedDto.parse(await eventPayload(events, 'combat:turnChanged'));
+      expect(turn.conditionChanges[0]?.conditions[0]?.remainingRounds).toBe(1);
+    });
+
+    it('Caio, who does not control the Lyra, is FORBIDDEN and nobody gets an event', async () => {
+      const poisoned = await poisonedLyraInRound2();
+      const anaEvents = recordEventsOf(poisoned.master);
+      const caioClient = await atTable(baseUrl, clients, caio, vharn);
+
+      const ack = await send(caioClient, 'condition:setRounds', setRounds(poisoned, 2));
+
+      expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+      await silence();
+      expect(anaEvents.events.map(({ name }) => name)).not.toContain('condition:applied');
+    });
+
+    it('a token of Quelm is TOKEN_NOT_FOUND at Vharn', async () => {
+      const poisoned = await poisonedLyraInRound2();
+      const quelmMaster = await atTable(baseUrl, clients, caio, quelm);
+      const recorder = recordEventsOf(quelmMaster);
+      await send(quelmMaster, 'token:create', {
+        ...envelope(quelm.id),
+        name: 'Ogro',
+        initials: 'OG',
+        side: 'enemy',
+        width: 1,
+        height: 1,
+        col: 1,
+        row: 1,
+        controllerIds: [],
+        bars: [],
+      });
+      const ogro = tokenCreatedDto.parse(await eventPayload(recorder, 'token:created')).token.id;
+
+      const ack = await send(poisoned.master, 'condition:setRounds', {
+        ...setRounds(poisoned, 2),
+        tokenId: ogro,
+      });
+
+      expect(ack).toEqual({
+        ok: false,
+        error: expect.objectContaining({ code: 'TOKEN_NOT_FOUND' }),
+      });
+    });
+
+    it('a forged userId is INVALID_BODY', async () => {
+      const poisoned = await poisonedLyraInRound2();
+
+      const ack = await send(poisoned.biaClient, 'condition:setRounds', {
+        ...setRounds(poisoned, 2),
+        userId: ana.id,
+      });
+
+      expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'INVALID_BODY' }) });
+    });
   });
 });

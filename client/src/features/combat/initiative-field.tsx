@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { parseInitiative } from '@/lib/initiative-text';
 import { cn } from '@/lib/utils';
 import { signedText } from './combat-view';
 
@@ -11,8 +12,6 @@ export type InitiativeFieldProps = Readonly<{
   /** `null` clears the initiative; answers whether the server confirmed it. */
   onCommit: (value: number | null) => Promise<boolean>;
 }>;
-
-const MINUS = '−';
 
 /** "Iniciativa de Kael": a whole number (−999…999) or empty, sent on Enter or when the field
  *  loses the focus; a refusal puts the confirmed value back. Key it by the confirmed value, so a
@@ -53,11 +52,4 @@ export function InitiativeField(props: InitiativeFieldProps): React.JSX.Element 
 
 function shown(value: number | null): string {
   return value === null ? '' : signedText(value);
-}
-
-function parseInitiative(text: string): number | null | 'invalid' {
-  const trimmed = text.trim().replace(MINUS, '-');
-  if (trimmed === '') return null;
-  if (!/^-?\d{1,3}$/.test(trimmed)) return 'invalid';
-  return Number(trimmed);
 }

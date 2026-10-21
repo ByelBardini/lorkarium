@@ -29,6 +29,7 @@ import {
   type ConditionRemovedDto,
   type DefineConditionCommandDto,
   type RemoveConditionCommandDto,
+  type SetConditionRoundsCommandDto,
 } from './condition.dto';
 import { effectAreaDto } from './effect-area.dto';
 import {
@@ -189,6 +190,7 @@ export const BOARD_EVENTS = {
   applyCondition: 'condition:apply',
   applyConditions: 'condition:applyMany',
   removeCondition: 'condition:remove',
+  setConditionRounds: 'condition:setRounds',
   conditionDefined: 'condition:defined',
   conditionApplied: 'condition:applied',
   conditionsApplied: 'condition:appliedMany',
@@ -312,6 +314,7 @@ export type BoardClientEvents = {
   'condition:apply': Command<ApplyConditionCommandDto>;
   'condition:applyMany': Command<ApplyConditionsCommandDto>;
   'condition:remove': Command<RemoveConditionCommandDto>;
+  'condition:setRounds': Command<SetConditionRoundsCommandDto>;
   'combat:start': Command<StartCombatCommandDto>;
   'combat:end': Command<EndCombatCommandDto>;
   'combat:addCombatants': Command<AddCombatantsCommandDto>;
