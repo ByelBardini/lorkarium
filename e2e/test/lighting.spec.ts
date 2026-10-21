@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { cellCenterOf } from './support/board-cells';
+import { cellCenterOf, holdDragBetweenCells } from './support/board-cells';
 import { BIA } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
@@ -207,4 +207,57 @@ test('colored light: an infernal torch tints the floor red for Bia, kept on F5, 
   const litAgain = await cellCenterOf(bia, 11, 6);
   await expect.poll(() => redOverBlueAt(bia, litAgain)).toBeLessThan(0.04);
   expect(await luminanceAt(bia, litAgain)).toBeGreaterThan(0.05);
+});
+
+// The master moves Lyra six cells left, to (4, 6): her torch no longer reaches the ogre at (14, 6).
+async function moveLyraAwayFromTheOgre(admin: Page): Promise<void> {
+  await openCard(admin, 'Lyra');
+  await boardOf(admin).focus();
+  for (let step = 0; step < 6; step += 1) {
+    await admin.keyboard.press('ArrowLeft');
+    await expect(cardOf(admin, 'Lyra')).toContainText(`Coluna ${10 - step}, linha 7`);
+  }
+}
+
+test('torch dragged live: the ogre shows before the drop, to Bia dragging and to Bia watching the master drag', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(240_000);
+  const name = `Mesa da tocha ${Date.now()}`;
+  const admin = await newPlayerPage();
+  const bia = await newPlayerPage();
+  await signIn(admin, adminCredentials());
+  const code = await createTableAndReadCode(admin, name);
+  await signIn(bia, BIA);
+  await joinByCodeAndEnter(bia, code);
+  await enterFromTheList(admin, name);
+
+  await setVisionDark(admin);
+  await createBlindLyra(admin);
+  await createFarOgre(admin);
+  await giveLyraATorch(admin);
+  await moveLyraAwayFromTheOgre(admin);
+  await bia.getByRole('tab', { name: 'Combate' }).click();
+  await expect(sceneTokensOf(bia)).toHaveCount(1);
+
+  // Bia holds Lyra by the ogre: her torch shows him before she drops; Esc puts her back.
+  await holdDragBetweenCells(bia, [4, 6], [10, 6]);
+  await expect(sceneTokensOf(bia)).toContainText(['Lyra', 'Ogro']);
+  await bia.keyboard.press('Escape');
+  await bia.mouse.up();
+  await expect(sceneTokensOf(bia)).toHaveCount(1);
+  await openCard(bia, 'Lyra');
+  await expect(cardOf(bia, 'Lyra')).toContainText('Coluna 5, linha 7');
+
+  // The master holds Lyra by the ogre: on the screen of Bia the floor lights and the ogre shows.
+  const besideOgre = await cellCenterOf(bia, 13, 6);
+  expect(await luminanceAt(bia, besideOgre)).toBeLessThan(0.02);
+  await admin.keyboard.press('v');
+  await holdDragBetweenCells(admin, [4, 6], [10, 6]);
+  await expect.poll(() => luminanceAt(bia, besideOgre)).toBeGreaterThan(0.05);
+  await expect(sceneTokensOf(bia)).toContainText(['Lyra', 'Ogro']);
+  await admin.keyboard.press('Escape');
+  await admin.mouse.up();
+  await expect.poll(() => luminanceAt(bia, besideOgre)).toBeLessThan(0.02);
+  await expect(sceneTokensOf(bia)).toHaveCount(1);
 });
