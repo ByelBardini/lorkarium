@@ -29,7 +29,6 @@ export interface EffectAreaCanvas {
 type AreaPress = Readonly<{
   press: TokenPress;
   effectAreaIds: readonly string[];
-  drawingIds: readonly string[];
   startWorld: Point;
 }>;
 
@@ -44,8 +43,8 @@ const DRAFT_ID = 'draft';
 
 /** The pointer on areas of effect, apart from the PixiJS shell. With the area tool, a press is
  *  where the area is born, the drag shows it with its size and the release reports its shape.
- *  With Selecionar, a press on a pickable area picks it or (from 4 px) drags it with the rest of
- *  the selection. Esc lets go of either.
+ *  With Selecionar, a press on a pickable area picks it or (from 4 px) drags it with the other
+ *  areas selected (the tokens selected follow from the drop). Esc lets go of either.
  *
  *  Example: `const areas = new EffectAreaGestures(areaLayer, onIntent)` */
 export class EffectAreaGestures {
@@ -73,16 +72,13 @@ export class EffectAreaGestures {
     };
   }
 
-  /** A primary press with Selecionar on no token nor drawing: whether an area took it. */
+  /** A primary press with Selecionar on no token: whether an area took it. */
   press(view: BoardView, screen: Point, world: Point): boolean {
     const hit = topEffectAreaAt(view.effectAreas, world);
     if (!hit) return false;
     const others = hit.selected ? selectedAreaIdsOf(view).filter((id) => id !== hit.id) : [];
-    const drawingIds = hit.selected
-      ? view.drawings.filter(({ selected, pickable }) => selected && pickable).map(({ id }) => id)
-      : [];
     const press = pressToken(hit.id, true, screen);
-    this.pressed = { press, effectAreaIds: [hit.id, ...others], drawingIds, startWorld: world };
+    this.pressed = { press, effectAreaIds: [hit.id, ...others], startWorld: world };
     return true;
   }
 
@@ -148,8 +144,9 @@ export class EffectAreaGestures {
     const offset = offsetOf(pressed, world);
     const dx = toHundredth(offset.x / CELL_WORLD_SIZE);
     const dy = toHundredth(offset.y / CELL_WORLD_SIZE);
-    const { drawingIds, effectAreaIds } = pressed;
-    this.emit({ kind: 'drawingsDropped', anchorId, drawingIds, effectAreaIds, dx, dy });
+    // Drawings are never selected with Selecionar (they have their own layer): none goes along.
+    const { effectAreaIds } = pressed;
+    this.emit({ kind: 'drawingsDropped', anchorId, drawingIds: [], effectAreaIds, dx, dy });
     return true;
   }
 }

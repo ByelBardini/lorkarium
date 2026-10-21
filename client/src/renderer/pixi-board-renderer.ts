@@ -90,7 +90,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly background = new PixiSceneBackground(this.textures);
   private readonly tokens = new PixiTokenLayer(
     prefersReducedMotion,
-    this.effectAreas.under(this.drawings.layers),
+    this.effectAreas.under(this.drawings.layer),
     this.textures,
   );
   private readonly gestures = new DrawingGestures(this.drawings, (intent) => this.onIntent(intent));

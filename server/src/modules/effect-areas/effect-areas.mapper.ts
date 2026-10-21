@@ -59,9 +59,9 @@ export function toEffectAreaReshapePo(reshape: EffectAreaShapedDto): EffectAreaR
   return { effectAreaId: reshape.effectAreaId, shape: columnsOf(reshape.shape) };
 }
 
-/** Who may edit a saved area: areas live on the tokens layer. */
+/** Who may edit a saved area: its id and author, for the access rule. */
 export function ownershipOf(row: EffectAreaPo): AuthoredPiece {
-  return { id: row.id, authorId: row.authorId, layer: 'tokens' };
+  return { id: row.id, authorId: row.authorId };
 }
 
 function columnsOf(shape: EffectAreaShapeDto): ShapeColumns {

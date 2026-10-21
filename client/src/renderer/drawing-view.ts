@@ -1,20 +1,17 @@
-import type {
-  DrawingColorDto,
-  DrawingDto,
-  StrokeWidthDto,
-  TokenLayerDto,
-} from '@lorkarium/contracts';
+import type { DrawingColorDto, DrawingDto, StrokeWidthDto } from '@lorkarium/contracts';
 import { hitsDrawing, type DrawingGeometry } from '@/lib/drawing-geometry';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 
-/** A drawing as the canvas shows it. `pickable`: a click or a marquee may take it — on the
- *  active layer, by its author or the master, and not while reconnecting. */
+/** What a press does with the draw tool: start a new stroke, or take the drawings. */
+export type DrawMode = 'draw' | 'select';
+
+/** A drawing as the canvas shows it. `pickable`: a click or a marquee may take it — only with the
+ *  draw tool in Selecionar, by its author or the master, and not while reconnecting. */
 export type DrawingView = Readonly<{
   id: string;
   geometry: DrawingGeometry;
   stroke: DrawingColorDto;
   strokeWidth: StrokeWidthDto;
-  layer: TokenLayerDto;
   pickable: boolean;
   selected: boolean;
   /** The confirmed drawing it came from: the canvas redraws a shape only when this changes. */
@@ -27,25 +24,18 @@ export type DrawingPreview = Readonly<{ drawingId: string; x: number; y: number 
 export type DrawingViewInput = Readonly<{
   drawings: readonly DrawingDto[];
   viewer: Readonly<{ userId: string; isMaster: boolean }>;
-  activeLayer: TokenLayerDto;
+  /** The draw tool in Selecionar: the only time a drawing is taken (tokens are left alone). */
+  picking: boolean;
   selectedDrawingIds: readonly string[];
   drawingPreview: readonly DrawingPreview[];
   readOnly: boolean;
 }>;
 
-// Bottom first: what is drawn later covers it. `toSorted` keeps the list order inside a layer.
-const LAYER_RANK: Readonly<Record<TokenLayerDto, number>> = {
-  background: 0,
-  objects: 1,
-  tokens: 2,
-};
-
 /** Confirmed drawings + local selection and moves → what the canvas draws, in drawing order.
  *
- *  Example: `drawingViewsOf({ drawings, viewer, activeLayer, selectedDrawingIds, drawingPreview, readOnly })` */
+ *  Example: `drawingViewsOf({ drawings, viewer, picking, selectedDrawingIds, drawingPreview, readOnly })` */
 export function drawingViewsOf(input: DrawingViewInput): DrawingView[] {
-  const ordered = input.drawings.toSorted((a, b) => LAYER_RANK[a.layer] - LAYER_RANK[b.layer]);
-  return ordered.map((drawing) => viewOf(drawing, input));
+  return input.drawings.map((drawing) => viewOf(drawing, input));
 }
 
 /** The topmost pickable drawing under a world point, or `null`: the others cannot be taken.
@@ -65,18 +55,14 @@ function viewOf(drawing: DrawingDto, input: DrawingViewInput): DrawingView {
     geometry: { ...geometryOf(drawing), x: at.x, y: at.y },
     stroke: drawing.stroke,
     strokeWidth: drawing.strokeWidth,
-    layer: drawing.layer,
     pickable: mayPick(drawing, input),
     selected: input.selectedDrawingIds.includes(drawing.id),
     source: drawing,
   };
 }
 
-function mayPick(
-  drawing: DrawingDto,
-  { viewer, activeLayer, readOnly }: DrawingViewInput,
-): boolean {
-  if (readOnly || drawing.layer !== activeLayer) return false;
+function mayPick(drawing: DrawingDto, { viewer, picking, readOnly }: DrawingViewInput): boolean {
+  if (readOnly || !picking) return false;
   return viewer.isMaster || drawing.authorId === viewer.userId;
 }
 

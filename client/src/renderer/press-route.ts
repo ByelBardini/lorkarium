@@ -11,12 +11,13 @@ import { tokenMenuTarget } from './marquee';
 import { tokenContains } from './token-box';
 import { doorIconAt, wallTargetAt } from './wall-view';
 
-/** Who takes a primary press, in priority order: the draw and area tools sketch, the walls tool
+/** Who takes a primary press, in priority order: the draw tool sketches (in Selecionar it takes
+ *  the drawing under the press, or starts the marquee), the area tool sketches, the walls tool
  *  sketches (a wall or the eraser box) or erases by its action, the lights tool aims the spotlight
  *  picked by its handle or puts a light (or takes the light under it, `lightId`); with Selecionar the
- *  facing handle, then a resize square, then a token, then a drawing, then an area of effect
- *  (at the bottom of the Tokens layer), then the marquee on the
- *  empty board; any other tool just reports the pointer. */
+ *  facing handle, then a resize square, then a token, then an area of effect (at the bottom of the
+ *  Tokens layer), then the marquee on the empty board — never a drawing; any other tool just
+ *  reports the pointer. */
 export type PressRoute =
   | Readonly<{ kind: 'sketch' }>
   | Readonly<{ kind: 'wallErase'; wallId: string; segmentIndex: number | null }>
@@ -47,7 +48,7 @@ export type HoverRoute = Readonly<{ tokenId: string | null; handle: ResizeHandle
  *  Example: `pressRouteOf(view, world, camera.zoom).kind // 'token'` */
 export function pressRouteOf(view: BoardView, world: Point, zoom: number): PressRoute {
   if (view.tool === 'walls') return wallRouteOf(view, world);
-  if (view.tool === 'draw') return { kind: 'sketch' };
+  if (view.tool === 'draw') return drawRouteOf(view, world);
   if (view.tool === 'area') return { kind: 'areaSketch' };
   if (view.tool === 'lights') return lightRouteOf(view, world, zoom);
   if (view.tool !== 'select') return { kind: 'pointer' };
@@ -59,11 +60,16 @@ export function pressRouteOf(view: BoardView, world: Point, zoom: number): Press
   if (door) return { kind: 'door', wallId: door.wallId };
   const token = topTokenAt(view.tokens, world);
   if (token) return { kind: 'token', token };
-  const drawing = topDrawingAt(view.drawings, world);
-  if (drawing) return { kind: 'drawing', drawing };
   const area = topEffectAreaAt(view.effectAreas, world);
   if (area) return { kind: 'effectArea', area };
   return { kind: 'marquee' };
+}
+
+// Desenhar always starts a new stroke, even over another drawing; Selecionar takes them.
+function drawRouteOf(view: BoardView, world: Point): PressRoute {
+  if (view.drawMode === 'draw') return { kind: 'sketch' };
+  const drawing = topDrawingAt(view.drawings, world);
+  return drawing ? { kind: 'drawing', drawing } : { kind: 'marquee' };
 }
 
 // The handle of the spotlight picked wins over its icon and the board under it.

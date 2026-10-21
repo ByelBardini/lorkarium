@@ -8,6 +8,7 @@ import {
   effectAreasInMarquee,
   tokenMenuTarget,
   marqueeRect,
+  marqueeTargetsOf,
   moveMarquee,
   startMarquee,
   tokensInMarquee,
@@ -123,7 +124,7 @@ describe('drawingsInMarquee', () => {
   const drawings = drawingViewsOf({
     drawings: [square(), path()],
     viewer: { userId: BIA_AT_TABLE.userId, isMaster: false },
-    activeLayer: 'tokens',
+    picking: true,
     selectedDrawingIds: [],
     drawingPreview: [],
     readOnly: false,
@@ -179,5 +180,47 @@ describe('effectAreasInMarquee', () => {
 
   it('only the areas the viewer may pick: Bia does not take the master’s', () => {
     expect(effectAreasInMarquee(rectOf(0, 0, 20, 12), areaViews(false))).toEqual([BIA_CONE_ID]);
+  });
+});
+
+describe('marqueeTargetsOf', () => {
+  const everything = { x: 0, y: 0, width: 20 * CELL, height: 12 * CELL };
+  const asMaster = { userId: 'ana', isMaster: true };
+
+  function targetsWith(tool: 'select' | 'draw') {
+    const drawings = drawingViewsOf({
+      drawings: [square()],
+      viewer: asMaster,
+      picking: tool === 'draw',
+      selectedDrawingIds: [],
+      drawingPreview: [],
+      readOnly: false,
+    });
+    const effectAreas = effectAreaViewsOf({
+      effectAreas: [biaCone()],
+      viewer: asMaster,
+      activeLayer: 'tokens',
+      selectedEffectAreaIds: [],
+      effectAreaPreview: {},
+      readOnly: false,
+      scene: VHARN_SCENE,
+    });
+    return marqueeTargetsOf(everything, { tool, tokens: [tokenView()], drawings, effectAreas });
+  }
+
+  it('with Selecionar it takes the token and the area under it, never the drawing', () => {
+    expect(targetsWith('select')).toEqual({
+      tokenIds: ['lyra'],
+      drawingIds: [],
+      effectAreaIds: [BIA_CONE_ID],
+    });
+  });
+
+  it('with the draw tool in Selecionar it takes only the drawing, not the token nor the area', () => {
+    expect(targetsWith('draw')).toEqual({
+      tokenIds: [],
+      drawingIds: [SQUARE_ID],
+      effectAreaIds: [],
+    });
   });
 });

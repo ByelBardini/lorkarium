@@ -1,0 +1,1 @@
+ALTER TABLE "drawings" DROP COLUMN "layer";

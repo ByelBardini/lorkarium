@@ -45,8 +45,8 @@ export function copiedOf(
  *
  *  Example: `commands.createDrawings(campaignId, [shapeOfDrawing(drawing)])` */
 export function shapeOfDrawing(drawing: DrawingDto): DrawingShapeInput {
-  const { x, y, width, height, stroke, strokeWidth, layer } = drawing;
-  const style = { x, y, width, height, stroke, strokeWidth, layer };
+  const { x, y, width, height, stroke, strokeWidth } = drawing;
+  const style = { x, y, width, height, stroke, strokeWidth };
   if (drawing.kind === 'freehand') return { kind: 'freehand', ...style, points: drawing.points };
   return { kind: drawing.kind, ...style, fill: drawing.fill };
 }

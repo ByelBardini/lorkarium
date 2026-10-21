@@ -3,12 +3,10 @@ import type { BoardIntentListener } from './board-renderer';
 import type { BoardView } from './board-view';
 import type { Point } from './camera';
 import {
-  drawingsInMarquee,
-  effectAreasInMarquee,
   marqueeRect,
+  marqueeTargetsOf,
   moveMarquee,
   startMarquee,
-  tokensInMarquee,
   type Marquee,
   type WorldRect,
 } from './marquee';
@@ -17,7 +15,8 @@ import {
 const GOLD_COLOR = 0xc5a46d;
 const DASH_SCREEN_PX = 6;
 
-/** The selection rectangle of a press on the empty board with Selecionar: it grows with the
+/** The selection rectangle of a press on the empty board with Selecionar (or the draw tool in
+ *  Selecionar, for drawings only): it grows with the
  *  pointer (from 4 px) and, on release, reports what it touches; Shift adds to the selection. */
 export class PixiMarquee {
   readonly shape = new Graphics();
@@ -43,15 +42,10 @@ export class PixiMarquee {
     this.marquee = null;
     this.shape.clear();
     if (!current?.active || !view) return;
-    const rect = marqueeRect(current);
-    this.onIntent({
-      kind: 'tokensMarqueed',
-      tokenIds: tokensInMarquee(rect, view.tokens),
-      additive,
-    });
-    const drawingIds = drawingsInMarquee(rect, view.drawings);
+    const { tokenIds, drawingIds, effectAreaIds } = marqueeTargetsOf(marqueeRect(current), view);
+    // The tokens go first: without Shift, their intent drops the whole old selection.
+    this.onIntent({ kind: 'tokensMarqueed', tokenIds, additive });
     this.onIntent({ kind: 'drawingsMarqueed', drawingIds, additive });
-    const effectAreaIds = effectAreasInMarquee(rect, view.effectAreas);
     this.onIntent({ kind: 'effectAreasMarqueed', effectAreaIds, additive });
   }
 }

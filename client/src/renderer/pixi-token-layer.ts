@@ -71,19 +71,16 @@ export class PixiTokenLayer {
   private dragging: string | null = null;
   private hovered: string | null = null;
 
-  /** `beneath`: what each layer draws under its tokens (the drawings of that layer); `textures`:
-   *  where the token images come from (without it, every token is the initials disc). */
+  /** `beneath`: what goes over Fundo and Objetos and under the tokens of Tokens (the areas of
+   *  effect and the drawings); `textures`: where the token images come from (without it, every
+   *  token is the initials disc). */
   constructor(
     private readonly reducedMotion: () => boolean,
-    beneath?: Readonly<Record<TokenLayerDto, Container>>,
+    beneath?: Container,
     private readonly textures?: PixiTextureCache,
   ) {
     const { background, objects, tokens } = this.layers;
-    if (beneath) {
-      for (const layer of ['background', 'objects', 'tokens'] as const) {
-        this.layers[layer].addChild(beneath[layer]);
-      }
-    }
+    if (beneath) tokens.addChild(beneath);
     this.container.addChild(background, objects, tokens, this.ghost);
   }
 

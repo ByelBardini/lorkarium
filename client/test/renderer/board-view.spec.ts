@@ -432,17 +432,36 @@ describe('buildBoardView, drawings', () => {
     });
   }
 
-  it('puts each drawing on its layer, pickable by the master on the active one', () => {
-    const view = viewWith({ drawings: [square({ layer: 'objects' }), path()] });
+  const PICKING = { tool: 'draw', drawMode: 'select' } as const;
 
-    expect(view.drawings.map(({ id, layer, pickable }) => [id, layer, pickable])).toEqual([
-      [SQUARE_ID, 'objects', false],
-      [PATH_ID, 'tokens', true],
+  it('drawings are pickable only with the draw tool in Selecionar, whatever the active layer', () => {
+    const drawings = [square(), path()];
+    const pickableWith = (overrides: Partial<Parameters<typeof buildBoardView>[0]>) =>
+      viewWith({ drawings, ...overrides }).drawings.map(({ id, pickable }) => [id, pickable]);
+
+    expect(pickableWith({ ...PICKING, activeLayer: 'objects' })).toEqual([
+      [SQUARE_ID, true],
+      [PATH_ID, true],
+    ]);
+    expect(pickableWith({ tool: 'select' })).toEqual([
+      [SQUARE_ID, false],
+      [PATH_ID, false],
+    ]);
+    expect(pickableWith({ tool: 'draw', drawMode: 'draw' })).toEqual([
+      [SQUARE_ID, false],
+      [PATH_ID, false],
     ]);
   });
 
+  it('the draw mode goes to the view, Desenhar when absent', () => {
+    expect(viewWith({ ...PICKING }).drawMode).toBe('select');
+    expect(viewWith({ tool: 'draw' }).drawMode).toBe('draw');
+  });
+
   it('nothing is pickable while reconnecting', () => {
-    expect(viewWith({ drawings: [path()], readOnly: true }).drawings[0]?.pickable).toBe(false);
+    const view = viewWith({ ...PICKING, drawings: [path()], readOnly: true });
+
+    expect(view.drawings[0]?.pickable).toBe(false);
   });
 
   it('the sketch style shows only with the draw tool', () => {

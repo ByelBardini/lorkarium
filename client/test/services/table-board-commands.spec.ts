@@ -189,7 +189,6 @@ describe('RealtimeTableBoardCommands', () => {
       fill: null,
       stroke: 'gold',
       strokeWidth: 'thin',
-      layer: 'tokens',
     } as const;
     const GOBLIN: NewToken = {
       name: 'Goblin 2',

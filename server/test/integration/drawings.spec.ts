@@ -17,7 +17,6 @@ const CIRCLE = {
   fill: 'moss',
   stroke: 'gold',
   strokeWidth: 'medium',
-  layer: 'tokens',
 };
 
 describe('drawings over Socket.IO', () => {
@@ -132,7 +131,7 @@ describe('drawings over Socket.IO', () => {
     expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'INVALID_BODY' }) });
   });
 
-  it('Bia drawing on the objects layer is FORBIDDEN and nothing is saved', async () => {
+  it('a drawing sent with a layer is INVALID_BODY and nothing is saved: drawings have none', async () => {
     const bia = await live.atTable(live.bia, live.vharn);
 
     const ack = await send(
@@ -141,7 +140,7 @@ describe('drawings over Socket.IO', () => {
       createOn(live.vharn.id, [{ ...CIRCLE, layer: 'objects' }]),
     );
 
-    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'INVALID_BODY' }) });
     expect((await synced(bia, live.vharn)).drawings).toEqual([]);
   });
 

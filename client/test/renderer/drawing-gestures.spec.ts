@@ -25,7 +25,8 @@ function boardView(overrides: Partial<Parameters<typeof buildBoardView>[0]> = {}
     drag: null,
     dragged: {},
     readOnly: false,
-    tool: 'select',
+    tool: 'draw',
+    drawMode: 'select',
     currentTokenIds: [],
     drawings: [square(), path()],
     viewer: { userId: BIA_AT_TABLE.userId, isMaster: false },
@@ -52,7 +53,7 @@ describe('DrawingGestures', () => {
     gestures = new DrawingGestures(canvas, (intent) => intents.push(intent));
   });
 
-  describe('select tool', () => {
+  describe('draw tool in Selecionar', () => {
     it('a press and release on her square without moving picks it', () => {
       const view = boardView();
       const press = at(3, 3);
@@ -129,8 +130,8 @@ describe('DrawingGestures', () => {
     });
   });
 
-  describe('draw tool', () => {
-    const drawing = (): BoardView => boardView({ tool: 'draw' });
+  describe('draw tool in Desenhar', () => {
+    const drawing = (): BoardView => boardView({ tool: 'draw', drawMode: 'draw' });
 
     it('a freehand sketch shows under the pointer and is reported with every point on release', () => {
       gestures.startSketch(drawing(), at(1, 1).world);

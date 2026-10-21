@@ -41,9 +41,9 @@ type Sketch = Readonly<{
 // Pointer samples closer than this add nothing to a freehand line (cells).
 const MIN_SAMPLE_STEP = 0.02;
 
-/** The pointer on drawings, apart from the PixiJS shell: a press on a pickable drawing picks
- *  it or (from 4 px) drags it with the other selected drawings; with the draw tool, a press
- *  starts a sketch that follows the pointer and is reported on release. Esc cancels either.
+/** The pointer on drawings, apart from the PixiJS shell: with the draw tool in Selecionar, a
+ *  press on a pickable drawing picks it or (from 4 px) drags it with the other selected drawings;
+ *  in Desenhar, a press starts a sketch that follows the pointer and is reported on release. Esc cancels either.
  *
  *  Example: `const gestures = new DrawingGestures(drawingLayer, onIntent)` */
 export class DrawingGestures {
@@ -55,7 +55,7 @@ export class DrawingGestures {
     private readonly emit: BoardIntentListener,
   ) {}
 
-  /** A primary press with the select tool on no token: whether a drawing took it. */
+  /** A primary press with the draw tool in Selecionar: whether a drawing took it. */
   press(view: BoardView, screen: Point, world: Point): boolean {
     const hit = topDrawingAt(view.drawings, world);
     if (!hit) return false;
@@ -67,7 +67,7 @@ export class DrawingGestures {
     return true;
   }
 
-  /** A primary press with the draw tool: a sketch starts at the pointer. */
+  /** A primary press with the draw tool in Desenhar: a sketch starts at the pointer. */
   startSketch(view: BoardView, world: Point): void {
     if (!view.sketch) return;
     const scene = view.grid.cells;

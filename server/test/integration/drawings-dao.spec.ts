@@ -45,7 +45,6 @@ describe('DrawingsDao on Postgres', () => {
     return {
       sceneId,
       authorId: biaId,
-      layer: 'tokens',
       kind: 'rectangle',
       x: '2.50',
       y: '3.00',

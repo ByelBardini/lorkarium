@@ -89,6 +89,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const commands = props.boardCommands;
   useEditShortcuts({ campaignId: campaign.id, table, interaction, commands, isMaster });
   const tool = useBoardInteraction(interaction, (state) => state.tool);
+  const drawMode = useBoardInteraction(interaction, (state) => state.drawMode);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
       <title>{`Lorkarium · ${campaign.name}`}</title>
@@ -123,7 +124,13 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           lightReach={props.lightReach}
           lightColor={props.lightColor}
         />
-        {tool === 'draw' && !focus && <DrawStylePanel drawingStyle={props.drawingStyle} />}
+        {tool === 'draw' && !focus && (
+          <DrawStylePanel
+            drawingStyle={props.drawingStyle}
+            mode={drawMode}
+            onMode={interaction.getState().setDrawMode}
+          />
+        )}
         {tool === 'area' && !focus && <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />}
         {tool === 'walls' && !focus && table && (
           <RoomWallPanel

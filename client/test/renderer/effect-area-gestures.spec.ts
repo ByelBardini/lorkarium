@@ -164,7 +164,7 @@ describe('EffectAreaGestures', () => {
       ]);
     });
 
-    it('a selected cone carries the selected drawings along', () => {
+    it('a selected cone never carries a drawing: drawings are not picked with Selecionar', () => {
       const view = select({
         drawings: [square()],
         selectedDrawingIds: [SQUARE_ID],
@@ -176,7 +176,7 @@ describe('EffectAreaGestures', () => {
       gestures.move(to.screen, to.world, false);
       gestures.release(to.screen, to.world, false);
 
-      expect(intents[0]).toMatchObject({ drawingIds: [SQUARE_ID], effectAreaIds: [BIA_CONE_ID] });
+      expect(intents[0]).toMatchObject({ drawingIds: [], effectAreaIds: [BIA_CONE_ID] });
     });
 
     it('Esc during a drag puts the cone back and drops nothing', () => {

@@ -2,14 +2,52 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { DrawStylePanel } from '@/features/drawings/draw-style-panel';
+import type { DrawMode } from '@/stores/board-tool-state';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { StorageFake } from '../../support/storage-fake';
 
-function renderPanel(storage = new StorageFake()) {
+function renderPanel(
+  storage = new StorageFake(),
+  mode: DrawMode = 'draw',
+  onMode: (mode: DrawMode) => void = () => undefined,
+) {
   const store = createDrawingStyleStore(storage);
-  render(<DrawStylePanel drawingStyle={store} />);
+  render(<DrawStylePanel drawingStyle={store} mode={mode} onMode={onMode} />);
   return store;
 }
+
+describe('DrawStylePanel, the action', () => {
+  it('shows Desenhar and Selecionar with the current mode checked', () => {
+    renderPanel(new StorageFake(), 'select');
+
+    const action = within(screen.getByRole('radiogroup', { name: 'Ação' }));
+    expect(action.getByRole('radio', { name: 'Selecionar' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(action.getByRole('radio', { name: 'Desenhar' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+  });
+
+  it('picking Selecionar reports the mode', async () => {
+    const user = userEvent.setup();
+    const modes: DrawMode[] = [];
+    renderPanel(new StorageFake(), 'draw', (mode) => modes.push(mode));
+
+    await user.click(screen.getByRole('radio', { name: 'Selecionar' }));
+
+    expect(modes).toEqual(['select']);
+  });
+
+  it('in Selecionar the style of the next drawing is hidden: nothing is drawn', () => {
+    renderPanel(new StorageFake(), 'select');
+
+    expect(screen.queryByRole('radiogroup', { name: 'Forma' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Cor do traço' })).not.toBeInTheDocument();
+  });
+});
 
 describe('DrawStylePanel', () => {
   it('shows shape, stroke color, fill and line width as radio groups with the current choice checked', () => {

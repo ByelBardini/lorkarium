@@ -37,7 +37,6 @@ describe('sendSketch', () => {
   function context(overrides: Partial<SketchContext> = {}): SketchContext {
     return {
       style: ELLIPSE,
-      layer: 'tokens',
       readOnly: false,
       say: (notice) => notices.push(notice),
       ...overrides,
@@ -70,7 +69,6 @@ describe('sendSketch', () => {
               fill: 'moss',
               stroke: 'violet',
               strokeWidth: 'thick',
-              layer: 'tokens',
             },
           ],
         },
@@ -112,17 +110,16 @@ describe('sendSketch', () => {
           ],
           stroke: 'gold',
           strokeWidth: 'medium',
-          layer: 'tokens',
         },
       ],
     });
   });
 
-  it('the master drawing on the objects layer sends it on that layer', async () => {
-    await sendSketch(deps(), DRAGGED, context({ layer: 'objects' }));
+  it('the drawing goes with no layer: drawings live on their own', async () => {
+    await sendSketch(deps(), DRAGGED, context());
 
     expect(commands.sentAs('createDrawings')[0]?.fields).toMatchObject({
-      drawings: [{ layer: 'objects' }],
+      drawings: [expect.not.objectContaining({ layer: expect.anything() })],
     });
   });
 

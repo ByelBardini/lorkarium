@@ -9,29 +9,10 @@ function accessOf(userId: string, role: 'master' | 'player', noun = 'drawing'): 
   return new AuthoredAccessBo(new CampaignAccessBo({ campaignId: VHARN_ID, userId, role }), noun);
 }
 
-const BIAS_SQUARE = { id: SQUARE_ID, authorId: BIA_ID, layer: 'tokens' } as const;
-
-describe('AuthoredAccessBo.requireLayer', () => {
-  it('a player creates on the tokens layer', () => {
-    expect(() => accessOf(BIA_ID, 'player').requireLayer('draw', 'tokens')).not.toThrow();
-  });
-
-  it('the master creates on the background layer', () => {
-    expect(() => accessOf(ANA_ID, 'master').requireLayer('draw', 'background')).not.toThrow();
-  });
-
-  it('a player creating on the objects layer is refused with FORBIDDEN citing her, the action and the layer', () => {
-    expect(() => accessOf(BIA_ID, 'player').requireLayer('draw', 'objects')).toThrow(
-      expect.objectContaining({
-        code: 'FORBIDDEN',
-        message: expect.stringMatching(new RegExp(`${BIA_ID}.*draw on the objects layer`)),
-      }),
-    );
-  });
-});
+const BIAS_SQUARE = { id: SQUARE_ID, authorId: BIA_ID } as const;
 
 describe('AuthoredAccessBo.requireEdit', () => {
-  it('Bia moves her own piece on the tokens layer', () => {
+  it('Bia moves her own piece', () => {
     expect(() => accessOf(BIA_ID, 'player').requireEdit('move', BIAS_SQUARE)).not.toThrow();
   });
 
@@ -60,16 +41,6 @@ describe('AuthoredAccessBo.requireEdit', () => {
     const orphan = { ...BIAS_SQUARE, authorId: null };
     expect(() => accessOf(BIA_ID, 'player').requireEdit('move', orphan)).toThrow(
       expect.objectContaining({ code: 'FORBIDDEN' }),
-    );
-  });
-
-  it('Bia moving her own piece that the master put on the objects layer is refused citing the layer', () => {
-    const onObjects = { ...BIAS_SQUARE, layer: 'objects' } as const;
-    expect(() => accessOf(BIA_ID, 'player').requireEdit('move', onObjects)).toThrow(
-      expect.objectContaining({
-        code: 'FORBIDDEN',
-        message: expect.stringContaining(`move drawing ${SQUARE_ID} on the objects layer`),
-      }),
     );
   });
 });

@@ -1,13 +1,19 @@
 import type { DrawingColorDto, StrokeWidthDto } from '@lorkarium/contracts';
-import { Circle, Pencil, Square, Triangle, type LucideIcon } from 'lucide-react';
+import { Circle, MousePointer2, Pencil, Square, Triangle, type LucideIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DrawingKind } from '@/lib/drawing-geometry';
 import { DRAWING_KINDS, STROKE_WIDTHS } from '@/lib/drawing-style';
+import type { DrawMode } from '@/stores/board-tool-state';
 import { useDrawingStyle, type DrawingStyleStore } from '@/stores/drawing-style-store';
 import { COLOR_TILES } from './color-tiles';
 import { StyleTileGroup, type StyleTile } from './style-tile-group';
 
-export type DrawStylePanelProps = Readonly<{ drawingStyle: StoreApi<DrawingStyleStore> }>;
+export type DrawStylePanelProps = Readonly<{
+  drawingStyle: StoreApi<DrawingStyleStore>;
+  /** What a press does on the board: a new stroke, or taking the drawings. */
+  mode: DrawMode;
+  onMode: (mode: DrawMode) => void;
+}>;
 
 export const FILL_ONLY_FIXED_HINT = 'Só formas fixas têm preenchimento.';
 
@@ -21,6 +27,16 @@ const KIND_ICONS: Readonly<Record<DrawingKind, LucideIcon>> = {
   ellipse: Circle,
   triangle: Triangle,
 };
+
+// The same icons as the toolbar's Desenhar and Selecionar.
+const MODE_TILES: readonly StyleTile<DrawMode>[] = [
+  { value: 'draw', label: 'Desenhar', picture: <Pencil aria-hidden="true" className="size-4" /> },
+  {
+    value: 'select',
+    label: 'Selecionar',
+    picture: <MousePointer2 aria-hidden="true" className="size-4" />,
+  },
+];
 
 const KIND_TILES: readonly StyleTile<DrawingKind>[] = DRAWING_KINDS.map(({ kind, label }) => {
   const Icon = KIND_ICONS[kind];
@@ -56,11 +72,36 @@ const WIDTH_TILES: readonly StyleTile<StrokeWidthDto>[] = STROKE_WIDTHS.map(
   }),
 );
 
-/** The style of the next drawing, floating beside the toolbar while the draw tool is on: shape,
- *  stroke color, fill (fixed shapes only) and line width. Remembered in the browser.
+/** The draw tool's panel, floating beside the toolbar while the tool is on: the action of a press,
+ *  then (drawing) the style of the next drawing — shape, stroke color, fill (fixed shapes only)
+ *  and line width, remembered in the browser.
  *
- *  Example: `{tool === 'draw' && <DrawStylePanel drawingStyle={deps.drawingStyle} />}` */
-export function DrawStylePanel({ drawingStyle }: DrawStylePanelProps): React.JSX.Element {
+ *  Example: `{tool === 'draw' && <DrawStylePanel drawingStyle={deps.drawingStyle} mode={mode} onMode={setMode} />}` */
+export function DrawStylePanel({
+  drawingStyle,
+  mode,
+  onMode,
+}: DrawStylePanelProps): React.JSX.Element {
+  return (
+    <section
+      aria-label="Estilo do desenho"
+      className="absolute top-16 left-16 flex w-60 flex-col gap-4 rounded-lg border border-border bg-panel p-4"
+    >
+      <StyleTileGroup
+        legend="Ação"
+        value={mode}
+        tiles={MODE_TILES}
+        onChange={onMode}
+        shape="square"
+      />
+      {mode === 'draw' && <DrawingStyleGroups drawingStyle={drawingStyle} />}
+    </section>
+  );
+}
+
+function DrawingStyleGroups({
+  drawingStyle,
+}: Pick<DrawStylePanelProps, 'drawingStyle'>): React.JSX.Element {
   const kind = useDrawingStyle(drawingStyle, (state) => state.kind);
   const stroke = useDrawingStyle(drawingStyle, (state) => state.stroke);
   const fill = useDrawingStyle(drawingStyle, (state) => state.fill);
@@ -68,10 +109,7 @@ export function DrawStylePanel({ drawingStyle }: DrawStylePanelProps): React.JSX
   const actions = drawingStyle.getState();
   const freehand = kind === 'freehand';
   return (
-    <section
-      aria-label="Estilo do desenho"
-      className="absolute top-16 left-16 flex w-60 flex-col gap-4 rounded-lg border border-border bg-panel p-4"
-    >
+    <>
       <StyleTileGroup
         legend="Forma"
         value={kind}
@@ -102,6 +140,6 @@ export function DrawStylePanel({ drawingStyle }: DrawStylePanelProps): React.JSX
         onChange={actions.setStrokeWidth}
         shape="square"
       />
-    </section>
+    </>
   );
 }

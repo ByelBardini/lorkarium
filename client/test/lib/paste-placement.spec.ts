@@ -114,7 +114,6 @@ describe('copiedOf', () => {
         fill: 'ember',
         stroke: 'gold',
         strokeWidth: 'medium',
-        layer: 'tokens',
       },
     ]);
   });
