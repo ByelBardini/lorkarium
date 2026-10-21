@@ -63,7 +63,9 @@ function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
   if (key === 'delete') return deleteSelectedPieces(deps);
   const state = deps.board.getState().board;
   // The keys only reach what this viewer sees whole.
-  const tokens = state ? seenTokensOf(state, sightNowOf(state, deps.interaction.getState())) : [];
+  const tokens = state
+    ? seenTokensOf(state, sightNowOf(deps.board.getState(), deps.interaction.getState()))
+    : [];
   const { selectedTokenIds } = deps.interaction.getState();
   const selected = tokens.filter(({ id }) => selectedTokenIds.includes(id));
   if (key === 'next' || key === 'previous') return selectStep(tokens, key, deps.interaction);

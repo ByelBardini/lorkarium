@@ -16,7 +16,15 @@ import { StorageFake } from '../../support/storage-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { BoardRenderersFake } from '../../support/board-renderer-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
-import { LYRA_ID, lyra, sceneUpdated, vharnBoard } from '../../support/table-session-fixtures';
+import {
+  BIA_AT_TABLE,
+  LYRA_ID,
+  VHARN_SCENE,
+  groupDraggedOver,
+  lyra,
+  sceneUpdated,
+  vharnBoard,
+} from '../../support/table-session-fixtures';
 
 describe('BoardCanvas', () => {
   let renderers: BoardRenderersFake;
@@ -76,6 +84,33 @@ describe('BoardCanvas', () => {
     );
     expect(renderers.latest().lastView?.grid.cells).toEqual({ widthCells: 30, heightCells: 20 });
     expect(host()).toHaveAccessibleName('Tabuleiro: Cena 1, 30 × 20 casas');
+  });
+
+  it('the ogre a silhouette for Bia is drawn whole once the master drags Lyra’s torch to him', async () => {
+    const OGRE_ID = 'aa11bb22-cc33-4d44-8e55-ff6677889900';
+    const torch = { light: { bright: 3, dim: 3, color: null }, lightLit: true };
+    const ogre = lyra({ id: OGRE_ID, name: 'Ogro', col: 8, canControl: false, controllerIds: [] });
+    board.getState().apply({
+      kind: 'board',
+      state: vharnBoard({
+        viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+        scene: { ...VHARN_SCENE, vision: 'dark' },
+        tokens: [lyra({ sight: null, ...torch }), ogre],
+      }),
+    });
+    render(canvas());
+    await act(() => Promise.resolve());
+    const ogreView = () => renderers.latest().lastView?.tokens.find(({ id }) => id === OGRE_ID);
+    expect(ogreView()).toMatchObject({ silhouette: 'square', name: '' });
+
+    act(() =>
+      board.getState().apply({
+        kind: 'tokensDragged',
+        drag: groupDraggedOver([{ tokenId: LYRA_ID, cell: { col: 6, row: 4 } }]),
+      }),
+    );
+
+    expect(ogreView()).toMatchObject({ silhouette: null, name: 'Ogro', pickable: true });
   });
 
   it('passes the intents of the canvas on', async () => {

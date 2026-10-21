@@ -30,18 +30,32 @@ export async function cellCenterOf(
   return { x: left + (col + 0.5) * SCENE.cell * zoom, y: top + (row + 0.5) * SCENE.cell * zoom };
 }
 
-/** Presses on one cell and releases on another in small steps, as a hand drags.
+/** Presses on one cell and moves to another in small steps, as a hand drags, without releasing:
+ *  the caller drops (`page.mouse.up()`) or cancels (Escape). The board is focused first, so the
+ *  keys reach it during the drag.
  *
- *  Example: `await dragBetweenCells(caio, [2, 2], [5, 4])` */
-export async function dragBetweenCells(
+ *  Example: `await holdDragBetweenCells(bia, [4, 6], [10, 6]); await bia.keyboard.press('Escape')` */
+export async function holdDragBetweenCells(
   page: Page,
   [fromCol, fromRow]: readonly [number, number],
   [toCol, toRow]: readonly [number, number],
 ): Promise<void> {
   const from = await cellCenterOf(page, fromCol, fromRow);
   const to = await cellCenterOf(page, toCol, toRow);
+  await boardOf(page).focus();
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 8 });
+}
+
+/** Presses on one cell and releases on another in small steps, as a hand drags.
+ *
+ *  Example: `await dragBetweenCells(caio, [2, 2], [5, 4])` */
+export async function dragBetweenCells(
+  page: Page,
+  from: readonly [number, number],
+  to: readonly [number, number],
+): Promise<void> {
+  await holdDragBetweenCells(page, from, to);
   await page.mouse.up();
 }
