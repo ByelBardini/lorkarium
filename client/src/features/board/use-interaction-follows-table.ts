@@ -34,7 +34,7 @@ export function useInteractionFollowsTable(
     const stopSnapshots = board.subscribe((next, previous) => {
       interaction.getState().followVision(next.board?.scene.vision);
       if (next.snapshots !== previous.snapshots) return interaction.getState().dropPreview();
-      const sight = sightNowOf(next.board, interaction.getState());
+      const sight = sightNowOf(next, interaction.getState());
       const announcement = turnAnnouncement(previous.board, next.board, sight);
       if (announcement) interaction.getState().say(announcement);
     });

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { cell } from '@lorkarium/game-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import { SceneTokenList } from '@/features/tokens/scene-token-list';
@@ -14,6 +15,7 @@ import { TableBoardCommandsFake } from '../../support/table-board-commands-fake'
 import {
   LYRA_ID,
   LYRA_PV_ID,
+  groupDraggedOver,
   lyra,
   vharnBoard,
   vharnState,
@@ -330,5 +332,103 @@ describe('SceneTokenList through the sight of Bia', () => {
 
     const items = within(screen.getByRole('list', { name: 'Na cena' })).getAllByRole('listitem');
     expect(items.map((item) => item.textContent)).toEqual([expect.stringContaining('Lyra')]);
+  });
+});
+
+describe('SceneTokenList while a torch is dragged', () => {
+  // Bia in the dark: Lyra (hers) at (3, 4), without darkvision, carries a lit torch of 3 + 3
+  // cells; the ogre at (11, 4) is hidden from there, a silhouette from (6, 4), seen from (9, 4).
+  const ALONE = {
+    members: [{ tokenId: LYRA_ID, col: 3, row: 4, width: 1, height: 1 }],
+    scene: { widthCells: VHARN_SCENE.widthCells, heightCells: VHARN_SCENE.heightCells },
+  };
+  let board: StoreApi<BoardStore>;
+  let interaction: StoreApi<BoardInteractionStore>;
+  let commands: TableBoardCommandsFake;
+
+  beforeEach(() => {
+    board = createBoardStore(VHARN.id, () => undefined);
+    const presence = createTablePresenceStore(VHARN.id);
+    presence.getState().apply({ kind: 'state', state: vharnState() });
+    commands = new TableBoardCommandsFake();
+    interaction = createBoardInteractionStore({
+      campaignId: VHARN.id,
+      commands,
+      describeRefusal: (failure) => `recusado: ${failure}`,
+    });
+    const torch = { light: { bright: 3, dim: 3, color: null }, lightLit: true };
+    const ogre = lyra({ id: KAEL_ID, name: 'Ogro', col: 11, row: 4, canControl: false });
+    board.getState().apply({
+      kind: 'board',
+      state: vharnBoard({
+        viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+        scene: { ...VHARN_SCENE, vision: 'dark' },
+        tokens: [lyra({ sight: null, ...torch }), { ...ogre, controllerIds: [] }],
+      }),
+    });
+    render(
+      <SceneTokenList
+        board={board}
+        presence={presence}
+        interaction={interaction}
+        isMaster={false}
+        onEdit={() => undefined}
+      />,
+    );
+  });
+
+  function listed(): string[] {
+    const list = within(screen.getByRole('list', { name: 'Na cena' }));
+    return list
+      .getAllByRole('listitem')
+      .map((item) => within(item).getByRole('button').textContent ?? '');
+  }
+
+  function dragLyraTo(col: number): void {
+    act(() => interaction.getState().dragOver(LYRA_ID, cell(3, 4), cell(col, 4), ALONE));
+  }
+
+  it('dragging Lyra to (6, 4) keeps only Lyra, and to (9, 4) shows the ogre before dropping', () => {
+    dragLyraTo(6);
+    expect(listed()).toEqual([expect.stringContaining('Lyra')]);
+
+    dragLyraTo(9);
+    expect(listed()).toEqual([expect.stringContaining('Lyra'), expect.stringContaining('Ogro')]);
+  });
+
+  it('Esc after dragging to (9, 4) leaves only Lyra again', () => {
+    dragLyraTo(9);
+    act(() => interaction.getState().cancelDrag());
+
+    expect(listed()).toEqual([expect.stringContaining('Lyra')]);
+  });
+
+  it('dropped at (9, 4), the ogre stays while the server answers and goes when it refuses', async () => {
+    commands.answerWith({ ok: false, failure: 'forbidden' });
+    commands.hold();
+    dragLyraTo(9);
+    act(() => void interaction.getState().dropToken(LYRA_ID, cell(9, 4)));
+    expect(listed()).toEqual([expect.stringContaining('Lyra'), expect.stringContaining('Ogro')]);
+
+    await act(async () => commands.release());
+
+    expect(listed()).toEqual([expect.stringContaining('Lyra')]);
+    expect(interaction.getState().notice).toBe('recusado: forbidden');
+  });
+
+  it('the master dragging Lyra to (9, 4) shows the ogre to Bia, and the end of the drag hides him', () => {
+    const masterDrags = (to: { col: number; row: number } | null) =>
+      act(() =>
+        board.getState().apply({
+          kind: 'tokensDragged',
+          drag: groupDraggedOver([{ tokenId: LYRA_ID, cell: to }]),
+        }),
+      );
+
+    masterDrags({ col: 9, row: 4 });
+    expect(listed()).toEqual([expect.stringContaining('Lyra'), expect.stringContaining('Ogro')]);
+
+    masterDrags(null);
+    expect(listed()).toEqual([expect.stringContaining('Lyra')]);
   });
 });
