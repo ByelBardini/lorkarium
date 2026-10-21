@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Tracker de combate</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0A0B0E}
+button:focus-visible,input:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.tr-btn{height:40px;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:10px;background:transparent;color:#D5D0C4;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.tr-btn:hover{border-color:#4A505B;color:#EAE5DA}
+.tr-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.tr-btn.is-gold:hover{background:#D4B57E}
+.tr-btn.is-danger{background:#B85C47;border-color:#B85C47;color:#FFF5F0}
+.tr-btn.is-danger:hover{background:#C66A55}
+.tr-btn.is-quiet{border-color:transparent}
+.tr-btn.is-quiet:hover{background:#1B1E24}
+.tr-ico{width:36px;height:36px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:transparent;color:#8C8F98;cursor:pointer;font:inherit}
+.tr-ico:hover{background:#1F232A;color:#EAE5DA}
+.tr-row{display:flex;flex-direction:column;border-radius:10px;background:transparent;transition:background .12s}
+.tr-row:hover{background:#15181D}
+.tr-row.is-turn{background:#1C1A15;box-shadow:inset 0 0 0 1px rgba(197,164,109,.5)}
+.tr-row.is-sel{background:#171A20;box-shadow:inset 0 0 0 1px #3A404A}
+.tr-row.is-turn.is-sel{box-shadow:inset 0 0 0 1px #C5A46D}
+.tr-row.is-down{opacity:.5}
+.tr-head{width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:10px}
+.tr-init{width:32px;height:32px;flex-shrink:0;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;background:#1B1E24;color:#D5D0C4;font-variant-numeric:tabular-nums}
+.tr-row.is-turn .tr-init{background:#C5A46D;color:#15130F}
+.tr-av{width:34px;height:34px;flex-shrink:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#EAE5DA;background:#1F232A}
+.tr-member{width:100%;display:flex;align-items:center;gap:10px;height:40px;padding:0 10px 0 52px;box-sizing:border-box;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.tr-member:hover{background:#1B1E24}
+.tr-member.is-sel{background:#1B1E24;box-shadow:inset 0 0 0 1px #3A404A}
+.tr-member.is-down{opacity:.45}
+.tr-chip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+.tr-chip.is-bad{background:rgba(201,112,90,.14);color:#E6A28F;box-shadow:inset 0 0 0 1px rgba(201,112,90,.35)}
+.tr-chip.is-good{background:rgba(143,179,154,.14);color:#A9D1B4;box-shadow:inset 0 0 0 1px rgba(143,179,154,.35)}
+.tr-cond{display:inline-flex;align-items:center;gap:2px;height:30px;padding:0 4px 0 10px;border-radius:999px;font-size:12px;font-weight:600}
+.tr-cond.is-bad{background:rgba(201,112,90,.14);color:#E6A28F;box-shadow:inset 0 0 0 1px rgba(201,112,90,.4)}
+.tr-cond.is-good{background:rgba(143,179,154,.14);color:#A9D1B4;box-shadow:inset 0 0 0 1px rgba(143,179,154,.4)}
+.tr-cbtn{width:22px;height:22px;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;font:inherit;font-size:14px;line-height:1;cursor:pointer;opacity:.75}
+.tr-cbtn:hover{opacity:1;background:rgba(255,255,255,.08)}
+.tr-pick{height:34px;padding:0 8px;border:1px solid #303640;border-radius:8px;background:transparent;color:#D5D0C4;font:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr-pick:hover{border-color:#C5A46D;color:#EAE5DA}
+.tr-pick.is-on{background:rgba(197,164,109,.14);border-color:#C5A46D;color:#E2C793}
+.tr-seg{height:30px;min-width:34px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:#A9A497;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.tr-seg:hover{color:#EAE5DA}
+.tr-seg.is-on{background:#C5A46D;color:#15130F}
+.tr-step{width:32px;height:32px;flex-shrink:0;border:1px solid #303640;border-radius:8px;background:transparent;color:#D5D0C4;font:inherit;font-size:16px;line-height:1;cursor:pointer}
+.tr-step:hover{border-color:#C5A46D;color:#EAE5DA}
+.tr-field{height:32px;box-sizing:border-box;padding:0 8px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:14px;font-weight:600;text-align:center;font-variant-numeric:tabular-nums}
+.tr-field::placeholder{color:#5E636D;font-weight:500}
+.tr-field:focus{outline:none;border-color:#C5A46D}
+.tr-check{width:26px;height:26px;flex-shrink:0;padding:0;border-radius:50%;border:1.5px solid #4A505B;background:transparent;color:#15130F;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.tr-check.is-on{background:#C5A46D;border-color:#C5A46D}
+.tr-check svg{opacity:0}
+.tr-check.is-on svg{opacity:1}
+.tr-prep{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px}
+.tr-prep.is-off{opacity:.45}
+.tr-menu{width:100%;display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:#D5D0C4;font:inherit;font-size:14px;font-weight:500;cursor:pointer;text-align:left}
+.tr-menu:hover{background:#1F232A;color:#EAE5DA}
+.tr-menu.is-danger{color:#E6A28F}
+.tr-tok{position:absolute;padding:0;border:0;background:transparent;cursor:pointer}
+.tr-tok .tr-disc{position:absolute;inset:12%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#EAE5DA;background:#1F232A;box-shadow:0 0 0 2px #D9D2C2,0 4px 10px rgba(0,0,0,.6)}
+.tr-tok.is-enemy .tr-disc{background:#2A1D1A;box-shadow:0 0 0 2px #C9705A,0 4px 10px rgba(0,0,0,.6)}
+.tr-tok.is-turn .tr-disc{box-shadow:0 0 0 2px #C5A46D,0 0 0 6px rgba(197,164,109,.28),0 4px 10px rgba(0,0,0,.6)}
+.tr-tok.is-sel .tr-disc{outline:2px dashed #EAE5DA;outline-offset:4px}
+.tr-tok.is-down .tr-disc{opacity:.4;filter:grayscale(1)}
+.tr-tok.is-out .tr-disc{opacity:.35}
+</style>
+</helmet>
+<div style="height: 100vh; min-height: 640px; overflow: auto; display: flex; flex-wrap: wrap; background: #0A0B0E; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<main style="flex: 999 1 520px; min-width: 0; min-height: 480px; box-sizing: border-box; padding: 20px; display: flex; align-items: center; justify-content: center; background: #08090B">
+<div style="position: relative; width: 100%; max-width: 860px; aspect-ratio: 16 / 12">
+<svg viewBox="0 0 768 576" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<defs><pattern id="trGrid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#C5A46D" stroke-opacity=".12" stroke-width="1"></path></pattern></defs>
+<rect width="768" height="576" fill="#0B0C0F"></rect>
+<path d="M96 96 H480 V48 H720 V528 H384 V480 H96 Z" fill="#1A1D23"></path>
+<ellipse cx="600" cy="440" rx="70" ry="40" fill="#16212C" stroke="#4D6A8A" stroke-opacity=".6" stroke-width="1.5"></ellipse>
+<g fill="#262A31" stroke="#5E5749" stroke-width="1.5"><rect x="176" y="176" width="32" height="32" rx="3"></rect><rect x="176" y="368" width="32" height="32" rx="3"></rect></g>
+<path d="M96 96 H480 V48 H720 V528 H384 V480 H96 Z" fill="none" stroke="#7A6F5C" stroke-width="6"></path>
+<rect width="768" height="576" fill="url(#trGrid)"></rect>
+</svg>
+<sc-for list="{{mapTokens}}" as="t" hint-placeholder-count="10">
+<button type="button" class="{{t.cls}}" onClick="{{t.pick}}" aria-label="{{t.name}}" style="left: {{t.left}}; top: {{t.top}}; width: 6.25%; height: 8.333%">
+<span class="tr-disc">{{t.ini}}</span>
+</button>
+</sc-for>
+</div>
+</main>
+
+<aside style="position: relative; flex: 1 1 380px; max-width: 100%; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; background: #0F1114; border-left: 1px solid #1F2329">
+
+<div style="flex-shrink: 0; display: flex; gap: 22px; padding: 0 20px; border-bottom: 1px solid #1F2329">
+<span style="height: 46px; display: inline-flex; align-items: center; font-size: 14px; font-weight: 600; border-bottom: 2px solid #C5A46D">Combate</span>
+<span style="height: 46px; display: inline-flex; align-items: center; font-size: 14px; font-weight: 600; color: #8C8F98">Na mesa</span>
+</div>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="flex-shrink: 0; margin: 12px 16px 0; padding: 10px 8px 10px 14px; border-radius: 10px; background: #15181D; border: 1px solid #303640; display: flex; align-items: center; gap: 10px; font-size: 13px; color: #D5D0C4">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8FB39A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+<span style="flex: 1">{{toast}}</span>
+<button type="button" class="tr-ico" onClick="{{dismissToast}}" aria-label="Fechar aviso" style="width: 28px; height: 28px">×</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isFora}}" hint-placeholder-val="{{ true }}">
+<div style="flex-shrink: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid #1F2329">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #8C8F98">Fora de combate</span>
+<span style="font-size: 12px; color: #6F7480">{{tokenCount}} tokens na cena</span>
+</div>
+<button type="button" class="tr-btn is-gold" onClick="{{startPrep}}" style="height: 48px; font-size: 15px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l10 10M4 4h4M4 4v4M20 4L10 14M20 4h-4M20 4v4M7 17l-3 3M17 17l3 3M8 14l2 2M16 14l-2 2"></path></svg>
+Iniciar combate
+</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isCombat}}" hint-placeholder-val="{{ false }}">
+<div style="flex-shrink: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid #1F2329">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 58px; height: 58px; flex-shrink: 0; border-radius: 12px; border: 1px solid rgba(197,164,109,.5); display: flex; flex-direction: column; align-items: center; justify-content: center">
+<span style="font-size: 9px; font-weight: 600; letter-spacing: 0.16em; color: #C5A46D">RODADA</span>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 600; line-height: 1">{{round}}</span>
+</div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #8C8F98">Vez de</span>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{turnName}}</span>
+</div>
+<div style="position: relative">
+<button type="button" class="tr-ico" onClick="{{toggleMenu}}" aria-label="Mais opções do combate" aria-expanded="{{menuOpen}}" style="width: 40px; height: 40px; border: 1px solid #303640">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
+</button>
+<sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+<div role="menu" style="position: absolute; z-index: 20; right: 0; top: 46px; width: 230px; box-sizing: border-box; padding: 6px; border-radius: 10px; background: #15181D; border: 1px solid #303640; box-shadow: 0 16px 40px rgba(0,0,0,.5)">
+<button type="button" role="menuitem" class="tr-menu" onClick="{{menuAdd}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Adicionar ao combate</button>
+<button type="button" role="menuitem" class="tr-menu" onClick="{{addEvent}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5Z"></path></svg>Evento na ordem (sem token)</button>
+<div style="height: 1px; margin: 6px 4px; background: #262B33"></div>
+<button type="button" role="menuitem" class="tr-menu is-danger" onClick="{{askEnd}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>Encerrar combate</button>
+</div>
+</sc-if>
+</div>
+</div>
+
+<sc-if value="{{confirmEnd}}" hint-placeholder-val="{{ false }}">
+<div role="alertdialog" aria-labelledby="tr-end-t" style="padding: 14px; border-radius: 12px; background: rgba(184,92,71,.1); border: 1px solid rgba(201,112,90,.45); display: flex; flex-direction: column; gap: 10px">
+<span id="tr-end-t" style="font-size: 15px; font-weight: 600">Encerrar o combate?</span>
+<span style="font-size: 13px; line-height: 1.5; color: #C9C3B6">PV, barras e condições ficam como estão. A ordem de iniciativa e a contagem de rodadas somem.</span>
+<div style="display: flex; gap: 8px">
+<button type="button" class="tr-btn is-danger" onClick="{{endCombat}}" style="flex: 1">Encerrar</button>
+<button type="button" class="tr-btn" onClick="{{cancelEnd}}" style="flex: 1">Continuar lutando</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{showTurnControls}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 8px">
+<button type="button" class="tr-btn" onClick="{{prevTurn}}" aria-label="Voltar um turno" title="Voltar um turno" style="width: 48px; height: 48px; padding: 0">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</button>
+<button type="button" class="tr-btn is-gold" onClick="{{nextTurn}}" style="flex: 1; height: 48px; font-size: 15px">
+{{nextLabel}}
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+</div>
+<span style="font-size: 12px; color: #8C8F98">A seguir: <strong style="color: #D5D0C4; font-weight: 600">{{upNext}}</strong></span>
+</sc-if>
+
+<sc-if value="{{hasFeed}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{feed}}" as="f" hint-placeholder-count="1">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #C9C3B6"><span style="width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: #C5A46D"></span>{{f.text}}</span>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isPrep}}" hint-placeholder-val="{{ false }}">
+<div style="flex-shrink: 0; padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #1F2329">
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" class="tr-ico" onClick="{{cancelPrep}}" aria-label="Voltar sem iniciar">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</button>
+<h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 24px">Quem entra na briga?</h2>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #8C8F98">Toque pra tirar alguém. Iniciativa em branco rola um d20 sozinha quando começar.</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" class="tr-btn" onClick="{{selectAll}}" style="height: 34px; font-size: 13px">{{selectAllLabel}}</button>
+<button type="button" class="tr-btn" onClick="{{rollNpcs}}" style="height: 34px; font-size: 13px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7Z"></path><path d="M12 2v20M3 7l9 5 9-5"></path></svg>
+Rolar pros NPCs
+</button>
+</div>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow: auto; padding: 10px 10px 16px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{prepRows}}" as="p" hint-placeholder-count="5">
+<sc-if value="{{p.isHeader}}" hint-placeholder-val="{{ false }}">
+<span style="padding: 14px 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6F7480">{{p.label}}</span>
+</sc-if>
+<sc-if value="{{p.isItem}}" hint-placeholder-val="{{ true }}">
+<div class="{{p.cls}}" style="padding-left: {{p.indent}}">
+<button type="button" class="{{p.checkCls}}" onClick="{{p.toggle}}" role="checkbox" aria-checked="{{p.checked}}" aria-label="{{p.checkLabel}}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+</button>
+<span class="tr-av" style="box-shadow: 0 0 0 2px {{p.ring}}; width: {{p.avSize}}; height: {{p.avSize}}">{{p.ini}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+<span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.name}}</span>
+<span style="font-size: 12px; color: #8C8F98">{{p.sub}}</span>
+</span>
+<sc-if value="{{p.isGroup}}" hint-placeholder-val="{{ false }}">
+<div role="radiogroup" aria-label="Iniciativa do grupo" style="display: inline-flex; padding: 2px; border-radius: 8px; border: 1px solid #303640">
+<button type="button" role="radio" class="{{p.segJunto}}" aria-checked="{{p.junto}}" onClick="{{p.setJunto}}">Juntos</button>
+<button type="button" role="radio" class="{{p.segSep}}" aria-checked="{{p.separado}}" onClick="{{p.setSep}}">Cada um</button>
+</div>
+</sc-if>
+<sc-if value="{{p.hasInit}}" hint-placeholder-val="{{ true }}">
+<input class="tr-field" type="text" inputmode="numeric" placeholder="d20" value="{{p.init}}" onChange="{{p.setInit}}" aria-label="{{p.initLabel}}" style="width: 48px">
+<button type="button" class="tr-ico" onClick="{{p.roll}}" aria-label="{{p.rollLabel}}" title="Rolar d20" style="width: 32px; height: 32px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7Z"></path><path d="M12 2v20M3 7l9 5 9-5"></path></svg>
+</button>
+</sc-if>
+</div>
+</sc-if>
+</sc-for>
+</div>
+
+<div style="flex-shrink: 0; padding: 14px 16px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1F2329; background: #12151A">
+<span style="flex: 1; font-size: 13px; color: #A9A497">{{prepSummary}}</span>
+<button type="button" class="tr-btn is-quiet" onClick="{{cancelPrep}}">Cancelar</button>
+<button type="button" class="tr-btn is-gold" onClick="{{beginCombat}}" disabled="{{prepEmpty}}" style="height: 44px">Começar combate</button>
+</div>
+</sc-if>
+
+<sc-if value="{{showList}}" hint-placeholder-val="{{ true }}">
+<div style="flex: 1; min-height: 120px; overflow: auto; padding: 8px 8px 12px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<sc-if value="{{r.isHeader}}" hint-placeholder-val="{{ false }}">
+<span style="padding: 12px 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6F7480">{{r.label}}</span>
+</sc-if>
+<sc-if value="{{r.isEntry}}" hint-placeholder-val="{{ true }}">
+<div class="{{r.cls}}">
+<button type="button" class="tr-head" onClick="{{r.pick}}" aria-expanded="{{r.expanded}}">
+<sc-if value="{{r.showInit}}" hint-placeholder-val="{{ true }}">
+<span class="tr-init">{{r.init}}</span>
+</sc-if>
+<sc-if value="{{r.isEvent}}" hint-placeholder-val="{{ false }}">
+<span class="tr-av" style="background: #1B1E24; color: #C5A46D; box-shadow: 0 0 0 1px #3A3529">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5Z"></path></svg>
+</span>
+</sc-if>
+<sc-if value="{{r.isToken}}" hint-placeholder-val="{{ true }}">
+<span class="tr-av" style="box-shadow: 0 0 0 2px {{r.ring}}">{{r.ini}}</span>
+</sc-if>
+<sc-if value="{{r.isGroup}}" hint-placeholder-val="{{ false }}">
+<span style="position: relative; width: 44px; height: 34px; flex-shrink: 0">
+<span class="tr-av" style="position: absolute; left: 10px; top: 0; box-shadow: 0 0 0 2px #0F1114, 0 0 0 3px {{r.ring}}; background: #2A1D1A"></span>
+<span class="tr-av" style="position: absolute; left: 0; top: 0; box-shadow: 0 0 0 2px #0F1114, 0 0 0 3px {{r.ring}}; background: #2A1D1A">{{r.ini}}</span>
+</span>
+</sc-if>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span style="display: flex; align-items: baseline; gap: 6px; min-width: 0">
+<span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</span>
+<sc-if value="{{r.isGroup}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; font-weight: 600; color: #C5A46D">×{{r.count}}</span>
+</sc-if>
+<span style="margin-left: auto; flex-shrink: 0; font-size: 12px; font-weight: 600; color: {{r.valueColor}}; font-variant-numeric: tabular-nums">{{r.value}}</span>
+</span>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0">
+<sc-if value="{{r.hasBar}}" hint-placeholder-val="{{ true }}">
+<span style="flex: 1; max-width: 140px; height: 4px; border-radius: 2px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: {{r.barW}}; background: {{r.barColor}}"></span></span>
+</sc-if>
+<span style="font-size: 12px; color: #8C8F98; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.sub}}</span>
+</span>
+<sc-if value="{{r.hasConds}}" hint-placeholder-val="{{ false }}">
+<span style="display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{r.conds}}" as="c" hint-placeholder-count="1">
+<span class="{{c.cls}}">{{c.name}}<span style="opacity: .7">{{c.dur}}</span></span>
+</sc-for>
+</span>
+</sc-if>
+</span>
+<sc-if value="{{r.isGroup}}" hint-placeholder-val="{{ false }}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8F98" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: rotate({{r.chev}}); transition: transform .15s; flex-shrink: 0"><path d="M9 6l6 6-6 6"></path></svg>
+</sc-if>
+</button>
+<sc-if value="{{r.open}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 6px">
+<sc-for list="{{r.members}}" as="m" hint-placeholder-count="3">
+<button type="button" class="{{m.cls}}" onClick="{{m.pick}}">
+<span style="width: 62px; flex-shrink: 0; font-size: 13px; font-weight: 500; color: #D5D0C4">{{m.short}}</span>
+<span style="flex: 1; height: 4px; border-radius: 2px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: {{m.barW}}; background: #C9705A"></span></span>
+<span style="width: 44px; text-align: right; font-size: 12px; font-weight: 600; color: {{m.valueColor}}; font-variant-numeric: tabular-nums">{{m.value}}</span>
+<sc-if value="{{m.hasConds}}" hint-placeholder-val="{{ false }}">
+<span style="min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: rgba(201,112,90,.2); color: #E6A28F; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{m.condCount}}</span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</sc-for>
+
+<sc-if value="{{showOutside}}" hint-placeholder-val="{{ false }}">
+<div style="margin-top: 10px; padding: 12px; border-radius: 12px; border: 1px dashed #3A404A; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #8C8F98">Fora da ordem</span>
+<button type="button" class="tr-ico" onClick="{{closeOutside}}" aria-label="Fechar" style="width: 28px; height: 28px">×</button>
+</div>
+<sc-for list="{{outside}}" as="o" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px; height: 40px">
+<span class="tr-av" style="width: 28px; height: 28px; box-shadow: 0 0 0 2px {{o.ring}}">{{o.ini}}</span>
+<span style="flex: 1; font-size: 13px; font-weight: 600">{{o.name}}</span>
+<button type="button" class="tr-btn" onClick="{{o.add}}" style="height: 32px; font-size: 12px">Entrar · rola d20</button>
+</div>
+</sc-for>
+<sc-if value="{{noOutside}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #6F7480">Todo mundo da cena já está na ordem.</span>
+</sc-if>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{ true }}">
+<section aria-label="Token selecionado" style="flex-shrink: 0; max-height: 58%; overflow: auto; box-sizing: border-box; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 14px; background: #13161B; border-top: 1px solid #2A2F38; box-shadow: 0 -12px 30px rgba(0,0,0,.35)">
+<div style="display: flex; align-items: center; gap: 12px">
+<span class="tr-av" style="width: 40px; height: 40px; font-size: 13px; box-shadow: 0 0 0 2px {{sel.ring}}">{{sel.ini}}</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; line-height: 1.1">{{sel.name}}</span>
+<span style="font-size: 12px; color: #8C8F98">{{sel.sub}}</span>
+</div>
+<button type="button" class="tr-ico" onClick="{{centerSel}}" aria-label="Centralizar no mapa" title="Centralizar no mapa">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path></svg>
+</button>
+<button type="button" class="tr-ico" onClick="{{closeSel}}" aria-label="Fechar ficha">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+
+<sc-if value="{{sel.hasBars}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{sel.bars}}" as="b" hint-placeholder-count="1">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #A9A497">{{b.label}}</span>
+<span style="flex: 1"></span>
+<button type="button" class="tr-step" onClick="{{b.dec}}" aria-label="{{b.decLabel}}">−</button>
+<span style="min-width: 64px; text-align: center; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums">{{b.text}}</span>
+<button type="button" class="tr-step" onClick="{{b.inc}}" aria-label="{{b.incLabel}}">+</button>
+</div>
+<span style="display: block; height: 8px; border-radius: 4px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: {{b.w}}; background: {{b.color}}; transition: width .2s"></span></span>
+</div>
+</sc-for>
+<div style="display: flex; align-items: center; gap: 6px">
+<input class="tr-field" type="text" inputmode="numeric" value="{{amount}}" onChange="{{onAmount}}" aria-label="Quantidade de PV" style="width: 56px; height: 36px">
+<button type="button" class="tr-btn" onClick="{{damage}}" style="flex: 1; height: 36px; font-size: 13px; color: #E6A28F">Dano</button>
+<button type="button" class="tr-btn" onClick="{{heal}}" style="flex: 1; height: 36px; font-size: 13px; color: #A9D1B4">Cura</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{sel.noBars}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 13px; color: #6F7480">Esse token não tem barras. Dá pra criar em Editar token.</p>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #A9A497">Condições</span>
+<button type="button" class="tr-btn is-quiet" onClick="{{togglePicker}}" aria-expanded="{{pickerOpen}}" style="height: 30px; padding: 0 8px; font-size: 13px; color: #C5A46D">{{pickerLabel}}</button>
+</div>
+<sc-if value="{{sel.hasConds}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{sel.conds}}" as="c" hint-placeholder-count="1">
+<span class="{{c.bigCls}}">
+{{c.name}}
+<button type="button" class="tr-cbtn" onClick="{{c.minus}}" aria-label="{{c.minusLabel}}" style="margin-left: 4px">−</button>
+<span style="min-width: 16px; text-align: center; font-variant-numeric: tabular-nums">{{c.durShort}}</span>
+<button type="button" class="tr-cbtn" onClick="{{c.plus}}" aria-label="{{c.plusLabel}}">+</button>
+<button type="button" class="tr-cbtn" onClick="{{c.remove}}" aria-label="{{c.removeLabel}}">×</button>
+</span>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{sel.noConds}}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{pickerClosed}}" hint-placeholder-val="{{ true }}">
+<span style="font-size: 13px; color: #6F7480">Nenhuma.</span>
+</sc-if>
+</sc-if>
+<sc-if value="{{pickerOpen}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 12px; border-radius: 10px; background: #0F1114; border: 1px solid #262B33; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="font-size: 12px; color: #8C8F98">Dura</span>
+<div role="radiogroup" aria-label="Duração" style="display: inline-flex; padding: 2px; border-radius: 8px; border: 1px solid #303640">
+<sc-for list="{{durs}}" as="d" hint-placeholder-count="6">
+<button type="button" role="radio" class="{{d.cls}}" aria-checked="{{d.on}}" onClick="{{d.pick}}">{{d.label}}</button>
+</sc-for>
+</div>
+<span style="font-size: 12px; color: #6F7480">rodadas</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{condOptions}}" as="o" hint-placeholder-count="12">
+<button type="button" class="{{o.cls}}" onClick="{{o.toggle}}" aria-pressed="{{o.on}}" title="{{o.name}}">{{o.name}}</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid #23272E">
+<sc-if value="{{sel.inCombat}}" hint-placeholder-val="{{ false }}">
+<label style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #A9A497; padding-top: 10px">Iniciativa
+<input class="tr-field" type="text" inputmode="numeric" value="{{sel.init}}" onChange="{{sel.setInit}}" style="width: 48px">
+</label>
+</sc-if>
+<span style="flex: 1"></span>
+<button type="button" class="tr-btn is-quiet" style="height: 34px; font-size: 13px; margin-top: 10px">Editar token</button>
+<sc-if value="{{sel.inCombat}}" hint-placeholder-val="{{ false }}">
+<button type="button" class="tr-btn is-quiet" onClick="{{sel.leave}}" style="height: 34px; font-size: 13px; margin-top: 10px; color: #A9A497">Tirar do combate</button>
+</sc-if>
+</div>
+</section>
+</sc-if>
+</sc-if>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"estado":{"editor":"enum","options":["fora","preparando","combate"],"default":"combate"},"$preview":{"width":1280,"height":900}}'>
+var TR_BUFFS = ['Abençoado', 'Concentrando', 'Invisível', 'Inspirado'];
+var TR_CONDS = ['Abençoado', 'Agarrado', 'Amedrontado', 'Atordoado', 'Caído', 'Cego', 'Concentrando', 'Envenenado', 'Inconsciente', 'Inspirado', 'Invisível', 'Paralisado'];
+var TR_DURS = [{ v: 0, l: '∞' }, { v: 1, l: '1' }, { v: 2, l: '2' }, { v: 3, l: '3' }, { v: 5, l: '5' }, { v: 10, l: '10' }];
+var TR_RING = { ally: '#D9D2C2', enemy: '#C9705A', neutral: '#8FA3BF' };
+function trToken(id, name, ini, side, ctrl, col, row, bars, conds, group) {
+  return { id: id, name: name, ini: ini, side: side, ctrl: ctrl, col: col, row: row, bars: bars, conds: conds || [], group: group || null };
+}
+function trStart() {
+  var t = [
+    trToken('kael', 'Kael', 'KA', 'ally', 'Lucas', 5, 6, [{ l: 'PV', c: 32, m: 45, color: '#C9705A' }, { l: 'Escudo', c: 8, m: 10, color: '#8FA3BF' }]),
+    trToken('lyra', 'Lyra', 'LY', 'ally', 'Bia', 3, 8, [{ l: 'PV', c: 21, m: 28, color: '#C9705A' }, { l: 'Mana', c: 9, m: 16, color: '#7F9BD6' }], [{ n: 'Abençoado', d: 2 }]),
+    trToken('thoren', 'Thoren', 'TH', 'ally', 'Thiago', 6, 8, [{ l: 'PV', c: 6, m: 38, color: '#C9705A' }], [{ n: 'Envenenado', d: 1 }]),
+    trToken('lider', 'Líder bandido', 'LB', 'enemy', null, 12, 2, [{ l: 'PV', c: 52, m: 65, color: '#C9705A' }]),
+    trToken('lobo', 'Lobo cinzento', 'LO', 'neutral', null, 14, 9, [])
+  ];
+  var pos = [[9, 4], [10, 5], [12, 5], [9, 7], [11, 7], [13, 8]];
+  for (var i = 0; i < 6; i++) {
+    var hp = [11, 11, 4, 11, 0, 11][i];
+    t.push(trToken('b' + (i + 1), 'Bandido ' + (i + 1), 'B' + (i + 1), 'enemy', null, pos[i][0], pos[i][1], [{ l: 'PV', c: hp, m: 11, color: '#C9705A' }], i === 1 ? [{ n: 'Amedrontado', d: 2 }] : (i === 4 ? [{ n: 'Inconsciente', d: 0 }] : []), 'Bandido'));
+  }
+  return t;
+}
+function trRand() { return 1 + Math.floor(Math.random() * 20); }
+function trPct(b) { return b.m > 0 ? Math.max(0, Math.min(100, Math.round(b.c / b.m * 100))) : 0; }
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var estado = props.estado ?? 'combate';
+    var tokens = trStart();
+    var base = {
+      tokens: tokens, mode: 'fora', round: 1, entries: [], turn: null, selId: null, open: {}, picker: false, pickDur: 2,
+      menu: false, confirmEnd: false, outside: false, feed: [], toast: null, amount: '5',
+      prep: { sel: {}, junto: { Bandido: true }, init: {} }
+    };
+    tokens.forEach(function (t) { if (t.id !== 'lobo') base.prep.sel[t.id] = true; });
+    if (estado === 'preparando') { base.mode = 'prep'; base.prep.init = { kael: '18', lyra: '' }; }
+    if (estado === 'combate') {
+      base.mode = 'combate'; base.round = 2;
+      base.entries = [
+        { key: 'kael', kind: 'token', ids: ['kael'], init: 18 },
+        { key: 'g:Bandido', kind: 'group', name: 'Bandido', ids: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6'], init: 15 },
+        { key: 'lyra', kind: 'token', ids: ['lyra'], init: 14 },
+        { key: 'lider', kind: 'token', ids: ['lider'], init: 11 },
+        { key: 'thoren', kind: 'token', ids: ['thoren'], init: 7 }
+      ];
+      base.turn = 'kael'; base.selId = 'kael';
+    }
+    this.state = base;
+  }
+  tok(id) { return this.state.tokens.find(function (t) { return t.id === id; }); }
+  patchTok(id, fn) {
+    this.setState({ tokens: this.state.tokens.map(function (t) {
+      if (t.id !== id) return t;
+      var c = JSON.parse(JSON.stringify(t)); fn(c); return c;
+    }) });
+  }
+  setBar(id, idx, delta) {
+    this.patchTok(id, function (t) {
+      var b = t.bars[idx]; b.c = Math.max(0, Math.min(b.m, b.c + delta));
+      if (idx === 0) {
+        var down = t.conds.some(function (x) { return x.n === 'Caído'; });
+        if (b.c === 0 && !down) t.conds.push({ n: 'Caído', d: 0 });
+        if (b.c > 0 && down) t.conds = t.conds.filter(function (x) { return x.n !== 'Caído'; });
+      }
+    });
+  }
+  sortEntries(list) {
+    var self = this;
+    var sideRank = function (e) { if (e.kind === 'event') return 2; var t = self.tok(e.ids[0]); return t && t.side === 'ally' ? 0 : 1; };
+    return list.slice().sort(function (a, b) { return b.init - a.init || sideRank(a) - sideRank(b); });
+  }
+  entryName(e) {
+    if (!e) return '—';
+    if (e.kind === 'group') return e.name + 's';
+    if (e.kind === 'event') return e.name;
+    var t = this.tok(e.ids[0]); return t ? t.name : '—';
+  }
+  advance(dir) {
+    var self = this, s = this.state;
+    var order = s.entries;
+    if (!order.length) return;
+    var i = order.findIndex(function (e) { return e.key === s.turn; });
+    var ni = i + dir, round = s.round, tokens = s.tokens, feed = [];
+    if (ni >= order.length) {
+      ni = 0; round += 1;
+      feed.push('Rodada ' + round + ' começou.');
+      tokens = tokens.map(function (t) {
+        var c = JSON.parse(JSON.stringify(t));
+        c.conds = c.conds.filter(function (x) {
+          if (x.d > 0) { x.d -= 1; if (x.d === 0) { feed.push(x.n + ' acabou em ' + c.name + '.'); return false; } }
+          return true;
+        });
+        return c;
+      });
+    } else if (ni < 0) {
+      if (round <= 1) ni = 0; else { ni = order.length - 1; round -= 1; }
+    }
+    var e = order[ni];
+    this.setState({ round: round, turn: e.key, tokens: tokens, feed: feed, selId: e.kind === 'token' ? e.ids[0] : null, open: e.kind === 'group' ? Object.assign({}, s.open, (function () { var o = {}; o[e.key] = true; return o; })()) : s.open, menu: false });
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var mode = s.mode;
+    var byId = {}; s.tokens.forEach(function (t) { byId[t.id] = t; });
+    var inCombat = {}; s.entries.forEach(function (e) { e.ids.forEach(function (id) { inCombat[id] = e; }); });
+    var turnEntry = s.entries.find(function (e) { return e.key === s.turn; });
+    var turnIds = turnEntry ? turnEntry.ids : [];
+
+    var condChips = function (t) {
+      return t.conds.map(function (x) {
+        var good = TR_BUFFS.indexOf(x.n) >= 0;
+        return {
+          name: x.n, dur: x.d > 0 ? ' ' + x.d : '', durShort: x.d > 0 ? String(x.d) : '∞',
+          cls: 'tr-chip ' + (good ? 'is-good' : 'is-bad'), bigCls: 'tr-cond ' + (good ? 'is-good' : 'is-bad'),
+          minusLabel: 'Menos uma rodada de ' + x.n, plusLabel: 'Mais uma rodada de ' + x.n, removeLabel: 'Remover ' + x.n,
+          minus: function () { self.patchTok(t.id, function (c) { c.conds.forEach(function (y) { if (y.n === x.n) y.d = Math.max(0, y.d - 1); }); }); },
+          plus: function () { self.patchTok(t.id, function (c) { c.conds.forEach(function (y) { if (y.n === x.n) y.d = y.d + 1; }); }); },
+          remove: function () { self.patchTok(t.id, function (c) { c.conds = c.conds.filter(function (y) { return y.n !== x.n; }); }); }
+        };
+      });
+    };
+    var pv = function (t) { return t.bars.length ? t.bars[0] : null; };
+    var valueOf = function (t) { var b = pv(t); return b ? b.c + '/' + b.m : ''; };
+    var lowColor = function (t) { var b = pv(t); if (!b) return '#8C8F98'; if (b.c === 0) return '#6F7480'; return b.c / b.m < 0.25 ? '#E6A28F' : '#D5D0C4'; };
+
+    var tokenRow = function (t, entry) {
+      var b = pv(t);
+      var isTurn = entry ? entry.key === s.turn : false;
+      return {
+        isHeader: false, isEntry: true, isToken: true, isGroup: false, isEvent: false,
+        showInit: !!entry, init: entry ? entry.init : '', name: t.name, ini: t.ini, ring: TR_RING[t.side],
+        sub: t.ctrl ? t.ctrl : (t.side === 'enemy' ? 'NPC' : 'NPC neutro'),
+        value: b ? b.c + '/' + b.m : 'sem barras', valueColor: lowColor(t),
+        hasBar: !!b, barW: b ? trPct(b) + '%' : '0%', barColor: b ? b.color : '#303640',
+        conds: condChips(t), hasConds: t.conds.length > 0, open: false, expanded: s.selId === t.id ? 'true' : 'false',
+        cls: 'tr-row' + (isTurn ? ' is-turn' : '') + (s.selId === t.id ? ' is-sel' : '') + (b && b.c === 0 ? ' is-down' : ''),
+        pick: function () { self.setState({ selId: s.selId === t.id ? null : t.id, picker: false }); }
+      };
+    };
+    var groupRow = function (name, ids, entry) {
+      var members = ids.map(function (id) { return byId[id]; }).filter(Boolean);
+      var key = entry ? entry.key : 'g:' + name;
+      var standing = members.filter(function (m) { return !pv(m) || pv(m).c > 0; }).length;
+      var tot = members.reduce(function (a, m) { var b = pv(m); return b ? [a[0] + b.c, a[1] + b.m] : a; }, [0, 0]);
+      var isOpen = !!s.open[key];
+      var isTurn = entry ? entry.key === s.turn : false;
+      return {
+        isHeader: false, isEntry: true, isToken: false, isGroup: true, isEvent: false,
+        showInit: !!entry, init: entry ? entry.init : '', name: name, ini: name.slice(0, 2).toUpperCase(), ring: '#C9705A', count: members.length,
+        sub: standing + ' de ' + members.length + ' de pé', value: '', valueColor: '#8C8F98',
+        hasBar: tot[1] > 0, barW: (tot[1] ? Math.round(tot[0] / tot[1] * 100) : 0) + '%', barColor: '#C9705A',
+        conds: [], hasConds: false, open: isOpen, expanded: isOpen ? 'true' : 'false', chev: isOpen ? '90deg' : '0deg',
+        cls: 'tr-row' + (isTurn ? ' is-turn' : ''),
+        pick: function () { var o = Object.assign({}, s.open); o[key] = !o[key]; self.setState({ open: o }); },
+        members: members.map(function (m) {
+          var b = pv(m);
+          return {
+            short: '#' + m.id.slice(1), value: b ? b.c + '/' + b.m : '', valueColor: lowColor(m), barW: b ? trPct(b) + '%' : '0%',
+            hasConds: m.conds.length > 0, condCount: m.conds.length,
+            cls: 'tr-member' + (s.selId === m.id ? ' is-sel' : '') + (b && b.c === 0 ? ' is-down' : ''),
+            pick: function () { self.setState({ selId: s.selId === m.id ? null : m.id, picker: false }); }
+          };
+        })
+      };
+    };
+    var header = function (label) { return { isHeader: true, isEntry: false, label: label }; };
+
+    var rows = [];
+    if (mode === 'fora') {
+      var allies = s.tokens.filter(function (t) { return t.side === 'ally'; });
+      var foes = s.tokens.filter(function (t) { return t.side === 'enemy' && !t.group; });
+      var neutrals = s.tokens.filter(function (t) { return t.side === 'neutral'; });
+      var groups = {};
+      s.tokens.forEach(function (t) { if (t.group) (groups[t.group] = groups[t.group] || []).push(t.id); });
+      rows.push(header('Grupo · ' + allies.length));
+      allies.forEach(function (t) { rows.push(tokenRow(t, null)); });
+      rows.push(header('Inimigos · ' + (foes.length + Object.keys(groups).reduce(function (a, k) { return a + groups[k].length; }, 0))));
+      Object.keys(groups).forEach(function (g) { rows.push(groupRow(g, groups[g], null)); });
+      foes.forEach(function (t) { rows.push(tokenRow(t, null)); });
+      if (neutrals.length) { rows.push(header('Neutros · ' + neutrals.length)); neutrals.forEach(function (t) { rows.push(tokenRow(t, null)); }); }
+    } else if (mode === 'combate') {
+      s.entries.forEach(function (e) {
+        if (e.kind === 'group') rows.push(groupRow(e.name, e.ids, e));
+        else if (e.kind === 'event') {
+          var isTurn = e.key === s.turn;
+          rows.push({ isHeader: false, isEntry: true, isToken: false, isGroup: false, isEvent: true, showInit: true, init: e.init, name: e.name, sub: 'Evento · sem token', value: '', valueColor: '#8C8F98', hasBar: false, barW: '0%', barColor: '#303640', conds: [], hasConds: false, open: false, expanded: 'false', cls: 'tr-row' + (isTurn ? ' is-turn' : ''), pick: function () {} });
+        } else { var t = byId[e.ids[0]]; if (t) rows.push(tokenRow(t, e)); }
+      });
+    }
+
+    var prepRows = [];
+    var prepEntries = 0;
+    if (mode === 'prep') {
+      var P = s.prep;
+      var setPrep = function (fn) { var p = JSON.parse(JSON.stringify(self.state.prep)); fn(p); self.setState({ prep: p }); };
+      var item = function (o) { return Object.assign({ isHeader: false, isItem: true, isGroup: false, hasInit: true, indent: '10px', avSize: '34px' }, o); };
+      var tokItem = function (t, indent) {
+        var on = !!P.sel[t.id];
+        if (on && !indent) prepEntries++;
+        return item({
+          name: t.name, ini: t.ini, ring: TR_RING[t.side], sub: t.ctrl ? 'jogado por ' + t.ctrl : (t.side === 'neutral' ? 'neutro' : 'NPC'),
+          cls: 'tr-prep' + (on ? '' : ' is-off'), checkCls: 'tr-check' + (on ? ' is-on' : ''), checked: on ? 'true' : 'false', checkLabel: 'Incluir ' + t.name,
+          indent: indent || '10px', avSize: indent ? '28px' : '34px',
+          init: P.init[t.id] || '', initLabel: 'Iniciativa de ' + t.name, rollLabel: 'Rolar iniciativa de ' + t.name,
+          toggle: function () { setPrep(function (p) { p.sel[t.id] = !p.sel[t.id]; }); },
+          setInit: function (e) { var v = e.target.value; setPrep(function (p) { p.init[t.id] = v; }); },
+          roll: function () { setPrep(function (p) { p.init[t.id] = String(trRand()); }); }
+        });
+      };
+      var allies2 = s.tokens.filter(function (t) { return t.side === 'ally'; });
+      prepRows.push({ isHeader: true, isItem: false, label: 'Grupo' });
+      allies2.forEach(function (t) { prepRows.push(tokItem(t)); });
+      prepRows.push({ isHeader: true, isItem: false, label: 'Inimigos e outros' });
+      var gIds = s.tokens.filter(function (t) { return t.group === 'Bandido'; }).map(function (t) { return t.id; });
+      var gOnCount = gIds.filter(function (id) { return P.sel[id]; }).length;
+      var junto = P.junto.Bandido !== false;
+      var gKey = 'g:Bandido';
+      if (junto && gOnCount) prepEntries++;
+      if (!junto) prepEntries += gOnCount;
+      prepRows.push(item({
+        isGroup: true, name: 'Bandido ×' + gIds.length, ini: 'BA', ring: '#C9705A', sub: gOnCount + ' de ' + gIds.length + ' marcados',
+        cls: 'tr-prep' + (gOnCount ? '' : ' is-off'), checkCls: 'tr-check' + (gOnCount ? ' is-on' : ''), checked: gOnCount === gIds.length ? 'true' : (gOnCount ? 'mixed' : 'false'), checkLabel: 'Incluir os bandidos',
+        hasInit: junto, init: P.init[gKey] || '', initLabel: 'Iniciativa dos bandidos', rollLabel: 'Rolar iniciativa dos bandidos',
+        junto: junto ? 'true' : 'false', separado: junto ? 'false' : 'true',
+        segJunto: 'tr-seg' + (junto ? ' is-on' : ''), segSep: 'tr-seg' + (junto ? '' : ' is-on'),
+        setJunto: function () { setPrep(function (p) { p.junto.Bandido = true; }); },
+        setSep: function () { setPrep(function (p) { p.junto.Bandido = false; }); },
+        toggle: function () { var to = gOnCount === 0; setPrep(function (p) { gIds.forEach(function (id) { p.sel[id] = to; }); }); },
+        setInit: function (e) { var v = e.target.value; setPrep(function (p) { p.init[gKey] = v; }); },
+        roll: function () { setPrep(function (p) { p.init[gKey] = String(trRand()); }); }
+      }));
+      if (!junto) gIds.forEach(function (id) { var r = tokItem(byId[id], '46px'); prepRows.push(r); });
+      s.tokens.filter(function (t) { return t.side !== 'ally' && !t.group; }).forEach(function (t) { prepRows.push(tokItem(t)); });
+    }
+
+    var sel = byId[s.selId];
+    var selView = { name: '', sub: '', ini: '', ring: '#303640', bars: [], hasBars: false, noBars: true, conds: [], hasConds: false, noConds: true, inCombat: false, init: '', setInit: function () {}, leave: function () {} };
+    if (sel) {
+      var ent = inCombat[sel.id];
+      selView = {
+        name: sel.name, ini: sel.ini, ring: TR_RING[sel.side],
+        sub: (sel.ctrl ? 'Jogado por ' + sel.ctrl : 'NPC') + ' · coluna ' + sel.col + ', linha ' + sel.row,
+        bars: sel.bars.map(function (b, i) {
+          return { label: b.l, text: b.c + ' / ' + b.m, w: trPct(b) + '%', color: b.color,
+            dec: function () { self.setBar(sel.id, i, -1); }, inc: function () { self.setBar(sel.id, i, 1); },
+            decLabel: 'Diminuir ' + b.l, incLabel: 'Aumentar ' + b.l };
+        }),
+        hasBars: sel.bars.length > 0, noBars: sel.bars.length === 0,
+        conds: condChips(sel), hasConds: sel.conds.length > 0, noConds: sel.conds.length === 0,
+        inCombat: mode === 'combate' && !!ent, init: ent ? ent.init : '',
+        setInit: function (e) { var v = parseInt(e.target.value, 10); if (isNaN(v) || !ent) return; self.setState({ entries: self.sortEntries(self.state.entries.map(function (x) { return x.key === ent.key ? Object.assign({}, x, { init: v }) : x; })) }); },
+        leave: function () {
+          var list = self.state.entries.map(function (x) { return x.key === ent.key ? Object.assign({}, x, { ids: x.ids.filter(function (id) { return id !== sel.id; }) }) : x; }).filter(function (x) { return x.kind === 'event' || x.ids.length; });
+          var patch = { entries: list, selId: null };
+          if (self.state.turn === ent.key && !list.some(function (x) { return x.key === ent.key; })) patch.turn = list.length ? list[0].key : null;
+          self.setState(patch);
+        }
+      };
+    }
+    var condOptions = TR_CONDS.map(function (n) {
+      var on = sel ? sel.conds.some(function (x) { return x.n === n; }) : false;
+      return { name: n, on: on ? 'true' : 'false', cls: 'tr-pick' + (on ? ' is-on' : ''),
+        toggle: function () { if (!sel) return; self.patchTok(sel.id, function (c) { if (on) c.conds = c.conds.filter(function (x) { return x.n !== n; }); else c.conds.push({ n: n, d: self.state.pickDur }); }); } };
+    });
+    var durs = TR_DURS.map(function (d) { return { label: d.l, on: s.pickDur === d.v ? 'true' : 'false', cls: 'tr-seg' + (s.pickDur === d.v ? ' is-on' : ''), pick: function () { self.setState({ pickDur: d.v }); } }; });
+
+    var mapTokens = s.tokens.map(function (t) {
+      var b = pv(t);
+      return { name: t.name, ini: t.ini, left: (t.col / 16 * 100) + '%', top: (t.row / 12 * 100) + '%',
+        cls: 'tr-tok' + (t.side === 'enemy' ? ' is-enemy' : '') + (turnIds.indexOf(t.id) >= 0 ? ' is-turn' : '') + (s.selId === t.id ? ' is-sel' : '') + (b && b.c === 0 ? ' is-down' : '') + (mode === 'combate' && !inCombat[t.id] ? ' is-out' : ''),
+        pick: function () { self.setState({ selId: t.id, picker: false }); } };
+    });
+
+    var outside = s.tokens.filter(function (t) { return !inCombat[t.id]; }).map(function (t) {
+      return { name: t.name, ini: t.ini, ring: TR_RING[t.side], add: function () {
+        var e = { key: t.id, kind: 'token', ids: [t.id], init: trRand() };
+        self.setState({ entries: self.sortEntries(self.state.entries.concat([e])), feed: [t.name + ' entrou na ordem com ' + e.init + '.'] });
+      } };
+    });
+
+    var idx = s.entries.findIndex(function (e) { return e.key === s.turn; });
+    var nextE = s.entries.length ? s.entries[(idx + 1) % s.entries.length] : null;
+    var wraps = idx === s.entries.length - 1;
+    var turnTok = turnEntry && turnEntry.kind === 'token' ? byId[turnEntry.ids[0]] : null;
+
+    return {
+      isFora: mode === 'fora', isPrep: mode === 'prep', isCombat: mode === 'combate', showList: mode !== 'prep',
+      tokenCount: s.tokens.length, rows: rows, prepRows: prepRows, mapTokens: mapTokens,
+      round: s.round, turnName: this.entryName(turnEntry),
+      nextLabel: wraps ? 'Fechar rodada ' + s.round : 'Próximo turno',
+      upNext: nextE ? this.entryName(nextE) + (wraps ? ' · rodada ' + (s.round + 1) : '') : '—',
+      showTurnControls: !s.confirmEnd, confirmEnd: s.confirmEnd,
+      feed: s.feed.map(function (t) { return { text: t }; }), hasFeed: s.feed.length > 0,
+      hasToast: !!s.toast, toast: s.toast || '', dismissToast: function () { self.setState({ toast: null }); },
+      menuOpen: s.menu, toggleMenu: function () { self.setState({ menu: !self.state.menu }); },
+      menuAdd: function () { self.setState({ outside: true, menu: false }); },
+      addEvent: function () {
+        var e = { key: 'ev' + Date.now(), kind: 'event', ids: [], name: 'Ação do covil', init: 20 };
+        self.setState({ entries: self.sortEntries(self.state.entries.concat([e])), menu: false, feed: ['Ação do covil entrou na ordem com 20.'] });
+      },
+      askEnd: function () { self.setState({ confirmEnd: true, menu: false }); },
+      cancelEnd: function () { self.setState({ confirmEnd: false }); },
+      endCombat: function () { var r = self.state.round; self.setState({ mode: 'fora', entries: [], turn: null, confirmEnd: false, feed: [], outside: false, toast: 'Combate encerrado depois de ' + r + (r === 1 ? ' rodada.' : ' rodadas.') }); },
+      nextTurn: function () { self.advance(1); }, prevTurn: function () { self.advance(-1); },
+      showOutside: mode === 'combate' && s.outside, outside: outside, noOutside: outside.length === 0,
+      closeOutside: function () { self.setState({ outside: false }); },
+      startPrep: function () { self.setState({ mode: 'prep', toast: null, selId: null }); },
+      cancelPrep: function () { self.setState({ mode: 'fora' }); },
+      selectAllLabel: 'Marcar todos',
+      selectAll: function () { var p = JSON.parse(JSON.stringify(self.state.prep)); self.state.tokens.forEach(function (t) { p.sel[t.id] = true; }); self.setState({ prep: p }); },
+      rollNpcs: function () {
+        var p = JSON.parse(JSON.stringify(self.state.prep));
+        self.state.tokens.forEach(function (t) { if (!t.ctrl && !t.group) p.init[t.id] = String(trRand()); });
+        p.init['g:Bandido'] = String(trRand());
+        self.state.tokens.forEach(function (t) { if (t.group) p.init[t.id] = String(trRand()); });
+        self.setState({ prep: p });
+      },
+      prepSummary: prepEntries === 1 ? '1 na ordem' : prepEntries + ' na ordem', prepEmpty: prepEntries === 0,
+      beginCombat: function () {
+        var P = self.state.prep, entries = [], rolled = 0;
+        var val = function (k) { var v = parseInt(P.init[k], 10); if (isNaN(v)) { rolled++; return trRand(); } return v; };
+        var junto = P.junto.Bandido !== false;
+        self.state.tokens.forEach(function (t) { if (P.sel[t.id] && !(t.group && junto)) entries.push({ key: t.id, kind: 'token', ids: [t.id], init: val(t.id) }); });
+        var gIds = self.state.tokens.filter(function (t) { return t.group === 'Bandido' && P.sel[t.id]; }).map(function (t) { return t.id; });
+        if (junto && gIds.length) entries.push({ key: 'g:Bandido', kind: 'group', name: 'Bandido', ids: gIds, init: val('g:Bandido') });
+        entries = self.sortEntries(entries);
+        if (!entries.length) return;
+        var first = entries[0];
+        self.setState({ mode: 'combate', entries: entries, round: 1, turn: first.key, selId: first.kind === 'token' ? first.ids[0] : null,
+          feed: ['Combate começou!' + (rolled ? ' Rolei d20 pra ' + rolled + (rolled === 1 ? ' que estava em branco.' : ' que estavam em branco.') : '')] });
+      },
+      hasSel: !!sel && mode !== 'prep', sel: selView,
+      closeSel: function () { self.setState({ selId: null, picker: false }); },
+      centerSel: function () {},
+      amount: s.amount, onAmount: function (e) { self.setState({ amount: e.target.value }); },
+      damage: function () { if (sel) self.setBar(sel.id, 0, -Math.abs(parseInt(self.state.amount, 10) || 0)); },
+      heal: function () { if (sel) self.setBar(sel.id, 0, Math.abs(parseInt(self.state.amount, 10) || 0)); },
+      pickerOpen: s.picker, pickerClosed: !s.picker, pickerLabel: s.picker ? 'Pronto' : '+ Condição',
+      togglePicker: function () { self.setState({ picker: !self.state.picker }); },
+      condOptions: condOptions, durs: durs
+    };
+  }
+}
+</script>
+</body>
+</html>
