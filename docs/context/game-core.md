@@ -52,7 +52,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 
 ## Barra
 
-- `BarChange` = `{ op: 'add', amount }` ("−7", "+5") | `{ op: 'set', value }` ("12"). `applyBarChange(atual, mudança, limite)` devolve o valor novo: **livre** (negativo e acima do máximo valem, nada automático no zero, spec §2.1), só travado em ±`limite`. O limite vem por parâmetro (`BAR_VALUE_LIMIT` do contracts), porque o game-core não importa o contracts. Valor não inteiro lança `RangeError` citando o valor. `BarAdjustment` = `BarChange` | `{ op: 'max', value }` (o "Máx." do cartão); `adjustBarValues({ current, max }, ajuste, limite)` → `{ current, max }`: o `max` troca só o máximo (1 a `limite`, inteiro; fora → `RangeError` citando o valor) e deixa o atual, mesmo acima; o resto passa pelo `applyBarChange`.
+- `BarChange` = `{ op: 'add', amount }` ("−7", "+5") | `{ op: 'set', value }` ("12"). `applyBarChange(atual, mudança, limite)` devolve o valor novo: **livre** (negativo e acima do máximo valem, nada automático no zero, spec §2.1), só travado em ±`limite`. O limite vem por parâmetro (`BAR_VALUE_LIMIT` do contracts), porque o game-core não importa o contracts. Valor não inteiro lança `RangeError` citando o valor. `BarAdjustment` = `BarChange` | `{ op: 'max', value }` (o "Máx." do detalhe do token); `adjustBarValues({ current, max }, ajuste, limite)` → `{ current, max }`: o `max` troca só o máximo (1 a `limite`, inteiro; fora → `RangeError` citando o valor) e deixa o atual, mesmo acima; o resto passa pelo `applyBarChange`.
 
 ## Combate
 

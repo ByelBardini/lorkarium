@@ -9,7 +9,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Tokens de cor, tipografia, forma, componentes base e regras anti-template    | [`design-system.md`](client/design-system.md) |
 | Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe               | [`home.md`](client/home.md)                   |
 | Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos      | [`board.md`](client/board.md)                 |
-| Tokens na sala: arraste, teclado, lista "Na cena", cartão, diálogo e barras  | [`tokens.md`](client/tokens.md)               |
+| Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras | [`tokens.md`](client/tokens.md)               |
 | Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz | [`token-dialog.md`](client/token-dialog.md)   |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro | [`combat.md`](client/combat.md)               |
 | Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)      | [`drawings.md`](client/drawings.md)           |
@@ -41,7 +41,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/lib/stored-choice.ts` — `readStoredChoice(storage, chave, opções, padrão)` / `writeStoredChoice`: preferência de UI no `localStorage` que cai na memória se o storage lança (trilho e painel da sala)
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` e `DESKTOP_QUERY` (`md`); sem `matchMedia` (jsdom) responde `true`
 - `src/lib/board-shortcuts.ts`, `ruler-label.ts` — atalhos e régua da sala (ver [`client/board.md`](client/board.md))
-- `src/lib/cells-text.ts` — `cellsText(1.5)` → `'1,5'`: casas com vírgula (cartão, anúncio e formulário do token)
+- `src/lib/cells-text.ts` — `cellsText(1.5)` → `'1,5'`: casas com vírgula (detalhe, anúncio e formulário do token)
 - `src/lib/token-side.ts` — `sideRingVar(lado)` → `var(--label)` / `var(--chart-3)` / `var(--chart-2)`: a cor do anel do token no DOM (a prévia do diálogo; o canvas tem os hex)
 - `src/lib/safe-redirect.ts` — `safeRedirectTarget(next)`: só caminho interno; `//x`, `/\x`, URL absoluta, `javascript:`, vazio e `/login` viram `/`
 - `src/lib/greeting.ts` — `GREETINGS` (as 10 saudações da home) e `greetingFor(nome, sorteio ∈ [0, 1))` com o primeiro nome; sorteio fora do intervalo → `RangeError`
