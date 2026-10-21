@@ -9,13 +9,9 @@ import {
   enterFromTheList,
   joinByCodeAndEnter,
 } from './support/tables';
-import { cardOf, openCard, statusOf, chooseController } from './support/token-cards';
+import { cardOf, openCard, statusOf, chooseController, sceneTokensOf } from './support/token-cards';
 
 const WALL_BLOCKS = 'Uma parede bloqueia o caminho.';
-
-function sceneTokensOf(page: Page): Locator {
-  return page.getByRole('list', { name: 'Na cena' }).getByRole('listitem');
-}
 
 async function showSceneTokens(page: Page): Promise<void> {
   await page.getByRole('tab', { name: 'Combate' }).click();

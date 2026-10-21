@@ -5,12 +5,21 @@ export function statusOf(page: Page): Locator {
   return page.getByRole('status', { name: 'Status do tabuleiro' });
 }
 
-/** The card of a token in the panel (open it first with `openCard`). */
-export function cardOf(page: Page, name: string): Locator {
-  return page.getByRole('region', { name: `Cartão de ${name}` });
+/** The token lines under "Na cena" (one per token this viewer sees; the side headings and a
+ *  group's folded line are not counted). */
+export function sceneTokensOf(page: Page): Locator {
+  return page.getByRole('list', { name: 'Na cena' }).locator('button[aria-pressed]');
 }
 
-/** Opens the card of `name` under "Na cena" (tab "Combate"), unless it is already open.
+/** The detail of the selected token at the foot of the panel (open it first with `openCard`). */
+export function cardOf(page: Page, name: string): Locator {
+  return page
+    .getByRole('region', { name: 'Token selecionado' })
+    .filter({ has: page.getByRole('heading', { name, exact: true }) });
+}
+
+/** Selects `name` under "Na cena" (tab "Combate"), unless it is already selected, and waits for
+ *  its detail at the foot of the panel.
  *
  *  Example: `await openCard(bia, 'Lyra'); await expect(cardOf(bia, 'Lyra')).toContainText('Coluna 5')` */
 export async function openCard(page: Page, name: string): Promise<void> {
@@ -18,7 +27,7 @@ export async function openCard(page: Page, name: string): Promise<void> {
   const row = page
     .getByRole('list', { name: 'Na cena' })
     .getByRole('button', { name: new RegExp(`^${name}`) });
-  if ((await row.getAttribute('aria-expanded')) !== 'true') await row.click();
+  if ((await row.getAttribute('aria-pressed')) !== 'true') await row.click();
   await expect(cardOf(page, name)).toBeVisible();
 }
 
