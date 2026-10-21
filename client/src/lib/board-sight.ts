@@ -35,7 +35,8 @@ export type BoardSight = Readonly<{
 export type BoardSightOptions = Readonly<{
   /** The master's "Ver como os selecionados": these tokens are the eyes; `null` = off. */
   previewEyeIds: readonly string[] | null;
-  /** Where the dragged tokens of this viewer would land: their eyes look from there. */
+  /** Where each token shows now (this viewer's drag, the move waiting for the server, other
+   *  people's drags): it looks, shines and is seen from there. */
   landing?: TokenLanding;
 }>;
 
@@ -61,7 +62,7 @@ export function boardSightOf(board: BoardStateDto, options: BoardSightOptions): 
   return {
     active: true,
     mode,
-    levels: levelsOf(board.tokens, watching, context),
+    levels: levelsOf(board.tokens, watching, context, options.landing),
     eyes,
     eyeTokenIds: watching,
     noEyes: mode === 'dark' && eyes.length === 0,
@@ -107,11 +108,13 @@ function levelsOf(
   tokens: readonly TokenDto[],
   watching: readonly string[],
   context: SightContext,
+  landing: BoardSightOptions['landing'],
 ): Map<string, SightLevel> {
   const levels = new Map<string, SightLevel>();
   for (const token of tokens) {
     if (watching.includes(token.id)) continue;
-    const box = { x: token.col, y: token.row, width: token.width, height: token.height };
+    const at = landing?.get(token.id) ?? token;
+    const box = { x: at.col, y: at.row, width: token.width, height: token.height };
     const level = sightLevel(context, { box, scenery: token.layer === 'background' });
     if (level !== 'seen') levels.set(token.id, level);
   }
