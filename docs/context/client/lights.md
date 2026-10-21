@@ -1,6 +1,6 @@
 # Client · luzes
 
-A iluminação na sala: as luzes do mapa no estado confirmado, os comandos, a luz do token (formulário e menu), a ferramenta "Luzes" (L, só o mestre), os ícones do mestre no tabuleiro, editar com desfazer e acender/apagar. Server e contrato em [`../lights.md`](../lights.md) e [`../contracts/tabuleiro.md`](../contracts/tabuleiro.md); a regra da luz no ponto e a visão com luz em [`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md); o filtro e a névoa em [`vision.md`](vision.md). Plano de origem: [`2026-10-18-iluminacao.md`](../../plans/2026-10-18-iluminacao.md).
+A iluminação na sala: as luzes do mapa no estado confirmado, os comandos, a luz do token (formulário e menu), a ferramenta "Luzes" (L, só o mestre), os ícones do mestre no tabuleiro, editar com desfazer e acender/apagar. Server e contrato em [`../lights.md`](../lights.md) e [`../contracts/tabuleiro.md`](../contracts/tabuleiro.md); a regra da luz no ponto e a visão com luz em [`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md); o filtro e a névoa em [`vision.md`](vision.md); a lanterna, o holofote, a abertura e a alça de mirar em [`cones.md`](cones.md). Plano de origem: [`2026-10-18-iluminacao.md`](../../plans/2026-10-18-iluminacao.md).
 
 ## Estado, eventos e comandos
 
@@ -18,6 +18,8 @@ A iluminação na sala: as luzes do mapa no estado confirmado, os comandos, a lu
 - **A visão é "Enxerga no escuro".** O interruptor da visão diz "Enxerga no escuro", com a dica "Sem isso, o token vê só onde há luz.": o alcance de visão é a visão no escuro, e todo token é olho (ver [`vision.md`](vision.md)). O token novo já vem com ele ligado.
 
 ## Ferramenta "Luzes" (L) e painel
+
+- A "Abertura (°)" do painel (da próxima luz e das pegas, com desfazer) e a alça que mira o holofote pego sozinho: ver [`cones.md`](cones.md).
 
 - `board-tool-state.ts`: `tool: 'lights'`, só do mestre (`toolChangeOf` recusa para o jogador), com o `LIGHT_HINT` "Clique para pôr uma luz; Shift encaixa na meia casa.". O botão "Luzes (L)" (ícone `Flame`) no `board-toolbar.tsx` só para quem configura a cena; o L no `board-shortcuts.ts` (`lights-tool`) e no `use-room-shortcuts.ts`; cursor `crosshair` (`board-cursor.ts`).
 - `press-route.ts`: com a ferramenta, todo aperto é `{ kind: 'light', lightId }` (o ícone do `topLightAt`, ou `null` no vazio). `renderer/light-gestures.ts` — `LightGestures` (sem PixiJS): `press(cena em casas, tela, mundo, lightId)`, `move(tela, mundo, shift)` (vira arraste a partir de 4 px), `release(tela, mundo, shift)` e `cancel()` (Esc). O clique no vazio emite `lightPlaced { x, y }` no ponto apertado, ao centésimo (com Shift, na meia casa: `cellPointOf`), só dentro da cena; o arraste que começa no vazio não põe nada.

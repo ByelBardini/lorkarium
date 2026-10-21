@@ -22,7 +22,9 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/wall-segments.ts` — os segmentos retos de uma parede
 - `src/wall-erase.ts` — o que sobra de uma parede sem um dos seus trechos ou fora da caixa da borracha
 - `src/passage.ts` — o trecho do caminho que uma parede barra e o centro do token
-- `src/sight-area.ts` — o polígono que um olho enxerga e a linha de visão
+- `src/cone.vo.ts` — a abertura e o cone (VO); 360 = todo lado
+- `src/view-field.ts` — o campo de um olho (cone + anel de 1 casa) e da lanterna, e a distância até a pegada
+- `src/sight-area.ts` — o polígono que um olho enxerga (em volta ou no campo) e a linha de visão
 - `src/token-sight.ts` — o alcance de visão, o olho, o nível de visão de um token e a porta vista
 - `src/reach.ts` — a validação do alcance (plena e penumbra, de 0 a 100 casas) dividida entre visão e luz
 - `src/light.vo.ts` — o alcance da luz e a luz do mapa (VO)
@@ -87,7 +89,7 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 - `effectArea(forma)` confere pela forma (direção antes da origem, depois raio e lados) e devolve congelado; erro é `RangeError` citando a forma, o valor e o esperado ("circle origin (2.5, 3) … grid intersection", "diagonal_cone facing 90 … 45, 135, 225 or 315", "reach 0 … whole cells from 1 to 100", "smooth_circle reach 0.3 … 0.5 to 100"). `EFFECT_AREA_REACH_MAX` = 100 (o `SCENE_CELLS_MAX`), `SMOOTH_REACH_MIN` = 0,5, `isSmoothArea`. Tipos: `SquareArea`, `RoundArea`, `AimedArea` (`AimedAreaKind`), `EmanationArea`.
 - `effectAreaOriginFits(cena, área)`: só a **origem** precisa estar em `[0, largura] × [0, altura]` (a borda conta, em centésimos); o resto é cortado, então uma emanação de token encostado na borda vale.
 - `effectAreaCells(cena, área)` — **regra do centro**: pinta a casa cujo centro cai dentro da forma, com `≤` e folga de 1e-9 (**a borda conta**: a emanação de um token em meia casa empata e a casa entra). Percorre só a caixa da forma cortada pela cena, em **ordem de leitura** (linha, depois coluna). Cone = raio + até 45° da direção (90° de abertura); semicírculo = raio + do lado da direção; linha = até 0,5 do eixo e avanço em (0, `reach`] (a casa de onde sai fica de fora); quadrado = centro dentro da caixa; emanação = distância até a pegada ≤ `reach` (a pegada inclusa). Forma perfeita → `[]`.
-- `effectAreaContains(área, ponto)` (o mesmo teste, serve ao hit-test do perfeito), `effectAreaBounds(área)` (a **menor** caixa da forma antes do corte, onde a seleção e as alças são desenhadas: nas formas de casa, a caixa das casas pintadas — o cone é só a cunha, não o círculo do raio; no círculo perfeito, o círculo; no semicírculo perfeito, só a metade; quadrado e emanação, a própria caixa / a pegada crescida do raio). Para percorrer casas, o `effectAreaCells` usa a caixa do raio inteiro (`reachBoxOf`, interna) e `distanceFromAreaOrigin(área, ponto)` (da origem, ou da borda da pegada na emanação).
+- `effectAreaContains(área, ponto)` (o mesmo teste, serve ao hit-test do perfeito), `effectAreaBounds(área)` (a **menor** caixa da forma antes do corte, onde a seleção e as alças são desenhadas: nas formas de casa, a caixa das casas pintadas — o cone é só a cunha, não o círculo do raio; no círculo perfeito, o círculo; no semicírculo perfeito, só a metade; quadrado e emanação, a própria caixa / a pegada crescida do raio). Para percorrer casas, o `effectAreaCells` usa a caixa do raio inteiro (`reachBoxOf`, interna) e `distanceFromAreaOrigin(área, ponto)` (da origem, ou da borda da pegada na emanação, pelo `distanceToBox` do `view-field.ts`, a mesma régua do anel da visão).
 - `reachToward(área, ponto, passo)` — o raio que leva a borda ao ponteiro: forma de casa sempre em casas inteiras (mínimo 1), perfeita ao centésimo (`passo` 0) ou ao passo (0,5 com Shift, mínimo 0,5); teto 100.
 - `turnEffectArea(área, graus)` — cone horizontal e semicírculo de casa encaixam em 90°, o diagonal em 45 + 90k; os **cones giram em torno do centro da casa de onde saem** (o cone (5; 5,5) → 90 vira (4,5; 6)); semicírculo de casa mantém a origem; linha e semicírculo perfeito giram livres; sem direção, a mesma área.
 - `shiftEffectArea(área, dx, dy)` — forma de casa anda casas inteiras (a origem continua onde a forma nasce), a perfeita anda o delta ao centésimo; sair antes de (0, 0) lança o `RangeError` do `effectArea`.
@@ -115,7 +117,7 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 
 ## Visão e luz
 
-O detalhe (polígono de visão, alcance, olho, nível de visão, porta vista e a luz) mora em [`game-core/visao-e-luz.md`](game-core/visao-e-luz.md).
+O detalhe (cone e campo, polígono de visão, alcance, olho, nível de visão, porta vista e a luz) mora em [`game-core/visao-e-luz.md`](game-core/visao-e-luz.md).
 
 ## Armadilhas
 
