@@ -27,6 +27,7 @@ import {
 } from './effect-area-view';
 import type { EffectAreaSketchView } from './effect-area-gestures';
 import type { TokenLanding } from '@/lib/light-sources';
+import { shownCellsOf } from '@/lib/shown-cells';
 import { fogViewOf, type FogView } from './fog-view';
 import { lightTintViewOf, type LightTintView } from './light-tint-view';
 import { lightViewsOf, type LightView } from './light-view';
@@ -271,7 +272,7 @@ function previewedLightsOf(input: BoardViewInput): readonly LightDto[] {
   return (input.lights ?? []).map((light) => ({ ...light, ...preview[light.id] }));
 }
 
-// The fog follows this viewer's drag: their eyes look from where the tokens would land.
+// The fog follows the tokens where they show: their eyes look from there.
 function fogOf(input: BoardViewInput): FogView | null {
   if (!input.sight) return null;
   const { sight, scene, tokens } = input;
@@ -280,11 +281,10 @@ function fogOf(input: BoardViewInput): FogView | null {
   return fogViewOf({ sight, scene, tokens, walls, lights: input.lights ?? [], landing });
 }
 
-// Where this viewer's dragged tokens would land: their eyes and lights follow them.
-function landingOf(input: BoardViewInput): TokenLanding {
-  return new Map(
-    (input.drag?.landing ?? []).map(({ tokenId, col, row }) => [tokenId, { col, row }]),
-  );
+// Where each token shows now (this viewer's drag, the move waiting for the server, other
+// people's drags): its eyes and lights follow it.
+function landingOf({ dragged, drag, preview }: BoardViewInput): TokenLanding {
+  return shownCellsOf({ dragged, drag, preview });
 }
 
 function wallsOf(input: BoardViewInput): Pick<BoardView, 'walls' | 'doors'> {

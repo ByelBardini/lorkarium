@@ -592,3 +592,69 @@ describe('buildBoardView, light tint', () => {
     expect(buildBoardView(tintInput({ lights: [corridorTorch()] })).lightTint).toBeNull();
   });
 });
+
+describe('buildBoardView while a lit token is dragged', () => {
+  // Bia in the dark; Lyra (hers) at (3, 4) and Bram (Caio's, Kael's id) at (5, 4) each carry a
+  // lit infernal torch of 2 + 2 cells.
+  const torch = { light: { bright: 2, dim: 2, color: 'infernal' as const }, lightLit: true };
+  const bramAt = (col: number) =>
+    kael({ canControl: false, controllerIds: [], col, row: 4, ...torch });
+  const lyraAt = (col: number) => lyra({ sight: null, col, ...torch });
+
+  function biaInput(tokens: ReturnType<typeof kael>[], more: object = {}) {
+    const board = vharnBoard({
+      viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+      scene: { ...VHARN_SCENE, vision: 'dark' },
+      tokens,
+    });
+    return {
+      ...NO_TOKENS,
+      tokens,
+      viewer: { userId: BIA_AT_TABLE.userId, isMaster: false },
+      scene: board.scene,
+      localGridVisible: true,
+      ruler: null,
+      sight: boardSightOf(board, { previewEyeIds: null }),
+      ...more,
+    };
+  }
+
+  it('Bram dragged by Caio to (8, 4) tints and lights from there, not from his confirmed cell', () => {
+    const dragged = buildBoardView(
+      biaInput([lyraAt(3), bramAt(5)], { dragged: { [KAEL_ID]: { col: 8, row: 4 } } }),
+    );
+    const there = buildBoardView(biaInput([lyraAt(3), bramAt(8)]));
+
+    expect(dragged.lightTint?.tints[1]).toEqual(there.lightTint?.tints[1]);
+    expect(dragged.fog?.lit).toEqual(there.fog?.lit);
+  });
+
+  it('Lyra dropped at (6, 4) and waiting for the server looks and lights from (6, 4)', () => {
+    const preview = [{ tokenId: LYRA_ID, col: 6, row: 4 }];
+    const waiting = buildBoardView(biaInput([lyraAt(3), bramAt(5)], { preview }));
+    const there = buildBoardView(biaInput([lyraAt(6), bramAt(5)]));
+
+    expect(waiting.fog?.holes).toEqual(there.fog?.holes);
+    expect(waiting.fog?.lit).toEqual(there.fog?.lit);
+  });
+
+  it('with nothing dragged nor waiting the light shines from the confirmed cell', () => {
+    const still = buildBoardView(biaInput([lyraAt(3), bramAt(5)]));
+    const center = (5 + 0.5) * CELL_WORLD_SIZE;
+
+    expect(still.fog?.lit.bright[1]?.some(({ x }) => x > center)).toBe(true);
+    expect(still.fog?.lit.bright[1]?.every(({ x }) => x < center + 3 * CELL_WORLD_SIZE)).toBe(true);
+  });
+
+  it('the fog key changes when Bram reaches another cell and stays when he is back on the same one', () => {
+    const over = (col: number) =>
+      buildBoardView(biaInput([lyraAt(3), bramAt(5)], { dragged: { [KAEL_ID]: { col, row: 4 } } }))
+        .fog?.key;
+
+    const atEight = over(8);
+    const atNine = over(9);
+
+    expect(atNine).not.toBe(atEight);
+    expect(over(8)).toBe(atEight);
+  });
+});
