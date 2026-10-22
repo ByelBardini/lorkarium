@@ -65,12 +65,15 @@ test('tokens live: the hidden bar never reaches another player, only the control
   await caio.keyboard.press('ArrowLeft');
   await expect(statusOf(caio)).toContainText('Esse token não é seu.');
 
-  const pv = bia.getByRole('textbox', { name: 'PV de Lyra', exact: true });
-  await pv.fill('−50');
-  await pv.press('Enter');
+  // The dock's bar opens its balloon on a double click: "Atual" takes −50, "Máx" the new maximum.
+  await cardOf(bia, 'Lyra').getByRole('button', { name: 'Editar PV de Lyra' }).dblclick();
+  const balloon = bia.getByRole('dialog', { name: 'PV' });
+  const current = balloon.getByRole('textbox', { name: 'Atual' });
+  await current.fill('−50');
+  await current.press('Enter');
   await expect(cardOf(admin, 'Lyra')).toContainText('−40 / 10');
-  await bia.getByRole('button', { name: 'Mudar máximo de PV de Lyra' }).click();
-  const pvMax = bia.getByRole('textbox', { name: 'Máximo de PV de Lyra' });
+  await cardOf(bia, 'Lyra').getByRole('button', { name: 'Editar PV de Lyra' }).dblclick();
+  const pvMax = balloon.getByRole('textbox', { name: 'Máx' });
   await pvMax.fill('50');
   await pvMax.press('Enter');
   await expect(cardOf(admin, 'Lyra')).toContainText('−40 / 50');

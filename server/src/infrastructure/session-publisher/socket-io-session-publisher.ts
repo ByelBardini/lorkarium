@@ -1,4 +1,8 @@
-import type { SessionMemberJoinedDto, SessionMemberLeftDto } from '@lorkarium/contracts';
+import type {
+  SessionMemberActivityDto,
+  SessionMemberJoinedDto,
+  SessionMemberLeftDto,
+} from '@lorkarium/contracts';
 import type { SessionPublisherPort } from '../../modules/sessions/session-publisher.port';
 import type { RealtimeServer } from '../../realtime/realtime-server';
 import { campaignRoom } from '../../realtime/rooms';
@@ -15,5 +19,9 @@ export class SocketIoSessionPublisher implements SessionPublisherPort {
 
   memberLeft(event: SessionMemberLeftDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('session:memberLeft', event);
+  }
+
+  memberActivity(event: SessionMemberActivityDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('session:memberActivity', event);
   }
 }

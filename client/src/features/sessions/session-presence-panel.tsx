@@ -1,31 +1,41 @@
-import type { SessionMemberDto } from '@lorkarium/contracts';
 import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { sessionFailureMessage } from '@/features/campaigns/campaign-messages';
-import { ROLE_LABEL } from '@/lib/campaign-meta';
-import { cn } from '@/lib/utils';
+import type { InteractionClock } from '@/lib/interaction-clock';
+import { tableRosterOf, type RosterMaster, type RosterPlayer } from '@/lib/table-roster';
+import type { BoardInteractionStore } from '@/stores/board-interaction-store';
+import { useBoard, type BoardStore } from '@/stores/board-store';
 import {
-  selectOnlineCount,
   useTablePresence,
   type TablePresenceState,
   type TablePresenceStore,
 } from '@/stores/table-presence-store';
+import { MasterRow } from './master-row';
+import { PlayerCard } from './player-card';
 
-export type SessionPresencePanelProps = Readonly<{ store: StoreApi<TablePresenceStore> }>;
+export type SessionPresencePanelProps = Readonly<{
+  store: StoreApi<TablePresenceStore>;
+  board: StoreApi<BoardStore>;
+  interaction: StoreApi<BoardInteractionStore>;
+  isMaster: boolean;
+  clock: InteractionClock;
+}>;
 
 const STATUS_LABEL: Readonly<Record<Exclude<TablePresenceState['status'], 'failed'>, string>> = {
   connecting: 'Conectando à mesa…',
-  live: 'Ao vivo',
+  // Live is the normal state: nothing to say, only a change gets announced.
+  live: '',
   reconnecting: 'Reconectando…',
 };
 
-/** "Na mesa": who is at the table right now, as the server confirmed, and the connection state.
+/** "Na mesa": the party board. The masters in a compact section, then a card per player (online
+ *  first, offline dimmed at the end), as the server confirmed them, and the connection state.
  *
- *  Example: `<SessionPresencePanel store={openTable.presence} />` */
-export function SessionPresencePanel({ store }: SessionPresencePanelProps): React.JSX.Element {
+ *  Example: `<SessionPresencePanel store={table.presence} board={table.board} interaction={interaction} isMaster />` */
+export function SessionPresencePanel(props: SessionPresencePanelProps): React.JSX.Element {
   const titleId = useId();
-  const status = useTablePresence(store, (state) => state.status);
-  const failure = useTablePresence(store, (state) => state.failure);
+  const status = useTablePresence(props.store, (state) => state.status);
+  const failure = useTablePresence(props.store, (state) => state.failure);
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-3">
       <header className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
@@ -43,47 +53,82 @@ export function SessionPresencePanel({ store }: SessionPresencePanelProps): Reac
           {sessionFailureMessage(failure)}
         </p>
       ) : (
-        <PresenceRoster store={store} />
+        <TableSections {...props} />
       )}
     </section>
   );
 }
 
-function PresenceRoster({ store }: SessionPresencePanelProps): React.JSX.Element | null {
-  const members = useTablePresence(store, (state) => state.members);
-  const onlineCount = useTablePresence(store, selectOnlineCount);
+function TableSections(props: SessionPresencePanelProps): React.JSX.Element | null {
+  const members = useTablePresence(props.store, (state) => state.members);
+  const board = useBoard(props.board, (state) => state.board);
+  const serverAt = useTablePresence(props.store, (state) => state.at);
   if (members.length === 0) return null;
+  const viewerId = board?.viewer.userId ?? '';
+  const roster = tableRosterOf({ members, board, viewerId });
   return (
     <>
-      <p className="text-sm text-muted-foreground">{`${onlineCount} de ${members.length} online`}</p>
-      <ul>
-        {members.map((member) => (
-          <PresenceRow key={member.userId} member={member} />
-        ))}
-      </ul>
+      <MastersSection masters={roster.masters} clock={props.clock} serverAt={serverAt} />
+      <PlayersSection {...props} players={roster.players} serverAt={serverAt} />
     </>
   );
 }
 
-function PresenceRow({ member }: Readonly<{ member: SessionMemberDto }>): React.JSX.Element {
+type MastersSectionProps = Readonly<{
+  masters: readonly RosterMaster[];
+  clock: InteractionClock;
+  serverAt: string | null;
+}>;
+
+function MastersSection({ masters, clock, serverAt }: MastersSectionProps) {
+  const titleId = useId();
+  if (masters.length === 0) return null;
   return (
-    <li className="flex items-center gap-3 border-b border-divider py-2 last:border-b-0">
-      <span
-        aria-hidden="true"
-        className={cn('size-2 shrink-0', member.online ? 'bg-primary' : 'bg-divider')}
-      />
-      <span className="flex-1 truncate text-sm">{member.name}</span>
-      <span className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
-        {ROLE_LABEL[member.role]}
-      </span>
-      <span
-        className={cn(
-          'w-12 text-right text-xs',
-          member.online ? 'text-label' : 'text-muted-foreground',
-        )}
-      >
-        {member.online ? 'online' : 'offline'}
-      </span>
-    </li>
+    <section aria-labelledby={titleId} className="flex flex-col gap-2">
+      <SectionTitle id={titleId}>{masters.length === 1 ? 'Mestre' : 'Mestres'}</SectionTitle>
+      <ul className="flex flex-col">
+        {masters.map((master) => (
+          <MasterRow key={master.member.userId} master={master} clock={clock} serverAt={serverAt} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+type PlayersSectionProps = SessionPresencePanelProps &
+  Readonly<{ players: readonly RosterPlayer[]; serverAt: string | null }>;
+
+function PlayersSection({ players, serverAt, ...props }: PlayersSectionProps) {
+  const titleId = useId();
+  const online = players.filter(({ member }) => member.online).length;
+  return (
+    <section aria-labelledby={titleId} className="mt-1.5 flex flex-col">
+      <SectionTitle id={titleId}>{`Jogadores · ${online} online`}</SectionTitle>
+      {players.length === 0 && (
+        <p className="text-sm text-muted-foreground">Nenhum jogador nesta mesa ainda.</p>
+      )}
+      {players.map((player) => (
+        <PlayerCard
+          key={player.member.userId}
+          player={player}
+          board={props.board}
+          interaction={props.interaction}
+          isMaster={props.isMaster}
+          clock={props.clock}
+          serverAt={serverAt}
+        />
+      ))}
+    </section>
+  );
+}
+
+function SectionTitle({ id, children }: Readonly<{ id: string; children: string }>) {
+  return (
+    <p
+      id={id}
+      className="px-1 pb-1 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase"
+    >
+      {children}
+    </p>
   );
 }

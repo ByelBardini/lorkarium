@@ -12,15 +12,18 @@ Sessão ao vivo da mesa: a **própria mesa é a sessão** (não há tabela `sess
 
 ## Contrato (Socket.IO em `/api/socket.io`, conexão autenticada pelo cookie — ver `server.md`, Tempo real)
 
-| Nome                   | Direção         | Payload                                                    | Ack                                                                                                                                            |
-| ---------------------- | --------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `session:join`         | client → server | `sessionCommandDto` `{ actionId, campaignId }`             | `{ ok: true, state: SessionStateDto }` · `{ ok: false, error }` com `CAMPAIGN_NOT_FOUND`, `INVALID_BODY`, `UNAUTHENTICATED`, `TOO_MANY_TABLES` |
-| `session:leave`        | client → server | `sessionCommandDto`                                        | `{ ok: true }` (idempotente) · `{ ok: false, error }`                                                                                          |
-| `session:memberJoined` | server → sala   | `{ campaignId, version, member: { …, online: true }, at }` | —                                                                                                                                              |
-| `session:memberLeft`   | server → sala   | `{ campaignId, version, userId, at }`                      | —                                                                                                                                              |
+| Nome                     | Direção         | Payload                                                        | Ack                                                                                                                                            |
+| ------------------------ | --------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session:join`           | client → server | `sessionCommandDto` `{ actionId, campaignId }`                 | `{ ok: true, state: SessionStateDto }` · `{ ok: false, error }` com `CAMPAIGN_NOT_FOUND`, `INVALID_BODY`, `UNAUTHENTICATED`, `TOO_MANY_TABLES` |
+| `session:leave`          | client → server | `sessionCommandDto`                                            | `{ ok: true }` (idempotente) · `{ ok: false, error }`                                                                                          |
+| `session:memberJoined`   | server → sala   | `{ campaignId, version, member: { …, online: true }, at }`     | —                                                                                                                                              |
+| `session:memberLeft`     | server → sala   | `{ campaignId, version, userId, at }`                          | —                                                                                                                                              |
+| `session:setActivity`    | client → server | `sessionActivityCommandDto` `{ actionId, campaignId, away }`   | `{ ok: true }` (idempotente; mesa fora da conexão → `ok` sem efeito) · `{ ok: false, error }` com `INVALID_BODY`, `UNAUTHENTICATED`            |
+| `session:memberActivity` | server → sala   | `{ campaignId, version, userId, awaySince (ISO \| null), at }` | —                                                                                                                                              |
 
 - Sala `campaign:<id>` (`campaignRoom`). O evento vai **só** para a sala da mesa: quem está noutra mesa, ou foi recusado, não ouve nada (critério 14).
 - O `session:join` também põe o socket em `campaign:<id>:user:<userId>` e, se for mestre, em `campaign:<id>:masters` (salas por público do tabuleiro, ver `board.md`); o `session:leave` tira das três. O ack de join/leave sai pelo `answerAck` de `src/realtime/realtime-ack.ts`, o mesmo do gateway do tabuleiro.
+- `session:setActivity` (`setActivity` no gateway): valida o `sessionActivityCommandDto`, revalida a sessão e só age se a mesa está em `socket.data.campaignIds` (senão `ok` e nenhuma sala ouve nada).
 - O gateway valida o DTO, **revalida a sessão** pelo cookie do handshake a cada comando (logout/expiração → ack `UNAUTHENTICATED` e a conexão cai) e delega. Mensagens públicas fixas: `Campaign not found`, `A valid session is required`, `Too many open tables`; `INVALID_BODY` vem do `invalidBodyError` (cita o campo); o resto é `INTERNAL_ERROR` no log.
 - **Até `MAX_OPEN_TABLES` mesas por conexão** (`socket.data.campaignIds`, uma sala por mesa): entrar numa não tira a pessoa da outra. A conexão em duas salas recebe os eventos das duas, uma vez cada, com o `campaignId` de cada.
 - O `join` pede a vaga ao service (`admitTable`) e a **reserva** em `socket.data.campaignIds` **antes** do `await` do `join`: dez `join` simultâneos admitem exatamente cinco. Se o `join` falhar (não membro, erro), a vaga reservada é devolvida (`releaseTable`); `already-open` não devolve.
@@ -30,12 +33,13 @@ Sessão ao vivo da mesa: a **própria mesa é a sessão** (não há tabela `sess
 
 ## Regra de presença (`TablePresenceBo`)
 
-- **Por usuário, não por socket**: o roster (`PresenceRoster`) guarda `version`, `sockets` (`userId → Set<socketId>`) e `inGrace` (quem caiu e ainda pode voltar). Fechar uma de duas abas não derruba o "online".
+- **Por usuário, não por socket**: o roster (`PresenceRoster`) guarda `version`, `sockets` (`userId → Set<socketId>`), `inGrace` (quem caiu e ainda pode voltar), `away` (os sockets parados; o id do socket é único) e `awaySince` (`userId → Date`: desde quando **todas** as abas do usuário estão paradas). Fechar uma de duas abas não derruba o "online".
 - `connect(userId, socketId)` → `came-online` (primeiro socket; versão +1) · `already-online` (outra aba) · `returned-in-grace` (voltou dentro da tolerância).
-- `disconnect(userId, socketId, 'left' | 'dropped')` → `still-online` (sobrou outra aba) · `went-offline` (saída explícita do último socket; versão +1) · `grace-started` (queda do último socket: continua online) · `not-connected` (socket que o usuário não tem; idempotente).
+- `disconnect(userId, socketId, 'left' | 'dropped', at)` → `still-online` (sobrou outra aba) · `went-away` (a aba que fechou era a ativa e as que sobraram estão paradas: ausente desde `at`, versão +1) · `went-offline` (saída explícita do último socket; versão +1) · `grace-started` (queda do último socket: continua online) · `not-connected` (socket que o usuário não tem; idempotente).
 - `expireGrace(userId)` → `went-offline` (versão +1) · `already-back` (voltou antes) · `not-connected`.
 - `isOnline(userId)`: tem socket **ou** está na tolerância.
-- Só `came-online` e `went-offline` mudam a versão: são as únicas mudanças que os outros veem. Toda operação devolve `{ roster, change }` sem mutar o roster recebido.
+- **Ausência** (o instante entra por parâmetro; o BO não tem relógio): `markAway(userId, socketId, at)` → `went-away` (a última aba ativa parou; `awaySince = at`, versão +1) · `still-active` (outra aba segue ativa; sem versão) · `already-away` (já ausente; nada muda) · `not-connected`. `markActive(userId, socketId)` → `came-back` (estava ausente; versão +1) · `still-active` · `not-connected`. Um `connect` de quem está ausente (aba nova, ou volta na tolerância) é `came-back`. Sair de vez (`went-offline`) limpa a ausência; na tolerância ela fica. `awaySinceOf(userId)` → `Date | null`.
+- Só `came-online`, `went-offline`, `went-away` e `came-back` mudam a versão: são as únicas mudanças que os outros veem. Toda operação devolve `{ roster, change }` sem mutar o roster recebido.
 - `EMPTY_ROSTER` (`version: 0`) é o de mesa sem ninguém.
 
 ## Regra da conexão (`ConnectionTablesBo`)
@@ -52,9 +56,11 @@ Sessão ao vivo da mesa: a **própria mesa é a sessão** (não há tabela `sess
   - `leave(...)` (síncrono): `disconnect('left')`; `went-offline` publica `memberLeft` na hora; repetido não publica de novo.
   - `drop(...)` (síncrono, a queda do socket): `disconnect('dropped')`; `grace-started` agenda `expire` em `PRESENCE_GRACE_MS` (5000) sob a chave `<campaignId>:<userId>`.
   - `expire(campaignId, userId)`: `expireGrace`; `went-offline` publica `memberLeft` com a versão +1.
+  - `setActivity(userId, campaignId, socketId, away)` (síncrono): `markAway(…, clock.now())` ou `markActive` → salva → publica `memberActivity` só em `went-away` (com o `awaySince`) e `came-back` (com `null`). `already-away` não salva nem publica; `still-active` **salva** (a aba parada entra no `away`, senão a segunda aba parada não saberia da primeira) e não publica.
+  - A ausência também sai do `join` (`came-back` de uma aba nova de quem estava ausente: cancela a tolerância e publica `memberActivity` com `null`) e do `leave`/`drop` (`went-away` quando a aba ativa fecha e as que sobram estão paradas).
   - `admitTable(abertas, id)` / `releaseTable(abertas, id)` → `ConnectionTablesOutcome`: aplicam o `ConnectionTablesBo` com `MAX_OPEN_TABLES`, sem tocar no registro nem no publicador.
-  - Ordem: o roster é **salvo antes** de publicar. `not-connected` e `already-back` não salvam nem publicam.
-- `sessions.mapper.ts`: `toSessionStateDto(campaignId, membros, roster, at)` (membros na ordem recebida, `online` por `isOnline`), `toMemberJoinedDto(campaignId, membro, versão, at)`, `toMemberLeftDto(campaignId, userId, versão, at)`.
+  - Ordem: o roster é **salvo antes** de publicar. `not-connected`, `already-back` e `already-away` não salvam nem publicam (`UNCHANGED`).
+- `sessions.mapper.ts`: `toSessionStateDto(campaignId, membros, roster, at)` (membros na ordem recebida, `online` por `isOnline`, `awaySince` pelo `awaySinceOf`), `toMemberActivityDto(campaignId, userId, awaySince, versão, at)`, `toMemberJoinedDto(campaignId, membro, versão, at)`, `toMemberLeftDto(campaignId, userId, versão, at)`.
 - Os membros vêm do `CampaignsService.rosterOf` (ver `campaigns.md`): o isolamento por mesa continua no `CampaignAccessBo`.
 
 ## Portas e adaptadores
@@ -62,7 +68,7 @@ Sessão ao vivo da mesa: a **própria mesa é a sessão** (não há tabela `sess
 | Porta                  | Adaptador                  | O que faz                                                                                                       |
 | ---------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `PresenceRegistryPort` | `InMemoryPresenceRegistry` | `rosterOf(campaignId)` (`undefined` = ninguém na mesa) e `save`; roster vazio apaga a entrada (`tableCount()`)  |
-| `SessionPublisherPort` | `SocketIoSessionPublisher` | `memberJoined(dto)` e `memberLeft(dto)`: `io.to(campaignRoom(id)).emit(...)`                                    |
+| `SessionPublisherPort` | `SocketIoSessionPublisher` | `memberJoined(dto)`, `memberLeft(dto)` e `memberActivity(dto)`: `io.to(campaignRoom(id)).emit(...)`             |
 | `SchedulerPort`        | `TimerScheduler`           | `schedule(chave, ms, tarefa)` substitui a pendente da mesma chave; `cancel(chave)`; `cancelAll()` no fechamento |
 
 - **Por que memória e não Redis:** presença não toca o banco e o MVP roda uma instância (spec §5.5, §5.7). O registro é **síncrono** de propósito: o service lê, decide e salva sem `await` no meio, então dois comandos na mesma mesa nunca se intercalam. Com várias instâncias, a porta vira uma atualização atômica no Redis e entra o redis-adapter do Socket.IO.
@@ -70,8 +76,8 @@ Sessão ao vivo da mesa: a **própria mesa é a sessão** (não há tabela `sess
 
 ## Testes
 
-- Integração: `server/test/integration/sessions.spec.ts` (clientes `socket.io-client` reais, usuários e mesas pelo HTTP real): snapshot, `memberJoined`/`memberLeft`, isolamento entre mesas, não membro, payload forjado, queda sem `memberLeft` em 300 ms, várias abas, sessão revogada, e o `describe` "several tables on one connection" (duas mesas sem saída da primeira, eventos das duas, isolamento, sair de uma, limite, corrida de dez `join`, recusa que não ocupa vaga, queda das duas). Suporte em `server/test/support/realtime-client.ts` (`connectRealtime`, `recordEventsOf(client).until(n)`, `disconnectionOf`).
+- Integração: `server/test/integration/sessions.spec.ts` (clientes `socket.io-client` reais, usuários e mesas pelo HTTP real): snapshot, `memberJoined`/`memberLeft`, isolamento entre mesas, não membro, payload forjado, queda sem `memberLeft` em 300 ms, várias abas, sessão revogada, o `describe` "activity" (a Bia ausente chega à Ana e ao snapshot de quem entra depois; duas abas, uma parada → nada, as duas → evento; a volta com `null`; `userId` forjado → `INVALID_BODY`; mesa fora da conexão → `ok` sem evento) e o `describe` "several tables on one connection" (duas mesas sem saída da primeira, eventos das duas, isolamento, sair de uma, limite, corrida de dez `join`, recusa que não ocupa vaga, queda das duas). Suporte em `server/test/support/realtime-client.ts` (`connectRealtime`, `recordEventsOf(client).until(n)`, `disconnectionOf`).
 
 - Unit: `server/test/modules/sessions/{table-presence.bo,connection-tables.bo,sessions.mapper,sessions.service}.spec.ts` e `server/test/infrastructure/{presence-registry,scheduler}/` (o agendador com `vi.useFakeTimers()`).
-- `server/test/support/sessions-fakes.ts` — `SessionsJournal` (diário comum, para provar salvar → publicar), `PresenceRegistryFake` (escreve `save:<campaignId>`), `SchedulerFake` (`scheduled[chave].delayMs`, `cancelled`, `fire(chave)`), `SessionPublisherFake` (`published`, escreve `publish:<evento>`), `CampaignRosterFake` (membros por mesa; quem não está na lista recebe `CampaignNotFoundError`).
-- `server/test/support/sessions-factories.ts` — `presenceRoster({ version, sockets: { [userId]: ['s1'] }, inGrace })`: o roster escrito como registros simples.
+- `server/test/support/sessions-fakes.ts` — `SessionsJournal` (diário comum, para provar salvar → publicar), `PresenceRegistryFake` (escreve `save:<campaignId>`), `SchedulerFake` (`scheduled[chave].delayMs`, `cancelled`, `fire(chave)`), `SessionPublisherFake` (`published`, escreve `publish:<evento>`, inclusive `publish:memberActivity`), `CampaignRosterFake` (membros por mesa; quem não está na lista recebe `CampaignNotFoundError`).
+- `server/test/support/sessions-factories.ts` — `presenceRoster({ version, sockets: { [userId]: ['s1'] }, inGrace, away: ['s1'], awaySince: { [userId]: data } })`: o roster escrito como registros simples.

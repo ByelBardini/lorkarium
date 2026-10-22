@@ -12,6 +12,8 @@ import { toDrawingDto } from '../drawings/drawings.mapper';
 import type { EffectAreasDao } from '../effect-areas/effect-areas.dao';
 import { toEffectAreaDto } from '../effect-areas/effect-areas.mapper';
 import type { LightsDao } from '../lights/lights.dao';
+import type { MemberCardsDao } from '../member-cards/member-cards.dao';
+import { toMemberCardDto } from '../member-cards/member-cards.mapper';
 import { toLightDto } from '../lights/lights.mapper';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { MainTokensDao } from '../tokens/main-tokens.dao';
@@ -33,6 +35,7 @@ export type BoardServiceDeps = Readonly<{
   walls: Pick<WallsDao, 'listOfScene'>;
   lights: Pick<LightsDao, 'listOfScene'>;
   mainTokens: Pick<MainTokensDao, 'listOfScene'>;
+  memberCards: Pick<MemberCardsDao, 'listOfCampaign'>;
   clock: ClockPort;
 }>;
 
@@ -40,6 +43,7 @@ type SharedPieces = Pick<
   BoardStateDto,
   'drawings' | 'effectAreas' | 'walls' | 'lights' | 'mainTokens'
 >;
+type TablePieces = Pick<BoardStateDto, 'conditionDefinitions' | 'memberCards'>;
 
 /** The board snapshot of one table, as one member may see it (spec §5.6, §3.9): each token whole
  *  for its controllers and the master, redacted for everyone else; drawings, areas of effect,
@@ -64,11 +68,10 @@ export class BoardService {
     const combatRow = await this.deps.combat.findOfScene(scene.id);
     const combat = combatRow ? toCombatDto(combatRow) : null;
     const shared = await this.sharedPiecesOf(scene.id);
-    const definitions = await this.deps.conditions.listDefinitions(campaignId);
-    const conditionDefinitions = definitions.map(toConditionDefinitionDto);
+    const table = await this.tablePiecesOf(campaignId);
     const at = this.deps.clock.now();
     const viewer = { userId, role };
-    const pieces = { tokens, ...shared, combat, conditionDefinitions };
+    const pieces = { tokens, ...shared, combat, ...table };
     return toBoardStateDto({ campaignId, viewer, scene, ...pieces, at });
   }
 
@@ -80,6 +83,16 @@ export class BoardService {
       walls: (await this.deps.walls.listOfScene(sceneId)).map(toWallDto),
       lights: (await this.deps.lights.listOfScene(sceneId)).map(toLightDto),
       mainTokens: await this.deps.mainTokens.listOfScene(sceneId),
+    };
+  }
+
+  // Of the table, not of the scene: the same on every scene.
+  private async tablePiecesOf(campaignId: string): Promise<TablePieces> {
+    const definitions = await this.deps.conditions.listDefinitions(campaignId);
+    const cards = await this.deps.memberCards.listOfCampaign(campaignId);
+    return {
+      conditionDefinitions: definitions.map(toConditionDefinitionDto),
+      memberCards: cards.map(toMemberCardDto),
     };
   }
 }

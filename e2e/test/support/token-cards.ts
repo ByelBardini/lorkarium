@@ -37,6 +37,25 @@ export async function chooseController(dialog: Locator, player: string): Promise
   await dialog.getByRole('button', { name: player, exact: true }).click();
 }
 
+/** "Novo token" with a name, one player in control and a PV bar ("Nova barra": PV 10 / 10,
+ *  only its controllers see it), at the center of the view.
+ *
+ *  Example: `await createTokenWithPvFor(admin, 'Lyra', 'Bia')` */
+export async function createTokenWithPvFor(
+  master: Page,
+  name: string,
+  player: string,
+): Promise<void> {
+  await master.getByRole('button', { name: 'Novo token' }).click();
+  const dialog = master.getByRole('dialog', { name: 'Novo token' });
+  await dialog.getByLabel('Nome').fill(name);
+  await chooseController(dialog, player);
+  await dialog.getByRole('tab', { name: /^Barras/ }).click();
+  await dialog.getByRole('button', { name: 'Nova barra' }).click();
+  await dialog.getByRole('button', { name: 'Criar token' }).click();
+  await expect(dialog).toBeHidden();
+}
+
 /** "Novo token" with a name and one player in control, at the center of the view. */
 export async function createTokenFor(master: Page, name: string, player: string): Promise<void> {
   await master.getByRole('button', { name: 'Novo token' }).click();

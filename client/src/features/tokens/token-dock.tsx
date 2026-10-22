@@ -16,7 +16,7 @@ import {
 } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
-import { BarField } from './bar-field';
+import { BarQuickEdit } from './bar-quick-edit';
 import { BarTrack } from './bar-track';
 import { DockHeader } from './token-dock-header';
 import { TokenDockActions } from './token-dock-actions';
@@ -110,7 +110,6 @@ type DockBarsProps = Readonly<{
 }>;
 
 function DockBars({ token, interaction, isMaster }: DockBarsProps) {
-  const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
   if (token.bars.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -121,16 +120,18 @@ function DockBars({ token, interaction, isMaster }: DockBarsProps) {
   return (
     <ul className="flex flex-col gap-3">
       {token.bars.map((bar) => (
-        <li key={bar.id} className="flex flex-col gap-1.5">
-          <BarLine bar={bar} withNumbers={token.canControl} />
-          {token.canControl && (
-            <BarField
+        <li key={bar.id}>
+          {token.canControl ? (
+            <BarQuickEdit
               tokenId={token.id}
-              tokenName={token.name}
               bar={bar}
+              name={`${bar.label} de ${token.name}`}
               interaction={interaction}
-              disabled={readOnly}
-            />
+            >
+              <BarLine bar={bar} withNumbers />
+            </BarQuickEdit>
+          ) : (
+            <BarLine bar={bar} />
           )}
         </li>
       ))}

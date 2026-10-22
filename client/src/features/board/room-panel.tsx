@@ -7,9 +7,14 @@ import { CombatPanel } from '@/features/combat/combat-panel';
 import { SessionPresencePanel } from '@/features/sessions/session-presence-panel';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
+import type { InteractionClock } from '@/lib/interaction-clock';
 import { DESKTOP_QUERY, useMediaQuery } from '@/lib/use-media-query';
 import { isRoomTab, useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
-import type { TablePresenceStore } from '@/stores/table-presence-store';
+import {
+  selectOnlineCount,
+  useTablePresence,
+  type TablePresenceStore,
+} from '@/stores/table-presence-store';
 
 export type RoomPanelProps = Readonly<{
   roomLayout: StoreApi<RoomLayoutStore>;
@@ -17,6 +22,8 @@ export type RoomPanelProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
   onEditToken: (tokenId: string) => void;
+  /** The browser's time, for "ausente há N min". */
+  clock: InteractionClock;
 }>;
 
 const PANEL_TITLE = 'Painel da mesa';
@@ -69,7 +76,10 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
     >
       <TabsList>
         <TabsTrigger value="combat">Combate</TabsTrigger>
-        <TabsTrigger value="people">Na mesa</TabsTrigger>
+        <TabsTrigger value="people">
+          Na mesa
+          {table && <OnlinePill presence={table.presence} />}
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="combat" className="flex flex-col py-4">
         {table && (
@@ -82,9 +92,30 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
         )}
       </TabsContent>
       <TabsContent value="people" className="overflow-y-auto py-4">
-        {table && <SessionPresencePanel store={table.presence} />}
+        {table && (
+          <SessionPresencePanel
+            store={table.presence}
+            board={table.board}
+            interaction={props.interaction}
+            isMaster={props.isMaster}
+            clock={props.clock}
+          />
+        )}
       </TabsContent>
     </Tabs>
+  );
+}
+
+// The room's top bar already says "N online" to the screen reader: the pill is only for the eye.
+function OnlinePill({ presence }: Readonly<{ presence: StoreApi<TablePresenceStore> }>) {
+  const online = useTablePresence(presence, selectOnlineCount);
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-grid h-5 min-w-5 place-items-center rounded-full bg-primary/15 px-1.5 text-[11px] text-primary tabular-nums"
+    >
+      {online}
+    </span>
   );
 }
 

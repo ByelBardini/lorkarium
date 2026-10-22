@@ -1,5 +1,6 @@
 import type {
   BoardStateDto,
+  SessionMemberActivityDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
   SessionStateDto,
@@ -20,6 +21,7 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'state'; state: SessionStateDto }>
   | Readonly<{ kind: 'memberJoined'; event: SessionMemberJoinedDto }>
   | Readonly<{ kind: 'memberLeft'; event: SessionMemberLeftDto }>
+  | Readonly<{ kind: 'memberActivity'; event: SessionMemberActivityDto }>
   | Readonly<{ kind: 'status'; status: TableSessionStatus }>
   | Readonly<{ kind: 'failed'; failure: TableSessionFailure }>
   | Readonly<{ kind: 'board'; state: BoardStateDto }>
@@ -35,6 +37,8 @@ export type TableSessionHandle = Readonly<{
   close: () => void;
   /** Asks for a fresh board snapshot; it arrives as a `board` update. */
   resync: () => void;
+  /** This tab stood still for a while (`true`) or moved again; kept across reconnections. */
+  setAway: (away: boolean) => void;
 }>;
 
 /** The live session of one table, as the screen sees it: validated updates, never raw packets.
@@ -64,7 +68,11 @@ export class RealtimeTableSessionApi implements TableSessionApi {
     this.visits.add(visit);
     visit.start(this.transport.isConnected());
     if (isFirst) this.transport.connect();
-    return { close: () => this.close(visit), resync: () => void visit.syncBoard() };
+    return {
+      close: () => this.close(visit),
+      resync: () => void visit.syncBoard(),
+      setAway: (away) => visit.setAway(away),
+    };
   }
 
   private close(visit: TableVisit): void {

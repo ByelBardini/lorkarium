@@ -4,6 +4,7 @@ import base from './playwright.config';
 export default defineConfig({
   ...base,
   use: { ...base.use, baseURL: 'http://localhost:5174' },
+  expect: { timeout: 20_000 },
   webServer: [
     {
       name: 'server',

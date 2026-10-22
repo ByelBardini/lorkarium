@@ -3,6 +3,7 @@ import {
   type BarChangeDto,
   type CreateTokenCommandInput,
   type DrawingShapeInput,
+  type MemberCardChangesInput,
   type SceneGridDto,
   type SceneVisionDto,
   type TokenLayerDto,
@@ -30,6 +31,7 @@ import {
   type EffectAreaShaped,
 } from './effect-area-commands';
 import { RealtimeMainTokenCommands, type MainTokenCommands } from './main-token-commands';
+import { RealtimeMemberCardCommands, type MemberCardCommands } from './member-card-commands';
 import type { RealtimeTransport } from './realtime-transport';
 import {
   RealtimeWallCommands,
@@ -80,7 +82,13 @@ export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | nul
  *
  *  Example: `const result = await boardCommands.moveToken(campaignId, tokenId, { col, row })` */
 export interface TableBoardCommands
-  extends CombatCommands, EffectAreaCommands, WallCommands, LightCommands, MainTokenCommands {
+  extends
+    CombatCommands,
+    EffectAreaCommands,
+    WallCommands,
+    LightCommands,
+    MainTokenCommands,
+    MemberCardCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
    *  absent keeps it; `vision` absent keeps the scene's mode. */
   configureScene(
@@ -163,6 +171,7 @@ export class RealtimeTableBoardCommands
   private readonly walls: WallCommands;
   private readonly lights: LightCommands;
   private readonly mainToken: MainTokenCommands;
+  private readonly memberCard: MemberCardCommands;
 
   constructor(transport: RealtimeTransport, newActionId: () => string) {
     super(new BoardCommandSender(transport, newActionId));
@@ -170,6 +179,15 @@ export class RealtimeTableBoardCommands
     this.walls = new RealtimeWallCommands(this.sender);
     this.lights = new RealtimeLightCommands(this.sender);
     this.mainToken = new RealtimeMainTokenCommands(this.sender);
+    this.memberCard = new RealtimeMemberCardCommands(this.sender);
+  }
+
+  updateMemberCard(
+    campaignId: string,
+    memberId: string,
+    changes: MemberCardChangesInput,
+  ): Promise<BoardCommandResult> {
+    return this.memberCard.updateMemberCard(campaignId, memberId, changes);
   }
 
   setMainToken(

@@ -3,23 +3,12 @@ import { test } from './support/player-pages';
 import { BIA } from './support/dev-players';
 import { adminCredentials, signIn } from './support/sign-in';
 import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
-import { chooseController, createTokenFor, openCard } from './support/token-cards';
+import { createTokenFor, createTokenWithPvFor, openCard } from './support/token-cards';
 
 function mainDockOf(page: Page, name: string): Locator {
   return page
     .getByRole('region', { name: 'Token principal' })
     .filter({ has: page.getByRole('heading', { name, exact: true }) });
-}
-
-async function createLyraWithPv(admin: Page): Promise<void> {
-  await admin.getByRole('button', { name: 'Novo token' }).click();
-  const dialog = admin.getByRole('dialog', { name: 'Novo token' });
-  await dialog.getByLabel('Nome').fill('Lyra');
-  await chooseController(dialog, 'Bia');
-  await dialog.getByRole('tab', { name: /^Barras/ }).click();
-  await dialog.getByRole('button', { name: 'Nova barra' }).click();
-  await dialog.getByRole('button', { name: 'Criar token' }).click();
-  await expect(dialog).toBeHidden();
 }
 
 test('Bia sees the bars of her Lyra without selecting anything, and switches her main token', async ({
@@ -34,14 +23,14 @@ test('Bia sees the bars of her Lyra without selecting anything, and switches her
   await signIn(bia, BIA);
   await joinByCodeAndEnter(bia, code);
   await enterFromTheList(admin, name);
-  await createLyraWithPv(admin);
+  await createTokenWithPvFor(admin, 'Lyra', 'Bia');
   await createTokenFor(admin, 'Kael', 'Bia');
 
   // With nothing selected, the foot of the "Combate" tab already shows her Lyra.
   await bia.getByRole('tab', { name: 'Combate' }).click();
   const lyraDock = mainDockOf(bia, 'Lyra');
   await expect(lyraDock).toContainText('Principal');
-  await expect(lyraDock.getByRole('textbox', { name: 'PV de Lyra', exact: true })).toBeVisible();
+  await expect(lyraDock.getByRole('button', { name: 'Editar PV de Lyra' })).toBeVisible();
 
   // Another token she sees takes the place; "Fechar ficha" brings Lyra back.
   await openCard(bia, 'Kael');

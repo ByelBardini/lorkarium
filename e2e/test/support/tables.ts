@@ -12,20 +12,22 @@ export function boardOf(page: Page): Locator {
 
 /** Waits for the room's board, then opens the "Na mesa" tab, where the presence is.
  *
- *  Example: `await openRoomPeople(admin); await expect(presenceOf(admin, 'Bia')).toContainText(/online$/)` */
+ *  Example: `await openRoomPeople(admin); await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online')` */
 export async function openRoomPeople(page: Page): Promise<void> {
   await expect(boardOf(page)).toBeVisible();
   await page.getByRole('tab', { name: 'Na mesa' }).click();
 }
 
-/** The row of `name` in the "Na mesa" tab of the room on screen (open it with `openRoomPeople`).
+/** The presence symbol of `name` in the "Na mesa" tab of the room on screen (open it with
+ *  `openRoomPeople`), named "online", "ausente" or "offline".
  *
- *  Example: `await expect(presenceOf(admin, 'Bia')).toContainText(/online$/)` */
+ *  Example: `await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online')` */
 export function presenceOf(page: Page, name: string): Locator {
   return page
     .getByRole('region', { name: 'Na mesa' })
-    .getByRole('listitem')
-    .filter({ hasText: name });
+    .getByTestId('nick-line')
+    .filter({ hasText: name })
+    .getByRole('img');
 }
 
 /** Creates a table from the home by "Nova mesa" and returns its code, back on the home.

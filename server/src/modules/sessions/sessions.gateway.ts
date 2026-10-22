@@ -1,13 +1,15 @@
 import {
+  sessionActivityCommandDto,
   sessionCommandDto,
   type ApiErrorDto,
+  type SessionActivityAckDto,
   type SessionCommandDto,
   type SessionJoinAckDto,
   type SessionLeaveAckDto,
   type SessionStateDto,
 } from '@lorkarium/contracts';
 import type { FastifyBaseLogger } from 'fastify';
-import { ZodError } from 'zod';
+import { ZodError, type z } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
 import { answerAck } from '../../realtime/realtime-ack';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
@@ -46,6 +48,9 @@ export function createSessionsGateway(deps: SessionsGatewayDeps): (socket: Realt
     });
     socket.on('session:leave', (payload, ack) => {
       void answerAck(ack, () => leaveTable(deps, socket, payload), failureOf, dropIfEnded);
+    });
+    socket.on('session:setActivity', (payload, ack) => {
+      void answerAck(ack, () => setActivity(deps, socket, payload), failureOf, dropIfEnded);
     });
     socket.on('disconnect', () => dropTables(deps, socket));
   };
@@ -113,6 +118,23 @@ async function leaveTable(
   return { ok: true };
 }
 
+// A table not open on this connection has nothing to mark: `ok`, and no room hears of it.
+async function setActivity(
+  deps: SessionsGatewayDeps,
+  socket: RealtimeSocket,
+  payload: unknown,
+): Promise<Extract<SessionActivityAckDto, { ok: true }>> {
+  const { campaignId, userId, away } = await commandOf(
+    deps,
+    socket,
+    payload,
+    sessionActivityCommandDto,
+  );
+  if (!socket.data.campaignIds.has(campaignId)) return { ok: true };
+  deps.service.setActivity(userId, campaignId, socket.id, away);
+  return { ok: true };
+}
+
 function releaseSlot(
   deps: SessionsGatewayDeps,
   socket: RealtimeSocket,
@@ -128,12 +150,13 @@ function dropTables(deps: SessionsGatewayDeps, socket: RealtimeSocket): void {
   for (const campaignId of campaignIds) deps.service.drop(user.id, campaignId, socket.id);
 }
 
-async function commandOf(
+async function commandOf<C extends SessionCommandDto = SessionCommandDto>(
   deps: SessionsGatewayDeps,
   socket: RealtimeSocket,
   payload: unknown,
-): Promise<SessionCommandDto & { userId: string }> {
-  const command = sessionCommandDto.parse(payload);
+  schema: z.ZodType<C> = sessionCommandDto as z.ZodType<C>,
+): Promise<C & { userId: string }> {
+  const command = schema.parse(payload);
   const user = await deps.realtime.reauthenticate(socket);
   if (!user) throw new SessionEndedError(socket.id);
   return { ...command, userId: user.id };

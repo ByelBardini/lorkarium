@@ -36,7 +36,7 @@ test('Bia stays online at two tables at once, an F5 keeps her there, and leaving
   await joinByCodeAndEnter(bia, codeB);
   await enterFromTheList(admin, tableA);
 
-  await expect(presenceOf(admin, 'Bia')).toContainText(/online$/);
+  await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online');
   await expect(openTablesOf(bia).getByRole('link')).toHaveText([
     new RegExp(tableA),
     new RegExp(tableB),
@@ -48,12 +48,12 @@ test('Bia stays online at two tables at once, an F5 keeps her there, and leaving
     new RegExp(tableB),
   ]);
   await admin.waitForTimeout(GRACE_AND_MARGIN_MS);
-  await expect(presenceOf(admin, 'Bia')).toContainText(/online$/);
+  await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online');
 
   await openTablesOf(bia)
     .getByRole('link', { name: new RegExp(tableA) })
     .click({ button: 'right' });
   await bia.getByRole('menuitem', { name: 'Sair da mesa' }).click();
-  await expect(presenceOf(admin, 'Bia')).toContainText(/offline$/, { timeout: LEAVE_MS });
+  await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('offline', { timeout: LEAVE_MS });
   await expect(openTablesOf(bia).getByRole('link')).toHaveText([new RegExp(tableB)]);
 });

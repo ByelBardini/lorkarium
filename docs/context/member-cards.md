@@ -1,0 +1,50 @@
+# Member cards
+
+A ficha da mesa: o que o card de cada jogador na aba "Na mesa" mostra além do token principal — nome do personagem, CA, CD e duas anotações. É **da mesa e do membro** (não da cena nem do token): sobrevive à troca de cena e de token principal. É o passo intermediário antes do `Character` do spec §6. Vive em `server/src/modules/member-cards/`. Plano de origem: `docs/plans/2026-10-22-tela-na-mesa.md`. Contrato em [`contracts/tabuleiro.md`](contracts/tabuleiro.md) (`member-card.dto.ts`).
+
+## Tabela (`member-cards.po.ts`, migração `0032_member_cards`)
+
+- `member_cards`: `campaign_id`, `user_id` (PK nos dois), `character_name` / `note_one` / `note_two` (`text` nulos, `CHECK` de `char_length` 40 / 80 / 80), `armor_class` / `difficulty_class` (`smallint` nulos, `CHECK` `BETWEEN 0 AND 999`: `member_cards_armor_class_range`, `member_cards_difficulty_class_range`), `updated_at`.
+- **FK composta** `member_cards_member_fk` → `campaign_members(campaign_id, user_id)` `on delete cascade`: só membro tem ficha, e sair da mesa (ou apagar a mesa) apaga a ficha.
+- A linha só existe depois que alguém grava algo; ausente = ficha vazia (todos `null`).
+- `MemberCardChangesPo`: as chaves que um `save` escreve (ausente mantém, `null` limpa).
+
+## DAO (`member-cards.dao.ts`)
+
+- `MemberCardsDao(db | tx)`: `listOfCampaign(campaignId)` → `MemberCardPo[]` (por `user_id`); `save(campaignId, userId, changes)` → a linha inteira depois da escrita (`insert … onConflictDoUpdate` escrevendo só as chaves recebidas + `updated_at`: é um patch).
+
+## Regra (`member-card.bo.ts`)
+
+- `MemberCardBo(access, { memberId, isMember })`.`requireEdit()`: o próprio membro e o mestre editam; a mesa toda vê (nada a redigir). `memberId` fora da mesa → `MEMBER_NOT_FOUND` (`MemberNotFoundError`, `member-cards.error.ts`, cita a mesa e o id); um jogador na ficha de outro → `FORBIDDEN` "user <Caio> may not edit the card of <Bia> … requires being that member or the master role". Quem não é membro continua `CAMPAIGN_NOT_FOUND` (pelo `memberAccessOf`).
+
+## Mapper e service
+
+- `member-cards.mapper.ts`: `toMemberCardDto(row)` (a ficha sem `campaignId`/`updatedAt`) e `toMemberCardChangesPo(changes)` (só as chaves presentes; `null` vira escrita de `null`, `undefined` não escreve).
+- `MemberCardsService({ members, transaction, publisher, clock })`.`update(userId, campaignId, { memberId, changes })` → versão nova: `memberAccessOf` (fora da mesa → `CAMPAIGN_NOT_FOUND`, sem travar a cena) → `inLockedScene` (trava a cena **ativa**) → `findMembership(alvo)` → BO → `save` → `bumpVersion` → **depois do commit** `BoardPublisherPort.memberCardChanged` com a ficha inteira. A ficha é da mesa, mas a mudança soma a versão da cena ativa (como a lista de condições): o tabuleiro tem uma ordem só de eventos. Recusa não grava, não soma nem publica.
+- `MemberCardTransactionRunner` entrega `{ scenes, members, memberCards }` presos ao `tx` (`MemberCardWriteDaos`).
+- O driver do `/desenvolver-server` acusa `identidade-do-payload` no `memberId`: falso positivo (é o alvo; quem pede vem da conexão), o mesmo do `playerId` do `main-token.service.ts`.
+
+## Snapshot
+
+- `board:sync`: `boardStateDto.memberCards` (as fichas gravadas da mesa, iguais para todo público; mesa sem ficha → `[]`) pelo `BoardService` (dep `memberCards: Pick<MemberCardsDao, 'listOfCampaign'>`, lida no `tablePiecesOf` junto com a lista de condições: é da mesa, não da cena) e o `toBoardStateDto`.
+- Fixtures com `memberCards: []`: `vharnBoard` (`client/test/support/table-session-fixtures.ts`) e o estado do `board.dto.spec.ts`.
+
+## Contrato e borda
+
+| Comando             | Quem                      | Ack                                                                                                             | Evento                                                                                  |
+| ------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `member:updateCard` | o próprio membro e mestre | `{ ok: true, version }` · `FORBIDDEN`, `MEMBER_NOT_FOUND`, `CAMPAIGN_NOT_FOUND`, `INVALID_BODY`, `RATE_LIMITED` | `member:cardChanged` `{ campaignId, version, at, card }` à sala `campaign:<id>` inteira |
+
+- Payload `updateMemberCardCommandDto` `{ actionId, campaignId, memberId, changes }` (estrito: `userId` forjado → `INVALID_BODY`; quem pede vem da conexão, §7.3).
+- `board.gateway.ts`: `socket.on('member:updateCard', mutate(updateMemberCardCommandDto, memberCards.update))` (dep `memberCards: Pick<MemberCardsService, 'update'>`); `MemberCardError` entre os erros conhecidos e `MEMBER_NOT_FOUND: 'Member not found'` no `PUBLIC_MESSAGE`.
+- `BoardPublisherPort.memberCardChanged` → `SocketIoBoardPublisher` emite `member:cardChanged` à sala `campaign:<id>` (nada a redigir).
+- `member-cards.plugin.ts` (`createMemberCardsModule({ db, publisher, clock })` → `{ service }`), montado no `wireRealtime` (`server/src/app/build-app.ts`) e entregue ao `createBoardModule`.
+
+## Testes
+
+- Integração `server/test/integration/member-cards-dao.spec.ts`: grava e lê, patch mantém o resto, `null` limpa só o campo, `save` devolve a linha, duas fichas na mesa, `CHECK` recusa CA 1000, FK recusa a ficha de quem não é membro, cascata por sair da mesa e por apagar a mesa, isolamento (a ficha da Vharn não sai na Quelm).
+- Unit `server/test/modules/member-cards/{member-card.bo,member-cards.mapper,member-cards.service}.spec.ts` (diário `lock → save → bump → commit → publish`; `FORBIDDEN` e `MEMBER_NOT_FOUND` param no `lock`; `CAMPAIGN_NOT_FOUND` sem trava).
+- Fakes `server/test/support/member-cards-fakes.ts`: `MemberCardsDaoFake(journal, rows)` (escreve `'save'`) e `MemberCardTransactionRunnerFake(scenes, members, memberCards)` (escreve `'commit'`); fábrica `memberCardPo()` (a ficha vazia da Bia na Vharn) em `member-cards-factories.ts`; `BoardPublisherFake.memberCardChanges`.
+- Integração `server/test/integration/board.spec.ts` (`member cards in the snapshot`): a ficha da Bia no sync de Ana, Bia e Caio; mesa sem ficha → `[]`; o sync da Quelm não traz a ficha da Vharn.
+- Integração `server/test/integration/member-cards.spec.ts` (`useTokenTable()`): a Bia muda a própria CA e Ana e Caio ouvem a ficha inteira, o sync traz; a Ana mestre escreve a anotação da Bia; apelido só de espaços vira `null`; reinício mantém (critério 13); o Caio na ficha da Bia → `FORBIDDEN` sem evento; `memberId` fora da Vharn → `MEMBER_NOT_FOUND` "Member not found"; `userId` forjado → `INVALID_BODY`; `campaignId` da Quelm → `CAMPAIGN_NOT_FOUND` e a sala da Quelm não ouve nada.
+- `truncateAllTables` (`server/test/support/test-database.ts`) inclui `member_cards`.

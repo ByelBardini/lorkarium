@@ -1,4 +1,5 @@
 import type {
+  SessionMemberActivityDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
   SessionStateDto,
@@ -19,7 +20,11 @@ export function toSessionStateDto(
   return {
     campaignId,
     version: roster.version,
-    members: members.map((member) => ({ ...member, online: presence.isOnline(member.userId) })),
+    members: members.map((member) => ({
+      ...member,
+      online: presence.isOnline(member.userId),
+      awaySince: presence.awaySinceOf(member.userId)?.toISOString() ?? null,
+    })),
     at: at.toISOString(),
   };
 }
@@ -37,7 +42,7 @@ export function toMemberJoinedDto(
   return {
     campaignId,
     version,
-    member: { userId, name, role, online: true },
+    member: { userId, name, role, online: true, awaySince: null },
     at: at.toISOString(),
   };
 }
@@ -52,4 +57,23 @@ export function toMemberLeftDto(
   at: Date,
 ): SessionMemberLeftDto {
   return { campaignId, version, userId, at: at.toISOString() };
+}
+
+/** A member going away (`awaySince` set) or coming back (`null`) → `session:memberActivity`.
+ *
+ *  Example: `toMemberActivityDto(campaignId, userId, presence.awaySinceOf(userId), version, now)` */
+export function toMemberActivityDto(
+  campaignId: string,
+  userId: string,
+  awaySince: Date | null,
+  version: number,
+  at: Date,
+): SessionMemberActivityDto {
+  return {
+    campaignId,
+    version,
+    userId,
+    awaySince: awaySince?.toISOString() ?? null,
+    at: at.toISOString(),
+  };
 }

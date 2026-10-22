@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Na mesa</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0A0B0E}
+button:focus-visible,input:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.nm-card{position:relative;display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:12px;background:#14171C;border:1px solid #23272E}
+.nm-card.is-me{border-color:rgba(197,164,109,.45)}
+.nm-card.is-turn{box-shadow:inset 0 0 0 1px #C5A46D}
+.nm-name{margin:0;font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:600;line-height:1.1;color:#EAE5DA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm-pencil{width:28px;height:28px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;color:#6F7480;cursor:pointer;opacity:0;transition:opacity .12s}
+.nm-card:hover .nm-pencil,.nm-pencil:focus-visible{opacity:1}
+.nm-pencil:hover{background:#1F232A;color:#EAE5DA}
+.nm-nameinput{width:100%;height:32px;box-sizing:border-box;padding:0 8px;border-radius:6px;border:1px solid #C5A46D;background:#101216;color:#EAE5DA;font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600}
+.nm-nameinput:focus{outline:none;box-shadow:0 0 0 3px rgba(197,164,109,.18)}
+.nm-stat{display:flex;align-items:center;gap:6px;height:34px;padding:0 4px 0 8px;border-radius:8px;background:#101216;border:1px solid #262B33}
+.nm-stat:focus-within{border-color:#C5A46D}
+.nm-statin{width:30px;height:28px;padding:0;border:0;background:transparent;color:#EAE5DA;font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;text-align:center;font-variant-numeric:tabular-nums}
+.nm-statin:focus{outline:none}
+.nm-statin::placeholder{color:#4A505B}
+.nm-statin[readonly]{cursor:default}
+.nm-line{width:100%;height:30px;box-sizing:border-box;padding:0 2px;border:0;border-bottom:1px dashed #303640;background:transparent;color:#D5D0C4;font:inherit;font-size:13px}
+.nm-line::placeholder{color:#4F545E;font-style:italic}
+.nm-line:focus{outline:none;border-bottom:1px solid #C5A46D}
+.nm-line[readonly]{cursor:default;border-bottom-style:solid;border-bottom-color:#1F2329}
+.nm-sec{display:flex;align-items:center;gap:8px;padding:6px 4px 2px;border:0;background:transparent;color:#8C8F98;font:inherit;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+button.nm-sec{cursor:pointer}
+button.nm-sec:hover{color:#EAE5DA}
+</style>
+</helmet>
+<div style="height: 100vh; min-height: 640px; overflow: auto; display: flex; flex-wrap: wrap; background: #0A0B0E; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<main style="flex: 999 1 520px; min-width: 0; min-height: 480px; box-sizing: border-box; padding: 20px; display: flex; align-items: center; justify-content: center; background: #08090B">
+<div style="position: relative; width: 100%; max-width: 860px; aspect-ratio: 16 / 12">
+<svg viewBox="0 0 768 576" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<defs><pattern id="nmGrid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#C5A46D" stroke-opacity=".12" stroke-width="1"></path></pattern></defs>
+<rect width="768" height="576" fill="#0B0C0F"></rect>
+<path d="M96 96 H480 V48 H720 V528 H384 V480 H96 Z" fill="#1A1D23"></path>
+<ellipse cx="600" cy="440" rx="70" ry="40" fill="#16212C" stroke="#4D6A8A" stroke-opacity=".6" stroke-width="1.5"></ellipse>
+<path d="M96 96 H480 V48 H720 V528 H384 V480 H96 Z" fill="none" stroke="#7A6F5C" stroke-width="6"></path>
+<rect width="768" height="576" fill="url(#nmGrid)"></rect>
+<g font-family="Cinzel, serif" font-size="12" font-weight="600" text-anchor="middle">
+<circle cx="168" cy="312" r="19" fill="#2E2630" stroke="#D9D2C2" stroke-width="2"></circle><text x="168" y="316" fill="#EAE5DA">LY</text>
+<circle cx="312" cy="408" r="19" fill="#25302A" stroke="#D9D2C2" stroke-width="2"></circle><text x="312" y="412" fill="#EAE5DA">TH</text>
+<circle cx="264" cy="264" r="19" fill="#262C38" stroke="#D9D2C2" stroke-width="2"></circle><text x="264" y="268" fill="#EAE5DA">SA</text>
+<circle cx="552" cy="216" r="19" fill="#2A1D1A" stroke="#C9705A" stroke-width="2"></circle><text x="552" y="220" fill="#EAE5DA">LB</text>
+</g>
+</svg>
+</div>
+</main>
+
+<aside style="flex: 1 1 380px; max-width: 100%; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; background: #0F1114; border-left: 1px solid #1F2329">
+<div style="flex-shrink: 0; display: flex; gap: 22px; padding: 0 20px; border-bottom: 1px solid #1F2329">
+<span style="height: 46px; display: inline-flex; align-items: center; font-size: 14px; font-weight: 600; color: #8C8F98">Combate</span>
+<span style="height: 46px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; border-bottom: 2px solid #C5A46D">Na mesa <span style="min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: rgba(143,208,168,.14); color: #8FD0A8; font-size: 11px; display: inline-flex; align-items: center; justify-content: center">{{onlineCount}}</span></span>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow: auto; padding: 14px 14px 20px; display: flex; flex-direction: column; gap: 10px">
+
+<span class="nm-sec">Mestre</span>
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: #14171C; border: 1px solid #23272E">
+<span style="position: relative; width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; background: #3A4A5B; display: inline-flex; align-items: center; justify-content: center; font-family: Cinzel, serif; font-size: 15px; font-weight: 600; box-shadow: 0 0 0 2px #C5A46D">LU
+<span style="position: absolute; right: -3px; bottom: -3px; width: 11px; height: 11px; border-radius: 50%; background: #8FD0A8; box-shadow: 0 0 0 2px #14171C"></span>
+</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; line-height: 1.1">Lucas</span>
+<span style="font-size: 12px; color: #8C8F98">@lucas.rola20</span>
+</div>
+<span style="height: 24px; padding: 0 10px; border-radius: 999px; background: rgba(197,164,109,.14); color: #E2C793; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; display: inline-flex; align-items: center; gap: 6px">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 18l2-11 5 5 2-7 2 7 5-5 2 11Z"></path></svg>Mestre</span>
+</div>
+
+<span class="nm-sec" style="margin-top: 6px">Jogadores · {{playerOnline}} online</span>
+
+<sc-for list="{{players}}" as="p" hint-placeholder-count="3">
+<article class="{{p.cls}}">
+<div style="display: flex; gap: 12px">
+<div style="position: relative; width: 84px; height: 108px; flex-shrink: 0; border-radius: 10px; overflow: hidden; background: {{p.bg}}; box-shadow: inset 0 0 0 1px rgba(234,229,218,.08)">
+<svg viewBox="0 0 84 108" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<path d="M42 14 L54 36 L42 74 L30 36 Z" fill="none" stroke="#EAE5DA" stroke-opacity=".08" stroke-width="1.5"></path>
+<path d="M0 108 C10 82 26 74 42 74 C58 74 74 82 84 108 Z" fill="#000" fill-opacity=".25"></path>
+<circle cx="42" cy="48" r="18" fill="#000" fill-opacity=".22"></circle>
+</svg>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: Cinzel, serif; font-size: 22px; font-weight: 600; color: rgba(234,229,218,.85)">{{p.ini}}</span>
+<span style="position: absolute; left: 6px; bottom: 6px; height: 18px; padding: 0 6px; border-radius: 999px; background: rgba(10,11,14,.75); font-size: 10px; font-weight: 600; color: #D5D0C4; display: inline-flex; align-items: center">Token</span>
+</div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 4px; min-height: 32px">
+<sc-if value="{{p.editing}}" hint-placeholder-val="{{ false }}">
+<input class="nm-nameinput" type="text" maxlength="40" value="{{p.draft}}" onChange="{{p.onDraft}}" onBlur="{{p.save}}" onKeyDown="{{p.onKey}}" aria-label="Nome na mesa" autofocus="">
+</sc-if>
+<sc-if value="{{p.notEditing}}" hint-placeholder-val="{{ true }}">
+<h3 class="nm-name">{{p.name}}</h3>
+<sc-if value="{{p.canEdit}}" hint-placeholder-val="{{ false }}">
+<button type="button" class="nm-pencil" onClick="{{p.startEdit}}" aria-label="{{p.editLabel}}" title="Mudar nome na mesa">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16Z"></path><path d="M13 7l4 4"></path></svg>
+</button>
+</sc-if>
+</sc-if>
+</div>
+<div style="display: flex; align-items: center; gap: 6px; margin-top: -4px; font-size: 12px; color: #8C8F98">
+<span style="width: 7px; height: 7px; border-radius: 50%; background: {{p.dot}}"></span>
+<span>@{{p.nick}}</span>
+<sc-if value="{{p.isMe}}" hint-placeholder-val="{{ false }}"><span style="color: #C5A46D; font-weight: 600">· você</span></sc-if>
+<sc-if value="{{p.hasStatus}}" hint-placeholder-val="{{ false }}"><span>· {{p.status}}</span></sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; margin-top: 2px">
+<sc-for list="{{p.bars}}" as="b" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 3px">
+<div style="display: flex; align-items: center; gap: 6px; font-size: 11px">
+<span style="font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #A9A497">{{b.label}}</span>
+<sc-if value="{{b.hidden}}" hint-placeholder-val="{{ false }}">
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8C8F98" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Só mestre e dono veem"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+</sc-if>
+<span style="margin-left: auto; font-size: 12px; font-weight: 600; color: {{b.valColor}}; font-variant-numeric: tabular-nums">{{b.text}}</span>
+</div>
+<span style="display: block; height: 5px; border-radius: 3px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: {{b.w}}; background: {{b.color}}"></span></span>
+</div>
+</sc-for>
+<sc-if value="{{p.noBars}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #6F7480">Token sem barras</span>
+</sc-if>
+</div>
+</div>
+</div>
+
+<div style="display: flex; gap: 8px">
+<label class="nm-stat" title="Classe de Armadura">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6Z"></path></svg>
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #A9A497">CA</span>
+<input class="nm-statin" type="text" inputmode="numeric" maxlength="3" placeholder="—" value="{{p.ca}}" onChange="{{p.onCa}}" readOnly="{{p.ro}}" aria-label="{{p.caLabel}}">
+</label>
+<label class="nm-stat" title="Classe de Dificuldade">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7Z"></path><path d="M12 2v20M3 7l9 5 9-5"></path></svg>
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #A9A497">CD</span>
+<input class="nm-statin" type="text" inputmode="numeric" maxlength="3" placeholder="—" value="{{p.cd}}" onChange="{{p.onCd}}" readOnly="{{p.ro}}" aria-label="{{p.cdLabel}}">
+</label>
+<span style="flex: 1"></span>
+<sc-if value="{{p.canEdit}}" hint-placeholder-val="{{ false }}">
+<button type="button" class="nm-pencil" onClick="{{p.locate}}" aria-label="{{p.locateLabel}}" title="Achar no mapa" style="opacity: 1; width: 34px; height: 34px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path></svg>
+</button>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 2px">
+<input class="nm-line" type="text" maxlength="80" value="{{p.l1}}" onChange="{{p.onL1}}" readOnly="{{p.ro}}" placeholder="{{p.ph1}}" aria-label="{{p.l1Label}}">
+<input class="nm-line" type="text" maxlength="80" value="{{p.l2}}" onChange="{{p.onL2}}" readOnly="{{p.ro}}" placeholder="{{p.ph2}}" aria-label="{{p.l2Label}}">
+</div>
+</article>
+</sc-for>
+
+<button type="button" class="nm-sec" onClick="{{toggleOffline}}" aria-expanded="{{offlineOpen}}" style="margin-top: 6px">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: rotate({{offChev}}); transition: transform .15s"><path d="M9 6l6 6-6 6"></path></svg>
+Fora agora · {{offlineCount}}
+</button>
+<sc-if value="{{offlineOpen}}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{offline}}" as="o" hint-placeholder-count="1">
+<div style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px; opacity: .6">
+<span style="width: 36px; height: 44px; border-radius: 8px; background: {{o.bg}}; display: inline-flex; align-items: center; justify-content: center; font-family: Cinzel, serif; font-size: 13px; font-weight: 600; filter: grayscale(.8)">{{o.ini}}</span>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 600">{{o.name}}</span>
+<span style="font-size: 12px; color: #8C8F98">@{{o.nick}} · {{o.status}}</span>
+</div>
+</div>
+</sc-for>
+</sc-if>
+
+<span class="nm-sec" style="margin-top: 6px">Assistindo · 2</span>
+<div style="display: flex; align-items: center; gap: 10px; padding: 4px 12px">
+<div style="display: flex">
+<span style="width: 28px; height: 28px; border-radius: 50%; background: #4A4458; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; box-shadow: 0 0 0 2px #0F1114">MA</span>
+<span style="width: 28px; height: 28px; margin-left: -6px; border-radius: 50%; background: #4F4A3A; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; box-shadow: 0 0 0 2px #0F1114">JO</span>
+</div>
+<span style="font-size: 13px; color: #8C8F98">Marina e João</span>
+</div>
+</div>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"voce":{"editor":"enum","options":["mestre","jogador (Bia)"],"default":"mestre"},"$preview":{"width":1280,"height":900}}'>
+var NM_START = [
+  { id: 'bia', name: 'Lyra Vandel', nick: 'biaflor', ini: 'LY', bg: '#4A3846', online: true, status: '',
+    bars: [{ l: 'PV', c: 21, m: 28, color: '#C9705A' }, { l: 'Mana', c: 9, m: 16, color: '#7F9BD6' }, { l: 'Inspiração', c: 2, m: 3, color: '#C5A46D' }],
+    ca: '13', cd: '15', l1: 'Percepção passiva 14', l2: '' },
+  { id: 'thiago', name: 'Thoren Pé-de-Ferro', nick: 'thiagaum', ini: 'TH', bg: '#33463A', online: true, status: 'ausente há 4 min',
+    bars: [{ l: 'PV', c: 6, m: 38, color: '#C9705A' }, { l: 'Fúria', c: 3, m: 4, color: '#C5A46D' }, { l: 'Sanidade', c: 7, m: 10, color: '#8FB39A', hidden: true }],
+    ca: '17', cd: '', l1: 'Resistência a fogo', l2: 'Deve 20 po pro taverneiro' },
+  { id: 'carol', name: 'Sable', nick: 'carolzinha', ini: 'SA', bg: '#2F3A4E', online: true, status: '',
+    bars: [{ l: 'PV', c: 30, m: 30, color: '#C9705A' }, { l: 'Ki', c: 5, m: 7, color: '#8FA3BF' }, { l: 'Escudo', c: 4, m: 10, color: '#8C8F98' }],
+    ca: '16', cd: '14', l1: '', l2: '' }
+];
+var NM_OFF = [{ name: 'Vesper', nick: 'renan.rpg', ini: 'VE', bg: '#4F4A3A', status: 'visto ontem' }];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { players: JSON.parse(JSON.stringify(NM_START)), editing: null, draft: '', offline: false };
+  }
+  patch(id, fn) {
+    this.setState({ players: this.state.players.map(function (p) { if (p.id !== id) return p; var c = JSON.parse(JSON.stringify(p)); fn(c); return c; }) });
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var gm = (this.props.voce ?? 'mestre') === 'mestre';
+    var me = gm ? null : 'bia';
+    var players = s.players.map(function (p) {
+      var canEdit = gm || p.id === me;
+      var editing = s.editing === p.id;
+      var field = function (k) { return function (e) { var v = e.target.value; self.patch(p.id, function (c) { c[k] = v; }); }; };
+      var bars = p.bars.filter(function (b) { return !b.hidden || canEdit; }).map(function (b) {
+        var r = b.m ? b.c / b.m : 0;
+        return { label: b.l, text: b.c + ' / ' + b.m, w: Math.round(r * 100) + '%', color: b.color, hidden: !!b.hidden,
+          valColor: b.l === 'PV' && r < 0.25 ? '#E6A28F' : '#D5D0C4' };
+      });
+      return {
+        name: p.name, nick: p.nick, ini: p.ini, bg: p.bg, bars: bars, noBars: bars.length === 0,
+        cls: 'nm-card' + (p.id === me ? ' is-me' : ''), isMe: p.id === me,
+        dot: p.status ? '#D9B86A' : '#8FD0A8', hasStatus: !!p.status, status: p.status,
+        canEdit: canEdit, ro: !canEdit, editing: editing, notEditing: !editing, draft: s.draft,
+        editLabel: 'Mudar o nome de ' + p.name, locateLabel: 'Achar ' + p.name + ' no mapa',
+        startEdit: function () { self.setState({ editing: p.id, draft: p.name }); },
+        onDraft: function (e) { self.setState({ draft: e.target.value }); },
+        save: function () { var v = (self.state.draft || '').trim(); if (v) self.patch(p.id, function (c) { c.name = v; }); self.setState({ editing: null }); },
+        onKey: function (e) {
+          if (e.key === 'Enter') { var v = (self.state.draft || '').trim(); if (v) self.patch(p.id, function (c) { c.name = v; }); self.setState({ editing: null }); }
+          if (e.key === 'Escape') self.setState({ editing: null });
+        },
+        locate: function () {},
+        ca: p.ca, cd: p.cd, onCa: field('ca'), onCd: field('cd'), caLabel: 'CA de ' + p.name, cdLabel: 'CD de ' + p.name,
+        l1: p.l1, l2: p.l2, onL1: field('l1'), onL2: field('l2'),
+        l1Label: 'Linha livre 1 de ' + p.name, l2Label: 'Linha livre 2 de ' + p.name,
+        ph1: canEdit ? 'Linha livre — ex.: Percepção passiva 12' : '', ph2: canEdit ? 'Linha livre' : ''
+      };
+    });
+    return {
+      players: players, playerOnline: s.players.filter(function (p) { return p.online; }).length,
+      onlineCount: s.players.length + 1,
+      offline: NM_OFF, offlineCount: NM_OFF.length, offlineOpen: s.offline, offChev: s.offline ? '90deg' : '0deg',
+      toggleOffline: function () { self.setState({ offline: !self.state.offline }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

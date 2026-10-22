@@ -32,6 +32,7 @@ describe('boardCommandFailureMessage', () => {
     ['effect_area_not_found', 'Essa área não está mais na mesa.'],
     ['effect_area_limit', 'A cena já tem áreas demais. Apague algumas antes.'],
     ['drawing_not_found', 'Esse desenho não está mais na mesa.'],
+    ['member_not_found', 'Essa pessoa não está mais na mesa.'],
   ] as const)('%s reads "%s"', (failure, message) => {
     expect(boardCommandFailureMessage(failure)).toBe(message);
   });

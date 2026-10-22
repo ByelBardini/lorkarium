@@ -8,7 +8,17 @@ export type MainTokenBoard = Pick<BoardStateDto, 'viewer' | 'tokens' | 'mainToke
  *
  *  Example: `mainTokenIdOf(board) // 'lyra-id' for Bia, null for a master in no control` */
 export function mainTokenIdOf(board: MainTokenBoard): string | null {
-  const { userId } = board.viewer;
+  return mainTokenIdOfMember(board, board.viewer.userId);
+}
+
+/** The main token of any member, by the same rule as the viewer's: the party board shows it on
+ *  each player's card.
+ *
+ *  Example: `mainTokenIdOfMember(board, caio.id) // 'kael-id'` */
+export function mainTokenIdOfMember(
+  board: Pick<BoardStateDto, 'tokens' | 'mainTokens'>,
+  userId: string,
+): string | null {
   const listed = board.tokens.filter((token) => isListedIn(token, userId));
   const choice = board.mainTokens.find((main) => main.userId === userId);
   const chosen = listed.find((token) => token.id === choice?.tokenId);
@@ -49,5 +59,5 @@ export function mainTokenPlayersOf(
 }
 
 function isMainOf(board: MainTokenBoard, userId: string, tokenId: string): boolean {
-  return mainTokenIdOf({ ...board, viewer: { ...board.viewer, userId } }) === tokenId;
+  return mainTokenIdOfMember(board, userId) === tokenId;
 }

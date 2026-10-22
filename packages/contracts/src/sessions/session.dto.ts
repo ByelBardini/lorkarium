@@ -15,6 +15,8 @@ export const SESSION_EVENTS = {
   leave: 'session:leave',
   memberJoined: 'session:memberJoined',
   memberLeft: 'session:memberLeft',
+  setActivity: 'session:setActivity',
+  memberActivity: 'session:memberActivity',
 } as const;
 
 /** Payload of `session:join` and `session:leave`; who asks comes from the connection (§7.3).
@@ -27,11 +29,13 @@ export const sessionCommandDto = z.strictObject({
 
 export type SessionCommandDto = z.infer<typeof sessionCommandDto>;
 
+/** A member of the table; `awaySince` is when every tab of theirs stood still (null: active). */
 export const sessionMemberDto = z.strictObject({
   userId: z.uuid(),
   name: z.string(),
   role: campaignRoleDto,
   online: z.boolean(),
+  awaySince: z.iso.datetime().nullable(),
 });
 
 export type SessionMemberDto = z.infer<typeof sessionMemberDto>;
@@ -51,7 +55,7 @@ export type SessionStateDto = z.infer<typeof sessionStateDto>;
 export const sessionMemberJoinedDto = z.strictObject({
   campaignId: z.uuid(),
   version: stateVersionDto,
-  member: sessionMemberDto.extend({ online: z.literal(true) }),
+  member: sessionMemberDto.extend({ online: z.literal(true), awaySince: z.null() }),
   at: z.iso.datetime(),
 });
 
@@ -82,14 +86,46 @@ export const sessionLeaveAckDto = z.discriminatedUnion('ok', [
 
 export type SessionLeaveAckDto = z.infer<typeof sessionLeaveAckDto>;
 
+/** `session:setActivity`: this tab stood still for a while (`away: true`) or moved again. Who
+ *  asks comes from the connection (§7.3); the server counts every tab of the user.
+ *
+ *  Example: `sessionActivityCommandDto.parse({ actionId, campaignId, away: true })` */
+export const sessionActivityCommandDto = z.strictObject({
+  ...sessionCommandDto.shape,
+  away: z.boolean(),
+});
+
+export type SessionActivityCommandDto = z.infer<typeof sessionActivityCommandDto>;
+
+/** Answer to `session:setActivity`; idempotent, and `ok` for a table not open on the connection. */
+export const sessionActivityAckDto = sessionLeaveAckDto;
+
+export type SessionActivityAckDto = SessionLeaveAckDto;
+
+/** `session:memberActivity`: a member went away (`awaySince` set) or came back (`null`). */
+export const sessionMemberActivityDto = z.strictObject({
+  campaignId: z.uuid(),
+  version: stateVersionDto,
+  userId: z.uuid(),
+  awaySince: z.iso.datetime().nullable(),
+  at: z.iso.datetime(),
+});
+
+export type SessionMemberActivityDto = z.infer<typeof sessionMemberActivityDto>;
+
 /** Client → server events, for the Socket.IO generics on both ends. */
 export type SessionClientEvents = {
   'session:join': (command: SessionCommandDto, ack: (answer: SessionJoinAckDto) => void) => void;
   'session:leave': (command: SessionCommandDto, ack: (answer: SessionLeaveAckDto) => void) => void;
+  'session:setActivity': (
+    command: SessionActivityCommandDto,
+    ack: (answer: SessionActivityAckDto) => void,
+  ) => void;
 };
 
 /** Server → room events, for the Socket.IO generics on both ends. */
 export type SessionServerEvents = {
   'session:memberJoined': (event: SessionMemberJoinedDto) => void;
   'session:memberLeft': (event: SessionMemberLeftDto) => void;
+  'session:memberActivity': (event: SessionMemberActivityDto) => void;
 };

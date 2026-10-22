@@ -37,6 +37,7 @@ const STATE = {
   combat: null,
   conditionDefinitions: [],
   mainTokens: [],
+  memberCards: [],
 };
 
 describe('boardStateDto', () => {

@@ -11,6 +11,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { homeRoutes } from '@/features/home/home-route';
+import { useTabActivity } from '@/features/sessions/use-tab-activity';
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
 import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AuthApi } from '@/services/auth-api';
@@ -142,11 +143,14 @@ function loginRoute({ authApi, sessionStore }: AppDependencies): () => React.JSX
 }
 
 function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
-  const { authApi, sessionStore, railStore, openTables } = deps;
+  const { authApi, sessionStore, railStore, openTables, interactionClock } = deps;
+  // Stable across renders: the activity watch restarts only when this changes.
+  const setAway = (away: boolean): void => openTables.getState().setAway(away);
   return function ShellRoute(): React.JSX.Element | null {
     const session = useSession(sessionStore);
     const navigate = useNavigate();
     useSignOutWhenRefused(openTables, sessionStore);
+    useTabActivity({ clock: interactionClock, onAway: setAway });
     if (session.status !== 'authenticated') return null;
     const signOut = async (): Promise<void> => {
       // Before the logout: once the session ends the server refuses the leaves, and the others

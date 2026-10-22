@@ -1,4 +1,5 @@
 import type {
+  MemberCardDto,
   ActiveConditionDto,
   BoardStateDto,
   CombatantDto,
@@ -21,6 +22,7 @@ export const ANA_AT_TABLE: SessionMemberDto = {
   name: 'Ana',
   role: 'master',
   online: true,
+  awaySince: null,
 };
 
 export const BIA_AT_TABLE: SessionMemberDto = {
@@ -28,6 +30,7 @@ export const BIA_AT_TABLE: SessionMemberDto = {
   name: 'Bia',
   role: 'player',
   online: false,
+  awaySince: null,
 };
 
 export const CAIO_AT_TABLE: SessionMemberDto = {
@@ -35,6 +38,7 @@ export const CAIO_AT_TABLE: SessionMemberDto = {
   name: 'Caio',
   role: 'player',
   online: true,
+  awaySince: null,
 };
 
 const AT = '2026-10-15T12:00:00.000Z';
@@ -59,7 +63,7 @@ export function biaJoined(overrides: Partial<SessionMemberJoinedDto> = {}): Sess
   return {
     campaignId: VHARN.id,
     version: 2,
-    member: { ...BIA_AT_TABLE, online: true },
+    member: { ...BIA_AT_TABLE, online: true, awaySince: null },
     at: AT,
     ...overrides,
   };
@@ -103,6 +107,7 @@ export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDt
     combat: null,
     conditionDefinitions: [],
     mainTokens: [],
+    memberCards: [],
     ...overrides,
   };
 }
@@ -293,3 +298,18 @@ export function eventAt(version: number, event: DistributiveOmit<BoardEvent>): B
 type DistributiveOmit<E> = E extends { type: infer T; payload: infer P }
   ? { type: T; payload: Omit<P, 'campaignId' | 'version' | 'at'> }
   : never;
+
+/** The card of Bia on VHARN, empty unless overridden.
+ *
+ *  Example: `memberCard({ armorClass: 15 })` */
+export function memberCard(overrides: Partial<MemberCardDto> = {}): MemberCardDto {
+  return {
+    userId: BIA_AT_TABLE.userId,
+    characterName: null,
+    armorClass: null,
+    difficultyClass: null,
+    noteOne: null,
+    noteTwo: null,
+    ...overrides,
+  };
+}

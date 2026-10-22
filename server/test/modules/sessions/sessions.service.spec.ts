@@ -50,8 +50,8 @@ describe('TableSessionService', () => {
       campaignId: VHARN_ID,
       version: 1,
       members: [
-        { userId: ANA_ID, name: 'Ana', role: 'master', online: true },
-        { userId: BIA_ID, name: 'Bia', role: 'player', online: false },
+        { userId: ANA_ID, name: 'Ana', role: 'master', online: true, awaySince: null },
+        { userId: BIA_ID, name: 'Bia', role: 'player', online: false, awaySince: null },
       ],
       at: '2026-10-15T12:00:00.000Z',
     });
@@ -61,7 +61,7 @@ describe('TableSessionService', () => {
         event: {
           campaignId: VHARN_ID,
           version: 1,
-          member: { userId: ANA_ID, name: 'Ana', role: 'master', online: true },
+          member: { userId: ANA_ID, name: 'Ana', role: 'master', online: true, awaySince: null },
           at: '2026-10-15T12:00:00.000Z',
         },
       },
@@ -87,7 +87,7 @@ describe('TableSessionService', () => {
     await service.join(ANA_ID, VHARN_ID, 's1');
     const state = await service.join(CAIO_ID, QUELM_ID, 's2');
     expect(state.members).toEqual([
-      { userId: CAIO_ID, name: 'Caio', role: 'master', online: true },
+      { userId: CAIO_ID, name: 'Caio', role: 'master', online: true, awaySince: null },
     ]);
     expect(state.version).toBe(1);
   });
@@ -169,5 +169,108 @@ describe('TableSessionService tables of a connection', () => {
     expect(admitted.tables).toEqual(new Set([QUELM_ID, VHARN_ID]));
     const released = service.releaseTable(admitted.tables, QUELM_ID);
     expect(released.tables).toEqual(new Set([VHARN_ID]));
+  });
+});
+
+describe('TableSessionService activity', () => {
+  let journal: SessionsJournal;
+  let publisher: SessionPublisherFake;
+  let service: TableSessionService;
+
+  beforeEach(() => {
+    journal = new SessionsJournal();
+    publisher = new SessionPublisherFake(journal);
+    service = new TableSessionService({
+      campaigns: new CampaignRosterFake({ [VHARN_ID]: [ANA, BIA] }),
+      registry: new PresenceRegistryFake(journal),
+      scheduler: new SchedulerFake(),
+      publisher,
+      clock: new ClockFake(NOW),
+    });
+  });
+
+  describe('Bia at VHARN', () => {
+    it('Bia standing still saves and then publishes memberActivity since the clock', async () => {
+      await service.join(BIA_ID, VHARN_ID, 's1');
+      journal.entries.length = 0;
+
+      service.setActivity(BIA_ID, VHARN_ID, 's1', true);
+
+      expect(journal.entries).toEqual([`save:${VHARN_ID}`, 'publish:memberActivity']);
+      expect(publisher.published.at(-1)).toEqual({
+        name: 'memberActivity',
+        event: {
+          campaignId: VHARN_ID,
+          version: 2,
+          userId: BIA_ID,
+          awaySince: NOW.toISOString(),
+          at: NOW.toISOString(),
+        },
+      });
+    });
+
+    it('Bia already away standing still again saves and publishes nothing', async () => {
+      await service.join(BIA_ID, VHARN_ID, 's1');
+      service.setActivity(BIA_ID, VHARN_ID, 's1', true);
+      journal.entries.length = 0;
+
+      service.setActivity(BIA_ID, VHARN_ID, 's1', true);
+
+      expect(journal.entries).toEqual([]);
+    });
+
+    it('one of two tabs standing still is still-active: kept, but nothing published', async () => {
+      await service.join(BIA_ID, VHARN_ID, 's1');
+      await service.join(BIA_ID, VHARN_ID, 's2');
+      journal.entries.length = 0;
+
+      service.setActivity(BIA_ID, VHARN_ID, 's1', true);
+
+      expect(journal.entries).toEqual([`save:${VHARN_ID}`]);
+      service.setActivity(BIA_ID, VHARN_ID, 's2', true);
+      expect(journal.entries).toEqual([
+        `save:${VHARN_ID}`,
+        `save:${VHARN_ID}`,
+        'publish:memberActivity',
+      ]);
+    });
+
+    it('Bia moving again publishes memberActivity with awaySince null', async () => {
+      await service.join(BIA_ID, VHARN_ID, 's1');
+      service.setActivity(BIA_ID, VHARN_ID, 's1', true);
+
+      service.setActivity(BIA_ID, VHARN_ID, 's1', false);
+
+      expect(publisher.published.at(-1)).toMatchObject({
+        name: 'memberActivity',
+        event: { version: 3, userId: BIA_ID, awaySince: null },
+      });
+    });
+
+    it('the join of a new tab of Bia, away, publishes memberActivity with null', async () => {
+      await service.join(BIA_ID, VHARN_ID, 's1');
+      service.setActivity(BIA_ID, VHARN_ID, 's1', true);
+
+      const state = await service.join(BIA_ID, VHARN_ID, 's2');
+
+      expect(publisher.published.at(-1)).toMatchObject({
+        name: 'memberActivity',
+        event: { userId: BIA_ID, awaySince: null },
+      });
+      expect(state.members.find(({ userId }) => userId === BIA_ID)?.awaySince).toBeNull();
+    });
+
+    it('the active tab closing while the other stands still publishes memberActivity', async () => {
+      await service.join(BIA_ID, VHARN_ID, 's1');
+      await service.join(BIA_ID, VHARN_ID, 's2');
+      service.setActivity(BIA_ID, VHARN_ID, 's2', true);
+
+      service.leave(BIA_ID, VHARN_ID, 's1');
+
+      expect(publisher.published.at(-1)).toMatchObject({
+        name: 'memberActivity',
+        event: { userId: BIA_ID, awaySince: NOW.toISOString() },
+      });
+    });
   });
 });

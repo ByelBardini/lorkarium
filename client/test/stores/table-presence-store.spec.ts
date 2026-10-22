@@ -20,6 +20,7 @@ const DUDA = {
   name: 'Duda',
   role: 'player',
   online: true,
+  awaySince: null,
 } as const;
 
 describe('table presence store', () => {
@@ -121,5 +122,68 @@ describe('table presence store', () => {
   it('onlineCount counts only who is online', () => {
     apply({ kind: 'state', state: vharnState() });
     expect(selectOnlineCount(store.getState())).toBe(2);
+  });
+
+  describe('activity', () => {
+    const awaySince = '2026-10-22T12:00:00.000Z';
+
+    function activity(version: number, since: string | null) {
+      return {
+        kind: 'memberActivity' as const,
+        event: {
+          campaignId: VHARN.id,
+          version,
+          userId: CAIO_AT_TABLE.userId,
+          awaySince: since,
+          at: awaySince,
+        },
+      };
+    }
+
+    function caio() {
+      return store.getState().members.find(({ userId }) => userId === CAIO_AT_TABLE.userId);
+    }
+
+    it('memberActivity with a higher version marks since when Caio is away', () => {
+      apply({ kind: 'state', state: vharnState({ version: 3 }) }, activity(4, awaySince));
+
+      expect(caio()?.awaySince).toBe(awaySince);
+      expect(store.getState().version).toBe(4);
+    });
+
+    it('memberActivity with a version not above the current one is ignored', () => {
+      apply({ kind: 'state', state: vharnState({ version: 3 }) }, activity(3, awaySince));
+
+      expect(caio()?.awaySince).toBeNull();
+    });
+
+    it('a snapshot replaces the absence', () => {
+      apply({ kind: 'state', state: vharnState({ version: 3 }) }, activity(4, awaySince), {
+        kind: 'state',
+        state: vharnState({ version: 5 }),
+      });
+
+      expect(caio()?.awaySince).toBeNull();
+    });
+
+    it('memberLeft clears the absence along with the presence', () => {
+      apply({ kind: 'state', state: vharnState({ version: 3 }) }, activity(4, awaySince), {
+        kind: 'memberLeft',
+        event: { campaignId: VHARN.id, version: 5, userId: CAIO_AT_TABLE.userId, at: awaySince },
+      });
+
+      expect(caio()).toMatchObject({ online: false, awaySince: null });
+    });
+  });
+
+  it('keeps the server time of the snapshot and of each newer event (what "há N min" counts from)', () => {
+    apply({ kind: 'state', state: vharnState({ version: 3, at: '2026-10-22T12:00:00.000Z' }) });
+    expect(store.getState().at).toBe('2026-10-22T12:00:00.000Z');
+
+    apply({ kind: 'memberLeft', event: biaLeft({ version: 4, at: '2026-10-22T12:05:00.000Z' }) });
+    expect(store.getState().at).toBe('2026-10-22T12:05:00.000Z');
+
+    apply({ kind: 'memberLeft', event: biaLeft({ version: 4, at: '2026-10-22T12:09:00.000Z' }) });
+    expect(store.getState().at).toBe('2026-10-22T12:05:00.000Z');
   });
 });

@@ -23,11 +23,11 @@ test('two people at the same table see each other online, and a closed page goes
   await joinByCodeAndEnter(bia, code);
   await enterFromTheList(admin, name);
 
-  await expect(presenceOf(admin, 'Bia')).toContainText(/online$/);
-  await expect(presenceOf(bia, 'Admin')).toContainText(/online$/);
+  await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online');
+  await expect(presenceOf(bia, 'Admin')).toHaveAccessibleName('online');
 
   await bia.close();
-  await expect(presenceOf(admin, 'Bia')).toContainText(/offline$/, {
+  await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('offline', {
     timeout: GRACE_AND_MARGIN_MS,
   });
 });
