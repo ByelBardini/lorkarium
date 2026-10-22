@@ -57,7 +57,7 @@ O lado do client do cone: o estado e os comandos, o filtro e a névoa em cone, o
 
 - Sem DOM: `test/lib/shown-cells.spec.ts` (a pose, o `facingPreview`, a precedência), "boardSightOf for Bia with Lyra looking in a cone" no `board-sight.spec.ts`, "lightSourcesOf in a cone" no `light-sources.spec.ts`, "sightNowOf while Lyra turns" no `use-board-sight.spec.ts`; `test/renderer/world-area.spec.ts`, "fogViewOf with Lyra looking in a cone", "lightAreasOf of a spotlight", "lightTintViewOf of a spotlight", "lightViewsOf of a spotlight", `light-aim-handle.spec.ts`, `handle-targets.spec.ts`, "pressRouteOf and the handle of a spotlight", `sight-cone-view.spec.ts` e, no `board-view.spec.ts`, "while Lyra turns", "while the master aims a spotlight" e "the outline of the field of view"; `test/lib/cone-form.spec.ts`, "the cone of a map light on the undo stack" no `edit-history.spec.ts`; `light-cone-flow.spec.ts`, a abertura no `light-reach-store.spec.ts` e no `light-tool-flow.spec.ts`, o desfazer do cone no `table-edit-store.spec.ts`; o evento e o reducer em `board-events.spec.ts` / `board-reducer.spec.ts`; `setLightCones` no `light-commands.spec.ts`.
 - Componentes: `cone-angle-field.spec.tsx`; "the openings" no `vision-light-tab.spec.tsx`; "the field of view and the beam" no `token-dialog.spec.tsx`; "a lantern" no `token-preview.spec.tsx`; "Abertura (°)" no `light-panel.spec.tsx`; "while Lyra turns" no `scene-token-list.spec.tsx`; no `play-room-page-lights.spec.tsx`, a abertura das duas pegas com Ctrl+Z e "aiming a spotlight".
-- E2E `e2e/test/vision-cone.spec.ts` (ver [`../ci.md`](../ci.md)).
+- E2E `e2e/test/vision-cone.spec.ts` (ver [`../ci/e2e.md`](../ci/e2e.md)).
 
 ## Armadilhas
 
