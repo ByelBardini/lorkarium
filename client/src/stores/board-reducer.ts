@@ -11,6 +11,7 @@ import type {
   LightConesChangedDto,
   LightRangesChangedDto,
   LightsMovedDto,
+  MainTokenDto,
   TokenDto,
   TokensFacedDto,
   TokensResizedDto,
@@ -26,7 +27,21 @@ import type { BoardEvent } from '@/services/board-events';
  *  Example: `applyBoardEvent(board, { type: 'tokenMoved', payload }).tokens` */
 export function applyBoardEvent(board: BoardStateDto, event: BoardEvent): BoardStateDto {
   const { version, at } = event.payload;
-  return { ...board, ...changesOf(board, event), version, at };
+  const next = { ...board, ...changesOf(board, event), version, at };
+  return { ...next, mainTokens: mainTokensAfter(next, event) };
+}
+
+// The server drops a choice when its token goes or stops listing the person (cascade and
+// `dropLostControl`), with no event of its own: the client does the same on every event.
+function mainTokensAfter(board: BoardStateDto, event: BoardEvent): MainTokenDto[] {
+  const chosen =
+    event.type === 'mainTokenChanged'
+      ? [...board.mainTokens.filter(({ userId }) => userId !== event.payload.userId), event.payload]
+      : board.mainTokens;
+  const kept = chosen.filter(({ userId, tokenId }) =>
+    board.tokens.some(({ id, controllerIds }) => id === tokenId && controllerIds.includes(userId)),
+  );
+  return kept.map(({ userId, tokenId }) => ({ userId, tokenId }));
 }
 
 function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> {

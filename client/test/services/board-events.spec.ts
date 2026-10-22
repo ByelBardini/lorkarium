@@ -4,7 +4,7 @@ import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { shapeOfEffectArea } from '@/lib/effect-area-shape';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
-import { sceneUpdated } from '../support/table-session-fixtures';
+import { BIA_AT_TABLE, KAEL_ID, sceneUpdated } from '../support/table-session-fixtures';
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
 
@@ -246,6 +246,30 @@ describe('parseBoardEvent', () => {
       const payload = { ...base, campaignId: QUELM.id, drawings: [square()] };
       expect(parseBoardEvent('drawing:createdMany', payload, VHARN.id)).toEqual({
         kind: 'other-table',
+      });
+    });
+  });
+
+  describe('token:mainChanged', () => {
+    const changed = {
+      campaignId: VHARN.id,
+      version: 6,
+      at: '2026-10-21T12:00:00.000Z',
+      userId: BIA_AT_TABLE.userId,
+      tokenId: KAEL_ID,
+    };
+
+    it('a valid token:mainChanged of the table is a mainTokenChanged event', () => {
+      expect(parseBoardEvent('token:mainChanged', changed, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type: 'mainTokenChanged', payload: changed },
+      });
+    });
+
+    it('a token:mainChanged whose tokenId is not a uuid is invalid (resync)', () => {
+      const malformed = { ...changed, tokenId: 'kael' };
+      expect(parseBoardEvent('token:mainChanged', malformed, VHARN.id)).toEqual({
+        kind: 'invalid',
       });
     });
   });

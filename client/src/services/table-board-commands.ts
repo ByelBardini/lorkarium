@@ -29,6 +29,7 @@ import {
   type EffectAreaShape,
   type EffectAreaShaped,
 } from './effect-area-commands';
+import { RealtimeMainTokenCommands, type MainTokenCommands } from './main-token-commands';
 import type { RealtimeTransport } from './realtime-transport';
 import {
   RealtimeWallCommands,
@@ -79,7 +80,7 @@ export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | nul
  *
  *  Example: `const result = await boardCommands.moveToken(campaignId, tokenId, { col, row })` */
 export interface TableBoardCommands
-  extends CombatCommands, EffectAreaCommands, WallCommands, LightCommands {
+  extends CombatCommands, EffectAreaCommands, WallCommands, LightCommands, MainTokenCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
    *  absent keeps it; `vision` absent keeps the scene's mode. */
   configureScene(
@@ -161,12 +162,22 @@ export class RealtimeTableBoardCommands
   private readonly effectAreas: EffectAreaCommands;
   private readonly walls: WallCommands;
   private readonly lights: LightCommands;
+  private readonly mainToken: MainTokenCommands;
 
   constructor(transport: RealtimeTransport, newActionId: () => string) {
     super(new BoardCommandSender(transport, newActionId));
     this.effectAreas = new RealtimeEffectAreaCommands(this.sender);
     this.walls = new RealtimeWallCommands(this.sender);
     this.lights = new RealtimeLightCommands(this.sender);
+    this.mainToken = new RealtimeMainTokenCommands(this.sender);
+  }
+
+  setMainToken(
+    campaignId: string,
+    tokenId: string,
+    playerId?: string,
+  ): Promise<BoardCommandResult> {
+    return this.mainToken.setMainToken(campaignId, tokenId, playerId);
   }
 
   createLights(campaignId: string, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {

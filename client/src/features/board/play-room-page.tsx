@@ -164,6 +164,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           <TokenContextMenu
             request={tokenMenu}
             board={table.board}
+            presence={table.presence}
             interaction={interaction}
             onApplyCondition={setConditionTargets}
             onChangeImage={setImageTokenId}

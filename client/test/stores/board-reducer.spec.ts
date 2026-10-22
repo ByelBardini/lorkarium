@@ -10,6 +10,8 @@ import {
   northWall,
 } from '../support/wall-fixtures';
 import {
+  BIA_AT_TABLE,
+  CAIO_AT_TABLE,
   KAEL_COMBATANT,
   KAEL_ID,
   LYRA_COMBATANT,
@@ -18,6 +20,8 @@ import {
   lyra,
   sceneUpdated,
   soloCombatant,
+  tokenDeletedAt,
+  tokenUpdatedAt,
   VHARN_SCENE,
   vharnBoard,
   vharnCombat,
@@ -464,5 +468,83 @@ describe('applyBoardEvent, lights', () => {
     });
 
     expect(next.tokens.map(({ sightAngle }) => sightAngle)).toEqual([90]);
+  });
+});
+
+describe('applyBoardEvent, main tokens', () => {
+  const BIA = BIA_AT_TABLE.userId;
+  const CAIO = CAIO_AT_TABLE.userId;
+  const sharedLyra = lyra({ controllerIds: [BIA, CAIO] });
+
+  function mainChanged(version: number, userId: string, tokenId: string) {
+    return {
+      type: 'mainTokenChanged' as const,
+      payload: { ...vharnEventBase(version), userId, tokenId },
+    };
+  }
+
+  it('the first choice of Bia comes in', () => {
+    const board = vharnBoard({ tokens: [lyra(), kael()] });
+
+    const next = applyBoardEvent(board, mainChanged(5, BIA, KAEL_ID));
+
+    expect(next.mainTokens).toEqual([{ userId: BIA, tokenId: KAEL_ID }]);
+  });
+
+  it('a new choice of Bia replaces hers and keeps the one of Caio', () => {
+    const board = vharnBoard({
+      tokens: [sharedLyra, kael({ controllerIds: [BIA, CAIO] })],
+      mainTokens: [
+        { userId: BIA, tokenId: LYRA_ID },
+        { userId: CAIO, tokenId: LYRA_ID },
+      ],
+    });
+
+    const next = applyBoardEvent(board, mainChanged(5, BIA, KAEL_ID));
+
+    expect(next.mainTokens).toEqual([
+      { userId: CAIO, tokenId: LYRA_ID },
+      { userId: BIA, tokenId: KAEL_ID },
+    ]);
+  });
+
+  it('a token:updated that takes Bia off the control of Lyra drops her choice and keeps Caio’s', () => {
+    const board = vharnBoard({
+      tokens: [sharedLyra],
+      mainTokens: [
+        { userId: BIA, tokenId: LYRA_ID },
+        { userId: CAIO, tokenId: LYRA_ID },
+      ],
+    });
+
+    const next = applyBoardEvent(board, tokenUpdatedAt(5, lyra({ controllerIds: [CAIO] })));
+
+    expect(next.mainTokens).toEqual([{ userId: CAIO, tokenId: LYRA_ID }]);
+  });
+
+  it('token:deleted drops the choices of the deleted token', () => {
+    const board = vharnBoard({
+      tokens: [lyra(), kael()],
+      mainTokens: [{ userId: BIA, tokenId: LYRA_ID }],
+    });
+
+    expect(applyBoardEvent(board, tokenDeletedAt(5, LYRA_ID)).mainTokens).toEqual([]);
+  });
+
+  it('token:deletedMany drops the choices of the deleted tokens only', () => {
+    const board = vharnBoard({
+      tokens: [sharedLyra, kael({ controllerIds: [CAIO] })],
+      mainTokens: [
+        { userId: BIA, tokenId: LYRA_ID },
+        { userId: CAIO, tokenId: KAEL_ID },
+      ],
+    });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokensDeleted',
+      payload: { ...vharnEventBase(5), tokenIds: [LYRA_ID], combat: null },
+    });
+
+    expect(next.mainTokens).toEqual([{ userId: CAIO, tokenId: KAEL_ID }]);
   });
 });
