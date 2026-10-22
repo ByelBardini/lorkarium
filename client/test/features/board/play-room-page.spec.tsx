@@ -63,12 +63,12 @@ describe('play room page', () => {
     return screen.getByRole('region', { name: 'Na mesa' });
   }
 
-  function memberItem(name: string): HTMLElement {
-    const item = within(presencePanel())
-      .getAllByRole('listitem')
+  function presenceSymbolOf(name: string): HTMLElement {
+    const line = within(presencePanel())
+      .getAllByTestId('nick-line')
       .find((candidate) => within(candidate).queryByText(name));
-    if (!item) throw new Error(`no participant named ${name} in the panel`);
-    return item;
+    if (!line) throw new Error(`no participant named ${name} in the panel`);
+    return within(line).getByRole('img');
   }
 
   describe('top bar', () => {
@@ -119,24 +119,34 @@ describe('play room page', () => {
       );
     });
 
-    it('"Na mesa" lists each participant in order with how many are online', async () => {
+    it('"Na mesa" puts Ana under "Mestre" and the players online first, Bia (offline) last', async () => {
       await renderLiveRoom();
       await userEvent.click(screen.getByRole('tab', { name: 'Na mesa' }));
-      expect(within(presencePanel()).getByText('2 de 3 online')).toBeInTheDocument();
+      const masters = within(presencePanel()).getByRole('region', { name: 'Mestre' });
+      expect(within(masters).getByText('Ana')).toBeInTheDocument();
+      const players = within(presencePanel()).getByRole('region', { name: 'Jogadores · 1 online' });
       expect(
-        within(presencePanel())
-          .getAllByRole('listitem')
-          .map((item) => item.textContent),
-      ).toEqual(['AnaMestreonline', 'BiaJogadoroffline', 'CaioJogadoronline']);
+        within(players)
+          .getAllByTestId('nick-line')
+          .map((line) => line.textContent),
+      ).toEqual(['Caio', 'Bia· offline']);
     });
 
     it('Bia joining turns her online, and leaving turns her offline', async () => {
       await renderLiveRoom();
       await userEvent.click(screen.getByRole('tab', { name: 'Na mesa' }));
       deps.tableSessionApi.emit({ kind: 'memberJoined', event: biaJoined() });
-      expect(within(memberItem('Bia')).getByText('online')).toBeInTheDocument();
+      expect(presenceSymbolOf('Bia')).toHaveAccessibleName('online');
       deps.tableSessionApi.emit({ kind: 'memberLeft', event: biaLeft() });
-      expect(within(memberItem('Bia')).getByText('offline')).toBeInTheDocument();
+      expect(presenceSymbolOf('Bia')).toHaveAccessibleName('offline');
+    });
+
+    it('the "Na mesa" tab carries how many are online and keeps its name', async () => {
+      await renderLiveRoom();
+      const tab = screen.getByRole('tab', { name: 'Na mesa' });
+      expect(tab).toHaveTextContent('Na mesa2');
+      deps.tableSessionApi.emit({ kind: 'memberJoined', event: biaJoined() });
+      expect(tab).toHaveTextContent('Na mesa3');
     });
 
     it('"Recolher painel" hides the panel, remembers it and turns into "Abrir painel"', async () => {

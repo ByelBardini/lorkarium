@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { MainTokenDto, TokenDto } from '@lorkarium/contracts';
-import { isListedIn, mainTokenIdOf, mainTokenPlayersOf } from '@/lib/main-token';
+import {
+  isListedIn,
+  mainTokenIdOf,
+  mainTokenIdOfMember,
+  mainTokenPlayersOf,
+} from '@/lib/main-token';
 import { ANA } from '../support/auth-api-fake';
 import {
   ANA_AT_TABLE,
@@ -104,5 +109,17 @@ describe('mainTokenPlayersOf', () => {
   it('someone listed who is no longer a member is left out', () => {
     const gone = lyra({ controllerIds: [CHEST_ID] });
     expect(mainTokenPlayersOf(asAna([gone]), LYRA_ID, members)).toEqual([]);
+  });
+});
+
+describe('mainTokenIdOfMember', () => {
+  it('finds the Kael of Caio with Bia as the viewer', () => {
+    const caioKael = kael({ controllerIds: [CAIO_AT_TABLE.userId] });
+
+    expect(mainTokenIdOfMember(boardOf([lyra(), caioKael]), CAIO_AT_TABLE.userId)).toBe(KAEL_ID);
+  });
+
+  it('a member listed on no token has none', () => {
+    expect(mainTokenIdOfMember(boardOf([lyra()]), CAIO_AT_TABLE.userId)).toBeNull();
   });
 });

@@ -260,6 +260,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             interaction={interaction}
             isMaster={campaign.myRole === 'master'}
             onEditToken={(tokenId) => setTokenDialog({ tokenId })}
+            clock={props.interactionClock}
           />
         )}
       </div>
