@@ -30,7 +30,7 @@ const CLIENT_COMMAND = isCi
 // One project per CI job (`--project=<name>`): on one worker the whole suite passed 20 min.
 // Groups are balanced by the specs' own timeouts; a heavy spec gets a group of its own.
 const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
-  table: ['smoke', 'home', 'table-presence', 'open-tables', 'board'],
+  table: ['smoke', 'home', 'table-presence', 'open-tables', 'board', 'table-cards'],
   tokens: ['tokens', 'main-token', 'token-conditions', 'token-resize', 'images'],
   scene: ['layers', 'drawings', 'effect-areas'],
   combat: ['combat'],
