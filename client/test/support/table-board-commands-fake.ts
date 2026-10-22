@@ -2,6 +2,7 @@ import type {
   BarChangeDto,
   CombatEntryInput,
   DrawingShapeInput,
+  MemberCardChangesInput,
   SceneGridDto,
   SceneVisionDto,
   TokenLayerDto,
@@ -220,6 +221,14 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     playerId?: string,
   ): Promise<BoardCommandResult> {
     return this.record('setMainToken', campaignId, { tokenId, ...(playerId && { playerId }) });
+  }
+
+  updateMemberCard(
+    campaignId: string,
+    memberId: string,
+    changes: MemberCardChangesInput,
+  ): Promise<BoardCommandResult> {
+    return this.record('updateMemberCard', campaignId, { memberId, changes });
   }
 
   deleteLights(

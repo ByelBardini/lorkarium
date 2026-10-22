@@ -6,16 +6,29 @@ import { ConnectionTablesBo, type ConnectionTablesOutcome } from './connection-t
 import type { PresenceRegistryPort } from './presence-registry.port';
 import type { SchedulerPort } from './scheduler.port';
 import type { SessionPublisherPort } from './session-publisher.port';
-import { toMemberJoinedDto, toMemberLeftDto, toSessionStateDto } from './sessions.mapper';
+import {
+  toMemberActivityDto,
+  toMemberJoinedDto,
+  toMemberLeftDto,
+  toSessionStateDto,
+} from './sessions.mapper';
 import {
   EMPTY_ROSTER,
   TablePresenceBo,
   type DisconnectReason,
+  type PresenceChange,
   type PresenceOutcome,
 } from './table-presence.bo';
 
 // Long enough to cover an F5 or a short network blip, so others do not see "left / joined".
 export const PRESENCE_GRACE_MS = 5000;
+
+// What leaves the roster as it was: nothing to save, nothing to publish.
+const UNCHANGED: ReadonlySet<PresenceChange> = new Set([
+  'not-connected',
+  'already-back',
+  'already-away',
+]);
 
 export type TableSessionServiceDeps = Readonly<{
   campaigns: Pick<CampaignsService, 'rosterOf'>;
@@ -25,8 +38,8 @@ export type TableSessionServiceDeps = Readonly<{
   clock: ClockPort;
 }>;
 
-/** Entering, leaving and dropping out of a table's live session; saves the roster before
- *  publishing, and publishes only what others can see change.
+/** Entering, leaving, dropping out of and standing still at a table's live session; saves the
+ *  roster before publishing, and publishes only what others can see change.
  *
  *  Example: `const state = await sessions.join(user.id, campaignId, socket.id)` */
 export class TableSessionService {
@@ -36,12 +49,13 @@ export class TableSessionService {
     const members = await this.deps.campaigns.rosterOf(userId, campaignId);
     const outcome = this.presenceAt(campaignId).connect(userId, socketId);
     this.deps.registry.save(campaignId, outcome.roster);
-    if (outcome.change === 'returned-in-grace') {
+    if (outcome.change === 'returned-in-grace' || outcome.change === 'came-back') {
       this.deps.scheduler.cancel(graceKey(campaignId, userId));
     }
     if (outcome.change === 'came-online') {
       this.announceArrival(campaignId, userId, members, outcome);
     }
+    if (outcome.change === 'came-back') this.announceActivity(campaignId, userId, outcome);
     return toSessionStateDto(campaignId, members, outcome.roster, this.deps.clock.now());
   }
 
@@ -54,6 +68,17 @@ export class TableSessionService {
     if (outcome.change !== 'grace-started') return;
     const expireUser = (): void => this.expire(campaignId, userId);
     this.deps.scheduler.schedule(graceKey(campaignId, userId), PRESENCE_GRACE_MS, expireUser);
+  }
+
+  /** This tab stood still (`away`) or moved again; the user is away once every tab is still.
+   *
+   *  Example: `sessions.setActivity(user.id, campaignId, socket.id, true)` */
+  setActivity(userId: string, campaignId: string, socketId: string, away: boolean): void {
+    const presence = this.presenceAt(campaignId);
+    const outcome = away
+      ? presence.markAway(userId, socketId, this.deps.clock.now())
+      : presence.markActive(userId, socketId);
+    this.apply(campaignId, userId, outcome);
   }
 
   expire(campaignId: string, userId: string): void {
@@ -91,22 +116,30 @@ export class TableSessionService {
     socketId: string,
     reason: DisconnectReason,
   ): PresenceOutcome {
-    const outcome = this.presenceAt(campaignId).disconnect(userId, socketId, reason);
+    const at = this.deps.clock.now();
+    const outcome = this.presenceAt(campaignId).disconnect(userId, socketId, reason, at);
     return this.apply(campaignId, userId, outcome);
   }
 
   private apply(campaignId: string, userId: string, outcome: PresenceOutcome): PresenceOutcome {
-    if (outcome.change === 'not-connected' || outcome.change === 'already-back') return outcome;
+    if (UNCHANGED.has(outcome.change)) return outcome;
     this.deps.registry.save(campaignId, outcome.roster);
+    if (outcome.change === 'went-away' || outcome.change === 'came-back') {
+      this.announceActivity(campaignId, userId, outcome);
+    }
     if (outcome.change !== 'went-offline') return outcome;
-    const event = toMemberLeftDto(
-      campaignId,
-      userId,
-      outcome.roster.version,
-      this.deps.clock.now(),
-    );
-    this.deps.publisher.memberLeft(event);
+    const at = this.deps.clock.now();
+    this.deps.publisher.memberLeft(toMemberLeftDto(campaignId, userId, outcome.roster.version, at));
     return outcome;
+  }
+
+  private announceActivity(campaignId: string, userId: string, outcome: PresenceOutcome): void {
+    const awaySince = new TablePresenceBo(outcome.roster).awaySinceOf(userId);
+    const { version } = outcome.roster;
+    const at = this.deps.clock.now();
+    this.deps.publisher.memberActivity(
+      toMemberActivityDto(campaignId, userId, awaySince, version, at),
+    );
   }
 
   private presenceAt(campaignId: string): TablePresenceBo {

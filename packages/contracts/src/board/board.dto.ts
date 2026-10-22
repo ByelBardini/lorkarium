@@ -107,6 +107,11 @@ import {
   type MainTokenChangedDto,
   type SetMainTokenCommandDto,
 } from './token-main.dto';
+import {
+  memberCardDto,
+  type MemberCardChangedDto,
+  type UpdateMemberCardCommandDto,
+} from './member-card.dto';
 import type { ResizeTokensCommandDto, TokensResizedDto } from './token-resize.dto';
 import type {
   CreateTokensCommandDto,
@@ -153,6 +158,8 @@ export const BOARD_EVENTS = {
   tokenDeleted: 'token:deleted',
   tokensDeleted: 'token:deletedMany',
   mainTokenChanged: 'token:mainChanged',
+  updateMemberCard: 'member:updateCard',
+  memberCardChanged: 'member:cardChanged',
   createDrawings: 'drawing:createMany',
   moveDrawings: 'drawing:moveMany',
   deleteDrawings: 'drawing:deleteMany',
@@ -248,6 +255,8 @@ export const boardStateDto = z.strictObject({
   combat: combatDto.nullable(),
   conditionDefinitions: z.array(conditionDefinitionDto),
   mainTokens: z.array(mainTokenDto),
+  /** Only the cards someone wrote on; a member without one has an empty card. */
+  memberCards: z.array(memberCardDto),
 });
 
 export type BoardStateDto = z.infer<typeof boardStateDto>;
@@ -297,6 +306,7 @@ export type BoardClientEvents = {
   'token:resizeMany': Command<ResizeTokensCommandDto>;
   'token:adjustBar': Command<AdjustBarCommandDto>;
   'token:setMain': Command<SetMainTokenCommandDto>;
+  'member:updateCard': Command<UpdateMemberCardCommandDto>;
   'token:delete': Command<DeleteTokenCommandDto>;
   'token:deleteMany': Command<DeleteTokensCommandDto>;
   'drawing:createMany': Command<CreateDrawingsCommandDto>;
@@ -352,6 +362,7 @@ export type BoardServerEvents = {
   'token:deleted': (event: TokenDeletedDto) => void;
   'token:deletedMany': (event: TokensDeletedDto) => void;
   'token:mainChanged': (event: MainTokenChangedDto) => void;
+  'member:cardChanged': (event: MemberCardChangedDto) => void;
   'drawing:createdMany': (event: DrawingsCreatedDto) => void;
   'drawing:movedMany': (event: DrawingsMovedDto) => void;
   'drawing:deletedMany': (event: DrawingsDeletedDto) => void;

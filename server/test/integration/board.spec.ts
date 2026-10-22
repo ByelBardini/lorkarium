@@ -12,6 +12,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
+import { MemberCardsDao } from '../../src/modules/member-cards/member-cards.dao';
 import { connectRealtime, recordEventsOf, type RealtimeClient } from '../support/realtime-client';
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
 import { sendImage } from '../support/images';
@@ -238,6 +239,49 @@ describe('board over Socket.IO', () => {
       });
       await new Promise((resolve) => setTimeout(resolve, SILENCE_MS));
       expect(biaEvents.events.map(({ name }) => name)).not.toContain('scene:updated');
+    });
+  });
+
+  describe('member cards in the snapshot', () => {
+    let caio: SignedInUser;
+    let quelm: Table;
+
+    beforeEach(async () => {
+      caio = await signUpAndLogin(app, connection.db, 'Caio');
+      await joinByCode(app, caio, vharn);
+      quelm = await createTable(app, caio, 'Quelm');
+    });
+
+    it('the card of Bia comes in the sync of Ana, Bia and Caio, the same for the three', async () => {
+      await new MemberCardsDao(connection.db).save(vharn.id, bia.id, { armorClass: 15 });
+
+      for (const user of [ana, bia, caio]) {
+        const state = await synced(await atTable(user, vharn), vharn.id);
+        expect(state.memberCards).toEqual([
+          {
+            userId: bia.id,
+            characterName: null,
+            armorClass: 15,
+            difficultyClass: null,
+            noteOne: null,
+            noteTwo: null,
+          },
+        ]);
+      }
+    });
+
+    it('a table without any card syncs memberCards []', async () => {
+      const state = await synced(await atTable(ana, vharn), vharn.id);
+
+      expect(state.memberCards).toEqual([]);
+    });
+
+    it('the sync of Quelm does not carry the card of Bia on Vharn', async () => {
+      await new MemberCardsDao(connection.db).save(vharn.id, bia.id, { armorClass: 15 });
+
+      const state = await synced(await atTable(caio, quelm), quelm.id);
+
+      expect(state.memberCards).toEqual([]);
     });
   });
 });

@@ -1,4 +1,8 @@
-import type { SessionMemberJoinedDto, SessionMemberLeftDto } from '@lorkarium/contracts';
+import type {
+  SessionMemberActivityDto,
+  SessionMemberJoinedDto,
+  SessionMemberLeftDto,
+} from '@lorkarium/contracts';
 import type { CampaignMemberRow } from '../../src/modules/campaigns/campaign-members.dao';
 import { CampaignNotFoundError } from '../../src/modules/campaigns/campaigns.error';
 import type { CampaignsService } from '../../src/modules/campaigns/campaigns.service';
@@ -57,7 +61,8 @@ export class SchedulerFake implements SchedulerPort {
 
 export type PublishedSessionEvent =
   | Readonly<{ name: 'memberJoined'; event: SessionMemberJoinedDto }>
-  | Readonly<{ name: 'memberLeft'; event: SessionMemberLeftDto }>;
+  | Readonly<{ name: 'memberLeft'; event: SessionMemberLeftDto }>
+  | Readonly<{ name: 'memberActivity'; event: SessionMemberActivityDto }>;
 
 /** Keeps every published event and writes `publish:<name>` to the journal. */
 export class SessionPublisherFake implements SessionPublisherPort {
@@ -73,6 +78,11 @@ export class SessionPublisherFake implements SessionPublisherPort {
   memberLeft(event: SessionMemberLeftDto): void {
     this.journal.entries.push('publish:memberLeft');
     this.published.push({ name: 'memberLeft', event });
+  }
+
+  memberActivity(event: SessionMemberActivityDto): void {
+    this.journal.entries.push('publish:memberActivity');
+    this.published.push({ name: 'memberActivity', event });
   }
 }
 

@@ -52,6 +52,7 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   wall_blocked: 'Uma parede bloqueia o caminho.',
   light_not_found: 'Essa luz não está mais na mesa.',
   light_limit: 'A cena já tem luzes demais. Apague algumas antes.',
+  member_not_found: 'Essa pessoa não está mais na mesa.',
   stale_undo: STALE_UNDO_TEXT,
   asset_not_found: 'Essa imagem não está mais na mesa.',
   invalid: 'Confira os campos e tente de novo.',

@@ -225,6 +225,13 @@
       "when": 1792635125528,
       "tag": "0031_main_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792707118943,
+      "tag": "0032_member_cards",
+      "breakpoints": true
     }
   ]
 }

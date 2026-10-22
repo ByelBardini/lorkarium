@@ -12,6 +12,7 @@ import type {
   LightRangesChangedDto,
   LightsMovedDto,
   MainTokenDto,
+  MemberCardDto,
   TokenDto,
   TokensFacedDto,
   TokensResizedDto,
@@ -266,6 +267,8 @@ function combatChangesOf(board: BoardStateDto, event: BoardEvent): Partial<Board
   switch (event.type) {
     case 'conditionDefined':
       return { conditionDefinitions: [...board.conditionDefinitions, event.payload.definition] };
+    case 'memberCardChanged':
+      return { memberCards: withMemberCard(board.memberCards, event.payload.card) };
     case 'conditionApplied': {
       const { tokenId, condition } = event.payload;
       return {
@@ -370,4 +373,10 @@ function withConditionChanges(
     const change = changes.find(({ tokenId }) => tokenId === token.id);
     return change ? { ...token, conditions: change.conditions } : token;
   });
+}
+
+function withMemberCard(cards: readonly MemberCardDto[], card: MemberCardDto): MemberCardDto[] {
+  const found = cards.some(({ userId }) => userId === card.userId);
+  if (!found) return [...cards, card];
+  return cards.map((each) => (each.userId === card.userId ? card : each));
 }

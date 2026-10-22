@@ -3,6 +3,7 @@ import {
   SESSION_EVENTS,
   boardSyncAckDto,
   sessionJoinAckDto,
+  sessionMemberActivityDto,
   sessionMemberJoinedDto,
   sessionMemberLeftDto,
   tokensDraggedDto,
@@ -34,6 +35,7 @@ type AckOutcome<Ack> = Ack | 'offline' | 'unexpected';
  *  and hands the listener only validated updates of this table. */
 export class TableVisit {
   private closed = false;
+  private away = false;
   private readonly unsubscribes: Unsubscribe[] = [];
 
   constructor(
@@ -50,6 +52,7 @@ export class TableVisit {
       this.transport.onLifecycle((change) => this.onLifecycle(change)),
       this.transport.on(SESSION_EVENTS.memberJoined, (payload) => this.onMemberJoined(payload)),
       this.transport.on(SESSION_EVENTS.memberLeft, (payload) => this.onMemberLeft(payload)),
+      this.transport.on(SESSION_EVENTS.memberActivity, (payload) => this.onMemberActivity(payload)),
       this.transport.on(BOARD_EVENTS.tokensDragged, (payload) => this.onTokensDragged(payload)),
       ...Object.keys(BOARD_EVENT_SPECS).map((name) =>
         this.transport.on(name, (payload) => this.onBoardEvent(name, payload)),
@@ -63,6 +66,13 @@ export class TableVisit {
     this.closed = true;
     for (const unsubscribe of this.unsubscribes.splice(0)) unsubscribe();
     this.transport.emit(SESSION_EVENTS.leave, this.command());
+  }
+
+  /** Says whether this tab stands still; remembered, so a rejoin after a reconnection says it
+   *  again (the server forgets a dropped socket's absence). */
+  setAway(away: boolean): void {
+    this.away = away;
+    if (!this.closed && this.transport.isConnected()) this.sendActivity();
   }
 
   /** Asks the server for a fresh board snapshot (a version gap, or a retry after a failure). */
@@ -96,6 +106,7 @@ export class TableVisit {
     }
     this.notify({ kind: 'state', state: ack.state });
     this.notify({ kind: 'status', status: 'live' });
+    if (this.away && !this.closed) this.sendActivity();
     if (!this.closed) await this.syncBoard();
   }
 
@@ -121,6 +132,17 @@ export class TableVisit {
     if (parsed.success && parsed.data.campaignId === this.campaignId) {
       this.notify({ kind: 'memberLeft', event: parsed.data });
     }
+  }
+
+  private onMemberActivity(payload: unknown): void {
+    const parsed = sessionMemberActivityDto.safeParse(payload);
+    if (parsed.success && parsed.data.campaignId === this.campaignId) {
+      this.notify({ kind: 'memberActivity', event: parsed.data });
+    }
+  }
+
+  private sendActivity(): void {
+    this.transport.emit(SESSION_EVENTS.setActivity, { ...this.command(), away: this.away });
   }
 
   // A malformed preview is dropped: it changed nothing confirmed, so there is nothing to resync.

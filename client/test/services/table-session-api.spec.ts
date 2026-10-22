@@ -6,7 +6,7 @@ import {
 } from '@/services/table-session-api';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
-import { biaJoined, biaLeft, vharnState } from '../support/table-session-fixtures';
+import { BIA_AT_TABLE, biaJoined, biaLeft, vharnState } from '../support/table-session-fixtures';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 
@@ -122,6 +122,65 @@ describe('RealtimeTableSessionApi', () => {
     handle.close();
     await transport.answerAck({ ok: true, state: vharnState() });
     expect(updates).toEqual([{ kind: 'status', status: 'connecting' }]);
+  });
+
+  describe('activity', () => {
+    const away = {
+      campaignId: VHARN.id,
+      version: 4,
+      userId: BIA_AT_TABLE.userId,
+      awaySince: '2026-10-22T12:00:00.000Z',
+      at: '2026-10-22T12:04:00.000Z',
+    };
+
+    it('setAway(true) sends session:setActivity with away true', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      transport.sent.length = 0;
+
+      handle.setAway(true);
+
+      expect(transport.sent).toEqual([
+        {
+          event: 'session:setActivity',
+          payload: { actionId: ACTION_ID, campaignId: VHARN.id, away: true },
+        },
+      ]);
+    });
+
+    it('a valid memberActivity of this table reaches the listener', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+
+      transport.serverEmits('session:memberActivity', away);
+
+      expect(updates.at(-1)).toEqual({ kind: 'memberActivity', event: away });
+    });
+
+    it('a memberActivity of another table is ignored', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      const count = updates.length;
+
+      transport.serverEmits('session:memberActivity', { ...away, campaignId: QUELM.id });
+
+      expect(updates).toHaveLength(count);
+    });
+
+    it('rejoining after a reconnection while away tells the server again', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      handle.setAway(true);
+      transport.lifecycle({ kind: 'disconnected', willRetry: true });
+      transport.sent.length = 0;
+
+      await connectAndAnswer({ ok: true, state: vharnState() });
+
+      expect(transport.sent.map(({ event }) => event)).toEqual(
+        expect.arrayContaining(['session:join', 'session:setActivity']),
+      );
+      expect(transport.sent.find(({ event }) => event === 'session:setActivity')?.payload).toEqual({
+        actionId: ACTION_ID,
+        campaignId: VHARN.id,
+        away: true,
+      });
+    });
   });
 });
 

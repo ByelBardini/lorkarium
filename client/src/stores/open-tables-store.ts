@@ -42,6 +42,8 @@ export type OpenTablesStore = OpenTablesState &
     open: (table: OpenTableRef) => OpenTableResult;
     close: (campaignId: string) => void;
     closeAll: () => void;
+    /** This tab stood still (`true`) or moved again: every open table hears it. */
+    setAway: (away: boolean) => void;
     suspendAll: () => void;
   }>;
 
@@ -74,6 +76,7 @@ export function createOpenTablesStore(deps: OpenTablesDeps): StoreApi<OpenTables
       open: (table) => actions.open(table),
       close: (campaignId) => actions.close(campaignId),
       closeAll: () => actions.closeAll(),
+      setAway: (away) => actions.setAway(away),
       suspendAll: () => actions.suspendAll(),
     };
   });
@@ -82,6 +85,8 @@ export function createOpenTablesStore(deps: OpenTablesDeps): StoreApi<OpenTables
 class OpenTablesActions {
   // Handles are not renderable state, so they live beside the store, not in it.
   private readonly handles = new Map<string, TableSessionHandle>();
+  // A table opened while the tab stands still is told so at once.
+  private away = false;
 
   constructor(
     private readonly deps: OpenTablesDeps,
@@ -114,6 +119,11 @@ class OpenTablesActions {
     writeStored(this.deps.storage, this.get());
   }
 
+  setAway(away: boolean): void {
+    this.away = away;
+    for (const handle of this.handles.values()) handle.setAway(away);
+  }
+
   /** Logout: closes every table and forgets the tab's list. */
   closeAll(): void {
     this.suspendAll();
@@ -139,7 +149,9 @@ class OpenTablesActions {
     this.set({ tables: [...tables, { ...table, presence, board, edits }] });
     const stores = { presence, board };
     const listener = (update: TableSessionUpdate): void => applyUpdate(this.set, stores, update);
-    this.handles.set(table.campaignId, this.deps.api.open(table.campaignId, listener));
+    const handle = this.deps.api.open(table.campaignId, listener);
+    this.handles.set(table.campaignId, handle);
+    if (this.away) handle.setAway(true);
     return 'opened';
   }
 }

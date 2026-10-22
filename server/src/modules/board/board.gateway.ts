@@ -50,6 +50,7 @@ import {
   setMainTokenCommandDto,
   startCombatCommandDto,
   updateTokenCommandDto,
+  updateMemberCardCommandDto,
   type ApiErrorDto,
   type BoardCommandAckDto,
   type BoardSyncAckDto,
@@ -70,6 +71,8 @@ import { DrawingError } from '../drawings/drawings.error';
 import type { DrawingsService } from '../drawings/drawings.service';
 import { EffectAreaError } from '../effect-areas/effect-areas.error';
 import type { EffectAreasService } from '../effect-areas/effect-areas.service';
+import { MemberCardError } from '../member-cards/member-cards.error';
+import type { MemberCardsService } from '../member-cards/member-cards.service';
 import { toSceneGrid } from '../scenes/scenes.mapper';
 import type { CreatedInScene } from '../scenes/locked-scene';
 import type { ScenesService } from '../scenes/scenes.service';
@@ -97,6 +100,7 @@ export type BoardGatewayDeps = Readonly<{
   tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany'>;
   tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany' | 'resizeMany'>;
   mainToken: Pick<MainTokenService, 'choose'>;
+  memberCards: Pick<MemberCardsService, 'update'>;
   conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove' | 'setRounds'>;
   combat: Pick<
     CombatService,
@@ -178,6 +182,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   WALL_SEGMENT_NOT_FOUND: 'That piece of wall is not there',
   LIGHT_NOT_FOUND: 'Light not found',
   LIGHT_LIMIT: 'Too many lights in this scene',
+  MEMBER_NOT_FOUND: 'Member not found',
 };
 
 /** Socket.IO edge of the board (scene and tokens): validates the command, re-reads the session,
@@ -187,7 +192,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
  *  Example: `realtime.onConnection(createBoardGateway({ board, scenes, tokens, realtime, log }))` */
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
   const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
-  const { effectAreas, walls, lights, mainToken } = deps;
+  const { effectAreas, walls, lights, mainToken, memberCards } = deps;
   const rate = new CommandRateGuard(deps.clock);
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
@@ -243,6 +248,10 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     );
     socket.on('token:adjustBar', mutate(adjustBarCommandDto, tokens.adjustBar.bind(tokens)));
     socket.on('token:setMain', mutate(setMainTokenCommandDto, mainToken.choose.bind(mainToken)));
+    socket.on(
+      'member:updateCard',
+      mutate(updateMemberCardCommandDto, memberCards.update.bind(memberCards)),
+    );
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
     socket.on(
       'token:createMany',
@@ -428,6 +437,7 @@ function toAckError(deps: BoardGatewayDeps, error: unknown): ApiErrorDto {
     error instanceof EffectAreaError ||
     error instanceof WallError ||
     error instanceof LightError ||
+    error instanceof MemberCardError ||
     error instanceof AssetError ||
     error instanceof BoardError;
   if (known) {

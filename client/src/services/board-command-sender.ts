@@ -17,6 +17,7 @@ export type BoardCommandFailure =
   | 'wall_blocked'
   | 'light_not_found'
   | 'light_limit'
+  | 'member_not_found'
   | 'stale_undo'
   | 'asset_not_found'
   | 'turn_changed'
@@ -55,6 +56,7 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   WALL_SEGMENT_NOT_FOUND: 'wall_not_found',
   LIGHT_NOT_FOUND: 'light_not_found',
   LIGHT_LIMIT: 'light_limit',
+  MEMBER_NOT_FOUND: 'member_not_found',
   STALE_UNDO: 'stale_undo',
   ASSET_NOT_FOUND: 'asset_not_found',
   CONDITION_NOT_FOUND: 'token_not_found',

@@ -1,5 +1,7 @@
 import {
+  sessionActivityAckDto,
   sessionJoinAckDto,
+  sessionMemberActivityDto,
   type SessionCommandDto,
   type SessionJoinAckDto,
   type SessionStateDto,
@@ -91,8 +93,8 @@ describe('live table session over Socket.IO', () => {
     const state = await joined(await connect(ana), vharn.id);
     expect(state).toMatchObject({ campaignId: vharn.id, version: 1 });
     expect(state.members).toEqual([
-      { userId: ana.id, name: 'Ana', role: 'master', online: true },
-      { userId: bia.id, name: 'Bia', role: 'player', online: false },
+      { userId: ana.id, name: 'Ana', role: 'master', online: true, awaySince: null },
+      { userId: bia.id, name: 'Bia', role: 'player', online: false, awaySince: null },
     ]);
   });
 
@@ -107,7 +109,7 @@ describe('live table session over Socket.IO', () => {
         payload: {
           campaignId: vharn.id,
           version: 2,
-          member: { userId: bia.id, name: 'Bia', role: 'player', online: true },
+          member: { userId: bia.id, name: 'Bia', role: 'player', online: true, awaySince: null },
           at: expect.any(String),
         },
       },
@@ -346,6 +348,101 @@ describe('live table session over Socket.IO', () => {
       await silence();
       expect(namesOf(biaEvents.events)).toEqual(['session:memberJoined']);
       expect(namesOf(caioEvents.events)).toEqual(['session:memberJoined']);
+    });
+  });
+
+  describe('activity', () => {
+    async function setActivity(
+      client: RealtimeClient,
+      campaignId: string,
+      away: boolean,
+      extra: object = {},
+    ): Promise<unknown> {
+      const payload = { ...command(campaignId), away, ...extra };
+      return client.timeout(2000).emitWithAck('session:setActivity', payload as never);
+    }
+
+    function activitiesOf(events: readonly RecordedEvent[]) {
+      return events
+        .filter(({ name }) => name === 'session:memberActivity')
+        .map(({ payload }) => sessionMemberActivityDto.parse(payload));
+    }
+
+    it('Bia going away reaches Ana as memberActivity, and the snapshot of who enters later carries it', async () => {
+      const anaClient = await connect(ana);
+      await joined(anaClient, vharn.id);
+      const anaEvents = recordEventsOf(anaClient);
+      const biaClient = await connect(bia);
+      await joined(biaClient, vharn.id);
+
+      expect(sessionActivityAckDto.parse(await setActivity(biaClient, vharn.id, true))).toEqual({
+        ok: true,
+      });
+
+      await anaEvents.until(2);
+      const [went] = activitiesOf(anaEvents.events);
+      expect(went).toMatchObject({ campaignId: vharn.id, userId: bia.id, version: 3 });
+      expect(went?.awaySince).toEqual(expect.any(String));
+      const state = await joined(await connect(ana), vharn.id);
+      expect(state.members.find(({ userId }) => userId === bia.id)?.awaySince).toBe(
+        went?.awaySince,
+      );
+    });
+
+    it('Bia with two tabs: one standing still says nothing, both standing still announce it', async () => {
+      const anaClient = await connect(ana);
+      await joined(anaClient, vharn.id);
+      const [firstTab, secondTab] = [await connect(bia), await connect(bia)];
+      await joined(firstTab, vharn.id);
+      await joined(secondTab, vharn.id);
+      const anaEvents = recordEventsOf(anaClient);
+
+      await setActivity(firstTab, vharn.id, true);
+      await silence();
+      expect(activitiesOf(anaEvents.events)).toEqual([]);
+
+      await setActivity(secondTab, vharn.id, true);
+      await anaEvents.until(1);
+      expect(activitiesOf(anaEvents.events)).toHaveLength(1);
+    });
+
+    it('Bia moving again reaches Ana with awaySince null', async () => {
+      const anaClient = await connect(ana);
+      await joined(anaClient, vharn.id);
+      const biaClient = await connect(bia);
+      await joined(biaClient, vharn.id);
+      await setActivity(biaClient, vharn.id, true);
+      const anaEvents = recordEventsOf(anaClient);
+
+      await setActivity(biaClient, vharn.id, false);
+
+      await anaEvents.until(1);
+      expect(activitiesOf(anaEvents.events)).toEqual([
+        expect.objectContaining({ userId: bia.id, awaySince: null }),
+      ]);
+    });
+
+    it('a setActivity carrying a forged userId is refused with INVALID_BODY', async () => {
+      const biaClient = await connect(bia);
+      await joined(biaClient, vharn.id);
+
+      const ack = await setActivity(biaClient, vharn.id, true, { userId: ana.id });
+
+      expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'INVALID_BODY' }) });
+    });
+
+    it('a setActivity of a table not open on the connection acks ok and no room hears of it', async () => {
+      const caioClient = await connect(caio);
+      await joined(caioClient, quelm.id);
+      const caioEvents = recordEventsOf(caioClient);
+      const biaClient = await connect(bia);
+      await joined(biaClient, vharn.id);
+
+      const ack = await setActivity(biaClient, quelm.id, true);
+
+      expect(ack).toEqual({ ok: true });
+      await silence();
+      expect(activitiesOf(caioEvents.events)).toEqual([]);
     });
   });
 });

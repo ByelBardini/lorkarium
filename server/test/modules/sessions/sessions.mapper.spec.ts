@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  toMemberActivityDto,
   toMemberJoinedDto,
   toMemberLeftDto,
   toSessionStateDto,
@@ -22,9 +23,9 @@ describe('sessions mapper', () => {
       campaignId: VHARN_ID,
       version: 4,
       members: [
-        { userId: ANA_ID, name: 'Ana', role: 'master', online: true },
-        { userId: BIA_ID, name: 'Bia', role: 'player', online: true },
-        { userId: CAIO_ID, name: 'Caio', role: 'player', online: false },
+        { userId: ANA_ID, name: 'Ana', role: 'master', online: true, awaySince: null },
+        { userId: BIA_ID, name: 'Bia', role: 'player', online: true, awaySince: null },
+        { userId: CAIO_ID, name: 'Caio', role: 'player', online: false, awaySince: null },
       ],
       at: '2026-10-15T12:00:00.000Z',
     });
@@ -35,7 +36,7 @@ describe('sessions mapper', () => {
     expect(toMemberJoinedDto(VHARN_ID, bia, 2, AT)).toEqual({
       campaignId: VHARN_ID,
       version: 2,
-      member: { userId: BIA_ID, name: 'Bia', role: 'player', online: true },
+      member: { userId: BIA_ID, name: 'Bia', role: 'player', online: true, awaySince: null },
       at: '2026-10-15T12:00:00.000Z',
     });
   });
@@ -47,5 +48,33 @@ describe('sessions mapper', () => {
       userId: BIA_ID,
       at: '2026-10-15T12:00:00.000Z',
     });
+  });
+
+  it('the snapshot carries since when each member is away, null for the active ones', () => {
+    const roster = presenceRoster({
+      version: 4,
+      sockets: { [ANA_ID]: ['s1'], [BIA_ID]: ['s2'] },
+      away: ['s2'],
+      awaySince: { [BIA_ID]: AT },
+    });
+
+    const state = toSessionStateDto(VHARN_ID, MEMBERS, roster, AT);
+
+    expect(state.members.map(({ awaySince }) => awaySince)).toEqual([
+      null,
+      '2026-10-15T12:00:00.000Z',
+      null,
+    ]);
+  });
+
+  it('memberActivity carries the table, the version, the user and since when, or null', () => {
+    expect(toMemberActivityDto(VHARN_ID, BIA_ID, AT, 5, AT)).toEqual({
+      campaignId: VHARN_ID,
+      version: 5,
+      userId: BIA_ID,
+      awaySince: '2026-10-15T12:00:00.000Z',
+      at: '2026-10-15T12:00:00.000Z',
+    });
+    expect(toMemberActivityDto(VHARN_ID, BIA_ID, null, 6, AT).awaySince).toBeNull();
   });
 });

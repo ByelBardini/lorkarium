@@ -4,7 +4,7 @@ import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { shapeOfEffectArea } from '@/lib/effect-area-shape';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
-import { BIA_AT_TABLE, KAEL_ID, sceneUpdated } from '../support/table-session-fixtures';
+import { BIA_AT_TABLE, KAEL_ID, memberCard, sceneUpdated } from '../support/table-session-fixtures';
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
 
@@ -269,6 +269,29 @@ describe('parseBoardEvent', () => {
     it('a token:mainChanged whose tokenId is not a uuid is invalid (resync)', () => {
       const malformed = { ...changed, tokenId: 'kael' };
       expect(parseBoardEvent('token:mainChanged', malformed, VHARN.id)).toEqual({
+        kind: 'invalid',
+      });
+    });
+  });
+
+  describe('member:cardChanged', () => {
+    const changed = {
+      campaignId: VHARN.id,
+      version: 6,
+      at: '2026-10-22T12:00:00.000Z',
+      card: memberCard({ armorClass: 15 }),
+    };
+
+    it('a valid member:cardChanged of the table is a memberCardChanged event', () => {
+      expect(parseBoardEvent('member:cardChanged', changed, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type: 'memberCardChanged', payload: changed },
+      });
+    });
+
+    it('a member:cardChanged without the whole card is invalid (resync)', () => {
+      const malformed = { ...changed, card: { userId: BIA_AT_TABLE.userId, armorClass: 15 } };
+      expect(parseBoardEvent('member:cardChanged', malformed, VHARN.id)).toEqual({
         kind: 'invalid',
       });
     });

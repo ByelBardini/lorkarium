@@ -28,3 +28,4 @@ export { doorState, wallKind, wallShape, walls } from '../modules/walls/walls.po
 export { assetMimeType, assetPurpose, assets } from '../modules/assets/assets.po';
 export { lightColorEnum, lights } from '../modules/lights/lights.po';
 export { mainTokens } from '../modules/tokens/main-tokens.po';
+export { memberCards } from '../modules/member-cards/member-cards.po';

@@ -196,4 +196,26 @@ describe('open tables store', () => {
     const vharn = store.getState().tables.find(({ campaignId }) => campaignId === VHARN.id);
     expect(vharn?.edits.getState().copied?.tokens).toHaveLength(1);
   });
+
+  it('setAway(true) reaches every open table', () => {
+    store.getState().restore(ANA.id);
+    store.getState().open(VHARN_TABLE);
+    store.getState().open(QUELM_TABLE);
+
+    store.getState().setAway(true);
+
+    expect(api.awayCalls).toEqual([
+      { campaignId: VHARN.id, away: true },
+      { campaignId: QUELM.id, away: true },
+    ]);
+  });
+
+  it('a table opened while away is told so at once', () => {
+    store.getState().restore(ANA.id);
+    store.getState().setAway(true);
+
+    store.getState().open(VHARN_TABLE);
+
+    expect(api.awayCalls).toEqual([{ campaignId: VHARN.id, away: true }]);
+  });
 });

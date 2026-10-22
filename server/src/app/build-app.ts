@@ -24,6 +24,7 @@ import { createLightsModule } from '../modules/lights/lights.plugin';
 import { createWallsModule } from '../modules/walls/walls.plugin';
 import { createScenesModule } from '../modules/scenes/scenes.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
+import { createMemberCardsModule } from '../modules/member-cards/member-cards.plugin';
 import { createConditionsModule } from '../modules/conditions/conditions.plugin';
 import { createCombatModule } from '../modules/combat/combat.plugin';
 import { healthPlugin } from '../modules/health/health.plugin';
@@ -101,6 +102,7 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
   const effectAreas = createEffectAreasModule({ db, publisher, clock }).service;
   const walls = createWallsModule({ db, publisher, clock }).service;
   const lights = createLightsModule({ db, publisher, clock }).service;
+  const memberCards = createMemberCardsModule({ db, publisher, clock }).service;
   const board = createBoardModule({
     db,
     scenes,
@@ -108,6 +110,7 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
     tokenBatch,
     tokenAppearance,
     mainToken,
+    memberCards,
     conditions,
     combat,
     drawings,

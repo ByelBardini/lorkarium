@@ -18,6 +18,8 @@ export class TableSessionApiFake implements TableSessionApi {
   readonly closedIds: string[] = [];
   /** Each `resync()` the stores asked for, by table. */
   readonly resyncedIds: string[] = [];
+  /** Each `setAway(away)` the stores sent, by table. */
+  readonly awayCalls: Array<Readonly<{ campaignId: string; away: boolean }>> = [];
   private listener: TableSessionListener | null = null;
   private readonly listeners = new Map<string, TableSessionListener>();
 
@@ -38,6 +40,9 @@ export class TableSessionApiFake implements TableSessionApi {
       },
       resync: () => {
         this.resyncedIds.push(campaignId);
+      },
+      setAway: (away) => {
+        this.awayCalls.push({ campaignId, away });
       },
     };
   }

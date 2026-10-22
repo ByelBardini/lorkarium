@@ -18,6 +18,7 @@ import {
   LYRA_ID,
   kael,
   lyra,
+  memberCard,
   sceneUpdated,
   soloCombatant,
   tokenDeletedAt,
@@ -546,5 +547,27 @@ describe('applyBoardEvent, main tokens', () => {
     });
 
     expect(next.mainTokens).toEqual([{ userId: CAIO, tokenId: KAEL_ID }]);
+  });
+});
+
+describe('applyBoardEvent, member cards', () => {
+  const CAIO_CARD = memberCard({ userId: CAIO_AT_TABLE.userId, armorClass: 12 });
+
+  function cardChanged(version: number, card = memberCard({ armorClass: 15 })) {
+    return { type: 'memberCardChanged' as const, payload: { ...vharnEventBase(version), card } };
+  }
+
+  it('the first card of Bia comes in', () => {
+    const next = applyBoardEvent(vharnBoard(), cardChanged(5));
+
+    expect(next.memberCards).toEqual([memberCard({ armorClass: 15 })]);
+  });
+
+  it('a card already there is replaced in place and the one of Caio stays', () => {
+    const board = vharnBoard({ memberCards: [memberCard({ noteOne: 'Ferida' }), CAIO_CARD] });
+
+    const next = applyBoardEvent(board, cardChanged(5, memberCard({ armorClass: 15 })));
+
+    expect(next.memberCards).toEqual([memberCard({ armorClass: 15 }), CAIO_CARD]);
   });
 });
