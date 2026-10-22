@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { SCENE_CELLS_MAX } from './scene.dto';
-import { tokenLayerDto } from './token.dto';
 import { idGroupOf, strayExpectation, TOKEN_GROUP_MAX } from './token-id-group.dto';
 
 /** Points of one freehand path after the client simplifies it. */
@@ -35,7 +34,7 @@ const cellCoordinateDto = z.number().min(0).max(SCENE_CELLS_MAX);
 const positiveSizeDto = z.number().positive().max(SCENE_CELLS_MAX);
 const drawingPointDto = z.tuple([cellCoordinateDto, cellCoordinateDto]);
 
-const styleShape = { layer: tokenLayerDto, stroke: drawingColorDto, strokeWidth: strokeWidthDto };
+const styleShape = { stroke: drawingColorDto, strokeWidth: strokeWidthDto };
 const cornerShape = { x: cellCoordinateDto, y: cellCoordinateDto };
 
 type FreehandFields = { width: number; height: number; points: [number, number][] };
@@ -80,7 +79,7 @@ const fixedShape = {
 /** A drawing as its author sends it: freehand points relative to `(x, y)`, or a fixed shape in
  *  its box (ellipse inscribed, triangle apex at the top middle). Only fixed shapes are filled.
  *
- *  Example: `drawingShapeDto.parse({ kind: 'ellipse', x: 2, y: 2, width: 3, height: 3, stroke: 'gold', strokeWidth: 'thin', layer: 'tokens' })` */
+ *  Example: `drawingShapeDto.parse({ kind: 'ellipse', x: 2, y: 2, width: 3, height: 3, stroke: 'gold', strokeWidth: 'thin' })` */
 export const drawingShapeDto = z.discriminatedUnion('kind', [
   z.strictObject(freehandShape).superRefine(checkFreehand),
   z.strictObject(fixedShape),
@@ -110,7 +109,7 @@ export type DrawingMoveDto = z.infer<typeof drawingMoveDto>;
 const drawingAtDto = z.strictObject({ drawingId: z.uuid(), ...cornerShape });
 export type DrawingAtDto = z.infer<typeof drawingAtDto>;
 
-/** `drawing:createMany` (any member, on a layer they may use): all or nothing, one version.
+/** `drawing:createMany` (any member): all or nothing, one version.
  *
  *  Example: `createDrawingsCommandDto.parse({ actionId, campaignId, drawings: [square] })` */
 export const createDrawingsCommandDto = z.strictObject({

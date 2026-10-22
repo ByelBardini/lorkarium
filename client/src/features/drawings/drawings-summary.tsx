@@ -1,6 +1,5 @@
 import type { DrawingDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
-import { LAYER_LABEL } from '@/features/board/board-messages';
 import { DRAWING_KINDS } from '@/lib/drawing-style';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 
@@ -9,7 +8,7 @@ export type DrawingsSummaryProps = Readonly<{ board: StoreApi<BoardStore> }>;
 const NO_DRAWINGS: readonly DrawingDto[] = [];
 
 /** The drawings of the scene in words, for whoever cannot see the canvas: its shape and the cell
- *  of its corner (counted from 1), and the layer when it is not Tokens. Hidden on screen.
+ *  of its corner (counted from 1). Hidden on screen.
  *
  *  Example: `<DrawingsSummary board={board} />` */
 export function DrawingsSummary({ board }: DrawingsSummaryProps): React.JSX.Element {
@@ -26,6 +25,5 @@ export function DrawingsSummary({ board }: DrawingsSummaryProps): React.JSX.Elem
 function describeDrawing(drawing: DrawingDto): string {
   const kind = DRAWING_KINDS.find((entry) => entry.kind === drawing.kind)?.label ?? drawing.kind;
   const where = `coluna ${Math.floor(drawing.x) + 1}, linha ${Math.floor(drawing.y) + 1}`;
-  const layer = drawing.layer === 'tokens' ? '' : `, no ${LAYER_LABEL[drawing.layer]}`;
-  return `${kind}, ${where}${layer}`;
+  return `${kind}, ${where}`;
 }

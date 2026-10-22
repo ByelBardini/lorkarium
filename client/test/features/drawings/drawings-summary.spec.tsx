@@ -15,14 +15,14 @@ function renderSummary(drawings: DrawingDto[]): void {
 
 describe('DrawingsSummary', () => {
   it('lists each drawing of the scene by its shape and the cell of its corner, counted from 1', () => {
-    renderSummary([square(), path({ layer: 'background' })]);
+    renderSummary([square(), path()]);
 
     const items = within(screen.getByRole('list', { name: 'Desenhos na cena' })).getAllByRole(
       'listitem',
     );
     expect(items.map((item) => item.textContent)).toEqual([
       'Quadrado, coluna 3, linha 4',
-      'Mão livre, coluna 2, linha 2, no Fundo',
+      'Mão livre, coluna 2, linha 2',
     ]);
   });
 

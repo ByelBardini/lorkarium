@@ -93,7 +93,7 @@ export function afterIntent(
   const selection = selectionAfter(state, intent);
   if (selection) return selection;
   if (!isPointerIntent(intent)) return {};
-  if (state.tool === 'select' && intent.kind === 'pointerDown') return NO_SELECTION;
+  if (picksOnPress(state) && intent.kind === 'pointerDown') return NO_SELECTION;
   if (state.tool !== 'ruler' || !intent.cell) return {};
   if (intent.kind === 'pointerDown') {
     return { ruler: { from: intent.cell, to: intent.cell }, measuring: true };
@@ -101,4 +101,10 @@ export function afterIntent(
   if (!state.measuring || !state.ruler) return {};
   const ruler = { ...state.ruler, to: intent.cell };
   return { ruler, measuring: intent.kind === 'pointerMove' };
+}
+
+// A press on the empty board drops the selection where it picks: Selecionar, or Desenhar in its
+// Selecionar mode (the other draw mode starts a stroke there).
+function picksOnPress(state: BoardInteractionState): boolean {
+  return state.tool === 'select' || (state.tool === 'draw' && state.drawMode === 'select');
 }

@@ -6,7 +6,7 @@ import { BIA_AT_TABLE, CAIO_AT_TABLE } from '../support/table-session-fixtures';
 const AS_BIA: DrawingViewInput = {
   drawings: [square(), path()],
   viewer: { userId: BIA_AT_TABLE.userId, isMaster: false },
-  activeLayer: 'tokens',
+  picking: true,
   selectedDrawingIds: [],
   drawingPreview: [],
   readOnly: false,
@@ -17,21 +17,26 @@ function viewOf(id: string, input: DrawingViewInput = AS_BIA) {
 }
 
 describe('drawingViewsOf', () => {
-  it('Bia may pick up her own square on the tokens layer, not the path of Caio', () => {
+  it('Bia may pick up her own square, not the path of Caio', () => {
     expect(viewOf(SQUARE_ID)?.pickable).toBe(true);
     expect(viewOf(PATH_ID)?.pickable).toBe(false);
   });
 
-  it('the master may pick up any drawing on the active layer', () => {
+  it('the master may pick up any drawing', () => {
     const asMaster = { ...AS_BIA, viewer: { userId: 'ana', isMaster: true } };
 
     expect(drawingViewsOf(asMaster).map(({ pickable }) => pickable)).toEqual([true, true]);
   });
 
-  it('a drawing off the active layer is drawn but never picked up, even by its author', () => {
-    const onObjects = { ...AS_BIA, drawings: [square({ layer: 'objects' })] };
+  it('out of the draw tool in Selecionar no drawing is picked up, not even by its author or the master', () => {
+    const notPicking = { ...AS_BIA, picking: false };
+    const masterNotPicking = { ...notPicking, viewer: { userId: 'ana', isMaster: true } };
 
-    expect(viewOf(SQUARE_ID, onObjects)?.pickable).toBe(false);
+    expect(viewOf(SQUARE_ID, notPicking)?.pickable).toBe(false);
+    expect(drawingViewsOf(masterNotPicking).map(({ pickable }) => pickable)).toEqual([
+      false,
+      false,
+    ]);
   });
 
   it('nothing is picked up while reconnecting', () => {
@@ -44,20 +49,10 @@ describe('drawingViewsOf', () => {
     expect(viewOf(SQUARE_ID, orphan)?.pickable).toBe(false);
   });
 
-  it('drawings come in drawing order: background, then objects, then tokens, list order inside', () => {
-    const drawings = [
-      square({ id: 'a', layer: 'tokens' }),
-      square({ id: 'b', layer: 'background' }),
-      square({ id: 'c', layer: 'objects' }),
-      square({ id: 'd', layer: 'background' }),
-    ];
+  it('drawings come in drawing order, the order of the list', () => {
+    const drawings = [square({ id: 'a' }), square({ id: 'b' }), square({ id: 'c' })];
 
-    expect(drawingViewsOf({ ...AS_BIA, drawings }).map(({ id }) => id)).toEqual([
-      'b',
-      'd',
-      'c',
-      'a',
-    ]);
+    expect(drawingViewsOf({ ...AS_BIA, drawings }).map(({ id }) => id)).toEqual(['a', 'b', 'c']);
   });
 
   it('a selected drawing is marked, and a move waiting for the server shows it where it goes', () => {
@@ -74,11 +69,10 @@ describe('drawingViewsOf', () => {
     expect(viewOf(PATH_ID, input)?.selected).toBe(false);
   });
 
-  it('the view keeps the stroke, its width and the layer of the drawing', () => {
+  it('the view keeps the stroke and its width', () => {
     expect(viewOf(PATH_ID)).toMatchObject({
       stroke: 'moss',
       strokeWidth: 'thin',
-      layer: 'tokens',
       geometry: {
         kind: 'freehand',
         points: [

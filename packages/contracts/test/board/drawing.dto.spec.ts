@@ -23,7 +23,6 @@ const SQUARE = {
   stroke: 'gold',
   fill: 'ember',
   strokeWidth: 'medium',
-  layer: 'tokens',
 } as const;
 
 const PATH = {
@@ -39,7 +38,6 @@ const PATH = {
   ],
   stroke: 'moss',
   strokeWidth: 'thin',
-  layer: 'tokens',
 } as const;
 
 function pointsOf(count: number): [number, number][] {
@@ -122,6 +120,11 @@ describe('createDrawingsCommandDto', () => {
 
   it('an author sent with the drawing is refused: the author comes from the connection', () => {
     expect(createWith({ ...SQUARE, authorId: BIA_ID }).success).toBe(false);
+  });
+
+  it('a layer sent with the drawing is refused: drawings live on their own layer', () => {
+    expect(createWith(SQUARE).success).toBe(true);
+    expect(createWith({ ...SQUARE, layer: 'tokens' }).success).toBe(false);
   });
 });
 

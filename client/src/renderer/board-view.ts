@@ -19,7 +19,12 @@ import { levelOf, type BoardSight } from '@/lib/board-sight';
 import { rulerLabel } from '@/lib/ruler-label';
 import { routePath, type TokenRoute } from '@/lib/token-route';
 import { CELL_WORLD_SIZE, type Point, type Size } from './camera';
-import { drawingViewsOf, type DrawingView, type DrawingViewInput } from './drawing-view';
+import {
+  drawingViewsOf,
+  type DrawMode,
+  type DrawingView,
+  type DrawingViewInput,
+} from './drawing-view';
 import {
   effectAreaViewsOf,
   type EffectAreaView,
@@ -124,9 +129,9 @@ export type BoardView = Readonly<{
   ruler: RulerView | null;
   tokens: readonly TokenView[];
   ghosts: readonly GhostView[];
-  /** Under the tokens of each layer, in drawing order. */
+  /** Their own layer: over Fundo and Objetos, under the Tokens layer, in drawing order. */
   drawings: readonly DrawingView[];
-  /** At the bottom of the Tokens layer, under its drawings and tokens, in creation order. */
+  /** At the bottom of the Tokens layer, under the drawings and the tokens, in creation order. */
   effectAreas: readonly EffectAreaView[];
   /** The master's wall lines, above the tokens; none for a player. */
   walls: readonly WallView[];
@@ -149,6 +154,8 @@ export type BoardView = Readonly<{
   sketchStraight: boolean;
   /** What a press does with the walls tool. */
   wallMode: WallMode;
+  /** What a press does with the draw tool. */
+  drawMode: DrawMode;
   /** With the ruler, a press on a token measures from it instead of grabbing it. */
   tool: BoardViewTool;
   /** A short right click on a token opens "Mover para camada" (only the master). */
@@ -162,6 +169,8 @@ type WallBoardInput = Partial<Pick<WallViewInput, 'walls' | 'selectedWallIds' | 
   Readonly<{
     /** Absent: Desenhar. */
     wallMode?: WallMode;
+    /** Absent: Desenhar. */
+    drawMode?: DrawMode;
     /** What this viewer sees (absent: everything): hidden tokens are not drawn, the penumbra
      *  ones are silhouettes, and only the seen doors show. */
     sight?: BoardSight;
@@ -173,7 +182,7 @@ type EffectAreaBoardInput = Partial<
     Readonly<{ effectAreaStyle: EffectAreaStyle }>
 >;
 
-export type BoardViewInput = Omit<DrawingViewInput, 'activeLayer' | 'readOnly'> &
+export type BoardViewInput = Omit<DrawingViewInput, 'picking' | 'readOnly'> &
   EffectAreaBoardInput &
   WallBoardInput &
   Readonly<{
@@ -238,7 +247,7 @@ export function buildBoardView(input: BoardViewInput): BoardView {
     ruler: rulerOf(input),
     tokens: sightedTokensOf(input),
     ghosts: ghostsOf(input),
-    drawings: drawingViewsOf(input),
+    drawings: drawingViewsOf({ ...input, picking: pickingDrawings(input) }),
     effectAreas: effectAreaViewsOf({
       ...input,
       effectAreas: input.effectAreas ?? [],
@@ -273,10 +282,15 @@ export function buildBoardView(input: BoardViewInput): BoardView {
     sketch: sketchStyleOf(input),
     sketchStraight: input.tool === 'walls' && !erasingArea(input) && wallPreviewOf(input).straight,
     wallMode: input.wallMode ?? 'draw',
+    drawMode: input.drawMode ?? 'draw',
     effectAreaSketch: effectAreaSketchOf(input),
     tool: input.tool,
     layerMenu: input.canChooseLayer,
   };
+}
+
+function pickingDrawings(input: BoardViewInput): boolean {
+  return input.tool === 'draw' && input.drawMode === 'select';
 }
 
 // A light dragged here is drawn where it goes, and aimed where its handle points, before the

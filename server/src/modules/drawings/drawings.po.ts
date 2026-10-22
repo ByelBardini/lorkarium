@@ -10,7 +10,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import { users } from '../auth/users.po';
 import { scenes } from '../scenes/scenes.po';
-import { tokenLayer } from '../tokens/tokens.po';
 
 export const drawingKind = pgEnum('drawing_kind', ['freehand', 'rectangle', 'ellipse', 'triangle']);
 export const drawingColor = pgEnum('drawing_color', [
@@ -37,7 +36,6 @@ export const drawings = pgTable(
     authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
     // created_at ties inside one insert of many; this keeps the creation (and drawing) order.
     drawOrder: integer('draw_order').notNull().generatedAlwaysAsIdentity(),
-    layer: tokenLayer('layer').notNull(),
     kind: drawingKind('kind').notNull(),
     x: numeric('x', { precision: 8, scale: 2 }).notNull(),
     y: numeric('y', { precision: 8, scale: 2 }).notNull(),

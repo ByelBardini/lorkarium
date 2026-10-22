@@ -79,7 +79,6 @@ describe('play room: drawings, copy and undo', () => {
               fill: null,
               stroke: 'gold',
               strokeWidth: 'medium',
-              layer: 'tokens',
             },
           ],
         },
@@ -92,9 +91,27 @@ describe('play room: drawings, copy and undo', () => {
   });
 
   describe('selecting, moving and deleting drawings', () => {
-    it('dropping the square with Lyra selected moves both, in one command each', async () => {
+    async function pickDrawings(): Promise<void> {
+      await userEvent.click(screen.getByRole('button', { name: 'Desenhar (B)' }));
+      await userEvent.click(screen.getByRole('radio', { name: 'Selecionar' }));
+    }
+
+    it('with Selecionar the drawings are drawn but not pickable, even the master’s', () => {
+      expect(renderer().lastView?.drawings.map(({ pickable }) => pickable)).toEqual([false, false]);
+    });
+
+    it('Selecionar in the draw panel makes the drawings pickable and the line says how', async () => {
+      await pickDrawings();
+
+      expect(renderer().lastView).toMatchObject({ tool: 'draw', drawMode: 'select' });
+      expect(renderer().lastView?.drawings.map(({ pickable }) => pickable)).toEqual([true, true]);
+      expect(boardStatus()).toHaveTextContent('Clique num desenho ou arraste uma caixa');
+    });
+
+    it('Lyra selected before the draw tool does not follow the square dropped', async () => {
       renderer().emit({ kind: 'tokenPicked', tokenId: LYRA_ID, additive: false });
-      renderer().emit({ kind: 'drawingPicked', drawingId: SQUARE_ID, additive: true });
+      await pickDrawings();
+      renderer().emit({ kind: 'drawingPicked', drawingId: SQUARE_ID, additive: false });
 
       renderer().emit({
         kind: 'drawingsDropped',
@@ -104,13 +121,13 @@ describe('play room: drawings, copy and undo', () => {
         dy: 1,
       });
 
-      expect(deps.boardCommands.sentAs('moveDrawings')[0]?.fields).toEqual({
-        moves: [{ drawingId: SQUARE_ID, x: 4.5, y: 4 }],
-      });
-      await waitFor(() => expect(deps.boardCommands.sentAs('moveTokens')).toHaveLength(1));
-      expect(deps.boardCommands.sentAs('moveTokens')[0]?.fields).toEqual({
-        moves: [{ tokenId: LYRA_ID, col: 5, row: 5 }],
-      });
+      await waitFor(() =>
+        expect(deps.boardCommands.sentAs('moveDrawings')[0]?.fields).toEqual({
+          moves: [{ drawingId: SQUARE_ID, x: 4.5, y: 4 }],
+        }),
+      );
+      await act(() => Promise.resolve());
+      expect(deps.boardCommands.sentAs('moveTokens')).toEqual([]);
     });
 
     it('Delete on the board deletes the selected drawings in one command', async () => {

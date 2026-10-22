@@ -50,6 +50,27 @@ export function marqueeRect(marquee: Marquee): WorldRect {
   };
 }
 
+/** What one rectangle takes, by kind of piece. */
+export type MarqueeTargets = Readonly<{
+  tokenIds: string[];
+  drawingIds: string[];
+  effectAreaIds: string[];
+}>;
+
+/** What the rectangle takes: with the draw tool only drawings (their own layer); with Selecionar
+ *  the tokens and the areas of effect (drawings are not pickable then).
+ *
+ *  Example: `const { tokenIds, drawingIds, effectAreaIds } = marqueeTargetsOf(rect, view)` */
+export function marqueeTargetsOf(
+  rect: WorldRect,
+  view: Pick<BoardView, 'tool' | 'tokens' | 'drawings' | 'effectAreas'>,
+): MarqueeTargets {
+  const drawingIds = drawingsInMarquee(rect, view.drawings);
+  if (view.tool === 'draw') return { tokenIds: [], drawingIds, effectAreaIds: [] };
+  const tokenIds = tokensInMarquee(rect, view.tokens);
+  return { tokenIds, drawingIds, effectAreaIds: effectAreasInMarquee(rect, view.effectAreas) };
+}
+
 /** The tokens the rectangle touches (one cell of a big token is enough) among those this viewer
  *  may move on the active layer, in drawing order.
  *
@@ -58,8 +79,8 @@ export function tokensInMarquee(rect: WorldRect, tokens: readonly TokenView[]): 
   return tokens.filter((token) => token.draggable && touches(rect, token)).map(({ id }) => id);
 }
 
-/** The drawings the rectangle touches among the pickable ones (on the active layer, the
- *  viewer's own or any for the master), in drawing order.
+/** The drawings the rectangle touches among the pickable ones (with the draw tool in
+ *  Selecionar, the viewer's own or any for the master), in drawing order.
  *
  *  Example: `onIntent({ kind: 'drawingsMarqueed', drawingIds: drawingsInMarquee(rect, view.drawings), additive })` */
 export function drawingsInMarquee(rect: WorldRect, drawings: readonly DrawingView[]): string[] {

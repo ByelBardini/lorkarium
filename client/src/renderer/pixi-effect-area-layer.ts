@@ -1,4 +1,3 @@
-import type { TokenLayerDto } from '@lorkarium/contracts';
 import { isSmoothArea, effectAreaBounds } from '@lorkarium/game-core';
 import { Container, Graphics, Text } from 'pixi.js';
 import { drawingColorValue } from '@/lib/drawing-style';
@@ -50,16 +49,13 @@ export class PixiEffectAreaLayer implements EffectAreaCanvas {
     this.showLabel(views.find(({ selected }) => selected) ?? null);
   }
 
-  /** The layers that go under the tokens of each layer: the areas at the bottom of Tokens, under
-   *  the drawings of that layer.
+  /** What goes under the tokens of the Tokens layer: the areas, then the drawings over them.
    *
-   *  Example: `new PixiTokenLayer(reducedMotion, areas.under(drawings.layers), textures)` */
-  under(
-    drawingLayers: Readonly<Record<TokenLayerDto, Container>>,
-  ): Readonly<Record<TokenLayerDto, Container>> {
-    const tokens = new Container();
-    tokens.addChild(this.container, drawingLayers.tokens);
-    return { ...drawingLayers, tokens };
+   *  Example: `new PixiTokenLayer(reducedMotion, areas.under(drawings.layer), textures)` */
+  under(drawings: Container): Container {
+    const beneath = new Container();
+    beneath.addChild(this.container, drawings);
+    return beneath;
   }
 
   /** The dragged areas follow the pointer, by `offset` world px. */

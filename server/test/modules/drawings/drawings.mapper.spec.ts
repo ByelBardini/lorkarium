@@ -22,7 +22,6 @@ describe('toDrawingDto', () => {
       fill: 'ember',
       stroke: 'gold',
       strokeWidth: 'medium',
-      layer: 'tokens',
     });
   });
 
@@ -61,7 +60,6 @@ describe('toNewDrawingPo', () => {
       fill: null,
       stroke: 'violet',
       strokeWidth: 'thick',
-      layer: 'tokens',
     });
   });
 
@@ -78,7 +76,6 @@ describe('toNewDrawingPo', () => {
       ],
       stroke: 'ink',
       strokeWidth: 'thin',
-      layer: 'tokens',
     } as const;
 
     expect(

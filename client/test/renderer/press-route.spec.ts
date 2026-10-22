@@ -64,19 +64,47 @@ describe('pressRouteOf with the select tool', () => {
     });
   });
 
-  it('a drawing with no token over it takes the press', () => {
-    expect(pressRouteOf(boardView(), at(2.7, 3.2), 1)).toMatchObject({
-      kind: 'drawing',
-      drawing: { id: SQUARE_ID },
-    });
+  it('a drawing is never taken: a press on it with no token over it starts the marquee', () => {
+    expect(pressRouteOf(boardView(), at(2.7, 3.2), 1).kind).toBe('marquee');
   });
 
   it('a press on the empty board starts the marquee', () => {
     expect(pressRouteOf(boardView(), at(10, 10), 1).kind).toBe('marquee');
   });
 
-  it('with no selection, the spot of the facing handle goes to the drawing beneath it', () => {
-    expect(pressRouteOf(boardView(), LYRA_FACING_HANDLE, 1).kind).toBe('drawing');
+  it('with no selection, the spot of the facing handle goes to the board beneath it', () => {
+    expect(pressRouteOf(boardView(), LYRA_FACING_HANDLE, 1).kind).toBe('marquee');
+  });
+});
+
+describe('pressRouteOf with the draw tool', () => {
+  const picking = (overrides: Partial<Parameters<typeof buildBoardView>[0]> = {}) =>
+    boardView({ tool: 'draw', drawMode: 'select', ...overrides });
+
+  it('in Desenhar any press starts a sketch, even over a token or a drawing', () => {
+    const drawing = boardView({ tool: 'draw', drawMode: 'draw' });
+    expect(pressRouteOf(drawing, at(3.5, 4.5), 1).kind).toBe('sketch');
+    expect(pressRouteOf(drawing, at(2.7, 3.2), 1).kind).toBe('sketch');
+  });
+
+  it('in Selecionar a press on her drawing takes it', () => {
+    expect(pressRouteOf(picking(), at(2.7, 3.2), 1)).toMatchObject({
+      kind: 'drawing',
+      drawing: { id: SQUARE_ID },
+    });
+  });
+
+  it('in Selecionar the token over the drawing is inert: the drawing under it takes the press', () => {
+    expect(pressRouteOf(picking(), at(3.5, 4.5), 1)).toMatchObject({
+      kind: 'drawing',
+      drawing: { id: SQUARE_ID },
+    });
+  });
+
+  it('in Selecionar a press on a token alone or on the empty board starts the marquee', () => {
+    const lyraAlone = picking({ tokens: [lyra({ col: 10, row: 10 })] });
+    expect(pressRouteOf(lyraAlone, at(10.5, 10.5), 1).kind).toBe('marquee');
+    expect(pressRouteOf(picking(), at(15, 2), 1).kind).toBe('marquee');
   });
 });
 
@@ -95,9 +123,9 @@ describe('pressRouteOf and the areas of effect', () => {
     expect(pressRouteOf(view, at(7.5, 6.5), 1).kind).toBe('token');
   });
 
-  it('a drawing of the Tokens layer over the area wins the press', () => {
+  it('a drawing over the area does not take the press with Selecionar: the area does', () => {
     const view = boardView({ effectAreas: [biaCone()], drawings: [square({ x: 6, y: 6 })] });
-    expect(pressRouteOf(view, at(7, 7), 1).kind).toBe('drawing');
+    expect(pressRouteOf(view, at(7, 7), 1).kind).toBe('effectArea');
   });
 
   it('on the Objects layer the area is not taken: the press starts the marquee', () => {
@@ -111,10 +139,6 @@ describe('pressRouteOf and the areas of effect', () => {
 });
 
 describe('pressRouteOf with other tools', () => {
-  it('with the draw tool any press starts a sketch, even over a token', () => {
-    expect(pressRouteOf(boardView({ tool: 'draw' }), at(3.5, 4.5), 1).kind).toBe('sketch');
-  });
-
   it('with the area tool any press starts an area, even over a token', () => {
     expect(pressRouteOf(boardView({ tool: 'area' }), at(3.5, 4.5), 1).kind).toBe('areaSketch');
   });

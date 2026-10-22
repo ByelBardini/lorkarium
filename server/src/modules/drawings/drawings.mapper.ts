@@ -18,7 +18,6 @@ export function toDrawingDto(row: DrawingPo): DrawingDto {
     height: Number(row.height),
     stroke: row.stroke,
     strokeWidth: row.strokeWidth,
-    layer: row.layer,
   };
   if (row.kind !== 'freehand') return { ...base, kind: row.kind, fill: row.fill };
   if (!row.points) throw new Error(`freehand drawing ${row.id} was saved with no points`);
@@ -42,7 +41,6 @@ export function toNewDrawingPo(
     height: numericOf(shape.height),
     stroke: shape.stroke,
     strokeWidth: shape.strokeWidth,
-    layer: shape.layer,
   };
   if (shape.kind !== 'freehand')
     return { ...common, kind: shape.kind, points: null, fill: shape.fill };
@@ -68,9 +66,9 @@ export function positionOf(row: DrawingPo): DrawingPosition {
   return { x: Number(row.x), y: Number(row.y) };
 }
 
-/** Who may edit a saved drawing: its id, author and layer, for the access rule. */
+/** Who may edit a saved drawing: its id and author, for the access rule. */
 export function ownershipOf(row: DrawingPo): AuthoredPiece {
-  return { id: row.id, authorId: row.authorId, layer: row.layer };
+  return { id: row.id, authorId: row.authorId };
 }
 
 /** A move as sent → the numeric strings to save, to the hundredth.

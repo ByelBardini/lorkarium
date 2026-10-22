@@ -1,4 +1,3 @@
-import type { TokenLayerDto } from '@lorkarium/contracts';
 import { Container, Graphics, type StrokeStyle } from 'pixi.js';
 import { triangleCorners, type DrawingGeometry } from '@/lib/drawing-geometry';
 import { drawingColorValue, strokeWorldPx, type DrawingStyle } from '@/lib/drawing-style';
@@ -15,14 +14,11 @@ type ShapeSprite = { root: Container; shape: Graphics; selection: Graphics; view
 type Paint = Pick<DrawingStyle, 'stroke' | 'strokeWidth'>;
 
 /** The drawings on the canvas: one sprite per drawing, kept by id and redrawn only when its
- *  confirmed drawing or its selection changes (a move only shifts it), inside one `Container` per
- *  layer that the token layer puts under the tokens of that layer. Proven by the e2e. */
+ *  confirmed drawing or its selection changes (a move only shifts it), inside their own `Container`
+ *  (`layer`), which the token layer puts over Fundo and Objetos and under the tokens of Tokens.
+ *  Proven by the e2e. */
 export class PixiDrawingLayer implements DrawingCanvas {
-  readonly layers: Readonly<Record<TokenLayerDto, Container>> = {
-    background: new Container(),
-    objects: new Container(),
-    tokens: new Container(),
-  };
+  readonly layer = new Container();
   /** The sketch under the pointer, drawn over everything. */
   readonly draft = new Graphics();
   private readonly sprites = new Map<string, ShapeSprite>();
@@ -67,7 +63,7 @@ export class PixiDrawingLayer implements DrawingCanvas {
   }
 
   destroy(): void {
-    for (const layer of Object.values(this.layers)) layer.destroy({ children: true });
+    this.layer.destroy({ children: true });
     this.draft.destroy();
     this.sprites.clear();
   }
@@ -75,8 +71,7 @@ export class PixiDrawingLayer implements DrawingCanvas {
   private place(view: DrawingView): void {
     const known = this.sprites.get(view.id);
     const sprite = known ?? this.add(view);
-    const parent = this.layers[view.layer];
-    if (sprite.root.parent !== parent) parent.addChild(sprite.root);
+    if (sprite.root.parent !== this.layer) this.layer.addChild(sprite.root);
     const corner = cornerOf(view.geometry);
     sprite.root.position.set(corner.x, corner.y);
     const changed =

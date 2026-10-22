@@ -6,9 +6,9 @@ export const SQUARE_ID = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
 export const PATH_ID = 'd2e3f4a5-b6c7-4d8e-9f0a-1b2c3d4e5f6a';
 const AT = '2026-10-16T12:00:00.000Z';
 
-/** Bia's filled square at VHARN: (2.5, 3), 2×2, gold stroke, ember fill, on the tokens layer.
+/** Bia's filled square at VHARN: (2.5, 3), 2×2, gold stroke, ember fill.
  *
- *  Example: `vharnBoard({ drawings: [square({ layer: 'objects' })] })` */
+ *  Example: `vharnBoard({ drawings: [square({ authorId: null })] })` */
 export function square(overrides: Partial<DrawingDto> = {}): DrawingDto {
   return {
     id: SQUARE_ID,
@@ -21,7 +21,6 @@ export function square(overrides: Partial<DrawingDto> = {}): DrawingDto {
     fill: 'ember',
     stroke: 'gold',
     strokeWidth: 'medium',
-    layer: 'tokens',
     ...overrides,
   } as DrawingDto;
 }
@@ -45,7 +44,6 @@ export function path(overrides: Partial<DrawingDto> = {}): DrawingDto {
     ],
     stroke: 'moss',
     strokeWidth: 'thin',
-    layer: 'tokens',
     ...overrides,
   } as DrawingDto;
 }

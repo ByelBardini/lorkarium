@@ -73,11 +73,8 @@ export class DrawingsService {
     campaignId: string,
     command: CreateDrawings,
   ): Promise<CreatedInScene> {
-    const access = new AuthoredAccessBo(
-      await memberAccessOf(this.deps.members, campaignId, userId),
-      DRAWING_NOUN,
-    );
-    for (const shape of command.drawings) access.requireLayer('draw', shape.layer);
+    // Any member draws: being one is the whole rule.
+    await memberAccessOf(this.deps.members, campaignId, userId);
     const saved = await inLockedScene(
       this.deps.transaction,
       campaignId,

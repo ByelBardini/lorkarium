@@ -65,7 +65,7 @@ describe('DrawingsService', () => {
   });
 
   describe('createMany', () => {
-    it('Bia drawing on the tokens layer locks, saves and bumps, then publishes after the commit', async () => {
+    it('Bia drawing locks, saves and bumps, then publishes after the commit', async () => {
       const created = await service.createMany(BIA_ID, VHARN_ID, { drawings: [newCircle()] });
 
       expect(created).toEqual({ version: 5, createdIds: ['drawing-4'] });
@@ -85,12 +85,10 @@ describe('DrawingsService', () => {
       ]);
     });
 
-    it('the master draws on the background layer', async () => {
-      const circle = newCircle({ layer: 'background' });
+    it('the master draws too, as the author of her drawing', async () => {
+      await service.createMany(ANA_ID, VHARN_ID, { drawings: [newCircle()] });
 
-      await service.createMany(ANA_ID, VHARN_ID, { drawings: [circle] });
-
-      expect(drawings.rows.at(-1)).toMatchObject({ layer: 'background', authorId: ANA_ID });
+      expect(drawings.rows.at(-1)).toMatchObject({ kind: 'ellipse', authorId: ANA_ID });
     });
 
     it('a freehand line of width 0 fits and is saved', async () => {
@@ -106,7 +104,6 @@ describe('DrawingsService', () => {
         ],
         stroke: 'ink',
         strokeWidth: 'thin',
-        layer: 'tokens',
       } as const;
 
       await service.createMany(BIA_ID, VHARN_ID, {
@@ -130,18 +127,6 @@ describe('DrawingsService', () => {
       await expect(
         service.createMany(BIA_ID, VHARN_ID, { drawings: [newCircle()] }),
       ).resolves.toMatchObject({ version: 5 });
-    });
-
-    it('Bia drawing on the objects layer is refused with FORBIDDEN and nothing is locked', async () => {
-      const onObjects = newCircle({ layer: 'objects' });
-
-      await expect(
-        service.createMany(BIA_ID, VHARN_ID, { drawings: [onObjects] }),
-      ).rejects.toMatchObject({
-        code: 'FORBIDDEN',
-        message: expect.stringContaining('draw on the objects layer'),
-      });
-      expect(scenes.journal).toEqual([]);
     });
 
     it('a box outside the scene is refused with OUT_OF_SCENE and nothing is saved nor published', async () => {

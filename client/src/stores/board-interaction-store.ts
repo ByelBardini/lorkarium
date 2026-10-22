@@ -55,7 +55,14 @@ import {
 import { aimLightOf, changeLightAnglesOf, previewLightAimOf } from './light-cone-flow';
 import { setLightsLitOf } from './light-lit-flow';
 import { afterIntent, joined, NO_SELECTION, toggled } from './board-pointer-intents';
-import { hintOf, toolChangeOf, WALL_MODE_HINT, type BoardTool } from './board-tool-state';
+import {
+  drawModeChangeOf,
+  hintOf,
+  toolChangeOf,
+  WALL_MODE_HINT,
+  type BoardTool,
+  type DrawMode,
+} from './board-tool-state';
 import { TokenDragFlow } from './token-drag-flow';
 import { faceTokensOf, previewFacing } from './token-facing-flow';
 import { previewResize, resizeTokensOf } from './token-resize-flow';
@@ -101,6 +108,8 @@ export type BoardInteractionState = Readonly<{
   lightAimPreview: Readonly<Record<string, number>>;
   /** What a press does with the walls tool (it stays when the tool changes). */
   wallMode: WallMode;
+  /** What a press does with the draw tool: a new stroke, or taking drawings. */
+  drawMode: DrawMode;
   /** The shape areas get while moved or stretched here and not yet confirmed, by id. */
   effectAreaPreview: Readonly<Record<string, EffectAreaShapeDto>>;
   /** Only tokens on this layer are picked up; a player is always on `tokens`. */
@@ -210,6 +219,7 @@ export type BoardInteractionStore = BoardInteractionState &
     /** A handle being dragged on an area (`null`: let go without a change). */
     previewEffectArea: (effectAreaId: string, shape: EffectAreaShapeDto | null) => void;
     setWallMode: (mode: WallMode) => void;
+    setDrawMode: (mode: DrawMode) => void;
     /** A click while erasing: the whole wall (`null`) or one piece of it, one undo entry. */
     eraseWall: (wall: WallDto, segmentIndex: number | null) => Promise<void>;
     /** The eraser box released: every wall under it cut at its edges, one undo entry. */
@@ -285,6 +295,7 @@ export function createBoardInteractionStore(
       lightAimPreview: {},
       effectAreaPreview: {},
       wallMode: 'draw',
+      drawMode: 'draw',
       activeLayer: 'tokens',
       canChooseLayer: false,
       preview: [],
@@ -303,7 +314,7 @@ export function createBoardInteractionStore(
       pointer: (intent) => set(afterIntent(get(), intent)),
       escape: () => {
         drags.cancel();
-        const notice = hintOf(get().tool, get().wallMode);
+        const notice = hintOf(get().tool, get());
         set({ ruler: null, measuring: false, ...NO_SELECTION, notice });
       },
       say: (notice) => set({ notice }),
@@ -347,10 +358,13 @@ export function createBoardInteractionStore(
       resizeTokens: (resizes, announce) => resizeTokensOf(deps, store, resizes, announce),
       previewResize: (tokenId, box) => previewResize(store, tokenId, box),
       finishSketch: (sketch, style) => {
-        const { activeLayer: layer, readOnly } = get();
         const say = (notice: string): void => set({ notice });
         const recordEdit = deps.recordEdit ?? (() => undefined);
-        return sendSketch({ ...deps, recordEdit }, sketch, { style, layer, readOnly, say });
+        return sendSketch({ ...deps, recordEdit }, sketch, {
+          style,
+          readOnly: get().readOnly,
+          say,
+        });
       },
       finishEffectArea: (shape) => {
         const say = (notice: string): void => set({ notice });
@@ -390,6 +404,7 @@ export function createBoardInteractionStore(
       setWallMode: (wallMode) => {
         set({ wallMode, notice: WALL_MODE_HINT[wallMode], selectedWallIds: [] });
       },
+      setDrawMode: (drawMode) => set(drawModeChangeOf(drawMode)),
       eraseWall: (wall, segmentIndex) => eraseWallOf(deps, store, wall, segmentIndex),
       eraseWallArea: (walls, box) => eraseWallAreaOf(deps, store, walls, box),
       deleteWalls: (walls) => deleteWallsOf(deps, store, walls),
@@ -427,54 +442,39 @@ export function useBoardInteraction<T>(
 export function useLocalBoardView(
   store: StoreApi<BoardInteractionStore>,
 ): Pick<BoardInteractionState, LocalViewField> {
-  return useStore(
-    store,
-    useShallow((state) => ({
-      localGridVisible: state.localGridVisible,
-      ruler: state.ruler,
-      selectedTokenIds: state.selectedTokenIds,
-      selectedDrawingIds: state.selectedDrawingIds,
-      selectedEffectAreaIds: state.selectedEffectAreaIds,
-      selectedWallIds: state.selectedWallIds,
-      selectedLightIds: state.selectedLightIds,
-      lightPreview: state.lightPreview,
-      lightAimPreview: state.lightAimPreview,
-      wallMode: state.wallMode,
-      effectAreaPreview: state.effectAreaPreview,
-      drawingPreview: state.drawingPreview,
-      activeLayer: state.activeLayer,
-      canChooseLayer: state.canChooseLayer,
-      preview: state.preview,
-      facingPreview: state.facingPreview,
-      resizePreview: state.resizePreview,
-      drag: state.drag,
-      readOnly: state.readOnly,
-      tool: state.tool,
-    })),
-  );
+  return useStore(store, useShallow(localViewOf));
 }
 
-type LocalViewField =
-  | 'localGridVisible'
-  | 'ruler'
-  | 'selectedTokenIds'
-  | 'selectedDrawingIds'
-  | 'selectedEffectAreaIds'
-  | 'selectedWallIds'
-  | 'selectedLightIds'
-  | 'lightPreview'
-  | 'lightAimPreview'
-  | 'wallMode'
-  | 'effectAreaPreview'
-  | 'drawingPreview'
-  | 'activeLayer'
-  | 'canChooseLayer'
-  | 'preview'
-  | 'facingPreview'
-  | 'resizePreview'
-  | 'drag'
-  | 'readOnly'
-  | 'tool';
+const LOCAL_VIEW_FIELDS = [
+  'localGridVisible',
+  'ruler',
+  'selectedTokenIds',
+  'selectedDrawingIds',
+  'selectedEffectAreaIds',
+  'selectedWallIds',
+  'selectedLightIds',
+  'lightPreview',
+  'lightAimPreview',
+  'wallMode',
+  'drawMode',
+  'effectAreaPreview',
+  'drawingPreview',
+  'activeLayer',
+  'canChooseLayer',
+  'preview',
+  'facingPreview',
+  'resizePreview',
+  'drag',
+  'readOnly',
+  'tool',
+] as const;
+
+type LocalViewField = (typeof LOCAL_VIEW_FIELDS)[number];
+
+function localViewOf(state: BoardInteractionState): Pick<BoardInteractionState, LocalViewField> {
+  const entries = LOCAL_VIEW_FIELDS.map((field) => [field, state[field]] as const);
+  return Object.fromEntries(entries) as Pick<BoardInteractionState, LocalViewField>;
+}
 
 /** The one selected token, or `null` with none or several: what the card and the keys use.
  *
