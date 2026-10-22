@@ -44,12 +44,18 @@ function excessOf(beyond: number, max: number): number {
 }
 
 /** "32 / 45", or "71%" for a bar shown as percent; a negative value takes the typographic
- *  minus ("−4 / 38", "−11%").
+ *  minus ("−4 / 38", "−11%"). `withNumbers` (whoever controls the token) reads a percent bar
+ *  with the numbers too, "71% · 32 / 45": the percent is how it shows, not a secret.
  *
- *  Example: `formatBarValue(bar)` */
-export function formatBarValue({ current, max, display }: ShownBar): string {
-  if (display === 'percent') return `${signed(Math.round((current / max) * 100))}%`;
-  return `${signed(current)} / ${max}`;
+ *  Example: `formatBarValue(bar, { withNumbers: token.canControl })` */
+export function formatBarValue(
+  { current, max, display }: ShownBar,
+  { withNumbers = false }: Readonly<{ withNumbers?: boolean }> = {},
+): string {
+  const numbers = `${signed(current)} / ${max}`;
+  if (display !== 'percent') return numbers;
+  const percent = `${signed(Math.round((current / max) * 100))}%`;
+  return withNumbers ? `${percent} · ${numbers}` : percent;
 }
 
 function signed(value: number): string {

@@ -33,6 +33,7 @@ import {
   tokensMovedDto,
   tokensFacedDto,
   tokensResizedDto,
+  mainTokenChangedDto,
   tokensRestyledDto,
   wallKindsChangedDto,
   wallsCreatedDto,
@@ -80,6 +81,7 @@ import {
   type TokensCreatedDto,
   type TokensDeletedDto,
   type TokensMovedDto,
+  type MainTokenChangedDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
 
@@ -97,6 +99,7 @@ export type BoardEvent =
   | Readonly<{ type: 'tokensRestyled'; payload: TokensRestyledDto }>
   | Readonly<{ type: 'tokensCreated'; payload: TokensCreatedDto }>
   | Readonly<{ type: 'tokensDeleted'; payload: TokensDeletedDto }>
+  | Readonly<{ type: 'mainTokenChanged'; payload: MainTokenChangedDto }>
   | Readonly<{ type: 'drawingsCreated'; payload: DrawingsCreatedDto }>
   | Readonly<{ type: 'drawingsMoved'; payload: DrawingsMovedDto }>
   | Readonly<{ type: 'drawingsDeleted'; payload: DrawingsDeletedDto }>
@@ -155,6 +158,7 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.tokensRestyled]: specOf('tokensRestyled', tokensRestyledDto),
   [BOARD_EVENTS.tokensCreated]: specOf('tokensCreated', tokensCreatedDto),
   [BOARD_EVENTS.tokensDeleted]: specOf('tokensDeleted', tokensDeletedDto),
+  [BOARD_EVENTS.mainTokenChanged]: specOf('mainTokenChanged', mainTokenChangedDto),
   [BOARD_EVENTS.drawingsCreated]: specOf('drawingsCreated', drawingsCreatedDto),
   [BOARD_EVENTS.drawingsMoved]: specOf('drawingsMoved', drawingsMovedDto),
   [BOARD_EVENTS.drawingsDeleted]: specOf('drawingsDeleted', drawingsDeletedDto),

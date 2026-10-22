@@ -36,6 +36,7 @@ import type {
   TokensMovedDto,
   TokensRestyledDto,
   TokensResizedDto,
+  MainTokenChangedDto,
   TokenMovedDto,
 } from '@lorkarium/contracts';
 import type {
@@ -122,6 +123,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly tokensFacings: TokensFacedDto[] = [];
   readonly tokensRestylings: TokensRestyledDto[] = [];
   readonly tokensResizes: TokensResizedDto[] = [];
+  readonly mainTokenChanges: MainTokenChangedDto[] = [];
   readonly tokensMoves: TokensMovedDto[] = [];
   readonly tokensCreations: TokensCreation[] = [];
   readonly tokensDeletes: TokensDeletedDto[] = [];
@@ -185,6 +187,11 @@ export class BoardPublisherFake implements BoardPublisherPort {
   tokensDeleted(event: TokensDeletedDto): void {
     this.journal.push('publish');
     this.tokensDeletes.push(event);
+  }
+
+  mainTokenChanged(event: MainTokenChangedDto): void {
+    this.journal.push('publish');
+    this.mainTokenChanges.push(event);
   }
 
   tokensMoved(event: TokensMovedDto): void {

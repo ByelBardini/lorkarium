@@ -1,5 +1,5 @@
 import { tokenLayerDto, type TokenDto, type TokenLayerDto } from '@lorkarium/contracts';
-import { useId } from 'react';
+import { useId, useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import {
   DropdownMenu,
@@ -10,11 +10,21 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  isListedIn,
+  mainTokenIdOf,
+  mainTokenPlayersOf,
+  type MainTokenPlayer,
+} from '@/lib/main-token';
 import type { TokenStyle } from '@/services/table-board-commands';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
+import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { LAYER_LABEL } from './board-messages';
 
 /** Where a token was right clicked: its id and the viewport point to open the menu at. */
@@ -23,6 +33,8 @@ export type TokenMenuRequest = Readonly<{ tokenId: string; x: number; y: number 
 export type TokenContextMenuProps = Readonly<{
   request: TokenMenuRequest;
   board: StoreApi<BoardStore>;
+  /** The names of the players "Tornar principal de" lists. */
+  presence: StoreApi<TablePresenceStore>;
   interaction: StoreApi<BoardInteractionStore>;
   /** "Aplicar condição…": the tokens it goes to. */
   onApplyCondition: (tokenIds: readonly string[]) => void;
@@ -34,7 +46,9 @@ export type TokenContextMenuProps = Readonly<{
 const LAYER_TITLE = 'Mover para camada';
 export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
 
-/** The right click on a token for whoever controls it: "Aplicar condição…", "Morto", "Luz acesa"
+/** The right click on a token for whoever controls it: "Aplicar condição…", "Tornar principal"
+ *  (only on a token the viewer is listed in the control of and that is not their main one), the
+ *  master's "Tornar principal de ▸" (the players listed in its control), "Morto", "Luz acesa"
  *  (only on a token that gives off light), "Imagem…",
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
  *  token alone); the master also gets "Mover para camada". Closing (a choice, Esc, a click away)
@@ -48,7 +62,9 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
     board,
     (state) => state.board?.tokens.find(({ id }) => id === request.tokenId) ?? null,
   );
+  const canMakeMain = useBoard(board, (state) => canMakeMainToken(state.board, request.tokenId));
   const layerMenu = useBoardInteraction(interaction, (state) => state.canChooseLayer);
+  const players = useMainTokenPlayers(props.board, props.presence, request.tokenId);
   if (!token) return null;
   const targets = (): readonly string[] => {
     const { selectedTokenIds } = interaction.getState();
@@ -80,6 +96,29 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
         <DropdownMenuItem onSelect={() => props.onApplyCondition(targets())}>
           Aplicar condição…
         </DropdownMenuItem>
+        {canMakeMain && (
+          <DropdownMenuItem
+            onSelect={() =>
+              void interaction
+                .getState()
+                .command((commands, campaignId) => commands.setMainToken(campaignId, token.id))
+            }
+          >
+            Tornar principal
+          </DropdownMenuItem>
+        )}
+        {players.length > 0 && (
+          <MainTokenPlayersItems
+            players={players}
+            onChoose={(playerId) =>
+              void interaction
+                .getState()
+                .command((commands, campaignId) =>
+                  commands.setMainToken(campaignId, token.id, playerId),
+                )
+            }
+          />
+        )}
         <DropdownMenuCheckboxItem
           checked={token.defeated}
           onSelect={() => restyle({ defeated: !token.defeated })}
@@ -108,6 +147,52 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+// The same rule as the dock's star: listed in the control (the master's power does not count).
+function canMakeMainToken(board: BoardStore['board'], tokenId: string): boolean {
+  if (!board) return false;
+  const token = board.tokens.find(({ id }) => id === tokenId);
+  if (!token || !isListedIn(token, board.viewer.userId)) return false;
+  return mainTokenIdOf(board) !== tokenId;
+}
+
+// Only the master chooses for someone else; the players listed in the control, but the master.
+function useMainTokenPlayers(
+  board: StoreApi<BoardStore>,
+  presence: StoreApi<TablePresenceStore>,
+  tokenId: string,
+): readonly MainTokenPlayer[] {
+  const state = useBoard(board, (current) => current.board);
+  const members = useTablePresence(presence, (current) => current.members);
+  return useMemo(() => {
+    if (state?.viewer.role !== 'master') return [];
+    return mainTokenPlayersOf(state, tokenId, members);
+  }, [state, members, tokenId]);
+}
+
+type MainTokenPlayersItemsProps = Readonly<{
+  players: readonly MainTokenPlayer[];
+  onChoose: (playerId: string) => void;
+}>;
+
+function MainTokenPlayersItems({ players, onChoose }: MainTokenPlayersItemsProps) {
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>Tornar principal de</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        {players.map((player) => (
+          <DropdownMenuCheckboxItem
+            key={player.userId}
+            checked={player.isMain}
+            onSelect={() => !player.isMain && onChoose(player.userId)}
+          >
+            {player.name}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }
 

@@ -102,6 +102,7 @@ export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDt
     lights: [],
     combat: null,
     conditionDefinitions: [],
+    mainTokens: [],
     ...overrides,
   };
 }

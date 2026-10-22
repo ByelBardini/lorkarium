@@ -8,14 +8,25 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
-import { KAEL_ID, LYRA_ID, kael, lyra, vharnBoard } from '../../support/table-session-fixtures';
+import {
+  ANA_AT_TABLE,
+  BIA_AT_TABLE,
+  CAIO_AT_TABLE,
+  KAEL_ID,
+  LYRA_ID,
+  kael,
+  lyra,
+  vharnBoard,
+} from '../../support/table-session-fixtures';
 
 const GOBLIN_ID = '7f6e5d4c-3b2a-4f1e-8d9c-0b1a2c3d4e5f';
 
 describe('TokenContextMenu', () => {
   let board: StoreApi<BoardStore>;
+  let presence: StoreApi<TablePresenceStore>;
   let interaction: StoreApi<BoardInteractionStore>;
   let commands: TableBoardCommandsFake;
   let closed: number;
@@ -24,6 +35,8 @@ describe('TokenContextMenu', () => {
 
   beforeEach(() => {
     board = createBoardStore(VHARN.id, () => undefined);
+    presence = createTablePresenceStore(VHARN.id);
+    presence.setState({ members: [ANA_AT_TABLE, BIA_AT_TABLE, CAIO_AT_TABLE] });
     const goblin = lyra({ id: GOBLIN_ID, name: 'Goblin', layer: 'objects' });
     board
       .getState()
@@ -46,6 +59,7 @@ describe('TokenContextMenu', () => {
       <TokenContextMenu
         request={request}
         board={board}
+        presence={presence}
         interaction={interaction}
         onApplyCondition={(tokenIds) => conditionTargets.push(tokenIds)}
         onChangeImage={(tokenId) => imageOf.push(tokenId)}
@@ -275,6 +289,115 @@ describe('TokenContextMenu', () => {
       await act(() => Promise.resolve());
 
       expect(interaction.getState().notice).toBe('recusado: forbidden');
+    });
+  });
+
+  describe('"Tornar principal"', () => {
+    function asBia(): void {
+      const viewer = { userId: BIA_AT_TABLE.userId, role: 'player' as const };
+      board
+        .getState()
+        .apply({ kind: 'board', state: vharnBoard({ viewer, tokens: [lyra(), kael()] }) });
+    }
+
+    it('Bia, in the control of Kael (not her main token), makes him main and the menu closes', async () => {
+      asBia();
+      openOn(KAEL_ID);
+
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Tornar principal' }));
+
+      expect(commands.sentAs('setMainToken').map(({ fields }) => fields)).toEqual([
+        { tokenId: KAEL_ID },
+      ]);
+      expect(closed).toBe(1);
+    });
+
+    it('on her main token the item is not there', () => {
+      asBia();
+      openOn(LYRA_ID);
+
+      expect(screen.queryByRole('menuitem', { name: 'Tornar principal' })).toBeNull();
+    });
+
+    it('the master on a token that does not list her in its control has no item', () => {
+      openOn(KAEL_ID);
+
+      expect(screen.queryByRole('menuitem', { name: 'Tornar principal' })).toBeNull();
+    });
+
+    it('a refusal says why on the status line', async () => {
+      asBia();
+      commands.answerWith({ ok: false, failure: 'forbidden' });
+      openOn(KAEL_ID);
+
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Tornar principal' }));
+      await act(() => Promise.resolve());
+
+      expect(interaction.getState().notice).toBe('recusado: forbidden');
+    });
+  });
+
+  describe('"Tornar principal de" (master)', () => {
+    const CAIO = CAIO_AT_TABLE.userId;
+
+    // Caio chose his Kael; Bia has no choice, so her main token is Lyra, the oldest she controls.
+    function withShared(): void {
+      const shared = lyra({ controllerIds: [BIA_AT_TABLE.userId, CAIO] });
+      const tokens = [shared, kael({ controllerIds: [CAIO] })];
+      const mainTokens = [{ userId: CAIO, tokenId: KAEL_ID }];
+      board.getState().apply({ kind: 'board', state: vharnBoard({ tokens, mainTokens }) });
+    }
+
+    async function openPlayers(): Promise<void> {
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Tornar principal de' }));
+    }
+
+    it('lists the players in the control of Lyra, Bia checked (Lyra is her main token)', async () => {
+      withShared();
+      openOn(LYRA_ID);
+
+      await openPlayers();
+
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Bia' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Caio' })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
+    });
+
+    it('choosing Caio makes Lyra his main token and the menu closes', async () => {
+      withShared();
+      openOn(LYRA_ID);
+
+      await openPlayers();
+      await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Caio' }));
+
+      expect(commands.sentAs('setMainToken').map(({ fields }) => fields)).toEqual([
+        { tokenId: LYRA_ID, playerId: CAIO },
+      ]);
+      expect(closed).toBe(1);
+    });
+
+    it('a token nobody is listed on has no "Tornar principal de"', () => {
+      board.getState().apply({
+        kind: 'board',
+        state: vharnBoard({ tokens: [lyra({ controllerIds: [] })] }),
+      });
+      openOn(LYRA_ID);
+
+      expect(screen.queryByRole('menuitem', { name: 'Tornar principal de' })).toBeNull();
+    });
+
+    it('a player never gets it, even on a token shared with someone else', () => {
+      const viewer = { userId: BIA_AT_TABLE.userId, role: 'player' as const };
+      const shared = lyra({ controllerIds: [BIA_AT_TABLE.userId, CAIO] });
+      board.getState().apply({ kind: 'board', state: vharnBoard({ viewer, tokens: [shared] }) });
+      openOn(LYRA_ID);
+
+      expect(screen.queryByRole('menuitem', { name: 'Tornar principal de' })).toBeNull();
     });
   });
 });

@@ -10,6 +10,7 @@ import type {
   TokensDao,
 } from '../../src/modules/tokens/tokens.dao';
 import type { TokenTransactionRunner } from '../../src/modules/tokens/token-transaction';
+import type { MainTokenChoicePo, MainTokensDao } from '../../src/modules/tokens/main-tokens.dao';
 import { AssetsDaoFake } from './assets-fakes';
 import { CombatDaoFake } from './combat-fakes';
 import { ConditionsDaoFake } from './conditions-fakes';
@@ -172,6 +173,45 @@ export class TokensDaoFake implements Pick<
   }
 }
 
+type SceneChoicePo = MainTokenChoicePo & Readonly<{ sceneId: string }>;
+
+/** In-memory main tokens, one per person per scene. Writes go to `journal` ('choose',
+ *  'dropLostControl'), shared with the scenes fake, so a spec reads the whole order of a command.
+ *
+ *  Example: `const mainTokens = new MainTokensDaoFake(scenes.journal)` */
+export class MainTokensDaoFake implements Pick<
+  MainTokensDao,
+  'listOfScene' | 'choose' | 'dropLostControl'
+> {
+  readonly drops: Array<Readonly<{ tokenId: string; keptUserIds: readonly string[] }>> = [];
+
+  constructor(
+    private readonly journal: string[] = [],
+    readonly choices: SceneChoicePo[] = [],
+  ) {}
+
+  async listOfScene(sceneId: string): Promise<MainTokenChoicePo[]> {
+    return this.choices
+      .filter((choice) => choice.sceneId === sceneId)
+      .map(({ userId, tokenId }) => ({ userId, tokenId }));
+  }
+
+  async choose(sceneId: string, userId: string, tokenId: string): Promise<void> {
+    this.journal.push('choose');
+    const kept = this.choices.filter((c) => c.sceneId !== sceneId || c.userId !== userId);
+    this.choices.splice(0, this.choices.length, ...kept, { sceneId, userId, tokenId });
+  }
+
+  async dropLostControl(tokenId: string, keptUserIds: readonly string[]): Promise<void> {
+    this.journal.push('dropLostControl');
+    this.drops.push({ tokenId, keptUserIds: [...keptUserIds] });
+    const kept = this.choices.filter(
+      (c) => c.tokenId !== tokenId || keptUserIds.includes(c.userId),
+    );
+    this.choices.splice(0, this.choices.length, ...kept);
+  }
+}
+
 /** Runs the work on the fakes and writes 'commit' to the shared journal once it resolves. */
 export class TokenTransactionRunnerFake {
   constructor(
@@ -181,6 +221,7 @@ export class TokenTransactionRunnerFake {
     private readonly combat: CombatDaoFake = new CombatDaoFake(),
     private readonly assets: AssetsDaoFake = new AssetsDaoFake(),
     private readonly walls: Pick<WallsDaoFake, 'listOfScene'> = new WallsDaoFake([]),
+    private readonly mainTokens: MainTokensDaoFake = new MainTokensDaoFake(),
   ) {}
 
   readonly run: TokenTransactionRunner = async (work) => {
@@ -192,6 +233,7 @@ export class TokenTransactionRunnerFake {
       combat: this.combat,
       assets: this.assets,
       walls: this.walls,
+      mainTokens: this.mainTokens,
     });
     this.scenes.journal.push('commit');
     return result;

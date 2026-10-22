@@ -214,6 +214,14 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('setLightsLit', campaignId, { lightIds: [...lightIds], lit });
   }
 
+  setMainToken(
+    campaignId: string,
+    tokenId: string,
+    playerId?: string,
+  ): Promise<BoardCommandResult> {
+    return this.record('setMainToken', campaignId, { tokenId, ...(playerId && { playerId }) });
+  }
+
   deleteLights(
     campaignId: string,
     lightIds: readonly string[],

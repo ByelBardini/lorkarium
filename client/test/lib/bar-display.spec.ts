@@ -51,6 +51,16 @@ describe('formatBarValue', () => {
   ])('as percent, %s of %s reads "%s"', (current, max, shown) => {
     expect(formatBarValue({ current, max, display: 'percent' })).toBe(shown);
   });
+
+  it('a percent bar read with the numbers says both: "71% · 32 / 45"', () => {
+    const bar = { current: 32, max: 45, display: 'percent' } as const;
+    expect(formatBarValue(bar, { withNumbers: true })).toBe('71% · 32 / 45');
+  });
+
+  it('a number bar read with the numbers stays "−4 / 38"', () => {
+    const bar = { current: -4, max: 38, display: 'number' } as const;
+    expect(formatBarValue(bar, { withNumbers: true })).toBe('−4 / 38');
+  });
 });
 
 describe('bar colors', () => {

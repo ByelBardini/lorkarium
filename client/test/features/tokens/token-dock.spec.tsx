@@ -16,12 +16,14 @@ import {
   ANA_AT_TABLE,
   BIA_AT_TABLE,
   KAEL_COMBATANT,
+  KAEL_ID,
   LYRA_COMBATANT,
   LYRA_ID,
   LYRA_PV_ID,
   kael,
   lyra,
   soloCombatant,
+  VHARN_SCENE,
   vharnBoard,
   vharnCombat,
 } from '../../support/table-session-fixtures';
@@ -66,6 +68,16 @@ describe('TokenDock', () => {
 
   const dock = () => screen.getByRole('region', { name: 'Token selecionado' });
   const pvField = () => within(dock()).getByRole('textbox', { name: 'PV de Lyra' });
+  const maxButton = () => screen.getByRole('button', { name: 'Mudar máximo de PV de Lyra' });
+  const maxField = () => screen.queryByRole('textbox', { name: 'Máximo de PV de Lyra' });
+
+  async function openMax(): Promise<HTMLElement> {
+    await userEvent.click(maxButton());
+    const field = maxField();
+    if (!field)
+      throw new Error('"Mudar máximo de PV de Lyra" opened no "Máximo de PV de Lyra" field');
+    return field;
+  }
 
   it('names the token, who plays it and where it is (cells counted from 1)', () => {
     renderDock();
@@ -120,17 +132,24 @@ describe('TokenDock', () => {
     ]);
   });
 
-  it('"60" + Enter in Máx. sends the new maximum', async () => {
+  it('the maximum waits behind the "Máx." button on the line of the bar, with no field of its own', () => {
     renderDock();
 
-    await userEvent.type(
-      screen.getByRole('textbox', { name: 'Máximo de PV de Lyra' }),
-      '60{Enter}',
-    );
+    expect(maxButton()).toHaveTextContent('Máx.');
+    expect(maxField()).toBeNull();
+  });
+
+  it('"60" + Enter in Máx. sends the new maximum and closes the field', async () => {
+    renderDock();
+
+    const field = await openMax();
+    expect(field).toHaveAttribute('placeholder', '45');
+    await userEvent.type(field, '60{Enter}');
 
     expect(commands.sentAs('adjustBar').map(({ fields }) => fields)).toEqual([
       { tokenId: LYRA_ID, barId: LYRA_PV_ID, change: { op: 'max', value: 60 } },
     ]);
+    expect(maxField()).toBeNull();
   });
 
   it('without canControl the bars are read only', () => {
@@ -153,10 +172,11 @@ describe('TokenDock', () => {
     expect(dock()).not.toHaveTextContent('Editar token');
   });
 
-  it('with two selected no detail opens', () => {
+  it('the master with two selected and no main token opens no detail', () => {
     renderDock({ tokens: [lyra(), kael()] }, true, [LYRA_ID, kael().id]);
 
     expect(screen.queryByRole('region', { name: 'Token selecionado' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Token principal' })).toBeNull();
   });
 
   it('while reconnecting the bar fields are disabled', () => {
@@ -199,7 +219,7 @@ describe('TokenDock', () => {
 
   it.each(['0', '-5', '2,5'])('"%s" in Máx. sends nothing and is marked invalid', async (text) => {
     renderDock();
-    const field = screen.getByRole('textbox', { name: 'Máximo de PV de Lyra' });
+    const field = await openMax();
 
     await userEvent.type(field, `${text}{Enter}`);
 
@@ -207,12 +227,21 @@ describe('TokenDock', () => {
     expect(field).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it('a bar shown as percent reads "71%"', () => {
+  it('a percent bar of a token one controls reads the numbers too: "71% · 32 / 45"', () => {
     const [pv, inspiration] = lyra().bars;
     if (!pv || !inspiration) throw new Error('lyra() lost its bars');
     renderDock({ tokens: [lyra({ bars: [{ ...pv, display: 'percent' }, inspiration] })] });
 
-    expect(within(dock()).getByText('71%')).toBeInTheDocument();
+    expect(within(dock()).getByText('71% · 32 / 45')).toBeInTheDocument();
+  });
+
+  it('a percent bar of a token one does not control reads only "100%"', () => {
+    const [, inspiration] = lyra().bars;
+    if (!inspiration) throw new Error('lyra() lost its bars');
+    const percent = { ...inspiration, display: 'percent' as const };
+    renderDock({ tokens: [lyra({ canControl: false, bars: [percent] })] }, false);
+
+    expect(within(dock()).getByText('100%')).toBeInTheDocument();
   });
 
   it('a negative value reads "−4 / 38" in the error color', () => {
@@ -324,6 +353,56 @@ describe('TokenDock', () => {
 
       expect(within(dock()).queryByRole('textbox', { name: /^Iniciativa/ })).toBeNull();
       expect(within(dock()).queryByRole('button', { name: 'Editar token' })).toBeNull();
+    });
+  });
+
+  describe('the main token', () => {
+    const asBia = { viewer: { userId: BIA_AT_TABLE.userId, role: 'player' as const } };
+    const mainDock = () => screen.getByRole('region', { name: 'Token principal' });
+
+    function renderForBia(state: Partial<BoardStateDto> = {}, selected: readonly string[] = []) {
+      renderDock({ ...asBia, tokens: [lyra(), kael()], ...state }, false, selected);
+    }
+
+    it('with nothing selected Bia sees her Lyra, its bars and the "Principal" mark, with no "Fechar ficha"', () => {
+      renderForBia();
+
+      expect(within(mainDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
+      expect(mainDock()).toHaveTextContent('PV32 / 45');
+      expect(within(mainDock()).getByRole('textbox', { name: 'PV de Lyra' })).toBeInTheDocument();
+      expect(within(mainDock()).getByText('Principal')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Fechar ficha' })).toBeNull();
+    });
+
+    it('selecting Kael shows Kael with "Fechar ficha", which brings Lyra back', async () => {
+      renderForBia({}, [KAEL_ID]);
+
+      expect(within(dock()).getByRole('heading', { name: 'Kael' })).toBeInTheDocument();
+      await userEvent.click(within(dock()).getByRole('button', { name: 'Fechar ficha' }));
+
+      expect(within(mainDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
+    });
+
+    it('selecting her own Lyra keeps the "Principal" mark and no "Fechar ficha"', () => {
+      renderForBia({}, [LYRA_ID]);
+
+      expect(within(dock()).getByText('Principal')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Fechar ficha' })).toBeNull();
+    });
+
+    it('with two selected the main token shows', () => {
+      renderForBia({}, [LYRA_ID, KAEL_ID]);
+
+      expect(within(mainDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
+    });
+
+    it('a selected token hidden by the dark gives way to the main token', () => {
+      const unseen = kael({ canControl: false, controllerIds: [] });
+      renderForBia({ scene: { ...VHARN_SCENE, vision: 'dark' }, tokens: [lyra(), unseen] }, [
+        KAEL_ID,
+      ]);
+
+      expect(within(mainDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
     });
   });
 });

@@ -47,4 +47,4 @@ A tela que a pessoa vê ao logar e a moldura que as telas logadas herdam. Plano 
 ## Testes
 
 - `client/test/app/shell/` (shell, menu, gaveta, `api-loader`), `client/test/features/home/` (linha, lista, página, rota, os dois diálogos) e `client/test/features/campaigns/` (modal de detalhe); a sala, o painel "Na mesa", o `useOpenTable` e o `useSignOutWhenRefused` são provados em `client/test/features/board/play-room-page.spec.tsx`, pelo router inteiro, com `testDependencies()`.
-- E2E: `e2e/test/home.spec.ts` (ver [`../ci.md`](../ci.md)).
+- E2E: `e2e/test/home.spec.ts` (ver [`../ci/e2e.md`](../ci/e2e.md)).

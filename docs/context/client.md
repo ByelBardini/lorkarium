@@ -4,21 +4,22 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 
 > **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda a estrutura, as rotas e os testes.
 
-| Assunto                                                                      | Arquivo                                         |
-| ---------------------------------------------------------------------------- | ----------------------------------------------- |
-| Tokens de cor, tipografia, forma, componentes base e regras anti-template    | [`design-system.md`](client/design-system.md)   |
-| Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe               | [`home.md`](client/home.md)                     |
-| Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos      | [`board.md`](client/board.md)                   |
-| Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador      | [`board-renderer.md`](client/board-renderer.md) |
-| Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras | [`tokens.md`](client/tokens.md)                 |
-| Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz | [`token-dialog.md`](client/token-dialog.md)     |
-| Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro | [`combat.md`](client/combat.md)                 |
-| Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)      | [`drawings.md`](client/drawings.md)             |
-| Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar      | [`effect-areas.md`](client/effect-areas.md)     |
-| Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas     | [`walls.md`](client/walls.md)                   |
-| Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre | [`vision.md`](client/vision.md)                 |
-| Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender       | [`lights.md`](client/lights.md)                 |
-| Cone: campo de visão, lanterna, holofote mirado, contorno do mestre          | [`cones.md`](client/cones.md)                   |
+| Assunto                                                                                   | Arquivo                                         |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Tokens de cor, tipografia, forma, componentes base e regras anti-template                 | [`design-system.md`](client/design-system.md)   |
+| Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe                            | [`home.md`](client/home.md)                     |
+| Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos                   | [`board.md`](client/board.md)                   |
+| Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                   | [`board-renderer.md`](client/board-renderer.md) |
+| Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras              | [`tokens.md`](client/tokens.md)                 |
+| Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz              | [`token-dialog.md`](client/token-dialog.md)     |
+| Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain` | [`token-dock.md`](client/token-dock.md)         |
+| Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro              | [`combat.md`](client/combat.md)                 |
+| Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)                   | [`drawings.md`](client/drawings.md)             |
+| Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar                   | [`effect-areas.md`](client/effect-areas.md)     |
+| Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas                  | [`walls.md`](client/walls.md)                   |
+| Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre              | [`vision.md`](client/vision.md)                 |
+| Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender                    | [`lights.md`](client/lights.md)                 |
+| Cone: campo de visão, lanterna, holofote mirado, contorno do mestre                       | [`cones.md`](client/cones.md)                   |
 
 ## Estrutura
 

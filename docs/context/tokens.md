@@ -2,6 +2,10 @@
 
 Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de cada um (a vida generalizada) e o que cada público recebe. Server em `server/src/modules/tokens/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts.md`](contracts.md) (`token.dto.ts`); regra da barra em [`game-core.md`](game-core.md). O client fica em [`client/board.md`](client/board.md).
 
+| Sub-arquivo                                    | O que cobre                                                                        |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [`tokens/main-token.md`](tokens/main-token.md) | Token principal: tabela `main_tokens`, DAO, regra de quem escolhe, `token:setMain` |
+
 ## Tabelas (`tokens.po.ts`, migrações `0003_tokens`, `0006_token_layers`, `0012_token_appearance`, `0013_token_box`, `0014_token_box_drop_size`, `0018_token_sight`, `0021_bar_display`, `0022_token_defeated`, `0023_token_light`, `0026_token_light_color` e `0027_token_cones`)
 
 - `tokens`: `id`, `scene_id` (cascade, indexado), `name`, `initials`, `side` (enum `token_side`), `width`, `height`, `col`, `row` (`double precision`, em casas, de meia em meia: `CHECK tokens_box_half_cells` — origem ≥ 0, lados de 0,5 a 10, todos múltiplos de 0,5), `layer` (enum `token_layer`: `tokens` | `objects` | `background`, padrão `tokens`; a `0006` pôs todo token que existia em `tokens`), `image_asset_id` (→ `assets`, **set null**: perder o asset devolve as iniciais), `frame` (enum `token_frame`: `square` | `round`, padrão `square`), `flip_x`, `flip_y` (padrão `false`), `facing` (`smallint`, padrão 0, `CHECK tokens_facing_range` 0–359), `defeated` (padrão `false`: a marca de abatido; só o `token:restyleMany` a muda — criar e colar nascem vivos), timestamps. A camada, a aparência e a direção são do token inteiro e não são segredo: vão iguais a todos os públicos. `TokenLookPo` = imagem, borda e inverter (o que o `update` aceita); `TokenStylePo` = `TokenLookPo` + `defeated` (o do `restyle`); o `TokenFieldsPo` do `update` aceita a aparência parcial (campo ausente não é escrito).
@@ -37,21 +41,22 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 - `token-transaction.ts` (sem camada: peças comuns dos dois services): `TokenWriteDaos` / `TokenTransactionRunner` (`ScenesDao`, `TokensDao`, `ConditionsDao` e `CombatDao` presos ao `tx`), `withConditions`, `audiencesOf` (o token nos dois públicos), `newTokenRowOf(sceneId, regra, token)` (posição e controladores conferidos), `leaveCombat(daos, cena, acesso, tokenIds)` (antes do `delete`: `CombatRosterBo.leavingTokens` → `removeCombatants` das entradas que esvaziam → `setTurn` se a vez andou; o vínculo vai pela cascata), `combatOf`, `tokenIn`, `tokensIn`, `tokenAccessOf` e `requireAssetsOf(daos, campaignId, ids)` — toda imagem que um comando põe em token tem de ser asset **da mesa** (`AssetsDao.findManyInCampaign` preso ao `tx`, nos `TokenWriteDaos`); a primeira que não é (de outra mesa também) → `ASSET_NOT_FOUND` antes de gravar. Vale para `create`, `update` e `createMany` (colar). O `newTokenRowOf` grava a aparência e a direção do comando (a colagem leva as copiadas; o padrão é o disco olhando para a direita, `facing` 0).
 - `TokenBatchService` (`token-batch.service.ts`, colar e o desfazer dele, só mestre): `createMany` (todos conferidos pelo `newTokenRowOf` antes do `insertMany`; a cópia com `combatantId` entra na entrada do original pelo `joinPastedToCombat` do `token-transaction.ts` — `CombatRosterBo.pastedLinks`: só se a entrada está no combate da cena; a que já saiu, a de outra mesa ou a falta dela deixam a cópia fora, **sem erro** —, na mesma versão; publica **um** `BoardPublisherPort.tokensCreated({ …, tokens: TokenAudiences[], combat })`, com o combate da cena ou `null`) e `deleteMany` (o `expect` de cada token pelo `requireAt`; pelo `leaveCombat` as entradas que ficam sem token saem e a vez passa por **todas** elas de uma vez, na mesma transação (a que nasceu sem token, como o 'Covil', fica); publica `tokensDeleted` com o combate já sem eles).
 
-| Comando             | Quem                                              | Evento                                                                |
-| ------------------- | ------------------------------------------------- | --------------------------------------------------------------------- |
-| `token:create`      | mestre                                            | `token:created` `{ token }` (por público)                             |
-| `token:update`      | mestre                                            | `token:updated` `{ token }` (por público)                             |
-| `token:move`        | mestre, quem controla                             | `token:moved` `{ tokenId, col, row }`                                 |
-| `token:moveMany`    | mestre, quem controla                             | `token:movedMany` `{ moves }` (à mesa toda, uma versão)               |
-| `token:dragMany`    | mestre, quem controla                             | `token:draggedMany` `{ drags }` (sem versão, menos quem arrasta)      |
-| `token:setLayer`    | mestre                                            | `token:layerChanged` `{ tokenIds, layer }` (à mesa toda)              |
-| `token:faceMany`    | mestre, quem controla (camada Tokens, como mover) | `token:facedMany` `{ faces }` (à mesa toda, uma versão)               |
-| `token:restyleMany` | mestre, quem controla (qualquer camada)           | `token:restyledMany` `{ tokenIds, style }` (à mesa toda)              |
-| `token:resizeMany`  | mestre, quem controla (qualquer camada)           | `token:resizedMany` `{ resizes }` (à mesa toda, uma versão)           |
-| `token:adjustBar`   | mestre, quem controla                             | `token:updated` `{ token }` (por público)                             |
-| `token:delete`      | mestre                                            | `token:deleted` `{ tokenId }`                                         |
-| `token:createMany`  | mestre                                            | `token:createdMany` `{ tokens, combat }` (cada público a sua mistura) |
-| `token:deleteMany`  | mestre                                            | `token:deletedMany` `{ tokenIds, combat }` (à mesa toda)              |
+| Comando             | Quem                                                | Evento                                                                                                      |
+| ------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `token:create`      | mestre                                              | `token:created` `{ token }` (por público)                                                                   |
+| `token:update`      | mestre                                              | `token:updated` `{ token }` (por público)                                                                   |
+| `token:move`        | mestre, quem controla                               | `token:moved` `{ tokenId, col, row }`                                                                       |
+| `token:moveMany`    | mestre, quem controla                               | `token:movedMany` `{ moves }` (à mesa toda, uma versão)                                                     |
+| `token:dragMany`    | mestre, quem controla                               | `token:draggedMany` `{ drags }` (sem versão, menos quem arrasta)                                            |
+| `token:setLayer`    | mestre                                              | `token:layerChanged` `{ tokenIds, layer }` (à mesa toda)                                                    |
+| `token:faceMany`    | mestre, quem controla (camada Tokens, como mover)   | `token:facedMany` `{ faces }` (à mesa toda, uma versão)                                                     |
+| `token:restyleMany` | mestre, quem controla (qualquer camada)             | `token:restyledMany` `{ tokenIds, style }` (à mesa toda)                                                    |
+| `token:resizeMany`  | mestre, quem controla (qualquer camada)             | `token:resizedMany` `{ resizes }` (à mesa toda, uma versão)                                                 |
+| `token:adjustBar`   | mestre, quem controla                               | `token:updated` `{ token }` (por público)                                                                   |
+| `token:setMain`     | quem está no Controle (o poder de mestre não conta) | `token:mainChanged` `{ userId, tokenId }` (à mesa toda; ver [`tokens/main-token.md`](tokens/main-token.md)) |
+| `token:delete`      | mestre                                              | `token:deleted` `{ tokenId }`                                                                               |
+| `token:createMany`  | mestre                                              | `token:createdMany` `{ tokens, combat }` (cada público a sua mistura)                                       |
+| `token:deleteMany`  | mestre                                              | `token:deletedMany` `{ tokenIds, combat }` (à mesa toda)                                                    |
 
 ## Comandos de grupo
 

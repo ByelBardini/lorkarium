@@ -69,6 +69,7 @@ test('tokens live: the hidden bar never reaches another player, only the control
   await pv.fill('−50');
   await pv.press('Enter');
   await expect(cardOf(admin, 'Lyra')).toContainText('−40 / 10');
+  await bia.getByRole('button', { name: 'Mudar máximo de PV de Lyra' }).click();
   const pvMax = bia.getByRole('textbox', { name: 'Máximo de PV de Lyra' });
   await pvMax.fill('50');
   await pvMax.press('Enter');

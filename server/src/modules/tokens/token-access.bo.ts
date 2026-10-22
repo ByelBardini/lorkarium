@@ -29,6 +29,29 @@ export class TokenAccessBo {
     );
   }
 
+  /** Only someone listed in the control of the token passes: the master's power does not count.
+   *  It is what choosing a main token takes (the dock shows one's own token).
+   *
+   *  Example: `access.requireListed('choose as main')` */
+  requireListed(action: string): void {
+    if (this.token.controllerIds.some((userId) => this.campaign.isUser(userId))) return;
+    this.campaign.forbid(`${action} token ${this.token.tokenId}`, 'being listed in its control');
+  }
+
+  /** Choosing the main token of `playerId`: one's own takes being listed (`requireListed`);
+   *  another's takes the master role, and that player being listed in the control.
+   *
+   *  Example: `access.requireChooseMainFor(biaId)` */
+  requireChooseMainFor(playerId: string): void {
+    if (this.campaign.isUser(playerId)) return this.requireListed('choose as main');
+    this.campaign.requireMaster(`choose the main token of ${playerId}`);
+    if (this.token.controllerIds.includes(playerId)) return;
+    this.campaign.forbid(
+      `choose token ${this.token.tokenId} as main of ${playerId}`,
+      'the player being listed in its control',
+    );
+  }
+
   /** Moving or dragging: control, and for anyone but the master the token must be on the
    *  `tokens` layer — the players never pick up the objects or the background.
    *
