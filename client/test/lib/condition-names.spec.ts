@@ -8,15 +8,34 @@ import {
 } from '@/lib/condition-names';
 
 const DEFINITIONS: readonly ConditionDefinitionDto[] = [
-  { id: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', name: 'Envenenado', tone: 'harm', icon: 'skull' },
-  { id: 'b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e', name: 'Caído', tone: 'harm', icon: 'skull' },
+  {
+    id: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
+    name: 'Envenenado',
+    tone: 'harm',
+    icon: 'skull',
+    look: null,
+  },
+  {
+    id: 'b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e',
+    name: 'Caído',
+    tone: 'harm',
+    icon: 'skull',
+    look: null,
+  },
   {
     id: 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f',
     name: 'Abençoado',
     tone: 'benefit',
     icon: 'sparkles',
+    look: null,
   },
-  { id: 'd1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a', name: 'Cego', tone: 'harm', icon: 'skull' },
+  {
+    id: 'd1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a',
+    name: 'Cego',
+    tone: 'harm',
+    icon: 'skull',
+    look: null,
+  },
 ];
 
 describe('conditionKey', () => {
@@ -62,9 +81,34 @@ describe('conditionSuggestions', () => {
 
 describe('orderedByTone', () => {
   it('puts the benefits first and keeps the order inside each nature', () => {
-    const harmA = { id: 'a', name: 'Caído', tone: 'harm', icon: 'skull' } as const;
-    const benefit = { id: 'b', name: 'Abençoado', tone: 'benefit', icon: 'sparkles' } as const;
-    const harmB = { id: 'c', name: 'Cego', tone: 'harm', icon: 'eye-off' } as const;
+    const harmA = { id: 'a', name: 'Caído', tone: 'harm', icon: 'skull', look: null } as const;
+    const benefit = {
+      id: 'b',
+      name: 'Abençoado',
+      tone: 'benefit',
+      icon: 'sparkles',
+      look: null,
+    } as const;
+    const harmB = { id: 'c', name: 'Cego', tone: 'harm', icon: 'eye-off', look: null } as const;
     expect(orderedByTone([harmA, benefit, harmB]).map(({ id }) => id)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('puts the incapacitating between the benefits and the harms, as the list shows them', () => {
+    const harm = { id: 'a', name: 'Caído', tone: 'harm', icon: 'skull', look: null } as const;
+    const stop = {
+      id: 'b',
+      name: 'Paralisado',
+      tone: 'incapacitating',
+      icon: 'lock',
+      look: null,
+    } as const;
+    const benefit = {
+      id: 'c',
+      name: 'Abençoado',
+      tone: 'benefit',
+      icon: 'sparkles',
+      look: null,
+    } as const;
+    expect(orderedByTone([harm, stop, benefit]).map(({ id }) => id)).toEqual(['c', 'b', 'a']);
   });
 });

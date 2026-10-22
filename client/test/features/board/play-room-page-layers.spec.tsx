@@ -20,6 +20,7 @@ const CAIDO = {
   name: 'Caído',
   tone: 'harm',
   icon: 'skull',
+  look: null,
 } as const;
 
 describe('play room: layers', () => {

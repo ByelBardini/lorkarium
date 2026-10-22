@@ -155,6 +155,42 @@ describe('conditions over Socket.IO', () => {
     expect(refused).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
   });
 
+  it('the master defining "Inconsciente" incapacitating and unconscious reaches the table with both, and applying it carries the look', async () => {
+    const master = await atTable(baseUrl, clients, ana, vharn);
+    const lyraId = await lyraOfBia(master);
+    const biaEvents = recordEventsOf(await atTable(baseUrl, clients, bia, vharn));
+    const caioEvents = recordEventsOf(await atTable(baseUrl, clients, caio, vharn));
+    const quelmEvents = recordEventsOf(await atTable(baseUrl, clients, caio, quelm));
+    const define = { ...envelope(vharn.id), name: 'Inconsciente', tone: 'incapacitating' };
+    await send(master, 'condition:define', { ...define, icon: 'moon', look: 'unconscious' });
+    const expected = { name: 'Inconsciente', tone: 'incapacitating', look: 'unconscious' };
+    expect(await eventPayload(biaEvents, 'condition:defined')).toMatchObject({
+      definition: expected,
+    });
+    expect(await eventPayload(caioEvents, 'condition:defined')).toMatchObject({
+      definition: expected,
+    });
+    const inconsciente = definitionId(await synced(master, vharn), 'Inconsciente');
+    const apply = { ...envelope(vharn.id), tokenId: lyraId, conditionId: inconsciente, rounds: 0 };
+    await send(master, 'condition:apply', apply);
+    const applied = conditionAppliedDto.parse(await eventPayload(caioEvents, 'condition:applied'));
+    expect(applied.condition).toMatchObject(expected);
+    const lyra = (await synced(caioEvents.client, vharn)).tokens.find(({ id }) => id === lyraId);
+    expect(lyra?.conditions).toEqual([applied.condition]);
+    expect(quelmEvents.events.map(({ name }) => name)).not.toContain('condition:defined');
+  });
+
+  it('a define with a forged userId is INVALID_BODY and defines nothing', async () => {
+    const master = await atTable(baseUrl, clients, ana, vharn);
+    const define = { ...envelope(vharn.id), name: 'Sumido', tone: 'benefit', icon: 'ghost' };
+    const refused = await send(master, 'condition:define', { ...define, userId: bia.id });
+    expect(refused).toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: 'INVALID_BODY' }),
+    });
+    expect((await synced(master, vharn)).conditionDefinitions).toHaveLength(11);
+  });
+
   it('defining a name that exists answers ok without a new definition or an event', async () => {
     const master = await atTable(baseUrl, clients, ana, vharn);
     const biaEvents = recordEventsOf(await atTable(baseUrl, clients, bia, vharn));

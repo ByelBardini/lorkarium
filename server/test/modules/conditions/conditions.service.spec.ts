@@ -119,6 +119,7 @@ describe('ConditionsService', () => {
       name: 'Sangrando',
       tone: 'harm',
       icon: 'droplet',
+      look: null,
     });
     expect(version).toBe(5);
     expect(publisher.conditionEvents).toEqual([
@@ -133,17 +134,43 @@ describe('ConditionsService', () => {
       name: 'abençoado',
       tone: 'benefit',
       icon: 'sun',
+      look: 'invisible',
     });
     expect(version).toBe(4);
     expect(conditions.definitions.filter(({ campaignId }) => campaignId === VHARN_ID)).toHaveLength(
       1,
     );
     expect(publisher.published).toBe(0);
+    expect(conditions.definitions.find(({ id }) => id === abencoado)?.look).toBeNull();
+  });
+
+  it('the master defining "Inconsciente" incapacitating and unconscious saves both, then publishes them after the commit', async () => {
+    await service.define(ANA_ID, VHARN_ID, {
+      name: 'Inconsciente',
+      tone: 'incapacitating',
+      icon: 'moon',
+      look: 'unconscious',
+    });
+    expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+    expect(conditions.definitions.at(-1)).toMatchObject({
+      tone: 'incapacitating',
+      look: 'unconscious',
+    });
+    expect(publisher.conditionEvents).toEqual([
+      expect.objectContaining({
+        definition: expect.objectContaining({ tone: 'incapacitating', look: 'unconscious' }),
+      }),
+    ]);
   });
 
   it('a player defining a condition is FORBIDDEN', async () => {
     await expect(
-      service.define(BIA_ID, VHARN_ID, { name: 'Sangrando', tone: 'harm', icon: 'droplet' }),
+      service.define(BIA_ID, VHARN_ID, {
+        name: 'Sangrando',
+        tone: 'harm',
+        icon: 'droplet',
+        look: null,
+      }),
     ).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });

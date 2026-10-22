@@ -18,6 +18,7 @@ export {
 export {
   activeConditions,
   conditionDefinitions,
+  conditionLook,
   conditionTone,
 } from '../modules/conditions/conditions.po';
 export { combatantTokens, combatants, combats } from '../modules/combat/combat.po';

@@ -4,6 +4,7 @@ import { ConditionMark } from './condition-marks';
 
 const GROUPS: readonly Readonly<{ tone: ConditionToneDto; title: string }>[] = [
   { tone: 'benefit', title: 'Benéficas' },
+  { tone: 'incapacitating', title: 'Incapacitantes' },
   { tone: 'harm', title: 'Prejudiciais' },
 ];
 
@@ -16,7 +17,8 @@ export type ConditionSuggestionListProps = Readonly<{
   onTake: (name: string) => void;
 }>;
 
-/** The listbox of a condition name: one group per nature, benefits first; as tall as the room
+/** The listbox of a condition name: one group per nature (benefits, incapacitating,
+ *  harms); as tall as the room
  *  the popover found (up to 15rem).
  *
  *  Example: `<ConditionSuggestionList id={id} suggestions={s} active={0} onTake={take} />` */

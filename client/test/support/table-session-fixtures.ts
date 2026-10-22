@@ -275,6 +275,7 @@ export function activeCondition(overrides: Partial<ActiveConditionDto> = {}): Ac
     name: 'Envenenado',
     tone: 'harm',
     icon: 'flask-conical',
+    look: null,
     remainingRounds: 2,
     ...overrides,
   };

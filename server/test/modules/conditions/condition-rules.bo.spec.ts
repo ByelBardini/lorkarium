@@ -18,6 +18,7 @@ describe('ConditionRulesBo', () => {
       name: 'Envenenado',
       tone: 'harm',
       icon: 'flask-conical',
+      look: null,
     } as const;
     expect(rules.defineOrReuse(existing)).toEqual({ kind: 'reuse', definition: existing });
   });
@@ -26,9 +27,18 @@ describe('ConditionRulesBo', () => {
     expect(rules.defineOrReuse(undefined)).toEqual({ kind: 'create' });
   });
 
-  it('the initial list has 3 benefits and 8 harms', () => {
+  it('the initial list has 3 benefits, 6 harms and 2 incapacitating', () => {
     expect(DEFAULT_CONDITIONS.filter(({ tone }) => tone === 'benefit')).toHaveLength(3);
-    expect(DEFAULT_CONDITIONS.filter(({ tone }) => tone === 'harm')).toHaveLength(8);
+    expect(DEFAULT_CONDITIONS.filter(({ tone }) => tone === 'harm')).toHaveLength(6);
+    expect(
+      DEFAULT_CONDITIONS.filter(({ tone }) => tone === 'incapacitating').map(({ name }) => name),
+    ).toEqual(['Atordoado', 'Paralisado']);
+  });
+
+  it('only Invisível changes the token: Concentrando and Caído stay icons, and there is no Inconsciente', () => {
+    const withLook = DEFAULT_CONDITIONS.filter(({ look }) => look !== null);
+    expect(withLook).toEqual([expect.objectContaining({ name: 'Invisível', look: 'invisible' })]);
+    expect(DEFAULT_CONDITIONS.map(({ name }) => name)).not.toContain('Inconsciente');
   });
 
   it('each initial condition has its own icon, none left on the generic one', () => {

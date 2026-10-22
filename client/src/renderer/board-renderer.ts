@@ -92,9 +92,15 @@ export type BoardLightIntent =
   | Readonly<{ kind: 'lightAimed'; lightId: string; facing: number }>
   | Readonly<{ kind: 'lightMenuRequested'; lightId: string; x: number; y: number }>;
 
+/** A rectangle in viewport px (what `getBoundingClientRect` speaks). */
+export type ScreenRect = Readonly<{ x: number; y: number; width: number; height: number }>;
+
 /** The cell under the pointer while it hovers the board (`null` once it leaves): where a paste
- *  lands. */
-export type BoardHoverIntent = Readonly<{ kind: 'pointerHovered'; cell: Cell | null }>;
+ *  lands. And the pickable token under it, with where it is drawn (`null`: none, the pointer
+ *  left, a button went down or the camera moved). */
+export type BoardHoverIntent =
+  | Readonly<{ kind: 'pointerHovered'; cell: Cell | null }>
+  | Readonly<{ kind: 'tokenHovered'; tokenId: string | null; rect: ScreenRect | null }>;
 
 /** What the board tells React: it never changes state itself. */
 export type BoardIntent =

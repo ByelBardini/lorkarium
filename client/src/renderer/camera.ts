@@ -67,6 +67,23 @@ export function fitScene(scene: Size, viewport: Size): Camera {
   };
 }
 
+/** The camera that brings `world` to the middle of the screen at the same zoom, or `null` when
+ *  the point is already on screen (a row picked in the panel moves the board only when needed).
+ *
+ *  Example: `centeredOn(camera, tokenCenterOf(token), viewport) ?? camera` */
+export function centeredOn(camera: Camera, world: Point, viewport: Size): Camera | null {
+  const screen = worldToScreen(camera, world);
+  const inside =
+    screen.x >= 0 && screen.x <= viewport.width && screen.y >= 0 && screen.y <= viewport.height;
+  if (inside) return null;
+  const { zoom } = camera;
+  return {
+    zoom,
+    offsetX: viewport.width / 2 - world.x * zoom,
+    offsetY: viewport.height / 2 - world.y * zoom,
+  };
+}
+
 /** Pulls the camera back so at least a quarter of the scene stays on screen on each axis.
  *
  *  Example: `clampToScene(panBy(camera, dx, dy), scene, viewport)` */

@@ -1,6 +1,7 @@
 import type {
   ConditionDefinitionDto,
   ConditionIconDto,
+  ConditionLookDto,
   ConditionToneDto,
 } from '@lorkarium/contracts';
 import { useId, useState } from 'react';
@@ -15,6 +16,7 @@ import type { NewConditionDefinition } from '@/services/table-board-commands';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { ConditionIconField } from './condition-icon-field';
+import { ConditionLookField } from './condition-look-field';
 import { ConditionNameField } from './condition-name-field';
 import { ConditionToneField } from './condition-tone-field';
 
@@ -33,7 +35,7 @@ const NO_DEFINITIONS: readonly ConditionDefinitionDto[] = [];
 
 /** A typed condition name (the table's list as suggestions) + "Rodadas" (empty or 0 = no limit,
  *  "∞") + "Aplicar". A name not on the list is created first, by the master only, with its icon
- *  and nature in one compact row.
+ *  and nature in one compact row and its look on the token below.
  *
  *  Example: `<ConditionPicker board={board} interaction={interaction} isMaster disabled={false} label="Adicionar condição" onApply={apply} />` */
 export function ConditionPicker(props: ConditionPickerProps): React.JSX.Element {
@@ -45,13 +47,15 @@ export function ConditionPicker(props: ConditionPickerProps): React.JSX.Element 
   const [rounds, setRounds] = useState('');
   const [tone, setTone] = useState<ConditionToneDto>('harm');
   const [icon, setIcon] = useState<ConditionIconDto>('circle-dot');
+  const [look, setLook] = useState<ConditionLookDto | null>(null);
   const ids = { name: useId(), rounds: useId() };
   const known = findConditionByName(definitions, name);
   const isNew = name.trim() !== '' && !known;
   const blocked = props.disabled || name.trim() === '' || (isNew && !props.isMaster);
   const submit = async (): Promise<void> => {
     if (blocked) return;
-    const conditionId = known?.id ?? (await defineNamed(props, { name: name.trim(), tone, icon }));
+    const definition = { name: name.trim(), tone, icon, look };
+    const conditionId = known?.id ?? (await defineNamed(props, definition));
     if (conditionId && (await props.onApply(conditionId, Number(rounds) || 0))) setName('');
   };
   const creating = isNew && props.isMaster;
@@ -104,6 +108,7 @@ export function ConditionPicker(props: ConditionPickerProps): React.JSX.Element 
           <ConditionToneField value={tone} onChange={setTone} />
         </div>
       )}
+      {creating && <ConditionLookField value={look} onChange={setLook} />}
       {isNew && !props.isMaster && (
         <p className="text-[13px] text-muted-foreground">Só o mestre cria condição nova.</p>
       )}

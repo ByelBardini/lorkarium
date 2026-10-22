@@ -1,4 +1,5 @@
 import { StrictMode } from 'react';
+import { browserClock } from '@/lib/interaction-clock';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { buildRoutes } from '@/app/router';
@@ -57,6 +58,7 @@ const router = createBrowserRouter(
     lightColor: createLightColorStore(browserStorage),
     createBoardRenderer: createPixiBoardRenderer,
     boardCommands: new RealtimeTableBoardCommands(realtime, newActionId),
+    interactionClock: browserClock,
     now: () => new Date(),
     random: Math.random,
   }),

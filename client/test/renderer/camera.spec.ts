@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CELL_WORLD_SIZE,
   ZOOM_LIMITS,
+  centeredOn,
   clampToScene,
   fitScene,
   panBy,
@@ -79,6 +80,20 @@ describe('camera', () => {
   it('clampToScene leaves a camera that already shows the scene alone', () => {
     const fitted = fitScene(SCENE_20_BY_12, VIEWPORT);
     expect(clampToScene(fitted, SCENE_20_BY_12, VIEWPORT)).toEqual(fitted);
+  });
+});
+
+describe('centeredOn', () => {
+  const viewport = { width: 800, height: 600 };
+
+  it('a point already on screen leaves the camera alone', () => {
+    expect(centeredOn(CAMERA, { x: 100, y: 100 }, viewport)).toBeNull();
+  });
+
+  it('a point off screen comes to the middle, at the same zoom', () => {
+    const moved = centeredOn(CAMERA, { x: 1000, y: 40 }, viewport);
+    expect(moved).toEqual({ zoom: 2, offsetX: 400 - 2000, offsetY: 300 - 80 });
+    expect(moved && worldToScreen(moved, { x: 1000, y: 40 })).toEqual({ x: 400, y: 300 });
   });
 });
 

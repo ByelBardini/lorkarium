@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { showsNameTag } from '@/renderer/name-tag';
+import { nameTagTop, showsNameTag } from '@/renderer/name-tag';
 
 describe('showsNameTag', () => {
   it('the token under the pointer shows its name', () => {
@@ -13,5 +13,15 @@ describe('showsNameTag', () => {
   it('a token neither hovered nor selected hides it, even while another is hovered', () => {
     expect(showsNameTag({ id: 'kael', selected: false }, 'lyra')).toBe(false);
     expect(showsNameTag({ id: 'kael', selected: false }, null)).toBe(false);
+  });
+});
+
+describe('nameTagTop', () => {
+  it('without a strip the plate sits 4 px under the token', () => {
+    expect(nameTagTop(64, 0)).toBe(68);
+  });
+
+  it('with a strip the plate goes down by its height', () => {
+    expect(nameTagTop(64, 13)).toBe(81);
   });
 });

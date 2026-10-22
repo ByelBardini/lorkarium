@@ -6,9 +6,14 @@ import { cn } from '@/lib/utils';
 const TONES: readonly Readonly<{ value: ConditionToneDto; label: string; checked: string }>[] = [
   { value: 'benefit', label: 'Benéfica', checked: 'data-[state=checked]:text-primary' },
   { value: 'harm', label: 'Prejudicial', checked: 'data-[state=checked]:text-destructive-text' },
+  {
+    value: 'incapacitating',
+    label: 'Incapacitante',
+    checked: 'data-[state=checked]:text-destructive-text',
+  },
 ];
 
-/** "Natureza" of a new condition as a two-part segmented control, the checked side in the color
+/** "Natureza" of a new condition as a three-part segmented control, the checked part in the color
  *  its mark will get (and named in text, never by color alone).
  *
  *  Example: `<ConditionToneField value={tone} onChange={setTone} />` */

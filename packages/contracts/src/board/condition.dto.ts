@@ -6,9 +6,15 @@ export const CONDITION_NAME_MAX_LENGTH = 32;
 /** Rounds a condition may last; 0 on apply means "no limit". */
 export const CONDITION_ROUNDS_MAX = 99;
 
-/** Benefit (gold mark) or harm (destructive mark): a marker, no rule attached (spec §3.7). */
-export const conditionToneDto = z.enum(['benefit', 'harm']);
+/** How heavy the condition weighs on the turn: benefit (gold mark), harm (destructive mark) or
+ *  incapacitating (filled destructive mark). A marker, no rule attached (spec §3.7). */
+export const conditionToneDto = z.enum(['benefit', 'harm', 'incapacitating']);
 export type ConditionToneDto = z.infer<typeof conditionToneDto>;
+
+/** How the condition changes the token itself: translucent (`invisible`) or greyed out
+ *  (`unconscious`). `null` on a definition = it only shows as an icon. */
+export const conditionLookDto = z.enum(['unconscious', 'invisible']);
+export type ConditionLookDto = z.infer<typeof conditionLookDto>;
 
 /** The icon of a condition, a closed list so the client only ever draws a known glyph. The keys
  *  are the client icon set's names (lucide). */
@@ -51,6 +57,7 @@ export const conditionDefinitionDto = z.strictObject({
   name: z.string(),
   tone: conditionToneDto,
   icon: conditionIconDto,
+  look: conditionLookDto.nullable(),
 });
 export type ConditionDefinitionDto = z.infer<typeof conditionDefinitionDto>;
 
@@ -61,16 +68,21 @@ export const activeConditionDto = z.strictObject({
   name: z.string(),
   tone: conditionToneDto,
   icon: conditionIconDto,
+  look: conditionLookDto.nullable(),
   remainingRounds: z.number().int().min(1).max(CONDITION_ROUNDS_MAX).nullable(),
 });
 export type ActiveConditionDto = z.infer<typeof activeConditionDto>;
 
-/** `condition:define` (master): a new condition on the table's list. */
+/** `condition:define` (master): a new condition on the table's list; without `look` it only
+ *  shows as an icon.
+ *
+ *  Example: `defineConditionCommandDto.parse({ actionId, campaignId, name: 'Inconsciente', tone: 'incapacitating', icon: 'moon', look: 'unconscious' })` */
 export const defineConditionCommandDto = z.strictObject({
   ...boardCommandShape,
   name: z.string().trim().min(1).max(CONDITION_NAME_MAX_LENGTH),
   tone: conditionToneDto,
   icon: conditionIconDto,
+  look: conditionLookDto.nullable().default(null),
 });
 export type DefineConditionCommandDto = z.infer<typeof defineConditionCommandDto>;
 

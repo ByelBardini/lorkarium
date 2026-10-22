@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CONDITION_ROUNDS_MAX,
   applyConditionCommandDto,
+  activeConditionDto,
   applyConditionsCommandDto,
   conditionsAppliedDto,
   defineConditionCommandDto,
@@ -39,7 +40,30 @@ describe('defineConditionCommandDto', () => {
     ).toBe(false);
   });
 
-  it('a tone other than benefit or harm is refused', () => {
+  it('a command without a look defines one that only shows as an icon (look null)', () => {
+    const parsed = defineConditionCommandDto.parse({
+      ...BASE,
+      name: 'X',
+      tone: 'harm',
+      icon: 'skull',
+    });
+    expect(parsed.look).toBeNull();
+  });
+
+  it('the invisible look is accepted and a look outside the list is refused', () => {
+    const command = { ...BASE, name: 'Sumido', tone: 'benefit', icon: 'ghost' };
+    expect(defineConditionCommandDto.parse({ ...command, look: 'invisible' }).look).toBe(
+      'invisible',
+    );
+    expect(defineConditionCommandDto.safeParse({ ...command, look: 'prone' }).success).toBe(false);
+  });
+
+  it('the incapacitating tone is accepted', () => {
+    const command = { ...BASE, name: 'Paralisado', tone: 'incapacitating', icon: 'lock' };
+    expect(defineConditionCommandDto.parse(command).tone).toBe('incapacitating');
+  });
+
+  it('a tone other than benefit, harm or incapacitating is refused', () => {
     expect(
       defineConditionCommandDto.safeParse({ ...BASE, name: 'X', tone: 'meh', icon: 'skull' })
         .success,
@@ -55,6 +79,22 @@ describe('defineConditionCommandDto', () => {
     expect(defineConditionCommandDto.safeParse({ ...BASE, name: 'X', tone: 'harm' }).success).toBe(
       false,
     );
+  });
+});
+
+describe('activeConditionDto', () => {
+  const active = {
+    id: CONDITION_ID,
+    conditionId: CONDITION_ID,
+    name: 'Invisível',
+    tone: 'benefit',
+    icon: 'ghost',
+    remainingRounds: null,
+  };
+
+  it('a condition on a token carries its look, and one without the field is refused (strict)', () => {
+    expect(activeConditionDto.safeParse({ ...active, look: 'invisible' }).success).toBe(true);
+    expect(activeConditionDto.safeParse(active).success).toBe(false);
   });
 });
 
@@ -109,6 +149,7 @@ describe('conditionsAppliedDto', () => {
       name: 'Caído',
       tone: 'harm',
       icon: 'arrow-down-to-line',
+      look: null,
       remainingRounds: null,
     };
     const event = { campaignId: BASE.campaignId, version: 4, at: '2026-10-16T12:00:00.000Z' };

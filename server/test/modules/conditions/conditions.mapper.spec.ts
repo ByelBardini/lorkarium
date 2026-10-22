@@ -12,25 +12,28 @@ const ENVENENADO = {
   name: 'Envenenado',
   tone: 'harm',
   icon: 'flask-conical',
+  look: null,
   remainingRounds: 2,
   appliedRound: 1,
 } as const;
 
 describe('conditions mapper', () => {
-  it('a definition carries id, name, tone and icon only', () => {
+  it('a definition carries id, name, tone, icon and look only', () => {
     const po = {
-      id: 'env',
+      id: 'para',
       campaignId: 'vharn',
-      name: 'Envenenado',
-      tone: 'harm',
-      icon: 'flask-conical',
+      name: 'Inconsciente',
+      tone: 'incapacitating',
+      icon: 'moon',
+      look: 'unconscious',
       createdAt: new Date(),
     } as const;
     expect(toConditionDefinitionDto(po)).toEqual({
-      id: 'env',
-      name: 'Envenenado',
-      tone: 'harm',
-      icon: 'flask-conical',
+      id: 'para',
+      name: 'Inconsciente',
+      tone: 'incapacitating',
+      icon: 'moon',
+      look: 'unconscious',
     });
   });
 
@@ -41,8 +44,19 @@ describe('conditions mapper', () => {
       name: 'Envenenado',
       tone: 'harm',
       icon: 'flask-conical',
+      look: null,
       remainingRounds: 2,
     });
+  });
+
+  it('an active condition carries the look of its definition', () => {
+    const invisivel = {
+      ...ENVENENADO,
+      name: 'Invisível',
+      tone: 'benefit',
+      look: 'invisible',
+    } as const;
+    expect(toActiveConditionDto(invisivel)).toMatchObject({ tone: 'benefit', look: 'invisible' });
   });
 
   it('conditions are grouped by token', () => {

@@ -10,8 +10,14 @@ import { ConditionMark } from './condition-marks';
 const TAG =
   'inline-flex h-6 max-w-full items-center gap-1 rounded-sm border px-1.5 text-xs text-foreground';
 
+const TONE_TAG: Readonly<Record<ActiveConditionDto['tone'], string>> = {
+  benefit: 'border-primary/45',
+  harm: 'border-destructive/60',
+  incapacitating: 'border-destructive bg-destructive/15',
+};
+
 function toneOf(condition: ActiveConditionDto): string {
-  return condition.tone === 'benefit' ? 'border-primary/45' : 'border-destructive/60';
+  return TONE_TAG[condition.tone];
 }
 
 /** The conditions of a token as tags: mark, name and the rounds left ("∞" without limit), read as
