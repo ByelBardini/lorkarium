@@ -102,6 +102,11 @@ import type {
   TokensFacedDto,
   TokensRestyledDto,
 } from './token-appearance.dto';
+import {
+  mainTokenDto,
+  type MainTokenChangedDto,
+  type SetMainTokenCommandDto,
+} from './token-main.dto';
 import type { ResizeTokensCommandDto, TokensResizedDto } from './token-resize.dto';
 import type {
   CreateTokensCommandDto,
@@ -132,6 +137,7 @@ export const BOARD_EVENTS = {
   restyleTokens: 'token:restyleMany',
   resizeTokens: 'token:resizeMany',
   adjustBar: 'token:adjustBar',
+  setMainToken: 'token:setMain',
   deleteToken: 'token:delete',
   deleteTokens: 'token:deleteMany',
   tokenCreated: 'token:created',
@@ -146,6 +152,7 @@ export const BOARD_EVENTS = {
   tokensResized: 'token:resizedMany',
   tokenDeleted: 'token:deleted',
   tokensDeleted: 'token:deletedMany',
+  mainTokenChanged: 'token:mainChanged',
   createDrawings: 'drawing:createMany',
   moveDrawings: 'drawing:moveMany',
   deleteDrawings: 'drawing:deleteMany',
@@ -240,6 +247,7 @@ export const boardStateDto = z.strictObject({
   lights: z.array(lightDto),
   combat: combatDto.nullable(),
   conditionDefinitions: z.array(conditionDefinitionDto),
+  mainTokens: z.array(mainTokenDto),
 });
 
 export type BoardStateDto = z.infer<typeof boardStateDto>;
@@ -288,6 +296,7 @@ export type BoardClientEvents = {
   'token:restyleMany': Command<RestyleTokensCommandDto>;
   'token:resizeMany': Command<ResizeTokensCommandDto>;
   'token:adjustBar': Command<AdjustBarCommandDto>;
+  'token:setMain': Command<SetMainTokenCommandDto>;
   'token:delete': Command<DeleteTokenCommandDto>;
   'token:deleteMany': Command<DeleteTokensCommandDto>;
   'drawing:createMany': Command<CreateDrawingsCommandDto>;
@@ -342,6 +351,7 @@ export type BoardServerEvents = {
   'token:resizedMany': (event: TokensResizedDto) => void;
   'token:deleted': (event: TokenDeletedDto) => void;
   'token:deletedMany': (event: TokensDeletedDto) => void;
+  'token:mainChanged': (event: MainTokenChangedDto) => void;
   'drawing:createdMany': (event: DrawingsCreatedDto) => void;
   'drawing:movedMany': (event: DrawingsMovedDto) => void;
   'drawing:deletedMany': (event: DrawingsDeletedDto) => void;
