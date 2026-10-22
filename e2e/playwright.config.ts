@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
 
@@ -27,6 +27,19 @@ const CLIENT_COMMAND = isCi
   ? 'pnpm --filter @lorkarium/client exec vite build && pnpm --filter @lorkarium/client exec vite preview --port 5173 --strictPort'
   : 'pnpm --filter @lorkarium/client dev';
 
+// One project per CI job (`--project=<name>`): on one worker the whole suite passed 20 min.
+// Groups are balanced by the specs' own timeouts; a heavy spec gets a group of its own.
+const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
+  table: ['smoke', 'home', 'table-presence', 'open-tables', 'board'],
+  tokens: ['tokens', 'main-token', 'token-conditions', 'token-resize', 'images'],
+  scene: ['layers', 'drawings', 'effect-areas'],
+  combat: ['combat'],
+  vision: ['vision', 'vision-cone'],
+  lighting: ['lighting'],
+};
+
+assertEverySpecIsGrouped(SPEC_GROUPS);
+
 export default defineConfig({
   testDir: 'test',
   forbidOnly: isCi,
@@ -37,7 +50,11 @@ export default defineConfig({
     baseURL: CLIENT_URL,
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: Object.entries(SPEC_GROUPS).map(([name, specs]) => ({
+    name,
+    testMatch: specs.map((spec) => `${spec}.spec.ts`),
+    use: { ...devices['Desktop Chrome'] },
+  })),
   webServer: [
     {
       name: 'server',
@@ -67,6 +84,21 @@ function e2eDatabaseUrl(base: string | undefined): string {
   const url = new URL(base);
   if (!url.pathname.endsWith('_e2e')) url.pathname = `${url.pathname}_e2e`;
   return url.toString();
+}
+
+// A spec outside every group would run locally and silently never in CI.
+function assertEverySpecIsGrouped(groups: Readonly<Record<string, readonly string[]>>): void {
+  const grouped = Object.values(groups).flat();
+  const specs = readdirSync(new URL('./test/', import.meta.url))
+    .filter((file) => file.endsWith('.spec.ts'))
+    .map((file) => file.slice(0, -'.spec.ts'.length));
+  const ungrouped = specs.filter((spec) => !grouped.includes(spec));
+  const missing = grouped.filter((spec) => !specs.includes(spec));
+  const repeated = grouped.filter((spec, index) => grouped.indexOf(spec) !== index);
+  if (ungrouped.length + missing.length + repeated.length === 0) return;
+  throw new Error(
+    `every e2e spec must be in exactly one SPEC_GROUPS entry of playwright.config.ts; ungrouped: [${ungrouped.join(', ')}], listed but missing: [${missing.join(', ')}], repeated: [${repeated.join(', ')}]`,
+  );
 }
 
 function e2eBucket(base: string | undefined): string {
