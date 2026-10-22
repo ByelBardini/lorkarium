@@ -67,17 +67,8 @@ describe('TokenDock', () => {
   }
 
   const dock = () => screen.getByRole('region', { name: 'Token selecionado' });
-  const pvField = () => within(dock()).getByRole('textbox', { name: 'PV de Lyra' });
-  const maxButton = () => screen.getByRole('button', { name: 'Mudar máximo de PV de Lyra' });
-  const maxField = () => screen.queryByRole('textbox', { name: 'Máximo de PV de Lyra' });
-
-  async function openMax(): Promise<HTMLElement> {
-    await userEvent.click(maxButton());
-    const field = maxField();
-    if (!field)
-      throw new Error('"Mudar máximo de PV de Lyra" opened no "Máximo de PV de Lyra" field');
-    return field;
-  }
+  const pvTrigger = () => within(dock()).getByRole('button', { name: 'Editar PV de Lyra' });
+  const balloon = () => screen.queryByRole('dialog', { name: 'PV' });
 
   it('names the token, who plays it and where it is (cells counted from 1)', () => {
     renderDock();
@@ -96,67 +87,42 @@ describe('TokenDock', () => {
     expect(screen.queryByRole('region', { name: 'Token selecionado' })).toBeNull();
   });
 
-  it('every bar received shows with its value and −/+', () => {
+  it('every bar received shows with its value, with no field under it', () => {
     renderDock();
 
     expect(dock()).toHaveTextContent('PV32 / 45');
     expect(dock()).toHaveTextContent('Inspiração1 / 1');
-    expect(screen.getByRole('button', { name: 'Tirar 1 de PV de Lyra' })).toBeInTheDocument();
+    expect(within(dock()).queryByRole('textbox', { name: 'PV de Lyra' })).toBeNull();
   });
 
-  it('"Dano" with 5 sends −5 and "Cura" with 5 sends +5', async () => {
+  it('a double click on the PV opens its balloon, and "−7" + Enter subtracts 7', async () => {
     renderDock();
 
-    await userEvent.type(pvField(), '5');
-    await userEvent.click(screen.getByRole('button', { name: 'Dano em PV de Lyra' }));
-    await userEvent.type(pvField(), '5');
-    await userEvent.click(screen.getByRole('button', { name: 'Cura em PV de Lyra' }));
-
-    expect(commands.sentAs('adjustBar').map(({ fields }) => fields)).toEqual([
-      { tokenId: LYRA_ID, barId: LYRA_PV_ID, change: { op: 'add', amount: -5 } },
-      { tokenId: LYRA_ID, barId: LYRA_PV_ID, change: { op: 'add', amount: 5 } },
-    ]);
-  });
-
-  it('empty, or with a sign, "Dano" and "Cura" are off; "−7" + Enter still subtracts', async () => {
-    renderDock();
-    const dano = () => screen.getByRole('button', { name: 'Dano em PV de Lyra' });
-    expect(dano()).toBeDisabled();
-
-    await userEvent.type(pvField(), '−7');
-    expect(dano()).toBeDisabled();
-    await userEvent.keyboard('{Enter}');
+    await userEvent.dblClick(pvTrigger());
+    const current = within(balloon() ?? document.body).getByRole('textbox', { name: 'Atual' });
+    await userEvent.clear(current);
+    await userEvent.type(current, '−7{Enter}');
 
     expect(commands.sentAs('adjustBar').map(({ fields }) => fields)).toEqual([
       { tokenId: LYRA_ID, barId: LYRA_PV_ID, change: { op: 'add', amount: -7 } },
     ]);
+    expect(balloon()).toBeNull();
   });
 
-  it('the maximum waits behind the "Máx." button on the line of the bar, with no field of its own', () => {
-    renderDock();
-
-    expect(maxButton()).toHaveTextContent('Máx.');
-    expect(maxField()).toBeNull();
-  });
-
-  it('"60" + Enter in Máx. sends the new maximum and closes the field', async () => {
-    renderDock();
-
-    const field = await openMax();
-    expect(field).toHaveAttribute('placeholder', '45');
-    await userEvent.type(field, '60{Enter}');
-
-    expect(commands.sentAs('adjustBar').map(({ fields }) => fields)).toEqual([
-      { tokenId: LYRA_ID, barId: LYRA_PV_ID, change: { op: 'max', value: 60 } },
-    ]);
-    expect(maxField()).toBeNull();
-  });
-
-  it('without canControl the bars are read only', () => {
+  it('without canControl the bars only read: nothing to open', () => {
     renderDock({ tokens: [lyra({ canControl: false })] }, false);
 
     expect(dock()).toHaveTextContent('PV32 / 45');
-    expect(screen.queryByRole('textbox', { name: 'PV de Lyra' })).toBeNull();
+    expect(within(dock()).queryByRole('button', { name: /^Editar / })).toBeNull();
+  });
+
+  it('while reconnecting the balloon does not open', async () => {
+    renderDock();
+    act(() => interaction.getState().setReadOnly(true));
+
+    await userEvent.dblClick(pvTrigger());
+
+    expect(balloon()).toBeNull();
   });
 
   it('a token without bars says so, and tells the master where to make one', () => {
@@ -179,52 +145,10 @@ describe('TokenDock', () => {
     expect(screen.queryByRole('region', { name: 'Token principal' })).toBeNull();
   });
 
-  it('while reconnecting the bar fields are disabled', () => {
-    renderDock();
-
-    act(() => interaction.getState().setReadOnly(true));
-
-    expect(pvField()).toBeDisabled();
-  });
-
   it('the facing reads "Olha para o sul" at 90, and half a cell takes a comma', () => {
     renderDock({ tokens: [lyra({ facing: 90, width: 2.5 })] });
 
     expect(dock()).toHaveTextContent('2,5 × 1 casas · Olha para o sul');
-  });
-
-  it('a field that is not a number sends nothing and says how to write it', async () => {
-    renderDock();
-
-    await userEvent.type(pvField(), '1,5{Enter}');
-
-    expect(commands.sent).toEqual([]);
-    expect(pvField()).toHaveAccessibleDescription(/−7.*\+5.*12/);
-  });
-
-  it('"12" + Enter sets 12, and the − and + buttons step by one', async () => {
-    renderDock();
-
-    await userEvent.type(pvField(), '12{Enter}');
-    await userEvent.click(screen.getByRole('button', { name: 'Tirar 1 de PV de Lyra' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Somar 1 a PV de Lyra' }));
-
-    expect(commands.sentAs('adjustBar').map(({ fields }) => fields)).toEqual([
-      expect.objectContaining({ change: { op: 'set', value: 12 } }),
-      expect.objectContaining({ change: { op: 'add', amount: -1 } }),
-      expect.objectContaining({ change: { op: 'add', amount: 1 } }),
-    ]);
-    expect(pvField()).toHaveValue('');
-  });
-
-  it.each(['0', '-5', '2,5'])('"%s" in Máx. sends nothing and is marked invalid', async (text) => {
-    renderDock();
-    const field = await openMax();
-
-    await userEvent.type(field, `${text}{Enter}`);
-
-    expect(commands.sent).toEqual([]);
-    expect(field).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('a percent bar of a token one controls reads the numbers too: "71% · 32 / 45"', () => {
@@ -369,7 +293,9 @@ describe('TokenDock', () => {
 
       expect(within(mainDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
       expect(mainDock()).toHaveTextContent('PV32 / 45');
-      expect(within(mainDock()).getByRole('textbox', { name: 'PV de Lyra' })).toBeInTheDocument();
+      expect(
+        within(mainDock()).getByRole('button', { name: 'Editar PV de Lyra' }),
+      ).toBeInTheDocument();
       expect(within(mainDock()).getByText('Principal')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Fechar ficha' })).toBeNull();
     });
