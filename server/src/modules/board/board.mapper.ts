@@ -8,6 +8,7 @@ import type {
   TokenDto,
   WallDto,
   LightDto,
+  MainTokenDto,
 } from '@lorkarium/contracts';
 import { toSceneDto } from '../scenes/scenes.mapper';
 import type { SceneRow } from '../scenes/scenes.dao';
@@ -24,6 +25,7 @@ export type BoardSnapshotParts = Readonly<{
   lights: readonly LightDto[];
   combat: CombatDto | null;
   conditionDefinitions: readonly ConditionDefinitionDto[];
+  mainTokens: readonly MainTokenDto[];
   at: Date;
 }>;
 
@@ -44,5 +46,6 @@ export function toBoardStateDto(parts: BoardSnapshotParts): BoardStateDto {
     lights: [...parts.lights],
     combat: parts.combat,
     conditionDefinitions: [...parts.conditionDefinitions],
+    mainTokens: parts.mainTokens.map(({ userId, tokenId }) => ({ userId, tokenId })),
   };
 }

@@ -14,6 +14,7 @@ import { toEffectAreaDto } from '../effect-areas/effect-areas.mapper';
 import type { LightsDao } from '../lights/lights.dao';
 import { toLightDto } from '../lights/lights.mapper';
 import type { ScenesDao } from '../scenes/scenes.dao';
+import type { MainTokensDao } from '../tokens/main-tokens.dao';
 import { TokenAccessBo } from '../tokens/token-access.bo';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { toTokenDto } from '../tokens/tokens.mapper';
@@ -31,14 +32,18 @@ export type BoardServiceDeps = Readonly<{
   effectAreas: Pick<EffectAreasDao, 'listOfScene'>;
   walls: Pick<WallsDao, 'listOfScene'>;
   lights: Pick<LightsDao, 'listOfScene'>;
+  mainTokens: Pick<MainTokensDao, 'listOfScene'>;
   clock: ClockPort;
 }>;
 
-type SharedPieces = Pick<BoardStateDto, 'drawings' | 'effectAreas' | 'walls' | 'lights'>;
+type SharedPieces = Pick<
+  BoardStateDto,
+  'drawings' | 'effectAreas' | 'walls' | 'lights' | 'mainTokens'
+>;
 
 /** The board snapshot of one table, as one member may see it (spec §5.6, §3.9): each token whole
  *  for its controllers and the master, redacted for everyone else; drawings, areas of effect,
- *  walls and map lights whole for everyone.
+ *  walls, map lights and everyone's main token whole for everyone.
  *
  *  Example: `const state = await board.snapshotFor(user.id, campaignId)` */
 export class BoardService {
@@ -74,6 +79,7 @@ export class BoardService {
       effectAreas: (await this.deps.effectAreas.listOfScene(sceneId)).map(toEffectAreaDto),
       walls: (await this.deps.walls.listOfScene(sceneId)).map(toWallDto),
       lights: (await this.deps.lights.listOfScene(sceneId)).map(toLightDto),
+      mainTokens: await this.deps.mainTokens.listOfScene(sceneId),
     };
   }
 }

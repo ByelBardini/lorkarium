@@ -96,6 +96,7 @@ export class TokensService {
       const update = toTokenUpdatePo(command, rules.controllers(command.controllerIds));
       await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
       await daos.tokens.update(found.token.id, update);
+      await daos.mainTokens.dropLostControl(found.token.id, update.controllerIds);
       return withConditions(daos, await tokenIn(daos, scene, campaignId, command.tokenId));
     });
     this.publishChange('token:updated', campaignId, saved);

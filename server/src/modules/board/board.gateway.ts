@@ -47,6 +47,7 @@ import {
   faceTokensCommandDto,
   restyleTokensCommandDto,
   resizeTokensCommandDto,
+  setMainTokenCommandDto,
   startCombatCommandDto,
   updateTokenCommandDto,
   type ApiErrorDto,
@@ -75,6 +76,7 @@ import type { ScenesService } from '../scenes/scenes.service';
 import { SessionEndedError, SessionError } from '../sessions/sessions.error';
 import { TokenError } from '../tokens/tokens.error';
 import type { TokenAppearanceService } from '../tokens/token-appearance.service';
+import type { MainTokenService } from '../tokens/main-token.service';
 import type { TokenBatchService } from '../tokens/token-batch.service';
 import type { TokensService } from '../tokens/tokens.service';
 import { LightError } from '../lights/lights.error';
@@ -94,6 +96,7 @@ export type BoardGatewayDeps = Readonly<{
   >;
   tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany'>;
   tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany' | 'resizeMany'>;
+  mainToken: Pick<MainTokenService, 'choose'>;
   conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove' | 'setRounds'>;
   combat: Pick<
     CombatService,
@@ -184,7 +187,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
  *  Example: `realtime.onConnection(createBoardGateway({ board, scenes, tokens, realtime, log }))` */
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
   const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
-  const { effectAreas, walls, lights } = deps;
+  const { effectAreas, walls, lights, mainToken } = deps;
   const rate = new CommandRateGuard(deps.clock);
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
@@ -239,6 +242,7 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
       mutate(resizeTokensCommandDto, appearance.resizeMany.bind(appearance)),
     );
     socket.on('token:adjustBar', mutate(adjustBarCommandDto, tokens.adjustBar.bind(tokens)));
+    socket.on('token:setMain', mutate(setMainTokenCommandDto, mainToken.choose.bind(mainToken)));
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
     socket.on(
       'token:createMany',

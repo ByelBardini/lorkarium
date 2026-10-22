@@ -1,4 +1,5 @@
 import type {
+  MainTokenChangedDto,
   CombatDto,
   CombatEndedDto,
   CombatStartedDto,
@@ -82,6 +83,8 @@ export interface BoardPublisherPort {
   tokensRestyled(event: TokensRestyledDto): void;
   /** The size is not a secret either. */
   tokensResized(event: TokensResizedDto): void;
+  /** A person's main token: not a secret, the whole table gets it. */
+  mainTokenChanged(event: MainTokenChangedDto): void;
   /** Drawings have no secret: the whole table gets the same events. */
   drawingsCreated(event: DrawingsCreatedDto): void;
   drawingsMoved(event: DrawingsMovedDto): void;

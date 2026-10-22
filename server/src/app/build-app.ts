@@ -94,6 +94,7 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
   const scenes = createScenesModule({ db, publisher, clock }).service;
   const tokensModule = createTokensModule({ db, publisher, clock });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
+  const { mainToken } = tokensModule;
   const conditions = createConditionsModule({ db, publisher, clock }).service;
   const combat = createCombatModule({ db, publisher, clock }).service;
   const drawings = createDrawingsModule({ db, publisher, clock }).service;
@@ -106,6 +107,7 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
     tokens,
     tokenBatch,
     tokenAppearance,
+    mainToken,
     conditions,
     combat,
     drawings,

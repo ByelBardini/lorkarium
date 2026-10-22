@@ -12,6 +12,7 @@ import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import { TokenAccessBo } from './token-access.bo';
 import type { TokenRulesBo } from './token-rules.bo';
+import type { MainTokensDao } from './main-tokens.dao';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
 import { TokenNotFoundError } from './tokens.error';
 import { toBarInputsPo, toTokenDto, toTokenLightPo, toTokenSightPo } from './tokens.mapper';
@@ -41,6 +42,7 @@ export type TokenWriteDaos = Readonly<{
   combat: Pick<CombatDao, 'findOfScene' | 'setTurn' | 'removeCombatants' | 'linkTokens'>;
   assets: Pick<AssetsDao, 'findManyInCampaign'>;
   walls: Pick<WallsDao, 'listOfScene'>;
+  mainTokens: Pick<MainTokensDao, 'choose' | 'dropLostControl'>;
 }>;
 
 export type TokenTransactionRunner = SceneTransaction<TokenWriteDaos>;
