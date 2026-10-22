@@ -1,0 +1,79 @@
+# Client — aba "Na mesa" (o quadro do grupo)
+
+A aba "Na mesa" do `RoomSidePanel`: os mestres numa seção compacta e um card por jogador com o retrato e as barras do token principal, o nome do personagem, o nick com o símbolo de presença, CA, CD e duas anotações. Server da ficha em [`../member-cards.md`](../member-cards.md); presença em [`../sessions.md`](../sessions.md). Hub: [`../client.md`](../client.md). Plano de origem: `docs/plans/2026-10-22-tela-na-mesa.md`.
+
+## Estado e comando da ficha
+
+- `boardStateDto.memberCards` chega no `board:sync` (só as fichas gravadas; ausente = ficha vazia).
+- `board-events.ts`: `member:cardChanged` → `{ type: 'memberCardChanged', payload }` pelo `memberCardChangedDto` (fora do DTO → `invalid`, resync).
+- `board-reducer.ts` (`withMemberCard`, no `combatChangesOf`): a ficha nova entra no fim; a de quem já tem é trocada no lugar; as outras ficam.
+- `member-card-commands.ts`: `MemberCardCommands.updateMemberCard(campaignId, memberId, changes)` (`changes` = `MemberCardChangesInput`) / `RealtimeMemberCardCommands` (manda `member:updateCard` `{ memberId, changes }`, sem `userId`, pelo `BoardCommandSender`). O `TableBoardCommands` o estende e o `RealtimeTableBoardCommands` o compõe, como o token principal.
+- Falhas: `FORBIDDEN` → `forbidden`; `MEMBER_NOT_FOUND` → `member_not_found` ("Essa pessoa não está mais na mesa." no `boardCommandFailureMessage`); sem ack em 5 s → `offline`.
+- Fixture `memberCard(overrides)` (a ficha vazia da Bia, `table-session-fixtures.ts`); `TableBoardCommandsFake.updateMemberCard` grava `updateMemberCard` `{ memberId, changes }`.
+- Specs: `board-events.spec.ts` (`member:cardChanged`), `board-reducer.spec.ts` (`applyBoardEvent, member cards`), `member-card-commands.spec.ts`, `board-messages.spec.ts`.
+
+## Seções (`src/lib/table-roster.ts`)
+
+- `tableRosterOf({ members, board, viewerId })` → `{ masters, players }`. `masters`: todo membro `master`, na ordem do server, `{ member, isViewer }`. `players`: os online primeiro (ordem do server), depois os offline; cada um `{ member, isViewer, card, token, characterName }`.
+- `card`: a ficha do `board.memberCards`, ou a ficha vazia (tudo `null`) de quem nunca gravou; `token`: o principal pelo `mainTokenIdOfMember` (ou `null` sem token na cena). Com o tabuleiro carregando (`board: null`), `card`, `token` e `characterName` vêm `null`.
+- `characterNameOf(card, token)`: o apelido gravado vence; sem ele, o nome do token principal; sem os dois, `null`.
+- Spec `client/test/lib/table-roster.spec.ts`.
+
+## Card do jogador (`src/features/sessions/player-card.tsx`)
+
+- `PlayerCard({ player, board, interaction, isMaster, clock, serverAt })`: `article` (rótulo = o `h3`) direto no fundo do painel, sem caixa, separado do próximo por um fio (`border-b border-divider`, como a lista da aba Combate); o próprio card se acha pelo "· você"; o offline esmaecido (`opacity-60`). Sem ficha (`player.card === null`, tabuleiro carregando) só a linha do nick.
+- Corpo: `CardPortrait` (84 px de largura, no mínimo 108 de altura e esticado até a altura da coluna ao lado — sem vão entre o retrato e a CA —, a imagem do token principal pelo `TokenFace` — `alt` "Retrato de Lyra" — ou as iniciais do token; o anel do lado por `sideRingVar` em `inset`; a etiqueta "Token"; sem token principal, as iniciais da conta pelo `initialsOf`) · o `h3` (`characterName`, ou "Sem personagem") · `NickLine` (`PresenceMark` + nome da conta + "· você" em dourado no próprio card + "· offline") · `CardBars` (cada barra recebida, por `position`: rótulo em caixa alta com o cadeado "Só quem controla vê" na barra `controllers`, sobre o `BarMeter` "PV de Lyra"; "Token sem barras"; "Sem token principal nesta cena.") · CA (`ShieldIcon`) e CD (`HexagonIcon`), "CA de Lyra" · `LocateButton` "Achar Lyra no mapa" · "Anotação 1 de Lyra" e "Anotação 2 de Lyra". Os campos levam o nome do personagem, ou o da conta sem personagem.
+- `LocateButton` (`player-card-parts.tsx`): só para o token que o viewer vê (`useBoardSight` + `levelOf === 'seen'`); clicar faz `interaction.select(token.id)` e o `BoardCanvas` centraliza a câmera na seleção (`centerOn`). O card em si **não** passa pelo filtro de visão (armadilha no [`vision.md`](vision.md)).
+- `presence-mark.tsx` — `PresenceMark({ presence })`: `role="img"` com nome "online" / "ausente" / "offline"; quadrado dourado cheio, vazado (borda) e apagado (`bg-divider`): a forma muda com a cor. `src/lib/member-presence.ts` — `MemberPresence` e `presenceOf(member)`.
+- Spec `client/test/features/sessions/player-card.spec.tsx` (retrato, nome, nick, barras, CA, anotação; apelido; iniciais; cadeado; sem barras; sem token principal; offline; "Achar no mapa" seleciona; token no escuro sem o botão) e `client/test/lib/member-presence.spec.ts`.
+
+## Edição do card
+
+- Quem edita: o próprio membro e o mestre (`useCardEditing` no `player-card.tsx`: `editable = isViewer || isMaster`); os outros veem os campos `readOnly` e sem lápis. Reconectando (`interaction.readOnly`), campos e lápis ficam `disabled`. O server confere de novo (`FORBIDDEN`).
+- `use-card-field.ts` — `useCardField({ confirmed, normalize?, save })` → `{ value, onFocus, onChange, onBlur, onKeyDown }`: **rascunho × confirmado**. No foco o texto vira rascunho local (com a `base` do momento do foco); o evento de outra pessoa troca o `confirmed`, mas não o rascunho. Enter ou sair do campo envia — só se o texto mudou desde a `base` (comparar com o `confirmed` atual reenviaria o valor velho depois de um evento alheio); Esc volta ao confirmado sem enviar. Enquanto o envio não responde, o campo mostra o que foi enviado; recusa → volta ao confirmado e o motivo vai à linha de status (`interaction.command` + `describeRefusal`).
+- `player-card-fields.tsx` — `StatField` (CA/CD: `digitsOnly` ao digitar, vazio → `null`, senão o número), `NoteField` (aparado, vazio → `null`; placeholder "Linha livre" só para quem edita), `CharacterName` (o `h3` + o lápis "Mudar o nome de Lyra", visível no hover do card, no foco e sempre em ponteiro grosso — `pointer-coarse:` —; abre "Nome do personagem" com o nome do token de placeholder; Enter/sair grava o apelido, vazio manda `characterName: null` e volta ao nome do token). O envio é `interaction.command((c, id) => c.updateMemberCard(id, memberId, changes))`.
+- Sem botão de salvar: o campo editável leva `aria-describedby` para "Enter ou sair do campo salva; Esc desfaz." (`SAVE_HINT`, `sr-only`).
+- Harness `client/test/support/player-card-harness.tsx`: `PlayerCardHarness` (`render({ state, member, viewerId, isMaster, serverAt })`, `confirm(state)` = um evento chegando sob o mesmo card, `confirmMember(member, serverAt)` = uma presença nova, `commands`, `interaction`, `board`, `clock` — um `InteractionClockFake`), `cardBar()` e `BIA_ONLINE`.
+- Spec `client/test/features/sessions/player-card-editing.spec.tsx` (CA no blur, nota no Enter, lápis + placeholder, apagar o apelido manda `null`, sair sem mudar não envia, letras filtradas, evento alheio com foco, mestre edita, Esc, recusa, Caio só leitura, reconectando, a instrução do leitor de tela).
+
+## Balão da barra (`src/features/tokens/bar-quick-edit.tsx`)
+
+- `BarQuickEdit({ tokenId, bar, name, interaction, children })` envolve cada barra do card e do rodapé do Combate **quando `token.canControl`** (dono e mestre; os outros não têm gatilho nenhum): `role="button"`, `tabIndex 0`, "Editar PV de Lyra", `aria-haspopup="dialog"`; duplo clique, Enter ou Espaço abrem o `Popover` (ancorado por `PopoverAnchor`, `side="top"`, `role="dialog"` com o rótulo da barra de nome). Reconectando (`readOnly`) não abre.
+- Dois campos: "Atual" (foco ao abrir, valor atual **selecionado**; `parseBarInput`: `−7` tira, `+5` soma, `12` define; inválido → `aria-invalid` + "Escreva −7, +5 ou 12.", nada vai e o balão fica) e "Máx" (`parseBarMax`, 1 a 99 999; inválido → `BAR_MAX_PROBLEM` "De 1 a 99 999."). Sempre com os números, mesmo na barra em percentual.
+- Enter envia e fecha; sair do campo envia e fica aberto; o texto enviado vira a nova base (sair de novo não reenvia); Esc fecha sem enviar (o React não dispara `onBlur` no campo desmontado, então não há guarda). O envio é o `interaction.adjustBar` de sempre (recusa → linha de status).
+- O mesmo balão é o editor das barras do rodapé do Combate ([`token-dock.md`](token-dock.md)); o gatilho leva o `title` "Clique duas vezes para editar".
+- Spec `client/test/features/tokens/bar-quick-edit.spec.tsx` (pelo card) e `token-dock.spec.tsx` (pelo rodapé).
+
+## A aba (`session-presence-panel.tsx`, `master-row.tsx`)
+
+- `SessionPresencePanel({ store, board, interaction, isMaster, clock })` (o `RoomSidePanel` passa todos): `section` "Na mesa" com o cabeçalho de sempre (`role="status"`: "Conectando à mesa…", "Reconectando…"; ao vivo fica vazio — o normal não se anuncia) e, sem falha, as seções sobre o `tableRosterOf` (o viewer pelo `board.viewer.userId`; nada antes do primeiro snapshot da presença). Falha (menos `unauthenticated`) → o `role="alert"` do `sessionFailureMessage` no lugar das seções.
+- Seção **Mestre**/**Mestres** (pelo número; `region` com esse nome): uma `MasterRow` por mestre (linha no fundo, separada por fio) — iniciais da conta num quadrado `bg-muted` com contorno dourado, a `NickLine`, o selo "Mestre" (coroa + texto em caixa alta, `data-seal`), sem card.
+- Seção **Jogadores · N online** (`region`; N = jogadores online): os `PlayerCard` na ordem do roster (online primeiro, offline esmaecidos no fim); sem jogador, "Nenhum jogador nesta mesa ainda.". Com o tabuleiro carregando, cada card é só a linha do nick.
+- Pílula na aba (`room-panel.tsx`, `OnlinePill`): exceção combinada ao "nada de pílula" do design system ([`design-system.md`](design-system.md)).
+- Specs: `client/test/features/sessions/session-presence-panel.spec.tsx` (seções, "Mestres", quem sai vai ao fim e o título conta um a menos, mesa sem jogadores, tabuleiro carregando, falha, "Conectando") e `client/test/features/board/play-room-page.spec.tsx` (pela sala: Ana em "Mestre" e Caio antes da Bia offline; o símbolo da Bia vira online/offline; a pílula conta 2 e depois 3 e a aba continua "Na mesa").
+- E2E `e2e/test/table-cards.spec.ts` (ver [`../ci/e2e.md`](../ci/e2e.md)).
+
+## Ausência (10 minutos parado)
+
+- `src/lib/idle-watch.ts` — `TABLE_IDLE_MS` (10 min, o `auto_away` do Slack) e `createIdleWatch({ clock, idleMs, onChange })` → `{ touch, dispose }`: o `touch` só anota o instante (dispara a cada movimento do ponteiro); **um** temporizador confere ao vencer e espera o resto se houve toque; `onChange(true)` ao passar o tempo, `onChange(false)` no primeiro toque depois, uma vez cada.
+- `src/features/sessions/use-tab-activity.ts` — `useTabActivity({ clock, onAway })`: `pointerdown`, `pointermove`, `keydown`, `wheel` e `touchstart` na `window` contam; com a aba escondida (`document.visibilityState === 'hidden'`) não contam (o tempo corre). Ligado no `ShellRoute` (`router.tsx`) sobre o `interactionClock` das dependências, com `onAway` = `openTables.setAway` (estável, criado fora do componente).
+- `open-tables-store.ts` — `setAway(away)` chega a toda mesa aberta (`handle.setAway`); a mesa aberta enquanto a aba está parada recebe `setAway(true)` na hora.
+- `table-session-api.ts` / `table-visit.ts` — o handle ganha `setAway(away)`: emite `session:setActivity` `{ actionId, campaignId, away }` (com a conexão de pé) e o guarda; depois de cada `join` (reconexão), se a aba está parada, emite de novo (o server esquece a ausência do socket que caiu). `session:memberActivity` válido e da mesa → update `{ kind: 'memberActivity', event }`.
+- `table-presence-store.ts` — `memberActivity` com versão maior troca o `awaySince` do membro; `memberLeft` também zera o `awaySince`; o snapshot substitui tudo.
+- Fake: `TableSessionApiFake.awayCalls` (`{ campaignId, away }[]`).
+- Specs: `client/test/lib/idle-watch.spec.ts`, `client/test/features/sessions/use-tab-activity.spec.tsx`, `table-session-api.spec.ts` (`activity`), `table-presence-store.spec.ts` (`activity`), `open-tables-store.spec.ts`.
+
+## "ausente há N min"
+
+- `src/lib/away-label.ts` — `awayLabelOf(awaySince, serverAt, elapsedMs)`: os minutos vão do `awaySince` ao `at` (a hora do **server**) do último update da presença, mais o tempo que passou no navegador desde então. O relógio do navegador pode estar acertado diferente do server, então os dois nunca se comparam direto. Menos de 1 min (ou negativo, relógios desencontrados) → "ausente agora"; até 59 → "ausente há N min"; depois, "ausente há N h".
+- `table-presence-store.ts` guarda o `at` do snapshot e de cada evento aplicado (o de versão velha não troca).
+- `src/features/sessions/use-away-label.ts` — `useAwayLabel(awaySince, serverAt, clock)`: anota o `clock.now()` quando o `serverAt` muda e relê a cada minuto pelo `InteractionClock` (só enquanto a pessoa está ausente).
+- `presenceOf(member)` → `away` quando online com `awaySince`; o `PresenceMark` é o quadrado vazado "ausente"; a `NickLine` mostra "· ausente há N min" (`awayLabel`). Valem para o `PlayerCard` e a `MasterRow`.
+- O relógio desce da sala: `PlayRoomPage` (`interactionClock`) → `RoomSidePanel` (`clock`) → `SessionPresencePanel` → card e linha do mestre (com o `serverAt` da store).
+- Specs: `client/test/lib/away-label.spec.ts`, `player-card.spec.tsx` (`away`: símbolo e texto; um minuto depois no `InteractionClockFake`, "há 5 min"; a volta tira o texto), `table-presence-store.spec.ts` (o `at`).
+
+## Armadilhas
+
+- **Mensagem de erro dentro do `<label>` entra no nome do campo.** No balão, o "Escreva −7, +5 ou 12." dentro do `label` virava parte do nome acessível ("Atual Escreva…") e o `getByRole('textbox', { name: 'Atual' })` sumia. O erro mora fora do `label` e chega pelo `aria-describedby`.
+- **Altura percentual num item esticado.** O retrato do card é `self-stretch` com `min-h-27`; a imagem dentro usa `absolute inset-0 size-full`, porque `h-full` num filho de item esticado nem sempre resolve e o retrato voltaria à altura mínima, abrindo vão até a CA.
+- **Sem `onBlur` no campo desmontado.** Esc fecha o balão e o campo some sem disparar `blur`; uma guarda "fechou por Esc" no envio do blur não teria como ser provada (nem é necessária).

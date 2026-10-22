@@ -45,12 +45,13 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 `session.dto.ts` — a mesa é a sessão (detalhe em [`sessions.md`](sessions.md)).
 
-- `REALTIME_PATH` = `'/api/socket.io'` (o `path` do Socket.IO nas duas pontas) e `SESSION_EVENTS` (`session:join`, `session:leave`, `session:memberJoined`, `session:memberLeft`).
+- `REALTIME_PATH` = `'/api/socket.io'` (o `path` do Socket.IO nas duas pontas) e `SESSION_EVENTS` (`session:join`, `session:leave`, `session:memberJoined`, `session:memberLeft`, `session:setActivity`, `session:memberActivity`).
 - `sessionCommandDto` — payload de `session:join` e `session:leave`: `{ actionId (uuid), campaignId (uuid) }`, estrito (um `userId` ou `role` forjado é recusado: a identidade vem da conexão, §7.3).
-- `sessionMemberDto` `{ userId, name, role (campaignRoleDto), online }`.
+- `sessionMemberDto` `{ userId, name, role (campaignRoleDto), online, awaySince (ISO | null: desde quando todas as abas dele estão paradas) }`.
 - `sessionStateDto` `{ campaignId, version (inteiro ≥ 0), members, at (ISO) }` — o `session:state` do §7.2 **não** é um evento: chega como ack do `session:join`.
-- `sessionMemberJoinedDto` `{ campaignId, version, member (com online: true), at }` e `sessionMemberLeftDto` `{ campaignId, version, userId, at }`.
+- `sessionMemberJoinedDto` `{ campaignId, version, member (com online: true e awaySince: null), at }` e `sessionMemberLeftDto` `{ campaignId, version, userId, at }`.
 - `sessionJoinAckDto` (`{ ok: true, state }` | `{ ok: false, error: ApiErrorDto }`) e `sessionLeaveAckDto` (`{ ok: true }` | a mesma falha), uniões discriminadas por `ok`.
+- Ausência: `sessionActivityCommandDto` `{ actionId, campaignId, away }` (`session:setActivity`, estrito: `userId` forjado é recusado), `sessionActivityAckDto` (= o do `leave`: `{ ok: true }` | falha) e o evento `sessionMemberActivityDto` `{ campaignId, version, userId, awaySince (ISO | null), at }` (`session:memberActivity`).
 - `MAX_OPEN_TABLES` = `5` — mesas abertas ao mesmo tempo por conexão: o server recusa a 6ª (`TOO_MANY_TABLES`) e o client avisa antes de pedir.
 - `SessionClientEvents` / `SessionServerEvents` — mapas de tipo para os genéricos do Socket.IO no server e no client.
 

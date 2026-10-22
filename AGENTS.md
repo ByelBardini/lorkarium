@@ -75,12 +75,13 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | campaigns    | Mesas: criação, participação, lista, detalhe, entrada por código                  | [`docs/context/campaigns.md`](docs/context/campaigns.md)       |
 | board        | Tabuleiro: cena (grid), versão por cena, depois tokens e combate                  | [`docs/context/board.md`](docs/context/board.md)               |
 | tokens       | Tokens da cena: tamanho, barras, controle, principal, cone, luz, redação, camadas | [`docs/context/tokens.md`](docs/context/tokens.md)             |
+| member-cards | Ficha da mesa: nome do personagem, CA, CD e anotações por membro                  | [`docs/context/member-cards.md`](docs/context/member-cards.md) |
 | combat       | Condições e combate: entradas em grupo, turno, rodada, duração                    | [`docs/context/combat.md`](docs/context/combat.md)             |
 | drawings     | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição            | [`docs/context/drawings.md`](docs/context/drawings.md)         |
 | effect-areas | Áreas de efeito: formas, casas pintadas, autor, alças, versão                     | [`docs/context/effect-areas.md`](docs/context/effect-areas.md) |
 | walls        | Paredes e portas: tipos, formas, passagem, porta vista, visão                     | [`docs/context/walls.md`](docs/context/walls.md)               |
 | lights       | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre              | [`docs/context/lights.md`](docs/context/lights.md)             |
-| sessions     | Sessão ao vivo da mesa (Socket.IO): presença, snapshot, versão                    | [`docs/context/sessions.md`](docs/context/sessions.md)         |
+| sessions     | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão          | [`docs/context/sessions.md`](docs/context/sessions.md)         |
 | assets       | Imagens da mesa: S3, envio, link seguro, leitura pela origem                      | [`docs/context/assets.md`](docs/context/assets.md)             |
 | client       | SPA: estrutura, rotas, shell e home, testes, design system                        | [`docs/context/client.md`](docs/context/client.md)             |
 | ci           | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo    | [`docs/context/ci.md`](docs/context/ci.md)                     |
