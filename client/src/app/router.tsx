@@ -1,4 +1,5 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
+import type { InteractionClock } from '@/lib/interaction-clock';
 import {
   redirect,
   useNavigate,
@@ -55,6 +56,8 @@ export type AppDependencies = Readonly<{
   /** The board canvas; PixiJS in the app, a fake in tests (jsdom has no WebGL). */
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
+  /** The board's own time (the hover card's delay); the browser's in the app. */
+  interactionClock: InteractionClock;
   /** The instant of the overline date; a parameter so tests fix the day. */
   now: () => Date;
   /** A draw in [0, 1) for the greeting; `Math.random` in the app. */

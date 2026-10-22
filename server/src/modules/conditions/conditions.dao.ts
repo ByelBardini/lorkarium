@@ -7,7 +7,7 @@ import {
   type NewConditionDefinition,
 } from './conditions.po';
 
-/** An active condition with the name, tone and icon of its definition. */
+/** An active condition with the name, tone, icon and look of its definition. */
 export type ActiveConditionRow = Readonly<{
   id: string;
   tokenId: string;
@@ -15,6 +15,7 @@ export type ActiveConditionRow = Readonly<{
   name: string;
   tone: ConditionDefinitionPo['tone'];
   icon: ConditionDefinitionPo['icon'];
+  look: ConditionDefinitionPo['look'];
   remainingRounds: number | null;
   appliedRound: number | null;
 }>;
@@ -32,6 +33,7 @@ const activeRowColumns = {
   name: conditionDefinitions.name,
   tone: conditionDefinitions.tone,
   icon: conditionDefinitions.icon,
+  look: conditionDefinitions.look,
   remainingRounds: activeConditions.remainingRounds,
   appliedRound: activeConditions.appliedRound,
 };

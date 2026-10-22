@@ -41,9 +41,10 @@ export class ConditionsDaoFake implements Pick<
     name: string,
     tone: ConditionDefinitionPo['tone'],
     icon: ConditionDefinitionPo['icon'] = 'circle-dot',
+    look: ConditionDefinitionPo['look'] = null,
   ): string {
     const id = `${campaignId}-${name}`;
-    this.definitions.push({ id, campaignId, name, tone, icon, createdAt: CREATED });
+    this.definitions.push({ id, campaignId, name, tone, icon, look, createdAt: CREATED });
     return id;
   }
 
@@ -62,7 +63,7 @@ export class ConditionsDaoFake implements Pick<
     input: NewConditionDefinition,
   ): Promise<ConditionDefinitionPo> {
     this.journal.push('save');
-    const id = this.define(campaignId, input.name, input.tone, input.icon);
+    const id = this.define(campaignId, input.name, input.tone, input.icon, input.look);
     return this.definitions.find((d) => d.id === id) as ConditionDefinitionPo;
   }
 
@@ -95,6 +96,7 @@ export class ConditionsDaoFake implements Pick<
       name: definition.name,
       tone: definition.tone,
       icon: definition.icon,
+      look: definition.look,
       ...duration,
     };
     this.active = [...kept, row];

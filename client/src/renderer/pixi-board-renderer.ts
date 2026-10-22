@@ -4,6 +4,7 @@ import type { BoardIntentListener, BoardRenderer, CreateBoardRenderer } from './
 import { boardCursorOf } from './board-cursor';
 import { imageUrlsOf, type BoardView } from './board-view';
 import {
+  centeredOn,
   clampToScene,
   fitScene,
   panBy,
@@ -25,12 +26,13 @@ import {
   type PanKey,
   type RightDrag,
 } from './camera-input';
-import { cellAtWorld, visibleWorldRect } from './grid-geometry';
+import { cellAtWorld } from './grid-geometry';
 import { DrawingGestures } from './drawing-gestures';
 import { EffectAreaGestures } from './effect-area-gestures';
 import { LightGestures } from './light-gestures';
 import { erasedStrokesOf, wallTargetAt } from './wall-view';
 import { pointOf, prefersReducedMotion, wheelFields } from './dom-input';
+import { HoverReport, tokenScreenRect, type HoveredToken } from './hover-report';
 import { hoverRouteOf, menuRouteOf, pressRouteOf, type PressRoute } from './press-route';
 import { tokenCenterOf } from './token-box';
 import { PixiDrawingLayer } from './pixi-drawing-layer';
@@ -78,7 +80,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private primaryDown = false;
   private tokenPress: TokenPress | null = null;
   private dragCellKey: string | null = null;
-  private hoverCellKey: string | null = null;
+  private readonly hover = new HoverReport((intent) => this.onIntent(intent));
   private readonly drawings = new PixiDrawingLayer();
   private readonly effectAreas = new PixiEffectAreaLayer();
   private readonly lightTint = new PixiLightTintLayer();
@@ -164,20 +166,8 @@ class PixiBoardRenderer implements BoardRenderer {
 
   centerOn(target: Readonly<{ col: number; row: number }>): void {
     const center = tokenCenterOf({ ...target, width: 1, height: 1 });
-    const visible = visibleWorldRect(this.camera, this.screenSize());
-    const inside =
-      center.x >= visible.x &&
-      center.x <= visible.x + visible.width &&
-      center.y >= visible.y &&
-      center.y <= visible.y + visible.height;
-    if (inside) return;
-    const { width, height } = this.screenSize();
-    const { zoom } = this.camera;
-    this.applyCamera({
-      zoom,
-      offsetX: width / 2 - center.x * zoom,
-      offsetY: height / 2 - center.y * zoom,
-    });
+    const moved = centeredOn(this.camera, center, this.screenSize());
+    if (moved) this.applyCamera(moved);
   }
 
   viewCenterCell(): ReturnType<typeof cellAtWorld> {
@@ -202,6 +192,8 @@ class PixiBoardRenderer implements BoardRenderer {
     this.camera = scene ? clampToScene(next, scene, this.screenSize()) : next;
     this.world.position.set(this.camera.offsetX, this.camera.offsetY);
     this.world.scale.set(this.camera.zoom);
+    this.tokens.applyZoom(this.camera.zoom);
+    this.hover.camera(this.camera);
     if (this.view) this.drawOverlays(this.view);
     this.onIntent({ kind: 'cameraChanged', zoom: this.camera.zoom });
   }
@@ -218,7 +210,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.on(canvas, 'pointermove', (event) => this.onPointerMove(event));
     this.on(canvas, 'pointerup', (event) => this.onPointerUp(event));
     this.on(canvas, 'pointerleave', () => {
-      this.reportHover(null);
+      this.hover.left();
       this.tokens.hover(null);
     });
     // Keys on the focusable host, not on the window: typing elsewhere never moves the board.
@@ -325,7 +317,9 @@ class PixiBoardRenderer implements BoardRenderer {
     if (this.gestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
     if (this.areaGestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
     if (this.overlays.marquee.grow(pointOf(event), this.worldOf(event), this.camera.zoom)) return;
-    if (event.buttons === 0) this.hoverAt(event);
+    const pressed = event.buttons !== 0;
+    const token = pressed ? null : this.hoveredToken(this.hoverAt(event));
+    this.hover.moved({ cell: this.cellAt(event), pressed, token });
     if (this.primaryDown) this.onIntent({ kind: 'pointerMove', cell: this.cellAt(event) });
   }
 
@@ -373,25 +367,25 @@ class PixiBoardRenderer implements BoardRenderer {
     this.onIntent({ kind: 'tokenDropped', tokenId, cell: this.dropCellAt(press, event) });
   }
 
-  // The name of the token under the pointer, the stretch cursor over a handle, the hovered cell.
-  private hoverAt(event: PointerEvent): void {
+  // The name of the token under the pointer and the stretch cursor over a handle.
+  // Answers the token under the pointer, whose card the room may show.
+  private hoverAt(event: PointerEvent): string | null {
     const world = this.worldOf(event);
-    this.reportHover(this.cellAt(event));
-    if (!this.view) return;
+    if (!this.view) return null;
     const { tokenId, handle } = hoverRouteOf(this.view, world, this.camera.zoom);
     this.tokens.hover(tokenId);
     const target = wallTargetAt(this.view.walls, world);
     this.overlays.walls.lightErase(erasedStrokesOf(this.view.walls, target, this.view.wallMode));
-    if (!handle || !this.app) return this.showCursor();
-    this.app.canvas.style.cursor = resizeCursorOf(handle);
+    if (!handle || !this.app) this.showCursor();
+    else this.app.canvas.style.cursor = resizeCursorOf(handle);
+    return tokenId;
   }
 
-  // Only a new cell is news, as with a drag: the pointer moves many times inside one.
-  private reportHover(over: Cell | null): void {
-    const key = over ? `${over.col},${over.row}` : 'off';
-    if (key === this.hoverCellKey) return;
-    this.hoverCellKey = key;
-    this.onIntent({ kind: 'pointerHovered', cell: over });
+  private hoveredToken(tokenId: string | null): HoveredToken | null {
+    const token = this.view?.tokens.find(({ id }) => id === tokenId);
+    if (!token || !this.app) return null;
+    const origin = this.app.canvas.getBoundingClientRect();
+    return { tokenId: token.id, rect: tokenScreenRect(token, this.camera, origin) };
   }
 
   private onPointerUp(event: PointerEvent): void {

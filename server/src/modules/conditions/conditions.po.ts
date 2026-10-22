@@ -13,7 +13,9 @@ import {
 import { campaigns } from '../campaigns/campaigns.po';
 import { tokens } from '../tokens/tokens.po';
 
-export const conditionTone = pgEnum('condition_tone', ['benefit', 'harm']);
+export const conditionTone = pgEnum('condition_tone', ['benefit', 'harm', 'incapacitating']);
+// How the condition changes the token itself on the board; null = it is only an icon.
+export const conditionLook = pgEnum('condition_look', ['unconscious', 'invisible']);
 
 // The table's own list (spec §3.7): seeded with generic names, the master adds more by name.
 export const conditionDefinitions = pgTable(
@@ -27,6 +29,7 @@ export const conditionDefinitions = pgTable(
     tone: conditionTone('tone').notNull(),
     // Text, not a pg enum: the closed list lives in the contract, so adding an icon needs no migration.
     icon: text('icon').$type<ConditionIconDto>().notNull().default('circle-dot'),
+    look: conditionLook('look'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -64,5 +67,6 @@ export type NewConditionDefinition = Readonly<{
   name: string;
   tone: ConditionToneValue;
   icon: ConditionDefinitionPo['icon'];
+  look: ConditionDefinitionPo['look'];
 }>;
 export type ActiveConditionPo = typeof activeConditions.$inferSelect;

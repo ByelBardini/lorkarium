@@ -1,28 +1,29 @@
 # Client
 
-SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board.md`](client/board.md)).
+SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board-renderer.md`](client/board-renderer.md)).
 
 > **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda a estrutura, as rotas e os testes.
 
-| Assunto                                                                      | Arquivo                                       |
-| ---------------------------------------------------------------------------- | --------------------------------------------- |
-| Tokens de cor, tipografia, forma, componentes base e regras anti-template    | [`design-system.md`](client/design-system.md) |
-| Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe               | [`home.md`](client/home.md)                   |
-| Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos      | [`board.md`](client/board.md)                 |
-| Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras | [`tokens.md`](client/tokens.md)               |
-| Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz | [`token-dialog.md`](client/token-dialog.md)   |
-| Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro | [`combat.md`](client/combat.md)               |
-| Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)      | [`drawings.md`](client/drawings.md)           |
-| Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar      | [`effect-areas.md`](client/effect-areas.md)   |
-| Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas     | [`walls.md`](client/walls.md)                 |
-| Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre | [`vision.md`](client/vision.md)               |
-| Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender       | [`lights.md`](client/lights.md)               |
-| Cone: campo de visão, lanterna, holofote mirado, contorno do mestre          | [`cones.md`](client/cones.md)                 |
+| Assunto                                                                      | Arquivo                                         |
+| ---------------------------------------------------------------------------- | ----------------------------------------------- |
+| Tokens de cor, tipografia, forma, componentes base e regras anti-template    | [`design-system.md`](client/design-system.md)   |
+| Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe               | [`home.md`](client/home.md)                     |
+| Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos      | [`board.md`](client/board.md)                   |
+| Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador      | [`board-renderer.md`](client/board-renderer.md) |
+| Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras | [`tokens.md`](client/tokens.md)                 |
+| Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz | [`token-dialog.md`](client/token-dialog.md)     |
+| Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro | [`combat.md`](client/combat.md)                 |
+| Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)      | [`drawings.md`](client/drawings.md)             |
+| Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar      | [`effect-areas.md`](client/effect-areas.md)     |
+| Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas     | [`walls.md`](client/walls.md)                   |
+| Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre | [`vision.md`](client/vision.md)                 |
+| Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender       | [`lights.md`](client/lights.md)                 |
+| Cone: campo de visão, lanterna, holofote mirado, contorno do mestre          | [`cones.md`](client/cones.md)                   |
 
 ## Estrutura
 
 - `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `createOpenTablesStore` sobre a `RealtimeTableSessionApi` (sobre `SocketIoRealtimeTransport` com `crypto.randomUUID`) e o `sessionStorage`, `NavigatorClipboard`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`)
-- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, assets, clipboard, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, createBoardRenderer, boardCommands, now, random }`, para o teste injetar fakes
+- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, assets, clipboard, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, createBoardRenderer, boardCommands, interactionClock, now, random }`, para o teste injetar fakes
 - `src/app/route-access.ts` — `decideAccess(session, access, url)`: decisão pura `allow` | `redirect` por `RouteAccess` (`public-only`, `signed-in`, `admin`); `loginPathFor(url)` → `/login?next=…`
 - `src/app/splash-screen.tsx` (`role="status"`, "Carregando…") e `src/app/route-error-screen.tsx`
 - `src/app/shell/` — `AppShell`, trilho, menu do usuário, gaveta e `api-loader.ts` (ver [`client/home.md`](client/home.md))
@@ -92,7 +93,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - Vitest do projeto `@lorkarium/client` em `jsdom` (`client/vite.config.ts`, bloco `test`); specs em `client/test/` espelhando `src/` e importando por `@/...`.
 - `client/test/setup.ts` carrega o jest-dom e faz `cleanup` depois de cada `it` (sem globals do Vitest, o Testing Library não se limpa sozinho).
 - `client/test/jest-dom.d.ts` tipa os matchers do jest-dom no `Matchers<R, T>` do Vitest 5.
-- `client/test/support/app-dependencies.ts` — `testDependencies()`: todo o `AppDependencies` em fakes (cada store lembrada no navegador sobre o próprio `StorageFake`: `drawingStyleStorage`, `effectAreaStyleStorage`, `wallStyleStorage`, `lightReachStorage`, `lightColorStorage`, `roomLayoutStorage`) (o `openTables` real sobre o `TableSessionApiFake` e um `StorageFake`, expostos como `tableSessionApi` e `tabStorage`), `now` fixo (`TEST_NOW`, quarta 14/10/2026) e `random` = 0 ("E aí, {nome}.").
+- `client/test/support/app-dependencies.ts` — `testDependencies()`: todo o `AppDependencies` em fakes (cada store lembrada no navegador sobre o próprio `StorageFake`: `drawingStyleStorage`, `effectAreaStyleStorage`, `wallStyleStorage`, `lightReachStorage`, `lightColorStorage`, `roomLayoutStorage`) (o `openTables` real sobre o `TableSessionApiFake` e um `StorageFake`, expostos como `tableSessionApi` e `tabStorage`), `interactionClock` = `InteractionClockFake` (o relógio da sala movido à mão), `now` fixo (`TEST_NOW`, quarta 14/10/2026) e `random` = 0 ("E aí, {nome}.").
 - `client/test/support/http-transport-fake.ts` — `HttpTransportFake` (`respondWith(status, body, headers)`, `failWithNetworkDown()`, `requests`).
 - `client/test/support/campaigns-api-fake.ts` — `CampaignsApiFake` (`answer(método, resultado)`, `hold(método)`, `callsOf(método)`), mesas `VHARN` (mestre, entrou por último) e `QUELM` (jogador, pública, Tormenta20) e `detailOf(resumo, overrides)`.
 - `client/test/support/realtime-transport-fake.ts` — `RealtimeTransportFake` (`sent`, `connects`, `disconnects`; `answerAck(resposta)` / `timeOutAck()` resolvem o ack mais antigo; `serverEmits(evento, payload)`; `lifecycle(mudança)`; `isConnected()` segue a última mudança). `table-session-fixtures.ts` — membros `ANA_AT_TABLE`, `BIA_AT_TABLE` (offline), `CAIO_AT_TABLE`, `vharnState(overrides)`, `biaJoined()`, `biaLeft()`.

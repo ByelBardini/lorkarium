@@ -66,6 +66,47 @@ describe('ConditionsDao on Postgres', () => {
     ]);
   });
 
+  it('a new table starts with Paralisado and Atordoado incapacitating and Invisível translucent', async () => {
+    const listed = await conditions.listDefinitions(vharnId);
+    expect(listed.filter(({ tone }) => tone === 'incapacitating').map(({ name }) => name)).toEqual([
+      'Atordoado',
+      'Paralisado',
+    ]);
+    expect(listed.find(({ name }) => name === 'Invisível')).toMatchObject({
+      tone: 'benefit',
+      look: 'invisible',
+    });
+    expect(listed.filter(({ look }) => look !== null).map(({ name }) => name)).toEqual([
+      'Invisível',
+    ]);
+  });
+
+  it('insertDefinition saves the incapacitating tone and the look, and only this table lists it', async () => {
+    const saved = await conditions.insertDefinition(vharnId, {
+      name: 'Inconsciente',
+      tone: 'incapacitating',
+      icon: 'moon',
+      look: 'unconscious',
+    });
+    expect(saved).toMatchObject({ tone: 'incapacitating', look: 'unconscious' });
+    expect(await conditions.findDefinitionByName(vharnId, 'inconsciente')).toMatchObject({
+      look: 'unconscious',
+    });
+    expect((await conditions.listDefinitions(quelmId)).map(({ name }) => name)).not.toContain(
+      'Inconsciente',
+    );
+  });
+
+  it('listOfTokens brings the look of the definition', async () => {
+    await conditions.apply(lyraId, await definitionNamed('Invisível'), {
+      remainingRounds: null,
+      appliedRound: null,
+    });
+    expect(await conditions.listOfTokens([lyraId])).toEqual([
+      expect.objectContaining({ name: 'Invisível', tone: 'benefit', look: 'invisible' }),
+    ]);
+  });
+
   it('a definition of another table is not found in this one', async () => {
     const envenenado = await definitionNamed('Envenenado');
     expect(await conditions.findDefinitionInCampaign(vharnId, envenenado)).toMatchObject({
@@ -79,6 +120,7 @@ describe('ConditionsDao on Postgres', () => {
       name: 'envenenado',
       tone: 'harm',
       icon: 'skull',
+      look: null,
     });
     await expect(duplicate).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } });
     expect(await conditions.findDefinitionByName(vharnId, 'ENVENENADO')).toMatchObject({

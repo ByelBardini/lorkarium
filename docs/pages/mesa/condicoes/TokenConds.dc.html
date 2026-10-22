@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Condições no token</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0A0B0E}
+button:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.tc-board{border-radius:12px;background-color:#0C0E11;background-image:linear-gradient(rgba(197,164,109,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(197,164,109,.07) 1px,transparent 1px);background-size:48px 48px;border:1px solid #23272E}
+.tc-toggle{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 8px;border-radius:999px;border:1px solid #303640;background:transparent;color:#A9A497;font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.tc-toggle:hover{border-color:#4A505B;color:#EAE5DA}
+.tc-toggle.is-on{border-color:#C5A46D;color:#EAE5DA;background:rgba(197,164,109,.08)}
+.tc-tokbtn{padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;border-radius:12px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1240px; box-sizing: border-box; padding: 56px 64px; display: flex; flex-direction: column; gap: 36px; background: #0A0B0E; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: #C5A46D">Exploração</span>
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 44px">Condições no token</h1>
+<p style="margin: 0; font-size: 15px; color: #A9A497; max-width: 760px">O mesmo token com 2, 4 e 7 condições em três abordagens. Todas tiram as condições de cima da arte e põem entre o token e a barra.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<sc-for list="{{options}}" as="op" hint-placeholder-count="3">
+<section style="border-radius: 14px; background: #121418; border: 1px solid {{op.border}}; padding: 22px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: baseline; gap: 10px">
+<span style="font-family: Cinzel, serif; font-size: 15px; font-weight: 600; color: #C5A46D">{{op.letter}}</span>
+<h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 26px">{{op.title}}</h2>
+<sc-if value="{{op.rec}}" hint-placeholder-val="{{ false }}">
+<span style="margin-left: auto; height: 24px; padding: 0 10px; border-radius: 999px; background: #C5A46D; color: #15130F; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; display: inline-flex; align-items: center">Recomendada</span>
+</sc-if>
+</div>
+<p style="margin: 0; font-size: 14px; line-height: 1.55; color: #A9A497; min-height: 66px">{{op.desc}}</p>
+<div class="tc-board" style="height: 230px; display: flex; align-items: center; justify-content: space-around; padding: 0 8px">
+<sc-for list="{{op.tokens}}" as="t" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 14px">
+<div style="position: relative; width: {{t.boxW}}; height: {{t.boxH}}">
+<div style="position: absolute; left: 50%; top: 0; width: {{t.disc}}; height: {{t.disc}}; margin-left: {{t.discML}}; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #2A2F38; box-shadow: 0 0 0 3px #C9705A{{t.extraRing}}, 0 6px 14px rgba(0,0,0,.55); transform: {{t.tf}}; opacity: {{t.op}}; filter: {{t.filter}}; outline: {{t.outline}}; outline-offset: 3px; font-family: Cinzel, serif; font-size: {{t.iniSize}}; font-weight: 600; color: #D5D0C4">OG</div>
+<sc-if value="{{t.hasZz}}" hint-placeholder-val="{{ false }}">
+<span style="position: absolute; left: 50%; top: 4px; margin-left: 10px; font-family: Cinzel, serif; font-size: 13px; font-weight: 600; color: #8FA3BF">z z</span>
+</sc-if>
+<sc-if value="{{t.isStrip}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: -12px; right: -12px; top: {{t.stripTop}}; display: flex; justify-content: center; gap: 3px">
+<sc-for list="{{t.icons}}" as="i" hint-placeholder-count="3">
+<span title="{{i.name}}" style="position: relative; width: {{t.ic}}; height: {{t.ic}}; flex-shrink: 0; border-radius: 50%; background: {{i.bg}}; box-shadow: 0 0 0 1.5px {{i.ring}}; outline: {{i.outline}}; outline-offset: 1px; display: inline-flex; align-items: center; justify-content: center">
+<svg width="{{t.glyph}}" height="{{t.glyph}}" viewBox="0 0 24 24" fill="none" stroke="{{i.fg}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{i.d}}"></path></svg>
+</span>
+</sc-for>
+<sc-if value="{{t.hasMore}}" hint-placeholder-val="{{ false }}">
+<span style="height: {{t.ic}}; min-width: {{t.ic}}; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: #EAE5DA; color: #101216; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{t.more}}</span>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{t.isSide}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: {{t.sideLeft}}; top: 0; display: flex; flex-direction: column; gap: 3px">
+<sc-for list="{{t.icons}}" as="i" hint-placeholder-count="3">
+<span title="{{i.name}}" style="width: {{t.ic}}; height: {{t.ic}}; border-radius: 50%; background: {{i.bg}}; box-shadow: 0 0 0 1.5px {{i.ring}}; display: inline-flex; align-items: center; justify-content: center">
+<svg width="{{t.glyph}}" height="{{t.glyph}}" viewBox="0 0 24 24" fill="none" stroke="{{i.fg}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{i.d}}"></path></svg>
+</span>
+</sc-for>
+<sc-if value="{{t.hasMore}}" hint-placeholder-val="{{ false }}">
+<span style="height: {{t.ic}}; min-width: {{t.ic}}; padding: 0 4px; box-sizing: border-box; border-radius: 999px; background: #EAE5DA; color: #101216; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{t.more}}</span>
+</sc-if>
+</div>
+</sc-if>
+<div style="position: absolute; left: 12%; right: 12%; top: {{t.barTop}}; height: 6px; border-radius: 3px; background: #262A31; overflow: hidden"><div style="height: 100%; width: 64%; background: #C9705A"></div></div>
+</div>
+<span style="font-size: 12px; color: #8C8F98">{{t.caption}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.5">
+<span style="color: #A9D1B4">+ {{op.good}}</span>
+<span style="color: #E6A28F">− {{op.bad}}</span>
+</div>
+</section>
+</sc-for>
+</div>
+
+<section style="flex: 1; border-radius: 14px; background: #121418; border: 1px solid rgba(197,164,109,.45); padding: 24px 28px; display: flex; gap: 32px">
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; gap: 12px">
+<h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 28px">Testa a C</h2>
+<span style="font-size: 13px; color: #8C8F98">Liga e desliga condições · passa o mouse ou clica no token grande</span>
+</div>
+<div class="tc-board" style="position: relative; flex: 1; min-height: 340px; display: flex; align-items: center; justify-content: space-around; padding: 0 24px">
+<sc-for list="{{zooms}}" as="t" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 16px">
+<button type="button" class="tc-tokbtn" onMouseEnter="{{t.enter}}" onMouseLeave="{{t.leave}}" onClick="{{t.click}}" aria-label="{{t.aria}}" style="position: relative; width: {{t.boxW}}; height: {{t.boxH}}">
+<div style="position: absolute; left: 50%; top: 0; width: {{t.disc}}; height: {{t.disc}}; margin-left: {{t.discML}}; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #2A2F38; box-shadow: 0 0 0 3px #C9705A{{t.extraRing}}, 0 6px 14px rgba(0,0,0,.55); transform: {{t.tf}}; opacity: {{t.op}}; filter: {{t.filter}}; outline: {{t.outline}}; outline-offset: 3px; font-family: Cinzel, serif; font-size: {{t.iniSize}}; font-weight: 600; color: #D5D0C4; transition: all .2s">OG</div>
+<sc-if value="{{t.hasZz}}" hint-placeholder-val="{{ false }}">
+<span style="position: absolute; left: 50%; top: 4px; margin-left: {{t.zzML}}; font-family: Cinzel, serif; font-size: 14px; font-weight: 600; color: #8FA3BF">z z</span>
+</sc-if>
+<sc-if value="{{t.isStrip}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: -16px; right: -16px; top: {{t.stripTop}}; display: flex; justify-content: center; gap: 3px">
+<sc-for list="{{t.icons}}" as="i" hint-placeholder-count="3">
+<span style="position: relative; width: {{t.ic}}; height: {{t.ic}}; flex-shrink: 0; border-radius: 50%; background: {{i.bg}}; box-shadow: 0 0 0 1.5px {{i.ring}}; outline: {{i.outline}}; outline-offset: 1px; display: inline-flex; align-items: center; justify-content: center">
+<svg width="{{t.glyph}}" height="{{t.glyph}}" viewBox="0 0 24 24" fill="none" stroke="{{i.fg}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{i.d}}"></path></svg>
+<sc-if value="{{i.showDur}}" hint-placeholder-val="{{ false }}">
+<span style="position: absolute; right: -5px; bottom: -5px; min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 999px; background: #101216; color: #EAE5DA; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px #3A404A">{{i.dur}}</span>
+</sc-if>
+</span>
+</sc-for>
+<sc-if value="{{t.hasMore}}" hint-placeholder-val="{{ false }}">
+<span style="height: {{t.ic}}; min-width: {{t.ic}}; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: #EAE5DA; color: #101216; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{t.more}}</span>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{t.isDots}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; right: 0; top: {{t.stripTop}}; display: flex; justify-content: center; gap: 3px">
+<sc-for list="{{t.dots}}" as="d" hint-placeholder-count="3">
+<span style="width: 7px; height: 7px; border-radius: 50%; background: {{d.color}}"></span>
+</sc-for>
+</div>
+</sc-if>
+<div style="position: absolute; left: 12%; right: 12%; top: {{t.barTop}}; height: {{t.barH}}; border-radius: 3px; background: #262A31; overflow: hidden"><div style="height: 100%; width: 64%; background: #C9705A"></div></div>
+</button>
+<span style="font-size: 12px; color: #8C8F98">{{t.caption}}</span>
+</div>
+</sc-for>
+
+<sc-if value="{{showPop}}" hint-placeholder-val="{{ false }}">
+<div role="tooltip" style="position: absolute; right: 24px; top: 24px; width: 250px; box-sizing: border-box; padding: 14px; border-radius: 12px; background: #15181D; border: 1px solid #303640; box-shadow: 0 16px 40px rgba(0,0,0,.55); display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600">Ogro das Cinzas</span>
+<span style="font-size: 12px; color: #8C8F98">PV 41/64</span>
+</div>
+<sc-for list="{{popList}}" as="p" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; background: {{p.bg}}; box-shadow: 0 0 0 1.5px {{p.ring}}; display: inline-flex; align-items: center; justify-content: center">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{p.fg}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{p.d}}"></path></svg>
+</span>
+<span style="flex: 1; font-size: 13px; font-weight: 600">{{p.name}}</span>
+<span style="font-size: 12px; color: {{p.durColor}}">{{p.durText}}</span>
+</div>
+</sc-for>
+<sc-if value="{{noConds}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #6F7480">Nenhuma condição.</span>
+</sc-if>
+</div>
+</sc-if>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{toggles}}" as="g" hint-placeholder-count="12">
+<button type="button" class="{{g.cls}}" onClick="{{g.toggle}}" aria-pressed="{{g.on}}">
+<span style="width: 22px; height: 22px; border-radius: 50%; background: {{g.bg}}; box-shadow: 0 0 0 1.5px {{g.ring}}; display: inline-flex; align-items: center; justify-content: center">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{g.fg}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{g.d}}"></path></svg>
+</span>
+{{g.name}}<span style="font-size: 11px; color: #6F7480">{{g.kindText}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+
+<div style="flex: 0 0 340px; display: flex; flex-direction: column; gap: 14px; padding-left: 28px; border-left: 1px solid #262B33">
+<h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #C5A46D">As regras da C</h3>
+<ol style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 1.55; color: #D5D0C4">
+<li><strong>Estado vira o token.</strong> Caído deita, Inconsciente fica cinza com “z z”, Invisível fica translúcido e tracejado, Concentrando ganha um anel dourado duplo. Esses quatro não ocupam ícone.</li>
+<li><strong>O resto vai pra faixa</strong>, entre o token e a barra, ordenado pelo que mais muda o turno: incapacitantes, depois controle, depois dano, por último os benefícios.</li>
+<li><strong>Cabe o que cabe, o resto vira “+N”.</strong> Quantos cabem depende do tamanho do token, nunca da arte.</li>
+<li><strong>Acabando:</strong> condição na última rodada ganha contorno tracejado. De perto, cada ícone mostra as rodadas.</li>
+<li><strong>De longe</strong>, a faixa vira pontinhos: vermelho é ruim, verde é bom.</li>
+<li><strong>Mouse em cima</strong> (ou toque) abre a lista completa com as durações.</li>
+</ol>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1240}}'>
+var TC = {
+  'Paralisado':   { d: 'M13 2L4 14h7l-1 8 9-12h-7Z', kind: 'hard', p: 1 },
+  'Atordoado':    { d: 'M12 12a2 2 0 1 1 2-2 4 4 0 1 1-4-4 6 6 0 1 1-6 6', kind: 'hard', p: 2 },
+  'Agarrado':     { d: 'M8 12V6a1.5 1.5 0 0 1 3 0v5M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6a1.5 1.5 0 0 1 3 0v7a6 6 0 0 1-6 6h-1a5 5 0 0 1-4-2l-3-4a1.5 1.5 0 0 1 2.4-1.8L8 13', kind: 'bad', p: 3 },
+  'Cego':         { d: 'M3 3l18 18M10.6 5.1A9.8 9.8 0 0 1 12 5c5.5 0 9 5.5 9 7a9.6 9.6 0 0 1-2.3 3.2M6.6 6.6C4.4 8 3 10.6 3 12c0 1.5 3.5 7 9 7a9 9 0 0 0 4.4-1.1', kind: 'bad', p: 4 },
+  'Amedrontado':  { d: 'M12 4v10M12 19v.01', kind: 'bad', p: 5 },
+  'Envenenado':   { d: 'M12 3c3 4.5 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-6.5 6-11Z', kind: 'bad', p: 6 },
+  'Abençoado':    { d: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4', kind: 'good', p: 7 },
+  'Inspirado':    { d: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM19 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z', kind: 'good', p: 8 },
+  'Caído':        { d: 'M12 4v14M6 12l6 6 6-6', kind: 'state', p: 0 },
+  'Inconsciente': { d: 'M5 7h6l-6 7h6M14 5h5l-5 6h5', kind: 'state', p: 0 },
+  'Invisível':    { d: 'M6 20V10a6 6 0 0 1 12 0v10l-2-2-2 2-2-2-2 2-2-2Z', kind: 'state', p: 0 },
+  'Concentrando': { d: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z', kind: 'state', p: 0 }
+};
+var TC_ORDER = ['Paralisado', 'Atordoado', 'Agarrado', 'Cego', 'Amedrontado', 'Envenenado', 'Abençoado', 'Inspirado', 'Caído', 'Inconsciente', 'Invisível', 'Concentrando'];
+var TC_STYLE = {
+  hard: { bg: '#C9705A', fg: '#15130F', ring: '#C9705A' },
+  bad: { bg: '#2A1D1A', fg: '#E6A28F', ring: '#C9705A' },
+  good: { bg: '#1B2620', fg: '#A9D1B4', ring: '#8FB39A' },
+  state: { bg: '#1F232A', fg: '#C9C3B6', ring: '#6F7480' }
+};
+var TC_SETS = [
+  [['Envenenado', 3], ['Abençoado', 2]],
+  [['Agarrado', 0], ['Envenenado', 2], ['Amedrontado', 1], ['Abençoado', 2]],
+  [['Caído', 0], ['Concentrando', 0], ['Envenenado', 2], ['Agarrado', 0], ['Cego', 1], ['Amedrontado', 3], ['Abençoado', 2]]
+];
+function tcIcon(n, d) {
+  var c = TC[n], st = TC_STYLE[c.kind];
+  return { name: n, d: c.d, bg: st.bg, fg: st.fg, ring: st.ring, dur: d > 0 ? String(d) : '', showDur: false, outline: d === 1 ? '1.5px dashed #EAE5DA' : 'none' };
+}
+function tcView(list, S, mode, closeUp) {
+  var disc = Math.round(S * 0.78);
+  var ic = Math.max(14, Math.round(S * 0.2));
+  var t = { disc: disc + 'px', discML: (-disc / 2) + 'px', iniSize: Math.round(disc * 0.28) + 'px', ic: ic + 'px', glyph: Math.round(ic * 0.62) + 'px',
+    tf: 'none', op: 1, filter: 'none', outline: 'none', extraRing: '', hasZz: false, zzML: Math.round(disc * 0.25) + 'px',
+    isStrip: false, isSide: false, isDots: false, icons: [], dots: [], hasMore: false, more: '', barH: S < 56 ? '4px' : '6px' };
+  var items = list.slice();
+  if (mode === 'C') {
+    var names = items.map(function (x) { return x[0]; });
+    if (names.indexOf('Caído') >= 0) t.tf = 'rotate(-90deg)';
+    if (names.indexOf('Inconsciente') >= 0) { t.filter = 'grayscale(1)'; t.op = 0.6; t.hasZz = true; }
+    if (names.indexOf('Invisível') >= 0) { t.op = Math.min(t.op, 0.45); t.outline = '2px dashed #8FA3BF'; }
+    if (names.indexOf('Concentrando') >= 0) t.extraRing = ', 0 0 0 6px #0C0E11, 0 0 0 8px #C5A46D';
+    items = items.filter(function (x) { return TC[x[0]].kind !== 'state'; });
+    items.sort(function (a, b) { return TC[a[0]].p - TC[b[0]].p; });
+  }
+  var icons = items.map(function (x) { var i = tcIcon(x[0], x[1]); if (mode !== 'C') i.outline = 'none'; if (closeUp && x[1] > 0) i.showDur = true; return i; });
+  var stripTop, barTop;
+  if (mode === 'B') {
+    t.isSide = true;
+    var fitV = Math.max(1, Math.floor(disc / (ic + 3)));
+    if (icons.length > fitV) { t.icons = icons.slice(0, fitV - 1); t.hasMore = true; t.more = '+' + (icons.length - fitV + 1); } else t.icons = icons;
+    t.sideLeft = 'calc(50% + ' + (disc / 2 + 6) + 'px)';
+    barTop = disc + 8;
+    t.boxW = (disc + ic * 2 + 20) + 'px';
+  } else if (S < 56 && mode === 'C') {
+    t.isDots = true;
+    t.dots = items.slice(0, 4).map(function (x) { return { color: TC[x[0]].kind === 'good' ? '#8FB39A' : '#C9705A' }; });
+    stripTop = disc + 5; barTop = items.length ? stripTop + 11 : disc + 6;
+    t.boxW = Math.max(S, 56) + 'px';
+  } else {
+    t.isStrip = true;
+    var fit = Math.max(1, Math.floor((S + 24) / (ic + 3)));
+    if (icons.length > fit) { t.icons = icons.slice(0, fit - 1); t.hasMore = true; t.more = '+' + (icons.length - fit + 1); } else t.icons = icons;
+    stripTop = disc + 6; barTop = icons.length ? stripTop + ic + 6 : disc + 8;
+    t.boxW = S + 'px';
+  }
+  t.stripTop = stripTop + 'px'; t.barTop = barTop + 'px'; t.boxH = (barTop + 8) + 'px';
+  return t;
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { on: { 'Concentrando': 0, 'Envenenado': 2, 'Agarrado': 0, 'Amedrontado': 1, 'Abençoado': 2, 'Cego': 3 }, hover: false, pinned: false };
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var defs = [
+      { letter: 'A', title: 'Faixa simples', mode: 'A', border: '#262B33', rec: false,
+        desc: 'Ícones numa faixa entre a arte e a barra, na ordem em que foram aplicados. Quando não cabe mais, aparece “+N”.',
+        good: 'Nada cobre a arte. Fácil de implementar.', bad: 'Com 7 condições, as mais graves podem ficar escondidas no “+N”.' },
+      { letter: 'B', title: 'Coluna ao lado', mode: 'B', border: '#262B33', rec: false,
+        desc: 'Ícones empilhados na lateral direita, fora do disco, como nos MMOs. A barra fica colada no token.',
+        good: 'Cabem mais ícones sem mexer na altura do token.', bad: 'Invade a casa vizinha e briga com o token do lado num grid cheio.' },
+      { letter: 'C', title: 'Estados + faixa', mode: 'C', border: 'rgba(197,164,109,.5)', rec: true,
+        desc: 'Os estados do corpo (caído, inconsciente, invisível, concentrando) mudam a própria arte. O resto vai pra faixa, ordenado pelo que mais pesa no turno.',
+        good: 'Menos ícones, e os mais graves sempre aparecem primeiro.', bad: 'O mestre precisa aprender as 4 aparências de estado.' }
+    ];
+    var caps = ['2 condições', '4 condições', '7 condições'];
+    var options = defs.map(function (o) {
+      return Object.assign({}, o, { tokens: TC_SETS.map(function (set, i) { var v = tcView(set, 96, o.mode, false); v.caption = caps[i]; return v; }) });
+    });
+
+    var list = TC_ORDER.filter(function (n) { return s.on.hasOwnProperty(n); }).map(function (n) { return [n, s.on[n]]; });
+    var zDefs = [{ S: 44, cap: 'De longe' }, { S: 84, cap: 'Normal' }, { S: 150, cap: 'De perto', close: true }];
+    var showPop = s.hover || s.pinned;
+    var zooms = zDefs.map(function (z) {
+      var v = tcView(list, z.S, 'C', !!z.close);
+      v.caption = z.cap;
+      v.aria = 'Ogro das Cinzas, ' + list.length + ' condições';
+      v.enter = function () { if (z.close) self.setState({ hover: true }); };
+      v.leave = function () { if (z.close) self.setState({ hover: false }); };
+      v.click = function () { self.setState({ pinned: !self.state.pinned }); };
+      return v;
+    });
+    var popList = list.slice().sort(function (a, b) { var ka = TC[a[0]].kind === 'state' ? -1 : TC[a[0]].p, kb = TC[b[0]].kind === 'state' ? -1 : TC[b[0]].p; return ka - kb; }).map(function (x) {
+      var i = tcIcon(x[0], x[1]);
+      i.durText = x[1] > 0 ? (x[1] === 1 ? 'última rodada' : x[1] + ' rodadas') : 'até tirar';
+      i.durColor = x[1] === 1 ? '#E6A28F' : '#8C8F98';
+      return i;
+    });
+    var kindText = { hard: '', bad: '', good: '', state: '· estado' };
+    var toggles = TC_ORDER.map(function (n) {
+      var on = s.on.hasOwnProperty(n), st = TC_STYLE[TC[n].kind];
+      var dflt = { 'Envenenado': 2, 'Amedrontado': 1, 'Abençoado': 2, 'Cego': 3, 'Inspirado': 3, 'Atordoado': 1 }[n] || 0;
+      return { name: n, d: TC[n].d, bg: st.bg, fg: st.fg, ring: st.ring, on: on ? 'true' : 'false', kindText: kindText[TC[n].kind],
+        cls: 'tc-toggle' + (on ? ' is-on' : ''),
+        toggle: function () { var o = Object.assign({}, self.state.on); if (on) delete o[n]; else o[n] = dflt; self.setState({ on: o }); } };
+    });
+    return { options: options, zooms: zooms, showPop: showPop, popList: popList, noConds: list.length === 0, toggles: toggles };
+  }
+}
+</script>
+</body>
+</html>

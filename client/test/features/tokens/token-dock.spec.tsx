@@ -249,7 +249,9 @@ describe('TokenDock', () => {
       kind: 'board',
       state: vharnBoard({
         tokens: [lyra()],
-        conditionDefinitions: [{ id: 'c-1', name: 'Envenenado', tone: 'harm', icon: 'skull' }],
+        conditionDefinitions: [
+          { id: 'c-1', name: 'Envenenado', tone: 'harm', icon: 'skull', look: null },
+        ],
       }),
     });
     interaction.getState().select(LYRA_ID);

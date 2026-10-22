@@ -14,6 +14,7 @@ import { BoardRenderersFake } from './board-renderer-fake';
 import { CallJournal } from './call-journal';
 import { CampaignsApiFake } from './campaigns-api-fake';
 import { ClipboardFake } from './clipboard-fake';
+import { InteractionClockFake } from './interaction-clock-fake';
 import { StorageFake } from './storage-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
@@ -42,6 +43,8 @@ export type TestDependencies = AppDependencies & {
   /** Every board renderer the room created, behind `createBoardRenderer`. */
   boardRenderers: BoardRenderersFake;
   boardCommands: TableBoardCommandsFake;
+  /** The board's own time (the hover card's delay), moved by hand. */
+  interactionClock: InteractionClockFake;
   /** Where the auth and table session fakes write, in call order. */
   journal: CallJournal;
 };
@@ -80,6 +83,7 @@ export function testDependencies(): TestDependencies {
     boardRenderers,
     createBoardRenderer: boardRenderers.create,
     boardCommands: new TableBoardCommandsFake(),
+    interactionClock: new InteractionClockFake(),
     openTables: createOpenTablesStore({ api: tableSessionApi, storage: tabStorage }),
     sessionStore: createSessionStore(),
     railStore: createRailStore(new StorageFake()),

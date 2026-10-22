@@ -25,6 +25,7 @@ import { routeEffectAreaIntent } from '@/features/effect-areas/effect-area-inten
 import { EffectAreasSummary } from '@/features/effect-areas/effect-areas-summary';
 import { BoardCanvas } from './board-canvas';
 import type { TokenMenuRequest } from './token-context-menu';
+import type { TokenHoverRequest } from './use-token-hover';
 import type { DoorMenuRequest } from '@/features/walls/door-menu';
 import type { LightMenuRequest } from '@/features/lights/light-menu';
 import {
@@ -49,6 +50,8 @@ export type BoardAreaProps = Readonly<{
   onDeleteSelection: (selection: SelectionToDelete) => void;
   /** A short right click on a token (master): open "Mover para camada" there. */
   onTokenMenu: (request: TokenMenuRequest) => void;
+  /** The pointer rests on a token (its card may show) or left it, or a token is dragged (`null`). */
+  onTokenHover: (request: TokenHoverRequest | null) => void;
   /** A short right click on a door (master): open the door menu there. */
   onDoorMenu: (request: DoorMenuRequest) => void;
   /** A short right click on a map light (master): open the light menu there. */
@@ -102,6 +105,7 @@ function InteractiveCanvas({
   onOpenToken,
   onDeleteSelection,
   onTokenMenu,
+  onTokenHover,
   onDoorMenu,
   onLightMenu,
   drawingStyle,
@@ -127,6 +131,8 @@ function InteractiveCanvas({
         wallStyle={wallStyle}
         createBoardRenderer={createBoardRenderer}
         onIntent={(intent) => {
+          if (intent.kind === 'tokenHovered') return onTokenHover(hoverRequestOf(intent));
+          if (intent.kind === 'tokenDragged') onTokenHover(null);
           if (intent.kind === 'tokenMenuRequested') {
             return onTokenMenu({ tokenId: intent.tokenId, x: intent.x, y: intent.y });
           }
@@ -144,6 +150,14 @@ function InteractiveCanvas({
       />
     </>
   );
+}
+
+// The renderer says "no token" with both fields null; the room only needs one or the other.
+function hoverRequestOf(
+  intent: Extract<BoardIntent, { kind: 'tokenHovered' }>,
+): TokenHoverRequest | null {
+  const { tokenId, rect } = intent;
+  return tokenId && rect ? { tokenId, rect } : null;
 }
 
 type IntentStores = Readonly<{

@@ -16,6 +16,7 @@ import { RoomLightPanel } from '@/features/lights/room-light-panel';
 import { DoorMenu, type DoorMenuRequest } from '@/features/walls/door-menu';
 import { LightMenu, type LightMenuRequest } from '@/features/lights/light-menu';
 import type { EditEntry } from '@/lib/edit-history';
+import type { InteractionClock } from '@/lib/interaction-clock';
 import { createBoardInteractionStore, useBoardInteraction } from '@/stores/board-interaction-store';
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
@@ -34,6 +35,8 @@ import { BoardToolbar, type BoardToolbarProps } from './board-toolbar';
 import { ConfigureSceneDialog } from './configure-scene-dialog';
 import { FocusToggle } from './focus-toggle';
 import { TokenContextMenu, type TokenMenuRequest } from './token-context-menu';
+import { TokenHoverCard } from './token-hover-card';
+import { useTokenHover } from './use-token-hover';
 import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
@@ -53,6 +56,8 @@ export type PlayRoomPageProps = Readonly<{
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
   assets: AssetsApi;
+  /** The delay before the hovered token's card shows. */
+  interactionClock: InteractionClock;
 }>;
 
 /** The play room: the board fills the screen, the top bar, tools and panel float over it, and
@@ -81,6 +86,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [imageTokenId, setImageTokenId] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<SelectionToDelete | null>(null);
   const isMaster = campaign.myRole === 'master';
+  const hover = useTokenHover(props.interactionClock);
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
   useRoomShortcuts({ roomLayout, interaction });
@@ -115,7 +121,11 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             roomLayout.getState().showTab('combat');
           }}
           onDeleteSelection={setDeletion}
-          onTokenMenu={setTokenMenu}
+          onTokenMenu={(request) => {
+            hover.onTokenHover(null);
+            setTokenMenu(request);
+          }}
+          onTokenHover={hover.onTokenHover}
           onDoorMenu={(request) => isMaster && setDoorMenu(request)}
           onLightMenu={(request) => isMaster && setLightMenu(request)}
           drawingStyle={props.drawingStyle}
@@ -146,6 +156,9 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             lightReach={props.lightReach}
             lightColor={props.lightColor}
           />
+        )}
+        {hover.hovered && table && (
+          <TokenHoverCard request={hover.hovered} board={table.board} interaction={interaction} />
         )}
         {tokenMenu && table && (
           <TokenContextMenu

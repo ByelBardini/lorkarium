@@ -8,9 +8,11 @@ import { PixiTokenArt, ROUND_RADIUS_SHARE } from './pixi-token-art';
 import type { PixiTextureCache } from './pixi-texture-cache';
 import { showsNameTag } from './name-tag';
 import { PixiNameTag } from './pixi-name-tag';
+import { PixiTokenLook } from './pixi-token-look';
 import { barSegments, type BarTone } from './token-bar';
 import { tokenWorldRect } from './token-box';
 import { defeatedCross } from './token-defeated';
+import { tokenLookStyle } from './token-look';
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const DISC_COLOR = 0x1b1f25;
@@ -38,8 +40,6 @@ const MOVE_ANIMATION_MS = 150;
 const SILHOUETTE_COLOR = 0x000000;
 const SILHOUETTE_ALPHA = 0.9;
 const DEFEATED_COLOR = BAR_NEGATIVE_COLOR;
-// The token under the cross fades so the cross reads first, but the image still says who fell.
-const DEFEATED_ALPHA = 0.45;
 const DEFEATED_OUTLINE = 3;
 
 type TokenSprite = Readonly<{
@@ -49,16 +49,21 @@ type TokenSprite = Readonly<{
   shape: Graphics;
   label: Text;
   cross: Graphics;
+  look: PixiTokenLook;
   marks: PixiConditionMarks;
+  /** Over the tokens of its layer: the strip and the name plate, which hang under the cell. */
+  overlay: Container;
   nameTag: PixiNameTag;
-}> & { view: TokenView; from: Point; to: Point; startedMs: number };
+}> & { view: TokenView; from: Point; to: Point; startedMs: number; stripHeight: number };
 
 const FACING_MARK_LENGTH = 7;
 const FACING_MARK_HALF_WIDTH = 5;
 
 /** The tokens on the canvas: one `Container` per token, kept by id so a change redraws only that
  *  token (spec §14, rendering risk), inside one `Container` per layer (Fundo under Objetos under
- *  Tokens). Positions are world px of the token's top-left corner. */
+ *  Tokens). Each layer has its condition strips and name plates right above its tokens: they hang
+ *  under the cell, and the token below must not cover them. Positions are world px of the token's top-left
+ *  corner. */
 export class PixiTokenLayer {
   readonly container = new Container();
   private readonly layers: Readonly<Record<TokenLayerDto, Container>> = {
@@ -66,6 +71,12 @@ export class PixiTokenLayer {
     objects: new Container(),
     tokens: new Container(),
   };
+  private readonly strips: Readonly<Record<TokenLayerDto, Container>> = {
+    background: new Container(),
+    objects: new Container(),
+    tokens: new Container(),
+  };
+  private zoom = 1;
   private readonly sprites = new Map<string, TokenSprite>();
   private readonly ghost = new Graphics();
   private dragging: string | null = null;
@@ -81,7 +92,9 @@ export class PixiTokenLayer {
   ) {
     const { background, objects, tokens } = this.layers;
     if (beneath) tokens.addChild(beneath);
-    this.container.addChild(background, objects, tokens, this.ghost);
+    const strips = this.strips;
+    this.container.addChild(background, strips.background, objects, strips.objects);
+    this.container.addChild(tokens, strips.tokens, this.ghost);
   }
 
   sync(tokens: readonly TokenView[], ghosts: readonly GhostView[], nowMs: number): void {
@@ -89,10 +102,19 @@ export class PixiTokenLayer {
     for (const [id, sprite] of this.sprites) {
       if (alive.has(id)) continue;
       sprite.root.destroy({ children: true });
+      sprite.overlay.destroy({ children: true });
       this.sprites.delete(id);
     }
     for (const view of tokens) this.place(view, nowMs);
     this.drawGhosts(ghosts);
+  }
+
+  /** The strips follow the zoom (dots from afar, rounds up close); only a strip that changes
+   *  is drawn again. Call on every camera change. */
+  applyZoom(zoom: number): void {
+    if (zoom === this.zoom) return;
+    this.zoom = zoom;
+    for (const sprite of this.sprites.values()) this.drawStrip(sprite);
   }
 
   /** The token under the pointer shows its name (selected ones always do); `null` hides it. */
@@ -112,14 +134,14 @@ export class PixiTokenLayer {
     if (!sprite) return;
     this.dragging = tokenId;
     const rect = tokenWorldRect(sprite.view);
-    sprite.root.position.set(world.x - rect.width / 2, world.y - rect.height / 2);
+    moveSprite(sprite, world.x - rect.width / 2, world.y - rect.height / 2);
   }
 
   /** Back to the confirmed cell: the ghost or the confirmed event shows where it goes. */
   release(): void {
     const sprite = this.dragging ? this.sprites.get(this.dragging) : undefined;
     this.dragging = null;
-    if (sprite) sprite.root.position.set(sprite.to.x, sprite.to.y);
+    if (sprite) moveSprite(sprite, sprite.to.x, sprite.to.y);
   }
 
   /** Moves each token a step along its 150 ms glide; call from the ticker. */
@@ -129,7 +151,7 @@ export class PixiTokenLayer {
       const progress = Math.min(1, (nowMs - sprite.startedMs) / MOVE_ANIMATION_MS);
       const x = sprite.from.x + (sprite.to.x - sprite.from.x) * progress;
       const y = sprite.from.y + (sprite.to.y - sprite.from.y) * progress;
-      sprite.root.position.set(x, y);
+      moveSprite(sprite, x, y);
     }
   }
 
@@ -151,7 +173,10 @@ export class PixiTokenLayer {
       known.to = target;
       known.startedMs = nowMs;
     }
-    if (known.view.layer !== view.layer) this.layers[view.layer].addChild(known.root);
+    if (known.view.layer !== view.layer) {
+      this.layers[view.layer].addChild(known.root);
+      this.strips[view.layer].addChild(known.overlay);
+    }
     known.view = view;
     this.draw(known);
   }
@@ -159,7 +184,16 @@ export class PixiTokenLayer {
   private draw(sprite: TokenSprite): void {
     const art = sprite.view.art;
     drawToken(sprite, art ? (this.textures?.textureOf(art.url) ?? null) : null);
-    sprite.nameTag.draw(sprite.view, showsNameTag(sprite.view, this.hovered));
+    sprite.stripHeight = sprite.marks.draw(sprite.view, this.zoom).height;
+    sprite.nameTag.draw(sprite.view, showsNameTag(sprite.view, this.hovered), sprite.stripHeight);
+  }
+
+  // The name plate moves only when the strip under the token grows or shrinks.
+  private drawStrip(sprite: TokenSprite): void {
+    const { height } = sprite.marks.draw(sprite.view, this.zoom);
+    if (height === sprite.stripHeight) return;
+    sprite.stripHeight = height;
+    sprite.nameTag.draw(sprite.view, showsNameTag(sprite.view, this.hovered), height);
   }
 
   private add(view: TokenView, at: Point, nowMs: number): void {
@@ -180,9 +214,14 @@ export class PixiTokenLayer {
     const art = new PixiTokenArt();
     const nameTag = new PixiNameTag();
     const cross = new Graphics();
-    root.addChild(disc, art.container, shape, label, cross, marks.container, nameTag.container);
+    const look = new PixiTokenLook();
+    root.addChild(disc, art.container, shape, label, look.container, cross);
+    const overlay = new Container();
+    overlay.addChild(marks.container, nameTag.container);
     root.position.set(at.x, at.y);
+    overlay.position.set(at.x, at.y);
     this.layers[view.layer].addChild(root);
+    this.strips[view.layer].addChild(overlay);
     const sprite: TokenSprite = {
       root,
       disc,
@@ -190,12 +229,15 @@ export class PixiTokenLayer {
       shape,
       label,
       cross,
+      look,
       marks,
+      overlay,
       nameTag,
       view,
       from: at,
       to: at,
       startedMs: nowMs,
+      stripHeight: 0,
     };
     this.sprites.set(view.id, sprite);
     this.draw(sprite);
@@ -224,7 +266,7 @@ function shapeOf(view: TokenView): TokenShape {
 // With its image loaded the token is the image (square: no disc; round: cropped with the side
 // ring); until then, or when it fails, the initials disc. The facing mark only when the view asks.
 function drawToken(sprite: TokenSprite, texture: Texture | null): void {
-  const { disc, art, shape, label, marks, view } = sprite;
+  const { disc, art, shape, label, view } = sprite;
   const box = shapeOf(view);
   if (view.silhouette) return drawSilhouette(sprite, box);
   const center = { x: box.width / 2, y: box.height / 2 };
@@ -241,19 +283,18 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   drawOutlines(shape, view, box, square);
   drawBar(shape, view, box);
   if (view.facingMark) drawFacingMark(shape, view.facing, box);
-  marks.draw(view, box.width);
   label.visible = !image;
   label.text = view.initials;
   label.style.fontSize = Math.round(Math.min(box.width, box.height) * 0.3);
   label.position.set(center.x, center.y);
-  drawDefeated(sprite, box);
+  drawDefeated(sprite, box, square);
 }
 
-// The rings and the bar stay bright: they are about the table, not about the token's face.
-function drawDefeated(sprite: TokenSprite, box: TokenShape): void {
+// The rings and the bar stay bright: they are about the table, not about the token's face. The
+// face fades (and greys) by the defeat and the looks together, so the cross still reads first.
+function drawDefeated(sprite: TokenSprite, box: TokenShape, square = false): void {
   const { disc, art, label, cross, view } = sprite;
-  const alpha = view.defeated ? DEFEATED_ALPHA : 1;
-  for (const faded of [disc, art.container, label]) faded.alpha = alpha;
+  sprite.look.draw([disc, art.container, label], tokenLookStyle(view), { ...box, square });
   cross.clear();
   if (!view.defeated) return;
   const { strokes, width } = defeatedCross(box);
@@ -268,14 +309,13 @@ function drawDefeated(sprite: TokenSprite, box: TokenShape): void {
 
 // In the penumbra: a black shape of the footprint, nothing that tells who it is.
 function drawSilhouette(sprite: TokenSprite, box: TokenShape): void {
-  const { disc, art, shape, label, marks, view } = sprite;
+  const { disc, art, shape, label, view } = sprite;
   disc.clear();
   if (view.silhouette === 'square') disc.rect(0, 0, box.width, box.height);
   else disc.ellipse(box.width / 2, box.height / 2, box.rx, box.ry);
   disc.fill({ color: SILHOUETTE_COLOR, alpha: SILHOUETTE_ALPHA });
   art.draw(null, null, box, 0);
   shape.clear();
-  marks.draw(view, box.width);
   label.visible = false;
   drawDefeated(sprite, box);
 }
@@ -332,6 +372,13 @@ function drawBar(shape: Graphics, view: TokenView, box: TokenShape): void {
       .roundRect(left + segment.left, top, segment.width, BAR_HEIGHT, radius)
       .fill(tones[segment.tone]);
   }
+}
+
+// The strip and the name live in their own layer: they go wherever the token goes (glide, drag,
+// release).
+function moveSprite(sprite: TokenSprite, x: number, y: number): void {
+  sprite.root.position.set(x, y);
+  sprite.overlay.position.set(x, y);
 }
 
 function cornerOf(view: TokenView): Point {

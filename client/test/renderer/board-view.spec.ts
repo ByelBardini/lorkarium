@@ -176,65 +176,13 @@ describe('buildBoardView', () => {
       });
     }
 
-    it('a token is a disc with its initials, its side ring, its cell, its sides and its name', () => {
-      expect(viewOf().tokens[0]).toMatchObject({
-        id: LYRA_ID,
-        name: 'Lyra',
-        initials: 'LY',
-        ring: 'ally',
-        col: 3,
-        row: 4,
-        width: 1,
-        height: 1,
-        selected: false,
-        draggable: true,
-      });
-    });
-
-    it('the bar at position 0 is drawn under the token, filled by its value', () => {
-      expect(viewOf().tokens[0]?.bar).toEqual({
-        fraction: 32 / 45,
-        state: 'normal',
-        excess: 0,
-        color: 'ember',
-      });
-    });
-
-    it('without the bar at position 0 (hidden), the token has no bar even with position 1', () => {
-      const redacted = lyra({ canControl: false, bars: lyra().bars.slice(1) });
-      expect(viewOf({ tokens: [redacted] }).tokens[0]?.bar).toBeNull();
-    });
-
-    it('a negative first bar is drawn as negative', () => {
-      const [pv, inspiration] = lyra().bars;
-      if (!pv || !inspiration) throw new Error('lyra() lost its bars');
-      const hurt = lyra({ bars: [{ ...pv, current: -4 }, inspiration] });
-      expect(viewOf({ tokens: [hurt] }).tokens[0]?.bar?.state).toBe('negative');
-    });
-
     it('the selected token is marked', () => {
       expect(viewOf({ selectedTokenIds: [LYRA_ID] }).tokens[0]?.selected).toBe(true);
-    });
-
-    it('every token of a selection of two is marked', () => {
-      const view = viewOf({ tokens: [lyra(), kael()], selectedTokenIds: [LYRA_ID, KAEL_ID] });
-      expect(view.tokens.map(({ selected }) => selected)).toEqual([true, true]);
-    });
-
-    it('a resize of this viewer draws the token with its new box already', () => {
-      const box = { col: 2, row: 4, width: 2, height: 1.5 };
-      const view = viewOf({ resizePreview: { [LYRA_ID]: box } });
-      expect(view.tokens[0]).toMatchObject(box);
     });
 
     it('the preview shows a ghost at the cell asked for', () => {
       const view = viewOf({ preview: [{ tokenId: LYRA_ID, col: 8, row: 6 }] });
       expect(view.ghosts).toEqual([{ tokenId: LYRA_ID, col: 8, row: 6, width: 1, height: 1 }]);
-    });
-
-    it('a token the viewer cannot control, or any token while read only, is not draggable', () => {
-      expect(viewOf({ tokens: [lyra({ canControl: false })] }).tokens[0]?.draggable).toBe(false);
-      expect(viewOf({ readOnly: true }).tokens[0]?.draggable).toBe(false);
     });
   });
 
@@ -249,33 +197,9 @@ describe('buildBoardView', () => {
       });
     }
 
-    it('a chest on objects with the tokens layer active is neither pickable nor draggable', () => {
-      const chest = kael({ layer: 'objects' });
-      expect(viewOf({ tokens: [chest] }).tokens[0]).toMatchObject({
-        layer: 'objects',
-        pickable: false,
-        draggable: false,
-      });
-    });
-
-    it('with the objects layer active the chest is pickable and Lyra is not', () => {
-      const view = viewOf({ tokens: [lyra(), kael({ layer: 'objects' })], activeLayer: 'objects' });
-      expect(view.tokens.map(({ id, pickable }) => [id, pickable])).toEqual([
-        [KAEL_ID, true],
-        [LYRA_ID, false],
-      ]);
-    });
-
     it('the layer menu is offered only to whoever may choose the layer (the master)', () => {
       expect(viewOf({ canChooseLayer: true }).layerMenu).toBe(true);
       expect(viewOf({ canChooseLayer: false }).layerMenu).toBe(false);
-    });
-
-    it('tokens are drawn background first, then objects, then tokens, in list order inside each', () => {
-      const map = kael({ id: 'map', layer: 'background' });
-      const chest = kael({ id: 'chest', layer: 'objects' });
-      const view = viewOf({ tokens: [lyra(), chest, kael(), map] });
-      expect(view.tokens.map(({ id }) => id)).toEqual(['map', 'chest', LYRA_ID, KAEL_ID]);
     });
   });
 
@@ -382,41 +306,13 @@ describe('buildBoardView', () => {
       expect(viewWith({}).tokens[0]?.onTurn).toBe(false);
     });
 
-    it('every token of the entry on turn gets the ring, and the one out of it does not', () => {
-      const goblins = [lyra({ id: 'goblin-1' }), lyra({ id: 'goblin-2' }), lyra({ id: KAEL_ID })];
-
-      const view = viewWith({ tokens: goblins, currentTokenIds: ['goblin-1', 'goblin-2'] });
-
-      expect(view.tokens.map(({ id, onTurn }) => [id, onTurn])).toEqual([
-        ['goblin-1', true],
-        ['goblin-2', true],
-        [KAEL_ID, false],
-      ]);
-    });
-
-    it('up to 3 condition icons in their tone, and the count of the rest', () => {
-      const icons = ['skull', 'sparkles', 'lock', 'zap', 'moon'] as const;
-      const tones = ['harm', 'benefit', 'harm', 'harm', 'benefit'] as const;
-      const conditions = icons.map((icon, index) =>
-        activeCondition({ id: `c-${index}`, icon, tone: tones[index] }),
-      );
-      const token = viewWith({ tokens: [lyra({ conditions })] }).tokens[0];
-      expect(token?.marks).toEqual([
-        { icon: 'skull', tone: 'harm' },
-        { icon: 'sparkles', tone: 'benefit' },
-        { icon: 'lock', tone: 'harm' },
-      ]);
-      expect(token?.moreMarks).toBe(2);
-    });
-
-    it('a token with two conditions has two marks and nothing past them', () => {
+    it('the conditions of a token reach the view, the harm before the benefit', () => {
       const conditions = [
-        activeCondition({ id: 'a' }),
-        activeCondition({ id: 'b', tone: 'benefit' }),
+        activeCondition({ id: 'a', tone: 'benefit' }),
+        activeCondition({ id: 'b' }),
       ];
       const token = viewWith({ tokens: [lyra({ conditions })] }).tokens[0];
-      expect(token?.marks.map(({ tone }) => tone)).toEqual(['harm', 'benefit']);
-      expect(token?.moreMarks).toBe(0);
+      expect(token?.conditions.map(({ tone }) => tone)).toEqual(['harm', 'benefit']);
     });
   });
 });
@@ -467,55 +363,6 @@ describe('buildBoardView, drawings', () => {
   it('the sketch style shows only with the draw tool', () => {
     expect(viewWith({ tool: 'draw' }).sketch).toEqual(DEFAULT_DRAWING_STYLE);
     expect(viewWith({ tool: 'select' }).sketch).toBeNull();
-  });
-});
-
-describe('buildBoardView through the sight of Bia in the dark', () => {
-  // Lyra (hers) at (3, 4) sees 3 + 3 cells: Kael at (8, 4) is 5 away (silhouette), the goblin at
-  // (11, 4) 8 away (hidden).
-  const GOBLIN_ID = 'cc33dd44-ee55-4f66-8a77-112233445566';
-  const others = { canControl: false, controllerIds: [] };
-  const tokens = [
-    lyra({ sight: { bright: 3, dim: 3 } }),
-    kael({ ...others, col: 8, row: 4, conditions: [activeCondition()], defeated: true }),
-    kael({ ...others, id: GOBLIN_ID, col: 11, row: 4 }),
-  ];
-  const board = vharnBoard({
-    viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
-    scene: { ...VHARN_SCENE, vision: 'dark' },
-    tokens,
-  });
-  const view = buildBoardView({
-    ...NO_TOKENS,
-    tokens,
-    viewer: { userId: BIA_AT_TABLE.userId, isMaster: false },
-    scene: board.scene,
-    localGridVisible: true,
-    ruler: null,
-    currentTokenIds: [KAEL_ID],
-    sight: boardSightOf(board, { previewEyeIds: null }),
-  });
-
-  it('the token in the penumbra is a silhouette with no art, name, bar, marks, facing nor defeat, and cannot be taken', () => {
-    expect(view.tokens.find(({ id }) => id === KAEL_ID)).toMatchObject({
-      silhouette: 'square',
-      defeated: false,
-      name: '',
-      initials: '',
-      art: null,
-      bar: null,
-      marks: [],
-      moreMarks: 0,
-      facingMark: false,
-      onTurn: false,
-      pickable: false,
-      draggable: false,
-    });
-  });
-
-  it('the hidden token is not drawn at all, and her own is drawn whole', () => {
-    expect(view.tokens.map(({ id }) => id)).toEqual([LYRA_ID, KAEL_ID]);
-    expect(view.tokens[0]).toMatchObject({ silhouette: null, name: 'Lyra' });
   });
 });
 

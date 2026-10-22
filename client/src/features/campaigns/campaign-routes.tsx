@@ -85,6 +85,7 @@ function tableRoute({
   createBoardRenderer,
   boardCommands,
   assets,
+  interactionClock,
 }: AppDependencies): () => React.JSX.Element {
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
@@ -104,6 +105,7 @@ function tableRoute({
         createBoardRenderer={createBoardRenderer}
         boardCommands={boardCommands}
         assets={assets}
+        interactionClock={interactionClock}
       />
     );
   };

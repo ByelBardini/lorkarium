@@ -59,8 +59,13 @@ describe('RealtimeCombatCommands', () => {
     [
       'condition:define',
       () =>
-        commands.defineCondition(VHARN.id, { name: 'Sangrando', tone: 'harm', icon: 'droplet' }),
-      { name: 'Sangrando', tone: 'harm', icon: 'droplet' },
+        commands.defineCondition(VHARN.id, {
+          name: 'Inconsciente',
+          tone: 'incapacitating',
+          icon: 'moon',
+          look: 'unconscious',
+        }),
+      { name: 'Inconsciente', tone: 'incapacitating', icon: 'moon', look: 'unconscious' },
     ],
     [
       'condition:apply',

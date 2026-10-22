@@ -10,14 +10,14 @@ import type { ConditionDefinitionPo } from './conditions.po';
 export function toConditionDefinitionDto(
   definition: ConditionDefinitionPo,
 ): ConditionDefinitionDto {
-  const { id, name, tone, icon } = definition;
-  return { id, name, tone, icon };
+  const { id, name, tone, icon, look } = definition;
+  return { id, name, tone, icon, look };
 }
 
 /** Example: `toActiveConditionDto(await conditions.apply(tokenId, conditionId, duration))` */
 export function toActiveConditionDto(row: ActiveConditionRow): ActiveConditionDto {
-  const { id, conditionId, name, tone, icon, remainingRounds } = row;
-  return { id, conditionId, name, tone, icon, remainingRounds };
+  const { id, conditionId, name, tone, icon, look, remainingRounds } = row;
+  return { id, conditionId, name, tone, icon, look, remainingRounds };
 }
 
 /** Example: `applied.map(toTokenConditionDto)` after a `condition:applyMany` */

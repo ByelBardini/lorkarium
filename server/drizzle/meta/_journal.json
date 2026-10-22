@@ -211,6 +211,13 @@
       "when": 1792623612942,
       "tag": "0029_drawings_drop_layer",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792630412995,
+      "tag": "0030_condition_looks",
+      "breakpoints": true
     }
   ]
 }

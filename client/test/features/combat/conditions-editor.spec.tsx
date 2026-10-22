@@ -29,8 +29,21 @@ const CONCENTRANDO = activeCondition({
   remainingRounds: null,
 });
 const DEFINITIONS = [
-  { id: ENVENENADO.conditionId, name: 'Envenenado', tone: 'harm', icon: 'skull' },
-  { id: CONCENTRANDO.conditionId, name: 'Concentrando', tone: 'benefit', icon: 'sparkles' },
+  { id: ENVENENADO.conditionId, name: 'Envenenado', tone: 'harm', icon: 'skull', look: null },
+  {
+    id: CONCENTRANDO.conditionId,
+    name: 'Concentrando',
+    tone: 'benefit',
+    icon: 'sparkles',
+    look: null,
+  },
+  {
+    id: 'c9d8e7f6-a5b4-4c3d-8e2f-1a0b9c8d7e6f',
+    name: 'Paralisado',
+    tone: 'incapacitating',
+    icon: 'lock',
+    look: null,
+  },
 ] as const;
 
 describe('ConditionsEditor', () => {
@@ -174,13 +187,13 @@ describe('ConditionsEditor', () => {
     expect(commands.sent).toEqual([]);
   });
 
-  it('the suggestions are grouped by nature, benefits first', async () => {
+  it('the suggestions are grouped by nature: benefits, then incapacitating, then harms', async () => {
     renderEditor(lyra());
     await userEvent.click(nameField());
     const groups = screen.getAllByRole('group').map((group) => group.getAttribute('aria-label'));
-    expect(groups).toEqual(['Benéficas', 'Prejudiciais']);
+    expect(groups).toEqual(['Benéficas', 'Incapacitantes', 'Prejudiciais']);
     const options = screen.getAllByRole('option').map((option) => option.textContent);
-    expect(options).toEqual(['Concentrando', 'Envenenado']);
+    expect(options).toEqual(['Concentrando', 'Paralisado', 'Envenenado']);
   });
 
   it('a new name with nothing alike opens no list over the icon and nature', async () => {
@@ -220,6 +233,7 @@ describe('ConditionsEditor', () => {
       name: 'Sangrando',
       tone: 'harm',
       icon: 'droplet',
+      look: null,
     });
   });
 
@@ -245,6 +259,7 @@ describe('ConditionsEditor', () => {
       name: 'Sangrando',
       tone: 'harm',
       icon: 'droplet',
+      look: null,
     } as const;
     act(() =>
       board.getState().apply({
@@ -261,12 +276,84 @@ describe('ConditionsEditor', () => {
     });
   });
 
+  it('a new name shows the three natures and "Aparência no token", which start on Prejudicial and Nenhuma', async () => {
+    renderEditor(lyra(), true);
+    await userEvent.type(nameField(), 'Inconsciente');
+    const natures = within(screen.getByRole('radiogroup', { name: 'Natureza' }));
+    expect(natures.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'Benéfica',
+      'Prejudicial',
+      'Incapacitante',
+    ]);
+    expect(natures.getByRole('radio', { name: 'Prejudicial' })).toBeChecked();
+    const looks = within(screen.getByRole('radiogroup', { name: 'Aparência no token' }));
+    expect(looks.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'Nenhuma',
+      'Translúcido',
+      'Desacordado',
+    ]);
+    expect(looks.getByRole('radio', { name: 'Nenhuma' })).toBeChecked();
+  });
+
+  it('the master creates "Inconsciente" incapacitating and unconscious in one define, then applies it', async () => {
+    renderEditor(lyra(), true);
+    await userEvent.type(nameField(), 'Inconsciente');
+    await userEvent.click(screen.getByRole('radio', { name: 'Incapacitante' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Desacordado' }));
+    commands.hold();
+    await userEvent.click(screen.getByRole('button', { name: 'Criar e aplicar' }));
+    const definition = {
+      id: 'a0b1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d',
+      name: 'Inconsciente',
+      tone: 'incapacitating',
+      icon: 'circle-dot',
+      look: 'unconscious',
+    } as const;
+    act(() =>
+      board.getState().apply({
+        kind: 'boardEvent',
+        event: eventAt(5, { type: 'conditionDefined', payload: { definition } }),
+      }),
+    );
+    await act(async () => commands.release());
+    expect(commands.sentAs('defineCondition').map(({ fields }) => fields)).toEqual([
+      { name: 'Inconsciente', tone: 'incapacitating', icon: 'circle-dot', look: 'unconscious' },
+    ]);
+    expect(commands.sentAs('applyCondition')[0]?.fields).toMatchObject({
+      conditionId: definition.id,
+    });
+  });
+
+  it('a refused define says why on the status line and applies nothing', async () => {
+    commands.answerWith({ ok: false, failure: 'forbidden' });
+    renderEditor(lyra(), true);
+    await userEvent.type(nameField(), 'Inconsciente');
+    await userEvent.click(screen.getByRole('button', { name: 'Criar e aplicar' }));
+    expect(interaction.getState().notice).toBe('forbidden');
+    expect(commands.sentAs('applyCondition')).toEqual([]);
+  });
+
+  it('an incapacitating condition on the token reads its name next to a filled tag', () => {
+    const paralisado = activeCondition({
+      name: 'Paralisado',
+      tone: 'incapacitating',
+      icon: 'lock',
+    });
+    renderEditor(lyra({ canControl: false, conditions: [paralisado] }));
+    const tag = within(screen.getByRole('list', { name: 'Condições de Lyra' })).getByRole(
+      'listitem',
+    );
+    expect(tag).toHaveTextContent('Paralisado');
+    expect(tag).toHaveClass('bg-destructive/15');
+  });
+
   it('a player typing a name not on the list cannot apply it and is told why', async () => {
     renderEditor(lyra(), false);
     await userEvent.type(nameField(), 'Sangrando');
     expect(screen.getByRole('button', { name: 'Aplicar' })).toBeDisabled();
     expect(screen.getByText('Só o mestre cria condição nova.')).toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: 'Natureza' })).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: 'Aparência no token' })).toBeNull();
   });
 
   it('without canControl it is read only: the tags, no button, no picker', () => {
