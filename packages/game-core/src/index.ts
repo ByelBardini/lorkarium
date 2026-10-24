@@ -1,4 +1,6 @@
 export { cell, sameCell, type Cell } from './cell.vo';
+export { stableHash } from './stable-hash';
+export { MEMBER_COLORS, memberColorOf, type MemberColor } from './member-color';
 export { cellDistance, footprintFits, pathDistance, type SceneSize } from './grid';
 export { freeCellsAround } from './free-cells';
 export { TOKEN_SIZE_MAX, TOKEN_SIZE_MIN, tokenSize, type TokenSize } from './token-size.vo';
