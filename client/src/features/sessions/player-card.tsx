@@ -68,7 +68,7 @@ function useCardEditing({ player, interaction, isMaster }: PlayerCardProps): Car
     send: (changes) =>
       interaction
         .getState()
-        .command((commands, campaignId) => commands.updateMemberCard(campaignId, userId, changes)),
+        .command((commands, scope) => commands.updateMemberCard(scope, userId, changes)),
   };
 }
 
@@ -93,7 +93,7 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
             editing={editing}
           />
           <NickLine member={member} isViewer={isViewer} awayLabel={props.awayLabel} />
-          <CardBars token={token} name={name} interaction={props.interaction} />
+          <CardBars token={token} name={name} board={props.board} interaction={props.interaction} />
         </div>
       </div>
       <CardStats {...props} name={name} editing={editing} />

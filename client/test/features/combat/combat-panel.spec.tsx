@@ -25,6 +25,7 @@ import {
   soloCombatant,
   vharnBoard,
   vharnCombat,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 const KAEL = kael({ id: 'kael-token' });
@@ -43,7 +44,7 @@ describe('CombatPanel', () => {
     presence.setState({ members: [ANA_AT_TABLE, BIA_AT_TABLE] });
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) =>
         failure === 'combat_active' ? 'Já há um combate nesta cena.' : failure,
@@ -91,7 +92,7 @@ describe('CombatPanel', () => {
       expect(commands.sentAs('startCombat')).toEqual([
         {
           name: 'startCombat',
-          campaignId: VHARN.id,
+          ...VHARN_GRID,
           fields: {
             entries: [
               { name: null, tokenIds: ['kael-token'], initiative: 18 },

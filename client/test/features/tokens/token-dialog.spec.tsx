@@ -4,10 +4,15 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TokenDialog } from '@/features/tokens/token-dialog';
 import type { TokenDto } from '@lorkarium/contracts';
-import { VHARN } from '../../support/campaigns-api-fake';
 import { AssetsApiFake, LYRA_PORTRAIT } from '../../support/assets-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
-import { BIA_AT_TABLE, CAIO_AT_TABLE, LYRA_ID, lyra } from '../../support/table-session-fixtures';
+import {
+  BIA_AT_TABLE,
+  CAIO_AT_TABLE,
+  LYRA_ID,
+  lyra,
+  VHARN_GRID,
+} from '../../support/table-session-fixtures';
 
 const PLAYERS = [BIA_AT_TABLE, CAIO_AT_TABLE].map(({ userId, name }) => ({ userId, name }));
 
@@ -24,7 +29,7 @@ type RenderOptions = Readonly<{ connected?: boolean; players?: typeof PLAYERS }>
 function renderDialog(token: TokenDto | null = null, options: RenderOptions = {}): void {
   render(
     <TokenDialog
-      campaignId={VHARN.id}
+      scope={VHARN_GRID}
       token={token}
       placeAt={cell(9, 5)}
       layer="tokens"
@@ -328,7 +333,7 @@ describe('TokenDialog, create, edit and delete', () => {
     expect(commands.sentAs('createToken')).toEqual([
       {
         name: 'createToken',
-        campaignId: VHARN.id,
+        ...VHARN_GRID,
         fields: {
           name: 'Ogro das Cinzas',
           initials: 'OC',
@@ -382,7 +387,7 @@ describe('TokenDialog, create, edit and delete', () => {
     expect(commands.sent).toEqual([]);
     await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
     expect(commands.sentAs('deleteToken')).toEqual([
-      { name: 'deleteToken', campaignId: VHARN.id, fields: { tokenId: LYRA_ID } },
+      { name: 'deleteToken', ...VHARN_GRID, fields: { tokenId: LYRA_ID } },
     ]);
   });
 });

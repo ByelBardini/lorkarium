@@ -26,6 +26,7 @@ import {
   VHARN_SCENE,
   vharnBoard,
   vharnCombat,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 describe('TokenDock', () => {
@@ -41,7 +42,7 @@ describe('TokenDock', () => {
     presence.setState({ members: [ANA_AT_TABLE, BIA_AT_TABLE] });
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: String,
     });

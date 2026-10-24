@@ -17,6 +17,7 @@ import {
   lyra,
   vharnBoard,
   vharnCombat,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 const KAEL = lyra({ id: 'kael-token', name: 'Kael', canControl: true });
@@ -33,7 +34,7 @@ describe('CombatHeader', () => {
     commands = new TableBoardCommandsFake();
     asked = [];
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => (failure === 'turn_changed' ? 'A vez já passou.' : failure),
     });

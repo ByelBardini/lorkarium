@@ -16,6 +16,8 @@ import { PlayerCard } from './player-card';
 export type SessionPresencePanelProps = Readonly<{
   store: StoreApi<TablePresenceStore>;
   board: StoreApi<BoardStore>;
+  /** The table's cast: the cards in the table's version and the characters' anchors. */
+  cast: StoreApi<BoardStore>;
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
   clock: InteractionClock;
@@ -31,7 +33,7 @@ const STATUS_LABEL: Readonly<Record<Exclude<TablePresenceState['status'], 'faile
 /** "Na mesa": the party board. The masters in a compact section, then a card per player (online
  *  first, offline dimmed at the end), as the server confirmed them, and the connection state.
  *
- *  Example: `<SessionPresencePanel store={table.presence} board={table.board} interaction={interaction} isMaster />` */
+ *  Example: `<SessionPresencePanel store={table.presence} board={table.board} cast={table.cast} interaction={interaction} isMaster />` */
 export function SessionPresencePanel(props: SessionPresencePanelProps): React.JSX.Element {
   const titleId = useId();
   const status = useTablePresence(props.store, (state) => state.status);
@@ -62,10 +64,11 @@ export function SessionPresencePanel(props: SessionPresencePanelProps): React.JS
 function TableSections(props: SessionPresencePanelProps): React.JSX.Element | null {
   const members = useTablePresence(props.store, (state) => state.members);
   const board = useBoard(props.board, (state) => state.board);
+  const cast = useBoard(props.cast, (state) => state.board);
   const serverAt = useTablePresence(props.store, (state) => state.at);
   if (members.length === 0) return null;
   const viewerId = board?.viewer.userId ?? '';
-  const roster = tableRosterOf({ members, board, viewerId });
+  const roster = tableRosterOf({ members, board, cast, viewerId });
   return (
     <>
       <MastersSection masters={roster.masters} clock={props.clock} serverAt={serverAt} />

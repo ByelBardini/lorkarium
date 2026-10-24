@@ -3,7 +3,7 @@ import { PencilIcon, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { digitsOnly } from '@/lib/numeric-text';
-import { useCardField } from './use-card-field';
+import { useDraftField } from '@/lib/use-draft-field';
 
 /** What the fields of one card may do: `editable` (the member or a master), `disabled` while
  *  reconnecting, the id of the "how to save" hint, and the command that saves a change. */
@@ -56,7 +56,7 @@ export function StatField({
   owner,
   editing,
 }: StatFieldProps) {
-  const binding = useCardField({
+  const binding = useDraftField({
     confirmed: value === null ? '' : String(value),
     normalize: digitsOnly,
     save: (draft) => editing.send({ [field]: statChange(draft) }),
@@ -98,7 +98,7 @@ export type NoteFieldProps = Readonly<{
  *
  *  Example: `<NoteField label="Anotação 1 de Lyra" field="noteOne" value={null} … />` */
 export function NoteField({ label, field, value, placeholder, editing }: NoteFieldProps) {
-  const binding = useCardField({
+  const binding = useDraftField({
     confirmed: value ?? '',
     save: (draft) => editing.send({ [field]: textChange(draft) }),
   });
@@ -158,7 +158,7 @@ export function CharacterName(props: CharacterNameProps) {
 
 function NicknameInput(props: CharacterNameProps & Readonly<{ onClose: () => void }>) {
   const { editing, onClose } = props;
-  const binding = useCardField({
+  const binding = useDraftField({
     confirmed: props.nickname ?? '',
     save: (draft) => editing.send({ characterName: textChange(draft) }),
   });

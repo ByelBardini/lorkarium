@@ -3,9 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TokenImageDialog } from '@/features/tokens/token-image-dialog';
 import { AssetsApiFake, LYRA_PORTRAIT } from '../../support/assets-api-fake';
-import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
-import { LYRA_ID, lyra } from '../../support/table-session-fixtures';
+import { LYRA_ID, lyra, VHARN_GRID } from '../../support/table-session-fixtures';
 
 describe('TokenImageDialog', () => {
   let commands: TableBoardCommandsFake;
@@ -19,7 +18,7 @@ describe('TokenImageDialog', () => {
   function renderDialog(imageAssetId: string | null = null): void {
     render(
       <TokenImageDialog
-        campaignId={VHARN.id}
+        scope={VHARN_GRID}
         token={lyra({ imageAssetId })}
         commands={commands}
         assets={new AssetsApiFake()}

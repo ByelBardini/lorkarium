@@ -8,7 +8,6 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
-import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
   BIA_AT_TABLE,
@@ -16,6 +15,7 @@ import {
   KAEL_ID,
   kael,
   lyra,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 describe('DockHeader', () => {
@@ -25,7 +25,7 @@ describe('DockHeader', () => {
   beforeEach(() => {
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: String,
     });

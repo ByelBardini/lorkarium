@@ -24,6 +24,7 @@ import {
   VHARN_SCENE,
   vharnBoard,
   vharnCombat,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 const GOBLIN_COMBATANT = 'c9e8d7c6-b5a4-4f3e-8d2c-1b0a9f8e7d6c';
@@ -43,7 +44,7 @@ describe('CombatantList', () => {
     presence.setState({ members: [ANA_AT_TABLE, BIA_AT_TABLE] });
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: String,
     });

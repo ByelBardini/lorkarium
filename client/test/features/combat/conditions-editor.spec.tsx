@@ -17,6 +17,7 @@ import {
   eventAt,
   lyra,
   vharnBoard,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 const ENVENENADO = activeCondition();
@@ -55,7 +56,7 @@ describe('ConditionsEditor', () => {
     board = createBoardStore(VHARN.id, () => undefined);
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: String,
     });
@@ -146,7 +147,7 @@ describe('ConditionsEditor', () => {
     expect(commands.sentAs('removeCondition')).toEqual([
       {
         name: 'removeCondition',
-        campaignId: VHARN.id,
+        ...VHARN_GRID,
         fields: { tokenId: LYRA_ID, activeConditionId: ENVENENADO.id },
       },
     ]);

@@ -20,6 +20,7 @@ import {
   vharnState,
   BIA_AT_TABLE,
   VHARN_SCENE,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 const KAEL_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
@@ -37,7 +38,7 @@ describe('SceneTokenList', () => {
     presence.getState().apply({ kind: 'state', state: vharnState() });
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });
@@ -212,7 +213,7 @@ describe('SceneTokenList through the sight of Bia', () => {
     const presence = createTablePresenceStore(VHARN.id);
     presence.getState().apply({ kind: 'state', state: vharnState() });
     const interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands: new TableBoardCommandsFake(),
       describeRefusal: String,
     });
@@ -264,7 +265,7 @@ describe('SceneTokenList while a torch is dragged', () => {
     presence.getState().apply({ kind: 'state', state: vharnState() });
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });
@@ -355,7 +356,7 @@ describe('SceneTokenList while Lyra turns', () => {
     presence.getState().apply({ kind: 'state', state: vharnState() });
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });

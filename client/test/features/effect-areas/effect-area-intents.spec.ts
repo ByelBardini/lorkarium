@@ -11,7 +11,7 @@ import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { BIA_CONE_ID, biaCone } from '../../support/effect-area-fixtures';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
-import { vharnBoard } from '../../support/table-session-fixtures';
+import { vharnBoard, VHARN_GRID } from '../../support/table-session-fixtures';
 
 const CONE = shapeOfEffectArea(biaCone());
 const GROWN = { ...CONE, reach: 4 };
@@ -28,7 +28,7 @@ describe('routeEffectAreaIntent: the handles of an area', () => {
     board = createBoardStore(VHARN.id, () => undefined);
     board.getState().apply({ kind: 'board', state: vharnBoard({ effectAreas: [biaCone()] }) });
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
       recordEdit: (entry) => recorded.push(entry),

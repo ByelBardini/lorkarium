@@ -77,3 +77,20 @@ export const SIGHT_ANGLE_HINT =
   '360 = vê para todo lado; menos, vê em cone para onde o token olha, e sente o que está a 1 casa em volta.';
 export const LIGHT_ANGLE_HINT =
   '360 = ilumina em volta; menos, ilumina em cone, como uma lanterna.';
+
+export const LINK_TO_CARD_TITLE = 'Ligar à ficha de…';
+export const UNLINK_FROM_CARD = 'Desligar da ficha';
+
+/** The confirmation of linking a token to a card that already has a character.
+ *
+ *  Example: `characterLinkQuestion('Lyra', 'Bia') // 'Este token passa a usar as barras e condições de Lyra (ficha de Bia).'` */
+export function characterLinkQuestion(characterName: string, memberName: string): string {
+  return `Este token passa a usar as barras e condições de ${characterName} (ficha de ${memberName}).`;
+}
+
+/** The mark of the fields a linked token shares with its character.
+ *
+ *  Example: `sharedFieldsNote('Bia') // 'Na ficha de Bia · vale em todo grid'` */
+export function sharedFieldsNote(memberName: string): string {
+  return `Na ficha de ${memberName} · vale em todo grid`;
+}

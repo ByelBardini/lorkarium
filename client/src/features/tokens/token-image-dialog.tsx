@@ -13,10 +13,15 @@ import {
 } from '@/components/ui/dialog';
 import { tokenCommandFailureMessage } from '@/features/board/board-messages';
 import type { AssetsApi } from '@/services/assets-api';
-import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-board-commands';
+import type {
+  BoardCommandFailure,
+  TableBoardCommands,
+  BoardScope,
+} from '@/services/table-board-commands';
 
 export type TokenImageDialogProps = Readonly<{
-  campaignId: string;
+  /** The grid the token is on. */
+  scope: BoardScope;
   token: TokenDto;
   commands: TableBoardCommands;
   assets: AssetsApi;
@@ -26,15 +31,15 @@ export type TokenImageDialogProps = Readonly<{
 /** "Imagem de Lyra": whoever controls the token picks its image (or takes it away). Saving sends
  *  the new image alone; the frame and the flips stay as they are.
  *
- *  Example: `{target && <TokenImageDialog campaignId={id} token={target} commands={commands} assets={assets} onClose={close} />}` */
+ *  Example: `{target && <TokenImageDialog scope={scope} token={target} commands={commands} assets={assets} onClose={close} />}` */
 export function TokenImageDialog(props: TokenImageDialogProps): React.JSX.Element {
-  const { campaignId, token, commands, assets, onClose } = props;
+  const { scope, token, commands, assets, onClose } = props;
   const [imageAssetId, setImageAssetId] = useState(token.imageAssetId);
   const [failure, setFailure] = useState<BoardCommandFailure | null>(null);
   const [saving, setSaving] = useState(false);
   const save = async (): Promise<void> => {
     setSaving(true);
-    const result = await commands.restyleTokens(campaignId, [token.id], { imageAssetId });
+    const result = await commands.restyleTokens(scope, [token.id], { imageAssetId });
     setSaving(false);
     if (result.ok) return onClose();
     setFailure(result.failure);
@@ -47,7 +52,7 @@ export function TokenImageDialog(props: TokenImageDialogProps): React.JSX.Elemen
           <DialogDescription>PNG sem fundo fica melhor. Todos na mesa veem.</DialogDescription>
         </DialogHeader>
         <ImagePicker
-          campaignId={campaignId}
+          campaignId={scope.campaignId}
           purpose="token"
           assets={assets}
           value={imageAssetId}
