@@ -8,7 +8,7 @@ O que o client tem para mostrar e editar a mesa com o contrato ampliado (plano `
 - `content-warnings.ts` — `CONTENT_WARNINGS` (ordem do contrato), `CONTENT_WARNING_LABEL` ("+18", "Violência", "Terror", "Gore", "Linguagem forte", "Temas sensíveis"), `TAG_SUGGESTIONS` (9 sugestões fixas), `sortedContentWarnings(avisos)` (na ordem do formulário) e `toggleContentWarning(avisos, aviso)` (liga/desliga mantendo a ordem).
 - `campaign-tags.ts` — `addTag(tags, digitado)` (trim; ignora vazio, acima de `CAMPAIGN_TAG_MAX_LENGTH`, repetida pelo `campaignTagKey` do contracts — sem caixa nem acento — e acima de `CAMPAIGN_TAGS_MAX`; sem mudança devolve o mesmo array), `removeLastTag(tags)` (Backspace no campo vazio), `removeTag(tags, tag)` e `hasRoomForTag(tags)`. A normalização é a do contracts, nunca repetida.
 - `campaign-cover.ts` — `fallbackCoverOf(id)` → `{ kind: 'drawn', ...defaultCoverOf(id) }` (game-core): a capa de uma mesa reaberta de uma lista gravada antes de a capa existir. O `coverFor` antigo saiu.
-- `campaign-meta.ts` — o `campaignMeta` **não traz mais o status** (ele tem o `StatusBadge`).
+- `campaign-meta.ts` — o `campaignMeta` **não traz mais o status** (ele tem o `StatusBadge`); traz "mestre: X" a quem não mestra (jogador e espectador). `ROLE_LABEL`: Mestre · Jogador · Espectador.
 
 ## Componentes (`src/components/`)
 

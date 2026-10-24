@@ -12,11 +12,11 @@ A ficha da mesa: o que o card de cada jogador na aba "Na mesa" mostra além do t
 
 ## DAO (`member-cards.dao.ts`)
 
-- `MemberCardsDao(db | tx)`: `listOfCampaign(campaignId)` → `MemberCardPo[]` (por `user_id`); `save(campaignId, userId, changes)` → a linha inteira depois da escrita (`insert … onConflictDoUpdate` escrevendo só as chaves recebidas + `updated_at`: é um patch).
+- `MemberCardsDao(db | tx)`: `listOfCampaign(campaignId)` → `MemberCardPo[]` (por `user_id`; `inner join` com `campaign_members` pelo par da PK e `role <> 'spectator'`: a ficha de quem virou espectador fica guardada e escondida até ele voltar a jogador); `save(campaignId, userId, changes)` → a linha inteira depois da escrita (`insert … onConflictDoUpdate` escrevendo só as chaves recebidas + `updated_at`: é um patch).
 
 ## Regra (`member-card.bo.ts`)
 
-- `MemberCardBo(access, { memberId, isMember })`.`requireEdit()`: o próprio membro e o mestre editam; a mesa toda vê (nada a redigir). `memberId` fora da mesa → `MEMBER_NOT_FOUND` (`MemberNotFoundError`, `member-cards.error.ts`, cita a mesa e o id); um jogador na ficha de outro → `FORBIDDEN` "user <Caio> may not edit the card of <Bia> … requires being that member or the master role". Quem não é membro continua `CAMPAIGN_NOT_FOUND` (pelo `memberAccessOf`).
+- `MemberCardBo(access, { memberId, role })` (`role` = o papel do alvo, `null` fora da mesa).`requireEdit()`: o próprio membro e o mestre editam; a mesa toda vê (nada a redigir). `memberId` fora da mesa **ou espectador** → `MEMBER_NOT_FOUND` (`MemberNotFoundError`, de `campaigns/campaigns.error.ts` — um código, uma classe, a mesma da troca de papel e do `CharacterLinkBo`; cita a mesa e o id); um jogador na ficha de outro → `FORBIDDEN` "user <Caio> may not edit the card of <Bia> … requires being that member or the master role". Quem não é membro continua `CAMPAIGN_NOT_FOUND` (pelo `memberAccessOf`).
 
 ## Mapper e service
 
@@ -38,7 +38,7 @@ A ficha da mesa: o que o card de cada jogador na aba "Na mesa" mostra além do t
 | `member:updateCard` | o próprio membro e mestre | `{ ok: true, version }` (versão do elenco) · `FORBIDDEN`, `MEMBER_NOT_FOUND`, `CAMPAIGN_NOT_FOUND`, `INVALID_BODY`, `RATE_LIMITED` | `member:cardChanged` `{ campaignId, sceneId: elenco, version, at, card }` às salas do elenco (todo membro) |
 
 - Payload `updateMemberCardCommandDto` `{ actionId, campaignId, memberId, changes }` (estrito: `userId` forjado → `INVALID_BODY`; quem pede vem da conexão, §7.3).
-- `board.gateway.ts`: `socket.on('member:updateCard', mutate(updateMemberCardCommandDto, memberCards.update))` (dep `memberCards: Pick<MemberCardsService, 'update'>`); `MemberCardError` entre os erros conhecidos e `MEMBER_NOT_FOUND: 'Member not found'` no `PUBLIC_MESSAGE`.
+- `board.gateway.ts`: `socket.on('member:updateCard', mutate(updateMemberCardCommandDto, memberCards.update))` (dep `memberCards: Pick<MemberCardsService, 'update'>`); o `MemberNotFoundError` é um `CampaignError` (já entre os erros conhecidos; o `member-cards.error.ts` saiu) e `MEMBER_NOT_FOUND: 'Member not found'` no `PUBLIC_MESSAGE`.
 - `BoardPublisherPort.memberCardChanged` → `SocketIoBoardPublisher` emite `member:cardChanged` à `sceneRoom` do `sceneId` do evento — o elenco (nada a redigir).
 - `member-cards.plugin.ts` (`createMemberCardsModule({ db, publisher, clock })` → `{ service }`), montado no `wireRealtime` (`server/src/app/build-app.ts`) e entregue ao `createBoardModule`.
 

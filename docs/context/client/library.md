@@ -1,6 +1,6 @@
 # Client — biblioteca de grids
 
-A biblioteca é o modal sobre a sala onde o mestre organiza os grids (cenas) da mesa em pastas aninhadas e o jogador consulta, só em leitura, os públicos e o do grupo. O contrato REST e a regra do server estão em [`../library.md`](../library.md); aqui fica o que o client calcula e desenha.
+A biblioteca é o modal sobre a sala onde o mestre organiza os grids (cenas) da mesa em pastas aninhadas e o jogador (e o espectador, igual: `isMaster` é só `myRole === 'master'`) consulta, só em leitura, os públicos e o do grupo. O contrato REST e a regra do server estão em [`../library.md`](../library.md); aqui fica o que o client calcula e desenha.
 
 > As abas de grid da sala estão em [`grid-tabs.md`](grid-tabs.md).
 

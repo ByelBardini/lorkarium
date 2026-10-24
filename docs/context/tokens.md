@@ -40,6 +40,7 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 - Evento com token (`token:created`, `token:updated`): o `BoardPublisherPort.tokenChanged` leva as duas versões e o `sceneId`; o adaptador emite a inteira para `sceneMastersRoom` + `sceneUserRoom(<controlador>)` **do grid** e a redigida para `sceneRoom` **exceto** essas salas. Os outros eventos de token não têm nada a redigir e vão a `sceneRoom` — só quem tem aquele grid aberto ouve.
 - O snapshot do `board:sync` redige token a token para quem pede (`BoardService.snapshotFor`).
 - Tirar alguém dos controladores (`token:update`) faz o próximo evento chegar redigido para ele.
+- **Controle de espectador é inerte:** o espectador pode constar em `controllerIds` (o rebaixado guarda o controle), mas o `TokenAccessBo` não o conta (`audience()` → `others`, `requireControl`/`requireListed` → `FORBIDDEN`), e ele não entra no `sceneUserRoom`: recebe o token redigido. Ver [`campaigns/papeis.md`](campaigns/papeis.md).
 
 ## Token ligado
 

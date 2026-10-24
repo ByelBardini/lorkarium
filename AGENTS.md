@@ -74,7 +74,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | game-core        | Regra de jogo pura: célula, distância, barra, turno, visão, cone, luz          | [`docs/context/game-core.md`](docs/context/game-core.md)               |
 | server           | Encanamento: env, banco, migrações, app, tempo real, regras de desempenho      | [`docs/context/server.md`](docs/context/server.md)                     |
 | auth             | Contas, @, e-mail cifrado, login em 2 etapas, sessão por cookie, papel global  | [`docs/context/auth.md`](docs/context/auth.md)                         |
-| campaigns        | Mesas: criação, detalhe, configurações, exclusão, código, ao vivo              | [`docs/context/campaigns.md`](docs/context/campaigns.md)               |
+| campaigns        | Mesas: criação, detalhe, configurações, exclusão, código, papéis, ao vivo      | [`docs/context/campaigns.md`](docs/context/campaigns.md)               |
 | board            | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas    | [`docs/context/board.md`](docs/context/board.md)                       |
 | library          | Biblioteca de grids: pastas, visibilidade, REST, duplicar, ativação e expulsão | [`docs/context/library.md`](docs/context/library.md)                   |
 | tokens           | Tokens: barras, controle, principal, cone, luz, redação, personagem (elenco)   | [`docs/context/tokens.md`](docs/context/tokens.md)                     |

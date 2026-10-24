@@ -29,7 +29,7 @@ As imagens da mesa: o fundo da cena e a imagem do token. O server guarda o arqui
 - `AssetsService({ members, assets, storage, processor, fetcher, newId })`:
   - `upload(userId, campaignId, { bytes, purpose })`: participação (`memberAccessOf`: fora da mesa → `CAMPAIGN_NOT_FOUND`) → `requireSize` (antes de decodificar) → `normalize` → `put('assets/<id>')` → `insert` → `AssetDto`. **O objeto vai ao S3 antes da linha**: linha sem objeto quebraria a mesa, objeto sem linha é só lixo (limpeza fora do escopo).
   - `importLink(userId, campaignId, { url, purpose })`: participação → `fetcher.fetch` → `requireSize` → `normalize` (a recusa do processador vira `LINK_NOT_IMAGE`: o link da página de busca do Google responde HTML) → o mesmo `keep`.
-  - `open(userId, assetId)` → `{ body, size, mimeType }` (o tipo é o do **registro**): linha inexistente, mesa de que o usuário não é membro e objeto sumido do S3 dão o **mesmo** `ASSET_NOT_FOUND` (critério 14).
+  - `open(userId, assetId)` → `{ body, size, mimeType }` (o tipo é o do **registro**): linha inexistente, mesa de que o usuário não é membro e objeto sumido do S3 dão o **mesmo** `ASSET_NOT_FOUND` (critério 14). O espectador lê como jogador (qualquer participação abre); enviar e importar exigem `memberAccessOf` e o espectador recebe 403 `FORBIDDEN` (o `replyWithApiError` traduz o `FORBIDDEN` do `campaigns`).
 - Erros (`assets.error.ts`, todos `AssetError` com `code`): `ASSET_NOT_FOUND`, `UNSUPPORTED_IMAGE`, `ASSET_TOO_LARGE`, `LINK_BLOCKED`, `LINK_UNREACHABLE`, `LINK_NOT_IMAGE`.
 
 ## Armazenamento (`AssetStoragePort`)
