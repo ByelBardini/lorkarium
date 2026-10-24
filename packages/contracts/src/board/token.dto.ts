@@ -7,6 +7,10 @@ import { tokenLightDto } from './light.dto';
 import { REACH_MAX, reachSideDto } from './reach.dto';
 
 export const MAX_BARS_PER_TOKEN = 8;
+/** Tokens a scene keeps at most (above the 300 of the target scale; it protects snapshot and render). */
+export const TOKENS_PER_SCENE_MAX = 500;
+/** The refusal code of a create or paste that would pass `TOKENS_PER_SCENE_MAX`, all or nothing. */
+export const TOKEN_LIMIT_CODE = 'TOKEN_LIMIT';
 /** The bar values stop at ±this (current) and the maximum goes up to it. */
 export const BAR_VALUE_LIMIT = 99_999;
 export const TOKEN_NAME_MAX_LENGTH = 60;
@@ -136,6 +140,11 @@ export const tokenDto = z.strictObject({
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
   conditions: z.array(activeConditionDto),
+  /** The anchor of the character this token is linked to (in the table's cast), or `null`. A
+   *  linked token already comes with the anchor's name, initials, side, image, frame, defeat
+   *  mark, bars, controllers and conditions; place, size, layer, facing, flips, sight and light
+   *  are its own. */
+  anchorTokenId: z.uuid().nullable(),
 });
 export type TokenDto = z.infer<typeof tokenDto>;
 

@@ -124,6 +124,7 @@ export type TokensMovedDto = z.infer<typeof tokensMovedDto>;
  *  the confirmed move that ends the drag). A `null` cell puts that token back where it is. */
 export const tokensDraggedDto = z.strictObject({
   campaignId: z.uuid(),
+  sceneId: z.uuid().optional(),
   at: z.iso.datetime(),
   drags: z.array(tokenDragDto),
 });

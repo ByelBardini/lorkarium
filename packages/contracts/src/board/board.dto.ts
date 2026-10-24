@@ -1,8 +1,14 @@
 import { z } from 'zod';
 import { campaignRoleDto } from '../campaigns/campaign.dto';
 import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto';
-import type { SessionClientEvents, SessionServerEvents } from '../sessions/session.dto';
+import type { LibraryServerEvents } from '../library/library.dto';
+import {
+  sessionLeaveAckDto,
+  type SessionClientEvents,
+  type SessionServerEvents,
+} from '../sessions/session.dto';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
+import type { CharacterClientEvents, CharacterServerEvents } from './character.dto';
 import {
   combatDto,
   type AddCombatantsCommandDto,
@@ -129,6 +135,11 @@ import type {
 /** Board command and event names (spec §7.2). */
 export const BOARD_EVENTS = {
   sync: 'board:sync',
+  watchScene: 'scene:watch',
+  unwatchScene: 'scene:unwatch',
+  activateScene: 'scene:activate',
+  sceneActivated: 'scene:activated',
+  sceneClosed: 'scene:closed',
   configureScene: 'scene:configure',
   sceneUpdated: 'scene:updated',
   createToken: 'token:create',
@@ -145,6 +156,9 @@ export const BOARD_EVENTS = {
   setMainToken: 'token:setMain',
   deleteToken: 'token:delete',
   deleteTokens: 'token:deleteMany',
+  linkTokenToCard: 'token:linkToCard',
+  unlinkTokenFromCard: 'token:unlinkFromCard',
+  addPlayers: 'token:addPlayers',
   tokenCreated: 'token:created',
   tokensCreated: 'token:createdMany',
   tokenUpdated: 'token:updated',
@@ -209,6 +223,7 @@ export const BOARD_EVENTS = {
   conditionApplied: 'condition:applied',
   conditionsApplied: 'condition:appliedMany',
   conditionRemoved: 'condition:removed',
+  conditionsChanged: 'condition:changedMany',
   startCombat: 'combat:start',
   endCombat: 'combat:end',
   addCombatants: 'combat:addCombatants',
@@ -283,6 +298,32 @@ export const boardCommandAckDto = z.discriminatedUnion('ok', [
 
 export type BoardCommandAckDto = z.infer<typeof boardCommandAckDto>;
 
+/** `scene:watch` / `scene:unwatch`: open or close an extra tab of one grid. The watch answers
+ *  the snapshot of that grid (`boardSyncAckDto`) and, from then on, its events arrive.
+ *
+ *  Example: `watchSceneCommandDto.parse({ actionId, campaignId, sceneId: torreId })` */
+export const watchSceneCommandDto = z.strictObject({ ...boardCommandShape, sceneId: z.uuid() });
+
+export type WatchSceneCommandDto = z.infer<typeof watchSceneCommandDto>;
+
+/** Answer to `scene:unwatch`: a bare `ok` (idempotent) or the API error. */
+export const sceneUnwatchAckDto = sessionLeaveAckDto;
+
+export type SceneUnwatchAckDto = z.infer<typeof sceneUnwatchAckDto>;
+
+/** `scene:activate` (master): "Levar o grupo pra cá" — `sceneId` becomes the group grid and the
+ *  whole table moves to it (`scene:activated`).
+ *
+ *  Example: `activateSceneCommandDto.parse({ actionId, campaignId, sceneId: estradaId })` */
+export const activateSceneCommandDto = z.strictObject({ ...boardCommandShape, sceneId: z.uuid() });
+
+export type ActivateSceneCommandDto = z.infer<typeof activateSceneCommandDto>;
+
+/** Answer to `scene:activate`: a bare `ok` (activating the group grid again changes nothing). */
+export const sceneActivateAckDto = sessionLeaveAckDto;
+
+export type SceneActivateAckDto = z.infer<typeof sceneActivateAckDto>;
+
 export const sceneUpdatedDto = z.strictObject({ ...boardEventShape, scene: sceneDto });
 
 export type SceneUpdatedDto = z.infer<typeof sceneUpdatedDto>;
@@ -293,6 +334,9 @@ type Command<Payload> = (command: Payload, ack: BoardAck<BoardCommandAckDto>) =>
 /** Client → server board events, for the Socket.IO generics on both ends. */
 export type BoardClientEvents = {
   'board:sync': (command: BoardCommandDto, ack: BoardAck<BoardSyncAckDto>) => void;
+  'scene:watch': (command: WatchSceneCommandDto, ack: BoardAck<BoardSyncAckDto>) => void;
+  'scene:unwatch': (command: WatchSceneCommandDto, ack: BoardAck<SceneUnwatchAckDto>) => void;
+  'scene:activate': (command: ActivateSceneCommandDto, ack: BoardAck<SceneActivateAckDto>) => void;
   'scene:configure': Command<ConfigureSceneCommandDto>;
   'token:create': Command<CreateTokenCommandDto>;
   'token:createMany': Command<CreateTokensCommandDto>;
@@ -344,7 +388,7 @@ export type BoardClientEvents = {
   'combat:previousTurn': Command<TurnCommandDto>;
   'combat:regroupTokens': Command<RegroupTokensCommandDto>;
   'combat:renameCombatant': Command<RenameCombatantCommandDto>;
-};
+} & CharacterClientEvents;
 
 /** Server → room board events, for the Socket.IO generics on both ends. */
 export type BoardServerEvents = {
@@ -391,10 +435,10 @@ export type BoardServerEvents = {
   'combat:updated': (event: CombatUpdatedDto) => void;
   'combat:turnChanged': (event: CombatTurnChangedDto) => void;
   'combat:ended': (event: CombatEndedDto) => void;
-};
+} & CharacterServerEvents;
 
 /** Every client → server event of a table connection (session + board). */
 export type TableClientEvents = SessionClientEvents & BoardClientEvents;
 
-/** Every server → client event of a table connection (session + board). */
-export type TableServerEvents = SessionServerEvents & BoardServerEvents;
+/** Every server → client event of a table connection (session + board + library). */
+export type TableServerEvents = SessionServerEvents & BoardServerEvents & LibraryServerEvents;

@@ -52,6 +52,9 @@ export const memberCardDto = z.strictObject({
   difficultyClass: z.number().int().nullable(),
   noteOne: z.string().nullable(),
   noteTwo: z.string().nullable(),
+  /** The anchor token of the member's character (in the table's cast); absent or `null` = none
+   *  yet. The server always sends it. */
+  anchorTokenId: z.uuid().nullable().optional(),
 });
 export type MemberCardDto = z.infer<typeof memberCardDto>;
 

@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activateSceneCommandDto,
   boardCommandAckDto,
   boardCommandDto,
   boardStateDto,
   boardSyncAckDto,
+  sceneActivateAckDto,
+  sceneUnwatchAckDto,
   sceneUpdatedDto,
+  watchSceneCommandDto,
 } from '../../src/board/board.dto';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
@@ -74,6 +78,16 @@ describe('boardCommandDto', () => {
     const forged = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID, userId: USER_ID };
     expect(boardCommandDto.safeParse(forged).success).toBe(false);
   });
+
+  it('a board:sync naming the grid it wants keeps the sceneId', () => {
+    const addressed = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID, sceneId: SCENE.id };
+    expect(boardCommandDto.parse(addressed)).toEqual(addressed);
+  });
+
+  it('a sceneId that is not a uuid is refused, citing the field', () => {
+    const malformed = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID, sceneId: 'torre' };
+    expect(boardCommandDto.safeParse(malformed).error?.issues[0]?.path).toEqual(['sceneId']);
+  });
 });
 
 describe('board acks', () => {
@@ -111,8 +125,58 @@ describe('board acks', () => {
 });
 
 describe('sceneUpdatedDto', () => {
-  it('a scene:updated event carries the campaign, the version and the new scene', () => {
-    const event = { campaignId: CAMPAIGN_ID, version: 5, at: AT, scene: SCENE };
+  it('a scene:updated without the grid is refused on sceneId (every event names its grid)', () => {
+    const withoutGrid = { campaignId: CAMPAIGN_ID, version: 5, at: AT, scene: SCENE };
+    expect(sceneUpdatedDto.safeParse(withoutGrid).error?.issues[0]?.path).toEqual(['sceneId']);
+  });
+
+  it('a scene:updated names the grid it happened on in sceneId', () => {
+    const event = { campaignId: CAMPAIGN_ID, sceneId: SCENE.id, version: 5, at: AT, scene: SCENE };
     expect(sceneUpdatedDto.parse(event)).toEqual(event);
+  });
+});
+
+describe('watchSceneCommandDto', () => {
+  const WATCH = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID, sceneId: SCENE.id };
+
+  it('a scene:watch names the table and the grid to open as a tab', () => {
+    expect(watchSceneCommandDto.parse(WATCH)).toEqual(WATCH);
+  });
+
+  it('a scene:watch without the grid is refused on sceneId', () => {
+    const withoutGrid = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID };
+    expect(watchSceneCommandDto.safeParse(withoutGrid).error?.issues[0]?.path).toEqual(['sceneId']);
+  });
+
+  it('a scene:watch carrying a forged userId is refused', () => {
+    expect(watchSceneCommandDto.safeParse({ ...WATCH, userId: USER_ID }).success).toBe(false);
+  });
+
+  it('the scene:unwatch ack is a bare ok or the API error', () => {
+    expect(sceneUnwatchAckDto.parse({ ok: true })).toEqual({ ok: true });
+    expect(sceneUnwatchAckDto.safeParse({ ok: true, version: 1 }).success).toBe(false);
+  });
+});
+
+describe('activateSceneCommandDto', () => {
+  const ACTIVATE = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID, sceneId: SCENE.id };
+
+  it('a scene:activate names the table and the grid the group goes to', () => {
+    expect(activateSceneCommandDto.parse(ACTIVATE)).toEqual(ACTIVATE);
+  });
+
+  it('a scene:activate without the grid is refused on sceneId', () => {
+    const withoutGrid = { actionId: ACTION_ID, campaignId: CAMPAIGN_ID };
+    const result = activateSceneCommandDto.safeParse(withoutGrid);
+    expect(result.error?.issues[0]?.path).toEqual(['sceneId']);
+  });
+
+  it('a scene:activate carrying a forged userId is refused', () => {
+    expect(activateSceneCommandDto.safeParse({ ...ACTIVATE, userId: USER_ID }).success).toBe(false);
+  });
+
+  it('the scene:activate ack is a bare ok, without a version', () => {
+    expect(sceneActivateAckDto.parse({ ok: true })).toEqual({ ok: true });
+    expect(sceneActivateAckDto.safeParse({ ok: true, version: 1 }).success).toBe(false);
   });
 });

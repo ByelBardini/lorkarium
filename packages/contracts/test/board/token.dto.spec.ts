@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   BAR_VALUE_LIMIT,
   MAX_BARS_PER_TOKEN,
+  TOKEN_LIMIT_CODE,
+  TOKENS_PER_SCENE_MAX,
   adjustBarCommandDto,
   createTokenCommandDto,
   moveTokenCommandDto,
@@ -10,6 +12,8 @@ import {
   updateTokenCommandDto,
 } from '../../src/board/token.dto';
 import { newTokenDto } from '../../src/board/token-group.dto';
+import { TOKEN_GROUP_MAX } from '../../src/board/token-id-group.dto';
+import { apiErrorDto } from '../../src/http/api-error.dto';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const CAMPAIGN_ID = '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a';
@@ -197,6 +201,7 @@ describe('tokenDto', () => {
       canControl: false,
       bars: [bar(1), bar(2)],
       conditions: [],
+      anchorTokenId: null,
     };
     expect(tokenDto.parse(token).bars.map((b) => b.position)).toEqual([1, 2]);
   });
@@ -324,6 +329,7 @@ describe('defeated', () => {
     canControl: false,
     bars: [],
     conditions: [],
+    anchorTokenId: null,
   };
 
   // Only `token:restyleMany` marks a token: a new token (and a pasted copy) is never defeated.
@@ -402,6 +408,7 @@ describe('the field of view and the lantern of a token', () => {
       canControl: false,
       bars: [],
       conditions: [],
+      anchorTokenId: null,
     } as Record<string, unknown>;
     delete token.actionId;
     delete token.campaignId;
@@ -428,5 +435,17 @@ describe('the field of view and the lantern of a token', () => {
     expect(result.error?.issues.map((issue) => [issue.path.join('.'), issue.message])).toEqual([
       ['light.angle', 'light angle 0 is invalid; expected a whole number from 1 to 360'],
     ]);
+  });
+});
+
+describe('the token ceiling of a scene', () => {
+  it('is 500, so an empty scene always takes a whole paste of the largest group', () => {
+    expect(TOKENS_PER_SCENE_MAX).toBe(500);
+    expect(TOKENS_PER_SCENE_MAX).toBeGreaterThanOrEqual(TOKEN_GROUP_MAX);
+  });
+
+  it('its refusal travels as an ApiErrorDto with the code TOKEN_LIMIT', () => {
+    const refusal = { code: TOKEN_LIMIT_CODE, message: 'This scene has too many tokens' };
+    expect(apiErrorDto.parse(refusal)).toEqual({ code: 'TOKEN_LIMIT', message: refusal.message });
   });
 });
