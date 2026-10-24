@@ -40,6 +40,16 @@ describe('AuthSessionBo', () => {
     expect(sessionEndingAt('2026-10-30T12:00:00Z', true).renewalAt(NOW)).toBeNull();
   });
 
+  it('a 12-hour session is rechecked once half of it is left, when renewal becomes due', () => {
+    const session = sessionEndingAt('2026-10-15T00:00:00Z', false);
+    expect(session.recheckAt()).toEqual(new Date('2026-10-14T18:00:00Z'));
+  });
+
+  it('a 30-day session is rechecked 15 days before its deadline', () => {
+    const session = sessionEndingAt('2026-11-13T12:00:00Z', true);
+    expect(session.recheckAt()).toEqual(new Date('2026-10-29T12:00:00Z'));
+  });
+
   it('a 12-hour session with 5 hours left renews to now + 12 hours', () => {
     const session = sessionEndingAt('2026-10-14T17:00:00Z', false);
     expect(session.renewalAt(NOW)).toEqual(new Date('2026-10-15T00:00:00Z'));

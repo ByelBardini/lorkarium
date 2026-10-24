@@ -7,6 +7,7 @@ import { authRoutes, createAuthGuards, type AuthGuards } from './auth.routes';
 import { AuthService } from './auth.service';
 import type { ClockPort } from './clock.port';
 import type { PasswordHasherPort } from './password-hasher.port';
+import type { SessionEndedPort } from './session-ended.port';
 import type { SessionTokenPort } from './session-token.port';
 import { UsersDao } from './users.dao';
 
@@ -16,6 +17,7 @@ export type AuthModuleOptions = Readonly<{
   hasher: PasswordHasherPort;
   tokens: SessionTokenPort;
   clock: ClockPort;
+  sessionEnded: SessionEndedPort;
 }>;
 
 export type AuthModule = Readonly<{
@@ -37,6 +39,7 @@ export async function createAuthModule(options: AuthModuleOptions): Promise<Auth
     tokens: options.tokens,
     clock: options.clock,
     decoyHash: await options.hasher.hash(options.tokens.generate()),
+    sessionEnded: options.sessionEnded,
   });
   const cookiePolicy = { secure: options.env.nodeEnv === 'production' };
   return {

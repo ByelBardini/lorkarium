@@ -20,6 +20,7 @@ import {
 } from '../support/realtime-client';
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
 import { createTable, joinByCode, type Table } from '../support/tables';
+import { CountingQueryLog } from '../support/query-count';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 // Long enough for an event already emitted to arrive on localhost; far below the 5 s grace.
@@ -28,6 +29,7 @@ const SILENCE_MS = 300;
 describe('live table session over Socket.IO', () => {
   const env: Env = { ...readEnv(process.env), adminSeed: null };
   const clients: RealtimeClient[] = [];
+  const queries = new CountingQueryLog();
   let connection: DatabaseConnection;
   let app: FastifyInstance;
   let baseUrl: string;
@@ -38,7 +40,7 @@ describe('live table session over Socket.IO', () => {
   let quelm: Table;
 
   beforeAll(async () => {
-    connection = await openTestDatabase();
+    connection = await openTestDatabase({ queryLog: queries });
   });
 
   afterAll(() => connection.close());
@@ -187,17 +189,13 @@ describe('live table session over Socket.IO', () => {
     expect(namesOf(anaEvents.events)).toEqual(['session:memberJoined']);
   });
 
-  it('after Bia logs out over HTTP her next join is refused with UNAUTHENTICATED and the connection drops', async () => {
+  it('after Bia logs out over HTTP her connection drops before any other command', async () => {
     const biaClient = await connect(bia);
     const dropped = disconnectionOf(biaClient);
     await app.inject({
       method: 'POST',
       url: '/api/auth/logout',
       cookies: { lk_session: bia.token },
-    });
-    expect(await join(biaClient, vharn.id)).toEqual({
-      ok: false,
-      error: { code: 'UNAUTHENTICATED', message: 'A valid session is required' },
     });
     expect(await dropped).toBe('io server disconnect');
   });
@@ -367,6 +365,33 @@ describe('live table session over Socket.IO', () => {
         .filter(({ name }) => name === 'session:memberActivity')
         .map(({ payload }) => sessionMemberActivityDto.parse(payload));
     }
+
+    it('past the bucket, session:setActivity is refused with RATE_LIMITED without a query', async () => {
+      const biaClient = await connect(bia);
+      await joined(biaClient, vharn.id);
+      queries.reset();
+      const acks = await Promise.all(
+        Array.from({ length: 41 }, (_, index) => setActivity(biaClient, vharn.id, index % 2 === 0)),
+      );
+      expect(acks[40]).toEqual({
+        ok: false,
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many commands in a row',
+          retryAfterSeconds: 1,
+        },
+      });
+      expect(queries.count).toBe(0);
+    });
+
+    it('session and board commands drain the same bucket of the connection', async () => {
+      const biaClient = await connect(bia);
+      await joined(biaClient, vharn.id);
+      await Promise.all(Array.from({ length: 39 }, () => setActivity(biaClient, vharn.id, true)));
+      const sync = { actionId: crypto.randomUUID(), campaignId: vharn.id };
+      const ack = await biaClient.timeout(2000).emitWithAck('board:sync', sync);
+      expect(ack).toMatchObject({ ok: false, error: { code: 'RATE_LIMITED' } });
+    });
 
     it('Bia going away reaches Ana as memberActivity, and the snapshot of who enters later carries it', async () => {
       const anaClient = await connect(ana);

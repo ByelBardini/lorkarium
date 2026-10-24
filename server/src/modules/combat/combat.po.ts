@@ -17,16 +17,21 @@ export const combats = pgTable('combats', {
 
 // Spec §6 Combatant: an initiative entry of 0 to N tokens (`combatant_tokens`); `tie_order` is the
 // order of entry, swapped by the master within a tie.
-export const combatants = pgTable('combatants', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  combatId: uuid('combat_id')
-    .notNull()
-    .references(() => combats.id, { onDelete: 'cascade' }),
-  // The name the master gave; `null` = the screen names the entry after its tokens.
-  name: text('name'),
-  initiative: integer('initiative'),
-  tieOrder: integer('tie_order').notNull(),
-});
+export const combatants = pgTable(
+  'combatants',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    combatId: uuid('combat_id')
+      .notNull()
+      .references(() => combats.id, { onDelete: 'cascade' }),
+    // The name the master gave; `null` = the screen names the entry after its tokens.
+    name: text('name'),
+    initiative: integer('initiative'),
+    tieOrder: integer('tie_order').notNull(),
+  },
+  // Every combat command reads the entries of its combat.
+  (table) => [index('combatants_combat_idx').on(table.combatId)],
+);
 
 // Spec §6 CombatantToken: the primary key on the token keeps it in at most one entry (a scene has
 // one combat, a token one scene).

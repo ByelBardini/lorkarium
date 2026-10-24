@@ -139,7 +139,7 @@ jobs:
       fail-fast: false
       matrix:
         # The projects of e2e/playwright.config.ts (SPEC_GROUPS); the config refuses an ungrouped spec.
-        group: [table, tokens, scene, combat, vision, lighting]
+        group: [table, tokens, scene, combat, vision, lighting, library]
     services:
       postgres:
         image: postgres:17-alpine

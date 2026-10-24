@@ -1,7 +1,7 @@
-import { coneOf, sightArea, type Cone } from '@lorkarium/game-core';
+import { coneOf, insidePolygon, sightArea, wall, type Cone } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
-import { worldAreaOf } from '@/renderer/world-area';
+import { REMEMBERED_AREAS_MAX, rememberedWorldAreaOf, worldAreaOf } from '@/renderer/world-area';
 
 const CELL = CELL_WORLD_SIZE;
 const SCENE = { widthCells: 20, heightCells: 12 };
@@ -35,5 +35,47 @@ describe('worldAreaOf', () => {
     }));
 
     expect(worldAreaOf(CENTER, [], SCENE, 3)).toEqual(expected);
+  });
+});
+
+describe('rememberedWorldAreaOf', () => {
+  // A wall down x = 7 from top to bottom, two cells right of the center.
+  const BLOCKER = wall({
+    kind: 'wall',
+    shape: 'line',
+    x: 7,
+    y: 0,
+    width: 0,
+    height: 12,
+    points: [
+      [0, 0],
+      [0, 12],
+    ],
+    doorState: null,
+  });
+
+  it('the same center, reach, field and walls give back the very same polygon', () => {
+    const walls = [BLOCKER];
+    const first = rememberedWorldAreaOf(CENTER, walls, SCENE, 4);
+    expect(rememberedWorldAreaOf(CENTER, walls, SCENE, 4)).toBe(first);
+  });
+
+  it('a new array of walls, now with a wall in the way, works the polygon out again, smaller', () => {
+    const open = rememberedWorldAreaOf(CENTER, [], SCENE, 4);
+    const cut = rememberedWorldAreaOf(CENTER, [BLOCKER], SCENE, 4);
+    const beyond = { x: 8 * CELL, y: 5.5 * CELL };
+    expect(insidePolygon(beyond, open)).toBe(true);
+    expect(insidePolygon(beyond, cut)).toBe(false);
+  });
+
+  it('past its limit the memory starts over: the first area is worked out again', () => {
+    const walls = [BLOCKER];
+    const first = rememberedWorldAreaOf({ x: 1.5, y: 1.5 }, walls, SCENE, 2);
+    for (let index = 0; index < REMEMBERED_AREAS_MAX; index += 1) {
+      rememberedWorldAreaOf({ x: 2 + index / 1000, y: 1.5 }, walls, SCENE, 2);
+    }
+    const again = rememberedWorldAreaOf({ x: 1.5, y: 1.5 }, walls, SCENE, 2);
+    expect(again).not.toBe(first);
+    expect(again).toEqual(first);
   });
 });

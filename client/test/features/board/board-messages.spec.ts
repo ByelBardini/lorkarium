@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addPlayersNotice,
   boardCommandFailureMessage,
   connectionStatusLine,
   deleteSelectionQuestion,
@@ -29,6 +30,7 @@ describe('boardCommandFailureMessage', () => {
     ['offline', 'Sem conexão com o servidor. Confira sua internet e tente de novo.'],
     ['stale_undo', 'Alguém mexeu nisso depois; não dá para desfazer.'],
     ['drawing_limit', 'A cena já tem desenhos demais. Apague alguns antes.'],
+    ['token_limit', 'A cena já tem o máximo de 500 tokens.'],
     ['effect_area_not_found', 'Essa área não está mais na mesa.'],
     ['effect_area_limit', 'A cena já tem áreas demais. Apague algumas antes.'],
     ['drawing_not_found', 'Esse desenho não está mais na mesa.'],
@@ -87,5 +89,28 @@ describe('deleteSelectionQuestion', () => {
     ],
   ])('%j reads "%s"', (selection, question) => {
     expect(deleteSelectionQuestion(selection)).toBe(question);
+  });
+});
+
+describe('addPlayersNotice', () => {
+  it('names who was skipped, one or several', () => {
+    expect(addPlayersNotice({ created: 2, skipped: ['Davi'] })).toBe('Davi ainda não tem token.');
+    expect(addPlayersNotice({ created: 0, skipped: ['Davi', 'Edu'] })).toBe(
+      'Davi e Edu ainda não têm token.',
+    );
+  });
+
+  it('says everyone was there when nobody was placed, and nothing when the tokens arrive', () => {
+    expect(addPlayersNotice({ created: 0, skipped: [] })).toBe('Os jogadores já estão neste grid.');
+    expect(addPlayersNotice({ created: 2, skipped: [] })).toBeNull();
+  });
+});
+
+describe('character refusals', () => {
+  it.each([
+    ['character_already_placed', 'Esse personagem já tem um token neste grid.'],
+    ['no_free_cells', 'Não há casas livres neste grid.'],
+  ] as const)('%s reads "%s"', (failure, message) => {
+    expect(boardCommandFailureMessage(failure)).toBe(message);
   });
 });

@@ -14,6 +14,7 @@ import {
   timestamp,
   unique,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { assets } from '../assets/assets.po';
 import { users } from '../auth/users.po';
@@ -70,11 +71,18 @@ export const tokens = pgTable(
     // How wide the beam opens toward the facing (a lantern); 360 = every side, and no light
     // brings it back to 360.
     lightAngle: smallint('light_angle').notNull().default(360),
+    // The anchor (in the table's cast) of the character this token is: it lends its identity,
+    // bars, controllers, conditions and defeat mark. Losing the anchor unlinks the token.
+    anchorTokenId: uuid('anchor_token_id').references((): AnyPgColumn => tokens.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('tokens_scene_id_idx').on(table.sceneId),
+    // One token of each character per grid.
+    unique('tokens_scene_id_anchor_token_id_unique').on(table.sceneId, table.anchorTokenId),
     check('tokens_facing_range', sql`${table.facing} >= 0 AND ${table.facing} <= 359`),
     check('tokens_sight_angle', sql`${table.sightAngle} BETWEEN 1 AND 360`),
     check('tokens_light_angle', sql`${table.lightAngle} BETWEEN 1 AND 360`),

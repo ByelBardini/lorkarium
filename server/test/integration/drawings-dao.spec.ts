@@ -10,6 +10,7 @@ import { scenes } from '../../src/modules/scenes/scenes.po';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
+import { CountingQueryLog } from '../support/query-count';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 describe('DrawingsDao on Postgres', () => {
@@ -19,8 +20,10 @@ describe('DrawingsDao on Postgres', () => {
   let otherSceneId: string;
   let biaId: string;
 
+  const queries = new CountingQueryLog();
+
   beforeAll(async () => {
-    connection = await openTestDatabase();
+    connection = await openTestDatabase({ queryLog: queries });
     drawings = new DrawingsDao(connection.db);
   });
 
@@ -98,6 +101,28 @@ describe('DrawingsDao on Postgres', () => {
 
     const [moved] = await drawings.listOfScene(sceneId);
     expect(moved).toMatchObject({ x: '7.25', y: '1.00', width: '2.00', points: saved.points });
+  });
+
+  it('moveMany of two drawings is 1 UPDATE, and a drawing of another scene in it does not move', async () => {
+    const [first, second] = await drawings.insertMany([square(), path()]);
+    const [theirs] = await drawings.insertMany([square({ sceneId: otherSceneId })]);
+    if (!first || !second || !theirs) throw new Error('insertMany returned fewer drawings');
+    const moves = [first, second, theirs].map(({ id }) => ({
+      drawingId: id,
+      x: '6.00',
+      y: '6.50',
+    }));
+    queries.reset();
+
+    await drawings.moveMany(sceneId, moves);
+
+    expect(queries.count).toBe(1);
+    const moved = await drawings.listOfScene(sceneId);
+    expect(moved.map(({ x, y }) => [x, y])).toEqual([
+      ['6.00', '6.50'],
+      ['6.00', '6.50'],
+    ]);
+    expect((await drawings.listOfScene(otherSceneId))[0]).toMatchObject({ x: theirs.x });
   });
 
   it('deleteMany removes the given drawings and keeps the rest', async () => {

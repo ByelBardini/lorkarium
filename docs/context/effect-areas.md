@@ -11,6 +11,7 @@
 ## DAO (`effect-areas.dao.ts`)
 
 - `EffectAreasDao(db | tx)`: `insertMany(rows)` → as linhas gravadas na ordem enviada (um `INSERT`), `listOfScene(sceneId)` (pela `area_order`), `countOfScene(sceneId)`, `findManyInScene(sceneId, ids)` (id de outra cena fica de fora), `reshapeMany(sceneId, reshapes)` (um `UPDATE` por área: troca `kind`, geometria e cor, nunca o autor nem a cena), `deleteMany(sceneId, ids)`.
+- `copyScene(from, to)`: `INSERT … SELECT` de todas as áreas da cena, ids novos, na ordem da `area_order`, cada uma com o seu autor (Duplicar da biblioteca, ver [`library.md`](library.md)).
 - **Isolamento por cena (§2.6):** toda leitura **e toda escrita** filtram por `scene_id`; um id de outra mesa não é achado, reformado nem apagado.
 - `NewEffectAreaPo` (sem `id`, `area_order`, `created_at`) e `EffectAreaReshapePo` `{ effectAreaId, shape: { kind, x, y, width, height, reach, facing, color } }` (strings do numeric).
 
@@ -22,7 +23,7 @@
 
 ## Service (`effect-areas.service.ts`)
 
-`EffectAreasService.createMany | reshapeMany | deleteMany(userId, campaignId, comando)`. Participação → `inLockedScene` (trava a cena → trabalho → `bumpVersion`, numa transação) → **depois do commit** publica à mesa toda. Tudo ou nada, uma versão: o grupo inteiro é conferido (achado na cena, `requireEdit`, `requireShape`, `place`) antes da escrita; o primeiro id que falta (inclusive de outra mesa) recusa todos com `EFFECT_AREA_NOT_FOUND`. O autor é o `userId` da conexão. `EffectAreaTransactionRunner` entrega `ScenesDao` e `EffectAreasDao` presos ao `tx`.
+`EffectAreasService.createMany | reshapeMany | deleteMany(userId, campaignId, comando)`. Participação → `inLockedGrid` (o grid do `sceneId`; ausente = o do grupo; jogador num privado que não é o do grupo e grid de outra mesa → `SCENE_NOT_FOUND`) (trava o grid → trabalho → `bumpVersion`, numa transação) → **depois do commit** publica às salas do grid, com `sceneId`. Tudo ou nada, uma versão: o grupo inteiro é conferido (achado na cena, `requireEdit`, `requireShape`, `place`) antes da escrita; o primeiro id que falta (inclusive de outra mesa) recusa todos com `EFFECT_AREA_NOT_FOUND`. O autor é o `userId` da conexão. `EffectAreaTransactionRunner` entrega `ScenesDao` e `EffectAreasDao` presos ao `tx`.
 
 | Comando                  | Quem          | Ack                           | Evento                                                  |
 | ------------------------ | ------------- | ----------------------------- | ------------------------------------------------------- |

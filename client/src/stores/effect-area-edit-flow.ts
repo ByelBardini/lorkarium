@@ -25,7 +25,7 @@ export async function sendReshapes(
 ): Promise<BoardCommandResult | null> {
   if (reshapes.length === 0) return null;
   const sent = reshapes.map(({ effectAreaId, to }) => ({ effectAreaId, shape: to }));
-  return deps.commands.reshapeEffectAreas(deps.campaignId, sent);
+  return deps.commands.reshapeEffectAreas(deps.scopeOf(), sent);
 }
 
 /** Reshapes areas on their own (the handles): the preview at once, one command, and the
@@ -90,7 +90,7 @@ export async function deleteEffectAreasOf(
   const { getState, setState } = store;
   if (getState().readOnly || areas.length === 0) return;
   const ids = areas.map(({ id }) => id);
-  const result = await deps.commands.deleteEffectAreas(deps.campaignId, ids);
+  const result = await deps.commands.deleteEffectAreas(deps.scopeOf(), ids);
   if (!result.ok) return setState({ notice: deps.describeRefusal(result.failure) });
   setState({
     selectedEffectAreaIds: getState().selectedEffectAreaIds.filter((id) => !ids.includes(id)),

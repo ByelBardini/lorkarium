@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  sceneWallsOf,
   toNewWallPo,
   toWallDto,
   toWallMovePo,
@@ -111,5 +112,14 @@ describe('toWallMovePo', () => {
       x: '7.13',
       y: '1.00',
     });
+  });
+});
+
+describe('sceneWallsOf', () => {
+  it('keeps the ids in order and each placed wall is the very wall of the game-core array', () => {
+    const known = sceneWallsOf([northWallPo(), cellDoorPo()]);
+    expect(known.placed.map(({ id }) => id)).toEqual([NORTH_WALL_ID, CELL_DOOR_ID]);
+    expect(known.placed.map(({ wall }) => wall)).toEqual(known.walls);
+    expect(known.placed[1]?.wall).toBe(known.walls[1]);
   });
 });

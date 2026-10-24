@@ -27,7 +27,7 @@ export class ConditionsDaoFake implements Pick<
   | 'setRounds'
   | 'listDefinitions'
   | 'listOfTokens'
-  | 'setRemaining'
+  | 'decrementRemaining'
   | 'deleteActive'
 > {
   readonly definitions: ConditionDefinitionPo[] = [];
@@ -127,10 +127,13 @@ export class ConditionsDaoFake implements Pick<
     return this.active.filter((a) => tokenIds.includes(a.tokenId));
   }
 
-  async setRemaining(activeConditionId: string, remainingRounds: number): Promise<void> {
+  async decrementRemaining(activeConditionIds: readonly string[]): Promise<void> {
+    if (activeConditionIds.length === 0) return;
     this.journal.push('save');
     this.active = this.active.map((a) =>
-      a.id === activeConditionId ? { ...a, remainingRounds } : a,
+      activeConditionIds.includes(a.id) && a.remainingRounds !== null
+        ? { ...a, remainingRounds: a.remainingRounds - 1 }
+        : a,
     );
   }
 

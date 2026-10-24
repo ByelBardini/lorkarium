@@ -2,15 +2,20 @@ import { StrictMode } from 'react';
 import { browserClock } from '@/lib/interaction-clock';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
+import { PerfPanel } from '@/app/perf-panel';
+import { tabInteractionFactory } from '@/features/board/tab-interaction';
 import { buildRoutes } from '@/app/router';
+import { NO_PERF_PROBE, RecordingPerfProbe } from '@/lib/perf-probe';
 import { HttpAuthApi } from '@/services/auth-api';
 import { HttpAssetsApi } from '@/services/assets-api';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
+import { HttpLibraryApi } from '@/services/library-api';
 import { NavigatorClipboard } from '@/services/clipboard';
 import { FetchHttpTransport } from '@/services/http-transport';
 import { SocketIoRealtimeTransport } from '@/services/realtime-transport';
 import { RealtimeTableBoardCommands } from '@/services/table-board-commands';
 import { RealtimeTableSessionApi } from '@/services/table-session-api';
+import { RealtimeSceneActivation } from '@/services/scene-activation';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createPixiBoardRenderer } from '@/renderer/pixi-board-renderer';
 import { createRailStore } from '@/stores/rail-store';
@@ -36,18 +41,30 @@ const tabStorage = {
   setItem: (key: string, value: string) => window.sessionStorage.setItem(key, value),
   removeItem: (key: string) => window.sessionStorage.removeItem(key),
 };
+// The board's performance panel, only in dev with `?perf=1` (docs/context/client/performance.md).
+const perfProbe =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).get('perf') === '1'
+    ? new RecordingPerfProbe()
+    : null;
 const transport = new FetchHttpTransport();
 const newActionId = (): string => crypto.randomUUID();
 // One socket for every open table: the session, the board sync and the board commands.
 const realtime = new SocketIoRealtimeTransport();
 const tableSessionApi = new RealtimeTableSessionApi(realtime, newActionId);
+const boardCommands = new RealtimeTableBoardCommands(realtime, newActionId);
 const router = createBrowserRouter(
   buildRoutes({
     authApi: new HttpAuthApi(transport),
     campaignsApi: new HttpCampaignsApi(transport),
+    libraryApi: new HttpLibraryApi(transport),
+    sceneActivation: new RealtimeSceneActivation(realtime, newActionId),
     assets: new HttpAssetsApi(transport),
     clipboard: new NavigatorClipboard(),
-    openTables: createOpenTablesStore({ api: tableSessionApi, storage: tabStorage }),
+    openTables: createOpenTablesStore({
+      api: tableSessionApi,
+      storage: tabStorage,
+      createInteraction: tabInteractionFactory(boardCommands),
+    }),
     sessionStore,
     railStore: createRailStore(browserStorage),
     roomLayout: createRoomLayoutStore(browserStorage),
@@ -56,8 +73,9 @@ const router = createBrowserRouter(
     wallStyle: createWallStyleStore(browserStorage),
     lightReach: createLightReachStore(browserStorage),
     lightColor: createLightColorStore(browserStorage),
-    createBoardRenderer: createPixiBoardRenderer,
-    boardCommands: new RealtimeTableBoardCommands(realtime, newActionId),
+    createBoardRenderer: (onIntent) =>
+      createPixiBoardRenderer(onIntent, perfProbe ?? NO_PERF_PROBE),
+    boardCommands,
     interactionClock: browserClock,
     now: () => new Date(),
     random: Math.random,
@@ -67,5 +85,6 @@ const router = createBrowserRouter(
 createRoot(rootElement).render(
   <StrictMode>
     <RouterProvider router={router} />
+    {perfProbe && <PerfPanel probe={perfProbe} />}
   </StrictMode>,
 );

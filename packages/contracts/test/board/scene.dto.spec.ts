@@ -37,6 +37,11 @@ describe('configureSceneCommandDto', () => {
     expect(issuePathsOf({ ...COMMAND, backgroundAssetId: null })).toEqual([]);
   });
 
+  it('a configure addressed to a grid other than the group one keeps its sceneId', () => {
+    const sceneId = '9c8b7a6d-5e4f-4a3b-9c1d-0e9f8a7b6c5d';
+    expect(configureSceneCommandDto.parse({ ...COMMAND, sceneId })).toMatchObject({ sceneId });
+  });
+
   it('a background that is not an asset id is refused on backgroundAssetId', () => {
     expect(issuePathsOf({ ...COMMAND, backgroundAssetId: 'mapa.png' })).toEqual([
       'backgroundAssetId',

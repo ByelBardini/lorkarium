@@ -25,7 +25,7 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 ## Guardas (para os outros módulos)
 
 - `app.authGuards` (decorado na raiz por `buildApp`): `requireAuth` e `requireRole('admin')` são `preHandler`; respondem 401 `UNAUTHENTICATED` / 403 `FORBIDDEN_ROLE` em `ApiErrorDto`. `userOf(request)` devolve o `AuthUserDto` de quem passou pela guarda (lança se nenhuma guarda rodou).
-- `authenticateToken(token?)` → `AuthUserDto | null`: para o handshake do Socket.IO, que não tem request para guardar (`null` = sem sessão válida; erro inesperado relança).
+- `authenticateConnection(token?)` → `ResolvedSession | null`: para o handshake do Socket.IO e as releituras da conexão, que não têm request para guardar (`null` = sem sessão válida; erro inesperado relança). A conexão guarda o `sessionId` e o `recheckAt` dele (ver `server.md`, Tempo real).
 - Uso: `app.get('/x', { preHandler: app.authGuards.requireAuth }, (request) => service.do(app.authGuards.userOf(request).id))`. A identidade vem daqui, nunca do corpo.
 - O papel por campanha (mestre/jogador/espectador) **não** passa por estas guardas: é regra do BO do módulo de campanhas.
 
@@ -48,7 +48,7 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 
 ## Regras de negócio (BO + mapper)
 
-- `AuthSessionBo` (`auth-session.bo.ts`): `startedAt(now, persistent)` dá 30 dias (`PERSISTENT_SESSION_MS`) com "Manter conectado" e 12 h (`TRANSIENT_SESSION_MS`) sem; `isExpiredAt(now)` é `now >= expiresAt`; `renewalAt(now)` devolve `now + prazo` quando falta **menos** da metade do prazo, senão `null` (expiração deslizante).
+- `AuthSessionBo` (`auth-session.bo.ts`): `startedAt(now, persistent)` dá 30 dias (`PERSISTENT_SESSION_MS`) com "Manter conectado" e 12 h (`TRANSIENT_SESSION_MS`) sem; `isExpiredAt(now)` é `now >= expiresAt`; `renewalAt(now)` devolve `now + prazo` quando falta **menos** da metade do prazo, senão `null` (expiração deslizante); `recheckAt()` é `expiresAt − prazo/2`, o instante em que a renovação passa a valer (até ele a conexão Socket.IO não relê a sessão).
 - `UserAccessBo.requireRole(required)` (`user-access.bo.ts`): admin ⊇ user (o admin passa em rota de `user`); recusa com `ForbiddenRoleError`.
 - `AdminSeedBo.decide(config)` (`admin-seed.bo.ts`): sem config → `skip`; e-mail já existente → `skip` (nunca troca senha nem papel); ausente → `create` com `name: 'Admin'`, `role: 'admin'`.
 - `auth.mapper.ts`: `toAuthUserDto` (nunca leva hash nem `createdAt`), `toAuthSessionBo`, `toUserAccessBo`, `toAdminSeedBo`.
@@ -58,8 +58,8 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 
 - `AuthService` (`auth.service.ts`, recebe `AuthServiceDeps`: DAOs, as três portas e o `decoyHash`):
   - `login(dto)`: busca por e-mail → `verify` (contra o `decoyHash` quando o e-mail não existe, para as duas recusas custarem o mesmo tempo) → `InvalidCredentialsError` nos dois casos → grava a sessão com `id = hash(token)` → devolve `{ user, token, expiresAt, persistent }`.
-  - `resolveSession(token?)`: sem token, token desconhecido ou usuário sumido → `null`; expirada → apaga a linha e `null`; perto do fim → `updateExpiry` e `renewed: true`. Devolve `{ user, expiresAt, persistent, renewed }`.
-  - `logout(token?)`: apaga a sessão do token; idempotente.
+  - `resolveSession(token?)`: sem token, token desconhecido ou usuário sumido → `null`; expirada → apaga a linha e `null`; perto do fim → `updateExpiry` e `renewed: true`. Devolve `{ user, sessionId, expiresAt, recheckAt, persistent, renewed }`.
+  - `logout(token?)`: apaga a sessão do token e **depois** avisa a `SessionEndedPort` (`sessionEnded(hash)`): as conexões Socket.IO daquela sessão caem na hora; idempotente. Sem cookie, nada é apagado nem avisado.
 - `AuthService.authorize(token?, papel)`: sessão válida com o papel, ou lança `UnauthenticatedError` / `ForbiddenRoleError` (é o que as guardas chamam).
 - `AdminSeedService.seed(env.adminSeed)` (`admin-seed.service.ts`): `'created'` (hash da senha + insert) ou `'skipped'`. Roda a cada boot, dentro do `createAuthModule`.
 - `DevPlayersSeedService.seed(nodeEnv)` (`dev-players-seed.service.ts`): recusa antes de qualquer consulta em produção; cria só os jogadores de teste que faltam e devolve `{ created, skipped }` (e-mails). Não roda no boot: só pelo `pnpm db:seed-dev`.
@@ -72,11 +72,12 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 
 ## Portas e adaptadores
 
-| Porta                | Adaptador              | O que faz                                                                          |
-| -------------------- | ---------------------- | ---------------------------------------------------------------------------------- |
-| `PasswordHasherPort` | `Argon2PasswordHasher` | `hash`/`verify` em Argon2id, mínimo OWASP: 19 MiB, t=2, p=1 (`@node-rs/argon2`)    |
-| `SessionTokenPort`   | `CryptoSessionToken`   | `generate()`: 32 bytes aleatórios em base64url; `hash(token)`: SHA-256 hex (64 ch) |
-| `ClockPort`          | `SystemClock`          | `now()`                                                                            |
+| Porta                | Adaptador              | O que faz                                                                                             |
+| -------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `PasswordHasherPort` | `Argon2PasswordHasher` | `hash`/`verify` em Argon2id, mínimo OWASP: 19 MiB, t=2, p=1 (`@node-rs/argon2`)                       |
+| `SessionTokenPort`   | `CryptoSessionToken`   | `generate()`: 32 bytes aleatórios em base64url; `hash(token)`: SHA-256 hex (64 ch)                    |
+| `ClockPort`          | `SystemClock`          | `now()`                                                                                               |
+| `SessionEndedPort`   | `SocketIoSessionEnded` | `sessionEnded(sessionId)`: derruba as conexões Socket.IO da sessão (`attach(realtime)` no `buildApp`) |
 
 - O relógio é porta para as regras de prazo e renovação serem provadas sem esperar; o token é porta para o teste do service saber qual token saiu e qual hash foi gravado.
 - O cookie leva o token; o banco guarda só o `hash(token)`. Vazamento do banco não entrega sessão válida.
@@ -86,7 +87,7 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 - Integração: `server/test/integration/auth-dao.spec.ts` (DAOs) e `auth.spec.ts` (borda via `buildApp` + `inject`: cookie, 401/400/429, `/me`, logout revoga, guarda 401/403/200, seed no boot). Um app novo por `describe`: o limitador guarda estado em memória.
 - `server/test/support/test-database.ts` — `openTestDatabase()` (conecta no `DATABASE_URL` e migra) e `truncateAllTables(db)`; tabela nova entra no `TRUNCATE` dele.
 - `server/test/support/auth-factories.ts` — `newUserPo`, `userPo`, `newAuthSessionPo`, `authSessionPo` (e `ANA_ID`).
-- `server/test/support/auth-fakes.ts` — `UsersDaoFake` (`rows`, `inserted`, `lookedUp`: e-mails consultados), `AuthSessionsDaoFake` (`rows` por hash), `PasswordHasherFake` (`hashed:<senha>`, registra `verifications`), `SessionTokenFake` (`token-1`…, hash `sha:<token>`), `ClockFake` (`current`).
+- `server/test/support/auth-fakes.ts` — `UsersDaoFake` (`rows`, `inserted`, `lookedUp`: e-mails consultados), `AuthSessionsDaoFake` (`rows` por hash), `PasswordHasherFake` (`hashed:<senha>`, registra `verifications`), `SessionTokenFake` (`token-1`…, hash `sha:<token>`), `SessionEndedFake` (`ended`, `whenEnded`), `ClockFake` (`current`).
 - Unit: `server/test/modules/auth/*.spec.ts` (BO, mapper, services).
 
 ## Armadilhas

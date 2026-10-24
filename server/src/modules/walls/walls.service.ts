@@ -16,16 +16,19 @@ import type { LightsDao } from '../lights/lights.dao';
 import { lightSourceOfRow } from '../lights/lights.mapper';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import {
-  inLockedScene,
+  gridEventBase,
+  inLockedGrid,
   type CreatedInScene,
-  type LockedScene,
-  type SceneLockDaos,
+  type LockedGrid,
+  type SavedInScene,
+  type GridLockDaos,
   type SceneTransaction,
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { tokenEyeOf, tokenLightOf } from '../tokens/tokens.mapper';
 import { DoorAccessBo } from './door-access.bo';
+import type { SceneWallsService } from './scene-walls.service';
 import { WallRulesBo, type WallLimits } from './wall-rules.bo';
 import type { WallsDao } from './walls.dao';
 import { WallNotFoundError } from './walls.error';
@@ -40,7 +43,6 @@ import {
   wallHundredth,
   wallOfRow,
   wallOfShape,
-  type PlacedWall,
 } from './walls.mapper';
 import type { WallKindPo, WallPo } from './walls.po';
 
@@ -54,7 +56,7 @@ export type EraseWallSegment = Omit<EraseWallSegmentCommandDto, Envelope>;
 export type EraseWallArea = Omit<EraseWallAreaCommandDto, Envelope>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
-export type WallWriteDaos = SceneLockDaos &
+export type WallWriteDaos = GridLockDaos &
   Readonly<{
     walls: Pick<
       WallsDao,
@@ -80,14 +82,16 @@ export type WallsServiceDeps = Readonly<{
   transaction: WallTransactionRunner;
   publisher: BoardPublisherPort;
   clock: ClockPort;
+  /** Forgotten on every wall write; the player's door reads from it. */
+  sceneWalls: Pick<SceneWallsService, 'wallsOf' | 'forget'>;
   limits: WallLimits;
 }>;
 
-type Locked = LockedScene<WallWriteDaos>;
-type EventBase = Readonly<{ campaignId: string; version: number; at: string }>;
+type Locked = LockedGrid<WallWriteDaos>;
 
-/** The wall use cases, master only, each all or nothing in one version: lock the scene, decide,
- *  save, bump and, only after the commit, publish to the whole table.
+/** The wall use cases, master only (a player only opens a door), on the grid the command names,
+ *  each all or nothing in one version: lock that grid, decide, save, bump and, only after the
+ *  commit, publish to who has it open.
  *
  *  Example: `const created = await wallsService.createMany(user.id, campaignId, { walls })` */
 export class WallsService {
@@ -98,29 +102,25 @@ export class WallsService {
     campaignId: string,
     command: CreateWalls,
   ): Promise<CreatedInScene> {
-    await this.requireMaster(userId, campaignId, 'create walls');
-    const saved = await inLockedScene(
-      this.deps.transaction,
-      campaignId,
-      async ({ daos, scene }) => {
-        const rules = this.rulesFor(scene);
-        const adding = command.walls.map((shape) => rules.place(wallOfShape(shape)));
-        rules.admit((await daos.walls.listOfScene(scene.id)).map(wallOfRow), adding);
-        const rows = command.walls.map((shape) => toNewWallPo(scene.id, shape));
-        return (await daos.walls.insertMany(rows)).map(toWallDto);
-      },
-    );
+    const access = await this.requireMaster(userId, campaignId, 'create walls');
+    const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
+      const rules = this.rulesFor(scene);
+      const adding = command.walls.map((shape) => rules.place(wallOfShape(shape)));
+      rules.admit((await daos.walls.listOfScene(scene.id)).map(wallOfRow), adding);
+      const rows = command.walls.map((shape) => toNewWallPo(scene.id, shape));
+      return (await daos.walls.insertMany(rows)).map(toWallDto);
+    });
     this.deps.publisher.wallsCreated({
-      ...this.eventBase(campaignId, saved.version),
+      ...gridEventBase(campaignId, saved, this.deps.clock),
       walls: saved.value,
     });
     return { version: saved.version, createdIds: saved.value.map(({ id }) => id) };
   }
 
   async moveMany(userId: string, campaignId: string, command: MoveWalls): Promise<number> {
-    await this.requireMaster(userId, campaignId, 'move walls');
+    const access = await this.requireMaster(userId, campaignId, 'move walls');
     const ids = command.moves.map(({ wallId }) => wallId);
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
+    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
       const rows = await wallsIn(locked, campaignId, ids);
       const rules = this.rulesFor(locked.scene);
       rows.forEach((row, index) => {
@@ -136,14 +136,14 @@ export class WallsService {
       x: wallHundredth(x),
       y: wallHundredth(y),
     }));
-    this.deps.publisher.wallsMoved({ ...this.eventBase(campaignId, saved.version), moves });
+    this.deps.publisher.wallsMoved({ ...gridEventBase(campaignId, saved, this.deps.clock), moves });
     return saved.version;
   }
 
   async deleteMany(userId: string, campaignId: string, command: DeleteWalls): Promise<number> {
-    await this.requireMaster(userId, campaignId, 'delete walls');
+    const access = await this.requireMaster(userId, campaignId, 'delete walls');
     const { wallIds } = command;
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
+    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
       const rules = this.rulesFor(locked.scene);
       for (const row of await wallsIn(locked, campaignId, wallIds)) {
         const expected = command.expect?.find(({ wallId }) => wallId === row.id);
@@ -151,14 +151,14 @@ export class WallsService {
       }
       await locked.daos.walls.deleteMany(locked.scene.id, wallIds);
     });
-    const event = { ...this.eventBase(campaignId, saved.version), wallIds: [...wallIds] };
+    const event = { ...gridEventBase(campaignId, saved, this.deps.clock), wallIds: [...wallIds] };
     this.deps.publisher.wallsDeleted(event);
     return saved.version;
   }
 
   async setKindMany(userId: string, campaignId: string, command: SetWallKinds): Promise<number> {
-    await this.requireMaster(userId, campaignId, 'change wall kinds');
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
+    const access = await this.requireMaster(userId, campaignId, 'change wall kinds');
+    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
       const rules = this.rulesFor(locked.scene);
       const rows = await wallsIn(locked, campaignId, command.wallIds);
       const changes: WallKindPo[] = rows.map((row) => {
@@ -170,7 +170,10 @@ export class WallsService {
       return changes;
     });
     const changes = saved.value.map((change) => ({ ...change }));
-    this.deps.publisher.wallKindsChanged({ ...this.eventBase(campaignId, saved.version), changes });
+    this.deps.publisher.wallKindsChanged({
+      ...gridEventBase(campaignId, saved, this.deps.clock),
+      changes,
+    });
     return saved.version;
   }
 
@@ -180,16 +183,16 @@ export class WallsService {
    *  Example: `await wallsService.setDoor(user.id, campaignId, { wallId, state: 'open' })` */
   async setDoor(userId: string, campaignId: string, command: SetDoor): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
-      const [row] = await wallsIn(locked, campaignId, [command.wallId]);
-      if (!row) throw new WallNotFoundError(campaignId, command.wallId);
-      const placed = (await locked.daos.walls.listOfScene(locked.scene.id)).map(placedWallOf);
-      const door = placed.find(({ id }) => id === row.id) ?? placedWallOf(row);
-      const seen = await doorSeen(locked, access, userId, placed, door.wall);
+    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
+      // Under the scene lock, so the memory may be filled here (the door is in the same array).
+      const known = await this.deps.sceneWalls.wallsOf(locked.scene.id, locked.daos.walls);
+      const door = known.placed.find(({ id }) => id === command.wallId);
+      if (!door) throw new WallNotFoundError(campaignId, command.wallId);
+      const seen = await doorSeen(locked, access, userId, known.walls, door.wall);
       new DoorAccessBo(access).requireSet(door, command.state, seen);
-      await locked.daos.walls.setDoor(locked.scene.id, row.id, command.state);
+      await locked.daos.walls.setDoor(locked.scene.id, door.id, command.state);
     });
-    const event = { ...this.eventBase(campaignId, saved.version), wallId: command.wallId };
+    const event = { ...gridEventBase(campaignId, saved, this.deps.clock), wallId: command.wallId };
     this.deps.publisher.doorChanged({ ...event, doorState: command.state });
     return saved.version;
   }
@@ -204,8 +207,8 @@ export class WallsService {
     campaignId: string,
     command: EraseWallSegment,
   ): Promise<CreatedInScene> {
-    await this.requireMaster(userId, campaignId, 'erase a piece of a wall');
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
+    const access = await this.requireMaster(userId, campaignId, 'erase a piece of a wall');
+    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
       const [row] = await wallsIn(locked, campaignId, [command.wallId]);
       if (!row) throw new WallNotFoundError(campaignId, command.wallId);
       const rules = this.rulesFor(locked.scene);
@@ -217,7 +220,7 @@ export class WallsService {
       const rows = rest.map((piece) => toNewWallPoOf(locked.scene.id, piece));
       return (await locked.daos.walls.insertMany(rows)).map(toWallDto);
     });
-    const event = { ...this.eventBase(campaignId, saved.version), wallId: command.wallId };
+    const event = { ...gridEventBase(campaignId, saved, this.deps.clock), wallId: command.wallId };
     this.deps.publisher.wallSegmentErased({ ...event, walls: saved.value });
     return { version: saved.version, createdIds: saved.value.map(({ id }) => id) };
   }
@@ -231,8 +234,8 @@ export class WallsService {
     campaignId: string,
     command: EraseWallArea,
   ): Promise<CreatedInScene> {
-    await this.requireMaster(userId, campaignId, 'erase an area of walls');
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
+    const access = await this.requireMaster(userId, campaignId, 'erase an area of walls');
+    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
       const placed = (await locked.daos.walls.listOfScene(locked.scene.id)).map(placedWallOf);
       const rules = this.rulesFor(locked.scene);
       const { wallIds, rest } = rules.eraseArea(placed, command.box);
@@ -245,24 +248,47 @@ export class WallsService {
     });
     const { wallIds, walls } = saved.value;
     this.deps.publisher.wallAreaErased({
-      ...this.eventBase(campaignId, saved.version),
+      ...gridEventBase(campaignId, saved, this.deps.clock),
       wallIds,
       walls,
     });
     return { version: saved.version, createdIds: walls.map(({ id }) => id) };
   }
 
-  private async requireMaster(userId: string, campaignId: string, action: string): Promise<void> {
-    (await memberAccessOf(this.deps.members, campaignId, userId)).requireMaster(action);
+  // Every wall command locks its grid here: the remembered walls are forgotten right after the
+  // work wrote (still inside the lock) and again once the transaction ended, commit or not.
+  private async inGrid<T>(
+    access: CampaignAccessBo,
+    commandSceneId: string | undefined,
+    work: (locked: Locked) => Promise<T>,
+  ): Promise<SavedInScene<T>> {
+    const address = { campaignId: access.campaignIdOf(), sceneId: commandSceneId, access };
+    let sceneId: string | null = null;
+    try {
+      return await inLockedGrid(this.deps.transaction, address, async (locked) => {
+        sceneId = locked.scene.id;
+        const value = await work(locked);
+        this.deps.sceneWalls.forget(sceneId);
+        return value;
+      });
+    } finally {
+      if (sceneId !== null) this.deps.sceneWalls.forget(sceneId);
+    }
+  }
+
+  private async requireMaster(
+    userId: string,
+    campaignId: string,
+    action: string,
+  ): Promise<CampaignAccessBo> {
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    access.requireMaster(action);
+    return access;
   }
 
   private rulesFor(scene: ScenePo): WallRulesBo {
     const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
     return new WallRulesBo({ scene: sceneSize, limits: this.deps.limits });
-  }
-
-  private eventBase(campaignId: string, version: number): EventBase {
-    return { campaignId, version, at: this.deps.clock.now().toISOString() };
   }
 }
 
@@ -272,14 +298,13 @@ async function doorSeen(
   locked: Locked,
   access: CampaignAccessBo,
   userId: string,
-  placed: readonly PlacedWall[],
+  walls: readonly Wall[],
   door: Wall,
 ): Promise<boolean> {
   if (access.isMaster()) return true;
   const rows = await locked.daos.tokens.listOfScene(locked.scene.id);
   const eyes = rows.filter(({ controllerIds }) => controllerIds.includes(userId)).map(tokenEyeOf);
   const lights = await lightsOfScene(locked, rows);
-  const walls = placed.map(({ wall }) => wall);
   return doorSeenBy({ eyes, walls, mode: locked.scene.visionMode, lights }, door);
 }
 

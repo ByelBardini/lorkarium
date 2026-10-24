@@ -2,8 +2,9 @@ import type { Vector2 } from './facing';
 import type { SceneSize } from './grid';
 import { legTouchesSegment } from './passage';
 import { fieldOutlineAngles, fieldReachAt, type ViewField } from './view-field';
-import { wallSegments, type Segment } from './wall-segments';
-import { blocksSight, type Wall } from './wall.vo';
+import { preparedWalls, type PreparedWalls, type SegmentIndex } from './wall-index';
+import type { Segment } from './wall-segments';
+import type { Wall } from './wall.vo';
 
 /** How many rays sample the edge of the reach circle (one every 5.625°). */
 export const SIGHT_ARC_SAMPLES = 64;
@@ -28,13 +29,13 @@ export function sightArea(
   reach: number,
   field?: ViewField,
 ): Vector2[] {
-  const blockers = sightBlockersNear(eye, walls, reach);
+  const prepared = preparedWalls(walls);
+  const near = sightBlockersNear(eye, prepared.sight, reach);
   const border = sceneBorder(scene);
-  const segments = [...blockers, ...border];
   const extra = field ? fieldOutlineAngles(field, eye) : [];
-  const vertices = rayAngles(eye, blockers, border, reach, extra).map((angle) => {
+  const vertices = rayAngles(eye, near, prepared, border, reach, extra).map((angle) => {
     const limit = field ? Math.min(reach, fieldReachAt(field, eye, angle)) : reach;
-    return clampToScene(castRay(eye, angle, segments, limit), scene);
+    return clampToScene(castRay(eye, angle, prepared.sight, border, limit), scene);
   });
   return field ? withoutRepeats(vertices) : vertices;
 }
@@ -53,15 +54,26 @@ export function insidePolygon(point: Vector2, polygon: readonly Vector2[]): bool
 }
 
 /** Whether nothing that blocks sight lies between two points. An eye standing on a wall line sees
- *  both sides; a target on a wall line is behind it.
+ *  both sides; a target on a wall line is behind it. `except` (one of `walls`) is left out: a door
+ *  never hides itself. Only the segments in the buckets the leg crosses are tried.
  *
  *  Example: `lineOfSight({ x: 1, y: 5 }, { x: 4, y: 5 }, [grateAtX2])` → `true` */
-export function lineOfSight(from: Vector2, to: Vector2, walls: readonly Wall[]): boolean {
+export function lineOfSight(
+  from: Vector2,
+  to: Vector2,
+  walls: readonly Wall[],
+  except?: Wall,
+): boolean {
+  const { sight } = preparedWalls(walls);
   const leg = { from, to };
-  return !walls.some(
-    (value) =>
-      blocksSight(value) && wallSegments(value).some((segment) => legTouchesSegment(leg, segment)),
-  );
+  const skipped = except ? walls.indexOf(except) : -1;
+  const touches = (i: number): boolean => {
+    const segment = sight.segments[i];
+    return (
+      sight.wallIndexes[i] !== skipped && segment !== undefined && legTouchesSegment(leg, segment)
+    );
+  };
+  return !sight.someAlong(from, to, touches);
 }
 
 function crossesRayRight(point: Vector2, a: Vector2, b: Vector2): boolean {
@@ -70,11 +82,12 @@ function crossesRayRight(point: Vector2, a: Vector2, b: Vector2): boolean {
   return point.x < crossingX;
 }
 
-function sightBlockersNear(eye: Vector2, walls: readonly Wall[], reach: number): Segment[] {
-  return walls
-    .filter(blocksSight)
-    .flatMap(wallSegments)
-    .filter((segment) => withinReachBox(eye, segment, reach));
+/** The sight-blocking segments in the reach box of an eye, in wall order, and which of them. */
+type NearBlockers = Readonly<{ segments: readonly Segment[]; near: readonly boolean[] }>;
+
+function sightBlockersNear(eye: Vector2, sight: SegmentIndex, reach: number): NearBlockers {
+  const near = sight.segments.map((segment) => withinReachBox(eye, segment, reach));
+  return { segments: sight.segments.filter((_, index) => near[index]), near };
 }
 
 function withinReachBox(eye: Vector2, { from, to }: Segment, reach: number): boolean {
@@ -99,13 +112,15 @@ function sceneBorder({ widthCells: w, heightCells: h }: SceneSize): Segment[] {
 
 function rayAngles(
   eye: Vector2,
-  blockers: readonly Segment[],
+  blockers: NearBlockers,
+  prepared: PreparedWalls,
   border: readonly Segment[],
   reach: number,
   fieldAngles: readonly number[],
 ): number[] {
-  const outline = [...blockers, ...border];
-  const corners = [...vertexAngles(eye, outline), ...crossingAngles(eye, blockers), ...fieldAngles];
+  const outline = [...blockers.segments, ...border];
+  const crossings = crossingAngles(eye, blockers, prepared);
+  const corners = [...vertexAngles(eye, outline), ...crossings, ...fieldAngles];
   if (Number.isFinite(reach)) corners.push(...reachExitAngles(eye, outline, reach));
   const nudged = corners.flatMap((angle) => [angle - CORNER_NUDGE, angle, angle + CORNER_NUDGE]);
   const arc = Array.from(
@@ -119,28 +134,12 @@ function vertexAngles(eye: Vector2, blockers: readonly Segment[]): number[] {
   return blockers.flatMap(({ from, to }) => [angleTo(eye, from), angleTo(eye, to)]);
 }
 
-function crossingAngles(eye: Vector2, blockers: readonly Segment[]): number[] {
-  const angles: number[] = [];
-  for (let i = 0; i < blockers.length; i += 1) {
-    for (let j = i + 1; j < blockers.length; j += 1) {
-      const point = crossingPoint(blockers[i], blockers[j]);
-      if (point) angles.push(angleTo(eye, point));
-    }
-  }
-  return angles;
-}
-
-function crossingPoint(a: Segment | undefined, b: Segment | undefined): Vector2 | null {
-  if (!a || !b) return null;
-  const r = minus(a.to, a.from);
-  const s = minus(b.to, b.from);
-  const denominator = cross(r, s);
-  if (Math.abs(denominator) <= HIT_TOLERANCE) return null;
-  const offset = minus(b.from, a.from);
-  const t = cross(offset, s) / denominator;
-  const u = cross(offset, r) / denominator;
-  if (t <= 0 || t >= 1 || u <= 0 || u >= 1) return null;
-  return { x: a.from.x + t * r.x, y: a.from.y + t * r.y };
+// The crossings are worked out once per walls array; an eye keeps those of two near blockers.
+function crossingAngles(eye: Vector2, blockers: NearBlockers, prepared: PreparedWalls): number[] {
+  return prepared
+    .crossings()
+    .filter(({ first, second }) => blockers.near[first] && blockers.near[second])
+    .map(({ point }) => angleTo(eye, point));
 }
 
 function reachExitAngles(eye: Vector2, blockers: readonly Segment[], reach: number): number[] {
@@ -162,15 +161,22 @@ function circleCrossings(eye: Vector2, { from, to }: Segment, reach: number): Ve
     .map((t) => ({ x: from.x + t * d.x, y: from.y + t * d.y }));
 }
 
+// Only the buckets along the ray, nearest first, until no farther one can hold a nearer wall; a
+// wall out of the reach box cannot be hit before the reach, so the result is the same.
 function castRay(
   eye: Vector2,
   angle: number,
-  segments: readonly Segment[],
+  sight: SegmentIndex,
+  border: readonly Segment[],
   reach: number,
 ): Vector2 {
   const direction = { x: Math.cos(angle), y: Math.sin(angle) };
-  let nearest = reach;
-  for (const segment of segments) nearest = Math.min(nearest, rayHit(eye, direction, segment));
+  const hitOf = (i: number): number => {
+    const segment = sight.segments[i];
+    return segment ? rayHit(eye, direction, segment) : Number.POSITIVE_INFINITY;
+  };
+  let nearest = sight.nearestAlong(eye, direction, reach, hitOf);
+  for (const segment of border) nearest = Math.min(nearest, rayHit(eye, direction, segment));
   if (!Number.isFinite(nearest)) return eye;
   return { x: eye.x + direction.x * nearest, y: eye.y + direction.y * nearest };
 }

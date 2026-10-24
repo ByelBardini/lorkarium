@@ -51,7 +51,7 @@ export class TokenDragFlow {
   ) {
     this.clock = deps.clock ?? browserClock;
     const send = (drags: Parameters<TokenDragRelay['push']>[0]) =>
-      deps.commands.dragTokens(deps.campaignId, drags);
+      deps.commands.dragTokens(deps.scopeOf(), drags);
     this.relay = new TokenDragRelay(send, this.clock);
   }
 
@@ -113,14 +113,14 @@ export class TokenDragFlow {
 
   /** A group move in one command (a drop, the arrows), recorded as one undo entry. */
   async moveGroup(landing: readonly GroupPlacement[], announce: string | undefined): Promise<void> {
-    const send = () => this.deps.commands.moveTokens(this.deps.campaignId, landing);
+    const send = () => this.deps.commands.moveTokens(this.deps.scopeOf(), landing);
     await this.sendMove(landing, send, announce);
   }
 
   async move({ tokenId, to, announce, path = [] }: MoveRequest): Promise<void> {
     const bends = path.length > 0 ? { path } : {};
     const placed = [{ tokenId, col: to.col, row: to.row, ...bends }];
-    const send = () => this.deps.commands.moveToken(this.deps.campaignId, tokenId, to, path);
+    const send = () => this.deps.commands.moveToken(this.deps.scopeOf(), tokenId, to, path);
     await this.sendMove(placed, send, announce);
   }
 

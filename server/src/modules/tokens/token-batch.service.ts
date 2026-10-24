@@ -1,9 +1,25 @@
-import type { CreateTokensCommandDto, DeleteTokensCommandDto } from '@lorkarium/contracts';
+import type {
+  AddPlayersCommandDto,
+  CreateTokensCommandDto,
+  DeleteTokensCommandDto,
+} from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
-import { inLockedScene, type CreatedInScene } from '../scenes/locked-scene';
+import { inLockedGrid, type CreatedInScene } from '../scenes/locked-scene';
+import {
+  inLockedCastAndGrid,
+  savedEventBase,
+  type CastAndGridChange,
+  type LockedCastAndGrid,
+} from '../scenes/locked-cast';
+import type { CombatDto } from '@lorkarium/contracts';
+import type { Cell, TokenBox } from '@lorkarium/game-core';
+import { orderedMembers } from '../campaigns/campaigns.mapper';
+import { placeCharacters } from './character-placement.bo';
+import { identityOf } from './linked-token';
+import type { NewTokenRow, TokenRow } from './tokens.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import { TokenRulesBo } from './token-rules.bo';
 import {
@@ -17,11 +33,21 @@ import {
   withConditions,
   type TokenTransactionRunner,
   type TokenWithConditions,
+  type TokenWriteDaos,
 } from './token-transaction';
 
 type Envelope = 'actionId' | 'campaignId';
 export type CreateTokens = Omit<CreateTokensCommandDto, Envelope>;
 export type DeleteTokens = Omit<DeleteTokensCommandDto, Envelope>;
+export type AddPlayers = Omit<AddPlayersCommandDto, Envelope>;
+
+/** What "Adicionar jogadores" answers: the version, the tokens made (in the order of the players)
+ *  and the players skipped because they have no anchor yet. */
+export type PlayersAdded = Readonly<{
+  version: number;
+  createdIds: string[];
+  skippedMemberIds: string[];
+}>;
 
 export type TokenBatchServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership' | 'listMembers'>;
@@ -30,9 +56,12 @@ export type TokenBatchServiceDeps = Readonly<{
   clock: ClockPort;
   /** `BAR_VALUE_LIMIT`, handed to the rule. */
   barLimit: number;
+  /** `TOKENS_PER_SCENE_MAX`, handed to the rule. */
+  tokenLimit: number;
 }>;
 
-/** The token batches of a paste and of its undo (master only): all or nothing in one version,
+/** The token batches of a paste and of its undo (master only), on the grid the command names:
+ *  all or nothing in one version,
  *  published once after the commit.
  *
  *  Example: `const version = await tokenBatch.createMany(user.id, campaignId, { tokens })` */
@@ -50,30 +79,29 @@ export class TokenBatchService {
     access.requireMaster('create tokens');
     const members = await this.deps.members.listMembers(campaignId);
     const memberIds = members.map((member) => member.userId);
-    const saved = await inLockedScene(
-      this.deps.transaction,
-      campaignId,
-      async ({ daos, scene }) => {
-        const rules = this.rulesFor(scene, memberIds);
-        const rows = command.tokens.map((token) => newTokenRowOf(scene.id, rules, token));
-        await requireAssetsOf(
-          daos,
-          campaignId,
-          command.tokens.map((token) => token.imageAssetId),
-        );
-        const created = await daos.tokens.insertMany(rows);
-        const pasted = created.map(({ token }, index) => ({
-          tokenId: token.id,
-          combatantId: command.tokens[index]?.combatantId,
-        }));
-        await joinPastedToCombat(daos, scene, access, pasted);
-        const withAll: TokenWithConditions[] = [];
-        for (const row of created) withAll.push(await withConditions(daos, row));
-        return { tokens: withAll, combat: await combatOf(daos, scene) };
-      },
-    );
+    const address = { campaignId, sceneId: command.sceneId, access };
+    const saved = await inLockedGrid(this.deps.transaction, address, async ({ daos, scene }) => {
+      const rules = this.rulesFor(scene, memberIds);
+      const rows = command.tokens.map((token) => newTokenRowOf(scene.id, rules, token));
+      rules.admit(await daos.tokens.countOfScene(scene.id), rows.length);
+      await requireAssetsOf(
+        daos,
+        campaignId,
+        command.tokens.map((token) => token.imageAssetId),
+      );
+      const created = await daos.tokens.insertMany(rows);
+      const pasted = created.map(({ token }, index) => ({
+        tokenId: token.id,
+        combatantId: command.tokens[index]?.combatantId,
+      }));
+      await joinPastedToCombat(daos, scene, access, pasted);
+      // A token just created carries no condition: nothing to read back for it.
+      const withAll: TokenWithConditions[] = created.map((row) => ({ row, conditions: [] }));
+      return { tokens: withAll, combat: await combatOf(daos, scene) };
+    });
     this.deps.publisher.tokensCreated({
       campaignId,
+      sceneId: saved.sceneId,
       version: saved.version,
       at: this.now(),
       tokens: saved.value.tokens.map(audiencesOf),
@@ -89,23 +117,21 @@ export class TokenBatchService {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster('delete tokens');
     const { tokenIds } = command;
-    const saved = await inLockedScene(
-      this.deps.transaction,
-      campaignId,
-      async ({ daos, scene }) => {
-        const rows = await tokensIn(daos, scene, campaignId, tokenIds);
-        const rules = this.rulesFor(scene, []);
-        for (const { token } of rows) {
-          const expected = command.expect?.find(({ tokenId }) => tokenId === token.id);
-          rules.requireAt(token.id, expected, token);
-        }
-        await leaveCombat(daos, scene, access, tokenIds);
-        await daos.tokens.deleteMany(scene.id, tokenIds);
-        return combatOf(daos, scene);
-      },
-    );
+    const address = { campaignId, sceneId: command.sceneId, access };
+    const saved = await inLockedGrid(this.deps.transaction, address, async ({ daos, scene }) => {
+      const rows = await tokensIn(daos, scene, campaignId, tokenIds);
+      const rules = this.rulesFor(scene, []);
+      for (const { token } of rows) {
+        const expected = command.expect?.find(({ tokenId }) => tokenId === token.id);
+        rules.requireAt(token.id, expected, token);
+      }
+      await leaveCombat(daos, scene, access, tokenIds);
+      await daos.tokens.deleteMany(scene.id, tokenIds);
+      return combatOf(daos, scene);
+    });
     this.deps.publisher.tokensDeleted({
       campaignId,
+      sceneId: saved.sceneId,
       version: saved.version,
       at: this.now(),
       tokenIds: [...tokenIds],
@@ -114,12 +140,95 @@ export class TokenBatchService {
     return saved.version;
   }
 
+  /** Puts in the grid a token linked to each player who has an anchor and is not there yet, in
+   *  the free cells around `center`: the anchor's size, the Tokens layer, facing right, without
+   *  sight nor light. One `token:createdMany` (each audience its own); nobody to place answers
+   *  zero created and bumps nothing. A grid without room is NO_FREE_CELLS. */
+  async addPlayers(userId: string, campaignId: string, command: AddPlayers): Promise<PlayersAdded> {
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    access.requireMaster('add the players to a grid');
+    const players = orderedMembers(await this.deps.members.listMembers(campaignId))
+      .filter(({ role }) => role === 'player')
+      .map(({ userId: playerId }) => playerId);
+    const address = { campaignId, sceneId: command.sceneId, access };
+    const saved = await inLockedCastAndGrid(this.deps.transaction, address, (locked) =>
+      this.placePlayers(locked, players, command.center),
+    );
+    const { tokens, skippedMemberIds, combat } = saved.value;
+    if (saved.grid) {
+      const base = savedEventBase(campaignId, saved.grid, this.deps.clock);
+      this.deps.publisher.tokensCreated({ ...base, tokens: tokens.map(audiencesOf), combat });
+    }
+    const createdIds = tokens.map(({ row }) => row.token.id);
+    return { version: saved.version, createdIds, skippedMemberIds };
+  }
+
+  private async placePlayers(
+    { daos, scene, cast }: LockedCastAndGrid<TokenWriteDaos>,
+    players: readonly string[],
+    center: AddPlayers['center'],
+  ): Promise<CastAndGridChange<AddedPlayers>> {
+    const cards = await daos.memberCards.listOfCampaign(scene.campaignId);
+    const anchorOf = (playerId: string) =>
+      cards.find((card) => card.userId === playerId)?.anchorTokenId ?? null;
+    const skippedMemberIds = players.filter((playerId) => anchorOf(playerId) === null);
+    const onGrid = await daos.tokens.listOfScene(scene.id);
+    const placed = new Set(onGrid.map(({ token }) => token.anchorTokenId));
+    const anchorIds = players.flatMap((playerId) => anchorOf(playerId) ?? []);
+    const missing = anchorIds.filter((anchorId) => !placed.has(anchorId));
+    if (missing.length === 0) {
+      return { value: { tokens: [], skippedMemberIds, combat: null }, grid: false, cast: false };
+    }
+    const anchors = await tokensIn(daos, cast, scene.campaignId, missing);
+    const rows = await this.linkedRowsOf(daos, scene, anchors, center, onGrid);
+    const created = await daos.tokens.insertMany(rows);
+    const ids = created.map(({ token }) => token.id);
+    const composed = await tokensIn(daos, scene, scene.campaignId, ids);
+    const tokens = await Promise.all(composed.map((row) => withConditions(daos, row)));
+    const combat = await combatOf(daos, scene);
+    return { value: { tokens, skippedMemberIds, combat }, grid: true, cast: false };
+  }
+
+  private async linkedRowsOf(
+    daos: TokenWriteDaos,
+    scene: ScenePo,
+    anchors: readonly TokenRow[],
+    center: AddPlayers['center'],
+    onGrid: readonly TokenRow[],
+  ): Promise<NewTokenRow[]> {
+    const occupied = onGrid.filter(({ token }) => token.layer === 'tokens').map(boxOf);
+    const footprints = anchors.map(({ token }) => token);
+    const cells = placeCharacters({ sceneId: scene.id, scene, center, footprints, occupied });
+    this.rulesFor(scene, []).admit(await daos.tokens.countOfScene(scene.id), anchors.length);
+    return anchors.map((anchor, index) => linkedRowOf(scene.id, anchor, cells[index]));
+  }
+
   private rulesFor(scene: ScenePo, memberIds: readonly string[]): TokenRulesBo {
     const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-    return new TokenRulesBo({ scene: sceneSize, memberIds, barLimit: this.deps.barLimit });
+    const { barLimit, tokenLimit } = this.deps;
+    return new TokenRulesBo({ scene: sceneSize, memberIds, barLimit, tokenLimit });
   }
 
   private now(): string {
     return this.deps.clock.now().toISOString();
   }
+}
+
+type AddedPlayers = Readonly<{
+  tokens: TokenWithConditions[];
+  skippedMemberIds: string[];
+  combat: CombatDto | null;
+}>;
+
+function boxOf({ token }: TokenRow): TokenBox {
+  return { col: token.col, row: token.row, width: token.width, height: token.height };
+}
+
+// A token of the character: the anchor's identity and size, facing right, without sight nor light.
+function linkedRowOf(sceneId: string, anchor: TokenRow, at: Cell | undefined): NewTokenRow {
+  if (!at) throw new Error(`no cell was placed for anchor ${anchor.token.id}`);
+  const { width, height } = anchor.token;
+  const placed = { col: at.col, row: at.row, width, height, layer: 'tokens' as const, facing: 0 };
+  const token = { sceneId, ...identityOf(anchor.token), ...placed, anchorTokenId: anchor.token.id };
+  return { token, bars: [], controllerIds: [] };
 }

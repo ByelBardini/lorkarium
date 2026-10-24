@@ -20,6 +20,7 @@ import {
   kael,
   lyra,
   vharnCombat,
+  VHARN_GRID,
 } from '../support/table-session-fixtures';
 import { shapeOfWall } from '@/lib/wall-geometry';
 import { NORTH_WALL_ID, northWall } from '../support/wall-fixtures';
@@ -49,7 +50,7 @@ describe('table edit store', () => {
   });
 
   function context(overrides: Partial<EditContext> = {}): EditContext {
-    return { campaignId: VHARN.id, commands, isMaster: true, readOnly: false, ...overrides };
+    return { scope: VHARN_GRID, commands, isMaster: true, readOnly: false, ...overrides };
   }
 
   describe('copy and paste', () => {

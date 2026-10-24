@@ -4,7 +4,7 @@ import {
   type WallKindDto,
   type WallShapeDto,
 } from '@lorkarium/contracts';
-import type { BoardCommandResult, BoardCommandSender } from './board-command-sender';
+import type { BoardCommandResult, BoardCommandSender, BoardScope } from './board-command-sender';
 
 /** A wall as the master draws it: kind, shape, box and (line, freehand) points. */
 export type WallShape = WallShapeDto;
@@ -21,57 +21,57 @@ export type WallKindOf = Readonly<{ wallId: string; kind: WallKind }>;
 /** The wall commands of an open table (the master's, and the door any member opens); each
  *  answers with its ack, never throws.
  *
- *  Example: `await commands.createWalls(campaignId, [northLine])` */
+ *  Example: `await commands.createWalls(scope, [northLine])` */
 export interface WallCommands {
   /** The ok answers the new ids in `createdIds`, in the order sent. */
-  createWalls(campaignId: string, shapes: readonly WallShape[]): Promise<BoardCommandResult>;
+  createWalls(scope: BoardScope, shapes: readonly WallShape[]): Promise<BoardCommandResult>;
   /** Cuts every wall under the box at its edges; the ok answers the ids of what is left. */
-  eraseWallArea(campaignId: string, box: WallEraseBox): Promise<BoardCommandResult>;
+  eraseWallArea(scope: BoardScope, box: WallEraseBox): Promise<BoardCommandResult>;
   /** Takes piece `segmentIndex` out of the wall; the ok answers the ids of what is left. */
   eraseWallSegment(
-    campaignId: string,
+    scope: BoardScope,
     wallId: string,
     segmentIndex: number,
     expect?: WallPosition,
   ): Promise<BoardCommandResult>;
   deleteWalls(
-    campaignId: string,
+    scope: BoardScope,
     wallIds: readonly string[],
     expect?: readonly WallPlacement[],
   ): Promise<BoardCommandResult>;
   setWallKinds(
-    campaignId: string,
+    scope: BoardScope,
     wallIds: readonly string[],
     kind: WallKind,
     expect?: readonly WallKindOf[],
   ): Promise<BoardCommandResult>;
-  setDoor(campaignId: string, wallId: string, state: DoorState): Promise<BoardCommandResult>;
+  setDoor(scope: BoardScope, wallId: string, state: DoorState): Promise<BoardCommandResult>;
 }
 
 /** `WallCommands` over the board command sender; an absent `expect` sends no field.
  *
- *  Example: `new RealtimeWallCommands(sender).setDoor(campaignId, doorId, 'open')` */
+ *  Example: `new RealtimeWallCommands(sender).setDoor(scope, doorId, 'open')` */
 export class RealtimeWallCommands implements WallCommands {
   constructor(private readonly sender: BoardCommandSender) {}
 
-  createWalls(campaignId: string, shapes: readonly WallShape[]): Promise<BoardCommandResult> {
-    return this.sender.send(BOARD_EVENTS.createWalls, campaignId, { walls: [...shapes] });
+  createWalls(scope: BoardScope, shapes: readonly WallShape[]): Promise<BoardCommandResult> {
+    return this.sender.send(BOARD_EVENTS.createWalls, scope, { walls: [...shapes] });
   }
 
-  eraseWallArea(campaignId: string, box: WallEraseBox): Promise<BoardCommandResult> {
+  eraseWallArea(scope: BoardScope, box: WallEraseBox): Promise<BoardCommandResult> {
     const { x, y, width, height } = box;
-    return this.sender.send(BOARD_EVENTS.eraseWallArea, campaignId, {
+    return this.sender.send(BOARD_EVENTS.eraseWallArea, scope, {
       box: { x, y, width, height },
     });
   }
 
   eraseWallSegment(
-    campaignId: string,
+    scope: BoardScope,
     wallId: string,
     segmentIndex: number,
     expect?: WallPosition,
   ): Promise<BoardCommandResult> {
-    return this.sender.send(BOARD_EVENTS.eraseWallSegment, campaignId, {
+    return this.sender.send(BOARD_EVENTS.eraseWallSegment, scope, {
       wallId,
       segmentIndex,
       ...(expect && { expect: { x: expect.x, y: expect.y } }),
@@ -79,19 +79,19 @@ export class RealtimeWallCommands implements WallCommands {
   }
 
   deleteWalls(
-    campaignId: string,
+    scope: BoardScope,
     wallIds: readonly string[],
     expect?: readonly WallPlacement[],
   ): Promise<BoardCommandResult> {
     const precondition = expect && { expect: expect.map(({ wallId, x, y }) => ({ wallId, x, y })) };
-    return this.sender.send(BOARD_EVENTS.deleteWalls, campaignId, {
+    return this.sender.send(BOARD_EVENTS.deleteWalls, scope, {
       wallIds: [...wallIds],
       ...precondition,
     });
   }
 
   setWallKinds(
-    campaignId: string,
+    scope: BoardScope,
     wallIds: readonly string[],
     kind: WallKind,
     expect?: readonly WallKindOf[],
@@ -99,14 +99,14 @@ export class RealtimeWallCommands implements WallCommands {
     const precondition = expect && {
       expect: expect.map(({ wallId, kind: was }) => ({ wallId, kind: was })),
     };
-    return this.sender.send(BOARD_EVENTS.setWallKinds, campaignId, {
+    return this.sender.send(BOARD_EVENTS.setWallKinds, scope, {
       wallIds: [...wallIds],
       kind,
       ...precondition,
     });
   }
 
-  setDoor(campaignId: string, wallId: string, state: DoorState): Promise<BoardCommandResult> {
-    return this.sender.send(BOARD_EVENTS.setDoor, campaignId, { wallId, state });
+  setDoor(scope: BoardScope, wallId: string, state: DoorState): Promise<BoardCommandResult> {
+    return this.sender.send(BOARD_EVENTS.setDoor, scope, { wallId, state });
   }
 }

@@ -8,6 +8,7 @@ import {
   conditionDefinedDto,
   conditionRemovedDto,
   conditionsAppliedDto,
+  conditionsChangedDto,
   doorChangedDto,
   drawingsCreatedDto,
   drawingsDeletedDto,
@@ -68,6 +69,7 @@ import {
   type CombatUpdatedDto,
   type ConditionAppliedDto,
   type ConditionDefinedDto,
+  type ConditionsChangedDto,
   type ConditionRemovedDto,
   type ConditionsAppliedDto,
   type DrawingsCreatedDto,
@@ -126,6 +128,8 @@ export type BoardEvent =
   | Readonly<{ type: 'conditionDefined'; payload: ConditionDefinedDto }>
   | Readonly<{ type: 'conditionApplied'; payload: ConditionAppliedDto }>
   | Readonly<{ type: 'conditionsApplied'; payload: ConditionsAppliedDto }>
+  /** The anchors' conditions after the end of a turn of a token linked to them (the cast). */
+  | Readonly<{ type: 'conditionsChanged'; payload: ConditionsChangedDto }>
   | Readonly<{ type: 'conditionRemoved'; payload: ConditionRemovedDto }>
   | Readonly<{ type: 'combatStarted'; payload: CombatStartedDto }>
   | Readonly<{ type: 'combatUpdated'; payload: CombatUpdatedDto }>
@@ -187,6 +191,7 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.conditionApplied]: specOf('conditionApplied', conditionAppliedDto),
   [BOARD_EVENTS.conditionsApplied]: specOf('conditionsApplied', conditionsAppliedDto),
   [BOARD_EVENTS.conditionRemoved]: specOf('conditionRemoved', conditionRemovedDto),
+  [BOARD_EVENTS.conditionsChanged]: specOf('conditionsChanged', conditionsChangedDto),
   [BOARD_EVENTS.combatStarted]: specOf('combatStarted', combatStartedDto),
   [BOARD_EVENTS.combatUpdated]: specOf('combatUpdated', combatUpdatedDto),
   [BOARD_EVENTS.combatTurnChanged]: specOf('combatTurnChanged', combatTurnChangedDto),

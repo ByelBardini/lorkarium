@@ -4,16 +4,16 @@ import type {
   ReshapeEffectAreasCommandDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
-import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import { AuthoredAccessBo } from '../scenes/authored-access.bo';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import {
-  inLockedScene,
+  gridEventBase,
+  inLockedGrid,
   type CreatedInScene,
-  type LockedScene,
-  type SceneLockDaos,
+  type LockedGrid,
+  type GridLockDaos,
   type SceneTransaction,
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
@@ -39,7 +39,7 @@ export type ReshapeEffectAreas = Omit<ReshapeEffectAreasCommandDto, Envelope>;
 export type DeleteEffectAreas = Omit<DeleteEffectAreasCommandDto, Envelope>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
-export type EffectAreaWriteDaos = SceneLockDaos &
+export type EffectAreaWriteDaos = GridLockDaos &
   Readonly<{
     effectAreas: Pick<
       EffectAreasDao,
@@ -58,8 +58,7 @@ export type EffectAreasServiceDeps = Readonly<{
   limit: number;
 }>;
 
-type Locked = LockedScene<EffectAreaWriteDaos>;
-type EventBase = Readonly<{ campaignId: string; version: number; at: string }>;
+type Locked = LockedGrid<EffectAreaWriteDaos>;
 
 /** The area-of-effect use cases, each all or nothing in one version: lock the scene, decide,
  *  save, bump and, only after the commit, publish to the whole table (an area hides nothing).
@@ -74,11 +73,11 @@ export class EffectAreasService {
     campaignId: string,
     command: CreateEffectAreas,
   ): Promise<CreatedInScene> {
-    await memberAccessOf(this.deps.members, campaignId, userId);
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const shapes = command.effectAreas;
-    const saved = await inLockedScene(
+    const saved = await inLockedGrid(
       this.deps.transaction,
-      campaignId,
+      { campaignId, sceneId: command.sceneId, access },
       async ({ daos, scene }) => {
         const rules = this.rulesFor(scene);
         rules.admit(await daos.effectAreas.countOfScene(scene.id), shapes.length);
@@ -87,7 +86,10 @@ export class EffectAreasService {
         return (await daos.effectAreas.insertMany(rows)).map(toEffectAreaDto);
       },
     );
-    const event = { ...this.eventBase(campaignId, saved.version), effectAreas: saved.value };
+    const event = {
+      ...gridEventBase(campaignId, saved, this.deps.clock),
+      effectAreas: saved.value,
+    };
     this.deps.publisher.effectAreasCreated(event);
     return { version: saved.version, createdIds: saved.value.map(({ id }) => id) };
   }
@@ -97,23 +99,28 @@ export class EffectAreasService {
     campaignId: string,
     command: ReshapeEffectAreas,
   ): Promise<number> {
-    const access = await this.authoredAccessOf(campaignId, userId);
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const author = new AuthoredAccessBo(access, EFFECT_AREA_NOUN);
     const ids = command.reshapes.map(({ effectAreaId }) => effectAreaId);
     const reshapes = command.reshapes.map(toEffectAreaReshapePo);
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
-      const rows = await effectAreasIn(locked, campaignId, ids);
-      const rules = this.rulesFor(locked.scene);
-      rows.forEach((row, index) => {
-        const reshape = command.reshapes[index];
-        if (!reshape) return;
-        access.requireEdit('reshape', ownershipOf(row));
-        rules.requireShape(row.id, reshape.expect, shapeOfRow(row));
-        rules.place(areaOfShape(reshape.shape));
-      });
-      await locked.daos.effectAreas.reshapeMany(locked.scene.id, reshapes);
-    });
+    const saved = await inLockedGrid(
+      this.deps.transaction,
+      { campaignId, sceneId: command.sceneId, access },
+      async (locked) => {
+        const rows = await effectAreasIn(locked, campaignId, ids);
+        const rules = this.rulesFor(locked.scene);
+        rows.forEach((row, index) => {
+          const reshape = command.reshapes[index];
+          if (!reshape) return;
+          author.requireEdit('reshape', ownershipOf(row));
+          rules.requireShape(row.id, reshape.expect, shapeOfRow(row));
+          rules.place(areaOfShape(reshape.shape));
+        });
+        await locked.daos.effectAreas.reshapeMany(locked.scene.id, reshapes);
+      },
+    );
     const event = {
-      ...this.eventBase(campaignId, saved.version),
+      ...gridEventBase(campaignId, saved, this.deps.clock),
       reshapes: reshapes.map(savedShapeOf),
     };
     this.deps.publisher.effectAreasReshaped(event);
@@ -125,38 +132,34 @@ export class EffectAreasService {
     campaignId: string,
     command: DeleteEffectAreas,
   ): Promise<number> {
-    const access = await this.authoredAccessOf(campaignId, userId);
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const author = new AuthoredAccessBo(access, EFFECT_AREA_NOUN);
     const { effectAreaIds } = command;
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
-      const rows = await effectAreasIn(locked, campaignId, effectAreaIds);
-      const rules = this.rulesFor(locked.scene);
-      for (const row of rows) {
-        access.requireEdit('delete', ownershipOf(row));
-        const expected = command.expect?.find(({ effectAreaId }) => effectAreaId === row.id);
-        rules.requireShape(row.id, expected?.shape, shapeOfRow(row));
-      }
-      await locked.daos.effectAreas.deleteMany(locked.scene.id, effectAreaIds);
-    });
+    const saved = await inLockedGrid(
+      this.deps.transaction,
+      { campaignId, sceneId: command.sceneId, access },
+      async (locked) => {
+        const rows = await effectAreasIn(locked, campaignId, effectAreaIds);
+        const rules = this.rulesFor(locked.scene);
+        for (const row of rows) {
+          author.requireEdit('delete', ownershipOf(row));
+          const expected = command.expect?.find(({ effectAreaId }) => effectAreaId === row.id);
+          rules.requireShape(row.id, expected?.shape, shapeOfRow(row));
+        }
+        await locked.daos.effectAreas.deleteMany(locked.scene.id, effectAreaIds);
+      },
+    );
     const event = {
-      ...this.eventBase(campaignId, saved.version),
+      ...gridEventBase(campaignId, saved, this.deps.clock),
       effectAreaIds: [...effectAreaIds],
     };
     this.deps.publisher.effectAreasDeleted(event);
     return saved.version;
   }
 
-  private async authoredAccessOf(campaignId: string, userId: string): Promise<AuthoredAccessBo> {
-    const campaign: CampaignAccessBo = await memberAccessOf(this.deps.members, campaignId, userId);
-    return new AuthoredAccessBo(campaign, EFFECT_AREA_NOUN);
-  }
-
   private rulesFor(scene: ScenePo): EffectAreaRulesBo {
     const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
     return new EffectAreaRulesBo({ scene: sceneSize, limit: this.deps.limit });
-  }
-
-  private eventBase(campaignId: string, version: number): EventBase {
-    return { campaignId, version, at: this.deps.clock.now().toISOString() };
   }
 }
 

@@ -1,4 +1,5 @@
 import type { AppDependencies } from '@/app/router';
+import { tabInteractionFactory } from '@/features/board/tab-interaction';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { createWallStyleStore } from '@/stores/wall-style-store';
@@ -15,6 +16,8 @@ import { CallJournal } from './call-journal';
 import { CampaignsApiFake } from './campaigns-api-fake';
 import { ClipboardFake } from './clipboard-fake';
 import { InteractionClockFake } from './interaction-clock-fake';
+import { LibraryApiFake } from './library-api-fake';
+import { SceneActivationFake } from './scene-activation-fake';
 import { StorageFake } from './storage-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
@@ -22,6 +25,8 @@ import { TableSessionApiFake } from './table-session-api-fake';
 export type TestDependencies = AppDependencies & {
   authApi: AuthApiFake;
   campaignsApi: CampaignsApiFake;
+  libraryApi: LibraryApiFake;
+  sceneActivation: SceneActivationFake;
   assets: AssetsApiFake;
   clipboard: ClipboardFake;
   /** The session api under `openTables`, for specs to play the server. */
@@ -66,10 +71,13 @@ export function testDependencies(): TestDependencies {
   const lightReachStorage = new StorageFake();
   const lightColorStorage = new StorageFake();
   const boardRenderers = new BoardRenderersFake();
+  const boardCommands = new TableBoardCommandsFake();
   return {
     journal,
     authApi: new AuthApiFake(journal),
     campaignsApi: new CampaignsApiFake(),
+    libraryApi: new LibraryApiFake(),
+    sceneActivation: new SceneActivationFake(),
     assets: new AssetsApiFake(),
     clipboard: new ClipboardFake(),
     tableSessionApi,
@@ -82,9 +90,13 @@ export function testDependencies(): TestDependencies {
     lightColorStorage,
     boardRenderers,
     createBoardRenderer: boardRenderers.create,
-    boardCommands: new TableBoardCommandsFake(),
+    boardCommands,
     interactionClock: new InteractionClockFake(),
-    openTables: createOpenTablesStore({ api: tableSessionApi, storage: tabStorage }),
+    openTables: createOpenTablesStore({
+      api: tableSessionApi,
+      storage: tabStorage,
+      createInteraction: tabInteractionFactory(boardCommands),
+    }),
     sessionStore: createSessionStore(),
     railStore: createRailStore(new StorageFake()),
     roomLayout: createRoomLayoutStore(roomLayoutStorage),

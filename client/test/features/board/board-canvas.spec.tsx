@@ -24,6 +24,7 @@ import {
   lyra,
   sceneUpdated,
   vharnBoard,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 describe('BoardCanvas', () => {
@@ -38,7 +39,7 @@ describe('BoardCanvas', () => {
     board.getState().apply({ kind: 'board', state: vharnBoard() });
     intents = [];
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands: new TableBoardCommandsFake(),
       describeRefusal: String,
     });

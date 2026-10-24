@@ -6,7 +6,6 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
-import { VHARN } from '../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import {
   CELL_DOOR_ID,
@@ -16,6 +15,7 @@ import {
   grateBox,
   northWall,
 } from '../support/wall-fixtures';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 
 const REST_ID = 'd6e7f8a9-b0c1-4d2e-8f3a-4b5c6d7e8f90';
 
@@ -28,7 +28,7 @@ describe('editing walls', () => {
     commands = new TableBoardCommandsFake();
     recorded = [];
     store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
       recordEdit: (entry) => recorded.push(entry),

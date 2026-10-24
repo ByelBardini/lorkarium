@@ -1,10 +1,12 @@
+import type { BoardScope } from '@/services/board-command-sender';
 import type { EditEntry } from '@/lib/edit-history';
 import type { LightColor } from '@/lib/light-color';
 import type { LightPoint, LightReach } from '@/services/light-commands';
 import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-board-commands';
 
 export type LightToolDeps = Readonly<{
-  campaignId: string;
+  /** The grid its commands go to, read when each one is sent (the group grid can change). */
+  scopeOf: () => BoardScope;
   commands: TableBoardCommands;
   describeRefusal: (failure: BoardCommandFailure) => string;
   /** The confirmed light goes on this user's undo stack. */
@@ -42,7 +44,7 @@ export async function sendLight(
     facing: 0,
     angle: context.angle,
   };
-  const result = await deps.commands.createLights(deps.campaignId, [placement]);
+  const result = await deps.commands.createLights(deps.scopeOf(), [placement]);
   if (!result.ok) return context.say(deps.describeRefusal(result.failure));
   const [id] = result.createdIds ?? [];
   if (id) deps.recordEdit([{ kind: 'lightsAdded', lights: [{ id, placement }] }]);

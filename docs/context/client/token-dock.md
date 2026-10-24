@@ -11,6 +11,7 @@ O rodapé da aba Combate com a ficha de um token: o selecionado ou, sem seleçã
 ## Regra (`src/lib/main-token.ts`)
 
 - `mainTokenIdOf(board: Pick<BoardStateDto, 'viewer' | 'tokens' | 'mainTokens'>)` → id ou `null`. A escolha de quem vê (`mainTokens` com o `viewer.userId`) vale enquanto o token estiver em `tokens` **e** listar a pessoa no `controllerIds` (qualquer camada); senão, o automático: o primeiro de `tokens` (ordem de criação, a do `listOfScene`) da camada `tokens` que a lista. O `canControl` do mestre **não** conta: mestre fora de todo Controle → `null`.
+- **Personagem (B10):** sem escolha no grid, o principal é o token do grid **ligado à âncora** da ficha da pessoa (`characterTokenIdOf`, pelo `board.memberCards`, que vem do elenco); só sem ele vale o automático. `MainTokenBoard` exige `memberCards` (ver [`characters.md`](characters.md)).
 - `mainTokenIdOfMember(board, userId)`: a mesma regra para qualquer membro (o `mainTokenIdOf` é ela com o `viewer.userId`); o card de cada jogador na aba "Na mesa" a usa ([`table-people.md`](table-people.md)).
 - `mainTokenPlayersOf(board, tokenId, members)` → `{ userId, name, isMain }[]`: os membros no `controllerIds` do token, menos quem vê, cada um com se o token já é o principal dele (o `mainTokenIdOf` com o `viewer` trocado). Alimenta o "Tornar principal de" do mestre.
 - `isListedIn(token, userId)`: a regra comum da estrela do rodapé e do item "Tornar principal" do menu do token (`token-context-menu.tsx`).
@@ -21,7 +22,7 @@ O rodapé da aba Combate com a ficha de um token: o selecionado ou, sem seleçã
 
 - `board-events.ts`: `token:mainChanged` → `{ type: 'mainTokenChanged', payload }` pelo `mainTokenChangedDto` (fora do DTO → `invalid`, resync).
 - `board-reducer.ts` (`mainTokensAfter`, em **todo** evento): o `mainTokenChanged` troca a entrada de quem escolheu (ou a acrescenta) e mantém as outras; depois, toda escolha cujo token sumiu de `tokens` ou não lista mais a pessoa no `controllerIds` sai — é o espelho do cascade e do `dropLostControl` do server, que não mandam evento próprio (`token:updated`, `token:deleted`, `token:deletedMany`).
-- `main-token-commands.ts`: `MainTokenCommands.setMainToken(campaignId, tokenId, playerId?)` (o `playerId` só vai quando vem: o mestre escolhendo por um jogador) / `RealtimeMainTokenCommands` (manda `token:setMain` `{ tokenId, playerId? }` pelo `BoardCommandSender`: `FORBIDDEN` → `forbidden`, `TOKEN_NOT_FOUND` → `token_not_found`, sem ack em 5 s → `offline`). O `TableBoardCommands` o estende e o `RealtimeTableBoardCommands` o compõe, como as luzes. `TableBoardCommandsFake.setMainToken` grava `setMainToken` `{ tokenId, playerId? }`.
+- `main-token-commands.ts`: `MainTokenCommands.setMainToken(scope, tokenId, playerId?)` (o `playerId` só vai quando vem: o mestre escolhendo por um jogador) / `RealtimeMainTokenCommands` (manda `token:setMain` `{ tokenId, playerId? }` pelo `BoardCommandSender`: `FORBIDDEN` → `forbidden`, `TOKEN_NOT_FOUND` → `token_not_found`, sem ack em 5 s → `offline`). O `TableBoardCommands` o estende e o `RealtimeTableBoardCommands` o compõe, como as luzes. `TableBoardCommandsFake.setMainToken` grava `setMainToken` `{ tokenId, playerId? }`.
 - Specs: `board-events.spec.ts` (`token:mainChanged`), `board-reducer.spec.ts` (`applyBoardEvent, main tokens`), `main-token-commands.spec.ts`.
 
 ## Armadilhas

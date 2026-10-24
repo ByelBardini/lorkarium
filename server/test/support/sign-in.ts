@@ -16,12 +16,23 @@ export async function signUpAndLogin(
   const email = `${name.toLowerCase()}@mesa.com`;
   const passwordHash = await new Argon2PasswordHasher().hash('senha-de-teste');
   const user = await new UsersDao(db).insert({ name, email, passwordHash });
+  return { id: user.id, token: await logIn(app, email, 'senha-de-teste') };
+}
+
+/** Logs an existing account in through the real HTTP edge; returns the session cookie value.
+ *
+ *  Example: `const token = await logIn(app, 'caio@lorkarium.dev', DEV_PLAYER_PASSWORD)` */
+export async function logIn(
+  app: FastifyInstance,
+  email: string,
+  password: string,
+): Promise<string> {
   const response = await app.inject({
     method: 'POST',
     url: '/api/auth/login',
-    payload: { email, password: 'senha-de-teste' },
+    payload: { email, password },
   });
   const cookie = response.cookies.find((candidate) => candidate.name === 'lk_session');
   if (!cookie) throw new Error(`login of ${email} answered ${response.statusCode}`);
-  return { id: user.id, token: cookie.value };
+  return cookie.value;
 }

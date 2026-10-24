@@ -18,7 +18,11 @@ import { Label } from '@/components/ui/label';
 import { decimalText, digitsOnly } from '@/lib/numeric-text';
 import { cellsForImage, heightForWidth, isProportional } from '@/lib/scene-proportion';
 import type { AssetsApi } from '@/services/assets-api';
-import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-board-commands';
+import type {
+  BoardCommandFailure,
+  TableBoardCommands,
+  BoardScope,
+} from '@/services/table-board-commands';
 import { DISCONNECTED_COMMAND, boardCommandFailureMessage } from './board-messages';
 import {
   VISION_HINT,
@@ -36,7 +40,8 @@ import {
 import { SceneBackgroundField } from './scene-background-field';
 
 export type ConfigureSceneDialogProps = Readonly<{
-  campaignId: string;
+  /** The grid being configured. */
+  scope: BoardScope;
   scene: SceneDto;
   commands: TableBoardCommands;
   assets: AssetsApi;
@@ -49,9 +54,9 @@ export type ConfigureSceneDialogProps = Readonly<{
  *  visibility and opacity of the grid, and the vision of the tokens. Mounted only while open, so every opening starts from the scene as it
  *  is now.
  *
- *  Example: `{sceneDialog && <ConfigureSceneDialog campaignId={id} scene={scene} commands={commands} assets={assets} connected={live} onClose={close} />}` */
+ *  Example: `{sceneDialog && <ConfigureSceneDialog scope={scope} scene={scene} commands={commands} assets={assets} connected={live} onClose={close} />}` */
 export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JSX.Element {
-  const { campaignId, scene, commands, assets, connected, onClose } = props;
+  const { scope, scene, commands, assets, connected, onClose } = props;
   const look = useSceneLook(scene);
   const [errors, setErrors] = useState<GridFormErrors>({});
   const [failure, setFailure] = useState<BoardCommandFailure | null>(null);
@@ -63,7 +68,7 @@ export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JS
     setSaving(true);
     const backgroundAssetId = look.background?.assetId ?? null;
     const result = await commands.configureScene(
-      campaignId,
+      scope,
       parsed.grid,
       backgroundAssetId,
       look.vision,
@@ -88,7 +93,7 @@ export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JS
           }}
         >
           <SceneBackgroundField
-            campaignId={campaignId}
+            campaignId={scope.campaignId}
             assets={assets}
             background={look.background}
             locked={look.locked}

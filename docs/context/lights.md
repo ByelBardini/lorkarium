@@ -12,6 +12,7 @@ Luzes do mapa (a "Iluminação dinâmica" do §12): a tocha na parede, a fogueir
 ## DAO (`lights.dao.ts`)
 
 - `LightsDao(db | tx)`: `insertMany(rows)` → as linhas gravadas na ordem enviada (um `INSERT`, ordenado pela `light_order`), `listOfScene(sceneId)` (pela `light_order`), `findManyInScene(sceneId, ids)` (id de outra cena fica de fora), `moveMany(sceneId, moves)` (um `UPDATE` por luz, só `x, y`), `setRanges(sceneId, alcances)` (um `UPDATE` por luz, só `bright, dim`), `setColors(sceneId, cores)` (um `UPDATE` por luz, só `color`), `setCones(sceneId, cones)` (um `UPDATE` por luz, só `facing, angle`), `setLit(sceneId, ids, aceso)` (um `UPDATE`, só `lit`), `deleteMany(sceneId, ids)`.
+- `copyScene(from, to)`: `INSERT … SELECT` de todas as luzes da cena, ids novos, na ordem da `light_order` (a apagada continua apagada) (Duplicar da biblioteca, ver [`library.md`](library.md)).
 - **Isolamento por cena (§2.6):** toda leitura **e toda escrita** filtram por `scene_id`; um id de outra mesa não é achado, movido, ajustado, pintado, aceso nem apagado.
 - `NewLightPo` (sem `id`, `light_order`, `created_at`; `lit` opcional, nasce `true`), `LightMovePo` `{ lightId, x, y }`, `LightRangePo` `{ lightId, bright, dim }` (strings do numeric) , `LightColorPo` `{ lightId, color }` e `LightConePo` `{ lightId, facing, angle }`.
 
@@ -25,7 +26,7 @@ Luzes do mapa (a "Iluminação dinâmica" do §12): a tocha na parede, a fogueir
 
 ## Service (`lights.service.ts`)
 
-`LightsService.createMany | moveMany | setRangeMany | setColorMany | setConeMany | setLitMany | deleteMany(userId, campaignId, comando)`: `requireMaster` (o jogador → `FORBIDDEN`, antes de travar) → `inLockedScene` (`LightTransactionRunner`: `ScenesDao` e `LightsDao` presos ao `tx`) → todos os ids na cena (`lightsIn`: o primeiro que falta, de outra mesa também, → `LIGHT_NOT_FOUND` e nenhum gravado) → regra → grava → `bumpVersion` → **depois do commit** publica. Tudo ou nada, uma versão. O `createMany` devolve `{ version, createdIds }`. `moveMany`, `setRangeMany` e `setColorMany` passam pelo privado `changeEach` (achar as luzes → regra por linha → gravar), e cada um só monta o evento.
+`LightsService.createMany | moveMany | setRangeMany | setColorMany | setConeMany | setLitMany | deleteMany(userId, campaignId, comando)`: `requireMaster` (o jogador → `FORBIDDEN`, antes de travar) → `inLockedGrid` (o grid do `sceneId`; ausente = o do grupo; jogador num privado que não é o do grupo e grid de outra mesa → `SCENE_NOT_FOUND`) (`LightTransactionRunner`: `ScenesDao` e `LightsDao` presos ao `tx`; o `requireMaster` devolve o acesso e o evento leva `sceneId`, às salas do grid) → todos os ids na cena (`lightsIn`: o primeiro que falta, de outra mesa também, → `LIGHT_NOT_FOUND` e nenhum gravado) → regra → grava → `bumpVersion` → **depois do commit** publica. Tudo ou nada, uma versão. O `createMany` devolve `{ version, createdIds }`. `moveMany`, `setRangeMany` e `setColorMany` passam pelo privado `changeEach` (achar as luzes → regra por linha → gravar), e cada um só monta o evento.
 
 | Comando                                                                  | Quem   | Evento                                                  |
 | ------------------------------------------------------------------------ | ------ | ------------------------------------------------------- |

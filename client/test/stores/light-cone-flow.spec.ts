@@ -5,9 +5,9 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
-import { VHARN } from '../support/campaigns-api-fake';
 import { BRAZIER_ID, CORRIDOR_TORCH_ID, brazier, corridorTorch } from '../support/light-fixtures';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 
 describe('the cone of map lights', () => {
   let commands: TableBoardCommandsFake;
@@ -18,7 +18,7 @@ describe('the cone of map lights', () => {
     commands = new TableBoardCommandsFake();
     recorded = [];
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
       recordEdit: (entry) => recorded.push(entry),

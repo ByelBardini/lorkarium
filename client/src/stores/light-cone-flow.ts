@@ -61,7 +61,7 @@ async function sendCones(
     ...to,
     expect: { facing: light.facing, angle: light.angle },
   }));
-  const result = await deps.commands.setLightCones(deps.campaignId, targets);
+  const result = await deps.commands.setLightCones(deps.scopeOf(), targets);
   if (!result.ok) return store.setState({ notice: deps.describeRefusal(result.failure) });
   const recorded = targets.map(({ lightId, facing, angle, expect }) => ({
     lightId,

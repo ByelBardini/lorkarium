@@ -40,6 +40,11 @@ export class CampaignAccessBo {
     return this.membership.campaignId;
   }
 
+  /** Who asked, for the errors that cite them. */
+  userIdOf(): string {
+    return this.membership.userId;
+  }
+
   /** Whether `userId` is the member this access was built for. */
   isUser(userId: string): boolean {
     return this.membership.userId === userId;

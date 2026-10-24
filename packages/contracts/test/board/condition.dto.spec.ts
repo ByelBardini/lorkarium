@@ -9,6 +9,8 @@ import {
   setConditionRoundsCommandDto,
 } from '../../src/board/condition.dto';
 
+const GRID_ID = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+
 const BASE = {
   actionId: '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a',
   campaignId: '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a',
@@ -152,7 +154,12 @@ describe('conditionsAppliedDto', () => {
       look: null,
       remainingRounds: null,
     };
-    const event = { campaignId: BASE.campaignId, version: 4, at: '2026-10-16T12:00:00.000Z' };
+    const event = {
+      campaignId: BASE.campaignId,
+      sceneId: GRID_ID,
+      version: 4,
+      at: '2026-10-16T12:00:00.000Z',
+    };
     const parsed = conditionsAppliedDto.parse({
       ...event,
       applied: [{ tokenId: TOKEN_ID, condition }],

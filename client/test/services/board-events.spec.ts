@@ -4,7 +4,13 @@ import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { shapeOfEffectArea } from '@/lib/effect-area-shape';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
-import { BIA_AT_TABLE, KAEL_ID, memberCard, sceneUpdated } from '../support/table-session-fixtures';
+import {
+  BIA_AT_TABLE,
+  KAEL_ID,
+  VHARN_GRID,
+  memberCard,
+  sceneUpdated,
+} from '../support/table-session-fixtures';
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
 
@@ -24,6 +30,12 @@ describe('parseBoardEvent', () => {
   it('an event of the table outside the DTO is invalid', () => {
     const malformed = { ...sceneUpdated(), version: -1 };
     expect(parseBoardEvent('scene:updated', malformed, VHARN.id)).toEqual({ kind: 'invalid' });
+  });
+
+  it('an event of the table that names no grid is invalid (resync): every event says its sceneId', () => {
+    const withoutGrid: Record<string, unknown> = { ...sceneUpdated() };
+    delete withoutGrid.sceneId;
+    expect(parseBoardEvent('scene:updated', withoutGrid, VHARN.id)).toEqual({ kind: 'invalid' });
   });
 
   it('a payload without a campaign id is not ours', () => {
@@ -73,7 +85,7 @@ describe('parseBoardEvent', () => {
       { tokenIds: ['5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a'], style: { frame: 'round' } },
     ],
   ])('a valid %s of the table is a %s event', (name, type, fields) => {
-    const payload = { campaignId: VHARN.id, version: 6, at: '2026-10-16T12:00:00.000Z', ...fields };
+    const payload = { ...VHARN_GRID, version: 6, at: '2026-10-16T12:00:00.000Z', ...fields };
     expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
       kind: 'event',
       event: { type, payload },
@@ -82,7 +94,7 @@ describe('parseBoardEvent', () => {
 
   it('a token:facedMany of the table with facing 360 is invalid (resync)', () => {
     const payload = {
-      campaignId: VHARN.id,
+      ...VHARN_GRID,
       version: 6,
       at: '2026-10-16T12:00:00.000Z',
       faces: [{ tokenId: '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a', facing: 360 }],
@@ -92,7 +104,7 @@ describe('parseBoardEvent', () => {
 
   it('a token:resizedMany with a quarter cell is invalid (resync)', () => {
     const payload = {
-      campaignId: VHARN.id,
+      ...VHARN_GRID,
       version: 6,
       at: '2026-10-16T12:00:00.000Z',
       resizes: [
@@ -103,7 +115,7 @@ describe('parseBoardEvent', () => {
   });
 
   it('a token:layerChanged of the table on an unknown layer is invalid', () => {
-    const payload = { campaignId: VHARN.id, version: 6, at: '2026-10-16T12:00:00.000Z' };
+    const payload = { ...VHARN_GRID, version: 6, at: '2026-10-16T12:00:00.000Z' };
     const parsed = parseBoardEvent(
       'token:layerChanged',
       { ...payload, tokenIds: [], layer: 'gm' },
@@ -113,7 +125,7 @@ describe('parseBoardEvent', () => {
   });
 
   describe('effect areas', () => {
-    const base = { campaignId: VHARN.id, version: 6, at: '2026-10-18T12:00:00.000Z' };
+    const base = { ...VHARN_GRID, version: 6, at: '2026-10-18T12:00:00.000Z' };
     const coneShape = shapeOfEffectArea(biaCone());
 
     it.each([
@@ -142,7 +154,7 @@ describe('parseBoardEvent', () => {
   });
 
   describe('walls', () => {
-    const base = { campaignId: VHARN.id, version: 6, at: '2026-10-18T12:00:00.000Z' };
+    const base = { ...VHARN_GRID, version: 6, at: '2026-10-18T12:00:00.000Z' };
 
     it.each([
       ['wall:createdMany', 'wallsCreated', { walls: [northWall(), cellDoor()] }],
@@ -171,7 +183,7 @@ describe('parseBoardEvent', () => {
   });
 
   describe('lights', () => {
-    const base = { campaignId: VHARN.id, version: 6, at: '2026-10-18T12:00:00.000Z' };
+    const base = { ...VHARN_GRID, version: 6, at: '2026-10-18T12:00:00.000Z' };
 
     it.each([
       ['light:createdMany', 'lightsCreated', { lights: [corridorTorch()] }],
@@ -220,7 +232,7 @@ describe('parseBoardEvent', () => {
   });
 
   describe('drawings and token batches', () => {
-    const base = { campaignId: VHARN.id, version: 6, at: '2026-10-16T12:00:00.000Z' };
+    const base = { ...VHARN_GRID, version: 6, at: '2026-10-16T12:00:00.000Z' };
 
     it.each([
       ['drawing:createdMany', 'drawingsCreated', { drawings: [square(), path()] }],
@@ -252,7 +264,7 @@ describe('parseBoardEvent', () => {
 
   describe('token:mainChanged', () => {
     const changed = {
-      campaignId: VHARN.id,
+      ...VHARN_GRID,
       version: 6,
       at: '2026-10-21T12:00:00.000Z',
       userId: BIA_AT_TABLE.userId,
@@ -276,7 +288,7 @@ describe('parseBoardEvent', () => {
 
   describe('member:cardChanged', () => {
     const changed = {
-      campaignId: VHARN.id,
+      ...VHARN_GRID,
       version: 6,
       at: '2026-10-22T12:00:00.000Z',
       card: memberCard({ armorClass: 15 }),
@@ -292,6 +304,30 @@ describe('parseBoardEvent', () => {
     it('a member:cardChanged without the whole card is invalid (resync)', () => {
       const malformed = { ...changed, card: { userId: BIA_AT_TABLE.userId, armorClass: 15 } };
       expect(parseBoardEvent('member:cardChanged', malformed, VHARN.id)).toEqual({
+        kind: 'invalid',
+      });
+    });
+  });
+
+  describe('condition:changedMany', () => {
+    const changed = {
+      ...VHARN_GRID,
+      version: 6,
+      at: '2026-10-22T12:00:00.000Z',
+      changes: [{ tokenId: KAEL_ID, conditions: [] }],
+    };
+
+    it('a valid condition:changedMany of the table is a conditionsChanged event', () => {
+      expect(parseBoardEvent('condition:changedMany', changed, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type: 'conditionsChanged', payload: changed },
+      });
+    });
+
+    it('a condition:changedMany without the changes is invalid (resync)', () => {
+      const malformed: Record<string, unknown> = { ...changed };
+      delete malformed.changes;
+      expect(parseBoardEvent('condition:changedMany', malformed, VHARN.id)).toEqual({
         kind: 'invalid',
       });
     });

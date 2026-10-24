@@ -5,6 +5,8 @@ import {
   type EventRecorder,
   type RealtimeClient,
 } from '../support/realtime-client';
+import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
+import { TokensDao } from '../../src/modules/tokens/tokens.dao';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
@@ -34,6 +36,50 @@ describe('token batches and the undo precondition over Socket.IO', () => {
     await send(master, 'token:create', command);
     return (await createdTokenOf(events)).id;
   }
+
+  async function fillScene(table: { id: string }, total: number): Promise<void> {
+    const scene = await new ScenesDao(live.connection.db).findActiveOf(table.id);
+    if (!scene) throw new Error(`table ${table.id} has no scene`);
+    const token = { sceneId: scene.id, name: 'Goblin', initials: 'GO', side: 'enemy' } as const;
+    const rows = Array.from({ length: total }, (_, index) => ({
+      token: { ...token, width: 1, height: 1, col: index % 20, row: Math.floor(index / 20) % 12 },
+      bars: [],
+      controllerIds: [],
+    }));
+    await new TokensDao(live.connection.db).insertMany(rows);
+  }
+
+  it('creating on a scene that already has 500 tokens is TOKEN_LIMIT, nothing created and the version kept', async () => {
+    await fillScene(live.vharn, 500);
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const before = (await synced(ana.client, live.vharn)).version;
+
+    const created = await send(
+      ana.client,
+      'token:create',
+      tokenCommandFor(live.vharn, live.bia.id),
+    );
+    const pasted = await send(
+      ana.client,
+      'token:createMany',
+      pasteOf([itemOf(tokenCommandFor(live.vharn, live.bia.id))]),
+    );
+
+    const refusal = { code: 'TOKEN_LIMIT', message: 'This scene has too many tokens' };
+    expect(created).toEqual({ ok: false, error: refusal });
+    expect(pasted).toEqual({ ok: false, error: refusal });
+    const after = await synced(ana.client, live.vharn);
+    expect([after.version, after.tokens.length]).toEqual([before, 500]);
+  });
+
+  it('a full scene of QUELM does not keep VHARN from creating', async () => {
+    await fillScene(live.quelm, 500);
+    const ana = await live.atTable(live.ana, live.vharn);
+
+    const ack = await send(ana, 'token:create', tokenCommandFor(live.vharn, live.bia.id));
+
+    expect(ack).toMatchObject({ ok: true });
+  });
 
   it('the master pasting three tokens is one token:createdMany per client, redacted per viewer', async () => {
     const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));

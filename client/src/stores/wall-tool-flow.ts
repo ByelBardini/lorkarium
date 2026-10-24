@@ -1,3 +1,4 @@
+import type { BoardScope } from '@/services/board-command-sender';
 import type { WallDto } from '@lorkarium/contracts';
 import type { SceneSize } from '@lorkarium/game-core';
 import type { EditEntry } from '@/lib/edit-history';
@@ -7,7 +8,8 @@ import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-b
 import type { FinishedSketch } from './drawing-tool-flow';
 
 export type WallToolDeps = Readonly<{
-  campaignId: string;
+  /** The grid its commands go to, read when each one is sent (the group grid can change). */
+  scopeOf: () => BoardScope;
   commands: TableBoardCommands;
   describeRefusal: (failure: BoardCommandFailure) => string;
   /** The confirmed wall goes on this user's undo stack. */
@@ -43,7 +45,7 @@ export async function sendWall(
     scene: context.scene,
   });
   if (!shape) return;
-  const result = await deps.commands.createWalls(deps.campaignId, [shape]);
+  const result = await deps.commands.createWalls(deps.scopeOf(), [shape]);
   if (!result.ok) return context.say(deps.describeRefusal(result.failure));
   const [id] = result.createdIds ?? [];
   if (id) deps.recordEdit([{ kind: 'wallsAdded', walls: [{ id, shape }] }]);

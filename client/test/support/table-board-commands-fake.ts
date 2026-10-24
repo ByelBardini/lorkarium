@@ -9,6 +9,7 @@ import type {
 } from '@lorkarium/contracts';
 import type {
   BoardCommandResult,
+  BoardScope,
   CellTarget,
   DrawingMoveTarget,
   DrawingPlacement,
@@ -46,8 +47,14 @@ import type {
   LightRangeTarget,
 } from '@/services/light-commands';
 import type { RegroupTarget } from '@/services/combat-commands';
+import type { AddPlayersResult } from '@/services/token-link-commands';
 
-export type SentBoardCommand = Readonly<{ name: string; campaignId: string; fields: unknown }>;
+export type SentBoardCommand = Readonly<{
+  name: string;
+  campaignId: string;
+  sceneId: string;
+  fields: unknown;
+}>;
 
 /** Board commands as the test plays the server: `sent` keeps each command, `answerWith` sets the
  *  next answer (ok at version 1 by default) and `hold()` keeps the next one pending until
@@ -59,9 +66,15 @@ export class TableBoardCommandsFake implements TableBoardCommands {
   private answer: BoardCommandResult = { ok: true, version: 1 };
   private held: ((result: BoardCommandResult) => void) | null = null;
   private holdNext = false;
+  private playersAnswer: AddPlayersResult | null = null;
 
   answerWith(result: BoardCommandResult): void {
     this.answer = result;
+  }
+
+  /** The next `addPlayers` answers this (else: the `answerWith` failure, or nobody placed). */
+  answerAddPlayersWith(result: AddPlayersResult): void {
+    this.playersAnswer = result;
   }
 
   hold(): void {
@@ -74,263 +87,259 @@ export class TableBoardCommandsFake implements TableBoardCommands {
   }
 
   configureScene(
-    campaignId: string,
+    scope: BoardScope,
     grid: SceneGridDto,
     backgroundAssetId?: string | null,
     vision?: SceneVisionDto,
   ): Promise<BoardCommandResult> {
     const background = backgroundAssetId === undefined ? {} : { backgroundAssetId };
     const mode = vision === undefined ? {} : { vision };
-    return this.record('configureScene', campaignId, { ...grid, ...background, ...mode });
+    return this.record('configureScene', scope, { ...grid, ...background, ...mode });
   }
 
-  createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult> {
-    return this.record('createToken', campaignId, token);
+  createToken(scope: BoardScope, token: NewToken): Promise<BoardCommandResult> {
+    return this.record('createToken', scope, token);
   }
 
-  updateToken(campaignId: string, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult> {
-    return this.record('updateToken', campaignId, { tokenId, ...edit });
+  updateToken(scope: BoardScope, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult> {
+    return this.record('updateToken', scope, { tokenId, ...edit });
   }
 
   moveToken(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     to: CellTarget,
     path?: readonly CellTarget[],
   ): Promise<BoardCommandResult> {
     const bends = path && path.length > 0 ? { path: [...path] } : {};
-    return this.record('moveToken', campaignId, { tokenId, ...to, ...bends });
+    return this.record('moveToken', scope, { tokenId, ...to, ...bends });
   }
 
-  moveTokens(campaignId: string, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult> {
-    return this.record('moveTokens', campaignId, { moves: [...moves] });
+  moveTokens(scope: BoardScope, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult> {
+    return this.record('moveTokens', scope, { moves: [...moves] });
   }
 
-  createTokens(campaignId: string, tokens: readonly NewToken[]): Promise<BoardCommandResult> {
-    return this.record('createTokens', campaignId, { tokens: [...tokens] });
+  createTokens(scope: BoardScope, tokens: readonly NewToken[]): Promise<BoardCommandResult> {
+    return this.record('createTokens', scope, { tokens: [...tokens] });
   }
 
   deleteTokens(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     expect?: readonly TokenPlacement[],
   ): Promise<BoardCommandResult> {
-    return this.record('deleteTokens', campaignId, { tokenIds: [...tokenIds], expect });
+    return this.record('deleteTokens', scope, { tokenIds: [...tokenIds], expect });
   }
 
   createDrawings(
-    campaignId: string,
+    scope: BoardScope,
     drawings: readonly DrawingShapeInput[],
   ): Promise<BoardCommandResult> {
-    return this.record('createDrawings', campaignId, { drawings: [...drawings] });
+    return this.record('createDrawings', scope, { drawings: [...drawings] });
   }
 
   moveDrawings(
-    campaignId: string,
+    scope: BoardScope,
     moves: readonly DrawingMoveTarget[],
   ): Promise<BoardCommandResult> {
-    return this.record('moveDrawings', campaignId, { moves: [...moves] });
+    return this.record('moveDrawings', scope, { moves: [...moves] });
   }
 
   deleteDrawings(
-    campaignId: string,
+    scope: BoardScope,
     drawingIds: readonly string[],
     expect?: readonly DrawingPlacement[],
   ): Promise<BoardCommandResult> {
-    return this.record('deleteDrawings', campaignId, { drawingIds: [...drawingIds], expect });
+    return this.record('deleteDrawings', scope, { drawingIds: [...drawingIds], expect });
   }
 
-  createWalls(campaignId: string, shapes: readonly WallShape[]): Promise<BoardCommandResult> {
-    return this.record('createWalls', campaignId, { walls: [...shapes] });
+  createWalls(scope: BoardScope, shapes: readonly WallShape[]): Promise<BoardCommandResult> {
+    return this.record('createWalls', scope, { walls: [...shapes] });
   }
 
-  eraseWallArea(campaignId: string, box: WallEraseBox): Promise<BoardCommandResult> {
-    return this.record('eraseWallArea', campaignId, { box: { ...box } });
+  eraseWallArea(scope: BoardScope, box: WallEraseBox): Promise<BoardCommandResult> {
+    return this.record('eraseWallArea', scope, { box: { ...box } });
   }
 
   eraseWallSegment(
-    campaignId: string,
+    scope: BoardScope,
     wallId: string,
     segmentIndex: number,
     expect?: WallPosition,
   ): Promise<BoardCommandResult> {
-    return this.record('eraseWallSegment', campaignId, { wallId, segmentIndex, expect });
+    return this.record('eraseWallSegment', scope, { wallId, segmentIndex, expect });
   }
 
   deleteWalls(
-    campaignId: string,
+    scope: BoardScope,
     wallIds: readonly string[],
     expect?: readonly WallPlacement[],
   ): Promise<BoardCommandResult> {
-    return this.record('deleteWalls', campaignId, { wallIds: [...wallIds], expect });
+    return this.record('deleteWalls', scope, { wallIds: [...wallIds], expect });
   }
 
   setWallKinds(
-    campaignId: string,
+    scope: BoardScope,
     wallIds: readonly string[],
     kind: WallKind,
     expect?: readonly WallKindOf[],
   ): Promise<BoardCommandResult> {
-    return this.record('setWallKinds', campaignId, { wallIds: [...wallIds], kind, expect });
+    return this.record('setWallKinds', scope, { wallIds: [...wallIds], kind, expect });
   }
 
-  setDoor(campaignId: string, wallId: string, state: DoorState): Promise<BoardCommandResult> {
-    return this.record('setDoor', campaignId, { wallId, state });
+  setDoor(scope: BoardScope, wallId: string, state: DoorState): Promise<BoardCommandResult> {
+    return this.record('setDoor', scope, { wallId, state });
   }
 
-  createLights(campaignId: string, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {
-    return this.record('createLights', campaignId, { lights: [...lights] });
+  createLights(scope: BoardScope, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {
+    return this.record('createLights', scope, { lights: [...lights] });
   }
 
-  moveLights(campaignId: string, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult> {
-    return this.record('moveLights', campaignId, { moves: [...moves] });
+  moveLights(scope: BoardScope, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult> {
+    return this.record('moveLights', scope, { moves: [...moves] });
   }
 
   setLightRanges(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightRangeTarget[],
   ): Promise<BoardCommandResult> {
-    return this.record('setLightRanges', campaignId, { changes: [...changes] });
+    return this.record('setLightRanges', scope, { changes: [...changes] });
   }
 
   setLightColors(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightColorTarget[],
   ): Promise<BoardCommandResult> {
-    return this.record('setLightColors', campaignId, { changes: [...changes] });
+    return this.record('setLightColors', scope, { changes: [...changes] });
   }
 
   setLightCones(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightConeTarget[],
   ): Promise<BoardCommandResult> {
-    return this.record('setLightCones', campaignId, { changes: [...changes] });
+    return this.record('setLightCones', scope, { changes: [...changes] });
   }
 
   setLightsLit(
-    campaignId: string,
+    scope: BoardScope,
     lightIds: readonly string[],
     lit: boolean,
   ): Promise<BoardCommandResult> {
-    return this.record('setLightsLit', campaignId, { lightIds: [...lightIds], lit });
+    return this.record('setLightsLit', scope, { lightIds: [...lightIds], lit });
   }
 
-  setMainToken(
-    campaignId: string,
-    tokenId: string,
-    playerId?: string,
-  ): Promise<BoardCommandResult> {
-    return this.record('setMainToken', campaignId, { tokenId, ...(playerId && { playerId }) });
+  setMainToken(scope: BoardScope, tokenId: string, playerId?: string): Promise<BoardCommandResult> {
+    return this.record('setMainToken', scope, { tokenId, ...(playerId && { playerId }) });
   }
 
   updateMemberCard(
-    campaignId: string,
+    scope: BoardScope,
     memberId: string,
     changes: MemberCardChangesInput,
   ): Promise<BoardCommandResult> {
-    return this.record('updateMemberCard', campaignId, { memberId, changes });
+    return this.record('updateMemberCard', scope, { memberId, changes });
   }
 
   deleteLights(
-    campaignId: string,
+    scope: BoardScope,
     lightIds: readonly string[],
     expect?: readonly LightAt[],
   ): Promise<BoardCommandResult> {
-    return this.record('deleteLights', campaignId, { lightIds: [...lightIds], expect });
+    return this.record('deleteLights', scope, { lightIds: [...lightIds], expect });
   }
 
   createEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     shapes: readonly EffectAreaShape[],
   ): Promise<BoardCommandResult> {
-    return this.record('createEffectAreas', campaignId, { effectAreas: [...shapes] });
+    return this.record('createEffectAreas', scope, { effectAreas: [...shapes] });
   }
 
   reshapeEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     reshapes: readonly EffectAreaReshapeTarget[],
   ): Promise<BoardCommandResult> {
-    return this.record('reshapeEffectAreas', campaignId, { reshapes: [...reshapes] });
+    return this.record('reshapeEffectAreas', scope, { reshapes: [...reshapes] });
   }
 
   deleteEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     effectAreaIds: readonly string[],
     expect?: readonly EffectAreaShaped[],
   ): Promise<BoardCommandResult> {
-    return this.record('deleteEffectAreas', campaignId, {
+    return this.record('deleteEffectAreas', scope, {
       effectAreaIds: [...effectAreaIds],
       expect,
     });
   }
 
-  dragTokens(campaignId: string, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult> {
-    return this.record('dragTokens', campaignId, { drags: [...drags] });
+  dragTokens(scope: BoardScope, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult> {
+    return this.record('dragTokens', scope, { drags: [...drags] });
   }
 
   setTokenLayer(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     layer: TokenLayerDto,
   ): Promise<BoardCommandResult> {
-    return this.record('setTokenLayer', campaignId, { tokenIds: [...tokenIds], layer });
+    return this.record('setTokenLayer', scope, { tokenIds: [...tokenIds], layer });
   }
 
-  faceTokens(campaignId: string, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult> {
-    return this.record('faceTokens', campaignId, { faces: [...faces] });
+  faceTokens(scope: BoardScope, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult> {
+    return this.record('faceTokens', scope, { faces: [...faces] });
   }
 
   resizeTokens(
-    campaignId: string,
+    scope: BoardScope,
     resizes: readonly TokenResizeTarget[],
   ): Promise<BoardCommandResult> {
-    return this.record('resizeTokens', campaignId, { resizes: [...resizes] });
+    return this.record('resizeTokens', scope, { resizes: [...resizes] });
   }
 
   restyleTokens(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     style: TokenStyle,
   ): Promise<BoardCommandResult> {
-    return this.record('restyleTokens', campaignId, { tokenIds: [...tokenIds], style });
+    return this.record('restyleTokens', scope, { tokenIds: [...tokenIds], style });
   }
 
   adjustBar(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     barId: string,
     change: BarChangeDto,
   ): Promise<BoardCommandResult> {
-    return this.record('adjustBar', campaignId, { tokenId, barId, change });
+    return this.record('adjustBar', scope, { tokenId, barId, change });
   }
 
-  deleteToken(campaignId: string, tokenId: string): Promise<BoardCommandResult> {
-    return this.record('deleteToken', campaignId, { tokenId });
+  deleteToken(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
+    return this.record('deleteToken', scope, { tokenId });
   }
 
   defineCondition(
-    campaignId: string,
+    scope: BoardScope,
     definition: NewConditionDefinition,
   ): Promise<BoardCommandResult> {
-    return this.record('defineCondition', campaignId, { ...definition });
+    return this.record('defineCondition', scope, { ...definition });
   }
 
   applyCondition(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     conditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult> {
-    return this.record('applyCondition', campaignId, { tokenId, conditionId, rounds });
+    return this.record('applyCondition', scope, { tokenId, conditionId, rounds });
   }
 
   applyConditions(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     conditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult> {
-    return this.record('applyConditions', campaignId, {
+    return this.record('applyConditions', scope, {
       tokenIds: [...tokenIds],
       conditionId,
       rounds,
@@ -338,82 +347,101 @@ export class TableBoardCommandsFake implements TableBoardCommands {
   }
 
   removeCondition(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     activeConditionId: string,
   ): Promise<BoardCommandResult> {
-    return this.record('removeCondition', campaignId, { tokenId, activeConditionId });
+    return this.record('removeCondition', scope, { tokenId, activeConditionId });
   }
 
   setConditionRounds(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     activeConditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult> {
-    return this.record('setConditionRounds', campaignId, { tokenId, activeConditionId, rounds });
+    return this.record('setConditionRounds', scope, { tokenId, activeConditionId, rounds });
   }
 
   startCombat(
-    campaignId: string,
+    scope: BoardScope,
     entries: readonly CombatEntryInput[],
   ): Promise<BoardCommandResult> {
-    return this.record('startCombat', campaignId, { entries: [...entries] });
+    return this.record('startCombat', scope, { entries: [...entries] });
   }
 
-  endCombat(campaignId: string): Promise<BoardCommandResult> {
-    return this.record('endCombat', campaignId, {});
+  endCombat(scope: BoardScope): Promise<BoardCommandResult> {
+    return this.record('endCombat', scope, {});
   }
 
   addCombatants(
-    campaignId: string,
+    scope: BoardScope,
     entries: readonly CombatEntryInput[],
   ): Promise<BoardCommandResult> {
-    return this.record('addCombatants', campaignId, { entries: [...entries] });
+    return this.record('addCombatants', scope, { entries: [...entries] });
   }
 
   regroupTokens(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     target: RegroupTarget,
   ): Promise<BoardCommandResult> {
-    return this.record('regroupTokens', campaignId, { tokenIds: [...tokenIds], target });
+    return this.record('regroupTokens', scope, { tokenIds: [...tokenIds], target });
   }
 
   renameCombatant(
-    campaignId: string,
+    scope: BoardScope,
     combatantId: string,
     name: string,
   ): Promise<BoardCommandResult> {
-    return this.record('renameCombatant', campaignId, { combatantId, name });
+    return this.record('renameCombatant', scope, { combatantId, name });
   }
 
-  removeCombatant(campaignId: string, combatantId: string): Promise<BoardCommandResult> {
-    return this.record('removeCombatant', campaignId, { combatantId });
+  removeCombatant(scope: BoardScope, combatantId: string): Promise<BoardCommandResult> {
+    return this.record('removeCombatant', scope, { combatantId });
   }
 
   moveInTie(
-    campaignId: string,
+    scope: BoardScope,
     combatantId: string,
     direction: 'up' | 'down',
   ): Promise<BoardCommandResult> {
-    return this.record('moveInTie', campaignId, { combatantId, direction });
+    return this.record('moveInTie', scope, { combatantId, direction });
   }
 
   setInitiative(
-    campaignId: string,
+    scope: BoardScope,
     combatantId: string,
     initiative: number | null,
   ): Promise<BoardCommandResult> {
-    return this.record('setInitiative', campaignId, { combatantId, initiative });
+    return this.record('setInitiative', scope, { combatantId, initiative });
   }
 
-  nextTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult> {
-    return this.record('nextTurn', campaignId, { fromCombatantId });
+  nextTurn(scope: BoardScope, fromCombatantId: string): Promise<BoardCommandResult> {
+    return this.record('nextTurn', scope, { fromCombatantId });
   }
 
-  previousTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult> {
-    return this.record('previousTurn', campaignId, { fromCombatantId });
+  previousTurn(scope: BoardScope, fromCombatantId: string): Promise<BoardCommandResult> {
+    return this.record('previousTurn', scope, { fromCombatantId });
+  }
+
+  linkTokenToCard(
+    scope: BoardScope,
+    tokenId: string,
+    memberId: string,
+  ): Promise<BoardCommandResult> {
+    return this.record('linkTokenToCard', scope, { tokenId, memberId });
+  }
+
+  unlinkTokenFromCard(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
+    return this.record('unlinkTokenFromCard', scope, { tokenId });
+  }
+
+  async addPlayers(scope: BoardScope, center: CellTarget): Promise<AddPlayersResult> {
+    const answer = await this.record('addPlayers', scope, { center });
+    if (this.playersAnswer) return this.playersAnswer;
+    if (!answer.ok) return answer;
+    return { ok: true, version: answer.version, createdIds: [], skippedMemberIds: [] };
   }
 
   /** The commands sent with this name, in order. */
@@ -421,8 +449,8 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.sent.filter((command) => command.name === name);
   }
 
-  private record(name: string, campaignId: string, fields: unknown): Promise<BoardCommandResult> {
-    this.sent.push({ name, campaignId, fields });
+  private record(name: string, scope: BoardScope, fields: unknown): Promise<BoardCommandResult> {
+    this.sent.push({ name, campaignId: scope.campaignId, sceneId: scope.sceneId, fields });
     if (!this.holdNext) return Promise.resolve(this.answer);
     this.holdNext = false;
     return new Promise((resolve) => {

@@ -1,4 +1,5 @@
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
+import { sceneRowsCopySql } from '../../database/copy-rows';
 import type { DatabaseExecutor } from '../../database/transaction';
 import {
   effectAreas,
@@ -11,6 +12,13 @@ import {
  *  table finds and touches nothing (§2.6). Group writes run on the DAO built with the `tx`. */
 export class EffectAreasDao {
   constructor(private readonly db: DatabaseExecutor) {}
+
+  /** Copies every one of the areas of effect (each keeps its author) of `fromSceneId` into `toSceneId`, with new ids and in the
+   *  same order (the duplicate of a grid). */
+  async copyScene(fromSceneId: string, toSceneId: string): Promise<void> {
+    const copy = { table: effectAreas, sceneId: effectAreas.sceneId, order: effectAreas.areaOrder };
+    await this.db.execute(sceneRowsCopySql(copy, fromSceneId, toSceneId));
+  }
 
   async insertMany(rows: readonly NewEffectAreaPo[]): Promise<EffectAreaPo[]> {
     if (rows.length === 0) return [];

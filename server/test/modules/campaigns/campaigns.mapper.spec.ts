@@ -14,6 +14,7 @@ import {
   campaignMemberRow,
   campaignPo,
 } from '../../support/campaigns-factories';
+import { VHARN_CAST_ID } from '../../support/scenes-factories';
 
 const CAIO_ID = '5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b';
 
@@ -28,10 +29,16 @@ function detailFor(role: 'master' | 'player', passwordHash: string | null = null
     campaign: campaignPo({ passwordHash, joinCode: 'VHRN7K2Q' }),
     membership: campaignMemberPo({ role, lastEnteredAt: null }),
     members: MEMBERS,
+    castSceneId: VHARN_CAST_ID,
   });
 }
 
 describe('campaigns mapper', () => {
+  it('the detail carries the id of the table cast, to master and player alike', () => {
+    expect(detailFor('master').castSceneId).toBe(VHARN_CAST_ID);
+    expect(detailFor('player').castSceneId).toBe(VHARN_CAST_ID);
+  });
+
   it('a listing row becomes the summary with ISO dates and the nulls preserved', () => {
     const row = campaignListingRow({
       campaign: campaignPo({ system: null, status: 'Recrutando', description: null }),
@@ -93,6 +100,7 @@ describe('campaigns mapper', () => {
         campaign: campaignPo(),
         membership: campaignMemberPo({ role: 'player' }),
         members: [campaignMemberRow({ role: 'player' })],
+        castSceneId: VHARN_CAST_ID,
       });
     expect(build).toThrow(VHARN_ID);
   });

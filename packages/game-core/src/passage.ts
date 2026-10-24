@@ -1,8 +1,9 @@
 import type { Cell } from './cell.vo';
 import type { Vector2 } from './facing';
 import type { TokenSize } from './token-size.vo';
-import { wallSegments, type Segment } from './wall-segments';
-import { blocksMovement, type Wall } from './wall.vo';
+import { preparedWalls, type SegmentIndex } from './wall-index';
+import type { Segment } from './wall-segments';
+import type { Wall } from './wall.vo';
 
 /** Which leg of a path a wall bars first, and which wall (indexes into the lists given). */
 export type BlockedPassage = Readonly<{ legIndex: number; wallIndex: number }>;
@@ -19,17 +20,29 @@ export function blockedPassage(
   path: readonly Vector2[],
   walls: readonly Wall[],
 ): BlockedPassage | null {
-  const barriers = walls.map((value) => (blocksMovement(value) ? wallSegments(value) : []));
+  const { movement } = preparedWalls(walls);
   for (let legIndex = 1; legIndex < path.length; legIndex += 1) {
     const from = path[legIndex - 1];
     const to = path[legIndex];
     if (!from || !to) continue;
-    const wallIndex = barriers.findIndex((segments) =>
-      segments.some((segment) => legTouchesSegment({ from, to }, segment)),
-    );
-    if (wallIndex >= 0) return { legIndex: legIndex - 1, wallIndex };
+    const wallIndex = firstWallAcross(movement, { from, to });
+    if (wallIndex !== null) return { legIndex: legIndex - 1, wallIndex };
   }
   return null;
+}
+
+// Every wall the leg touches is looked at (only in the buckets it crosses): the lowest index wins.
+function firstWallAcross(movement: SegmentIndex, leg: Segment): number | null {
+  let first: number | null = null;
+  movement.someAlong(leg.from, leg.to, (i) => {
+    const segment = movement.segments[i];
+    const wallIndex = movement.wallIndexes[i];
+    if (segment === undefined || wallIndex === undefined) return false;
+    if (first !== null && wallIndex >= first) return false;
+    if (legTouchesSegment(leg, segment)) first = wallIndex;
+    return false;
+  });
+  return first;
 }
 
 /** Whether a leg meets a segment anywhere past the leg's start: crossing, touching an end or

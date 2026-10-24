@@ -34,7 +34,7 @@ export async function moveLightOf(
   }
   previewLightOf(store, light.id, to);
   const move = { lightId: light.id, ...to, expect: from };
-  const result = await deps.commands.moveLights(deps.campaignId, [move]);
+  const result = await deps.commands.moveLights(deps.scopeOf(), [move]);
   previewLightOf(store, light.id, null);
   if (!result.ok) return sayRefusal(deps, store, result);
   deps.recordEdit?.([{ kind: 'lightsMoved', moves: [{ lightId: light.id, from, to }] }]);
@@ -57,7 +57,7 @@ export async function changeLightRangesOf(
     ...to,
     expect: { bright, dim },
   }));
-  const result = await deps.commands.setLightRanges(deps.campaignId, changes);
+  const result = await deps.commands.setLightRanges(deps.scopeOf(), changes);
   if (!result.ok) return sayRefusal(deps, store, result);
   const recorded = changes.map(({ lightId, expect }) => ({ lightId, from: expect, to }));
   deps.recordEdit?.([{ kind: 'lightRangesChanged', changes: recorded }]);
@@ -76,7 +76,7 @@ export async function changeLightColorsOf(
   const changing = lights.filter(({ color }) => color !== to);
   if (store.getState().readOnly || changing.length === 0) return;
   const changes = changing.map(({ id, color }) => ({ lightId: id, color: to, expect: { color } }));
-  const result = await deps.commands.setLightColors(deps.campaignId, changes);
+  const result = await deps.commands.setLightColors(deps.scopeOf(), changes);
   if (!result.ok) return sayRefusal(deps, store, result);
   const recorded = changes.map(({ lightId, expect }) => ({ lightId, from: expect.color, to }));
   deps.recordEdit?.([{ kind: 'lightColorsChanged', changes: recorded }]);
@@ -94,7 +94,7 @@ export async function deleteLightsOf(
   if (store.getState().readOnly || lights.length === 0) return;
   const ids = lights.map(({ id }) => id);
   const expect = lights.map(({ id, x, y }) => ({ lightId: id, x, y }));
-  const result = await deps.commands.deleteLights(deps.campaignId, ids, expect);
+  const result = await deps.commands.deleteLights(deps.scopeOf(), ids, expect);
   if (!result.ok) return sayRefusal(deps, store, result);
   const selected = store.getState().selectedLightIds.filter((id) => !ids.includes(id));
   store.setState({ selectedLightIds: selected });

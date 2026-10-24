@@ -1,5 +1,6 @@
 export { cell, sameCell, type Cell } from './cell.vo';
 export { cellDistance, footprintFits, pathDistance, type SceneSize } from './grid';
+export { freeCellsAround } from './free-cells';
 export { TOKEN_SIZE_MAX, TOKEN_SIZE_MIN, tokenSize, type TokenSize } from './token-size.vo';
 export {
   RESIZE_STEP,
@@ -78,6 +79,13 @@ export {
 } from './wall.vo';
 export { ELLIPSE_WALL_SEGMENTS, wallSegments, type Segment } from './wall-segments';
 export { wallOutsideBox, wallWithoutSegment, type EraseBox } from './wall-erase';
+export {
+  PreparedWalls,
+  SegmentIndex,
+  crossingPoint,
+  preparedWalls,
+  type WallCrossing,
+} from './wall-index';
 export { blockedPassage, legTouchesSegment, tokenCenter, type BlockedPassage } from './passage';
 export { REACH_MAX, assertReach } from './reach';
 export {

@@ -5,6 +5,8 @@ import {
   tokensRestyledDto,
 } from '../../src/board/token-appearance.dto';
 
+const GRID_ID = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const CAMPAIGN_ID = '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a';
 const LYRA_ID = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
@@ -122,6 +124,7 @@ describe('tokensRestyledDto', () => {
   it('the event carries the same partial style the command had', () => {
     const event = {
       campaignId: CAMPAIGN_ID,
+      sceneId: GRID_ID,
       version: 4,
       at: '2026-10-17T12:00:00.000Z',
       tokenIds: [LYRA_ID],

@@ -5,9 +5,8 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
-import { VHARN } from '../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
-import { KAEL_ID, LYRA_ID } from '../support/table-session-fixtures';
+import { KAEL_ID, LYRA_ID, VHARN_GRID } from '../support/table-session-fixtures';
 
 describe('turning tokens (token-facing-flow)', () => {
   let commands: TableBoardCommandsFake;
@@ -18,7 +17,7 @@ describe('turning tokens (token-facing-flow)', () => {
     commands = new TableBoardCommandsFake();
     recorded = [];
     store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
       recordEdit: (entry) => recorded.push(entry),

@@ -5,9 +5,8 @@ import { act } from '@testing-library/react';
 import type { SceneDto } from '@lorkarium/contracts';
 import { ConfigureSceneDialog } from '@/features/board/configure-scene-dialog';
 import { AssetsApiFake, VHARN_MAP } from '../../support/assets-api-fake';
-import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
-import { VHARN_SCENE } from '../../support/table-session-fixtures';
+import { VHARN_SCENE, VHARN_GRID } from '../../support/table-session-fixtures';
 
 describe('ConfigureSceneDialog', () => {
   let commands: TableBoardCommandsFake;
@@ -24,7 +23,7 @@ describe('ConfigureSceneDialog', () => {
   function renderDialog(connected = true, scene: SceneDto = VHARN_SCENE): void {
     render(
       <ConfigureSceneDialog
-        campaignId={VHARN.id}
+        scope={VHARN_GRID}
         scene={scene}
         commands={commands}
         assets={assets}
@@ -62,7 +61,7 @@ describe('ConfigureSceneDialog', () => {
     expect(commands.sent).toEqual([
       {
         name: 'configureScene',
-        campaignId: VHARN.id,
+        ...VHARN_GRID,
         fields: {
           widthCells: 30,
           heightCells: 20,
@@ -248,7 +247,7 @@ describe('ConfigureSceneDialog vision', () => {
     const commands = new TableBoardCommandsFake();
     render(
       <ConfigureSceneDialog
-        campaignId={VHARN.id}
+        scope={VHARN_GRID}
         scene={VHARN_SCENE}
         commands={commands}
         assets={new AssetsApiFake()}

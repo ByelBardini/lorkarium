@@ -4,6 +4,7 @@ import {
   AuthSessionsDaoFake,
   ClockFake,
   PasswordHasherFake,
+  SessionEndedFake,
   SessionTokenFake,
   UsersDaoFake,
 } from '../../support/auth-fakes';
@@ -17,12 +18,14 @@ describe('AuthService', () => {
   let users: UsersDaoFake;
   let sessions: AuthSessionsDaoFake;
   let hasher: PasswordHasherFake;
+  let sessionEnded: SessionEndedFake;
   let service: AuthService;
 
   beforeEach(() => {
     users = new UsersDaoFake([userPo({ passwordHash: 'hashed:segredo-da-ana' })]);
     sessions = new AuthSessionsDaoFake();
     hasher = new PasswordHasherFake();
+    sessionEnded = new SessionEndedFake();
     service = new AuthService({
       users,
       sessions,
@@ -30,6 +33,7 @@ describe('AuthService', () => {
       tokens: new SessionTokenFake(),
       clock: new ClockFake(NOW),
       decoyHash: DECOY_HASH,
+      sessionEnded,
     });
   });
 
@@ -90,7 +94,9 @@ describe('AuthService', () => {
       storeSession('2026-11-10T12:00:00Z', true);
       expect(await service.resolveSession('cookie')).toEqual({
         user: ANA_DTO,
+        sessionId: 'sha:cookie',
         expiresAt: new Date('2026-11-10T12:00:00Z'),
+        recheckAt: new Date('2026-10-26T12:00:00Z'),
         persistent: true,
         renewed: false,
       });
@@ -101,6 +107,7 @@ describe('AuthService', () => {
       const resolved = await service.resolveSession('cookie');
       expect(resolved).toMatchObject({
         expiresAt: new Date('2026-10-15T00:00:00Z'),
+        recheckAt: new Date('2026-10-14T18:00:00Z'),
         renewed: true,
       });
       expect(sessions.rows.get('sha:cookie')?.expiresAt).toEqual(new Date('2026-10-15T00:00:00Z'));
@@ -112,6 +119,20 @@ describe('AuthService', () => {
       storeSession('2026-11-10T12:00:00Z', true);
       await service.logout('cookie');
       expect(sessions.rows.has('sha:cookie')).toBe(false);
+    });
+
+    it('tells the realtime side that the session ended, after deleting it', async () => {
+      storeSession('2026-11-10T12:00:00Z', true);
+      const rowWhenEnded: boolean[] = [];
+      sessionEnded.whenEnded = () => rowWhenEnded.push(sessions.rows.has('sha:cookie'));
+      await service.logout('cookie');
+      expect(sessionEnded.ended).toEqual(['sha:cookie']);
+      expect(rowWhenEnded).toEqual([false]);
+    });
+
+    it('without a cookie nothing is deleted and no session is announced as ended', async () => {
+      await service.logout(undefined);
+      expect(sessionEnded.ended).toEqual([]);
     });
 
     it('an unknown token does not throw', async () => {

@@ -200,3 +200,26 @@ export class ConditionDefinitionsFake {
     );
   }
 }
+
+/** The memberships table as `findMembership` reads it; `reads` keeps each `<campaign>:<user>` asked.
+ *
+ *  Example: `const dao = new MembershipReadsFake([campaignMemberPo()]); dao.reads.length` */
+export class MembershipReadsFake implements Pick<
+  CampaignMembersDao,
+  'findMembership' | 'listMembers'
+> {
+  readonly reads: string[] = [];
+
+  constructor(readonly rows: CampaignMemberPo[] = []) {}
+
+  async listMembers(campaignId: string): Promise<CampaignMemberRow[]> {
+    this.reads.push(`list:${campaignId}`);
+    const members = this.rows.filter((row) => row.campaignId === campaignId);
+    return members.map(({ userId, role }) => ({ userId, name: userId, role }));
+  }
+
+  async findMembership(campaignId: string, userId: string): Promise<CampaignMemberPo | undefined> {
+    this.reads.push(`${campaignId}:${userId}`);
+    return this.rows.find((row) => row.campaignId === campaignId && row.userId === userId);
+  }
+}

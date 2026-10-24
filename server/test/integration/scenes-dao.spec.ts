@@ -86,6 +86,53 @@ describe('ScenesDao on Postgres', () => {
     expect(await scenesDao.findActiveOf(vharnId)).toMatchObject({ version: 1 });
   });
 
+  describe('a grid by its address', () => {
+    it('lockInCampaign without sceneId locks the group grid and marks it active', async () => {
+      const groupId = await activeSceneOf(vharnId);
+      await scenesDao.insert({ campaignId: vharnId, name: 'Torre' });
+
+      const locked = await runInTransaction(connection.db, (tx) =>
+        new ScenesDao(tx).lockInCampaign(vharnId),
+      );
+
+      expect(locked).toMatchObject({ id: groupId, isActive: true });
+    });
+
+    it('lockInCampaign of the Torre brings it as not active, with its visibility', async () => {
+      await activeSceneOf(vharnId);
+      const torre = await scenesDao.insert({ campaignId: vharnId, name: 'Torre' });
+
+      const locked = await runInTransaction(connection.db, (tx) =>
+        new ScenesDao(tx).lockInCampaign(vharnId, torre.id),
+      );
+
+      expect(locked).toMatchObject({ id: torre.id, isActive: false, visibility: 'private' });
+    });
+
+    it('a grid of Quelm addressed at Vharn is found by neither lockInCampaign nor findGridInCampaign', async () => {
+      await activeSceneOf(vharnId);
+      const quelmGrid = await activeSceneOf(quelmId);
+
+      const locked = await runInTransaction(connection.db, (tx) =>
+        new ScenesDao(tx).lockInCampaign(vharnId, quelmGrid),
+      );
+
+      expect(locked).toBeUndefined();
+      expect(await scenesDao.findGridInCampaign(vharnId, quelmGrid)).toBeUndefined();
+    });
+
+    it('findGridInCampaign reads the addressed grid without a transaction', async () => {
+      const groupId = await activeSceneOf(vharnId);
+      const torre = await scenesDao.insert({ campaignId: vharnId, name: 'Torre' });
+
+      expect(await scenesDao.findGridInCampaign(vharnId)).toMatchObject({ id: groupId });
+      expect(await scenesDao.findGridInCampaign(vharnId, torre.id)).toMatchObject({
+        name: 'Torre',
+        isActive: false,
+      });
+    });
+  });
+
   it('update saves the grid and returns the saved row', async () => {
     const sceneId = await activeSceneOf(vharnId);
     const grid = {

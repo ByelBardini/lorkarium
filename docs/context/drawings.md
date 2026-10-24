@@ -10,7 +10,8 @@ Desenhos do tabuleiro (extensão do spec §3.3): mão livre, quadrado, círculo 
 
 ## DAO (`drawings.dao.ts`)
 
-- `DrawingsDao(db | tx)`: `insertMany(rows)` → as linhas gravadas (um `INSERT`), `listOfScene(sceneId)` (pela `draw_order`), `countOfScene(sceneId)`, `findManyInScene(sceneId, ids)` (id de outra cena fica de fora), `moveMany(sceneId, moves)` (um `UPDATE` por desenho, só `x, y`), `deleteMany(sceneId, ids)`.
+- `DrawingsDao(db | tx)`: `insertMany(rows)` → as linhas gravadas (um `INSERT`), `listOfScene(sceneId)` (pela `draw_order`), `countOfScene(sceneId)`, `findManyInScene(sceneId, ids)` (id de outra cena fica de fora), `moveMany(sceneId, moves)` (**um** `UPDATE … FROM (VALUES …)` para o grupo, pelo `updateManySql`, só `x, y`, com `scene_id` no `WHERE`: id de outra cena não muda), `deleteMany(sceneId, ids)`.
+- `copyScene(from, to)`: `INSERT … SELECT` de todos os desenhos da cena, ids novos, na ordem da `draw_order`, cada um com o seu autor (Duplicar da biblioteca, ver [`library.md`](library.md)).
 - **Isolamento por cena (§2.6):** toda leitura **e toda escrita** filtram por `scene_id`; um id de outra mesa não é achado, movido nem apagado.
 - `NewDrawingPo` (sem `id`, `draw_order`, `created_at`) e `DrawingMovePo` `{ drawingId, x, y }` (strings do numeric).
 
@@ -23,7 +24,7 @@ Desenhos do tabuleiro (extensão do spec §3.3): mão livre, quadrado, círculo 
 
 ## Service (`drawings.service.ts`)
 
-`DrawingsService.createMany | moveMany | deleteMany(userId, campaignId, comando)` → versão nova. Participação → `inLockedScene` (`scenes/locked-scene.ts`: trava a cena → trabalho → `bumpVersion`, numa transação) → **depois do commit** publica à mesa toda. Tudo ou nada, uma versão: o grupo inteiro é conferido (achado na cena, `requireEdit`, `requireAt`, `place`) antes da escrita. O autor é o `userId` da conexão. `DrawingTransactionRunner` entrega `ScenesDao` e `DrawingsDao` presos ao `tx`.
+`DrawingsService.createMany | moveMany | deleteMany(userId, campaignId, comando)` → versão nova. Participação → `inLockedGrid` (o grid do `sceneId`; ausente = o do grupo; jogador num privado que não é o do grupo e grid de outra mesa → `SCENE_NOT_FOUND`) (`scenes/locked-scene.ts`: trava o grid → trabalho → `bumpVersion`, numa transação) → **depois do commit** publica às salas do grid, com `sceneId`. Tudo ou nada, uma versão: o grupo inteiro é conferido (achado na cena, `requireEdit`, `requireAt`, `place`) antes da escrita. O autor é o `userId` da conexão. `DrawingTransactionRunner` entrega `ScenesDao` e `DrawingsDao` presos ao `tx`.
 
 | Comando              | Quem          | Evento                                         |
 | -------------------- | ------------- | ---------------------------------------------- |

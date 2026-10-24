@@ -1,11 +1,5 @@
 import type { CampaignSummaryDto } from '@lorkarium/contracts';
-
-function searchable(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
-}
+import { searchText } from '@/lib/search-text';
 
 /** The campaigns whose name or system contains the query, ignoring accents and case.
  *
@@ -14,10 +8,10 @@ export function filterCampaigns(
   campaigns: readonly CampaignSummaryDto[],
   query: string,
 ): CampaignSummaryDto[] {
-  const needle = searchable(query.trim());
+  const needle = searchText(query.trim());
   if (!needle) return [...campaigns];
   return campaigns.filter((campaign) =>
-    [campaign.name, campaign.system ?? ''].some((text) => searchable(text).includes(needle)),
+    [campaign.name, campaign.system ?? ''].some((text) => searchText(text).includes(needle)),
   );
 }
 

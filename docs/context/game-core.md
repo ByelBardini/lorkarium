@@ -6,6 +6,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 
 - `src/cell.vo.ts` — a célula do grid (VO)
 - `src/grid.ts` — distância entre células e pegada do token na cena
+- `src/free-cells.ts` — as casas livres em volta de um ponto (onde nascem os tokens de "Adicionar jogadores")
 - `src/token-size.vo.ts` — largura e altura do token (VO)
 - `src/token-resize.ts` — a caixa do token (e de qualquer caixa com limites próprios) depois de arrastar uma alça
 - `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
@@ -38,6 +39,11 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `pathDistance(caminho)` — soma das pernas pelo `cellDistance` (a régua com curvas do arraste): `(0,0)` → `(3,0)` → `(3,4)` = 7; um ponto ou nenhum = 0.
 - `footprintFits(scene, origin, size)` — o token é um retângulo `size.width × size.height` ancorado no canto superior esquerdo (`origin`); cabe se `col + width ≤ widthCells` e `row + height ≤ heightCells`, cada eixo por si. Encostar na borda cabe (18,5 + 1,5 = 20). Sem colisão entre tokens (colisão é do §12).
 - `TokenSize` `{ width, height }` — `tokenSize(w, h)` aceita múltiplos de 0,5 de `TOKEN_SIZE_MIN` (0,5) a `TOKEN_SIZE_MAX` (10); fora disso, `RangeError` citando o lado e o valor ("width 0.25 … multiple of 0.5 from 0.5 to 10"). O contracts repete os limites no `tokenSideLengthDto` (só depende do `zod`).
+
+## Casas livres
+
+- `freeCellsAround(centro, pegadas, ocupadas, cena)` → `Cell[] | null`: a casa (canto superior esquerdo) de cada `TokenSize` de `pegadas`, na mesma ordem, sem cobrir nenhuma caixa de `ocupadas` (`TokenBox[]`, os tokens já na cena; meia casa conta, encostar na borda não), nenhuma pegada já colocada (o que é posto ocupa para o próximo) nem sair da cena (`footprintFits`). Busca **anel a anel** pelo `cellDistance` em volta do centro; dentro do anel, a mais perto primeiro (ortogonais antes das diagonais) e, no empate, em sentido horário a partir da direita (como o `Facing`): três 1×1 em volta de (5, 5) livre → (5, 5), (6, 5), (5, 6). Os candidatos são o centro + passos inteiros, só dentro da cena (até 10 000 numa cena 100 × 100).
+- Alguma pegada sem lugar → `null` (nunca lista parcial). Centro fora da cena → `RangeError` "Center cell (20, 5) is outside the 20 × 12 scene: expected col < 20 and row < 12."
 
 ## Redimensionar
 
@@ -111,7 +117,7 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 
 ## Passagem
 
-- `blockedPassage(pontos, paredes)` → `{ legIndex, wallIndex } | null`: os pontos são os **centros** do token (origem, curvas, destino; `tokenCenter(posição, tamanho)`); o primeiro trecho que encontra uma parede que bloqueia passagem, e qual parede (índices das listas recebidas). Um ponto, nenhum ponto ou nenhuma parede → `null`.
+- `blockedPassage(pontos, paredes)` → `{ legIndex, wallIndex } | null`: os pontos são os **centros** do token (origem, curvas, destino; `tokenCenter(posição, tamanho)`); o primeiro trecho que encontra uma parede que bloqueia passagem, e qual parede (índices das listas recebidas). Um ponto, nenhum ponto ou nenhuma parede → `null`. Sobre o `preparedWalls(paredes).movement` (só os baldes de cada trecho; vale a parede de menor índice que o trecho toca), ver [`game-core/visao-e-luz.md`](game-core/visao-e-luz.md).
 - `legTouchesSegment(trecho, segmento)` — o trecho encontra o segmento **depois do seu início**: cruzar, encostar (o destino sobre a linha, a ponta da parede no meio do trecho) e correr colinear por cima contam; tocar só no ponto de partida não conta, para o token parado sobre a linha poder sair. Folga 1e-9 (as coordenadas são guardadas a 0,01, então a folga nunca fecha fresta real). É a mesma conta da linha de visão.
 - A passagem é pelo centro: um token grande passa por fresta menor que ele (colisão da pegada é do §12).
 
@@ -125,4 +131,4 @@ O detalhe (cone e campo, polígono de visão, alcance, olho, nível de visão, p
 - A distância das áreas de efeito é **euclidiana** (do centro da casa até a forma) e **não** é a da régua (`cellDistance`, diagonal valendo 1). Não troque uma pela outra; unificar a regra de diagonal é do §12.
 - Na união `EffectArea`, `RoundArea` tem `kind` união (`'circle' | 'smooth_circle'`): comparar o `kind` não estreita para fora dela. Estreite por `'facing' in area` (é o que separa `AimedArea`).
 - A **fresta entre pontas** de parede quase encostadas deixa a visão (e a passagem) vazar: o raio passa entre as duas pontas. O game-core não fecha fresta; é o client que **gruda** a ponta nova no vértice vizinho ao desenhar (`WALL_GLUE_DISTANCE`).
-- `doorSeenBy` tira a porta das paredes **pela referência**: passe a mesma instância que está em `walls` (o `find` da lista), nunca uma cópia, senão a porta fechada esconde a si mesma.
+- `doorSeenBy` deixa a porta de fora **pela referência** (o `exceto` do `lineOfSight`/`lightLevelAt`, sem copiar o array, que derrubaria a preparação): passe a mesma instância que está em `walls` (o `find` da lista), nunca uma cópia, senão a porta fechada esconde a si mesma.

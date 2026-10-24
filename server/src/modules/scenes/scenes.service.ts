@@ -5,13 +5,14 @@ import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { toCampaignAccessBo } from '../campaigns/campaigns.mapper';
 import type { BoardPublisherPort } from './board-publisher.port';
+import { inLockedGrid } from './locked-scene';
 import { SceneConfigBo, type SceneGrid } from './scene-config.bo';
 import type { SceneRow, ScenesDao } from './scenes.dao';
 import { backgroundOfScene, toSceneDto, toSceneGridPo } from './scenes.mapper';
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type SceneWriteDaos = Readonly<{
-  scenes: Pick<ScenesDao, 'lockActiveOf' | 'update' | 'bumpVersion'>;
+  scenes: Pick<ScenesDao, 'lockInCampaign' | 'update' | 'bumpVersion'>;
   assets: Pick<AssetsDao, 'findInCampaign'>;
 }>;
 
@@ -31,49 +32,56 @@ type Background = SceneBackgroundDto | null;
 /** The vision mode a configure asks for; absent keeps the scene's. */
 export type VisionChoice = SceneVisionDto | undefined;
 
-/** Configures the grid, the background and the vision mode of a campaign's active scene:
- *  persists, bumps the version, then publishes.
+/** What a `scene:configure` asks for: the grid, the background and vision choices, and the grid
+ *  it is addressed to (absent = the group grid). */
+export type SceneConfigRequest = Readonly<{
+  grid: SceneGrid;
+  backgroundAssetId?: BackgroundChoice;
+  vision?: VisionChoice;
+  sceneId?: string | undefined;
+}>;
+
+/** Configures the grid, the background and the vision mode of one grid of a campaign (absent
+ *  `sceneId` = the group grid): persists, bumps that grid's version, then publishes.
  *
- *  Example: `const version = await scenesService.configure(user.id, campaignId, grid, assetId, 'dark')` */
+ *  Example: `const version = await scenesService.configure(user.id, campaignId, { grid, sceneId })` */
 export class ScenesService {
   constructor(private readonly deps: ScenesServiceDeps) {}
 
   async configure(
     userId: string,
     campaignId: string,
-    grid: SceneGrid,
-    backgroundAssetId?: BackgroundChoice,
-    vision?: VisionChoice,
+    request: SceneConfigRequest,
   ): Promise<number> {
     const membership = await this.deps.members.findMembership(campaignId, userId);
     const access = toCampaignAccessBo(campaignId, userId, membership);
-    const decided = new SceneConfigBo(access).configure(grid);
-    const saved = await this.deps.transaction(async ({ scenes, assets }) => {
-      const scene = await lockedSceneOf(scenes, campaignId);
-      const background = await backgroundFor(assets, scene, backgroundAssetId);
-      const config = {
-        ...toSceneGridPo(decided),
-        backgroundAssetId: background?.assetId ?? null,
-        visionMode: vision ?? scene.visionMode,
-      };
-      const updated = await scenes.update(scene.id, config);
-      const version = await scenes.bumpVersion(scene.id);
-      return { ...updated, ...pixelsOf(background), version };
-    });
+    access.requireMember();
+    const address = { campaignId, sceneId: request.sceneId, access };
+    // The grid is reached before the master rule: a player's private grid is SCENE_NOT_FOUND.
+    const saved = await inLockedGrid(this.deps.transaction, address, ({ daos, scene }) =>
+      savedConfigOf(daos, scene, new SceneConfigBo(access).configure(request.grid), request),
+    );
     const at = this.deps.clock.now().toISOString();
-    const scene = toSceneDto(saved);
-    this.deps.publisher.sceneUpdated({ campaignId, version: saved.version, at, scene });
-    return saved.version;
+    const scene = toSceneDto(saved.value);
+    const { version, sceneId } = saved;
+    this.deps.publisher.sceneUpdated({ campaignId, sceneId, version, at, scene });
+    return version;
   }
 }
 
-async function lockedSceneOf(
-  scenes: SceneWriteDaos['scenes'],
-  campaignId: string,
+async function savedConfigOf(
+  daos: SceneWriteDaos,
+  scene: SceneRow,
+  grid: SceneGrid,
+  request: SceneConfigRequest,
 ): Promise<SceneRow> {
-  const scene = await scenes.lockActiveOf(campaignId);
-  if (!scene) throw new Error(`campaign ${campaignId} has no active scene; every campaign has one`);
-  return scene;
+  const background = await backgroundFor(daos.assets, scene, request.backgroundAssetId);
+  const config = {
+    ...toSceneGridPo(grid),
+    backgroundAssetId: background?.assetId ?? null,
+    visionMode: request.vision ?? scene.visionMode,
+  };
+  return { ...(await daos.scenes.update(scene.id, config)), ...pixelsOf(background) };
 }
 
 // Only an asset of the scene's own campaign may become its background (§2.6).

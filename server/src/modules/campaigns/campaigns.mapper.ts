@@ -17,6 +17,9 @@ export type CampaignView = Readonly<{
   members: readonly CampaignMemberRow[];
 }>;
 
+/** The view of the detail modal: the campaign view plus the id of the table's cast. */
+export type CampaignDetailView = CampaignView & Readonly<{ castSceneId: string }>;
+
 /** Listing row → DTO: one line of the user's campaign list.
  *
  *  Example: `rows.map(toCampaignSummaryDto)` */
@@ -53,13 +56,14 @@ export function toCampaignSummaryOfView(view: CampaignView): CampaignSummaryDto 
 /** View → DTO: the detail modal; the join code only reaches the master, the hash never leaves.
  *
  *  Example: `toCampaignDetailDto(view).joinCode // null for a player` */
-export function toCampaignDetailDto(view: CampaignView): CampaignDetailDto {
+export function toCampaignDetailDto(view: CampaignDetailView): CampaignDetailDto {
   const access = toCampaignAccessBo(view.campaign.id, view.membership.userId, view.membership);
   return {
     ...toCampaignSummaryOfView(view),
     members: sortedMembers(view.members),
     joinCode: access.canSeeJoinCode() ? view.campaign.joinCode : null,
     hasPassword: view.campaign.passwordHash !== null,
+    castSceneId: view.castSceneId,
   };
 }
 

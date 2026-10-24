@@ -1,26 +1,34 @@
-import { BAR_VALUE_LIMIT } from '@lorkarium/contracts';
+import { BAR_VALUE_LIMIT, TOKENS_PER_SCENE_MAX } from '@lorkarium/contracts';
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import { AssetsDao } from '../assets/assets.dao';
-import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
+import type { MembershipReader } from '../campaigns/cached-memberships';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { CombatDao } from '../combat/combat.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { MainTokensDao } from './main-tokens.dao';
+import { MemberCardsDao } from '../member-cards/member-cards.dao';
+import { TokenAnchorsDao } from './token-anchors.dao';
 import { MainTokenService } from './main-token.service';
 import { TokensDao } from './tokens.dao';
+import type { SceneWallsService } from '../walls/scene-walls.service';
 import { WallsDao } from '../walls/walls.dao';
 import { TokenAppearanceService } from './token-appearance.service';
 import { TokenBatchService } from './token-batch.service';
+import { TokenLinkService } from './token-link.service';
 import type { TokenTransactionRunner } from './token-transaction';
 import { TokensService } from './tokens.service';
 
 export type TokensModuleOptions = Readonly<{
   db: Database;
+  /** Shared by the board modules: the memberships remembered by the campaigns module. */
+  members: MembershipReader;
   publisher: BoardPublisherPort;
   clock: ClockPort;
+  /** The walls of each scene in memory, shared with the walls module (which forgets them). */
+  sceneWalls: SceneWallsService;
 }>;
 
 export type TokensModule = Readonly<{
@@ -28,6 +36,7 @@ export type TokensModule = Readonly<{
   batch: TokenBatchService;
   appearance: TokenAppearanceService;
   mainToken: MainTokenService;
+  link: TokenLinkService;
 }>;
 
 /** Wires the tokens module (one token, and the batches of a paste); its edge is the board
@@ -45,15 +54,20 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
         assets: new AssetsDao(tx),
         walls: new WallsDao(tx),
         mainTokens: new MainTokensDao(tx),
+        anchors: new TokenAnchorsDao(tx),
+        memberCards: new MemberCardsDao(tx),
       }),
     );
-  const members = new CampaignMembersDao(options.db);
-  const { publisher, clock } = options;
-  const deps = { members, transaction, publisher, clock, barLimit: BAR_VALUE_LIMIT };
+  const { members, publisher, clock, sceneWalls } = options;
+  const dragGroups = new TokensDao(options.db);
+  const limits = { barLimit: BAR_VALUE_LIMIT, tokenLimit: TOKENS_PER_SCENE_MAX };
+  const deps = { members, transaction, publisher, clock, ...limits };
+  const tokenDeps = { ...deps, dragGroups, sceneWalls };
   return {
-    service: new TokensService(deps),
+    service: new TokensService(tokenDeps),
     batch: new TokenBatchService(deps),
     appearance: new TokenAppearanceService(deps),
     mainToken: new MainTokenService(deps),
+    link: new TokenLinkService(deps),
   };
 }

@@ -21,6 +21,7 @@ import {
   lyra,
   vharnBoard,
   vharnState,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 const BIA_ONLINE: SessionMemberDto = { ...BIA_AT_TABLE, online: true };
@@ -29,13 +30,15 @@ const EVERYONE = [ANA_AT_TABLE, BIA_ONLINE, CAIO_AT_TABLE];
 describe('SessionPresencePanel', () => {
   let presence: StoreApi<TablePresenceStore>;
   let board: StoreApi<BoardStore>;
+  let cast: StoreApi<BoardStore>;
   let interaction: StoreApi<BoardInteractionStore>;
 
   beforeEach(() => {
     presence = createTablePresenceStore(VHARN.id);
     board = createBoardStore(VHARN.id, () => undefined);
+    cast = createBoardStore(VHARN.id, () => undefined);
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands: new TableBoardCommandsFake(),
       describeRefusal: String,
     });
@@ -53,6 +56,7 @@ describe('SessionPresencePanel', () => {
       <SessionPresencePanel
         store={presence}
         board={board}
+        cast={cast}
         interaction={interaction}
         isMaster={true}
         clock={new InteractionClockFake()}
@@ -112,6 +116,7 @@ describe('SessionPresencePanel', () => {
       <SessionPresencePanel
         store={presence}
         board={board}
+        cast={cast}
         interaction={interaction}
         isMaster
         clock={new InteractionClockFake()}
@@ -129,6 +134,7 @@ describe('SessionPresencePanel', () => {
       <SessionPresencePanel
         store={presence}
         board={board}
+        cast={cast}
         interaction={interaction}
         isMaster
         clock={new InteractionClockFake()}

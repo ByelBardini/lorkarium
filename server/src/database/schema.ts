@@ -3,7 +3,8 @@ export { authSessions } from '../modules/auth/auth-sessions.po';
 export { userRole, users } from '../modules/auth/users.po';
 export { campaignRole, campaignMembers } from '../modules/campaigns/campaign-members.po';
 export { campaignVisibility, campaigns } from '../modules/campaigns/campaigns.po';
-export { sceneVision, scenes } from '../modules/scenes/scenes.po';
+export { sceneKind, sceneVision, sceneVisibility, scenes } from '../modules/scenes/scenes.po';
+export { sceneFolders } from '../modules/library/scene-folders.po';
 export {
   barColor,
   barDisplay,

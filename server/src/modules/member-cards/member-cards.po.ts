@@ -10,6 +10,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { campaignMembers } from '../campaigns/campaign-members.po';
+import { tokens } from '../tokens/tokens.po';
 
 // The party board card of a member: of the table, not of the scene, so it survives a scene or a
 // main token change. The composite key to campaign_members takes the card along when the member
@@ -24,6 +25,10 @@ export const memberCards = pgTable(
     difficultyClass: smallint('difficulty_class'),
     noteOne: text('note_one'),
     noteTwo: text('note_two'),
+    // The anchor token of the member's character, in the table's cast; one card per anchor.
+    anchorTokenId: uuid('anchor_token_id')
+      .unique('member_cards_anchor_token_id_unique')
+      .references(() => tokens.id, { onDelete: 'set null' }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -45,5 +50,8 @@ export type MemberCardPo = typeof memberCards.$inferSelect;
 
 /** The card fields one save writes: an absent key stays, `null` clears. */
 export type MemberCardChangesPo = Partial<
-  Pick<MemberCardPo, 'characterName' | 'armorClass' | 'difficultyClass' | 'noteOne' | 'noteTwo'>
+  Pick<
+    MemberCardPo,
+    'characterName' | 'armorClass' | 'difficultyClass' | 'noteOne' | 'noteTwo' | 'anchorTokenId'
+  >
 >;

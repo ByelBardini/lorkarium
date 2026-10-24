@@ -11,6 +11,7 @@ import {
   lyra,
   memberCard,
 } from '../../support/table-session-fixtures';
+import { LYRA_ANCHOR_ID, lyraAnchor } from '../../support/cast-fixtures';
 
 const IMAGE_ID = '7f6e5d4c-3b2a-4f1e-8d9c-0b1a2c3d4e5f';
 const LYRA_BARS = [cardBar(), cardBar({ position: 1, label: 'Mana', current: 9, max: 16 })];
@@ -143,6 +144,35 @@ describe('PlayerCard', () => {
 
       expect(screen.getByTestId('nick-line')).not.toHaveTextContent('ausente');
       expect(screen.getByRole('img', { name: 'online' })).toBeInTheDocument();
+    });
+  });
+
+  describe('with the cast', () => {
+    const biaCard = memberCard({ armorClass: 17, anchorTokenId: LYRA_ANCHOR_ID });
+
+    it("the card is the cast's (the table's version), not the grid snapshot's", () => {
+      harness.render({
+        state: { memberCards: [memberCard({ armorClass: 12 })] },
+        cast: { memberCards: [biaCard] },
+      });
+
+      expect(screen.getByRole('textbox', { name: 'CA de Lyra' })).toHaveValue('17');
+    });
+
+    it("without Lyra on the group grid, Bia's card shows the anchor's portrait and bars", () => {
+      const anchor = lyraAnchor({
+        imageAssetId: IMAGE_ID,
+        bars: [cardBar({ current: 25, max: 45 })],
+      });
+      harness.render({ state: { tokens: [] }, cast: { tokens: [anchor], memberCards: [biaCard] } });
+
+      expect(screen.getByRole('img', { name: 'Retrato de Lyra' })).toHaveAttribute(
+        'src',
+        expect.stringContaining(IMAGE_ID),
+      );
+      expect(screen.getByRole('meter', { name: 'PV de Lyra' })).toHaveTextContent('25 / 45');
+      expect(screen.queryByRole('button', { name: 'Achar Lyra no mapa' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Editar PV de Lyra' })).toBeNull();
     });
   });
 });

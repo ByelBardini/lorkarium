@@ -4,76 +4,73 @@ import {
   type DefineConditionCommandDto,
   type RegroupTargetDto,
 } from '@lorkarium/contracts';
-import type { BoardCommandResult, BoardCommandSender } from './board-command-sender';
+import type { BoardCommandResult, BoardCommandSender, BoardScope } from './board-command-sender';
 
-type Envelope = 'actionId' | 'campaignId';
+type Envelope = 'actionId' | 'campaignId' | 'sceneId';
 export type NewConditionDefinition = Omit<DefineConditionCommandDto, Envelope>;
 /** Where a regroup sends the tokens: into an entry, each into its own, or out of the combat. */
 export type RegroupTarget = RegroupTargetDto;
 
 /** The condition and combat commands of an open table; each answers with its ack, never throws.
  *
- *  Example: `await commands.regroupTokens(campaignId, [wolfId], { kind: 'own' })` */
+ *  Example: `await commands.regroupTokens(scope, [wolfId], { kind: 'own' })` */
 export interface CombatCommands {
   defineCondition(
-    campaignId: string,
+    scope: BoardScope,
     definition: NewConditionDefinition,
   ): Promise<BoardCommandResult>;
   applyCondition(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     conditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult>;
   applyConditions(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     conditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult>;
   removeCondition(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     activeConditionId: string,
   ): Promise<BoardCommandResult>;
   /** Only the rounds left (0 = no limit); the round it was applied in stays. */
   setConditionRounds(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     activeConditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult>;
-  startCombat(
-    campaignId: string,
-    entries: readonly CombatEntryInput[],
-  ): Promise<BoardCommandResult>;
-  endCombat(campaignId: string): Promise<BoardCommandResult>;
+  startCombat(scope: BoardScope, entries: readonly CombatEntryInput[]): Promise<BoardCommandResult>;
+  endCombat(scope: BoardScope): Promise<BoardCommandResult>;
   addCombatants(
-    campaignId: string,
+    scope: BoardScope,
     entries: readonly CombatEntryInput[],
   ): Promise<BoardCommandResult>;
-  removeCombatant(campaignId: string, combatantId: string): Promise<BoardCommandResult>;
+  removeCombatant(scope: BoardScope, combatantId: string): Promise<BoardCommandResult>;
   moveInTie(
-    campaignId: string,
+    scope: BoardScope,
     combatantId: string,
     direction: 'up' | 'down',
   ): Promise<BoardCommandResult>;
   setInitiative(
-    campaignId: string,
+    scope: BoardScope,
     combatantId: string,
     initiative: number | null,
   ): Promise<BoardCommandResult>;
   /** `fromCombatantId`: whose turn the sender saw, so two quick "next" never skip two turns. */
-  nextTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult>;
-  previousTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult>;
+  nextTurn(scope: BoardScope, fromCombatantId: string): Promise<BoardCommandResult>;
+  previousTurn(scope: BoardScope, fromCombatantId: string): Promise<BoardCommandResult>;
   /** Moves, splits or takes tokens out of their initiative entries (master). */
   regroupTokens(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     target: RegroupTarget,
   ): Promise<BoardCommandResult>;
   renameCombatant(
-    campaignId: string,
+    scope: BoardScope,
     combatantId: string,
     name: string,
   ): Promise<BoardCommandResult>;
@@ -81,33 +78,33 @@ export interface CombatCommands {
 
 /** `CombatCommands` over the board command sender; the table commands extend it.
  *
- *  Example: `new RealtimeCombatCommands(sender).nextTurn(campaignId, fromCombatantId)` */
+ *  Example: `new RealtimeCombatCommands(sender).nextTurn(scope, fromCombatantId)` */
 export class RealtimeCombatCommands implements CombatCommands {
   constructor(protected readonly sender: BoardCommandSender) {}
 
   defineCondition(
-    campaignId: string,
+    scope: BoardScope,
     definition: NewConditionDefinition,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.defineCondition, campaignId, { ...definition });
+    return this.send(BOARD_EVENTS.defineCondition, scope, { ...definition });
   }
 
   applyCondition(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     conditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.applyCondition, campaignId, { tokenId, conditionId, rounds });
+    return this.send(BOARD_EVENTS.applyCondition, scope, { tokenId, conditionId, rounds });
   }
 
   applyConditions(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     conditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.applyConditions, campaignId, {
+    return this.send(BOARD_EVENTS.applyConditions, scope, {
       tokenIds: [...tokenIds],
       conditionId,
       rounds,
@@ -115,20 +112,20 @@ export class RealtimeCombatCommands implements CombatCommands {
   }
 
   removeCondition(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     activeConditionId: string,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.removeCondition, campaignId, { tokenId, activeConditionId });
+    return this.send(BOARD_EVENTS.removeCondition, scope, { tokenId, activeConditionId });
   }
 
   setConditionRounds(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     activeConditionId: string,
     rounds: number,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.setConditionRounds, campaignId, {
+    return this.send(BOARD_EVENTS.setConditionRounds, scope, {
       tokenId,
       activeConditionId,
       rounds,
@@ -136,68 +133,68 @@ export class RealtimeCombatCommands implements CombatCommands {
   }
 
   startCombat(
-    campaignId: string,
+    scope: BoardScope,
     entries: readonly CombatEntryInput[],
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.startCombat, campaignId, { entries: [...entries] });
+    return this.send(BOARD_EVENTS.startCombat, scope, { entries: [...entries] });
   }
 
-  endCombat(campaignId: string): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.endCombat, campaignId, {});
+  endCombat(scope: BoardScope): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.endCombat, scope, {});
   }
 
   addCombatants(
-    campaignId: string,
+    scope: BoardScope,
     entries: readonly CombatEntryInput[],
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.addCombatants, campaignId, { entries: [...entries] });
+    return this.send(BOARD_EVENTS.addCombatants, scope, { entries: [...entries] });
   }
 
-  removeCombatant(campaignId: string, combatantId: string): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.removeCombatant, campaignId, { combatantId });
+  removeCombatant(scope: BoardScope, combatantId: string): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.removeCombatant, scope, { combatantId });
   }
 
   moveInTie(
-    campaignId: string,
+    scope: BoardScope,
     combatantId: string,
     direction: 'up' | 'down',
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.moveInTie, campaignId, { combatantId, direction });
+    return this.send(BOARD_EVENTS.moveInTie, scope, { combatantId, direction });
   }
 
   setInitiative(
-    campaignId: string,
+    scope: BoardScope,
     combatantId: string,
     initiative: number | null,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.setInitiative, campaignId, { combatantId, initiative });
+    return this.send(BOARD_EVENTS.setInitiative, scope, { combatantId, initiative });
   }
 
-  nextTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.nextTurn, campaignId, { fromCombatantId });
+  nextTurn(scope: BoardScope, fromCombatantId: string): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.nextTurn, scope, { fromCombatantId });
   }
 
-  previousTurn(campaignId: string, fromCombatantId: string): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.previousTurn, campaignId, { fromCombatantId });
+  previousTurn(scope: BoardScope, fromCombatantId: string): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.previousTurn, scope, { fromCombatantId });
   }
 
   regroupTokens(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     target: RegroupTarget,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.regroupTokens, campaignId, { tokenIds: [...tokenIds], target });
+    return this.send(BOARD_EVENTS.regroupTokens, scope, { tokenIds: [...tokenIds], target });
   }
 
   renameCombatant(
-    campaignId: string,
+    scope: BoardScope,
     combatantId: string,
     name: string,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.renameCombatant, campaignId, { combatantId, name });
+    return this.send(BOARD_EVENTS.renameCombatant, scope, { combatantId, name });
   }
 
-  protected send(event: string, campaignId: string, fields: object): Promise<BoardCommandResult> {
-    return this.sender.send(event, campaignId, fields);
+  protected send(event: string, scope: BoardScope, fields: object): Promise<BoardCommandResult> {
+    return this.sender.send(event, scope, fields);
   }
 }

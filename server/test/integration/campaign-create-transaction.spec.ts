@@ -11,6 +11,7 @@ import {
 import { campaigns } from '../../src/modules/campaigns/campaigns.po';
 import { campaignMembers } from '../../src/modules/campaigns/campaign-members.po';
 import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
+import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import type { NewScenePo, ScenePo } from '../../src/modules/scenes/scenes.po';
 import { ClockFake, PasswordHasherFake } from '../support/auth-fakes';
 import { newUserPo } from '../support/auth-factories';
@@ -61,6 +62,8 @@ describe('creating a campaign on Postgres', () => {
     const service = new CampaignsService({
       campaigns: new CampaignsDao(db),
       members: new CampaignMembersDao(db),
+      scenes: new ScenesDao(db),
+      memberships: new CampaignMembersDao(db),
       transaction,
       codes: new CampaignCodeFake(['VHRN7K2Q']),
       hasher: new PasswordHasherFake(),

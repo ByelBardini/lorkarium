@@ -12,6 +12,7 @@ export function toMemberCardDto(row: MemberCardPo): MemberCardDto {
     difficultyClass: row.difficultyClass,
     noteOne: row.noteOne,
     noteTwo: row.noteTwo,
+    anchorTokenId: row.anchorTokenId,
   };
 }
 

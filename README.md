@@ -2,7 +2,8 @@
 
 Virtual Tabletop (VTT) web para conduzir e gerenciar combates de RPG de mesa em tempo real.
 
-O mestre monta cenas com mapas e grids, posiciona tokens, controla iniciativa, rodadas, pontos de vida e condições, e tudo é sincronizado com os jogadores conectados pelo navegador. O sistema é **agnóstico de regras**: não presume D&D, Pathfinder, Tormenta ou qualquer outro sistema específico.
+- **Lógica separada da representação:** o motor de jogo (`game-
+  O mestre monta cenas com mapas e grids, posiciona tokens, controla iniciativa, rodadas, pontos de vida e condições, e tudo é sincronizado com os jogadores conectados pelo navegador. O sistema é **agnóstico de regras**: não presume D&D, Pathfinder, Tormenta ou qualquer outro sistema específico.
 
 > **Status:** Fase 0 — fundação. O repositório contém apenas o esqueleto do monorepo e as dependências instaladas; nenhuma funcionalidade foi implementada ainda.
 
@@ -10,8 +11,7 @@ A especificação completa está em [docs/spec.md](docs/spec.md).
 
 ## Princípios
 
-- **Servidor autoritativo:** o cliente solicita operações; o servidor valida permissões, aplica, persiste e publica o estado confirmado.
-- **Lógica separada da representação:** o motor de jogo (`game-core`) não depende de React, PixiJS, Fastify ou Socket.IO.
+- **Servidor autoritativo:** o cliente solicita operações; o servidor valida permissões, aplica, persiste e publica o estado confirmado.core`) não depende de React, PixiJS, Fastify ou Socket.IO.
 - **Independência de sistemas de RPG:** condições e regras são genéricas e configuráveis.
 - **Segurança desde o início:** autenticação, autorização, validação de entrada e isolamento entre campanhas fazem parte da arquitetura base.
 - **Simplicidade operacional:** monólito modular, uma única instância no MVP, implantável em uma VPS.

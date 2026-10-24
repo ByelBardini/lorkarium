@@ -1,4 +1,5 @@
 import type {
+  EndCombatCommandDto,
   AddCombatantsCommandDto,
   CombatDto,
   ConditionChangeDto,
@@ -18,9 +19,16 @@ import { toCampaignAccessBo } from '../campaigns/campaigns.mapper';
 import type { ConditionsDao } from '../conditions/conditions.dao';
 import { toActiveConditionDto } from '../conditions/conditions.mapper';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
+import { gridEventBase, inLockedGrid, type SavedInScene } from '../scenes/locked-scene';
+import {
+  inLockedGridWithCast,
+  requireCastLock,
+  savedEventBase,
+  type SavedVersion,
+} from '../scenes/locked-cast';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
-import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
+import type { TokenControlPo, TokensDao } from '../tokens/tokens.dao';
 import { CombatBo } from './combat.bo';
 import { CombatRosterBo, type RosterChange } from './combat-roster.bo';
 import type { CombatDao, CombatRow } from './combat.dao';
@@ -28,6 +36,7 @@ import { toCombatDto, toCombatState } from './combat.mapper';
 
 type Envelope = 'actionId' | 'campaignId';
 export type StartCombat = Omit<StartCombatCommandDto, Envelope>;
+export type EndCombat = Omit<EndCombatCommandDto, Envelope>;
 export type AddCombatants = Omit<AddCombatantsCommandDto, Envelope>;
 export type RemoveCombatant = Omit<RemoveCombatantCommandDto, Envelope>;
 export type RegroupTokens = Omit<RegroupTokensCommandDto, Envelope>;
@@ -38,8 +47,8 @@ export type TurnCommand = Omit<TurnCommandDto, Envelope>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type CombatWriteDaos = Readonly<{
-  scenes: Pick<ScenesDao, 'lockActiveOf' | 'bumpVersion'>;
-  tokens: Pick<TokensDao, 'listOfScene'>;
+  scenes: Pick<ScenesDao, 'lockInCampaign' | 'lockCastOf' | 'bumpVersion'>;
+  tokens: Pick<TokensDao, 'controlOfScene'>;
   combat: Pick<
     CombatDao,
     | 'start'
@@ -54,7 +63,7 @@ export type CombatWriteDaos = Readonly<{
     | 'setTurn'
     | 'end'
   >;
-  conditions: Pick<ConditionsDao, 'listOfTokens' | 'setRemaining' | 'deleteActive'>;
+  conditions: Pick<ConditionsDao, 'listOfTokens' | 'decrementRemaining' | 'deleteActive'>;
 }>;
 
 export type CombatTransactionRunner = <T>(
@@ -72,16 +81,16 @@ export type CombatServiceDeps = Readonly<{
 type InCombat = Readonly<{
   daos: CombatWriteDaos;
   scene: ScenePo;
-  tokens: readonly TokenRow[];
+  /** The tokens of the scene and who controls each: no bar, no other column of the token. */
+  tokens: readonly TokenControlPo[];
   row: CombatRow | undefined;
   bo: CombatBo;
   roster: CombatRosterBo;
 }>;
 
-type Committed<T> = Readonly<{ value: T; version: number }>;
 type TurnChange = Readonly<{ combat: CombatDto; conditionChanges: ConditionChangeDto[] }>;
 
-/** The combat of a table (spec §3.5): every command locks the scene, decides by the rule, saves,
+/** The combat of each grid (spec §3.5): every command locks the grid it names, decides by the rule, saves,
  *  bumps the version and, after the commit, publishes. Turns and the conditions that count down at
  *  the end of a turn go out together, in one version.
  *
@@ -93,6 +102,7 @@ export class CombatService {
     const saved = await this.inCombat(
       userId,
       campaignId,
+      command.sceneId,
       async ({ daos, scene, tokens, roster }) => {
         const entries = roster.start(command.entries, idsOf(tokens));
         const started = await daos.combat.start(scene.id, entries);
@@ -102,29 +112,34 @@ export class CombatService {
       },
     );
     this.deps.publisher.combatStarted({
-      ...this.base(campaignId, saved.version),
+      ...gridEventBase(campaignId, saved, this.deps.clock),
       combat: saved.value,
     });
     return saved.version;
   }
 
-  async end(userId: string, campaignId: string): Promise<number> {
-    const saved = await this.inCombat(userId, campaignId, async ({ daos, bo }) => {
+  async end(userId: string, campaignId: string, command: EndCombat = {}): Promise<number> {
+    const saved = await this.inCombat(userId, campaignId, command.sceneId, async ({ daos, bo }) => {
       await daos.combat.end(bo.end().id);
     });
-    this.deps.publisher.combatEnded(this.base(campaignId, saved.version));
+    this.deps.publisher.combatEnded(gridEventBase(campaignId, saved, this.deps.clock));
     return saved.version;
   }
 
   addCombatants(userId: string, campaignId: string, command: AddCombatants): Promise<number> {
-    return this.updated(userId, campaignId, async ({ daos, tokens, row, roster }) => {
-      const entries = roster.addCombatants(command.entries, idsOf(tokens));
-      await daos.combat.addCombatants(combatIdOf(row), entries);
-    });
+    return this.updated(
+      userId,
+      campaignId,
+      command.sceneId,
+      async ({ daos, tokens, row, roster }) => {
+        const entries = roster.addCombatants(command.entries, idsOf(tokens));
+        await daos.combat.addCombatants(combatIdOf(row), entries);
+      },
+    );
   }
 
   removeCombatant(userId: string, campaignId: string, command: RemoveCombatant): Promise<number> {
-    return this.updated(userId, campaignId, async ({ daos, row, roster }) => {
+    return this.updated(userId, campaignId, command.sceneId, async ({ daos, row, roster }) => {
       const turn = roster.removeCombatant(command.combatantId);
       await daos.combat.removeCombatants(combatIdOf(row), [command.combatantId]);
       await saveTurn(daos, row, turn);
@@ -132,52 +147,75 @@ export class CombatService {
   }
 
   regroupTokens(userId: string, campaignId: string, command: RegroupTokens): Promise<number> {
-    return this.updated(userId, campaignId, async ({ daos, tokens, row, roster }) => {
-      const change = roster.regroup(command.tokenIds, command.target, idsOf(tokens));
-      await applyRoster(daos, combatIdOf(row), change);
-    });
+    return this.updated(
+      userId,
+      campaignId,
+      command.sceneId,
+      async ({ daos, tokens, row, roster }) => {
+        const change = roster.regroup(command.tokenIds, command.target, idsOf(tokens));
+        await applyRoster(daos, combatIdOf(row), change);
+      },
+    );
   }
 
   renameCombatant(userId: string, campaignId: string, command: RenameCombatant): Promise<number> {
-    return this.updated(userId, campaignId, async ({ daos, roster }) => {
+    return this.updated(userId, campaignId, command.sceneId, async ({ daos, roster }) => {
       const name = roster.rename(command.combatantId, command.name);
       await daos.combat.rename(command.combatantId, name);
     });
   }
 
   moveInTie(userId: string, campaignId: string, command: MoveInTie): Promise<number> {
-    return this.updated(userId, campaignId, async ({ daos, bo }) => {
+    return this.updated(userId, campaignId, command.sceneId, async ({ daos, bo }) => {
       await daos.combat.setTieOrders(bo.moveInTie(command.combatantId, command.direction));
     });
   }
 
   setInitiative(userId: string, campaignId: string, command: SetInitiative): Promise<number> {
-    return this.updated(userId, campaignId, async ({ daos, bo }) => {
+    return this.updated(userId, campaignId, command.sceneId, async ({ daos, bo }) => {
       const value = bo.setInitiative(command.combatantId, command.initiative);
       await daos.combat.setInitiative(command.combatantId, value);
     });
   }
 
+  /** The tokens of the entry that played count down their conditions; a linked token's are its
+   *  anchor's (the cast is locked before the grid), and go out to the cast as
+   *  `condition:changedMany`. */
   async nextTurn(userId: string, campaignId: string, command: TurnCommand): Promise<number> {
-    const saved = await this.inCombat(userId, campaignId, async ({ daos, scene, row, bo }) => {
+    const access = await this.accessOf(userId, campaignId);
+    const address = { campaignId, sceneId: command.sceneId, access };
+    const saved = await inLockedGridWithCast(this.deps.transaction, address, async (locked) => {
+      const { daos, row, bo, tokens } = await this.combatIn(locked, access);
       const turn = bo.nextTurn(command.fromCombatantId);
-      await saveTurn(daos, row, turn);
       const ended = row?.combatants.find(({ id }) => id === turn.endedTurnOf);
+      const { loose, anchors } = holdersOf(tokens, ended?.tokenIds ?? []);
+      if (anchors.length > 0) requireCastLock(locked);
+      await saveTurn(daos, row, turn);
       const round = row?.combat.round ?? turn.round;
-      const conditionChanges: ConditionChangeDto[] = [];
-      for (const tokenId of ended?.tokenIds ?? [])
-        conditionChanges.push(await tickConditions(daos, tokenId, round));
-      return { combat: await combatOf(daos, scene), conditionChanges };
+      const conditionChanges = await tickConditions(daos, loose, round);
+      const anchorChanges = await tickConditions(daos, anchors, round);
+      const combat = turnedCombat(row, turn);
+      const value = { combat, conditionChanges, anchorChanges };
+      return { value, grid: true, cast: anchors.length > 0 };
     });
-    this.publishTurn(campaignId, saved);
+    const { combat, conditionChanges, anchorChanges } = saved.value;
+    this.publishAnchors(campaignId, saved.cast, anchorChanges);
+    if (saved.grid)
+      this.publishTurn(campaignId, { ...saved.grid, value: { combat, conditionChanges } });
     return saved.version;
   }
 
   async previousTurn(userId: string, campaignId: string, command: TurnCommand): Promise<number> {
-    const saved = await this.inCombat(userId, campaignId, async ({ daos, scene, row, bo }) => {
-      await saveTurn(daos, row, bo.previousTurn(command.fromCombatantId));
-      return { combat: await combatOf(daos, scene), conditionChanges: [] };
-    });
+    const saved = await this.inCombat(
+      userId,
+      campaignId,
+      command.sceneId,
+      async ({ daos, row, bo }) => {
+        const turn = bo.previousTurn(command.fromCombatantId);
+        await saveTurn(daos, row, turn);
+        return { combat: turnedCombat(row, turn), conditionChanges: [] };
+      },
+    );
     this.publishTurn(campaignId, saved);
     return saved.version;
   }
@@ -186,14 +224,15 @@ export class CombatService {
   private async updated(
     userId: string,
     campaignId: string,
+    sceneId: string | undefined,
     work: (locked: InCombat) => Promise<void>,
   ): Promise<number> {
-    const saved = await this.inCombat(userId, campaignId, async (locked) => {
+    const saved = await this.inCombat(userId, campaignId, sceneId, async (locked) => {
       await work(locked);
       return combatOf(locked.daos, locked.scene);
     });
     this.deps.publisher.combatUpdated({
-      ...this.base(campaignId, saved.version),
+      ...gridEventBase(campaignId, saved, this.deps.clock),
       combat: saved.value,
     });
     return saved.version;
@@ -202,21 +241,36 @@ export class CombatService {
   private async inCombat<T>(
     userId: string,
     campaignId: string,
+    sceneId: string | undefined,
     work: (locked: InCombat) => Promise<T>,
-  ): Promise<Committed<T>> {
+  ): Promise<SavedInScene<T>> {
     const access = await this.accessOf(userId, campaignId);
-    return this.deps.transaction(async (daos) => {
-      const scene = await daos.scenes.lockActiveOf(campaignId);
-      if (!scene)
-        throw new Error(`campaign ${campaignId} has no active scene; every campaign has one`);
-      const tokens = await daos.tokens.listOfScene(scene.id);
-      const row = await daos.combat.findOfScene(scene.id);
-      const state = row ? toCombatState(row, controllersIn(tokens)) : null;
-      const bo = new CombatBo(access, state);
-      const roster = new CombatRosterBo(access, state);
-      const value = await work({ daos, scene, tokens, row, bo, roster });
-      return { value, version: await daos.scenes.bumpVersion(scene.id) };
-    });
+    const address = { campaignId, sceneId, access };
+    return inLockedGrid(this.deps.transaction, address, async (locked) =>
+      work(await this.combatIn(locked, access)),
+    );
+  }
+
+  private async combatIn(
+    { daos, scene }: Readonly<{ daos: CombatWriteDaos; scene: ScenePo }>,
+    access: CampaignAccessBo,
+  ): Promise<InCombat> {
+    const tokens = await daos.tokens.controlOfScene(scene.id);
+    const row = await daos.combat.findOfScene(scene.id);
+    const state = row ? toCombatState(row, controllersIn(tokens)) : null;
+    const bo = new CombatBo(access, state);
+    const roster = new CombatRosterBo(access, state);
+    return { daos, scene, tokens, row, bo, roster };
+  }
+
+  private publishAnchors(
+    campaignId: string,
+    cast: SavedVersion | null,
+    changes: ConditionChangeDto[],
+  ): void {
+    if (!cast) return;
+    const base = savedEventBase(campaignId, cast, this.deps.clock);
+    this.deps.publisher.conditionsChanged({ ...base, changes });
   }
 
   private async accessOf(userId: string, campaignId: string): Promise<CampaignAccessBo> {
@@ -226,27 +280,38 @@ export class CombatService {
     return access;
   }
 
-  private publishTurn(campaignId: string, saved: Committed<TurnChange>): void {
+  private publishTurn(campaignId: string, saved: SavedInScene<TurnChange>): void {
     this.deps.publisher.combatTurnChanged({
-      ...this.base(campaignId, saved.version),
+      ...gridEventBase(campaignId, saved, this.deps.clock),
       ...saved.value,
     });
   }
-
-  private base(
-    campaignId: string,
-    version: number,
-  ): Readonly<{ campaignId: string; version: number; at: string }> {
-    return { campaignId, version, at: this.deps.clock.now().toISOString() };
-  }
 }
 
-function controllersIn(tokens: readonly TokenRow[]): (tokenId: string) => readonly string[] {
-  return (tokenId) => tokens.find(({ token }) => token.id === tokenId)?.controllerIds ?? [];
+function controllersIn(tokens: readonly TokenControlPo[]): (tokenId: string) => readonly string[] {
+  return (tokenId) => tokens.find((token) => token.tokenId === tokenId)?.controllerIds ?? [];
 }
 
-function idsOf(tokens: readonly TokenRow[]): string[] {
-  return tokens.map(({ token }) => token.id);
+// The ids whose conditions a turn counts down: the unlinked tokens' own, the linked ones' anchor.
+function holdersOf(
+  tokens: readonly TokenControlPo[],
+  tokenIds: readonly string[],
+): Readonly<{ loose: string[]; anchors: string[] }> {
+  const anchorOf = (tokenId: string) => tokens.find((t) => t.tokenId === tokenId)?.anchorTokenId;
+  const loose = tokenIds.filter((tokenId) => !anchorOf(tokenId));
+  const anchors = tokenIds.flatMap((tokenId) => anchorOf(tokenId) ?? []);
+  return { loose, anchors };
+}
+
+function idsOf(tokens: readonly TokenControlPo[]): string[] {
+  return tokens.map(({ tokenId }) => tokenId);
+}
+
+// The combat as saved by `saveTurn`, without reading it again: only the turn changed.
+function turnedCombat(row: CombatRow | undefined, turn: TurnState): CombatDto {
+  if (!row) throw new Error('the combat rule let a turn through without a combat');
+  const { round, currentId: currentCombatantId } = turn;
+  return toCombatDto({ ...row, combat: { ...row.combat, round, currentCombatantId } });
 }
 
 function combatIdOf(row: CombatRow | undefined): string {
@@ -282,18 +347,35 @@ async function combatOf(daos: CombatWriteDaos, scene: ScenePo): Promise<CombatDt
   return toCombatDto(row);
 }
 
-// The end of `tokenId`'s turn in `round`: its conditions count down, the ones at their last round go.
+// The end of the turn of `tokenIds` in `round`: their conditions count down, the ones at their
+// last round go — one read, one UPDATE and one DELETE for the whole entry.
 async function tickConditions(
   daos: CombatWriteDaos,
-  tokenId: string,
+  tokenIds: readonly string[],
   round: number,
-): Promise<ConditionChangeDto> {
-  const active = await daos.conditions.listOfTokens([tokenId]);
-  const { kept, expired } = tickAtTurnEnd(active, round);
-  for (const condition of kept) {
-    if (condition.remainingRounds !== null)
-      await daos.conditions.setRemaining(condition.id, condition.remainingRounds);
-  }
-  await daos.conditions.deleteActive(expired.map(({ id }) => id));
-  return { tokenId, conditions: kept.map(toActiveConditionDto) };
+): Promise<ConditionChangeDto[]> {
+  if (tokenIds.length === 0) return [];
+  const active = await daos.conditions.listOfTokens(tokenIds);
+  const ticks = tokenIds.map((tokenId) => {
+    const own = active.filter((condition) => condition.tokenId === tokenId);
+    return { tokenId, own, ...tickAtTurnEnd(own, round) };
+  });
+  const counted = ticks.flatMap(({ own, kept }) => countedDown(own, kept));
+  await daos.conditions.decrementRemaining(counted);
+  await daos.conditions.deleteActive(ticks.flatMap(({ expired }) => expired.map(({ id }) => id)));
+  return ticks.map(({ tokenId, kept }) => ({
+    tokenId,
+    conditions: kept.map(toActiveConditionDto),
+  }));
+}
+
+// The ids whose duration the tick lowered (the rest kept theirs: untimed or applied this round).
+function countedDown<T extends Readonly<{ id: string; remainingRounds: number | null }>>(
+  before: readonly T[],
+  after: readonly T[],
+): string[] {
+  const was = new Map(before.map(({ id, remainingRounds }) => [id, remainingRounds]));
+  return after
+    .filter(({ id, remainingRounds }) => was.get(id) !== remainingRounds)
+    .map(({ id }) => id);
 }

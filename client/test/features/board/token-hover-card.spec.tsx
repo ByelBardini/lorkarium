@@ -16,6 +16,7 @@ import {
   kael,
   lyra,
   vharnBoard,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 const RECT = { x: 300, y: 200, width: 64, height: 64 };
@@ -39,7 +40,7 @@ describe('TokenHoverCard', () => {
   beforeEach(() => {
     board = createBoardStore(VHARN.id, () => undefined);
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands: new TableBoardCommandsFake(),
       describeRefusal: String,
     });

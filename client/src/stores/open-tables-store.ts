@@ -3,29 +3,40 @@ import { z } from 'zod';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type {
+  CastHandle,
   TableSessionApi,
   TableSessionHandle,
   TableSessionUpdate,
 } from '@/services/table-session-api';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
-import type { KeyValueStorage } from '@/stores/rail-store';
-import { createTableEditStore, type TableEditStore } from '@/stores/table-edit-store';
+import {
+  createSceneTabsStore,
+  groupTabOf,
+  type CreateTabInteraction,
+  type SceneTabsStore,
+} from '@/stores/scene-tabs-store';
+import type { TabStorage } from '@/stores/scene-tabs-storage';
+import type { TableEditStore } from '@/stores/table-edit-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
+
+export type { TabStorage } from '@/stores/scene-tabs-storage';
 
 export const OPEN_TABLES_STORAGE_KEY = 'lorkarium.openTables';
 
-/** `sessionStorage` as this store uses it; injected so tests and blocked storage work. */
-export type TabStorage = KeyValueStorage & Pick<Storage, 'removeItem'>;
+/** `castSceneId`: the table's cast (the campaign detail's), followed while the table is open. */
+export type OpenTableRef = Readonly<{ campaignId: string; name: string; castSceneId: string }>;
 
-export type OpenTableRef = Readonly<{ campaignId: string; name: string }>;
-
-/** An open table: its live presence, its confirmed board, and this user's copy area and undo
- *  stack for it (kept while the table stays open). */
+/** An open table: its live presence, its grid tabs, its cast (the characters' anchors and the
+ *  table's pieces, in the table's version), and — for the group grid's tab, which everyone has
+ *  open — its confirmed board and this user's undo stack on it (kept while the table stays
+ *  open). */
 export type OpenTable = OpenTableRef &
   Readonly<{
     presence: StoreApi<TablePresenceStore>;
     board: StoreApi<BoardStore>;
+    cast: StoreApi<BoardStore>;
     edits: StoreApi<TableEditStore>;
+    tabs: StoreApi<SceneTabsStore>;
   }>;
 
 export type OpenTableResult = 'opened' | 'already-open' | 'full';
@@ -47,12 +58,19 @@ export type OpenTablesStore = OpenTablesState &
     suspendAll: () => void;
   }>;
 
-export type OpenTablesDeps = Readonly<{ api: TableSessionApi; storage: TabStorage }>;
+export type OpenTablesDeps = Readonly<{
+  api: TableSessionApi;
+  storage: TabStorage;
+  /** The interaction of each grid tab (its commands, its refusal messages). */
+  createInteraction: CreateTabInteraction;
+}>;
 
 // Not a network DTO: only what this tab wrote for itself, read back defensively.
 const storedTablesSchema = z.object({
   userId: z.string(),
-  tables: z.array(z.object({ campaignId: z.string(), name: z.string() })).max(MAX_OPEN_TABLES),
+  tables: z
+    .array(z.object({ campaignId: z.string(), name: z.string(), castSceneId: z.string() }))
+    .max(MAX_OPEN_TABLES),
 });
 
 type StoredTables = z.infer<typeof storedTablesSchema>;
@@ -85,6 +103,7 @@ export function createOpenTablesStore(deps: OpenTablesDeps): StoreApi<OpenTables
 class OpenTablesActions {
   // Handles are not renderable state, so they live beside the store, not in it.
   private readonly handles = new Map<string, TableSessionHandle>();
+  private readonly casts = new Map<string, CastHandle>();
   // A table opened while the tab stands still is told so at once.
   private away = false;
 
@@ -114,7 +133,9 @@ class OpenTablesActions {
     const handle = this.handles.get(campaignId);
     if (!handle) return;
     this.handles.delete(campaignId);
+    this.casts.delete(campaignId);
     handle.close();
+    this.tableOf(campaignId)?.tabs.getState().dispose(true);
     this.set({ tables: this.get().tables.filter((table) => table.campaignId !== campaignId) });
     writeStored(this.deps.storage, this.get());
   }
@@ -126,6 +147,7 @@ class OpenTablesActions {
 
   /** Logout: closes every table and forgets the tab's list. */
   closeAll(): void {
+    for (const table of this.get().tables) table.tabs.getState().dispose(true);
     this.suspendAll();
     removeStored(this.deps.storage);
   }
@@ -133,7 +155,9 @@ class OpenTablesActions {
   /** A refused session: closes every table but keeps the tab's list for the next `restore`. */
   suspendAll(): void {
     for (const handle of this.handles.values()) handle.close();
+    for (const table of this.get().tables) table.tabs.getState().dispose(false);
     this.handles.clear();
+    this.casts.clear();
     this.set({ ownerId: null, tables: [], sessionRefused: false });
   }
 
@@ -142,17 +166,54 @@ class OpenTablesActions {
     if (tables.some(({ campaignId }) => campaignId === table.campaignId)) return 'already-open';
     if (tables.length >= MAX_OPEN_TABLES) return 'full';
     const presence = createTablePresenceStore(table.campaignId);
-    const board = createBoardStore(table.campaignId, () =>
-      this.handles.get(table.campaignId)?.resync(),
+    const cast = createBoardStore(table.campaignId, () =>
+      this.casts.get(table.campaignId)?.resync(),
     );
-    const edits = createTableEditStore(table.campaignId);
-    this.set({ tables: [...tables, { ...table, presence, board, edits }] });
-    const stores = { presence, board };
+    const board = createBoardStore(
+      table.campaignId,
+      () => this.handles.get(table.campaignId)?.resync(),
+      () => cast.getState().board,
+    );
+    const tabs = this.tabsOf(table.campaignId, board, cast);
+    const edits = groupTabOf(tabs.getState()).edits;
+    this.set({ tables: [...tables, { ...table, presence, board, cast, edits, tabs }] });
+    const stores = { presence, board, tabs };
     const listener = (update: TableSessionUpdate): void => applyUpdate(this.set, stores, update);
     const handle = this.deps.api.open(table.campaignId, listener);
     this.handles.set(table.campaignId, handle);
+    const followed = handle.followCast(table.castSceneId, (update) =>
+      cast.getState().apply(update),
+    );
+    this.casts.set(table.campaignId, followed);
     if (this.away) handle.setAway(true);
+    tabs.getState().restore();
     return 'opened';
+  }
+
+  private tabsOf(
+    campaignId: string,
+    groupBoard: StoreApi<BoardStore>,
+    cast: StoreApi<BoardStore>,
+  ): StoreApi<SceneTabsStore> {
+    return createSceneTabsStore({
+      campaignId,
+      groupBoard,
+      cast,
+      watch: (sceneId, listener) => this.handleOf(campaignId).watch(sceneId, listener),
+      storage: this.deps.storage,
+      createInteraction: this.deps.createInteraction,
+    });
+  }
+
+  // The tabs open their watches only after the table's handle exists (the restore comes last).
+  private handleOf(campaignId: string): TableSessionHandle {
+    const handle = this.handles.get(campaignId);
+    if (!handle) throw new Error(`table ${campaignId} has no session handle; open it first`);
+    return handle;
+  }
+
+  private tableOf(campaignId: string): OpenTable | undefined {
+    return this.get().tables.find((table) => table.campaignId === campaignId);
   }
 }
 
@@ -169,11 +230,13 @@ export function useOpenTables<T>(
 type TableStores = Readonly<{
   presence: StoreApi<TablePresenceStore>;
   board: StoreApi<BoardStore>;
+  tabs: StoreApi<SceneTabsStore>;
 }>;
 
 function applyUpdate(set: SetOpenTables, stores: TableStores, update: TableSessionUpdate): void {
   stores.presence.getState().apply(update);
   stores.board.getState().apply(update);
+  stores.tabs.getState().apply(update);
   const refused = update.kind === 'failed' || update.kind === 'boardFailed';
   if (refused && update.failure === 'unauthenticated') set({ sessionRefused: true });
 }
@@ -192,7 +255,11 @@ function readStored(storage: TabStorage): StoredTables | null {
 
 function writeStored(storage: TabStorage, state: OpenTablesState): void {
   if (state.ownerId === null) return;
-  const tables = state.tables.map(({ campaignId, name }) => ({ campaignId, name }));
+  const tables = state.tables.map(({ campaignId, name, castSceneId }) => ({
+    campaignId,
+    name,
+    castSceneId,
+  }));
   try {
     storage.setItem(OPEN_TABLES_STORAGE_KEY, JSON.stringify({ userId: state.ownerId, tables }));
   } catch {

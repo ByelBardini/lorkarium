@@ -6,10 +6,9 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
-import { VHARN } from '../support/campaigns-api-fake';
 import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
-import { LYRA_ID } from '../support/table-session-fixtures';
+import { LYRA_ID, VHARN_GRID } from '../support/table-session-fixtures';
 
 const SQUARE_TO_6_1 = { drawingId: SQUARE_ID, from: { x: 2.5, y: 3 }, to: { x: 6, y: 1 } };
 const LYRA_TO_7_2 = { tokenId: LYRA_ID, from: cell(3, 4), to: cell(7, 2) };
@@ -23,7 +22,7 @@ describe('moving and deleting drawings', () => {
     commands = new TableBoardCommandsFake();
     recorded = [];
     store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
       recordEdit: (entry) => recorded.push(entry),

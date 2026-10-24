@@ -17,6 +17,8 @@ import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AuthApi } from '@/services/auth-api';
 import type { AssetsApi } from '@/services/assets-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
+import type { LibraryApi } from '@/services/library-api';
+import type { SceneActivation } from '@/services/scene-activation';
 import type { Clipboard } from '@/services/clipboard';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
@@ -37,6 +39,10 @@ import { SplashScreen } from './splash-screen';
 export type AppDependencies = Readonly<{
   authApi: AuthApi;
   campaignsApi: CampaignsApi;
+  /** The grids and folders of a table (the library). */
+  libraryApi: LibraryApi;
+  /** "Levar o grupo pra cá" (`scene:activate`). */
+  sceneActivation: SceneActivation;
   /** Images sent to a table (file or link). */
   assets: AssetsApi;
   clipboard: Clipboard;

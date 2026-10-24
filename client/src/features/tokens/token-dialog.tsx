@@ -19,6 +19,7 @@ import type {
   BoardCommandResult,
   TableBoardCommands,
   TokenEdit,
+  BoardScope,
 } from '@/services/table-board-commands';
 import { BarsEditor } from './bars-editor';
 import { TokenBasicsTab } from './token-basics-tab';
@@ -38,12 +39,14 @@ import {
   EDIT_TOKEN_SUBTITLE,
   MISSING_FIELDS,
   NEW_TOKEN_SUBTITLE,
+  sharedFieldsNote,
 } from './token-messages';
 import { TokenPreview } from './token-preview';
 import { VisionLightTab } from './vision-light-tab';
 
 export type TokenDialogProps = Readonly<{
-  campaignId: string;
+  /** The grid the token is on (or lands on). */
+  scope: BoardScope;
   /** `null` creates ("Novo token"); a token edits it ("Editar token"). */
   token: TokenDto | null;
   /** Where a new token goes: the cell at the center of the view. */
@@ -56,6 +59,9 @@ export type TokenDialogProps = Readonly<{
   /** The scene's cell: the sight is typed in its unit. */
   distance: SceneDistance;
   connected: boolean;
+  /** The player whose character the token is linked to: identity, control and bars are the
+   *  character's, in every grid (`null`/absent: a loose token). */
+  cardOwner?: string | null;
   onClose: () => void;
 }>;
 
@@ -64,7 +70,7 @@ export type TokenDialogProps = Readonly<{
  *  goes to the first tab that has one. Mounted only while open; saving closes on the ack, and the
  *  change itself arrives as the event everyone gets.
  *
- *  Example: `{dialog && <TokenDialog campaignId={id} token={null} placeAt={center} layer="tokens" players={players} commands={commands} assets={assets} distance={scene} connected onClose={close} />}` */
+ *  Example: `{dialog && <TokenDialog scope={scope} token={null} placeAt={center} layer="tokens" players={players} commands={commands} assets={assets} distance={scene} connected onClose={close} />}` */
 export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
   const { token, onClose } = props;
   const dialog = useTokenDialog(props);
@@ -87,7 +93,7 @@ export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
             <aside className="shrink-0 border-b border-border bg-background p-4 md:w-[300px] md:overflow-y-auto md:border-r md:border-b-0 md:p-6">
               <TokenPreview
                 form={dialog.form}
-                image={{ campaignId: props.campaignId, assets: props.assets }}
+                image={{ campaignId: props.scope.campaignId, assets: props.assets }}
                 onImage={dialog.setImage}
                 distance={props.distance}
               />
@@ -137,7 +143,7 @@ function useTokenDialog(props: TokenDialogProps): TokenDialogState {
     void run(() => sendToken(props, parsed.token));
   };
   const remove = (): void => {
-    if (token) void run(() => props.commands.deleteToken(props.campaignId, token.id));
+    if (token) void run(() => props.commands.deleteToken(props.scope, token.id));
   };
   // The image arrives after an upload: the fields typed meanwhile are kept.
   const setImage = (imageAssetId: string | null): void =>
@@ -146,9 +152,9 @@ function useTokenDialog(props: TokenDialogProps): TokenDialogState {
 }
 
 function sendToken(props: TokenDialogProps, edit: TokenEdit): Promise<BoardCommandResult> {
-  const { commands, campaignId, token, placeAt, layer } = props;
-  if (token) return commands.updateToken(campaignId, token.id, edit);
-  return commands.createToken(campaignId, { ...edit, col: placeAt.col, row: placeAt.row, layer });
+  const { commands, scope, token, placeAt, layer } = props;
+  if (token) return commands.updateToken(scope, token.id, edit);
+  return commands.createToken(scope, { ...edit, col: placeAt.col, row: placeAt.row, layer });
 }
 
 type DialogPartProps = Readonly<{ props: TokenDialogProps; dialog: TokenDialogState }>;
@@ -185,9 +191,11 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
       </TabsList>
       <div className="px-6 py-6 md:min-h-0 md:flex-1 md:overflow-y-auto md:px-7">
         <TabsContent value="basics">
+          <SharedNote owner={props.cardOwner} />
           <TokenBasicsTab form={form} errors={errors} players={props.players} onChange={setForm} />
         </TabsContent>
         <TabsContent value="bars">
+          <SharedNote owner={props.cardOwner} />
           <BarsEditor
             bars={form.bars}
             errors={errors.bars}
@@ -204,6 +212,16 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
         </TabsContent>
       </div>
     </Tabs>
+  );
+}
+
+// The fields of this tab are the character's: changing them changes it in every grid.
+function SharedNote({ owner }: Readonly<{ owner: string | null | undefined }>) {
+  if (!owner) return null;
+  return (
+    <p className="mb-4 border-l-2 border-primary pl-3 text-[13px] text-label">
+      {sharedFieldsNote(owner)}
+    </p>
   );
 }
 

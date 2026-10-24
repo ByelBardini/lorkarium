@@ -1,5 +1,7 @@
 import { act } from '@testing-library/react';
 import type {
+  GridListener,
+  GridUpdate,
   TableSessionApi,
   TableSessionHandle,
   TableSessionListener,
@@ -10,7 +12,11 @@ import { CallJournal } from './call-journal';
 /** The live session as the test plays it: `opened` lists each table opened, `closedIds` each
  *  table closed (`closed` counts them), `emit(update)` delivers to the latest listener and
  *  `emitTo(campaignId, update)` to that table's, both inside `act`; `close` writes
- *  `close:<campaignId>` to the journal.
+ *  `close:<campaignId>` to the journal. Extra grid tabs: `watched` / `unwatched` list each
+ *  `watch` and tab `close` as `<campaignId>:<sceneId>`, `watchResyncs` each tab `resync()`, and
+ *  `emitToGrid(sceneId, update)` delivers to the open tab of that grid. The cast: `castFollowed`
+ *  lists each `followCast` as `<campaignId>:<sceneId>`, `castResyncs` each cast `resync()`, and
+ *  `emitToCast(campaignId, update)` delivers to that table's cast.
  *
  *  Example: `tableSessionApi.emitTo(VHARN.id, { kind: 'state', state: vharnState() })` */
 export class TableSessionApiFake implements TableSessionApi {
@@ -20,8 +26,15 @@ export class TableSessionApiFake implements TableSessionApi {
   readonly resyncedIds: string[] = [];
   /** Each `setAway(away)` the stores sent, by table. */
   readonly awayCalls: Array<Readonly<{ campaignId: string; away: boolean }>> = [];
+  readonly watched: string[] = [];
+  readonly unwatched: string[] = [];
+  readonly watchResyncs: string[] = [];
+  readonly castFollowed: string[] = [];
+  readonly castResyncs: string[] = [];
+  private readonly castListeners = new Map<string, GridListener>();
   private listener: TableSessionListener | null = null;
   private readonly listeners = new Map<string, TableSessionListener>();
+  private readonly gridListeners = new Map<string, GridListener>();
 
   constructor(private readonly journal: CallJournal = new CallJournal()) {}
 
@@ -43,6 +56,44 @@ export class TableSessionApiFake implements TableSessionApi {
       },
       setAway: (away) => {
         this.awayCalls.push({ campaignId, away });
+      },
+      watch: (sceneId, listener) => this.watch(campaignId, sceneId, listener),
+      followCast: (sceneId, listener) => {
+        this.castFollowed.push(`${campaignId}:${sceneId}`);
+        this.castListeners.set(campaignId, listener);
+        return { resync: () => void this.castResyncs.push(`${campaignId}:${sceneId}`) };
+      },
+    };
+  }
+
+  emitToGrid(sceneId: string, ...updates: GridUpdate[]): void {
+    const listener = this.gridListeners.get(sceneId);
+    if (!listener) throw new Error(`no tab of ${sceneId} is open; watched: ${this.watched}`);
+    act(() => {
+      for (const update of updates) listener(update);
+    });
+  }
+
+  emitToCast(campaignId: string, ...updates: GridUpdate[]): void {
+    const listener = this.castListeners.get(campaignId);
+    if (!listener)
+      throw new Error(`table ${campaignId} follows no cast; followed: ${this.castFollowed}`);
+    act(() => {
+      for (const update of updates) listener(update);
+    });
+  }
+
+  private watch(campaignId: string, sceneId: string, listener: GridListener) {
+    const key = `${campaignId}:${sceneId}`;
+    this.watched.push(key);
+    this.gridListeners.set(sceneId, listener);
+    return {
+      close: () => {
+        this.unwatched.push(key);
+        if (this.gridListeners.get(sceneId) === listener) this.gridListeners.delete(sceneId);
+      },
+      resync: () => {
+        this.watchResyncs.push(key);
       },
     };
   }

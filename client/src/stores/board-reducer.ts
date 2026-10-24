@@ -299,6 +299,8 @@ function combatChangesOf(board: BoardStateDto, event: BoardEvent): Partial<Board
         combat: event.payload.combat,
         tokens: withConditionChanges(board.tokens, event.payload.conditionChanges),
       };
+    case 'conditionsChanged':
+      return { tokens: withConditionChanges(board.tokens, event.payload.changes) };
     case 'combatEnded':
       return { combat: null };
     default:

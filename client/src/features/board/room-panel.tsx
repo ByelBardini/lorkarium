@@ -18,8 +18,19 @@ import {
 
 export type RoomPanelProps = Readonly<{
   roomLayout: StoreApi<RoomLayoutStore>;
-  table: Readonly<{ presence: StoreApi<TablePresenceStore>; board: StoreApi<BoardStore> }> | null;
+  /** The presence and the board of the tab shown ("Combate" follows it). */
+  table: Readonly<{
+    presence: StoreApi<TablePresenceStore>;
+    board: StoreApi<BoardStore>;
+    /** The table's cast: "Na mesa" reads the cards and the characters' anchors from it. */
+    cast: StoreApi<BoardStore>;
+  }> | null;
   interaction: StoreApi<BoardInteractionStore>;
+  /** The group grid's tab: "Na mesa" always shows the group, whatever tab is shown. */
+  group: Readonly<{
+    board: StoreApi<BoardStore>;
+    interaction: StoreApi<BoardInteractionStore>;
+  }> | null;
   isMaster: boolean;
   onEditToken: (tokenId: string) => void;
   /** The browser's time, for "ausente há N min". */
@@ -95,8 +106,9 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
         {table && (
           <SessionPresencePanel
             store={table.presence}
-            board={table.board}
-            interaction={props.interaction}
+            board={props.group?.board ?? table.board}
+            cast={table.cast}
+            interaction={props.group?.interaction ?? props.interaction}
             isMaster={props.isMaster}
             clock={props.clock}
           />

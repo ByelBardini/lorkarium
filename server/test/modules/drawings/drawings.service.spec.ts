@@ -20,6 +20,7 @@ import {
 } from '../../support/drawings-factories';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
+import { TORRE_ID, torrePo } from '../../support/library-factories';
 
 const NOW = new Date('2026-10-16T21:00:00Z');
 const QUELM_SCENE_ID = 'quelm-scene';
@@ -44,6 +45,7 @@ describe('DrawingsService', () => {
     );
     scenes = new ScenesDaoFake([
       scenePo({ version: 4 }),
+      torrePo(),
       scenePo({ id: QUELM_SCENE_ID, campaignId: QUELM_ID }),
     ]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
@@ -78,6 +80,7 @@ describe('DrawingsService', () => {
       expect(publisher.drawingsCreates).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           drawings: [expect.objectContaining({ kind: 'ellipse', x: 4, y: 4, authorId: BIA_ID })],
@@ -223,6 +226,7 @@ describe('DrawingsService', () => {
       expect(publisher.drawingsDeletes).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           drawingIds: [SQUARE_ID, PATH_ID],
@@ -246,6 +250,49 @@ describe('DrawingsService', () => {
         }),
       ).rejects.toMatchObject({ code: 'STALE_UNDO' });
       expect(drawings.rows).toHaveLength(3);
+    });
+  });
+
+  describe('on a grid that is not the group one', () => {
+    it('Bia drawing in the public Torre locks the Torre and drawing:createdMany carries it', async () => {
+      scenes.setVisibility(TORRE_ID, 'public');
+
+      const command = { sceneId: TORRE_ID, drawings: [newCircle()] };
+      const created = await service.createMany(BIA_ID, VHARN_ID, command);
+
+      expect(created.version).toBe(8);
+      expect(scenes.journal).toEqual([
+        `lockInCampaign:${TORRE_ID}`,
+        'save',
+        'bump',
+        'commit',
+        'publish',
+      ]);
+      expect(publisher.drawingsCreates[0]).toMatchObject({ sceneId: TORRE_ID, version: 8 });
+    });
+
+    it('Bia drawing in the private Torre is SCENE_NOT_FOUND before anything is saved', async () => {
+      const command = { sceneId: TORRE_ID, drawings: [newCircle()] };
+
+      await expect(service.createMany(BIA_ID, VHARN_ID, command)).rejects.toMatchObject({
+        code: 'SCENE_NOT_FOUND',
+      });
+      expect(scenes.journal).toEqual([`lockInCampaign:${TORRE_ID}`]);
+      expect(publisher.published).toBe(0);
+    });
+
+    it('a drawing of the group grid addressed to the Torre is DRAWING_NOT_FOUND', async () => {
+      const command = { sceneId: TORRE_ID, drawingIds: [SQUARE_ID] };
+
+      await expect(service.deleteMany(ANA_ID, VHARN_ID, command)).rejects.toMatchObject({
+        code: 'DRAWING_NOT_FOUND',
+      });
+    });
+
+    it('without sceneId drawing:movedMany carries the group grid', async () => {
+      await service.moveMany(BIA_ID, VHARN_ID, { moves: [{ drawingId: SQUARE_ID, x: 2, y: 2 }] });
+
+      expect(publisher.drawingsMoves[0]).toMatchObject({ sceneId: VHARN_SCENE_ID, version: 5 });
     });
   });
 });

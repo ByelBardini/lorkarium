@@ -26,6 +26,7 @@ describe('readEnv', () => {
       port: 3333,
       host: '0.0.0.0',
       databaseUrl: DATABASE_URL,
+      database: { poolMax: 10, statementTimeoutMs: 5000, lockTimeoutMs: 2000 },
       adminSeed: null,
       storage: STORAGE,
     });
@@ -107,5 +108,35 @@ describe('readEnv, S3 storage', () => {
     const read = (): unknown => readEnv({ ...REQUIRED, S3_SECRET_ACCESS_KEY: 'abc1234' });
     expect(read).toThrow(/S3_SECRET_ACCESS_KEY.*a redacted value/);
     expect(read).not.toThrow(/abc1234/);
+  });
+});
+
+describe('readEnv, database pool and timeouts', () => {
+  it('DATABASE_POOL_MAX, DATABASE_STATEMENT_TIMEOUT_MS and DATABASE_LOCK_TIMEOUT_MS are read as numbers', () => {
+    const env = readEnv({
+      ...REQUIRED,
+      DATABASE_POOL_MAX: '20',
+      DATABASE_STATEMENT_TIMEOUT_MS: '1500',
+      DATABASE_LOCK_TIMEOUT_MS: '800',
+    });
+    expect(env.database).toEqual({ poolMax: 20, statementTimeoutMs: 1500, lockTimeoutMs: 800 });
+  });
+
+  it('DATABASE_POOL_MAX=abc is refused citing abc and an integer from 1 to 100', () => {
+    expect(() => readEnv({ ...REQUIRED, DATABASE_POOL_MAX: 'abc' })).toThrow(
+      'DATABASE_POOL_MAX must be an integer from 1 to 100 (received "abc")',
+    );
+  });
+
+  it('DATABASE_POOL_MAX=0 is refused', () => {
+    expect(() => readEnv({ ...REQUIRED, DATABASE_POOL_MAX: '0' })).toThrow(
+      'DATABASE_POOL_MAX must be an integer from 1 to 100 (received "0")',
+    );
+  });
+
+  it('a lock timeout of 0 (wait forever) is refused citing the value and the range', () => {
+    expect(() => readEnv({ ...REQUIRED, DATABASE_LOCK_TIMEOUT_MS: '0' })).toThrow(
+      'DATABASE_LOCK_TIMEOUT_MS must be an integer from 100 to 600000 milliseconds (received "0")',
+    );
   });
 });

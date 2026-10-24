@@ -56,6 +56,18 @@ export function placedWallOf(row: WallPo): PlacedWall {
   return { id: row.id, wall: wallOfRow(row) };
 }
 
+/** The walls of a scene twice over: `placed` (with ids, to name the wall that blocks) and `walls`
+ *  (the game-core array), each `placed[i].wall` being the very `walls[i]`. */
+export type SceneWalls = Readonly<{ placed: readonly PlacedWall[]; walls: readonly Wall[] }>;
+
+/** Wall rows of a scene → `SceneWalls`, built once so the `walls` array keeps its identity.
+ *
+ *  Example: `rules.requirePassage(tokenId, cells, size, sceneWallsOf(rows))` */
+export function sceneWallsOf(rows: readonly WallPo[]): SceneWalls {
+  const placed = rows.map(placedWallOf);
+  return { placed, walls: placed.map(({ wall }) => wall) };
+}
+
 /** A shape as the master drew it → the game-core wall (a door is born closed).
  *
  *  Example: `rules.place(wallOfShape(shape))` */

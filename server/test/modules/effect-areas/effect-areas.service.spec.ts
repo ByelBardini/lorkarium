@@ -22,6 +22,7 @@ import {
 } from '../../support/effect-areas-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
+import { TORRE_ID, torrePo } from '../../support/library-factories';
 
 const NOW = new Date('2026-10-18T21:00:00Z');
 const QUELM_SCENE_ID = 'quelm-scene';
@@ -48,6 +49,7 @@ describe('EffectAreasService', () => {
     );
     scenes = new ScenesDaoFake([
       scenePo({ version: 4 }),
+      torrePo(),
       scenePo({ id: QUELM_SCENE_ID, campaignId: QUELM_ID }),
     ]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
@@ -82,6 +84,7 @@ describe('EffectAreasService', () => {
       expect(publisher.effectAreasCreates).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           effectAreas: [
@@ -128,6 +131,7 @@ describe('EffectAreasService', () => {
       expect(publisher.effectAreasReshapes).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           reshapes: [{ effectAreaId: BIA_CONE_ID, shape: GROWN_CONE }],
@@ -179,7 +183,13 @@ describe('EffectAreasService', () => {
 
       expect(areas.rows.map(({ id }) => id)).toEqual([BIA_CONE_ID, QUELM_AREA_ID]);
       expect(publisher.effectAreasDeletes).toEqual([
-        { campaignId: VHARN_ID, version: 5, at: NOW.toISOString(), effectAreaIds: [ORPHAN_ID] },
+        {
+          campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
+          version: 5,
+          at: NOW.toISOString(),
+          effectAreaIds: [ORPHAN_ID],
+        },
       ]);
     });
 
@@ -197,6 +207,29 @@ describe('EffectAreasService', () => {
         }),
       ).rejects.toMatchObject({ code: 'STALE_UNDO' });
       expect(areas.rows).toHaveLength(3);
+    });
+  });
+
+  describe('on a grid that is not the group one', () => {
+    it('Bia placing an area in the public Torre locks the Torre and effectArea:createdMany carries it', async () => {
+      scenes.setVisibility(TORRE_ID, 'public');
+
+      const command = { sceneId: TORRE_ID, effectAreas: [newCircle()] };
+      const created = await service.createMany(BIA_ID, VHARN_ID, command);
+
+      expect(created.version).toBe(8);
+      expect(scenes.journal[0]).toBe(`lockInCampaign:${TORRE_ID}`);
+      expect(publisher.effectAreasCreates[0]).toMatchObject({ sceneId: TORRE_ID, version: 8 });
+    });
+
+    it('Bia placing an area in the private Torre is SCENE_NOT_FOUND before anything is saved', async () => {
+      const command = { sceneId: TORRE_ID, effectAreas: [newCircle()] };
+
+      await expect(service.createMany(BIA_ID, VHARN_ID, command)).rejects.toMatchObject({
+        code: 'SCENE_NOT_FOUND',
+      });
+      expect(scenes.journal).toEqual([`lockInCampaign:${TORRE_ID}`]);
+      expect(publisher.published).toBe(0);
     });
   });
 });

@@ -15,6 +15,8 @@ import {
   setLightsLitCommandDto,
 } from '../../src/board/light.dto';
 
+const GRID_ID = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const CAMPAIGN_ID = '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a';
 const TORCH_ID = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
@@ -80,6 +82,7 @@ describe('lightDto', () => {
   it('lights created with an infernal light are accepted as sent', () => {
     const event = {
       campaignId: CAMPAIGN_ID,
+      sceneId: GRID_ID,
       version: 2,
       at: '2026-10-19T12:00:00.000Z',
       lights: [{ id: TORCH_ID, ...TORCH, lit: true, color: 'infernal', facing: 0, angle: 360 }],
@@ -148,6 +151,7 @@ describe('lightsLitChangedDto', () => {
   it('a lit of "yes" is refused on lit', () => {
     const event = {
       campaignId: CAMPAIGN_ID,
+      sceneId: GRID_ID,
       version: 3,
       at: '2026-10-18T12:00:00.000Z',
       lightIds: [TORCH_ID],
@@ -201,7 +205,12 @@ describe('setLightColorsCommandDto', () => {
 });
 
 describe('lightColorsChangedDto', () => {
-  const EVENT = { campaignId: CAMPAIGN_ID, version: 4, at: '2026-10-19T12:00:00.000Z' };
+  const EVENT = {
+    campaignId: CAMPAIGN_ID,
+    sceneId: GRID_ID,
+    version: 4,
+    at: '2026-10-19T12:00:00.000Z',
+  };
 
   it('the colors changed are accepted as sent', () => {
     const event = { ...EVENT, changes: [{ lightId: TORCH_ID, color: 'necrotic' }] };
@@ -280,7 +289,12 @@ describe('setLightConesCommandDto', () => {
 });
 
 describe('lightConesChangedDto', () => {
-  const EVENT = { campaignId: CAMPAIGN_ID, version: 5, at: '2026-10-20T12:00:00.000Z' };
+  const EVENT = {
+    campaignId: CAMPAIGN_ID,
+    sceneId: GRID_ID,
+    version: 5,
+    at: '2026-10-20T12:00:00.000Z',
+  };
 
   it('the cones changed are accepted as sent', () => {
     const event = { ...EVENT, changes: [{ lightId: TORCH_ID, facing: 90, angle: 60 }] };

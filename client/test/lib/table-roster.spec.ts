@@ -11,6 +11,7 @@ import {
   memberCard,
   vharnBoard,
 } from '../support/table-session-fixtures';
+import { LYRA_ANCHOR_ID, castBoard, linkedLyra } from '../support/cast-fixtures';
 
 const BIA_ONLINE = { ...BIA_AT_TABLE, online: true };
 const CAIO_OFFLINE = { ...CAIO_AT_TABLE, online: false };
@@ -25,7 +26,12 @@ describe('tableRosterOf', () => {
   it('Ana goes to the masters and Bia and Caio to the players, in the order of the server', () => {
     const members = [ANA_AT_TABLE, BIA_ONLINE, CAIO_AT_TABLE];
 
-    const roster = tableRosterOf({ members, board: boardWith(), viewerId: ANA_AT_TABLE.userId });
+    const roster = tableRosterOf({
+      members,
+      board: boardWith(),
+      cast: null,
+      viewerId: ANA_AT_TABLE.userId,
+    });
 
     expect(roster.masters.map(({ member }) => member.name)).toEqual(['Ana']);
     expect(roster.players.map(({ member }) => member.name)).toEqual(['Bia', 'Caio']);
@@ -34,7 +40,12 @@ describe('tableRosterOf', () => {
   it('Caio offline goes to the end of the players', () => {
     const members = [ANA_AT_TABLE, CAIO_OFFLINE, BIA_ONLINE];
 
-    const roster = tableRosterOf({ members, board: boardWith(), viewerId: ANA_AT_TABLE.userId });
+    const roster = tableRosterOf({
+      members,
+      board: boardWith(),
+      cast: null,
+      viewerId: ANA_AT_TABLE.userId,
+    });
 
     expect(roster.players.map(({ member }) => member.name)).toEqual(['Bia', 'Caio']);
   });
@@ -43,7 +54,12 @@ describe('tableRosterOf', () => {
     const caioMaster = { ...CAIO_AT_TABLE, role: 'master' as const };
     const members = [ANA_AT_TABLE, BIA_ONLINE, caioMaster];
 
-    const roster = tableRosterOf({ members, board: boardWith(), viewerId: BIA_AT_TABLE.userId });
+    const roster = tableRosterOf({
+      members,
+      board: boardWith(),
+      cast: null,
+      viewerId: BIA_AT_TABLE.userId,
+    });
 
     expect(roster.masters.map(({ member }) => member.name)).toEqual(['Ana', 'Caio']);
     expect(roster.players.map(({ member }) => member.name)).toEqual(['Bia']);
@@ -53,7 +69,12 @@ describe('tableRosterOf', () => {
     const board = boardWith({ memberCards: [memberCard({ armorClass: 15 })] });
     const members = [BIA_ONLINE, CAIO_AT_TABLE];
 
-    const [bia, caio] = tableRosterOf({ members, board, viewerId: ANA_AT_TABLE.userId }).players;
+    const [bia, caio] = tableRosterOf({
+      members,
+      board,
+      cast: null,
+      viewerId: ANA_AT_TABLE.userId,
+    }).players;
 
     expect(bia).toMatchObject({ card: memberCard({ armorClass: 15 }), token: { id: LYRA_ID } });
     expect(caio).toMatchObject({ card: EMPTY_CAIO_CARD, token: { id: KAEL_ID } });
@@ -65,6 +86,7 @@ describe('tableRosterOf', () => {
     const roster = tableRosterOf({
       members: [CAIO_AT_TABLE],
       board,
+      cast: null,
       viewerId: ANA_AT_TABLE.userId,
     });
 
@@ -74,7 +96,12 @@ describe('tableRosterOf', () => {
   it('the viewer is marked as such, in either section', () => {
     const members = [ANA_AT_TABLE, BIA_ONLINE, CAIO_AT_TABLE];
 
-    const roster = tableRosterOf({ members, board: boardWith(), viewerId: BIA_AT_TABLE.userId });
+    const roster = tableRosterOf({
+      members,
+      board: boardWith(),
+      cast: null,
+      viewerId: BIA_AT_TABLE.userId,
+    });
 
     expect(roster.masters.map(({ isViewer }) => isViewer)).toEqual([false]);
     expect(roster.players.map(({ isViewer }) => isViewer)).toEqual([true, false]);
@@ -84,6 +111,7 @@ describe('tableRosterOf', () => {
     const roster = tableRosterOf({
       members: [BIA_ONLINE],
       board: null,
+      cast: null,
       viewerId: ANA_AT_TABLE.userId,
     });
 
@@ -96,12 +124,72 @@ describe('tableRosterOf', () => {
     const board = boardWith({ memberCards: [memberCard({ characterName: 'Lyra Vandel' })] });
     const members = [BIA_ONLINE, CAIO_AT_TABLE];
 
-    const roster = tableRosterOf({ members, board, viewerId: ANA_AT_TABLE.userId });
+    const roster = tableRosterOf({ members, board, cast: null, viewerId: ANA_AT_TABLE.userId });
 
     expect(roster.players.map(({ characterName }) => characterName)).toEqual([
       'Lyra Vandel',
       'Kael',
     ]);
+  });
+});
+
+describe('tableRosterOf, with the cast', () => {
+  const biaCard = memberCard({ armorClass: 17, anchorTokenId: LYRA_ANCHOR_ID });
+
+  it("the card comes from the cast (the table's version), not from the grid's snapshot", () => {
+    const board = boardWith({ memberCards: [memberCard({ armorClass: 12 })] });
+    const cast = castBoard({ memberCards: [biaCard] });
+
+    const [bia] = tableRosterOf({
+      members: [BIA_ONLINE],
+      board,
+      cast,
+      viewerId: ANA_AT_TABLE.userId,
+    }).players;
+
+    expect(bia?.card).toEqual(biaCard);
+  });
+
+  it("without Lyra on the group grid, Bia's card shows the anchor: its portrait, bars and name", () => {
+    const board = vharnBoard({ tokens: [caioKael] });
+    const cast = castBoard({ memberCards: [biaCard] });
+
+    const [bia] = tableRosterOf({
+      members: [BIA_ONLINE],
+      board,
+      cast,
+      viewerId: ANA_AT_TABLE.userId,
+    }).players;
+
+    expect(bia?.token).toBe(cast.tokens[0]);
+    expect(bia?.characterName).toBe('Lyra');
+  });
+
+  it("the linked Lyra of the grid is Bia's main token, before an older token she controls", () => {
+    const board = vharnBoard({ tokens: [kael(), linkedLyra()], memberCards: [biaCard] });
+    const cast = castBoard({ memberCards: [biaCard] });
+
+    const [bia] = tableRosterOf({
+      members: [BIA_ONLINE],
+      board,
+      cast,
+      viewerId: ANA_AT_TABLE.userId,
+    }).players;
+
+    expect(bia?.token?.id).toBe(LYRA_ID);
+  });
+
+  it('without an anchor, the main token of the group grid as before', () => {
+    const cast = castBoard({ memberCards: [memberCard()] });
+
+    const [bia] = tableRosterOf({
+      members: [BIA_ONLINE],
+      board: boardWith(),
+      cast,
+      viewerId: ANA_AT_TABLE.userId,
+    }).players;
+
+    expect(bia?.token?.id).toBe(LYRA_ID);
   });
 });
 

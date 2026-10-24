@@ -37,7 +37,7 @@ export async function setDoorOf(
   state: DoorStateDto,
 ): Promise<void> {
   if (store.getState().readOnly) return;
-  const result = await deps.commands.setDoor(deps.campaignId, door.id, state);
+  const result = await deps.commands.setDoor(deps.scopeOf(), door.id, state);
   const notice = result.ok ? SAID[state] : deps.describeRefusal(result.failure);
   store.setState({ notice });
 }

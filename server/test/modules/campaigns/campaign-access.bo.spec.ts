@@ -65,4 +65,8 @@ describe('CampaignAccessBo', () => {
   it('campaignIdOf names the table', () => {
     expect(accessOf('player').campaignIdOf()).toBe(VHARN_ID);
   });
+
+  it('userIdOf names who asked', () => {
+    expect(accessOf('player').userIdOf()).toBe(ANA_ID);
+  });
 });

@@ -10,10 +10,11 @@ import {
   type SceneSize,
 } from '@lorkarium/game-core';
 import { StaleUndoError } from '../board/board.error';
-import type { PlacedWall } from '../walls/walls.mapper';
+import type { SceneWalls } from '../walls/walls.mapper';
 import {
   InvalidControllerError,
   OutOfSceneError,
+  TokenLimitError,
   WallBlockedError,
   type CellRef,
   type SizeRef,
@@ -27,14 +28,26 @@ export type TokenRulesState = Readonly<{
   memberIds: readonly string[];
   /** ±limit of a bar value (`BAR_VALUE_LIMIT`, passed in: the BO does not read the contract). */
   barLimit: number;
+  /** Tokens a scene keeps at most (`TOKENS_PER_SCENE_MAX`, passed in like the bar limit). */
+  tokenLimit: number;
 }>;
 
 /** The rules of a token on its scene: it fits the scene, its controllers are members, and a bar
  *  moves by the shared game-core rule. No collision between tokens (spec §12).
  *
- *  Example: `new TokenRulesBo({ scene, memberIds, barLimit }).place({ col: 3, row: 4 }, { width: 1, height: 1 })` */
+ *  Example: `new TokenRulesBo({ scene, memberIds, barLimit, tokenLimit }).place({ col: 3, row: 4 }, { width: 1, height: 1 })` */
 export class TokenRulesBo {
   constructor(private readonly state: TokenRulesState) {}
+
+  /** The count of the scene once `adding` tokens join the `stored` ones; past the limit the
+   *  whole create or paste is TOKEN_LIMIT.
+   *
+   *  Example: `rules.admit(await daos.tokens.countOfScene(scene.id), rows.length) // 64` */
+  admit(stored: number, adding: number): number {
+    const total = stored + adding;
+    if (total <= this.state.tokenLimit) return total;
+    throw new TokenLimitError(stored, adding, this.state.tokenLimit);
+  }
 
   place(at: CellRef, size: SizeRef): CellRef {
     return placeInScene(this.state.scene, at, size);
@@ -65,19 +78,17 @@ export class TokenRulesBo {
     tokenId: string,
     cells: readonly CellRef[],
     size: SizeRef,
-    walls: readonly PlacedWall[],
+    walls: SceneWalls,
   ): void {
     for (const bend of cells.slice(1, -1)) this.place(bend, size);
     const footprint = tokenSize(size.width, size.height);
     const centers = cells.map((at) => tokenCenter(at, footprint));
-    const blocked = blockedPassage(
-      centers,
-      walls.map(({ wall }) => wall),
-    );
+    // The same `walls` array while the scene's walls stand still: its preparation is reused.
+    const blocked = blockedPassage(centers, walls.walls);
     if (!blocked) return;
     const from = centers[blocked.legIndex];
     const to = centers[blocked.legIndex + 1];
-    const wallId = walls[blocked.wallIndex]?.id;
+    const wallId = walls.placed[blocked.wallIndex]?.id;
     if (from && to && wallId) throw new WallBlockedError(tokenId, from, to, wallId);
   }
 

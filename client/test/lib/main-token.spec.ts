@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MainTokenDto, TokenDto } from '@lorkarium/contracts';
+import type { MainTokenDto, MemberCardDto, TokenDto } from '@lorkarium/contracts';
 import {
   isListedIn,
   mainTokenIdOf,
@@ -15,13 +15,20 @@ import {
   LYRA_ID,
   kael,
   lyra,
+  memberCard,
 } from '../support/table-session-fixtures';
+import { LYRA_ANCHOR_ID } from '../support/cast-fixtures';
 
 const BIA = BIA_AT_TABLE.userId;
 const CHEST_ID = '0f1e2d3c-4b5a-4697-8a8b-9c0d1e2f3a4b';
 
-function boardOf(tokens: TokenDto[], mainTokens: MainTokenDto[] = [], userId = BIA) {
-  return { viewer: { userId, role: 'player' as const }, tokens, mainTokens };
+function boardOf(
+  tokens: TokenDto[],
+  mainTokens: MainTokenDto[] = [],
+  userId = BIA,
+  memberCards: MemberCardDto[] = [],
+) {
+  return { viewer: { userId, role: 'player' as const }, tokens, mainTokens, memberCards };
 }
 
 describe('mainTokenIdOf', () => {
@@ -87,7 +94,12 @@ describe('mainTokenPlayersOf', () => {
   const shared = lyra({ controllerIds: [BIA, CAIO_AT_TABLE.userId, ANA.id] });
 
   function asAna(tokens: TokenDto[], mainTokens: MainTokenDto[] = []) {
-    return { viewer: { userId: ANA.id, role: 'master' as const }, tokens, mainTokens };
+    return {
+      viewer: { userId: ANA.id, role: 'master' as const },
+      tokens,
+      mainTokens,
+      memberCards: [],
+    };
   }
 
   it('lists the players in the control of Lyra but the viewer, by name, marking whose main it is', () => {
@@ -121,5 +133,32 @@ describe('mainTokenIdOfMember', () => {
 
   it('a member listed on no token has none', () => {
     expect(mainTokenIdOfMember(boardOf([lyra()]), CAIO_AT_TABLE.userId)).toBeNull();
+  });
+});
+
+describe('mainTokenIdOfMember, by the character', () => {
+  const biaCard = memberCard({ anchorTokenId: LYRA_ANCHOR_ID });
+  // Kael is the oldest token listing Bia; the linked one is newer and on another layer.
+  const linked = lyra({ id: CHEST_ID, anchorTokenId: LYRA_ANCHOR_ID, layer: 'objects' });
+
+  it("without a choice in the grid, the token linked to the person's anchor wins over the oldest", () => {
+    const board = boardOf([kael(), linked], [], BIA, [biaCard]);
+    expect(mainTokenIdOfMember(board, BIA)).toBe(CHEST_ID);
+  });
+
+  it("the grid's explicit choice still wins (the werewolf of this scene)", () => {
+    const chosen = [{ userId: BIA, tokenId: KAEL_ID }];
+    expect(mainTokenIdOfMember(boardOf([kael(), linked], chosen, BIA, [biaCard]), BIA)).toBe(
+      KAEL_ID,
+    );
+  });
+
+  it('with no token of the character in the grid, the automatic one as before', () => {
+    expect(mainTokenIdOfMember(boardOf([kael()], [], BIA, [biaCard]), BIA)).toBe(KAEL_ID);
+  });
+
+  it("another person's character does not count", () => {
+    const caioCard = memberCard({ userId: CAIO_AT_TABLE.userId, anchorTokenId: LYRA_ANCHOR_ID });
+    expect(mainTokenIdOfMember(boardOf([kael(), linked], [], BIA, [caioCard]), BIA)).toBe(KAEL_ID);
   });
 });

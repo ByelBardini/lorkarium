@@ -7,6 +7,7 @@ import { TokensDao, type NewTokenRow } from '../../src/modules/tokens/tokens.dao
 import { tokenBars } from '../../src/modules/tokens/tokens.po';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
+import { CountingQueryLog } from '../support/query-count';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const UNIQUE_VIOLATION = '23505';
@@ -32,9 +33,10 @@ describe('TokensDao on Postgres', () => {
   let sceneId: string;
   let otherSceneId: string;
   let biaId: string;
+  const queries = new CountingQueryLog();
 
   beforeAll(async () => {
-    connection = await openTestDatabase();
+    connection = await openTestDatabase({ queryLog: queries });
     tokens = new TokensDao(connection.db);
   });
 
@@ -188,10 +190,124 @@ describe('TokensDao on Postgres', () => {
   it('resizeMany writes the new box of each listed token', async () => {
     const saved = await tokens.insert(lyra());
 
-    await tokens.resizeMany([{ tokenId: saved.token.id, col: 2, row: 4, width: 2, height: 1 }]);
+    await tokens.resizeMany(sceneId, [
+      { tokenId: saved.token.id, col: 2, row: 4, width: 2, height: 1 },
+    ]);
 
     const found = await tokens.findInScene(sceneId, saved.token.id);
     expect(found?.token).toMatchObject({ col: 2, row: 4, width: 2, height: 1 });
+  });
+
+  describe('writes of a group in one statement', () => {
+    function lyraAt(index: number, scene = sceneId): NewTokenRow {
+      const at = { col: index % 16, row: Math.floor(index / 16) };
+      return lyra({ token: { ...lyra().token, sceneId: scene, ...at } });
+    }
+
+    async function counted(work: () => Promise<unknown>): Promise<number> {
+      queries.reset();
+      await work();
+      return queries.count;
+    }
+
+    it('insertMany of 64 tokens with bars and controllers costs 2 statements and reads back the same rows', async () => {
+      let saved: Awaited<ReturnType<TokensDao['insertMany']>> = [];
+      const rows = Array.from({ length: 64 }, (_, index) => lyraAt(index));
+      expect(await counted(async () => (saved = await tokens.insertMany(rows)))).toBe(2);
+      expect(saved.map(({ token }) => [token.col, token.row])).toEqual(
+        rows.map(({ token }) => [token.col, token.row]),
+      );
+      const read = await tokens.findManyInScene(
+        sceneId,
+        saved.map(({ token }) => token.id),
+      );
+      const byId = new Map(read.map((row) => [row.token.id, row]));
+      expect(saved.map((row) => byId.get(row.token.id))).toEqual(saved);
+    });
+
+    it('moveMany of 64 tokens puts each on its new cell with 1 UPDATE', async () => {
+      const saved = await tokens.insertMany(
+        Array.from({ length: 64 }, (_, index) => lyraAt(index)),
+      );
+      const moves = saved.map(({ token }, index) => ({
+        tokenId: token.id,
+        col: index % 8,
+        row: 9,
+      }));
+      expect(await counted(() => tokens.moveMany(sceneId, moves))).toBe(1);
+      const read = await tokens.listOfScene(sceneId);
+      const cells = new Map(read.map(({ token }) => [token.id, [token.col, token.row]]));
+      expect(moves.map(({ tokenId }) => cells.get(tokenId))).toEqual(
+        moves.map(({ col, row }) => [col, row]),
+      );
+    });
+
+    it('a token of another scene in the batch does not move, face nor resize', async () => {
+      const [mine, theirs] = await tokens.insertMany([lyraAt(0), lyraAt(1, otherSceneId)]);
+      if (!mine || !theirs) throw new Error('insertMany returned fewer tokens');
+      const ids = [mine.token.id, theirs.token.id];
+      await tokens.moveMany(
+        sceneId,
+        ids.map((tokenId) => ({ tokenId, col: 9, row: 9 })),
+      );
+      await tokens.faceMany(
+        sceneId,
+        ids.map((tokenId) => ({ tokenId, facing: 90 })),
+      );
+      const box = { col: 5, row: 5, width: 2, height: 2 };
+      await tokens.resizeMany(
+        sceneId,
+        ids.map((tokenId) => ({ tokenId, ...box })),
+      );
+      expect((await tokens.findInScene(sceneId, mine.token.id))?.token).toMatchObject({
+        ...box,
+        facing: 90,
+      });
+      expect((await tokens.findInScene(otherSceneId, theirs.token.id))?.token).toMatchObject({
+        col: 1,
+        row: 0,
+        width: 1,
+        height: 1,
+        facing: 0,
+      });
+    });
+
+    it('controlOfScene answers each token of the scene with its controllers, in 1 query, and nothing of another scene', async () => {
+      const [lyraRow, bram] = await tokens.insertMany([
+        lyraAt(0),
+        lyra({ token: { ...lyraAt(1).token }, controllerIds: [] }),
+      ]);
+      await tokens.insertMany([lyraAt(2, otherSceneId)]);
+      if (!lyraRow || !bram) throw new Error('insertMany returned fewer tokens');
+      queries.reset();
+
+      const control = await tokens.controlOfScene(sceneId);
+
+      expect(queries.count).toBe(1);
+      const byToken = new Map(
+        control.map(({ tokenId, controllerIds }) => [tokenId, controllerIds]),
+      );
+      expect(byToken).toEqual(
+        new Map([
+          [lyraRow.token.id, [biaId]],
+          [bram.token.id, []],
+        ]),
+      );
+    });
+
+    it('faceMany and resizeMany of a group are 1 UPDATE each', async () => {
+      const saved = await tokens.insertMany([lyraAt(0), lyraAt(1)]);
+      const faces = saved.map(({ token }) => ({ tokenId: token.id, facing: 180 }));
+      const boxes = saved.map(({ token }) => ({
+        tokenId: token.id,
+        col: 4,
+        row: 4,
+        width: 1,
+        height: 1,
+      }));
+      expect(await counted(() => tokens.faceMany(sceneId, faces))).toBe(1);
+      expect(await counted(() => tokens.resizeMany(sceneId, boxes))).toBe(1);
+    });
   });
 
   it('insert on the background layer reads back on the background layer', async () => {

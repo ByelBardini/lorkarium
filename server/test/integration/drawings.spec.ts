@@ -175,3 +175,52 @@ describe('drawings over Socket.IO', () => {
     expect(bia.events.slice(before).map(({ name }) => name)).not.toContain('drawing:movedMany');
   });
 });
+
+describe('the largest drawing commands over Socket.IO', () => {
+  const live = useTokenTable();
+
+  // A freehand path inside the 20×12 scene, every coordinate as long as JSON writes a number.
+  function longPath(decimals: 'full' | 'hundredths'): object {
+    const coordinate = (limit: number, index: number): number => {
+      const value = limit - 1 - (index % 7) / 3 - 1e-13;
+      return decimals === 'full' ? value : Math.round(value * 100) / 100;
+    };
+    const points = Array.from({ length: 2000 }, (_, index) => [
+      coordinate(19, index),
+      coordinate(11, index + 3),
+    ]);
+    const box = { x: 0, y: 0, width: 19.9, height: 11.9 };
+    return { kind: 'freehand', ...box, points, stroke: 'ink', strokeWidth: 'thin' };
+  }
+
+  async function sendBig(client: RealtimeClient, drawings: object[]): Promise<unknown> {
+    const command = { ...envelope(live.vharn.id), drawings };
+    return client.timeout(20_000).emitWithAck('drawing:createMany', command as never);
+  }
+
+  it('64 paths of 2000 points at full precision (about 4.8 MB) are answered ok and the connection goes on', async () => {
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    const ack = await sendBig(
+      bia,
+      Array.from({ length: 64 }, () => longPath('full')),
+    );
+
+    expect(ack).toMatchObject({ ok: true, version: 1 });
+    expect(bia.connected).toBe(true);
+    expect((await synced(bia, live.vharn)).drawings).toHaveLength(64);
+  }, 60_000);
+
+  it('65 paths (past the DTO, under the buffer) are INVALID_BODY and the connection goes on', async () => {
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    const ack = await sendBig(
+      bia,
+      Array.from({ length: 65 }, () => longPath('hundredths')),
+    );
+
+    expect(ack).toMatchObject({ ok: false, error: { code: 'INVALID_BODY' } });
+    expect(bia.connected).toBe(true);
+    expect((await synced(bia, live.vharn)).version).toBe(0);
+  }, 60_000);
+});

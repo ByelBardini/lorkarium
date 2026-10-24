@@ -79,7 +79,7 @@ function MainTokenToggle({ token, interaction, onChosen }: MainTokenToggleProps)
   async function choose(): Promise<void> {
     const sent = interaction
       .getState()
-      .command((commands, campaignId) => commands.setMainToken(campaignId, token.id));
+      .command((commands, scope) => commands.setMainToken(scope, token.id));
     if (await sent) onChosen();
   }
   return (

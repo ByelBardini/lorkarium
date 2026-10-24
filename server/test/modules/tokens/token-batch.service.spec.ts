@@ -95,6 +95,7 @@ describe('TokenBatchService', () => {
       publisher,
       clock: new ClockFake(NOW),
       barLimit: 99_999,
+      tokenLimit: 500,
     });
   });
 
@@ -122,6 +123,34 @@ describe('TokenBatchService', () => {
         }),
       ]);
       expect(creation?.tokens[0]?.privileged.bars).toHaveLength(1);
+    });
+
+    function fill(sceneId: string, total: number): void {
+      const already = tokens.rows.filter(({ token }) => token.sceneId === sceneId).length;
+      for (let index = already; index < total; index += 1) {
+        tokens.rows.push(lyraRow({ token: lyraPo({ id: `filler-${sceneId}-${index}`, sceneId }) }));
+      }
+    }
+
+    it('a paste that would take the scene past 500 tokens is TOKEN_LIMIT and none is created', async () => {
+      fill(VHARN_SCENE_ID, 499);
+
+      const pasting = service.createMany(ANA_ID, VHARN_ID, { tokens: [GOBLIN, GOBLIN] });
+
+      await expect(pasting).rejects.toMatchObject({
+        code: 'TOKEN_LIMIT',
+        message: 'the scene would have 501 tokens (499 stored + 2 added); the limit is 500',
+      });
+      expect(scenes.journal).toEqual(['lock']);
+      expect(publisher.tokensCreations).toEqual([]);
+    });
+
+    it('a full scene of QUELM does not keep VHARN from pasting', async () => {
+      fill('quelm-scene', 500);
+
+      const created = await service.createMany(ANA_ID, VHARN_ID, { tokens: [GOBLIN] });
+
+      expect(created.createdIds).toHaveLength(1);
     });
 
     it('a player pasting tokens is refused with FORBIDDEN and nothing is locked', async () => {
@@ -235,6 +264,7 @@ describe('TokenBatchService', () => {
       expect(publisher.tokensDeletes).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           tokenIds: [LYRA_ID, BRAM_ID],

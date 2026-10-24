@@ -25,6 +25,21 @@ export function gameWallOf(dto: WallDto): Wall {
   });
 }
 
+const converted = new WeakMap<readonly WallDto[], readonly Wall[]>();
+
+/** The confirmed walls as the game-core reads them, converted once per array: the board store
+ *  keeps the array while no event touches the walls, so every memory keyed by the walls (sight,
+ *  fog, lights) stays valid until one does.
+ *
+ *  Example: `sightArea(eye, gameWallsOf(board.walls), scene, 6)` */
+export function gameWallsOf(walls: readonly WallDto[]): readonly Wall[] {
+  const known = converted.get(walls);
+  if (known) return known;
+  const fresh = walls.map(gameWallOf);
+  converted.set(walls, fresh);
+  return fresh;
+}
+
 /** The straight pieces of a confirmed wall, in cells.
  *
  *  Example: `wallSegmentsOf(northWall()) // [{ from: { x: 2, y: 2 }, to: { x: 6, y: 2 } }]` */

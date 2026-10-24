@@ -7,10 +7,9 @@ import {
   type DragGroup,
 } from '@/stores/board-interaction-store';
 import { DRAG_SEND_INTERVAL_MS } from '@/stores/token-drag-relay';
-import { VHARN } from '../support/campaigns-api-fake';
 import { InteractionClockFake } from '../support/interaction-clock-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
-import { KAEL_ID, LYRA_ID } from '../support/table-session-fixtures';
+import { KAEL_ID, LYRA_ID, VHARN_GRID } from '../support/table-session-fixtures';
 import { wall } from '@lorkarium/game-core';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
@@ -31,7 +30,7 @@ describe('dragging a group of tokens', () => {
     commands = new TableBoardCommandsFake();
     clock = new InteractionClockFake();
     store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
       clock,
@@ -167,7 +166,7 @@ describe('dragging past walls', () => {
   beforeEach(() => {
     commands = new TableBoardCommandsFake();
     store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
       clock: new InteractionClockFake(),

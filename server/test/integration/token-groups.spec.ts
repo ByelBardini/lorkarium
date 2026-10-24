@@ -69,6 +69,21 @@ describe('token groups over Socket.IO', () => {
     expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'TOKEN_NOT_FOUND' }) });
   });
 
+  it('a token of Quelm in a drag of Vharn is TOKEN_NOT_FOUND and nobody hears a drag', async () => {
+    const quelmMaster = await live.atTable(live.caio, live.quelm);
+    const quelmToken = await createdBy(quelmMaster, tokenCommandFor(live.quelm, live.caio.id));
+    const master = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const { lyra = '' } = await vharnTokens(master.client);
+    const drags = [
+      { tokenId: lyra, cell: { col: 1, row: 1 } },
+      { tokenId: quelmToken, cell: { col: 2, row: 1 } },
+    ];
+    const ack = await send(master.client, 'token:dragMany', { ...envelope(live.vharn.id), drags });
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'TOKEN_NOT_FOUND' }) });
+    await silence();
+    expect(master.events.map(({ name }) => name)).not.toContain('token:draggedMany');
+  });
+
   it('Caio dragging the Lyra of Bia with his Bram is FORBIDDEN and nobody hears a drag', async () => {
     const master = recordEventsOf(await live.atTable(live.ana, live.vharn));
     const caioClient = await live.atTable(live.caio, live.vharn);

@@ -1,4 +1,6 @@
 import {
+  REALTIME_COMPRESSION_THRESHOLD_BYTES,
+  REALTIME_MESSAGE_MAX_BYTES,
   REALTIME_PATH,
   type ApiErrorDto,
   type AuthUserDto,
@@ -6,14 +8,21 @@ import {
   type TableServerEvents,
 } from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
-import { Server, type Socket } from 'socket.io';
+import { Server, type ServerOptions, type Socket } from 'socket.io';
+import { ConnectionIdentityBo } from './connection-identity.bo';
 import { isSameOrigin } from './same-origin';
 
-/** Who a connection belongs to, set once by the handshake; never read from a payload (§7.3). */
+/** Who a connection belongs to, set by the handshake; never read from a payload (§7.3). The
+ *  session is read again only from `recheckAt` on (see `ConnectionIdentityBo`). */
 export type RealtimeSocketData = {
   user: AuthUserDto;
   token: string;
+  sessionId: string;
+  recheckAt: Date;
   campaignIds: ReadonlySet<string>;
+  /** The extra grid tabs of each open table (`scene:watch`), by campaign id; the group grid is
+   *  not one of them unless it was watched too. */
+  watchedSceneIds: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
 type NoInterServerEvents = Record<string, never>;
@@ -32,16 +41,29 @@ export type RealtimeSocket = Socket<
   RealtimeSocketData
 >;
 
-/** `null` for a missing, unknown or ended session; throws only on an unexpected failure. */
-export type AuthenticateToken = (token: string | undefined) => Promise<AuthUserDto | null>;
+/** The session behind a cookie, as the connection keeps it. */
+export type ConnectionIdentity = Readonly<{
+  user: AuthUserDto;
+  sessionId: string;
+  recheckAt: Date;
+}>;
 
-export type RealtimeOptions = Readonly<{ authenticate: AuthenticateToken; sessionCookie: string }>;
+/** `null` for a missing, unknown or ended session; throws only on an unexpected failure. */
+export type AuthenticateToken = (token: string | undefined) => Promise<ConnectionIdentity | null>;
+
+export type RealtimeOptions = Readonly<{
+  authenticate: AuthenticateToken;
+  sessionCookie: string;
+  clock: Readonly<{ now: () => Date }>;
+}>;
 
 export type Realtime = Readonly<{
   io: RealtimeServer;
   onConnection: (listener: (socket: RealtimeSocket) => void) => void;
-  /** The user of the connection's cookie right now, or `null` once that session ended. */
+  /** The user of the connection right now, or `null` once that session ended. */
   reauthenticate: (socket: RealtimeSocket) => Promise<AuthUserDto | null>;
+  /** Drops every connection of the session (logout); other sessions of the user go on. */
+  endSession: (sessionId: string) => void;
 }>;
 
 const UNAUTHENTICATED: ApiErrorDto = {
@@ -54,11 +76,10 @@ const INTERNAL_ERROR: ApiErrorDto = { code: 'INTERNAL_ERROR', message: 'Unexpect
 /** Socket.IO on the Fastify server at `/api/socket.io`: same origin only, authenticated by the
  *  same HttpOnly session cookie as HTTP, and closed together with the app.
  *
- *  Example: `const realtime = attachRealtime(app, { authenticate, sessionCookie: SESSION_COOKIE })` */
+ *  Example: `const realtime = attachRealtime(app, { authenticate, sessionCookie: SESSION_COOKIE, clock })` */
 export function attachRealtime(app: FastifyInstance, options: RealtimeOptions): Realtime {
   const io: RealtimeServer = new Server(app.server, {
-    path: REALTIME_PATH,
-    serveClient: false,
+    ...realtimeServerOptions(),
     allowRequest: (request, callback) => {
       callback(null, isSameOrigin(request.headers.origin, request.headers.host));
     },
@@ -70,8 +91,43 @@ export function attachRealtime(app: FastifyInstance, options: RealtimeOptions): 
   return {
     io,
     onConnection: (listener) => io.on('connection', listener),
-    reauthenticate: (socket) => options.authenticate(socket.data.token),
+    reauthenticate: (socket) => reauthenticate(options, socket),
+    endSession: (sessionId) => endSession(io, sessionId),
   };
+}
+
+/** The Socket.IO options that follow the contract limits: compression only from 4 KB on (the
+ *  snapshot, big pastes; never the drag preview) and a buffer that takes the largest valid
+ *  command instead of dropping the connection on it.
+ *
+ *  Example: `new Server(httpServer, { ...realtimeServerOptions(), allowRequest })` */
+export function realtimeServerOptions(): Partial<ServerOptions> {
+  return {
+    path: REALTIME_PATH,
+    serveClient: false,
+    perMessageDeflate: { threshold: REALTIME_COMPRESSION_THRESHOLD_BYTES },
+    maxHttpBufferSize: REALTIME_MESSAGE_MAX_BYTES,
+  };
+}
+
+async function reauthenticate(
+  options: RealtimeOptions,
+  socket: RealtimeSocket,
+): Promise<AuthUserDto | null> {
+  const check = new ConnectionIdentityBo(socket.data.recheckAt).checkAt(options.clock.now());
+  if (check === 'trust-kept') return socket.data.user;
+  const identity = await options.authenticate(socket.data.token);
+  if (!identity) return null;
+  // Field by field: a gateway may have set campaignIds while the session was read.
+  socket.data.user = identity.user;
+  socket.data.recheckAt = identity.recheckAt;
+  return identity.user;
+}
+
+function endSession(io: RealtimeServer, sessionId: string): void {
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.sessionId === sessionId) socket.disconnect(true);
+  }
 }
 
 async function authenticateHandshake(
@@ -82,9 +138,17 @@ async function authenticateHandshake(
   const cookies = app.parseCookie(socket.handshake.headers.cookie ?? '');
   const token = cookies[options.sessionCookie];
   try {
-    const user = await options.authenticate(token);
-    if (!user || !token) return refusal(UNAUTHENTICATED);
-    socket.data = { user, token, campaignIds: new Set() };
+    const identity = await options.authenticate(token);
+    if (!identity || !token) return refusal(UNAUTHENTICATED);
+    const { user, sessionId, recheckAt } = identity;
+    socket.data = {
+      user,
+      token,
+      sessionId,
+      recheckAt,
+      campaignIds: new Set(),
+      watchedSceneIds: new Map(),
+    };
     app.log.info({ userId: user.id, socketId: socket.id }, 'realtime connection');
     return undefined;
   } catch (error) {

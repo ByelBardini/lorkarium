@@ -49,6 +49,7 @@ export function detailOf(
     members: [{ name: summary.masterName, role: 'master' }, ...others],
     joinCode: summary.myRole === 'master' ? 'VHRN7K2Q' : null,
     hasPassword: false,
+    castSceneId: '8e4d3c2b-1a0f-4e9d-a8b7-6f5e4d3c2b1a',
     ...overrides,
   };
 }

@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Biblioteca de grids</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#08090B}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.bl-btn{height:40px;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:10px;background:transparent;color:#D5D0C4;font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.bl-btn:hover{border-color:#4A505B;color:#EAE5DA}
+.bl-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.bl-btn.is-gold:hover{background:#D4B57E}
+.bl-btn.is-quiet{border-color:transparent}
+.bl-btn.is-quiet:hover{background:#1B1E24}
+.bl-btn:disabled{opacity:.55;cursor:default}
+.bl-ico{width:36px;height:36px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:transparent;color:#8C8F98;cursor:pointer}
+.bl-ico:hover{background:#1F232A;color:#EAE5DA}
+.bl-folder{width:100%;display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:#A9A497;font:inherit;font-size:14px;font-weight:500;cursor:pointer;text-align:left}
+.bl-folder:hover{background:#171A20;color:#EAE5DA}
+.bl-folder.is-on{background:#1B1E24;color:#EAE5DA;box-shadow:inset 0 0 0 1px #2A2F38}
+.bl-folder.is-on svg{color:#C5A46D}
+.bl-count{margin-left:auto;font-size:12px;color:#6F7480;font-variant-numeric:tabular-nums}
+.bl-seg{height:32px;padding:0 12px;border:0;border-radius:7px;background:transparent;color:#A9A497;font:inherit;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.bl-seg:hover{color:#EAE5DA}
+.bl-seg.is-on{background:#262A31;color:#EAE5DA}
+.bl-card{display:flex;flex-direction:column;padding:0;border:1px solid #262B33;border-radius:12px;overflow:hidden;background:#14171C;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:border-color .12s,transform .12s}
+.bl-card:hover{border-color:#4A505B;transform:translateY(-1px)}
+.bl-card.is-sel{border-color:#C5A46D;box-shadow:0 0 0 1px #C5A46D}
+.bl-thumb{position:relative;aspect-ratio:16/10;background-color:#0E1013;background-image:linear-gradient(rgba(197,164,109,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(197,164,109,.06) 1px,transparent 1px);background-size:14px 14px}
+.bl-badge{position:absolute;top:10px;display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;font-size:11px;font-weight:600;backdrop-filter:blur(4px)}
+.bl-badge.is-priv{left:10px;background:rgba(16,18,22,.8);color:#C9C3B6;box-shadow:inset 0 0 0 1px #3A404A}
+.bl-badge.is-pub{left:10px;background:rgba(143,179,154,.16);color:#A9D1B4;box-shadow:inset 0 0 0 1px rgba(143,179,154,.45)}
+.bl-live{right:10px;background:rgba(16,18,22,.85);color:#8FD0A8;box-shadow:inset 0 0 0 1px rgba(143,208,168,.45)}
+.bl-dot{width:7px;height:7px;border-radius:50%;background:#8FD0A8;animation:blPulse 1.6s ease-in-out infinite}
+@keyframes blPulse{0%,100%{box-shadow:0 0 0 0 rgba(143,208,168,.5)}50%{box-shadow:0 0 0 5px rgba(143,208,168,0)}}
+.bl-input{height:40px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:14px;width:100%}
+.bl-input::placeholder{color:#6F7480}
+.bl-input:focus{outline:none;border-color:#C5A46D}
+.bl-vis{flex:1;display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid #303640;border-radius:10px;background:transparent;color:#A9A497;font:inherit;text-align:left;cursor:pointer}
+.bl-vis:hover{border-color:#4A505B}
+.bl-vis.is-on{border-color:#C5A46D;background:rgba(197,164,109,.07);color:#EAE5DA}
+.bl-newcard{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:220px;border:1px dashed #3A404A;border-radius:12px;background:transparent;color:#A9A497;font:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.bl-newcard:hover{border-color:#C5A46D;color:#EAE5DA}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; box-sizing: border-box; padding: 28px; display: flex; align-items: stretch; justify-content: center; background-color: #0B0C0F; background-image: linear-gradient(rgba(197,164,109,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(197,164,109,.05) 1px, transparent 1px); background-size: 48px 48px; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+<div style="position: absolute; inset: 0; background: rgba(6,7,9,.72)" aria-hidden="true"></div>
+
+<div role="dialog" aria-modal="true" aria-labelledby="bl-title" style="position: relative; width: 100%; max-width: 1360px; min-height: 600px; box-sizing: border-box; border-radius: 16px; background: #111317; border: 1px solid #303640; box-shadow: 0 30px 90px rgba(0,0,0,.6); display: flex; flex-direction: column; overflow: hidden">
+
+<header style="flex-shrink: 0; padding: 18px 20px 18px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; border-bottom: 1px solid #23272E">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2Z"></path><path d="M9 4v14M15 6v14"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 2px; margin-right: 8px">
+<h2 id="bl-title" style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 26px; line-height: 1.1">Biblioteca de grids</h2>
+<span style="font-size: 12px; color: #8C8F98">Os Sinos de Vharn · {{totalCount}} grids</span>
+</div>
+<div style="position: relative; flex: 1 1 220px; max-width: 340px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6F7480" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 12px; top: 12px"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5"></path></svg>
+<input class="bl-input" type="search" placeholder="Buscar grid…" aria-label="Buscar grid" value="{{q}}" onChange="{{onSearch}}" style="padding-left: 36px">
+</div>
+<div role="radiogroup" aria-label="Visibilidade" style="display: inline-flex; padding: 3px; border-radius: 10px; border: 1px solid #303640">
+<button type="button" role="radio" class="{{visFilter.todos.cls}}" aria-checked="{{visFilter.todos.on}}" onClick="{{visFilter.todos.pick}}">Todos</button>
+<button type="button" role="radio" class="{{visFilter.pub.cls}}" aria-checked="{{visFilter.pub.on}}" onClick="{{visFilter.pub.pick}}">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c0-1.5 3.5-7 9-7s9 5.5 9 7-3.5 7-9 7-9-5.5-9-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>Públicos</button>
+<button type="button" role="radio" class="{{visFilter.priv.cls}}" aria-checked="{{visFilter.priv.on}}" onClick="{{visFilter.priv.pick}}">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>Privados</button>
+</div>
+<span style="flex: 1"></span>
+<button type="button" class="bl-btn is-gold" onClick="{{newGrid}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+Novo grid
+</button>
+<button type="button" class="bl-ico" aria-label="Fechar biblioteca" style="width: 40px; height: 40px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</header>
+
+<div style="flex: 1; min-height: 0; display: flex; flex-wrap: wrap">
+
+<nav aria-label="Pastas" style="flex: 1 1 220px; max-width: 100%; box-sizing: border-box; padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; background: #0E1013; border-right: 1px solid #23272E">
+<button type="button" class="{{allCls}}" onClick="{{pickAll}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg>
+Todos os grids<span class="bl-count">{{totalCount}}</span>
+</button>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 10px 6px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6F7480">Pastas</span>
+<button type="button" class="bl-ico" onClick="{{startFolder}}" aria-label="Nova pasta" title="Nova pasta" style="width: 28px; height: 28px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+</button>
+</div>
+<sc-for list="{{folders}}" as="f" hint-placeholder-count="4">
+<button type="button" class="{{f.cls}}" onClick="{{f.pick}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path></svg>
+<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{f.name}}</span>
+<sc-if value="{{f.hasLive}}" hint-placeholder-val="{{ false }}"><span class="bl-dot" style="flex-shrink: 0" aria-label="O grupo está num grid desta pasta"></span></sc-if>
+<span class="bl-count">{{f.count}}</span>
+</button>
+</sc-for>
+<sc-if value="{{addingFolder}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 6px; padding: 4px 2px">
+<input class="bl-input" type="text" placeholder="Nome da pasta" aria-label="Nome da nova pasta" value="{{folderDraft}}" onChange="{{onFolderDraft}}" onKeyDown="{{onFolderKey}}" style="height: 36px; font-size: 13px">
+<button type="button" class="bl-btn is-gold" onClick="{{saveFolder}}" style="height: 36px; padding: 0 10px; font-size: 13px">Criar</button>
+</div>
+</sc-if>
+<div style="height: 1px; margin: 12px 8px; background: #1F2329"></div>
+<button type="button" class="{{looseCls}}" onClick="{{pickLoose}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-dasharray="3 2.5" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path></svg>
+Sem pasta<span class="bl-count">{{looseCount}}</span>
+</button>
+</nav>
+
+<section style="flex: 999 1 480px; min-width: 0; box-sizing: border-box; padding: 20px 24px 28px; display: flex; flex-direction: column; gap: 16px; overflow: auto; max-height: calc(100vh - 160px)">
+<div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap">
+<h3 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 28px">{{folderTitle}}</h3>
+<span style="font-size: 13px; color: #8C8F98">{{shownText}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px">
+<sc-for list="{{grids}}" as="g" hint-placeholder-count="6">
+<button type="button" class="{{g.cls}}" onClick="{{g.pick}}" aria-pressed="{{g.selected}}">
+<div class="bl-thumb">
+<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<path d="{{g.fill}}" fill="{{g.ground}}"></path>
+<path d="{{g.fill}}" fill="none" stroke="{{g.wall}}" stroke-width="2.2" stroke-linejoin="round"></path>
+<path d="{{g.detail}}" fill="none" stroke="{{g.wall}}" stroke-opacity=".55" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="{{g.water}}" fill="#16212C" fill-rule="evenodd" stroke="#4D6A8A" stroke-opacity=".7" stroke-width="1"></path>
+</svg>
+<span class="{{g.badgeCls}}">
+<sc-if value="{{g.isPub}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c0-1.5 3.5-7 9-7s9 5.5 9 7-3.5 7-9 7-9-5.5-9-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg></sc-if>
+<sc-if value="{{g.isPriv}}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></sc-if>
+{{g.visText}}
+</span>
+<sc-if value="{{g.live}}" hint-placeholder-val="{{ false }}">
+<span class="bl-badge bl-live"><span class="bl-dot"></span>No ar</span>
+</sc-if>
+</div>
+<div style="padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; line-height: 1.15; color: #EAE5DA">{{g.name}}</span>
+<span style="font-size: 12px; color: #8C8F98">{{g.meta}}</span>
+</div>
+</button>
+</sc-for>
+<sc-if value="{{canCreateHere}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="bl-newcard" onClick="{{newGrid}}">
+<span style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid currentColor; display: inline-flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+</span>
+{{newHere}}
+</button>
+</sc-if>
+</div>
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 14px; color: #8C8F98">Nada por aqui com esse filtro.</p>
+</sc-if>
+</section>
+
+<aside style="flex: 1 1 320px; max-width: 100%; box-sizing: border-box; padding: 20px; display: flex; flex-direction: column; gap: 18px; background: #0E1013; border-left: 1px solid #23272E; overflow: auto; max-height: calc(100vh - 160px)">
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{ true }}">
+<div class="bl-thumb" style="border-radius: 10px; overflow: hidden; border: 1px solid #262B33">
+<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<path d="{{sel.fill}}" fill="{{sel.ground}}"></path>
+<path d="{{sel.fill}}" fill="none" stroke="{{sel.wall}}" stroke-width="2.2" stroke-linejoin="round"></path>
+<path d="{{sel.detail}}" fill="none" stroke="{{sel.wall}}" stroke-opacity=".55" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="{{sel.water}}" fill="#16212C" fill-rule="evenodd" stroke="#4D6A8A" stroke-opacity=".7" stroke-width="1"></path>
+</svg>
+<sc-if value="{{sel.live}}" hint-placeholder-val="{{ false }}">
+<span class="bl-badge bl-live"><span class="bl-dot"></span>No ar · 4 jogadores aqui</span>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="bl-name" style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #A9A497">Nome</label>
+<input id="bl-name" class="bl-input" type="text" maxlength="60" value="{{sel.name}}" onChange="{{sel.onName}}" style="font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600">
+<span style="font-size: 12px; color: #8C8F98">{{sel.meta}}</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="bl-folder" style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #A9A497">Pasta</label>
+<select id="bl-folder" class="bl-input" value="{{sel.folder}}" onChange="{{sel.onFolder}}" style="cursor: pointer">
+<option value="">Sem pasta</option>
+<sc-for list="{{folderOptions}}" as="fo" hint-placeholder-count="4">
+<option value="{{fo.id}}">{{fo.name}}</option>
+</sc-for>
+</select>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span id="bl-vis-l" style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #A9A497">Quem vê na biblioteca</span>
+<div role="radiogroup" aria-labelledby="bl-vis-l" style="display: flex; gap: 8px">
+<button type="button" role="radio" class="{{sel.privCls}}" aria-checked="{{sel.privOn}}" onClick="{{sel.setPriv}}">
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>Privado</span>
+<span style="font-size: 12px; line-height: 1.4; color: #8C8F98">Só você vê. Pra preparar sem spoiler.</span>
+</button>
+<button type="button" role="radio" class="{{sel.pubCls}}" aria-checked="{{sel.pubOn}}" onClick="{{sel.setPub}}">
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c0-1.5 3.5-7 9-7s9 5.5 9 7-3.5 7-9 7-9-5.5-9-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>Público</span>
+<span style="font-size: 12px; line-height: 1.4; color: #8C8F98">Jogadores veem e podem espiar.</span>
+</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px; margin-top: auto">
+<sc-if value="{{sel.privWarn}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; padding: 10px 12px; border-radius: 8px; background: rgba(197,164,109,.08); font-size: 12px; line-height: 1.5; color: #D5D0C4">Levar o grupo mostra o mapa pra quem estiver lá, mas o grid continua fora da biblioteca deles.</p>
+</sc-if>
+<button type="button" class="bl-btn is-gold" onClick="{{sel.goLive}}" disabled="{{sel.live}}" style="height: 46px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+{{sel.liveLabel}}
+</button>
+<button type="button" class="bl-btn" style="height: 42px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16Z"></path></svg>
+Abrir pra preparar
+</button>
+<div style="display: flex; gap: 6px">
+<button type="button" class="bl-btn is-quiet" onClick="{{sel.duplicate}}" style="flex: 1; height: 36px; font-size: 13px">Duplicar</button>
+<button type="button" class="bl-btn is-quiet" onClick="{{sel.remove}}" disabled="{{sel.live}}" style="flex: 1; height: 36px; font-size: 13px; color: #E6A28F">Excluir</button>
+</div>
+<sc-if value="{{sel.live}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #6F7480; text-align: center">Leva o grupo pra outro grid antes de excluir este.</span>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{noSel}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; color: #8C8F98">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: #D5D0C4">Nenhum grid escolhido</span>
+<span style="font-size: 13px">Clica num grid pra ver os detalhes.</span>
+</div>
+</sc-if>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+var BL_ART = {
+  masmorra: { ground: '#1A1D23', wall: '#8A7D66', fill: 'M14 14 H70 V36 H90 V20 H146 V86 H90 V64 H70 V86 H14 Z', detail: 'M30 30 h8 v8 h-8 Z M46 62 h8 v8 h-8 Z M110 40 l10 8 M120 40 l-10 8', water: 'M118 70 a10 6 0 1 0 20 0 a10 6 0 1 0 -20 0 Z' },
+  floresta: { ground: '#1A221C', wall: '#7FA08A', fill: 'M0 0 H160 V100 H0 Z', detail: 'M20 20 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0 M60 70 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 M120 26 a9 9 0 1 0 18 0 a9 9 0 1 0 -18 0 M100 80 a6 6 0 1 0 12 0 a6 6 0 1 0 -12 0 M0 52 C40 44 70 60 100 50 S150 40 160 46', water: 'M0 60 C30 54 60 66 90 58 S140 50 160 56 V64 C140 58 120 66 90 66 S30 62 0 68 Z' },
+  cidade: { ground: '#1C1C20', wall: '#9A8F7A', fill: 'M0 0 H160 V100 H0 Z', detail: 'M12 12 h30 v22 h-30 Z M52 12 h20 v30 h-20 Z M86 10 h34 v20 h-34 Z M130 14 h20 v40 h-20 Z M12 62 h26 v26 h-26 Z M52 58 h40 v30 h-40 Z M104 64 h46 v24 h-46 Z M0 48 H160', water: 'M0 0 Z' },
+  caverna: { ground: '#1B1C21', wall: '#857A6A', fill: 'M20 30 C30 10 60 8 80 18 C100 8 130 10 142 30 C156 50 146 78 124 86 C100 96 70 92 50 88 C28 84 10 62 20 30 Z', detail: 'M60 40 l4 -6 l6 4 Z M100 58 l5 -5 l6 5 l-4 6 Z M40 64 l6 -2 l2 6 Z', water: 'M74 52 a14 9 0 1 0 28 0 a14 9 0 1 0 -28 0 Z' },
+  taverna: { ground: '#221D19', wall: '#A08B6A', fill: 'M20 16 H140 V84 H20 Z', detail: 'M40 34 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M74 34 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M40 62 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M74 62 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M108 24 V76 M108 24 H140 M20 50 H30', water: 'M0 0 Z' },
+  navio: { ground: '#1F1C18', wall: '#9A8462', fill: 'M30 50 C30 30 60 22 100 22 L142 50 L100 78 C60 78 30 70 30 50 Z', detail: 'M60 50 H120 M80 30 V70 M100 30 V70', water: 'M0 0 H160 V100 H0 Z M30 50 C30 30 60 22 100 22 L142 50 L100 78 C60 78 30 70 30 50 Z' }
+};
+var BL_FOLDERS = [
+  { id: 'a1', name: 'Ato 1 · Os Sinos' },
+  { id: 'a2', name: 'Ato 2 · Catacumbas' },
+  { id: 'fix', name: 'Lugares fixos' },
+  { id: 'enc', name: 'Encontros avulsos' }
+];
+var BL_GRIDS = [
+  { id: 'g1', name: 'Salão do Sino', folder: 'a1', pub: true, cols: 30, rows: 20, toks: 11, art: 'masmorra', upd: 'editado hoje' },
+  { id: 'g2', name: 'Estrada de Vharn', folder: 'a1', pub: true, cols: 40, rows: 24, toks: 6, art: 'floresta', upd: 'editado ontem' },
+  { id: 'g3', name: 'Torre do Sineiro', folder: 'a1', pub: false, cols: 20, rows: 20, toks: 4, art: 'masmorra', upd: 'editado há 3 dias' },
+  { id: 'g4', name: 'Emboscada no Rio', folder: 'a1', pub: false, cols: 36, rows: 22, toks: 9, art: 'floresta', upd: 'editado há 3 dias' },
+  { id: 'g5', name: 'Ossuário', folder: 'a2', pub: false, cols: 28, rows: 28, toks: 14, art: 'caverna', upd: 'editado há 1 semana' },
+  { id: 'g6', name: 'Lago Subterrâneo', folder: 'a2', pub: false, cols: 32, rows: 20, toks: 3, art: 'caverna', upd: 'editado há 1 semana' },
+  { id: 'g7', name: 'Cripta do Abade', folder: 'a2', pub: false, cols: 24, rows: 18, toks: 7, art: 'masmorra', upd: 'rascunho' },
+  { id: 'g8', name: 'Taverna do Javali', folder: 'fix', pub: true, cols: 20, rows: 14, toks: 5, art: 'taverna', upd: 'editado há 2 semanas' },
+  { id: 'g9', name: 'Praça de Vharn', folder: 'fix', pub: true, cols: 40, rows: 30, toks: 2, art: 'cidade', upd: 'editado há 2 semanas' },
+  { id: 'g10', name: 'Barcaça do Contrabando', folder: 'enc', pub: false, cols: 26, rows: 14, toks: 8, art: 'navio', upd: 'editado há 1 mês' },
+  { id: 'g11', name: 'Mapa de teste', folder: '', pub: false, cols: 10, rows: 10, toks: 1, art: 'masmorra', upd: 'rascunho' }
+];
+var blSeq = 100;
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { folders: BL_FOLDERS.slice(), grids: JSON.parse(JSON.stringify(BL_GRIDS)), cur: 'a1', vis: 'todos', q: '', selId: 'g3', live: 'g1', addingFolder: false, folderDraft: '' };
+  }
+  patch(id, fn) { this.setState({ grids: this.state.grids.map(function (g) { if (g.id !== id) return g; var c = Object.assign({}, g); fn(c); return c; }) }); }
+  renderVals() {
+    var self = this, s = this.state;
+    var q = (s.q || '').trim().toLowerCase();
+    var inScope = function (g) { return s.cur === 'all' ? true : (s.cur === 'loose' ? !g.folder : g.folder === s.cur); };
+    var list = s.grids.filter(function (g) {
+      if (!inScope(g)) return false;
+      if (s.vis === 'pub' && !g.pub) return false;
+      if (s.vis === 'priv' && g.pub) return false;
+      if (q && g.name.toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    var view = function (g) {
+      var a = BL_ART[g.art] || BL_ART.masmorra;
+      return { fill: a.fill, detail: a.detail, water: a.water, ground: a.ground, wall: a.wall, live: s.live === g.id };
+    };
+    var grids = list.map(function (g) {
+      var v = view(g);
+      return Object.assign(v, {
+        name: g.name, meta: g.cols + '×' + g.rows + ' casas · ' + g.toks + (g.toks === 1 ? ' token' : ' tokens') + ' · ' + g.upd,
+        isPub: g.pub, isPriv: !g.pub, visText: g.pub ? 'Público' : 'Privado', badgeCls: 'bl-badge ' + (g.pub ? 'is-pub' : 'is-priv'),
+        selected: s.selId === g.id ? 'true' : 'false', cls: 'bl-card' + (s.selId === g.id ? ' is-sel' : ''),
+        pick: function () { self.setState({ selId: g.id }); }
+      });
+    });
+    var folders = s.folders.map(function (f) {
+      var items = s.grids.filter(function (g) { return g.folder === f.id; });
+      return { name: f.name, count: items.length, hasLive: items.some(function (g) { return g.id === s.live; }),
+        cls: 'bl-folder' + (s.cur === f.id ? ' is-on' : ''), pick: function () { self.setState({ cur: f.id }); } };
+    });
+    var visFilter = {};
+    ['todos', 'pub', 'priv'].forEach(function (k) { visFilter[k] = { on: s.vis === k ? 'true' : 'false', cls: 'bl-seg' + (s.vis === k ? ' is-on' : ''), pick: function () { self.setState({ vis: k }); } }; });
+    var curFolder = s.folders.find(function (f) { return f.id === s.cur; });
+    var folderTitle = s.cur === 'all' ? 'Todos os grids' : (s.cur === 'loose' ? 'Sem pasta' : (curFolder ? curFolder.name : ''));
+    var g = s.grids.find(function (x) { return x.id === s.selId; });
+    var sel = {};
+    if (g) {
+      var isLive = s.live === g.id;
+      sel = Object.assign(view(g), {
+        name: g.name, folder: g.folder, meta: g.cols + '×' + g.rows + ' casas · ' + g.toks + ' tokens · ' + g.upd,
+        privCls: 'bl-vis' + (!g.pub ? ' is-on' : ''), pubCls: 'bl-vis' + (g.pub ? ' is-on' : ''),
+        privOn: !g.pub ? 'true' : 'false', pubOn: g.pub ? 'true' : 'false',
+        privWarn: !g.pub && !isLive,
+        liveLabel: isLive ? 'O grupo está aqui' : 'Levar o grupo pra cá',
+        onName: function (e) { var v = e.target.value; self.patch(g.id, function (c) { c.name = v; }); },
+        onFolder: function (e) { var v = e.target.value; self.patch(g.id, function (c) { c.folder = v; }); },
+        setPriv: function () { self.patch(g.id, function (c) { c.pub = false; }); },
+        setPub: function () { self.patch(g.id, function (c) { c.pub = true; }); },
+        goLive: function () { self.setState({ live: g.id }); },
+        duplicate: function () {
+          var c = Object.assign({}, g, { id: 'n' + (++blSeq), name: g.name + ' (cópia)', pub: false, upd: 'agora' });
+          var arr = self.state.grids.slice(); arr.splice(arr.indexOf(g) + 1, 0, c);
+          self.setState({ grids: arr, selId: c.id });
+        },
+        remove: function () { if (isLive) return; self.setState({ grids: self.state.grids.filter(function (x) { return x.id !== g.id; }), selId: null }); }
+      });
+    }
+    var folderId = s.cur === 'all' || s.cur === 'loose' ? '' : s.cur;
+    return {
+      totalCount: s.grids.length, looseCount: s.grids.filter(function (x) { return !x.folder; }).length,
+      folders: folders, folderOptions: s.folders,
+      allCls: 'bl-folder' + (s.cur === 'all' ? ' is-on' : ''), looseCls: 'bl-folder' + (s.cur === 'loose' ? ' is-on' : ''),
+      pickAll: function () { self.setState({ cur: 'all' }); }, pickLoose: function () { self.setState({ cur: 'loose' }); },
+      folderTitle: folderTitle, shownText: list.length + (list.length === 1 ? ' grid' : ' grids'),
+      grids: grids, isEmpty: list.length === 0 && (s.vis !== 'todos' || !!q), canCreateHere: s.vis === 'todos' && !q,
+      newHere: folderId ? 'Novo grid nesta pasta' : 'Novo grid',
+      visFilter: visFilter, q: s.q, onSearch: function (e) { self.setState({ q: e.target.value }); },
+      newGrid: function () {
+        var n = { id: 'n' + (++blSeq), name: 'Grid sem nome', folder: folderId, pub: false, cols: 20, rows: 20, toks: 0, art: 'masmorra', upd: 'agora' };
+        self.setState({ grids: self.state.grids.concat([n]), selId: n.id, vis: 'todos', q: '' });
+      },
+      addingFolder: s.addingFolder, folderDraft: s.folderDraft,
+      startFolder: function () { self.setState({ addingFolder: true, folderDraft: '' }); },
+      onFolderDraft: function (e) { self.setState({ folderDraft: e.target.value }); },
+      onFolderKey: function (e) { if (e.key === 'Enter') self.saveFolderNow(); if (e.key === 'Escape') self.setState({ addingFolder: false }); },
+      saveFolder: function () { self.saveFolderNow(); },
+      hasSel: !!g, noSel: !g, sel: sel
+    };
+  }
+  saveFolderNow() {
+    var name = (this.state.folderDraft || '').trim();
+    if (!name) { this.setState({ addingFolder: false }); return; }
+    var f = { id: 'f' + (++blSeq), name: name };
+    this.setState({ folders: this.state.folders.concat([f]), addingFolder: false, cur: f.id });
+  }
+}
+</script>
+</body>
+</html>

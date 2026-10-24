@@ -11,17 +11,30 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 import { ZodError, type z } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
+import type { CommandRateGuard } from '../../realtime/command-rate-guard';
 import { answerAck } from '../../realtime/realtime-ack';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
-import { campaignMastersRoom, campaignRoom, campaignUserRoom } from '../../realtime/rooms';
+import {
+  campaignMastersRoom,
+  campaignRoom,
+  campaignUserRoom,
+  isRoomOfCampaign,
+  sceneAudienceRooms,
+} from '../../realtime/rooms';
+import { withoutWatchedTable } from '../../realtime/watched-scenes';
+import { CommandRateLimitedError } from '../board/board.error';
 import { CampaignError } from '../campaigns/campaigns.error';
+import type { SceneWatchService } from '../scenes/scene-watch.service';
 import type { ConnectionTablesChange } from './connection-tables.bo';
 import { SessionEndedError, SessionError } from './sessions.error';
 import type { TableSessionService } from './sessions.service';
 
 export type SessionsGatewayDeps = Readonly<{
   service: TableSessionService;
+  /** The group grid and the cast a join enters: everyone at the table has both open. */
+  groupGrid: Pick<SceneWatchService, 'groupSceneIdOf' | 'castSceneIdOf'>;
   realtime: Pick<Realtime, 'reauthenticate'>;
+  rate: CommandRateGuard;
   log: FastifyBaseLogger;
 }>;
 
@@ -30,6 +43,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   CAMPAIGN_NOT_FOUND: 'Campaign not found',
   UNAUTHENTICATED: 'A valid session is required',
   TOO_MANY_TABLES: 'Too many open tables',
+  RATE_LIMITED: 'Too many commands in a row',
 };
 
 /** Socket.IO edge of the live table session: validates the command, re-reads the session of the
@@ -78,16 +92,38 @@ async function joinTable(
     deps.service.leave(userId, campaignId, socket.id);
     return { ok: true, state };
   }
-  await socket.join(audienceRoomsOf(state, campaignId, userId));
+  const isMaster = isMasterIn(state, userId);
+  await socket.join(audienceRoomsOf(campaignId, userId, isMaster));
+  await enterTableGrids(deps, socket, { userId, campaignId }, isMaster);
   return { ok: true, state };
 }
 
+function isMasterIn(state: SessionStateDto, userId: string): boolean {
+  return state.members.find((member) => member.userId === userId)?.role === 'master';
+}
+
 // The table room for everyone, plus the rooms that receive the unredacted board (§3.9).
-function audienceRoomsOf(state: SessionStateDto, campaignId: string, userId: string): string[] {
+function audienceRoomsOf(campaignId: string, userId: string, isMaster: boolean): string[] {
   const rooms = [campaignRoom(campaignId), campaignUserRoom(campaignId, userId)];
-  const role = state.members.find((member) => member.userId === userId)?.role;
-  if (role === 'master') rooms.push(campaignMastersRoom(campaignId));
+  if (isMaster) rooms.push(campaignMastersRoom(campaignId));
   return rooms;
+}
+
+// Read only once the socket is in the table room: a group grid changed after this read moves
+// everyone in that room, this socket included. The cast never changes.
+async function enterTableGrids(
+  deps: SessionsGatewayDeps,
+  socket: RealtimeSocket,
+  { userId, campaignId }: TableCommand,
+  isMaster: boolean,
+): Promise<void> {
+  const groupSceneId = await deps.groupGrid.groupSceneIdOf(campaignId);
+  const castSceneId = await deps.groupGrid.castSceneIdOf(campaignId);
+  // A leave (or a drop) during the read already left the table: it must not re-enter a grid.
+  if (socket.disconnected || !socket.data.campaignIds.has(campaignId)) return;
+  const sceneIds = [groupSceneId, castSceneId].filter((id): id is string => id !== null);
+  const rooms = sceneIds.flatMap((id) => sceneAudienceRooms(campaignId, id, userId, isMaster));
+  if (rooms.length > 0) await socket.join(rooms);
 }
 
 async function joinOrRelease(
@@ -111,9 +147,12 @@ async function leaveTable(
 ): Promise<Extract<SessionLeaveAckDto, { ok: true }>> {
   const { campaignId, userId } = await commandOf(deps, socket, payload);
   if (!releaseSlot(deps, socket, campaignId)) return { ok: true };
-  // Out of the rooms first, so the one leaving does not hear their own memberLeft.
-  for (const room of [campaignRoom, campaignMastersRoom]) void socket.leave(room(campaignId));
-  void socket.leave(campaignUserRoom(campaignId, userId));
+  // Out of the rooms first (the table's and its grids'), so the one leaving does not hear their
+  // own memberLeft.
+  for (const room of [...socket.rooms]) {
+    if (isRoomOfCampaign(room, campaignId)) void socket.leave(room);
+  }
+  socket.data.watchedSceneIds = withoutWatchedTable(socket.data.watchedSceneIds, campaignId);
   deps.service.leave(userId, campaignId, socket.id);
   return { ok: true };
 }
@@ -156,6 +195,8 @@ async function commandOf<C extends SessionCommandDto = SessionCommandDto>(
   payload: unknown,
   schema: z.ZodType<C> = sessionCommandDto as z.ZodType<C>,
 ): Promise<C & { userId: string }> {
+  // The rate comes first: a flood is refused before it costs a parse or a session read.
+  deps.rate.admit(socket);
   const command = schema.parse(payload);
   const user = await deps.realtime.reauthenticate(socket);
   if (!user) throw new SessionEndedError(socket.id);
@@ -164,6 +205,10 @@ async function commandOf<C extends SessionCommandDto = SessionCommandDto>(
 
 function toAckError(deps: SessionsGatewayDeps, error: unknown): ApiErrorDto {
   if (error instanceof ZodError) return invalidBodyError(error);
+  if (error instanceof CommandRateLimitedError) {
+    const { code, retryAfterSeconds } = error;
+    return { code, message: PUBLIC_MESSAGE[code] ?? code, retryAfterSeconds };
+  }
   if (error instanceof CampaignError || error instanceof SessionError) {
     const message = PUBLIC_MESSAGE[error.code];
     if (message) return { code: error.code, message };

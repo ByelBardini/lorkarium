@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { UsersDao } from '../../src/modules/auth/users.dao';
@@ -71,6 +71,13 @@ describe('CombatDao on Postgres', () => {
   });
 
   afterAll(() => connection.close());
+
+  it('the migration gives combatants an index on combat_id (combatants_combat_idx)', async () => {
+    const found = await connection.db.execute(
+      sql`select indexdef from pg_indexes where tablename = 'combatants' and indexname = 'combatants_combat_idx'`,
+    );
+    expect(found.rows).toEqual([{ indexdef: expect.stringContaining('(combat_id)') }]);
+  });
 
   const startVharn = () =>
     combat.start(vharn.sceneId, [

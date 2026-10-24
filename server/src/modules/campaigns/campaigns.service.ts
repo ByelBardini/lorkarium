@@ -7,7 +7,9 @@ import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import { DEFAULT_CONDITIONS } from '../conditions/condition-rules.bo';
 import type { ConditionsDao } from '../conditions/conditions.dao';
+import { CAST_SCENE_NAME } from '../scenes/scenes.po';
 import type { ScenesDao } from '../scenes/scenes.dao';
+import type { MembershipReader } from './cached-memberships';
 import type { CampaignCodePort } from './campaign-code.port';
 import type { CampaignMemberRow, CampaignMembersDao } from './campaign-members.dao';
 import type { CampaignsDao } from './campaigns.dao';
@@ -18,7 +20,7 @@ import {
   toCampaignSummaryDto,
   toNewCampaignPo,
   orderedMembers,
-  type CampaignView,
+  type CampaignDetailView,
 } from './campaigns.mapper';
 import type { CampaignPo } from './campaigns.po';
 
@@ -37,6 +39,11 @@ export type CampaignTransactionRunner = <T>(
 export type CampaignsServiceDeps = Readonly<{
   campaigns: Pick<CampaignsDao, 'findById'>;
   members: Pick<CampaignMembersDao, 'findMembership' | 'listOfUser' | 'listMembers'>;
+  /** The cast of each table, whose id the detail carries. */
+  scenes: Pick<ScenesDao, 'findCastOf'>;
+  /** The remembered memberships: the roster of the live session (`session:join`) warms them for
+   *  the board commands that follow. */
+  memberships: MembershipReader;
   transaction: CampaignTransactionRunner;
   codes: CampaignCodePort;
   hasher: PasswordHasherPort;
@@ -79,18 +86,20 @@ export class CampaignsService {
    *
    *  Example: `await campaignsService.rosterOf(user.id, campaignId) // [{ userId, name, role }]` */
   async rosterOf(userId: string, campaignId: string): Promise<CampaignMemberRow[]> {
-    const membership = await this.deps.members.findMembership(campaignId, userId);
+    const membership = await this.deps.memberships.findMembership(campaignId, userId);
     toCampaignAccessBo(campaignId, userId, membership).requireMember();
-    return orderedMembers(await this.deps.members.listMembers(campaignId));
+    return orderedMembers(await this.deps.memberships.listMembers(campaignId));
   }
 
-  private async viewOf(userId: string, campaignId: string): Promise<CampaignView> {
+  private async viewOf(userId: string, campaignId: string): Promise<CampaignDetailView> {
     const membership = await this.deps.members.findMembership(campaignId, userId);
     toCampaignAccessBo(campaignId, userId, membership).requireMember();
     const campaign = await this.deps.campaigns.findById(campaignId);
     if (!membership || !campaign) throw new Error(`member of missing campaign ${campaignId}`);
     const members = await this.deps.members.listMembers(campaignId);
-    return { campaign, membership, members };
+    const cast = await this.deps.scenes.findCastOf(campaignId);
+    if (!cast) throw new Error(`campaign ${campaignId} has no cast; every campaign has one`);
+    return { campaign, membership, members, castSceneId: cast.id };
   }
 
   private async insertUnlessCodeTaken(
@@ -107,6 +116,7 @@ export class CampaignsService {
         await daos.members.insert({ campaignId: campaign.id, userId, role: 'master', joinedAt });
         const scene = await daos.scenes.insert({ campaignId: campaign.id });
         await daos.campaigns.setActiveScene(campaign.id, scene.id);
+        await daos.scenes.insert({ campaignId: campaign.id, name: CAST_SCENE_NAME, kind: 'cast' });
         await daos.conditions.insertDefinitions(campaign.id, DEFAULT_CONDITIONS);
         return { ...campaign, activeSceneId: scene.id };
       });

@@ -1,7 +1,12 @@
 import type { BoardStateDto } from '@lorkarium/contracts';
 import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { boardSightOf, type BoardSight } from '@/lib/board-sight';
+import {
+  boardSightOf,
+  poseShapingIdsOf,
+  sightWithMovedOf,
+  type BoardSight,
+} from '@/lib/board-sight';
 import type { TokenLanding } from '@/lib/light-sources';
 import { shownCellsOf } from '@/lib/shown-cells';
 import {
@@ -53,10 +58,28 @@ export function sightNowOf(table: SightTable, interaction: SightInteraction): Bo
   return rememberedSightOf(table.board, previewEyeIdsOf(interaction), landing);
 }
 
-type RememberedSight = Readonly<{ board: BoardStateDto; key: string; sight: BoardSight }>;
+/** What the filter reads of the board: a drawing, a presence or a version bump hand a new board
+ *  with these same parts, and the filter is not worked out again. */
+type SightParts = Readonly<{
+  vision: BoardStateDto['scene']['vision'];
+  viewer: string;
+  tokens: BoardStateDto['tokens'];
+  walls: BoardStateDto['walls'];
+  lights: BoardStateDto['lights'];
+  previewKey: string;
+}>;
+
+type RememberedSight = Readonly<{
+  parts: SightParts;
+  /** Where the eyes and the lit tokens show: any change there redoes the whole filter. */
+  shapingKey: string;
+  landing: TokenLanding;
+  sight: BoardSight;
+}>;
 
 // Six components and the keys ask for the sight, and a drag asks again at every cell: the last
 // computation is kept, so each change is computed once and every consumer gets the same instance.
+// A drag of a token that is nobody's eye and carries no light only works its own level out again.
 let lastSight: RememberedSight | null = null;
 
 function rememberedSightOf(
@@ -64,11 +87,57 @@ function rememberedSightOf(
   previewEyeIds: readonly string[] | null,
   landing: TokenLanding,
 ): BoardSight {
-  const key = JSON.stringify([previewEyeIds, [...landing].sort(([a], [b]) => a.localeCompare(b))]);
-  if (lastSight?.board === board && lastSight.key === key) return lastSight.sight;
+  const parts = partsOf(board, previewEyeIds);
+  const shapingKey = poseKeyOf(landing, poseShapingIdsOf(board, previewEyeIds));
+  const last = lastSight;
+  if (last && sameParts(last.parts, parts) && last.shapingKey === shapingKey) {
+    const moved = movedIdsOf(last.landing, landing);
+    if (moved.length === 0) return last.sight;
+    const sight = sightWithMovedOf(last.sight, board, { previewEyeIds, landing }, moved);
+    lastSight = { parts, shapingKey, landing, sight };
+    return sight;
+  }
   const sight = boardSightOf(board, { previewEyeIds, landing });
-  lastSight = { board, key, sight };
+  lastSight = { parts, shapingKey, landing, sight };
   return sight;
+}
+
+function partsOf(board: BoardStateDto, previewEyeIds: readonly string[] | null): SightParts {
+  const { scene, viewer, tokens, walls, lights } = board;
+  const previewKey = JSON.stringify(previewEyeIds);
+  return {
+    vision: scene.vision,
+    viewer: `${viewer.userId}:${viewer.role}`,
+    tokens,
+    walls,
+    lights,
+    previewKey,
+  };
+}
+
+function sameParts(a: SightParts, b: SightParts): boolean {
+  return (
+    a.vision === b.vision &&
+    a.viewer === b.viewer &&
+    a.tokens === b.tokens &&
+    a.walls === b.walls &&
+    a.lights === b.lights &&
+    a.previewKey === b.previewKey
+  );
+}
+
+function poseKeyOf(landing: TokenLanding, ids: ReadonlySet<string>): string {
+  const shaping = [...landing].filter(([id]) => ids.has(id));
+  return JSON.stringify(shaping.sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function movedIdsOf(before: TokenLanding, after: TokenLanding): string[] {
+  const ids = new Set([...before.keys(), ...after.keys()]);
+  return [...ids].filter((id) => {
+    const was = before.get(id);
+    const now = after.get(id);
+    return was?.col !== now?.col || was?.row !== now?.row || was?.facing !== now?.facing;
+  });
 }
 
 /** The sight filter of the room, recomputed when the confirmed board, a drag (this viewer's, the

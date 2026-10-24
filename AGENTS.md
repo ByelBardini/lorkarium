@@ -34,15 +34,16 @@ docs/plans/              # Planos do /planejamento, /construir-tela e /refatorar
 .claude/skills/desenvolver-server/ # /desenvolver-server <pedido>: fatia nova do server camada por camada, com driver de conferência de camadas
 ```
 
-Pastas que **ainda não existem**, mas têm lugar definido (spec §10 e as skills): `client/src/renderer/`. O Socket.IO do server vive em `server/src/realtime/` (ver `docs/context/server.md`, Tempo real).
+O tabuleiro do client vive em `client/src/renderer/` (PixiJS, sem React). O Socket.IO do server vive em `server/src/realtime/` (ver `docs/context/server.md`, Tempo real).
 
 Comandos da raiz (`package.json`):
 
 - `pnpm dev` — sobe o Postgres e o SeaweedFS (`db:up`, espera os healthchecks), aplica as migrações e roda client e server em paralelo (exige o Docker Desktop aberto)
 - `pnpm build` / `pnpm typecheck` — em todos os workspaces
 - `pnpm test` — Vitest de todos os workspaces, sem a integração do server · `pnpm test:integration` — só `server/test/integration/` (exige Postgres; receita no `/testar`) · `pnpm test:packages` / `test:client` / `test:server` — uma camada, com cobertura (ver `docs/context/ci.md`) · `pnpm exec vitest run <spec>` — um spec · `pnpm exec vitest run --project @lorkarium/<nome>` — um workspace
+- `pnpm bench` — os `*.bench.ts` (cena de estresse do tabuleiro, visão do game-core), fora do `pnpm test` e do CI (ver `docs/context/client/performance.md`)
 - `pnpm lint` · `pnpm format` · `pnpm format:check`
-- `pnpm db:up` / `pnpm db:down` — Postgres e SeaweedFS (S3) de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção)
+- `pnpm db:up` / `pnpm db:down` — Postgres e SeaweedFS (S3) de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção) · `pnpm db:seed-stress` — a "Mesa de estresse" da Bia no tamanho-alvo do bench (depois do `db:seed-dev`; recusa em produção)
 
 ## Camadas do server
 
@@ -66,26 +67,27 @@ O vocabulário segue o artigo [Diferença entre os patterns PO, POJO, BO, DTO e 
 
 Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um workspace tem o nome dele (`server.md`, `client.md`, `game-core.md`, `contracts.md`) e o de uma área, o nome da pasta dela no código (`combat.md`, `board.md`) — é assim que os drivers montam o `leia antes:`.
 
-| Área         | O que cobre                                                                       | Arquivo                                                        |
-| ------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| contracts    | DTOs Zod compartilhados (auth, mesas, sessão, tabuleiro, erro)                    | [`docs/context/contracts.md`](docs/context/contracts.md)       |
-| game-core    | Regra de jogo pura: célula, distância, barra, turno, visão, cone, luz             | [`docs/context/game-core.md`](docs/context/game-core.md)       |
-| server       | Encanamento: env, banco, migrações, app, unit × integração                        | [`docs/context/server.md`](docs/context/server.md)             |
-| auth         | Contas, login, sessão por cookie, papel global (server + client)                  | [`docs/context/auth.md`](docs/context/auth.md)                 |
-| campaigns    | Mesas: criação, participação, lista, detalhe, entrada por código                  | [`docs/context/campaigns.md`](docs/context/campaigns.md)       |
-| board        | Tabuleiro: cena (grid), versão por cena, depois tokens e combate                  | [`docs/context/board.md`](docs/context/board.md)               |
-| tokens       | Tokens da cena: tamanho, barras, controle, principal, cone, luz, redação, camadas | [`docs/context/tokens.md`](docs/context/tokens.md)             |
-| member-cards | Ficha da mesa: nome do personagem, CA, CD e anotações por membro                  | [`docs/context/member-cards.md`](docs/context/member-cards.md) |
-| combat       | Condições e combate: entradas em grupo, turno, rodada, duração                    | [`docs/context/combat.md`](docs/context/combat.md)             |
-| drawings     | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição            | [`docs/context/drawings.md`](docs/context/drawings.md)         |
-| effect-areas | Áreas de efeito: formas, casas pintadas, autor, alças, versão                     | [`docs/context/effect-areas.md`](docs/context/effect-areas.md) |
-| walls        | Paredes e portas: tipos, formas, passagem, porta vista, visão                     | [`docs/context/walls.md`](docs/context/walls.md)               |
-| lights       | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre              | [`docs/context/lights.md`](docs/context/lights.md)             |
-| sessions     | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão          | [`docs/context/sessions.md`](docs/context/sessions.md)         |
-| assets       | Imagens da mesa: S3, envio, link seguro, leitura pela origem                      | [`docs/context/assets.md`](docs/context/assets.md)             |
-| client       | SPA: estrutura, rotas, shell e home, testes, design system                        | [`docs/context/client.md`](docs/context/client.md)             |
-| ci           | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo    | [`docs/context/ci.md`](docs/context/ci.md)                     |
-| health       | `GET /api/health` (ping no Postgres, 200/503, pública)                            | [`docs/context/health.md`](docs/context/health.md)             |
+| Área         | O que cobre                                                                    | Arquivo                                                        |
+| ------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| contracts    | DTOs Zod compartilhados (auth, mesas, sessão, tabuleiro, erro)                 | [`docs/context/contracts.md`](docs/context/contracts.md)       |
+| game-core    | Regra de jogo pura: célula, distância, barra, turno, visão, cone, luz          | [`docs/context/game-core.md`](docs/context/game-core.md)       |
+| server       | Encanamento: env, banco, migrações, app, tempo real, regras de desempenho      | [`docs/context/server.md`](docs/context/server.md)             |
+| auth         | Contas, login, sessão por cookie, papel global (server + client)               | [`docs/context/auth.md`](docs/context/auth.md)                 |
+| campaigns    | Mesas: criação, participação, lista, detalhe, entrada por código               | [`docs/context/campaigns.md`](docs/context/campaigns.md)       |
+| board        | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas    | [`docs/context/board.md`](docs/context/board.md)               |
+| library      | Biblioteca de grids: pastas, visibilidade, REST, duplicar, ativação e expulsão | [`docs/context/library.md`](docs/context/library.md)           |
+| tokens       | Tokens: barras, controle, principal, cone, luz, redação, personagem (elenco)   | [`docs/context/tokens.md`](docs/context/tokens.md)             |
+| member-cards | Ficha da mesa: nome do personagem, CA, CD e anotações por membro               | [`docs/context/member-cards.md`](docs/context/member-cards.md) |
+| combat       | Condições e combate: entradas em grupo, turno, rodada, duração                 | [`docs/context/combat.md`](docs/context/combat.md)             |
+| drawings     | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição         | [`docs/context/drawings.md`](docs/context/drawings.md)         |
+| effect-areas | Áreas de efeito: formas, casas pintadas, autor, alças, versão                  | [`docs/context/effect-areas.md`](docs/context/effect-areas.md) |
+| walls        | Paredes e portas: tipos, formas, passagem, porta vista, visão                  | [`docs/context/walls.md`](docs/context/walls.md)               |
+| lights       | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre           | [`docs/context/lights.md`](docs/context/lights.md)             |
+| sessions     | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão       | [`docs/context/sessions.md`](docs/context/sessions.md)         |
+| assets       | Imagens da mesa: S3, envio, link seguro, leitura pela origem                   | [`docs/context/assets.md`](docs/context/assets.md)             |
+| client       | SPA: estrutura, rotas, shell e home, testes, design system, desempenho         | [`docs/context/client.md`](docs/context/client.md)             |
+| ci           | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo | [`docs/context/ci.md`](docs/context/ci.md)                     |
+| health       | `GET /api/health` (ping no Postgres, 200/503, pública)                         | [`docs/context/health.md`](docs/context/health.md)             |
 
 Área sem linha aqui ainda não tem doc: o `/atualizar-contexto` cria o hub junto com o primeiro código da área. Até lá, a referência é o `docs/spec.md`.
 
@@ -102,4 +104,5 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 3. Server: a camada está no sufixo do arquivo (tabela acima); feature nova = pasta em `server/src/modules/` com plugin próprio registrado em `server/src/app/`. Conferir com `node .claude/skills/desenvolver-server/driver.mjs <alvo>`.
 4. Client: tabuleiro no renderer PixiJS (`src/renderer/`, sem React); rede em `src/services/`; estado confirmado × local em `src/stores/`; tela em `src/features/<área>/`. Rota do React Router 8: ler `client/node_modules/react-router/docs/` antes.
 5. Env var nova: schema Zod em `server/src/config/`, `server/.env.example`, e o valor recebido por parâmetro — nunca `process.env` fora de lá e de `src/index.ts`.
-6. Antes de finalizar: `pnpm test && pnpm lint && pnpm typecheck`.
+6. Mexeu no renderer, na visão/névoa/luz do client ou na regra de visão e passagem do game-core: ler as "Regras de desempenho" de `docs/context/client/performance.md` e rodar `pnpm bench` antes e depois (a memória é por identidade de array; um `map` no lugar errado desfaz tudo).
+7. Antes de finalizar: `pnpm test && pnpm lint && pnpm typecheck`.

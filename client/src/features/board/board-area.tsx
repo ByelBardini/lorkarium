@@ -9,7 +9,7 @@ import type { OpenTableView } from '@/features/sessions/use-open-table';
 import type { BoardIntent, BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
 import { selectionMoveOf } from '@/lib/selection-move';
 import { shapeBox } from '@/lib/drawing-geometry';
-import { gameWallOf } from '@/lib/wall-geometry';
+import { gameWallsOf } from '@/lib/wall-geometry';
 import { groupMemberOf } from '@/lib/token-group';
 import type { BoardInteractionStore, DragGroup } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
@@ -302,7 +302,7 @@ function dragGroupOf({ board, interaction }: IntentStores, anchorId: string): Dr
   });
   const { widthCells, heightCells } = state.scene;
   // The master passes every wall; a player's token is stopped by them.
-  const walls = state.viewer.role === 'master' ? undefined : state.walls.map(gameWallOf);
+  const walls = state.viewer.role === 'master' ? undefined : gameWallsOf(state.walls);
   return { members, scene: { widthCells, heightCells }, walls };
 }
 

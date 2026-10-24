@@ -2,7 +2,7 @@ import { LIGHTS_PER_SCENE_MAX } from '@lorkarium/contracts';
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
-import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
+import type { MembershipReader } from '../campaigns/cached-memberships';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { LightsDao } from './lights.dao';
@@ -10,6 +10,8 @@ import { LightsService, type LightTransactionRunner } from './lights.service';
 
 export type LightsModuleOptions = Readonly<{
   db: Database;
+  /** Shared by the board modules: the memberships remembered by the campaigns module. */
+  members: MembershipReader;
   publisher: BoardPublisherPort;
   clock: ClockPort;
 }>;
@@ -25,7 +27,7 @@ export function createLightsModule(options: LightsModuleOptions): LightsModule {
       work({ scenes: new ScenesDao(tx), lights: new LightsDao(tx) }),
     );
   const service = new LightsService({
-    members: new CampaignMembersDao(options.db),
+    members: options.members,
     transaction,
     publisher: options.publisher,
     clock: options.clock,

@@ -1,5 +1,5 @@
 import { BOARD_EVENTS, type EffectAreaShapeDto } from '@lorkarium/contracts';
-import type { BoardCommandResult, BoardCommandSender } from './board-command-sender';
+import type { BoardCommandResult, BoardCommandSender, BoardScope } from './board-command-sender';
 
 /** The whole shape of an area as sent: kind, origin, sizes, facing and color. */
 export type EffectAreaShape = EffectAreaShapeDto;
@@ -10,20 +10,20 @@ export type EffectAreaReshapeTarget = EffectAreaShaped & Readonly<{ expect?: Eff
 
 /** The area-of-effect commands of an open table; each answers with its ack, never throws.
  *
- *  Example: `await commands.createEffectAreas(campaignId, [circle])` */
+ *  Example: `await commands.createEffectAreas(scope, [circle])` */
 export interface EffectAreaCommands {
   /** Any member; the ok answers the new ids in `createdIds`, in the order sent. */
   createEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     shapes: readonly EffectAreaShape[],
   ): Promise<BoardCommandResult>;
   /** Move, stretch and turn send the whole new shape (the author or the master). */
   reshapeEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     reshapes: readonly EffectAreaReshapeTarget[],
   ): Promise<BoardCommandResult>;
   deleteEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     effectAreaIds: readonly string[],
     expect?: readonly EffectAreaShaped[],
   ): Promise<BoardCommandResult>;
@@ -31,20 +31,20 @@ export interface EffectAreaCommands {
 
 /** `EffectAreaCommands` over the board command sender; an absent `expect` sends no field.
  *
- *  Example: `new RealtimeEffectAreaCommands(sender).deleteEffectAreas(campaignId, [id])` */
+ *  Example: `new RealtimeEffectAreaCommands(sender).deleteEffectAreas(scope, [id])` */
 export class RealtimeEffectAreaCommands implements EffectAreaCommands {
   constructor(private readonly sender: BoardCommandSender) {}
 
   createEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     shapes: readonly EffectAreaShape[],
   ): Promise<BoardCommandResult> {
     const effectAreas = [...shapes];
-    return this.sender.send(BOARD_EVENTS.createEffectAreas, campaignId, { effectAreas });
+    return this.sender.send(BOARD_EVENTS.createEffectAreas, scope, { effectAreas });
   }
 
   reshapeEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     reshapes: readonly EffectAreaReshapeTarget[],
   ): Promise<BoardCommandResult> {
     const sent = reshapes.map(({ effectAreaId, shape, expect }) => ({
@@ -52,18 +52,18 @@ export class RealtimeEffectAreaCommands implements EffectAreaCommands {
       shape,
       ...(expect && { expect }),
     }));
-    return this.sender.send(BOARD_EVENTS.reshapeEffectAreas, campaignId, { reshapes: sent });
+    return this.sender.send(BOARD_EVENTS.reshapeEffectAreas, scope, { reshapes: sent });
   }
 
   deleteEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     effectAreaIds: readonly string[],
     expect?: readonly EffectAreaShaped[],
   ): Promise<BoardCommandResult> {
     const precondition = expect && {
       expect: expect.map(({ effectAreaId, shape }) => ({ effectAreaId, shape })),
     };
-    return this.sender.send(BOARD_EVENTS.deleteEffectAreas, campaignId, {
+    return this.sender.send(BOARD_EVENTS.deleteEffectAreas, scope, {
       effectAreaIds: [...effectAreaIds],
       ...precondition,
     });

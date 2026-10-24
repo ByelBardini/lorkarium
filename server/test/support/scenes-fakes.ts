@@ -7,6 +7,7 @@ import type {
   ConditionsAppliedDto,
   ConditionDefinedDto,
   ConditionRemovedDto,
+  ConditionsChangedDto,
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
@@ -45,18 +46,28 @@ import type {
   TokenChange,
   TokensCreation,
 } from '../../src/modules/scenes/board-publisher.port';
-import type { SceneRow, ScenesDao } from '../../src/modules/scenes/scenes.dao';
+import type { AddressedSceneRow, SceneRow, ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import type { SceneTransactionRunner } from '../../src/modules/scenes/scenes.service';
 import type { NewScenePo, SceneConfigPo, ScenePo } from '../../src/modules/scenes/scenes.po';
 import { AssetsDaoFake } from './assets-fakes';
 import { scenePo } from './scenes-factories';
 
 /** In-memory scenes table. `activeOf` maps a campaign to its active scene (the
- *  `campaigns.active_scene_id` of the real query); `journal` records lock, update and bump in order.
+ *  `campaigns.active_scene_id` of the real query); `journal` records lock, update and bump in order
+ *  (`lockInCampaign` of an addressed grid writes `lockInCampaign:<id>`; of the group grid, `lock`).
  *  `backgrounds` holds the pixels of each background asset id (the join of the real query). */
 export class ScenesDaoFake implements Pick<
   ScenesDao,
-  'insert' | 'findActiveOf' | 'lockActiveOf' | 'bumpVersion' | 'update'
+  | 'insert'
+  | 'findActiveOf'
+  | 'lockActiveOf'
+  | 'lockInCampaign'
+  | 'shareInCampaign'
+  | 'findGridInCampaign'
+  | 'findCastOf'
+  | 'lockCastOf'
+  | 'bumpVersion'
+  | 'update'
 > {
   readonly journal: string[] = [];
   readonly activeOf = new Map<string, string>();
@@ -81,9 +92,43 @@ export class ScenesDaoFake implements Pick<
     return this.findActiveOf(campaignId);
   }
 
+  async lockInCampaign(
+    campaignId: string,
+    sceneId?: string,
+  ): Promise<AddressedSceneRow | undefined> {
+    this.journal.push(sceneId === undefined ? 'lock' : `lockInCampaign:${sceneId}`);
+    return this.addressed(campaignId, sceneId);
+  }
+
+  async findGridInCampaign(
+    campaignId: string,
+    sceneId?: string,
+  ): Promise<AddressedSceneRow | undefined> {
+    return this.addressed(campaignId, sceneId);
+  }
+
+  async shareInCampaign(
+    campaignId: string,
+    sceneId: string,
+  ): Promise<AddressedSceneRow | undefined> {
+    this.journal.push(`share:${sceneId}`);
+    return this.addressed(campaignId, sceneId);
+  }
+
+  async findCastOf(campaignId: string): Promise<SceneRow | undefined> {
+    const row = this.rows.find((each) => each.campaignId === campaignId && each.kind === 'cast');
+    return row && this.withBackground(row);
+  }
+
+  async lockCastOf(campaignId: string): Promise<SceneRow | undefined> {
+    this.journal.push('lock cast');
+    return this.findCastOf(campaignId);
+  }
+
+  /** Writes `bump` for a grid and `bump cast` for the cast. */
   async bumpVersion(sceneId: string): Promise<number> {
-    this.journal.push('bump');
     const row = this.rowOf(sceneId);
+    this.journal.push(row.kind === 'cast' ? 'bump cast' : 'bump');
     row.version += 1;
     return row.version;
   }
@@ -93,6 +138,18 @@ export class ScenesDaoFake implements Pick<
     const row = this.rowOf(sceneId);
     Object.assign(row, config);
     return { ...row };
+  }
+
+  /** Makes a grid public or private, as the library's PATCH would. */
+  setVisibility(sceneId: string, visibility: ScenePo['visibility']): void {
+    this.rowOf(sceneId).visibility = visibility;
+  }
+
+  private addressed(campaignId: string, sceneId?: string): AddressedSceneRow | undefined {
+    const activeId = this.activeOf.get(campaignId);
+    const wanted = sceneId ?? activeId;
+    const row = this.rows.find((each) => each.id === wanted && each.campaignId === campaignId);
+    return row && { ...this.withBackground(row), isActive: row.id === activeId };
   }
 
   private withBackground(row: ScenePo): SceneRow {
@@ -140,6 +197,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly conditionEvents: Array<ConditionDefinedDto | ConditionAppliedDto | ConditionRemovedDto> =
     [];
   readonly conditionsApplies: ConditionsAppliedDto[] = [];
+  readonly conditionsChanges: ConditionsChangedDto[] = [];
   readonly drawingsCreates: DrawingsCreatedDto[] = [];
   readonly drawingsMoves: DrawingsMovedDto[] = [];
   readonly drawingsDeletes: DrawingsDeletedDto[] = [];
@@ -349,6 +407,11 @@ export class BoardPublisherFake implements BoardPublisherPort {
   conditionRemoved(event: ConditionRemovedDto): void {
     this.journal.push('publish');
     this.conditionEvents.push(event);
+  }
+
+  conditionsChanged(event: ConditionsChangedDto): void {
+    this.journal.push('publish');
+    this.conditionsChanges.push(event);
   }
 
   combatStarted(event: CombatStartedDto): void {

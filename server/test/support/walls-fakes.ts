@@ -1,3 +1,4 @@
+import { SceneWallsService } from '../../src/modules/walls/scene-walls.service';
 import type { WallsDao } from '../../src/modules/walls/walls.dao';
 import type { NewWallPo, WallKindPo, WallMovePo, WallPo } from '../../src/modules/walls/walls.po';
 import type { WallTransactionRunner } from '../../src/modules/walls/walls.service';
@@ -100,4 +101,36 @@ export class WallTransactionRunnerFake {
     this.scenes.journal.push('commit');
     return result;
   };
+}
+
+/** The walls of each scene as `listOfScene` reads them; `listed` keeps every scene asked.
+ *
+ *  Example: `const dao = new WallListingsFake([northWallPo()]); dao.listed // ['scene-1']` */
+export class WallListingsFake implements Pick<WallsDao, 'listOfScene'> {
+  readonly listed: string[] = [];
+
+  constructor(readonly rows: WallPo[] = []) {}
+
+  async listOfScene(sceneId: string): Promise<WallPo[]> {
+    this.listed.push(sceneId);
+    return this.rows.filter((row) => row.sceneId === sceneId);
+  }
+}
+
+/** The real memory of scene walls that also writes 'forget' to a journal when given one, so a
+ *  spec reads where in the command the walls were forgotten.
+ *
+ *  Example: `new SceneWallsFake(scenes.journal)` */
+export class SceneWallsFake extends SceneWallsService {
+  readonly forgotten: string[] = [];
+
+  constructor(private readonly journal: string[] | null = null) {
+    super();
+  }
+
+  override forget(sceneId: string): void {
+    this.forgotten.push(sceneId);
+    this.journal?.push('forget');
+    super.forget(sceneId);
+  }
 }

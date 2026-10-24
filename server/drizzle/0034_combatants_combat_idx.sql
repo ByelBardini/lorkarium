@@ -1,0 +1,1 @@
+CREATE INDEX "combatants_combat_idx" ON "combatants" USING btree ("combat_id");

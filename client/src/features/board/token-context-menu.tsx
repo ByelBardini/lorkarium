@@ -21,6 +21,7 @@ import {
   mainTokenPlayersOf,
   type MainTokenPlayer,
 } from '@/lib/main-token';
+import { TokenLinkItems, type CardLinkRequest } from '@/features/tokens/token-link-items';
 import type { TokenStyle } from '@/services/table-board-commands';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
@@ -40,6 +41,12 @@ export type TokenContextMenuProps = Readonly<{
   onApplyCondition: (tokenIds: readonly string[]) => void;
   /** "Imagem…": the token whose image dialog opens. */
   onChangeImage: (tokenId: string) => void;
+  /** The master's "Ligar à ficha de ▸" / "Desligar da ficha": the table's cast, and where a link
+   *  that needs a yes goes. Absent: no character items. */
+  characters?: Readonly<{
+    cast: StoreApi<BoardStore>;
+    onConfirmLink: (request: CardLinkRequest) => void;
+  }>;
   onClose: () => void;
 }>;
 
@@ -51,7 +58,8 @@ export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
  *  master's "Tornar principal de ▸" (the players listed in its control), "Morto", "Luz acesa"
  *  (only on a token that gives off light), "Imagem…",
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
- *  token alone); the master also gets "Mover para camada". Closing (a choice, Esc, a click away)
+ *  token alone); the master also gets "Ligar à ficha de ▸" / "Desligar da ficha" (with
+ *  `characters`) and "Mover para camada". Closing (a choice, Esc, a click away)
  *  tells `onClose`.
  *
  *  Example: `{menu && <TokenContextMenu request={menu} board={board} interaction={interaction} onApplyCondition={open} onChangeImage={openImage} onClose={() => setMenu(null)} />}` */
@@ -73,7 +81,7 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
   const restyle = (style: TokenStyle): void => {
     void interaction
       .getState()
-      .command((commands, campaignId) => commands.restyleTokens(campaignId, targets(), style));
+      .command((commands, scope) => commands.restyleTokens(scope, targets(), style));
   };
   return (
     <DropdownMenu open onOpenChange={(open) => !open && onClose()}>
@@ -101,7 +109,7 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
             onSelect={() =>
               void interaction
                 .getState()
-                .command((commands, campaignId) => commands.setMainToken(campaignId, token.id))
+                .command((commands, scope) => commands.setMainToken(scope, token.id))
             }
           >
             Tornar principal
@@ -113,10 +121,17 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
             onChoose={(playerId) =>
               void interaction
                 .getState()
-                .command((commands, campaignId) =>
-                  commands.setMainToken(campaignId, token.id, playerId),
-                )
+                .command((commands, scope) => commands.setMainToken(scope, token.id, playerId))
             }
+          />
+        )}
+        {layerMenu && props.characters && (
+          <TokenLinkItems
+            token={token}
+            cast={props.characters.cast}
+            presence={props.presence}
+            interaction={interaction}
+            onConfirmLink={props.characters.onConfirmLink}
           />
         )}
         <DropdownMenuCheckboxItem

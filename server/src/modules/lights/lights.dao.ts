@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
+import { sceneRowsCopySql } from '../../database/copy-rows';
 import type { DatabaseExecutor } from '../../database/transaction';
 import {
   lights,
@@ -14,6 +15,13 @@ import {
  *  finds and touches nothing (§2.6). Group writes run on the DAO built with the `tx`. */
 export class LightsDao {
   constructor(private readonly db: DatabaseExecutor) {}
+
+  /** Copies every one of the lights (an unlit one stays unlit) of `fromSceneId` into `toSceneId`, with new ids and in the
+   *  same order (the duplicate of a grid). */
+  async copyScene(fromSceneId: string, toSceneId: string): Promise<void> {
+    const copy = { table: lights, sceneId: lights.sceneId, order: lights.lightOrder };
+    await this.db.execute(sceneRowsCopySql(copy, fromSceneId, toSceneId));
+  }
 
   async insertMany(rows: readonly NewLightPo[]): Promise<LightPo[]> {
     if (rows.length === 0) return [];

@@ -74,7 +74,14 @@ describe('MainTokenService', () => {
       { sceneId: VHARN_SCENE_ID, userId: BIA_ID, tokenId: LYRA_ID },
     ]);
     expect(publisher.mainTokenChanges).toEqual([
-      { campaignId: VHARN_ID, version: 8, at: NOW.toISOString(), userId: BIA_ID, tokenId: LYRA_ID },
+      {
+        campaignId: VHARN_ID,
+        sceneId: VHARN_SCENE_ID,
+        version: 8,
+        at: NOW.toISOString(),
+        userId: BIA_ID,
+        tokenId: LYRA_ID,
+      },
     ]);
   });
 

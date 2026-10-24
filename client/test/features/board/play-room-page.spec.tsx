@@ -19,7 +19,9 @@ import {
   eventAt,
   vharnCombat,
   vharnState,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
+import { anchorUpdatedAt, castBoard, linkedLyra } from '../../support/cast-fixtures';
 import { emulateViewport } from '../../support/viewport';
 
 const TOO_MANY = 'Você já tem 5 mesas abertas. Feche uma no menu lateral para abrir esta.';
@@ -298,6 +300,7 @@ describe('play room page', () => {
       const OTHER_TABLES = [1, 2, 3, 4, 5].map((n) => ({
         campaignId: `a1000000-0000-4000-8000-00000000000${n}`,
         name: `Mesa ${n}`,
+        castSceneId: `c1000000-0000-4000-8000-00000000000${n}`,
       }));
 
       beforeEach(() => {
@@ -447,7 +450,7 @@ describe('play room page', () => {
         .latest()
         .emit({ kind: 'tokenDropped', tokenId: LYRA_ID, cell: cell(8, 6) });
       expect(deps.boardCommands.sentAs('moveToken')).toEqual([
-        { name: 'moveToken', campaignId: VHARN.id, fields: { tokenId: LYRA_ID, col: 8, row: 6 } },
+        { name: 'moveToken', ...VHARN_GRID, fields: { tokenId: LYRA_ID, col: 8, row: 6 } },
       ]);
       expect(lastView()?.ghosts).toEqual([
         { tokenId: LYRA_ID, col: 8, row: 6, width: 1, height: 1 },
@@ -492,6 +495,21 @@ describe('play room page', () => {
         .latest()
         .emit({ kind: 'tokenDropped', tokenId: LYRA_ID, cell: cell(8, 6) });
       expect(deps.boardCommands.sent).toEqual([]);
+    });
+
+    it("the anchor's token:updated in the cast changes the PV of a linked Lyra on the canvas", async () => {
+      await renderLiveRoom();
+      deps.tableSessionApi.emit({ kind: 'board', state: vharnBoard({ tokens: [linkedLyra()] }) });
+      deps.tableSessionApi.emitToCast(VHARN.id, { kind: 'board', state: castBoard() });
+      await act(() => Promise.resolve());
+      expect(lastView()?.tokens[0]?.bar?.fraction).toBe(25 / 45);
+      deps.tableSessionApi.emitToCast(VHARN.id, {
+        kind: 'boardEvent',
+        event: anchorUpdatedAt(4, 18),
+      });
+      await act(() => Promise.resolve());
+      expect(lastView()?.tokens[0]?.bar?.fraction).toBe(18 / 45);
+      expect(lastView()?.tokens[0]).toMatchObject({ col: 3, row: 4 });
     });
 
     it('the snapshot of a reconnection drops a pending preview', async () => {

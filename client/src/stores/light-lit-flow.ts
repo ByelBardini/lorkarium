@@ -20,7 +20,7 @@ export async function setLightsLitOf(
 ): Promise<void> {
   if (store.getState().readOnly || lights.length === 0) return;
   const ids = lights.map(({ id }) => id);
-  const result = await deps.commands.setLightsLit(deps.campaignId, ids, lit);
+  const result = await deps.commands.setLightsLit(deps.scopeOf(), ids, lit);
   const said = lit ? LIGHT_LIT : LIGHT_PUT_OUT;
   store.setState({ notice: result.ok ? said : deps.describeRefusal(result.failure) });
 }

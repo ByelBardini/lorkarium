@@ -114,3 +114,17 @@ describe('lightTintViewOf of a spotlight', () => {
     expect(left).not.toBe(down);
   });
 });
+
+describe('lightTintViewOf reuses the last view', () => {
+  it('the same lights, walls and landing give back the very same LightTintView', () => {
+    const same = input({ walls: [cellDoor()] });
+    expect(lightTintViewOf({ ...same })).toBe(lightTintViewOf(same));
+  });
+
+  it('the colored light moved gives a new view', () => {
+    const before = lightTintViewOf(input());
+    const moved = lightTintViewOf(input({ lights: [{ ...INFERNAL_TORCH, x: 9 }] }));
+    expect(moved).not.toBe(before);
+    expect(moved?.key).not.toBe(before?.key);
+  });
+});

@@ -12,7 +12,7 @@ import { VHARN } from '../../support/campaigns-api-fake';
 import { StorageFake } from '../../support/storage-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { CORRIDOR_TORCH_ID, corridorTorch } from '../../support/light-fixtures';
-import { vharnBoard } from '../../support/table-session-fixtures';
+import { vharnBoard, VHARN_GRID } from '../../support/table-session-fixtures';
 
 describe('routeLightIntent', () => {
   let commands: TableBoardCommandsFake;
@@ -24,7 +24,7 @@ describe('routeLightIntent', () => {
   beforeEach(() => {
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });

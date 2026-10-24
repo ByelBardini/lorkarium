@@ -10,7 +10,7 @@ import { levelOf } from '@/lib/board-sight';
 import { sideRingVar } from '@/lib/token-side';
 import { initialsOf } from '@/lib/token-initials';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
-import type { BoardStore } from '@/stores/board-store';
+import { useBoard, type BoardStore } from '@/stores/board-store';
 import { presenceOf } from '@/lib/member-presence';
 import { PresenceMark } from './presence-mark';
 
@@ -90,25 +90,29 @@ export function NickLine({
 }
 
 /** The bars of the main token, as this viewer received them (a hidden bar never comes); whoever
- *  controls the token edits each one in its balloon.
+ *  controls the token edits each one in its balloon, while it is on this grid (the anchor of a
+ *  character in no grid of the group is only shown).
  *
- *  Example: `<CardBars token={lyra} name="Lyra" interaction={interaction} />` */
+ *  Example: `<CardBars token={lyra} name="Lyra" board={board} interaction={interaction} />` */
 export function CardBars({
   token,
   name,
+  board,
   interaction,
 }: Readonly<{
   token: TokenDto | null;
   name: string;
+  board: StoreApi<BoardStore>;
   interaction: StoreApi<BoardInteractionStore>;
 }>) {
+  const onGrid = useOnGrid(board, token?.id ?? null);
   if (!token) return <CardNote>Sem token principal nesta cena.</CardNote>;
   if (token.bars.length === 0) return <CardNote>Token sem barras</CardNote>;
   const bars = [...token.bars].sort((a, b) => a.position - b.position);
   return (
     <div className="flex flex-col gap-1.5">
       {bars.map((bar) =>
-        token.canControl ? (
+        token.canControl && onGrid ? (
           <BarQuickEdit
             key={bar.id}
             tokenId={token.id}
@@ -124,6 +128,10 @@ export function CardBars({
       )}
     </div>
   );
+}
+
+function useOnGrid(board: StoreApi<BoardStore>, tokenId: string | null): boolean {
+  return useBoard(board, (state) => state.board?.tokens.some(({ id }) => id === tokenId) ?? false);
 }
 
 function CardNote({ children }: Readonly<{ children: string }>) {
@@ -157,12 +165,14 @@ export type LocateButtonProps = Readonly<{
 }>;
 
 /** "Achar no mapa": selects the token, and the board's camera goes to the selection. Only for a
- *  token this viewer sees: the card itself shows past the sight filter, the button does not.
+ *  token on this grid that this viewer sees: the card itself shows past the sight filter (and
+ *  shows the character's anchor when it is in no grid of the group), the button does not.
  *
  *  Example: `<LocateButton token={lyra} name="Lyra" board={board} interaction={interaction} />` */
 export function LocateButton({ token, name, board, interaction }: LocateButtonProps) {
   const sight = useBoardSight(board, interaction);
-  if (levelOf(sight, token.id) !== 'seen') return null;
+  const onGrid = useOnGrid(board, token.id);
+  if (!onGrid || levelOf(sight, token.id) !== 'seen') return null;
   return (
     <Button
       variant="ghost"

@@ -1,5 +1,6 @@
 import { cell, type Cell } from '@lorkarium/game-core';
 import { Application, Container } from 'pixi.js';
+import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
 import type { BoardIntentListener, BoardRenderer, CreateBoardRenderer } from './board-renderer';
 import { boardCursorOf } from './board-cursor';
 import { imageUrlsOf, type BoardView } from './board-view';
@@ -15,7 +16,6 @@ import {
   type Size,
 } from './camera';
 import {
-  blocksBrowserMenu,
   cameraKeyAction,
   endRightDrag,
   keyboardPan,
@@ -26,6 +26,8 @@ import {
   type PanKey,
   type RightDrag,
 } from './camera-input';
+import { FrameWork } from './frame-work';
+import { followHostSize, holdBackBrowserMenu } from './host-listeners';
 import { cellAtWorld } from './grid-geometry';
 import { DrawingGestures } from './drawing-gestures';
 import { EffectAreaGestures } from './effect-area-gestures';
@@ -60,13 +62,17 @@ const PANEL_COLOR = 0x0c0e11;
 const BUTTON_ZOOM_STEP = 1.25;
 const SECONDARY_BUTTON = 2;
 const PRIMARY_BUTTON = 0;
-const EDITABLE = 'input, textarea, [contenteditable]:not([contenteditable="false"])';
 
-/** The PixiJS board, as `AppDependencies.createBoardRenderer` in the app.
+/** The PixiJS board, as `AppDependencies.createBoardRenderer` in the app; the dev panel
+ *  (`?perf=1`) hands it a recording probe.
  *
- *  Example: `buildRoutes({ ...deps, createBoardRenderer: createPixiBoardRenderer })` */
-export const createPixiBoardRenderer: CreateBoardRenderer = (onIntent) =>
-  new PixiBoardRenderer(onIntent);
+ *  Example: `buildRoutes({ ...deps, createBoardRenderer: (onIntent) => createPixiBoardRenderer(onIntent, probe) })` */
+export function createPixiBoardRenderer(
+  onIntent: Parameters<CreateBoardRenderer>[0],
+  probe: PerfProbe = NO_PERF_PROBE,
+): BoardRenderer {
+  return new PixiBoardRenderer(onIntent, probe);
+}
 
 /** Thin shell over PixiJS: every decision (camera math, input mapping, grid lines, what to draw)
  *  is in the pure modules beside it; this only wires them to the canvas. Proven by the e2e. */
@@ -87,14 +93,14 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly fog = new PixiFogLayer();
   private readonly overlays = new PixiBoardOverlays((intent) => this.onIntent(intent));
   private readonly lightGestures = new LightGestures((intent) => this.onIntent(intent));
-  // A texture that arrives later draws the last view again, with the image this time.
-  private readonly textures = new PixiTextureCache(() => this.view && this.draw(this.view));
-  private readonly background = new PixiSceneBackground(this.textures);
-  private readonly tokens = new PixiTokenLayer(
-    prefersReducedMotion,
-    this.effectAreas.under(this.drawings.layer),
-    this.textures,
+  // Every change only marks what to redraw; the ticker draws once per frame (`flush`).
+  private readonly frame = new FrameWork();
+  // A background that arrives draws the view again; a token image only the tokens showing it.
+  private readonly textures = new PixiTextureCache(
+    this.frame.touching((url: string) => this.textureArrived(url)),
   );
+  private readonly background = new PixiSceneBackground(this.textures);
+  private readonly tokens: PixiTokenLayer;
   private readonly gestures = new DrawingGestures(this.drawings, (intent) => this.onIntent(intent));
   private readonly areaGestures = new EffectAreaGestures(this.effectAreas, (intent) =>
     this.onIntent(intent),
@@ -104,7 +110,13 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly world = new Container();
   private readonly sceneGrid = new PixiSceneGrid();
 
-  constructor(private readonly onIntent: BoardIntentListener) {}
+  constructor(
+    private readonly onIntent: BoardIntentListener,
+    private readonly probe: PerfProbe,
+  ) {
+    const beneath = this.effectAreas.under(this.drawings.layer);
+    this.tokens = new PixiTokenLayer(prefersReducedMotion, beneath, this.textures, probe);
+  }
 
   async mount(host: HTMLElement): Promise<void> {
     const app = new Application();
@@ -126,32 +138,25 @@ class PixiBoardRenderer implements BoardRenderer {
     );
     app.stage.addChild(this.world);
     this.listen(host, app.canvas);
-    this.followHostSize(host, app);
+    this.disposers.push(followHostSize(host, app));
+    app.ticker.remove(app.render, app);
     app.ticker.add((ticker) => {
+      this.probe.frame(ticker.deltaMS);
       this.panWithKeys(ticker.deltaMS);
-      this.tokens.animate(performance.now());
+      this.flush();
+      if (this.tokens.animate(performance.now()) || this.frame.renderDue()) app.render();
     });
     app.renderer.on('resize', () => this.applyCamera(this.camera));
     if (this.view) this.draw(this.view);
   }
 
+  // Kept and marked: a burst of views in one frame is drawn once, by the ticker.
   draw(view: BoardView): void {
     this.view = view;
-    if (!this.app) return;
-    this.sceneGrid.drawFloor(view);
-    this.textures.retain(imageUrlsOf(view));
-    this.background.sync(view.background);
-    this.showCursor();
-    this.drawings.sync(view.drawings);
-    this.effectAreas.sync(view.effectAreas, view.sceneSize);
-    this.tokens.sync(view.tokens, view.ghosts, performance.now());
-    this.lightTint.sync(view.lightTint, this.app.renderer);
-    this.fog.sync(view.fog, this.app.renderer);
-    if (!this.framed) {
-      this.framed = true;
-      return this.fitScene();
-    }
-    this.applyCamera(this.camera);
+    this.frame.viewChanged();
+    if (!this.app || this.framed) return;
+    this.framed = true;
+    this.fitScene();
   }
 
   zoomBy(factor: number): void {
@@ -187,25 +192,58 @@ class PixiBoardRenderer implements BoardRenderer {
     this.app = null;
   }
 
+  // Moving the world is cheap and happens now; what the move needs redrawn waits for the frame.
   private applyCamera(next: Camera): void {
     const scene = this.view?.sceneSize;
+    const zoomChanged = next.zoom !== this.camera.zoom;
     this.camera = scene ? clampToScene(next, scene, this.screenSize()) : next;
     this.world.position.set(this.camera.offsetX, this.camera.offsetY);
     this.world.scale.set(this.camera.zoom);
-    this.tokens.applyZoom(this.camera.zoom);
+    if (zoomChanged) this.tokens.applyZoom(this.camera.zoom);
     this.hover.camera(this.camera);
-    if (this.view) this.drawOverlays(this.view);
+    const gridBandLeft = this.view
+      ? this.sceneGrid.leavesBand(this.view, this.camera, this.screenSize())
+      : false;
+    this.frame.cameraChanged({ zoomChanged, gridBandLeft });
     this.onIntent({ kind: 'cameraChanged', zoom: this.camera.zoom });
   }
 
-  private drawOverlays(view: BoardView): void {
-    this.sceneGrid.drawGrid(view, this.camera, this.screenSize());
-    this.overlays.draw(view, this.camera.zoom);
+  private flush(): void {
+    const view = this.view;
+    if (!this.app || !view || !this.frame.pending()) return;
+    const job = this.frame.take();
+    if (job.view) this.drawView(view, this.app);
+    if (job.grid) {
+      this.probe.count('grid.draw');
+      this.sceneGrid.drawGrid(view, this.camera, this.screenSize());
+    }
+    if (job.overlays) {
+      this.probe.count('overlays.draw');
+      this.overlays.draw(view, this.camera.zoom);
+    }
+  }
+
+  private textureArrived(url: string): void {
+    if (this.view?.background?.url === url) return this.frame.viewChanged();
+    this.tokens.refreshArt(url);
+  }
+
+  private drawView(view: BoardView, app: Application): void {
+    this.probe.count('view.draw');
+    this.sceneGrid.drawFloor(view);
+    this.textures.retain(imageUrlsOf(view));
+    this.background.sync(view.background);
+    this.showCursor();
+    this.drawings.sync(view.drawings);
+    this.effectAreas.sync(view.effectAreas, view.sceneSize);
+    this.tokens.sync(view.tokens, view.ghosts, performance.now());
+    this.lightTint.sync(view.lightTint, app.renderer);
+    this.fog.sync(view.fog, app.renderer);
   }
 
   private listen(host: HTMLElement, canvas: HTMLCanvasElement): void {
     this.on(canvas, 'wheel', (event) => this.onWheel(event), { passive: false });
-    this.holdBackBrowserMenu(host);
+    this.disposers.push(holdBackBrowserMenu(host));
     this.on(canvas, 'pointerdown', (event) => this.onPointerDown(event, canvas));
     this.on(canvas, 'pointermove', (event) => this.onPointerMove(event));
     this.on(canvas, 'pointerup', (event) => this.onPointerUp(event));
@@ -217,26 +255,6 @@ class PixiBoardRenderer implements BoardRenderer {
     this.on(host, 'keydown', (event) => this.onKeyDown(event));
     this.on(host, 'keyup', (event) => this.onKeyUp(event));
     this.on(host, 'blur', () => this.heldPanKeys.clear());
-  }
-
-  // `resizeTo` only listens to the window: a host that changes size on its own (the room
-  // settling after entering) left the canvas stale and "Enquadrar cena" off-center.
-  private followHostSize(host: HTMLElement, app: Application): void {
-    const observer = new ResizeObserver(() => app.queueResize());
-    observer.observe(host);
-    this.disposers.push(() => observer.disconnect());
-  }
-
-  // On the document: the right click that opens our token menu lands on the page, not the canvas.
-  private holdBackBrowserMenu(host: HTMLElement): void {
-    const doc = host.ownerDocument;
-    const onMenu = (event: MouseEvent): void => {
-      const editable = event.target instanceof Element && event.target.closest(EDITABLE) !== null;
-      const click = { x: event.clientX, y: event.clientY, editable };
-      if (blocksBrowserMenu(click, host.getBoundingClientRect())) event.preventDefault();
-    };
-    doc.addEventListener('contextmenu', onMenu);
-    this.disposers.push(() => doc.removeEventListener('contextmenu', onMenu));
   }
 
   private showCursor(): void {
@@ -474,7 +492,8 @@ class PixiBoardRenderer implements BoardRenderer {
     listener: (event: HTMLElementEventMap[K]) => void,
     options?: AddEventListenerOptions,
   ): void {
-    target.addEventListener(type, listener, options);
-    this.disposers.push(() => target.removeEventListener(type, listener, options));
+    const touching = this.frame.touching(listener);
+    target.addEventListener(type, touching, options);
+    this.disposers.push(() => target.removeEventListener(type, touching, options));
   }
 }

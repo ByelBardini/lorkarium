@@ -9,6 +9,7 @@ import type { NewWallPo, WallPo } from '../../src/modules/walls/walls.po';
 import { eq } from 'drizzle-orm';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
+import { CountingQueryLog } from '../support/query-count';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 describe('WallsDao on Postgres', () => {
@@ -17,8 +18,10 @@ describe('WallsDao on Postgres', () => {
   let sceneId: string;
   let otherSceneId: string;
 
+  const queries = new CountingQueryLog();
+
   beforeAll(async () => {
-    connection = await openTestDatabase();
+    connection = await openTestDatabase({ queryLog: queries });
     walls = new WallsDao(connection.db);
   });
 
@@ -110,6 +113,33 @@ describe('WallsDao on Postgres', () => {
     const [moved] = await walls.listOfScene(sceneId);
     expect(moved).toMatchObject({ x: '7.25', y: '1.00', width: '4.00', kind: 'wall' });
     expect(moved?.points).toEqual(saved.points);
+  });
+
+  it('moveMany of three walls is 1 UPDATE, and a wall of another scene in it does not move', async () => {
+    const inserted = await walls.insertMany([
+      northLine(),
+      grateBox(),
+      northLine({ kind: 'curtain' }),
+    ]);
+    const [theirs] = await walls.insertMany([northLine({ sceneId: otherSceneId })]);
+    if (!theirs) throw new Error('insertMany returned no wall');
+    const moves = [...inserted, theirs].map(({ id }, index) => ({
+      wallId: id,
+      x: `${index + 1}.50`,
+      y: '3.00',
+    }));
+    queries.reset();
+
+    await walls.moveMany(sceneId, moves);
+
+    expect(queries.count).toBe(1);
+    const moved = await walls.listOfScene(sceneId);
+    expect(moved.map(({ x, y }) => [x, y])).toEqual([
+      ['1.50', '3.00'],
+      ['2.50', '3.00'],
+      ['3.50', '3.00'],
+    ]);
+    expect((await walls.listOfScene(otherSceneId))[0]).toMatchObject({ x: theirs.x, y: theirs.y });
   });
 
   it('setKinds changes the kind and the door state together', async () => {

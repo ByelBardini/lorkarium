@@ -9,6 +9,7 @@ import type {
   ConditionsAppliedDto,
   ConditionDefinedDto,
   ConditionRemovedDto,
+  ConditionsChangedDto,
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
@@ -42,221 +43,231 @@ import type {
 } from '@lorkarium/contracts';
 import type {
   BoardPublisherPort,
+  GridEvent,
   TokenChange,
   TokensCreation,
 } from '../../modules/scenes/board-publisher.port';
 import type { RealtimeServer } from '../../realtime/realtime-server';
-import { campaignMastersRoom, campaignRoom, campaignUserRoom } from '../../realtime/rooms';
+import { sceneMastersRoom, sceneRoom, sceneUserRoom } from '../../realtime/rooms';
 
-/** Emits each confirmed board change to the rooms of its table, and only there (spec §2.6).
- *  A token goes whole to the masters and its controllers, and redacted to the rest of the table.
+/** Emits each confirmed board change to the rooms of its grid, and only there (spec §2.6): who
+ *  has that grid open. A token goes whole to the masters and its controllers, and redacted to
+ *  the rest.
  *
  *  Example: `new SocketIoBoardPublisher(realtime.io).tokenChanged(change)` */
 export class SocketIoBoardPublisher implements BoardPublisherPort {
   constructor(private readonly io: RealtimeServer) {}
 
+  // Only who has this grid open hears it: a private grid in preparation reaches no player.
   sceneUpdated(event: SceneUpdatedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('scene:updated', event);
+    this.io.to(sceneRoom(event.campaignId, event.scene.id)).emit('scene:updated', event);
   }
 
   tokenChanged(change: TokenChange): void {
+    const { campaignId, sceneId } = change;
     const privilegedRooms = [
-      campaignMastersRoom(change.campaignId),
-      ...change.controllerIds.map((userId) => campaignUserRoom(change.campaignId, userId)),
+      sceneMastersRoom(campaignId, sceneId),
+      ...change.controllerIds.map((userId) => sceneUserRoom(campaignId, sceneId, userId)),
     ];
     this.io.to(privilegedRooms).emit(change.name, change.privileged);
     this.io
-      .to(campaignRoom(change.campaignId))
+      .to(sceneRoom(campaignId, sceneId))
       .except(privilegedRooms)
       .emit(change.name, change.others);
   }
 
-  tokenMoved(event: TokenMovedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('token:moved', event);
+  tokenMoved(event: GridEvent<TokenMovedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('token:moved', event);
   }
 
-  tokensMoved(event: TokensMovedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('token:movedMany', event);
+  tokensMoved(event: GridEvent<TokensMovedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('token:movedMany', event);
   }
 
   // Every socket is in a room named by its own id: leaving it out skips the dragger's echo.
-  tokensDragged(event: TokensDraggedDto, exceptConnectionId: string): void {
-    this.io
-      .to(campaignRoom(event.campaignId))
-      .except(exceptConnectionId)
-      .emit('token:draggedMany', event);
+  tokensDragged(event: GridEvent<TokensDraggedDto>, exceptConnectionId: string): void {
+    this.io.to(gridRoomOf(event)).except(exceptConnectionId).emit('token:draggedMany', event);
   }
 
-  tokenDeleted(event: TokenDeletedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('token:deleted', event);
+  tokenDeleted(event: GridEvent<TokenDeletedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('token:deleted', event);
   }
 
   // Each controller gets their own mix (whole for theirs, redacted for the rest); a master who
   // also controls a token only hears the masters' cut, so nobody hears the paste twice.
   tokensCreated(creation: TokensCreation): void {
-    const { campaignId, tokens, combat } = creation;
-    const base = { campaignId, version: creation.version, at: creation.at, combat };
-    const masters = campaignMastersRoom(campaignId);
+    const { campaignId, sceneId, tokens, combat } = creation;
+    const base = { campaignId, sceneId, version: creation.version, at: creation.at, combat };
+    const masters = sceneMastersRoom(campaignId, sceneId);
     const whole = tokens.map((token) => token.privileged);
     this.io.to(masters).emit('token:createdMany', { ...base, tokens: whole });
     const controllerIds = [...new Set(tokens.flatMap((token) => token.controllerIds))];
+    const userRoom = (userId: string): string => sceneUserRoom(campaignId, sceneId, userId);
     for (const userId of controllerIds) {
       const mix = tokens.map((t) => (t.controllerIds.includes(userId) ? t.privileged : t.others));
-      const room = campaignUserRoom(campaignId, userId);
       this.io
-        .to(room)
+        .to(userRoom(userId))
         .except(masters)
         .emit('token:createdMany', { ...base, tokens: mix });
     }
-    const privileged = [masters, ...controllerIds.map((id) => campaignUserRoom(campaignId, id))];
+    const privileged = [masters, ...controllerIds.map(userRoom)];
     const redacted = tokens.map((token) => token.others);
     this.io
-      .to(campaignRoom(campaignId))
+      .to(sceneRoom(campaignId, sceneId))
       .except(privileged)
       .emit('token:createdMany', { ...base, tokens: redacted });
   }
 
-  tokensDeleted(event: TokensDeletedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('token:deletedMany', event);
+  tokensDeleted(event: GridEvent<TokensDeletedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('token:deletedMany', event);
   }
 
-  // The layer is not a secret: the whole table gets the same event.
-  tokenLayerChanged(event: TokenLayerChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('token:layerChanged', event);
+  // The layer is not a secret: everyone with the grid open gets the same event.
+  tokenLayerChanged(event: GridEvent<TokenLayerChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('token:layerChanged', event);
   }
 
-  tokensFaced(event: TokensFacedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('token:facedMany', event);
+  tokensFaced(event: GridEvent<TokensFacedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('token:facedMany', event);
   }
 
-  tokensRestyled(event: TokensRestyledDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('token:restyledMany', event);
+  tokensRestyled(event: GridEvent<TokensRestyledDto>): void {
+    this.io.to(gridRoomOf(event)).emit('token:restyledMany', event);
   }
 
-  tokensResized(event: TokensResizedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('token:resizedMany', event);
+  tokensResized(event: GridEvent<TokensResizedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('token:resizedMany', event);
   }
 
-  mainTokenChanged(event: MainTokenChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('token:mainChanged', event);
+  mainTokenChanged(event: GridEvent<MainTokenChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('token:mainChanged', event);
   }
 
-  memberCardChanged(event: MemberCardChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('member:cardChanged', event);
+  memberCardChanged(event: GridEvent<MemberCardChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('member:cardChanged', event);
   }
 
   // A drawing is not a secret: the layer only decides who picks it up, not who sees it.
-  drawingsCreated(event: DrawingsCreatedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('drawing:createdMany', event);
+  drawingsCreated(event: GridEvent<DrawingsCreatedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('drawing:createdMany', event);
   }
 
-  drawingsMoved(event: DrawingsMovedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('drawing:movedMany', event);
+  drawingsMoved(event: GridEvent<DrawingsMovedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('drawing:movedMany', event);
   }
 
-  drawingsDeleted(event: DrawingsDeletedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('drawing:deletedMany', event);
+  drawingsDeleted(event: GridEvent<DrawingsDeletedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('drawing:deletedMany', event);
   }
 
   // An area of effect is a template everyone at the table reads: nothing to redact.
-  effectAreasCreated(event: EffectAreasCreatedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('effectArea:createdMany', event);
+  effectAreasCreated(event: GridEvent<EffectAreasCreatedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('effectArea:createdMany', event);
   }
 
-  effectAreasReshaped(event: EffectAreasReshapedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('effectArea:reshapedMany', event);
+  effectAreasReshaped(event: GridEvent<EffectAreasReshapedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('effectArea:reshapedMany', event);
   }
 
-  effectAreasDeleted(event: EffectAreasDeletedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('effectArea:deletedMany', event);
+  effectAreasDeleted(event: GridEvent<EffectAreasDeletedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('effectArea:deletedMany', event);
   }
 
-  wallsCreated(event: WallsCreatedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('wall:createdMany', event);
+  wallsCreated(event: GridEvent<WallsCreatedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('wall:createdMany', event);
   }
 
-  wallsMoved(event: WallsMovedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('wall:movedMany', event);
+  wallsMoved(event: GridEvent<WallsMovedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('wall:movedMany', event);
   }
 
-  wallsDeleted(event: WallsDeletedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('wall:deletedMany', event);
+  wallsDeleted(event: GridEvent<WallsDeletedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('wall:deletedMany', event);
   }
 
-  wallKindsChanged(event: WallKindsChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('wall:kindsChanged', event);
+  wallKindsChanged(event: GridEvent<WallKindsChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('wall:kindsChanged', event);
   }
 
-  doorChanged(event: DoorChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('wall:doorChanged', event);
+  doorChanged(event: GridEvent<DoorChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('wall:doorChanged', event);
   }
 
-  wallSegmentErased(event: WallSegmentErasedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('wall:segmentErased', event);
+  wallSegmentErased(event: GridEvent<WallSegmentErasedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('wall:segmentErased', event);
   }
 
-  wallAreaErased(event: WallAreaErasedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('wall:areaErased', event);
+  wallAreaErased(event: GridEvent<WallAreaErasedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('wall:areaErased', event);
   }
 
-  lightsCreated(event: LightsCreatedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('light:createdMany', event);
+  lightsCreated(event: GridEvent<LightsCreatedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('light:createdMany', event);
   }
 
-  lightsMoved(event: LightsMovedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('light:movedMany', event);
+  lightsMoved(event: GridEvent<LightsMovedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('light:movedMany', event);
   }
 
-  lightRangesChanged(event: LightRangesChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('light:rangesChanged', event);
+  lightRangesChanged(event: GridEvent<LightRangesChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('light:rangesChanged', event);
   }
 
-  lightColorsChanged(event: LightColorsChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('light:colorsChanged', event);
+  lightColorsChanged(event: GridEvent<LightColorsChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('light:colorsChanged', event);
   }
 
-  lightConesChanged(event: LightConesChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('light:conesChanged', event);
+  lightConesChanged(event: GridEvent<LightConesChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('light:conesChanged', event);
   }
 
-  lightsLitChanged(event: LightsLitChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('light:litChanged', event);
+  lightsLitChanged(event: GridEvent<LightsLitChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('light:litChanged', event);
   }
 
-  lightsDeleted(event: LightsDeletedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('light:deletedMany', event);
+  lightsDeleted(event: GridEvent<LightsDeletedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('light:deletedMany', event);
   }
 
   // Conditions are on the token for everyone to see: nothing to redact (spec §3.7).
-  conditionDefined(event: ConditionDefinedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('condition:defined', event);
+  conditionDefined(event: GridEvent<ConditionDefinedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('condition:defined', event);
   }
 
-  conditionApplied(event: ConditionAppliedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('condition:applied', event);
+  conditionApplied(event: GridEvent<ConditionAppliedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('condition:applied', event);
   }
 
-  conditionsApplied(event: ConditionsAppliedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('condition:appliedMany', event);
+  conditionsApplied(event: GridEvent<ConditionsAppliedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('condition:appliedMany', event);
   }
 
-  conditionRemoved(event: ConditionRemovedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('condition:removed', event);
+  conditionRemoved(event: GridEvent<ConditionRemovedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('condition:removed', event);
   }
 
-  combatStarted(event: CombatStartedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('combat:started', event);
+  conditionsChanged(event: GridEvent<ConditionsChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('condition:changedMany', event);
   }
 
-  combatUpdated(event: CombatUpdatedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('combat:updated', event);
+  combatStarted(event: GridEvent<CombatStartedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('combat:started', event);
   }
 
-  combatTurnChanged(event: CombatTurnChangedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('combat:turnChanged', event);
+  combatUpdated(event: GridEvent<CombatUpdatedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('combat:updated', event);
   }
 
-  combatEnded(event: CombatEndedDto): void {
-    this.io.to(campaignRoom(event.campaignId)).emit('combat:ended', event);
+  combatTurnChanged(event: GridEvent<CombatTurnChangedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('combat:turnChanged', event);
   }
+
+  combatEnded(event: GridEvent<CombatEndedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('combat:ended', event);
+  }
+}
+
+// Everyone with the grid open: a private grid in preparation reaches no player.
+function gridRoomOf(event: Readonly<{ campaignId: string; sceneId: string }>): string {
+  return sceneRoom(event.campaignId, event.sceneId);
 }

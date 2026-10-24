@@ -155,11 +155,13 @@ export class ConditionsDao {
     return this.activeRows(inArray(activeConditions.tokenId, [...tokenIds]));
   }
 
-  async setRemaining(activeConditionId: string, remainingRounds: number): Promise<void> {
+  /** One round off each listed condition, in one `UPDATE` (the end of a turn). */
+  async decrementRemaining(activeConditionIds: readonly string[]): Promise<void> {
+    if (activeConditionIds.length === 0) return;
     await this.db
       .update(activeConditions)
-      .set({ remainingRounds })
-      .where(eq(activeConditions.id, activeConditionId));
+      .set({ remainingRounds: sql`${activeConditions.remainingRounds} - 1` })
+      .where(inArray(activeConditions.id, [...activeConditionIds]));
   }
 
   async deleteActive(activeConditionIds: readonly string[]): Promise<void> {

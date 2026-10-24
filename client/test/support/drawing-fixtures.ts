@@ -1,6 +1,5 @@
 import type { DrawingDto } from '@lorkarium/contracts';
-import { VHARN } from './campaigns-api-fake';
-import { BIA_AT_TABLE, CAIO_AT_TABLE } from './table-session-fixtures';
+import { BIA_AT_TABLE, CAIO_AT_TABLE, VHARN_GRID } from './table-session-fixtures';
 
 export const SQUARE_ID = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
 export const PATH_ID = 'd2e3f4a5-b6c7-4d8e-9f0a-1b2c3d4e5f6a';
@@ -48,9 +47,9 @@ export function path(overrides: Partial<DrawingDto> = {}): DrawingDto {
   } as DrawingDto;
 }
 
-/** The fields every board event of VHARN carries at `version`. */
+/** The fields every board event of VHARN's group grid carries at `version`. */
 export function vharnEventBase(
   version: number,
-): Readonly<{ campaignId: string; version: number; at: string }> {
-  return { campaignId: VHARN.id, version, at: AT };
+): Readonly<{ campaignId: string; sceneId: string; version: number; at: string }> {
+  return { ...VHARN_GRID, version, at: AT };
 }

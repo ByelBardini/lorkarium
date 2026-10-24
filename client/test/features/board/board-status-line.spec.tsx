@@ -13,6 +13,7 @@ import {
   lyra,
   vharnBoard,
   vharnState,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 function renderLine(
@@ -33,7 +34,7 @@ function renderLine(
     }),
   });
   const interaction = createBoardInteractionStore({
-    campaignId: VHARN.id,
+    scopeOf: () => VHARN_GRID,
     commands: new TableBoardCommandsFake(),
     describeRefusal: String,
   });

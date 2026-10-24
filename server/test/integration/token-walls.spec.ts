@@ -65,6 +65,27 @@ describe('walls barring tokens over Socket.IO', () => {
     expect((await synced(bia, live.vharn)).tokens[0]).toMatchObject({ col: 3, row: 4 });
   });
 
+  it('a wall Ana draws in the way after a first move of Bia bars the next one (the remembered walls are forgotten)', async () => {
+    const { id, bia } = await lyraOfBia();
+    const ana = await live.atTable(live.ana, live.vharn);
+    expect(await send(bia, 'token:move', moveOf(id, { col: 3, row: 5 }))).toMatchObject({
+      ok: true,
+    });
+    const line = { kind: 'wall', shape: 'line', x: 5, y: 0, width: 0, height: 10 };
+    const points = [
+      [0, 0],
+      [0, 10],
+    ];
+    await send(ana, 'wall:createMany', {
+      ...envelope(live.vharn.id),
+      walls: [{ ...line, points }],
+    });
+
+    const ack = await send(bia, 'token:move', moveOf(id, { col: 7, row: 5 }));
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'WALL_BLOCKED' }) });
+  });
+
   it('with the path around the end of the wall, Ana and Caio hear token:moved', async () => {
     await wallOn(live.vharn);
     const { id, bia } = await lyraOfBia();

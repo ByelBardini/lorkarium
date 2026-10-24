@@ -1,5 +1,5 @@
 import { REALTIME_PATH } from '@lorkarium/contracts';
-import { io, type Socket } from 'socket.io-client';
+import { io, type ManagerOptions, type Socket, type SocketOptions } from 'socket.io-client';
 
 /** What happened to the connection itself, apart from the events it carries.
  *  `willRetry` is whether the client reconnects on its own (a network blip) or gave up
@@ -25,18 +25,26 @@ export interface RealtimeTransport {
   onLifecycle(listener: (change: RealtimeLifecycle) => void): Unsubscribe;
 }
 
+/** How the client opens the realtime connection: the websocket straight away (no polling round
+ *  first), and polling only when the websocket fails (`tryAllTransports`, socket.io-client 4.8).
+ *
+ *  Example: `io(realtimeClientOptions())` */
+export function realtimeClientOptions(): Partial<ManagerOptions & SocketOptions> {
+  return {
+    path: REALTIME_PATH,
+    autoConnect: false,
+    withCredentials: true,
+    transports: ['websocket', 'polling'],
+    tryAllTransports: true,
+  };
+}
+
 /** `RealtimeTransport` over `socket.io-client` at `/api/socket.io`, same origin, cookie included.
  *  Proven end to end by `e2e/test/table-presence.spec.ts`.
  *
  *  Example: `new RealtimeTableSessionApi(new SocketIoRealtimeTransport(), () => crypto.randomUUID())` */
 export class SocketIoRealtimeTransport implements RealtimeTransport {
-  constructor(
-    private readonly socket: Socket = io({
-      path: REALTIME_PATH,
-      autoConnect: false,
-      withCredentials: true,
-    }),
-  ) {}
+  constructor(private readonly socket: Socket = io(realtimeClientOptions())) {}
 
   connect(): void {
     this.socket.connect();
