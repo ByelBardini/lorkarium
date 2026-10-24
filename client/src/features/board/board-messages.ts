@@ -118,6 +118,16 @@ export function selectedAnnouncement(name: string, col: number, row: number): st
   return `${name} selecionado, ${cellWords(col, row)}`;
 }
 
+/** The name on a ping whose author is not in the roster (left the table meanwhile). */
+export const PING_SOMEONE = 'Alguém';
+
+/** A ping in fractional cells, announced by the cell it falls in.
+ *
+ *  Example: `pingAnnouncement('Bia', 5.5, 2.2) // 'Bia marcou um ponto (coluna 6, linha 3).'` */
+export function pingAnnouncement(name: string, x: number, y: number): string {
+  return `${name} marcou um ponto (${cellWords(Math.floor(x), Math.floor(y))}).`;
+}
+
 /** Example: `movedAnnouncement('Kael', 8, 5) // 'Kael foi para a coluna 9, linha 6'` */
 export function movedAnnouncement(name: string, col: number, row: number): string {
   return `${name} foi para a ${cellWords(col, row)}`;

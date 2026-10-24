@@ -19,6 +19,7 @@ import { InteractionClockFake } from './interaction-clock-fake';
 import { LibraryApiFake } from './library-api-fake';
 import { SceneActivationFake } from './scene-activation-fake';
 import { StorageFake } from './storage-fake';
+import { PingCommandsFake } from './ping-commands-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
 
@@ -48,6 +49,7 @@ export type TestDependencies = AppDependencies & {
   /** Every board renderer the room created, behind `createBoardRenderer`. */
   boardRenderers: BoardRenderersFake;
   boardCommands: TableBoardCommandsFake;
+  pings: PingCommandsFake;
   /** The board's own time (the hover card's delay), moved by hand. */
   interactionClock: InteractionClockFake;
   /** Where the auth and table session fakes write, in call order. */
@@ -91,6 +93,7 @@ export function testDependencies(): TestDependencies {
     boardRenderers,
     createBoardRenderer: boardRenderers.create,
     boardCommands,
+    pings: new PingCommandsFake(),
     interactionClock: new InteractionClockFake(),
     openTables: createOpenTablesStore({
       api: tableSessionApi,

@@ -72,6 +72,7 @@ import {
   type SetLightRangesCommandDto,
   type SetLightsLitCommandDto,
 } from './light.dto';
+import type { BoardPingedDto, PingAckDto, PingCommandDto } from './ping.dto';
 import { sceneDto, type ConfigureSceneCommandDto } from './scene.dto';
 import {
   wallDto,
@@ -238,6 +239,8 @@ export const BOARD_EVENTS = {
   combatUpdated: 'combat:updated',
   combatTurnChanged: 'combat:turnChanged',
   combatEnded: 'combat:ended',
+  ping: 'board:ping',
+  pinged: 'board:pinged',
 } as const;
 
 /** Base of every board command and the payload of `board:sync`; who asks comes from the
@@ -388,6 +391,7 @@ export type BoardClientEvents = {
   'combat:previousTurn': Command<TurnCommandDto>;
   'combat:regroupTokens': Command<RegroupTokensCommandDto>;
   'combat:renameCombatant': Command<RenameCombatantCommandDto>;
+  'board:ping': (command: PingCommandDto, ack: BoardAck<PingAckDto>) => void;
 } & CharacterClientEvents;
 
 /** Server → room board events, for the Socket.IO generics on both ends. */
@@ -435,6 +439,7 @@ export type BoardServerEvents = {
   'combat:updated': (event: CombatUpdatedDto) => void;
   'combat:turnChanged': (event: CombatTurnChangedDto) => void;
   'combat:ended': (event: CombatEndedDto) => void;
+  'board:pinged': (event: BoardPingedDto) => void;
 } & CharacterServerEvents;
 
 /** Every client → server event of a table connection (session + board). */

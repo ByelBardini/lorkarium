@@ -1,4 +1,5 @@
 import type {
+  BoardPingedDto,
   BoardStateDto,
   LibraryChangedDto,
   SceneActivatedDto,
@@ -32,6 +33,8 @@ export type TableSessionUpdate =
   /** Someone else's drag preview (one token or a group): unversioned, so it never goes through
    *  the version check. */
   | Readonly<{ kind: 'tokensDragged'; drag: TokensDraggedDto }>
+  /** Someone else pointed at a spot of the grid: ephemeral, never board state. */
+  | Readonly<{ kind: 'pinged'; event: BoardPingedDto }>
   | Readonly<{ kind: 'boardFailed'; failure: BoardSyncFailure }>
   /** The master took the group to another grid; the group grid syncs again on its own. */
   | Readonly<{ kind: 'sceneActivated'; event: SceneActivatedDto }>
@@ -43,7 +46,7 @@ export type TableSessionUpdate =
 /** What reaches the store of one grid: its snapshot, its events and the drags over it. */
 export type GridUpdate = Extract<
   TableSessionUpdate,
-  Readonly<{ kind: 'board' | 'boardEvent' | 'tokensDragged' | 'boardFailed' }>
+  Readonly<{ kind: 'board' | 'boardEvent' | 'tokensDragged' | 'pinged' | 'boardFailed' }>
 >;
 
 export type GridListener = (update: GridUpdate) => void;

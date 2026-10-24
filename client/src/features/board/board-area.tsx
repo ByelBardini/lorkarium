@@ -28,6 +28,7 @@ import type { TokenMenuRequest } from './token-context-menu';
 import type { TokenHoverRequest } from './use-token-hover';
 import type { DoorMenuRequest } from '@/features/walls/door-menu';
 import type { LightMenuRequest } from '@/features/lights/light-menu';
+import type { PingPoint } from '@/services/table-pings';
 import {
   BOARD_LOAD_FAILED,
   facedAnnouncement,
@@ -66,6 +67,8 @@ export type BoardAreaProps = Readonly<{
   lightReach: StoreApi<LightReachStore>;
   /** The color the lights tool puts. */
   lightColor: StoreApi<LightColorStore>;
+  /** Alt + click or a still hold asked to point at a spot (fractional cells). */
+  onPing: (point: PingPoint) => void;
 }>;
 
 /** What fills the room behind the floating UI: the canvas once the board is ready, or why not.
@@ -113,6 +116,7 @@ function InteractiveCanvas({
   wallStyle,
   lightReach,
   lightColor,
+  onPing,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({
     board,
@@ -132,6 +136,7 @@ function InteractiveCanvas({
         createBoardRenderer={createBoardRenderer}
         onIntent={(intent) => {
           if (intent.kind === 'tokenHovered') return onTokenHover(hoverRequestOf(intent));
+          if (intent.kind === 'pingRequested') return onPing({ x: intent.x, y: intent.y });
           if (intent.kind === 'tokenDragged') onTokenHover(null);
           if (intent.kind === 'tokenMenuRequested') {
             return onTokenMenu({ tokenId: intent.tokenId, x: intent.x, y: intent.y });

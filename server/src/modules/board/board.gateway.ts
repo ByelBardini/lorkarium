@@ -27,6 +27,7 @@ import {
   eraseWallAreaCommandDto,
   eraseWallSegmentCommandDto,
   dragTokensCommandDto,
+  pingCommandDto,
   endCombatCommandDto,
   moveDrawingsCommandDto,
   moveInTieCommandDto,
@@ -65,6 +66,7 @@ import type { ConditionsService } from '../conditions/conditions.service';
 import type { DrawingsService } from '../drawings/drawings.service';
 import type { EffectAreasService } from '../effect-areas/effect-areas.service';
 import type { MemberCardsService } from '../member-cards/member-cards.service';
+import type { PingsService } from '../pings/pings.service';
 import { toSceneGrid } from '../scenes/scenes.mapper';
 import type { CreatedInScene } from '../scenes/locked-scene';
 import type { SceneActivationService } from '../scenes/scene-activation.service';
@@ -102,6 +104,7 @@ export type BoardGatewayDeps = Readonly<{
   mainToken: Pick<MainTokenService, 'choose'>;
   tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
   memberCards: Pick<MemberCardsService, 'update'>;
+  pings: Pick<PingsService, 'ping'>;
   conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove' | 'setRounds'>;
   combat: Pick<
     CombatService,
@@ -223,6 +226,14 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
       bind(dragTokensCommandDto, (userId, command) =>
         versionOf(tokens.dragMany(userId, command.campaignId, command, socket.id)),
       ),
+    );
+    // The ping writes nothing: it skips the table's queue, like the drag preview.
+    socket.on(
+      'board:ping',
+      bind(pingCommandDto, async (userId, command) => {
+        await deps.pings.ping(userId, command.campaignId, command, socket.id);
+        return { ok: true } as const;
+      }),
     );
     socket.on('token:setLayer', mutate(setTokenLayerCommandDto, tokens.setLayer.bind(tokens)));
     socket.on('token:faceMany', mutate(faceTokensCommandDto, appearance.faceMany.bind(appearance)));

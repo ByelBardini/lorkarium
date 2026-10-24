@@ -27,5 +27,6 @@ export * from './board/effect-area.dto';
 export * from './board/wall.dto';
 export * from './board/condition.dto';
 export * from './board/combat.dto';
+export * from './board/ping.dto';
 export * from './assets/asset.dto';
 export * from './library/library.dto';

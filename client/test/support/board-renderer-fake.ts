@@ -6,6 +6,7 @@ import type {
   BoardIntentListener,
   BoardRenderer,
   CreateBoardRenderer,
+  PingMark,
 } from '@/renderer/board-renderer';
 
 type MountMode = 'resolve' | 'hold' | 'reject';
@@ -66,6 +67,13 @@ export class BoardRendererFake implements BoardRenderer {
 
   centerOn(target: Cell): void {
     this.centered.push(target);
+  }
+
+  /** Each ping the board was asked to show, in order. */
+  readonly pings: PingMark[] = [];
+
+  showPing(ping: PingMark): void {
+    this.pings.push(ping);
   }
 
   destroy(): void {

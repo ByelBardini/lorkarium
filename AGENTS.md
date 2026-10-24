@@ -83,6 +83,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | effect-areas | Áreas de efeito: formas, casas pintadas, autor, alças, versão                  | [`docs/context/effect-areas.md`](docs/context/effect-areas.md) |
 | walls        | Paredes e portas: tipos, formas, passagem, porta vista, visão                  | [`docs/context/walls.md`](docs/context/walls.md)               |
 | lights       | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre           | [`docs/context/lights.md`](docs/context/lights.md)             |
+| pings        | Ping no mapa: anel efêmero com o nome, alcance pela sala do grid, sem versão   | [`docs/context/pings.md`](docs/context/pings.md)               |
 | sessions     | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão       | [`docs/context/sessions.md`](docs/context/sessions.md)         |
 | assets       | Imagens da mesa: S3, envio, link seguro, leitura pela origem                   | [`docs/context/assets.md`](docs/context/assets.md)             |
 | client       | SPA: estrutura, rotas, shell e home, testes, design system, desempenho         | [`docs/context/client.md`](docs/context/client.md)             |

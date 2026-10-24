@@ -32,7 +32,7 @@ const CLIENT_COMMAND = isCi
 const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   table: ['smoke', 'home', 'table-presence', 'open-tables', 'board', 'table-cards'],
   tokens: ['tokens', 'main-token', 'token-conditions', 'token-resize', 'images'],
-  scene: ['layers', 'drawings', 'effect-areas'],
+  scene: ['layers', 'drawings', 'effect-areas', 'pings'],
   combat: ['combat'],
   vision: ['vision', 'vision-cone'],
   lighting: ['lighting'],

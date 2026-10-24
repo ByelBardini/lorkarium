@@ -1,0 +1,35 @@
+# Client · ping no mapa
+
+Hub do server e do contrato: [`../pings.md`](../pings.md). O ping é efêmero: anel na cor da pessoa, crescendo e sumindo em 3 s, com um ponto no centro e a placa com o nome.
+
+## Contas puras
+
+- `src/lib/stable-hash.ts` — `stableHash(texto)`: hash `×31` sem sinal de 32 bits (`'ab'` → 3105). Usado pela capa da mesa (`campaign-cover.ts`) e pela cor do ping.
+- `src/lib/ping-color.ts` — `PING_COLORS` (8 cores claras para o tabuleiro escuro: ouro `0xe0b25c`, aço `0x6fa8dc`, brasa `0xe0704f`, musgo `0x8cc084`, violeta `0xb39ddb`, rosa `0xe58fb4`, verde-água `0x5cc8c0`, osso `0xf0e6d2`; número porque o canvas não lê CSS) e `pingColorOf(userId)` = `PING_COLORS[stableHash(userId) % 8]`: a mesma cor em toda tela, sem dado novo.
+- `src/renderer/ping-hold.ts` — o gesto de segurar: `PING_HOLD_MS` (500), `startPingHold(tela, t0)`, `movePingHold(hold, tela)` (4 px de tela cancela de vez, como o arraste de token e o retângulo), `pingHoldDue(hold, t)` (parado e `t − t0 ≥ 500`); `isAltPing({ button, altKey, ctrlKey, metaKey })` = botão primário com Alt, sem Ctrl/⌘. Tempo por parâmetro, sem relógio.
+- `src/renderer/ping-pulse.ts` — `PING_DURATION_MS` (3000) e `pingPulseAt(decorridoMs, movimentoReduzido)` → `{ radius (fração 0–1 do raio máximo), alpha }` ou `null` (acabou): dois pulsos de 1,5 s, cada um cresce de 0 a 1 e esmaece de 1 a 0. Com movimento reduzido, raio parado em 0,6 e opacidade caindo de 1 a 0 nos 3 s.
+- `src/renderer/ping-edge.ts` — `pingEdgeOf(pontoNaTela, { width, height }, margem)` → `{ x, y, angle }` ou `null` (ping na tela, borda inclusa): a seta fica no ponto preso `margem` px para dentro das bordas e aponta para o ping (`angle` em radianos a partir de +x, y para baixo; à direita = 0, embaixo = π/2, canto de cima-esquerda = −3π/4).
+
+## Renderer
+
+- Intenção `pingRequested { x, y }` (`BoardPingIntent` em `board-renderer.ts`, casas fracionárias) e `BoardRenderer.showPing(PingMark { x, y, label, color })`. O `BoardRendererFake` guarda cada ping em `pings`.
+- Gesto (`primary-press.ts`): **Alt + botão primário** em qualquer ferramenta (`isAltPing`; Ctrl/⌘ junto não conta) pede o ping na hora e não começa gesto nenhum. **Segurar parado 500 ms** só no Selecionar (`tool === 'select'`) e só nas rotas `token` e `marquee` (`HOLD_ROUTES`: nas ferramentas de traço e no Desenhar/Selecionar segurar é parte do gesto). O prazo é conferido no `ticker` (`PrimaryPress.tick(contexto, performance.now())`, contra o `event.timeStamp` do aperto); quando vence, o aperto de token é solto sem pick, o retângulo termina sem seleção e o resto do aperto (movimentos e o soltar) é engolido. 4 px antes cancela (vira arraste/retângulo). Ponto fora da cena não pinga (o server recusaria).
+- Desenho (`pixi-ping-layer.ts`, `PixiPingLayer(movimentoReduzido, labelOf = pingLabelOf)`): `world` (dentro do mundo, acima das sobreposições: anel, ponto e placa seguem a câmera) e `edges` (no `stage`, em px de tela: a seta). `show(mark)` monta as partes fixas (ponto, placa, seta) e entra na fila; o 31º tira o mais antigo (`PINGS_ON_SCREEN_MAX` = 30). `animate(deltaMs, { camera, screen })` é chamado pelo `ticker` a cada quadro e **sem ping vivo não toca em nada** (devolve `false`); com ping, redesenha o anel pelo `pingPulseAt`, põe a seta pelo `pingEdgeOf` (margem 24 px, opacidade 0,4–1 com o pulso) e tira quem passou de 3 s. O ticker renderiza se algum token desliza, algum ping vive ou o quadro está sujo. Nenhum `BoardView` novo por ping: o ping não passa pelo `draw`/`flush`.
+- A placa real (`pingLabelOf`) mede texto e só roda no navegador; o spec passa um `PingLabelFake`.
+
+## Rede e fila
+
+- `src/services/table-pings.ts` — `PingCommands` / `RealtimePingCommands(sender)`: `sendPing(scope, { x, y })` → `board:ping` pelo `BoardCommandSender.ask` (sempre com o `sceneId` da aba), ack lido pelo `pingAckDto` → `{ ok: true }` ou `{ ok: false, failure }` (`boardFailureOf`: `rate_limited`, `scene_not_found`…; ack fora do DTO `unexpected`; sem ack em 5 s `offline`). Nunca lança. Fica fora do `table-board-commands.ts` (494 linhas) e chega à sala por `AppDependencies.pings`.
+- `table-visit.ts` — `transport.on('board:pinged')` → `boardPingedDto.safeParse`, mesma mesa, e `route(sceneId, { kind: 'pinged', event })`: o do grid do grupo vai ao listener da mesa, o de um grid aberto em aba extra só àquela aba. Inválido (sem `userId`…) ou de outra mesa é descartado **sem resync** (não mudou nada confirmado). `pinged` entra no `TableSessionUpdate` e no `GridUpdate`; o `board-store` e o `table-presence-store` o ignoram.
+- `src/stores/ping-feed.ts` — `createPingFeed()` → `PingFeed { push, subscribe }`: assinantes num `Set`, nada guardado (ping sem ouvinte se perde; quem assina depois não vê os antigos). Cada `SceneTab` tem o seu (`tab.pings`, criado no `tabOf` ao lado do board, da interação e da pilha); o `scene-tabs-store` entrega o `pinged` da mesa à aba do grupo (`apply`) e o de um `watch` à aba dele, sem passar pelo board.
+
+## Na sala
+
+- `AppDependencies.pings: PingCommands` (`RealtimePingCommands` sobre o mesmo transporte no `main.tsx`, `PingCommandsFake` no `testDependencies()`, com `sent` e `answer`) → `campaign-routes.tsx` → `PlayRoomPage({ pings })`.
+- `src/features/board/use-board-pings.ts` — `useBoardPings({ renderer, feed, presence, board, interaction, scopeOf, pings })`, chamado pela `play-room-page.tsx` com a aba visível (`ShownTab.pings` = `tab.pings`). Assina o feed da aba: cada ping recebido vira `renderer.showPing({ x, y, label, color: pingColorOf(userId) })` com o nome do membro pelo `table-presence-store` (fora do roster: `PING_SOMEONE`, "Alguém") e o anúncio `interaction.say(pingAnnouncement(nome, x, y))` na linha de status ("Bia marcou um ponto (coluna 6, linha 3)."; a casa em que o ponto cai, contada de 1). Devolve a função do ping local: desenha na hora com o nome e a cor de quem vê (`board.viewer.userId`) e manda `pings.sendPing(scopeOf(), ponto)`; a recusa não mostra nada (o ping é só um apontar). O ping local não é anunciado.
+- `board-area.tsx` — `onPing(ponto)`: a intenção `pingRequested` do canvas vai para ele antes de qualquer outra rota.
+- `board-messages.ts` — `PING_SOMEONE` e `pingAnnouncement`.
+
+## Testes
+
+`client/test/lib/{stable-hash,ping-color}.spec.ts`, `client/test/renderer/{ping-hold,ping-pulse,ping-edge}.spec.ts` (sem DOM), `client/test/renderer/pixi-ping-layer.spec.ts` (objetos Pixi sem WebGL) `client/test/renderer/primary-press.spec.ts` (com o `PressPartsFake` de `test/support/press-parts-fake.ts`), `client/test/services/{table-pings,table-visit}.spec.ts`, `client/test/stores/ping-feed.spec.ts` e o `describe('pings')` de `client/test/stores/scene-tabs-store.spec.ts`. `client/test/features/board/use-board-pings.spec.tsx` (a sala inteira com o `BoardRendererFake` e o `TableSessionApiFake`: ping local desenhado e enviado com o `sceneId` da aba, o da Bia com nome, cor e anúncio, "Alguém", ping de outra aba não chega, recusa sem erro) e `pingAnnouncement` em `board-messages.spec.ts`. Fixture `boardPinged(overrides)` (`table-session-fixtures.ts`: a Bia em (5,5; 2,2) no grid do grupo).

@@ -1,7 +1,11 @@
-import { cell, type Cell } from '@lorkarium/game-core';
 import { Application, Container } from 'pixi.js';
 import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
-import type { BoardIntentListener, BoardRenderer, CreateBoardRenderer } from './board-renderer';
+import type {
+  BoardIntentListener,
+  BoardRenderer,
+  CreateBoardRenderer,
+  PingMark,
+} from './board-renderer';
 import { boardCursorOf } from './board-cursor';
 import { imageUrlsOf, type BoardView } from './board-view';
 import {
@@ -35,27 +39,20 @@ import { LightGestures } from './light-gestures';
 import { erasedStrokesOf, wallTargetAt } from './wall-view';
 import { pointOf, prefersReducedMotion, wheelFields } from './dom-input';
 import { HoverReport, tokenScreenRect, type HoveredToken } from './hover-report';
-import { hoverRouteOf, menuRouteOf, pressRouteOf, type PressRoute } from './press-route';
+import { hoverRouteOf, menuRouteOf } from './press-route';
+import { PrimaryPress, type PressContext, type PressPoint } from './primary-press';
 import { tokenCenterOf } from './token-box';
 import { PixiDrawingLayer } from './pixi-drawing-layer';
 import { PixiEffectAreaLayer } from './pixi-effect-area-layer';
 import { PixiBoardOverlays } from './pixi-board-overlays';
 import { PixiFogLayer } from './pixi-fog-layer';
 import { PixiLightTintLayer } from './pixi-light-tint-layer';
+import { PixiPingLayer, type PingFrame } from './pixi-ping-layer';
 import { resizeCursorOf } from './resize-handles';
 import { PixiSceneBackground } from './pixi-scene-background';
 import { PixiSceneGrid } from './pixi-scene-grid';
 import { PixiTextureCache } from './pixi-texture-cache';
 import { PixiTokenLayer } from './pixi-token-layer';
-import {
-  dropCellOf,
-  grabOffsetOf,
-  heldCenterOf,
-  movePress,
-  pressToken,
-  releasePress,
-  type TokenPress,
-} from './token-drag';
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const PANEL_COLOR = 0x0c0e11;
@@ -83,14 +80,12 @@ class PixiBoardRenderer implements BoardRenderer {
   private view: BoardView | null = null;
   private framed = false;
   private rightDrag: RightDrag | null = null;
-  private primaryDown = false;
-  private tokenPress: TokenPress | null = null;
-  private dragCellKey: string | null = null;
   private readonly hover = new HoverReport((intent) => this.onIntent(intent));
   private readonly drawings = new PixiDrawingLayer();
   private readonly effectAreas = new PixiEffectAreaLayer();
   private readonly lightTint = new PixiLightTintLayer();
   private readonly fog = new PixiFogLayer();
+  private readonly pings = new PixiPingLayer(prefersReducedMotion);
   private readonly overlays = new PixiBoardOverlays((intent) => this.onIntent(intent));
   private readonly lightGestures = new LightGestures((intent) => this.onIntent(intent));
   // Every change only marks what to redraw; the ticker draws once per frame (`flush`).
@@ -105,6 +100,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly areaGestures = new EffectAreaGestures(this.effectAreas, (intent) =>
     this.onIntent(intent),
   );
+  private readonly press: PrimaryPress;
   private readonly heldPanKeys = new Set<PanKey>();
   private readonly disposers: Array<() => void> = [];
   private readonly world = new Container();
@@ -116,6 +112,14 @@ class PixiBoardRenderer implements BoardRenderer {
   ) {
     const beneath = this.effectAreas.under(this.drawings.layer);
     this.tokens = new PixiTokenLayer(prefersReducedMotion, beneath, this.textures, probe);
+    this.press = new PrimaryPress({
+      overlays: this.overlays,
+      lights: this.lightGestures,
+      sketches: this.gestures,
+      areas: this.areaGestures,
+      tokens: this.tokens,
+      onIntent: (intent) => this.onIntent(intent),
+    });
   }
 
   async mount(host: HTMLElement): Promise<void> {
@@ -135,16 +139,20 @@ class PixiBoardRenderer implements BoardRenderer {
       this.lightTint.container,
       this.fog.container,
       ...this.overlays.containers(sketches),
+      this.pings.world,
     );
-    app.stage.addChild(this.world);
+    app.stage.addChild(this.world, this.pings.edges);
     this.listen(host, app.canvas);
     this.disposers.push(followHostSize(host, app));
     app.ticker.remove(app.render, app);
     app.ticker.add((ticker) => {
       this.probe.frame(ticker.deltaMS);
       this.panWithKeys(ticker.deltaMS);
+      const now = performance.now();
+      this.press.tick(this.pressContext(), now);
       this.flush();
-      if (this.tokens.animate(performance.now()) || this.frame.renderDue()) app.render();
+      const pinging = this.pings.animate(ticker.deltaMS, this.pingFrame());
+      if (this.tokens.animate(now) || pinging || this.frame.renderDue()) app.render();
     });
     app.renderer.on('resize', () => this.applyCamera(this.camera));
     if (this.view) this.draw(this.view);
@@ -180,6 +188,11 @@ class PixiBoardRenderer implements BoardRenderer {
     const { width, height } = this.screenSize();
     const center = screenToWorld(this.camera, { x: width / 2, y: height / 2 });
     return cellAtWorld(this.view.grid.cells, center);
+  }
+
+  // Only kept: the ticker draws it (`animate`), like the tokens that glide.
+  showPing(ping: PingMark): void {
+    this.pings.show(ping);
   }
 
   destroy(): void {
@@ -280,45 +293,7 @@ class PixiBoardRenderer implements BoardRenderer {
     canvas.setPointerCapture(event.pointerId);
     if (event.button === SECONDARY_BUTTON) this.rightDrag = startRightDrag(pointOf(event));
     if (event.button !== PRIMARY_BUTTON) return;
-    const world = this.worldOf(event);
-    const route: PressRoute = this.view
-      ? pressRouteOf(this.view, world, this.camera.zoom)
-      : { kind: 'pointer' };
-    this.takePress(route, event, world);
-  }
-
-  // The route is decided by `pressRouteOf`; this only starts what it names.
-  private takePress(route: PressRoute, event: PointerEvent, world: Point): void {
-    const view = this.view;
-    if (view && route.kind === 'sketch') return this.gestures.startSketch(view, world);
-    if (route.kind === 'door') return this.onIntent({ kind: 'doorPressed', wallId: route.wallId });
-    if (route.kind === 'wallErase') {
-      const { wallId, segmentIndex } = route;
-      return this.onIntent({ kind: 'wallErased', wallId, segmentIndex });
-    }
-    if (view && route.kind === 'areaSketch') return this.areaGestures.startSketch(view, world);
-    if (view && route.kind === 'light') {
-      return this.lightGestures.press(view.grid.cells, pointOf(event), world, route.lightId);
-    }
-    const { facingHandle, resizeHandles, marquee } = this.overlays;
-    if (view && route.kind === 'facingHandle') return void facingHandle.press(view, world);
-    if (view && route.kind === 'resizeHandle') {
-      return void resizeHandles.press(view, world, this.camera.zoom);
-    }
-    if (route.kind === 'token') {
-      const { token } = route;
-      const grab = grabOffsetOf(token, world);
-      return void (this.tokenPress = pressToken(token.id, token.draggable, pointOf(event), grab));
-    }
-    const screen = pointOf(event);
-    if (view && route.kind === 'drawing') return void this.gestures.press(view, screen, world);
-    if (view && route.kind === 'effectArea')
-      return void this.areaGestures.press(view, screen, world);
-    this.primaryDown = true;
-    if (route.kind === 'marquee') marquee.start(pointOf(event), world);
-    // Shift keeps the selection: the marquee about to be drawn adds to it.
-    if (route.kind === 'marquee' && event.shiftKey) return;
-    this.onIntent({ kind: 'pointerDown', cell: this.cellAt(event) });
+    this.press.down(this.pressContext(), this.pressPointOf(event));
   }
 
   private onPointerMove(event: PointerEvent): void {
@@ -329,60 +304,12 @@ class PixiBoardRenderer implements BoardRenderer {
       if (pan) this.showCursor();
       return;
     }
-    if (this.overlays.move(this.worldOf(event), event.shiftKey)) return;
-    if (this.lightGestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
-    if (this.tokenPress) return this.dragToken(event, this.tokenPress);
-    if (this.gestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
-    if (this.areaGestures.move(pointOf(event), this.worldOf(event), event.shiftKey)) return;
-    if (this.overlays.marquee.grow(pointOf(event), this.worldOf(event), this.camera.zoom)) return;
+    const at = this.pressPointOf(event);
+    if (this.press.move(this.pressContext(), at)) return;
     const pressed = event.buttons !== 0;
     const token = pressed ? null : this.hoveredToken(this.hoverAt(event));
-    this.hover.moved({ cell: this.cellAt(event), pressed, token });
-    if (this.primaryDown) this.onIntent({ kind: 'pointerMove', cell: this.cellAt(event) });
-  }
-
-  private dragToken(event: PointerEvent, current: TokenPress): void {
-    const { press, dragging } = movePress(current, pointOf(event));
-    this.tokenPress = press;
-    if (!dragging) return;
-    this.tokens.drag(press.tokenId, heldCenterOf(press, this.worldOf(event)));
-    this.reportDragCell(press.tokenId, this.dropCellAt(press, event));
-  }
-
-  // Only a new cell is news: the pointer moves many times inside one.
-  private reportDragCell(tokenId: string, over: Cell | null): void {
-    const key = over ? `${over.col},${over.row}` : 'off';
-    if (key === this.dragCellKey) return;
-    this.dragCellKey = key;
-    const token = this.view?.tokens.find(({ id }) => id === tokenId);
-    if (!token) return;
-    const origin = cell(token.col, token.row);
-    this.onIntent({ kind: 'tokenDragged', tokenId, origin, cell: over });
-  }
-
-  private cancelTokenDrag(press: TokenPress): void {
-    this.tokenPress = null;
-    this.dragCellKey = null;
-    this.tokens.release();
-    this.onIntent({ kind: 'tokenDragCancelled', tokenId: press.tokenId });
-  }
-
-  private dropCellAt(press: TokenPress, event: PointerEvent): Cell | null {
-    const token = this.view?.tokens.find(({ id }) => id === press.tokenId);
-    const cells = this.view?.grid.cells;
-    const center = heldCenterOf(press, this.worldOf(event));
-    return cells && token ? dropCellOf(cells, token, center) : null;
-  }
-
-  private releaseToken(event: PointerEvent, press: TokenPress): void {
-    this.tokenPress = null;
-    this.dragCellKey = null;
-    this.tokens.release();
-    const { tokenId } = press;
-    if (releasePress(press) === 'pick') {
-      return this.onIntent({ kind: 'tokenPicked', tokenId, additive: event.shiftKey });
-    }
-    this.onIntent({ kind: 'tokenDropped', tokenId, cell: this.dropCellAt(press, event) });
+    this.hover.moved({ cell: at.cell, pressed, token });
+    this.press.pointerMoved(at);
   }
 
   // The name of the token under the pointer and the stretch cursor over a handle.
@@ -408,25 +335,8 @@ class PixiBoardRenderer implements BoardRenderer {
 
   private onPointerUp(event: PointerEvent): void {
     if (event.button === SECONDARY_BUTTON) return this.endRightClick(event);
-    const primary = event.button === PRIMARY_BUTTON;
-    if (primary && this.overlays.release()) return;
-    if (
-      primary &&
-      this.lightGestures.release(pointOf(event), this.worldOf(event), event.shiftKey)
-    ) {
-      return;
-    }
-    if (primary && this.gestures.release(this.worldOf(event), event.shiftKey)) return;
-    if (primary && this.areaGestures.release(pointOf(event), this.worldOf(event), event.shiftKey)) {
-      return;
-    }
-    if (event.button === PRIMARY_BUTTON && this.tokenPress) {
-      return this.releaseToken(event, this.tokenPress);
-    }
-    if (event.button !== PRIMARY_BUTTON || !this.primaryDown) return;
-    this.primaryDown = false;
-    this.overlays.marquee.end(this.view, event.shiftKey);
-    this.onIntent({ kind: 'pointerUp', cell: this.cellAt(event) });
+    if (event.button !== PRIMARY_BUTTON) return;
+    this.press.up(this.pressContext(), this.pressPointOf(event));
   }
 
   // Dragged, the right button moved the camera; a short click asks for the token menu.
@@ -447,11 +357,7 @@ class PixiBoardRenderer implements BoardRenderer {
   }
 
   private onKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && this.tokenPress?.dragging) {
-      return this.cancelTokenDrag(this.tokenPress);
-    }
-    if (event.key === 'Escape' && (this.gestures.cancel() || this.areaGestures.cancel())) return;
-    if (event.key === 'Escape' && (this.overlays.cancel() || this.lightGestures.cancel())) return;
+    if (event.key === 'Escape' && this.press.cancel()) return;
     const modified = event.ctrlKey || event.metaKey || event.altKey;
     const panKey = modified ? null : panKeyOf(event.key);
     if (panKey) return void this.heldPanKeys.add(panKey);
@@ -475,6 +381,21 @@ class PixiBoardRenderer implements BoardRenderer {
   private cellAt(event: PointerEvent): ReturnType<typeof cellAtWorld> {
     if (!this.view) return null;
     return cellAtWorld(this.view.grid.cells, this.worldOf(event));
+  }
+
+  private pressContext(): PressContext {
+    return { view: this.view, zoom: this.camera.zoom };
+  }
+
+  private pressPointOf(event: PointerEvent): PressPoint {
+    const { shiftKey, altKey, ctrlKey, metaKey, timeStamp: time } = event;
+    const keys = { shiftKey, altKey, ctrlKey, metaKey };
+    const screen = pointOf(event);
+    return { screen, world: this.worldOf(event), cell: this.cellAt(event), ...keys, time };
+  }
+
+  private pingFrame(): PingFrame {
+    return { camera: this.camera, screen: this.screenSize() };
   }
 
   private worldOf(event: PointerEvent): Point {

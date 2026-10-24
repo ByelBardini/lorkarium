@@ -1,6 +1,7 @@
 import {
   BOARD_EVENTS,
   SESSION_EVENTS,
+  boardPingedDto,
   boardSyncAckDto,
   libraryChangedDto,
   sceneActivatedDto,
@@ -79,6 +80,7 @@ export class TableVisit {
       this.transport.onLifecycle((change) => this.onLifecycle(change)),
       ...this.tableEventSubscriptions(),
       this.transport.on(BOARD_EVENTS.tokensDragged, (payload) => this.onTokensDragged(payload)),
+      this.transport.on(BOARD_EVENTS.pinged, (payload) => this.onPinged(payload)),
       ...Object.keys(BOARD_EVENT_SPECS).map((name) =>
         this.transport.on(name, (payload) => this.onBoardEvent(name, payload)),
       ),
@@ -241,6 +243,13 @@ export class TableVisit {
     const drag: TokensDraggedDto = parsed.data;
     if (drag.sceneId === undefined) return this.notify({ kind: 'tokensDragged', drag });
     this.route(drag.sceneId, { kind: 'tokensDragged', drag });
+  }
+
+  // Like the preview: a malformed ping changed nothing, so it is dropped with no resync.
+  private onPinged(payload: unknown): void {
+    const parsed = boardPingedDto.safeParse(payload);
+    if (!parsed.success || parsed.data.campaignId !== this.campaignId) return;
+    this.route(parsed.data.sceneId, { kind: 'pinged', event: parsed.data });
   }
 
   private onBoardEvent(name: string, payload: unknown): void {

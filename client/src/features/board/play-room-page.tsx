@@ -10,6 +10,8 @@ import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-render
 import type { AssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import type { BoardScope, TableBoardCommands } from '@/services/table-board-commands';
+import type { PingCommands } from '@/services/table-pings';
+import type { PingFeed } from '@/stores/ping-feed';
 import { DrawStylePanel } from '@/features/drawings/draw-style-panel';
 import { EffectAreaPanel } from '@/features/effect-areas/effect-area-panel';
 import { RoomWallPanel } from '@/features/walls/room-wall-panel';
@@ -52,6 +54,7 @@ import { useTokenHover } from './use-token-hover';
 import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
+import { useBoardPings } from './use-board-pings';
 import { useEditShortcuts } from './use-edit-shortcuts';
 import { useRoomShortcuts } from './use-room-shortcuts';
 
@@ -67,6 +70,7 @@ export type PlayRoomPageProps = Readonly<{
   clipboard: Clipboard;
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
+  pings: PingCommands;
   assets: AssetsApi;
   /** The delay before the hovered token's card shows. */
   interactionClock: InteractionClock;
@@ -104,6 +108,15 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   useEditShortcuts({ scopeOf, table, interaction, commands, isMaster });
   const tool = useBoardInteraction(interaction, (state) => state.tool);
   const drawMode = useBoardInteraction(interaction, (state) => state.drawMode);
+  const ping = useBoardPings({
+    renderer,
+    feed: shown.pings,
+    presence: table?.presence ?? null,
+    board: table?.board ?? null,
+    interaction,
+    scopeOf,
+    pings: props.pings,
+  });
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
       <title>{`Lorkarium · ${campaign.name}`}</title>
@@ -143,6 +156,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           wallStyle={props.wallStyle}
           lightReach={props.lightReach}
           lightColor={props.lightColor}
+          onPing={ping}
         />
         {tool === 'draw' && !focus && (
           <DrawStylePanel
@@ -302,6 +316,8 @@ type ShownTab = Readonly<{
   tabs: StoreApi<SceneTabsStore> | null;
   /** Changes with the tab shown: the canvas mounts again for another grid. */
   key: string;
+  /** The others' pings on the grid shown. */
+  pings: PingFeed | null;
   group: Readonly<{
     board: StoreApi<BoardStore>;
     interaction: StoreApi<BoardInteractionStore>;
@@ -331,7 +347,8 @@ function useShownTab(
     const table = view.kind === 'open' ? { ...view, edits: tab?.edits ?? view.edits } : null;
     const interaction = tab?.interaction ?? opening.interaction;
     const scopeOf = tab?.scopeOf ?? opening.scopeOf;
-    return { view, table, interaction, scopeOf, tabs, key: tab?.key ?? GROUP_TAB, group };
+    const key = tab?.key ?? GROUP_TAB;
+    return { view, table, interaction, scopeOf, tabs, key, group, pings: tab?.pings ?? null };
   }, [opened, tab, tabs, group, opening]);
 }
 

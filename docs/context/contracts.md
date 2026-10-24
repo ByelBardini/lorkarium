@@ -74,7 +74,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 ### Tabuleiro (`board/`)
 
-O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, aparência, grupo, condição, combate, desenho, área de efeito, parede, luz, `BOARD_EVENTS` e o snapshot) mora em [`contracts/tabuleiro.md`](contracts/tabuleiro.md). Fluxo em [`board.md`](board.md).
+O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, aparência, grupo, condição, combate, desenho, área de efeito, parede, luz, `BOARD_EVENTS` e o snapshot) mora em [`contracts/tabuleiro.md`](contracts/tabuleiro.md). Fluxo em [`board.md`](board.md). O ping efêmero (`board:ping` / `board:pinged`, sem versão) mora em [`contracts/ping.md`](contracts/ping.md).
 
 ## Regras de arquitetura
 

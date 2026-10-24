@@ -98,6 +98,7 @@ function tableRoute({
   clipboard,
   createBoardRenderer,
   boardCommands,
+  pings,
   assets,
   interactionClock,
 }: AppDependencies): () => React.JSX.Element {
@@ -119,6 +120,7 @@ function tableRoute({
           clipboard={clipboard}
           createBoardRenderer={createBoardRenderer}
           boardCommands={boardCommands}
+          pings={pings}
           assets={assets}
           interactionClock={interactionClock}
         />
