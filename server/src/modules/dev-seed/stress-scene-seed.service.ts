@@ -50,7 +50,7 @@ export class StressSceneSeedService {
     if (existing) return { campaignId: existing.id, created: false };
     const campaign = await this.deps.campaigns.create(master.id, {
       ...{ name: STRESS_CAMPAIGN_NAME, visibility: 'private', system: null },
-      ...{ status: null, description: 'Cena de estresse do bench de desempenho.' },
+      ...{ status: 'building', description: 'Cena de estresse do bench de desempenho.' },
     });
     if (campaign.joinCode) await this.deps.join.join(player.id, { code: campaign.joinCode });
     await this.fill(master.id, campaign.id, stressSceneOf(player.id));

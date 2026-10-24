@@ -139,8 +139,28 @@ describe('campaigns HTTP edge', () => {
       await call('PATCH', '/account/profile', ana, { color: 'rose' });
       const response = await call('GET', `/campaigns/${vharn.id}`, ana);
       expect(campaignResponseDto.parse(response.json()).campaign.members).toEqual([
-        { userId: expect.any(String), name: 'Ana', role: 'master', color: 'rose', avatarId: null },
+        {
+          ...{ userId: expect.any(String), name: 'Ana', role: 'master', color: 'rose' },
+          ...{ avatarId: null, online: false },
+        },
       ]);
+    });
+
+    it('a new campaign is "building" with the drawn cover chosen, created now and never played', async () => {
+      const cover = { kind: 'drawn', drawing: 1, tone: 4 } as const;
+      const created = await createCampaign(ana, { cover });
+      expect(created).toMatchObject({ status: 'building', cover, contentWarnings: [], tags: [] });
+      expect(created.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(created.lastAccessAt).toBeNull();
+    });
+
+    it('the last access of the detail is the latest entry of any member', async () => {
+      const created = await createCampaign(ana);
+      await call('POST', `/campaigns/${created.id}/enter`, ana);
+      const response = await call('GET', `/campaigns/${created.id}`, ana);
+      const { campaign } = campaignResponseDto.parse(response.json());
+      expect(campaign.lastAccessAt).toBe(campaign.lastEnteredAt);
+      expect(campaign.lastAccessAt).not.toBeNull();
     });
 
     it('the master gets the detail with the join code', async () => {

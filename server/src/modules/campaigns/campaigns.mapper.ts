@@ -1,12 +1,18 @@
-import type {
-  CampaignDetailDto,
-  CampaignMemberDto,
-  CampaignSummaryDto,
-  CreateCampaignRequestDto,
+import {
+  contentWarningDto,
+  type CampaignCoverDto,
+  type CampaignDetailDto,
+  type CampaignInfoDto,
+  type CampaignMemberDto,
+  type CampaignSummaryDto,
+  type ContentWarningDto,
+  type CreateCampaignRequestDto,
+  type UpdateCampaignRequestDto,
 } from '@lorkarium/contracts';
-import { memberColorOf } from '@lorkarium/game-core';
+import { defaultCoverOf, memberColorOf } from '@lorkarium/game-core';
 import { CampaignAccessBo } from './campaign-access.bo';
 import { CampaignJoinBo } from './campaign-join.bo';
+import { CampaignSettingsBo } from './campaign-settings.bo';
 import type { CampaignListingRow, CampaignMemberRow } from './campaign-members.dao';
 import type { CampaignMemberPo } from './campaign-members.po';
 import type { CampaignPo, NewCampaignPo } from './campaigns.po';
@@ -18,8 +24,14 @@ export type CampaignView = Readonly<{
   members: readonly CampaignMemberRow[];
 }>;
 
-/** The view of the detail modal: the campaign view plus the id of the table's cast. */
-export type CampaignDetailView = CampaignView & Readonly<{ castSceneId: string }>;
+/** The view of the detail modal: the campaign view plus the id of the table's cast, the latest
+ *  entry of any member and who has the table open right now. */
+export type CampaignDetailView = CampaignView &
+  Readonly<{
+    castSceneId: string;
+    lastAccessAt: Date | null;
+    onlineUserIds: ReadonlySet<string>;
+  }>;
 
 /** Listing row → DTO: one line of the user's campaign list.
  *
@@ -36,8 +48,27 @@ export function toCampaignSummaryDto(row: CampaignListingRow): CampaignSummaryDt
     myRole: row.role,
     masterName: row.masterName,
     memberCount: row.memberCount,
+    cover: coverOf(campaign),
+    contentWarnings: campaign.contentWarnings.filter(isContentWarning),
+    tags: campaign.tags,
     lastEnteredAt: row.lastEnteredAt?.toISOString() ?? null,
   };
+}
+
+// The column is plain text[]: a value the contract no longer knows is left out, not sent.
+function isContentWarning(warning: string): warning is ContentWarningDto {
+  return contentWarningDto.safeParse(warning).success;
+}
+
+/** The cover the campaign shows: the image when it has one, else the chosen drawing, else the
+ *  drawing of its id (a campaign that never chose looks as it always did).
+ *
+ *  Example: `coverOf(campaign) // { kind: 'drawn', drawing: 1, tone: 3 }` */
+export function coverOf(campaign: CampaignPo): CampaignCoverDto {
+  if (campaign.coverAssetId) return { kind: 'image', assetId: campaign.coverAssetId };
+  const { coverDrawing: drawing, coverTone: tone } = campaign;
+  if (drawing !== null && tone !== null) return { kind: 'drawn', drawing, tone };
+  return { kind: 'drawn', ...defaultCoverOf(campaign.id) };
 }
 
 /** View → DTO: the summary of a campaign assembled from its members instead of the listing query.
@@ -61,10 +92,25 @@ export function toCampaignDetailDto(view: CampaignDetailView): CampaignDetailDto
   const access = toCampaignAccessBo(view.campaign.id, view.membership.userId, view.membership);
   return {
     ...toCampaignSummaryOfView(view),
-    members: sortedMembers(view.members),
+    members: sortedMembers(view.members, view.onlineUserIds),
     joinCode: access.canSeeJoinCode() ? view.campaign.joinCode : null,
     hasPassword: view.campaign.passwordHash !== null,
     castSceneId: view.castSceneId,
+    createdAt: view.campaign.createdAt.toISOString(),
+    lastAccessAt: view.lastAccessAt?.toISOString() ?? null,
+  };
+}
+
+/** Detail → what anyone at the table sees of it, without what depends on who reads it (the
+ *  payload of `session:campaignUpdated`).
+ *
+ *  Example: `toCampaignInfoDto(detail).cover` */
+export function toCampaignInfoDto(detail: CampaignDetailDto): CampaignInfoDto {
+  const { id, name, system, status, description, visibility, masterName, memberCount } = detail;
+  const { cover, contentWarnings, tags } = detail;
+  return {
+    ...{ id, name, system, status, description, visibility, masterName, memberCount },
+    ...{ cover, contentWarnings, tags },
   };
 }
 
@@ -77,6 +123,18 @@ export function toCampaignAccessBo(
   membership: CampaignMemberPo | undefined,
 ): CampaignAccessBo {
   return new CampaignAccessBo({ campaignId, userId, role: membership?.role ?? null });
+}
+
+/** Membership (or its absence) → BO for the settings rules (edit, new code, delete).
+ *
+ *  Example: `toCampaignSettingsBo(campaignId, userId, membership, true).requireMasterAtTable('delete the campaign')` */
+export function toCampaignSettingsBo(
+  campaignId: string,
+  userId: string,
+  membership: CampaignMemberPo | undefined,
+  atTable: boolean,
+): CampaignSettingsBo {
+  return new CampaignSettingsBo(toCampaignAccessBo(campaignId, userId, membership), atTable);
 }
 
 /** Campaign + membership (or its absence) → BO for the join-by-code decision.
@@ -106,13 +164,17 @@ export function orderedMembers(members: readonly CampaignMemberRow[]): CampaignM
   return [...members].sort((a, b) => masterFirst(a, b) || a.name.localeCompare(b.name, 'pt-BR'));
 }
 
-function sortedMembers(members: readonly CampaignMemberRow[]): CampaignMemberDto[] {
+function sortedMembers(
+  members: readonly CampaignMemberRow[],
+  onlineUserIds: ReadonlySet<string>,
+): CampaignMemberDto[] {
   return orderedMembers(members).map((member) => ({
     userId: member.userId,
     name: member.name,
     role: member.role,
     color: memberColorOf(member.userId, member.colorChoice),
     avatarId: member.avatarId,
+    online: onlineUserIds.has(member.userId),
   }));
 }
 
@@ -133,6 +195,34 @@ export function toNewCampaignPo(
     status: input.status,
     description: input.description,
     visibility: input.visibility,
+    ...coverColumnsOf(input.cover),
     ...owned,
   };
+}
+
+type CoverColumns = Pick<NewCampaignPo, 'coverDrawing' | 'coverTone' | 'coverAssetId'>;
+
+// One kind at a time: choosing a drawing drops the image and the other way round.
+function coverColumnsOf(cover: CampaignCoverDto | undefined): CoverColumns {
+  if (!cover) return {};
+  if (cover.kind === 'image') {
+    return { coverDrawing: null, coverTone: null, coverAssetId: cover.assetId };
+  }
+  return { coverDrawing: cover.drawing, coverTone: cover.tone, coverAssetId: null };
+}
+
+/** Settings DTO → the columns to write; absent fields are left out, so they stay as they are.
+ *  `passwordHash`: `undefined` keeps it, `null` removes it.
+ *
+ *  Example: `toCampaignPatch(input, { passwordHash: undefined, updatedAt: clock.now() })` */
+export function toCampaignPatch(
+  input: UpdateCampaignRequestDto,
+  written: Readonly<{ passwordHash: string | null | undefined; updatedAt: Date }>,
+): Partial<NewCampaignPo> {
+  // The plain password never reaches the row: only `written.passwordHash` does.
+  const { name, system, status, description, visibility, contentWarnings, tags } = input;
+  const fields = { name, system, status, description, visibility, contentWarnings, tags };
+  const columns = { ...fields, ...coverColumnsOf(input.cover), ...written };
+  const present = Object.entries(columns).filter(([, value]) => value !== undefined);
+  return Object.fromEntries(present) as Partial<NewCampaignPo>;
 }

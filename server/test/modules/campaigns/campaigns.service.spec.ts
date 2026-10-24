@@ -10,6 +10,7 @@ import {
   ConditionDefinitionsFake,
   TransactionRunnerFake,
 } from '../../support/campaigns-fakes';
+import { PresenceReaderFake } from '../../support/campaign-settings-fakes';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_CAST_ID, castPo } from '../../support/scenes-factories';
 import {
@@ -25,7 +26,7 @@ const NOW = new Date('2026-10-14T21:00:00Z');
 const NEW_CAMPAIGN = {
   name: 'Os Sinos de Vharn',
   system: 'D&D 5e',
-  status: null,
+  status: 'building',
   description: null,
   visibility: 'private',
 } as const;
@@ -37,6 +38,7 @@ describe('CampaignsService', () => {
   let conditions: ConditionDefinitionsFake;
   let runner: TransactionRunnerFake;
   let codes: CampaignCodeFake;
+  let presence: PresenceReaderFake;
   let service: CampaignsService;
 
   function build(codeSequence: readonly string[]): void {
@@ -46,6 +48,7 @@ describe('CampaignsService', () => {
       members,
       scenes,
       memberships: members,
+      presence,
       transaction: runner.run,
       codes,
       hasher: new PasswordHasherFake(),
@@ -63,6 +66,7 @@ describe('CampaignsService', () => {
     scenes = new ScenesDaoFake();
     conditions = new ConditionDefinitionsFake();
     runner = new TransactionRunnerFake({ campaigns, members, scenes, conditions });
+    presence = new PresenceReaderFake();
     build(['VHRN7K2Q', 'PNTN2345', 'QLMR2345', 'ZZZZ2345']);
   });
 
@@ -160,6 +164,55 @@ describe('CampaignsService', () => {
     expect(detail.castSceneId).toBe(VHARN_CAST_ID);
   });
 
+  it('create keeps the status and the drawn cover chosen', async () => {
+    const cover = { kind: 'drawn', drawing: 2, tone: 3 } as const;
+    const detail = await service.create(ANA_ID, { ...NEW_CAMPAIGN, status: 'recruiting', cover });
+    expect(campaigns.rows[0]).toMatchObject({
+      status: 'recruiting',
+      coverDrawing: 2,
+      coverTone: 3,
+    });
+    expect(detail).toMatchObject({ status: 'recruiting', cover });
+  });
+
+  describe('detail of a table being played', () => {
+    beforeEach(() => {
+      campaigns.rows.push(campaignPo({ id: VHARN_ID }));
+      const entered = (iso: string) => ({ lastEnteredAt: new Date(iso) });
+      members.rows.push(
+        campaignMemberPo({
+          campaignId: VHARN_ID,
+          userId: ANA_ID,
+          ...entered('2026-10-12T22:00:00Z'),
+        }),
+        campaignMemberPo({
+          ...{ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' },
+          ...entered('2026-10-13T23:30:00Z'),
+        }),
+        campaignMemberPo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' }),
+      );
+      scenes.rows.push(castPo({ campaignId: VHARN_ID }));
+    });
+
+    it('the last access is the latest entry of any member, not the reader own', async () => {
+      const detail = await service.detail(ANA_ID, VHARN_ID);
+      expect(detail.lastAccessAt).toBe('2026-10-13T23:30:00.000Z');
+      expect(detail.lastEnteredAt).toBe('2026-10-12T22:00:00.000Z');
+    });
+
+    it('each member is online as the live presence of this table says', async () => {
+      presence = new PresenceReaderFake({ [VHARN_ID]: [CAIO_ID], [QUELM_ID]: [BIA_ID] });
+      build(['VHRN7K2Q']);
+      const detail = await service.detail(ANA_ID, VHARN_ID);
+      const online = detail.members.map(({ name, online }) => ({ name, online }));
+      expect(online).toEqual([
+        { name: 'Ana', online: false },
+        { name: 'Bia', online: false },
+        { name: 'Caio', online: true },
+      ]);
+    });
+  });
+
   describe('rosterOf', () => {
     beforeEach(() => {
       campaigns.rows.push(campaignPo({ id: VHARN_ID }), campaignPo({ id: QUELM_ID }));
@@ -182,7 +235,7 @@ describe('CampaignsService', () => {
     it('the membership is read through the remembered memberships, which session:join warms', async () => {
       const memberships = new MembershipReadsFake([...members.rows]);
       service = new CampaignsService({
-        ...{ campaigns, members, scenes, memberships, transaction: runner.run, codes },
+        ...{ campaigns, members, scenes, memberships, presence, transaction: runner.run, codes },
         ...{ hasher: new PasswordHasherFake(), clock: new ClockFake(NOW) },
       });
       await service.rosterOf(BIA_ID, VHARN_ID);

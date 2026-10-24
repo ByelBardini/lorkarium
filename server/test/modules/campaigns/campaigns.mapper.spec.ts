@@ -1,9 +1,21 @@
-import { campaignDetailDto } from '@lorkarium/contracts';
+import {
+  campaignDetailDto,
+  campaignInfoDto,
+  createCampaignRequestDto,
+  updateCampaignRequestDto,
+  type UpdateCampaignRequestInput,
+} from '@lorkarium/contracts';
+import { defaultCoverOf } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import {
+  coverOf,
   orderedMembers,
   toCampaignDetailDto,
+  toCampaignInfoDto,
+  toCampaignPatch,
   toCampaignSummaryDto,
+  toNewCampaignPo,
+  type CampaignDetailView,
 } from '../../../src/modules/campaigns/campaigns.mapper';
 import { ANA_ID } from '../../support/auth-factories';
 import {
@@ -24,13 +36,35 @@ const MEMBERS = [
   campaignMemberRow({ userId: ANA_ID, name: 'Ana', role: 'master' }),
 ];
 
-function detailFor(role: 'master' | 'player', passwordHash: string | null = null) {
-  return toCampaignDetailDto({
-    campaign: campaignPo({ passwordHash, joinCode: 'VHRN7K2Q' }),
-    membership: campaignMemberPo({ role, lastEnteredAt: null }),
+const NOBODY_ONLINE: ReadonlySet<string> = new Set();
+
+type Written = Parameters<typeof toCampaignPatch>[1];
+
+// The body as the route hands it over: parsed by the DTO first.
+function patchOf(body: UpdateCampaignRequestInput, written: Written) {
+  return toCampaignPatch(updateCampaignRequestDto.parse(body), written);
+}
+const COVER_ID = '7d6c5b4a-3f2e-4d1c-8b0a-9f8e7d6c5b4a';
+
+function detailView(overrides: Partial<CampaignDetailView> = {}): CampaignDetailView {
+  return {
+    campaign: campaignPo({ joinCode: 'VHRN7K2Q' }),
+    membership: campaignMemberPo({ role: 'master', lastEnteredAt: null }),
     members: MEMBERS,
     castSceneId: VHARN_CAST_ID,
-  });
+    lastAccessAt: null,
+    onlineUserIds: NOBODY_ONLINE,
+    ...overrides,
+  };
+}
+
+function detailFor(role: 'master' | 'player', passwordHash: string | null = null) {
+  return toCampaignDetailDto(
+    detailView({
+      campaign: campaignPo({ passwordHash, joinCode: 'VHRN7K2Q' }),
+      membership: campaignMemberPo({ role, lastEnteredAt: null }),
+    }),
+  );
 }
 
 describe('campaigns mapper', () => {
@@ -41,7 +75,7 @@ describe('campaigns mapper', () => {
 
   it('a listing row becomes the summary with ISO dates and the nulls preserved', () => {
     const row = campaignListingRow({
-      campaign: campaignPo({ system: null, status: 'Recrutando', description: null }),
+      campaign: campaignPo({ system: null, status: 'ongoing', description: null }),
       role: 'player',
       masterName: 'Bia',
       memberCount: 4,
@@ -51,12 +85,15 @@ describe('campaigns mapper', () => {
       id: VHARN_ID,
       name: 'Os Sinos de Vharn',
       system: null,
-      status: 'Recrutando',
+      status: 'ongoing',
       description: null,
       visibility: 'private',
       myRole: 'player',
       masterName: 'Bia',
       memberCount: 4,
+      cover: { kind: 'drawn', ...defaultCoverOf(VHARN_ID) },
+      contentWarnings: [],
+      tags: [],
       lastEnteredAt: '2026-10-13T22:30:00.000Z',
     });
   });
@@ -86,21 +123,30 @@ describe('campaigns mapper', () => {
 
   it('each participant carries the user id, the drawn color when none was chosen and no photo', () => {
     expect(detailFor('player').members).toEqual([
-      { userId: ANA_ID, name: 'Ana', role: 'master', color: 'teal', avatarId: null },
-      { userId: BIA_ID, name: 'Ágata', role: 'player', color: 'moss', avatarId: null },
-      { userId: CAIO_ID, name: 'Bia', role: 'player', color: 'bone', avatarId: null },
+      { userId: ANA_ID, name: 'Ana', role: 'master', color: 'teal', avatarId: null, online: false },
+      {
+        userId: BIA_ID,
+        name: 'Ágata',
+        role: 'player',
+        color: 'moss',
+        avatarId: null,
+        online: false,
+      },
+      {
+        userId: CAIO_ID,
+        name: 'Bia',
+        role: 'player',
+        color: 'bone',
+        avatarId: null,
+        online: false,
+      },
     ]);
   });
 
   it('a chosen color and a photo reach the participant as they are', () => {
     const photo = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
     const ana = campaignMemberRow({ colorChoice: 'rose', avatarId: photo });
-    const detail = toCampaignDetailDto({
-      campaign: campaignPo(),
-      membership: campaignMemberPo({ role: 'master' }),
-      members: [ana],
-      castSceneId: VHARN_CAST_ID,
-    });
+    const detail = toCampaignDetailDto(detailView({ members: [ana] }));
     expect(detail.members[0]).toMatchObject({ color: 'rose', avatarId: photo });
   });
 
@@ -116,13 +162,118 @@ describe('campaigns mapper', () => {
 
   it('members without a master is an invariant break citing the campaign', () => {
     const build = () =>
-      toCampaignDetailDto({
-        campaign: campaignPo(),
-        membership: campaignMemberPo({ role: 'player' }),
-        members: [campaignMemberRow({ role: 'player' })],
-        castSceneId: VHARN_CAST_ID,
-      });
+      toCampaignDetailDto(
+        detailView({
+          membership: campaignMemberPo({ role: 'player' }),
+          members: [campaignMemberRow({ role: 'player' })],
+        }),
+      );
     expect(build).toThrow(VHARN_ID);
+  });
+});
+
+describe('the campaign settings in the mapper', () => {
+  it('a campaign that never chose a cover gets the drawing of its id', () => {
+    expect(coverOf(campaignPo())).toEqual({ kind: 'drawn', ...defaultCoverOf(VHARN_ID) });
+  });
+
+  it('a chosen drawing is the cover', () => {
+    const campaign = campaignPo({ coverDrawing: 2, coverTone: 4 });
+    expect(coverOf(campaign)).toEqual({ kind: 'drawn', drawing: 2, tone: 4 });
+  });
+
+  it('an image cover wins over a stored drawing', () => {
+    const campaign = campaignPo({ coverDrawing: 2, coverTone: 4, coverAssetId: COVER_ID });
+    expect(coverOf(campaign)).toEqual({ kind: 'image', assetId: COVER_ID });
+  });
+
+  it('the status, the warnings and the tags reach the summary as stored', () => {
+    const campaign = campaignPo({
+      status: 'finished',
+      contentWarnings: ['gore', 'horror'],
+      tags: ['sandbox', 'mistério'],
+    });
+    expect(toCampaignSummaryDto(campaignListingRow({ campaign }))).toMatchObject({
+      status: 'finished',
+      contentWarnings: ['gore', 'horror'],
+      tags: ['sandbox', 'mistério'],
+    });
+  });
+
+  it('the detail carries the creation date and the latest entry of any member', () => {
+    const lastAccessAt = new Date('2026-10-20T23:10:00Z');
+    const detail = toCampaignDetailDto(detailView({ lastAccessAt }));
+    expect(detail.createdAt).toBe('2026-10-01T12:00:00.000Z');
+    expect(detail.lastAccessAt).toBe('2026-10-20T23:10:00.000Z');
+  });
+
+  it('nobody entered yet gives lastAccessAt null', () => {
+    expect(toCampaignDetailDto(detailView()).lastAccessAt).toBeNull();
+  });
+
+  it('each member is online only when the presence lists them', () => {
+    const detail = toCampaignDetailDto(detailView({ onlineUserIds: new Set([BIA_ID]) }));
+    const online = detail.members.map(({ userId, online }) => ({ userId, online }));
+    expect(online).toEqual([
+      { userId: ANA_ID, online: false },
+      { userId: BIA_ID, online: true },
+      { userId: CAIO_ID, online: false },
+    ]);
+  });
+
+  it('the info of the detail drops what depends on the reader and passes the strict DTO', () => {
+    const info = toCampaignInfoDto(detailFor('master'));
+    expect(campaignInfoDto.safeParse(info).success).toBe(true);
+    expect(info).not.toHaveProperty('myRole');
+    expect(info).not.toHaveProperty('joinCode');
+  });
+
+  it('a new campaign keeps the status and the drawn cover it was created with', () => {
+    const input = createCampaignRequestDto.parse({
+      ...{ name: 'Vharn', status: 'recruiting' },
+      ...{ cover: { kind: 'drawn', drawing: 1, tone: 2 } },
+    });
+    const owned = { ownerId: ANA_ID, joinCode: 'VHRN7K2Q', passwordHash: null };
+    expect(toNewCampaignPo(input, owned)).toMatchObject({
+      status: 'recruiting',
+      coverDrawing: 1,
+      coverTone: 2,
+      coverAssetId: null,
+    });
+  });
+
+  it('a new campaign without a cover leaves the cover columns out', () => {
+    const input = { name: 'Vharn', system: null, description: null } as const;
+    const owned = { ownerId: ANA_ID, joinCode: 'VHRN7K2Q', passwordHash: null };
+    const row = toNewCampaignPo({ ...input, status: 'building', visibility: 'private' }, owned);
+    expect(row).not.toHaveProperty('coverDrawing');
+    expect(row).not.toHaveProperty('coverAssetId');
+  });
+
+  it('the patch writes only the fields sent, plus the moment', () => {
+    const updatedAt = new Date('2026-10-24T10:00:00Z');
+    const patch = patchOf({ name: 'Vharn' }, { passwordHash: undefined, updatedAt });
+    expect(patch).toEqual({ name: 'Vharn', updatedAt });
+  });
+
+  it('a cleared text is written as null and a removed password as a null hash', () => {
+    const updatedAt = new Date('2026-10-24T10:00:00Z');
+    const patch = patchOf({ system: null }, { passwordHash: null, updatedAt });
+    expect(patch).toEqual({ system: null, passwordHash: null, updatedAt });
+  });
+
+  it('an image cover clears the drawing and a drawing clears the image', () => {
+    const at = { passwordHash: undefined, updatedAt: new Date('2026-10-24T10:00:00Z') };
+    const image = patchOf({ cover: { kind: 'image', assetId: COVER_ID } }, at);
+    const drawn = patchOf({ cover: { kind: 'drawn', drawing: 0, tone: 3 } }, at);
+    expect(image).toMatchObject({ coverAssetId: COVER_ID, coverDrawing: null, coverTone: null });
+    expect(drawn).toMatchObject({ coverAssetId: null, coverDrawing: 0, coverTone: 3 });
+  });
+
+  it('the plain password never reaches the patch', () => {
+    const at = { passwordHash: 'hashed:sino', updatedAt: new Date('2026-10-24T10:00:00Z') };
+    const patch = patchOf({ password: 'sino' }, at);
+    expect(patch).toEqual({ passwordHash: 'hashed:sino', updatedAt: at.updatedAt });
   });
 });
 

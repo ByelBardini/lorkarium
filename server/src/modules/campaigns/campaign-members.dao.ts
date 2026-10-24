@@ -1,4 +1,4 @@
-import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, max, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { users, type UserPo } from '../auth/users.po';
@@ -100,6 +100,15 @@ export class CampaignMembersDao {
       .from(campaignMembers)
       .innerJoin(users, eq(users.id, campaignMembers.userId))
       .where(eq(campaignMembers.campaignId, campaignId));
+  }
+
+  /** The latest entry of any member of the campaign; `null` when nobody entered it yet. */
+  async lastAccessAtOf(campaignId: string): Promise<Date | null> {
+    const [row] = await this.db
+      .select({ at: max(campaignMembers.lastEnteredAt) })
+      .from(campaignMembers)
+      .where(eq(campaignMembers.campaignId, campaignId));
+    return row?.at ?? null;
   }
 
   async markEntered(campaignId: string, userId: string, at: Date): Promise<void> {

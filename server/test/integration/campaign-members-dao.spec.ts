@@ -164,4 +164,19 @@ describe('CampaignMembersDao on Postgres', () => {
     );
     await expect(duplicate).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } });
   });
+
+  it('lastAccessAtOf is the latest entry of any member of that campaign only', async () => {
+    const vharnId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+    const quelmId = await campaignMasteredBy(biaId, 'Quelm', 'QLMR2345');
+    await membersDao.insert(newCampaignMemberPo({ campaignId: vharnId, userId: biaId }));
+    await membersDao.markEntered(vharnId, anaId, new Date('2026-10-12T22:00:00Z'));
+    await membersDao.markEntered(vharnId, biaId, new Date('2026-10-13T23:30:00Z'));
+    await membersDao.markEntered(quelmId, biaId, new Date('2026-10-20T20:00:00Z'));
+    expect(await membersDao.lastAccessAtOf(vharnId)).toEqual(new Date('2026-10-13T23:30:00Z'));
+  });
+
+  it('lastAccessAtOf is null while nobody entered the campaign', async () => {
+    const campaignId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+    expect(await membersDao.lastAccessAtOf(campaignId)).toBeNull();
+  });
 });

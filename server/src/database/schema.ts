@@ -2,7 +2,7 @@
 export { authSessions } from '../modules/auth/auth-sessions.po';
 export { memberColor, userRole, users } from '../modules/auth/users.po';
 export { campaignRole, campaignMembers } from '../modules/campaigns/campaign-members.po';
-export { campaignVisibility, campaigns } from '../modules/campaigns/campaigns.po';
+export { campaignStatus, campaignVisibility, campaigns } from '../modules/campaigns/campaigns.po';
 export { sceneKind, sceneVision, sceneVisibility, scenes } from '../modules/scenes/scenes.po';
 export { sceneFolders } from '../modules/library/scene-folders.po';
 export {

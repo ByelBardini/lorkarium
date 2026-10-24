@@ -1,8 +1,24 @@
-import { pgEnum, pgTable, text, timestamp, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import {
+  pgEnum,
+  pgTable,
+  smallint,
+  text,
+  timestamp,
+  uuid,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core';
+import { assets } from '../assets/assets.po';
 import { users } from '../auth/users.po';
 import { scenes } from '../scenes/scenes.po';
 
 export const campaignVisibility = pgEnum('campaign_visibility', ['public', 'private']);
+
+export const campaignStatus = pgEnum('campaign_status', [
+  'building',
+  'recruiting',
+  'ongoing',
+  'finished',
+]);
 
 export const campaigns = pgTable('campaigns', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -11,7 +27,7 @@ export const campaigns = pgTable('campaigns', {
     .references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   system: text('system'),
-  status: text('status'),
+  status: campaignStatus('status').notNull().default('building'),
   description: text('description'),
   visibility: campaignVisibility('visibility').notNull().default('private'),
   // Canonical form (no hyphen, uppercase); the client formats it for display.
@@ -22,6 +38,16 @@ export const campaigns = pgTable('campaigns', {
   activeSceneId: uuid('active_scene_id').references((): AnyPgColumn => scenes.id, {
     onDelete: 'set null',
   }),
+  // A drawn cover is the pair; both null = never chosen (the mapper draws `defaultCoverOf`).
+  coverDrawing: smallint('cover_drawing'),
+  coverTone: smallint('cover_tone'),
+  // An image cover wins over the drawn one; a deleted asset falls back to the drawing.
+  coverAssetId: uuid('cover_asset_id').references((): AnyPgColumn => assets.id, {
+    onDelete: 'set null',
+  }),
+  // Only the values of the contract's `contentWarningDto`; the mapper reads them back through it.
+  contentWarnings: text('content_warnings').array().notNull().default([]),
+  tags: text('tags').array().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -262,3 +262,34 @@ describe('TablePresenceBo.profileChanged', () => {
     expect(outcome.roster).toEqual({ ...roster, version: 5 });
   });
 });
+
+describe('TablePresenceBo.campaignChanged', () => {
+  it('a saved campaign bumps the version and leaves sockets, grace and absence as they were', () => {
+    const roster = presenceRoster({
+      version: 2,
+      sockets: { [ANA_ID]: ['s1'] },
+      inGrace: [BIA_ID],
+      away: ['s1'],
+      awaySince: { [ANA_ID]: AT },
+    });
+
+    const outcome = new TablePresenceBo(roster).campaignChanged();
+
+    expect(outcome.change).toBe('campaign-changed');
+    expect(outcome.roster).toEqual({ ...roster, version: 3 });
+  });
+});
+
+describe('TablePresenceBo.onlineUserIds', () => {
+  it('counts who has a socket and who is inside the grace, like isOnline', () => {
+    const CAIO = 'b4d6e8f0-1a2b-4c3d-8e5f-6a7b8c9d0e1f';
+    const roster = presenceRoster({ version: 3, sockets: { [ANA_ID]: ['s1'] }, inGrace: [BIA_ID] });
+    const online = new TablePresenceBo(roster).onlineUserIds();
+    expect([...online].sort()).toEqual([ANA_ID, BIA_ID].sort());
+    expect(online.has(CAIO)).toBe(false);
+  });
+
+  it('an empty table has nobody online', () => {
+    expect(new TablePresenceBo(EMPTY_ROSTER).onlineUserIds().size).toBe(0);
+  });
+});

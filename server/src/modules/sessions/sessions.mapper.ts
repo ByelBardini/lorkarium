@@ -1,4 +1,7 @@
 import type {
+  CampaignInfoDto,
+  SessionCampaignDeletedDto,
+  SessionCampaignUpdatedDto,
   SessionMemberActivityDto,
   SessionMemberDto,
   SessionMemberJoinedDto,
@@ -75,6 +78,24 @@ export function toMemberUpdatedDto(
     member: toSessionMemberDto(member, new TablePresenceBo(roster)),
     at: at.toISOString(),
   };
+}
+
+/** The campaign read again after a save + the roster version it moved to → the event.
+ *
+ *  Example: `toCampaignUpdatedDto(campaign, outcome.roster.version, clock.now()).campaign.name` */
+export function toCampaignUpdatedDto(
+  campaign: CampaignInfoDto,
+  version: number,
+  at: Date,
+): SessionCampaignUpdatedDto {
+  return { campaignId: campaign.id, version, campaign, at: at.toISOString() };
+}
+
+/** The deleted campaign → the event; no version follows, the room is emptied after it.
+ *
+ *  Example: `toCampaignDeletedDto(campaignId, clock.now()).campaignId` */
+export function toCampaignDeletedDto(campaignId: string, at: Date): SessionCampaignDeletedDto {
+  return { campaignId, at: at.toISOString() };
 }
 
 function profileOf(member: CampaignMemberRow): Omit<SessionMemberDto, 'online' | 'awaySince'> {

@@ -54,11 +54,20 @@ export class UniqueViolationFake extends Error {
   override readonly cause = { code: '23505' };
 }
 
-/** In-memory campaigns table; a repeated join code throws like the unique index does. */
+/** In-memory campaigns table; a repeated join code throws like the unique index does.
+ *  `writes` lists `update:<id>`, `replaceJoinCode:<code>` and `delete:<id>` in order. */
 export class CampaignsDaoFake implements Pick<
   CampaignsDao,
-  'insert' | 'findById' | 'findByJoinCode' | 'setActiveScene'
+  | 'insert'
+  | 'findById'
+  | 'findByJoinCode'
+  | 'setActiveScene'
+  | 'update'
+  | 'replaceJoinCode'
+  | 'delete'
 > {
+  readonly writes: string[] = [];
+
   constructor(readonly rows: CampaignPo[] = []) {}
 
   async insert(campaign: NewCampaignPo): Promise<CampaignPo> {
@@ -83,13 +92,43 @@ export class CampaignsDaoFake implements Pick<
     if (!row) throw new Error(`CampaignsDaoFake has no campaign ${campaignId}`);
     row.activeSceneId = sceneId;
   }
+
+  async update(campaignId: string, patch: Partial<NewCampaignPo>): Promise<CampaignPo | undefined> {
+    this.writes.push(`update:${campaignId}`);
+    const row = this.rows.find((candidate) => candidate.id === campaignId);
+    if (row) Object.assign(row, patch);
+    return row;
+  }
+
+  async replaceJoinCode(campaignId: string, joinCode: string, at: Date): Promise<boolean> {
+    if (this.rows.some((row) => row.joinCode === joinCode)) {
+      throw new UniqueViolationFake(`join code ${joinCode} taken`);
+    }
+    this.writes.push(`replaceJoinCode:${joinCode}`);
+    const row = this.rows.find((candidate) => candidate.id === campaignId);
+    if (row) Object.assign(row, { joinCode, updatedAt: at });
+    return row !== undefined;
+  }
+
+  async delete(campaignId: string): Promise<boolean> {
+    this.writes.push(`delete:${campaignId}`);
+    const index = this.rows.findIndex((row) => row.id === campaignId);
+    if (index >= 0) this.rows.splice(index, 1);
+    return index >= 0;
+  }
 }
 
 /** In-memory campaign_members; names come from `userNames`, listings from `campaigns.rows`.
  *  `listedFor` records `listOfUser` calls and `membersListedFor` records `listMembers` calls. */
 export class CampaignMembersDaoFake implements Pick<
   CampaignMembersDao,
-  'insert' | 'findMembership' | 'listOfUser' | 'listMembers' | 'markEntered' | 'campaignIdsOfUser'
+  | 'insert'
+  | 'findMembership'
+  | 'listOfUser'
+  | 'listMembers'
+  | 'markEntered'
+  | 'campaignIdsOfUser'
+  | 'lastAccessAtOf'
 > {
   readonly listedFor: string[] = [];
   readonly membersListedFor: string[] = [];
@@ -129,6 +168,13 @@ export class CampaignMembersDaoFake implements Pick<
 
   async markEntered(campaignId: string, userId: string, at: Date): Promise<void> {
     this.entered.push({ campaignId, userId, at });
+  }
+
+  async lastAccessAtOf(campaignId: string): Promise<Date | null> {
+    const entries = this.rows
+      .filter((row) => row.campaignId === campaignId)
+      .flatMap((row) => (row.lastEnteredAt ? [row.lastEnteredAt.getTime()] : []));
+    return entries.length > 0 ? new Date(Math.max(...entries)) : null;
   }
 
   private listingOf(row: CampaignMemberPo): CampaignListingRow {

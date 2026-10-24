@@ -1,4 +1,6 @@
 import type {
+  SessionCampaignDeletedDto,
+  SessionCampaignUpdatedDto,
   SessionMemberActivityDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
@@ -64,7 +66,9 @@ export type PublishedSessionEvent =
   | Readonly<{ name: 'memberJoined'; event: SessionMemberJoinedDto }>
   | Readonly<{ name: 'memberLeft'; event: SessionMemberLeftDto }>
   | Readonly<{ name: 'memberActivity'; event: SessionMemberActivityDto }>
-  | Readonly<{ name: 'memberUpdated'; event: SessionMemberUpdatedDto }>;
+  | Readonly<{ name: 'memberUpdated'; event: SessionMemberUpdatedDto }>
+  | Readonly<{ name: 'campaignUpdated'; event: SessionCampaignUpdatedDto }>
+  | Readonly<{ name: 'campaignDeleted'; event: SessionCampaignDeletedDto }>;
 
 /** Keeps every published event and writes `publish:<name>` to the journal. */
 export class SessionPublisherFake implements SessionPublisherPort {
@@ -90,6 +94,16 @@ export class SessionPublisherFake implements SessionPublisherPort {
   memberUpdated(event: SessionMemberUpdatedDto): void {
     this.journal.entries.push(`publish:memberUpdated:${event.campaignId}`);
     this.published.push({ name: 'memberUpdated', event });
+  }
+
+  campaignUpdated(event: SessionCampaignUpdatedDto): void {
+    this.journal.entries.push(`publish:campaignUpdated:${event.campaignId}`);
+    this.published.push({ name: 'campaignUpdated', event });
+  }
+
+  async campaignDeleted(event: SessionCampaignDeletedDto): Promise<void> {
+    this.journal.entries.push(`publish:campaignDeleted:${event.campaignId}`);
+    this.published.push({ name: 'campaignDeleted', event });
   }
 }
 
