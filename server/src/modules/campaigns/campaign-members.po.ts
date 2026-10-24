@@ -2,8 +2,9 @@ import { index, pgEnum, pgTable, primaryKey, timestamp, uuid } from 'drizzle-orm
 import { users } from '../auth/users.po';
 import { campaigns } from './campaigns.po';
 
-// Per-campaign role (spec §3.9); the spectator joins with its own flow.
-export const campaignRole = pgEnum('campaign_role', ['master', 'player']);
+// Per-campaign role (spec §3.9). The spectator is stored too, so a reload or a server restart
+// keeps them at the table; the table itself shows no trace of them (docs/context/campaigns/papeis.md).
+export const campaignRole = pgEnum('campaign_role', ['master', 'player', 'spectator']);
 
 export const campaignMembers = pgTable(
   'campaign_members',
