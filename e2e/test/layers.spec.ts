@@ -52,7 +52,7 @@ test('layers: a player never picks what is off the tokens layer, a marquee moves
     [caio, CAIO],
   ] as const) {
     await signIn(page, who);
-    await joinByCodeAndEnter(page, code);
+    await joinByCodeAndEnter(page, code, admin);
   }
   await enterFromTheList(admin, name);
 

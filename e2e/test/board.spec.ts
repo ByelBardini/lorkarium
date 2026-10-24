@@ -40,7 +40,7 @@ test('the room fills the screen, the grid changes live for everyone, the camera 
   await expect(admin.getByRole('button', { name: /^(Recolher|Expandir) menu$/ })).toHaveCount(0);
 
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await expect(boardOf(bia)).toHaveAccessibleName(/20 × 12 casas/);
 
   await configureGrid(admin, '30', '20');

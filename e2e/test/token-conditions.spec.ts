@@ -36,7 +36,7 @@ test('the card of a hovered token lists all its conditions, the looks first, the
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
   // The token's detail lives on the "Combate" tab; entering the table opens "Na mesa".
   await admin.getByRole('tab', { name: 'Combate' }).click();

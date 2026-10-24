@@ -35,7 +35,7 @@ test('areas of effect live: drawn by a player, stretched by its handle, deleted 
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
   // Bia picks a diagonal cone in ember and drags from the middle of (6, 6) toward (9, 9): it leaves

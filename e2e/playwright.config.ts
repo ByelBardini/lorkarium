@@ -46,6 +46,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
     'board',
     'table-cards',
     'campaign-settings',
+    'spectators',
   ],
   tokens: ['tokens', 'main-token', 'token-conditions', 'token-resize', 'images'],
   scene: ['layers', 'drawings', 'effect-areas', 'pings'],

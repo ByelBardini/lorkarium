@@ -104,7 +104,7 @@ test.describe('backoffice', () => {
     const code = await createTableAndReadCode(bia, table);
     const caio = await newPlayerPage();
     await signIn(caio, CAIO);
-    await joinByCodeAndEnter(caio, code);
+    await joinByCodeAndEnter(caio, code, bia);
     await admin.reload();
     await chooseFor(admin, 'Bia', 'Excluir usuário');
     const blocked = admin.getByRole('alertdialog', { name: 'Excluir @bia?' });

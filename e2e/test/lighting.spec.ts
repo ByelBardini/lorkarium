@@ -117,7 +117,7 @@ test('lighting live: a torch on the map shows the ogre, put out it hides it, and
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
   await setVisionDark(admin);
@@ -176,7 +176,7 @@ test('colored light: an infernal torch tints the floor red for Bia, kept on F5, 
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
   await setVisionDark(admin);
   await createBlindLyra(admin);
@@ -225,7 +225,7 @@ test('torch dragged live: the ogre shows before the drop, to Bia dragging and to
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
   await setVisionDark(admin);

@@ -31,9 +31,9 @@ test('Bia stays online at two tables at once, an F5 keeps her there, and leaving
   const codeB = await createTableAndReadCode(admin, tableB);
 
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, codeA);
+  await joinByCodeAndEnter(bia, codeA, admin);
   await bia.getByRole('link', { name: 'Mesas', exact: true }).click();
-  await joinByCodeAndEnter(bia, codeB);
+  await joinByCodeAndEnter(bia, codeB, admin);
   await enterFromTheList(admin, tableA);
 
   await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online');

@@ -36,9 +36,9 @@ test('the ping of one reaches the other on the same grid, and nobody at another 
   const vharn = await createTableAndReadCode(admin, `Mesa ping ${stamp}`);
   const quelm = await createTableAndReadCode(admin, `Mesa ao lado ${stamp}`);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, vharn);
+  await joinByCodeAndEnter(bia, vharn, admin);
   await signIn(caio, CAIO);
-  await joinByCodeAndEnter(caio, quelm);
+  await joinByCodeAndEnter(caio, quelm, admin);
   await enterFromTheList(admin, `Mesa ping ${stamp}`);
   await expect(boardOf(admin)).toBeVisible();
 

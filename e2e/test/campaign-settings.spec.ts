@@ -126,7 +126,7 @@ test('the master creates, renames, renews the code and deletes a table while a p
   await expect(form.getByRole('radio', { name: 'Recrutando' })).toBeChecked();
 
   await signIn(caio, CAIO);
-  await joinByCodeAndEnter(caio, oldCode);
+  await joinByCodeAndEnter(caio, oldCode, bia);
   await expect(openTablesOf(caio).getByRole('link')).toContainText([name]);
 
   await rename(bia, newName);

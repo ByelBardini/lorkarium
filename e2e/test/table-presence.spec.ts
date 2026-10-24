@@ -20,7 +20,7 @@ test('two people at the same table see each other online, and a closed page goes
   const code = await createTableAndReadCode(admin, name);
 
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
   await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online');

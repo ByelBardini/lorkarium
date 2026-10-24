@@ -96,7 +96,7 @@ test('a whole combat: the preparation with initiative, turns, rounds, a conditio
     [caio, CAIO],
   ] as const) {
     await signIn(page, who);
-    await joinByCodeAndEnter(page, code);
+    await joinByCodeAndEnter(page, code, admin);
     await showCombat(page);
   }
   await enterFromTheList(admin, name);
@@ -180,7 +180,7 @@ test('grouped initiative: the same creature together, adding mid-fight, a paste 
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(caio, CAIO);
-  await joinByCodeAndEnter(caio, code);
+  await joinByCodeAndEnter(caio, code, admin);
   await showCombat(caio);
   await enterFromTheList(admin, name);
   await showCombat(admin);
