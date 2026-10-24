@@ -29,28 +29,31 @@ export function lightSource(
 
 /** How lit a point is: `seen` within `bright` of a light, `silhouette` within `bright + dim`,
  *  `hidden` in the dark. Only a light with line of sight to the point counts (the walls that
- *  block sight block light), and a lantern only within its cone (its apex counts); the best wins.
+ *  block sight block light, `except` the one left out: a door is lit through itself), and a
+ *  lantern only within its cone (its apex counts); the best wins.
  *
  *  Example: `lightLevelAt({ x: 8, y: 5 }, [torchAt5x5], [])` → `'silhouette'` (bright 2, dim 2) */
 export function lightLevelAt(
   point: Vector2,
   lights: readonly LightSource[],
   walls: readonly Wall[],
+  except?: Wall,
 ): SightLevel {
   let best: SightLevel = 'hidden';
   for (const light of lights) {
     const level = levelFrom(light, point);
     if (level === 'hidden' || level === best) continue;
-    if (!lineOfSight(light.center, point, walls)) continue;
+    if (!lineOfSight(light.center, point, walls, except)) continue;
     if (level === 'seen') return level;
     best = level;
   }
   return best;
 }
 
+// The distance first: most lights of a scene are far from a given point, and the cone costs more.
 function levelFrom({ center, range, cone }: LightSource, point: Vector2): SightLevel {
-  if (!insideCone(cone, center, point)) return 'hidden';
   const distance = Math.hypot(point.x - center.x, point.y - center.y) - EDGE_TOLERANCE;
-  if (distance <= range.bright) return 'seen';
-  return distance <= range.bright + range.dim ? 'silhouette' : 'hidden';
+  if (distance > range.bright + range.dim) return 'hidden';
+  if (!insideCone(cone, center, point)) return 'hidden';
+  return distance <= range.bright ? 'seen' : 'silhouette';
 }

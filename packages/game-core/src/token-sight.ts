@@ -91,7 +91,7 @@ export function sightLevel(context: SightContext, target: SightTarget): SightLev
   if (context.mode === 'off') return 'seen';
   let best: SightLevel = 'hidden';
   for (const point of probesOf(target.box)) {
-    const lit = litLevel(point, context, context.walls);
+    const lit = litLevel(point, context);
     for (const eye of context.eyes) {
       const level = levelAt(eye, point, context, { scenery: target.scenery, lit });
       if (LEVEL_RANK[level] > LEVEL_RANK[best]) best = level;
@@ -108,30 +108,30 @@ export function sightLevel(context: SightContext, target: SightTarget): SightLev
  *  Example: `doorSeenBy({ eyes: [blindEye], walls, mode: 'dark', lights: [torch] }, cellarDoor)` → `true` */
 export function doorSeenBy(context: SightContext, door: Wall): boolean {
   if (context.mode === 'off') return true;
-  const others = { ...context, walls: context.walls.filter((value) => value !== door) };
   return doorProbes(door).some((point) => {
-    const lit = litLevel(point, context, others.walls);
-    return context.eyes.some(
-      (eye) => levelAt(eye, point, others, { scenery: true, lit }) === 'seen',
-    );
+    const lit = litLevel(point, context, door);
+    const probe = { scenery: true, lit, except: door };
+    return context.eyes.some((eye) => levelAt(eye, point, context, probe) === 'seen');
   });
 }
 
-type ProbeLight = Readonly<{ scenery: boolean; lit: SightLevel }>;
+/** `except`: the wall left out of every line (the door being looked at). */
+type ProbeLight = Readonly<{ scenery: boolean; lit: SightLevel; except?: Wall }>;
 
 function levelAt(eye: Eye, point: Vector2, context: SightContext, probe: ProbeLight): SightLevel {
   if (eye.field && !withinField(eye.field, eye.center, point)) return 'hidden';
   const distance = Math.hypot(point.x - eye.center.x, point.y - eye.center.y);
   const own = context.mode === 'daylight' ? 'seen' : rangeLevel(eye.range, distance);
   const level = LEVEL_RANK[probe.lit] > LEVEL_RANK[own] ? probe.lit : own;
-  if (level === 'hidden' || !lineOfSight(eye.center, point, context.walls)) return 'hidden';
+  if (level === 'hidden') return 'hidden';
+  if (!lineOfSight(eye.center, point, context.walls, probe.except)) return 'hidden';
   return probe.scenery ? 'seen' : level;
 }
 
 // Daylight already lights everything, so lights only matter in the dark.
-function litLevel(point: Vector2, context: SightContext, walls: readonly Wall[]): SightLevel {
+function litLevel(point: Vector2, context: SightContext, except?: Wall): SightLevel {
   if (context.mode !== 'dark') return 'hidden';
-  return lightLevelAt(point, context.lights, walls);
+  return lightLevelAt(point, context.lights, context.walls, except);
 }
 
 function rangeLevel(range: SightRange | null, distance: number): SightLevel {
