@@ -32,6 +32,7 @@ const SENDS_PER_MINUTE = 20;
 // The content of an id never changes, so the browser may keep it for a year.
 const ASSET_CACHE_CONTROL = 'private, max-age=31536000, immutable';
 const UPLOAD_URL = '/campaigns/:campaignId/assets';
+const FORBIDDEN_MESSAGE = 'Your role at this table does not allow it';
 
 const STATUS_BY_CODE: Readonly<Record<AssetErrorCode, number>> = {
   ASSET_NOT_FOUND: 404,
@@ -168,6 +169,10 @@ async function replyWithApiError(
   }
   if (error instanceof CampaignError && error.code === 'CAMPAIGN_NOT_FOUND') {
     return reply.code(404).send({ code: error.code, message: 'Campaign not found' });
+  }
+  // A spectator sees the table's images but may not send one.
+  if (error instanceof CampaignError && error.code === 'FORBIDDEN') {
+    return reply.code(403).send({ code: error.code, message: FORBIDDEN_MESSAGE });
   }
   if (error instanceof ZodError) return reply.code(400).send(invalidBodyError(error));
   if (error.statusCode !== undefined && error.statusCode < 500) {

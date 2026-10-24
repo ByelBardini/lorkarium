@@ -11,7 +11,10 @@ import { CampaignNotFoundError } from '../../src/modules/campaigns/campaigns.err
 import type { CampaignsService } from '../../src/modules/campaigns/campaigns.service';
 import type { PresenceRegistryPort } from '../../src/modules/sessions/presence-registry.port';
 import type { SchedulerPort } from '../../src/modules/sessions/scheduler.port';
-import type { SessionPublisherPort } from '../../src/modules/sessions/session-publisher.port';
+import type {
+  MemberRoleMove,
+  SessionPublisherPort,
+} from '../../src/modules/sessions/session-publisher.port';
 import type { PresenceRoster } from '../../src/modules/sessions/table-presence.bo';
 
 /** One ordered log shared by the registry and the publisher fakes, to prove save → publish. */
@@ -68,9 +71,11 @@ export type PublishedSessionEvent =
   | Readonly<{ name: 'memberActivity'; event: SessionMemberActivityDto }>
   | Readonly<{ name: 'memberUpdated'; event: SessionMemberUpdatedDto }>
   | Readonly<{ name: 'campaignUpdated'; event: SessionCampaignUpdatedDto }>
-  | Readonly<{ name: 'campaignDeleted'; event: SessionCampaignDeletedDto }>;
+  | Readonly<{ name: 'campaignDeleted'; event: SessionCampaignDeletedDto }>
+  | Readonly<{ name: 'memberRoleChanged'; event: SessionMemberUpdatedDto; move: MemberRoleMove }>;
 
-/** Keeps every published event and writes `publish:<name>` to the journal. */
+/** Keeps every published event and writes `publish:<name>` to the journal (a role change as
+ *  `publish:memberRoleChanged:<campaignId>`, with the rooms move it asked for). */
 export class SessionPublisherFake implements SessionPublisherPort {
   readonly published: PublishedSessionEvent[] = [];
 
@@ -104,6 +109,11 @@ export class SessionPublisherFake implements SessionPublisherPort {
   async campaignDeleted(event: SessionCampaignDeletedDto): Promise<void> {
     this.journal.entries.push(`publish:campaignDeleted:${event.campaignId}`);
     this.published.push({ name: 'campaignDeleted', event });
+  }
+
+  async memberRoleChanged(event: SessionMemberUpdatedDto, move: MemberRoleMove): Promise<void> {
+    this.journal.entries.push(`publish:memberRoleChanged:${event.campaignId}`);
+    this.published.push({ name: 'memberRoleChanged', event, move });
   }
 }
 

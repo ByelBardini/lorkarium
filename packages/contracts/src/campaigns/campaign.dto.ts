@@ -4,7 +4,7 @@ import { campaignCoverDto } from './campaign-cover.dto';
 import { campaignTagsDto } from './campaign-tags.dto';
 
 /** Role inside one campaign; unrelated to the global account role. */
-export const campaignRoleDto = z.enum(['master', 'player']);
+export const campaignRoleDto = z.enum(['master', 'player', 'spectator']);
 
 export type CampaignRoleDto = z.infer<typeof campaignRoleDto>;
 

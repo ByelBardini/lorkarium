@@ -2,6 +2,7 @@ import { MAX_OPEN_TABLES, type CampaignInfoDto, type SessionStateDto } from '@lo
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMemberRow } from '../campaigns/campaign-members.dao';
 import type { CampaignsService } from '../campaigns/campaigns.service';
+import type { MemberRoleChange } from '../campaigns/member-role-changed.port';
 import { ConnectionTablesBo, type ConnectionTablesOutcome } from './connection-tables.bo';
 import type { PresenceRegistryPort } from './presence-registry.port';
 import type { SchedulerPort } from './scheduler.port';
@@ -99,6 +100,27 @@ export class TableSessionService {
     await Promise.all(live.map((campaignId) => this.announceProfile(userId, campaignId)));
   }
 
+  /** The master moved a member between player and spectator: a table with someone at it hears
+   *  the member read again (`session:memberUpdated`, the new role) with the version moved, after
+   *  the member's open connections moved to the rooms of that role; a table nobody is at hears
+   *  nothing and keeps no roster. Implements the campaigns module's `MemberRoleChangedPort`.
+   *
+   *  Example: `await sessions.memberRoleChanged({ campaignId, userId: dudaId, role: 'player' })` */
+  async memberRoleChanged(change: MemberRoleChange): Promise<void> {
+    const { campaignId, userId, role } = change;
+    if (!this.deps.registry.rosterOf(campaignId)) return;
+    const members = await this.deps.campaigns.rosterOf(userId, campaignId);
+    const member = members.find((candidate) => candidate.userId === userId);
+    if (!member) throw new Error(`user ${userId} changed role but is not in ${campaignId}`);
+    // Read again after the await: the table may have emptied while the members were read.
+    const roster = this.deps.registry.rosterOf(campaignId);
+    if (!roster) return;
+    const outcome = new TablePresenceBo(roster).roleChanged();
+    this.deps.registry.save(campaignId, outcome.roster);
+    const event = toMemberUpdatedDto(campaignId, member, outcome.roster, this.deps.clock.now());
+    await this.deps.publisher.memberRoleChanged(event, { campaignId, userId, audience: role });
+  }
+
   /** The master saved the campaign: a table with someone at it hears the campaign read again
    *  (`session:campaignUpdated`) with the version moved; a table nobody is at hears nothing and
    *  keeps no roster. Implements the campaigns module's `CampaignChangedPort`.
@@ -160,7 +182,8 @@ export class TableSessionService {
     const member = members.find((candidate) => candidate.userId === userId);
     if (!member) throw new Error(`user ${userId} changed profile but is not in ${campaignId}`);
     const roster = this.deps.registry.rosterOf(campaignId);
-    if (!roster) return;
+    // A spectator who left is not in the roster of the table: there is no one to tell.
+    if (!roster || !new TablePresenceBo(roster).lists(member)) return;
     const outcome = new TablePresenceBo(roster).profileChanged();
     this.deps.registry.save(campaignId, outcome.roster);
     const at = this.deps.clock.now();

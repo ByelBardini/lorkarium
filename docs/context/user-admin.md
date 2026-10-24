@@ -27,6 +27,7 @@ Id malformado é 400 (o `adminUserParamsDto`). Cada ação vai ao log pino como 
 
 ## Regras e ordem
 
+- O `otherMembers` conta todo papel da mesa, espectador incluído: mesa só com espectadores também bloqueia excluir a conta do dono.
 - **Ninguém age sobre si** (`SELF_ACTION`): quem pede é um admin ativo, então tirar o admin de outro nunca zera os admins. Não há regra de "último admin".
 - `changeRole`: grava; virar admin (de `user`) manda "Você agora é admin do Lorkarium", sem dizer quem deu (o e-mail é neutro). Tirar não avisa.
 - `suspend`: na transação `suspended_at = agora` → `AuthSessionsDao.deleteAllOf` → `PasswordResetsDao.deleteOfUser`; depois do commit `sessionEnded` de cada sessão e o aviso "Seu acesso ao Lorkarium foi suspenso". Já suspensa: nada muda, ninguém é avisado. Os lugares nas mesas ficam (a pessoa aparece offline). O login com a senha certa dá 403 `ACCOUNT_SUSPENDED` e o `resolveSession` recusa (ver [`auth.md`](auth.md)).

@@ -7,6 +7,7 @@ import {
   movedAnnouncement,
   pingAnnouncement,
   resizedAnnouncement,
+  roleChangedNotice,
   selectedAnnouncement,
   tokenCommandFailureMessage,
 } from '@/features/board/board-messages';
@@ -123,5 +124,18 @@ describe('pingAnnouncement', () => {
 
   it('a ping on the corner of the grid is the first cell', () => {
     expect(pingAnnouncement('Ana', 0, 0)).toBe('Ana marcou um ponto (coluna 1, linha 1).');
+  });
+});
+
+describe('roleChangedNotice', () => {
+  it.each([
+    ['player', 'Agora você é jogador nesta mesa.'],
+    ['spectator', 'Agora você assiste a esta mesa.'],
+  ] as const)('becoming %s reads "%s"', (role, notice) => {
+    expect(roleChangedNotice(role)).toBe(notice);
+  });
+
+  it('the master never changes role, so nothing is said', () => {
+    expect(roleChangedNotice('master')).toBeNull();
   });
 });

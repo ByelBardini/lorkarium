@@ -31,6 +31,9 @@ export type BoardStore = BoardStoreState &
   Readonly<{
     apply: (update: TableSessionUpdate) => void;
     retry: () => void;
+    /** Asks the snapshot again while the board stays shown (the viewer's role changed: the
+     *  server redacts it anew). Asked even with a resync on its way, which may predate the change. */
+    resync: () => void;
     /** The cast changed: the linked tokens and the table's pieces are read from it again. */
     relink: () => void;
   }>;
@@ -68,6 +71,10 @@ export function createBoardStore(
       apply: (update) => set(withCast(nextState(get(), update, resyncOnce), castOf)),
       retry: () => {
         set({ status: 'loading', failure: null });
+        requestResync();
+      },
+      resync: () => {
+        set({ resyncAsked: true });
         requestResync();
       },
       relink: () => {

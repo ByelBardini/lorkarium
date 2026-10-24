@@ -4,6 +4,7 @@ import type { UsersDao } from '../auth/users.dao';
 import type { UserPo } from '../auth/users.po';
 import type { CampaignJoinService } from '../campaigns/campaign-join.service';
 import type { CampaignsService } from '../campaigns/campaigns.service';
+import type { MemberRoleService } from '../campaigns/member-role.service';
 import type { LightsService } from '../lights/lights.service';
 import type { ScenesService } from '../scenes/scenes.service';
 import type { TokenBatchService } from '../tokens/token-batch.service';
@@ -22,6 +23,8 @@ export type StressSceneSeedDeps = Readonly<{
   users: Pick<UsersDao, 'findByUsername'>;
   campaigns: Pick<CampaignsService, 'create' | 'listMine'>;
   join: Pick<CampaignJoinService, 'join'>;
+  // Whoever enters by the code watches: the master promotes Caio so his tokens are his to move.
+  roles: Pick<MemberRoleService, 'change'>;
   scenes: Pick<ScenesService, 'configure'>;
   walls: Pick<WallsService, 'createMany'>;
   lights: Pick<LightsService, 'createMany'>;
@@ -34,7 +37,7 @@ type Players = Readonly<{ master: UserPo; player: UserPo }>;
 
 /** `pnpm db:seed-stress`: Bia's table at the target scale (docs/context/client/performance.md),
  *  built through the very services the board uses, in batches they accept; Caio joins by the
- *  code. Never in production, and never twice.
+ *  code and Bia promotes him to player. Never in production, and never twice.
  *
  *  Example: `await new StressSceneSeedService(deps).seed(env.nodeEnv)` */
 export class StressSceneSeedService {
@@ -52,9 +55,20 @@ export class StressSceneSeedService {
       ...{ name: STRESS_CAMPAIGN_NAME, visibility: 'private', system: null },
       ...{ status: 'building', description: 'Cena de estresse do bench de desempenho.' },
     });
-    if (campaign.joinCode) await this.deps.join.join(player.id, { code: campaign.joinCode });
+    await this.letPlayerIn(master.id, campaign, player.id);
     await this.fill(master.id, campaign.id, stressSceneOf(player.id));
     return { campaignId: campaign.id, created: true };
+  }
+
+  private async letPlayerIn(
+    masterId: string,
+    campaign: Readonly<{ id: string; joinCode: string | null }>,
+    playerId: string,
+  ): Promise<void> {
+    if (!campaign.joinCode) return;
+    await this.deps.join.join(playerId, { code: campaign.joinCode });
+    const promotion = { campaignId: campaign.id, targetId: playerId, role: 'player' } as const;
+    await this.deps.roles.change(masterId, promotion);
   }
 
   private async players(): Promise<Players> {

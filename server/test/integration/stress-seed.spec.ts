@@ -48,10 +48,10 @@ describe('the stress scene seed (pnpm db:seed-stress)', () => {
       baseUrl,
       clients,
       { id: caio?.id ?? '', token },
-      { id: campaignId, joinCode: '' },
+      { id: campaignId },
     );
 
-    const board = await synced(client, { id: campaignId, joinCode: '' });
+    const board = await synced(client, { id: campaignId });
 
     expect(created).toBe(true);
     expect(board.scene).toMatchObject({ widthCells: 100, heightCells: 100, vision: 'dark' });

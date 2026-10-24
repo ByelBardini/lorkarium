@@ -13,6 +13,7 @@ import { defaultCoverOf, memberColorOf } from '@lorkarium/game-core';
 import { CampaignAccessBo } from './campaign-access.bo';
 import { CampaignJoinBo } from './campaign-join.bo';
 import { CampaignSettingsBo } from './campaign-settings.bo';
+import { MemberRoleBo } from './member-role.bo';
 import type { CampaignListingRow, CampaignMemberRow } from './campaign-members.dao';
 import type { CampaignMemberPo } from './campaign-members.po';
 import type { CampaignPo, NewCampaignPo } from './campaigns.po';
@@ -81,18 +82,27 @@ export function toCampaignSummaryOfView(view: CampaignView): CampaignSummaryDto 
     joinedAt: view.membership.joinedAt,
     lastEnteredAt: view.membership.lastEnteredAt,
     masterName: masterNameOf(view),
-    memberCount: view.members.length,
+    memberCount: membersOfRecord(view.members).length,
   });
 }
 
-/** View → DTO: the detail modal; the join code only reaches the master, the hash never leaves.
+/** The members the table keeps a record of: everyone but the spectators, who leave no trace in
+ *  the participants nor in the count.
+ *
+ *  Example: `membersOfRecord(view.members).length // the memberCount` */
+export function membersOfRecord(members: readonly CampaignMemberRow[]): CampaignMemberRow[] {
+  return members.filter((member) => member.role !== 'spectator');
+}
+
+/** View → DTO: the detail modal; the join code only reaches the master, the hash never leaves,
+ *  and the spectators are not among the participants.
  *
  *  Example: `toCampaignDetailDto(view).joinCode // null for a player` */
 export function toCampaignDetailDto(view: CampaignDetailView): CampaignDetailDto {
   const access = toCampaignAccessBo(view.campaign.id, view.membership.userId, view.membership);
   return {
     ...toCampaignSummaryOfView(view),
-    members: sortedMembers(view.members, view.onlineUserIds),
+    members: sortedMembers(membersOfRecord(view.members), view.onlineUserIds),
     joinCode: access.canSeeJoinCode() ? view.campaign.joinCode : null,
     hasPassword: view.campaign.passwordHash !== null,
     castSceneId: view.castSceneId,
@@ -151,6 +161,24 @@ export function toCampaignJoinBo(
   });
 }
 
+/** Who asks to change a role, and of whom: the two memberships (`undefined` = not a member). */
+export type MemberRoleLookup = Readonly<{
+  campaignId: string;
+  userId: string;
+  targetId: string;
+  requester: CampaignMemberPo | undefined;
+  target: CampaignMemberPo | undefined;
+}>;
+
+/** Both memberships → BO for the role change rules.
+ *
+ *  Example: `toMemberRoleBo({ campaignId, userId, targetId, requester, target }).decide('player')` */
+export function toMemberRoleBo(lookup: MemberRoleLookup): MemberRoleBo {
+  const { campaignId, userId, targetId } = lookup;
+  const access = toCampaignAccessBo(campaignId, userId, lookup.requester);
+  return new MemberRoleBo(access, { userId: targetId, role: lookup.target?.role ?? null });
+}
+
 function masterNameOf(view: CampaignView): string {
   const master = view.members.find((member) => member.role === 'master');
   if (master) return master.name;
@@ -168,14 +196,23 @@ function sortedMembers(
   members: readonly CampaignMemberRow[],
   onlineUserIds: ReadonlySet<string>,
 ): CampaignMemberDto[] {
-  return orderedMembers(members).map((member) => ({
+  return orderedMembers(members).map((member) =>
+    toCampaignMemberDto(member, onlineUserIds.has(member.userId)),
+  );
+}
+
+/** Member row → DTO: one participant as the table shows them, with the effective color.
+ *
+ *  Example: `toCampaignMemberDto(dudaRow, true).role // 'player'` */
+export function toCampaignMemberDto(member: CampaignMemberRow, online: boolean): CampaignMemberDto {
+  return {
     userId: member.userId,
     name: member.name,
     role: member.role,
     color: memberColorOf(member.userId, member.colorChoice),
     avatarId: member.avatarId,
-    online: onlineUserIds.has(member.userId),
-  }));
+    online,
+  };
 }
 
 function masterFirst(a: CampaignMemberRow, b: CampaignMemberRow): number {

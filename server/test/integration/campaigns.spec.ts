@@ -13,6 +13,7 @@ import type { DatabaseConnection } from '../../src/database/database';
 import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { signUpAndLogin } from '../support/sign-in';
+import { joinAsSpectator } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
@@ -24,6 +25,7 @@ describe('campaigns HTTP edge', () => {
   let connection: DatabaseConnection;
   let app: FastifyInstance;
   let ana: string;
+  let anaId: string;
   let bia: string;
 
   beforeAll(async () => {
@@ -62,7 +64,9 @@ describe('campaigns HTTP edge', () => {
   async function freshAppWithAnaAndBia(): Promise<void> {
     await truncateAllTables(connection.db);
     app = await buildApp({ env, db: connection.db });
-    ana = (await signUpAndLogin(app, connection.db, 'Ana')).token;
+    const signedAna = await signUpAndLogin(app, connection.db, 'Ana');
+    ana = signedAna.token;
+    anaId = signedAna.id;
     bia = (await signUpAndLogin(app, connection.db, 'Bia')).token;
   }
 
@@ -144,6 +148,19 @@ describe('campaigns HTTP edge', () => {
           ...{ avatarId: null, online: false },
         },
       ]);
+    });
+
+    it('the detail of the master does not list a spectator nor count her', async () => {
+      const vharn = await createCampaign(ana);
+      const duda = await signUpAndLogin(app, connection.db, 'Duda');
+      const master = { id: anaId, token: ana };
+      await joinAsSpectator(app, duda, { id: vharn.id, joinCode: vharn.joinCode ?? '', master });
+
+      const response = await call('GET', `/campaigns/${vharn.id}`, ana);
+
+      const { campaign } = campaignResponseDto.parse(response.json());
+      expect(campaign.members.map(({ name }) => name)).toEqual(['Ana']);
+      expect(campaign.memberCount).toBe(1);
     });
 
     it('a new campaign is "building" with the drawn cover chosen, created now and never played', async () => {
@@ -230,18 +247,28 @@ describe('campaigns HTTP edge', () => {
       expect(errorCodeOf(response)).toBe(code);
     });
 
-    it('the right password lets Ana in as player and the campaign appears in her list', async () => {
+    it('the right password lets Ana in as spectator, out of the count, and the campaign appears in her list', async () => {
       const code = `${protectedCode.slice(0, 4).toLowerCase()}-${protectedCode.slice(4)}`;
       const response = await call('POST', '/campaigns/join', ana, { code, password: 'sino' });
       expect(response.statusCode).toBe(200);
       const { campaign } = joinCampaignResponseDto.parse(response.json());
-      expect(campaign).toMatchObject({ id: protectedId, myRole: 'player', memberCount: 2 });
+      expect(campaign).toMatchObject({ id: protectedId, myRole: 'spectator', memberCount: 1 });
       expect(await listedNames(ana)).toEqual(['Pântano']);
     });
 
-    it('joining again answers 200 with the same summary and no duplicate', async () => {
+    it('joining again answers 200 with the same spectator summary and no duplicate', async () => {
       const response = await call('POST', '/campaigns/join', ana, { code: protectedCode });
       expect(response.statusCode).toBe(200);
+      const { campaign } = joinCampaignResponseDto.parse(response.json());
+      expect(campaign).toMatchObject({ myRole: 'spectator', memberCount: 1 });
+    });
+
+    it('a player promoted by the master joining again by the code stays player', async () => {
+      const promotion = await call('PATCH', `/campaigns/${protectedId}/members/${anaId}`, bia, {
+        role: 'player',
+      });
+      expect(promotion.statusCode).toBe(200);
+      const response = await call('POST', '/campaigns/join', ana, { code: protectedCode });
       const { campaign } = joinCampaignResponseDto.parse(response.json());
       expect(campaign).toMatchObject({ myRole: 'player', memberCount: 2 });
     });

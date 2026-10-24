@@ -47,6 +47,12 @@ export function CampaignDetailDialog({
 
 type DetailHeaderProps = Readonly<{ campaign: CampaignDetailDto; onClose: () => void }>;
 
+const ROLE_HEADLINE: Readonly<Record<CampaignDetailDto['myRole'], string>> = {
+  master: 'Você mestra',
+  player: 'Você joga',
+  spectator: 'Você assiste',
+};
+
 function DetailHeader({ campaign, onClose }: DetailHeaderProps): React.JSX.Element {
   const online = onlineSummary(campaign.members);
   return (
@@ -58,7 +64,7 @@ function DetailHeader({ campaign, onClose }: DetailHeaderProps): React.JSX.Eleme
       <DialogHeader className="min-w-0 flex-1 gap-1.5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">
-            {campaign.myRole === 'master' ? 'Você mestra' : 'Você joga'}
+            {ROLE_HEADLINE[campaign.myRole]}
           </p>
           <p className="inline-flex items-center gap-1.5 text-xs text-label">
             {campaign.hasPassword && <LockIcon aria-hidden="true" className="size-3" />}

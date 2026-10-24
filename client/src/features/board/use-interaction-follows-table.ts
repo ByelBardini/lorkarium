@@ -1,7 +1,8 @@
-import type { BoardStateDto } from '@lorkarium/contracts';
+import type { BoardStateDto, CampaignRoleDto } from '@lorkarium/contracts';
 import { useEffect } from 'react';
 import { seenTokensOf, type BoardSight } from '@/lib/board-sight';
 import { canRunEntry, entryLabelOf, OUT_OF_SIGHT_LABEL } from '@/lib/combat-entries';
+import { playerIdsOf, watchesOnly } from '@/lib/table-role';
 import type { StoreApi } from 'zustand/vanilla';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
@@ -14,28 +15,33 @@ export type FollowedTable = Readonly<{
 }>;
 
 /** Keeps the local interaction in step with the table: read only unless the connection is live
- *  (no command queue, spec §5.6), every new snapshot voids the move preview, a scene back to
+ *  (no command queue, spec §5.6) and always for a spectator (`role`), every new snapshot voids the move preview, a scene back to
  *  vision off ends the master's sight preview, and a turn that moves is said on the status line
  *  (by the entry's label, through the sight filter) and, when it lands on one token this viewer
  *  runs, selects it (its detail opens; the board centers it when out of view).
  *
- *  Example: `useInteractionFollowsTable(view.kind === 'open' ? view : null, interaction)` */
+ *  Example: `useInteractionFollowsTable(view.kind === 'open' ? view : null, interaction, campaign.myRole)` */
 export function useInteractionFollowsTable(
   table: FollowedTable | null,
   interaction: StoreApi<BoardInteractionStore>,
+  role: CampaignRoleDto,
 ): void {
   const presence = table?.presence;
   const board = table?.board;
   useEffect(() => {
     if (!presence || !board) return;
+    // Every command already stops at `readOnly`: a spectator is held there, live or not.
     const followStatus = (): void =>
-      interaction.getState().setReadOnly(presence.getState().status !== 'live');
+      interaction
+        .getState()
+        .setReadOnly(presence.getState().status !== 'live' || watchesOnly(role));
     followStatus();
     const stopStatus = presence.subscribe(followStatus);
     const stopSnapshots = board.subscribe((next, previous) => {
       interaction.getState().followVision(next.board?.scene.vision);
       if (next.snapshots !== previous.snapshots) return interaction.getState().dropPreview();
-      const sight = sightNowOf(next, interaction.getState());
+      const players = playerIdsOf(presence.getState().members);
+      const sight = sightNowOf(next, interaction.getState(), players);
       const announcement = turnAnnouncement(previous.board, next.board, sight);
       if (!announcement) return;
       interaction.getState().say(announcement);
@@ -45,7 +51,7 @@ export function useInteractionFollowsTable(
       stopStatus();
       stopSnapshots();
     };
-  }, [presence, board, interaction]);
+  }, [presence, board, interaction, role]);
 }
 
 // Never while something is dragged: the selection would jump under the pointer.

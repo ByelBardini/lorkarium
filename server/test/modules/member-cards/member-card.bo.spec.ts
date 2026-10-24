@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { CampaignAccessBo } from '../../../src/modules/campaigns/campaign-access.bo';
 import { MemberCardBo } from '../../../src/modules/member-cards/member-card.bo';
 import { ANA_ID } from '../../support/auth-factories';
-import { BIA_ID, CAIO_ID, VHARN_ID } from '../../support/campaigns-factories';
+import { BIA_ID, CAIO_ID, DUDA_ID, VHARN_ID } from '../../support/campaigns-factories';
 
 const STRANGER_ID = 'f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b';
 
-function cardOf(userId: string, role: 'master' | 'player', memberId: string, isMember = true) {
+type Role = 'master' | 'player' | 'spectator';
+
+function cardOf(userId: string, role: Role, memberId: string, targetRole: Role | null = 'player') {
   const access = new CampaignAccessBo({ campaignId: VHARN_ID, userId, role });
-  return new MemberCardBo(access, { memberId, isMember });
+  return new MemberCardBo(access, { memberId, role: targetRole });
 }
 
 describe('MemberCardBo.requireEdit', () => {
@@ -34,10 +36,19 @@ describe('MemberCardBo.requireEdit', () => {
   });
 
   it('a memberId that is not a member of the table is MEMBER_NOT_FOUND citing the id and the table', () => {
-    expect(() => cardOf(ANA_ID, 'master', STRANGER_ID, false).requireEdit()).toThrow(
+    expect(() => cardOf(ANA_ID, 'master', STRANGER_ID, null).requireEdit()).toThrow(
       expect.objectContaining({
         code: 'MEMBER_NOT_FOUND',
         message: expect.stringMatching(new RegExp(`${VHARN_ID}.*${STRANGER_ID}`)),
+      }),
+    );
+  });
+
+  it('Ana, the master, editing the card of Duda, a spectator, is MEMBER_NOT_FOUND citing the table and her id', () => {
+    expect(() => cardOf(ANA_ID, 'master', DUDA_ID, 'spectator').requireEdit()).toThrow(
+      expect.objectContaining({
+        code: 'MEMBER_NOT_FOUND',
+        message: expect.stringMatching(new RegExp(`${VHARN_ID}.*${DUDA_ID}`)),
       }),
     );
   });

@@ -243,27 +243,31 @@ describe('the actions of the library', () => {
     });
   });
 
-  describe('as a player', () => {
-    it('only reads: no "Novo grid", no "Nova pasta", and the panel only opens', async () => {
-      deps.libraryApi.answer('list', { ok: true, value: playerLibrary() });
-      const { table } = await openLibrary(deps, { role: 'player' });
-      expect(screen.queryByRole('button', { name: 'Novo grid' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Nova pasta' })).toBeNull();
-      await userEvent.click(treeItem('Ato 1'));
-      await userEvent.click(treeItem('Estrada de Vharn'));
-      expect(within(panel()).queryByRole('textbox')).toBeNull();
-      expect(
-        within(panel())
-          .getAllByRole('button')
-          .map((button) => button.textContent),
-      ).toEqual(['Abrir']);
-      fireEvent.contextMenu(treeItem('Estrada de Vharn'));
-      expect(screen.queryByRole('menu')).toBeNull();
-      await userEvent.click(within(panel()).getByRole('button', { name: 'Abrir' }));
-      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-      expect(table.tabs.getState().tabs.map(({ key }) => key)).toContain(
-        playerLibrary().scenes.find(({ id }) => id !== VHARN_SCENE.id)?.id,
-      );
-    });
+  describe('as a player or a spectator', () => {
+    // A spectator reads the library as a player does (plan 2026-10-24-espectadores).
+    it.each(['player', 'spectator'] as const)(
+      'a %s only reads: no "Novo grid", no "Nova pasta", and the panel only opens',
+      async (role) => {
+        deps.libraryApi.answer('list', { ok: true, value: playerLibrary() });
+        const { table } = await openLibrary(deps, { role });
+        expect(screen.queryByRole('button', { name: 'Novo grid' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Nova pasta' })).toBeNull();
+        await userEvent.click(treeItem('Ato 1'));
+        await userEvent.click(treeItem('Estrada de Vharn'));
+        expect(within(panel()).queryByRole('textbox')).toBeNull();
+        expect(
+          within(panel())
+            .getAllByRole('button')
+            .map((button) => button.textContent),
+        ).toEqual(['Abrir']);
+        fireEvent.contextMenu(treeItem('Estrada de Vharn'));
+        expect(screen.queryByRole('menu')).toBeNull();
+        await userEvent.click(within(panel()).getByRole('button', { name: 'Abrir' }));
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+        expect(table.tabs.getState().tabs.map(({ key }) => key)).toContain(
+          playerLibrary().scenes.find(({ id }) => id !== VHARN_SCENE.id)?.id,
+        );
+      },
+    );
   });
 });

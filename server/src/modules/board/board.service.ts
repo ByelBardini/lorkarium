@@ -70,7 +70,8 @@ export class BoardService {
   async snapshotFor(userId: string, campaignId: string, sceneId?: string): Promise<BoardStateDto> {
     const membership = await this.deps.members.findMembership(campaignId, userId);
     const access = toCampaignAccessBo(campaignId, userId, membership);
-    const role = access.requireMember();
+    // The spectator reads the board as a player does (no command of theirs is accepted).
+    const role = access.requireViewer();
     const address = { campaignId, sceneId, access };
     return this.deps.snapshot(async (daos) => {
       const scene = seenGridOf(address, await daos.scenes.findGridInCampaign(campaignId, sceneId));

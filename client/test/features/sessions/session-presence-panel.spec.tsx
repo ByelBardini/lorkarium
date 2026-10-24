@@ -1,7 +1,9 @@
 import type { SessionMemberDto } from '@lorkarium/contracts';
 import { act, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
+import { MemberRoleProvider } from '@/features/sessions/member-role-provider';
 import { SessionPresencePanel } from '@/features/sessions/session-presence-panel';
 import {
   createBoardInteractionStore,
@@ -9,7 +11,7 @@ import {
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
-import { VHARN } from '../../support/campaigns-api-fake';
+import { CampaignsApiFake, VHARN } from '../../support/campaigns-api-fake';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
@@ -17,6 +19,8 @@ import {
   BIA_AT_TABLE,
   CAIO_AT_TABLE,
   biaLeft,
+  biaUpdated,
+  duda,
   kael,
   lyra,
   vharnBoard,
@@ -182,5 +186,151 @@ describe('SessionPresencePanel', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('');
     expect(screen.queryByText('Ao vivo')).toBeNull();
+  });
+
+  describe('spectators and roles', () => {
+    let campaigns: CampaignsApiFake;
+
+    beforeEach(() => {
+      campaigns = new CampaignsApiFake();
+    });
+
+    function renderAs(viewer: SessionMemberDto, members: SessionMemberDto[]): void {
+      const isMaster = viewer.role === 'master';
+      act(() => {
+        presence.getState().apply({ kind: 'state', state: vharnState({ members }) });
+        presence.getState().apply({ kind: 'status', status: 'live' });
+        const tokens = [lyra(), kael({ controllerIds: [CAIO_AT_TABLE.userId] })];
+        const view = { userId: viewer.userId, role: viewer.role };
+        board.getState().apply({ kind: 'board', state: vharnBoard({ tokens, viewer: view }) });
+      });
+      render(
+        <MemberRoleProvider changer={campaigns}>
+          <SessionPresencePanel
+            store={presence}
+            board={board}
+            cast={cast}
+            interaction={interaction}
+            isMaster={isMaster}
+            clock={new InteractionClockFake()}
+          />
+        </MemberRoleProvider>,
+      );
+    }
+
+    const promote = () => screen.getByRole('button', { name: 'Promover Duda a jogador' });
+
+    async function askToMoveBia(): Promise<HTMLElement> {
+      await userEvent.click(screen.getByRole('button', { name: 'Mais ações de Bia' }));
+      await userEvent.click(
+        await screen.findByRole('menuitem', { name: 'Mover para espectadores' }),
+      );
+      return screen.getByRole('alertdialog', { name: 'Mover Bia para espectadores?' });
+    }
+
+    it('Ana sees "Espectadores · 1" with Duda online and the button to promote her', () => {
+      renderAs(ANA_AT_TABLE, [...EVERYONE, duda()]);
+
+      const spectators = section('Espectadores · 1');
+      expect(within(spectators).getByText('Duda')).toBeInTheDocument();
+      expect(within(spectators).getByTestId('avatar-initials')).toHaveTextContent('DU');
+      expect(within(spectators).getByRole('img', { name: 'online' })).toBeInTheDocument();
+      expect(within(spectators).getByRole('button', { name: 'Promover Duda a jogador' })).toBe(
+        promote(),
+      );
+      expect(within(section(/^Jogadores/)).queryByText('Duda')).toBeNull();
+    });
+
+    it('promoting sends the role player and reads "Promovendo…" while it goes', async () => {
+      const answer = campaigns.hold('setMemberRole');
+      renderAs(ANA_AT_TABLE, [...EVERYONE, duda()]);
+
+      await userEvent.click(promote());
+
+      expect(campaigns.callsOf('setMemberRole')).toEqual([
+        { campaignId: VHARN.id, userId: duda().userId, role: 'player' },
+      ]);
+      expect(promote()).toHaveTextContent('Promovendo…');
+      expect(promote()).toBeDisabled();
+      await act(async () => answer({ ok: false, failure: { kind: 'offline' } }));
+      expect(promote()).toHaveTextContent('Promover');
+    });
+
+    it('a refused promotion shows the reason in the row', async () => {
+      campaigns.answer('setMemberRole', { ok: false, failure: { kind: 'member_not_found' } });
+      renderAs(ANA_AT_TABLE, [...EVERYONE, duda()]);
+
+      await userEvent.click(promote());
+
+      expect(await within(section('Espectadores · 1')).findByRole('alert')).toHaveTextContent(
+        'Essa pessoa não está mais na mesa.',
+      );
+    });
+
+    it('once the server confirms, Duda leaves the spectators for the players', () => {
+      renderAs(ANA_AT_TABLE, [...EVERYONE, duda()]);
+
+      act(() =>
+        presence.getState().apply({
+          kind: 'memberUpdated',
+          event: biaUpdated({ version: 2, member: duda({ role: 'player' }) }),
+        }),
+      );
+
+      expect(screen.queryByRole('region', { name: /^Espectadores/ })).toBeNull();
+      expect(within(section('Jogadores · 3 online')).getByText('Duda')).toBeInTheDocument();
+    });
+
+    it('Bia, a player, sees the spectators without the button, and no "⋯" on the cards', () => {
+      renderAs(BIA_ONLINE, [...EVERYONE, duda()]);
+
+      expect(within(section('Espectadores · 1')).getByText('Duda')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Promover/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Mais ações de/ })).toBeNull();
+    });
+
+    it('without a spectator online, there is no section', () => {
+      renderAs(ANA_AT_TABLE, [...EVERYONE, duda({ online: false })]);
+
+      expect(screen.queryByRole('region', { name: /^Espectadores/ })).toBeNull();
+    });
+
+    it("'Mover para espectadores' on Bia's card asks first, then sends the role spectator", async () => {
+      renderAs(ANA_AT_TABLE, EVERYONE);
+
+      const confirm = await askToMoveBia();
+
+      expect(confirm).toHaveAccessibleDescription(
+        'Tokens, ficha e personagem ficam guardados e voltam numa nova promoção.',
+      );
+      expect(within(confirm).getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
+      expect(campaigns.callsOf('setMemberRole')).toEqual([]);
+      await userEvent.click(within(confirm).getByRole('button', { name: 'Mover' }));
+      expect(campaigns.callsOf('setMemberRole')).toEqual([
+        { campaignId: VHARN.id, userId: BIA_AT_TABLE.userId, role: 'spectator' },
+      ]);
+    });
+
+    it('Esc closes the question and nothing goes', async () => {
+      renderAs(ANA_AT_TABLE, EVERYONE);
+      await askToMoveBia();
+
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(campaigns.callsOf('setMemberRole')).toEqual([]);
+    });
+
+    it('a refused move shows the reason on the card', async () => {
+      campaigns.answer('setMemberRole', { ok: false, failure: { kind: 'forbidden' } });
+      renderAs(ANA_AT_TABLE, EVERYONE);
+      const confirm = await askToMoveBia();
+
+      await userEvent.click(within(confirm).getByRole('button', { name: 'Mover' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Só o mestre da mesa pode fazer isso.',
+      );
+    });
   });
 });

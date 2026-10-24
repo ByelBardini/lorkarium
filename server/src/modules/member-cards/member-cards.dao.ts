@@ -1,6 +1,13 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, getTableColumns, ne, sql } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { campaignMembers } from '../campaigns/campaign-members.po';
 import { memberCards, type MemberCardChangesPo, type MemberCardPo } from './member-cards.po';
+
+// The membership of the card's owner: a demoted player keeps the card, hidden until promoted.
+const ownMembership = and(
+  eq(campaignMembers.campaignId, memberCards.campaignId),
+  eq(campaignMembers.userId, memberCards.userId),
+);
 
 /** The party board cards of a table; a row exists only once someone wrote something on it. */
 export class MemberCardsDao {
@@ -8,9 +15,10 @@ export class MemberCardsDao {
 
   async listOfCampaign(campaignId: string): Promise<MemberCardPo[]> {
     return this.db
-      .select()
+      .select(getTableColumns(memberCards))
       .from(memberCards)
-      .where(eq(memberCards.campaignId, campaignId))
+      .innerJoin(campaignMembers, ownMembership)
+      .where(and(eq(memberCards.campaignId, campaignId), ne(campaignMembers.role, 'spectator')))
       .orderBy(asc(memberCards.userId));
   }
 

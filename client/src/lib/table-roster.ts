@@ -9,6 +9,9 @@ import { mainTokenIdOfMember } from './main-token';
 /** A master on the party board: the compact row, no card. */
 export type RosterMaster = Readonly<{ member: SessionMemberDto; isViewer: boolean }>;
 
+/** A spectator on the party board, only while online: a compact row, no card. */
+export type RosterSpectator = RosterMaster;
+
 /** A player on the party board. `card` and `token` are `null` while the board is loading (they
  *  come with the `board:sync`); a player who never had a card written gets an empty one. */
 export type RosterPlayer = Readonly<{
@@ -19,7 +22,11 @@ export type RosterPlayer = Readonly<{
   characterName: string | null;
 }>;
 
-export type TableRoster = Readonly<{ masters: RosterMaster[]; players: RosterPlayer[] }>;
+export type TableRoster = Readonly<{
+  masters: RosterMaster[];
+  players: RosterPlayer[];
+  spectators: RosterSpectator[];
+}>;
 
 export type TableRosterInput = Readonly<{
   members: readonly SessionMemberDto[];
@@ -33,20 +40,26 @@ export type TableRosterInput = Readonly<{
 
 /** Who goes in which section of the "Na mesa" tab: the masters apart, then the players online
  *  first (in the server's order) and the offline ones after, each with card and main token —
- *  the group grid's, else the anchor of their character (who is in no grid of the group yet).
+ *  the group grid's, else the anchor of their character (who is in no grid of the group yet) —,
+ *  and the spectators online (the table keeps no trace of one who left).
  *
  *  Example: `tableRosterOf({ members, board, cast, viewerId: user.id }).players[0].characterName` */
 export function tableRosterOf(input: TableRosterInput): TableRoster {
   const { members, viewerId } = input;
-  const masters = members
-    .filter(({ role }) => role === 'master')
-    .map((member) => ({ member, isViewer: member.userId === viewerId }));
-  const players = members.filter(({ role }) => role !== 'master');
+  const rowOf = (member: SessionMemberDto): RosterMaster => ({
+    member,
+    isViewer: member.userId === viewerId,
+  });
+  const players = members.filter(({ role }) => role === 'player');
   const ordered = [
     ...players.filter(({ online }) => online),
     ...players.filter(({ online }) => !online),
   ];
-  return { masters, players: ordered.map((member) => playerOf(member, input)) };
+  return {
+    masters: members.filter(({ role }) => role === 'master').map(rowOf),
+    players: ordered.map((member) => playerOf(member, input)),
+    spectators: members.filter(({ role, online }) => role === 'spectator' && online).map(rowOf),
+  };
 }
 
 /** The name the card shows: the nickname written on it, else the main token's name.

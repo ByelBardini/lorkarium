@@ -58,7 +58,7 @@ test('drawings, copy and undo: drawn for everyone, on their own layer, pasted, u
     [caio, CAIO],
   ] as const) {
     await signIn(page, who);
-    await joinByCodeAndEnter(page, code);
+    await joinByCodeAndEnter(page, code, admin);
   }
   await enterFromTheList(admin, name);
 

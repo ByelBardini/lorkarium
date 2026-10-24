@@ -3,7 +3,7 @@ import { CampaignPasswordInvalidError, CampaignPasswordRequiredError } from './c
 /** Outcome of checking the password sent against the campaign, computed by the service. */
 export type PasswordCheck = 'not-required' | 'missing' | 'matches' | 'mismatch';
 
-export type JoinDecision = 'already-member' | 'join-as-player';
+export type JoinDecision = 'already-member' | 'join-as-spectator';
 
 export type CampaignJoinState = Readonly<{
   campaignId: string;
@@ -11,7 +11,8 @@ export type CampaignJoinState = Readonly<{
   hasPassword: boolean;
 }>;
 
-/** Whether someone holding the join code gets in, and how.
+/** Whether someone holding the join code gets in, and how: newcomers watch until the master
+ *  promotes them; members keep their role.
  *
  *  Example: `new CampaignJoinBo({ campaignId, isMember: false, hasPassword: true }).decide('missing') // throws CAMPAIGN_PASSWORD_REQUIRED` */
 export class CampaignJoinBo {
@@ -24,13 +25,13 @@ export class CampaignJoinBo {
 
   decide(check: PasswordCheck): JoinDecision {
     if (this.state.isMember) return 'already-member';
-    if (!this.state.hasPassword) return 'join-as-player';
+    if (!this.state.hasPassword) return 'join-as-spectator';
     return this.decideWithPassword(check);
   }
 
   private decideWithPassword(check: PasswordCheck): JoinDecision {
     const { campaignId } = this.state;
-    if (check === 'matches') return 'join-as-player';
+    if (check === 'matches') return 'join-as-spectator';
     if (check === 'missing') throw new CampaignPasswordRequiredError(campaignId);
     if (check === 'mismatch') throw new CampaignPasswordInvalidError(campaignId);
     throw new Error(`campaign ${campaignId} has a password; expected a check, received ${check}`);

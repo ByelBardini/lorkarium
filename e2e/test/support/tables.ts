@@ -49,17 +49,75 @@ export async function createTableAndReadCode(admin: Page, name: string): Promise
   return text;
 }
 
-/** From the home: joins a table by its code and opens it on the "Na mesa" tab.
+/** From the home: joins a table by its code, has `master` promote the newcomer to player through
+ *  the route (whoever enters by the code only watches) and only then opens it on the "Na mesa"
+ *  tab, so the room opens as a player's.
  *
- *  Example: `await joinByCodeAndEnter(bia, code)` */
-export async function joinByCodeAndEnter(player: Page, code: string): Promise<void> {
-  await player.getByRole('button', { name: 'Entrar com código' }).first().click();
-  const join = player.getByRole('dialog', { name: 'Entrar numa mesa' });
+ *  Example: `await joinByCodeAndEnter(bia, code, admin)` */
+export async function joinByCodeAndEnter(player: Page, code: string, master: Page): Promise<void> {
+  const campaignId = await joinByCode(player, code);
+  await promoteToPlayer(master, campaignId, await ownUserIdOf(player));
+  await enterFromTheDetail(player);
+}
+
+/** From the home: joins a table by its code and opens it on the "Na mesa" tab as the spectator
+ *  the code makes of a newcomer (nobody promotes).
+ *
+ *  Example: `await joinAsSpectatorAndEnter(caio, code)` */
+export async function joinAsSpectatorAndEnter(spectator: Page, code: string): Promise<void> {
+  await joinByCode(spectator, code);
+  await enterFromTheDetail(spectator);
+}
+
+/** The "Espectadores · N" section of the "Na mesa" tab on screen (only there while someone
+ *  watches).
+ *
+ *  Example: `await expect(spectatorsOf(admin)).toHaveAccessibleName('Espectadores · 1')` */
+export function spectatorsOf(page: Page): Locator {
+  return page
+    .getByRole('region', { name: 'Na mesa' })
+    .getByRole('region', { name: /^Espectadores · \d+$/ });
+}
+
+// The "Entrar numa mesa" dialog of the home; answers the id of the table, from the detail's URL.
+async function joinByCode(page: Page, code: string): Promise<string> {
+  await page.getByRole('button', { name: 'Entrar com código' }).first().click();
+  const join = page.getByRole('dialog', { name: 'Entrar numa mesa' });
   await join.getByLabel('Código da mesa').fill(code);
   await join.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page).toHaveURL(CAMPAIGN_DETAIL_PATH);
+  const campaignId = CAMPAIGN_DETAIL_PATH.exec(new URL(page.url()).pathname)?.[1];
+  if (!campaignId) throw new Error(`expected /campaigns/<id> after joining, at ${page.url()}`);
+  return campaignId;
+}
+
+const CAMPAIGN_DETAIL_PATH = /\/campaigns\/([0-9a-f-]{36})$/;
+
+async function enterFromTheDetail(page: Page): Promise<void> {
   // Inside the detail dialog: the "Continuar" band behind it has an "Entrar na mesa" too.
-  await player.getByRole('dialog').getByRole('button', { name: 'Entrar na mesa' }).click();
-  await openRoomPeople(player);
+  await page.getByRole('dialog').getByRole('button', { name: 'Entrar na mesa' }).click();
+  await openRoomPeople(page);
+}
+
+async function ownUserIdOf(page: Page): Promise<string> {
+  const response = await page.request.get('/api/auth/me');
+  expect(response.status()).toBe(200);
+  const body: unknown = await response.json();
+  const user = typeof body === 'object' && body !== null ? Reflect.get(body, 'user') : null;
+  const id: unknown = user ? Reflect.get(user, 'id') : null;
+  if (typeof id !== 'string') {
+    throw new Error(
+      `GET /api/auth/me: expected { user: { id } }, received ${JSON.stringify(body)}`,
+    );
+  }
+  return id;
+}
+
+async function promoteToPlayer(master: Page, campaignId: string, userId: string): Promise<void> {
+  const response = await master.request.patch(`/api/campaigns/${campaignId}/members/${userId}`, {
+    data: { role: 'player' },
+  });
+  expect(response.status(), `promotion of ${userId} in ${campaignId}`).toBe(200);
 }
 
 /** From the home: opens a table the person is already in, through its row and detail, on the

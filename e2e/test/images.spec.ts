@@ -73,7 +73,7 @@ test('background, token image and facing reach three browsers, survive an F5 and
     [caio, CAIO],
   ] as const) {
     await signIn(page, who);
-    await joinByCodeAndEnter(page, code);
+    await joinByCodeAndEnter(page, code, admin);
   }
   await enterFromTheList(admin, name);
 

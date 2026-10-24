@@ -8,9 +8,18 @@ import type {
   TableServerEvents,
 } from '@lorkarium/contracts';
 import type { RemoteSocket } from 'socket.io';
-import type { SessionPublisherPort } from '../../modules/sessions/session-publisher.port';
+import type {
+  MemberRoleMove,
+  SessionPublisherPort,
+} from '../../modules/sessions/session-publisher.port';
 import type { RealtimeServer, RealtimeSocketData } from '../../realtime/realtime-server';
-import { campaignRoom, isRoomOfCampaign } from '../../realtime/rooms';
+import {
+  campaignRoom,
+  campaignUserRoom,
+  isRoomOfCampaign,
+  sceneIdOfRoom,
+  sceneUserRoom,
+} from '../../realtime/rooms';
 import { withoutWatchedTable } from '../../realtime/watched-scenes';
 
 type TableSocket = RemoteSocket<TableServerEvents, RealtimeSocketData>;
@@ -41,6 +50,16 @@ export class SocketIoSessionPublisher implements SessionPublisherPort {
     this.io.to(campaignRoom(event.campaignId)).emit('session:campaignUpdated', event);
   }
 
+  // The rooms move first: the member hears the event already in the rooms of the new role, so
+  // the board read after it (`board:sync`) and what follows match that role.
+  async memberRoleChanged(event: SessionMemberUpdatedDto, move: MemberRoleMove): Promise<void> {
+    const sockets = await this.io.in(campaignRoom(move.campaignId)).fetchSockets();
+    for (const socket of sockets) {
+      if (socket.data.user.id === move.userId) moveToRole(socket, move);
+    }
+    this.io.to(campaignRoom(event.campaignId)).emit('session:memberUpdated', event);
+  }
+
   async campaignDeleted(event: SessionCampaignDeletedDto): Promise<void> {
     const room = campaignRoom(event.campaignId);
     this.io.to(room).emit('session:campaignDeleted', event);
@@ -58,4 +77,18 @@ function forgetTable(socket: TableSocket, campaignId: string): void {
   campaignIds.delete(campaignId);
   socket.data.campaignIds = campaignIds;
   socket.data.watchedSceneIds = withoutWatchedTable(socket.data.watchedSceneIds, campaignId);
+}
+
+// A player is in their own rooms (the table's and each open grid's), where the whole token they
+// control is published; a spectator is out of them, so a control kept from before is inert.
+function moveToRole(socket: TableSocket, { campaignId, userId, audience }: MemberRoleMove): void {
+  const rooms = ownRoomsAt(socket, campaignId, userId);
+  if (audience === 'player') return socket.join(rooms);
+  for (const room of rooms) socket.leave(room);
+}
+
+function ownRoomsAt(socket: TableSocket, campaignId: string, userId: string): string[] {
+  const sceneIds = [...socket.rooms].flatMap((room) => sceneIdOfRoom(room, campaignId) ?? []);
+  const grids = sceneIds.map((sceneId) => sceneUserRoom(campaignId, sceneId, userId));
+  return [campaignUserRoom(campaignId, userId), ...grids];
 }

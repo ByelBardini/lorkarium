@@ -10,6 +10,7 @@ import {
   StressBoardFake,
   StressCampaignsFake,
   StressJoinFake,
+  StressRolesFake,
   StressScenesFake,
 } from '../../support/dev-seed-fakes';
 
@@ -23,29 +24,34 @@ const CAIO = userPo({
 function seedWith(existing: CampaignSummaryDto[] = [], users = [BIA, CAIO]) {
   const campaigns = new StressCampaignsFake(existing);
   const join = new StressJoinFake();
+  const roles = new StressRolesFake();
   const scenes = new StressScenesFake();
   const board = new StressBoardFake();
   const service = new StressSceneSeedService({
     users: new UsersDaoFake(users),
     campaigns,
     join,
+    roles,
     scenes,
     walls: board.wallService,
     lights: board.lightService,
     tokens: board.tokenService,
   });
-  return { service, campaigns, join, scenes, board };
+  return { service, campaigns, join, roles, scenes, board };
 }
 
 describe('StressSceneSeedService', () => {
   it('creates the table as Bia, lets Caio in by the code and fills the dark scene', async () => {
-    const { service, campaigns, join, scenes } = seedWith();
+    const { service, campaigns, join, roles, scenes } = seedWith();
     const result = await service.seed('development');
     expect(result).toEqual({ campaignId: STRESS_CAMPAIGN_ID, created: true });
     expect(campaigns.created).toEqual([
       { userId: BIA.id, input: expect.objectContaining({ name: STRESS_CAMPAIGN_NAME }) },
     ]);
     expect(join.joined).toEqual([{ userId: CAIO.id, code: STRESS_JOIN_CODE }]);
+    expect(roles.changed).toEqual([
+      { userId: BIA.id, campaignId: STRESS_CAMPAIGN_ID, targetId: CAIO.id, role: 'player' },
+    ]);
     expect(scenes.configured).toEqual([
       {
         campaignId: STRESS_CAMPAIGN_ID,

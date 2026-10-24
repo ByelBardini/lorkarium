@@ -1,0 +1,1 @@
+ALTER TYPE "public"."campaign_role" ADD VALUE 'spectator';

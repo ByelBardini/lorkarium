@@ -78,7 +78,7 @@ test('the character crosses grids: linked to the card, added to the Estrada, wit
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
   // The group grid is the Salão: Ana renames it and puts Bia's Lyra there, linked to her card.

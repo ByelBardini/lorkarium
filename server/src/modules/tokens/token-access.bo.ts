@@ -7,7 +7,8 @@ export type TokenControl = Readonly<{ tokenId: string; controllerIds: readonly s
 export type TokenAudience = 'privileged' | 'others';
 
 /** What one member may do with one token (spec §3.9): the master and the token's controllers
- *  move it and touch its bars; anyone else only sees it, redacted.
+ *  move it and touch its bars; anyone else only sees it, redacted. A spectator listed in the
+ *  control counts as anyone else.
  *
  *  Example: `new TokenAccessBo(campaignAccess, { tokenId, controllerIds }).requireControl('move')` */
 export class TokenAccessBo {
@@ -18,6 +19,12 @@ export class TokenAccessBo {
 
   canControl(): boolean {
     if (this.campaign.isMaster()) return true;
+    return this.isListed();
+  }
+
+  // A demoted player keeps their place in the control, inert until promoted again.
+  private isListed(): boolean {
+    if (this.campaign.isSpectator()) return false;
     return this.token.controllerIds.some((userId) => this.campaign.isUser(userId));
   }
 
@@ -34,7 +41,7 @@ export class TokenAccessBo {
    *
    *  Example: `access.requireListed('choose as main')` */
   requireListed(action: string): void {
-    if (this.token.controllerIds.some((userId) => this.campaign.isUser(userId))) return;
+    if (this.isListed()) return;
     this.campaign.forbid(`${action} token ${this.token.tokenId}`, 'being listed in its control');
   }
 

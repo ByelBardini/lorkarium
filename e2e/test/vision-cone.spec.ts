@@ -108,7 +108,7 @@ async function tableOfAnaAndBia(newPlayerPage: () => Promise<Page>, name: string
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
   await setVisionDark(admin);
   return { admin, bia };

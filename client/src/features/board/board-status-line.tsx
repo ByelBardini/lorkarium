@@ -2,7 +2,9 @@ import type { StoreApi } from 'zustand/vanilla';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
-import { connectionStatusLine, NO_EYES, PREVIEW_BLIND } from './board-messages';
+import { watchesOnly } from '@/lib/table-role';
+import { connectionStatusLine, NO_EYES, NO_PLAYER_EYES, PREVIEW_BLIND } from './board-messages';
+import type { BoardSight } from '@/lib/board-sight';
 import { useBoardSight } from './use-board-sight';
 
 export type BoardStatusLineTable = Readonly<{
@@ -42,6 +44,16 @@ function StatusText({ table, interaction }: StatusTextProps): string {
   const board = useBoard(table.board, (state) => state.status);
   const notice = useBoardInteraction(interaction, (state) => state.notice);
   const sight = useBoardSight(table.board, interaction);
-  const blind = sight.noEyes ? NO_EYES : sight.previewBlind ? PREVIEW_BLIND : '';
+  const watching = useBoard(table.board, (state) =>
+    watchesOnly(state.board?.viewer.role ?? 'player'),
+  );
+  const blind = blindLineOf(sight, watching);
   return connectionStatusLine(presence, board) || (board === 'ready' ? (notice ?? blind) : '');
+}
+
+// Why nothing shows: no eye of one's own (a spectator has the players' instead), or the master's
+// preview with nothing selected.
+function blindLineOf(sight: BoardSight, watching: boolean): string {
+  if (sight.noEyes) return watching ? NO_PLAYER_EYES : NO_EYES;
+  return sight.previewBlind ? PREVIEW_BLIND : '';
 }

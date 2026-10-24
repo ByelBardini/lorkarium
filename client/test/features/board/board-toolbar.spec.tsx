@@ -31,7 +31,7 @@ describe('BoardToolbar', () => {
       <BoardToolbar
         interaction={interaction}
         renderer={renderer}
-        canConfigure={canConfigure}
+        role={canConfigure ? 'master' : 'player'}
         onConfigure={() => undefined}
         onNewToken={() => undefined}
       />,
@@ -99,12 +99,33 @@ describe('BoardToolbar', () => {
     expect(screen.queryByRole('group', { name: 'Camada' })).toBeNull();
   });
 
+  it('a spectator picks only Selecionar and Régua, and keeps the local grid and the camera', () => {
+    render(
+      <BoardToolbar
+        interaction={interaction}
+        renderer={renderer}
+        role="spectator"
+        onConfigure={() => undefined}
+        onNewToken={() => undefined}
+      />,
+    );
+    const names = screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'));
+    expect(names).toEqual([
+      'Selecionar (V)',
+      'Régua (R)',
+      'Grid (G)',
+      'Aproximar (+)',
+      'Afastar (−)',
+      'Enquadrar cena (0)',
+    ]);
+  });
+
   it('without a renderer yet, the zoom buttons are disabled', () => {
     render(
       <BoardToolbar
         interaction={interaction}
         renderer={null}
-        canConfigure={false}
+        role="player"
         onConfigure={() => undefined}
         onNewToken={() => undefined}
       />,
@@ -126,7 +147,7 @@ describe('BoardToolbar, "Ver como os selecionados"', () => {
       <BoardToolbar
         interaction={interaction}
         renderer={null}
-        canConfigure={canConfigure}
+        role={canConfigure ? 'master' : 'player'}
         sightOn={sightOn}
         onConfigure={() => undefined}
         onNewToken={() => undefined}
@@ -176,7 +197,7 @@ describe('BoardToolbar, "Adicionar jogadores"', () => {
       <BoardToolbar
         interaction={interaction}
         renderer={renderer}
-        canConfigure={canConfigure}
+        role={canConfigure ? 'master' : 'player'}
         members={[BIA_AT_TABLE, DAVI]}
         onConfigure={() => undefined}
         onNewToken={() => undefined}

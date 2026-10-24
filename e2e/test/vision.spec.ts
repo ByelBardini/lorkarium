@@ -120,7 +120,7 @@ test('vision, walls and doors live: the dark, a wall, a grate, a door opened, lo
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
   await setVisionDark(admin);

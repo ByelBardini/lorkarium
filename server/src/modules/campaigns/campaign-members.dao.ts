@@ -1,4 +1,4 @@
-import { and, desc, eq, getTableColumns, max, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, max, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { users, type UserPo } from '../auth/users.po';
@@ -30,9 +30,10 @@ export type CampaignMemberRow = Readonly<{
 const masterMembers = alias(campaignMembers, 'master_member');
 const masterUsers = alias(users, 'master_user');
 
+// The table keeps no trace of who only watches: spectators do not count.
 const memberCountOfCampaign = sql<number>`(
   select count(*)::int from campaign_members counted
-  where counted.campaign_id = ${campaigns.id}
+  where counted.campaign_id = ${campaigns.id} and counted.role <> 'spectator'
 )`;
 
 export class CampaignMembersDao {
@@ -102,13 +103,32 @@ export class CampaignMembersDao {
       .where(eq(campaignMembers.campaignId, campaignId));
   }
 
-  /** The latest entry of any member of the campaign; `null` when nobody entered it yet. */
+  /** The latest entry of a player or the master of the campaign (a spectator's entry is theirs,
+   *  not the table's); `null` when none of them entered it yet. */
   async lastAccessAtOf(campaignId: string): Promise<Date | null> {
     const [row] = await this.db
       .select({ at: max(campaignMembers.lastEnteredAt) })
       .from(campaignMembers)
-      .where(eq(campaignMembers.campaignId, campaignId));
+      .where(
+        and(eq(campaignMembers.campaignId, campaignId), ne(campaignMembers.role, 'spectator')),
+      );
     return row?.at ?? null;
+  }
+
+  /** Writes the member's new role; `undefined` when `userId` is not a member of the campaign.
+   *
+   *  Example: `await dao.updateRole(vharnId, dudaId, 'player')` */
+  async updateRole(
+    campaignId: string,
+    userId: string,
+    role: CampaignMemberPo['role'],
+  ): Promise<CampaignMemberPo | undefined> {
+    const [row] = await this.db
+      .update(campaignMembers)
+      .set({ role })
+      .where(and(eq(campaignMembers.campaignId, campaignId), eq(campaignMembers.userId, userId)))
+      .returning();
+    return row;
   }
 
   async markEntered(campaignId: string, userId: string, at: Date): Promise<void> {

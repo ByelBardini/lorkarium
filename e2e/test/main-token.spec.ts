@@ -21,7 +21,7 @@ test('Bia sees the bars of her Lyra without selecting anything, and switches her
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
   await createTokenWithPvFor(admin, 'Lyra', 'Bia');
   await createTokenFor(admin, 'Kael', 'Bia');

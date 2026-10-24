@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { campaignMeta, memberCountLabel } from '@/lib/campaign-meta';
+import { campaignMeta, memberCountLabel, ROLE_LABEL } from '@/lib/campaign-meta';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 
 describe('campaignMeta', () => {
@@ -9,6 +9,17 @@ describe('campaignMeta', () => {
 
   it('a player sees who masters it', () => {
     expect(campaignMeta(QUELM)).toBe('Tormenta20 · mestre: Bia · 4 participantes');
+  });
+
+  it('a spectator also sees who masters it', () => {
+    const watched = { ...QUELM, myRole: 'spectator' as const };
+    expect(campaignMeta(watched)).toBe('Tormenta20 · mestre: Bia · 4 participantes');
+  });
+});
+
+describe('ROLE_LABEL', () => {
+  it('names the spectator "Espectador"', () => {
+    expect(ROLE_LABEL.spectator).toBe('Espectador');
   });
 });
 

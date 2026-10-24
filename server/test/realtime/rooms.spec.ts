@@ -5,6 +5,7 @@ import {
   campaignUserRoom,
   isRoomOfCampaign,
   sceneAudienceRooms,
+  sceneIdOfRoom,
   sceneMastersRoom,
   sceneRoom,
   sceneUserRoom,
@@ -55,10 +56,16 @@ describe('grid rooms', () => {
   it('a player enters the grid room and their own; a master also the masters room', () => {
     const player = [sceneRoom(CAMPAIGN, SCENE), sceneUserRoom(CAMPAIGN, SCENE, USER)];
 
-    expect(sceneAudienceRooms(CAMPAIGN, SCENE, USER, false)).toEqual(player);
-    expect(sceneAudienceRooms(CAMPAIGN, SCENE, USER, true)).toEqual([
+    expect(sceneAudienceRooms(CAMPAIGN, SCENE, USER, 'player')).toEqual(player);
+    expect(sceneAudienceRooms(CAMPAIGN, SCENE, USER, 'master')).toEqual([
       ...player,
       sceneMastersRoom(CAMPAIGN, SCENE),
+    ]);
+  });
+
+  it('a spectator enters only the grid room, never their own nor the masters one', () => {
+    expect(sceneAudienceRooms(CAMPAIGN, SCENE, USER, 'spectator')).toEqual([
+      sceneRoom(CAMPAIGN, SCENE),
     ]);
   });
 
@@ -67,5 +74,26 @@ describe('grid rooms', () => {
     expect(isRoomOfCampaign(sceneUserRoom(CAMPAIGN, SCENE, USER), CAMPAIGN)).toBe(true);
     expect(isRoomOfCampaign(sceneRoom(OTHER, SCENE), CAMPAIGN)).toBe(false);
     expect(isRoomOfCampaign(`${campaignRoom(CAMPAIGN)}x`, CAMPAIGN)).toBe(false);
+  });
+});
+
+describe('sceneIdOfRoom', () => {
+  const CAMPAIGN = '3b1e9a52-6c4d-4f8a-9e2b-1a7c5d3f8e10';
+  const OTHER = '5e8d2c1b-4a3f-4b6e-9d7c-2f1a0b9c8d7e';
+  const SCENE = '7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d';
+  const USER = '9c2f4e61-7a3b-4d5c-8e9f-0b1a2c3d4e5f';
+
+  it('the room of a grid of the table gives the id of that grid', () => {
+    expect(sceneIdOfRoom(sceneRoom(CAMPAIGN, SCENE), CAMPAIGN)).toBe(SCENE);
+  });
+
+  it.each([
+    ['the table', campaignRoom(CAMPAIGN)],
+    ['a user at the table', campaignUserRoom(CAMPAIGN, USER)],
+    ['the masters of a grid', sceneMastersRoom(CAMPAIGN, SCENE)],
+    ['a user in a grid', sceneUserRoom(CAMPAIGN, SCENE, USER)],
+    ['a grid of another table', sceneRoom(OTHER, SCENE)],
+  ])('the room of %s is no grid of the table', (_room, room) => {
+    expect(sceneIdOfRoom(room, CAMPAIGN)).toBeUndefined();
   });
 });

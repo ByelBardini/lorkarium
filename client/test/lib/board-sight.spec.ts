@@ -4,9 +4,11 @@ import { boardSightOf, levelOf, seenTokensOf } from '@/lib/board-sight';
 import {
   ANA_AT_TABLE,
   BIA_AT_TABLE,
+  CAIO_AT_TABLE,
   KAEL_ID,
   LYRA_ID,
   VHARN_SCENE,
+  duda,
   kael,
   lyra,
   vharnBoard,
@@ -387,5 +389,93 @@ describe('boardSightOf for Bia with Lyra looking in a cone', () => {
 
     expect(doors(0)).toEqual(new Set());
     expect(doors(180)).toEqual(new Set([CELL_DOOR_ID]));
+  });
+});
+
+describe('boardSightOf for a spectator', () => {
+  // Duda watches: the server tells her `canControl: false` on every token. Bia's Lyra stands at
+  // (3, 4) and Caio's Kael at (16, 4), both seeing 3 cells fully and 3 more dimly.
+  const DUDA_ID = duda().userId;
+  const PLAYERS = [BIA_AT_TABLE.userId, CAIO_AT_TABLE.userId];
+  const GOBLIN_ID = 'cc33dd44-ee55-4f66-8a77-112233445566';
+  const LICH_ID = 'dd44ee55-ff66-4a77-8b88-223344556677';
+  const DUDAS_ID = 'ee55ff66-aa77-4b88-8c99-334455667788';
+  const watched = { canControl: false, sight: { bright: 3, dim: 3 } };
+  const LYRA_WATCHED = lyra(watched);
+  const KAEL_OF_CAIO = kael({ ...watched, controllerIds: [CAIO_AT_TABLE.userId], col: 16 });
+  const GOBLIN = kael({ ...someoneElse, id: GOBLIN_ID, name: 'Goblin', col: 5, side: 'enemy' });
+  const OGRE = ogreAt(14);
+  const LICH = kael({ ...someoneElse, id: LICH_ID, name: 'Lich', col: 10, row: 10 });
+
+  function dudaBoard(vision: SceneVisionDto, tokens: TokenDto[]): BoardStateDto {
+    return vharnBoard({
+      viewer: { userId: DUDA_ID, role: 'spectator' },
+      scene: { ...VHARN_SCENE, vision },
+      tokens,
+      walls: [],
+    });
+  }
+
+  const ALL = [LYRA_WATCHED, KAEL_OF_CAIO, GOBLIN, OGRE, LICH];
+
+  it.each([
+    ['the goblin by Bia’s Lyra', GOBLIN_ID, 'seen'],
+    ['the ogre by Caio’s Kael', OGRE_ID, 'seen'],
+    ['the lich far from both', LICH_ID, 'hidden'],
+  ] as const)('in the dark, %s is %s', (_name, tokenId, level) => {
+    const sight = boardSightOf(dudaBoard('dark', ALL), { previewEyeIds: null, playerIds: PLAYERS });
+
+    expect(levelOf(sight, tokenId)).toBe(level);
+  });
+
+  it('looks through every token a player controls, and only those', () => {
+    const sight = boardSightOf(dudaBoard('dark', ALL), { previewEyeIds: null, playerIds: PLAYERS });
+
+    expect(sight.eyeTokenIds).toEqual([LYRA_ID, KAEL_ID]);
+  });
+
+  it('a token only Duda controls (demoted, her control inert) is no eye: the lich beside it stays hidden', () => {
+    const hers = kael({ ...watched, id: DUDAS_ID, controllerIds: [DUDA_ID], col: 10, row: 9 });
+    const board = dudaBoard('dark', [...ALL, hers]);
+    const sight = boardSightOf(board, { previewEyeIds: null, playerIds: PLAYERS });
+
+    expect(sight.eyeTokenIds).not.toContain(DUDAS_ID);
+    expect(levelOf(sight, LICH_ID)).toBe('hidden');
+  });
+
+  it('with vision off every token is seen', () => {
+    const sight = boardSightOf(dudaBoard('off', ALL), { previewEyeIds: null, playerIds: PLAYERS });
+
+    expect(sight.active).toBe(false);
+    expect(levelOf(sight, LICH_ID)).toBe('seen');
+  });
+
+  it('with no player token on the scene she has no eyes', () => {
+    const board = dudaBoard('dark', [GOBLIN, OGRE]);
+    const sight = boardSightOf(board, { previewEyeIds: null, playerIds: PLAYERS });
+
+    expect(sight.noEyes).toBe(true);
+    expect(seenTokensOf(board, sight)).toEqual([]);
+  });
+
+  it('Bia, a player, still looks only through the tokens she controls, with the players given', () => {
+    const board = biaBoard('dark', [LYRA, kael({ ...KAEL_OF_CAIO }), OGRE], []);
+    const sight = boardSightOf(board, { previewEyeIds: null, playerIds: PLAYERS });
+
+    expect(sight.eyeTokenIds).toEqual([LYRA_ID]);
+    expect(levelOf(sight, OGRE_ID)).toBe('hidden');
+  });
+
+  it('Ana, the master, still sees every token with the players given, and previews by the selection', () => {
+    const board = {
+      ...dudaBoard('dark', ALL),
+      viewer: { userId: ANA_AT_TABLE.userId, role: 'master' as const },
+    };
+    const clear = boardSightOf(board, { previewEyeIds: null, playerIds: PLAYERS });
+    const preview = boardSightOf(board, { previewEyeIds: [LYRA_ID], playerIds: PLAYERS });
+
+    expect(levelOf(clear, LICH_ID)).toBe('seen');
+    expect(preview.eyeTokenIds).toEqual([LYRA_ID]);
+    expect(levelOf(preview, OGRE_ID)).toBe('hidden');
   });
 });

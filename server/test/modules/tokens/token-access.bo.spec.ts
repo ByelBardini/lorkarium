@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { CampaignAccessBo } from '../../../src/modules/campaigns/campaign-access.bo';
 import { TokenAccessBo } from '../../../src/modules/tokens/token-access.bo';
 import { ANA_ID } from '../../support/auth-factories';
-import { BIA_ID, CAIO_ID, VHARN_ID } from '../../support/campaigns-factories';
+import { BIA_ID, CAIO_ID, DUDA_ID, VHARN_ID } from '../../support/campaigns-factories';
 import { LYRA_ID } from '../../support/tokens-factories';
 
 function accessOf(
   userId: string,
-  role: 'master' | 'player',
+  role: 'master' | 'player' | 'spectator',
   controllerIds: readonly string[] = [BIA_ID],
 ): TokenAccessBo {
   const campaign = new CampaignAccessBo({ campaignId: VHARN_ID, userId, role });
@@ -125,6 +125,37 @@ describe('TokenAccessBo', () => {
           message: expect.stringContaining(`choose the main token of ${BIA_ID}`),
         }),
       );
+    });
+  });
+
+  describe('the control of a spectator is inert', () => {
+    const kael = [DUDA_ID, CAIO_ID];
+
+    it('Duda, a spectator listed in the control of Kael, gets the redacted token', () => {
+      expect(accessOf(DUDA_ID, 'spectator', kael).audience()).toBe('others');
+    });
+
+    it('Duda moving Kael is refused with FORBIDDEN citing her and the token', () => {
+      expect(() => accessOf(DUDA_ID, 'spectator', kael).requireControl('move')).toThrow(
+        expect.objectContaining({
+          code: 'FORBIDDEN',
+          message: expect.stringMatching(new RegExp(`${DUDA_ID}.*move token ${LYRA_ID}`)),
+        }),
+      );
+    });
+
+    it('Duda listed in the control may not choose Kael as her main token', () => {
+      expect(() => accessOf(DUDA_ID, 'spectator', kael).requireListed('choose as main')).toThrow(
+        expect.objectContaining({ code: 'FORBIDDEN' }),
+      );
+    });
+
+    it('Caio, a player listed beside her, still gets the whole token', () => {
+      expect(accessOf(CAIO_ID, 'player', kael).audience()).toBe('privileged');
+    });
+
+    it('the master still gets the whole token', () => {
+      expect(accessOf(ANA_ID, 'master', kael).audience()).toBe('privileged');
     });
   });
 });

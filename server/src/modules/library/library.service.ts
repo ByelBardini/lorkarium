@@ -19,7 +19,7 @@ import type { WallsDao } from '../walls/walls.dao';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { CampaignsDao } from '../campaigns/campaigns.dao';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
-import { memberAccessOf } from '../campaigns/member-access';
+import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { SceneAccessBo } from '../scenes/scene-access.bo';
 import type { GridEviction, SceneAudiencePort } from '../scenes/scene-audience.port';
@@ -114,7 +114,7 @@ export class LibraryService {
    *  group one and the folders that lead to them, without token counts. */
   async list(requester: LibraryRequester): Promise<LibraryDto> {
     const { userId, campaignId } = requester;
-    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const access = await viewerAccessOf(this.deps.members, campaignId, userId);
     const campaign = await this.deps.read.campaigns.findById(campaignId);
     if (!campaign) throw new CampaignNotFoundError({ campaignId, userId });
     const library = await this.libraryOf(this.deps.read, campaignId, campaign.activeSceneId);

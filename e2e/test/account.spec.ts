@@ -54,7 +54,7 @@ test('the new nickname and color reach the table live, and the next ping comes i
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, `Mesa conta ${stamp}`);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, `Mesa conta ${stamp}`);
   const before = await readOwnProfile(admin);
   await expect(presenceOf(bia, before.name)).toHaveAccessibleName('online');

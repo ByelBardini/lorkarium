@@ -129,8 +129,11 @@ export class CampaignMembersDaoFake implements Pick<
   | 'markEntered'
   | 'campaignIdsOfUser'
   | 'lastAccessAtOf'
+  | 'updateRole'
 > {
   readonly listedFor: string[] = [];
+  /** `updateRole:<campaignId>:<userId>:<role>`, in order; other fakes may write here too. */
+  readonly writes: string[] = [];
   readonly membersListedFor: string[] = [];
   readonly entered: Array<{ campaignId: string; userId: string; at: Date }> = [];
 
@@ -168,6 +171,22 @@ export class CampaignMembersDaoFake implements Pick<
 
   async markEntered(campaignId: string, userId: string, at: Date): Promise<void> {
     this.entered.push({ campaignId, userId, at });
+  }
+
+  async updateRole(
+    campaignId: string,
+    userId: string,
+    role: CampaignMemberPo['role'],
+  ): Promise<CampaignMemberPo | undefined> {
+    const index = this.rows.findIndex(
+      (row) => row.campaignId === campaignId && row.userId === userId,
+    );
+    const row = this.rows[index];
+    if (!row) return undefined;
+    this.writes.push(`updateRole:${campaignId}:${userId}:${role}`);
+    const updated = { ...row, role };
+    this.rows[index] = updated;
+    return updated;
   }
 
   async lastAccessAtOf(campaignId: string): Promise<Date | null> {

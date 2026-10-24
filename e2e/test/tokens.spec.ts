@@ -40,7 +40,7 @@ test('tokens live: the hidden bar never reaches another player, only the control
     [caio, CAIO],
   ] as const) {
     await signIn(page, who);
-    await joinByCodeAndEnter(page, code);
+    await joinByCodeAndEnter(page, code, admin);
   }
   await enterFromTheList(admin, name);
 
@@ -102,7 +102,7 @@ test('the lean creation: a token with only the name, the controller and a PV of 
     [caio, CAIO],
   ] as const) {
     await signIn(page, who);
-    await joinByCodeAndEnter(page, code);
+    await joinByCodeAndEnter(page, code, admin);
   }
   await enterFromTheList(admin, name);
 

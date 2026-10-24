@@ -1,11 +1,16 @@
 import type {
   CampaignDetailDto,
+  CampaignMemberDto,
   CampaignSummaryDto,
   CreateCampaignRequestDto,
   JoinCampaignRequestDto,
 } from '@lorkarium/contracts';
 import type { CampaignJoinService } from '../../src/modules/campaigns/campaign-join.service';
 import type { CampaignsService } from '../../src/modules/campaigns/campaigns.service';
+import type {
+  MemberRoleRequest,
+  MemberRoleService,
+} from '../../src/modules/campaigns/member-role.service';
 import type { CreateLights, LightsService } from '../../src/modules/lights/lights.service';
 import type { SceneGrid } from '../../src/modules/scenes/scene-config.bo';
 import type { CreatedInScene } from '../../src/modules/scenes/locked-scene';
@@ -43,6 +48,16 @@ export class StressJoinFake implements Pick<CampaignJoinService, 'join'> {
   async join(userId: string, input: JoinCampaignRequestDto): Promise<CampaignSummaryDto> {
     this.joined.push({ userId, code: input.code });
     return { id: STRESS_CAMPAIGN_ID } as CampaignSummaryDto;
+  }
+}
+
+/** The member role service: records who promoted whom, at which table. */
+export class StressRolesFake implements Pick<MemberRoleService, 'change'> {
+  readonly changed: Array<Readonly<{ userId: string } & MemberRoleRequest>> = [];
+
+  async change(userId: string, request: MemberRoleRequest): Promise<CampaignMemberDto> {
+    this.changed.push({ userId, ...request });
+    return { userId: request.targetId, role: request.role } as CampaignMemberDto;
   }
 }
 

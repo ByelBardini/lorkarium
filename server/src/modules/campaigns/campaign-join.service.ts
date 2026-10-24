@@ -17,7 +17,8 @@ export type CampaignJoinServiceDeps = Readonly<{
   clock: ClockPort;
 }>;
 
-/** Players getting into a campaign: by its join code, and into its table ("entrou por último").
+/** People getting into a campaign: by its join code (as spectators, until the master promotes
+ *  them), and into its table ("entrou por último").
  *
  *  Example: `await campaignJoinService.join(userOf(request).id, { code: 'VHRN7K2Q' })` */
 export class CampaignJoinService {
@@ -30,13 +31,13 @@ export class CampaignJoinService {
     const join = toCampaignJoinBo(campaign, existing);
     const decision = join.decide(await this.checkPassword(join, campaign, input.password));
     const membership =
-      decision === 'already-member' ? existing : await this.addPlayer(campaign, userId);
+      decision === 'already-member' ? existing : await this.addSpectator(campaign, userId);
     return this.summaryOf(campaign, membership);
   }
 
   async enter(userId: string, campaignId: string): Promise<void> {
     const membership = await this.deps.members.findMembership(campaignId, userId);
-    toCampaignAccessBo(campaignId, userId, membership).requireMember();
+    toCampaignAccessBo(campaignId, userId, membership).requireViewer();
     await this.deps.members.markEntered(campaignId, userId, this.deps.clock.now());
   }
 
@@ -51,13 +52,13 @@ export class CampaignJoinService {
     return matches ? 'matches' : 'mismatch';
   }
 
-  private async addPlayer(campaign: CampaignPo, userId: string): Promise<CampaignMemberPo> {
+  private async addSpectator(campaign: CampaignPo, userId: string): Promise<CampaignMemberPo> {
     const joinedAt = this.deps.clock.now();
     try {
       return await this.deps.members.insert({
         campaignId: campaign.id,
         userId,
-        role: 'player',
+        role: 'spectator',
         joinedAt,
       });
     } catch (error) {

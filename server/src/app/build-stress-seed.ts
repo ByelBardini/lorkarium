@@ -8,6 +8,8 @@ import { CampaignMembersDao } from '../modules/campaigns/campaign-members.dao';
 import { createCampaignsModule } from '../modules/campaigns/campaigns.plugin';
 import type { PresenceReaderPort } from '../modules/campaigns/presence-reader.port';
 import { CampaignsDao } from '../modules/campaigns/campaigns.dao';
+import type { MemberRoleChangedPort } from '../modules/campaigns/member-role-changed.port';
+import { MemberRoleService } from '../modules/campaigns/member-role.service';
 import { createLightsModule } from '../modules/lights/lights.plugin';
 import type { LibraryPublisherPort } from '../modules/library/library-publisher.port';
 import type { BoardPublisherPort } from '../modules/scenes/board-publisher.port';
@@ -24,6 +26,7 @@ const SILENT_PUBLISHER = new Proxy({} as BoardPublisherPort, { get: () => () => 
 const SILENT_LIBRARY = new Proxy({} as LibraryPublisherPort, { get: () => () => undefined });
 const NO_AUDIENCE = new Proxy({} as SceneAudiencePort, { get: () => async () => undefined });
 const NOBODY_ONLINE: PresenceReaderPort = { onlineUserIdsOf: () => new Set() };
+const NO_LIVE_TABLE: MemberRoleChangedPort = { memberRoleChanged: async () => undefined };
 
 /** Wires the stress seed over the real services (`pnpm db:seed-stress` and its integration spec).
  *
@@ -40,16 +43,22 @@ export function buildStressSceneSeed(db: Database): StressSceneSeedService {
     sceneWalls: new SceneWallsService(),
   };
   const campaigns = new CampaignsDao(db);
+  const campaignsModule = createCampaignsModule({
+    db,
+    hasher,
+    codes: new CryptoCampaignCode(),
+    clock,
+    presence: NOBODY_ONLINE,
+  });
+  const { memberships } = campaignsModule;
   return createDevSeedModule({
     users: new UsersDao(db),
-    campaigns: createCampaignsModule({
-      db,
-      hasher,
-      codes: new CryptoCampaignCode(),
-      clock,
-      presence: NOBODY_ONLINE,
-    }).service,
+    campaigns: campaignsModule.service,
     join: new CampaignJoinService({ campaigns, members, hasher, clock }),
+    roles: new MemberRoleService({
+      ...{ members, memberships },
+      ...{ changed: NO_LIVE_TABLE, presence: NOBODY_ONLINE },
+    }),
     scenes: createScenesModule({
       ...board,
       audience: NO_AUDIENCE,

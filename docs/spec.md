@@ -273,6 +273,8 @@ Serão considerados inicialmente três papéis.
 - Visualização de informações públicas.
 - Sem permissão para modificar o estado.
 
+Quem entra na campanha pelo código entra como espectador; o mestre o promove a jogador (e pode movê-lo de volta para espectador).
+
 As permissões serão validadas exclusivamente no servidor.
 
 ### 3.10. Persistência
@@ -1004,7 +1006,7 @@ O MVP será considerado funcional quando:
 2. O mestre conseguir criar uma cena com imagem de fundo.
 3. O grid puder ser configurado e visualizado.
 4. O mestre conseguir adicionar e movimentar tokens.
-5. Um jogador conseguir entrar pela internet.
+5. Um jogador conseguir entrar pela internet (pelo código, como espectador, e ser promovido a jogador pelo mestre).
 6. Os participantes visualizarem movimentos em tempo real.
 7. As permissões de movimentação forem respeitadas.
 8. O mestre conseguir iniciar um combate.

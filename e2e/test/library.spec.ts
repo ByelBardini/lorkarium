@@ -33,7 +33,7 @@ test('the library between master and player: a private grid stays hidden, a publ
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
   // Ana prepares the Torre in a subfolder, with Bia's Lyra on it; a new grid is born private.

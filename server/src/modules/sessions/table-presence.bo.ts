@@ -1,3 +1,5 @@
+import type { CampaignRole } from '../campaigns/campaign-access.bo';
+
 /** Who is at one table: each user's open sockets, who dropped and may still come back, which
  *  sockets stand still (`away`, socket ids are unique) and since when each user is away (every
  *  socket of theirs standing still). */
@@ -31,6 +33,7 @@ export type PresenceChange =
   | 'already-away'
   | 'profile-changed'
   | 'campaign-changed'
+  | 'role-changed'
   | 'not-connected';
 
 export type DisconnectReason = 'left' | 'dropped';
@@ -39,8 +42,8 @@ export type PresenceOutcome = Readonly<{ roster: PresenceRoster; change: Presenc
 
 /** Presence counted per user, not per socket: a second tab or a short drop is not a leave, and a
  *  user is away only when every tab of theirs stands still. Only what others see bumps the
- *  version: `came-online`, `went-offline`, `went-away`, `came-back`, `profile-changed` and
- *  `campaign-changed`. The time comes in by parameter (no clock in the rule).
+ *  version: `came-online`, `went-offline`, `went-away`, `came-back`, `profile-changed`,
+ *  `campaign-changed` and `role-changed`. The time comes in by parameter (no clock in the rule).
  *
  *  Example: `new TablePresenceBo(EMPTY_ROSTER).connect(userId, socket.id).change // 'came-online'` */
 export class TablePresenceBo {
@@ -124,6 +127,14 @@ export class TablePresenceBo {
     return { roster: { ...this.roster, version: this.nextVersion() }, change: 'campaign-changed' };
   }
 
+  /** The master moved a member between player and spectator; the sockets, the grace and the away
+   *  marks stay as they were (the same connections now see the table with the new role).
+   *
+   *  Example: `new TablePresenceBo(roster).roleChanged().roster.version // roster.version + 1` */
+  roleChanged(): PresenceOutcome {
+    return { roster: { ...this.roster, version: this.nextVersion() }, change: 'role-changed' };
+  }
+
   /** Everyone `isOnline` counts: with a socket open or still inside the grace.
    *
    *  Example: `new TablePresenceBo(roster).onlineUserIds().has(userId)` */
@@ -133,6 +144,14 @@ export class TablePresenceBo {
 
   isOnline(userId: string): boolean {
     return this.roster.sockets.has(userId) || this.roster.inGrace.has(userId);
+  }
+
+  /** Whether the table shows `member`: a player or the master always, a spectator only while
+   *  online (the table keeps no trace of who only watches).
+   *
+   *  Example: `presence.lists({ userId: dudaId, role: 'spectator' }) // false once she left` */
+  lists(member: Readonly<{ userId: string; role: CampaignRole }>): boolean {
+    return member.role !== 'spectator' || this.isOnline(member.userId);
   }
 
   awaySinceOf(userId: string): Date | null {

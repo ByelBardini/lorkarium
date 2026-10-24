@@ -15,6 +15,8 @@ import { CampaignMembersDao } from './campaign-members.dao';
 import { CampaignsDao } from './campaigns.dao';
 import { campaignsRoutes } from './campaigns.routes';
 import { CampaignsService, type CampaignTransactionRunner } from './campaigns.service';
+import type { MemberRoleChangedPort } from './member-role-changed.port';
+import { MemberRoleService } from './member-role.service';
 import type { PresenceReaderPort } from './presence-reader.port';
 
 export type CampaignsModuleOptions = Readonly<{
@@ -26,9 +28,13 @@ export type CampaignsModuleOptions = Readonly<{
 }>;
 
 export type CampaignsModule = Readonly<{
-  /** The HTTP edge, made once the live session exists: it is told of each saved change, and it
-   *  is built after this module (it reads the members through `service`). */
-  pluginWith: (changed: CampaignChangedPort) => (app: FastifyInstance) => Promise<void>;
+  /** The HTTP edge, made once the live session exists: it is told of each saved change (of the
+   *  campaign and of a member's role), and it is built after this module (it reads the members
+   *  through `service`). */
+  pluginWith: (
+    changed: CampaignChangedPort,
+    roleChanged: MemberRoleChangedPort,
+  ) => (app: FastifyInstance) => Promise<void>;
   /** For other modules: the live session asks it who the members of a table are. */
   service: CampaignsService;
   /** For the board modules: who is a member of a table, remembered (see `CachedMemberships`). */
@@ -37,7 +43,7 @@ export type CampaignsModule = Readonly<{
 
 /** Wires the campaigns module: DAOs, the services and the HTTP edge. Needs `app.authGuards`.
  *
- *  Example: `const campaigns = createCampaignsModule(options); await app.register(campaigns.pluginWith(sessions.service), { prefix: '/api' })` */
+ *  Example: `const campaigns = createCampaignsModule(options); await app.register(campaigns.pluginWith(sessions.service, sessions.service), { prefix: '/api' })` */
 export function createCampaignsModule(options: CampaignsModuleOptions): CampaignsModule {
   const campaigns = new CampaignsDao(options.db);
   const members = new CampaignMembersDao(options.db);
@@ -49,10 +55,14 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
   const service = new CampaignsService({ ...readDeps, transaction, codes, hasher, clock });
   const join = new CampaignJoinService({ campaigns, members, hasher, clock });
   const assets = new AssetsDao(options.db);
-  const pluginWith = (changed: CampaignChangedPort): ((app: FastifyInstance) => Promise<void>) => {
+  const pluginWith = (
+    changed: CampaignChangedPort,
+    roleChanged: MemberRoleChangedPort,
+  ): ((app: FastifyInstance) => Promise<void>) => {
     const settingsDeps = { campaigns, members, assets, memberships, changed, codes, hasher, clock };
     const settings = new CampaignSettingsService({ ...settingsDeps, presence, detail: service });
-    return campaignsRoutes({ campaigns: service, join, settings });
+    const roles = new MemberRoleService({ members, memberships, changed: roleChanged, presence });
+    return campaignsRoutes({ campaigns: service, join, settings, roles });
   };
   return { pluginWith, service, memberships };
 }

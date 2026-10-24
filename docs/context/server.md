@@ -89,6 +89,7 @@ Medidas, orçamentos e as regras de desempenho que não se desfazem: [`server/de
 
 ## Armadilhas
 
+- SQL cru (o template `sql` do Drizzle) com parâmetro dentro de `INSERT … SELECT` precisa de cast (`${id}::uuid`, `'player'::campaign_role`): o `pg` manda o parâmetro como `text` e, sem o `VALUES` para inferir o tipo da coluna, o Postgres recusa (`42804`). Visto no seed do `campaign-spectators-migration.spec.ts`.
 - O proxy na frente do server precisa **preservar o `Host`** (`changeOrigin: false` no Vite, que é o padrão; o proxy reverso de produção também): a conexão Socket.IO compara `Origin` com `Host` e recusa se divergirem.
 
 - Enum novo de PO precisa ser exportado também em `src/database/schema.ts` (o arquivo que o `drizzle-kit` lê): sem isso o `db:generate` escreve a coluna com o tipo, mas **sem** o `CREATE TYPE`, e a migração quebra no banco. Confira o SQL gerado antes de seguir.

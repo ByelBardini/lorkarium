@@ -25,6 +25,7 @@ import type { MembershipReader } from '../modules/campaigns/cached-memberships';
 import { createCampaignsModule } from '../modules/campaigns/campaigns.plugin';
 import { InMemoryPresenceRegistry } from '../infrastructure/presence-registry/in-memory-presence-registry';
 import type { CampaignChangedPort } from '../modules/campaigns/campaign-changed.port';
+import type { MemberRoleChangedPort } from '../modules/campaigns/member-role-changed.port';
 import { TimerScheduler } from '../infrastructure/scheduler/timer-scheduler';
 import { SocketIoSessionPublisher } from '../infrastructure/session-publisher/socket-io-session-publisher';
 import { SocketIoBoardPublisher } from '../infrastructure/board-publisher/socket-io-board-publisher';
@@ -122,7 +123,10 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   };
   const outlets = wireRealtime(app, auth.guards, realtimeModules);
   // Registered once the live session exists: each saved campaign change reaches its room.
-  await app.register(campaigns.pluginWith(outlets.campaignChanged), { prefix: API_PREFIX });
+  const { campaignChanged, memberRoleChanged } = outlets;
+  await app.register(campaigns.pluginWith(campaignChanged, memberRoleChanged), {
+    prefix: API_PREFIX,
+  });
   const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
   const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
   await app.register(library.plugin, { prefix: API_PREFIX });
@@ -160,6 +164,8 @@ type RealtimeOutlets = Readonly<{
   profileChanged: ProfileChangedPort;
   /** The same service: a saved or deleted campaign reaches its live table. */
   campaignChanged: CampaignChangedPort;
+  /** The same service: a member's saved role reaches the live table and moves their rooms. */
+  memberRoleChanged: MemberRoleChangedPort;
 }>;
 
 function wireRealtime(
@@ -198,6 +204,7 @@ function wireRealtime(
   });
   realtime.onConnection(sessions.gateway);
   const { service: profileChanged, service: campaignChanged } = sessions;
+  const { service: memberRoleChanged } = sessions;
   const sceneWalls = new SceneWallsService();
   const tokensModule = createTokensModule({ ...shared, sceneWalls });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
@@ -241,7 +248,7 @@ function wireRealtime(
     log: app.log,
   });
   realtime.onConnection(board.gateway);
-  return { ...outlets, profileChanged, campaignChanged };
+  return { ...outlets, profileChanged, campaignChanged, memberRoleChanged };
 }
 
 // The bucket is ensured once per boot (dev, CI and integration alike), before the first request.

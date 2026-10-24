@@ -1,12 +1,15 @@
 import {
+  campaignMemberDto,
   campaignResponseDto,
   joinCampaignResponseDto,
   listCampaignsResponseDto,
   type CampaignDetailDto,
+  type CampaignMemberDto,
   type CampaignSummaryDto,
   type CreateCampaignRequestDto,
   type JoinCampaignRequestDto,
   type UpdateCampaignRequestInput,
+  type UpdateMemberRoleRequestDto,
 } from '@lorkarium/contracts';
 import { callApi, errorCodeOf, parseOk, retryAfterOf, type ApiCall } from './api-call';
 import type { HttpResponse, HttpTransport } from './http-transport';
@@ -14,6 +17,8 @@ import type { HttpResponse, HttpTransport } from './http-transport';
 export type CampaignsFailure =
   | Readonly<{ kind: 'unauthenticated' }>
   | Readonly<{ kind: 'not_found' }>
+  /** The person is not a member of the table (404 `MEMBER_NOT_FOUND`): the table itself is there. */
+  | Readonly<{ kind: 'member_not_found' }>
   /** A player asked for what only the master may do (403 `FORBIDDEN`). */
   | Readonly<{ kind: 'forbidden' }>
   /** The master changed the settings without the table open in a tab (403 `CAMPAIGN_NOT_OPEN`). */
@@ -47,12 +52,26 @@ export interface CampaignsApi {
   regenerateCode(campaignId: string): Promise<CampaignsResult<CampaignDetailDto>>;
   /** Master only: deletes the campaign and everything in it. */
   remove(campaignId: string): Promise<CampaignsResult<null>>;
+  /** Master only: promotes a spectator to player or moves a player to the spectators; yields the
+   *  member as the server stored it (the table hears it as `session:memberUpdated`). */
+  setMemberRole(
+    campaignId: string,
+    userId: string,
+    role: MemberRole,
+  ): Promise<CampaignsResult<CampaignMemberDto>>;
 }
+
+/** The roles the master gives and takes: nobody becomes master by a change. */
+export type MemberRole = UpdateMemberRoleRequestDto['role'];
 
 const FAILURE_BY_STATUS: Readonly<Record<number, CampaignsFailure>> = {
   400: { kind: 'invalid' },
   401: { kind: 'unauthenticated' },
   404: { kind: 'not_found' },
+};
+
+const FAILURE_BY_NOT_FOUND_CODE: Readonly<Record<string, CampaignsFailure>> = {
+  MEMBER_NOT_FOUND: { kind: 'member_not_found' },
 };
 
 const FAILURE_BY_FORBIDDEN_CODE: Readonly<Record<string, CampaignsFailure>> = {
@@ -116,6 +135,18 @@ export class HttpCampaignsApi implements CampaignsApi {
     const call = await callApi(this.transport, 'DELETE', campaignPath(campaignId));
     return call.kind === 'ok' ? { ok: true, value: null } : failed(call);
   }
+
+  async setMemberRole(
+    campaignId: string,
+    userId: string,
+    role: MemberRole,
+  ): Promise<CampaignsResult<CampaignMemberDto>> {
+    const path = `${campaignPath(campaignId)}/members/${encodeURIComponent(userId)}`;
+    const body: UpdateMemberRoleRequestDto = { role };
+    const call = await callApi(this.transport, 'PATCH', path, body);
+    if (call.kind !== 'ok') return failed(call);
+    return parseOk(campaignMemberDto, call.body, (member) => member);
+  }
 }
 
 function campaignPath(campaignId: string): string {
@@ -133,6 +164,9 @@ function failureOf(response: HttpResponse): CampaignsFailure {
   }
   if (response.status === 403) {
     return FAILURE_BY_FORBIDDEN_CODE[errorCodeOf(response) ?? ''] ?? { kind: 'unexpected' };
+  }
+  if (response.status === 404) {
+    return FAILURE_BY_NOT_FOUND_CODE[errorCodeOf(response) ?? ''] ?? { kind: 'not_found' };
   }
   return FAILURE_BY_STATUS[response.status] ?? { kind: 'unexpected' };
 }

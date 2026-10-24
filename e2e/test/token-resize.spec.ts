@@ -40,7 +40,7 @@ test('resize by the handles: the master scales by a corner, the player stretches
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
   // The Grifo of Bia lands at (10, 6); the master selects it and drags its south-east corner

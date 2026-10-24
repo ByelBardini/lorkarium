@@ -27,7 +27,7 @@ test('the card and the presence reach the other browser, and a reload keeps the 
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code);
+  await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
   await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online');
   await createTokenWithPvFor(admin, 'Lyra', 'Bia');

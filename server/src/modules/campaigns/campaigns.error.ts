@@ -7,7 +7,8 @@ export type CampaignErrorCode =
   | 'INVALID_PARAMS'
   | 'FORBIDDEN'
   | 'CAMPAIGN_NOT_OPEN'
-  | 'INVALID_BODY';
+  | 'INVALID_BODY'
+  | 'MEMBER_NOT_FOUND';
 
 /** Every campaign refusal; the edge translates `code` into the HTTP status and public message. */
 export class CampaignError extends Error {
@@ -74,6 +75,15 @@ export class InvalidCampaignIdError extends CampaignError {
   }
 }
 
+export class InvalidMemberParamsError extends CampaignError {
+  constructor(readonly received: unknown) {
+    super(
+      'INVALID_PARAMS',
+      `the campaign id and the member id must be uuids; received ${String(received)}`,
+    );
+  }
+}
+
 // A member asking for something their role at the table does not allow (spec §3.9).
 export class ForbiddenActionError extends CampaignError {
   constructor(
@@ -114,6 +124,33 @@ export class CampaignNotOpenError extends CampaignError {
     super(
       'CAMPAIGN_NOT_OPEN',
       `user ${userId} may not ${action} in campaign ${campaignId}: requires the table open in a live connection; found none`,
+    );
+  }
+}
+
+// A member of the table is asked for by id (a card, a role): an id outside it has none.
+export class MemberNotFoundError extends CampaignError {
+  constructor(
+    readonly campaignId: string,
+    readonly memberId: string,
+  ) {
+    super(
+      'MEMBER_NOT_FOUND',
+      `campaign ${campaignId} has no member ${memberId}; expected the id of a member of the table`,
+    );
+  }
+}
+
+// The master's role is not one the master hands out or takes: nobody becomes nor stops being it.
+export class MasterRoleLockedError extends CampaignError {
+  constructor(
+    readonly campaignId: string,
+    readonly userId: string,
+    readonly targetId: string,
+  ) {
+    super(
+      'FORBIDDEN',
+      `user ${userId} may not change the role of ${targetId} in campaign ${campaignId}: the master's role does not change`,
     );
   }
 }

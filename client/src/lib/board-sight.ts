@@ -24,9 +24,11 @@ export type BoardSight = Readonly<{
   /** Only the tokens that are not seen are listed; a missing id is seen. */
   levels: ReadonlyMap<string, SightLevel>;
   eyes: readonly Eye[];
-  /** The tokens whose eyes look: the viewer's own (or the master's preview). */
+  /** The tokens whose eyes look: the viewer's own, the players' for a spectator, or the master's
+   *  preview. */
   eyeTokenIds: readonly string[];
-  /** Dark, and the viewer controls no token on the scene: nothing but darkness shows. */
+  /** Dark, and no token of the viewer (of any player, for a spectator) is on the scene: nothing
+   *  but darkness shows. */
   noEyes: boolean;
   seenDoorIds: ReadonlySet<string> | null;
   /** The master previews with no token selected: nothing is hidden, and the room says so. */
@@ -39,19 +41,24 @@ export type BoardSightOptions = Readonly<{
   /** Where each token shows now and where it looks (this viewer's drag, the move waiting for the
    *  server, other people's drags, the turn before the ack): it looks, shines and is seen from there. */
   landing?: TokenLanding;
+  /** The table's players: a spectator looks through every token one of them controls. */
+  playerIds?: readonly string[];
 }>;
+
+const NO_PLAYERS: readonly string[] = [];
 
 const ALL_SEEN = new Map<string, SightLevel>();
 
 /** The filter every view of the board goes through for this viewer: a player sees by every token
- *  they control (darkvision or not) whatever is in its range or lit, the master sees everything
- *  unless previewing the selected tokens. The rule is the game-core's (`sightLevel`, `doorSeenBy`,
+ *  they control (darkvision or not) whatever is in its range or lit, a spectator by every token a
+ *  player controls (the group's view, never what only the master sees), the master sees
+ *  everything unless previewing the selected tokens. The rule is the game-core's (`sightLevel`, `doorSeenBy`,
  *  with `lightSourcesOf`), the same the server uses for doors.
  *
  *  Example: `const sight = boardSightOf(board, { previewEyeIds: null }); levelOf(sight, ogreId)` */
 export function boardSightOf(board: BoardStateDto, options: BoardSightOptions): BoardSight {
   const mode = board.scene.vision;
-  const watching = watchersOf(board, options.previewEyeIds);
+  const watching = watchersOf(board, options.previewEyeIds, options.playerIds);
   if (mode === 'off' || !watching) return clearSight(mode);
   const eyeTokens = board.tokens.filter(({ id }) => watching.includes(id));
   const eyes = eyeTokens.map((token) => eyeOfToken(token, options.landing));
@@ -89,14 +96,24 @@ export function seenTokensOf(
   return board.tokens.filter(({ id }) => levelOf(sight, id) === 'seen');
 }
 
-// A player looks through the tokens they control; the master only while previewing.
+// A player looks through the tokens they control; a spectator through the players' (the server
+// tells a spectator `canControl: false`, even one still listed as a controller after a demotion,
+// whose control is inert); the master only while previewing.
 function watchersOf(
   board: BoardStateDto,
   previewEyeIds: readonly string[] | null,
+  playerIds: readonly string[] = NO_PLAYERS,
 ): string[] | null {
   if (previewEyeIds) return [...previewEyeIds];
   if (board.viewer.role === 'master') return null;
+  if (board.viewer.role === 'spectator') return playersTokenIdsOf(board.tokens, playerIds);
   return board.tokens.filter(({ canControl }) => canControl).map(({ id }) => id);
+}
+
+function playersTokenIdsOf(tokens: readonly TokenDto[], playerIds: readonly string[]): string[] {
+  const players = new Set(playerIds);
+  const watched = tokens.filter(({ controllerIds }) => controllerIds.some((id) => players.has(id)));
+  return watched.map(({ id }) => id);
 }
 
 /** The eye of a token in the pose where it shows: its darkvision, and its field (the cone of its
@@ -112,15 +129,16 @@ export function eyeOfToken(token: TokenDto, landing: BoardSightOptions['landing'
 }
 
 /** The tokens whose pose shapes what everyone else looks like: the eyes (the player's own
- *  tokens, or the master's preview) and every token with a lit light. A drag of any other token
- *  changes only its own level (`sightWithMovedOf`).
+ *  tokens, the players' for a spectator, or the master's preview) and every token with a lit
+ *  light. A drag of any other token changes only its own level (`sightWithMovedOf`).
  *
- *  Example: `poseShapingIdsOf(board, previewEyeIdsOf(interaction)).has(draggedId)` */
+ *  Example: `poseShapingIdsOf(board, previewEyeIdsOf(interaction), playerIds).has(draggedId)` */
 export function poseShapingIdsOf(
   board: BoardStateDto,
   previewEyeIds: readonly string[] | null,
+  playerIds: readonly string[] = NO_PLAYERS,
 ): ReadonlySet<string> {
-  const ids = new Set(watchersOf(board, previewEyeIds) ?? []);
+  const ids = new Set(watchersOf(board, previewEyeIds, playerIds) ?? []);
   for (const token of board.tokens) if (token.light && token.lightLit) ids.add(token.id);
   return ids;
 }

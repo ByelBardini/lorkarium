@@ -8,6 +8,7 @@ import {
   LYRA_ID,
   kael,
   lyra,
+  duda,
   memberCard,
   vharnBoard,
 } from '../support/table-session-fixtures';
@@ -130,6 +131,63 @@ describe('tableRosterOf', () => {
       'Lyra Vandel',
       'Kael',
     ]);
+  });
+});
+
+describe('tableRosterOf, spectators', () => {
+  it('Duda online goes to the spectators, without a card, and to no other section', () => {
+    const members = [ANA_AT_TABLE, BIA_ONLINE, duda()];
+
+    const roster = tableRosterOf({
+      members,
+      board: boardWith(),
+      cast: null,
+      viewerId: duda().userId,
+    });
+
+    expect(roster.spectators).toEqual([{ member: duda(), isViewer: true }]);
+    expect(roster.players.map(({ member }) => member.name)).toEqual(['Bia']);
+    expect(roster.masters.map(({ member }) => member.name)).toEqual(['Ana']);
+  });
+
+  it('a spectator offline is in no section', () => {
+    const members = [ANA_AT_TABLE, BIA_ONLINE, duda({ online: false })];
+
+    const roster = tableRosterOf({
+      members,
+      board: boardWith(),
+      cast: null,
+      viewerId: ANA_AT_TABLE.userId,
+    });
+
+    expect(roster.spectators).toEqual([]);
+    expect(roster.players.map(({ member }) => member.name)).toEqual(['Bia']);
+  });
+
+  it('Bia moved to the spectators and online goes to the spectators, her card left out', () => {
+    const biaSpectator = { ...BIA_ONLINE, role: 'spectator' as const };
+    const board = boardWith({ memberCards: [memberCard({ armorClass: 15 })] });
+
+    const roster = tableRosterOf({
+      members: [ANA_AT_TABLE, biaSpectator, CAIO_AT_TABLE],
+      board,
+      cast: null,
+      viewerId: ANA_AT_TABLE.userId,
+    });
+
+    expect(roster.spectators).toEqual([{ member: biaSpectator, isViewer: false }]);
+    expect(roster.players.map(({ member }) => member.name)).toEqual(['Caio']);
+  });
+
+  it('a table without spectators has the section empty', () => {
+    const roster = tableRosterOf({
+      members: [ANA_AT_TABLE, BIA_ONLINE],
+      board: null,
+      cast: null,
+      viewerId: ANA_AT_TABLE.userId,
+    });
+
+    expect(roster.spectators).toEqual([]);
   });
 });
 

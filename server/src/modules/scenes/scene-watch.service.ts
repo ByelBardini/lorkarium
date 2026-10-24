@@ -36,7 +36,7 @@ export class SceneWatchService {
   ): Promise<void> {
     const membership = await this.deps.members.findMembership(campaignId, userId);
     const access = toCampaignAccessBo(campaignId, userId, membership);
-    const role = access.requireMember();
+    const role = access.requireViewer();
     await this.deps.share(async ({ scenes }) => {
       const row = await scenes.shareInCampaign(campaignId, sceneId);
       reachedGridOf({ campaignId, sceneId, access }, row);

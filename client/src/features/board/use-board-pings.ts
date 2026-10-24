@@ -1,8 +1,9 @@
-import type { SessionMemberDto } from '@lorkarium/contracts';
+import type { CampaignRoleDto, SessionMemberDto } from '@lorkarium/contracts';
 import { useCallback, useEffect } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { memberColorOf, type MemberColor } from '@lorkarium/game-core';
 import { MEMBER_COLOR_HEX } from '@/lib/member-color';
+import { watchesOnly } from '@/lib/table-role';
 import type { BoardRenderer, PingMark } from '@/renderer/board-renderer';
 import type { BoardScope } from '@/services/board-command-sender';
 import type { PingCommands, PingPoint } from '@/services/table-pings';
@@ -24,16 +25,18 @@ export type BoardPingsDeps = Readonly<{
   pings: PingCommands;
   /** The signed-in account: the color of the ping asked here. */
   session: StoreApi<SessionStore>;
+  /** A spectator sees the others' pings and asks none: a ping is an action the others see. */
+  role: CampaignRoleDto;
 }>;
 
 /** The pings of the room: the others' (from the tab's feed) are drawn with their name and their
  *  color in the roster (the drawn one for someone outside it) and announced on the status line;
- *  the one asked here is drawn at once in the account's color and sent. A refused ping says
- *  nothing: it was only a pointer.
+ *  the one asked here is drawn at once in the account's color and sent (never by a spectator). A
+ *  refused ping says nothing: it was only a pointer.
  *
- *  Example: `const ping = useBoardPings({ renderer, feed: tab.pings, presence, board, interaction, scopeOf, pings, session })` */
+ *  Example: `const ping = useBoardPings({ renderer, feed: tab.pings, presence, board, interaction, scopeOf, pings, session, role })` */
 export function useBoardPings(deps: BoardPingsDeps): (point: PingPoint) => void {
-  const { renderer, feed, presence, board, interaction, scopeOf, pings, session } = deps;
+  const { renderer, feed, presence, board, interaction, scopeOf, pings, session, role } = deps;
   useEffect(() => {
     if (!renderer || !feed) return;
     return feed.subscribe(({ userId, x, y }) => {
@@ -46,13 +49,13 @@ export function useBoardPings(deps: BoardPingsDeps): (point: PingPoint) => void 
   return useCallback(
     (point: PingPoint) => {
       const viewerId = board?.getState().board?.viewer.userId;
-      if (!renderer || !viewerId) return;
+      if (!renderer || !viewerId || watchesOnly(role)) return;
       const member = memberOf(presence, viewerId);
       const color = viewerColorOf(session, viewerId, member);
       renderer.showPing(pingMarkOf(member?.name ?? PING_SOMEONE, color, point));
       void pings.sendPing(scopeOf(), point);
     },
-    [renderer, board, presence, pings, scopeOf, session],
+    [renderer, board, presence, pings, scopeOf, session, role],
   );
 }
 

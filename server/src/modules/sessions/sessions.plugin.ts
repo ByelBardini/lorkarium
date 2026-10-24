@@ -23,8 +23,9 @@ export type SessionsModuleOptions = Readonly<{
   log: FastifyBaseLogger;
 }>;
 
-/** `service` is also the profiles module's `ProfileChangedPort` (`session:memberUpdated`) and the
- *  campaigns module's `CampaignChangedPort` (`session:campaignUpdated`/`campaignDeleted`). */
+/** `service` is also the profiles module's `ProfileChangedPort` (`session:memberUpdated`), the
+ *  campaigns module's `CampaignChangedPort` (`session:campaignUpdated`/`campaignDeleted`) and
+ *  its `MemberRoleChangedPort` (`session:memberUpdated` after moving the member's rooms). */
 export type SessionsModule = Readonly<{
   gateway: (socket: RealtimeSocket) => void;
   service: TableSessionService;

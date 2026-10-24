@@ -7,6 +7,7 @@ import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import { pngOf } from '../support/images';
 import { signUpAndLogin } from '../support/sign-in';
+import { createTable, joinByCode } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const MIB = 1024 * 1024;
@@ -32,12 +33,14 @@ describe('assets HTTP edge', () => {
   beforeEach(async () => {
     await truncateAllTables(connection.db);
     app = await buildApp({ env, db: connection.db });
-    ana = (await signUpAndLogin(app, connection.db, 'Ana')).token;
-    bia = (await signUpAndLogin(app, connection.db, 'Bia')).token;
+    const anaUser = await signUpAndLogin(app, connection.db, 'Ana');
+    const biaUser = await signUpAndLogin(app, connection.db, 'Bia');
+    ana = anaUser.token;
+    bia = biaUser.token;
     caio = (await signUpAndLogin(app, connection.db, 'Caio')).token;
-    const vharn = await createCampaign(ana, 'Os Sinos de Vharn');
+    const vharn = await createTable(app, anaUser, 'Os Sinos de Vharn');
     vharnId = vharn.id;
-    await call(bia, { method: 'POST', url: '/campaigns/join', payload: { code: vharn.joinCode } });
+    await joinByCode(app, biaUser, vharn);
     quelmId = (await createCampaign(caio, 'Quelm')).id;
   });
 
