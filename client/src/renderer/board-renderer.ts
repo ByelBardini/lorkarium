@@ -102,9 +102,14 @@ export type BoardHoverIntent =
   | Readonly<{ kind: 'pointerHovered'; cell: Cell | null }>
   | Readonly<{ kind: 'tokenHovered'; tokenId: string | null; rect: ScreenRect | null }>;
 
+/** Alt + click (any tool) or the primary button held still for 500 ms (Selecionar): point at
+ *  `x, y` (fractional cells) for everyone on this grid. */
+export type BoardPingIntent = Readonly<{ kind: 'pingRequested'; x: number; y: number }>;
+
 /** What the board tells React: it never changes state itself. */
 export type BoardIntent =
   | Readonly<{ kind: 'cameraChanged'; zoom: number }>
+  | BoardPingIntent
   | BoardPointerIntent
   | BoardTokenIntent
   | BoardDrawingIntent
@@ -115,6 +120,9 @@ export type BoardIntent =
   | BoardHoverIntent;
 
 export type BoardIntentListener = (intent: BoardIntent) => void;
+
+/** One ping to show: where (fractional cells), whose name and which color (`pingColorOf`). */
+export type PingMark = Readonly<{ x: number; y: number; label: string; color: number }>;
 
 /** The board on a canvas: React hands it a host element and a `BoardView`, and hears intents.
  *  PixiJS lives only behind this interface (`pixi-board-renderer.ts`).
@@ -130,6 +138,9 @@ export interface BoardRenderer {
   viewCenterCell(): Cell | null;
   /** Brings `cell` to the middle of the view when it is off screen (a row picked in the panel). */
   centerOn(cell: Cell): void;
+  /** A ring growing and fading for 3 s at the point, with the name; an arrow on the edge while it
+   *  is off screen. Up to 30 at once. */
+  showPing(ping: PingMark): void;
   /** Safe at any time, even before `mount` resolves. */
   destroy(): void;
 }
