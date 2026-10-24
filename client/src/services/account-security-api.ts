@@ -1,10 +1,12 @@
 import {
+  accountRecoveryCheckResponseDto,
   accountSecurityResponseDto,
   accountSessionsResponseDto,
   changeEmailResponseDto,
   recoveryCodesResponseDto,
   revokeOthersResponseDto,
   twoFactorSetupResponseDto,
+  type AccountRecoveryCheckResponseDto,
   type AccountSecurityDto,
   type AccountSessionDto,
   type ChangeEmailRequestDto,
@@ -38,7 +40,11 @@ export type AccountSecurityFailure =
   | Readonly<{ kind: 'two_factor_code_invalid' }>
   | Readonly<{ kind: 'two_factor_already_enabled' }>
   | Readonly<{ kind: 'two_factor_not_started' }>
-  | Readonly<{ kind: 'two_factor_not_enabled' }>;
+  | Readonly<{ kind: 'two_factor_not_enabled' }>
+  | Readonly<{ kind: 'recovery_token_invalid' }>;
+
+/** What a "Não fui eu" link will do: its kind and the masked address involved (or `null`). */
+export type AccountRecoveryView = AccountRecoveryCheckResponseDto['recovery'];
 
 export type SecurityResult<T> = AccountResult<T, AccountSecurityFailure>;
 
@@ -58,6 +64,10 @@ export interface AccountSecurityApi {
   enableTwoFactor(input: TwoFactorEnableRequestDto): Promise<SecurityResult<string[]>>;
   disableTwoFactor(input: TwoFactorConfirmRequestDto): Promise<SecurityResult<null>>;
   regenerateRecoveryCodes(input: TwoFactorConfirmRequestDto): Promise<SecurityResult<string[]>>;
+  /** Public: what the recovery link will do. */
+  checkRecovery(token: string): Promise<SecurityResult<AccountRecoveryView>>;
+  /** Public: undoes, sets the new password and signs every device out. */
+  recover(token: string, newPassword: string): Promise<SecurityResult<null>>;
 }
 
 const FAILURE_BY_CODE: Readonly<Record<string, AccountSecurityFailure>> = {
@@ -71,6 +81,7 @@ const FAILURE_BY_CODE: Readonly<Record<string, AccountSecurityFailure>> = {
   TWO_FACTOR_ALREADY_ENABLED: { kind: 'two_factor_already_enabled' },
   TWO_FACTOR_NOT_STARTED: { kind: 'two_factor_not_started' },
   TWO_FACTOR_NOT_ENABLED: { kind: 'two_factor_not_enabled' },
+  RECOVERY_TOKEN_INVALID: { kind: 'recovery_token_invalid' },
 };
 
 const DONE: SecurityResult<null> = { ok: true, value: null };
@@ -142,6 +153,16 @@ export class HttpAccountSecurityApi implements AccountSecurityApi {
     const path = '/account/two-factor/recovery-codes';
     const call = await callApi(this.transport, 'POST', path, input);
     return answerOf(call, recoveryCodesResponseDto, (body) => body.recoveryCodes);
+  }
+
+  async checkRecovery(token: string): Promise<SecurityResult<AccountRecoveryView>> {
+    const call = await callApi(this.transport, 'POST', '/account/recovery/check', { token });
+    return answerOf(call, accountRecoveryCheckResponseDto, (body) => body.recovery);
+  }
+
+  async recover(token: string, newPassword: string): Promise<SecurityResult<null>> {
+    const body = { token, newPassword };
+    return doneOf(await callApi(this.transport, 'POST', '/account/recovery', body));
   }
 }
 

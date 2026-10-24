@@ -1,10 +1,10 @@
 import { Loader2Icon } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Link, useFetcher, useLocation, useNavigate } from 'react-router';
+import { Link, useFetcher } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { BrandMark } from '@/components/brand-mark';
 import { Alert } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { useFragmentToken } from '@/lib/use-fragment-token';
 import { useSession, type SessionStore } from '@/stores/session-store';
 import { accountFailureMessage } from './account-messages';
 import type { EmailConfirmResult } from './email-confirm-action';
@@ -19,7 +19,7 @@ const INVALID_LINK_MESSAGE = accountFailureMessage({ kind: 'email_token_invalid'
 export function EmailConfirmPage({
   sessionStore,
 }: Readonly<{ sessionStore: StoreApi<SessionStore> }>): React.JSX.Element {
-  const token = useTokenOfHash();
+  const token = useFragmentToken();
   const fetcher = useFetcher<EmailConfirmResult>();
   const settled = fetcher.state === 'idle' ? fetcher.data : undefined;
   const signedIn = useSession(sessionStore).status === 'authenticated';
@@ -58,19 +58,6 @@ export function EmailConfirmPage({
       )}
     </main>
   );
-}
-
-// The token is kept in state and the hash is replaced away, so a reload or a shared screenshot
-// does not carry it.
-function useTokenOfHash(): string | null {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [token] = useState(() => new URLSearchParams(location.hash.slice(1)).get('token'));
-  useEffect(() => {
-    if (location.hash)
-      void navigate({ pathname: location.pathname, search: location.search }, { replace: true });
-  }, [location.hash, location.pathname, location.search, navigate]);
-  return token?.trim() ? token : null;
 }
 
 function ConfirmHeading({ text }: Readonly<{ text: string }>): React.JSX.Element {

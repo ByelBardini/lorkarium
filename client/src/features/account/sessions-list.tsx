@@ -1,4 +1,4 @@
-import type { AccountSessionDto } from '@lorkarium/contracts';
+import { type AccountSessionDto, deviceLabel } from '@lorkarium/contracts';
 import { LaptopIcon, LogOutIcon, SmartphoneIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
@@ -13,7 +13,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { deviceLabel } from '@/lib/device-label';
 import { sinceLabel } from '@/lib/since-label';
 import { accountFailureMessage } from './account-messages';
 import { failureOf, useAccountFetcher, useOnSettled } from './use-account-fetcher';

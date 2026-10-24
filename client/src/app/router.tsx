@@ -8,14 +8,21 @@ import {
   type RouteObject,
 } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
-import { accountRoute, emailConfirmRoute } from '@/features/account/account-routes';
+import {
+  accountRecoveryRoute,
+  accountRoute,
+  emailConfirmRoute,
+} from '@/features/account/account-routes';
+import { inviteRoute, passwordResetRoute } from '@/features/account-links/account-link-routes';
 import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { homeRoutes } from '@/features/home/home-route';
 import { useTabActivity } from '@/features/sessions/use-tab-activity';
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
 import { safeRedirectTarget } from '@/lib/safe-redirect';
+import type { AccountLinksApi } from '@/services/account-links-api';
 import type { AccountSecurityApi } from '@/services/account-security-api';
+import type { UserAdminApi } from '@/services/user-admin-api';
 import type { AuthApi } from '@/services/auth-api';
 import type { AssetsApi } from '@/services/assets-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
@@ -47,6 +54,10 @@ export type AppDependencies = Readonly<{
   profileApi: ProfileApi;
   /** Password, e-mail, signed-in devices and 2FA ("Minha conta"). */
   accountSecurityApi: AccountSecurityApi;
+  /** The backoffice over the accounts and the invitations (admins only). */
+  userAdminApi: UserAdminApi;
+  /** The public side of the invitation and new-password links. */
+  accountLinksApi: AccountLinksApi;
   /** The grids and folders of a table (the library). */
   libraryApi: LibraryApi;
   /** "Levar o grupo pra cá" (`scene:activate`). */
@@ -101,11 +112,32 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
           ...emailConfirmRoute(deps),
         },
         {
+          path: 'account/recover',
+          middleware: [guard(deps, 'anyone')],
+          ...accountRecoveryRoute(deps),
+        },
+        { path: 'invite', middleware: [guard(deps, 'anyone')], ...inviteRoute(deps) },
+        {
+          path: 'reset-password',
+          middleware: [guard(deps, 'anyone')],
+          ...passwordResetRoute(deps),
+        },
+        {
           path: 'admin',
           middleware: [guard(deps, 'admin')],
-          lazy: async () => ({
-            Component: (await import('@/features/admin/admin-page')).AdminPage,
-          }),
+          // Lazy: players never download the backoffice.
+          lazy: async () => (await import('@/features/admin/admin-routes')).adminLayoutRoute(deps),
+          children: [
+            { index: true, loader: () => redirect('/admin/users') },
+            {
+              path: 'users',
+              lazy: async () => (await import('@/features/admin/admin-routes')).usersRoute(deps),
+            },
+            {
+              path: 'emails',
+              lazy: async () => (await import('@/features/admin/admin-routes')).mailTestRoute(deps),
+            },
+          ],
         },
         {
           id: 'shell',

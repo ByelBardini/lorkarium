@@ -1,7 +1,9 @@
 import type { ProfileDto } from '@lorkarium/contracts';
-import { ImageUpIcon, Loader2Icon, Trash2Icon } from 'lucide-react';
+import { ImageUpIcon, Link2Icon, Loader2Icon, Trash2Icon } from 'lucide-react';
 import { useId, useState, type DragEvent } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
+import { ImageLinkField } from '@/components/image-source-buttons';
+import type { ImageSender } from '@/components/use-image-sender';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { AVATAR_ACCEPT } from '@/lib/avatar-file';
@@ -10,7 +12,7 @@ import type { ProfileApi } from '@/services/profile-api';
 import type { SessionStore } from '@/stores/session-store';
 import { accountFailureMessage, type AccountFailure } from './account-messages';
 import { failureOf, useAccountFetcher } from './use-account-fetcher';
-import { useAvatarUpload } from './use-avatar-upload';
+import { useAvatarUpload, type AvatarUpload } from './use-avatar-upload';
 
 export type AvatarFieldProps = Readonly<{
   profile: ProfileDto;
@@ -28,6 +30,7 @@ export function AvatarField({
   sessionStore,
 }: AvatarFieldProps): React.JSX.Element {
   const upload = useAvatarUpload(profileApi, sessionStore);
+  const [linking, setLinking] = useState(false);
   const removal = useAccountFetcher();
   const removalFailure = failureOf(removal.settled);
   const hintId = useId();
@@ -43,10 +46,16 @@ export function AvatarField({
             removing={removal.busy}
             onFile={upload.send}
             onRemove={() => removal.send({ intent: 'avatar-remove' })}
+            onLink={() => setLinking(true)}
           />
+          {linking && (
+            <div className="w-full max-w-sm">
+              <ImageLinkField sender={linkSenderOf(upload)} onDone={() => setLinking(false)} />
+            </div>
+          )}
           <p id={hintId} className="max-w-prose text-[13px] text-placeholder">
-            Arraste para o círculo ou escolha · PNG, JPEG, WebP ou GIF até 5 MB. Sem foto, usamos
-            suas iniciais na sua cor.
+            Arraste para o círculo, escolha ou use um link · PNG, JPEG, WebP ou GIF (animado também)
+            até 5 MB. Sem foto, usamos suas iniciais na sua cor.
           </p>
         </div>
       </div>
@@ -108,7 +117,18 @@ type AvatarButtonsProps = Readonly<{
   removing: boolean;
   onFile: (file: File) => void;
   onRemove: () => void;
+  onLink: () => void;
 }>;
+
+// The link field of the table images, over the photo's own send (its refusal shows below).
+function linkSenderOf(upload: AvatarUpload): ImageSender {
+  return {
+    busy: upload.sending,
+    problem: null,
+    sendFile: () => undefined,
+    sendLink: upload.sendLink,
+  };
+}
 
 function AvatarButtons(props: AvatarButtonsProps): React.JSX.Element {
   const busy = props.sending || props.removing;
@@ -140,6 +160,10 @@ function AvatarButtons(props: AvatarButtonsProps): React.JSX.Element {
           }}
         />
       </label>
+      <Button type="button" variant="outline" size="lg" disabled={busy} onClick={props.onLink}>
+        <Link2Icon aria-hidden="true" />
+        Usar um link
+      </Button>
       {props.hasPhoto && (
         <Button type="button" variant="ghost" size="lg" disabled={busy} onClick={props.onRemove}>
           <Trash2Icon aria-hidden="true" />

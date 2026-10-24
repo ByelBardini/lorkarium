@@ -164,7 +164,7 @@ function useLoginForm({
 
   const refuse = (refusal: LoginFailure): void => {
     setFailure(refusal);
-    if (refusal.kind !== 'invalid_credentials') return;
+    if (refusal.kind !== 'invalid_credentials' && refusal.kind !== 'account_suspended') return;
     change({ password: '' });
     passwordRef.current?.focus();
   };

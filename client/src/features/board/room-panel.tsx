@@ -102,7 +102,7 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
           />
         )}
       </TabsContent>
-      <TabsContent value="people" className="overflow-y-auto py-4">
+      <TabsContent value="people" className="-mx-1 overflow-y-auto px-1 py-4">
         {table && (
           <SessionPresencePanel
             store={table.presence}

@@ -11,6 +11,7 @@ import type { HttpResponse, HttpTransport } from './http-transport';
 
 export type AuthFailure =
   | Readonly<{ kind: 'invalid_credentials' }>
+  | Readonly<{ kind: 'account_suspended' }>
   | Readonly<{ kind: 'rate_limited'; retryAfterSeconds: number }>
   | Readonly<{ kind: 'offline' }>
   | Readonly<{ kind: 'unexpected' }>;
@@ -28,6 +29,7 @@ export type LoginResult =
 export type TwoFactorLoginFailure =
   | Readonly<{ kind: 'two_factor_code_invalid' }>
   | Readonly<{ kind: 'two_factor_challenge_expired' }>
+  | Readonly<{ kind: 'account_suspended' }>
   | Readonly<{ kind: 'rate_limited'; retryAfterSeconds: number }>
   | Readonly<{ kind: 'offline' }>
   | Readonly<{ kind: 'unexpected' }>;
@@ -92,6 +94,8 @@ function failed(call: Exclude<ApiCall, { kind: 'ok' }>): AuthResult<never> {
 
 function failureOf(response: HttpResponse): AuthFailure {
   if (response.status === 401) return { kind: 'invalid_credentials' };
+  // Only with the right password: the wrong one stays a 401.
+  if (errorCodeOf(response) === 'ACCOUNT_SUSPENDED') return { kind: 'account_suspended' };
   if (response.status === 429)
     return { kind: 'rate_limited', retryAfterSeconds: retryAfterOf(response) };
   return { kind: 'unexpected' };
@@ -100,6 +104,7 @@ function failureOf(response: HttpResponse): AuthFailure {
 const TWO_FACTOR_FAILURE_BY_CODE: Readonly<Record<string, TwoFactorLoginFailure>> = {
   TWO_FACTOR_CODE_INVALID: { kind: 'two_factor_code_invalid' },
   TWO_FACTOR_CHALLENGE_EXPIRED: { kind: 'two_factor_challenge_expired' },
+  ACCOUNT_SUSPENDED: { kind: 'account_suspended' },
 };
 
 // Both refusals are 401: only the code tells a wrong code from a challenge that is gone.

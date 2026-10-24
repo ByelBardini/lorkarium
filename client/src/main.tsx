@@ -6,7 +6,9 @@ import { PerfPanel } from '@/app/perf-panel';
 import { tabInteractionFactory } from '@/features/board/tab-interaction';
 import { buildRoutes } from '@/app/router';
 import { NO_PERF_PROBE, RecordingPerfProbe } from '@/lib/perf-probe';
+import { HttpAccountLinksApi } from '@/services/account-links-api';
 import { HttpAccountSecurityApi } from '@/services/account-security-api';
+import { HttpUserAdminApi } from '@/services/user-admin-api';
 import { HttpAuthApi } from '@/services/auth-api';
 import { HttpAssetsApi } from '@/services/assets-api';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
@@ -62,6 +64,8 @@ const router = createBrowserRouter(
     campaignsApi: new HttpCampaignsApi(transport),
     profileApi: new HttpProfileApi(transport),
     accountSecurityApi: new HttpAccountSecurityApi(transport),
+    userAdminApi: new HttpUserAdminApi(transport),
+    accountLinksApi: new HttpAccountLinksApi(transport),
     libraryApi: new HttpLibraryApi(transport),
     sceneActivation: new RealtimeSceneActivation(realtime, newActionId),
     assets: new HttpAssetsApi(transport),
