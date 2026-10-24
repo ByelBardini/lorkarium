@@ -1,4 +1,5 @@
 import {
+  activateSceneCommandDto,
   addCombatantsCommandDto,
   adjustBarCommandDto,
   applyConditionCommandDto,
@@ -51,55 +52,55 @@ import {
   startCombatCommandDto,
   updateTokenCommandDto,
   updateMemberCardCommandDto,
-  type ApiErrorDto,
-  type BoardCommandAckDto,
+  watchSceneCommandDto,
   type BoardSyncAckDto,
 } from '@lorkarium/contracts';
 import type { FastifyBaseLogger } from 'fastify';
-import { ZodError, type z } from 'zod';
-import { invalidBodyError } from '../../lib/invalid-body';
-import { answerAck, type AckOf } from '../../realtime/realtime-ack';
+import type { z } from 'zod';
+import type { CampaignCommandQueue } from '../../realtime/campaign-command-queue';
+import type { CommandRateGuard } from '../../realtime/command-rate-guard';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
-import type { ClockPort } from '../auth/clock.port';
-import { AssetError } from '../assets/assets.error';
-import { CombatError } from '../combat/combat.error';
 import type { CombatService } from '../combat/combat.service';
-import { ConditionError } from '../conditions/conditions.error';
 import type { ConditionsService } from '../conditions/conditions.service';
-import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
-import { DrawingError } from '../drawings/drawings.error';
 import type { DrawingsService } from '../drawings/drawings.service';
-import { EffectAreaError } from '../effect-areas/effect-areas.error';
 import type { EffectAreasService } from '../effect-areas/effect-areas.service';
-import { MemberCardError } from '../member-cards/member-cards.error';
 import type { MemberCardsService } from '../member-cards/member-cards.service';
 import { toSceneGrid } from '../scenes/scenes.mapper';
 import type { CreatedInScene } from '../scenes/locked-scene';
+import type { SceneActivationService } from '../scenes/scene-activation.service';
+import type { SceneWatchService } from '../scenes/scene-watch.service';
 import type { ScenesService } from '../scenes/scenes.service';
-import { SessionEndedError, SessionError } from '../sessions/sessions.error';
-import { TokenError } from '../tokens/tokens.error';
 import type { TokenAppearanceService } from '../tokens/token-appearance.service';
 import type { MainTokenService } from '../tokens/main-token.service';
 import type { TokenBatchService } from '../tokens/token-batch.service';
+import type { TokenLinkService } from '../tokens/token-link.service';
 import type { TokensService } from '../tokens/tokens.service';
-import { LightError } from '../lights/lights.error';
 import type { LightsService } from '../lights/lights.service';
-import { WallError } from '../walls/walls.error';
 import type { WallsService } from '../walls/walls.service';
-import { BoardError, CommandRateLimitedError } from './board.error';
 import type { BoardService } from './board.service';
-import { CommandRateBo, fullBucket, type CommandBucket } from './command-rate.bo';
+import {
+  onCommand,
+  versionOf,
+  type CampaignCommand,
+  type CommandOk,
+  type Handler,
+} from './board-command-edge';
+import { bindCharacterCommands } from './character-commands';
+import { unwatchGrid, watchGrid } from './grid-tabs';
 
 export type BoardGatewayDeps = Readonly<{
   board: BoardService;
   scenes: Pick<ScenesService, 'configure'>;
+  sceneWatch: Pick<SceneWatchService, 'watch' | 'groupSceneIdOf'>;
+  sceneActivation: Pick<SceneActivationService, 'activate'>;
   tokens: Pick<
     TokensService,
     'create' | 'update' | 'move' | 'moveMany' | 'dragMany' | 'setLayer' | 'adjustBar' | 'delete'
   >;
-  tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany'>;
+  tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany' | 'addPlayers'>;
   tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany' | 'resizeMany'>;
   mainToken: Pick<MainTokenService, 'choose'>;
+  tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
   memberCards: Pick<MemberCardsService, 'update'>;
   conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove' | 'setRounds'>;
   combat: Pick<
@@ -138,13 +139,13 @@ export type BoardGatewayDeps = Readonly<{
     | 'deleteMany'
   >;
   realtime: Pick<Realtime, 'reauthenticate'>;
-  clock: ClockPort;
+  /** The bucket of each connection, shared with the sessions gateway. */
+  rate: CommandRateGuard;
+  /** Commands that write to a table wait here, one at a time per table. */
+  queue: CampaignCommandQueue;
   log: FastifyBaseLogger;
 }>;
 
-type CommandOk = Extract<BoardCommandAckDto, { ok: true }>;
-type CampaignCommand = Readonly<{ campaignId: string }>;
-type Handler<Command, Answer> = (userId: string, command: Command) => Promise<Answer>;
 // The service reads the payload fields; the envelope (actionId, campaignId) rides along unread.
 type Mutation<Command> = (userId: string, campaignId: string, command: Command) => Promise<number>;
 type Creation<Command> = (
@@ -152,38 +153,6 @@ type Creation<Command> = (
   campaignId: string,
   command: Command,
 ) => Promise<CreatedInScene>;
-
-// Public text only: the internal message cites ids and stays in the log.
-const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
-  CAMPAIGN_NOT_FOUND: 'Campaign not found',
-  FORBIDDEN: 'Your role at this table does not allow it',
-  UNAUTHENTICATED: 'A valid session is required',
-  TOKEN_NOT_FOUND: 'Token not found',
-  ASSET_NOT_FOUND: 'Image not found',
-  BAR_NOT_FOUND: 'Bar not found',
-  OUT_OF_SCENE: 'It does not fit the scene there',
-  INVALID_CONTROLLER: 'Only members of the table can control a token',
-  CONDITION_NOT_FOUND: 'Condition not found',
-  COMBAT_NOT_ACTIVE: 'There is no combat in this scene',
-  COMBAT_ALREADY_ACTIVE: 'This scene already has a combat',
-  TURN_ALREADY_CHANGED: 'The turn already moved',
-  COMBATANT_NOT_FOUND: 'Combatant not found',
-  RATE_LIMITED: 'Too many commands in a row',
-  STALE_UNDO: 'Someone changed it after the action being undone',
-  DRAWING_NOT_FOUND: 'Drawing not found',
-  DRAWING_LIMIT: 'This scene has too many drawings',
-  EFFECT_AREA_NOT_FOUND: 'Area of effect not found',
-  EFFECT_AREA_LIMIT: 'This scene has too many areas of effect',
-  WALL_NOT_FOUND: 'Wall not found',
-  WALL_LIMIT: 'This scene has too many walls',
-  INVALID_DOOR: 'Only a straight wall can be a door',
-  WALL_BLOCKED: 'A wall blocks the way',
-  DOOR_LOCKED: 'The door is locked',
-  WALL_SEGMENT_NOT_FOUND: 'That piece of wall is not there',
-  LIGHT_NOT_FOUND: 'Light not found',
-  LIGHT_LIMIT: 'Too many lights in this scene',
-  MEMBER_NOT_FOUND: 'Member not found',
-};
 
 /** Socket.IO edge of the board (scene and tokens): validates the command, re-reads the session,
  *  requires the table to be open on this connection, delegates and answers in the ack with the
@@ -193,36 +162,55 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
   const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
   const { effectAreas, walls, lights, mainToken, memberCards } = deps;
-  const rate = new CommandRateGuard(deps.clock);
+  const { rate } = deps;
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
       onCommand({ deps, rate, socket }, schema, handler);
+    // Every command that writes waits for the table's queue; sync and the drag preview do not.
+    const write = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
+      bind(schema, (userId, command: C) =>
+        deps.queue.run(command.campaignId, () => handler(userId, command)),
+      );
     socket.on(
       'board:sync',
-      bind(boardCommandDto, async (userId, { campaignId }) => {
-        const state = await deps.board.snapshotFor(userId, campaignId);
+      bind(boardCommandDto, async (userId, { campaignId, sceneId }) => {
+        const state = await deps.board.snapshotFor(userId, campaignId, sceneId);
         return { ok: true, state } satisfies Extract<BoardSyncAckDto, { ok: true }>;
       }),
     );
     socket.on(
+      'scene:watch',
+      bind(watchSceneCommandDto, (userId, command) => watchGrid(deps, socket, userId, command)),
+    );
+    socket.on(
+      'scene:unwatch',
+      bind(watchSceneCommandDto, (userId, command) => unwatchGrid(deps, socket, userId, command)),
+    );
+    socket.on(
+      'scene:activate',
+      write(activateSceneCommandDto, async (userId, { campaignId, sceneId }) => {
+        await deps.sceneActivation.activate(userId, campaignId, sceneId);
+        return { ok: true } as const;
+      }),
+    );
+    socket.on(
       'scene:configure',
-      bind(configureSceneCommandDto, (userId, command) =>
+      write(configureSceneCommandDto, (userId, command) =>
         versionOf(
-          deps.scenes.configure(
-            userId,
-            command.campaignId,
-            toSceneGrid(command),
-            command.backgroundAssetId,
-            command.vision,
-          ),
+          deps.scenes.configure(userId, command.campaignId, {
+            grid: toSceneGrid(command),
+            backgroundAssetId: command.backgroundAssetId,
+            vision: command.vision,
+            sceneId: command.sceneId,
+          }),
         ),
       ),
     );
     const mutate = <C extends CampaignCommand>(schema: z.ZodType<C>, run: Mutation<C>) =>
-      bind(schema, (userId, command) => versionOf(run(userId, command.campaignId, command)));
+      write(schema, (userId, command) => versionOf(run(userId, command.campaignId, command)));
     // A creating batch also answers the ids it gave: the sender's undo needs them.
     const create = <C extends CampaignCommand>(schema: z.ZodType<C>, run: Creation<C>) =>
-      bind(schema, async (userId, command): Promise<CommandOk> => {
+      write(schema, async (userId, command): Promise<CommandOk> => {
         const { version, createdIds } = await run(userId, command.campaignId, command);
         return { ok: true, version, createdIds };
       });
@@ -253,6 +241,7 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
       mutate(updateMemberCardCommandDto, memberCards.update.bind(memberCards)),
     );
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
+    bindCharacterCommands(socket, { mutate, write }, deps);
     socket.on(
       'token:createMany',
       create(createTokensCommandDto, tokenBatch.createMany.bind(tokenBatch)),
@@ -357,93 +346,4 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
       mutate(previousTurnCommandDto, combat.previousTurn.bind(combat)),
     );
   };
-}
-
-async function versionOf(pending: Promise<number>): Promise<CommandOk> {
-  return { ok: true, version: await pending };
-}
-
-type CommandContext = Readonly<{
-  deps: BoardGatewayDeps;
-  rate: CommandRateGuard;
-  socket: RealtimeSocket;
-}>;
-
-// The rate comes first: a flood is refused before it costs a session read or a parse.
-function onCommand<Command extends CampaignCommand, Answer>(
-  { deps, rate, socket }: CommandContext,
-  schema: z.ZodType<Command>,
-  handler: Handler<Command, Answer>,
-): (payload: unknown, ack: AckOf<Answer>) => void {
-  const failureOf = (error: unknown): ApiErrorDto => toAckError(deps, error);
-  const dropIfEnded = (error: unknown): void => {
-    if (error instanceof SessionEndedError) socket.disconnect(true);
-  };
-  return (payload, ack) => {
-    const work = async (): Promise<Answer> => {
-      rate.admit(socket);
-      const command = schema.parse(payload);
-      return handler(await openTableUserOf(deps, socket, command.campaignId), command);
-    };
-    void answerAck(ack, work, failureOf, dropIfEnded);
-  };
-}
-
-// The table must be open on this connection: a member who never joined it hears nothing of it.
-async function openTableUserOf(
-  deps: BoardGatewayDeps,
-  socket: RealtimeSocket,
-  campaignId: string,
-): Promise<string> {
-  const user = await deps.realtime.reauthenticate(socket);
-  if (!user) throw new SessionEndedError(socket.id);
-  if (!socket.data.campaignIds.has(campaignId)) {
-    throw new CampaignNotFoundError({ campaignId, userId: user.id });
-  }
-  return user.id;
-}
-
-// One bucket per connection, kept beside the socket so the plumbing type stays untouched.
-class CommandRateGuard {
-  private readonly buckets = new WeakMap<RealtimeSocket, CommandBucket>();
-
-  constructor(private readonly clock: ClockPort) {}
-
-  admit(socket: RealtimeSocket): void {
-    const now = this.clock.now().getTime();
-    const outcome = new CommandRateBo(this.buckets.get(socket) ?? fullBucket(now)).take(now);
-    this.buckets.set(socket, outcome.bucket);
-    if (!outcome.allowed) throw new CommandRateLimitedError(socket.id, outcome.retryAfterSeconds);
-  }
-}
-
-function toAckError(deps: BoardGatewayDeps, error: unknown): ApiErrorDto {
-  if (error instanceof ZodError) return invalidBodyError(error);
-  if (error instanceof CommandRateLimitedError) {
-    const { retryAfterSeconds } = error;
-    return {
-      code: error.code,
-      message: PUBLIC_MESSAGE[error.code] ?? error.code,
-      retryAfterSeconds,
-    };
-  }
-  const known =
-    error instanceof CampaignError ||
-    error instanceof SessionError ||
-    error instanceof TokenError ||
-    error instanceof ConditionError ||
-    error instanceof CombatError ||
-    error instanceof DrawingError ||
-    error instanceof EffectAreaError ||
-    error instanceof WallError ||
-    error instanceof LightError ||
-    error instanceof MemberCardError ||
-    error instanceof AssetError ||
-    error instanceof BoardError;
-  if (known) {
-    const message = PUBLIC_MESSAGE[error.code];
-    if (message) return { code: error.code, message };
-  }
-  deps.log.error({ err: error }, 'unexpected error in the board gateway');
-  return { code: 'INTERNAL_ERROR', message: 'Unexpected server error' };
 }

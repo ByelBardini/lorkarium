@@ -5,11 +5,13 @@ import { ANA_ID } from '../../support/auth-factories';
 import {
   CampaignCodeFake,
   CampaignMembersDaoFake,
+  MembershipReadsFake,
   CampaignsDaoFake,
   ConditionDefinitionsFake,
   TransactionRunnerFake,
 } from '../../support/campaigns-fakes';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
+import { VHARN_CAST_ID, castPo } from '../../support/scenes-factories';
 import {
   BIA_ID,
   CAIO_ID,
@@ -42,6 +44,8 @@ describe('CampaignsService', () => {
     service = new CampaignsService({
       campaigns,
       members,
+      scenes,
+      memberships: members,
       transaction: runner.run,
       codes,
       hasher: new PasswordHasherFake(),
@@ -62,17 +66,23 @@ describe('CampaignsService', () => {
     build(['VHRN7K2Q', 'PNTN2345', 'QLMR2345', 'ZZZZ2345']);
   });
 
-  it('create writes the campaign, the master, the active scene and the initial conditions, all in the transaction', async () => {
+  it('create writes the campaign, the master, the active scene, the cast and the initial conditions, all in the transaction', async () => {
     const detail = await service.create(ANA_ID, NEW_CAMPAIGN);
     expect(runner.writesInside).toEqual([
       'campaigns.insert',
       'members.insert',
       'scenes.insert',
       'campaigns.setActiveScene',
+      'scenes.insert',
       'conditions.insertDefinitions',
     ]);
     expect(conditions.seeded.get(campaigns.rows[0]?.id ?? '')).toHaveLength(11);
-    expect(scenes.rows).toEqual([expect.objectContaining({ campaignId: campaigns.rows[0]?.id })]);
+    const campaignId = campaigns.rows[0]?.id;
+    expect(scenes.rows).toEqual([
+      expect.objectContaining({ campaignId, kind: 'grid' }),
+      expect.objectContaining({ campaignId, kind: 'cast', name: 'Elenco' }),
+    ]);
+    expect(detail.castSceneId).toBe(scenes.rows[1]?.id);
     expect(campaigns.rows[0]?.activeSceneId).toBe(scenes.rows[0]?.id);
     expect(campaigns.rows[0]).toMatchObject({ ownerId: ANA_ID, joinCode: 'VHRN7K2Q' });
     expect(members.rows[0]).toMatchObject({ userId: ANA_ID, role: 'master', joinedAt: NOW });
@@ -108,7 +118,7 @@ describe('CampaignsService', () => {
   it('a code collision retries without leaving a second scene behind', async () => {
     campaigns.rows.push(campaignPo({ id: 'taken', joinCode: 'VHRN7K2Q' }));
     await service.create(ANA_ID, NEW_CAMPAIGN);
-    expect(scenes.rows).toHaveLength(1);
+    expect(scenes.rows.map(({ kind }) => kind)).toEqual(['grid', 'cast']);
   });
 
   it('three collisions in a row give up with an error citing the attempts', async () => {
@@ -144,8 +154,10 @@ describe('CampaignsService', () => {
     campaigns.rows.push(campaignPo({ id: 'vharn' }));
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: ANA_ID, role: 'player' }));
+    scenes.rows.push(castPo({ campaignId: 'vharn' }));
     const detail = await service.detail(ANA_ID, 'vharn');
     expect(detail).toMatchObject({ id: 'vharn', myRole: 'player', joinCode: null });
+    expect(detail.castSceneId).toBe(VHARN_CAST_ID);
   });
 
   describe('rosterOf', () => {
@@ -165,6 +177,16 @@ describe('CampaignsService', () => {
         { userId: BIA_ID, name: 'Bia', role: 'player' },
         { userId: CAIO_ID, name: 'Caio', role: 'player' },
       ]);
+    });
+
+    it('the membership is read through the remembered memberships, which session:join warms', async () => {
+      const memberships = new MembershipReadsFake([...members.rows]);
+      service = new CampaignsService({
+        ...{ campaigns, members, scenes, memberships, transaction: runner.run, codes },
+        ...{ hasher: new PasswordHasherFake(), clock: new ClockFake(NOW) },
+      });
+      await service.rosterOf(BIA_ID, VHARN_ID);
+      expect(memberships.reads).toEqual([`${VHARN_ID}:${BIA_ID}`, `list:${VHARN_ID}`]);
     });
 
     it('someone who is not a member is refused with CAMPAIGN_NOT_FOUND before any member is listed', async () => {

@@ -1,8 +1,10 @@
 import { WallsDaoFake } from './walls-fakes';
 import type { BarValuesPo, TokenLayerPo, TokenStylePo } from '../../src/modules/tokens/tokens.po';
 import type {
+  DragGroupPo,
   NewTokenRow,
   TokenBoxPo,
+  TokenControlPo,
   TokenFacingPo,
   TokenMovePo,
   TokenRow,
@@ -10,6 +12,9 @@ import type {
   TokensDao,
 } from '../../src/modules/tokens/tokens.dao';
 import type { TokenTransactionRunner } from '../../src/modules/tokens/token-transaction';
+import { composedTokenRow, type TokenIdentityPo } from '../../src/modules/tokens/linked-token';
+import type { TokenAnchorsDao } from '../../src/modules/tokens/token-anchors.dao';
+import { MemberCardsDaoFake } from './member-cards-fakes';
 import type { MainTokenChoicePo, MainTokensDao } from '../../src/modules/tokens/main-tokens.dao';
 import { AssetsDaoFake } from './assets-fakes';
 import { CombatDaoFake } from './combat-fakes';
@@ -18,7 +23,8 @@ import type { ScenesDaoFake } from './scenes-fakes';
 import { lyraPo, pvBar } from './tokens-factories';
 
 /** In-memory tokens of every scene. Writes go to `journal` ('save'), shared with the scenes fake,
- *  so a spec reads the whole order of a command.
+ *  so a spec reads the whole order of a command. `rows` are as stored; the reads compose a linked
+ *  token with its anchor, as the real DAO does.
  *
  *  Example: `const tokens = new TokensDaoFake(scenes.journal, [lyraRow()])` */
 export class TokensDaoFake implements Pick<
@@ -27,7 +33,10 @@ export class TokensDaoFake implements Pick<
   | 'insertMany'
   | 'findInScene'
   | 'findManyInScene'
+  | 'findLinkedInScene'
   | 'listOfScene'
+  | 'controlOfScene'
+  | 'countOfScene'
   | 'move'
   | 'moveMany'
   | 'faceMany'
@@ -36,6 +45,7 @@ export class TokensDaoFake implements Pick<
   | 'setLayer'
   | 'setBarValues'
   | 'update'
+  | 'updateFields'
   | 'delete'
   | 'deleteMany'
 > {
@@ -66,24 +76,47 @@ export class TokensDaoFake implements Pick<
   }
 
   async findInScene(sceneId: string, tokenId: string): Promise<TokenRow | undefined> {
-    return this.rows.find(({ token }) => token.id === tokenId && token.sceneId === sceneId);
+    const found = this.rows.find(({ token }) => token.id === tokenId && token.sceneId === sceneId);
+    return found && this.composed(found);
   }
 
   async findManyInScene(sceneId: string, tokenIds: readonly string[]): Promise<TokenRow[]> {
-    return this.rows.filter(
-      ({ token }) => token.sceneId === sceneId && tokenIds.includes(token.id),
+    return this.rows
+      .filter(({ token }) => token.sceneId === sceneId && tokenIds.includes(token.id))
+      .map((row) => this.composed(row));
+  }
+
+  async findLinkedInScene(sceneId: string, anchorTokenId: string): Promise<TokenRow | undefined> {
+    const found = this.rows.find(
+      ({ token }) => token.sceneId === sceneId && token.anchorTokenId === anchorTokenId,
     );
+    return found && this.composed(found);
   }
 
-  // One write for the whole group, as the real DAO does it in one UPDATE.
-  async faceMany(faces: readonly TokenFacingPo[]): Promise<void> {
-    this.journal.push('save');
-    for (const { tokenId, facing } of faces) this.changeToken(tokenId, { facing });
+  /** The stored row of a token (a linked one without its anchor's state), or a broken test. */
+  rowOf(tokenId: string): TokenRow {
+    const found = this.rows.find(({ token }) => token.id === tokenId);
+    if (!found) throw new Error(`TokensDaoFake has no token ${tokenId}`);
+    return found;
   }
 
-  async resizeMany(boxes: readonly TokenBoxPo[]): Promise<void> {
+  /** Writes the stored row of a token as the anchors fake changes it. */
+  store(tokenId: string, change: (found: TokenRow) => TokenRow): void {
+    const index = this.rows.findIndex(({ token }) => token.id === tokenId);
+    this.rows[index] = change(this.rowOf(tokenId));
+  }
+
+  // One write for the whole group, as the real DAO does it in one UPDATE scoped to the scene.
+  async faceMany(sceneId: string, faces: readonly TokenFacingPo[]): Promise<void> {
     this.journal.push('save');
-    for (const { tokenId, ...box } of boxes) this.changeToken(tokenId, box);
+    for (const { tokenId, facing } of this.inScene(sceneId, faces)) {
+      this.changeToken(tokenId, { facing });
+    }
+  }
+
+  async resizeMany(sceneId: string, boxes: readonly TokenBoxPo[]): Promise<void> {
+    this.journal.push('save');
+    for (const { tokenId, ...box } of this.inScene(sceneId, boxes)) this.changeToken(tokenId, box);
   }
 
   async restyle(tokenIds: readonly string[], style: Partial<TokenStylePo>): Promise<void> {
@@ -100,7 +133,22 @@ export class TokensDaoFake implements Pick<
   }
 
   async listOfScene(sceneId: string): Promise<TokenRow[]> {
-    return this.rows.filter(({ token }) => token.sceneId === sceneId);
+    return this.rows
+      .filter(({ token }) => token.sceneId === sceneId)
+      .map((row) => this.composed(row));
+  }
+
+  async countOfScene(sceneId: string): Promise<number> {
+    return (await this.listOfScene(sceneId)).length;
+  }
+
+  async controlOfScene(sceneId: string): Promise<TokenControlPo[]> {
+    const own = await this.listOfScene(sceneId);
+    return own.map(({ token, controllerIds }) => ({
+      tokenId: token.id,
+      controllerIds: [...controllerIds],
+      anchorTokenId: token.anchorTokenId,
+    }));
   }
 
   async move(tokenId: string, col: number, row: number): Promise<void> {
@@ -108,13 +156,23 @@ export class TokensDaoFake implements Pick<
   }
 
   // One 'save' for the whole group: it is one write in the transaction.
-  async moveMany(moves: readonly TokenMovePo[]): Promise<void> {
+  async moveMany(sceneId: string, moves: readonly TokenMovePo[]): Promise<void> {
     this.journal.push('save');
-    for (const { tokenId, col, row } of moves) {
+    for (const { tokenId, col, row } of this.inScene(sceneId, moves)) {
       const index = this.rows.findIndex(({ token }) => token.id === tokenId);
       const found = this.rows[index];
       if (found) this.rows[index] = { ...found, token: { ...found.token, col, row } };
     }
+  }
+
+  private inScene<T extends Readonly<{ tokenId: string }>>(
+    sceneId: string,
+    items: readonly T[],
+  ): T[] {
+    const ids = new Set(
+      this.rows.filter(({ token }) => token.sceneId === sceneId).map(({ token }) => token.id),
+    );
+    return items.filter(({ tokenId }) => ids.has(tokenId));
   }
 
   async setBarValues(barId: string, { current, max }: BarValuesPo): Promise<void> {
@@ -136,6 +194,10 @@ export class TokensDaoFake implements Pick<
     }));
   }
 
+  async updateFields(tokenId: string, fields: Partial<TokenRow['token']>): Promise<void> {
+    this.replace(tokenId, (found) => ({ ...found, token: { ...found.token, ...fields } }));
+  }
+
   async delete(tokenId: string): Promise<void> {
     this.journal.push('save');
     const index = this.rows.findIndex(({ token }) => token.id === tokenId);
@@ -155,6 +217,12 @@ export class TokensDaoFake implements Pick<
   /** Deleting a token from now on also drops its combat link, as the table's cascade does. */
   cascadeDeletesTo(combat: Pick<CombatDaoFake, 'dropToken'>): void {
     this.cascade = combat;
+  }
+
+  private composed(row: TokenRow): TokenRow {
+    const anchorId = row.token.anchorTokenId;
+    const anchor = anchorId ? this.rows.find(({ token }) => token.id === anchorId) : undefined;
+    return composedTokenRow(row, anchor);
   }
 
   private changeToken(tokenId: string, fields: Partial<TokenRow['token']>): void {
@@ -212,6 +280,73 @@ export class MainTokensDaoFake implements Pick<
   }
 }
 
+type AnchorWrites = Pick<
+  TokenAnchorsDao,
+  'linkToAnchor' | 'unlinkWith' | 'moveStateTo' | 'copyStateTo' | 'dropState'
+>;
+
+/** The link writes over the tokens and conditions fakes; each writes its name to `journal`
+ *  ('link', 'unlink', 'move bars', 'move conditions', 'move controllers', 'copy state',
+ *  'drop state').
+ *
+ *  Example: `new TokenAnchorsDaoFake(scenes.journal, tokens, conditions)` */
+export class TokenAnchorsDaoFake implements AnchorWrites {
+  constructor(
+    private readonly journal: string[],
+    private readonly tokens: TokensDaoFake,
+    private readonly conditions: ConditionsDaoFake,
+  ) {}
+
+  async linkToAnchor(tokenId: string, anchorTokenId: string): Promise<void> {
+    this.journal.push('link');
+    this.tokens.store(tokenId, (row) => ({ ...row, token: { ...row.token, anchorTokenId } }));
+  }
+
+  async unlinkWith(tokenId: string, identity: TokenIdentityPo): Promise<void> {
+    this.journal.push('unlink');
+    this.tokens.store(tokenId, (row) => ({
+      ...row,
+      token: { ...row.token, ...identity, anchorTokenId: null },
+    }));
+  }
+
+  async moveStateTo(fromTokenId: string, toTokenId: string): Promise<void> {
+    const from = this.tokens.rowOf(fromTokenId);
+    this.journal.push('move bars', 'move conditions', 'move controllers');
+    const bars = from.bars.map((bar) => ({ ...bar, tokenId: toTokenId }));
+    this.tokens.store(toTokenId, (row) => ({ ...row, bars, controllerIds: from.controllerIds }));
+    this.tokens.store(fromTokenId, (row) => ({ ...row, bars: [], controllerIds: [] }));
+    this.conditions.active = this.conditions.active.map((condition) =>
+      condition.tokenId === fromTokenId ? { ...condition, tokenId: toTokenId } : condition,
+    );
+  }
+
+  async copyStateTo(fromTokenId: string, toTokenId: string): Promise<void> {
+    const from = this.tokens.rowOf(fromTokenId);
+    this.journal.push('copy state');
+    const bars = from.bars.map((bar) => ({
+      ...bar,
+      id: `${toTokenId}-${bar.id}`,
+      tokenId: toTokenId,
+    }));
+    this.tokens.store(toTokenId, (row) => ({ ...row, bars, controllerIds: from.controllerIds }));
+    const copies = this.conditions.active
+      .filter((condition) => condition.tokenId === fromTokenId)
+      .map((condition) => ({
+        ...condition,
+        id: `${toTokenId}-${condition.id}`,
+        tokenId: toTokenId,
+      }));
+    this.conditions.active = [...this.conditions.active, ...copies];
+  }
+
+  async dropState(tokenId: string): Promise<void> {
+    this.journal.push('drop state');
+    this.tokens.store(tokenId, (row) => ({ ...row, bars: [], controllerIds: [] }));
+    this.conditions.active = this.conditions.active.filter((c) => c.tokenId !== tokenId);
+  }
+}
+
 /** Runs the work on the fakes and writes 'commit' to the shared journal once it resolves. */
 export class TokenTransactionRunnerFake {
   constructor(
@@ -222,6 +357,12 @@ export class TokenTransactionRunnerFake {
     private readonly assets: AssetsDaoFake = new AssetsDaoFake(),
     private readonly walls: Pick<WallsDaoFake, 'listOfScene'> = new WallsDaoFake([]),
     private readonly mainTokens: MainTokensDaoFake = new MainTokensDaoFake(),
+    private readonly memberCards: MemberCardsDaoFake = new MemberCardsDaoFake(),
+    private readonly anchors: AnchorWrites = new TokenAnchorsDaoFake(
+      scenes.journal,
+      tokens,
+      new ConditionsDaoFake(),
+    ),
   ) {}
 
   readonly run: TokenTransactionRunner = async (work) => {
@@ -234,8 +375,38 @@ export class TokenTransactionRunnerFake {
       assets: this.assets,
       walls: this.walls,
       mainTokens: this.mainTokens,
+      anchors: this.anchors,
+      memberCards: this.memberCards,
     });
     this.scenes.journal.push('commit');
     return result;
   };
+}
+
+/** The drag query over the scenes and tokens fakes: the addressed grid of the campaign (absent =
+ *  the active one) and the asked tokens on it, like `TokensDao.findDragGroup`. `asked` keeps each
+ *  campaign queried, as `<campaignId>:<sceneId>` when a grid was named.
+ *
+ *  Example: `new DragGroupsFake(scenes, tokens)` */
+export class DragGroupsFake implements Pick<TokensDao, 'findDragGroup'> {
+  readonly asked: string[] = [];
+
+  constructor(
+    private readonly scenes: ScenesDaoFake,
+    private readonly tokens: TokensDaoFake,
+  ) {}
+
+  async findDragGroup(
+    campaignId: string,
+    sceneId: string | undefined,
+    tokenIds: readonly string[],
+  ): Promise<DragGroupPo | undefined> {
+    this.asked.push(sceneId === undefined ? campaignId : `${campaignId}:${sceneId}`);
+    const scene = await this.scenes.findGridInCampaign(campaignId, sceneId);
+    if (!scene) return undefined;
+    const found = this.tokens.rows.filter(
+      ({ token }) => token.sceneId === scene.id && tokenIds.includes(token.id),
+    );
+    return { scene, tokens: found.map(({ token, controllerIds }) => ({ token, controllerIds })) };
+  }
 }

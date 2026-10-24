@@ -17,6 +17,7 @@ describe('toMemberCardDto', () => {
       difficultyClass: null,
       noteOne: 'Percepção passiva 14',
       noteTwo: null,
+      anchorTokenId: null,
     });
   });
 });

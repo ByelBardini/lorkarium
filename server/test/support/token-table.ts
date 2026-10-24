@@ -1,11 +1,12 @@
 import { tokenCreatedDto, type TokenDto } from '@lorkarium/contracts';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import type { AssetDto } from '@lorkarium/contracts';
 import { sendImage } from './images';
+import { CountingQueryLog } from './query-count';
 import { atTable, envelope, eventPayload } from './live-table';
 import type { EventRecorder, RealtimeClient } from './realtime-client';
 import { signUpAndLogin, type SignedInUser } from './sign-in';
@@ -21,6 +22,8 @@ export class TokenTableHarness {
   vharn!: Table;
   quelm!: Table;
   connection!: DatabaseConnection;
+  /** Every statement the app sends; `reset()` it right before the command being counted. */
+  readonly queries = new CountingQueryLog();
   private app!: FastifyInstance;
   private baseUrl = '';
   private readonly clients: RealtimeClient[] = [];
@@ -44,6 +47,7 @@ export class TokenTableHarness {
 
   async seed(): Promise<void> {
     await truncateAllTables(this.connection.db);
+    this.queries.reset();
     await this.start();
     this.ana = await signUpAndLogin(this.app, this.connection.db, 'Ana');
     this.bia = await signUpAndLogin(this.app, this.connection.db, 'Bia');
@@ -58,6 +62,14 @@ export class TokenTableHarness {
     return atTable(this.baseUrl, this.clients, user, table);
   }
 
+  /** Calls the real HTTP edge as `user`; `null` sends no session cookie.
+   *
+   *  Example: `await live.http(live.ana, { method: 'GET', url: libraryUrl })` */
+  http(user: SignedInUser | null, request: InjectOptions): Promise<LightMyRequestResponse> {
+    const session = user ? { cookies: { lk_session: user.token } } : {};
+    return this.app.inject({ ...request, ...session });
+  }
+
   /** A 400×400 PNG sent to `table` by `user` through the real HTTP edge. */
   sendImage(user: SignedInUser, table: Table): Promise<AssetDto> {
     return sendImage(this.app, user, table, 400, 400);
@@ -70,7 +82,7 @@ export class TokenTableHarness {
 export function useTokenTable(): TokenTableHarness {
   const harness = new TokenTableHarness();
   beforeAll(async () => {
-    harness.connection = await openTestDatabase();
+    harness.connection = await openTestDatabase({ queryLog: harness.queries });
   });
   afterAll(() => harness.connection.close());
   beforeEach(() => harness.seed());

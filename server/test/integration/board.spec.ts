@@ -13,11 +13,18 @@ import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import { MemberCardsDao } from '../../src/modules/member-cards/member-cards.dao';
-import { connectRealtime, recordEventsOf, type RealtimeClient } from '../support/realtime-client';
+import {
+  connectRealtime,
+  disconnectionOf,
+  recordEventsOf,
+  type RealtimeClient,
+} from '../support/realtime-client';
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
 import { sendImage } from '../support/images';
 import { createTable, joinByCode, type Table } from '../support/tables';
+import { envelope, send, synced as syncedOf } from '../support/live-table';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
+import { tokenCommandFor } from '../support/token-table';
 
 const SILENCE_MS = 300;
 const GRID_30_BY_20 = {
@@ -156,15 +163,15 @@ describe('board over Socket.IO', () => {
     });
   });
 
-  it('after Bia logs out, her board:sync gets UNAUTHENTICATED', async () => {
+  it('after Bia logs out, her connection to the board drops at once', async () => {
     const client = await atTable(bia, vharn);
+    const dropped = disconnectionOf(client);
     await app.inject({
       method: 'POST',
       url: '/api/auth/logout',
       cookies: { lk_session: bia.token },
     });
-    const ack = await sync(client, vharn.id);
-    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'UNAUTHENTICATED' }) });
+    expect(await dropped).toBe('io server disconnect');
   });
 
   it('after a restart on the same database, board:sync returns the configured grid and version', async () => {
@@ -176,11 +183,12 @@ describe('board over Socket.IO', () => {
     expect(state).toMatchObject({ version: 1, scene: GRID_30_BY_20 });
   });
 
+  // The session:join of atTable drew the first command of the same bucket.
   it('the 41st command of a burst gets RATE_LIMITED with when to retry, and another connection does not', async () => {
     const anaClient = await atTable(ana, vharn);
-    const acks = await Promise.all(Array.from({ length: 41 }, () => sync(anaClient, vharn.id)));
-    expect(acks.slice(0, 40).every((ack) => ack.ok)).toBe(true);
-    expect(acks[40]).toEqual({
+    const acks = await Promise.all(Array.from({ length: 40 }, () => sync(anaClient, vharn.id)));
+    expect(acks.slice(0, 39).every((ack) => ack.ok)).toBe(true);
+    expect(acks[39]).toEqual({
       ok: false,
       error: expect.objectContaining({ code: 'RATE_LIMITED', retryAfterSeconds: 1 }),
     });
@@ -265,6 +273,7 @@ describe('board over Socket.IO', () => {
             difficultyClass: null,
             noteOne: null,
             noteTwo: null,
+            anchorTokenId: null,
           },
         ]);
       }
@@ -283,5 +292,66 @@ describe('board over Socket.IO', () => {
 
       expect(state.memberCards).toEqual([]);
     });
+  });
+});
+
+describe('the command queue of each table, with a pool of 2 connections', () => {
+  const env: Env = { ...readEnv(process.env), adminSeed: null };
+  const clients: RealtimeClient[] = [];
+  let connection: DatabaseConnection;
+  let app: FastifyInstance;
+  let baseUrl: string;
+
+  beforeAll(async () => {
+    connection = await openTestDatabase({ poolMax: 2 });
+  });
+
+  afterAll(() => connection.close());
+
+  beforeEach(async () => {
+    await truncateAllTables(connection.db);
+    app = await buildApp({ env, db: connection.db });
+    baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
+  });
+
+  afterEach(async () => {
+    for (const client of clients.splice(0)) client.close();
+    await app.close();
+  });
+
+  async function masterAt(
+    name: string,
+  ): Promise<{ client: RealtimeClient; table: Table; userId: string }> {
+    const user = await signUpAndLogin(app, connection.db, name);
+    const table = await createTable(app, user, `Mesa de ${name}`);
+    const client = await connectRealtime(baseUrl, { token: user.token });
+    clients.push(client);
+    await client.timeout(2000).emitWithAck('session:join', envelope(table.id));
+    return { client, table, userId: user.id };
+  }
+
+  it('20 token:move at once in VHARN keep versions in sequence, and a board:sync of QUELM answers before most of them', async () => {
+    const vharn = await masterAt('Ana');
+    const quelm = await masterAt('Caio');
+    await send(vharn.client, 'token:create', tokenCommandFor(vharn.table, vharn.userId));
+    const [lyra] = (await syncedOf(vharn.client, vharn.table)).tokens;
+    if (!lyra) throw new Error('Lyra was not created');
+    const answered: string[] = [];
+    const moves = Array.from({ length: 20 }, async (_, index) => {
+      const move = { ...envelope(vharn.table.id), tokenId: lyra.id, col: index % 10, row: 1 };
+      const ack = await send(vharn.client, 'token:move', move);
+      answered.push('vharn');
+      return ack;
+    });
+    const quelmSync = syncedOf(quelm.client, quelm.table).then((state) => {
+      answered.push('quelm');
+      return state;
+    });
+
+    const acks = await Promise.all(moves);
+    expect((await quelmSync).campaignId).toBe(quelm.table.id);
+    const versions = acks.map((ack) => (ack.ok ? ack.version : -1)).sort((a, b) => a - b);
+    expect(versions).toEqual(Array.from({ length: 20 }, (_, index) => index + 2));
+    expect(answered.indexOf('quelm')).toBeLessThan(10);
   });
 });

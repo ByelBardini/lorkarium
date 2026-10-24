@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { WallsDaoFake } from '../../support/walls-fakes';
+import { SceneWallsFake, WallsDaoFake } from '../../support/walls-fakes';
 import { northWallPo } from '../../support/walls-factories';
 import type { BarInputDto } from '@lorkarium/contracts';
-import { TokensService, type CreateToken } from '../../../src/modules/tokens/tokens.service';
+import {
+  TokensService,
+  type CreateToken,
+  type TokensServiceDeps,
+} from '../../../src/modules/tokens/tokens.service';
 import { ClockFake } from '../../support/auth-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
@@ -16,6 +20,7 @@ import {
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import {
+  DragGroupsFake,
   MainTokensDaoFake,
   TokenTransactionRunnerFake,
   TokensDaoFake,
@@ -61,6 +66,7 @@ describe('TokensService', () => {
   let combat: CombatDaoFake;
   let mainTokens: MainTokensDaoFake;
   let publisher: BoardPublisherFake;
+  let serviceDeps: TokensServiceDeps;
   let service: TokensService;
 
   beforeEach(() => {
@@ -99,13 +105,17 @@ describe('TokensService', () => {
       walls,
       mainTokens,
     );
-    service = new TokensService({
+    serviceDeps = {
       members,
       transaction: transaction.run,
+      dragGroups: new DragGroupsFake(scenes, tokens),
+      sceneWalls: new SceneWallsFake(),
       publisher,
       clock: new ClockFake(NOW),
       barLimit: 99_999,
-    });
+      tokenLimit: 500,
+    };
+    service = new TokensService(serviceDeps);
   });
 
   it('the master creating Kael locks, saves and bumps, then publishes after the commit', async () => {
@@ -189,7 +199,15 @@ describe('TokensService', () => {
     expect(version).toBe(5);
     expect(tokens.rows[0]?.token).toMatchObject({ col: 8, row: 6 });
     expect(publisher.tokenMoves).toEqual([
-      { campaignId: VHARN_ID, version: 5, at: NOW.toISOString(), tokenId: LYRA_ID, col: 8, row: 6 },
+      {
+        campaignId: VHARN_ID,
+        sceneId: VHARN_SCENE_ID,
+        version: 5,
+        at: NOW.toISOString(),
+        tokenId: LYRA_ID,
+        col: 8,
+        row: 6,
+      },
     ]);
   });
 
@@ -324,7 +342,14 @@ describe('TokensService', () => {
     await service.delete(ANA_ID, VHARN_ID, { tokenId: LYRA_ID });
     expect(tokens.rows.map(({ token }) => token.id)).toEqual([BRAM_ID]);
     expect(publisher.tokenDeletes).toEqual([
-      { campaignId: VHARN_ID, version: 5, at: NOW.toISOString(), tokenId: LYRA_ID, combat: null },
+      {
+        campaignId: VHARN_ID,
+        sceneId: VHARN_SCENE_ID,
+        version: 5,
+        at: NOW.toISOString(),
+        tokenId: LYRA_ID,
+        combat: null,
+      },
     ]);
   });
 
@@ -372,6 +397,7 @@ describe('TokensService', () => {
       expect(publisher.tokenLayerChanges).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           tokenIds: [LYRA_ID, BRAM_ID],
@@ -437,6 +463,21 @@ describe('TokensService', () => {
       expect(tokens.rows[0]?.token).toMatchObject({ col: 8, row: 6 });
     });
 
+    it('the next move of Bia reads the walls from the memory until the scene walls are forgotten', async () => {
+      const sceneWalls = new SceneWallsFake();
+      service = new TokensService({ ...serviceDeps, sceneWalls });
+      await service.move(BIA_ID, VHARN_ID, { tokenId: LYRA_ID, col: 4, row: 4 });
+      walls.rows.splice(walls.rows.indexOf(WALL_AT_5), 1);
+      const crossing = { tokenId: LYRA_ID, col: 8, row: 6 };
+
+      await expect(service.move(BIA_ID, VHARN_ID, crossing)).rejects.toMatchObject({
+        code: 'WALL_BLOCKED',
+      });
+      sceneWalls.forget(VHARN_SCENE_ID);
+      await service.move(BIA_ID, VHARN_ID, crossing);
+      expect(tokens.rows[0]?.token).toMatchObject({ col: 8, row: 6 });
+    });
+
     it('Ana, the master, moves Lyra straight across the wall', async () => {
       await service.move(ANA_ID, VHARN_ID, { tokenId: LYRA_ID, col: 8, row: 6 });
 
@@ -474,7 +515,7 @@ describe('TokensService', () => {
         [9, 6],
       ]);
       expect(publisher.tokensMoves).toEqual([
-        { campaignId: VHARN_ID, version: 5, at: NOW.toISOString(), moves },
+        { campaignId: VHARN_ID, sceneId: VHARN_SCENE_ID, version: 5, at: NOW.toISOString(), moves },
       ]);
     });
 
@@ -536,10 +577,10 @@ describe('TokensService', () => {
       ];
       const version = await service.dragMany(ANA_ID, VHARN_ID, { drags }, 'ana-socket');
       expect(version).toBe(4);
-      expect(scenes.journal).toEqual(['commit', 'publish']);
+      expect(scenes.journal).toEqual(['publish']);
       expect(publisher.tokensDrags).toEqual([
         {
-          event: { campaignId: VHARN_ID, at: NOW.toISOString(), drags },
+          event: { campaignId: VHARN_ID, sceneId: VHARN_SCENE_ID, at: NOW.toISOString(), drags },
           exceptConnectionId: 'ana-socket',
         },
       ]);

@@ -4,14 +4,18 @@ import {
   createDatabase,
   type Database,
   type DatabaseConnection,
+  type DatabaseOptions,
 } from '../../src/database/database';
 import { runMigrations } from '../../src/database/migrate';
 
-/** Connects to the disposable Postgres in DATABASE_URL (never the `pnpm db:up` one) and migrates it.
+/** Connects to the disposable Postgres in DATABASE_URL (never the `pnpm db:up` one) and migrates it;
+ *  a `queryLog` hears every statement after that, and the pool and timeouts of the env can be
+ *  overridden (`poolMax: 2` to make the pool the bottleneck).
  *
- *  Example: `const connection = await openTestDatabase(); afterAll(connection.close)` */
-export async function openTestDatabase(): Promise<DatabaseConnection> {
-  const connection = createDatabase(readEnv(process.env).databaseUrl);
+ *  Example: `const connection = await openTestDatabase({ queryLog: queries }); afterAll(connection.close)` */
+export async function openTestDatabase(options: DatabaseOptions = {}): Promise<DatabaseConnection> {
+  const env = readEnv(process.env);
+  const connection = createDatabase(env.databaseUrl, { ...env.database, ...options });
   await runMigrations(connection.db);
   return connection;
 }
@@ -21,6 +25,6 @@ export async function openTestDatabase(): Promise<DatabaseConnection> {
  *  Example: `beforeEach(() => truncateAllTables(db))` */
 export async function truncateAllTables(db: Database): Promise<void> {
   await db.execute(
-    sql`TRUNCATE TABLE users, auth_sessions, campaigns, campaign_members, scenes, tokens, token_controllers, token_bars, condition_definitions, active_conditions, combats, combatants, drawings, effect_areas, walls, lights, assets, main_tokens, member_cards RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE users, auth_sessions, campaigns, campaign_members, scene_folders, scenes, tokens, token_controllers, token_bars, condition_definitions, active_conditions, combats, combatants, drawings, effect_areas, walls, lights, assets, main_tokens, member_cards RESTART IDENTITY CASCADE`,
   );
 }

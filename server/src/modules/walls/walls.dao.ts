@@ -1,5 +1,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
+import { sceneRowsCopySql } from '../../database/copy-rows';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { updateManySql } from '../../database/update-many';
 import { walls, type NewWallPo, type WallKindPo, type WallMovePo, type WallPo } from './walls.po';
 
 type DoorStatePo = NonNullable<WallPo['doorState']>;
@@ -8,6 +10,13 @@ type DoorStatePo = NonNullable<WallPo['doorState']>;
  *  finds and touches nothing (§2.6). Group writes run on the DAO built with the `tx`. */
 export class WallsDao {
   constructor(private readonly db: DatabaseExecutor) {}
+
+  /** Copies every one of the walls (a door keeps its state) of `fromSceneId` into `toSceneId`, with new ids and in the
+   *  same order (the duplicate of a grid). */
+  async copyScene(fromSceneId: string, toSceneId: string): Promise<void> {
+    const copy = { table: walls, sceneId: walls.sceneId, order: walls.wallOrder };
+    await this.db.execute(sceneRowsCopySql(copy, fromSceneId, toSceneId));
+  }
 
   async insertMany(rows: readonly NewWallPo[]): Promise<WallPo[]> {
     if (rows.length === 0) return [];
@@ -37,10 +46,16 @@ export class WallsDao {
   }
 
   /** One `UPDATE` per wall (a group is at most 64): run it on the DAO built with the `tx`. */
+  /** One `UPDATE` for the group; a wall of another scene in it does not move. */
   async moveMany(sceneId: string, moves: readonly WallMovePo[]): Promise<void> {
-    for (const { wallId, x, y } of moves) {
-      await this.db.update(walls).set({ x, y }).where(this.inScene(sceneId, wallId));
-    }
+    if (moves.length === 0) return;
+    const columns = [
+      { column: walls.x, cast: 'numeric' },
+      { column: walls.y, cast: 'numeric' },
+    ];
+    const rows = moves.map(({ wallId, x, y }) => [wallId, x, y]);
+    const where = eq(walls.sceneId, sceneId);
+    await this.db.execute(updateManySql({ table: walls, key: walls.id, columns, rows, where }));
   }
 
   /** The kind and door state go together, so the door CHECK holds after each `UPDATE`. */

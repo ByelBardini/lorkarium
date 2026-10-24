@@ -13,6 +13,7 @@ export function memberCardPo(overrides: Partial<MemberCardPo> = {}): MemberCardP
     difficultyClass: null,
     noteOne: null,
     noteTwo: null,
+    anchorTokenId: null,
     updatedAt: new Date('2026-10-22T12:00:00Z'),
     ...overrides,
   };

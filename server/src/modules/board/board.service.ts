@@ -15,8 +15,10 @@ import type { LightsDao } from '../lights/lights.dao';
 import type { MemberCardsDao } from '../member-cards/member-cards.dao';
 import { toMemberCardDto } from '../member-cards/member-cards.mapper';
 import { toLightDto } from '../lights/lights.mapper';
+import { seenGridOf } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { MainTokensDao } from '../tokens/main-tokens.dao';
+import { stateHolderIdOf } from '../tokens/linked-token';
 import { TokenAccessBo } from '../tokens/token-access.bo';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { toTokenDto } from '../tokens/tokens.mapper';
@@ -24,9 +26,9 @@ import type { WallsDao } from '../walls/walls.dao';
 import { toWallDto } from '../walls/walls.mapper';
 import { toBoardStateDto } from './board.mapper';
 
-export type BoardServiceDeps = Readonly<{
-  members: Pick<CampaignMembersDao, 'findMembership'>;
-  scenes: Pick<ScenesDao, 'findActiveOf'>;
+/** The DAOs the snapshot reads with, bound to its read-only transaction. */
+export type BoardReadDaos = Readonly<{
+  scenes: Pick<ScenesDao, 'findGridInCampaign'>;
   tokens: Pick<TokensDao, 'listOfScene'>;
   conditions: Pick<ConditionsDao, 'listDefinitions' | 'listOfTokens'>;
   combat: Pick<CombatDao, 'findOfScene'>;
@@ -36,6 +38,14 @@ export type BoardServiceDeps = Readonly<{
   lights: Pick<LightsDao, 'listOfScene'>;
   mainTokens: Pick<MainTokensDao, 'listOfScene'>;
   memberCards: Pick<MemberCardsDao, 'listOfCampaign'>;
+}>;
+
+/** Runs the reads of one snapshot in one `repeatable read`, `read only` transaction. */
+export type BoardSnapshotRunner = <T>(work: (daos: BoardReadDaos) => Promise<T>) => Promise<T>;
+
+export type BoardServiceDeps = Readonly<{
+  members: Pick<CampaignMembersDao, 'findMembership'>;
+  snapshot: BoardSnapshotRunner;
   clock: ClockPort;
 }>;
 
@@ -45,7 +55,8 @@ type SharedPieces = Pick<
 >;
 type TablePieces = Pick<BoardStateDto, 'conditionDefinitions' | 'memberCards'>;
 
-/** The board snapshot of one table, as one member may see it (spec §5.6, §3.9): each token whole
+/** The board snapshot of one grid of a table (absent `sceneId` = the group grid), as one member
+ *  may see it (spec §5.6, §3.9): each token whole
  *  for its controllers and the master, redacted for everyone else; drawings, areas of effect,
  *  walls, map lights and everyone's main token whole for everyone.
  *
@@ -53,48 +64,59 @@ type TablePieces = Pick<BoardStateDto, 'conditionDefinitions' | 'memberCards'>;
 export class BoardService {
   constructor(private readonly deps: BoardServiceDeps) {}
 
-  async snapshotFor(userId: string, campaignId: string): Promise<BoardStateDto> {
+  /** Every piece is read at the same instant (one snapshot transaction), so a command committed
+   *  between two reads cannot leave the board half old and half new. A grid out of the member's
+   *  reach is SCENE_NOT_FOUND. */
+  async snapshotFor(userId: string, campaignId: string, sceneId?: string): Promise<BoardStateDto> {
     const membership = await this.deps.members.findMembership(campaignId, userId);
     const access = toCampaignAccessBo(campaignId, userId, membership);
     const role = access.requireMember();
-    const scene = await this.deps.scenes.findActiveOf(campaignId);
-    if (!scene) {
-      throw new Error(`campaign ${campaignId} has no active scene; every campaign has one`);
-    }
-    const rows = await this.deps.tokens.listOfScene(scene.id);
-    const active = await this.deps.conditions.listOfTokens(rows.map(({ token }) => token.id));
-    const byToken = conditionsByToken(active);
-    const tokens = rows.map((row) => tokenFor(access, row, byToken.get(row.token.id) ?? []));
-    const combatRow = await this.deps.combat.findOfScene(scene.id);
-    const combat = combatRow ? toCombatDto(combatRow) : null;
-    const shared = await this.sharedPiecesOf(scene.id);
-    const table = await this.tablePiecesOf(campaignId);
-    const at = this.deps.clock.now();
-    const viewer = { userId, role };
-    const pieces = { tokens, ...shared, combat, ...table };
-    return toBoardStateDto({ campaignId, viewer, scene, ...pieces, at });
+    const address = { campaignId, sceneId, access };
+    return this.deps.snapshot(async (daos) => {
+      const scene = seenGridOf(address, await daos.scenes.findGridInCampaign(campaignId, sceneId));
+      const tokens = await tokensFor(daos, access, scene.id);
+      const combatRow = await daos.combat.findOfScene(scene.id);
+      const combat = combatRow ? toCombatDto(combatRow) : null;
+      const shared = await sharedPiecesOf(daos, scene.id);
+      const table = await tablePiecesOf(daos, campaignId);
+      const at = this.deps.clock.now();
+      const pieces = { tokens, ...shared, combat, ...table };
+      return toBoardStateDto({ campaignId, viewer: { userId, role }, scene, ...pieces, at });
+    });
   }
+}
 
-  // What every viewer receives whole: nothing in it is redacted.
-  private async sharedPiecesOf(sceneId: string): Promise<SharedPieces> {
-    return {
-      drawings: (await this.deps.drawings.listOfScene(sceneId)).map(toDrawingDto),
-      effectAreas: (await this.deps.effectAreas.listOfScene(sceneId)).map(toEffectAreaDto),
-      walls: (await this.deps.walls.listOfScene(sceneId)).map(toWallDto),
-      lights: (await this.deps.lights.listOfScene(sceneId)).map(toLightDto),
-      mainTokens: await this.deps.mainTokens.listOfScene(sceneId),
-    };
-  }
+async function tokensFor(
+  daos: BoardReadDaos,
+  access: CampaignAccessBo,
+  sceneId: string,
+): Promise<TokenDto[]> {
+  const rows = await daos.tokens.listOfScene(sceneId);
+  // A linked token shows its anchor's conditions.
+  const active = await daos.conditions.listOfTokens([...new Set(rows.map(stateHolderIdOf))]);
+  const byToken = conditionsByToken(active);
+  return rows.map((row) => tokenFor(access, row, byToken.get(stateHolderIdOf(row)) ?? []));
+}
 
-  // Of the table, not of the scene: the same on every scene.
-  private async tablePiecesOf(campaignId: string): Promise<TablePieces> {
-    const definitions = await this.deps.conditions.listDefinitions(campaignId);
-    const cards = await this.deps.memberCards.listOfCampaign(campaignId);
-    return {
-      conditionDefinitions: definitions.map(toConditionDefinitionDto),
-      memberCards: cards.map(toMemberCardDto),
-    };
-  }
+// What every viewer receives whole: nothing in it is redacted.
+async function sharedPiecesOf(daos: BoardReadDaos, sceneId: string): Promise<SharedPieces> {
+  return {
+    drawings: (await daos.drawings.listOfScene(sceneId)).map(toDrawingDto),
+    effectAreas: (await daos.effectAreas.listOfScene(sceneId)).map(toEffectAreaDto),
+    walls: (await daos.walls.listOfScene(sceneId)).map(toWallDto),
+    lights: (await daos.lights.listOfScene(sceneId)).map(toLightDto),
+    mainTokens: await daos.mainTokens.listOfScene(sceneId),
+  };
+}
+
+// Of the table, not of the scene: the same on every scene.
+async function tablePiecesOf(daos: BoardReadDaos, campaignId: string): Promise<TablePieces> {
+  const definitions = await daos.conditions.listDefinitions(campaignId);
+  const cards = await daos.memberCards.listOfCampaign(campaignId);
+  return {
+    conditionDefinitions: definitions.map(toConditionDefinitionDto),
+    memberCards: cards.map(toMemberCardDto),
+  };
 }
 
 function tokenFor(

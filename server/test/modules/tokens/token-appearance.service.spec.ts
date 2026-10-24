@@ -90,6 +90,7 @@ describe('TokenAppearanceService', () => {
       expect(publisher.tokensFacings).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           faces: [{ tokenId: LYRA_ID, facing: 45 }],
@@ -280,7 +281,13 @@ describe('TokenAppearanceService', () => {
       expect(tokenOf(LYRA_ID)).toMatchObject({ col: 2.5, row: 4, width: 1.5, height: 1 });
       expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
       expect(publisher.tokensResizes).toEqual([
-        { campaignId: VHARN_ID, version: 5, at: NOW.toISOString(), resizes: [WIDE_LYRA] },
+        {
+          campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
+          version: 5,
+          at: NOW.toISOString(),
+          resizes: [WIDE_LYRA],
+        },
       ]);
     });
 

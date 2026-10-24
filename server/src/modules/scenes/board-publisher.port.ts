@@ -10,6 +10,7 @@ import type {
   ConditionsAppliedDto,
   ConditionDefinedDto,
   ConditionRemovedDto,
+  ConditionsChangedDto,
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
@@ -45,19 +46,25 @@ import type {
   TokensRestyledDto,
 } from '@lorkarium/contracts';
 
+/** An event of one grid: the publisher sends it to that grid's rooms, so `sceneId` is required
+ *  here even while the DTO keeps it optional. */
+export type GridEvent<Event> = Event & Readonly<{ sceneId: string }>;
+
 /** A token event in its two versions: whole for the masters and the token's controllers,
  *  redacted for everyone else at the table (spec §3.9). */
 export type TokenChange = Readonly<{
   name: 'token:created' | 'token:updated';
   campaignId: string;
+  sceneId: string;
   controllerIds: readonly string[];
-  privileged: TokenCreatedDto | TokenUpdatedDto;
-  others: TokenCreatedDto | TokenUpdatedDto;
+  privileged: GridEvent<TokenCreatedDto | TokenUpdatedDto>;
+  others: GridEvent<TokenCreatedDto | TokenUpdatedDto>;
 }>;
 
 /** A paste of tokens: each one whole for the masters and its controllers, redacted for the rest. */
 export type TokensCreation = Readonly<{
   campaignId: string;
+  sceneId: string;
   version: number;
   at: string;
   tokens: ReadonlyArray<
@@ -66,59 +73,61 @@ export type TokensCreation = Readonly<{
   combat: CombatDto | null;
 }>;
 
-/** Sends a confirmed board change to the table; called only after the transaction committed. */
+/** Sends a confirmed board change to who has its grid open; called only after the commit. */
 export interface BoardPublisherPort {
   sceneUpdated(event: SceneUpdatedDto): void;
   tokenChanged(change: TokenChange): void;
-  tokenMoved(event: TokenMovedDto): void;
-  tokensMoved(event: TokensMovedDto): void;
+  tokenMoved(event: GridEvent<TokenMovedDto>): void;
+  tokensMoved(event: GridEvent<TokensMovedDto>): void;
   /** A drag preview (one token is a group of one): nothing was saved. `exceptConnectionId` is
    *  the dragger, who draws it locally. */
-  tokensDragged(event: TokensDraggedDto, exceptConnectionId: string): void;
-  tokenDeleted(event: TokenDeletedDto): void;
+  tokensDragged(event: GridEvent<TokensDraggedDto>, exceptConnectionId: string): void;
+  tokenDeleted(event: GridEvent<TokenDeletedDto>): void;
   tokensCreated(creation: TokensCreation): void;
-  tokensDeleted(event: TokensDeletedDto): void;
-  tokenLayerChanged(event: TokenLayerChangedDto): void;
+  tokensDeleted(event: GridEvent<TokensDeletedDto>): void;
+  tokenLayerChanged(event: GridEvent<TokenLayerChangedDto>): void;
   /** The facing and the look are not secrets: the whole table gets the same events. */
-  tokensFaced(event: TokensFacedDto): void;
-  tokensRestyled(event: TokensRestyledDto): void;
+  tokensFaced(event: GridEvent<TokensFacedDto>): void;
+  tokensRestyled(event: GridEvent<TokensRestyledDto>): void;
   /** The size is not a secret either. */
-  tokensResized(event: TokensResizedDto): void;
-  /** A person's main token: not a secret, the whole table gets it. */
-  mainTokenChanged(event: MainTokenChangedDto): void;
-  /** A member's card on the party board: not a secret, the whole table gets it. */
-  memberCardChanged(event: MemberCardChangedDto): void;
+  tokensResized(event: GridEvent<TokensResizedDto>): void;
+  /** A person's main token: not a secret, everyone with the grid open gets it. */
+  mainTokenChanged(event: GridEvent<MainTokenChangedDto>): void;
+  /** A member's card on the party board: not a secret; it goes to the group grid. */
+  memberCardChanged(event: GridEvent<MemberCardChangedDto>): void;
   /** Drawings have no secret: the whole table gets the same events. */
-  drawingsCreated(event: DrawingsCreatedDto): void;
-  drawingsMoved(event: DrawingsMovedDto): void;
-  drawingsDeleted(event: DrawingsDeletedDto): void;
+  drawingsCreated(event: GridEvent<DrawingsCreatedDto>): void;
+  drawingsMoved(event: GridEvent<DrawingsMovedDto>): void;
+  drawingsDeleted(event: GridEvent<DrawingsDeletedDto>): void;
   /** Areas of effect have no secret either. */
-  effectAreasCreated(event: EffectAreasCreatedDto): void;
-  effectAreasReshaped(event: EffectAreasReshapedDto): void;
-  effectAreasDeleted(event: EffectAreasDeletedDto): void;
+  effectAreasCreated(event: GridEvent<EffectAreasCreatedDto>): void;
+  effectAreasReshaped(event: GridEvent<EffectAreasReshapedDto>): void;
+  effectAreasDeleted(event: GridEvent<EffectAreasDeletedDto>): void;
   /** Walls go to the whole table: the player's client needs them for the fog and the route. */
-  wallsCreated(event: WallsCreatedDto): void;
-  wallsMoved(event: WallsMovedDto): void;
-  wallsDeleted(event: WallsDeletedDto): void;
-  wallKindsChanged(event: WallKindsChangedDto): void;
-  doorChanged(event: DoorChangedDto): void;
-  wallSegmentErased(event: WallSegmentErasedDto): void;
-  wallAreaErased(event: WallAreaErasedDto): void;
+  wallsCreated(event: GridEvent<WallsCreatedDto>): void;
+  wallsMoved(event: GridEvent<WallsMovedDto>): void;
+  wallsDeleted(event: GridEvent<WallsDeletedDto>): void;
+  wallKindsChanged(event: GridEvent<WallKindsChangedDto>): void;
+  doorChanged(event: GridEvent<DoorChangedDto>): void;
+  wallSegmentErased(event: GridEvent<WallSegmentErasedDto>): void;
+  wallAreaErased(event: GridEvent<WallAreaErasedDto>): void;
   /** Map lights go to the whole table too: the player's client needs them for the fog (only the
    *  master's board draws the icon). */
-  lightsCreated(event: LightsCreatedDto): void;
-  lightsMoved(event: LightsMovedDto): void;
-  lightRangesChanged(event: LightRangesChangedDto): void;
-  lightColorsChanged(event: LightColorsChangedDto): void;
-  lightConesChanged(event: LightConesChangedDto): void;
-  lightsLitChanged(event: LightsLitChangedDto): void;
-  lightsDeleted(event: LightsDeletedDto): void;
-  conditionDefined(event: ConditionDefinedDto): void;
-  conditionApplied(event: ConditionAppliedDto): void;
-  conditionsApplied(event: ConditionsAppliedDto): void;
-  conditionRemoved(event: ConditionRemovedDto): void;
-  combatStarted(event: CombatStartedDto): void;
-  combatUpdated(event: CombatUpdatedDto): void;
-  combatTurnChanged(event: CombatTurnChangedDto): void;
-  combatEnded(event: CombatEndedDto): void;
+  lightsCreated(event: GridEvent<LightsCreatedDto>): void;
+  lightsMoved(event: GridEvent<LightsMovedDto>): void;
+  lightRangesChanged(event: GridEvent<LightRangesChangedDto>): void;
+  lightColorsChanged(event: GridEvent<LightColorsChangedDto>): void;
+  lightConesChanged(event: GridEvent<LightConesChangedDto>): void;
+  lightsLitChanged(event: GridEvent<LightsLitChangedDto>): void;
+  lightsDeleted(event: GridEvent<LightsDeletedDto>): void;
+  conditionDefined(event: GridEvent<ConditionDefinedDto>): void;
+  conditionApplied(event: GridEvent<ConditionAppliedDto>): void;
+  conditionsApplied(event: GridEvent<ConditionsAppliedDto>): void;
+  conditionRemoved(event: GridEvent<ConditionRemovedDto>): void;
+  /** The anchors' conditions after the end of a turn of tokens linked to them, to the cast. */
+  conditionsChanged(event: GridEvent<ConditionsChangedDto>): void;
+  combatStarted(event: GridEvent<CombatStartedDto>): void;
+  combatUpdated(event: GridEvent<CombatUpdatedDto>): void;
+  combatTurnChanged(event: GridEvent<CombatTurnChangedDto>): void;
+  combatEnded(event: GridEvent<CombatEndedDto>): void;
 }

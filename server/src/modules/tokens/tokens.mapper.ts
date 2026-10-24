@@ -66,6 +66,7 @@ export function toTokenDto(
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],
+    anchorTokenId: row.token.anchorTokenId,
   };
 }
 

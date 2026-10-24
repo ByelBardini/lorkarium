@@ -13,6 +13,7 @@ import {
 } from '../../support/lights-factories';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
+import { TORRE_ID, torrePo } from '../../support/library-factories';
 
 const NOW = new Date('2026-10-18T21:00:00Z');
 const QUELM_SCENE_ID = 'quelm-scene';
@@ -36,6 +37,7 @@ describe('LightsService', () => {
     );
     scenes = new ScenesDaoFake([
       scenePo({ version: 4 }),
+      torrePo(),
       scenePo({ id: QUELM_SCENE_ID, campaignId: QUELM_ID }),
     ]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
@@ -71,6 +73,7 @@ describe('LightsService', () => {
 
       expect(publisher.lightsCreates[0]).toEqual({
         campaignId: VHARN_ID,
+        sceneId: VHARN_SCENE_ID,
         version: 5,
         at: NOW.toISOString(),
         lights: [
@@ -193,6 +196,7 @@ describe('LightsService', () => {
       expect(publisher.lightColorChanges).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           changes: [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }],
@@ -256,6 +260,7 @@ describe('LightsService', () => {
       expect(publisher.lightLitChanges).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           lightIds: [CORRIDOR_TORCH_ID, BRAZIER_ID],
@@ -308,6 +313,7 @@ describe('LightsService', () => {
       expect(publisher.lightConeChanges).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           changes: [
@@ -350,6 +356,46 @@ describe('LightsService', () => {
       await expect(change).rejects.toMatchObject({ code: 'STALE_UNDO' });
       expect(scenes.journal).not.toContain('save');
       expect(publisher.lightConeChanges).toEqual([]);
+    });
+  });
+
+  describe('on a grid that is not the group one', () => {
+    it('Ana lighting a torch in the private Torre locks the Torre and light:createdMany carries it', async () => {
+      const created = await service.createMany(ANA_ID, VHARN_ID, {
+        sceneId: TORRE_ID,
+        lights: [newTorch()],
+      });
+
+      expect(created.version).toBe(8);
+      expect(scenes.journal[0]).toBe(`lockInCampaign:${TORRE_ID}`);
+      expect(publisher.lightsCreates[0]).toMatchObject({ sceneId: TORRE_ID, version: 8 });
+    });
+
+    it('a light of the group grid changed through the Torre is LIGHT_NOT_FOUND', async () => {
+      const command = { sceneId: TORRE_ID, lightIds: [CORRIDOR_TORCH_ID], lit: false };
+
+      await expect(service.setLitMany(ANA_ID, VHARN_ID, command)).rejects.toMatchObject({
+        code: 'LIGHT_NOT_FOUND',
+      });
+    });
+
+    it("a sceneId of Quelm's grid at Vharn is SCENE_NOT_FOUND", async () => {
+      const command = { sceneId: QUELM_SCENE_ID, lights: [newTorch()] };
+
+      await expect(service.createMany(ANA_ID, VHARN_ID, command)).rejects.toMatchObject({
+        code: 'SCENE_NOT_FOUND',
+      });
+      expect(publisher.published).toBe(0);
+    });
+
+    it('a range change in the Torre goes out with the Torre', async () => {
+      await service.createMany(ANA_ID, VHARN_ID, { sceneId: TORRE_ID, lights: [newTorch()] });
+      const lightId = publisher.lightsCreates[0]?.lights[0]?.id ?? '';
+
+      const changes = [{ lightId, bright: 3, dim: 3 }];
+      await service.setRangeMany(ANA_ID, VHARN_ID, { sceneId: TORRE_ID, changes });
+
+      expect(publisher.lightRangeChanges[0]).toMatchObject({ sceneId: TORRE_ID, version: 9 });
     });
   });
 });

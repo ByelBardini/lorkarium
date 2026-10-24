@@ -9,10 +9,11 @@ import { memberAccessOf } from '../campaigns/member-access';
 import { AuthoredAccessBo } from '../scenes/authored-access.bo';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import {
-  inLockedScene,
+  gridEventBase,
+  inLockedGrid,
   type CreatedInScene,
-  type LockedScene,
-  type SceneLockDaos,
+  type LockedGrid,
+  type GridLockDaos,
   type SceneTransaction,
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
@@ -39,7 +40,7 @@ export type MoveDrawings = Omit<MoveDrawingsCommandDto, Envelope>;
 export type DeleteDrawings = Omit<DeleteDrawingsCommandDto, Envelope>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
-export type DrawingWriteDaos = SceneLockDaos &
+export type DrawingWriteDaos = GridLockDaos &
   Readonly<{
     drawings: Pick<
       DrawingsDao,
@@ -58,11 +59,11 @@ export type DrawingsServiceDeps = Readonly<{
   limit: number;
 }>;
 
-type Locked = LockedScene<DrawingWriteDaos>;
-type EventBase = Readonly<{ campaignId: string; version: number; at: string }>;
+type Locked = LockedGrid<DrawingWriteDaos>;
 
-/** The drawing use cases, each all or nothing in one version: lock the scene, decide, save, bump
- *  and, only after the commit, publish to the whole table (a drawing has nothing to redact).
+/** The drawing use cases, on the grid the command names, each all or nothing in one version:
+ *  lock that grid, decide, save, bump and, only after the commit, publish to who has it open (a
+ *  drawing has nothing to redact).
  *
  *  Example: `const version = await drawingsService.createMany(user.id, campaignId, { drawings })` */
 export class DrawingsService {
@@ -74,10 +75,10 @@ export class DrawingsService {
     command: CreateDrawings,
   ): Promise<CreatedInScene> {
     // Any member draws: being one is the whole rule.
-    await memberAccessOf(this.deps.members, campaignId, userId);
-    const saved = await inLockedScene(
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const saved = await inLockedGrid(
       this.deps.transaction,
-      campaignId,
+      { campaignId, sceneId: command.sceneId, access },
       async ({ daos, scene }) => {
         const rules = this.rulesFor(scene);
         rules.admit(await daos.drawings.countOfScene(scene.id), command.drawings.length);
@@ -86,7 +87,7 @@ export class DrawingsService {
         return (await daos.drawings.insertMany(rows)).map(toDrawingDto);
       },
     );
-    const event = { ...this.eventBase(campaignId, saved.version), drawings: saved.value };
+    const event = { ...gridEventBase(campaignId, saved, this.deps.clock), drawings: saved.value };
     this.deps.publisher.drawingsCreated(event);
     return { version: saved.version, createdIds: saved.value.map(({ id }) => id) };
   }
@@ -94,41 +95,55 @@ export class DrawingsService {
   async moveMany(userId: string, campaignId: string, command: MoveDrawings): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const ids = command.moves.map(({ drawingId }) => drawingId);
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
-      const rows = await drawingsIn(locked, campaignId, ids);
-      const rules = this.rulesFor(locked.scene);
-      rows.forEach((row, index) => {
-        const move = command.moves[index];
-        if (!move) return;
-        new AuthoredAccessBo(access, DRAWING_NOUN).requireEdit('move', ownershipOf(row));
-        rules.requireAt(row.id, move.expect, positionOf(row));
-        rules.place(boxAt(row, move));
-      });
-      await locked.daos.drawings.moveMany(locked.scene.id, command.moves.map(toDrawingMovePo));
-    });
+    const saved = await inLockedGrid(
+      this.deps.transaction,
+      { campaignId, sceneId: command.sceneId, access },
+      async (locked) => {
+        const rows = await drawingsIn(locked, campaignId, ids);
+        const rules = this.rulesFor(locked.scene);
+        rows.forEach((row, index) => {
+          const move = command.moves[index];
+          if (!move) return;
+          new AuthoredAccessBo(access, DRAWING_NOUN).requireEdit('move', ownershipOf(row));
+          rules.requireAt(row.id, move.expect, positionOf(row));
+          rules.place(boxAt(row, move));
+        });
+        await locked.daos.drawings.moveMany(locked.scene.id, command.moves.map(toDrawingMovePo));
+      },
+    );
     const moves = command.moves.map(({ drawingId, x, y }) => ({
       drawingId,
       x: toHundredth(x),
       y: toHundredth(y),
     }));
-    this.deps.publisher.drawingsMoved({ ...this.eventBase(campaignId, saved.version), moves });
+    this.deps.publisher.drawingsMoved({
+      ...gridEventBase(campaignId, saved, this.deps.clock),
+      moves,
+    });
     return saved.version;
   }
 
   async deleteMany(userId: string, campaignId: string, command: DeleteDrawings): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const { drawingIds } = command;
-    const saved = await inLockedScene(this.deps.transaction, campaignId, async (locked) => {
-      const rows = await drawingsIn(locked, campaignId, drawingIds);
-      const rules = this.rulesFor(locked.scene);
-      for (const row of rows) {
-        new AuthoredAccessBo(access, DRAWING_NOUN).requireEdit('delete', ownershipOf(row));
-        const expected = command.expect?.find(({ drawingId }) => drawingId === row.id);
-        rules.requireAt(row.id, expected, positionOf(row));
-      }
-      await locked.daos.drawings.deleteMany(locked.scene.id, drawingIds);
-    });
-    const event = { ...this.eventBase(campaignId, saved.version), drawingIds: [...drawingIds] };
+    const saved = await inLockedGrid(
+      this.deps.transaction,
+      { campaignId, sceneId: command.sceneId, access },
+      async (locked) => {
+        const rows = await drawingsIn(locked, campaignId, drawingIds);
+        const rules = this.rulesFor(locked.scene);
+        for (const row of rows) {
+          new AuthoredAccessBo(access, DRAWING_NOUN).requireEdit('delete', ownershipOf(row));
+          const expected = command.expect?.find(({ drawingId }) => drawingId === row.id);
+          rules.requireAt(row.id, expected, positionOf(row));
+        }
+        await locked.daos.drawings.deleteMany(locked.scene.id, drawingIds);
+      },
+    );
+    const event = {
+      ...gridEventBase(campaignId, saved, this.deps.clock),
+      drawingIds: [...drawingIds],
+    };
     this.deps.publisher.drawingsDeleted(event);
     return saved.version;
   }
@@ -136,10 +151,6 @@ export class DrawingsService {
   private rulesFor(scene: ScenePo): DrawingRulesBo {
     const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
     return new DrawingRulesBo({ scene: sceneSize, limit: this.deps.limit });
-  }
-
-  private eventBase(campaignId: string, version: number): EventBase {
-    return { campaignId, version, at: this.deps.clock.now().toISOString() };
   }
 }
 

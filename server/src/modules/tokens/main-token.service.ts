@@ -3,7 +3,7 @@ import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
-import { inLockedScene } from '../scenes/locked-scene';
+import { inLockedGrid } from '../scenes/locked-scene';
 import { tokenAccessOf, tokenIn, type TokenTransactionRunner } from './token-transaction';
 
 export type SetMainToken = Omit<SetMainTokenCommandDto, 'actionId' | 'campaignId'>;
@@ -16,7 +16,8 @@ export type MainTokenServiceDeps = Readonly<{
 }>;
 
 /** The token a person's dock shows when nothing is selected, chosen among the ones they are
- *  listed in the control of; one per person per scene, and the whole table hears of it.
+ *  listed in the control of; one per person per grid, and everyone with that grid open hears of
+ *  it.
  *
  *  Example: `await mainToken.choose(user.id, campaignId, { tokenId })` */
 export class MainTokenService {
@@ -28,18 +29,16 @@ export class MainTokenService {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const { tokenId } = command;
     const playerId = command.playerId ?? userId;
-    const saved = await inLockedScene(
-      this.deps.transaction,
-      campaignId,
-      async ({ daos, scene }) => {
-        const found = await tokenIn(daos, scene, campaignId, tokenId);
-        tokenAccessOf(access, found).requireChooseMainFor(playerId);
-        await daos.mainTokens.choose(scene.id, playerId, tokenId);
-      },
-    );
+    const address = { campaignId, sceneId: command.sceneId, access };
+    const saved = await inLockedGrid(this.deps.transaction, address, async ({ daos, scene }) => {
+      const found = await tokenIn(daos, scene, campaignId, tokenId);
+      tokenAccessOf(access, found).requireChooseMainFor(playerId);
+      await daos.mainTokens.choose(scene.id, playerId, tokenId);
+    });
     const at = this.deps.clock.now().toISOString();
     this.deps.publisher.mainTokenChanged({
       campaignId,
+      sceneId: saved.sceneId,
       version: saved.version,
       at,
       userId: playerId,

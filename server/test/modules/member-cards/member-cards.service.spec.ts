@@ -16,7 +16,8 @@ import {
   MemberCardsDaoFake,
 } from '../../support/member-cards-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
-import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
+import { VHARN_CAST_ID, VHARN_SCENE_ID, castPo, scenePo } from '../../support/scenes-factories';
+import { TORRE_ID, torrePo } from '../../support/library-factories';
 
 const NOW = new Date('2026-10-22T21:00:00Z');
 const STRANGER_ID = 'f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b';
@@ -33,7 +34,11 @@ describe('MemberCardsService.update', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' }),
     ]);
-    scenes = new ScenesDaoFake([scenePo({ version: 7 })]);
+    scenes = new ScenesDaoFake([
+      scenePo({ version: 7 }),
+      torrePo({ version: 2 }),
+      castPo({ version: 3 }),
+    ]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
     memberCards = new MemberCardsDaoFake(scenes.journal, [
       memberCardPo({ noteOne: 'Percepção passiva 14' }),
@@ -48,18 +53,19 @@ describe('MemberCardsService.update', () => {
     });
   });
 
-  it('Bia changing her armor class locks, saves, bumps, commits and then publishes the whole card', async () => {
+  it('Bia changing her armor class locks the cast, saves, bumps it, commits and then publishes the whole card', async () => {
     const version = await service.update(BIA_ID, VHARN_ID, {
       memberId: BIA_ID,
       changes: { armorClass: 15 },
     });
 
-    expect(version).toBe(8);
-    expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+    expect(version).toBe(4);
+    expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
     expect(publisher.memberCardChanges).toEqual([
       {
         campaignId: VHARN_ID,
-        version: 8,
+        sceneId: VHARN_CAST_ID,
+        version: 4,
         at: NOW.toISOString(),
         card: {
           userId: BIA_ID,
@@ -68,6 +74,7 @@ describe('MemberCardsService.update', () => {
           difficultyClass: null,
           noteOne: 'Percepção passiva 14',
           noteTwo: null,
+          anchorTokenId: null,
         },
       },
     ]);
@@ -88,7 +95,7 @@ describe('MemberCardsService.update', () => {
     });
 
     await expect(update).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    expect(scenes.journal).toEqual(['lock']);
+    expect(scenes.journal).toEqual(['lock cast']);
     expect(memberCards.rows[0]?.armorClass).toBeNull();
     expect(publisher.memberCardChanges).toEqual([]);
   });
@@ -100,7 +107,7 @@ describe('MemberCardsService.update', () => {
     });
 
     await expect(update).rejects.toMatchObject({ code: 'MEMBER_NOT_FOUND' });
-    expect(scenes.journal).toEqual(['lock']);
+    expect(scenes.journal).toEqual(['lock cast']);
     expect(publisher.memberCardChanges).toEqual([]);
   });
 
@@ -112,5 +119,18 @@ describe('MemberCardsService.update', () => {
 
     await expect(update).rejects.toMatchObject({ code: 'CAMPAIGN_NOT_FOUND' });
     expect(scenes.journal).toEqual([]);
+  });
+
+  it('a card changed with the Torre named stays on the cast: neither the Torre nor the group grid is locked or bumped', async () => {
+    const version = await service.update(BIA_ID, VHARN_ID, {
+      sceneId: TORRE_ID,
+      memberId: BIA_ID,
+      changes: { armorClass: 15 },
+    });
+
+    expect(version).toBe(4);
+    expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+    expect(scenes.rows.map(({ version }) => version)).toEqual([7, 2, 4]);
+    expect(publisher.memberCardChanges[0]).toMatchObject({ sceneId: VHARN_CAST_ID, version: 4 });
   });
 });

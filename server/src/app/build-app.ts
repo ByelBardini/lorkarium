@@ -8,21 +8,29 @@ import { SharpImageProcessor } from '../infrastructure/image-processor/sharp-ima
 import { createAssetsModule } from '../modules/assets/assets.plugin';
 import { CryptoCampaignCode } from '../infrastructure/campaign-code/crypto-campaign-code';
 import { SystemClock } from '../infrastructure/clock/system-clock';
+import { SocketIoSessionEnded } from '../infrastructure/session-ended/socket-io-session-ended';
 import { Argon2PasswordHasher } from '../infrastructure/password-hasher/argon2-password-hasher';
 import { CryptoSessionToken } from '../infrastructure/session-token/crypto-session-token';
 import { createAuthModule } from '../modules/auth/auth.plugin';
+import type { ClockPort } from '../modules/auth/clock.port';
 import { SESSION_COOKIE, type AuthGuards } from '../modules/auth/auth.routes';
+import type { MembershipReader } from '../modules/campaigns/cached-memberships';
 import { createCampaignsModule } from '../modules/campaigns/campaigns.plugin';
 import { InMemoryPresenceRegistry } from '../infrastructure/presence-registry/in-memory-presence-registry';
 import { TimerScheduler } from '../infrastructure/scheduler/timer-scheduler';
 import { SocketIoSessionPublisher } from '../infrastructure/session-publisher/socket-io-session-publisher';
 import { SocketIoBoardPublisher } from '../infrastructure/board-publisher/socket-io-board-publisher';
+import { SocketIoLibraryPublisher } from '../infrastructure/library-publisher/socket-io-library-publisher';
+import { SocketIoSceneAudience } from '../infrastructure/scene-audience/socket-io-scene-audience';
+import { CommandRateLimitedError } from '../modules/board/board.error';
 import { createBoardModule } from '../modules/board/board.plugin';
 import { createDrawingsModule } from '../modules/drawings/drawings.plugin';
 import { createEffectAreasModule } from '../modules/effect-areas/effect-areas.plugin';
 import { createLightsModule } from '../modules/lights/lights.plugin';
+import { SceneWallsService } from '../modules/walls/scene-walls.service';
 import { createWallsModule } from '../modules/walls/walls.plugin';
 import { createScenesModule } from '../modules/scenes/scenes.plugin';
+import { createLibraryModule } from '../modules/library/library.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
 import { createMemberCardsModule } from '../modules/member-cards/member-cards.plugin';
 import { createConditionsModule } from '../modules/conditions/conditions.plugin';
@@ -32,6 +40,8 @@ import {
   createSessionsModule,
   type SessionsModuleOptions,
 } from '../modules/sessions/sessions.plugin';
+import { CampaignCommandQueue } from '../realtime/campaign-command-queue';
+import { CommandRateGuard } from '../realtime/command-rate-guard';
 import { attachRealtime } from '../realtime/realtime-server';
 
 declare module 'fastify' {
@@ -41,7 +51,8 @@ declare module 'fastify' {
   }
 }
 
-export type AppDependencies = Readonly<{ env: Env; db: Database }>;
+/** `clock` defaults to the system clock; integration specs pass a fake to cross a deadline. */
+export type AppDependencies = Readonly<{ env: Env; db: Database; clock?: ClockPort }>;
 
 const API_PREFIX = '/api';
 
@@ -55,9 +66,11 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const app = Fastify({ logger: loggerOptions(deps.env) });
   await app.register(cookie);
   const hasher = new Argon2PasswordHasher();
-  const clock = new SystemClock();
+  const clock = deps.clock ?? new SystemClock();
   const tokens = new CryptoSessionToken();
-  const auth = await createAuthModule({ db: deps.db, env: deps.env, hasher, tokens, clock });
+  const sessionEnded = new SocketIoSessionEnded();
+  const authOptions = { db: deps.db, env: deps.env, hasher, tokens, clock, sessionEnded };
+  const auth = await createAuthModule(authOptions);
   app.decorate('authGuards', auth.guards);
   await app.register(auth.plugin, { prefix: API_PREFIX });
   const codes = new CryptoCampaignCode();
@@ -69,47 +82,92 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const fetcher = new GuardedImageFetcher();
   const assets = createAssetsModule({ db: deps.db, storage, processor, fetcher });
   await app.register(assets.plugin, { prefix: API_PREFIX });
-  wireRealtime(app, auth.guards, { campaigns: campaigns.service, clock, db: deps.db });
+  const { memberships } = campaigns;
+  const realtimeModules = {
+    campaigns: campaigns.service,
+    clock,
+    db: deps.db,
+    sessionEnded,
+    memberships,
+  };
+  const outlets = wireRealtime(app, auth.guards, realtimeModules);
+  const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
+  const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
+  await app.register(library.plugin, { prefix: API_PREFIX });
   return app;
 }
 
-type RealtimeModules = Pick<SessionsModuleOptions, 'campaigns' | 'clock'> & { db: Database };
+type RealtimeModules = Pick<SessionsModuleOptions, 'campaigns' | 'clock'> & {
+  db: Database;
+  sessionEnded: SocketIoSessionEnded;
+  memberships: MembershipReader;
+};
 
-function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: RealtimeModules): void {
-  const authenticate = guards.authenticateToken;
-  const realtime = attachRealtime(app, { authenticate, sessionCookie: SESSION_COOKIE });
+// What the HTTP modules that announce changes or move sockets use, over the same Socket.IO server.
+type RealtimeOutlets = Readonly<{
+  audience: SocketIoSceneAudience;
+  libraryPublisher: SocketIoLibraryPublisher;
+  boardPublisher: SocketIoBoardPublisher;
+}>;
+
+function wireRealtime(
+  app: FastifyInstance,
+  guards: AuthGuards,
+  modules: RealtimeModules,
+): RealtimeOutlets {
+  const { db, sessionEnded, memberships: members, ...sessionModules } = modules;
+  const { clock } = modules;
+  const authenticate = guards.authenticateConnection;
+  const realtime = attachRealtime(app, { authenticate, sessionCookie: SESSION_COOKIE, clock });
+  sessionEnded.attach(realtime);
+  const rate = new CommandRateGuard(clock, (socketId, retryAfterSeconds) => {
+    return new CommandRateLimitedError(socketId, retryAfterSeconds);
+  });
   const scheduler = new TimerScheduler();
   app.addHook('onClose', async () => scheduler.cancelAll());
-  const { db, ...sessionModules } = modules;
+  const publisher = new SocketIoBoardPublisher(realtime.io);
+  const shared = { db, publisher, clock, members };
+  const outlets: RealtimeOutlets = {
+    audience: new SocketIoSceneAudience(realtime.io),
+    libraryPublisher: new SocketIoLibraryPublisher(realtime.io),
+    boardPublisher: publisher,
+  };
+  const { audience, libraryPublisher } = outlets;
+  const scenesModule = createScenesModule({ ...shared, audience, libraryPublisher });
+  const { service: scenes, watch: sceneWatch, activation: sceneActivation } = scenesModule;
   const sessions = createSessionsModule({
     ...sessionModules,
+    groupGrid: sceneWatch,
     registry: new InMemoryPresenceRegistry(),
     scheduler,
     publisher: new SocketIoSessionPublisher(realtime.io),
     realtime,
+    rate,
     log: app.log,
   });
   realtime.onConnection(sessions.gateway);
-  const { clock } = modules;
-  const publisher = new SocketIoBoardPublisher(realtime.io);
-  const scenes = createScenesModule({ db, publisher, clock }).service;
-  const tokensModule = createTokensModule({ db, publisher, clock });
+  const sceneWalls = new SceneWallsService();
+  const tokensModule = createTokensModule({ ...shared, sceneWalls });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
-  const { mainToken } = tokensModule;
-  const conditions = createConditionsModule({ db, publisher, clock }).service;
-  const combat = createCombatModule({ db, publisher, clock }).service;
-  const drawings = createDrawingsModule({ db, publisher, clock }).service;
-  const effectAreas = createEffectAreasModule({ db, publisher, clock }).service;
-  const walls = createWallsModule({ db, publisher, clock }).service;
-  const lights = createLightsModule({ db, publisher, clock }).service;
-  const memberCards = createMemberCardsModule({ db, publisher, clock }).service;
+  const { mainToken, link: tokenLink } = tokensModule;
+  const conditions = createConditionsModule(shared).service;
+  const combat = createCombatModule(shared).service;
+  const drawings = createDrawingsModule(shared).service;
+  const effectAreas = createEffectAreasModule(shared).service;
+  const walls = createWallsModule({ ...shared, sceneWalls }).service;
+  const lights = createLightsModule(shared).service;
+  const memberCards = createMemberCardsModule(shared).service;
   const board = createBoardModule({
     db,
+    members,
     scenes,
+    sceneWatch,
+    sceneActivation,
     tokens,
     tokenBatch,
     tokenAppearance,
     mainToken,
+    tokenLink,
     memberCards,
     conditions,
     combat,
@@ -119,9 +177,12 @@ function wireRealtime(app: FastifyInstance, guards: AuthGuards, modules: Realtim
     lights,
     clock,
     realtime,
+    rate,
+    queue: new CampaignCommandQueue(),
     log: app.log,
   });
   realtime.onConnection(board.gateway);
+  return outlets;
 }
 
 // The bucket is ensured once per boot (dev, CI and integration alike), before the first request.

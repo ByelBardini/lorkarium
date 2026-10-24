@@ -10,9 +10,14 @@ import { toActiveConditionDto } from '../conditions/conditions.mapper';
 import type { SceneTransaction } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
+import { stateHolderIdOf, stateHolderIn } from './linked-token';
+import type { LockedGridMaybeCast } from '../scenes/locked-cast';
+import type { SceneRow } from '../scenes/scenes.dao';
 import { TokenAccessBo } from './token-access.bo';
 import type { TokenRulesBo } from './token-rules.bo';
 import type { MainTokensDao } from './main-tokens.dao';
+import type { TokenAnchorsDao } from './token-anchors.dao';
+import type { MemberCardsDao } from '../member-cards/member-cards.dao';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
 import { TokenNotFoundError } from './tokens.error';
 import { toBarInputsPo, toTokenDto, toTokenLightPo, toTokenSightPo } from './tokens.mapper';
@@ -20,11 +25,14 @@ import type { WallsDao } from '../walls/walls.dao';
 
 /** The DAOs a token transaction hands out, bound to the open `tx`. */
 export type TokenWriteDaos = Readonly<{
-  scenes: Pick<ScenesDao, 'findActiveOf' | 'lockActiveOf' | 'bumpVersion'>;
+  scenes: Pick<ScenesDao, 'lockInCampaign' | 'lockCastOf' | 'bumpVersion'>;
   tokens: Pick<
     TokensDao,
     | 'insert'
+    | 'listOfScene'
+    | 'findLinkedInScene'
     | 'insertMany'
+    | 'countOfScene'
     | 'findInScene'
     | 'findManyInScene'
     | 'move'
@@ -35,6 +43,7 @@ export type TokenWriteDaos = Readonly<{
     | 'setLayer'
     | 'setBarValues'
     | 'update'
+    | 'updateFields'
     | 'delete'
     | 'deleteMany'
   >;
@@ -43,6 +52,11 @@ export type TokenWriteDaos = Readonly<{
   assets: Pick<AssetsDao, 'findManyInCampaign'>;
   walls: Pick<WallsDao, 'listOfScene'>;
   mainTokens: Pick<MainTokensDao, 'choose' | 'dropLostControl'>;
+  anchors: Pick<
+    TokenAnchorsDao,
+    'linkToAnchor' | 'unlinkWith' | 'moveStateTo' | 'copyStateTo' | 'dropState'
+  >;
+  memberCards: Pick<MemberCardsDao, 'findOfMember' | 'listOfCampaign' | 'save'>;
 }>;
 
 export type TokenTransactionRunner = SceneTransaction<TokenWriteDaos>;
@@ -56,14 +70,15 @@ export type TokenAudiences = Readonly<{
   others: TokenDto;
 }>;
 
-/** A token row with its active conditions, as every token event carries it.
+/** A token row with its active conditions (a linked token's are its anchor's), as every token
+ *  event carries it.
  *
  *  Example: `await withConditions(daos, await daos.tokens.insert(row))` */
 export async function withConditions(
-  daos: TokenWriteDaos,
+  daos: Pick<TokenWriteDaos, 'conditions'>,
   row: TokenRow,
 ): Promise<TokenWithConditions> {
-  const active = await daos.conditions.listOfTokens([row.token.id]);
+  const active = await daos.conditions.listOfTokens([stateHolderIdOf(row)]);
   return { row, conditions: active.map(toActiveConditionDto) };
 }
 
@@ -137,6 +152,8 @@ export async function joinPastedToCombat(
   access: CampaignAccessBo,
   pasted: readonly PastedToken[],
 ): Promise<void> {
+  // A paste of tokens with no entry to join (the usual one) does not read the combat.
+  if (!pasted.some(({ combatantId }) => combatantId)) return;
   const combat = await daos.combat.findOfScene(scene.id);
   const state = combat ? toCombatState(combat, () => []) : null;
   for (const { combatantId, tokenIds } of new CombatRosterBo(access, state).pastedLinks(pasted))
@@ -149,9 +166,11 @@ export async function combatOf(daos: TokenWriteDaos, scene: ScenePo): Promise<Co
   return combat ? toCombatDto(combat) : null;
 }
 
+type TokenReads = Readonly<{ tokens: Pick<TokensDao, 'findInScene' | 'findManyInScene'> }>;
+
 /** The token only if it is on the scene of the table; another table's is TOKEN_NOT_FOUND. */
 export async function tokenIn(
-  daos: TokenWriteDaos,
+  daos: Pick<TokenReads, 'tokens'>,
   scene: ScenePo,
   campaignId: string,
   tokenId: string,
@@ -164,7 +183,7 @@ export async function tokenIn(
 /** Every id must be on the scene: the first one missing (another table's too) refuses them all.
  *  The rows come back in the order of the ids. */
 export async function tokensIn(
-  daos: TokenWriteDaos,
+  daos: TokenReads,
   scene: ScenePo,
   campaignId: string,
   tokenIds: readonly string[],
@@ -198,4 +217,18 @@ export async function requireAssetsOf(
 
 export function tokenAccessOf(access: CampaignAccessBo, row: TokenRow): TokenAccessBo {
   return new TokenAccessBo(access, { tokenId: row.token.id, controllerIds: row.controllerIds });
+}
+
+/** The row that holds a token's shared state and the scene it stands on: the anchor in the cast
+ *  for a linked token (the cast must be locked: see `stateHolderIn`), the token itself otherwise.
+ *
+ *  Example: `const holder = await holderRowOf(locked, lyra); await daos.tokens.setBarValues(…)` */
+export async function holderRowOf(
+  locked: LockedGridMaybeCast<TokenReads>,
+  row: TokenRow,
+): Promise<Readonly<{ row: TokenRow; scene: SceneRow; inCast: boolean }>> {
+  const holder = stateHolderIn(locked, row);
+  if (!holder.inCast || !locked.cast) return { row, scene: locked.scene, inCast: false };
+  const anchor = await tokenIn(locked.daos, locked.cast, locked.scene.campaignId, holder.tokenId);
+  return { row: anchor, scene: locked.cast, inCast: true };
 }

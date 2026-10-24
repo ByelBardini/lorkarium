@@ -16,7 +16,7 @@ import { LightsDaoFake } from '../../support/lights-fakes';
 import { corridorTorchPo } from '../../support/lights-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
 import { bramRow, lyraPo, lyraRow } from '../../support/tokens-factories';
-import { WallsDaoFake, WallTransactionRunnerFake } from '../../support/walls-fakes';
+import { SceneWallsFake, WallsDaoFake, WallTransactionRunnerFake } from '../../support/walls-fakes';
 import {
   CELL_DOOR_ID,
   NORTH_WALL_ID,
@@ -35,10 +35,11 @@ describe('WallsService', () => {
   let tokens: TokensDaoFake;
   let lights: LightsDaoFake;
   let publisher: BoardPublisherFake;
+  let members: CampaignMembersDaoFake;
   let service: WallsService;
 
   beforeEach(() => {
-    const members = new CampaignMembersDaoFake(
+    members = new CampaignMembersDaoFake(
       new CampaignsDaoFake(),
       { [ANA_ID]: 'Ana', [BIA_ID]: 'Bia', [CAIO_ID]: 'Caio' },
       [
@@ -69,6 +70,7 @@ describe('WallsService', () => {
       transaction: new WallTransactionRunnerFake(scenes, walls, tokens, lights).run,
       publisher,
       clock: new ClockFake(NOW),
+      sceneWalls: new SceneWallsFake(),
       limits: { walls: 500, segments: 4000 },
     });
   });
@@ -81,12 +83,47 @@ describe('WallsService', () => {
       expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
     });
 
+    it('creating forgets the remembered walls inside the lock, right after saving, and again after the commit', async () => {
+      const sceneWalls = new SceneWallsFake(scenes.journal);
+      const transaction = new WallTransactionRunnerFake(scenes, walls).run;
+      const limits = { walls: 500, segments: 4000 };
+      const clock = new ClockFake(NOW);
+      service = new WallsService({ members, transaction, publisher, clock, sceneWalls, limits });
+
+      await service.createMany(ANA_ID, VHARN_ID, { walls: [newGrate()] });
+
+      expect(scenes.journal).toEqual([
+        'lock',
+        'save',
+        'forget',
+        'bump',
+        'commit',
+        'forget',
+        'publish',
+      ]);
+      expect(sceneWalls.forgotten).toEqual([VHARN_SCENE_ID, VHARN_SCENE_ID]);
+    });
+
+    it('a creation refused inside the lock still forgets the walls once the transaction ended', async () => {
+      const sceneWalls = new SceneWallsFake(scenes.journal);
+      const transaction = new WallTransactionRunnerFake(scenes, walls).run;
+      const limits = { walls: 2, segments: 4000 };
+      const clock = new ClockFake(NOW);
+      service = new WallsService({ members, transaction, publisher, clock, sceneWalls, limits });
+
+      const creating = service.createMany(ANA_ID, VHARN_ID, { walls: [newGrate()] });
+
+      await expect(creating).rejects.toMatchObject({ code: 'WALL_LIMIT' });
+      expect(scenes.journal).toEqual(['lock', 'forget']);
+    });
+
     it('wall:createdMany carries the saved grate to the table', async () => {
       await service.createMany(ANA_ID, VHARN_ID, { walls: [newGrate()] });
 
       expect(publisher.wallsCreates).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           walls: [
@@ -230,6 +267,7 @@ describe('WallsService', () => {
       expect(publisher.doorChanges).toEqual([
         {
           campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
           version: 5,
           at: NOW.toISOString(),
           wallId: CELL_DOOR_ID,
@@ -343,6 +381,7 @@ describe('WallsService.eraseSegment', () => {
       transaction: new WallTransactionRunnerFake(scenes, walls).run,
       publisher,
       clock: new ClockFake(NOW),
+      sceneWalls: new SceneWallsFake(),
       limits: { walls: 500, segments: 4000 },
     });
   });
@@ -406,6 +445,7 @@ describe('WallsService.eraseArea', () => {
       transaction: new WallTransactionRunnerFake(scenes, walls).run,
       publisher,
       clock: new ClockFake(NOW),
+      sceneWalls: new SceneWallsFake(),
       limits: { walls: 500, segments: 4000 },
     });
   });

@@ -1,13 +1,27 @@
-import { and, eq, getTableColumns, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets } from '../assets/assets.po';
 import { campaigns } from '../campaigns/campaigns.po';
-import { scenes, type NewScenePo, type SceneConfigPo, type ScenePo } from './scenes.po';
+import { tokens } from '../tokens/tokens.po';
+import {
+  scenes,
+  type NewScenePo,
+  type SceneConfigPo,
+  type SceneLibraryChangesPo,
+  type ScenePo,
+} from './scenes.po';
 
 /** The scene with the pixels of its background image (both `null` without one): the client
  *  derives the proportion from them. */
 export type SceneRow = ScenePo &
   Readonly<{ backgroundWidth: number | null; backgroundHeight: number | null }>;
+
+/** A scene as the library lists it: the row, its background pixels and how many tokens it has. */
+export type LibrarySceneRow = SceneRow & Readonly<{ tokenCount: number }>;
+
+/** A grid reached by its address (the group one or a `sceneId`): the row and whether it is the
+ *  group grid, which decides who may reach it while private. */
+export type AddressedSceneRow = SceneRow & Readonly<{ isActive: boolean }>;
 
 const sceneWithBackground = {
   ...getTableColumns(scenes),
@@ -20,6 +34,36 @@ const backgroundOfScene = and(
   eq(assets.id, scenes.backgroundAssetId),
   eq(assets.campaignId, scenes.campaignId),
 );
+
+const tokenCountOfScene = sql<number>`(
+  SELECT count(*) FROM ${tokens} WHERE ${tokens.sceneId} = ${scenes.id}
+)`.mapWith(Number);
+
+/** Whether the scene is its table's group grid; the query must join `campaigns`. */
+export const IS_GROUP_GRID = sql<boolean>`coalesce(${campaigns.activeSceneId} = ${scenes.id}, false)`;
+
+const addressedScene = { ...sceneWithBackground, isActive: IS_GROUP_GRID };
+
+/** Absent `sceneId` = the group grid; either way only a scene of the campaign itself (§2.6). The
+ *  query must join `campaigns` on `scenes.campaign_id`.
+ *
+ *  Example: `db.select().from(scenes).innerJoin(campaigns, …).where(gridOfCampaign(id, torreId))` */
+export function gridOfCampaign(campaignId: string, sceneId: string | undefined): SQL | undefined {
+  const which =
+    sceneId === undefined ? eq(scenes.id, campaigns.activeSceneId) : eq(scenes.id, sceneId);
+  return and(eq(campaigns.id, campaignId), eq(scenes.campaignId, campaignId), which);
+}
+
+// Only grids are the library's: the cast of the table is never listed, edited nor deleted.
+const IS_LIBRARY_GRID = eq(scenes.kind, 'grid');
+
+function sceneOfCampaign(campaignId: string, sceneId: string): SQL | undefined {
+  return and(eq(scenes.campaignId, campaignId), eq(scenes.id, sceneId), IS_LIBRARY_GRID);
+}
+
+function castOfCampaign(campaignId: string): SQL | undefined {
+  return and(eq(scenes.campaignId, campaignId), eq(scenes.kind, 'cast'));
+}
 
 // The active scene must also belong to the campaign: a stray active_scene_id never leaks another table.
 function activeSceneOfCampaign(campaignId: string): SQL | undefined {
@@ -64,6 +108,85 @@ export class ScenesDao {
     return row;
   }
 
+  /** The grid a board command addresses (absent `sceneId` = the group grid), locked until the
+   *  transaction ends; `undefined` when the campaign has no such grid. Call it on the `tx` DAO.
+   *
+   *  Example: `const torre = await new ScenesDao(tx).lockInCampaign(campaignId, torreId)` */
+  async lockInCampaign(
+    campaignId: string,
+    sceneId?: string,
+  ): Promise<AddressedSceneRow | undefined> {
+    const [row] = await this.db
+      .select(addressedScene)
+      .from(scenes)
+      .innerJoin(campaigns, eq(campaigns.id, scenes.campaignId))
+      .leftJoin(assets, backgroundOfScene)
+      .where(gridOfCampaign(campaignId, sceneId))
+      .for('update', { of: scenes });
+    return row;
+  }
+
+  /** The grid with its row and its table's row share-locked until the transaction ends: a change
+   *  of who reaches it (visibility, the group grid) waits for the holder, or the holder for it.
+   *  Call it on the `tx` DAO.
+   *
+   *  Example: `const torre = await new ScenesDao(tx).shareInCampaign(campaignId, torreId)` */
+  async shareInCampaign(
+    campaignId: string,
+    sceneId: string,
+  ): Promise<AddressedSceneRow | undefined> {
+    const [row] = await this.db
+      .select(addressedScene)
+      .from(scenes)
+      .innerJoin(campaigns, eq(campaigns.id, scenes.campaignId))
+      .leftJoin(assets, backgroundOfScene)
+      .where(gridOfCampaign(campaignId, sceneId))
+      .for('share', { of: [scenes, campaigns] });
+    return row;
+  }
+
+  /** The grid a snapshot addresses (absent `sceneId` = the group grid), without a lock.
+   *
+   *  Example: `const torre = await scenesDao.findGridInCampaign(campaignId, torreId)` */
+  async findGridInCampaign(
+    campaignId: string,
+    sceneId?: string,
+  ): Promise<AddressedSceneRow | undefined> {
+    const [row] = await this.db
+      .select(addressedScene)
+      .from(scenes)
+      .innerJoin(campaigns, eq(campaigns.id, scenes.campaignId))
+      .leftJoin(assets, backgroundOfScene)
+      .where(gridOfCampaign(campaignId, sceneId));
+    return row;
+  }
+
+  /** The cast of the table (the hidden scene of the characters' anchors); every table has one.
+   *
+   *  Example: `const cast = await scenesDao.findCastOf(campaignId)` */
+  async findCastOf(campaignId: string): Promise<SceneRow | undefined> {
+    const [row] = await this.db
+      .select(sceneWithBackground)
+      .from(scenes)
+      .leftJoin(assets, backgroundOfScene)
+      .where(castOfCampaign(campaignId));
+    return row;
+  }
+
+  /** The cast of the table, locked until the transaction ends. Locked before any grid (the one
+   *  order of the two locks), so two commands never wait on each other. Call it on the `tx` DAO.
+   *
+   *  Example: `const cast = await new ScenesDao(tx).lockCastOf(campaignId)` */
+  async lockCastOf(campaignId: string): Promise<SceneRow | undefined> {
+    const [row] = await this.db
+      .select(sceneWithBackground)
+      .from(scenes)
+      .leftJoin(assets, backgroundOfScene)
+      .where(castOfCampaign(campaignId))
+      .for('update', { of: scenes });
+    return row;
+  }
+
   async bumpVersion(sceneId: string): Promise<number> {
     const [row] = await this.db
       .update(scenes)
@@ -82,5 +205,73 @@ export class ScenesDao {
       .returning();
     if (!row) throw new Error(`cannot update the grid of missing scene ${sceneId}`);
     return row;
+  }
+
+  /** Every scene of the campaign with its token count, in creation order (the library). */
+  async listOfCampaign(campaignId: string): Promise<LibrarySceneRow[]> {
+    return this.db
+      .select({ ...sceneWithBackground, tokenCount: tokenCountOfScene })
+      .from(scenes)
+      .leftJoin(assets, backgroundOfScene)
+      .where(and(eq(scenes.campaignId, campaignId), IS_LIBRARY_GRID))
+      .orderBy(asc(scenes.createdAt), asc(scenes.id));
+  }
+
+  /** One scene as the library lists it, only if it belongs to the campaign. */
+  async findLibraryRow(campaignId: string, sceneId: string): Promise<LibrarySceneRow | undefined> {
+    const [row] = await this.db
+      .select({ ...sceneWithBackground, tokenCount: tokenCountOfScene })
+      .from(scenes)
+      .leftJoin(assets, backgroundOfScene)
+      .where(sceneOfCampaign(campaignId, sceneId));
+    return row;
+  }
+
+  /** The scene only if it belongs to the campaign: an id of another table finds nothing. */
+  async findInCampaign(campaignId: string, sceneId: string): Promise<SceneRow | undefined> {
+    const [row] = await this.db
+      .select(sceneWithBackground)
+      .from(scenes)
+      .leftJoin(assets, backgroundOfScene)
+      .where(sceneOfCampaign(campaignId, sceneId));
+    return row;
+  }
+
+  /** Saves only the library keys it receives; `undefined` when the campaign has no such scene. */
+  async updateLibrary(
+    campaignId: string,
+    sceneId: string,
+    changes: SceneLibraryChangesPo,
+  ): Promise<ScenePo | undefined> {
+    const [row] = await this.db
+      .update(scenes)
+      .set({ ...changes, updatedAt: sql`now()` })
+      .where(sceneOfCampaign(campaignId, sceneId))
+      .returning();
+    return row;
+  }
+
+  /** Puts the scenes of the campaign in `folderId` (`null` = no folder). */
+  async moveScenes(
+    campaignId: string,
+    sceneIds: readonly string[],
+    folderId: string | null,
+  ): Promise<void> {
+    if (sceneIds.length === 0) return;
+    await this.db
+      .update(scenes)
+      .set({ folderId, updatedAt: sql`now()` })
+      .where(
+        and(eq(scenes.campaignId, campaignId), inArray(scenes.id, [...sceneIds]), IS_LIBRARY_GRID),
+      );
+  }
+
+  /** Deletes the scene of the campaign and, in cascade, everything on it. */
+  async delete(campaignId: string, sceneId: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(scenes)
+      .where(sceneOfCampaign(campaignId, sceneId))
+      .returning({ id: scenes.id });
+    return rows.length > 0;
   }
 }

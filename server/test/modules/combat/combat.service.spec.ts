@@ -9,6 +9,7 @@ import { CombatDaoFake, CombatTransactionRunnerFake } from '../../support/combat
 import { ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
+import { TORRE_ID, torrePo } from '../../support/library-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
 import { lyraPo, lyraRow } from '../../support/tokens-factories';
 
@@ -38,7 +39,7 @@ describe('CombatService', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' }),
     ]);
-    scenes = new ScenesDaoFake([scenePo({ version: 4 })]);
+    scenes = new ScenesDaoFake([scenePo({ version: 4 }), torrePo()]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
     const tokens = new TokensDaoFake(scenes.journal, [
       lyraRow({ token: lyraPo({ id: 'kael' }), controllerIds: [BIA_ID] }),
@@ -46,6 +47,7 @@ describe('CombatService', () => {
       lyraRow({ token: lyraPo({ id: 'ogro' }), controllerIds: [] }),
       lyraRow({ token: lyraPo({ id: 'goblin' }), controllerIds: [CAIO_ID] }),
       lyraRow({ token: lyraPo({ id: 'lobo' }), controllerIds: [CAIO_ID] }),
+      lyraRow({ token: lyraPo({ id: 'torre-goblin', sceneId: TORRE_ID }), controllerIds: [] }),
     ]);
     combat = new CombatDaoFake(scenes.journal);
     conditions = new ConditionsDaoFake(scenes.journal);
@@ -340,5 +342,49 @@ describe('CombatService', () => {
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(scenes.journal).toEqual(['lock']);
     expect(publisher.published).toBe(0);
+  });
+
+  describe('on a grid that is not the group one', () => {
+    const TORRE_GOBLIN: CombatEntryInput[] = [
+      { name: null, tokenIds: ['torre-goblin'], initiative: null },
+    ];
+
+    it('Ana starting a combat in the Torre locks the Torre and combat:started carries it', async () => {
+      const version = await service.start(ANA_ID, VHARN_ID, {
+        sceneId: TORRE_ID,
+        entries: TORRE_GOBLIN,
+      });
+
+      expect(version).toBe(8);
+      expect(scenes.journal[0]).toBe(`lockInCampaign:${TORRE_ID}`);
+      expect(publisher.combatEvents[0]).toMatchObject({
+        name: 'combat:started',
+        event: { sceneId: TORRE_ID, version: 8 },
+      });
+    });
+
+    it('the combats of the group grid and of the Torre go apart, each in its own version', async () => {
+      await service.start(ANA_ID, VHARN_ID, { entries: THREE_ALONE });
+      await service.start(ANA_ID, VHARN_ID, { sceneId: TORRE_ID, entries: TORRE_GOBLIN });
+
+      await service.end(ANA_ID, VHARN_ID, { sceneId: TORRE_ID });
+
+      expect(combat.rows.has(VHARN_SCENE_ID)).toBe(true);
+      expect(combat.rows.has(TORRE_ID)).toBe(false);
+      expect(publisher.combatEvents.map(({ event }) => [event.sceneId, event.version])).toEqual([
+        [VHARN_SCENE_ID, 5],
+        [TORRE_ID, 8],
+        [TORRE_ID, 9],
+      ]);
+    });
+
+    it('Bia passing the turn in the private Torre is SCENE_NOT_FOUND before anything is saved', async () => {
+      const command = { sceneId: TORRE_ID, fromCombatantId: 'c-torre-goblin' };
+
+      await expect(service.nextTurn(BIA_ID, VHARN_ID, command)).rejects.toMatchObject({
+        code: 'SCENE_NOT_FOUND',
+      });
+      expect(scenes.journal).toEqual([`lockInCampaign:${TORRE_ID}`]);
+    });
   });
 });

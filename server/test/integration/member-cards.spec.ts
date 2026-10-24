@@ -1,5 +1,7 @@
 import { memberCardChangedDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { castIdOf, gridState } from '../support/characters';
+import { activateGrid, gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
 import { useTokenTable } from '../support/token-table';
@@ -29,6 +31,7 @@ describe('member cards over Socket.IO', () => {
       difficultyClass: null,
       noteOne: null,
       noteTwo: null,
+      anchorTokenId: null,
     };
     for (const recorder of [anaEvents, caioEvents]) {
       const event = memberCardChangedDto.parse(await eventPayload(recorder, 'member:cardChanged'));
@@ -117,5 +120,53 @@ describe('member cards over Socket.IO', () => {
     });
     await silence();
     expect(quelmEvents.events.map(({ name }) => name)).not.toContain('member:cardChanged');
+  });
+
+  describe('on the cast, whatever grid is open or the group one', () => {
+    it('Bia changes her armor class and Caio, with the public Torre open, hears it as an event of the cast', async () => {
+      const torre = await newGrid(live, live.ana, live.vharn, 'Torre');
+      await setGridVisibility(live, live.ana, live.vharn, torre, 'public');
+      const castId = await castIdOf(live, live.caio, live.vharn);
+      const caio = await live.atTable(live.caio, live.vharn);
+      expect(await gridAck(caio, 'scene:watch', live.vharn, torre)).toMatchObject({ ok: true });
+      const caioEvents = recordEventsOf(caio);
+      const bia = await live.atTable(live.bia, live.vharn);
+
+      const ack = await send(bia, 'member:updateCard', updateCard(live.bia.id, { armorClass: 15 }));
+
+      const event = memberCardChangedDto.parse(
+        await eventPayload(caioEvents, 'member:cardChanged'),
+      );
+      expect(event).toMatchObject({ sceneId: castId, card: { armorClass: 15 } });
+      expect(ack).toEqual({ ok: true, version: event.version });
+      expect((await gridState(caio, live.vharn, castId)).version).toBe(event.version);
+    });
+
+    it('Ana taking the group to the Torre keeps the card: the Torre sync carries it and the next change still comes from the cast', async () => {
+      const bia = await live.atTable(live.bia, live.vharn);
+      await send(bia, 'member:updateCard', updateCard(live.bia.id, { armorClass: 15 }));
+      const torre = await newGrid(live, live.ana, live.vharn, 'Torre');
+      const ana = await live.atTable(live.ana, live.vharn);
+      expect(await activateGrid(ana, live.vharn, torre)).toEqual({ ok: true });
+      const castId = await castIdOf(live, live.caio, live.vharn);
+      const caio = await live.atTable(live.caio, live.vharn);
+      const caioEvents = recordEventsOf(caio);
+
+      const ack = await send(
+        bia,
+        'member:updateCard',
+        updateCard(live.bia.id, { noteOne: 'Ferida' }),
+      );
+
+      const event = memberCardChangedDto.parse(
+        await eventPayload(caioEvents, 'member:cardChanged'),
+      );
+      expect(event).toMatchObject({ sceneId: castId, version: 2 });
+      expect(ack).toEqual({ ok: true, version: 2 });
+      const torreState = await gridState(caio, live.vharn, torre);
+      expect(torreState.memberCards).toEqual([
+        expect.objectContaining({ userId: live.bia.id, armorClass: 15, noteOne: 'Ferida' }),
+      ]);
+    });
   });
 });

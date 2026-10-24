@@ -1,5 +1,14 @@
+import { TOKEN_LIMIT_CODE } from '@lorkarium/contracts';
 export type TokenErrorCode =
-  'TOKEN_NOT_FOUND' | 'OUT_OF_SCENE' | 'INVALID_CONTROLLER' | 'BAR_NOT_FOUND' | 'WALL_BLOCKED';
+  | 'TOKEN_NOT_FOUND'
+  | 'OUT_OF_SCENE'
+  | 'INVALID_CONTROLLER'
+  | 'BAR_NOT_FOUND'
+  | 'WALL_BLOCKED'
+  | 'CHARACTER_ALREADY_PLACED'
+  | 'TOKEN_NOT_LINKED'
+  | 'NO_FREE_CELLS'
+  | typeof TOKEN_LIMIT_CODE;
 
 /** Every token refusal of its own; the gateway turns `code` into the ack error. */
 export class TokenError extends Error {
@@ -19,6 +28,19 @@ export class TokenNotFoundError extends TokenError {
     readonly tokenId: string,
   ) {
     super('TOKEN_NOT_FOUND', `campaign ${campaignId} has no token ${tokenId} in its scene`);
+  }
+}
+
+export class TokenLimitError extends TokenError {
+  constructor(
+    readonly stored: number,
+    readonly adding: number,
+    readonly limit: number,
+  ) {
+    super(
+      TOKEN_LIMIT_CODE,
+      `the scene would have ${stored + adding} tokens (${stored} stored + ${adding} added); the limit is ${limit}`,
+    );
   }
 }
 
@@ -72,6 +94,46 @@ export class WallBlockedError extends TokenError {
     super(
       'WALL_BLOCKED',
       `token ${tokenId} is barred on (${from.x}, ${from.y}) → (${to.x}, ${to.y}) by wall ${wallId}`,
+    );
+  }
+}
+
+/** A link that would give a character two tokens in one grid, or make a character of a token
+ *  that already is one. */
+export class CharacterAlreadyPlacedError extends TokenError {
+  constructor(
+    readonly tokenId: string,
+    readonly placedTokenId: string,
+    readonly memberId: string | null,
+  ) {
+    const whose = memberId ? `the character of member ${memberId}` : 'a character';
+    super(
+      'CHARACTER_ALREADY_PLACED',
+      `token ${tokenId} cannot become ${whose}: token ${placedTokenId} of the same grid already is one; expected one token per character in a grid`,
+    );
+  }
+}
+
+/** An unlink of a token that is no character's. */
+export class TokenNotLinkedError extends TokenError {
+  constructor(readonly tokenId: string) {
+    super(
+      'TOKEN_NOT_LINKED',
+      `token ${tokenId} is linked to no card; expected a token linked to a character`,
+    );
+  }
+}
+
+/** "Adicionar jogadores" in a grid without room around the center for every character. */
+export class NoFreeCellsError extends TokenError {
+  constructor(
+    readonly sceneId: string,
+    readonly missing: number,
+    readonly wanted: number,
+  ) {
+    super(
+      'NO_FREE_CELLS',
+      `scene ${sceneId} has no free cells for ${missing} of the ${wanted} characters to add; expected room around the center for every one`,
     );
   }
 }
