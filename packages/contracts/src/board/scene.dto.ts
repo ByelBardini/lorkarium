@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { boardCommandShape } from './board-event.dto';
 
 export const SCENE_CELLS_MIN = 1;
 export const SCENE_CELLS_MAX = 100;
@@ -52,8 +53,7 @@ export type SceneDto = z.infer<typeof sceneDto>;
  *
  *  Example: `configureSceneCommandDto.parse({ actionId, campaignId, ...grid })` */
 export const configureSceneCommandDto = z.strictObject({
-  actionId: z.uuid(),
-  campaignId: z.uuid(),
+  ...boardCommandShape,
   ...sceneGridShape,
   backgroundAssetId: z.uuid().nullable().optional(),
   vision: sceneVisionDto.optional(),
