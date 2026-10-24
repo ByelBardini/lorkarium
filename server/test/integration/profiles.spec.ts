@@ -20,7 +20,7 @@ const MIB = 1024 * 1024;
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
 type Request = Readonly<{
-  method: 'GET' | 'PATCH' | 'PUT' | 'DELETE';
+  method: 'GET' | 'PATCH' | 'PUT' | 'POST' | 'DELETE';
   url: string;
   payload?: object | Buffer | string;
   contentType?: string;
@@ -268,6 +268,34 @@ describe('profiles HTTP edge', () => {
 
       expect(response.statusCode).toBe(429);
       expect(codeOf(response)).toBe('RATE_LIMITED');
+    });
+  });
+
+  describe('the photo from a link', () => {
+    function linkPhoto(
+      user: SignedInUser | undefined,
+      url: string,
+    ): Promise<LightMyRequestResponse> {
+      return call(user, { method: 'POST', url: '/account/avatar/link', payload: { url } });
+    }
+
+    it('a link to an internal address answers 422 LINK_BLOCKED and the photo stays', async () => {
+      const response = await linkPhoto(ana, 'http://127.0.0.1/a.gif');
+
+      expect(response.statusCode).toBe(422);
+      expect(codeOf(response)).toBe('LINK_BLOCKED');
+      expect((await profileOf(ana)).avatarId).toBeNull();
+    });
+
+    it('a link that is not http(s) answers 400 INVALID_BODY', async () => {
+      const response = await linkPhoto(ana, 'ftp://example.com/a.gif');
+
+      expect(response.statusCode).toBe(400);
+      expect(codeOf(response)).toBe('INVALID_BODY');
+    });
+
+    it('without a session it answers 401', async () => {
+      expect((await linkPhoto(undefined, 'https://example.com/a.gif')).statusCode).toBe(401);
     });
   });
 });

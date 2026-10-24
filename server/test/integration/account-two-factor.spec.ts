@@ -102,6 +102,18 @@ describe('2FA on the account', () => {
     expect(mailer.sent.map((mail) => mail.subject)).toContain('Verificação em duas etapas ligada');
   });
 
+  it('the "ligada" notice says the device of the request that turned it on', async () => {
+    const { secret } = await setUp();
+    await accountRequest(app, {
+      method: 'POST',
+      url: '/api/account/two-factor/enable',
+      token: ana,
+      payload: { code: totpCodeAt(secret, clock.now()) },
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0',
+    });
+    expect(mailer.sent.at(-1)?.html).toContain('Firefox no Linux');
+  });
+
   it('a wrong code at enable is 403 TWO_FACTOR_CODE_INVALID and 2FA stays off', async () => {
     await setUp();
     const response = await post('enable', { code: '000000' });

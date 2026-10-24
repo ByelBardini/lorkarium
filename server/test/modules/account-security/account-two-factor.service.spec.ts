@@ -16,6 +16,8 @@ import { RecoveryCodesDaoFake, TotpFake, TwoFactorDaoFake } from '../../support/
 const NOW = new Date('2026-10-14T12:00:00Z');
 const CURRENT_STEP = Math.floor(NOW.getTime() / 30_000);
 const PASSWORD = 'senha-da-ana';
+const CHROME_ON_WINDOWS =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
 
 describe('AccountTwoFactorService', () => {
   let twoFactor: TwoFactorDaoFake;
@@ -44,13 +46,14 @@ describe('AccountTwoFactorService', () => {
       cipher,
       clock,
       notices: new SecurityNoticesService(mailer, () => undefined),
+      appPublicUrl: 'https://mesa.example.com',
     });
     totp.stepsByCode.set('111111', CURRENT_STEP);
   });
 
   async function turnOn(): Promise<string[]> {
     await service.setup(ANA_ID, PASSWORD);
-    return service.enable(ANA_ID, '111111');
+    return service.enable(ANA_ID, '111111', CHROME_ON_WINDOWS);
   }
 
   describe('setup', () => {
@@ -106,7 +109,7 @@ describe('AccountTwoFactorService', () => {
 
     it('a wrong code is TWO_FACTOR_CODE_INVALID and the setup stays pending', async () => {
       await service.setup(ANA_ID, PASSWORD);
-      await expect(service.enable(ANA_ID, '000000')).rejects.toMatchObject({
+      await expect(service.enable(ANA_ID, '000000', CHROME_ON_WINDOWS)).rejects.toMatchObject({
         code: 'TWO_FACTOR_CODE_INVALID',
       });
       expect(twoFactor.rows.get(ANA_ID)?.enabledAt).toBeNull();
@@ -114,7 +117,7 @@ describe('AccountTwoFactorService', () => {
     });
 
     it('without a setup it is TWO_FACTOR_NOT_STARTED', async () => {
-      await expect(service.enable(ANA_ID, '111111')).rejects.toMatchObject({
+      await expect(service.enable(ANA_ID, '111111', CHROME_ON_WINDOWS)).rejects.toMatchObject({
         code: 'TWO_FACTOR_NOT_STARTED',
       });
     });
@@ -125,13 +128,32 @@ describe('AccountTwoFactorService', () => {
         ['ana@mesa.com', 'Verificação em duas etapas ligada'],
       ]);
     });
+
+    it('the notice greets the nickname, names the @ and says the device of the request', async () => {
+      await turnOn();
+      const [mail] = mailer.sent;
+      expect(mail?.text).toContain(
+        'Oi, Ana! A verificação em duas etapas está ligada na conta @ana.',
+      );
+      expect(mail?.text).toContain('De onde: Chrome no Windows');
+    });
+
+    it('a mailer failure does not undo the 2FA already turned on', async () => {
+      mailer.failWith = new Error('smtp down');
+      await turnOn();
+      expect(twoFactor.rows.get(ANA_ID)?.enabledAt).toEqual(NOW);
+    });
   });
 
   describe('disable', () => {
     it('password + a new app code turns 2FA off, drops the codes and tells the e-mail', async () => {
       await turnOn();
       totp.stepsByCode.set('222222', CURRENT_STEP + 1);
-      await service.disable(ANA_ID, { currentPassword: PASSWORD, code: '222222' });
+      await service.disable(
+        ANA_ID,
+        { currentPassword: PASSWORD, code: '222222' },
+        CHROME_ON_WINDOWS,
+      );
       expect(twoFactor.rows.has(ANA_ID)).toBe(false);
       expect(recoveryCodes.rows).toEqual([]);
       expect(mailer.sent.at(-1)?.subject).toBe('Verificação em duas etapas desligada');
@@ -139,26 +161,38 @@ describe('AccountTwoFactorService', () => {
 
     it('the code that turned it on cannot turn it off (replay)', async () => {
       await turnOn();
-      const replay = service.disable(ANA_ID, { currentPassword: PASSWORD, code: '111111' });
+      const replay = service.disable(
+        ANA_ID,
+        { currentPassword: PASSWORD, code: '111111' },
+        CHROME_ON_WINDOWS,
+      );
       await expect(replay).rejects.toMatchObject({ code: 'TWO_FACTOR_CODE_INVALID' });
       expect(twoFactor.rows.get(ANA_ID)?.enabledAt).toEqual(NOW);
     });
 
     it('a recovery code also serves', async () => {
       const [code = ''] = await turnOn();
-      await service.disable(ANA_ID, { currentPassword: PASSWORD, code });
+      await service.disable(ANA_ID, { currentPassword: PASSWORD, code }, CHROME_ON_WINDOWS);
       expect(twoFactor.rows.has(ANA_ID)).toBe(false);
     });
 
     it('a wrong password is CURRENT_PASSWORD_INVALID even with a right code', async () => {
       await turnOn();
       totp.stepsByCode.set('222222', CURRENT_STEP + 1);
-      const attempt = service.disable(ANA_ID, { currentPassword: 'errada', code: '222222' });
+      const attempt = service.disable(
+        ANA_ID,
+        { currentPassword: 'errada', code: '222222' },
+        CHROME_ON_WINDOWS,
+      );
       await expect(attempt).rejects.toMatchObject({ code: 'CURRENT_PASSWORD_INVALID' });
     });
 
     it('with 2FA off it is TWO_FACTOR_NOT_ENABLED', async () => {
-      const attempt = service.disable(ANA_ID, { currentPassword: PASSWORD, code: '111111' });
+      const attempt = service.disable(
+        ANA_ID,
+        { currentPassword: PASSWORD, code: '111111' },
+        CHROME_ON_WINDOWS,
+      );
       await expect(attempt).rejects.toMatchObject({ code: 'TWO_FACTOR_NOT_ENABLED' });
     });
   });

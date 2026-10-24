@@ -19,4 +19,18 @@ describe('UserAccessBo', () => {
     const access = new UserAccessBo(userPo({ role: 'user' }));
     expect(() => access.requireRole('user')).not.toThrow();
   });
+
+  it('an active account passes requireActive', () => {
+    expect(() => new UserAccessBo(userPo({ suspendedAt: null })).requireActive()).not.toThrow();
+  });
+
+  it('a suspended account is refused with ACCOUNT_SUSPENDED citing its id', () => {
+    const access = new UserAccessBo(userPo({ suspendedAt: new Date('2026-10-20T12:00:00Z') }));
+    expect(() => access.requireActive()).toThrow(
+      expect.objectContaining({
+        code: 'ACCOUNT_SUSPENDED',
+        message: expect.stringContaining('expected an active account'),
+      }),
+    );
+  });
 });

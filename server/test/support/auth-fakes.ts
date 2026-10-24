@@ -21,6 +21,7 @@ type UsersDaoSlice = Pick<
   | 'sealEmail'
   | 'updatePassword'
   | 'updateEmail'
+  | 'touchLastSeen'
 >;
 
 /** In-memory users table; `inserted` keeps every insert in order, `lookedUp` every e-mail index
@@ -62,6 +63,8 @@ export class UsersDaoFake implements UsersDaoSlice {
       bio: null,
       avatarId: null,
       passwordChangedAt: null,
+      suspendedAt: null,
+      lastSeenAt: null,
       createdAt: FAKE_CREATED_AT,
       ...user,
     };
@@ -91,6 +94,10 @@ export class UsersDaoFake implements UsersDaoSlice {
       });
     }
     this.patch(userId, sealed);
+  }
+
+  async touchLastSeen(userId: string, lastSeenAt: Date): Promise<void> {
+    this.patch(userId, { lastSeenAt });
   }
 
   private patch(userId: string, changes: Partial<UserPo>): void {
@@ -131,6 +138,7 @@ export class AuthSessionsDaoFake implements Pick<
   | 'listOf'
   | 'findOfUser'
   | 'deleteOthersOf'
+  | 'deleteAllOf'
 > {
   readonly rows = new Map<string, AuthSessionPo>();
   readonly touched: Array<{ sessionId: string; lastSeenAt: Date }> = [];
@@ -185,6 +193,12 @@ export class AuthSessionsDaoFake implements Pick<
     );
     for (const row of others) this.rows.delete(row.id);
     return others.map((row) => row.id);
+  }
+
+  async deleteAllOf(userId: string): Promise<string[]> {
+    const own = [...this.rows.values()].filter((row) => row.userId === userId);
+    for (const row of own) this.rows.delete(row.id);
+    return own.map((row) => row.id);
   }
 }
 

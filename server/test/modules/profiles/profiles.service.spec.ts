@@ -1,7 +1,7 @@
 import { AVATAR_MAX_BYTES } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ProfilesService } from '../../../src/modules/profiles/profiles.service';
-import { AssetStorageFake } from '../../support/assets-fakes';
+import { AssetStorageFake, ImageFetcherFake } from '../../support/assets-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID } from '../../support/campaigns-factories';
 import {
@@ -21,6 +21,7 @@ describe('ProfilesService', () => {
   let storage: AssetStorageFake;
   let processor: AvatarProcessorFake;
   let profileChanged: ProfileChangedFake;
+  let fetcher: ImageFetcherFake;
   let service: ProfilesService;
 
   beforeEach(() => {
@@ -30,11 +31,13 @@ describe('ProfilesService', () => {
     storage = new AssetStorageFake(journal);
     processor = new AvatarProcessorFake(journal);
     profileChanged = new ProfileChangedFake(journal);
+    fetcher = new ImageFetcherFake();
     service = new ProfilesService({
       profiles,
       storage,
       processor,
       profileChanged,
+      fetcher,
       newId: () => NEW_AVATAR,
     });
   });
@@ -171,6 +174,52 @@ describe('ProfilesService', () => {
       await expect(service.openAvatar(OLD_AVATAR)).rejects.toMatchObject({
         code: 'AVATAR_NOT_FOUND',
       });
+    });
+  });
+
+  describe('the photo from a link', () => {
+    const LINK = 'https://media.example.com/dado.gif';
+
+    it('downloads the link, then the same path as a sent photo: normalize, put, swap, tell', async () => {
+      const profile = await service.replaceAvatarFromLink(ANA_ID, LINK);
+      expect(fetcher.fetched).toEqual([LINK]);
+      expect(journal).toEqual([
+        'normalize',
+        'put',
+        `swap:${NEW_AVATAR}`,
+        `profileChanged:${ANA_ID}`,
+      ]);
+      expect(profile.avatarId).toBe(NEW_AVATAR);
+    });
+
+    it.each([
+      [{ kind: 'blocked', host: 'localhost', address: '127.0.0.1' }, 'LINK_BLOCKED'],
+      [{ kind: 'unreachable', reason: 'answered HTTP 404' }, 'LINK_UNREACHABLE'],
+      [{ kind: 'too-large', limit: AVATAR_MAX_BYTES, received: null }, 'AVATAR_TOO_LARGE'],
+    ] as const)('a link refused as %o is %s and nothing is kept', async (refusal, code) => {
+      fetcher.refusal = refusal;
+      await expect(service.replaceAvatarFromLink(ANA_ID, LINK)).rejects.toMatchObject({ code });
+      expect(journal).toEqual([]);
+    });
+
+    it('a link that answers no image (a web page) is LINK_NOT_IMAGE citing the link', async () => {
+      processor.refusal = {
+        reason: 'not-an-image',
+        detail: 'input buffer contains unsupported image format',
+      };
+      await expect(service.replaceAvatarFromLink(ANA_ID, LINK)).rejects.toMatchObject({
+        code: 'LINK_NOT_IMAGE',
+        message: expect.stringContaining(LINK),
+      });
+      expect(journal).toEqual(['normalize']);
+    });
+
+    it('a download above 5 MiB is AVATAR_TOO_LARGE before decoding', async () => {
+      fetcher.answer = { bytes: new Uint8Array(AVATAR_MAX_BYTES + 1), contentType: 'image/gif' };
+      await expect(service.replaceAvatarFromLink(ANA_ID, LINK)).rejects.toMatchObject({
+        code: 'AVATAR_TOO_LARGE',
+      });
+      expect(journal).toEqual([]);
     });
   });
 });

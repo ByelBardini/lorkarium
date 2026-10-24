@@ -1,4 +1,10 @@
 import { RECOVERY_CODE_ALPHABET } from '@lorkarium/contracts';
+import type { AccountRecoveryService } from '../../src/modules/account-security/account-recovery.service';
+import type { AccountRecoveryTokensDao } from '../../src/modules/account-security/account-recovery-tokens.dao';
+import type {
+  AccountRecoveryTokenPo,
+  NewAccountRecoveryTokenPo,
+} from '../../src/modules/account-security/account-recovery-tokens.po';
 import type { EmailChangeRequestsDao } from '../../src/modules/account-security/email-change-requests.dao';
 import type {
   EmailChangeRequestPo,
@@ -33,6 +39,20 @@ export class MailerFake implements MailerPort {
       .findLast((token) => token !== undefined);
     if (!link) throw new Error(`no confirmation link was sent to ${to}; sent: ${this.describe()}`);
     return decodeURIComponent(link);
+  }
+
+  /** The token of the last "Não fui eu" link sent to `to` (`…/account/recover#token=<token>`). */
+  recoveryTokenFor(to: string): string {
+    return this.lastTokenFor(to, /\/account\/recover#token=([^\s"<]+)/);
+  }
+
+  /** The token of the last link sent to `to` whose path matches `pattern` (first group). */
+  lastTokenFor(to: string, pattern: RegExp): string {
+    const token = this.to(to)
+      .map((message) => pattern.exec(message.text)?.[1])
+      .findLast((found) => found !== undefined);
+    if (!token) throw new Error(`no ${pattern} link was sent to ${to}; sent: ${this.describe()}`);
+    return decodeURIComponent(token);
   }
 
   private describe(): string {
@@ -82,5 +102,49 @@ export class EmailChangeRequestsDaoFake implements Pick<
 
   async deleteOfUser(userId: string): Promise<void> {
     this.rows = this.rows.filter((row) => row.userId !== userId);
+  }
+}
+
+/** In-memory account_recovery_tokens table keyed by the token hash. */
+export class AccountRecoveryTokensDaoFake implements Pick<
+  AccountRecoveryTokensDao,
+  'insert' | 'findById' | 'deleteById' | 'deleteAllOf'
+> {
+  readonly rows = new Map<string, AccountRecoveryTokenPo>();
+
+  async insert(token: NewAccountRecoveryTokenPo): Promise<void> {
+    this.rows.set(token.id, {
+      emailCipher: null,
+      emailIndex: null,
+      createdAt: FAKE_CREATED_AT,
+      ...token,
+    });
+  }
+
+  async findById(tokenId: string): Promise<AccountRecoveryTokenPo | undefined> {
+    return this.rows.get(tokenId);
+  }
+
+  async deleteById(tokenId: string): Promise<boolean> {
+    return this.rows.delete(tokenId);
+  }
+
+  async deleteAllOf(userId: string): Promise<number> {
+    const own = [...this.rows.values()].filter((row) => row.userId === userId);
+    for (const row of own) this.rows.delete(row.id);
+    return own.length;
+  }
+}
+
+export type IssuedRecovery = Readonly<{ userId: string; kind: string; previousEmail?: string }>;
+
+/** Issues predictable recovery links (`…/account/recover#token=recovery-1`, `-2`…) and keeps what
+ *  was asked, for the services that put the link in a notice. */
+export class RecoveryIssuerFake implements Pick<AccountRecoveryService, 'issue'> {
+  readonly issued: IssuedRecovery[] = [];
+
+  async issue(userId: string, kind: string, previousEmail?: string): Promise<string> {
+    this.issued.push({ userId, kind, ...(previousEmail === undefined ? {} : { previousEmail }) });
+    return `https://mesa.example.com/account/recover#token=recovery-${this.issued.length}`;
   }
 }

@@ -34,6 +34,13 @@ describe('GuardedImageFetcher', () => {
       if (path === '/a.png')
         return response.writeHead(200, { 'content-type': 'image/png' }).end(IMAGE);
       if (path === '/once') return redirect(response, '/a.png');
+      // Like Wikimedia and other image hosts: no User-Agent, no image.
+      if (path === '/picky.gif') {
+        const named = request.headers['user-agent']?.startsWith('Lorkarium') === true;
+        const wantsImage = request.headers.accept?.includes('image/') === true;
+        if (!named || !wantsImage) return response.writeHead(403).end();
+        return response.writeHead(200, { 'content-type': 'image/gif' }).end(IMAGE);
+      }
       const hop = /^\/chain\/(\d+)$/.exec(path);
       if (hop) return redirect(response, `/chain/${Number(hop[1]) + 1}`);
       if (path === '/to-ipv6') return redirect(response, `http://[::1]:${port}/a.png`);
@@ -56,6 +63,14 @@ describe('GuardedImageFetcher', () => {
 
     expect(bytesOf(outcome)).toEqual(IMAGE);
     expect(outcome.ok && outcome.image.contentType).toBe('image/png');
+  });
+
+  it('names itself and asks for an image, so a host that refuses anonymous requests answers', async () => {
+    const outcome = await new GuardedImageFetcher({ policy: loopback }).fetch(
+      `${origin}/picky.gif`,
+    );
+
+    expect(bytesOf(outcome)).toEqual(IMAGE);
   });
 
   it('a redirect to another path of the same origin is followed', async () => {

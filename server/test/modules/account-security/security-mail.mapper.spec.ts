@@ -5,70 +5,164 @@ import {
   emailConfirmationMail,
   passwordChangedMail,
   twoFactorChangedMail,
+  type MailOrigin,
+  type MailRecipient,
 } from '../../../src/modules/account-security/security-mail.mapper';
 
-// 15:30 in São Paulo (UTC−3).
-const AT = new Date('2026-10-14T18:30:00Z');
-const LINK = 'https://mesa.example.com/account/email/confirm#token=segredo-do-link';
+const PUBLIC_URL = 'https://mesa.example.com';
+// 03:14 in Brasília (UTC−3).
+const AT = new Date('2026-10-24T06:14:00Z');
+const CHROME_ON_WINDOWS =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
+const ANA: MailRecipient = { to: 'ana@mesa.com', name: 'Ana', username: 'ana' };
+const ORIGIN: MailOrigin = { at: AT, userAgent: CHROME_ON_WINDOWS };
+const LINK = 'https://mesa.example.com/account/email/confirm#token=t1';
 
-describe('security notices', () => {
-  it('"Sua senha foi trocada" says when, in São Paulo time, and the "if it was not you"', () => {
-    const mail = passwordChangedMail('ana@mesa.com', AT);
-    expect(mail.to).toBe('ana@mesa.com');
-    expect(mail.subject).toBe('Sua senha foi trocada');
-    expect(mail.text).toContain('14 de outubro de 2026');
-    expect(mail.text).toContain('15:30');
-    expect(mail.text).toContain('Se não foi você');
-    expect(mail.html).toContain('<p>Se não foi você');
+describe('twoFactorChangedMail', () => {
+  const on = twoFactorChangedMail({
+    person: ANA,
+    origin: ORIGIN,
+    enabled: true,
+    publicUrl: PUBLIC_URL,
+  });
+  const off = twoFactorChangedMail({
+    person: ANA,
+    origin: ORIGIN,
+    enabled: false,
+    publicUrl: PUBLIC_URL,
   });
 
-  it.each([
-    [true, 'Verificação em duas etapas ligada'],
-    [false, 'Verificação em duas etapas desligada'],
-  ])('2FA turned on=%s has the subject "%s"', (enabled, subject) => {
-    expect(twoFactorChangedMail('ana@mesa.com', enabled, AT).subject).toBe(subject);
+  it('turned on: goes to the account, says it got safer and names the @', () => {
+    expect(on.to).toBe('ana@mesa.com');
+    expect(on.subject).toBe('Verificação em duas etapas ligada');
+    expect(on.text).toContain('Sua conta ficou mais protegida');
+    expect(on.text).toContain('Oi, Ana! A verificação em duas etapas está ligada na conta @ana.');
   });
 
-  it('the request notice to the old address names only the masked new one', () => {
-    const mail = emailChangeRequestedMail('ana@mesa.com', 'b*****@x.com', AT);
-    expect(mail.text).toContain('b*****@x.com');
-    expect(mail.text).toContain('Se não foi você');
+  it('says when in Brasília time and the device the request came from', () => {
+    expect(on.text).toContain('Quando: 24 de outubro de 2026 às 03:14 (horário de Brasília)');
+    expect(on.text).toContain('De onde: Chrome no Windows');
   });
 
-  it('the done notice to the old address says it no longer signs in', () => {
-    const mail = emailChangedMail('ana@mesa.com', 'b*****@x.com', AT);
-    expect(mail.subject).toBe('O e-mail da sua conta foi trocado');
-    expect(mail.text).toContain('não entra mais');
+  it('turned on: the ok tone and the button to the account security', () => {
+    expect(on.text).toContain('Ver a segurança da conta: https://mesa.example.com/account');
+    expect(on.html).toContain('icon-shield-ok.png');
   });
 
-  it('every notice has plain text and HTML, and never a token', () => {
-    const notices = [
-      passwordChangedMail('ana@mesa.com', AT),
-      twoFactorChangedMail('ana@mesa.com', true, AT),
-      emailChangeRequestedMail('ana@mesa.com', 'b*****@x.com', AT),
-      emailChangedMail('ana@mesa.com', 'b*****@x.com', AT),
-    ];
-    for (const mail of notices) {
-      expect(mail.text.length).toBeGreaterThan(20);
-      expect(mail.html).toMatch(/^<p>/);
-      expect(`${mail.text}${mail.html}`).not.toMatch(/token/i);
-    }
+  it('turned off: the alert tone, the codes are gone and the warning sends to Minha conta', () => {
+    expect(off.subject).toBe('Verificação em duas etapas desligada');
+    expect(off.html).toContain('icon-shield-off-alert.png');
+    expect(off.text).toContain('Os códigos de recuperação antigos não valem mais.');
+    expect(off.text).toContain('Ligar de novo: https://mesa.example.com/account');
+    expect(off.text).toContain('Troque a senha agora em Minha conta');
   });
 
-  it('values are escaped in the HTML', () => {
-    const mail = emailChangedMail('ana@mesa.com', '<b>@x.com', AT);
-    expect(mail.html).toContain('&lt;b&gt;@x.com');
-    expect(mail.html).not.toContain('<b>@x.com');
+  it('without a user agent the device is "Navegador desconhecido"', () => {
+    const origin = { at: AT, userAgent: null };
+    const mail = twoFactorChangedMail({
+      person: ANA,
+      origin,
+      enabled: true,
+      publicUrl: PUBLIC_URL,
+    });
+    expect(mail.text).toContain('De onde: Navegador desconhecido');
   });
 });
 
 describe('emailConfirmationMail', () => {
-  it('carries the link in the text and as the HTML anchor, with the 30-minute rule', () => {
-    const mail = emailConfirmationMail('bia@novo.com', LINK);
+  const mail = emailConfirmationMail({
+    person: { to: 'bia@novo.com', name: 'Ana', username: 'ana' },
+    link: LINK,
+    publicUrl: PUBLIC_URL,
+  });
+
+  it('goes to the new address, greeting the account and naming its @', () => {
     expect(mail.to).toBe('bia@novo.com');
-    expect(mail.subject).toBe('Confirme seu novo e-mail');
-    expect(mail.text).toContain(LINK);
-    expect(mail.html).toContain(`<a href="${LINK}">Confirmar novo e-mail</a>`);
-    expect(mail.text).toContain('30 minutos');
+    expect(mail.subject).toBe('Confirme seu novo e-mail no Lorkarium');
+    expect(mail.text).toContain('Confirme que este e-mail é seu');
+    expect(mail.text).toContain(
+      'Oi, Ana! Pediram para usar este endereço na conta @ana do Lorkarium.',
+    );
+    expect(mail.text).toContain('Até você confirmar, a conta continua usando o e-mail antigo.');
+  });
+
+  it('the button and the fallback carry the same link, with the 30-minute rule', () => {
+    expect(mail.html).toContain(`<a href="${LINK}"`);
+    expect(mail.html).toContain(`>${LINK}</a>`);
+    expect(mail.text).toContain(`Confirmar novo e-mail: ${LINK}`);
+    expect(mail.text).toContain('O link vale 30 minutos e só funciona uma vez.');
+  });
+
+  it('the footer says why it arrived and that ignoring changes nothing', () => {
+    expect(mail.text).toContain(
+      'Você recebeu porque este endereço foi informado numa troca de e-mail. Se não foi você, ignore: nada muda na conta.',
+    );
+  });
+});
+
+const RECOVER = 'https://mesa.example.com/account/recover#token=r1';
+
+describe('passwordChangedMail', () => {
+  const mail = passwordChangedMail({
+    person: ANA,
+    origin: ORIGIN,
+    recoveryLink: RECOVER,
+    publicUrl: PUBLIC_URL,
+  });
+
+  it('says the other devices were signed out, with when and from where', () => {
+    expect(mail.subject).toBe('Sua senha do Lorkarium foi trocada');
+    expect(mail.text).toContain('Por segurança, desconectamos todos os outros aparelhos.');
+    expect(mail.text).toContain('Quando: 24 de outubro de 2026 às 03:14 (horário de Brasília)');
+  });
+
+  it('the "Não fui eu" button carries the recovery link and the warning its 7 days', () => {
+    expect(mail.text).toContain(`Não fui eu, recuperar a conta: ${RECOVER}`);
+    expect(mail.text).toContain('em até 7 dias');
+    expect(mail.html).toContain('icon-lock-dark.png');
+  });
+});
+
+describe('emailChangeRequestedMail', () => {
+  it('names only the masked new address and offers to cancel, in the alert tone', () => {
+    const mail = emailChangeRequestedMail({
+      person: ANA,
+      origin: ORIGIN,
+      maskedNewEmail: 'b*****@x.com',
+      recoveryLink: RECOVER,
+      publicUrl: PUBLIC_URL,
+    });
+    expect(mail.text).toContain('Novo e-mail: b*****@x.com');
+    expect(mail.text).toContain(`Não fui eu, cancelar a troca: ${RECOVER}`);
+    expect(mail.html).toContain('icon-mail-swap-alert.png');
+  });
+});
+
+describe('emailChangedMail', () => {
+  const mail = emailChangedMail({
+    person: ANA,
+    origin: ORIGIN,
+    maskedNewEmail: 'b*****@x.com',
+    recoveryLink: RECOVER,
+    publicUrl: PUBLIC_URL,
+  });
+
+  it('says this is the last notice to this address, with the way back', () => {
+    expect(mail.text).toContain(
+      'O e-mail da conta @ana agora é b*****@x.com. Este é o último aviso que mandamos para cá.',
+    );
+    expect(mail.text).toContain(`Não fui eu, recuperar a conta: ${RECOVER}`);
+  });
+
+  it('escapes values in the HTML', () => {
+    const tricky = emailChangedMail({
+      person: ANA,
+      origin: ORIGIN,
+      maskedNewEmail: '<b>@x.com',
+      recoveryLink: RECOVER,
+      publicUrl: PUBLIC_URL,
+    });
+    expect(tricky.html).toContain('&lt;b&gt;@x.com');
+    expect(tricky.html).not.toContain('<b>@x.com');
   });
 });
