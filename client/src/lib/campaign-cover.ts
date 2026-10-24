@@ -1,3 +1,5 @@
+import { stableHash } from './stable-hash';
+
 export const COVER_VARIANTS = 3;
 export const COVER_TONES = 4;
 
@@ -8,7 +10,6 @@ export type CampaignCover = Readonly<{ variant: number; tone: number }>;
  *
  *  Example: `coverFor(campaign.id) // { variant: 1, tone: 3 }` */
 export function coverFor(campaignId: string): CampaignCover {
-  let hash = 0;
-  for (const char of campaignId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  const hash = stableHash(campaignId);
   return { variant: hash % COVER_VARIANTS, tone: (hash % COVER_TONES) + 1 };
 }
