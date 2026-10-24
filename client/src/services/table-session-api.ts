@@ -1,5 +1,8 @@
 import type {
   BoardStateDto,
+  LibraryChangedDto,
+  SceneActivatedDto,
+  SceneClosedDto,
   SessionMemberActivityDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
@@ -29,7 +32,35 @@ export type TableSessionUpdate =
   /** Someone else's drag preview (one token or a group): unversioned, so it never goes through
    *  the version check. */
   | Readonly<{ kind: 'tokensDragged'; drag: TokensDraggedDto }>
-  | Readonly<{ kind: 'boardFailed'; failure: BoardSyncFailure }>;
+  | Readonly<{ kind: 'boardFailed'; failure: BoardSyncFailure }>
+  /** The master took the group to another grid; the group grid syncs again on its own. */
+  | Readonly<{ kind: 'sceneActivated'; event: SceneActivatedDto }>
+  /** The server took this tab out of a grid (it became private or was deleted). */
+  | Readonly<{ kind: 'sceneClosed'; event: SceneClosedDto }>
+  /** Something in the library changed: read it again by its route. */
+  | Readonly<{ kind: 'libraryChanged'; event: LibraryChangedDto }>;
+
+/** What reaches the store of one grid: its snapshot, its events and the drags over it. */
+export type GridUpdate = Extract<
+  TableSessionUpdate,
+  Readonly<{ kind: 'board' | 'boardEvent' | 'tokensDragged' | 'boardFailed' }>
+>;
+
+export type GridListener = (update: GridUpdate) => void;
+
+/** An extra grid tab of an open table. */
+export type GridWatchHandle = Readonly<{
+  /** Stops watching (`scene:unwatch`); nothing of that grid reaches the tab after. */
+  close: () => void;
+  /** Asks for a fresh snapshot of that grid; it arrives as a `board` update. */
+  resync: () => void;
+}>;
+
+/** The table's cast followed by an open table. */
+export type CastHandle = Readonly<{
+  /** Asks for a fresh snapshot of the cast; it arrives as a `board` update. */
+  resync: () => void;
+}>;
 
 export type TableSessionListener = (update: TableSessionUpdate) => void;
 
@@ -39,6 +70,12 @@ export type TableSessionHandle = Readonly<{
   resync: () => void;
   /** This tab stood still for a while (`true`) or moved again; kept across reconnections. */
   setAway: (away: boolean) => void;
+  /** Opens an extra tab of one grid of this table: its snapshot and events go to `listener`
+   *  (the group grid's keep going to the table's), again after every reconnection. */
+  watch: (sceneId: string, listener: GridListener) => GridWatchHandle;
+  /** Follows the table's cast (`castSceneId` of the campaign detail): its snapshot and events go
+   *  to `listener`, again after every reconnection. */
+  followCast: (sceneId: string, listener: GridListener) => CastHandle;
 }>;
 
 /** The live session of one table, as the screen sees it: validated updates, never raw packets.
@@ -72,6 +109,8 @@ export class RealtimeTableSessionApi implements TableSessionApi {
       close: () => this.close(visit),
       resync: () => void visit.syncBoard(),
       setAway: (away) => visit.setAway(away),
+      watch: (sceneId, listener) => visit.watch(sceneId, listener),
+      followCast: (sceneId, listener) => visit.followCast(sceneId, listener),
     };
   }
 

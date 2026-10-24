@@ -1,3 +1,4 @@
+import type { BoardScope } from '@/services/board-command-sender';
 import type {
   BarChangeDto,
   EffectAreaDto,
@@ -239,13 +240,14 @@ export type BoardInteractionStore = BoardInteractionState &
     /** Sends any other board command; a refusal goes to the status line. Nothing is sent while
      *  read only. Answers whether it was confirmed. */
     command: (
-      send: (commands: TableBoardCommands, campaignId: string) => Promise<BoardCommandResult>,
+      send: (commands: TableBoardCommands, scope: BoardScope) => Promise<BoardCommandResult>,
     ) => Promise<boolean>;
     dropPreview: () => void;
   }>;
 
 export type BoardInteractionDeps = Readonly<{
-  campaignId: string;
+  /** The grid its commands go to, read when each one is sent (the group grid can change). */
+  scopeOf: () => BoardScope;
   commands: TableBoardCommands;
   /** The words for a refused token command, from the feature that owns the messages. */
   describeRefusal: (failure: BoardCommandFailure) => string;
@@ -272,7 +274,7 @@ const NO_PREVIEWS = {
 /** The local side of the board for one room visit. Commands go to the server and the board
  *  only changes when its event arrives; a refused move puts the token back and says why.
  *
- *  Example: `const [interaction] = useState(() => createBoardInteractionStore({ campaignId, commands, describeRefusal }))` */
+ *  Example: `const [interaction] = useState(() => createBoardInteractionStore({ scopeOf, commands, describeRefusal }))` */
 export function createBoardInteractionStore(
   deps: BoardInteractionDeps,
 ): StoreApi<BoardInteractionStore> {
@@ -335,7 +337,7 @@ export function createBoardInteractionStore(
       },
       setTokensLayer: async (tokenIds, layer) => {
         if (get().readOnly) return;
-        const result = await deps.commands.setTokenLayer(deps.campaignId, tokenIds, layer);
+        const result = await deps.commands.setTokenLayer(deps.scopeOf(), tokenIds, layer);
         sayIfRefused(deps, set, result);
       },
       setReadOnly: (readOnly) => {
@@ -350,7 +352,7 @@ export function createBoardInteractionStore(
       dropToken: (tokenId, to, announce) => drags.drop({ tokenId, to, announce }),
       adjustBar: async (tokenId, barId, change) => {
         if (get().readOnly) return;
-        const result = await deps.commands.adjustBar(deps.campaignId, tokenId, barId, change);
+        const result = await deps.commands.adjustBar(deps.scopeOf(), tokenId, barId, change);
         sayIfRefused(deps, set, result);
       },
       faceTokens: (turns, announce) => faceTokensOf(deps, store, turns, announce),
@@ -418,7 +420,7 @@ export function createBoardInteractionStore(
       dropPreview: () => set({ ...NO_PREVIEWS }),
       command: async (send) => {
         if (get().readOnly) return false;
-        const result = await send(deps.commands, deps.campaignId);
+        const result = await send(deps.commands, deps.scopeOf());
         sayIfRefused(deps, set, result);
         return result.ok;
       },

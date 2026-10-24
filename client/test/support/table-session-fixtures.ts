@@ -89,6 +89,9 @@ export const VHARN_SCENE: SceneDto = {
   vision: 'off',
 };
 
+/** The scope of VHARN's group grid (`VHARN_SCENE`): where the room's commands go by default. */
+export const VHARN_GRID = { campaignId: VHARN.id, sceneId: VHARN_SCENE.id } as const;
+
 /** The VHARN board as Ana (master) sees it at version 4: the empty default scene, no combat.
  *
  *  Example: `vharnBoard({ version: 7, viewer: { userId: BIA_AT_TABLE.userId, role: 'player' } })` */
@@ -118,6 +121,7 @@ export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDt
 export function sceneUpdated(overrides: Partial<SceneUpdatedDto> = {}): SceneUpdatedDto {
   return {
     campaignId: VHARN.id,
+    sceneId: VHARN_SCENE.id,
     version: 5,
     at: AT,
     scene: { ...VHARN_SCENE, widthCells: 30, heightCells: 20 },
@@ -178,6 +182,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
       },
     ],
     conditions: [],
+    anchorTokenId: null,
     ...overrides,
   };
 }
@@ -186,12 +191,12 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
  *
  *  Example: `tokenCreatedAt(5, lyra())` */
 export function tokenCreatedAt(version: number, token: TokenDto): BoardEvent {
-  return { type: 'tokenCreated', payload: { campaignId: VHARN.id, version, at: AT, token } };
+  return { type: 'tokenCreated', payload: { ...VHARN_GRID, version, at: AT, token } };
 }
 
 /** `token:updated` of `token` at VHARN, as a board event. */
 export function tokenUpdatedAt(version: number, token: TokenDto): BoardEvent {
-  return { type: 'tokenUpdated', payload: { campaignId: VHARN.id, version, at: AT, token } };
+  return { type: 'tokenUpdated', payload: { ...VHARN_GRID, version, at: AT, token } };
 }
 
 /** `token:moved` of Lyra (unless told otherwise) at VHARN, as a board event.
@@ -203,7 +208,7 @@ export function tokenMovedAt(
 ): BoardEvent {
   return {
     type: 'tokenMoved',
-    payload: { campaignId: VHARN.id, version, at: AT, tokenId, col, row },
+    payload: { ...VHARN_GRID, version, at: AT, tokenId, col, row },
   };
 }
 
@@ -211,7 +216,7 @@ export function tokenMovedAt(
 export function tokenDeletedAt(version: number, tokenId = LYRA_ID): BoardEvent {
   return {
     type: 'tokenDeleted',
-    payload: { campaignId: VHARN.id, version, at: AT, tokenId, combat: null },
+    payload: { ...VHARN_GRID, version, at: AT, tokenId, combat: null },
   };
 }
 
@@ -287,16 +292,20 @@ export function activeCondition(overrides: Partial<ActiveConditionDto> = {}): Ac
   };
 }
 
-/** Any board event of VHARN at `version`, built from its type and the fields of its payload. */
+/** Any board event of VHARN's group grid at `version`, built from its type and the fields of its
+ *  payload (`sceneId` overrides the grid). */
 export function eventAt(version: number, event: DistributiveOmit<BoardEvent>): BoardEvent {
   return {
     ...event,
-    payload: { ...event.payload, campaignId: VHARN.id, version, at: AT },
+    payload: { sceneId: VHARN_SCENE.id, ...event.payload, campaignId: VHARN.id, version, at: AT },
   } as BoardEvent;
 }
 
 type DistributiveOmit<E> = E extends { type: infer T; payload: infer P }
-  ? { type: T; payload: Omit<P, 'campaignId' | 'version' | 'at'> }
+  ? {
+      type: T;
+      payload: Omit<P, 'campaignId' | 'sceneId' | 'version' | 'at'> & { sceneId?: string };
+    }
   : never;
 
 /** The card of Bia on VHARN, empty unless overridden.

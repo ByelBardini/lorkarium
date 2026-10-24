@@ -1,9 +1,11 @@
+import type { BoardScope } from '@/services/board-command-sender';
 import type { EffectAreaShapeDto } from '@lorkarium/contracts';
 import type { EditEntry } from '@/lib/edit-history';
 import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-board-commands';
 
 export type EffectAreaToolDeps = Readonly<{
-  campaignId: string;
+  /** The grid its commands go to, read when each one is sent (the group grid can change). */
+  scopeOf: () => BoardScope;
   commands: TableBoardCommands;
   describeRefusal: (failure: BoardCommandFailure) => string;
   /** The confirmed area goes on this user's undo stack. */
@@ -26,7 +28,7 @@ export async function sendEffectArea(
   context: EffectAreaToolContext,
 ): Promise<void> {
   if (context.readOnly) return;
-  const result = await deps.commands.createEffectAreas(deps.campaignId, [shape]);
+  const result = await deps.commands.createEffectAreas(deps.scopeOf(), [shape]);
   if (!result.ok) return context.say(deps.describeRefusal(result.failure));
   const [id] = result.createdIds ?? [];
   if (id) deps.recordEdit([{ kind: 'effectAreasAdded', effectAreas: [{ id, shape }] }]);

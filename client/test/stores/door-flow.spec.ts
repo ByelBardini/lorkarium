@@ -4,9 +4,9 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
-import { VHARN } from '../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import { CELL_DOOR_ID, cellDoor } from '../support/wall-fixtures';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 
 describe('opening and closing doors', () => {
   let commands: TableBoardCommandsFake;
@@ -15,7 +15,7 @@ describe('opening and closing doors', () => {
   beforeEach(() => {
     commands = new TableBoardCommandsFake();
     store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });

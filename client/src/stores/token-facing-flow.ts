@@ -20,7 +20,7 @@ export async function faceTokensOf(
   const facingPreview = Object.fromEntries(turns.map(({ tokenId, to }) => [tokenId, to]));
   setState({ facingPreview });
   const faces = turns.map(({ tokenId, to }) => ({ tokenId, facing: to }));
-  const result = await deps.commands.faceTokens(deps.campaignId, faces);
+  const result = await deps.commands.faceTokens(deps.scopeOf(), faces);
   if (getState().facingPreview === facingPreview) setState({ facingPreview: {} });
   if (!result.ok) return setState({ notice: deps.describeRefusal(result.failure) });
   deps.recordEdit?.([{ kind: 'tokensFaced', turns }]);

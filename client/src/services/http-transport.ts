@@ -1,4 +1,4 @@
-export type HttpMethod = 'GET' | 'POST';
+export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
 /** `body` is the parsed JSON, `null` when empty, `undefined` when the answer is not JSON. */
 export type HttpResponse = Readonly<{

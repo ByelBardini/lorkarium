@@ -22,8 +22,10 @@ import {
   sceneUpdated,
   vharnBoard,
   vharnCombat,
+  VHARN_GRID,
 } from '../support/table-session-fixtures';
 import { biaCone } from '../support/effect-area-fixtures';
+import { ESTRADA_SCENE, estradaBoard } from '../support/scene-tab-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
 
 const AT_OF_AREAS = '2026-10-18T12:00:00.000Z';
@@ -89,7 +91,7 @@ describe('board store', () => {
     const created = (version: number) => {
       const event: BoardEvent = {
         type: 'effectAreasCreated',
-        payload: { campaignId: VHARN.id, version, at: AT_OF_AREAS, effectAreas: [biaCone()] },
+        payload: { ...VHARN_GRID, version, at: AT_OF_AREAS, effectAreas: [biaCone()] },
       };
       return { kind: 'boardEvent', event } as const;
     };
@@ -104,7 +106,7 @@ describe('board store', () => {
     const created = (version: number) => {
       const event: BoardEvent = {
         type: 'lightsCreated',
-        payload: { campaignId: VHARN.id, version, at: AT_OF_AREAS, lights: [corridorTorch()] },
+        payload: { ...VHARN_GRID, version, at: AT_OF_AREAS, lights: [corridorTorch()] },
       };
       return { kind: 'boardEvent', event } as const;
     };
@@ -120,7 +122,7 @@ describe('board store', () => {
       const event: BoardEvent = {
         type: 'lightColorsChanged',
         payload: {
-          campaignId: VHARN.id,
+          ...VHARN_GRID,
           version,
           at: AT_OF_AREAS,
           changes: [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }],
@@ -152,6 +154,45 @@ describe('board store', () => {
       boardEventOf(sceneUpdated({ campaignId: QUELM.id })),
     );
     expect(store.getState().board?.version).toBe(4);
+  });
+
+  describe('the group grid moving to another grid', () => {
+    const onEstrada = (version: number) =>
+      boardEventOf(
+        sceneUpdated({
+          sceneId: ESTRADA_SCENE.id,
+          version,
+          scene: { ...ESTRADA_SCENE, widthCells: 40 },
+        }),
+      );
+
+    it('an event of another grid waits, untouched by the version of the board shown', () => {
+      apply({ kind: 'board', state: vharnBoard() }, onEstrada(5));
+      expect(store.getState().board).toMatchObject({ version: 4, scene: { id: VHARN_SCENE.id } });
+      expect(resyncs).toBe(0);
+    });
+
+    it('the snapshot of that grid applies the events of it held above its version', () => {
+      apply({ kind: 'board', state: vharnBoard() }, onEstrada(8), onEstrada(6));
+      apply({ kind: 'board', state: estradaBoard() });
+      expect(store.getState().board).toMatchObject({ version: 8, scene: { widthCells: 40 } });
+    });
+
+    it('a snapshot of the grid drops the held events of any other grid', () => {
+      apply(sceneEvent(5, 25), onEstrada(8));
+      apply({ kind: 'board', state: estradaBoard() });
+      expect(store.getState().board).toMatchObject({ version: 8, scene: { id: ESTRADA_SCENE.id } });
+      expect(store.getState().held).toEqual([]);
+    });
+
+    it('a drag preview over another grid is not drawn here', () => {
+      apply({ kind: 'board', state: vharnBoard() });
+      const drag = groupDraggedOver([{ tokenId: LYRA_ID, cell: { col: 2, row: 2 } }], {
+        sceneId: ESTRADA_SCENE.id,
+      });
+      apply({ kind: 'tokensDragged', drag });
+      expect(store.getState().dragged).toEqual({});
+    });
   });
 
   it('a failed sync before any snapshot fails the board with the reason', () => {

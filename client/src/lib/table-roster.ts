@@ -23,15 +23,21 @@ export type TableRoster = Readonly<{ masters: RosterMaster[]; players: RosterPla
 
 export type TableRosterInput = Readonly<{
   members: readonly SessionMemberDto[];
+  /** The group grid's board (`null` while it loads). */
   board: BoardStateDto | null;
+  /** The table's cast: the cards in the table's version and the characters' anchors (`null`
+   *  while it loads: the grid's copy of the cards stands in). */
+  cast: BoardStateDto | null;
   viewerId: string;
 }>;
 
 /** Who goes in which section of the "Na mesa" tab: the masters apart, then the players online
- *  first (in the server's order) and the offline ones after, each with card and main token.
+ *  first (in the server's order) and the offline ones after, each with card and main token —
+ *  the group grid's, else the anchor of their character (who is in no grid of the group yet).
  *
- *  Example: `tableRosterOf({ members, board, viewerId: user.id }).players[0].characterName` */
-export function tableRosterOf({ members, board, viewerId }: TableRosterInput): TableRoster {
+ *  Example: `tableRosterOf({ members, board, cast, viewerId: user.id }).players[0].characterName` */
+export function tableRosterOf(input: TableRosterInput): TableRoster {
+  const { members, viewerId } = input;
   const masters = members
     .filter(({ role }) => role === 'master')
     .map((member) => ({ member, isViewer: member.userId === viewerId }));
@@ -40,7 +46,7 @@ export function tableRosterOf({ members, board, viewerId }: TableRosterInput): T
     ...players.filter(({ online }) => online),
     ...players.filter(({ online }) => !online),
   ];
-  return { masters, players: ordered.map((member) => playerOf(member, board, viewerId)) };
+  return { masters, players: ordered.map((member) => playerOf(member, input)) };
 }
 
 /** The name the card shows: the nickname written on it, else the main token's name.
@@ -55,16 +61,21 @@ export function characterNameOf(
 
 function playerOf(
   member: SessionMemberDto,
-  board: BoardStateDto | null,
-  viewerId: string,
+  { board, cast, viewerId }: TableRosterInput,
 ): RosterPlayer {
   const isViewer = member.userId === viewerId;
   if (!board) return { member, isViewer, card: null, token: null, characterName: null };
+  const memberCards = (cast ?? board).memberCards;
   const card =
-    board.memberCards.find(({ userId }) => userId === member.userId) ?? emptyCard(member.userId);
-  const tokenId = mainTokenIdOfMember(board, member.userId);
-  const token = board.tokens.find(({ id }) => id === tokenId) ?? null;
+    memberCards.find(({ userId }) => userId === member.userId) ?? emptyCard(member.userId);
+  const tokenId = mainTokenIdOfMember({ ...board, memberCards }, member.userId);
+  const token = board.tokens.find(({ id }) => id === tokenId) ?? anchorOf(cast, card);
   return { member, isViewer, card, token, characterName: characterNameOf(card, token) };
+}
+
+function anchorOf(cast: BoardStateDto | null, card: MemberCardDto): TokenDto | null {
+  if (!cast || !card.anchorTokenId) return null;
+  return cast.tokens.find(({ id }) => id === card.anchorTokenId) ?? null;
 }
 
 function emptyCard(userId: string): MemberCardDto {
@@ -75,5 +86,6 @@ function emptyCard(userId: string): MemberCardDto {
     difficultyClass: null,
     noteOne: null,
     noteTwo: null,
+    anchorTokenId: null,
   };
 }

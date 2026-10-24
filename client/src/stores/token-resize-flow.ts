@@ -21,7 +21,7 @@ export async function resizeTokensOf(
   const resizePreview = Object.fromEntries(resizes.map(({ tokenId, to }) => [tokenId, to]));
   setState({ resizePreview });
   const boxes = resizes.map(({ tokenId, to }) => ({ tokenId, ...to }));
-  const result = await deps.commands.resizeTokens(deps.campaignId, boxes);
+  const result = await deps.commands.resizeTokens(deps.scopeOf(), boxes);
   if (getState().resizePreview === resizePreview) setState({ resizePreview: {} });
   if (!result.ok) return setState({ notice: deps.describeRefusal(result.failure) });
   deps.recordEdit?.([{ kind: 'tokensResized', resizes }]);

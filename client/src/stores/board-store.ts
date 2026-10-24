@@ -3,6 +3,7 @@ import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { BoardEvent } from '@/services/board-events';
 import type { BoardSyncFailure, TableSessionUpdate } from '@/services/table-session-api';
+import { boardWithCast } from '@/lib/linked-tokens';
 import { applyBoardEvent } from './board-reducer';
 
 export type BoardStatus = 'loading' | 'ready' | 'failed';
@@ -10,8 +11,9 @@ export type BoardStatus = 'loading' | 'ready' | 'failed';
 /** The cell each token is being dragged over by someone else, by token id. */
 export type DraggedCells = Readonly<Record<string, Readonly<{ col: number; row: number }>>>;
 
-/** The confirmed board of one open table. `held` are events that cannot apply yet: before the
- *  first snapshot, or after a version gap while the resync is on its way. */
+/** The confirmed board of one grid of an open table. `held` are events that cannot apply yet:
+ *  before the first snapshot, after a version gap while the resync is on its way, or of the grid
+ *  the group is moving to (until its snapshot). */
 export type BoardStoreState = Readonly<{
   campaignId: string;
   status: BoardStatus;
@@ -29,15 +31,25 @@ export type BoardStore = BoardStoreState &
   Readonly<{
     apply: (update: TableSessionUpdate) => void;
     retry: () => void;
+    /** The cast changed: the linked tokens and the table's pieces are read from it again. */
+    relink: () => void;
   }>;
 
+/** The table's cast as it stands (`null` while it loads, or for the cast's own store). */
+export type CastOf = () => BoardStateDto | null;
+
+const NO_CAST: CastOf = () => null;
+
 /** A board store for one open table. A snapshot always replaces the board; an event applies only
- *  at `version + 1`, is a duplicate at or below it, and a gap asks `requestResync` once.
+ *  at `version + 1`, is a duplicate at or below it, and a gap asks `requestResync` once. With
+ *  `castOf`, the board shown is the grid's over the cast (`boardWithCast`): the linked tokens
+ *  with their anchors, the cards and the conditions defined from the table's version.
  *
- *  Example: `const board = createBoardStore(campaignId, () => handle.resync())` */
+ *  Example: `const board = createBoardStore(campaignId, () => handle.resync(), () => cast.getState().board)` */
 export function createBoardStore(
   campaignId: string,
   requestResync: () => void,
+  castOf: CastOf = NO_CAST,
 ): StoreApi<BoardStore> {
   return createStore<BoardStore>()((set, get) => {
     const resyncOnce = (): Partial<BoardStoreState> => {
@@ -53,10 +65,15 @@ export function createBoardStore(
       resyncAsked: false,
       snapshots: 0,
       dragged: {},
-      apply: (update) => set(nextState(get(), update, resyncOnce)),
+      apply: (update) => set(withCast(nextState(get(), update, resyncOnce), castOf)),
       retry: () => {
         set({ status: 'loading', failure: null });
         requestResync();
+      },
+      relink: () => {
+        const { board } = get();
+        const linked = board && boardWithCast(board, castOf());
+        if (linked !== board) set({ board: linked });
       },
     };
   });
@@ -79,9 +96,16 @@ function nextState(
   if (update.kind === 'tokensDragged') return groupDraggedState(state, update.drag);
   if (update.kind !== 'boardEvent') return {};
   if (update.event.payload.campaignId !== state.campaignId) return {};
+  // An event of another grid is the group grid moving there: it waits for that grid's snapshot.
+  if (!state.board || update.event.payload.sceneId !== state.board.scene.id) {
+    return { held: [...state.held, update.event] };
+  }
   const dragged = withoutDragOf(state.dragged, update.event);
-  if (!state.board) return { held: [...state.held, update.event], dragged };
   return { ...eventState(state, state.board, update.event, resyncOnce), dragged };
+}
+
+function withCast(next: Partial<BoardStoreState>, castOf: CastOf): Partial<BoardStoreState> {
+  return next.board ? { ...next, board: boardWithCast(next.board, castOf()) } : next;
 }
 
 function groupDraggedState(
@@ -89,6 +113,7 @@ function groupDraggedState(
   drag: TokensDraggedDto,
 ): Partial<BoardStoreState> {
   if (drag.campaignId !== state.campaignId) return {};
+  if (drag.sceneId !== undefined && drag.sceneId !== state.board?.scene.id) return {};
   const others = withoutTokens(
     state.dragged,
     drag.drags.map(({ tokenId }) => tokenId),
@@ -124,7 +149,8 @@ function snapshotState(
   resyncOnce: () => Partial<BoardStoreState>,
 ): Partial<BoardStoreState> {
   const fresh = { ...state, board: snapshot, held: [], resyncAsked: false, dragged: {} };
-  const replayed = state.held.reduce<BoardStoreState>((current, event) => {
+  const ofThisGrid = state.held.filter(({ payload }) => payload.sceneId === snapshot.scene.id);
+  const replayed = ofThisGrid.reduce<BoardStoreState>((current, event) => {
     if (!current.board) return current;
     return { ...current, ...eventState(current, current.board, event, resyncOnce) };
   }, fresh);

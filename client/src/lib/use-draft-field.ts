@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 
-export type CardFieldOptions = Readonly<{
+export type DraftFieldOptions = Readonly<{
   /** What the server confirmed, as the field shows it. */
   confirmed: string;
   /** What may be typed (the CA keeps only digits); the text as typed when absent. */
@@ -9,7 +9,7 @@ export type CardFieldOptions = Readonly<{
   save: (draft: string) => Promise<boolean>;
 }>;
 
-export type CardFieldBinding = Readonly<{
+export type DraftFieldBinding = Readonly<{
   value: string;
   onFocus: () => void;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -19,12 +19,16 @@ export type CardFieldBinding = Readonly<{
 
 type Draft = Readonly<{ base: string; text: string }>;
 
-/** A card field: while it has focus the text is a local draft that nobody else's event
+/** A field over a confirmed value (the member card, a grid's name): while it has focus the text is a local draft that nobody else's event
  *  overwrites; Enter or leaving the field sends it (only when it changed), Esc puts back what
  *  the server confirmed. After the send, a refusal shows the confirmed value again.
  *
- *  Example: `<input {...useCardField({ confirmed: '15', save })} />` */
-export function useCardField({ confirmed, normalize, save }: CardFieldOptions): CardFieldBinding {
+ *  Example: `<input {...useDraftField({ confirmed: '15', save })} />` */
+export function useDraftField({
+  confirmed,
+  normalize,
+  save,
+}: DraftFieldOptions): DraftFieldBinding {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [sending, setSending] = useState<string | null>(null);
   const cancelled = useRef(false);

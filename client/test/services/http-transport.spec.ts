@@ -67,6 +67,17 @@ describe('FetchHttpTransport', () => {
     });
   });
 
+  it('a PATCH sends its JSON body and a DELETE none, each under its own method', async () => {
+    const fake = new FetchFake(new Response(null, { status: 204 }));
+    const transport = new FetchHttpTransport(fake.fetch);
+    await transport.request('PATCH', '/campaigns/x/scenes/y', { name: 'Torre' });
+    await transport.request('DELETE', '/campaigns/x/scenes/y');
+    expect(fake.calls.map(({ init }) => [init?.method, init?.body])).toEqual([
+      ['PATCH', '{"name":"Torre"}'],
+      ['DELETE', undefined],
+    ]);
+  });
+
   it('a 204 answer has a null body', async () => {
     const fake = new FetchFake(new Response(null, { status: 204 }));
     const response = await new FetchHttpTransport(fake.fetch).request('POST', '/auth/logout');

@@ -5,9 +5,8 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
-import { VHARN } from '../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
-import { KAEL_ID } from '../support/table-session-fixtures';
+import { KAEL_ID, VHARN_GRID } from '../support/table-session-fixtures';
 
 const ONE_BY_ONE = { col: 5, row: 4, width: 1, height: 1 };
 const WIDE = { col: 4, row: 4, width: 2, height: 1 };
@@ -21,7 +20,7 @@ describe('resizing tokens (token-resize-flow)', () => {
     commands = new TableBoardCommandsFake();
     recorded = [];
     store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
       recordEdit: (entry) => recorded.push(entry),

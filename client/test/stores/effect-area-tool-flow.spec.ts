@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EditEntry } from '@/lib/edit-history';
 import { sendEffectArea } from '@/stores/effect-area-tool-flow';
-import { VHARN } from '../support/campaigns-api-fake';
 import { BIA_CONE_ID } from '../support/effect-area-fixtures';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 
 const CONE = { kind: 'diagonal_cone', x: 6, y: 6, reach: 3, facing: 45, color: 'ember' } as const;
 
@@ -20,7 +20,7 @@ describe('sendEffectArea', () => {
 
   function send(readOnly = false): Promise<void> {
     const deps = {
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure: string) => `recusado: ${failure}`,
       recordEdit: (entry: EditEntry) => recorded.push(entry),

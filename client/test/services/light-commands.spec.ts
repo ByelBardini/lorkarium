@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BoardCommandSender } from '@/services/board-command-sender';
 import { RealtimeLightCommands, type LightPlacement } from '@/services/light-commands';
-import { VHARN } from '../support/campaigns-api-fake';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 import { CORRIDOR_TORCH_ID } from '../support/light-fixtures';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
 
@@ -15,7 +15,7 @@ const TORCH: LightPlacement = {
   facing: 0,
   angle: 360,
 };
-const BASE = { actionId: ACTION_ID, campaignId: VHARN.id };
+const BASE = { actionId: ACTION_ID, ...VHARN_GRID };
 
 describe('RealtimeLightCommands', () => {
   let transport: RealtimeTransportFake;
@@ -27,7 +27,7 @@ describe('RealtimeLightCommands', () => {
   });
 
   it('createLights sends light:createMany and answers the new ids', async () => {
-    const result = commands.createLights(VHARN.id, [TORCH]);
+    const result = commands.createLights(VHARN_GRID, [TORCH]);
     expect(transport.sent).toEqual([
       { event: 'light:createMany', payload: { ...BASE, lights: [TORCH] } },
     ]);
@@ -39,8 +39,8 @@ describe('RealtimeLightCommands', () => {
   });
 
   it('moveLights sends the points, with where each must still be only when undoing', () => {
-    void commands.moveLights(VHARN.id, [{ lightId: CORRIDOR_TORCH_ID, x: 6, y: 3 }]);
-    void commands.moveLights(VHARN.id, [
+    void commands.moveLights(VHARN_GRID, [{ lightId: CORRIDOR_TORCH_ID, x: 6, y: 3 }]);
+    void commands.moveLights(VHARN_GRID, [
       { lightId: CORRIDOR_TORCH_ID, x: 5, y: 5, expect: { x: 6, y: 3 } },
     ]);
     expect(transport.sent).toEqual([
@@ -59,7 +59,7 @@ describe('RealtimeLightCommands', () => {
   });
 
   it('setLightRanges sends the ranges and no expect when none is given', () => {
-    void commands.setLightRanges(VHARN.id, [{ lightId: CORRIDOR_TORCH_ID, bright: 6, dim: 6 }]);
+    void commands.setLightRanges(VHARN_GRID, [{ lightId: CORRIDOR_TORCH_ID, bright: 6, dim: 6 }]);
     expect(transport.sent).toEqual([
       {
         event: 'light:setRangeMany',
@@ -69,8 +69,8 @@ describe('RealtimeLightCommands', () => {
   });
 
   it('setLightColors sends light:setColorMany, with the expected color only when undoing', () => {
-    void commands.setLightColors(VHARN.id, [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }]);
-    void commands.setLightColors(VHARN.id, [
+    void commands.setLightColors(VHARN_GRID, [{ lightId: CORRIDOR_TORCH_ID, color: 'fire' }]);
+    void commands.setLightColors(VHARN_GRID, [
       { lightId: CORRIDOR_TORCH_ID, color: 'moon', expect: { color: null } },
     ]);
     expect(transport.sent).toEqual([
@@ -89,7 +89,9 @@ describe('RealtimeLightCommands', () => {
   });
 
   it('a refused setLightColors answers the failure without throwing', async () => {
-    const result = commands.setLightColors(VHARN.id, [{ lightId: CORRIDOR_TORCH_ID, color: null }]);
+    const result = commands.setLightColors(VHARN_GRID, [
+      { lightId: CORRIDOR_TORCH_ID, color: null },
+    ]);
     await transport.answerAck(
       { ok: false, error: { code: 'STALE_UNDO', message: 'Stale undo' } },
       'light:setColorMany',
@@ -98,8 +100,10 @@ describe('RealtimeLightCommands', () => {
   });
 
   it('setLightCones sends light:setConeMany, with the expected cone only when undoing', () => {
-    void commands.setLightCones(VHARN.id, [{ lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60 }]);
-    void commands.setLightCones(VHARN.id, [
+    void commands.setLightCones(VHARN_GRID, [
+      { lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60 },
+    ]);
+    void commands.setLightCones(VHARN_GRID, [
       { lightId: CORRIDOR_TORCH_ID, facing: 90, angle: 60, expect: { facing: 0, angle: 360 } },
     ]);
     expect(transport.sent).toEqual([
@@ -126,14 +130,14 @@ describe('RealtimeLightCommands', () => {
 
   it('createLights sends the facing and the angle of a spotlight', () => {
     const spotlight = { ...TORCH, facing: 90, angle: 60 };
-    void commands.createLights(VHARN.id, [spotlight]);
+    void commands.createLights(VHARN_GRID, [spotlight]);
     expect(transport.sent).toEqual([
       { event: 'light:createMany', payload: { ...BASE, lights: [spotlight] } },
     ]);
   });
 
   it('setLightsLit sends the ids and the switch', () => {
-    void commands.setLightsLit(VHARN.id, [CORRIDOR_TORCH_ID], false);
+    void commands.setLightsLit(VHARN_GRID, [CORRIDOR_TORCH_ID], false);
     expect(transport.sent).toEqual([
       {
         event: 'light:setLitMany',
@@ -143,9 +147,9 @@ describe('RealtimeLightCommands', () => {
   });
 
   it('deleteLights sends the ids, with the points they must still have when undoing', () => {
-    void commands.deleteLights(VHARN.id, [CORRIDOR_TORCH_ID]);
+    void commands.deleteLights(VHARN_GRID, [CORRIDOR_TORCH_ID]);
     void commands.deleteLights(
-      VHARN.id,
+      VHARN_GRID,
       [CORRIDOR_TORCH_ID],
       [{ lightId: CORRIDOR_TORCH_ID, x: 5, y: 5 }],
     );
@@ -163,7 +167,7 @@ describe('RealtimeLightCommands', () => {
   });
 
   it('a LIGHT_LIMIT refusal answers light_limit', async () => {
-    const result = commands.createLights(VHARN.id, [TORCH]);
+    const result = commands.createLights(VHARN_GRID, [TORCH]);
     await transport.answerAck(
       { ok: false, error: { code: 'LIGHT_LIMIT', message: 'Too many lights in this scene' } },
       'light:createMany',
@@ -172,7 +176,7 @@ describe('RealtimeLightCommands', () => {
   });
 
   it('a LIGHT_NOT_FOUND refusal answers light_not_found', async () => {
-    const result = commands.setLightsLit(VHARN.id, [CORRIDOR_TORCH_ID], true);
+    const result = commands.setLightsLit(VHARN_GRID, [CORRIDOR_TORCH_ID], true);
     await transport.answerAck(
       { ok: false, error: { code: 'LIGHT_NOT_FOUND', message: 'Light not found' } },
       'light:setLitMany',

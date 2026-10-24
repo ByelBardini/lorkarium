@@ -59,7 +59,7 @@ export async function deleteDrawingsOf(
   const { getState, setState } = store;
   if (getState().readOnly || drawings.length === 0) return;
   const ids = drawings.map(({ id }) => id);
-  const result = await deps.commands.deleteDrawings(deps.campaignId, ids);
+  const result = await deps.commands.deleteDrawings(deps.scopeOf(), ids);
   if (!result.ok) return sayRefusal(deps, store, [result]);
   const kept = getState().selectedDrawingIds.filter((id) => !ids.includes(id));
   setState({ selectedDrawingIds: kept });
@@ -72,12 +72,12 @@ function sendDrawings(
   move: SelectionMove,
 ): Promise<BoardCommandResult> {
   const moves = move.drawings.map(({ drawingId, to }) => ({ drawingId, x: to.x, y: to.y }));
-  return deps.commands.moveDrawings(deps.campaignId, moves);
+  return deps.commands.moveDrawings(deps.scopeOf(), moves);
 }
 
 function sendTokens(deps: BoardInteractionDeps, move: SelectionMove): Promise<BoardCommandResult> {
   const moves = move.tokens.map(({ tokenId, to }) => ({ tokenId, col: to.col, row: to.row }));
-  return deps.commands.moveTokens(deps.campaignId, moves);
+  return deps.commands.moveTokens(deps.scopeOf(), moves);
 }
 
 function sayRefusal(

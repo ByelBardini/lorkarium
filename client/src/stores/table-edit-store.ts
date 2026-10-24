@@ -25,12 +25,16 @@ import {
   runEffectAreaOp,
   type EditOpResult,
 } from './effect-area-edit-ops';
-import type { BoardCommandFailure, TableBoardCommands } from '@/services/table-board-commands';
+import type {
+  BoardCommandFailure,
+  BoardScope,
+  TableBoardCommands,
+} from '@/services/table-board-commands';
 
 /** Who edits and how: the commands of the table, whether they may create tokens (the master),
  *  and whether the table is read only right now (nothing is sent then). */
 export type EditContext = Readonly<{
-  campaignId: string;
+  scope: BoardScope;
   commands: TableBoardCommands;
   isMaster: boolean;
   readOnly: boolean;
@@ -47,11 +51,17 @@ export type PasteOutcome = Readonly<{ outcome: EditOutcome; skippedTokens: boole
 
 export type PasteTarget = Readonly<{ cursor: Cell | null; scene: SceneSize }>;
 
+/** What Ctrl+C kept for one table, shared by all its grid tabs (copy on one, paste on another). */
+export type CopyArea = Readonly<{
+  copied: CopiedSelection | null;
+  copy: (selection: CopiedSelection) => void;
+}>;
+
 export type TableEditState = Readonly<{
   campaignId: string;
-  /** What Ctrl+C kept for this table, in the memory of the tab. */
+  /** What Ctrl+C kept for this table, in the memory of the tab (the table's copy area). */
   copied: CopiedSelection | null;
-  /** This user's undo and redo stacks for this table, lost on F5. */
+  /** This user's undo and redo stacks for this grid tab, lost on F5. */
   history: EditHistory;
   /** An undo, redo or paste on its way: the next waits for it. */
   running: boolean;
@@ -72,13 +82,24 @@ type RunOutcome =
 
 const NOTHING: EditOutcome = { kind: 'nothing' };
 
-/** The copy area and the undo stack of one open table, for this user only (created by the open
- *  tables store beside the board). Undoing sends the inverse with the expected state as its
- *  precondition, so the server refuses (`stale_undo`) when someone else changed it after.
+/** The copy area of one open table, for this user only: every grid tab of it reads and fills it.
  *
- *  Example: `await edits.getState().undo({ campaignId, commands, isMaster, readOnly })` */
-export function createTableEditStore(campaignId: string): StoreApi<TableEditStore> {
+ *  Example: `const copyArea = createCopyArea(); createTableEditStore(campaignId, copyArea)` */
+export function createCopyArea(): StoreApi<CopyArea> {
+  return createStore<CopyArea>()((set) => ({ copied: null, copy: (copied) => set({ copied }) }));
+}
+
+/** The undo stack of one grid tab over the copy area of its table, for this user only (created
+ *  by the scene tabs store beside the board). Undoing sends the inverse with the expected state as
+ *  its precondition, so the server refuses (`stale_undo`) when someone else changed it after.
+ *
+ *  Example: `await edits.getState().undo({ scope, commands, isMaster, readOnly })` */
+export function createTableEditStore(
+  campaignId: string,
+  copyArea: StoreApi<CopyArea> = createCopyArea(),
+): StoreApi<TableEditStore> {
   return createStore<TableEditStore>()((set, get) => {
+    copyArea.subscribe(({ copied }) => set({ copied }));
     const exclusive = async <T>(idle: T, work: () => Promise<T>): Promise<T> => {
       if (get().running) return idle;
       set({ running: true });
@@ -90,11 +111,11 @@ export function createTableEditStore(campaignId: string): StoreApi<TableEditStor
     };
     return {
       campaignId,
-      copied: null,
+      copied: copyArea.getState().copied,
       history: EMPTY_HISTORY,
       running: false,
       record: (entry) => set({ history: record(get().history, entry) }),
-      copy: (copied) => set({ copied }),
+      copy: (copied) => copyArea.getState().copy(copied),
       paste: (context, target) =>
         exclusive({ outcome: NOTHING, skippedTokens: false }, () =>
           pasteNow(get, set, context, target),
@@ -205,10 +226,10 @@ async function runEntry(entry: EditEntry, context: EditContext): Promise<RunOutc
 
 type OpResult = EditOpResult;
 
-async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise<OpResult> {
-  if (isEffectAreaOp(op)) return runEffectAreaOp(op, campaignId, commands);
-  if (isWallOp(op)) return runWallOp(op, campaignId, commands);
-  if (isLightOp(op)) return runLightOp(op, campaignId, commands);
+async function runOp(op: EditOp, { scope, commands }: EditContext): Promise<OpResult> {
+  if (isEffectAreaOp(op)) return runEffectAreaOp(op, scope, commands);
+  if (isWallOp(op)) return runWallOp(op, scope, commands);
+  if (isLightOp(op)) return runLightOp(op, scope, commands);
   switch (op.kind) {
     case 'tokensMoved': {
       const moves = op.moves.map(({ tokenId, from, to, path }) => ({
@@ -217,7 +238,7 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         expect: cellOf(from),
         ...(path && path.length > 0 && { path: path.map(cellOf) }),
       }));
-      return createdIdsOf(await commands.moveTokens(campaignId, moves), []);
+      return createdIdsOf(await commands.moveTokens(scope, moves), []);
     }
     case 'tokensFaced': {
       const faces = op.turns.map(({ tokenId, from, to }) => ({
@@ -225,11 +246,11 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         facing: to,
         expect: { facing: from },
       }));
-      return createdIdsOf(await commands.faceTokens(campaignId, faces), []);
+      return createdIdsOf(await commands.faceTokens(scope, faces), []);
     }
     case 'tokensResized': {
       const resizes = op.resizes.map(({ tokenId, from, to }) => ({ tokenId, ...to, expect: from }));
-      return createdIdsOf(await commands.resizeTokens(campaignId, resizes), []);
+      return createdIdsOf(await commands.resizeTokens(scope, resizes), []);
     }
     case 'drawingsMoved': {
       const moves = op.moves.map(({ drawingId, from, to }) => ({
@@ -238,11 +259,11 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         y: to.y,
         expect: from,
       }));
-      return createdIdsOf(await commands.moveDrawings(campaignId, moves), []);
+      return createdIdsOf(await commands.moveDrawings(scope, moves), []);
     }
     case 'tokensAdded': {
       const result = await commands.createTokens(
-        campaignId,
+        scope,
         op.tokens.map(({ token }) => token),
       );
       return createdIdsOf(
@@ -258,7 +279,7 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
       }));
       return createdIdsOf(
         await commands.deleteTokens(
-          campaignId,
+          scope,
           op.tokens.map(({ id }) => id),
           expect,
         ),
@@ -267,7 +288,7 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
     }
     case 'drawingsAdded': {
       const result = await commands.createDrawings(
-        campaignId,
+        scope,
         op.drawings.map(({ shape }) => shape),
       );
       return createdIdsOf(
@@ -282,7 +303,7 @@ async function runOp(op: EditOp, { campaignId, commands }: EditContext): Promise
         y: shape.y,
       }));
       const ids = op.drawings.map(({ id }) => id);
-      return createdIdsOf(await commands.deleteDrawings(campaignId, ids, expect), []);
+      return createdIdsOf(await commands.deleteDrawings(scope, ids, expect), []);
     }
   }
 }

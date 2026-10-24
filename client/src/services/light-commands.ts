@@ -1,6 +1,6 @@
 import { BOARD_EVENTS, type LightPlacementDto } from '@lorkarium/contracts';
 import type { LightColor } from '@/lib/light-color';
-import type { BoardCommandResult, BoardCommandSender } from './board-command-sender';
+import type { BoardCommandResult, BoardCommandSender, BoardScope } from './board-command-sender';
 
 /** A map light as the master places it: the point in fractional cells, its range, its color and
  *  its cone (`facing`, and `angle` 360 = every side). */
@@ -27,30 +27,30 @@ export type LightConeTarget = Readonly<{ lightId: string; expect?: LightCone }> 
 
 /** The map light commands of an open table (the master's); each answers with its ack, never throws.
  *
- *  Example: `await commands.createLights(campaignId, [{ x: 5.5, y: 3, bright: 4, dim: 4, color: null }])` */
+ *  Example: `await commands.createLights(scope, [{ x: 5.5, y: 3, bright: 4, dim: 4, color: null }])` */
 export interface LightCommands {
   /** The ok answers the new ids in `createdIds`, in the order sent. */
-  createLights(campaignId: string, lights: readonly LightPlacement[]): Promise<BoardCommandResult>;
-  moveLights(campaignId: string, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult>;
+  createLights(scope: BoardScope, lights: readonly LightPlacement[]): Promise<BoardCommandResult>;
+  moveLights(scope: BoardScope, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult>;
   setLightRanges(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightRangeTarget[],
   ): Promise<BoardCommandResult>;
   setLightColors(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightColorTarget[],
   ): Promise<BoardCommandResult>;
   setLightCones(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightConeTarget[],
   ): Promise<BoardCommandResult>;
   setLightsLit(
-    campaignId: string,
+    scope: BoardScope,
     lightIds: readonly string[],
     lit: boolean,
   ): Promise<BoardCommandResult>;
   deleteLights(
-    campaignId: string,
+    scope: BoardScope,
     lightIds: readonly string[],
     expect?: readonly LightAt[],
   ): Promise<BoardCommandResult>;
@@ -58,11 +58,11 @@ export interface LightCommands {
 
 /** `LightCommands` over the board command sender; an absent `expect` sends no field.
  *
- *  Example: `new RealtimeLightCommands(sender).setLightsLit(campaignId, [torchId], false)` */
+ *  Example: `new RealtimeLightCommands(sender).setLightsLit(scope, [torchId], false)` */
 export class RealtimeLightCommands implements LightCommands {
   constructor(private readonly sender: BoardCommandSender) {}
 
-  createLights(campaignId: string, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {
+  createLights(scope: BoardScope, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {
     const placed = lights.map(({ x, y, bright, dim, color, facing, angle }) => ({
       x,
       y,
@@ -72,21 +72,21 @@ export class RealtimeLightCommands implements LightCommands {
       facing,
       angle,
     }));
-    return this.sender.send(BOARD_EVENTS.createLights, campaignId, { lights: placed });
+    return this.sender.send(BOARD_EVENTS.createLights, scope, { lights: placed });
   }
 
-  moveLights(campaignId: string, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult> {
+  moveLights(scope: BoardScope, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult> {
     const sent = moves.map(({ lightId, x, y, expect }) => ({
       lightId,
       x,
       y,
       ...(expect && { expect: { x: expect.x, y: expect.y } }),
     }));
-    return this.sender.send(BOARD_EVENTS.moveLights, campaignId, { moves: sent });
+    return this.sender.send(BOARD_EVENTS.moveLights, scope, { moves: sent });
   }
 
   setLightRanges(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightRangeTarget[],
   ): Promise<BoardCommandResult> {
     const sent = changes.map(({ lightId, bright, dim, expect }) => ({
@@ -95,11 +95,11 @@ export class RealtimeLightCommands implements LightCommands {
       dim,
       ...(expect && { expect: { bright: expect.bright, dim: expect.dim } }),
     }));
-    return this.sender.send(BOARD_EVENTS.setLightRanges, campaignId, { changes: sent });
+    return this.sender.send(BOARD_EVENTS.setLightRanges, scope, { changes: sent });
   }
 
   setLightColors(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightColorTarget[],
   ): Promise<BoardCommandResult> {
     const sent = changes.map(({ lightId, color, expect }) => ({
@@ -107,11 +107,11 @@ export class RealtimeLightCommands implements LightCommands {
       color,
       ...(expect && { expect: { color: expect.color } }),
     }));
-    return this.sender.send(BOARD_EVENTS.setLightColors, campaignId, { changes: sent });
+    return this.sender.send(BOARD_EVENTS.setLightColors, scope, { changes: sent });
   }
 
   setLightCones(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightConeTarget[],
   ): Promise<BoardCommandResult> {
     const sent = changes.map(({ lightId, facing, angle, expect }) => ({
@@ -120,29 +120,29 @@ export class RealtimeLightCommands implements LightCommands {
       angle,
       ...(expect && { expect: { facing: expect.facing, angle: expect.angle } }),
     }));
-    return this.sender.send(BOARD_EVENTS.setLightCones, campaignId, { changes: sent });
+    return this.sender.send(BOARD_EVENTS.setLightCones, scope, { changes: sent });
   }
 
   setLightsLit(
-    campaignId: string,
+    scope: BoardScope,
     lightIds: readonly string[],
     lit: boolean,
   ): Promise<BoardCommandResult> {
-    return this.sender.send(BOARD_EVENTS.setLightsLit, campaignId, {
+    return this.sender.send(BOARD_EVENTS.setLightsLit, scope, {
       lightIds: [...lightIds],
       lit,
     });
   }
 
   deleteLights(
-    campaignId: string,
+    scope: BoardScope,
     lightIds: readonly string[],
     expect?: readonly LightAt[],
   ): Promise<BoardCommandResult> {
     const precondition = expect && {
       expect: expect.map(({ lightId, x, y }) => ({ lightId, x, y })),
     };
-    return this.sender.send(BOARD_EVENTS.deleteLights, campaignId, {
+    return this.sender.send(BOARD_EVENTS.deleteLights, scope, {
       lightIds: [...lightIds],
       ...precondition,
     });

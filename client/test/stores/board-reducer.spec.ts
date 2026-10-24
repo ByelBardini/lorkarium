@@ -12,6 +12,7 @@ import {
 import {
   BIA_AT_TABLE,
   CAIO_AT_TABLE,
+  activeCondition,
   KAEL_COMBATANT,
   KAEL_ID,
   LYRA_COMBATANT,
@@ -569,5 +570,19 @@ describe('applyBoardEvent, member cards', () => {
     const next = applyBoardEvent(board, cardChanged(5, memberCard({ armorClass: 15 })));
 
     expect(next.memberCards).toEqual([memberCard({ armorClass: 15 }), CAIO_CARD]);
+  });
+});
+
+describe('applyBoardEvent, conditions of the cast', () => {
+  it('condition:changedMany gives each anchor listed its conditions and leaves the others', () => {
+    const poisoned = activeCondition({ remainingRounds: 1 });
+    const board = vharnBoard({ tokens: [lyra({ conditions: [activeCondition()] }), kael()] });
+
+    const next = applyBoardEvent(board, {
+      type: 'conditionsChanged',
+      payload: { ...vharnEventBase(5), changes: [{ tokenId: LYRA_ID, conditions: [poisoned] }] },
+    });
+
+    expect(next.tokens.map(({ conditions }) => conditions)).toEqual([[poisoned], []]);
   });
 });

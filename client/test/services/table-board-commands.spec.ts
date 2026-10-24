@@ -4,8 +4,8 @@ import {
   type NewToken,
   type TokenEdit,
 } from '@/services/table-board-commands';
-import { VHARN } from '../support/campaigns-api-fake';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const GRID = {
@@ -29,11 +29,11 @@ describe('RealtimeTableBoardCommands', () => {
   });
 
   it('configureScene sends scene:configure with the action id, the table and the grid', () => {
-    void commands.configureScene(VHARN.id, GRID);
+    void commands.configureScene(VHARN_GRID, GRID);
     expect(transport.sent).toEqual([
       {
         event: 'scene:configure',
-        payload: { actionId: ACTION_ID, campaignId: VHARN.id, ...GRID },
+        payload: { actionId: ACTION_ID, ...VHARN_GRID, ...GRID },
       },
     ]);
   });
@@ -45,56 +45,57 @@ describe('RealtimeTableBoardCommands', () => {
     it.each([
       [
         'token:move',
-        () => commands.moveToken(VHARN.id, LYRA, { col: 8, row: 6 }),
+        () => commands.moveToken(VHARN_GRID, LYRA, { col: 8, row: 6 }),
         { tokenId: LYRA, col: 8, row: 6 },
       ],
       [
         'token:dragMany',
-        () => commands.dragTokens(VHARN.id, [{ tokenId: LYRA, cell: { col: 5, row: 4 } }]),
+        () => commands.dragTokens(VHARN_GRID, [{ tokenId: LYRA, cell: { col: 5, row: 4 } }]),
         { drags: [{ tokenId: LYRA, cell: { col: 5, row: 4 } }] },
       ],
       [
         'token:adjustBar',
-        () => commands.adjustBar(VHARN.id, LYRA, PV, { op: 'add', amount: -7 }),
+        () => commands.adjustBar(VHARN_GRID, LYRA, PV, { op: 'add', amount: -7 }),
         { tokenId: LYRA, barId: PV, change: { op: 'add', amount: -7 } },
       ],
-      ['token:delete', () => commands.deleteToken(VHARN.id, LYRA), { tokenId: LYRA }],
+      ['token:delete', () => commands.deleteToken(VHARN_GRID, LYRA), { tokenId: LYRA }],
       [
         'token:moveMany',
-        () => commands.moveTokens(VHARN.id, [{ tokenId: LYRA, col: 8, row: 6 }]),
+        () => commands.moveTokens(VHARN_GRID, [{ tokenId: LYRA, col: 8, row: 6 }]),
         { moves: [{ tokenId: LYRA, col: 8, row: 6 }] },
       ],
       [
         'token:dragMany',
-        () => commands.dragTokens(VHARN.id, [{ tokenId: LYRA, cell: null }]),
+        () => commands.dragTokens(VHARN_GRID, [{ tokenId: LYRA, cell: null }]),
         { drags: [{ tokenId: LYRA, cell: null }] },
       ],
       [
         'token:setLayer',
-        () => commands.setTokenLayer(VHARN.id, [LYRA], 'objects'),
+        () => commands.setTokenLayer(VHARN_GRID, [LYRA], 'objects'),
         { tokenIds: [LYRA], layer: 'objects' },
       ],
       [
         'token:faceMany',
-        () => commands.faceTokens(VHARN.id, [{ tokenId: LYRA, facing: 45 }]),
+        () => commands.faceTokens(VHARN_GRID, [{ tokenId: LYRA, facing: 45 }]),
         { faces: [{ tokenId: LYRA, facing: 45 }] },
       ],
       [
         'token:faceMany',
-        () => commands.faceTokens(VHARN.id, [{ tokenId: LYRA, facing: 0, expect: { facing: 45 } }]),
+        () =>
+          commands.faceTokens(VHARN_GRID, [{ tokenId: LYRA, facing: 0, expect: { facing: 45 } }]),
         { faces: [{ tokenId: LYRA, facing: 0, expect: { facing: 45 } }] },
       ],
       [
         'token:resizeMany',
         () =>
-          commands.resizeTokens(VHARN.id, [
+          commands.resizeTokens(VHARN_GRID, [
             { tokenId: LYRA, col: 2.5, row: 4, width: 1.5, height: 1, expect: BOX_1X1 },
           ]),
         { resizes: [{ tokenId: LYRA, col: 2.5, row: 4, width: 1.5, height: 1, expect: BOX_1X1 }] },
       ],
       [
         'token:restyleMany',
-        () => commands.restyleTokens(VHARN.id, [LYRA], { frame: 'round' }),
+        () => commands.restyleTokens(VHARN_GRID, [LYRA], { frame: 'round' }),
         { tokenIds: [LYRA], style: { frame: 'round' } },
       ],
     ] as const)(
@@ -102,7 +103,7 @@ describe('RealtimeTableBoardCommands', () => {
       (event, send, fields) => {
         void send();
         expect(transport.sent).toEqual([
-          { event, payload: { actionId: ACTION_ID, campaignId: VHARN.id, ...fields } },
+          { event, payload: { actionId: ACTION_ID, ...VHARN_GRID, ...fields } },
         ]);
       },
     );
@@ -117,8 +118,8 @@ describe('RealtimeTableBoardCommands', () => {
         controllerIds: [],
         bars: [],
       };
-      void commands.createToken(VHARN.id, { ...token, col: 1, row: 2 });
-      void commands.updateToken(VHARN.id, LYRA, token);
+      void commands.createToken(VHARN_GRID, { ...token, col: 1, row: 2 });
+      void commands.updateToken(VHARN_GRID, LYRA, token);
       expect(transport.sent.map(({ event }) => event)).toEqual(['token:create', 'token:update']);
       expect(transport.sent[1]?.payload).toMatchObject({ tokenId: LYRA, name: 'Lyra' });
     });
@@ -129,7 +130,7 @@ describe('RealtimeTableBoardCommands', () => {
       ['BAR_NOT_FOUND', 'token_not_found'],
       ['INVALID_CONTROLLER', 'invalid'],
     ])('a token refusal with %s is %s', async (code, failure) => {
-      const result = commands.moveToken(VHARN.id, LYRA, { col: 1, row: 1 });
+      const result = commands.moveToken(VHARN_GRID, LYRA, { col: 1, row: 1 });
       await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'token:move');
       expect(await result).toEqual({ ok: false, failure });
     });
@@ -139,30 +140,30 @@ describe('RealtimeTableBoardCommands', () => {
       ['TOKEN_NOT_FOUND', 'token_not_found'],
       ['OUT_OF_SCENE', 'out_of_scene'],
     ])('a group move refused with %s is %s', async (code, failure) => {
-      const result = commands.moveTokens(VHARN.id, [{ tokenId: LYRA, col: 1, row: 1 }]);
+      const result = commands.moveTokens(VHARN_GRID, [{ tokenId: LYRA, col: 1, row: 1 }]);
       await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'token:moveMany');
       expect(await result).toEqual({ ok: false, failure });
     });
 
     it('a resize without expect sends no expect field at all', () => {
-      void commands.resizeTokens(VHARN.id, [
+      void commands.resizeTokens(VHARN_GRID, [
         { tokenId: LYRA, col: 3, row: 4, width: 2, height: 2 },
       ]);
       expect(JSON.stringify(transport.sent[0]?.payload)).not.toContain('expect');
     });
 
     it('a turn without expect sends no expect field at all', () => {
-      void commands.faceTokens(VHARN.id, [{ tokenId: LYRA, facing: 90 }]);
+      void commands.faceTokens(VHARN_GRID, [{ tokenId: LYRA, facing: 90 }]);
       expect(transport.sent[0]?.payload).toEqual({
         actionId: ACTION_ID,
-        campaignId: VHARN.id,
+        ...VHARN_GRID,
         faces: [{ tokenId: LYRA, facing: 90 }],
       });
       expect(JSON.stringify(transport.sent[0]?.payload)).not.toContain('expect');
     });
 
     it('an image of another table refused with ASSET_NOT_FOUND is asset_not_found', async () => {
-      const result = commands.restyleTokens(VHARN.id, [LYRA], { imageAssetId: LYRA });
+      const result = commands.restyleTokens(VHARN_GRID, [LYRA], { imageAssetId: LYRA });
       await transport.answerAck(
         { ok: false, error: { code: 'ASSET_NOT_FOUND', message: 'x' } },
         'token:restyleMany',
@@ -171,7 +172,7 @@ describe('RealtimeTableBoardCommands', () => {
     });
 
     it('a layer change whose ack never arrives is offline', async () => {
-      const result = commands.setTokenLayer(VHARN.id, [LYRA], 'background');
+      const result = commands.setTokenLayer(VHARN_GRID, [LYRA], 'background');
       await transport.timeOutAck('token:setLayer');
       expect(await result).toEqual({ ok: false, failure: 'offline' });
     });
@@ -206,32 +207,32 @@ describe('RealtimeTableBoardCommands', () => {
     it.each([
       [
         'drawing:createMany',
-        () => commands.createDrawings(VHARN.id, [CIRCLE]),
+        () => commands.createDrawings(VHARN_GRID, [CIRCLE]),
         { drawings: [CIRCLE] },
       ],
       [
         'drawing:moveMany',
         () =>
-          commands.moveDrawings(VHARN.id, [
+          commands.moveDrawings(VHARN_GRID, [
             { drawingId: SQUARE, x: 6, y: 1, expect: { x: 2.5, y: 3 } },
           ]),
         { moves: [{ drawingId: SQUARE, x: 6, y: 1, expect: { x: 2.5, y: 3 } }] },
       ],
       [
         'drawing:deleteMany',
-        () => commands.deleteDrawings(VHARN.id, [SQUARE], [{ drawingId: SQUARE, x: 2.5, y: 3 }]),
+        () => commands.deleteDrawings(VHARN_GRID, [SQUARE], [{ drawingId: SQUARE, x: 2.5, y: 3 }]),
         { drawingIds: [SQUARE], expect: [{ drawingId: SQUARE, x: 2.5, y: 3 }] },
       ],
-      ['token:createMany', () => commands.createTokens(VHARN.id, [GOBLIN]), { tokens: [GOBLIN] }],
+      ['token:createMany', () => commands.createTokens(VHARN_GRID, [GOBLIN]), { tokens: [GOBLIN] }],
       [
         'token:deleteMany',
-        () => commands.deleteTokens(VHARN.id, [LYRA], [{ tokenId: LYRA, col: 3, row: 4 }]),
+        () => commands.deleteTokens(VHARN_GRID, [LYRA], [{ tokenId: LYRA, col: 3, row: 4 }]),
         { tokenIds: [LYRA], expect: [{ tokenId: LYRA, col: 3, row: 4 }] },
       ],
       [
         'token:moveMany',
         () =>
-          commands.moveTokens(VHARN.id, [
+          commands.moveTokens(VHARN_GRID, [
             { tokenId: LYRA, col: 3, row: 4, expect: { col: 6, row: 4 } },
           ]),
         { moves: [{ tokenId: LYRA, col: 3, row: 4, expect: { col: 6, row: 4 } }] },
@@ -239,12 +240,12 @@ describe('RealtimeTableBoardCommands', () => {
     ])('%s goes with the action id, the table and its fields', (event, send, fields) => {
       void send();
       expect(transport.sent).toEqual([
-        { event, payload: { actionId: ACTION_ID, campaignId: VHARN.id, ...fields } },
+        { event, payload: { actionId: ACTION_ID, ...VHARN_GRID, ...fields } },
       ]);
     });
 
     it('a delete with no precondition sends no expect at all (a normal command)', () => {
-      void commands.deleteDrawings(VHARN.id, [SQUARE]);
+      void commands.deleteDrawings(VHARN_GRID, [SQUARE]);
       expect(transport.sent[0]?.payload).not.toHaveProperty('expect');
     });
 
@@ -253,20 +254,20 @@ describe('RealtimeTableBoardCommands', () => {
       ['DRAWING_LIMIT', 'drawing_limit'],
       ['DRAWING_NOT_FOUND', 'drawing_not_found'],
     ])('a refusal with %s is the %s failure', async (code, failure) => {
-      const result = commands.moveDrawings(VHARN.id, [{ drawingId: SQUARE, x: 0, y: 0 }]);
+      const result = commands.moveDrawings(VHARN_GRID, [{ drawingId: SQUARE, x: 0, y: 0 }]);
       await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'drawing:moveMany');
       expect(await result).toEqual({ ok: false, failure });
     });
 
     it('a creating command answers the ids the server gave, in the order sent', async () => {
-      const result = commands.createDrawings(VHARN.id, [CIRCLE, CIRCLE]);
+      const result = commands.createDrawings(VHARN_GRID, [CIRCLE, CIRCLE]);
       const createdIds = [SQUARE, LYRA];
       await transport.answerAck({ ok: true, version: 7, createdIds }, 'drawing:createMany');
       expect(await result).toEqual({ ok: true, version: 7, createdIds });
     });
 
     it('a drawing command whose ack never arrives is offline', async () => {
-      const result = commands.createDrawings(VHARN.id, [CIRCLE]);
+      const result = commands.createDrawings(VHARN_GRID, [CIRCLE]);
       await transport.timeOutAck('drawing:createMany');
       expect(await result).toEqual({ ok: false, failure: 'offline' });
     });

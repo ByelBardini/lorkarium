@@ -9,9 +9,10 @@ import {
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { VHARN } from './campaigns-api-fake';
+import { castBoard } from './cast-fixtures';
 import { InteractionClockFake } from './interaction-clock-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
-import { BIA_AT_TABLE, lyra, vharnBoard } from './table-session-fixtures';
+import { BIA_AT_TABLE, lyra, vharnBoard, VHARN_GRID } from './table-session-fixtures';
 
 export const BIA_ONLINE: SessionMemberDto = { ...BIA_AT_TABLE, online: true };
 
@@ -34,6 +35,8 @@ export function cardBar(overrides: Partial<TokenBarDto> = {}): TokenBarDto {
 
 export type CardScene = Readonly<{
   state?: Partial<BoardStateDto>;
+  /** The table's cast over `castBoard()`; absent = still loading. */
+  cast?: Partial<BoardStateDto>;
   member?: SessionMemberDto;
   viewerId?: string;
   isMaster?: boolean;
@@ -51,7 +54,7 @@ export class PlayerCardHarness {
   readonly clock = new InteractionClockFake();
   readonly board: StoreApi<BoardStore> = createBoardStore(VHARN.id, () => undefined);
   readonly interaction: StoreApi<BoardInteractionStore> = createBoardInteractionStore({
-    campaignId: VHARN.id,
+    scopeOf: () => VHARN_GRID,
     commands: this.commands,
     describeRefusal: String,
   });
@@ -82,7 +85,9 @@ export class PlayerCardHarness {
     const viewer = { userId: viewerId, role: isMaster ? ('master' as const) : ('player' as const) };
     const confirmed = vharnBoard({ viewer, tokens: [lyra({ bars: [cardBar()] })], ...state });
     this.board.getState().apply({ kind: 'board', state: confirmed });
-    const [player] = tableRosterOf({ members: [member], board: confirmed, viewerId }).players;
+    const cast = this.scene.cast ? castBoard({ viewer, ...this.scene.cast }) : null;
+    const roster = tableRosterOf({ members: [member], board: confirmed, cast, viewerId });
+    const [player] = roster.players;
     if (!player) throw new Error(`no player card for ${member.name}`);
     return (
       <PlayerCard

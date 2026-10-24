@@ -25,7 +25,7 @@ export async function eraseWallOf(
   if (getState().readOnly) return;
   const rest = wallRestOf(wall, segmentIndex);
   const at = { x: wall.x, y: wall.y };
-  const result = await deps.commands.eraseWallSegment(deps.campaignId, wall.id, segmentIndex, at);
+  const result = await deps.commands.eraseWallSegment(deps.scopeOf(), wall.id, segmentIndex, at);
   if (!result.ok) return sayRefusal(deps, store, result);
   setState({ selectedWallIds: getState().selectedWallIds.filter((id) => id !== wall.id) });
   const added = rest.map((shape, index) => ({ id: result.createdIds?.[index] ?? '', shape }));
@@ -48,7 +48,7 @@ export async function eraseWallAreaOf(
   if (store.getState().readOnly) return;
   const { erased, rest } = wallAreaEraseOf(walls, box);
   if (erased.length === 0) return store.setState({ notice: NOTHING_TO_ERASE });
-  const result = await deps.commands.eraseWallArea(deps.campaignId, box);
+  const result = await deps.commands.eraseWallArea(deps.scopeOf(), box);
   if (!result.ok) return sayRefusal(deps, store, result);
   const removed = erased.map((wall) => ({ id: wall.id, shape: shapeOfWall(wall) }));
   const added = rest.map((shape, index) => ({ id: result.createdIds?.[index] ?? '', shape }));
@@ -70,7 +70,7 @@ export async function deleteWallsOf(
   const { getState, setState } = store;
   if (getState().readOnly || walls.length === 0) return;
   const ids = walls.map(({ id }) => id);
-  const result = await deps.commands.deleteWalls(deps.campaignId, ids);
+  const result = await deps.commands.deleteWalls(deps.scopeOf(), ids);
   if (!result.ok) return sayRefusal(deps, store, result);
   setState({ selectedWallIds: getState().selectedWallIds.filter((id) => !ids.includes(id)) });
   const removed = walls.map((wall) => ({ id: wall.id, shape: shapeOfWall(wall) }));
@@ -93,7 +93,7 @@ export async function changeWallKindsOf(
     return store.setState({ notice: ONLY_LINES_BECOME_DOORS });
   }
   const ids = changing.map(({ id }) => id);
-  const result = await deps.commands.setWallKinds(deps.campaignId, ids, kind);
+  const result = await deps.commands.setWallKinds(deps.scopeOf(), ids, kind);
   if (!result.ok) return sayRefusal(deps, store, result);
   const changes = changing.map((wall) => ({ wallId: wall.id, from: wall.kind, to: kind }));
   deps.recordEdit?.([{ kind: 'wallsKindChanged', changes }]);

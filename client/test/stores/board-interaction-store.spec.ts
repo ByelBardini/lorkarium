@@ -8,13 +8,12 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { ROUTE_BEND_DWELL_MS, routePath } from '@/lib/token-route';
-import { VHARN } from '../support/campaigns-api-fake';
 import { InteractionClockFake } from '../support/interaction-clock-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import type { EditEntry } from '@/lib/edit-history';
 import { PATH_ID, SQUARE_ID } from '../support/drawing-fixtures';
 import { BIA_CONE_ID } from '../support/effect-area-fixtures';
-import { KAEL_ID, LYRA_ID } from '../support/table-session-fixtures';
+import { KAEL_ID, LYRA_ID, VHARN_GRID } from '../support/table-session-fixtures';
 
 describe('board interaction store', () => {
   let store: StoreApi<BoardInteractionStore>;
@@ -23,7 +22,7 @@ describe('board interaction store', () => {
   beforeEach(() => {
     commands = new TableBoardCommandsFake();
     store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });
@@ -108,7 +107,7 @@ describe('board interaction store', () => {
       const sent = store.getState().moveToken(LYRA_ID, cell(8, 6));
       expect(store.getState().preview).toEqual([{ tokenId: LYRA_ID, col: 8, row: 6 }]);
       expect(commands.sentAs('moveToken')).toEqual([
-        { name: 'moveToken', campaignId: VHARN.id, fields: { tokenId: LYRA_ID, col: 8, row: 6 } },
+        { name: 'moveToken', ...VHARN_GRID, fields: { tokenId: LYRA_ID, col: 8, row: 6 } },
       ]);
       commands.release();
       await sent;
@@ -225,7 +224,7 @@ describe('board interaction store', () => {
       expect(commands.sentAs('setTokenLayer')).toEqual([
         {
           name: 'setTokenLayer',
-          campaignId: VHARN.id,
+          ...VHARN_GRID,
           fields: { tokenIds: [LYRA_ID, KAEL_ID], layer: 'objects' },
         },
       ]);
@@ -248,7 +247,7 @@ describe('board interaction store', () => {
     it('sends the command with the table and answers whether it was confirmed', async () => {
       expect(await store.getState().command((c, id) => c.endCombat(id))).toBe(true);
       expect(commands.sentAs('endCombat')).toEqual([
-        { name: 'endCombat', campaignId: VHARN.id, fields: {} },
+        { name: 'endCombat', ...VHARN_GRID, fields: {} },
       ]);
     });
 
@@ -272,7 +271,7 @@ describe('board interaction store', () => {
     beforeEach(() => {
       clock = new InteractionClockFake();
       store = createBoardInteractionStore({
-        campaignId: VHARN.id,
+        scopeOf: () => VHARN_GRID,
         commands,
         describeRefusal: (failure) => `recusado: ${failure}`,
         clock,
@@ -516,7 +515,7 @@ describe('board interaction store', () => {
     it('a confirmed token move goes on the undo stack from the cell it was on', async () => {
       const recorded: EditEntry[] = [];
       const recording = createBoardInteractionStore({
-        campaignId: VHARN.id,
+        scopeOf: () => VHARN_GRID,
         commands,
         describeRefusal: (failure) => `recusado: ${failure}`,
         recordEdit: (entry) => recorded.push(entry),
@@ -539,7 +538,7 @@ describe('board interaction store', () => {
       const recorded: EditEntry[] = [];
       commands.answerWith({ ok: false, failure: 'forbidden' });
       const recording = createBoardInteractionStore({
-        campaignId: VHARN.id,
+        scopeOf: () => VHARN_GRID,
         commands,
         describeRefusal: (failure) => `recusado: ${failure}`,
         recordEdit: (entry) => recorded.push(entry),
@@ -558,7 +557,7 @@ describe('board interaction store', () => {
         [KAEL_ID]: cell(5, 4),
       };
       const recording = createBoardInteractionStore({
-        campaignId: VHARN.id,
+        scopeOf: () => VHARN_GRID,
         commands,
         describeRefusal: (failure) => `recusado: ${failure}`,
         recordEdit: (entry) => recorded.push(entry),
@@ -585,7 +584,7 @@ describe('board interaction store', () => {
 describe('the master previewing the sight of the selected tokens', () => {
   function storeOf(isMaster: boolean) {
     const store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands: new TableBoardCommandsFake(),
       describeRefusal: String,
     });

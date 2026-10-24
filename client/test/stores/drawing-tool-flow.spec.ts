@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { EditEntry } from '@/lib/edit-history';
 import { DEFAULT_DRAWING_STYLE, type DrawingStyle } from '@/lib/drawing-style';
 import { sendSketch, type SketchContext } from '@/stores/drawing-tool-flow';
-import { VHARN } from '../support/campaigns-api-fake';
 import { SQUARE_ID } from '../support/drawing-fixtures';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 
 const ELLIPSE: DrawingStyle = {
   kind: 'ellipse',
@@ -27,7 +27,7 @@ describe('sendSketch', () => {
 
   function deps() {
     return {
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure: string) => `recusado: ${failure}`,
       recordEdit: (entry: EditEntry) => recorded.push(entry),
@@ -57,7 +57,7 @@ describe('sendSketch', () => {
     expect(commands.sentAs('createDrawings')).toEqual([
       {
         name: 'createDrawings',
-        campaignId: VHARN.id,
+        ...VHARN_GRID,
         fields: {
           drawings: [
             {

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EditEntry } from '@/lib/edit-history';
 import { sendWall } from '@/stores/wall-tool-flow';
-import { VHARN } from '../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import { northWall } from '../support/wall-fixtures';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 
 const NEW_WALL_ID = 'f6a7b8c9-d0e1-4f2a-8b3c-4d5e6f7a8b9c';
 const SCENE = { widthCells: 20, heightCells: 12 };
@@ -30,7 +30,7 @@ describe('sendWall', () => {
   function send(readOnly = false) {
     return sendWall(
       {
-        campaignId: VHARN.id,
+        scopeOf: () => VHARN_GRID,
         commands,
         describeRefusal: (failure) => `refused: ${failure}`,
         recordEdit: (entry) => recorded.push(entry),

@@ -6,10 +6,10 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
-import { VHARN } from '../support/campaigns-api-fake';
 import { SQUARE_ID } from '../support/drawing-fixtures';
 import { ANA_CIRCLE_ID, BIA_CONE_ID, anaCircle, biaCone } from '../support/effect-area-fixtures';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 
 const CONE = shapeOfEffectArea(biaCone());
 const MOVED_CONE = { ...CONE, x: 7, y: 5 };
@@ -25,7 +25,7 @@ describe('moving, deleting and reshaping areas of effect', () => {
     commands = new TableBoardCommandsFake();
     recorded = [];
     store = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
       recordEdit: (entry) => recorded.push(entry),

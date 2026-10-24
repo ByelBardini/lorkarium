@@ -1,10 +1,14 @@
 import type { BoardStateDto, SessionMemberDto, TokenDto } from '@lorkarium/contracts';
 
-export type MainTokenBoard = Pick<BoardStateDto, 'viewer' | 'tokens' | 'mainTokens'>;
+export type MainTokenBoard = Pick<
+  BoardStateDto,
+  'viewer' | 'tokens' | 'mainTokens' | 'memberCards'
+>;
 
-/** The token the viewer's dock shows when nothing is selected: their choice while they are still
- *  listed in its control, else the oldest token of the Tokens layer listing them (`tokens` comes
- *  in creation order). The master's power does not count: only being listed does.
+/** The token the viewer's dock shows when nothing is selected: their choice in this grid while
+ *  they are still listed in its control, else the token of the grid linked to their character
+ *  (the anchor on their card), else the oldest token of the Tokens layer listing them (`tokens`
+ *  comes in creation order). The master's power does not count: only being listed does.
  *
  *  Example: `mainTokenIdOf(board) // 'lyra-id' for Bia, null for a master in no control` */
 export function mainTokenIdOf(board: MainTokenBoard): string | null {
@@ -16,14 +20,28 @@ export function mainTokenIdOf(board: MainTokenBoard): string | null {
  *
  *  Example: `mainTokenIdOfMember(board, caio.id) // 'kael-id'` */
 export function mainTokenIdOfMember(
-  board: Pick<BoardStateDto, 'tokens' | 'mainTokens'>,
+  board: Pick<BoardStateDto, 'tokens' | 'mainTokens' | 'memberCards'>,
   userId: string,
 ): string | null {
   const listed = board.tokens.filter((token) => isListedIn(token, userId));
   const choice = board.mainTokens.find((main) => main.userId === userId);
   const chosen = listed.find((token) => token.id === choice?.tokenId);
   if (chosen) return chosen.id;
+  const character = characterTokenIdOf(board, userId);
+  if (character) return character;
   return listed.find((token) => token.layer === 'tokens')?.id ?? null;
+}
+
+/** The token of the grid linked to the character of `userId` (the anchor on their card), if any.
+ *
+ *  Example: `characterTokenIdOf(board, bia.id) // 'lyra-id' once Lyra is linked to Bia's card` */
+export function characterTokenIdOf(
+  board: Pick<BoardStateDto, 'tokens' | 'memberCards'>,
+  userId: string,
+): string | null {
+  const anchorId = board.memberCards.find((card) => card.userId === userId)?.anchorTokenId;
+  if (!anchorId) return null;
+  return board.tokens.find((token) => token.anchorTokenId === anchorId)?.id ?? null;
 }
 
 /** Whether `userId` is in the control of the token: what choosing it as main takes (the master's

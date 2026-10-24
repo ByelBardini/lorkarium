@@ -7,16 +7,20 @@ import {
 } from '@/stores/open-tables-store';
 import { ANA } from '../support/auth-api-fake';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
+import { VHARN_CAST_ID } from '../support/cast-fixtures';
 import { StorageFake } from '../support/storage-fake';
+import { tabInteractions } from '../support/tab-interactions';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
 import { copiedOf } from '@/lib/paste-placement';
 import { BIA_AT_TABLE, lyra, vharnState } from '../support/table-session-fixtures';
 
-const VHARN_TABLE = { campaignId: VHARN.id, name: 'Vharn' };
-const QUELM_TABLE = { campaignId: QUELM.id, name: 'Quelm' };
+const QUELM_CAST_ID = '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e';
+const VHARN_TABLE = { campaignId: VHARN.id, name: 'Vharn', castSceneId: VHARN_CAST_ID };
+const QUELM_TABLE = { campaignId: QUELM.id, name: 'Quelm', castSceneId: QUELM_CAST_ID };
 const MORE_TABLES = [1, 2, 3, 4].map((n) => ({
   campaignId: `a1000000-0000-4000-8000-00000000000${n}`,
   name: `Mesa ${n}`,
+  castSceneId: `c1000000-0000-4000-8000-00000000000${n}`,
 }));
 
 describe('open tables store', () => {
@@ -27,7 +31,7 @@ describe('open tables store', () => {
   beforeEach(() => {
     api = new TableSessionApiFake();
     storage = new StorageFake();
-    store = createOpenTablesStore({ api, storage });
+    store = createOpenTablesStore({ api, storage, createInteraction: tabInteractions() });
   });
 
   function stored(): unknown {
@@ -134,7 +138,11 @@ describe('open tables store', () => {
   });
 
   it('a storage that throws gives an empty list and still opens tables in memory', () => {
-    store = createOpenTablesStore({ api, storage: new StorageFake(true) });
+    store = createOpenTablesStore({
+      api,
+      storage: new StorageFake(true),
+      createInteraction: tabInteractions(),
+    });
     store.getState().restore(ANA.id);
     expect(store.getState().open(VHARN_TABLE)).toBe('opened');
     expect(openIds()).toEqual([VHARN.id]);

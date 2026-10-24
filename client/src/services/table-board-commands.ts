@@ -11,7 +11,11 @@ import {
   type UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
 import type { TokenBox } from '@lorkarium/game-core';
-import { BoardCommandSender, type BoardCommandResult } from './board-command-sender';
+import {
+  BoardCommandSender,
+  type BoardCommandResult,
+  type BoardScope,
+} from './board-command-sender';
 import { RealtimeCombatCommands, type CombatCommands } from './combat-commands';
 import {
   RealtimeLightCommands,
@@ -32,6 +36,11 @@ import {
 } from './effect-area-commands';
 import { RealtimeMainTokenCommands, type MainTokenCommands } from './main-token-commands';
 import { RealtimeMemberCardCommands, type MemberCardCommands } from './member-card-commands';
+import {
+  RealtimeTokenLinkCommands,
+  type AddPlayersResult,
+  type TokenLinkCommands,
+} from './token-link-commands';
 import type { RealtimeTransport } from './realtime-transport';
 import {
   RealtimeWallCommands,
@@ -45,10 +54,11 @@ import {
   type WallShape,
 } from './wall-commands';
 
-export type { BoardCommandFailure, BoardCommandResult } from './board-command-sender';
+export type { BoardCommandFailure, BoardCommandResult, BoardScope } from './board-command-sender';
 export type { NewConditionDefinition } from './combat-commands';
+export type { AddPlayersResult } from './token-link-commands';
 
-type Envelope = 'actionId' | 'campaignId';
+type Envelope = 'actionId' | 'campaignId' | 'sceneId';
 // The input type: a token sent without `layer` lands on `tokens`.
 export type NewToken = Omit<CreateTokenCommandInput, Envelope>;
 export type TokenEdit = Omit<UpdateTokenCommandDto, Envelope | 'tokenId'>;
@@ -80,7 +90,7 @@ export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | nul
 /** Board commands of an open table; each answers with its ack, never throws. The confirmed
  *  change itself arrives as an event, like everyone else's.
  *
- *  Example: `const result = await boardCommands.moveToken(campaignId, tokenId, { col, row })` */
+ *  Example: `const result = await boardCommands.moveToken(scope, tokenId, { col, row })` */
 export interface TableBoardCommands
   extends
     CombatCommands,
@@ -88,76 +98,74 @@ export interface TableBoardCommands
     WallCommands,
     LightCommands,
     MainTokenCommands,
-    MemberCardCommands {
+    MemberCardCommands,
+    TokenLinkCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
    *  absent keeps it; `vision` absent keeps the scene's mode. */
   configureScene(
-    campaignId: string,
+    scope: BoardScope,
     grid: SceneGridDto,
     backgroundAssetId?: string | null,
     vision?: SceneVisionDto,
   ): Promise<BoardCommandResult>;
-  createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult>;
-  updateToken(campaignId: string, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult>;
+  createToken(scope: BoardScope, token: NewToken): Promise<BoardCommandResult>;
+  updateToken(scope: BoardScope, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult>;
   /** `path`: the bends around walls (absent or empty: a straight move). */
   moveToken(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     to: CellTarget,
     path?: readonly CellTarget[],
   ): Promise<BoardCommandResult>;
   /** A group move: all or nothing, in one version. */
-  moveTokens(campaignId: string, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult>;
+  moveTokens(scope: BoardScope, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult>;
   /** A paste of tokens (master): all or nothing, in one version. */
-  createTokens(campaignId: string, tokens: readonly NewToken[]): Promise<BoardCommandResult>;
+  createTokens(scope: BoardScope, tokens: readonly NewToken[]): Promise<BoardCommandResult>;
   /** Deletes tokens (undoing a paste); `expect` is where each must still be. */
   deleteTokens(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     expect?: readonly TokenPlacement[],
   ): Promise<BoardCommandResult>;
   createDrawings(
-    campaignId: string,
+    scope: BoardScope,
     drawings: readonly DrawingShapeInput[],
   ): Promise<BoardCommandResult>;
-  moveDrawings(
-    campaignId: string,
-    moves: readonly DrawingMoveTarget[],
-  ): Promise<BoardCommandResult>;
+  moveDrawings(scope: BoardScope, moves: readonly DrawingMoveTarget[]): Promise<BoardCommandResult>;
   deleteDrawings(
-    campaignId: string,
+    scope: BoardScope,
     drawingIds: readonly string[],
     expect?: readonly DrawingPlacement[],
   ): Promise<BoardCommandResult>;
   /** The cells a group (one token is a group of one) is dragged over, for the others to see;
    *  a `null` cell ends that token's drag with no move. Nothing is saved: the ack carries the
    *  version as it stands. */
-  dragTokens(campaignId: string, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult>;
+  dragTokens(scope: BoardScope, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult>;
   setTokenLayer(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     layer: TokenLayerDto,
   ): Promise<BoardCommandResult>;
   /** Turns a group (master or controllers, tokens layer), all or nothing in one version. */
-  faceTokens(campaignId: string, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult>;
+  faceTokens(scope: BoardScope, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult>;
   /** Sizes and origins after the handles (`token:resizeMany`); the controllers' to choose. */
   resizeTokens(
-    campaignId: string,
+    scope: BoardScope,
     resizes: readonly TokenResizeTarget[],
   ): Promise<BoardCommandResult>;
   /** Changes the look of a group (master or controllers), all or nothing in one version. */
   restyleTokens(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     style: TokenStyle,
   ): Promise<BoardCommandResult>;
   adjustBar(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     barId: string,
     change: BarChangeDto,
   ): Promise<BoardCommandResult>;
-  deleteToken(campaignId: string, tokenId: string): Promise<BoardCommandResult>;
+  deleteToken(scope: BoardScope, tokenId: string): Promise<BoardCommandResult>;
 }
 
 /** `TableBoardCommands` over the same realtime transport as the table session.
@@ -172,6 +180,7 @@ export class RealtimeTableBoardCommands
   private readonly lights: LightCommands;
   private readonly mainToken: MainTokenCommands;
   private readonly memberCard: MemberCardCommands;
+  private readonly tokenLink: TokenLinkCommands;
 
   constructor(transport: RealtimeTransport, newActionId: () => string) {
     super(new BoardCommandSender(transport, newActionId));
@@ -180,157 +189,170 @@ export class RealtimeTableBoardCommands
     this.lights = new RealtimeLightCommands(this.sender);
     this.mainToken = new RealtimeMainTokenCommands(this.sender);
     this.memberCard = new RealtimeMemberCardCommands(this.sender);
+    this.tokenLink = new RealtimeTokenLinkCommands(this.sender);
+  }
+
+  linkTokenToCard(
+    scope: BoardScope,
+    tokenId: string,
+    memberId: string,
+  ): Promise<BoardCommandResult> {
+    return this.tokenLink.linkTokenToCard(scope, tokenId, memberId);
+  }
+
+  unlinkTokenFromCard(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
+    return this.tokenLink.unlinkTokenFromCard(scope, tokenId);
+  }
+
+  addPlayers(scope: BoardScope, center: CellTarget): Promise<AddPlayersResult> {
+    return this.tokenLink.addPlayers(scope, center);
   }
 
   updateMemberCard(
-    campaignId: string,
+    scope: BoardScope,
     memberId: string,
     changes: MemberCardChangesInput,
   ): Promise<BoardCommandResult> {
-    return this.memberCard.updateMemberCard(campaignId, memberId, changes);
+    return this.memberCard.updateMemberCard(scope, memberId, changes);
   }
 
-  setMainToken(
-    campaignId: string,
-    tokenId: string,
-    playerId?: string,
-  ): Promise<BoardCommandResult> {
-    return this.mainToken.setMainToken(campaignId, tokenId, playerId);
+  setMainToken(scope: BoardScope, tokenId: string, playerId?: string): Promise<BoardCommandResult> {
+    return this.mainToken.setMainToken(scope, tokenId, playerId);
   }
 
-  createLights(campaignId: string, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {
-    return this.lights.createLights(campaignId, lights);
+  createLights(scope: BoardScope, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {
+    return this.lights.createLights(scope, lights);
   }
 
-  moveLights(campaignId: string, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult> {
-    return this.lights.moveLights(campaignId, moves);
+  moveLights(scope: BoardScope, moves: readonly LightMoveTarget[]): Promise<BoardCommandResult> {
+    return this.lights.moveLights(scope, moves);
   }
 
   setLightRanges(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightRangeTarget[],
   ): Promise<BoardCommandResult> {
-    return this.lights.setLightRanges(campaignId, changes);
+    return this.lights.setLightRanges(scope, changes);
   }
 
   setLightColors(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightColorTarget[],
   ): Promise<BoardCommandResult> {
-    return this.lights.setLightColors(campaignId, changes);
+    return this.lights.setLightColors(scope, changes);
   }
 
   setLightCones(
-    campaignId: string,
+    scope: BoardScope,
     changes: readonly LightConeTarget[],
   ): Promise<BoardCommandResult> {
-    return this.lights.setLightCones(campaignId, changes);
+    return this.lights.setLightCones(scope, changes);
   }
 
   setLightsLit(
-    campaignId: string,
+    scope: BoardScope,
     lightIds: readonly string[],
     lit: boolean,
   ): Promise<BoardCommandResult> {
-    return this.lights.setLightsLit(campaignId, lightIds, lit);
+    return this.lights.setLightsLit(scope, lightIds, lit);
   }
 
   deleteLights(
-    campaignId: string,
+    scope: BoardScope,
     lightIds: readonly string[],
     expect?: readonly LightAt[],
   ): Promise<BoardCommandResult> {
-    return this.lights.deleteLights(campaignId, lightIds, expect);
+    return this.lights.deleteLights(scope, lightIds, expect);
   }
 
-  createWalls(campaignId: string, shapes: readonly WallShape[]): Promise<BoardCommandResult> {
-    return this.walls.createWalls(campaignId, shapes);
+  createWalls(scope: BoardScope, shapes: readonly WallShape[]): Promise<BoardCommandResult> {
+    return this.walls.createWalls(scope, shapes);
   }
 
-  eraseWallArea(campaignId: string, box: WallEraseBox): Promise<BoardCommandResult> {
-    return this.walls.eraseWallArea(campaignId, box);
+  eraseWallArea(scope: BoardScope, box: WallEraseBox): Promise<BoardCommandResult> {
+    return this.walls.eraseWallArea(scope, box);
   }
 
   eraseWallSegment(
-    campaignId: string,
+    scope: BoardScope,
     wallId: string,
     segmentIndex: number,
     expect?: WallPosition,
   ): Promise<BoardCommandResult> {
-    return this.walls.eraseWallSegment(campaignId, wallId, segmentIndex, expect);
+    return this.walls.eraseWallSegment(scope, wallId, segmentIndex, expect);
   }
 
   deleteWalls(
-    campaignId: string,
+    scope: BoardScope,
     wallIds: readonly string[],
     expect?: readonly WallPlacement[],
   ): Promise<BoardCommandResult> {
-    return this.walls.deleteWalls(campaignId, wallIds, expect);
+    return this.walls.deleteWalls(scope, wallIds, expect);
   }
 
   setWallKinds(
-    campaignId: string,
+    scope: BoardScope,
     wallIds: readonly string[],
     kind: WallKind,
     expect?: readonly WallKindOf[],
   ): Promise<BoardCommandResult> {
-    return this.walls.setWallKinds(campaignId, wallIds, kind, expect);
+    return this.walls.setWallKinds(scope, wallIds, kind, expect);
   }
 
-  setDoor(campaignId: string, wallId: string, state: DoorState): Promise<BoardCommandResult> {
-    return this.walls.setDoor(campaignId, wallId, state);
+  setDoor(scope: BoardScope, wallId: string, state: DoorState): Promise<BoardCommandResult> {
+    return this.walls.setDoor(scope, wallId, state);
   }
 
   createEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     shapes: readonly EffectAreaShape[],
   ): Promise<BoardCommandResult> {
-    return this.effectAreas.createEffectAreas(campaignId, shapes);
+    return this.effectAreas.createEffectAreas(scope, shapes);
   }
 
   reshapeEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     reshapes: readonly EffectAreaReshapeTarget[],
   ): Promise<BoardCommandResult> {
-    return this.effectAreas.reshapeEffectAreas(campaignId, reshapes);
+    return this.effectAreas.reshapeEffectAreas(scope, reshapes);
   }
 
   deleteEffectAreas(
-    campaignId: string,
+    scope: BoardScope,
     effectAreaIds: readonly string[],
     expect?: readonly EffectAreaShaped[],
   ): Promise<BoardCommandResult> {
-    return this.effectAreas.deleteEffectAreas(campaignId, effectAreaIds, expect);
+    return this.effectAreas.deleteEffectAreas(scope, effectAreaIds, expect);
   }
 
   configureScene(
-    campaignId: string,
+    scope: BoardScope,
     grid: SceneGridDto,
     backgroundAssetId?: string | null,
     vision?: SceneVisionDto,
   ): Promise<BoardCommandResult> {
     const background = backgroundAssetId === undefined ? {} : { backgroundAssetId };
     const mode = vision === undefined ? {} : { vision };
-    return this.send(BOARD_EVENTS.configureScene, campaignId, { ...grid, ...background, ...mode });
+    return this.send(BOARD_EVENTS.configureScene, scope, { ...grid, ...background, ...mode });
   }
 
-  createToken(campaignId: string, token: NewToken): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.createToken, campaignId, token);
+  createToken(scope: BoardScope, token: NewToken): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.createToken, scope, token);
   }
 
-  updateToken(campaignId: string, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.updateToken, campaignId, { tokenId, ...edit });
+  updateToken(scope: BoardScope, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.updateToken, scope, { tokenId, ...edit });
   }
 
   moveToken(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     to: CellTarget,
     path?: readonly CellTarget[],
   ): Promise<BoardCommandResult> {
     const bends =
       path && path.length > 0 ? { path: path.map(({ col, row }) => ({ col, row })) } : {};
-    return this.send(BOARD_EVENTS.moveToken, campaignId, {
+    return this.send(BOARD_EVENTS.moveToken, scope, {
       tokenId,
       col: to.col,
       row: to.row,
@@ -338,7 +360,7 @@ export class RealtimeTableBoardCommands
     });
   }
 
-  moveTokens(campaignId: string, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult> {
+  moveTokens(scope: BoardScope, moves: readonly TokenMoveTarget[]): Promise<BoardCommandResult> {
     const placed = moves.map(({ tokenId, col, row, expect, path }) => ({
       tokenId,
       col,
@@ -347,36 +369,36 @@ export class RealtimeTableBoardCommands
       ...(path &&
         path.length > 0 && { path: path.map((bend) => ({ col: bend.col, row: bend.row })) }),
     }));
-    return this.send(BOARD_EVENTS.moveTokens, campaignId, { moves: placed });
+    return this.send(BOARD_EVENTS.moveTokens, scope, { moves: placed });
   }
 
-  createTokens(campaignId: string, tokens: readonly NewToken[]): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.createTokens, campaignId, { tokens: [...tokens] });
+  createTokens(scope: BoardScope, tokens: readonly NewToken[]): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.createTokens, scope, { tokens: [...tokens] });
   }
 
   deleteTokens(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     expect?: readonly TokenPlacement[],
   ): Promise<BoardCommandResult> {
     const precondition = expect && {
       expect: expect.map(({ tokenId, col, row }) => ({ tokenId, col, row })),
     };
-    return this.send(BOARD_EVENTS.deleteTokens, campaignId, {
+    return this.send(BOARD_EVENTS.deleteTokens, scope, {
       tokenIds: [...tokenIds],
       ...precondition,
     });
   }
 
   createDrawings(
-    campaignId: string,
+    scope: BoardScope,
     drawings: readonly DrawingShapeInput[],
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.createDrawings, campaignId, { drawings: [...drawings] });
+    return this.send(BOARD_EVENTS.createDrawings, scope, { drawings: [...drawings] });
   }
 
   moveDrawings(
-    campaignId: string,
+    scope: BoardScope,
     moves: readonly DrawingMoveTarget[],
   ): Promise<BoardCommandResult> {
     const placed = moves.map(({ drawingId, x, y, expect }) => ({
@@ -385,50 +407,50 @@ export class RealtimeTableBoardCommands
       y,
       ...(expect && { expect: { x: expect.x, y: expect.y } }),
     }));
-    return this.send(BOARD_EVENTS.moveDrawings, campaignId, { moves: placed });
+    return this.send(BOARD_EVENTS.moveDrawings, scope, { moves: placed });
   }
 
   deleteDrawings(
-    campaignId: string,
+    scope: BoardScope,
     drawingIds: readonly string[],
     expect?: readonly DrawingPlacement[],
   ): Promise<BoardCommandResult> {
     const precondition = expect && {
       expect: expect.map(({ drawingId, x, y }) => ({ drawingId, x, y })),
     };
-    return this.send(BOARD_EVENTS.deleteDrawings, campaignId, {
+    return this.send(BOARD_EVENTS.deleteDrawings, scope, {
       drawingIds: [...drawingIds],
       ...precondition,
     });
   }
 
-  dragTokens(campaignId: string, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult> {
+  dragTokens(scope: BoardScope, drags: readonly TokenDragTarget[]): Promise<BoardCommandResult> {
     const over = drags.map(({ tokenId, cell }) => ({
       tokenId,
       cell: cell && { col: cell.col, row: cell.row },
     }));
-    return this.send(BOARD_EVENTS.dragTokens, campaignId, { drags: over });
+    return this.send(BOARD_EVENTS.dragTokens, scope, { drags: over });
   }
 
   setTokenLayer(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     layer: TokenLayerDto,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.setTokenLayer, campaignId, { tokenIds: [...tokenIds], layer });
+    return this.send(BOARD_EVENTS.setTokenLayer, scope, { tokenIds: [...tokenIds], layer });
   }
 
-  faceTokens(campaignId: string, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult> {
+  faceTokens(scope: BoardScope, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult> {
     const turned = faces.map(({ tokenId, facing, expect }) => ({
       tokenId,
       facing,
       ...(expect && { expect: { facing: expect.facing } }),
     }));
-    return this.send(BOARD_EVENTS.faceTokens, campaignId, { faces: turned });
+    return this.send(BOARD_EVENTS.faceTokens, scope, { faces: turned });
   }
 
   resizeTokens(
-    campaignId: string,
+    scope: BoardScope,
     resizes: readonly TokenResizeTarget[],
   ): Promise<BoardCommandResult> {
     const boxes = resizes.map(({ tokenId, col, row, width, height, expect }) => ({
@@ -439,31 +461,31 @@ export class RealtimeTableBoardCommands
       height,
       ...(expect && { expect: boxOf(expect) }),
     }));
-    return this.send(BOARD_EVENTS.resizeTokens, campaignId, { resizes: boxes });
+    return this.send(BOARD_EVENTS.resizeTokens, scope, { resizes: boxes });
   }
 
   restyleTokens(
-    campaignId: string,
+    scope: BoardScope,
     tokenIds: readonly string[],
     style: TokenStyle,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.restyleTokens, campaignId, {
+    return this.send(BOARD_EVENTS.restyleTokens, scope, {
       tokenIds: [...tokenIds],
       style: { ...style },
     });
   }
 
   adjustBar(
-    campaignId: string,
+    scope: BoardScope,
     tokenId: string,
     barId: string,
     change: BarChangeDto,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.adjustBar, campaignId, { tokenId, barId, change });
+    return this.send(BOARD_EVENTS.adjustBar, scope, { tokenId, barId, change });
   }
 
-  deleteToken(campaignId: string, tokenId: string): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.deleteToken, campaignId, { tokenId });
+  deleteToken(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.deleteToken, scope, { tokenId });
   }
 }
 

@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { EditEntry } from '@/lib/edit-history';
 import type { LightColor } from '@/lib/light-color';
 import { sendLight } from '@/stores/light-tool-flow';
-import { VHARN } from '../support/campaigns-api-fake';
 import { CORRIDOR_TORCH_ID } from '../support/light-fixtures';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
+import { VHARN_GRID } from '../support/table-session-fixtures';
 
 const TORCH_REACH = { bright: 4, dim: 4 };
 
@@ -22,7 +22,7 @@ describe('sendLight', () => {
   function place(readOnly = false, color: LightColor = null, angle = 360) {
     return sendLight(
       {
-        campaignId: VHARN.id,
+        scopeOf: () => VHARN_GRID,
         commands,
         describeRefusal: (failure) => `refused: ${failure}`,
         recordEdit: (entry) => recorded.push(entry),
