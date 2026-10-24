@@ -1,16 +1,19 @@
 import {
+  Outlet,
   redirect,
   useLoaderData,
   useNavigate,
   type ActionFunction,
   type LoaderFunction,
   type RouteObject,
+  type ShouldRevalidateFunction,
 } from 'react-router';
 import type { AppDependencies } from '@/app/router';
 import { redirectIfSignedOut, valueOrThrow } from '@/app/shell/api-loader';
 import { COMPACT_RAIL_HANDLE } from '@/app/shell/rail-handle';
 import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detail-dialog';
 import { PlayRoomPage } from '@/features/board/play-room-page';
+import { libraryRoute, TABLE_ROUTE_ID } from '@/features/library/library-route';
 import { CampaignTableErrorPage } from './campaign-table-page';
 import type { CampaignLoaderData } from './campaign-loader-data';
 import type { EnterCampaignResult } from './enter-campaign-button';
@@ -29,18 +32,29 @@ export function campaignDetailRoute(deps: AppDependencies): RouteObject {
   };
 }
 
-/** The play room at `/campaigns/:campaignId/table`, with the rail compact around it.
+/** The play room at `/campaigns/:campaignId/table`, with the rail compact around it and the
+ *  library (`…/table/library`) as a child modal over it.
  *
  *  Example: `{ id: 'shell', children: [...homeRoutes(deps), campaignTableRoute(deps)] }` */
 export function campaignTableRoute(deps: AppDependencies): RouteObject {
   return {
+    id: TABLE_ROUTE_ID,
     path: 'campaigns/:campaignId/table',
     handle: COMPACT_RAIL_HANDLE,
     loader: campaignLoader(deps),
+    shouldRevalidate: keepCampaignUnderLibrary,
     Component: tableRoute(deps),
     ErrorBoundary: CampaignTableErrorPage,
+    children: [{ index: true, element: null }, libraryRoute(deps)],
   };
 }
+
+// The library's actions and `library:changed` read the library again, not the campaign.
+const keepCampaignUnderLibrary: ShouldRevalidateFunction = (args) => {
+  const sameTable = args.currentParams.campaignId === args.nextParams.campaignId;
+  if (sameTable && args.nextUrl.pathname.endsWith('/table/library')) return false;
+  return args.defaultShouldRevalidate;
+};
 
 function campaignLoader({ campaignsApi, sessionStore }: AppDependencies): LoaderFunction {
   return async ({ request, params }): Promise<CampaignLoaderData> => {
@@ -91,22 +105,25 @@ function tableRoute({
     const { campaign } = useLoaderData<CampaignLoaderData>();
     // Another table is another screen: its own pending presence, not the previous one's.
     return (
-      <PlayRoomPage
-        key={campaign.id}
-        campaign={campaign}
-        openTables={openTables}
-        roomLayout={roomLayout}
-        drawingStyle={drawingStyle}
-        effectAreaStyle={effectAreaStyle}
-        wallStyle={wallStyle}
-        lightReach={lightReach}
-        lightColor={lightColor}
-        clipboard={clipboard}
-        createBoardRenderer={createBoardRenderer}
-        boardCommands={boardCommands}
-        assets={assets}
-        interactionClock={interactionClock}
-      />
+      <>
+        <PlayRoomPage
+          key={campaign.id}
+          campaign={campaign}
+          openTables={openTables}
+          roomLayout={roomLayout}
+          drawingStyle={drawingStyle}
+          effectAreaStyle={effectAreaStyle}
+          wallStyle={wallStyle}
+          lightReach={lightReach}
+          lightColor={lightColor}
+          clipboard={clipboard}
+          createBoardRenderer={createBoardRenderer}
+          boardCommands={boardCommands}
+          assets={assets}
+          interactionClock={interactionClock}
+        />
+        <Outlet />
+      </>
     );
   };
 }

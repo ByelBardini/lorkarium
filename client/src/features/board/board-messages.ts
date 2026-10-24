@@ -1,4 +1,4 @@
-import type { TokenLayerDto } from '@lorkarium/contracts';
+import { TOKENS_PER_SCENE_MAX, type TokenLayerDto } from '@lorkarium/contracts';
 import {
   NOT_MEMBER_MESSAGE,
   OFFLINE_MESSAGE,
@@ -36,7 +36,9 @@ export function connectionStatusLine(
 const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   forbidden: 'Só o mestre pode fazer isso.',
   not_found: NOT_MEMBER_MESSAGE,
+  scene_not_found: 'Esse grid não está mais aberto pra você.',
   token_not_found: 'Isso não está mais na mesa.',
+  token_limit: `A cena já tem o máximo de ${TOKENS_PER_SCENE_MAX} tokens.`,
   turn_changed: 'A vez já passou.',
   combat_active: 'Já há um combate nesta cena.',
   combat_inactive: 'Não há combate nesta cena.',
@@ -53,6 +55,9 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   light_not_found: 'Essa luz não está mais na mesa.',
   light_limit: 'A cena já tem luzes demais. Apague algumas antes.',
   member_not_found: 'Essa pessoa não está mais na mesa.',
+  character_already_placed: 'Esse personagem já tem um token neste grid.',
+  token_not_linked: 'Esse token não está ligado a uma ficha.',
+  no_free_cells: 'Não há casas livres neste grid.',
   stale_undo: STALE_UNDO_TEXT,
   asset_not_found: 'Essa imagem não está mais na mesa.',
   invalid: 'Confira os campos e tente de novo.',
@@ -63,6 +68,24 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
 };
 
 export const DISCONNECTED_COMMAND = 'Sem conexão. Aguarde reconectar.';
+
+/** "Adicionar jogadores" with the middle of the view off the grid. */
+export const VIEW_OFF_GRID = 'Traga o grid para a vista primeiro.';
+
+const PEOPLE = new Intl.ListFormat('pt-BR', { style: 'long', type: 'conjunction' });
+
+/** What the status line says once "Adicionar jogadores" was confirmed: who was skipped for having
+ *  no token yet, or that everyone was already there; nothing when the tokens simply arrive.
+ *
+ *  Example: `addPlayersNotice({ created: 2, skipped: ['Davi'] }) // 'Davi ainda não tem token.'` */
+export function addPlayersNotice({
+  created,
+  skipped,
+}: Readonly<{ created: number; skipped: readonly string[] }>): string | null {
+  if (skipped.length === 1) return `${PEOPLE.format(skipped)} ainda não tem token.`;
+  if (skipped.length > 1) return `${PEOPLE.format(skipped)} ainda não têm token.`;
+  return created === 0 ? 'Os jogadores já estão neste grid.' : null;
+}
 
 /** What the status line says once an area of effect was stretched or turned by its handles.
  *

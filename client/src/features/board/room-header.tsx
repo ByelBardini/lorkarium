@@ -1,4 +1,6 @@
 import type { CampaignDetailDto } from '@lorkarium/contracts';
+import { LibraryIcon } from 'lucide-react';
+import { Link } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { CopyCodeButton } from '@/components/copy-code-button';
 import { Button } from '@/components/ui/button';
@@ -10,31 +12,38 @@ import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { RoomLayoutStore } from '@/stores/room-layout-store';
+import type { SceneTabsStore } from '@/stores/scene-tabs-store';
 import {
   selectOnlineCount,
   useTablePresence,
   type TablePresenceStore,
 } from '@/stores/table-presence-store';
 import { PanelToggle } from './room-panel';
+import { SceneTabs } from './scene-tabs';
 
 export type RoomHeaderProps = Readonly<{
   campaign: CampaignDetailDto;
   presence: StoreApi<TablePresenceStore> | null;
+  /** The board of the tab shown (its turn line). */
   board: StoreApi<BoardStore> | null;
+  /** The grid tabs of the table, once it is open. */
+  tabs: StoreApi<SceneTabsStore> | null;
   interaction: StoreApi<BoardInteractionStore>;
   openTables: StoreApi<OpenTablesStore>;
   roomLayout: StoreApi<RoomLayoutStore>;
   clipboard: Clipboard;
 }>;
 
-/** The 48px top bar of the room: name, who is online, the code (master only), the panel toggle
- *  and "Sair da mesa". Managing the table stays in its detail; this bar only plays.
+/** The 48px top bar of the room: name, who is online, the open grid tabs, the code (master
+ *  only), "Biblioteca", the panel toggle and "Sair da mesa". Managing the table stays in its
+ *  detail; this bar only plays.
  *
- *  Example: `<RoomHeader campaign={campaign} presence={presence} interaction={interaction} openTables={openTables} roomLayout={roomLayout} clipboard={clipboard} />` */
+ *  Example: `<RoomHeader campaign={campaign} presence={presence} board={board} tabs={tabs} interaction={interaction} openTables={openTables} roomLayout={roomLayout} clipboard={clipboard} />` */
 export function RoomHeader({
   campaign,
   presence,
   board,
+  tabs,
   interaction,
   openTables,
   roomLayout,
@@ -50,9 +59,16 @@ export function RoomHeader({
       {presence && (
         <OnlineCount presence={presence} onShow={() => roomLayout.getState().showTab('people')} />
       )}
+      {tabs && <SceneTabs tabs={tabs} />}
       {board && <TurnLine board={board} interaction={interaction} className="hidden sm:block" />}
       <div className="ml-auto flex items-center gap-3">
         {campaign.joinCode && <TableCode code={campaign.joinCode} clipboard={clipboard} />}
+        <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
+          <Link to={`/campaigns/${encodeURIComponent(campaign.id)}/table/library`}>
+            <LibraryIcon aria-hidden="true" />
+            Biblioteca
+          </Link>
+        </Button>
         <PanelToggle roomLayout={roomLayout} />
         <Button variant="outline" size="sm" onClick={() => void leaveTable(campaign.id)}>
           Sair da mesa

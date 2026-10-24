@@ -77,7 +77,7 @@ function deleteSelection(
 ): void {
   const local = interaction.getState();
   const tokenIds = selection.tokens.map(({ id }) => id);
-  void local.command((commands, campaignId) => commands.deleteTokens(campaignId, tokenIds));
+  void local.command((commands, scope) => commands.deleteTokens(scope, tokenIds));
   if (selection.drawings.length > 0) void local.deleteDrawings(selection.drawings);
   if (selection.effectAreas.length > 0) void local.deleteEffectAreas(selection.effectAreas);
   if (selection.walls.length > 0) void local.deleteWalls(selection.walls);

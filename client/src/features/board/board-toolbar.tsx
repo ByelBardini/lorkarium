@@ -17,13 +17,18 @@ import {
   Settings2Icon,
   SparklesIcon,
   UserPlusIcon,
+  UsersIcon,
 } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { BoardRenderer } from '@/renderer/board-renderer';
+import type { AddPlayersResult } from '@/services/table-board-commands';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
-import { LAYER_LABEL } from './board-messages';
+import { LAYER_LABEL, VIEW_OFF_GRID, addPlayersNotice } from './board-messages';
+
+/** A member "Adicionar jogadores" may name as skipped. */
+export type ToolbarMember = Readonly<{ userId: string; name: string }>;
 
 export type BoardToolbarProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
@@ -32,6 +37,8 @@ export type BoardToolbarProps = Readonly<{
   canConfigure: boolean;
   /** The scene hides what tokens do not see (Escuro, Luz do dia): the master may preview it. */
   sightOn?: boolean;
+  /** The table's members: "Adicionar jogadores" names who was skipped. */
+  members?: readonly ToolbarMember[];
   onConfigure: () => void;
   onNewToken: () => void;
 }>;
@@ -57,6 +64,7 @@ export function BoardToolbar({
   renderer,
   canConfigure,
   sightOn = false,
+  members = [],
   onConfigure,
   onNewToken,
 }: BoardToolbarProps): React.JSX.Element {
@@ -146,6 +154,12 @@ export function BoardToolbar({
           <>
             <span aria-hidden="true" className="my-1 h-px bg-divider" />
             <ToolButton label="Novo token" icon={UserPlusIcon} onClick={onNewToken} />
+            <ToolButton
+              label="Adicionar jogadores"
+              icon={UsersIcon}
+              disabled={!renderer}
+              onClick={() => renderer && void addPlayersHere(interaction, renderer, members)}
+            />
             <ToolButton label="Configurar cena" icon={Settings2Icon} onClick={onConfigure} />
             {sightOn && (
               <ToolButton
@@ -160,6 +174,29 @@ export function BoardToolbar({
       </div>
     </TooltipProvider>
   );
+}
+
+// Around the middle of the master's view; the status line names who had no token to bring.
+async function addPlayersHere(
+  interaction: StoreApi<BoardInteractionStore>,
+  renderer: BoardRenderer,
+  members: readonly ToolbarMember[],
+): Promise<void> {
+  const center = renderer.viewCenterCell();
+  if (!center) return interaction.getState().say(VIEW_OFF_GRID);
+  const answer: { result: AddPlayersResult | null } = { result: null };
+  await interaction.getState().command(async (commands, scope) => {
+    answer.result = await commands.addPlayers(scope, center);
+    return answer.result;
+  });
+  if (!answer.result?.ok) return;
+  const { createdIds, skippedMemberIds } = answer.result;
+  const skipped = skippedMemberIds.map((id) => members.find(({ userId }) => userId === id)?.name);
+  const notice = addPlayersNotice({
+    created: createdIds.length,
+    skipped: skipped.filter((name): name is string => name !== undefined),
+  });
+  if (notice) interaction.getState().say(notice);
 }
 
 // The master's active layer: only what is on it is picked up on the board.

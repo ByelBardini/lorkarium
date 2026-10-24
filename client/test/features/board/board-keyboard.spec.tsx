@@ -15,6 +15,7 @@ import {
   vharnState,
   BIA_AT_TABLE,
   VHARN_SCENE,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 const KAEL_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
@@ -72,7 +73,7 @@ describe('board keyboard', () => {
     await userEvent.keyboard(']]');
     await userEvent.keyboard('{ArrowRight}');
     expect(deps.boardCommands.sentAs('moveToken')).toEqual([
-      { name: 'moveToken', campaignId: VHARN.id, fields: { tokenId: KAEL_ID, col: 8, row: 5 } },
+      { name: 'moveToken', ...VHARN_GRID, fields: { tokenId: KAEL_ID, col: 8, row: 5 } },
     ]);
     deps.tableSessionApi.emit({
       kind: 'boardEvent',
@@ -107,7 +108,7 @@ describe('board keyboard', () => {
     expect(deps.boardCommands.sentAs('moveTokens')).toEqual([
       {
         name: 'moveTokens',
-        campaignId: VHARN.id,
+        ...VHARN_GRID,
         fields: {
           moves: [
             { tokenId: LYRA_ID, col: 4, row: 4 },

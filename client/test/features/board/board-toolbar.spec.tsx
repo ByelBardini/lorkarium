@@ -8,8 +8,10 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { BoardRendererFake } from '../../support/board-renderer-fake';
-import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
+import { BIA_AT_TABLE, LYRA_ID, VHARN_GRID } from '../../support/table-session-fixtures';
+import { cell } from '@lorkarium/game-core';
+import { boardCommandFailureMessage } from '@/features/board/board-messages';
 
 describe('BoardToolbar', () => {
   let interaction: StoreApi<BoardInteractionStore>;
@@ -17,7 +19,7 @@ describe('BoardToolbar', () => {
 
   beforeEach(() => {
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands: new TableBoardCommandsFake(),
       describeRefusal: String,
     });
@@ -115,7 +117,7 @@ describe('BoardToolbar', () => {
 describe('BoardToolbar, "Ver como os selecionados"', () => {
   function renderWith(canConfigure: boolean, sightOn: boolean) {
     const interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands: new TableBoardCommandsFake(),
       describeRefusal: String,
     });
@@ -149,5 +151,78 @@ describe('BoardToolbar, "Ver como os selecionados"', () => {
     expect(
       screen.queryByRole('button', { name: 'Ver como os selecionados' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('BoardToolbar, "Adicionar jogadores"', () => {
+  const DAVI = { userId: 'd4a7e1b2-3c5f-4e6a-8b9c-0d1e2f3a4b5c', name: 'Davi' };
+  let commands: TableBoardCommandsFake;
+  let interaction: StoreApi<BoardInteractionStore>;
+  let renderer: BoardRendererFake;
+
+  beforeEach(() => {
+    commands = new TableBoardCommandsFake();
+    interaction = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands,
+      describeRefusal: boardCommandFailureMessage,
+    });
+    renderer = new BoardRendererFake(() => undefined, 'resolve');
+    renderer.centerCell = cell(10, 6);
+  });
+
+  function renderToolbar(canConfigure = true): void {
+    render(
+      <BoardToolbar
+        interaction={interaction}
+        renderer={renderer}
+        canConfigure={canConfigure}
+        members={[BIA_AT_TABLE, DAVI]}
+        onConfigure={() => undefined}
+        onNewToken={() => undefined}
+      />,
+    );
+  }
+
+  const addPlayers = () => screen.getByRole('button', { name: 'Adicionar jogadores' });
+
+  it('the master sends token:addPlayers with the cell at the center of the view', async () => {
+    renderToolbar();
+    await userEvent.click(addPlayers());
+    expect(commands.sentAs('addPlayers')).toEqual([
+      { name: 'addPlayers', ...VHARN_GRID, fields: { center: { col: 10, row: 6 } } },
+    ]);
+  });
+
+  it('a player sees no "Adicionar jogadores"', () => {
+    renderToolbar(false);
+    expect(screen.queryByRole('button', { name: 'Adicionar jogadores' })).toBeNull();
+  });
+
+  it('a player skipped for having no token is named on the status line', async () => {
+    commands.answerAddPlayersWith({
+      ok: true,
+      version: 5,
+      createdIds: [LYRA_ID],
+      skippedMemberIds: [DAVI.userId],
+    });
+    renderToolbar();
+    await userEvent.click(addPlayers());
+    expect(interaction.getState().notice).toBe('Davi ainda não tem token.');
+  });
+
+  it('NO_FREE_CELLS reads "Não há casas livres neste grid."', async () => {
+    commands.answerWith({ ok: false, failure: 'no_free_cells' });
+    renderToolbar();
+    await userEvent.click(addPlayers());
+    expect(interaction.getState().notice).toBe('Não há casas livres neste grid.');
+  });
+
+  it('with the middle of the view off the grid, nothing is sent and the line says why', async () => {
+    renderer.centerCell = null;
+    renderToolbar();
+    await userEvent.click(addPlayers());
+    expect(commands.sentAs('addPlayers')).toEqual([]);
+    expect(interaction.getState().notice).toBe('Traga o grid para a vista primeiro.');
   });
 });

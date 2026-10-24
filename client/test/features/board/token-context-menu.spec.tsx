@@ -20,6 +20,7 @@ import {
   kael,
   lyra,
   vharnBoard,
+  VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
 const GOBLIN_ID = '7f6e5d4c-3b2a-4f1e-8d9c-0b1a2c3d4e5f';
@@ -43,7 +44,7 @@ describe('TokenContextMenu', () => {
       .apply({ kind: 'board', state: vharnBoard({ tokens: [lyra(), kael(), goblin] }) });
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
-      campaignId: VHARN.id,
+      scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) => `recusado: ${failure}`,
     });

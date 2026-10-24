@@ -1,23 +1,27 @@
 import type { CampaignDetailDto } from '@lorkarium/contracts';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { useOpenTable } from '@/features/sessions/use-open-table';
+import { useOpenTable, type OpenTableView } from '@/features/sessions/use-open-table';
 import { ApplyConditionDialog } from '@/features/combat/apply-condition-dialog';
 import { TurnLine } from '@/features/combat/turn-line';
 import { RoomTokenDialog, RoomTokenImageDialog } from '@/features/tokens/room-token-dialog';
+import { CardLinkDialog, type CardLinkRequest } from '@/features/tokens/token-link-items';
 import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
 import type { AssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
-import type { TableBoardCommands } from '@/services/table-board-commands';
+import type { BoardScope, TableBoardCommands } from '@/services/table-board-commands';
 import { DrawStylePanel } from '@/features/drawings/draw-style-panel';
 import { EffectAreaPanel } from '@/features/effect-areas/effect-area-panel';
 import { RoomWallPanel } from '@/features/walls/room-wall-panel';
 import { RoomLightPanel } from '@/features/lights/room-light-panel';
 import { DoorMenu, type DoorMenuRequest } from '@/features/walls/door-menu';
 import { LightMenu, type LightMenuRequest } from '@/features/lights/light-menu';
-import type { EditEntry } from '@/lib/edit-history';
 import type { InteractionClock } from '@/lib/interaction-clock';
-import { createBoardInteractionStore, useBoardInteraction } from '@/stores/board-interaction-store';
+import {
+  createBoardInteractionStore,
+  useBoardInteraction,
+  type BoardInteractionStore,
+} from '@/stores/board-interaction-store';
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import type { WallStyleStore } from '@/stores/wall-style-store';
@@ -25,6 +29,14 @@ import type { LightColorStore } from '@/stores/light-color-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
+import {
+  GROUP_TAB,
+  groupTabOf,
+  useSceneTabOf,
+  visibleTabOf,
+  type SceneTabsStore,
+} from '@/stores/scene-tabs-store';
+import type { TableEditStore } from '@/stores/table-edit-store';
 import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { BoardArea } from './board-area';
@@ -61,20 +73,16 @@ export type PlayRoomPageProps = Readonly<{
 }>;
 
 /** The play room: the board fills the screen, the top bar, tools and panel float over it, and
- *  focus mode (F, Esc) leaves the board alone. Opens the table among the tab's open tables.
+ *  focus mode (F, Esc) leaves the board alone. Opens the table among the tab's open tables; the
+ *  board, the tools, the tracker and the token dock follow the grid tab shown ("Na mesa" stays
+ *  on the group grid).
  *
  *  Example: `<PlayRoomPage key={campaign.id} campaign={campaign} openTables={deps.openTables} roomLayout={deps.roomLayout} clipboard={deps.clipboard} createBoardRenderer={deps.createBoardRenderer} />` */
 export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const { campaign, openTables, roomLayout, clipboard } = props;
-  const view = useOpenTable(campaign, openTables);
-  const [interaction] = useState(() =>
-    createBoardInteractionStore({
-      campaignId: campaign.id,
-      commands: props.boardCommands,
-      describeRefusal: tokenCommandFailureMessage,
-      ...undoStackOf(openTables, campaign.id),
-    }),
-  );
+  const opened = useOpenTable(campaign, openTables);
+  const shown = useShownTab(campaign.id, opened, props.boardCommands);
+  const { view, table, interaction, scopeOf } = shown;
   const [renderer, setRenderer] = useState<BoardRenderer | null>(null);
   const [sceneDialog, setSceneDialog] = useState(false);
   // `{ tokenId: null }` is "Novo token"; a token id is "Editar token".
@@ -85,15 +93,15 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [conditionTargets, setConditionTargets] = useState<readonly string[] | null>(null);
   const [imageTokenId, setImageTokenId] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<SelectionToDelete | null>(null);
+  const [cardLink, setCardLink] = useState<CardLinkRequest | null>(null);
   const isMaster = campaign.myRole === 'master';
   const hover = useTokenHover(props.interactionClock);
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
   useRoomShortcuts({ roomLayout, interaction });
-  const table = view.kind === 'open' ? view : null;
   useInteractionFollowsTable(table, interaction);
   const commands = props.boardCommands;
-  useEditShortcuts({ campaignId: campaign.id, table, interaction, commands, isMaster });
+  useEditShortcuts({ scopeOf, table, interaction, commands, isMaster });
   const tool = useBoardInteraction(interaction, (state) => state.tool);
   const drawMode = useBoardInteraction(interaction, (state) => state.drawMode);
   return (
@@ -104,6 +112,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           campaign={campaign}
           presence={table?.presence ?? null}
           board={table?.board ?? null}
+          tabs={shown.tabs}
           interaction={interaction}
           openTables={openTables}
           roomLayout={roomLayout}
@@ -112,6 +121,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
       )}
       <div className="relative min-h-0 flex-1">
         <BoardArea
+          key={shown.key}
           view={view}
           interaction={interaction}
           createBoardRenderer={props.createBoardRenderer}
@@ -168,7 +178,15 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             interaction={interaction}
             onApplyCondition={setConditionTargets}
             onChangeImage={setImageTokenId}
+            characters={{ cast: table.cast, onConfirmLink: setCardLink }}
             onClose={() => setTokenMenu(null)}
+          />
+        )}
+        {cardLink && (
+          <CardLinkDialog
+            request={cardLink}
+            interaction={interaction}
+            onClose={() => setCardLink(null)}
           />
         )}
         {doorMenu && table && (
@@ -198,7 +216,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
         )}
         {imageTokenId && table && (
           <RoomTokenImageDialog
-            campaignId={campaign.id}
+            scope={scopeOf()}
             board={table.board}
             tokenId={imageTokenId}
             commands={props.boardCommands}
@@ -225,6 +243,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
         {!focus && (
           <RoomToolbar
             board={table?.board ?? null}
+            presence={table?.presence ?? null}
             interaction={interaction}
             renderer={renderer}
             canConfigure={campaign.myRole === 'master'}
@@ -243,7 +262,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
         )}
         {tokenDialog && table && (
           <RoomTokenDialog
-            campaignId={campaign.id}
+            scope={scopeOf()}
             table={table}
             tokenId={tokenDialog.tokenId}
             renderer={renderer}
@@ -258,6 +277,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             roomLayout={roomLayout}
             table={table}
             interaction={interaction}
+            group={shown.group}
             isMaster={campaign.myRole === 'master'}
             onEditToken={(tokenId) => setTokenDialog({ tokenId })}
             clock={props.interactionClock}
@@ -268,26 +288,51 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   );
 }
 
-// The open table's undo stack and its confirmed cells, read when a move is confirmed (the table
-// opens after the room's first render, so it is looked up then, not captured now).
-function undoStackOf(
-  openTables: StoreApi<OpenTablesStore>,
+type ShownTab = Readonly<{
+  /** The open table with the board of the tab shown (or the opening view, or `full`). */
+  view: OpenTableView;
+  table: Readonly<{
+    presence: StoreApi<TablePresenceStore>;
+    board: StoreApi<BoardStore>;
+    cast: StoreApi<BoardStore>;
+    edits: StoreApi<TableEditStore>;
+  }> | null;
+  interaction: StoreApi<BoardInteractionStore>;
+  scopeOf: () => BoardScope;
+  tabs: StoreApi<SceneTabsStore> | null;
+  /** Changes with the tab shown: the canvas mounts again for another grid. */
+  key: string;
+  group: Readonly<{
+    board: StoreApi<BoardStore>;
+    interaction: StoreApi<BoardInteractionStore>;
+  }> | null;
+}>;
+
+// The stores of the grid tab shown; until the table opens (and its tabs with it) a blank
+// interaction stands in, with no grid to send to.
+function useShownTab(
   campaignId: string,
-): Readonly<{
-  recordEdit: (entry: EditEntry) => void;
-  tokenCellOf: (tokenId: string) => Readonly<{ col: number; row: number }> | null;
-}> {
-  const tableOf = () =>
-    openTables.getState().tables.find((table) => table.campaignId === campaignId);
-  return {
-    recordEdit: (entry) => tableOf()?.edits.getState().record(entry),
-    tokenCellOf: (tokenId) => {
-      const token = tableOf()
-        ?.board.getState()
-        .board?.tokens.find(({ id }) => id === tokenId);
-      return token ? { col: token.col, row: token.row } : null;
-    },
-  };
+  opened: OpenTableView,
+  commands: TableBoardCommands,
+): ShownTab {
+  const [opening] = useState(() => ({
+    interaction: createBoardInteractionStore({
+      scopeOf: () => ({ campaignId, sceneId: '' }),
+      commands,
+      describeRefusal: tokenCommandFailureMessage,
+    }),
+    scopeOf: (): BoardScope => ({ campaignId, sceneId: '' }),
+  }));
+  const tabs = opened.kind === 'open' ? opened.tabs : null;
+  const tab = useSceneTabOf(tabs, visibleTabOf);
+  const group = useSceneTabOf(tabs, groupTabOf);
+  return useMemo(() => {
+    const view = opened.kind === 'open' && tab ? { ...opened, board: tab.board } : opened;
+    const table = view.kind === 'open' ? { ...view, edits: tab?.edits ?? view.edits } : null;
+    const interaction = tab?.interaction ?? opening.interaction;
+    const scopeOf = tab?.scopeOf ?? opening.scopeOf;
+    return { view, table, interaction, scopeOf, tabs, key: tab?.key ?? GROUP_TAB, group };
+  }, [opened, tab, tabs, group, opening]);
 }
 
 type RoomSceneDialogProps = Readonly<{
@@ -305,7 +350,7 @@ function RoomSceneDialog({ campaignId, table, commands, assets, onClose }: RoomS
   if (!scene) return null;
   return (
     <ConfigureSceneDialog
-      campaignId={campaignId}
+      scope={{ campaignId, sceneId: scene.id }}
       scene={scene}
       commands={commands}
       assets={assets}
@@ -315,20 +360,27 @@ function RoomSceneDialog({ campaignId, table, commands, assets, onClose }: RoomS
   );
 }
 
-type RoomToolbarProps = Omit<BoardToolbarProps, 'sightOn'> &
-  Readonly<{ board: StoreApi<BoardStore> | null }>;
+type RoomToolbarProps = Omit<BoardToolbarProps, 'sightOn' | 'members'> &
+  Readonly<{
+    board: StoreApi<BoardStore> | null;
+    presence: StoreApi<TablePresenceStore> | null;
+  }>;
 
 // The toolbar before the table opens has no scene to preview; once it does, Escuro and Luz do dia
 // give the master "Ver como os selecionados".
-function RoomToolbar({ board, ...toolbar }: RoomToolbarProps): React.JSX.Element {
-  if (!board) return <BoardToolbar {...toolbar} />;
-  return <TableToolbar board={board} {...toolbar} />;
+function RoomToolbar({ board, presence, ...toolbar }: RoomToolbarProps): React.JSX.Element {
+  if (!board || !presence) return <BoardToolbar {...toolbar} />;
+  return <TableToolbar board={board} presence={presence} {...toolbar} />;
 }
 
 function TableToolbar({
   board,
+  presence,
   ...toolbar
-}: Omit<BoardToolbarProps, 'sightOn'> & Readonly<{ board: StoreApi<BoardStore> }>) {
+}: Omit<BoardToolbarProps, 'sightOn' | 'members'> &
+  Readonly<{ board: StoreApi<BoardStore>; presence: StoreApi<TablePresenceStore> }>) {
   const vision = useBoard(board, (state) => state.board?.scene.vision);
-  return <BoardToolbar {...toolbar} sightOn={vision === 'dark' || vision === 'daylight'} />;
+  const members = useTablePresence(presence, (state) => state.members);
+  const sightOn = vision === 'dark' || vision === 'daylight';
+  return <BoardToolbar {...toolbar} members={members} sightOn={sightOn} />;
 }
