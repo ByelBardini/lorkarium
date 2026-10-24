@@ -42,6 +42,7 @@ const STATUS_BY_CODE: Readonly<Record<AuthErrorCode, number>> = {
   RATE_LIMITED: 429,
   TWO_FACTOR_CODE_INVALID: 401,
   TWO_FACTOR_CHALLENGE_EXPIRED: 401,
+  ACCOUNT_SUSPENDED: 403,
 };
 
 // Public text only: the internal message cites the e-mail and stays in the log.
@@ -52,6 +53,7 @@ const PUBLIC_MESSAGE: Readonly<Record<AuthErrorCode, string>> = {
   RATE_LIMITED: 'Too many login attempts',
   TWO_FACTOR_CODE_INVALID: 'The two-factor code is incorrect',
   TWO_FACTOR_CHALLENGE_EXPIRED: 'The time to type the two-factor code is over; sign in again',
+  ACCOUNT_SUSPENDED: 'This account is suspended',
 };
 
 export type AuthCookiePolicy = Readonly<{ secure: boolean }>;
@@ -66,6 +68,13 @@ export type AuthGuards = Readonly<{
   /** For the realtime handshake and its rechecks, which have no request to guard: `null` = no
    *  valid session. The connection keeps the session id and `recheckAt` from it. */
   authenticateConnection: (token: string | undefined) => Promise<ResolvedSession | null>;
+  /** Sets the session cookie of a session another module started (an accepted invitation). */
+  setSessionCookie: (
+    reply: FastifyReply,
+    issued: Pick<IssuedSession, 'token' | 'persistent'>,
+  ) => void;
+  /** Expires the session cookie (every session of the account was deleted). */
+  clearSessionCookie: (reply: FastifyReply) => void;
 }>;
 
 export type AuthRoutesServices = Readonly<{
@@ -119,7 +128,7 @@ function registerSessionRoutes(
 ): void {
   app.post('/auth/logout', async (request, reply) => {
     await service.logout(request.cookies[SESSION_COOKIE]);
-    reply.clearCookie(SESSION_COOKIE, { path: '/' });
+    clearSessionCookie(reply);
     return reply.code(204).send();
   });
   app.get('/auth/me', async (request, reply) => {
@@ -161,6 +170,9 @@ export function createAuthGuards(service: AuthService, cookiePolicy: AuthCookieP
     userOf: (request) => sessionFrom(passed, request).user,
     sessionIdOf: (request) => sessionFrom(passed, request).sessionId,
     authenticateConnection: (token) => sessionOfToken(service, token),
+    setSessionCookie: (reply, issued) =>
+      setSessionCookie(reply, issued.token, issued.persistent, cookiePolicy),
+    clearSessionCookie,
   };
 }
 
@@ -226,6 +238,10 @@ function setSessionCookie(
     // Without Max-Age the browser drops the cookie on close: that is "keep me signed in" unchecked.
     ...(persistent ? { maxAge: PERSISTENT_SESSION_MS / 1000 } : {}),
   });
+}
+
+function clearSessionCookie(reply: FastifyReply): void {
+  reply.clearCookie(SESSION_COOKIE, { path: '/' });
 }
 
 // Path=/api/auth: only the login routes ever see it; it lives exactly as long as the challenge.

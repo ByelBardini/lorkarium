@@ -12,7 +12,8 @@ import { toAccountSecurityDto } from './account-security.mapper';
 import type { CurrentPasswordService } from './current-password.service';
 import { maskEmail, PendingEmailBo } from './email-change.bo';
 import type { EmailChangeRequestsDao } from './email-change-requests.dao';
-import { passwordChangedMail } from './security-mail.mapper';
+import type { AccountRecoveryService } from './account-recovery.service';
+import { passwordChangedMail, recipientOf } from './security-mail.mapper';
 import type { SecurityNoticesService } from './security-notices.service';
 
 export type AccountSecurityDeps = Readonly<{
@@ -27,6 +28,9 @@ export type AccountSecurityDeps = Readonly<{
   cipher: DataCipherPort;
   clock: ClockPort;
   notices: Pick<SecurityNoticesService, 'send'>;
+  /** Issues the "Não fui eu" link of the notice. */
+  recovery: Pick<AccountRecoveryService, 'issue'>;
+  appPublicUrl: string;
 }>;
 
 /** The "Conta e segurança" section and the password change.
@@ -56,6 +60,7 @@ export class AccountSecurityService {
     userId: string,
     currentSessionId: string,
     input: ChangePasswordRequestDto,
+    userAgent: string | null,
   ): Promise<void> {
     const row = await this.deps.currentPassword.require(userId, input.currentPassword);
     const now = this.deps.clock.now();
@@ -63,7 +68,11 @@ export class AccountSecurityService {
     await this.deps.users.updatePassword(userId, passwordHash, now);
     const ended = await this.deps.sessions.deleteOthersOf(userId, currentSessionId);
     for (const sessionId of ended) this.deps.sessionEnded.sessionEnded(sessionId);
-    await this.deps.notices.send(passwordChangedMail(this.emailOf(row), now));
+    const recoveryLink = await this.deps.recovery.issue(userId, 'revert-password-change');
+    const person = recipientOf(row, this.deps.cipher);
+    const origin = { at: now, userAgent };
+    const publicUrl = this.deps.appPublicUrl;
+    await this.deps.notices.send(passwordChangedMail({ person, origin, recoveryLink, publicUrl }));
   }
 
   private async pendingEmailOf(userId: string): Promise<string | null> {

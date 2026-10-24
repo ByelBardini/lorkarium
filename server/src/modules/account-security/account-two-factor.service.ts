@@ -17,7 +17,7 @@ import { TwoFactorStateError } from './account-security.error';
 import type { CurrentPasswordService } from './current-password.service';
 import type { QrCodePort } from './qr-code.port';
 import type { RecoveryCodePort } from './recovery-code.port';
-import { twoFactorChangedMail } from './security-mail.mapper';
+import { recipientOf, twoFactorChangedMail, type MailOrigin } from './security-mail.mapper';
 import type { SecurityNoticesService } from './security-notices.service';
 
 export type AccountTwoFactorDeps = Readonly<{
@@ -32,6 +32,8 @@ export type AccountTwoFactorDeps = Readonly<{
   cipher: DataCipherPort;
   clock: ClockPort;
   notices: Pick<SecurityNoticesService, 'send'>;
+  /** Base of the links in the notices, without a trailing slash (`APP_PUBLIC_URL`). */
+  appPublicUrl: string;
 }>;
 
 /** Turning 2FA on (setup with the password, then the first app code), off, and new recovery
@@ -53,23 +55,28 @@ export class AccountTwoFactorService {
     return { secret, otpauthUri, qrImage: await this.deps.qr.pngDataUrl(otpauthUri) };
   }
 
-  /** Confirms the pending secret with its first code; returns the 10 recovery codes. */
-  async enable(userId: string, code: string): Promise<string[]> {
+  /** Confirms the pending secret with its first code; returns the 10 recovery codes.
+   *  `userAgent` is the request's, for the "De onde" of the notice. */
+  async enable(userId: string, code: string, userAgent: string | null): Promise<string[]> {
     const pending = await this.pendingOf(userId);
     const step = this.deps.check.acceptTotp(pending, code);
     const now = this.deps.clock.now();
     await this.deps.twoFactor.enable(userId, now, step);
     const codes = await this.replaceCodes(userId);
     const row = await this.deps.users.findById(userId);
-    if (row) await this.notify(row, true, now);
+    if (row) await this.notify(row, true, { at: now, userAgent });
     return codes;
   }
 
-  async disable(userId: string, input: TwoFactorConfirmRequestDto): Promise<void> {
+  async disable(
+    userId: string,
+    input: TwoFactorConfirmRequestDto,
+    userAgent: string | null,
+  ): Promise<void> {
     const row = await this.confirmWithBothFactors(userId, input);
     await this.deps.twoFactor.delete(userId);
     await this.deps.recoveryCodes.replace(userId, []);
-    await this.notify(row, false, this.deps.clock.now());
+    await this.notify(row, false, { at: this.deps.clock.now(), userAgent });
   }
 
   /** New recovery codes: the previous ones stop working. */
@@ -109,9 +116,10 @@ export class AccountTwoFactorService {
     return codes;
   }
 
-  private async notify(row: UserPo, enabled: boolean, at: Date): Promise<void> {
-    const email = this.deps.cipher.open('user-email', row.emailCipher, row.id);
-    await this.deps.notices.send(twoFactorChangedMail(email, enabled, at));
+  private async notify(row: UserPo, enabled: boolean, origin: MailOrigin): Promise<void> {
+    const person = recipientOf(row, this.deps.cipher);
+    const publicUrl = this.deps.appPublicUrl;
+    await this.deps.notices.send(twoFactorChangedMail({ person, origin, enabled, publicUrl }));
   }
 }
 

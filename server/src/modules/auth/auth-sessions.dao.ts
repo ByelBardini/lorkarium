@@ -1,9 +1,9 @@
 import { and, desc, eq, gt, ne } from 'drizzle-orm';
-import type { Database } from '../../database/database';
+import type { DatabaseExecutor } from '../../database/transaction';
 import { authSessions, type AuthSessionPo, type NewAuthSessionPo } from './auth-sessions.po';
 
 export class AuthSessionsDao {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: DatabaseExecutor) {}
 
   async insert(session: NewAuthSessionPo): Promise<void> {
     await this.db.insert(authSessions).values(session);
@@ -49,6 +49,15 @@ export class AuthSessionsDao {
     const deleted = await this.db
       .delete(authSessions)
       .where(and(eq(authSessions.userId, userId), ne(authSessions.id, keptSessionId)))
+      .returning({ id: authSessions.id });
+    return deleted.map((row) => row.id);
+  }
+
+  /** Deletes every session of `userId`; returns the ids (hashes) it deleted. */
+  async deleteAllOf(userId: string): Promise<string[]> {
+    const deleted = await this.db
+      .delete(authSessions)
+      .where(eq(authSessions.userId, userId))
       .returning({ id: authSessions.id });
     return deleted.map((row) => row.id);
   }

@@ -1,3 +1,4 @@
+import { isUniqueViolation } from '../../lib/postgres-error';
 import type {
   CampaignDetailDto,
   CampaignSummaryDto,
@@ -55,7 +56,6 @@ export type CampaignsServiceDeps = Readonly<{
 
 // 40-bit codes collide almost never; three tries turn a fluke into success and a bug into an error.
 const MAX_CODE_ATTEMPTS = 3;
-const UNIQUE_VIOLATION = '23505';
 
 /** Create a campaign with its master, list the user's campaigns and show one of them.
  *
@@ -136,15 +136,4 @@ export class CampaignsService {
       throw error;
     }
   }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const cause: unknown = error.cause;
-  return (
-    typeof cause === 'object' &&
-    cause !== null &&
-    'code' in cause &&
-    cause.code === UNIQUE_VIOLATION
-  );
 }

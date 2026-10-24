@@ -8,6 +8,7 @@ export type AccountSecurityErrorCode =
   | 'TWO_FACTOR_ALREADY_ENABLED'
   | 'TWO_FACTOR_NOT_STARTED'
   | 'TWO_FACTOR_NOT_ENABLED'
+  | 'RECOVERY_TOKEN_INVALID'
   | 'RATE_LIMITED';
 
 /** Every refusal of the account's security routes; the edge maps `code` to status and message. */
@@ -64,6 +65,16 @@ export class EmailTokenInvalidError extends AccountSecurityError {
     super(
       'EMAIL_TOKEN_INVALID',
       `a live e-mail confirmation token is required; received ${received}`,
+    );
+  }
+}
+
+// One code for unknown, used and expired: telling them apart helps whoever guesses tokens.
+export class RecoveryTokenInvalidError extends AccountSecurityError {
+  constructor(readonly received: string) {
+    super(
+      'RECOVERY_TOKEN_INVALID',
+      `a live account recovery token is required; received ${received}`,
     );
   }
 }

@@ -309,6 +309,34 @@
       "when": 1792820679504,
       "tag": "0043_two_factor_challenges",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792825166761,
+      "tag": "0044_account_recovery_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792826285051,
+      "tag": "0045_user_standing",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1792826545067,
+      "tag": "0046_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792826546767,
+      "tag": "0047_password_resets",
+      "breakpoints": true
     }
   ]
 }

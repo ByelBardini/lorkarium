@@ -56,7 +56,7 @@ export function toAuthSessionBo(row: AuthSessionPo): AuthSessionBo {
  *
  *  Example: `toUserAccessBo(row).requireRole('admin')` */
 export function toUserAccessBo(row: UserPo): UserAccessBo {
-  return new UserAccessBo({ id: row.id, role: row.role });
+  return new UserAccessBo({ id: row.id, role: row.role, suspendedAt: row.suspendedAt });
 }
 
 /** PO (or its absence) and the @ already taken → BO for the boot seed.

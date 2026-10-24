@@ -1,3 +1,4 @@
+import { isForeignKeyViolation } from '../../lib/postgres-error';
 import type { CampaignSummaryDto, JoinCampaignRequestDto } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
@@ -50,9 +51,21 @@ export class CampaignJoinService {
     return matches ? 'matches' : 'mismatch';
   }
 
-  private addPlayer(campaign: CampaignPo, userId: string): Promise<CampaignMemberPo> {
+  private async addPlayer(campaign: CampaignPo, userId: string): Promise<CampaignMemberPo> {
     const joinedAt = this.deps.clock.now();
-    return this.deps.members.insert({ campaignId: campaign.id, userId, role: 'player', joinedAt });
+    try {
+      return await this.deps.members.insert({
+        campaignId: campaign.id,
+        userId,
+        role: 'player',
+        joinedAt,
+      });
+    } catch (error) {
+      // The table was deleted with its owner's account while this join waited on its lock.
+      if (isForeignKeyViolation(error))
+        throw new CampaignNotFoundError({ joinCode: campaign.joinCode });
+      throw error;
+    }
   }
 
   private async summaryOf(

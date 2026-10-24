@@ -37,6 +37,11 @@ export const users = pgTable(
     bio: text('bio'),
     avatarId: uuid('avatar_id'),
     passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
+    // Set by an admin (backoffice): no login and no session while it holds; null = active.
+    suspendedAt: timestamp('suspended_at', { withTimezone: true }),
+    // Last login or session activity, in the same 5-minute steps as the session's touch: the
+    // sessions themselves vanish on logout and expiry, so they are no history.
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

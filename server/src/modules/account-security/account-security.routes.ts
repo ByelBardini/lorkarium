@@ -39,6 +39,7 @@ const STATUS_BY_CODE: Readonly<Partial<Record<RefusalCode, number>>> = {
   EMAIL_UNCHANGED: 400,
   EMAIL_TAKEN: 409,
   EMAIL_TOKEN_INVALID: 404,
+  RECOVERY_TOKEN_INVALID: 404,
   TWO_FACTOR_ALREADY_ENABLED: 409,
   TWO_FACTOR_NOT_STARTED: 409,
   TWO_FACTOR_NOT_ENABLED: 409,
@@ -55,6 +56,7 @@ const PUBLIC_MESSAGE: Readonly<Partial<Record<RefusalCode, string>>> = {
   EMAIL_UNCHANGED: 'The new e-mail is the current one',
   EMAIL_TAKEN: 'This e-mail is already in use',
   EMAIL_TOKEN_INVALID: 'This link expired or was already used',
+  RECOVERY_TOKEN_INVALID: 'This link expired or was already used',
   TWO_FACTOR_ALREADY_ENABLED: 'Two-factor authentication is already on',
   TWO_FACTOR_NOT_STARTED: 'Start the two-factor setup first',
   TWO_FACTOR_NOT_ENABLED: 'Two-factor authentication is off',
@@ -95,7 +97,8 @@ function registerPasswordRoutes(app: FastifyInstance, service: AccountSecuritySe
   const options = { preHandler: requireAuth, config: { rateLimit: limit } };
   app.post('/account/password', options, async (request, reply) => {
     const input = changePasswordRequestDto.parse(request.body);
-    await service.changePassword(userOf(request).id, sessionIdOf(request), input);
+    const userAgent = request.headers['user-agent'] ?? null;
+    await service.changePassword(userOf(request).id, sessionIdOf(request), input, userAgent);
     return reply.code(204).send();
   });
 }
@@ -127,7 +130,8 @@ function registerEmailRoutes(app: FastifyInstance, service: EmailChangeService):
   const options = { preHandler: requireAuth, config: { rateLimit: limit } };
   app.post('/account/email', options, async (request, reply) => {
     const input = changeEmailRequestDto.parse(request.body);
-    const pendingEmail = await service.request(userOf(request).id, input);
+    const userAgent = request.headers['user-agent'] ?? null;
+    const pendingEmail = await service.request(userOf(request).id, input, userAgent);
     return reply.code(202).send({ pendingEmail } satisfies ChangeEmailResponseDto);
   });
   app.delete('/account/email', { preHandler: requireAuth }, async (request, reply) => {
@@ -140,7 +144,8 @@ function registerEmailRoutes(app: FastifyInstance, service: EmailChangeService):
     '/account/email/confirm',
     { config: { rateLimit: confirmLimit } },
     async (request, reply) => {
-      await service.confirm(confirmEmailRequestDto.parse(request.body).token);
+      const { token } = confirmEmailRequestDto.parse(request.body);
+      await service.confirm(token, request.headers['user-agent'] ?? null);
       return reply.code(204).send();
     },
   );

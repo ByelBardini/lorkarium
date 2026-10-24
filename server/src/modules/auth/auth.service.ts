@@ -17,7 +17,7 @@ import type { UsersDao } from './users.dao';
 import type { UserPo } from './users.po';
 
 export type AuthServiceDeps = Readonly<{
-  users: Pick<UsersDao, 'findByEmailIndex' | 'findById'>;
+  users: Pick<UsersDao, 'findByEmailIndex' | 'findById' | 'touchLastSeen'>;
   sessions: Pick<AuthSessionsDao, 'insert' | 'findById' | 'updateExpiry' | 'delete' | 'touch'>;
   /** Whether the account asks for a second factor after the password. */
   twoFactor: Pick<TwoFactorCheckService, 'isEnabled'>;
@@ -72,14 +72,17 @@ export class AuthService {
       input.password,
     );
     if (!row || !matches) throw new InvalidCredentialsError(input.email);
+    toUserAccessBo(row).requireActive();
     if (await this.deps.twoFactor.isEnabled(row.id)) {
       return { status: 'two-factor-required', challenge: await this.challenge(row, input) };
     }
     return { status: 'signed-in', ...(await this.startSession(row, input.rememberMe, userAgent)) };
   }
 
-  /** Issues a login session for `row` (after the password, or after the second factor). */
+  /** Issues a login session for `row` (after the password, the second factor or an accepted
+   *  invitation); refused for a suspended account. */
   async startSession(row: UserPo, persistent: boolean, userAgent?: string): Promise<IssuedSession> {
+    toUserAccessBo(row).requireActive();
     const token = this.deps.tokens.generate();
     const now = this.deps.clock.now();
     const terms = AuthSessionBo.startedAt(now, persistent);
@@ -87,6 +90,7 @@ export class AuthService {
     const agent = userAgent?.slice(0, USER_AGENT_MAX_LENGTH) ?? null;
     const device = { userAgent: agent, lastSeenAt: now };
     await this.deps.sessions.insert({ id, userId: row.id, ...device, ...terms });
+    await this.deps.users.touchLastSeen(row.id, now);
     return { user: toAuthUserDto(row, this.deps.cipher), token, ...terms };
   }
 
@@ -122,6 +126,11 @@ export class AuthService {
     }
     const user = await this.deps.users.findById(session.userId);
     if (!user) return null;
+    // Defense in depth: the suspension already deleted the sessions, a race may leave one.
+    if (user.suspendedAt !== null) {
+      await this.deps.sessions.delete(session.id);
+      return null;
+    }
     await this.touchIfDue(session, now);
     return { user, session, expiresAt: await this.renewIfDue(session, now) };
   }
@@ -141,7 +150,9 @@ export class AuthService {
 
   // In steps (LAST_SEEN_STEP_MS): one write per request would cost every route a query.
   private async touchIfDue(session: AuthSessionPo, now: Date): Promise<void> {
-    if (lastSeenDue(session.lastSeenAt, now)) await this.deps.sessions.touch(session.id, now);
+    if (!lastSeenDue(session.lastSeenAt, now)) return;
+    await this.deps.sessions.touch(session.id, now);
+    await this.deps.users.touchLastSeen(session.userId, now);
   }
 
   private async renewIfDue(session: AuthSessionPo, now: Date): Promise<Date> {

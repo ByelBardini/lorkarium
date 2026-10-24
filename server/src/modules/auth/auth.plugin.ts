@@ -36,6 +36,8 @@ export type AuthModule = Readonly<{
   guards: AuthGuards;
   /** The one check of a second factor, also used by the account's 2FA routes. */
   twoFactorCheck: TwoFactorCheckService;
+  /** Starts a session for an account another module created (an accepted invitation). */
+  sessions: Pick<AuthService, 'startSession'>;
 }>;
 
 /** Wires the auth module: seals any e-mail still in clear, seeds the admin, builds DAOs and
@@ -56,6 +58,7 @@ export async function createAuthModule(options: AuthModuleOptions): Promise<Auth
     plugin: authRoutes({ auth, twoFactorLogin }, cookiePolicy),
     guards: createAuthGuards(auth, cookiePolicy),
     twoFactorCheck,
+    sessions: auth,
   };
 }
 

@@ -21,3 +21,29 @@ export class StressSeedPlayersMissingError extends Error {
     this.name = 'StressSeedPlayersMissingError';
   }
 }
+
+/** `pnpm mail:preview` against production: the samples carry made-up links and people. */
+export class MailPreviewRefusedError extends Error {
+  readonly code = 'MAIL_PREVIEW_REFUSED';
+
+  constructor(readonly nodeEnv: string) {
+    super(
+      `the mail preview only runs outside production; received NODE_ENV=${nodeEnv}, expected development or test`,
+    );
+    this.name = 'MailPreviewRefusedError';
+  }
+}
+
+/** A sample the mailer refused: the preview stops there. */
+export class MailPreviewFailedError extends Error {
+  readonly code = 'MAIL_PREVIEW_FAILED';
+
+  constructor(
+    readonly subject: string,
+    cause: unknown,
+  ) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    super(`the preview of "${subject}" was not delivered: ${reason}`, { cause });
+    this.name = 'MailPreviewFailedError';
+  }
+}
