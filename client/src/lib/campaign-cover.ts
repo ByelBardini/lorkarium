@@ -1,15 +1,10 @@
-import { stableHash } from '@lorkarium/game-core';
+import type { DrawnCampaignCoverDto } from '@lorkarium/contracts';
+import { defaultCoverOf } from '@lorkarium/game-core';
 
-export const COVER_VARIANTS = 3;
-export const COVER_TONES = 4;
-
-/** Which decorative cover a campaign gets: `variant` picks the drawing, `tone` the `chart-1..4` color. */
-export type CampaignCover = Readonly<{ variant: number; tone: number }>;
-
-/** A stable cover for a campaign id, so the same campaign looks the same everywhere.
+/** The cover a campaign shows before its own is known (a table reopened from what an older tab
+ *  stored): the same drawing the server gives a campaign that never chose one.
  *
- *  Example: `coverFor(campaign.id) // { variant: 1, tone: 3 }` */
-export function coverFor(campaignId: string): CampaignCover {
-  const hash = stableHash(campaignId);
-  return { variant: hash % COVER_VARIANTS, tone: (hash % COVER_TONES) + 1 };
+ *  Example: `fallbackCoverOf(campaign.id) // { kind: 'drawn', drawing: 1, tone: 3 }` */
+export function fallbackCoverOf(campaignId: string): DrawnCampaignCoverDto {
+  return { kind: 'drawn', ...defaultCoverOf(campaignId) };
 }

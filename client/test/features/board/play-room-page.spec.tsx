@@ -18,6 +18,8 @@ import {
   LYRA_COMBATANT,
   eventAt,
   vharnCombat,
+  vharnDeleted,
+  vharnRenamed,
   vharnState,
   VHARN_GRID,
 } from '../../support/table-session-fixtures';
@@ -294,6 +296,61 @@ describe('play room page', () => {
       await screen.findByRole('heading', { level: 1, name: /E aí/ });
       expect(deps.tableSessionApi.closedIds).toEqual([VHARN.id]);
       expect(deps.tableSessionApi.opened).toEqual([VHARN.id]);
+    });
+
+    describe('campaign changed by the master', () => {
+      const DELETED = 'A mesa “Os Sinos de Vharn” foi excluída pelo mestre.';
+
+      function openTablesNav(): HTMLElement {
+        const rail = screen.getByRole('complementary', { name: 'Menu lateral' });
+        return within(rail).getByRole('navigation', { name: 'Mesas abertas' });
+      }
+
+      it('a deleted campaign takes its room home with the notice and closes the table', async () => {
+        await renderLiveRoom();
+
+        deps.tableSessionApi.emitTo(VHARN.id, { kind: 'campaignDeleted', event: vharnDeleted() });
+
+        await screen.findByRole('heading', { level: 1, name: /E aí/ });
+        expect(screen.getByRole('alert')).toHaveTextContent(DELETED);
+        expect(deps.tableSessionApi.closedIds).toEqual([VHARN.id]);
+        expect(deps.tableSessionApi.opened).toEqual([VHARN.id]);
+      });
+
+      it('"Fechar aviso" takes the notice away', async () => {
+        await renderLiveRoom();
+        deps.tableSessionApi.emitTo(VHARN.id, { kind: 'campaignDeleted', event: vharnDeleted() });
+        await screen.findByRole('heading', { level: 1, name: /E aí/ });
+
+        await userEvent.click(screen.getByRole('button', { name: 'Fechar aviso' }));
+
+        expect(screen.queryByText(DELETED)).toBeNull();
+      });
+
+      it('a deleted campaign that is not on screen leaves the screen where it is', async () => {
+        await renderLiveRoom();
+        deps.campaignsApi.answer('detail', { ok: true, value: detailOf(QUELM) });
+        await act(() => router.navigate(`/campaigns/${QUELM.id}/table`));
+        await screen.findByRole('heading', { level: 1, name: QUELM.name });
+
+        deps.tableSessionApi.emitTo(VHARN.id, { kind: 'campaignDeleted', event: vharnDeleted() });
+
+        expect(screen.getByText(DELETED)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(QUELM.name);
+      });
+
+      it('a renamed campaign shows its new name in the open tables of the rail', async () => {
+        await renderLiveRoom();
+
+        deps.tableSessionApi.emitTo(VHARN.id, {
+          kind: 'campaignUpdated',
+          event: vharnRenamed({ version: 2 }),
+        });
+
+        expect(
+          within(openTablesNav()).getByRole('link', { name: /Os Sinos Calados/ }),
+        ).toBeInTheDocument();
+      });
     });
 
     describe('with 5 tables already open', () => {

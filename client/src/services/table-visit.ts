@@ -6,6 +6,8 @@ import {
   libraryChangedDto,
   sceneActivatedDto,
   sceneClosedDto,
+  sessionCampaignDeletedDto,
+  sessionCampaignUpdatedDto,
   sessionJoinAckDto,
   sessionMemberActivityDto,
   sessionMemberJoinedDto,
@@ -207,6 +209,7 @@ export class TableVisit {
       this.onTableEvent(memberUpdated, sessionMemberUpdatedDto, (event) =>
         this.notify({ kind: 'memberUpdated', event }),
       ),
+      ...this.campaignEventSubscriptions(),
       this.onTableEvent(BOARD_EVENTS.sceneActivated, sceneActivatedDto, (event) => {
         this.groupSceneId = event.sceneId;
         this.notify({ kind: 'sceneActivated', event });
@@ -219,6 +222,18 @@ export class TableVisit {
       }),
       this.onTableEvent(LIBRARY_CHANGED, libraryChangedDto, (event) =>
         this.notify({ kind: 'libraryChanged', event }),
+      ),
+    ];
+  }
+
+  private campaignEventSubscriptions(): Unsubscribe[] {
+    const { campaignUpdated, campaignDeleted } = SESSION_EVENTS;
+    return [
+      this.onTableEvent(campaignUpdated, sessionCampaignUpdatedDto, (event) =>
+        this.notify({ kind: 'campaignUpdated', event }),
+      ),
+      this.onTableEvent(campaignDeleted, sessionCampaignDeletedDto, (event) =>
+        this.notify({ kind: 'campaignDeleted', event }),
       ),
     ];
   }

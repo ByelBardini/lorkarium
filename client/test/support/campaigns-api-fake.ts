@@ -5,6 +5,7 @@ import type {
   CampaignSummaryDto,
   CreateCampaignRequestDto,
   JoinCampaignRequestDto,
+  UpdateCampaignRequestInput,
 } from '@lorkarium/contracts';
 import { memberColorOf } from '@lorkarium/game-core';
 import type { CampaignsApi, CampaignsResult } from '@/services/campaigns-api';
@@ -13,26 +14,32 @@ export const VHARN: CampaignSummaryDto = {
   id: '3b1e9a52-6c4d-4f8a-9e2b-1a7c5d3f8e10',
   name: 'Os Sinos de Vharn',
   system: 'D&D 5e',
-  status: 'Recrutando',
+  status: 'recruiting',
   description: 'Um sino toca sozinho na torre de Vharn.',
   visibility: 'private',
   myRole: 'master',
   masterName: 'Ana',
   memberCount: 3,
   lastEnteredAt: '2026-10-13T22:30:00.000Z',
+  cover: { kind: 'drawn', drawing: 2, tone: 1 },
+  contentWarnings: ['horror'],
+  tags: ['Investigação', 'Masmorra'],
 };
 
 export const QUELM: CampaignSummaryDto = {
   id: '9c2f4e61-7a3b-4d5c-8e9f-0b1a2c3d4e5f',
   name: 'Contrato no Pântano',
   system: 'Tormenta20',
-  status: null,
+  status: 'building',
   description: null,
   visibility: 'public',
   myRole: 'player',
   masterName: 'Bia',
   memberCount: 4,
   lastEnteredAt: null,
+  cover: { kind: 'drawn', drawing: 0, tone: 4 },
+  contentWarnings: [],
+  tags: [],
 };
 
 // The same ids as the roster fixtures (`table-session-fixtures.ts`), so a member of the detail and
@@ -49,10 +56,11 @@ const UNKNOWN_MEMBER_ID = '00000000-0000-4000-8000-0000000000ff';
 
 function detailMemberOf(name: string, role: CampaignRoleDto): CampaignMemberDto {
   const userId = MEMBER_IDS[name] ?? UNKNOWN_MEMBER_ID;
-  return { userId, name, role, color: memberColorOf(userId, null), avatarId: null };
+  return { userId, name, role, color: memberColorOf(userId, null), avatarId: null, online: false };
 }
 
-/** A detail built on a summary: master first, the code only for the master.
+/** A detail built on a summary: master first, the code only for the master, nobody online, the
+ *  last access at the summary's last entry.
  *
  *  Example: `detailOf(QUELM).joinCode // null` */
 export function detailOf(
@@ -70,6 +78,8 @@ export function detailOf(
     joinCode: summary.myRole === 'master' ? 'VHRN7K2Q' : null,
     hasPassword: false,
     castSceneId: '8e4d3c2b-1a0f-4e9d-a8b7-6f5e4d3c2b1a',
+    createdAt: '2026-09-01T20:00:00.000Z',
+    lastAccessAt: summary.lastEnteredAt,
     ...overrides,
   };
 }
@@ -80,6 +90,9 @@ type Answers = {
   detail: CampaignsResult<CampaignDetailDto>;
   join: CampaignsResult<CampaignSummaryDto>;
   enter: CampaignsResult<null>;
+  update: CampaignsResult<CampaignDetailDto>;
+  regenerateCode: CampaignsResult<CampaignDetailDto>;
+  remove: CampaignsResult<null>;
 };
 
 type Method = keyof Answers;
@@ -95,6 +108,9 @@ export class CampaignsApiFake implements CampaignsApi {
     detail: { ok: true, value: detailOf(VHARN) },
     join: { ok: true, value: QUELM },
     enter: { ok: true, value: null },
+    update: { ok: true, value: detailOf(VHARN) },
+    regenerateCode: { ok: true, value: detailOf(VHARN, { joinCode: 'QWER5TYU' }) },
+    remove: { ok: true, value: null },
   };
 
   answer<M extends Method>(method: M, result: Answers[M]): this {
@@ -134,6 +150,19 @@ export class CampaignsApiFake implements CampaignsApi {
 
   enter(campaignId: string): Promise<Answers['enter']> {
     return this.reply('enter', campaignId);
+  }
+
+  /** The argument recorded is `{ campaignId, input }`. */
+  update(campaignId: string, input: UpdateCampaignRequestInput): Promise<Answers['update']> {
+    return this.reply('update', { campaignId, input });
+  }
+
+  regenerateCode(campaignId: string): Promise<Answers['regenerateCode']> {
+    return this.reply('regenerateCode', campaignId);
+  }
+
+  remove(campaignId: string): Promise<Answers['remove']> {
+    return this.reply('remove', campaignId);
   }
 
   private async reply<M extends Method>(method: M, argument: unknown): Promise<Answers[M]> {

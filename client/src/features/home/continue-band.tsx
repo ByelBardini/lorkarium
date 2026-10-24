@@ -2,6 +2,7 @@ import type { CampaignSummaryDto } from '@lorkarium/contracts';
 import { ArrowRightIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { CampaignCover } from '@/components/campaign-cover';
+import { StatusBadge } from '@/components/status-badge';
 import { campaignMeta } from '@/lib/campaign-meta';
 import { EnterCampaignButton } from '@/features/campaigns/enter-campaign-button';
 
@@ -17,14 +18,17 @@ export function ContinueBand({ campaign }: ContinueBandProps): React.JSX.Element
       aria-labelledby="continue-band-title"
       className="flex flex-col border-y border-border sm:flex-row"
     >
-      <CampaignCover campaignId={campaign.id} className="h-40 sm:h-auto sm:min-h-48 sm:w-2/5" />
+      <CampaignCover cover={campaign.cover} className="h-40 sm:h-auto sm:min-h-48 sm:w-2/5" />
       <div className="flex flex-1 flex-col justify-center gap-4 py-6 sm:px-8">
         <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
           <span id="continue-band-title">Continuar</span>
         </p>
         <div className="flex flex-col gap-1">
           <h2 className="font-display text-[34px] leading-[1.1] font-semibold">{campaign.name}</h2>
-          <p className="text-sm text-muted-foreground">{campaignMeta(campaign)}</p>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <StatusBadge status={campaign.status} />
+            <span>{campaignMeta(campaign)}</span>
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <EnterCampaignButton campaignId={campaign.id} />

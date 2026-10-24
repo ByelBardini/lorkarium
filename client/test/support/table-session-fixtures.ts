@@ -7,6 +7,8 @@ import type {
   CombatDto,
   SceneDto,
   SceneUpdatedDto,
+  SessionCampaignDeletedDto,
+  SessionCampaignUpdatedDto,
   SessionMemberDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
@@ -104,6 +106,42 @@ export function biaUpdated(
     at: AT,
     ...overrides,
   };
+}
+
+/** `session:campaignUpdated` of VHARN: the master renamed it and chose an image cover.
+ *
+ *  Example: `vharnRenamed({ version: 5 })` */
+export function vharnRenamed(
+  overrides: Partial<SessionCampaignUpdatedDto> = {},
+): SessionCampaignUpdatedDto {
+  return {
+    campaignId: VHARN.id,
+    version: 2,
+    campaign: {
+      id: VHARN.id,
+      name: 'Os Sinos Calados',
+      system: VHARN.system,
+      status: VHARN.status,
+      description: VHARN.description,
+      visibility: VHARN.visibility,
+      masterName: VHARN.masterName,
+      memberCount: VHARN.memberCount,
+      contentWarnings: VHARN.contentWarnings,
+      tags: VHARN.tags,
+      cover: { kind: 'image', assetId: 'e1d2c3b4-a596-4877-8899-aabbccddeeff' },
+    },
+    at: AT,
+    ...overrides,
+  };
+}
+
+/** `session:campaignDeleted` of VHARN.
+ *
+ *  Example: `vharnDeleted({ campaignId: QUELM.id })` */
+export function vharnDeleted(
+  overrides: Partial<SessionCampaignDeletedDto> = {},
+): SessionCampaignDeletedDto {
+  return { campaignId: VHARN.id, at: AT, ...overrides };
 }
 
 export const VHARN_SCENE: SceneDto = {

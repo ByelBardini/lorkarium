@@ -13,6 +13,7 @@ import {
   biaJoined,
   biaLeft,
   biaUpdated,
+  vharnRenamed,
   vharnState,
 } from '../support/table-session-fixtures';
 
@@ -233,6 +234,48 @@ describe('table presence store', () => {
       });
 
       expect(store.getState().members).toEqual([ANA_AT_TABLE, biaAway, CAIO_AT_TABLE]);
+    });
+  });
+
+  describe('campaign changed', () => {
+    it('campaignUpdated with a higher version moves the version and the time, members untouched', () => {
+      apply({ kind: 'state', state: vharnState({ version: 3 }) });
+      const members = store.getState().members;
+
+      apply({
+        kind: 'campaignUpdated',
+        event: vharnRenamed({ version: 4, at: '2026-10-22T12:07:00.000Z' }),
+      });
+
+      expect(store.getState()).toMatchObject({ version: 4, at: '2026-10-22T12:07:00.000Z' });
+      expect(store.getState().members).toBe(members);
+    });
+
+    it('campaignUpdated with a version not above the current one is ignored', () => {
+      apply({ kind: 'state', state: vharnState({ version: 3 }) });
+
+      apply({ kind: 'campaignUpdated', event: vharnRenamed({ version: 3 }) });
+
+      expect(store.getState().version).toBe(3);
+    });
+
+    it('campaignUpdated of another table is ignored', () => {
+      apply({ kind: 'state', state: vharnState({ version: 3 }) });
+
+      apply({ kind: 'campaignUpdated', event: vharnRenamed({ version: 4, campaignId: QUELM.id }) });
+
+      expect(store.getState().version).toBe(3);
+    });
+
+    it('a memberJoined right after a campaignUpdated applies above the new version', () => {
+      apply({ kind: 'state', state: vharnState({ version: 1 }) });
+      apply({ kind: 'campaignUpdated', event: vharnRenamed({ version: 2 }) });
+
+      apply({ kind: 'memberJoined', event: biaJoined({ version: 2 }) });
+      expect(store.getState().version).toBe(2);
+
+      apply({ kind: 'memberJoined', event: biaJoined({ version: 3 }) });
+      expect(store.getState().version).toBe(3);
     });
   });
 
