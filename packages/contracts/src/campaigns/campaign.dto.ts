@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { memberColorDto } from '../account/username.dto';
 
 /** Role inside one campaign; unrelated to the global account role. */
 export const campaignRoleDto = z.enum(['master', 'player']);
@@ -27,9 +28,13 @@ export const campaignSummaryDto = z.strictObject({
 
 export type CampaignSummaryDto = z.infer<typeof campaignSummaryDto>;
 
+/** A participant in the detail modal: the nickname, the effective color and the photo. */
 export const campaignMemberDto = z.strictObject({
+  userId: z.uuid(),
   name: z.string(),
   role: campaignRoleDto,
+  color: memberColorDto,
+  avatarId: z.uuid().nullable(),
 });
 
 export type CampaignMemberDto = z.infer<typeof campaignMemberDto>;
