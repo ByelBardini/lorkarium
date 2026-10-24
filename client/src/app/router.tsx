@@ -21,6 +21,7 @@ import type { LibraryApi } from '@/services/library-api';
 import type { SceneActivation } from '@/services/scene-activation';
 import type { Clipboard } from '@/services/clipboard';
 import type { TableBoardCommands } from '@/services/table-board-commands';
+import type { PingCommands } from '@/services/table-pings';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { CreateBoardRenderer } from '@/renderer/board-renderer';
 import type { RailStore } from '@/stores/rail-store';
@@ -63,6 +64,8 @@ export type AppDependencies = Readonly<{
   /** The board canvas; PixiJS in the app, a fake in tests (jsdom has no WebGL). */
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
+  /** The ping of the board (`board:ping`), apart from the board commands. */
+  pings: PingCommands;
   /** The board's own time (the hover card's delay); the browser's in the app. */
   interactionClock: InteractionClock;
   /** The instant of the overline date; a parameter so tests fix the day. */

@@ -13,7 +13,9 @@ import { HttpLibraryApi } from '@/services/library-api';
 import { NavigatorClipboard } from '@/services/clipboard';
 import { FetchHttpTransport } from '@/services/http-transport';
 import { SocketIoRealtimeTransport } from '@/services/realtime-transport';
+import { BoardCommandSender } from '@/services/board-command-sender';
 import { RealtimeTableBoardCommands } from '@/services/table-board-commands';
+import { RealtimePingCommands } from '@/services/table-pings';
 import { RealtimeTableSessionApi } from '@/services/table-session-api';
 import { RealtimeSceneActivation } from '@/services/scene-activation';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
@@ -76,6 +78,7 @@ const router = createBrowserRouter(
     createBoardRenderer: (onIntent) =>
       createPixiBoardRenderer(onIntent, perfProbe ?? NO_PERF_PROBE),
     boardCommands,
+    pings: new RealtimePingCommands(new BoardCommandSender(realtime, newActionId)),
     interactionClock: browserClock,
     now: () => new Date(),
     random: Math.random,

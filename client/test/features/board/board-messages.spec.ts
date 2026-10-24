@@ -5,6 +5,7 @@ import {
   connectionStatusLine,
   deleteSelectionQuestion,
   movedAnnouncement,
+  pingAnnouncement,
   resizedAnnouncement,
   selectedAnnouncement,
   tokenCommandFailureMessage,
@@ -112,5 +113,15 @@ describe('character refusals', () => {
     ['no_free_cells', 'Não há casas livres neste grid.'],
   ] as const)('%s reads "%s"', (failure, message) => {
     expect(boardCommandFailureMessage(failure)).toBe(message);
+  });
+});
+
+describe('pingAnnouncement', () => {
+  it('a ping at (5.5, 2.2) is announced by the cell it falls in, counted from 1', () => {
+    expect(pingAnnouncement('Bia', 5.5, 2.2)).toBe('Bia marcou um ponto (coluna 6, linha 3).');
+  });
+
+  it('a ping on the corner of the grid is the first cell', () => {
+    expect(pingAnnouncement('Ana', 0, 0)).toBe('Ana marcou um ponto (coluna 1, linha 1).');
   });
 });
