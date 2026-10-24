@@ -1,0 +1,12 @@
+# Tokens: comandos de grupo
+
+Detalhe do hub [`tokens.md`](../tokens.md): mover, arrastar, mudar de camada e o desfazer de um grupo de tokens. A escrita do grupo é **uma** consulta (ver o DAO no hub e `server.md`, Desempenho).
+
+## Regras
+
+- **Tudo ou nada, uma versão.** O caso de grupo trava a cena, busca todos os ids pelo `findManyInScene` e recusa no primeiro que faltar (`TOKEN_NOT_FOUND` citando esse id, inclusive token de outra mesa) antes de gravar qualquer um; depois grava numa escrita só e soma **uma** versão.
+- `moveMany` / `dragMany`: `placeGroup` confere cada token (`requireMove` com a camada da linha, `place` pelo `footprintFits`) antes de qualquer escrita; um token alheio, fora da cena ou fora da camada recusa o grupo inteiro. O `moveMany` grava pelo `TokensDao.moveMany` e publica **um** `token:movedMany` com as casas de todos; o `dragMany` não trava, não grava nem soma versão e publica `token:draggedMany` exceto a conexão de quem arrasta (`BoardPublisherPort.tokensDragged(evento, exceptConnectionId)`). O server não conhece "grupo rígido": recebe a casa final de cada token (o deslocamento é conta do client).
+- **Paredes no caminho.** `move` e `moveMany` conferem, dentro da transação que trava a cena e depois da permissão e do `requireAt`, a passagem de cada token que não é do mestre (`requirePassages`: as paredes vêm do `SceneWallsService` do walls, que só relê pelo `WallsDao` preso ao `tx` quando não as tem — ver [`walls.md`](../walls.md)). Um barrado recusa o grupo inteiro. O desfazer manda o caminho invertido com o `expect`. A prévia (`token:dragMany`) **não** é conferida: nada é gravado e o client não passa da parede. Um token grande passa por fresta menor que ele (a passagem é pelo centro; colisão da pegada é do §12).
+- **Precondição do desfazer (`expect`).** `moveMany` e `deleteMany` conferem o `expect` de cada token contra a linha travada (`TokenRulesBo.requireAt`) depois da permissão e antes de qualquer escrita; um só diferente recusa o grupo com `STALE_UNDO`.
+- **Redação do lote.** O adaptador manda a lista inteira a `sceneMastersRoom` do grid; a cada controlador (`sceneUserRoom`) (exceto quem está na sala dos mestres, para ninguém ouvir duas vezes) a sua mistura — inteiro o que ele controla, redigido o resto; e a redigida ao `sceneRoom` menos essas salas.
+- `setLayer`: `requireMaster('change the layer of tokens')` → `tokensIn` → `setLayer` → `bumpVersion` → depois do commit `BoardPublisherPort.tokenLayerChanged` (sem redação: a camada não é segredo).

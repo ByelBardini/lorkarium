@@ -4,28 +4,32 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 
 > **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda a estrutura, as rotas e os testes.
 
-| Assunto                                                                                   | Arquivo                                         |
-| ----------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Tokens de cor, tipografia, forma, componentes base e regras anti-template                 | [`design-system.md`](client/design-system.md)   |
-| Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe                            | [`home.md`](client/home.md)                     |
-| Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos                   | [`board.md`](client/board.md)                   |
-| Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                   | [`board-renderer.md`](client/board-renderer.md) |
-| Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras              | [`tokens.md`](client/tokens.md)                 |
-| Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz              | [`token-dialog.md`](client/token-dialog.md)     |
-| Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain` | [`token-dock.md`](client/token-dock.md)         |
-| Aba "Na mesa": mestres, card de cada jogador (ficha, token principal, barras), ausência   | [`table-people.md`](client/table-people.md)     |
-| Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro              | [`combat.md`](client/combat.md)                 |
-| Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)                   | [`drawings.md`](client/drawings.md)             |
-| Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar                   | [`effect-areas.md`](client/effect-areas.md)     |
-| Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas                  | [`walls.md`](client/walls.md)                   |
-| Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre              | [`vision.md`](client/vision.md)                 |
-| Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender                    | [`lights.md`](client/lights.md)                 |
-| Cone: campo de visão, lanterna, holofote mirado, contorno do mestre                       | [`cones.md`](client/cones.md)                   |
+| Assunto                                                                                    | Arquivo                                         |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Tokens de cor, tipografia, forma, componentes base e regras anti-template                  | [`design-system.md`](client/design-system.md)   |
+| Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe                             | [`home.md`](client/home.md)                     |
+| Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos                    | [`board.md`](client/board.md)                   |
+| Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                    | [`board-renderer.md`](client/board-renderer.md) |
+| Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras               | [`tokens.md`](client/tokens.md)                 |
+| Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz               | [`token-dialog.md`](client/token-dialog.md)     |
+| Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain`  | [`token-dock.md`](client/token-dock.md)         |
+| Aba "Na mesa": mestres, card de cada jogador (ficha, token principal, barras), ausência    | [`table-people.md`](client/table-people.md)     |
+| Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro               | [`combat.md`](client/combat.md)                 |
+| Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)                    | [`drawings.md`](client/drawings.md)             |
+| Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar                    | [`effect-areas.md`](client/effect-areas.md)     |
+| Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas                   | [`walls.md`](client/walls.md)                   |
+| Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre               | [`vision.md`](client/vision.md)                 |
+| Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender                     | [`lights.md`](client/lights.md)                 |
+| Cone: campo de visão, lanterna, holofote mirado, contorno do mestre                        | [`cones.md`](client/cones.md)                   |
+| Desempenho: orçamento, regras que não podem ser desfeitas, cena de estresse, bench, painel | [`performance.md`](client/performance.md)       |
+| Biblioteca de grids: rota, modal, árvore de pastas e grids, menu, painel e arrastar        | [`library.md`](client/library.md)               |
+| Abas de grid na sala: escopo do comando, `watch`, `scene-tabs-store`, `SceneTabs`          | [`grid-tabs.md`](client/grid-tabs.md)           |
+| Personagem: elenco, token ligado composto, ligar à ficha, "Adicionar jogadores"            | [`characters.md`](client/characters.md)         |
 
 ## Estrutura
 
-- `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `createOpenTablesStore` sobre a `RealtimeTableSessionApi` (sobre `SocketIoRealtimeTransport` com `crypto.randomUUID`) e o `sessionStorage`, `NavigatorClipboard`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`)
-- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, assets, clipboard, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, createBoardRenderer, boardCommands, interactionClock, now, random }`, para o teste injetar fakes
+- `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `createOpenTablesStore` (com `tabInteractionFactory(boardCommands)`) sobre a `RealtimeTableSessionApi` (sobre `SocketIoRealtimeTransport` com `crypto.randomUUID`) e o `sessionStorage`, `NavigatorClipboard`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`)
+- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, libraryApi, sceneActivation, assets, clipboard, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, createBoardRenderer, boardCommands, interactionClock, now, random }`, para o teste injetar fakes
 - `src/app/route-access.ts` — `decideAccess(session, access, url)`: decisão pura `allow` | `redirect` por `RouteAccess` (`public-only`, `signed-in`, `admin`); `loginPathFor(url)` → `/login?next=…`
 - `src/app/splash-screen.tsx` (`role="status"`, "Carregando…") e `src/app/route-error-screen.tsx`
 - `src/app/shell/` — `AppShell`, trilho, menu do usuário, gaveta e `api-loader.ts` (ver [`client/home.md`](client/home.md))
@@ -52,34 +56,38 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/lib/overline-date.ts` — `formatOverlineDate(data)` → "Quarta, 14 de outubro" (sem "-feira", hora local)
 - `src/lib/campaign-cover.ts` — `coverFor(id)` → `{ variant: 0..2, tone: 1..4 }` estável por id (hash `×31`)
 - `src/lib/campaign-code.ts` — `formatCampaignCode('VHRN7K2Q')` → `'VHRN-7K2Q'` e `maskCampaignCode(digitado)` (máscara do campo: só letras e dígitos, caixa alta, até 8, hífen depois do 4º; quem valida continua sendo o DTO)
+- `src/lib/search-text.ts` — `searchText('Ossuário')` → `'ossuario'`: o texto de busca sem acento nem caixa (mesas e biblioteca)
+- `src/lib/folder-tree.ts` — árvore, árvore filtrada pela busca e `canDrop` da biblioteca; `edited-label.ts` — "editado há 3 dias" (ver [`client/library.md`](client/library.md))
+- `src/lib/use-draft-field.ts` — `useDraftField({ confirmed, normalize?, save })`: rascunho × confirmado (ficha, nome do grid)
 - `src/lib/campaign-list.ts` — `filterCampaigns(mesas, busca)` (nome ou sistema, sem acento nem caixa) e `continueCandidate(mesas)` (a de `lastEnteredAt` mais recente, ou `null`)
 - `src/lib/campaign-meta.ts` — `campaignMeta(mesa)` ("Tormenta20 · mestre: Bia · 4 participantes"; o mestre só aparece para quem joga), `memberCountLabel(n)`, `ROLE_LABEL`
-- `src/services/http-transport.ts` — `HttpTransport` (interface), `FetchHttpTransport` (base `/api`, JSON, `credentials: 'same-origin'`), `NetworkUnavailableError`; resposta com `body` JSON, `null` se vazia, `undefined` se não-JSON
+- `src/services/http-transport.ts` — `HttpTransport` (interface; `GET`, `POST`, `PATCH`, `DELETE`), `FetchHttpTransport` (base `/api`, JSON, `credentials: 'same-origin'`), `NetworkUnavailableError`; resposta com `body` JSON, `null` se vazia, `undefined` se não-JSON
 - `src/services/api-call.ts` — o comum a todo serviço: `callApi(transport, método, caminho, corpo?)` → `ok` (status < 300) | `refused` (com a resposta, para o serviço nomear o `kind`) | `offline`; `parseOk(dto, corpo, pick)` (corpo fora do DTO → `unexpected`); `retryAfterOf(resposta)` (`Retry-After`, senão `retryAfterSeconds` do corpo, senão 60); `errorCodeOf(resposta)`
 - `src/services/auth-api.ts` — `AuthApi` / `HttpAuthApi`: devolve `AuthResult` (nunca lança); falhas `invalid_credentials` (401), `rate_limited` (429), `offline`, `unexpected`
 - `src/services/campaigns-api.ts` — `CampaignsApi` / `HttpCampaignsApi`: `list`, `create`, `detail`, `join`, `enter`, cada um devolvendo `CampaignsResult<T>`; falhas (`CampaignsFailure`): `unauthenticated` (401), `not_found` (404), `invalid` (400), `password_required` / `password_invalid` (403 pelo `code`), `rate_limited` (429), `offline`, `unexpected`
-- `src/services/realtime-transport.ts` — `RealtimeTransport` (interface: `connect`, `disconnect`, `isConnected`, `emit`, `emitWithAck(evento, payload, ms)`, `on(evento)` e `onLifecycle` → `connected` | `disconnected { willRetry }` | `connect_failed { code, willRetry }`) e `SocketIoRealtimeTransport` (`io({ path: REALTIME_PATH, autoConnect: false, withCredentials: true })`; casca fina provada pelo e2e). O `socket.io-client` só aparece aqui.
+- `src/services/realtime-transport.ts` — `RealtimeTransport` (interface: `connect`, `disconnect`, `isConnected`, `emit`, `emitWithAck(evento, payload, ms)`, `on(evento)` e `onLifecycle` → `connected` | `disconnected { willRetry }` | `connect_failed { code, willRetry }`) e `SocketIoRealtimeTransport` (`io(realtimeClientOptions())`: `path: REALTIME_PATH`, `autoConnect: false`, `withCredentials: true`, `transports: ['websocket', 'polling']` com `tryAllTransports` — websocket direto, sem a volta de polling antes, e polling só se o websocket falhar; casca fina provada pelo e2e, as opções por `test/services/realtime-transport.spec.ts`). O `socket.io-client` só aparece aqui.
 - `src/services/table-session-api.ts` — `TableSessionApi` / `RealtimeTableSessionApi(transport, newActionId)`: `open(campaignId, listener)` → `{ close }`. Entrega ao listener `status` (`connecting` → `live`; queda com nova tentativa → `reconnecting`), `state` (o snapshot do ack do `session:join`), `memberJoined`/`memberLeft` (só os da mesa aberta e válidos pelo DTO) e `failed` (`not_found`, `unauthenticated` — ack ou `connect_error` —, `too_many_tables`, `unexpected`, `offline` — ack que não chega em 5 s ou queda sem nova tentativa). **Várias mesas sobre um socket só**: `connect` na primeira visita, `disconnect` quando a última fecha; a visita que abre com a conexão de pé (`isConnected()`) emite o `session:join` na hora. A cada `connected` (inclusive reconexão) toda visita viva reemite o seu `session:join` e recebe snapshot novo. `close()` emite o `session:leave` daquela mesa e nada mais chega ao listener dela. `setAway(away)` emite `session:setActivity` e o repete depois de cada rejoin; `session:memberActivity` chega como `memberActivity` (ver [`client/table-people.md`](client/table-people.md), Ausência).
 - `src/services/clipboard.ts` — `Clipboard` (interface) e `NavigatorClipboard` (`copy(texto)` → `false` quando o navegador recusa)
 - `src/stores/rail-store.ts` — `createRailStore(storage)` (Zustand vanilla), `useRail(store)`; `rail` = `expanded` (padrão) | `collapsed`, gravado em `localStorage` (`lorkarium.rail`); storage que lança cai na memória
-- `src/stores/open-tables-store.ts` — `createOpenTablesStore({ api, storage })` (Zustand vanilla) e `useOpenTables(store, seletor)`: as mesas abertas **da aba**. Estado `{ ownerId, tables: { campaignId, name, presence }[], sessionRefused }`; ações `setAway(away)` (a todas as mesas abertas, e às que abrirem enquanto a aba está parada), `restore(userId)` (reabre a lista gravada se o dono for o mesmo; outro dono fecha as abertas antes; idempotente), `open({ campaignId, name })` → `opened` | `already-open` | `full` (com `MAX_OPEN_TABLES`), `close(id)` e `closeAll()` (logout: fecha tudo, limpa o storage, dono `null`). Os handles ficam num `Map` fora do estado. Cada `OpenTable` leva `presence`, `board` e `edits` (a `table-edit-store` da mesa: área de cópia e pilha de desfazer, ver [`client/drawings.md`](client/drawings.md)). Persistida no `sessionStorage` (`lorkarium.openTables` = `{ userId, tables: [{ campaignId, name }] }`, lida por um schema Zod local; inválida, de outro dono ou acima do limite → lista vazia; storage que lança cai na memória). `failed: unauthenticated` de qualquer mesa → `sessionRefused: true`.
+- `src/stores/open-tables-store.ts` — `createOpenTablesStore({ api, storage })` (Zustand vanilla) e `useOpenTables(store, seletor)`: as mesas abertas **da aba**. Estado `{ ownerId, tables: { campaignId, name, presence }[], sessionRefused }`; ações `setAway(away)` (a todas as mesas abertas, e às que abrirem enquanto a aba está parada), `restore(userId)` (reabre a lista gravada se o dono for o mesmo; outro dono fecha as abertas antes; idempotente), `open({ campaignId, name })` → `opened` | `already-open` | `full` (com `MAX_OPEN_TABLES`), `close(id)` e `closeAll()` (logout: fecha tudo, limpa o storage, dono `null`). Os handles ficam num `Map` fora do estado. Cada `OpenTable` leva `presence`, `board` e `edits` (os da aba do grupo; ver [`client/drawings.md`](client/drawings.md)) e `tabs` (a `scene-tabs-store`, ver [`client/grid-tabs.md`](client/grid-tabs.md)); `OpenTablesDeps.createInteraction` dá a interação de cada aba. Persistida no `sessionStorage` (`lorkarium.openTables` = `{ userId, tables: [{ campaignId, name }] }`, lida por um schema Zod local; inválida, de outro dono ou acima do limite → lista vazia; storage que lança cai na memória). `failed: unauthenticated` de qualquer mesa → `sessionRefused: true`.
 - `src/stores/table-presence-store.ts` — `createTablePresenceStore(campaignId)` (Zustand vanilla, **uma por mesa aberta**, criada pela `open-tables-store`), `useTablePresence(store, seletor)`, `selectOnlineCount(estado)`. Estado `{ campaignId, status (connecting | live | reconnecting | failed), failure, version (null até o snapshot), members }`; `apply(update)` recebe o `TableSessionUpdate` do serviço. Regra de versão: o snapshot **sempre** substitui (inclusive de versão menor, depois de o server reiniciar); evento só se aplica com versão **maior** que a atual, da mesma mesa e depois de algum snapshot. `memberJoined` de quem está na lista marca online no lugar; de quem não está, entra no fim. `memberLeft` marca offline (e zera o `awaySince`) e mantém na lista. `memberActivity` troca o `awaySince` do membro.
 - `src/stores/session-store.ts` — `createSessionStore()` (Zustand vanilla), singleton `sessionStore`, hook `useSession(store)`; estado `unknown` → `authenticated { user }` | `anonymous`
 
 ## Rotas
 
-| Caminho                        | Acesso        | Tela                                                                                        |
-| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------- |
-| `/login`                       | `public-only` | `LoginPage`; logado vai para o `next` seguro ou `/`                                         |
-| `/`                            | `signed-in`   | shell + `HomePage` (`loader` da lista, `action` de criar/entrar por código)                 |
-| `/campaigns/:campaignId`       | `signed-in`   | a home com o modal de detalhes por cima (`loader` do detalhe, `action` de "Entrar na mesa") |
-| `/campaigns/:campaignId/table` | `signed-in`   | shell (trilho compacto) + sala de jogo (`loader` do detalhe, `handle: COMPACT_RAIL_HANDLE`) |
-| `/admin`                       | `admin`       | `AdminPage`, carregada por `lazy` (fora do shell)                                           |
-| `*`                            | —             | redireciona para `/`                                                                        |
+| Caminho                                | Acesso        | Tela                                                                                        |
+| -------------------------------------- | ------------- | ------------------------------------------------------------------------------------------- |
+| `/login`                               | `public-only` | `LoginPage`; logado vai para o `next` seguro ou `/`                                         |
+| `/`                                    | `signed-in`   | shell + `HomePage` (`loader` da lista, `action` de criar/entrar por código)                 |
+| `/campaigns/:campaignId`               | `signed-in`   | a home com o modal de detalhes por cima (`loader` do detalhe, `action` de "Entrar na mesa") |
+| `/campaigns/:campaignId/table`         | `signed-in`   | shell (trilho compacto) + sala de jogo (`loader` do detalhe, `handle: COMPACT_RAIL_HANDLE`) |
+| `/campaigns/:campaignId/table/library` | `signed-in`   | biblioteca em modal sobre a sala ([`client/library.md`](client/library.md))                 |
+| `/admin`                               | `admin`       | `AdminPage`, carregada por `lazy` (fora do shell)                                           |
+| `*`                                    | —             | redireciona para `/`                                                                        |
 
 - O root tem `middleware` que faz **um** `GET /api/auth/me` enquanto a sessão está `unknown` e o `HydrateFallback` (splash) cobre essa espera. Cada rota tem um `middleware` de guarda que chama `decideAccess` e lança `redirect`; as rotas logadas vivem sob a rota de layout `shell` (sem `path`, guarda `signed-in`).
 - A rota `shell` tem um segundo `middleware`, `restoreOpenTables`: com a sessão autenticada, `openTables.restore(user.id)` (idempotente) reabre as mesas da aba depois de um F5. "Sair" no menu chama `openTables.closeAll()` **antes** do `authApi.logout()` (depois, o server recusaria os `session:leave` e os outros só veriam a saída depois da tolerância).
-- Árvore: `root` → `login` · `admin` · `shell` → [`home` (`path: '/'`) → [índice, `campaigns/:campaignId`], `campaigns/:campaignId/table`] · `*`.
+- Árvore: `root` → `login` · `admin` · `shell` → [`home` (`path: '/'`) → [índice, `campaigns/:campaignId`], `campaigns/:campaignId/table` (id `campaign-table`) → [índice, `library`]] · `*`.
 - Visitante em rota protegida vai para `/login?next=<caminho+query codificados>`; depois do login, `safeRedirectTarget(next)`. `loader`/`action` que recebe `unauthenticated` faz o mesmo (`redirectIfSignedOut`).
 - A guarda do client só evita mostrar a tela errada; quem recusa é o server.
 

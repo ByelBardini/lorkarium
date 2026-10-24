@@ -11,16 +11,17 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 
 ## Testes por camada
 
-| Script                  | Projeto(s) Vitest                              | O que prova                                                        |
-| ----------------------- | ---------------------------------------------- | ------------------------------------------------------------------ |
-| `pnpm test:packages`    | `@lorkarium/game-core`, `@lorkarium/contracts` | regra de jogo pura e DTO com regra própria                         |
-| `pnpm test:client`      | `@lorkarium/client`                            | `src/lib/`, stores, serviços, conta do renderer                    |
-| `pnpm test:server`      | `@lorkarium/server`                            | BO, mapper, service, config e adaptadores (sem banco, sem Fastify) |
-| `pnpm test:integration` | `@lorkarium/server-integration`                | bordas, DAO, permissão e isolamento por campanha em Postgres real  |
-| `pnpm test`             | todos menos a integração                       | atalho local, sem cobertura                                        |
+| Script                  | Projeto(s) Vitest                              | O que prova                                                                                                                 |
+| ----------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm test:packages`    | `@lorkarium/game-core`, `@lorkarium/contracts` | regra de jogo pura e DTO com regra própria                                                                                  |
+| `pnpm test:client`      | `@lorkarium/client`                            | `src/lib/`, stores, serviços, conta do renderer                                                                             |
+| `pnpm test:server`      | `@lorkarium/server`                            | BO, mapper, service, config e adaptadores (sem banco, sem Fastify)                                                          |
+| `pnpm test:integration` | `@lorkarium/server-integration`                | bordas, DAO, permissão e isolamento por campanha em Postgres real; o teto de consultas por comando (`query-budget.spec.ts`) |
+| `pnpm test`             | todos menos a integração                       | atalho local, sem cobertura                                                                                                 |
 
 - Os três primeiros rodam com `--coverage` (`@vitest/coverage-v8`), configurado em `vitest.config.ts`: reporter `text-summary` (log) + `html` (em `coverage/`). **Sem limiar mínimo**: cenário vem do contrato, não de linha descoberta (skill `testar`). A integração roda sem cobertura.
 - `pnpm typecheck` checa os specs: o `include` de cada `tsconfig.json` de workspace tem `test`.
+- `pnpm bench` (`vitest bench --run`, os `*.bench.ts`) fica **fora** do `pnpm test` e do CI: os runners oscilam e a suíte já é instável sob carga, então um limiar de tempo daria vermelho falso. É medição local, fase a fase (ver [`client/performance.md`](client/performance.md)).
 
 ## Build
 
@@ -35,16 +36,16 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 
 Roda em todo `pull_request` e em `push` na `main`. `permissions: contents: read`; `concurrency` por ref, cancelando só run antigo de PR. Todo job começa com `actions/checkout` + o composite `./.github/actions/setup` (pnpm pelo `packageManager`, Node pelo `.nvmrc`, cache do store, `pnpm install --frozen-lockfile` com `HUSKY=0`).
 
-| Job                | Comando                                                                                                                                                                                                    | O que barra                                                         |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `quality`          | `lint`, `format:check`, `typecheck`, os 3 `autoteste.mjs` das skills                                                                                                                                       | estilo, formato, tipo (inclusive de spec), driver de skill quebrado |
-| `test-packages`    | `pnpm test:packages`                                                                                                                                                                                       | regra do game-core, DTO do contracts                                |
-| `test-client`      | `pnpm test:client`                                                                                                                                                                                         | lógica do client                                                    |
-| `test-server`      | `pnpm test:server`                                                                                                                                                                                         | unit do server                                                      |
-| `test-integration` | service `postgres:17-alpine` (tmpfs) + SeaweedFS (`./.github/actions/seaweedfs`) → `pnpm db:migrate` → `pnpm test:integration`                                                                             | borda, DAO, migração quebrada, S3                                   |
-| `build`            | `pnpm build`                                                                                                                                                                                               | client ou server que não empacota                                   |
-| `e2e`              | matriz por grupo (`table`, `tokens`, `scene`, `combat`, `vision`, `lighting`), `fail-fast: false`: mesmo Postgres de serviço + SeaweedFS → `e2e:install` → `test:e2e --project=<grupo>` (15 min por grupo) | client que não abre ou não alcança o server pelo proxy              |
-| `ci-ok`            | `if: always()`, `needs` de todos; falha se algum `failure`/`cancelled`                                                                                                                                     | é o **único** check obrigatório da `main`                           |
+| Job                | Comando                                                                                                                                                                                                               | O que barra                                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `quality`          | `lint`, `format:check`, `typecheck`, os 3 `autoteste.mjs` das skills                                                                                                                                                  | estilo, formato, tipo (inclusive de spec), driver de skill quebrado |
+| `test-packages`    | `pnpm test:packages`                                                                                                                                                                                                  | regra do game-core, DTO do contracts                                |
+| `test-client`      | `pnpm test:client`                                                                                                                                                                                                    | lógica do client                                                    |
+| `test-server`      | `pnpm test:server`                                                                                                                                                                                                    | unit do server                                                      |
+| `test-integration` | service `postgres:17-alpine` (tmpfs) + SeaweedFS (`./.github/actions/seaweedfs`) → `pnpm db:migrate` → `pnpm test:integration`                                                                                        | borda, DAO, migração quebrada, S3                                   |
+| `build`            | `pnpm build`                                                                                                                                                                                                          | client ou server que não empacota                                   |
+| `e2e`              | matriz por grupo (`table`, `tokens`, `scene`, `combat`, `vision`, `lighting`, `library`), `fail-fast: false`: mesmo Postgres de serviço + SeaweedFS → `e2e:install` → `test:e2e --project=<grupo>` (15 min por grupo) | client que não abre ou não alcança o server pelo proxy              |
+| `ci-ok`            | `if: always()`, `needs` de todos; falha se algum `failure`/`cancelled`                                                                                                                                                | é o **único** check obrigatório da `main`                           |
 
 O S3 dos dois jobs é a action composta `.github/actions/seaweedfs`: `docker run` do `chrislusf/seaweedfs:4.48` com dados em tmpfs, a identidade de `infra/compose/seaweedfs/s3.json` e espera do `/healthz` (até 60 s). É passo, e não `services:`, porque serviço do Actions não aceita comando e o volume do `s3.json` só existe depois do checkout. As `S3_*` ficam no `env` do job.
 

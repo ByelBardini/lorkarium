@@ -9,6 +9,7 @@ O diálogo em que o mestre cria e ajusta um token: a prévia ao lado (que é tam
 - Salvar valida pelo `parseTokenForm`; com erro, salta para a primeira aba com erro (`firstErrorTab`, ordem Básico → Barras → Visão e luz) e o rodapé diz "Falta preencher o que está marcado." (`MISSING_FIELDS`, `role=status`).
 - Rodapé: "Excluir token" em dois passos (Editar: "Excluir Lyra? Isso não tem volta." → "Excluir" / "Manter"), a linha de status, `DISCONNECTED_COMMAND` sem conexão ("Criar token"/"Salvar" desabilitados, sem fila), "Esc fecha", "Cancelar" e "Criar token" / "Salvar" ("Salvando…" com `aria-busy`). Recusa em `Alert` acima do rodapé (`tokenCommandFailureMessage`), e o diálogo fica. O token apagado por outro durante a edição fecha o diálogo (`RoomTokenDialog` devolve `null`).
 - `sendToken`: Novo → `createToken` com a casa do centro da vista e a camada ativa; Editar → `updateToken`.
+- `cardOwner` (B9): no token ligado à ficha, o nome do jogador (`RoomTokenDialog` pelo `cardOwnerOf`) → "Na ficha de Bia · vale em todo grid" no topo das abas Básico e Barras (campos que mudam o personagem em todo grid; ver [`characters.md`](characters.md)).
 
 ## A prévia e a imagem (`token-preview.tsx`)
 

@@ -9,6 +9,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/campaigns/` — mesa (campanha): resumo, detalhe, criação e entrada por código
 - `src/sessions/` — sessão ao vivo da mesa (Socket.IO): comandos, eventos e acks
 - `src/assets/` — imagem enviada à mesa (arquivo ou link) e a leitura dela
+- `src/library/` — biblioteca de grids: grids e pastas da mesa por REST, `library:changed`
 - `test/<área>/` — specs só de DTO com regra própria (`transform`, `pipe`, `refine`)
 
 ## DTOs
@@ -45,6 +46,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 `session.dto.ts` — a mesa é a sessão (detalhe em [`sessions.md`](sessions.md)).
 
+- `realtime-limits.ts` — `REALTIME_MESSAGE_MAX_BYTES` (5 MiB: o `maxHttpBufferSize` do server, medido pelo maior comando válido, o `drawing:createMany` de 64 traços de 2000 pontos em precisão total, ≈ 4,8 MB — `test/realtime-limits.spec.ts`; o padrão de 1 MB do Socket.IO derrubava a conexão) e `REALTIME_COMPRESSION_THRESHOLD_BYTES` (4096: daí para cima a mensagem vai comprimida).
 - `REALTIME_PATH` = `'/api/socket.io'` (o `path` do Socket.IO nas duas pontas) e `SESSION_EVENTS` (`session:join`, `session:leave`, `session:memberJoined`, `session:memberLeft`, `session:setActivity`, `session:memberActivity`).
 - `sessionCommandDto` — payload de `session:join` e `session:leave`: `{ actionId (uuid), campaignId (uuid) }`, estrito (um `userId` ou `role` forjado é recusado: a identidade vem da conexão, §7.3).
 - `sessionMemberDto` `{ userId, name, role (campaignRoleDto), online, awaySince (ISO | null: desde quando todas as abas dele estão paradas) }`.
@@ -54,6 +56,17 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - Ausência: `sessionActivityCommandDto` `{ actionId, campaignId, away }` (`session:setActivity`, estrito: `userId` forjado é recusado), `sessionActivityAckDto` (= o do `leave`: `{ ok: true }` | falha) e o evento `sessionMemberActivityDto` `{ campaignId, version, userId, awaySince (ISO | null), at }` (`session:memberActivity`).
 - `MAX_OPEN_TABLES` = `5` — mesas abertas ao mesmo tempo por conexão: o server recusa a 6ª (`TOO_MANY_TABLES`) e o client avisa antes de pedir.
 - `SessionClientEvents` / `SessionServerEvents` — mapas de tipo para os genéricos do Socket.IO no server e no client.
+
+### Biblioteca (`library/`)
+
+`library.dto.ts` — os grids e as pastas da mesa por REST (detalhe e rotas em [`library.md`](library.md)).
+
+- Limites e textos: `SCENE_NAME_MAX_LENGTH` (60), `SCENE_FOLDER_NAME_MAX_LENGTH` (40), `SCENE_FOLDER_DEPTH_MAX` (5), `UNNAMED_SCENE_NAME` (`'Grid sem nome'`), `SCENE_COPY_SUFFIX` (`' (cópia)'`).
+- `sceneVisibilityDto` (`private` | `public`), `sceneFolderDto` `{ id, name, parentId | null }`, `librarySceneDto` `{ id, name, folderId | null, visibility, widthCells, heightCells, background | null, tokenCount (null para o jogador), updatedAt (ISO) }` e `libraryDto` `{ activeSceneId | null, folders, scenes }` (resposta do `GET …/scenes`).
+- Corpos: `createLibrarySceneRequestDto` `{ name?, folderId? }`, `updateLibrarySceneRequestDto` `{ name?, folderId? (null = raiz), visibility? }` (ao menos uma chave), `createSceneFolderRequestDto` `{ name, parentId? }` e `updateSceneFolderRequestDto` `{ name?, parentId? (null = raiz) }` (ao menos uma chave). Nomes aparados, de 1 ao limite; estritos (um `campaignId` no corpo é recusado: a mesa vem da URL).
+- Params: `librarySceneParamsDto` `{ campaignId, sceneId }` e `sceneFolderParamsDto` `{ campaignId, folderId }` (a borda usa o `shape` de cada campo).
+- Evento `libraryChangedDto` `{ campaignId, at }` (`library:changed`, sem dado de grid) e o mapa `LibraryServerEvents`, que entra no `TableServerEvents`.
+- Ativação e expulsão: `sceneActivatedDto` `{ campaignId, sceneId, previousSceneId | null, at }` (`scene:activated`, à mesa), `sceneClosedReasonDto` (`private` | `deleted`) e `sceneClosedDto` `{ campaignId, sceneId, reason, at }` (`scene:closed`, a cada socket tirado do grid); os dois entram no `LibraryServerEvents`.
 
 ### Tempo real comum (`http/realtime-ack.dto.ts`)
 
