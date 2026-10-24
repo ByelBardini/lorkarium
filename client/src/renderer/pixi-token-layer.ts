@@ -172,8 +172,10 @@ export class PixiTokenLayer {
   }
 
   /** Moves each gliding token a step along its 150 ms glide; call from the ticker. A token that
-   *  arrived leaves the set, so a still board costs nothing. */
-  animate(nowMs: number): void {
+   *  arrived leaves the set, so a still board costs nothing. Whether any token stepped: the frame
+   *  must render it (its last step included, so the caller asks before anything else). */
+  animate(nowMs: number): boolean {
+    const stepped = this.gliding.size > 0;
     for (const id of this.gliding) {
       const sprite = this.sprites.get(id);
       if (!sprite || id === this.dragging) continue;
@@ -183,6 +185,7 @@ export class PixiTokenLayer {
       moveSprite(sprite, x, y);
       if (progress === 1) this.gliding.delete(id);
     }
+    return stepped;
   }
 
   destroy(): void {

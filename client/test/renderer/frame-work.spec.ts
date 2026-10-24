@@ -38,4 +38,36 @@ describe('FrameWork', () => {
     expect(work.take()).toEqual({ view: true, overlays: true, grid: true });
     expect(work.pending()).toBe(false);
   });
+
+  // A full-canvas render per frame saturated the main thread under software WebGL (CI e2e).
+  describe('render on demand', () => {
+    it('a still board renders once, then never again', () => {
+      const work = new FrameWork();
+      expect(work.renderDue()).toBe(true);
+      expect(work.renderDue()).toBe(false);
+      work.take();
+      expect(work.renderDue()).toBe(false);
+    });
+
+    it('a new view, a pan or a touch of the scene renders the next frame once', () => {
+      const work = new FrameWork();
+      work.renderDue();
+      work.viewChanged();
+      expect(work.renderDue()).toBe(true);
+      work.cameraChanged(PAN);
+      expect(work.renderDue()).toBe(true);
+      work.sceneTouched();
+      expect(work.renderDue()).toBe(true);
+      expect(work.renderDue()).toBe(false);
+    });
+
+    it('a touching listener runs the listener and renders the next frame', () => {
+      const work = new FrameWork();
+      work.renderDue();
+      const heard: string[] = [];
+      work.touching((event: string) => heard.push(event))('pointermove');
+      expect(heard).toEqual(['pointermove']);
+      expect(work.renderDue()).toBe(true);
+    });
+  });
 });

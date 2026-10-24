@@ -102,6 +102,21 @@ describe('PixiTokenLayer glides only the moved tokens', () => {
     expect(layer.glidingCount()).toBe(0);
   });
 
+  it('the glide asks for a render on each step, its last included, and a still layer never does', () => {
+    const { layer } = layerWith();
+    layer.sync(horde(3), [], 0);
+    expect(layer.animate(10)).toBe(false);
+    layer.sync(
+      horde(3, (index) => (index === 0 ? { col: 5 } : {})),
+      [],
+      16,
+    );
+
+    expect(layer.animate(100)).toBe(true);
+    expect(layer.animate(16 + 150)).toBe(true);
+    expect(layer.animate(16 + 300)).toBe(false);
+  });
+
   it('with reduced motion the token jumps and never enters the glide', () => {
     const { layer } = layerWith(true);
     layer.sync(horde(3), [], 0);

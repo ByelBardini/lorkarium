@@ -25,8 +25,6 @@ async function configureGrid(master: Page, width: string, height: string): Promi
 test('the room fills the screen, the grid changes live for everyone, the camera moves and an F5 keeps the grid', async ({
   newPlayerPage,
 }) => {
-  // Two sign-ins, a join and the group-grid + cast sync each: past the 30 s default on CI.
-  test.setTimeout(90_000);
   const name = `Mesa tabuleiro ${Date.now()}`;
   const admin = await newPlayerPage();
   const bia = await newPlayerPage();

@@ -96,7 +96,9 @@ class PixiBoardRenderer implements BoardRenderer {
   // Every change only marks what to redraw; the ticker draws once per frame (`flush`).
   private readonly frame = new FrameWork();
   // A background that arrives draws the view again; a token image only the tokens showing it.
-  private readonly textures = new PixiTextureCache((url) => this.textureArrived(url));
+  private readonly textures = new PixiTextureCache(
+    this.frame.touching((url: string) => this.textureArrived(url)),
+  );
   private readonly background = new PixiSceneBackground(this.textures);
   private readonly tokens: PixiTokenLayer;
   private readonly gestures = new DrawingGestures(this.drawings, (intent) => this.onIntent(intent));
@@ -137,11 +139,12 @@ class PixiBoardRenderer implements BoardRenderer {
     app.stage.addChild(this.world);
     this.listen(host, app.canvas);
     this.disposers.push(followHostSize(host, app));
+    app.ticker.remove(app.render, app);
     app.ticker.add((ticker) => {
       this.probe.frame(ticker.deltaMS);
       this.panWithKeys(ticker.deltaMS);
       this.flush();
-      this.tokens.animate(performance.now());
+      if (this.tokens.animate(performance.now()) || this.frame.renderDue()) app.render();
     });
     app.renderer.on('resize', () => this.applyCamera(this.camera));
     if (this.view) this.draw(this.view);
@@ -489,7 +492,8 @@ class PixiBoardRenderer implements BoardRenderer {
     listener: (event: HTMLElementEventMap[K]) => void,
     options?: AddEventListenerOptions,
   ): void {
-    target.addEventListener(type, listener, options);
-    this.disposers.push(() => target.removeEventListener(type, listener, options));
+    const touching = this.frame.touching(listener);
+    target.addEventListener(type, touching, options);
+    this.disposers.push(() => target.removeEventListener(type, touching, options));
   }
 }
