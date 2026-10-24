@@ -1,8 +1,5 @@
 import type { CampaignDetailDto } from '@lorkarium/contracts';
-import { ArrowLeftIcon } from 'lucide-react';
-import type { KeyboardEvent } from 'react';
-import { Link } from 'react-router';
-import { Button } from '@/components/ui/button';
+import { RoomCoverPage } from '@/components/room-cover-page';
 
 export type CampaignSettingsPageProps = Readonly<{
   campaign: CampaignDetailDto;
@@ -19,24 +16,11 @@ export function CampaignSettingsPage({
   children,
 }: CampaignSettingsPageProps): React.JSX.Element {
   return (
-    <div
-      onKeyDown={keepKeysFromTheRoom}
-      className="absolute inset-0 z-30 flex flex-col overflow-hidden bg-background"
+    <RoomCoverPage
+      campaignId={campaign.id}
+      campaignName={campaign.name}
+      title="Configurações da mesa"
     >
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-panel px-3">
-        <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-          <Link to={`/campaigns/${encodeURIComponent(campaign.id)}/table`}>
-            <ArrowLeftIcon aria-hidden="true" />
-            Voltar à mesa
-          </Link>
-        </Button>
-        <h1 className="min-w-0 truncate font-display text-xl font-semibold">
-          Configurações da mesa
-        </h1>
-        <p className="hidden min-w-0 truncate text-[13px] text-muted-foreground sm:block">
-          {campaign.name}
-        </p>
-      </header>
       {/* `relative`: Radix's hidden inputs are absolute; without a containing block here they
           overflow the clipped page, so a focus or a section jump scrolled the page itself away. */}
       <div
@@ -45,14 +29,6 @@ export function CampaignSettingsPage({
       >
         <div className="w-full">{children}</div>
       </div>
-    </div>
+    </RoomCoverPage>
   );
-}
-
-// The room listens on `window` for its keys (F, V, Delete, Ctrl+Z…): typed here, they would act
-// on the hidden board. Keys from a dialog (portaled outside) are left alone; the room skips them.
-function keepKeysFromTheRoom(event: KeyboardEvent<HTMLDivElement>): void {
-  if (event.target instanceof Node && event.currentTarget.contains(event.target)) {
-    event.stopPropagation();
-  }
 }

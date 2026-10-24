@@ -1,0 +1,1 @@
+ALTER TABLE "condition_definitions" ADD COLUMN "color" text;

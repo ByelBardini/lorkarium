@@ -92,6 +92,14 @@ export type BoardLightIntent =
   | Readonly<{ kind: 'lightAimed'; lightId: string; facing: number }>
   | Readonly<{ kind: 'lightMenuRequested'; lightId: string; x: number; y: number }>;
 
+/** The condition tool pressed on a token this viewer sees: apply the picked condition, or with
+ *  Shift (`removes`) take it off. */
+export type BoardConditionIntent = Readonly<{
+  kind: 'conditionStamped';
+  tokenId: string;
+  removes: boolean;
+}>;
+
 /** A rectangle in viewport px (what `getBoundingClientRect` speaks). */
 export type ScreenRect = Readonly<{ x: number; y: number; width: number; height: number }>;
 
@@ -117,6 +125,7 @@ export type BoardIntent =
   | BoardWallIntent
   | BoardDoorIntent
   | BoardLightIntent
+  | BoardConditionIntent
   | BoardHoverIntent;
 
 export type BoardIntentListener = (intent: BoardIntent) => void;

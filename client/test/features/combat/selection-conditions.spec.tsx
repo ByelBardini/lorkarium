@@ -28,7 +28,10 @@ const CAIDO = {
   name: 'Caído',
   tone: 'harm',
   icon: 'skull',
+  color: null,
   look: null,
+  description: '',
+  maxStacks: null,
 } as const;
 
 describe('condition on several tokens', () => {
@@ -80,22 +83,30 @@ describe('condition on several tokens', () => {
       ]);
     });
 
-    it('a selected token the viewer does not control is left out, and it says so', async () => {
+    it('a selected token the viewer does not control goes too, with no left-out line', async () => {
       seat([lyra(), kael(), lyra({ id: GOBLIN_ID, name: 'Goblin', canControl: false })]);
       renderSection(false);
       select([LYRA_ID, KAEL_ID, GOBLIN_ID]);
-      expect(screen.getByText('1 selecionado não é seu e fica de fora.')).toBeInTheDocument();
-      await userEvent.type(screen.getByRole('combobox', { name: 'Condição em 2 tokens' }), 'Caído');
+      expect(screen.queryByText(/não (é seu|são seus)/)).toBeNull();
+      await userEvent.type(screen.getByRole('combobox', { name: 'Condição em 3 tokens' }), 'Caído');
       await userEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
-      expect(commands.sentAs('applyConditions')[0]?.fields).toMatchObject({
-        tokenIds: [LYRA_ID, KAEL_ID],
-      });
+      expect(commands.sentAs('applyConditions').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [LYRA_ID, KAEL_ID, GOBLIN_ID], conditionId: CAIDO.id, rounds: 0 },
+      ]);
     });
 
-    it('when none of the selected is the viewer’s, it is not there', () => {
+    it('when none of the selected is the viewer’s, it is still there for both', () => {
       seat([lyra({ canControl: false }), kael({ canControl: false })]);
       renderSection(false);
       select([LYRA_ID, KAEL_ID]);
+      expect(screen.getByRole('combobox', { name: 'Condição em 2 tokens' })).toBeInTheDocument();
+    });
+
+    it('read-only (a spectator), it is not there', () => {
+      seat([lyra(), kael()]);
+      renderSection(false);
+      select([LYRA_ID, KAEL_ID]);
+      act(() => interaction.getState().setReadOnly(true));
       expect(screen.queryByRole('region', { name: 'Condição nos selecionados' })).toBeNull();
     });
   });

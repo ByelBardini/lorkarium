@@ -9,6 +9,9 @@ import type {
   ConditionAppliedDto,
   ConditionsAppliedDto,
   ConditionDefinedDto,
+  ConditionDefinitionUpdatedDto,
+  ConditionDefinitionDeletedDto,
+  ConditionDefaultsRestoredDto,
   ConditionRemovedDto,
   ConditionsChangedDto,
   DrawingsCreatedDto,
@@ -121,6 +124,10 @@ export interface BoardPublisherPort {
   lightsLitChanged(event: GridEvent<LightsLitChangedDto>): void;
   lightsDeleted(event: GridEvent<LightsDeletedDto>): void;
   conditionDefined(event: GridEvent<ConditionDefinedDto>): void;
+  /** The table's list changed: the three go to the cast's rooms (every member), like the define. */
+  conditionDefinitionUpdated(event: GridEvent<ConditionDefinitionUpdatedDto>): void;
+  conditionDefinitionDeleted(event: GridEvent<ConditionDefinitionDeletedDto>): void;
+  conditionDefaultsRestored(event: GridEvent<ConditionDefaultsRestoredDto>): void;
   conditionApplied(event: GridEvent<ConditionAppliedDto>): void;
   conditionsApplied(event: GridEvent<ConditionsAppliedDto>): void;
   conditionRemoved(event: GridEvent<ConditionRemovedDto>): void;

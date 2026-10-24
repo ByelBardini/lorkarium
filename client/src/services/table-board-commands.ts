@@ -55,7 +55,11 @@ import {
 } from './wall-commands';
 
 export type { BoardCommandFailure, BoardCommandResult, BoardScope } from './board-command-sender';
-export type { NewConditionDefinition } from './combat-commands';
+export type {
+  ConditionDefinitionEdit,
+  ConditionUsageResult,
+  NewConditionDefinition,
+} from './combat-commands';
 export type { AddPlayersResult } from './token-link-commands';
 
 type Envelope = 'actionId' | 'campaignId' | 'sceneId';

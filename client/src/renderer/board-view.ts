@@ -107,7 +107,8 @@ export type BoardView = Readonly<{
   layerMenu: boolean;
 }>;
 
-export type BoardViewTool = 'select' | 'ruler' | 'draw' | 'area' | 'walls' | 'lights';
+export type BoardViewTool =
+  'select' | 'ruler' | 'draw' | 'area' | 'walls' | 'lights' | 'conditions';
 
 /** The walls and what this viewer does to them; absent = none (most specs). */
 type WallBoardInput = Partial<Pick<WallViewInput, 'walls' | 'selectedWallIds' | 'seenDoorIds'>> &

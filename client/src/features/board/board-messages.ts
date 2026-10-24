@@ -59,6 +59,8 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   turn_changed: 'A vez já passou.',
   combat_active: 'Já há um combate nesta cena.',
   combat_inactive: 'Não há combate nesta cena.',
+  name_taken: 'Já há uma condição com esse nome.',
+  invalid_stacks: 'Essa condição não acumula tanto.',
   out_of_scene: OUT_OF_SCENE_TEXT,
   drawing_not_found: 'Esse desenho não está mais na mesa.',
   drawing_limit: 'A cena já tem desenhos demais. Apague alguns antes.',

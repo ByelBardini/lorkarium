@@ -13,6 +13,7 @@ import {
   BIA_AT_TABLE,
   CAIO_AT_TABLE,
   activeCondition,
+  conditionDefinition,
   KAEL_COMBATANT,
   KAEL_ID,
   LYRA_COMBATANT,
@@ -584,5 +585,114 @@ describe('applyBoardEvent, conditions of the cast', () => {
     });
 
     expect(next.tokens.map(({ conditions }) => conditions)).toEqual([[poisoned], []]);
+  });
+});
+
+describe('applyBoardEvent, the table list of conditions', () => {
+  const BLINDED_ID = 'f7a8b9c0-d1e2-4f3a-8b5c-6d7e8f901234';
+  const blinded = conditionDefinition({ id: BLINDED_ID, name: 'Cego', icon: 'eye-off' });
+  const edited = conditionDefinition({
+    name: 'Nauseado',
+    tone: 'incapacitating',
+    icon: 'skull',
+    look: 'unconscious',
+    description: 'Desvantagem em ataques.',
+  });
+  const poisonedFor = (remainingRounds: number | null) => activeCondition({ remainingRounds });
+
+  it('condition:definitionUpdated replaces the definition in the list', () => {
+    const board = vharnBoard({ conditionDefinitions: [blinded, conditionDefinition()] });
+    const next = applyBoardEvent(board, {
+      type: 'conditionDefinitionUpdated',
+      payload: { ...vharnEventBase(5), definition: edited },
+    });
+    expect(next.conditionDefinitions).toEqual([blinded, edited]);
+  });
+
+  it('condition:definitionUpdated shows the edit on every token holding it, keeping the rounds', () => {
+    const board = vharnBoard({
+      tokens: [lyra({ conditions: [poisonedFor(2)] }), kael({ conditions: [poisonedFor(null)] })],
+      conditionDefinitions: [conditionDefinition()],
+    });
+    const next = applyBoardEvent(board, {
+      type: 'conditionDefinitionUpdated',
+      payload: { ...vharnEventBase(5), definition: edited },
+    });
+    expect(next.tokens.map(({ conditions }) => conditions)).toEqual([
+      [
+        {
+          ...poisonedFor(2),
+          name: 'Nauseado',
+          tone: 'incapacitating',
+          icon: 'skull',
+          look: 'unconscious',
+          description: 'Desvantagem em ataques.',
+        },
+      ],
+      [
+        {
+          ...poisonedFor(null),
+          name: 'Nauseado',
+          tone: 'incapacitating',
+          icon: 'skull',
+          look: 'unconscious',
+          description: 'Desvantagem em ataques.',
+        },
+      ],
+    ]);
+  });
+
+  it('condition:definitionUpdated of a condition no token holds keeps the tokens array', () => {
+    const board = vharnBoard({ tokens: [kael()], conditionDefinitions: [conditionDefinition()] });
+    const next = applyBoardEvent(board, {
+      type: 'conditionDefinitionUpdated',
+      payload: { ...vharnEventBase(5), definition: edited },
+    });
+    expect(next.tokens).toBe(board.tokens);
+  });
+
+  it('condition:definitionUpdated with a lower max stacks clamps the stacks of every token', () => {
+    const stacked = (stacks: number) => activeCondition({ maxStacks: 5, stacks });
+    const board = vharnBoard({
+      tokens: [lyra({ conditions: [stacked(5)] }), kael({ conditions: [stacked(1)] })],
+      conditionDefinitions: [conditionDefinition({ maxStacks: 5 })],
+    });
+    const next = applyBoardEvent(board, {
+      type: 'conditionDefinitionUpdated',
+      payload: { ...vharnEventBase(5), definition: conditionDefinition({ maxStacks: 2 }) },
+    });
+    expect(next.tokens.map(({ conditions }) => conditions[0]?.stacks)).toEqual([2, 1]);
+    expect(next.tokens.map(({ conditions }) => conditions[0]?.maxStacks)).toEqual([2, 2]);
+  });
+
+  it('condition:definitionDeleted takes it off the list and off every token', () => {
+    const board = vharnBoard({
+      tokens: [lyra({ conditions: [poisonedFor(2)] }), kael({ conditions: [poisonedFor(1)] })],
+      conditionDefinitions: [conditionDefinition(), blinded],
+    });
+    const next = applyBoardEvent(board, {
+      type: 'conditionDefinitionDeleted',
+      payload: { ...vharnEventBase(5), conditionId: conditionDefinition().id },
+    });
+    expect(next.conditionDefinitions).toEqual([blinded]);
+    expect(next.tokens.map(({ conditions }) => conditions)).toEqual([[], []]);
+  });
+
+  it('condition:defaultsRestored appends the definitions that came back', () => {
+    const board = vharnBoard({ conditionDefinitions: [conditionDefinition()] });
+    const next = applyBoardEvent(board, {
+      type: 'conditionDefaultsRestored',
+      payload: { ...vharnEventBase(5), definitions: [blinded] },
+    });
+    expect(next.conditionDefinitions).toEqual([conditionDefinition(), blinded]);
+  });
+
+  it('condition:defaultsRestored naming a definition already listed adds it once', () => {
+    const board = vharnBoard({ conditionDefinitions: [blinded] });
+    const next = applyBoardEvent(board, {
+      type: 'conditionDefaultsRestored',
+      payload: { ...vharnEventBase(5), definitions: [blinded] },
+    });
+    expect(next.conditionDefinitions).toEqual([blinded]);
   });
 });

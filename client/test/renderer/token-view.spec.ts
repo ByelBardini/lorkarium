@@ -128,13 +128,39 @@ describe('tokenViewsOf', () => {
     ];
     const token = viewsOf({ tokens: [lyra({ conditions })] })[0];
     expect(token?.conditions).toEqual([
-      { icon: 'lock', tone: 'incapacitating', remainingRounds: 1 },
-      { icon: 'zap', tone: 'incapacitating', remainingRounds: 4 },
-      { icon: 'skull', tone: 'harm', remainingRounds: 2 },
-      { icon: 'eye-off', tone: 'harm', remainingRounds: 3 },
-      { icon: 'sparkles', tone: 'benefit', remainingRounds: null },
+      { icon: 'lock', tone: 'incapacitating', color: null, remainingRounds: 1, stacks: null },
+      { icon: 'zap', tone: 'incapacitating', color: null, remainingRounds: 4, stacks: null },
+      { icon: 'skull', tone: 'harm', color: null, remainingRounds: 2, stacks: null },
+      { icon: 'eye-off', tone: 'harm', color: null, remainingRounds: 3, stacks: null },
+      { icon: 'sparkles', tone: 'benefit', color: null, remainingRounds: null, stacks: null },
     ]);
     expect(token?.looks).toEqual(['invisible', 'unconscious']);
+  });
+
+  it('each condition carries its color, null when it is painted by its nature', () => {
+    const conditions = [
+      activeCondition({ id: 'a', icon: 'skull', color: 'ember' }),
+      activeCondition({ id: 'b', icon: 'eye-off', color: null }),
+    ];
+    const token = viewsOf({ tokens: [lyra({ conditions })] })[0];
+    expect(token?.conditions.map(({ icon, color }) => [icon, color])).toEqual([
+      ['skull', 'ember'],
+      ['eye-off', null],
+    ]);
+  });
+
+  it('a stacking condition carries its stacks, a non-stacking one none', () => {
+    const conditions = [
+      activeCondition({ id: 'a', icon: 'skull', maxStacks: 5, stacks: 3 }),
+      activeCondition({ id: 'b', icon: 'zap', maxStacks: 5, stacks: 1 }),
+      activeCondition({ id: 'c', icon: 'eye-off' }),
+    ];
+    const token = viewsOf({ tokens: [lyra({ conditions })] })[0];
+    expect(token?.conditions.map(({ icon, stacks }) => [icon, stacks])).toEqual([
+      ['skull', 3],
+      ['zap', 1],
+      ['eye-off', null],
+    ]);
   });
 
   describe('through the sight of Bia in the dark', () => {

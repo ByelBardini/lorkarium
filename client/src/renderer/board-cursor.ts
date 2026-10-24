@@ -30,6 +30,8 @@ const RULER_SVG =
 export const PEN_CURSOR = svgCursor(PEN_SVG, 3, 21, 'crosshair');
 export const RULER_CURSOR = svgCursor(RULER_SVG, 2, 17, 'crosshair');
 
+const CROSSHAIR_TOOLS: readonly BoardViewTool[] = ['area', 'lights', 'conditions'];
+
 const WALL_CURSOR: Readonly<Record<WallMode, string>> = {
   draw: 'crosshair',
   eraseArea: 'crosshair',
@@ -38,7 +40,8 @@ const WALL_CURSOR: Readonly<Record<WallMode, string>> = {
 };
 
 /** The CSS cursor of the board: moving while the right button pans, a pen for freehand, a
- *  crosshair for the shapes, the area tool, drawing walls, the eraser box and putting lights, a
+ *  crosshair for the shapes, the area tool, drawing walls, the eraser box, putting lights and
+ *  stamping conditions, a
  *  hand over walls to erase, a ruler while measuring, the default arrow otherwise.
  *
  *  Example: `canvas.style.cursor = boardCursorOf({ tool: 'draw', drawKind: 'freehand', panning: false })` */
@@ -46,7 +49,7 @@ export function boardCursorOf({ tool, drawKind, panning, wallMode }: BoardCursor
   if (panning) return 'move';
   if (tool === 'ruler') return RULER_CURSOR;
   if (tool === 'walls') return WALL_CURSOR[wallMode ?? 'draw'];
-  if (tool === 'area' || tool === 'lights') return 'crosshair';
+  if (CROSSHAIR_TOOLS.includes(tool)) return 'crosshair';
   if (tool !== 'draw') return 'default';
   return drawKind === 'freehand' ? PEN_CURSOR : 'crosshair';
 }

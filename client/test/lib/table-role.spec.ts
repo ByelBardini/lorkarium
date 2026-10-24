@@ -17,12 +17,20 @@ describe('toolsOf', () => {
     expect(toolsOf('spectator')).toEqual(['select', 'ruler']);
   });
 
-  it('a player also draws and puts areas, never walls nor lights', () => {
-    expect(toolsOf('player')).toEqual(['select', 'ruler', 'draw', 'area']);
+  it('a player also draws, puts areas and stamps conditions, never walls nor lights', () => {
+    expect(toolsOf('player')).toEqual(['select', 'ruler', 'draw', 'area', 'conditions']);
   });
 
-  it('the master picks every tool, walls and lights included', () => {
-    expect(toolsOf('master')).toEqual(['select', 'ruler', 'draw', 'area', 'walls', 'lights']);
+  it('the master picks every tool, conditions, walls and lights included', () => {
+    expect(toolsOf('master')).toEqual([
+      'select',
+      'ruler',
+      'draw',
+      'area',
+      'conditions',
+      'walls',
+      'lights',
+    ]);
   });
 });
 

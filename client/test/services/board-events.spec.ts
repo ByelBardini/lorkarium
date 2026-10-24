@@ -8,6 +8,7 @@ import {
   BIA_AT_TABLE,
   KAEL_ID,
   VHARN_GRID,
+  conditionDefinition,
   memberCard,
   sceneUpdated,
 } from '../support/table-session-fixtures';
@@ -328,6 +329,48 @@ describe('parseBoardEvent', () => {
       const malformed: Record<string, unknown> = { ...changed };
       delete malformed.changes;
       expect(parseBoardEvent('condition:changedMany', malformed, VHARN.id)).toEqual({
+        kind: 'invalid',
+      });
+    });
+  });
+
+  describe('the table list of conditions', () => {
+    const base = { ...VHARN_GRID, version: 6, at: '2026-10-24T12:00:00.000Z' };
+    const edited = conditionDefinition({ description: 'Desvantagem em ataques.' });
+
+    it.each([
+      ['condition:definitionUpdated', 'conditionDefinitionUpdated', { definition: edited }],
+      ['condition:definitionDeleted', 'conditionDefinitionDeleted', { conditionId: edited.id }],
+      ['condition:defaultsRestored', 'conditionDefaultsRestored', { definitions: [edited] }],
+    ])('a valid %s of the table is a %s event', (name, type, fields) => {
+      const payload = { ...base, ...fields };
+      expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type, payload },
+      });
+    });
+
+    it('a condition:definitionUpdated whose definition has no description is invalid (resync)', () => {
+      const withoutDescription: Record<string, unknown> = { ...edited };
+      delete withoutDescription.description;
+      const payload = { ...base, definition: withoutDescription };
+      expect(parseBoardEvent('condition:definitionUpdated', payload, VHARN.id)).toEqual({
+        kind: 'invalid',
+      });
+    });
+
+    it('a condition:defaultsRestored with a definition without description is invalid (resync)', () => {
+      const withoutDescription: Record<string, unknown> = { ...edited };
+      delete withoutDescription.description;
+      const payload = { ...base, definitions: [withoutDescription] };
+      expect(parseBoardEvent('condition:defaultsRestored', payload, VHARN.id)).toEqual({
+        kind: 'invalid',
+      });
+    });
+
+    it('a condition:definitionDeleted whose conditionId is not a uuid is invalid (resync)', () => {
+      const payload = { ...base, conditionId: 'envenenado' };
+      expect(parseBoardEvent('condition:definitionDeleted', payload, VHARN.id)).toEqual({
         kind: 'invalid',
       });
     });

@@ -19,6 +19,8 @@ import { wallStyleOf, type WallStyleStore } from '@/stores/wall-style-store';
 import type { LightColorStore } from '@/stores/light-color-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
 import { routeLightIntent } from '@/features/lights/light-intents';
+import { routeConditionIntent } from '@/features/combat/condition-tool-intents';
+import type { ConditionToolStore } from '@/stores/condition-tool-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { DrawingsSummary } from '@/features/drawings/drawings-summary';
 import { routeEffectAreaIntent } from '@/features/effect-areas/effect-area-intents';
@@ -67,6 +69,8 @@ export type BoardAreaProps = Readonly<{
   lightReach: StoreApi<LightReachStore>;
   /** The color the lights tool puts. */
   lightColor: StoreApi<LightColorStore>;
+  /** The condition and rounds the condition tool stamps. */
+  conditionTool: StoreApi<ConditionToolStore>;
   /** Alt + click or a still hold asked to point at a spot (fractional cells). */
   onPing: (point: PingPoint) => void;
 }>;
@@ -116,6 +120,7 @@ function InteractiveCanvas({
   wallStyle,
   lightReach,
   lightColor,
+  conditionTool,
   onPing,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({
@@ -148,6 +153,7 @@ function InteractiveCanvas({
             return onLightMenu({ lightId: intent.lightId, x: intent.x, y: intent.y });
           }
           if (routeLightIntent({ board, interaction, lightReach, lightColor }, intent)) return;
+          if (routeConditionIntent({ board, interaction, conditionTool }, intent)) return;
           routeIntent({ board, interaction, drawingStyle, wallStyle }, intent);
         }}
         onRenderer={onRenderer}

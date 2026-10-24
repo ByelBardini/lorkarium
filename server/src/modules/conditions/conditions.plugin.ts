@@ -6,6 +6,7 @@ import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { CombatDao } from '../combat/combat.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { TokensDao } from '../tokens/tokens.dao';
+import { ConditionCatalogService } from './condition-catalog.service';
 import { ConditionsDao } from './conditions.dao';
 import { ConditionsService, type ConditionTransactionRunner } from './conditions.service';
 
@@ -17,9 +18,12 @@ export type ConditionsModuleOptions = Readonly<{
   clock: ClockPort;
 }>;
 
-export type ConditionsModule = Readonly<{ service: ConditionsService }>;
+export type ConditionsModule = Readonly<{
+  service: ConditionsService;
+  catalog: ConditionCatalogService;
+}>;
 
-/** Wires the conditions module; its edge is the board gateway, which receives this service.
+/** Wires the conditions module; its edge is the board gateway, which receives both services.
  *
  *  Example: `const conditions = createConditionsModule({ db, publisher, clock })` */
 export function createConditionsModule(options: ConditionsModuleOptions): ConditionsModule {
@@ -34,5 +38,9 @@ export function createConditionsModule(options: ConditionsModuleOptions): Condit
     );
   const { members } = options;
   const { publisher, clock } = options;
-  return { service: new ConditionsService({ members, transaction, publisher, clock }) };
+  const reader = new ConditionsDao(options.db);
+  return {
+    service: new ConditionsService({ members, transaction, publisher, clock }),
+    catalog: new ConditionCatalogService({ members, transaction, reader, publisher, clock }),
+  };
 }

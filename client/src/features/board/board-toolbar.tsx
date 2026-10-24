@@ -16,6 +16,7 @@ import {
   RulerIcon,
   Settings2Icon,
   SparklesIcon,
+  TagIcon,
   UserPlusIcon,
   UsersIcon,
 } from 'lucide-react';
@@ -56,6 +57,7 @@ const PICKED_TOOLS: ReadonlyArray<Readonly<{ tool: BoardTool; label: string; ico
     { tool: 'ruler', label: 'Régua (R)', icon: RulerIcon },
     { tool: 'draw', label: 'Desenhar (B)', icon: PencilIcon },
     { tool: 'area', label: 'Área de efeito (M)', icon: SparklesIcon },
+    { tool: 'conditions', label: 'Condição (C)', icon: TagIcon },
     { tool: 'walls', label: 'Paredes (P)', icon: BrickWallIcon },
     { tool: 'lights', label: 'Luzes (L)', icon: FlameIcon },
   ];
@@ -68,9 +70,9 @@ const LAYER_TOOLS: ReadonlyArray<
   { layer: 'background', key: '3', icon: MapIcon },
 ];
 
-/** The floating tools at the left of the board: select, ruler, draw, area of effect (not for a
- *  spectator), local grid, zoom and framing, plus walls, lights, tokens and "Configurar cena" for
- *  the master. Every tool also has its key (in the name).
+/** The floating tools at the left of the board: select, ruler, draw, area of effect, condition
+ *  (not for a spectator), local grid, zoom and framing, plus walls, lights, tokens and
+ *  "Configurar cena" for the master. Every tool also has its key (in the name).
  *
  *  Example: `<BoardToolbar interaction={interaction} renderer={renderer} role={campaign.myRole} onConfigure={openGridDialog} />` */
 export function BoardToolbar({

@@ -20,6 +20,7 @@ import { ConditionTransactionRunnerFake } from '../../support/conditions-fakes';
 import { DragGroupsFake } from '../../support/tokens-fakes';
 
 const TORRE = { sceneId: VHARN_TORRE_ID };
+const OTHER_ESTRADA_LYRA_ID = '2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a';
 const LOCK_TORRE = `lockInCampaign:${VHARN_TORRE_ID}`;
 const PV_ANCHOR = `${LYRA_ANCHOR_ID}-pv`;
 const VIGOR: BarInputDto = {
@@ -231,6 +232,51 @@ describe('writes on a token linked to a character', () => {
         'bump cast',
         'bump',
       ]);
+    });
+
+    it('two tokens linked to the same anchor in one group add 1 stack to it, not 2', async () => {
+      const sangrando = table.conditions.define(
+        VHARN_ID,
+        'Sangrando',
+        'harm',
+        'droplet',
+        null,
+        '',
+        5,
+      );
+      table.tokens.rows.push(linkedLyraRow({ id: OTHER_ESTRADA_LYRA_ID, col: 9 }));
+      const tokenIds = [ESTRADA_LYRA_ID, OTHER_ESTRADA_LYRA_ID];
+      const command = { ...TORRE, tokenIds, conditionId: sangrando, rounds: 0 };
+
+      await conditions.applyMany(ANA_ID, VHARN_ID, command);
+      await conditions.applyMany(ANA_ID, VHARN_ID, command);
+
+      expect(table.conditions.active.map(({ tokenId, stacks }) => [tokenId, stacks])).toEqual([
+        [LYRA_ANCHOR_ID, 2],
+      ]);
+    });
+
+    it('setting 3 stacks on the linked Lyra writes the anchor condition, as an event of the cast', async () => {
+      const sangrando = table.conditions.define(
+        VHARN_ID,
+        'Sangrando',
+        'harm',
+        'droplet',
+        null,
+        '',
+        5,
+      );
+      const onLyra = { ...TORRE, tokenId: ESTRADA_LYRA_ID };
+      await conditions.apply(BIA_ID, VHARN_ID, { ...onLyra, conditionId: sangrando, rounds: 0 });
+      const activeConditionId = table.conditions.active[0]?.id ?? '';
+
+      await conditions.setStacks(BIA_ID, VHARN_ID, { ...onLyra, activeConditionId, stacks: 3 });
+
+      expect(table.conditions.active[0]).toMatchObject({ tokenId: LYRA_ANCHOR_ID, stacks: 3 });
+      expect(table.publisher.conditionEvents.at(-1)).toMatchObject({
+        sceneId: VHARN_CAST_ID,
+        tokenId: LYRA_ANCHOR_ID,
+      });
     });
 
     it('removing and counting rounds of the linked Lyra work on the anchor condition', async () => {

@@ -12,9 +12,12 @@ export type ConditionsEditorProps = Readonly<{
   isMaster: boolean;
 }>;
 
-/** "Condições" of the selected token: for the master and the controllers, each active one with −/+
- *  (the rounds left, by `condition:setRounds`) and ×, and "Adicionar condição" (a typed name; empty
- *  rounds = no limit); for the others, the tags only. A refusal keeps the confirmed value.
+/** "Condições" of the selected token: for whoever acts on the table (master or player, on any
+ *  token: a condition is a marker the table corrects by itself), each active one with −/+ (the
+ *  stacks of a stacking one, by `condition:setStacks`), −/+ (the rounds left, by
+ *  `condition:setRounds`) and ×, and "Adicionar condição" (a typed name; empty
+ *  rounds = no limit); read-only (a spectator, or reconnecting), the tags only. A refusal keeps
+ *  the confirmed value.
  *
  *  Example: `<ConditionsEditor token={token} board={board} interaction={interaction} isMaster />` */
 export function ConditionsEditor({ token, board, interaction, isMaster }: ConditionsEditorProps) {
@@ -26,17 +29,17 @@ export function ConditionsEditor({ token, board, interaction, isMaster }: Condit
         Condições
       </h4>
       {token.conditions.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma</p>}
-      {token.canControl ? (
-        <EditableTags token={token} interaction={interaction} disabled={readOnly} />
-      ) : (
+      {readOnly ? (
         <ConditionTags owner={token.name} conditions={token.conditions} />
+      ) : (
+        <EditableTags token={token} interaction={interaction} />
       )}
-      {token.canControl && (
+      {!readOnly && (
         <ConditionPicker
           board={board}
           interaction={interaction}
           isMaster={isMaster}
-          disabled={readOnly}
+          disabled={false}
           label="Adicionar condição"
           onApply={(conditionId, rounds) =>
             send((c, id) => c.applyCondition(id, token.id, conditionId, rounds))
@@ -50,13 +53,14 @@ export function ConditionsEditor({ token, board, interaction, isMaster }: Condit
 type EditableTagsProps = Readonly<{
   token: TokenDto;
   interaction: StoreApi<BoardInteractionStore>;
-  disabled: boolean;
 }>;
 
-function EditableTags({ token, interaction, disabled }: EditableTagsProps) {
+function EditableTags({ token, interaction }: EditableTagsProps) {
   const send = interaction.getState().command;
   const setRounds = (condition: ActiveConditionDto, rounds: number): void =>
     void send((c, id) => c.setConditionRounds(id, token.id, condition.id, rounds));
+  const setStacks = (condition: ActiveConditionDto, stacks: number): void =>
+    void send((c, id) => c.setConditionStacks(id, token.id, condition.id, stacks));
   if (token.conditions.length === 0) return null;
   return (
     <ul aria-label={`Condições ativas de ${token.name}`} className="flex flex-wrap gap-1">
@@ -64,8 +68,9 @@ function EditableTags({ token, interaction, disabled }: EditableTagsProps) {
         <EditableConditionTag
           key={condition.id}
           condition={condition}
-          disabled={disabled}
+          disabled={false}
           onRounds={(rounds) => setRounds(condition, rounds)}
+          onStacks={(stacks) => setStacks(condition, stacks)}
           onRemove={() => void send((c, id) => c.removeCondition(id, token.id, condition.id))}
         />
       ))}

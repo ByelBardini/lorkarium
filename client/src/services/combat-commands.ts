@@ -1,20 +1,36 @@
 import {
   BOARD_EVENTS,
   type CombatEntryInput,
+  type ConditionColorDto,
   type DefineConditionCommandDto,
   type RegroupTargetDto,
 } from '@lorkarium/contracts';
 import type { BoardCommandResult, BoardCommandSender, BoardScope } from './board-command-sender';
+import {
+  RealtimeConditionCatalogCommands,
+  type ConditionCatalogCommands,
+  type ConditionDefinitionEdit,
+  type ConditionUsageResult,
+} from './condition-catalog-commands';
+
+export type { ConditionDefinitionEdit, ConditionUsageResult } from './condition-catalog-commands';
 
 type Envelope = 'actionId' | 'campaignId' | 'sceneId';
-export type NewConditionDefinition = Omit<DefineConditionCommandDto, Envelope>;
+// The description, the stacks and the color are optional on the wire (the contract defaults them
+// to '', null and null): the picker creates without them, the settings page sends them.
+export type NewConditionDefinition = Omit<
+  DefineConditionCommandDto,
+  Envelope | 'description' | 'maxStacks' | 'color'
+> &
+  Readonly<{ description?: string; maxStacks?: number | null; color?: ConditionColorDto | null }>;
 /** Where a regroup sends the tokens: into an entry, each into its own, or out of the combat. */
 export type RegroupTarget = RegroupTargetDto;
 
-/** The condition and combat commands of an open table; each answers with its ack, never throws.
+/** The condition and combat commands of an open table (the table's list of conditions included);
+ *  each answers with its ack, never throws.
  *
  *  Example: `await commands.regroupTokens(scope, [wolfId], { kind: 'own' })` */
-export interface CombatCommands {
+export interface CombatCommands extends ConditionCatalogCommands {
   defineCondition(
     scope: BoardScope,
     definition: NewConditionDefinition,
@@ -42,6 +58,13 @@ export interface CombatCommands {
     tokenId: string,
     activeConditionId: string,
     rounds: number,
+  ): Promise<BoardCommandResult>;
+  /** How many stacks a stacking condition has (1 up to its `maxStacks`); the rounds stay. */
+  setConditionStacks(
+    scope: BoardScope,
+    tokenId: string,
+    activeConditionId: string,
+    stacks: number,
   ): Promise<BoardCommandResult>;
   startCombat(scope: BoardScope, entries: readonly CombatEntryInput[]): Promise<BoardCommandResult>;
   endCombat(scope: BoardScope): Promise<BoardCommandResult>;
@@ -80,7 +103,30 @@ export interface CombatCommands {
  *
  *  Example: `new RealtimeCombatCommands(sender).nextTurn(scope, fromCombatantId)` */
 export class RealtimeCombatCommands implements CombatCommands {
-  constructor(protected readonly sender: BoardCommandSender) {}
+  private readonly catalog: ConditionCatalogCommands;
+
+  constructor(protected readonly sender: BoardCommandSender) {
+    this.catalog = new RealtimeConditionCatalogCommands(sender);
+  }
+
+  updateConditionDefinition(
+    scope: BoardScope,
+    edit: ConditionDefinitionEdit,
+  ): Promise<BoardCommandResult> {
+    return this.catalog.updateConditionDefinition(scope, edit);
+  }
+
+  deleteConditionDefinition(scope: BoardScope, conditionId: string): Promise<BoardCommandResult> {
+    return this.catalog.deleteConditionDefinition(scope, conditionId);
+  }
+
+  restoreDefaultConditions(scope: BoardScope): Promise<BoardCommandResult> {
+    return this.catalog.restoreDefaultConditions(scope);
+  }
+
+  conditionUsage(scope: BoardScope, conditionId: string): Promise<ConditionUsageResult> {
+    return this.catalog.conditionUsage(scope, conditionId);
+  }
 
   defineCondition(
     scope: BoardScope,
@@ -129,6 +175,19 @@ export class RealtimeCombatCommands implements CombatCommands {
       tokenId,
       activeConditionId,
       rounds,
+    });
+  }
+
+  setConditionStacks(
+    scope: BoardScope,
+    tokenId: string,
+    activeConditionId: string,
+    stacks: number,
+  ): Promise<BoardCommandResult> {
+    return this.send(BOARD_EVENTS.setConditionStacks, scope, {
+      tokenId,
+      activeConditionId,
+      stacks,
     });
   }
 

@@ -1,14 +1,19 @@
-import type { ConditionToneDto } from '@lorkarium/contracts';
+import type { ConditionColorDto, ConditionToneDto } from '@lorkarium/contracts';
 import { CELL_WORLD_SIZE } from './camera';
 import type { ConditionMarkView } from './token-view';
 
-/** One icon of the strip: its center `x` in world px from the token's left edge. `rounds` only
- *  when the strip is close enough to read them; `ending` on its last round. */
+/** One icon of the strip: its center `x` in world px from the token's left edge. `rounds` and
+ *  `stacks` (of a stacking condition) only when the strip is close enough to read them; `ending`
+ *  on its last round. */
 export type StripIcon = ConditionMarkView &
   Readonly<{ x: number; rounds: number | null; ending: boolean }>;
 
 /** One dot of a strip seen from afar: `offsetX` in screen px from the token's center. */
-export type StripDot = Readonly<{ tone: ConditionToneDto; offsetX: number }>;
+export type StripDot = Readonly<{
+  tone: ConditionToneDto;
+  color: ConditionColorDto | null;
+  offsetX: number;
+}>;
 
 /** The conditions hanging under a token, by how big an icon would be on screen: dots from afar,
  *  icons, and icons with their rounds up close. `top` and `height` are world px from the token's
@@ -75,8 +80,9 @@ export function stripIconSize(width: number): number {
 function dotsOf(conditions: readonly ConditionMarkView[], top: number, zoom: number) {
   const shown = conditions.slice(0, MAX_DOTS);
   const total = shown.length * DOT_PX + (shown.length - 1) * DOT_GAP_PX;
-  const dots = shown.map(({ tone }, index) => ({
+  const dots = shown.map(({ tone, color }, index) => ({
     tone,
+    color,
     offsetX: -total / 2 + index * (DOT_PX + DOT_GAP_PX) + DOT_PX / 2,
   }));
   return { band: 'dots', top, height: DOT_PX / zoom, dotSize: DOT_PX, dots } as const;
@@ -96,6 +102,7 @@ function iconsOf(conditions: readonly ConditionMarkView[], layout: IconLayout) {
     ...mark,
     x: left + index * step,
     rounds: detailed ? mark.remainingRounds : null,
+    stacks: detailed ? mark.stacks : null,
     ending: mark.remainingRounds === 1,
   }));
   const count = conditions.length - kept.length;

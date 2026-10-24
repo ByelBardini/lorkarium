@@ -11,6 +11,10 @@ import type {
 import type { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
 import type { CampaignPo, NewCampaignPo } from '../../src/modules/campaigns/campaigns.po';
 import type {
+  ConditionDefinitionPo,
+  NewConditionDefinition,
+} from '../../src/modules/conditions/conditions.po';
+import type {
   CampaignTransactionRunner,
   CampaignWriteDaos,
 } from '../../src/modules/campaigns/campaigns.service';
@@ -261,12 +265,19 @@ export class ConditionDefinitionsFake {
 
   async insertDefinitions(
     campaignId: string,
-    list: readonly Readonly<{ name: string }>[],
-  ): Promise<void> {
+    list: readonly NewConditionDefinition[],
+  ): Promise<ConditionDefinitionPo[]> {
     this.seeded.set(
       campaignId,
       list.map(({ name }) => name),
     );
+    const createdAt = new Date('2026-10-15T12:00:00Z');
+    return list.map((definition) => ({
+      ...definition,
+      id: `${campaignId}-${definition.name}`,
+      campaignId,
+      createdAt,
+    }));
   }
 }
 

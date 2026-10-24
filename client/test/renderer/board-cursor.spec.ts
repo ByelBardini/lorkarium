@@ -32,6 +32,10 @@ describe('boardCursorOf', () => {
     expect(walls('eraseSegment')).toBe('pointer');
   });
 
+  it.each(['lights', 'conditions'] as const)('shows a crosshair with the %s tool', (tool) => {
+    expect(boardCursorOf({ tool, drawKind: null, panning: false })).toBe('crosshair');
+  });
+
   it('keeps the default arrow with the select tool', () => {
     expect(boardCursorOf({ tool: 'select', drawKind: null, panning: false })).toBe('default');
   });

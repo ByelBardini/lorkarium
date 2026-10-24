@@ -11,6 +11,8 @@ import type {
   BoardCommandResult,
   BoardScope,
   CellTarget,
+  ConditionDefinitionEdit,
+  ConditionUsageResult,
   DrawingMoveTarget,
   DrawingPlacement,
   NewConditionDefinition,
@@ -67,6 +69,7 @@ export class TableBoardCommandsFake implements TableBoardCommands {
   private held: ((result: BoardCommandResult) => void) | null = null;
   private holdNext = false;
   private playersAnswer: AddPlayersResult | null = null;
+  private usageTokens = 0;
 
   answerWith(result: BoardCommandResult): void {
     this.answer = result;
@@ -75,6 +78,11 @@ export class TableBoardCommandsFake implements TableBoardCommands {
   /** The next `addPlayers` answers this (else: the `answerWith` failure, or nobody placed). */
   answerAddPlayersWith(result: AddPlayersResult): void {
     this.playersAnswer = result;
+  }
+
+  /** The next `conditionUsage` that is answered ok counts this many tokens (0 by default). */
+  answerUsageWith(tokens: number): void {
+    this.usageTokens = tokens;
   }
 
   hold(): void {
@@ -324,6 +332,26 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('defineCondition', scope, { ...definition });
   }
 
+  updateConditionDefinition(
+    scope: BoardScope,
+    edit: ConditionDefinitionEdit,
+  ): Promise<BoardCommandResult> {
+    return this.record('updateConditionDefinition', scope, { ...edit });
+  }
+
+  deleteConditionDefinition(scope: BoardScope, conditionId: string): Promise<BoardCommandResult> {
+    return this.record('deleteConditionDefinition', scope, { conditionId });
+  }
+
+  restoreDefaultConditions(scope: BoardScope): Promise<BoardCommandResult> {
+    return this.record('restoreDefaultConditions', scope, {});
+  }
+
+  async conditionUsage(scope: BoardScope, conditionId: string): Promise<ConditionUsageResult> {
+    const answer = await this.record('conditionUsage', scope, { conditionId });
+    return answer.ok ? { ok: true, tokens: this.usageTokens } : answer;
+  }
+
   applyCondition(
     scope: BoardScope,
     tokenId: string,
@@ -361,6 +389,15 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     rounds: number,
   ): Promise<BoardCommandResult> {
     return this.record('setConditionRounds', scope, { tokenId, activeConditionId, rounds });
+  }
+
+  setConditionStacks(
+    scope: BoardScope,
+    tokenId: string,
+    activeConditionId: string,
+    stacks: number,
+  ): Promise<BoardCommandResult> {
+    return this.record('setConditionStacks', scope, { tokenId, activeConditionId, stacks });
   }
 
   startCombat(

@@ -32,7 +32,13 @@ describe('the layers of the board, bottom to top', () => {
 
   it('a token’s condition strip and name go in the strips of its layer, right above its tokens and under the next layer', () => {
     const { tokens } = stack();
-    const poisoned = { icon: 'skull', tone: 'harm', remainingRounds: 2 } as const;
+    const poisoned = {
+      icon: 'skull',
+      tone: 'harm',
+      color: null,
+      remainingRounds: 2,
+      stacks: null,
+    } as const;
     tokens.sync([chestOnObjects([poisoned])], [], 0);
     const [, backgroundStrips, objects, objectStrips, tokensLayer] = tokens.container
       .children as Container[];

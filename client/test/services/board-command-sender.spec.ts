@@ -48,6 +48,8 @@ describe('BoardCommandSender', () => {
     ['STALE_UNDO', 'stale_undo'],
     ['RATE_LIMITED', 'rate_limited'],
     ['UNAUTHENTICATED', 'unauthenticated'],
+    ['CONDITION_NAME_TAKEN', 'name_taken'],
+    ['INVALID_STACKS', 'invalid_stacks'],
     ['WHATEVER', 'unexpected'],
   ])('a refusal with %s is the %s failure', async (code, failure) => {
     const result = sender.send(EVENT, VHARN_GRID, {});

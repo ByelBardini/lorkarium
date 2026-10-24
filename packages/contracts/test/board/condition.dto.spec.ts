@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CONDITION_COLORS,
+  CONDITION_DESCRIPTION_MAX_LENGTH,
   CONDITION_ROUNDS_MAX,
+  CONDITION_STACKS_MAX,
+  setConditionStacksCommandDto,
   applyConditionCommandDto,
+  conditionDefinitionDto,
+  conditionUsageAckDto,
+  conditionUsageCommandDto,
+  deleteConditionDefinitionCommandDto,
+  restoreDefaultConditionsCommandDto,
+  updateConditionDefinitionCommandDto,
   activeConditionDto,
   applyConditionsCommandDto,
   conditionsAppliedDto,
@@ -91,6 +101,10 @@ describe('activeConditionDto', () => {
     name: 'Invisível',
     tone: 'benefit',
     icon: 'ghost',
+    color: null,
+    description: '',
+    maxStacks: null,
+    stacks: 1,
     remainingRounds: null,
   };
 
@@ -152,6 +166,10 @@ describe('conditionsAppliedDto', () => {
       tone: 'harm',
       icon: 'arrow-down-to-line',
       look: null,
+      color: null,
+      description: 'Deitado no chão.',
+      maxStacks: null,
+      stacks: 1,
       remainingRounds: null,
     };
     const event = {
@@ -193,5 +211,228 @@ describe('setConditionRoundsCommandDto', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe('the description of a condition', () => {
+  const define = { ...BASE, name: 'Atordoado', tone: 'incapacitating', icon: 'zap' };
+
+  it('a define command without a description defines one with an empty description', () => {
+    expect(defineConditionCommandDto.parse(define).description).toBe('');
+  });
+
+  it('a description padded with spaces is trimmed', () => {
+    const parsed = defineConditionCommandDto.parse({ ...define, description: '  Não age.  ' });
+    expect(parsed.description).toBe('Não age.');
+  });
+
+  it(`a description of ${CONDITION_DESCRIPTION_MAX_LENGTH} characters passes and one more is refused`, () => {
+    const longest = 'x'.repeat(500);
+    expect(defineConditionCommandDto.safeParse({ ...define, description: longest }).success).toBe(
+      true,
+    );
+    const tooLong = { ...define, description: `${longest}x` };
+    expect(defineConditionCommandDto.safeParse(tooLong).success).toBe(false);
+  });
+
+  it('a definition without the description field is refused (strict)', () => {
+    const definition = {
+      id: CONDITION_ID,
+      name: 'Cego',
+      tone: 'harm',
+      icon: 'eye-off',
+      look: null,
+    };
+    expect(conditionDefinitionDto.safeParse(definition).success).toBe(false);
+    const whole = { ...definition, color: null, description: '', maxStacks: null };
+    expect(conditionDefinitionDto.parse(whole).description).toBe('');
+  });
+});
+
+describe('updateConditionDefinitionCommandDto', () => {
+  const update = {
+    ...BASE,
+    conditionId: CONDITION_ID,
+    name: ' Envenenada ',
+    tone: 'harm',
+    icon: 'flask-conical',
+    look: null,
+    color: null,
+    description: ' Desvantagem em ataques. ',
+    maxStacks: null,
+  };
+
+  it('a whole definition is accepted, name and description trimmed', () => {
+    const parsed = updateConditionDefinitionCommandDto.parse(update);
+    expect(parsed).toMatchObject({ name: 'Envenenada', description: 'Desvantagem em ataques.' });
+  });
+
+  it('an update without the description is refused: it replaces the whole definition', () => {
+    const withoutDescription: Partial<typeof update> = { ...update };
+    delete withoutDescription.description;
+    expect(updateConditionDefinitionCommandDto.safeParse(withoutDescription).success).toBe(false);
+  });
+
+  it('a name that is empty once trimmed is refused', () => {
+    expect(updateConditionDefinitionCommandDto.safeParse({ ...update, name: '   ' }).success).toBe(
+      false,
+    );
+  });
+
+  it(`a description of ${CONDITION_DESCRIPTION_MAX_LENGTH + 1} characters is refused`, () => {
+    const tooLong = { ...update, description: 'x'.repeat(501) };
+    expect(updateConditionDefinitionCommandDto.safeParse(tooLong).success).toBe(false);
+  });
+
+  it('a conditionId that is not a uuid is refused', () => {
+    const named = { ...update, conditionId: 'envenenado' };
+    expect(updateConditionDefinitionCommandDto.safeParse(named).success).toBe(false);
+  });
+
+  it('a forged userId is refused', () => {
+    const forged = { ...update, userId: KAEL_ID };
+    expect(updateConditionDefinitionCommandDto.safeParse(forged).success).toBe(false);
+  });
+});
+
+describe.each([
+  ['deleteConditionDefinitionCommandDto', deleteConditionDefinitionCommandDto],
+  ['conditionUsageCommandDto', conditionUsageCommandDto],
+])('%s', (_name, dto) => {
+  it('names the condition by its id', () => {
+    expect(dto.parse({ ...BASE, conditionId: CONDITION_ID }).conditionId).toBe(CONDITION_ID);
+  });
+
+  it('a conditionId that is not a uuid is refused', () => {
+    expect(dto.safeParse({ ...BASE, conditionId: 'cego' }).success).toBe(false);
+  });
+
+  it('a forged userId is refused', () => {
+    const forged = { ...BASE, conditionId: CONDITION_ID, userId: KAEL_ID };
+    expect(dto.safeParse(forged).success).toBe(false);
+  });
+});
+
+describe('restoreDefaultConditionsCommandDto', () => {
+  it('takes only the envelope', () => {
+    expect(restoreDefaultConditionsCommandDto.parse(BASE)).toEqual(BASE);
+  });
+
+  it('a list of names to restore is refused: the server knows the default list', () => {
+    const named = { ...BASE, names: ['Cego'] };
+    expect(restoreDefaultConditionsCommandDto.safeParse(named).success).toBe(false);
+  });
+});
+
+describe('conditionUsageAckDto', () => {
+  it('answers how many tokens hold the condition', () => {
+    expect(conditionUsageAckDto.parse({ ok: true, tokens: 3 })).toEqual({ ok: true, tokens: 3 });
+  });
+
+  it.each([-1, 1.5])('a count of %s tokens is refused', (tokens) => {
+    expect(conditionUsageAckDto.safeParse({ ok: true, tokens }).success).toBe(false);
+  });
+});
+
+describe('the stacks of a condition', () => {
+  const define = { ...BASE, name: 'Sangrando', tone: 'harm', icon: 'droplet' };
+  const active = {
+    id: CONDITION_ID,
+    conditionId: CONDITION_ID,
+    name: 'Sangrando',
+    tone: 'harm',
+    icon: 'droplet',
+    look: null,
+    color: null,
+    description: '',
+    maxStacks: 5,
+    remainingRounds: 3,
+  };
+
+  it('a define command without maxStacks defines a condition that does not stack', () => {
+    expect(defineConditionCommandDto.parse(define).maxStacks).toBeNull();
+  });
+
+  it.each([2, CONDITION_STACKS_MAX])('a maximum of %i stacks is accepted', (maxStacks) => {
+    expect(defineConditionCommandDto.parse({ ...define, maxStacks }).maxStacks).toBe(maxStacks);
+  });
+
+  it.each([1, CONDITION_STACKS_MAX + 1, 2.5])('a maximum of %s stacks is refused', (maxStacks) => {
+    expect(defineConditionCommandDto.safeParse({ ...define, maxStacks }).success).toBe(false);
+  });
+
+  it('an update without maxStacks is refused: it replaces the whole definition', () => {
+    const update = {
+      ...define,
+      conditionId: CONDITION_ID,
+      look: null,
+      color: null,
+      description: '',
+    };
+    expect(updateConditionDefinitionCommandDto.safeParse(update).success).toBe(false);
+    expect(updateConditionDefinitionCommandDto.parse({ ...update, maxStacks: 6 }).maxStacks).toBe(
+      6,
+    );
+  });
+
+  it.each([1, CONDITION_STACKS_MAX])('an active condition with %i stacks is accepted', (stacks) => {
+    expect(activeConditionDto.parse({ ...active, stacks }).stacks).toBe(stacks);
+  });
+
+  it.each([0, CONDITION_STACKS_MAX + 1])(
+    'an active condition with %i stacks is refused',
+    (stacks) => {
+      expect(activeConditionDto.safeParse({ ...active, stacks }).success).toBe(false);
+    },
+  );
+
+  it('an active condition without stacks is refused (strict)', () => {
+    expect(activeConditionDto.safeParse(active).success).toBe(false);
+  });
+});
+
+describe('setConditionStacksCommandDto', () => {
+  const command = { ...BASE, tokenId: TOKEN_ID, activeConditionId: CONDITION_ID };
+
+  it.each([1, CONDITION_STACKS_MAX])('%i stacks are accepted', (stacks) => {
+    expect(setConditionStacksCommandDto.parse({ ...command, stacks }).stacks).toBe(stacks);
+  });
+
+  it.each([0, CONDITION_STACKS_MAX + 1, 1.5])('%s stacks are refused', (stacks) => {
+    expect(setConditionStacksCommandDto.safeParse({ ...command, stacks }).success).toBe(false);
+  });
+
+  it('a forged userId is refused', () => {
+    const forged = { ...command, stacks: 2, userId: KAEL_ID };
+    expect(setConditionStacksCommandDto.safeParse(forged).success).toBe(false);
+  });
+});
+
+describe('the color of a condition', () => {
+  const define = { ...BASE, name: 'Queimando', tone: 'harm', icon: 'flame' };
+
+  it('a define command without a color defines one painted by its tone (null)', () => {
+    expect(defineConditionCommandDto.parse(define).color).toBeNull();
+  });
+
+  it.each(CONDITION_COLORS)('the color %s of the palette is accepted', (color) => {
+    expect(defineConditionCommandDto.parse({ ...define, color }).color).toBe(color);
+  });
+
+  it.each(['#ff0000', 'red', ''])('a color outside the palette (%s) is refused', (color) => {
+    expect(defineConditionCommandDto.safeParse({ ...define, color }).success).toBe(false);
+  });
+
+  it('an update without the color is refused: it replaces the whole definition', () => {
+    const update = {
+      ...define,
+      conditionId: CONDITION_ID,
+      look: null,
+      description: '',
+      maxStacks: null,
+    };
+    expect(updateConditionDefinitionCommandDto.safeParse(update).success).toBe(false);
+    const painted = updateConditionDefinitionCommandDto.parse({ ...update, color: 'ember' });
+    expect(painted.color).toBe('ember');
   });
 });

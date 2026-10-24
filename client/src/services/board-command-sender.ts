@@ -28,6 +28,8 @@ export type BoardCommandFailure =
   | 'turn_changed'
   | 'combat_active'
   | 'combat_inactive'
+  | 'name_taken'
+  | 'invalid_stacks'
   | 'invalid'
   | 'rate_limited'
   | 'unauthenticated'
@@ -77,6 +79,8 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   STALE_UNDO: 'stale_undo',
   ASSET_NOT_FOUND: 'asset_not_found',
   CONDITION_NOT_FOUND: 'token_not_found',
+  CONDITION_NAME_TAKEN: 'name_taken',
+  INVALID_STACKS: 'invalid_stacks',
   COMBATANT_NOT_FOUND: 'token_not_found',
   TURN_ALREADY_CHANGED: 'turn_changed',
   COMBAT_ALREADY_ACTIVE: 'combat_active',

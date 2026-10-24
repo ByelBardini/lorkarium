@@ -143,3 +143,41 @@ describe('PrimaryPress ping', () => {
     expect(parts.kinds()).toEqual(['pointerDown', 'pointerUp']);
   });
 });
+
+describe('PrimaryPress with the condition tool', () => {
+  let parts: PressPartsFake;
+  let press: PrimaryPress;
+  const conditions: PressContext = { view: boardView({ tool: 'conditions' }), zoom: 1 };
+
+  beforeEach(() => {
+    parts = new PressPartsFake();
+    press = new PrimaryPress(parts);
+  });
+
+  it('a press on a token stamps the condition on it', () => {
+    press.down(conditions, pointAt(3.5, 4.5));
+
+    expect(parts.intents).toEqual([{ kind: 'conditionStamped', tokenId: LYRA_ID, removes: false }]);
+  });
+
+  it('Shift + press on a token asks to take the condition off', () => {
+    press.down(conditions, pointAt(3.5, 4.5, { shiftKey: true }));
+
+    expect(parts.intents).toEqual([{ kind: 'conditionStamped', tokenId: LYRA_ID, removes: true }]);
+  });
+
+  it('a press on the empty board stamps nothing', () => {
+    press.down(conditions, pointAt(8.5, 8.5));
+
+    expect(parts.kinds()).not.toContain('conditionStamped');
+  });
+
+  it('the stamp neither drags nor picks the token', () => {
+    press.down(conditions, pointAt(3.5, 4.5));
+    press.move(conditions, pointAt(5.5, 4.5));
+    press.up(conditions, pointAt(5.5, 4.5));
+
+    expect(parts.kinds()).toEqual(['conditionStamped']);
+    expect(parts.log).toEqual([]);
+  });
+});

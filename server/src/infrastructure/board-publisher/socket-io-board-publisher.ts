@@ -8,6 +8,9 @@ import type {
   ConditionAppliedDto,
   ConditionsAppliedDto,
   ConditionDefinedDto,
+  ConditionDefinitionUpdatedDto,
+  ConditionDefinitionDeletedDto,
+  ConditionDefaultsRestoredDto,
   ConditionRemovedDto,
   ConditionsChangedDto,
   DrawingsCreatedDto,
@@ -232,6 +235,18 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
   // Conditions are on the token for everyone to see: nothing to redact (spec §3.7).
   conditionDefined(event: GridEvent<ConditionDefinedDto>): void {
     this.io.to(gridRoomOf(event)).emit('condition:defined', event);
+  }
+
+  conditionDefinitionUpdated(event: GridEvent<ConditionDefinitionUpdatedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('condition:definitionUpdated', event);
+  }
+
+  conditionDefinitionDeleted(event: GridEvent<ConditionDefinitionDeletedDto>): void {
+    this.io.to(gridRoomOf(event)).emit('condition:definitionDeleted', event);
+  }
+
+  conditionDefaultsRestored(event: GridEvent<ConditionDefaultsRestoredDto>): void {
+    this.io.to(gridRoomOf(event)).emit('condition:defaultsRestored', event);
   }
 
   conditionApplied(event: GridEvent<ConditionAppliedDto>): void {

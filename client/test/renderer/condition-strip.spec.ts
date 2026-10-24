@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { conditionStripOf } from '@/renderer/condition-strip';
 import type { ConditionMarkView } from '@/renderer/token-view';
 
-const POISON: ConditionMarkView = { icon: 'flask-conical', tone: 'harm', remainingRounds: 2 };
+const POISON: ConditionMarkView = {
+  icon: 'flask-conical',
+  tone: 'harm',
+  color: null,
+  remainingRounds: 2,
+  stacks: null,
+};
 
 function marks(count: number, mark: ConditionMarkView = POISON): ConditionMarkView[] {
   return Array.from({ length: count }, () => mark);
@@ -43,11 +49,11 @@ describe('conditionStripOf', () => {
 
   it('at zoom 0.5 (an icon of 6.5 px on screen) the strip turns into up to 4 dots in order, each in its tone', () => {
     const conditions: ConditionMarkView[] = [
-      { icon: 'lock', tone: 'incapacitating', remainingRounds: 1 },
-      { icon: 'skull', tone: 'harm', remainingRounds: null },
-      { icon: 'zap', tone: 'harm', remainingRounds: 3 },
-      { icon: 'sparkles', tone: 'benefit', remainingRounds: null },
-      { icon: 'sun', tone: 'benefit', remainingRounds: null },
+      { icon: 'lock', tone: 'incapacitating', color: null, remainingRounds: 1, stacks: null },
+      { icon: 'skull', tone: 'harm', color: null, remainingRounds: null, stacks: null },
+      { icon: 'zap', tone: 'harm', color: null, remainingRounds: 3, stacks: null },
+      { icon: 'sparkles', tone: 'benefit', color: null, remainingRounds: null, stacks: null },
+      { icon: 'sun', tone: 'benefit', color: null, remainingRounds: null, stacks: null },
     ];
     const strip = conditionStripOf({ ...ONE_CELL, conditions, zoom: 0.5 });
     expect(strip.band).toBe('dots');
@@ -65,7 +71,13 @@ describe('conditionStripOf', () => {
   });
 
   it('at zoom 2 (26 px on screen) each icon carries its rounds, and one without limit none', () => {
-    const endless: ConditionMarkView = { icon: 'sun', tone: 'benefit', remainingRounds: null };
+    const endless: ConditionMarkView = {
+      icon: 'sun',
+      tone: 'benefit',
+      color: null,
+      remainingRounds: null,
+      stacks: null,
+    };
     const strip = conditionStripOf({ ...ONE_CELL, conditions: [POISON, endless], zoom: 2 });
     expect(strip.band).toBe('detailed');
     expect(strip.band === 'detailed' && strip.icons.map(({ rounds }) => rounds)).toEqual([2, null]);
@@ -81,6 +93,18 @@ describe('conditionStripOf', () => {
     const strip = conditionStripOf({ ...ONE_CELL, conditions: [last, POISON], zoom });
     const icons = strip.band === 'icons' || strip.band === 'detailed' ? strip.icons : [];
     expect(icons.map(({ ending }) => ending)).toEqual([true, false]);
+  });
+
+  it('at zoom 2 a stacking condition carries its stacks, a non-stacking one none', () => {
+    const stacked: ConditionMarkView = { ...POISON, stacks: 3 };
+    const strip = conditionStripOf({ ...ONE_CELL, conditions: [stacked, POISON], zoom: 2 });
+    expect(strip.band === 'detailed' && strip.icons.map(({ stacks }) => stacks)).toEqual([3, null]);
+  });
+
+  it('with plain icons the stacks are not written', () => {
+    const stacked: ConditionMarkView = { ...POISON, stacks: 3 };
+    const strip = conditionStripOf({ ...ONE_CELL, conditions: [stacked], zoom: 1 });
+    expect(strip.band === 'icons' && strip.icons[0]?.stacks).toBeNull();
   });
 
   it('no condition is no strip, with no height (the name stays where it was)', () => {

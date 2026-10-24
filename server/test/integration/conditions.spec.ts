@@ -104,16 +104,48 @@ describe('conditions over Socket.IO', () => {
     expect(state.tokens[0]?.conditions).toEqual([applied.condition]);
   });
 
-  it('Caio applying to Bia’s token is FORBIDDEN', async () => {
+  it('Caio applying Cego to Bia’s Lyra, which he does not control, reaches Bia and the snapshot', async () => {
     const master = await atTable(baseUrl, clients, ana, vharn);
     const lyraId = await lyraOfBia(master);
+    const biaEvents = recordEventsOf(await atTable(baseUrl, clients, bia, vharn));
     const caioClient = await atTable(baseUrl, clients, caio, vharn);
     const cego = definitionId(await synced(caioClient, vharn), 'Cego');
     const apply = { ...envelope(vharn.id), tokenId: lyraId, conditionId: cego, rounds: 1 };
-    expect(await send(caioClient, 'condition:apply', apply)).toEqual({
-      ok: false,
-      error: expect.objectContaining({ code: 'FORBIDDEN' }),
+
+    expect(await send(caioClient, 'condition:apply', apply)).toMatchObject({ ok: true });
+
+    const applied = conditionAppliedDto.parse(await eventPayload(biaEvents, 'condition:applied'));
+    expect([applied.tokenId, applied.condition.name]).toEqual([lyraId, 'Cego']);
+    const lyra = (await synced(master, vharn)).tokens.find(({ id }) => id === lyraId);
+    expect(lyra?.conditions.map(({ name }) => name)).toEqual(['Cego']);
+  });
+
+  it('Bia removing the Cego the master put on Caio’s Bram reaches Caio and leaves the Bram clean', async () => {
+    const master = await atTable(baseUrl, clients, ana, vharn);
+    const bramId = await placedToken(master, 'Bram', caio.id, 3);
+    const cego = definitionId(await synced(master, vharn), 'Cego');
+    await send(master, 'condition:apply', {
+      ...envelope(vharn.id),
+      tokenId: bramId,
+      conditionId: cego,
+      rounds: 0,
     });
+    const activeId = (await synced(master, vharn)).tokens[0]?.conditions[0]?.id ?? '';
+    const caioEvents = recordEventsOf(await atTable(baseUrl, clients, caio, vharn));
+    const biaClient = await atTable(baseUrl, clients, bia, vharn);
+
+    const ack = await send(biaClient, 'condition:remove', {
+      ...envelope(vharn.id),
+      tokenId: bramId,
+      activeConditionId: activeId,
+    });
+
+    expect(ack).toMatchObject({ ok: true });
+    expect(await eventPayload(caioEvents, 'condition:removed')).toMatchObject({
+      tokenId: bramId,
+      activeConditionId: activeId,
+    });
+    expect((await synced(biaClient, vharn)).tokens[0]?.conditions).toEqual([]);
   });
 
   it('a condition of another table is CONDITION_NOT_FOUND', async () => {
@@ -224,19 +256,22 @@ describe('conditions over Socket.IO', () => {
     expect(state.tokens.every(({ conditions }) => conditions[0]?.name === 'Caído')).toBe(true);
   });
 
-  it('Bia applying to her Lyra and Caio’s Bram at once is FORBIDDEN and touches neither', async () => {
+  it('Bia applying to her Lyra and Caio’s Bram at once puts Cego on both in one version', async () => {
     const master = await atTable(baseUrl, clients, ana, vharn);
     const lyraId = await lyraOfBia(master);
     const bramId = await placedToken(master, 'Bram', caio.id, 3);
     const biaClient = await atTable(baseUrl, clients, bia, vharn);
     const cego = definitionId(await synced(biaClient, vharn), 'Cego');
     const applyMany = { ...envelope(vharn.id), tokenIds: [lyraId, bramId], conditionId: cego };
-    expect(await send(biaClient, 'condition:applyMany', { ...applyMany, rounds: 1 })).toEqual({
-      ok: false,
-      error: expect.objectContaining({ code: 'FORBIDDEN' }),
-    });
-    const state = await synced(biaClient, vharn);
-    expect(state.tokens.flatMap(({ conditions }) => conditions)).toEqual([]);
+
+    const ack = await send(biaClient, 'condition:applyMany', { ...applyMany, rounds: 1 });
+
+    const state = await synced(master, vharn);
+    expect(ack).toEqual({ ok: true, version: state.version });
+    expect(state.tokens.map(({ conditions }) => conditions.map(({ name }) => name))).toEqual([
+      ['Cego'],
+      ['Cego'],
+    ]);
   });
   describe('condition:setRounds', () => {
     type Poisoned = Readonly<{
@@ -299,16 +334,16 @@ describe('conditions over Socket.IO', () => {
       expect(turn.conditionChanges[0]?.conditions[0]?.remainingRounds).toBe(1);
     });
 
-    it('Caio, who does not control the Lyra, is FORBIDDEN and nobody gets an event', async () => {
+    it('Caio, who does not control the Lyra, setting 1 round reaches Ana as condition:applied', async () => {
       const poisoned = await poisonedLyraInRound2();
       const anaEvents = recordEventsOf(poisoned.master);
       const caioClient = await atTable(baseUrl, clients, caio, vharn);
 
-      const ack = await send(caioClient, 'condition:setRounds', setRounds(poisoned, 2));
+      const ack = await send(caioClient, 'condition:setRounds', setRounds(poisoned, 1));
 
-      expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
-      await silence();
-      expect(anaEvents.events.map(({ name }) => name)).not.toContain('condition:applied');
+      expect(ack).toMatchObject({ ok: true });
+      const applied = conditionAppliedDto.parse(await eventPayload(anaEvents, 'condition:applied'));
+      expect(applied.condition).toMatchObject({ id: poisoned.activeId, remainingRounds: 1 });
     });
 
     it('a token of Quelm is TOKEN_NOT_FOUND at Vharn', async () => {

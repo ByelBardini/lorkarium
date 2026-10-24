@@ -99,6 +99,21 @@ describe('BoardToolbar', () => {
     expect(screen.queryByRole('group', { name: 'Camada' })).toBeNull();
   });
 
+  it.each([
+    ['master', true],
+    ['player', false],
+  ])(
+    'the %s has "Condição (C)", which presses itself and asks for a condition',
+    async (_, master) => {
+      renderToolbar(master);
+      expect(tool('Condição (C)')).toHaveAttribute('aria-pressed', 'false');
+      await userEvent.click(tool('Condição (C)'));
+      expect(tool('Condição (C)')).toHaveAttribute('aria-pressed', 'true');
+      expect(interaction.getState().tool).toBe('conditions');
+      expect(interaction.getState().notice).toBe('Escolha uma condição no painel.');
+    },
+  );
+
   it('a spectator picks only Selecionar and Régua, and keeps the local grid and the camera', () => {
     render(
       <BoardToolbar

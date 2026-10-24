@@ -2,10 +2,10 @@ import type { CampaignRoleDto, SessionMemberDto } from '@lorkarium/contracts';
 import type { BoardTool } from '@/stores/board-tool-state';
 
 /** The room's tools each role may pick: the spectator only looks (select and the local ruler),
- *  the player also sketches, the master also draws walls and lights. */
+ *  the player also sketches and stamps conditions, the master also draws walls and lights. */
 const TOOLS_OF: Readonly<Record<CampaignRoleDto, readonly BoardTool[]>> = {
-  master: ['select', 'ruler', 'draw', 'area', 'walls', 'lights'],
-  player: ['select', 'ruler', 'draw', 'area'],
+  master: ['select', 'ruler', 'draw', 'area', 'conditions', 'walls', 'lights'],
+  player: ['select', 'ruler', 'draw', 'area', 'conditions'],
   spectator: ['select', 'ruler'],
 };
 

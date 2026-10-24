@@ -34,6 +34,17 @@ describe('shortcutFor', () => {
     expect(shortcutFor(press(key))).toBe('lights-tool');
   });
 
+  it.each(['c', 'C'])('%s picks the condition tool', (key) => {
+    expect(shortcutFor(press(key))).toBe('conditions-tool');
+  });
+
+  it.each(['ctrlKey', 'metaKey'] as const)(
+    'C with %s is the copy, not the condition tool',
+    (modifier) => {
+      expect(shortcutFor(press('c', { [modifier]: true }))).toBeNull();
+    },
+  );
+
   it.each(['b', 'B'])('%s picks the draw tool', (key) => {
     expect(shortcutFor(press(key))).toBe('draw-tool');
   });

@@ -1,5 +1,6 @@
 import type {
   BarColorDto,
+  ConditionColorDto,
   ConditionIconDto,
   ConditionLookDto,
   ConditionToneDto,
@@ -12,6 +13,7 @@ import type { Cell, TokenBox } from '@lorkarium/game-core';
 import { barFill, type BarFill } from '@/lib/bar-display';
 import { levelOf, type BoardSight } from '@/lib/board-sight';
 import { tokenLooksOf } from '@/lib/condition-order';
+import { shownStacksOf } from '@/lib/condition-stacks';
 import { assetUrlOf } from '@/services/assets-api';
 
 /** The image of a token; `null` keeps the initials disc. Not a secret: every viewer gets it. */
@@ -25,12 +27,14 @@ export type TokenArtView = Readonly<{
 /** The bar drawn under a token: always the one at position 0, when the viewer may see it. */
 export type TokenBarView = BarFill & Readonly<{ color: BarColorDto }>;
 
-/** A condition drawn on a token: its icon in its tone's color, and the rounds it has left
- *  (`null`: until removed). */
+/** A condition drawn on a token: its icon in its color (`null`: its tone's), the rounds it has
+ *  left (`null`: until removed) and its stacks (`null`: it does not stack). */
 export type ConditionMarkView = Readonly<{
   icon: ConditionIconDto;
   tone: ConditionToneDto;
+  color: ConditionColorDto | null;
   remainingRounds: number | null;
+  stacks: number | null;
 }>;
 
 export type TokenView = Readonly<{
@@ -150,10 +154,12 @@ function tokenViewOf(token: TokenDto, input: TokenViewInput): TokenView {
 
 function conditionsOf(token: TokenDto): Pick<TokenView, 'conditions' | 'looks'> {
   const { looks, marks } = tokenLooksOf(token.conditions);
-  const conditions = marks.map(({ icon, tone, remainingRounds }) => ({
-    icon,
-    tone,
-    remainingRounds,
+  const conditions = marks.map((mark) => ({
+    icon: mark.icon,
+    tone: mark.tone,
+    color: mark.color,
+    remainingRounds: mark.remainingRounds,
+    stacks: shownStacksOf(mark),
   }));
   return { conditions, looks };
 }

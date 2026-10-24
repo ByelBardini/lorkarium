@@ -6,6 +6,9 @@ import type {
   ConditionAppliedDto,
   ConditionsAppliedDto,
   ConditionDefinedDto,
+  ConditionDefinitionUpdatedDto,
+  ConditionDefinitionDeletedDto,
+  ConditionDefaultsRestoredDto,
   ConditionRemovedDto,
   ConditionsChangedDto,
   DrawingsCreatedDto,
@@ -197,6 +200,11 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly conditionEvents: Array<ConditionDefinedDto | ConditionAppliedDto | ConditionRemovedDto> =
     [];
   readonly conditionsApplies: ConditionsAppliedDto[] = [];
+  readonly catalogEvents: Array<
+    | Readonly<{ name: 'condition:definitionUpdated'; event: ConditionDefinitionUpdatedDto }>
+    | Readonly<{ name: 'condition:definitionDeleted'; event: ConditionDefinitionDeletedDto }>
+    | Readonly<{ name: 'condition:defaultsRestored'; event: ConditionDefaultsRestoredDto }>
+  > = [];
   readonly conditionsChanges: ConditionsChangedDto[] = [];
   readonly drawingsCreates: DrawingsCreatedDto[] = [];
   readonly drawingsMoves: DrawingsMovedDto[] = [];
@@ -394,6 +402,21 @@ export class BoardPublisherFake implements BoardPublisherPort {
     this.conditionEvents.push(event);
   }
 
+  conditionDefinitionUpdated(event: ConditionDefinitionUpdatedDto): void {
+    this.journal.push('publish');
+    this.catalogEvents.push({ name: 'condition:definitionUpdated', event });
+  }
+
+  conditionDefinitionDeleted(event: ConditionDefinitionDeletedDto): void {
+    this.journal.push('publish');
+    this.catalogEvents.push({ name: 'condition:definitionDeleted', event });
+  }
+
+  conditionDefaultsRestored(event: ConditionDefaultsRestoredDto): void {
+    this.journal.push('publish');
+    this.catalogEvents.push({ name: 'condition:defaultsRestored', event });
+  }
+
   conditionApplied(event: ConditionAppliedDto): void {
     this.journal.push('publish');
     this.conditionEvents.push(event);
@@ -448,6 +471,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
       this.tokensDrags.length +
       this.conditionEvents.length +
       this.conditionsApplies.length +
+      this.catalogEvents.length +
       this.drawingsCreates.length +
       this.drawingsMoves.length +
       this.drawingsDeletes.length +
