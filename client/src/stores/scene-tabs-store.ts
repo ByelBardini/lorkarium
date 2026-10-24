@@ -12,6 +12,7 @@ import type {
 } from '@/services/table-session-api';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createPingFeed, type PingFeed } from '@/stores/ping-feed';
 import {
   forgetSceneTabs,
   readSceneTabs,
@@ -34,6 +35,8 @@ export type SceneTab = Readonly<{
   board: StoreApi<BoardStore>;
   interaction: StoreApi<BoardInteractionStore>;
   edits: StoreApi<TableEditStore>;
+  /** The others' pings on this grid, as they arrive (nothing is kept). */
+  pings: PingFeed;
   /** Where this tab's commands go, read when each one is sent (the group grid can move). */
   scopeOf: () => BoardScope;
 }>;
@@ -198,6 +201,7 @@ class SceneTabsActions {
   apply(update: TableSessionUpdate): void {
     if (update.kind === 'sceneActivated') return this.onActivated(update.event);
     if (update.kind === 'sceneClosed') return this.onClosed(update.event);
+    if (update.kind === 'pinged') return groupTabOf(this.get()).pings.push(update.event);
     if (update.kind === 'libraryChanged') {
       this.set({ libraryRevision: this.get().libraryRevision + 1 });
     }
@@ -222,16 +226,23 @@ class SceneTabsActions {
       () => this.watches.get(sceneId)?.resync(),
       () => this.deps.cast.getState().board,
     );
+    const pings = createPingFeed();
     const handle = this.deps.watch(sceneId, (update) => {
+      if (update.kind === 'pinged') return pings.push(update.event);
       board.getState().apply(update);
       // Out of reach (private, gone): the tab has nothing to show, as after an F5 restore.
       if (update.kind === 'boardFailed' && update.failure === 'not_found') this.close(sceneId);
     });
     this.watches.set(sceneId, handle);
-    return this.tabOf(sceneId, board, () => sceneId);
+    return this.tabOf(sceneId, board, () => sceneId, pings);
   }
 
-  private tabOf(key: string, board: StoreApi<BoardStore>, sceneIdOf: () => string): SceneTab {
+  private tabOf(
+    key: string,
+    board: StoreApi<BoardStore>,
+    sceneIdOf: () => string,
+    pings: PingFeed = createPingFeed(),
+  ): SceneTab {
     const edits = createTableEditStore(this.deps.campaignId, this.copyArea);
     const scopeOf = (): BoardScope => ({ campaignId: this.deps.campaignId, sceneId: sceneIdOf() });
     const interaction = this.deps.createInteraction({
@@ -239,7 +250,7 @@ class SceneTabsActions {
       recordEdit: (entry) => edits.getState().record(entry),
       tokenCellOf: (tokenId) => cellOfToken(board, tokenId),
     });
-    return { key, board, interaction, edits, scopeOf };
+    return { key, board, interaction, edits, pings, scopeOf };
   }
 
   private relinkTabs(): void {

@@ -27,6 +27,7 @@ import { TableSessionApiFake } from '../support/table-session-api-fake';
 import {
   LYRA_ID,
   VHARN_SCENE,
+  boardPinged,
   lyra,
   memberCard,
   vharnBoard,
@@ -247,6 +248,39 @@ describe('scene tabs store', () => {
       const card = memberCard({ armorClass: 16 });
       api.emitToCast(VHARN.id, { kind: 'board', state: castBoard({ memberCards: [card] }) });
       expect(table.board.getState().board?.memberCards).toEqual([card]);
+    });
+  });
+
+  describe('pings', () => {
+    function heardBy(tab: SceneTab): number[] {
+      const heard: number[] = [];
+      tab.pings.subscribe((ping) => heard.push(ping.x));
+      return heard;
+    }
+
+    it("a ping of the group grid reaches the group tab's feed, not the Torre's", () => {
+      const table = openVharn();
+      const torre = heardBy(openTorre(table));
+      const group = heardBy(groupTabOf(tabsOf(table).getState()));
+
+      api.emitTo(VHARN.id, { kind: 'pinged', event: boardPinged({ x: 4 }) });
+
+      expect([group, torre]).toEqual([[4], []]);
+    });
+
+    it("a ping of the Torre reaches only the Torre tab's feed and leaves its board as it was", () => {
+      const table = openVharn();
+      const torreTab = openTorre(table);
+      const [torre, group] = [heardBy(torreTab), heardBy(groupTabOf(tabsOf(table).getState()))];
+      const boardBefore = torreTab.board.getState();
+
+      api.emitToGrid(TORRE_SCENE.id, {
+        kind: 'pinged',
+        event: boardPinged({ sceneId: TORRE_SCENE.id, x: 7 }),
+      });
+
+      expect([torre, group]).toEqual([[7], []]);
+      expect(torreTab.board.getState()).toBe(boardBefore);
     });
   });
 });

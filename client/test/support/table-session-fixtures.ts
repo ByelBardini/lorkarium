@@ -1,4 +1,5 @@
 import type {
+  BoardPingedDto,
   MemberCardDto,
   ActiveConditionDto,
   BoardStateDto,
@@ -245,6 +246,14 @@ export function groupDraggedOver(
   overrides: Partial<TokensDraggedDto> = {},
 ): TokensDraggedDto {
   return { campaignId: VHARN.id, at: AT, drags, ...overrides };
+}
+
+/** Bia's ping on the group grid of Vharn, at (5.5, 2.2) cells.
+ *
+ *  Example: `transport.serverEmits('board:pinged', boardPinged({ sceneId: TORRE_SCENE.id }))` */
+export function boardPinged(overrides: Partial<BoardPingedDto> = {}): BoardPingedDto {
+  const where = { sceneId: VHARN_SCENE.id, x: 5.5, y: 2.2 };
+  return { campaignId: VHARN.id, userId: BIA_AT_TABLE.userId, at: AT, ...where, ...overrides };
 }
 
 export const KAEL_COMBATANT = 'c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c';
