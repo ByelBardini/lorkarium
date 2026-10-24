@@ -245,3 +245,20 @@ describe('TablePresenceBo, away', () => {
     expect(outcome.roster).toEqual(presenceRoster({ version: 3 }));
   });
 });
+
+describe('TablePresenceBo.profileChanged', () => {
+  it('a saved profile bumps the version and leaves sockets, grace and absence as they were', () => {
+    const roster = presenceRoster({
+      version: 4,
+      sockets: { [ANA_ID]: ['s1'] },
+      inGrace: [BIA_ID],
+      away: ['s1'],
+      awaySince: { [ANA_ID]: AT },
+    });
+
+    const outcome = new TablePresenceBo(roster).profileChanged();
+
+    expect(outcome.change).toBe('profile-changed');
+    expect(outcome.roster).toEqual({ ...roster, version: 5 });
+  });
+});

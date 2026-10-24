@@ -38,7 +38,10 @@ export type CampaignTransactionRunner = <T>(
 
 export type CampaignsServiceDeps = Readonly<{
   campaigns: Pick<CampaignsDao, 'findById'>;
-  members: Pick<CampaignMembersDao, 'findMembership' | 'listOfUser' | 'listMembers'>;
+  members: Pick<
+    CampaignMembersDao,
+    'findMembership' | 'listOfUser' | 'listMembers' | 'campaignIdsOfUser'
+  >;
   /** The cast of each table, whose id the detail carries. */
   scenes: Pick<ScenesDao, 'findCastOf'>;
   /** The remembered memberships: the roster of the live session (`session:join`) warms them for
@@ -89,6 +92,14 @@ export class CampaignsService {
     const membership = await this.deps.memberships.findMembership(campaignId, userId);
     toCampaignAccessBo(campaignId, userId, membership).requireMember();
     return orderedMembers(await this.deps.memberships.listMembers(campaignId));
+  }
+
+  /** The ids of the user's campaigns, for another module (the live session tells each table of
+   *  the person about a profile change); only the user's own memberships are read.
+   *
+   *  Example: `await campaignsService.campaignIdsOf(user.id) // [vharnId, quelmId]` */
+  async campaignIdsOf(userId: string): Promise<string[]> {
+    return this.deps.members.campaignIdsOfUser(userId);
   }
 
   private async viewOf(userId: string, campaignId: string): Promise<CampaignDetailView> {

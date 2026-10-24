@@ -4,6 +4,7 @@ import type {
   CampaignSummaryDto,
   CreateCampaignRequestDto,
 } from '@lorkarium/contracts';
+import { memberColorOf } from '@lorkarium/game-core';
 import { CampaignAccessBo } from './campaign-access.bo';
 import { CampaignJoinBo } from './campaign-join.bo';
 import type { CampaignListingRow, CampaignMemberRow } from './campaign-members.dao';
@@ -106,7 +107,13 @@ export function orderedMembers(members: readonly CampaignMemberRow[]): CampaignM
 }
 
 function sortedMembers(members: readonly CampaignMemberRow[]): CampaignMemberDto[] {
-  return orderedMembers(members).map(({ name, role }) => ({ name, role }));
+  return orderedMembers(members).map((member) => ({
+    userId: member.userId,
+    name: member.name,
+    role: member.role,
+    color: memberColorOf(member.userId, member.colorChoice),
+    avatarId: member.avatarId,
+  }));
 }
 
 function masterFirst(a: CampaignMemberRow, b: CampaignMemberRow): number {

@@ -10,6 +10,7 @@ import {
   toMemberActivityDto,
   toMemberJoinedDto,
   toMemberLeftDto,
+  toMemberUpdatedDto,
   toSessionStateDto,
 } from './sessions.mapper';
 import {
@@ -31,7 +32,7 @@ const UNCHANGED: ReadonlySet<PresenceChange> = new Set([
 ]);
 
 export type TableSessionServiceDeps = Readonly<{
-  campaigns: Pick<CampaignsService, 'rosterOf'>;
+  campaigns: Pick<CampaignsService, 'rosterOf' | 'campaignIdsOf'>;
   registry: PresenceRegistryPort;
   scheduler: SchedulerPort;
   publisher: SessionPublisherPort;
@@ -85,6 +86,17 @@ export class TableSessionService {
     this.apply(campaignId, userId, this.presenceAt(campaignId).expireGrace(userId));
   }
 
+  /** The person saved their profile: each table of theirs with someone at it hears the member
+   *  read again (`session:memberUpdated`) with the version moved; a table nobody is at hears
+   *  nothing and keeps no roster. Implements the profiles module's `ProfileChangedPort`.
+   *
+   *  Example: `await sessions.profileChanged(user.id)` */
+  async profileChanged(userId: string): Promise<void> {
+    const campaignIds = await this.deps.campaigns.campaignIdsOf(userId);
+    const live = campaignIds.filter((id) => this.deps.registry.rosterOf(id) !== undefined);
+    await Promise.all(live.map((campaignId) => this.announceProfile(userId, campaignId)));
+  }
+
   /** Reserves a slot for `campaignId` among the connection's tables; throws `TOO_MANY_TABLES`.
    *
    *  Example: `socket.data.campaignIds = sessions.admitTable(socket.data.campaignIds, id).tables` */
@@ -108,6 +120,19 @@ export class TableSessionService {
     this.deps.publisher.memberJoined(
       toMemberJoinedDto(campaignId, member, outcome.roster.version, at),
     );
+  }
+
+  // The roster is read again after the await: it may have moved while the members were read.
+  private async announceProfile(userId: string, campaignId: string): Promise<void> {
+    const members = await this.deps.campaigns.rosterOf(userId, campaignId);
+    const member = members.find((candidate) => candidate.userId === userId);
+    if (!member) throw new Error(`user ${userId} changed profile but is not in ${campaignId}`);
+    const roster = this.deps.registry.rosterOf(campaignId);
+    if (!roster) return;
+    const outcome = new TablePresenceBo(roster).profileChanged();
+    this.deps.registry.save(campaignId, outcome.roster);
+    const at = this.deps.clock.now();
+    this.deps.publisher.memberUpdated(toMemberUpdatedDto(campaignId, member, outcome.roster, at));
   }
 
   private disconnect(

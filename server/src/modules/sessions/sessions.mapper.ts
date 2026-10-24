@@ -1,9 +1,12 @@
 import type {
   SessionMemberActivityDto,
+  SessionMemberDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
+  SessionMemberUpdatedDto,
   SessionStateDto,
 } from '@lorkarium/contracts';
+import { memberColorOf } from '@lorkarium/game-core';
 import type { CampaignMemberRow } from '../campaigns/campaign-members.dao';
 import { TablePresenceBo, type PresenceRoster } from './table-presence.bo';
 
@@ -20,12 +23,23 @@ export function toSessionStateDto(
   return {
     campaignId,
     version: roster.version,
-    members: members.map((member) => ({
-      ...member,
-      online: presence.isOnline(member.userId),
-      awaySince: presence.awaySinceOf(member.userId)?.toISOString() ?? null,
-    })),
+    members: members.map((member) => toSessionMemberDto(member, presence)),
     at: at.toISOString(),
+  };
+}
+
+/** Member + presence → one member of the snapshot: the profile the table sees (nickname, @,
+ *  effective color, photo, bio) and whether they are online or away.
+ *
+ *  Example: `toSessionMemberDto(bia, new TablePresenceBo(roster)).color // 'rose'` */
+export function toSessionMemberDto(
+  member: CampaignMemberRow,
+  presence: TablePresenceBo,
+): SessionMemberDto {
+  return {
+    ...profileOf(member),
+    online: presence.isOnline(member.userId),
+    awaySince: presence.awaySinceOf(member.userId)?.toISOString() ?? null,
   };
 }
 
@@ -38,12 +52,40 @@ export function toMemberJoinedDto(
   version: number,
   at: Date,
 ): SessionMemberJoinedDto {
-  const { userId, name, role } = member;
   return {
     campaignId,
     version,
-    member: { userId, name, role, online: true, awaySince: null },
+    member: { ...profileOf(member), online: true, awaySince: null },
     at: at.toISOString(),
+  };
+}
+
+/** Member read again after a profile change + roster → `session:memberUpdated`.
+ *
+ *  Example: `toMemberUpdatedDto(campaignId, ana, outcome.roster, clock.now()).version // 4` */
+export function toMemberUpdatedDto(
+  campaignId: string,
+  member: CampaignMemberRow,
+  roster: PresenceRoster,
+  at: Date,
+): SessionMemberUpdatedDto {
+  return {
+    campaignId,
+    version: roster.version,
+    member: toSessionMemberDto(member, new TablePresenceBo(roster)),
+    at: at.toISOString(),
+  };
+}
+
+function profileOf(member: CampaignMemberRow): Omit<SessionMemberDto, 'online' | 'awaySince'> {
+  return {
+    userId: member.userId,
+    name: member.name,
+    username: member.username,
+    color: memberColorOf(member.userId, member.colorChoice),
+    avatarId: member.avatarId,
+    bio: member.bio,
+    role: member.role,
   };
 }
 

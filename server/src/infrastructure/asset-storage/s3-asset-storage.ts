@@ -1,6 +1,7 @@
 import type { Readable } from 'node:stream';
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
@@ -75,6 +76,14 @@ export class S3AssetStorage implements AssetStoragePort {
       size: object.ContentLength ?? 0,
       contentType: object.ContentType ?? 'application/octet-stream',
     };
+  }
+
+  // S3 answers 204 for a key that holds nothing, so deleting twice is fine.
+  async remove(key: string): Promise<void> {
+    const command = new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key });
+    await this.client.send(command).catch((error: unknown) => {
+      if (!isNotFound(error)) this.fail('DeleteObject', error);
+    });
   }
 
   /** Closes the client's keep-alive sockets; the app calls it on close. */

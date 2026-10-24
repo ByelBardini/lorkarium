@@ -2,6 +2,7 @@ import type {
   SessionMemberActivityDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
+  SessionMemberUpdatedDto,
 } from '@lorkarium/contracts';
 import type { SessionPublisherPort } from '../../modules/sessions/session-publisher.port';
 import type { RealtimeServer } from '../../realtime/realtime-server';
@@ -23,5 +24,9 @@ export class SocketIoSessionPublisher implements SessionPublisherPort {
 
   memberActivity(event: SessionMemberActivityDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('session:memberActivity', event);
+  }
+
+  memberUpdated(event: SessionMemberUpdatedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('session:memberUpdated', event);
   }
 }

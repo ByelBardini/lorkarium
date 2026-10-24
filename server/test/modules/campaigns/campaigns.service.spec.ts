@@ -172,7 +172,7 @@ describe('CampaignsService', () => {
     });
 
     it('a player of the table gets every member with id, master first and then by name', async () => {
-      expect(await service.rosterOf(BIA_ID, VHARN_ID)).toEqual([
+      expect(await service.rosterOf(BIA_ID, VHARN_ID)).toMatchObject([
         { userId: ANA_ID, name: 'Ana', role: 'master' },
         { userId: BIA_ID, name: 'Bia', role: 'player' },
         { userId: CAIO_ID, name: 'Caio', role: 'player' },
@@ -204,6 +204,17 @@ describe('CampaignsService', () => {
       await expect(service.rosterOf(CAIO_ID, VHARN_ID)).rejects.toMatchObject({
         code: 'CAMPAIGN_NOT_FOUND',
       });
+    });
+  });
+
+  describe('campaignIdsOf', () => {
+    it('lists only the campaigns the user is a member of', async () => {
+      members.rows.push(
+        campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
+        campaignMemberPo({ campaignId: QUELM_ID, userId: CAIO_ID, role: 'master' }),
+      );
+
+      expect(await service.campaignIdsOf(ANA_ID)).toEqual([VHARN_ID]);
     });
   });
 });

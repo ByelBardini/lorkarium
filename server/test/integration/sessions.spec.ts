@@ -2,10 +2,12 @@ import {
   sessionActivityAckDto,
   sessionJoinAckDto,
   sessionMemberActivityDto,
+  sessionMemberUpdatedDto,
   type SessionCommandDto,
   type SessionJoinAckDto,
   type SessionStateDto,
 } from '@lorkarium/contracts';
+import { memberColorOf } from '@lorkarium/game-core';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
@@ -20,6 +22,7 @@ import {
 } from '../support/realtime-client';
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
 import { createTable, joinByCode, type Table } from '../support/tables';
+import { pngOf } from '../support/images';
 import { CountingQueryLog } from '../support/query-count';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
@@ -87,6 +90,19 @@ describe('live table session over Socket.IO', () => {
     await new Promise((resolve) => setTimeout(resolve, SILENCE_MS));
   }
 
+  // What the table sees of an account nobody edited: the @ from the e-mail, the drawn color.
+  function profileSeen(user: SignedInUser, name: string) {
+    const color = memberColorOf(user.id, null);
+    return {
+      userId: user.id,
+      name,
+      username: name.toLowerCase(),
+      color,
+      avatarId: null,
+      bio: null,
+    };
+  }
+
   function namesOf(events: readonly RecordedEvent[]): string[] {
     return events.map(({ name }) => name);
   }
@@ -95,8 +111,8 @@ describe('live table session over Socket.IO', () => {
     const state = await joined(await connect(ana), vharn.id);
     expect(state).toMatchObject({ campaignId: vharn.id, version: 1 });
     expect(state.members).toEqual([
-      { userId: ana.id, name: 'Ana', role: 'master', online: true, awaySince: null },
-      { userId: bia.id, name: 'Bia', role: 'player', online: false, awaySince: null },
+      { ...profileSeen(ana, 'Ana'), role: 'master', online: true, awaySince: null },
+      { ...profileSeen(bia, 'Bia'), role: 'player', online: false, awaySince: null },
     ]);
   });
 
@@ -111,7 +127,7 @@ describe('live table session over Socket.IO', () => {
         payload: {
           campaignId: vharn.id,
           version: 2,
-          member: { userId: bia.id, name: 'Bia', role: 'player', online: true, awaySince: null },
+          member: { ...profileSeen(bia, 'Bia'), role: 'player', online: true, awaySince: null },
           at: expect.any(String),
         },
       },
@@ -468,6 +484,102 @@ describe('live table session over Socket.IO', () => {
       expect(ack).toEqual({ ok: true });
       await silence();
       expect(activitiesOf(caioEvents.events)).toEqual([]);
+    });
+  });
+
+  describe('profile changes (session:memberUpdated)', () => {
+    async function saveProfile(user: SignedInUser, payload: object): Promise<void> {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/account/profile',
+        cookies: { lk_session: user.token },
+        payload,
+      });
+      if (response.statusCode !== 200) throw new Error(`PATCH answered ${response.body}`);
+    }
+
+    async function sendPhoto(user: SignedInUser): Promise<string> {
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/api/account/avatar',
+        cookies: { lk_session: user.token },
+        headers: { 'content-type': 'image/png' },
+        payload: await pngOf(64, 64),
+      });
+      if (response.statusCode !== 200) throw new Error(`PUT answered ${response.body}`);
+      return (response.json() as { profile: { avatarId: string } }).profile.avatarId;
+    }
+
+    function updatesOf(events: readonly RecordedEvent[]) {
+      return events
+        .filter(({ name }) => name === 'session:memberUpdated')
+        .map(({ payload }) => sessionMemberUpdatedDto.parse(payload));
+    }
+
+    it("the snapshot carries each member's @, effective color, photo and bio", async () => {
+      await saveProfile(ana, { color: 'rose', bio: 'Mestre de Vharn' });
+
+      const state = await joined(await connect(bia), vharn.id);
+
+      expect(state.members[0]).toEqual({
+        ...profileSeen(ana, 'Ana'),
+        color: 'rose',
+        bio: 'Mestre de Vharn',
+        role: 'master',
+        online: false,
+        awaySince: null,
+      });
+    });
+
+    it('the snapshot of QUELM does not list Ana (criterion 14)', async () => {
+      const state = await joined(await connect(caio), quelm.id);
+
+      expect(state.members.map(({ userId }) => userId)).toEqual([caio.id]);
+    });
+
+    it('Bia at VHARN hears the new color of Ana with the version moved by one', async () => {
+      const biaEvents = recordEventsOf(await connect(bia));
+      const { version } = await joined(biaEvents.client, vharn.id);
+
+      await saveProfile(ana, { color: 'rose' });
+
+      await biaEvents.until(1);
+      expect(updatesOf(biaEvents.events)).toEqual([
+        expect.objectContaining({
+          campaignId: vharn.id,
+          version: version + 1,
+          member: expect.objectContaining({ userId: ana.id, color: 'rose', online: false }),
+        }),
+      ]);
+    });
+
+    it('a new photo of Ana reaches Bia at VHARN with its id', async () => {
+      const biaEvents = recordEventsOf(await connect(bia));
+      await joined(biaEvents.client, vharn.id);
+
+      const avatarId = await sendPhoto(ana);
+
+      await biaEvents.until(1);
+      expect(updatesOf(biaEvents.events)[0]?.member).toMatchObject({ userId: ana.id, avatarId });
+    });
+
+    it('Caio, only at QUELM, hears nothing of a change of Ana', async () => {
+      const caioEvents = recordEventsOf(await connect(caio));
+      await joined(caioEvents.client, quelm.id);
+
+      await saveProfile(ana, { name: 'Aninha' });
+
+      await silence();
+      expect(updatesOf(caioEvents.events)).toEqual([]);
+    });
+
+    it('a table nobody is at keeps no roster, and the next join already has the new profile', async () => {
+      await saveProfile(ana, { name: 'Aninha' });
+
+      const state = await joined(await connect(bia), vharn.id);
+
+      expect(state.version).toBe(1);
+      expect(state.members.find(({ userId }) => userId === ana.id)?.name).toBe('Aninha');
     });
   });
 });

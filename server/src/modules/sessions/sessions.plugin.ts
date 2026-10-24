@@ -11,7 +11,7 @@ import { createSessionsGateway } from './sessions.gateway';
 import { TableSessionService } from './sessions.service';
 
 export type SessionsModuleOptions = Readonly<{
-  campaigns: Pick<CampaignsService, 'rosterOf'>;
+  campaigns: Pick<CampaignsService, 'rosterOf' | 'campaignIdsOf'>;
   groupGrid: Pick<SceneWatchService, 'groupSceneIdOf' | 'castSceneIdOf'>;
   clock: ClockPort;
   registry: PresenceRegistryPort;
@@ -23,7 +23,11 @@ export type SessionsModuleOptions = Readonly<{
   log: FastifyBaseLogger;
 }>;
 
-export type SessionsModule = Readonly<{ gateway: (socket: RealtimeSocket) => void }>;
+/** `service` is also the profiles module's `ProfileChangedPort` (`session:memberUpdated`). */
+export type SessionsModule = Readonly<{
+  gateway: (socket: RealtimeSocket) => void;
+  service: TableSessionService;
+}>;
 
 /** Wires the live table session: the service over the presence ports, and its Socket.IO edge.
  *
@@ -32,5 +36,6 @@ export function createSessionsModule(options: SessionsModuleOptions): SessionsMo
   const { campaigns, clock, registry, scheduler, publisher } = options;
   const service = new TableSessionService({ campaigns, registry, scheduler, publisher, clock });
   const { groupGrid, realtime, rate, log } = options;
-  return { gateway: createSessionsGateway({ service, groupGrid, realtime, rate, log }) };
+  const gateway = createSessionsGateway({ service, groupGrid, realtime, rate, log });
+  return { gateway, service };
 }
