@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stableHash } from '@/lib/stable-hash';
+import { stableHash } from '../src/stable-hash';
 
 describe('stableHash', () => {
   // 'ab' → 97 * 31 + 98 = 3105.

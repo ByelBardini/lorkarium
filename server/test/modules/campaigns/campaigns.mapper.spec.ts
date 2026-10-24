@@ -77,11 +77,31 @@ describe('campaigns mapper', () => {
   });
 
   it('members come master first, then by name in pt-BR order', () => {
-    expect(detailFor('player').members).toEqual([
+    expect(detailFor('player').members.map(({ name, role }) => ({ name, role }))).toEqual([
       { name: 'Ana', role: 'master' },
       { name: 'Ágata', role: 'player' },
       { name: 'Bia', role: 'player' },
     ]);
+  });
+
+  it('each participant carries the user id, the drawn color when none was chosen and no photo', () => {
+    expect(detailFor('player').members).toEqual([
+      { userId: ANA_ID, name: 'Ana', role: 'master', color: 'teal', avatarId: null },
+      { userId: BIA_ID, name: 'Ágata', role: 'player', color: 'moss', avatarId: null },
+      { userId: CAIO_ID, name: 'Bia', role: 'player', color: 'bone', avatarId: null },
+    ]);
+  });
+
+  it('a chosen color and a photo reach the participant as they are', () => {
+    const photo = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
+    const ana = campaignMemberRow({ colorChoice: 'rose', avatarId: photo });
+    const detail = toCampaignDetailDto({
+      campaign: campaignPo(),
+      membership: campaignMemberPo({ role: 'master' }),
+      members: [ana],
+      castSceneId: VHARN_CAST_ID,
+    });
+    expect(detail.members[0]).toMatchObject({ color: 'rose', avatarId: photo });
   });
 
   it('the detail counts the members and names the master', () => {
@@ -108,7 +128,7 @@ describe('campaigns mapper', () => {
 
 describe('orderedMembers', () => {
   it('keeps each member id and puts the master first, then names in pt-BR order', () => {
-    expect(orderedMembers(MEMBERS)).toEqual([
+    expect(orderedMembers(MEMBERS)).toMatchObject([
       { userId: ANA_ID, name: 'Ana', role: 'master' },
       { userId: BIA_ID, name: 'Ágata', role: 'player' },
       { userId: CAIO_ID, name: 'Bia', role: 'player' },

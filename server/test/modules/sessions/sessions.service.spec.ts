@@ -50,8 +50,28 @@ describe('TableSessionService', () => {
       campaignId: VHARN_ID,
       version: 1,
       members: [
-        { userId: ANA_ID, name: 'Ana', role: 'master', online: true, awaySince: null },
-        { userId: BIA_ID, name: 'Bia', role: 'player', online: false, awaySince: null },
+        {
+          userId: ANA_ID,
+          name: 'Ana',
+          username: 'ana',
+          color: 'teal',
+          avatarId: null,
+          bio: null,
+          role: 'master',
+          online: true,
+          awaySince: null,
+        },
+        {
+          userId: BIA_ID,
+          name: 'Bia',
+          username: 'bia',
+          color: 'moss',
+          avatarId: null,
+          bio: null,
+          role: 'player',
+          online: false,
+          awaySince: null,
+        },
       ],
       at: '2026-10-15T12:00:00.000Z',
     });
@@ -61,7 +81,17 @@ describe('TableSessionService', () => {
         event: {
           campaignId: VHARN_ID,
           version: 1,
-          member: { userId: ANA_ID, name: 'Ana', role: 'master', online: true, awaySince: null },
+          member: {
+            userId: ANA_ID,
+            name: 'Ana',
+            username: 'ana',
+            color: 'teal',
+            avatarId: null,
+            bio: null,
+            role: 'master',
+            online: true,
+            awaySince: null,
+          },
           at: '2026-10-15T12:00:00.000Z',
         },
       },
@@ -87,7 +117,17 @@ describe('TableSessionService', () => {
     await service.join(ANA_ID, VHARN_ID, 's1');
     const state = await service.join(CAIO_ID, QUELM_ID, 's2');
     expect(state.members).toEqual([
-      { userId: CAIO_ID, name: 'Caio', role: 'master', online: true, awaySince: null },
+      {
+        userId: CAIO_ID,
+        name: 'Caio',
+        username: 'caio',
+        color: 'steel',
+        avatarId: null,
+        bio: null,
+        role: 'master',
+        online: true,
+        awaySince: null,
+      },
     ]);
     expect(state.version).toBe(1);
   });
@@ -272,5 +312,74 @@ describe('TableSessionService activity', () => {
         event: { userId: BIA_ID, awaySince: NOW.toISOString() },
       });
     });
+  });
+});
+
+describe('TableSessionService.profileChanged', () => {
+  let journal: SessionsJournal;
+  let registry: PresenceRegistryFake;
+  let publisher: SessionPublisherFake;
+  let campaigns: CampaignRosterFake;
+  let service: TableSessionService;
+
+  beforeEach(() => {
+    journal = new SessionsJournal();
+    registry = new PresenceRegistryFake(journal);
+    publisher = new SessionPublisherFake(journal);
+    const anaAtQuelm = campaignMemberRow({ userId: ANA_ID, name: 'Ana', role: 'player' });
+    campaigns = new CampaignRosterFake({ [VHARN_ID]: [ANA, BIA], [QUELM_ID]: [CAIO, anaAtQuelm] });
+    service = new TableSessionService({
+      campaigns,
+      registry,
+      scheduler: new SchedulerFake(),
+      publisher,
+      clock: new ClockFake(NOW),
+    });
+  });
+
+  it('Ana, member of a live VHARN and an empty QUELM, is announced only at VHARN, after saving', async () => {
+    await service.join(BIA_ID, VHARN_ID, 's1');
+    journal.entries.splice(0);
+
+    await service.profileChanged(ANA_ID);
+
+    expect(journal.entries).toEqual([`save:${VHARN_ID}`, `publish:memberUpdated:${VHARN_ID}`]);
+    expect(registry.rosterOf(QUELM_ID)).toBeUndefined();
+  });
+
+  it('the announced member is the one read again from the roster, with the version moved by one', async () => {
+    await service.join(BIA_ID, VHARN_ID, 's1');
+    const rose = campaignMemberRow({ userId: ANA_ID, name: 'Aninha', colorChoice: 'rose' });
+    campaigns.tables[VHARN_ID] = [rose, BIA];
+
+    await service.profileChanged(ANA_ID);
+
+    expect(publisher.published.at(-1)).toEqual({
+      name: 'memberUpdated',
+      event: {
+        campaignId: VHARN_ID,
+        version: 2,
+        member: {
+          userId: ANA_ID,
+          name: 'Aninha',
+          username: 'aninha',
+          color: 'rose',
+          avatarId: null,
+          bio: null,
+          role: 'master',
+          online: false,
+          awaySince: null,
+        },
+        at: NOW.toISOString(),
+      },
+    });
+    expect(registry.rosterOf(VHARN_ID)?.version).toBe(2);
+  });
+
+  it('a person at no live table publishes nothing and keeps no roster', async () => {
+    await service.profileChanged(ANA_ID);
+
+    expect(journal.entries).toEqual([]);
+    expect(registry.rosterOf(VHARN_ID)).toBeUndefined();
   });
 });

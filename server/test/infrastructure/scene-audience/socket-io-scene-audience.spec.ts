@@ -26,7 +26,10 @@ class TableSocketFake {
     readonly rooms: Set<string>,
     watched: readonly string[] = [],
   ) {
-    const user = { id: userId, email: `${userId}@vharn.test`, name: userId, role: 'user' as const };
+    const user = {
+      ...{ id: userId, username: userId, email: `${userId}@vharn.test`, name: userId },
+      ...{ role: 'user' as const, color: 'gold' as const, avatarId: null },
+    };
     this.data = { user, watchedSceneIds: new Map([[VHARN_ID, new Set(watched)]]) };
   }
 

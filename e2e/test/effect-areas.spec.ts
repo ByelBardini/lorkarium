@@ -77,6 +77,6 @@ test('areas of effect live: drawn by a player, stretched by its handle, deleted 
   // (the server never takes it from the payload, §7.3), so now it is the master's.
   await admin.keyboard.press('Control+z');
   await expect(areasOf(bia)).toHaveText([
-    'Cone diagonal, Brasa, 6 casas · 9 m, de Admin, coluna 7, linha 7',
+    'Cone diagonal, Brasa, 6 casas · 9 m, de admin, coluna 7, linha 7',
   ]);
 });

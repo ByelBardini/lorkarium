@@ -1,4 +1,4 @@
-import { stableHash } from './stable-hash';
+import { stableHash } from '@lorkarium/game-core';
 
 export const COVER_VARIANTS = 3;
 export const COVER_TONES = 4;

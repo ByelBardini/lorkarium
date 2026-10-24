@@ -89,7 +89,7 @@ export class CampaignsDaoFake implements Pick<
  *  `listedFor` records `listOfUser` calls and `membersListedFor` records `listMembers` calls. */
 export class CampaignMembersDaoFake implements Pick<
   CampaignMembersDao,
-  'insert' | 'findMembership' | 'listOfUser' | 'listMembers' | 'markEntered'
+  'insert' | 'findMembership' | 'listOfUser' | 'listMembers' | 'markEntered' | 'campaignIdsOfUser'
 > {
   readonly listedFor: string[] = [];
   readonly membersListedFor: string[] = [];
@@ -120,7 +120,11 @@ export class CampaignMembersDaoFake implements Pick<
     this.membersListedFor.push(campaignId);
     return this.rows
       .filter((row) => row.campaignId === campaignId)
-      .map((row) => ({ userId: row.userId, name: this.nameOf(row.userId), role: row.role }));
+      .map((row) => memberRowOf(row, this.nameOf(row.userId)));
+  }
+
+  async campaignIdsOfUser(userId: string): Promise<string[]> {
+    return this.rows.filter((row) => row.userId === userId).map((row) => row.campaignId);
   }
 
   async markEntered(campaignId: string, userId: string, at: Date): Promise<void> {
@@ -215,11 +219,25 @@ export class MembershipReadsFake implements Pick<
   async listMembers(campaignId: string): Promise<CampaignMemberRow[]> {
     this.reads.push(`list:${campaignId}`);
     const members = this.rows.filter((row) => row.campaignId === campaignId);
-    return members.map(({ userId, role }) => ({ userId, name: userId, role }));
+    return members.map((row) => memberRowOf(row, row.userId));
   }
 
   async findMembership(campaignId: string, userId: string): Promise<CampaignMemberPo | undefined> {
     this.reads.push(`${campaignId}:${userId}`);
     return this.rows.find((row) => row.campaignId === campaignId && row.userId === userId);
   }
+}
+
+// A member as `listMembers` reads it: no chosen color, photo or bio unless a spec sets them.
+function memberRowOf(row: CampaignMemberPo, name: string): CampaignMemberRow {
+  const username = name.toLowerCase();
+  return {
+    userId: row.userId,
+    name,
+    username,
+    colorChoice: null,
+    avatarId: null,
+    bio: null,
+    role: row.role,
+  };
 }

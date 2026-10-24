@@ -50,6 +50,22 @@ describe('S3AssetStorage', () => {
     expect(await storage.open(`assets/${randomUUID()}`)).toBeNull();
   });
 
+  it('a removed object opens as null afterwards', async () => {
+    await storage.ensureBucket();
+    const key = `avatars/${randomUUID()}`;
+    await storage.put(key, PNG_BYTES, 'image/webp');
+
+    await storage.remove(key);
+
+    expect(await storage.open(key)).toBeNull();
+  });
+
+  it('removing a key that holds nothing does not fail (idempotent)', async () => {
+    await storage.ensureBucket();
+
+    await expect(storage.remove(`avatars/${randomUUID()}`)).resolves.toBeUndefined();
+  });
+
   it('a wrong secret fails citing the bucket and the endpoint, never the secret', async () => {
     const secretAccessKey = 'not-the-dev-secret';
     const wrong = new S3AssetStorage({ ...config, secretAccessKey });

@@ -31,6 +31,7 @@ import type { LightColorStore } from '@/stores/light-color-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
+import type { SessionStore } from '@/stores/session-store';
 import {
   GROUP_TAB,
   groupTabOf,
@@ -71,6 +72,8 @@ export type PlayRoomPageProps = Readonly<{
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
   pings: PingCommands;
+  /** The signed-in account (the color of one's own ping). */
+  sessionStore: StoreApi<SessionStore>;
   assets: AssetsApi;
   /** The delay before the hovered token's card shows. */
   interactionClock: InteractionClock;
@@ -116,6 +119,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
     interaction,
     scopeOf,
     pings: props.pings,
+    session: props.sessionStore,
   });
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">

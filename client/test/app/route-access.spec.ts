@@ -11,6 +11,15 @@ function at(pathAndSearch: string): URL {
 }
 
 describe('decideAccess', () => {
+  it.each([
+    ['an anonymous visitor', anonymous],
+    ['a signed-in account', asUser],
+  ] as const)('%s on an "anyone" route (the e-mail link) passes', (_, session) => {
+    expect(decideAccess(session, 'anyone', at('/account/email/confirm'))).toEqual({
+      kind: 'allow',
+    });
+  });
+
   it('an anonymous visitor on a signed-in route goes to the login with next=/', () => {
     expect(decideAccess(anonymous, 'signed-in', at('/'))).toEqual({
       kind: 'redirect',

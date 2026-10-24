@@ -6,7 +6,13 @@ import {
 } from '@/services/table-session-api';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
-import { BIA_AT_TABLE, biaJoined, biaLeft, vharnState } from '../support/table-session-fixtures';
+import {
+  BIA_AT_TABLE,
+  biaJoined,
+  biaLeft,
+  biaUpdated,
+  vharnState,
+} from '../support/table-session-fixtures';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 
@@ -180,6 +186,38 @@ describe('RealtimeTableSessionApi', () => {
         campaignId: VHARN.id,
         away: true,
       });
+    });
+  });
+
+  describe('profile', () => {
+    it('a valid memberUpdated of this table reaches the listener', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+
+      transport.serverEmits('session:memberUpdated', biaUpdated());
+
+      expect(updates.at(-1)).toEqual({ kind: 'memberUpdated', event: biaUpdated() });
+    });
+
+    it('a memberUpdated of another table is ignored', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      const count = updates.length;
+
+      transport.serverEmits('session:memberUpdated', biaUpdated({ campaignId: QUELM.id }));
+
+      expect(updates).toHaveLength(count);
+    });
+
+    it('a memberUpdated outside the DTO (a color that does not exist) is ignored', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      const count = updates.length;
+      const { member } = biaUpdated();
+
+      transport.serverEmits('session:memberUpdated', {
+        ...biaUpdated(),
+        member: { ...member, color: 'pink' },
+      });
+
+      expect(updates).toHaveLength(count);
     });
   });
 });

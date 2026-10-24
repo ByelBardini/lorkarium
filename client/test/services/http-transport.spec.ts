@@ -57,6 +57,16 @@ describe('FetchHttpTransport', () => {
     expect(response.status).toBe(201);
   });
 
+  it('an upload by PUT replaces with the same raw body (the account photo)', async () => {
+    const fake = new FetchFake(Response.json({ profile: {} }, { status: 200 }));
+    const file = new File([new Uint8Array([1])], 'eu.png', { type: 'image/png' });
+
+    await new FetchHttpTransport(fake.fetch).upload('/account/avatar', file, 'PUT');
+
+    expect(fake.calls[0]?.url).toBe('/api/account/avatar');
+    expect(fake.calls[0]?.init).toMatchObject({ method: 'PUT', body: file });
+  });
+
   it('a GET carries no body nor content-type', async () => {
     const fake = new FetchFake(Response.json({ user: null }));
     await new FetchHttpTransport(fake.fetch).request('GET', '/auth/me');

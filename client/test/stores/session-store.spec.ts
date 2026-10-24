@@ -3,9 +3,12 @@ import { createSessionStore } from '@/stores/session-store';
 
 const ANA = {
   id: '7d0f8c39-2b8e-4f4e-9d1a-5c6b7a8e9f01',
+  username: 'ana',
   name: 'Ana',
   email: 'ana@mesa.com',
   role: 'user' as const,
+  color: 'teal' as const,
+  avatarId: null,
 };
 
 describe('session store', () => {

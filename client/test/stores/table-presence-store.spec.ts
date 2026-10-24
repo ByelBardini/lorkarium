@@ -12,12 +12,17 @@ import {
   CAIO_AT_TABLE,
   biaJoined,
   biaLeft,
+  biaUpdated,
   vharnState,
 } from '../support/table-session-fixtures';
 
 const DUDA = {
   userId: '1e2d3c4b-5a69-4788-9abc-def012345678',
   name: 'Duda',
+  username: 'duda',
+  color: 'teal',
+  avatarId: null,
+  bio: null,
   role: 'player',
   online: true,
   awaySince: null,
@@ -173,6 +178,61 @@ describe('table presence store', () => {
       });
 
       expect(caio()).toMatchObject({ online: false, awaySince: null });
+    });
+  });
+
+  describe('profile', () => {
+    const awaySince = '2026-10-22T12:00:00.000Z';
+    const biaAway = { ...BIA_AT_TABLE, online: true, awaySince };
+
+    function bia() {
+      return store.getState().members.find(({ userId }) => userId === BIA_AT_TABLE.userId);
+    }
+
+    function snapshotWithBiaAway(version: number) {
+      return {
+        kind: 'state' as const,
+        state: vharnState({ version, members: [ANA_AT_TABLE, biaAway, CAIO_AT_TABLE] }),
+      };
+    }
+
+    it('memberUpdated with a higher version swaps Bia in place, keeping her online and away', () => {
+      apply(snapshotWithBiaAway(3), { kind: 'memberUpdated', event: biaUpdated({ version: 4 }) });
+
+      expect(store.getState().members.map(({ userId }) => userId)).toEqual([
+        ANA_AT_TABLE.userId,
+        BIA_AT_TABLE.userId,
+        CAIO_AT_TABLE.userId,
+      ]);
+      expect(bia()).toEqual({
+        ...biaUpdated().member,
+        online: true,
+        awaySince,
+      });
+      expect(store.getState().version).toBe(4);
+    });
+
+    it('memberUpdated with a version not above the current one is ignored', () => {
+      apply(snapshotWithBiaAway(3), { kind: 'memberUpdated', event: biaUpdated({ version: 3 }) });
+
+      expect(bia()).toEqual(biaAway);
+      expect(store.getState().version).toBe(3);
+    });
+
+    it('memberUpdated before any snapshot is ignored', () => {
+      apply({ kind: 'memberUpdated', event: biaUpdated({ version: 4 }) });
+
+      expect(store.getState()).toMatchObject({ version: null, members: [] });
+    });
+
+    it('memberUpdated of someone not in the roster adds no one', () => {
+      const stranger = { ...biaUpdated().member, userId: '1e2d3c4b-5a69-4788-9abc-def012345678' };
+      apply(snapshotWithBiaAway(3), {
+        kind: 'memberUpdated',
+        event: biaUpdated({ version: 4, member: stranger }),
+      });
+
+      expect(store.getState().members).toEqual([ANA_AT_TABLE, biaAway, CAIO_AT_TABLE]);
     });
   });
 

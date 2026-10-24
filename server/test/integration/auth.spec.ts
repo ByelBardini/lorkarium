@@ -1,14 +1,14 @@
 import { apiErrorDto, loginResponseDto, meResponseDto } from '@lorkarium/contracts';
+import { memberColorOf } from '@lorkarium/game-core';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
-import { Argon2PasswordHasher } from '../../src/infrastructure/password-hasher/argon2-password-hasher';
 import { authSessions } from '../../src/modules/auth/auth-sessions.po';
-import { UsersDao } from '../../src/modules/auth/users.dao';
 import { users, type UserPo } from '../../src/modules/auth/users.po';
+import { insertTestAccount, testDataCipher } from '../support/sign-in';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const ADMIN_SEED = { email: 'root@lorkarium.dev', password: 'root-password-123' };
@@ -28,8 +28,7 @@ describe('auth HTTP edge', () => {
   }
 
   async function insertAccount(email: string, password: string): Promise<UserPo> {
-    const passwordHash = await new Argon2PasswordHasher().hash(password);
-    return new UsersDao(connection.db).insert({ name: 'Ana', email, passwordHash });
+    return insertTestAccount(connection.db, { name: 'Ana', email, password });
   }
 
   function login(app: FastifyInstance, payload: object): Promise<LightMyRequestResponse> {
@@ -62,12 +61,12 @@ describe('auth HTTP edge', () => {
 
     afterAll(() => app.close());
 
-    it('right credentials answer 200 with the user and an HttpOnly Lax session cookie without Max-Age', async () => {
+    it('right credentials answer 200 signed-in with the user and an HttpOnly Lax session cookie without Max-Age', async () => {
       const response = await login(app, { email: 'Ana@Mesa.com', password: 'segredo-da-ana' });
       expect(response.statusCode).toBe(200);
-      expect(loginResponseDto.parse(response.json()).user).toMatchObject({
-        email: 'ana@mesa.com',
-        role: 'user',
+      expect(loginResponseDto.parse(response.json())).toMatchObject({
+        status: 'signed-in',
+        user: { email: 'ana@mesa.com', username: 'ana', role: 'user' },
       });
       const setCookie = String(response.headers['set-cookie']);
       expect(setCookie).toMatch(/^lk_session=[\w-]+;/);
@@ -142,10 +141,11 @@ describe('auth HTTP edge', () => {
       );
     }
 
-    it('with the session cookie it answers the signed-in user', async () => {
+    it('with the session cookie it answers the signed-in user with @, effective color and no photo', async () => {
       token = await signIn();
-      const response = await me(app, token);
-      expect(meResponseDto.parse(response.json()).user).toMatchObject({ email: 'ana@mesa.com' });
+      const user = meResponseDto.parse((await me(app, token)).json()).user;
+      expect(user).toMatchObject({ email: 'ana@mesa.com', username: 'ana', avatarId: null });
+      expect(user?.color).toBe(memberColorOf(user?.id ?? '', null));
     });
 
     it('without a cookie it answers 200 with user null', async () => {
@@ -223,7 +223,8 @@ describe('auth HTTP edge', () => {
     beforeAll(() => truncateAllTables(connection.db));
 
     async function seededRows(): Promise<UserPo[]> {
-      return connection.db.select().from(users).where(eq(users.email, ADMIN_SEED.email));
+      const index = testDataCipher().index('email-index', ADMIN_SEED.email);
+      return connection.db.select().from(users).where(eq(users.emailIndex, index));
     }
 
     it('buildApp with ADMIN_* creates the admin, and a second boot neither duplicates it nor changes its hash', async () => {
@@ -233,7 +234,7 @@ describe('auth HTTP edge', () => {
         await freshApp({ adminSeed: { ...ADMIN_SEED, password: 'another-password-456' } })
       ).close();
       const rows = await seededRows();
-      expect(first?.role).toBe('admin');
+      expect(first).toMatchObject({ role: 'admin', username: 'admin', name: 'admin' });
       expect(rows).toHaveLength(1);
       expect(rows[0]?.passwordHash).toBe(first?.passwordHash);
     });

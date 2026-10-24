@@ -1,10 +1,11 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { AuthSessionsDao } from '../../src/modules/auth/auth-sessions.dao';
 import { users } from '../../src/modules/auth/users.po';
 import { UsersDao } from '../../src/modules/auth/users.dao';
 import { newAuthSessionPo, newUserPo } from '../support/auth-factories';
+import { insertTestAccount, testDataCipher } from '../support/sign-in';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const UNIQUE_VIOLATION = '23505';
@@ -28,16 +29,65 @@ describe('auth DAOs on Postgres', () => {
     return (await usersDao.insert(newUserPo())).id;
   }
 
-  it('a user inserted without a role is found by e-mail with role user', async () => {
+  it('a user inserted without a role is found by its e-mail index with role user and no profile yet', async () => {
     await usersDao.insert(newUserPo({ name: 'Ana', email: 'ana@mesa.com' }));
-    const found = await usersDao.findByEmail('ana@mesa.com');
-    expect(found).toMatchObject({ name: 'Ana', email: 'ana@mesa.com', role: 'user' });
+    const found = await usersDao.findByEmailIndex('idx:email-index:ana@mesa.com');
+    expect(found).toMatchObject({ name: 'Ana', username: 'ana', role: 'user' });
+    expect(found).toMatchObject({
+      color: null,
+      bio: null,
+      avatarId: null,
+      passwordChangedAt: null,
+    });
   });
 
-  it('a second user with the same e-mail violates the unique constraint', async () => {
+  it('insert keeps the sealed e-mail and its index, and the raw row carries the address nowhere', async () => {
+    const ana = await insertTestAccount(connection.db, {
+      name: 'Ana',
+      email: 'ana@mesa.com',
+      password: 'segredo-da-ana',
+    });
+    expect(ana.emailIndex).toBe(testDataCipher().index('email-index', 'ana@mesa.com'));
+    expect(testDataCipher().open('user-email', ana.emailCipher, ana.id)).toBe('ana@mesa.com');
+    const raw = await connection.db.execute(sql`SELECT * FROM users WHERE id = ${ana.id}`);
+    expect(JSON.stringify(raw.rows)).not.toContain('ana@mesa');
+  });
+
+  it('a second user with the same e-mail index violates the unique constraint', async () => {
     await usersDao.insert(newUserPo({ email: 'ana@mesa.com' }));
-    const duplicate = usersDao.insert(newUserPo({ name: 'Outra', email: 'ana@mesa.com' }));
+    const duplicate = usersDao.insert(
+      newUserPo({ name: 'Outra', email: 'ana@mesa.com', username: 'outra' }),
+    );
     await expect(duplicate).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } });
+  });
+
+  it('a second user with the same @ violates the unique constraint', async () => {
+    await usersDao.insert(newUserPo({ email: 'ana@mesa.com', username: 'ana' }));
+    const duplicate = usersDao.insert(newUserPo({ email: 'ana@outra.com', username: 'ana' }));
+    await expect(duplicate).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } });
+  });
+
+  it('a bio over 190 characters violates the check', async () => {
+    const tooLong = usersDao.insert(newUserPo({ bio: 'x'.repeat(191) }));
+    await expect(tooLong).rejects.toMatchObject({ cause: { code: '23514' } });
+  });
+
+  it('findByUsername finds the account by its @', async () => {
+    await usersDao.insert(newUserPo({ name: 'Bia', email: 'bia@mesa.com' }));
+    expect(await usersDao.findByUsername('bia')).toMatchObject({ name: 'Bia' });
+    expect(await usersDao.findByUsername('bi')).toBeUndefined();
+  });
+
+  it('usernamesStartingWith treats _ as a letter, not as a wildcard', async () => {
+    await usersDao.insert(newUserPo({ email: 'a_b@mesa.com', username: 'a_b' }));
+    await usersDao.insert(newUserPo({ email: 'axb@mesa.com', username: 'axb' }));
+    await usersDao.insert(newUserPo({ email: 'a_b2@mesa.com', username: 'a_b2' }));
+    expect(await usersDao.usernamesStartingWith('a_b')).toEqual(new Set(['a_b', 'a_b2']));
+  });
+
+  it('listPlainEmails is empty once the clear column is gone (migration 0039)', async () => {
+    await insertAna();
+    expect(await usersDao.listPlainEmails()).toEqual([]);
   });
 
   it('a session inserted under its hash is found with its expiry and persistence', async () => {

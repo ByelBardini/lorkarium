@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Minha conta</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#101216}
+a{color:#C5A46D;text-decoration:none}a:hover{color:#E2C793}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,label:focus-within{outline:2px solid #C5A46D;outline-offset:2px}
+.cf-nav{display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;color:#A9A497;font-size:14px;font-weight:500}
+.cf-nav:hover{background:#171A20;color:#EAE5DA}
+.cf-nav.is-active{background:#1B1E24;color:#EAE5DA;box-shadow:inset 0 0 0 1px #2A2F38}
+.cf-nav.is-active svg{color:#C5A46D}
+.cf-sub{display:block;padding:8px 12px;border-radius:6px;color:#8C8F98;font-size:14px;font-weight:500;border-left:2px solid transparent}
+.cf-sub:hover{color:#EAE5DA;background:#15181D}
+.cf-card{border-radius:14px;background:#14171C;border:1px solid #23272E;padding:28px;display:flex;flex-direction:column;gap:24px;scroll-margin-top:24px}
+.cf-h{margin:0;font-family:'Cormorant Garamond',serif;font-weight:600;font-size:28px;line-height:1.1}
+.cf-desc{margin:4px 0 0;font-size:14px;color:#8C8F98}
+.cf-label{font-size:13px;font-weight:600;color:#D5D0C4}
+.cf-hint{font-size:12px;line-height:1.5;color:#8C8F98}
+.cf-input{height:44px;box-sizing:border-box;padding:0 14px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:15px;width:100%}
+.cf-input::placeholder{color:#6F7480}
+.cf-input:focus{outline:none;border-color:#C5A46D;box-shadow:0 0 0 3px rgba(197,164,109,.16)}
+.cf-input.is-error{border-color:#C9705A}
+.cf-input.is-ok{border-color:#5E8A6C}
+.cf-row{display:flex;align-items:center;gap:16px;padding:16px 0;border-top:1px solid #1F2329}
+.cf-row:first-child{border-top:0;padding-top:0}
+.cf-switch{position:relative;width:44px;height:26px;flex-shrink:0;padding:0;border:0;border-radius:999px;background:#303640;cursor:pointer;transition:background .15s}
+.cf-switch .cf-knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#A9A497;transition:left .15s,background .15s}
+.cf-switch.is-on{background:#C5A46D}
+.cf-switch.is-on .cf-knob{left:21px;background:#15130F}
+.cf-seg{height:34px;padding:0 14px;border:0;border-radius:7px;background:transparent;color:#A9A497;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.cf-seg:hover{color:#EAE5DA}
+.cf-seg.is-on{background:#262A31;color:#EAE5DA}
+.cf-swatch{width:34px;height:34px;padding:0;border-radius:50%;border:2px solid transparent;cursor:pointer;box-shadow:inset 0 0 0 3px #14171C}
+.cf-swatch:hover{border-color:#4A505B}
+.cf-swatch.is-on{border-color:#EAE5DA}
+.cf-btn{height:42px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:10px;background:transparent;color:#D5D0C4;font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.cf-btn:hover{border-color:#4A505B;color:#EAE5DA}
+.cf-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.cf-btn.is-gold:hover{background:#D4B57E}
+.cf-btn.is-danger{border-color:rgba(201,112,90,.5);color:#E6A28F}
+.cf-btn.is-danger:hover{background:rgba(201,112,90,.1)}
+.cf-btn.is-danger-solid{background:#B85C47;border-color:#B85C47;color:#FFF5F0}
+.cf-btn.is-quiet{border-color:transparent}
+.cf-btn.is-quiet:hover{background:#1B1E24}
+.cf-select{height:40px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:14px;cursor:pointer}
+.cf-select:focus{outline:none;border-color:#C5A46D}
+.cf-photo{position:relative;width:120px;height:120px;flex-shrink:0;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-family:Cinzel,serif;font-size:38px;font-weight:600;color:#EAE5DA;cursor:pointer}
+.cf-photo .cf-photo-hover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,11,14,.6);opacity:0;transition:opacity .15s;font-family:'Hanken Grotesk',sans-serif;font-size:13px;font-weight:600}
+.cf-photo:hover .cf-photo-hover,.cf-photo.is-over .cf-photo-hover{opacity:1}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; background: #101216; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<aside style="flex: 1 1 248px; max-width: 100%; box-sizing: border-box; padding: 28px 16px 20px; display: flex; flex-direction: column; gap: 28px; background: #0C0E11; border-right: 1px solid #1F2329">
+<div style="display: flex; align-items: center; gap: 12px; padding: 0 8px">
+<svg viewBox="0 0 120 120" width="32" height="32" fill="none" stroke="#C5A46D" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><g stroke-width="5"><path d="M60 9 L78 42 L60 99 L42 42 Z"></path><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z"></path></g><g stroke-width="3" stroke-opacity=".55"><path d="M60 9 V99"></path></g></svg>
+<span style="font-family: Cinzel, serif; font-weight: 600; font-size: 15px; letter-spacing: 0.3em">LORKARIUM</span>
+</div>
+<nav aria-label="Principal" style="display: flex; flex-direction: column; gap: 4px">
+<a href="Home.dc.html" class="cf-nav"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4Z"></path></svg>Visão geral</a>
+<a href="Home.dc.html" class="cf-nav"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2Z"></path><path d="M9 4v14M15 6v14"></path></svg>Minhas mesas</a>
+<a href="Home.dc.html" class="cf-nav"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>Convites</a>
+<div style="height: 1px; background: #1F2329; margin: 12px 8px"></div>
+<a href="#perfil" class="cf-nav is-active" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>Minha conta</a>
+</nav>
+<div style="margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; background: #13161B; border: 1px solid #1F2329">
+<span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; overflow: hidden; background: {{color}}; color: #15130F; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">
+<sc-if value="{{hasPhoto}}" hint-placeholder-val="{{ false }}"><img src="{{photo}}" alt="" style="width: 100%; height: 100%; object-fit: cover"></sc-if>
+<sc-if value="{{noPhoto}}" hint-placeholder-val="{{ true }}"><span>{{initials}}</span></sc-if>
+</span>
+<div style="display: flex; flex-direction: column; min-width: 0">
+<span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{savedNick}}</span>
+<span style="font-size: 12px; color: #8C8F98">@{{savedHandle}}</span>
+</div>
+</div>
+</aside>
+
+<div style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 40px 40px 120px; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start">
+
+<nav aria-label="Seções" style="flex: 1 1 180px; max-width: 220px; display: flex; flex-direction: column; gap: 2px; padding-top: 72px">
+<a href="#perfil" class="cf-sub">Perfil</a>
+<a href="#mesa" class="cf-sub">Na mesa</a>
+<a href="#notificacoes" class="cf-sub">Notificações</a>
+<a href="#seguranca" class="cf-sub">Conta e segurança</a>
+</nav>
+
+<div style="flex: 999 1 560px; min-width: 0; max-width: 860px; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 44px; line-height: 1.05">Minha conta</h1>
+<p style="margin: 0; font-size: 15px; color: #A9A497">Como você aparece pra galera e como o Lorkarium se comporta pra você.</p>
+</div>
+
+<section id="perfil" class="cf-card" aria-labelledby="cf-perfil-h">
+<div>
+<h2 id="cf-perfil-h" class="cf-h">Perfil</h2>
+<p class="cf-desc">Isso aparece em todas as mesas. O nome do personagem você muda dentro de cada mesa.</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+<div style="flex: 999 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+
+<div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap">
+<label class="{{photoCls}}" onDragOver="{{onDragOver}}" onDragLeave="{{onDragLeave}}" onDrop="{{onDrop}}" style="background: {{color}}; box-shadow: 0 0 0 3px #14171C, 0 0 0 5px {{color}}">
+<sc-if value="{{hasPhoto}}" hint-placeholder-val="{{ false }}"><img src="{{photo}}" alt="Sua foto" style="width: 100%; height: 100%; object-fit: cover"></sc-if>
+<sc-if value="{{noPhoto}}" hint-placeholder-val="{{ true }}"><span style="color: #15130F">{{initials}}</span></sc-if>
+<span class="cf-photo-hover">{{photoHover}}</span>
+<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange="{{onFile}}" aria-label="Escolher foto" style="position: absolute; width: 1px; height: 1px; opacity: 0">
+</label>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span class="cf-label">Foto</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<label class="cf-btn" style="cursor: pointer; position: relative">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"></path></svg>
+{{photoBtn}}
+<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange="{{onFile}}" style="position: absolute; width: 1px; height: 1px; opacity: 0">
+</label>
+<sc-if value="{{hasPhoto}}" hint-placeholder-val="{{ false }}">
+<button type="button" class="cf-btn is-quiet" onClick="{{removePhoto}}" style="color: #A9A497">Tirar foto</button>
+</sc-if>
+</div>
+<span class="cf-hint">Arraste pro círculo ou escolha · PNG, JPEG, WebP ou GIF até 5 MB. Sem foto, usamos suas iniciais na sua cor.</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="cf-nick" class="cf-label">Apelido</label>
+<input id="cf-nick" class="{{nickCls}}" type="text" maxlength="32" value="{{nick}}" onChange="{{onNick}}" placeholder="Como a galera te chama">
+<span class="cf-hint" style="color: {{nickHintColor}}">{{nickHint}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="cf-handle" class="cf-label">Nome de usuário</label>
+<div style="position: relative">
+<span style="position: absolute; left: 14px; top: 12px; font-size: 15px; color: #6F7480">@</span>
+<input id="cf-handle" class="{{handleCls}}" type="text" maxlength="20" value="{{handle}}" onChange="{{onHandle}}" autocomplete="username" style="padding-left: 32px">
+</div>
+<span class="cf-hint" style="color: {{handleHintColor}}">{{handleHint}}</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px; max-width: 280px">
+<label for="cf-pron" class="cf-label">Pronomes <span style="font-weight: 400; color: #6F7480">· opcional</span></label>
+<select id="cf-pron" class="cf-select" value="{{pronouns}}" onChange="{{onPronouns}}">
+<option value="">Prefiro não dizer</option>
+<option value="ele/dele">ele/dele</option>
+<option value="ela/dela">ela/dela</option>
+<option value="elu/delu">elu/delu</option>
+<option value="qualquer">qualquer um</option>
+</select>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span class="cf-label" id="cf-cor-l">Sua cor na mesa</span>
+<div role="radiogroup" aria-labelledby="cf-cor-l" style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{swatches}}" as="sw" hint-placeholder-count="8">
+<button type="button" role="radio" class="{{sw.cls}}" aria-checked="{{sw.on}}" aria-label="{{sw.name}}" title="{{sw.name}}" onClick="{{sw.pick}}" style="background: {{sw.hex}}"></button>
+</sc-for>
+</div>
+<span class="cf-hint">Pinta seu cursor, seus pings no mapa, seus desenhos e seu nome no chat de rolagens.</span>
+</div>
+</div>
+
+<div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6F7480">Como a galera te vê</span>
+<div style="border-radius: 12px; background: #0F1114; border: 1px solid #23272E; padding: 16px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="position: relative; width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; overflow: hidden; background: {{color}}; display: inline-flex; align-items: center; justify-content: center; font-family: Cinzel, serif; font-size: 15px; font-weight: 600; color: #15130F; box-shadow: 0 0 0 2px #0F1114, 0 0 0 3px {{color}}">
+<sc-if value="{{hasPhoto}}" hint-placeholder-val="{{ false }}"><img src="{{photo}}" alt="" style="width: 100%; height: 100%; object-fit: cover"></sc-if>
+<sc-if value="{{noPhoto}}" hint-placeholder-val="{{ true }}"><span>{{initials}}</span></sc-if>
+</span>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{nickShow}}</span>
+<span style="font-size: 12px; color: #8C8F98">@{{handleShow}}{{pronounsShow}}</span>
+</div>
+</div>
+<div class="cf-preview-map" style="position: relative; height: 120px; border-radius: 8px; background-color: #0B0C0F; background-image: linear-gradient(rgba(197,164,109,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(197,164,109,.08) 1px, transparent 1px); background-size: 24px 24px; overflow: hidden">
+<span style="position: absolute; left: 34px; top: 30px; width: 40px; height: 40px; border-radius: 50%; border: 2px solid {{color}}; opacity: .7"></span>
+<span style="position: absolute; left: 46px; top: 42px; width: 16px; height: 16px; border-radius: 50%; background: {{color}}; opacity: .5"></span>
+<svg width="18" height="18" viewBox="0 0 24 24" style="position: absolute; left: 118px; top: 52px" aria-hidden="true"><path d="M4 2l15 9-7 1.5L9 20Z" fill="{{color}}" stroke="#0B0C0F" stroke-width="1.5" stroke-linejoin="round"></path></svg>
+<span style="position: absolute; left: 132px; top: 70px; height: 20px; padding: 0 8px; border-radius: 999px; background: {{color}}; color: #15130F; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; white-space: nowrap; max-width: 100px; overflow: hidden">{{nickShow}}</span>
+</div>
+<span class="cf-hint" style="text-align: center">Seu ping e seu cursor no mapa</span>
+</div>
+</div>
+</div>
+</section>
+
+<section id="mesa" class="cf-card" aria-labelledby="cf-mesa-h">
+<div>
+<h2 id="cf-mesa-h" class="cf-h">Na mesa</h2>
+<p class="cf-desc">Preferências que valem em toda mesa em que você entra.</p>
+</div>
+<div style="display: flex; flex-direction: column">
+<div class="cf-row" style="flex-wrap: wrap">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label">Quem vê minhas rolagens por padrão</span>
+<span class="cf-hint">Dá pra mudar em cada rolagem. Se o mestre esconder tudo, vale o que ele definiu.</span>
+</div>
+<div role="radiogroup" aria-label="Quem vê minhas rolagens" style="display: inline-flex; padding: 3px; border-radius: 10px; border: 1px solid #303640">
+<button type="button" role="radio" class="{{rollVis.todos.cls}}" aria-checked="{{rollVis.todos.on}}" onClick="{{rollVis.todos.pick}}">Todo mundo</button>
+<button type="button" role="radio" class="{{rollVis.mestre.cls}}" aria-checked="{{rollVis.mestre.on}}" onClick="{{rollVis.mestre.pick}}">Só o mestre</button>
+<button type="button" role="radio" class="{{rollVis.eu.cls}}" aria-checked="{{rollVis.eu.on}}" onClick="{{rollVis.eu.pick}}">Só eu</button>
+</div>
+</div>
+<div class="cf-row">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label" id="cf-3d-l">Dados animados</span>
+<span class="cf-hint">Os dados rolam na tela antes do resultado. Desligue se o computador sofrer.</span>
+</div>
+<button type="button" role="switch" class="{{dice3dCls}}" aria-checked="{{dice3dOn}}" aria-labelledby="cf-3d-l" onClick="{{toggleDice3d}}"><span class="cf-knob"></span></button>
+</div>
+<div class="cf-row">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label" id="cf-snd-l">Sons da mesa</span>
+<span class="cf-hint">Barulho dos dados, sino de turno e aviso quando é sua vez.</span>
+</div>
+<button type="button" role="switch" class="{{soundCls}}" aria-checked="{{soundOn}}" aria-labelledby="cf-snd-l" onClick="{{toggleSound}}"><span class="cf-knob"></span></button>
+</div>
+<div class="cf-row">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label" id="cf-ping-l">Ping com Alt + clique</span>
+<span class="cf-hint">Marca um ponto no mapa na sua cor pra todo mundo ver.</span>
+</div>
+<button type="button" role="switch" class="{{pingCls}}" aria-checked="{{pingOn}}" aria-labelledby="cf-ping-l" onClick="{{togglePing}}"><span class="cf-knob"></span></button>
+</div>
+<div class="cf-row" style="flex-wrap: wrap">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label">Mostrar distâncias em</span>
+<span class="cf-hint">Só muda como você lê a régua. A mesa continua na unidade do mestre.</span>
+</div>
+<div role="radiogroup" aria-label="Unidade de distância" style="display: inline-flex; padding: 3px; border-radius: 10px; border: 1px solid #303640">
+<button type="button" role="radio" class="{{unit.m.cls}}" aria-checked="{{unit.m.on}}" onClick="{{unit.m.pick}}">Metros</button>
+<button type="button" role="radio" class="{{unit.ft.cls}}" aria-checked="{{unit.ft.on}}" onClick="{{unit.ft.pick}}">Pés</button>
+<button type="button" role="radio" class="{{unit.casas.cls}}" aria-checked="{{unit.casas.on}}" onClick="{{unit.casas.pick}}">Casas</button>
+</div>
+</div>
+<div class="cf-row" style="flex-wrap: wrap; gap: 16px 24px">
+<div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 8px">
+<label for="cf-lang" class="cf-label">Idioma</label>
+<select id="cf-lang" class="cf-select" value="{{lang}}" onChange="{{onLang}}">
+<option value="pt-BR">Português (Brasil)</option>
+<option value="pt-PT">Português (Portugal)</option>
+<option value="en">English</option>
+<option value="es">Español</option>
+</select>
+</div>
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px">
+<label for="cf-tz" class="cf-label">Fuso horário</label>
+<select id="cf-tz" class="cf-select" value="{{tz}}" onChange="{{onTz}}">
+<option value="America/Sao_Paulo">Brasília (UTC−3)</option>
+<option value="America/Manaus">Manaus (UTC−4)</option>
+<option value="America/Rio_Branco">Rio Branco (UTC−5)</option>
+<option value="America/Noronha">Fernando de Noronha (UTC−2)</option>
+<option value="Europe/Lisbon">Lisboa (UTC+0)</option>
+</select>
+<span class="cf-hint">Os horários das sessões aparecem no seu fuso.</span>
+</div>
+</div>
+</div>
+</section>
+
+<section id="notificacoes" class="cf-card" aria-labelledby="cf-not-h">
+<div>
+<h2 id="cf-not-h" class="cf-h">Notificações</h2>
+<p class="cf-desc">Pra ninguém faltar na sexta.</p>
+</div>
+<div style="display: flex; flex-direction: column">
+<div class="cf-row" style="flex-wrap: wrap">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label">Lembrete de sessão</span>
+<span class="cf-hint">Por e-mail e no app, antes de cada sessão marcada.</span>
+</div>
+<div role="radiogroup" aria-label="Lembrete de sessão" style="display: inline-flex; padding: 3px; border-radius: 10px; border: 1px solid #303640">
+<button type="button" role="radio" class="{{remind.off.cls}}" aria-checked="{{remind.off.on}}" onClick="{{remind.off.pick}}">Não</button>
+<button type="button" role="radio" class="{{remind.h1.cls}}" aria-checked="{{remind.h1.on}}" onClick="{{remind.h1.pick}}">1 h antes</button>
+<button type="button" role="radio" class="{{remind.d1.cls}}" aria-checked="{{remind.d1.on}}" onClick="{{remind.d1.pick}}">1 dia antes</button>
+<button type="button" role="radio" class="{{remind.both.cls}}" aria-checked="{{remind.both.on}}" onClick="{{remind.both.pick}}">Os dois</button>
+</div>
+</div>
+<div class="cf-row">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label" id="cf-inv-l">Convites pra mesas</span>
+<span class="cf-hint">Quando alguém te chamar pra uma mesa nova.</span>
+</div>
+<button type="button" role="switch" class="{{invCls}}" aria-checked="{{invOn}}" aria-labelledby="cf-inv-l" onClick="{{toggleInv}}"><span class="cf-knob"></span></button>
+</div>
+<div class="cf-row">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label" id="cf-turn-l">Avisar quando for minha vez</span>
+<span class="cf-hint">Notificação do navegador se a aba da mesa estiver em segundo plano.</span>
+</div>
+<button type="button" role="switch" class="{{turnCls}}" aria-checked="{{turnOn}}" aria-labelledby="cf-turn-l" onClick="{{toggleTurn}}"><span class="cf-knob"></span></button>
+</div>
+<div class="cf-row">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label" id="cf-news-l">Novidades do Lorkarium</span>
+<span class="cf-hint">No máximo um e-mail por mês.</span>
+</div>
+<button type="button" role="switch" class="{{newsCls}}" aria-checked="{{newsOn}}" aria-labelledby="cf-news-l" onClick="{{toggleNews}}"><span class="cf-knob"></span></button>
+</div>
+</div>
+</section>
+
+<section id="seguranca" class="cf-card" aria-labelledby="cf-seg-h">
+<div>
+<h2 id="cf-seg-h" class="cf-h">Conta e segurança</h2>
+<p class="cf-desc">Só você vê esta parte.</p>
+</div>
+<div style="display: flex; flex-direction: column">
+<div class="cf-row" style="flex-wrap: wrap">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label">E-mail</span>
+<span style="font-size: 15px; color: #EAE5DA">lucas@[seu-email].com</span>
+<span class="cf-hint" style="color: #A9D1B4">Confirmado</span>
+</div>
+<button type="button" class="cf-btn">Trocar e-mail</button>
+</div>
+<div class="cf-row" style="flex-wrap: wrap">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label">Senha</span>
+<span class="cf-hint">Trocada há 3 meses</span>
+</div>
+<button type="button" class="cf-btn">Trocar senha</button>
+</div>
+<div class="cf-row" style="flex-wrap: wrap">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label">Contas conectadas</span>
+<span class="cf-hint">Pra entrar sem senha.</span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" class="{{discordCls}}" onClick="{{toggleDiscord}}">{{discordLabel}}</button>
+<button type="button" class="{{googleCls}}" onClick="{{toggleGoogle}}">{{googleLabel}}</button>
+</div>
+</div>
+<div class="cf-row" style="flex-direction: column; align-items: stretch; gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label">Onde você está conectado</span>
+<span class="cf-hint">Sai de onde não reconhecer.</span>
+</div>
+<sc-if value="{{hasOtherSessions}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="cf-btn is-quiet" onClick="{{logoutOthers}}" style="color: #E6A28F">Sair de todos os outros</button>
+</sc-if>
+</div>
+<sc-for list="{{sessions}}" as="se" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 10px; background: #101216; border: 1px solid #1F2329">
+<span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 8px; background: #1B1E24; display: inline-flex; align-items: center; justify-content: center; color: #A9A497">
+<sc-if value="{{se.isPhone}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"></rect><path d="M11 18h2"></path></svg></sc-if>
+<sc-if value="{{se.isDesk}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg></sc-if>
+</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 600">{{se.device}}</span>
+<span class="cf-hint">{{se.where}}</span>
+</div>
+<sc-if value="{{se.current}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; font-weight: 600; color: #8FD0A8">Este aparelho</span>
+</sc-if>
+<sc-if value="{{se.other}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="cf-btn is-quiet" onClick="{{se.logout}}" style="height: 34px; font-size: 13px">Sair</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div class="cf-row" style="flex-wrap: wrap; padding-bottom: 0">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px">
+<span class="cf-label" style="color: #E6A28F">Excluir conta</span>
+<span class="cf-hint">Some com seu perfil e suas mesas. As mesas onde você só joga continuam pros outros.</span>
+</div>
+<sc-if value="{{notConfirmDelete}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="cf-btn is-danger" onClick="{{askDelete}}">Excluir conta</button>
+</sc-if>
+<sc-if value="{{confirmDelete}}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="font-size: 13px; color: #E6A28F">Tem certeza? Isso não tem volta.</span>
+<button type="button" class="cf-btn is-danger-solid" onClick="{{cancelDelete}}" style="height: 36px">Excluir pra sempre</button>
+<button type="button" class="cf-btn" onClick="{{cancelDelete}}" style="height: 36px">Voltar</button>
+</div>
+</sc-if>
+</div>
+</div>
+</section>
+</div>
+</div>
+
+<sc-if value="{{showBar}}" hint-placeholder-val="{{ false }}">
+<div role="region" aria-label="Alterações" style="position: fixed; z-index: 10; left: 50%; bottom: 24px; transform: translateX(-50%); width: calc(100% - 48px); max-width: 640px; box-sizing: border-box; padding: 12px 12px 12px 20px; border-radius: 14px; background: #1B1E24; border: 1px solid #3A404A; box-shadow: 0 18px 50px rgba(0,0,0,.55); display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<span style="flex: 1 1 200px; font-size: 14px; color: {{barColor}}">{{barText}}</span>
+<sc-if value="{{dirty}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="cf-btn is-quiet" onClick="{{discard}}">Descartar</button>
+<button type="button" class="cf-btn is-gold" onClick="{{save}}" disabled="{{cantSave}}">{{saveLabel}}</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1900}}'>
+var CF_COLORS = [
+  { hex: '#C5A46D', name: 'Ouro' }, { hex: '#D9B86A', name: 'Âmbar' }, { hex: '#C9705A', name: 'Brasa' }, { hex: '#D98FA6', name: 'Rosa' },
+  { hex: '#B48CC8', name: 'Ametista' }, { hex: '#8FA3BF', name: 'Aço' }, { hex: '#6FB7B0', name: 'Maré' }, { hex: '#8FB39A', name: 'Musgo' }
+];
+var CF_TAKEN = ['mestre', 'admin', 'lorkarium', 'bia', 'thiago'];
+var CF_FIELDS = ['nick', 'handle', 'pronouns', 'color', 'photo', 'rollVis', 'dice3d', 'sound', 'ping', 'unit', 'lang', 'tz', 'remind', 'inv', 'turn', 'news'];
+var CF_START = { nick: 'Lucas', handle: 'lucas.rola20', pronouns: 'ele/dele', color: '#8FA3BF', photo: null, rollVis: 'todos', dice3d: true, sound: true, ping: true, unit: 'm', lang: 'pt-BR', tz: 'America/Sao_Paulo', remind: 'both', inv: true, turn: true, news: false };
+function cfInitials(n) { var w = (n || '').trim().split(/\s+/).filter(Boolean); if (!w.length) return '?'; return (w.length > 1 ? w[0][0] + w[1][0] : w[0].slice(0, 2)).toUpperCase(); }
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = Object.assign({}, CF_START, { saved: Object.assign({}, CF_START), over: false, saving: false, justSaved: false, confirmDelete: false, discord: true, google: false,
+      sessions: [
+        { id: 's1', device: 'Chrome no Windows', where: 'São Paulo · agora', desk: true, current: true },
+        { id: 's2', device: 'Safari no iPhone', where: 'São Paulo · há 2 dias', desk: false },
+        { id: 's3', device: 'Firefox no Linux', where: 'Campinas · há 3 semanas', desk: true }
+      ] });
+  }
+  set(k, v) { var o = { justSaved: false }; o[k] = v; this.setState(o); }
+  readFile(f) {
+    var self = this;
+    if (!f || !/^image\//.test(f.type) || f.size > 5 * 1024 * 1024) return;
+    var r = new FileReader(); r.onload = function () { self.set('photo', r.result); }; r.readAsDataURL(f);
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var dirty = CF_FIELDS.some(function (k) { return s[k] !== s.saved[k]; });
+    var nickErr = !s.nick.trim();
+    var h = s.handle;
+    var handleState = 'ok', handleHint = 'Disponível · é por aqui que te convidam pras mesas.';
+    if (h === s.saved.handle) { handleState = 'same'; handleHint = 'É por aqui que te convidam pras mesas.'; }
+    else if (!/^[a-z0-9._]{3,20}$/.test(h)) { handleState = 'bad'; handleHint = 'De 3 a 20 caracteres: letras minúsculas, números, ponto ou _.'; }
+    else if (CF_TAKEN.indexOf(h) >= 0) { handleState = 'taken'; handleHint = '@' + h + ' já tem dono. Tenta outro.'; }
+    var cantSave = nickErr || handleState === 'bad' || handleState === 'taken';
+    var seg = function (key, opts) {
+      var o = {};
+      opts.forEach(function (v) { var k = v.replace(/[^a-z0-9]/gi, ''); o[k === '' ? v : k] = { on: s[key] === v ? 'true' : 'false', cls: 'cf-seg' + (s[key] === v ? ' is-on' : ''), pick: function () { self.set(key, v); } }; });
+      return o;
+    };
+    var sw = function (k) { return 'cf-switch' + (s[k] ? ' is-on' : ''); };
+    var tog = function (k) { return function () { self.set(k, !self.state[k]); }; };
+    var remindMap = { off: 'off', h1: '1h', d1: '1d', both: 'both' };
+    var remind = {};
+    Object.keys(remindMap).forEach(function (k) { var v = remindMap[k]; remind[k] = { on: s.remind === v ? 'true' : 'false', cls: 'cf-seg' + (s.remind === v ? ' is-on' : ''), pick: function () { self.set('remind', v); } }; });
+    var others = s.sessions.filter(function (x) { return !x.current; });
+    var barText = s.justSaved ? 'Tudo salvo.' : (cantSave ? 'Arruma o que está marcado pra salvar.' : 'Você tem alterações não salvas.');
+    return {
+      photo: s.photo || '', hasPhoto: !!s.photo, noPhoto: !s.photo, initials: cfInitials(s.nick || s.saved.nick), color: s.color,
+      savedNick: s.saved.nick, savedHandle: s.saved.handle,
+      photoCls: 'cf-photo' + (s.over ? ' is-over' : ''), photoHover: s.over ? 'Solta aqui' : 'Trocar foto', photoBtn: s.photo ? 'Trocar foto' : 'Enviar foto',
+      onFile: function (e) { self.readFile(e.target.files && e.target.files[0]); e.target.value = ''; },
+      onDragOver: function (e) { e.preventDefault(); if (!self.state.over) self.setState({ over: true }); },
+      onDragLeave: function () { self.setState({ over: false }); },
+      onDrop: function (e) { e.preventDefault(); self.setState({ over: false }); self.readFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); },
+      removePhoto: function () { self.set('photo', null); },
+      nick: s.nick, onNick: function (e) { self.set('nick', e.target.value); },
+      nickCls: 'cf-input' + (nickErr ? ' is-error' : ''), nickHint: nickErr ? 'O apelido não pode ficar vazio.' : 'Aparece pra todo mundo nas mesas e no chat.', nickHintColor: nickErr ? '#E6A28F' : '#8C8F98',
+      handle: s.handle, onHandle: function (e) { self.set('handle', e.target.value.toLowerCase().replace(/\s/g, '')); },
+      handleCls: 'cf-input' + (handleState === 'bad' || handleState === 'taken' ? ' is-error' : (handleState === 'ok' ? ' is-ok' : '')),
+      handleHint: handleHint, handleHintColor: handleState === 'ok' ? '#A9D1B4' : (handleState === 'same' ? '#8C8F98' : '#E6A28F'),
+      pronouns: s.pronouns, onPronouns: function (e) { self.set('pronouns', e.target.value); },
+      nickShow: s.nick.trim() || 'Sem apelido', handleShow: s.handle || '…', pronounsShow: s.pronouns && s.pronouns !== 'qualquer' ? ' · ' + s.pronouns : '',
+      swatches: CF_COLORS.map(function (c) { return { hex: c.hex, name: c.name, on: s.color === c.hex ? 'true' : 'false', cls: 'cf-swatch' + (s.color === c.hex ? ' is-on' : ''), pick: function () { self.set('color', c.hex); } }; }),
+      rollVis: seg('rollVis', ['todos', 'mestre', 'eu']), unit: seg('unit', ['m', 'ft', 'casas']), remind: remind,
+      dice3dCls: sw('dice3d'), dice3dOn: s.dice3d ? 'true' : 'false', toggleDice3d: tog('dice3d'),
+      soundCls: sw('sound'), soundOn: s.sound ? 'true' : 'false', toggleSound: tog('sound'),
+      pingCls: sw('ping'), pingOn: s.ping ? 'true' : 'false', togglePing: tog('ping'),
+      invCls: sw('inv'), invOn: s.inv ? 'true' : 'false', toggleInv: tog('inv'),
+      turnCls: sw('turn'), turnOn: s.turn ? 'true' : 'false', toggleTurn: tog('turn'),
+      newsCls: sw('news'), newsOn: s.news ? 'true' : 'false', toggleNews: tog('news'),
+      lang: s.lang, onLang: function (e) { self.set('lang', e.target.value); },
+      tz: s.tz, onTz: function (e) { self.set('tz', e.target.value); },
+      discordCls: 'cf-btn' + (s.discord ? '' : ''), discordLabel: s.discord ? '✓ Discord · desconectar' : 'Conectar Discord',
+      googleCls: 'cf-btn', googleLabel: s.google ? '✓ Google · desconectar' : 'Conectar Google',
+      toggleDiscord: function () { self.setState({ discord: !self.state.discord }); }, toggleGoogle: function () { self.setState({ google: !self.state.google }); },
+      sessions: s.sessions.map(function (x) { return { device: x.device, where: x.where, isPhone: !x.desk, isDesk: x.desk, current: !!x.current, other: !x.current,
+        logout: function () { self.setState({ sessions: self.state.sessions.filter(function (y) { return y.id !== x.id; }) }); } }; }),
+      hasOtherSessions: others.length > 0,
+      logoutOthers: function () { self.setState({ sessions: self.state.sessions.filter(function (y) { return y.current; }) }); },
+      confirmDelete: s.confirmDelete, notConfirmDelete: !s.confirmDelete,
+      askDelete: function () { self.setState({ confirmDelete: true }); }, cancelDelete: function () { self.setState({ confirmDelete: false }); },
+      showBar: dirty || s.justSaved, dirty: dirty, barText: barText, barColor: s.justSaved ? '#A9D1B4' : (cantSave ? '#E6A28F' : '#D5D0C4'),
+      cantSave: cantSave || s.saving, saveLabel: s.saving ? 'Salvando…' : 'Salvar alterações',
+      discard: function () { var o = { justSaved: false }; CF_FIELDS.forEach(function (k) { o[k] = self.state.saved[k]; }); self.setState(o); },
+      save: function () {
+        self.setState({ saving: true });
+        setTimeout(function () {
+          var snap = {}; CF_FIELDS.forEach(function (k) { snap[k] = self.state[k]; });
+          self.setState({ saving: false, saved: snap, justSaved: true });
+          setTimeout(function () { self.setState({ justSaved: false }); }, 2200);
+        }, 700);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

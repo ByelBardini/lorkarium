@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AuthSessionBo } from '../../../src/modules/auth/auth-session.bo';
+import { AuthSessionBo, lastSeenDue } from '../../../src/modules/auth/auth-session.bo';
 import { authSessionPo } from '../../support/auth-factories';
 
 const NOW = new Date('2026-10-14T12:00:00Z');
@@ -53,5 +53,19 @@ describe('AuthSessionBo', () => {
   it('a 12-hour session with 5 hours left renews to now + 12 hours', () => {
     const session = sessionEndingAt('2026-10-14T17:00:00Z', false);
     expect(session.renewalAt(NOW)).toEqual(new Date('2026-10-15T00:00:00Z'));
+  });
+});
+
+describe('lastSeenDue', () => {
+  it('4 minutes after the last write the activity is not rewritten', () => {
+    expect(lastSeenDue(new Date('2026-10-14T11:56:00Z'), NOW)).toBe(false);
+  });
+
+  it('exactly 5 minutes after the last write it is rewritten', () => {
+    expect(lastSeenDue(new Date('2026-10-14T11:55:00Z'), NOW)).toBe(true);
+  });
+
+  it('6 minutes after the last write it is rewritten', () => {
+    expect(lastSeenDue(new Date('2026-10-14T11:54:00Z'), NOW)).toBe(true);
   });
 });

@@ -3,6 +3,16 @@ const HOUR_MS = 60 * 60 * 1000;
 export const PERSISTENT_SESSION_MS = 30 * 24 * HOUR_MS;
 export const TRANSIENT_SESSION_MS = 12 * HOUR_MS;
 
+/** The "last seen" of a session is rewritten at most once per step, not on every request. */
+export const LAST_SEEN_STEP_MS = 5 * 60 * 1000;
+
+/** Whether the session's activity is old enough to be rewritten (a full step has passed).
+ *
+ *  Example: `lastSeenDue(row.lastSeenAt, clock.now()) // true 5 min after the last write` */
+export function lastSeenDue(lastSeenAt: Date, now: Date): boolean {
+  return now.getTime() - lastSeenAt.getTime() >= LAST_SEEN_STEP_MS;
+}
+
 export type AuthSessionTerms = Readonly<{ expiresAt: Date; persistent: boolean }>;
 
 /** Deadline rules of a login session: fixed lifetime, sliding renewal past half of it.

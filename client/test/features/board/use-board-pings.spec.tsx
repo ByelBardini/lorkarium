@@ -2,7 +2,8 @@ import { act, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
-import { pingColorOf } from '@/lib/ping-color';
+import { memberColorOf } from '@lorkarium/game-core';
+import { MEMBER_COLOR_HEX } from '@/lib/member-color';
 import type { OpenTable } from '@/stores/open-tables-store';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
@@ -11,6 +12,7 @@ import { TORRE_SCENE, torreBoard } from '../../support/scene-tab-fixtures';
 import {
   BIA_AT_TABLE,
   VHARN_GRID,
+  biaUpdated,
   boardPinged,
   vharnBoard,
   vharnState,
@@ -45,29 +47,48 @@ describe('play room: pings', () => {
     return screen.getByRole('status', { name: 'Status do tabuleiro' });
   }
 
-  it('pinging shows it at once with my name and color, and sends board:ping on the grid of the tab', async () => {
+  it('pinging shows it at once with my name and the color of my account, and sends board:ping on the grid of the tab', async () => {
+    // The account changed its color (on /account) and the roster still has the old one (teal).
+    act(() => deps.sessionStore.getState().signedIn({ ...ANA, color: 'ember' }));
     deps.boardRenderers.latest().emit({ kind: 'pingRequested', x: 5.5, y: 2.2 });
     await act(() => Promise.resolve());
 
-    const mine = { x: 5.5, y: 2.2, label: 'Ana', color: pingColorOf(ANA.id) };
+    const mine = { x: 5.5, y: 2.2, label: 'Ana', color: MEMBER_COLOR_HEX.ember };
     expect(deps.boardRenderers.latest().pings).toEqual([mine]);
     expect(deps.pings.sent).toEqual([{ scope: VHARN_GRID, point: { x: 5.5, y: 2.2 } }]);
   });
 
-  it("Bia's ping shows with her name and color, and the status line announces it", () => {
+  it("Bia's ping shows with her name and her color in the roster, and the status line announces it", () => {
     act(() => deps.tableSessionApi.emit({ kind: 'pinged', event: boardPinged() }));
 
-    const bias = { x: 5.5, y: 2.2, label: 'Bia', color: pingColorOf(BIA_AT_TABLE.userId) };
+    const bias = { x: 5.5, y: 2.2, label: 'Bia', color: MEMBER_COLOR_HEX[BIA_AT_TABLE.color] };
     expect(deps.boardRenderers.latest().pings).toEqual([bias]);
     expect(statusLine()).toHaveTextContent('Bia marcou um ponto (coluna 6, linha 3).');
   });
 
-  it('a ping of someone not in the roster says "Alguém"', () => {
+  it("after Bia's memberUpdated (rose), her next ping comes out rose with her new name", () => {
+    act(() => deps.tableSessionApi.emit({ kind: 'memberUpdated', event: biaUpdated() }));
+
+    act(() => deps.tableSessionApi.emit({ kind: 'pinged', event: boardPinged() }));
+
+    expect(deps.boardRenderers.latest().pings).toEqual([
+      { x: 5.5, y: 2.2, label: 'Bia Rosa', color: MEMBER_COLOR_HEX.rose },
+    ]);
+  });
+
+  it('a ping of someone not in the roster says "Alguém" in the color drawn from the id', () => {
     act(() =>
       deps.tableSessionApi.emit({ kind: 'pinged', event: boardPinged({ userId: STRANGER_ID }) }),
     );
 
-    expect(deps.boardRenderers.latest().pings.map(({ label }) => label)).toEqual(['Alguém']);
+    expect(deps.boardRenderers.latest().pings).toEqual([
+      {
+        x: 5.5,
+        y: 2.2,
+        label: 'Alguém',
+        color: MEMBER_COLOR_HEX[memberColorOf(STRANGER_ID, null)],
+      },
+    ]);
     expect(statusLine()).toHaveTextContent('Alguém marcou um ponto (coluna 6, linha 3).');
   });
 

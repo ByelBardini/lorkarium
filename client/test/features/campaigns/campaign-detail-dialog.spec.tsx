@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
+import { memberColorCss } from '@/lib/member-color';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 import { detailOf, QUELM, VHARN } from '../../support/campaigns-api-fake';
@@ -53,6 +54,25 @@ describe('campaign detail dialog', () => {
     expect(items[0]).toHaveTextContent('Bia');
     expect(items[0]).toHaveTextContent('Mestre');
     expect(items).toHaveLength(4);
+  });
+
+  it('each participant shows the avatar: the photo when there is one, else initials in the color', async () => {
+    const avatarId = '3c1b2a09-8f7e-4d6c-9b5a-4e3d2c1b0a99';
+    const [bia, ana, ...others] = detailOf(QUELM).members;
+    if (!bia || !ana) throw new Error('QUELM has no members');
+    const dialog = await openDetailOf(QUELM, {
+      members: [bia, { ...ana, avatarId, color: 'rose' }, ...others],
+    });
+
+    const [master, player] = within(within(dialog).getByRole('list')).getAllByRole('listitem');
+    if (!master || !player) throw new Error('the participants did not render');
+    expect(within(player).getByTestId('avatar-photo')).toHaveAttribute(
+      'src',
+      `/api/avatars/${avatarId}`,
+    );
+    const initials = within(master).getByTestId('avatar-initials');
+    expect(initials).toHaveTextContent('BI');
+    expect(initials).toHaveStyle({ backgroundColor: memberColorCss(bia.color) });
   });
 
   it('the master sees the code with "Copiar código"', async () => {

@@ -18,7 +18,8 @@ import {
 } from './stress-scene.bo';
 
 export type StressSceneSeedDeps = Readonly<{
-  users: Pick<UsersDao, 'findByEmail'>;
+  // By the fixed @ of the dev players: the e-mail is sealed, so it is no lookup key here.
+  users: Pick<UsersDao, 'findByUsername'>;
   campaigns: Pick<CampaignsService, 'create' | 'listMine'>;
   join: Pick<CampaignJoinService, 'join'>;
   scenes: Pick<ScenesService, 'configure'>;
@@ -58,7 +59,7 @@ export class StressSceneSeedService {
 
   private async players(): Promise<Players> {
     const [master, player] = await Promise.all(
-      DEV_PLAYERS.map(({ email }) => this.deps.users.findByEmail(email)),
+      DEV_PLAYERS.map(({ username }) => this.deps.users.findByUsername(username)),
     );
     if (master && player) return { master, player };
     const missing = DEV_PLAYERS.filter((_, index) => !(index === 0 ? master : player));

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DevPlayersSeedBo } from '../../../src/modules/auth/dev-players-seed.bo';
 
-const BIA = { name: 'Bia', email: 'bia@lorkarium.dev', role: 'user' };
-const CAIO = { name: 'Caio', email: 'caio@lorkarium.dev', role: 'user' };
+const BIA = { username: 'bia', name: 'Bia', email: 'bia@lorkarium.dev', role: 'user' };
+const CAIO = { username: 'caio', name: 'Caio', email: 'caio@lorkarium.dev', role: 'user' };
 
 describe('DevPlayersSeedBo', () => {
-  it('in development with neither account present both players are created as user', () => {
+  it('in development with neither account present both players are created as user, @bia and @caio', () => {
     expect(new DevPlayersSeedBo('development').decide(new Set())).toEqual({
       create: [BIA, CAIO],
       skipped: [],

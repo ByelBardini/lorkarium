@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { memberColorDto } from '../account/username.dto';
 import { campaignRoleDto } from '../campaigns/campaign.dto';
 import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto';
 
@@ -17,6 +18,7 @@ export const SESSION_EVENTS = {
   memberLeft: 'session:memberLeft',
   setActivity: 'session:setActivity',
   memberActivity: 'session:memberActivity',
+  memberUpdated: 'session:memberUpdated',
 } as const;
 
 /** Payload of `session:join` and `session:leave`; who asks comes from the connection (§7.3).
@@ -29,10 +31,15 @@ export const sessionCommandDto = z.strictObject({
 
 export type SessionCommandDto = z.infer<typeof sessionCommandDto>;
 
-/** A member of the table; `awaySince` is when every tab of theirs stood still (null: active). */
+/** A member of the table; `awaySince` is when every tab of theirs stood still (null: active).
+ *  `name` is the nickname, `username` the @, `color` the effective one (chosen or drawn). */
 export const sessionMemberDto = z.strictObject({
   userId: z.uuid(),
   name: z.string(),
+  username: z.string(),
+  color: memberColorDto,
+  avatarId: z.uuid().nullable(),
+  bio: z.string().nullable(),
   role: campaignRoleDto,
   online: z.boolean(),
   awaySince: z.iso.datetime().nullable(),
@@ -69,6 +76,19 @@ export const sessionMemberLeftDto = z.strictObject({
 });
 
 export type SessionMemberLeftDto = z.infer<typeof sessionMemberLeftDto>;
+
+/** `session:memberUpdated`: a member saved nickname, color, bio or photo; the member is the whole
+ *  row read again by the server, and the version moves like any roster change (§5.5).
+ *
+ *  Example: `sessionMemberUpdatedDto.parse(event).member.color // 'rose'` */
+export const sessionMemberUpdatedDto = z.strictObject({
+  campaignId: z.uuid(),
+  version: stateVersionDto,
+  member: sessionMemberDto,
+  at: z.iso.datetime(),
+});
+
+export type SessionMemberUpdatedDto = z.infer<typeof sessionMemberUpdatedDto>;
 
 /** Answer to `session:join`: the snapshot, or the same error body as the HTTP API. */
 export const sessionJoinAckDto = z.discriminatedUnion('ok', [
@@ -128,4 +148,5 @@ export type SessionServerEvents = {
   'session:memberJoined': (event: SessionMemberJoinedDto) => void;
   'session:memberLeft': (event: SessionMemberLeftDto) => void;
   'session:memberActivity': (event: SessionMemberActivityDto) => void;
+  'session:memberUpdated': (event: SessionMemberUpdatedDto) => void;
 };

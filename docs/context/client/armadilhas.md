@@ -1,0 +1,18 @@
+# Client · armadilhas gerais
+
+Hub: [`../client.md`](../client.md). As armadilhas de uma área ficam no arquivo dela (`board.md`, `account.md`…); aqui, as que valem para o client inteiro.
+
+- No modo data, o `middleware` do root já mantém a navegação inicial pendente e mostra o `HydrateFallback`; não precisa de `loader` só para isso.
+- Playwright: `getByLabel('Senha')` casa por substring e pega também o botão "Mostrar senha"; use `{ exact: true }`.
+- O jsdom não tem `ResizeObserver` e o Checkbox do Radix usa um: `client/test/setup.ts` instala o `ResizeObserverStub`.
+- `react-hooks/refs` (React Compiler) acusa "Cannot access refs during render" em qualquer leitura de um objeto que **carrega** um ref (`form.submitting` quando `form` tem `emailRef`, ou um `binding` com a função de ref). Desestruture o retorno do hook, ou foque por id (`document.getElementById`) em vez de guardar o ref.
+- No `jsdom`, `await expect(p).rejects.toThrow(/regex/)` sobre subclasse de `Error` lê a mensagem como `''`. Use `rejects.toBeInstanceOf(X)` + `rejects.toMatchObject({ message: expect.stringContaining(...) })`.
+- `@custom-variant dark (&)` no `index.css`: o app só tem tema escuro, então todo `dark:` dos componentes shadcn vale sempre. Não reintroduzir a classe `.dark`.
+- `redirectIfSignedOut` numa `action` chamada por **fetcher** deixa a tela em branco: o `signedOut()` faz o `ShellRoute` renderizar `null`, desmonta o dono do fetcher, e o router descarta o redirect desse fetcher. Lance um erro para o `ErrorBoundary` da rota e renderize o `SignedOutRedirect` lá (padrão do `AccountSignedOutError` em [`account.md`](account.md)). O `home-action.ts` ainda usa o redirect num fetcher.
+- Rota com `action` precisa de `path`: o alvo de uma submissão é a última rota que **contribui com path**; numa rota de layout sem `path` (só filhos), o `fetcher.submit` cai fora dela e volta 405 ("did not provide an `action` for route…"). Por isso a `home` tem `path: '/'`.
+- Arquivo que exporta fábrica de rota (função) e declara componente no topo dispara `react-refresh/only-export-components`; o componente da rota vai para o arquivo da tela (exportado) ou nasce dentro da fábrica.
+- `pnpm exec shadcn add` pergunta se sobrescreve o `button.tsx` (dependência de `dialog`/`sheet`) e, sem resposta, não cria nada: rode `yes n | pnpm exec shadcn add <nome>`.
+- `asChild` do Radix (o `Slot` de `TooltipTrigger`, `DropdownMenuItem`, `SheetTrigger`…) junta `className` como texto: um `NavLink` com `className={({ isActive }) => …}` vira o código-fonte da função e perde todas as classes. Dentro de `asChild`, passe string (no trilho, o ativo vem de `useMatch`). Regressão em `client/test/app/shell/app-shell.spec.tsx`.
+- Diálogo que troca de etapa (formulário → "Mesa criada"): o X do formulário também se chama "Fechar". `findByRole('button', { name: 'Fechar' })` logo depois do envio pode achar o X, que some quando a etapa troca, e o clique cai num nó solto (falha intermitente, só com resposta lenta). Espere o texto da etapa nova antes de procurar o botão.
+- A restauração das mesas da aba mora no `middleware` da rota `shell`, não num `useEffect` do `ShellRoute`: o efeito do filho roda antes do efeito do pai, e a tela da mesa abriria a dela antes de a lista da aba voltar (a ordem do trilho mudaria a cada F5).
+- `pnpm dlx shadcn add <componente>` pergunta se sobrescreve o `button.tsx` (que o projeto ajustou) e, sem TTY, para sem escrever nada. Rode com `--yes --overwrite` e restaure o botão com `git checkout -- client/src/components/ui/button.tsx`, ficando só com o arquivo novo.

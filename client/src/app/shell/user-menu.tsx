@@ -1,7 +1,8 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
-import { LogOutIcon, ShieldIcon } from 'lucide-react';
+import { LogOutIcon, ShieldIcon, UserRoundIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
+import { UserAvatar } from '@/components/user-avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +19,8 @@ export type UserMenuProps = Readonly<{
   onSignOut: () => Promise<void>;
 }>;
 
-/** The account menu at the foot of the rail: Backoffice for admins, and "Sair".
+/** The account menu at the foot of the rail, behind the avatar: "Minha conta", Backoffice for
+ *  admins, and "Sair".
  *
  *  Example: `<UserMenu user={user} expanded onSignOut={signOut} />` */
 export function UserMenu({ user, expanded, onSignOut }: UserMenuProps): React.JSX.Element {
@@ -29,12 +31,7 @@ export function UserMenu({ user, expanded, onSignOut }: UserMenuProps): React.JS
           variant="ghost"
           className={cn('h-10 text-label', expanded ? 'justify-start px-2' : 'justify-center px-0')}
         >
-          <span
-            aria-hidden="true"
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted font-brand text-xs text-primary"
-          >
-            {user.name.trim().charAt(0).toUpperCase()}
-          </span>
+          <UserAvatar name={user.name} color={user.color} avatarId={user.avatarId} size="sm" />
           <span className={expanded ? 'truncate' : 'sr-only'}>{user.name}</span>
         </Button>
       </DropdownMenuTrigger>
@@ -43,6 +40,12 @@ export function UserMenu({ user, expanded, onSignOut }: UserMenuProps): React.JS
           {user.email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/account" className="text-foreground no-underline hover:no-underline">
+            <UserRoundIcon aria-hidden="true" />
+            Minha conta
+          </Link>
+        </DropdownMenuItem>
         {user.role === 'admin' && (
           <DropdownMenuItem asChild>
             <Link to="/admin" className="text-foreground no-underline hover:no-underline">

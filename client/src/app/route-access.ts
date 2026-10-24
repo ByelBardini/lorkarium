@@ -1,8 +1,9 @@
 import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { SessionState } from '@/stores/session-store';
 
-/** Who a route is for: only visitors (login), any signed-in account, or admins. */
-export type RouteAccess = 'public-only' | 'signed-in' | 'admin';
+/** Who a route is for: only visitors (login), any signed-in account, admins, or anyone at all
+ *  (a page reached from an e-mail link, signed in or not). */
+export type RouteAccess = 'public-only' | 'signed-in' | 'admin' | 'anyone';
 
 export type AccessDecision =
   Readonly<{ kind: 'allow' }> | Readonly<{ kind: 'redirect'; to: string }>;
@@ -18,6 +19,7 @@ const HOME = '/';
  *
  *  Example: `decideAccess(session, 'admin', new URL(request.url)) // { kind: 'redirect', to: '/' }` */
 export function decideAccess(session: KnownSession, access: RouteAccess, url: URL): AccessDecision {
+  if (access === 'anyone') return ALLOW;
   if (access === 'public-only') return decidePublicOnly(session, url);
   if (session.status === 'anonymous') return { kind: 'redirect', to: loginPathFor(url) };
   if (access === 'admin' && session.user.role !== 'admin') return { kind: 'redirect', to: HOME };

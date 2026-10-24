@@ -1,6 +1,8 @@
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { UsersDao } from '../../src/modules/auth/users.dao';
+import { users } from '../../src/modules/auth/users.po';
 import { CampaignMembersDao } from '../../src/modules/campaigns/campaign-members.dao';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
 import { newUserPo } from '../support/auth-factories';
@@ -99,14 +101,51 @@ describe('CampaignMembersDao on Postgres', () => {
     ]);
   });
 
-  it('listMembers returns the user id, name and role of every member', async () => {
+  it('listMembers returns the id, nickname, @, profile and role of every member', async () => {
     const campaignId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
     await membersDao.insert(newCampaignMemberPo({ campaignId, userId: biaId, role: 'player' }));
+    const photo = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
+    await connection.db
+      .update(users)
+      .set({ color: 'rose', avatarId: photo, bio: 'Mestre' })
+      .where(eq(users.id, anaId));
     const members = await membersDao.listMembers(campaignId);
     expect([...members].sort((a, b) => a.name.localeCompare(b.name))).toEqual([
-      { userId: anaId, name: 'Ana', role: 'master' },
-      { userId: biaId, name: 'Bia', role: 'player' },
+      {
+        userId: anaId,
+        name: 'Ana',
+        username: 'ana',
+        colorChoice: 'rose',
+        avatarId: photo,
+        bio: 'Mestre',
+        role: 'master',
+      },
+      {
+        userId: biaId,
+        name: 'Bia',
+        username: 'bia',
+        colorChoice: null,
+        avatarId: null,
+        bio: null,
+        role: 'player',
+      },
     ]);
+  });
+
+  it('listMembers of one campaign never lists a member of another (criterion 14)', async () => {
+    const vharnId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+    await campaignMasteredBy(biaId, 'Quelm', 'QLM4X7PZ');
+    const members = await membersDao.listMembers(vharnId);
+    expect(members.map(({ userId }) => userId)).toEqual([anaId]);
+  });
+
+  it('campaignIdsOfUser returns only the campaigns the user is a member of', async () => {
+    const vharnId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+    const quelmId = await campaignMasteredBy(biaId, 'Quelm', 'QLM4X7PZ');
+    await membersDao.insert(newCampaignMemberPo({ campaignId: quelmId, userId: anaId }));
+    await campaignMasteredBy(biaId, 'Sem Ana', 'SNA9K3TR');
+    const ids = await membersDao.campaignIdsOfUser(anaId);
+    expect([...ids].sort()).toEqual([vharnId, quelmId].sort());
   });
 
   it('markEntered writes only the row of that campaign and user', async () => {

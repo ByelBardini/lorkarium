@@ -9,6 +9,7 @@
   "devDependencies": {
     "@lorkarium/tsconfig": "workspace:*",
     "@playwright/test": "^1.64.1",
-    "@types/node": "^26.6.5"
+    "@types/node": "^26.6.5",
+    "otpauth": "^9.5.2"
   }
 }

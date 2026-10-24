@@ -25,7 +25,7 @@ export class LoopbackOnlyPolicyFake implements AddressPolicy {
   }
 }
 
-/** An in-memory bucket; writes 'put' to the shared journal. */
+/** An in-memory bucket; writes 'put' and 'remove:<key>' to the shared journal. */
 export class AssetStorageFake implements AssetStoragePort {
   readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
 
@@ -43,6 +43,11 @@ export class AssetStorageFake implements AssetStoragePort {
     if (object === undefined) return null;
     const body = Readable.from([Buffer.from(object.bytes)]);
     return { body, size: object.bytes.byteLength, contentType: object.contentType };
+  }
+
+  async remove(key: string): Promise<void> {
+    this.journal.push(`remove:${key}`);
+    this.objects.delete(key);
   }
 }
 

@@ -29,8 +29,9 @@ describe('GET /api/health', () => {
 
   it('with a closed database pool it answers 503 DATABASE_UNAVAILABLE without leaking the URL', async () => {
     const closed = createDatabase(env.databaseUrl);
-    await closed.close();
+    // The boot itself reads the accounts (backfill, admin seed), so the pool closes after it.
     const brokenApp = await buildApp({ env, db: closed.db });
+    await closed.close();
     const response = await brokenApp.inject({ method: 'GET', url: '/api/health' });
     await brokenApp.close();
     expect(response.statusCode).toBe(503);

@@ -6,10 +6,12 @@ import { PerfPanel } from '@/app/perf-panel';
 import { tabInteractionFactory } from '@/features/board/tab-interaction';
 import { buildRoutes } from '@/app/router';
 import { NO_PERF_PROBE, RecordingPerfProbe } from '@/lib/perf-probe';
+import { HttpAccountSecurityApi } from '@/services/account-security-api';
 import { HttpAuthApi } from '@/services/auth-api';
 import { HttpAssetsApi } from '@/services/assets-api';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
 import { HttpLibraryApi } from '@/services/library-api';
+import { HttpProfileApi } from '@/services/profile-api';
 import { NavigatorClipboard } from '@/services/clipboard';
 import { FetchHttpTransport } from '@/services/http-transport';
 import { SocketIoRealtimeTransport } from '@/services/realtime-transport';
@@ -58,6 +60,8 @@ const router = createBrowserRouter(
   buildRoutes({
     authApi: new HttpAuthApi(transport),
     campaignsApi: new HttpCampaignsApi(transport),
+    profileApi: new HttpProfileApi(transport),
+    accountSecurityApi: new HttpAccountSecurityApi(transport),
     libraryApi: new HttpLibraryApi(transport),
     sceneActivation: new RealtimeSceneActivation(realtime, newActionId),
     assets: new HttpAssetsApi(transport),

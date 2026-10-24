@@ -35,10 +35,21 @@ export async function signIn(page: Page, credentials: Credentials): Promise<void
   sessionsByEmail.set(credentials.email, await page.context().cookies());
 }
 
-async function signInThroughTheForm(page: Page, { email, password }: Credentials): Promise<void> {
+/** Sends e-mail and password through the login screen, with no saved cookie: a session of its
+ *  own (the caller waits for the shell, or for the 2FA step).
+ *
+ *  Example: `await submitLogin(page, BIA); await expect(page.getByRole('form', { name: 'Verificação em duas etapas' })).toBeVisible()` */
+export async function submitLogin(page: Page, { email, password }: Credentials): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('E-mail').fill(email);
   await page.getByLabel('Senha', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Entrar' }).click();
+}
+
+/** A new session through the login screen, never the saved cookie, then the signed-in shell.
+ *
+ *  Example: `await signInThroughTheForm(other, CAIO)` */
+export async function signInThroughTheForm(page: Page, credentials: Credentials): Promise<void> {
+  await submitLogin(page, credentials);
   await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible();
 }

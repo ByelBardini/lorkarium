@@ -65,7 +65,7 @@ describe('the commands of a character', () => {
       masterName: 'Ana',
       memberCount: 1,
       lastEnteredAt: null,
-      members: [{ name: 'Ana', role: 'master' }],
+      members: [{ userId: VHARN, name: 'Ana', role: 'master', color: 'gold', avatarId: null }],
       joinCode: 'VHRN7K2Q',
       hasPassword: false,
     };

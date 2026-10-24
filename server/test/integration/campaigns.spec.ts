@@ -17,7 +17,7 @@ import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
-type Method = 'GET' | 'POST';
+type Method = 'GET' | 'POST' | 'PATCH';
 
 describe('campaigns HTTP edge', () => {
   const env: Env = { ...readEnv(process.env), adminSeed: null };
@@ -131,6 +131,16 @@ describe('campaigns HTTP edge', () => {
       const response = await call('GET', `/campaigns/${UNKNOWN_ID}`, ana);
       expect(response.statusCode).toBe(404);
       expect(errorCodeOf(response)).toBe('CAMPAIGN_NOT_FOUND');
+    });
+
+    it('the detail lists each participant with id, effective color and photo, only of that table', async () => {
+      const vharn = await createCampaign(ana);
+      await createCampaign(bia, { name: 'Quelm' });
+      await call('PATCH', '/account/profile', ana, { color: 'rose' });
+      const response = await call('GET', `/campaigns/${vharn.id}`, ana);
+      expect(campaignResponseDto.parse(response.json()).campaign.members).toEqual([
+        { userId: expect.any(String), name: 'Ana', role: 'master', color: 'rose', avatarId: null },
+      ]);
     });
 
     it('the master gets the detail with the join code', async () => {

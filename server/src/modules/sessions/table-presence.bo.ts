@@ -29,6 +29,7 @@ export type PresenceChange =
   | 'came-back'
   | 'still-active'
   | 'already-away'
+  | 'profile-changed'
   | 'not-connected';
 
 export type DisconnectReason = 'left' | 'dropped';
@@ -37,8 +38,8 @@ export type PresenceOutcome = Readonly<{ roster: PresenceRoster; change: Presenc
 
 /** Presence counted per user, not per socket: a second tab or a short drop is not a leave, and a
  *  user is away only when every tab of theirs stands still. Only what others see bumps the
- *  version: `came-online`, `went-offline`, `went-away` and `came-back`. The time comes in by
- *  parameter (no clock in the rule).
+ *  version: `came-online`, `went-offline`, `went-away`, `came-back` and `profile-changed`. The
+ *  time comes in by parameter (no clock in the rule).
  *
  *  Example: `new TablePresenceBo(EMPTY_ROSTER).connect(userId, socket.id).change // 'came-online'` */
 export class TablePresenceBo {
@@ -104,6 +105,14 @@ export class TablePresenceBo {
     const roster = { ...this.roster, away: without(this.roster.away, socketId) };
     if (this.roster.awaySince.has(userId)) return this.cameBack(roster, userId);
     return { roster, change: 'still-active' };
+  }
+
+  /** A member of the table saved nickname, color, bio or photo: no socket moves, but everyone
+   *  sees the new profile, so the version does.
+   *
+   *  Example: `new TablePresenceBo(roster).profileChanged().roster.version // roster.version + 1` */
+  profileChanged(): PresenceOutcome {
+    return { roster: { ...this.roster, version: this.nextVersion() }, change: 'profile-changed' };
   }
 
   isOnline(userId: string): boolean {

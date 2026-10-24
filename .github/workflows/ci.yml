@@ -111,12 +111,18 @@ jobs:
       S3_BUCKET: lorkarium
       S3_ACCESS_KEY_ID: lorkarium
       S3_SECRET_ACCESS_KEY: lorkarium-dev-secret
+      # Dev-only field-encryption key (server/.env.example); the CI databases are thrown away.
+      DATA_ENCRYPTION_KEY: EJ0VAPvnCxgUGYKDbckfwbxEca0bm7NndOkKfFJQjeQ=
+      # The SMTP adapter spec delivers to the Mailpit step and reads it back through its API.
+      MAILPIT_SMTP_URL: smtp://localhost:1025
+      MAILPIT_API_URL: http://localhost:8025
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/seaweedfs
+      - uses: ./.github/actions/mailpit
       - run: pnpm db:migrate
       - run: pnpm test:integration
 
@@ -139,7 +145,7 @@ jobs:
       fail-fast: false
       matrix:
         # The projects of e2e/playwright.config.ts (SPEC_GROUPS); the config refuses an ungrouped spec.
-        group: [table, tokens, scene, combat, vision, lighting, library]
+        group: [table, tokens, scene, combat, vision, lighting, library, account]
     services:
       postgres:
         image: postgres:17-alpine
@@ -164,6 +170,8 @@ jobs:
       S3_BUCKET: lorkarium
       S3_ACCESS_KEY_ID: lorkarium
       S3_SECRET_ACCESS_KEY: lorkarium-dev-secret
+      # Dev-only field-encryption key (server/.env.example); the CI databases are thrown away.
+      DATA_ENCRYPTION_KEY: EJ0VAPvnCxgUGYKDbckfwbxEca0bm7NndOkKfFJQjeQ=
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

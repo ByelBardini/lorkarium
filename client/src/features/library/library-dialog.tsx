@@ -1,8 +1,8 @@
 import type { CampaignDetailDto, LibraryDto } from '@lorkarium/contracts';
-import { Suspense, use, useEffect } from 'react';
-import { useLocation, useNavigate, useRevalidator } from 'react-router';
+import { Suspense, use } from 'react';
+import { useRevalidator } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
-import { loginPathFor } from '@/app/route-access';
+import { SignedOutRedirect } from '@/components/signed-out-redirect';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import type { LibraryFailure, LibraryResult } from '@/services/library-api';
@@ -64,7 +64,7 @@ function LoadedLibrary(props: LibraryDialogProps): React.JSX.Element {
   const result = use(props.library);
   if (result.ok) return <LibraryBrowser {...props} library={result.value} />;
   if (result.failure.kind === 'unauthenticated')
-    return <SignedOut sessionStore={props.sessionStore} />;
+    return <SignedOutRedirect sessionStore={props.sessionStore} />;
   return <LibraryLoadFailure {...props} failure={result.failure} />;
 }
 
@@ -83,16 +83,4 @@ function LibraryLoadFailure(props: LibraryDialogProps & Readonly<{ failure: Libr
       </div>
     </>
   );
-}
-
-// An expired session ends the screen, as a loader's `redirectIfSignedOut` does.
-function SignedOut({ sessionStore }: Readonly<{ sessionStore: StoreApi<SessionStore> }>) {
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
-  useEffect(() => {
-    const here = new URL(pathname, window.location.origin);
-    sessionStore.getState().signedOut();
-    void navigate(loginPathFor(here), { replace: true });
-  }, [navigate, pathname, sessionStore]);
-  return null;
 }

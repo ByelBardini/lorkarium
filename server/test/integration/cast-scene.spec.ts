@@ -10,10 +10,13 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
-import { MIGRATIONS_FOLDER } from '../../src/database/migrate';
 import { gridAck } from '../support/grids';
 import { envelope, send } from '../support/live-table';
-import { databaseUrlNamed, migrationsUpTo } from '../support/migrations-up-to';
+import {
+  databaseUrlNamed,
+  LAST_MIGRATION_WITH_PLAIN_EMAIL,
+  migrationsUpTo,
+} from '../support/migrations-up-to';
 import type { RealtimeClient } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
 import type { Table } from '../support/tables';
@@ -110,6 +113,8 @@ describe('migration 0035_cast_scenes on a database with two tables', () => {
   let admin: DatabaseConnection;
   let scratch: DatabaseConnection;
   let partialFolder: string;
+  // Not every migration: 0039 refuses the raw user seeded here, which never got a cipher.
+  let laterFolder: string;
 
   beforeAll(async () => {
     admin = createDatabase(readEnv(process.env).databaseUrl);
@@ -117,6 +122,7 @@ describe('migration 0035_cast_scenes on a database with two tables', () => {
     await admin.db.execute(sql.raw(`CREATE DATABASE ${SCRATCH_DATABASE}`));
     scratch = createDatabase(databaseUrlNamed(SCRATCH_DATABASE));
     partialFolder = await migrationsUpTo('0034_combatants_combat_idx');
+    laterFolder = await migrationsUpTo(LAST_MIGRATION_WITH_PLAIN_EMAIL);
     await migrate(scratch.db, { migrationsFolder: partialFolder });
   });
 
@@ -125,6 +131,7 @@ describe('migration 0035_cast_scenes on a database with two tables', () => {
     await admin.db.execute(sql.raw(`DROP DATABASE IF EXISTS ${SCRATCH_DATABASE}`));
     await admin.close();
     await rm(partialFolder, { recursive: true, force: true });
+    await rm(laterFolder, { recursive: true, force: true });
   });
 
   it('each table that existed gets exactly one cast, and a second one is refused', async () => {
@@ -135,7 +142,7 @@ describe('migration 0035_cast_scenes on a database with two tables', () => {
       VALUES (${VHARN}, ${ANA}, 'Vharn', 'VHRN7K2Q'), (${QUELM}, ${ANA}, 'Quelm', 'QELM2345')`);
     await scratch.db.execute(sql`INSERT INTO scenes (campaign_id) VALUES (${VHARN}), (${QUELM})`);
 
-    await migrate(scratch.db, { migrationsFolder: MIGRATIONS_FOLDER });
+    await migrate(scratch.db, { migrationsFolder: laterFolder });
 
     const { rows } = await scratch.db.execute<{ campaign_id: string; kind: string }>(
       sql`SELECT campaign_id, kind FROM scenes ORDER BY campaign_id, kind`,

@@ -1,6 +1,6 @@
 // Every PO table the app persists; drizzle-kit reads this file to generate migrations.
 export { authSessions } from '../modules/auth/auth-sessions.po';
-export { userRole, users } from '../modules/auth/users.po';
+export { memberColor, userRole, users } from '../modules/auth/users.po';
 export { campaignRole, campaignMembers } from '../modules/campaigns/campaign-members.po';
 export { campaignVisibility, campaigns } from '../modules/campaigns/campaigns.po';
 export { sceneKind, sceneVision, sceneVisibility, scenes } from '../modules/scenes/scenes.po';
@@ -30,3 +30,6 @@ export { assetMimeType, assetPurpose, assets } from '../modules/assets/assets.po
 export { lightColorEnum, lights } from '../modules/lights/lights.po';
 export { mainTokens } from '../modules/tokens/main-tokens.po';
 export { memberCards } from '../modules/member-cards/member-cards.po';
+export { emailChangeRequests } from '../modules/account-security/email-change-requests.po';
+export { recoveryCodes, userTwoFactor } from '../modules/auth/two-factor.po';
+export { twoFactorChallenges } from '../modules/auth/two-factor-challenges.po';

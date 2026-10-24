@@ -4,7 +4,6 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
-import { MIGRATIONS_FOLDER } from '../../src/database/migrate';
 import { AssetsDao } from '../../src/modules/assets/assets.dao';
 import { UsersDao } from '../../src/modules/auth/users.dao';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
@@ -15,7 +14,11 @@ import { tokens } from '../../src/modules/tokens/tokens.po';
 import { newAssetPo } from '../support/assets-factories';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
-import { databaseUrlNamed, migrationsUpTo } from '../support/migrations-up-to';
+import {
+  databaseUrlNamed,
+  LAST_MIGRATION_WITH_PLAIN_EMAIL,
+  migrationsUpTo,
+} from '../support/migrations-up-to';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const CHECK_VIOLATION = '23514';
@@ -262,6 +265,8 @@ describe('migration 0033_scene_library on a database with a scene', () => {
   let admin: DatabaseConnection;
   let scratch: DatabaseConnection;
   let partialFolder: string;
+  // Not every migration: 0039 refuses the raw user seeded here, which never got a cipher.
+  let laterFolder: string;
 
   beforeAll(async () => {
     admin = createDatabase(readEnv(process.env).databaseUrl);
@@ -269,6 +274,7 @@ describe('migration 0033_scene_library on a database with a scene', () => {
     await admin.db.execute(sql.raw(`CREATE DATABASE ${SCRATCH_DATABASE}`));
     scratch = createDatabase(databaseUrlNamed(SCRATCH_DATABASE));
     partialFolder = await migrationsUpTo('0032_member_cards');
+    laterFolder = await migrationsUpTo(LAST_MIGRATION_WITH_PLAIN_EMAIL);
     await migrate(scratch.db, { migrationsFolder: partialFolder });
   });
 
@@ -277,6 +283,7 @@ describe('migration 0033_scene_library on a database with a scene', () => {
     await admin.db.execute(sql.raw(`DROP DATABASE IF EXISTS ${SCRATCH_DATABASE}`));
     await admin.close();
     await rm(partialFolder, { recursive: true, force: true });
+    await rm(laterFolder, { recursive: true, force: true });
   });
 
   it('the scene that existed comes out public and outside any folder', async () => {
@@ -290,7 +297,7 @@ describe('migration 0033_scene_library on a database with a scene', () => {
     await scratch.db.execute(sql`
       INSERT INTO scenes (campaign_id) VALUES ('3b1e9a52-6c4d-4f8a-9e2b-1a7c5d3f8e10')`);
 
-    await migrate(scratch.db, { migrationsFolder: MIGRATIONS_FOLDER });
+    await migrate(scratch.db, { migrationsFolder: laterFolder });
 
     const { rows } = await scratch.db.execute<{ visibility: string; folder_id: string | null }>(
       sql`SELECT visibility, folder_id FROM scenes WHERE kind = 'grid'`,

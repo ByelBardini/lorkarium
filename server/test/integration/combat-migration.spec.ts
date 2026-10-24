@@ -4,9 +4,12 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
-import { MIGRATIONS_FOLDER } from '../../src/database/migrate';
 import { CombatDao } from '../../src/modules/combat/combat.dao';
-import { databaseUrlNamed, migrationsUpTo } from '../support/migrations-up-to';
+import {
+  databaseUrlNamed,
+  LAST_MIGRATION_WITH_PLAIN_EMAIL,
+  migrationsUpTo,
+} from '../support/migrations-up-to';
 
 const SCRATCH_DATABASE = 'lorkarium_combat_migration';
 const LAST_MIGRATION_BEFORE_GROUPS = '0018_token_sight';
@@ -47,10 +50,13 @@ describe('migrations 0019_combatant_tokens and 0020_combatants_drop_token', () =
   let admin: DatabaseConnection;
   let scratch: DatabaseConnection | undefined;
   let partialFolder: string;
+  // Not every migration: 0039 refuses the raw users these specs seed, which never got a cipher.
+  let laterFolder: string;
 
   beforeAll(async () => {
     admin = createDatabase(readEnv(process.env).databaseUrl);
     partialFolder = await migrationsUpTo(LAST_MIGRATION_BEFORE_GROUPS);
+    laterFolder = await migrationsUpTo(LAST_MIGRATION_WITH_PLAIN_EMAIL);
   });
 
   afterEach(async () => {
@@ -62,6 +68,7 @@ describe('migrations 0019_combatant_tokens and 0020_combatants_drop_token', () =
   afterAll(async () => {
     await admin.close();
     await rm(partialFolder, { recursive: true, force: true });
+    await rm(laterFolder, { recursive: true, force: true });
   });
 
   async function scratchAt0018(): Promise<DatabaseConnection> {
@@ -76,7 +83,7 @@ describe('migrations 0019_combatant_tokens and 0020_combatants_drop_token', () =
     const database = await scratchAt0018();
     await seedCombatAt0018(database);
 
-    await migrate(database.db, { migrationsFolder: MIGRATIONS_FOLDER });
+    await migrate(database.db, { migrationsFolder: laterFolder });
 
     const found = await new CombatDao(database.db).findOfScene(SCENE);
     expect(found?.combat).toMatchObject({ round: 2, currentCombatantId: LYRA_ENTRY });
@@ -89,7 +96,7 @@ describe('migrations 0019_combatant_tokens and 0020_combatants_drop_token', () =
   it('a database without combat migrates without error and ends with no link', async () => {
     const database = await scratchAt0018();
 
-    await migrate(database.db, { migrationsFolder: MIGRATIONS_FOLDER });
+    await migrate(database.db, { migrationsFolder: laterFolder });
 
     const links = await database.db.execute<{ total: number }>(
       sql`SELECT count(*)::int AS total FROM combatant_tokens`,

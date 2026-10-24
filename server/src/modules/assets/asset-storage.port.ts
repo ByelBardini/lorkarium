@@ -10,4 +10,6 @@ export interface AssetStoragePort {
   put(key: string, bytes: Uint8Array, contentType: string): Promise<void>;
   /** `null` when nothing was ever put under the key. */
   open(key: string): Promise<StoredObject | null>;
+  /** Deletes the object; a key that holds nothing is not an error (idempotent). */
+  remove(key: string): Promise<void>;
 }

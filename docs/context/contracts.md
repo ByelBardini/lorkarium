@@ -5,6 +5,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 ## Estrutura
 
 - `src/auth/` — login e usuário autenticado
+- `src/account/` — perfil (@, apelido, cor, bio), foto, senha, e-mail, sessões e 2FA
 - `src/http/` — formas transversais da API HTTP (erro)
 - `src/campaigns/` — mesa (campanha): resumo, detalhe, criação e entrada por código
 - `src/sessions/` — sessão ao vivo da mesa (Socket.IO): comandos, eventos e acks
@@ -16,8 +17,9 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 - `loginRequestDto` (`auth/login.dto.ts`) — corpo de `POST /api/auth/login`: `{ email, password, rememberMe }`. E-mail com `trim` + minúsculas antes de validar; senha de 1 a `PASSWORD_MAX_LENGTH` (256); `rememberMe` padrão `false`. Tipos: `LoginRequestDto` (saída) e `LoginRequestInput` (entrada, `rememberMe` opcional).
 - `userRoleDto` / `UserRoleDto` (`auth/auth-user.dto.ts`) — papel **global** da conta: `'user' | 'admin'`. Mestre/jogador/espectador não são papel de conta (são por campanha).
-- `authUserDto` / `AuthUserDto` — `{ id (uuid), name, email, role }`; nunca leva hash de senha.
-- `loginResponseDto` — `{ user: AuthUserDto }`.
+- `authUserDto` / `AuthUserDto` — `{ id (uuid), username (o @), name (o apelido), email, role, color (`memberColorDto`, a efetiva), avatarId (uuid | null) }`; nunca leva hash de senha.
+- `loginResponseDto` (`login.dto.ts`) — união discriminada por `status`, estrita: `{ status: 'signed-in', user }` | `{ status: 'two-factor-required' }` (sem `user`: a sessão só nasce depois do código). Responde também `POST /api/auth/login/two-factor`.
+- `twoFactorLoginRequestDto` — corpo da 2ª etapa: exatamente um entre `{ code }` (`totpCodeDto`) e `{ recoveryCode }` (`recoveryCodeDto`); os dois juntos ou nenhum são recusados.
 - `meResponseDto` — `{ user: AuthUserDto | null }` (`null` = visitante anônimo).
 - `apiErrorDto` / `ApiErrorDto` (`http/api-error.dto.ts`) — corpo de todo erro da API: `{ code, message, retryAfterSeconds? }`.
 - `healthResponseDto` / `HealthResponseDto` (`http/health.dto.ts`) — corpo do 200 de `GET /api/health`: `{ status: 'ok' }`.
@@ -26,7 +28,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 - `campaignRoleDto` (`'master' | 'player'`, papel **por mesa**) e `campaignVisibilityDto` (`'public' | 'private'`) em `campaign.dto.ts`.
 - `campaignSummaryDto` — linha da lista: `{ id, name, system | null, status | null, description | null, visibility, myRole, masterName, memberCount, lastEnteredAt (ISO | null) }`.
-- `campaignDetailDto` — resumo + `members: { name, role }[]` + `joinCode | null` (só o mestre recebe) + `hasPassword`. Nunca leva senha nem hash.
+- `campaignDetailDto` — resumo + `members: { userId, name, role, color, avatarId | null }[]` (`campaignMemberDto`) + `joinCode | null` (só o mestre recebe) + `hasPassword`. Nunca leva senha nem hash.
 - `listCampaignsResponseDto` `{ campaigns }`, `campaignResponseDto` `{ campaign: detalhe }`, `campaignIdParamsDto` `{ campaignId: uuid }`.
 - `createCampaignRequestDto` (`create-campaign.dto.ts`) — corpo de `POST /api/campaigns`: `name` aparado, 1 a `CAMPAIGN_NAME_MAX_LENGTH` (80); `system`/`status` até `CAMPAIGN_LABEL_MAX_LENGTH` (40) e `description` até `CAMPAIGN_DESCRIPTION_MAX_LENGTH` (500), aparados, vazio/só espaço/ausente → `null`; `visibility` padrão `private`; `password` opcional de `CAMPAIGN_PASSWORD_MIN_LENGTH` (4) a `CAMPAIGN_PASSWORD_MAX_LENGTH` (128), `''` vale como ausente. Tipos `CreateCampaignRequestDto` (saída) e `CreateCampaignRequestInput` (entrada).
 - `join-campaign.dto.ts` — `CAMPAIGN_CODE_ALPHABET` (`23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, sem 0/O/1/I) e `CAMPAIGN_CODE_LENGTH` (8); `campaignCodeDto` tira espaços e hífens e põe em caixa alta antes de validar (`' vhrn-7k2q '` → `'VHRN7K2Q'`); `joinCampaignRequestDto` `{ code, password? }` (senha de 1 a 128: a regra de tamanho mínimo é da criação); `joinCampaignResponseDto` `{ campaign: resumo }`.
@@ -47,12 +49,13 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 `session.dto.ts` — a mesa é a sessão (detalhe em [`sessions.md`](sessions.md)).
 
 - `realtime-limits.ts` — `REALTIME_MESSAGE_MAX_BYTES` (5 MiB: o `maxHttpBufferSize` do server, medido pelo maior comando válido, o `drawing:createMany` de 64 traços de 2000 pontos em precisão total, ≈ 4,8 MB — `test/realtime-limits.spec.ts`; o padrão de 1 MB do Socket.IO derrubava a conexão) e `REALTIME_COMPRESSION_THRESHOLD_BYTES` (4096: daí para cima a mensagem vai comprimida).
-- `REALTIME_PATH` = `'/api/socket.io'` (o `path` do Socket.IO nas duas pontas) e `SESSION_EVENTS` (`session:join`, `session:leave`, `session:memberJoined`, `session:memberLeft`, `session:setActivity`, `session:memberActivity`).
+- `REALTIME_PATH` = `'/api/socket.io'` (o `path` do Socket.IO nas duas pontas) e `SESSION_EVENTS` (`session:join`, `session:leave`, `session:memberJoined`, `session:memberLeft`, `session:setActivity`, `session:memberActivity`, `session:memberUpdated`).
 - `sessionCommandDto` — payload de `session:join` e `session:leave`: `{ actionId (uuid), campaignId (uuid) }`, estrito (um `userId` ou `role` forjado é recusado: a identidade vem da conexão, §7.3).
-- `sessionMemberDto` `{ userId, name, role (campaignRoleDto), online, awaySince (ISO | null: desde quando todas as abas dele estão paradas) }`.
+- `sessionMemberDto` `{ userId, name (apelido), username, color (efetiva), avatarId | null, bio | null, role (campaignRoleDto), online, awaySince (ISO | null: desde quando todas as abas dele estão paradas) }`.
 - `sessionStateDto` `{ campaignId, version (inteiro ≥ 0), members, at (ISO) }` — o `session:state` do §7.2 **não** é um evento: chega como ack do `session:join`.
 - `sessionMemberJoinedDto` `{ campaignId, version, member (com online: true e awaySince: null), at }` e `sessionMemberLeftDto` `{ campaignId, version, userId, at }`.
 - `sessionJoinAckDto` (`{ ok: true, state }` | `{ ok: false, error: ApiErrorDto }`) e `sessionLeaveAckDto` (`{ ok: true }` | a mesma falha), uniões discriminadas por `ok`.
+- `sessionMemberUpdatedDto` `{ campaignId, version, member (o `sessionMemberDto` inteiro, relido), at }` — `session:memberUpdated`, quando a pessoa salva apelido, cor, bio ou foto.
 - Ausência: `sessionActivityCommandDto` `{ actionId, campaignId, away }` (`session:setActivity`, estrito: `userId` forjado é recusado), `sessionActivityAckDto` (= o do `leave`: `{ ok: true }` | falha) e o evento `sessionMemberActivityDto` `{ campaignId, version, userId, awaySince (ISO | null), at }` (`session:memberActivity`).
 - `MAX_OPEN_TABLES` = `5` — mesas abertas ao mesmo tempo por conexão: o server recusa a 6ª (`TOO_MANY_TABLES`) e o client avisa antes de pedir.
 - `SessionClientEvents` / `SessionServerEvents` — mapas de tipo para os genéricos do Socket.IO no server e no client.
@@ -67,6 +70,10 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - Params: `librarySceneParamsDto` `{ campaignId, sceneId }` e `sceneFolderParamsDto` `{ campaignId, folderId }` (a borda usa o `shape` de cada campo).
 - Evento `libraryChangedDto` `{ campaignId, at }` (`library:changed`, sem dado de grid) e o mapa `LibraryServerEvents`, que entra no `TableServerEvents`.
 - Ativação e expulsão: `sceneActivatedDto` `{ campaignId, sceneId, previousSceneId | null, at }` (`scene:activated`, à mesa), `sceneClosedReasonDto` (`private` | `deleted`) e `sceneClosedDto` `{ campaignId, sceneId, reason, at }` (`scene:closed`, a cada socket tirado do grid); os dois entram no `LibraryServerEvents`.
+
+### Conta (`account/`)
+
+`usernameDto`, `memberColorDto`, perfil, foto, senha, e-mail, sessões ativas e 2FA: detalhe em [`contracts/conta.md`](contracts/conta.md).
 
 ### Tempo real comum (`http/realtime-ack.dto.ts`)
 

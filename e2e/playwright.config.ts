@@ -11,6 +11,14 @@ if (existsSync(SERVER_ENV_FILE)) {
   }
 }
 
+// The dev-only key of server/.env.example, for a server/.env written before the key existed: the
+// e2e database is emptied on every run, so nothing sealed with it outlives the run.
+process.env.DATA_ENCRYPTION_KEY ??= 'EJ0VAPvnCxgUGYKDbckfwbxEca0bm7NndOkKfFJQjeQ=';
+
+// The e2e server writes e-mail to its log (LogMailer) even if server/.env points at Mailpit: a run
+// must not depend on Mailpit being up nor fill the dev inbox. Empty counts as unset for the server.
+process.env.SMTP_URL = '';
+
 // The e2e gets a database of its own (<db>_e2e), emptied on every run, so it never fills the dev
 // one. The server and its prepare step inherit this from the webServer environment.
 process.env.DATABASE_URL = e2eDatabaseUrl(process.env.DATABASE_URL);
@@ -37,6 +45,8 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   vision: ['vision', 'vision-cone'],
   lighting: ['lighting'],
   library: ['library', 'character'],
+  // Borrows Bia and Caio for password and 2FA (undone at the end): kept away from the others.
+  account: ['account'],
 };
 
 assertEverySpecIsGrouped(SPEC_GROUPS);

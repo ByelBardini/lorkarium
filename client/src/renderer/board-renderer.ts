@@ -121,7 +121,7 @@ export type BoardIntent =
 
 export type BoardIntentListener = (intent: BoardIntent) => void;
 
-/** One ping to show: where (fractional cells), whose name and which color (`pingColorOf`). */
+/** One ping to show: where (fractional cells), whose name and which color (`MEMBER_COLOR_HEX`). */
 export type PingMark = Readonly<{ x: number; y: number; label: string; color: number }>;
 
 /** The board on a canvas: React hands it a host element and a `BoardView`, and hears intents.

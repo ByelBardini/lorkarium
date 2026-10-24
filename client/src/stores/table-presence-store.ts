@@ -3,6 +3,7 @@ import type {
   SessionMemberDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
+  SessionMemberUpdatedDto,
 } from '@lorkarium/contracts';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
@@ -81,19 +82,21 @@ function presenceChangeOf(
 ): Partial<TablePresenceState> {
   if (update.kind === 'memberJoined') return memberCameOnline(state, update.event);
   if (update.kind === 'memberActivity') return memberActivityOf(state, update.event);
+  if (update.kind === 'memberUpdated') return memberProfileOf(state, update.event);
   return memberWentOffline(state, update.event);
 }
 
 type PresenceEvent = Extract<
   TableSessionUpdate,
-  Readonly<{ kind: 'memberJoined' | 'memberLeft' | 'memberActivity' }>
+  Readonly<{ kind: 'memberJoined' | 'memberLeft' | 'memberActivity' | 'memberUpdated' }>
 >;
 
 function isPresenceEvent(update: TableSessionUpdate): update is PresenceEvent {
   return (
     update.kind === 'memberJoined' ||
     update.kind === 'memberLeft' ||
-    update.kind === 'memberActivity'
+    update.kind === 'memberActivity' ||
+    update.kind === 'memberUpdated'
   );
 }
 
@@ -130,6 +133,20 @@ function memberActivityOf(
   const { userId, awaySince } = event;
   const members = state.members.map((member) =>
     member.userId === userId ? { ...member, awaySince } : member,
+  );
+  return { version: event.version, members };
+}
+
+// The profile changed, not the presence: whether the member is online or away stays as it was.
+function memberProfileOf(
+  state: TablePresenceState,
+  event: SessionMemberUpdatedDto,
+): Partial<TablePresenceState> {
+  const { member: updated } = event;
+  const members = state.members.map((member) =>
+    member.userId === updated.userId
+      ? { ...updated, online: member.online, awaySince: member.awaySince }
+      : member,
   );
   return { version: event.version, members };
 }
