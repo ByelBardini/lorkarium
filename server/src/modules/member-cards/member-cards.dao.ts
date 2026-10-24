@@ -1,4 +1,4 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { memberCards, type MemberCardChangesPo, type MemberCardPo } from './member-cards.po';
 
@@ -12,6 +12,17 @@ export class MemberCardsDao {
       .from(memberCards)
       .where(eq(memberCards.campaignId, campaignId))
       .orderBy(asc(memberCards.userId));
+  }
+
+  /** The card of one member, if someone wrote on it.
+   *
+   *  Example: `const card = await dao.findOfMember(vharnId, biaId)` */
+  async findOfMember(campaignId: string, userId: string): Promise<MemberCardPo | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(memberCards)
+      .where(and(eq(memberCards.campaignId, campaignId), eq(memberCards.userId, userId)));
+    return row;
   }
 
   /** Writes only the keys in `changes` (a patch) and returns the whole row after it.

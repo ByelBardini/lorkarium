@@ -2,18 +2,23 @@ import { WALL_SEGMENTS_PER_SCENE_MAX, WALLS_PER_SCENE_MAX } from '@lorkarium/con
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
-import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
+import type { MembershipReader } from '../campaigns/cached-memberships';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { LightsDao } from '../lights/lights.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { TokensDao } from '../tokens/tokens.dao';
+import type { SceneWallsService } from './scene-walls.service';
 import { WallsDao } from './walls.dao';
 import { WallsService, type WallTransactionRunner } from './walls.service';
 
 export type WallsModuleOptions = Readonly<{
   db: Database;
+  /** Shared by the board modules: the memberships remembered by the campaigns module. */
+  members: MembershipReader;
   publisher: BoardPublisherPort;
   clock: ClockPort;
+  /** The walls of each scene in memory, shared with the tokens module: this one forgets them. */
+  sceneWalls: SceneWallsService;
 }>;
 
 export type WallsModule = Readonly<{ service: WallsService }>;
@@ -32,10 +37,11 @@ export function createWallsModule(options: WallsModuleOptions): WallsModule {
       }),
     );
   const service = new WallsService({
-    members: new CampaignMembersDao(options.db),
+    members: options.members,
     transaction,
     publisher: options.publisher,
     clock: options.clock,
+    sceneWalls: options.sceneWalls,
     limits: { walls: WALLS_PER_SCENE_MAX, segments: WALL_SEGMENTS_PER_SCENE_MAX },
   });
   return { service };

@@ -19,6 +19,13 @@ export class AuthSessionBo {
     return now.getTime() >= this.terms.expiresAt.getTime();
   }
 
+  /** When renewal becomes due (half of the lifetime left): until then a reread changes nothing.
+   *
+   *  Example: `new AuthSessionBo({ expiresAt, persistent: false }).recheckAt() // expiresAt − 6 h` */
+  recheckAt(): Date {
+    return new Date(this.terms.expiresAt.getTime() - lifetimeMs(this.terms.persistent) / 2);
+  }
+
   /** The new deadline when less than half of the lifetime is left; `null` when renewal is not due. */
   renewalAt(now: Date): Date | null {
     const lifetime = lifetimeMs(this.terms.persistent);

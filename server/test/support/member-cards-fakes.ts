@@ -9,7 +9,10 @@ import { memberCardPo } from './member-cards-factories';
 import type { ScenesDaoFake } from './scenes-fakes';
 
 /** In-memory member_cards; `save` patches the row (or creates it) and writes 'save' to the journal. */
-export class MemberCardsDaoFake implements Pick<MemberCardsDao, 'listOfCampaign' | 'save'> {
+export class MemberCardsDaoFake implements Pick<
+  MemberCardsDao,
+  'listOfCampaign' | 'findOfMember' | 'save'
+> {
   constructor(
     private readonly journal: string[] = [],
     readonly rows: MemberCardPo[] = [],
@@ -17,6 +20,10 @@ export class MemberCardsDaoFake implements Pick<MemberCardsDao, 'listOfCampaign'
 
   async listOfCampaign(campaignId: string): Promise<MemberCardPo[]> {
     return this.rows.filter((row) => row.campaignId === campaignId);
+  }
+
+  async findOfMember(campaignId: string, userId: string): Promise<MemberCardPo | undefined> {
+    return this.rows.find((row) => row.campaignId === campaignId && row.userId === userId);
   }
 
   async save(

@@ -6,6 +6,7 @@ import { InvalidCredentialsError, UnauthenticatedError } from './auth.error';
 import { toAuthSessionBo, toAuthUserDto, toUserAccessBo } from './auth.mapper';
 import type { ClockPort } from './clock.port';
 import type { PasswordHasherPort } from './password-hasher.port';
+import type { SessionEndedPort } from './session-ended.port';
 import type { SessionTokenPort } from './session-token.port';
 import type { UserRole } from './user-access.bo';
 import type { UsersDao } from './users.dao';
@@ -19,6 +20,7 @@ export type AuthServiceDeps = Readonly<{
   clock: ClockPort;
   /** Hash of a random secret, verified when the e-mail is unknown so both refusals cost the same time. */
   decoyHash: string;
+  sessionEnded: SessionEndedPort;
 }>;
 
 export type IssuedSession = Readonly<{
@@ -30,7 +32,11 @@ export type IssuedSession = Readonly<{
 
 export type ResolvedSession = Readonly<{
   user: AuthUserDto;
+  /** The hash of the cookie token: what identifies the session without carrying the secret. */
+  sessionId: string;
   expiresAt: Date;
+  /** Until then a reread finds the same session (renewal is not due yet); see `AuthSessionBo`. */
+  recheckAt: Date;
   persistent: boolean;
   renewed: boolean;
 }>;
@@ -70,7 +76,9 @@ export class AuthService {
 
   async logout(token: string | undefined): Promise<void> {
     if (!token) return;
-    await this.deps.sessions.delete(this.deps.tokens.hash(token));
+    const sessionId = this.deps.tokens.hash(token);
+    await this.deps.sessions.delete(sessionId);
+    this.deps.sessionEnded.sessionEnded(sessionId);
   }
 
   private async resolveRows(token: string | undefined): Promise<ResolvedRows | null> {
@@ -100,7 +108,9 @@ type ResolvedRows = Readonly<{ user: UserPo; session: AuthSessionPo; expiresAt: 
 function toResolvedSession({ user, session, expiresAt }: ResolvedRows): ResolvedSession {
   return {
     user: toAuthUserDto(user),
+    sessionId: session.id,
     expiresAt,
+    recheckAt: toAuthSessionBo({ ...session, expiresAt }).recheckAt(),
     persistent: session.persistent,
     renewed: expiresAt !== session.expiresAt,
   };

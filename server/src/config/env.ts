@@ -8,6 +8,9 @@ const ENV_KEYS = [
   'PORT',
   'HOST',
   'DATABASE_URL',
+  'DATABASE_POOL_MAX',
+  'DATABASE_STATEMENT_TIMEOUT_MS',
+  'DATABASE_LOCK_TIMEOUT_MS',
   'ADMIN_EMAIL',
   'ADMIN_PASSWORD',
   'S3_ENDPOINT',
@@ -29,6 +32,24 @@ export const S3_SECRET_MIN_LENGTH = 8;
 
 const PORT_RULE = 'must be an integer between 1 and 65535';
 
+/** An integer variable in `[min, max]` with a default; the rule text names the range. */
+function boundedInteger(min: number, max: number, fallback: number, unit = ''): z.ZodType<number> {
+  const rule = `must be an integer from ${min} to ${max}${unit}`;
+  return z.coerce
+    .number({ error: rule })
+    .int({ error: rule })
+    .min(min, { error: rule })
+    .max(max, { error: rule })
+    .default(fallback);
+}
+
+// Up to 100 connections: Postgres' own default max_connections is 100.
+const POOL_MAX = boundedInteger(1, 100, 10);
+// A statement past 5 s on a table this size is a bug; the lock wait is shorter so a stuck scene
+// lock surfaces as an error instead of holding connections (never 0: that waits forever).
+const STATEMENT_TIMEOUT_MS = boundedInteger(100, 600_000, 5000, ' milliseconds');
+const LOCK_TIMEOUT_MS = boundedInteger(100, 600_000, 2000, ' milliseconds');
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -40,6 +61,9 @@ const envSchema = z
       .default(3333),
     HOST: z.string().default('0.0.0.0'),
     DATABASE_URL: z.string({ error: 'is required (postgres://user:password@host:port/db)' }),
+    DATABASE_POOL_MAX: POOL_MAX,
+    DATABASE_STATEMENT_TIMEOUT_MS: STATEMENT_TIMEOUT_MS,
+    DATABASE_LOCK_TIMEOUT_MS: LOCK_TIMEOUT_MS,
     ADMIN_EMAIL: z
       .string()
       .trim()
@@ -78,11 +102,19 @@ export type StorageConfig = Readonly<{
   forcePathStyle: boolean;
 }>;
 
+/** The `pg` pool size and the per-connection timeouts (spec §5.7: one instance). */
+export type DatabaseConfig = Readonly<{
+  poolMax: number;
+  statementTimeoutMs: number;
+  lockTimeoutMs: number;
+}>;
+
 export type Env = Readonly<{
   nodeEnv: NodeEnv;
   port: number;
   host: string;
   databaseUrl: string;
+  database: DatabaseConfig;
   adminSeed: AdminSeedConfig | null;
   storage: StorageConfig;
 }>;
@@ -167,6 +199,11 @@ function toEnv(parsed: ParsedEnv): Env {
     port: parsed.PORT,
     host: parsed.HOST,
     databaseUrl: parsed.DATABASE_URL,
+    database: {
+      poolMax: parsed.DATABASE_POOL_MAX,
+      statementTimeoutMs: parsed.DATABASE_STATEMENT_TIMEOUT_MS,
+      lockTimeoutMs: parsed.DATABASE_LOCK_TIMEOUT_MS,
+    },
     adminSeed: email && password ? { email, password } : null,
     storage: {
       endpoint: parsed.S3_ENDPOINT,

@@ -2,6 +2,7 @@ import type { AuthSessionsDao } from '../../src/modules/auth/auth-sessions.dao';
 import type { AuthSessionPo, NewAuthSessionPo } from '../../src/modules/auth/auth-sessions.po';
 import type { ClockPort } from '../../src/modules/auth/clock.port';
 import type { PasswordHasherPort } from '../../src/modules/auth/password-hasher.port';
+import type { SessionEndedPort } from '../../src/modules/auth/session-ended.port';
 import type { SessionTokenPort } from '../../src/modules/auth/session-token.port';
 import type { UsersDao } from '../../src/modules/auth/users.dao';
 import type { NewUserPo, UserPo } from '../../src/modules/auth/users.po';
@@ -91,6 +92,17 @@ export class SessionTokenFake implements SessionTokenPort {
 
   hash(token: string): string {
     return `sha:${token}`;
+  }
+}
+
+/** Keeps every session announced as ended; `whenEnded` lets a spec look at the world right then. */
+export class SessionEndedFake implements SessionEndedPort {
+  readonly ended: string[] = [];
+  whenEnded: (sessionId: string) => void = () => undefined;
+
+  sessionEnded(sessionId: string): void {
+    this.ended.push(sessionId);
+    this.whenEnded(sessionId);
   }
 }
 

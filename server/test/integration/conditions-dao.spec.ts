@@ -8,6 +8,7 @@ import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { TokensDao } from '../../src/modules/tokens/tokens.dao';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
+import { CountingQueryLog } from '../support/query-count';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const UNIQUE_VIOLATION = '23505';
@@ -18,9 +19,10 @@ describe('ConditionsDao on Postgres', () => {
   let vharnId: string;
   let quelmId: string;
   let lyraId: string;
+  const queries = new CountingQueryLog();
 
   beforeAll(async () => {
-    connection = await openTestDatabase();
+    connection = await openTestDatabase({ queryLog: queries });
     conditions = new ConditionsDao(connection.db);
   });
 
@@ -156,7 +158,7 @@ describe('ConditionsDao on Postgres', () => {
     expect(await conditions.listOfTokens([lyraId])).toEqual([]);
   });
 
-  it('setRemaining and deleteActive keep the countdown of the turns', async () => {
+  it('decrementRemaining and deleteActive keep the countdown of the turns', async () => {
     const atordoado = await conditions.apply(lyraId, await definitionNamed('Atordoado'), {
       remainingRounds: 1,
       appliedRound: null,
@@ -165,10 +167,26 @@ describe('ConditionsDao on Postgres', () => {
       remainingRounds: 3,
       appliedRound: null,
     });
-    await conditions.setRemaining(envenenado.id, 2);
+    await conditions.decrementRemaining([envenenado.id]);
     await conditions.deleteActive([atordoado.id]);
     expect(await conditions.listOfTokens([lyraId])).toEqual([
       expect.objectContaining({ name: 'Envenenado', remainingRounds: 2 }),
     ]);
+  });
+
+  it('decrementRemaining takes one round off every listed condition in 1 UPDATE and leaves the rest', async () => {
+    const timed = { remainingRounds: 3, appliedRound: null };
+    const caido = await conditions.apply(lyraId, await definitionNamed('Caído'), timed);
+    const cego = await conditions.apply(lyraId, await definitionNamed('Cego'), timed);
+    const kept = await conditions.apply(lyraId, await definitionNamed('Envenenado'), timed);
+    queries.reset();
+
+    await conditions.decrementRemaining([caido.id, cego.id]);
+
+    expect(queries.count).toBe(1);
+    const left = new Map(
+      (await conditions.listOfTokens([lyraId])).map((c) => [c.id, c.remainingRounds]),
+    );
+    expect([left.get(caido.id), left.get(cego.id), left.get(kept.id)]).toEqual([2, 2, 3]);
   });
 });

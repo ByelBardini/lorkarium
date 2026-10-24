@@ -1,7 +1,7 @@
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
-import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
+import type { MembershipReader } from '../campaigns/cached-memberships';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { ScenesDao } from '../scenes/scenes.dao';
@@ -11,6 +11,8 @@ import { CombatService, type CombatTransactionRunner } from './combat.service';
 
 export type CombatModuleOptions = Readonly<{
   db: Database;
+  /** Shared by the board modules: the memberships remembered by the campaigns module. */
+  members: MembershipReader;
   publisher: BoardPublisherPort;
   clock: ClockPort;
 }>;
@@ -30,7 +32,7 @@ export function createCombatModule(options: CombatModuleOptions): CombatModule {
         conditions: new ConditionsDao(tx),
       }),
     );
-  const members = new CampaignMembersDao(options.db);
+  const { members } = options;
   const { publisher, clock } = options;
   return { service: new CombatService({ members, transaction, publisher, clock }) };
 }

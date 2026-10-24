@@ -4,7 +4,7 @@ import {
   COMMANDS_PER_SECOND,
   CommandRateBo,
   fullBucket,
-} from '../../../src/modules/board/command-rate.bo';
+} from '../../src/realtime/command-rate.bo';
 
 const T0 = 1_000_000;
 

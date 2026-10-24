@@ -47,8 +47,9 @@ export type AuthGuards = Readonly<{
   requireAuth: preHandlerAsyncHookHandler;
   requireRole: (required: UserRole) => preHandlerAsyncHookHandler;
   userOf: (request: FastifyRequest) => ResolvedSession['user'];
-  /** For the realtime handshake, which has no request to guard: `null` = no valid session. */
-  authenticateToken: (token: string | undefined) => Promise<ResolvedSession['user'] | null>;
+  /** For the realtime handshake and its rechecks, which have no request to guard: `null` = no
+   *  valid session. The connection keeps the session id and `recheckAt` from it. */
+  authenticateConnection: (token: string | undefined) => Promise<ResolvedSession | null>;
 }>;
 
 /** HTTP edge of auth: login, logout and "who am I", with the session in an HttpOnly cookie.
@@ -100,16 +101,16 @@ export function createAuthGuards(service: AuthService, cookiePolicy: AuthCookieP
     requireAuth: requireRole('user'),
     requireRole,
     userOf: (request) => userFrom(signedIn, request),
-    authenticateToken: (token) => userOfToken(service, token),
+    authenticateConnection: (token) => sessionOfToken(service, token),
   };
 }
 
-async function userOfToken(
+async function sessionOfToken(
   service: AuthService,
   token: string | undefined,
-): Promise<ResolvedSession['user'] | null> {
+): Promise<ResolvedSession | null> {
   try {
-    return (await service.authorize(token, 'user')).user;
+    return await service.authorize(token, 'user');
   } catch (error) {
     if (error instanceof AuthError && error.code === 'UNAUTHENTICATED') return null;
     throw error;

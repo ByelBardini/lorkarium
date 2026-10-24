@@ -6,7 +6,11 @@ import {
 } from '../../../src/modules/tokens/token-rules.bo';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, CAIO_ID } from '../../support/campaigns-factories';
-import { placedWallOf } from '../../../src/modules/walls/walls.mapper';
+import {
+  placedWallOf,
+  type PlacedWall,
+  type SceneWalls,
+} from '../../../src/modules/walls/walls.mapper';
 import type { WallPo } from '../../../src/modules/walls/walls.po';
 import { northWallPo } from '../../support/walls-factories';
 
@@ -15,8 +19,29 @@ const LIMIT = 99_999;
 const MEMBERS = [ANA_ID, BIA_ID];
 
 function rules(): TokenRulesBo {
-  return new TokenRulesBo({ scene: SCENE, memberIds: MEMBERS, barLimit: LIMIT });
+  return new TokenRulesBo({ scene: SCENE, memberIds: MEMBERS, barLimit: LIMIT, tokenLimit: 500 });
 }
+
+describe('TokenRulesBo.admit', () => {
+  it('the 500th token of a scene is admitted', () => {
+    expect(rules().admit(499, 1)).toBe(500);
+  });
+
+  it('the 501st token is refused with TOKEN_LIMIT citing 501 and the limit of 500', () => {
+    expect(() => rules().admit(500, 1)).toThrow(
+      expect.objectContaining({
+        code: 'TOKEN_LIMIT',
+        message: 'the scene would have 501 tokens (500 stored + 1 added); the limit is 500',
+      }),
+    );
+  });
+
+  it('a paste of 64 on a scene of 450 is refused whole', () => {
+    expect(() => rules().admit(450, 64)).toThrow(
+      expect.objectContaining({ code: 'TOKEN_LIMIT', stored: 450, adding: 64, limit: 500 }),
+    );
+  });
+});
 
 describe('TokenRulesBo', () => {
   it('a 2×2 token placed at (18, 10) stays inside the scene', () => {
@@ -137,6 +162,10 @@ describe('TokenRulesBo.requirePassage', () => {
   const LYRA_FROM_1_5 = { col: 1, row: 5 };
   const LYRA_TO_4_5 = { col: 4, row: 5 };
 
+  function wallsOf(...placed: PlacedWall[]): SceneWalls {
+    return { placed, walls: placed.map(({ wall }) => wall) };
+  }
+
   function verticalAt2(overrides: Partial<WallPo> = {}) {
     return placedWallOf(
       northWallPo({
@@ -156,7 +185,7 @@ describe('TokenRulesBo.requirePassage', () => {
   it('a straight move across the wall is WALL_BLOCKED citing the token, the leg and the wall', () => {
     const wall = verticalAt2();
     expect(() =>
-      rules().requirePassage('lyra', [LYRA_FROM_1_5, LYRA_TO_4_5], ONE_CELL, [wall]),
+      rules().requirePassage('lyra', [LYRA_FROM_1_5, LYRA_TO_4_5], ONE_CELL, wallsOf(wall)),
     ).toThrow(
       expect.objectContaining({
         code: 'WALL_BLOCKED',
@@ -167,7 +196,9 @@ describe('TokenRulesBo.requirePassage', () => {
 
   it('going around the end of the wall through its bends passes', () => {
     const around = [LYRA_FROM_1_5, { col: 1, row: 10 }, { col: 4, row: 10 }, LYRA_TO_4_5];
-    expect(() => rules().requirePassage('lyra', around, ONE_CELL, [verticalAt2()])).not.toThrow();
+    expect(() =>
+      rules().requirePassage('lyra', around, ONE_CELL, wallsOf(verticalAt2())),
+    ).not.toThrow();
   });
 
   it.each([
@@ -178,14 +209,14 @@ describe('TokenRulesBo.requirePassage', () => {
   ] as const)('a %s (%s) across the move bars it: %s', (kind, doorState, barred) => {
     const wall = verticalAt2({ kind, doorState });
     const check = () =>
-      rules().requirePassage('lyra', [LYRA_FROM_1_5, LYRA_TO_4_5], ONE_CELL, [wall]);
+      rules().requirePassage('lyra', [LYRA_FROM_1_5, LYRA_TO_4_5], ONE_CELL, wallsOf(wall));
     if (barred) expect(check).toThrow(expect.objectContaining({ code: 'WALL_BLOCKED' }));
     else expect(check).not.toThrow();
   });
 
   it('a bend past the scene is OUT_OF_SCENE citing the bend', () => {
     const outside = [LYRA_FROM_1_5, { col: 19.5, row: 5 }, LYRA_TO_4_5];
-    expect(() => rules().requirePassage('lyra', outside, ONE_CELL, [])).toThrow(
+    expect(() => rules().requirePassage('lyra', outside, ONE_CELL, wallsOf())).toThrow(
       expect.objectContaining({
         code: 'OUT_OF_SCENE',
         message: expect.stringContaining('(19.5, 5)'),

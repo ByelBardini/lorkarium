@@ -6,7 +6,7 @@ import { DevPlayersSeedService } from './modules/auth/dev-players-seed.service';
 import { UsersDao } from './modules/auth/users.dao';
 
 const env = readEnv(readProcessEnv());
-const database = createDatabase(env.databaseUrl);
+const database = createDatabase(env.databaseUrl, env.database);
 
 try {
   const seed = new DevPlayersSeedService(new UsersDao(database.db), new Argon2PasswordHasher());
