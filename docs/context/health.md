@@ -23,6 +23,10 @@ Verificação de saúde do server: `GET /api/health` confere se o Postgres respo
 - A causa da falha vai só para o `request.log.error` (`err`), nunca para a resposta.
 - O timeout existe para o health não pendurar junto com o banco.
 
+## Armadilhas
+
+- O `buildApp` lê `users` no boot (o backfill do e-mail e o seed do admin, ver [`auth/cifra.md`](auth/cifra.md)): app montado sobre pool já fechado nem sobe. O spec do 503 monta o app e **depois** fecha o pool.
+
 ## Testes
 
 - Unit: `server/test/modules/health/health.service.spec.ts`, com `FakeHealthDao` (`server/test/support/fake-health-dao.ts`: `answering()`, `failingWith(error)`, `hanging()`).

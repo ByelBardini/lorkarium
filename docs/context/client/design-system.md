@@ -34,7 +34,7 @@ Identidade visual do Lorkarium, em tokens de `client/src/index.css` (variável C
 
 ## Forma e foco
 
-- `--radius` **0.25rem (4px)**, uma escala só no produto: botão, campo, diálogo, menu e tooltip em `rounded-lg`/`rounded-md` (4px ou menos). Superfícies (lista, faixa, miniatura, capa) são **retas**. Nenhum `rounded-full`, exceto o rádio (o círculo é o que diz "escolha uma").
+- `--radius` **0.25rem (4px)**, uma escala só no produto: botão, campo, diálogo, menu e tooltip em `rounded-lg`/`rounded-md` (4px ou menos). Superfícies (lista, faixa, miniatura, capa) são **retas**. Nenhum `rounded-full`, exceto o rádio (o círculo é o que diz "escolha uma") e as duas exceções da conta (plano `2026-10-24-tela-perfil-e-conta.md`): a **foto ou as iniciais da pessoa** (`UserAvatar`, o círculo diz "pessoa") e as **8 cores da pessoa** como rádio na tela da conta.
 - Foco de botão e checkbox: `outline-2 outline-offset-2 outline-ring` (anel dourado afastado). Campo de texto: `border-primary` + `ring-3 ring-ring/20`.
 - `Input`: 48px (`h-12`), `bg-card`, texto 15px. `Button` `size="xl"`: 50px, 15px semibold; `variant="default"` dourado; `variant="outline"` é o botão secundário (borda `input`, texto `label`, hover dourado).
 - `Checkbox`: 18px, marcado em dourado. `Switch` (`ui/switch.tsx`, sobre o `radix-ui`, escrito à mão sem o `shadcn add`): 42 × 24, trilho `input`, ligado em dourado com o botão escuro, sem sombra; a pílula é a forma que diz "liga/desliga" (exceção, como o rádio). `Alert variant="destructive"`: fundo `destructive/10`, borda `destructive/60`, texto `destructive-text`.

@@ -2,21 +2,26 @@
 
 Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`admin`). Vive em `server/src/modules/auth/` (módulo do server) e `client/src/features/auth/` (tela de login). Os DTOs estão em [`contracts.md`](contracts.md).
 
+Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado com índice cego, a regra do @, as migrações `0037`–`0039` e o `pnpm db:encrypt-emails`. [`auth/duas-etapas.md`](auth/duas-etapas.md) — tabelas do 2FA, `TotpPort`, `TwoFactorBo`/`TwoFactorCheckService` e o login em duas etapas (`lk_2fa`, desafio). Senha, sessões ativas, troca de e-mail e o 2FA da conta: [`account-security.md`](account-security.md).
+
 ## Estrutura
 
 - `server/src/modules/auth/*.port.ts` — portas do módulo (abaixo)
 - `server/src/infrastructure/{password-hasher,session-token,clock}/` — um adaptador por porta
-- `server/src/modules/auth/auth.plugin.ts` — `createAuthModule({ db, env, hasher, tokens, clock })`: roda o seed do admin, calcula o hash-isca e devolve `{ plugin, guards }`; `buildApp` registra o `plugin` sob `/api`
+- `server/src/modules/auth/auth.plugin.ts` — `createAuthModule({ db, env, hasher, tokens, clock, sessionEnded, cipher, totp })`: cifra o e-mail que ainda estiver em claro (backfill, no-op depois da `0039`), roda o seed do admin, calcula o hash-isca e devolve `{ plugin, guards, twoFactorCheck }` (o `TwoFactorCheckService` que a conta reaproveita); `buildApp` cria o `AesGcmDataCipher(env.dataEncryptionKey)` e registra o `plugin` sob `/api`
 - `server/src/modules/auth/auth.routes.ts` — borda HTTP (`authRoutes`) e guardas (`createAuthGuards`, `SESSION_COOKIE`)
-- `server/src/modules/auth/{users,auth-sessions}.po.ts` — tabelas; `users.dao.ts` (`findByEmail`, `findById`, `insert`) e `auth-sessions.dao.ts` (`insert`, `findById`, `updateExpiry`, `delete`)
+- `server/src/modules/auth/{users,auth-sessions}.po.ts` — tabelas; `users.dao.ts` (`findByEmailIndex`, `findById`, `findByUsername`, `usernamesStartingWith`, `insert`, `listPlainEmails`, `sealEmail`; ver `auth/cifra.md`) e `auth-sessions.dao.ts` (`insert`, `findById`, `updateExpiry`, `delete`, `listOf(userId, agora)`, `findOfUser(userId, publicId)`, `touch`, `deleteOthersOf(userId, mantida)` → hashes apagados); `users.dao.ts` também tem `updatePassword(userId, hash, quando)` e `updateEmail(userId, cifrado)` (índice tomado → `23505`); DAOs do 2FA em `auth/duas-etapas.md`
+- `server/src/modules/auth/data-cipher.port.ts` + `server/src/infrastructure/data-cipher/aes-gcm-data-cipher.ts` — cifra de campos (ver `auth/cifra.md`)
+- `server/src/encrypt-emails.ts` — raiz do `pnpm db:encrypt-emails`
 
 ## Contrato (prefixo `/api`)
 
-| Rota                    | Entrada           | Saída                                                                       | Erros                                                                                                                                                          |
-| ----------------------- | ----------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/auth/login`  | `loginRequestDto` | 200 `loginResponseDto` + `Set-Cookie: lk_session`                           | 400 `INVALID_BODY` · 401 `INVALID_CREDENTIALS` (mesmo corpo para e-mail inexistente e senha errada) · 429 `RATE_LIMITED` + `Retry-After` + `retryAfterSeconds` |
-| `POST /api/auth/logout` | cookie            | 204 + cookie expirado; idempotente                                          | —                                                                                                                                                              |
-| `GET /api/auth/me`      | cookie            | 200 `meResponseDto` (`user: null` para anônimo, sessão vencida ou revogada) | —                                                                                                                                                              |
+| Rota                              | Entrada                                      | Saída                                                                                                                                                                     | Erros                                                                                                                                                          |
+| --------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/auth/login`            | `loginRequestDto`                            | 200 `{ status: 'signed-in', user }` + `Set-Cookie: lk_session` · com 2FA ligado, 200 `{ status: 'two-factor-required' }` + `Set-Cookie: lk_2fa` (5 min, `Path=/api/auth`) | 400 `INVALID_BODY` · 401 `INVALID_CREDENTIALS` (mesmo corpo para e-mail inexistente e senha errada) · 429 `RATE_LIMITED` + `Retry-After` + `retryAfterSeconds` |
+| `POST /api/auth/login/two-factor` | `twoFactorLoginRequestDto` + cookie `lk_2fa` | 200 `{ status: 'signed-in', user }` + `lk_session`; `lk_2fa` expirado                                                                                                     | 400 · 401 `TWO_FACTOR_CODE_INVALID` · 401 `TWO_FACTOR_CHALLENGE_EXPIRED` (sem desafio, vencido ou 5 erros) · 429 (5/min por IP)                                |
+| `POST /api/auth/logout`           | cookie                                       | 204 + cookie expirado; idempotente                                                                                                                                        | —                                                                                                                                                              |
+| `GET /api/auth/me`                | cookie                                       | 200 `meResponseDto` (`user: null` para anônimo, sessão vencida ou revogada)                                                                                               | —                                                                                                                                                              |
 
 - Cookie `lk_session`: `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` só com `NODE_ENV=production`. Persistente leva `Max-Age=2592000` e é reemitido quando a sessão renova; sem "Manter conectado" não tem `Max-Age` (cookie de navegador).
 - Limite de login: 5 tentativas por minuto por **IP + e-mail** (`@fastify/rate-limit`, `global: false`, hook `preHandler` para a chave ler o corpo). Conta toda tentativa, certa ou errada.
@@ -24,7 +29,7 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 
 ## Guardas (para os outros módulos)
 
-- `app.authGuards` (decorado na raiz por `buildApp`): `requireAuth` e `requireRole('admin')` são `preHandler`; respondem 401 `UNAUTHENTICATED` / 403 `FORBIDDEN_ROLE` em `ApiErrorDto`. `userOf(request)` devolve o `AuthUserDto` de quem passou pela guarda (lança se nenhuma guarda rodou).
+- `app.authGuards` (decorado na raiz por `buildApp`): `requireAuth` e `requireRole('admin')` são `preHandler`; respondem 401 `UNAUTHENTICATED` / 403 `FORBIDDEN_ROLE` em `ApiErrorDto`. `userOf(request)` devolve o `AuthUserDto` de quem passou pela guarda e `sessionIdOf(request)` o id (hash) da sessão dela — é o que separa "este aparelho" dos outros (os dois lançam se nenhuma guarda rodou).
 - `authenticateConnection(token?)` → `ResolvedSession | null`: para o handshake do Socket.IO e as releituras da conexão, que não têm request para guardar (`null` = sem sessão válida; erro inesperado relança). A conexão guarda o `sessionId` e o `recheckAt` dele (ver `server.md`, Tempo real).
 - Uso: `app.get('/x', { preHandler: app.authGuards.requireAuth }, (request) => service.do(app.authGuards.userOf(request).id))`. A identidade vem daqui, nunca do corpo.
 - O papel por campanha (mestre/jogador/espectador) **não** passa por estas guardas: é regra do BO do módulo de campanhas.
@@ -37,47 +42,54 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 - Boot: `GET /api/auth/me` decide `authenticated`/`anonymous` no `sessionStore` (a guarda do client só evita mostrar a tela errada; quem decide é o server).
 - Serviço `HttpAuthApi` e store em [`client.md`](client.md); a tela vive em `client/src/features/auth/`.
 - `LoginForm` (`features/auth/login-form.tsx`, props `authApi`, `onAuthenticated(user)`): valida pelo `loginRequestDto` (sem regra duplicada), `noValidate`, erro inline com `aria-invalid` + `aria-describedby` e foco no primeiro inválido; envio com botão desabilitado, spinner e "Entrando…" e `aria-busy` no form; recusa em `Alert` (`role="alert"`). `invalid_credentials` mantém o e-mail, limpa a senha e foca nela.
+- **2ª etapa (2FA)**: o `LoginForm` guarda a etapa (`credentials` | `two-factor`). Login com `two_factor_required` troca para o `TwoFactorStep` (`features/auth/two-factor-step.tsx`, `form` "Verificação em duas etapas"): "Entrando como <e-mail>", campo "Código do app autenticador" focado (`inputmode=numeric`, `autocomplete=one-time-code`, `totpCodeDto`), "Usar um código de recuperação" ↔ "Usar o código do app" (`recoveryCodeDto`), "Entrar" ("Conferindo…") e "Voltar". `authApi.verifyTwoFactor` (`POST /api/auth/login/two-factor`, o desafio vai no cookie `lk_2fa`): certo → `onAuthenticated(user)`; `two_factor_code_invalid` → campo limpo e focado com "Código incorreto."; `two_factor_challenge_expired` → volta à 1ª etapa (o form remonta: e-mail mantido, senha vazia) com "O tempo para o código acabou. Entre de novo."; `rate_limited`/`offline`/`unexpected` no `Alert`. As mensagens das duas etapas moram em `features/auth/login-messages.ts` (`failureMessage`).
 - `PasswordField` (`components/password-field.tsx`, compartilhado com os diálogos de mesa): mostrar/ocultar com nome acessível "Mostrar senha" ↔ "Ocultar senha".
 - Mensagens: campo — "Informe seu e-mail.", "Informe um e-mail válido, como voce@exemplo.com.", "Informe sua senha.", "A senha pode ter no máximo 256 caracteres."; recusa — "E-mail ou senha incorretos.", "Muitas tentativas. Tente de novo em N s.", "Sem conexão com o servidor. Confira sua internet e tente de novo.", "Algo deu errado do nosso lado. Tente de novo em instantes."
-- Teste: `client/test/support/auth-api-fake.ts` — `AuthApiFake` (`answerLoginWith`, `holdLogin()`, `answerMeWith`, `holdMe()`, `loginCalls`, `logoutCalls`; usuários `ANA` e `ROOT_ADMIN`).
+- Teste: `client/test/support/auth-api-fake.ts` — `AuthApiFake` (`answerLoginWith`, `holdLogin()`, `answerMeWith`, `holdMe()`, `answerTwoFactorWith(...)` (em ordem; sem roteiro, entra como `ANA`), `loginCalls`, `twoFactorCalls`, `logoutCalls`; usuários `ANA` e `ROOT_ADMIN`). A 2ª etapa é provada em `client/test/features/auth/login-form.spec.tsx` (`describe('second step (2FA)')`).
 
-## Tabelas (`server/drizzle/0000_auth.sql`)
+## Tabelas (`server/drizzle/0000_auth.sql`, `0037`–`0039`)
 
-- `users`: `id` uuid (`gen_random_uuid()`), `name`, `email` **único** e já minúsculo, `password_hash`, `role` enum `user_role` (`user` padrão · `admin`), `created_at`.
-- `auth_sessions`: `id` = SHA-256 hex do token do cookie, `user_id` → `users.id` **on delete cascade** (índice), `expires_at`, `persistent`, `created_at`.
+- `users`: `id` uuid (`gen_random_uuid()`), `name` (o apelido; nasce igual ao @), `username` (o @, **único**, imutável, `a-z 0-9 . _`, 3 a 20), `email_cipher` (AES-GCM, contexto = `id`) e `email_index` (HMAC, **único**) — o e-mail em claro não existe —, `password_hash`, `role` enum `user_role` (`user` padrão · `admin`), `color` enum `member_color` (nulo = automática), `bio` (≤ 190, `CHECK`), `avatar_id` uuid nulo, `password_changed_at` nulo, `created_at`.
+- `auth_sessions`: `id` = SHA-256 hex do token do cookie, `public_id` uuid **único** (`gen_random_uuid()`, o id que sai para a lista de sessões; o hash nunca sai), `user_id` → `users.id` **on delete cascade** (índice), `expires_at`, `persistent`, `user_agent` (nulo, cortado em `USER_AGENT_MAX_LENGTH` 512 no login), `last_seen_at` (padrão `now()`; a `0040` copia o `created_at` das sessões que já existiam), `created_at`.
+- As tabelas do 2FA (`user_two_factor`, `recovery_codes`, `two_factor_challenges`, migrações `0042`/`0043`) estão em `auth/duas-etapas.md`; a `email_change_requests` (`0041`) em `account-security.md`.
 
 ## Regras de negócio (BO + mapper)
 
 - `AuthSessionBo` (`auth-session.bo.ts`): `startedAt(now, persistent)` dá 30 dias (`PERSISTENT_SESSION_MS`) com "Manter conectado" e 12 h (`TRANSIENT_SESSION_MS`) sem; `isExpiredAt(now)` é `now >= expiresAt`; `renewalAt(now)` devolve `now + prazo` quando falta **menos** da metade do prazo, senão `null` (expiração deslizante); `recheckAt()` é `expiresAt − prazo/2`, o instante em que a renovação passa a valer (até ele a conexão Socket.IO não relê a sessão).
 - `UserAccessBo.requireRole(required)` (`user-access.bo.ts`): admin ⊇ user (o admin passa em rota de `user`); recusa com `ForbiddenRoleError`.
-- `AdminSeedBo.decide(config)` (`admin-seed.bo.ts`): sem config → `skip`; e-mail já existente → `skip` (nunca troca senha nem papel); ausente → `create` com `name: 'Admin'`, `role: 'admin'`.
-- `auth.mapper.ts`: `toAuthUserDto` (nunca leva hash nem `createdAt`), `toAuthSessionBo`, `toUserAccessBo`, `toAdminSeedBo`.
+- `AdminSeedBo(existente, @tomados).decide(config)` (`admin-seed.bo.ts`): sem config → `skip`; e-mail já existente → `skip` (nunca troca senha nem papel); ausente → `create` como `@admin` (`admin2`… se tomado), `name` = o @, `role: 'admin'`.
+- `username.bo.ts`: `usernameFromEmail(email, tomados)`, `uniqueUsername`, `usernameStemOf`, `usernameLookupPrefix` (regra em `auth/cifra.md`).
+- `auth.mapper.ts`: `toAuthUserDto(row, cipher)` → `{ id, username, name, email (aberto com o id), role, color (efetiva, memberColorOf do game-core), avatarId }` (nunca leva hash nem `createdAt`), `toSealedEmail`, `emailIndexOf`, `toAuthSessionBo`, `toUserAccessBo`, `toAdminSeedBo`.
 - `auth.error.ts`: `AuthError` com `code` `INVALID_CREDENTIALS` | `UNAUTHENTICATED` | `FORBIDDEN_ROLE`; a mensagem cita o valor recebido (e-mail, papel) e **nunca** a senha. A borda traduz o código em status e mensagem pública.
 
 ## Services
 
-- `AuthService` (`auth.service.ts`, recebe `AuthServiceDeps`: DAOs, as três portas e o `decoyHash`):
-  - `login(dto)`: busca por e-mail → `verify` (contra o `decoyHash` quando o e-mail não existe, para as duas recusas custarem o mesmo tempo) → `InvalidCredentialsError` nos dois casos → grava a sessão com `id = hash(token)` → devolve `{ user, token, expiresAt, persistent }`.
-  - `resolveSession(token?)`: sem token, token desconhecido ou usuário sumido → `null`; expirada → apaga a linha e `null`; perto do fim → `updateExpiry` e `renewed: true`. Devolve `{ user, sessionId, expiresAt, recheckAt, persistent, renewed }`.
+- `AuthService` (`auth.service.ts`, recebe `AuthServiceDeps`: DAOs, as portas — `hasher`, `tokens`, `clock`, `cipher`, `sessionEnded` — e o `decoyHash`):
+  - `login(dto, userAgent?)`: busca pelo índice cego do e-mail (`findByEmailIndex(emailIndexOf(cipher, dto.email))`) → `verify` (contra o `decoyHash` quando o e-mail não existe, para as duas recusas custarem o mesmo tempo) → `InvalidCredentialsError` nos dois casos → com 2FA ligado, grava um desafio e devolve `{ status: 'two-factor-required', challenge }` (ver `auth/duas-etapas.md`); senão `startSession` → `{ status: 'signed-in', user, token, expiresAt, persistent }`.
+  - `startSession(linha, persistent, userAgent?)`: grava a sessão com `id = hash(token)` e o user agent cortado; é o único ponto que emite sessão (também a 2ª etapa do login).
+  - `resolveSession(token?)`: sem token, token desconhecido ou usuário sumido → `null`; expirada → apaga a linha e `null`; `last_seen_at` com 5 min ou mais (`lastSeenDue`, `LAST_SEEN_STEP_MS` em `auth-session.bo.ts`) → `touch(agora)` (degraus: uma escrita a cada 5 min, não a cada requisição); perto do fim → `updateExpiry` e `renewed: true`. Devolve `{ user, sessionId, expiresAt, recheckAt, persistent, renewed }`.
   - `logout(token?)`: apaga a sessão do token e **depois** avisa a `SessionEndedPort` (`sessionEnded(hash)`): as conexões Socket.IO daquela sessão caem na hora; idempotente. Sem cookie, nada é apagado nem avisado.
 - `AuthService.authorize(token?, papel)`: sessão válida com o papel, ou lança `UnauthenticatedError` / `ForbiddenRoleError` (é o que as guardas chamam).
-- `AdminSeedService.seed(env.adminSeed)` (`admin-seed.service.ts`): `'created'` (hash da senha + insert) ou `'skipped'`. Roda a cada boot, dentro do `createAuthModule`.
-- `DevPlayersSeedService.seed(nodeEnv)` (`dev-players-seed.service.ts`): recusa antes de qualquer consulta em produção; cria só os jogadores de teste que faltam e devolve `{ created, skipped }` (e-mails). Não roda no boot: só pelo `pnpm db:seed-dev`.
+- `AdminSeedService({ users, hasher, cipher, newId }).seed(env.adminSeed)` (`admin-seed.service.ts`): busca pelo índice, lê os @ que colidiriam, `'created'` (hash da senha + insert só com o e-mail cifrado) ou `'skipped'`. Roda a cada boot, dentro do `createAuthModule`, depois do backfill.
+- `EmailEncryptionBackfillService(users, cipher).run()` → `{ updated }` (ver `auth/cifra.md`).
+- `DevPlayersSeedService({ users, hasher, cipher, newId }).seed(nodeEnv)` (`dev-players-seed.service.ts`): recusa antes de qualquer consulta em produção; cria só os jogadores de teste que faltam e devolve `{ created, skipped }` (e-mails). Não roda no boot: só pelo `pnpm db:seed-dev`.
 
 ## Seed de desenvolvimento
 
-- `pnpm db:seed-dev` (entrada `server/src/dev-seed.ts`) cria **Bia** (`bia@lorkarium.dev`) e **Caio** (`caio@lorkarium.dev`), papel `user`, senha `lorkarium-dev` (`DEV_PLAYERS` e `DEV_PLAYER_PASSWORD` em `dev-players-seed.bo.ts`). Serve para testar a mesa com duas pessoas enquanto o cadastro não existe.
+- `pnpm db:seed-dev` (entrada `server/src/dev-seed.ts`) cria **Bia** (`@bia`, `bia@lorkarium.dev`) e **Caio** (`@caio`, `caio@lorkarium.dev`), papel `user`, senha `lorkarium-dev` (`DEV_PLAYERS` e `DEV_PLAYER_PASSWORD` em `dev-players-seed.bo.ts`). Serve para testar a mesa com duas pessoas enquanto o cadastro não existe.
 - `DevPlayersSeedBo(nodeEnv)`: `requireAllowed()` lança `DevSeedRefusedError` (`DEV_SEED_REFUSED`, cita o `NODE_ENV`) em `production`; `decide(emailsExistentes)` → `{ create, skipped }`. Conta que já existe nunca é reescrita (nem senha nem papel).
 - `DevSeedRefusedError` fica fora do `AuthError`: nunca chega à borda HTTP, então não tem status.
 
 ## Portas e adaptadores
 
-| Porta                | Adaptador              | O que faz                                                                                             |
-| -------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `PasswordHasherPort` | `Argon2PasswordHasher` | `hash`/`verify` em Argon2id, mínimo OWASP: 19 MiB, t=2, p=1 (`@node-rs/argon2`)                       |
-| `SessionTokenPort`   | `CryptoSessionToken`   | `generate()`: 32 bytes aleatórios em base64url; `hash(token)`: SHA-256 hex (64 ch)                    |
-| `ClockPort`          | `SystemClock`          | `now()`                                                                                               |
-| `SessionEndedPort`   | `SocketIoSessionEnded` | `sessionEnded(sessionId)`: derruba as conexões Socket.IO da sessão (`attach(realtime)` no `buildApp`) |
+| Porta                | Adaptador              | O que faz                                                                                                            |
+| -------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `PasswordHasherPort` | `Argon2PasswordHasher` | `hash`/`verify` em Argon2id, mínimo OWASP: 19 MiB, t=2, p=1 (`@node-rs/argon2`)                                      |
+| `SessionTokenPort`   | `CryptoSessionToken`   | `generate()`: 32 bytes aleatórios em base64url; `hash(token)`: SHA-256 hex (64 ch)                                   |
+| `ClockPort`          | `SystemClock`          | `now()`                                                                                                              |
+| `SessionEndedPort`   | `SocketIoSessionEnded` | `sessionEnded(sessionId)`: derruba as conexões Socket.IO da sessão (`attach(realtime)` no `buildApp`)                |
+| `DataCipherPort`     | `AesGcmDataCipher`     | `seal`/`open` (AES-256-GCM por finalidade, contexto como AAD) e `index` (HMAC-SHA256); ver `auth/cifra.md`           |
+| `TotpPort`           | `OtpauthTotp`          | TOTP do RFC 6238 (`otpauth`): segredo, URI `otpauth://`, passo atual e passo de um código; ver `auth/duas-etapas.md` |
 
 - O relógio é porta para as regras de prazo e renovação serem provadas sem esperar; o token é porta para o teste do service saber qual token saiu e qual hash foi gravado.
 - O cookie leva o token; o banco guarda só o `hash(token)`. Vazamento do banco não entrega sessão válida.
@@ -86,8 +98,8 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 
 - Integração: `server/test/integration/auth-dao.spec.ts` (DAOs) e `auth.spec.ts` (borda via `buildApp` + `inject`: cookie, 401/400/429, `/me`, logout revoga, guarda 401/403/200, seed no boot). Um app novo por `describe`: o limitador guarda estado em memória.
 - `server/test/support/test-database.ts` — `openTestDatabase()` (conecta no `DATABASE_URL` e migra) e `truncateAllTables(db)`; tabela nova entra no `TRUNCATE` dele.
-- `server/test/support/auth-factories.ts` — `newUserPo`, `userPo`, `newAuthSessionPo`, `authSessionPo` (e `ANA_ID`).
-- `server/test/support/auth-fakes.ts` — `UsersDaoFake` (`rows`, `inserted`, `lookedUp`: e-mails consultados), `AuthSessionsDaoFake` (`rows` por hash), `PasswordHasherFake` (`hashed:<senha>`, registra `verifications`), `SessionTokenFake` (`token-1`…, hash `sha:<token>`), `SessionEndedFake` (`ended`, `whenEnded`), `ClockFake` (`current`).
+- `server/test/support/auth-factories.ts` — `newUserPo`, `userPo` (aceitam `email` em claro e gravam @ e cifrados no formato do fake), `fakeSealedEmail`, `newAuthSessionPo`, `authSessionPo` (e `ANA_ID`). `test/support/sign-in.ts` — `testDataCipher()`, `insertTestAccount` (conta com a cifra real, para o login HTTP).
+- `server/test/support/auth-fakes.ts` — `UsersDaoFake` (`rows`, `inserted`, `lookedUp`: índices de e-mail consultados, `plain`/`sealed` do backfill), `DataCipherFake` (`sealed:<finalidade>:<contexto>:<texto>`, `idx:<finalidade>:<valor>`), `AuthSessionsDaoFake` (`rows` por hash, `touched`; `public_id` previsível no insert), `PasswordHasherFake` (`hashed:<senha>`, registra `verifications`), `SessionTokenFake` (`token-1`…, hash `sha:<token>`), `SessionEndedFake` (`ended`, `whenEnded`), `ClockFake` (`current`).
 - Unit: `server/test/modules/auth/*.spec.ts` (BO, mapper, services).
 
 ## Armadilhas
@@ -98,3 +110,5 @@ Contas, login por e-mail e senha, sessão por cookie e papel global (`user`/`adm
 - A tabela é `auth_sessions`, não `sessions`: o spec §6 reserva `Session` para a sessão multiplayer.
 - Erro do Postgres chega embrulhado pelo Drizzle: o código (`23505` = unicidade) está em `error.cause.code`, não em `error.code`.
 - `Algorithm` do `@node-rs/argon2` é `const enum`: com `isolatedModules` não dá para importar o valor. O adaptador usa `2` tipado como `Algorithm` (é o Argon2id, e também o padrão da lib).
+- Busca por e-mail em SQL não funciona mais (`WHERE email = …`, `users.email`): o e-mail só existe cifrado. Use o índice — `findByEmailIndex(emailIndexOf(cipher, email))` — ou, para as contas de seed, o @ (`findByUsername`). Insert de conta sempre por `toSealedEmail(cipher, id, email)`, com o `id` gerado antes.
+- Puxar as fases 4 e 5 juntas (ou atualizar um banco anterior à `0037`): o `pnpm db:migrate` do `pnpm dev` para na guarda da `0039` e desfaz tudo (uma transação só). Rode `pnpm db:encrypt-emails` (migra até a `0038`, cifra com a `DATA_ENCRYPTION_KEY` do `server/.env` e aplica o resto) e suba de novo. Spec de migração que semeia `users` cru numa migração antiga migra só até `LAST_MIGRATION_WITH_PLAIN_EMAIL`.

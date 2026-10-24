@@ -30,6 +30,8 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/reach.ts` — a validação do alcance (plena e penumbra, de 0 a 100 casas) dividida entre visão e luz
 - `src/light.vo.ts` — o alcance da luz e a luz do mapa (VO)
 - `src/lighting.ts` — a fonte de luz e o nível de luz num ponto
+- `src/stable-hash.ts` — hash estável de um texto (capa da mesa, cor da pessoa)
+- `src/member-color.ts` — as 8 cores da pessoa e a cor efetiva
 
 ## Célula e grid
 
@@ -120,6 +122,12 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 - `blockedPassage(pontos, paredes)` → `{ legIndex, wallIndex } | null`: os pontos são os **centros** do token (origem, curvas, destino; `tokenCenter(posição, tamanho)`); o primeiro trecho que encontra uma parede que bloqueia passagem, e qual parede (índices das listas recebidas). Um ponto, nenhum ponto ou nenhuma parede → `null`. Sobre o `preparedWalls(paredes).movement` (só os baldes de cada trecho; vale a parede de menor índice que o trecho toca), ver [`game-core/visao-e-luz.md`](game-core/visao-e-luz.md).
 - `legTouchesSegment(trecho, segmento)` — o trecho encontra o segmento **depois do seu início**: cruzar, encostar (o destino sobre a linha, a ponta da parede no meio do trecho) e correr colinear por cima contam; tocar só no ponto de partida não conta, para o token parado sobre a linha poder sair. Folga 1e-9 (as coordenadas são guardadas a 0,01, então a folga nunca fecha fresta real). É a mesma conta da linha de visão.
 - A passagem é pelo centro: um token grande passa por fresta menor que ele (colisão da pegada é do §12).
+
+## Cor da pessoa
+
+- `stableHash(texto)` — hash `×31` sem sinal de 32 bits (`'ab'` → 3105); não é para segurança. O client usa na capa da mesa (`campaign-cover.ts`).
+- `MEMBER_COLORS` — `gold`, `steel`, `ember`, `moss`, `violet`, `rose`, `teal`, `bone`, nesta ordem (a das cores do ping de sempre); `MemberColor` é a união dos nomes. O hex mora só no client (`lib/member-color.ts`); o contracts repete os nomes no `memberColorDto`.
+- `memberColorOf(userId, escolha)` — a escolhida ou, com `null`, `MEMBER_COLORS[stableHash(userId) % 8]`: quem nunca escolheu fica com a cor que o ping já dava. O server manda a efetiva; o client desenha.
 
 ## Visão e luz
 

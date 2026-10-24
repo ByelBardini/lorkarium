@@ -4,14 +4,14 @@ Leia este arquivo **antes** de explorar ou alterar o código. O produto está de
 
 ## Stack
 
-| Workspace            | Tecnologias                                                                                                                                                                                                                                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `client/`            | React 19, Vite 8, TypeScript, Tailwind v4 (`@tailwindcss/vite`), shadcn/ui (estilo `radix-nova`, sobre `radix-ui`, ícones `lucide-react`), React Router 8, PixiJS 8 (tabuleiro), Zustand 5 (estado), Socket.IO Client 4, Zod 4                                                                                                 |
-| `server/`            | Node 22, Fastify 5, Socket.IO 4, Drizzle ORM 0.45 + `pg` (PostgreSQL 17), Pino 10, Zod 4, `@aws-sdk/client-s3` 3 (assets num S3 compatível; SeaweedFS no dev), `sharp` 0.35 (normaliza a imagem enviada), `tsx` (dev), `tsdown` (build → `server/dist/`), `drizzle-kit` (`server/drizzle.config.ts`, SQL em `server/drizzle/`) |
-| `packages/game-core` | TypeScript puro, sem dependência: regra de jogo usada pelo server e pelo client                                                                                                                                                                                                                                                |
-| `packages/contracts` | DTOs em Zod 4 (o que atravessa client ↔ server por HTTP e Socket.IO)                                                                                                                                                                                                                                                           |
-| `packages/tsconfig`  | `base.json` (strict, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`), `node.json`, `react.json`                                                                                                                                                                                                                            |
-| Ferramentas          | pnpm 11 workspaces, TypeScript 6, ESLint 10 (flat config na raiz), Prettier 3 (+ plugin do Tailwind), Vitest 5 (`projects` na raiz), Husky + lint-staged (pre-commit), Docker Compose                                                                                                                                          |
+| Workspace            | Tecnologias                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client/`            | React 19, Vite 8, TypeScript, Tailwind v4 (`@tailwindcss/vite`), shadcn/ui (estilo `radix-nova`, sobre `radix-ui`, ícones `lucide-react`), React Router 8, PixiJS 8 (tabuleiro), Zustand 5 (estado), Socket.IO Client 4, Zod 4                                                                                                                                                                                                               |
+| `server/`            | Node 22, Fastify 5, Socket.IO 4, Drizzle ORM 0.45 + `pg` (PostgreSQL 17), Pino 10, Zod 4, `@aws-sdk/client-s3` 3 (assets num S3 compatível; SeaweedFS no dev), `sharp` 0.35 (normaliza a imagem enviada e a foto do perfil), `nodemailer` 10 (SMTP; Mailpit no dev), `otpauth` 9 (TOTP do 2FA), `qrcode` 1 (QR do 2FA), `tsx` (dev), `tsdown` (build → `server/dist/`), `drizzle-kit` (`server/drizzle.config.ts`, SQL em `server/drizzle/`) |
+| `packages/game-core` | TypeScript puro, sem dependência: regra de jogo usada pelo server e pelo client                                                                                                                                                                                                                                                                                                                                                              |
+| `packages/contracts` | DTOs em Zod 4 (o que atravessa client ↔ server por HTTP e Socket.IO)                                                                                                                                                                                                                                                                                                                                                                         |
+| `packages/tsconfig`  | `base.json` (strict, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`), `node.json`, `react.json`                                                                                                                                                                                                                                                                                                                                          |
+| Ferramentas          | pnpm 11 workspaces, TypeScript 6, ESLint 10 (flat config na raiz), Prettier 3 (+ plugin do Tailwind), Vitest 5 (`projects` na raiz), Husky + lint-staged (pre-commit), Docker Compose                                                                                                                                                                                                                                                        |
 
 ## Layout do repositório
 
@@ -24,7 +24,7 @@ packages/contracts/      # DTOs Zod compartilhados
 packages/tsconfig/       # tsconfigs base
 e2e/                     # @lorkarium/e2e: Playwright (playwright.config.ts sobe server + client), specs em e2e/test/
 .github/                 # CI: workflows/ci.yml, actions/setup (composite), dependabot.yml
-infra/compose/compose.yaml # Postgres 17 (5432, usuário/senha/db lorkarium) e SeaweedFS/S3 (8333, identidade em seaweedfs/s3.json) de desenvolvimento (pnpm db:up)
+infra/compose/compose.yaml # Postgres 17 (5432, usuário/senha/db lorkarium), SeaweedFS/S3 (8333, identidade em seaweedfs/s3.json) e Mailpit (SMTP 1025, caixa 8025) de desenvolvimento (pnpm db:up)
 docs/spec.md             # Planejamento e arquitetura do produto (escopo, modelo, API, eventos, segurança, fases)
 docs/context/            # Memória do projeto para agentes de IA: <area>.md é o índice, <area>/ o detalhe
 docs/plans/              # Planos do /planejamento, /construir-tela e /refatorar
@@ -67,28 +67,30 @@ O vocabulário segue o artigo [Diferença entre os patterns PO, POJO, BO, DTO e 
 
 Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um workspace tem o nome dele (`server.md`, `client.md`, `game-core.md`, `contracts.md`) e o de uma área, o nome da pasta dela no código (`combat.md`, `board.md`) — é assim que os drivers montam o `leia antes:`.
 
-| Área         | O que cobre                                                                    | Arquivo                                                        |
-| ------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| contracts    | DTOs Zod compartilhados (auth, mesas, sessão, tabuleiro, erro)                 | [`docs/context/contracts.md`](docs/context/contracts.md)       |
-| game-core    | Regra de jogo pura: célula, distância, barra, turno, visão, cone, luz          | [`docs/context/game-core.md`](docs/context/game-core.md)       |
-| server       | Encanamento: env, banco, migrações, app, tempo real, regras de desempenho      | [`docs/context/server.md`](docs/context/server.md)             |
-| auth         | Contas, login, sessão por cookie, papel global (server + client)               | [`docs/context/auth.md`](docs/context/auth.md)                 |
-| campaigns    | Mesas: criação, participação, lista, detalhe, entrada por código               | [`docs/context/campaigns.md`](docs/context/campaigns.md)       |
-| board        | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas    | [`docs/context/board.md`](docs/context/board.md)               |
-| library      | Biblioteca de grids: pastas, visibilidade, REST, duplicar, ativação e expulsão | [`docs/context/library.md`](docs/context/library.md)           |
-| tokens       | Tokens: barras, controle, principal, cone, luz, redação, personagem (elenco)   | [`docs/context/tokens.md`](docs/context/tokens.md)             |
-| member-cards | Ficha da mesa: nome do personagem, CA, CD e anotações por membro               | [`docs/context/member-cards.md`](docs/context/member-cards.md) |
-| combat       | Condições e combate: entradas em grupo, turno, rodada, duração                 | [`docs/context/combat.md`](docs/context/combat.md)             |
-| drawings     | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição         | [`docs/context/drawings.md`](docs/context/drawings.md)         |
-| effect-areas | Áreas de efeito: formas, casas pintadas, autor, alças, versão                  | [`docs/context/effect-areas.md`](docs/context/effect-areas.md) |
-| walls        | Paredes e portas: tipos, formas, passagem, porta vista, visão                  | [`docs/context/walls.md`](docs/context/walls.md)               |
-| lights       | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre           | [`docs/context/lights.md`](docs/context/lights.md)             |
-| pings        | Ping no mapa: anel efêmero com o nome, alcance pela sala do grid, sem versão   | [`docs/context/pings.md`](docs/context/pings.md)               |
-| sessions     | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão       | [`docs/context/sessions.md`](docs/context/sessions.md)         |
-| assets       | Imagens da mesa: S3, envio, link seguro, leitura pela origem                   | [`docs/context/assets.md`](docs/context/assets.md)             |
-| client       | SPA: estrutura, rotas, shell e home, testes, design system, desempenho         | [`docs/context/client.md`](docs/context/client.md)             |
-| ci           | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo | [`docs/context/ci.md`](docs/context/ci.md)                     |
-| health       | `GET /api/health` (ping no Postgres, 200/503, pública)                         | [`docs/context/health.md`](docs/context/health.md)             |
+| Área             | O que cobre                                                                    | Arquivo                                                                |
+| ---------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| contracts        | DTOs Zod compartilhados (auth, mesas, sessão, tabuleiro, erro)                 | [`docs/context/contracts.md`](docs/context/contracts.md)               |
+| game-core        | Regra de jogo pura: célula, distância, barra, turno, visão, cone, luz          | [`docs/context/game-core.md`](docs/context/game-core.md)               |
+| server           | Encanamento: env, banco, migrações, app, tempo real, regras de desempenho      | [`docs/context/server.md`](docs/context/server.md)                     |
+| auth             | Contas, @, e-mail cifrado, login em 2 etapas, sessão por cookie, papel global  | [`docs/context/auth.md`](docs/context/auth.md)                         |
+| campaigns        | Mesas: criação, participação, lista, detalhe, entrada por código               | [`docs/context/campaigns.md`](docs/context/campaigns.md)               |
+| board            | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas    | [`docs/context/board.md`](docs/context/board.md)                       |
+| library          | Biblioteca de grids: pastas, visibilidade, REST, duplicar, ativação e expulsão | [`docs/context/library.md`](docs/context/library.md)                   |
+| tokens           | Tokens: barras, controle, principal, cone, luz, redação, personagem (elenco)   | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
+| member-cards     | Ficha da mesa: nome do personagem, CA, CD e anotações por membro               | [`docs/context/member-cards.md`](docs/context/member-cards.md)         |
+| profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`     | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
+| combat           | Condições e combate: entradas em grupo, turno, rodada, duração                 | [`docs/context/combat.md`](docs/context/combat.md)                     |
+| drawings         | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição         | [`docs/context/drawings.md`](docs/context/drawings.md)                 |
+| effect-areas     | Áreas de efeito: formas, casas pintadas, autor, alças, versão                  | [`docs/context/effect-areas.md`](docs/context/effect-areas.md)         |
+| walls            | Paredes e portas: tipos, formas, passagem, porta vista, visão                  | [`docs/context/walls.md`](docs/context/walls.md)                       |
+| lights           | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre           | [`docs/context/lights.md`](docs/context/lights.md)                     |
+| pings            | Ping no mapa: anel efêmero com o nome, alcance pela sala do grid, sem versão   | [`docs/context/pings.md`](docs/context/pings.md)                       |
+| sessions         | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão       | [`docs/context/sessions.md`](docs/context/sessions.md)                 |
+| account-security | Conta: senha, sessões ativas, troca de e-mail, 2FA da conta, avisos por e-mail | [`docs/context/account-security.md`](docs/context/account-security.md) |
+| assets           | Imagens da mesa: S3, envio, link seguro, leitura pela origem                   | [`docs/context/assets.md`](docs/context/assets.md)                     |
+| client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho         | [`docs/context/client.md`](docs/context/client.md)                     |
+| ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo | [`docs/context/ci.md`](docs/context/ci.md)                             |
+| health           | `GET /api/health` (ping no Postgres, 200/503, pública)                         | [`docs/context/health.md`](docs/context/health.md)                     |
 
 Área sem linha aqui ainda não tem doc: o `/atualizar-contexto` cria o hub junto com o primeiro código da área. Até lá, a referência é o `docs/spec.md`.
 

@@ -67,6 +67,6 @@ As áreas de efeito (gabaritos de magia) na sala: estado confirmado, comandos, o
 
 ## Armadilhas
 
-- Desfazer um "apagar" **recria** a área com o autor de quem desfaz (o server tira o autor da conexão, nunca do payload, §7.3): o Ctrl+Z do mestre devolve a área de Bia como "de Admin". O mesmo vale para os desenhos. Spec que confere o autor depois de um desfazer espera quem desfez.
+- Desfazer um "apagar" **recria** a área com o autor de quem desfaz (o server tira o autor da conexão, nunca do payload, §7.3): o Ctrl+Z do mestre devolve a área de Bia como "de admin" (o seed dá ao admin o `name` igual ao @). O mesmo vale para os desenhos. Spec que confere o autor depois de um desfazer espera quem desfez.
 - O painel "Estilo da área" flutua sobre as primeiras colunas (como o do desenho): no e2e, comece o arraste da coluna 6 em diante.
 - Durante o arraste de uma seleção mista (áreas e tokens) só as áreas se movem na tela; os tokens andam na prévia ao soltar.

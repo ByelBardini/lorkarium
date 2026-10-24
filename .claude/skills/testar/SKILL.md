@@ -202,9 +202,11 @@ export DATABASE_URL=postgres://lorkarium:lorkarium@localhost:5434/lorkarium
 # S3 descartável (o buildApp garante o bucket no onReady; todo spec de integração precisa dele)
 MSYS_NO_PATHCONV=1 docker run -d --name lorkarium-testar-s3 -p 8334:8333 --tmpfs /data -v "$PWD/infra/compose/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro" chrislusf/seaweedfs:4.48 server -dir=/data -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=64 -volume.max=200 -s3 -s3.config=/etc/seaweedfs/s3.json -s3.port=8333
 export S3_ENDPOINT=http://localhost:8334 S3_BUCKET=lorkarium-test S3_ACCESS_KEY_ID=lorkarium S3_SECRET_ACCESS_KEY=lorkarium-dev-secret
+# Mailpit descartável (só o smtp-mailer.spec.ts fala com ele; o padrão do spec é 1026/8026)
+docker run -d --name lorkarium-testar-mail -p 1026:1025 -p 8026:8025 axllent/mailpit:v1.27.0
 pnpm db:migrate                       # opcional: o openTestDatabase (test/support) já migra; o DATABASE_URL exportado vence o server/.env
 pnpm exec vitest run server/test/integration/<area>.spec.ts   # ou pnpm test:integration (todos)
-docker rm -f lorkarium-testar lorkarium-testar-s3
+docker rm -f lorkarium-testar lorkarium-testar-s3 lorkarium-testar-mail
 ```
 
 ## Autoteste do driver
