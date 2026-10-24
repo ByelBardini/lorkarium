@@ -22,6 +22,8 @@ import { SocketIoSessionPublisher } from '../infrastructure/session-publisher/so
 import { SocketIoBoardPublisher } from '../infrastructure/board-publisher/socket-io-board-publisher';
 import { SocketIoLibraryPublisher } from '../infrastructure/library-publisher/socket-io-library-publisher';
 import { SocketIoSceneAudience } from '../infrastructure/scene-audience/socket-io-scene-audience';
+import { SocketIoGridAudience } from '../infrastructure/grid-audience/socket-io-grid-audience';
+import { SocketIoPingPublisher } from '../infrastructure/ping-publisher/socket-io-ping-publisher';
 import { CommandRateLimitedError } from '../modules/board/board.error';
 import { createBoardModule } from '../modules/board/board.plugin';
 import { createDrawingsModule } from '../modules/drawings/drawings.plugin';
@@ -33,6 +35,7 @@ import { createScenesModule } from '../modules/scenes/scenes.plugin';
 import { createLibraryModule } from '../modules/library/library.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
 import { createMemberCardsModule } from '../modules/member-cards/member-cards.plugin';
+import { createPingsModule } from '../modules/pings/pings.plugin';
 import { createConditionsModule } from '../modules/conditions/conditions.plugin';
 import { createCombatModule } from '../modules/combat/combat.plugin';
 import { healthPlugin } from '../modules/health/health.plugin';
@@ -157,6 +160,12 @@ function wireRealtime(
   const walls = createWallsModule({ ...shared, sceneWalls }).service;
   const lights = createLightsModule(shared).service;
   const memberCards = createMemberCardsModule(shared).service;
+  const pings = createPingsModule({
+    members,
+    audience: new SocketIoGridAudience(realtime.io),
+    publisher: new SocketIoPingPublisher(realtime.io),
+    clock,
+  }).service;
   const board = createBoardModule({
     db,
     members,
@@ -169,6 +178,7 @@ function wireRealtime(
     mainToken,
     tokenLink,
     memberCards,
+    pings,
     conditions,
     combat,
     drawings,
