@@ -18,6 +18,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain`   | [`token-dock.md`](client/token-dock.md)               |
 | Aba "Na mesa": mestres, card de cada jogador (ficha, token principal, barras), ausência     | [`table-people.md`](client/table-people.md)           |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro                | [`combat.md`](client/combat.md)                       |
+| Condições: etiquetas, descrição, stacks, página "Condições da mesa", ferramenta (C)         | [`conditions.md`](client/conditions.md)               |
 | Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)                     | [`drawings.md`](client/drawings.md)                   |
 | Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar                     | [`effect-areas.md`](client/effect-areas.md)           |
 | Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas                    | [`walls.md`](client/walls.md)                         |
@@ -90,20 +91,21 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 
 ## Rotas
 
-| Caminho                                 | Acesso        | Tela                                                                                                                                           |
-| --------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/login`                                | `public-only` | `LoginPage`; logado vai para o `next` seguro ou `/`                                                                                            |
-| `/account`                              | `signed-in`   | shell + "Minha conta" ([`client/account.md`](client/account.md))                                                                               |
-| `/account/email/confirm`                | `anyone`      | confirmação da troca de e-mail (fora do shell)                                                                                                 |
-| `/`                                     | `signed-in`   | shell + `HomePage` (`loader` da lista, `action` de criar/entrar por código)                                                                    |
-| `/campaigns/:campaignId`                | `signed-in`   | a home com o modal de detalhes por cima (`loader` do detalhe, `action` de "Entrar na mesa")                                                    |
-| `/campaigns/:campaignId/table`          | `signed-in`   | shell (trilho compacto) + sala de jogo (`loader` do detalhe, `handle: COMPACT_RAIL_HANDLE`)                                                    |
-| `/campaigns/:campaignId/table/library`  | `signed-in`   | biblioteca em modal sobre a sala ([`client/library.md`](client/library.md))                                                                    |
-| `/campaigns/:campaignId/table/settings` | `signed-in`   | "Configurações da mesa": página sobre a sala, só o mestre; jogador volta à sala ([`client/campaign-settings.md`](client/campaign-settings.md)) |
-| `/account/recover`                      | `anyone`      | recuperação pelo link "Não fui eu" (fora do shell)                                                                                             |
-| `/invite` · `/reset-password`           | `anyone`      | aceitar convite · nova senha pelo link do admin (fora do shell)                                                                                |
-| `/admin` → `/admin/users`               | `admin`       | backoffice, `lazy` (fora do shell): moldura própria + "Usuários"                                                                               |
-| `*`                                     | —             | redireciona para `/`                                                                                                                           |
+| Caminho                                   | Acesso        | Tela                                                                                                                                           |
+| ----------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`                                  | `public-only` | `LoginPage`; logado vai para o `next` seguro ou `/`                                                                                            |
+| `/account`                                | `signed-in`   | shell + "Minha conta" ([`client/account.md`](client/account.md))                                                                               |
+| `/account/email/confirm`                  | `anyone`      | confirmação da troca de e-mail (fora do shell)                                                                                                 |
+| `/`                                       | `signed-in`   | shell + `HomePage` (`loader` da lista, `action` de criar/entrar por código)                                                                    |
+| `/campaigns/:campaignId`                  | `signed-in`   | a home com o modal de detalhes por cima (`loader` do detalhe, `action` de "Entrar na mesa")                                                    |
+| `/campaigns/:campaignId/table`            | `signed-in`   | shell (trilho compacto) + sala de jogo (`loader` do detalhe, `handle: COMPACT_RAIL_HANDLE`)                                                    |
+| `/campaigns/:campaignId/table/library`    | `signed-in`   | biblioteca em modal sobre a sala ([`client/library.md`](client/library.md))                                                                    |
+| `/campaigns/:campaignId/table/settings`   | `signed-in`   | "Configurações da mesa": página sobre a sala, só o mestre; jogador volta à sala ([`client/campaign-settings.md`](client/campaign-settings.md)) |
+| `/campaigns/:campaignId/table/conditions` | `signed-in`   | "Condições da mesa": página sobre a sala, só o mestre; jogador volta à sala ([`client/conditions.md`](client/conditions.md))                   |
+| `/account/recover`                        | `anyone`      | recuperação pelo link "Não fui eu" (fora do shell)                                                                                             |
+| `/invite` · `/reset-password`             | `anyone`      | aceitar convite · nova senha pelo link do admin (fora do shell)                                                                                |
+| `/admin` → `/admin/users`                 | `admin`       | backoffice, `lazy` (fora do shell): moldura própria + "Usuários"                                                                               |
+| `*`                                       | —             | redireciona para `/`                                                                                                                           |
 
 - O root tem `middleware` que faz **um** `GET /api/auth/me` enquanto a sessão está `unknown` e o `HydrateFallback` (splash) cobre essa espera. Cada rota tem um `middleware` de guarda que chama `decideAccess` e lança `redirect`; as rotas logadas vivem sob a rota de layout `shell` (sem `path`, guarda `signed-in`).
 - A rota `shell` tem um segundo `middleware`, `restoreOpenTables`: com a sessão autenticada, `openTables.restore(user.id)` (idempotente) reabre as mesas da aba depois de um F5. "Sair" no menu chama `openTables.closeAll()` **antes** do `authApi.logout()` (depois, o server recusaria os `session:leave` e os outros só veriam a saída depois da tolerância).
