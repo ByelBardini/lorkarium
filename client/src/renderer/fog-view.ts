@@ -2,10 +2,10 @@ import type { LightDto, SceneDto, TokenDto, WallDto } from '@lorkarium/contracts
 import { type Eye, type LightSource, type SceneSize, type Wall } from '@lorkarium/game-core';
 import { eyeOfToken, type BoardSight } from '@/lib/board-sight';
 import { lightSourcesOf, type TokenLanding } from '@/lib/light-sources';
-import { gameWallOf } from '@/lib/wall-geometry';
+import { gameWallsOf } from '@/lib/wall-geometry';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 import { lightAreasOf } from './light-areas';
-import { worldAreaOf } from './world-area';
+import { rememberedWorldAreaOf, wallSetIdOf } from './world-area';
 
 /** A rectangle in world px. */
 export type FogRect = Readonly<{ x: number; y: number; width: number; height: number }>;
@@ -40,26 +40,44 @@ export type FogViewInput = Readonly<{
 type PlacedEye = Readonly<{ eye: Eye; hole: FogRect }>;
 type FogGeometry = Readonly<{ walls: readonly Wall[]; size: SceneSize }>;
 
+// A change that leaves the eyes, the walls and the lights alone (the ruler, a selection, a remote
+// drag of anyone else) asks again with the same key: the last fog is handed back whole.
+let lastFog: FogView | null = null;
+
 /** The fog over the board, or `null` when nothing is hidden (sight off, the master not
  *  previewing). Each eye's areas come from the game-core `sightArea` (cut by the walls and the
  *  scene); by daylight the bright area has no limit, there is no penumbra and lights add nothing.
+ *  The eyes and the lights are placed first (cheap) and the key worked out from them: the same key
+ *  gives back the very same `FogView`, and only a new one goes to `sightArea`.
  *
  *  Example: `fogViewOf({ sight, scene, walls, lights, tokens, landing: new Map() })?.dim.length` */
 export function fogViewOf(input: FogViewInput): FogView | null {
   const { sight, scene } = input;
   if (!sight.active) return null;
   const size = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-  const geometry = { walls: input.walls.map(gameWallOf), size };
+  const geometry = { walls: gameWallsOf(input.walls), size };
   const placed = placedEyesOf(input);
-  const own = ownAreasOf(placed, geometry, sight.mode === 'daylight');
   const sources = sight.mode === 'dark' ? lightSourcesOf(input, input.landing) : [];
+  const key = keyOf(sight, placed, geometry, sources);
+  if (lastFog?.key === key) return lastFog;
+  lastFog = fogGeometryOf(sight, placed, geometry, sources, key);
+  return lastFog;
+}
+
+function fogGeometryOf(
+  sight: BoardSight,
+  placed: readonly PlacedEye[],
+  geometry: FogGeometry,
+  sources: readonly LightSource[],
+  key: string,
+): FogView {
+  const own = ownAreasOf(placed, geometry, sight.mode === 'daylight');
   const lit = litAreasOf(sources, geometry);
   const sightLines =
     lit.dim.length > 0 ? placed.map(({ eye }) => areaOf(eye, geometry, Infinity)) : [];
   const holes = placed.map(({ hole }) => hole);
-  const width = size.widthCells * CELL_WORLD_SIZE;
-  const height = size.heightCells * CELL_WORLD_SIZE;
-  const key = keyOf(sight, placed, input.walls, sources);
+  const width = geometry.size.widthCells * CELL_WORLD_SIZE;
+  const height = geometry.size.heightCells * CELL_WORLD_SIZE;
   return { width, height, ...own, holes, lit, sightLines, key };
 }
 
@@ -105,17 +123,17 @@ function litAreasOf(sources: readonly LightSource[], { walls, size }: FogGeometr
 }
 
 function areaOf(eye: Eye, { walls, size }: FogGeometry, reach: number): Point[] {
-  return worldAreaOf(eye.center, walls, size, reach, eye.field ?? undefined);
+  return rememberedWorldAreaOf(eye.center, walls, size, reach, eye.field ?? undefined);
 }
 
+// The walls go in by the identity of their array: a door opening hands a new one.
 function keyOf(
   sight: BoardSight,
   placed: readonly PlacedEye[],
-  walls: readonly WallDto[],
+  { walls, size }: FogGeometry,
   sources: readonly LightSource[],
 ): string {
   const eyes = placed.map(({ eye, hole }) => [eye.center, eye.range, eye.field, hole.x, hole.y]);
-  const blockers = walls.map(({ id, kind, x, y, doorState }) => [id, kind, x, y, doorState]);
   const lights = sources.map(({ center, range, cone }) => [center, range, cone]);
-  return JSON.stringify([sight.mode, eyes, blockers, lights]);
+  return JSON.stringify([sight.mode, size, eyes, wallSetIdOf(walls), lights]);
 }

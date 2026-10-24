@@ -22,5 +22,8 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['test/**/*.spec.{ts,tsx}'],
     setupFiles: ['./test/setup.ts'],
+    // `pnpm bench`: the getter tracker counts every call into another module and weighs more than
+    // the code measured (docs/context/client/performance.md).
+    benchmark: { suppressExportGetterWarnings: true },
   },
 });

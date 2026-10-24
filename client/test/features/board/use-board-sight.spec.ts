@@ -5,6 +5,7 @@ import { levelOf } from '@/lib/board-sight';
 import { startRoute } from '@/lib/token-route';
 import { sightNowOf, type SightInteraction } from '@/features/board/use-board-sight';
 import type { TokenDrag } from '@/stores/board-interaction-store';
+import { northWall } from '../../support/wall-fixtures';
 import {
   BIA_AT_TABLE,
   LYRA_ID,
@@ -120,5 +121,46 @@ describe('sightNowOf while Lyra turns', () => {
     const again = sightNowOf(table, { ...IDLE, facingPreview: { [LYRA_ID]: 180 } });
 
     expect(again).toBe(first);
+  });
+});
+
+describe('sightNowOf works the filter out again only when what it reads changes', () => {
+  // A goblin at (6, 4) that is nobody's eye and carries no light; the ogre stays at (11, 4).
+  const GOBLIN_ID = 'bb22cc33-dd44-4e55-8f66-0011223344aa';
+  const GOBLIN: TokenDto = { ...OGRE, id: GOBLIN_ID, name: 'Goblin', col: 6, row: 4 };
+  const WALLED = { ...BOARD, tokens: [LYRA, OGRE, GOBLIN], walls: [northWall()] };
+
+  it('a new drawing (a new board, the same tokens, walls and lights) gives back the very same sight', () => {
+    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE);
+    const drawn = { ...WALLED, version: WALLED.version + 1, drawings: [] };
+
+    expect(sightNowOf({ board: drawn, dragged: {} }, IDLE)).toBe(before);
+  });
+
+  it('a token moved gives a new sight', () => {
+    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE);
+    const tokens = [LYRA, { ...OGRE, col: 4 }, GOBLIN];
+
+    expect(sightNowOf({ board: { ...WALLED, tokens }, dragged: {} }, IDLE)).not.toBe(before);
+  });
+
+  it('a door opening (new walls) gives a new sight', () => {
+    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE);
+    const walls = [northWall({ kind: 'grate' })];
+
+    expect(sightNowOf({ board: { ...WALLED, walls }, dragged: {} }, IDLE)).not.toBe(before);
+  });
+
+  it('someone dragging the goblin into the dark changes only its level', () => {
+    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE);
+    const after = sightNowOf(
+      { board: WALLED, dragged: { [GOBLIN_ID]: { col: 15, row: 4 } } },
+      IDLE,
+    );
+
+    expect(levelOf(before, GOBLIN_ID)).toBe('seen');
+    expect(levelOf(after, GOBLIN_ID)).toBe('hidden');
+    expect(levelOf(after, OGRE_ID)).toBe(levelOf(before, OGRE_ID));
+    expect(after.eyes).toBe(before.eyes);
   });
 });

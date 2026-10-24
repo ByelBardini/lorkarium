@@ -1,9 +1,10 @@
 import type { LightDto, SceneDto, TokenDto, WallDto } from '@lorkarium/contracts';
 import { lightColorHex } from '@/lib/light-color';
 import { shiningLightsOf, type TokenLanding } from '@/lib/light-sources';
-import { gameWallOf } from '@/lib/wall-geometry';
+import { gameWallsOf } from '@/lib/wall-geometry';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 import { lightAreasOf } from './light-areas';
+import { wallSetIdOf } from './world-area';
 
 /** One colored light: its tone and what it lights, in world px, cut by the walls. */
 export type LightTint = Readonly<{
@@ -31,33 +32,38 @@ export type LightTintInput = Readonly<{
   landing: TokenLanding;
 }>;
 
+// A change that leaves the colored lights and the walls alone hands back the last tint whole.
+let lastTint: LightTintView | null = null;
+
 /** The tint of the colored lights, or `null` with nothing to tint: a light only counts in the
  *  dark, so daylight and sight off tint nothing, and neutral or unlit lights never do. The same
- *  for every viewer; the fog above it hides what a player does not see.
+ *  for every viewer; the fog above it hides what a player does not see. The key comes first (the
+ *  lights placed, the walls by identity): the same key gives back the very same view.
  *
  *  Example: `lightTintViewOf({ scene, walls, lights, tokens, landing: new Map() })?.tints.length` */
 export function lightTintViewOf(input: LightTintInput): LightTintView | null {
   const { scene } = input;
   if (scene.vision !== 'dark') return null;
   const size = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-  const walls = input.walls.map(gameWallOf);
-  const tints = shiningLightsOf(input, input.landing).flatMap(({ source, color }) => {
+  const walls = gameWallsOf(input.walls);
+  const colored = shiningLightsOf(input, input.landing).flatMap(({ source, color }) => {
     const hex = lightColorHex(color);
-    if (hex === null) return [];
-    return [{ color: hex, ...lightAreasOf(source, walls, size), source }];
+    return hex === null ? [] : [{ color: hex, source }];
   });
-  if (tints.length === 0) return null;
-  const blockers = input.walls.map(({ id, kind, x, y, doorState }) => [id, kind, x, y, doorState]);
-  const lights = tints.map(({ color, source }) => [
+  if (colored.length === 0) return null;
+  const lights = colored.map(({ color, source }) => [
     color,
     source.center,
     source.range,
     source.cone,
   ]);
-  return {
+  const key = JSON.stringify([size, wallSetIdOf(walls), lights]);
+  if (lastTint?.key === key) return lastTint;
+  lastTint = {
     width: size.widthCells * CELL_WORLD_SIZE,
     height: size.heightCells * CELL_WORLD_SIZE,
-    tints: tints.map(({ color, bright, dim }) => ({ color, bright, dim })),
-    key: JSON.stringify([size, blockers, lights]),
+    tints: colored.map(({ color, source }) => ({ color, ...lightAreasOf(source, walls, size) })),
+    key,
   };
+  return lastTint;
 }

@@ -1,7 +1,7 @@
 import { cell } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
-import { cellAtWorld, gridLines, visibleWorldRect } from '@/renderer/grid-geometry';
+import { cellAtWorld, gridBandFor, gridLines, visibleWorldRect } from '@/renderer/grid-geometry';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
 const C = CELL_WORLD_SIZE;
@@ -57,5 +57,56 @@ describe('visibleWorldRect', () => {
       width: 400,
       height: 300,
     });
+  });
+});
+
+describe('gridBandFor', () => {
+  const WIDE = { widthCells: 100, heightCells: 100 };
+  const screenAt = (x: number, y = 0) => ({ x, y, width: 640, height: 640 });
+
+  it('a 640 px screen at zoom 1 gets the band of one screen of margin, cut at the scene', () => {
+    expect(gridBandFor(WIDE, screenAt(0), null)).toEqual({
+      colFrom: 0,
+      colTo: 20,
+      rowFrom: 0,
+      rowTo: 20,
+    });
+  });
+
+  it('in the middle of the scene the band spans a screen on each side', () => {
+    expect(gridBandFor(WIDE, screenAt(20 * C, 20 * C), null)).toEqual({
+      colFrom: 10,
+      colTo: 40,
+      rowFrom: 10,
+      rowTo: 40,
+    });
+  });
+
+  it('a pan of 100 px keeps the very same band', () => {
+    const band = gridBandFor(WIDE, screenAt(0), null);
+    expect(gridBandFor(WIDE, screenAt(100), band)).toBe(band);
+  });
+
+  it('a pan of 700 px leaves the band: a new one around the new view', () => {
+    const band = gridBandFor(WIDE, screenAt(0), null);
+    const next = gridBandFor(WIDE, screenAt(700), band);
+    expect(next).not.toBe(band);
+    expect(next).toMatchObject({ colFrom: 0, colTo: 31 });
+  });
+
+  it('at the far edge the band stops at the last line of the scene', () => {
+    expect(gridBandFor(SCENE, screenAt(15 * C), null)).toMatchObject({ colFrom: 5, colTo: 20 });
+  });
+
+  it('the lines of a band are those inside it', () => {
+    const band = gridBandFor(WIDE, screenAt(20 * C, 20 * C), null);
+    const lines = gridLines(WIDE, {
+      x: band.colFrom * C,
+      y: band.rowFrom * C,
+      width: (band.colTo - band.colFrom) * C,
+      height: (band.rowTo - band.rowFrom) * C,
+    });
+    expect(lines.vertical).toHaveLength(31);
+    expect(lines.vertical[0]).toBe(10 * C);
   });
 });

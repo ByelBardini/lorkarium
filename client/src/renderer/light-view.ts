@@ -1,7 +1,7 @@
 import type { LightDto, WallDto } from '@lorkarium/contracts';
 import { coneOf, lightRange, type SceneSize } from '@lorkarium/game-core';
 import { lightColorHex } from '@/lib/light-color';
-import { gameWallOf } from '@/lib/wall-geometry';
+import { gameWallsOf } from '@/lib/wall-geometry';
 import type { BoardViewTool } from './board-view';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 import { lightAreasOf, type LightAreas } from './light-areas';
@@ -43,7 +43,7 @@ export type LightViewInput = Readonly<{
 export function lightViewsOf(input: LightViewInput): LightView[] {
   if (!input.viewer.isMaster) return [];
   const tool = input.tool === 'lights';
-  const walls = tool ? input.walls.map(gameWallOf) : [];
+  const walls = tool ? gameWallsOf(input.walls) : [];
   return input.lights.map((light) => ({
     id: light.id,
     x: light.x * CELL_WORLD_SIZE,

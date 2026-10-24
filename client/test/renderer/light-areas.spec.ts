@@ -50,11 +50,13 @@ describe('lightAreasOf', () => {
     expect(insidePolygon(world(8, 5), areas.dim)).toBe(false);
   });
 
-  it('the same light with the same walls gives back the very same areas (kept in memory)', () => {
-    const first = lightAreasOf(TORCH, [wallAtX(7)], SCENE);
-    const again = lightAreasOf({ ...TORCH }, [wallAtX(7)], SCENE);
+  it('the same light with the same walls array gives back the very same polygons (kept in memory)', () => {
+    const walls = [wallAtX(7)];
+    const first = lightAreasOf(TORCH, walls, SCENE);
+    const again = lightAreasOf({ ...TORCH }, walls, SCENE);
 
-    expect(again).toBe(first);
+    expect(again.bright).toBe(first.bright);
+    expect(again.dim).toBe(first.dim);
   });
 
   it('moving the light works the areas out again', () => {
@@ -102,7 +104,7 @@ describe('lightAreasOf of a spotlight', () => {
   it('the same spotlight aimed elsewhere is another area, and aimed the same is the same instance', () => {
     const right = lightAreasOf(spotlight(0), [], SCENE);
 
-    expect(lightAreasOf(spotlight(180), [], SCENE)).not.toBe(right);
-    expect(lightAreasOf(spotlight(0), [], SCENE)).toBe(right);
+    expect(lightAreasOf(spotlight(180), [], SCENE).dim).not.toBe(right.dim);
+    expect(lightAreasOf(spotlight(0), [], SCENE).dim).toBe(right.dim);
   });
 });

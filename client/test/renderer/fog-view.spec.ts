@@ -13,7 +13,7 @@ import {
   vharnBoard,
 } from '../support/table-session-fixtures';
 import { corridorTorch } from '../support/light-fixtures';
-import { northWall } from '../support/wall-fixtures';
+import { cellDoor, northWall } from '../support/wall-fixtures';
 
 const CELL = CELL_WORLD_SIZE;
 // Lyra (Bia's) stands at (5, 5), center (5.5, 5.5), and sees 3 cells fully and 3 more dimly.
@@ -227,5 +227,50 @@ describe('fogViewOf with Lyra looking in a cone', () => {
 
     expect(seesAt(fog?.bright ?? [], 19, 5)).toBe(true);
     expect(seesAt(fog?.bright ?? [], 1, 5)).toBe(false);
+  });
+});
+
+describe('fogViewOf works the geometry out only when what it reads changes', () => {
+  // Lyra at (5, 5) sees 3 + 3; the closed door at x = 7 (y 5 to 6) shuts the cell east of it.
+  const DOOR_CLOSED = [cellDoor()];
+  const DOOR_OPEN = [cellDoor({ doorState: 'open' })];
+
+  function fogWith(board: BoardStateDto, landing = new Map()): FogView | null {
+    return fogOf(board, landing);
+  }
+
+  it('the same sight, walls, lights and tokens give back the very same FogView', () => {
+    const board = boardOf('dark', DOOR_CLOSED);
+    expect(fogWith(board)).toBe(fogWith(board));
+  });
+
+  it('Lyra stepping one cell gives a new FogView, its dim area moved with her', () => {
+    const board = boardOf('dark');
+    const before = fogWith(board);
+    const after = fogWith(board, new Map([[LYRA_ID, { col: 6, row: 5, facing: 0 }]]));
+    expect(after).not.toBe(before);
+    expect(seesAt(before?.dim ?? [], 11, 5)).toBe(false);
+    expect(seesAt(after?.dim ?? [], 11, 5)).toBe(true);
+  });
+
+  it('the door opening (a new array of walls) gives a new key, and the area passes through it', () => {
+    const closed = fogWith(boardOf('dark', DOOR_CLOSED));
+    const open = fogWith(boardOf('dark', DOOR_OPEN));
+    expect(open?.key).not.toBe(closed?.key);
+    expect(seesAt(closed?.dim ?? [], 8, 5)).toBe(false);
+    expect(seesAt(open?.dim ?? [], 8, 5)).toBe(true);
+  });
+
+  it('the torch going out leaves it out of what is lit', () => {
+    const blind = { ...LYRA, sight: null };
+    const lit = vharnBoard({
+      viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+      scene: { ...VHARN_SCENE, vision: 'dark' },
+      tokens: [blind],
+      lights: [corridorTorch()],
+    });
+    const out = { ...lit, lights: [corridorTorch({ lit: false })] };
+    expect(fogWith(lit)?.lit.dim).toHaveLength(1);
+    expect(fogWith(out)?.lit.dim).toEqual([]);
   });
 });

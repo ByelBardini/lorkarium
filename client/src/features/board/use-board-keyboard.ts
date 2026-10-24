@@ -3,7 +3,7 @@ import type { SelectionToDelete } from './delete-selection-dialog';
 import { sightNowOf } from './use-board-sight';
 import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
 import { blockedPassage, cell, tokenCenter, turnFacing, type Cell } from '@lorkarium/game-core';
-import { gameWallOf } from '@/lib/wall-geometry';
+import { gameWallsOf } from '@/lib/wall-geometry';
 import { useCallback } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { boardKeyOf, readingOrder, stepFrom, type BoardKey } from '@/lib/board-keys';
@@ -180,5 +180,5 @@ function moveByKey(
 function crossesWall(state: BoardStateDto | null, token: TokenDto, to: Cell): boolean {
   if (!state || state.viewer.role === 'master') return false;
   const centers = [tokenCenter(token, token), tokenCenter(to, token)];
-  return blockedPassage(centers, state.walls.map(gameWallOf)) !== null;
+  return blockedPassage(centers, gameWallsOf(state.walls)) !== null;
 }

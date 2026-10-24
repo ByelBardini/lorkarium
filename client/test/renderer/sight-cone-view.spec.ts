@@ -108,3 +108,19 @@ describe('sightConeViewOf', () => {
     });
   });
 });
+
+describe('sightConeViewOf reuses the last view', () => {
+  it('the same selection and pose give back the very same SightConeView', () => {
+    const same = input({ walls: [northWall()] });
+    expect(sightConeViewOf({ ...same })).toBe(sightConeViewOf(same));
+  });
+
+  it('the selected token turning gives a new outline', () => {
+    const still = sightConeViewOf(input());
+    const turned = sightConeViewOf(
+      input({ landing: new Map([[LYRA_ID, { col: 5, row: 5, facing: 90 }]]) }),
+    );
+    expect(turned).not.toBe(still);
+    expect(turned?.key).not.toBe(still?.key);
+  });
+});

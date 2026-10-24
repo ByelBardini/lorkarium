@@ -1,9 +1,9 @@
 import type { SceneDto, TokenDto, WallDto } from '@lorkarium/contracts';
 import { eyeFieldOf, tokenCenter } from '@lorkarium/game-core';
 import type { TokenLanding } from '@/lib/light-sources';
-import { gameWallOf } from '@/lib/wall-geometry';
+import { gameWallsOf } from '@/lib/wall-geometry';
 import type { Point } from './camera';
-import { worldAreaOf } from './world-area';
+import { wallSetIdOf, worldAreaOf } from './world-area';
 
 /** The outline of the field of view of the token the master selected alone: its cone and ring up
  *  to its darkvision in the dark (the scene border by daylight or without darkvision), cut by the
@@ -20,6 +20,9 @@ export type SightConeInput = Readonly<{
   landing: TokenLanding;
 }>;
 
+// The same selection in the same pose hands back the last outline whole.
+let lastCone: SightConeView | null = null;
+
 /** The outline the master sees of a field of view: only for the master (a player sees their field
  *  in the fog), only with one token selected that looks in a cone (below 360°), only in a scene
  *  Escuro or Luz do dia; `null` otherwise.
@@ -35,11 +38,12 @@ export function sightConeViewOf(input: SightConeInput): SightConeView | null {
   const { scene } = input;
   const size = { widthCells: scene.widthCells, heightCells: scene.heightCells };
   const center = tokenCenter(at, token);
-  const walls = input.walls.map(gameWallOf);
+  const walls = gameWallsOf(input.walls);
   const reach = outlineReachOf(token, scene.vision);
-  const outline = worldAreaOf(center, walls, size, reach, field);
-  const blockers = input.walls.map(({ id, kind, x, y, doorState }) => [id, kind, x, y, doorState]);
-  return { outline, key: JSON.stringify([size, center, field, reach, blockers]) };
+  const key = JSON.stringify([size, center, field, reach, wallSetIdOf(walls)]);
+  if (lastCone?.key === key) return lastCone;
+  lastCone = { outline: worldAreaOf(center, walls, size, reach, field), key };
+  return lastCone;
 }
 
 // In the dark the field ends where darkvision does (bright + dim); by daylight, and for a token

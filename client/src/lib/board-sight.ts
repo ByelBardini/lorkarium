@@ -13,7 +13,7 @@ import {
   type Wall,
 } from '@lorkarium/game-core';
 import { lightSourcesOf, type TokenLanding } from './light-sources';
-import { gameWallOf } from './wall-geometry';
+import { gameWallsOf } from './wall-geometry';
 
 /** What this viewer sees of the board: the level of each token, the eyes it looks through and the
  *  doors they see. `active` is false when nothing is hidden (sight off, or the master not
@@ -57,7 +57,7 @@ export function boardSightOf(board: BoardStateDto, options: BoardSightOptions): 
   const eyes = eyeTokens.map((token) => eyeOfToken(token, options.landing));
   if (options.previewEyeIds && eyes.length === 0)
     return { ...clearSight(mode), previewBlind: true };
-  const walls = board.walls.map(gameWallOf);
+  const walls = gameWallsOf(board.walls);
   const lights = lightSourcesOf(board, options.landing);
   const context: SightContext = { eyes, walls, mode, lights };
   return {
@@ -111,6 +111,44 @@ export function eyeOfToken(token: TokenDto, landing: BoardSightOptions['landing'
   return eyeOf(tokenCenter(at, token), range, field);
 }
 
+/** The tokens whose pose shapes what everyone else looks like: the eyes (the player's own
+ *  tokens, or the master's preview) and every token with a lit light. A drag of any other token
+ *  changes only its own level (`sightWithMovedOf`).
+ *
+ *  Example: `poseShapingIdsOf(board, previewEyeIdsOf(interaction)).has(draggedId)` */
+export function poseShapingIdsOf(
+  board: BoardStateDto,
+  previewEyeIds: readonly string[] | null,
+): ReadonlySet<string> {
+  const ids = new Set(watchersOf(board, previewEyeIds) ?? []);
+  for (const token of board.tokens) if (token.light && token.lightLit) ids.add(token.id);
+  return ids;
+}
+
+/** `previous` with only the levels of `movedIds` worked out again, from where they show now: the
+ *  eyes, the lights and the doors did not move, so nothing else changes.
+ *
+ *  Example: `sightWithMovedOf(last, board, { previewEyeIds, landing }, [goblinId])` */
+export function sightWithMovedOf(
+  previous: BoardSight,
+  board: BoardStateDto,
+  options: BoardSightOptions,
+  movedIds: readonly string[],
+): BoardSight {
+  if (!previous.active) return previous;
+  const walls = gameWallsOf(board.walls);
+  const lights = lightSourcesOf(board, options.landing);
+  const context: SightContext = { eyes: previous.eyes, walls, mode: previous.mode, lights };
+  const levels = new Map(previous.levels);
+  for (const token of board.tokens) {
+    if (!movedIds.includes(token.id) || previous.eyeTokenIds.includes(token.id)) continue;
+    const level = levelOfToken(context, token, options.landing);
+    if (level === 'seen') levels.delete(token.id);
+    else levels.set(token.id, level);
+  }
+  return { ...previous, levels };
+}
+
 function levelsOf(
   tokens: readonly TokenDto[],
   watching: readonly string[],
@@ -120,12 +158,20 @@ function levelsOf(
   const levels = new Map<string, SightLevel>();
   for (const token of tokens) {
     if (watching.includes(token.id)) continue;
-    const at = landing?.get(token.id) ?? token;
-    const box = { x: at.col, y: at.row, width: token.width, height: token.height };
-    const level = sightLevel(context, { box, scenery: token.layer === 'background' });
+    const level = levelOfToken(context, token, landing);
     if (level !== 'seen') levels.set(token.id, level);
   }
   return levels;
+}
+
+function levelOfToken(
+  context: SightContext,
+  token: TokenDto,
+  landing: BoardSightOptions['landing'],
+): SightLevel {
+  const at = landing?.get(token.id) ?? token;
+  const box = { x: at.col, y: at.row, width: token.width, height: token.height };
+  return sightLevel(context, { box, scenery: token.layer === 'background' });
 }
 
 // The door handed to the rule is the very wall of `walls`: it never hides itself.

@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, type Texture } from 'pixi.js';
+import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
 import type { BarColorDto, TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
 import { facingVector } from '@lorkarium/game-core';
 import type { GhostView, TokenView } from './board-view';
@@ -13,6 +14,7 @@ import { barSegments, type BarTone } from './token-bar';
 import { tokenWorldRect } from './token-box';
 import { defeatedCross } from './token-defeated';
 import { tokenLookStyle } from './token-look';
+import { tokenRedrawOf, type TokenRedraw } from './token-redraw';
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const DISC_COLOR = 0x1b1f25;
@@ -56,12 +58,19 @@ type TokenSprite = Readonly<{
   nameTag: PixiNameTag;
 }> & { view: TokenView; from: Point; to: Point; startedMs: number; stripHeight: number };
 
+/** Where the token images come from: a texture, or `null` while it loads (or failed). */
+export type TokenTextures = Pick<PixiTextureCache, 'textureOf'>;
+
+const WHOLE: TokenRedraw = { body: true, nameTag: true };
+const STRIP_ONLY: TokenRedraw = { body: false, nameTag: false };
+
 const FACING_MARK_LENGTH = 7;
 const FACING_MARK_HALF_WIDTH = 5;
 
 /** The tokens on the canvas: one `Container` per token, kept by id so a change redraws only that
- *  token (spec §14, rendering risk), inside one `Container` per layer (Fundo under Objetos under
- *  Tokens). Each layer has its condition strips and name plates right above its tokens: they hang
+ *  token, and of it only the part that changed (`tokenRedrawOf`; spec §14, rendering risk), inside
+ *  one `Container` per layer (Fundo under Objetos under Tokens). Only the tokens gliding to a new
+ *  cell are stepped by the ticker. Each layer has its condition strips and name plates right above its tokens: they hang
  *  under the cell, and the token below must not cover them. Positions are world px of the token's top-left
  *  corner. */
 export class PixiTokenLayer {
@@ -79,16 +88,18 @@ export class PixiTokenLayer {
   private zoom = 1;
   private readonly sprites = new Map<string, TokenSprite>();
   private readonly ghost = new Graphics();
+  private readonly gliding = new Set<string>();
   private dragging: string | null = null;
   private hovered: string | null = null;
 
   /** `beneath`: what goes over Fundo and Objetos and under the tokens of Tokens (the areas of
    *  effect and the drawings); `textures`: where the token images come from (without it, every
-   *  token is the initials disc). */
+   *  token is the initials disc); `probe` counts each body redrawn (`token.redraw`). */
   constructor(
     private readonly reducedMotion: () => boolean,
     beneath?: Container,
-    private readonly textures?: PixiTextureCache,
+    private readonly textures?: TokenTextures,
+    private readonly probe: PerfProbe = NO_PERF_PROBE,
   ) {
     const { background, objects, tokens } = this.layers;
     if (beneath) tokens.addChild(beneath);
@@ -104,6 +115,7 @@ export class PixiTokenLayer {
       sprite.root.destroy({ children: true });
       sprite.overlay.destroy({ children: true });
       this.sprites.delete(id);
+      this.gliding.delete(id);
     }
     for (const view of tokens) this.place(view, nowMs);
     this.drawGhosts(ghosts);
@@ -114,17 +126,32 @@ export class PixiTokenLayer {
   applyZoom(zoom: number): void {
     if (zoom === this.zoom) return;
     this.zoom = zoom;
-    for (const sprite of this.sprites.values()) this.drawStrip(sprite);
+    for (const sprite of this.sprites.values()) this.draw(sprite, STRIP_ONLY);
   }
 
-  /** The token under the pointer shows its name (selected ones always do); `null` hides it. */
+  /** The token under the pointer shows its name (selected ones always do); `null` hides it.
+   *  Only the two name plates are drawn again. */
   hover(tokenId: string | null): void {
     if (tokenId === this.hovered) return;
     const before = this.hovered ? this.sprites.get(this.hovered) : undefined;
     this.hovered = tokenId;
-    if (before) this.draw(before);
+    const plateOnly = { hoverChanged: true };
+    if (before) this.draw(before, tokenRedrawOf(before.view, before.view, plateOnly));
     const now = tokenId ? this.sprites.get(tokenId) : undefined;
-    if (now) this.draw(now);
+    if (now) this.draw(now, tokenRedrawOf(now.view, now.view, plateOnly));
+  }
+
+  /** The texture of `url` arrived: only the tokens that show that image are drawn again. */
+  refreshArt(url: string): void {
+    for (const sprite of this.sprites.values()) {
+      if (sprite.view.art?.url !== url) continue;
+      this.draw(sprite, tokenRedrawOf(sprite.view, sprite.view, { artArrived: true }));
+    }
+  }
+
+  /** How many tokens are gliding to their new cell (what `animate` steps). */
+  glidingCount(): number {
+    return this.gliding.size;
   }
 
   /** Follows the pointer while a token is dragged: `world` is where its center goes (the hold
@@ -144,14 +171,17 @@ export class PixiTokenLayer {
     if (sprite) moveSprite(sprite, sprite.to.x, sprite.to.y);
   }
 
-  /** Moves each token a step along its 150 ms glide; call from the ticker. */
+  /** Moves each gliding token a step along its 150 ms glide; call from the ticker. A token that
+   *  arrived leaves the set, so a still board costs nothing. */
   animate(nowMs: number): void {
-    for (const [id, sprite] of this.sprites) {
-      if (id === this.dragging) continue;
+    for (const id of this.gliding) {
+      const sprite = this.sprites.get(id);
+      if (!sprite || id === this.dragging) continue;
       const progress = Math.min(1, (nowMs - sprite.startedMs) / MOVE_ANIMATION_MS);
       const x = sprite.from.x + (sprite.to.x - sprite.from.x) * progress;
       const y = sprite.from.y + (sprite.to.y - sprite.from.y) * progress;
       moveSprite(sprite, x, y);
+      if (progress === 1) this.gliding.delete(id);
     }
   }
 
@@ -167,31 +197,33 @@ export class PixiTokenLayer {
     const moved = known.to.x !== target.x || known.to.y !== target.y;
     // The glide is for moves; a resize (the size changed) follows the handle at once.
     const resized = known.view.width !== view.width || known.view.height !== view.height;
-    if (moved) {
-      const instant = this.reducedMotion() || resized;
-      known.from = instant ? target : { x: known.root.x, y: known.root.y };
-      known.to = target;
-      known.startedMs = nowMs;
-    }
+    if (moved) this.glide(known, target, nowMs, this.reducedMotion() || resized);
     if (known.view.layer !== view.layer) {
       this.layers[view.layer].addChild(known.root);
       this.strips[view.layer].addChild(known.overlay);
     }
+    const redraw = tokenRedrawOf(known.view, view);
     known.view = view;
-    this.draw(known);
+    this.draw(known, redraw);
   }
 
-  private draw(sprite: TokenSprite): void {
-    const art = sprite.view.art;
-    drawToken(sprite, art ? (this.textures?.textureOf(art.url) ?? null) : null);
-    sprite.stripHeight = sprite.marks.draw(sprite.view, this.zoom).height;
-    sprite.nameTag.draw(sprite.view, showsNameTag(sprite.view, this.hovered), sprite.stripHeight);
+  private glide(sprite: TokenSprite, target: Point, nowMs: number, instant: boolean): void {
+    sprite.from = instant ? target : { x: sprite.root.x, y: sprite.root.y };
+    sprite.to = target;
+    sprite.startedMs = nowMs;
+    if (instant && sprite.view.id !== this.dragging) moveSprite(sprite, target.x, target.y);
+    if (!instant) this.gliding.add(sprite.view.id);
   }
 
-  // The name plate moves only when the strip under the token grows or shrinks.
-  private drawStrip(sprite: TokenSprite): void {
+  // The strip keeps its own key; the plate moves when the strip under the token changes height.
+  private draw(sprite: TokenSprite, redraw: TokenRedraw): void {
+    if (redraw.body) {
+      this.probe.count('token.redraw');
+      const art = sprite.view.art;
+      drawToken(sprite, art ? (this.textures?.textureOf(art.url) ?? null) : null);
+    }
     const { height } = sprite.marks.draw(sprite.view, this.zoom);
-    if (height === sprite.stripHeight) return;
+    if (!redraw.nameTag && height === sprite.stripHeight) return;
     sprite.stripHeight = height;
     sprite.nameTag.draw(sprite.view, showsNameTag(sprite.view, this.hovered), height);
   }
@@ -240,7 +272,7 @@ export class PixiTokenLayer {
       stripHeight: 0,
     };
     this.sprites.set(view.id, sprite);
-    this.draw(sprite);
+    this.draw(sprite, WHOLE);
   }
 
   private drawGhosts(ghosts: readonly GhostView[]): void {
