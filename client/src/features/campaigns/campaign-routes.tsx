@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import {
   Outlet,
   redirect,
   useLoaderData,
+  useMatch,
   useNavigate,
   type ActionFunction,
   type LoaderFunction,
@@ -11,9 +13,12 @@ import {
 import type { AppDependencies } from '@/app/router';
 import { redirectIfSignedOut, valueOrThrow } from '@/app/shell/api-loader';
 import { COMPACT_RAIL_HANDLE } from '@/app/shell/rail-handle';
+import { cn } from '@/lib/utils';
 import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detail-dialog';
 import { PlayRoomPage } from '@/features/board/play-room-page';
 import { libraryRoute, TABLE_ROUTE_ID } from '@/features/library/library-route';
+import { CampaignOverview } from './campaign-overview';
+import { CAMPAIGN_SETTINGS_PATH, campaignSettingsRoute } from './campaign-settings-route';
 import { CampaignTableErrorPage } from './campaign-table-page';
 import type { CampaignLoaderData } from './campaign-loader-data';
 import type { EnterCampaignResult } from './enter-campaign-button';
@@ -32,8 +37,9 @@ export function campaignDetailRoute(deps: AppDependencies): RouteObject {
   };
 }
 
-/** The play room at `/campaigns/:campaignId/table`, with the rail compact around it and the
- *  library (`…/table/library`) as a child modal over it.
+/** The play room at `/campaigns/:campaignId/table`, with the rail compact around it, the
+ *  library (`…/table/library`) as a child modal over it and the settings (`…/table/settings`,
+ *  master only) as a child page covering it: the room stays mounted, so the table stays open.
  *
  *  Example: `{ id: 'shell', children: [...homeRoutes(deps), campaignTableRoute(deps)] }` */
 export function campaignTableRoute(deps: AppDependencies): RouteObject {
@@ -45,7 +51,7 @@ export function campaignTableRoute(deps: AppDependencies): RouteObject {
     shouldRevalidate: keepCampaignUnderLibrary,
     Component: tableRoute(deps),
     ErrorBoundary: CampaignTableErrorPage,
-    children: [{ index: true, element: null }, libraryRoute(deps)],
+    children: [{ index: true, element: null }, libraryRoute(deps), campaignSettingsRoute(deps)],
   };
 }
 
@@ -73,16 +79,22 @@ function enterCampaignAction({ campaignsApi, sessionStore }: AppDependencies): A
   };
 }
 
-function detailRoute({ clipboard }: AppDependencies): () => React.JSX.Element {
+function detailRoute({ clipboard, now }: AppDependencies): () => React.JSX.Element {
   return function DetailRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
     const navigate = useNavigate();
+    // Fixed once per visit, so "Último acesso" does not move while the modal is open.
+    const [visitNow] = useState(now);
+    const close = (): void => void navigate('/');
     return (
-      <CampaignDetailDialog
-        campaign={campaign}
-        clipboard={clipboard}
-        onClose={() => void navigate('/')}
-      />
+      <CampaignDetailDialog campaign={campaign} onClose={close}>
+        <CampaignOverview
+          campaign={campaign}
+          clipboard={clipboard}
+          now={visitNow}
+          onClose={close}
+        />
+      </CampaignDetailDialog>
     );
   };
 }
@@ -105,29 +117,35 @@ function tableRoute({
 }: AppDependencies): () => React.JSX.Element {
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
+    // The settings page covers the room instead of replacing it: the board and the live session
+    // stay up underneath (the master stays online). `invisible`, not `hidden`: the board keeps its
+    // size (the renderer measures it), while nothing in it is seen, read or focused.
+    const covered = useMatch(CAMPAIGN_SETTINGS_PATH) !== null;
     // Another table is another screen: its own pending presence, not the previous one's.
     return (
-      <>
-        <PlayRoomPage
-          key={campaign.id}
-          campaign={campaign}
-          openTables={openTables}
-          roomLayout={roomLayout}
-          drawingStyle={drawingStyle}
-          effectAreaStyle={effectAreaStyle}
-          wallStyle={wallStyle}
-          lightReach={lightReach}
-          lightColor={lightColor}
-          clipboard={clipboard}
-          createBoardRenderer={createBoardRenderer}
-          boardCommands={boardCommands}
-          pings={pings}
-          sessionStore={sessionStore}
-          assets={assets}
-          interactionClock={interactionClock}
-        />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className={cn('flex min-h-0 flex-1 flex-col', covered && 'invisible')}>
+          <PlayRoomPage
+            key={campaign.id}
+            campaign={campaign}
+            openTables={openTables}
+            roomLayout={roomLayout}
+            drawingStyle={drawingStyle}
+            effectAreaStyle={effectAreaStyle}
+            wallStyle={wallStyle}
+            lightReach={lightReach}
+            lightColor={lightColor}
+            clipboard={clipboard}
+            createBoardRenderer={createBoardRenderer}
+            boardCommands={boardCommands}
+            pings={pings}
+            sessionStore={sessionStore}
+            assets={assets}
+            interactionClock={interactionClock}
+          />
+        </div>
         <Outlet />
-      </>
+      </div>
     );
   };
 }
