@@ -1,0 +1,50 @@
+# Client · página "Configurações da mesa"
+
+A página em que o mestre muda o que aparece no hub e no detalhe: capa, nome, sistema, status, sobre, avisos, tags, visibilidade, senha, código e exclusão. Vive **dentro da sala**, por cima do tabuleiro, para a mesa continuar aberta (o server só aceita as configurações com o mestre online na mesa). Plano de origem: `docs/plans/2026-10-24-tela-detalhes-configuracoes-e-nova-mesa.md` (as configurações **não** ficam no modal de detalhes da home); mockup: `docs/pages/mesa/configuracoes/` (base, não lei). As peças (capa, status, avisos, tags, prévia, serviço) estão em [`campaign-parts.md`](campaign-parts.md); a sala em [`board.md`](board.md). Tudo é comando ao server; a tela só mostra o confirmado.
+
+## Rota (`src/features/campaigns/campaign-settings-route.tsx`)
+
+- `campaignSettingsRoute(deps)` — filha da sala (`campaigns/:campaignId/table`, id `TABLE_ROUTE_ID`), irmã da `library`: `path: 'settings'`, sem `loader` (lê a mesa por `useRouteLoaderData(TABLE_ROUTE_ID)`). `CAMPAIGN_SETTINGS_PATH` = `/campaigns/:campaignId/table/settings`. Jogador que digita a URL volta para `/campaigns/:id/table` (`<Navigate replace>`); quem recusa de verdade é o server. O formulário monta com `key={campaign.id}`.
+- A sala continua montada: o `tableRoute` (`campaign-routes.tsx`) desenha `<PlayRoomPage/>` + `<Outlet/>` e, com a rota casada (`useMatch(CAMPAIGN_SETTINGS_PATH)`), põe a sala num invólucro `invisible` (o tabuleiro mantém o tamanho que o renderer mede; nada nele é visto, lido nem focado). A sessão ao vivo segue aberta (o mestre segue online) e a mesa não é relida ao abrir/fechar a página (mesmos params).
+- Entrada: botão "Configurações da mesa" (`SettingsIcon`; texto "Configurações" só a partir de `xl`, nome acessível sempre o completo) no topo da sala, ao lado de "Biblioteca", só para o mestre (`room-header.tsx`).
+- `ErrorBoundary` ainda sobre a sala: `CampaignSettingsSignedOutError` → `SignedOutRedirect` (login com `next`); o resto, `UNEXPECTED_MESSAGE` num `role="alert"` dentro da moldura da página.
+
+## Moldura (`campaign-settings-page.tsx` + `settings-section-nav.tsx`)
+
+- `CampaignSettingsPage({ campaign, children })` — `absolute inset-0` sobre a sala, `bg-background`: barra de 48px (`bg-panel`) com "Voltar à mesa" (link para `/table`), o `h1` "Configurações da mesa" e o nome da mesa (a partir de `sm`); embaixo, a área que rola (`data-settings-scroller`, **`relative`**, largura toda da tela, sem `max-w`).
+- Teclas: a sala escuta F, V, Delete, Ctrl+Z… no `window`; a moldura para a propagação do `keydown` que nasce dentro dela (o que vem de diálogo em portal fica, a sala já ignora diálogo). Sem isso, um Delete num botão da página apagaria a seleção do tabuleiro escondido.
+- `SettingsSectionNav` — `nav` "Seções das configurações" com Geral, Conteúdo, Acesso e Zona de perigo (`SETTINGS_SECTIONS` em `settings-sections.ts`: id da `section` + título). A partir de `md`, coluna lateral `sticky`; abaixo, linha no topo (`sticky top-0`, rola na horizontal). **Âncoras de um formulário só**, não seções separadas: a barra salva o rascunho inteiro, e trocar de "aba" com edição pendente pediria confirmação sem motivo. São botões (não `#hash`): rolam **só a área da página** até a `section` (`scroller.scrollTo`, 24px de folga; nunca `scrollIntoView`, ver [`armadilhas.md`](armadilhas.md)) e movem o foco para ela (`tabIndex={-1}`, `preventScroll`); a URL fica a da página.
+
+## Ação (`campaign-settings-action.ts`)
+
+Corpo JSON `{ intent, input? }` revalidado por `z.discriminatedUnion` (`update` com o `updateCampaignRequestDto`, `regenerate-code`, `delete`); corpo fora dele → `{ intent: null, failure: invalid }`. O router relê a mesa da sala depois de toda ação.
+
+| Intenção          | Serviço                          | Resposta ao fetcher                                      |
+| ----------------- | -------------------------------- | -------------------------------------------------------- |
+| `update`          | `campaignsApi.update(id, input)` | `{ intent, done: true }`                                 |
+| `regenerate-code` | `campaignsApi.regenerateCode`    | `{ intent, done: true }` (o código novo vem do `loader`) |
+| `delete`          | `campaignsApi.remove`            | `openTables.getState().close(id)` + `redirect('/')`      |
+
+Recusa: `{ intent, failure }` (`SettingsFailure` = `CampaignsFailure` sem `unauthenticated`), traduzida por `commandFailureMessage` (`campaign-messages.ts`: espera do `rate_limited`, "Confira os campos e tente de novo." no `invalid`, o resto pelo `failureMessage`: `forbidden` → "Só o mestre da mesa pode fazer isso.", `not_open` (403 `CAMPAIGN_NOT_OPEN`, mestre sem a mesa aberta) → "Abra a mesa para mudar as configurações."). `unauthenticated` lança `CampaignSettingsSignedOutError` (padrão do `AccountSignedOutError`, ver [`armadilhas.md`](armadilhas.md)).
+
+- `use-settings-fetcher.ts` — `useSettingsFetcher(campaignId)` (`busy`, `settled` só depois da revalidação, `send` para `/campaigns/:id/table/settings`), `useOnSettingsSettled(settled, reagir)` e `settingsFailureOf(settled)`. Barra, código e exclusão têm cada um o seu fetcher.
+
+## Rascunho (`use-campaign-settings-draft.ts`)
+
+- `useCampaignSettingsDraft(campaign)` → `{ values, errors, dirty, update, change, discard }`: o confirmado + edições. `update` = o **input** do PATCH só com o que mudou (listas comparadas item a item, capa pelo desenho/tom ou `assetId`), ou `null` com campo inválido; validado pelo `updateCampaignRequestDto`.
+- Senha = `requirePassword` (switch) + `password` (texto): desligar uma mesa com senha → `password: null`; texto digitado → troca; ligado e vazio mantém (mesa com senha) ou manda `''`, que o DTO recusa e o campo pede "Informe a senha da mesa." (mesa sem senha).
+- Mensagens de campo em `campaign-settings-messages.ts` (`settingsFieldMessage(campo, digitado)`, limites do contracts).
+
+## Formulário (`campaign-settings-form.tsx` + `campaign-settings-sections.tsx`)
+
+- `CampaignSettingsForm({ campaign, assets, clipboard })` — `form` "Configurações da mesa" em grade que ocupa a tela: menu de seções, as seções (`h2`, separadas por fio, coluna flexível) e, a partir de `lg`, o `CampaignPreviewCard` ("Como aparece no hub") ao lado, `sticky` (em `md` a coluna do menu não deixa espaço para a prévia). Menu e prévia crescem por ponto de quebra (`11rem` → `16rem` e `18rem` → `28rem`, de `md` a `2xl`).
+- **Geral** — "Capa": `CoverPicker` com o `ImagePicker` (`purpose="cover"`, legenda "Imagem da capa", lixeira "Usar capa desenhada" volta ao desenho gravado ou ao `fallbackCoverOf(id)`); a imagem enviada entra no rascunho (`{ kind: 'image', assetId }`) e só vale depois de "Salvar". "Nome da mesa" e "Sistema" lado a lado (contador `N/80`), "Status" (`SegmentField` dos 4 status com a dica do escolhido), "Sobre a mesa" (contador `N/500`).
+- **Conteúdo** — `campaign-label-fields.tsx`: `ContentWarningsField` (botões com `aria-pressed`, ✓ e borda de aviso quando ligados) e `CampaignTagsField` (chips com "Remover a tag X"; "Nova tag": Enter ou vírgula adiciona, Backspace no vazio tira a última, Enter nunca envia o form; "Adicionar a tag X" nas sugestões que faltam; no limite, campo e sugestões somem).
+- **Acesso** — "Visibilidade" (`SegmentField` Privada/Pública, dica fiel ao que existe), switch "Pedir senha para entrar" e, ligado, "Senha da mesa" (focada, mesa sem senha) ou "Nova senha" ("Deixe em branco para manter a senha atual."); `join-code-setting.tsx`: `JoinCodeSetting` com o código em Cinzel, "Copiar código" e "Gerar outro" → `AlertDialog` "Gerar outro código?" ("Gerando…" + `aria-busy`, recusa no diálogo); depois, `role="status"` "Código novo gerado. O antigo não vale mais."
+- **Zona de perigo** — só "Excluir mesa" → `delete-campaign-dialog.tsx` (`DeleteCampaignDialog`, montado só aberto): "Excluir para sempre" só com o nome exato digitado (`trim`), "Excluindo…"; recusa no diálogo. Excluída: a mesa fecha na aba e a página vai para `/`.
+- Barra: `components/unsaved-changes-bar.tsx` com o rótulo "Alterações da mesa", na largura da grade (`col-span-full`, até as margens da página); salvo → "Tudo salvo." por 2 s (`useSavedNotice`) e o rascunho zera depois da revalidação. Quando a mesa relida já é igual às edições, a barra some por um quadro e volta com "Tudo salvo." (o spec consulta a barra de novo dentro do `waitFor`).
+- `discard-settings-dialog.tsx` — `useBlocker` com edição pendente e `pathname` mudando ("Voltar à mesa", o trilho, voltar do navegador): `AlertDialog` "Descartar alterações?" com "Continuar editando" (`reset`) e "Descartar" (`proceed`). O `redirect` da exclusão não é bloqueado.
+
+## Testes
+
+Pelo router inteiro com `testDependencies()`: `client/test/features/campaigns/campaign-settings.spec.tsx` abre a sala de VHARN ao vivo (sessão pelo `TableSessionApiFake`) e clica "Configurações da mesa" — campos, barra (recusas, inclusive `not_open`), senha, avisos e tags, página na sala (mesa segue aberta, menu de seções, pulo que só rola a área da página, "Voltar à mesa", teclas da sala barradas, jogador sem botão e de volta à sala), pendência (voltar e trilho), código, capa por imagem, exclusão, sessão caída. `client/test/lib/unsaved-changes.spec.ts` para o estado da barra; `client/test/services/campaigns-api.spec.ts` para o `not_open`. E2E: `e2e/test/campaign-settings.spec.ts`.

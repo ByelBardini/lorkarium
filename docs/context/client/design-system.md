@@ -25,6 +25,17 @@ Identidade visual do Lorkarium, em tokens de `client/src/index.css` (variável C
 | Barra abaixo de zero             | `bg-bar-negative`                         | `#D6455D` |
 | Barra acima do máximo            | `bg-bar-over`                             | `#EAE5DA` |
 
+### Status da mesa (`statusToneClass`, só tokens existentes)
+
+| Status        | Classe                  | Por quê                           |
+| ------------- | ----------------------- | --------------------------------- |
+| Em construção | `text-chart-2` (aço)    | preparo, neutro frio              |
+| Recrutando    | `text-chart-4` (musgo)  | aberta, "pode entrar"             |
+| Em andamento  | `text-primary` (ouro)   | o estado vivo leva o acento único |
+| Finalizada    | `text-muted-foreground` | encerrada, recua                  |
+
+O `StatusBadge` pinta ponto (`bg-current`) e rótulo na mesma cor; o rótulo sempre diz o status.
+
 ## Tipografia
 
 - `font-sans`: Hanken Grotesk (corpo, formulário, botão).
@@ -47,11 +58,12 @@ Identidade visual do Lorkarium, em tokens de `client/src/index.css` (variável C
 - Card só para item heterogêneo e acionável; itens iguais (mesas) são **lista** em linhas de largura total, separadas por fio (`border-divider`), sem caixa, sombra nem lift; o hover não pinta fundo (faixa de largura total parece solta): o nome fica dourado, a capa acende e surge a seta à direita. Blocos se agrupam por espaço, proximidade e tipografia ("structure should be felt, not seen").
 - Nada de pílula: sem chip, badge ou contador arredondado; papel e status são texto (caixa alta espaçada, `tracking-[0.12em]`). Exceções combinadas, do exemplo do diálogo do token (`docs/pages/mesa/novo-token/`): o contador da aba "Barras" (badge redondo `bg-muted`) e o avatar de iniciais do jogador em "Quem controla" (círculo `bg-muted`); os botões de jogador continuam `rounded-md`.
 - Exceções do tracker de combate (`docs/pages/mesa/tracker/`): a **etiqueta de condição** (`condition-tag.tsx`) é uma caixa de 4px (`rounded-sm`, borda `primary/45` na benéfica, `destructive/60` na prejudicial e `destructive` cheia com fundo `destructive/15` na incapacitante) com ícone, nome e rodadas — a condição precisa ler de relance numa linha cheia; e a **linha da vez** no tracker ganha fundo `primary/10` junto do traço dourado de 2px à esquerda (a vez é o que a mesa inteira procura). O anel do avatar no painel (`TokenAvatar`) é um `box-shadow` de 2px na cor do lado, o mesmo anel do tabuleiro, não sombra de elevação.
+- Exceção da prévia da mesa (`CampaignPreviewCard`, de `docs/pages/home/modal-nova-mesa/`): avisos de conteúdo e tags em etiquetas de 4px (`rounded-sm`): aviso com borda `destructive/60` e texto `destructive-text`, tag em `bg-muted` — o jogador precisa ler os avisos de relance antes de entrar; "Mestre" e o status ficam sobre a capa em faixas retas `bg-panel/85`.
 - Exceção da aba "Na mesa" (`docs/pages/mesa/na-mesa/`): a pílula dourada com quantos estão online no `TabsTrigger` (`rounded-full bg-primary/15 text-primary`, `aria-hidden`). O símbolo de presença é uma bolinha (cheia, vazada, apagada) em selo no canto do retrato/avatar — o círculo, como o avatar, é "uma pessoa".
 - Ponto de status só quando mapeia um estado definido, dito também em texto; nada de animação decorativa. O estado normal não se anuncia (a sala ao vivo não escreve "Ao vivo").
 - Tela logada ocupa a largura toda ao lado do trilho, alinhada à esquerda (`w-full px-4 sm:px-8 lg:px-12`); nada de coluna centralizada com `mx-auto max-w-*`. Limite de largura só em parágrafo, pela leitura (`max-w-prose`).
 - A moldura recua: o trilho é `bg-panel`, ícones de 16px, item ativo marcado por um traço dourado de 2px à esquerda (não caixa com borda).
 - Um acento só (o dourado), usado com parcimônia: ação primária, foco, detalhe de ornamento.
 - Serifa só em display e marca; corpo sempre na grotesca.
-- Ilustração do próprio domínio (grid, tokens, barra de vida, rosa dos ventos), nunca herói genérico nem emoji como ícone; ícones de interface são `lucide-react`. As capas de mesa (`CampaignCover`) são SVG estático sobre grade dourada fraca, em um dos tons `chart-1..4` por id.
+- Ilustração do próprio domínio (grid, tokens, barra de vida, rosa dos ventos), nunca herói genérico nem emoji como ícone; ícones de interface são `lucide-react`. As capas de mesa (`CampaignCover`) são SVG estático sobre grade dourada fraca, num dos 3 desenhos e num dos tons `chart-1..4` escolhidos pelo mestre (sem escolha, o desenho do id), ou a imagem que ele enviou (`object-cover`, decorativa).
 - Erro nunca só por cor: texto ligado ao campo (`aria-describedby`) e `aria-invalid`.
