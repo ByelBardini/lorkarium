@@ -18,6 +18,7 @@ import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detai
 import { PlayRoomPage } from '@/features/board/play-room-page';
 import { MemberRoleProvider } from '@/features/sessions/member-role-provider';
 import { libraryRoute, TABLE_ROUTE_ID } from '@/features/library/library-route';
+import { CONDITIONS_PATH, conditionsRoute } from '@/features/conditions/conditions-route';
 import { CampaignOverview } from './campaign-overview';
 import { CAMPAIGN_SETTINGS_PATH, campaignSettingsRoute } from './campaign-settings-route';
 import { CampaignTableErrorPage } from './campaign-table-page';
@@ -39,8 +40,9 @@ export function campaignDetailRoute(deps: AppDependencies): RouteObject {
 }
 
 /** The play room at `/campaigns/:campaignId/table`, with the rail compact around it, the
- *  library (`…/table/library`) as a child modal over it and the settings (`…/table/settings`,
- *  master only) as a child page covering it: the room stays mounted, so the table stays open.
+ *  library (`…/table/library`) as a child modal over it and the settings (`…/table/settings`)
+ *  and the conditions (`…/table/conditions`), master only, as child pages covering it: the room
+ *  stays mounted, so the table stays open.
  *
  *  Example: `{ id: 'shell', children: [...homeRoutes(deps), campaignTableRoute(deps)] }` */
 export function campaignTableRoute(deps: AppDependencies): RouteObject {
@@ -52,7 +54,12 @@ export function campaignTableRoute(deps: AppDependencies): RouteObject {
     shouldRevalidate: keepCampaignUnderLibrary,
     Component: tableRoute(deps),
     ErrorBoundary: CampaignTableErrorPage,
-    children: [{ index: true, element: null }, libraryRoute(deps), campaignSettingsRoute(deps)],
+    children: [
+      { index: true, element: null },
+      libraryRoute(deps),
+      campaignSettingsRoute(deps),
+      conditionsRoute(deps),
+    ],
   };
 }
 
@@ -119,10 +126,12 @@ function tableRoute({
 }: AppDependencies): () => React.JSX.Element {
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
-    // The settings page covers the room instead of replacing it: the board and the live session
+    // The settings and conditions pages cover the room instead of replacing it: the board and the live session
     // stay up underneath (the master stays online). `invisible`, not `hidden`: the board keeps its
     // size (the renderer measures it), while nothing in it is seen, read or focused.
-    const covered = useMatch(CAMPAIGN_SETTINGS_PATH) !== null;
+    const settings = useMatch(CAMPAIGN_SETTINGS_PATH);
+    const conditions = useMatch(CONDITIONS_PATH);
+    const covered = settings !== null || conditions !== null;
     // Another table is another screen: its own pending presence, not the previous one's.
     return (
       <div className="relative flex min-h-0 flex-1 flex-col">

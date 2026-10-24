@@ -204,7 +204,16 @@ describe('TokenDock', () => {
       state: vharnBoard({
         tokens: [lyra()],
         conditionDefinitions: [
-          { id: 'c-1', name: 'Envenenado', tone: 'harm', icon: 'skull', look: null },
+          {
+            id: 'c-1',
+            name: 'Envenenado',
+            tone: 'harm',
+            icon: 'skull',
+            color: null,
+            look: null,
+            description: '',
+            maxStacks: null,
+          },
         ],
       }),
     });

@@ -148,6 +148,9 @@ export class PrimaryPress {
       return onIntent({ kind: 'wallErased', wallId, segmentIndex });
     }
     if (view && route.kind === 'areaSketch') return areas.startSketch(view, world);
+    if (route.kind === 'conditionTarget') {
+      return onIntent({ kind: 'conditionStamped', tokenId: route.tokenId, removes: at.shiftKey });
+    }
     if (view && route.kind === 'light') {
       return lights.press(view.grid.cells, screen, world, route.lightId);
     }

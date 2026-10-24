@@ -30,20 +30,35 @@ const CONCENTRANDO = activeCondition({
   remainingRounds: null,
 });
 const DEFINITIONS = [
-  { id: ENVENENADO.conditionId, name: 'Envenenado', tone: 'harm', icon: 'skull', look: null },
+  {
+    id: ENVENENADO.conditionId,
+    name: 'Envenenado',
+    tone: 'harm',
+    icon: 'skull',
+    color: null,
+    look: null,
+    description: '',
+    maxStacks: null,
+  },
   {
     id: CONCENTRANDO.conditionId,
     name: 'Concentrando',
     tone: 'benefit',
     icon: 'sparkles',
+    color: null,
     look: null,
+    description: '',
+    maxStacks: null,
   },
   {
     id: 'c9d8e7f6-a5b4-4c3d-8e2f-1a0b9c8d7e6f',
     name: 'Paralisado',
     tone: 'incapacitating',
     icon: 'lock',
+    color: null,
     look: null,
+    description: '',
+    maxStacks: null,
   },
 ] as const;
 
@@ -141,6 +156,42 @@ describe('ConditionsEditor', () => {
     );
   });
 
+  it('"Mais um stack de Envenenado" sends condition:setStacks with 4', async () => {
+    renderEditor(lyra({ conditions: [{ ...ENVENENADO, maxStacks: 5, stacks: 3 }] }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mais um stack de Envenenado' }));
+
+    expect(commands.sentAs('setConditionStacks')).toEqual([
+      {
+        name: 'setConditionStacks',
+        ...VHARN_GRID,
+        fields: { tokenId: LYRA_ID, activeConditionId: ENVENENADO.id, stacks: 4 },
+      },
+    ]);
+  });
+
+  it('"Menos um stack de Envenenado" sends 2', async () => {
+    renderEditor(lyra({ conditions: [{ ...ENVENENADO, maxStacks: 5, stacks: 3 }] }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Menos um stack de Envenenado' }));
+
+    expect(commands.sentAs('setConditionStacks').map(({ fields }) => fields)).toEqual([
+      { tokenId: LYRA_ID, activeConditionId: ENVENENADO.id, stacks: 2 },
+    ]);
+  });
+
+  it('a refused stack says why on the status line and keeps the confirmed count', async () => {
+    commands.answerWith({ ok: false, failure: 'forbidden' });
+    renderEditor(lyra({ conditions: [{ ...ENVENENADO, maxStacks: 5, stacks: 3 }] }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mais um stack de Envenenado' }));
+
+    expect(interaction.getState().notice).toBe('forbidden');
+    expect(screen.getByRole('list', { name: 'Condições ativas de Lyra' })).toHaveTextContent(
+      'Envenenado×3, 3 stacks',
+    );
+  });
+
   it('"Remover Envenenado" sends condition:remove', async () => {
     renderEditor();
     await userEvent.click(screen.getByRole('button', { name: 'Remover Envenenado' }));
@@ -234,6 +285,7 @@ describe('ConditionsEditor', () => {
       name: 'Sangrando',
       tone: 'harm',
       icon: 'droplet',
+      color: null,
       look: null,
     });
   });
@@ -260,7 +312,10 @@ describe('ConditionsEditor', () => {
       name: 'Sangrando',
       tone: 'harm',
       icon: 'droplet',
+      color: null,
       look: null,
+      description: '',
+      maxStacks: null,
     } as const;
     act(() =>
       board.getState().apply({
@@ -308,7 +363,10 @@ describe('ConditionsEditor', () => {
       name: 'Inconsciente',
       tone: 'incapacitating',
       icon: 'circle-dot',
+      color: null,
       look: 'unconscious',
+      description: '',
+      maxStacks: null,
     } as const;
     act(() =>
       board.getState().apply({
@@ -334,13 +392,14 @@ describe('ConditionsEditor', () => {
     expect(commands.sentAs('applyCondition')).toEqual([]);
   });
 
-  it('an incapacitating condition on the token reads its name next to a filled tag', () => {
+  it('read-only, an incapacitating condition on the token reads its name next to a filled tag', () => {
     const paralisado = activeCondition({
       name: 'Paralisado',
       tone: 'incapacitating',
       icon: 'lock',
     });
-    renderEditor(lyra({ canControl: false, conditions: [paralisado] }));
+    act(() => interaction.getState().setReadOnly(true));
+    renderEditor(lyra({ conditions: [paralisado] }));
     const tag = within(screen.getByRole('list', { name: 'Condições de Lyra' })).getByRole(
       'listitem',
     );
@@ -357,8 +416,20 @@ describe('ConditionsEditor', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Aparência no token' })).toBeNull();
   });
 
-  it('without canControl it is read only: the tags, no button, no picker', () => {
+  it('a player sees −, + and × and the picker on a token they do not control', async () => {
     renderEditor(lyra({ canControl: false, conditions: [ENVENENADO] }));
+
+    expect(screen.getByRole('list', { name: 'Condições ativas de Lyra' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Adicionar condição' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Remover Envenenado' }));
+    expect(commands.sentAs('removeCondition').map(({ fields }) => fields)).toEqual([
+      { tokenId: LYRA_ID, activeConditionId: ENVENENADO.id },
+    ]);
+  });
+
+  it('read-only (a spectator) shows the tags only: no button, no picker, even on a controlled token', () => {
+    act(() => interaction.getState().setReadOnly(true));
+    renderEditor(lyra({ canControl: true, conditions: [ENVENENADO] }));
 
     expect(screen.getByRole('list', { name: 'Condições de Lyra' })).toHaveTextContent('Envenenado');
     expect(screen.queryByRole('button', { name: /Envenenado/ })).toBeNull();

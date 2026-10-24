@@ -5,7 +5,16 @@ import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { hoverRouteOf, menuRouteOf, pressRouteOf, topTokenAt } from '@/renderer/press-route';
 import { SQUARE_ID, square } from '../support/drawing-fixtures';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
-import { BIA_AT_TABLE, LYRA_ID, VHARN_SCENE, lyra } from '../support/table-session-fixtures';
+import { boardSightOf } from '@/lib/board-sight';
+import {
+  BIA_AT_TABLE,
+  KAEL_ID,
+  LYRA_ID,
+  VHARN_SCENE,
+  kael,
+  lyra,
+  vharnBoard,
+} from '../support/table-session-fixtures';
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
 
@@ -152,6 +161,48 @@ describe('pressRouteOf with other tools', () => {
 
   it('with the ruler no select route is taken, even over a token', () => {
     expect(pressRouteOf(boardView({ tool: 'ruler' }), at(3.5, 4.5), 1).kind).toBe('pointer');
+  });
+});
+
+describe('pressRouteOf with the condition tool', () => {
+  it('a press on a pickable token targets that token', () => {
+    expect(pressRouteOf(boardView({ tool: 'conditions' }), at(3.5, 4.5), 1)).toEqual({
+      kind: 'conditionTarget',
+      tokenId: LYRA_ID,
+    });
+  });
+
+  it('a press on the empty board only reports the pointer', () => {
+    expect(pressRouteOf(boardView({ tool: 'conditions' }), at(10, 10), 1)).toEqual({
+      kind: 'pointer',
+    });
+  });
+
+  it('a token off the active layer is no target', () => {
+    const view = boardView({ tool: 'conditions', tokens: [lyra({ layer: 'objects' })] });
+    expect(pressRouteOf(view, at(3.5, 4.5), 1)).toEqual({ kind: 'pointer' });
+  });
+
+  it('a silhouette in the penumbra of the viewer is no target', () => {
+    // Lyra (hers) at (3, 4) sees 3 + 3 cells: Kael at (8, 4), 5 away, is only a silhouette.
+    const others = { canControl: false, controllerIds: [] };
+    const tokens = [lyra({ sight: { bright: 3, dim: 3 } }), kael({ ...others, col: 8, row: 4 })];
+    const board = vharnBoard({
+      viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+      scene: { ...VHARN_SCENE, vision: 'dark' },
+      tokens,
+    });
+    const sight = boardSightOf(board, { previewEyeIds: null });
+    const view = boardView({ tool: 'conditions', tokens, sight });
+    expect(pressRouteOf(view, at(8.5, 4.5), 1)).toEqual({ kind: 'pointer' });
+  });
+
+  it('the same token seen in the light is a target', () => {
+    const view = boardView({ tool: 'conditions', tokens: [kael({ col: 8, row: 4 })] });
+    expect(pressRouteOf(view, at(8.5, 4.5), 1)).toEqual({
+      kind: 'conditionTarget',
+      tokenId: KAEL_ID,
+    });
   });
 });
 

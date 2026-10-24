@@ -1,0 +1,80 @@
+import type {
+  ConditionColorDto,
+  ConditionDefinitionDto,
+  ConditionIconDto,
+  ConditionLookDto,
+  ConditionToneDto,
+} from '@lorkarium/contracts';
+import type { StoreApi } from 'zustand/vanilla';
+import { boardCommandFailureMessage } from '@/features/board/board-messages';
+import { conditionSuggestions, orderedByTone } from '@/lib/condition-names';
+import type {
+  BoardCommandFailure,
+  BoardScope,
+  TableBoardCommands,
+} from '@/services/table-board-commands';
+import type { BoardStore } from '@/stores/board-store';
+
+/** What the "Condições da mesa" page needs from the open table: its cast (whose list of
+ *  conditions is the table's, live), where to address the commands and the commands themselves.
+ *
+ *  Example: `<ConditionCatalogPage link={{ scope, cast, commands }} />` */
+export type ConditionCatalogLink = Readonly<{
+  /** The table and its cast: the list's commands act on the table's version, not on a grid. */
+  scope: BoardScope;
+  cast: StoreApi<BoardStore>;
+  commands: TableBoardCommands;
+}>;
+
+/** Why the server refused a change to the table's list, as the master reads it.
+ *
+ *  Example: `catalogFailureMessage('token_not_found') // 'Essa condição não está mais na lista.'` */
+export function catalogFailureMessage(failure: BoardCommandFailure): string {
+  // CONDITION_NOT_FOUND shares the token's failure on the board; here it can only be the condition.
+  if (failure === 'token_not_found') return 'Essa condição não está mais na lista.';
+  return boardCommandFailureMessage(failure);
+}
+
+/** What the deletion confirmation says about the tokens that lose the condition.
+ *
+ *  Example: `usageText(2) // 'Está em 2 tokens. Ela sai de todos.'` */
+export function usageText(tokens: number): string {
+  if (tokens === 0) return 'Nenhum token tem essa condição.';
+  if (tokens === 1) return 'Está em 1 token.';
+  return `Está em ${tokens} tokens. Ela sai de todos.`;
+}
+
+/** A condition as the form edits it: what the master can change. */
+export type ConditionFormValues = Readonly<{
+  name: string;
+  tone: ConditionToneDto;
+  icon: ConditionIconDto;
+  /** `null`: painted by its tone. */
+  color: ConditionColorDto | null;
+  look: ConditionLookDto | null;
+  description: string;
+  /** `null`: it does not stack, only lasts; 2 to 99: it piles up to that. */
+  maxStacks: number | null;
+}>;
+
+/** What "Nova condição" starts from: the picker's defaults (a harm, the plain mark). */
+export const NEW_CONDITION_VALUES: ConditionFormValues = {
+  name: '',
+  tone: 'harm',
+  icon: 'circle-dot',
+  color: null,
+  look: null,
+  description: '',
+  maxStacks: null,
+};
+
+/** The list's order: by nature (benefits, incapacitating, harms), by name inside each, only the
+ *  names matching what was searched. The editor opens the first one of it.
+ *
+ *  Example: `conditionsInListOrder(definitions, '')[0] // the top item of the list` */
+export function conditionsInListOrder(
+  definitions: readonly ConditionDefinitionDto[],
+  query: string,
+): ConditionDefinitionDto[] {
+  return orderedByTone(conditionSuggestions(definitions, query));
+}

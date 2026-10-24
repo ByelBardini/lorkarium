@@ -1,4 +1,8 @@
-import type { ConditionDefinitionDto } from '@lorkarium/contracts';
+import {
+  DEFAULT_CONDITION_NAMES,
+  type ConditionDefinitionDto,
+  type ConditionToneDto,
+} from '@lorkarium/contracts';
 
 /** How a condition name is compared: no case, no accent, no outer spaces ("caido" is "Caído").
  *
@@ -48,6 +52,25 @@ export function conditionSuggestions(
 export function orderedByTone(
   suggestions: readonly ConditionDefinitionDto[],
 ): ConditionDefinitionDto[] {
-  const tones: readonly ConditionDefinitionDto['tone'][] = ['benefit', 'incapacitating', 'harm'];
-  return tones.flatMap((tone) => suggestions.filter((item) => item.tone === tone));
+  return CONDITION_TONE_GROUPS.flatMap(({ tone }) =>
+    suggestions.filter((item) => item.tone === tone),
+  );
 }
+
+/** The default conditions missing from the table's list, by name typed any way: what "Restaurar
+ *  padrões" would bring back (an edited default keeping its name is not missing).
+ *
+ *  Example: `missingDefaultNames(definitions) // ['Cego']` */
+export function missingDefaultNames(definitions: readonly ConditionDefinitionDto[]): string[] {
+  const listed = new Set(definitions.map(({ name }) => conditionKey(name)));
+  return DEFAULT_CONDITION_NAMES.filter((name) => !listed.has(conditionKey(name)));
+}
+
+/** The natures in the order the lists of conditions show them (the picker, the settings), with
+ *  the title of each group. */
+export const CONDITION_TONE_GROUPS: readonly Readonly<{ tone: ConditionToneDto; title: string }>[] =
+  [
+    { tone: 'benefit', title: 'Benéficas' },
+    { tone: 'incapacitating', title: 'Incapacitantes' },
+    { tone: 'harm', title: 'Prejudiciais' },
+  ];

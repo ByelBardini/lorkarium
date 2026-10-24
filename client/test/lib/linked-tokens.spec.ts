@@ -4,6 +4,7 @@ import { castBoard, linkedLyra, lyraAnchor } from '../support/cast-fixtures';
 import {
   BIA_AT_TABLE,
   activeCondition,
+  conditionDefinition,
   kael,
   memberCard,
   vharnBoard,
@@ -101,6 +102,76 @@ describe('boardWithCast', () => {
     expect(board.tokens[0]?.bars[0]?.current).toBe(25);
     expect(board.version).toBe(grid.version);
     expect(boardWithCast(grid, cast)).toBe(board);
+  });
+
+  it('a loose token shows the edit of a definition the cast already has', () => {
+    const grid = vharnBoard({
+      tokens: [kael({ conditions: [activeCondition()] })],
+      conditionDefinitions: [conditionDefinition()],
+    });
+    const edited = conditionDefinition({ name: 'Nauseado', description: 'Desvantagem.' });
+    const cast = castBoard({ conditionDefinitions: [edited] });
+    expect(boardWithCast(grid, cast).tokens[0]?.conditions).toEqual([
+      expect.objectContaining({
+        name: 'Nauseado',
+        description: 'Desvantagem.',
+        remainingRounds: 2,
+      }),
+    ]);
+  });
+
+  it('a loose token loses a condition the cast deleted from the list', () => {
+    const grid = vharnBoard({
+      tokens: [kael({ conditions: [activeCondition()] })],
+      conditionDefinitions: [conditionDefinition()],
+    });
+    const cast = castBoard({ conditionDefinitions: [] });
+    expect(boardWithCast(grid, cast).tokens[0]?.conditions).toEqual([]);
+  });
+
+  it('a linked token keeps the conditions of its anchor, not the grid copy reconciled', () => {
+    const anchorConditions = [activeCondition()];
+    const grid = vharnBoard({
+      tokens: [linkedLyra()],
+      conditionDefinitions: [conditionDefinition()],
+    });
+    const cast = castBoard({
+      tokens: [lyraAnchor({ conditions: anchorConditions })],
+      conditionDefinitions: [],
+    });
+    expect(boardWithCast(grid, cast).tokens[0]?.conditions).toBe(anchorConditions);
+  });
+
+  it('a cast list that changes no loose token keeps the grid tokens array', () => {
+    const grid = vharnBoard({
+      tokens: [kael({ conditions: [activeCondition()] })],
+      conditionDefinitions: [conditionDefinition()],
+    });
+    const cast = castBoard({ tokens: [], conditionDefinitions: [conditionDefinition()] });
+    expect(boardWithCast(grid, cast).tokens).toBe(grid.tokens);
+  });
+
+  it('a loose token clamps its stacks to the lower max the cast list has', () => {
+    const grid = vharnBoard({
+      tokens: [kael({ conditions: [activeCondition({ maxStacks: 5, stacks: 5 })] })],
+      conditionDefinitions: [conditionDefinition({ maxStacks: 5 })],
+    });
+    const cast = castBoard({ conditionDefinitions: [conditionDefinition({ maxStacks: 2 })] });
+    expect(boardWithCast(grid, cast).tokens[0]?.conditions).toEqual([
+      expect.objectContaining({ maxStacks: 2, stacks: 2 }),
+    ]);
+  });
+
+  it('a cast list with the stacks the grid already shows keeps the grid tokens array', () => {
+    const grid = vharnBoard({
+      tokens: [kael({ conditions: [activeCondition({ maxStacks: 5, stacks: 3 })] })],
+      conditionDefinitions: [conditionDefinition({ maxStacks: 5 })],
+    });
+    const cast = castBoard({
+      tokens: [],
+      conditionDefinitions: [conditionDefinition({ maxStacks: 5 })],
+    });
+    expect(boardWithCast(grid, cast).tokens).toBe(grid.tokens);
   });
 
   it('without the cast the board is the grid snapshot', () => {

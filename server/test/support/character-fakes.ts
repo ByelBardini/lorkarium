@@ -127,6 +127,10 @@ export class CharacterTableFake {
       tone: 'harm' as const,
       icon: 'circle-dot' as const,
       look: null,
+      color: null,
+      description: '',
+      maxStacks: null,
+      stacks: 1,
       remainingRounds: 2,
       appliedRound: null,
     };

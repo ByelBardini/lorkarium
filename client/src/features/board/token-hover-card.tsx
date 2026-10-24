@@ -4,9 +4,11 @@ import type { StoreApi } from 'zustand/vanilla';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { roundsLeftText } from '@/features/combat/combat-view';
 import { ConditionMark } from '@/features/combat/condition-marks';
+import { ConditionStacksMark } from '@/features/combat/condition-tag';
 import { TokenBarMeter } from '@/features/tokens/bar-meter';
 import { seenTokensOf } from '@/lib/board-sight';
 import { conditionsAsListed } from '@/lib/condition-order';
+import { shownStacksOf } from '@/lib/condition-stacks';
 import { cn } from '@/lib/utils';
 import type { ScreenRect } from '@/renderer/board-renderer';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
@@ -70,21 +72,36 @@ function HoverConditions({ token }: Readonly<{ token: TokenDto }>) {
   );
 }
 
+// The description is cut at 4 lines: the card follows the pointer and must stay small; the tag's
+// tooltip and the settings show it whole.
 function HoverCondition({ condition }: Readonly<{ condition: ActiveConditionDto }>) {
-  const ending = condition.remainingRounds === 1;
   return (
-    <li className="flex items-center gap-2 text-sm">
-      <ConditionMark icon={condition.icon} tone={condition.tone} />
-      <span className="min-w-0 flex-1 truncate">{condition.name}</span>
-      <span
-        className={cn(
-          'shrink-0 text-xs tabular-nums',
-          ending ? 'text-destructive-text' : 'text-muted-foreground',
-        )}
-      >
-        {roundsLeftText(condition.remainingRounds)}
-      </span>
+    <li className="flex flex-col gap-0.5 text-sm">
+      <div className="flex items-center gap-2">
+        <ConditionMark icon={condition.icon} tone={condition.tone} color={condition.color} />
+        <span className="flex min-w-0 flex-1 items-center gap-1">
+          <span className="truncate">{condition.name}</span>
+          <ConditionStacksMark stacks={shownStacksOf(condition)} />
+        </span>
+        <RoundsLeft rounds={condition.remainingRounds} />
+      </div>
+      {condition.description !== '' && (
+        <p className="line-clamp-4 pl-6 text-xs text-muted-foreground">{condition.description}</p>
+      )}
     </li>
+  );
+}
+
+function RoundsLeft({ rounds }: Readonly<{ rounds: number | null }>) {
+  return (
+    <span
+      className={cn(
+        'shrink-0 text-xs tabular-nums',
+        rounds === 1 ? 'text-destructive-text' : 'text-muted-foreground',
+      )}
+    >
+      {roundsLeftText(rounds)}
+    </span>
   );
 }
 

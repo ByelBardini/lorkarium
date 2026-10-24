@@ -86,6 +86,42 @@ describe('RealtimeCombatCommands', () => {
       () => commands.setConditionRounds(VHARN_GRID, KAEL, LOBO, 3),
       { tokenId: KAEL, activeConditionId: LOBO, rounds: 3 },
     ],
+    [
+      'condition:setStacks',
+      () => commands.setConditionStacks(VHARN_GRID, KAEL, LOBO, 3),
+      { tokenId: KAEL, activeConditionId: LOBO, stacks: 3 },
+    ],
+    [
+      'condition:deleteDefinition',
+      () => commands.deleteConditionDefinition(VHARN_GRID, KAEL),
+      { conditionId: KAEL },
+    ],
+    ['condition:restoreDefaults', () => commands.restoreDefaultConditions(VHARN_GRID), {}],
+    ['condition:usage', () => commands.conditionUsage(VHARN_GRID, KAEL), { conditionId: KAEL }],
+    [
+      'condition:updateDefinition',
+      () =>
+        commands.updateConditionDefinition(VHARN_GRID, {
+          conditionId: KAEL,
+          name: 'Nauseado',
+          tone: 'harm',
+          icon: 'skull',
+          color: null,
+          look: null,
+          description: 'Desvantagem.',
+          maxStacks: null,
+        }),
+      {
+        conditionId: KAEL,
+        name: 'Nauseado',
+        tone: 'harm',
+        icon: 'skull',
+        color: null,
+        look: null,
+        description: 'Desvantagem.',
+        maxStacks: null,
+      },
+    ],
   ] as const)('%s goes out with its fields', (event, sendIt, fields) => {
     void sendIt();
     expect(transport.sent).toEqual([
@@ -118,5 +154,12 @@ describe('RealtimeCombatCommands', () => {
     const result = commands.setConditionRounds(VHARN_GRID, KAEL, LOBO, 2);
     await transport.timeOutAck('condition:setRounds');
     expect(await result).toEqual({ ok: false, failure: 'offline' });
+  });
+
+  it('condition:setStacks refused with INVALID_STACKS is invalid_stacks', async () => {
+    const result = commands.setConditionStacks(VHARN_GRID, KAEL, LOBO, 6);
+    const error = { code: 'INVALID_STACKS', message: 'x' };
+    await transport.answerAck({ ok: false, error }, 'condition:setStacks');
+    expect(await result).toEqual({ ok: false, failure: 'invalid_stacks' });
   });
 });

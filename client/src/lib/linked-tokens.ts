@@ -1,4 +1,5 @@
 import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
+import { tokensOverCatalog } from './condition-catalog';
 
 /** What a token linked to a character card shares with its anchor, in every grid. */
 const SHARED_FIELDS = [
@@ -42,14 +43,17 @@ export function resolveLinkedTokens(tokens: TokenDto[], anchors: readonly TokenD
 
 /** A grid's board as the room shows it once the cast is known: the linked tokens resolved, and
  *  the table's pieces — the cards and the conditions defined — from the cast, whose version is
- *  the table's (the grid's copy of them stops at its own snapshot). `cast: null` → the board.
+ *  the table's (the grid's copy of them stops at its own snapshot). The list's edits and
+ *  deletions only reach the cast, so the loose tokens' conditions follow it here
+ *  (`tokensOverCatalog`). `cast: null` → the board.
  *
  *  Example: `boardWithCast(groupBoard, castBoard).memberCards` */
 export function boardWithCast(board: BoardStateDto, cast: BoardStateDto | null): BoardStateDto {
   if (!cast) return board;
   const known = boardMemo.get(board);
   if (known?.cast === cast) return known.board;
-  const tokens = resolveLinkedTokens(board.tokens, cast.tokens);
+  const linked = resolveLinkedTokens(board.tokens, cast.tokens);
+  const tokens = tokensOverCatalog(linked, board.conditionDefinitions, cast.conditionDefinitions);
   const same =
     tokens === board.tokens &&
     cast.memberCards === board.memberCards &&

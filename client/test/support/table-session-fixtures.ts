@@ -3,6 +3,7 @@ import type {
   MemberCardDto,
   ActiveConditionDto,
   BoardStateDto,
+  ConditionDefinitionDto,
   CombatantDto,
   CombatDto,
   SceneDto,
@@ -381,8 +382,32 @@ export function activeCondition(overrides: Partial<ActiveConditionDto> = {}): Ac
     name: 'Envenenado',
     tone: 'harm',
     icon: 'flask-conical',
+    color: null,
     look: null,
+    description: '',
+    maxStacks: null,
+    stacks: 1,
     remainingRounds: 2,
+    ...overrides,
+  };
+}
+
+/** Envenenado on the table's list: the definition `activeCondition()` points at, unless
+ *  overridden.
+ *
+ *  Example: `conditionDefinition({ description: 'Desvantagem em ataques.' })` */
+export function conditionDefinition(
+  overrides: Partial<ConditionDefinitionDto> = {},
+): ConditionDefinitionDto {
+  return {
+    id: activeCondition().conditionId,
+    name: 'Envenenado',
+    tone: 'harm',
+    icon: 'flask-conical',
+    color: null,
+    look: null,
+    description: '',
+    maxStacks: null,
     ...overrides,
   };
 }

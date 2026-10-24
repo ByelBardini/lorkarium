@@ -40,6 +40,7 @@ import {
   removeCombatantCommandDto,
   removeConditionCommandDto,
   setConditionRoundsCommandDto,
+  setConditionStacksCommandDto,
   renameCombatantCommandDto,
   reshapeEffectAreasCommandDto,
   setInitiativeCommandDto,
@@ -88,6 +89,10 @@ import {
   type Handler,
 } from './board-command-edge';
 import { bindCharacterCommands } from './character-commands';
+import {
+  bindConditionCatalogCommands,
+  type ConditionCatalogCommandsDeps,
+} from './condition-catalog-commands';
 import { unwatchGrid, watchGrid } from './grid-tabs';
 
 export type BoardGatewayDeps = Readonly<{
@@ -105,7 +110,11 @@ export type BoardGatewayDeps = Readonly<{
   tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
   memberCards: Pick<MemberCardsService, 'update'>;
   pings: Pick<PingsService, 'ping'>;
-  conditions: Pick<ConditionsService, 'define' | 'apply' | 'applyMany' | 'remove' | 'setRounds'>;
+  conditions: Pick<
+    ConditionsService,
+    'define' | 'apply' | 'applyMany' | 'remove' | 'setRounds' | 'setStacks'
+  >;
+  conditionCatalog: ConditionCatalogCommandsDeps['conditionCatalog'];
   combat: Pick<
     CombatService,
     | 'start'
@@ -328,6 +337,11 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
       'condition:setRounds',
       mutate(setConditionRoundsCommandDto, conditions.setRounds.bind(conditions)),
     );
+    socket.on(
+      'condition:setStacks',
+      mutate(setConditionStacksCommandDto, conditions.setStacks.bind(conditions)),
+    );
+    bindConditionCatalogCommands(socket, { mutate, bind }, deps);
     socket.on('combat:start', mutate(startCombatCommandDto, combat.start.bind(combat)));
     socket.on('combat:end', mutate(endCombatCommandDto, combat.end.bind(combat)));
     socket.on(

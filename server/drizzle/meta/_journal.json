@@ -351,6 +351,27 @@
       "when": 1792871307374,
       "tag": "0049_campaign_spectators",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1792877205237,
+      "tag": "0050_condition_descriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1792880889955,
+      "tag": "0051_condition_stacks",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792882207716,
+      "tag": "0052_condition_colors",
+      "breakpoints": true
     }
   ]
 }

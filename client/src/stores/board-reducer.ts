@@ -22,6 +22,12 @@ import type {
   WallsMovedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
+import {
+  tokensShowingDefinition,
+  tokensWithoutDefinition,
+  withDefinitionReplaced,
+  withDefinitionsAdded,
+} from '@/lib/condition-catalog';
 
 /** The board after one confirmed event, already checked to be `board.version + 1`.
  *
@@ -81,6 +87,7 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
         effectAreaChangesOf(board, event) ??
         wallChangesOf(board, event) ??
         lightChangesOf(board, event) ??
+        catalogChangesOf(board, event) ??
         combatChangesOf(board, event)
       );
   }
@@ -261,6 +268,35 @@ function withDrawingMoves(
     const move = moves.find(({ drawingId }) => drawingId === drawing.id);
     return move ? { ...drawing, x: move.x, y: move.y } : drawing;
   });
+}
+
+// The table's list (the cast's events): an edit shows on every token holding the condition, a
+// deletion takes it off them, the restored defaults join the list once.
+function catalogChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> | null {
+  switch (event.type) {
+    case 'conditionDefinitionUpdated': {
+      const { definition } = event.payload;
+      return {
+        conditionDefinitions: withDefinitionReplaced(board.conditionDefinitions, definition),
+        tokens: tokensShowingDefinition(board.tokens, definition),
+      };
+    }
+    case 'conditionDefinitionDeleted': {
+      const { conditionId } = event.payload;
+      return {
+        conditionDefinitions: board.conditionDefinitions.filter(({ id }) => id !== conditionId),
+        tokens: tokensWithoutDefinition(board.tokens, conditionId),
+      };
+    }
+    case 'conditionDefaultsRestored': {
+      const { definitions } = event.payload;
+      return {
+        conditionDefinitions: withDefinitionsAdded(board.conditionDefinitions, definitions),
+      };
+    }
+    default:
+      return null;
+  }
 }
 
 function combatChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> {

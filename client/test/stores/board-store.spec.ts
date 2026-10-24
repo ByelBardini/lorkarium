@@ -456,7 +456,10 @@ describe('board store', () => {
         name: 'Sangrando',
         tone: 'harm',
         icon: 'droplet',
+        color: null,
         look: null,
+        description: '',
+        maxStacks: null,
       } as const;
       apply(on(eventAt(5, { type: 'conditionDefined', payload: { definition } })));
       expect(store.getState().board?.conditionDefinitions).toEqual([definition]);

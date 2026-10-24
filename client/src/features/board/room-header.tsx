@@ -1,5 +1,5 @@
 import type { CampaignDetailDto } from '@lorkarium/contracts';
-import { LibraryIcon, SettingsIcon } from 'lucide-react';
+import { LibraryIcon, SettingsIcon, TagIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { CopyCodeButton } from '@/components/copy-code-button';
@@ -37,8 +37,8 @@ export type RoomHeaderProps = Readonly<{
 }>;
 
 /** The 48px top bar of the room: name (and the "Espectador" badge of whoever only watches), who is online, the open grid tabs, the code (master
- *  only), "Biblioteca", "Configurações da mesa" (master only), the panel toggle and "Sair da
- *  mesa".
+ *  only), "Biblioteca", "Condições" and "Configurações da mesa" (master only), the panel toggle
+ *  and "Sair da mesa".
  *
  *  Example: `<RoomHeader campaign={campaign} presence={presence} board={board} tabs={tabs} interaction={interaction} openTables={openTables} roomLayout={roomLayout} clipboard={clipboard} />` */
 export function RoomHeader({
@@ -72,7 +72,7 @@ export function RoomHeader({
             Biblioteca
           </Link>
         </Button>
-        {campaign.myRole === 'master' && <SettingsLink campaignId={campaign.id} />}
+        {campaign.myRole === 'master' && <MasterPageLinks campaignId={campaign.id} />}
         <PanelToggle roomLayout={roomLayout} />
         <Button variant="outline" size="sm" onClick={() => void leaveTable(campaign.id)}>
           Sair da mesa
@@ -91,17 +91,39 @@ function SpectatorBadge(): React.JSX.Element {
   );
 }
 
+function MasterPageLinks({ campaignId }: Readonly<{ campaignId: string }>): React.JSX.Element {
+  const table = `/campaigns/${encodeURIComponent(campaignId)}/table`;
+  return (
+    <>
+      <MasterPageLink to={`${table}/conditions`} name="Condições" title="Condições da mesa">
+        <TagIcon aria-hidden="true" />
+      </MasterPageLink>
+      <MasterPageLink to={`${table}/settings`} name="Configurações da mesa" text="Configurações">
+        <SettingsIcon aria-hidden="true" />
+      </MasterPageLink>
+    </>
+  );
+}
+
+type MasterPageLinkProps = Readonly<{
+  to: string;
+  /** The accessible name, always the whole one. */
+  name: string;
+  /** What shows beside the icon from `xl`; the name when left out. */
+  text?: string;
+  /** The tooltip; the name when left out. */
+  title?: string;
+  /** The icon. */
+  children: React.ReactNode;
+}>;
+
 // The text from `xl` only: the bar is already full of tabs and the turn line.
-function SettingsLink({ campaignId }: Readonly<{ campaignId: string }>): React.JSX.Element {
+function MasterPageLink(props: MasterPageLinkProps): React.JSX.Element {
   return (
     <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-      <Link
-        to={`/campaigns/${encodeURIComponent(campaignId)}/table/settings`}
-        aria-label="Configurações da mesa"
-        title="Configurações da mesa"
-      >
-        <SettingsIcon aria-hidden="true" />
-        <span className="hidden xl:inline">Configurações</span>
+      <Link to={props.to} aria-label={props.name} title={props.title ?? props.name}>
+        {props.children}
+        <span className="hidden xl:inline">{props.text ?? props.name}</span>
       </Link>
     </Button>
   );

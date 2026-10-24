@@ -14,7 +14,8 @@ import { doorIconAt, wallTargetAt } from './wall-view';
 /** Who takes a primary press, in priority order: the draw tool sketches (in Selecionar it takes
  *  the drawing under the press, or starts the marquee), the area tool sketches, the walls tool
  *  sketches (a wall or the eraser box) or erases by its action, the lights tool aims the spotlight
- *  picked by its handle or puts a light (or takes the light under it, `lightId`); with Selecionar the
+ *  picked by its handle or puts a light (or takes the light under it, `lightId`), the condition
+ *  tool stamps the pickable token under it (`conditionTarget`); with Selecionar the
  *  facing handle, then a resize square, then a token, then an area of effect (at the bottom of the
  *  Tokens layer), then the marquee on the empty board — never a drawing; any other tool just
  *  reports the pointer. */
@@ -24,6 +25,7 @@ export type PressRoute =
   | Readonly<{ kind: 'door'; wallId: string }>
   | Readonly<{ kind: 'areaSketch' }>
   | Readonly<{ kind: 'light'; lightId: string | null }>
+  | Readonly<{ kind: 'conditionTarget'; tokenId: string }>
   | Readonly<{ kind: 'facingHandle' }>
   | Readonly<{ kind: 'resizeHandle' }>
   | Readonly<{ kind: 'token'; token: TokenView }>
@@ -51,6 +53,7 @@ export function pressRouteOf(view: BoardView, world: Point, zoom: number): Press
   if (view.tool === 'draw') return drawRouteOf(view, world);
   if (view.tool === 'area') return { kind: 'areaSketch' };
   if (view.tool === 'lights') return lightRouteOf(view, world, zoom);
+  if (view.tool === 'conditions') return conditionRouteOf(view, world);
   if (view.tool !== 'select') return { kind: 'pointer' };
   const facing = boardFacingTargetOf(view);
   if (facing && handleAt(facing, world)) return { kind: 'facingHandle' };
@@ -63,6 +66,12 @@ export function pressRouteOf(view: BoardView, world: Point, zoom: number): Press
   const area = topEffectAreaAt(view.effectAreas, world);
   if (area) return { kind: 'effectArea', area };
   return { kind: 'marquee' };
+}
+
+// Only a token this viewer sees on the active layer: a silhouette or a hidden one is never pickable.
+function conditionRouteOf(view: BoardView, world: Point): PressRoute {
+  const token = topTokenAt(view.tokens, world);
+  return token ? { kind: 'conditionTarget', tokenId: token.id } : { kind: 'pointer' };
 }
 
 // Desenhar always starts a new stroke, even over another drawing; Selecionar takes them.

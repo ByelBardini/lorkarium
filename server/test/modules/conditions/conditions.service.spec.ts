@@ -6,6 +6,7 @@ import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaign
 import {
   BIA_ID,
   CAIO_ID,
+  DUDA_ID,
   QUELM_ID,
   VHARN_ID,
   campaignMemberPo,
@@ -34,6 +35,7 @@ describe('ConditionsService', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' }),
+      campaignMemberPo({ campaignId: VHARN_ID, userId: DUDA_ID, role: 'spectator' }),
     ]);
     scenes = new ScenesDaoFake([scenePo({ version: 4 }), torrePo(), castPo({ version: 2 })]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
@@ -98,10 +100,26 @@ describe('ConditionsService', () => {
     expect(conditions.active[0]?.remainingRounds).toBeNull();
   });
 
-  it('Caio applying to Bia’s token is FORBIDDEN and nothing is saved', async () => {
+  it('Caio applying to Bia’s Lyra, which he does not control, saves and publishes condition:applied', async () => {
+    const version = await service.apply(CAIO_ID, VHARN_ID, {
+      tokenId: LYRA_ID,
+      conditionId: abencoado,
+      rounds: 1,
+    });
+    expect(version).toBe(5);
+    expect(conditions.active).toEqual([
+      expect.objectContaining({ tokenId: LYRA_ID, conditionId: abencoado, remainingRounds: 1 }),
+    ]);
+    expect(publisher.conditionEvents).toEqual([
+      expect.objectContaining({ tokenId: LYRA_ID, version: 5 }),
+    ]);
+  });
+
+  it('the spectator applying a condition is FORBIDDEN before anything is locked', async () => {
     await expect(
-      service.apply(CAIO_ID, VHARN_ID, { tokenId: LYRA_ID, conditionId: abencoado, rounds: 1 }),
+      service.apply(DUDA_ID, VHARN_ID, { tokenId: LYRA_ID, conditionId: abencoado, rounds: 1 }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(scenes.journal).toEqual([]);
     expect(conditions.active).toEqual([]);
     expect(publisher.published).toBe(0);
   });
@@ -122,6 +140,9 @@ describe('ConditionsService', () => {
       tone: 'harm',
       icon: 'droplet',
       look: null,
+      color: null,
+      description: '',
+      maxStacks: null,
     });
     expect(version).toBe(3);
     expect(publisher.conditionEvents).toEqual([
@@ -141,6 +162,9 @@ describe('ConditionsService', () => {
       tone: 'benefit',
       icon: 'sun',
       look: 'invisible',
+      color: null,
+      description: '',
+      maxStacks: null,
     });
     expect(version).toBe(2);
     expect(scenes.journal).toEqual(['lock cast', 'commit']);
@@ -157,6 +181,9 @@ describe('ConditionsService', () => {
       tone: 'incapacitating',
       icon: 'moon',
       look: 'unconscious',
+      color: null,
+      description: '',
+      maxStacks: null,
     });
     expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
     expect(conditions.definitions.at(-1)).toMatchObject({
@@ -177,6 +204,9 @@ describe('ConditionsService', () => {
         tone: 'harm',
         icon: 'droplet',
         look: null,
+        color: null,
+        description: '',
+        maxStacks: null,
       }),
     ).rejects.toMatchObject({
       code: 'FORBIDDEN',
@@ -192,6 +222,33 @@ describe('ConditionsService', () => {
       tokenId: LYRA_ID,
       activeConditionId: activeId,
     });
+  });
+
+  it('Bia removing the condition the master put on Caio’s Bram publishes condition:removed', async () => {
+    await service.apply(ANA_ID, VHARN_ID, { tokenId: BRAM_ID, conditionId: abencoado, rounds: 2 });
+    const activeId = conditions.active[0]?.id ?? '';
+
+    const version = await service.remove(BIA_ID, VHARN_ID, {
+      tokenId: BRAM_ID,
+      activeConditionId: activeId,
+    });
+
+    expect(version).toBe(6);
+    expect(conditions.active).toEqual([]);
+    expect(publisher.conditionEvents.at(-1)).toMatchObject({
+      tokenId: BRAM_ID,
+      activeConditionId: activeId,
+    });
+  });
+
+  it('the spectator removing a condition is FORBIDDEN and it stays on the token', async () => {
+    await service.apply(ANA_ID, VHARN_ID, { tokenId: BRAM_ID, conditionId: abencoado, rounds: 2 });
+    const activeId = conditions.active[0]?.id ?? '';
+
+    await expect(
+      service.remove(DUDA_ID, VHARN_ID, { tokenId: BRAM_ID, activeConditionId: activeId }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(conditions.active).toHaveLength(1);
   });
 
   it('removing a condition that is not on the token is CONDITION_NOT_FOUND', async () => {
@@ -261,17 +318,34 @@ describe('ConditionsService', () => {
       expect(publisher.conditionEvents).toHaveLength(published);
     });
 
-    it('Caio, who does not control the Lyra, is FORBIDDEN before anything is saved', async () => {
+    it('Caio, who does not control the Lyra, setting 1 round saves and publishes it', async () => {
+      const activeId = await poisonedInRound1();
+
+      const version = await service.setRounds(CAIO_ID, VHARN_ID, {
+        tokenId: LYRA_ID,
+        activeConditionId: activeId,
+        rounds: 1,
+      });
+
+      expect(version).toBe(6);
+      expect(conditions.active[0]?.remainingRounds).toBe(1);
+      expect(publisher.conditionEvents.at(-1)).toMatchObject({
+        tokenId: LYRA_ID,
+        condition: expect.objectContaining({ id: activeId, remainingRounds: 1 }),
+      });
+    });
+
+    it('the spectator setting rounds is FORBIDDEN before anything is saved', async () => {
       const activeId = await poisonedInRound1();
 
       await expect(
-        service.setRounds(CAIO_ID, VHARN_ID, {
+        service.setRounds(DUDA_ID, VHARN_ID, {
           tokenId: LYRA_ID,
           activeConditionId: activeId,
           rounds: 2,
         }),
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-      expect(scenes.journal).not.toContain('save');
+      expect(scenes.journal).toEqual([]);
       expect(conditions.active[0]?.remainingRounds).toBe(3);
     });
   });
@@ -299,14 +373,35 @@ describe('ConditionsService', () => {
       ]);
     });
 
-    it('Bia including Caio’s Bram refuses the whole group: FORBIDDEN and nothing saved', async () => {
+    it('Bia including Caio’s Bram, which she does not control, applies to the whole group in one version', async () => {
+      const version = await service.applyMany(BIA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID, BRAM_ID],
+        conditionId: abencoado,
+        rounds: 1,
+      });
+
+      expect(version).toBe(5);
+      expect(conditions.active.map(({ tokenId }) => tokenId)).toEqual([LYRA_ID, BRAM_ID]);
+      expect(publisher.conditionsApplies).toEqual([
+        expect.objectContaining({
+          version: 5,
+          applied: [
+            expect.objectContaining({ tokenId: LYRA_ID }),
+            expect.objectContaining({ tokenId: BRAM_ID }),
+          ],
+        }),
+      ]);
+    });
+
+    it('the spectator applying to a group is FORBIDDEN and nothing is saved', async () => {
       await expect(
-        service.applyMany(BIA_ID, VHARN_ID, {
+        service.applyMany(DUDA_ID, VHARN_ID, {
           tokenIds: [LYRA_ID, BRAM_ID],
           conditionId: abencoado,
           rounds: 1,
         }),
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(scenes.journal).toEqual([]);
       expect(conditions.active).toEqual([]);
       expect(publisher.published).toBe(0);
     });
@@ -331,6 +426,139 @@ describe('ConditionsService', () => {
           rounds: 1,
         }),
       ).rejects.toMatchObject({ code: 'CONDITION_NOT_FOUND' });
+    });
+  });
+
+  describe('stacks', () => {
+    let sangrando: string;
+
+    beforeEach(() => {
+      sangrando = conditions.define(VHARN_ID, 'Sangrando', 'harm', 'droplet', null, '', 5);
+    });
+
+    function sangrandoOn(tokenId: string, rounds: number) {
+      return { tokenId, conditionId: sangrando, rounds };
+    }
+
+    async function lyraBleedingTwice(): Promise<string> {
+      await service.apply(ANA_ID, VHARN_ID, sangrandoOn(LYRA_ID, 3));
+      await service.apply(ANA_ID, VHARN_ID, sangrandoOn(LYRA_ID, 3));
+      scenes.journal.splice(0);
+      publisher.conditionEvents.splice(0);
+      return conditions.active[0]?.id ?? '';
+    }
+
+    it('applying Sangrando twice to the Lyra piles up 2 stacks and publishes them', async () => {
+      await service.apply(ANA_ID, VHARN_ID, sangrandoOn(LYRA_ID, 1));
+      await service.apply(ANA_ID, VHARN_ID, sangrandoOn(LYRA_ID, 1));
+
+      expect(conditions.active).toEqual([expect.objectContaining({ tokenId: LYRA_ID, stacks: 2 })]);
+      expect(publisher.conditionEvents.at(-1)).toMatchObject({
+        tokenId: LYRA_ID,
+        condition: expect.objectContaining({ stacks: 2, maxStacks: 5 }),
+      });
+    });
+
+    it('the second application renews the rounds and stamps the current combat round again', async () => {
+      await service.apply(ANA_ID, VHARN_ID, sangrandoOn(LYRA_ID, 1));
+      await combat.start(VHARN_SCENE_ID, soloEntries(LYRA_ID, BRAM_ID));
+      await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 2, null);
+
+      await service.apply(ANA_ID, VHARN_ID, sangrandoOn(LYRA_ID, 3));
+
+      expect(conditions.active[0]).toMatchObject({
+        stacks: 2,
+        remainingRounds: 3,
+        appliedRound: 2,
+      });
+    });
+
+    it('a condition that does not stack applied twice stays at 1 stack', async () => {
+      const abencoadoOnLyra = { tokenId: LYRA_ID, conditionId: abencoado, rounds: 1 };
+      await service.apply(ANA_ID, VHARN_ID, abencoadoOnLyra);
+      await service.apply(ANA_ID, VHARN_ID, abencoadoOnLyra);
+
+      expect(conditions.active.map(({ stacks }) => stacks)).toEqual([1]);
+    });
+
+    it('applyMany over the Lyra holding 1 stack and Bram without it gives 2 and 1, in one version and one event', async () => {
+      await service.apply(ANA_ID, VHARN_ID, sangrandoOn(LYRA_ID, 1));
+      scenes.journal.splice(0);
+
+      const version = await service.applyMany(ANA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID, BRAM_ID],
+        conditionId: sangrando,
+        rounds: 2,
+      });
+
+      expect(version).toBe(6);
+      expect(scenes.journal).toEqual(['lock', 'save', 'save', 'bump', 'commit', 'publish']);
+      expect(publisher.conditionsApplies).toHaveLength(1);
+      const applied = publisher.conditionsApplies[0]?.applied ?? [];
+      expect(applied.map(({ tokenId, condition }) => [tokenId, condition.stacks])).toEqual([
+        [LYRA_ID, 2],
+        [BRAM_ID, 1],
+      ]);
+    });
+
+    it('Caio setting 4 stacks on the Lyra he does not control saves them, keeps the rounds and publishes condition:applied', async () => {
+      const activeId = await lyraBleedingTwice();
+
+      const version = await service.setStacks(CAIO_ID, VHARN_ID, {
+        tokenId: LYRA_ID,
+        activeConditionId: activeId,
+        stacks: 4,
+      });
+
+      expect(version).toBe(7);
+      expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+      expect(conditions.active[0]).toMatchObject({ stacks: 4, remainingRounds: 3 });
+      expect(publisher.conditionEvents).toEqual([
+        {
+          campaignId: VHARN_ID,
+          sceneId: VHARN_SCENE_ID,
+          version: 7,
+          at: NOW.toISOString(),
+          tokenId: LYRA_ID,
+          condition: expect.objectContaining({ id: activeId, stacks: 4, remainingRounds: 3 }),
+        },
+      ]);
+    });
+
+    it('setting 6 stacks above the max 5 is INVALID_STACKS: nothing saved, nothing published', async () => {
+      const activeId = await lyraBleedingTwice();
+      const command = { tokenId: LYRA_ID, activeConditionId: activeId, stacks: 6 };
+
+      await expect(service.setStacks(ANA_ID, VHARN_ID, command)).rejects.toMatchObject({
+        code: 'INVALID_STACKS',
+        stacks: 6,
+        maxStacks: 5,
+      });
+      expect(scenes.journal).not.toContain('save');
+      expect(conditions.active[0]?.stacks).toBe(2);
+      expect(publisher.conditionEvents).toEqual([]);
+    });
+
+    it('the active id of the Lyra sent with Bram is CONDITION_NOT_FOUND and the Lyra keeps 2', async () => {
+      const activeId = await lyraBleedingTwice();
+      const command = { tokenId: BRAM_ID, activeConditionId: activeId, stacks: 3 };
+
+      await expect(service.setStacks(ANA_ID, VHARN_ID, command)).rejects.toMatchObject({
+        code: 'CONDITION_NOT_FOUND',
+      });
+      expect(conditions.active[0]?.stacks).toBe(2);
+      expect(publisher.conditionEvents).toEqual([]);
+    });
+
+    it('the spectator setting stacks is FORBIDDEN before anything is locked', async () => {
+      const activeId = await lyraBleedingTwice();
+      const command = { tokenId: LYRA_ID, activeConditionId: activeId, stacks: 3 };
+
+      await expect(service.setStacks(DUDA_ID, VHARN_ID, command)).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+      expect(scenes.journal).toEqual([]);
+      expect(conditions.active[0]?.stacks).toBe(2);
     });
   });
 
@@ -359,6 +587,9 @@ describe('ConditionsService', () => {
         tone: 'harm',
         icon: 'droplet',
         look: null,
+        color: null,
+        description: '',
+        maxStacks: null,
       } as const;
 
       const version = await service.define(ANA_ID, VHARN_ID, command);

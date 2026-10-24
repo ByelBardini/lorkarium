@@ -12,8 +12,8 @@ export type SelectionConditionsProps = Readonly<{
 
 const NO_TOKENS: readonly TokenDto[] = [];
 
-/** With 2 or more selected, one condition on all of them in one `condition:applyMany`. Only the
- *  tokens the viewer controls go: the server refuses the whole group for one that is not theirs.
+/** With 2 or more selected, one condition on all of them in one `condition:applyMany`, whoever
+ *  controls them (master and players alike act on any token's conditions). Nothing read-only.
  *
  *  Example: `<SelectionConditions board={board} interaction={interaction} isMaster />` */
 export function SelectionConditions(props: SelectionConditionsProps): React.JSX.Element | null {
@@ -21,20 +21,16 @@ export function SelectionConditions(props: SelectionConditionsProps): React.JSX.
   const selectedIds = useBoardInteraction(interaction, (state) => state.selectedTokenIds);
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
   const tokens = useBoard(board, (state) => state.board?.tokens ?? NO_TOKENS);
-  if (selectedIds.length < 2) return null;
-  const targets = tokens
-    .filter(({ id, canControl }) => canControl && selectedIds.includes(id))
-    .map(({ id }) => id);
-  if (targets.length === 0) return null;
-  const leftOut = selectedIds.length - targets.length;
+  if (selectedIds.length < 2 || readOnly) return null;
+  const targets = tokens.filter(({ id }) => selectedIds.includes(id)).map(({ id }) => id);
+  if (targets.length < 2) return null;
   return (
     <section aria-label="Condição nos selecionados" className="flex flex-col gap-2 pb-2">
-      {leftOut > 0 && <p className="text-[13px] text-muted-foreground">{leftOutText(leftOut)}</p>}
       <ConditionPicker
         board={board}
         interaction={interaction}
         isMaster={isMaster}
-        disabled={readOnly}
+        disabled={false}
         label={`Condição em ${targets.length} tokens`}
         onApply={(conditionId, rounds) =>
           interaction
@@ -44,10 +40,4 @@ export function SelectionConditions(props: SelectionConditionsProps): React.JSX.
       />
     </section>
   );
-}
-
-function leftOutText(count: number): string {
-  return count === 1
-    ? '1 selecionado não é seu e fica de fora.'
-    : `${count} selecionados não são seus e ficam de fora.`;
 }

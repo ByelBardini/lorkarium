@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTable, type OpenTableView } from '@/features/sessions/use-open-table';
 import { ApplyConditionDialog } from '@/features/combat/apply-condition-dialog';
+import { ConditionToolPanel } from '@/features/combat/condition-tool-panel';
+import { useConditionToolFollow } from '@/features/combat/use-condition-tool-follow';
 import { TurnLine } from '@/features/combat/turn-line';
 import { RoomTokenDialog, RoomTokenImageDialog } from '@/features/tokens/room-token-dialog';
 import { CardLinkDialog, type CardLinkRequest } from '@/features/tokens/token-link-items';
@@ -25,6 +27,7 @@ import {
   useBoardInteraction,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
+import { createConditionToolStore } from '@/stores/condition-tool-store';
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import type { WallStyleStore } from '@/stores/wall-style-store';
@@ -105,6 +108,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [imageTokenId, setImageTokenId] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<SelectionToDelete | null>(null);
   const [cardLink, setCardLink] = useState<CardLinkRequest | null>(null);
+  const [conditionTool] = useState(createConditionToolStore);
   const role = campaign.myRole;
   const isMaster = role === 'master';
   const hover = useTokenHover(props.interactionClock);
@@ -116,6 +120,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const players = usePlayerIdsOf(table?.presence ?? null);
   const commands = props.boardCommands;
   useEditShortcuts({ scopeOf, table, interaction, commands, role });
+  useConditionToolFollow(table ? { board: table.board, interaction, conditionTool } : null);
   const tool = useBoardInteraction(interaction, (state) => state.tool);
   const drawMode = useBoardInteraction(interaction, (state) => state.drawMode);
   const ping = useBoardPings({
@@ -169,6 +174,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             wallStyle={props.wallStyle}
             lightReach={props.lightReach}
             lightColor={props.lightColor}
+            conditionTool={conditionTool}
             onPing={ping}
           />
           {tool === 'draw' && !focus && (
@@ -179,6 +185,14 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             />
           )}
           {tool === 'area' && !focus && <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />}
+          {tool === 'conditions' && !focus && table && (
+            <ConditionToolPanel
+              board={table.board}
+              conditionTool={conditionTool}
+              campaignId={campaign.id}
+              isMaster={isMaster}
+            />
+          )}
           {tool === 'walls' && !focus && table && (
             <RoomWallPanel
               board={table.board}

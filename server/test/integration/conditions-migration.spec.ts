@@ -4,7 +4,6 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
-import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
 import {
   databaseUrlNamed,
   LAST_MIGRATION_WITH_PLAIN_EMAIL,
@@ -45,6 +44,25 @@ async function seedConditionsAt0029(scratch: DatabaseConnection): Promise<void> 
     SELECT ${KAEL}, id, 2 FROM condition_definitions`);
 }
 
+type DefinitionLook = Readonly<{ name: string; tone: string; look: string | null }>;
+type ActiveLook = DefinitionLook & Readonly<{ remainingRounds: number | null }>;
+
+// Raw SQL, not the DAO: the DAO reads columns of later migrations (0050 description) this
+// database stops before.
+async function definitionsOf(database: DatabaseConnection): Promise<DefinitionLook[]> {
+  const result = await database.db.execute<DefinitionLook>(sql`
+    SELECT name, tone, look FROM condition_definitions WHERE campaign_id = ${CAMPAIGN}`);
+  return result.rows;
+}
+
+async function activeOnKael(database: DatabaseConnection): Promise<ActiveLook[]> {
+  const result = await database.db.execute<ActiveLook>(sql`
+    SELECT d.name, d.tone, d.look, a.remaining_rounds AS "remainingRounds"
+    FROM active_conditions a JOIN condition_definitions d ON d.id = a.condition_id
+    WHERE a.token_id = ${KAEL}`);
+  return result.rows;
+}
+
 describe('migration 0030_condition_looks', () => {
   let admin: DatabaseConnection;
   let scratch: DatabaseConnection | undefined;
@@ -83,7 +101,7 @@ describe('migration 0030_condition_looks', () => {
   it('marks the old tables by name: Paralisado and Atordoado incapacitating, Invisível and "inconsciente" with their look and tone, Assombrado untouched', async () => {
     const database = await migratedFrom0029();
 
-    const listed = await new ConditionsDao(database.db).listDefinitions(CAMPAIGN);
+    const listed = await definitionsOf(database);
     const byName = new Map(listed.map(({ name, tone, look }) => [name, { tone, look }]));
     expect(Object.fromEntries(byName)).toEqual({
       Paralisado: { tone: 'incapacitating', look: null },
@@ -97,7 +115,7 @@ describe('migration 0030_condition_looks', () => {
   it('the active conditions stay on the tokens and carry the new tone and look', async () => {
     const database = await migratedFrom0029();
 
-    const active = await new ConditionsDao(database.db).listOfTokens([KAEL]);
+    const active = await activeOnKael(database);
     expect(active).toHaveLength(5);
     expect(active).toContainEqual(
       expect.objectContaining({ name: 'Invisível', look: 'invisible', remainingRounds: 2 }),

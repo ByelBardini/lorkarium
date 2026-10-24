@@ -1,5 +1,5 @@
 import { Container, Graphics, GraphicsContext, Text } from 'pixi.js';
-import type { ConditionToneDto } from '@lorkarium/contracts';
+import { conditionColorNumberOf } from '@/lib/condition-colors';
 import { conditionIconSvg } from '@/lib/condition-icons';
 import { zoomProofTextResolution } from './camera';
 import { conditionStripOf, type ConditionStrip, type StripIcon } from './condition-strip';
@@ -10,12 +10,6 @@ import type { ConditionMarkView, TokenView } from './token-view';
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const BADGE_COLOR = 0x1b1f25;
 const TEXT_COLOR = 0xeae5da;
-const COPPER = 0xb5654f;
-const TONE_COLOR: Readonly<Record<ConditionToneDto, number>> = {
-  benefit: 0xc5a46d,
-  harm: COPPER,
-  incapacitating: COPPER,
-};
 const ENDING_RING_COLOR = 0xeae5da;
 const ICON_SHARE_OF_BADGE = 0.65;
 const LUCIDE_VIEWBOX = 24;
@@ -52,8 +46,9 @@ export class PixiConditionMarks {
 
   private drawDots(strip: Extract<ConditionStrip, { band: 'dots' }>, width: number): void {
     const radius = strip.dotSize / 2;
-    for (const { tone, offsetX } of strip.dots) {
-      this.dots.addChild(new Graphics().circle(offsetX, radius, radius).fill(TONE_COLOR[tone]));
+    for (const { tone, color, offsetX } of strip.dots) {
+      const fill = conditionColorNumberOf(color, tone);
+      this.dots.addChild(new Graphics().circle(offsetX, radius, radius).fill(fill));
     }
     this.dots.position.set(width / 2, strip.top);
     this.container.addChild(this.dots);
@@ -75,29 +70,32 @@ function stripOf(view: TokenView, zoom: number): ConditionStrip {
 
 function stripKey(strip: ConditionStrip): string {
   if (strip.band === 'none') return 'none';
-  if (strip.band === 'dots') return `dots|${strip.top}|${strip.dots.map((d) => d.tone).join()}`;
-  const icons = strip.icons.map((i) => `${i.icon}:${i.tone}:${i.x}:${i.rounds}:${i.ending}`);
+  if (strip.band === 'dots') {
+    return `dots|${strip.top}|${strip.dots.map((d) => `${d.tone}:${d.color}`).join()}`;
+  }
+  const icons = strip.icons.map(
+    (i) => `${i.icon}:${i.tone}:${i.color}:${i.x}:${i.rounds}:${i.stacks}:${i.ending}`,
+  );
   return `${strip.band}|${strip.top}|${strip.iconSize}|${strip.more?.count}|${icons.join()}`;
 }
 
-// Incapacitating is a filled copper badge with a dark glyph; the others a dark badge ringed and
-// drawn in their tone. The last round gets a light dashed ring around it.
+// Incapacitating is a filled badge in its color with a dark glyph; the others a dark badge ringed
+// and drawn in their color. The last round gets a light dashed ring around it.
 function badge(mark: StripIcon, radius: number, y: number): Container {
   const root = new Container();
   const filled = mark.tone === 'incapacitating';
+  const color = conditionColorNumberOf(mark.color, mark.tone);
   const disc = new Graphics().circle(0, 0, radius);
-  if (filled) disc.fill(COPPER);
-  else
-    disc
-      .fill({ color: BADGE_COLOR, alpha: 0.92 })
-      .stroke({ width: 1.5, color: TONE_COLOR[mark.tone] });
-  const icon = new Graphics(iconContext(mark, filled ? BADGE_COLOR : TONE_COLOR[mark.tone]));
+  if (filled) disc.fill(color);
+  else disc.fill({ color: BADGE_COLOR, alpha: 0.92 }).stroke({ width: 1.5, color });
+  const icon = new Graphics(iconContext(mark, filled ? BADGE_COLOR : color));
   const iconSize = radius * 2 * ICON_SHARE_OF_BADGE;
   icon.scale.set(iconSize / LUCIDE_VIEWBOX);
   icon.position.set(-iconSize / 2, -iconSize / 2);
   root.addChild(disc, icon);
   if (mark.ending) root.addChild(endingRing(radius + 2.5));
   if (mark.rounds !== null) root.addChild(roundsLabel(mark.rounds, radius));
+  if (mark.stacks !== null) root.addChild(stacksLabel(mark.stacks, radius));
   root.position.set(mark.x, y);
   return root;
 }
@@ -112,11 +110,21 @@ function endingRing(radius: number): Graphics {
 
 // Bottom right of the badge, outlined so it reads over the glyph and over the map.
 function roundsLabel(rounds: number, radius: number): Text {
-  const label = textOf(String(rounds), Math.round(radius * 0.8));
+  return cornerLabel(String(rounds), radius, 0.7);
+}
+
+// `corner`: the share of the radius off the center, on both axes (negative = up and left).
+function cornerLabel(text: string, radius: number, corner: number): Text {
+  const label = textOf(text, Math.round(radius * 0.8));
   label.style.stroke = { color: BADGE_COLOR, width: 3 };
   label.anchor.set(0.5);
-  label.position.set(radius * 0.7, radius * 0.7);
+  label.position.set(radius * corner, radius * corner);
   return label;
+}
+
+// Top left of the badge, opposite the rounds and outlined the same way.
+function stacksLabel(stacks: number, radius: number): Text {
+  return cornerLabel(String(stacks), radius, -0.7);
 }
 
 function iconContext({ icon }: ConditionMarkView, color: number): GraphicsContext {

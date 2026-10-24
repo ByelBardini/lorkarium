@@ -10,7 +10,7 @@ import type { RoomLayoutStore } from '@/stores/room-layout-store';
 export type RoomShortcutStores = Readonly<{
   roomLayout: StoreApi<RoomLayoutStore>;
   interaction: StoreApi<BoardInteractionStore>;
-  /** The keys of the tools this role may not pick do nothing (a spectator's B and M). */
+  /** The keys of the tools this role may not pick do nothing (a spectator's B, M and C). */
   role: CampaignRoleDto;
 }>;
 
@@ -19,6 +19,7 @@ const TOOL_OF: Partial<Record<BoardShortcut, BoardTool>> = {
   'ruler-tool': 'ruler',
   'draw-tool': 'draw',
   'area-tool': 'area',
+  'conditions-tool': 'conditions',
   'walls-tool': 'walls',
   'lights-tool': 'lights',
 };
@@ -29,8 +30,8 @@ const LAYER_OF: Partial<Record<BoardShortcut, TokenLayerDto>> = {
   'layer-background': 'background',
 };
 
-/** The room keys anywhere on the page (F, Esc, V, R, G, B and M but for a spectator, and P, L and
- *  1 2 3 for the master), except while typing or in a dialog.
+/** The room keys anywhere on the page (F, Esc, V, R, G, B, M and C but for a spectator, and P, L
+ *  and 1 2 3 for the master), except while typing or in a dialog. Ctrl/⌘+C stays the copy.
  *
  *  Example: `useRoomShortcuts({ roomLayout, interaction, role: campaign.myRole })` */
 export function useRoomShortcuts({ roomLayout, interaction, role }: RoomShortcutStores): void {

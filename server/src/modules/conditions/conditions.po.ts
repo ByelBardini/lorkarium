@@ -1,4 +1,4 @@
-import type { ConditionIconDto } from '@lorkarium/contracts';
+import type { ConditionColorDto, ConditionIconDto } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
 import {
   integer,
@@ -30,6 +30,12 @@ export const conditionDefinitions = pgTable(
     // Text, not a pg enum: the closed list lives in the contract, so adding an icon needs no migration.
     icon: text('icon').$type<ConditionIconDto>().notNull().default('circle-dot'),
     look: conditionLook('look'),
+    // Text like `icon`: a key of the contract's closed palette; null = painted by its tone.
+    color: text('color').$type<ConditionColorDto>(),
+    // Free text from the master about what it does; '' = none. No rule reads it (spec §3.7).
+    description: text('description').notNull().default(''),
+    // How many times it piles up at most (2..99, the contract checks); null = it does not stack.
+    maxStacks: integer('max_stacks'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -54,6 +60,8 @@ export const activeConditions = pgTable(
     remainingRounds: integer('remaining_rounds'),
     // The combat round it was applied in (null out of combat): that round's turn end skips it.
     appliedRound: integer('applied_round'),
+    // Always 1 on a condition that does not stack; every stack shares the one duration.
+    stacks: integer('stacks').notNull().default(1),
     appliedAt: timestamp('applied_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -68,5 +76,8 @@ export type NewConditionDefinition = Readonly<{
   tone: ConditionToneValue;
   icon: ConditionDefinitionPo['icon'];
   look: ConditionDefinitionPo['look'];
+  color: ConditionDefinitionPo['color'];
+  description: string;
+  maxStacks: ConditionDefinitionPo['maxStacks'];
 }>;
 export type ActiveConditionPo = typeof activeConditions.$inferSelect;

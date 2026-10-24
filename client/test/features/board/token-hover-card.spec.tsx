@@ -102,4 +102,48 @@ describe('TokenHoverCard', () => {
     renderCard(kael({ conditions: KAEL_CONDITIONS }));
     expect(card()).not.toContainElement(document.activeElement as HTMLElement | null);
   });
+
+  it('a condition with a description shows it under its name, cut at 4 lines', () => {
+    const envenenado = activeCondition({
+      name: 'Envenenado',
+      description: 'Desvantagem em ataques.',
+    });
+    renderCard(kael({ conditions: [envenenado] }));
+    const item = within(card()).getByRole('listitem');
+    expect(item).toHaveTextContent('Envenenado2 rodadasDesvantagem em ataques.');
+    expect(within(item).getByText('Desvantagem em ataques.')).toHaveClass('line-clamp-4');
+  });
+
+  it('a condition without description adds no line under its name', () => {
+    renderCard(kael({ conditions: [activeCondition({ name: 'Envenenado', description: '' })] }));
+    const item = within(card()).getByRole('listitem');
+    expect(item.textContent).toBe('Envenenado2 rodadas');
+    expect(item.querySelector('p')).toBeNull();
+  });
+});
+
+describe('TokenHoverCard stacks', () => {
+  it('a stacking condition reads "×3" right after its name', () => {
+    const board = createBoardStore(VHARN.id, () => undefined);
+    const interaction = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+    const sangrando = activeCondition({ name: 'Sangrando', maxStacks: 5, stacks: 3 });
+    board.getState().apply({
+      kind: 'board',
+      state: vharnBoard({ tokens: [kael({ conditions: [sangrando] })] }),
+    });
+    render(
+      <TokenHoverCard
+        request={{ tokenId: KAEL_ID, rect: RECT }}
+        board={board}
+        interaction={interaction}
+      />,
+    );
+    const item = screen.getByRole('listitem');
+    expect(item.textContent).toBe('Sangrando×3, 3 stacks2 rodadas');
+    expect(within(item).getByText('×3')).toHaveAttribute('aria-hidden', 'true');
+  });
 });

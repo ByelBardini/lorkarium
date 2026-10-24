@@ -32,10 +32,19 @@ import {
   type ConditionAppliedDto,
   type ConditionsAppliedDto,
   type ConditionDefinedDto,
+  type ConditionDefaultsRestoredDto,
+  type ConditionDefinitionDeletedDto,
+  type ConditionDefinitionUpdatedDto,
   type ConditionRemovedDto,
+  type ConditionUsageAckDto,
+  type ConditionUsageCommandDto,
   type DefineConditionCommandDto,
+  type DeleteConditionDefinitionCommandDto,
   type RemoveConditionCommandDto,
+  type RestoreDefaultConditionsCommandDto,
   type SetConditionRoundsCommandDto,
+  type SetConditionStacksCommandDto,
+  type UpdateConditionDefinitionCommandDto,
 } from './condition.dto';
 import { effectAreaDto } from './effect-area.dto';
 import {
@@ -220,7 +229,15 @@ export const BOARD_EVENTS = {
   applyConditions: 'condition:applyMany',
   removeCondition: 'condition:remove',
   setConditionRounds: 'condition:setRounds',
+  setConditionStacks: 'condition:setStacks',
+  updateConditionDefinition: 'condition:updateDefinition',
+  deleteConditionDefinition: 'condition:deleteDefinition',
+  restoreDefaultConditions: 'condition:restoreDefaults',
+  conditionUsage: 'condition:usage',
   conditionDefined: 'condition:defined',
+  conditionDefinitionUpdated: 'condition:definitionUpdated',
+  conditionDefinitionDeleted: 'condition:definitionDeleted',
+  conditionDefaultsRestored: 'condition:defaultsRestored',
   conditionApplied: 'condition:applied',
   conditionsApplied: 'condition:appliedMany',
   conditionRemoved: 'condition:removed',
@@ -381,6 +398,14 @@ export type BoardClientEvents = {
   'condition:applyMany': Command<ApplyConditionsCommandDto>;
   'condition:remove': Command<RemoveConditionCommandDto>;
   'condition:setRounds': Command<SetConditionRoundsCommandDto>;
+  'condition:setStacks': Command<SetConditionStacksCommandDto>;
+  'condition:updateDefinition': Command<UpdateConditionDefinitionCommandDto>;
+  'condition:deleteDefinition': Command<DeleteConditionDefinitionCommandDto>;
+  'condition:restoreDefaults': Command<RestoreDefaultConditionsCommandDto>;
+  'condition:usage': (
+    command: ConditionUsageCommandDto,
+    ack: BoardAck<ConditionUsageAckDto>,
+  ) => void;
   'combat:start': Command<StartCombatCommandDto>;
   'combat:end': Command<EndCombatCommandDto>;
   'combat:addCombatants': Command<AddCombatantsCommandDto>;
@@ -435,6 +460,9 @@ export type BoardServerEvents = {
   'condition:applied': (event: ConditionAppliedDto) => void;
   'condition:appliedMany': (event: ConditionsAppliedDto) => void;
   'condition:removed': (event: ConditionRemovedDto) => void;
+  'condition:definitionUpdated': (event: ConditionDefinitionUpdatedDto) => void;
+  'condition:definitionDeleted': (event: ConditionDefinitionDeletedDto) => void;
+  'condition:defaultsRestored': (event: ConditionDefaultsRestoredDto) => void;
   'combat:started': (event: CombatStartedDto) => void;
   'combat:updated': (event: CombatUpdatedDto) => void;
   'combat:turnChanged': (event: CombatTurnChangedDto) => void;

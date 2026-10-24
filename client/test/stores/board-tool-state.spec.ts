@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AREA_HINT,
+  CONDITION_HINT,
   DRAW_HINT,
   DRAW_MODE_HINT,
   drawModeChangeOf,
@@ -71,6 +72,24 @@ describe('toolChangeOf', () => {
 
   it('a player cannot take the lights tool', () => {
     expect(toolChangeOf(PLAYER, 'lights')).toBeNull();
+  });
+
+  it('a player takes the condition tool, which goes to the Tokens layer with its hint', () => {
+    expect(toolChangeOf(PLAYER, 'conditions')).toMatchObject({
+      tool: 'conditions',
+      activeLayer: 'tokens',
+      notice: CONDITION_HINT,
+    });
+  });
+
+  it('the condition tool keeps the selection (it stamps tokens, it sketches nothing)', () => {
+    expect(toolChangeOf(MASTER, 'conditions')).not.toHaveProperty('selectedTokenIds');
+  });
+
+  it('the condition tool hint asks for a condition from the panel', () => {
+    expect(hintOf('conditions', { wallMode: 'draw', drawMode: 'draw' })).toBe(
+      'Escolha uma condição no painel.',
+    );
   });
 
   it('the ruler keeps the selection', () => {

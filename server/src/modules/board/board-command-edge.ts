@@ -52,6 +52,8 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   OUT_OF_SCENE: 'It does not fit the scene there',
   INVALID_CONTROLLER: 'Only members of the table can control a token',
   CONDITION_NOT_FOUND: 'Condition not found',
+  CONDITION_NAME_TAKEN: 'Another condition of this table already has that name',
+  INVALID_STACKS: 'That condition cannot have that many stacks',
   COMBAT_NOT_ACTIVE: 'There is no combat in this scene',
   COMBAT_ALREADY_ACTIVE: 'This scene already has a combat',
   TURN_ALREADY_CHANGED: 'The turn already moved',
