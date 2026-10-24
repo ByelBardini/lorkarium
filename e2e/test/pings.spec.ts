@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { cellCenterOf } from './support/board-cells';
+import { altClickCell, cellCenterOf } from './support/board-cells';
 import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
@@ -13,13 +13,6 @@ import { statusOf } from './support/token-cards';
 
 // The seeded admin's name comes from the env: any name but the "Alguém" of an unknown author.
 const ADMIN_PINGED_6_3 = /^(?!Alguém ).+ marcou um ponto \(coluna 6, linha 3\)\.$/;
-
-async function altClickCell(page: Page, col: number, row: number): Promise<void> {
-  const at = await cellCenterOf(page, col, row);
-  await page.keyboard.down('Alt');
-  await page.mouse.click(at.x, at.y);
-  await page.keyboard.up('Alt');
-}
 
 async function holdOnCell(page: Page, col: number, row: number, dragPx = 0): Promise<void> {
   const at = await cellCenterOf(page, col, row);

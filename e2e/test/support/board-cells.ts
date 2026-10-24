@@ -48,6 +48,16 @@ export async function holdDragBetweenCells(
   await page.mouse.move(to.x, to.y, { steps: 8 });
 }
 
+/** Alt + click on the center of a cell: the ping, with any tool.
+ *
+ *  Example: `await altClickCell(admin, 5, 2); await expect(statusOf(bia)).toContainText('coluna 6, linha 3')` */
+export async function altClickCell(page: Page, col: number, row: number): Promise<void> {
+  const at = await cellCenterOf(page, col, row);
+  await page.keyboard.down('Alt');
+  await page.mouse.click(at.x, at.y);
+  await page.keyboard.up('Alt');
+}
+
 /** Presses on one cell and releases on another in small steps, as a hand drags.
  *
  *  Example: `await dragBetweenCells(caio, [2, 2], [5, 4])` */
