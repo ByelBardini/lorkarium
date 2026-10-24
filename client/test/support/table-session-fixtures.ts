@@ -10,6 +10,7 @@ import type {
   SessionMemberDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
+  SessionMemberUpdatedDto,
   SessionStateDto,
   TokenDto,
   TokensDraggedDto,
@@ -21,6 +22,10 @@ import { VHARN } from './campaigns-api-fake';
 export const ANA_AT_TABLE: SessionMemberDto = {
   userId: ANA.id,
   name: 'Ana',
+  username: 'ana',
+  color: 'teal',
+  avatarId: null,
+  bio: null,
   role: 'master',
   online: true,
   awaySince: null,
@@ -29,6 +34,10 @@ export const ANA_AT_TABLE: SessionMemberDto = {
 export const BIA_AT_TABLE: SessionMemberDto = {
   userId: '9c2f4e61-7a3b-4d5c-8e9f-0b1a2c3d4e5f',
   name: 'Bia',
+  username: 'bia',
+  color: 'moss',
+  avatarId: null,
+  bio: null,
   role: 'player',
   online: false,
   awaySince: null,
@@ -37,6 +46,10 @@ export const BIA_AT_TABLE: SessionMemberDto = {
 export const CAIO_AT_TABLE: SessionMemberDto = {
   userId: 'b4d6e8f0-1a2b-4c3d-8e5f-6a7b8c9d0e1f',
   name: 'Caio',
+  username: 'caio',
+  color: 'steel',
+  avatarId: null,
+  bio: null,
   role: 'player',
   online: true,
   awaySince: null,
@@ -75,6 +88,22 @@ export function biaJoined(overrides: Partial<SessionMemberJoinedDto> = {}): Sess
  *  Example: `biaLeft({ version: 3 })` */
 export function biaLeft(overrides: Partial<SessionMemberLeftDto> = {}): SessionMemberLeftDto {
   return { campaignId: VHARN.id, version: 3, userId: BIA_AT_TABLE.userId, at: AT, ...overrides };
+}
+
+/** `session:memberUpdated` of Bia at VHARN: she chose rose and wrote a bio (the server sends her
+ *  whole member, offline as the roster has her).
+ *
+ *  Example: `biaUpdated({ version: 5 })` */
+export function biaUpdated(
+  overrides: Partial<SessionMemberUpdatedDto> = {},
+): SessionMemberUpdatedDto {
+  return {
+    campaignId: VHARN.id,
+    version: 2,
+    member: { ...BIA_AT_TABLE, name: 'Bia Rosa', color: 'rose', bio: 'Barda de Vharn.' },
+    at: AT,
+    ...overrides,
+  };
 }
 
 export const VHARN_SCENE: SceneDto = {

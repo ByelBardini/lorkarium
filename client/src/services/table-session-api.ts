@@ -7,6 +7,7 @@ import type {
   SessionMemberActivityDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
+  SessionMemberUpdatedDto,
   SessionStateDto,
   TokensDraggedDto,
 } from '@lorkarium/contracts';
@@ -26,6 +27,8 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'memberJoined'; event: SessionMemberJoinedDto }>
   | Readonly<{ kind: 'memberLeft'; event: SessionMemberLeftDto }>
   | Readonly<{ kind: 'memberActivity'; event: SessionMemberActivityDto }>
+  /** A member saved nickname, color, bio or photo: the whole member, read again by the server. */
+  | Readonly<{ kind: 'memberUpdated'; event: SessionMemberUpdatedDto }>
   | Readonly<{ kind: 'status'; status: TableSessionStatus }>
   | Readonly<{ kind: 'failed'; failure: TableSessionFailure }>
   | Readonly<{ kind: 'board'; state: BoardStateDto }>

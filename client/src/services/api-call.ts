@@ -5,6 +5,7 @@ import {
   type HttpMethod,
   type HttpResponse,
   type HttpTransport,
+  type UploadMethod,
 } from './http-transport';
 
 /** One HTTP exchange before the service names the failure: ok, refused by status, or offline. */
@@ -31,15 +32,17 @@ export async function callApi(
   return exchange(() => transport.request(method, path, body));
 }
 
-/** Posts a file as the raw body (its own content type), with the same outcomes as `callApi`.
+/** Sends a file as the raw body (its own content type), with the same outcomes as `callApi`;
+ *  `POST` unless the route replaces (`PUT`).
  *
  *  Example: `await callUpload(transport, '/campaigns/<id>/assets?purpose=token', file)` */
 export async function callUpload(
   transport: HttpTransport,
   path: string,
   file: Blob,
+  method: UploadMethod = 'POST',
 ): Promise<ApiCall> {
-  return exchange(() => transport.upload(path, file));
+  return exchange(() => transport.upload(path, file, method));
 }
 
 async function exchange(send: () => Promise<HttpResponse>): Promise<ApiCall> {

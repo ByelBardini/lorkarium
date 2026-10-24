@@ -4,6 +4,7 @@ import { useNavigate, useRouteError } from 'react-router';
 import { ApiLoadError } from '@/app/shell/api-loader';
 import { CopyCodeButton } from '@/components/copy-code-button';
 import { Button } from '@/components/ui/button';
+import { UserAvatar } from '@/components/user-avatar';
 import {
   Dialog,
   DialogContent,
@@ -88,13 +89,19 @@ function MemberList({ members }: Readonly<{ members: readonly CampaignMemberDto[
         Participantes ({members.length})
       </h3>
       <ul aria-labelledby={titleId}>
-        {members.map((member, index) => (
+        {members.map((member) => (
           <li
-            key={`${member.name}-${index}`}
+            key={member.userId}
             className="flex items-center gap-3 border-b border-divider py-2 last:border-b-0"
           >
             {/* Reserved for the online indicator, which arrives with real time (spec §11, phase 2). */}
             <span aria-hidden="true" className="size-2 shrink-0" />
+            <UserAvatar
+              name={member.name}
+              color={member.color}
+              avatarId={member.avatarId}
+              size="sm"
+            />
             <span className="flex-1 truncate text-sm">{member.name}</span>
             <span className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
               {ROLE_LABEL[member.role]}

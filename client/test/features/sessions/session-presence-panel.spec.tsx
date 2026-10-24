@@ -81,6 +81,24 @@ describe('SessionPresencePanel', () => {
     expect(cardTitles()).toEqual(['Lyra', 'Kael']);
   });
 
+  it('the master row shows the avatar of the account: the photo when there is one', () => {
+    const avatarId = '3c1b2a09-8f7e-4d6c-9b5a-4e3d2c1b0a99';
+    renderPanel([{ ...ANA_AT_TABLE, avatarId }, BIA_ONLINE, CAIO_AT_TABLE]);
+
+    expect(within(section('Mestre')).getByTestId('avatar-photo')).toHaveAttribute(
+      'src',
+      `/api/avatars/${avatarId}`,
+    );
+  });
+
+  it('the master row without a photo shows the initials over the color of the account', () => {
+    renderPanel();
+
+    const initials = within(section('Mestre')).getByTestId('avatar-initials');
+    expect(initials).toHaveTextContent('AN');
+    expect(initials).toHaveStyle({ backgroundColor: '#5cc8c0' });
+  });
+
   it('two masters read "Mestres"', () => {
     renderPanel([ANA_AT_TABLE, BIA_ONLINE, { ...CAIO_AT_TABLE, role: 'master' }]);
 

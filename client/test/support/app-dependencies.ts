@@ -9,6 +9,7 @@ import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore } from '@/stores/rail-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { createSessionStore } from '@/stores/session-store';
+import { AccountSecurityApiFake } from './account-security-api-fake';
 import { AssetsApiFake } from './assets-api-fake';
 import { AuthApiFake } from './auth-api-fake';
 import { BoardRenderersFake } from './board-renderer-fake';
@@ -20,12 +21,15 @@ import { LibraryApiFake } from './library-api-fake';
 import { SceneActivationFake } from './scene-activation-fake';
 import { StorageFake } from './storage-fake';
 import { PingCommandsFake } from './ping-commands-fake';
+import { ProfileApiFake } from './profile-api-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
 
 export type TestDependencies = AppDependencies & {
   authApi: AuthApiFake;
   campaignsApi: CampaignsApiFake;
+  profileApi: ProfileApiFake;
+  accountSecurityApi: AccountSecurityApiFake;
   libraryApi: LibraryApiFake;
   sceneActivation: SceneActivationFake;
   assets: AssetsApiFake;
@@ -78,6 +82,8 @@ export function testDependencies(): TestDependencies {
     journal,
     authApi: new AuthApiFake(journal),
     campaignsApi: new CampaignsApiFake(),
+    profileApi: new ProfileApiFake(),
+    accountSecurityApi: new AccountSecurityApiFake(TEST_NOW),
     libraryApi: new LibraryApiFake(),
     sceneActivation: new SceneActivationFake(),
     assets: new AssetsApiFake(),

@@ -8,16 +8,19 @@ import {
   type RouteObject,
 } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
+import { accountRoute, emailConfirmRoute } from '@/features/account/account-routes';
 import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { homeRoutes } from '@/features/home/home-route';
 import { useTabActivity } from '@/features/sessions/use-tab-activity';
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
 import { safeRedirectTarget } from '@/lib/safe-redirect';
+import type { AccountSecurityApi } from '@/services/account-security-api';
 import type { AuthApi } from '@/services/auth-api';
 import type { AssetsApi } from '@/services/assets-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
 import type { LibraryApi } from '@/services/library-api';
+import type { ProfileApi } from '@/services/profile-api';
 import type { SceneActivation } from '@/services/scene-activation';
 import type { Clipboard } from '@/services/clipboard';
 import type { TableBoardCommands } from '@/services/table-board-commands';
@@ -40,6 +43,10 @@ import { SplashScreen } from './splash-screen';
 export type AppDependencies = Readonly<{
   authApi: AuthApi;
   campaignsApi: CampaignsApi;
+  /** The person's own profile and photo ("Minha conta"). */
+  profileApi: ProfileApi;
+  /** Password, e-mail, signed-in devices and 2FA ("Minha conta"). */
+  accountSecurityApi: AccountSecurityApi;
   /** The grids and folders of a table (the library). */
   libraryApi: LibraryApi;
   /** "Levar o grupo pra cá" (`scene:activate`). */
@@ -89,6 +96,11 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
       children: [
         { path: 'login', middleware: [guard(deps, 'public-only')], Component: loginRoute(deps) },
         {
+          path: 'account/email/confirm',
+          middleware: [guard(deps, 'anyone')],
+          ...emailConfirmRoute(deps),
+        },
+        {
           path: 'admin',
           middleware: [guard(deps, 'admin')],
           lazy: async () => ({
@@ -99,7 +111,7 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
           id: 'shell',
           middleware: [guard(deps, 'signed-in'), restoreOpenTables(deps)],
           Component: shellRoute(deps),
-          children: [...homeRoutes(deps), campaignTableRoute(deps)],
+          children: [...homeRoutes(deps), accountRoute(deps), campaignTableRoute(deps)],
         },
         { path: '*', loader: () => redirect('/') },
       ],

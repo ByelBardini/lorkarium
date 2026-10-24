@@ -10,6 +10,7 @@ import {
   sessionMemberActivityDto,
   sessionMemberJoinedDto,
   sessionMemberLeftDto,
+  sessionMemberUpdatedDto,
   tokensDraggedDto,
   type ApiErrorDto,
   type BoardSyncAckDto,
@@ -192,7 +193,7 @@ export class TableVisit {
   }
 
   private tableEventSubscriptions(): Unsubscribe[] {
-    const { memberJoined, memberLeft, memberActivity } = SESSION_EVENTS;
+    const { memberJoined, memberLeft, memberActivity, memberUpdated } = SESSION_EVENTS;
     return [
       this.onTableEvent(memberJoined, sessionMemberJoinedDto, (event) =>
         this.notify({ kind: 'memberJoined', event }),
@@ -202,6 +203,9 @@ export class TableVisit {
       ),
       this.onTableEvent(memberActivity, sessionMemberActivityDto, (event) =>
         this.notify({ kind: 'memberActivity', event }),
+      ),
+      this.onTableEvent(memberUpdated, sessionMemberUpdatedDto, (event) =>
+        this.notify({ kind: 'memberUpdated', event }),
       ),
       this.onTableEvent(BOARD_EVENTS.sceneActivated, sceneActivatedDto, (event) => {
         this.groupSceneId = event.sceneId;

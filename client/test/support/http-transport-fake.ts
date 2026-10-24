@@ -3,6 +3,7 @@ import {
   type HttpMethod,
   type HttpResponse,
   type HttpTransport,
+  type UploadMethod,
 } from '@/services/http-transport';
 
 export type RecordedRequest = Readonly<{ method: HttpMethod; path: string; body: unknown }>;
@@ -22,8 +23,8 @@ export class HttpTransportFake implements HttpTransport {
     return this;
   }
 
-  async upload(path: string, file: Blob): Promise<HttpResponse> {
-    return this.request('POST', path, file);
+  async upload(path: string, file: Blob, method: UploadMethod = 'POST'): Promise<HttpResponse> {
+    return this.request(method, path, file);
   }
 
   async request(method: HttpMethod, path: string, body?: unknown): Promise<HttpResponse> {

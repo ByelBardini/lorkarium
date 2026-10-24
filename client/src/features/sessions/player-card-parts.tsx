@@ -2,20 +2,21 @@ import type { SessionMemberDto, TokenBarDto, TokenDto } from '@lorkarium/contrac
 import { CrosshairIcon, LockIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
+import { UserAvatar } from '@/components/user-avatar';
 import { useBoardSight } from '@/features/board/use-board-sight';
 import { BarMeter } from '@/features/tokens/bar-meter';
 import { BarQuickEdit } from '@/features/tokens/bar-quick-edit';
 import { TokenFace } from '@/features/tokens/token-face';
 import { levelOf } from '@/lib/board-sight';
 import { sideRingVar } from '@/lib/token-side';
-import { initialsOf } from '@/lib/token-initials';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { presenceOf } from '@/lib/member-presence';
+import { MemberCardPopover } from './member-card-popover';
 import { PresenceMark } from './presence-mark';
 
 /** The portrait of a card: the main token's image (or initials) with its side ring and the
- *  "Token" tag; the account's initials when the player has no main token on the scene.
+ *  "Token" tag; the account's avatar (photo or initials) when the player has no main token.
  *
  *  Example: `<CardPortrait token={lyra} member={bia} name="Lyra" />` */
 export function CardPortrait({
@@ -39,11 +40,14 @@ export function CardPortrait({
           className="absolute inset-0 size-full font-brand text-[22px] text-foreground/85"
         />
       ) : (
-        <span
-          aria-hidden="true"
-          className="absolute inset-0 grid place-items-center font-brand text-xl"
-        >
-          {initialsOf(member.name)}
+        <span className="absolute inset-0 grid place-items-center">
+          <UserAvatar
+            name={member.name}
+            color={member.color}
+            avatarId={member.avatarId}
+            size="xl"
+            alt={`Foto de ${member.name}`}
+          />
         </span>
       )}
       {token && <PortraitTag />}
@@ -59,8 +63,8 @@ function PortraitTag() {
   );
 }
 
-/** The nick line: presence symbol, the account name, "· você" on one's own card, "· ausente há
- *  N min" or "· offline".
+/** The nick line: presence symbol, the account name (a click opens the member's card), "· você"
+ *  on one's own card, "· ausente há N min" or "· offline".
  *
  *  Example: `<NickLine member={bia} isViewer awayLabel="ausente há 4 min" />` */
 export function NickLine({
@@ -81,7 +85,7 @@ export function NickLine({
       className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
     >
       <PresenceMark presence={presenceOf(member)} />
-      <span className="truncate">{member.name}</span>
+      <MemberCardPopover member={member} />
       {isViewer && <span className="font-semibold text-primary">· você</span>}
       {member.online && awayLabel && <span>{`· ${awayLabel}`}</span>}
       {!member.online && <span>· offline</span>}

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,6 +19,37 @@ describe('UserMenu', () => {
     renderMenu();
     await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
     expect(await screen.findByRole('menuitem', { name: 'Sair' })).toBeInTheDocument();
+  });
+
+  it('the trigger shows the avatar of the account: the photo when there is one', () => {
+    const avatarId = '3c1b2a09-8f7e-4d6c-9b5a-4e3d2c1b0a99';
+    renderMenu({ ...ANA, avatarId });
+
+    const trigger = screen.getByRole('button', { name: 'Ana' });
+    expect(within(trigger).getByTestId('avatar-photo')).toHaveAttribute(
+      'src',
+      `/api/avatars/${avatarId}`,
+    );
+  });
+
+  it('the trigger without a photo shows the initials over the color of the account', () => {
+    renderMenu(ANA);
+
+    const initials = within(screen.getByRole('button', { name: 'Ana' })).getByTestId(
+      'avatar-initials',
+    );
+    expect(initials).toHaveTextContent('AN');
+    expect(initials).toHaveStyle({ backgroundColor: '#5cc8c0' });
+  });
+
+  it('"Minha conta" in the menu leads to /account', async () => {
+    renderMenu();
+    await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+
+    expect(await screen.findByRole('menuitem', { name: 'Minha conta' })).toHaveAttribute(
+      'href',
+      '/account',
+    );
   });
 
   it('an admin sees "Backoffice" in the menu', async () => {

@@ -95,4 +95,89 @@ describe('LoginForm', () => {
     await screen.findByRole('alert');
     expect(authenticated).toEqual([]);
   });
+
+  describe('second step (2FA)', () => {
+    async function reachTwoFactor(): Promise<void> {
+      api.answerLoginWith({ ok: false, failure: { kind: 'two_factor_required' } });
+      await fillAndSubmit();
+      await screen.findByRole('form', { name: 'Verificação em duas etapas' });
+    }
+
+    async function sendCode(code: string): Promise<void> {
+      await userEvent.type(screen.getByLabelText(/Código/), code);
+      await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    }
+
+    it('a right password on an account with 2FA shows the code step focused, with the e-mail and "Voltar"', async () => {
+      await reachTwoFactor();
+      expect(screen.getByLabelText('Código do app autenticador')).toHaveFocus();
+      expect(screen.getByText('ana@mesa.com')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument();
+      expect(authenticated).toEqual([]);
+    });
+
+    it('the right app code sends { code } and hands the user to onAuthenticated', async () => {
+      await reachTwoFactor();
+      await sendCode('123 456');
+      expect(api.twoFactorCalls).toEqual([{ code: '123456' }]);
+      expect(authenticated).toEqual([ANA]);
+    });
+
+    it('a wrong code is cleared and focused with "Código incorreto."', async () => {
+      await reachTwoFactor();
+      api.answerTwoFactorWith({ ok: false, failure: { kind: 'two_factor_code_invalid' } });
+      await sendCode('111111');
+      const field = await screen.findByLabelText('Código do app autenticador');
+      expect(field).toHaveValue('');
+      expect(field).toHaveFocus();
+      expect(field).toHaveAccessibleDescription('Código incorreto.');
+    });
+
+    it('a code out of the format is refused before sending', async () => {
+      await reachTwoFactor();
+      await sendCode('12ab');
+      expect(screen.getByLabelText('Código do app autenticador')).toHaveAccessibleDescription(
+        'O código tem 6 números.',
+      );
+      expect(api.twoFactorCalls).toEqual([]);
+    });
+
+    it('"Usar um código de recuperação" swaps the field, and a right recovery code signs in', async () => {
+      await reachTwoFactor();
+      await userEvent.click(screen.getByRole('button', { name: 'Usar um código de recuperação' }));
+      await sendCode('K7M2P9QRST');
+      expect(api.twoFactorCalls).toEqual([{ recoveryCode: 'k7m2p-9qrst' }]);
+      expect(authenticated).toEqual([ANA]);
+    });
+
+    it('an expired challenge goes back to the first step with the notice and the password cleared', async () => {
+      await reachTwoFactor();
+      api.answerTwoFactorWith({ ok: false, failure: { kind: 'two_factor_challenge_expired' } });
+      await sendCode('123456');
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'O tempo para o código acabou. Entre de novo.',
+      );
+      expect(screen.getByLabelText('E-mail')).toHaveValue('ana@mesa.com');
+      expect(screen.getByLabelText('Senha')).toHaveValue('');
+    });
+
+    it('"Voltar" shows the e-mail and password again, without a notice', async () => {
+      await reachTwoFactor();
+      await userEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+      expect(screen.getByLabelText('E-mail')).toHaveValue('ana@mesa.com');
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('rate_limited shows "Muitas tentativas. Tente de novo em N s."', async () => {
+      await reachTwoFactor();
+      api.answerTwoFactorWith({
+        ok: false,
+        failure: { kind: 'rate_limited', retryAfterSeconds: 30 },
+      });
+      await sendCode('123456');
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Muitas tentativas. Tente de novo em 30 s.',
+      );
+    });
+  });
 });
