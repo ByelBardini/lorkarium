@@ -37,7 +37,7 @@ describe('app router', () => {
     deps.authApi.answerLoginWith({ ok: true, value: ROOT_ADMIN });
     renderAt('/login?next=%2Fadmin');
     await signInWith(ROOT_ADMIN.email);
-    expect(await screen.findByRole('heading', { name: 'Backoffice' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Usuários' })).toBeInTheDocument();
   });
 
   it('a sign-in with next=//evil.com stays in the app, on the home', async () => {
@@ -80,10 +80,11 @@ describe('app router', () => {
     expect(router.state.location.pathname).toBe('/');
   });
 
-  it('an admin opening /admin still reaches the backoffice', async () => {
+  it('an admin opening /admin lands on the users of the backoffice', async () => {
     deps.authApi.answerMeWith(ROOT_ADMIN);
-    renderAt('/admin');
-    expect(await screen.findByRole('heading', { name: 'Backoffice' })).toBeInTheDocument();
+    const router = renderAt('/admin');
+    expect(await screen.findByRole('heading', { name: 'Usuários' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/admin/users');
   });
 
   describe('open tables of the tab', () => {

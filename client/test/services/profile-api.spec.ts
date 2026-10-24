@@ -80,6 +80,33 @@ describe('HttpProfileApi', () => {
     });
   });
 
+  it('avatarFromLink POSTs the link to /account/avatar/link and yields the profile', async () => {
+    transport.respondWith(200, { profile: ANA_PROFILE });
+    expect(await api.avatarFromLink('https://media.example.com/dado.gif')).toEqual({
+      ok: true,
+      value: ANA_PROFILE,
+    });
+    expect(transport.requests).toEqual([
+      {
+        method: 'POST',
+        path: '/account/avatar/link',
+        body: { url: 'https://media.example.com/dado.gif' },
+      },
+    ]);
+  });
+
+  it.each([
+    ['LINK_BLOCKED', 'link_blocked'],
+    ['LINK_UNREACHABLE', 'link_unreachable'],
+    ['LINK_NOT_IMAGE', 'link_not_image'],
+  ] as const)('avatarFromLink refused 422 %s fails as %s', async (code, kind) => {
+    transport.respondWith(422, { code, message: 'x' });
+    expect(await api.avatarFromLink('https://x.com/a.gif')).toEqual({
+      ok: false,
+      failure: { kind },
+    });
+  });
+
   it('removeAvatar DELETEs /account/avatar and yields the profile without photo', async () => {
     transport.respondWith(200, { profile: ANA_PROFILE });
     expect(await api.removeAvatar()).toEqual({ ok: true, value: ANA_PROFILE });
