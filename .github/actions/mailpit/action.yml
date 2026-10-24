@@ -1,0 +1,17 @@
+name: Mailpit
+description: A throwaway SMTP catcher (Mailpit) on localhost:1025, with its HTTP API on localhost:8025.
+
+# The same image as infra/compose/compose.yaml; a step (not a service) to match the SeaweedFS one.
+runs:
+  using: composite
+  steps:
+    - name: Start Mailpit
+      shell: bash
+      run: |
+        docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.27.0
+        for _ in $(seq 1 60); do
+          if curl -sf -o /dev/null http://localhost:8025/readyz; then exit 0; fi
+          sleep 1
+        done
+        docker logs mailpit
+        exit 1

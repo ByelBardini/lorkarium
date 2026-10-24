@@ -32,6 +32,18 @@ services:
       timeout: 5s
       retries: 20
 
+  # E-mail of development: catches every message sent to SMTP 1025; the inbox is http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1.27.0
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
 volumes:
   postgres-data:
   seaweedfs-data:

@@ -2,6 +2,7 @@ import type {
   SessionMemberActivityDto,
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
+  SessionMemberUpdatedDto,
 } from '@lorkarium/contracts';
 import type { CampaignMemberRow } from '../../src/modules/campaigns/campaign-members.dao';
 import { CampaignNotFoundError } from '../../src/modules/campaigns/campaigns.error';
@@ -62,7 +63,8 @@ export class SchedulerFake implements SchedulerPort {
 export type PublishedSessionEvent =
   | Readonly<{ name: 'memberJoined'; event: SessionMemberJoinedDto }>
   | Readonly<{ name: 'memberLeft'; event: SessionMemberLeftDto }>
-  | Readonly<{ name: 'memberActivity'; event: SessionMemberActivityDto }>;
+  | Readonly<{ name: 'memberActivity'; event: SessionMemberActivityDto }>
+  | Readonly<{ name: 'memberUpdated'; event: SessionMemberUpdatedDto }>;
 
 /** Keeps every published event and writes `publish:<name>` to the journal. */
 export class SessionPublisherFake implements SessionPublisherPort {
@@ -84,11 +86,22 @@ export class SessionPublisherFake implements SessionPublisherPort {
     this.journal.entries.push('publish:memberActivity');
     this.published.push({ name: 'memberActivity', event });
   }
+
+  memberUpdated(event: SessionMemberUpdatedDto): void {
+    this.journal.entries.push(`publish:memberUpdated:${event.campaignId}`);
+    this.published.push({ name: 'memberUpdated', event });
+  }
 }
 
-/** Members by table; whoever is not in a table's list is refused like `CampaignsService` does. */
-export class CampaignRosterFake implements Pick<CampaignsService, 'rosterOf'> {
-  constructor(private readonly tables: Readonly<Record<string, readonly CampaignMemberRow[]>>) {}
+/** Members by table; whoever is not in a table's list is refused like `CampaignsService` does.
+ *  A spec may swap a table's members (`tables[id] = [...]`) to play a profile saved meanwhile. */
+export class CampaignRosterFake implements Pick<CampaignsService, 'rosterOf' | 'campaignIdsOf'> {
+  constructor(readonly tables: Record<string, readonly CampaignMemberRow[]>) {}
+
+  async campaignIdsOf(userId: string): Promise<string[]> {
+    const ids = Object.keys(this.tables);
+    return ids.filter((id) => this.tables[id]?.some((member) => member.userId === userId));
+  }
 
   async rosterOf(userId: string, campaignId: string): Promise<CampaignMemberRow[]> {
     const members = this.tables[campaignId] ?? [];

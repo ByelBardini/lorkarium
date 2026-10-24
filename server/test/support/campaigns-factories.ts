@@ -86,5 +86,14 @@ export function campaignListingRow(
  *
  *  Example: `campaignMemberRow({ userId: BIA_ID, name: 'Bia', role: 'player' })` */
 export function campaignMemberRow(overrides: Partial<CampaignMemberRow> = {}): CampaignMemberRow {
-  return { userId: ANA_ID, name: 'Ana', role: 'master', ...overrides };
+  return {
+    userId: ANA_ID,
+    name: 'Ana',
+    username: (overrides.name ?? 'ana').toLowerCase(),
+    colorChoice: null,
+    avatarId: null,
+    bio: null,
+    role: 'master',
+    ...overrides,
+  };
 }

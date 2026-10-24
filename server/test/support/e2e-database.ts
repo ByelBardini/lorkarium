@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import type { NodeEnv } from '../../src/config/env';
+import { AesGcmDataCipher } from '../../src/infrastructure/data-cipher/aes-gcm-data-cipher';
 import { Argon2PasswordHasher } from '../../src/infrastructure/password-hasher/argon2-password-hasher';
 import { DevPlayersSeedService } from '../../src/modules/auth/dev-players-seed.service';
 import { UsersDao } from '../../src/modules/auth/users.dao';
@@ -22,13 +24,22 @@ export function e2eDatabaseName(url: string): string {
 /** Creates the e2e database if missing, migrates it, empties it and seeds Bia and Caio, so each
  *  e2e run starts clean without touching the dev database. The admin is seeded by the server.
  *
- *  Example: `await prepareE2eDatabase(env.databaseUrl, env.nodeEnv)` */
-export async function prepareE2eDatabase(url: string, nodeEnv: NodeEnv): Promise<void> {
+ *  Example: `await prepareE2eDatabase(env.databaseUrl, env.nodeEnv, env.dataEncryptionKey)` */
+export async function prepareE2eDatabase(
+  url: string,
+  nodeEnv: NodeEnv,
+  dataEncryptionKey: Buffer,
+): Promise<void> {
   await createDatabaseIfMissing(url);
   const connection = await openTestDatabase();
   try {
     await truncateAllTables(connection.db);
-    const seed = new DevPlayersSeedService(new UsersDao(connection.db), new Argon2PasswordHasher());
+    const seed = new DevPlayersSeedService({
+      users: new UsersDao(connection.db),
+      hasher: new Argon2PasswordHasher(),
+      cipher: new AesGcmDataCipher(dataEncryptionKey),
+      newId: randomUUID,
+    });
     await seed.seed(nodeEnv);
   } finally {
     await connection.close();

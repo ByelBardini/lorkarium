@@ -6,11 +6,17 @@ import { S3AssetStorage } from '../infrastructure/asset-storage/s3-asset-storage
 import { GuardedImageFetcher } from '../infrastructure/image-fetcher/guarded-image-fetcher';
 import { SharpImageProcessor } from '../infrastructure/image-processor/sharp-image-processor';
 import { createAssetsModule } from '../modules/assets/assets.plugin';
+import { SharpAvatarProcessor } from '../infrastructure/avatar-processor/sharp-avatar-processor';
+import { createProfilesModule } from '../modules/profiles/profiles.plugin';
+import type { ProfileChangedPort } from '../modules/profiles/profile-changed.port';
 import { CryptoCampaignCode } from '../infrastructure/campaign-code/crypto-campaign-code';
+import { AesGcmDataCipher } from '../infrastructure/data-cipher/aes-gcm-data-cipher';
 import { SystemClock } from '../infrastructure/clock/system-clock';
 import { SocketIoSessionEnded } from '../infrastructure/session-ended/socket-io-session-ended';
 import { Argon2PasswordHasher } from '../infrastructure/password-hasher/argon2-password-hasher';
 import { CryptoSessionToken } from '../infrastructure/session-token/crypto-session-token';
+import { OtpauthTotp } from '../infrastructure/totp/otpauth-totp';
+import type { MailerPort } from '../modules/account-security/mailer.port';
 import { createAuthModule } from '../modules/auth/auth.plugin';
 import type { ClockPort } from '../modules/auth/clock.port';
 import { SESSION_COOKIE, type AuthGuards } from '../modules/auth/auth.routes';
@@ -46,6 +52,7 @@ import {
 import { CampaignCommandQueue } from '../realtime/campaign-command-queue';
 import { CommandRateGuard } from '../realtime/command-rate-guard';
 import { attachRealtime } from '../realtime/realtime-server';
+import { wireAccountSecurity } from './wire-account-security';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -54,8 +61,14 @@ declare module 'fastify' {
   }
 }
 
-/** `clock` defaults to the system clock; integration specs pass a fake to cross a deadline. */
-export type AppDependencies = Readonly<{ env: Env; db: Database; clock?: ClockPort }>;
+/** `clock` defaults to the system clock and `mailer` to the one of `env.mailer`; integration specs
+ *  pass fakes to cross a deadline or read what was sent. */
+export type AppDependencies = Readonly<{
+  env: Env;
+  db: Database;
+  clock?: ClockPort;
+  mailer?: MailerPort;
+}>;
 
 const API_PREFIX = '/api';
 
@@ -72,10 +85,16 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const clock = deps.clock ?? new SystemClock();
   const tokens = new CryptoSessionToken();
   const sessionEnded = new SocketIoSessionEnded();
-  const authOptions = { db: deps.db, env: deps.env, hasher, tokens, clock, sessionEnded };
-  const auth = await createAuthModule(authOptions);
+  const cipher = new AesGcmDataCipher(deps.env.dataEncryptionKey);
+  const totp = new OtpauthTotp();
+  const authOptions = { db: deps.db, env: deps.env, hasher, tokens, clock, sessionEnded, cipher };
+  const auth = await createAuthModule({ ...authOptions, totp });
   app.decorate('authGuards', auth.guards);
   await app.register(auth.plugin, { prefix: API_PREFIX });
+  const { mailer, env } = deps;
+  const accountSecurity = { ...authOptions, totp, twoFactorCheck: auth.twoFactorCheck, mailer };
+  const mailWiring = { mailerConfig: env.mailer, appPublicUrl: env.appPublicUrl };
+  await wireAccountSecurity(app, { ...accountSecurity, ...mailWiring }, API_PREFIX);
   const codes = new CryptoCampaignCode();
   const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock });
   await app.register(campaigns.plugin, { prefix: API_PREFIX });
@@ -97,6 +116,11 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
   const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
   await app.register(library.plugin, { prefix: API_PREFIX });
+  const { profileChanged } = outlets;
+  const avatars = new SharpAvatarProcessor();
+  const profilesOptions = { db: deps.db, storage, processor: avatars, profileChanged };
+  const profiles = createProfilesModule(profilesOptions);
+  await app.register(profiles.plugin, { prefix: API_PREFIX });
   return app;
 }
 
@@ -111,6 +135,8 @@ type RealtimeOutlets = Readonly<{
   audience: SocketIoSceneAudience;
   libraryPublisher: SocketIoLibraryPublisher;
   boardPublisher: SocketIoBoardPublisher;
+  /** The live session service: a saved profile reaches every live table of the person. */
+  profileChanged: ProfileChangedPort;
 }>;
 
 function wireRealtime(
@@ -130,7 +156,7 @@ function wireRealtime(
   app.addHook('onClose', async () => scheduler.cancelAll());
   const publisher = new SocketIoBoardPublisher(realtime.io);
   const shared = { db, publisher, clock, members };
-  const outlets: RealtimeOutlets = {
+  const outlets = {
     audience: new SocketIoSceneAudience(realtime.io),
     libraryPublisher: new SocketIoLibraryPublisher(realtime.io),
     boardPublisher: publisher,
@@ -149,6 +175,7 @@ function wireRealtime(
     log: app.log,
   });
   realtime.onConnection(sessions.gateway);
+  const profileChanged = sessions.service;
   const sceneWalls = new SceneWallsService();
   const tokensModule = createTokensModule({ ...shared, sceneWalls });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
@@ -192,7 +219,7 @@ function wireRealtime(
     log: app.log,
   });
   realtime.onConnection(board.gateway);
-  return outlets;
+  return { ...outlets, profileChanged };
 }
 
 // The bucket is ensured once per boot (dev, CI and integration alike), before the first request.
