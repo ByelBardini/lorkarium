@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · E-mails do sistema</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0A0B0E}
+</style>
+</helmet>
+<div style="width: 2680px; min-height: 6200px; box-sizing: border-box; padding: 72px 80px; display: flex; flex-direction: column; gap: 56px; background: #0A0B0E; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<div style="display: flex; flex-direction: column; gap: 10px; max-width: 1200px">
+<span style="font-size: 13px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: #C5A46D">Comunicação</span>
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 56px; line-height: 1.05">E-mails do sistema</h1>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #A9A497">{{total}} e-mails, todos no mesmo molde: faixa escura com a marca, corpo claro pra ler bem em qualquer cliente de e-mail e um botão de ação. Os de segurança sempre dizem quando, de onde e o que fazer se não foi você.</p>
+</div>
+
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; align-items: baseline; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid #23272E">
+<h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 36px">{{g.title}}</h2>
+<span style="font-size: 14px; color: #8C8F98">{{g.desc}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, 600px); gap: 40px; align-items: start">
+<sc-for list="{{g.emails}}" as="e" hint-placeholder-count="4">
+<article style="display: flex; flex-direction: column; gap: 14px">
+
+<div style="padding: 14px 16px; border-radius: 10px; background: #14171C; border: 1px solid #23272E; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="font-family: Cinzel, serif; font-size: 13px; font-weight: 600; color: #C5A46D">{{e.num}}</span>
+<span style="font-size: 12px; color: #8C8F98">Para: <strong style="color: #D5D0C4; font-weight: 600">{{e.to}}</strong></span>
+<span style="margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: {{e.tagBg}}; color: {{e.tagFg}}">{{e.tag}}</span>
+</div>
+<span style="font-size: 15px; font-weight: 600; color: #EAE5DA">{{e.subject}}</span>
+<span style="font-size: 13px; color: #8C8F98; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{e.preheader}}</span>
+</div>
+
+<div style="border-radius: 12px; overflow: hidden; background: #F6F2EA; box-shadow: 0 20px 50px rgba(0,0,0,.45)">
+<div style="padding: 22px 40px; background: #101216; display: flex; align-items: center; gap: 12px">
+<svg viewBox="0 0 120 120" width="30" height="30" fill="none" stroke="#C5A46D" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><g stroke-width="5"><path d="M60 9 L78 42 L60 99 L42 42 Z"></path><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z"></path></g><g stroke-width="3" stroke-opacity=".55"><path d="M42 42 L51 45 L60 37 L69 45 L78 42"></path><path d="M60 9 V99"></path></g></svg>
+<span style="font-family: Cinzel, serif; font-size: 15px; font-weight: 600; letter-spacing: 0.3em; color: #EAE5DA">LORKARIUM</span>
+</div>
+<div style="height: 3px; background: {{e.accent}}"></div>
+
+<div style="padding: 40px 40px 32px; display: flex; flex-direction: column; gap: 20px; color: #2A2C31">
+<span style="width: 52px; height: 52px; border-radius: 50%; background: {{e.iconBg}}; display: inline-flex; align-items: center; justify-content: center">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{e.iconFg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{e.icon}}"></path></svg>
+</span>
+<h3 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 32px; line-height: 1.15; color: #101216">{{e.title}}</h3>
+
+<sc-for list="{{e.paras}}" as="p" hint-placeholder-count="2">
+<p style="margin: 0; font-size: 16px; line-height: 1.6; color: #3A3D44">{{p.t}}</p>
+</sc-for>
+
+<sc-if value="{{e.hasQuote}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px 18px; border-radius: 10px; background: #ECE5D6; display: flex; flex-direction: column; gap: 6px">
+<span style="font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 19px; line-height: 1.4; color: #101216">“{{e.quote}}”</span>
+<span style="font-size: 13px; color: #6B6559">— {{e.quoteBy}}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{e.hasDetails}}" hint-placeholder-val="{{ false }}">
+<div style="border-radius: 10px; border: 1px solid #E2DACA; background: #FBF9F4; padding: 6px 18px">
+<sc-for list="{{e.details}}" as="d" hint-placeholder-count="3">
+<div style="display: flex; gap: 16px; padding: 10px 0; border-top: {{d.border}}; font-size: 14px">
+<span style="width: 110px; flex-shrink: 0; color: #7A7468">{{d.k}}</span>
+<span style="flex: 1; color: #101216; font-weight: 600">{{d.v}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{e.hasButton}}" hint-placeholder-val="{{ true }}">
+<div style="padding-top: 4px">
+<span style="display: inline-block; padding: 15px 28px; border-radius: 8px; background: {{e.btnBg}}; color: {{e.btnFg}}; font-size: 15px; font-weight: 700; letter-spacing: 0.01em">{{e.button}}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{e.hasSecondary}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 14px; color: #3A3D44">{{e.secondaryPre}} <span style="color: #8A6B2F; font-weight: 600; text-decoration: underline">{{e.secondary}}</span></span>
+</sc-if>
+
+<sc-if value="{{e.hasNote}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 14px; line-height: 1.55; color: #6B6559">{{e.note}}</p>
+</sc-if>
+
+<sc-if value="{{e.hasWarn}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px 16px; border-radius: 10px; background: #F7E6E0; border: 1px solid #E8C2B6; display: flex; gap: 12px; align-items: flex-start">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A4472F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px"><path d="M12 3l9.5 17h-19Z"></path><path d="M12 10v4M12 17.5v.01"></path></svg>
+<span style="font-size: 14px; line-height: 1.55; color: #5E2A1D"><strong style="font-weight: 700">{{e.warnTitle}}</strong> {{e.warn}}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{e.hasLink}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding-top: 4px">
+<span style="font-size: 12px; color: #7A7468">O botão não funcionou? Copia e cola no navegador:</span>
+<span style="font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #8A6B2F; word-break: break-all">{{e.link}}</span>
+</div>
+</sc-if>
+</div>
+
+<div style="padding: 22px 40px 28px; background: #EDE7DB; display: flex; flex-direction: column; gap: 8px; font-size: 12px; line-height: 1.55; color: #7A7468">
+<span>{{e.reason}}</span>
+<span>Lorkarium · mesa virtual de RPG<sc-if value="{{e.hasPrefs}}" hint-placeholder-val="{{ false }}"> · <span style="text-decoration: underline">Ajustar notificações</span></sc-if></span>
+</div>
+</div>
+</article>
+</sc-for>
+</div>
+</section>
+</sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2680,"height":6200}}'>
+var EM_ICON = {
+  mail: 'M3 6h18v12H3Z M3 7l9 6 9-6',
+  mailSwap: 'M3 6h12v9H3Z M3 7l6 4 6-4 M17 13l4 4-4 4 M21 17h-7',
+  lock: 'M5 11h14v10H5Z M8 11V7a4 4 0 0 1 8 0v4 M12 15v2',
+  shield: 'M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6Z M8.5 12l2.5 2.5 4.5-5',
+  shieldOff: 'M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6Z M9 9l6 6 M15 9l-6 6',
+  key: 'M14 10a4 4 0 1 0-4 4 M12.8 12.8L21 21 M17 17l2-2 M19 19l2-2',
+  device: 'M3 4h18v12H3Z M8 20h8 M12 16v4',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z M4 21c0-4 4-6 8-6s8 2 8 6',
+  dice: 'M12 2l9 5v10l-9 5-9-5V7Z M12 2v20 M3 7l9 5 9-5',
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 7v5l3 2',
+  calendar: 'M4 5h16v16H4Z M4 10h16 M8 3v4 M16 3v4 M9 15l2 2 4-4',
+  pause: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M10 9v6 M14 9v6',
+  check: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M8 12l3 3 5-6'
+};
+var EM_TONE = {
+  gold: { accent: '#C5A46D', iconBg: '#EFE3CB', iconFg: '#8A6B2F', btnBg: '#C5A46D', btnFg: '#15130F' },
+  dark: { accent: '#C5A46D', iconBg: '#E6E2DA', iconFg: '#101216', btnBg: '#101216', btnFg: '#E2C793' },
+  alert: { accent: '#C9705A', iconBg: '#F4DCD3', iconFg: '#A4472F', btnBg: '#A4472F', btnFg: '#FFF5F0' },
+  ok: { accent: '#8FB39A', iconBg: '#DCEADF', iconFg: '#3F6A4C', btnBg: '#101216', btnFg: '#E2C793' }
+};
+var EM_TAG = {
+  'Segurança': { bg: 'rgba(201,112,90,.16)', fg: '#E6A28F' },
+  'Transacional': { bg: 'rgba(143,163,191,.16)', fg: '#B8C6DA' },
+  'Mesa': { bg: 'rgba(197,164,109,.16)', fg: '#E2C793' },
+  'Lembrete': { bg: 'rgba(143,179,154,.16)', fg: '#A9D1B4' }
+};
+var EM_SEC = 'Se não foi você, troque sua senha agora e responda este e-mail que a gente ajuda.';
+var EM_GROUPS = [
+  { title: 'Conta e segurança', desc: 'Não dá pra desligar. Vão sempre pro e-mail da conta (ou pro antigo, quando é troca).', emails: [
+    { tag: 'Transacional', tone: 'gold', icon: 'mailSwap', to: 'endereço novo · lu.mestre@exemplo.com',
+      subject: 'Confirma seu novo e-mail no Lorkarium', preheader: 'Clica no botão pra começar a usar este endereço na sua conta.',
+      title: 'Confirma que esse e-mail é seu',
+      paras: ['Oi, Lucas! Pediram pra usar este endereço na conta @lucas.rola20 do Lorkarium.', 'Até você confirmar, a conta continua usando o e-mail antigo.'],
+      button: 'Confirmar novo e-mail', note: 'O link vale 24 horas e só funciona uma vez.',
+      link: 'https://lorkarium.app/conta/email/confirmar?t=8f3K…', reason: 'Você recebeu porque este endereço foi informado numa troca de e-mail. Se não foi você, é só ignorar: nada muda.' },
+    { tag: 'Segurança', tone: 'alert', icon: 'mailSwap', to: 'endereço antigo · lucas@exemplo.com',
+      subject: 'Pediram pra trocar o e-mail da sua conta', preheader: 'A troca só vale depois que o novo endereço for confirmado.',
+      title: 'Pediram pra trocar o e-mail da sua conta',
+      paras: ['Recebemos um pedido pra trocar o e-mail da conta @lucas.rola20. A troca só acontece depois que o novo endereço for confirmado.'],
+      details: [['Novo e-mail', 'lu••••@exemplo.com'], ['Quando', '24 out 2026, 02:41 (Brasília)'], ['De onde', 'Chrome no Windows · São Paulo, BR']],
+      button: 'Não fui eu, cancelar troca', warnTitle: 'Não foi você?', warn: 'Cancela a troca pelo botão acima e troca sua senha em seguida.',
+      reason: 'Aviso de segurança da sua conta. Esse tipo de e-mail não pode ser desligado.' },
+    { tag: 'Segurança', tone: 'dark', icon: 'check', to: 'endereço antigo · lucas@exemplo.com',
+      subject: 'O e-mail da sua conta foi trocado', preheader: 'A partir de agora, os avisos vão pro novo endereço.',
+      title: 'O e-mail da sua conta mudou',
+      paras: ['O e-mail da conta @lucas.rola20 agora é lu••••@exemplo.com. Este é o último aviso que mandamos pra cá.'],
+      details: [['Quando', '24 out 2026, 02:58 (Brasília)'], ['De onde', 'Chrome no Windows · São Paulo, BR']],
+      button: 'Não fui eu, recuperar conta', warnTitle: 'Não reconhece essa troca?', warn: 'Use o botão acima em até 7 dias pra voltar o e-mail antigo e bloquear a conta.',
+      reason: 'Aviso de segurança da sua conta. Esse tipo de e-mail não pode ser desligado.' },
+    { tag: 'Segurança', tone: 'dark', icon: 'lock', to: 'e-mail da conta',
+      subject: 'Sua senha do Lorkarium foi trocada', preheader: 'Desconectamos os outros aparelhos por segurança.',
+      title: 'Sua senha foi trocada',
+      paras: ['A senha da conta @lucas.rola20 acabou de ser trocada. Por segurança, desconectamos todos os outros aparelhos.'],
+      details: [['Quando', '24 out 2026, 03:10 (Brasília)'], ['De onde', 'Chrome no Windows · São Paulo, BR']],
+      button: 'Não fui eu, redefinir senha', warnTitle: 'Não foi você?', warn: 'Redefine a senha pelo botão acima. O link manda um código pro seu e-mail.',
+      reason: 'Aviso de segurança da sua conta. Esse tipo de e-mail não pode ser desligado.' },
+    { tag: 'Segurança', tone: 'ok', icon: 'shield', to: 'e-mail da conta',
+      subject: 'Verificação em duas etapas ligada', preheader: 'Agora, além da senha, vamos pedir o código do seu app autenticador.',
+      title: 'Sua conta ficou mais protegida',
+      paras: ['A verificação em duas etapas está ligada na conta @lucas.rola20. Agora, além da senha, vamos pedir o código do seu app autenticador.', 'Guarde seus códigos de recuperação num lugar seguro. Eles são o único jeito de entrar se você perder o celular.'],
+      details: [['Quando', '24 out 2026, 03:14 (Brasília)'], ['De onde', 'Chrome no Windows · São Paulo, BR']],
+      button: 'Ver segurança da conta', warnTitle: 'Não foi você?', warn: EM_SEC,
+      reason: 'Aviso de segurança da sua conta. Esse tipo de e-mail não pode ser desligado.' },
+    { tag: 'Segurança', tone: 'alert', icon: 'shieldOff', to: 'e-mail da conta',
+      subject: 'Verificação em duas etapas desligada', preheader: 'Sua conta voltou a pedir só a senha pra entrar.',
+      title: 'A verificação em duas etapas foi desligada',
+      paras: ['A conta @lucas.rola20 voltou a pedir só a senha pra entrar. Os códigos de recuperação antigos não valem mais.'],
+      details: [['Quando', '24 out 2026, 03:20 (Brasília)'], ['De onde', 'Chrome no Windows · São Paulo, BR']],
+      button: 'Ligar de novo', warnTitle: 'Não foi você?', warn: 'Alguém pode ter sua senha. Troca a senha agora e liga a verificação de novo.',
+      reason: 'Aviso de segurança da sua conta. Esse tipo de e-mail não pode ser desligado.' },
+    { tag: 'Transacional', tone: 'gold', icon: 'key', to: 'e-mail da conta',
+      subject: 'Redefinir sua senha do Lorkarium', preheader: 'O link vale por 1 hora.',
+      title: 'Bora criar uma senha nova',
+      paras: ['Recebemos um pedido pra redefinir a senha da conta @lucas.rola20. Clica no botão e escolhe uma nova.'],
+      button: 'Criar nova senha', note: 'O link vale 1 hora e só funciona uma vez.',
+      link: 'https://lorkarium.app/senha/nova?t=Qm71…', reason: 'Se você não pediu isso, é só ignorar: sua senha continua a mesma.' },
+    { tag: 'Segurança', tone: 'alert', icon: 'device', to: 'e-mail da conta',
+      subject: 'Novo acesso à sua conta', preheader: 'Firefox no Linux, perto de Recife. Foi você?',
+      title: 'Entraram na sua conta de um aparelho novo',
+      paras: ['Alguém entrou na conta @lucas.rola20 de um aparelho que a gente ainda não conhecia.'],
+      details: [['Aparelho', 'Firefox no Linux'], ['Onde', 'Perto de Recife, BR (aproximado)'], ['Quando', '24 out 2026, 04:02 (Brasília)']],
+      button: 'Não fui eu, proteger conta', secondaryPre: 'Foi você?', secondary: 'Tudo certo, pode ignorar.',
+      note: 'Proteger a conta desconecta todos os aparelhos e pede uma senha nova.',
+      reason: 'Aviso de segurança da sua conta. Esse tipo de e-mail não pode ser desligado.' }
+  ] },
+  { title: 'Boas-vindas', desc: 'Primeiro contato: convite do backoffice ou cadastro aberto.', emails: [
+    { tag: 'Transacional', tone: 'gold', icon: 'user', to: 'pessoa cadastrada no backoffice',
+      subject: 'Lucas te chamou pro Lorkarium', preheader: 'Sua conta tá pronta, só falta escolher a senha.',
+      title: 'Sua cadeira tá reservada, Marina',
+      paras: ['Lucas criou uma conta pra você no Lorkarium, a mesa virtual onde a galera joga RPG junta.', 'Escolhe uma senha e pronto: suas mesas aparecem assim que alguém te convidar.'],
+      details: [['Seu usuário', '@marina'], ['E-mail', 'marina@exemplo.com']],
+      button: 'Escolher minha senha', note: 'O link vale 7 dias. Se expirar, pede um novo pra quem te convidou.',
+      link: 'https://lorkarium.app/convite/aceitar?t=Zp2c…', reason: 'Você recebeu porque um administrador do Lorkarium cadastrou este e-mail.' },
+    { tag: 'Transacional', tone: 'gold', icon: 'mail', to: 'quem se cadastrou pelo site',
+      subject: 'Confirma seu e-mail e bora jogar', preheader: 'Um clique e sua conta tá pronta.',
+      title: 'Bem-vindo, João! Falta só um clique',
+      paras: ['Confirma seu e-mail pra liberar sua conta no Lorkarium. Depois é só criar uma mesa ou entrar com o código que o mestre mandou.'],
+      button: 'Confirmar meu e-mail', note: 'O link vale 24 horas.',
+      link: 'https://lorkarium.app/cadastro/confirmar?t=Hc9r…', reason: 'Você recebeu porque alguém criou uma conta com este e-mail. Se não foi você, é só ignorar.' }
+  ] },
+  { title: 'Mesas', desc: 'Convites, sessões e o que acontece nas suas mesas. Dá pra ajustar em Minha conta.', emails: [
+    { tag: 'Mesa', tone: 'gold', icon: 'dice', to: 'jogador convidado', prefs: true,
+      subject: 'Carol te chamou pra Ecos de Mirthal', preheader: 'Tormenta20 · toda quinta, 20h. Topa?',
+      title: 'Carol te chamou pra uma mesa',
+      paras: ['Bora? A campanha já tem cadeira com seu nome.'],
+      details: [['Mesa', 'Ecos de Mirthal'], ['Sistema', 'Tormenta20'], ['Mestre', 'Carol (@carolzinha)'], ['Sessões', 'Toda quinta, 20h (Brasília)'], ['Na mesa', 'Bia, Thiago e mais 1']],
+      quote: 'Traz um dado extra que o meu d20 tá amaldiçoado.', quoteBy: 'Carol',
+      button: 'Ver convite', secondaryPre: 'Ou entra com o código', secondary: 'MRTH-4P2X',
+      reason: 'Você recebeu porque Carol te convidou pra uma mesa no Lorkarium.' },
+    { tag: 'Lembrete', tone: 'dark', icon: 'clock', to: 'todos da mesa', prefs: true,
+      subject: 'Os Sinos de Vharn começa em 1 hora', preheader: 'Hoje, 21h. Separa os dados.',
+      title: 'Hoje tem sessão! Começa em 1 hora',
+      paras: ['A sessão 15 de Os Sinos de Vharn começa daqui a pouco. Da última vez, o grupo parou no meio do combate no Salão do Sino.'],
+      details: [['Quando', 'Hoje, sex 16 out · 21h (Brasília)'], ['Mestre', 'Lucas'], ['Confirmados', 'Bia, Thiago, Carol']],
+      button: 'Abrir a mesa', secondaryPre: 'Não vai dar?', secondary: 'Avisar o mestre',
+      reason: 'Você recebeu porque ligou o lembrete de sessão (1 hora antes).' },
+    { tag: 'Mesa', tone: 'gold', icon: 'calendar', to: 'todos da mesa', prefs: true,
+      subject: 'Sessão marcada: Os Sinos de Vharn, sex 23 out às 21h', preheader: 'Lucas marcou a sessão 16. Confirma se vai.',
+      title: 'Sessão 16 marcada',
+      paras: ['Lucas marcou a próxima sessão de Os Sinos de Vharn. Confirma pra ele saber quem vem.'],
+      details: [['Quando', 'Sex 23 out · 21h (Brasília)'], ['Duração', 'Umas 4 horas']],
+      button: 'Vou!', secondaryPre: 'Não vai dar?', secondary: 'Avisar que não vou',
+      note: 'Se a sessão mudar de horário, você recebe outro e-mail.', reason: 'Você recebeu porque faz parte da mesa Os Sinos de Vharn.' },
+    { tag: 'Mesa', tone: 'ok', icon: 'check', to: 'mestre da mesa', prefs: true,
+      subject: 'Marina entrou em Os Sinos de Vharn', preheader: 'Ela aceitou seu convite.',
+      title: 'Marina aceitou o convite',
+      paras: ['Marina (@marina) entrou em Os Sinos de Vharn. Ela já aparece na aba Na mesa e você pode dar um token pra ela.'],
+      button: 'Abrir a mesa', reason: 'Você recebeu porque é mestre de Os Sinos de Vharn.' }
+  ] },
+  { title: 'Admin', desc: 'Mandados quando um admin mexe numa conta pelo backoffice.', emails: [
+    { tag: 'Segurança', tone: 'alert', icon: 'pause', to: 'usuário suspenso',
+      subject: 'Seu acesso ao Lorkarium foi suspenso', preheader: 'Se achar que foi engano, responde este e-mail.',
+      title: 'Seu acesso foi suspenso',
+      paras: ['Um administrador suspendeu o acesso da conta @pedrinho. Você foi desconectado e não consegue entrar enquanto a suspensão valer.', 'Suas mesas e personagens continuam guardados.'],
+      note: 'Se achar que foi engano, é só responder este e-mail.', reason: 'Aviso sobre o estado da sua conta. Esse tipo de e-mail não pode ser desligado.' },
+    { tag: 'Transacional', tone: 'ok', icon: 'check', to: 'usuário reativado',
+      subject: 'Seu acesso ao Lorkarium voltou', preheader: 'Pode entrar de novo, tá tudo onde você deixou.',
+      title: 'Bem-vindo de volta',
+      paras: ['O acesso da conta @pedrinho foi reativado. Suas mesas e personagens estão onde você deixou.'],
+      button: 'Entrar no Lorkarium', reason: 'Aviso sobre o estado da sua conta.' },
+    { tag: 'Segurança', tone: 'dark', icon: 'user', to: 'usuário afetado',
+      subject: 'Você agora é admin do Lorkarium', preheader: 'Lucas te deu acesso ao backoffice.',
+      title: 'Você ganhou acesso de admin',
+      paras: ['Lucas te deu acesso ao backoffice do Lorkarium. Lá dá pra cadastrar e suspender usuários e ver o que acontece no sistema.'],
+      button: 'Abrir o backoffice', warnTitle: 'Dica:', warn: 'Com acesso de admin, vale ligar a verificação em duas etapas.',
+      reason: 'Aviso sobre o estado da sua conta. Esse tipo de e-mail não pode ser desligado.' }
+  ] }
+];
+
+class Component extends DCLogic {
+  renderVals() {
+    var n = 0;
+    var groups = EM_GROUPS.map(function (g) {
+      return { title: g.title, desc: g.desc, emails: g.emails.map(function (e) {
+        n++;
+        var t = EM_TONE[e.tone], tag = EM_TAG[e.tag];
+        return {
+          num: (n < 10 ? '0' : '') + n, to: e.to, tag: e.tag, tagBg: tag.bg, tagFg: tag.fg,
+          subject: e.subject, preheader: e.preheader, title: e.title,
+          accent: t.accent, iconBg: t.iconBg, iconFg: t.iconFg, btnBg: t.btnBg, btnFg: t.btnFg, icon: EM_ICON[e.icon],
+          paras: e.paras.map(function (p) { return { t: p }; }),
+          hasDetails: !!e.details, details: (e.details || []).map(function (d, i) { return { k: d[0], v: d[1], border: i === 0 ? '0' : '1px solid #ECE5D6' }; }),
+          hasQuote: !!e.quote, quote: e.quote || '', quoteBy: e.quoteBy || '',
+          hasButton: !!e.button, button: e.button || '',
+          hasSecondary: !!e.secondary, secondary: e.secondary || '', secondaryPre: e.secondaryPre || '',
+          hasNote: !!e.note, note: e.note || '',
+          hasWarn: !!e.warn, warn: e.warn || '', warnTitle: e.warnTitle || '',
+          hasLink: !!e.link, link: e.link || '',
+          reason: e.reason, hasPrefs: !!e.prefs
+        };
+      }) };
+    });
+    return { groups: groups, total: n };
+  }
+}
+</script>
+</body>
+</html>
