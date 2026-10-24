@@ -6,6 +6,8 @@ import type {
   AccountSessionOsDto,
 } from '@lorkarium/contracts';
 import type { AuthSessionPo } from '../auth/auth-sessions.po';
+import { AccountRecoveryBo } from './account-recovery.bo';
+import type { AccountRecoveryTokenPo } from './account-recovery-tokens.po';
 
 export type SessionDevice = Readonly<{
   browser: AccountSessionBrowserDto;
@@ -89,4 +91,10 @@ export function toAccountSecurityDto(facts: AccountSecurityFacts): AccountSecuri
     pendingEmail: facts.pendingEmail,
     twoFactor: { enabled: facts.twoFactorEnabled, recoveryCodesLeft: facts.recoveryCodesLeft },
   };
+}
+
+/** Example: `toAccountRecoveryBo(row).requireUsable(clock.now())` */
+export function toAccountRecoveryBo(row: AccountRecoveryTokenPo): AccountRecoveryBo {
+  const hasEmail = row.emailCipher !== null && row.emailIndex !== null;
+  return new AccountRecoveryBo({ id: row.id, kind: row.kind, hasEmail, expiresAt: row.expiresAt });
 }

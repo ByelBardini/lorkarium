@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AccountSecurityService } from '../../../src/modules/account-security/account-security.service';
 import { CurrentPasswordService } from '../../../src/modules/account-security/current-password.service';
 import { SecurityNoticesService } from '../../../src/modules/account-security/security-notices.service';
-import { EmailChangeRequestsDaoFake, MailerFake } from '../../support/account-security-fakes';
+import {
+  EmailChangeRequestsDaoFake,
+  MailerFake,
+  RecoveryIssuerFake,
+} from '../../support/account-security-fakes';
 import {
   AuthSessionsDaoFake,
   ClockFake,
@@ -15,6 +19,7 @@ import { ANA_ID, authSessionPo, userPo } from '../../support/auth-factories';
 import { RecoveryCodesDaoFake, TwoFactorDaoFake } from '../../support/two-factor-fakes';
 
 const NOW = new Date('2026-10-14T12:00:00Z');
+const FIREFOX_ON_LINUX = 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0';
 
 /** The users table writing its password changes into the shared journal. */
 class JournalingUsersDao extends UsersDaoFake {
@@ -53,6 +58,7 @@ describe('AccountSecurityService', () => {
   let twoFactor: TwoFactorDaoFake;
   let recoveryCodes: RecoveryCodesDaoFake;
   let reported: string[];
+  let recovery: RecoveryIssuerFake;
   let service: AccountSecurityService;
 
   beforeEach(() => {
@@ -66,6 +72,7 @@ describe('AccountSecurityService', () => {
     twoFactor = new TwoFactorDaoFake();
     recoveryCodes = new RecoveryCodesDaoFake();
     reported = [];
+    recovery = new RecoveryIssuerFake();
     const hasher = new PasswordHasherFake();
     service = new AccountSecurityService({
       users,
@@ -79,6 +86,8 @@ describe('AccountSecurityService', () => {
       cipher: new DataCipherFake(),
       clock: new ClockFake(NOW),
       notices: new SecurityNoticesService(mailer, (_error, subject) => reported.push(subject)),
+      recovery,
+      appPublicUrl: 'https://mesa.example.com',
     });
   });
 
@@ -86,7 +95,7 @@ describe('AccountSecurityService', () => {
 
   describe('changePassword', () => {
     it('stores the new hash, then ends the other sessions, then drops their connections', async () => {
-      await service.changePassword(ANA_ID, 'sha:atual', change);
+      await service.changePassword(ANA_ID, 'sha:atual', change, FIREFOX_ON_LINUX);
       expect(journal).toEqual([
         `updatePassword hashed:senha-nova-123 ${NOW.toISOString()}`,
         'deleteOthersOf sha:atual',
@@ -96,31 +105,43 @@ describe('AccountSecurityService', () => {
     });
 
     it('keeps the session making the request', async () => {
-      await service.changePassword(ANA_ID, 'sha:atual', change);
+      await service.changePassword(ANA_ID, 'sha:atual', change, FIREFOX_ON_LINUX);
       expect([...sessions.rows.keys()]).toEqual(['sha:atual']);
     });
 
     it('a wrong current password is CURRENT_PASSWORD_INVALID and nothing is written', async () => {
       const wrong = { ...change, currentPassword: 'errada' };
-      await expect(service.changePassword(ANA_ID, 'sha:atual', wrong)).rejects.toMatchObject({
+      await expect(
+        service.changePassword(ANA_ID, 'sha:atual', wrong, FIREFOX_ON_LINUX),
+      ).rejects.toMatchObject({
         code: 'CURRENT_PASSWORD_INVALID',
       });
       expect(journal).toEqual([]);
       expect(mailer.sent).toEqual([]);
     });
 
-    it('sends "Sua senha foi trocada" to the account e-mail', async () => {
-      await service.changePassword(ANA_ID, 'sha:atual', change);
+    it('sends "Sua senha do Lorkarium foi trocada" to the account e-mail', async () => {
+      await service.changePassword(ANA_ID, 'sha:atual', change, FIREFOX_ON_LINUX);
       expect(mailer.sent.map((mail) => [mail.to, mail.subject])).toEqual([
-        ['ana@mesa.com', 'Sua senha foi trocada'],
+        ['ana@mesa.com', 'Sua senha do Lorkarium foi trocada'],
       ]);
+    });
+
+    it('issues a revert-password-change link and the notice carries it with the device', async () => {
+      await service.changePassword(ANA_ID, 'sha:atual', change, FIREFOX_ON_LINUX);
+      expect(recovery.issued).toEqual([{ userId: ANA_ID, kind: 'revert-password-change' }]);
+      const [mail] = mailer.sent;
+      expect(mail?.text).toContain(
+        'Não fui eu, recuperar a conta: https://mesa.example.com/account/recover#token=recovery-1',
+      );
+      expect(mail?.text).toContain('De onde: Firefox no Linux');
     });
 
     it('a mail server down does not fail the change: the failure is reported', async () => {
       mailer.failWith = new Error('connect ECONNREFUSED 127.0.0.1:1025');
-      await service.changePassword(ANA_ID, 'sha:atual', change);
+      await service.changePassword(ANA_ID, 'sha:atual', change, FIREFOX_ON_LINUX);
       expect(users.rows[0]?.passwordHash).toBe('hashed:senha-nova-123');
-      expect(reported).toEqual(['Sua senha foi trocada']);
+      expect(reported).toEqual(['Sua senha do Lorkarium foi trocada']);
     });
   });
 
@@ -135,7 +156,7 @@ describe('AccountSecurityService', () => {
     });
 
     it('after a password change it says when', async () => {
-      await service.changePassword(ANA_ID, 'sha:atual', change);
+      await service.changePassword(ANA_ID, 'sha:atual', change, FIREFOX_ON_LINUX);
       expect((await service.overview(ANA_ID)).passwordChangedAt).toBe(NOW.toISOString());
     });
 

@@ -49,7 +49,8 @@ const ALLOWED_LINK_SCHEMES = new Set(['http:', 'https:']);
 const LINK_SCHEME = /^([a-z][a-z\d+.-]*:)/i;
 const WEB_LINK = /^https?:\/\/[^\s/?#]+/i;
 
-const assetLinkDto = z
+/** A web link to an image (http or https), trimmed; shared by the table images and the photo. */
+export const assetLinkDto = z
   .string()
   .trim()
   .max(ASSET_URL_MAX_LENGTH, `Link is longer than ${ASSET_URL_MAX_LENGTH} characters.`)

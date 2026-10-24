@@ -6,12 +6,14 @@ import {
   recoveryCodesResponseDto,
   twoFactorSetupResponseDto,
 } from '@lorkarium/contracts';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import { twoFactorChallenges } from '../../src/modules/auth/two-factor-challenges.po';
+import { users } from '../../src/modules/auth/users.po';
 import { MailerFake } from '../support/account-security-fakes';
 import { accountRequest, cookieOf, logInAs, totpCodeAt } from '../support/account-security-http';
 import { ClockFake } from '../support/auth-fakes';
@@ -109,6 +111,17 @@ describe('login in two steps', () => {
   async function challengeOfAna(rememberMe = false): Promise<string> {
     return cookieOf(await login('ana@mesa.com', rememberMe), 'lk_2fa').value;
   }
+
+  it('an account suspended between the password and the code is refused with 403 at the second step', async () => {
+    const challenge = await challengeOfAna();
+    await connection.db
+      .update(users)
+      .set({ suspendedAt: new Date() })
+      .where(eq(users.username, 'ana'));
+    const response = await secondStep(challenge, { code: totpCodeAt(secret, clock.now()) });
+    expect(response.statusCode).toBe(403);
+    expect(apiErrorDto.parse(response.json()).code).toBe('ACCOUNT_SUSPENDED');
+  });
 
   it('without 2FA the login is unchanged: signed-in with lk_session and no lk_2fa', async () => {
     const response = await login('bia@mesa.com');

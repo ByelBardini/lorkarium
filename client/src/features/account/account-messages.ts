@@ -19,6 +19,10 @@ const MESSAGE_BY_KIND: Readonly<Record<MessageKind, string>> = {
   unexpected: UNEXPECTED_MESSAGE,
   avatar_too_large: 'A foto pode ter até 5 MB.',
   unsupported_image: 'Esse arquivo não é uma imagem que dá para usar (PNG, JPEG, WebP ou GIF).',
+  link_blocked: 'Esse link não pode ser usado.',
+  link_unreachable: 'Não deu para baixar esse link. Confira o endereço.',
+  link_not_image:
+    'Esse link não é de uma imagem. Abra a imagem (ou o GIF) e copie o endereço dela.',
   current_password_invalid: 'Senha atual incorreta.',
   email_taken: 'Esse e-mail já está em uso.',
   email_unchanged: 'Esse já é o seu e-mail.',
@@ -29,6 +33,7 @@ const MESSAGE_BY_KIND: Readonly<Record<MessageKind, string>> = {
   two_factor_already_enabled: 'O 2FA já está ligado.',
   two_factor_not_started: 'O tempo para ligar o 2FA acabou. Comece de novo.',
   two_factor_not_enabled: 'O 2FA já está desligado.',
+  recovery_token_invalid: 'Esse link venceu ou já foi usado.',
 };
 
 /** The sentence a refusal shows, in the field it belongs to or in the alert.

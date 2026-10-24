@@ -88,7 +88,7 @@ describe('e-mail change', () => {
   it('the old address is told about the request', async () => {
     await askChange('bianca@x.com');
     expect(mailer.to('ana@mesa.com').map((mail) => mail.subject)).toEqual([
-      'Pedido de troca de e-mail',
+      'Pediram para trocar o e-mail da sua conta',
     ]);
   });
 

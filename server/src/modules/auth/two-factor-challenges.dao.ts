@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import type { Database } from '../../database/database';
+import type { DatabaseExecutor } from '../../database/transaction';
 import {
   twoFactorChallenges,
   type NewTwoFactorChallengePo,
@@ -7,7 +7,7 @@ import {
 } from './two-factor-challenges.po';
 
 export class TwoFactorChallengesDao {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: DatabaseExecutor) {}
 
   async insert(challenge: NewTwoFactorChallengePo): Promise<void> {
     await this.db.insert(twoFactorChallenges).values(challenge);
@@ -34,5 +34,10 @@ export class TwoFactorChallengesDao {
 
   async delete(challengeId: string): Promise<void> {
     await this.db.delete(twoFactorChallenges).where(eq(twoFactorChallenges.id, challengeId));
+  }
+
+  /** A login halfway through its second step dies with the account's recovery. */
+  async deleteAllOf(userId: string): Promise<void> {
+    await this.db.delete(twoFactorChallenges).where(eq(twoFactorChallenges.userId, userId));
   }
 }

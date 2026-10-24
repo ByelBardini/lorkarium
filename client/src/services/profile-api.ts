@@ -13,11 +13,14 @@ import {
 } from './account-failure';
 import type { HttpTransport } from './http-transport';
 
-/** What a profile command can fail with; the photo has its own two refusals. */
+/** What a profile command can fail with; the photo has its own refusals (file and link). */
 export type ProfileFailure =
   | AccountCommonFailure
   | Readonly<{ kind: 'avatar_too_large' }>
-  | Readonly<{ kind: 'unsupported_image' }>;
+  | Readonly<{ kind: 'unsupported_image' }>
+  | Readonly<{ kind: 'link_blocked' }>
+  | Readonly<{ kind: 'link_unreachable' }>
+  | Readonly<{ kind: 'link_not_image' }>;
 
 /** What the "Minha conta" screen needs from `/api/account/profile` and `/api/account/avatar`;
  *  failures come back as values, never thrown. */
@@ -25,6 +28,8 @@ export interface ProfileApi {
   get(): Promise<AccountResult<ProfileDto, AccountLoadFailure>>;
   update(input: UpdateProfileRequestDto): Promise<AccountResult<ProfileDto, ProfileFailure>>;
   uploadAvatar(file: Blob): Promise<AccountResult<ProfileDto, ProfileFailure>>;
+  /** The photo from a web link (an animated GIF stays animated); the server downloads it. */
+  avatarFromLink(url: string): Promise<AccountResult<ProfileDto, ProfileFailure>>;
   removeAvatar(): Promise<AccountResult<ProfileDto, ProfileFailure>>;
 }
 
@@ -34,6 +39,9 @@ const UNSUPPORTED_IMAGE = { kind: 'unsupported_image' } as const;
 const PROFILE_FAILURE_BY_CODE = {
   AVATAR_TOO_LARGE,
   UNSUPPORTED_IMAGE,
+  LINK_BLOCKED: { kind: 'link_blocked' },
+  LINK_UNREACHABLE: { kind: 'link_unreachable' },
+  LINK_NOT_IMAGE: { kind: 'link_not_image' },
 } as const;
 
 // A body cut by the server's own limit may not carry the code: the status still says it.
@@ -61,6 +69,10 @@ export class HttpProfileApi implements ProfileApi {
 
   async uploadAvatar(file: Blob): Promise<AccountResult<ProfileDto, ProfileFailure>> {
     return profileOutcome(await callUpload(this.transport, '/account/avatar', file, 'PUT'));
+  }
+
+  async avatarFromLink(url: string): Promise<AccountResult<ProfileDto, ProfileFailure>> {
+    return profileOutcome(await callApi(this.transport, 'POST', '/account/avatar/link', { url }));
   }
 
   async removeAvatar(): Promise<AccountResult<ProfileDto, ProfileFailure>> {

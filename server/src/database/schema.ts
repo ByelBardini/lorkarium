@@ -31,5 +31,11 @@ export { lightColorEnum, lights } from '../modules/lights/lights.po';
 export { mainTokens } from '../modules/tokens/main-tokens.po';
 export { memberCards } from '../modules/member-cards/member-cards.po';
 export { emailChangeRequests } from '../modules/account-security/email-change-requests.po';
+export {
+  accountRecoveryKind,
+  accountRecoveryTokens,
+} from '../modules/account-security/account-recovery-tokens.po';
 export { recoveryCodes, userTwoFactor } from '../modules/auth/two-factor.po';
 export { twoFactorChallenges } from '../modules/auth/two-factor-challenges.po';
+export { invitations } from '../modules/account-links/invitations.po';
+export { passwordResets } from '../modules/account-links/password-resets.po';

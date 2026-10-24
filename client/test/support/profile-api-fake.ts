@@ -24,6 +24,7 @@ type Answers = {
   get: AccountResult<ProfileDto, AccountLoadFailure>;
   update: AccountResult<ProfileDto, ProfileFailure>;
   uploadAvatar: AccountResult<ProfileDto, ProfileFailure>;
+  avatarFromLink: AccountResult<ProfileDto, ProfileFailure>;
   removeAvatar: AccountResult<ProfileDto, ProfileFailure>;
 };
 
@@ -45,6 +46,12 @@ export class ProfileApiFake implements ProfileApi {
 
   uploadAvatar(file: Blob): Promise<Answers['uploadAvatar']> {
     return this.answers.reply('uploadAvatar', file, () =>
+      this.save({ ...this.profile, avatarId: UPLOADED_AVATAR_ID }),
+    );
+  }
+
+  avatarFromLink(url: string): Promise<Answers['avatarFromLink']> {
+    return this.answers.reply('avatarFromLink', url, () =>
       this.save({ ...this.profile, avatarId: UPLOADED_AVATAR_ID }),
     );
   }

@@ -17,6 +17,7 @@ Hub: [`../contracts.md`](../contracts.md). DTOs de `packages/contracts/src/accou
 
 - `AVATAR_MAX_BYTES` (5 MiB, antes de decodificar), `AVATAR_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`; o GIF animado vira WebP animado) e `avatarMimeTypeDto`, `AVATAR_SIDE` (256: o server corta o centro em 256 × 256).
 - `avatarParamsDto` `{ avatarId: uuid }` — params de `GET /api/avatars/:avatarId`.
+- `avatarLinkRequestDto` `{ url }` — corpo de `POST /api/account/avatar/link`, sobre o `assetLinkDto` das imagens da mesa (aparado, http/https, até `ASSET_URL_MAX_LENGTH`; agora exportado).
 
 ## Segurança (`account-security.dto.ts`)
 
@@ -24,7 +25,13 @@ Hub: [`../contracts.md`](../contracts.md). DTOs de `packages/contracts/src/accou
 - `changePasswordRequestDto` `{ currentPassword, newPassword }`.
 - `accountSecurityDto` `{ email, passwordChangedAt (ISO | null), pendingEmail (mascarado, `b*****@x.com`, | null), twoFactor: { enabled, recoveryCodesLeft } }` e `accountSecurityResponseDto` `{ security }`.
 - Sessões: `accountSessionBrowserDto` (`chrome`, `edge`, `firefox`, `safari`, `opera`, `other`: Edge e Opera são próprios, mesmo levando "Chrome" no agente), `accountSessionOsDto` (`windows`, `macos`, `linux`, `ios`, `android`, `other`), `accountSessionFormFactorDto` (`desktop`, `mobile` — celular e tablet —, `other`). `accountSessionDto` `{ id (public_id uuid, nunca o hash do token), browser, os, formFactor, createdAt, lastSeenAt, current }`, `accountSessionsResponseDto` `{ sessions }`, `sessionParamsDto` `{ sessionId: uuid }`, `revokeOthersResponseDto` `{ revoked (inteiro ≥ 0) }`.
+- `deviceLabel({ browser, os })` (`device-label.ts`) → "Chrome no Windows", "Firefox", "Navegador no Android" ou "Navegador desconhecido". Mora aqui, ao lado dos enums, porque a tela de sessões do client e o "De onde" dos avisos por e-mail do server dizem o aparelho com o mesmo texto.
 - E-mail: `changeEmailRequestDto` `{ newEmail (trim + minúsculas antes do `z.email()`), currentPassword }`, `changeEmailResponseDto` `{ pendingEmail }` (mascarado), `confirmEmailRequestDto` `{ token }` (aparado, 1 a `EMAIL_TOKEN_MAX_LENGTH` 256).
+
+## Recuperação por link (`account-recovery.dto.ts`)
+
+- `linkTokenDto` — o token de qualquer link de uso único (recuperação, convite, nova senha): aparado, 1 a `EMAIL_TOKEN_MAX_LENGTH` (256).
+- `accountRecoveryKindDto` (`cancel-email-change` | `revert-email-change` | `revert-password-change`); `accountRecoveryTokenDto` `{ token }` (corpo do `check`); `accountRecoveryRequestDto` `{ token, newPassword (newPasswordDto) }`; `accountRecoveryCheckResponseDto` `{ recovery: { kind, email (mascarado) | null } }`.
 
 ## 2FA (`two-factor-code.dto.ts`, `two-factor.dto.ts`)
 
@@ -33,4 +40,4 @@ Hub: [`../contracts.md`](../contracts.md). DTOs de `packages/contracts/src/accou
 - `RECOVERY_CODE_COUNT` (10); `twoFactorSetupRequestDto` `{ currentPassword }`; `twoFactorSetupResponseDto` `{ secret, otpauthUri (otpauth://…), qrImage (data:image/png;base64,…) }`; `twoFactorEnableRequestDto` `{ code }` (TOTP); `recoveryCodesResponseDto` `{ recoveryCodes }` (exatamente 10); `twoFactorConfirmRequestDto` `{ currentPassword, code (TOTP ou recuperação) }` (desligar e regenerar).
 - Login em duas etapas mora no `auth/login.dto.ts` (ver o hub).
 
-Os códigos de erro (`CURRENT_PASSWORD_INVALID`, `EMAIL_TAKEN`, `TWO_FACTOR_CODE_INVALID`…) não são enumerados no contracts: o `apiErrorDto.code` é `z.string()`.
+Os códigos de erro (`CURRENT_PASSWORD_INVALID`, `EMAIL_TAKEN`, `TWO_FACTOR_CODE_INVALID`, `RECOVERY_TOKEN_INVALID`…) não são enumerados no contracts: o `apiErrorDto.code` é `z.string()`.

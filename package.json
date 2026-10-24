@@ -28,6 +28,7 @@
     "db:encrypt-emails": "pnpm --filter @lorkarium/server db:encrypt-emails",
     "db:seed-dev": "pnpm --filter @lorkarium/server seed:dev",
     "db:seed-stress": "pnpm --filter @lorkarium/server seed:stress",
+    "mail:preview": "pnpm --filter @lorkarium/server mail:preview",
     "prepare": "husky",
     "bench": "vitest bench --run --reporter=verbose"
   },

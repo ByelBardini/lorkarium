@@ -4,6 +4,8 @@ import { useLoaderData, type LoaderFunction, type RouteObject } from 'react-rout
 import type { AppDependencies } from '@/app/router';
 import { valueOrThrow } from '@/app/shell/api-loader';
 import { accountAction } from './account-action';
+import { accountRecoveryAction } from './account-recovery-action';
+import { AccountRecoveryPage } from './account-recovery-page';
 import { AccountErrorScreen } from './account-error-screen';
 import { AccountPage } from './account-page';
 import { emailConfirmAction } from './email-confirm-action';
@@ -43,6 +45,16 @@ export function emailConfirmRoute(
       return <EmailConfirmPage sessionStore={deps.sessionStore} />;
     },
   };
+}
+
+/** The page of the "Não fui eu" link (`/account/recover#token=…`), outside the shell and open to
+ *  anyone: whoever lost the account is not signed in.
+ *
+ *  Example: `{ path: 'account/recover', middleware: [guard(deps, 'anyone')], ...accountRecoveryRoute(deps) }` */
+export function accountRecoveryRoute(
+  deps: AppDependencies,
+): Pick<RouteObject, 'action' | 'Component'> {
+  return { action: accountRecoveryAction(deps), Component: AccountRecoveryPage };
 }
 
 function accountLoader(deps: AppDependencies): LoaderFunction {

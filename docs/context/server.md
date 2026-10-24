@@ -9,6 +9,7 @@ API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento
 - `src/dev-seed.ts` — segunda raiz de composição (`pnpm db:seed-dev`): `readEnv(readProcessEnv())` → `createDatabase` → `DevPlayersSeedService` → saída em texto puro → `close` (ver `auth.md`, Seed de desenvolvimento)
 - `src/stress-seed.ts` — terceira raiz (`pnpm db:seed-stress`): `readEnv(readProcessEnv())` → `createDatabase` → `buildStressSceneSeed(db)` (`src/app/build-stress-seed.ts`: os módulos reais de mesas, cena, paredes, luzes e tokens com um publicador mudo, um `Proxy` que engole todo evento) → `StressSceneSeedService.seed(nodeEnv)` → o caminho da mesa em texto puro (ver Scripts)
 - `src/encrypt-emails.ts` — quarta raiz (`pnpm db:encrypt-emails`, ver Scripts)
+- `src/mail-preview.ts` — quinta raiz (`pnpm mail:preview`): um exemplar de cada e-mail no Mailpit (ver [`mail.md`](mail.md))
 - `src/config/process-env.ts` — `readProcessEnv()`: o `process.env` cru para uma raiz que não é o `index.ts`
 - `src/config/drizzle-kit-env.ts` — `readDrizzleKitCredentials()`: o `DATABASE_URL` para o `drizzle-kit` (carrega `server/.env` se existir)
 - `src/database/database.ts` — `createDatabase(url, { poolMax?, statementTimeoutMs?, lockTimeoutMs?, queryLog? })` → `{ db, close }` (Drizzle sobre `pg.Pool`; opção ausente = padrão do `pg`: 10 conexões, sem tempo); tipo `Database`; `QueryLog` (`logQuery(sql, params)`, a forma do `logger` do Drizzle) ouve cada comando SQL — só os testes de integração passam um (ver Desempenho)
@@ -18,8 +19,9 @@ API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento
 - `src/database/update-many.ts` — `updateManySql({ table, key, columns: { column, cast }[], rows, where, alsoSet? })`: **um** `UPDATE … FROM (VALUES …) AS batch(…)` para um grupo (os DAO de tokens, paredes e desenhos), cada valor com o `cast` do tipo da coluna e o `where` da cena
 - `src/database/cells-numeric.ts` — `cellsHundredth(valor)` e `cellsNumeric(valor)` (`'3.33'`): casas ao centésimo como uma coluna `numeric(…, 2)` guarda (usado pelos mappers de tokens e luzes; walls, drawings e effect-areas ainda têm cópia própria)
 - `src/database/copy-rows.ts` — `copyRowsSql(tabela, trocadas, origem)` (`INSERT … SELECT` que copia toda coluna como está, troca as dadas e pula identity/gerada), `sceneRowsCopySql` (as linhas de uma cena em outra, ids novos, na ordem) e `uuidArray(ids)` (um parâmetro `uuid[]`); usado pelo Duplicar da biblioteca (ver `library.md`)
+- `src/lib/mail/` — o molde dos e-mails (`renderMail`, `validityLabel`; ver [`mail.md`](mail.md)); `src/lib/postgres-error.ts` — `postgresFailureOf(erro)`, `isUniqueViolation(erro, constraint?)` (`23505`) e `isForeignKeyViolation` (`23503`): o código sob o `cause` do Drizzle
 - `src/lib/invalid-body.ts` — `invalidBodyError(zodError)`: o corpo 400 `INVALID_BODY` que toda borda devolve quando o DTO recusa (cita caminho e regra, nunca o valor)
-- `src/app/wire-account-security.ts` — `wireAccountSecurity`: mailer, QR e códigos de recuperação, e registra o `account-security`; `src/lib/per-user-rate-limit.ts` — limite de rota logada por usuário
+- `src/app/wire-account-security.ts` — `wireAccountSecurity`: QR e códigos de recuperação, registra o `account-security` e devolve o módulo (`notices`, `recovery`, usados pelo backoffice); `mailerOf(app, env.mailer)` cria o mailer único do app (SMTP fechado no `onClose`, ou o log), que o `buildApp` passa a quem manda e-mail (`AppDependencies.mailer` vence); `src/app/wire-backoffice.ts` — `wireBackoffice`: registra o `account-links` e depois o `user-admin` (que lê os convites dele) ([`user-admin.md`](user-admin.md), [`account-links.md`](account-links.md)); `src/lib/per-user-rate-limit.ts` — limite de rota logada por usuário
 - `src/app/build-app.ts` — `buildApp({ env, db, clock?, mailer? })`: Fastify com logger pino (JSON), `@fastify/cookie`; módulos registrados sob o prefixo `/api` (`API_PREFIX`); instancia os adaptadores do auth e decora `app.authGuards` na raiz (guardas para qualquer módulo, ver `auth.md`); `wireRealtime` liga o Socket.IO e o módulo `sessions` (ver `sessions.md`) e devolve, com as saídas do tempo real, o `profileChanged` (o service da sessão) que o módulo `profiles` recebe, registrado depois dele (ver `profiles.md`)
 - `src/realtime/` — Socket.IO (seção Tempo real): `realtime-server.ts` (`attachRealtime`), `connection-identity.bo.ts` (`ConnectionIdentityBo`: confia na identidade guardada ou relê), `command-rate.bo.ts` e `command-rate-guard.ts` (o balde por conexão), `campaign-command-queue.ts` (a fila por mesa), `same-origin.ts` (`isSameOrigin`), `rooms.ts` (`campaignRoom(id)` → `campaign:<id>`, `campaignUserRoom`, `campaignMastersRoom`), `realtime-ack.ts` (`answerAck(ack, work, failureOf, onFailure)`: responde o ack com o resultado ou com o `ApiErrorDto`)
 - `drizzle.config.ts` — config do `drizzle-kit` (schema → `drizzle/`)
@@ -53,7 +55,7 @@ API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento
 
 ## Scripts
 
-`db:generate`, `db:migrate`, `db:encrypt-emails`, `db:seed-dev`, `db:seed-stress`, o build e os testes: [`server/scripts.md`](server/scripts.md).
+`db:generate`, `db:migrate`, `db:encrypt-emails`, `db:seed-dev`, `db:seed-stress`, `mail:preview`, o build e os testes: [`server/scripts.md`](server/scripts.md).
 
 ## Regras de arquitetura
 

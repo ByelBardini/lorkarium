@@ -16,6 +16,8 @@ export type CopyCodeButtonProps = Readonly<{
   clipboard: Clipboard;
   /** The button's text; "Copiar código" by default ("Copiar chave", "Copiar códigos"). */
   label?: string;
+  /** What the live region says after a copy; "Copiado" by default ("Link copiado."). */
+  copiedMessage?: string;
 }>;
 
 /** "Copiar código" (or the label given), announcing the outcome in a polite live region.
@@ -25,6 +27,7 @@ export function CopyCodeButton({
   code,
   clipboard,
   label = 'Copiar código',
+  copiedMessage = ANNOUNCEMENT.copied,
 }: CopyCodeButtonProps): React.JSX.Element {
   const [state, setState] = useState<CopyState>('idle');
   const copy = async (): Promise<void> => {
@@ -38,7 +41,7 @@ export function CopyCodeButton({
         {label}
       </Button>
       <span role="status" className="text-sm text-muted-foreground">
-        {ANNOUNCEMENT[state]}
+        {state === 'copied' ? copiedMessage : ANNOUNCEMENT[state]}
       </span>
     </div>
   );

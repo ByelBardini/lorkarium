@@ -14,6 +14,11 @@ import { publicAddressPolicy, type AddressPolicy } from './address-policy';
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 const SCHEMES = new Set(['http:', 'https:']);
 const OK = 200;
+// Image hosts (Wikimedia among them) refuse a request with no User-Agent; it names the app.
+const REQUEST_HEADERS = {
+  'user-agent': 'Lorkarium/1.0 (image link fetcher)',
+  accept: 'image/avif,image/webp,image/png,image/gif,image/jpeg,image/*;q=0.8',
+};
 
 export type GuardedImageFetcherOptions = Readonly<{
   policy?: AddressPolicy;
@@ -74,7 +79,12 @@ export class GuardedImageFetcher implements ImageFetcherPort {
     this.requireAllowedTarget(url);
     const client = url.protocol === 'https:' ? https : http;
     return new Promise<Hop>((resolve, reject) => {
-      const request = client.get(url, { lookup: this.guardedLookup(), signal, agent: false });
+      const request = client.get(url, {
+        headers: REQUEST_HEADERS,
+        lookup: this.guardedLookup(),
+        signal,
+        agent: false,
+      });
       request.on('response', (response) => {
         this.answer(url, response).then(resolve, (error: Error) =>
           reject(this.failureOf(error, signal)),

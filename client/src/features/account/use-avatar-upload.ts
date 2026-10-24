@@ -13,6 +13,8 @@ export type AvatarUpload = Readonly<{
   sending: boolean;
   failure: ProfileFailure | null;
   send: (file: File) => void;
+  /** The photo from a link; answers whether it was kept, so the link field closes only then. */
+  sendLink: (url: string) => Promise<boolean>;
 }>;
 
 // The file goes straight to the service, like the table images (`useImageSender`): a `File` does
@@ -37,7 +39,15 @@ export function useAvatarUpload(
     setSending(false);
     await settle(result);
   };
-  return { sending, failure, send: (file) => void send(file) };
+  const sendLink = async (url: string): Promise<boolean> => {
+    setFailure(null);
+    setSending(true);
+    const result = await profileApi.avatarFromLink(url.trim());
+    setSending(false);
+    await settle(result);
+    return result.ok;
+  };
+  return { sending, failure, send: (file) => void send(file), sendLink };
 }
 
 function useUploadOutcome(

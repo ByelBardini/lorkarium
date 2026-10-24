@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Backoffice</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#101216}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.bo-nav{width:100%;display:flex;align-items:center;gap:12px;height:42px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:#A9A497;font:inherit;font-size:14px;font-weight:500;cursor:pointer;text-align:left}
+.bo-nav:hover{background:#171A20;color:#EAE5DA}
+.bo-nav.is-active{background:#1B1E24;color:#EAE5DA;box-shadow:inset 0 0 0 1px #2A2F38}
+.bo-nav.is-active svg{color:#C5A46D}
+.bo-btn{height:40px;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:10px;background:transparent;color:#D5D0C4;font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.bo-btn:hover{border-color:#4A505B;color:#EAE5DA}
+.bo-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.bo-btn.is-gold:hover{background:#D4B57E}
+.bo-btn.is-quiet{border-color:transparent}
+.bo-btn.is-quiet:hover{background:#1B1E24}
+.bo-btn:disabled{opacity:.5;cursor:default}
+.bo-ico{width:34px;height:34px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:transparent;color:#8C8F98;cursor:pointer}
+.bo-ico:hover{background:#1F232A;color:#EAE5DA}
+.bo-input{height:42px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:14px;width:100%}
+.bo-input::placeholder{color:#6F7480}
+.bo-input:focus{outline:none;border-color:#C5A46D;box-shadow:0 0 0 3px rgba(197,164,109,.16)}
+.bo-input.is-error{border-color:#C9705A}
+.bo-select{height:40px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:13px;cursor:pointer}
+.bo-chip{height:32px;padding:0 12px;border-radius:999px;border:1px solid #303640;background:transparent;color:#A9A497;font:inherit;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.bo-chip:hover{color:#EAE5DA;border-color:#4A505B}
+.bo-chip.is-on{background:#262A31;color:#EAE5DA;border-color:#4A505B}
+.bo-tr{border-top:1px solid #1F2329}
+.bo-tr:hover{background:#15181D}
+.bo-th{padding:10px 14px;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#6F7480;text-align:left;white-space:nowrap}
+.bo-td{padding:12px 14px;font-size:14px;color:#D5D0C4;vertical-align:middle;white-space:nowrap}
+.bo-pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600}
+.bo-pill.is-ok{background:rgba(143,179,154,.14);color:#A9D1B4}
+.bo-pill.is-wait{background:rgba(217,184,106,.14);color:#E3C887}
+.bo-pill.is-off{background:rgba(201,112,90,.14);color:#E6A28F}
+.bo-role{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.bo-role.is-admin{background:rgba(197,164,109,.16);color:#E2C793}
+.bo-role.is-user{background:#1F232A;color:#A9A497}
+.bo-menu{width:100%;display:flex;align-items:center;gap:10px;height:38px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:#D5D0C4;font:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left;white-space:nowrap}
+.bo-menu:hover{background:#1F232A;color:#EAE5DA}
+.bo-menu.is-danger{color:#E6A28F}
+.bo-opt{flex:1;display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid #303640;border-radius:10px;background:transparent;color:#A9A497;font:inherit;text-align:left;cursor:pointer}
+.bo-opt:hover{border-color:#4A505B}
+.bo-opt.is-on{border-color:#C5A46D;background:rgba(197,164,109,.07);color:#EAE5DA}
+.bo-switch{position:relative;width:44px;height:26px;flex-shrink:0;padding:0;border:0;border-radius:999px;background:#303640;cursor:pointer;transition:background .15s}
+.bo-switch .bo-knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#A9A497;transition:left .15s,background .15s}
+.bo-switch.is-on{background:#C5A46D}
+.bo-switch.is-on .bo-knob{left:21px;background:#15130F}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; display: flex; flex-wrap: wrap; background: #101216; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<aside style="flex: 1 1 240px; max-width: 100%; box-sizing: border-box; padding: 24px 14px 20px; display: flex; flex-direction: column; gap: 22px; background: #0A0B0E; border-right: 1px solid #1F2329">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 8px">
+<svg viewBox="0 0 120 120" width="28" height="28" fill="none" stroke="#C5A46D" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><g stroke-width="5.5"><path d="M60 9 L78 42 L60 99 L42 42 Z"></path><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z"></path></g></svg>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: Cinzel, serif; font-weight: 600; font-size: 14px; letter-spacing: 0.28em">LORKARIUM</span>
+<span style="font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #C5A46D">Backoffice</span>
+</div>
+</div>
+<nav aria-label="Backoffice" style="display: flex; flex-direction: column; gap: 2px">
+<button type="button" class="bo-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Visão geral</button>
+<button type="button" class="bo-nav is-active" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.6c2 .7 3.5 2.4 3.5 5.4"></path></svg>Usuários</button>
+<button type="button" class="bo-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2Z"></path><path d="M9 4v14M15 6v14"></path></svg>Mesas</button>
+<button type="button" class="bo-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>Convites</button>
+<button type="button" class="bo-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"></path></svg>Armazenamento</button>
+<button type="button" class="bo-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>Registro de atividade</button>
+<div style="height: 1px; background: #1F2329; margin: 10px 8px"></div>
+<button type="button" class="bo-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Configurações do sistema</button>
+</nav>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+<a href="Home.dc.html" style="display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border-radius: 8px; color: #A9A497; font-size: 13px; font-weight: 500; text-decoration: none; border: 1px solid #23272E">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Voltar pro app</a>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: #13161B">
+<span style="width: 32px; height: 32px; border-radius: 50%; background: #8FA3BF; color: #15130F; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">LU</span>
+<div style="display: flex; flex-direction: column; min-width: 0">
+<span style="font-size: 13px; font-weight: 600">Lucas</span>
+<span style="font-size: 11px; color: #C5A46D; font-weight: 600">Admin</span>
+</div>
+</div>
+</div>
+</aside>
+
+<main style="flex: 999 1 640px; min-width: 0; box-sizing: border-box; padding: 32px 36px 48px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+<div style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 42px; line-height: 1.05">Usuários</h1>
+<p style="margin: 0; font-size: 14px; color: #A9A497">Quem tem acesso ao Lorkarium e como entrou.</p>
+</div>
+<button type="button" class="bo-btn" onClick="{{exportCsv}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"></path></svg>Exportar CSV</button>
+<button type="button" class="bo-btn is-gold" onClick="{{openNew}}" style="height: 44px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Cadastrar usuário</button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px">
+<div style="padding: 16px 18px; border-radius: 12px; background: #14171C; border: 1px solid #23272E; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #8C8F98">Usuários ativos</span>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 600; line-height: 1">{{kActive}}</span>
+<span style="font-size: 12px; color: #8C8F98">de {{kTotal}} cadastrados</span>
+</div>
+<div style="padding: 16px 18px; border-radius: 12px; background: #14171C; border: 1px solid #23272E; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #8C8F98">Convites esperando</span>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 600; line-height: 1; color: #E3C887">{{kWait}}</span>
+<span style="font-size: 12px; color: #8C8F98">ainda não definiram senha</span>
+</div>
+<div style="padding: 16px 18px; border-radius: 12px; background: #14171C; border: 1px solid #23272E; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #8C8F98">Online agora</span>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 600; line-height: 1; color: #8FD0A8">3</span>
+<span style="font-size: 12px; color: #8C8F98">em 1 mesa ao vivo</span>
+</div>
+<div style="padding: 16px 18px; border-radius: 12px; background: #14171C; border: 1px solid #23272E; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+<span id="bo-open-l" style="font-size: 12px; color: #8C8F98">Cadastro pelo site</span>
+<button type="button" role="switch" class="{{openCls}}" aria-checked="{{openAria}}" aria-labelledby="bo-open-l" onClick="{{toggleOpen}}"><span class="bo-knob"></span></button>
+</div>
+<span style="font-size: 18px; font-weight: 600">{{openTitle}}</span>
+<span style="font-size: 12px; line-height: 1.4; color: #8C8F98">{{openDesc}}</span>
+</div>
+</div>
+
+<section style="border-radius: 14px; background: #14171C; border: 1px solid #23272E; display: flex; flex-direction: column">
+<div style="padding: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<div style="position: relative; flex: 1 1 240px; max-width: 360px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6F7480" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 12px; top: 13px"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5"></path></svg>
+<input class="bo-input" type="search" placeholder="Nome, @usuário ou e-mail" aria-label="Buscar usuário" value="{{q}}" onChange="{{onSearch}}" style="padding-left: 36px">
+</div>
+<div role="group" aria-label="Filtrar por status" style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{statusChips}}" as="c" hint-placeholder-count="4">
+<button type="button" class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}<span style="color: #6F7480">{{c.count}}</span></button>
+</sc-for>
+</div>
+<span style="flex: 1"></span>
+<label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #8C8F98">Papel
+<select class="bo-select" value="{{role}}" onChange="{{onRole}}">
+<option value="todos">Todos</option>
+<option value="admin">Admin</option>
+<option value="user">Usuário</option>
+</select>
+</label>
+</div>
+
+<div style="overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; min-width: 860px">
+<thead>
+<tr>
+<th class="bo-th" scope="col">Usuário</th>
+<th class="bo-th" scope="col">E-mail</th>
+<th class="bo-th" scope="col">Papel</th>
+<th class="bo-th" scope="col">Status</th>
+<th class="bo-th" scope="col" style="text-align: right">Mesas</th>
+<th class="bo-th" scope="col">Último acesso</th>
+<th class="bo-th" scope="col"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Ações</span></th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{rows}}" as="u" hint-placeholder-count="8">
+<tr class="bo-tr" style="opacity: {{u.op}}">
+<td class="bo-td">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: {{u.color}}; color: #15130F; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">{{u.ini}}</span>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<span style="font-size: 14px; font-weight: 600; color: #EAE5DA">{{u.nick}}<sc-if value="{{u.isNew}}" hint-placeholder-val="{{ false }}"><span style="margin-left: 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: #C5A46D">NOVO</span></sc-if></span>
+<span style="font-size: 12px; color: #8C8F98">@{{u.handle}}</span>
+</div>
+</div>
+</td>
+<td class="bo-td" style="color: #A9A497">{{u.email}}</td>
+<td class="bo-td"><span class="{{u.roleCls}}">{{u.roleText}}</span></td>
+<td class="bo-td"><span class="{{u.pillCls}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: currentColor"></span>{{u.statusText}}</span></td>
+<td class="bo-td" style="text-align: right; font-variant-numeric: tabular-nums">{{u.tables}}</td>
+<td class="bo-td" style="color: #8C8F98">{{u.last}}</td>
+<td class="bo-td" style="text-align: right; position: relative">
+<button type="button" class="bo-ico" onClick="{{u.toggleMenu}}" aria-label="{{u.menuLabel}}" aria-expanded="{{u.menuOpen}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
+</button>
+<sc-if value="{{u.menuOpen}}" hint-placeholder-val="{{ false }}">
+<div role="menu" style="position: absolute; z-index: 20; right: 14px; top: 48px; width: 220px; box-sizing: border-box; padding: 6px; border-radius: 10px; background: #1B1E24; border: 1px solid #303640; box-shadow: 0 16px 40px rgba(0,0,0,.5); text-align: left">
+<sc-if value="{{u.isWait}}" hint-placeholder-val="{{ false }}">
+<button type="button" role="menuitem" class="bo-menu" onClick="{{u.resend}}">Reenviar convite</button>
+</sc-if>
+<sc-if value="{{u.notWait}}" hint-placeholder-val="{{ true }}">
+<button type="button" role="menuitem" class="bo-menu" onClick="{{u.resetPw}}">Mandar link de nova senha</button>
+</sc-if>
+<button type="button" role="menuitem" class="bo-menu" onClick="{{u.toggleRole}}">{{u.roleAction}}</button>
+<button type="button" role="menuitem" class="bo-menu" onClick="{{u.toggleSuspend}}">{{u.suspendAction}}</button>
+<div style="height: 1px; margin: 6px 4px; background: #303640"></div>
+<sc-if value="{{u.notConfirm}}" hint-placeholder-val="{{ true }}">
+<button type="button" role="menuitem" class="bo-menu is-danger" onClick="{{u.askDelete}}">Excluir usuário</button>
+</sc-if>
+<sc-if value="{{u.confirm}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 6px 8px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; line-height: 1.4; color: #E6A28F; white-space: normal">Excluir {{u.nick}}? As mesas dele somem junto.</span>
+<div style="display: flex; gap: 6px">
+<button type="button" class="bo-btn" onClick="{{u.doDelete}}" style="flex: 1; height: 32px; font-size: 12px; background: #B85C47; border-color: #B85C47; color: #FFF5F0">Excluir</button>
+<button type="button" class="bo-btn" onClick="{{u.toggleMenu}}" style="flex: 1; height: 32px; font-size: 12px">Voltar</button>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; padding: 28px; text-align: center; font-size: 14px; color: #8C8F98">Ninguém com esse filtro.</p>
+</sc-if>
+<div style="padding: 12px 16px; border-top: 1px solid #1F2329; font-size: 13px; color: #8C8F98">{{countText}}</div>
+</section>
+</main>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: fixed; z-index: 40; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: calc(100% - 48px); box-sizing: border-box; padding: 12px 10px 12px 16px; border-radius: 12px; background: #1B1E24; border: 1px solid #3A404A; box-shadow: 0 18px 50px rgba(0,0,0,.55); display: flex; align-items: center; gap: 10px; font-size: 14px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8FB39A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+<span>{{toast}}</span>
+<button type="button" class="bo-ico" onClick="{{closeToast}}" aria-label="Fechar aviso" style="width: 28px; height: 28px">×</button>
+</div>
+</sc-if>
+
+<sc-if value="{{drawer}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closeNew}}" style="position: fixed; z-index: 30; inset: 0; background: rgba(6,7,9,.6)"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="bo-new-t" style="position: fixed; z-index: 31; top: 0; right: 0; bottom: 0; width: 460px; max-width: 100%; box-sizing: border-box; background: #14171C; border-left: 1px solid #303640; box-shadow: -24px 0 60px rgba(0,0,0,.5); display: flex; flex-direction: column">
+<div style="flex-shrink: 0; padding: 22px 20px 18px 26px; display: flex; align-items: flex-start; gap: 12px; border-bottom: 1px solid #23272E">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+<h2 id="bo-new-t" style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 28px">{{drawerTitle}}</h2>
+<p style="margin: 0; font-size: 13px; color: #8C8F98">{{drawerSub}}</p>
+</div>
+<button type="button" class="bo-ico" onClick="{{closeNew}}" aria-label="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+
+<sc-if value="{{formMode}}" hint-placeholder-val="{{ true }}">
+<div style="flex: 1; min-height: 0; overflow: auto; padding: 22px 26px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="bo-email" style="font-size: 13px; font-weight: 600; color: #D5D0C4">E-mail</label>
+<input id="bo-email" class="{{f.emailCls}}" type="email" placeholder="pessoa@exemplo.com" value="{{f.email}}" onChange="{{f.onEmail}}" autocomplete="off">
+<sc-if value="{{f.emailErr}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #E6A28F">{{f.emailMsg}}</span></sc-if>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="bo-nick" style="font-size: 13px; font-weight: 600; color: #D5D0C4">Apelido</label>
+<input id="bo-nick" class="{{f.nickCls}}" type="text" maxlength="32" placeholder="Como chamam" value="{{f.nick}}" onChange="{{f.onNick}}">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="bo-handle" style="font-size: 13px; font-weight: 600; color: #D5D0C4">@usuário</label>
+<div style="position: relative">
+<span style="position: absolute; left: 12px; top: 12px; font-size: 14px; color: #6F7480">@</span>
+<input id="bo-handle" class="{{f.handleCls}}" type="text" maxlength="20" placeholder="{{f.handlePh}}" value="{{f.handle}}" onChange="{{f.onHandle}}" style="padding-left: 28px">
+</div>
+</div>
+</div>
+<sc-if value="{{f.handleErr}}" hint-placeholder-val="{{ false }}"><span style="margin-top: -10px; font-size: 12px; color: #E6A28F">{{f.handleMsg}}</span></sc-if>
+<sc-if value="{{f.nickErr}}" hint-placeholder-val="{{ false }}"><span style="margin-top: -10px; font-size: 12px; color: #E6A28F">Falta o apelido.</span></sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span id="bo-role-l" style="font-size: 13px; font-weight: 600; color: #D5D0C4">Papel</span>
+<div role="radiogroup" aria-labelledby="bo-role-l" style="display: flex; gap: 8px">
+<button type="button" role="radio" class="{{f.userCls}}" aria-checked="{{f.userOn}}" onClick="{{f.setUser}}"><span style="font-size: 14px; font-weight: 600">Usuário</span><span style="font-size: 12px; color: #8C8F98">Joga e mestra mesas.</span></button>
+<button type="button" role="radio" class="{{f.adminCls}}" aria-checked="{{f.adminOn}}" onClick="{{f.setAdmin}}"><span style="font-size: 14px; font-weight: 600">Admin</span><span style="font-size: 12px; color: #8C8F98">Também entra aqui no backoffice.</span></button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span id="bo-acc-l" style="font-size: 13px; font-weight: 600; color: #D5D0C4">Como a pessoa entra</span>
+<div role="radiogroup" aria-labelledby="bo-acc-l" style="display: flex; flex-direction: column; gap: 8px">
+<button type="button" role="radio" class="{{f.inviteCls}}" aria-checked="{{f.inviteOn}}" onClick="{{f.setInvite}}"><span style="font-size: 14px; font-weight: 600">Mandar convite por e-mail</span><span style="font-size: 12px; color: #8C8F98">Ela recebe um link e escolhe a própria senha. O link vale 7 dias.</span></button>
+<button type="button" role="radio" class="{{f.tempCls}}" aria-checked="{{f.tempOn}}" onClick="{{f.setTemp}}"><span style="font-size: 14px; font-weight: 600">Criar com senha provisória</span><span style="font-size: 12px; color: #8C8F98">Você passa a senha por fora. Ela troca no primeiro acesso.</span></button>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 10px; background: #101216; border: 1px solid #23272E">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span id="bo-create-l" style="font-size: 14px; font-weight: 600">Pode criar mesas</span>
+<span style="font-size: 12px; color: #8C8F98">Desligado, só entra nas mesas pra que for convidado.</span>
+</div>
+<button type="button" role="switch" class="{{f.canCreateCls}}" aria-checked="{{f.canCreateAria}}" aria-labelledby="bo-create-l" onClick="{{f.toggleCanCreate}}"><span class="bo-knob"></span></button>
+</div>
+</div>
+<div style="flex-shrink: 0; padding: 16px 26px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #23272E; background: #12151A">
+<button type="button" class="bo-btn is-quiet" onClick="{{closeNew}}">Cancelar</button>
+<button type="button" class="bo-btn is-gold" onClick="{{submit}}" style="min-width: 150px">{{submitLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{doneMode}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; padding: 28px 26px; display: flex; flex-direction: column; gap: 18px">
+<div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(143,179,154,.14); display: inline-flex; align-items: center; justify-content: center">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A9D1B4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600">{{doneTitle}}</span>
+<span style="font-size: 14px; line-height: 1.55; color: #A9A497">{{doneText}}</span>
+</div>
+<sc-if value="{{doneTemp}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #8C8F98">Senha provisória</span>
+<div style="display: flex; gap: 8px">
+<code style="flex: 1; height: 46px; box-sizing: border-box; padding: 0 14px; border-radius: 8px; background: #101216; border: 1px dashed #C5A46D; display: flex; align-items: center; font-family: ui-monospace, monospace; font-size: 18px; letter-spacing: 0.08em; color: #E2C793">{{tempPw}}</code>
+<button type="button" class="bo-btn" onClick="{{copyPw}}" style="height: 46px">{{copyLabel}}</button>
+</div>
+<span style="font-size: 12px; color: #8C8F98">Ela não aparece de novo depois que você fechar.</span>
+</div>
+</sc-if>
+<div style="display: flex; gap: 10px; margin-top: 8px">
+<button type="button" class="bo-btn is-gold" onClick="{{another}}">Cadastrar outro</button>
+<button type="button" class="bo-btn" onClick="{{closeNew}}">Fechar</button>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+var BO_COLORS = ['#C5A46D', '#C9705A', '#8FB39A', '#8FA3BF', '#B48CC8', '#D9B86A', '#6FB7B0', '#D98FA6'];
+var BO_START = [
+  { id: 1, nick: 'Lucas', handle: 'lucas.rola20', email: 'lucas@exemplo.com', role: 'admin', status: 'ativo', tables: 4, last: 'agora', color: '#8FA3BF' },
+  { id: 2, nick: 'Bia', handle: 'biaflor', email: 'bia@exemplo.com', role: 'user', status: 'ativo', tables: 3, last: 'agora', color: '#D98FA6' },
+  { id: 3, nick: 'Thiago', handle: 'thiagaum', email: 'thiago@exemplo.com', role: 'user', status: 'ativo', tables: 2, last: 'agora', color: '#8FB39A' },
+  { id: 4, nick: 'Carol', handle: 'carolzinha', email: 'carol@exemplo.com', role: 'user', status: 'ativo', tables: 2, last: 'há 3 h', color: '#B48CC8' },
+  { id: 5, nick: 'Renan', handle: 'renan.rpg', email: 'renan@exemplo.com', role: 'user', status: 'ativo', tables: 1, last: 'ontem', color: '#D9B86A' },
+  { id: 6, nick: 'Marina', handle: 'marina', email: 'marina@exemplo.com', role: 'user', status: 'convite', tables: 0, last: 'convite há 2 dias', color: '#6FB7B0' },
+  { id: 7, nick: 'João', handle: 'joaodados', email: 'joao@exemplo.com', role: 'user', status: 'convite', tables: 0, last: 'convite há 6 dias', color: '#C9705A' },
+  { id: 8, nick: 'Fernanda', handle: 'fe.mestra', email: 'fernanda@exemplo.com', role: 'admin', status: 'ativo', tables: 5, last: 'há 2 dias', color: '#C5A46D' },
+  { id: 9, nick: 'Pedro', handle: 'pedrinho', email: 'pedro@exemplo.com', role: 'user', status: 'suspenso', tables: 1, last: 'há 1 mês', color: '#8FA3BF' }
+];
+var boSeq = 100;
+function boIni(n) { var w = (n || '').trim().split(/\s+/).filter(Boolean); if (!w.length) return '?'; return (w.length > 1 ? w[0][0] + w[1][0] : w[0].slice(0, 2)).toUpperCase(); }
+function boPw() { var c = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'; var s = ''; for (var i = 0; i < 10; i++) { s += c[Math.floor(Math.random() * c.length)]; if (i === 4) s += '-'; } return s; }
+function boBlank() { return { email: '', nick: '', handle: '', role: 'user', access: 'invite', canCreate: true, tried: false }; }
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { users: JSON.parse(JSON.stringify(BO_START)), q: '', status: 'todos', role: 'todos', menu: null, confirm: null, open: false, toast: null,
+      drawer: false, form: boBlank(), done: null, saving: false, copied: false };
+  }
+  toast(t) { var self = this; this.setState({ toast: t, menu: null, confirm: null }); clearTimeout(this._tt); this._tt = setTimeout(function () { self.setState({ toast: null }); }, 3200); }
+  patchUser(id, fn) { this.setState({ users: this.state.users.map(function (u) { if (u.id !== id) return u; var c = Object.assign({}, u); fn(c); return c; }) }); }
+  renderVals() {
+    var self = this, s = this.state;
+    var q = s.q.trim().toLowerCase();
+    var counts = { todos: s.users.length, ativo: 0, convite: 0, suspenso: 0 };
+    s.users.forEach(function (u) { counts[u.status]++; });
+    var list = s.users.filter(function (u) {
+      if (s.status !== 'todos' && u.status !== s.status) return false;
+      if (s.role !== 'todos' && u.role !== s.role) return false;
+      if (q && (u.nick + ' ' + u.handle + ' ' + u.email).toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    var statusDefs = [['todos', 'Todos'], ['ativo', 'Ativos'], ['convite', 'Convidados'], ['suspenso', 'Suspensos']];
+    var statusChips = statusDefs.map(function (d) { return { label: d[1], count: counts[d[0]], on: s.status === d[0] ? 'true' : 'false', cls: 'bo-chip' + (s.status === d[0] ? ' is-on' : ''), pick: function () { self.setState({ status: d[0] }); } }; });
+    var stText = { ativo: 'Ativo', convite: 'Convite enviado', suspenso: 'Suspenso' };
+    var stCls = { ativo: 'is-ok', convite: 'is-wait', suspenso: 'is-off' };
+    var rows = list.map(function (u) {
+      var menuOpen = s.menu === u.id;
+      return {
+        nick: u.nick, handle: u.handle, email: u.email, ini: boIni(u.nick), color: u.color, tables: u.tables, last: u.last, isNew: !!u.isNew,
+        roleCls: 'bo-role ' + (u.role === 'admin' ? 'is-admin' : 'is-user'), roleText: u.role === 'admin' ? 'Admin' : 'Usuário',
+        pillCls: 'bo-pill ' + stCls[u.status], statusText: stText[u.status], op: u.status === 'suspenso' ? '.6' : '1',
+        menuOpen: menuOpen, menuLabel: 'Ações de ' + u.nick, isWait: u.status === 'convite', notWait: u.status !== 'convite',
+        confirm: menuOpen && s.confirm === u.id, notConfirm: !(menuOpen && s.confirm === u.id),
+        toggleMenu: function () { self.setState({ menu: menuOpen ? null : u.id, confirm: null }); },
+        resend: function () { self.patchUser(u.id, function (c) { c.last = 'convite agora'; }); self.toast('Convite reenviado pra ' + u.email + '.'); },
+        resetPw: function () { self.toast('Link de nova senha enviado pra ' + u.email + '.'); },
+        roleAction: u.role === 'admin' ? 'Tirar acesso de admin' : 'Tornar admin',
+        toggleRole: function () { self.patchUser(u.id, function (c) { c.role = c.role === 'admin' ? 'user' : 'admin'; }); self.toast(u.nick + (u.role === 'admin' ? ' não é mais admin.' : ' agora é admin.')); },
+        suspendAction: u.status === 'suspenso' ? 'Reativar acesso' : 'Suspender acesso',
+        toggleSuspend: function () { var back = u.status === 'suspenso'; self.patchUser(u.id, function (c) { c.status = back ? 'ativo' : 'suspenso'; }); self.toast(back ? u.nick + ' pode entrar de novo.' : u.nick + ' foi suspenso e saiu de todas as sessões.'); },
+        askDelete: function () { self.setState({ confirm: u.id }); },
+        doDelete: function () { self.setState({ users: self.state.users.filter(function (x) { return x.id !== u.id; }) }); self.toast(u.nick + ' foi excluído.'); }
+      };
+    });
+
+    var F = s.form;
+    var setF = function (k, v) { var f = Object.assign({}, self.state.form); f[k] = v; self.setState({ form: f }); };
+    var autoHandle = (F.nick || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9._]/g, '').slice(0, 20);
+    var handle = F.handle || autoHandle;
+    var emailBad = !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(F.email.trim());
+    var emailDup = s.users.some(function (u) { return u.email.toLowerCase() === F.email.trim().toLowerCase(); });
+    var handleBad = !/^[a-z0-9._]{3,20}$/.test(handle);
+    var handleDup = s.users.some(function (u) { return u.handle === handle; });
+    var nickBad = !F.nick.trim();
+    var showErr = F.tried;
+    var f = {
+      email: F.email, nick: F.nick, handle: F.handle, handlePh: autoHandle || 'gerado do apelido',
+      onEmail: function (e) { setF('email', e.target.value); }, onNick: function (e) { setF('nick', e.target.value); },
+      onHandle: function (e) { setF('handle', e.target.value.toLowerCase().replace(/\s/g, '')); },
+      emailErr: showErr && (emailBad || emailDup), emailMsg: emailBad ? 'Confere o e-mail.' : 'Esse e-mail já tem conta.',
+      emailCls: 'bo-input' + (showErr && (emailBad || emailDup) ? ' is-error' : ''),
+      nickErr: showErr && nickBad, nickCls: 'bo-input' + (showErr && nickBad ? ' is-error' : ''),
+      handleErr: showErr && !nickBad && (handleBad || handleDup), handleMsg: handleBad ? '@usuário: 3 a 20 caracteres, minúsculas, números, ponto ou _.' : '@' + handle + ' já existe.',
+      handleCls: 'bo-input' + (showErr && !nickBad && (handleBad || handleDup) ? ' is-error' : ''),
+      userCls: 'bo-opt' + (F.role === 'user' ? ' is-on' : ''), adminCls: 'bo-opt' + (F.role === 'admin' ? ' is-on' : ''),
+      userOn: F.role === 'user' ? 'true' : 'false', adminOn: F.role === 'admin' ? 'true' : 'false',
+      setUser: function () { setF('role', 'user'); }, setAdmin: function () { setF('role', 'admin'); },
+      inviteCls: 'bo-opt' + (F.access === 'invite' ? ' is-on' : ''), tempCls: 'bo-opt' + (F.access === 'temp' ? ' is-on' : ''),
+      inviteOn: F.access === 'invite' ? 'true' : 'false', tempOn: F.access === 'temp' ? 'true' : 'false',
+      setInvite: function () { setF('access', 'invite'); }, setTemp: function () { setF('access', 'temp'); },
+      canCreateCls: 'bo-switch' + (F.canCreate ? ' is-on' : ''), canCreateAria: F.canCreate ? 'true' : 'false',
+      toggleCanCreate: function () { setF('canCreate', !self.state.form.canCreate); }
+    };
+    var kActive = counts.ativo, kWait = counts.convite;
+    var d = s.done;
+    return {
+      statusChips: statusChips, rows: rows, isEmpty: list.length === 0,
+      countText: list.length === s.users.length ? s.users.length + ' usuários' : list.length + ' de ' + s.users.length + ' usuários',
+      q: s.q, onSearch: function (e) { self.setState({ q: e.target.value }); },
+      role: s.role, onRole: function (e) { self.setState({ role: e.target.value }); },
+      kActive: kActive, kTotal: s.users.length, kWait: kWait,
+      openCls: 'bo-switch' + (s.open ? ' is-on' : ''), openAria: s.open ? 'true' : 'false',
+      openTitle: s.open ? 'Aberto' : 'Só por convite', openDesc: s.open ? 'Qualquer um cria conta pela tela de login.' : 'Conta nova só por aqui ou por convite de admin.',
+      toggleOpen: function () { self.setState({ open: !self.state.open }); },
+      exportCsv: function () { self.toast('CSV com ' + list.length + ' usuários baixado.'); },
+      hasToast: !!s.toast, toast: s.toast || '', closeToast: function () { self.setState({ toast: null }); },
+      drawer: s.drawer, formMode: !d, doneMode: !!d, f: f,
+      drawerTitle: d ? 'Pronto' : 'Cadastrar usuário', drawerSub: d ? '' : 'A pessoa recebe acesso ao Lorkarium.',
+      openNew: function () { self.setState({ drawer: true, form: boBlank(), done: null, menu: null, copied: false }); },
+      closeNew: function () { self.setState({ drawer: false, done: null }); },
+      submitLabel: s.saving ? 'Cadastrando…' : (F.access === 'invite' ? 'Cadastrar e convidar' : 'Cadastrar'),
+      submit: function () {
+        if (emailBad || emailDup || nickBad || handleBad || handleDup) { setF('tried', true); return; }
+        self.setState({ saving: true });
+        setTimeout(function () {
+          var temp = F.access === 'temp';
+          var u = { id: ++boSeq, nick: F.nick.trim(), handle: handle, email: F.email.trim(), role: F.role, status: temp ? 'ativo' : 'convite', tables: 0, last: temp ? 'nunca entrou' : 'convite agora', color: BO_COLORS[boSeq % BO_COLORS.length], isNew: true };
+          self.setState({ saving: false, users: [u].concat(self.state.users), status: 'todos', q: '',
+            done: { temp: temp, nick: u.nick, email: u.email, pw: temp ? boPw() : '' } });
+        }, 600);
+      },
+      doneTitle: d ? (d.temp ? d.nick + ' foi cadastrado' : 'Convite enviado') : '',
+      doneText: d ? (d.temp ? 'Passa a senha abaixo pra ' + d.nick + ' por um canal seguro. No primeiro acesso, o Lorkarium pede uma senha nova.' : 'Mandamos um link pra ' + d.email + '. Enquanto ' + d.nick + ' não definir a senha, a conta aparece como “Convite enviado”.') : '',
+      doneTemp: !!(d && d.temp), tempPw: d ? d.pw : '',
+      copyLabel: s.copied ? 'Copiado' : 'Copiar',
+      copyPw: function () { try { navigator.clipboard.writeText(d.pw); } catch (e) {} self.setState({ copied: true }); },
+      another: function () { self.setState({ form: boBlank(), done: null, copied: false }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

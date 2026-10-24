@@ -219,6 +219,48 @@ describe('auth HTTP edge', () => {
     });
   });
 
+  describe('suspended account', () => {
+    let app: FastifyInstance;
+    let ana: UserPo;
+
+    beforeAll(async () => {
+      await truncateAllTables(connection.db);
+      ana = await insertAccount('ana@mesa.com', 'segredo-da-ana');
+      app = await freshApp();
+    });
+
+    afterAll(() => app.close());
+
+    async function suspendAna(at: Date | null): Promise<void> {
+      await connection.db.update(users).set({ suspendedAt: at }).where(eq(users.id, ana.id));
+    }
+
+    it('the login records when the account was last seen', async () => {
+      await suspendAna(null);
+      await login(app, { email: 'ana@mesa.com', password: 'segredo-da-ana' });
+      const [row] = await connection.db.select().from(users).where(eq(users.id, ana.id));
+      expect(row?.lastSeenAt).toBeInstanceOf(Date);
+    });
+
+    it('the right password is 403 ACCOUNT_SUSPENDED and the wrong one 401 INVALID_CREDENTIALS', async () => {
+      await suspendAna(new Date());
+      const right = await login(app, { email: 'ana@mesa.com', password: 'segredo-da-ana' });
+      expect(right.statusCode).toBe(403);
+      expect(apiErrorDto.parse(right.json()).code).toBe('ACCOUNT_SUSPENDED');
+      const wrong = await login(app, { email: 'ana@mesa.com', password: 'errada-123' });
+      expect(apiErrorDto.parse(wrong.json()).code).toBe('INVALID_CREDENTIALS');
+    });
+
+    it('a cookie from before the suspension reads as anonymous', async () => {
+      await suspendAna(null);
+      const token = sessionCookieOf(
+        await login(app, { email: 'ana@mesa.com', password: 'segredo-da-ana' }),
+      );
+      await suspendAna(new Date());
+      expect(meResponseDto.parse((await me(app, token)).json()).user).toBeNull();
+    });
+  });
+
   describe('admin seed at boot', () => {
     beforeAll(() => truncateAllTables(connection.db));
 

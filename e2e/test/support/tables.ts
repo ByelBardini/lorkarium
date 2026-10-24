@@ -19,15 +19,17 @@ export async function openRoomPeople(page: Page): Promise<void> {
 }
 
 /** The presence symbol of `name` in the "Na mesa" tab of the room on screen (open it with
- *  `openRoomPeople`), named "online", "ausente" or "offline".
+ *  `openRoomPeople`), named "online", "ausente" or "offline": on the portrait or avatar of the
+ *  card or master row whose nick line names them (before the nick only while the board loads).
  *
  *  Example: `await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online')` */
 export function presenceOf(page: Page, name: string): Locator {
+  const nickLine = page.getByTestId('nick-line').filter({ hasText: name });
   return page
     .getByRole('region', { name: 'Na mesa' })
-    .getByTestId('nick-line')
-    .filter({ hasText: name })
-    .getByRole('img');
+    .locator('article, li')
+    .filter({ has: nickLine })
+    .getByRole('img', { name: /^(online|ausente|offline)$/ });
 }
 
 /** Creates a table from the home by "Nova mesa" and returns its code, back on the home.

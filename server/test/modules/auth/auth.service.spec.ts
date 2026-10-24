@@ -260,6 +260,70 @@ describe('AuthService', () => {
     });
   });
 
+  describe('suspended account', () => {
+    const SUSPENDED_AT = new Date('2026-10-13T12:00:00Z');
+
+    beforeEach(() => {
+      users.rows[0] = { ...users.rows[0]!, suspendedAt: SUSPENDED_AT };
+    });
+
+    it('the right password is ACCOUNT_SUSPENDED and no session is stored', async () => {
+      const login = service.login({
+        email: 'ana@mesa.com',
+        password: 'segredo-da-ana',
+        rememberMe: false,
+      });
+      await expect(login).rejects.toMatchObject({ code: 'ACCOUNT_SUSPENDED' });
+      expect(sessions.rows.size).toBe(0);
+    });
+
+    it('a wrong password is the usual INVALID_CREDENTIALS', async () => {
+      const login = service.login({ email: 'ana@mesa.com', password: 'errada', rememberMe: false });
+      await expect(login).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    });
+
+    it('a session still open resolves to null and is deleted', async () => {
+      storeSession('2026-11-10T12:00:00Z', true);
+      expect(await service.resolveSession('cookie')).toBeNull();
+      expect(sessions.rows.has('sha:cookie')).toBe(false);
+    });
+
+    it('startSession refuses it too (the second step and an accepted invitation)', async () => {
+      await expect(service.startSession(users.rows[0]!, false)).rejects.toMatchObject({
+        code: 'ACCOUNT_SUSPENDED',
+      });
+    });
+  });
+
+  describe('last seen of the account', () => {
+    it('the login writes users.last_seen_at = now', async () => {
+      await service.login({ email: 'ana@mesa.com', password: 'segredo-da-ana', rememberMe: false });
+      expect(users.rows[0]?.lastSeenAt).toEqual(NOW);
+    });
+
+    it('the 5-minute touch of a session also writes the account last seen', async () => {
+      const row = authSessionPo({
+        id: 'sha:cookie',
+        expiresAt: new Date('2026-11-10T12:00:00Z'),
+        lastSeenAt: new Date(NOW.getTime() - 6 * 60_000),
+      });
+      sessions.rows.set('sha:cookie', row);
+      await service.resolveSession('cookie');
+      expect(users.rows[0]?.lastSeenAt).toEqual(NOW);
+    });
+
+    it('a session seen 4 min ago writes nothing on the account', async () => {
+      const row = authSessionPo({
+        id: 'sha:cookie',
+        expiresAt: new Date('2026-11-10T12:00:00Z'),
+        lastSeenAt: new Date(NOW.getTime() - 4 * 60_000),
+      });
+      sessions.rows.set('sha:cookie', row);
+      await service.resolveSession('cookie');
+      expect(users.rows[0]?.lastSeenAt).toBeNull();
+    });
+  });
+
   describe('logout', () => {
     it('deletes the session of the given token', async () => {
       storeSession('2026-11-10T12:00:00Z', true);

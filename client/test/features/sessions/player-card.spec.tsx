@@ -56,6 +56,14 @@ describe('PlayerCard', () => {
     );
   });
 
+  it('the presence rides on the corner of the portrait, not before the nick', () => {
+    renderCard();
+
+    const mark = screen.getByRole('img', { name: 'online' });
+    expect(within(screen.getByTestId('portrait')).getByRole('img', { name: 'online' })).toBe(mark);
+    expect(within(screen.getByTestId('nick-line')).queryByRole('img')).toBeNull();
+  });
+
   it('a nickname on the card names the character instead of the token', () => {
     renderCard({ memberCards: [memberCard({ characterName: 'Lyra Vandel' })] });
 

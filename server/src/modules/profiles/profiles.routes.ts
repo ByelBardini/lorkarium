@@ -2,6 +2,7 @@ import rateLimit from '@fastify/rate-limit';
 import {
   AVATAR_MAX_BYTES,
   AVATAR_MIME_TYPES,
+  avatarLinkRequestDto,
   avatarParamsDto,
   updateProfileRequestDto,
   type ApiErrorDto,
@@ -40,6 +41,9 @@ const STATUS_BY_CODE: Readonly<Record<ProfileErrorCode, number>> = {
   AVATAR_NOT_FOUND: 404,
   UNSUPPORTED_IMAGE: 422,
   AVATAR_TOO_LARGE: 413,
+  LINK_BLOCKED: 422,
+  LINK_UNREACHABLE: 422,
+  LINK_NOT_IMAGE: 422,
   RATE_LIMITED: 429,
 };
 
@@ -48,6 +52,9 @@ const PUBLIC_MESSAGE: Readonly<Record<ProfileErrorCode, string>> = {
   AVATAR_NOT_FOUND: 'Photo not found',
   UNSUPPORTED_IMAGE: 'The file is not a PNG, JPEG, WebP or GIF image',
   AVATAR_TOO_LARGE: 'The photo is larger than 5 MB',
+  LINK_BLOCKED: 'This link cannot be used',
+  LINK_UNREACHABLE: 'The link could not be opened',
+  LINK_NOT_IMAGE: 'The link is not a PNG, JPEG, WebP or GIF image',
   RATE_LIMITED: 'Too many changes in a row',
 };
 
@@ -95,6 +102,15 @@ function registerAvatarRoutes(app: FastifyInstance, service: ProfilesService): v
   app.put(AVATAR_URL, sendOptions, async (request) => {
     const bytes = photoBytesOf(request);
     const profile = await service.replaceAvatar(userOf(request).id, bytes);
+    return { profile } satisfies ProfileResponseDto;
+  });
+  // The same 10 a minute as a sent photo: each link is a download and a decode. preHandler: the
+  // JSON body is small, and the guard runs first so the key is the user.
+  const linkLimit = perUser(AVATAR_SENDS_PER_MINUTE, 'preHandler', (r) => userOf(r).id);
+  const linkOptions = { preHandler: requireAuth, config: { rateLimit: linkLimit } };
+  app.post(`${AVATAR_URL}/link`, linkOptions, async (request) => {
+    const { url } = avatarLinkRequestDto.parse(request.body);
+    const profile = await service.replaceAvatarFromLink(userOf(request).id, url);
     return { profile } satisfies ProfileResponseDto;
   });
   app.delete(AVATAR_URL, { preHandler: requireAuth }, async (request) => {

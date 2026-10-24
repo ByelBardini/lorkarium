@@ -108,7 +108,7 @@ export class RecoveryCodesDaoFake implements Pick<
 /** In-memory two_factor_challenges table keyed by the token hash. */
 export class TwoFactorChallengesDaoFake implements Pick<
   TwoFactorChallengesDao,
-  'insert' | 'findById' | 'recordFailure' | 'delete'
+  'insert' | 'findById' | 'recordFailure' | 'delete' | 'deleteAllOf'
 > {
   readonly rows = new Map<string, TwoFactorChallengePo>();
 
@@ -129,5 +129,11 @@ export class TwoFactorChallengesDaoFake implements Pick<
 
   async delete(challengeId: string): Promise<void> {
     this.rows.delete(challengeId);
+  }
+
+  async deleteAllOf(userId: string): Promise<void> {
+    for (const row of [...this.rows.values()]) {
+      if (row.userId === userId) this.rows.delete(row.id);
+    }
   }
 }

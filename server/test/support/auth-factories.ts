@@ -49,6 +49,8 @@ export function userPo(overrides: UserOverrides<UserPo> = {}): UserPo {
     bio: null,
     avatarId: null,
     passwordChangedAt: null,
+    suspendedAt: null,
+    lastSeenAt: null,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     ...rest,
   };

@@ -1,4 +1,4 @@
-import type { AccountSessionBrowserDto, AccountSessionOsDto } from '@lorkarium/contracts';
+import type { AccountSessionBrowserDto, AccountSessionOsDto } from './account-security.dto';
 
 const BROWSER_NAME: Readonly<Record<AccountSessionBrowserDto, string | null>> = {
   chrome: 'Chrome',

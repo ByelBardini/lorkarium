@@ -9,6 +9,7 @@ const MESSAGE_BY_KIND: Readonly<Record<Exclude<LoginRefusal['kind'], 'rate_limit
   two_factor_required: 'Sua conta pede o código do app autenticador.',
   two_factor_code_invalid: 'Código incorreto.',
   two_factor_challenge_expired: 'O tempo para o código acabou. Entre de novo.',
+  account_suspended: 'Esta conta está suspensa. Fale com quem administra o Lorkarium.',
 };
 
 /** The sentence of a login refusal (either step), for the alert at the top of the form.

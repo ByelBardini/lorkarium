@@ -254,6 +254,42 @@ describe('account route (/account)', () => {
       );
     });
 
+    it('"Usar um link" takes a GIF link: the photo changes and the field closes', async () => {
+      await openAccount();
+      await userEvent.click(within(photoField()).getByRole('button', { name: 'Usar um link' }));
+      const link = within(photoField()).getByRole('textbox', { name: 'Link da imagem' });
+      expect(link).toHaveFocus();
+      await userEvent.type(link, 'https://media.example.com/dado.gif');
+      await userEvent.click(within(photoField()).getByRole('button', { name: 'Usar link' }));
+      await waitFor(() =>
+        expect(screen.getByRole('img', { name: 'Sua foto' })).toHaveAttribute(
+          'src',
+          `/api/avatars/${UPLOADED_AVATAR_ID}`,
+        ),
+      );
+      expect(deps.profileApi.answers.callsOf('avatarFromLink')).toEqual([
+        'https://media.example.com/dado.gif',
+      ]);
+      expect(within(photoField()).queryByRole('textbox', { name: 'Link da imagem' })).toBeNull();
+    });
+
+    it.each([
+      ['link_blocked', 'Esse link não pode ser usado.'],
+      ['link_unreachable', 'Não deu para baixar esse link. Confira o endereço.'],
+      [
+        'link_not_image',
+        'Esse link não é de uma imagem. Abra a imagem (ou o GIF) e copie o endereço dela.',
+      ],
+    ] as const)('a link refused as %s says "%s" and stays typed', async (kind, message) => {
+      deps.profileApi.answers.answer('avatarFromLink', { ok: false, failure: { kind } });
+      await openAccount();
+      await userEvent.click(within(photoField()).getByRole('button', { name: 'Usar um link' }));
+      const link = within(photoField()).getByRole('textbox', { name: 'Link da imagem' });
+      await userEvent.type(link, 'https://x.com/pagina{Enter}');
+      expect(await within(photoField()).findByRole('alert')).toHaveTextContent(message);
+      expect(link).toHaveValue('https://x.com/pagina');
+    });
+
     it('a file of 6 MB is refused before sending', async () => {
       await openAccount();
       await userEvent.upload(screen.getByLabelText('Escolher foto'), png(6 * 1024 * 1024));

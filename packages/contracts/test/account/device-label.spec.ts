@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deviceLabel } from '@/lib/device-label';
+import { deviceLabel } from '../../src/account/device-label';
 
 describe('deviceLabel', () => {
   it.each([

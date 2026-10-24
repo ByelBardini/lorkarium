@@ -16,7 +16,8 @@ import { MemberCardPopover } from './member-card-popover';
 import { PresenceMark } from './presence-mark';
 
 /** The portrait of a card: the main token's image (or initials) with its side ring and the
- *  "Token" tag; the account's avatar (photo or initials) when the player has no main token.
+ *  "Token" tag; the account's avatar (photo or initials) when the player has no main token. The
+ *  member's presence rides on its corner.
  *
  *  Example: `<CardPortrait token={lyra} member={bia} name="Lyra" />` */
 export function CardPortrait({
@@ -51,6 +52,11 @@ export function CardPortrait({
         </span>
       )}
       {token && <PortraitTag />}
+      <PresenceMark
+        presence={presenceOf(member)}
+        placement="badge"
+        className="right-1.5 bottom-1.5"
+      />
     </div>
   );
 }
@@ -63,7 +69,7 @@ function PortraitTag() {
   );
 }
 
-/** The nick line: presence symbol, the account name (a click opens the member's card), "· você"
+/** The nick line: presence symbol (only when no picture carries the badge), the account name (a click opens the member's card), "· você"
  *  on one's own card, "· ausente há N min" or "· offline".
  *
  *  Example: `<NickLine member={bia} isViewer awayLabel="ausente há 4 min" />` */
@@ -72,11 +78,14 @@ export function NickLine({
   isViewer,
   awayLabel,
   id,
+  withMark = false,
 }: Readonly<{
   member: SessionMemberDto;
   isViewer: boolean;
   awayLabel: string | null;
   id?: string;
+  /** Whether the presence goes on the line: only when no portrait or avatar wears it. */
+  withMark?: boolean;
 }>) {
   return (
     <p
@@ -84,7 +93,7 @@ export function NickLine({
       data-testid="nick-line"
       className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
     >
-      <PresenceMark presence={presenceOf(member)} />
+      {withMark && <PresenceMark presence={presenceOf(member)} />}
       <MemberCardPopover member={member} />
       {isViewer && <span className="font-semibold text-primary">· você</span>}
       {member.online && awayLabel && <span>{`· ${awayLabel}`}</span>}

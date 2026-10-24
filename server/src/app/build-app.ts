@@ -1,4 +1,5 @@
 import cookie from '@fastify/cookie';
+import { AVATAR_MAX_BYTES } from '@lorkarium/contracts';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { Env } from '../config/env';
 import type { Database } from '../database/database';
@@ -52,7 +53,8 @@ import {
 import { CampaignCommandQueue } from '../realtime/campaign-command-queue';
 import { CommandRateGuard } from '../realtime/command-rate-guard';
 import { attachRealtime } from '../realtime/realtime-server';
-import { wireAccountSecurity } from './wire-account-security';
+import { mailerOf, wireAccountSecurity } from './wire-account-security';
+import { wireBackoffice } from './wire-backoffice';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -91,10 +93,11 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const auth = await createAuthModule({ ...authOptions, totp });
   app.decorate('authGuards', auth.guards);
   await app.register(auth.plugin, { prefix: API_PREFIX });
-  const { mailer, env } = deps;
+  const { env } = deps;
+  const mailer = deps.mailer ?? mailerOf(app, env.mailer);
   const accountSecurity = { ...authOptions, totp, twoFactorCheck: auth.twoFactorCheck, mailer };
-  const mailWiring = { mailerConfig: env.mailer, appPublicUrl: env.appPublicUrl };
-  await wireAccountSecurity(app, { ...accountSecurity, ...mailWiring }, API_PREFIX);
+  const { appPublicUrl } = env;
+  const security = await wireAccountSecurity(app, { ...accountSecurity, appPublicUrl }, API_PREFIX);
   const codes = new CryptoCampaignCode();
   const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock });
   await app.register(campaigns.plugin, { prefix: API_PREFIX });
@@ -118,9 +121,20 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   await app.register(library.plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;
   const avatars = new SharpAvatarProcessor();
-  const profilesOptions = { db: deps.db, storage, processor: avatars, profileChanged };
+  // Capped at the photo's limit: a larger link is cut while it downloads, not after.
+  const avatarFetcher = new GuardedImageFetcher({ maxBytes: AVATAR_MAX_BYTES });
+  const profilesOptions = {
+    db: deps.db,
+    storage,
+    processor: avatars,
+    profileChanged,
+    fetcher: avatarFetcher,
+  };
   const profiles = createProfilesModule(profilesOptions);
   await app.register(profiles.plugin, { prefix: API_PREFIX });
+  const { notices, recovery } = security;
+  const links = { ...authOptions, sessions: auth.sessions, notices, recovery, appPublicUrl };
+  await wireBackoffice(app, { ...links, memberships, storage, mailer }, API_PREFIX);
   return app;
 }
 

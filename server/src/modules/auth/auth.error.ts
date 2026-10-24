@@ -4,7 +4,8 @@ export type AuthErrorCode =
   | 'FORBIDDEN_ROLE'
   | 'RATE_LIMITED'
   | 'TWO_FACTOR_CODE_INVALID'
-  | 'TWO_FACTOR_CHALLENGE_EXPIRED';
+  | 'TWO_FACTOR_CHALLENGE_EXPIRED'
+  | 'ACCOUNT_SUSPENDED';
 
 /** Every auth refusal; the edge translates `code` into the HTTP status and public message. */
 export class AuthError extends Error {
@@ -39,6 +40,20 @@ export class ForbiddenRoleError extends AuthError {
     super(
       'FORBIDDEN_ROLE',
       `user ${userId} has role ${role}; this route requires role ${required}`,
+    );
+  }
+}
+
+// Only after the right password: a wrong one stays INVALID_CREDENTIALS, so nobody learns from the
+// login screen who is suspended.
+export class AccountSuspendedError extends AuthError {
+  constructor(
+    readonly userId: string,
+    readonly suspendedAt: Date,
+  ) {
+    super(
+      'ACCOUNT_SUSPENDED',
+      `user ${userId} is suspended since ${suspendedAt.toISOString()}; expected an active account`,
     );
   }
 }

@@ -99,6 +99,21 @@ describe('SessionPresencePanel', () => {
     expect(initials).toHaveStyle({ backgroundColor: '#5cc8c0' });
   });
 
+  it("the master's presence rides on the avatar, not before the nick", () => {
+    renderPanel();
+
+    const masters = section('Mestre');
+    expect(within(masters).getByRole('img', { name: 'online' })).toBeInTheDocument();
+    expect(within(within(masters).getByTestId('nick-line')).queryByRole('img')).toBeNull();
+  });
+
+  it("while the board loads, the player's presence goes before the nick (no portrait to wear it)", () => {
+    renderPanel(EVERYONE, false);
+
+    const bia = within(section(/^Jogadores/)).getAllByTestId('nick-line')[0];
+    expect(within(bia!).getByRole('img', { name: 'online' })).toBeInTheDocument();
+  });
+
   it('two masters read "Mestres"', () => {
     renderPanel([ANA_AT_TABLE, BIA_ONLINE, { ...CAIO_AT_TABLE, role: 'master' }]);
 

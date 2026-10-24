@@ -25,6 +25,6 @@ export async function openTestDatabase(options: DatabaseOptions = {}): Promise<D
  *  Example: `beforeEach(() => truncateAllTables(db))` */
 export async function truncateAllTables(db: Database): Promise<void> {
   await db.execute(
-    sql`TRUNCATE TABLE users, auth_sessions, campaigns, campaign_members, scene_folders, scenes, tokens, token_controllers, token_bars, condition_definitions, active_conditions, combats, combatants, drawings, effect_areas, walls, lights, assets, main_tokens, member_cards, email_change_requests, user_two_factor, recovery_codes, two_factor_challenges RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE users, auth_sessions, campaigns, campaign_members, scene_folders, scenes, tokens, token_controllers, token_bars, condition_definitions, active_conditions, combats, combatants, drawings, effect_areas, walls, lights, assets, main_tokens, member_cards, email_change_requests, user_two_factor, recovery_codes, two_factor_challenges, account_recovery_tokens, invitations, password_resets RESTART IDENTITY CASCADE`,
   );
 }

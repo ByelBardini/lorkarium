@@ -59,6 +59,14 @@ describe('HttpAuthApi', () => {
     });
   });
 
+  it('a 403 ACCOUNT_SUSPENDED login becomes account_suspended', async () => {
+    transport.respondWith(403, { code: 'ACCOUNT_SUSPENDED', message: 'This account is suspended' });
+    expect(await api.login(CREDENTIALS)).toEqual({
+      ok: false,
+      failure: { kind: 'account_suspended' },
+    });
+  });
+
   it('a 429 with Retry-After: 42 becomes rate_limited for 42 seconds', async () => {
     transport.respondWith(
       429,
@@ -115,6 +123,14 @@ describe('HttpAuthApi', () => {
       expect(await api.verifyTwoFactor({ recoveryCode: 'k7m2p-9qrst' })).toEqual({
         ok: false,
         failure: { kind },
+      });
+    });
+
+    it('a 403 ACCOUNT_SUSPENDED at the second step fails as account_suspended', async () => {
+      transport.respondWith(403, { code: 'ACCOUNT_SUSPENDED', message: 'x' });
+      expect(await api.verifyTwoFactor({ code: '123456' })).toEqual({
+        ok: false,
+        failure: { kind: 'account_suspended' },
       });
     });
 

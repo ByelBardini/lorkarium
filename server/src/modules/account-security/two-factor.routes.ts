@@ -30,11 +30,13 @@ export function registerTwoFactorRoutes(
   });
   app.post('/account/two-factor/enable', options, async (request) => {
     const input = twoFactorEnableRequestDto.parse(request.body);
-    const recoveryCodes = await service.enable(userOf(request).id, input.code);
+    const userAgent = request.headers['user-agent'] ?? null;
+    const recoveryCodes = await service.enable(userOf(request).id, input.code, userAgent);
     return { recoveryCodes } satisfies RecoveryCodesResponseDto;
   });
   app.post('/account/two-factor/disable', options, async (request, reply) => {
-    await service.disable(userOf(request).id, twoFactorConfirmRequestDto.parse(request.body));
+    const input = twoFactorConfirmRequestDto.parse(request.body);
+    await service.disable(userOf(request).id, input, request.headers['user-agent'] ?? null);
     return reply.code(204).send();
   });
   app.post('/account/two-factor/recovery-codes', options, async (request) => {

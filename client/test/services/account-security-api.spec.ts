@@ -168,4 +168,39 @@ describe('HttpAccountSecurityApi', () => {
     transport.failWithNetworkDown();
     expect(await api.cancelEmailChange()).toEqual({ ok: false, failure: { kind: 'offline' } });
   });
+
+  describe('recovery link', () => {
+    it('checkRecovery POSTs /account/recovery/check and validates the answer by the DTO', async () => {
+      const recovery = { kind: 'revert-email-change', email: 'l****@x.com' } as const;
+      transport.respondWith(200, { recovery });
+      expect(await api.checkRecovery('t1')).toEqual({ ok: true, value: recovery });
+      expect(transport.requests).toEqual([
+        { method: 'POST', path: '/account/recovery/check', body: { token: 't1' } },
+      ]);
+    });
+
+    it('a check answer outside the DTO is unexpected', async () => {
+      transport.respondWith(200, { recovery: { kind: 'disable-2fa', email: null } });
+      expect(await api.checkRecovery('t1')).toEqual({ ok: false, failure: { kind: 'unexpected' } });
+    });
+
+    it('recover POSTs the token and the new password and a 204 is done', async () => {
+      transport.respondWith(204, null);
+      expect(await api.recover('t1', 'senha-nova-1')).toEqual({ ok: true, value: null });
+      expect(transport.requests[0]).toEqual({
+        method: 'POST',
+        path: '/account/recovery',
+        body: { token: 't1', newPassword: 'senha-nova-1' },
+      });
+    });
+
+    it.each([
+      [404, 'RECOVERY_TOKEN_INVALID', { kind: 'recovery_token_invalid' }],
+      [409, 'EMAIL_TAKEN', { kind: 'email_taken' }],
+      [429, 'RATE_LIMITED', { kind: 'rate_limited', retryAfterSeconds: 60 }],
+    ] as const)('recover refused %i %s fails as %o', async (status, code, failure) => {
+      refuse(status, code);
+      expect(await api.recover('t1', 'senha-nova-1')).toEqual({ ok: false, failure });
+    });
+  });
 });

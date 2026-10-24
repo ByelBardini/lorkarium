@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import type { Database } from '../../database/database';
+import type { DatabaseExecutor } from '../../database/transaction';
 import {
   emailChangeRequests,
   type EmailChangeRequestPo,
@@ -7,7 +7,7 @@ import {
 } from './email-change-requests.po';
 
 export class EmailChangeRequestsDao {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: DatabaseExecutor) {}
 
   /** Stores the request, replacing the user's previous one: its link stops working. */
   async replace(request: NewEmailChangeRequestPo): Promise<void> {

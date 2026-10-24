@@ -1,5 +1,11 @@
 export type ProfileErrorCode =
-  'AVATAR_NOT_FOUND' | 'UNSUPPORTED_IMAGE' | 'AVATAR_TOO_LARGE' | 'RATE_LIMITED';
+  | 'AVATAR_NOT_FOUND'
+  | 'UNSUPPORTED_IMAGE'
+  | 'AVATAR_TOO_LARGE'
+  | 'LINK_BLOCKED'
+  | 'LINK_UNREACHABLE'
+  | 'LINK_NOT_IMAGE'
+  | 'RATE_LIMITED';
 
 /** Every refusal of the profiles module, with the code the edge translates into a status. */
 export class ProfileError extends Error {
@@ -43,6 +49,38 @@ export class AvatarTooLargeError extends ProfileError {
   ) {
     const size = received === null ? `more than ${limit}` : String(received);
     super('AVATAR_TOO_LARGE', `the photo has ${size} bytes; expected at most ${limit}`);
+  }
+}
+
+// The same three link refusals as the table images (assets), with the photo's own codes.
+export class AvatarLinkBlockedError extends ProfileError {
+  constructor(
+    readonly host: string,
+    readonly address: string,
+  ) {
+    super(
+      'LINK_BLOCKED',
+      `photo link host ${host} resolves to ${address}; expected a public address`,
+    );
+  }
+}
+
+export class AvatarLinkUnreachableError extends ProfileError {
+  constructor(
+    readonly url: string,
+    readonly reason: string,
+  ) {
+    super('LINK_UNREACHABLE', `photo link ${url} ${reason}`);
+  }
+}
+
+/** The link answered something that is no photo (a web page, a video): `detail` is the processor's. */
+export class AvatarLinkNotImageError extends ProfileError {
+  constructor(
+    readonly url: string,
+    detail: string,
+  ) {
+    super('LINK_NOT_IMAGE', `photo link ${url} is not a PNG, JPEG, WebP or GIF image: ${detail}`);
   }
 }
 

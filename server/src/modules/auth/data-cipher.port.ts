@@ -1,7 +1,12 @@
 /** What a sealed value is for: each purpose gets a key of its own, so a value sealed for one never
  *  opens as another, and a blind index of one never matches another's. */
 export type CipherPurpose =
-  'user-email' | 'pending-email' | 'totp-secret' | 'email-index' | 'recovery-code';
+  | 'user-email'
+  | 'pending-email'
+  | 'invitation-email'
+  | 'totp-secret'
+  | 'email-index'
+  | 'recovery-code';
 
 /** Field encryption at rest, keyed by `DATA_ENCRYPTION_KEY`.
  *

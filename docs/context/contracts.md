@@ -21,7 +21,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `loginResponseDto` (`login.dto.ts`) — união discriminada por `status`, estrita: `{ status: 'signed-in', user }` | `{ status: 'two-factor-required' }` (sem `user`: a sessão só nasce depois do código). Responde também `POST /api/auth/login/two-factor`.
 - `twoFactorLoginRequestDto` — corpo da 2ª etapa: exatamente um entre `{ code }` (`totpCodeDto`) e `{ recoveryCode }` (`recoveryCodeDto`); os dois juntos ou nenhum são recusados.
 - `meResponseDto` — `{ user: AuthUserDto | null }` (`null` = visitante anônimo).
-- `apiErrorDto` / `ApiErrorDto` (`http/api-error.dto.ts`) — corpo de todo erro da API: `{ code, message, retryAfterSeconds? }`.
+- `apiErrorDto` / `ApiErrorDto` (`http/api-error.dto.ts`) — corpo de todo erro da API: `{ code, message, retryAfterSeconds?, invitationId? (ALREADY_INVITED), blockingCampaigns? (OWNS_SHARED_CAMPAIGNS) }`.
 - `healthResponseDto` / `HealthResponseDto` (`http/health.dto.ts`) — corpo do 200 de `GET /api/health`: `{ status: 'ok' }`.
 
 ### Mesas (`campaigns/`)
@@ -74,6 +74,14 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 ### Conta (`account/`)
 
 `usernameDto`, `memberColorDto`, perfil, foto, senha, e-mail, sessões ativas e 2FA: detalhe em [`contracts/conta.md`](contracts/conta.md).
+
+### Backoffice (`admin/`) e links de conta (`account-links/`)
+
+- `admin-users.dto.ts` — `adminUserDto` (`{ id, username, name, email, role, status: active | suspended, color, avatarId, campaignCount, lastSeenAt | null, createdAt }`), `adminInvitationDto` (`{ id, email, role, invitedBy (@ | null), sentAt, expiresAt }`; "vencido" é do client), `adminDirectoryResponseDto` `{ users, invitations }`, `adminUserResponseDto` `{ user }`, `adminUserParamsDto` `{ userId: uuid }`, `updateUserRoleRequestDto` `{ role }` estrito, `blockingCampaignDto` `{ id, name, otherMembers ≥ 1 }`, `userDeletionCheckDto` `{ blockingCampaigns, soloCampaigns }`.
+- `admin-invitations.dto.ts` — `createInvitationRequestDto` `{ email (trim + minúsculas), role }` estrito, `invitationParamsDto`, `invitationLinkResponseDto` `{ invitation, link }`, `passwordResetLinkResponseDto` `{ link, expiresAt }`.
+- `account-links/account-links.dto.ts` — `accountLinkTokenDto` `{ token }` (sobre `linkTokenDto` de `account/account-recovery.dto.ts`), `invitationInspectResponseDto` `{ email, suggestedUsername }`, `acceptInvitationRequestDto` `{ token, username (usernameDto), password (newPasswordDto), persistent }`, `acceptInvitationResponseDto` `{ status: 'signed-in', user }`, `passwordResetInspectResponseDto` `{ username }`, `completePasswordResetRequestDto` `{ token, newPassword }`.
+- `admin-mail-samples.dto.ts` — `mailSampleDto` `{ id, name, subject }`, `mailSamplesResponseDto` `{ samples }`, `mailSampleParamsDto` `{ sampleId }`, `sendMailSampleRequestDto` `{ to }` (aparado, minúsculas), `sendMailSampleResponseDto` `{ subject, to }`.
+- Specs: `packages/contracts/test/admin/*.spec.ts`, `test/account-links/account-links.dto.spec.ts`.
 
 ### Tempo real comum (`http/realtime-ack.dto.ts`)
 

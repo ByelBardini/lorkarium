@@ -48,7 +48,7 @@ export function PlayerCard(props: PlayerCardProps): React.JSX.Element {
       {card ? (
         <CardBody {...props} card={card} titleId={titleId} awayLabel={awayLabel} />
       ) : (
-        <NickLine id={titleId} member={member} isViewer={isViewer} awayLabel={awayLabel} />
+        <NickLine id={titleId} member={member} isViewer={isViewer} awayLabel={awayLabel} withMark />
       )}
     </article>
   );

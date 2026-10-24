@@ -7,7 +7,7 @@ Detalhe do hub [`auth.md`](../auth.md): as tabelas do 2FA, a porta TOTP, a checa
 - `user_two_factor`: `user_id` PK → `users.id` cascade, `secret_cipher` (`seal('totp-secret', base32, userId)`; o segredo em claro nunca fica no banco), `enabled_at` (nulo = setup pendente), `last_step` (o último passo TOTP aceito), `created_at`.
 - `recovery_codes`: `id` uuid, `user_id` → cascade (índice), `code_index` **único** (`index('recovery-code', código)`), `used_at` nulo, `created_at`.
 - `two_factor_challenges`: `id` = SHA-256 do token do cookie `lk_2fa`, `user_id` → cascade, `persistent` (o "Manter conectado" da 1ª etapa), `failures` (padrão 0), `expires_at`, `created_at`.
-- DAOs: `TwoFactorDao` (`findOf`, `savePending` — upsert que zera `enabled_at`/`last_step` —, `enable`, `recordStep` — `UPDATE … WHERE last_step IS NULL OR last_step < passo`, `false` = outro pedido usou antes —, `delete`), `RecoveryCodesDao` (`findOf`, `use` — só se `used_at IS NULL` —, `replace`, `countUnused`), `TwoFactorChallengesDao` (`insert`, `findById`, `recordFailure` — `failures + 1` no SQL, devolve o total —, `delete`).
+- DAOs: `TwoFactorDao` (`findOf`, `savePending` — upsert que zera `enabled_at`/`last_step` —, `enable`, `recordStep` — `UPDATE … WHERE last_step IS NULL OR last_step < passo`, `false` = outro pedido usou antes —, `delete`), `RecoveryCodesDao` (`findOf`, `use` — só se `used_at IS NULL` —, `replace`, `countUnused`), `TwoFactorChallengesDao` (`insert`, `findById`, `recordFailure` — `failures + 1` no SQL, devolve o total —, `delete`, `deleteAllOf(userId)` — a recuperação da conta derruba um login no meio; aceita `tx`).
 
 ## TOTP
 

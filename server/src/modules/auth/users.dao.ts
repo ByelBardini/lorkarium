@@ -48,6 +48,11 @@ export class UsersDao {
       .where(eq(users.id, userId));
   }
 
+  /** When the account was last seen (login, or a session touch in its 5-minute step). */
+  async touchLastSeen(userId: string, lastSeenAt: Date): Promise<void> {
+    await this.db.update(users).set({ lastSeenAt }).where(eq(users.id, userId));
+  }
+
   /** Swaps the sealed e-mail; an index already taken fails with the unique violation (23505). */
   async updateEmail(userId: string, sealed: SealedEmail): Promise<void> {
     await this.db.update(users).set(sealed).where(eq(users.id, userId));

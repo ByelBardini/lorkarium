@@ -11,13 +11,13 @@ Detalhe do hub [`account-security.md`](../account-security.md): a ordem de cada 
 
 ## Senha
 
-- `changePassword(userId, sessãoAtual, dto)`: `CurrentPasswordService.require` (403 se errada, nada gravado) → `hasher.hash(nova)` → `UsersDao.updatePassword(hash, agora)` (grava `password_changed_at`) → `deleteOthersOf` → `sessionEnded` de cada → aviso "Sua senha foi trocada".
+- `changePassword(userId, sessãoAtual, dto, userAgent)`: `CurrentPasswordService.require` (403 se errada, nada gravado) → `hasher.hash(nova)` → `UsersDao.updatePassword(hash, agora)` (grava `password_changed_at`) → `deleteOthersOf` → `sessionEnded` de cada → `recovery.issue('revert-password-change')` → aviso "Sua senha do Lorkarium foi trocada" com o link.
 - `overview(userId)`: e-mail aberto, `passwordChangedAt`, `pendingEmail` (só se o pedido não venceu, mascarado), `twoFactor.enabled` (`enabled_at` não nulo) e `recoveryCodesLeft` (não usados; 0 com o 2FA desligado).
 
 ## E-mail
 
-- `request(userId, dto)`: senha atual → `EmailChangeBo.requestAt(novo, agora)` (igual ao atual = `EMAIL_UNCHANGED`; prazo 30 min) → índice já em uso = `EMAIL_TAKEN` → token novo (`SessionTokenPort`), grava `hash(token)` + novo cifrado + índice (substitui o pedido anterior) → **link** ao endereço novo (`${APP_PUBLIC_URL}/account/email/confirm#token=…`; falha aqui falha o pedido) → aviso ao antigo com o novo mascarado → devolve o mascarado.
-- `confirm(token)` (pública): `findById(hash)` ausente = `EMAIL_TOKEN_INVALID` (inexistente ou já usado) → `PendingEmailBo.requireLiveAt` (`agora ≥ expiresAt` = vencido, mesmo código) → abre o novo (`pending-email`) → `UsersDao.updateEmail(toSealedEmail(...))`; o `23505` do índice único (tomado entre o pedido e o clique) vira `EMAIL_TAKEN` → apaga o pedido → aviso ao antigo.
+- `request(userId, dto, userAgent)`: senha atual → `EmailChangeBo.requestAt(novo, agora)` (igual ao atual = `EMAIL_UNCHANGED`; prazo 30 min) → índice já em uso = `EMAIL_TAKEN` → token novo (`SessionTokenPort`), grava `hash(token)` + novo cifrado + índice (substitui o pedido anterior) → **link** ao endereço novo (`${APP_PUBLIC_URL}/account/email/confirm#token=…`; falha aqui falha o pedido) → `recovery.issue('cancel-email-change')` → aviso ao antigo com o novo mascarado e o link → devolve o mascarado.
+- `confirm(token, userAgent)` (pública): `findById(hash)` ausente = `EMAIL_TOKEN_INVALID` (inexistente ou já usado) → `PendingEmailBo.requireLiveAt` (`agora ≥ expiresAt` = vencido, mesmo código) → abre o novo (`pending-email`) → `UsersDao.updateEmail(toSealedEmail(...))`; o `23505` do índice único (tomado entre o pedido e o clique) vira `EMAIL_TAKEN` → apaga o pedido → `recovery.issue('revert-email-change', antigo)` → aviso ao antigo com o link.
 - `cancel`: apaga o pedido da pessoa (o link morre); idempotente.
 - `maskEmail('bianca@x.com')` → `b*****@x.com` (primeira letra e um `*` por letra da parte local).
 
@@ -30,18 +30,18 @@ Detalhe do hub [`account-security.md`](../account-security.md): a ordem de cada 
 
 ## Avisos
 
-| Quando                    | Para            | Assunto                                     |
-| ------------------------- | --------------- | ------------------------------------------- |
-| troca de senha            | e-mail da conta | Sua senha foi trocada                       |
-| 2FA ligado / desligado    | e-mail da conta | Verificação em duas etapas ligada/desligada |
-| pedido de troca de e-mail | endereço atual  | Pedido de troca de e-mail                   |
-| link de confirmação       | endereço novo   | Confirme seu novo e-mail                    |
-| troca concluída           | endereço antigo | O e-mail da sua conta foi trocado           |
+| Quando                    | Para            | Assunto                                     | Link                   |
+| ------------------------- | --------------- | ------------------------------------------- | ---------------------- |
+| troca de senha            | e-mail da conta | Sua senha do Lorkarium foi trocada          | recuperação (senha)    |
+| 2FA ligado / desligado    | e-mail da conta | Verificação em duas etapas ligada/desligada | `/account`             |
+| pedido de troca de e-mail | endereço atual  | Pediram para trocar o e-mail da sua conta   | recuperação (cancelar) |
+| link de confirmação       | endereço novo   | Confirme seu novo e-mail no Lorkarium       | confirmação (30 min)   |
+| troca concluída           | endereço antigo | O e-mail da sua conta foi trocado           | recuperação (voltar)   |
 
-Todo aviso tem texto e HTML, termina com o "Se não foi você…" e nunca leva token nem senha (só o link de confirmação leva o token, no fragmento). Os avisos passam pelo `SecurityNoticesService`: falha de entrega vai ao log (`app.log.warn`, com o assunto) e a mudança, já gravada, segue.
+Todos no molde ([`../mail.md`](../mail.md)): "Oi, apelido", o @, "Quando" (Brasília) e "De onde" (o aparelho do `user-agent` da requisição, que as rotas passam aos services). Nunca levam senha; o token só vai no fragmento do link. Os avisos passam pelo `SecurityNoticesService`: falha de entrega vai ao log (`app.log.warn`, com o assunto) e a mudança, já gravada, segue. O link de confirmação usa o `mailer` direto (falha falha o pedido).
 
 ## Testes
 
 - Unit (`server/test/modules/account-security/`): `account-security.mapper.spec.ts` (UAs reais), `security-mail.mapper.spec.ts`, `email-change.bo.spec.ts`, `account-sessions.service.spec.ts`, `account-security.service.spec.ts` (ordem por diário: `updatePassword → deleteOthersOf → sessionEnded`), `email-change.service.spec.ts`, `account-two-factor.service.spec.ts`, `current-password.service.spec.ts`, `security-notices.service.spec.ts`. Infra: `test/infrastructure/{mailer/log-mailer,qr-code/qrcode-image,recovery-code/crypto-recovery-code,totp/otpauth-totp}.spec.ts`.
-- Fakes: `test/support/account-security-fakes.ts` — `MailerFake` (`sent`, `to(endereço)`, `confirmationTokenFor(endereço)`, `failWith`), `QrCodeFake`, `RecoveryCodeFake` (códigos distintos e válidos), `EmailChangeRequestsDaoFake`; `test/support/two-factor-fakes.ts` — `TotpFake` (`stepsByCode`, `secretsAsked`), `TwoFactorDaoFake`, `RecoveryCodesDaoFake`, `TwoFactorChallengesDaoFake`. `UsersDaoFake.updateEmail` lança o `23505` num índice tomado.
+- Fakes: `test/support/account-security-fakes.ts` — `MailerFake` (`sent`, `to(endereço)`, `confirmationTokenFor(endereço)`, `recoveryTokenFor(endereço)`, `lastTokenFor(endereço, regex)`, `failWith`), `RecoveryIssuerFake` (`issued`; links `…#token=recovery-N`), `AccountRecoveryTokensDaoFake`, `QrCodeFake`, `RecoveryCodeFake` (códigos distintos e válidos), `EmailChangeRequestsDaoFake`; `test/support/two-factor-fakes.ts` — `TotpFake` (`stepsByCode`, `secretsAsked`), `TwoFactorDaoFake`, `RecoveryCodesDaoFake`, `TwoFactorChallengesDaoFake`. `UsersDaoFake.updateEmail` lança o `23505` num índice tomado.
 - Integração (`server/test/integration/`): `account-sessions.spec.ts` (inclui a queda do socket), `account-password.spec.ts`, `account-email.spec.ts` (`ClockFake` para vencer o link), `account-two-factor.spec.ts` (código calculado no spec com o `otpauth` pelo segredo devolvido; `ClockFake` avança 30 s entre usos), `auth-two-factor.spec.ts` (login em duas etapas), `account-security-dao.spec.ts` e `smtp-mailer.spec.ts` (Mailpit real; `MAILPIT_SMTP_URL`/`MAILPIT_API_URL`, padrão 1026/8026 da receita do `/testar`). Helpers em `test/support/account-security-http.ts` (`accountRequest`, `logInAs(app, email, senha, userAgent)`, `cookieOf`, `totpCodeAt`).

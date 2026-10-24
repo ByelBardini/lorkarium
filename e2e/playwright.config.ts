@@ -47,6 +47,8 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   library: ['library', 'character'],
   // Borrows Bia and Caio for password and 2FA (undone at the end): kept away from the others.
   account: ['account'],
+  // Invites, suspends and deletes accounts (Bia's table blocks her deletion): its own group too.
+  backoffice: ['backoffice'],
 };
 
 assertEverySpecIsGrouped(SPEC_GROUPS);

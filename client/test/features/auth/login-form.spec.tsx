@@ -81,6 +81,15 @@ describe('LoginForm', () => {
     expect(screen.getByLabelText('Senha')).toHaveFocus();
   });
 
+  it('a suspended account says so, keeps the e-mail and clears the password', async () => {
+    await failWith({ kind: 'account_suspended' });
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Esta conta está suspensa. Fale com quem administra o Lorkarium.',
+    );
+    expect(screen.getByLabelText('E-mail')).toHaveValue('ana@mesa.com');
+    expect(screen.getByLabelText('Senha')).toHaveValue('');
+  });
+
   it.each([
     [{ kind: 'rate_limited', retryAfterSeconds: 42 }, 'Muitas tentativas. Tente de novo em 42 s.'],
     [{ kind: 'offline' }, 'Sem conexão com o servidor. Confira sua internet e tente de novo.'],

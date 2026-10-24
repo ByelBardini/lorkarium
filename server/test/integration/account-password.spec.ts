@@ -115,10 +115,10 @@ describe('password change and the security section', () => {
     expect(after.security.passwordChangedAt).not.toBeNull();
   });
 
-  it('the change sends "Sua senha foi trocada" to the e-mail of Ana', async () => {
+  it('the change sends "Sua senha do Lorkarium foi trocada" to the e-mail of Ana', async () => {
     await changePassword(current, OLD_PASSWORD);
     expect(mailer.sent.map((mail) => [mail.to, mail.subject])).toEqual([
-      ['ana@mesa.com', 'Sua senha foi trocada'],
+      ['ana@mesa.com', 'Sua senha do Lorkarium foi trocada'],
     ]);
   });
 });

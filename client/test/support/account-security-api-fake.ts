@@ -10,7 +10,11 @@ import type {
   TwoFactorSetupResponseDto,
 } from '@lorkarium/contracts';
 import type { AccountLoadFailure, AccountResult } from '@/services/account-failure';
-import type { AccountSecurityApi, SecurityResult } from '@/services/account-security-api';
+import type {
+  AccountRecoveryView,
+  AccountSecurityApi,
+  SecurityResult,
+} from '@/services/account-security-api';
 import { ANA } from './auth-api-fake';
 import { ScriptedAnswers } from './scripted-answers';
 
@@ -99,6 +103,14 @@ type Answers = {
   enableTwoFactor: SecurityResult<string[]>;
   disableTwoFactor: SecurityResult<null>;
   regenerateRecoveryCodes: SecurityResult<string[]>;
+  checkRecovery: SecurityResult<AccountRecoveryView>;
+  recover: SecurityResult<null>;
+};
+
+/** What an unscripted recovery link does: undo a password change. */
+export const PASSWORD_RECOVERY: AccountRecoveryView = {
+  kind: 'revert-password-change',
+  email: null,
 };
 
 /** An `AccountSecurityApi` that keeps the account like the server would: a change of password,
@@ -145,6 +157,14 @@ export class AccountSecurityApiFake implements AccountSecurityApi {
 
   confirmEmail(input: ConfirmEmailRequestDto): Promise<Answers['confirmEmail']> {
     return this.answers.reply('confirmEmail', input, () => ok(null));
+  }
+
+  checkRecovery(token: string): Promise<Answers['checkRecovery']> {
+    return this.answers.reply('checkRecovery', token, () => ok(PASSWORD_RECOVERY));
+  }
+
+  recover(token: string, newPassword: string): Promise<Answers['recover']> {
+    return this.answers.reply('recover', { token, newPassword }, () => ok(null));
   }
 
   revokeSession(sessionId: string): Promise<Answers['revokeSession']> {

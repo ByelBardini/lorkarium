@@ -9,7 +9,9 @@ import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore } from '@/stores/rail-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { createSessionStore } from '@/stores/session-store';
+import { AccountLinksApiFake } from './account-links-api-fake';
 import { AccountSecurityApiFake } from './account-security-api-fake';
+import { UserAdminApiFake } from './user-admin-api-fake';
 import { AssetsApiFake } from './assets-api-fake';
 import { AuthApiFake } from './auth-api-fake';
 import { BoardRenderersFake } from './board-renderer-fake';
@@ -30,6 +32,8 @@ export type TestDependencies = AppDependencies & {
   campaignsApi: CampaignsApiFake;
   profileApi: ProfileApiFake;
   accountSecurityApi: AccountSecurityApiFake;
+  userAdminApi: UserAdminApiFake;
+  accountLinksApi: AccountLinksApiFake;
   libraryApi: LibraryApiFake;
   sceneActivation: SceneActivationFake;
   assets: AssetsApiFake;
@@ -84,6 +88,8 @@ export function testDependencies(): TestDependencies {
     campaignsApi: new CampaignsApiFake(),
     profileApi: new ProfileApiFake(),
     accountSecurityApi: new AccountSecurityApiFake(TEST_NOW),
+    userAdminApi: new UserAdminApiFake(TEST_NOW),
+    accountLinksApi: new AccountLinksApiFake(),
     libraryApi: new LibraryApiFake(),
     sceneActivation: new SceneActivationFake(),
     assets: new AssetsApiFake(),
