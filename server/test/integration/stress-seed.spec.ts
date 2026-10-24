@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
@@ -10,7 +11,7 @@ import { UsersDao } from '../../src/modules/auth/users.dao';
 import { buildStressSceneSeed } from '../../src/app/build-stress-seed';
 import { atTable, synced } from '../support/live-table';
 import type { RealtimeClient } from '../support/realtime-client';
-import { logIn } from '../support/sign-in';
+import { logIn, testDataCipher } from '../support/sign-in';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 describe('the stress scene seed (pnpm db:seed-stress)', () => {
@@ -25,8 +26,12 @@ describe('the stress scene seed (pnpm db:seed-stress)', () => {
   afterAll(() => connection.close());
   beforeEach(async () => {
     await truncateAllTables(connection.db);
-    const users = new UsersDao(connection.db);
-    await new DevPlayersSeedService(users, new Argon2PasswordHasher()).seed('test');
+    await new DevPlayersSeedService({
+      users: new UsersDao(connection.db),
+      hasher: new Argon2PasswordHasher(),
+      cipher: testDataCipher(),
+      newId: randomUUID,
+    }).seed('test');
     app = await buildApp({ env: { ...readEnv(process.env), adminSeed: null }, db: connection.db });
     baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
   });
@@ -37,7 +42,7 @@ describe('the stress scene seed (pnpm db:seed-stress)', () => {
 
   it('Caio joins the seeded table and board:sync brings the whole dark scene', async () => {
     const { campaignId, created } = await buildStressSceneSeed(connection.db).seed('test');
-    const caio = await new UsersDao(connection.db).findByEmail('caio@lorkarium.dev');
+    const caio = await new UsersDao(connection.db).findByUsername('caio');
     const token = await logIn(app, 'caio@lorkarium.dev', DEV_PLAYER_PASSWORD);
     const client = await atTable(
       baseUrl,

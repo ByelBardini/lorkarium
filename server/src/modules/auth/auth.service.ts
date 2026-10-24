@@ -1,23 +1,32 @@
 import type { AuthUserDto, LoginRequestDto } from '@lorkarium/contracts';
-import { AuthSessionBo } from './auth-session.bo';
+import { AuthSessionBo, lastSeenDue } from './auth-session.bo';
 import type { AuthSessionsDao } from './auth-sessions.dao';
-import type { AuthSessionPo } from './auth-sessions.po';
+import { USER_AGENT_MAX_LENGTH, type AuthSessionPo } from './auth-sessions.po';
 import { InvalidCredentialsError, UnauthenticatedError } from './auth.error';
-import { toAuthSessionBo, toAuthUserDto, toUserAccessBo } from './auth.mapper';
+import { emailIndexOf, toAuthSessionBo, toAuthUserDto, toUserAccessBo } from './auth.mapper';
 import type { ClockPort } from './clock.port';
+import type { DataCipherPort } from './data-cipher.port';
 import type { PasswordHasherPort } from './password-hasher.port';
 import type { SessionEndedPort } from './session-ended.port';
 import type { SessionTokenPort } from './session-token.port';
+import { TwoFactorChallengeBo } from './two-factor-challenge.bo';
+import type { TwoFactorChallengesDao } from './two-factor-challenges.dao';
+import type { TwoFactorCheckService } from './two-factor-check.service';
 import type { UserRole } from './user-access.bo';
 import type { UsersDao } from './users.dao';
 import type { UserPo } from './users.po';
 
 export type AuthServiceDeps = Readonly<{
-  users: Pick<UsersDao, 'findByEmail' | 'findById'>;
-  sessions: Pick<AuthSessionsDao, 'insert' | 'findById' | 'updateExpiry' | 'delete'>;
+  users: Pick<UsersDao, 'findByEmailIndex' | 'findById'>;
+  sessions: Pick<AuthSessionsDao, 'insert' | 'findById' | 'updateExpiry' | 'delete' | 'touch'>;
+  /** Whether the account asks for a second factor after the password. */
+  twoFactor: Pick<TwoFactorCheckService, 'isEnabled'>;
+  challenges: Pick<TwoFactorChallengesDao, 'insert'>;
   hasher: PasswordHasherPort;
   tokens: SessionTokenPort;
   clock: ClockPort;
+  /** Opens the e-mail of the row and computes the blind index the login looks it up by. */
+  cipher: DataCipherPort;
   /** Hash of a random secret, verified when the e-mail is unknown so both refusals cost the same time. */
   decoyHash: string;
   sessionEnded: SessionEndedPort;
@@ -29,6 +38,13 @@ export type IssuedSession = Readonly<{
   expiresAt: Date;
   persistent: boolean;
 }>;
+
+/** The second step of a login: the `lk_2fa` cookie carries `token`, the database only its hash. */
+export type IssuedChallenge = Readonly<{ token: string; expiresAt: Date }>;
+
+export type LoginOutcome =
+  | (Readonly<{ status: 'signed-in' }> & IssuedSession)
+  | Readonly<{ status: 'two-factor-required'; challenge: IssuedChallenge }>;
 
 export type ResolvedSession = Readonly<{
   user: AuthUserDto;
@@ -47,22 +63,36 @@ export type ResolvedSession = Readonly<{
 export class AuthService {
   constructor(private readonly deps: AuthServiceDeps) {}
 
-  async login(input: LoginRequestDto): Promise<IssuedSession> {
-    const row = await this.deps.users.findByEmail(input.email);
+  /** The password step: a session, or a challenge when the account has 2FA on (no session yet).
+   *  `userAgent` is kept on the session, cut to USER_AGENT_MAX_LENGTH. */
+  async login(input: LoginRequestDto, userAgent?: string): Promise<LoginOutcome> {
+    const row = await this.deps.users.findByEmailIndex(emailIndexOf(this.deps.cipher, input.email));
     const matches = await this.deps.hasher.verify(
       row?.passwordHash ?? this.deps.decoyHash,
       input.password,
     );
     if (!row || !matches) throw new InvalidCredentialsError(input.email);
+    if (await this.deps.twoFactor.isEnabled(row.id)) {
+      return { status: 'two-factor-required', challenge: await this.challenge(row, input) };
+    }
+    return { status: 'signed-in', ...(await this.startSession(row, input.rememberMe, userAgent)) };
+  }
+
+  /** Issues a login session for `row` (after the password, or after the second factor). */
+  async startSession(row: UserPo, persistent: boolean, userAgent?: string): Promise<IssuedSession> {
     const token = this.deps.tokens.generate();
-    const terms = AuthSessionBo.startedAt(this.deps.clock.now(), input.rememberMe);
-    await this.deps.sessions.insert({ id: this.deps.tokens.hash(token), userId: row.id, ...terms });
-    return { user: toAuthUserDto(row), token, ...terms };
+    const now = this.deps.clock.now();
+    const terms = AuthSessionBo.startedAt(now, persistent);
+    const id = this.deps.tokens.hash(token);
+    const agent = userAgent?.slice(0, USER_AGENT_MAX_LENGTH) ?? null;
+    const device = { userAgent: agent, lastSeenAt: now };
+    await this.deps.sessions.insert({ id, userId: row.id, ...device, ...terms });
+    return { user: toAuthUserDto(row, this.deps.cipher), token, ...terms };
   }
 
   async resolveSession(token: string | undefined): Promise<ResolvedSession | null> {
     const resolved = await this.resolveRows(token);
-    return resolved && toResolvedSession(resolved);
+    return resolved && toResolvedSession(resolved, this.deps.cipher);
   }
 
   /** The session of `token` when its account holds `required`; throws UNAUTHENTICATED or FORBIDDEN_ROLE. */
@@ -71,7 +101,7 @@ export class AuthService {
     if (!resolved)
       throw new UnauthenticatedError(token ? 'an unknown or expired session' : 'no session cookie');
     toUserAccessBo(resolved.user).requireRole(required);
-    return toResolvedSession(resolved);
+    return toResolvedSession(resolved, this.deps.cipher);
   }
 
   async logout(token: string | undefined): Promise<void> {
@@ -92,7 +122,26 @@ export class AuthService {
     }
     const user = await this.deps.users.findById(session.userId);
     if (!user) return null;
+    await this.touchIfDue(session, now);
     return { user, session, expiresAt: await this.renewIfDue(session, now) };
+  }
+
+  private async challenge(row: UserPo, input: LoginRequestDto): Promise<IssuedChallenge> {
+    const token = this.deps.tokens.generate();
+    const expiresAt = TwoFactorChallengeBo.expiresAfter(this.deps.clock.now());
+    const id = this.deps.tokens.hash(token);
+    await this.deps.challenges.insert({
+      id,
+      userId: row.id,
+      persistent: input.rememberMe,
+      expiresAt,
+    });
+    return { token, expiresAt };
+  }
+
+  // In steps (LAST_SEEN_STEP_MS): one write per request would cost every route a query.
+  private async touchIfDue(session: AuthSessionPo, now: Date): Promise<void> {
+    if (lastSeenDue(session.lastSeenAt, now)) await this.deps.sessions.touch(session.id, now);
   }
 
   private async renewIfDue(session: AuthSessionPo, now: Date): Promise<Date> {
@@ -105,9 +154,12 @@ export class AuthService {
 
 type ResolvedRows = Readonly<{ user: UserPo; session: AuthSessionPo; expiresAt: Date }>;
 
-function toResolvedSession({ user, session, expiresAt }: ResolvedRows): ResolvedSession {
+function toResolvedSession(
+  { user, session, expiresAt }: ResolvedRows,
+  cipher: DataCipherPort,
+): ResolvedSession {
   return {
-    user: toAuthUserDto(user),
+    user: toAuthUserDto(user, cipher),
     sessionId: session.id,
     expiresAt,
     recheckAt: toAuthSessionBo({ ...session, expiresAt }).recheckAt(),

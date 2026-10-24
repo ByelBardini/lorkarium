@@ -18,9 +18,10 @@ describe('runInTransaction on Postgres', () => {
 
   afterAll(() => connection.close());
 
+  // The @ the factory derives from each e-mail: the e-mail itself is sealed.
   async function storedEmails(): Promise<string[]> {
-    const rows = await connection.db.select({ email: users.email }).from(users);
-    return rows.map((row) => row.email).sort();
+    const rows = await connection.db.select({ username: users.username }).from(users);
+    return rows.map((row) => `${row.username}@mesa.com`).sort();
   }
 
   it('commits every insert of the callback and returns what the callback returned', async () => {

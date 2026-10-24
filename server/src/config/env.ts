@@ -19,6 +19,10 @@ const ENV_KEYS = [
   'S3_ACCESS_KEY_ID',
   'S3_SECRET_ACCESS_KEY',
   'S3_FORCE_PATH_STYLE',
+  'DATA_ENCRYPTION_KEY',
+  'SMTP_URL',
+  'MAIL_FROM',
+  'APP_PUBLIC_URL',
 ] as const;
 
 // Values that must never reach a log line or a boot error message.
@@ -26,11 +30,47 @@ const SECRET_KEYS: ReadonlySet<string> = new Set([
   'DATABASE_URL',
   'ADMIN_PASSWORD',
   'S3_SECRET_ACCESS_KEY',
+  'DATA_ENCRYPTION_KEY',
+  // smtp://user:password@host:port carries the password.
+  'SMTP_URL',
 ]);
 
 export const S3_SECRET_MIN_LENGTH = 8;
 
 const PORT_RULE = 'must be an integer between 1 and 65535';
+
+export const DATA_ENCRYPTION_KEY_BYTES = 32;
+
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+// The master key of the field encryption (e-mail, 2FA secret): never optional, or a dev box would
+// write data no other box opens. Generate one with `openssl rand -base64 32`.
+const DATA_ENCRYPTION_KEY = z
+  .string({ error: `is required; expected ${DATA_ENCRYPTION_KEY_BYTES} bytes (base64)` })
+  .transform((value, ctx): Buffer => {
+    const key = Buffer.from(value, 'base64');
+    if (BASE64.test(value) && key.length === DATA_ENCRYPTION_KEY_BYTES) return key;
+    const decoded = BASE64.test(value) ? `decodes to ${key.length} bytes` : 'is not base64';
+    ctx.addIssue({
+      code: 'custom',
+      message: `${decoded}; expected ${DATA_ENCRYPTION_KEY_BYTES} bytes (base64)`,
+    });
+    return z.NEVER;
+  });
+
+export const DEFAULT_MAIL_FROM = 'Lorkarium <no-reply@lorkarium.dev>';
+
+// The client of `pnpm dev`; production must say where the app lives (the e-mail links point there).
+export const DEFAULT_APP_PUBLIC_URL = 'http://localhost:5173';
+
+const SMTP_SCHEMES: ReadonlySet<string> = new Set(['smtp:', 'smtps:']);
+
+const SMTP_URL = z
+  .url({ error: 'must be a URL (smtp://localhost:1025)' })
+  .refine((value) => SMTP_SCHEMES.has(new URL(value).protocol), {
+    error: 'must start with smtp:// or smtps://',
+  })
+  .optional();
 
 /** An integer variable in `[min, max]` with a default; the rule text names the range. */
 function boundedInteger(min: number, max: number, fallback: number, unit = ''): z.ZodType<number> {
@@ -82,9 +122,14 @@ const envSchema = z
       .enum(['true', 'false'], { error: 'must be true or false' })
       .default('true')
       .transform((value) => value === 'true'),
+    DATA_ENCRYPTION_KEY,
+    SMTP_URL,
+    MAIL_FROM: z.string().trim().min(3).default(DEFAULT_MAIL_FROM),
+    APP_PUBLIC_URL: z.url({ error: 'must be a URL (https://mesa.example.com)' }).optional(),
   })
   .superRefine(requireAdminPair)
-  .superRefine(requireStrongAdminPasswordInProduction);
+  .superRefine(requireStrongAdminPasswordInProduction)
+  .superRefine(requireMailInProduction);
 
 type ParsedEnv = z.infer<typeof envSchema>;
 
@@ -109,6 +154,10 @@ export type DatabaseConfig = Readonly<{
   lockTimeoutMs: number;
 }>;
 
+/** How e-mail leaves: SMTP (Mailpit in dev), or only the log outside production. */
+export type MailerConfig =
+  Readonly<{ kind: 'smtp'; url: string; from: string }> | Readonly<{ kind: 'log'; from: string }>;
+
 export type Env = Readonly<{
   nodeEnv: NodeEnv;
   port: number;
@@ -117,6 +166,11 @@ export type Env = Readonly<{
   database: DatabaseConfig;
   adminSeed: AdminSeedConfig | null;
   storage: StorageConfig;
+  /** 32 bytes; the master key the data cipher derives its per-purpose subkeys from. */
+  dataEncryptionKey: Buffer;
+  mailer: MailerConfig;
+  /** Where the client is served, without a trailing slash: the base of the links in e-mails. */
+  appPublicUrl: string;
 }>;
 
 export class InvalidEnvError extends Error {
@@ -148,6 +202,27 @@ function requireStrongAdminPasswordInProduction(
     path: ['ADMIN_PASSWORD'],
     message: `must have at least ${ADMIN_PASSWORD_MIN_LENGTH} characters in production`,
   });
+}
+
+type MailVariables = {
+  NODE_ENV: string;
+  SMTP_URL?: string | undefined;
+  APP_PUBLIC_URL?: string | undefined;
+};
+
+// Production never falls back to the log mailer nor to localhost links.
+function requireMailInProduction(env: MailVariables, ctx: z.RefinementCtx): void {
+  if (env.NODE_ENV !== 'production') return;
+  if (env.SMTP_URL === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'is required in production' });
+  }
+  if (env.APP_PUBLIC_URL === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['APP_PUBLIC_URL'],
+      message: 'is required in production',
+    });
+  }
 }
 
 function requireAdminPair(env: AdminPair, ctx: z.RefinementCtx): void {
@@ -213,5 +288,13 @@ function toEnv(parsed: ParsedEnv): Env {
       secretAccessKey: parsed.S3_SECRET_ACCESS_KEY,
       forcePathStyle: parsed.S3_FORCE_PATH_STYLE,
     },
+    dataEncryptionKey: parsed.DATA_ENCRYPTION_KEY,
+    mailer: toMailerConfig(parsed),
+    appPublicUrl: (parsed.APP_PUBLIC_URL ?? DEFAULT_APP_PUBLIC_URL).replace(/\/+$/, ''),
   };
+}
+
+function toMailerConfig(parsed: ParsedEnv): MailerConfig {
+  const from = parsed.MAIL_FROM;
+  return parsed.SMTP_URL ? { kind: 'smtp', url: parsed.SMTP_URL, from } : { kind: 'log', from };
 }

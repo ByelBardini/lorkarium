@@ -260,6 +260,55 @@
       "when": 1792726578827,
       "tag": "0036_token_anchor",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792819392241,
+      "tag": "0037_user_profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792819410019,
+      "tag": "0038_email_cipher",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792819419611,
+      "tag": "0039_drop_plain_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792820628656,
+      "tag": "0040_auth_session_devices",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792820652673,
+      "tag": "0041_email_change_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792820667006,
+      "tag": "0042_two_factor",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792820679504,
+      "tag": "0043_two_factor_challenges",
+      "breakpoints": true
     }
   ]
 }

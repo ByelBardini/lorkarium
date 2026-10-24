@@ -4,11 +4,17 @@ import { DevSeedRefusedError } from './auth.error';
 // Shared by every dev box and by the e2e (e2e/test/support/dev-players.ts): never a real secret.
 export const DEV_PLAYER_PASSWORD = 'lorkarium-dev';
 
-export type DevPlayerAccount = Readonly<{ name: string; email: string; role: 'user' }>;
+export type DevPlayerAccount = Readonly<{
+  username: string;
+  name: string;
+  email: string;
+  role: 'user';
+}>;
 
+// The @ is fixed (the e2e and the stress seed find them by it); the nicknames stay Bia and Caio.
 export const DEV_PLAYERS: readonly DevPlayerAccount[] = [
-  { name: 'Bia', email: 'bia@lorkarium.dev', role: 'user' },
-  { name: 'Caio', email: 'caio@lorkarium.dev', role: 'user' },
+  { username: 'bia', name: 'Bia', email: 'bia@lorkarium.dev', role: 'user' },
+  { username: 'caio', name: 'Caio', email: 'caio@lorkarium.dev', role: 'user' },
 ];
 
 export type DevPlayersSeedDecision = Readonly<{

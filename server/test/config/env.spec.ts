@@ -9,7 +9,8 @@ const S3 = {
   S3_ACCESS_KEY_ID: 'lorkarium',
   S3_SECRET_ACCESS_KEY: 'lorkarium-dev-secret',
 };
-const REQUIRED = { DATABASE_URL, ...S3 };
+const DATA_ENCRYPTION_KEY = Buffer.alloc(32, 3).toString('base64');
+const REQUIRED = { DATABASE_URL, ...S3, DATA_ENCRYPTION_KEY };
 const STORAGE = {
   endpoint: 'http://localhost:8333',
   region: 'sa-east-1',
@@ -20,7 +21,7 @@ const STORAGE = {
 };
 
 describe('readEnv', () => {
-  it('only the database and S3 yield development on port 3333 without an admin seed', () => {
+  it('only the database, S3 and the data key yield development on port 3333 without an admin seed', () => {
     expect(readEnv({ ...REQUIRED })).toEqual({
       nodeEnv: 'development',
       port: 3333,
@@ -29,6 +30,9 @@ describe('readEnv', () => {
       database: { poolMax: 10, statementTimeoutMs: 5000, lockTimeoutMs: 2000 },
       adminSeed: null,
       storage: STORAGE,
+      dataEncryptionKey: Buffer.alloc(32, 3),
+      mailer: { kind: 'log', from: 'Lorkarium <no-reply@lorkarium.dev>' },
+      appPublicUrl: 'http://localhost:5173',
     });
   });
 
@@ -138,5 +142,90 @@ describe('readEnv, database pool and timeouts', () => {
     expect(() => readEnv({ ...REQUIRED, DATABASE_LOCK_TIMEOUT_MS: '0' })).toThrow(
       'DATABASE_LOCK_TIMEOUT_MS must be an integer from 100 to 600000 milliseconds (received "0")',
     );
+  });
+});
+
+describe('readEnv, DATA_ENCRYPTION_KEY', () => {
+  it('absent is refused naming the variable and the expected 32 bytes', () => {
+    expect(() => readEnv({ ...REQUIRED, DATA_ENCRYPTION_KEY: undefined })).toThrow(
+      /DATA_ENCRYPTION_KEY is required; expected 32 bytes \(base64\) \(received nothing\)/,
+    );
+  });
+
+  it('a key of 16 bytes is refused citing the size received, without echoing the key', () => {
+    const short = Buffer.alloc(16, 1).toString('base64');
+    const read = (): unknown => readEnv({ ...REQUIRED, DATA_ENCRYPTION_KEY: short });
+    expect(read).toThrow(
+      'DATA_ENCRYPTION_KEY decodes to 16 bytes; expected 32 bytes (base64) (received a redacted value)',
+    );
+    expect(read).not.toThrow(short);
+  });
+
+  it('a value that is not base64 is refused saying so', () => {
+    expect(() => readEnv({ ...REQUIRED, DATA_ENCRYPTION_KEY: 'not base64!' })).toThrow(
+      /DATA_ENCRYPTION_KEY is not base64; expected 32 bytes/,
+    );
+  });
+
+  it('a valid key becomes the 32-byte buffer it encodes', () => {
+    const key = Buffer.alloc(32, 5);
+    const env = readEnv({ ...REQUIRED, DATA_ENCRYPTION_KEY: key.toString('base64') });
+    expect(env.dataEncryptionKey).toEqual(key);
+  });
+});
+
+describe('readEnv, mail', () => {
+  const PRODUCTION = {
+    ...REQUIRED,
+    NODE_ENV: 'production',
+    SMTP_URL: 'smtp://mailer:segredo-smtp@smtp.example.com:587',
+    APP_PUBLIC_URL: 'https://mesa.example.com/',
+  };
+
+  it('in development without SMTP_URL the mail only goes to the log', () => {
+    expect(readEnv({ ...REQUIRED, NODE_ENV: 'development' }).mailer).toEqual({
+      kind: 'log',
+      from: 'Lorkarium <no-reply@lorkarium.dev>',
+    });
+  });
+
+  it('SMTP_URL and MAIL_FROM become an SMTP mailer', () => {
+    const env = readEnv({
+      ...REQUIRED,
+      SMTP_URL: 'smtp://localhost:1025',
+      MAIL_FROM: 'Mesa <mesa@example.com>',
+    });
+    expect(env.mailer).toEqual({
+      kind: 'smtp',
+      url: 'smtp://localhost:1025',
+      from: 'Mesa <mesa@example.com>',
+    });
+  });
+
+  it('production with SMTP_URL and APP_PUBLIC_URL boots, the trailing slash dropped from the URL', () => {
+    const env = readEnv(PRODUCTION);
+    expect(env.mailer.kind).toBe('smtp');
+    expect(env.appPublicUrl).toBe('https://mesa.example.com');
+  });
+
+  it('production without SMTP_URL is refused naming the variable', () => {
+    expect(() => readEnv({ ...PRODUCTION, SMTP_URL: undefined })).toThrow(
+      /SMTP_URL is required in production \(received nothing\)/,
+    );
+  });
+
+  it('production without APP_PUBLIC_URL is refused naming the variable', () => {
+    expect(() => readEnv({ ...PRODUCTION, APP_PUBLIC_URL: undefined })).toThrow(
+      /APP_PUBLIC_URL is required in production \(received nothing\)/,
+    );
+  });
+
+  it('an SMTP_URL of another scheme is refused without echoing it (it carries the password)', () => {
+    const url = 'http://mailer:segredo-smtp@smtp.example.com';
+    const read = (): unknown => readEnv({ ...REQUIRED, SMTP_URL: url });
+    expect(read).toThrow(
+      /SMTP_URL must start with smtp:\/\/ or smtps:\/\/ \(received a redacted value\)/,
+    );
+    expect(read).not.toThrow(/segredo-smtp/);
   });
 });

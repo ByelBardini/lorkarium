@@ -4,9 +4,12 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
-import { MIGRATIONS_FOLDER } from '../../src/database/migrate';
 import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
-import { databaseUrlNamed, migrationsUpTo } from '../support/migrations-up-to';
+import {
+  databaseUrlNamed,
+  LAST_MIGRATION_WITH_PLAIN_EMAIL,
+  migrationsUpTo,
+} from '../support/migrations-up-to';
 
 const SCRATCH_DATABASE = 'lorkarium_conditions_migration';
 const LAST_MIGRATION_BEFORE_LOOKS = '0029_drawings_drop_layer';
@@ -46,10 +49,13 @@ describe('migration 0030_condition_looks', () => {
   let admin: DatabaseConnection;
   let scratch: DatabaseConnection | undefined;
   let partialFolder: string;
+  // Not every migration: 0039 refuses the raw users these specs seed, which never got a cipher.
+  let laterFolder: string;
 
   beforeAll(async () => {
     admin = createDatabase(readEnv(process.env).databaseUrl);
     partialFolder = await migrationsUpTo(LAST_MIGRATION_BEFORE_LOOKS);
+    laterFolder = await migrationsUpTo(LAST_MIGRATION_WITH_PLAIN_EMAIL);
   });
 
   afterEach(async () => {
@@ -61,6 +67,7 @@ describe('migration 0030_condition_looks', () => {
   afterAll(async () => {
     await admin.close();
     await rm(partialFolder, { recursive: true, force: true });
+    await rm(laterFolder, { recursive: true, force: true });
   });
 
   async function migratedFrom0029(): Promise<DatabaseConnection> {
@@ -69,7 +76,7 @@ describe('migration 0030_condition_looks', () => {
     scratch = createDatabase(databaseUrlNamed(SCRATCH_DATABASE));
     await migrate(scratch.db, { migrationsFolder: partialFolder });
     await seedConditionsAt0029(scratch);
-    await migrate(scratch.db, { migrationsFolder: MIGRATIONS_FOLDER });
+    await migrate(scratch.db, { migrationsFolder: laterFolder });
     return scratch;
   }
 
