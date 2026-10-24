@@ -1,3 +1,4 @@
+import type { SessionMemberDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -13,21 +14,12 @@ import {
   biaJoined,
   biaLeft,
   biaUpdated,
+  duda,
   vharnRenamed,
   vharnState,
 } from '../support/table-session-fixtures';
 
-const DUDA = {
-  userId: '1e2d3c4b-5a69-4788-9abc-def012345678',
-  name: 'Duda',
-  username: 'duda',
-  color: 'teal',
-  avatarId: null,
-  bio: null,
-  role: 'player',
-  online: true,
-  awaySince: null,
-} as const;
+const DUDA_PLAYER = { ...duda({ role: 'player' }), online: true, awaySince: null } as const;
 
 describe('table presence store', () => {
   let store: StoreApi<TablePresenceStore>;
@@ -68,9 +60,9 @@ describe('table presence store', () => {
   it('memberJoined of someone not listed adds them at the end', () => {
     apply(
       { kind: 'state', state: vharnState({ version: 3 }) },
-      { kind: 'memberJoined', event: biaJoined({ version: 4, member: DUDA }) },
+      { kind: 'memberJoined', event: biaJoined({ version: 4, member: DUDA_PLAYER }) },
     );
-    expect(store.getState().members.at(-1)).toEqual(DUDA);
+    expect(store.getState().members.at(-1)).toEqual(DUDA_PLAYER);
   });
 
   it('an event whose version is not above the current one is discarded', () => {
@@ -226,14 +218,91 @@ describe('table presence store', () => {
       expect(store.getState()).toMatchObject({ version: null, members: [] });
     });
 
-    it('memberUpdated of someone not in the roster adds no one', () => {
-      const stranger = { ...biaUpdated().member, userId: '1e2d3c4b-5a69-4788-9abc-def012345678' };
+    it('memberUpdated of a spectator not in the roster (one who left) adds no one', () => {
       apply(snapshotWithBiaAway(3), {
         kind: 'memberUpdated',
-        event: biaUpdated({ version: 4, member: stranger }),
+        event: biaUpdated({ version: 4, member: duda({ online: false }) }),
       });
 
       expect(store.getState().members).toEqual([ANA_AT_TABLE, biaAway, CAIO_AT_TABLE]);
+    });
+  });
+
+  describe('spectators', () => {
+    const snapshot = { kind: 'state' as const, state: vharnState({ version: 3 }) };
+
+    function joined(version: number, member: SessionMemberDto = duda()) {
+      const event = biaJoined({ version, member: { ...member, online: true, awaySince: null } });
+      return { kind: 'memberJoined' as const, event };
+    }
+
+    function updated(version: number, member: SessionMemberDto) {
+      return { kind: 'memberUpdated' as const, event: biaUpdated({ version, member }) };
+    }
+
+    function left(version: number, userId = duda().userId) {
+      return { kind: 'memberLeft' as const, event: biaLeft({ version, userId }) };
+    }
+
+    it('Duda the spectator joining enters at the end of the list', () => {
+      apply(snapshot, joined(4));
+
+      expect(store.getState().members).toEqual([ANA_AT_TABLE, BIA_AT_TABLE, CAIO_AT_TABLE, duda()]);
+    });
+
+    it('Duda the spectator leaving drops out of the list; Bia leaving stays, offline', () => {
+      apply(
+        snapshot,
+        joined(4),
+        joined(5, { ...BIA_AT_TABLE, online: true }),
+        left(6),
+        left(7, BIA_AT_TABLE.userId),
+      );
+
+      expect(store.getState().members).toEqual([ANA_AT_TABLE, BIA_AT_TABLE, CAIO_AT_TABLE]);
+      expect(store.getState().version).toBe(7);
+    });
+
+    it('Duda promoted to player swaps in place, still online', () => {
+      apply(snapshot, joined(4), updated(5, duda({ role: 'player', online: false })));
+
+      expect(store.getState().members.at(-1)).toEqual(duda({ role: 'player' }));
+      expect(store.getState().version).toBe(5);
+    });
+
+    it('a spectator offline promoted (not in the list) enters at the end, offline', () => {
+      apply(snapshot, updated(4, duda({ role: 'player' })));
+
+      expect(store.getState().members).toEqual([
+        ANA_AT_TABLE,
+        BIA_AT_TABLE,
+        CAIO_AT_TABLE,
+        duda({ role: 'player', online: false }),
+      ]);
+    });
+
+    it('Bia moved to the spectators while offline drops out of the list', () => {
+      apply(snapshot, updated(4, { ...BIA_AT_TABLE, role: 'spectator' }));
+
+      expect(store.getState().members).toEqual([ANA_AT_TABLE, CAIO_AT_TABLE]);
+    });
+
+    it('Bia moved to the spectators while online stays in place, as a spectator', () => {
+      apply(snapshot, joined(4, { ...BIA_AT_TABLE, online: true }));
+      apply(updated(5, { ...BIA_AT_TABLE, role: 'spectator' }));
+
+      expect(store.getState().members[1]).toEqual({
+        ...BIA_AT_TABLE,
+        role: 'spectator',
+        online: true,
+      });
+    });
+
+    it('a role change whose version is not above the current one is ignored', () => {
+      apply(snapshot, joined(4), updated(4, duda({ role: 'player' })));
+
+      expect(store.getState().members.at(-1)).toEqual(duda());
+      expect(store.getState().version).toBe(4);
     });
   });
 

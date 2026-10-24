@@ -2,7 +2,12 @@ import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { sessionFailureMessage } from '@/features/campaigns/campaign-messages';
 import type { InteractionClock } from '@/lib/interaction-clock';
-import { tableRosterOf, type RosterMaster, type RosterPlayer } from '@/lib/table-roster';
+import {
+  tableRosterOf,
+  type RosterMaster,
+  type RosterPlayer,
+  type RosterSpectator,
+} from '@/lib/table-roster';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import {
@@ -12,6 +17,7 @@ import {
 } from '@/stores/table-presence-store';
 import { MasterRow } from './master-row';
 import { PlayerCard } from './player-card';
+import { SpectatorRow } from './spectator-row';
 
 export type SessionPresencePanelProps = Readonly<{
   store: StoreApi<TablePresenceStore>;
@@ -31,7 +37,8 @@ const STATUS_LABEL: Readonly<Record<Exclude<TablePresenceState['status'], 'faile
 };
 
 /** "Na mesa": the party board. The masters in a compact section, then a card per player (online
- *  first, offline dimmed at the end), as the server confirmed them, and the connection state.
+ *  first, offline dimmed at the end) and the spectators online, as the server confirmed them, and
+ *  the connection state.
  *
  *  Example: `<SessionPresencePanel store={table.presence} board={table.board} cast={table.cast} interaction={interaction} isMaster />` */
 export function SessionPresencePanel(props: SessionPresencePanelProps): React.JSX.Element {
@@ -66,6 +73,7 @@ function TableSections(props: SessionPresencePanelProps): React.JSX.Element | nu
   const board = useBoard(props.board, (state) => state.board);
   const cast = useBoard(props.cast, (state) => state.board);
   const serverAt = useTablePresence(props.store, (state) => state.at);
+  const campaignId = useTablePresence(props.store, (state) => state.campaignId);
   if (members.length === 0) return null;
   const viewerId = board?.viewer.userId ?? '';
   const roster = tableRosterOf({ members, board, cast, viewerId });
@@ -73,6 +81,13 @@ function TableSections(props: SessionPresencePanelProps): React.JSX.Element | nu
     <>
       <MastersSection masters={roster.masters} clock={props.clock} serverAt={serverAt} />
       <PlayersSection {...props} players={roster.players} serverAt={serverAt} />
+      <SpectatorsSection
+        spectators={roster.spectators}
+        campaignId={campaignId}
+        isMaster={props.isMaster}
+        clock={props.clock}
+        serverAt={serverAt}
+      />
     </>
   );
 }
@@ -121,6 +136,30 @@ function PlayersSection({ players, serverAt, ...props }: PlayersSectionProps) {
           serverAt={serverAt}
         />
       ))}
+    </section>
+  );
+}
+
+type SpectatorsSectionProps = Readonly<{
+  spectators: readonly RosterSpectator[];
+  campaignId: string;
+  isMaster: boolean;
+  clock: InteractionClock;
+  serverAt: string | null;
+}>;
+
+// The table keeps no trace of who only watches: no section at all when nobody is watching now.
+function SpectatorsSection({ spectators, ...props }: SpectatorsSectionProps) {
+  const titleId = useId();
+  if (spectators.length === 0) return null;
+  return (
+    <section aria-labelledby={titleId} className="mt-1.5 flex flex-col gap-2">
+      <SectionTitle id={titleId}>{`Espectadores · ${spectators.length}`}</SectionTitle>
+      <ul className="flex flex-col">
+        {spectators.map((spectator) => (
+          <SpectatorRow key={spectator.member.userId} spectator={spectator} {...props} />
+        ))}
+      </ul>
     </section>
   );
 }

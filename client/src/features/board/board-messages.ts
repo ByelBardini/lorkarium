@@ -1,4 +1,8 @@
-import { TOKENS_PER_SCENE_MAX, type TokenLayerDto } from '@lorkarium/contracts';
+import {
+  TOKENS_PER_SCENE_MAX,
+  type CampaignRoleDto,
+  type TokenLayerDto,
+} from '@lorkarium/contracts';
 import {
   NOT_MEMBER_MESSAGE,
   OFFLINE_MESSAGE,
@@ -13,8 +17,21 @@ import type { TablePresenceState } from '@/stores/table-presence-store';
 export const BOARD_LOAD_FAILED = 'Não deu para carregar o tabuleiro.';
 /** A player in the dark with no token that sees: only their own tokens show. */
 export const NO_EYES = 'Nenhum token seu está nesta cena.';
+/** A spectator in the dark with no player token on the scene: nobody's eyes to look through. */
+export const NO_PLAYER_EYES = 'Nenhum token de jogador nesta cena.';
 /** The master's preview with no selected token that sees. */
 export const PREVIEW_BLIND = 'Selecione um token para ver como ele.';
+/** The badge of the room for whoever only watches. */
+export const SPECTATOR_BADGE = 'Espectador';
+
+/** What the status line says when the master changed this viewer's role with the table open.
+ *
+ *  Example: `roleChangedNotice('spectator') // 'Agora você assiste a esta mesa.'` */
+export function roleChangedNotice(role: CampaignRoleDto): string | null {
+  if (role === 'player') return 'Agora você é jogador nesta mesa.';
+  if (role === 'spectator') return 'Agora você assiste a esta mesa.';
+  return null;
+}
 
 const OUT_OF_SCENE_TEXT = 'Fora da cena.';
 const STALE_UNDO_TEXT = 'Alguém mexeu nisso depois; não dá para desfazer.';

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import type { TokenLayerDto } from '@lorkarium/contracts';
+import type { CampaignRoleDto, TokenLayerDto } from '@lorkarium/contracts';
 import {
   BoxIcon,
   BrickWallIcon,
@@ -24,7 +24,9 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { BoardRenderer } from '@/renderer/board-renderer';
 import type { AddPlayersResult } from '@/services/table-board-commands';
+import { toolsOf } from '@/lib/table-role';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
+import type { BoardTool } from '@/stores/board-tool-state';
 import { LAYER_LABEL, VIEW_OFF_GRID, addPlayersNotice } from './board-messages';
 
 /** A member "Adicionar jogadores" may name as skipped. */
@@ -33,8 +35,9 @@ export type ToolbarMember = Readonly<{ userId: string; name: string }>;
 export type BoardToolbarProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   renderer: BoardRenderer | null;
-  /** The master: shows "Configurar cena". */
-  canConfigure: boolean;
+  /** Which tools show: the spectator's only look (Selecionar, Régua), the master's also put walls,
+   *  lights and tokens and configure the scene. */
+  role: CampaignRoleDto;
   /** The scene hides what tokens do not see (Escuro, Luz do dia): the master may preview it. */
   sightOn?: boolean;
   /** The table's members: "Adicionar jogadores" names who was skipped. */
@@ -47,6 +50,16 @@ export const ZOOM_STEP = 1.25;
 
 const PERCENT = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0 });
 
+const PICKED_TOOLS: ReadonlyArray<Readonly<{ tool: BoardTool; label: string; icon: LucideIcon }>> =
+  [
+    { tool: 'select', label: 'Selecionar (V)', icon: MousePointer2Icon },
+    { tool: 'ruler', label: 'Régua (R)', icon: RulerIcon },
+    { tool: 'draw', label: 'Desenhar (B)', icon: PencilIcon },
+    { tool: 'area', label: 'Área de efeito (M)', icon: SparklesIcon },
+    { tool: 'walls', label: 'Paredes (P)', icon: BrickWallIcon },
+    { tool: 'lights', label: 'Luzes (L)', icon: FlameIcon },
+  ];
+
 const LAYER_TOOLS: ReadonlyArray<
   Readonly<{ layer: TokenLayerDto; key: string; icon: LucideIcon }>
 > = [
@@ -55,24 +68,25 @@ const LAYER_TOOLS: ReadonlyArray<
   { layer: 'background', key: '3', icon: MapIcon },
 ];
 
-/** The floating tools at the left of the board: select, ruler, draw, area of effect, local grid, zoom and framing,
- *  plus "Configurar cena" for the master. Every tool also has its key (in the name).
+/** The floating tools at the left of the board: select, ruler, draw, area of effect (not for a
+ *  spectator), local grid, zoom and framing, plus walls, lights, tokens and "Configurar cena" for
+ *  the master. Every tool also has its key (in the name).
  *
- *  Example: `<BoardToolbar interaction={interaction} renderer={renderer} canConfigure={isMaster} onConfigure={openGridDialog} />` */
+ *  Example: `<BoardToolbar interaction={interaction} renderer={renderer} role={campaign.myRole} onConfigure={openGridDialog} />` */
 export function BoardToolbar({
   interaction,
   renderer,
-  canConfigure,
+  role,
   sightOn = false,
   members = [],
   onConfigure,
   onNewToken,
 }: BoardToolbarProps): React.JSX.Element {
-  const tool = useBoardInteraction(interaction, (state) => state.tool);
   const grid = useBoardInteraction(interaction, (state) => state.localGridVisible);
   const zoom = useBoardInteraction(interaction, (state) => state.zoom);
   const previewing = useBoardInteraction(interaction, (state) => state.sightPreview);
   const actions = interaction.getState();
+  const canConfigure = role === 'master';
   return (
     <TooltipProvider>
       <div
@@ -81,46 +95,7 @@ export function BoardToolbar({
         aria-orientation="vertical"
         className="absolute top-16 left-3 flex flex-col gap-1 border border-border bg-panel p-1"
       >
-        <ToolButton
-          label="Selecionar (V)"
-          icon={MousePointer2Icon}
-          pressed={tool === 'select'}
-          onClick={() => actions.setTool('select')}
-        />
-        <ToolButton
-          label="Régua (R)"
-          icon={RulerIcon}
-          pressed={tool === 'ruler'}
-          onClick={() => actions.setTool('ruler')}
-        />
-        <ToolButton
-          label="Desenhar (B)"
-          icon={PencilIcon}
-          pressed={tool === 'draw'}
-          onClick={() => actions.setTool('draw')}
-        />
-        <ToolButton
-          label="Área de efeito (M)"
-          icon={SparklesIcon}
-          pressed={tool === 'area'}
-          onClick={() => actions.setTool('area')}
-        />
-        {canConfigure && (
-          <ToolButton
-            label="Paredes (P)"
-            icon={BrickWallIcon}
-            pressed={tool === 'walls'}
-            onClick={() => actions.setTool('walls')}
-          />
-        )}
-        {canConfigure && (
-          <ToolButton
-            label="Luzes (L)"
-            icon={FlameIcon}
-            pressed={tool === 'lights'}
-            onClick={() => actions.setTool('lights')}
-          />
-        )}
+        <PickedTools interaction={interaction} tools={toolsOf(role)} />
         <ToolButton
           label="Grid (G)"
           icon={Grid3x3Icon}
@@ -197,6 +172,30 @@ async function addPlayersHere(
     skipped: skipped.filter((name): name is string => name !== undefined),
   });
   if (notice) interaction.getState().say(notice);
+}
+
+type PickedToolsProps = Readonly<{
+  interaction: StoreApi<BoardInteractionStore>;
+  tools: readonly BoardTool[];
+}>;
+
+// The tools the role may pick, in the toolbar's order; the pressed one is the store's.
+function PickedTools({ interaction, tools }: PickedToolsProps): React.JSX.Element {
+  const tool = useBoardInteraction(interaction, (state) => state.tool);
+  const offered = PICKED_TOOLS.filter((candidate) => tools.includes(candidate.tool));
+  return (
+    <>
+      {offered.map(({ tool: candidate, label, icon }) => (
+        <ToolButton
+          key={candidate}
+          label={label}
+          icon={icon}
+          pressed={tool === candidate}
+          onClick={() => interaction.getState().setTool(candidate)}
+        />
+      ))}
+    </>
+  );
 }
 
 // The master's active layer: only what is on it is picked up on the board.

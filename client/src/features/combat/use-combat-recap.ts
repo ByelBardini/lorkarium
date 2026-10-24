@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
+import { useTablePlayers } from '@/features/board/table-players';
 import { sightNowOf } from '@/features/board/use-board-sight';
 import { seenTokensOf } from '@/lib/board-sight';
 import { combatRecapOf } from '@/lib/combat-recap';
@@ -26,18 +27,19 @@ export function useCombatRecap(
     lines: [],
     ended: false,
   });
+  const players = useTablePlayers();
   useEffect(
     () =>
       board.subscribe((next, previous) => {
         if (!previous.board?.combat && next.board?.combat)
           return setTold({ lines: [], ended: false });
         const seen = next.board
-          ? seenTokensOf(next.board, sightNowOf(next, interaction.getState()))
+          ? seenTokensOf(next.board, sightNowOf(next, interaction.getState(), players))
           : [];
         const lines = combatRecapOf(previous, next, seen);
         if (lines) setTold({ lines, ended: !next.board?.combat });
       }),
-    [board, interaction],
+    [board, interaction, players],
   );
   return { ...told, dismiss: () => setTold({ lines: [], ended: false }) };
 }

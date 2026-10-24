@@ -8,7 +8,7 @@ import type {
   UpdateCampaignRequestInput,
 } from '@lorkarium/contracts';
 import { memberColorOf } from '@lorkarium/game-core';
-import type { CampaignsApi, CampaignsResult } from '@/services/campaigns-api';
+import type { CampaignsApi, CampaignsResult, MemberRole } from '@/services/campaigns-api';
 
 export const VHARN: CampaignSummaryDto = {
   id: '3b1e9a52-6c4d-4f8a-9e2b-1a7c5d3f8e10',
@@ -93,6 +93,7 @@ type Answers = {
   update: CampaignsResult<CampaignDetailDto>;
   regenerateCode: CampaignsResult<CampaignDetailDto>;
   remove: CampaignsResult<null>;
+  setMemberRole: CampaignsResult<CampaignMemberDto>;
 };
 
 type Method = keyof Answers;
@@ -111,6 +112,7 @@ export class CampaignsApiFake implements CampaignsApi {
     update: { ok: true, value: detailOf(VHARN) },
     regenerateCode: { ok: true, value: detailOf(VHARN, { joinCode: 'QWER5TYU' }) },
     remove: { ok: true, value: null },
+    setMemberRole: { ok: true, value: detailMemberOf('Duda', 'player') },
   };
 
   answer<M extends Method>(method: M, result: Answers[M]): this {
@@ -163,6 +165,15 @@ export class CampaignsApiFake implements CampaignsApi {
 
   remove(campaignId: string): Promise<Answers['remove']> {
     return this.reply('remove', campaignId);
+  }
+
+  /** The argument recorded is `{ campaignId, userId, role }`. */
+  setMemberRole(
+    campaignId: string,
+    userId: string,
+    role: MemberRole,
+  ): Promise<Answers['setMemberRole']> {
+    return this.reply('setMemberRole', { campaignId, userId, role });
   }
 
   private async reply<M extends Method>(method: M, argument: unknown): Promise<Answers[M]> {

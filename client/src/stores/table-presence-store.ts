@@ -130,6 +130,7 @@ function memberCameOnline(
   return { version: event.version, members };
 }
 
+// A spectator who leaves leaves no trace at the table: only the ones online are listed.
 function memberWentOffline(
   state: TablePresenceState,
   event: SessionMemberLeftDto,
@@ -137,7 +138,7 @@ function memberWentOffline(
   const members = state.members.map((member) =>
     member.userId === event.userId ? { ...member, online: false, awaySince: null } : member,
   );
-  return { version: event.version, members };
+  return { version: event.version, members: members.filter(isListable) };
 }
 
 function memberActivityOf(
@@ -151,16 +152,24 @@ function memberActivityOf(
   return { version: event.version, members };
 }
 
-// The profile changed, not the presence: whether the member is online or away stays as it was.
+// The profile or the role changed, not the presence: whether the member is online or away stays
+// as it was. Someone not listed is a spectator offline: promoted, they join the players offline.
 function memberProfileOf(
   state: TablePresenceState,
   event: SessionMemberUpdatedDto,
 ): Partial<TablePresenceState> {
   const { member: updated } = event;
-  const members = state.members.map((member) =>
-    member.userId === updated.userId
-      ? { ...updated, online: member.online, awaySince: member.awaySince }
-      : member,
-  );
-  return { version: event.version, members };
+  const listed = state.members.some(({ userId }) => userId === updated.userId);
+  const members = listed
+    ? state.members.map((member) =>
+        member.userId === updated.userId
+          ? { ...updated, online: member.online, awaySince: member.awaySince }
+          : member,
+      )
+    : [...state.members, { ...updated, online: false, awaySince: null }];
+  return { version: event.version, members: members.filter(isListable) };
+}
+
+function isListable(member: SessionMemberDto): boolean {
+  return member.role !== 'spectator' || member.online;
 }

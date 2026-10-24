@@ -1,7 +1,9 @@
+import type { CampaignRoleDto } from '@lorkarium/contracts';
 import { useEffect } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { editShortcutFor, type EditShortcut } from '@/lib/board-shortcuts';
 import { copiedOf } from '@/lib/paste-placement';
+import { watchesOnly } from '@/lib/table-role';
 import type { BoardScope, TableBoardCommands } from '@/services/table-board-commands';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
@@ -24,7 +26,8 @@ export type EditShortcutDeps = Readonly<{
   table: Readonly<{ board: StoreApi<BoardStore>; edits: StoreApi<TableEditStore> }> | null;
   interaction: StoreApi<BoardInteractionStore>;
   commands: TableBoardCommands;
-  isMaster: boolean;
+  /** A spectator has no edit key at all: the keys stay with the page (copying text still works). */
+  role: CampaignRoleDto;
 }>;
 
 type EditWork = () => Promise<void>;
@@ -33,12 +36,12 @@ type EditWork = () => Promise<void>;
  *  + Z undoes and + Y (or Shift+Z) redoes this user's own actions. A key is only taken when
  *  there is something to do, so copying text elsewhere on the page still works.
  *
- *  Example: `useEditShortcuts({ scopeOf, table, interaction, commands, isMaster })` */
+ *  Example: `useEditShortcuts({ scopeOf, table, interaction, commands, role: campaign.myRole })` */
 export function useEditShortcuts(deps: EditShortcutDeps): void {
-  const { scopeOf, table, interaction, commands, isMaster } = deps;
+  const { scopeOf, table, interaction, commands, role } = deps;
   useEffect(() => {
-    if (!table) return;
-    const current = { scopeOf, table, interaction, commands, isMaster };
+    if (!table || watchesOnly(role)) return;
+    const current = { scopeOf, table, interaction, commands, role };
     const onKeyDown = (event: KeyboardEvent): void => {
       const shortcut = editShortcutFor(event);
       const work = shortcut && editWorkOf(shortcut, current);
@@ -48,7 +51,7 @@ export function useEditShortcuts(deps: EditShortcutDeps): void {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [scopeOf, table, interaction, commands, isMaster]);
+  }, [scopeOf, table, interaction, commands, role]);
 }
 
 type OpenEditDeps = EditShortcutDeps & Readonly<{ table: NonNullable<EditShortcutDeps['table']> }>;
@@ -101,6 +104,7 @@ function sayOutcome({ interaction }: OpenEditDeps, outcome: EditOutcome): void {
   interaction.getState().say(boardCommandFailureMessage(outcome.failure));
 }
 
-function contextOf({ scopeOf, commands, isMaster, interaction }: OpenEditDeps): EditContext {
+function contextOf({ scopeOf, commands, role, interaction }: OpenEditDeps): EditContext {
+  const isMaster = role === 'master';
   return { scope: scopeOf(), commands, isMaster, readOnly: interaction.getState().readOnly };
 }

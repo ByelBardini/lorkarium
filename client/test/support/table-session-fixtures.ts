@@ -57,6 +57,25 @@ export const CAIO_AT_TABLE: SessionMemberDto = {
   awaySince: null,
 };
 
+/** Duda, a spectator of VHARN online (the same id as in `campaigns-api-fake.ts`), unless
+ *  overridden. She is in no snapshot by default: a spectator is listed only while online.
+ *
+ *  Example: `vharnState({ members: [ANA_AT_TABLE, duda()] })`, `duda({ role: 'player' })` */
+export function duda(overrides: Partial<SessionMemberDto> = {}): SessionMemberDto {
+  return {
+    userId: '1e2d3c4b-5a69-4788-9abc-def012345678',
+    name: 'Duda',
+    username: 'duda',
+    color: 'teal',
+    avatarId: null,
+    bio: null,
+    role: 'spectator',
+    online: true,
+    awaySince: null,
+    ...overrides,
+  };
+}
+
 const AT = '2026-10-15T12:00:00.000Z';
 
 /** The VHARN snapshot: Ana and Caio online, Bia offline, unless overridden.

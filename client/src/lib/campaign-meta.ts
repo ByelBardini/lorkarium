@@ -12,7 +12,7 @@ export function memberCountLabel(count: number): string {
  *
  *  Example: `campaignMeta(campaign) // 'Tormenta20 · mestre: Bia · 4 participantes'` */
 export function campaignMeta(campaign: CampaignSummaryDto): string {
-  const master = campaign.myRole === 'player' ? `mestre: ${campaign.masterName}` : null;
+  const master = campaign.myRole !== 'master' ? `mestre: ${campaign.masterName}` : null;
   return [campaign.system, master, memberCountLabel(campaign.memberCount)]
     .filter((part): part is string => Boolean(part))
     .join(' · ');
@@ -21,4 +21,5 @@ export function campaignMeta(campaign: CampaignSummaryDto): string {
 export const ROLE_LABEL: Readonly<Record<CampaignSummaryDto['myRole'], string>> = {
   master: 'Mestre',
   player: 'Jogador',
+  spectator: 'Espectador',
 };

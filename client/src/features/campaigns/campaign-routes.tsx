@@ -16,6 +16,7 @@ import { COMPACT_RAIL_HANDLE } from '@/app/shell/rail-handle';
 import { cn } from '@/lib/utils';
 import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detail-dialog';
 import { PlayRoomPage } from '@/features/board/play-room-page';
+import { MemberRoleProvider } from '@/features/sessions/member-role-provider';
 import { libraryRoute, TABLE_ROUTE_ID } from '@/features/library/library-route';
 import { CampaignOverview } from './campaign-overview';
 import { CAMPAIGN_SETTINGS_PATH, campaignSettingsRoute } from './campaign-settings-route';
@@ -114,6 +115,7 @@ function tableRoute({
   sessionStore,
   assets,
   interactionClock,
+  campaignsApi,
 }: AppDependencies): () => React.JSX.Element {
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
@@ -125,24 +127,26 @@ function tableRoute({
     return (
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className={cn('flex min-h-0 flex-1 flex-col', covered && 'invisible')}>
-          <PlayRoomPage
-            key={campaign.id}
-            campaign={campaign}
-            openTables={openTables}
-            roomLayout={roomLayout}
-            drawingStyle={drawingStyle}
-            effectAreaStyle={effectAreaStyle}
-            wallStyle={wallStyle}
-            lightReach={lightReach}
-            lightColor={lightColor}
-            clipboard={clipboard}
-            createBoardRenderer={createBoardRenderer}
-            boardCommands={boardCommands}
-            pings={pings}
-            sessionStore={sessionStore}
-            assets={assets}
-            interactionClock={interactionClock}
-          />
+          <MemberRoleProvider changer={campaignsApi}>
+            <PlayRoomPage
+              key={campaign.id}
+              campaign={campaign}
+              openTables={openTables}
+              roomLayout={roomLayout}
+              drawingStyle={drawingStyle}
+              effectAreaStyle={effectAreaStyle}
+              wallStyle={wallStyle}
+              lightReach={lightReach}
+              lightColor={lightColor}
+              clipboard={clipboard}
+              createBoardRenderer={createBoardRenderer}
+              boardCommands={boardCommands}
+              pings={pings}
+              sessionStore={sessionStore}
+              assets={assets}
+              interactionClock={interactionClock}
+            />
+          </MemberRoleProvider>
         </div>
         <Outlet />
       </div>

@@ -9,6 +9,8 @@ import { stressBoardOf, stressId } from '../support/stress-board';
 // The four situations of the budget in docs/context/client/performance.md, each one computing
 // what the canvas does on a change: the sight filter (remembered by `sightNowOf`) and the view.
 const BOARD = stressBoardOf();
+// The stress board is seen by a player: the table's players matter only to a spectator.
+const NO_PLAYERS: readonly string[] = [];
 const IDLE: SightInteraction = {
   sightPreview: false,
   selectedTokenIds: [],
@@ -23,7 +25,7 @@ const EYE_ID = stressId(1, 0);
 type Dragged = Readonly<Record<string, Cell>>;
 
 function viewOf(board: BoardStateDto, dragged: Dragged, ruler: RulerState | null): unknown {
-  const sight = sightNowOf({ board, dragged }, IDLE);
+  const sight = sightNowOf({ board, dragged }, IDLE, NO_PLAYERS);
   return buildBoardView(inputOf(board, dragged, ruler, sight));
 }
 

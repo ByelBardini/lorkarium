@@ -15,6 +15,7 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore, type BoardStoreState } from '@/stores/board-store';
+import { useTablePlayers } from './table-players';
 
 const CLEAR_SIGHT: BoardSight = {
   active: false,
@@ -47,15 +48,25 @@ export type SightInteraction = Pick<
   'sightPreview' | 'selectedTokenIds' | 'drag' | 'preview' | 'facingPreview'
 >;
 
-/** What this viewer sees of the board right now, for code outside React (the keys).
+/** What this viewer sees of the board right now, for code outside React (the keys). `playerIds`
+ *  are the table's players (`playerIdsOf`, `useTablePlayers`): a spectator's eyes are their
+ *  tokens; every caller passes them, or a spectator's consumers would disagree and redo the filter.
  *
- *  Example: `seenTokensOf(board, sightNowOf(board.getState(), interaction.getState()))` */
-export function sightNowOf(table: SightTable, interaction: SightInteraction): BoardSight {
+ *  Example: `seenTokensOf(board, sightNowOf(board.getState(), interaction.getState(), players))` */
+export function sightNowOf(
+  table: SightTable,
+  interaction: SightInteraction,
+  playerIds: readonly string[],
+): BoardSight {
   if (!table.board) return CLEAR_SIGHT;
   const { drag, preview, facingPreview } = interaction;
   const { dragged, board } = table;
   const landing = shownCellsOf({ dragged, drag, preview, facingPreview, tokens: board.tokens });
-  return rememberedSightOf(table.board, previewEyeIdsOf(interaction), landing);
+  return rememberedSightOf(
+    table.board,
+    { previewEyeIds: previewEyeIdsOf(interaction), playerIds },
+    landing,
+  );
 }
 
 /** What the filter reads of the board: a drawing, a presence or a version bump hand a new board
@@ -67,7 +78,12 @@ type SightParts = Readonly<{
   walls: BoardStateDto['walls'];
   lights: BoardStateDto['lights'];
   previewKey: string;
+  /** The players by their ids, only for a spectator (nobody else looks through them). */
+  playersKey: string;
 }>;
+
+/** Who looks: the master's preview and the table's players. */
+type Watchers = Readonly<{ previewEyeIds: readonly string[] | null; playerIds: readonly string[] }>;
 
 type RememberedSight = Readonly<{
   parts: SightParts;
@@ -84,34 +100,38 @@ let lastSight: RememberedSight | null = null;
 
 function rememberedSightOf(
   board: BoardStateDto,
-  previewEyeIds: readonly string[] | null,
+  watchers: Watchers,
   landing: TokenLanding,
 ): BoardSight {
-  const parts = partsOf(board, previewEyeIds);
-  const shapingKey = poseKeyOf(landing, poseShapingIdsOf(board, previewEyeIds));
+  const { previewEyeIds, playerIds } = watchers;
+  const parts = partsOf(board, watchers);
+  const shapingKey = poseKeyOf(landing, poseShapingIdsOf(board, previewEyeIds, playerIds));
   const last = lastSight;
   if (last && sameParts(last.parts, parts) && last.shapingKey === shapingKey) {
     const moved = movedIdsOf(last.landing, landing);
     if (moved.length === 0) return last.sight;
-    const sight = sightWithMovedOf(last.sight, board, { previewEyeIds, landing }, moved);
+    const sight = sightWithMovedOf(last.sight, board, { ...watchers, landing }, moved);
     lastSight = { parts, shapingKey, landing, sight };
     return sight;
   }
-  const sight = boardSightOf(board, { previewEyeIds, landing });
+  const sight = boardSightOf(board, { ...watchers, landing });
   lastSight = { parts, shapingKey, landing, sight };
   return sight;
 }
 
-function partsOf(board: BoardStateDto, previewEyeIds: readonly string[] | null): SightParts {
+// The roster hands a new array of players at every absence: the key is their ids, and only a
+// spectator's (a player's or the master's filter never reads them).
+function partsOf(board: BoardStateDto, { previewEyeIds, playerIds }: Watchers): SightParts {
   const { scene, viewer, tokens, walls, lights } = board;
-  const previewKey = JSON.stringify(previewEyeIds);
+  const spectator = viewer.role === 'spectator';
   return {
     vision: scene.vision,
     viewer: `${viewer.userId}:${viewer.role}`,
     tokens,
     walls,
     lights,
-    previewKey,
+    previewKey: JSON.stringify(previewEyeIds),
+    playersKey: spectator ? [...playerIds].sort().join(',') : '',
   };
 }
 
@@ -122,7 +142,8 @@ function sameParts(a: SightParts, b: SightParts): boolean {
     a.tokens === b.tokens &&
     a.walls === b.walls &&
     a.lights === b.lights &&
-    a.previewKey === b.previewKey
+    a.previewKey === b.previewKey &&
+    a.playersKey === b.playersKey
   );
 }
 
@@ -141,9 +162,9 @@ function movedIdsOf(before: TokenLanding, after: TokenLanding): string[] {
 }
 
 /** The sight filter of the room, recomputed when the confirmed board, a drag (this viewer's, the
- *  move waiting for the server or other people's), a turn before the ack or the master's preview
- *  changes: the one filter
- *  the canvas, the list "Na cena" and the keys go through.
+ *  move waiting for the server or other people's), a turn before the ack, the master's preview or
+ *  the table's players (`TablePlayersContext`, for a spectator) change: the one filter the
+ *  canvas, the list "Na cena" and the keys go through.
  *
  *  Example: `const sight = useBoardSight(board, interaction)` */
 export function useBoardSight(
@@ -157,12 +178,14 @@ export function useBoardSight(
   const drag = useBoardInteraction(interaction, (current) => current.drag);
   const preview = useBoardInteraction(interaction, (current) => current.preview);
   const facingPreview = useBoardInteraction(interaction, (current) => current.facingPreview);
+  const players = useTablePlayers();
   return useMemo(
     () =>
       sightNowOf(
         { board: state, dragged },
         { sightPreview, selectedTokenIds, drag, preview, facingPreview },
+        players,
       ),
-    [state, dragged, sightPreview, selectedTokenIds, drag, preview, facingPreview],
+    [state, dragged, sightPreview, selectedTokenIds, drag, preview, facingPreview, players],
   );
 }

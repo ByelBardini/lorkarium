@@ -19,6 +19,7 @@ import { RoomLightPanel } from '@/features/lights/room-light-panel';
 import { DoorMenu, type DoorMenuRequest } from '@/features/walls/door-menu';
 import { LightMenu, type LightMenuRequest } from '@/features/lights/light-menu';
 import type { InteractionClock } from '@/lib/interaction-clock';
+import { watchesOnly } from '@/lib/table-role';
 import {
   createBoardInteractionStore,
   useBoardInteraction,
@@ -55,6 +56,8 @@ import { useTokenHover } from './use-token-hover';
 import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
+import { TablePlayersContext, usePlayerIdsOf } from './table-players';
+import { useViewerRole } from './use-viewer-role';
 import { useBoardPings } from './use-board-pings';
 import { useEditShortcuts } from './use-edit-shortcuts';
 import { useRoomShortcuts } from './use-room-shortcuts';
@@ -82,7 +85,8 @@ export type PlayRoomPageProps = Readonly<{
 /** The play room: the board fills the screen, the top bar, tools and panel float over it, and
  *  focus mode (F, Esc) leaves the board alone. Opens the table among the tab's open tables; the
  *  board, the tools, the tracker and the token dock follow the grid tab shown ("Na mesa" stays
- *  on the group grid).
+ *  on the group grid). A spectator (`campaign.myRole`) only watches: no edit tool, key, ping or
+ *  token menu, and every command stops at `readOnly`; a role changed live is followed.
  *
  *  Example: `<PlayRoomPage key={campaign.id} campaign={campaign} openTables={deps.openTables} roomLayout={deps.roomLayout} clipboard={deps.clipboard} createBoardRenderer={deps.createBoardRenderer} />` */
 export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
@@ -101,14 +105,17 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [imageTokenId, setImageTokenId] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<SelectionToDelete | null>(null);
   const [cardLink, setCardLink] = useState<CardLinkRequest | null>(null);
-  const isMaster = campaign.myRole === 'master';
+  const role = campaign.myRole;
+  const isMaster = role === 'master';
   const hover = useTokenHover(props.interactionClock);
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
-  useRoomShortcuts({ roomLayout, interaction });
-  useInteractionFollowsTable(table, interaction);
+  useRoomShortcuts({ roomLayout, interaction, role });
+  useInteractionFollowsTable(table, interaction, role);
+  useViewerRole(table && shown.tabs ? { ...table, tabs: shown.tabs } : null, props.sessionStore);
+  const players = usePlayerIdsOf(table?.presence ?? null);
   const commands = props.boardCommands;
-  useEditShortcuts({ scopeOf, table, interaction, commands, isMaster });
+  useEditShortcuts({ scopeOf, table, interaction, commands, role });
   const tool = useBoardInteraction(interaction, (state) => state.tool);
   const drawMode = useBoardInteraction(interaction, (state) => state.drawMode);
   const ping = useBoardPings({
@@ -120,189 +127,192 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
     scopeOf,
     pings: props.pings,
     session: props.sessionStore,
+    role,
   });
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
-      <title>{`Lorkarium · ${campaign.name}`}</title>
-      {!focus && (
-        <RoomHeader
-          campaign={campaign}
-          presence={table?.presence ?? null}
-          board={table?.board ?? null}
-          tabs={shown.tabs}
-          interaction={interaction}
-          openTables={openTables}
-          roomLayout={roomLayout}
-          clipboard={clipboard}
-        />
-      )}
-      <div className="relative min-h-0 flex-1">
-        <BoardArea
-          key={shown.key}
-          view={view}
-          interaction={interaction}
-          createBoardRenderer={props.createBoardRenderer}
-          onRenderer={setRenderer}
-          onOpenToken={(tokenId) => {
-            interaction.getState().select(tokenId);
-            roomLayout.getState().showTab('combat');
-          }}
-          onDeleteSelection={setDeletion}
-          onTokenMenu={(request) => {
-            hover.onTokenHover(null);
-            setTokenMenu(request);
-          }}
-          onTokenHover={hover.onTokenHover}
-          onDoorMenu={(request) => isMaster && setDoorMenu(request)}
-          onLightMenu={(request) => isMaster && setLightMenu(request)}
-          drawingStyle={props.drawingStyle}
-          effectAreaStyle={props.effectAreaStyle}
-          wallStyle={props.wallStyle}
-          lightReach={props.lightReach}
-          lightColor={props.lightColor}
-          onPing={ping}
-        />
-        {tool === 'draw' && !focus && (
-          <DrawStylePanel
+    <TablePlayersContext value={players}>
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
+        <title>{`Lorkarium · ${campaign.name}`}</title>
+        {!focus && (
+          <RoomHeader
+            campaign={campaign}
+            presence={table?.presence ?? null}
+            board={table?.board ?? null}
+            tabs={shown.tabs}
+            interaction={interaction}
+            openTables={openTables}
+            roomLayout={roomLayout}
+            clipboard={clipboard}
+          />
+        )}
+        <div className="relative min-h-0 flex-1">
+          <BoardArea
+            key={shown.key}
+            view={view}
+            interaction={interaction}
+            createBoardRenderer={props.createBoardRenderer}
+            onRenderer={setRenderer}
+            onOpenToken={(tokenId) => {
+              interaction.getState().select(tokenId);
+              roomLayout.getState().showTab('combat');
+            }}
+            onDeleteSelection={setDeletion}
+            onTokenMenu={(request) => {
+              hover.onTokenHover(null);
+              if (!watchesOnly(role)) setTokenMenu(request);
+            }}
+            onTokenHover={hover.onTokenHover}
+            onDoorMenu={(request) => isMaster && setDoorMenu(request)}
+            onLightMenu={(request) => isMaster && setLightMenu(request)}
             drawingStyle={props.drawingStyle}
-            mode={drawMode}
-            onMode={interaction.getState().setDrawMode}
-          />
-        )}
-        {tool === 'area' && !focus && <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />}
-        {tool === 'walls' && !focus && table && (
-          <RoomWallPanel
-            board={table.board}
-            interaction={interaction}
+            effectAreaStyle={props.effectAreaStyle}
             wallStyle={props.wallStyle}
-          />
-        )}
-        {tool === 'lights' && !focus && table && (
-          <RoomLightPanel
-            board={table.board}
-            interaction={interaction}
             lightReach={props.lightReach}
             lightColor={props.lightColor}
+            onPing={ping}
           />
-        )}
-        {hover.hovered && table && (
-          <TokenHoverCard request={hover.hovered} board={table.board} interaction={interaction} />
-        )}
-        {tokenMenu && table && (
-          <TokenContextMenu
-            request={tokenMenu}
-            board={table.board}
-            presence={table.presence}
-            interaction={interaction}
-            onApplyCondition={setConditionTargets}
-            onChangeImage={setImageTokenId}
-            characters={{ cast: table.cast, onConfirmLink: setCardLink }}
-            onClose={() => setTokenMenu(null)}
-          />
-        )}
-        {cardLink && (
-          <CardLinkDialog
-            request={cardLink}
-            interaction={interaction}
-            onClose={() => setCardLink(null)}
-          />
-        )}
-        {doorMenu && table && (
-          <DoorMenu
-            request={doorMenu}
-            board={table.board}
-            interaction={interaction}
-            onClose={() => setDoorMenu(null)}
-          />
-        )}
-        {lightMenu && table && (
-          <LightMenu
-            request={lightMenu}
-            board={table.board}
-            interaction={interaction}
-            onClose={() => setLightMenu(null)}
-          />
-        )}
-        {conditionTargets && table && (
-          <ApplyConditionDialog
-            tokenIds={conditionTargets}
-            board={table.board}
-            interaction={interaction}
-            isMaster={isMaster}
-            onClose={() => setConditionTargets(null)}
-          />
-        )}
-        {imageTokenId && table && (
-          <RoomTokenImageDialog
-            scope={scopeOf()}
-            board={table.board}
-            tokenId={imageTokenId}
-            commands={props.boardCommands}
-            assets={props.assets}
-            onClose={() => setImageTokenId(null)}
-          />
-        )}
-        {deletion && (
-          <DeleteSelectionDialog
-            selection={deletion}
-            interaction={interaction}
-            onClose={() => setDeletion(null)}
-          />
-        )}
-        <BoardStatusLine table={table} interaction={interaction} />
-        <FocusToggle roomLayout={roomLayout} />
-        {focus && table && (
-          <TurnLine
-            board={table.board}
-            interaction={interaction}
-            className="absolute top-3 left-1/2 -translate-x-1/2 bg-panel px-3 py-1"
-          />
-        )}
-        {!focus && (
-          <RoomToolbar
-            board={table?.board ?? null}
-            presence={table?.presence ?? null}
-            interaction={interaction}
-            renderer={renderer}
-            canConfigure={campaign.myRole === 'master'}
-            onConfigure={() => setSceneDialog(true)}
-            onNewToken={() => setTokenDialog({ tokenId: null })}
-          />
-        )}
-        {sceneDialog && table && (
-          <RoomSceneDialog
-            campaignId={campaign.id}
-            table={table}
-            commands={props.boardCommands}
-            assets={props.assets}
-            onClose={() => setSceneDialog(false)}
-          />
-        )}
-        {tokenDialog && table && (
-          <RoomTokenDialog
-            scope={scopeOf()}
-            table={table}
-            tokenId={tokenDialog.tokenId}
-            renderer={renderer}
-            interaction={interaction}
-            commands={props.boardCommands}
-            assets={props.assets}
-            onClose={() => setTokenDialog(null)}
-          />
-        )}
-        {!focus && (
-          <RoomSidePanel
-            roomLayout={roomLayout}
-            table={table}
-            interaction={interaction}
-            group={shown.group}
-            isMaster={campaign.myRole === 'master'}
-            onEditToken={(tokenId) => setTokenDialog({ tokenId })}
-            clock={props.interactionClock}
-          />
-        )}
+          {tool === 'draw' && !focus && (
+            <DrawStylePanel
+              drawingStyle={props.drawingStyle}
+              mode={drawMode}
+              onMode={interaction.getState().setDrawMode}
+            />
+          )}
+          {tool === 'area' && !focus && <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />}
+          {tool === 'walls' && !focus && table && (
+            <RoomWallPanel
+              board={table.board}
+              interaction={interaction}
+              wallStyle={props.wallStyle}
+            />
+          )}
+          {tool === 'lights' && !focus && table && (
+            <RoomLightPanel
+              board={table.board}
+              interaction={interaction}
+              lightReach={props.lightReach}
+              lightColor={props.lightColor}
+            />
+          )}
+          {hover.hovered && table && (
+            <TokenHoverCard request={hover.hovered} board={table.board} interaction={interaction} />
+          )}
+          {tokenMenu && table && (
+            <TokenContextMenu
+              request={tokenMenu}
+              board={table.board}
+              presence={table.presence}
+              interaction={interaction}
+              onApplyCondition={setConditionTargets}
+              onChangeImage={setImageTokenId}
+              characters={{ cast: table.cast, onConfirmLink: setCardLink }}
+              onClose={() => setTokenMenu(null)}
+            />
+          )}
+          {cardLink && (
+            <CardLinkDialog
+              request={cardLink}
+              interaction={interaction}
+              onClose={() => setCardLink(null)}
+            />
+          )}
+          {doorMenu && table && (
+            <DoorMenu
+              request={doorMenu}
+              board={table.board}
+              interaction={interaction}
+              onClose={() => setDoorMenu(null)}
+            />
+          )}
+          {lightMenu && table && (
+            <LightMenu
+              request={lightMenu}
+              board={table.board}
+              interaction={interaction}
+              onClose={() => setLightMenu(null)}
+            />
+          )}
+          {conditionTargets && table && (
+            <ApplyConditionDialog
+              tokenIds={conditionTargets}
+              board={table.board}
+              interaction={interaction}
+              isMaster={isMaster}
+              onClose={() => setConditionTargets(null)}
+            />
+          )}
+          {imageTokenId && table && (
+            <RoomTokenImageDialog
+              scope={scopeOf()}
+              board={table.board}
+              tokenId={imageTokenId}
+              commands={props.boardCommands}
+              assets={props.assets}
+              onClose={() => setImageTokenId(null)}
+            />
+          )}
+          {deletion && (
+            <DeleteSelectionDialog
+              selection={deletion}
+              interaction={interaction}
+              onClose={() => setDeletion(null)}
+            />
+          )}
+          <BoardStatusLine table={table} interaction={interaction} />
+          <FocusToggle roomLayout={roomLayout} />
+          {focus && table && (
+            <TurnLine
+              board={table.board}
+              interaction={interaction}
+              className="absolute top-3 left-1/2 -translate-x-1/2 bg-panel px-3 py-1"
+            />
+          )}
+          {!focus && (
+            <RoomToolbar
+              board={table?.board ?? null}
+              presence={table?.presence ?? null}
+              interaction={interaction}
+              renderer={renderer}
+              role={role}
+              onConfigure={() => setSceneDialog(true)}
+              onNewToken={() => setTokenDialog({ tokenId: null })}
+            />
+          )}
+          {sceneDialog && table && (
+            <RoomSceneDialog
+              campaignId={campaign.id}
+              table={table}
+              commands={props.boardCommands}
+              assets={props.assets}
+              onClose={() => setSceneDialog(false)}
+            />
+          )}
+          {tokenDialog && table && (
+            <RoomTokenDialog
+              scope={scopeOf()}
+              table={table}
+              tokenId={tokenDialog.tokenId}
+              renderer={renderer}
+              interaction={interaction}
+              commands={props.boardCommands}
+              assets={props.assets}
+              onClose={() => setTokenDialog(null)}
+            />
+          )}
+          {!focus && (
+            <RoomSidePanel
+              roomLayout={roomLayout}
+              table={table}
+              interaction={interaction}
+              group={shown.group}
+              isMaster={isMaster}
+              onEditToken={(tokenId) => setTokenDialog({ tokenId })}
+              clock={props.interactionClock}
+            />
+          )}
+        </div>
       </div>
-    </div>
+    </TablePlayersContext>
   );
 }
 

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { TurnLine } from '@/features/combat/turn-line';
 import { useLeaveTable } from '@/features/sessions/use-leave-table';
 import { formatCampaignCode } from '@/lib/campaign-code';
+import { watchesOnly } from '@/lib/table-role';
 import type { Clipboard } from '@/services/clipboard';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
@@ -18,6 +19,7 @@ import {
   useTablePresence,
   type TablePresenceStore,
 } from '@/stores/table-presence-store';
+import { SPECTATOR_BADGE } from './board-messages';
 import { PanelToggle } from './room-panel';
 import { SceneTabs } from './scene-tabs';
 
@@ -34,7 +36,7 @@ export type RoomHeaderProps = Readonly<{
   clipboard: Clipboard;
 }>;
 
-/** The 48px top bar of the room: name, who is online, the open grid tabs, the code (master
+/** The 48px top bar of the room: name (and the "Espectador" badge of whoever only watches), who is online, the open grid tabs, the code (master
  *  only), "Biblioteca", "Configurações da mesa" (master only), the panel toggle and "Sair da
  *  mesa".
  *
@@ -56,6 +58,7 @@ export function RoomHeader({
       className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-panel px-3"
     >
       <h1 className="min-w-0 truncate font-display text-xl font-semibold">{campaign.name}</h1>
+      {watchesOnly(campaign.myRole) && <SpectatorBadge />}
       {presence && (
         <OnlineCount presence={presence} onShow={() => roomLayout.getState().showTab('people')} />
       )}
@@ -76,6 +79,15 @@ export function RoomHeader({
         </Button>
       </div>
     </section>
+  );
+}
+
+// Text, not an icon: it tells why the tools are gone (a reconnection would look the same).
+function SpectatorBadge(): React.JSX.Element {
+  return (
+    <span className="shrink-0 rounded-sm border border-border px-1.5 py-0.5 text-[11px] tracking-[0.12em] text-label uppercase">
+      {SPECTATOR_BADGE}
+    </span>
   );
 }
 

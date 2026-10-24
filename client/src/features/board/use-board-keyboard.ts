@@ -1,6 +1,8 @@
 import { seenTokensOf } from '@/lib/board-sight';
 import type { SelectionToDelete } from './delete-selection-dialog';
 import { sightNowOf } from './use-board-sight';
+import { useTablePlayers } from './table-players';
+import { watchesOnly } from '@/lib/table-role';
 import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
 import { blockedPassage, cell, tokenCenter, turnFacing, type Cell } from '@lorkarium/game-core';
 import { gameWallsOf } from '@/lib/wall-geometry';
@@ -40,32 +42,38 @@ const STEP: Readonly<Record<'up' | 'down' | 'left' | 'right', readonly [number, 
 /** Playing without a mouse: ] and [ select one, the arrows move the selection a cell (one
  *  command, for a group too), Enter opens its card, Delete deletes the selected drawings, areas
  *  and walls (and, for the master, the selected tokens after `onDeleteSelection` asks); every
- *  step is said on the status line.
+ *  step is said on the status line. A spectator only selects and opens.
  *
  *  Example: `<div onKeyDown={useBoardKeyboard({ board, interaction, onOpen, onDeleteSelection })} />` */
 export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.KeyboardEvent) => void {
   const { board, interaction, onOpen, onDeleteSelection } = deps;
+  const players = useTablePlayers();
   return useCallback(
     (event) => {
       const key = boardKeyOf(event);
       if (!key) return;
       event.preventDefault();
-      runBoardKey(key, { board, interaction, onOpen, onDeleteSelection });
+      runBoardKey(key, { board, interaction, onOpen, onDeleteSelection, players });
     },
-    [board, interaction, onOpen, onDeleteSelection],
+    [board, interaction, onOpen, onDeleteSelection, players],
   );
 }
+
+type KeyRunDeps = BoardKeyboardDeps & Readonly<{ players: readonly string[] }>;
+
+// What a spectator's keys may still do: pick a token and open its card.
+const LOOKING_KEYS: readonly BoardKey[] = ['next', 'previous', 'open'];
 
 // E turns clockwise on screen (+45), Q back (−45): the facing grows clockwise.
 const TURN: Readonly<Record<'turnBack' | 'turnOn', number>> = { turnBack: -45, turnOn: 45 };
 
-function runBoardKey(key: BoardKey, deps: BoardKeyboardDeps): void {
-  if (key === 'delete') return deleteSelectedPieces(deps);
+function runBoardKey(key: BoardKey, deps: KeyRunDeps): void {
   const state = deps.board.getState().board;
+  if (state && watchesOnly(state.viewer.role) && !LOOKING_KEYS.includes(key)) return;
+  if (key === 'delete') return deleteSelectedPieces(deps);
   // The keys only reach what this viewer sees whole.
-  const tokens = state
-    ? seenTokensOf(state, sightNowOf(deps.board.getState(), deps.interaction.getState()))
-    : [];
+  const sight = sightNowOf(deps.board.getState(), deps.interaction.getState(), deps.players);
+  const tokens = state ? seenTokensOf(state, sight) : [];
   const { selectedTokenIds } = deps.interaction.getState();
   const selected = tokens.filter(({ id }) => selectedTokenIds.includes(id));
   if (key === 'next' || key === 'previous') return selectStep(tokens, key, deps.interaction);

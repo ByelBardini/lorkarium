@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
 import { detailOf, QUELM, VHARN } from '../support/campaigns-api-fake';
 import { HttpTransportFake } from '../support/http-transport-fake';
+import { duda } from '../support/table-session-fixtures';
 
 const CREATE = {
   name: 'Os Sinos de Vharn',
@@ -109,6 +110,74 @@ describe('HttpCampaignsApi', () => {
   ] as const)('a 404 on %s (not a member) becomes not_found', async (_, run) => {
     transport.respondWith(404, apiError('CAMPAIGN_NOT_FOUND'));
     expect(await run()).toEqual({ ok: false, failure: { kind: 'not_found' } });
+  });
+
+  describe('setMemberRole', () => {
+    const dudaPlayer = {
+      userId: duda().userId,
+      name: 'Duda',
+      role: 'player',
+      color: 'teal',
+      avatarId: null,
+      online: true,
+    } as const;
+
+    it('sends a PATCH with the role to the member path and yields the member as the DTO has it', async () => {
+      transport.respondWith(200, dudaPlayer);
+
+      expect(await api.setMemberRole(VHARN.id, duda().userId, 'player')).toEqual({
+        ok: true,
+        value: dudaPlayer,
+      });
+      expect(transport.requests).toEqual([
+        {
+          method: 'PATCH',
+          path: `/campaigns/${VHARN.id}/members/${duda().userId}`,
+          body: { role: 'player' },
+        },
+      ]);
+    });
+
+    it('a 200 whose member is outside the DTO becomes unexpected', async () => {
+      transport.respondWith(200, { ...dudaPlayer, role: 'observer' });
+
+      expect(await api.setMemberRole(VHARN.id, duda().userId, 'player')).toEqual({
+        ok: false,
+        failure: { kind: 'unexpected' },
+      });
+    });
+
+    it('a 403 FORBIDDEN (a player asked) becomes forbidden', async () => {
+      transport.respondWith(403, apiError('FORBIDDEN'));
+
+      expect(await api.setMemberRole(VHARN.id, duda().userId, 'spectator')).toEqual({
+        ok: false,
+        failure: { kind: 'forbidden' },
+      });
+    });
+
+    it('a 404 MEMBER_NOT_FOUND becomes member_not_found, apart from the table not found', async () => {
+      transport.respondWith(404, apiError('MEMBER_NOT_FOUND'));
+      transport.respondWith(404, apiError('CAMPAIGN_NOT_FOUND'));
+
+      expect(await api.setMemberRole(VHARN.id, duda().userId, 'player')).toEqual({
+        ok: false,
+        failure: { kind: 'member_not_found' },
+      });
+      expect(await api.setMemberRole(VHARN.id, duda().userId, 'player')).toEqual({
+        ok: false,
+        failure: { kind: 'not_found' },
+      });
+    });
+
+    it('a network failure becomes offline', async () => {
+      transport.failWithNetworkDown();
+
+      expect(await api.setMemberRole(VHARN.id, duda().userId, 'player')).toEqual({
+        ok: false,
+        failure: { kind: 'offline' },
+      });
+    });
   });
 
   it('a 400 update becomes invalid', async () => {

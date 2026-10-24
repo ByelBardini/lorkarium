@@ -1,12 +1,15 @@
 import type { MemberCardDto } from '@lorkarium/contracts';
 import { HexagonIcon, ShieldIcon } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { RosterPlayer } from '@/lib/table-roster';
 import { cn } from '@/lib/utils';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
-import type { BoardStore } from '@/stores/board-store';
+import { useBoard, type BoardStore } from '@/stores/board-store';
+import { useMemberRoleChange, type MemberRoleChange } from './use-member-role-change';
+import { MoveToSpectatorsConfirm } from './move-to-spectators-confirm';
+import { PlayerActionsMenu } from './player-actions-menu';
 import {
   CharacterName,
   NoteField,
@@ -29,7 +32,8 @@ export type PlayerCardProps = Readonly<{
 }>;
 
 /** A player on the "Na mesa" tab: the main token's portrait and bars, the character name, the
- *  nick with the presence symbol, CA, CD and two free lines; the member and the masters edit it.
+ *  nick with the presence symbol, CA, CD and two free lines; the member and the masters edit it,
+ *  and the master moves the player to the spectators from its "⋯".
  *  Before the board arrives, only the nick line (cards and tokens come with the `board:sync`).
  *
  *  Example: `<PlayerCard player={roster.players[0]} board={board} interaction={interaction} isMaster={false} />` */
@@ -76,6 +80,7 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
   const { player, card, titleId } = props;
   const { member, isViewer, token } = player;
   const editing = useCardEditing(props);
+  const demotion = useDemotion(props);
   const name = player.characterName ?? member.name;
   return (
     <>
@@ -96,7 +101,12 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
           <CardBars token={token} name={name} board={props.board} interaction={props.interaction} />
         </div>
       </div>
-      <CardStats {...props} name={name} editing={editing} />
+      <CardStats
+        {...props}
+        name={name}
+        editing={editing}
+        actions={demotionMenuOf(demotion, member.name)}
+      />
       <div className="flex flex-col gap-0.5">
         <NoteField
           label={`Anotação 1 de ${name}`}
@@ -113,11 +123,66 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
           editing={editing}
         />
       </div>
+      {demotion && <DemotionPrompt demotion={demotion} name={member.name} />}
     </>
   );
 }
 
-function CardStats(props: CardBodyProps & Readonly<{ name: string; editing: CardEditing }>) {
+type Demotion = Readonly<{
+  move: MemberRoleChange;
+  asking: boolean;
+  setAsking: (asking: boolean) => void;
+}>;
+
+// Only the master moves a player to the spectators; outside the room (no changer) there is no "⋯".
+function useDemotion({ player, isMaster, board }: PlayerCardProps): Demotion | null {
+  const campaignId = useBoard(board, (state) => state.campaignId);
+  const move = useMemberRoleChange(campaignId, player.member.userId);
+  const [asking, setAsking] = useState(false);
+  if (!move || !isMaster || player.isViewer) return null;
+  return { move, asking, setAsking };
+}
+
+function demotionMenuOf(demotion: Demotion | null, name: string): ReactNode {
+  if (!demotion) return null;
+  return (
+    <PlayerActionsMenu
+      name={name}
+      disabled={demotion.move.pending}
+      onMoveToSpectators={() => demotion.setAsking(true)}
+    />
+  );
+}
+
+function DemotionPrompt({ demotion, name }: Readonly<{ demotion: Demotion; name: string }>) {
+  const { move, asking, setAsking } = demotion;
+  const confirm = (): void => {
+    setAsking(false);
+    move.change('spectator');
+  };
+  return (
+    <>
+      {asking && (
+        <MoveToSpectatorsConfirm
+          name={name}
+          disabled={move.pending}
+          onConfirm={confirm}
+          onCancel={() => setAsking(false)}
+        />
+      )}
+      {move.failure && (
+        <p role="alert" className="text-xs text-destructive-text">
+          {move.failure}
+        </p>
+      )}
+    </>
+  );
+}
+
+type CardStatsProps = CardBodyProps &
+  Readonly<{ name: string; editing: CardEditing; actions: ReactNode }>;
+
+function CardStats(props: CardStatsProps) {
   const { card, name, editing } = props;
   const { token } = props.player;
   return (
@@ -149,6 +214,7 @@ function CardStats(props: CardBodyProps & Readonly<{ name: string; editing: Card
           interaction={props.interaction}
         />
       )}
+      {props.actions}
     </div>
   );
 }
