@@ -232,6 +232,34 @@
       "when": 1792707118943,
       "tag": "0032_member_cards",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792716811525,
+      "tag": "0033_scene_library",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792720398678,
+      "tag": "0034_combatants_combat_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792726084578,
+      "tag": "0035_cast_scenes",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792726578827,
+      "tag": "0036_token_anchor",
+      "breakpoints": true
     }
   ]
 }
