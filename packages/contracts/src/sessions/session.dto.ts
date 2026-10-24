@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { memberColorDto } from '../account/username.dto';
-import { campaignRoleDto } from '../campaigns/campaign.dto';
+import { campaignInfoDto, campaignRoleDto } from '../campaigns/campaign.dto';
 import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto';
 
 /** Socket.IO path: under `/api` like every route, so the Vite proxy and production share it. */
@@ -19,6 +19,8 @@ export const SESSION_EVENTS = {
   setActivity: 'session:setActivity',
   memberActivity: 'session:memberActivity',
   memberUpdated: 'session:memberUpdated',
+  campaignUpdated: 'session:campaignUpdated',
+  campaignDeleted: 'session:campaignDeleted',
 } as const;
 
 /** Payload of `session:join` and `session:leave`; who asks comes from the connection (§7.3).
@@ -90,6 +92,30 @@ export const sessionMemberUpdatedDto = z.strictObject({
 
 export type SessionMemberUpdatedDto = z.infer<typeof sessionMemberUpdatedDto>;
 
+/** `session:campaignUpdated`: the master saved the campaign settings or a new join code; the
+ *  campaign is read again after the write, and the version moves like any roster change (§5.5).
+ *
+ *  Example: `sessionCampaignUpdatedDto.parse(event).campaign.name // 'Os Sinos de Vharn'` */
+export const sessionCampaignUpdatedDto = z.strictObject({
+  campaignId: z.uuid(),
+  version: stateVersionDto,
+  campaign: campaignInfoDto,
+  at: z.iso.datetime(),
+});
+
+export type SessionCampaignUpdatedDto = z.infer<typeof sessionCampaignUpdatedDto>;
+
+/** `session:campaignDeleted`: the master deleted the campaign; the server then takes every socket
+ *  out of the room, so no version follows it.
+ *
+ *  Example: `sessionCampaignDeletedDto.parse(event).campaignId` */
+export const sessionCampaignDeletedDto = z.strictObject({
+  campaignId: z.uuid(),
+  at: z.iso.datetime(),
+});
+
+export type SessionCampaignDeletedDto = z.infer<typeof sessionCampaignDeletedDto>;
+
 /** Answer to `session:join`: the snapshot, or the same error body as the HTTP API. */
 export const sessionJoinAckDto = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true), state: sessionStateDto }),
@@ -149,4 +175,6 @@ export type SessionServerEvents = {
   'session:memberLeft': (event: SessionMemberLeftDto) => void;
   'session:memberActivity': (event: SessionMemberActivityDto) => void;
   'session:memberUpdated': (event: SessionMemberUpdatedDto) => void;
+  'session:campaignUpdated': (event: SessionCampaignUpdatedDto) => void;
+  'session:campaignDeleted': (event: SessionCampaignDeletedDto) => void;
 };

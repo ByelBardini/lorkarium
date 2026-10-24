@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   sessionActivityCommandDto,
+  sessionCampaignDeletedDto,
+  sessionCampaignUpdatedDto,
   sessionCommandDto,
   sessionJoinAckDto,
   sessionMemberActivityDto,
@@ -99,5 +101,37 @@ describe('sessionMemberActivityDto', () => {
     };
 
     expect(sessionMemberActivityDto.parse(event)).toEqual(event);
+  });
+});
+
+describe('the campaign events', () => {
+  const CAMPAIGN = {
+    id: CAMPAIGN_ID,
+    name: 'Os Sinos de Vharn',
+    system: 'D&D 5e',
+    status: 'ongoing',
+    description: null,
+    visibility: 'private',
+    masterName: 'Ana',
+    memberCount: 2,
+    cover: { kind: 'drawn', drawing: 0, tone: 1 },
+    contentWarnings: [],
+    tags: [],
+  } as const;
+
+  it('session:campaignUpdated carries the campaign without what depends on the reader', () => {
+    const event = { campaignId: CAMPAIGN_ID, version: 3, campaign: CAMPAIGN, at: STATE.at };
+    expect(sessionCampaignUpdatedDto.parse(event)).toEqual(event);
+  });
+
+  it('session:campaignUpdated refuses a campaign carrying myRole', () => {
+    const campaign = { ...CAMPAIGN, myRole: 'master' };
+    const event = { campaignId: CAMPAIGN_ID, version: 3, campaign, at: STATE.at };
+    expect(sessionCampaignUpdatedDto.safeParse(event).success).toBe(false);
+  });
+
+  it('session:campaignDeleted carries only the campaign and the moment', () => {
+    const event = { campaignId: CAMPAIGN_ID, at: STATE.at };
+    expect(sessionCampaignDeletedDto.parse(event)).toEqual(event);
   });
 });

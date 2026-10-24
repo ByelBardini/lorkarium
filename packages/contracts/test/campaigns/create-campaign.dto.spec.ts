@@ -18,7 +18,7 @@ describe('createCampaignRequestDto', () => {
     expect(parsed).toEqual({
       name: 'Os Sinos de Vharn',
       system: null,
-      status: null,
+      status: 'building',
       description: null,
       visibility: 'private',
     });
@@ -53,10 +53,22 @@ describe('createCampaignRequestDto', () => {
     expect(createCampaignRequestDto.parse({ ...VALID, system: '   ' }).system).toBeNull();
   });
 
-  it('keeps a trimmed status', () => {
-    expect(createCampaignRequestDto.parse({ ...VALID, status: ' Recrutando ' }).status).toBe(
-      'Recrutando',
-    );
+  it('defaults the status to building when it is not sent', () => {
+    expect(createCampaignRequestDto.parse(VALID).status).toBe('building');
+  });
+
+  it('refuses a status outside the enum on the status path', () => {
+    expect(issuePathsOf({ ...VALID, status: 'Recrutando' })).toEqual(['status']);
+  });
+
+  it('accepts a drawn cover', () => {
+    const cover = { kind: 'drawn', drawing: 2, tone: 4 } as const;
+    expect(createCampaignRequestDto.parse({ ...VALID, cover }).cover).toEqual(cover);
+  });
+
+  it('refuses an image cover, which needs the campaign to exist first', () => {
+    const cover = { kind: 'image', assetId: '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a' };
+    expect(issuePathsOf({ ...VALID, cover })).toContain('cover.kind');
   });
 
   it('treats an empty password as absent', () => {
