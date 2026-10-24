@@ -1,16 +1,19 @@
 import { Loader2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-/** What the bar says: an edit waits, it is being saved, or it was just saved (for 2 s). */
-export type UnsavedChangesState = 'dirty' | 'saving' | 'saved';
+import type { UnsavedChangesState } from '@/lib/unsaved-changes';
+import { cn } from '@/lib/utils';
 
 export type UnsavedChangesBarProps = Readonly<{
+  /** The name of the region ("Alterações do perfil", "Alterações da mesa"). */
+  label: string;
   state: UnsavedChangesState;
   /** A field is invalid: "Salvar alterações" waits for it. */
   invalid: boolean;
   /** The refusal of the last save, shown in the bar. */
   failureMessage: string | null;
   onDiscard: () => void;
+  /** Where the bar meets the edges of its screen (the page gutters, the dialog padding). */
+  className?: string;
 }>;
 
 const STATE_TEXT: Readonly<Record<UnsavedChangesState, string>> = {
@@ -19,18 +22,21 @@ const STATE_TEXT: Readonly<Record<UnsavedChangesState, string>> = {
   saved: 'Tudo salvo.',
 };
 
-/** The bar pinned at the bottom of the profile while an edit waits: "Descartar" and "Salvar
+/** The bar pinned at the bottom of a form while an edit waits: "Descartar" and "Salvar
  *  alterações" (the form's submit). Surface, not shadow: `bg-muted` with a border.
  *
- *  Example: `{barState && <UnsavedChangesBar state={barState} invalid={false} failureMessage={null} onDiscard={draft.discard} />}` */
+ *  Example: `{barState && <UnsavedChangesBar label="Alterações do perfil" state={barState} invalid={false} failureMessage={null} onDiscard={draft.discard} />}` */
 export function UnsavedChangesBar(props: UnsavedChangesBarProps): React.JSX.Element {
   const saving = props.state === 'saving';
   return (
     <div
       role="region"
-      aria-label="Alterações do perfil"
+      aria-label={props.label}
       aria-busy={saving}
-      className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-border bg-muted px-4 py-3 sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12"
+      className={cn(
+        'sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-border bg-muted px-4 py-3',
+        props.className,
+      )}
     >
       <div className="mr-auto flex flex-col gap-0.5">
         <p role="status" className="text-sm text-label">

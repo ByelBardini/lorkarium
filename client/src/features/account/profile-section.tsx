@@ -1,9 +1,15 @@
 import { PROFILE_BIO_MAX_LENGTH, type ProfileDto } from '@lorkarium/contracts';
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useId, type FormEvent } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { FormField } from '@/components/form-field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { UnsavedChangesBar } from '@/components/unsaved-changes-bar';
+import {
+  unsavedChangesStateOf,
+  useSavedNotice,
+  type UnsavedChangesState,
+} from '@/lib/unsaved-changes';
 import type { ProfileApi } from '@/services/profile-api';
 import type { SessionStore } from '@/stores/session-store';
 import { accountFailureMessage } from './account-messages';
@@ -12,11 +18,8 @@ import { LeaveWithoutSavingDialog } from './leave-without-saving-dialog';
 import { ProfileColorField } from './profile-color-field';
 import { ProfilePreview } from './profile-preview';
 import { SectionHeading } from './section-heading';
-import { UnsavedChangesBar, type UnsavedChangesState } from './unsaved-changes-bar';
 import { failureOf, useAccountFetcher, useOnSettled } from './use-account-fetcher';
 import { useProfileDraft, type ProfileDraft } from './use-profile-draft';
-
-const SAVED_NOTICE_MS = 2000;
 
 export type ProfileSectionProps = Readonly<{
   profile: ProfileDto;
@@ -63,6 +66,8 @@ export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
         </div>
         {save.barState && (
           <UnsavedChangesBar
+            label="Alterações do perfil"
+            className="-mx-4 sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12"
             state={save.barState}
             invalid={draft.update === null}
             failureMessage={save.failureMessage}
@@ -84,38 +89,27 @@ type ProfileSave = Readonly<{
 
 function useProfileSave(draft: ProfileDraft): ProfileSave {
   const fetcher = useAccountFetcher();
-  const [justSaved, setJustSaved] = useState(false);
+  const notice = useSavedNotice();
   const failure = failureOf(fetcher.settled);
   useOnSettled(fetcher.settled, (result) => {
     if (!('done' in result)) return;
     draft.discard();
-    setJustSaved(true);
+    notice.showSaved();
   });
-  useEffect(() => {
-    if (!justSaved) return;
-    const timer = setTimeout(() => setJustSaved(false), SAVED_NOTICE_MS);
-    return () => clearTimeout(timer);
-  }, [justSaved]);
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (draft.update) fetcher.send({ intent: 'profile-update', input: draft.update });
   };
   return {
     saving: fetcher.busy,
-    barState: barStateOf(fetcher.busy, draft.dirty, justSaved),
+    barState: unsavedChangesStateOf({
+      saving: fetcher.busy,
+      dirty: draft.dirty,
+      justSaved: notice.justSaved,
+    }),
     failureMessage: failure && draft.dirty ? accountFailureMessage(failure) : null,
     submit,
   };
-}
-
-function barStateOf(
-  saving: boolean,
-  dirty: boolean,
-  justSaved: boolean,
-): UnsavedChangesState | null {
-  if (saving) return 'saving';
-  if (dirty) return 'dirty';
-  return justSaved ? 'saved' : null;
 }
 
 function ProfileFields({ draft, username }: Readonly<{ draft: ProfileDraft; username: string }>) {
