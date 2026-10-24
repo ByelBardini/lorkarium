@@ -36,6 +36,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   combat: ['combat'],
   vision: ['vision', 'vision-cone'],
   lighting: ['lighting'],
+  library: ['library', 'character'],
 };
 
 assertEverySpecIsGrouped(SPEC_GROUPS);
