@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Detalhes da mesa</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#08090B}
+button:focus-visible,input:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.md-btn{height:44px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:10px;background:transparent;color:#D5D0C4;font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.md-btn:hover{border-color:#4A505B;color:#EAE5DA}
+.md-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.md-btn.is-gold:hover{background:#D4B57E}
+.md-btn.is-small{height:34px;padding:0 12px;font-size:13px}
+.md-ico{width:38px;height:38px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:transparent;color:#8C8F98;cursor:pointer}
+.md-ico:hover{background:#1F232A;color:#EAE5DA}
+.md-menu{width:100%;display:flex;align-items:center;gap:10px;height:38px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:#D5D0C4;font:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left;white-space:nowrap}
+.md-menu:hover{background:#1F232A;color:#EAE5DA}
+.md-menu.is-danger{color:#E6A28F}
+.md-stat{display:flex;flex-direction:column;gap:6px;min-width:0}
+.md-stat-k{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#6F7480}
+.md-stat-v{font-size:15px;font-weight:600;color:#EAE5DA;line-height:1.35}
+.md-input{height:44px;box-sizing:border-box;padding:0 14px 0 40px;border-radius:10px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:14px;width:100%}
+.md-input::placeholder{color:#6F7480}
+.md-input:focus{outline:none;border-color:#C5A46D;box-shadow:0 0 0 3px rgba(197,164,109,.16)}
+.md-input.is-error{border-color:#C9705A}
+.md-cover{position:relative;width:132px;height:132px;flex-shrink:0;border-radius:14px;overflow:hidden;background-color:#13161B;background-image:linear-gradient(rgba(197,164,109,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(197,164,109,.08) 1px,transparent 1px);background-size:14px 14px;box-shadow:inset 0 0 0 1px #2A2F38}
+.md-cover-edit{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(10,11,14,.7);color:#EAE5DA;font-size:12px;font-weight:600;opacity:0;transition:opacity .15s;border:0;cursor:pointer;font-family:inherit}
+.md-cover:hover .md-cover-edit,.md-cover-edit:focus-visible{opacity:1}
+</style>
+</helmet>
+<div style="width: 1200px; height: 860px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: #0B0C0F; background-image: linear-gradient(rgba(197,164,109,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(197,164,109,.05) 1px, transparent 1px); background-size: 48px 48px; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+<div style="position: absolute; inset: 0; background: rgba(6,7,9,.72)" aria-hidden="true"></div>
+
+<div role="dialog" aria-modal="true" aria-labelledby="md-title" style="position: relative; width: 820px; box-sizing: border-box; border-radius: 16px; background: #15181D; border: 1px solid #303640; box-shadow: 0 30px 90px rgba(0,0,0,.6); display: flex; flex-direction: column">
+
+<div style="padding: 28px 28px 24px; display: flex; gap: 22px; align-items: flex-start">
+<div class="md-cover">
+<svg viewBox="0 0 132 132" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<path d="M16 22 H68 V44 H92 V30 H118 V110 H80 V92 H52 V112 H16 Z" fill="#1C1F25" stroke="#8FA8D8" stroke-opacity=".75" stroke-width="2.4" stroke-linejoin="round"></path>
+<path d="M32 40 h10 v10 h-10 Z M30 80 h10 v10 h-10 Z" fill="none" stroke="#8FA8D8" stroke-opacity=".45" stroke-width="1.4"></path>
+<ellipse cx="100" cy="88" rx="12" ry="8" fill="#16212C" stroke="#4D6A8A" stroke-width="1.2"></ellipse>
+<circle cx="62" cy="64" r="7" fill="#101216" stroke="#EAE5DA" stroke-width="1.6"></circle>
+<circle cx="96" cy="52" r="7" fill="#101216" stroke="#C07A62" stroke-width="1.6"></circle>
+</svg>
+<sc-if value="{{isGM}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="md-cover-edit" aria-label="Trocar capa da mesa">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"></path></svg>Trocar capa</button>
+</sc-if>
+</div>
+
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding-top: 4px">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<span style="height: 24px; padding: 0 10px; border-radius: 999px; background: {{roleBg}}; color: {{roleFg}}; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; display: inline-flex; align-items: center">{{roleText}}</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: #1B1E24; color: #A9A497; font-size: 12px; font-weight: 600">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>Privada · com senha</span>
+</div>
+<h2 id="md-title" style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 34px; line-height: 1.1">Os Sinos de Vharn</h2>
+<div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 14px">
+<span style="display: inline-flex; align-items: center; gap: 8px; color: #8FD0A8; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 50%; background: #8FD0A8; box-shadow: 0 0 0 3px rgba(143,208,168,.2)"></span>Mestre online</span>
+<span style="color: #6F7480">·</span>
+<span style="color: #A9A497">3 de 5 online agora</span>
+</div>
+</div>
+
+<div style="position: relative; display: flex; gap: 4px">
+<button type="button" class="md-ico" onClick="{{toggleMenu}}" aria-label="Mais opções da mesa" aria-expanded="{{menuOpen}}">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg>
+</button>
+<button type="button" class="md-ico" aria-label="Fechar">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+<sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+<div role="menu" style="position: absolute; z-index: 10; right: 42px; top: 44px; width: 220px; box-sizing: border-box; padding: 6px; border-radius: 10px; background: #1B1E24; border: 1px solid #303640; box-shadow: 0 16px 40px rgba(0,0,0,.5)">
+<sc-if value="{{isGM}}" hint-placeholder-val="{{ true }}">
+<button type="button" role="menuitem" class="md-menu">Editar mesa</button>
+<button type="button" role="menuitem" class="md-menu">Gerenciar participantes</button>
+<button type="button" role="menuitem" class="md-menu">Trocar senha da mesa</button>
+<div style="height: 1px; margin: 6px 4px; background: #303640"></div>
+<button type="button" role="menuitem" class="md-menu is-danger">Arquivar mesa</button>
+</sc-if>
+<sc-if value="{{isGuest}}" hint-placeholder-val="{{ false }}">
+<button type="button" role="menuitem" class="md-menu">Copiar link da mesa</button>
+<button type="button" role="menuitem" class="md-menu is-danger">Denunciar mesa</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</div>
+
+<div style="margin: 0 28px; padding: 18px 0; border-top: 1px solid #23272E; border-bottom: 1px solid #23272E; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px">
+<div class="md-stat"><span class="md-stat-k">Sistema</span><span class="md-stat-v">D&amp;D 5e</span></div>
+<div class="md-stat"><span class="md-stat-k">Mestre</span><span class="md-stat-v" style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 50%; background: #8FA3BF; color: #15130F; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700">LU</span>Lucas</span></div>
+<div class="md-stat"><span class="md-stat-k">Última sessão</span><span class="md-stat-v">Há 1 h e 32 min</span></div>
+<div class="md-stat"><span class="md-stat-k">Criada em</span><span class="md-stat-v">2 de outubro</span></div>
+</div>
+
+<div style="padding: 22px 28px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 20px; min-width: 0">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 21px; font-weight: 600">Sobre a mesa</span>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #C9C3B6">Os sinos de Vharn tocaram sozinhos na noite em que o abade sumiu. Campanha de mistério e masmorra, com combate tático e muita conversa com NPC. Sessões de sexta, 21h.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6F7480">Avisos de conteúdo</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<span style="height: 26px; padding: 0 10px; border-radius: 999px; background: rgba(201,112,90,.14); color: #E6A28F; box-shadow: inset 0 0 0 1px rgba(201,112,90,.35); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">+18</span>
+<span style="height: 26px; padding: 0 10px; border-radius: 999px; background: rgba(201,112,90,.14); color: #E6A28F; box-shadow: inset 0 0 0 1px rgba(201,112,90,.35); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">Terror</span>
+<span style="height: 26px; padding: 0 10px; border-radius: 999px; background: rgba(201,112,90,.14); color: #E6A28F; box-shadow: inset 0 0 0 1px rgba(201,112,90,.35); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">Violência</span>
+<span style="height: 26px; padding: 0 10px; border-radius: 999px; background: #1F232A; color: #A9A497; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">Investigação</span>
+<span style="height: 26px; padding: 0 10px; border-radius: 999px; background: #1F232A; color: #A9A497; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">Masmorra</span>
+</div>
+</div>
+<sc-if value="{{isGM}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 14px 16px; border-radius: 12px; background: #101216; border: 1px solid #262B33; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6F7480">Código pra convidar</span>
+<span style="font-family: Cinzel, serif; font-size: 22px; font-weight: 600; letter-spacing: 0.18em; color: #E2C793">BQ9M-TXF4</span>
+</div>
+<button type="button" class="md-btn is-small" onClick="{{copy}}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>{{copyLabel}}</button>
+<button type="button" class="md-ico" aria-label="Gerar novo código" title="Gerar novo código (o antigo para de funcionar)" style="width: 34px; height: 34px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"></path></svg>
+</button>
+</div>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 21px; font-weight: 600">Na mesa</span>
+<span style="font-size: 12px; color: #8C8F98">5 pessoas</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{people}}" as="p" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 8px; border-radius: 8px; opacity: {{p.op}}">
+<span style="position: relative; width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; background: {{p.color}}; color: #15130F; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{p.ini}}
+<sc-if value="{{p.online}}" hint-placeholder-val="{{ true }}"><span style="position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px; border-radius: 50%; background: #8FD0A8; box-shadow: 0 0 0 2px #15181D"></span></sc-if>
+</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+<span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.name}}</span>
+<span style="font-size: 12px; color: #8C8F98">{{p.sub}}</span>
+</div>
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{p.roleColor}}">{{p.role}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="padding: 16px 28px; border-top: 1px solid #23272E; background: #12151A; border-radius: 0 0 16px 16px; display: flex; align-items: center; gap: 10px">
+<sc-if value="{{isGuest}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px; max-width: 320px">
+<div style="position: relative">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6F7480" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 14px; top: 14px"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+<input class="{{pwCls}}" type="password" placeholder="Senha da mesa" aria-label="Senha da mesa" value="{{pw}}" onChange="{{onPw}}" onKeyDown="{{onPwKey}}">
+</div>
+<sc-if value="{{hasPwMsg}}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size: 12px; color: {{pwMsgColor}}">{{pwMsg}}</span></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{isGM}}" hint-placeholder-val="{{ true }}">
+<span style="flex: 1; font-size: 13px; color: #8C8F98">Você mestra esta mesa</span>
+</sc-if>
+<button type="button" class="md-btn">Fechar</button>
+<button type="button" class="md-btn is-gold" onClick="{{enter}}" style="min-width: 170px">{{enterLabel}}
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"visao":{"editor":"enum","options":["mestre","convidado"],"default":"convidado"},"$preview":{"width":1200,"height":860}}'>
+var MD_PEOPLE = [
+  { name: 'Lucas', sub: 'online agora', role: 'Mestre', ini: 'LU', color: '#8FA3BF', online: true },
+  { name: 'Bia', sub: 'joga com Lyra · online', role: 'Jogador', ini: 'BI', color: '#D98FA6', online: true },
+  { name: 'Thiago', sub: 'joga com Thoren · online', role: 'Jogador', ini: 'TH', color: '#8FB39A', online: true },
+  { name: 'Carol', sub: 'joga com Sable · há 2 dias', role: 'Jogador', ini: 'CA', color: '#B48CC8', online: false },
+  { name: 'Marina', sub: 'assistindo · ontem', role: 'Espectador', ini: 'MA', color: '#6FB7B0', online: false }
+];
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { menu: false, copied: false, pw: '', pwState: null, entering: false }; }
+  renderVals() {
+    var self = this, s = this.state;
+    var gm = (this.props.visao ?? 'convidado') === 'mestre';
+    var tryEnter = function () {
+      if (gm) { self.setState({ entering: true }); return; }
+      var v = (self.state.pw || '').trim();
+      if (!v) { self.setState({ pwState: 'empty' }); return; }
+      if (v.toLowerCase() === 'errada') { self.setState({ pwState: 'wrong' }); return; }
+      self.setState({ pwState: 'ok', entering: true });
+    };
+    var msg = { empty: 'Essa mesa tem senha. Pede pro mestre.', wrong: 'Senha errada. Confere com o mestre.', ok: 'Senha certa, entrando…' };
+    return {
+      isGM: gm, isGuest: !gm,
+      roleText: gm ? 'Você mestra' : 'Convite pra você', roleBg: gm ? 'rgba(197,164,109,.16)' : 'rgba(143,163,191,.16)', roleFg: gm ? '#E2C793' : '#B8C6DA',
+      menuOpen: s.menu, toggleMenu: function () { self.setState({ menu: !self.state.menu }); },
+      copyLabel: s.copied ? 'Copiado!' : 'Copiar', copy: function () { try { navigator.clipboard.writeText('BQ9M-TXF4'); } catch (e) {} self.setState({ copied: true }); setTimeout(function () { self.setState({ copied: false }); }, 1800); },
+      people: MD_PEOPLE.map(function (p) { return Object.assign({}, p, { op: p.online ? '1' : '.55', roleColor: p.role === 'Mestre' ? '#C5A46D' : '#8C8F98' }); }),
+      pw: s.pw, onPw: function (e) { self.setState({ pw: e.target.value, pwState: null }); },
+      onPwKey: function (e) { if (e.key === 'Enter') tryEnter(); },
+      pwCls: 'md-input' + (s.pwState === 'empty' || s.pwState === 'wrong' ? ' is-error' : ''),
+      hasPwMsg: !!s.pwState, pwMsg: msg[s.pwState] || '', pwMsgColor: s.pwState === 'ok' ? '#A9D1B4' : '#E6A28F',
+      enterLabel: s.entering ? 'Entrando…' : 'Entrar na mesa', enter: tryEnter
+    };
+  }
+}
+</script>
+</body>
+</html>
