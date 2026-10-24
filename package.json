@@ -26,7 +26,9 @@
     "db:generate": "pnpm --filter @lorkarium/server db:generate",
     "db:migrate": "pnpm --filter @lorkarium/server db:migrate",
     "db:seed-dev": "pnpm --filter @lorkarium/server seed:dev",
-    "prepare": "husky"
+    "db:seed-stress": "pnpm --filter @lorkarium/server seed:stress",
+    "prepare": "husky",
+    "bench": "vitest bench --run --reporter=verbose"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs}": [
