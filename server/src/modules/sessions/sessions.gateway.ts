@@ -20,6 +20,7 @@ import {
   campaignUserRoom,
   isRoomOfCampaign,
   sceneAudienceRooms,
+  type TableAudience,
 } from '../../realtime/rooms';
 import { withoutWatchedTable } from '../../realtime/watched-scenes';
 import { CommandRateLimitedError } from '../board/board.error';
@@ -92,20 +93,24 @@ async function joinTable(
     deps.service.leave(userId, campaignId, socket.id);
     return { ok: true, state };
   }
-  const isMaster = isMasterIn(state, userId);
-  await socket.join(audienceRoomsOf(campaignId, userId, isMaster));
-  await enterTableGrids(deps, socket, { userId, campaignId }, isMaster);
+  const audience = audienceIn(state, userId);
+  await socket.join(audienceRoomsOf(campaignId, userId, audience));
+  await enterTableGrids(deps, socket, { userId, campaignId }, audience);
   return { ok: true, state };
 }
 
-function isMasterIn(state: SessionStateDto, userId: string): boolean {
-  return state.members.find((member) => member.userId === userId)?.role === 'master';
+// Someone missing from the snapshot gets the rooms that see the least (deny by default).
+function audienceIn(state: SessionStateDto, userId: string): TableAudience {
+  return state.members.find((member) => member.userId === userId)?.role ?? 'spectator';
 }
 
-// The table room for everyone, plus the rooms that receive the unredacted board (§3.9).
-function audienceRoomsOf(campaignId: string, userId: string, isMaster: boolean): string[] {
-  const rooms = [campaignRoom(campaignId), campaignUserRoom(campaignId, userId)];
-  if (isMaster) rooms.push(campaignMastersRoom(campaignId));
+// The table room for everyone, plus the rooms that receive the unredacted board (§3.9); the
+// spectator stays out of their own room, so a control kept from before a demotion is inert.
+function audienceRoomsOf(campaignId: string, userId: string, audience: TableAudience): string[] {
+  const rooms = [campaignRoom(campaignId)];
+  if (audience === 'spectator') return rooms;
+  rooms.push(campaignUserRoom(campaignId, userId));
+  if (audience === 'master') rooms.push(campaignMastersRoom(campaignId));
   return rooms;
 }
 
@@ -115,14 +120,14 @@ async function enterTableGrids(
   deps: SessionsGatewayDeps,
   socket: RealtimeSocket,
   { userId, campaignId }: TableCommand,
-  isMaster: boolean,
+  audience: TableAudience,
 ): Promise<void> {
   const groupSceneId = await deps.groupGrid.groupSceneIdOf(campaignId);
   const castSceneId = await deps.groupGrid.castSceneIdOf(campaignId);
   // A leave (or a drop) during the read already left the table: it must not re-enter a grid.
   if (socket.disconnected || !socket.data.campaignIds.has(campaignId)) return;
   const sceneIds = [groupSceneId, castSceneId].filter((id): id is string => id !== null);
-  const rooms = sceneIds.flatMap((id) => sceneAudienceRooms(campaignId, id, userId, isMaster));
+  const rooms = sceneIds.flatMap((id) => sceneAudienceRooms(campaignId, id, userId, audience));
   if (rooms.length > 0) await socket.join(rooms);
 }
 

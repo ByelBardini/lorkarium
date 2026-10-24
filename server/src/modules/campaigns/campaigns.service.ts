@@ -93,7 +93,7 @@ export class CampaignsService {
    *  Example: `await campaignsService.rosterOf(user.id, campaignId) // [{ userId, name, role }]` */
   async rosterOf(userId: string, campaignId: string): Promise<CampaignMemberRow[]> {
     const membership = await this.deps.memberships.findMembership(campaignId, userId);
-    toCampaignAccessBo(campaignId, userId, membership).requireMember();
+    toCampaignAccessBo(campaignId, userId, membership).requireViewer();
     return orderedMembers(await this.deps.memberships.listMembers(campaignId));
   }
 
@@ -107,7 +107,7 @@ export class CampaignsService {
 
   private async viewOf(userId: string, campaignId: string): Promise<CampaignDetailView> {
     const membership = await this.deps.members.findMembership(campaignId, userId);
-    toCampaignAccessBo(campaignId, userId, membership).requireMember();
+    toCampaignAccessBo(campaignId, userId, membership).requireViewer();
     const campaign = await this.deps.campaigns.findById(campaignId);
     if (!membership || !campaign) throw new Error(`member of missing campaign ${campaignId}`);
     const members = await this.deps.members.listMembers(campaignId);

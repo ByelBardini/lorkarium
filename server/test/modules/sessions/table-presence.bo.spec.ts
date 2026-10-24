@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_ROSTER, TablePresenceBo } from '../../../src/modules/sessions/table-presence.bo';
 import { ANA_ID } from '../../support/auth-factories';
-import { BIA_ID } from '../../support/campaigns-factories';
+import { BIA_ID, DUDA_ID } from '../../support/campaigns-factories';
 import { presenceRoster } from '../../support/sessions-factories';
 
 const AT = new Date('2026-10-22T21:00:00Z');
@@ -280,6 +280,23 @@ describe('TablePresenceBo.campaignChanged', () => {
   });
 });
 
+describe('TablePresenceBo.roleChanged', () => {
+  it('a member moved between player and spectator bumps the version and leaves sockets, grace and absence as they were', () => {
+    const roster = presenceRoster({
+      version: 6,
+      sockets: { [ANA_ID]: ['s1'] },
+      inGrace: [BIA_ID],
+      away: ['s1'],
+      awaySince: { [ANA_ID]: AT },
+    });
+
+    const outcome = new TablePresenceBo(roster).roleChanged();
+
+    expect(outcome.change).toBe('role-changed');
+    expect(outcome.roster).toEqual({ ...roster, version: 7 });
+  });
+});
+
 describe('TablePresenceBo.onlineUserIds', () => {
   it('counts who has a socket and who is inside the grace, like isOnline', () => {
     const CAIO = 'b4d6e8f0-1a2b-4c3d-8e5f-6a7b8c9d0e1f';
@@ -291,5 +308,23 @@ describe('TablePresenceBo.onlineUserIds', () => {
 
   it('an empty table has nobody online', () => {
     expect(new TablePresenceBo(EMPTY_ROSTER).onlineUserIds().size).toBe(0);
+  });
+});
+
+describe('TablePresenceBo.lists', () => {
+  const roster = presenceRoster({ version: 3, sockets: { [ANA_ID]: ['s1'] }, inGrace: [DUDA_ID] });
+
+  it('a spectator online (in grace counts) is listed', () => {
+    expect(new TablePresenceBo(roster).lists({ userId: DUDA_ID, role: 'spectator' })).toBe(true);
+  });
+
+  it('a spectator offline is not listed', () => {
+    expect(new TablePresenceBo(EMPTY_ROSTER).lists({ userId: DUDA_ID, role: 'spectator' })).toBe(
+      false,
+    );
+  });
+
+  it('a player offline is still listed', () => {
+    expect(new TablePresenceBo(roster).lists({ userId: BIA_ID, role: 'player' })).toBe(true);
   });
 });

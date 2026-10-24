@@ -8,9 +8,9 @@ import type { AssetDto } from '@lorkarium/contracts';
 import { sendImage } from './images';
 import { CountingQueryLog } from './query-count';
 import { atTable, envelope, eventPayload } from './live-table';
-import type { EventRecorder, RealtimeClient } from './realtime-client';
+import { connectRealtime, type EventRecorder, type RealtimeClient } from './realtime-client';
 import { signUpAndLogin, type SignedInUser } from './sign-in';
-import { createTable, joinByCode, type Table } from './tables';
+import { createTable, joinAsSpectator, joinByCode, type Table } from './tables';
 import { openTestDatabase, truncateAllTables } from './test-database';
 
 /** Ana masters Vharn with Bia and Caio as players; Caio masters Quelm alone. Fields are set by
@@ -56,6 +56,29 @@ export class TokenTableHarness {
     this.quelm = await createTable(this.app, this.caio, 'Quelm');
     await joinByCode(this.app, this.bia, this.vharn);
     await joinByCode(this.app, this.caio, this.vharn);
+  }
+
+  /** One more account, signed in through the real HTTP edge (Duda, the spectator).
+   *
+   *  Example: `const duda = await live.signUp('Duda')` */
+  signUp(name: string): Promise<SignedInUser> {
+    return signUpAndLogin(this.app, this.connection.db, name);
+  }
+
+  /** `user` enters `table` by its code and stays a spectator (nobody promotes).
+   *
+   *  Example: `await live.joinAsSpectator(duda, live.vharn)` */
+  joinAsSpectator(user: SignedInUser, table: Table): Promise<void> {
+    return joinAsSpectator(this.app, user, table);
+  }
+
+  /** A connection of `user` that has joined no table yet; closed with the others.
+   *
+   *  Example: `const ack = await joinAck(await live.connect(duda), live.quelm)` */
+  async connect(user: SignedInUser): Promise<RealtimeClient> {
+    const client = await connectRealtime(this.baseUrl, { token: user.token });
+    this.clients.push(client);
+    return client;
   }
 
   atTable(user: SignedInUser, table: Table): Promise<RealtimeClient> {

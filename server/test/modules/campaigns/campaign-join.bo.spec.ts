@@ -22,10 +22,10 @@ describe('CampaignJoinBo', () => {
     expect(joinOf(false, true).needsPasswordCheck()).toBe(true);
   });
 
-  it('a newcomer to a campaign without a password joins as player', () => {
+  it('a newcomer to a campaign without a password joins as spectator', () => {
     const join = joinOf(false, false);
     expect(join.needsPasswordCheck()).toBe(false);
-    expect(join.decide('not-required')).toBe('join-as-player');
+    expect(join.decide('not-required')).toBe('join-as-spectator');
   });
 
   it('a campaign with a password and none sent is refused with CAMPAIGN_PASSWORD_REQUIRED', () => {
@@ -46,8 +46,8 @@ describe('CampaignJoinBo', () => {
     );
   });
 
-  it('a password that matches joins as player', () => {
-    expect(joinOf(false, true).decide('matches')).toBe('join-as-player');
+  it('a password that matches joins as spectator', () => {
+    expect(joinOf(false, true).decide('matches')).toBe('join-as-spectator');
   });
 
   it('a campaign with a password reported as not-required is a programming error citing the campaign', () => {

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { UsersDao } from '../../src/modules/auth/users.dao';
@@ -10,6 +10,7 @@ import { newCampaignMemberPo, newCampaignPo } from '../support/campaigns-factori
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const UNIQUE_VIOLATION = '23505';
+const INVALID_TEXT_REPRESENTATION = '22P02';
 
 describe('CampaignMembersDao on Postgres', () => {
   let connection: DatabaseConnection;
@@ -178,5 +179,76 @@ describe('CampaignMembersDao on Postgres', () => {
   it('lastAccessAtOf is null while nobody entered the campaign', async () => {
     const campaignId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
     expect(await membersDao.lastAccessAtOf(campaignId)).toBeNull();
+  });
+  it('a spectator membership keeps and returns the spectator role', async () => {
+    const campaignId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+    const dudaId = (await usersDao.insert(newUserPo({ name: 'Duda', email: 'duda@mesa.com' }))).id;
+    await membersDao.insert(newCampaignMemberPo({ campaignId, userId: dudaId, role: 'spectator' }));
+    expect(await membersDao.findMembership(campaignId, dudaId)).toMatchObject({
+      role: 'spectator',
+    });
+    const listed = await membersDao.listMembers(campaignId);
+    expect(listed.find((member) => member.userId === dudaId)).toMatchObject({ role: 'spectator' });
+  });
+
+  it('updateRole writes the role of that member only and returns the row', async () => {
+    const vharn = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+    const pantano = await campaignMasteredBy(biaId, 'Pântano', 'PNTN2345');
+    await membersDao.insert(
+      newCampaignMemberPo({ campaignId: vharn, userId: biaId, role: 'player' }),
+    );
+
+    const updated = await membersDao.updateRole(vharn, biaId, 'spectator');
+
+    expect(updated).toMatchObject({ campaignId: vharn, userId: biaId, role: 'spectator' });
+    expect((await membersDao.findMembership(pantano, biaId))?.role).toBe('master');
+    expect((await membersDao.findMembership(vharn, anaId))?.role).toBe('master');
+  });
+
+  it('updateRole of someone who is not a member writes nothing and returns undefined', async () => {
+    const vharn = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+
+    expect(await membersDao.updateRole(vharn, biaId, 'player')).toBeUndefined();
+    expect(await membersDao.findMembership(vharn, biaId)).toBeUndefined();
+  });
+
+  it('a role outside the enum is refused by Postgres', async () => {
+    const campaignId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+    const observer = connection.db.execute(
+      sql`INSERT INTO campaign_members (campaign_id, user_id, role) VALUES (${campaignId}, ${biaId}, 'observer')`,
+    );
+    await expect(observer).rejects.toMatchObject({ cause: { code: INVALID_TEXT_REPRESENTATION } });
+  });
+
+  describe('the table keeps no trace of Duda, a spectator', () => {
+    let vharnId: string;
+    let dudaId: string;
+
+    beforeEach(async () => {
+      vharnId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+      await membersDao.insert(newCampaignMemberPo({ campaignId: vharnId, userId: biaId }));
+      dudaId = (await usersDao.insert(newUserPo({ name: 'Duda', email: 'duda@mesa.com' }))).id;
+      const spectator = { campaignId: vharnId, userId: dudaId, role: 'spectator' } as const;
+      await membersDao.insert(newCampaignMemberPo(spectator));
+    });
+
+    it('listOfUser of Bia counts 2 members: Ana and Bia', async () => {
+      const [row] = await membersDao.listOfUser(biaId);
+      expect(row?.memberCount).toBe(2);
+    });
+
+    it('listOfUser of Duda brings Vharn with her spectator role and 2 members', async () => {
+      const [row] = await membersDao.listOfUser(dudaId);
+      expect(row).toMatchObject({ role: 'spectator', memberCount: 2, masterName: 'Ana' });
+    });
+
+    it('lastAccessAtOf ignores the entry of Duda and takes the one of Bia after it', async () => {
+      await membersDao.markEntered(vharnId, dudaId, new Date('2026-10-20T10:00:00Z'));
+      expect(await membersDao.lastAccessAtOf(vharnId)).toBeNull();
+
+      const biaEntered = new Date('2026-10-20T09:00:00Z');
+      await membersDao.markEntered(vharnId, biaId, biaEntered);
+      expect(await membersDao.lastAccessAtOf(vharnId)).toEqual(biaEntered);
+    });
   });
 });

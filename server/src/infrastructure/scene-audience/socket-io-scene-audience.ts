@@ -9,8 +9,10 @@ import type { RealtimeServer, RealtimeSocketData } from '../../realtime/realtime
 import {
   campaignMastersRoom,
   campaignRoom,
+  campaignUserRoom,
   sceneAudienceRooms,
   sceneRoom,
+  type TableAudience,
 } from '../../realtime/rooms';
 import { withoutWatchedScene } from '../../realtime/watched-scenes';
 
@@ -32,7 +34,7 @@ export class SocketIoSceneAudience implements SceneAudiencePort {
     const { campaignId, sceneId } = eviction;
     const sockets = await this.io.in(sceneRoom(campaignId, sceneId)).fetchSockets();
     for (const socket of sockets) {
-      if (eviction.audience === 'players' && isMasterAt(socket, campaignId)) continue;
+      if (eviction.audience === 'players' && audienceAt(socket, campaignId) === 'master') continue;
       closeTab(socket, eviction);
     }
   }
@@ -41,11 +43,11 @@ export class SocketIoSceneAudience implements SceneAudiencePort {
 // Into the new group grid first: its rooms carry the sheet and the condition list too, so the
 // socket is never in no group grid at all.
 function moveSocket(socket: TableSocket, { campaignId, sceneId, previous, at }: TableMove): void {
-  const isMaster = isMasterAt(socket, campaignId);
-  void socket.join(sceneAudienceRooms(campaignId, sceneId, socket.data.user.id, isMaster));
+  const audience = audienceAt(socket, campaignId);
+  void socket.join(sceneAudienceRooms(campaignId, sceneId, socket.data.user.id, audience));
   if (!previous) return;
   const hasTab = socket.data.watchedSceneIds.get(campaignId)?.has(previous.sceneId) ?? false;
-  if (hasTab && (isMaster || previous.playersKeepTabs)) return;
+  if (hasTab && (audience === 'master' || previous.playersKeepTabs)) return;
   if (!hasTab) return leaveGrid(socket, campaignId, previous.sceneId);
   closeTab(socket, { campaignId, sceneId: previous.sceneId, reason: 'private', at });
 }
@@ -59,11 +61,14 @@ function closeTab(socket: TableSocket, closed: SceneClosedDto): void {
 }
 
 function leaveGrid(socket: TableSocket, campaignId: string, sceneId: string): void {
-  for (const room of sceneAudienceRooms(campaignId, sceneId, socket.data.user.id, true)) {
+  for (const room of sceneAudienceRooms(campaignId, sceneId, socket.data.user.id, 'master')) {
     void socket.leave(room);
   }
 }
 
-function isMasterAt(socket: TableSocket, campaignId: string): boolean {
-  return socket.rooms.has(campaignMastersRoom(campaignId));
+// The rooms the join gave the socket say its role, with no database read.
+function audienceAt(socket: TableSocket, campaignId: string): TableAudience {
+  if (socket.rooms.has(campaignMastersRoom(campaignId))) return 'master';
+  if (socket.rooms.has(campaignUserRoom(campaignId, socket.data.user.id))) return 'player';
+  return 'spectator';
 }

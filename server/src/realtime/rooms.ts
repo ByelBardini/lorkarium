@@ -42,18 +42,25 @@ export function sceneUserRoom(campaignId: string, sceneId: string, userId: strin
   return `${sceneRoom(campaignId, sceneId)}:user:${userId}`;
 }
 
-/** Every room a member enters to have one grid open: the grid's, their own and, for a master,
- *  the masters'.
+/** Who a connection is at one table, for the rooms it enters: the masters get the unredacted
+ *  board, a player what their tokens show, a spectator only what everyone sees. */
+export type TableAudience = 'master' | 'player' | 'spectator';
+
+/** Every room a member enters to have one grid open: the grid's; for a player and a master their
+ *  own too (the whole token they control is published there); for a master, the masters'. A
+ *  spectator stays out of their own room, so a control kept from before a demotion is inert.
  *
- *  Example: `await socket.join(sceneAudienceRooms(campaignId, sceneId, userId, true))` */
+ *  Example: `await socket.join(sceneAudienceRooms(campaignId, sceneId, userId, 'master'))` */
 export function sceneAudienceRooms(
   campaignId: string,
   sceneId: string,
   userId: string,
-  isMaster: boolean,
+  audience: TableAudience,
 ): string[] {
-  const rooms = [sceneRoom(campaignId, sceneId), sceneUserRoom(campaignId, sceneId, userId)];
-  if (isMaster) rooms.push(sceneMastersRoom(campaignId, sceneId));
+  const rooms = [sceneRoom(campaignId, sceneId)];
+  if (audience === 'spectator') return rooms;
+  rooms.push(sceneUserRoom(campaignId, sceneId, userId));
+  if (audience === 'master') rooms.push(sceneMastersRoom(campaignId, sceneId));
   return rooms;
 }
 
@@ -63,4 +70,15 @@ export function sceneAudienceRooms(
 export function isRoomOfCampaign(room: string, campaignId: string): boolean {
   const table = campaignRoom(campaignId);
   return room === table || room.startsWith(`${table}:`);
+}
+
+/** The grid that `room` is the room of, at that table; `undefined` for any other room (the
+ *  table's, an audience's, someone's own room in a grid).
+ *
+ *  Example: `sceneIdOfRoom(sceneRoom(campaignId, sceneId), campaignId) // sceneId` */
+export function sceneIdOfRoom(room: string, campaignId: string): string | undefined {
+  const prefix = `${campaignRoom(campaignId)}:scene:`;
+  if (!room.startsWith(prefix)) return undefined;
+  const sceneId = room.slice(prefix.length);
+  return sceneId.includes(':') ? undefined : sceneId;
 }

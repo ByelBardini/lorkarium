@@ -24,7 +24,7 @@ export async function atTable(
   baseUrl: string,
   clients: RealtimeClient[],
   user: SignedInUser,
-  table: Table,
+  table: Pick<Table, 'id'>,
 ): Promise<RealtimeClient> {
   const client = await connectRealtime(baseUrl, { token: user.token });
   clients.push(client);
@@ -49,7 +49,10 @@ export async function send(
 }
 
 /** The board as `client` may see it, by `board:sync`. */
-export async function synced(client: RealtimeClient, table: Table): Promise<BoardStateDto> {
+export async function synced(
+  client: RealtimeClient,
+  table: Pick<Table, 'id'>,
+): Promise<BoardStateDto> {
   const ack = boardSyncAckDto.parse(
     await client.timeout(2000).emitWithAck('board:sync', envelope(table.id)),
   );

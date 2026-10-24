@@ -29,7 +29,7 @@ export async function watchGrid(
 ): Promise<SyncOk> {
   const { campaignId, sceneId } = command;
   await deps.sceneWatch.watch(userId, campaignId, sceneId, (role) =>
-    socket.join(sceneAudienceRooms(campaignId, sceneId, userId, role === 'master')),
+    socket.join(sceneAudienceRooms(campaignId, sceneId, userId, role)),
   );
   socket.data.watchedSceneIds = withWatchedScene(socket.data.watchedSceneIds, campaignId, sceneId);
   // In the rooms before the snapshot is read: an event committed in between arrives too, and the
@@ -58,6 +58,8 @@ export async function unwatchGrid(
   if (!watchedSceneIds.get(campaignId)?.has(sceneId)) return { ok: true };
   socket.data.watchedSceneIds = withoutWatchedScene(watchedSceneIds, campaignId, sceneId);
   if ((await deps.sceneWatch.groupSceneIdOf(campaignId)) === sceneId) return { ok: true };
-  for (const room of sceneAudienceRooms(campaignId, sceneId, userId, true)) void socket.leave(room);
+  for (const room of sceneAudienceRooms(campaignId, sceneId, userId, 'master')) {
+    void socket.leave(room);
+  }
   return { ok: true };
 }

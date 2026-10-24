@@ -136,4 +136,19 @@ describe('MemberCardsDao on Postgres', () => {
       expect.objectContaining({ userId: caioId, armorClass: 10 }),
     ]);
   });
+
+  it('the card Bia wrote before becoming a spectator stays out of the list, and comes back when she plays again', async () => {
+    await memberCards.save(vharnId, biaId, { armorClass: 15 });
+    await memberCards.save(vharnId, caioId, { armorClass: 12 });
+    const bia = and(eq(campaignMembers.campaignId, vharnId), eq(campaignMembers.userId, biaId));
+
+    await connection.db.update(campaignMembers).set({ role: 'spectator' }).where(bia);
+    const hidden = await memberCards.listOfCampaign(vharnId);
+    await connection.db.update(campaignMembers).set({ role: 'player' }).where(bia);
+
+    expect(hidden.map(({ userId }) => userId)).toEqual([caioId]);
+    expect(await memberCards.listOfCampaign(vharnId)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ userId: biaId, armorClass: 15 })]),
+    );
+  });
 });

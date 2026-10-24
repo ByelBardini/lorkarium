@@ -12,7 +12,6 @@ import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.err
 import { DrawingError } from '../drawings/drawings.error';
 import { EffectAreaError } from '../effect-areas/effect-areas.error';
 import { LightError } from '../lights/lights.error';
-import { MemberCardError } from '../member-cards/member-cards.error';
 import { SceneError } from '../scenes/scenes.error';
 import { SessionEndedError, SessionError } from '../sessions/sessions.error';
 import { TokenError } from '../tokens/tokens.error';
@@ -150,7 +149,6 @@ type KnownError =
   | EffectAreaError
   | WallError
   | LightError
-  | MemberCardError
   | AssetError
   | SceneError
   | BoardError;
@@ -166,7 +164,6 @@ function isKnown(error: unknown): error is KnownError {
     error instanceof EffectAreaError ||
     error instanceof WallError ||
     error instanceof LightError ||
-    error instanceof MemberCardError ||
     error instanceof AssetError ||
     error instanceof SceneError ||
     error instanceof BoardError

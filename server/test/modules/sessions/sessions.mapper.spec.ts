@@ -7,7 +7,13 @@ import {
   toSessionStateDto,
 } from '../../../src/modules/sessions/sessions.mapper';
 import { ANA_ID } from '../../support/auth-factories';
-import { BIA_ID, CAIO_ID, VHARN_ID, campaignMemberRow } from '../../support/campaigns-factories';
+import {
+  BIA_ID,
+  CAIO_ID,
+  DUDA_ID,
+  VHARN_ID,
+  campaignMemberRow,
+} from '../../support/campaigns-factories';
 import { presenceRoster } from '../../support/sessions-factories';
 
 const AT = new Date('2026-10-15T12:00:00Z');
@@ -135,5 +141,29 @@ describe('sessions mapper', () => {
       at: '2026-10-15T12:00:00.000Z',
     });
     expect(toMemberActivityDto(VHARN_ID, BIA_ID, null, 6, AT).awaySince).toBeNull();
+  });
+
+  describe('a spectator in the snapshot', () => {
+    const DUDA = campaignMemberRow({ userId: DUDA_ID, name: 'Duda', role: 'spectator' });
+    const WITH_DUDA = [...MEMBERS, DUDA];
+    const idsOf = (roster: Parameters<typeof toSessionStateDto>[2]): string[] =>
+      toSessionStateDto(VHARN_ID, WITH_DUDA, roster, AT).members.map(({ userId }) => userId);
+
+    it('Duda offline is left out; Bia offline stays', () => {
+      const roster = presenceRoster({ version: 2, sockets: { [ANA_ID]: ['s1'] } });
+
+      expect(idsOf(roster)).toEqual([ANA_ID, BIA_ID, CAIO_ID]);
+    });
+
+    it('Duda online is in it with the spectator role', () => {
+      const roster = presenceRoster({ version: 2, sockets: { [DUDA_ID]: ['s9'] } });
+
+      const members = toSessionStateDto(VHARN_ID, WITH_DUDA, roster, AT).members;
+
+      expect(members.find(({ userId }) => userId === DUDA_ID)).toMatchObject({
+        role: 'spectator',
+        online: true,
+      });
+    });
   });
 });

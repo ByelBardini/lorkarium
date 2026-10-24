@@ -50,10 +50,12 @@ describe('campaign settings HTTP edge', () => {
     anaUser = await signUpAndLogin(app, connection.db, 'Ana');
     caioUser = await signUpAndLogin(app, connection.db, 'Caio');
     ana = anaUser.token;
-    bia = (await signUpAndLogin(app, connection.db, 'Bia')).token;
+    const biaUser = await signUpAndLogin(app, connection.db, 'Bia');
+    bia = biaUser.token;
     caio = caioUser.token;
     vharn = await createCampaign(ana, { name: 'Os Sinos de Vharn', password: 'sino' });
     await joinWith(bia, vharn.joinCode ?? '', 'sino');
+    await call('PATCH', `/campaigns/${vharn.id}/members/${biaUser.id}`, ana, { role: 'player' });
     await openTable(anaUser, vharn);
   });
 
@@ -64,7 +66,7 @@ describe('campaign settings HTTP edge', () => {
 
   // The settings need the master at the table in a live connection (CAMPAIGN_NOT_OPEN otherwise).
   async function openTable(user: SignedInUser, campaign: CampaignDetailDto): Promise<void> {
-    await atTable(baseUrl, clients, user, { id: campaign.id, joinCode: campaign.joinCode ?? '' });
+    await atTable(baseUrl, clients, user, { id: campaign.id });
   }
 
   function call(
@@ -227,7 +229,7 @@ describe('campaign settings HTTP edge', () => {
   });
 
   describe('POST /campaigns/:id/join-code', () => {
-    it('hands out another code; the old one no longer finds the table, members stay', async () => {
+    it('hands out another code; the old one no longer finds the table, members stay and the newcomer only watches', async () => {
       const response = await call('POST', `/campaigns/${vharn.id}/join-code`, ana);
       expect(response.statusCode).toBe(200);
       const { campaign } = campaignResponseDto.parse(response.json());
@@ -236,7 +238,10 @@ describe('campaign settings HTTP edge', () => {
         'CAMPAIGN_NOT_FOUND',
       );
       const joined = await joinWith(caio, campaign.joinCode ?? '', 'sino');
-      expect(joinCampaignResponseDto.parse(joined.json()).campaign.memberCount).toBe(3);
+      expect(joinCampaignResponseDto.parse(joined.json()).campaign).toMatchObject({
+        myRole: 'spectator',
+        memberCount: 2,
+      });
     });
   });
 

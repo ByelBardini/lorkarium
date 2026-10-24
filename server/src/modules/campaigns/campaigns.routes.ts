@@ -1,10 +1,14 @@
 import rateLimit from '@fastify/rate-limit';
 import {
   campaignIdParamsDto,
+  campaignMemberParamsDto,
   createCampaignRequestDto,
   joinCampaignRequestDto,
   updateCampaignRequestDto,
+  updateMemberRoleRequestDto,
   type ApiErrorDto,
+  type CampaignMemberDto,
+  type CampaignMemberParamsDto,
   type CampaignResponseDto,
   type JoinCampaignResponseDto,
   type ListCampaignsResponseDto,
@@ -18,9 +22,11 @@ import {
   CampaignError,
   CampaignJoinRateLimitedError,
   InvalidCampaignIdError,
+  InvalidMemberParamsError,
   type CampaignErrorCode,
 } from './campaigns.error';
 import type { CampaignsService } from './campaigns.service';
+import type { MemberRoleService } from './member-role.service';
 
 // Spec §8.4: keyed by the signed-in user, so guessing codes costs one account per 10 tries a minute.
 const JOIN_ATTEMPTS_PER_MINUTE = 10;
@@ -35,6 +41,7 @@ const STATUS_BY_CODE: Readonly<Record<CampaignErrorCode, number>> = {
   FORBIDDEN: 403,
   CAMPAIGN_NOT_OPEN: 403,
   INVALID_BODY: 400,
+  MEMBER_NOT_FOUND: 404,
 };
 
 // Public text only: the internal message cites ids and codes and stays in the log.
@@ -44,21 +51,23 @@ const PUBLIC_MESSAGE: Readonly<Record<CampaignErrorCode, string>> = {
   CAMPAIGN_PASSWORD_INVALID: 'The campaign password is incorrect',
   CAMPAIGN_CODE_EXHAUSTED: 'Unexpected server error',
   RATE_LIMITED: 'Too many join attempts',
-  INVALID_PARAMS: 'The campaign id must be a uuid',
+  INVALID_PARAMS: 'The ids in the path must be uuids',
   FORBIDDEN: 'Your role at this table does not allow it',
   CAMPAIGN_NOT_OPEN: 'Open the campaign table to change its settings',
   INVALID_BODY: 'cover: the image must be a cover sent to this campaign',
+  MEMBER_NOT_FOUND: 'Member not found',
 };
 
 export type CampaignsRoutesServices = Readonly<{
   campaigns: CampaignsService;
   join: CampaignJoinService;
   settings: CampaignSettingsService;
+  roles: MemberRoleService;
 }>;
 
 /** HTTP edge of campaigns; every route needs a session and acts as the session's user.
  *
- *  Example: `app.register(campaignsRoutes({ campaigns, join }), { prefix: '/api' })` */
+ *  Example: `app.register(campaignsRoutes({ campaigns, join, settings, roles }), { prefix: '/api' })` */
 export function campaignsRoutes(
   services: CampaignsRoutesServices,
 ): (app: FastifyInstance) => Promise<void> {
@@ -68,6 +77,7 @@ export function campaignsRoutes(
     registerCampaignRoutes(app, services.campaigns);
     registerJoinRoutes(app, services.join);
     registerSettingsRoutes(app, services.settings);
+    registerMemberRoleRoutes(app, services.roles);
   };
 }
 
@@ -121,6 +131,24 @@ function registerSettingsRoutes(app: FastifyInstance, service: CampaignSettingsS
     await service.delete(userOf(request).id, campaignIdOf(request));
     return reply.code(204).send();
   });
+}
+
+// Master only: the target's id is in the path, who asks comes from the session (spec §7.3).
+function registerMemberRoleRoutes(app: FastifyInstance, service: MemberRoleService): void {
+  const { requireAuth, userOf } = app.authGuards;
+  const path = '/campaigns/:campaignId/members/:userId';
+  app.patch(path, { preHandler: requireAuth }, async (request) => {
+    const { campaignId, userId: targetId } = memberParamsOf(request);
+    const { role } = updateMemberRoleRequestDto.parse(request.body);
+    const member = await service.change(userOf(request).id, { campaignId, targetId, role });
+    return member satisfies CampaignMemberDto;
+  });
+}
+
+function memberParamsOf(request: FastifyRequest): CampaignMemberParamsDto {
+  const parsed = campaignMemberParamsDto.safeParse(request.params);
+  if (parsed.success) return parsed.data;
+  throw new InvalidMemberParamsError(JSON.stringify(request.params));
 }
 
 function campaignIdOf(request: FastifyRequest): string {

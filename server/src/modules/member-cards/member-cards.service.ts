@@ -41,8 +41,8 @@ export class MemberCardsService {
     const { memberId } = command;
     // The card is the table's: it stays on the cast whatever grid the command names.
     const saved = await inLockedCast(this.deps.transaction, campaignId, async ({ daos }) => {
-      const isMember = (await daos.members.findMembership(campaignId, memberId)) !== undefined;
-      new MemberCardBo(access, { memberId, isMember }).requireEdit();
+      const role = (await daos.members.findMembership(campaignId, memberId))?.role ?? null;
+      new MemberCardBo(access, { memberId, role }).requireEdit();
       const changes = toMemberCardChangesPo(command.changes);
       return { value: await daos.memberCards.save(campaignId, memberId, changes), changed: true };
     });

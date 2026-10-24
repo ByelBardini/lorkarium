@@ -43,19 +43,36 @@ describe('CampaignJoinService', () => {
     expect(hasher.verifications).toEqual([]);
   });
 
-  it('a campaign without a password takes the newcomer in as player, joined now', async () => {
+  it('a campaign without a password takes the newcomer in as spectator, joined now', async () => {
     biasCampaign();
     const summary = await service.join(ANA_ID, { code: 'VHRN7K2Q' });
-    expect(summary).toMatchObject({ id: 'vharn', myRole: 'player', masterName: 'Bia' });
-    expect(members.rows[1]).toMatchObject({ userId: ANA_ID, role: 'player', joinedAt: NOW });
+    expect(summary).toMatchObject({ id: 'vharn', myRole: 'spectator', masterName: 'Bia' });
+    expect(members.rows[1]).toMatchObject({ userId: ANA_ID, role: 'spectator', joinedAt: NOW });
     expect(hasher.verifications).toEqual([]);
   });
+
+  it('the spectator who just joined is left out of the member count', async () => {
+    biasCampaign();
+    const summary = await service.join(ANA_ID, { code: 'VHRN7K2Q' });
+    expect(summary.memberCount).toBe(1);
+  });
+
+  it.each(['player', 'spectator'] as const)(
+    'a %s joining again by the code keeps the role and writes no row',
+    async (role) => {
+      biasCampaign();
+      members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: ANA_ID, role }));
+      const summary = await service.join(ANA_ID, { code: 'VHRN7K2Q' });
+      expect(summary.myRole).toBe(role);
+      expect(members.rows).toHaveLength(2);
+    },
+  );
 
   it('a campaign with a password verifies the password sent against its hash', async () => {
     biasCampaign('hashed:sino');
     const summary = await service.join(ANA_ID, { code: 'VHRN7K2Q', password: 'sino' });
     expect(hasher.verifications).toEqual([{ hashed: 'hashed:sino', password: 'sino' }]);
-    expect(summary.myRole).toBe('player');
+    expect(summary.myRole).toBe('spectator');
   });
 
   it.each([

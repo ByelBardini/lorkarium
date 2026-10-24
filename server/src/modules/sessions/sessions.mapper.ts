@@ -13,7 +13,8 @@ import { memberColorOf } from '@lorkarium/game-core';
 import type { CampaignMemberRow } from '../campaigns/campaign-members.dao';
 import { TablePresenceBo, type PresenceRoster } from './table-presence.bo';
 
-/** Members + roster → the snapshot a joining client starts from (the `session:state` of §7.2).
+/** Members + roster → the snapshot a joining client starts from (the `session:state` of §7.2);
+ *  a spectator who is not online is left out.
  *
  *  Example: `toSessionStateDto(campaignId, members, outcome.roster, clock.now()).version // 1` */
 export function toSessionStateDto(
@@ -26,7 +27,9 @@ export function toSessionStateDto(
   return {
     campaignId,
     version: roster.version,
-    members: members.map((member) => toSessionMemberDto(member, presence)),
+    members: members
+      .filter((member) => presence.lists(member))
+      .map((member) => toSessionMemberDto(member, presence)),
     at: at.toISOString(),
   };
 }

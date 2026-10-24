@@ -9,17 +9,21 @@ import { defaultCoverOf } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import {
   coverOf,
+  membersOfRecord,
   orderedMembers,
   toCampaignDetailDto,
   toCampaignInfoDto,
+  toCampaignMemberDto,
   toCampaignPatch,
   toCampaignSummaryDto,
+  toMemberRoleBo,
   toNewCampaignPo,
   type CampaignDetailView,
 } from '../../../src/modules/campaigns/campaigns.mapper';
 import { ANA_ID } from '../../support/auth-factories';
 import {
   BIA_ID,
+  DUDA_ID,
   VHARN_ID,
   campaignListingRow,
   campaignMemberPo,
@@ -284,5 +288,69 @@ describe('orderedMembers', () => {
       { userId: BIA_ID, name: 'Ágata', role: 'player' },
       { userId: CAIO_ID, name: 'Bia', role: 'player' },
     ]);
+  });
+});
+
+describe('the table keeps no trace of a spectator', () => {
+  const ana = campaignMemberRow({ userId: ANA_ID, name: 'Ana', role: 'master' });
+  const bia = campaignMemberRow({ userId: BIA_ID, name: 'Bia', role: 'player' });
+  const duda = campaignMemberRow({ userId: DUDA_ID, name: 'Duda', role: 'spectator' });
+
+  it('the detail lists Ana and Bia, not Duda, and counts 2 members with Ana as master', () => {
+    const detail = toCampaignDetailDto(
+      detailView({ members: [ana, bia, duda], onlineUserIds: new Set([DUDA_ID]) }),
+    );
+
+    expect(detail.members.map(({ userId }) => userId)).toEqual([ANA_ID, BIA_ID]);
+    expect([detail.memberCount, detail.masterName]).toEqual([2, 'Ana']);
+  });
+
+  it('the detail Duda reads of the table counts 2 members and does not list her', () => {
+    const membership = campaignMemberPo({ userId: DUDA_ID, role: 'spectator' });
+
+    const detail = toCampaignDetailDto(detailView({ members: [ana, bia, duda], membership }));
+
+    expect(detail.myRole).toBe('spectator');
+    expect(detail.members.map(({ userId }) => userId)).toEqual([ANA_ID, BIA_ID]);
+    expect(detail.memberCount).toBe(2);
+  });
+
+  it('membersOfRecord leaves out only the spectators', () => {
+    expect(membersOfRecord([duda, bia, ana]).map(({ name }) => name)).toEqual(['Bia', 'Ana']);
+  });
+});
+
+describe('the role change in the mapper', () => {
+  it('toCampaignMemberDto turns a member row into the participant the table shows, with the online given', () => {
+    const duda = campaignMemberRow({ userId: DUDA_ID, name: 'Duda', role: 'player' });
+    const rose = { ...duda, colorChoice: 'rose' as const, avatarId: VHARN_CAST_ID };
+
+    expect(toCampaignMemberDto(rose, true)).toEqual({
+      userId: DUDA_ID,
+      name: 'Duda',
+      role: 'player',
+      color: 'rose',
+      avatarId: VHARN_CAST_ID,
+      online: true,
+    });
+  });
+
+  it('toMemberRoleBo reads the role of the target from its membership, and its absence as not a member', () => {
+    const lookup = {
+      campaignId: VHARN_ID,
+      userId: ANA_ID,
+      targetId: DUDA_ID,
+      requester: campaignMemberPo({ userId: ANA_ID, role: 'master' }),
+    };
+    const spectator = campaignMemberPo({ userId: DUDA_ID, role: 'spectator' });
+
+    expect(toMemberRoleBo({ ...lookup, target: spectator }).decide('player')).toEqual({
+      change: 'changed',
+      from: 'spectator',
+      to: 'player',
+    });
+    expect(() => toMemberRoleBo({ ...lookup, target: undefined }).decide('player')).toThrow(
+      expect.objectContaining({ code: 'MEMBER_NOT_FOUND' }),
+    );
   });
 });

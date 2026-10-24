@@ -7,6 +7,7 @@ import { ANA_ID } from '../../support/auth-factories';
 import {
   BIA_ID,
   CAIO_ID,
+  DUDA_ID,
   QUELM_ID,
   VHARN_ID,
   campaignMemberRow,
@@ -383,6 +384,38 @@ describe('TableSessionService.profileChanged', () => {
 
     expect(journal.entries).toEqual([]);
     expect(registry.rosterOf(VHARN_ID)).toBeUndefined();
+  });
+
+  describe('Duda, a spectator of VHARN', () => {
+    const DUDA = campaignMemberRow({ userId: DUDA_ID, name: 'Duda', role: 'spectator' });
+
+    beforeEach(() => {
+      campaigns.tables[VHARN_ID] = [ANA, BIA, DUDA];
+    });
+
+    it('offline at a live VHARN: nothing is published and the roster keeps its version', async () => {
+      await service.join(BIA_ID, VHARN_ID, 's1');
+      const version = registry.rosterOf(VHARN_ID)?.version;
+      journal.entries.splice(0);
+
+      await service.profileChanged(DUDA_ID);
+
+      expect(journal.entries).toEqual([]);
+      expect(registry.rosterOf(VHARN_ID)?.version).toBe(version);
+    });
+
+    it('online at VHARN: the table hears her memberUpdated as a spectator', async () => {
+      await service.join(DUDA_ID, VHARN_ID, 's2');
+      journal.entries.splice(0);
+
+      await service.profileChanged(DUDA_ID);
+
+      expect(journal.entries).toEqual([`save:${VHARN_ID}`, `publish:memberUpdated:${VHARN_ID}`]);
+      expect(publisher.published.at(-1)).toMatchObject({
+        name: 'memberUpdated',
+        event: { member: { userId: DUDA_ID, role: 'spectator', online: true } },
+      });
+    });
   });
 });
 

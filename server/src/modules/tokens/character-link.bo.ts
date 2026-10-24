@@ -1,5 +1,5 @@
 import type { CampaignRole } from '../campaigns/campaign-access.bo';
-import { MemberNotFoundError } from '../member-cards/member-cards.error';
+import { MemberNotFoundError } from '../campaigns/campaigns.error';
 import { CharacterAlreadyPlacedError, TokenNotLinkedError } from './tokens.error';
 
 /** What the link rules read of a token: which one and the anchor it follows, if any. */
