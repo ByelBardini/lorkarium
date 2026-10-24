@@ -11,6 +11,8 @@ import {
   biaJoined,
   biaLeft,
   biaUpdated,
+  vharnDeleted,
+  vharnRenamed,
   vharnState,
 } from '../support/table-session-fixtures';
 
@@ -215,6 +217,49 @@ describe('RealtimeTableSessionApi', () => {
       transport.serverEmits('session:memberUpdated', {
         ...biaUpdated(),
         member: { ...member, color: 'pink' },
+      });
+
+      expect(updates).toHaveLength(count);
+    });
+  });
+
+  describe('campaign', () => {
+    it('a valid campaignUpdated of this table reaches the listener', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+
+      transport.serverEmits('session:campaignUpdated', vharnRenamed());
+
+      expect(updates.at(-1)).toEqual({ kind: 'campaignUpdated', event: vharnRenamed() });
+    });
+
+    it('a valid campaignDeleted of this table reaches the listener', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+
+      transport.serverEmits('session:campaignDeleted', vharnDeleted());
+
+      expect(updates.at(-1)).toEqual({ kind: 'campaignDeleted', event: vharnDeleted() });
+    });
+
+    it.each([
+      ['session:campaignUpdated', vharnRenamed({ campaignId: QUELM.id })],
+      ['session:campaignDeleted', vharnDeleted({ campaignId: QUELM.id })],
+    ])('a %s of another table is ignored', async (event, payload) => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      const count = updates.length;
+
+      transport.serverEmits(event, payload);
+
+      expect(updates).toHaveLength(count);
+    });
+
+    it('a campaignUpdated outside the DTO (a status that does not exist) is ignored', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      const count = updates.length;
+      const event = vharnRenamed();
+
+      transport.serverEmits('session:campaignUpdated', {
+        ...event,
+        campaign: { ...event.campaign, status: 'Recrutando' },
       });
 
       expect(updates).toHaveLength(count);

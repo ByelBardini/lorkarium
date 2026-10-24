@@ -1,95 +1,72 @@
-import type { CampaignDetailDto, CreateCampaignRequestDto } from '@lorkarium/contracts';
+import { useState } from 'react';
 import { useFetcher } from 'react-router';
-import { CopyCodeButton } from '@/components/copy-code-button';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { formatCampaignCode } from '@/lib/campaign-code';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { Clipboard } from '@/services/clipboard';
+import { CampaignCreatedStep } from './campaign-created-step';
 import { CreateCampaignForm } from './create-campaign-form';
 import type { HomeActionRequest, HomeActionResult } from './home-action';
+import type { CreateCampaignSubmission } from './use-create-campaign-form';
 
 export type CreateCampaignDialogProps = Readonly<{ clipboard: Clipboard; onClose: () => void }>;
 
 /** "Nova mesa": the form, then the code to hand out. Mounted only while open, so every opening
- *  starts from an empty form.
+ *  starts from an empty form; "Criar outra" starts a new round (a fresh fetcher and form).
  *
  *  Example: `{dialog === 'create' && <CreateCampaignDialog clipboard={clipboard} onClose={close} />}` */
 export function CreateCampaignDialog({
   clipboard,
   onClose,
 }: CreateCampaignDialogProps): React.JSX.Element {
-  const fetcher = useFetcher<HomeActionResult>();
-  const created = fetcher.data && 'created' in fetcher.data ? fetcher.data.created : null;
-  const failure = fetcher.data && 'failure' in fetcher.data ? fetcher.data.failure : null;
-  const send = (input: CreateCampaignRequestDto): void => {
-    const body: HomeActionRequest = { intent: 'create', input };
-    void fetcher.submit(body, { method: 'post', encType: 'application/json' });
-  };
+  const [round, setRound] = useState(0);
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        showCloseButton={!created}
-        className="max-h-[90svh] overflow-y-auto sm:max-w-lg"
-      >
-        {created ? (
-          <CreatedStep campaign={created} clipboard={clipboard} onClose={onClose} />
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>Nova mesa</DialogTitle>
-              <DialogDescription>
-                Você vai ser o mestre. Dá para ajustar o resto depois.
-              </DialogDescription>
-            </DialogHeader>
-            <CreateCampaignForm
-              submitting={fetcher.state !== 'idle'}
-              failure={failure}
-              onSubmit={send}
-              onCancel={onClose}
-            />
-          </>
-        )}
+      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg md:max-w-4xl">
+        <CreateCampaignRound
+          key={round}
+          round={round}
+          clipboard={clipboard}
+          onClose={onClose}
+          onCreateAnother={() => setRound((current) => current + 1)}
+        />
       </DialogContent>
     </Dialog>
   );
 }
 
-type CreatedStepProps = Readonly<{
-  campaign: CampaignDetailDto;
-  clipboard: Clipboard;
-  onClose: () => void;
-}>;
+type CreateCampaignRoundProps = CreateCampaignDialogProps &
+  Readonly<{ round: number; onCreateAnother: () => void }>;
 
-function CreatedStep({ campaign, clipboard, onClose }: CreatedStepProps): React.JSX.Element {
-  const code = campaign.joinCode ? formatCampaignCode(campaign.joinCode) : null;
+function CreateCampaignRound(props: CreateCampaignRoundProps): React.JSX.Element {
+  const fetcher = useFetcher<HomeActionResult>({ key: `create-campaign-${props.round}` });
+  const [password, setPassword] = useState<string | null>(null);
+  const created = fetcher.data && 'created' in fetcher.data ? fetcher.data.created : null;
+  const failure = fetcher.data && 'failure' in fetcher.data ? fetcher.data.failure : null;
+  const send = (submission: CreateCampaignSubmission): void => {
+    setPassword(submission.password);
+    const body: HomeActionRequest = { intent: 'create', input: submission.input };
+    void fetcher.submit(body, { method: 'post', encType: 'application/json' });
+  };
+  if (created) {
+    return (
+      <CampaignCreatedStep
+        campaign={created}
+        password={password}
+        clipboard={props.clipboard}
+        onCreateAnother={props.onCreateAnother}
+      />
+    );
+  }
   return (
-    <div className="flex flex-col gap-5">
+    <>
       <DialogHeader>
-        <DialogTitle>Mesa criada</DialogTitle>
-        <DialogDescription>
-          “{campaign.name}” está pronta. Passe o código para quem vai jogar.
-        </DialogDescription>
+        <DialogTitle>Nova mesa</DialogTitle>
       </DialogHeader>
-      {code && (
-        <div className="flex flex-col gap-3 border-y border-border py-5">
-          <span className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
-            Código da mesa
-          </span>
-          <span className="font-brand text-[28px] tracking-[0.2em] text-primary">{code}</span>
-          <CopyCodeButton code={code} clipboard={clipboard} />
-        </div>
-      )}
-      <div className="flex justify-end">
-        <Button size="lg" onClick={onClose}>
-          Fechar
-        </Button>
-      </div>
-    </div>
+      <CreateCampaignForm
+        submitting={fetcher.state !== 'idle'}
+        failure={failure}
+        onSubmit={send}
+        onCancel={props.onClose}
+      />
+    </>
   );
 }

@@ -233,6 +233,8 @@ test('grouped initiative: the same creature together, adding mid-fight, a paste 
   const bandits = tokensOf(admin, 'Bandido').getByRole('button', { name: /^Bandido 1/ });
   await deleteFromTheBoard(admin, bandits.first(), 'Excluir Bandido 1?');
   await expect(tokensOf(caio, 'Bandido')).toHaveCount(1);
+  // The admin's own list too: a line still there is the deleted token, pressed and deleted again.
+  await expect(tokensOf(admin, 'Bandido')).toHaveCount(1);
   await deleteFromTheBoard(admin, bandits.first(), 'Excluir Bandido 1?');
   await expect(entries(caio)).toHaveText([/Kael/, /Lobo/, /Gigante/, /Bandido 2/]);
 

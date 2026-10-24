@@ -18,6 +18,7 @@ import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { homeRoutes } from '@/features/home/home-route';
 import { useTabActivity } from '@/features/sessions/use-tab-activity';
+import { useLeaveDeletedTable } from '@/features/sessions/use-leave-deleted-table';
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
 import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AccountLinksApi } from '@/services/account-links-api';
@@ -203,6 +204,7 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
     const session = useSession(sessionStore);
     const navigate = useNavigate();
     useSignOutWhenRefused(openTables, sessionStore);
+    useLeaveDeletedTable(openTables);
     useTabActivity({ clock: interactionClock, onAway: setAway });
     if (session.status !== 'authenticated') return null;
     const signOut = async (): Promise<void> => {

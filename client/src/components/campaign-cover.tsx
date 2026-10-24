@@ -1,10 +1,11 @@
-import { coverFor } from '@/lib/campaign-cover';
+import type { CampaignCoverDto, DrawnCampaignCoverDto } from '@lorkarium/contracts';
 import { cn } from '@/lib/utils';
+import { assetUrlOf } from '@/services/assets-api';
 
 type CoverDrawing = Readonly<{ paths: readonly string[]; cx: number; cy: number }>;
 
 // The three families of the mockup (docs/pages/home/Home.dc.html): a ring, a coast, a ridge.
-const DRAWINGS: readonly [CoverDrawing, CoverDrawing, CoverDrawing] = [
+const COVER_DRAWING_ART: readonly [CoverDrawing, CoverDrawing, CoverDrawing] = [
   {
     paths: [
       'M150 18 C210 10 262 40 264 72 C266 104 220 126 160 124 C100 122 52 104 54 72 C56 42 96 24 150 18 Z',
@@ -44,24 +45,44 @@ const GRID_STYLE: React.CSSProperties = {
   backgroundSize: '20px 20px',
 };
 
-export type CampaignCoverProps = Readonly<{ campaignId: string; className?: string }>;
+export type CampaignCoverProps = Readonly<{ cover: CampaignCoverDto; className?: string }>;
 
-/** Decorative cover of a campaign (static SVG, hidden from assistive tech), stable per id.
+/** Decorative cover of a campaign, hidden from assistive tech: the image the master sent, or one
+ *  of the drawings in one of the `chart-1..4` tones.
  *
- *  Example: `<CampaignCover campaignId={campaign.id} className="size-16" />` */
-export function CampaignCover({ campaignId, className }: CampaignCoverProps): React.JSX.Element {
-  const { variant, tone } = coverFor(campaignId);
-  const drawing = DRAWINGS[variant] ?? DRAWINGS[0];
+ *  Example: `<CampaignCover cover={campaign.cover} className="size-16" />` */
+export function CampaignCover({ cover, className }: CampaignCoverProps): React.JSX.Element {
+  if (cover.kind === 'image') {
+    return (
+      <div aria-hidden="true" className={cn('relative overflow-hidden bg-panel', className)}>
+        <img
+          src={assetUrlOf(cover.assetId)}
+          alt=""
+          className="absolute inset-0 size-full object-cover"
+        />
+      </div>
+    );
+  }
+  return <DrawnCover cover={cover} className={className} />;
+}
+
+type DrawnCoverProps = Readonly<{ cover: DrawnCampaignCoverDto; className?: string }>;
+
+// The data attributes name the drawing and the tone for tests: the art has no accessible text.
+function DrawnCover({ cover, className }: DrawnCoverProps): React.JSX.Element {
+  const drawing = COVER_DRAWING_ART[cover.drawing] ?? COVER_DRAWING_ART[0];
   return (
     <div
       aria-hidden="true"
+      data-cover-drawing={cover.drawing}
+      data-cover-tone={cover.tone}
       style={GRID_STYLE}
       className={cn('relative overflow-hidden bg-[#13161b]', className)}
     >
       <svg
         viewBox="0 0 300 140"
         preserveAspectRatio="xMidYMid slice"
-        className={cn('absolute inset-0 size-full', TONE_CLASS[tone - 1])}
+        className={cn('absolute inset-0 size-full', TONE_CLASS[cover.tone - 1])}
       >
         <g fill="none" stroke="currentColor" strokeWidth="1.3">
           {drawing.paths.map((path, index) => (

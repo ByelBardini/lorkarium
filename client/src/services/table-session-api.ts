@@ -1,6 +1,8 @@
 import type {
   BoardPingedDto,
   BoardStateDto,
+  SessionCampaignDeletedDto,
+  SessionCampaignUpdatedDto,
   LibraryChangedDto,
   SceneActivatedDto,
   SceneClosedDto,
@@ -29,6 +31,10 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'memberActivity'; event: SessionMemberActivityDto }>
   /** A member saved nickname, color, bio or photo: the whole member, read again by the server. */
   | Readonly<{ kind: 'memberUpdated'; event: SessionMemberUpdatedDto }>
+  /** The master saved the campaign settings or a new code: the campaign as stored, versioned. */
+  | Readonly<{ kind: 'campaignUpdated'; event: SessionCampaignUpdatedDto }>
+  /** The master deleted the campaign; the server already took this socket out of its room. */
+  | Readonly<{ kind: 'campaignDeleted'; event: SessionCampaignDeletedDto }>
   | Readonly<{ kind: 'status'; status: TableSessionStatus }>
   | Readonly<{ kind: 'failed'; failure: TableSessionFailure }>
   | Readonly<{ kind: 'board'; state: BoardStateDto }>

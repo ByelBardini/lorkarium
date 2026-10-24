@@ -3,6 +3,7 @@ import {
   campaignIdParamsDto,
   createCampaignRequestDto,
   joinCampaignRequestDto,
+  updateCampaignRequestDto,
   type ApiErrorDto,
   type CampaignResponseDto,
   type JoinCampaignResponseDto,
@@ -12,6 +13,7 @@ import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from
 import { ZodError } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
 import type { CampaignJoinService } from './campaign-join.service';
+import type { CampaignSettingsService } from './campaign-settings.service';
 import {
   CampaignError,
   CampaignJoinRateLimitedError,
@@ -31,6 +33,8 @@ const STATUS_BY_CODE: Readonly<Record<CampaignErrorCode, number>> = {
   RATE_LIMITED: 429,
   INVALID_PARAMS: 400,
   FORBIDDEN: 403,
+  CAMPAIGN_NOT_OPEN: 403,
+  INVALID_BODY: 400,
 };
 
 // Public text only: the internal message cites ids and codes and stays in the log.
@@ -42,11 +46,14 @@ const PUBLIC_MESSAGE: Readonly<Record<CampaignErrorCode, string>> = {
   RATE_LIMITED: 'Too many join attempts',
   INVALID_PARAMS: 'The campaign id must be a uuid',
   FORBIDDEN: 'Your role at this table does not allow it',
+  CAMPAIGN_NOT_OPEN: 'Open the campaign table to change its settings',
+  INVALID_BODY: 'cover: the image must be a cover sent to this campaign',
 };
 
 export type CampaignsRoutesServices = Readonly<{
   campaigns: CampaignsService;
   join: CampaignJoinService;
+  settings: CampaignSettingsService;
 }>;
 
 /** HTTP edge of campaigns; every route needs a session and acts as the session's user.
@@ -60,6 +67,7 @@ export function campaignsRoutes(
     app.setErrorHandler(replyWithApiError);
     registerCampaignRoutes(app, services.campaigns);
     registerJoinRoutes(app, services.join);
+    registerSettingsRoutes(app, services.settings);
   };
 }
 
@@ -91,6 +99,26 @@ function registerJoinRoutes(app: FastifyInstance, service: CampaignJoinService):
   });
   app.post('/campaigns/:campaignId/enter', { preHandler: requireAuth }, async (request, reply) => {
     await service.enter(userOf(request).id, campaignIdOf(request));
+    return reply.code(204).send();
+  });
+}
+
+// Master only, with the table open: someone outside the table gets 404 CAMPAIGN_NOT_FOUND, a
+// player 403 FORBIDDEN, the master without a live connection to it 403 CAMPAIGN_NOT_OPEN.
+function registerSettingsRoutes(app: FastifyInstance, service: CampaignSettingsService): void {
+  const { requireAuth, userOf } = app.authGuards;
+  app.patch('/campaigns/:campaignId', { preHandler: requireAuth }, async (request) => {
+    const campaignId = campaignIdOf(request);
+    const input = updateCampaignRequestDto.parse(request.body);
+    const campaign = await service.update(userOf(request).id, campaignId, input);
+    return { campaign } satisfies CampaignResponseDto;
+  });
+  app.post('/campaigns/:campaignId/join-code', { preHandler: requireAuth }, async (request) => {
+    const campaign = await service.regenerateJoinCode(userOf(request).id, campaignIdOf(request));
+    return { campaign } satisfies CampaignResponseDto;
+  });
+  app.delete('/campaigns/:campaignId', { preHandler: requireAuth }, async (request, reply) => {
+    await service.delete(userOf(request).id, campaignIdOf(request));
     return reply.code(204).send();
   });
 }

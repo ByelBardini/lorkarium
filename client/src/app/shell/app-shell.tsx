@@ -5,6 +5,7 @@ import { BrandMark } from '@/components/brand-mark';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { RailStore } from '@/stores/rail-store';
 import { AppRail } from './app-rail';
+import { DeletedTableNotice } from './deleted-table-notice';
 import { MobileRail } from './mobile-rail';
 import { wantsCompactRail } from './rail-handle';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,8 @@ export type AppShellProps = Readonly<{
   onSignOut: () => Promise<void>;
 }>;
 
-/** The frame of every signed-in screen: rail on desktop, top bar + drawer on mobile, route in `main`.
+/** The frame of every signed-in screen: rail on desktop, top bar + drawer on mobile, route in `main`
+ *  (under the notice of a table deleted while open).
  *  A route whose `handle` is `COMPACT_RAIL_HANDLE` (the play room) gets the rail collapsed and
  *  a `main` exactly as tall as the viewport.
  *
@@ -50,6 +52,7 @@ export function AppShell({
           <BrandMark variant="compact" />
         </header>
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <DeletedTableNotice openTables={openTables} />
           <Outlet />
         </main>
       </div>

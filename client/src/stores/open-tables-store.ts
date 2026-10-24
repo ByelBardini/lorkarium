@@ -1,4 +1,9 @@
-import { MAX_OPEN_TABLES } from '@lorkarium/contracts';
+import {
+  MAX_OPEN_TABLES,
+  campaignCoverDto,
+  type CampaignCoverDto,
+  type CampaignInfoDto,
+} from '@lorkarium/contracts';
 import { z } from 'zod';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
@@ -8,6 +13,7 @@ import type {
   TableSessionHandle,
   TableSessionUpdate,
 } from '@/services/table-session-api';
+import { fallbackCoverOf } from '@/lib/campaign-cover';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import {
   createSceneTabsStore,
@@ -23,15 +29,23 @@ export type { TabStorage } from '@/stores/scene-tabs-storage';
 
 export const OPEN_TABLES_STORAGE_KEY = 'lorkarium.openTables';
 
-/** `castSceneId`: the table's cast (the campaign detail's), followed while the table is open. */
-export type OpenTableRef = Readonly<{ campaignId: string; name: string; castSceneId: string }>;
+/** `castSceneId`: the table's cast (the campaign detail's), followed while the table is open.
+ *  `cover`: the campaign's; without it (a list stored by an older tab) the id's drawing. */
+export type OpenTableRef = Readonly<{
+  campaignId: string;
+  name: string;
+  castSceneId: string;
+  cover?: CampaignCoverDto;
+}>;
 
 /** An open table: its live presence, its grid tabs, its cast (the characters' anchors and the
  *  table's pieces, in the table's version), and — for the group grid's tab, which everyone has
  *  open — its confirmed board and this user's undo stack on it (kept while the table stays
  *  open). */
-export type OpenTable = OpenTableRef &
+export type OpenTable = Omit<OpenTableRef, 'cover'> &
   Readonly<{
+    /** Kept up to date by `session:campaignUpdated`, like the name. */
+    cover: CampaignCoverDto;
     presence: StoreApi<TablePresenceStore>;
     board: StoreApi<BoardStore>;
     cast: StoreApi<BoardStore>;
@@ -41,10 +55,14 @@ export type OpenTable = OpenTableRef &
 
 export type OpenTableResult = 'opened' | 'already-open' | 'full';
 
+/** A table the master deleted while it was open here: closed, and named for the notice. */
+export type DeletedTableNotice = Readonly<{ campaignId: string; name: string }>;
+
 export type OpenTablesState = Readonly<{
   ownerId: string | null;
   tables: readonly OpenTable[];
   sessionRefused: boolean;
+  deletedNotice: DeletedTableNotice | null;
 }>;
 
 export type OpenTablesStore = OpenTablesState &
@@ -56,6 +74,8 @@ export type OpenTablesStore = OpenTablesState &
     /** This tab stood still (`true`) or moved again: every open table hears it. */
     setAway: (away: boolean) => void;
     suspendAll: () => void;
+    /** The notice of a deleted table was read (or replaced by the screen). */
+    dismissDeletedNotice: () => void;
   }>;
 
 export type OpenTablesDeps = Readonly<{
@@ -69,7 +89,14 @@ export type OpenTablesDeps = Readonly<{
 const storedTablesSchema = z.object({
   userId: z.string(),
   tables: z
-    .array(z.object({ campaignId: z.string(), name: z.string(), castSceneId: z.string() }))
+    .array(
+      z.object({
+        campaignId: z.string(),
+        name: z.string(),
+        castSceneId: z.string(),
+        cover: campaignCoverDto.optional(),
+      }),
+    )
     .max(MAX_OPEN_TABLES),
 });
 
@@ -90,12 +117,14 @@ export function createOpenTablesStore(deps: OpenTablesDeps): StoreApi<OpenTables
       ownerId: null,
       tables: [],
       sessionRefused: false,
+      deletedNotice: null,
       restore: (userId) => actions.restore(userId),
       open: (table) => actions.open(table),
       close: (campaignId) => actions.close(campaignId),
       closeAll: () => actions.closeAll(),
       setAway: (away) => actions.setAway(away),
       suspendAll: () => actions.suspendAll(),
+      dismissDeletedNotice: () => set({ deletedNotice: null }),
     };
   });
 }
@@ -158,7 +187,7 @@ class OpenTablesActions {
     for (const table of this.get().tables) table.tabs.getState().dispose(false);
     this.handles.clear();
     this.casts.clear();
-    this.set({ ownerId: null, tables: [], sessionRefused: false });
+    this.set({ ownerId: null, tables: [], sessionRefused: false, deletedNotice: null });
   }
 
   private openTable(table: OpenTableRef): OpenTableResult {
@@ -176,9 +205,12 @@ class OpenTablesActions {
     );
     const tabs = this.tabsOf(table.campaignId, board, cast);
     const edits = groupTabOf(tabs.getState()).edits;
-    this.set({ tables: [...tables, { ...table, presence, board, cast, edits, tabs }] });
+    const cover = table.cover ?? fallbackCoverOf(table.campaignId);
+    const opened: OpenTable = { ...table, cover, presence, board, cast, edits, tabs };
+    this.set({ tables: [...tables, opened] });
     const stores = { presence, board, tabs };
-    const listener = (update: TableSessionUpdate): void => applyUpdate(this.set, stores, update);
+    const listener = (update: TableSessionUpdate): void =>
+      this.onUpdate(table.campaignId, stores, update);
     const handle = this.deps.api.open(table.campaignId, listener);
     this.handles.set(table.campaignId, handle);
     const followed = handle.followCast(table.castSceneId, (update) =>
@@ -188,6 +220,30 @@ class OpenTablesActions {
     if (this.away) handle.setAway(true);
     tabs.getState().restore();
     return 'opened';
+  }
+
+  private onUpdate(campaignId: string, stores: TableStores, update: TableSessionUpdate): void {
+    if (update.kind === 'campaignDeleted') return this.closeDeleted(campaignId);
+    if (update.kind === 'campaignUpdated') this.retitle(update.event.campaign);
+    applyUpdate(this.set, stores, update);
+  }
+
+  // The server already took this socket out of the room; closing only forgets the table here.
+  private closeDeleted(campaignId: string): void {
+    const table = this.tableOf(campaignId);
+    if (!table) return;
+    this.close(campaignId);
+    this.set({ deletedNotice: { campaignId, name: table.name } });
+  }
+
+  private retitle(campaign: CampaignInfoDto): void {
+    const tables = this.get().tables.map((table) =>
+      table.campaignId === campaign.id
+        ? { ...table, name: campaign.name, cover: campaign.cover }
+        : table,
+    );
+    this.set({ tables });
+    writeStored(this.deps.storage, this.get());
   }
 
   private tabsOf(
@@ -255,10 +311,11 @@ function readStored(storage: TabStorage): StoredTables | null {
 
 function writeStored(storage: TabStorage, state: OpenTablesState): void {
   if (state.ownerId === null) return;
-  const tables = state.tables.map(({ campaignId, name, castSceneId }) => ({
+  const tables = state.tables.map(({ campaignId, name, castSceneId, cover }) => ({
     campaignId,
     name,
     castSceneId,
+    cover,
   }));
   try {
     storage.setItem(OPEN_TABLES_STORAGE_KEY, JSON.stringify({ userId: state.ownerId, tables }));

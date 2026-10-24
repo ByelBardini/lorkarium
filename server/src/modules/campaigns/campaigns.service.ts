@@ -24,6 +24,7 @@ import {
   type CampaignDetailView,
 } from './campaigns.mapper';
 import type { CampaignPo } from './campaigns.po';
+import type { PresenceReaderPort } from './presence-reader.port';
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type CampaignWriteDaos = Readonly<{
@@ -41,13 +42,15 @@ export type CampaignsServiceDeps = Readonly<{
   campaigns: Pick<CampaignsDao, 'findById'>;
   members: Pick<
     CampaignMembersDao,
-    'findMembership' | 'listOfUser' | 'listMembers' | 'campaignIdsOfUser'
+    'findMembership' | 'listOfUser' | 'listMembers' | 'campaignIdsOfUser' | 'lastAccessAtOf'
   >;
   /** The cast of each table, whose id the detail carries. */
   scenes: Pick<ScenesDao, 'findCastOf'>;
   /** The remembered memberships: the roster of the live session (`session:join`) warms them for
    *  the board commands that follow. */
   memberships: MembershipReader;
+  /** Who has each table open right now (the live session's presence), for `online`. */
+  presence: PresenceReaderPort;
   transaction: CampaignTransactionRunner;
   codes: CampaignCodePort;
   hasher: PasswordHasherPort;
@@ -55,7 +58,7 @@ export type CampaignsServiceDeps = Readonly<{
 }>;
 
 // 40-bit codes collide almost never; three tries turn a fluke into success and a bug into an error.
-const MAX_CODE_ATTEMPTS = 3;
+export const MAX_CODE_ATTEMPTS = 3;
 
 /** Create a campaign with its master, list the user's campaigns and show one of them.
  *
@@ -110,7 +113,9 @@ export class CampaignsService {
     const members = await this.deps.members.listMembers(campaignId);
     const cast = await this.deps.scenes.findCastOf(campaignId);
     if (!cast) throw new Error(`campaign ${campaignId} has no cast; every campaign has one`);
-    return { campaign, membership, members, castSceneId: cast.id };
+    const lastAccessAt = await this.deps.members.lastAccessAtOf(campaignId);
+    const onlineUserIds = this.deps.presence.onlineUserIdsOf(campaignId);
+    return { campaign, membership, members, castSceneId: cast.id, lastAccessAt, onlineUserIds };
   }
 
   private async insertUnlessCodeTaken(

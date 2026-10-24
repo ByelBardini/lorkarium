@@ -123,9 +123,10 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 - `legTouchesSegment(trecho, segmento)` — o trecho encontra o segmento **depois do seu início**: cruzar, encostar (o destino sobre a linha, a ponta da parede no meio do trecho) e correr colinear por cima contam; tocar só no ponto de partida não conta, para o token parado sobre a linha poder sair. Folga 1e-9 (as coordenadas são guardadas a 0,01, então a folga nunca fecha fresta real). É a mesma conta da linha de visão.
 - A passagem é pelo centro: um token grande passa por fresta menor que ele (colisão da pegada é do §12).
 
-## Cor da pessoa
+## Cor da pessoa e capa da mesa
 
-- `stableHash(texto)` — hash `×31` sem sinal de 32 bits (`'ab'` → 3105); não é para segurança. O client usa na capa da mesa (`campaign-cover.ts`).
+- `stableHash(texto)` — hash `×31` sem sinal de 32 bits (`'ab'` → 3105); não é para segurança. Base da cor automática e da capa padrão.
+- `defaultCoverOf(campaignId)` (`campaign-cover.ts`) → `{ drawing, tone }`: a capa de quem nunca escolheu, `hash % COVER_DRAWINGS` (3) e `hash % COVER_TONES + 1` (4). O server devolve no `cover` da mesa sem escolha gravada; o client cai nela (`fallbackCoverOf`). O `campaignCoverDto` do contracts repete os limites 0..2 e 1..4.
 - `MEMBER_COLORS` — `gold`, `steel`, `ember`, `moss`, `violet`, `rose`, `teal`, `bone`, nesta ordem (a das cores do ping de sempre); `MemberColor` é a união dos nomes. O hex mora só no client (`lib/member-color.ts`); o contracts repete os nomes no `memberColorDto`.
 - `memberColorOf(userId, escolha)` — a escolhida ou, com `null`, `MEMBER_COLORS[stableHash(userId) % 8]`: quem nunca escolheu fica com a cor que o ping já dava. O server manda a efetiva; o client desenha.
 

@@ -24,18 +24,18 @@ describe('CampaignRow', () => {
     );
   });
 
-  it('the meta of the master campaign lists system, status and member count', () => {
+  it('the meta of the master campaign lists system and member count', () => {
     renderRow(VHARN);
-    expect(screen.getByText('D&D 5e · Recrutando · 3 participantes')).toBeInTheDocument();
+    expect(screen.getByText('D&D 5e · 3 participantes')).toBeInTheDocument();
   });
 
-  it('the meta of a player campaign names the master and leaves out the null status', () => {
+  it('the meta of a player campaign names the master', () => {
     renderRow(QUELM);
     expect(screen.getByText('Tormenta20 · mestre: Bia · 4 participantes')).toBeInTheDocument();
   });
 
   it('one member is "1 participante"', () => {
-    renderRow({ ...VHARN, system: null, status: null, memberCount: 1 });
+    renderRow({ ...VHARN, system: null, memberCount: 1 });
     expect(screen.getByText('1 participante')).toBeInTheDocument();
   });
 

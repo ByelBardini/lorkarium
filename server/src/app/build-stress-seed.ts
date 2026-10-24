@@ -6,6 +6,7 @@ import { UsersDao } from '../modules/auth/users.dao';
 import { CampaignJoinService } from '../modules/campaigns/campaign-join.service';
 import { CampaignMembersDao } from '../modules/campaigns/campaign-members.dao';
 import { createCampaignsModule } from '../modules/campaigns/campaigns.plugin';
+import type { PresenceReaderPort } from '../modules/campaigns/presence-reader.port';
 import { CampaignsDao } from '../modules/campaigns/campaigns.dao';
 import { createLightsModule } from '../modules/lights/lights.plugin';
 import type { LibraryPublisherPort } from '../modules/library/library-publisher.port';
@@ -22,6 +23,7 @@ import type { StressSceneSeedService } from '../modules/dev-seed/stress-scene-se
 const SILENT_PUBLISHER = new Proxy({} as BoardPublisherPort, { get: () => () => undefined });
 const SILENT_LIBRARY = new Proxy({} as LibraryPublisherPort, { get: () => () => undefined });
 const NO_AUDIENCE = new Proxy({} as SceneAudiencePort, { get: () => async () => undefined });
+const NOBODY_ONLINE: PresenceReaderPort = { onlineUserIdsOf: () => new Set() };
 
 /** Wires the stress seed over the real services (`pnpm db:seed-stress` and its integration spec).
  *
@@ -40,8 +42,13 @@ export function buildStressSceneSeed(db: Database): StressSceneSeedService {
   const campaigns = new CampaignsDao(db);
   return createDevSeedModule({
     users: new UsersDao(db),
-    campaigns: createCampaignsModule({ db, hasher, codes: new CryptoCampaignCode(), clock })
-      .service,
+    campaigns: createCampaignsModule({
+      db,
+      hasher,
+      codes: new CryptoCampaignCode(),
+      clock,
+      presence: NOBODY_ONLINE,
+    }).service,
     join: new CampaignJoinService({ campaigns, members, hasher, clock }),
     scenes: createScenesModule({
       ...board,

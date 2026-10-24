@@ -1,4 +1,4 @@
-import { MAX_OPEN_TABLES, type SessionStateDto } from '@lorkarium/contracts';
+import { MAX_OPEN_TABLES, type CampaignInfoDto, type SessionStateDto } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMemberRow } from '../campaigns/campaign-members.dao';
 import type { CampaignsService } from '../campaigns/campaigns.service';
@@ -7,6 +7,8 @@ import type { PresenceRegistryPort } from './presence-registry.port';
 import type { SchedulerPort } from './scheduler.port';
 import type { SessionPublisherPort } from './session-publisher.port';
 import {
+  toCampaignDeletedDto,
+  toCampaignUpdatedDto,
   toMemberActivityDto,
   toMemberJoinedDto,
   toMemberLeftDto,
@@ -95,6 +97,36 @@ export class TableSessionService {
     const campaignIds = await this.deps.campaigns.campaignIdsOf(userId);
     const live = campaignIds.filter((id) => this.deps.registry.rosterOf(id) !== undefined);
     await Promise.all(live.map((campaignId) => this.announceProfile(userId, campaignId)));
+  }
+
+  /** The master saved the campaign: a table with someone at it hears the campaign read again
+   *  (`session:campaignUpdated`) with the version moved; a table nobody is at hears nothing and
+   *  keeps no roster. Implements the campaigns module's `CampaignChangedPort`.
+   *
+   *  Example: `sessions.campaignUpdated(toCampaignInfoDto(detail))` */
+  campaignUpdated(campaign: CampaignInfoDto): void {
+    const roster = this.deps.registry.rosterOf(campaign.id);
+    if (!roster) return;
+    const outcome = new TablePresenceBo(roster).campaignChanged();
+    this.deps.registry.save(campaign.id, outcome.roster);
+    const { version } = outcome.roster;
+    this.deps.publisher.campaignUpdated(
+      toCampaignUpdatedDto(campaign, version, this.deps.clock.now()),
+    );
+  }
+
+  /** The campaign was deleted: its roster and pending grace expiries go, then the room hears
+   *  `session:campaignDeleted` and every socket is taken out of it.
+   *
+   *  Example: `await sessions.campaignDeleted(campaignId)` */
+  async campaignDeleted(campaignId: string): Promise<void> {
+    const roster = this.deps.registry.rosterOf(campaignId);
+    for (const userId of roster?.inGrace ?? []) {
+      this.deps.scheduler.cancel(graceKey(campaignId, userId));
+    }
+    if (roster) this.deps.registry.save(campaignId, EMPTY_ROSTER);
+    const event = toCampaignDeletedDto(campaignId, this.deps.clock.now());
+    await this.deps.publisher.campaignDeleted(event);
   }
 
   /** Reserves a slot for `campaignId` among the connection's tables; throws `TOO_MANY_TABLES`.

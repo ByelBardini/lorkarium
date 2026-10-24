@@ -26,7 +26,7 @@ export type OpenTableView =
  *
  *  Example: `const view = useOpenTable(campaign, deps.openTables)` */
 export function useOpenTable(
-  campaign: Pick<CampaignDetailDto, 'id' | 'name' | 'castSceneId'>,
+  campaign: Pick<CampaignDetailDto, 'id' | 'name' | 'castSceneId' | 'cover'>,
   openTables: StoreApi<OpenTablesStore>,
 ): OpenTableView {
   // Until the effect opens it, the room reads these: connecting, nobody listed, board loading.
@@ -42,10 +42,10 @@ export function useOpenTable(
     (state) => !tableOf(state, campaign.id) && state.tables.length >= MAX_OPEN_TABLES,
   );
   // Reruns only when a slot frees up, so closing this very table does not reopen it.
-  const { id: campaignId, name, castSceneId } = campaign;
+  const { id: campaignId, name, castSceneId, cover } = campaign;
   useEffect(() => {
-    if (!isFull) openTables.getState().open({ campaignId, name, castSceneId });
-  }, [campaignId, name, castSceneId, isFull, openTables]);
+    if (!isFull) openTables.getState().open({ campaignId, name, castSceneId, cover });
+  }, [campaignId, name, castSceneId, cover, isFull, openTables]);
   if (isFull) return { kind: 'full' };
   if (table) {
     const { presence, board, cast, edits, tabs } = table;

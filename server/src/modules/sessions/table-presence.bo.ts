@@ -30,6 +30,7 @@ export type PresenceChange =
   | 'still-active'
   | 'already-away'
   | 'profile-changed'
+  | 'campaign-changed'
   | 'not-connected';
 
 export type DisconnectReason = 'left' | 'dropped';
@@ -38,8 +39,8 @@ export type PresenceOutcome = Readonly<{ roster: PresenceRoster; change: Presenc
 
 /** Presence counted per user, not per socket: a second tab or a short drop is not a leave, and a
  *  user is away only when every tab of theirs stands still. Only what others see bumps the
- *  version: `came-online`, `went-offline`, `went-away`, `came-back` and `profile-changed`. The
- *  time comes in by parameter (no clock in the rule).
+ *  version: `came-online`, `went-offline`, `went-away`, `came-back`, `profile-changed` and
+ *  `campaign-changed`. The time comes in by parameter (no clock in the rule).
  *
  *  Example: `new TablePresenceBo(EMPTY_ROSTER).connect(userId, socket.id).change // 'came-online'` */
 export class TablePresenceBo {
@@ -113,6 +114,21 @@ export class TablePresenceBo {
    *  Example: `new TablePresenceBo(roster).profileChanged().roster.version // roster.version + 1` */
   profileChanged(): PresenceOutcome {
     return { roster: { ...this.roster, version: this.nextVersion() }, change: 'profile-changed' };
+  }
+
+  /** The master saved the campaign (settings or a new join code); the sockets, the grace and the
+   *  away marks stay as they were.
+   *
+   *  Example: `new TablePresenceBo(roster).campaignChanged().roster.version // roster.version + 1` */
+  campaignChanged(): PresenceOutcome {
+    return { roster: { ...this.roster, version: this.nextVersion() }, change: 'campaign-changed' };
+  }
+
+  /** Everyone `isOnline` counts: with a socket open or still inside the grace.
+   *
+   *  Example: `new TablePresenceBo(roster).onlineUserIds().has(userId)` */
+  onlineUserIds(): ReadonlySet<string> {
+    return new Set([...this.roster.sockets.keys(), ...this.roster.inGrace]);
   }
 
   isOnline(userId: string): boolean {

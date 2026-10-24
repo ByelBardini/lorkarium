@@ -58,16 +58,23 @@ describe('the commands of a character', () => {
       id: VHARN,
       name: 'Os Sinos de Vharn',
       system: null,
-      status: null,
+      status: 'building',
       description: null,
       visibility: 'private',
       myRole: 'master',
       masterName: 'Ana',
       memberCount: 1,
+      cover: { kind: 'drawn', drawing: 0, tone: 1 },
+      contentWarnings: [],
+      tags: [],
       lastEnteredAt: null,
-      members: [{ userId: VHARN, name: 'Ana', role: 'master', color: 'gold', avatarId: null }],
+      members: [
+        { userId: VHARN, name: 'Ana', role: 'master', color: 'gold', avatarId: null, online: true },
+      ],
       joinCode: 'VHRN7K2Q',
       hasPassword: false,
+      createdAt: '2026-10-23T21:00:00.000Z',
+      lastAccessAt: null,
     };
     expect(campaignDetailDto.safeParse(detail).success).toBe(false);
     expect(campaignDetailDto.parse({ ...detail, castSceneId: SALAO }).castSceneId).toBe(SALAO);

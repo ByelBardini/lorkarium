@@ -24,6 +24,7 @@ import { SESSION_COOKIE, type AuthGuards } from '../modules/auth/auth.routes';
 import type { MembershipReader } from '../modules/campaigns/cached-memberships';
 import { createCampaignsModule } from '../modules/campaigns/campaigns.plugin';
 import { InMemoryPresenceRegistry } from '../infrastructure/presence-registry/in-memory-presence-registry';
+import type { CampaignChangedPort } from '../modules/campaigns/campaign-changed.port';
 import { TimerScheduler } from '../infrastructure/scheduler/timer-scheduler';
 import { SocketIoSessionPublisher } from '../infrastructure/session-publisher/socket-io-session-publisher';
 import { SocketIoBoardPublisher } from '../infrastructure/board-publisher/socket-io-board-publisher';
@@ -46,6 +47,7 @@ import { createPingsModule } from '../modules/pings/pings.plugin';
 import { createConditionsModule } from '../modules/conditions/conditions.plugin';
 import { createCombatModule } from '../modules/combat/combat.plugin';
 import { healthPlugin } from '../modules/health/health.plugin';
+import { PresenceReaderService } from '../modules/sessions/presence-reader.service';
 import {
   createSessionsModule,
   type SessionsModuleOptions,
@@ -99,8 +101,10 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const { appPublicUrl } = env;
   const security = await wireAccountSecurity(app, { ...accountSecurity, appPublicUrl }, API_PREFIX);
   const codes = new CryptoCampaignCode();
-  const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock });
-  await app.register(campaigns.plugin, { prefix: API_PREFIX });
+  // One registry for both: the live session writes it, the campaign detail reads who is online.
+  const registry = new InMemoryPresenceRegistry();
+  const presence = new PresenceReaderService(registry);
+  const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock, presence });
   await app.register(healthPlugin, { prefix: API_PREFIX, db: deps.db });
   const storage = wireAssetStorage(app, new S3AssetStorage(deps.env.storage));
   const processor = new SharpImageProcessor();
@@ -114,8 +118,11 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     db: deps.db,
     sessionEnded,
     memberships,
+    registry,
   };
   const outlets = wireRealtime(app, auth.guards, realtimeModules);
+  // Registered once the live session exists: each saved campaign change reaches its room.
+  await app.register(campaigns.pluginWith(outlets.campaignChanged), { prefix: API_PREFIX });
   const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
   const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
   await app.register(library.plugin, { prefix: API_PREFIX });
@@ -138,7 +145,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   return app;
 }
 
-type RealtimeModules = Pick<SessionsModuleOptions, 'campaigns' | 'clock'> & {
+type RealtimeModules = Pick<SessionsModuleOptions, 'campaigns' | 'clock' | 'registry'> & {
   db: Database;
   sessionEnded: SocketIoSessionEnded;
   memberships: MembershipReader;
@@ -151,6 +158,8 @@ type RealtimeOutlets = Readonly<{
   boardPublisher: SocketIoBoardPublisher;
   /** The live session service: a saved profile reaches every live table of the person. */
   profileChanged: ProfileChangedPort;
+  /** The same service: a saved or deleted campaign reaches its live table. */
+  campaignChanged: CampaignChangedPort;
 }>;
 
 function wireRealtime(
@@ -181,7 +190,6 @@ function wireRealtime(
   const sessions = createSessionsModule({
     ...sessionModules,
     groupGrid: sceneWatch,
-    registry: new InMemoryPresenceRegistry(),
     scheduler,
     publisher: new SocketIoSessionPublisher(realtime.io),
     realtime,
@@ -189,7 +197,7 @@ function wireRealtime(
     log: app.log,
   });
   realtime.onConnection(sessions.gateway);
-  const profileChanged = sessions.service;
+  const { service: profileChanged, service: campaignChanged } = sessions;
   const sceneWalls = new SceneWallsService();
   const tokensModule = createTokensModule({ ...shared, sceneWalls });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
@@ -233,7 +241,7 @@ function wireRealtime(
     log: app.log,
   });
   realtime.onConnection(board.gateway);
-  return { ...outlets, profileChanged };
+  return { ...outlets, profileChanged, campaignChanged };
 }
 
 // The bucket is ensured once per boot (dev, CI and integration alike), before the first request.

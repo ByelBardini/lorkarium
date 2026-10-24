@@ -3,11 +3,11 @@ import { campaignMeta, memberCountLabel } from '@/lib/campaign-meta';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 
 describe('campaignMeta', () => {
-  it('the master sees system, status and members, without naming themselves', () => {
-    expect(campaignMeta(VHARN)).toBe('D&D 5e · Recrutando · 3 participantes');
+  it('the master sees system and members, without naming themselves nor the status', () => {
+    expect(campaignMeta(VHARN)).toBe('D&D 5e · 3 participantes');
   });
 
-  it('a player sees who masters it, and nulls are left out', () => {
+  it('a player sees who masters it', () => {
     expect(campaignMeta(QUELM)).toBe('Tormenta20 · mestre: Bia · 4 participantes');
   });
 });

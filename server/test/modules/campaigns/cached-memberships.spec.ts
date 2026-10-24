@@ -79,4 +79,19 @@ describe('CachedMemberships', () => {
     await memberships.findMembership(VHARN_ID, BIA_ID);
     expect(dao.reads).toEqual([`${VHARN_ID}:${ANA_ID}`, `${QUELM_ID}:${ANA_ID}`]);
   });
+
+  it('forgetCampaign sends the next reads of that table to the DAO and keeps the other tables', async () => {
+    const anaInQuelm = campaignMemberPo({ campaignId: QUELM_ID, userId: ANA_ID, role: 'player' });
+    const dao = new MembershipReadsFake([ANA_IN_VHARN, anaInQuelm, BIA_IN_VHARN]);
+    const memberships = new CachedMemberships(dao);
+    await memberships.findMembership(VHARN_ID, ANA_ID);
+    await memberships.findMembership(QUELM_ID, ANA_ID);
+    await memberships.findMembership(VHARN_ID, BIA_ID);
+    memberships.forgetCampaign(VHARN_ID);
+    dao.reads.length = 0;
+    await memberships.findMembership(VHARN_ID, ANA_ID);
+    await memberships.findMembership(QUELM_ID, ANA_ID);
+    await memberships.findMembership(VHARN_ID, BIA_ID);
+    expect(dao.reads).toEqual([`${VHARN_ID}:${ANA_ID}`, `${VHARN_ID}:${BIA_ID}`]);
+  });
 });

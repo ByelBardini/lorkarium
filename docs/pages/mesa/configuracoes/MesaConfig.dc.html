@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Configurações da mesa</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#101216}
+a{color:#C5A46D;text-decoration:none}a:hover{color:#E2C793}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,label:focus-within{outline:2px solid #C5A46D;outline-offset:2px}
+.mc-sub{display:block;padding:9px 12px;border-radius:8px;color:#8C8F98;font-size:14px;font-weight:500}
+.mc-sub:hover{color:#EAE5DA;background:#15181D}
+.mc-card{border-radius:14px;background:#14171C;border:1px solid #23272E;padding:28px;display:flex;flex-direction:column;gap:22px;scroll-margin-top:24px}
+.mc-h{margin:0;font-family:'Cormorant Garamond',serif;font-weight:600;font-size:28px;line-height:1.1}
+.mc-desc{margin:4px 0 0;font-size:14px;color:#8C8F98}
+.mc-label{font-size:13px;font-weight:600;color:#D5D0C4}
+.mc-hint{font-size:12px;line-height:1.5;color:#8C8F98}
+.mc-input{height:44px;box-sizing:border-box;padding:0 14px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:15px;width:100%}
+.mc-input::placeholder{color:#6F7480}
+.mc-input:focus{outline:none;border-color:#C5A46D;box-shadow:0 0 0 3px rgba(197,164,109,.16)}
+.mc-input.is-error{border-color:#C9705A}
+textarea.mc-input{height:auto;min-height:120px;padding:12px 14px;line-height:1.6;resize:vertical}
+.mc-select{height:44px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:15px;cursor:pointer;width:100%}
+.mc-select:focus{outline:none;border-color:#C5A46D}
+.mc-btn{height:42px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:10px;background:transparent;color:#D5D0C4;font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.mc-btn:hover{border-color:#4A505B;color:#EAE5DA}
+.mc-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.mc-btn.is-gold:hover{background:#D4B57E}
+.mc-btn.is-quiet{border-color:transparent}
+.mc-btn.is-quiet:hover{background:#1B1E24}
+.mc-btn.is-danger{border-color:rgba(201,112,90,.5);color:#E6A28F}
+.mc-btn.is-danger:hover{background:rgba(201,112,90,.1)}
+.mc-btn.is-danger-solid{background:#B85C47;border-color:#B85C47;color:#FFF5F0}
+.mc-btn:disabled{opacity:.45;cursor:default}
+.mc-chip{height:34px;padding:0 14px;border-radius:999px;border:1px solid #303640;background:transparent;color:#A9A497;font:inherit;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.mc-chip:hover{color:#EAE5DA;border-color:#4A505B}
+.mc-chip.is-warn{background:rgba(201,112,90,.14);border-color:rgba(201,112,90,.5);color:#E6A28F}
+.mc-chip.is-day{min-width:52px;justify-content:center}
+.mc-chip.is-on{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.mc-tag{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 6px 0 12px;border-radius:999px;background:#1F232A;color:#D5D0C4;font-size:13px;font-weight:500}
+.mc-x{width:22px;height:22px;padding:0;border:0;border-radius:50%;background:transparent;color:#8C8F98;font:inherit;font-size:15px;line-height:1;cursor:pointer}
+.mc-x:hover{background:#303640;color:#EAE5DA}
+.mc-sugg{height:30px;padding:0 12px;border-radius:999px;border:1px dashed #3A404A;background:transparent;color:#8C8F98;font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.mc-sugg:hover{border-color:#C5A46D;color:#EAE5DA}
+.mc-opt{flex:1 1 180px;display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid #303640;border-radius:10px;background:transparent;color:#A9A497;font:inherit;text-align:left;cursor:pointer}
+.mc-opt:hover{border-color:#4A505B}
+.mc-opt.is-on{border-color:#C5A46D;background:rgba(197,164,109,.07);color:#EAE5DA}
+.mc-seg{height:34px;padding:0 14px;border:0;border-radius:7px;background:transparent;color:#A9A497;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.mc-seg:hover{color:#EAE5DA}
+.mc-seg.is-on{background:#262A31;color:#EAE5DA}
+.mc-row{display:flex;align-items:center;gap:16px;padding:16px 0;border-top:1px solid #1F2329;flex-wrap:wrap}
+.mc-switch{position:relative;width:44px;height:26px;flex-shrink:0;padding:0;border:0;border-radius:999px;background:#303640;cursor:pointer;transition:background .15s}
+.mc-switch .mc-knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#A9A497;transition:left .15s,background .15s}
+.mc-switch.is-on{background:#C5A46D}
+.mc-switch.is-on .mc-knob{left:21px;background:#15130F}
+.mc-step{width:40px;height:40px;border:0;background:transparent;color:#D5D0C4;font:inherit;font-size:18px;cursor:pointer;border-radius:8px}
+.mc-step:hover{background:#1F232A;color:#E2C793}
+.mc-cover{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background-color:#13161B;background-image:linear-gradient(rgba(197,164,109,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(197,164,109,.07) 1px,transparent 1px);background-size:20px 20px;border:1px solid #262B33}
+.mc-cover.is-over{border-color:#C5A46D;box-shadow:inset 0 0 0 2px rgba(197,164,109,.4)}
+.mc-preset{position:relative;width:76px;height:48px;padding:0;border-radius:8px;border:2px solid transparent;background-color:#13161B;background-image:linear-gradient(rgba(197,164,109,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(197,164,109,.07) 1px,transparent 1px);background-size:10px 10px;cursor:pointer;overflow:hidden}
+.mc-preset:hover{border-color:#4A505B}
+.mc-preset.is-on{border-color:#C5A46D}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #101216; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<header style="min-height: 64px; box-sizing: border-box; padding: 10px 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; background: #0C0E11; border-bottom: 1px solid #1F2329">
+<a href="Mesa.dc.html" style="display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px 0 6px; border-radius: 8px; color: #A9A497; font-size: 13px; font-weight: 500">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Voltar pra mesa</a>
+<span style="width: 1px; height: 24px; background: #262B33"></span>
+<svg viewBox="0 0 120 120" width="22" height="22" fill="none" stroke="#C5A46D" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><g stroke-width="7"><path d="M60 9 L78 42 L60 99 L42 42 Z"></path><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z"></path></g></svg>
+<span style="font-size: 14px; color: #8C8F98">{{savedName}}</span>
+<span style="color: #4A505B">/</span>
+<span style="font-size: 14px; font-weight: 600">Configurações</span>
+</header>
+
+<div style="max-width: 1360px; margin: 0 auto; box-sizing: border-box; padding: 36px 32px 140px; display: flex; flex-wrap: wrap; gap: 36px; align-items: flex-start">
+
+<nav aria-label="Seções" style="flex: 1 1 180px; max-width: 200px; display: flex; flex-direction: column; gap: 2px; padding-top: 76px">
+<a href="#geral" class="mc-sub">Geral</a>
+<a href="#acesso" class="mc-sub">Acesso</a>
+<a href="#agenda" class="mc-sub">Agenda</a>
+<a href="#jogo" class="mc-sub">Regras do jogo</a>
+<a href="#perigo" class="mc-sub" style="color: #C98E7E">Zona de perigo</a>
+</nav>
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 44px; line-height: 1.05">Configurações da mesa</h1>
+<p style="margin: 0; font-size: 15px; color: #A9A497">Só o mestre vê esta tela. As mudanças aparecem pra todo mundo assim que você salvar.</p>
+</div>
+
+<section id="geral" class="mc-card" aria-labelledby="mc-geral-h">
+<div><h2 id="mc-geral-h" class="mc-h">Geral</h2><p class="mc-desc">O que aparece no hub, no convite e nos detalhes da mesa.</p></div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span class="mc-label">Capa</span>
+<div style="display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start">
+<div class="{{coverCls}}" onDragOver="{{onDragOver}}" onDragLeave="{{onDragLeave}}" onDrop="{{onDrop}}" style="flex: 1 1 280px; max-width: 360px">
+<sc-if value="{{hasImg}}" hint-placeholder-val="{{ false }}"><img src="{{img}}" alt="Capa da mesa" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover"></sc-if>
+<sc-if value="{{noImg}}" hint-placeholder-val="{{ true }}">
+<svg viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<path d="{{art.d1}}" fill="none" stroke="{{art.tint}}" stroke-opacity=".35" stroke-width="1.3"></path>
+<path d="{{art.d2}}" fill="none" stroke="{{art.tint}}" stroke-opacity=".55" stroke-width="1.3"></path>
+<path d="{{art.d3}}" fill="none" stroke="{{art.tint}}" stroke-opacity=".8" stroke-width="1.3"></path>
+</svg>
+</sc-if>
+<sc-if value="{{isOver}}" hint-placeholder-val="{{ false }}"><div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(12,14,17,.8); font-weight: 600; color: #E2C793">Solta aqui</div></sc-if>
+</div>
+<div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<label class="mc-btn" style="position: relative; cursor: pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"></path></svg>Enviar imagem
+<input type="file" accept="image/png,image/jpeg,image/webp" onChange="{{onFile}}" style="position: absolute; width: 1px; height: 1px; opacity: 0">
+</label>
+<sc-if value="{{hasImg}}" hint-placeholder-val="{{ false }}"><button type="button" class="mc-btn is-quiet" onClick="{{clearImg}}" style="color: #A9A497">Usar capa desenhada</button></sc-if>
+</div>
+<span class="mc-hint">Arraste pra capa ou envie · 16:9, até 10 MB. Sem imagem, escolha uma capa desenhada:</span>
+<div role="radiogroup" aria-label="Capa desenhada" style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{presets}}" as="p" hint-placeholder-count="4">
+<button type="button" role="radio" class="{{p.cls}}" aria-checked="{{p.on}}" aria-label="{{p.name}}" title="{{p.name}}" onClick="{{p.pick}}">
+<svg viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<path d="{{p.d1}}" fill="none" stroke="{{p.tint}}" stroke-opacity=".5" stroke-width="2"></path>
+<path d="{{p.d3}}" fill="none" stroke="{{p.tint}}" stroke-opacity=".9" stroke-width="2"></path>
+</svg>
+</button>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between"><label for="mc-name" class="mc-label">Nome da mesa</label><span class="mc-hint">{{nameCount}}/60</span></div>
+<input id="mc-name" class="{{nameCls}}" type="text" maxlength="60" value="{{name}}" onChange="{{onName}}" style="font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600">
+<sc-if value="{{nameErr}}" hint-placeholder-val="{{ false }}"><span class="mc-hint" style="color: #E6A28F">A mesa precisa de um nome.</span></sc-if>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="mc-sys" class="mc-label">Sistema</label>
+<select id="mc-sys" class="mc-select" value="{{system}}" onChange="{{onSystem}}">
+<option value="D&amp;D 5e">D&amp;D 5e</option>
+<option value="Tormenta20">Tormenta20</option>
+<option value="Ordem Paranormal">Ordem Paranormal</option>
+<option value="Pathfinder 2e">Pathfinder 2e</option>
+<option value="Call of Cthulhu">Call of Cthulhu</option>
+<option value="Vampiro: A Máscara">Vampiro: A Máscara</option>
+<option value="outro">Outro / sistema próprio…</option>
+</select>
+</div>
+<sc-if value="{{isOtherSys}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="mc-sys2" class="mc-label">Nome do sistema</label>
+<input id="mc-sys2" class="mc-input" type="text" maxlength="40" placeholder="Ex.: Sistema da casa v3" value="{{systemOther}}" onChange="{{onSystemOther}}">
+</div>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between"><label for="mc-about" class="mc-label">Sobre a mesa</label><span class="mc-hint">{{aboutCount}}/500</span></div>
+<textarea id="mc-about" class="mc-input" maxlength="500" placeholder="Do que se trata a campanha, o clima, quando joga…" onChange="{{onAbout}}">{{about}}</textarea>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 2px"><span class="mc-label">Avisos de conteúdo</span><span class="mc-hint">Aparecem em destaque antes de alguém entrar. Marca o que a mesa pode ter.</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{warns}}" as="w" hint-placeholder-count="6">
+<button type="button" class="{{w.cls}}" aria-pressed="{{w.on}}" onClick="{{w.toggle}}">
+<sc-if value="{{w.isOn}}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></sc-if>{{w.name}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 2px"><span class="mc-label">Tags</span><span class="mc-hint">O estilo da mesa. Até 8.</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px; border-radius: 10px; border: 1px solid #303640; background: #101216">
+<sc-for list="{{tags}}" as="t" hint-placeholder-count="3">
+<span class="mc-tag">{{t.name}}<button type="button" class="mc-x" onClick="{{t.remove}}" aria-label="{{t.removeLabel}}">×</button></span>
+</sc-for>
+<sc-if value="{{canAddTag}}" hint-placeholder-val="{{ true }}">
+<input type="text" maxlength="24" placeholder="Escreve e aperta Enter" aria-label="Nova tag" value="{{tagDraft}}" onChange="{{onTagDraft}}" onKeyDown="{{onTagKey}}" style="flex: 1; min-width: 160px; height: 32px; border: 0; background: transparent; color: #EAE5DA; font: inherit; font-size: 14px; outline: none">
+</sc-if>
+</div>
+<sc-if value="{{hasSugg}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
+<span class="mc-hint">Sugestões:</span>
+<sc-for list="{{sugg}}" as="sg" hint-placeholder-count="4">
+<button type="button" class="mc-sugg" onClick="{{sg.add}}">+ {{sg.name}}</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</section>
+
+<section id="acesso" class="mc-card" aria-labelledby="mc-acesso-h">
+<div><h2 id="mc-acesso-h" class="mc-h">Acesso</h2><p class="mc-desc">Quem consegue entrar e quantos cabem.</p></div>
+<div role="radiogroup" aria-label="Como entra" style="display: flex; gap: 10px; flex-wrap: wrap">
+<button type="button" role="radio" class="{{acc.convite.cls}}" aria-checked="{{acc.convite.on}}" onClick="{{acc.convite.pick}}"><span style="font-size: 15px; font-weight: 600">Só por convite</span><span class="mc-hint">Você convida cada pessoa pelo @.</span></button>
+<button type="button" role="radio" class="{{acc.codigo.cls}}" aria-checked="{{acc.codigo.on}}" onClick="{{acc.codigo.pick}}"><span style="font-size: 15px; font-weight: 600">Com código</span><span class="mc-hint">Quem tiver o código entra direto.</span></button>
+<button type="button" role="radio" class="{{acc.senha.cls}}" aria-checked="{{acc.senha.on}}" onClick="{{acc.senha.pick}}"><span style="font-size: 15px; font-weight: 600">Código + senha</span><span class="mc-hint">Pede a senha depois do código.</span></button>
+</div>
+<sc-if value="{{showCode}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end">
+<div style="flex: 1 1 240px; padding: 14px 16px; border-radius: 12px; background: #101216; border: 1px solid #262B33; display: flex; align-items: center; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6F7480">Código da mesa</span>
+<span style="font-family: Cinzel, serif; font-size: 22px; font-weight: 600; letter-spacing: 0.18em; color: #E2C793">{{code}}</span>
+</div>
+<button type="button" class="mc-btn" onClick="{{newCode}}" style="height: 36px; font-size: 13px">Gerar outro</button>
+</div>
+<sc-if value="{{showPw}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 8px">
+<label for="mc-pw" class="mc-label">Senha da mesa</label>
+<input id="mc-pw" class="{{pwCls}}" type="text" maxlength="32" placeholder="Mínimo 4 caracteres" value="{{pw}}" onChange="{{onPw}}" autocomplete="off">
+</div>
+</sc-if>
+</div>
+<span class="mc-hint">Gerar outro código faz o antigo parar de funcionar. Quem já está na mesa continua.</span>
+</sc-if>
+<div style="display: flex; flex-direction: column">
+<div class="mc-row">
+<div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px"><span class="mc-label">Vagas de jogador</span><span class="mc-hint">Sem contar você. Espectadores não ocupam vaga.</span></div>
+<div style="display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 10px; border: 1px solid #303640">
+<button type="button" class="mc-step" onClick="{{seatsDec}}" aria-label="Menos uma vaga">−</button>
+<span style="min-width: 44px; text-align: center; font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600">{{seats}}</span>
+<button type="button" class="mc-step" onClick="{{seatsInc}}" aria-label="Mais uma vaga">+</button>
+</div>
+<span class="mc-hint" style="width: 100%">{{seatsHint}}</span>
+</div>
+<div class="mc-row">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span class="mc-label" id="mc-spec-l">Permitir espectadores</span><span class="mc-hint">Assistem o mapa e as rolagens públicas, sem token nem chat.</span></div>
+<button type="button" role="switch" class="{{specCls}}" aria-checked="{{specAria}}" aria-labelledby="mc-spec-l" onClick="{{toggleSpec}}"><span class="mc-knob"></span></button>
+</div>
+</div>
+</section>
+
+<section id="agenda" class="mc-card" aria-labelledby="mc-agenda-h">
+<div><h2 id="mc-agenda-h" class="mc-h">Agenda</h2><p class="mc-desc">Os jogadores recebem lembrete e veem a próxima sessão no hub.</p></div>
+<div role="radiogroup" aria-label="Frequência" style="display: inline-flex; flex-wrap: wrap; align-self: flex-start; padding: 3px; border-radius: 10px; border: 1px solid #303640">
+<sc-for list="{{freqs}}" as="f" hint-placeholder-count="4">
+<button type="button" role="radio" class="{{f.cls}}" aria-checked="{{f.on}}" onClick="{{f.pick}}">{{f.label}}</button>
+</sc-for>
+</div>
+<sc-if value="{{hasSchedule}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span class="mc-label">Dia</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+<button type="button" class="{{d.cls}}" aria-pressed="{{d.on}}" onClick="{{d.pick}}">{{d.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 8px"><label for="mc-time" class="mc-label">Horário</label><input id="mc-time" class="mc-input" type="time" value="{{time}}" onChange="{{onTime}}"></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><label for="mc-dur" class="mc-label">Duração média</label>
+<select id="mc-dur" class="mc-select" value="{{dur}}" onChange="{{onDur}}"><option value="2">Umas 2 horas</option><option value="3">Umas 3 horas</option><option value="4">Umas 4 horas</option><option value="6">Tarde/noite inteira</option></select></div>
+</div>
+<p style="margin: 0; padding: 12px 14px; border-radius: 10px; background: rgba(197,164,109,.08); font-size: 14px; color: #D5D0C4">{{scheduleText}}</p>
+</sc-if>
+</section>
+
+<section id="jogo" class="mc-card" aria-labelledby="mc-jogo-h">
+<div><h2 id="mc-jogo-h" class="mc-h">Regras do jogo</h2><p class="mc-desc">Padrões da mesa. Cada grid pode ter os seus.</p></div>
+<div style="display: flex; flex-direction: column">
+<div class="mc-row" style="border-top: 0; padding-top: 0">
+<div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px"><span class="mc-label">Cada casa do grid vale</span><span class="mc-hint">A régua e os alcances de visão e luz usam isso.</span></div>
+<div role="radiogroup" aria-label="Tamanho da casa" style="display: inline-flex; padding: 3px; border-radius: 10px; border: 1px solid #303640">
+<sc-for list="{{units}}" as="u" hint-placeholder-count="3"><button type="button" role="radio" class="{{u.cls}}" aria-checked="{{u.on}}" onClick="{{u.pick}}">{{u.label}}</button></sc-for>
+</div>
+</div>
+<div class="mc-row">
+<div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px"><span class="mc-label">Jogadores veem a vida dos inimigos</span><span class="mc-hint">Vale pra barra no token e pro tracker de combate.</span></div>
+<div role="radiogroup" aria-label="Vida dos inimigos" style="display: inline-flex; padding: 3px; border-radius: 10px; border: 1px solid #303640">
+<sc-for list="{{foeVis}}" as="v" hint-placeholder-count="3"><button type="button" role="radio" class="{{v.cls}}" aria-checked="{{v.on}}" onClick="{{v.pick}}">{{v.label}}</button></sc-for>
+</div>
+</div>
+<div class="mc-row">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span class="mc-label" id="mc-roll-l">Rolagens escondidas do mestre</span><span class="mc-hint">Desligado, suas rolagens aparecem pra todo mundo por padrão.</span></div>
+<button type="button" role="switch" class="{{hiddenCls}}" aria-checked="{{hiddenAria}}" aria-labelledby="mc-roll-l" onClick="{{toggleHidden}}"><span class="mc-knob"></span></button>
+</div>
+<div class="mc-row">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span class="mc-label" id="mc-draw-l">Jogadores podem desenhar no mapa</span><span class="mc-hint">Desenhos de jogador ficam na cor de cada um e somem no fim da sessão.</span></div>
+<button type="button" role="switch" class="{{drawCls}}" aria-checked="{{drawAria}}" aria-labelledby="mc-draw-l" onClick="{{toggleDraw}}"><span class="mc-knob"></span></button>
+</div>
+</div>
+</section>
+
+<section id="perigo" class="mc-card" aria-labelledby="mc-perigo-h" style="border-color: rgba(201,112,90,.35)">
+<div><h2 id="mc-perigo-h" class="mc-h" style="color: #E6A28F">Zona de perigo</h2><p class="mc-desc">Coisas difíceis de desfazer.</p></div>
+<div style="display: flex; flex-direction: column">
+<div class="mc-row" style="border-top: 0; padding-top: 0">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px"><span class="mc-label">Passar a mesa pra outro mestre</span><span class="mc-hint">Você vira jogador. Só a pessoa nova pode devolver.</span></div>
+<select class="mc-select" aria-label="Novo mestre" value="{{heir}}" onChange="{{onHeir}}" style="width: 200px"><option value="">Escolher alguém…</option><option value="bia">Bia</option><option value="thiago">Thiago</option><option value="carol">Carol</option></select>
+<button type="button" class="mc-btn is-danger" disabled="{{noHeir}}">Passar mesa</button>
+</div>
+<div class="mc-row">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px"><span class="mc-label">Arquivar mesa</span><span class="mc-hint">Some do hub de todo mundo, mas dá pra trazer de volta quando quiser.</span></div>
+<button type="button" class="mc-btn is-danger">Arquivar</button>
+</div>
+<div class="mc-row" style="padding-bottom: 0">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px"><span class="mc-label" style="color: #E6A28F">Excluir mesa</span><span class="mc-hint">Apaga grids, tokens, fichas e histórico. Não tem volta.</span></div>
+<sc-if value="{{notDel}}" hint-placeholder-val="{{ true }}"><button type="button" class="mc-btn is-danger" onClick="{{askDel}}">Excluir mesa</button></sc-if>
+<sc-if value="{{del}}" hint-placeholder-val="{{ false }}">
+<div style="width: 100%; display: flex; flex-direction: column; gap: 8px">
+<label for="mc-del" class="mc-hint" style="color: #E6A28F">Pra confirmar, escreve o nome da mesa: <strong>{{savedName}}</strong></label>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<input id="mc-del" class="mc-input" type="text" value="{{delText}}" onChange="{{onDelText}}" autocomplete="off" style="flex: 1 1 240px">
+<button type="button" class="mc-btn is-danger-solid" disabled="{{delBlocked}}">Excluir pra sempre</button>
+<button type="button" class="mc-btn" onClick="{{cancelDel}}">Voltar</button>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</section>
+</div>
+
+<aside style="flex: 1 1 300px; max-width: 360px; position: sticky; top: 24px; display: flex; flex-direction: column; gap: 10px; padding-top: 76px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6F7480">Como aparece no hub</span>
+<div style="border-radius: 12px; overflow: hidden; background: #15181D; border: 1px solid #262B33">
+<div class="mc-cover" style="border: 0; border-radius: 0; aspect-ratio: 16/8">
+<sc-if value="{{hasImg}}" hint-placeholder-val="{{ false }}"><img src="{{img}}" alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover"></sc-if>
+<sc-if value="{{noImg}}" hint-placeholder-val="{{ true }}">
+<svg viewBox="0 0 160 80" preserveAspectRatio="xMidYMid slice" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<path d="{{art.d1}}" fill="none" stroke="{{art.tint}}" stroke-opacity=".35" stroke-width="1.3"></path>
+<path d="{{art.d2}}" fill="none" stroke="{{art.tint}}" stroke-opacity=".55" stroke-width="1.3"></path>
+<path d="{{art.d3}}" fill="none" stroke="{{art.tint}}" stroke-opacity=".8" stroke-width="1.3"></path>
+</svg>
+</sc-if>
+<span style="position: absolute; top: 10px; left: 10px; height: 22px; padding: 0 9px; border-radius: 999px; background: rgba(197,164,109,.18); color: #E2C793; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; display: inline-flex; align-items: center">Mestre</span>
+</div>
+<div style="padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; line-height: 1.15">{{previewName}}</span>
+<span style="font-size: 13px; color: #8C8F98">{{previewMeta}}</span>
+<sc-if value="{{hasPreviewChips}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{previewChips}}" as="c" hint-placeholder-count="3"><span style="height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; background: {{c.bg}}; color: {{c.fg}}">{{c.name}}</span></sc-for>
+</div>
+</sc-if>
+<span style="font-size: 12px; color: #A9A497">{{previewNext}}</span>
+</div>
+</div>
+</aside>
+</div>
+
+<sc-if value="{{showBar}}" hint-placeholder-val="{{ false }}">
+<div role="region" aria-label="Alterações" style="position: fixed; z-index: 10; left: 50%; bottom: 24px; transform: translateX(-50%); width: calc(100% - 48px); max-width: 640px; box-sizing: border-box; padding: 12px 12px 12px 20px; border-radius: 14px; background: #1B1E24; border: 1px solid #3A404A; box-shadow: 0 18px 50px rgba(0,0,0,.55); display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<span style="flex: 1 1 200px; font-size: 14px; color: {{barColor}}">{{barText}}</span>
+<sc-if value="{{dirty}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="mc-btn is-quiet" onClick="{{discard}}">Descartar</button>
+<button type="button" class="mc-btn is-gold" onClick="{{save}}" disabled="{{cantSave}}">{{saveLabel}}</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2300}}'>
+var MC_ART = [
+  { name: 'Masmorra', tint: '#C5A46D', d1: 'M80 8 C112 4 140 20 142 40 C144 60 118 76 84 75 C50 74 22 62 24 42 C26 22 50 11 80 8 Z', d2: 'M82 22 C104 20 122 30 122 42 C122 54 104 62 84 62 C62 62 46 54 46 43 C46 31 62 23 82 22 Z', d3: 'M84 34 C94 33 102 37 102 42 C102 47 95 51 86 51 C76 51 70 47 70 43 C70 38 76 35 84 34 Z' },
+  { name: 'Costa', tint: '#8FA8D8', d1: 'M0 60 C30 52 50 66 74 58 C100 48 108 30 132 34 C150 37 156 50 160 46', d2: 'M0 70 C30 62 50 76 74 68 C100 58 108 40 132 44 C150 47 156 60 160 56', d3: 'M112 12 C126 9 140 16 138 24 C136 32 122 34 112 31 C102 28 100 20 104 15 Z' },
+  { name: 'Montanhas', tint: '#8FB39A', d1: 'M0 78 L28 46 L46 62 L76 22 L100 54 L120 40 L150 70 L160 64', d2: 'M0 86 L36 62 L58 78 L86 50 L112 74 L136 62 L160 84', d3: 'M66 36 L76 22 L86 36' },
+  { name: 'Brasas', tint: '#C07A62', d1: 'M20 70 C40 40 60 60 80 30 C100 60 120 40 140 70', d2: 'M30 80 C50 56 66 70 80 48 C94 70 110 56 130 80', d3: 'M74 40 C78 30 82 30 86 40 C82 46 78 46 74 40 Z' }
+];
+var MC_WARNS = ['+18', 'Violência', 'Terror', 'Gore', 'Linguagem forte', 'Temas sensíveis'];
+var MC_SUGG = ['Investigação', 'Masmorra', 'Exploração', 'Roleplay', 'Combate tático', 'Iniciantes bem-vindos', 'Campanha longa', 'One-shot', 'Sandbox'];
+var MC_DAYS = [['dom', 'Dom'], ['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb']];
+var MC_DAYNAME = { dom: 'domingo', seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado' };
+var MC_FIELDS = ['name', 'system', 'systemOther', 'about', 'warns', 'tags', 'art', 'img', 'access', 'pw', 'code', 'seats', 'spec', 'freq', 'day', 'time', 'dur', 'unit', 'foeVis', 'hidden', 'draw'];
+var MC_START = {
+  name: 'Os Sinos de Vharn', system: 'D&D 5e', systemOther: '',
+  about: 'Os sinos de Vharn tocaram sozinhos na noite em que o abade sumiu. Campanha de mistério e masmorra, com combate tático e muita conversa com NPC.',
+  warns: ['Violência', 'Terror'], tags: ['Investigação', 'Masmorra'], art: 0, img: null,
+  access: 'senha', pw: 'sino15', code: 'BQ9M-TXF4', seats: 5, spec: true,
+  freq: 'semanal', day: 'sex', time: '21:00', dur: '4', unit: '1.5m', foeVis: 'estado', hidden: true, draw: true
+};
+function mcCode() { var c = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', s = ''; for (var i = 0; i < 8; i++) { s += c[Math.floor(Math.random() * c.length)]; if (i === 3) s += '-'; } return s; }
+function mcEq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = Object.assign(JSON.parse(JSON.stringify(MC_START)), { saved: JSON.parse(JSON.stringify(MC_START)), tagDraft: '', over: false, saving: false, justSaved: false, del: false, delText: '', heir: '' });
+  }
+  set(k, v) { var o = { justSaved: false }; o[k] = v; this.setState(o); }
+  readFile(f) { var self = this; if (!f || !/^image\//.test(f.type) || f.size > 10 * 1024 * 1024) return; var r = new FileReader(); r.onload = function () { self.set('img', r.result); }; r.readAsDataURL(f); }
+  addTag(t) {
+    var v = (t || '').trim(); if (!v) return;
+    var tags = this.state.tags;
+    if (tags.length >= 8 || tags.some(function (x) { return x.toLowerCase() === v.toLowerCase(); })) { this.setState({ tagDraft: '' }); return; }
+    this.setState({ tags: tags.concat([v]), tagDraft: '', justSaved: false });
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var dirty = MC_FIELDS.some(function (k) { return !mcEq(s[k], s.saved[k]); });
+    var nameErr = !s.name.trim();
+    var pwErr = s.access === 'senha' && s.pw.trim().length < 4;
+    var cantSave = nameErr || pwErr;
+    var art = MC_ART[s.art];
+    var seg = function (key, list, cls) {
+      return list.map(function (it) { var on = s[key] === it[0]; return { label: it[1], on: on ? 'true' : 'false', cls: (cls || 'mc-seg') + (on ? ' is-on' : ''), pick: function () { self.set(key, it[0]); } }; });
+    };
+    var acc = {};
+    ['convite', 'codigo', 'senha'].forEach(function (k) { acc[k] = { on: s.access === k ? 'true' : 'false', cls: 'mc-opt' + (s.access === k ? ' is-on' : ''), pick: function () { self.set('access', k); } }; });
+    var sysName = s.system === 'outro' ? (s.systemOther.trim() || 'Sistema próprio') : s.system;
+    var freqLabel = { semanal: 'Toda', quinzenal: 'A cada 2 semanas,', mensal: 'Uma vez por mês, na' };
+    var dayN = MC_DAYNAME[s.day];
+    var scheduleText = s.freq === 'livre' ? '' : (s.freq === 'semanal' ? 'Toda ' + dayN : s.freq === 'quinzenal' ? 'A cada duas semanas, na ' + dayN : 'Uma vez por mês, na ' + dayN) + ', às ' + s.time.replace(':00', 'h').replace(':', 'h') + ' (Brasília) · próxima: sex 30 out';
+    var nextShort = s.freq === 'livre' ? 'Sem agenda fixa' : 'Próxima: ' + MC_DAYS.filter(function (d) { return d[0] === s.day; })[0][1].toLowerCase() + ', ' + s.time.replace(':00', 'h').replace(':', 'h');
+    var chips = s.warns.map(function (w) { return { name: w, bg: 'rgba(201,112,90,.16)', fg: '#E6A28F' }; }).concat(s.tags.slice(0, 3).map(function (t) { return { name: t, bg: '#1F232A', fg: '#A9A497' }; }));
+    var accessText = { convite: 'só convite', codigo: 'com código', senha: 'com senha' }[s.access];
+    return {
+      savedName: s.saved.name, name: s.name, nameCount: s.name.length, nameCls: 'mc-input' + (nameErr ? ' is-error' : ''), nameErr: nameErr,
+      onName: function (e) { self.set('name', e.target.value); },
+      system: s.system, onSystem: function (e) { self.set('system', e.target.value); }, isOtherSys: s.system === 'outro',
+      systemOther: s.systemOther, onSystemOther: function (e) { self.set('systemOther', e.target.value); },
+      about: s.about, aboutCount: s.about.length, onAbout: function (e) { self.set('about', e.target.value); },
+      warns: MC_WARNS.map(function (w) { var on = s.warns.indexOf(w) >= 0; return { name: w, isOn: on, on: on ? 'true' : 'false', cls: 'mc-chip' + (on ? ' is-warn' : ''), toggle: function () { self.set('warns', on ? s.warns.filter(function (x) { return x !== w; }) : s.warns.concat([w])); } }; }),
+      tags: s.tags.map(function (t) { return { name: t, removeLabel: 'Tirar a tag ' + t, remove: function () { self.set('tags', s.tags.filter(function (x) { return x !== t; })); } }; }),
+      canAddTag: s.tags.length < 8, tagDraft: s.tagDraft,
+      onTagDraft: function (e) { self.setState({ tagDraft: e.target.value }); },
+      onTagKey: function (e) { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); self.addTag(e.target.value); } if (e.key === 'Backspace' && !e.target.value && self.state.tags.length) self.set('tags', self.state.tags.slice(0, -1)); },
+      sugg: MC_SUGG.filter(function (x) { return s.tags.indexOf(x) === -1; }).slice(0, 5).map(function (x) { return { name: x, add: function () { self.addTag(x); } }; }),
+      hasSugg: s.tags.length < 8,
+      art: art, hasImg: !!s.img, noImg: !s.img, img: s.img || '', coverCls: 'mc-cover' + (s.over ? ' is-over' : ''), isOver: s.over,
+      presets: MC_ART.map(function (a, i) { return { name: a.name, tint: a.tint, d1: a.d1, d3: a.d3, on: (!s.img && s.art === i) ? 'true' : 'false', cls: 'mc-preset' + (!s.img && s.art === i ? ' is-on' : ''), pick: function () { self.setState({ art: i, img: null, justSaved: false }); } }; }),
+      onFile: function (e) { self.readFile(e.target.files && e.target.files[0]); e.target.value = ''; },
+      onDragOver: function (e) { e.preventDefault(); if (!self.state.over) self.setState({ over: true }); },
+      onDragLeave: function () { self.setState({ over: false }); },
+      onDrop: function (e) { e.preventDefault(); self.setState({ over: false }); self.readFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); },
+      clearImg: function () { self.set('img', null); },
+      acc: acc, showCode: s.access !== 'convite', showPw: s.access === 'senha', code: s.code,
+      newCode: function () { self.set('code', mcCode()); },
+      pw: s.pw, onPw: function (e) { self.set('pw', e.target.value); }, pwCls: 'mc-input' + (pwErr ? ' is-error' : ''),
+      seats: s.seats, seatsHint: '4 jogadores na mesa agora · ' + Math.max(0, s.seats - 4) + (s.seats - 4 === 1 ? ' vaga livre' : ' vagas livres'),
+      seatsDec: function () { self.set('seats', Math.max(4, s.seats - 1)); }, seatsInc: function () { self.set('seats', Math.min(12, s.seats + 1)); },
+      specCls: 'mc-switch' + (s.spec ? ' is-on' : ''), specAria: s.spec ? 'true' : 'false', toggleSpec: function () { self.set('spec', !s.spec); },
+      freqs: seg('freq', [['livre', 'Sem agenda fixa'], ['semanal', 'Toda semana'], ['quinzenal', 'A cada 2 semanas'], ['mensal', 'Uma vez por mês']]),
+      hasSchedule: s.freq !== 'livre',
+      days: seg('day', MC_DAYS, 'mc-chip is-day'),
+      time: s.time, onTime: function (e) { self.set('time', e.target.value || '21:00'); },
+      dur: s.dur, onDur: function (e) { self.set('dur', e.target.value); },
+      scheduleText: scheduleText,
+      units: seg('unit', [['1.5m', '1,5 metro'], ['5ft', '5 pés'], ['1m', '1 metro']]),
+      foeVis: seg('foeVis', [['nada', 'Nada'], ['estado', 'Só o estado'], ['numeros', 'Os números']]),
+      hiddenCls: 'mc-switch' + (s.hidden ? ' is-on' : ''), hiddenAria: s.hidden ? 'true' : 'false', toggleHidden: function () { self.set('hidden', !s.hidden); },
+      drawCls: 'mc-switch' + (s.draw ? ' is-on' : ''), drawAria: s.draw ? 'true' : 'false', toggleDraw: function () { self.set('draw', !s.draw); },
+      heir: s.heir, onHeir: function (e) { self.setState({ heir: e.target.value }); }, noHeir: !s.heir,
+      del: s.del, notDel: !s.del, delText: s.delText, delBlocked: s.delText.trim() !== s.saved.name,
+      askDel: function () { self.setState({ del: true, delText: '' }); }, cancelDel: function () { self.setState({ del: false }); },
+      onDelText: function (e) { self.setState({ delText: e.target.value }); },
+      previewName: s.name.trim() || 'Mesa sem nome', previewMeta: sysName + ' · ' + accessText + ' · ' + s.seats + ' vagas',
+      previewChips: chips, hasPreviewChips: chips.length > 0, previewNext: nextShort,
+      showBar: dirty || s.justSaved, dirty: dirty,
+      barText: s.justSaved ? 'Tudo salvo. A galera já vê as mudanças.' : (cantSave ? 'Arruma o que está marcado pra salvar.' : 'Você tem alterações não salvas.'),
+      barColor: s.justSaved ? '#A9D1B4' : (cantSave ? '#E6A28F' : '#D5D0C4'),
+      cantSave: cantSave || s.saving, saveLabel: s.saving ? 'Salvando…' : 'Salvar alterações',
+      discard: function () { var o = { justSaved: false }; MC_FIELDS.forEach(function (k) { o[k] = JSON.parse(JSON.stringify(self.state.saved[k])); }); self.setState(o); },
+      save: function () {
+        self.setState({ saving: true });
+        setTimeout(function () {
+          var snap = {}; MC_FIELDS.forEach(function (k) { snap[k] = JSON.parse(JSON.stringify(self.state[k])); });
+          self.setState({ saving: false, saved: snap, justSaved: true });
+          setTimeout(function () { self.setState({ justSaved: false }); }, 2200);
+        }, 700);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

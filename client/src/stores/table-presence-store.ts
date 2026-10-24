@@ -1,4 +1,5 @@
 import type {
+  SessionCampaignUpdatedDto,
   SessionMemberActivityDto,
   SessionMemberDto,
   SessionMemberJoinedDto,
@@ -29,6 +30,7 @@ export type TablePresenceStore = TablePresenceState &
 
 /** A presence store for one visit to one table. A snapshot always replaces what is there (even
  *  of a lower version, after a server restart); an event applies only above the current version.
+ *  `campaignUpdated` only moves the version (the campaign itself lives in the open tables store).
  *
  *  Example: `const store = createTablePresenceStore(campaignId); handle = api.open(campaignId, store.getState().apply)` */
 export function createTablePresenceStore(campaignId: string): StoreApi<TablePresenceStore> {
@@ -70,6 +72,8 @@ function applyUpdate(
   }
   if (update.kind === 'status') return { status: update.status, failure: null };
   if (update.kind === 'failed') return { status: 'failed', failure: update.failure };
+  // The campaign itself changed: nobody came or went, but the roster version moved with it.
+  if (update.kind === 'campaignUpdated') return campaignVersionOf(state, update.event);
   // The board updates of the same visit belong to the board store.
   if (!isPresenceEvent(update)) return {};
   if (!isNewer(state, update.event)) return {};
@@ -100,7 +104,17 @@ function isPresenceEvent(update: TableSessionUpdate): update is PresenceEvent {
   );
 }
 
-function isNewer(state: TablePresenceState, event: PresenceEvent['event']): boolean {
+function campaignVersionOf(
+  state: TablePresenceState,
+  event: SessionCampaignUpdatedDto,
+): Partial<TablePresenceState> {
+  if (!isNewer(state, event)) return {};
+  return { version: event.version, at: event.at };
+}
+
+type VersionedEvent = Readonly<{ campaignId: string; version: number }>;
+
+function isNewer(state: TablePresenceState, event: VersionedEvent): boolean {
   if (state.version === null || event.campaignId !== state.campaignId) return false;
   return event.version > state.version;
 }

@@ -1,5 +1,7 @@
+import type { CampaignInfoDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TableSessionService } from '../../../src/modules/sessions/sessions.service';
+import { EMPTY_ROSTER } from '../../../src/modules/sessions/table-presence.bo';
 import { ClockFake } from '../../support/auth-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import {
@@ -381,5 +383,104 @@ describe('TableSessionService.profileChanged', () => {
 
     expect(journal.entries).toEqual([]);
     expect(registry.rosterOf(VHARN_ID)).toBeUndefined();
+  });
+});
+
+describe('TableSessionService campaign changes', () => {
+  const VHARN_INFO: CampaignInfoDto = {
+    id: VHARN_ID,
+    name: 'Os Sinos de Vharn',
+    system: 'D&D 5e',
+    status: 'ongoing',
+    description: null,
+    visibility: 'private',
+    masterName: 'Ana',
+    memberCount: 2,
+    cover: { kind: 'drawn', drawing: 1, tone: 2 },
+    contentWarnings: [],
+    tags: [],
+  };
+
+  let journal: SessionsJournal;
+  let registry: PresenceRegistryFake;
+  let scheduler: SchedulerFake;
+  let publisher: SessionPublisherFake;
+  let service: TableSessionService;
+
+  beforeEach(() => {
+    journal = new SessionsJournal();
+    registry = new PresenceRegistryFake(journal);
+    scheduler = new SchedulerFake();
+    publisher = new SessionPublisherFake(journal);
+    service = new TableSessionService({
+      campaigns: new CampaignRosterFake({ [VHARN_ID]: [ANA, BIA], [QUELM_ID]: [CAIO] }),
+      registry,
+      scheduler,
+      publisher,
+      clock: new ClockFake(NOW),
+    });
+  });
+
+  it('a saved campaign with someone at the table moves the version and is published after saving', async () => {
+    await service.join(BIA_ID, VHARN_ID, 's1');
+    journal.entries.splice(0);
+
+    service.campaignUpdated(VHARN_INFO);
+
+    expect(journal.entries).toEqual([`save:${VHARN_ID}`, `publish:campaignUpdated:${VHARN_ID}`]);
+    expect(publisher.published.at(-1)).toEqual({
+      name: 'campaignUpdated',
+      event: { campaignId: VHARN_ID, version: 2, campaign: VHARN_INFO, at: NOW.toISOString() },
+    });
+    expect(registry.rosterOf(VHARN_ID)?.version).toBe(2);
+  });
+
+  it('a saved campaign nobody is at publishes nothing and keeps no roster', () => {
+    service.campaignUpdated(VHARN_INFO);
+
+    expect(journal.entries).toEqual([]);
+    expect(registry.rosterOf(VHARN_ID)).toBeUndefined();
+  });
+
+  it('a saved campaign leaves the other tables as they were', async () => {
+    await service.join(CAIO_ID, QUELM_ID, 's9');
+
+    service.campaignUpdated(VHARN_INFO);
+
+    expect(registry.rosterOf(QUELM_ID)?.version).toBe(1);
+    expect(publisher.published.map(({ name }) => name)).toEqual(['memberJoined']);
+  });
+
+  it('a deleted campaign drops its roster before the room hears it', async () => {
+    await service.join(BIA_ID, VHARN_ID, 's1');
+    journal.entries.splice(0);
+
+    await service.campaignDeleted(VHARN_ID);
+
+    expect(journal.entries).toEqual([`save:${VHARN_ID}`, `publish:campaignDeleted:${VHARN_ID}`]);
+    // The empty roster is what the real registry drops (`InMemoryPresenceRegistry.save`).
+    expect(registry.rosterOf(VHARN_ID)).toEqual(EMPTY_ROSTER);
+    expect(publisher.published.at(-1)).toEqual({
+      name: 'campaignDeleted',
+      event: { campaignId: VHARN_ID, at: NOW.toISOString() },
+    });
+  });
+
+  it('a deleted campaign cancels the grace of whoever dropped from it', async () => {
+    await service.join(BIA_ID, VHARN_ID, 's1');
+    service.drop(BIA_ID, VHARN_ID, 's1');
+
+    await service.campaignDeleted(VHARN_ID);
+
+    expect(scheduler.cancelled).toEqual([BIA_GRACE_KEY]);
+    expect(scheduler.scheduled).toEqual({});
+  });
+
+  it('a deleted campaign keeps the roster of the other tables', async () => {
+    await service.join(CAIO_ID, QUELM_ID, 's9');
+
+    await service.campaignDeleted(VHARN_ID);
+
+    expect(registry.rosterOf(QUELM_ID)?.sockets.get(CAIO_ID)).toEqual(new Set(['s9']));
   });
 });

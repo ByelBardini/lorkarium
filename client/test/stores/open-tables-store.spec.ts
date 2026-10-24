@@ -12,11 +12,27 @@ import { StorageFake } from '../support/storage-fake';
 import { tabInteractions } from '../support/tab-interactions';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
 import { copiedOf } from '@/lib/paste-placement';
-import { BIA_AT_TABLE, lyra, vharnState } from '../support/table-session-fixtures';
+import {
+  BIA_AT_TABLE,
+  lyra,
+  vharnDeleted,
+  vharnRenamed,
+  vharnState,
+} from '../support/table-session-fixtures';
 
 const QUELM_CAST_ID = '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e';
-const VHARN_TABLE = { campaignId: VHARN.id, name: 'Vharn', castSceneId: VHARN_CAST_ID };
-const QUELM_TABLE = { campaignId: QUELM.id, name: 'Quelm', castSceneId: QUELM_CAST_ID };
+const VHARN_TABLE = {
+  campaignId: VHARN.id,
+  name: 'Vharn',
+  castSceneId: VHARN_CAST_ID,
+  cover: VHARN.cover,
+};
+const QUELM_TABLE = {
+  campaignId: QUELM.id,
+  name: 'Quelm',
+  castSceneId: QUELM_CAST_ID,
+  cover: QUELM.cover,
+};
 const MORE_TABLES = [1, 2, 3, 4].map((n) => ({
   campaignId: `a1000000-0000-4000-8000-00000000000${n}`,
   name: `Mesa ${n}`,
@@ -216,6 +232,68 @@ describe('open tables store', () => {
       { campaignId: VHARN.id, away: true },
       { campaignId: QUELM.id, away: true },
     ]);
+  });
+
+  it('a table stored without a cover (an older tab) reopens with the drawing of its id', () => {
+    // 'a1000000-…-000000000001' hashes to drawing 0 and tone 2 (`defaultCoverOf`).
+    storeWith({ userId: ANA.id, tables: [MORE_TABLES[0]] });
+
+    store.getState().restore(ANA.id);
+
+    expect(store.getState().tables[0]?.cover).toEqual({ kind: 'drawn', drawing: 0, tone: 2 });
+  });
+
+  describe('campaign changed by the master', () => {
+    beforeEach(() => {
+      store.getState().restore(ANA.id);
+      store.getState().open(VHARN_TABLE);
+      store.getState().open(QUELM_TABLE);
+      api.emitTo(VHARN.id, { kind: 'state', state: vharnState({ version: 1 }) });
+    });
+
+    it('campaignUpdated swaps the name and the cover in place and stores them', () => {
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: vharnRenamed({ version: 2 }) });
+
+      const renamed = { name: 'Os Sinos Calados', cover: vharnRenamed().campaign.cover };
+      expect(store.getState().tables.map(({ name }) => name)).toEqual([renamed.name, 'Quelm']);
+      expect(store.getState().tables[0]?.cover).toEqual(renamed.cover);
+      expect(stored()).toEqual({
+        userId: ANA.id,
+        tables: [{ ...VHARN_TABLE, ...renamed }, QUELM_TABLE],
+      });
+    });
+
+    it('campaignUpdated also moves the version of that table presence', () => {
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: vharnRenamed({ version: 2 }) });
+
+      expect(store.getState().tables[0]?.presence.getState().version).toBe(2);
+    });
+
+    it('campaignDeleted closes that table, takes it out of the list and keeps the notice', () => {
+      api.emitTo(VHARN.id, { kind: 'campaignDeleted', event: vharnDeleted() });
+
+      expect(api.closedIds).toEqual([VHARN.id]);
+      expect(openIds()).toEqual([QUELM.id]);
+      expect(stored()).toEqual({ userId: ANA.id, tables: [QUELM_TABLE] });
+      expect(store.getState().deletedNotice).toEqual({ campaignId: VHARN.id, name: 'Vharn' });
+    });
+
+    it('dismissing the notice clears it and keeps the other tables', () => {
+      api.emitTo(VHARN.id, { kind: 'campaignDeleted', event: vharnDeleted() });
+
+      store.getState().dismissDeletedNotice();
+
+      expect(store.getState().deletedNotice).toBeNull();
+      expect(openIds()).toEqual([QUELM.id]);
+    });
+
+    it('closing all on logout forgets the notice too', () => {
+      api.emitTo(VHARN.id, { kind: 'campaignDeleted', event: vharnDeleted() });
+
+      store.getState().closeAll();
+
+      expect(store.getState().deletedNotice).toBeNull();
+    });
   });
 
   it('a table opened while away is told so at once', () => {

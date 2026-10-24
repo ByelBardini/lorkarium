@@ -4,12 +4,16 @@ import { AssetTooLargeError } from '../../../src/modules/assets/assets.error';
 
 const MIB = 1024 * 1024;
 const LIMIT = 20 * MIB;
-const SIDES = { background: 4096, token: 1024 };
+const SIDES = { background: 4096, token: 1024, cover: 1600 };
 
 describe('maxSideFor', () => {
   it('a token image is kept up to 1024 px and a background up to 4096 px', () => {
     expect(maxSideFor('token', SIDES)).toBe(1024);
     expect(maxSideFor('background', SIDES)).toBe(4096);
+  });
+
+  it('a cover image is kept up to its own side', () => {
+    expect(maxSideFor('cover', SIDES)).toBe(1600);
   });
 });
 

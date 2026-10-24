@@ -5,7 +5,9 @@ export type CampaignErrorCode =
   | 'CAMPAIGN_CODE_EXHAUSTED'
   | 'RATE_LIMITED'
   | 'INVALID_PARAMS'
-  | 'FORBIDDEN';
+  | 'FORBIDDEN'
+  | 'CAMPAIGN_NOT_OPEN'
+  | 'INVALID_BODY';
 
 /** Every campaign refusal; the edge translates `code` into the HTTP status and public message. */
 export class CampaignError extends Error {
@@ -83,6 +85,35 @@ export class ForbiddenActionError extends CampaignError {
     super(
       'FORBIDDEN',
       `user ${userId} may not ${action} in campaign ${campaignId}: requires ${required}`,
+    );
+  }
+}
+
+// The cover image must be an asset of this very table sent as a cover (critério 14).
+export class InvalidCampaignCoverError extends CampaignError {
+  constructor(
+    readonly campaignId: string,
+    readonly assetId: string,
+    readonly purpose: string | null,
+  ) {
+    const found = purpose === null ? 'no asset of this campaign' : `an asset of purpose ${purpose}`;
+    super(
+      'INVALID_BODY',
+      `cover asset ${assetId} of campaign ${campaignId} must be an asset of that campaign with purpose cover; found ${found}`,
+    );
+  }
+}
+
+// The settings change the live table under everyone at it, so the master must be at it too.
+export class CampaignNotOpenError extends CampaignError {
+  constructor(
+    readonly campaignId: string,
+    readonly userId: string,
+    readonly action: string,
+  ) {
+    super(
+      'CAMPAIGN_NOT_OPEN',
+      `user ${userId} may not ${action} in campaign ${campaignId}: requires the table open in a live connection; found none`,
     );
   }
 }

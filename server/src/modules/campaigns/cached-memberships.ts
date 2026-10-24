@@ -10,7 +10,7 @@ export const MEMBERSHIP_MEMORY_MAX = 4096;
 /** The members DAO with a memory of who **is** a member, so a board command does not read the
  *  membership again. Only positives are kept: someone who joins by code right after a refusal
  *  must be accepted. Nobody leaves a table nor changes role today; when that exists, it calls
- *  `forget`. A deleted account calls `forgetUser`. One server instance only (spec §5.7).
+ *  `forget`. A deleted account calls `forgetUser`, a deleted campaign `forgetCampaign`. One server instance only (spec §5.7).
  *
  *  Example: `const members = new CachedMemberships(new CampaignMembersDao(db))` */
 export class CachedMemberships implements MembershipReader {
@@ -45,6 +45,14 @@ export class CachedMemberships implements MembershipReader {
     const suffix = `:${userId}`;
     for (const key of [...this.known.keys()]) {
       if (key.endsWith(suffix)) this.known.delete(key);
+    }
+  }
+
+  /** For a deleted campaign: nobody keeps commanding a table that is gone. */
+  forgetCampaign(campaignId: string): void {
+    const prefix = `${campaignId}:`;
+    for (const key of [...this.known.keys()]) {
+      if (key.startsWith(prefix)) this.known.delete(key);
     }
   }
 
