@@ -68,6 +68,7 @@ O server baixa o link e guarda a imagem como um envio: o WebGL recusa textura de
   - 10 s para o download inteiro (`AbortSignal.timeout`, valendo para todos os saltos) → "did not answer within 10000 ms"; status ≠ 200 → "answered HTTP 404"; conexão recusada → "could not be reached (ECONNREFUSED)".
   - Acima de 20 MiB (`ASSET_MAX_BYTES`): pelo `Content-Length` declarado, ou contando os bytes enquanto chegam, a resposta é destruída e vira `too-large` (`received: null` quando cortada).
   - `agent: false`: sem conexão reaproveitada entre saltos.
+  - Cabeçalhos `User-Agent: Lorkarium/1.0 (image link fetcher)` e `Accept` de imagem em todo salto: hosts como o Wikimedia respondem 403 a pedido sem `User-Agent` (o link parecia "inacessível").
 - O service traduz a recusa (`linkErrorOf`): `blocked` → `LinkBlockedError(host, address)` (`LINK_BLOCKED`), `unreachable` → `LinkUnreachableError(url, motivo)` (`LINK_UNREACHABLE`, "link <url> answered HTTP 404"), `too-large` → `AssetTooLargeError(limit, received | null)` (`ASSET_TOO_LARGE`).
 
 ## S3 local (SeaweedFS)

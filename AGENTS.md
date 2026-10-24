@@ -43,6 +43,7 @@ Comandos da raiz (`package.json`):
 - `pnpm test` — Vitest de todos os workspaces, sem a integração do server · `pnpm test:integration` — só `server/test/integration/` (exige Postgres; receita no `/testar`) · `pnpm test:packages` / `test:client` / `test:server` — uma camada, com cobertura (ver `docs/context/ci.md`) · `pnpm exec vitest run <spec>` — um spec · `pnpm exec vitest run --project @lorkarium/<nome>` — um workspace
 - `pnpm bench` — os `*.bench.ts` (cena de estresse do tabuleiro, visão do game-core), fora do `pnpm test` e do CI (ver `docs/context/client/performance.md`)
 - `pnpm lint` · `pnpm format` · `pnpm format:check`
+- `pnpm mail:preview` — um exemplar de cada e-mail do sistema no Mailpit (ver `docs/context/mail.md`)
 - `pnpm db:up` / `pnpm db:down` — Postgres e SeaweedFS (S3) de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção) · `pnpm db:seed-stress` — a "Mesa de estresse" da Bia no tamanho-alvo do bench (depois do `db:seed-dev`; recusa em produção)
 
 ## Camadas do server
@@ -88,6 +89,9 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | sessions         | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão       | [`docs/context/sessions.md`](docs/context/sessions.md)                 |
 | account-security | Conta: senha, sessões ativas, troca de e-mail, 2FA da conta, avisos por e-mail | [`docs/context/account-security.md`](docs/context/account-security.md) |
 | assets           | Imagens da mesa: S3, envio, link seguro, leitura pela origem                   | [`docs/context/assets.md`](docs/context/assets.md)                     |
+| mail             | E-mails do sistema: molde HTML/texto, catálogo de templates, PNGs, prévia      | [`docs/context/mail.md`](docs/context/mail.md)                         |
+| user-admin       | Backoffice das contas: lista, papel, suspensão, exclusão, teste de e-mail      | [`docs/context/user-admin.md`](docs/context/user-admin.md)             |
+| account-links    | Links de uso único: convite (escolhe @ e senha) e nova senha pelo admin        | [`docs/context/account-links.md`](docs/context/account-links.md)       |
 | client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho         | [`docs/context/client.md`](docs/context/client.md)                     |
 | ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo | [`docs/context/ci.md`](docs/context/ci.md)                             |
 | health           | `GET /api/health` (ping no Postgres, 200/503, pública)                         | [`docs/context/health.md`](docs/context/health.md)                     |
