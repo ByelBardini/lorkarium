@@ -1,5 +1,11 @@
 import {
   BOARD_EVENTS,
+  boardAdvancedDto,
+  tokensHiddenChangedDto,
+  veiledLightsChangedDto,
+  type BoardAdvancedDto,
+  type TokensHiddenChangedDto,
+  type VeiledLightsChangedDto,
   combatEndedDto,
   combatStartedDto,
   combatTurnChangedDto,
@@ -109,6 +115,9 @@ export type BoardEvent =
   | Readonly<{ type: 'tokensRestyled'; payload: TokensRestyledDto }>
   | Readonly<{ type: 'tokensCreated'; payload: TokensCreatedDto }>
   | Readonly<{ type: 'tokensDeleted'; payload: TokensDeletedDto }>
+  /** The grid moved a version and nothing of it is for this viewer (it touched hidden tokens). */
+  | Readonly<{ type: 'boardAdvanced'; payload: BoardAdvancedDto }>
+  | Readonly<{ type: 'tokensHiddenChanged'; payload: TokensHiddenChangedDto }>
   | Readonly<{ type: 'mainTokenChanged'; payload: MainTokenChangedDto }>
   | Readonly<{ type: 'memberCardChanged'; payload: MemberCardChangedDto }>
   | Readonly<{ type: 'drawingsCreated'; payload: DrawingsCreatedDto }>
@@ -175,6 +184,8 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.tokensRestyled]: specOf('tokensRestyled', tokensRestyledDto),
   [BOARD_EVENTS.tokensCreated]: specOf('tokensCreated', tokensCreatedDto),
   [BOARD_EVENTS.tokensDeleted]: specOf('tokensDeleted', tokensDeletedDto),
+  [BOARD_EVENTS.boardAdvanced]: specOf('boardAdvanced', boardAdvancedDto),
+  [BOARD_EVENTS.tokensHiddenChanged]: specOf('tokensHiddenChanged', tokensHiddenChangedDto),
   [BOARD_EVENTS.mainTokenChanged]: specOf('mainTokenChanged', mainTokenChangedDto),
   [BOARD_EVENTS.memberCardChanged]: specOf('memberCardChanged', memberCardChangedDto),
   [BOARD_EVENTS.drawingsCreated]: specOf('drawingsCreated', drawingsCreatedDto),
@@ -241,6 +252,19 @@ export function parseBoardEvent(
   if (campaignIdOf(payload) !== campaignId) return { kind: 'other-table' };
   const event = spec.build(payload);
   return event ? { kind: 'event', event } : { kind: 'invalid' };
+}
+
+/** The lights of the hidden tokens this viewer does not receive, for the table `campaignId`, or
+ *  `null`: another table's, or outside the DTO. Unversioned like a drag preview, so a malformed one
+ *  is dropped with no resync (the next list or snapshot replaces it whole).
+ *
+ *  Example: `parseVeiledLights(payload, campaignId)?.lights.length` */
+export function parseVeiledLights(
+  payload: unknown,
+  campaignId: string,
+): VeiledLightsChangedDto | null {
+  const parsed = veiledLightsChangedDto.safeParse(payload);
+  return parsed.success && parsed.data.campaignId === campaignId ? parsed.data : null;
 }
 
 function campaignIdOf(payload: unknown): unknown {

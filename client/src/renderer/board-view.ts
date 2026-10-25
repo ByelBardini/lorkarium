@@ -1,4 +1,10 @@
-import type { LightDto, SceneDto, TokenDto, TokenLayerDto } from '@lorkarium/contracts';
+import type {
+  LightDto,
+  SceneDto,
+  TokenDto,
+  TokenLayerDto,
+  VeiledLightDto,
+} from '@lorkarium/contracts';
 import { assetUrlOf } from '@/services/assets-api';
 import { pathDistance, type Cell, type SceneSize, type TokenBox } from '@lorkarium/game-core';
 import type { DrawingStyle } from '@/lib/drawing-style';
@@ -138,6 +144,9 @@ export type BoardViewInput = Omit<DrawingViewInput, 'picking' | 'readOnly'> &
     wallStyle?: WallStyle;
     /** The map lights: they open the fog where an eye sees what they light. */
     lights?: readonly LightDto[];
+    /** The lights of the hidden tokens this viewer does not receive: they light and tint like
+     *  the others, with no token to draw (absent: none). */
+    veiledLights?: readonly VeiledLightDto[];
     /** The master's map lights picked with the lights tool. */
     selectedLightIds?: readonly string[];
     /** Where this viewer drags lights, until the server answers, by id. */
@@ -205,6 +214,7 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       walls: input.walls ?? [],
       lights: aimedLightsOf(input),
       tokens: input.tokens,
+      veiledLights: input.veiledLights,
       landing: landingOf(input),
     }),
     sightCone: sightConeViewOf({
@@ -259,7 +269,16 @@ function fogOf(input: BoardViewInput): FogView | null {
   const { sight, scene, tokens } = input;
   const walls = input.walls ?? [];
   const landing = landingOf(input);
-  return fogViewOf({ sight, scene, tokens, walls, lights: input.lights ?? [], landing });
+  const { veiledLights } = input;
+  return fogViewOf({
+    sight,
+    scene,
+    tokens,
+    walls,
+    lights: input.lights ?? [],
+    veiledLights,
+    landing,
+  });
 }
 
 // Where each token shows now and where it looks (this viewer's drag, the move waiting for the

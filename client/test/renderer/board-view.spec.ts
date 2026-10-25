@@ -6,7 +6,7 @@ import { buildBoardView, imageUrlsOf } from '@/renderer/board-view';
 import { boardSightOf } from '@/lib/board-sight';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { PATH_ID, path, SQUARE_ID, square } from '../support/drawing-fixtures';
-import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
+import { CORRIDOR_TORCH_ID, corridorTorch, veiledTorch } from '../support/light-fixtures';
 import {
   ANA_AT_TABLE,
   KAEL_ID,
@@ -615,5 +615,46 @@ describe('buildBoardView, the outline of the field of view', () => {
   it('Ana with the narrow Lyra selected gets the outline, and Bia does not', () => {
     expect(viewFor(true).sightCone?.outline.length).toBeGreaterThan(3);
     expect(viewFor(false).sightCone).toBeNull();
+  });
+});
+
+describe('buildBoardView, veiled lights', () => {
+  // Bia in the dark with Lyra (hers, no light, no darkvision); a hidden wolf she never receives
+  // carries an infernal torch of 2 + 0 cells shining from (8, 4.5).
+  const WOLF_TORCH = veiledTorch({ x: 8, y: 4.5, bright: 2, dim: 0, color: 'infernal' });
+
+  function biaWith(veiledLights: ReturnType<typeof veiledTorch>[]) {
+    const tokens = [lyra()];
+    const board = vharnBoard({
+      viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+      scene: { ...VHARN_SCENE, vision: 'dark' },
+      tokens,
+      veiledLights,
+    });
+    return buildBoardView({
+      ...NO_TOKENS,
+      tokens,
+      viewer: { userId: BIA_AT_TABLE.userId, isMaster: false },
+      scene: board.scene,
+      localGridVisible: true,
+      ruler: null,
+      sight: boardSightOf(board, { previewEyeIds: null }),
+      veiledLights,
+    });
+  }
+
+  it('the hidden wolf’s torch opens Bia’s fog and tints, and no token of it is drawn', () => {
+    const view = biaWith([WOLF_TORCH]);
+
+    expect(view.fog?.lit.bright).toHaveLength(1);
+    expect(view.lightTint?.tints.map(({ color }) => color)).toEqual([0xff3b3b]);
+    expect(view.tokens.map(({ id }) => id)).toEqual([LYRA_ID]);
+  });
+
+  it('without veiled lights the dark stays dark', () => {
+    const view = biaWith([]);
+
+    expect(view.fog?.lit.bright).toEqual([]);
+    expect(view.lightTint).toBeNull();
   });
 });

@@ -401,4 +401,60 @@ describe('TokenContextMenu', () => {
       expect(screen.queryByRole('menuitem', { name: 'Tornar principal de' })).toBeNull();
     });
   });
+
+  describe('"Tornar invisível" / "Tornar visível" (master)', () => {
+    const invisible = () => screen.queryByRole('menuitem', { name: 'Tornar invisível' });
+    const visible = () => screen.queryByRole('menuitem', { name: 'Tornar visível' });
+
+    function withTokens(...tokens: ReturnType<typeof lyra>[]): void {
+      board.getState().apply({ kind: 'board', state: vharnBoard({ tokens }) });
+    }
+
+    it('the master with Lyra and Kael selected hides both, in one command', async () => {
+      interaction.getState().selectMany([LYRA_ID, KAEL_ID], { additive: false });
+      openOn(KAEL_ID);
+
+      expect(visible()).toBeNull();
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Tornar invisível' }));
+
+      expect(commands.sentAs('setTokensHidden').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [LYRA_ID, KAEL_ID], hidden: true },
+      ]);
+      expect(closed).toBe(1);
+    });
+
+    it('with one hidden and one visible selected, both items show; "Tornar visível" shows the hidden one', async () => {
+      withTokens(lyra({ hidden: true }), kael());
+      interaction.getState().selectMany([LYRA_ID, KAEL_ID], { additive: false });
+      openOn(LYRA_ID);
+
+      expect(invisible()).not.toBeNull();
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Tornar visível' }));
+
+      expect(commands.sentAs('setTokensHidden').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [LYRA_ID], hidden: false },
+      ]);
+    });
+
+    it('on a token outside the selection, only that one is hidden', async () => {
+      interaction.getState().selectMany([LYRA_ID], { additive: false });
+      openOn(KAEL_ID);
+
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Tornar invisível' }));
+
+      expect(commands.sentAs('setTokensHidden').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [KAEL_ID], hidden: true },
+      ]);
+    });
+
+    it('Bia, a player in the control of Lyra, has neither item', () => {
+      const viewer = { userId: BIA_AT_TABLE.userId, role: 'player' as const };
+      board.getState().apply({ kind: 'board', state: vharnBoard({ viewer, tokens: [lyra()] }) });
+      interaction.getState().allowLayerChoice(false);
+      openOn(LYRA_ID);
+
+      expect(invisible()).toBeNull();
+      expect(visible()).toBeNull();
+    });
+  });
 });

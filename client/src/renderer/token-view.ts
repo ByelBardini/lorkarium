@@ -66,6 +66,9 @@ export type TokenView = Readonly<{
   facingMark: boolean;
   /** A fallen foe: the red cross over a dimmed token, for every viewer. */
   defeated: boolean;
+  /** Hidden from the players: only the master and its controllers ever get it, so whoever draws
+   *  it sees it translucent with the crossed eye. */
+  hidden: boolean;
   /** In the penumbra of this viewer: a black shape of the footprint (round or square), and
    *  nothing else. `null` when it is seen. */
   silhouette: 'round' | 'square' | null;
@@ -116,6 +119,7 @@ function silhouetteOf(view: TokenView, token: TokenDto): TokenView {
     art: null,
     facingMark: false,
     defeated: false,
+    hidden: false,
     onTurn: false,
     pickable: false,
     draggable: false,
@@ -148,6 +152,7 @@ function tokenViewOf(token: TokenDto, input: TokenViewInput): TokenView {
     facing: input.facingPreview[token.id] ?? token.facing,
     facingMark: token.layer === 'tokens',
     defeated: token.defeated,
+    hidden: token.hidden,
     silhouette: null,
   };
 }

@@ -1,16 +1,26 @@
 import {
   BOARD_EVENTS,
   type BarChangeDto,
-  type CreateTokenCommandInput,
   type DrawingShapeInput,
   type MemberCardChangesInput,
   type SceneGridDto,
   type SceneVisionDto,
   type TokenLayerDto,
-  type TokenStyleDto,
-  type UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
 import type { TokenBox } from '@lorkarium/game-core';
+import type {
+  CellTarget,
+  DrawingMoveTarget,
+  DrawingPlacement,
+  NewToken,
+  TokenDragTarget,
+  TokenEdit,
+  TokenFacingTarget,
+  TokenMoveTarget,
+  TokenPlacement,
+  TokenResizeTarget,
+  TokenStyle,
+} from './board-command-targets';
 import {
   BoardCommandSender,
   type BoardCommandResult,
@@ -35,6 +45,10 @@ import {
   type EffectAreaShaped,
 } from './effect-area-commands';
 import { RealtimeMainTokenCommands, type MainTokenCommands } from './main-token-commands';
+import {
+  RealtimeTokenVisibilityCommands,
+  type TokenVisibilityCommands,
+} from './token-visibility-commands';
 import { RealtimeMemberCardCommands, type MemberCardCommands } from './member-card-commands';
 import {
   RealtimeTokenLinkCommands,
@@ -61,35 +75,7 @@ export type {
   NewConditionDefinition,
 } from './combat-commands';
 export type { AddPlayersResult } from './token-link-commands';
-
-type Envelope = 'actionId' | 'campaignId' | 'sceneId';
-// The input type: a token sent without `layer` lands on `tokens`.
-export type NewToken = Omit<CreateTokenCommandInput, Envelope>;
-export type TokenEdit = Omit<UpdateTokenCommandDto, Envelope | 'tokenId'>;
-export type CellTarget = Readonly<{ col: number; row: number }>;
-/** Where one token of a group lands. */
-export type TokenPlacement = Readonly<{ tokenId: string; col: number; row: number }>;
-/** A token move; `expect` (an undo) is the cell it must still be on, or STALE_UNDO. */
-export type TokenMoveTarget = TokenPlacement &
-  Readonly<{ expect?: CellTarget; path?: readonly CellTarget[] }>;
-export type DrawingPosition = Readonly<{ x: number; y: number }>;
-/** Where one drawing of a group is (or must still be), in fractional cells. */
-export type DrawingPlacement = Readonly<{ drawingId: string }> & DrawingPosition;
-/** A drawing move; `expect` (an undo) is where it must still be, or STALE_UNDO. */
-export type DrawingMoveTarget = DrawingPlacement & Readonly<{ expect?: DrawingPosition }>;
-/** The box one token of a group gets; `expect` (an undo) is the box it must still have. */
-export type TokenResizeTarget = TokenBox & Readonly<{ tokenId: string; expect?: TokenBox }>;
-
-/** Where one token of a group turns to; `expect` (an undo) is the facing it must still have. */
-export type TokenFacingTarget = Readonly<{
-  tokenId: string;
-  facing: number;
-  expect?: Readonly<{ facing: number }>;
-}>;
-/** The look fields to change on a group; an absent field stays, `imageAssetId: null` drops it. */
-export type TokenStyle = TokenStyleDto;
-/** The cell one token of a group is dragged over; `null` ends its drag with no move. */
-export type TokenDragTarget = Readonly<{ tokenId: string; cell: CellTarget | null }>;
+export type * from './board-command-targets';
 
 /** Board commands of an open table; each answers with its ack, never throws. The confirmed
  *  change itself arrives as an event, like everyone else's.
@@ -102,6 +88,7 @@ export interface TableBoardCommands
     WallCommands,
     LightCommands,
     MainTokenCommands,
+    TokenVisibilityCommands,
     MemberCardCommands,
     TokenLinkCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
@@ -183,6 +170,7 @@ export class RealtimeTableBoardCommands
   private readonly walls: WallCommands;
   private readonly lights: LightCommands;
   private readonly mainToken: MainTokenCommands;
+  private readonly visibility: TokenVisibilityCommands;
   private readonly memberCard: MemberCardCommands;
   private readonly tokenLink: TokenLinkCommands;
 
@@ -192,6 +180,7 @@ export class RealtimeTableBoardCommands
     this.walls = new RealtimeWallCommands(this.sender);
     this.lights = new RealtimeLightCommands(this.sender);
     this.mainToken = new RealtimeMainTokenCommands(this.sender);
+    this.visibility = new RealtimeTokenVisibilityCommands(this.sender);
     this.memberCard = new RealtimeMemberCardCommands(this.sender);
     this.tokenLink = new RealtimeTokenLinkCommands(this.sender);
   }
@@ -222,6 +211,14 @@ export class RealtimeTableBoardCommands
 
   setMainToken(scope: BoardScope, tokenId: string, playerId?: string): Promise<BoardCommandResult> {
     return this.mainToken.setMainToken(scope, tokenId, playerId);
+  }
+
+  setTokensHidden(
+    scope: BoardScope,
+    ids: readonly string[],
+    hidden: boolean,
+  ): Promise<BoardCommandResult> {
+    return this.visibility.setTokensHidden(scope, ids, hidden);
   }
 
   createLights(scope: BoardScope, lights: readonly LightPlacement[]): Promise<BoardCommandResult> {

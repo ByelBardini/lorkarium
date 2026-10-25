@@ -12,6 +12,7 @@ import type {
   SessionMemberUpdatedDto,
   SessionStateDto,
   TokensDraggedDto,
+  VeiledLightsChangedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from './board-events';
 import type { RealtimeTransport } from './realtime-transport';
@@ -42,6 +43,9 @@ export type TableSessionUpdate =
   /** Someone else's drag preview (one token or a group): unversioned, so it never goes through
    *  the version check. */
   | Readonly<{ kind: 'tokensDragged'; drag: TokensDraggedDto }>
+  /** The lights of the hidden tokens this viewer does not receive, the whole list: unversioned
+   *  like a drag, it replaces the one the board has. */
+  | Readonly<{ kind: 'veiledLights'; event: VeiledLightsChangedDto }>
   /** Someone else pointed at a spot of the grid: ephemeral, never board state. */
   | Readonly<{ kind: 'pinged'; event: BoardPingedDto }>
   | Readonly<{ kind: 'boardFailed'; failure: BoardSyncFailure }>
@@ -55,7 +59,9 @@ export type TableSessionUpdate =
 /** What reaches the store of one grid: its snapshot, its events and the drags over it. */
 export type GridUpdate = Extract<
   TableSessionUpdate,
-  Readonly<{ kind: 'board' | 'boardEvent' | 'tokensDragged' | 'pinged' | 'boardFailed' }>
+  Readonly<{
+    kind: 'board' | 'boardEvent' | 'tokensDragged' | 'veiledLights' | 'pinged' | 'boardFailed';
+  }>
 >;
 
 export type GridListener = (update: GridUpdate) => void;

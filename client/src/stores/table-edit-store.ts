@@ -252,6 +252,8 @@ async function runOp(op: EditOp, { scope, commands }: EditContext): Promise<OpRe
       const resizes = op.resizes.map(({ tokenId, from, to }) => ({ tokenId, ...to, expect: from }));
       return createdIdsOf(await commands.resizeTokens(scope, resizes), []);
     }
+    case 'tokensHidden':
+      return createdIdsOf(await commands.setTokensHidden(scope, op.tokenIds, op.hidden), []);
     case 'drawingsMoved': {
       const moves = op.moves.map(({ drawingId, from, to }) => ({
         drawingId,

@@ -23,10 +23,11 @@ import {
   vharnBoard,
   vharnCombat,
   VHARN_GRID,
+  veiledLightsChanged,
 } from '../support/table-session-fixtures';
 import { biaCone } from '../support/effect-area-fixtures';
 import { ESTRADA_SCENE, estradaBoard } from '../support/scene-tab-fixtures';
-import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
+import { CORRIDOR_TORCH_ID, corridorTorch, veiledTorch } from '../support/light-fixtures';
 
 const AT_OF_AREAS = '2026-10-18T12:00:00.000Z';
 
@@ -498,6 +499,72 @@ describe('board store', () => {
 
       expect(store.getState().board?.drawings).toEqual([square()]);
       expect(resyncs).toBe(1);
+    });
+  });
+
+  describe('hidden tokens and veiled lights', () => {
+    const advanced = (version: number) =>
+      ({
+        kind: 'boardEvent',
+        event: eventAt(version, { type: 'boardAdvanced', payload: {} }),
+      }) as const;
+    const veiled = (...lights: ReturnType<typeof veiledTorch>[]) =>
+      ({ kind: 'veiledLights', event: veiledLightsChanged(lights) }) as const;
+
+    beforeEach(() => apply({ kind: 'board', state: vharnBoard({ tokens: [lyra(), kael()] }) }));
+
+    it('board:advanced one version above only moves the version: the tokens stay the same array', () => {
+      const tokens = store.getState().board?.tokens;
+      apply(advanced(5));
+      expect(store.getState().board?.version).toBe(5);
+      expect(store.getState().board?.tokens).toBe(tokens);
+    });
+
+    it('a board:advanced that skips a version is held and asks for one resync', () => {
+      apply(advanced(6), advanced(7));
+      expect(resyncs).toBe(1);
+      expect(store.getState().board?.version).toBe(4);
+    });
+
+    it('token:hiddenChanged hides only the listed tokens', () => {
+      const hidden = eventAt(5, {
+        type: 'tokensHiddenChanged',
+        payload: { tokenIds: [KAEL_ID], hidden: true },
+      });
+      apply({ kind: 'boardEvent', event: hidden });
+      const tokens = store.getState().board?.tokens;
+      expect(tokens?.map(({ id, hidden }) => [id, hidden])).toEqual([
+        [LYRA_ID, false],
+        [KAEL_ID, true],
+      ]);
+    });
+
+    it('token:veiledLightsChanged replaces the veiled lights with no version change', () => {
+      apply(veiled(veiledTorch()), veiled(veiledTorch({ x: 9 })));
+      expect(store.getState().board?.veiledLights).toEqual([veiledTorch({ x: 9 })]);
+      expect(store.getState().board?.version).toBe(4);
+      expect(resyncs).toBe(0);
+    });
+
+    it('a snapshot replaces the veiled lights too', () => {
+      apply(veiled(veiledTorch()), { kind: 'board', state: vharnBoard() });
+      expect(store.getState().board?.veiledLights).toEqual([]);
+    });
+
+    it('an empty list over no veiled light keeps the very same board (nothing to redo)', () => {
+      const board = store.getState().board;
+      apply(veiled());
+      expect(store.getState().board).toBe(board);
+    });
+
+    it('the veiled lights of another grid or another table are not this board', () => {
+      const elsewhere = veiledLightsChanged([veiledTorch()], { sceneId: ESTRADA_SCENE.id });
+      const otherTable = veiledLightsChanged([veiledTorch()], { campaignId: QUELM.id });
+      apply(
+        { kind: 'veiledLights', event: elsewhere },
+        { kind: 'veiledLights', event: otherTable },
+      );
+      expect(store.getState().board?.veiledLights).toEqual([]);
     });
   });
 });

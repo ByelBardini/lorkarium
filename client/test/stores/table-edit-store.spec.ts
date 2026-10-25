@@ -580,6 +580,18 @@ describe('table edit store', () => {
       ]);
     });
 
+    it('Ctrl+Z after hiding Lyra and Kael shows them again: the opposite state, the same ids', async () => {
+      edits
+        .getState()
+        .record([{ kind: 'tokensHidden', tokenIds: [LYRA_ID, KAEL_ID], hidden: true }]);
+
+      await edits.getState().undo(context());
+
+      expect(commands.sentAs('setTokensHidden').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [LYRA_ID, KAEL_ID], hidden: false },
+      ]);
+    });
+
     it('Ctrl+Z after turning Kael from 0 to 45 turns him back, expecting him at 45', async () => {
       edits
         .getState()

@@ -26,6 +26,7 @@ describe('tokenRedrawOf', () => {
     ['the art', { art: ART }],
     ['the silhouette', { silhouette: 'round' }],
     ['a look', { looks: ['invisible'] }],
+    ['being hidden from the players', { hidden: true }],
   ])('%s redraws the body only', (_, change) => {
     expect(tokenRedrawOf(goblinView(), goblinView(change))).toEqual({ body: true, nameTag: false });
   });

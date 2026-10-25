@@ -77,6 +77,7 @@ type SightParts = Readonly<{
   tokens: BoardStateDto['tokens'];
   walls: BoardStateDto['walls'];
   lights: BoardStateDto['lights'];
+  veiledLights: BoardStateDto['veiledLights'];
   previewKey: string;
   /** The players by their ids, only for a spectator (nobody else looks through them). */
   playersKey: string;
@@ -122,7 +123,7 @@ function rememberedSightOf(
 // The roster hands a new array of players at every absence: the key is their ids, and only a
 // spectator's (a player's or the master's filter never reads them).
 function partsOf(board: BoardStateDto, { previewEyeIds, playerIds }: Watchers): SightParts {
-  const { scene, viewer, tokens, walls, lights } = board;
+  const { scene, viewer, tokens, walls, lights, veiledLights } = board;
   const spectator = viewer.role === 'spectator';
   return {
     vision: scene.vision,
@@ -130,6 +131,7 @@ function partsOf(board: BoardStateDto, { previewEyeIds, playerIds }: Watchers): 
     tokens,
     walls,
     lights,
+    veiledLights,
     previewKey: JSON.stringify(previewEyeIds),
     playersKey: spectator ? [...playerIds].sort().join(',') : '',
   };
@@ -142,6 +144,7 @@ function sameParts(a: SightParts, b: SightParts): boolean {
     a.tokens === b.tokens &&
     a.walls === b.walls &&
     a.lights === b.lights &&
+    a.veiledLights === b.veiledLights &&
     a.previewKey === b.previewKey &&
     a.playersKey === b.playersKey
   );

@@ -1,4 +1,4 @@
-import type { BoardStateDto, TokensDraggedDto } from '@lorkarium/contracts';
+import type { BoardStateDto, TokensDraggedDto, VeiledLightsChangedDto } from '@lorkarium/contracts';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { BoardEvent } from '@/services/board-events';
@@ -101,6 +101,7 @@ function nextState(
   if (update.kind === 'board') return snapshotState(state, update.state, resyncOnce);
   if (update.kind === 'boardFailed') return failedState(state, update.failure);
   if (update.kind === 'tokensDragged') return groupDraggedState(state, update.drag);
+  if (update.kind === 'veiledLights') return veiledLightsState(state, update.event);
   if (update.kind !== 'boardEvent') return {};
   if (update.event.payload.campaignId !== state.campaignId) return {};
   // An event of another grid is the group grid moving there: it waits for that grid's snapshot.
@@ -127,6 +128,21 @@ function groupDraggedState(
   );
   const over = drag.drags.flatMap(({ tokenId, cell }) => (cell ? [[tokenId, cell] as const] : []));
   return { dragged: { ...others, ...Object.fromEntries(over) } };
+}
+
+// Like a drag, outside the version rule: the list replaces the board's whole. Before the first
+// snapshot there is nothing to replace (the snapshot brings its own). Empty over empty keeps the
+// very board, so the filter, the fog and the tint are not worked out again.
+function veiledLightsState(
+  state: BoardStoreState,
+  event: VeiledLightsChangedDto,
+): Partial<BoardStoreState> {
+  const { board } = state;
+  if (!board || event.campaignId !== state.campaignId || event.sceneId !== board.scene.id) {
+    return {};
+  }
+  if (event.lights.length === 0 && board.veiledLights.length === 0) return {};
+  return { board: { ...board, veiledLights: event.lights } };
 }
 
 // The confirmed move (or the token's end) closes its drag, whatever its version did.

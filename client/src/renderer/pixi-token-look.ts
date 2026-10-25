@@ -1,12 +1,18 @@
 import { ColorMatrixFilter, Container, Graphics, Text } from 'pixi.js';
 import { zoomProofTextResolution } from './camera';
 import { dashedRingArcs } from './dashed-ring';
+import { hiddenMarkOf } from './token-hidden-mark';
 import type { TokenLookStyle } from './token-look';
 import { dashesOf } from './wall-view';
 
 // Design system tokens (client/src/index.css): a cold blue-grey, apart from the side rings.
 const OUTLINE_COLOR = 0x8fa3bf;
 const SLEEP_COLOR = 0xeae5da;
+// The crossed eye: bone on the dark of the panel, the badge kept out of the fade.
+const EYE_COLOR = 0xeae5da;
+const BADGE_COLOR = 0x1b1f25;
+const BADGE_ALPHA = 0.9;
+const EYE_WIDTH = 1.5;
 const OUTLINE_GAP = 2;
 const OUTLINE_WIDTH = 1.5;
 const DASH = 5;
@@ -33,12 +39,14 @@ function sharedGreyFilter(): ColorMatrixFilter {
 }
 
 /** What a look adds to a token: its face (disc, art, initials) faded and maybe greyed, a dashed
- *  outline around it, and "z z" on its top right.
+ *  outline around it, "z z" on its top right and, hidden from the players, the crossed eye on its
+ *  top left.
  *
  *  Example: `look.draw([disc, art.container, label], tokenLookStyle(view), box)` */
 export class PixiTokenLook {
   readonly container = new Container();
   private readonly outline = new Graphics();
+  private readonly hiddenEye = new Graphics();
   private readonly sleep = new Text({
     text: 'z z',
     resolution: zoomProofTextResolution(globalThis.devicePixelRatio),
@@ -53,7 +61,7 @@ export class PixiTokenLook {
 
   constructor() {
     this.sleep.anchor.set(1, 0);
-    this.container.addChild(this.outline, this.sleep);
+    this.container.addChild(this.outline, this.hiddenEye, this.sleep);
   }
 
   draw(faces: readonly Container[], style: TokenLookStyle, box: LookBox): void {
@@ -63,10 +71,32 @@ export class PixiTokenLook {
     }
     this.outline.clear();
     if (style.dashedOutline) drawDashedOutline(this.outline, box);
+    this.hiddenEye.clear();
+    if (style.hiddenMark) drawHiddenEye(this.hiddenEye, box);
     this.sleep.visible = style.sleeping;
     this.sleep.style.fontSize = Math.round(Math.max(10, box.height * 0.22));
     this.sleep.position.set(box.width, -box.height * 0.08);
   }
+}
+
+// A dark badge with the eye and its slash: the slash cuts through a dark gap first, so it reads
+// apart from the eye at any zoom.
+function drawHiddenEye(eye: Graphics, box: LookBox): void {
+  const { center, radius, eye: almond, pupil, slash } = hiddenMarkOf(box);
+  const [from, to] = slash;
+  eye.circle(center.x, center.y, radius).fill({ color: BADGE_COLOR, alpha: BADGE_ALPHA });
+  eye
+    .ellipse(center.x, center.y, almond.rx, almond.ry)
+    .stroke({ width: EYE_WIDTH, color: EYE_COLOR });
+  eye.circle(center.x, center.y, pupil).fill(EYE_COLOR);
+  eye
+    .moveTo(from.x, from.y)
+    .lineTo(to.x, to.y)
+    .stroke({ width: EYE_WIDTH * 3, color: BADGE_COLOR });
+  eye
+    .moveTo(from.x, from.y)
+    .lineTo(to.x, to.y)
+    .stroke({ width: EYE_WIDTH, color: EYE_COLOR, cap: 'round' });
 }
 
 function drawDashedOutline(outline: Graphics, box: LookBox): void {

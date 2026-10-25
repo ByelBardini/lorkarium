@@ -1,4 +1,4 @@
-import type { LightDto, SceneDto, TokenDto, WallDto } from '@lorkarium/contracts';
+import type { LightDto, SceneDto, TokenDto, VeiledLightDto, WallDto } from '@lorkarium/contracts';
 import { type Eye, type LightSource, type SceneSize, type Wall } from '@lorkarium/game-core';
 import { eyeOfToken, type BoardSight } from '@/lib/board-sight';
 import { lightSourcesOf, type TokenLanding } from '@/lib/light-sources';
@@ -33,6 +33,8 @@ export type FogViewInput = Readonly<{
   walls: readonly WallDto[];
   lights: readonly LightDto[];
   tokens: readonly TokenDto[];
+  /** The lights of the hidden tokens this viewer does not receive (absent: none). */
+  veiledLights?: readonly VeiledLightDto[];
   /** Where the viewer's tokens show and look (dragged, waiting, turned): the fog follows them. */
   landing: TokenLanding;
 }>;

@@ -71,6 +71,13 @@ describe('TokenDock', () => {
   const pvTrigger = () => within(dock()).getByRole('button', { name: 'Editar PV de Lyra' });
   const balloon = () => screen.queryByRole('dialog', { name: 'PV' });
 
+  it('the master on the hidden Lyra gets "Invisível para os jogadores" pressed in the dock', () => {
+    renderDock({ tokens: [lyra({ hidden: true })] });
+
+    const toggle = within(dock()).getByRole('button', { name: 'Invisível para os jogadores' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('names the token, who plays it and where it is (cells counted from 1)', () => {
     renderDock();
 

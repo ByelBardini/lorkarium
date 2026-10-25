@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lightSourcesOf, shiningLightsOf } from '@/lib/light-sources';
-import { brazier, corridorTorch } from '../support/light-fixtures';
+import { brazier, corridorTorch, veiledTorch } from '../support/light-fixtures';
 import { LYRA_ID, kael, lyra, vharnBoard } from '../support/table-session-fixtures';
 
 const TORCH = { bright: 4, dim: 4, color: null, angle: 360 };
@@ -106,5 +106,31 @@ describe('lightSourcesOf in a cone', () => {
     const board = vharnBoard({ lights: [corridorTorch({ facing: 90 })] });
 
     expect(lightSourcesOf(board)[0]?.cone).toBeNull();
+  });
+});
+
+describe('lightSourcesOf with the lights of hidden tokens', () => {
+  it('a veiled light shines from the center the server sent, after the map and token lights', () => {
+    const board = vharnBoard({
+      lights: [corridorTorch()],
+      tokens: [lyra({ col: 3, row: 4, light: TORCH, lightLit: true })],
+      veiledLights: [veiledTorch({ x: 8, y: 2.5, color: 'infernal' })],
+    });
+
+    expect(shiningLightsOf(board).map(({ source, color }) => [source.center, color])).toEqual([
+      [{ x: 5, y: 5 }, null],
+      [{ x: 3.5, y: 4.5 }, null],
+      [{ x: 8, y: 2.5 }, 'infernal'],
+    ]);
+  });
+
+  it('a veiled lantern shines in its own cone, with its range', () => {
+    const board = vharnBoard({
+      veiledLights: [veiledTorch({ bright: 6, dim: 0, facing: 90, angle: 60 })],
+    });
+
+    expect(lightSourcesOf(board)).toEqual([
+      { center: { x: 4, y: 5 }, range: { bright: 6, dim: 0 }, cone: { facing: 90, angle: 60 } },
+    ]);
   });
 });
