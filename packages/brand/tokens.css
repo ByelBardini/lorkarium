@@ -1,0 +1,25 @@
+/*
+ * The raw Lorkarium palette and type families, without component semantics: each consumer maps
+ * them to its own roles (the site's @theme, later the client's shadcn tokens).
+ */
+:root {
+  --brand-gold: #c5a46d;
+  --brand-gold-hover: #d4b57e;
+  --brand-gold-light: #e2c793;
+  --brand-ink: #15130f;
+  --brand-parchment: #eae5da;
+  --brand-label: #d5d0c4;
+  --brand-muted: #a9a497;
+  --brand-border: #23272e;
+  --brand-input: #303640;
+  --brand-panel: #0c0e11;
+  --brand-background: #101216;
+  --brand-ember: #c9705a;
+  --brand-ember-light: #e6a28f;
+  --brand-moss: #8fb39a;
+  --brand-moss-light: #a9d1b4;
+
+  --brand-font-sans: 'Hanken Grotesk Variable', system-ui, sans-serif;
+  --brand-font-display: 'Cormorant Garamond Variable', Georgia, serif;
+  --brand-font-wordmark: 'Cinzel Variable', Georgia, serif;
+}

@@ -1,0 +1,5 @@
+/* Self-hosted on purpose: no request to Google Fonts (docs/context/client/design-system.md). */
+@import '@fontsource-variable/hanken-grotesk';
+@import '@fontsource-variable/cormorant-garamond';
+@import '@fontsource-variable/cormorant-garamond/wght-italic.css';
+@import '@fontsource-variable/cinzel';
