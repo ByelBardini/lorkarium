@@ -237,3 +237,95 @@ describe('SharpImageProcessor.normalize of an animation', () => {
     expect([image.width, image.height]).toEqual([32, 32]);
   });
 });
+
+const AURA = {
+  maxSide: 512,
+  animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 },
+};
+
+// Frames far apart in colour, so the GIF encoder does not merge neighbours.
+async function animatedGif(frames: number, side: number, delay?: number[]): Promise<Uint8Array> {
+  const colours = [RED, BLUE, { r: 0, g: 255, b: 0 }];
+  const pictures = await Promise.all(
+    Array.from({ length: frames }, (_, index) =>
+      sharp({
+        create: { width: side, height: side, channels: 3, background: colours[index % 3] ?? RED },
+      })
+        .png()
+        .toBuffer(),
+    ),
+  );
+  const [first] = pictures;
+  // sharp's join refuses a single image, so one frame is a plain GIF.
+  const source =
+    frames === 1 && first ? sharp(first) : sharp(pictures, { join: { animated: true } });
+  return new Uint8Array(await source.gif(delay ? { delay } : {}).toBuffer());
+}
+
+async function framesOf(bytes: Uint8Array) {
+  return sharp(bytes, { animated: true }).metadata();
+}
+
+describe('SharpImageProcessor.normalize with an animation budget', () => {
+  it('a 3-frame 600×600 GIF stays an animated 512×512 GIF with the same delays', async () => {
+    const gif = await animatedGif(3, 600, [100, 200, 100]);
+
+    const image = keptOf(await processor.normalize(gif, AURA));
+
+    expect(image).toMatchObject({ mimeType: 'image/gif', width: 512, height: 512 });
+    const metadata = await framesOf(image.bytes);
+    expect(metadata).toMatchObject({ format: 'gif', pages: 3, pageHeight: 512 });
+    expect(metadata.delay).toEqual([100, 200, 100]);
+  });
+
+  it('a 100-frame 512×512 GIF shrinks to 400×400 to fit 16 MP and keeps its 100 frames', async () => {
+    const image = keptOf(await processor.normalize(await animatedGif(100, 512), AURA));
+
+    expect([image.width, image.height]).toEqual([400, 400]);
+    expect((await framesOf(image.bytes)).pages).toBe(100);
+  });
+
+  it('a single-frame GIF with a budget is kept as a one-page GIF', async () => {
+    const image = keptOf(await processor.normalize(await animatedGif(1, 64), AURA));
+
+    expect(image).toMatchObject({ mimeType: 'image/gif', width: 64, height: 64 });
+    expect((await framesOf(image.bytes)).pages ?? 1).toBe(1);
+  });
+
+  it('a 3-frame animated WebP with a budget comes out a still one-page WebP', async () => {
+    const image = keptOf(await processor.normalize(await animatedWebp(3), AURA));
+
+    expect(image.mimeType).toBe('image/webp');
+    expect((await framesOf(image.bytes)).pages ?? 1).toBe(1);
+  });
+
+  it('a 121-frame GIF is refused for its frames, citing them and the limit of 120', async () => {
+    expect(await processor.normalize(await animatedGif(121, 8), AURA)).toEqual({
+      ok: false,
+      refusal: {
+        reason: 'too-many-frames',
+        detail: 'the image has 121 frames; expected at most 120 frames',
+      },
+    });
+  });
+
+  it('a GIF whose frames add up past the input limit is refused before decoding', async () => {
+    const small = new SharpImageProcessor({ maxInputPixels: 1000 });
+
+    // Each 20×20 frame is 400 pixels, under the limit; the three together are 1200.
+    expect(await small.normalize(await animatedGif(3, 20), AURA)).toMatchObject({
+      ok: false,
+      refusal: {
+        reason: 'too-many-pixels',
+        detail: expect.stringMatching(/1200 pixels across 3 frames.*1000/),
+      },
+    });
+  });
+
+  it('a GIF without a budget is still refused citing gif (token, background, cover, condition)', async () => {
+    expect(await processor.normalize(await animatedGif(3, 16), TOKEN)).toEqual({
+      ok: false,
+      refusal: { reason: 'format', detail: 'format gif is not kept; expected png, jpeg or webp' },
+    });
+  });
+});

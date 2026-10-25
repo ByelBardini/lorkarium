@@ -48,7 +48,7 @@ Deps: `profiles` (DAO), `storage: Pick<AssetStoragePort, 'put' | 'open' | 'remov
 - **Ligação da `ProfileChangedPort`:** o `wireRealtime` do `build-app.ts` devolve, junto das saídas do tempo real, `profileChanged: sessions.service` (o `createSessionsModule` passou a devolver `{ gateway, service }`); o `buildApp` passa esse valor ao `createProfilesModule`. Sem adaptador: o service da sessão cumpre a porta por estrutura.
 - `SharpAvatarProcessor({ maxTotalPixels? = 100 MP, maxFrames? = 120 })`:
   - formato pelos bytes (`metadata().format`): `png`, `jpeg`, `webp`, `gif`; SVG (renderizador que pode levar script) e o resto → `format` ("expected png, jpeg, webp or gif"); bytes que não decodificam → `not-an-image`;
-  - **antes de decodificar**: quadros (`metadata().pages`) acima de `maxFrames` → `too-many-frames` ("expected at most 120 frames"); largura × altura do quadro (`pageHeight ?? height`) × quadros acima de `maxTotalPixels` → `too-many-pixels`;
+  - **antes de decodificar**: quadros (`metadata().pages`) acima de `maxFrames` → `too-many-frames` ("expected at most 120 frames"); largura × altura do quadro (`pageHeight ?? height`) × quadros acima de `maxTotalPixels` → `too-many-pixels`. A conferência é o `framesWithin` de `server/src/infrastructure/sharp-frames.ts`, comum com o `SharpImageProcessor` (o GIF da aura, ver `assets.md`);
   - decodifica com `{ animated: quadros > 1, limitInputPixels: maxTotalPixels }`, `autoOrient()` só com um quadro, `resize(256, 256, { fit: 'cover', position: 'centre' })` e `webp({ quality: 85 })`. O `sharp` não copia metadado na saída (EXIF/GPS some).
 
 ## Testes
