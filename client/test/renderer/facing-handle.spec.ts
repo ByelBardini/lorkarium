@@ -38,6 +38,7 @@ function kael(overrides: Partial<TokenView> = {}): TokenView {
     defeated: false,
     hidden: false,
     silhouette: null,
+    aura: null,
     ...overrides,
   };
 }

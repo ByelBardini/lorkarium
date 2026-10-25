@@ -1,6 +1,6 @@
 import type { AssetDto, AssetPurposeDto } from '@lorkarium/contracts';
 import { useState } from 'react';
-import { imageFileProblem } from '@/lib/image-file';
+import { animatesImage, imageAcceptOf, imageFileProblem } from '@/lib/image-file';
 import type { AssetsApi, AssetsResult } from '@/services/assets-api';
 import { imageFailureMessage } from './image-picker-messages';
 
@@ -16,6 +16,8 @@ export type ImageSenderOptions = Readonly<{
  *  how to send a file (chosen, dropped or pasted) or a link. `sendLink` answers whether it was kept,
  *  so the link field closes only then. */
 export type ImageSender = Readonly<{
+  /** The `accept` of the file input for this purpose (GIF only for the aura). */
+  accept: string;
   busy: boolean;
   problem: string | null;
   sendFile: (file: File | null | undefined) => void;
@@ -30,6 +32,7 @@ export function useImageSender(options: ImageSenderOptions): ImageSender {
   const { campaignId, purpose, assets, onSent } = options;
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const animated = animatesImage(purpose);
   const send = async (request: () => Promise<AssetsResult>): Promise<boolean> => {
     setBusy(true);
     setProblem(null);
@@ -41,7 +44,7 @@ export function useImageSender(options: ImageSenderOptions): ImageSender {
   };
   const sendFile = (file: File | null | undefined): void => {
     if (!file || busy) return;
-    const local = imageFileProblem(file);
+    const local = imageFileProblem(file, { animated });
     if (local) return setProblem(local);
     void send(() => assets.upload(campaignId, file, purpose));
   };
@@ -50,5 +53,5 @@ export function useImageSender(options: ImageSenderOptions): ImageSender {
     if (busy || link === '') return false;
     return send(() => assets.importLink(campaignId, link, purpose));
   };
-  return { busy, problem, sendFile, sendLink };
+  return { accept: imageAcceptOf({ animated }), busy, problem, sendFile, sendLink };
 }

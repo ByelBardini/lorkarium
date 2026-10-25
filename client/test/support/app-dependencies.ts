@@ -4,6 +4,7 @@ import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { createWallStyleStore } from '@/stores/wall-style-store';
 import { createLightColorStore } from '@/stores/light-color-store';
+import { createAuraMotionStore } from '@/stores/aura-motion-store';
 import { createLightReachStore } from '@/stores/light-reach-store';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore } from '@/stores/rail-store';
@@ -57,6 +58,8 @@ export type TestDependencies = AppDependencies & {
   lightReachStorage: StorageFake;
   /** The `localStorage` under `lightColor`. */
   lightColorStorage: StorageFake;
+  /** The `localStorage` under `auraMotion`. */
+  auraMotionStorage: StorageFake;
   /** Every board renderer the room created, behind `createBoardRenderer`. */
   boardRenderers: BoardRenderersFake;
   boardCommands: TableBoardCommandsFake;
@@ -85,6 +88,7 @@ export function testDependencies(): TestDependencies {
   const wallStyleStorage = new StorageFake();
   const lightReachStorage = new StorageFake();
   const lightColorStorage = new StorageFake();
+  const auraMotionStorage = new StorageFake();
   const boardRenderers = new BoardRenderersFake();
   const boardCommands = new TableBoardCommandsFake();
   const retryWaits = RetryWaitFake.held();
@@ -113,6 +117,7 @@ export function testDependencies(): TestDependencies {
     wallStyleStorage,
     lightReachStorage,
     lightColorStorage,
+    auraMotionStorage,
     boardRenderers,
     createBoardRenderer: boardRenderers.create,
     boardCommands,
@@ -131,6 +136,7 @@ export function testDependencies(): TestDependencies {
     wallStyle: createWallStyleStore(wallStyleStorage),
     lightReach: createLightReachStore(lightReachStorage),
     lightColor: createLightColorStore(lightColorStorage),
+    auraMotion: createAuraMotionStore(auraMotionStorage),
     now: () => TEST_NOW,
     random: () => 0,
   };

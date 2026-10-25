@@ -1,4 +1,4 @@
-import { CONE_ANGLE_MAX } from '@lorkarium/contracts';
+import { CONE_ANGLE_MAX, type TokenAuraDto } from '@lorkarium/contracts';
 import { useState } from 'react';
 import { ImageSourceButtons } from '@/components/image-source-buttons';
 import { useImageSender, type ImageSender } from '@/components/use-image-sender';
@@ -9,7 +9,9 @@ import { lightColorCss } from '@/lib/light-color';
 import { parseRangeFields, type SceneDistance } from '@/lib/range-form';
 import { sideRingVar } from '@/lib/token-side';
 import { cn } from '@/lib/utils';
-import type { AssetsApi } from '@/services/assets-api';
+import { assetUrlOf, type AssetsApi } from '@/services/assets-api';
+import { parseAuraForm } from './aura-form-state';
+import { auraToneCss } from './aura-tone';
 import { barSampleOf } from './bar-form-state';
 import { BarTrack } from './bar-track';
 import { TokenFace } from './token-face';
@@ -32,7 +34,7 @@ const MAX_DISC_PX = 216;
 const MAX_GLOW_PX = 560;
 
 /** The column beside the tabs: the token as it will look (ring of its side, image or initials,
- *  its first bar, the glow of its light) with its name and a summary, and the one place of the
+ *  its first bar, the glow of its light, its aura) with its name and a summary, and the one place of the
  *  image: dropping or pasting on the picture sends it, and under the name come "Escolher imagem",
  *  the bin and the link button. An illustration, not the board: the real token appears only
  *  through the confirmed event.
@@ -112,6 +114,7 @@ function PreviewStage({ form, sender, distance }: PreviewStageProps): React.JSX.
       )}
       style={GRID_STYLE}
     >
+      <AuraGlow form={form} distance={distance} />
       <LightGlow form={form} distance={distance} />
       <PreviewDisc form={form} />
       {over && (
@@ -170,8 +173,50 @@ function wedgeOf(form: TokenFormValues): React.CSSProperties {
 
 function glowRgbOf(color: TokenFormValues['lightColor']): string {
   const hex = lightColorCss(color);
-  if (!hex) return NEUTRAL_GLOW_RGB;
+  return hex ? rgbOfHex(hex) : NEUTRAL_GLOW_RGB;
+}
+
+function rgbOfHex(hex: string): string {
   return [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16)).join(' ');
+}
+
+// The aura under the token: the footprint grown by the radius, rounded like on the board, in the
+// tone the board draws (or the image itself, whole, behind the disc); nothing while mistyped.
+function AuraGlow({
+  form,
+  distance,
+}: Readonly<{ form: TokenFormValues; distance: SceneDistance }>) {
+  const parsed = parseAuraForm(form.aura, distance);
+  if (!parsed.ok || !parsed.aura) return null;
+  const { aura } = parsed;
+  return (
+    <span
+      data-aura-glow
+      aria-hidden="true"
+      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden"
+      style={auraGlowStyle(form, aura)}
+    >
+      {aura.kind === 'image' && (
+        <img src={assetUrlOf(aura.imageAssetId)} alt="" className="size-full object-contain" />
+      )}
+    </span>
+  );
+}
+
+function auraGlowStyle(form: TokenFormValues, aura: TokenAuraDto): React.CSSProperties {
+  const grow = aura.radius * 2 * CELL_PX;
+  const tone = auraToneCss(aura);
+  return {
+    width: Math.min(MAX_GLOW_PX, discPx(form.width) + grow),
+    height: Math.min(MAX_GLOW_PX, discPx(form.height) + grow),
+    borderRadius: aura.radius * CELL_PX,
+    opacity: aura.opacity / 100,
+    background: tone ? auraFillOf(rgbOfHex(tone)) : undefined,
+  };
+}
+
+function auraFillOf(rgb: string): string {
+  return `radial-gradient(closest-side, rgb(${rgb} / 0.55) 55%, rgb(${rgb} / 0.15) 100%)`;
 }
 
 function glowOf(rgb: string): string {

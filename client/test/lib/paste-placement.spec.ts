@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { copiedOf, pastePlacement, type CopiedSelection } from '@/lib/paste-placement';
 import { path, square } from '../support/drawing-fixtures';
 import { biaCone } from '../support/effect-area-fixtures';
+import { fireAura } from '../support/aura-fixtures';
 import {
   activeCondition,
   kael,
@@ -70,6 +71,7 @@ describe('copiedOf', () => {
         sightAngle: 360,
         sight: null,
         light: null,
+        aura: null,
         bars: [
           { label: 'PV', current: 32, max: 45, color: 'ember', visibility: 'controllers' },
           { label: 'Inspiração', current: 1, max: 1, color: 'gold', visibility: 'everyone' },
@@ -207,5 +209,25 @@ describe('copiedOf, the openings', () => {
     const [copy] = copiedOf([lyra({ sightAngle: 90, light })], []).tokens;
 
     expect([copy?.sightAngle, copy?.light?.angle]).toEqual([90, 60]);
+  });
+});
+
+describe('copiedOf, auras', () => {
+  it('a copy of Lyra with a fire aura keeps the aura', () => {
+    const [copy] = copiedOf([lyra({ aura: fireAura({ radius: 3 }) })], []).tokens;
+
+    expect(copy?.aura).toEqual({
+      kind: 'effect',
+      radius: 3,
+      effect: 'fire',
+      color: null,
+      opacity: 100,
+    });
+  });
+
+  it('a copy of a token without an aura goes with no aura', () => {
+    const [copy] = copiedOf([lyra()], []).tokens;
+
+    expect(copy?.aura).toBeNull();
   });
 });

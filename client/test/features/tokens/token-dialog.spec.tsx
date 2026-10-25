@@ -6,6 +6,7 @@ import { TokenDialog } from '@/features/tokens/token-dialog';
 import type { TokenDto } from '@lorkarium/contracts';
 import { AssetsApiFake, LYRA_PORTRAIT } from '../../support/assets-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
+import { fireAura } from '../../support/aura-fixtures';
 import {
   BIA_AT_TABLE,
   CAIO_AT_TABLE,
@@ -607,5 +608,82 @@ describe('TokenDialog, the field of view and the beam', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(commands.sentAs('updateToken')[0]?.fields).toMatchObject({ light: { angle: 60 } });
+  });
+});
+
+describe('TokenDialog, the aura', () => {
+  function sentFields(name: 'createToken' | 'updateToken'): Record<string, unknown> | undefined {
+    return commands.sentAs(name)[0]?.fields as Record<string, unknown> | undefined;
+  }
+
+  it('has the tab "Aura", after "Visão e luz"', () => {
+    renderDialog();
+
+    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
+    expect(tabs.slice(2)).toEqual(['Visão e luz', 'Aura']);
+  });
+
+  it('Efeito Fogo of 3 m and "Criar token" create the token with the fire aura of 2 cells', async () => {
+    renderDialog();
+    await userEvent.type(screen.getByLabelText('Nome'), 'Salamandra');
+    await openTab('Aura');
+    await userEvent.click(screen.getByRole('radio', { name: 'Efeito' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Fogo' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Criar token' }));
+
+    expect(sentFields('createToken')?.aura).toEqual({
+      kind: 'effect',
+      radius: 2,
+      effect: 'fire',
+      color: null,
+      opacity: 100,
+    });
+  });
+
+  it('editing Lyra with a fire aura shows Efeito Fogo and "3"', async () => {
+    renderDialog(lyra({ aura: fireAura() }));
+
+    await openTab('Aura');
+
+    expect(screen.getByRole('radio', { name: 'Efeito' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Fogo' })).toBeChecked();
+    expect(screen.getByLabelText('Raio além da borda (m)')).toHaveValue('3');
+  });
+
+  it('"Nenhuma" and "Salvar" send token:update with aura null', async () => {
+    renderDialog(lyra({ aura: fireAura() }));
+    await openTab('Aura');
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Nenhuma' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(sentFields('updateToken')).toHaveProperty('aura', null);
+  });
+
+  it('saving without touching the aura does not send it', async () => {
+    renderDialog(lyra({ aura: fireAura() }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(sentFields('updateToken')).not.toHaveProperty('aura');
+  });
+
+  it('a radius of 31 m marks the tab "Aura (com erro)", goes to it and sends nothing', async () => {
+    renderDialog(lyra({ aura: fireAura() }));
+    await openTab('Aura');
+    const radius = screen.getByLabelText('Raio além da borda (m)');
+    await userEvent.clear(radius);
+    await userEvent.type(radius, '31');
+    await openTab('Básico');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(screen.getByRole('tab', { name: 'Aura (com erro)' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByText('De 0 a 30 m.')).toBeInTheDocument();
+    expect(commands.sent).toEqual([]);
   });
 });

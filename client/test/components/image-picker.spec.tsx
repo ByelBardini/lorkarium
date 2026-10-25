@@ -1,4 +1,4 @@
-import type { AssetDto } from '@lorkarium/contracts';
+import type { AssetDto, AssetPurposeDto } from '@lorkarium/contracts';
 import { act, createEvent, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -22,14 +22,15 @@ type HarnessProps = Readonly<{
   onChange: (asset: AssetDto | null) => void;
   initial?: string | null;
   removeLabel?: string;
+  purpose?: AssetPurposeDto;
 }>;
 
-function Harness({ assets, onChange, initial = null, removeLabel }: HarnessProps) {
+function Harness({ assets, onChange, initial = null, removeLabel, purpose }: HarnessProps) {
   const [value, setValue] = useState<string | null>(initial);
   return (
     <ImagePicker
       campaignId={VHARN.id}
-      purpose="token"
+      purpose={purpose ?? 'token'}
       assets={assets}
       value={value}
       label="Imagem"
@@ -201,6 +202,41 @@ describe('ImagePicker', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Use PNG, JPEG ou WebP.');
     expect(assets.sent).toEqual([]);
+  });
+
+  it('for the aura, a GIF is sent with the purpose aura and the file dialog offers GIF', async () => {
+    render(<Harness assets={assets} onChange={onChange} purpose="aura" />);
+    const gif = fileOf('image/gif');
+
+    fireEvent.change(screen.getByLabelText('Arquivo de imagem'), {
+      target: { files: filesOf(gif) },
+    });
+
+    expect(await screen.findByAltText('Imagem escolhida')).toBeInTheDocument();
+    expect(assets.sent).toEqual([
+      { kind: 'upload', campaignId: VHARN.id, file: gif, purpose: 'aura' },
+    ]);
+    expect(screen.getByLabelText('Arquivo de imagem')).toHaveAttribute(
+      'accept',
+      'image/png,image/jpeg,image/webp,image/gif',
+    );
+  });
+
+  it('for the aura the hint tells GIF animado; for a token it does not', () => {
+    const { unmount } = render(<Harness assets={assets} onChange={onChange} purpose="aura" />);
+    expect(screen.getByRole('group', { name: 'Área da imagem' })).toHaveAccessibleDescription(
+      'Solte a imagem aqui ou cole com Ctrl+V. PNG, JPEG, WebP ou GIF animado, até 20 MB.',
+    );
+    unmount();
+
+    render(<Harness assets={assets} onChange={onChange} />);
+    expect(screen.getByRole('group', { name: 'Área da imagem' })).toHaveAccessibleDescription(
+      'Solte a imagem aqui ou cole com Ctrl+V. PNG, JPEG ou WebP, até 20 MB.',
+    );
+    expect(screen.getByLabelText('Arquivo de imagem')).toHaveAttribute(
+      'accept',
+      'image/png,image/jpeg,image/webp',
+    );
   });
 
   it('a file of 25 MB is refused before sending', async () => {

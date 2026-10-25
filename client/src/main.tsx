@@ -31,6 +31,7 @@ import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { createWallStyleStore } from '@/stores/wall-style-store';
 import { createLightColorStore } from '@/stores/light-color-store';
+import { createAuraMotionStore } from '@/stores/aura-motion-store';
 import { createLightReachStore } from '@/stores/light-reach-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { sessionStore } from '@/stores/session-store';
@@ -54,6 +55,8 @@ const perfProbe =
   import.meta.env.DEV && new URLSearchParams(window.location.search).get('perf') === '1'
     ? new RecordingPerfProbe()
     : null;
+// One "Animar auras" for the toolbar and the board renderer.
+const auraMotion = createAuraMotionStore(browserStorage);
 const transport = new FetchHttpTransport();
 const newActionId = (): string => crypto.randomUUID();
 // One socket for every open table: the session, the board sync and the board commands.
@@ -87,8 +90,13 @@ const router = createBrowserRouter(
     wallStyle: createWallStyleStore(browserStorage),
     lightReach: createLightReachStore(browserStorage),
     lightColor: createLightColorStore(browserStorage),
+    auraMotion,
     createBoardRenderer: (onIntent) =>
-      createPixiBoardRenderer(onIntent, perfProbe ?? NO_PERF_PROBE),
+      createPixiBoardRenderer(
+        onIntent,
+        perfProbe ?? NO_PERF_PROBE,
+        () => auraMotion.getState().animated,
+      ),
     boardCommands,
     pings: new RealtimePingCommands(new BoardCommandSender(realtime, newActionId)),
     interactionClock: browserClock,

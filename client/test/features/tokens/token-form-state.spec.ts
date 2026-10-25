@@ -9,11 +9,15 @@ import {
   previewMetaOf,
   renameToken,
   stepSide,
+  tabHasErrors,
   tokenFormOf,
+  withAura,
   type TokenFormValues,
 } from '@/features/tokens/token-form-state';
+import { auraFormOf, auraKindChosen } from '@/features/tokens/aura-form-state';
 import { SIZE_PRESETS } from '@/features/tokens/token-messages';
 import { BIA_AT_TABLE, lyra } from '../../support/table-session-fixtures';
+import { fireAura, goldAura } from '../../support/aura-fixtures';
 
 const METERS = { cellDistance: 1.5, cellUnit: 'm' };
 
@@ -339,5 +343,62 @@ describe('the field of view and the beam of the token', () => {
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.token).not.toHaveProperty('light');
+  });
+});
+
+describe('token form state, the aura', () => {
+  it('Lyra with a gold tint opens with it, untouched', () => {
+    const form = tokenFormOf(lyra({ aura: goldAura() }), METERS);
+
+    expect(form.aura).toMatchObject({ kind: 'color', color: 'gold', radius: '3', opacity: 50 });
+    expect(form.auraEdited).toBe(false);
+  });
+
+  it('a new token opens with no aura, untouched', () => {
+    expect(emptyTokenForm(METERS)).toMatchObject({ aura: { kind: 'none' }, auraEdited: false });
+  });
+
+  it('saving with the aura untouched does not send it (the token keeps its own)', () => {
+    const result = parseTokenForm(tokenFormOf(lyra({ aura: fireAura() }), METERS), METERS);
+
+    expect(result.ok && result.token).not.toHaveProperty('aura');
+  });
+
+  it('a changed aura is sent, its radius in cells', () => {
+    const form = tokenFormOf(lyra(), METERS);
+    const fire = auraKindChosen(auraFormOf(null, METERS), 'effect');
+
+    const result = parseTokenForm(withAura(form, fire), METERS);
+
+    expect(result.ok && result.token.aura).toEqual(fireAura());
+  });
+
+  it('"Nenhuma" on a token with an aura sends null', () => {
+    const form = tokenFormOf(lyra({ aura: fireAura() }), METERS);
+
+    const result = parseTokenForm(withAura(form, { ...form.aura, kind: 'none' }), METERS);
+
+    expect(result.ok && result.token.aura).toBeNull();
+  });
+
+  it('a radius out of range is an error of the aura tab, the first after the others', () => {
+    const form = tokenFormOf(lyra({ aura: fireAura() }), METERS);
+
+    const result = parseTokenForm(withAura(form, { ...form.aura, radius: '31' }), METERS);
+
+    expect(result).toEqual({ ok: false, errors: { aura: { radius: 'De 0 a 30 m.' } } });
+    expect(firstErrorTab({ aura: { radius: 'De 0 a 30 m.' } })).toBe('aura');
+    expect(tabHasErrors({ aura: { radius: 'De 0 a 30 m.' } }, 'vision')).toBe(false);
+  });
+
+  it('an empty name and a bad aura: the first tab with an error is still "Básico"', () => {
+    const form = { ...tokenFormOf(lyra(), METERS), name: '' };
+    const broken = withAura(form, { ...auraKindChosen(form.aura, 'image') });
+
+    const result = parseTokenForm(broken, METERS);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.errors.aura).toEqual({ image: 'Escolha a imagem da aura.' });
+    expect(!result.ok && firstErrorTab(result.errors)).toBe('basics');
   });
 });

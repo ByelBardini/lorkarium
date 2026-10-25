@@ -11,6 +11,7 @@ import {
   MapIcon,
   MinusIcon,
   MousePointer2Icon,
+  OrbitIcon,
   PencilIcon,
   PlusIcon,
   RulerIcon,
@@ -26,6 +27,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import type { BoardRenderer } from '@/renderer/board-renderer';
 import type { AddPlayersResult } from '@/services/table-board-commands';
 import { toolsOf } from '@/lib/table-role';
+import { useAuraMotion, type AuraMotionStore } from '@/stores/aura-motion-store';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardTool } from '@/stores/board-tool-state';
 import { LAYER_LABEL, VIEW_OFF_GRID, addPlayersNotice } from './board-messages';
@@ -43,6 +45,8 @@ export type BoardToolbarProps = Readonly<{
   sightOn?: boolean;
   /** The table's members: "Adicionar jogadores" names who was skipped. */
   members?: readonly ToolbarMember[];
+  /** "Animar auras": local to this browser, for everyone at the table. */
+  auraMotion: StoreApi<AuraMotionStore>;
   onConfigure: () => void;
   onNewToken: () => void;
 }>;
@@ -71,7 +75,7 @@ const LAYER_TOOLS: ReadonlyArray<
 ];
 
 /** The floating tools at the left of the board: select, ruler, draw, area of effect, condition
- *  (not for a spectator), local grid, zoom and framing, plus walls, lights, tokens and
+ *  (not for a spectator), local grid, "Animar auras", zoom and framing, plus walls, lights, tokens and
  *  "Configurar cena" for the master. Every tool also has its key (in the name).
  *
  *  Example: `<BoardToolbar interaction={interaction} renderer={renderer} role={campaign.myRole} onConfigure={openGridDialog} />` */
@@ -81,6 +85,7 @@ export function BoardToolbar({
   role,
   sightOn = false,
   members = [],
+  auraMotion,
   onConfigure,
   onNewToken,
 }: BoardToolbarProps): React.JSX.Element {
@@ -104,6 +109,7 @@ export function BoardToolbar({
           pressed={grid}
           onClick={actions.toggleLocalGrid}
         />
+        <AuraMotionButton auraMotion={auraMotion} />
         <span aria-hidden="true" className="my-1 h-px bg-divider" />
         <ToolButton
           label="Aproximar (+)"
@@ -174,6 +180,19 @@ async function addPlayersHere(
     skipped: skipped.filter((name): name is string => name !== undefined),
   });
   if (notice) interaction.getState().say(notice);
+}
+
+// Local like the grid: a weak PC stills the auras without touching anyone else's board.
+function AuraMotionButton({ auraMotion }: Pick<BoardToolbarProps, 'auraMotion'>) {
+  const animated = useAuraMotion(auraMotion, (state) => state.animated);
+  return (
+    <ToolButton
+      label="Animar auras"
+      icon={OrbitIcon}
+      pressed={animated}
+      onClick={auraMotion.getState().toggle}
+    />
+  );
 }
 
 type PickedToolsProps = Readonly<{

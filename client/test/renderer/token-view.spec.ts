@@ -13,6 +13,8 @@ import {
   vharnBoard,
 } from '../support/table-session-fixtures';
 
+const GOLD_AURA = { kind: 'color', radius: 1, color: 'gold', opacity: 50 } as const;
+
 const NOTHING_LOCAL: Omit<TokenViewInput, 'tokens'> = {
   selectedTokenIds: [],
   activeLayer: 'tokens',
@@ -185,6 +187,20 @@ describe('tokenViewsOf', () => {
     ]);
   });
 
+  it('the aura follows the token where it is being dragged by someone else', () => {
+    const views = viewsOf({
+      tokens: [lyra({ aura: GOLD_AURA })],
+      dragged: { [LYRA_ID]: cell(6, 2) },
+    });
+    expect(views[0]?.aura?.box).toEqual({ x: 320, y: 64, width: 192, height: 192 });
+  });
+
+  it('the aura grows with the size being dragged by a resize handle', () => {
+    const resizing = { [LYRA_ID]: { col: 3, row: 4, width: 2, height: 2 } };
+    const views = viewsOf({ tokens: [lyra({ aura: GOLD_AURA })], resizePreview: resizing });
+    expect(views[0]?.aura?.box).toEqual({ x: 128, y: 192, width: 256, height: 256 });
+  });
+
   describe('through the sight of Bia in the dark', () => {
     // Lyra (hers) at (3, 4) sees 3 + 3 cells: Kael at (8, 4) is 5 away (silhouette), the goblin
     // at (11, 4) 8 away (hidden).
@@ -199,6 +215,7 @@ describe('tokenViewsOf', () => {
         conditions: [activeCondition()],
         defeated: true,
         hidden: true,
+        aura: GOLD_AURA,
       }),
       kael({ ...others, id: GOBLIN_ID, col: 11, row: 4 }),
     ];
@@ -228,6 +245,7 @@ describe('tokenViewsOf', () => {
         onTurn: false,
         pickable: false,
         draggable: false,
+        aura: null,
       });
     });
 

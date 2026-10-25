@@ -3,7 +3,13 @@ import { tokenRedrawOf } from '@/renderer/token-redraw';
 import type { TokenView } from '@/renderer/token-view';
 import { goblinView } from '../support/token-view-fixtures';
 
-const NOTHING = { body: false, nameTag: false };
+const NOTHING = { body: false, nameTag: false, aura: false };
+const GOLD_AURA = {
+  look: { kind: 'color', color: 0xc5a46d },
+  box: { x: -128, y: -128, width: 320, height: 320 },
+  corner: 128,
+  alpha: 0.5,
+} as const;
 const ART = { url: '/api/assets/a', frame: 'round', flipX: false, flipY: false } as const;
 
 describe('tokenRedrawOf', () => {
@@ -28,13 +34,18 @@ describe('tokenRedrawOf', () => {
     ['a look', { looks: ['invisible'] }],
     ['being hidden from the players', { hidden: true }],
   ])('%s redraws the body only', (_, change) => {
-    expect(tokenRedrawOf(goblinView(), goblinView(change))).toEqual({ body: true, nameTag: false });
+    expect(tokenRedrawOf(goblinView(), goblinView(change))).toEqual({
+      body: true,
+      nameTag: false,
+      aura: false,
+    });
   });
 
   it('being selected redraws the body (its ring) and the plate (now shown)', () => {
     expect(tokenRedrawOf(goblinView(), goblinView({ selected: true }))).toEqual({
       body: true,
       nameTag: true,
+      aura: false,
     });
   });
 
@@ -42,6 +53,7 @@ describe('tokenRedrawOf', () => {
     expect(tokenRedrawOf(goblinView(), goblinView({ name: 'Goblin chefe' }))).toEqual({
       body: false,
       nameTag: true,
+      aura: false,
     });
   });
 
@@ -49,12 +61,41 @@ describe('tokenRedrawOf', () => {
     expect(tokenRedrawOf(goblinView(), goblinView(), { hoverChanged: true })).toEqual({
       body: false,
       nameTag: true,
+      aura: false,
     });
   });
 
   it('the texture of its art arriving redraws the body', () => {
     const view = goblinView({ art: ART });
-    expect(tokenRedrawOf(view, view, { artArrived: true })).toEqual({ body: true, nameTag: false });
+    expect(tokenRedrawOf(view, view, { artArrived: true })).toEqual({
+      body: true,
+      nameTag: false,
+      aura: false,
+    });
+  });
+
+  it('only the aura changing redraws the aura alone', () => {
+    expect(tokenRedrawOf(goblinView(), goblinView({ aura: GOLD_AURA }))).toEqual({
+      body: false,
+      nameTag: false,
+      aura: true,
+    });
+  });
+
+  it('a new cell with the same aura redraws nothing: the aura glides with the token', () => {
+    const before = goblinView({ aura: GOLD_AURA });
+    const moved = { ...GOLD_AURA, box: { ...GOLD_AURA.box, x: 64 } };
+    expect(tokenRedrawOf(before, goblinView({ col: 3, aura: moved }))).toEqual(NOTHING);
+  });
+
+  it('a new size redraws the aura (grown with the token), the body and the plate', () => {
+    const grown = { ...GOLD_AURA, box: { ...GOLD_AURA.box, width: 384 } };
+    const before = goblinView({ aura: GOLD_AURA });
+    expect(tokenRedrawOf(before, goblinView({ width: 2, aura: grown }))).toEqual({
+      body: true,
+      nameTag: true,
+      aura: true,
+    });
   });
 
   it('new conditions redraw neither: the strip has its own key', () => {

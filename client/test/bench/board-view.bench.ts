@@ -6,7 +6,7 @@ import { sightNowOf, type SightInteraction } from '@/features/board/use-board-si
 import { buildBoardView, type BoardViewInput, type RulerState } from '@/renderer/board-view';
 import { stressBoardOf, stressId } from '../support/stress-board';
 
-// The four situations of the budget in docs/context/client/performance.md, each one computing
+// The situations of the budget in docs/context/client/performance.md, each one computing
 // what the canvas does on a change: the sight filter (remembered by `sightNowOf`) and the view.
 const BOARD = stressBoardOf();
 // The stress board is seen by a player: the table's players matter only to a spectator.
@@ -23,6 +23,17 @@ const REMOTE_TOKEN_ID = stressId(1, 1);
 const EYE_ID = stressId(1, 0);
 
 type Dragged = Readonly<Record<string, Cell>>;
+
+// Token 5 carries an aura: a restyle of it is a board whose `tokens` alone is new (the reducer).
+const AURA_TOKEN_INDEX = 5;
+const RESTYLED = [1, 2].map((radius) => ({
+  ...BOARD,
+  tokens: BOARD.tokens.map((token, index) =>
+    index === AURA_TOKEN_INDEX && token.aura
+      ? { ...token, aura: { ...token.aura, radius } }
+      : token,
+  ),
+}));
 
 function viewOf(board: BoardStateDto, dragged: Dragged, ruler: RulerState | null): unknown {
   const sight = sightNowOf({ board, dragged }, IDLE, NO_PLAYERS);
@@ -67,6 +78,9 @@ test('buildBoardView on the stress scene', { timeout: 300_000 }, async ({ bench 
     }),
     bench('a remote drag of a token that is no eye', () => {
       viewOf(BOARD, { [REMOTE_TOKEN_ID]: cell(5 + nextStep(), 6) }, null);
+    }),
+    bench('the aura of one token changes', () => {
+      viewOf(RESTYLED[nextStep()] ?? BOARD, {}, null);
     }),
     bench("the viewer's eye walks one cell", () => {
       viewOf(BOARD, { [EYE_ID]: cell(2 + nextStep(), 2) }, null);

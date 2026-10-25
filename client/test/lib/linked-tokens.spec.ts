@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { boardWithCast, resolveLinkedTokens } from '@/lib/linked-tokens';
+import { fireAura, goldAura } from '../support/aura-fixtures';
 import { castBoard, linkedLyra, lyraAnchor } from '../support/cast-fixtures';
 import {
   BIA_AT_TABLE,
@@ -49,6 +50,19 @@ describe('resolveLinkedTokens', () => {
       controllerIds: anchor.controllerIds,
       canControl: false,
     });
+  });
+
+  // Regression: the server keeps the aura on the anchor (an event of the cast), so a linked
+  // token kept its snapshot aura until the table was entered again.
+  it("a linked token shows its anchor's aura, and the anchor's new aura replaces the old one", () => {
+    const own = linkedLyra({ aura: goldAura() });
+    const [token] = resolveLinkedTokens([own], [lyraAnchor({ aura: fireAura({ radius: 3 }) })]);
+    expect(token?.aura).toEqual(fireAura({ radius: 3 }));
+  });
+
+  it("a linked token loses its aura when its anchor's aura is taken away", () => {
+    const [token] = resolveLinkedTokens([linkedLyra({ aura: goldAura() })], [lyraAnchor()]);
+    expect(token?.aura).toBeNull();
   });
 
   it('keeps its own place, size, layer, facing, flips, sight and light', () => {

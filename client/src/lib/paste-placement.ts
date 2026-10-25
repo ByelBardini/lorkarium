@@ -102,6 +102,7 @@ function newTokenOf(token: TokenDto, combatantId: string | undefined): NewTokenI
     sightAngle,
     sight: token.sight,
     light: token.light,
+    aura: token.aura,
   };
   const bars = token.bars.map(({ label, current, max, color, visibility }) => ({
     label,

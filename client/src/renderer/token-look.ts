@@ -17,7 +17,7 @@ const INVISIBLE_ALPHA = 0.45;
 const UNCONSCIOUS_ALPHA = 0.6;
 // Hidden is the master's secret, not a condition everyone sees: its own fade, and the eye mark
 // instead of the dashed outline of "Invisível".
-const HIDDEN_ALPHA = 0.55;
+export const HIDDEN_ALPHA = 0.55;
 
 /** The looks combined with the defeat and being hidden: the faintest alpha wins, the marks add up.
  *
