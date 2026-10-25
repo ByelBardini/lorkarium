@@ -20,10 +20,12 @@ import { TwoFactorStep } from './two-factor-step';
 export type LoginFormProps = Readonly<{
   authApi: AuthApi;
   onAuthenticated: (user: AuthUserDto) => void;
+  /** Whether "Manter conectado" starts checked. */
+  rememberByDefault: boolean;
 }>;
 
-type LoginValues = { email: string; password: string; rememberMe: boolean };
-type FieldErrors = Partial<Record<'email' | 'password', string>>;
+type LoginValues = { identifier: string; password: string; rememberMe: boolean };
+type FieldErrors = Partial<Record<'identifier' | 'password', string>>;
 
 type LoginFormState = Readonly<{
   values: LoginValues;
@@ -32,43 +34,48 @@ type LoginFormState = Readonly<{
   submitting: boolean;
   change: (patch: Partial<LoginValues>) => void;
   submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  emailRef: RefObject<HTMLInputElement | null>;
+  identifierRef: RefObject<HTMLInputElement | null>;
   passwordRef: RefObject<HTMLInputElement | null>;
 }>;
 
 const FIELD_MESSAGES = {
-  emptyEmail: 'Informe seu e-mail.',
-  invalidEmail: 'Informe um e-mail válido, como voce@exemplo.com.',
+  emptyIdentifier: 'Informe seu e-mail ou usuário.',
+  invalidIdentifier: 'Informe um e-mail, como voce@exemplo.com, ou seu usuário, como @bia.',
   emptyPassword: 'Informe sua senha.',
   longPassword: `A senha pode ter no máximo ${PASSWORD_MAX_LENGTH} caracteres.`,
 } as const;
 
-/** Where the login stands: the e-mail and password, or the 2FA code after a right password. */
+/** Where the login stands: the e-mail or @ and password, or the 2FA code after a right password. */
 type LoginStep =
-  | Readonly<{ kind: 'credentials'; email: string; notice: string | null; attempt: number }>
-  | Readonly<{ kind: 'two-factor'; email: string; attempt: number }>;
+  | Readonly<{ kind: 'credentials'; identifier: string; notice: string | null; attempt: number }>
+  | Readonly<{ kind: 'two-factor'; identifier: string; attempt: number }>;
 
 const EXPIRED_NOTICE = 'O tempo para o código acabou. Entre de novo.';
 
-/** The login in one or two steps: e-mail + password (validated by the contracts DTO), and, for an
- *  account with 2FA, the app's code or a recovery code. Every refusal is shown.
+/** The login in one or two steps: e-mail or @ + password (validated by the contracts DTO), and,
+ *  for an account with 2FA, the app's code or a recovery code. Every refusal is shown.
  *
- *  Example: `<LoginForm authApi={authApi} onAuthenticated={(user) => navigate(next)} />` */
-export function LoginForm({ authApi, onAuthenticated }: LoginFormProps): React.JSX.Element {
+ *  Example: `<LoginForm authApi={authApi} onAuthenticated={(user) => navigate(next)} rememberByDefault={false} />` */
+export function LoginForm(props: LoginFormProps): React.JSX.Element {
   const [step, setStep] = useState<LoginStep>({
     kind: 'credentials',
-    email: '',
+    identifier: '',
     notice: null,
     attempt: 0,
   });
   const restart = (notice: string | null): void =>
-    setStep({ kind: 'credentials', email: step.email, notice, attempt: step.attempt + 1 });
+    setStep({
+      kind: 'credentials',
+      identifier: step.identifier,
+      notice,
+      attempt: step.attempt + 1,
+    });
   if (step.kind === 'two-factor') {
     return (
       <TwoFactorStep
-        email={step.email}
-        authApi={authApi}
-        onAuthenticated={onAuthenticated}
+        identifier={step.identifier}
+        authApi={props.authApi}
+        onAuthenticated={props.onAuthenticated}
         onBack={() => restart(null)}
         onExpired={() => restart(EXPIRED_NOTICE)}
       />
@@ -76,30 +83,31 @@ export function LoginForm({ authApi, onAuthenticated }: LoginFormProps): React.J
   }
   return (
     <CredentialsForm
-      // A new attempt remounts the form: the e-mail stays, the password is typed again.
+      // A new attempt remounts the form: the e-mail or @ stays, the password is typed again.
       key={step.attempt}
-      authApi={authApi}
-      initialEmail={step.email}
+      {...props}
+      initialIdentifier={step.identifier}
       notice={step.notice}
-      onAuthenticated={onAuthenticated}
-      onTwoFactor={(email) => setStep({ kind: 'two-factor', email, attempt: step.attempt })}
+      onTwoFactor={(identifier) =>
+        setStep({ kind: 'two-factor', identifier, attempt: step.attempt })
+      }
     />
   );
 }
 
 type CredentialsFormProps = LoginFormProps &
   Readonly<{
-    initialEmail: string;
+    initialIdentifier: string;
     /** Said in the alert before any refusal (the 2FA step timed out). */
     notice: string | null;
-    onTwoFactor: (email: string) => void;
+    onTwoFactor: (identifier: string) => void;
   }>;
 
-/** E-mail + password: validates by the contracts DTO, sends once, and shows every refusal. */
+/** E-mail or @ + password: validates by the contracts DTO, sends once, and shows every refusal. */
 function CredentialsForm(props: CredentialsFormProps): React.JSX.Element {
-  const { values, errors, failure, submitting, change, submit, emailRef, passwordRef } =
+  const { values, errors, failure, submitting, change, submit, identifierRef, passwordRef } =
     useLoginForm(props);
-  const ids = { email: useId(), password: useId(), remember: useId() };
+  const ids = { identifier: useId(), password: useId(), remember: useId() };
   const alert = failure ? failureMessage(failure) : props.notice;
   return (
     <form noValidate onSubmit={submit} aria-busy={submitting} className="flex flex-col gap-4.5">
@@ -108,24 +116,26 @@ function CredentialsForm(props: CredentialsFormProps): React.JSX.Element {
           {alert}
         </Alert>
       )}
-      <FormField id={ids.email} label="E-mail" error={errors.email}>
+      <FormField id={ids.identifier} label="E-mail ou usuário" error={errors.identifier}>
         <Input
-          ref={emailRef}
-          id={ids.email}
-          type="email"
+          ref={identifierRef}
+          id={ids.identifier}
+          type="text"
           autoComplete="username"
-          placeholder="seu@email.com"
-          value={values.email}
-          onChange={(event) => change({ email: event.target.value })}
-          aria-invalid={errors.email !== undefined}
-          aria-describedby={errors.email ? `${ids.email}-error` : undefined}
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder="voce@exemplo.com ou @usuario"
+          value={values.identifier}
+          onChange={(event) => change({ identifier: event.target.value })}
+          aria-invalid={errors.identifier !== undefined}
+          aria-describedby={errors.identifier ? `${ids.identifier}-error` : undefined}
         />
       </FormField>
       <FormField id={ids.password} label="Senha" error={errors.password}>
         <PasswordField
           ref={passwordRef}
           id={ids.password}
-          autoFocus={props.initialEmail !== ''}
+          autoFocus={props.initialIdentifier !== ''}
           value={values.password}
           onValueChange={(password) => change({ password })}
           invalid={errors.password !== undefined}
@@ -145,18 +155,19 @@ function CredentialsForm(props: CredentialsFormProps): React.JSX.Element {
 function useLoginForm({
   authApi,
   onAuthenticated,
-  initialEmail,
+  rememberByDefault,
+  initialIdentifier,
   onTwoFactor,
 }: CredentialsFormProps): LoginFormState {
   const [values, setValues] = useState<LoginValues>({
-    email: initialEmail,
+    identifier: initialIdentifier,
     password: '',
-    rememberMe: false,
+    rememberMe: rememberByDefault,
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [failure, setFailure] = useState<LoginFailure | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const emailRef = useRef<HTMLInputElement>(null);
+  const identifierRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
   const change = (patch: Partial<LoginValues>): void =>
@@ -174,17 +185,17 @@ function useLoginForm({
     const checked = validateLogin(values);
     setErrors(checked.errors);
     setFailure(null);
-    if (!checked.credentials) return focusFirstInvalid(checked.errors, emailRef, passwordRef);
+    if (!checked.credentials) return focusFirstInvalid(checked.errors, identifierRef, passwordRef);
     setSubmitting(true);
     const result = await authApi.login(checked.credentials);
     setSubmitting(false);
     if (result.ok) return onAuthenticated(result.value);
     if (result.failure.kind === 'two_factor_required')
-      return onTwoFactor(checked.credentials.email);
+      return onTwoFactor(checked.credentials.identifier);
     refuse(result.failure);
   };
 
-  return { values, errors, failure, submitting, change, submit, emailRef, passwordRef };
+  return { values, errors, failure, submitting, change, submit, identifierRef, passwordRef };
 }
 
 function validateLogin(values: LoginValues): {
@@ -195,9 +206,11 @@ function validateLogin(values: LoginValues): {
   if (parsed.success) return { credentials: parsed.data, errors: {} };
   const fields = new Set(parsed.error.issues.map((issue) => issue.path[0]));
   const errors: FieldErrors = {};
-  if (fields.has('email')) {
-    errors.email =
-      values.email.trim() === '' ? FIELD_MESSAGES.emptyEmail : FIELD_MESSAGES.invalidEmail;
+  if (fields.has('identifier')) {
+    errors.identifier =
+      values.identifier.trim() === ''
+        ? FIELD_MESSAGES.emptyIdentifier
+        : FIELD_MESSAGES.invalidIdentifier;
   }
   if (fields.has('password')) {
     errors.password =
@@ -208,10 +221,10 @@ function validateLogin(values: LoginValues): {
 
 function focusFirstInvalid(
   errors: FieldErrors,
-  emailRef: RefObject<HTMLInputElement | null>,
+  identifierRef: RefObject<HTMLInputElement | null>,
   passwordRef: RefObject<HTMLInputElement | null>,
 ): void {
-  const first = errors.email ? emailRef : passwordRef;
+  const first = errors.identifier ? identifierRef : passwordRef;
   first.current?.focus();
 }
 

@@ -1,5 +1,11 @@
 import type { AuthUserDto, LoginRequestDto, TwoFactorLoginRequestDto } from '@lorkarium/contracts';
-import type { AuthApi, AuthResult, LoginResult, TwoFactorLoginResult } from '@/services/auth-api';
+import type {
+  AuthApi,
+  AuthFailure,
+  AuthResult,
+  LoginResult,
+  TwoFactorLoginResult,
+} from '@/services/auth-api';
 import { CallJournal } from './call-journal';
 
 export const ANA: AuthUserDto = {
@@ -39,6 +45,8 @@ export class AuthApiFake implements AuthApi {
   readonly twoFactorCalls: TwoFactorLoginRequestDto[] = [];
   private twoFactorAnswers: TwoFactorLoginResult[] = [];
   logoutCalls = 0;
+  meCalls = 0;
+  private meFailures: AuthFailure[] = [];
   private loginAnswer: LoginResult | Pending<LoginResult> = {
     ok: true,
     value: ANA,
@@ -73,6 +81,12 @@ export class AuthApiFake implements AuthApi {
     return this;
   }
 
+  /** The next "who am I" calls fail with these, in order; then the usual answer comes. */
+  failMeWith(...failures: AuthFailure[]): this {
+    this.meFailures = failures;
+    return this;
+  }
+
   holdMe(): (user: AuthUserDto | null) => void {
     const held = pending<AuthResult<AuthUserDto | null>>();
     this.meAnswer = held;
@@ -90,6 +104,9 @@ export class AuthApiFake implements AuthApi {
   }
 
   async me(): Promise<AuthResult<AuthUserDto | null>> {
+    this.meCalls += 1;
+    const failure = this.meFailures.shift();
+    if (failure) return { ok: false, failure };
     return 'promise' in this.meAnswer ? this.meAnswer.promise : this.meAnswer;
   }
 

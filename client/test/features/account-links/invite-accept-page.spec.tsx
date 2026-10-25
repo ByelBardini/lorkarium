@@ -8,6 +8,7 @@ import { ANA } from '../../support/auth-api-fake';
 
 const LINK = '/invite#token=abc';
 const DEAD = 'Esse link venceu ou já foi usado. Peça um novo a quem te convidou.';
+const TERMS_BOX = 'Li e aceito os Termos de uso e a Política de privacidade';
 
 describe('accepting an invitation (/invite)', () => {
   let deps: TestDependencies;
@@ -26,6 +27,7 @@ describe('accepting an invitation (/invite)', () => {
     username: string | null,
     password: string,
     repeated = password,
+    acceptTerms = true,
   ): Promise<void> {
     const handle = await screen.findByLabelText('Seu @');
     if (username !== null) {
@@ -34,6 +36,7 @@ describe('accepting an invitation (/invite)', () => {
     }
     await userEvent.type(screen.getByLabelText('Senha', { selector: 'input' }), password);
     await userEvent.type(screen.getByLabelText('Repita a senha', { selector: 'input' }), repeated);
+    if (acceptTerms) await userEvent.click(screen.getByRole('checkbox', { name: TERMS_BOX }));
     await userEvent.click(screen.getByRole('button', { name: 'Criar minha conta' }));
   }
 
@@ -56,6 +59,31 @@ describe('accepting an invitation (/invite)', () => {
     expect(screen.getByLabelText('Senha', { selector: 'input' })).toHaveAccessibleDescription(
       'A senha precisa de pelo menos 8 caracteres.',
     );
+    expect(deps.accountLinksApi.answers.callsOf('acceptInvitation')).toEqual([]);
+  });
+
+  it('the acceptance box links the Terms of use and the Privacy policy, each in a new tab', async () => {
+    renderAt(LINK);
+    expect(await screen.findByRole('checkbox', { name: TERMS_BOX })).not.toBeChecked();
+    const terms = screen.getByRole('link', { name: 'Termos de uso' });
+    const privacy = screen.getByRole('link', { name: 'Política de privacidade' });
+    expect(terms).toHaveAttribute('href', '/api/legal/terms');
+    expect(privacy).toHaveAttribute('href', '/api/legal/privacy');
+    for (const link of [terms, privacy]) {
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    }
+  });
+
+  it('without the box ticked nothing is sent: the box says why and takes the focus', async () => {
+    renderAt(LINK);
+    await fill(null, 'senha-boa-1', 'senha-boa-1', false);
+    const box = screen.getByRole('checkbox', { name: TERMS_BOX });
+    expect(box).toHaveAccessibleDescription(
+      'Para criar a conta, aceite os Termos de uso e a Política de privacidade.',
+    );
+    expect(box).toHaveAttribute('aria-invalid', 'true');
+    expect(box).toHaveFocus();
     expect(deps.accountLinksApi.answers.callsOf('acceptInvitation')).toEqual([]);
   });
 
@@ -87,7 +115,13 @@ describe('accepting an invitation (/invite)', () => {
     expect(deps.sessionStore.getState().session).toMatchObject({ user: { username: 'marina' } });
     expect(await screen.findByRole('heading', { level: 1, name: /marina/ })).toBeInTheDocument();
     expect(deps.accountLinksApi.answers.callsOf('acceptInvitation')).toEqual([
-      { token: 'abc', username: 'marina', password: 'senha-boa-1', persistent: false },
+      {
+        token: 'abc',
+        username: 'marina',
+        password: 'senha-boa-1',
+        persistent: false,
+        acceptedTerms: true,
+      },
     ]);
   });
 

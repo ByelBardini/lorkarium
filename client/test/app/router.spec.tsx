@@ -22,7 +22,7 @@ describe('app router', () => {
   }
 
   async function signInWith(email: string): Promise<void> {
-    await userEvent.type(await screen.findByLabelText('E-mail'), email);
+    await userEvent.type(await screen.findByLabelText('E-mail ou usuário'), email);
     await userEvent.type(screen.getByLabelText('Senha'), 'qualquer-senha');
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
   }
@@ -68,9 +68,51 @@ describe('app router', () => {
     const answerMe = deps.authApi.holdMe();
     renderAt('/login');
     expect(await screen.findByRole('status')).toHaveTextContent('Carregando');
-    expect(screen.queryByLabelText('E-mail')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('E-mail ou usuário')).not.toBeInTheDocument();
     answerMe(null);
-    expect(await screen.findByLabelText('E-mail')).toBeInTheDocument();
+    expect(await screen.findByLabelText('E-mail ou usuário')).toBeInTheDocument();
+  });
+
+  describe('a server that does not answer the first "who am I" (a deploy)', () => {
+    it('keeps the splash saying it is reconnecting, never the login', async () => {
+      deps.authApi.failMeWith({ kind: 'unexpected' });
+      renderAt('/');
+      expect(await screen.findByRole('status')).toHaveTextContent('Reconectando ao servidor…');
+      expect(screen.queryByLabelText('E-mail ou usuário')).not.toBeInTheDocument();
+      expect(deps.retryWaits.waited).toEqual([1000]);
+    });
+
+    it('opens the home of the remembered session once the server answers', async () => {
+      deps.authApi.failMeWith({ kind: 'offline' }, { kind: 'unexpected' }).answerMeWith(ANA);
+      const router = renderAt('/');
+      await waitFor(() => expect(deps.retryWaits.waited).toEqual([1000]));
+      deps.retryWaits.release();
+      await waitFor(() => expect(deps.retryWaits.waited).toEqual([1000, 2000]));
+      deps.retryWaits.release();
+      expect(await screen.findByRole('heading', { level: 1, name: /Ana/ })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe('/');
+      expect(deps.authApi.meCalls).toBe(3);
+    });
+
+    it('lands on the login only when the server itself answers no session', async () => {
+      deps.authApi.failMeWith({ kind: 'offline' });
+      const router = renderAt('/');
+      await waitFor(() => expect(deps.retryWaits.waited).toEqual([1000]));
+      deps.retryWaits.release();
+      expect(await screen.findByLabelText('E-mail ou usuário')).toBeInTheDocument();
+      expect(router.state.location.pathname + router.state.location.search).toBe('/login?next=%2F');
+    });
+  });
+
+  it('on the desktop shell the login comes with "Manter conectado" checked', async () => {
+    deps = { ...deps, isDesktop: true };
+    renderAt('/login');
+    expect(await screen.findByRole('checkbox', { name: 'Manter conectado' })).toBeChecked();
+  });
+
+  it('in the browser the login comes with "Manter conectado" unchecked', async () => {
+    renderAt('/login');
+    expect(await screen.findByRole('checkbox', { name: 'Manter conectado' })).not.toBeChecked();
   });
 
   it('a user opening /admin is sent home', async () => {
@@ -139,13 +181,13 @@ describe('app router', () => {
     it('on the desktop shell a right click on the login e-mail opens the field menu', async () => {
       deps = { ...deps, isDesktop: true };
       renderAt('/login');
-      fireEvent.contextMenu(await screen.findByLabelText('E-mail'));
+      fireEvent.contextMenu(await screen.findByLabelText('E-mail ou usuário'));
       expect(await screen.findByRole('menuitem', { name: /Colar/ })).toBeInTheDocument();
     });
 
     it('in the browser the same right click is left to the browser menu', async () => {
       renderAt('/login');
-      expect(fireEvent.contextMenu(await screen.findByLabelText('E-mail'))).toBe(true);
+      expect(fireEvent.contextMenu(await screen.findByLabelText('E-mail ou usuário'))).toBe(true);
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
   });

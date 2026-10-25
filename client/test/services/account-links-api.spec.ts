@@ -27,7 +27,13 @@ describe('HttpAccountLinksApi', () => {
 
   it('acceptInvitation answers the signed-in user', async () => {
     transport.respondWith(200, { status: 'signed-in', user: MARINA });
-    const input = { token: 't1', username: 'marina', password: '12345678', persistent: false };
+    const input = {
+      token: 't1',
+      username: 'marina',
+      password: '12345678',
+      persistent: false,
+      acceptedTerms: true,
+    } as const;
     expect(await api.acceptInvitation(input)).toEqual({ ok: true, value: MARINA });
     expect(transport.requests[0]).toMatchObject({ path: '/invitations/accept', body: input });
   });
@@ -60,7 +66,13 @@ describe('HttpAccountLinksApi', () => {
     [500, { code: 'INTERNAL_ERROR' }, { kind: 'unexpected' }],
   ] as const)('a %i %o fails as %o', async (status, body, failure) => {
     transport.respondWith(status, { message: 'x', ...body });
-    const input = { token: 't1', username: 'marina', password: '12345678', persistent: false };
+    const input = {
+      token: 't1',
+      username: 'marina',
+      password: '12345678',
+      persistent: false,
+      acceptedTerms: true,
+    } as const;
     expect(await api.acceptInvitation(input)).toEqual({ ok: false, failure });
   });
 

@@ -48,8 +48,9 @@ async function run(
         : { intent: input.intent, failure: result.failure };
     }
     case 'accept': {
-      const { token, username, password, persistent } = input;
-      const result = await api.acceptInvitation({ token, username, password, persistent });
+      const { token, username, password, persistent, acceptedTerms } = input;
+      const acceptance = { token, username, password, persistent, acceptedTerms };
+      const result = await api.acceptInvitation(acceptance);
       if (!result.ok) return { intent: input.intent, failure: result.failure };
       sessionStore.getState().signedIn(result.value);
       return redirect('/');

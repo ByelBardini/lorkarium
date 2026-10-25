@@ -3,7 +3,7 @@ import type { LoginFailure, TwoFactorLoginFailure } from '@/services/auth-api';
 type LoginRefusal = LoginFailure | TwoFactorLoginFailure;
 
 const MESSAGE_BY_KIND: Readonly<Record<Exclude<LoginRefusal['kind'], 'rate_limited'>, string>> = {
-  invalid_credentials: 'E-mail ou senha incorretos.',
+  invalid_credentials: 'E-mail, usuário ou senha incorretos.',
   offline: 'Sem conexão com o servidor. Confira sua internet e tente de novo.',
   unexpected: 'Algo deu errado do nosso lado. Tente de novo em instantes.',
   two_factor_required: 'Sua conta pede o código do app autenticador.',
@@ -20,4 +20,12 @@ export function failureMessage(failure: LoginRefusal): string {
     return `Muitas tentativas. Tente de novo em ${failure.retryAfterSeconds} s.`;
   }
   return MESSAGE_BY_KIND[failure.kind];
+}
+
+/** How the second step names the account being entered: the e-mail as it is, the @ with its "@"
+ *  (the parsed identifier never keeps one).
+ *
+ *  Example: `signInNameOf('bia') // '@bia'` */
+export function signInNameOf(identifier: string): string {
+  return identifier.includes('@') ? identifier : `@${identifier}`;
 }

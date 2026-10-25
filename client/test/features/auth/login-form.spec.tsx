@@ -1,23 +1,38 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LoginForm } from '@/features/auth/login-form';
 import type { AuthFailure } from '@/services/auth-api';
 import { ANA, AuthApiFake } from '../../support/auth-api-fake';
 
+const IDENTIFIER_LABEL = 'E-mail ou usuário';
+
 describe('LoginForm', () => {
   let api: AuthApiFake;
   let authenticated: AuthUserDto[];
 
+  function renderForm(rememberByDefault: boolean): void {
+    render(
+      <LoginForm
+        authApi={api}
+        onAuthenticated={(user) => authenticated.push(user)}
+        rememberByDefault={rememberByDefault}
+      />,
+    );
+  }
+
   beforeEach(() => {
     api = new AuthApiFake();
     authenticated = [];
-    render(<LoginForm authApi={api} onAuthenticated={(user) => authenticated.push(user)} />);
+    renderForm(false);
   });
 
-  async function fillAndSubmit(email = 'ana@mesa.com', password = 'segredo-da-ana'): Promise<void> {
-    await userEvent.type(screen.getByLabelText('E-mail'), email);
+  async function fillAndSubmit(
+    identifier = 'ana@mesa.com',
+    password = 'segredo-da-ana',
+  ): Promise<void> {
+    await userEvent.type(screen.getByLabelText(IDENTIFIER_LABEL), identifier);
     await userEvent.type(screen.getByLabelText('Senha'), password);
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
   }
@@ -27,15 +42,15 @@ describe('LoginForm', () => {
     await fillAndSubmit();
   }
 
-  it('submitting empty marks both fields invalid, describes the errors and focuses the e-mail', async () => {
+  it('submitting empty marks both fields invalid, describes the errors and focuses the e-mail or @', async () => {
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
-    const email = screen.getByLabelText('E-mail');
+    const identifier = screen.getByLabelText(IDENTIFIER_LABEL);
     const password = screen.getByLabelText('Senha');
-    expect(email).toHaveAttribute('aria-invalid', 'true');
+    expect(identifier).toHaveAttribute('aria-invalid', 'true');
     expect(password).toHaveAttribute('aria-invalid', 'true');
-    expect(email).toHaveAccessibleDescription('Informe seu e-mail.');
+    expect(identifier).toHaveAccessibleDescription('Informe seu e-mail ou usuário.');
     expect(password).toHaveAccessibleDescription('Informe sua senha.');
-    expect(email).toHaveFocus();
+    expect(identifier).toHaveFocus();
   });
 
   it('submitting empty never calls the API', async () => {
@@ -45,17 +60,42 @@ describe('LoginForm', () => {
 
   it('a malformed e-mail is described as invalid', async () => {
     await fillAndSubmit('ana@', 'segredo');
-    expect(screen.getByLabelText('E-mail')).toHaveAccessibleDescription(
-      'Informe um e-mail válido, como voce@exemplo.com.',
+    expect(screen.getByLabelText(IDENTIFIER_LABEL)).toHaveAccessibleDescription(
+      'Informe um e-mail, como voce@exemplo.com, ou seu usuário, como @bia.',
     );
+    expect(api.loginCalls).toEqual([]);
   });
 
-  it('submits the normalized credentials with rememberMe as the checkbox says', async () => {
+  it('the field is plain text, so the @ alone is accepted by the browser too', () => {
+    expect(screen.getByLabelText(IDENTIFIER_LABEL)).toHaveAttribute('type', 'text');
+    expect(screen.getByLabelText(IDENTIFIER_LABEL)).toHaveAttribute('autocomplete', 'username');
+  });
+
+  it('submits the normalized e-mail with rememberMe as the checkbox says', async () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Manter conectado' }));
     await fillAndSubmit(' Ana@Mesa.com ', 'segredo-da-ana');
     expect(api.loginCalls).toEqual([
-      { email: 'ana@mesa.com', password: 'segredo-da-ana', rememberMe: true },
+      { identifier: 'ana@mesa.com', password: 'segredo-da-ana', rememberMe: true },
     ]);
+  });
+
+  it('submits the @ typed with "@" and capitals as the bare @', async () => {
+    await fillAndSubmit('@Ana', 'segredo-da-ana');
+    expect(api.loginCalls).toEqual([
+      { identifier: 'ana', password: 'segredo-da-ana', rememberMe: false },
+    ]);
+  });
+
+  it('"Manter conectado" starts unchecked in the browser', () => {
+    expect(screen.getByRole('checkbox', { name: 'Manter conectado' })).not.toBeChecked();
+  });
+
+  it('"Manter conectado" starts checked when remembered by default (the desktop app)', async () => {
+    cleanup();
+    renderForm(true);
+    expect(screen.getByRole('checkbox', { name: 'Manter conectado' })).toBeChecked();
+    await fillAndSubmit();
+    expect(api.loginCalls[0]).toMatchObject({ rememberMe: true });
   });
 
   it('while sending, the button is disabled reading "Entrando…" and a second click does not resend', async () => {
@@ -75,8 +115,10 @@ describe('LoginForm', () => {
 
   it('wrong credentials show the alert, keep the e-mail, clear the password and focus it', async () => {
     await failWith({ kind: 'invalid_credentials' });
-    expect(await screen.findByRole('alert')).toHaveTextContent('E-mail ou senha incorretos.');
-    expect(screen.getByLabelText('E-mail')).toHaveValue('ana@mesa.com');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'E-mail, usuário ou senha incorretos.',
+    );
+    expect(screen.getByLabelText(IDENTIFIER_LABEL)).toHaveValue('ana@mesa.com');
     expect(screen.getByLabelText('Senha')).toHaveValue('');
     expect(screen.getByLabelText('Senha')).toHaveFocus();
   });
@@ -86,7 +128,7 @@ describe('LoginForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Esta conta está suspensa. Fale com quem administra o Lorkarium.',
     );
-    expect(screen.getByLabelText('E-mail')).toHaveValue('ana@mesa.com');
+    expect(screen.getByLabelText(IDENTIFIER_LABEL)).toHaveValue('ana@mesa.com');
     expect(screen.getByLabelText('Senha')).toHaveValue('');
   });
 
@@ -106,9 +148,9 @@ describe('LoginForm', () => {
   });
 
   describe('second step (2FA)', () => {
-    async function reachTwoFactor(): Promise<void> {
+    async function reachTwoFactor(identifier = 'ana@mesa.com'): Promise<void> {
       api.answerLoginWith({ ok: false, failure: { kind: 'two_factor_required' } });
-      await fillAndSubmit();
+      await fillAndSubmit(identifier);
       await screen.findByRole('form', { name: 'Verificação em duas etapas' });
     }
 
@@ -123,6 +165,11 @@ describe('LoginForm', () => {
       expect(screen.getByText('ana@mesa.com')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument();
       expect(authenticated).toEqual([]);
+    });
+
+    it('entering by the @ names the account with its "@"', async () => {
+      await reachTwoFactor('Ana');
+      expect(screen.getByText('@ana')).toBeInTheDocument();
     });
 
     it('the right app code sends { code } and hands the user to onAuthenticated', async () => {
@@ -166,14 +213,14 @@ describe('LoginForm', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent(
         'O tempo para o código acabou. Entre de novo.',
       );
-      expect(screen.getByLabelText('E-mail')).toHaveValue('ana@mesa.com');
+      expect(screen.getByLabelText(IDENTIFIER_LABEL)).toHaveValue('ana@mesa.com');
       expect(screen.getByLabelText('Senha')).toHaveValue('');
     });
 
     it('"Voltar" shows the e-mail and password again, without a notice', async () => {
       await reachTwoFactor();
       await userEvent.click(screen.getByRole('button', { name: 'Voltar' }));
-      expect(screen.getByLabelText('E-mail')).toHaveValue('ana@mesa.com');
+      expect(screen.getByLabelText(IDENTIFIER_LABEL)).toHaveValue('ana@mesa.com');
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
