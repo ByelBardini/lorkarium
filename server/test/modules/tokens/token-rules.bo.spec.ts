@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   TokenRulesBo,
+  changedVisibility,
   requireBox,
   requireFacing,
 } from '../../../src/modules/tokens/token-rules.bo';
@@ -222,5 +223,24 @@ describe('TokenRulesBo.requirePassage', () => {
         message: expect.stringContaining('(19.5, 5)'),
       }),
     );
+  });
+});
+
+describe('changedVisibility', () => {
+  const tokens = [
+    { id: 'lobo', hidden: true },
+    { id: 'kael', hidden: false },
+  ];
+
+  it('hiding keeps only the tokens still visible', () => {
+    expect(changedVisibility(tokens, true)).toEqual(['kael']);
+  });
+
+  it('showing keeps only the tokens still hidden', () => {
+    expect(changedVisibility(tokens, false)).toEqual(['lobo']);
+  });
+
+  it('every token already as asked changes nothing', () => {
+    expect(changedVisibility([{ id: 'kael', hidden: false }], false)).toEqual([]);
   });
 });

@@ -38,6 +38,7 @@ const GOBLIN: NewTokenDto = {
   flipY: false,
   facing: 0,
   sightAngle: 360,
+  hidden: false,
   bars: [
     {
       label: 'PV',

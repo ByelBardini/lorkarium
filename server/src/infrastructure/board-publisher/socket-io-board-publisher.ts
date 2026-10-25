@@ -43,12 +43,20 @@ import type {
   TokensFacedDto,
   TokensMovedDto,
   TokensRestyledDto,
+  TableServerEvents,
+  TokensCreatedDto,
+  BoardAdvancedDto,
 } from '@lorkarium/contracts';
 import type {
   BoardPublisherPort,
   GridEvent,
   TokenChange,
+  TokenChangeVeil,
   TokensCreation,
+  TokensHiddenChange,
+  VeilAudience,
+  VeilCuts,
+  VeiledLightsChange,
 } from '../../modules/scenes/board-publisher.port';
 import type { RealtimeServer } from '../../realtime/realtime-server';
 import { sceneMastersRoom, sceneRoom, sceneUserRoom } from '../../realtime/rooms';
@@ -66,7 +74,15 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     this.io.to(sceneRoom(event.campaignId, event.scene.id)).emit('scene:updated', event);
   }
 
-  tokenChanged(change: TokenChange): void {
+  // A hidden token: whole to the masters and its controllers, `board:advanced` to the rest, and
+  // `token:deleted` to who stopped controlling it.
+  tokenChanged(change: TokenChange, veil: TokenChangeVeil): void {
+    if (veil.cuts.length > 0) {
+      this.emitCuts(change.name, change.privileged, veil.cuts);
+      for (const { userId, event } of veil.lost)
+        this.audience(event, { kind: 'controller', userId }).emit('token:deleted', event);
+      return;
+    }
     const { campaignId, sceneId } = change;
     const privilegedRooms = [
       sceneMastersRoom(campaignId, sceneId),
@@ -79,71 +95,95 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
       .emit(change.name, change.others);
   }
 
-  tokenMoved(event: GridEvent<TokenMovedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('token:moved', event);
+  tokenMoved(event: GridEvent<TokenMovedDto>, veil: VeilCuts<GridEvent<TokenMovedDto>>): void {
+    this.emitCuts('token:moved', event, veil);
   }
 
-  tokensMoved(event: GridEvent<TokensMovedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('token:movedMany', event);
+  tokensMoved(event: GridEvent<TokensMovedDto>, veil: VeilCuts<GridEvent<TokensMovedDto>>): void {
+    this.emitCuts('token:movedMany', event, veil);
   }
 
   // Every socket is in a room named by its own id: leaving it out skips the dragger's echo.
-  tokensDragged(event: GridEvent<TokensDraggedDto>, exceptConnectionId: string): void {
-    this.io.to(gridRoomOf(event)).except(exceptConnectionId).emit('token:draggedMany', event);
+  tokensDragged(
+    event: GridEvent<TokensDraggedDto>,
+    exceptConnectionId: string,
+    veil: VeilCuts<GridEvent<TokensDraggedDto>>,
+  ): void {
+    this.emitCuts('token:draggedMany', event, veil, exceptConnectionId);
   }
 
-  tokenDeleted(event: GridEvent<TokenDeletedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('token:deleted', event);
+  tokenDeleted(
+    event: GridEvent<TokenDeletedDto>,
+    veil: VeilCuts<GridEvent<TokenDeletedDto>>,
+  ): void {
+    this.emitCuts('token:deleted', event, veil);
   }
 
   // Each controller gets their own mix (whole for theirs, redacted for the rest); a master who
-  // also controls a token only hears the masters' cut, so nobody hears the paste twice.
-  tokensCreated(creation: TokensCreation): void {
+  // also controls a token only hears the masters' cut, so nobody hears the paste twice. With a
+  // veil, the cuts are those mixes already, without what each audience may not see.
+  tokensCreated(creation: TokensCreation, veil: VeilCuts<GridEvent<TokensCreatedDto>>): void {
     const { campaignId, sceneId, tokens, combat } = creation;
     const base = { campaignId, sceneId, version: creation.version, at: creation.at, combat };
-    const masters = sceneMastersRoom(campaignId, sceneId);
-    const whole = tokens.map((token) => token.privileged);
-    this.io.to(masters).emit('token:createdMany', { ...base, tokens: whole });
-    const controllerIds = [...new Set(tokens.flatMap((token) => token.controllerIds))];
-    const userRoom = (userId: string): string => sceneUserRoom(campaignId, sceneId, userId);
-    for (const userId of controllerIds) {
-      const mix = tokens.map((t) => (t.controllerIds.includes(userId) ? t.privileged : t.others));
-      this.io
-        .to(userRoom(userId))
-        .except(masters)
-        .emit('token:createdMany', { ...base, tokens: mix });
-    }
-    const privileged = [masters, ...controllerIds.map(userRoom)];
-    const redacted = tokens.map((token) => token.others);
-    this.io
-      .to(sceneRoom(campaignId, sceneId))
-      .except(privileged)
-      .emit('token:createdMany', { ...base, tokens: redacted });
+    const whole = { ...base, tokens: tokens.map((token) => token.privileged) };
+    this.emitCuts('token:createdMany', whole, veil.length > 0 ? veil : mixesOf(base, tokens));
   }
 
-  tokensDeleted(event: GridEvent<TokensDeletedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('token:deletedMany', event);
+  tokensDeleted(
+    event: GridEvent<TokensDeletedDto>,
+    veil: VeilCuts<GridEvent<TokensDeletedDto>>,
+  ): void {
+    this.emitCuts('token:deletedMany', event, veil);
+  }
+
+  tokensHiddenChanged(change: TokensHiddenChange): void {
+    for (const cut of change.cuts) {
+      const to = this.audience(change, cut.audience);
+      if (cut.name === 'token:hiddenChanged') to.emit(cut.name, cut.event);
+      else if (cut.name === 'token:deletedMany') to.emit(cut.name, cut.event);
+      else to.emit(cut.name, cut.event);
+    }
+  }
+
+  veiledLightsChanged(change: VeiledLightsChange): void {
+    const { campaignId, sceneId, at } = change;
+    for (const { audience, lights } of change.cuts) {
+      const event = { campaignId, sceneId, at, lights: [...lights] };
+      this.audience(change, audience).emit('token:veiledLightsChanged', event);
+    }
   }
 
   // The layer is not a secret: everyone with the grid open gets the same event.
-  tokenLayerChanged(event: GridEvent<TokenLayerChangedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('token:layerChanged', event);
+  tokenLayerChanged(
+    event: GridEvent<TokenLayerChangedDto>,
+    veil: VeilCuts<GridEvent<TokenLayerChangedDto>>,
+  ): void {
+    this.emitCuts('token:layerChanged', event, veil);
   }
 
-  tokensFaced(event: GridEvent<TokensFacedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('token:facedMany', event);
+  tokensFaced(event: GridEvent<TokensFacedDto>, veil: VeilCuts<GridEvent<TokensFacedDto>>): void {
+    this.emitCuts('token:facedMany', event, veil);
   }
 
-  tokensRestyled(event: GridEvent<TokensRestyledDto>): void {
-    this.io.to(gridRoomOf(event)).emit('token:restyledMany', event);
+  tokensRestyled(
+    event: GridEvent<TokensRestyledDto>,
+    veil: VeilCuts<GridEvent<TokensRestyledDto>>,
+  ): void {
+    this.emitCuts('token:restyledMany', event, veil);
   }
 
-  tokensResized(event: GridEvent<TokensResizedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('token:resizedMany', event);
+  tokensResized(
+    event: GridEvent<TokensResizedDto>,
+    veil: VeilCuts<GridEvent<TokensResizedDto>>,
+  ): void {
+    this.emitCuts('token:resizedMany', event, veil);
   }
 
-  mainTokenChanged(event: GridEvent<MainTokenChangedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('token:mainChanged', event);
+  mainTokenChanged(
+    event: GridEvent<MainTokenChangedDto>,
+    veil: VeilCuts<GridEvent<MainTokenChangedDto>>,
+  ): void {
+    this.emitCuts('token:mainChanged', event, veil);
   }
 
   memberCardChanged(event: GridEvent<MemberCardChangedDto>): void {
@@ -249,37 +289,153 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     this.io.to(gridRoomOf(event)).emit('condition:defaultsRestored', event);
   }
 
-  conditionApplied(event: GridEvent<ConditionAppliedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('condition:applied', event);
+  conditionApplied(
+    event: GridEvent<ConditionAppliedDto>,
+    veil: VeilCuts<GridEvent<ConditionAppliedDto>>,
+  ): void {
+    this.emitCuts('condition:applied', event, veil);
   }
 
-  conditionsApplied(event: GridEvent<ConditionsAppliedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('condition:appliedMany', event);
+  conditionsApplied(
+    event: GridEvent<ConditionsAppliedDto>,
+    veil: VeilCuts<GridEvent<ConditionsAppliedDto>>,
+  ): void {
+    this.emitCuts('condition:appliedMany', event, veil);
   }
 
-  conditionRemoved(event: GridEvent<ConditionRemovedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('condition:removed', event);
+  conditionRemoved(
+    event: GridEvent<ConditionRemovedDto>,
+    veil: VeilCuts<GridEvent<ConditionRemovedDto>>,
+  ): void {
+    this.emitCuts('condition:removed', event, veil);
   }
 
   conditionsChanged(event: GridEvent<ConditionsChangedDto>): void {
     this.io.to(gridRoomOf(event)).emit('condition:changedMany', event);
   }
 
-  combatStarted(event: GridEvent<CombatStartedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('combat:started', event);
+  combatStarted(
+    event: GridEvent<CombatStartedDto>,
+    veil: VeilCuts<GridEvent<CombatStartedDto>>,
+  ): void {
+    this.emitCuts('combat:started', event, veil);
   }
 
-  combatUpdated(event: GridEvent<CombatUpdatedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('combat:updated', event);
+  combatUpdated(
+    event: GridEvent<CombatUpdatedDto>,
+    veil: VeilCuts<GridEvent<CombatUpdatedDto>>,
+  ): void {
+    this.emitCuts('combat:updated', event, veil);
   }
 
-  combatTurnChanged(event: GridEvent<CombatTurnChangedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('combat:turnChanged', event);
+  combatTurnChanged(
+    event: GridEvent<CombatTurnChangedDto>,
+    veil: VeilCuts<GridEvent<CombatTurnChangedDto>>,
+  ): void {
+    this.emitCuts('combat:turnChanged', event, veil);
   }
 
   combatEnded(event: GridEvent<CombatEndedDto>): void {
     this.io.to(gridRoomOf(event)).emit('combat:ended', event);
   }
+  // Without a veil, the grid gets the event whole, as it always did; with one, each audience its
+  // cut, and an audience left with nothing of a versioned event gets `board:advanced`.
+  private emitCuts<Name extends VeiledEventName>(
+    name: Name,
+    event: EventOf<Name> & GridAddress,
+    cuts: VeilCuts<EventOf<Name>>,
+    exceptConnectionId?: string,
+  ): void {
+    if (cuts.length === 0) {
+      this.without(this.io.to(gridRoomOf(event)), exceptConnectionId).emit(
+        name,
+        ...argsOf(name, event),
+      );
+      return;
+    }
+    for (const cut of cuts) {
+      const to = this.without(this.audience(event, cut.audience), exceptConnectionId);
+      if (cut.event) to.emit(name, ...argsOf(name, cut.event));
+      else if ('version' in event) to.emit('board:advanced', advancedOf(event));
+    }
+  }
+
+  // The rooms of one audience of a grid (`VeilAudience`).
+  private audience(address: GridAddress, audience: VeilAudience): BroadcastTo {
+    const { campaignId, sceneId } = address;
+    const masters = sceneMastersRoom(campaignId, sceneId);
+    if (audience.kind === 'masters') return this.io.to(masters);
+    if (audience.kind === 'controller')
+      return this.io.to(sceneUserRoom(campaignId, sceneId, audience.userId)).except(masters);
+    const controllers = audience.controllerIds.map((id) => sceneUserRoom(campaignId, sceneId, id));
+    return this.io.to(sceneRoom(campaignId, sceneId)).except([masters, ...controllers]);
+  }
+
+  private without(to: BroadcastTo, connectionId: string | undefined): BroadcastTo {
+    return connectionId === undefined ? to : to.except(connectionId);
+  }
+}
+
+type GridAddress = Readonly<{ campaignId: string; sceneId: string }>;
+type BroadcastTo = ReturnType<RealtimeServer['to']>;
+type VeiledEventName =
+  | 'token:created'
+  | 'token:updated'
+  | 'token:moved'
+  | 'token:movedMany'
+  | 'token:draggedMany'
+  | 'token:deleted'
+  | 'token:createdMany'
+  | 'token:deletedMany'
+  | 'token:layerChanged'
+  | 'token:facedMany'
+  | 'token:restyledMany'
+  | 'token:resizedMany'
+  | 'token:mainChanged'
+  | 'condition:applied'
+  | 'condition:appliedMany'
+  | 'condition:removed'
+  | 'combat:started'
+  | 'combat:updated'
+  | 'combat:turnChanged';
+type EventOf<Name extends VeiledEventName> = Parameters<TableServerEvents[Name]>[0];
+
+// The one payload of a typed event, as the typed `emit` takes it.
+function argsOf<Name extends VeiledEventName>(
+  _name: Name,
+  event: EventOf<Name>,
+): Parameters<TableServerEvents[Name]> {
+  return [event] as Parameters<TableServerEvents[Name]>;
+}
+
+function advancedOf(
+  event: GridAddress & Readonly<{ version: number; at: string }>,
+): BoardAdvancedDto {
+  const { campaignId, sceneId, version, at } = event;
+  return { campaignId, sceneId, version, at };
+}
+
+// The paste as today: the masters whole, each controller their mix, the rest redacted.
+function mixesOf(
+  base: Omit<GridEvent<TokensCreatedDto>, 'tokens'>,
+  tokens: TokensCreation['tokens'],
+): VeilCuts<GridEvent<TokensCreatedDto>> {
+  const controllerIds = [...new Set(tokens.flatMap((token) => token.controllerIds))];
+  const mixes = controllerIds.map((userId) => ({
+    audience: { kind: 'controller', userId } as const,
+    event: {
+      ...base,
+      tokens: tokens.map((t) => (t.controllerIds.includes(userId) ? t.privileged : t.others)),
+    },
+  }));
+  return [
+    { audience: { kind: 'masters' }, event: { ...base, tokens: tokens.map((t) => t.privileged) } },
+    ...mixes,
+    {
+      audience: { kind: 'rest', controllerIds },
+      event: { ...base, tokens: tokens.map((t) => t.others) },
+    },
+  ];
 }
 
 // Everyone with the grid open: a private grid in preparation reaches no player.

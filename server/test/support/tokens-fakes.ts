@@ -2,6 +2,7 @@ import { WallsDaoFake } from './walls-fakes';
 import type { BarValuesPo, TokenLayerPo, TokenStylePo } from '../../src/modules/tokens/tokens.po';
 import type {
   DragGroupPo,
+  HiddenTokenPo,
   NewTokenRow,
   TokenBoxPo,
   TokenControlPo,
@@ -48,6 +49,8 @@ export class TokensDaoFake implements Pick<
   | 'updateFields'
   | 'delete'
   | 'deleteMany'
+  | 'setHidden'
+  | 'veilOfScene'
 > {
   private cascade: Pick<CombatDaoFake, 'dropToken'> | undefined;
   constructor(
@@ -132,6 +135,28 @@ export class TokensDaoFake implements Pick<
     }
   }
 
+  // One write for the group, scoped to the scene like the real UPDATE; writes 'setHidden'.
+  async setHidden(
+    sceneId: string,
+    tokenIds: readonly string[],
+    hidden: boolean,
+  ): Promise<string[]> {
+    this.journal.push('setHidden');
+    const written = this.inScene(
+      sceneId,
+      tokenIds.map((tokenId) => ({ tokenId })),
+    );
+    for (const { tokenId } of written) this.changeToken(tokenId, { hidden });
+    return written.map(({ tokenId }) => tokenId);
+  }
+
+  // Writes 'veil' so a spec sees when (and whether) the extra query ran.
+  async veilOfScene(sceneId: string): Promise<HiddenTokenPo[]> {
+    this.journal.push('veil');
+    const own = await this.listOfScene(sceneId);
+    return own.filter(({ token }) => token.hidden);
+  }
+
   async listOfScene(sceneId: string): Promise<TokenRow[]> {
     return this.rows
       .filter(({ token }) => token.sceneId === sceneId)
@@ -148,6 +173,7 @@ export class TokensDaoFake implements Pick<
       tokenId: token.id,
       controllerIds: [...controllerIds],
       anchorTokenId: token.anchorTokenId,
+      hidden: token.hidden,
     }));
   }
 

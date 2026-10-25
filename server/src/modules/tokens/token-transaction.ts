@@ -46,6 +46,8 @@ export type TokenWriteDaos = Readonly<{
     | 'updateFields'
     | 'delete'
     | 'deleteMany'
+    | 'setHidden'
+    | 'veilOfScene'
   >;
   conditions: Pick<ConditionsDao, 'listOfTokens'>;
   combat: Pick<CombatDao, 'findOfScene' | 'setTurn' | 'removeCombatants' | 'linkTokens'>;
@@ -93,18 +95,20 @@ export function audiencesOf({ row, conditions }: TokenWithConditions): TokenAudi
   };
 }
 
-/** A token as the master sent it → the row to insert, placed and with checked controllers.
+/** A token as the master sent it → the row to insert, placed and with checked controllers. A
+ *  paste carries `hidden`; "New token" does not, and is born visible.
  *
  *  Example: `await daos.tokens.insert(newTokenRowOf(scene.id, rules, command))` */
 export function newTokenRowOf(
   sceneId: string,
   rules: TokenRulesBo,
-  token: NewTokenDto,
+  token: Omit<NewTokenDto, 'hidden'> & Partial<Pick<NewTokenDto, 'hidden'>>,
 ): NewTokenRow {
   const { col, row } = rules.place(token, token);
   const { name, initials, side, width, height, layer } = token;
   const { imageAssetId, frame, flipX, flipY, facing, sightAngle } = token;
   const look = {
+    hidden: token.hidden ?? false,
     imageAssetId,
     frame,
     flipX,

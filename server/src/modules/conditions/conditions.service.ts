@@ -1,6 +1,14 @@
+import {
+  cutsOf,
+  entriesSeenBy,
+  tokenSeenBy,
+  veilOf,
+  type TokenVeil,
+} from '../tokens/token-veil.mapper';
 import type {
   ApplyConditionCommandDto,
   ApplyConditionsCommandDto,
+  ConditionsAppliedDto,
   DefineConditionCommandDto,
   RemoveConditionCommandDto,
   SetConditionRoundsCommandDto,
@@ -10,7 +18,7 @@ import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { toCampaignAccessBo } from '../campaigns/campaigns.mapper';
-import type { BoardPublisherPort } from '../scenes/board-publisher.port';
+import type { BoardPublisherPort, GridEvent } from '../scenes/board-publisher.port';
 import { gridEventBase, type GridEventBase } from '../scenes/locked-scene';
 import {
   inLockedCast,
@@ -83,7 +91,7 @@ export type ConditionsServiceDeps = Readonly<{
 
 type Locked = LockedGridMaybeCast<ConditionWriteDaos>;
 /** A condition as saved and the token that holds it (a linked token's anchor). */
-type Held<T> = Readonly<{ tokenId: string; saved: T }>;
+type Held<T> = Readonly<{ tokenId: string; saved: T; veil: TokenVeil }>;
 
 const RULES = new ConditionRulesBo();
 
@@ -127,7 +135,7 @@ export class ConditionsService {
       const holder = stateHolderIn(locked, token);
       const [applied] = await applyTo(daos, [holder.tokenId], known, duration);
       if (!applied) throw new Error(`apply of ${known.id} on ${holder.tokenId} saved nothing`);
-      return heldBy(holder, applied);
+      return heldBy(holder, applied, token);
     });
     this.publishOne(campaignId, saved);
     return saved.version;
@@ -149,10 +157,11 @@ export class ConditionsService {
       const inCast = (index: number): boolean => holders[index]?.inCast ?? false;
       const grid = applied.filter((_, index) => !inCast(index));
       const cast = applied.filter((_, index) => inCast(index));
-      return { value: { grid, cast }, grid: grid.length > 0, cast: cast.length > 0 };
+      const veil = veilOf(tokens.filter((_, index) => !inCast(index)));
+      return { value: { grid, cast, veil }, grid: grid.length > 0, cast: cast.length > 0 };
     });
-    this.publishApplied(campaignId, saved.cast, saved.value.cast);
-    this.publishApplied(campaignId, saved.grid, saved.value.grid);
+    this.publishApplied(campaignId, saved.cast, saved.value.cast, NO_HIDDEN);
+    this.publishApplied(campaignId, saved.grid, saved.value.grid, saved.value.veil);
     return saved.version;
   }
 
@@ -164,14 +173,11 @@ export class ConditionsService {
       const holder = stateHolderIn(locked, token);
       const removed = await locked.daos.conditions.remove(holder.tokenId, activeConditionId);
       if (!removed) throw new ConditionNotFoundError(campaignId, activeConditionId);
-      return heldBy(holder, removed);
+      return heldBy(holder, removed, token);
     });
-    const { tokenId } = saved.value;
-    this.deps.publisher.conditionRemoved({
-      ...this.baseOf(campaignId, saved),
-      tokenId,
-      activeConditionId,
-    });
+    const { tokenId, veil } = saved.value;
+    const event = { ...this.baseOf(campaignId, saved), tokenId, activeConditionId };
+    this.deps.publisher.conditionRemoved(event, cutsOf(event, veil, tokenSeenBy));
     return saved.version;
   }
 
@@ -191,7 +197,7 @@ export class ConditionsService {
       const conditions = locked.daos.conditions;
       const changed = await conditions.setRounds(holder.tokenId, activeConditionId, rounds);
       if (!changed) throw new ConditionNotFoundError(campaignId, activeConditionId);
-      return heldBy(holder, changed);
+      return heldBy(holder, changed, token);
     });
     this.publishOne(campaignId, saved);
     return saved.version;
@@ -211,7 +217,7 @@ export class ConditionsService {
       const token = await tokenInScene(locked.daos, locked.scene, command.tokenId);
       const holder = stateHolderIn(locked, token);
       const changed = await stacksSetOn(locked.daos, campaignId, holder.tokenId, command);
-      return heldBy(holder, changed);
+      return heldBy(holder, changed, token);
     });
     this.publishOne(campaignId, saved);
     return saved.version;
@@ -255,19 +261,22 @@ export class ConditionsService {
     campaignId: string,
     saved: SavedInCastAndGrid<Held<ActiveConditionRow>>,
   ): void {
-    const { tokenId, saved: row } = saved.value;
+    const { tokenId, saved: row, veil } = saved.value;
     const condition = toActiveConditionDto(row);
-    this.deps.publisher.conditionApplied({ ...this.baseOf(campaignId, saved), tokenId, condition });
+    const event = { ...this.baseOf(campaignId, saved), tokenId, condition };
+    this.deps.publisher.conditionApplied(event, cutsOf(event, veil, tokenSeenBy));
   }
 
   private publishApplied(
     campaignId: string,
     saved: SavedVersion | null,
     applied: readonly ActiveConditionRow[],
+    veil: TokenVeil,
   ): void {
     if (!saved || applied.length === 0) return;
     const base = savedEventBase(campaignId, saved, this.deps.clock);
-    this.deps.publisher.conditionsApplied({ ...base, applied: applied.map(toTokenConditionDto) });
+    const event = { ...base, applied: applied.map(toTokenConditionDto) };
+    this.deps.publisher.conditionsApplied(event, cutsOf(event, veil, APPLIED_SEEN_BY));
   }
 }
 
@@ -346,6 +355,15 @@ async function tokenInScene(
   return token;
 }
 
-function heldBy<T>(holder: StateHolder, saved: T): Readonly<{ held: Held<T>; inCast: boolean }> {
-  return { held: { tokenId: holder.tokenId, saved }, inCast: holder.inCast };
+// A condition on an anchor goes to the cast, out of any veil; one on a grid token, under its own.
+function heldBy<T>(
+  holder: StateHolder,
+  saved: T,
+  token: TokenRow,
+): Readonly<{ held: Held<T>; inCast: boolean }> {
+  const veil = holder.inCast ? NO_HIDDEN : veilOf([token]);
+  return { held: { tokenId: holder.tokenId, saved, veil }, inCast: holder.inCast };
 }
+
+const NO_HIDDEN: TokenVeil = { tokens: [] };
+const APPLIED_SEEN_BY = entriesSeenBy<GridEvent<ConditionsAppliedDto>>('applied');

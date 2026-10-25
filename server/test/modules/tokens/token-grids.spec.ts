@@ -217,7 +217,7 @@ describe('token commands on a grid that is not the group one', () => {
   it('a paste in the Torre locks the Torre and token:createdMany carries it', async () => {
     const created = await batch.createMany(ANA_ID, VHARN_ID, {
       sceneId: TORRE_ID,
-      tokens: [GOBLIN],
+      tokens: [{ ...GOBLIN, hidden: false }],
     });
 
     expect(created.version).toBe(8);

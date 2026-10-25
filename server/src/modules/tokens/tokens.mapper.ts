@@ -63,6 +63,7 @@ export function toTokenDto(
     sight: sightOfToken(row.token),
     light: lightOfToken(row.token),
     lightLit: row.token.lightLit,
+    hidden: row.token.hidden,
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],

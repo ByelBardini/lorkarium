@@ -1,3 +1,5 @@
+import { controlVeilOf, cutsOf, type TokenVeil } from '../tokens/token-veil.mapper';
+import { combatEventSeenBy, turnChangedSeenBy } from './combat-veil.mapper';
 import type {
   EndCombatCommandDto,
   AddCombatantsCommandDto,
@@ -86,7 +88,12 @@ type InCombat = Readonly<{
   row: CombatRow | undefined;
   bo: CombatBo;
   roster: CombatRosterBo;
+  /** The hidden tokens of the scene: the events cut them for who may not see them. */
+  veil: TokenVeil;
 }>;
+
+/** What a combat transaction saved, with the veil of the scene it read. */
+type Veiled<Saved> = Saved & Readonly<{ veil: TokenVeil }>;
 
 type TurnChange = Readonly<{ combat: CombatDto; conditionChanges: ConditionChangeDto[] }>;
 
@@ -111,10 +118,8 @@ export class CombatService {
         return combatOf(daos, scene);
       },
     );
-    this.deps.publisher.combatStarted({
-      ...gridEventBase(campaignId, saved, this.deps.clock),
-      combat: saved.value,
-    });
+    const event = { ...gridEventBase(campaignId, saved, this.deps.clock), combat: saved.value };
+    this.deps.publisher.combatStarted(event, cutsOf(event, saved.veil, combatEventSeenBy));
     return saved.version;
   }
 
@@ -185,7 +190,7 @@ export class CombatService {
     const access = await this.accessOf(userId, campaignId);
     const address = { campaignId, sceneId: command.sceneId, access };
     const saved = await inLockedGridWithCast(this.deps.transaction, address, async (locked) => {
-      const { daos, row, bo, tokens } = await this.combatIn(locked, access);
+      const { daos, row, bo, tokens, veil } = await this.combatIn(locked, access);
       const turn = bo.nextTurn(command.fromCombatantId);
       const ended = row?.combatants.find(({ id }) => id === turn.endedTurnOf);
       const { loose, anchors } = holdersOf(tokens, ended?.tokenIds ?? []);
@@ -195,13 +200,13 @@ export class CombatService {
       const conditionChanges = await tickConditions(daos, loose, round);
       const anchorChanges = await tickConditions(daos, anchors, round);
       const combat = turnedCombat(row, turn);
-      const value = { combat, conditionChanges, anchorChanges };
+      const value = { combat, conditionChanges, anchorChanges, veil };
       return { value, grid: true, cast: anchors.length > 0 };
     });
-    const { combat, conditionChanges, anchorChanges } = saved.value;
+    const { combat, conditionChanges, anchorChanges, veil } = saved.value;
     this.publishAnchors(campaignId, saved.cast, anchorChanges);
     if (saved.grid)
-      this.publishTurn(campaignId, { ...saved.grid, value: { combat, conditionChanges } });
+      this.publishTurn(campaignId, { ...saved.grid, value: { combat, conditionChanges }, veil });
     return saved.version;
   }
 
@@ -231,10 +236,8 @@ export class CombatService {
       await work(locked);
       return combatOf(locked.daos, locked.scene);
     });
-    this.deps.publisher.combatUpdated({
-      ...gridEventBase(campaignId, saved, this.deps.clock),
-      combat: saved.value,
-    });
+    const event = { ...gridEventBase(campaignId, saved, this.deps.clock), combat: saved.value };
+    this.deps.publisher.combatUpdated(event, cutsOf(event, saved.veil, combatEventSeenBy));
     return saved.version;
   }
 
@@ -243,12 +246,16 @@ export class CombatService {
     campaignId: string,
     sceneId: string | undefined,
     work: (locked: InCombat) => Promise<T>,
-  ): Promise<SavedInScene<T>> {
+  ): Promise<Veiled<SavedInScene<T>>> {
     const access = await this.accessOf(userId, campaignId);
     const address = { campaignId, sceneId, access };
-    return inLockedGrid(this.deps.transaction, address, async (locked) =>
-      work(await this.combatIn(locked, access)),
-    );
+    let veil: TokenVeil = { tokens: [] };
+    const saved = await inLockedGrid(this.deps.transaction, address, async (locked) => {
+      const inCombat = await this.combatIn(locked, access);
+      veil = inCombat.veil;
+      return work(inCombat);
+    });
+    return { ...saved, veil };
   }
 
   private async combatIn(
@@ -260,7 +267,7 @@ export class CombatService {
     const state = row ? toCombatState(row, controllersIn(tokens)) : null;
     const bo = new CombatBo(access, state);
     const roster = new CombatRosterBo(access, state);
-    return { daos, scene, tokens, row, bo, roster };
+    return { daos, scene, tokens, row, bo, roster, veil: controlVeilOf(tokens) };
   }
 
   private publishAnchors(
@@ -280,11 +287,9 @@ export class CombatService {
     return access;
   }
 
-  private publishTurn(campaignId: string, saved: SavedInScene<TurnChange>): void {
-    this.deps.publisher.combatTurnChanged({
-      ...gridEventBase(campaignId, saved, this.deps.clock),
-      ...saved.value,
-    });
+  private publishTurn(campaignId: string, saved: Veiled<SavedInScene<TurnChange>>): void {
+    const event = { ...gridEventBase(campaignId, saved, this.deps.clock), ...saved.value };
+    this.deps.publisher.combatTurnChanged(event, cutsOf(event, saved.veil, turnChangedSeenBy));
   }
 }
 
