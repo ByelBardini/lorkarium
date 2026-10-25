@@ -16,11 +16,18 @@ desktop/
   release/                # plugin do semantic-release que só conta commits em desktop/ (ver Lançar uma versão)
   index.html, src/        # splash: TypeScript puro + Vite (porta 1420), sem React
   test/                   # Vitest (projeto @lorkarium/desktop), fakes em test/support/
+  scripts/                # installer-art.ts (logo + "LORKARIUM" em Cinzel pelo Chromium → BMP) e bmp-encoder.ts (BMP 24 bits puro; o sharp não grava BMP); rodam direto no Node, por isso o import relativo leva `.ts` (allowImportingTsExtensions)
   src-tauri/
     build.rs              # valida LORKARIUM_APP_URL com o próprio app_origin.rs (#[path]) e gera as permissões dos comandos
     tauri.conf.json       # janela "main" (create: false), NSIS, updater
     capabilities/splash.json
-    icons/                # gerados de client/public/favicon.svg (só os do Windows)
+    icons/                # gerados de client/public/favicon.svg (só os do Windows); icon.ico também é o installerIcon do NSIS
+    nsis/installer.nsi    # cópia do template NSIS do Tauri 2.12.4 (bundle.windows.nsis.template); só as páginas trocadas, marcadas "Lorkarium:"
+    nsis/lorkarium-ui.nsh # installerHooks: janela escura, logo fixo, barra dourada, atalho pelo NSIS_HOOK_POSTINSTALL
+    nsis/page-home.nsh    # tela única: Instalar / Atualizar / Reinstalar / Instalar mesmo assim (segue allowDowngrades)
+    nsis/page-done.nsh    # "Tudo pronto." + Abrir o Lorkarium (RunMainBinary) / Fechar
+    nsis/page-uninstall.nsh # desinstalador: confirmação escura (+ "Apagar também os dados", o $DeleteAppDataCheckboxState do template), barra, despedida
+    nsis/art/hero-<escala>.bmp # arte do instalador em 100/125/150/200% (paleta e logo de packages/brand), gerada pelo installer:art e versionada
     src/
       lib.rs              # run(): plugins, comandos, setup da janela
       app_origin.rs       # AppOrigin::parse(url, BuildProfile) e contains(url)
@@ -89,11 +96,13 @@ splash carrega → escuta "startup" → invoke begin_startup (uma vez; recarga n
 
 - Rust: `#[cfg(test)] mod tests` dentro de cada módulo puro (`app_origin`, `navigation`, `webview2`, `startup`, `tray`). O `startup` roda sobre fakes nomeados (`UpdateSourceFake` com `UpToDate`/`Fails`/`Hangs`/`Offers`, `UpdateFake`, `HealthProbeFake::answering([...])`) e `tauri::async_runtime::block_on`; o prazo da checagem entra por parâmetro (50 ms no teste). Borda (COM, updater, HTTP, janela) não tem teste: fica fina de propósito.
 - Splash: `desktop/test/*.spec.ts`. `ShellBridgeFake` (`calls`, `emit(payload)`) e `loadSplashDocument()` (o `index.html` real no jsdom, `// @vitest-environment jsdom` por arquivo) em `test/support/`; o `shell-bridge.spec.ts` usa o `mockIPC(…, { shouldMockEvents: true })` do `@tauri-apps/api/mocks` para provar os nomes de comando e do evento.
+- Instalador: `test/scripts/bmp-encoder.spec.ts` (cabeçalho, padding, BGR de baixo para cima) e `test/installer/nsis-template.spec.ts` (guarda do template, ver Instalador). As telas NSIS não têm teste automático: conferir rodando o setup.
 
 ## Comandos
 
 - `pnpm desktop:dev` — com o `pnpm dev` de pé: `tauri dev` sobe a splash (1420), compila o Rust e abre a janela apontando para `localhost:5173`.
 - `pnpm desktop:build` — instalador NSIS em `desktop/src-tauri/target/release/bundle/nsis/` (exige `LORKARIUM_APP_URL` https e as chaves de assinatura do updater).
+- `pnpm --filter @lorkarium/desktop installer:art` — refaz `src-tauri/nsis/art/*.bmp` (usa o Chromium do Playwright já instalado pelo e2e). Rodar quando o logo, a paleta ou o tamanho do hero mudar.
 - `cargo test` / `cargo clippy --all-targets -- -D warnings` / `cargo fmt --check` em `desktop/src-tauri` (o job `desktop` do CI, ver [`ci.md`](ci.md)). Splash: `pnpm exec vitest run --project @lorkarium/desktop`.
 - Inspecionar a janela de fora: `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333 pnpm desktop:dev` e `http://localhost:9333/json` (URL atual, CDP para `navigator.userAgent`).
 - Pré-requisitos: Rust estável ≥ 1.90 (`rustup`; `cargo` em `~/.cargo/bin`) e o MSVC Build Tools (C++). WebView2 já vem no Windows 10/11.
@@ -109,8 +118,20 @@ splash carrega → escuta "startup" → invoke begin_startup (uma vez; recarga n
 
 Sem certificado de código: a 1ª instalação passa pelo SmartScreen ("Executar assim mesmo"); as atualizações seguintes são silenciosas. NSIS por usuário (`installMode: currentUser`, sem admin), em pt-BR.
 
+## Instalador (NSIS próprio)
+
+Um clique, janela escura de 520×420 em escala, logo fixo no topo (`hero-<escala>.bmp` pelo DPI), sem os botões do assistente e com a barra de título escura (DWM). Instalador: tela única → barra → "Tudo pronto.". Pasta sempre a padrão; versão instalada é atualizada no lugar, sem desinstalar antes (como o updater). O botão segue a comparação com o registro: Instalar, Atualizar, Reinstalar, "Instalar mesmo assim" (downgrade, permitido pelo padrão `allowDowngrades: true`; com `false` vira "Fechar"). No `passive` (updater) as telas pulam e só a barra aparece. Desinstalador: confirmação → barra → despedida. Só `nsDialogs` e `System::Call`, sem plugin de skin.
+
+- O "botão" é um `STATIC` com `SS_NOTIFY` (Win32 não pinta botão sem owner-draw); o Enter segue pelo Next escondido. Funções do desinstalador levam `un.`: `LK_CHROME_FUNCTIONS UN` é inserido uma vez por lado.
+- Atalho da área de trabalho e o auto-avanço do desinstalador entram pelos hooks (`NSIS_HOOK_POSTINSTALL` / `NSIS_HOOK_POSTUNINSTALL`), não pela cópia do template. O ícone do desinstalador é o `installerIcon`, definido em `LK_PAGE_HOME` (o MUI fixa o ícone já na primeira página).
+- "Apagar também os dados" (desmarcado por padrão; nunca no `/S`) apaga `%APPDATA%` e `%LOCALAPPDATA%\app.lorkarium.desktop` (o perfil do WebView2, com o cookie de login) e as chaves do registro. As mesas ficam no server.
+- **Atualizar o `@tauri-apps/cli`**: o `desktop/test/installer/nsis-template.spec.ts` falha de propósito (o cabeçalho cita `tauri-cli-v<versão>`), inclusive no PR do grupo minor/patch do Dependabot, que vem vermelho. Baixar o `installer.nsi` da tag nova, comparar com a cópia fora dos trechos `Lorkarium:`, portar o que mudou e trocar a versão no cabeçalho. O spec também confere os marcadores do updater, as macros `LK_*` e o BOM dos `.nsh`.
+- Testar: em `desktop/`, `LORKARIUM_APP_URL=https://… pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` (sem as chaves do updater; ou o `makensis` direto, ver Armadilhas), rodar o setup, e para o updater `<setup>.exe /P /UPDATE`. Silencioso: `/S` no setup e no `uninstall.exe`.
+
 ## Armadilhas
 
+- **Build de teste do instalador se atualiza sozinho**: com versão 0.x, ao abrir o app instalado o updater acha a release publicada e reinstala por cima (passive). Testar as telas sem abrir o app, ou carimbar a versão. Para iterar no NSIS sem recompilar o Rust: editar `nsis/*.nsh` e rodar o `makensis` do Tauri (`%LOCALAPPDATA%\tauri\NSIS\Bin\makensis.exe -INPUTCHARSET UTF8`) no `target/release/nsis/x64/installer.nsi` gerado, que inclui os `.nsh` por caminho absoluto.
+- **NSIS e cor de texto**: `SetCtlColors` não pega no status do instfiles (1006) nem no texto de checkbox com tema (fica preto no fundo escuro); por isso a linha de status e o rótulo do atalho são controles nossos. Os `.nsh` com acento ficam em UTF-8 **com BOM**.
 - **Escondido na bandeja o site continua vivo**: o Socket.IO segue ligado e a presença na mesa não cai (a aba do navegador minimizada faz o mesmo). Quem quiser sair da mesa usa o "Sair" da bandeja.
 
 - **Comparar origem por prefixo de texto** deixa `lorkarium.app.evil.com` e `evil.com/?r=https://lorkarium.app` entrarem. A regra é `Url::origin()` (esquema, host **e porta**), em `AppOrigin::contains`.
