@@ -407,6 +407,13 @@
       "when": 1792962535347,
       "tag": "0057_aura_asset_purpose",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1792962828987,
+      "tag": "0058_token_aura",
+      "breakpoints": true
     }
   ]
 }

@@ -6,9 +6,11 @@ export { campaignStatus, campaignVisibility, campaigns } from '../modules/campai
 export { sceneKind, sceneVision, sceneVisibility, scenes } from '../modules/scenes/scenes.po';
 export { sceneFolders } from '../modules/library/scene-folders.po';
 export {
+  auraEffect,
   barColor,
   barDisplay,
   barVisibility,
+  tokenAuraKind,
   tokenBars,
   tokenControllers,
   tokenFrame,

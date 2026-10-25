@@ -47,6 +47,7 @@ const GOBLIN: CreateToken = {
   flipY: false,
   facing: 0,
   sightAngle: 360,
+  aura: null,
   bars: [],
 };
 

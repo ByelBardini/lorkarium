@@ -34,6 +34,7 @@ export * from './board/light.dto';
 export * from './board/token.dto';
 export * from './board/token-group.dto';
 export * from './board/token-appearance.dto';
+export * from './board/token-aura.dto';
 export * from './board/token-resize.dto';
 export * from './board/token-main.dto';
 export * from './board/token-hidden.dto';

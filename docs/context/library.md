@@ -79,7 +79,7 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 
 - `duplicate`: `findInCampaign` → `scenes.insert(toSceneCopyPo(source, sceneCopyName(…)))` (mesmo grid, fundo e visão, mesma pasta, **privado**, versão 0) → `tokens` → `walls` → `lights` → `drawings` → `effectAreas` `.copyScene(from, to)`, tudo no `tx`.
 - `copyScene` é `INSERT … SELECT` montado por `server/src/database/copy-rows.ts`: `copyRowsSql(table, replaced, source)` copia toda coluna como está, troca as de `replaced` e pula coluna identity/gerada (as `*_order` renumeram na ordem do `ORDER BY`); `sceneRowsCopySql` é o caso "linhas de uma cena com ids novos"; `uuidArray(ids)` passa ids como um `uuid[]` só.
-- `TokensDao.copyScene` sorteia os ids novos no banco (`gen_random_uuid()`), copia os tokens por um `unnest(old[], new[]) AS copy_map` e, pelo mesmo mapa, barras, controle e condições (`appliedRound` nulo: fora de combate); devolve o mapa velho → novo. Combate (`combats`) e principal (`main_tokens`) não vão.
+- `TokensDao.copyScene` sorteia os ids novos no banco (`gen_random_uuid()`), copia os tokens por um `unnest(old[], new[]) AS copy_map` (toda coluna, a aura inclusive: a cópia leva a aura de cada token, ver [`tokens/aura.md`](tokens/aura.md)) e, pelo mesmo mapa, barras, controle e condições (`appliedRound` nulo: fora de combate); devolve o mapa velho → novo. Combate (`combats`) e principal (`main_tokens`) não vão.
 - Os tokens copiam o `created_at` da origem (a ordem de desenho é por ele); tokens que empatavam no `created_at` podem trocar de ordem entre si na cópia (o desempate é o id novo).
 
 ## Testes

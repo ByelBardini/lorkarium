@@ -1,8 +1,10 @@
 import {
+  AURA_EFFECTS,
   TOKEN_GROUP_MAX,
   type LightColorDto,
   type NewTokenDto,
   type SceneVisionDto,
+  type TokenAuraDto,
   type TokenLayerDto,
   type WallShapeDto,
 } from '@lorkarium/contracts';
@@ -106,11 +108,21 @@ function stressTokenOf(index: number, playerId: string): NewTokenDto {
     ...{ imageAssetId: null, frame: 'square', flipX: false, flipY: false },
     ...{ facing: (index * 30) % 360, sightAngle: 360 },
     hidden: false,
+    aura: stressAuraOf(index),
     controllerIds: mine ? [playerId] : [],
     sight: index % PLAYER_TOKEN_STEP === 0 ? { bright: 6, dim: 6 } : null,
     light: index % 10 === 0 ? { bright: 4, dim: 4, color: 'torch', angle: 360 } : null,
     bars: barsOf(index),
   };
+}
+
+// One token in 10 wears an aura; one in 30 an animated effect (the case the board must hold at
+// 60 FPS), the others a still tint.
+function stressAuraOf(index: number): TokenAuraDto | null {
+  if (index % 10 !== 3) return null;
+  if (index % 30 !== 3) return { kind: 'color', radius: 1, color: 'gold', opacity: 50 };
+  const effect = AURA_EFFECTS[Math.floor(index / 30) % AURA_EFFECTS.length] ?? 'fire';
+  return { kind: 'effect', radius: 2, effect, color: null, opacity: 100 };
 }
 
 function sideOf(index: number): NewTokenDto['side'] {

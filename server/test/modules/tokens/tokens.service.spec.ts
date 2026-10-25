@@ -56,6 +56,7 @@ const NEW_TOKEN: CreateToken = {
   flipY: false,
   facing: 0,
   sightAngle: 360,
+  aura: null,
   bars: [PV],
 };
 

@@ -173,7 +173,14 @@ const GOBLIN_WITHOUT_LAYER = {
   ],
 } as const;
 const GOBLIN = { ...GOBLIN_WITHOUT_LAYER, layer: 'tokens' } as const;
-const PLAIN_LOOK = { imageAssetId: null, frame: 'square', flipX: false, flipY: false, facing: 0 };
+const PLAIN_LOOK = {
+  imageAssetId: null,
+  frame: 'square',
+  flipX: false,
+  flipY: false,
+  facing: 0,
+  aura: null,
+};
 
 function tokensOf(count: number) {
   return Array.from({ length: count }, () => GOBLIN);

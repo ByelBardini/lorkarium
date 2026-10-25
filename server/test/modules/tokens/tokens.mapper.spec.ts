@@ -8,7 +8,14 @@ import {
 } from '../../../src/modules/tokens/tokens.mapper';
 import { LYRA_PORTRAIT_ID } from '../../support/assets-factories';
 import { BIA_ID } from '../../support/campaigns-factories';
-import { LYRA_ID, lyraPo, lyraRow } from '../../support/tokens-factories';
+import {
+  FIRE_AURA,
+  GOLD_AURA,
+  LYRA_ID,
+  fireAuraColumns,
+  lyraPo,
+  lyraRow,
+} from '../../support/tokens-factories';
 
 const PERCENT_PV = {
   label: 'PV',
@@ -242,6 +249,35 @@ describe('tokens mapper', () => {
       expect(toTokenDto(row, 'others').hidden).toBe(hidden);
     },
   );
+
+  it.each(['privileged', 'others'] as const)(
+    'the %s audience gets the same fire aura (not a secret)',
+    (audience) => {
+      const row = lyraRow({ token: lyraPo(fireAuraColumns()) });
+
+      expect(toTokenDto(row, audience).aura).toEqual(FIRE_AURA);
+    },
+  );
+
+  it('a token without an aura reaches the viewer with aura null', () => {
+    expect(toTokenDto(lyraRow(), 'others').aura).toBeNull();
+  });
+
+  it('an update with an aura writes its six columns, null clears them and without it writes none', () => {
+    const base = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 } as const;
+    const command = { ...base, controllerIds: [], bars: [] };
+
+    expect(toTokenUpdatePo({ ...command, aura: GOLD_AURA }, []).fields).toMatchObject({
+      auraKind: 'color',
+      auraColor: 'gold',
+      auraRadius: '2.00',
+    });
+    expect(toTokenUpdatePo({ ...command, aura: null }, []).fields).toMatchObject({
+      auraKind: null,
+      auraOpacity: null,
+    });
+    expect(toTokenUpdatePo(command, []).fields).not.toHaveProperty('auraKind');
+  });
 
   it('the token DTO carries no persistence fields', () => {
     expect(toTokenDto(lyraRow(), 'others')).not.toHaveProperty('sceneId');

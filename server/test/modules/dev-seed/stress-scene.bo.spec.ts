@@ -19,6 +19,13 @@ describe('stressSceneOf', () => {
     expect(scene.vision).toBe('dark');
   });
 
+  it('gives one token in 10 an aura, a third of them an animated effect and the rest a tint', () => {
+    const auras = stressSceneOf(CAIO_ID).tokens.flatMap(({ aura }) => (aura ? [aura] : []));
+    expect(auras).toHaveLength(30);
+    expect(auras.filter(({ kind }) => kind === 'effect')).toHaveLength(10);
+    expect(auras.filter(({ kind }) => kind === 'color')).toHaveLength(20);
+  });
+
   it('gives the player two tokens that see in the dark and no one else', () => {
     const mine = stressSceneOf(CAIO_ID).tokens.filter(({ controllerIds }) =>
       controllerIds.includes(CAIO_ID),
