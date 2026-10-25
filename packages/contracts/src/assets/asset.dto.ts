@@ -3,8 +3,9 @@ import { z } from 'zod';
 /** 20 MiB: the largest file `POST /assets` (and a link import) accepts, before decoding. */
 export const ASSET_MAX_BYTES = 20 * 1024 * 1024;
 
-/** The only image types the server keeps; GIF and SVG are refused (§8.5). */
-export const ASSET_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+/** The only image types the server keeps; SVG is refused (§8.5) and GIF is kept only for an aura,
+ *  the one purpose that animates. */
+export const ASSET_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
 
 export const ASSET_URL_MAX_LENGTH = 2048;
 
@@ -13,7 +14,7 @@ export const assetMimeTypeDto = z.enum(ASSET_MIME_TYPES);
 export type AssetMimeTypeDto = z.infer<typeof assetMimeTypeDto>;
 
 /** Only decides the largest side the server keeps; the asset may be used for anything later. */
-export const assetPurposeDto = z.enum(['background', 'token', 'cover', 'condition']);
+export const assetPurposeDto = z.enum(['background', 'token', 'cover', 'condition', 'aura']);
 
 export type AssetPurposeDto = z.infer<typeof assetPurposeDto>;
 
@@ -26,7 +27,16 @@ export const ASSET_MAX_SIDE: Readonly<Record<AssetPurposeDto, number>> = {
   // The condition badge reaches ~120 px on screen at high zoom (240 px on 2x screens); a square
   // 256 keeps it sharp at 1/16 of the texture memory of a token.
   condition: 256,
+  // An aura spans a few cells around the token; 512 stays sharp and keeps a GIF's frames small.
+  aura: 512,
 };
+
+/** How much animation an aura GIF may keep: its frames and the pixels they decode to in total
+ *  (width × height × frames), so a 120-frame GIF is cut to a smaller side, never refused for it. */
+export const AURA_ANIMATION_LIMITS = Object.freeze({
+  maxFrames: 120,
+  maxDecodedPixels: 16_000_000,
+});
 
 /** A stored image of one campaign, as the client sees it (read back at `GET /api/assets/:id`).
  *

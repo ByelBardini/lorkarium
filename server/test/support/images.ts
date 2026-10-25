@@ -34,3 +34,33 @@ export async function sendImage(
   if (response.statusCode !== 201) throw new Error(`send to ${table.id} answered ${response.body}`);
   return assetResponseDto.parse(response.json()).asset;
 }
+
+const GIF_COLOURS = [
+  { r: 220, g: 30, b: 30 },
+  { r: 30, g: 30, b: 220 },
+  { r: 30, g: 200, b: 60 },
+];
+
+/** An animated GIF of `frames` solid `side`×`side` frames, colours far apart so the encoder keeps
+ *  every frame (no binary in the repo).
+ *
+ *  Example: `await animatedGifOf(3, 64) // 3 pages` */
+export async function animatedGifOf(frames: number, side: number): Promise<Buffer> {
+  const pictures = await Promise.all(
+    Array.from({ length: frames }, (_, index) =>
+      sharp({
+        create: {
+          width: side,
+          height: side,
+          channels: 3,
+          background: GIF_COLOURS[index % 3] ?? '#f00',
+        },
+      })
+        .png()
+        .toBuffer(),
+    ),
+  );
+  return sharp(pictures, { join: { animated: true } })
+    .gif()
+    .toBuffer();
+}

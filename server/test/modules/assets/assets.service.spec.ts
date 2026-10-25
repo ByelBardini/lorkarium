@@ -89,6 +89,44 @@ describe('AssetsService', () => {
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
 
+  it('an aura file is normalized up to 512 px with the animation budget of the contract', async () => {
+    await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'aura' });
+
+    expect(processor.resizes).toEqual([
+      { maxSide: 512, square: false, animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 } },
+    ]);
+    expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it('a token file is normalized without any animation budget', async () => {
+    await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'token' });
+
+    expect(processor.resizes[0]).not.toHaveProperty('animation');
+  });
+
+  it('an aura link is normalized with the animation budget too', async () => {
+    const link = { url: 'https://x.com/fire.gif', purpose: 'aura' } as const;
+
+    await service.importLink(BIA_ID, VHARN_ID, link);
+
+    expect(processor.resizes).toEqual([
+      { maxSide: 512, square: false, animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 } },
+    ]);
+  });
+
+  it('an aura GIF refused for its frames is UNSUPPORTED_IMAGE citing the frames, nothing stored', async () => {
+    processor.refusal = {
+      reason: 'too-many-frames',
+      detail: 'the image has 121 frames; expected at most 120 frames',
+    };
+
+    const upload = service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'aura' });
+
+    await expect(upload).rejects.toMatchObject({ code: 'UNSUPPORTED_IMAGE' });
+    await expect(upload).rejects.toThrow('the image has 121 frames; expected at most 120 frames');
+    expect(journal).toEqual(['normalize']);
+  });
+
   it('someone outside the campaign is refused with CAMPAIGN_NOT_FOUND before anything is kept', async () => {
     const upload = service.upload(CAIO_ID, VHARN_ID, { bytes: PNG, purpose: 'token' });
 

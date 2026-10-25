@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
-import { pngOf } from '../support/images';
+import { animatedGifOf, pngOf } from '../support/images';
 import { signUpAndLogin } from '../support/sign-in';
 import { createTable, joinAsSpectator, joinByCode, type Table } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
@@ -142,8 +142,17 @@ describe('assets HTTP edge', () => {
     expect(codeOf(response)).toBe('CAMPAIGN_NOT_FOUND');
   });
 
-  it('a GIF content type is 415 UNSUPPORTED_IMAGE', async () => {
-    const response = await upload(ana, smallPng, { type: 'image/gif' });
+  // Contract change (aura plan, 2026-10-25): image/gif now has a parser, so a GIF that is not for
+  // an aura is decoded and refused by the processor (422), no longer turned away as a type (415).
+  it('a GIF sent as a token is 422 UNSUPPORTED_IMAGE: GIF is only for an aura', async () => {
+    const response = await upload(ana, await animatedGifOf(3, 32), { type: 'image/gif' });
+
+    expect(response.statusCode).toBe(422);
+    expect(codeOf(response)).toBe('UNSUPPORTED_IMAGE');
+  });
+
+  it('an SVG content type is still 415 UNSUPPORTED_IMAGE', async () => {
+    const response = await upload(ana, smallPng, { type: 'image/svg+xml' });
 
     expect(response.statusCode).toBe(415);
     expect(codeOf(response)).toBe('UNSUPPORTED_IMAGE');
@@ -218,14 +227,14 @@ describe('assets HTTP edge', () => {
       });
     });
 
-    it('a GIF is 415 UNSUPPORTED_IMAGE', async () => {
+    it('a GIF is 422 UNSUPPORTED_IMAGE', async () => {
       const gif = await sharp(await pngOf(32, 32))
         .gif()
         .toBuffer();
 
       const response = await upload(ana, gif, { purpose: 'condition', type: 'image/gif' });
 
-      expect(response.statusCode).toBe(415);
+      expect(response.statusCode).toBe(422);
       expect(codeOf(response)).toBe('UNSUPPORTED_IMAGE');
     });
 
@@ -244,6 +253,57 @@ describe('assets HTTP edge', () => {
       const asset = assetResponseDto.parse(sent.json()).asset;
 
       const response = await call(caio, { method: 'GET', url: `/assets/${asset.id}` });
+
+      expect(response.statusCode).toBe(404);
+      expect(codeOf(response)).toBe('ASSET_NOT_FOUND');
+    });
+  });
+
+  describe('with purpose=aura', () => {
+    it('an animated GIF is 201 image/gif and is read back as image/gif with its frames', async () => {
+      const sent = await upload(bia, await animatedGifOf(3, 64), {
+        purpose: 'aura',
+        type: 'image/gif',
+      });
+      expect(sent.statusCode).toBe(201);
+      const asset = assetResponseDto.parse(sent.json()).asset;
+      expect(asset).toMatchObject({ mimeType: 'image/gif', width: 64, height: 64 });
+
+      const read = await call(ana, { method: 'GET', url: `/assets/${asset.id}` });
+
+      expect(read.headers['content-type']).toBe('image/gif');
+      expect((await sharp(read.rawPayload, { animated: true }).metadata()).pages).toBe(3);
+    });
+
+    it('a 900×900 PNG is kept at 512×512', async () => {
+      const response = await upload(ana, await pngOf(900, 900), { purpose: 'aura' });
+
+      expect(assetResponseDto.parse(response.json()).asset).toMatchObject({
+        mimeType: 'image/png',
+        width: 512,
+        height: 512,
+      });
+    });
+
+    it('a GIF of 121 frames is 422 UNSUPPORTED_IMAGE', async () => {
+      const response = await upload(ana, await animatedGifOf(121, 8), {
+        purpose: 'aura',
+        type: 'image/gif',
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(codeOf(response)).toBe('UNSUPPORTED_IMAGE');
+    });
+
+    it('an aura image of Quelm is not readable by a member of Vharn', async () => {
+      const sent = await upload(caio, await animatedGifOf(2, 16), {
+        purpose: 'aura',
+        type: 'image/gif',
+        campaignId: quelmId,
+      });
+      const asset = assetResponseDto.parse(sent.json()).asset;
+
+      const response = await call(bia, { method: 'GET', url: `/assets/${asset.id}` });
 
       expect(response.statusCode).toBe(404);
       expect(codeOf(response)).toBe('ASSET_NOT_FOUND');

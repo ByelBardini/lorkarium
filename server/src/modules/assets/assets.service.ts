@@ -1,13 +1,14 @@
 import {
   ASSET_MAX_BYTES,
   ASSET_MAX_SIDE,
+  AURA_ANIMATION_LIMITS,
   type AssetDto,
   type AssetMimeTypeDto,
   type AssetPurposeDto,
 } from '@lorkarium/contracts';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
-import { requireSize, resizeFor } from './asset-upload.bo';
+import { animationFor, requireSize, resizeFor } from './asset-upload.bo';
 import type { AssetStoragePort, StoredObject } from './asset-storage.port';
 import type { AssetsDao } from './assets.dao';
 import {
@@ -20,7 +21,7 @@ import {
 } from './assets.error';
 import { storageKeyOf, toAssetDto, toNewAssetPo } from './assets.mapper';
 import type { FetchRefusal, ImageFetcherPort } from './image-fetcher.port';
-import type { ImageProcessorPort, NormalizedImage } from './image-processor.port';
+import type { ImageProcessorPort, NormalizedImage, NormalizeOptions } from './image-processor.port';
 
 export type AssetsServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
@@ -55,10 +56,7 @@ export class AssetsService {
   ): Promise<AssetDto> {
     await memberAccessOf(this.deps.members, campaignId, userId);
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
-    const normalized = await this.deps.processor.normalize(
-      file.bytes,
-      resizeFor(file.purpose, ASSET_MAX_SIDE),
-    );
+    const normalized = await this.deps.processor.normalize(file.bytes, keptAs(file.purpose));
     if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
     return this.keep({ campaignId, userId, purpose: file.purpose }, normalized.image);
   }
@@ -94,10 +92,7 @@ export class AssetsService {
     bytes: Uint8Array,
     purpose: AssetPurposeDto,
   ): Promise<NormalizedImage> {
-    const normalized = await this.deps.processor.normalize(
-      bytes,
-      resizeFor(purpose, ASSET_MAX_SIDE),
-    );
+    const normalized = await this.deps.processor.normalize(bytes, keptAs(purpose));
     if (!normalized.ok) throw new LinkNotImageError(url);
     return normalized.image;
   }
@@ -110,6 +105,13 @@ export class AssetsService {
     );
     return toAssetDto(row);
   }
+}
+
+// The budget key is left out when the purpose never animates, so the processor refuses a GIF.
+function keptAs(purpose: AssetPurposeDto): NormalizeOptions {
+  const resize = resizeFor(purpose, ASSET_MAX_SIDE);
+  const animation = animationFor(purpose, AURA_ANIMATION_LIMITS);
+  return animation ? { ...resize, animation } : resize;
 }
 
 function linkErrorOf(url: string, refusal: FetchRefusal): Error {
