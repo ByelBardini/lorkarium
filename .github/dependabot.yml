@@ -24,3 +24,13 @@ updates:
     groups:
       github-actions:
         patterns: ['*']
+
+  - package-ecosystem: cargo
+    directory: /desktop/src-tauri
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      cargo:
+        update-types: [minor, patch]
