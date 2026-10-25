@@ -1,0 +1,25 @@
+{
+  "name": "@lorkarium/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "typecheck": "tsc",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@fontsource-variable/cinzel": "^5.3.0",
+    "@fontsource-variable/hanken-grotesk": "^5.3.0",
+    "@tauri-apps/api": "^2.12.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@lorkarium/tsconfig": "workspace:*",
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/node": "^26.6.5",
+    "jsdom": "^30.1.2",
+    "vite": "^8.3.4"
+  }
+}

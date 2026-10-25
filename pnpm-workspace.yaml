@@ -3,5 +3,6 @@ packages:
   - server
   - packages/*
   - e2e
+  - desktop
 allowBuilds:
   esbuild: true

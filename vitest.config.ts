@@ -8,6 +8,7 @@ export default defineConfig({
       'server/vitest.integration.config.ts',
       'packages/contracts',
       'packages/game-core/vitest.config.ts',
+      'desktop',
     ],
     passWithNoTests: true,
     // Report only, no threshold: scenarios come from the contract, never from uncovered lines (skill testar).
