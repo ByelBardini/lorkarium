@@ -33,6 +33,8 @@ describe('readEnv', () => {
       dataEncryptionKey: Buffer.alloc(32, 3),
       mailer: { kind: 'log', from: 'Lorkarium <no-reply@lorkarium.dev>' },
       appPublicUrl: 'http://localhost:5173',
+      trustProxyHops: 0,
+      clientDistDir: null,
     });
   });
 
@@ -227,5 +229,45 @@ describe('readEnv, mail', () => {
       /SMTP_URL must start with smtp:\/\/ or smtps:\/\/ \(received a redacted value\)/,
     );
     expect(read).not.toThrow(/segredo-smtp/);
+  });
+});
+
+describe('readEnv, TRUST_PROXY', () => {
+  it('absent means no proxy is trusted (0 hops)', () => {
+    expect(readEnv({ ...REQUIRED }).trustProxyHops).toBe(0);
+  });
+
+  it.each([
+    ['', 0],
+    ['1', 1],
+    ['5', 5],
+  ])('TRUST_PROXY=%j is read as %i hops', (value, hops) => {
+    expect(readEnv({ ...REQUIRED, TRUST_PROXY: value }).trustProxyHops).toBe(hops);
+  });
+
+  it.each(['true', '-1', '6'])(
+    'TRUST_PROXY=%s is refused citing the value and the hop range',
+    (value) => {
+      expect(() => readEnv({ ...REQUIRED, TRUST_PROXY: value })).toThrow(
+        new RegExp(`TRUST_PROXY must be an integer from 0 to 5.*"${value}"`),
+      );
+    },
+  );
+});
+
+describe('readEnv, CLIENT_DIST_DIR', () => {
+  it('absent means the server does not serve the client', () => {
+    expect(readEnv({ ...REQUIRED }).clientDistDir).toBeNull();
+  });
+
+  it('an absolute path is the folder of the client build', () => {
+    const env = readEnv({ ...REQUIRED, CLIENT_DIST_DIR: '/app/client/dist' });
+    expect(env.clientDistDir).toBe('/app/client/dist');
+  });
+
+  it('a relative path is refused citing the value and an absolute path', () => {
+    expect(() => readEnv({ ...REQUIRED, CLIENT_DIST_DIR: 'client/dist' })).toThrow(
+      /CLIENT_DIST_DIR must be an absolute path.*"client\/dist"/,
+    );
   });
 });
