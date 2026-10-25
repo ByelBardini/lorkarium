@@ -83,10 +83,12 @@ test('the new nickname and color reach the table live, and the next ping comes i
     const dot = await cellCenterOf(bia, 5, 2);
     await altClickCell(admin, 5, 2);
     await expect(statusOf(bia)).toHaveText(`${nickname} marcou um ponto (coluna 6, linha 3).`);
-    // The ping lives 3 s: sample its dot on Bia's canvas while it is there.
+    // The ping lives 3 s: sample its dot on Bia's canvas while it is there. The first sample is
+    // captured inside that window, but on the CI's software WebGL one screenshot alone takes
+    // ~2.8 s (ReadPixels stall), so the poll waits past the ping's life for it to come back.
     await expect
       .poll(async () => color.lead(await meanChannelsAt(bia, dot, PING_DOT_SAMPLE_PX)), {
-        timeout: 2_500,
+        timeout: 8_000,
         intervals: [100],
       })
       .toBeGreaterThan(0.15);
