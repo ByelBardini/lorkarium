@@ -17,6 +17,8 @@ import type {
   SessionStateDto,
   TokenDto,
   TokensDraggedDto,
+  VeiledLightDto,
+  VeiledLightsChangedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
 import { ANA } from './auth-api-fake';
@@ -195,6 +197,7 @@ export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDt
     effectAreas: [],
     walls: [],
     lights: [],
+    veiledLights: [],
     combat: null,
     conditionDefinitions: [],
     mainTokens: [],
@@ -246,6 +249,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     sight: null,
     light: null,
     lightLit: true,
+    hidden: false,
     canControl: true,
     bars: [
       {
@@ -333,6 +337,17 @@ export function groupDraggedOver(
   overrides: Partial<TokensDraggedDto> = {},
 ): TokensDraggedDto {
   return { campaignId: VHARN.id, at: AT, drags, ...overrides };
+}
+
+/** `token:veiledLightsChanged` on the group grid of Vharn: the whole list of the lights of the
+ *  hidden tokens this viewer does not receive (no version: it replaces the list).
+ *
+ *  Example: `transport.serverEmits('token:veiledLightsChanged', veiledLightsChanged([veiledTorch()]))` */
+export function veiledLightsChanged(
+  lights: VeiledLightDto[],
+  overrides: Partial<VeiledLightsChangedDto> = {},
+): VeiledLightsChangedDto {
+  return { campaignId: VHARN.id, sceneId: VHARN_SCENE.id, at: AT, lights, ...overrides };
 }
 
 /** Bia's ping on the group grid of Vharn, at (5.5, 2.2) cells.

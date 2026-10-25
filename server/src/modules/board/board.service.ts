@@ -1,4 +1,9 @@
-import type { ActiveConditionDto, BoardStateDto, TokenDto } from '@lorkarium/contracts';
+import type {
+  ActiveConditionDto,
+  BoardStateDto,
+  TokenDto,
+  VeiledLightDto,
+} from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -19,7 +24,9 @@ import { seenGridOf } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { MainTokensDao } from '../tokens/main-tokens.dao';
 import { stateHolderIdOf } from '../tokens/linked-token';
-import { TokenAccessBo } from '../tokens/token-access.bo';
+import { TokenAccessBo, type TokenAudience } from '../tokens/token-access.bo';
+import { veilOf, veiledLightsOf } from '../tokens/token-veil.mapper';
+import { combatSeenBy } from '../combat/combat-veil.mapper';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { toTokenDto } from '../tokens/tokens.mapper';
 import type { WallsDao } from '../walls/walls.dao';
@@ -75,28 +82,43 @@ export class BoardService {
     const address = { campaignId, sceneId, access };
     return this.deps.snapshot(async (daos) => {
       const scene = seenGridOf(address, await daos.scenes.findGridInCampaign(campaignId, sceneId));
-      const tokens = await tokensFor(daos, access, scene.id);
+      const seen = await tokensFor(daos, access, scene.id);
       const combatRow = await daos.combat.findOfScene(scene.id);
-      const combat = combatRow ? toCombatDto(combatRow) : null;
+      const combat = combatSeenBy(combatRow ? toCombatDto(combatRow) : null, seen.invisible);
       const shared = await sharedPiecesOf(daos, scene.id);
+      const mainTokens = shared.mainTokens.filter(({ tokenId }) => !seen.invisible.has(tokenId));
       const table = await tablePiecesOf(daos, campaignId);
       const at = this.deps.clock.now();
-      const pieces = { tokens, ...shared, combat, ...table };
+      const { tokens, veiledLights } = seen;
+      const pieces = { tokens, ...shared, mainTokens, veiledLights, combat, ...table };
       return toBoardStateDto({ campaignId, viewer: { userId, role }, scene, ...pieces, at });
     });
   }
 }
 
+/** The tokens one viewer receives, the hidden ones they do not (none for the master and none they
+ *  control) and the lights of those. */
+type SeenTokens = Readonly<{
+  tokens: TokenDto[];
+  invisible: ReadonlySet<string>;
+  veiledLights: VeiledLightDto[];
+}>;
+
+// The hidden tokens come from the rows already read: no query of their own.
 async function tokensFor(
   daos: BoardReadDaos,
   access: CampaignAccessBo,
   sceneId: string,
-): Promise<TokenDto[]> {
+): Promise<SeenTokens> {
   const rows = await daos.tokens.listOfScene(sceneId);
+  const unseen = rows.filter((row) => row.token.hidden && audienceOf(access, row) === 'others');
+  const invisible = new Set(unseen.map(({ token }) => token.id));
+  const seen = rows.filter(({ token }) => !invisible.has(token.id));
   // A linked token shows its anchor's conditions.
-  const active = await daos.conditions.listOfTokens([...new Set(rows.map(stateHolderIdOf))]);
+  const active = await daos.conditions.listOfTokens([...new Set(seen.map(stateHolderIdOf))]);
   const byToken = conditionsByToken(active);
-  return rows.map((row) => tokenFor(access, row, byToken.get(stateHolderIdOf(row)) ?? []));
+  const tokens = seen.map((row) => tokenFor(access, row, byToken.get(stateHolderIdOf(row)) ?? []));
+  return { tokens, invisible, veiledLights: veiledLightsOf(veilOf(unseen), invisible) };
 }
 
 // What every viewer receives whole: nothing in it is redacted.
@@ -125,6 +147,10 @@ function tokenFor(
   row: TokenRow,
   conditions: readonly ActiveConditionDto[],
 ): TokenDto {
+  return toTokenDto(row, audienceOf(access, row), conditions);
+}
+
+function audienceOf(access: CampaignAccessBo, row: TokenRow): TokenAudience {
   const control = { tokenId: row.token.id, controllerIds: row.controllerIds };
-  return toTokenDto(row, new TokenAccessBo(access, control).audience(), conditions);
+  return new TokenAccessBo(access, control).audience();
 }

@@ -33,6 +33,7 @@ function bodyChanged(before: TokenView, after: TokenView): boolean {
     before.facing !== after.facing ||
     before.facingMark !== after.facingMark ||
     before.defeated !== after.defeated ||
+    before.hidden !== after.hidden ||
     !sameBar(before.bar, after.bar) ||
     !sameArt(before.art, after.art) ||
     before.looks.join() !== after.looks.join()

@@ -8,6 +8,7 @@ describe('tokenLookStyle', () => {
       grey: false,
       dashedOutline: false,
       sleeping: false,
+      hiddenMark: false,
     });
   });
 
@@ -17,6 +18,7 @@ describe('tokenLookStyle', () => {
       grey: false,
       dashedOutline: true,
       sleeping: false,
+      hiddenMark: false,
     });
   });
 
@@ -26,6 +28,7 @@ describe('tokenLookStyle', () => {
       grey: true,
       dashedOutline: false,
       sleeping: true,
+      hiddenMark: false,
     });
   });
 
@@ -35,6 +38,7 @@ describe('tokenLookStyle', () => {
       grey: true,
       dashedOutline: true,
       sleeping: true,
+      hiddenMark: false,
     });
   });
 
@@ -49,6 +53,26 @@ describe('tokenLookStyle', () => {
     expect(tokenLookStyle({ looks: [], defeated: true })).toMatchObject({
       alpha: 0.45,
       grey: false,
+    });
+  });
+
+  it('hidden from the players: its own alpha and the crossed eye, not the dashed outline', () => {
+    expect(tokenLookStyle({ looks: [], defeated: false, hidden: true })).toEqual({
+      alpha: 0.55,
+      grey: false,
+      dashedOutline: false,
+      sleeping: false,
+      hiddenMark: true,
+    });
+  });
+
+  it('hidden and invisible: both marks, and the fainter alpha of the condition', () => {
+    expect(tokenLookStyle({ looks: ['invisible'], defeated: false, hidden: true })).toEqual({
+      alpha: 0.45,
+      grey: false,
+      dashedOutline: true,
+      sleeping: false,
+      hiddenMark: true,
     });
   });
 });

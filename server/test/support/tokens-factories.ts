@@ -7,6 +7,8 @@ export const LYRA_ID = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
 export const LYRA_PV_ID = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 export const LYRA_INSPIRATION_ID = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e';
 export const BRAM_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
+export const LOBO_ID = '7f6e5d4c-3b2a-4f1e-8d9c-0b1a2c3d4e5f';
+export const SOMBRA_ID = '8a7f6e5d-4c3b-4a2f-9e1d-1c2b3a4d5e6f';
 
 const CREATED = new Date('2026-10-15T12:00:00Z');
 
@@ -37,6 +39,7 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     lightLit: true,
     lightColor: null,
     lightAngle: 360,
+    hidden: false,
     anchorTokenId: null,
     createdAt: CREATED,
     updatedAt: CREATED,
@@ -94,6 +97,48 @@ export function bramRow(overrides: Partial<TokenRow> = {}): TokenRow {
     token: lyraPo({ id: BRAM_ID, name: 'Bram', initials: 'BR', col: 6, row: 4 }),
     bars: [],
     controllerIds: [CAIO_ID],
+    ...overrides,
+  };
+}
+
+/** The Lobo, hidden from the players: Bia controls it, 2×2 at (3, 4) with a lit torch (4/4).
+ *
+ *  Example: `veilOf([loboRow()])` */
+export function loboRow(overrides: Partial<TokenRow> = {}): TokenRow {
+  const box = { col: 3, row: 4, width: 2, height: 2 };
+  const torch = { lightBright: '4.00', lightDim: '4.00', lightColor: 'torch' as const };
+  return {
+    token: lyraPo({
+      id: LOBO_ID,
+      name: 'Lobo',
+      initials: 'LO',
+      side: 'enemy',
+      ...box,
+      ...torch,
+      hidden: true,
+    }),
+    bars: [],
+    controllerIds: [BIA_ID],
+    ...overrides,
+  };
+}
+
+/** The Sombra, hidden and controlled by nobody, at (8, 2), without light.
+ *
+ *  Example: `veilOf([loboRow(), sombraRow()])` */
+export function sombraRow(overrides: Partial<TokenRow> = {}): TokenRow {
+  return {
+    token: lyraPo({
+      id: SOMBRA_ID,
+      name: 'Sombra',
+      initials: 'SO',
+      side: 'enemy',
+      col: 8,
+      row: 2,
+      hidden: true,
+    }),
+    bars: [],
+    controllerIds: [],
     ...overrides,
   };
 }

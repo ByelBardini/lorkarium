@@ -1,3 +1,4 @@
+import { changeSceneOf, publishTokenChange, type ChangeScene } from './token-veil';
 import type {
   LinkTokenToCardCommandDto,
   UnlinkTokenFromCardCommandDto,
@@ -20,7 +21,6 @@ import type { SceneRow } from '../scenes/scenes.dao';
 import { CharacterLinkBo } from './character-link.bo';
 import { identityOf } from './linked-token';
 import {
-  audiencesOf,
   tokenIn,
   withConditions,
   type TokenTransactionRunner,
@@ -49,7 +49,12 @@ type NewAnchor = Readonly<{
   createdIn: SavedVersion;
   card: MemberCardPo;
 }>;
-type Linked = Readonly<{ token: TokenWithConditions; created: NewAnchor | null }>;
+type Linked = Readonly<{
+  token: TokenWithConditions;
+  created: NewAnchor | null;
+  veiled: ChangeScene;
+}>;
+type Unlinked = Readonly<{ token: TokenWithConditions; veiled: ChangeScene }>;
 
 /** Links a grid token to a player's card (the character) and back, master only. The cast is
  *  locked before the grid; the grid token's change goes to the grid, a new anchor and the card to
@@ -76,7 +81,8 @@ export class TokenLinkService {
     );
     const created = saved.value.created;
     if (created) this.publishAnchor(campaignId, created, saved.cast);
-    if (saved.grid) this.publishToken(campaignId, saved.value.token, saved.grid);
+    if (saved.grid)
+      this.publishToken(campaignId, saved.value.token, saved.grid, saved.value.veiled);
     return saved.version;
   }
 
@@ -90,7 +96,8 @@ export class TokenLinkService {
     const saved = await inLockedCastAndGrid(this.deps.transaction, address, (locked) =>
       this.unlinkIn(locked, rules, access, command.tokenId),
     );
-    if (saved.grid) this.publishToken(campaignId, saved.value, saved.grid);
+    if (saved.grid)
+      this.publishToken(campaignId, saved.value.token, saved.grid, saved.value.veiled);
     return saved.version;
   }
 
@@ -109,11 +116,13 @@ export class TokenLinkService {
       await daos.anchors.dropState(tokenId);
       await daos.anchors.linkToAnchor(tokenId, anchorId);
       const token = await this.reread(daos, scene, tokenId);
-      return { value: { token, created: null }, grid: true, cast: false };
+      const veiled = await changeSceneOf(daos, scene, found, token.row, false);
+      return { value: { token, created: null, veiled }, grid: true, cast: false };
     }
     const created = await this.newAnchor(daos, cast, found, memberId);
     const token = await this.reread(daos, scene, tokenId);
-    return { value: { token, created }, grid: true, cast: true };
+    const veiled = await changeSceneOf(daos, scene, found, token.row, false);
+    return { value: { token, created, veiled }, grid: true, cast: true };
   }
 
   // The anchor gets its own cast version for `token:created`; the card takes the commit's.
@@ -139,12 +148,14 @@ export class TokenLinkService {
     rules: CharacterLinkBo,
     access: CampaignAccessBo,
     tokenId: string,
-  ): Promise<CastAndGridChange<TokenWithConditions>> {
+  ): Promise<CastAndGridChange<Unlinked>> {
     const found = await tokenIn(daos, scene, access.campaignIdOf(), tokenId);
     const anchorId = rules.anchorOf(found.token);
     await daos.anchors.copyStateTo(anchorId, tokenId);
     await daos.anchors.unlinkWith(tokenId, identityOf(found.token));
-    return { value: await this.reread(daos, scene, tokenId), grid: true, cast: false };
+    const token = await this.reread(daos, scene, tokenId);
+    const veiled = await changeSceneOf(daos, scene, found, token.row, false);
+    return { value: { token, veiled }, grid: true, cast: false };
   }
 
   private async reread(
@@ -156,7 +167,7 @@ export class TokenLinkService {
   }
 
   private publishAnchor(campaignId: string, created: NewAnchor, cast: SavedVersion | null): void {
-    this.publishToken(campaignId, created.anchor, created.createdIn, 'token:created');
+    this.publishToken(campaignId, created.anchor, created.createdIn, null, 'token:created');
     if (!cast) return;
     const base = savedEventBase(campaignId, cast, this.deps.clock);
     this.deps.publisher.memberCardChanged({ ...base, card: toMemberCardDto(created.card) });
@@ -166,18 +177,11 @@ export class TokenLinkService {
     campaignId: string,
     token: TokenWithConditions,
     saved: SavedVersion,
+    veiled: ChangeScene | null = null,
     name: 'token:created' | 'token:updated' = 'token:updated',
   ): void {
     const base = savedEventBase(campaignId, saved, this.deps.clock);
-    const { controllerIds, privileged, others } = audiencesOf(token);
-    this.deps.publisher.tokenChanged({
-      name,
-      campaignId,
-      sceneId: saved.sceneId,
-      controllerIds,
-      privileged: { ...base, token: privileged },
-      others: { ...base, token: others },
-    });
+    publishTokenChange(this.deps.publisher, name, base, token, veiled);
   }
 }
 

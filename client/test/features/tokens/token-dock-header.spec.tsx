@@ -31,11 +31,12 @@ describe('DockHeader', () => {
     });
   });
 
-  function renderHeader(token: TokenDto, isMain = false): void {
+  function renderHeader(token: TokenDto, isMain = false, isMaster = false): void {
     render(
       <DockHeader
         token={token}
         isMain={isMain}
+        isMaster={isMaster}
         viewerId={BIA_AT_TABLE.userId}
         members={[BIA_AT_TABLE]}
         interaction={interaction}
@@ -88,5 +89,50 @@ describe('DockHeader', () => {
     expect(interaction.getState().notice).toBe('forbidden');
     expect(screen.getByRole('heading', { name: 'Kael' })).not.toHaveFocus();
     expect(screen.queryByText('Principal')).toBeNull();
+  });
+
+  describe('"Invisível para os jogadores" (master)', () => {
+    const wolf = (hidden: boolean) => kael({ name: 'Lobo', hidden, controllerIds: [] });
+    const toggle = () => screen.queryByRole('button', { name: 'Invisível para os jogadores' });
+
+    it('on the hidden wolf the master sees the switch pressed', () => {
+      renderHeader(wolf(true), false, true);
+
+      expect(toggle()).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('pressing it on the visible wolf hides him and the screen reader hears it', async () => {
+      renderHeader(wolf(false), false, true);
+      expect(toggle()).toHaveAttribute('aria-pressed', 'false');
+
+      await userEvent.click(toggle() as HTMLElement);
+
+      expect(commands.sentAs('setTokensHidden').map(({ fields }) => fields)).toEqual([
+        { tokenIds: [KAEL_ID], hidden: true },
+      ]);
+      expect(interaction.getState().notice).toBe('Lobo invisível para os jogadores.');
+    });
+
+    it('pressing it on the hidden wolf shows him: "Lobo visível para os jogadores."', async () => {
+      renderHeader(wolf(true), false, true);
+
+      await userEvent.click(toggle() as HTMLElement);
+
+      expect(interaction.getState().notice).toBe('Lobo visível para os jogadores.');
+    });
+
+    it('a player never sees the switch', () => {
+      renderHeader(wolf(true));
+
+      expect(toggle()).toBeNull();
+    });
+
+    it('while reconnecting the switch is disabled', () => {
+      renderHeader(wolf(false), false, true);
+
+      act(() => interaction.getState().setReadOnly(true));
+
+      expect(toggle()).toBeDisabled();
+    });
   });
 });

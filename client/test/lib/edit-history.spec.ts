@@ -428,3 +428,19 @@ describe('the cone of a map light on the undo stack', () => {
     ]);
   });
 });
+
+describe('inverseOf and remapEntry, hidden tokens', () => {
+  const HIDDEN: EditEntry = [{ kind: 'tokensHidden', tokenIds: ['lyra', 'kael'], hidden: true }];
+
+  it('hiding tokens is undone by showing the same tokens', () => {
+    expect(inverseOf(HIDDEN)).toEqual([
+      { kind: 'tokensHidden', tokenIds: ['lyra', 'kael'], hidden: false },
+    ]);
+  });
+
+  it('a token created again takes its new id in the hiding', () => {
+    expect(remapEntry(HIDDEN, { lyra: 'lyra-2' })).toEqual([
+      { kind: 'tokensHidden', tokenIds: ['lyra-2', 'kael'], hidden: true },
+    ]);
+  });
+});

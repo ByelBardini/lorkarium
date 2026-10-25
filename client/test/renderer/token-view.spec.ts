@@ -163,6 +163,14 @@ describe('tokenViewsOf', () => {
     ]);
   });
 
+  it('a token hidden from the players comes marked hidden; a visible one does not', () => {
+    const views = viewsOf({ tokens: [lyra({ hidden: true }), kael()] });
+    expect(views.map(({ id, hidden }) => [id, hidden])).toEqual([
+      [LYRA_ID, true],
+      [KAEL_ID, false],
+    ]);
+  });
+
   describe('through the sight of Bia in the dark', () => {
     // Lyra (hers) at (3, 4) sees 3 + 3 cells: Kael at (8, 4) is 5 away (silhouette), the goblin
     // at (11, 4) 8 away (hidden).
@@ -170,7 +178,14 @@ describe('tokenViewsOf', () => {
     const others = { canControl: false, controllerIds: [] };
     const tokens = [
       lyra({ sight: { bright: 3, dim: 3 } }),
-      kael({ ...others, col: 8, row: 4, conditions: [activeCondition()], defeated: true }),
+      kael({
+        ...others,
+        col: 8,
+        row: 4,
+        conditions: [activeCondition()],
+        defeated: true,
+        hidden: true,
+      }),
       kael({ ...others, id: GOBLIN_ID, col: 11, row: 4 }),
     ];
     const board = vharnBoard({
@@ -184,10 +199,11 @@ describe('tokenViewsOf', () => {
       sight: boardSightOf(board, { previewEyeIds: null }),
     });
 
-    it('the token in the penumbra is a silhouette with no art, name, bar, marks, facing nor defeat, and cannot be taken', () => {
+    it('the token in the penumbra is a silhouette with no art, name, bar, marks, facing, defeat nor hidden mark, and cannot be taken', () => {
       expect(views.find(({ id }) => id === KAEL_ID)).toMatchObject({
         silhouette: 'square',
         defeated: false,
+        hidden: false,
         name: '',
         initials: '',
         art: null,

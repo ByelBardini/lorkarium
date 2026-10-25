@@ -81,6 +81,13 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
         tokens: board.tokens.filter((token) => token.id !== event.payload.tokenId),
         combat: event.payload.combat,
       };
+    case 'tokensHiddenChanged': {
+      const { tokenIds, hidden } = event.payload;
+      return { tokens: mapTokens(board.tokens, tokenIds, (token) => ({ ...token, hidden })) };
+    }
+    // Only the version moves: what changed is hidden from this viewer.
+    case 'boardAdvanced':
+      return {};
     default:
       return (
         batchChangesOf(board, event) ??

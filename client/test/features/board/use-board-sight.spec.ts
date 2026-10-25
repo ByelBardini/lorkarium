@@ -9,6 +9,7 @@ import type { TokenDrag } from '@/stores/board-interaction-store';
 import { createTablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { northWall } from '../../support/wall-fixtures';
+import { veiledTorch } from '../../support/light-fixtures';
 import {
   ANA_AT_TABLE,
   BIA_AT_TABLE,
@@ -67,6 +68,15 @@ function lyraDraggedTo(col: number, bendAt?: number): TokenDrag {
 }
 
 describe('sightNowOf', () => {
+  it('the light of a hidden wolf over the ogre lets Bia see him: veiled lights are part of the filter', () => {
+    const before = sightNowOf({ board: BOARD, dragged: {} }, IDLE, NO_PLAYERS);
+    const veiledLights = [veiledTorch({ x: 11.5, y: 4.5, bright: 2, dim: 0 })];
+    const lit = sightNowOf({ board: { ...BOARD, veiledLights }, dragged: {} }, IDLE, NO_PLAYERS);
+
+    expect(levelOf(before, OGRE_ID)).toBe('hidden');
+    expect(levelOf(lit, OGRE_ID)).toBe('seen');
+  });
+
   it('with the master dragging Lyra to (9, 4), Bia sees the ogre', () => {
     const sight = sightNowOf(
       { board: BOARD, dragged: { [LYRA_ID]: { col: 9, row: 4 } } },

@@ -233,6 +233,16 @@ describe('tokens mapper', () => {
     expect(dto.bars.map(({ display }) => display)).toEqual(['percent']);
   });
 
+  it.each([true, false])(
+    'a token saved with hidden %s carries it the same to both audiences (who gets it may know)',
+    (hidden) => {
+      const row = lyraRow({ token: lyraPo({ hidden }) });
+
+      expect(toTokenDto(row, 'privileged').hidden).toBe(hidden);
+      expect(toTokenDto(row, 'others').hidden).toBe(hidden);
+    },
+  );
+
   it('the token DTO carries no persistence fields', () => {
     expect(toTokenDto(lyraRow(), 'others')).not.toHaveProperty('sceneId');
   });

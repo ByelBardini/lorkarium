@@ -1,3 +1,20 @@
+import {
+  controlVeilOf,
+  cutsOf,
+  entriesSeenBy,
+  tokenIdsSeenBy,
+  tokenSeenBy,
+  veilOf,
+} from './token-veil.mapper';
+import {
+  changeSceneOf,
+  combatVeilOf,
+  publishTokenChange,
+  publishVeiledLights,
+  veiledWriteOf,
+  type ChangeScene,
+} from './token-veil';
+import { deletedSeenBy, deletedTokenSeenBy } from '../combat/combat-veil.mapper';
 import type {
   AdjustBarCommandDto,
   CreateTokenCommandDto,
@@ -5,6 +22,8 @@ import type {
   DragTokensCommandDto,
   MoveTokenCommandDto,
   MoveTokensCommandDto,
+  TokensDraggedDto,
+  TokensMovedDto,
   SetTokenLayerCommandDto,
   UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
@@ -12,7 +31,7 @@ import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
-import type { BoardPublisherPort } from '../scenes/board-publisher.port';
+import type { BoardPublisherPort, GridEvent } from '../scenes/board-publisher.port';
 import {
   inLockedGrid,
   reachedGridOf,
@@ -30,7 +49,6 @@ import {
 import { splitUpdate } from './linked-token';
 import { TokenRulesBo } from './token-rules.bo';
 import {
-  audiencesOf,
   combatOf,
   holderRowOf,
   newTokenRowOf,
@@ -45,7 +63,7 @@ import {
   type TokenWriteDaos,
 } from './token-transaction';
 import { TokenAccessBo } from './token-access.bo';
-import type { DragGroupPo, TokenRow, TokenUpdatePo, TokensDao } from './tokens.dao';
+import type { DragGroupPo, TokenMovePo, TokenRow, TokenUpdatePo, TokensDao } from './tokens.dao';
 import { BarNotFoundError, TokenNotFoundError } from './tokens.error';
 import { toTokenUpdatePo } from './tokens.mapper';
 import type { SceneWallsService } from '../walls/scene-walls.service';
@@ -124,11 +142,12 @@ export class TokensService {
       await daos.mainTokens.dropLostControl(found.token.id, update.controllerIds);
       const anchor = holder.inCast ? await this.reread(daos, holder.scene, holder.row) : null;
       const token = await this.reread(daos, scene, found);
-      return { value: { token, anchor }, grid: true, cast: holder.inCast };
+      const veiled = await changeSceneOf(daos, scene, found, token.row, true);
+      return { value: { token, anchor, veiled }, grid: true, cast: holder.inCast };
     });
-    if (saved.cast && saved.value.anchor)
-      this.publishSaved('token:updated', campaignId, saved.value.anchor, saved.cast);
-    if (saved.grid) this.publishSaved('token:updated', campaignId, saved.value.token, saved.grid);
+    const { token, anchor, veiled } = saved.value;
+    if (saved.cast && anchor) this.publishSaved('token:updated', campaignId, anchor, saved.cast);
+    if (saved.grid) this.publishSaved('token:updated', campaignId, token, saved.grid, veiled);
     return saved.version;
   }
 
@@ -141,19 +160,15 @@ export class TokensService {
       const passage = { row: found, path: command.path, to: command };
       await this.requirePassages({ daos, scene }, access, [passage]);
       await daos.tokens.move(found.token.id, col, row);
-      return { col, row };
+      const moved = { ...found, token: { ...found.token, col, row } };
+      return { col, row, veiled: await veiledWriteOf(daos, scene.id, [moved]) };
     });
-    const { col, row } = saved.value;
+    const { col, row, veiled } = saved.value;
+    const { sceneId, version } = saved;
     const at = this.now();
-    this.deps.publisher.tokenMoved({
-      campaignId,
-      sceneId: saved.sceneId,
-      version: saved.version,
-      at,
-      tokenId: command.tokenId,
-      col,
-      row,
-    });
+    const event = { campaignId, sceneId, version, at, tokenId: command.tokenId, col, row };
+    this.deps.publisher.tokenMoved(event, cutsOf(event, veiled.veil, tokenSeenBy));
+    publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, veiled.lights);
     return saved.version;
   }
 
@@ -178,10 +193,13 @@ export class TokensService {
       });
       await this.requirePassages(locked, access, passages);
       await locked.daos.tokens.moveMany(locked.scene.id, moves);
+      return veiledWriteOf(locked.daos, locked.scene.id, movedRowsOf(rows, moves));
     });
     const at = this.now();
     const { version, sceneId } = saved;
-    this.deps.publisher.tokensMoved({ campaignId, sceneId, version, at, moves });
+    const event = { campaignId, sceneId, version, at, moves };
+    this.deps.publisher.tokensMoved(event, cutsOf(event, saved.value.veil, MOVES_SEEN_BY));
+    publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, saved.value.lights);
     return saved.version;
   }
 
@@ -204,7 +222,8 @@ export class TokensService {
     this.placeDrags(access, scene, group?.tokens ?? [], command.drags);
     const drags = command.drags.map(({ tokenId, cell }) => ({ tokenId, cell }));
     const event = { campaignId, sceneId: scene.id, at: this.now(), drags };
-    this.deps.publisher.tokensDragged(event, connectionId);
+    const veil = controlVeilOf((group?.tokens ?? []).map(controlOfDragged));
+    this.deps.publisher.tokensDragged(event, connectionId, cutsOf(event, veil, DRAGS_SEEN_BY));
     return scene.version;
   }
 
@@ -215,19 +234,14 @@ export class TokensService {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster('change the layer of tokens');
     const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
-      await tokensIn(daos, scene, campaignId, command.tokenIds);
+      const rows = await tokensIn(daos, scene, campaignId, command.tokenIds);
       await daos.tokens.setLayer(command.tokenIds, command.layer);
+      return veilOf(rows);
     });
     const { tokenIds, layer } = command;
-    const at = this.now();
-    this.deps.publisher.tokenLayerChanged({
-      campaignId,
-      sceneId: saved.sceneId,
-      version: saved.version,
-      at,
-      tokenIds: [...tokenIds],
-      layer,
-    });
+    const { sceneId, version } = saved;
+    const event = { campaignId, sceneId, version, at: this.now(), tokenIds: [...tokenIds], layer };
+    this.deps.publisher.tokenLayerChanged(event, cutsOf(event, saved.value, tokenIdsSeenBy));
     return saved.version;
   }
 
@@ -244,13 +258,18 @@ export class TokensService {
       const holder = await holderRowOf(locked, found);
       await daos.tokens.setBarValues(bar.id, values);
       const changed = await this.reread(daos, holder.scene, holder.row);
-      return { value: changed, grid: !holder.inCast, cast: holder.inCast };
+      const veiled = holder.inCast
+        ? null
+        : await changeSceneOf(daos, scene, found, changed.row, false);
+      return { value: { changed, veiled }, grid: !holder.inCast, cast: holder.inCast };
     });
     const touched = saved.cast ?? saved.grid;
-    if (touched) this.publishSaved('token:updated', campaignId, saved.value, touched);
+    const { changed, veiled } = saved.value;
+    if (touched) this.publishSaved('token:updated', campaignId, changed, touched, veiled);
     return saved.version;
   }
 
+  /** A hidden token leaves as `token:deletedMany` (whoever did not see it gets the combat at most). */
   async delete(userId: string, campaignId: string, command: DeleteToken): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster('delete a token');
@@ -258,17 +277,23 @@ export class TokensService {
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
       await leaveCombat(daos, scene, access, [found.token.id]);
       await daos.tokens.delete(found.token.id);
-      return combatOf(daos, scene);
+      const combat = await combatOf(daos, scene);
+      const veil = await combatVeilOf(daos, scene.id, [found], combat);
+      const { lights } = await veiledWriteOf(daos, scene.id, [found]);
+      return { combat, veil, lights, hidden: found.token.hidden };
     });
-    const at = this.now();
-    this.deps.publisher.tokenDeleted({
-      campaignId,
-      sceneId: saved.sceneId,
-      version: saved.version,
-      at,
-      tokenId: command.tokenId,
-      combat: saved.value,
-    });
+    const { sceneId, version } = saved;
+    const { combat, veil, lights, hidden } = saved.value;
+    const base = { campaignId, sceneId, version, at: this.now(), combat };
+    const { tokenId } = command;
+    if (hidden) {
+      const event = { ...base, tokenIds: [tokenId] };
+      this.deps.publisher.tokensDeleted(event, cutsOf(event, veil, deletedSeenBy));
+    } else {
+      const event = { ...base, tokenId };
+      this.deps.publisher.tokenDeleted(event, cutsOf(event, veil, deletedTokenSeenBy));
+    }
+    publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at: base.at }, lights);
     return saved.version;
   }
 
@@ -387,21 +412,29 @@ export class TokensService {
     campaignId: string,
     token: TokenWithConditions,
     saved: SavedVersion,
+    veiled: ChangeScene | null = null,
   ): void {
-    const { sceneId } = saved;
-    const base = { campaignId, sceneId, version: saved.version, at: this.now() };
-    const { controllerIds, privileged, others } = audiencesOf(token);
-    this.deps.publisher.tokenChanged({
-      name,
-      campaignId,
-      sceneId,
-      controllerIds,
-      privileged: { ...base, token: privileged },
-      others: { ...base, token: others },
-    });
+    const base = { campaignId, sceneId: saved.sceneId, version: saved.version, at: this.now() };
+    publishTokenChange(this.deps.publisher, name, base, token, veiled);
   }
 
   private now(): string {
     return this.deps.clock.now().toISOString();
   }
+}
+
+const MOVES_SEEN_BY = entriesSeenBy<TokensMovedDto>('moves');
+const DRAGS_SEEN_BY = entriesSeenBy<GridEvent<TokensDraggedDto>>('drags');
+
+function controlOfDragged({ token, controllerIds }: DragGroupPo['tokens'][number]) {
+  return { tokenId: token.id, controllerIds, hidden: token.hidden };
+}
+
+// The rows as the moves left them (the veil's lights shine from where the tokens now are).
+function movedRowsOf(rows: readonly TokenRow[], moves: readonly TokenMovePo[]): TokenRow[] {
+  const byId = new Map(moves.map((move) => [move.tokenId, move]));
+  return rows.map((row) => {
+    const move = byId.get(row.token.id);
+    return move ? { ...row, token: { ...row.token, col: move.col, row: move.row } } : row;
+  });
 }

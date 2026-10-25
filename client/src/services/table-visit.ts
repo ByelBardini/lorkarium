@@ -21,7 +21,7 @@ import {
   type TokensDraggedDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
-import { BOARD_EVENT_SPECS, parseBoardEvent } from './board-events';
+import { BOARD_EVENT_SPECS, parseBoardEvent, parseVeiledLights } from './board-events';
 import type { RealtimeLifecycle, RealtimeTransport, Unsubscribe } from './realtime-transport';
 import type {
   BoardSyncFailure,
@@ -84,6 +84,9 @@ export class TableVisit {
       ...this.tableEventSubscriptions(),
       this.transport.on(BOARD_EVENTS.tokensDragged, (payload) => this.onTokensDragged(payload)),
       this.transport.on(BOARD_EVENTS.pinged, (payload) => this.onPinged(payload)),
+      this.transport.on(BOARD_EVENTS.veiledLightsChanged, (payload) =>
+        this.onVeiledLights(payload),
+      ),
       ...Object.keys(BOARD_EVENT_SPECS).map((name) =>
         this.transport.on(name, (payload) => this.onBoardEvent(name, payload)),
       ),
@@ -269,6 +272,12 @@ export class TableVisit {
     const parsed = boardPingedDto.safeParse(payload);
     if (!parsed.success || parsed.data.campaignId !== this.campaignId) return;
     this.route(parsed.data.sceneId, { kind: 'pinged', event: parsed.data });
+  }
+
+  // Like the preview: the list is all there is, so a malformed one is dropped with no resync.
+  private onVeiledLights(payload: unknown): void {
+    const event = parseVeiledLights(payload, this.campaignId);
+    if (event) this.route(event.sceneId, { kind: 'veiledLights', event });
   }
 
   private onBoardEvent(name: string, payload: unknown): void {

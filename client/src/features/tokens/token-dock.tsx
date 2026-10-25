@@ -48,6 +48,7 @@ export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
       <DockHeader
         token={token}
         isMain={isMain}
+        isMaster={props.isMaster}
         viewerId={viewerId}
         members={members}
         interaction={props.interaction}

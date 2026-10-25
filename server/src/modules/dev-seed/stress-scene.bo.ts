@@ -105,6 +105,7 @@ function stressTokenOf(index: number, playerId: string): NewTokenDto {
     layer: layerOf(index),
     ...{ imageAssetId: null, frame: 'square', flipX: false, flipY: false },
     ...{ facing: (index * 30) % 360, sightAngle: 360 },
+    hidden: false,
     controllerIds: mine ? [playerId] : [],
     sight: index % PLAYER_TOKEN_STEP === 0 ? { bright: 6, dim: 6 } : null,
     light: index % 10 === 0 ? { bright: 4, dim: 4, color: 'torch', angle: 360 } : null,

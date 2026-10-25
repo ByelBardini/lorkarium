@@ -1,3 +1,7 @@
+import { cutsOf, veilOf, type TokenVeil } from './token-veil.mapper';
+import { combatVeilOf, publishVeiledLights, veiledWriteOf } from './token-veil';
+import { creationCutsOf } from './token-hidden.mapper';
+import { deletedSeenBy } from '../combat/combat-veil.mapper';
 import type {
   AddPlayersCommandDto,
   CreateTokensCommandDto,
@@ -97,16 +101,18 @@ export class TokenBatchService {
       await joinPastedToCombat(daos, scene, access, pasted);
       // A token just created carries no condition: nothing to read back for it.
       const withAll: TokenWithConditions[] = created.map((row) => ({ row, conditions: [] }));
-      return { tokens: withAll, combat: await combatOf(daos, scene) };
+      const combat = await combatOf(daos, scene);
+      const veil = await combatVeilOf(daos, scene.id, created, combat);
+      const { lights } = await veiledWriteOf(daos, scene.id, created);
+      return { tokens: withAll, combat, veil, lights };
     });
-    this.deps.publisher.tokensCreated({
-      campaignId,
-      sceneId: saved.sceneId,
-      version: saved.version,
-      at: this.now(),
-      tokens: saved.value.tokens.map(audiencesOf),
-      combat: saved.value.combat,
-    });
+    const { sceneId, version } = saved;
+    const { combat, veil, lights } = saved.value;
+    const at = this.now();
+    const tokens = saved.value.tokens.map(audiencesOf);
+    const creation = { campaignId, sceneId, version, at, tokens, combat };
+    this.deps.publisher.tokensCreated(creation, creationCutsOf(creation, veil));
+    publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, lights);
     const createdIds = saved.value.tokens.map(({ row }) => row.token.id);
     return { version: saved.version, createdIds };
   }
@@ -127,16 +133,17 @@ export class TokenBatchService {
       }
       await leaveCombat(daos, scene, access, tokenIds);
       await daos.tokens.deleteMany(scene.id, tokenIds);
-      return combatOf(daos, scene);
+      const combat = await combatOf(daos, scene);
+      const veil = await combatVeilOf(daos, scene.id, rows, combat);
+      const { lights } = await veiledWriteOf(daos, scene.id, rows);
+      return { combat, veil, lights };
     });
-    this.deps.publisher.tokensDeleted({
-      campaignId,
-      sceneId: saved.sceneId,
-      version: saved.version,
-      at: this.now(),
-      tokenIds: [...tokenIds],
-      combat: saved.value,
-    });
+    const { sceneId, version } = saved;
+    const { combat, veil, lights } = saved.value;
+    const at = this.now();
+    const event = { campaignId, sceneId, version, at, tokenIds: [...tokenIds], combat };
+    this.deps.publisher.tokensDeleted(event, cutsOf(event, veil, deletedSeenBy));
+    publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, lights);
     return saved.version;
   }
 
@@ -154,10 +161,11 @@ export class TokenBatchService {
     const saved = await inLockedCastAndGrid(this.deps.transaction, address, (locked) =>
       this.placePlayers(locked, players, command.center),
     );
-    const { tokens, skippedMemberIds, combat } = saved.value;
+    const { tokens, skippedMemberIds, combat, veil } = saved.value;
     if (saved.grid) {
       const base = savedEventBase(campaignId, saved.grid, this.deps.clock);
-      this.deps.publisher.tokensCreated({ ...base, tokens: tokens.map(audiencesOf), combat });
+      const creation = { ...base, tokens: tokens.map(audiencesOf), combat };
+      this.deps.publisher.tokensCreated(creation, creationCutsOf(creation, veil));
     }
     const createdIds = tokens.map(({ row }) => row.token.id);
     return { version: saved.version, createdIds, skippedMemberIds };
@@ -177,7 +185,8 @@ export class TokenBatchService {
     const anchorIds = players.flatMap((playerId) => anchorOf(playerId) ?? []);
     const missing = anchorIds.filter((anchorId) => !placed.has(anchorId));
     if (missing.length === 0) {
-      return { value: { tokens: [], skippedMemberIds, combat: null }, grid: false, cast: false };
+      const value = { tokens: [], skippedMemberIds, combat: null, veil: veilOf([]) };
+      return { value, grid: false, cast: false };
     }
     const anchors = await tokensIn(daos, cast, scene.campaignId, missing);
     const rows = await this.linkedRowsOf(daos, scene, anchors, center, onGrid);
@@ -186,7 +195,8 @@ export class TokenBatchService {
     const composed = await tokensIn(daos, scene, scene.campaignId, ids);
     const tokens = await Promise.all(composed.map((row) => withConditions(daos, row)));
     const combat = await combatOf(daos, scene);
-    return { value: { tokens, skippedMemberIds, combat }, grid: true, cast: false };
+    const veil = await combatVeilOf(daos, scene.id, composed, combat);
+    return { value: { tokens, skippedMemberIds, combat, veil }, grid: true, cast: false };
   }
 
   private async linkedRowsOf(
@@ -218,6 +228,7 @@ type AddedPlayers = Readonly<{
   tokens: TokenWithConditions[];
   skippedMemberIds: string[];
   combat: CombatDto | null;
+  veil: TokenVeil;
 }>;
 
 function boxOf({ token }: TokenRow): TokenBox {

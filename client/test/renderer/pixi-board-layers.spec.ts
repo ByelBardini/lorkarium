@@ -77,6 +77,7 @@ function chestOnObjects(conditions: TokenView['conditions']): TokenView {
     facing: 0,
     facingMark: false,
     defeated: false,
+    hidden: false,
     silhouette: null,
   };
 }

@@ -1,4 +1,4 @@
-import type { LightDto, SceneDto, TokenDto, WallDto } from '@lorkarium/contracts';
+import type { LightDto, SceneDto, TokenDto, VeiledLightDto, WallDto } from '@lorkarium/contracts';
 import { lightColorHex } from '@/lib/light-color';
 import { shiningLightsOf, type TokenLanding } from '@/lib/light-sources';
 import { gameWallsOf } from '@/lib/wall-geometry';
@@ -28,6 +28,8 @@ export type LightTintInput = Readonly<{
   walls: readonly WallDto[];
   lights: readonly LightDto[];
   tokens: readonly TokenDto[];
+  /** The lights of the hidden tokens this viewer does not receive (absent: none). */
+  veiledLights?: readonly VeiledLightDto[];
   /** Where dragged tokens would land: their lights tint from there, like the fog. */
   landing: TokenLanding;
 }>;

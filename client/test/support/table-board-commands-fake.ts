@@ -236,6 +236,14 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('setLightsLit', scope, { lightIds: [...lightIds], lit });
   }
 
+  setTokensHidden(
+    scope: BoardScope,
+    ids: readonly string[],
+    hidden: boolean,
+  ): Promise<BoardCommandResult> {
+    return this.record('setTokensHidden', scope, { tokenIds: [...ids], hidden });
+  }
+
   setMainToken(scope: BoardScope, tokenId: string, playerId?: string): Promise<BoardCommandResult> {
     return this.record('setMainToken', scope, { tokenId, ...(playerId && { playerId }) });
   }

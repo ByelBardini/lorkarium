@@ -55,6 +55,7 @@ import {
 } from './light-edit-flow';
 import { aimLightOf, changeLightAnglesOf, previewLightAimOf } from './light-cone-flow';
 import { setLightsLitOf } from './light-lit-flow';
+import { setTokensHiddenOf, type HidingToken } from './token-hidden-flow';
 import { afterIntent, joined, NO_SELECTION, toggled } from './board-pointer-intents';
 import {
   drawModeChangeOf,
@@ -206,6 +207,8 @@ export type BoardInteractionStore = BoardInteractionState &
     deleteLights: (lights: readonly LightDto[]) => Promise<void>;
     /** The master's menu or panel: light or put out, never on the undo stack. */
     setLightsLit: (lights: readonly LightDto[], lit: boolean) => Promise<void>;
+    /** The master's menu or dock: hide from the players (or show), one entry on the undo stack. */
+    setTokensHidden: (tokens: readonly HidingToken[], hidden: boolean) => Promise<void>;
     /** Dragged drawings (and the tokens selected with them) dropped where they go. */
     moveSelection: (move: SelectionMove) => Promise<void>;
     /** Delete / Backspace on the selected drawings. */
@@ -394,6 +397,7 @@ export function createBoardInteractionStore(
       aimLight: (light, facing) => aimLightOf(deps, store, light, facing),
       deleteLights: (lights) => deleteLightsOf(deps, store, lights),
       setLightsLit: (lights, lit) => setLightsLitOf(deps, store, lights, lit),
+      setTokensHidden: (tokens, hidden) => setTokensHiddenOf(deps, store, tokens, hidden),
       toggleSightPreview: () => {
         if (!get().canChooseLayer) return;
         set({ sightPreview: !get().sightPreview });

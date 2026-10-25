@@ -1,7 +1,12 @@
+import { NO_VEIL, cutsOf, entriesSeenBy, tokenIdsSeenBy, veilOf } from './token-veil.mapper';
+import { publishVeiledLights, veiledWriteOf, type VeiledWrite } from './token-veil';
+import type { GridEvent } from '../scenes/board-publisher.port';
 import type {
   FaceTokensCommandDto,
   ResizeTokensCommandDto,
   RestyleTokensCommandDto,
+  TokensFacedDto,
+  TokensResizedDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -60,10 +65,14 @@ export class TokenAppearanceService {
         requireFacing(row.token.id, command.faces[index]?.expect?.facing, row.token.facing);
       });
       await daos.tokens.faceMany(scene.id, faces);
+      const faced = rows.map((row, index) => withFields(row, { facing: faces[index]?.facing }));
+      return veiledWriteOf(daos, scene.id, faced);
     });
     const at = this.deps.clock.now().toISOString();
     const { version, sceneId } = saved;
-    this.deps.publisher.tokensFaced({ campaignId, sceneId, version, at, faces });
+    const event = { campaignId, sceneId, version, at, faces };
+    this.deps.publisher.tokensFaced(event, cutsOf(event, saved.value.veil, FACES_SEEN_BY));
+    publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, saved.value.lights);
     return saved.version;
   }
 
@@ -77,14 +86,20 @@ export class TokenAppearanceService {
       const rows = await tokensIn(locked.daos, locked.scene, campaignId, command.tokenIds);
       for (const row of rows) tokenAccessOf(access, row).requireControl('restyle');
       await requireAssetsOf(locked.daos, campaignId, [command.style.imageAssetId]);
-      return restyleIn(locked, rows, command.style);
+      const restyled = await restyleIn(locked, rows, command.style);
+      const veiled = await litWriteOf(locked.daos, locked.scene.id, rows, command.style);
+      return { ...restyled, value: { ...restyled.value, veiled } };
     });
     const at = this.deps.clock.now().toISOString();
-    const { grid, cast } = saved.value;
+    const { grid, cast, veiled } = saved.value;
     if (saved.cast && cast)
-      this.deps.publisher.tokensRestyled({ campaignId, ...saved.cast, at, ...cast });
-    if (saved.grid && grid)
-      this.deps.publisher.tokensRestyled({ campaignId, ...saved.grid, at, ...grid });
+      this.deps.publisher.tokensRestyled({ campaignId, ...saved.cast, at, ...cast }, NO_VEIL);
+    if (saved.grid && grid) {
+      const event = { campaignId, ...saved.grid, at, ...grid };
+      this.deps.publisher.tokensRestyled(event, cutsOf(event, veiled.veil, tokenIdsSeenBy));
+      const address = { campaignId, sceneId: saved.grid.sceneId, at };
+      publishVeiledLights(this.deps.publisher, address, veiled.lights);
+    }
     return saved.version;
   }
 
@@ -108,10 +123,14 @@ export class TokenAppearanceService {
         requireBox(row.token.id, resize?.expect, row.token);
       });
       await daos.tokens.resizeMany(scene.id, resizes);
+      const resized = rows.map((row, index) => withFields(row, resizes[index] ?? {}));
+      return veiledWriteOf(daos, scene.id, resized);
     });
     const at = this.deps.clock.now().toISOString();
     const { version, sceneId } = saved;
-    this.deps.publisher.tokensResized({ campaignId, sceneId, version, at, resizes });
+    const event = { campaignId, sceneId, version, at, resizes };
+    this.deps.publisher.tokensResized(event, cutsOf(event, saved.value.veil, RESIZES_SEEN_BY));
+    publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, saved.value.lights);
     return saved.version;
   }
 }
@@ -146,4 +165,28 @@ function idOf({ token }: TokenRow): string {
 
 function boxOf({ tokenId, col, row, width, height }: TokenBoxPo): TokenBoxPo {
   return { tokenId, col, row, width, height };
+}
+
+const FACES_SEEN_BY = entriesSeenBy<GridEvent<TokensFacedDto>>('faces');
+const RESIZES_SEEN_BY = entriesSeenBy<GridEvent<TokensResizedDto>>('resizes');
+
+// The row as the write left it (a light shines from where, and toward where, the token now is).
+function withFields(row: TokenRow, fields: Partial<TokenRow['token']>): TokenRow {
+  const defined = Object.entries(fields).filter(([, value]) => value !== undefined);
+  return { ...row, token: { ...row.token, ...Object.fromEntries(defined) } };
+}
+
+// The veil of a restyle; the veiled lights only when the light was lit or put out.
+async function litWriteOf(
+  daos: TokenWriteDaos,
+  sceneId: string,
+  rows: readonly TokenRow[],
+  style: Partial<TokenStylePo>,
+): Promise<VeiledWrite> {
+  if (style.lightLit === undefined) return { veil: veilOf(rows), lights: null };
+  return veiledWriteOf(
+    daos,
+    sceneId,
+    rows.map((row) => withFields(row, { lightLit: style.lightLit })),
+  );
 }

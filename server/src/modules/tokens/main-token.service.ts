@@ -1,3 +1,4 @@
+import { cutsOf, tokenSeenBy, veilOf } from './token-veil.mapper';
 import type { SetMainTokenCommandDto } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -34,16 +35,12 @@ export class MainTokenService {
       const found = await tokenIn(daos, scene, campaignId, tokenId);
       tokenAccessOf(access, found).requireChooseMainFor(playerId);
       await daos.mainTokens.choose(scene.id, playerId, tokenId);
+      return veilOf([found]);
     });
     const at = this.deps.clock.now().toISOString();
-    this.deps.publisher.mainTokenChanged({
-      campaignId,
-      sceneId: saved.sceneId,
-      version: saved.version,
-      at,
-      userId: playerId,
-      tokenId,
-    });
+    const { sceneId, version } = saved;
+    const event = { campaignId, sceneId, version, at, userId: playerId, tokenId };
+    this.deps.publisher.mainTokenChanged(event, cutsOf(event, saved.value, tokenSeenBy));
     return saved.version;
   }
 }

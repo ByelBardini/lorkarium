@@ -18,6 +18,7 @@ import { WallsDao } from '../walls/walls.dao';
 import { TokenAppearanceService } from './token-appearance.service';
 import { TokenBatchService } from './token-batch.service';
 import { TokenLinkService } from './token-link.service';
+import { TokenVisibilityService } from './token-visibility.service';
 import type { TokenTransactionRunner } from './token-transaction';
 import { TokensService } from './tokens.service';
 
@@ -37,6 +38,7 @@ export type TokensModule = Readonly<{
   appearance: TokenAppearanceService;
   mainToken: MainTokenService;
   link: TokenLinkService;
+  visibility: TokenVisibilityService;
 }>;
 
 /** Wires the tokens module (one token, and the batches of a paste); its edge is the board
@@ -69,5 +71,6 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
     appearance: new TokenAppearanceService(deps),
     mainToken: new MainTokenService(deps),
     link: new TokenLinkService(deps),
+    visibility: new TokenVisibilityService(deps),
   };
 }

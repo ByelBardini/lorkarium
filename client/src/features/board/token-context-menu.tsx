@@ -27,6 +27,7 @@ import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { LAYER_LABEL } from './board-messages';
+import { TokenHiddenItems } from './token-hidden-items';
 
 /** Where a token was right clicked: its id and the viewport point to open the menu at. */
 export type TokenMenuRequest = Readonly<{ tokenId: string; x: number; y: number }>;
@@ -59,7 +60,7 @@ export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
  *  (only on a token that gives off light), "Imagem…",
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
  *  token alone); the master also gets "Ligar à ficha de ▸" / "Desligar da ficha" (with
- *  `characters`) and "Mover para camada". Closing (a choice, Esc, a click away)
+ *  `characters`), "Tornar invisível" / "Tornar visível" and "Mover para camada". Closing (a choice, Esc, a click away)
  *  tells `onClose`.
  *
  *  Example: `{menu && <TokenContextMenu request={menu} board={board} interaction={interaction} onApplyCondition={open} onChangeImage={openImage} onClose={() => setMenu(null)} />}` */
@@ -73,11 +74,10 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
   const canMakeMain = useBoard(board, (state) => canMakeMainToken(state.board, request.tokenId));
   const layerMenu = useBoardInteraction(interaction, (state) => state.canChooseLayer);
   const players = useMainTokenPlayers(props.board, props.presence, request.tokenId);
+  const hiding = useHidingTargets(board, interaction, request.tokenId);
   if (!token) return null;
-  const targets = (): readonly string[] => {
-    const { selectedTokenIds } = interaction.getState();
-    return selectedTokenIds.includes(request.tokenId) ? selectedTokenIds : [request.tokenId];
-  };
+  const targets = (): readonly string[] =>
+    targetIdsOf(interaction.getState().selectedTokenIds, request.tokenId);
   const restyle = (style: TokenStyle): void => {
     void interaction
       .getState()
@@ -148,6 +148,7 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
             Luz acesa
           </DropdownMenuCheckboxItem>
         )}
+        {hiding.length > 0 && <TokenHiddenItems targets={hiding} interaction={interaction} />}
         <DropdownMenuSeparator />
         <LookItems
           token={token}
@@ -171,6 +172,26 @@ function canMakeMainToken(board: BoardStore['board'], tokenId: string): boolean 
   const token = board.tokens.find(({ id }) => id === tokenId);
   if (!token || !isListedIn(token, board.viewer.userId)) return false;
   return mainTokenIdOf(board) !== tokenId;
+}
+
+// Every item acts on the selection when the token is in it, or on that token alone.
+function targetIdsOf(selected: readonly string[], tokenId: string): readonly string[] {
+  return selected.includes(tokenId) ? selected : [tokenId];
+}
+
+// Only the master hides, the menu's targets (`targetIdsOf`).
+function useHidingTargets(
+  board: StoreApi<BoardStore>,
+  interaction: StoreApi<BoardInteractionStore>,
+  tokenId: string,
+): readonly TokenDto[] {
+  const state = useBoard(board, (current) => current.board);
+  const selected = useBoardInteraction(interaction, (current) => current.selectedTokenIds);
+  return useMemo(() => {
+    if (state?.viewer.role !== 'master') return [];
+    const ids = targetIdsOf(selected, tokenId);
+    return state.tokens.filter(({ id }) => ids.includes(id));
+  }, [state, selected, tokenId]);
 }
 
 // Only the master chooses for someone else; the players listed in the control, but the master.

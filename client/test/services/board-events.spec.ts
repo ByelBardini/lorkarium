@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBoardEvent } from '@/services/board-events';
+import { parseBoardEvent, parseVeiledLights } from '@/services/board-events';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { shapeOfEffectArea } from '@/lib/effect-area-shape';
@@ -7,13 +7,15 @@ import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import {
   BIA_AT_TABLE,
   KAEL_ID,
+  LYRA_ID,
   VHARN_GRID,
   conditionDefinition,
   memberCard,
   sceneUpdated,
+  veiledLightsChanged,
 } from '../support/table-session-fixtures';
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
-import { CORRIDOR_TORCH_ID, corridorTorch } from '../support/light-fixtures';
+import { CORRIDOR_TORCH_ID, corridorTorch, veiledTorch } from '../support/light-fixtures';
 
 describe('parseBoardEvent', () => {
   it('a valid scene:updated of the table is a sceneUpdated event', () => {
@@ -374,5 +376,61 @@ describe('parseBoardEvent', () => {
         kind: 'invalid',
       });
     });
+  });
+
+  describe('hidden tokens', () => {
+    const base = { ...VHARN_GRID, version: 6, at: '2026-10-24T12:00:00.000Z' };
+
+    it('a board:advanced of the table is a boardAdvanced event with only its version', () => {
+      expect(parseBoardEvent('board:advanced', base, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type: 'boardAdvanced', payload: base },
+      });
+    });
+
+    it('a board:advanced carrying a tokenId is invalid (resync): it must say nothing more', () => {
+      const leaking = { ...base, tokenId: LYRA_ID };
+      expect(parseBoardEvent('board:advanced', leaking, VHARN.id)).toEqual({ kind: 'invalid' });
+    });
+
+    it('a valid token:hiddenChanged of the table is a tokensHiddenChanged event', () => {
+      const payload = { ...base, tokenIds: [LYRA_ID, KAEL_ID], hidden: true };
+      expect(parseBoardEvent('token:hiddenChanged', payload, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type: 'tokensHiddenChanged', payload },
+      });
+    });
+
+    it('a token:hiddenChanged with hidden "yes" is invalid (resync)', () => {
+      const payload = { ...base, tokenIds: [LYRA_ID], hidden: 'yes' };
+      expect(parseBoardEvent('token:hiddenChanged', payload, VHARN.id)).toEqual({
+        kind: 'invalid',
+      });
+    });
+  });
+});
+
+describe('parseVeiledLights', () => {
+  it('a valid token:veiledLightsChanged of the table gives the whole list', () => {
+    const payload = veiledLightsChanged([veiledTorch()]);
+    expect(parseVeiledLights(payload, VHARN.id)).toEqual(payload);
+  });
+
+  it('a veiled light with bright 101 is dropped (null): unversioned, it confirmed nothing', () => {
+    const payload = veiledLightsChanged([veiledTorch({ bright: 101 })]);
+    expect(parseVeiledLights(payload, VHARN.id)).toBeNull();
+  });
+
+  it('a veiled light carrying the token id is dropped: the list never names a token', () => {
+    const payload = {
+      ...veiledLightsChanged([]),
+      lights: [{ ...veiledTorch(), tokenId: LYRA_ID }],
+    };
+    expect(parseVeiledLights(payload, VHARN.id)).toBeNull();
+  });
+
+  it('the lights of another table are not this one', () => {
+    const payload = veiledLightsChanged([veiledTorch()], { campaignId: QUELM.id });
+    expect(parseVeiledLights(payload, VHARN.id)).toBeNull();
   });
 });

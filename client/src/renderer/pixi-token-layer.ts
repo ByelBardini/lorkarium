@@ -326,7 +326,8 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
 }
 
 // The rings and the bar stay bright: they are about the table, not about the token's face. The
-// face fades (and greys) by the defeat and the looks together, so the cross still reads first.
+// face fades (and greys) by the defeat, the looks and being hidden together, so the cross still
+// reads first.
 function drawDefeated(sprite: TokenSprite, box: TokenShape, square = false): void {
   const { disc, art, label, cross, view } = sprite;
   sprite.look.draw([disc, art.container, label], tokenLookStyle(view), { ...box, square });

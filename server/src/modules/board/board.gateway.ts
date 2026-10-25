@@ -46,6 +46,7 @@ import {
   setInitiativeCommandDto,
   setDoorCommandDto,
   setTokenLayerCommandDto,
+  setTokensHiddenCommandDto,
   setWallKindsCommandDto,
   faceTokensCommandDto,
   restyleTokensCommandDto,
@@ -74,6 +75,7 @@ import type { SceneActivationService } from '../scenes/scene-activation.service'
 import type { SceneWatchService } from '../scenes/scene-watch.service';
 import type { ScenesService } from '../scenes/scenes.service';
 import type { TokenAppearanceService } from '../tokens/token-appearance.service';
+import type { TokenVisibilityService } from '../tokens/token-visibility.service';
 import type { MainTokenService } from '../tokens/main-token.service';
 import type { TokenBatchService } from '../tokens/token-batch.service';
 import type { TokenLinkService } from '../tokens/token-link.service';
@@ -107,6 +109,7 @@ export type BoardGatewayDeps = Readonly<{
   tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany' | 'addPlayers'>;
   tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany' | 'resizeMany'>;
   mainToken: Pick<MainTokenService, 'choose'>;
+  tokenVisibility: Pick<TokenVisibilityService, 'setHiddenMany'>;
   tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
   memberCards: Pick<MemberCardsService, 'update'>;
   pings: Pick<PingsService, 'ping'>;
@@ -173,7 +176,7 @@ type Creation<Command> = (
  *  Example: `realtime.onConnection(createBoardGateway({ board, scenes, tokens, realtime, log }))` */
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
   const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
-  const { effectAreas, walls, lights, mainToken, memberCards } = deps;
+  const { effectAreas, walls, lights, mainToken, memberCards, tokenVisibility } = deps;
   const { rate } = deps;
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
@@ -256,6 +259,10 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     );
     socket.on('token:adjustBar', mutate(adjustBarCommandDto, tokens.adjustBar.bind(tokens)));
     socket.on('token:setMain', mutate(setMainTokenCommandDto, mainToken.choose.bind(mainToken)));
+    socket.on(
+      'token:setHiddenMany',
+      mutate(setTokensHiddenCommandDto, tokenVisibility.setHiddenMany.bind(tokenVisibility)),
+    );
     socket.on(
       'member:updateCard',
       mutate(updateMemberCardCommandDto, memberCards.update.bind(memberCards)),

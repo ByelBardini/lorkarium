@@ -4,6 +4,7 @@ import type {
   EffectAreaDto,
   TokenDto,
   LightDto,
+  VeiledLightDto,
   WallDto,
 } from '@lorkarium/contracts';
 import { cell } from '@lorkarium/game-core';
@@ -52,6 +53,7 @@ const NO_DRAWINGS: readonly DrawingDto[] = [];
 const NO_EFFECT_AREAS: readonly EffectAreaDto[] = [];
 const NO_WALLS: readonly WallDto[] = [];
 const NO_LIGHTS: readonly LightDto[] = [];
+const NO_VEILED_LIGHTS: readonly VeiledLightDto[] = [];
 
 // A text key, not a list: a selector that hands back a new array each call loops the render.
 function turnTokensKeyOf(board: BoardStateDto | null): string {
@@ -116,6 +118,7 @@ function useBoardView({
   const effectAreas = useBoard(board, (state) => state.board?.effectAreas ?? NO_EFFECT_AREAS);
   const walls = useBoard(board, (state) => state.board?.walls ?? NO_WALLS);
   const lights = useBoard(board, (state) => state.board?.lights ?? NO_LIGHTS);
+  const veiledLights = useBoard(board, (state) => state.board?.veiledLights ?? NO_VEILED_LIGHTS);
   const viewerId = useBoard(board, (state) => state.board?.viewer.userId ?? '');
   const isMaster = useBoard(board, (state) => state.board?.viewer.role === 'master');
   const turnTokensKey = useBoard(board, (state) => turnTokensKeyOf(state.board));
@@ -139,6 +142,7 @@ function useBoardView({
       wallStyle: nextWall,
       walls,
       lights,
+      veiledLights,
       sight,
     };
     return buildBoardView({ scene, ...extra, ...areas, ...local });
@@ -149,6 +153,7 @@ function useBoardView({
     effectAreas,
     walls,
     lights,
+    veiledLights,
     viewerId,
     isMaster,
     currentTokenIds,

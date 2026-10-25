@@ -31,7 +31,7 @@ export type TokenMoveDto = z.infer<typeof tokenMoveDto>;
  *  `combatantId` is the entry of the copied original, which the paste joins when it is still there. */
 export const newTokenDto = createTokenCommandDto
   .omit({ actionId: true, campaignId: true })
-  .extend({ combatantId: z.uuid().optional() });
+  .extend({ combatantId: z.uuid().optional(), hidden: z.boolean().default(false) });
 export type NewTokenDto = z.infer<typeof newTokenDto>;
 export type NewTokenInput = z.input<typeof newTokenDto>;
 

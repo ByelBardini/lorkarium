@@ -1,4 +1,4 @@
-import type { LightDto } from '@lorkarium/contracts';
+import type { LightDto, VeiledLightDto } from '@lorkarium/contracts';
 
 export const CORRIDOR_TORCH_ID = 'f6a7b8c9-d0e1-4f2a-9b3c-4d5e6f7a8b9c';
 export const BRAZIER_ID = 'a7b8c9d0-e1f2-4a3b-8c4d-5e6f7a8b9c0d';
@@ -26,4 +26,12 @@ export function corridorTorch(overrides: Partial<LightDto> = {}): LightDto {
  *  Example: `vharnBoard({ lights: [corridorTorch(), brazier()] })` */
 export function brazier(overrides: Partial<LightDto> = {}): LightDto {
   return corridorTorch({ id: BRAZIER_ID, x: 12, y: 8, bright: 2, dim: 6, ...overrides });
+}
+
+/** The light of a hidden wolf this viewer does not receive: a lit neutral torch shining from the
+ *  wolf's center (4, 5), bright 4, dim 4. No id and no size, as the server sends it.
+ *
+ *  Example: `vharnBoard({ veiledLights: [veiledTorch({ color: 'infernal' })] })` */
+export function veiledTorch(overrides: Partial<VeiledLightDto> = {}): VeiledLightDto {
+  return { x: 4, y: 5, bright: 4, dim: 4, color: null, facing: 0, angle: 360, ...overrides };
 }

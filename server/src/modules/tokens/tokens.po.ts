@@ -71,6 +71,8 @@ export const tokens = pgTable(
     // How wide the beam opens toward the facing (a lantern); 360 = every side, and no light
     // brings it back to 360.
     lightAngle: smallint('light_angle').notNull().default(360),
+    // Hidden from the players: only the masters and its controllers ever receive it.
+    hidden: boolean('hidden').notNull().default(false),
     // The anchor (in the table's cast) of the character this token is: it lends its identity,
     // bars, controllers, conditions and defeat mark. Losing the anchor unlinks the token.
     anchorTokenId: uuid('anchor_token_id').references((): AnyPgColumn => tokens.id, {

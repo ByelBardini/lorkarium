@@ -129,3 +129,13 @@ export function requireFacing(tokenId: string, expected: number | undefined, act
   if (expected === undefined || expected === actual) return;
   throw new StaleUndoError(`token ${tokenId}`, `facing ${expected}`, `facing ${actual}`);
 }
+
+/** The ids of the tokens that hiding (or showing) really changes: the ones not already so.
+ *
+ *  Example: `changedVisibility([{ id: wolfId, hidden: true }, { id: kaelId, hidden: false }], true) // [kaelId]` */
+export function changedVisibility(
+  tokens: readonly Readonly<{ id: string; hidden: boolean }>[],
+  hidden: boolean,
+): string[] {
+  return tokens.filter((token) => token.hidden !== hidden).map(({ id }) => id);
+}

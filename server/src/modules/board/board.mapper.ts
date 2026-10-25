@@ -9,6 +9,7 @@ import type {
   WallDto,
   LightDto,
   MainTokenDto,
+  VeiledLightDto,
   MemberCardDto,
 } from '@lorkarium/contracts';
 import { toSceneDto } from '../scenes/scenes.mapper';
@@ -24,6 +25,8 @@ export type BoardSnapshotParts = Readonly<{
   effectAreas: readonly EffectAreaDto[];
   walls: readonly WallDto[];
   lights: readonly LightDto[];
+  /** The lights of the hidden tokens the viewer does not receive. */
+  veiledLights: readonly VeiledLightDto[];
   combat: CombatDto | null;
   conditionDefinitions: readonly ConditionDefinitionDto[];
   mainTokens: readonly MainTokenDto[];
@@ -46,6 +49,7 @@ export function toBoardStateDto(parts: BoardSnapshotParts): BoardStateDto {
     effectAreas: [...parts.effectAreas],
     walls: [...parts.walls],
     lights: [...parts.lights],
+    veiledLights: [...parts.veiledLights],
     combat: parts.combat,
     conditionDefinitions: [...parts.conditionDefinitions],
     mainTokens: parts.mainTokens.map(({ userId, tokenId }) => ({ userId, tokenId })),

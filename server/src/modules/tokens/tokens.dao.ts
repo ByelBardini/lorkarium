@@ -55,7 +55,7 @@ export type TokenUpdatePo = Readonly<{
 
 /** What a drag preview checks of one token: where it may go and who controls it. */
 export type DragTokenPo = Readonly<{
-  token: Pick<TokenPo, 'id' | 'layer' | 'width' | 'height'>;
+  token: Pick<TokenPo, 'id' | 'layer' | 'width' | 'height' | 'hidden'>;
   controllerIds: readonly string[];
 }>;
 
@@ -64,7 +64,11 @@ export type TokenControlPo = Readonly<{
   tokenId: string;
   controllerIds: string[];
   anchorTokenId: string | null;
+  hidden: boolean;
 }>;
+
+/** A hidden token of a scene as the veil needs it: who sees it and where its light shines from. */
+export type HiddenTokenPo = Readonly<{ token: TokenPo; controllerIds: readonly string[] }>;
 
 /** The active scene of a campaign (size and version) and the asked tokens found on it. */
 export type DragGroupPo = Readonly<{
@@ -191,11 +195,40 @@ export class TokensDao {
         tokenId: tokens.id,
         controllerIds: CONTROLLER_IDS,
         anchorTokenId: tokens.anchorTokenId,
+        hidden: tokens.hidden,
       })
       .from(tokens)
       .leftJoin(tokenControllers, CONTROLLERS_OF_HOLDER)
       .where(eq(tokens.sceneId, sceneId))
       .groupBy(tokens.id);
+  }
+
+  /** The hidden tokens of the scene (a linked one controlled by its anchor's controllers), in one
+   *  query: what the veil of a snapshot or of the hidden lights needs. */
+  async veilOfScene(sceneId: string): Promise<HiddenTokenPo[]> {
+    return this.db
+      .select({ token: tokens, controllerIds: CONTROLLER_IDS })
+      .from(tokens)
+      .leftJoin(tokenControllers, CONTROLLERS_OF_HOLDER)
+      .where(and(eq(tokens.sceneId, sceneId), eq(tokens.hidden, true)))
+      .groupBy(tokens.id)
+      .orderBy(asc(tokens.createdAt), asc(tokens.id));
+  }
+
+  /** Hides or shows the listed tokens; one of another scene is not written (§2.6). Returns the
+   *  ids written. */
+  async setHidden(
+    sceneId: string,
+    tokenIds: readonly string[],
+    hidden: boolean,
+  ): Promise<string[]> {
+    if (tokenIds.length === 0) return [];
+    const written = await this.db
+      .update(tokens)
+      .set({ hidden, updatedAt: sql`now()` })
+      .where(and(eq(tokens.sceneId, sceneId), inArray(tokens.id, [...tokenIds])))
+      .returning({ id: tokens.id });
+    return written.map(({ id }) => id);
   }
 
   async setLayer(tokenIds: readonly string[], layer: TokenLayerPo): Promise<void> {
@@ -410,6 +443,7 @@ const DRAG_COLUMNS = {
   layer: tokens.layer,
   width: tokens.width,
   height: tokens.height,
+  hidden: tokens.hidden,
   controllerIds: CONTROLLER_IDS,
 };
 
@@ -418,6 +452,7 @@ type DragColumnsRow = Readonly<{
   layer: TokenPo['layer'] | null;
   width: number | null;
   height: number | null;
+  hidden: boolean | null;
   controllerIds: string[];
 }>;
 
@@ -425,7 +460,7 @@ type DragColumnsRow = Readonly<{
 function dragTokenOf(row: DragColumnsRow): DragTokenPo[] {
   const { tokenId: id, layer, width, height, controllerIds } = row;
   if (id === null || layer === null || width === null || height === null) return [];
-  return [{ token: { id, layer, width, height }, controllerIds }];
+  return [{ token: { id, layer, width, height, hidden: row.hidden ?? false }, controllerIds }];
 }
 
 const CELL_COLUMNS = {
