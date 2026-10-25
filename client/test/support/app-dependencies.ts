@@ -18,6 +18,7 @@ import { BoardRenderersFake } from './board-renderer-fake';
 import { CallJournal } from './call-journal';
 import { CampaignsApiFake } from './campaigns-api-fake';
 import { ClipboardFake } from './clipboard-fake';
+import { FieldEditingFake } from './field-editing-fake';
 import { InteractionClockFake } from './interaction-clock-fake';
 import { LibraryApiFake } from './library-api-fake';
 import { SceneActivationFake } from './scene-activation-fake';
@@ -38,6 +39,7 @@ export type TestDependencies = AppDependencies & {
   sceneActivation: SceneActivationFake;
   assets: AssetsApiFake;
   clipboard: ClipboardFake;
+  fieldEditing: FieldEditingFake;
   /** The session api under `openTables`, for specs to play the server. */
   tableSessionApi: TableSessionApiFake;
   /** The `sessionStorage` under `openTables`. */
@@ -94,6 +96,9 @@ export function testDependencies(): TestDependencies {
     sceneActivation: new SceneActivationFake(),
     assets: new AssetsApiFake(),
     clipboard: new ClipboardFake(),
+    // The browser by default: specs of the desktop field menu turn it on.
+    isDesktop: false,
+    fieldEditing: new FieldEditingFake(),
     tableSessionApi,
     tabStorage,
     roomLayoutStorage,

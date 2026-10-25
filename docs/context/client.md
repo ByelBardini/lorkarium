@@ -33,12 +33,13 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Minha conta: perfil, foto, barra de alterações, senha, e-mail, sessões, 2FA, link do e-mail | [`account.md`](client/account.md)                     |
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas  | [`backoffice.md`](client/backoffice.md)               |
 | Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                          | [`account-links.md`](client/account-links.md)         |
+| Menu dos campos de texto no app desktop: `isDesktopShell`, itens, `FieldEditing`, raiz      | [`text-field-menu.md`](client/text-field-menu.md)     |
 | Armadilhas gerais do client (router, Radix, React Compiler, jsdom, Playwright)              | [`armadilhas.md`](client/armadilhas.md)               |
 
 ## Estrutura
 
-- `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `createOpenTablesStore` (com `tabInteractionFactory(boardCommands)`) sobre a `RealtimeTableSessionApi` (sobre `SocketIoRealtimeTransport` com `crypto.randomUUID`) e o `sessionStorage`, `NavigatorClipboard`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`)
-- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, profileApi, accountSecurityApi, userAdminApi, accountLinksApi, libraryApi, sceneActivation, assets, clipboard, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, createBoardRenderer, boardCommands, interactionClock, now, random }`, para o teste injetar fakes
+- `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `createOpenTablesStore` (com `tabInteractionFactory(boardCommands)`) sobre a `RealtimeTableSessionApi` (sobre `SocketIoRealtimeTransport` com `crypto.randomUUID`) e o `sessionStorage`, `NavigatorClipboard`, `isDesktopShell`, `DocumentFieldEditing`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`)
+- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, profileApi, accountSecurityApi, userAdminApi, accountLinksApi, libraryApi, sceneActivation, assets, clipboard, isDesktop, fieldEditing, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, createBoardRenderer, boardCommands, interactionClock, now, random }`, para o teste injetar fakes
 - `src/app/route-access.ts` — `decideAccess(session, access, url)`: decisão pura `allow` | `redirect` por `RouteAccess` (`public-only`, `signed-in`, `admin`, `anyone`); `loginPathFor(url)` → `/login?next=…`
 - `src/app/splash-screen.tsx` (`role="status"`, "Carregando…") e `src/app/route-error-screen.tsx`
 - `src/app/shell/` — `AppShell`, trilho, menu do usuário, gaveta e `api-loader.ts` (ver [`client/home.md`](client/home.md))
@@ -58,6 +59,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/components/load-error-screen.tsx` — `LoadErrorScreen({ pageTitle, failedHeading })`: `ErrorBoundary` de `loader` (home e conta)
 - `src/components/user-avatar.tsx` — `UserAvatar`: foto ou iniciais na cor, em círculo (ver [`client/table-people.md`](client/table-people.md))
 - `src/lib/utils.ts` — `cn`
+- App desktop: `src/lib/desktop-shell.ts` (`isDesktopShell`), `src/services/field-editing.ts` e `src/features/text-field-menu/` — ver [`client/text-field-menu.md`](client/text-field-menu.md)
 - `src/lib/stored-choice.ts` — `readStoredChoice(storage, chave, opções, padrão)` / `writeStoredChoice`: preferência de UI no `localStorage` que cai na memória se o storage lança (trilho e painel da sala)
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` e `DESKTOP_QUERY` (`md`); sem `matchMedia` (jsdom) responde `true`
 - `src/lib/board-shortcuts.ts`, `ruler-label.ts` — atalhos e régua da sala (ver [`client/board.md`](client/board.md))
@@ -78,12 +80,12 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/lib/campaign-meta.ts` — `campaignMeta(mesa)` ("Tormenta20 · mestre: Bia · 4 participantes"; o mestre só aparece para quem joga; sem o status), `memberCountLabel(n)`, `ROLE_LABEL`
 - `src/services/http-transport.ts` — `HttpTransport` (interface; `GET`, `POST`, `PUT`, `PATCH`, `DELETE`; `upload(path, file, 'POST' | 'PUT')`), `FetchHttpTransport` (base `/api`, JSON, `credentials: 'same-origin'`), `NetworkUnavailableError`; resposta com `body` JSON, `null` se vazia, `undefined` se não-JSON
 - `src/services/api-call.ts` — o comum a todo serviço: `callApi(transport, método, caminho, corpo?)` → `ok` (status < 300) | `refused` (com a resposta, para o serviço nomear o `kind`) | `offline`; `parseOk(dto, corpo, pick)` (corpo fora do DTO → `unexpected`); `retryAfterOf(resposta)` (`Retry-After`, senão `retryAfterSeconds` do corpo, senão 60); `errorCodeOf(resposta)`
-- `src/services/auth-api.ts` — `AuthApi` / `HttpAuthApi`: devolve `AuthResult` (nunca lança); falhas `invalid_credentials` (401), `rate_limited` (429), `offline`, `unexpected`. O `login` devolve `LoginResult`: `{ status: 'two-factor-required' }` do server vira a falha `two_factor_required` (`LoginFailure` = `AuthFailure` + ela); `verifyTwoFactor` é a 2ª etapa (ver [`auth.md`](auth.md), Client)
+- `src/services/auth-api.ts` — `AuthApi` / `HttpAuthApi` (falhas, `login` e `verifyTwoFactor` em [`auth.md`](auth.md), Client)
 - `src/services/{profile-api,account-security-api,account-failure}.ts` — ver [`client/account.md`](client/account.md); `user-admin-api.ts`, `account-links-api.ts` — ver os sub-docs do backoffice e dos links
-- `src/services/campaigns-api.ts` — `CampaignsApi` / `HttpCampaignsApi`: `list`, `create`, `detail`, `join`, `enter`, `update`, `regenerateCode`, `remove`, cada um devolvendo `CampaignsResult<T>`; falhas (`CampaignsFailure`): `unauthenticated` (401), `not_found` (404), `invalid` (400), `password_required` / `password_invalid` / `forbidden` / `not_open` (403 pelo `code`; `CAMPAIGN_NOT_OPEN` = mestre sem a mesa aberta), `rate_limited` (429), `offline`, `unexpected`
+- `src/services/campaigns-api.ts` — `CampaignsApi` / `HttpCampaignsApi`: `list`, `create`, `detail`, `join`, `enter`, `update`, `regenerateCode`, `remove`, cada um devolvendo `CampaignsResult<T>`; falhas em [`client/campaign-parts.md`](client/campaign-parts.md)
 - `src/services/realtime-transport.ts` — `RealtimeTransport` / `SocketIoRealtimeTransport`: o único lugar do `socket.io-client` ([`client/realtime.md`](client/realtime.md))
 - `src/services/table-session-api.ts` — `TableSessionApi` / `RealtimeTableSessionApi`: várias mesas sobre um socket, `open(campaignId, listener)` → handle com `close`, `setAway`, `watch`, `followCast` ([`client/realtime.md`](client/realtime.md))
-- `src/services/clipboard.ts` — `Clipboard` (interface) e `NavigatorClipboard` (`copy(texto)` → `false` quando o navegador recusa)
+- `src/services/clipboard.ts` — `Clipboard` (interface) e `NavigatorClipboard` (`copy(texto)` → `false` quando o navegador recusa; `readText()` → `null`)
 - `src/stores/rail-store.ts` — `createRailStore(storage)` (Zustand vanilla), `useRail(store)`; `rail` = `expanded` (padrão) | `collapsed`, gravado em `localStorage` (`lorkarium.rail`); storage que lança cai na memória
 - `src/stores/open-tables-store.ts` — `createOpenTablesStore({ api, storage, createInteraction })`: as mesas abertas da aba (até `MAX_OPEN_TABLES`, no `sessionStorage`), cada uma com presença, tabuleiro, elenco, edição e abas ([`client/realtime.md`](client/realtime.md))
 - `src/stores/table-presence-store.ts` — `createTablePresenceStore(campaignId)`: quem está na mesa, com a regra de versão ([`client/realtime.md`](client/realtime.md))
@@ -133,7 +135,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `client/test/support/realtime-transport-fake.ts` — `RealtimeTransportFake` (`sent`, `connects`, `disconnects`; `answerAck(resposta)` / `timeOutAck()` resolvem o ack mais antigo; `serverEmits(evento, payload)`; `lifecycle(mudança)`; `isConnected()` segue a última mudança). `table-session-fixtures.ts` — membros `ANA_AT_TABLE`, `BIA_AT_TABLE` (offline), `CAIO_AT_TABLE`, `vharnState(overrides)`, `biaJoined()`, `biaLeft()`.
 - `client/test/support/table-session-api-fake.ts` — `TableSessionApiFake` (`opened`, `closedIds` e `closed` = quantos, `emit(...updates)` ao último listener e `emitTo(campaignId, ...updates)` ao da mesa, dentro de `act`); está no `testDependencies()`.
 - `client/test/support/call-journal.ts` — `CallJournal` (`entries`): o `AuthApiFake` escreve `logout` e o `TableSessionApiFake` `close:<id>`; no `testDependencies()` os dois dividem o mesmo (`deps.journal`).
-- `client/test/support/clipboard-fake.ts` (`ClipboardFake`, `copied`) e `storage-fake.ts` (`StorageFake`, `values`, `removeItem`; `new StorageFake(true)` lança como storage bloqueado).
+- `client/test/support/clipboard-fake.ts` (`ClipboardFake`, `copied`, `pasteText`), `field-editing-fake.ts` (`FieldEditingFake`) e `storage-fake.ts` (`StorageFake`, `values`, `removeItem`; `new StorageFake(true)` lança como storage bloqueado).
 - Tela com `loader`/`action` se prova pelo router inteiro (`createMemoryRouter(buildRoutes(testDependencies()))`); os subcomponentes de diálogo e da home não têm spec próprio, são provados pelo spec do pai.
 - Componente se prova pelo que o usuário vê: `getByRole`/`getByLabelText` + `toHaveTextContent`/`toBeDisabled`/`toHaveAttribute`, não classe CSS.
 

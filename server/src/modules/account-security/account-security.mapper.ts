@@ -15,8 +15,10 @@ export type SessionDevice = Readonly<{
   formFactor: AccountSessionFormFactorDto;
 }>;
 
-// Order matters: Edge and Opera also say "Chrome", Chrome also says "Safari".
+// Order matters: the desktop app's WebView2 also says "Edg/", Edge and Opera also say "Chrome",
+// Chrome also says "Safari".
 const BROWSER_PATTERNS: ReadonlyArray<readonly [AccountSessionBrowserDto, RegExp]> = [
+  ['lorkarium', /\bLorkariumDesktop\/\d/],
   ['edge', /\bEdg(e|A|iOS)?\//],
   ['opera', /\b(OPR|Opera)\//],
   ['firefox', /\b(Firefox|FxiOS)\//],

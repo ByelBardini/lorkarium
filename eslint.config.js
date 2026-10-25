@@ -16,6 +16,8 @@ export default tseslint.config(
       '**/test-results',
       '.claude/skills/*/fixtures',
       'docs/pages',
+      'desktop/src-tauri/target',
+      'desktop/src-tauri/gen',
     ],
   },
   js.configs.recommended,
@@ -28,6 +30,10 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
+  },
+  {
+    files: ['desktop/src/**/*.ts'],
+    languageOptions: { globals: globals.browser },
   },
   {
     files: ['server/**/*.ts', 'packages/**/*.ts', 'e2e/**/*.ts', '*.{js,ts}', '.claude/**/*.mjs'],

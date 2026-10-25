@@ -19,6 +19,9 @@ const SAFARI_MAC =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
 const OPERA_WINDOWS =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 OPR/115.0.0.0';
+const WEBVIEW2_WINDOWS =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0';
+const LORKARIUM_DESKTOP = `${WEBVIEW2_WINDOWS} LorkariumDesktop/0.1.0`;
 
 describe('deviceOf', () => {
   it.each([
@@ -40,6 +43,21 @@ describe('deviceOf', () => {
       'Opera (not Chrome)',
       OPERA_WINDOWS,
       { browser: 'opera', os: 'windows', formFactor: 'desktop' },
+    ],
+    [
+      'the desktop app (not Edge, though WebView2 says Edg/)',
+      LORKARIUM_DESKTOP,
+      { browser: 'lorkarium', os: 'windows', formFactor: 'desktop' },
+    ],
+    [
+      'WebView2 without the app suffix is still Edge',
+      WEBVIEW2_WINDOWS,
+      { browser: 'edge', os: 'windows', formFactor: 'desktop' },
+    ],
+    [
+      'LorkariumDesktop without a /version is not the app',
+      `${WEBVIEW2_WINDOWS} LorkariumDesktop`,
+      { browser: 'edge', os: 'windows', formFactor: 'desktop' },
     ],
   ])('%s is read from its user agent', (_label, agent, device) => {
     expect(deviceOf(agent)).toEqual(device);

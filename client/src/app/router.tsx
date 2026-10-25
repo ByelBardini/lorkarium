@@ -1,6 +1,7 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import {
+  Outlet,
   redirect,
   useNavigate,
   useSearchParams,
@@ -17,6 +18,7 @@ import { inviteRoute, passwordResetRoute } from '@/features/account-links/accoun
 import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { homeRoutes } from '@/features/home/home-route';
+import { TextFieldMenu } from '@/features/text-field-menu/text-field-menu';
 import { useTabActivity } from '@/features/sessions/use-tab-activity';
 import { useLeaveDeletedTable } from '@/features/sessions/use-leave-deleted-table';
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
@@ -31,6 +33,7 @@ import type { LibraryApi } from '@/services/library-api';
 import type { ProfileApi } from '@/services/profile-api';
 import type { SceneActivation } from '@/services/scene-activation';
 import type { Clipboard } from '@/services/clipboard';
+import type { FieldEditing } from '@/services/field-editing';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import type { PingCommands } from '@/services/table-pings';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
@@ -66,6 +69,10 @@ export type AppDependencies = Readonly<{
   /** Images sent to a table (file or link). */
   assets: AssetsApi;
   clipboard: Clipboard;
+  /** Inside the desktop shell (Tauri), whose WebView2 has the browser's right-click menu off. */
+  isDesktop: boolean;
+  /** Cut, copy, paste and select-all on a text field (the desktop field menu). */
+  fieldEditing: FieldEditing;
   openTables: StoreApi<OpenTablesStore>;
   sessionStore: StoreApi<SessionStore>;
   railStore: StoreApi<RailStore>;
@@ -105,6 +112,7 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
       // The root middleware keeps the first navigation pending, so the splash covers the "who am I".
       HydrateFallback: SplashScreen,
       ErrorBoundary: RouteErrorScreen,
+      Component: rootRoute(deps),
       children: [
         { path: 'login', middleware: [guard(deps, 'public-only')], Component: loginRoute(deps) },
         {
@@ -150,6 +158,21 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
       ],
     },
   ];
+}
+
+function rootRoute({
+  isDesktop,
+  clipboard,
+  fieldEditing,
+}: AppDependencies): () => React.JSX.Element {
+  return function RootRoute(): React.JSX.Element {
+    return (
+      <>
+        <Outlet />
+        <TextFieldMenu isDesktop={isDesktop} clipboard={clipboard} fieldEditing={fieldEditing} />
+      </>
+    );
+  };
 }
 
 function resolveSessionOnce({ authApi, sessionStore }: AppDependencies): MiddlewareFunction {

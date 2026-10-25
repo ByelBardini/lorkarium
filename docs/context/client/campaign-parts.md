@@ -19,6 +19,7 @@ O que o client tem para mostrar e editar a mesa com o contrato ampliado (plano `
 
 ## Serviço (`src/services/campaigns-api.ts`)
 
+- Todas as falhas (`CampaignsFailure`): `unauthenticated` (401), `not_found` (404), `invalid` (400), `password_required` / `password_invalid` / `forbidden` / `not_open` (403 pelo `code`; `CAMPAIGN_NOT_OPEN` = mestre sem a mesa aberta), `rate_limited` (429), `offline`, `unexpected`.
 - `update(campaignId, input: UpdateCampaignRequestInput)` → `PATCH /campaigns/:id` → `CampaignDetailDto`. Recebe o **input** do DTO: o tipo inferido de saída do `updateCampaignRequestDto` exige as chaves `system`/`description` (o `transform` do campo opcional), então a tela passa só o que mudou; chave `undefined` some no JSON.
 - `regenerateCode(campaignId)` → `POST /campaigns/:id/join-code` → `CampaignDetailDto` com o código novo.
 - `remove(campaignId)` → `DELETE /campaigns/:id` → `null` (204).

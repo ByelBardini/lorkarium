@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-begin-startup"
+description = "Enables the begin_startup command without any pre-configured scope."
+commands.allow = ["begin_startup"]
+
+[[permission]]
+identifier = "deny-begin-startup"
+description = "Denies the begin_startup command without any pre-configured scope."
+commands.deny = ["begin_startup"]

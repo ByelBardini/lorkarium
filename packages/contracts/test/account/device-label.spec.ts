@@ -9,6 +9,9 @@ describe('deviceLabel', () => {
     [{ browser: 'firefox', os: 'other' }, 'Firefox'],
     [{ browser: 'other', os: 'android' }, 'Navegador no Android'],
     [{ browser: 'other', os: 'other' }, 'Navegador desconhecido'],
+    [{ browser: 'lorkarium', os: 'windows' }, 'Lorkarium para Windows'],
+    [{ browser: 'lorkarium', os: 'other' }, 'Lorkarium'],
+    [{ browser: 'edge', os: 'windows' }, 'Edge no Windows'],
   ] as const)('%o reads "%s"', (device, label) => {
     expect(deviceLabel(device)).toBe(label);
   });

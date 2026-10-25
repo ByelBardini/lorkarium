@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -132,6 +132,21 @@ describe('app router', () => {
           '/login?next=%2F',
         ),
       );
+    });
+  });
+
+  describe('the text field menu at the root', () => {
+    it('on the desktop shell a right click on the login e-mail opens the field menu', async () => {
+      deps = { ...deps, isDesktop: true };
+      renderAt('/login');
+      fireEvent.contextMenu(await screen.findByLabelText('E-mail'));
+      expect(await screen.findByRole('menuitem', { name: /Colar/ })).toBeInTheDocument();
+    });
+
+    it('in the browser the same right click is left to the browser menu', async () => {
+      renderAt('/login');
+      expect(fireEvent.contextMenu(await screen.findByLabelText('E-mail'))).toBe(true);
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
   });
 });

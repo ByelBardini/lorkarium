@@ -78,7 +78,8 @@ describe('backoffice mail test (/admin/emails)', () => {
       ok: true,
       value: { subject: 'Seu convite para o Lorkarium', to: ROOT_ADMIN.email },
     });
-    expect(await screen.findByRole('status')).toHaveTextContent('enviado para');
+    // The status region is always mounted (empty): wait for the text, not for the node.
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('enviado para'));
   });
 
   it('a mail server down says so in an alert', async () => {

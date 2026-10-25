@@ -11,13 +11,13 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 
 ## Testes por camada
 
-| Script                  | Projeto(s) Vitest                              | O que prova                                                                                                                 |
-| ----------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm test:packages`    | `@lorkarium/game-core`, `@lorkarium/contracts` | regra de jogo pura e DTO com regra própria                                                                                  |
-| `pnpm test:client`      | `@lorkarium/client`                            | `src/lib/`, stores, serviços, conta do renderer                                                                             |
-| `pnpm test:server`      | `@lorkarium/server`                            | BO, mapper, service, config e adaptadores (sem banco, sem Fastify)                                                          |
-| `pnpm test:integration` | `@lorkarium/server-integration`                | bordas, DAO, permissão e isolamento por campanha em Postgres real; o teto de consultas por comando (`query-budget.spec.ts`) |
-| `pnpm test`             | todos menos a integração                       | atalho local, sem cobertura                                                                                                 |
+| Script                  | Projeto(s) Vitest                                                    | O que prova                                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm test:packages`    | `@lorkarium/game-core`, `@lorkarium/contracts`, `@lorkarium/desktop` | regra de jogo pura, DTO com regra própria e a splash da casca desktop (o Rust roda no job `desktop`)                        |
+| `pnpm test:client`      | `@lorkarium/client`                                                  | `src/lib/`, stores, serviços, conta do renderer                                                                             |
+| `pnpm test:server`      | `@lorkarium/server`                                                  | BO, mapper, service, config e adaptadores (sem banco, sem Fastify)                                                          |
+| `pnpm test:integration` | `@lorkarium/server-integration`                                      | bordas, DAO, permissão e isolamento por campanha em Postgres real; o teto de consultas por comando (`query-budget.spec.ts`) |
+| `pnpm test`             | todos menos a integração                                             | atalho local, sem cobertura                                                                                                 |
 
 - Os três primeiros rodam com `--coverage` (`@vitest/coverage-v8`), configurado em `vitest.config.ts`: reporter `text-summary` (log) + `html` (em `coverage/`). **Sem limiar mínimo**: cenário vem do contrato, não de linha descoberta (skill `testar`). A integração roda sem cobertura.
 - `pnpm typecheck` checa os specs: o `include` de cada `tsconfig.json` de workspace tem `test`.
@@ -45,6 +45,7 @@ Roda em todo `pull_request` e em `push` na `main`. `permissions: contents: read`
 | `test-integration` | service `postgres:17-alpine` (tmpfs) + SeaweedFS (`./.github/actions/seaweedfs`) + Mailpit (`./.github/actions/mailpit`) → `pnpm db:migrate` → `pnpm test:integration`                                                           | borda, DAO, migração quebrada, S3, entrega SMTP                     |
 | `build`            | `pnpm build`                                                                                                                                                                                                                     | client ou server que não empacota                                   |
 | `e2e`              | matriz por grupo (`table`, `tokens`, `scene`, `combat`, `vision`, `lighting`, `library`, `account`), `fail-fast: false`: mesmo Postgres de serviço + SeaweedFS → `e2e:install` → `test:e2e --project=<grupo>` (15 min por grupo) | client que não abre ou não alcança o server pelo proxy              |
+| `desktop`          | `windows-latest`; `dorny/paths-filter` pula os passos sem mudança em `desktop/**`; `Swatinem/rust-cache` → `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` em `desktop/src-tauri`                 | Rust da casca (ver [`desktop.md`](desktop.md))                      |
 | `ci-ok`            | `if: always()`, `needs` de todos; falha se algum `failure`/`cancelled`                                                                                                                                                           | é o **único** check obrigatório da `main`                           |
 
 O SMTP do `test-integration` é a action `.github/actions/mailpit` (`axllent/mailpit:v1.27.0`, SMTP 1025 e API 8025, espera do `/readyz`); só o `smtp-mailer.spec.ts` fala com ele, pelas `MAILPIT_SMTP_URL`/`MAILPIT_API_URL` do `env` do job. Nenhum job define `SMTP_URL`: o server cai no `LogMailer` (os specs passam um `MailerFake` ao `buildApp`), e o e2e força `SMTP_URL=` no `playwright.config.ts` (ver `server/mail.md`). O S3 dos dois jobs é a action composta `.github/actions/seaweedfs`: `docker run` do `chrislusf/seaweedfs:4.48` com dados em tmpfs, a identidade de `infra/compose/seaweedfs/s3.json` e espera do `/healthz` (até 60 s). É passo, e não `services:`, porque serviço do Actions não aceita comando e o volume do `s3.json` só existe depois do checkout. As `S3_*` ficam no `env` do job.
@@ -55,6 +56,7 @@ O SMTP do `test-integration` é a action `.github/actions/mailpit` (`axllent/mai
 - O e2e é dividido por **grupo nomeado** (projeto do Playwright), não por `--shard`: num worker a suíte inteira passava de 20 min e estourava o job. Os grupos ficam no `SPEC_GROUPS` de `e2e/playwright.config.ts`, balanceados pelo `test.setTimeout` dos specs. O config **recusa** spec fora de grupo, listado sem arquivo ou repetido (senão ele rodaria local e nunca no CI). Grupo novo entra também no `matrix.group` do `ci.yml`.
 - **Job novo entra no `needs` do `ci-ok`**; senão ele roda mas não protege a `main`. Job pulado por `if:` conta como sucesso para o `ci-ok`.
 - Action sempre fixada por SHA completo com `# vX.Y.Z` ao lado (o Dependabot atualiza os dois).
+- **Release do desktop** fica fora do `ci.yml`: `.github/workflows/desktop-release.yml`, disparado por tag `desktop-v*` (ver [`desktop.md`](desktop.md), Lançar uma versão).
 - Validar antes do push: `MSYS_NO_PATHCONV=1 docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -no-color`.
 
 Reproduzir um job localmente: o mesmo script da raiz. Para `test-integration`, o Postgres (5434), o SeaweedFS (8334) e o Mailpit (1026/8026) descartáveis da receita do `/testar` + `DATABASE_URL`, as `S3_*` e `NODE_ENV=test`, depois `pnpm db:migrate && pnpm test:integration`.
@@ -62,7 +64,7 @@ Reproduzir um job localmente: o mesmo script da raiz. Para `test-integration`, o
 ## Supply chain
 
 - Actions fixadas por SHA completo (tag pode ser movida para código malicioso); o comentário `# vX.Y.Z` diz a versão.
-- `.github/dependabot.yml`: `npm` (diretório `/`, semanal, grupos `dev-dependencies` e `production-dependencies` só para minor/patch; major vem em PR próprio) e `github-actions` (semanal, um grupo, atualiza SHA e comentário juntos). Os dois com `cooldown.default-days: 7`, a quarentena para a comunidade detectar release comprometida.
+- `.github/dependabot.yml`: `npm` (diretório `/`, semanal, grupos `dev-dependencies` e `production-dependencies` só para minor/patch; major vem em PR próprio) `github-actions` (semanal, um grupo, atualiza SHA e comentário juntos) e `cargo` (`/desktop/src-tauri`, semanal, um grupo minor/patch). Os três com `cooldown.default-days: 7`, a quarentena para a comunidade detectar release comprometida.
 - `pnpm audit` é informativo (ver Pipeline).
 - Proteção da `main` (configurada no GitHub, fora do repo): exigir PR e o check `ci-ok`. Só ele é obrigatório: um filtro por pasta (`paths:`) deixaria check obrigatório pendente para sempre, e o `ci-ok` permite ligar `dorny/paths-filter` depois sem travar PR.
 

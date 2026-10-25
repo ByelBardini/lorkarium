@@ -1,0 +1,64 @@
+name: Desktop release
+
+on:
+  push:
+    tags: ['desktop-v*']
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    permissions:
+      # Creates the GitHub release and uploads the installer, its .sig and latest.json.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Refuse a tag that differs from desktop/package.json
+        shell: bash
+        run: |
+          version=$(node -p "require('./desktop/package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "desktop-v${version}" ]; then
+            echo "tag ${GITHUB_REF_NAME} não bate com desktop/package.json (esperado desktop-v${version})"
+            exit 1
+          fi
+
+      - name: Refuse the placeholder updater key
+        shell: bash
+        run: |
+          if grep -q 'SUBSTITUA_PELA_CHAVE_PUBLICA' desktop/src-tauri/tauri.conf.json; then
+            echo "plugins.updater.pubkey ainda é o marcador; cole a chave pública do tauri signer (docs/context/desktop.md)"
+            exit 1
+          fi
+
+      - uses: ./.github/actions/setup
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: desktop/src-tauri
+
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Read by src-tauri/build.rs at compile time; a release build refuses it absent or without https.
+          LORKARIUM_APP_URL: ${{ vars.LORKARIUM_APP_URL }}
+        with:
+          projectPath: desktop
+          tauriScript: pnpm tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: Lorkarium para Windows ${{ github.ref_name }}
+          releaseBody: Instale o Lorkarium-*-setup.exe. Quem já tem o app recebe esta versão sozinho ao abrir.
+          releaseDraft: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
