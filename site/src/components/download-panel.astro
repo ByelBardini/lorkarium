@@ -1,0 +1,52 @@
+---
+import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import DownloadCta from '@/components/download-cta.astro';
+import ReleaseMeta from '@/components/release-meta.astro';
+import SecondaryLink from '@/components/secondary-link.astro';
+import SectionHeading from '@/components/section-heading.astro';
+import { inviteMailto, landingCopy } from '@/copy/landing-copy';
+---
+
+<section id="baixar" class="relative overflow-hidden border-b border-line py-20 md:py-28">
+  <svg
+    viewBox="0 0 120 120"
+    width="520"
+    height="520"
+    fill="none"
+    stroke="currentColor"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+    aria-hidden="true"
+    class="pointer-events-none absolute -top-20 -right-24 text-gold opacity-[.06]"
+  >
+    <g stroke-width="1.2">
+      <path d="M60 9 L78 42 L60 99 L42 42 Z"></path>
+      <path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z"></path>
+      <path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z"></path>
+    </g>
+  </svg>
+  <div class="site-wrap relative grid items-start gap-14 lg:grid-cols-[1.2fr_1fr]">
+    <div class="flex min-w-0 flex-col gap-5">
+      <SectionHeading kicker="Download" title="Bora montar a mesa?">
+        Baixa o instalador, entra com o seu convite e chama a galera. No Mac ou no Linux, dá pra
+        jogar pelo navegador.
+      </SectionHeading>
+      <div class="flex flex-wrap items-center gap-3">
+        <DownloadCta />
+        <SecondaryLink href={inviteMailto(PUBLIC_CONTACT_EMAIL)}>Pedir convite</SecondaryLink>
+      </div>
+      <ReleaseMeta lead="Instalador .exe" />
+    </div>
+    <div class="min-w-0 border-t border-gold/40 pt-5">
+      <h3 class="m-0 pb-2 text-xs font-bold tracking-[0.14em] text-faint uppercase">Requisitos</h3>
+      <dl class="m-0">
+        {landingCopy.requirements.map((requirement) => (
+          <div class="flex gap-4 border-b border-edge py-3.5 text-sm">
+            <dt class="w-30 shrink-0 text-faint">{requirement.label}</dt>
+            <dd class="m-0 flex-1 font-semibold text-parchment">{requirement.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  </div>
+</section>

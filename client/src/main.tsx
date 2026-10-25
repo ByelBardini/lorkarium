@@ -94,6 +94,7 @@ const router = createBrowserRouter(
     interactionClock: browserClock,
     now: () => new Date(),
     random: Math.random,
+    waitBeforeRetry: (ms) => new Promise((resume) => setTimeout(resume, ms)),
   }),
 );
 

@@ -52,6 +52,18 @@ describe('UserMenu', () => {
     );
   });
 
+  it.each([
+    ['Termos de uso', '/api/legal/terms'],
+    ['Política de privacidade', '/api/legal/privacy'],
+  ])('"%s" in the menu opens %s in a new tab', async (name, href) => {
+    renderMenu();
+    await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+    const item = await screen.findByRole('menuitem', { name });
+    expect(item).toHaveAttribute('href', href);
+    expect(item).toHaveAttribute('target', '_blank');
+    expect(item).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
   it('an admin sees "Backoffice" in the menu', async () => {
     renderMenu(ROOT_ADMIN);
     await userEvent.click(screen.getByRole('button', { name: /Admin/ }));

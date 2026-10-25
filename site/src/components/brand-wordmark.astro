@@ -1,0 +1,22 @@
+---
+import LogoMark from '@lorkarium/brand/logo-mark.svg';
+
+interface Props {
+  size?: 'large' | 'small';
+}
+
+const { size = 'large' } = Astro.props;
+const isLarge = size === 'large';
+---
+
+<span class:list={['inline-flex items-center', isLarge ? 'gap-3' : 'gap-2.5']}>
+  <LogoMark aria-hidden="true" class:list={['shrink-0 text-gold', isLarge ? 'size-8' : 'size-6']} />
+  <span
+    class:list={[
+      'font-wordmark font-semibold text-parchment',
+      isLarge ? 'text-base tracking-[0.3em]' : 'text-[13px] tracking-[0.28em]',
+    ]}
+  >
+    LORKARIUM
+  </span>
+</span>

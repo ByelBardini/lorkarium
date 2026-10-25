@@ -25,6 +25,7 @@ import { SceneActivationFake } from './scene-activation-fake';
 import { StorageFake } from './storage-fake';
 import { PingCommandsFake } from './ping-commands-fake';
 import { ProfileApiFake } from './profile-api-fake';
+import { RetryWaitFake } from './retry-wait-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
 
@@ -64,6 +65,8 @@ export type TestDependencies = AppDependencies & {
   interactionClock: InteractionClockFake;
   /** Where the auth and table session fakes write, in call order. */
   journal: CallJournal;
+  /** The boot retry pauses behind `waitBeforeRetry`, released by hand. */
+  retryWaits: RetryWaitFake;
 };
 
 // Wednesday, 14 October 2026, local time: the date the overline is written against.
@@ -84,8 +87,11 @@ export function testDependencies(): TestDependencies {
   const lightColorStorage = new StorageFake();
   const boardRenderers = new BoardRenderersFake();
   const boardCommands = new TableBoardCommandsFake();
+  const retryWaits = RetryWaitFake.held();
   return {
     journal,
+    retryWaits,
+    waitBeforeRetry: retryWaits.wait,
     authApi: new AuthApiFake(journal),
     campaignsApi: new CampaignsApiFake(),
     profileApi: new ProfileApiFake(),

@@ -1,0 +1,78 @@
+@import 'tailwindcss';
+@import '@lorkarium/brand/fonts.css';
+@import '@lorkarium/brand/tokens.css';
+
+/* The landing's own roles over the brand palette; the darker surfaces are marketing-only. */
+@theme {
+  --color-page: #0a0b0e;
+  --color-band: var(--brand-panel);
+  --color-surface: #121418;
+  --color-surface-deep: #0f1114;
+  --color-line: #16191e;
+  --color-edge: var(--brand-border);
+  --color-edge-strong: var(--brand-input);
+  --color-gold: var(--brand-gold);
+  --color-gold-hover: var(--brand-gold-hover);
+  --color-gold-light: var(--brand-gold-light);
+  --color-ink: var(--brand-ink);
+  --color-parchment: var(--brand-parchment);
+  --color-label: var(--brand-label);
+  --color-muted: var(--brand-muted);
+  /* #8c8f98 on the page is ~6:1, enough for the small print the mockup puts in it. */
+  --color-faint: #8c8f98;
+  --color-ember: var(--brand-ember);
+  --color-ember-light: var(--brand-ember-light);
+  --color-moss-light: var(--brand-moss-light);
+
+  --font-sans: var(--brand-font-sans);
+  --font-display: var(--brand-font-display);
+  --font-wordmark: var(--brand-font-wordmark);
+}
+
+/* Wide column (the mockup's 1200px left a lot of empty page on big screens); the gutter grows
+   with the screen instead of jumping. */
+@utility site-wrap {
+  width: 100%;
+  max-width: 1680px;
+  margin-inline: auto;
+  box-sizing: border-box;
+  padding-inline: clamp(20px, 4vw, 64px);
+}
+
+/* The legal Markdown arrives as bare tags and the preflight strips their look: headings, lists and
+   inline code get it back here, since the CSP forbids inline styles. */
+@utility legal-prose {
+  & h2 {
+    @apply mt-14 font-display text-2xl font-medium text-parchment md:text-3xl;
+  }
+  & h3 {
+    @apply mt-8 text-lg font-semibold text-parchment;
+  }
+  & ul {
+    @apply list-disc space-y-2 pl-6 marker:text-faint;
+  }
+  & strong {
+    @apply font-semibold text-parchment;
+  }
+  & code {
+    @apply rounded-sm bg-surface px-1.5 py-0.5 text-[0.9em] text-parchment;
+  }
+}
+
+@layer base {
+  a {
+    @apply text-gold no-underline hover:text-gold-light;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-page font-sans text-parchment antialiased;
+  }
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible {
+    @apply outline-2 outline-offset-3 outline-gold;
+  }
+}

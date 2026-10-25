@@ -7,11 +7,12 @@ import {
   GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
-  S3Client,
+  type S3Client,
   S3ServiceException,
 } from '@aws-sdk/client-s3';
 import type { StorageConfig } from '../../config/env';
 import type { AssetStoragePort, StoredObject } from '../../modules/assets/asset-storage.port';
+import { s3ClientOf, s3ErrorNameOf, s3FailureReasonOf } from '../s3/s3-client';
 
 const NOT_FOUND = 404;
 const DEFAULT_REGION = 'us-east-1';
@@ -30,7 +31,7 @@ export function createBucketInput(bucket: string, region: string): CreateBucketC
 export class AssetStorageError extends Error {
   constructor(operation: string, config: StorageConfig, cause: unknown) {
     super(
-      `S3 ${operation} on bucket "${config.bucket}" at ${config.endpoint} failed: ${reasonOf(cause)}`,
+      `S3 ${operation} on bucket "${config.bucket}" at ${config.endpoint} failed: ${s3FailureReasonOf(cause)}`,
     );
     this.name = 'AssetStorageError';
   }
@@ -43,15 +44,7 @@ export class S3AssetStorage implements AssetStoragePort {
   private readonly client: S3Client;
 
   constructor(private readonly config: StorageConfig) {
-    this.client = new S3Client({
-      endpoint: config.endpoint,
-      region: config.region,
-      forcePathStyle: config.forcePathStyle,
-      credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
-      // S3-compatible services (SeaweedFS, R2, B2) do not all accept the SDK's default CRC32 headers.
-      requestChecksumCalculation: 'WHEN_REQUIRED',
-      responseChecksumValidation: 'WHEN_REQUIRED',
-    });
+    this.client = s3ClientOf(config);
   }
 
   async ensureBucket(): Promise<void> {
@@ -64,7 +57,7 @@ export class S3AssetStorage implements AssetStoragePort {
     await this.client
       .send(new CreateBucketCommand(createBucketInput(Bucket, this.config.region)))
       .catch((error: unknown) => {
-        if (nameOf(error) !== 'BucketAlreadyOwnedByYou') this.fail('CreateBucket', error);
+        if (s3ErrorNameOf(error) !== 'BucketAlreadyOwnedByYou') this.fail('CreateBucket', error);
       });
   }
 
@@ -112,16 +105,7 @@ export class S3AssetStorage implements AssetStoragePort {
 }
 
 function isNotFound(error: unknown): boolean {
-  const name = nameOf(error);
+  const name = s3ErrorNameOf(error);
   if (name === 'NotFound' || name === 'NoSuchKey' || name === 'NoSuchBucket') return true;
   return error instanceof S3ServiceException && error.$metadata.httpStatusCode === NOT_FOUND;
-}
-
-function nameOf(error: unknown): string {
-  return error instanceof Error ? error.name : String(error);
-}
-
-function reasonOf(cause: unknown): string {
-  if (!(cause instanceof S3ServiceException)) return nameOf(cause);
-  return `${cause.name} (HTTP ${String(cause.$metadata.httpStatusCode)})`;
 }

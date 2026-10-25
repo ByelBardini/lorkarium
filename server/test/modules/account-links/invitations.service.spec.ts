@@ -1,3 +1,4 @@
+import { LEGAL_DOCUMENTS_VERSION } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   InvitationsService,
@@ -175,7 +176,8 @@ describe('InvitationsService', () => {
       username: 'marina',
       password: 'senha-da-marina',
       persistent: true,
-    };
+      acceptedTerms: true,
+    } as const;
 
     it('creates the account with the @ as nickname, the sealed address and the role, then signs in', async () => {
       await service.invite(LUCAS, { email: 'marina@exemplo.com', role: 'admin' });
@@ -189,6 +191,8 @@ describe('InvitationsService', () => {
           emailIndex: 'idx:email-index:marina@exemplo.com',
           passwordHash: 'hashed:senha-da-marina',
           role: 'admin',
+          termsAcceptedAt: NOW,
+          termsVersion: LEGAL_DOCUMENTS_VERSION,
         },
       ]);
       expect(invitations.rows).toEqual([]);

@@ -1,15 +1,30 @@
 import { z } from 'zod';
 import { recoveryCodeDto, totpCodeDto } from '../account/two-factor-code.dto';
+import { usernameDto } from '../account/username.dto';
 import { authUserDto } from './auth-user.dto';
 
 // Caps the Argon2 input so a giant body cannot buy expensive hashing time.
 export const PASSWORD_MAX_LENGTH = 256;
 
+/** What a person signs in with: the e-mail or the @ (typed with or without the "@"), trimmed and
+ *  lowercased. Once parsed, an "@" is left only inside an e-mail: the @ never carries one.
+ *
+ *  Example: `loginIdentifierDto.parse(' @Bia ') // 'bia'` */
+export const loginIdentifierDto = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.union([z.email(), z.string().transform(withoutLeadingAt).pipe(usernameDto)]));
+
+function withoutLeadingAt(typed: string): string {
+  return typed.startsWith('@') ? typed.slice(1) : typed;
+}
+
 /** Body of `POST /api/auth/login`; strict, so a forged `role` is refused.
  *
- *  Example: `loginRequestDto.parse({ email: 'Ana@Mesa.com', password: 'x' }).email // 'ana@mesa.com'` */
+ *  Example: `loginRequestDto.parse({ identifier: '@Bia', password: 'x' }).identifier // 'bia'` */
 export const loginRequestDto = z.strictObject({
-  email: z.string().trim().toLowerCase().pipe(z.email()),
+  identifier: loginIdentifierDto,
   password: z.string().min(1).max(PASSWORD_MAX_LENGTH),
   rememberMe: z.boolean().default(false),
 });

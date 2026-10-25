@@ -4,18 +4,25 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
-import { UsersDao } from '../../src/modules/auth/users.dao';
-import { newUserPo } from '../support/auth-factories';
-import { databaseUrlNamed, migrationsUpTo } from '../support/migrations-up-to';
+import {
+  databaseUrlNamed,
+  migrationsUpTo,
+  insertUserAtOldMigration,
+} from '../support/migrations-up-to';
 
 const SCRATCH_DATABASE = 'lorkarium_campaign_spectators_migration';
 const LAST_MIGRATION_BEFORE_SPECTATORS = '0048_campaign_settings';
 const SPECTATORS_MIGRATION = '0049_campaign_spectators';
 
 async function seedTableAt0048(scratch: DatabaseConnection): Promise<void> {
-  const users = new UsersDao(scratch.db);
-  const masterId = (await users.insert(newUserPo({ name: 'Ana', email: 'ana@mesa.com' }))).id;
-  const playerId = (await users.insert(newUserPo({ name: 'Bia', email: 'bia@mesa.com' }))).id;
+  const masterId = await insertUserAtOldMigration(scratch.db, {
+    name: 'Ana',
+    email: 'ana@mesa.com',
+  });
+  const playerId = await insertUserAtOldMigration(scratch.db, {
+    name: 'Bia',
+    email: 'bia@mesa.com',
+  });
   await scratch.db.execute(sql`
     WITH vharn AS (
       INSERT INTO campaigns (owner_id, name, join_code) VALUES (${masterId}, 'Vharn', 'VHRN7K2Q')

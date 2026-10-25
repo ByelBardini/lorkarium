@@ -1,0 +1,47 @@
+---
+import heroShot from '@/assets/screens/hero.png';
+import DownloadCta from '@/components/download-cta.astro';
+import HeroBackdrop from '@/components/hero-backdrop.astro';
+import PlatformNote from '@/components/platform-note.astro';
+import ProductShot from '@/components/product-shot.astro';
+import ReleaseMeta from '@/components/release-meta.astro';
+import SecondaryLink from '@/components/secondary-link.astro';
+---
+
+<section id="topo" class="relative pt-16 pb-20 md:pt-18 md:pb-24">
+  <HeroBackdrop />
+  <div class="site-wrap relative flex flex-wrap items-center gap-12 xl:gap-16">
+    <div class="flex min-w-0 flex-[1_1_420px] flex-col gap-6.5">
+      <div class="flex items-center gap-3">
+        <span class="h-px w-7 bg-gold"></span>
+        <span class="text-xs font-bold tracking-[0.2em] text-gold uppercase">
+          Mesa virtual de RPG
+        </span>
+      </div>
+      <h1 class="m-0 font-display text-[clamp(48px,6vw,80px)] leading-[0.98] font-medium tracking-[-0.015em]">
+        Puxa uma cadeira.
+        <br />
+        <em class="text-gold">A mesa tá montada.</em>
+      </h1>
+      <p class="m-0 max-w-125 text-[19px] leading-relaxed text-muted">
+        O Lorkarium junta mapa com grid, tokens, iniciativa, condições e as barras de cada
+        personagem num lugar só. Você mestra, a galera joga, e ninguém precisa de planilha do lado.
+      </p>
+      <div class="flex flex-wrap items-center gap-3">
+        <DownloadCta />
+        <SecondaryLink href="#como">Ver como funciona</SecondaryLink>
+      </div>
+      <ReleaseMeta />
+      <PlatformNote />
+    </div>
+    <div class="min-w-0 flex-[1.7_1_560px]">
+      <ProductShot
+        image={heroShot}
+        alt="O Lorkarium na rodada 3 de um combate: o mapa com grid e tokens no centro e a ordem de iniciativa ao lado"
+        windowTitle="Lorkarium — Os Sinos de Vharn"
+        sizes="(min-width: 1440px) 840px, (min-width: 768px) 60vw, 100vw"
+        eager
+      />
+    </div>
+  </div>
+</section>

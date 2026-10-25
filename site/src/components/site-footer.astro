@@ -1,0 +1,24 @@
+---
+import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import BrandWordmark from '@/components/brand-wordmark.astro';
+
+const footerLinks: ReadonlyArray<{ label: string; href: string }> = [
+  { label: 'Termos de uso', href: '/termos/' },
+  { label: 'Privacidade', href: '/privacidade/' },
+  { label: 'Contato', href: `mailto:${PUBLIC_CONTACT_EMAIL}` },
+];
+---
+
+<footer class="border-t border-line bg-[#08090b]">
+  <div class="site-wrap flex flex-wrap items-center gap-6 py-10">
+    <BrandWordmark size="small" />
+    <span class="hidden flex-1 md:block"></span>
+    <nav aria-label="Rodapé" class="flex flex-wrap gap-5.5 text-[13px]">
+      {footerLinks.map(({ label, href }) => (
+        <a href={href} class="text-faint hover:text-parchment">
+          {label}
+        </a>
+      ))}
+    </nav>
+  </div>
+</footer>

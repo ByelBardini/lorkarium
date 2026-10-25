@@ -45,6 +45,9 @@ async function acceptAsMarina(marina: Page, link: string): Promise<void> {
   await expect(marina.getByLabel('Seu @')).toHaveValue('marina');
   await marina.getByLabel('Senha', { exact: true }).fill(MARINA.password);
   await marina.getByLabel('Repita a senha', { exact: true }).fill(MARINA.password);
+  await marina
+    .getByRole('checkbox', { name: 'Li e aceito os Termos de uso e a Política de privacidade' })
+    .check();
   await marina.getByRole('button', { name: 'Criar minha conta' }).click();
   await expect(marina.getByRole('navigation', { name: 'Principal' })).toBeVisible();
 }
@@ -94,7 +97,7 @@ test.describe('backoffice', () => {
     await marina.getByRole('button', { name: 'Trocar senha' }).click();
     await expect(marina.getByText('Senha trocada. Entre com a nova senha.')).toBeVisible();
     await submitLogin(marina, MARINA);
-    await expect(marina.getByRole('alert')).toHaveText('E-mail ou senha incorretos.');
+    await expect(marina.getByRole('alert')).toHaveText('E-mail, usuário ou senha incorretos.');
     await submitLogin(marina, { email: MARINA.email, password: NEW_PASSWORD });
     await expect(marina.getByRole('navigation', { name: 'Principal' })).toBeVisible();
 

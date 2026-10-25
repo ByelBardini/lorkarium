@@ -12,8 +12,31 @@ const ANA = {
 };
 
 describe('session store', () => {
-  it('starts unknown, before the first "who am I"', () => {
-    expect(createSessionStore().getState().session).toEqual({ status: 'unknown' });
+  it('starts unknown and not reconnecting, before the first "who am I"', () => {
+    expect(createSessionStore().getState().session).toEqual({
+      status: 'unknown',
+      reconnecting: false,
+    });
+  });
+
+  it('serverUnreachable() keeps it unknown, now reconnecting', () => {
+    const store = createSessionStore();
+    store.getState().serverUnreachable();
+    expect(store.getState().session).toEqual({ status: 'unknown', reconnecting: true });
+  });
+
+  it('serverUnreachable() leaves a known session as it is', () => {
+    const store = createSessionStore();
+    store.getState().signedIn(ANA);
+    store.getState().serverUnreachable();
+    expect(store.getState().session).toEqual({ status: 'authenticated', user: ANA });
+  });
+
+  it('signedIn(user) after reconnecting makes it authenticated', () => {
+    const store = createSessionStore();
+    store.getState().serverUnreachable();
+    store.getState().signedIn(ANA);
+    expect(store.getState().session).toEqual({ status: 'authenticated', user: ANA });
   });
 
   it('signedIn(user) makes it authenticated with that user', () => {

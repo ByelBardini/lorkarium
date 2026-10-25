@@ -1,4 +1,5 @@
 import { BrandMark } from '@/components/brand-mark';
+import { LegalLinks } from './legal-links';
 import { LoginHeroArt } from './login-hero-art';
 
 export type AuthFrameProps = Readonly<{
@@ -7,10 +8,13 @@ export type AuthFrameProps = Readonly<{
   lead?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** The Terms of use and Privacy policy links at the foot; off where the content already has them. */
+  legalLinks?: boolean;
 }>;
 
 /** The frame of the screens before the app: the illustrated panel on large screens and the column
- *  with the ornament, the heading and the content (login, invitation, new password).
+ *  with the ornament, the heading, the content and the foot with the legal links (login,
+ *  invitation, new password).
  *
  *  Example: `<AuthFrame pageTitle="Lorkarium · Entrar" heading="Bem-vindo de volta" lead="…"><LoginForm … /></AuthFrame>` */
 export function AuthFrame({
@@ -19,6 +23,7 @@ export function AuthFrame({
   lead,
   children,
   footer,
+  legalLinks = true,
 }: AuthFrameProps): React.JSX.Element {
   return (
     <div className="flex min-h-svh bg-background text-foreground">
@@ -34,8 +39,11 @@ export function AuthFrame({
           </header>
           {children}
         </div>
-        {footer && (
-          <footer className="mt-10 flex w-full max-w-[380px] justify-center">{footer}</footer>
+        {(legalLinks || footer) && (
+          <footer className="mt-10 flex w-full max-w-[380px] flex-col items-center gap-3">
+            {legalLinks && <LegalLinks />}
+            {footer}
+          </footer>
         )}
       </main>
     </div>

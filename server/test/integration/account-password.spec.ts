@@ -51,7 +51,7 @@ describe('password change and the security section', () => {
     return accountRequest(app, {
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'ana@mesa.com', password },
+      payload: { identifier: 'ana@mesa.com', password },
     });
   }
 

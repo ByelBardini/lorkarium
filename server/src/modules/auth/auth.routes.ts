@@ -1,5 +1,6 @@
 import rateLimit from '@fastify/rate-limit';
 import {
+  loginIdentifierDto,
   loginRequestDto,
   twoFactorLoginRequestDto,
   type ApiErrorDto,
@@ -29,7 +30,7 @@ export const SESSION_COOKIE = 'lk_session';
 export const TWO_FACTOR_COOKIE = 'lk_2fa';
 const TWO_FACTOR_COOKIE_PATH = '/api/auth';
 
-// Spec §8.4: per IP + e-mail, so one attacker cannot lock every account and one account
+// Spec §8.4: per IP + e-mail (or @), so one attacker cannot lock every account and one account
 // cannot be brute-forced from one address.
 const LOGIN_ATTEMPTS_PER_MINUTE = 5;
 // Per IP: the second step carries no e-mail, and the challenge itself dies after 5 wrong codes.
@@ -47,7 +48,7 @@ const STATUS_BY_CODE: Readonly<Record<AuthErrorCode, number>> = {
 
 // Public text only: the internal message cites the e-mail and stays in the log.
 const PUBLIC_MESSAGE: Readonly<Record<AuthErrorCode, string>> = {
-  INVALID_CREDENTIALS: 'E-mail or password is incorrect',
+  INVALID_CREDENTIALS: 'E-mail, username or password is incorrect',
   UNAUTHENTICATED: 'A valid session is required',
   FORBIDDEN_ROLE: 'Your account cannot access this resource',
   RATE_LIMITED: 'Too many login attempts',
@@ -201,9 +202,9 @@ function loginRateLimit(): object {
   return {
     max: LOGIN_ATTEMPTS_PER_MINUTE,
     timeWindow: '1 minute',
-    // preHandler: the body is parsed by then, so the key can carry the e-mail.
+    // preHandler: the body is parsed by then, so the key can carry the e-mail or @.
     hook: 'preHandler',
-    keyGenerator: (request: FastifyRequest) => `${request.ip}|${emailOf(request.body)}`,
+    keyGenerator: (request: FastifyRequest) => `${request.ip}|${identifierOf(request.body)}`,
   };
 }
 
@@ -215,9 +216,11 @@ function twoFactorRateLimit(): object {
   };
 }
 
-function emailOf(body: unknown): string {
-  if (typeof body !== 'object' || body === null || !('email' in body)) return '';
-  return String(body.email).trim().toLowerCase();
+// Normalized like the login itself, so "@Bia" and "bia" spend the same bucket.
+function identifierOf(body: unknown): string {
+  if (typeof body !== 'object' || body === null || !('identifier' in body)) return '';
+  const parsed = loginIdentifierDto.safeParse(body.identifier);
+  return parsed.success ? parsed.data : String(body.identifier).trim().toLowerCase();
 }
 
 function rateLimitedError(_request: FastifyRequest, context: { ttl: number }): RateLimitedError {

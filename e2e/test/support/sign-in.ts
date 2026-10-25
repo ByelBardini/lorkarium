@@ -18,7 +18,7 @@ export function adminCredentials(): Credentials {
   return { email, password };
 }
 
-// The login allows 5 attempts a minute per IP and e-mail, and every spec signs the admin in:
+// The login allows 5 attempts a minute per IP and e-mail (or @), and every spec signs the admin in:
 // one real login per worker and e-mail, then the session cookie is reused.
 const sessionsByEmail = new Map<string, SessionCookies>();
 
@@ -41,9 +41,26 @@ export async function signIn(page: Page, credentials: Credentials): Promise<void
  *  Example: `await submitLogin(page, BIA); await expect(page.getByRole('form', { name: 'Verificação em duas etapas' })).toBeVisible()` */
 export async function submitLogin(page: Page, { email, password }: Credentials): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel('E-mail').fill(email);
+  await page.getByLabel('E-mail ou usuário').fill(email);
   await page.getByLabel('Senha', { exact: true }).fill(password);
+  const throttled = await clickEnterAndReadThrottle(page);
+  if (throttled === null) return;
+  await page.waitForTimeout(throttled);
+  await clickEnterAndReadThrottle(page);
+}
+
+// The login allows 5 attempts a minute per IP and e-mail, and a CI retry starts a new worker that
+// signs the same player in again: past the limit, wait the Retry-After once, as a person would.
+async function clickEnterAndReadThrottle(page: Page): Promise<number | null> {
+  const answer = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/auth/login') && response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Entrar' }).click();
+  const response = await answer;
+  if (response.status() !== 429) return null;
+  const seconds = Number(response.headers()['retry-after'] ?? '60');
+  return (Number.isFinite(seconds) ? seconds : 60) * 1000 + 500;
 }
 
 /** A new session through the login screen, never the saved cookie, then the signed-in shell.

@@ -1,5 +1,7 @@
 import { tokenUpdatedDto } from '@lorkarium/contracts';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect, it } from 'vitest';
+import { COMMANDS_PER_SECOND } from '../../src/realtime/command-rate.bo';
 import {
   castIdOf,
   gridState,
@@ -142,9 +144,13 @@ describe('shared writes on a linked token go to its anchor', () => {
           send(ana, 'token:restyleMany', style(even)),
         ])),
       );
+      // The race is inside a round; across rounds, keep each socket under the command bucket
+      // (burst 40): on a fast CI runner 50 back-to-back rounds came back RATE_LIMITED.
+      await sleep(1000 / COMMANDS_PER_SECOND);
     }
 
-    expect(acks.every((ack) => ack.ok)).toBe(true);
+    expect(acks.filter((ack) => !ack.ok)).toEqual([]);
     expect(pvOf(await synced(bia, live.vharn), lyra.id)).toBe(32);
-  });
+    // 50 paced rounds take 2.5 s on their own, beside the setup.
+  }, 20_000);
 });

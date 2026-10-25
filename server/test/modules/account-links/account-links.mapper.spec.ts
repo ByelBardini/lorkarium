@@ -1,6 +1,8 @@
+import { LEGAL_DOCUMENTS_VERSION } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   linkOf,
+  termsAcceptanceAt,
   toAdminInvitationDto,
 } from '../../../src/modules/account-links/account-links.mapper';
 import { DataCipherFake } from '../../support/auth-fakes';
@@ -10,6 +12,16 @@ describe('linkOf', () => {
     expect(linkOf('https://mesa.example.com', '/invite', 'a+b/c')).toBe(
       'https://mesa.example.com/invite#token=a%2Bb%2Fc',
     );
+  });
+});
+
+describe('termsAcceptanceAt', () => {
+  it('records the instant and the version of the legal texts in force', () => {
+    const now = new Date('2026-10-25T12:00:00Z');
+    expect(termsAcceptanceAt(now)).toEqual({
+      termsAcceptedAt: now,
+      termsVersion: LEGAL_DOCUMENTS_VERSION,
+    });
   });
 });
 

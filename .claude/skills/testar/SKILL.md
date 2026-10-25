@@ -23,7 +23,7 @@ O objetivo não é "ter teste": é ter **um teste que quebra quando o comportame
 
 ## Pré-requisitos
 
-Node 22 (`.nvmrc`) e `pnpm install` feito na raiz. O driver carrega o `typescript` da raiz; não instala nada.
+Node 22.23.4 (`.nvmrc`) e `pnpm install` feito na raiz. O driver carrega o `typescript` da raiz; não instala nada.
 
 ```bash
 node --version   # v22.17.0

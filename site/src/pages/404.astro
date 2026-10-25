@@ -1,0 +1,20 @@
+---
+import SiteLayout from '@/layouts/site-layout.astro';
+---
+
+<SiteLayout
+  title="Página não encontrada · Lorkarium"
+  description="Essa página não existe no Lorkarium."
+  noindex
+>
+  <section class="site-wrap flex flex-col items-start gap-6 py-24 md:py-32">
+    <p class="text-xs font-bold tracking-[0.2em] text-gold uppercase">Erro 404</p>
+    <h1 class="font-display text-4xl font-medium text-parchment md:text-5xl">
+      Essa sala não está no mapa.
+    </h1>
+    <p class="max-w-xl text-lg text-muted">O link pode estar errado ou a página mudou de lugar.</p>
+    <a href="/" class="font-semibold">
+      Voltar para o início
+    </a>
+  </section>
+</SiteLayout>

@@ -80,12 +80,13 @@ describe('realtime handshake', () => {
     await expect(refused).rejects.toMatchObject({ message: 'websocket error' });
   });
 
-  it('closing the app disconnects a connected client and finishes without error', async () => {
+  // "io server disconnect" would leave the browser offline for good after a deploy.
+  it('closing the app drops only the transport, so the client may reconnect, and finishes without error', async () => {
     const client = await connected({ token: ana.token });
     const disconnected = disconnectionOf(client);
     appClosed = true;
     await expect(app.close()).resolves.toBeUndefined();
-    expect(await disconnected).toMatch(/io server disconnect|transport close/);
+    expect(await disconnected).toBe('transport close');
   });
 });
 

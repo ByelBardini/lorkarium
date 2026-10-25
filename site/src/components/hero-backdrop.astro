@@ -1,0 +1,36 @@
+<svg
+  viewBox="0 0 1440 900"
+  preserveAspectRatio="xMidYMid slice"
+  class="pointer-events-none absolute inset-0 size-full"
+  aria-hidden="true"
+>
+  <defs>
+    <pattern id="hero-grid" width="56" height="56" patternUnits="userSpaceOnUse">
+      <path d="M56 0H0V56" fill="none" stroke="#C5A46D" stroke-opacity=".06"></path>
+    </pattern>
+    <radialGradient id="hero-fade" cx="70%" cy="40%" r="60%">
+      <stop offset="0" stop-color="#fff"></stop>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>
+    </radialGradient>
+    <mask id="hero-mask">
+      <rect width="1440" height="900" fill="url(#hero-fade)"></rect>
+    </mask>
+  </defs>
+  <g mask="url(#hero-mask)">
+    <rect width="1440" height="900" fill="url(#hero-grid)"></rect>
+    <g fill="none" stroke="#C5A46D" stroke-width="1.2">
+      <path
+        stroke-opacity=".12"
+        d="M900 60 C1120 20 1380 120 1400 320 C1420 520 1240 640 1040 620 C840 600 720 500 720 340 C720 200 760 90 900 60 Z"
+      ></path>
+      <path
+        stroke-opacity=".16"
+        d="M960 140 C1120 110 1290 180 1300 320 C1310 460 1180 540 1040 536 C900 532 810 460 806 340 C802 230 850 160 960 140 Z"
+      ></path>
+      <path
+        stroke-opacity=".2"
+        d="M1010 220 C1110 204 1210 250 1214 330 C1218 410 1140 456 1050 456 C960 456 900 410 898 336 C896 270 930 232 1010 220 Z"
+      ></path>
+    </g>
+  </g>
+</svg>

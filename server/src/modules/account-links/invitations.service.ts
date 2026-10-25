@@ -28,6 +28,7 @@ import {
 import {
   invitationEmailOf,
   linkOf,
+  termsAcceptanceAt,
   toAccountLinkBo,
   toAdminInvitationDto,
 } from './account-links.mapper';
@@ -160,6 +161,7 @@ export class InvitationsService {
       ...sealed,
       passwordHash,
       role: row.role,
+      ...termsAcceptanceAt(this.deps.clock.now()),
     };
     try {
       return await daos.users.insert(account);

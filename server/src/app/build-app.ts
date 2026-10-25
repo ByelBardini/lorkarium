@@ -48,6 +48,7 @@ import { createPingsModule } from '../modules/pings/pings.plugin';
 import { createConditionsModule } from '../modules/conditions/conditions.plugin';
 import { createCombatModule } from '../modules/combat/combat.plugin';
 import { healthPlugin } from '../modules/health/health.plugin';
+import { legalPlugin } from '../modules/legal/legal.plugin';
 import { PresenceReaderService } from '../modules/sessions/presence-reader.service';
 import {
   createSessionsModule,
@@ -56,6 +57,9 @@ import {
 import { CampaignCommandQueue } from '../realtime/campaign-command-queue';
 import { CommandRateGuard } from '../realtime/command-rate-guard';
 import { attachRealtime } from '../realtime/realtime-server';
+import type { AccessLogArchivePort } from '../modules/access-log/access-log-archive.port';
+import type { AccessLogModule } from '../modules/access-log/access-log.plugin';
+import { wireAccessLog } from './wire-access-log';
 import { mailerOf, wireAccountSecurity } from './wire-account-security';
 import { serveClient } from './serve-client';
 import { trustProxyOf } from './trust-proxy';
@@ -68,13 +72,15 @@ declare module 'fastify' {
   }
 }
 
-/** `clock` defaults to the system clock and `mailer` to the one of `env.mailer`; integration specs
- *  pass fakes to cross a deadline or read what was sent. */
+/** `clock` defaults to the system clock, `mailer` to the one of `env.mailer` and
+ *  `accessLogArchive` to the bucket of `env.accessLog`; integration specs pass fakes to cross a
+ *  deadline or read what was sent or recorded. */
 export type AppDependencies = Readonly<{
   env: Env;
   db: Database;
   clock?: ClockPort;
   mailer?: MailerPort;
+  accessLogArchive?: AccessLogArchivePort;
 }>;
 
 const API_PREFIX = '/api';
@@ -110,7 +116,10 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const presence = new PresenceReaderService(registry);
   const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock, presence });
   await app.register(healthPlugin, { prefix: API_PREFIX, db: deps.db });
+  await app.register(legalPlugin, { prefix: API_PREFIX, sitePublicUrl: env.sitePublicUrl });
   const storage = wireAssetStorage(app, new S3AssetStorage(deps.env.storage));
+  // After the asset bucket is ensured: dev and CI keep the access log in that same bucket.
+  const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
   const processor = new SharpImageProcessor();
   const fetcher = new GuardedImageFetcher();
   const assets = createAssetsModule({ db: deps.db, storage, processor, fetcher });
@@ -123,6 +132,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     sessionEnded,
     memberships,
     registry,
+    accessLog,
   };
   const outlets = wireRealtime(app, auth.guards, realtimeModules);
   // Registered once the live session exists: each saved campaign change reaches its room.
@@ -158,6 +168,7 @@ type RealtimeModules = Pick<SessionsModuleOptions, 'campaigns' | 'clock' | 'regi
   db: Database;
   sessionEnded: SocketIoSessionEnded;
   memberships: MembershipReader;
+  accessLog: AccessLogModule | null;
 };
 
 // What the HTTP modules that announce changes or move sockets use, over the same Socket.IO server.
@@ -178,11 +189,13 @@ function wireRealtime(
   guards: AuthGuards,
   modules: RealtimeModules,
 ): RealtimeOutlets {
-  const { db, sessionEnded, memberships: members, ...sessionModules } = modules;
+  const { db, sessionEnded, memberships: members, accessLog, ...sessionModules } = modules;
   const { clock } = modules;
   const authenticate = guards.authenticateConnection;
   const realtime = attachRealtime(app, { authenticate, sessionCookie: SESSION_COOKIE, clock });
   sessionEnded.attach(realtime);
+  // First listener: the connection is recorded before any gateway can drop it.
+  if (accessLog) realtime.onConnection(accessLog.gateway);
   const rate = new CommandRateGuard(clock, (socketId, retryAfterSeconds) => {
     return new CommandRateLimitedError(socketId, retryAfterSeconds);
   });

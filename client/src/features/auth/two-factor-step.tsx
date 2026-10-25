@@ -11,7 +11,7 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { AuthApi, TwoFactorLoginFailure } from '@/services/auth-api';
-import { failureMessage } from './login-messages';
+import { failureMessage, signInNameOf } from './login-messages';
 
 type CodeMode = 'app' | 'recovery';
 
@@ -31,10 +31,11 @@ const MODE_TEXT: Readonly<Record<CodeMode, { label: string; invalid: string; tog
 const WRONG_CODE = 'Código incorreto.';
 
 export type TwoFactorStepProps = Readonly<{
-  email: string;
+  /** The e-mail or @ of the first step, as parsed by `loginIdentifierDto`. */
+  identifier: string;
   authApi: AuthApi;
   onAuthenticated: (user: AuthUserDto) => void;
-  /** "Voltar": the e-mail and password again. */
+  /** "Voltar": the e-mail or @ and password again. */
   onBack: () => void;
   /** The challenge is gone (5 min or 5 wrong codes): the login starts over. */
   onExpired: () => void;
@@ -43,7 +44,7 @@ export type TwoFactorStepProps = Readonly<{
 /** The second step of the login for an account with 2FA: the app's code, or a recovery code.
  *  A wrong code is cleared and focused; a challenge that expired sends back to the first step.
  *
- *  Example: `<TwoFactorStep email="ana@mesa.com" authApi={authApi} onAuthenticated={enter} onBack={back} onExpired={restart} />` */
+ *  Example: `<TwoFactorStep identifier="ana@mesa.com" authApi={authApi} onAuthenticated={enter} onBack={back} onExpired={restart} />` */
 export function TwoFactorStep(props: TwoFactorStepProps): React.JSX.Element {
   const step = useTwoFactorStep(props);
   const id = useId();
@@ -57,7 +58,7 @@ export function TwoFactorStep(props: TwoFactorStepProps): React.JSX.Element {
       className="flex flex-col gap-4.5"
     >
       <p className="text-sm text-muted-foreground">
-        Entrando como <span className="text-foreground">{props.email}</span>
+        Entrando como <span className="text-foreground">{signInNameOf(props.identifier)}</span>
       </p>
       {step.failure && (
         <Alert variant="destructive" className="px-3.5 py-3 text-sm">

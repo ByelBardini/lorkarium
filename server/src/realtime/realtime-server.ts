@@ -162,8 +162,9 @@ function refusal(body: ApiErrorDto): Error {
   return Object.assign(new Error(body.code), { data: body });
 }
 
+// Only the transports: on "transport close" the client retries until the next server is up (a
+// deploy), while a Socket.IO disconnect ("io server disconnect") would leave it offline for good.
 // io.close() would close app.server too, which Fastify closes itself right after.
 function closeRealtime(io: RealtimeServer): void {
-  io.disconnectSockets(true);
   io.engine.close();
 }

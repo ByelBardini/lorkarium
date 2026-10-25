@@ -74,7 +74,7 @@ describe('AuthService', () => {
   describe('login', () => {
     it('right credentials issue a token and store only its hash', async () => {
       const issued = await service.login({
-        email: 'ana@mesa.com',
+        identifier: 'ana@mesa.com',
         password: 'segredo-da-ana',
         rememberMe: true,
       });
@@ -89,7 +89,11 @@ describe('AuthService', () => {
     });
 
     it('looks the account up by the blind index of the e-mail, never by the e-mail in clear', async () => {
-      await service.login({ email: 'ana@mesa.com', password: 'segredo-da-ana', rememberMe: false });
+      await service.login({
+        identifier: 'ana@mesa.com',
+        password: 'segredo-da-ana',
+        rememberMe: false,
+      });
       expect(users.lookedUp).toEqual(['idx:email-index:ana@mesa.com']);
     });
 
@@ -97,7 +101,7 @@ describe('AuthService', () => {
       users.rows[0] = userPo({ email: 'ana@outra.com', passwordHash: 'hashed:segredo-da-ana' });
       users.rows[0] = { ...users.rows[0], emailIndex: 'idx:email-index:ana@mesa.com' };
       const issued = await service.login({
-        email: 'ana@mesa.com',
+        identifier: 'ana@mesa.com',
         password: 'segredo-da-ana',
         rememberMe: false,
       });
@@ -106,7 +110,7 @@ describe('AuthService', () => {
 
     it('an unknown e-mail is refused with INVALID_CREDENTIALS after verifying the decoy hash', async () => {
       const login = service.login({
-        email: 'bia@mesa.com',
+        identifier: 'bia@mesa.com',
         password: 'qualquer',
         rememberMe: false,
       });
@@ -114,8 +118,37 @@ describe('AuthService', () => {
       expect(hasher.verifications).toEqual([{ hashed: DECOY_HASH, password: 'qualquer' }]);
     });
 
+    it('the @ signs in the account it names, without computing any e-mail index', async () => {
+      const issued = await service.login({
+        identifier: 'ana',
+        password: 'segredo-da-ana',
+        rememberMe: true,
+      });
+      expect(issued).toMatchObject({ status: 'signed-in', user: ANA_DTO, persistent: true });
+      expect(users.lookedUp).toEqual([]);
+    });
+
+    it('an unknown @ is refused with INVALID_CREDENTIALS after verifying the decoy hash', async () => {
+      const login = service.login({ identifier: 'bia', password: 'qualquer', rememberMe: false });
+      await expect(login).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+      expect(hasher.verifications).toEqual([{ hashed: DECOY_HASH, password: 'qualquer' }]);
+    });
+
+    it('a wrong password by @ is the same INVALID_CREDENTIALS, citing the @ and never the password', async () => {
+      const login = service.login({ identifier: 'ana', password: 'errada', rememberMe: false });
+      await expect(login).rejects.toMatchObject({
+        code: 'INVALID_CREDENTIALS',
+        message: expect.stringContaining('"ana"'),
+      });
+      await expect(login).rejects.not.toMatchObject({ message: expect.stringContaining('errada') });
+    });
+
     it('a wrong password is refused with the same INVALID_CREDENTIALS and creates no session', async () => {
-      const login = service.login({ email: 'ana@mesa.com', password: 'errada', rememberMe: false });
+      const login = service.login({
+        identifier: 'ana@mesa.com',
+        password: 'errada',
+        rememberMe: false,
+      });
       await expect(login).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
       expect(sessions.rows.size).toBe(0);
     });
@@ -123,7 +156,7 @@ describe('AuthService', () => {
     it('keeps the user agent on the session, cut to USER_AGENT_MAX_LENGTH', async () => {
       const agent = 'M'.repeat(600);
       await service.login(
-        { email: 'ana@mesa.com', password: 'segredo-da-ana', rememberMe: false },
+        { identifier: 'ana@mesa.com', password: 'segredo-da-ana', rememberMe: false },
         agent,
       );
       expect(sessions.rows.get('sha:token-1')?.userAgent).toBe('M'.repeat(512));
@@ -131,7 +164,11 @@ describe('AuthService', () => {
     });
 
     it('without a user agent the session keeps null', async () => {
-      await service.login({ email: 'ana@mesa.com', password: 'segredo-da-ana', rememberMe: false });
+      await service.login({
+        identifier: 'ana@mesa.com',
+        password: 'segredo-da-ana',
+        rememberMe: false,
+      });
       expect(sessions.rows.get('sha:token-1')?.userAgent).toBeNull();
     });
   });
@@ -151,7 +188,7 @@ describe('AuthService', () => {
 
     it('the right password stores a 5-minute challenge with "keep me signed in" and issues no session', async () => {
       const outcome = await service.login({
-        email: 'ana@mesa.com',
+        identifier: 'ana@mesa.com',
         password: 'segredo-da-ana',
         rememberMe: true,
       });
@@ -170,7 +207,7 @@ describe('AuthService', () => {
     it('a pending setup (never confirmed) does not ask for the second step', async () => {
       twoFactor.rows.set(ANA_ID, { ...enabledTwoFactor, enabledAt: null });
       const outcome = await service.login({
-        email: 'ana@mesa.com',
+        identifier: 'ana@mesa.com',
         password: 'segredo-da-ana',
         rememberMe: false,
       });
@@ -179,7 +216,11 @@ describe('AuthService', () => {
     });
 
     it('a wrong password is still INVALID_CREDENTIALS and stores no challenge', async () => {
-      const login = service.login({ email: 'ana@mesa.com', password: 'errada', rememberMe: false });
+      const login = service.login({
+        identifier: 'ana@mesa.com',
+        password: 'errada',
+        rememberMe: false,
+      });
       await expect(login).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
       expect(challenges.rows.size).toBe(0);
     });
@@ -269,7 +310,7 @@ describe('AuthService', () => {
 
     it('the right password is ACCOUNT_SUSPENDED and no session is stored', async () => {
       const login = service.login({
-        email: 'ana@mesa.com',
+        identifier: 'ana@mesa.com',
         password: 'segredo-da-ana',
         rememberMe: false,
       });
@@ -278,7 +319,11 @@ describe('AuthService', () => {
     });
 
     it('a wrong password is the usual INVALID_CREDENTIALS', async () => {
-      const login = service.login({ email: 'ana@mesa.com', password: 'errada', rememberMe: false });
+      const login = service.login({
+        identifier: 'ana@mesa.com',
+        password: 'errada',
+        rememberMe: false,
+      });
       await expect(login).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
     });
 
@@ -297,7 +342,11 @@ describe('AuthService', () => {
 
   describe('last seen of the account', () => {
     it('the login writes users.last_seen_at = now', async () => {
-      await service.login({ email: 'ana@mesa.com', password: 'segredo-da-ana', rememberMe: false });
+      await service.login({
+        identifier: 'ana@mesa.com',
+        password: 'segredo-da-ana',
+        rememberMe: false,
+      });
       expect(users.rows[0]?.lastSeenAt).toEqual(NOW);
     });
 

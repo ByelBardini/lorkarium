@@ -10,9 +10,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { AccountLinksActionResult, AccountLinksIntent } from './account-links-action';
-import { linkFailureMessage, passwordProblems, usernameProblem } from './account-links-messages';
+import {
+  TERMS_NOT_ACCEPTED,
+  linkFailureMessage,
+  passwordProblems,
+  usernameProblem,
+} from './account-links-messages';
+import { TermsAcceptanceField } from './terms-acceptance-field';
 
-type FieldErrors = Readonly<{ username?: string; password?: string; repeated?: string }>;
+type FieldErrors = Readonly<{
+  username?: string;
+  password?: string;
+  repeated?: string;
+  terms?: string;
+}>;
 
 export type InviteAcceptFormProps = Readonly<{
   token: string;
@@ -21,8 +32,9 @@ export type InviteAcceptFormProps = Readonly<{
   deadLink: React.ReactNode;
 }>;
 
-/** The @ (starting from the suggestion), the password twice and "Manter conectado"; checked by the
- *  contracts DTOs before the request. A taken @ comes back to its field.
+/** The @ (starting from the suggestion), the password twice, "Manter conectado" and the acceptance
+ *  of the legal texts; checked by the contracts DTOs before the request, so an unticked box sends
+ *  nothing. A taken @ comes back to its field.
  *
  *  Example: `<InviteAcceptForm token={token} suggestedUsername="marina" deadLink={…} />` */
 export function InviteAcceptForm({
@@ -30,7 +42,13 @@ export function InviteAcceptForm({
   suggestedUsername,
   deadLink,
 }: InviteAcceptFormProps): React.JSX.Element {
-  const ids = { username: useId(), password: useId(), repeated: useId(), persistent: useId() };
+  const ids = {
+    username: useId(),
+    password: useId(),
+    repeated: useId(),
+    persistent: useId(),
+    terms: useId(),
+  };
   const fetcher = useFetcher<AccountLinksActionResult>();
   const busy = fetcher.state !== 'idle';
   const failure = !busy && fetcher.data && 'failure' in fetcher.data ? fetcher.data.failure : null;
@@ -38,6 +56,7 @@ export function InviteAcceptForm({
   const [password, setPassword] = useState('');
   const [repeated, setRepeated] = useState('');
   const [persistent, setPersistent] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   if (failure?.kind === 'link_invalid') return <>{deadLink}</>;
   const shown: FieldErrors =
@@ -49,9 +68,11 @@ export function InviteAcceptForm({
     const found: FieldErrors = {
       username: usernameProblem(username),
       ...passwordProblems(password, repeated),
+      ...(acceptedTerms ? {} : { terms: TERMS_NOT_ACCEPTED }),
     };
     setErrors(found);
-    const first = (['username', 'password', 'repeated'] as const).find((field) => found[field]);
+    const fields = ['username', 'password', 'repeated', 'terms'] as const;
+    const first = fields.find((field) => found[field]);
     if (first) {
       document.getElementById(ids[first])?.focus();
       return;
@@ -62,6 +83,7 @@ export function InviteAcceptForm({
       username: usernameDto.parse(username),
       password,
       persistent,
+      acceptedTerms: true,
     };
     void fetcher.submit(intent, { method: 'post', encType: 'application/json' });
   };
@@ -116,6 +138,12 @@ export function InviteAcceptForm({
           Manter conectado
         </Label>
       </div>
+      <TermsAcceptanceField
+        id={ids.terms}
+        checked={acceptedTerms}
+        onCheckedChange={setAcceptedTerms}
+        error={shown.terms}
+      />
       {failure && failure.kind !== 'username_taken' && (
         <Alert variant="destructive" className="px-3.5 py-3 text-sm">
           {linkFailureMessage(failure)}

@@ -2,9 +2,9 @@
 
 Runbook de produção: **Coolify** num VPS Linux (Traefik na frente), Postgres 17 como recurso _Database_ do Coolify, assets num bucket **S3 da AWS**, e-mail por SMTP de produção. Do zero ao ar sem abrir código. Spec §8.3, §5.7, §11 Fase 6, §12. Plano: [`docs/plans/2026-10-24-publicacao-coolify.md`](../plans/2026-10-24-publicacao-coolify.md).
 
-| Sub-arquivo                      | O que tem                                                               |
-| -------------------------------- | ----------------------------------------------------------------------- |
-| [`deploy/aws.md`](deploy/aws.md) | bucket, política IAM em JSON, bucket dos backups, custos, troca pelo R2 |
+| Sub-arquivo                      | O que tem                                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------------------------- |
+| [`deploy/aws.md`](deploy/aws.md) | bucket, política IAM em JSON, bucket dos backups, registros de acesso, custos, troca pelo R2 |
 
 ## A imagem (`Dockerfile` na raiz)
 
@@ -13,7 +13,7 @@ Runbook de produção: **Coolify** num VPS Linux (Traefik na frente), Postgres 1
 - `HEALTHCHECK` por `node -e "fetch('http://127.0.0.1:3333/api/health')…"` (não há `curl` na imagem). É ele que o Coolify usa para trocar o container.
 - `CMD sh -c "node dist/deploy-migrate.mjs && exec node dist/index.mjs"`: migra no início do container, depois sobe o server. Migração que falha sai com 1 e o server nem sobe. O `exec` deixa o Node como PID 1, para o SIGTERM do `docker stop` chegar ao `app.close()`.
 - Um processo serve tudo: a SPA (com fallback de rota), `/api` e o Socket.IO (`/api/socket.io`) na mesma origem. Nenhuma env de build: o client não lê `VITE_*`.
-- O job `docker-image` do CI constrói a imagem e faz o smoke a cada PR (ver [`ci.md`](ci.md)). O smoke é `infra/docker/smoke.sh <container> <url>`: espera o `healthy`, `GET /api/health` 200, `/` e `/campaigns/x` com o `index.html`, e "migrations applied" antes de "Server listening" no log. Local: `docker build -t lorkarium .` e um `docker run` com as envs de dev mais `NODE_ENV=production`, `SMTP_URL` (Mailpit) e `APP_PUBLIC_URL` (imagem ≈ 470 MB; `node_modules` de produção ≈ 110 MB).
+- O job `docker-image` do CI constrói a imagem e faz o smoke a cada PR (ver [`ci.md`](ci.md)). O smoke é `infra/docker/smoke.sh <container> <url>`: espera o `healthy`, `GET /api/health` 200, `/` e `/campaigns/x` com o `index.html`, e "migrations applied" antes de "Server listening" no log. Local: `docker build -t lorkarium .` e um `docker run` com as envs de dev mais `NODE_ENV=production`, `SMTP_URL` (Mailpit), `APP_PUBLIC_URL`, `SITE_PUBLIC_URL` e as `ACCESS_LOG_S3_*` (o bucket dos assets serve) (imagem ≈ 470 MB; `node_modules` de produção ≈ 110 MB).
 
 ## AWS
 
@@ -22,7 +22,8 @@ Detalhe e JSON em [`deploy/aws.md`](deploy/aws.md). Resumo:
 1. Bucket privado em `sa-east-1`, _Block Public Access_ ligado, criado à mão antes do primeiro deploy.
 2. Usuário IAM `lorkarium-app` com `s3:ListBucket` no bucket e `s3:GetObject`/`PutObject`/`DeleteObject` em `bucket/*`. Nada de `CreateBucket`.
 3. Segundo bucket (ou outro prefixo) para os backups do Postgres, com usuário próprio.
-4. Créditos do plano Free e tráfego de saída: ler a seção Custos antes de assinar.
+4. Bucket dos **registros de acesso** (art. 15 do Marco Civil): terceiro bucket, regra de ciclo de vida de 184 dias e usuário IAM `lorkarium-access-log` só com `s3:PutObject`. Sem ele o boot de produção recusa. Cada objeto fica 184 dias (pelo menos 6 meses por linha) e some sozinho; o app só grava, e só o responsável da Evolutiva lê, pelo console com MFA, quando há requisição de autoridade, processo ou incidente. Passo a passo e preservação além do prazo: [`deploy/aws.md`](deploy/aws.md) e [`access-log.md`](access-log.md).
+5. Créditos do plano Free e tráfego de saída: ler a seção Custos antes de assinar.
 
 ## E-mail
 
@@ -50,29 +51,33 @@ Detalhe e JSON em [`deploy/aws.md`](deploy/aws.md). Resumo:
 
 Lidas por `server/src/config/env.ts`; a regra completa de cada uma está em [`server.md`](server.md) (Env). "Obrig." = o boot recusa sem ela em produção; "Na prática" = tem padrão, mas o padrão está errado para esta infra. `KEY=` vazio vale como ausente.
 
-| Variável                        | Produção       | Segredo | Valor / como gerar                                                                                                      |
-| ------------------------------- | -------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                      | já na imagem   | não     | `production` (não sobrescreva)                                                                                          |
-| `PORT`                          | já na imagem   | não     | `3333` (o mesmo do _Ports Exposes_)                                                                                     |
-| `HOST`                          | padrão         | não     | `0.0.0.0` (padrão; não mude, ou o Traefik não alcança o container)                                                      |
-| `CLIENT_DIST_DIR`               | já na imagem   | não     | `/app/client/dist`; sem ela o server não serve a SPA                                                                    |
-| `DATABASE_URL`                  | **obrig.**     | **sim** | a _Postgres URL (internal)_ do recurso Database: `postgres://<usuário>:<senha>@<id-do-recurso>:5432/lorkarium`          |
-| `DATABASE_POOL_MAX`             | padrão         | não     | `10`; abaixo do `max_connections` do Postgres (100)                                                                     |
-| `DATABASE_STATEMENT_TIMEOUT_MS` | padrão         | não     | `5000`                                                                                                                  |
-| `DATABASE_LOCK_TIMEOUT_MS`      | padrão         | não     | `2000`                                                                                                                  |
-| `TRUST_PROXY`                   | **na prática** | não     | `1` atrás do Traefik (nuvem cinza); `2` com a nuvem laranja. Padrão `0` junta todo mundo num balde do rate limit        |
-| `APP_PUBLIC_URL`                | **obrig.**     | não     | `https://mesa.example.com`, sem barra final: base dos links dos e-mails                                                 |
-| `ADMIN_EMAIL`                   | opcional       | não     | e-mail do primeiro admin, criado no boot se não existir (nunca troca senha nem papel depois)                            |
-| `ADMIN_PASSWORD`                | opcional       | **sim** | 12+ caracteres em produção (`openssl rand -base64 18`); só junto com `ADMIN_EMAIL`                                      |
-| `S3_ENDPOINT`                   | **obrig.**     | não     | `https://s3.sa-east-1.amazonaws.com`                                                                                    |
-| `S3_REGION`                     | **na prática** | não     | `sa-east-1` (o padrão `us-east-1` assina para a região errada)                                                          |
-| `S3_BUCKET`                     | **obrig.**     | não     | o bucket dos assets, já criado                                                                                          |
-| `S3_ACCESS_KEY_ID`              | **obrig.**     | não     | a chave do `lorkarium-app`                                                                                              |
-| `S3_SECRET_ACCESS_KEY`          | **obrig.**     | **sim** | o segredo da mesma chave (8+ caracteres)                                                                                |
-| `S3_FORCE_PATH_STYLE`           | **na prática** | não     | `false` na AWS (o padrão `true` é para SeaweedFS/MinIO)                                                                 |
-| `DATA_ENCRYPTION_KEY`           | **obrig.**     | **sim** | `openssl rand -base64 32` (32 bytes). **Guarde uma cópia fora do servidor**: perdê-la perde os e-mails e o 2FA cifrados |
-| `SMTP_URL`                      | **obrig.**     | **sim** | `smtp://` ou `smtps://` do provedor (seção E-mail); usuário e senha **URL-encoded**                                     |
-| `MAIL_FROM`                     | **na prática** | não     | `Lorkarium <no-reply@mesa.example.com>`, no domínio com SPF/DKIM                                                        |
+| Variável                          | Produção       | Segredo | Valor / como gerar                                                                                                      |
+| --------------------------------- | -------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                        | já na imagem   | não     | `production` (não sobrescreva)                                                                                          |
+| `PORT`                            | já na imagem   | não     | `3333` (o mesmo do _Ports Exposes_)                                                                                     |
+| `HOST`                            | padrão         | não     | `0.0.0.0` (padrão; não mude, ou o Traefik não alcança o container)                                                      |
+| `CLIENT_DIST_DIR`                 | já na imagem   | não     | `/app/client/dist`; sem ela o server não serve a SPA                                                                    |
+| `DATABASE_URL`                    | **obrig.**     | **sim** | a _Postgres URL (internal)_ do recurso Database: `postgres://<usuário>:<senha>@<id-do-recurso>:5432/lorkarium`          |
+| `DATABASE_POOL_MAX`               | padrão         | não     | `10`; abaixo do `max_connections` do Postgres (100)                                                                     |
+| `DATABASE_STATEMENT_TIMEOUT_MS`   | padrão         | não     | `5000`                                                                                                                  |
+| `DATABASE_LOCK_TIMEOUT_MS`        | padrão         | não     | `2000`                                                                                                                  |
+| `TRUST_PROXY`                     | **na prática** | não     | `1` atrás do Traefik (nuvem cinza); `2` com a nuvem laranja. Padrão `0` junta todo mundo num balde do rate limit        |
+| `APP_PUBLIC_URL`                  | **obrig.**     | não     | `https://mesa.example.com`, sem barra final: base dos links dos e-mails                                                 |
+| `SITE_PUBLIC_URL`                 | **obrig.**     | não     | `https://example.com`, sem barra final: a landing; Termos e Privacidade do app redirecionam para lá (ver `legal.md`)    |
+| `ADMIN_EMAIL`                     | opcional       | não     | e-mail do primeiro admin, criado no boot se não existir (nunca troca senha nem papel depois)                            |
+| `ADMIN_PASSWORD`                  | opcional       | **sim** | 12+ caracteres em produção (`openssl rand -base64 18`); só junto com `ADMIN_EMAIL`                                      |
+| `S3_ENDPOINT`                     | **obrig.**     | não     | `https://s3.sa-east-1.amazonaws.com`                                                                                    |
+| `S3_REGION`                       | **na prática** | não     | `sa-east-1` (o padrão `us-east-1` assina para a região errada)                                                          |
+| `S3_BUCKET`                       | **obrig.**     | não     | o bucket dos assets, já criado                                                                                          |
+| `S3_ACCESS_KEY_ID`                | **obrig.**     | não     | a chave do `lorkarium-app`                                                                                              |
+| `S3_SECRET_ACCESS_KEY`            | **obrig.**     | **sim** | o segredo da mesma chave (8+ caracteres)                                                                                |
+| `S3_FORCE_PATH_STYLE`             | **na prática** | não     | `false` na AWS (o padrão `true` é para SeaweedFS/MinIO)                                                                 |
+| `DATA_ENCRYPTION_KEY`             | **obrig.**     | **sim** | `openssl rand -base64 32` (32 bytes). **Guarde uma cópia fora do servidor**: perdê-la perde os e-mails e o 2FA cifrados |
+| `SMTP_URL`                        | **obrig.**     | **sim** | `smtp://` ou `smtps://` do provedor (seção E-mail); usuário e senha **URL-encoded**                                     |
+| `MAIL_FROM`                       | **na prática** | não     | `Lorkarium <no-reply@mesa.example.com>`, no domínio com SPF/DKIM                                                        |
+| `ACCESS_LOG_S3_BUCKET`            | **obrig.**     | não     | o bucket dos registros de acesso, já criado com a regra de 184 dias ([`deploy/aws.md`](deploy/aws.md))                  |
+| `ACCESS_LOG_S3_ACCESS_KEY_ID`     | **obrig.**     | não     | a chave do `lorkarium-access-log` (só `s3:PutObject`); endpoint e região são os do `S3_*`                               |
+| `ACCESS_LOG_S3_SECRET_ACCESS_KEY` | **obrig.**     | **sim** | o segredo da mesma chave (8+ caracteres)                                                                                |
 
 O erro de boot cita cada variável errada e redige os segredos; ele aparece no log do deploy no Coolify.
 
@@ -99,13 +104,27 @@ O primeiro deploy migra o banco vazio inteiro (as `0000…` de `server/drizzle/`
 - [ ] Socket.IO: DevTools → Network → WS mostra `wss://mesa.example.com/api/socket.io/?EIO=4&transport=websocket` com 101; abrir a mesa em duas abas e mover um token aparece na outra.
 - [ ] Backoffice → Teste de e-mail para um endereço seu: chega, fora do spam, com links em `https://mesa.example.com`.
 - [ ] _Backup now_ no banco e o objeto no bucket de backups.
+- [ ] Registros de acesso: logo depois do deploy, `access-log/boots/AAAA/MM/DD/…jsonl.gz` no bucket deles; 5 min depois, o primeiro lote `access-log/AAAA/MM/DD/…-0.jsonl.gz`. Baixe um e confira com `zcat … | jq .` que tem o seu IP (não o do Traefik) e a sua conta.
 
 ## Atualizar e voltar
 
-- **Atualizar**: push (merge) na `main` → webhook do Coolify → build da imagem → container novo sobe, migra e só recebe tráfego quando o `HEALTHCHECK` fica `healthy`; aí o antigo para (_rolling update_ do build pack Dockerfile).
+- **Atualizar**: push (merge) na `main` → webhook do Coolify → build da imagem → container novo sobe, migra e só recebe tráfego quando o `HEALTHCHECK` fica `healthy`; aí o antigo para (_rolling update_ do build pack Dockerfile). Ninguém é deslogado: a sessão está no Postgres, o socket reconecta sozinho ao container novo e a aba aberta no meio da troca espera o server em vez de cair no login ([`auth.md`](auth.md)).
 - **Migração que falha**: o migrador aplica as pendentes numa transação só, então desfaz tudo; o container novo sai com 1, nunca fica `healthy` e o **antigo segue no ar**. Leia o erro no log do deploy, corrija e publique de novo.
 - **Voltar o código**: _Deployments_ do Coolify → redeploy de um commit anterior (ou `git revert` na `main`). Só é seguro se nenhuma migração nova entrou: migração **não tem _down_**.
 - **Voltar o banco**: o caminho é o **backup**. Antes de publicar uma migração que mexe em dado, rode _Backup now_. Para restaurar: parar a Application, restaurar o dump no recurso do banco (restauração do Coolify ou `pg_restore --clean` com o dump baixado do S3), publicar o commit compatível com aquele schema.
+
+## Landing (segunda Application)
+
+A landing de `site/` ([`site.md`](site.md)) é outra Application do Coolify, no mesmo repositório e servidor.
+
+- Build Pack **Dockerfile**, Dockerfile `/site/Dockerfile`, Base Directory `/` (o build precisa de `packages/brand` e `packages/tsconfig`). Imagem: build em `node:22-bookworm-slim`, runtime `caddy:2-alpine` servindo `/srv` na **porta 80** como `nobody` (o binário do Caddy tem `cap_net_bind_service`), sem TLS (é do Traefik), admin e autosave desligados (`site/Caddyfile`).
+- _Watch Paths_ `site/**` e `packages/brand/**`: push só no app não reconstrói a landing, e vice-versa.
+- _Domains_ `https://lorkarium.<tld>` e `https://www.lorkarium.<tld>` (redirecionando para a raiz); o app segue em `mesa.`. DNS: registro `A` da raiz (e do `www`) para o VPS, como o do app.
+- Envs como **Build Variables** (ao contrário das do app: o `astro:env` embute no build, trocar = rebuild): `SITE_URL`, `PUBLIC_APP_URL` (o `APP_PUBLIC_URL` do app), `PUBLIC_CONTACT_EMAIL`. **Não** passe `LEGAL_DRAFTS_ALLOWED`: Termos/Privacidade em rascunho derrubam o build de produção (só o CI passa `true`).
+- Healthcheck: o `HEALTHCHECK` da imagem (`wget -q --spider http://127.0.0.1/`, do busybox); o do painel pode ficar ligado (path `/`, porta 80), já que a imagem tem `wget`.
+- Cache: `/_astro/*` `immutable` por 1 ano (nome com hash); HTML `no-cache`. Cabeçalhos `nosniff`, `Referrer-Policy`, `Permissions-Policy`, sem `Server`. O CSP vem do `<meta>` do `security.csp` do Astro, não do Caddy. Sem `try_files`: o `file_server` já redireciona `/termos` → `/termos/` (308), como o `trailingSlash: 'always'`.
+- Smoke local: `docker build -f site/Dockerfile -t lorkarium-site --build-arg SITE_URL=http://localhost:8080 --build-arg PUBLIC_APP_URL=… --build-arg PUBLIC_CONTACT_EMAIL=… --build-arg LEGAL_DRAFTS_ALLOWED=true .`, `docker run -d --name lorkarium-site -p 8080:80 lorkarium-site` e `bash infra/docker/site-smoke.sh lorkarium-site http://localhost:8080`.
+- **Antes de publicar:** a primeira release do desktop no ar (sem ela a API responde 404 e todo download cai na página de versões, vazia); um e-mail de contato que alguém leia (é por ele que chegam os pedidos de convite).
 
 ## Armadilhas
 

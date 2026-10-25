@@ -18,10 +18,13 @@ export class AuthError extends Error {
   }
 }
 
-// Same code for unknown e-mail and wrong password: telling them apart enumerates accounts.
+// Same code for unknown e-mail or @ and wrong password: telling them apart enumerates accounts.
 export class InvalidCredentialsError extends AuthError {
-  constructor(readonly email: string) {
-    super('INVALID_CREDENTIALS', `no account accepts the password given for e-mail ${email}`);
+  constructor(readonly identifier: string) {
+    super(
+      'INVALID_CREDENTIALS',
+      `no account accepts the password given for e-mail or @ "${identifier}"`,
+    );
   }
 }
 

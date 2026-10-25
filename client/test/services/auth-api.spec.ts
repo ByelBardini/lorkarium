@@ -11,7 +11,7 @@ const ANA = {
   color: 'teal',
   avatarId: null,
 };
-const CREDENTIALS = { email: 'ana@mesa.com', password: 'segredo', rememberMe: true };
+const CREDENTIALS = { identifier: 'ana@mesa.com', password: 'segredo', rememberMe: true };
 
 describe('HttpAuthApi', () => {
   let transport: HttpTransportFake;

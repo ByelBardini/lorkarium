@@ -11,7 +11,8 @@ Hub: [`../client.md`](../client.md). As páginas públicas de quem recebeu um li
 ## `/invite` (`invite-accept-page.tsx`, `invite-accept-form.tsx`)
 
 - "Bem-vindo ao Lorkarium" + "Convite para marina@exemplo.com"; enquanto confere, "Conferindo o convite…".
-- Formulário: "Seu @" preenchido com a sugestão (`suggestedUsername`; dica "Letras minúsculas, números, ponto e _. Não muda depois."), "Senha" e "Repita a senha" (`PasswordField`, `new-password`), "Manter conectado" e "Criar minha conta" ("Criando sua conta…"). Validação antes do pedido (`account-links-messages.ts`: `usernameProblem` sobre o `usernameDto` → "Use de 3 a 20 caracteres." / "Use só letras minúsculas, números, ponto e _."; `passwordProblems` → mínimo de 8, máximo 256, "As senhas não são iguais."), foco no primeiro campo errado.
+- Formulário: "Seu @" preenchido com a sugestão (`suggestedUsername`; dica "Letras minúsculas, números, ponto e _. Não muda depois."), "Senha" e "Repita a senha" (`PasswordField`, `new-password`), "Manter conectado", a caixa "Li e aceito os Termos de uso e a Política de privacidade" (`terms-acceptance-field.tsx`: os dois nomes são `LegalDocumentLink`, nova aba, sem marcar a caixa) e "Criar minha conta" ("Criando sua conta…"). Validação antes do pedido (`account-links-messages.ts`: `usernameProblem` sobre o `usernameDto` → "Use de 3 a 20 caracteres." / "Use só letras minúsculas, números, ponto e _."; `passwordProblems` → mínimo de 8, máximo 256, "As senhas não são iguais."; caixa desmarcada → `TERMS_NOT_ACCEPTED` "Para criar a conta, aceite os Termos de uso e a Política de privacidade." sob a caixa, com `aria-invalid`), foco no primeiro campo errado (@, senha, repetição, caixa). Sem a caixa nada é enviado; marcada, o pedido leva `acceptedTerms: true`.
+- A página passa `legalLinks={false}` ao `AuthFrame`: a caixa já tem os dois links, o rodapé os repetiria.
 - `username_taken` → "@marina já tem dono. Tente outro." no campo do @, focado. `rate_limited`/`offline`/`email_taken`/… → `Alert`.
 - Aceito: a ação faz `sessionStore.signedIn(user)` e `redirect('/')` (a home saúda pelo apelido, que nasce igual ao @).
 - Link morto (no inspect ou no aceite) ou sem token: "Esse link venceu ou já foi usado. Peça um novo a quem te convidou.", sem formulário.
@@ -29,7 +30,7 @@ Hub: [`../client.md`](../client.md). As páginas públicas de quem recebeu um li
 
 ## Testes
 
-- `client/test/services/account-links-api.spec.ts`; pelo router `test/features/account-links/invite-accept-page.spec.tsx` e `password-reset-page.spec.tsx`.
+- `client/test/services/account-links-api.spec.ts`; pelo router `test/features/account-links/invite-accept-page.spec.tsx` (inclusive a caixa do aceite: links, desmarcada não envia) e `password-reset-page.spec.tsx`.
 - Fake: `test/support/account-links-api-fake.ts` — `AccountLinksApiFake` (sem roteiro: convite da Marina, link de nova senha da `@biaflor`; `MARINA`).
 
 ## Armadilhas

@@ -1,0 +1,37 @@
+---
+interface Props {
+  /** What precedes the version: the system line in the hero, the installer in the download panel. */
+  lead?: string;
+}
+
+const { lead = 'Windows 10 ou 11 · 64 bits' } = Astro.props;
+---
+
+<p class="m-0 flex flex-wrap items-center gap-2.5 text-[13px] text-faint">
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+    <path d="M8 21h8M12 17v4"></path>
+  </svg>
+  <span>{lead}</span>
+  <span data-release-meta hidden class="contents">
+    <span class="text-edge-strong" aria-hidden="true">
+      ·
+    </span>
+    <span>
+      Versão <span data-release-version></span>
+    </span>
+    <span class="text-edge-strong" aria-hidden="true">
+      ·
+    </span>
+    <span data-release-size></span>
+  </span>
+</p>

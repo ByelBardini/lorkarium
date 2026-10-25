@@ -11,6 +11,12 @@ const S3 = {
 };
 const DATA_ENCRYPTION_KEY = Buffer.alloc(32, 3).toString('base64');
 const REQUIRED = { DATABASE_URL, ...S3, DATA_ENCRYPTION_KEY };
+// Required in production only: every production case below carries it.
+const ACCESS_LOG = {
+  ACCESS_LOG_S3_BUCKET: 'lorkarium-access-log',
+  ACCESS_LOG_S3_ACCESS_KEY_ID: 'lorkarium-access-log',
+  ACCESS_LOG_S3_SECRET_ACCESS_KEY: 'segredo-do-registro',
+};
 const STORAGE = {
   endpoint: 'http://localhost:8333',
   region: 'sa-east-1',
@@ -33,8 +39,10 @@ describe('readEnv', () => {
       dataEncryptionKey: Buffer.alloc(32, 3),
       mailer: { kind: 'log', from: 'Lorkarium <no-reply@lorkarium.dev>' },
       appPublicUrl: 'http://localhost:5173',
+      sitePublicUrl: 'http://localhost:4321',
       trustProxyHops: 0,
       clientDistDir: null,
+      accessLog: null,
     });
   });
 
@@ -182,6 +190,8 @@ describe('readEnv, mail', () => {
     NODE_ENV: 'production',
     SMTP_URL: 'smtp://mailer:segredo-smtp@smtp.example.com:587',
     APP_PUBLIC_URL: 'https://mesa.example.com/',
+    SITE_PUBLIC_URL: 'https://example.com',
+    ...ACCESS_LOG,
   };
 
   it('in development without SMTP_URL the mail only goes to the log', () => {
@@ -232,6 +242,33 @@ describe('readEnv, mail', () => {
   });
 });
 
+describe('readEnv, SITE_PUBLIC_URL', () => {
+  const PRODUCTION = {
+    ...REQUIRED,
+    NODE_ENV: 'production',
+    SMTP_URL: 'smtp://localhost:1025',
+    APP_PUBLIC_URL: 'https://mesa.example.com',
+    ...ACCESS_LOG,
+  };
+
+  it('production takes the landing address, the trailing slash dropped', () => {
+    const env = readEnv({ ...PRODUCTION, SITE_PUBLIC_URL: 'https://example.com/' });
+    expect(env.sitePublicUrl).toBe('https://example.com');
+  });
+
+  it('production without SITE_PUBLIC_URL is refused naming the variable', () => {
+    expect(() => readEnv(PRODUCTION)).toThrow(
+      /SITE_PUBLIC_URL is required in production \(received nothing\)/,
+    );
+  });
+
+  it('SITE_PUBLIC_URL that is not a URL is refused citing the value', () => {
+    expect(() => readEnv({ ...REQUIRED, SITE_PUBLIC_URL: 'example.com' })).toThrow(
+      /SITE_PUBLIC_URL must be a URL \(https:\/\/example\.com\) \(received "example\.com"\)/,
+    );
+  });
+});
+
 describe('readEnv, TRUST_PROXY', () => {
   it('absent means no proxy is trusted (0 hops)', () => {
     expect(readEnv({ ...REQUIRED }).trustProxyHops).toBe(0);
@@ -269,5 +306,57 @@ describe('readEnv, CLIENT_DIST_DIR', () => {
     expect(() => readEnv({ ...REQUIRED, CLIENT_DIST_DIR: 'client/dist' })).toThrow(
       /CLIENT_DIST_DIR must be an absolute path.*"client\/dist"/,
     );
+  });
+});
+
+describe('readEnv, ACCESS_LOG_S3_*', () => {
+  const PRODUCTION = {
+    ...REQUIRED,
+    NODE_ENV: 'production',
+    SMTP_URL: 'smtp://localhost:1025',
+    APP_PUBLIC_URL: 'https://mesa.example.com',
+    SITE_PUBLIC_URL: 'https://example.com',
+  };
+
+  it('the three together are the access log bucket, on the endpoint and region of the assets', () => {
+    expect(readEnv({ ...REQUIRED, ...ACCESS_LOG }).accessLog).toEqual({
+      ...STORAGE,
+      bucket: 'lorkarium-access-log',
+      accessKeyId: 'lorkarium-access-log',
+      secretAccessKey: 'segredo-do-registro',
+    });
+  });
+
+  it('outside production none of them means no access log', () => {
+    expect(readEnv({ ...REQUIRED, NODE_ENV: 'development' }).accessLog).toBeNull();
+  });
+
+  it('production without them is refused naming each one (Marco Civil, art. 15)', () => {
+    const read = (): unknown => readEnv(PRODUCTION);
+    for (const key of Object.keys(ACCESS_LOG)) {
+      expect(read).toThrow(new RegExp(`${key} is required in production \\(received nothing\\)`));
+    }
+  });
+
+  it('production with the three boots with the access log on', () => {
+    expect(readEnv({ ...PRODUCTION, ...ACCESS_LOG }).accessLog?.bucket).toBe(
+      'lorkarium-access-log',
+    );
+  });
+
+  it('outside production the bucket without its key is refused naming the missing ones', () => {
+    const read = (): unknown =>
+      readEnv({ ...REQUIRED, ACCESS_LOG_S3_BUCKET: 'lorkarium-access-log' });
+    expect(read).toThrow(/ACCESS_LOG_S3_ACCESS_KEY_ID is required with the other ACCESS_LOG_S3_\*/);
+    expect(read).toThrow(/ACCESS_LOG_S3_SECRET_ACCESS_KEY is required with the other/);
+  });
+
+  it('a short secret is refused without echoing it', () => {
+    const read = (): unknown =>
+      readEnv({ ...REQUIRED, ...ACCESS_LOG, ACCESS_LOG_S3_SECRET_ACCESS_KEY: 'curto' });
+    expect(read).toThrow(
+      /ACCESS_LOG_S3_SECRET_ACCESS_KEY must have at least 8 characters \(received a redacted value\)/,
+    );
+    expect(read).not.toThrow(/curto/);
   });
 });

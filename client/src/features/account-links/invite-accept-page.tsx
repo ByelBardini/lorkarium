@@ -37,7 +37,13 @@ export function InviteAcceptPage({
   const dead = <p className="text-[15px] text-muted-foreground">{INVITATION_LINK_DEAD}</p>;
   const lead = invitation ? `Convite para ${invitation.email}` : undefined;
   return (
-    <AuthFrame pageTitle="Lorkarium · Aceitar convite" heading="Bem-vindo ao Lorkarium" lead={lead}>
+    // The acceptance box already links both texts: the foot would repeat them.
+    <AuthFrame
+      pageTitle="Lorkarium · Aceitar convite"
+      heading="Bem-vindo ao Lorkarium"
+      lead={lead}
+      legalLinks={false}
+    >
       {!token || (result && 'failure' in result && result.failure.kind === 'link_invalid') ? (
         dead
       ) : result && 'failure' in result ? (

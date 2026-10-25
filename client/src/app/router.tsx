@@ -46,6 +46,7 @@ import type { LightColorStore } from '@/stores/light-color-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
 import type { RoomLayoutStore } from '@/stores/room-layout-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
+import { whoAmIOnceAnswered, type WaitBeforeRetry } from './boot-session';
 import { decideAccess, type RouteAccess } from './route-access';
 import { RouteErrorScreen } from './route-error-screen';
 import { AppShell } from './shell/app-shell';
@@ -98,6 +99,8 @@ export type AppDependencies = Readonly<{
   now: () => Date;
   /** A draw in [0, 1) for the greeting; `Math.random` in the app. */
   random: () => number;
+  /** The pause before the boot "who am I" is asked again, while the server does not answer. */
+  waitBeforeRetry: WaitBeforeRetry;
 }>;
 
 /** Every route of the SPA, with the session resolved once at the root and a guard per route.
@@ -110,7 +113,7 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
       id: 'root',
       middleware: [resolveSessionOnce(deps)],
       // The root middleware keeps the first navigation pending, so the splash covers the "who am I".
-      HydrateFallback: SplashScreen,
+      HydrateFallback: bootSplash(deps),
       ErrorBoundary: RouteErrorScreen,
       Component: rootRoute(deps),
       children: [
@@ -175,12 +178,22 @@ function rootRoute({
   };
 }
 
-function resolveSessionOnce({ authApi, sessionStore }: AppDependencies): MiddlewareFunction {
+function bootSplash({ sessionStore }: AppDependencies): () => React.JSX.Element {
+  return function BootSplash(): React.JSX.Element {
+    return <SplashScreen sessionStore={sessionStore} />;
+  };
+}
+
+function resolveSessionOnce({
+  authApi,
+  sessionStore,
+  waitBeforeRetry,
+}: AppDependencies): MiddlewareFunction {
   return async () => {
     if (sessionStore.getState().session.status !== 'unknown') return;
-    const result = await authApi.me();
-    // Offline or a broken answer at boot: show the login, whose own submit reports the failure.
-    if (result.ok && result.value) sessionStore.getState().signedIn(result.value);
+    const unreachable = (): void => sessionStore.getState().serverUnreachable();
+    const user = await whoAmIOnceAnswered(authApi, unreachable, waitBeforeRetry);
+    if (user) sessionStore.getState().signedIn(user);
     else sessionStore.getState().signedOut();
   };
 }
@@ -207,7 +220,11 @@ function restoreOpenTables({ sessionStore, openTables }: AppDependencies): Middl
   };
 }
 
-function loginRoute({ authApi, sessionStore }: AppDependencies): () => React.JSX.Element {
+function loginRoute({
+  authApi,
+  sessionStore,
+  isDesktop,
+}: AppDependencies): () => React.JSX.Element {
   return function LoginRoute(): React.JSX.Element {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -215,7 +232,8 @@ function loginRoute({ authApi, sessionStore }: AppDependencies): () => React.JSX
       sessionStore.getState().signedIn(user);
       void navigate(safeRedirectTarget(searchParams.get('next')), { replace: true });
     };
-    return <LoginPage authApi={authApi} onAuthenticated={enter} />;
+    // The desktop app runs on the person's own computer: staying signed in is the expected default.
+    return <LoginPage authApi={authApi} onAuthenticated={enter} rememberByDefault={isDesktop} />;
   };
 }
 

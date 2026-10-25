@@ -42,10 +42,18 @@ export const users = pgTable(
     // Last login or session activity, in the same 5-minute steps as the session's touch: the
     // sessions themselves vanish on logout and expiry, so they are no history.
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    // The clickwrap proof: when the box was ticked and which pair of legal texts it covered.
+    // Null on accounts born before the box existed (seeds, invitations accepted until 0054).
+    termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }),
+    termsVersion: text('terms_version'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     check('users_bio_length', sql`char_length(${table.bio}) <= ${sql.raw(String(BIO_MAX_LENGTH))}`),
+    check(
+      'users_terms_acceptance_pair',
+      sql`(${table.termsAcceptedAt} IS NULL) = (${table.termsVersion} IS NULL)`,
+    ),
   ],
 );
 

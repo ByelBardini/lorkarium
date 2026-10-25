@@ -12,6 +12,7 @@ export * from './admin/admin-users.dto';
 export * from './admin/admin-invitations.dto';
 export * from './admin/admin-mail-samples.dto';
 export * from './account-links/account-links.dto';
+export * from './legal/legal-documents.dto';
 export * from './http/api-error.dto';
 export * from './http/health.dto';
 export * from './http/realtime-ack.dto';

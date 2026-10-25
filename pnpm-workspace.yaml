@@ -4,5 +4,11 @@ packages:
   - packages/*
   - e2e
   - desktop
+  - site
 allowBuilds:
   esbuild: true
+# @astrojs/astro2tsx 0.1.3 (astro check) loads @napi-rs/wasm-runtime, whose @emnapi/runtime peer it never declares.
+packageExtensions:
+  '@astrojs/astro2tsx@0.1':
+    dependencies:
+      '@emnapi/runtime': 1.11.3

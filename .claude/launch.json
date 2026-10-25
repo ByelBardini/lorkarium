@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "site",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@lorkarium/site", "dev", "--port", "4321"],
+      "port": 4321
+    },
+    {
+      "name": "site-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@lorkarium/site", "preview", "--port", "4330"],
+      "port": 4330
+    }
+  ]
+}
