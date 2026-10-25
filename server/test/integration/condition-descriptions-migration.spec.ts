@@ -5,7 +5,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
 import { UsersDao } from '../../src/modules/auth/users.dao';
-import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
 import { newUserPo } from '../support/auth-factories';
 import { databaseUrlNamed, migrationsUpTo } from '../support/migrations-up-to';
 
@@ -65,19 +64,27 @@ describe('migration 0050_condition_descriptions on a table with conditions in us
   });
 
   it('keeps every definition, each with an empty description', async () => {
-    const listed = await new ConditionsDao(scratch.db).listDefinitions(CAMPAIGN);
+    // Raw SQL: the scratch stops at 0050 and the current DAO already asks for later columns (0052 color).
+    const listed = await scratch.db.execute<{ name: string; description: string }>(sql`
+      SELECT name, description FROM condition_definitions
+      WHERE campaign_id = ${CAMPAIGN} ORDER BY name`);
 
-    expect(listed.map(({ name, description }) => [name, description])).toEqual([
-      ['Cego', ''],
-      ['Sangrando', ''],
+    expect(listed.rows).toEqual([
+      { name: 'Cego', description: '' },
+      { name: 'Sangrando', description: '' },
     ]);
   });
 
   it('keeps the condition on Kael, its rounds and the empty description of its definition', async () => {
-    const active = await new ConditionsDao(scratch.db).listOfTokens([KAEL]);
+    const active = await scratch.db.execute<{
+      name: string;
+      remaining_rounds: number;
+      description: string;
+    }>(sql`
+      SELECT d.name, a.remaining_rounds, d.description
+      FROM active_conditions a JOIN condition_definitions d ON d.id = a.condition_id
+      WHERE a.token_id = ${KAEL}`);
 
-    expect(active).toEqual([
-      expect.objectContaining({ name: 'Sangrando', remainingRounds: 2, description: '' }),
-    ]);
+    expect(active.rows).toEqual([{ name: 'Sangrando', remaining_rounds: 2, description: '' }]);
   });
 });
