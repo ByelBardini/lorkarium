@@ -15,6 +15,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                     | [`board-renderer.md`](client/board-renderer.md)       |
 | Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras                | [`tokens.md`](client/tokens.md)                       |
 | Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz                | [`token-dialog.md`](client/token-dialog.md)           |
+| Auras dos tokens: estado e eventos, formulário (`AuraEditor`), onde se edita, desenho       | [`auras.md`](client/auras.md)                         |
 | Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain`   | [`token-dock.md`](client/token-dock.md)               |
 | Aba "Na mesa": mestres, card de cada jogador (ficha, token principal, barras), ausência     | [`table-people.md`](client/table-people.md)           |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro                | [`combat.md`](client/combat.md)                       |
@@ -34,12 +35,13 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas  | [`backoffice.md`](client/backoffice.md)               |
 | Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                          | [`account-links.md`](client/account-links.md)         |
 | Menu dos campos de texto no app desktop: `isDesktopShell`, itens, `FieldEditing`, raiz      | [`text-field-menu.md`](client/text-field-menu.md)     |
+| Testes: Vitest em jsdom, setup, `testDependencies()`, fakes do `test/support/`              | [`testes.md`](client/testes.md)                       |
 | Armadilhas gerais do client (router, Radix, React Compiler, jsdom, Playwright)              | [`armadilhas.md`](client/armadilhas.md)               |
 
 ## Estrutura
 
 - `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `createOpenTablesStore` (com `tabInteractionFactory(boardCommands)`) sobre a `RealtimeTableSessionApi` (sobre `SocketIoRealtimeTransport` com `crypto.randomUUID`) e o `sessionStorage`, `NavigatorClipboard`, `isDesktopShell`, `DocumentFieldEditing`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`)
-- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, profileApi, accountSecurityApi, userAdminApi, accountLinksApi, libraryApi, sceneActivation, assets, clipboard, isDesktop, fieldEditing, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, createBoardRenderer, boardCommands, interactionClock, now, random, waitBeforeRetry }`, para o teste injetar fakes
+- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, profileApi, accountSecurityApi, userAdminApi, accountLinksApi, libraryApi, sceneActivation, assets, clipboard, isDesktop, fieldEditing, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, auraMotion, createBoardRenderer, boardCommands, interactionClock, now, random, waitBeforeRetry }`, para o teste injetar fakes
 - `src/app/route-access.ts` — `decideAccess(session, access, url)`: decisão pura `allow` | `redirect` por `RouteAccess` (`public-only`, `signed-in`, `admin`, `anyone`); `loginPathFor(url)` → `/login?next=…`
 - `src/app/splash-screen.tsx` (`role="status"`, "Carregando…" ou "Reconectando ao servidor…"), `src/app/boot-session.ts` ([`auth.md`](auth.md), Boot) e `src/app/route-error-screen.tsx`
 - `src/app/shell/` — `AppShell`, trilho, menu do usuário, gaveta e `api-loader.ts` (ver [`client/home.md`](client/home.md))
@@ -125,19 +127,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 
 ## Testes
 
-- Vitest do projeto `@lorkarium/client` em `jsdom` (`client/vite.config.ts`, bloco `test`); specs em `client/test/` espelhando `src/` e importando por `@/...`.
-- `client/test/setup.ts` carrega o jest-dom e faz `cleanup` depois de cada `it` (sem globals do Vitest, o Testing Library não se limpa sozinho).
-- `client/test/jest-dom.d.ts` tipa os matchers do jest-dom no `Matchers<R, T>` do Vitest 5.
-- `client/test/support/app-dependencies.ts` — `testDependencies()`: todo o `AppDependencies` em fakes (cada store lembrada no navegador sobre o próprio `StorageFake`: `drawingStyleStorage`, `effectAreaStyleStorage`, `wallStyleStorage`, `lightReachStorage`, `lightColorStorage`, `roomLayoutStorage`) (o `openTables` real sobre o `TableSessionApiFake` e um `StorageFake`, expostos como `tableSessionApi` e `tabStorage`), `interactionClock` = `InteractionClockFake` (o relógio da sala movido à mão), `now` fixo (`TEST_NOW`, quarta 14/10/2026), `random` = 0 ("E aí, {nome}.") e `waitBeforeRetry` = `retryWaits` (`RetryWaitFake`).
-- `ProfileApiFake` e `AccountSecurityApiFake` (no `testDependencies()`): ver [`client/account.md`](client/account.md).
-- `client/test/support/http-transport-fake.ts` — `HttpTransportFake` (`respondWith(status, body, headers)`, `failWithNetworkDown()`, `requests`).
-- `client/test/support/campaigns-api-fake.ts` — `CampaignsApiFake` (`answer(método, resultado)`, `hold(método)`, `callsOf(método)`), mesas `VHARN` (mestre, entrou por último) e `QUELM` (jogador, pública, Tormenta20) e `detailOf(resumo, overrides)`; status, capa, avisos e tags das fixtures em [`client/campaign-parts.md`](client/campaign-parts.md).
-- `client/test/support/realtime-transport-fake.ts` — `RealtimeTransportFake` (`sent`, `connects`, `disconnects`; `answerAck(resposta)` / `timeOutAck()` resolvem o ack mais antigo; `serverEmits(evento, payload)`; `lifecycle(mudança)`; `isConnected()` segue a última mudança). `table-session-fixtures.ts` — membros `ANA_AT_TABLE`, `BIA_AT_TABLE` (offline), `CAIO_AT_TABLE`, `vharnState(overrides)`, `biaJoined()`, `biaLeft()`.
-- `client/test/support/table-session-api-fake.ts` — `TableSessionApiFake` (`opened`, `closedIds` e `closed` = quantos, `emit(...updates)` ao último listener e `emitTo(campaignId, ...updates)` ao da mesa, dentro de `act`); está no `testDependencies()`.
-- `client/test/support/call-journal.ts` — `CallJournal` (`entries`): o `AuthApiFake` escreve `logout` e o `TableSessionApiFake` `close:<id>`; no `testDependencies()` os dois dividem o mesmo (`deps.journal`).
-- `client/test/support/clipboard-fake.ts` (`ClipboardFake`, `copied`, `pasteText`), `field-editing-fake.ts` (`FieldEditingFake`) e `storage-fake.ts` (`StorageFake`, `values`, `removeItem`; `new StorageFake(true)` lança como storage bloqueado).
-- Tela com `loader`/`action` se prova pelo router inteiro (`createMemoryRouter(buildRoutes(testDependencies()))`); os subcomponentes de diálogo e da home não têm spec próprio, são provados pelo spec do pai.
-- Componente se prova pelo que o usuário vê: `getByRole`/`getByLabelText` + `toHaveTextContent`/`toBeDisabled`/`toHaveAttribute`, não classe CSS.
+Vitest em `jsdom`, setup, `testDependencies()` e os fakes de `client/test/support/`: [`client/testes.md`](client/testes.md).
 
 ## Armadilhas
 

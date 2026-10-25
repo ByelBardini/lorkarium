@@ -7,6 +7,7 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 | Assunto                                           | Arquivo                             |
 | ------------------------------------------------- | ----------------------------------- |
 | E2E: Playwright, servidores, specs de `e2e/test/` | [`e2e.md`](ci/e2e.md)               |
+| O que cada spec do e2e prova                      | [`e2e-specs.md`](ci/e2e-specs.md)   |
 | Armadilhas de teste, cobertura, build e e2e       | [`armadilhas.md`](ci/armadilhas.md) |
 
 ## Testes por camada
