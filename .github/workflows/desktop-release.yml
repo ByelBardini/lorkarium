@@ -1,6 +1,8 @@
 name: Desktop release
 
-# Every push to main that touches the Windows shell publishes a new release. Client and server
+# Every push to main that touches the Windows shell may publish a new release. semantic-release reads
+# the conventional commits that changed desktop/ (desktop/release/desktop-commits.ts): feat → minor,
+# fix/perf → patch, a breaking change → major, anything else → no release. Client and server
 # changes need none: the shell opens the deployed site. The landing reads the latest release from
 # the GitHub API in the browser, so it offers the new installer without a rebuild.
 on:
@@ -19,15 +21,21 @@ permissions:
   contents: read
 
 jobs:
-  release:
-    runs-on: windows-latest
-    timeout-minutes: 40
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
-      # Creates the tag and the GitHub release and uploads the installer, its .sig and latest.json.
+      # Pushes the desktop-v<version> tag and creates the draft release.
       contents: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      release-id: ${{ steps.release.outputs.release-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # semantic-release needs the whole history and the tags to find the last version.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Refuse the placeholder updater key
@@ -38,17 +46,53 @@ jobs:
             exit 1
           fi
 
-      # The updater only installs a higher version: major.minor come from desktop/package.json and
-      # the patch is this workflow's run number, which only grows. Written for the build only, never committed.
-      - name: Stamp the release version
-        id: version
+      - uses: ./.github/actions/setup
+
+      # The release starts as a draft: /releases/latest (the updater's latest.json and the landing)
+      # must never point at a release whose installer is not uploaded yet.
+      - name: Tag the next version
+        id: release
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          base=$(node -p "require('./desktop/package.json').version.split('.').slice(0, 2).join('.')")
-          version="${base}.${GITHUB_RUN_NUMBER}"
-          node -e "const fs = require('fs'); const file = 'desktop/package.json'; const pkg = JSON.parse(fs.readFileSync(file, 'utf8')); pkg.version = process.argv[1]; fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');" "$version"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "release desktop-v${version}"
+          before=$(git tag --points-at HEAD --list 'desktop-v*')
+          pnpm --filter @lorkarium/desktop release
+          after=$(git tag --points-at HEAD --list 'desktop-v*')
+          if [ "$after" = "$before" ]; then
+            echo "nenhum feat/fix/breaking no desktop desde a última versão: sem release"
+            exit 0
+          fi
+          release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --jq ".[] | select(.tag_name == \"${after}\") | .id")
+          {
+            echo "tag=${after}"
+            echo "version=${after#desktop-v}"
+            echo "release-id=${release_id}"
+          } >> "$GITHUB_OUTPUT"
+          echo "draft ${after} (release ${release_id})"
+
+  build:
+    needs: version
+    if: needs.version.outputs.version != ''
+    runs-on: windows-latest
+    timeout-minutes: 40
+    permissions:
+      # Uploads the installer, its .sig and latest.json to the draft and publishes it.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # tauri.conf.json reads the version from desktop/package.json; the tag is the source of truth,
+      # so it is written for the build only, never committed.
+      - name: Stamp the release version
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          node -e "const fs = require('fs'); const file = 'desktop/package.json'; const pkg = JSON.parse(fs.readFileSync(file, 'utf8')); pkg.version = process.argv[1]; fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');" "$VERSION"
 
       - uses: ./.github/actions/setup
 
@@ -66,9 +110,14 @@ jobs:
         with:
           projectPath: desktop
           tauriScript: pnpm tauri
-          tagName: desktop-v${{ steps.version.outputs.version }}
-          releaseName: Lorkarium para Windows ${{ steps.version.outputs.version }}
-          releaseBody: Instale o Lorkarium_${{ steps.version.outputs.version }}_x64-setup.exe. Quem já tem o app recebe esta versão sozinho ao abrir.
-          releaseDraft: false
+          releaseId: ${{ needs.version.outputs.release-id }}
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
+
+      - name: Publish the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false --latest
