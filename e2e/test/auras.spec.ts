@@ -15,7 +15,12 @@ const STILL = { reducedMotion: 'reduce' } as const;
 
 type Cell = readonly [number, number];
 
-const SAMPLING_TIMEOUT_MS = 20_000;
+type Frame = 'red' | 'blue';
+type Point = Readonly<{ x: number; y: number }>;
+
+// With software GL the GIF's frames swap seconds apart on screen, not every 300 ms.
+const FRAME_SWAP_TIMEOUT_MS = 60_000;
+const STILLED_WINDOW_MS = 6_000;
 
 // The cell of a token, read from its card ("Coluna 11, linha 6" → (10, 5)).
 async function cellOf(page: Page, name: string): Promise<Cell> {
@@ -66,18 +71,28 @@ async function createLyra(admin: Page): Promise<void> {
   await expect(dialog).toBeHidden();
 }
 
-// Reads a point every 150 ms for 1.8 s (three loops of the GIF) and says which frames showed.
-// The point is framed once: framing it per sample took the 12 reads past the 5 s of an expect on
-// the CI runner.
-async function framesSeenAt(page: Page, [col, row]: Cell): Promise<ReadonlySet<'red' | 'blue'>> {
-  const at = await cellCenterOf(page, col, row);
-  const seen = new Set<'red' | 'blue'>();
-  for (let sample = 0; sample < 12; sample += 1) {
-    const { r, b } = await meanChannelsAt(page, at, 6);
-    if (Math.abs(r - b) > 0.2) seen.add(r > b ? 'red' : 'blue');
+// Which frame of the GIF (red, blue) a point shows; `null` when it is neither.
+function frameOf({ r, b }: Channels): Frame | null {
+  if (Math.abs(r - b) <= 0.2) return null;
+  return r > b ? 'red' : 'blue';
+}
+
+// The frames a point shows over `ms` of wall time. Time, not a count of reads: with software GL
+// (the CI runner) a screenshot of an animating board costs half a second and more.
+async function framesSeenDuring(page: Page, at: Point, ms: number): Promise<ReadonlySet<Frame>> {
+  const seen = new Set<Frame>();
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    const frame = frameOf(await meanChannelsAt(page, at, 6));
+    if (frame) seen.add(frame);
     await page.waitForTimeout(150);
   }
   return seen;
+}
+
+// How far apart two colors are (each channel 0–1).
+function colorDistance(a: Channels, b: Channels): number {
+  return Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
 }
 
 test('the aura of whoever controls a token reaches the table, follows it, animates and stops', async ({
@@ -138,16 +153,24 @@ test('the aura of whoever controls a token reaches the table, follows it, animat
   await image.getByLabel('Arquivo de imagem').setInputFiles(AURA_GIF);
   await expect(image.getByRole('img', { name: 'Imagem escolhida' })).toBeVisible();
   await saveAura(image);
-  const beside: Cell = [4, 3];
-  // One call reads for 1.8 s and more: the poll needs room for a few of them.
+  // One read per call, the frames gathered across calls: the red and then the blue must show.
+  const beside = await cellCenterOf(admin, 4, 3);
+  const played = new Set<Frame>();
   await expect
-    .poll(async () => (await framesSeenAt(admin, beside)).size, { timeout: SAMPLING_TIMEOUT_MS })
+    .poll(
+      async () => {
+        const frame = frameOf(await meanChannelsAt(admin, beside, 6));
+        if (frame) played.add(frame);
+        return played.size;
+      },
+      { timeout: FRAME_SWAP_TIMEOUT_MS },
+    )
     .toBe(2);
   const animate = admin.getByRole('button', { name: 'Animar auras' });
   await expect(animate).toHaveAttribute('aria-pressed', 'true');
   await animate.click();
   await expect(animate).toHaveAttribute('aria-pressed', 'false');
-  expect((await framesSeenAt(admin, beside)).size).toBe(1);
+  expect((await framesSeenDuring(admin, beside, STILLED_WINDOW_MS)).size).toBe(1);
 
   // Bia: Fogo in its natural tone, 2 m: the ring around is warm, not the gold any more.
   const goldLook = await channelsAtCell(caio, [col + 3, row]);
@@ -160,7 +183,8 @@ test('the aura of whoever controls a token reaches the table, follows it, animat
   await expect
     .poll(async () => {
       const look = await channelsAtCell(caio, [col + 3, row]);
-      return Math.abs(look.g - goldLook.g) > 0.05 && warmth(look) > plainNear + 0.1;
+      // The whole color, not one channel: the still frame of the fire may keep the gold's green.
+      return colorDistance(look, goldLook) > 0.06 && warmth(look) > plainNear + 0.1;
     })
     .toBe(true);
 
