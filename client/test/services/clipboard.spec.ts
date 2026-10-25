@@ -4,12 +4,18 @@ import { NavigatorClipboard } from '@/services/clipboard';
 /** Stands in for `navigator.clipboard`; `denied` rejects like a refused permission. */
 class SystemClipboardFake {
   readonly written: string[] = [];
+  stored = '';
 
   constructor(private readonly denied = false) {}
 
   async writeText(text: string): Promise<void> {
     if (this.denied) throw new DOMException('denied', 'NotAllowedError');
     this.written.push(text);
+  }
+
+  async readText(): Promise<string> {
+    if (this.denied) throw new DOMException('denied', 'NotAllowedError');
+    return this.stored;
   }
 }
 
@@ -32,5 +38,17 @@ describe('NavigatorClipboard', () => {
   it('a refused write resolves false instead of throwing', async () => {
     installClipboard(new SystemClipboardFake(true));
     expect(await new NavigatorClipboard().copy('VHRN-7K2Q')).toBe(false);
+  });
+
+  it('reads the clipboard text', async () => {
+    const system = new SystemClipboardFake();
+    system.stored = 'Bia Lima';
+    installClipboard(system);
+    expect(await new NavigatorClipboard().readText()).toBe('Bia Lima');
+  });
+
+  it('a refused read resolves null instead of throwing', async () => {
+    installClipboard(new SystemClipboardFake(true));
+    expect(await new NavigatorClipboard().readText()).toBeNull();
   });
 });

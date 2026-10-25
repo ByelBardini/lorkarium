@@ -2,6 +2,8 @@
 export interface Clipboard {
   /** Resolves `false` when the browser refuses (no permission, insecure context). */
   copy(text: string): Promise<boolean>;
+  /** The clipboard's text; `null` when the browser refuses (no permission, insecure context). */
+  readText(): Promise<string | null>;
 }
 
 /** `Clipboard` over `navigator.clipboard`.
@@ -14,6 +16,14 @@ export class NavigatorClipboard implements Clipboard {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async readText(): Promise<string | null> {
+    try {
+      return await navigator.clipboard.readText();
+    } catch {
+      return null;
     }
   }
 }
