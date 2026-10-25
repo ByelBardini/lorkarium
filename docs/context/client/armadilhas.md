@@ -3,7 +3,7 @@
 Hub: [`../client.md`](../client.md). As armadilhas de uma área ficam no arquivo dela (`board.md`, `account.md`…); aqui, as que valem para o client inteiro.
 
 - No modo data, o `middleware` do root já mantém a navegação inicial pendente e mostra o `HydrateFallback`; não precisa de `loader` só para isso.
-- Playwright: `getByLabel('Senha')` casa por substring e pega também o botão "Mostrar senha"; use `{ exact: true }`.
+- Playwright: `getByLabel('Senha')` casa por substring e pega também o botão "Mostrar senha"; use `{ exact: true }`. O mesmo vale para campo com botões de passo que repetem o rótulo (`getByLabel('Máximo de stacks')` casa com "Menos um no máximo de stacks"/"Mais um no máximo de stacks": quebrou o `condition-catalog.spec.ts` na `2444ad4`).
 - O jsdom não tem `ResizeObserver` e o Checkbox do Radix usa um: `client/test/setup.ts` instala o `ResizeObserverStub`.
 - `react-hooks/refs` (React Compiler) acusa "Cannot access refs during render" em qualquer leitura de um objeto que **carrega** um ref (`form.submitting` quando `form` tem `emailRef`, ou um `binding` com a função de ref). Desestruture o retorno do hook, ou foque por id (`document.getElementById`) em vez de guardar o ref.
 - No `jsdom`, `await expect(p).rejects.toThrow(/regex/)` sobre subclasse de `Error` lê a mensagem como `''`. Use `rejects.toBeInstanceOf(X)` + `rejects.toMatchObject({ message: expect.stringContaining(...) })`.

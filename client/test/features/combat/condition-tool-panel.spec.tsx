@@ -121,7 +121,7 @@ describe('ConditionToolPanel', () => {
     expect(panel).toHaveTextContent('A mesa não tem condições.');
     expect(within(panel).getByRole('link', { name: 'Configurar condições' })).toHaveAttribute(
       'href',
-      `/campaigns/${VHARN.id}/table/settings`,
+      `/campaigns/${VHARN.id}/table/conditions`,
     );
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(screen.queryByLabelText('Rodadas')).toBeNull();

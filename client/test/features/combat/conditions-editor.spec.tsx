@@ -285,7 +285,6 @@ describe('ConditionsEditor', () => {
       name: 'Sangrando',
       tone: 'harm',
       icon: 'droplet',
-      color: null,
       look: null,
     });
   });

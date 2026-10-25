@@ -51,7 +51,7 @@ async function createSangrando(master: Page): Promise<void> {
   await sheet.getByLabel('Nome').fill('Sangrando');
   await sheet.getByLabel('Descrição').fill(SANGRANDO);
   await sheet.getByRole('switch', { name: 'Acumula (stacks)' }).click();
-  await sheet.getByLabel('Máximo de stacks').fill('3');
+  await sheet.getByLabel('Máximo de stacks', { exact: true }).fill('3');
   await sheet.getByRole('button', { name: 'Criar condição' }).click();
   await expect(sheetOf(master, 'Editar Sangrando')).toBeVisible();
   await sheetOf(master, 'Editar Sangrando').getByRole('button', { name: 'Fechar' }).click();
@@ -147,9 +147,8 @@ test('the master keeps the list on its own page, a player stacks conditions on a
   await clickCell(bia, GOBLIN_CELL, true);
   await expect(conditionsOn(await hover(caio, GOBLIN_CELL), 'Goblin')).toContainText('×1');
   await clickCell(bia, GOBLIN_CELL, true);
-  await expect(conditionsOn(await hover(caio, GOBLIN_CELL), 'Goblin')).not.toContainText(
-    'Sangrando',
-  );
+  // Without conditions the card says so instead of drawing an empty list.
+  await expect(await hover(caio, GOBLIN_CELL)).toContainText('Nenhuma condição.');
 
   // F5 keeps the Kael's.
   await bia.reload();
@@ -165,7 +164,7 @@ test('the master keeps the list on its own page, a player stacks conditions on a
   await expect(confirm).toContainText('Está em 1 token.');
   await confirm.getByRole('button', { name: 'Excluir' }).click();
   await expect(admin.getByRole('button', { name: 'Editar Sangrando' })).toBeHidden();
-  await expect(conditionsOn(await hover(caio, KAEL_CELL), 'Kael')).not.toContainText('Sangrando');
+  await expect(await hover(caio, KAEL_CELL)).toContainText('Nenhuma condição.');
 
   // A deleted default comes back with "Restaurar padrões".
   await admin.getByRole('button', { name: 'Editar Cego' }).click();
