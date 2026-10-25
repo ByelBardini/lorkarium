@@ -3,7 +3,7 @@ import { defineConfig } from 'tsdown';
 // The @lorkarium/* packages export raw .ts, so Node cannot load them from node_modules: they go in
 // the bundle. Every other dependency (argon2's native binary included) stays external.
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/deploy-migrate.ts'],
   format: 'esm',
   platform: 'node',
   target: 'node22',

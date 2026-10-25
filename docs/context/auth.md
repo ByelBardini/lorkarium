@@ -110,6 +110,7 @@ Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado c
 
 - Em `preHandler` assíncrono que responde (guarda), é `return reply.code(...).send(...)`: sem o `return` o Fastify segue para o handler.
 - `errorResponseBuilder` do rate-limit **lança** o que devolve: ele devolve `RateLimitedError`, que o error handler do módulo traduz. O header `Retry-After` já vem posto pela lib.
+- O balde do login é `request.ip|e-mail`, então o rate limit só vale com o `TRUST_PROXY` certo (ver `server.md`, Env): `0` atrás do Traefik junta todo mundo no IP do proxy (um errando a senha bloqueia a mesa toda); salto demais deixa o cliente forjar o `X-Forwarded-For` e fugir do limite. Provado em `test/integration/trust-proxy.spec.ts`.
 
 - A tabela é `auth_sessions`, não `sessions`: o spec §6 reserva `Session` para a sessão multiplayer.
 - Erro do Postgres chega embrulhado pelo Drizzle: o código (`23505` = unicidade) está em `error.cause.code`, não em `error.code`.

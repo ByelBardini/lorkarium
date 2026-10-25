@@ -1,0 +1,20 @@
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.github
+.claude
+.husky
+docs
+infra
+# Only the manifests: pnpm checks every workspace of the lockfile, but nothing of them is built.
+e2e/*
+!e2e/package.json
+desktop/*
+!desktop/package.json
+Dockerfile
+.dockerignore

@@ -1,14 +1,13 @@
 name: CI
 
+# PR only: main is protected (PR + ci-ok required), so a push run would repeat the PR's checks.
 on:
   pull_request:
-  push:
-    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
-  # A new push to a PR makes the old run useless; on main every commit keeps its own run.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A new push to a PR makes the old run useless.
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -217,10 +216,58 @@ jobs:
           cargo clippy --all-targets -- -D warnings
           cargo test
 
+  # The image Coolify builds: a PR that breaks the Dockerfile, the bundle or a migration goes red here.
+  docker-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lorkarium
+          POSTGRES_PASSWORD: lorkarium
+          POSTGRES_DB: lorkarium
+        ports:
+          - 5432:5432
+        options: >-
+          --tmpfs /var/lib/postgresql/data
+          --health-cmd "pg_isready -U lorkarium"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/seaweedfs
+      - uses: ./.github/actions/mailpit
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: lorkarium:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # Production mode on the host network: SMTP and APP_PUBLIC_URL are required there, as in Coolify.
+      - name: Start the image
+        run: |
+          docker run -d --name lorkarium --network host             -e DATABASE_URL=postgres://lorkarium:lorkarium@localhost:5432/lorkarium             -e S3_ENDPOINT=http://localhost:8333 -e S3_BUCKET=lorkarium             -e S3_ACCESS_KEY_ID=lorkarium -e S3_SECRET_ACCESS_KEY=lorkarium-dev-secret             -e DATA_ENCRYPTION_KEY=EJ0VAPvnCxgUGYKDbckfwbxEca0bm7NndOkKfFJQjeQ=             -e SMTP_URL=smtp://localhost:1025 -e APP_PUBLIC_URL=http://localhost:3333             -e TRUST_PROXY=1             lorkarium:ci
+      - run: bash infra/docker/smoke.sh lorkarium http://localhost:3333
+
   # The only required check in the branch protection of main: a new job only needs to join `needs`.
   ci-ok:
     if: always()
-    needs: [quality, test-packages, test-client, test-server, test-integration, build, e2e, desktop]
+    needs:
+      - quality
+      - test-packages
+      - test-client
+      - test-server
+      - test-integration
+      - build
+      - docker-image
+      - e2e
+      - desktop
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

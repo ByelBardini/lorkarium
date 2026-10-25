@@ -36,7 +36,8 @@ As imagens da mesa: o fundo da cena e a imagem do token. O server guarda o arqui
 
 - `server/src/modules/assets/asset-storage.port.ts` — `AssetStoragePort { ensureBucket(), put(key, bytes, contentType), open(key) → StoredObject | null, remove(key) }`; `StoredObject` = `{ body: Readable, size, contentType }` (o corpo vai em fluxo para a resposta). A chave é sempre `assets/<uuid>` (ou `avatars/<uuid>`, as fotos de perfil no mesmo bucket, ver `profiles.md`), nunca o nome do arquivo (§8.5). `remove` é idempotente: hoje só o perfil apaga (trocar ou tirar a foto); asset da mesa não é apagado.
 - Adaptador `server/src/infrastructure/asset-storage/s3-asset-storage.ts` (`S3AssetStorage`, sobre `@aws-sdk/client-s3`), montado com o `env.storage` (`StorageConfig`, ver `server.md`). Serve para SeaweedFS, MinIO, R2 e AWS: só a env muda.
-  - `ensureBucket` faz `HeadBucket` e, no 404, `CreateBucket` (idempotente; `BucketAlreadyOwnedByYou` é ignorado).
+  - `ensureBucket` faz `HeadBucket` e, no 404, `CreateBucket` (idempotente; `BucketAlreadyOwnedByYou` é ignorado). O pedido sai de `createBucketInput(bucket, region)`: em `us-east-1` (o padrão do `S3_REGION`, e o que SeaweedFS e R2 usam) vai só `{ Bucket }`, porque a AWS recusa `us-east-1` explícito; em qualquer outra região leva `CreateBucketConfiguration.LocationConstraint` com a região, que a AWS exige fora de `us-east-1`.
+  - Na AWS, o usuário IAM precisa de `s3:ListBucket` no bucket: é a permissão do `HeadBucket` do boot. Sem ela a resposta é 403, vira `AssetStorageError` no `onReady` e **o app não sobe**. Com uma política mínima sem `s3:CreateBucket`, o bucket tem que ser criado à mão no console (na região do `S3_REGION`) antes do primeiro boot.
   - `open` de chave inexistente (`NoSuchKey`/404) → `null`.
   - `remove` é um `DeleteObject`; o S3 responde 204 também para chave inexistente (e um 404 é engolido), então apagar duas vezes não falha.
   - Qualquer outra falha vira `AssetStorageError` citando a operação, o bucket e o endpoint, com o nome do erro e o status HTTP, **nunca** a chave secreta.
@@ -85,7 +86,9 @@ O server baixa o link e guarda a imagem como um envio: o WebGL recusa textura de
 
 - `server/test/integration/assets-dao.spec.ts`: colunas gravadas, `findManyInCampaign` filtrando a outra mesa, **mesa B não vê o asset da mesa A**, dono apagado → `owner_id` nulo, mesa apagada apaga os assets, `storage_key` repetida → `23505`. Fábricas em `server/test/support/assets-factories.ts` (`newAssetPo`, `lyraPortraitPo`).
 
-- `server/test/integration/s3-asset-storage.spec.ts` (SeaweedFS real): grava e lê os mesmos bytes, tipo e tamanho; bucket novo criado e `ensureBucket` duas vezes; chave inexistente → `null`; `remove` apaga (o `open` seguinte é `null`) e é idempotente; segredo errado → erro com bucket e endpoint, sem o segredo. É o spec do adaptador (o driver do `/testar` acusa `fonte-sem-spec` porque ele mora na integração).
+- `server/test/infrastructure/asset-storage/create-bucket-input.spec.ts` (unit): `us-east-1` → só `{ Bucket }`, sem `CreateBucketConfiguration`; `sa-east-1` → `LocationConstraint: 'sa-east-1'`.
+
+- `server/test/integration/s3-asset-storage.spec.ts` (SeaweedFS real): grava e lê os mesmos bytes, tipo e tamanho; bucket novo criado e `ensureBucket` duas vezes; chave inexistente → `null`; `remove` apaga (o `open` seguinte é `null`) e é idempotente; segredo errado → erro com bucket e endpoint, sem o segredo. É o spec do adaptador.
 
 - `server/test/infrastructure/image-processor/sharp-image-processor.spec.ts` (unit, `sharp` real, imagens geradas no spec por `sharp({ create })`, sem binário no repo): PNG com alfa, WebP, EXIF de GPS removido, redução a 4096 × 2048, borda exata, orientação 6 → 100 × 200, carga após o `IEND`, HTML, GIF, SVG e o limite de pixels.
 

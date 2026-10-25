@@ -57,6 +57,8 @@ import { CampaignCommandQueue } from '../realtime/campaign-command-queue';
 import { CommandRateGuard } from '../realtime/command-rate-guard';
 import { attachRealtime } from '../realtime/realtime-server';
 import { mailerOf, wireAccountSecurity } from './wire-account-security';
+import { serveClient } from './serve-client';
+import { trustProxyOf } from './trust-proxy';
 import { wireBackoffice } from './wire-backoffice';
 
 declare module 'fastify' {
@@ -84,7 +86,8 @@ const REDACTED_LOG_PATHS = ['req.headers.cookie', 'res.headers["set-cookie"]'];
  *
  *  Example: `await (await buildApp({ env, db })).listen({ port: env.port })` */
 export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> {
-  const app = Fastify({ logger: loggerOptions(deps.env) });
+  const trustProxy = trustProxyOf(deps.env.trustProxyHops);
+  const app = Fastify({ logger: loggerOptions(deps.env), trustProxy });
   await app.register(cookie);
   const hasher = new Argon2PasswordHasher();
   const clock = deps.clock ?? new SystemClock();
@@ -146,6 +149,8 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const { notices, recovery } = security;
   const links = { ...authOptions, sessions: auth.sessions, notices, recovery, appPublicUrl };
   await wireBackoffice(app, { ...links, memberships, storage, mailer }, API_PREFIX);
+  // After every /api route: its not-found handler answers the SPA for the rest.
+  if (env.clientDistDir) await serveClient(app, env.clientDistDir);
   return app;
 }
 

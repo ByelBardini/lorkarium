@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { z } from 'zod';
 
 // Enforced only in production: a local dev box may seed admin@admin.com / admin.
@@ -23,6 +24,8 @@ const ENV_KEYS = [
   'SMTP_URL',
   'MAIL_FROM',
   'APP_PUBLIC_URL',
+  'TRUST_PROXY',
+  'CLIENT_DIST_DIR',
 ] as const;
 
 // Values that must never reach a log line or a boot error message.
@@ -89,6 +92,17 @@ const POOL_MAX = boundedInteger(1, 100, 10);
 // lock surfaces as an error instead of holding connections (never 0: that waits forever).
 const STATEMENT_TIMEOUT_MS = boundedInteger(100, 600_000, 5000, ' milliseconds');
 const LOCK_TIMEOUT_MS = boundedInteger(100, 600_000, 2000, ' milliseconds');
+// Hops, never `true`: trusting every X-Forwarded-For lets a client forge its IP past the login
+// rate limit. 1 = Coolify's Traefik; 2 = Cloudflare's proxy in front of it.
+const TRUST_PROXY_HOPS = boundedInteger(0, 5, 0);
+
+// Absolute: the server's working directory differs between tsx, the bundle and the image.
+const CLIENT_DIST_DIR = z
+  .string()
+  .refine((value) => path.isAbsolute(value), {
+    error: 'must be an absolute path (/app/client/dist)',
+  })
+  .optional();
 
 const envSchema = z
   .object({
@@ -126,6 +140,8 @@ const envSchema = z
     SMTP_URL,
     MAIL_FROM: z.string().trim().min(3).default(DEFAULT_MAIL_FROM),
     APP_PUBLIC_URL: z.url({ error: 'must be a URL (https://mesa.example.com)' }).optional(),
+    TRUST_PROXY: TRUST_PROXY_HOPS,
+    CLIENT_DIST_DIR,
   })
   .superRefine(requireAdminPair)
   .superRefine(requireStrongAdminPasswordInProduction)
@@ -171,6 +187,10 @@ export type Env = Readonly<{
   mailer: MailerConfig;
   /** Where the client is served, without a trailing slash: the base of the links in e-mails. */
   appPublicUrl: string;
+  /** Proxies in front of the server whose X-Forwarded-For is believed; 0 = `request.ip` is the socket. */
+  trustProxyHops: number;
+  /** The Vite build the server serves as the SPA; null = it serves only `/api` (dev, tests). */
+  clientDistDir: string | null;
 }>;
 
 export class InvalidEnvError extends Error {
@@ -291,6 +311,8 @@ function toEnv(parsed: ParsedEnv): Env {
     dataEncryptionKey: parsed.DATA_ENCRYPTION_KEY,
     mailer: toMailerConfig(parsed),
     appPublicUrl: (parsed.APP_PUBLIC_URL ?? DEFAULT_APP_PUBLIC_URL).replace(/\/+$/, ''),
+    trustProxyHops: parsed.TRUST_PROXY,
+    clientDistDir: parsed.CLIENT_DIST_DIR ?? null,
   };
 }
 

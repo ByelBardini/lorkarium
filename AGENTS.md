@@ -24,8 +24,10 @@ packages/game-core/      # Regra de jogo pura (coordenadas, células, distância
 packages/contracts/      # DTOs Zod compartilhados
 packages/tsconfig/       # tsconfigs base
 desktop/                 # @lorkarium/desktop: casca Tauri 2 (Windows); splash em src/, Rust em src-tauri/, specs da splash em test/
+Dockerfile, .dockerignore # Imagem de produção (multi-estágio, node:22-bookworm-slim): migra e sobe o server, que serve o client (ver docs/context/deploy.md)
 e2e/                     # @lorkarium/e2e: Playwright (playwright.config.ts sobe server + client), specs em e2e/test/
 .github/                 # CI: workflows/ci.yml, actions/setup (composite), dependabot.yml
+infra/docker/smoke.sh    # Smoke da imagem (healthy, /api/health, SPA, ordem do log), usado pelo job docker-image do CI
 infra/compose/compose.yaml # Postgres 17 (5432, usuário/senha/db lorkarium), SeaweedFS/S3 (8333, identidade em seaweedfs/s3.json) e Mailpit (SMTP 1025, caixa 8025) de desenvolvimento (pnpm db:up)
 docs/spec.md             # Planejamento e arquitetura do produto (escopo, modelo, API, eventos, segurança, fases)
 docs/context/            # Memória do projeto para agentes de IA: <area>.md é o índice, <area>/ o detalhe
@@ -98,6 +100,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho         | [`docs/context/client.md`](docs/context/client.md)                     |
 | ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo | [`docs/context/ci.md`](docs/context/ci.md)                             |
 | desktop          | Casca Tauri 2: splash, atualização, origem presa, WebView2, bandeja, release   | [`docs/context/desktop.md`](docs/context/desktop.md)                   |
+| deploy           | Runbook: imagem, Coolify, AWS S3 e IAM, envs, DNS, primeiro deploy, voltar     | [`docs/context/deploy.md`](docs/context/deploy.md)                     |
 | health           | `GET /api/health` (ping no Postgres, 200/503, pública)                         | [`docs/context/health.md`](docs/context/health.md)                     |
 
 Área sem linha aqui ainda não tem doc: o `/atualizar-contexto` cria o hub junto com o primeiro código da área. Até lá, a referência é o `docs/spec.md`.
