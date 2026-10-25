@@ -1,11 +1,18 @@
 name: Desktop release
 
+# Every push to main that touches the Windows shell publishes a new release. Client and server
+# changes need none: the shell opens the deployed site. The landing reads the latest release from
+# the GitHub API in the browser, so it offers the new installer without a rebuild.
 on:
   push:
-    tags: ['desktop-v*']
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop-release.yml'
+  workflow_dispatch:
 
 concurrency:
-  group: desktop-release-${{ github.ref }}
+  group: desktop-release
   cancel-in-progress: false
 
 permissions:
@@ -16,21 +23,12 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 40
     permissions:
-      # Creates the GitHub release and uploads the installer, its .sig and latest.json.
+      # Creates the tag and the GitHub release and uploads the installer, its .sig and latest.json.
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Refuse a tag that differs from desktop/package.json
-        shell: bash
-        run: |
-          version=$(node -p "require('./desktop/package.json').version")
-          if [ "${GITHUB_REF_NAME}" != "desktop-v${version}" ]; then
-            echo "tag ${GITHUB_REF_NAME} não bate com desktop/package.json (esperado desktop-v${version})"
-            exit 1
-          fi
 
       - name: Refuse the placeholder updater key
         shell: bash
@@ -39,6 +37,18 @@ jobs:
             echo "plugins.updater.pubkey ainda é o marcador; cole a chave pública do tauri signer (docs/context/desktop.md)"
             exit 1
           fi
+
+      # The updater only installs a higher version: major.minor come from desktop/package.json and
+      # the patch is this workflow's run number, which only grows. Written for the build only, never committed.
+      - name: Stamp the release version
+        id: version
+        shell: bash
+        run: |
+          base=$(node -p "require('./desktop/package.json').version.split('.').slice(0, 2).join('.')")
+          version="${base}.${GITHUB_RUN_NUMBER}"
+          node -e "const fs = require('fs'); const file = 'desktop/package.json'; const pkg = JSON.parse(fs.readFileSync(file, 'utf8')); pkg.version = process.argv[1]; fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');" "$version"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "release desktop-v${version}"
 
       - uses: ./.github/actions/setup
 
@@ -56,9 +66,9 @@ jobs:
         with:
           projectPath: desktop
           tauriScript: pnpm tauri
-          tagName: ${{ github.ref_name }}
-          releaseName: Lorkarium para Windows ${{ github.ref_name }}
-          releaseBody: Instale o Lorkarium-*-setup.exe. Quem já tem o app recebe esta versão sozinho ao abrir.
+          tagName: desktop-v${{ steps.version.outputs.version }}
+          releaseName: Lorkarium para Windows ${{ steps.version.outputs.version }}
+          releaseBody: Instale o Lorkarium_${{ steps.version.outputs.version }}_x64-setup.exe. Quem já tem o app recebe esta versão sozinho ao abrir.
           releaseDraft: false
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
