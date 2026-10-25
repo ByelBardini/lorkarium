@@ -3,6 +3,20 @@
   "singleQuote": true,
   "trailingComma": "all",
   "printWidth": 100,
-  "plugins": ["prettier-plugin-tailwindcss"],
-  "tailwindStylesheet": "./client/src/index.css"
+  "plugins": ["prettier-plugin-astro", "prettier-plugin-tailwindcss"],
+  "tailwindStylesheet": "./client/src/index.css",
+  "overrides": [
+    {
+      "files": "*.astro",
+      "options": {
+        "parser": "astro"
+      }
+    },
+    {
+      "files": "site/**",
+      "options": {
+        "tailwindStylesheet": "./site/src/styles/global.css"
+      }
+    }
+  ]
 }

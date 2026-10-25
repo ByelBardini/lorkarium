@@ -15,7 +15,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 ## DTOs
 
-- `loginRequestDto` (`auth/login.dto.ts`) — corpo de `POST /api/auth/login`: `{ email, password, rememberMe }`. E-mail com `trim` + minúsculas antes de validar; senha de 1 a `PASSWORD_MAX_LENGTH` (256); `rememberMe` padrão `false`. Tipos: `LoginRequestDto` (saída) e `LoginRequestInput` (entrada, `rememberMe` opcional).
+- `loginRequestDto` (`auth/login.dto.ts`) — corpo de `POST /api/auth/login`: `{ identifier, password, rememberMe }` (estrito: o antigo `email` é recusado). `identifier` = `loginIdentifierDto`: `trim` + minúsculas, depois e-mail (`z.email()`) **ou** o @ pelo `usernameDto`, com o "@" da frente tirado (`@Bia` → `bia`); na saída, "@" só sobra dentro de e-mail — é por ele que o server escolhe a busca. Idempotente (o client manda o que parseou). Senha de 1 a `PASSWORD_MAX_LENGTH` (256); `rememberMe` padrão `false`. Tipos: `LoginRequestDto` (saída) e `LoginRequestInput` (entrada, `rememberMe` opcional).
 - `userRoleDto` / `UserRoleDto` (`auth/auth-user.dto.ts`) — papel **global** da conta: `'user' | 'admin'`. Mestre/jogador/espectador não são papel de conta (são por campanha).
 - `authUserDto` / `AuthUserDto` — `{ id (uuid), username (o @), name (o apelido), email, role, color (`memberColorDto`, a efetiva), avatarId (uuid | null) }`; nunca leva hash de senha.
 - `loginResponseDto` (`login.dto.ts`) — união discriminada por `status`, estrita: `{ status: 'signed-in', user }` | `{ status: 'two-factor-required' }` (sem `user`: a sessão só nasce depois do código). Responde também `POST /api/auth/login/two-factor`.
@@ -85,9 +85,13 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 - `admin-users.dto.ts` — `adminUserDto` (`{ id, username, name, email, role, status: active | suspended, color, avatarId, campaignCount, lastSeenAt | null, createdAt }`), `adminInvitationDto` (`{ id, email, role, invitedBy (@ | null), sentAt, expiresAt }`; "vencido" é do client), `adminDirectoryResponseDto` `{ users, invitations }`, `adminUserResponseDto` `{ user }`, `adminUserParamsDto` `{ userId: uuid }`, `updateUserRoleRequestDto` `{ role }` estrito, `blockingCampaignDto` `{ id, name, otherMembers ≥ 1 }`, `userDeletionCheckDto` `{ blockingCampaigns, soloCampaigns }`.
 - `admin-invitations.dto.ts` — `createInvitationRequestDto` `{ email (trim + minúsculas), role }` estrito, `invitationParamsDto`, `invitationLinkResponseDto` `{ invitation, link }`, `passwordResetLinkResponseDto` `{ link, expiresAt }`.
-- `account-links/account-links.dto.ts` — `accountLinkTokenDto` `{ token }` (sobre `linkTokenDto` de `account/account-recovery.dto.ts`), `invitationInspectResponseDto` `{ email, suggestedUsername }`, `acceptInvitationRequestDto` `{ token, username (usernameDto), password (newPasswordDto), persistent }`, `acceptInvitationResponseDto` `{ status: 'signed-in', user }`, `passwordResetInspectResponseDto` `{ username }`, `completePasswordResetRequestDto` `{ token, newPassword }`.
+- `account-links/account-links.dto.ts` — `accountLinkTokenDto` `{ token }` (sobre `linkTokenDto` de `account/account-recovery.dto.ts`), `invitationInspectResponseDto` `{ email, suggestedUsername }`, `acceptInvitationRequestDto` `{ token, username (usernameDto), password (newPasswordDto), persistent, acceptedTerms: true }` (literal: a caixa dos Termos e da Privacidade desmarcada é 400), `acceptInvitationResponseDto` `{ status: 'signed-in', user }`, `passwordResetInspectResponseDto` `{ username }`, `completePasswordResetRequestDto` `{ token, newPassword }`.
 - `admin-mail-samples.dto.ts` — `mailSampleDto` `{ id, name, subject }`, `mailSamplesResponseDto` `{ samples }`, `mailSampleParamsDto` `{ sampleId }`, `sendMailSampleRequestDto` `{ to }` (aparado, minúsculas), `sendMailSampleResponseDto` `{ subject, to }`.
 - Specs: `packages/contracts/test/admin/*.spec.ts`, `test/account-links/account-links.dto.spec.ts`.
+
+### Textos legais (`legal/`)
+
+- `legal-documents.dto.ts` — `LEGAL_DOCUMENTS_VERSION` (`'2026-10-25'`: a versão do par Termos de uso + Política de privacidade que o aceite grava; muda junto com o `updatedAt` da landing) e `legalDocumentDto` (`terms` | `privacy`, tipo `LegalDocument`: os caminhos `GET /api/legal/<documento>`). Ver [`legal.md`](legal.md).
 
 ### Tempo real comum (`http/realtime-ack.dto.ts`)
 

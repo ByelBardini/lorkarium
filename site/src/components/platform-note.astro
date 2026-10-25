@@ -1,0 +1,26 @@
+---
+import { PUBLIC_APP_URL } from 'astro:env/client';
+
+const noteClass =
+  'm-0 flex flex-wrap items-center gap-x-3 gap-y-2 border-l-2 border-gold bg-gold/6 px-4 py-3 text-sm leading-[1.55] text-label';
+---
+
+<p data-platform-note="desktop-browser" hidden class={noteClass}>
+  <span>
+    O app é pra Windows. No Mac e no Linux, dá pra jogar pelo navegador com a mesma conta.
+  </span>
+  <a href={`${PUBLIC_APP_URL}/login`} class="font-semibold">
+    Abrir o Lorkarium no navegador
+  </a>
+</p>
+<p data-platform-note="mobile" hidden class={noteClass}>
+  <span>O Lorkarium é pra computador. Abre este site no seu PC pra baixar.</span>
+  <button
+    type="button"
+    data-copy-link
+    class="cursor-pointer rounded-sm border border-edge-strong bg-transparent px-3 py-1.5 font-sans text-sm font-semibold text-label hover:text-parchment"
+  >
+    Copiar link
+  </button>
+  <span data-copy-status role="status"></span>
+</p>

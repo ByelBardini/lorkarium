@@ -1,0 +1,40 @@
+---
+import AudienceStrip from '@/components/audience-strip.astro';
+import CombatShowcase from '@/components/combat-showcase.astro';
+import DownloadPanel from '@/components/download-panel.astro';
+import FaqList from '@/components/faq-list.astro';
+import FeatureGrid from '@/components/feature-grid.astro';
+import Hero from '@/components/hero.astro';
+import HowItWorks from '@/components/how-it-works.astro';
+import SiteLayout from '@/layouts/site-layout.astro';
+---
+
+<SiteLayout
+  title="Lorkarium · Mesa virtual de RPG pra jogar com os amigos"
+  description="Mapa com grid, tokens, iniciativa, condições e barras num lugar só. Baixe o Lorkarium pra Windows ou jogue pelo navegador."
+>
+  <Hero />
+  <AudienceStrip />
+  <FeatureGrid />
+  <CombatShowcase />
+  <HowItWorks />
+  <DownloadPanel />
+  <FaqList />
+</SiteLayout>
+
+<script>
+  import { visitorPlatformOf } from '@/lib/visitor-platform';
+  import { browserReleaseSource } from '@/scripts/browser-release-source';
+  import { enhanceDownloadCtas } from '@/scripts/download-cta';
+  import { NavigatorLinkClipboard } from '@/services/link-clipboard';
+
+  void enhanceDownloadCtas(document, {
+    source: browserReleaseSource(),
+    platform: visitorPlatformOf({
+      userAgent: navigator.userAgent,
+      maxTouchPoints: navigator.maxTouchPoints,
+    }),
+    clipboard: new NavigatorLinkClipboard(),
+    pageUrl: `${location.origin}/`,
+  });
+</script>

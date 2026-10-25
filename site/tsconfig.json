@@ -1,0 +1,13 @@
+{
+  "extends": "@lorkarium/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "jsx": "preserve",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [".astro/types.d.ts", "src", "test", "astro.config.mjs", "vitest.config.ts"],
+  "exclude": ["dist"]
+}

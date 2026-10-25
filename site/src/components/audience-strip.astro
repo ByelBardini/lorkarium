@@ -1,0 +1,14 @@
+---
+import { landingCopy } from '@/copy/landing-copy';
+---
+
+<div class="border-y border-line bg-band">
+  <ul class="site-wrap m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] p-0">
+    {landingCopy.audience.map((item) => (
+      <li class="flex flex-col gap-1.5 border-[#1f2329] py-8 md:px-6 md:first:pl-0 md:last:pr-0 md:[&+li]:border-l [&+li]:border-t md:[&+li]:border-t-0">
+        <span class="font-display text-[26px] font-semibold">{item.title}</span>
+        <span class="text-sm leading-[1.55] text-faint">{item.text}</span>
+      </li>
+    ))}
+  </ul>
+</div>

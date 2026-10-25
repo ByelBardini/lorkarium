@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import astro from 'eslint-plugin-astro';
 import prettier from 'eslint-config-prettier';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
@@ -18,6 +19,7 @@ export default tseslint.config(
       'docs/pages',
       'desktop/src-tauri/target',
       'desktop/src-tauri/gen',
+      'site/.astro',
     ],
   },
   js.configs.recommended,
@@ -31,12 +33,21 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  ...astro.configs['flat/recommended'],
   {
-    files: ['desktop/src/**/*.ts'],
+    files: ['desktop/src/**/*.ts', 'site/src/**/*.{ts,astro}'],
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['server/**/*.ts', 'packages/**/*.ts', 'e2e/**/*.ts', '*.{js,ts}', '.claude/**/*.mjs'],
+    files: [
+      'server/**/*.ts',
+      'packages/**/*.ts',
+      'e2e/**/*.ts',
+      'site/test/**/*.ts',
+      'site/*.{mjs,ts}',
+      '*.{js,ts}',
+      '.claude/**/*.mjs',
+    ],
     languageOptions: { globals: globals.node },
   },
   prettier,

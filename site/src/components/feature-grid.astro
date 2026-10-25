@@ -1,0 +1,40 @@
+---
+import SectionHeading from '@/components/section-heading.astro';
+import { landingCopy } from '@/copy/landing-copy';
+---
+
+<section id="recursos" class="py-20 md:pt-28 md:pb-24">
+  <div class="site-wrap flex flex-col gap-12">
+    <SectionHeading kicker="Recursos" title="Tudo que a mesa precisa, sem virar planilha">
+      O mapa fica no centro. O resto aparece quando você precisa.
+    </SectionHeading>
+    <div class="grid border-t border-l border-edge sm:grid-cols-2 lg:grid-cols-3">
+      {landingCopy.features.map((feature, index) => (
+        <article class="flex flex-col gap-3 border-r border-b border-edge p-7 xl:p-9">
+          <div class="flex items-center justify-between text-gold">
+            <svg
+              width="26"
+              height="26"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d={feature.icon} />
+            </svg>
+            <span class="font-display text-lg text-faint" aria-hidden="true">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+          </div>
+          <h3 class="m-0 mt-3 font-display text-[28px] leading-[1.1] font-semibold">
+            {feature.title}
+          </h3>
+          <p class="m-0 max-w-[42ch] text-[15px] leading-relaxed text-muted">{feature.text}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

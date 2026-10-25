@@ -1,0 +1,39 @@
+---
+import { getEntry, render } from 'astro:content';
+import { LEGAL_DRAFTS_ALLOWED } from 'astro:env/server';
+import SiteLayout from '@/layouts/site-layout.astro';
+import { assertPublishable } from '@/lib/legal-doc';
+
+interface Props {
+  docId: 'termos' | 'privacidade';
+  description: string;
+}
+
+const { docId, description } = Astro.props;
+const entry = await getEntry('legal', docId);
+if (!entry) {
+  throw new Error(`src/content/legal/${docId}.md was not found; expected a Markdown file there`);
+}
+assertPublishable({ id: entry.id, draft: entry.data.draft }, LEGAL_DRAFTS_ALLOWED);
+const { Content } = await render(entry);
+---
+
+<SiteLayout
+  title={`${entry.data.title} · Lorkarium`}
+  description={description}
+  noindex={entry.data.draft}
+>
+  <div class="site-wrap">
+    <article class="max-w-3xl py-16 md:py-24">
+      <h1 class="font-display text-4xl font-medium text-parchment md:text-5xl">
+        {entry.data.title}
+      </h1>
+      {!entry.data.draft && (
+        <p class="mt-3 text-sm text-faint">Atualizado em {entry.data.updatedAt}</p>
+      )}
+      <div class="legal-prose mt-10 space-y-5 text-base leading-relaxed text-label">
+        <Content />
+      </div>
+    </article>
+  </div>
+</SiteLayout>
