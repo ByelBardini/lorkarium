@@ -134,6 +134,12 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - run: pnpm build
+        # pnpm -r build includes the site: astro:env refuses to build without these (site/.env.example).
+        env:
+          SITE_URL: https://lorkarium.test
+          PUBLIC_APP_URL: https://mesa.lorkarium.test
+          PUBLIC_CONTACT_EMAIL: contato@lorkarium.test
+          LEGAL_DRAFTS_ALLOWED: 'true'
 
   e2e:
     name: e2e (${{ matrix.group }})
@@ -249,11 +255,54 @@ jobs:
           tags: lorkarium:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      # Production mode on the host network: SMTP and APP_PUBLIC_URL are required there, as in Coolify.
+      # Production mode on the host network: SMTP, APP_PUBLIC_URL, SITE_PUBLIC_URL and the access log are required there, as in Coolify.
+      # The access log shares the asset bucket here; its boot marker failing would keep the container from getting healthy.
       - name: Start the image
         run: |
-          docker run -d --name lorkarium --network host             -e DATABASE_URL=postgres://lorkarium:lorkarium@localhost:5432/lorkarium             -e S3_ENDPOINT=http://localhost:8333 -e S3_BUCKET=lorkarium             -e S3_ACCESS_KEY_ID=lorkarium -e S3_SECRET_ACCESS_KEY=lorkarium-dev-secret             -e DATA_ENCRYPTION_KEY=EJ0VAPvnCxgUGYKDbckfwbxEca0bm7NndOkKfFJQjeQ=             -e SMTP_URL=smtp://localhost:1025 -e APP_PUBLIC_URL=http://localhost:3333             -e TRUST_PROXY=1             lorkarium:ci
+          docker run -d --name lorkarium --network host             -e DATABASE_URL=postgres://lorkarium:lorkarium@localhost:5432/lorkarium             -e S3_ENDPOINT=http://localhost:8333 -e S3_BUCKET=lorkarium             -e S3_ACCESS_KEY_ID=lorkarium -e S3_SECRET_ACCESS_KEY=lorkarium-dev-secret             -e DATA_ENCRYPTION_KEY=EJ0VAPvnCxgUGYKDbckfwbxEca0bm7NndOkKfFJQjeQ=             -e SMTP_URL=smtp://localhost:1025 -e APP_PUBLIC_URL=http://localhost:3333 -e SITE_PUBLIC_URL=http://localhost:4321             -e ACCESS_LOG_S3_BUCKET=lorkarium -e ACCESS_LOG_S3_ACCESS_KEY_ID=lorkarium -e ACCESS_LOG_S3_SECRET_ACCESS_KEY=lorkarium-dev-secret             -e TRUST_PROXY=1             lorkarium:ci
       - run: bash infra/docker/smoke.sh lorkarium http://localhost:3333
+
+  # The landing page: its specs, the image Coolify builds from site/Dockerfile with its smoke, and its e2e.
+  # Lint, astro check and format already run in quality; test-packages leaves the site project out.
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm exec vitest run --project @lorkarium/site
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: site/Dockerfile
+          load: true
+          tags: lorkarium-site:ci
+          # CI only: the drafts flag lets the image be proven before the final Termos/Privacidade text;
+          # Coolify never passes it, so a draft fails the production build.
+          build-args: |
+            SITE_URL=http://localhost:8080
+            PUBLIC_APP_URL=https://mesa.lorkarium.test
+            PUBLIC_CONTACT_EMAIL=contato@lorkarium.test
+            LEGAL_DRAFTS_ALLOWED=true
+          # Own scope: the app image's mode=max cache would evict this one in the default scope.
+          cache-from: type=gha,scope=site
+          cache-to: type=gha,mode=max,scope=site
+      - run: docker run -d --name lorkarium-site -p 8080:80 lorkarium-site:ci
+      - run: bash infra/docker/site-smoke.sh lorkarium-site http://localhost:8080
+      - run: pnpm e2e:install
+      - run: pnpm test:e2e:site
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-site
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
   # The only required check in the branch protection of main: a new job only needs to join `needs`.
   ci-ok:
@@ -266,6 +315,7 @@ jobs:
       - test-integration
       - build
       - docker-image
+      - site
       - e2e
       - desktop
     runs-on: ubuntu-latest
