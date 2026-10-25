@@ -87,7 +87,7 @@ describe('login in two steps', () => {
     return accountRequest(app, {
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email, password: PASSWORD, rememberMe },
+      payload: { identifier: email, password: PASSWORD, rememberMe },
     });
   }
 

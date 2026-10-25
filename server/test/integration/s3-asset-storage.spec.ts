@@ -1,17 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type { Readable } from 'node:stream';
 import { afterAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { S3AssetStorage } from '../../src/infrastructure/asset-storage/s3-asset-storage';
+import { bytesOf } from '../support/streams';
 
 const config = readEnv(process.env).storage;
 const PNG_BYTES = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
-
-async function bytesOf(stream: Readable): Promise<Uint8Array> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) chunks.push(Buffer.from(chunk as Uint8Array));
-  return new Uint8Array(Buffer.concat(chunks));
-}
 
 describe('S3AssetStorage', () => {
   const storage = new S3AssetStorage(config);

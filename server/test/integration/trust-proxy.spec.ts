@@ -40,7 +40,7 @@ describe('login rate limit behind a proxy (TRUST_PROXY)', () => {
       url: '/api/auth/login',
       remoteAddress: TRAEFIK,
       headers: { 'x-forwarded-for': forwardedFor },
-      payload: { email: 'alvo@mesa.com', password: 'x' },
+      payload: { identifier: 'alvo@mesa.com', password: 'x' },
     });
   }
 

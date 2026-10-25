@@ -73,7 +73,7 @@ describe('e-mail change', () => {
     return accountRequest(app, {
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email, password: PASSWORD },
+      payload: { identifier: email, password: PASSWORD },
     });
   }
 

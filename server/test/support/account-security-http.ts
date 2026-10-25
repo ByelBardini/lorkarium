@@ -57,7 +57,7 @@ export async function logInAs(
   const response = await accountRequest(app, {
     method: 'POST',
     url: '/api/auth/login',
-    payload: { email, password },
+    payload: { identifier: email, password },
     userAgent,
   });
   return cookieOf(response, 'lk_session').value;

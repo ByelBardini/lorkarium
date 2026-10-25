@@ -124,7 +124,7 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
       await dropped;
       expect((await call('GET', '/auth/me', ana.token)).json()).toEqual({ user: null });
       const login = await call('POST', '/auth/login', undefined, {
-        email: 'ana@mesa.com',
+        identifier: 'ana@mesa.com',
         password: PASSWORD,
       });
       expect(codeOf(login)).toBe('ACCOUNT_SUSPENDED');
@@ -137,7 +137,7 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
       await call('POST', `/admin/users/${ana.id}/suspend`, admin.token);
       await call('POST', `/admin/users/${ana.id}/reactivate`, admin.token);
       const login = await call('POST', '/auth/login', undefined, {
-        email: 'ana@mesa.com',
+        identifier: 'ana@mesa.com',
         password: PASSWORD,
       });
       expect(login.statusCode).toBe(200);

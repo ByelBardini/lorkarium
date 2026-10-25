@@ -24,8 +24,18 @@ const ENV_KEYS = [
   'SMTP_URL',
   'MAIL_FROM',
   'APP_PUBLIC_URL',
+  'SITE_PUBLIC_URL',
   'TRUST_PROXY',
   'CLIENT_DIST_DIR',
+  'ACCESS_LOG_S3_BUCKET',
+  'ACCESS_LOG_S3_ACCESS_KEY_ID',
+  'ACCESS_LOG_S3_SECRET_ACCESS_KEY',
+] as const;
+
+const ACCESS_LOG_KEYS = [
+  'ACCESS_LOG_S3_BUCKET',
+  'ACCESS_LOG_S3_ACCESS_KEY_ID',
+  'ACCESS_LOG_S3_SECRET_ACCESS_KEY',
 ] as const;
 
 // Values that must never reach a log line or a boot error message.
@@ -33,6 +43,7 @@ const SECRET_KEYS: ReadonlySet<string> = new Set([
   'DATABASE_URL',
   'ADMIN_PASSWORD',
   'S3_SECRET_ACCESS_KEY',
+  'ACCESS_LOG_S3_SECRET_ACCESS_KEY',
   'DATA_ENCRYPTION_KEY',
   // smtp://user:password@host:port carries the password.
   'SMTP_URL',
@@ -65,6 +76,9 @@ export const DEFAULT_MAIL_FROM = 'Lorkarium <no-reply@lorkarium.dev>';
 
 // The client of `pnpm dev`; production must say where the app lives (the e-mail links point there).
 export const DEFAULT_APP_PUBLIC_URL = 'http://localhost:5173';
+
+// The landing of `pnpm site:dev`; production must say where it lives (the legal links point there).
+export const DEFAULT_SITE_PUBLIC_URL = 'http://localhost:4321';
 
 const SMTP_SCHEMES: ReadonlySet<string> = new Set(['smtp:', 'smtps:']);
 
@@ -140,12 +154,21 @@ const envSchema = z
     SMTP_URL,
     MAIL_FROM: z.string().trim().min(3).default(DEFAULT_MAIL_FROM),
     APP_PUBLIC_URL: z.url({ error: 'must be a URL (https://mesa.example.com)' }).optional(),
+    SITE_PUBLIC_URL: z.url({ error: 'must be a URL (https://example.com)' }).optional(),
     TRUST_PROXY: TRUST_PROXY_HOPS,
     CLIENT_DIST_DIR,
+    ACCESS_LOG_S3_BUCKET: z.string().optional(),
+    ACCESS_LOG_S3_ACCESS_KEY_ID: z.string().optional(),
+    ACCESS_LOG_S3_SECRET_ACCESS_KEY: z
+      .string()
+      .min(S3_SECRET_MIN_LENGTH, { error: `must have at least ${S3_SECRET_MIN_LENGTH} characters` })
+      .optional(),
   })
   .superRefine(requireAdminPair)
   .superRefine(requireStrongAdminPasswordInProduction)
-  .superRefine(requireMailInProduction);
+  .superRefine(requireMailInProduction)
+  .superRefine(requireSiteInProduction)
+  .superRefine(requireAccessLog);
 
 type ParsedEnv = z.infer<typeof envSchema>;
 
@@ -153,7 +176,8 @@ export type NodeEnv = ParsedEnv['NODE_ENV'];
 
 export type AdminSeedConfig = Readonly<{ email: string; password: string }>;
 
-/** Where the assets live: any S3-compatible service (SeaweedFS in dev, §4.3). */
+/** A bucket and its key on any S3-compatible service (SeaweedFS in dev, §4.3): the assets, and
+ *  the access log. */
 export type StorageConfig = Readonly<{
   endpoint: string;
   region: string;
@@ -187,10 +211,15 @@ export type Env = Readonly<{
   mailer: MailerConfig;
   /** Where the client is served, without a trailing slash: the base of the links in e-mails. */
   appPublicUrl: string;
+  /** Where the landing is served, without a trailing slash: `/api/legal/*` redirects there. */
+  sitePublicUrl: string;
   /** Proxies in front of the server whose X-Forwarded-For is believed; 0 = `request.ip` is the socket. */
   trustProxyHops: number;
   /** The Vite build the server serves as the SPA; null = it serves only `/api` (dev, tests). */
   clientDistDir: string | null;
+  /** The write-only bucket of the access log (Marco Civil, art. 15), on the endpoint and region of
+   *  `storage`; null = no access log (only outside production). */
+  accessLog: StorageConfig | null;
 }>;
 
 export class InvalidEnvError extends Error {
@@ -242,6 +271,31 @@ function requireMailInProduction(env: MailVariables, ctx: z.RefinementCtx): void
       path: ['APP_PUBLIC_URL'],
       message: 'is required in production',
     });
+  }
+}
+
+// Production never sends the Terms of use and the Privacy policy links to localhost.
+function requireSiteInProduction(
+  env: { NODE_ENV: string; SITE_PUBLIC_URL?: string | undefined },
+  ctx: z.RefinementCtx,
+): void {
+  if (env.NODE_ENV !== 'production' || env.SITE_PUBLIC_URL !== undefined) return;
+  ctx.addIssue({ code: 'custom', path: ['SITE_PUBLIC_URL'], message: 'is required in production' });
+}
+
+type AccessLogVariables = { NODE_ENV: string } & Partial<
+  Record<(typeof ACCESS_LOG_KEYS)[number], string | undefined>
+>;
+
+// Production must keep the access log (Marco Civil, art. 15); elsewhere it is all three or none.
+function requireAccessLog(env: AccessLogVariables, ctx: z.RefinementCtx): void {
+  const production = env.NODE_ENV === 'production';
+  if (!production && ACCESS_LOG_KEYS.every((key) => env[key] === undefined)) return;
+  const message = production
+    ? 'is required in production'
+    : 'is required with the other ACCESS_LOG_S3_* variables';
+  for (const key of ACCESS_LOG_KEYS) {
+    if (env[key] === undefined) ctx.addIssue({ code: 'custom', path: [key], message });
   }
 }
 
@@ -310,10 +364,24 @@ function toEnv(parsed: ParsedEnv): Env {
     },
     dataEncryptionKey: parsed.DATA_ENCRYPTION_KEY,
     mailer: toMailerConfig(parsed),
-    appPublicUrl: (parsed.APP_PUBLIC_URL ?? DEFAULT_APP_PUBLIC_URL).replace(/\/+$/, ''),
+    appPublicUrl: withoutTrailingSlash(parsed.APP_PUBLIC_URL ?? DEFAULT_APP_PUBLIC_URL),
+    sitePublicUrl: withoutTrailingSlash(parsed.SITE_PUBLIC_URL ?? DEFAULT_SITE_PUBLIC_URL),
     trustProxyHops: parsed.TRUST_PROXY,
     clientDistDir: parsed.CLIENT_DIST_DIR ?? null,
+    accessLog: toAccessLogConfig(parsed),
   };
+}
+
+function toAccessLogConfig(parsed: ParsedEnv): StorageConfig | null {
+  const { ACCESS_LOG_S3_BUCKET: bucket, ACCESS_LOG_S3_ACCESS_KEY_ID: accessKeyId } = parsed;
+  const secretAccessKey = parsed.ACCESS_LOG_S3_SECRET_ACCESS_KEY;
+  if (!bucket || !accessKeyId || !secretAccessKey) return null;
+  const { S3_ENDPOINT: endpoint, S3_REGION: region, S3_FORCE_PATH_STYLE: forcePathStyle } = parsed;
+  return { endpoint, region, bucket, accessKeyId, secretAccessKey, forcePathStyle };
+}
+
+function withoutTrailingSlash(url: string): string {
+  return url.replace(/\/+$/, '');
 }
 
 function toMailerConfig(parsed: ParsedEnv): MailerConfig {

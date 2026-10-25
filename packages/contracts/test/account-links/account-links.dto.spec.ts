@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { acceptInvitationRequestDto } from '../../src/account-links/account-links.dto';
 
-const VALID = { token: 'tok', username: 'marina', password: '12345678', persistent: false };
+const VALID = {
+  token: 'tok',
+  username: 'marina',
+  password: '12345678',
+  persistent: false,
+  acceptedTerms: true,
+};
 
 function pathsOf(body: object): string[] {
   const result = acceptInvitationRequestDto.safeParse(body);
@@ -20,7 +26,12 @@ describe('acceptInvitationRequestDto', () => {
     [{ ...VALID, password: '1234567' }, 'password'],
     [{ ...VALID, token: '' }, 'token'],
     [{ ...VALID, token: 'a'.repeat(257) }, 'token'],
-    [{ token: 'tok', username: 'marina', password: '12345678' }, 'persistent'],
+    [{ token: 'tok', username: 'marina', password: '12345678', acceptedTerms: true }, 'persistent'],
+    [{ ...VALID, acceptedTerms: false }, 'acceptedTerms'],
+    [
+      { token: 'tok', username: 'marina', password: '12345678', persistent: false },
+      'acceptedTerms',
+    ],
   ])('%o is refused at %s', (body, path) => {
     expect(pathsOf(body)).toEqual([path]);
   });

@@ -60,7 +60,7 @@ export async function logIn(
   const response = await app.inject({
     method: 'POST',
     url: '/api/auth/login',
-    payload: { email, password },
+    payload: { identifier: email, password },
   });
   const cookie = response.cookies.find((candidate) => candidate.name === 'lk_session');
   if (!cookie) throw new Error(`login of ${email} answered ${response.statusCode}`);

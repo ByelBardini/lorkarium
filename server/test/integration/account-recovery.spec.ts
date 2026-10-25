@@ -70,7 +70,7 @@ describe('account recovery by link', () => {
   }
 
   function login(email: string, password: string) {
-    return post('/api/auth/login', { email, password });
+    return post('/api/auth/login', { identifier: email, password });
   }
 
   async function me(session: string) {

@@ -17,7 +17,7 @@ import type { UsersDao } from './users.dao';
 import type { UserPo } from './users.po';
 
 export type AuthServiceDeps = Readonly<{
-  users: Pick<UsersDao, 'findByEmailIndex' | 'findById' | 'touchLastSeen'>;
+  users: Pick<UsersDao, 'findByEmailIndex' | 'findByUsername' | 'findById' | 'touchLastSeen'>;
   sessions: Pick<AuthSessionsDao, 'insert' | 'findById' | 'updateExpiry' | 'delete' | 'touch'>;
   /** Whether the account asks for a second factor after the password. */
   twoFactor: Pick<TwoFactorCheckService, 'isEnabled'>;
@@ -66,12 +66,12 @@ export class AuthService {
   /** The password step: a session, or a challenge when the account has 2FA on (no session yet).
    *  `userAgent` is kept on the session, cut to USER_AGENT_MAX_LENGTH. */
   async login(input: LoginRequestDto, userAgent?: string): Promise<LoginOutcome> {
-    const row = await this.deps.users.findByEmailIndex(emailIndexOf(this.deps.cipher, input.email));
+    const row = await this.accountOf(input.identifier);
     const matches = await this.deps.hasher.verify(
       row?.passwordHash ?? this.deps.decoyHash,
       input.password,
     );
-    if (!row || !matches) throw new InvalidCredentialsError(input.email);
+    if (!row || !matches) throw new InvalidCredentialsError(input.identifier);
     toUserAccessBo(row).requireActive();
     if (await this.deps.twoFactor.isEnabled(row.id)) {
       return { status: 'two-factor-required', challenge: await this.challenge(row, input) };
@@ -133,6 +133,12 @@ export class AuthService {
     }
     await this.touchIfDue(session, now);
     return { user, session, expiresAt: await this.renewIfDue(session, now) };
+  }
+
+  // loginIdentifierDto leaves an "@" only inside an e-mail; the @ is looked up as it is.
+  private accountOf(identifier: string): Promise<UserPo | undefined> {
+    if (!identifier.includes('@')) return this.deps.users.findByUsername(identifier);
+    return this.deps.users.findByEmailIndex(emailIndexOf(this.deps.cipher, identifier));
   }
 
   private async challenge(row: UserPo, input: LoginRequestDto): Promise<IssuedChallenge> {

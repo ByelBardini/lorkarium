@@ -1,5 +1,6 @@
-import type { AdminInvitationDto } from '@lorkarium/contracts';
+import { LEGAL_DOCUMENTS_VERSION, type AdminInvitationDto } from '@lorkarium/contracts';
 import type { DataCipherPort } from '../auth/data-cipher.port';
+import type { UserPo } from '../auth/users.po';
 import { AccountLinkBo } from './account-link.bo';
 import type { InvitationListingRow } from './invitations.dao';
 import type { InvitationPo } from './invitations.po';
@@ -25,6 +26,16 @@ export function toAdminInvitationDto(
     sentAt: row.sentAt.toISOString(),
     expiresAt: row.expiresAt.toISOString(),
   };
+}
+
+export type TermsAcceptance = Pick<UserPo, 'termsAcceptedAt' | 'termsVersion'>;
+
+/** The columns of an acceptance of the Terms of use and the Privacy policy: the version is the
+ *  one in force on the server, not one the client could claim.
+ *
+ *  Example: `termsAcceptanceAt(now).termsVersion // '2026-10-25'` */
+export function termsAcceptanceAt(now: Date): TermsAcceptance {
+  return { termsAcceptedAt: now, termsVersion: LEGAL_DOCUMENTS_VERSION };
 }
 
 export function toAccountLinkBo(row: InvitationPo | PasswordResetPo): AccountLinkBo {

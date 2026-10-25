@@ -22,33 +22,62 @@ function issuePathsOf(input: unknown): string[] {
 }
 
 describe('loginRequestDto', () => {
-  it('trims and lowercases the e-mail and defaults rememberMe to false', () => {
-    const parsed = loginRequestDto.parse({ email: '  Ana@Mesa.COM ', password: 'x' });
-    expect(parsed).toEqual({ email: 'ana@mesa.com', password: 'x', rememberMe: false });
+  it('trims and lowercases an e-mail and defaults rememberMe to false', () => {
+    const parsed = loginRequestDto.parse({ identifier: '  Ana@Mesa.COM ', password: 'x' });
+    expect(parsed).toEqual({ identifier: 'ana@mesa.com', password: 'x', rememberMe: false });
+  });
+
+  it('accepts the @ alone, lowercased', () => {
+    expect(loginRequestDto.parse({ identifier: ' Bia.Rola ', password: 'x' }).identifier).toBe(
+      'bia.rola',
+    );
+  });
+
+  it('drops the leading "@" of the @, so @bia and bia sign in the same account', () => {
+    expect(loginRequestDto.parse({ identifier: '@Bia', password: 'x' }).identifier).toBe('bia');
+  });
+
+  it('parses its own output to the same value (the client sends what it parsed)', () => {
+    const once = loginRequestDto.parse({ identifier: '@Bia', password: 'x' });
+    expect(loginRequestDto.parse(once)).toEqual(once);
   });
 
   it('accepts a password of exactly 256 characters', () => {
-    const result = loginRequestDto.safeParse({ email: 'ana@mesa.com', password: 'a'.repeat(256) });
+    const result = loginRequestDto.safeParse({
+      identifier: 'ana@mesa.com',
+      password: 'a'.repeat(256),
+    });
     expect(result.success).toBe(true);
   });
 
   it('refuses a password of 257 characters on the password path', () => {
-    expect(issuePathsOf({ email: 'ana@mesa.com', password: 'a'.repeat(257) })).toEqual([
+    expect(issuePathsOf({ identifier: 'ana@mesa.com', password: 'a'.repeat(257) })).toEqual([
       'password',
     ]);
   });
 
   it('refuses a forged role field because the body is strict', () => {
     const result = loginRequestDto.safeParse({
-      email: 'ana@mesa.com',
+      identifier: 'ana@mesa.com',
       password: 'x',
       role: 'admin',
     });
     expect(result.success).toBe(false);
   });
 
-  it('refuses a malformed e-mail on the email path', () => {
-    expect(issuePathsOf({ email: 'ana', password: 'x' })).toEqual(['email']);
+  it('refuses the old body with "email" (strict: the field is "identifier")', () => {
+    expect(loginRequestDto.safeParse({ email: 'ana@mesa.com', password: 'x' }).success).toBe(false);
+  });
+
+  it.each([
+    ['a malformed e-mail', 'ana@mesa'],
+    ['an @ shorter than 3', 'bi'],
+    ['an @ with a character out of a-z 0-9 . _', 'bia-rola'],
+    ['an "@" alone', '@'],
+    ['two "@" at the start', '@@bia'],
+    ['nothing', '   '],
+  ])('refuses %s on the identifier path', (_case, identifier) => {
+    expect(issuePathsOf({ identifier, password: 'x' })).toEqual(['identifier']);
   });
 });
 

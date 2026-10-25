@@ -4,6 +4,7 @@ import {
   apiErrorDto,
   invitationInspectResponseDto,
   invitationLinkResponseDto,
+  LEGAL_DOCUMENTS_VERSION,
   meResponseDto,
 } from '@lorkarium/contracts';
 import { eq } from 'drizzle-orm';
@@ -75,13 +76,26 @@ describe('invitations', () => {
     return decodeURIComponent(link.split('#token=')[1] ?? '');
   }
 
-  function accept(token: string, username = 'marina') {
+  function accept(
+    token: string,
+    username = 'marina',
+    acceptance: object = { acceptedTerms: true },
+  ) {
     return post('/invitations/accept', {
       token,
       username,
       password: 'senha-da-marina',
       persistent: false,
+      ...acceptance,
     });
+  }
+
+  async function termsOf(username: string) {
+    const [row] = await connection.db
+      .select({ acceptedAt: users.termsAcceptedAt, version: users.termsVersion })
+      .from(users)
+      .where(eq(users.username, username));
+    return row;
   }
 
   it('inviting answers 201 with the link and mails the same link', async () => {
@@ -178,6 +192,28 @@ describe('invitations', () => {
     });
     expect(list.statusCode).toBe(200);
   });
+
+  it('accepting records when the Terms and the Privacy policy were accepted, and their version', async () => {
+    const { created } = await invite('marina@exemplo.com');
+    expect((await accept(tokenOf(created?.link ?? ''))).statusCode).toBe(200);
+    expect(await termsOf('marina')).toEqual({
+      acceptedAt: clock.current,
+      version: LEGAL_DOCUMENTS_VERSION,
+    });
+  });
+
+  it.each([{}, { acceptedTerms: false }])(
+    'without the acceptance (%o) it is 400, no account is born and the invitation still works',
+    async (acceptance) => {
+      const { created } = await invite('marina@exemplo.com');
+      const token = tokenOf(created?.link ?? '');
+      const refused = await accept(token, 'marina', acceptance);
+      expect(refused.statusCode).toBe(400);
+      expect(apiErrorDto.parse(refused.json()).code).toBe('INVALID_BODY');
+      expect(await termsOf('marina')).toBeUndefined();
+      expect((await accept(token)).statusCode).toBe(200);
+    },
+  );
 
   it('the same token twice is 404; an expired one too', async () => {
     const first = await invite('marina@exemplo.com');

@@ -18,12 +18,14 @@ export const invitationInspectResponseDto = z.strictObject({
 export type InvitationInspectResponseDto = z.infer<typeof invitationInspectResponseDto>;
 
 /** Body of `POST /api/invitations/accept`: the person picks the @ (the nickname starts equal to
- *  it) and the password, and leaves signed in. */
+ *  it) and the password, accepts the Terms of use and the Privacy policy (the box they tick; the
+ *  server records when and which version), and leaves signed in. */
 export const acceptInvitationRequestDto = z.strictObject({
   token: linkTokenDto,
   username: usernameDto,
   password: newPasswordDto,
   persistent: z.boolean(),
+  acceptedTerms: z.literal(true),
 });
 
 export type AcceptInvitationRequestDto = z.infer<typeof acceptInvitationRequestDto>;

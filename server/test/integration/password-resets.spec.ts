@@ -70,7 +70,7 @@ describe('new-password link from the backoffice', () => {
   }
 
   function login(password: string) {
-    return post('/auth/login', { email: 'bia@mesa.com', password });
+    return post('/auth/login', { identifier: 'bia@mesa.com', password });
   }
 
   it('the admin gets the one-hour link, also mailed; inspect names the @', async () => {
