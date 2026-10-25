@@ -1,6 +1,8 @@
 import type { Readable } from 'node:stream';
 import {
+  type BucketLocationConstraint,
   CreateBucketCommand,
+  type CreateBucketCommandInput,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
@@ -12,6 +14,17 @@ import type { StorageConfig } from '../../config/env';
 import type { AssetStoragePort, StoredObject } from '../../modules/assets/asset-storage.port';
 
 const NOT_FOUND = 404;
+const DEFAULT_REGION = 'us-east-1';
+
+/** The CreateBucket request for a region; outside us-east-1 AWS demands the location.
+ *
+ *  Example: `createBucketInput('lk', 'sa-east-1')` */
+export function createBucketInput(bucket: string, region: string): CreateBucketCommandInput {
+  if (region === DEFAULT_REGION) return { Bucket: bucket };
+  // The SDK's union lags behind new AWS regions; S3 itself validates the name.
+  const LocationConstraint = region as BucketLocationConstraint;
+  return { Bucket: bucket, CreateBucketConfiguration: { LocationConstraint } };
+}
 
 /** A storage call that failed for a reason other than "not there"; never carries the secret. */
 export class AssetStorageError extends Error {
@@ -48,9 +61,11 @@ export class S3AssetStorage implements AssetStoragePort {
       (error: unknown) => (isNotFound(error) ? false : this.fail('HeadBucket', error)),
     );
     if (exists) return;
-    await this.client.send(new CreateBucketCommand({ Bucket })).catch((error: unknown) => {
-      if (nameOf(error) !== 'BucketAlreadyOwnedByYou') this.fail('CreateBucket', error);
-    });
+    await this.client
+      .send(new CreateBucketCommand(createBucketInput(Bucket, this.config.region)))
+      .catch((error: unknown) => {
+        if (nameOf(error) !== 'BucketAlreadyOwnedByYou') this.fail('CreateBucket', error);
+      });
   }
 
   async put(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
