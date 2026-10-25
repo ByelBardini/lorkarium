@@ -18,7 +18,7 @@ export function adminCredentials(): Credentials {
   return { email, password };
 }
 
-// The login allows 5 attempts a minute per IP and e-mail, and every spec signs the admin in:
+// The login allows 5 attempts a minute per IP and e-mail (or @), and every spec signs the admin in:
 // one real login per worker and e-mail, then the session cookie is reused.
 const sessionsByEmail = new Map<string, SessionCookies>();
 
@@ -41,7 +41,7 @@ export async function signIn(page: Page, credentials: Credentials): Promise<void
  *  Example: `await submitLogin(page, BIA); await expect(page.getByRole('form', { name: 'Verificação em duas etapas' })).toBeVisible()` */
 export async function submitLogin(page: Page, { email, password }: Credentials): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel('E-mail').fill(email);
+  await page.getByLabel('E-mail ou usuário').fill(email);
   await page.getByLabel('Senha', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Entrar' }).click();
 }

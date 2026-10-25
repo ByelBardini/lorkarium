@@ -124,7 +124,7 @@ test('changing the password signs the other device out on its next navigation', 
     await expect(here.getByRole('heading', { name: 'Minha conta', level: 1 })).toBeVisible();
 
     await submitLogin(other, CAIO);
-    await expect(other.getByRole('alert')).toHaveText('E-mail ou senha incorretos.');
+    await expect(other.getByRole('alert')).toHaveText('E-mail, usuário ou senha incorretos.');
     await signInThroughTheForm(other, { ...CAIO, password: NEW_CAIO_PASSWORD });
   } finally {
     if (changed) {
