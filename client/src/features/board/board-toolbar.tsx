@@ -96,11 +96,13 @@ export function BoardToolbar({
   const canConfigure = role === 'master';
   return (
     <TooltipProvider>
+      {/* Taller than the board, it scrolls inside: overflowing, it let the room scroll and shift
+          the canvas under the pointer (the scene e2e on 720 px, once "Animar auras" came in). */}
       <div
         role="toolbar"
         aria-label="Ferramentas do tabuleiro"
         aria-orientation="vertical"
-        className="absolute top-16 left-3 flex flex-col gap-1 border border-border bg-panel p-1"
+        className="absolute top-16 left-3 flex max-h-[calc(100%-4.75rem)] [scrollbar-width:thin] [scrollbar-color:var(--color-input)_transparent] flex-col gap-1 overflow-y-auto border border-border bg-panel p-1 *:shrink-0"
       >
         <PickedTools interaction={interaction} tools={toolsOf(role)} />
         <ToolButton
