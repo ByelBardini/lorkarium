@@ -5,7 +5,7 @@
 ## Por que casca remota (e não o front empacotado)
 
 - **Mesma origem do navegador**: o cookie `lk_session` (`SameSite=Lax`), o handshake do Socket.IO (`Origin` == `Host`, ver [`server.md`](server.md)) e as imagens do WebGL servidas pela origem ([`assets.md`](assets.md)) seguem sem mudança. Um front em `http://tauri.localhost` seria outra origem: o cookie Lax não iria e `SameSite=None` exige `Secure`.
-- Cada deploy do front chega ao app na hora; o updater só troca a casca (raro). Não existe "app velho contra server novo".
+- Cada deploy do front chega ao app sem instalador: o client nota o build novo e recarrega quando é seguro (janela na bandeja, próxima rota) ou pelo aviso "Recarregar" — sem isso valia só pelo "Sair" da bandeja, já que o F5 está desligado ([`client/app-update.md`](client/app-update.md)). O updater só troca a casca (raro).
 - Custo aceito: sem rede nada abre (a splash mostra "Sem conexão"), e a página remota **não tem IPC** — recurso nativo novo exige liberar a origem numa capability.
 
 ## Estrutura
