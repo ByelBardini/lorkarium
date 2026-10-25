@@ -37,6 +37,9 @@
     "createUpdaterArtifacts": true,
     "windows": {
       "nsis": {
+        "template": "nsis/installer.nsi",
+        "installerHooks": "nsis/lorkarium-ui.nsh",
+        "installerIcon": "icons/icon.ico",
         "installMode": "currentUser",
         "languages": ["PortugueseBR"]
       }

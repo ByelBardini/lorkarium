@@ -1,6 +1,6 @@
 # Brand
 
-`packages/brand` (`@lorkarium/brand`): a marca do Lorkarium num pacote só de arquivos, sem código. Hoje só a landing ([`site.md`](site.md)) usa; o client (`client/src/index.css`) e a splash do desktop (`desktop/src/splash.css`) ainda têm a cópia deles — migrar os dois é tarefa separada.
+`packages/brand` (`@lorkarium/brand`): a marca do Lorkarium num pacote só de arquivos, sem código. Usam a landing ([`site.md`](site.md)), pelo pacote, e o script da arte do instalador (`desktop/scripts/installer-art.ts`, ver [`desktop.md`](desktop.md)), que lê `tokens.css` e `logo-mark.svg` pelo caminho: mudar a paleta ou o logo pede rodar o `installer:art` de novo. O client (`client/src/index.css`) e a splash do desktop (`desktop/src/splash.css`) ainda têm a cópia deles — migrar os dois é tarefa separada.
 
 | Export                           | O que é                                                                                                                                                                                                                                              |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

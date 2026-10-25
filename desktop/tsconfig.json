@@ -4,7 +4,9 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["vite/client", "node"],
     // release/ runs straight on Node (semantic-release imports the .ts), which only strips types.
-    "erasableSyntaxOnly": true
+    "erasableSyntaxOnly": true,
+    // scripts/ also runs straight on Node, which needs the .ts extension on relative imports.
+    "allowImportingTsExtensions": true
   },
-  "include": ["src", "test", "release", "vite.config.ts"]
+  "include": ["src", "test", "release", "scripts", "vite.config.ts"]
 }
