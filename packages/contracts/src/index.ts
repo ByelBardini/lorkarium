@@ -35,6 +35,7 @@ export * from './board/token-group.dto';
 export * from './board/token-appearance.dto';
 export * from './board/token-resize.dto';
 export * from './board/token-main.dto';
+export * from './board/token-hidden.dto';
 export * from './board/member-card.dto';
 export * from './board/character.dto';
 export * from './board/token-id-group.dto';

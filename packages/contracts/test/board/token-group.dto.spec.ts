@@ -184,8 +184,8 @@ describe('createTokensCommandDto', () => {
     const parsed = createTokensCommandDto.parse({ ...BASE, tokens: tokensOf(2) });
 
     expect(parsed.tokens).toEqual([
-      { ...GOBLIN, ...PLAIN_LOOK, sightAngle: 360 },
-      { ...GOBLIN, ...PLAIN_LOOK, sightAngle: 360 },
+      { ...GOBLIN, ...PLAIN_LOOK, sightAngle: 360, hidden: false },
+      { ...GOBLIN, ...PLAIN_LOOK, sightAngle: 360, hidden: false },
     ]);
   });
 

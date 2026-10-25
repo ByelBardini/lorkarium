@@ -7,7 +7,7 @@ import {
   type SessionClientEvents,
   type SessionServerEvents,
 } from '../sessions/session.dto';
-import { boardCommandShape, boardEventShape } from './board-event.dto';
+import { boardCommandShape, boardEventShape, type BoardAdvancedDto } from './board-event.dto';
 import type { CharacterClientEvents, CharacterServerEvents } from './character.dto';
 import {
   combatDto,
@@ -66,6 +66,7 @@ import type {
 } from './effect-area.dto';
 import {
   lightDto,
+  veiledLightDto,
   type CreateLightsCommandDto,
   type DeleteLightsCommandDto,
   type LightColorsChangedDto,
@@ -141,6 +142,11 @@ import type {
   TokensDraggedDto,
   TokensMovedDto,
 } from './token-group.dto';
+import type {
+  SetTokensHiddenCommandDto,
+  TokensHiddenChangedDto,
+  VeiledLightsChangedDto,
+} from './token-hidden.dto';
 
 /** Board command and event names (spec §7.2). */
 export const BOARD_EVENTS = {
@@ -182,6 +188,10 @@ export const BOARD_EVENTS = {
   tokenDeleted: 'token:deleted',
   tokensDeleted: 'token:deletedMany',
   mainTokenChanged: 'token:mainChanged',
+  setTokensHidden: 'token:setHiddenMany',
+  tokensHiddenChanged: 'token:hiddenChanged',
+  veiledLightsChanged: 'token:veiledLightsChanged',
+  boardAdvanced: 'board:advanced',
   updateMemberCard: 'member:updateCard',
   memberCardChanged: 'member:cardChanged',
   createDrawings: 'drawing:createMany',
@@ -287,6 +297,8 @@ export const boardStateDto = z.strictObject({
   effectAreas: z.array(effectAreaDto),
   walls: z.array(wallDto),
   lights: z.array(lightDto),
+  /** The lights of the hidden tokens this viewer does not receive. */
+  veiledLights: z.array(veiledLightDto),
   combat: combatDto.nullable(),
   conditionDefinitions: z.array(conditionDefinitionDto),
   mainTokens: z.array(mainTokenDto),
@@ -370,6 +382,7 @@ export type BoardClientEvents = {
   'token:resizeMany': Command<ResizeTokensCommandDto>;
   'token:adjustBar': Command<AdjustBarCommandDto>;
   'token:setMain': Command<SetMainTokenCommandDto>;
+  'token:setHiddenMany': Command<SetTokensHiddenCommandDto>;
   'member:updateCard': Command<UpdateMemberCardCommandDto>;
   'token:delete': Command<DeleteTokenCommandDto>;
   'token:deleteMany': Command<DeleteTokensCommandDto>;
@@ -435,6 +448,9 @@ export type BoardServerEvents = {
   'token:deleted': (event: TokenDeletedDto) => void;
   'token:deletedMany': (event: TokensDeletedDto) => void;
   'token:mainChanged': (event: MainTokenChangedDto) => void;
+  'token:hiddenChanged': (event: TokensHiddenChangedDto) => void;
+  'token:veiledLightsChanged': (event: VeiledLightsChangedDto) => void;
+  'board:advanced': (event: BoardAdvancedDto) => void;
   'member:cardChanged': (event: MemberCardChangedDto) => void;
   'drawing:createdMany': (event: DrawingsCreatedDto) => void;
   'drawing:movedMany': (event: DrawingsMovedDto) => void;

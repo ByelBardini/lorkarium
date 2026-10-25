@@ -38,6 +38,7 @@ const STATE = {
   effectAreas: [],
   walls: [],
   lights: [],
+  veiledLights: [],
   combat: null,
   conditionDefinitions: [],
   mainTokens: [],

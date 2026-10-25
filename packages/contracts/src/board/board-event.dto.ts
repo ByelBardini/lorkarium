@@ -21,3 +21,10 @@ export const boardEventShape = {
   version: stateVersionDto,
   at: z.iso.datetime(),
 };
+
+/** `board:advanced`: the grid moved to `version`, and nothing of it is for this viewer (every
+ *  token it touched is hidden from them). It keeps their version without a gap (§5.5).
+ *
+ *  Example: `boardAdvancedDto.parse({ campaignId, sceneId, version: 8, at })` */
+export const boardAdvancedDto = z.strictObject(boardEventShape);
+export type BoardAdvancedDto = z.infer<typeof boardAdvancedDto>;

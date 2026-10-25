@@ -137,6 +137,8 @@ export const tokenDto = z.strictObject({
   sight: sightDto.nullable(),
   light: tokenLightDto.nullable(),
   lightLit: z.boolean(),
+  /** Hidden from the players: only the masters and its controllers ever receive it. */
+  hidden: z.boolean(),
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
   conditions: z.array(activeConditionDto),

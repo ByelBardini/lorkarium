@@ -65,6 +65,19 @@ export const lightPlacementDto = z.strictObject({
 });
 export type LightPlacementDto = z.infer<typeof lightPlacementDto>;
 
+/** The lit light of a token this viewer may not see: only where it shines from (the token's
+ *  center, in fractional cells), its range, color and cone. No id and no size, so it never
+ *  tells which token it is.
+ *
+ *  Example: `veiledLightDto.parse({ x: 4, y: 5, bright: 4, dim: 4, color: null, facing: 0, angle: 360 })` */
+export const veiledLightDto = z.strictObject({
+  ...pointShape,
+  ...rangeShape,
+  color: lightColorDto.nullable(),
+  ...coneShape,
+});
+export type VeiledLightDto = z.infer<typeof veiledLightDto>;
+
 /** A confirmed map light, the same for every audience: the player's client needs it for the fog
  *  (only the master's board draws the icon). */
 export const lightDto = z.strictObject({
