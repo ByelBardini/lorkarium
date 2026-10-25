@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { importAssetRequestDto } from '../../src/assets/asset.dto';
+import { importAssetRequestDto, uploadAssetQueryDto } from '../../src/assets/asset.dto';
 
 function messagesOf(input: unknown): string[] {
   const result = importAssetRequestDto.safeParse(input);
@@ -45,9 +45,25 @@ describe('importAssetRequestDto', () => {
     ]);
   });
 
-  it('refuses a purpose that is neither background nor token', () => {
+  it('accepts a link sent for a condition image', () => {
+    expect(messagesOf({ url: 'https://x.com/blind.png', purpose: 'condition' })).toEqual([]);
+  });
+
+  it('refuses a purpose outside the four the server keeps', () => {
     expect(messagesOf({ url: 'https://x.com/a.png', purpose: 'avatar' })).toEqual([
       expect.stringMatching(/^purpose: /),
     ]);
+  });
+});
+
+describe('uploadAssetQueryDto', () => {
+  it('accepts a file sent for a condition image', () => {
+    expect(uploadAssetQueryDto.parse({ purpose: 'condition' })).toEqual({ purpose: 'condition' });
+  });
+
+  it('refuses an icon purpose citing the purpose field', () => {
+    const result = uploadAssetQueryDto.safeParse({ purpose: 'icon' });
+
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['purpose']);
   });
 });

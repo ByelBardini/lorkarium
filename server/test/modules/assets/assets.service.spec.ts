@@ -62,7 +62,7 @@ describe('AssetsService', () => {
 
     expect(asset).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
-    expect(processor.maxSides).toEqual([1024]);
+    expect(processor.resizes).toEqual([{ maxSide: 1024, square: false }]);
     expect(storage.objects.get(`assets/${NEW_ID}`)?.bytes).toEqual(processor.result.bytes);
     expect(assets.rows[0]).toMatchObject({ ownerId: BIA_ID, campaignId: VHARN_ID, sizeBytes: 6 });
   });
@@ -70,7 +70,23 @@ describe('AssetsService', () => {
   it('a background is normalized up to 4096 px', async () => {
     await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'background' });
 
-    expect(processor.maxSides).toEqual([4096]);
+    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+  });
+
+  it('a condition file is normalized as a square of 256 px, then stored and recorded', async () => {
+    await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'condition' });
+
+    expect(processor.resizes).toEqual([{ maxSide: 256, square: true }]);
+    expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it('a condition link is normalized as a square of 256 px, then stored and recorded', async () => {
+    const link = { url: 'https://x.com/blind.png', purpose: 'condition' } as const;
+
+    await service.importLink(BIA_ID, VHARN_ID, link);
+
+    expect(processor.resizes).toEqual([{ maxSide: 256, square: true }]);
+    expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
 
   it('someone outside the campaign is refused with CAMPAIGN_NOT_FOUND before anything is kept', async () => {

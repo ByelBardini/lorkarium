@@ -21,9 +21,53 @@ function keptOf(outcome: NormalizeOutcome): NormalizedImage {
   return outcome.image;
 }
 
+type Rgb = Readonly<{ r: number; g: number; b: number }>;
+
+const RED: Rgb = { r: 255, g: 0, b: 0 };
+const BLUE: Rgb = { r: 0, g: 0, b: 255 };
+
+// 300×100 blue with the middle third red: only a centred square crop is all red.
+async function redMiddleStripe(): Promise<Uint8Array> {
+  const stripe = await sharp({ create: { width: 100, height: 100, channels: 3, background: RED } })
+    .png()
+    .toBuffer();
+  const sides = sharp({ create: { width: 300, height: 100, channels: 3, background: BLUE } });
+  return new Uint8Array(
+    await sides
+      .composite([{ input: stripe, left: 100, top: 0 }])
+      .png()
+      .toBuffer(),
+  );
+}
+
+async function pixelAt(bytes: Uint8Array, x: number, y: number): Promise<Rgb> {
+  const { data, info } = await sharp(bytes).raw().toBuffer({ resolveWithObject: true });
+  const at = (y * info.width + x) * info.channels;
+  return { r: data[at] ?? -1, g: data[at + 1] ?? -1, b: data[at + 2] ?? -1 };
+}
+
+async function animatedWebp(frames: number): Promise<Uint8Array> {
+  const colours = [RED, BLUE, { r: 0, g: 255, b: 0 }];
+  const pictures = await Promise.all(
+    colours.slice(0, frames).map((background) => imageOf32(background)),
+  );
+  return new Uint8Array(
+    await sharp(pictures, { join: { animated: true } })
+      .webp()
+      .toBuffer(),
+  );
+}
+
+async function imageOf32(background: Rgb): Promise<Buffer> {
+  return sharp({ create: { width: 32, height: 32, channels: 3, background } })
+    .png()
+    .toBuffer();
+}
+
 const processor = new SharpImageProcessor();
 const TOKEN = { maxSide: 1024 };
 const BACKGROUND = { maxSide: 4096 };
+const CONDITION = { maxSide: 256, square: true };
 
 describe('SharpImageProcessor.normalize', () => {
   it('a 300×200 PNG with alpha stays a 300×200 PNG with four channels', async () => {
@@ -122,5 +166,74 @@ describe('SharpImageProcessor.normalize', () => {
       ok: false,
       refusal: { reason: 'too-many-pixels', detail: expect.stringMatching(/1600 pixels.*1000/) },
     });
+  });
+});
+
+describe('SharpImageProcessor.normalize with square', () => {
+  it('a 600×300 PNG with alpha comes out a 256×256 PNG that keeps its alpha', async () => {
+    const image = keptOf(
+      await processor.normalize(await imageOf(600, 300, 'png', true), CONDITION),
+    );
+
+    expect(image).toMatchObject({ mimeType: 'image/png', width: 256, height: 256 });
+    expect((await sharp(image.bytes).metadata()).channels).toBe(4);
+  });
+
+  it('the square is cut from the centre: the red middle stays and the blue ends go', async () => {
+    const image = keptOf(await processor.normalize(await redMiddleStripe(), CONDITION));
+
+    expect([image.width, image.height]).toEqual([100, 100]);
+    expect(await pixelAt(image.bytes, 50, 50)).toEqual(RED);
+    expect(await pixelAt(image.bytes, 0, 0)).toEqual(RED);
+    expect(await pixelAt(image.bytes, 99, 99)).toEqual(RED);
+  });
+
+  it('a 200×100 image becomes 100×100, never enlarged to the 256 limit', async () => {
+    const image = keptOf(await processor.normalize(await imageOf(200, 100, 'png'), CONDITION));
+
+    expect([image.width, image.height]).toEqual([100, 100]);
+  });
+
+  it('a 100×200 JPEG with EXIF orientation 6 comes out a 100×100 square without the tag', async () => {
+    const rotated = await sharp(await imageOf(100, 200, 'jpeg'))
+      .withMetadata({ orientation: 6 })
+      .toBuffer();
+
+    const image = keptOf(await processor.normalize(new Uint8Array(rotated), CONDITION));
+
+    expect([image.width, image.height]).toEqual([100, 100]);
+    expect((await sharp(image.bytes).metadata()).orientation).toBeUndefined();
+  });
+
+  it.each([
+    ['without square', { maxSide: 1024 }],
+    ['with square false', { maxSide: 1024, square: false }],
+  ])('%s a 4096×2048 image stays rectangular at 1024×512', async (_, options) => {
+    const image = keptOf(await processor.normalize(await imageOf(4096, 2048, 'png'), options));
+
+    expect([image.width, image.height]).toEqual([1024, 512]);
+  });
+
+  it('a GIF is refused with square too, citing gif and the accepted formats', async () => {
+    expect(await processor.normalize(await imageOf(16, 16, 'gif'), CONDITION)).toEqual({
+      ok: false,
+      refusal: { reason: 'format', detail: 'format gif is not kept; expected png, jpeg or webp' },
+    });
+  });
+});
+
+describe('SharpImageProcessor.normalize of an animation', () => {
+  // Regression: a GIF is refused, so a moving image must not come back as an animated WebP.
+  it.each([
+    ['as a token', TOKEN],
+    ['as a square condition', CONDITION],
+  ])('a 3-frame animated WebP kept %s comes out with a single frame', async (_, options) => {
+    const animation = await animatedWebp(3);
+    expect((await sharp(animation, { animated: true }).metadata()).pages).toBe(3);
+
+    const image = keptOf(await processor.normalize(animation, options));
+
+    expect((await sharp(image.bytes, { animated: true }).metadata()).pages ?? 1).toBe(1);
+    expect([image.width, image.height]).toEqual([32, 32]);
   });
 });

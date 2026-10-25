@@ -7,7 +7,7 @@ import {
 } from '@lorkarium/contracts';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
-import { maxSideFor, requireSize } from './asset-upload.bo';
+import { requireSize, resizeFor } from './asset-upload.bo';
 import type { AssetStoragePort, StoredObject } from './asset-storage.port';
 import type { AssetsDao } from './assets.dao';
 import {
@@ -55,9 +55,10 @@ export class AssetsService {
   ): Promise<AssetDto> {
     await memberAccessOf(this.deps.members, campaignId, userId);
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
-    const normalized = await this.deps.processor.normalize(file.bytes, {
-      maxSide: maxSideFor(file.purpose, ASSET_MAX_SIDE),
-    });
+    const normalized = await this.deps.processor.normalize(
+      file.bytes,
+      resizeFor(file.purpose, ASSET_MAX_SIDE),
+    );
     if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
     return this.keep({ campaignId, userId, purpose: file.purpose }, normalized.image);
   }
@@ -93,9 +94,10 @@ export class AssetsService {
     bytes: Uint8Array,
     purpose: AssetPurposeDto,
   ): Promise<NormalizedImage> {
-    const normalized = await this.deps.processor.normalize(bytes, {
-      maxSide: maxSideFor(purpose, ASSET_MAX_SIDE),
-    });
+    const normalized = await this.deps.processor.normalize(
+      bytes,
+      resizeFor(purpose, ASSET_MAX_SIDE),
+    );
     if (!normalized.ok) throw new LinkNotImageError(url);
     return normalized.image;
   }

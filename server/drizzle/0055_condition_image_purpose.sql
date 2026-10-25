@@ -1,0 +1,1 @@
+ALTER TYPE "public"."asset_purpose" ADD VALUE 'condition';

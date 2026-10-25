@@ -1,8 +1,9 @@
 import type { AssetMimeTypeDto } from '@lorkarium/contracts';
-import sharp, { type Sharp } from 'sharp';
+import sharp, { type ResizeOptions, type Sharp } from 'sharp';
 import type {
   ImageProcessorPort,
   ImageRefusal,
+  NormalizeOptions,
   NormalizeOutcome,
 } from '../../modules/assets/image-processor.port';
 
@@ -21,12 +22,13 @@ const KEPT_FORMATS: Readonly<Record<string, AssetMimeTypeDto>> = {
 export type SharpImageProcessorOptions = Readonly<{ maxInputPixels?: number }>;
 
 type Refused = Readonly<{ ok: false; refusal: ImageRefusal }>;
-type Inspected = Readonly<{ ok: true; mimeType: AssetMimeTypeDto }> | Refused;
+type Inspected = Readonly<{ ok: true; mimeType: AssetMimeTypeDto; shortSide: number }> | Refused;
 
 /** `ImageProcessorPort` over `sharp`: reads the real format from the bytes, turns the image
- *  upright by its EXIF, shrinks it to `maxSide` and re-encodes it without any metadata.
+ *  upright by its EXIF, shrinks it to `maxSide` (or cuts its centre square) and re-encodes it
+ *  without any metadata.
  *
- *  Example: `await new SharpImageProcessor().normalize(bytes, { maxSide: 1024 })` */
+ *  Example: `await new SharpImageProcessor().normalize(bytes, { maxSide: 256, square: true })` */
 export class SharpImageProcessor implements ImageProcessorPort {
   private readonly maxInputPixels: number;
 
@@ -34,19 +36,15 @@ export class SharpImageProcessor implements ImageProcessorPort {
     this.maxInputPixels = options.maxInputPixels ?? DEFAULT_MAX_INPUT_PIXELS;
   }
 
-  async normalize(
-    bytes: Uint8Array,
-    options: Readonly<{ maxSide: number }>,
-  ): Promise<NormalizeOutcome> {
+  async normalize(bytes: Uint8Array, options: NormalizeOptions): Promise<NormalizeOutcome> {
     const inspected = await this.inspect(bytes);
     if (!inspected.ok) return inspected;
     const { mimeType } = inspected;
-    const resized = sharp(bytes, { limitInputPixels: this.maxInputPixels }).autoOrient().resize({
-      width: options.maxSide,
-      height: options.maxSide,
-      fit: 'inside',
-      withoutEnlargement: true,
-    });
+    // No `animated`: sharp reads only the 1st frame, since a condition or a token never moves
+    // (a GIF is refused, and an animated WebP or APNG must not slip through either).
+    const resized = sharp(bytes, { limitInputPixels: this.maxInputPixels })
+      .autoOrient()
+      .resize(resizeOf(options, inspected.shortSide));
     const output = await encoded(resized, mimeType)
       .toBuffer({ resolveWithObject: true })
       .catch(() => null);
@@ -64,12 +62,24 @@ export class SharpImageProcessor implements ImageProcessorPort {
     const mimeType = KEPT_FORMATS[metadata.format];
     if (mimeType === undefined) return refused('format', `format ${metadata.format} is not kept`);
     const pixels = metadata.width * metadata.height;
-    if (pixels <= this.maxInputPixels) return { ok: true, mimeType };
+    const shortSide = Math.min(metadata.width, metadata.height);
+    if (pixels <= this.maxInputPixels) return { ok: true, mimeType, shortSide };
     return refused(
       'too-many-pixels',
       `the image has ${pixels} pixels, above the limit of ${this.maxInputPixels}`,
     );
   }
+}
+
+// The square side never enlarges: the shortest side of the image, at most `maxSide`. The
+// rotation of `autoOrient` swaps width and height, so the shortest side stays the same.
+function resizeOf(options: NormalizeOptions, shortSide: number): ResizeOptions {
+  const { maxSide } = options;
+  if (options.square !== true) {
+    return { width: maxSide, height: maxSide, fit: 'inside', withoutEnlargement: true };
+  }
+  const side = Math.min(shortSide, maxSide);
+  return { width: side, height: side, fit: 'cover', position: 'centre' };
 }
 
 function notAnImage(bytes: Uint8Array): Refused {

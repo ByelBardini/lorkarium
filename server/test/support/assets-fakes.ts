@@ -13,6 +13,7 @@ import type {
   ImageProcessorPort,
   ImageRefusal,
   NormalizedImage,
+  NormalizeOptions,
   NormalizeOutcome,
 } from '../../src/modules/assets/image-processor.port';
 
@@ -51,10 +52,10 @@ export class AssetStorageFake implements AssetStoragePort {
   }
 }
 
-/** Answers every image with `result` (or throws `refusal`); records the `maxSide` it was asked
+/** Answers every image with `result` (or throws `refusal`); records the options it was asked
  *  for and writes 'normalize' to the shared journal. */
 export class ImageProcessorFake implements ImageProcessorPort {
-  readonly maxSides: number[] = [];
+  readonly resizes: NormalizeOptions[] = [];
   refusal: ImageRefusal | null = null;
   result: NormalizedImage = {
     bytes: Uint8Array.from([1, 2, 3, 4, 5, 6]),
@@ -65,12 +66,9 @@ export class ImageProcessorFake implements ImageProcessorPort {
 
   constructor(private readonly journal: string[] = []) {}
 
-  async normalize(
-    _bytes: Uint8Array,
-    options: Readonly<{ maxSide: number }>,
-  ): Promise<NormalizeOutcome> {
+  async normalize(_bytes: Uint8Array, options: NormalizeOptions): Promise<NormalizeOutcome> {
     this.journal.push('normalize');
-    this.maxSides.push(options.maxSide);
+    this.resizes.push(options);
     if (this.refusal !== null) return { ok: false, refusal: this.refusal };
     return { ok: true, image: this.result };
   }
@@ -89,7 +87,7 @@ export class ImageFetcherFake implements ImageFetcherPort {
   }
 }
 
-/** Asset rows in memory; writes 'insert' to the shared journal. */
+/** Asset rows in memory; writes 'insert' to the shared journal and records each lookup by id. */
 export class AssetsDaoFake implements Pick<
   AssetsDao,
   'insert' | 'findById' | 'findInCampaign' | 'findManyInCampaign'
@@ -98,6 +96,9 @@ export class AssetsDaoFake implements Pick<
     private readonly journal: string[] = [],
     readonly rows: AssetPo[] = [],
   ) {}
+
+  /** The ids asked of `findManyInCampaign`, one entry per call. */
+  readonly lookups: (readonly string[])[] = [];
 
   async insert(row: NewAssetPo): Promise<AssetPo> {
     this.journal.push('insert');
@@ -120,6 +121,7 @@ export class AssetsDaoFake implements Pick<
   }
 
   async findManyInCampaign(campaignId: string, assetIds: readonly string[]): Promise<AssetPo[]> {
+    this.lookups.push(assetIds);
     return this.rows.filter((row) => row.campaignId === campaignId && assetIds.includes(row.id));
   }
 }
