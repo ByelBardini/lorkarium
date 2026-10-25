@@ -35,6 +35,9 @@ import { createAuraMotionStore } from '@/stores/aura-motion-store';
 import { createLightReachStore } from '@/stores/light-reach-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { sessionStore } from '@/stores/session-store';
+import { createAppUpdateStore } from '@/stores/app-update-store';
+import { buildFingerprintOf } from '@/lib/client-build';
+import { FetchPublishedBuild } from '@/services/published-build';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -63,6 +66,15 @@ const newActionId = (): string => crypto.randomUUID();
 const realtime = new SocketIoRealtimeTransport();
 const tableSessionApi = new RealtimeTableSessionApi(realtime, newActionId);
 const boardCommands = new RealtimeTableBoardCommands(realtime, newActionId);
+// Read before any lazy route adds its own `/assets/` links to the document.
+const appUpdate = createAppUpdateStore({
+  running: buildFingerprintOf(document),
+  published: new FetchPublishedBuild(window.fetch.bind(window)),
+});
+// A deploy restarts the server: the socket coming back is the first sign of a new build.
+realtime.onLifecycle((change) => {
+  if (change.kind === 'connected') void appUpdate.getState().check();
+});
 const router = createBrowserRouter(
   buildRoutes({
     authApi: new HttpAuthApi(transport),
@@ -103,6 +115,8 @@ const router = createBrowserRouter(
     now: () => new Date(),
     random: Math.random,
     waitBeforeRetry: (ms) => new Promise((resume) => setTimeout(resume, ms)),
+    appUpdate,
+    reloadPage: () => window.location.reload(),
   }),
 );
 

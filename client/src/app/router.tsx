@@ -19,6 +19,7 @@ import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { homeRoutes } from '@/features/home/home-route';
 import { TextFieldMenu } from '@/features/text-field-menu/text-field-menu';
+import { AppUpdateNotice } from '@/features/app-update/app-update-notice';
 import { useTabActivity } from '@/features/sessions/use-tab-activity';
 import { useLeaveDeletedTable } from '@/features/sessions/use-leave-deleted-table';
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
@@ -37,6 +38,7 @@ import type { FieldEditing } from '@/services/field-editing';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import type { PingCommands } from '@/services/table-pings';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
+import type { AppUpdateStore } from '@/stores/app-update-store';
 import type { CreateBoardRenderer } from '@/renderer/board-renderer';
 import type { RailStore } from '@/stores/rail-store';
 import type { DrawingStyleStore } from '@/stores/drawing-style-store';
@@ -104,6 +106,10 @@ export type AppDependencies = Readonly<{
   random: () => number;
   /** The pause before the boot "who am I" is asked again, while the server does not answer. */
   waitBeforeRetry: WaitBeforeRetry;
+  /** Whether a deploy published another client build than the one running. */
+  appUpdate: StoreApi<AppUpdateStore>;
+  /** The full reload into the new build; `location.reload()` in the app. */
+  reloadPage: () => void;
 }>;
 
 /** Every route of the SPA, with the session resolved once at the root and a guard per route.
@@ -170,12 +176,15 @@ function rootRoute({
   isDesktop,
   clipboard,
   fieldEditing,
+  appUpdate,
+  reloadPage,
 }: AppDependencies): () => React.JSX.Element {
   return function RootRoute(): React.JSX.Element {
     return (
       <>
         <Outlet />
         <TextFieldMenu isDesktop={isDesktop} clipboard={clipboard} fieldEditing={fieldEditing} />
+        <AppUpdateNotice appUpdate={appUpdate} reloadPage={reloadPage} />
       </>
     );
   };
