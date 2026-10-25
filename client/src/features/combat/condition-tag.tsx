@@ -108,7 +108,14 @@ export function EditableConditionTag(props: EditableConditionTagProps) {
 }
 
 function TagMark({ condition }: Readonly<{ condition: ActiveConditionDto }>) {
-  return <ConditionMark icon={condition.icon} tone={condition.tone} color={condition.color} />;
+  return (
+    <ConditionMark
+      icon={condition.icon}
+      tone={condition.tone}
+      color={condition.color}
+      imageAssetId={condition.imageAssetId}
+    />
+  );
 }
 
 function StacksControls({ condition, disabled, onStacks }: EditableConditionTagProps) {

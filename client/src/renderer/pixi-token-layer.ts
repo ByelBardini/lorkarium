@@ -141,11 +141,14 @@ export class PixiTokenLayer {
     if (now) this.draw(now, tokenRedrawOf(now.view, now.view, plateOnly));
   }
 
-  /** The texture of `url` arrived: only the tokens that show that image are drawn again. */
+  /** The texture of `url` arrived: only the tokens that show that image are drawn again — the
+   *  body of those with it as art, the strip of those with a condition that has it. */
   refreshArt(url: string): void {
     for (const sprite of this.sprites.values()) {
-      if (sprite.view.art?.url !== url) continue;
-      this.draw(sprite, tokenRedrawOf(sprite.view, sprite.view, { artArrived: true }));
+      const art = sprite.view.art?.url === url;
+      if (!art && !showsConditionImage(sprite.view, url)) continue;
+      const artArrived = { artArrived: true };
+      this.draw(sprite, art ? tokenRedrawOf(sprite.view, sprite.view, artArrived) : STRIP_ONLY);
     }
   }
 
@@ -244,7 +247,7 @@ export class PixiTokenLayer {
       },
     });
     label.anchor.set(0.5);
-    const marks = new PixiConditionMarks();
+    const marks = new PixiConditionMarks(this.textures);
     const disc = new Graphics();
     const art = new PixiTokenArt();
     const nameTag = new PixiNameTag();
@@ -408,6 +411,10 @@ function drawBar(shape: Graphics, view: TokenView, box: TokenShape): void {
       .roundRect(left + segment.left, top, segment.width, BAR_HEIGHT, radius)
       .fill(tones[segment.tone]);
   }
+}
+
+function showsConditionImage(view: TokenView, url: string): boolean {
+  return view.conditions.some(({ imageUrl }) => imageUrl === url);
 }
 
 // The strip and the name live in their own layer: they go wherever the token goes (glide, drag,

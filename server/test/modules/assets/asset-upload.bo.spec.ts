@@ -1,19 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { maxSideFor, requireSize } from '../../../src/modules/assets/asset-upload.bo';
+import { resizeFor, requireSize } from '../../../src/modules/assets/asset-upload.bo';
 import { AssetTooLargeError } from '../../../src/modules/assets/assets.error';
 
 const MIB = 1024 * 1024;
 const LIMIT = 20 * MIB;
-const SIDES = { background: 4096, token: 1024, cover: 1600 };
+const SIDES = { background: 4096, token: 1024, cover: 1600, condition: 256 };
 
-describe('maxSideFor', () => {
-  it('a token image is kept up to 1024 px and a background up to 4096 px', () => {
-    expect(maxSideFor('token', SIDES)).toBe(1024);
-    expect(maxSideFor('background', SIDES)).toBe(4096);
+describe('resizeFor', () => {
+  it('a condition image is kept as a square of at most 256 px', () => {
+    expect(resizeFor('condition', SIDES)).toEqual({ maxSide: 256, square: true });
   });
 
-  it('a cover image is kept up to its own side', () => {
-    expect(maxSideFor('cover', SIDES)).toBe(1600);
+  it.each([
+    ['token', 1024],
+    ['background', 4096],
+    ['cover', 1600],
+  ] as const)('a %s image keeps its shape, up to %i px', (purpose, maxSide) => {
+    expect(resizeFor(purpose, SIDES)).toEqual({ maxSide, square: false });
   });
 });
 

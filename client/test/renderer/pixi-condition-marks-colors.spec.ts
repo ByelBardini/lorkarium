@@ -13,7 +13,7 @@ const ICONS_ZOOM = 1;
 const DOTS_ZOOM = 0.5;
 
 function mark(tone: ConditionToneDto, color: ConditionColorDto | null): ConditionMarkView {
-  return { icon: 'skull', tone, color, remainingRounds: null, stacks: null };
+  return { icon: 'skull', tone, color, remainingRounds: null, stacks: null, imageUrl: null };
 }
 
 function drawn(marks: ConditionMarkView[], zoom: number): PixiConditionMarks {

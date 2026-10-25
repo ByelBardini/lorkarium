@@ -8,6 +8,7 @@ import type {
   NewConditionDefinition,
 } from '../../src/modules/conditions/conditions.po';
 import type { ConditionTransactionRunner } from '../../src/modules/conditions/conditions.service';
+import { AssetsDaoFake } from './assets-fakes';
 import { CombatDaoFake } from './combat-fakes';
 import type { ScenesDaoFake } from './scenes-fakes';
 import type { TokensDaoFake } from './tokens-fakes';
@@ -65,6 +66,7 @@ export class ConditionsDaoFake implements Pick<
       color,
       description,
       maxStacks,
+      imageAssetId: null,
       createdAt: CREATED,
     });
     return id;
@@ -87,7 +89,7 @@ export class ConditionsDaoFake implements Pick<
     this.journal.push('save');
     const { name, tone, icon, look, color, description, maxStacks } = input;
     const id = this.define(campaignId, name, tone, icon, look, description, maxStacks, color);
-    return this.definitions.find((d) => d.id === id) as ConditionDefinitionPo;
+    return this.pictured(id, input.imageAssetId);
   }
 
   async insertDefinitions(
@@ -99,8 +101,16 @@ export class ConditionsDaoFake implements Pick<
     return list.map((input) => {
       const { name, tone, icon, look, color, description, maxStacks } = input;
       const id = this.define(campaignId, name, tone, icon, look, description, maxStacks, color);
-      return this.definitions.find((d) => d.id === id) as ConditionDefinitionPo;
+      return this.pictured(id, input.imageAssetId);
     });
+  }
+
+  // The seeded definition `id` with the image of the input, as the DAO saves it.
+  private pictured(id: string, imageAssetId: string | null): ConditionDefinitionPo {
+    const index = this.definitions.findIndex((d) => d.id === id);
+    const row = { ...(this.definitions[index] as ConditionDefinitionPo), imageAssetId };
+    this.definitions[index] = row;
+    return row;
   }
 
   /** Like the DAO: the active conditions read the new fields; another table's id finds nothing. */
@@ -117,10 +127,10 @@ export class ConditionsDaoFake implements Pick<
     if (!found) return undefined;
     const row = { ...found, ...fields };
     this.definitions[index] = row;
-    const { name, tone, icon, look, color, description, maxStacks } = fields;
+    const { name, tone, icon, look, color, description, maxStacks, imageAssetId } = fields;
     this.active = this.active.map((a) =>
       a.conditionId === conditionId
-        ? { ...a, name, tone, icon, look, color, description, maxStacks }
+        ? { ...a, name, tone, icon, look, color, description, maxStacks, imageAssetId }
         : a,
     );
     return row;
@@ -180,6 +190,7 @@ export class ConditionsDaoFake implements Pick<
       color: definition.color,
       description: definition.description,
       maxStacks: definition.maxStacks,
+      imageAssetId: definition.imageAssetId,
       stacks,
       ...duration,
     };
@@ -272,6 +283,8 @@ export class ConditionTransactionRunnerFake {
     private readonly conditions: ConditionsDaoFake,
     /** The scene's combat, if any: its round stamps the conditions applied. */
     private readonly combat: CombatDaoFake = new CombatDaoFake(),
+    /** The table's images: a definition may only point at one of them. */
+    private readonly assets: AssetsDaoFake = new AssetsDaoFake(),
   ) {}
 
   readonly run: ConditionTransactionRunner = async (work) => {
@@ -280,6 +293,7 @@ export class ConditionTransactionRunnerFake {
       tokens: this.tokens,
       conditions: this.conditions,
       combat: this.combat,
+      assets: this.assets,
     });
     this.scenes.journal.push('commit');
     return result;

@@ -38,6 +38,7 @@ describe('the layers of the board, bottom to top', () => {
       color: null,
       remainingRounds: 2,
       stacks: null,
+      imageUrl: null,
     } as const;
     tokens.sync([chestOnObjects([poisoned])], [], 0);
     const [, backgroundStrips, objects, objectStrips, tokensLayer] = tokens.container

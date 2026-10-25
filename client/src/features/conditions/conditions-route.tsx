@@ -6,6 +6,7 @@ import { RoomCoverPage } from '@/components/room-cover-page';
 import type { CampaignLoaderData } from '@/features/campaigns/campaign-loader-data';
 import { UNEXPECTED_MESSAGE } from '@/features/campaigns/campaign-messages';
 import { TABLE_ROUTE_ID } from '@/features/library/library-route';
+import type { AssetsApi } from '@/services/assets-api';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import { useOpenTables, type OpenTablesStore } from '@/stores/open-tables-store';
 import type { ConditionCatalogLink } from './condition-catalog-link';
@@ -34,10 +35,14 @@ export function conditionsRoute(deps: AppDependencies): RouteObject {
 function conditionsScreen({
   openTables,
   boardCommands,
+  assets,
 }: AppDependencies): () => React.JSX.Element | null {
   return function ConditionsScreen(): React.JSX.Element | null {
     const data = useRouteLoaderData<CampaignLoaderData>(TABLE_ROUTE_ID);
-    const link = useConditionCatalogLink(openTables, boardCommands, data?.campaign.id);
+    const link = useConditionCatalogLink(
+      { openTables, commands: boardCommands, assets },
+      data?.campaign.id,
+    );
     if (!data) return null;
     const { campaign } = data;
     if (campaign.myRole !== 'master') {
@@ -53,9 +58,14 @@ function conditionsScreen({
 
 // The room under the page holds the table open: its cast carries the list of conditions, live,
 // and the list's commands go to the table's version (the cast), not to a grid.
+type CatalogSources = Readonly<{
+  openTables: StoreApi<OpenTablesStore>;
+  commands: TableBoardCommands;
+  assets: AssetsApi;
+}>;
+
 function useConditionCatalogLink(
-  openTables: StoreApi<OpenTablesStore>,
-  commands: TableBoardCommands,
+  { openTables, commands, assets }: CatalogSources,
   campaignId: string | undefined,
 ): ConditionCatalogLink | null {
   const table = useOpenTables(
@@ -66,8 +76,8 @@ function useConditionCatalogLink(
   const castSceneId = table?.castSceneId ?? null;
   return useMemo(() => {
     if (!campaignId || !cast || !castSceneId) return null;
-    return { scope: { campaignId, sceneId: castSceneId }, cast, commands };
-  }, [campaignId, cast, castSceneId, commands]);
+    return { scope: { campaignId, sceneId: castSceneId }, cast, commands, assets };
+  }, [campaignId, cast, castSceneId, commands, assets]);
 }
 
 // Still over the room, so the table stays open: the failure says so inside the page's frame.

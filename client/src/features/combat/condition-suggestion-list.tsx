@@ -82,7 +82,12 @@ function SuggestionOption({ id, definition, active, onPick }: SuggestionOptionPr
         active && 'bg-accent',
       )}
     >
-      <ConditionMark icon={definition.icon} tone={definition.tone} color={definition.color} />
+      <ConditionMark
+        icon={definition.icon}
+        tone={definition.tone}
+        color={definition.color}
+        imageAssetId={definition.imageAssetId}
+      />
       <SuggestionText definition={definition} descriptionId={`${id}-description`} />
       <MaxStacksText maxStacks={definition.maxStacks} />
     </div>

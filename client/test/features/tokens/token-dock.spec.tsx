@@ -220,6 +220,7 @@ describe('TokenDock', () => {
             look: null,
             description: '',
             maxStacks: null,
+            imageAssetId: null,
           },
         ],
       }),

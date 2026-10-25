@@ -17,6 +17,7 @@ const ENVENENADO = {
   color: null,
   description: '',
   maxStacks: null,
+  imageAssetId: null,
   stacks: 1,
   remainingRounds: 2,
   appliedRound: 1,
@@ -34,6 +35,7 @@ describe('conditions mapper', () => {
       color: null,
       description: 'Cai e larga o que segura.',
       maxStacks: null,
+      imageAssetId: null,
       createdAt: new Date(),
     } as const;
     expect(toConditionDefinitionDto(po)).toEqual({
@@ -45,6 +47,7 @@ describe('conditions mapper', () => {
       color: null,
       description: 'Cai e larga o que segura.',
       maxStacks: null,
+      imageAssetId: null,
     });
   });
 
@@ -59,6 +62,7 @@ describe('conditions mapper', () => {
       color: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
       stacks: 1,
       remainingRounds: 2,
     });
@@ -81,6 +85,7 @@ describe('conditions mapper', () => {
       color: null,
       description: 'Desvantagem em ataques.',
       maxStacks: null,
+      imageAssetId: null,
     } as const;
     expect(toNewConditionDefinition(command)).toEqual({
       name: 'Envenenado',
@@ -90,6 +95,7 @@ describe('conditions mapper', () => {
       color: null,
       description: 'Desvantagem em ataques.',
       maxStacks: null,
+      imageAssetId: null,
     });
   });
 
@@ -125,6 +131,7 @@ describe('conditions mapper', () => {
       description: '',
       maxStacks: 5,
       color: null,
+      imageAssetId: null,
       createdAt: new Date(),
     } as const;
     expect(toConditionDefinitionDto(po).maxStacks).toBe(5);
@@ -144,7 +151,52 @@ describe('conditions mapper', () => {
       description: '',
       maxStacks: 4,
       color: null,
+      imageAssetId: null,
     } as const;
     expect(toNewConditionDefinition(command).maxStacks).toBe(4);
+  });
+
+  describe('the image of a condition', () => {
+    const IMAGE_ID = 'img-cego';
+
+    it('a new definition keeps the imageAssetId of the command', () => {
+      const command = {
+        name: 'Cego',
+        tone: 'harm',
+        icon: 'eye-off',
+        look: null,
+        color: null,
+        description: '',
+        maxStacks: null,
+        imageAssetId: IMAGE_ID,
+      } as const;
+      expect(toNewConditionDefinition(command).imageAssetId).toBe(IMAGE_ID);
+    });
+
+    it('a definition carries the imageAssetId of its row', () => {
+      const po = {
+        id: 'cego',
+        campaignId: 'vharn',
+        name: 'Cego',
+        tone: 'harm',
+        icon: 'eye-off',
+        look: null,
+        color: null,
+        description: '',
+        maxStacks: null,
+        imageAssetId: IMAGE_ID,
+        createdAt: new Date(),
+      } as const;
+      expect(toConditionDefinitionDto(po).imageAssetId).toBe(IMAGE_ID);
+    });
+
+    it('an active condition carries the imageAssetId of its definition', () => {
+      const pictured = { ...ENVENENADO, imageAssetId: IMAGE_ID };
+      expect(toActiveConditionDto(pictured).imageAssetId).toBe(IMAGE_ID);
+    });
+
+    it('an active condition without an image keeps imageAssetId null', () => {
+      expect(toActiveConditionDto(ENVENENADO).imageAssetId).toBeNull();
+    });
   });
 });

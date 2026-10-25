@@ -8,7 +8,7 @@ import {
   type ConditionCatalogLink,
   type ConditionFormValues,
 } from './condition-catalog-link';
-import { ConditionDefinitionForm } from './condition-definition-form';
+import { ConditionDefinitionForm, type ConditionImageTarget } from './condition-definition-form';
 
 /** What the editor sheet holds: a new condition being written, or one of the list. */
 export type EditorChoice =
@@ -83,6 +83,7 @@ function SheetBody(
       label={open.name}
       initial={formValuesOf(open)}
       action={<DeleteButton definition={open} onDelete={props.onDelete} />}
+      images={imagesOf(link)}
       onSubmit={(values) =>
         link.commands.updateConditionDefinition(link.scope, { conditionId: open.id, ...values })
       }
@@ -91,8 +92,12 @@ function SheetBody(
 }
 
 function definitionKeyOf(definition: ConditionDefinitionDto): string {
-  const { id, name, tone, icon, color, look, description, maxStacks } = definition;
-  return [id, name, tone, icon, color, look, description, maxStacks].join(':');
+  const { id, name, tone, icon, color, look, description, maxStacks, imageAssetId } = definition;
+  return [id, name, tone, icon, color, look, description, maxStacks, imageAssetId].join(':');
+}
+
+function imagesOf(link: ConditionCatalogLink): ConditionImageTarget {
+  return { campaignId: link.scope.campaignId, assets: link.assets };
 }
 
 type NewConditionEditorProps = Readonly<{
@@ -116,6 +121,7 @@ function NewConditionEditor({ link, onChoose }: NewConditionEditorProps): React.
       mode="new"
       label="Nova condição"
       initial={NEW_CONDITION_VALUES}
+      images={imagesOf(link)}
       onSubmit={create}
       onCancel={() => onChoose(null)}
     />
@@ -145,6 +151,6 @@ function DeleteButton({ definition, onDelete }: DeleteButtonProps): React.JSX.El
 
 // Only what the form edits: the id would ride along into the command, which is strict.
 function formValuesOf(definition: ConditionDefinitionDto): ConditionFormValues {
-  const { name, tone, icon, color, look, description, maxStacks } = definition;
-  return { name, tone, icon, color, look, description, maxStacks };
+  const { name, tone, icon, color, look, description, maxStacks, imageAssetId } = definition;
+  return { name, tone, icon, color, look, description, maxStacks, imageAssetId };
 }

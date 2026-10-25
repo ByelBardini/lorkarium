@@ -98,6 +98,10 @@ export const CONDITION_COLORS = [
 export const conditionColorDto = z.enum(CONDITION_COLORS);
 export type ConditionColorDto = z.infer<typeof conditionColorDto>;
 
+/** The image the master put in place of a condition's icon: an asset of the table (purpose
+ *  `condition`). `null` = shown by its icon, which also stays as the fallback when the image fails. */
+const conditionImageAssetIdDto = z.uuid().nullable();
+
 /** A condition of the table's list ("Envenenado", "Abençoado"…); `description` is `''` when the
  *  master wrote none. */
 export const conditionDefinitionDto = z.strictObject({
@@ -109,6 +113,7 @@ export const conditionDefinitionDto = z.strictObject({
   color: conditionColorDto.nullable(),
   description: z.string(),
   maxStacks: conditionMaxStacksDto.nullable(),
+  imageAssetId: conditionImageAssetIdDto,
 });
 export type ConditionDefinitionDto = z.infer<typeof conditionDefinitionDto>;
 
@@ -124,6 +129,7 @@ export const activeConditionDto = z.strictObject({
   color: conditionColorDto.nullable(),
   description: z.string(),
   maxStacks: conditionMaxStacksDto.nullable(),
+  imageAssetId: conditionImageAssetIdDto,
   stacks: z.number().int().min(1).max(CONDITION_STACKS_MAX),
   remainingRounds: z.number().int().min(1).max(CONDITION_ROUNDS_MAX).nullable(),
 });
@@ -145,6 +151,7 @@ export const defineConditionCommandDto = z.strictObject({
   color: conditionColorDto.nullable().default(null),
   description: conditionDescriptionDto.default(''),
   maxStacks: conditionMaxStacksDto.nullable().default(null),
+  imageAssetId: conditionImageAssetIdDto.default(null),
 });
 export type DefineConditionCommandDto = z.infer<typeof defineConditionCommandDto>;
 
@@ -152,7 +159,7 @@ export type DefineConditionCommandDto = z.infer<typeof defineConditionCommandDto
  *  conditions on the tokens follow it, they only point at it. Every field is required, so an
  *  older client cannot wipe the description by leaving it out.
  *
- *  Example: `updateConditionDefinitionCommandDto.parse({ actionId, campaignId, conditionId, name: 'Envenenado', tone: 'harm', icon: 'flask-conical', look: null, description: 'Desvantagem em ataques.' })` */
+ *  Example: `updateConditionDefinitionCommandDto.parse({ actionId, campaignId, conditionId, name: 'Envenenado', tone: 'harm', icon: 'flask-conical', look: null, color: null, description: 'Desvantagem em ataques.', maxStacks: null, imageAssetId: null })` */
 export const updateConditionDefinitionCommandDto = z.strictObject({
   ...boardCommandShape,
   conditionId: z.uuid(),
@@ -163,6 +170,7 @@ export const updateConditionDefinitionCommandDto = z.strictObject({
   color: conditionColorDto.nullable(),
   description: conditionDescriptionDto,
   maxStacks: conditionMaxStacksDto.nullable(),
+  imageAssetId: conditionImageAssetIdDto,
 });
 export type UpdateConditionDefinitionCommandDto = z.infer<
   typeof updateConditionDefinitionCommandDto

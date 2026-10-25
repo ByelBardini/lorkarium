@@ -17,8 +17,11 @@ export type ImageRefusal = Readonly<{
 export type NormalizeOutcome =
   Readonly<{ ok: true; image: NormalizedImage }> | Readonly<{ ok: false; refusal: ImageRefusal }>;
 
-/** Proves the bytes are a PNG, JPEG or WebP and rewrites them no larger than `maxSide` (§8.5);
- *  anything else comes back as a refusal, never thrown. */
+/** How the image is kept: no side above `maxSide`; `square` cuts the centre square out of it. */
+export type NormalizeOptions = Readonly<{ maxSide: number; square?: boolean }>;
+
+/** Proves the bytes are a PNG, JPEG or WebP and rewrites them no larger than `maxSide` (§8.5),
+ *  cut to a centred square when `square`; anything else comes back as a refusal, never thrown. */
 export interface ImageProcessorPort {
-  normalize(bytes: Uint8Array, options: Readonly<{ maxSide: number }>): Promise<NormalizeOutcome>;
+  normalize(bytes: Uint8Array, options: NormalizeOptions): Promise<NormalizeOutcome>;
 }

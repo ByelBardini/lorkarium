@@ -78,7 +78,12 @@ function HoverCondition({ condition }: Readonly<{ condition: ActiveConditionDto 
   return (
     <li className="flex flex-col gap-0.5 text-sm">
       <div className="flex items-center gap-2">
-        <ConditionMark icon={condition.icon} tone={condition.tone} color={condition.color} />
+        <ConditionMark
+          icon={condition.icon}
+          tone={condition.tone}
+          color={condition.color}
+          imageAssetId={condition.imageAssetId}
+        />
         <span className="flex min-w-0 flex-1 items-center gap-1">
           <span className="truncate">{condition.name}</span>
           <ConditionStacksMark stacks={shownStacksOf(condition)} />

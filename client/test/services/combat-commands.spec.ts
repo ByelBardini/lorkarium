@@ -110,6 +110,7 @@ describe('RealtimeCombatCommands', () => {
           look: null,
           description: 'Desvantagem.',
           maxStacks: null,
+          imageAssetId: null,
         }),
       {
         conditionId: KAEL,
@@ -120,6 +121,7 @@ describe('RealtimeCombatCommands', () => {
         look: null,
         description: 'Desvantagem.',
         maxStacks: null,
+        imageAssetId: null,
       },
     ],
   ] as const)('%s goes out with its fields', (event, sendIt, fields) => {
@@ -127,6 +129,21 @@ describe('RealtimeCombatCommands', () => {
     expect(transport.sent).toEqual([
       { event, payload: { actionId: ACTION_ID, ...VHARN_GRID, ...fields } },
     ]);
+  });
+
+  describe('condition:define and the image', () => {
+    const IMAGE_ID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+    const base = { name: 'Cego', tone: 'harm', icon: 'eye-off', look: null } as const;
+
+    it('a condition created without an image leaves the field out (the contract makes it null)', () => {
+      void commands.defineCondition(VHARN_GRID, base);
+      expect(transport.sent[0]?.payload).not.toHaveProperty('imageAssetId');
+    });
+
+    it('a condition created with an image sends its asset id', () => {
+      void commands.defineCondition(VHARN_GRID, { ...base, imageAssetId: IMAGE_ID });
+      expect(transport.sent[0]?.payload).toMatchObject({ imageAssetId: IMAGE_ID });
+    });
   });
 
   it.each([

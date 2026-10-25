@@ -174,6 +174,7 @@ describe('condition stacks over Socket.IO', () => {
       description: '',
       maxStacks: 2,
       color: null,
+      imageAssetId: null,
     });
 
     expect(ack).toMatchObject({ ok: true });

@@ -24,6 +24,7 @@ const ENVENENADO: ConditionDefinitionDto = {
   look: null,
   description: '',
   maxStacks: null,
+  imageAssetId: null,
 };
 
 describe('conditionToolHintOf', () => {

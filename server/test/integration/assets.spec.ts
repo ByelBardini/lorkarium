@@ -7,7 +7,7 @@ import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import { pngOf } from '../support/images';
 import { signUpAndLogin } from '../support/sign-in';
-import { createTable, joinByCode } from '../support/tables';
+import { createTable, joinAsSpectator, joinByCode, type Table } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const MIB = 1024 * 1024;
@@ -19,6 +19,7 @@ describe('assets HTTP edge', () => {
   let ana: string;
   let bia: string;
   let caio: string;
+  let vharn: Table;
   let vharnId: string;
   let quelmId: string;
   let smallPng: Buffer;
@@ -38,7 +39,7 @@ describe('assets HTTP edge', () => {
     ana = anaUser.token;
     bia = biaUser.token;
     caio = (await signUpAndLogin(app, connection.db, 'Caio')).token;
-    const vharn = await createTable(app, anaUser, 'Os Sinos de Vharn');
+    vharn = await createTable(app, anaUser, 'Os Sinos de Vharn');
     vharnId = vharn.id;
     await joinByCode(app, biaUser, vharn);
     quelmId = (await createCampaign(caio, 'Quelm')).id;
@@ -203,5 +204,49 @@ describe('assets HTTP edge', () => {
     ).asset;
 
     expect((await call(ana, { method: 'GET', url: `/assets/${asset.id}` })).statusCode).toBe(404);
+  });
+
+  describe('with purpose=condition', () => {
+    it('a 600×300 PNG is kept as a 256×256 square', async () => {
+      const response = await upload(ana, await pngOf(600, 300), { purpose: 'condition' });
+
+      expect(response.statusCode).toBe(201);
+      expect(assetResponseDto.parse(response.json()).asset).toMatchObject({
+        mimeType: 'image/png',
+        width: 256,
+        height: 256,
+      });
+    });
+
+    it('a GIF is 415 UNSUPPORTED_IMAGE', async () => {
+      const gif = await sharp(await pngOf(32, 32))
+        .gif()
+        .toBuffer();
+
+      const response = await upload(ana, gif, { purpose: 'condition', type: 'image/gif' });
+
+      expect(response.statusCode).toBe(415);
+      expect(codeOf(response)).toBe('UNSUPPORTED_IMAGE');
+    });
+
+    it('a spectator of the table is 403 FORBIDDEN', async () => {
+      const duda = await signUpAndLogin(app, connection.db, 'Duda');
+      await joinAsSpectator(app, duda, vharn);
+
+      const response = await upload(duda.token, smallPng, { purpose: 'condition' });
+
+      expect(response.statusCode).toBe(403);
+      expect(codeOf(response)).toBe('FORBIDDEN');
+    });
+
+    it('a member of Quelm reading a condition image of Vharn gets 404 ASSET_NOT_FOUND', async () => {
+      const sent = await upload(ana, smallPng, { purpose: 'condition' });
+      const asset = assetResponseDto.parse(sent.json()).asset;
+
+      const response = await call(caio, { method: 'GET', url: `/assets/${asset.id}` });
+
+      expect(response.statusCode).toBe(404);
+      expect(codeOf(response)).toBe('ASSET_NOT_FOUND');
+    });
   });
 });

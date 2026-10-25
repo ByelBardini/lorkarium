@@ -26,6 +26,7 @@ const ENVENENADO: ConditionDefinitionDto = {
   look: null,
   description: 'Desvantagem em ataques.',
   maxStacks: null,
+  imageAssetId: null,
 };
 
 type Seat = 'master' | 'player' | 'spectator';

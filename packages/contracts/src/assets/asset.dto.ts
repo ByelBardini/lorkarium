@@ -13,7 +13,7 @@ export const assetMimeTypeDto = z.enum(ASSET_MIME_TYPES);
 export type AssetMimeTypeDto = z.infer<typeof assetMimeTypeDto>;
 
 /** Only decides the largest side the server keeps; the asset may be used for anything later. */
-export const assetPurposeDto = z.enum(['background', 'token', 'cover']);
+export const assetPurposeDto = z.enum(['background', 'token', 'cover', 'condition']);
 
 export type AssetPurposeDto = z.infer<typeof assetPurposeDto>;
 
@@ -23,6 +23,9 @@ export const ASSET_MAX_SIDE: Readonly<Record<AssetPurposeDto, number>> = {
   token: 1024,
   // The cover is at most a wide card or the detail banner; 1600 keeps it sharp on 2x screens.
   cover: 1600,
+  // The condition badge reaches ~120 px on screen at high zoom (240 px on 2x screens); a square
+  // 256 keeps it sharp at 1/16 of the texture memory of a token.
+  condition: 256,
 };
 
 /** A stored image of one campaign, as the client sees it (read back at `GET /api/assets/:id`).

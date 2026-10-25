@@ -13,17 +13,21 @@ import type {
   BoardScope,
   TableBoardCommands,
 } from '@/services/table-board-commands';
+import type { AssetsApi } from '@/services/assets-api';
 import type { BoardStore } from '@/stores/board-store';
 
 /** What the "Condições da mesa" page needs from the open table: its cast (whose list of
- *  conditions is the table's, live), where to address the commands and the commands themselves.
+ *  conditions is the table's, live), where to address the commands, the commands themselves and
+ *  where a condition's image goes up.
  *
- *  Example: `<ConditionCatalogPage link={{ scope, cast, commands }} />` */
+ *  Example: `<ConditionCatalogPage link={{ scope, cast, commands, assets }} />` */
 export type ConditionCatalogLink = Readonly<{
   /** The table and its cast: the list's commands act on the table's version, not on a grid. */
   scope: BoardScope;
   cast: StoreApi<BoardStore>;
   commands: TableBoardCommands;
+  /** Uploads the image of a condition (`purpose: 'condition'`) to the table of `scope`. */
+  assets: AssetsApi;
 }>;
 
 /** Why the server refused a change to the table's list, as the master reads it.
@@ -55,6 +59,8 @@ export type ConditionFormValues = Readonly<{
   description: string;
   /** `null`: it does not stack, only lasts; 2 to 99: it piles up to that. */
   maxStacks: number | null;
+  /** `null`: the icon alone; an asset of the table: its picture, the icon as the fallback. */
+  imageAssetId: string | null;
 }>;
 
 /** What "Nova condição" starts from: the picker's defaults (a harm, the plain mark). */
@@ -66,6 +72,7 @@ export const NEW_CONDITION_VALUES: ConditionFormValues = {
   look: null,
   description: '',
   maxStacks: null,
+  imageAssetId: null,
 };
 
 /** The list's order: by nature (benefits, incapacitating, harms), by name inside each, only the

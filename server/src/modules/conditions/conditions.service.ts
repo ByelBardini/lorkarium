@@ -14,6 +14,7 @@ import type {
   SetConditionRoundsCommandDto,
   SetConditionStacksCommandDto,
 } from '@lorkarium/contracts';
+import type { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -34,6 +35,7 @@ import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { TokenNotFoundError } from '../tokens/tokens.error';
+import { requireAssetsOf } from '../tokens/token-transaction';
 import { ConditionRulesBo } from './condition-rules.bo';
 import type { CombatDao } from '../combat/combat.dao';
 import type { ActiveConditionRow, ConditionDuration, ConditionsDao } from './conditions.dao';
@@ -76,6 +78,8 @@ export type ConditionWriteDaos = Readonly<{
     | 'setStacks'
     | 'capStacks'
   >;
+  /** A definition's image must be an asset of the table. */
+  assets: Pick<AssetsDao, 'findManyInCampaign'>;
 }>;
 
 export type ConditionTransactionRunner = <T>(
@@ -110,6 +114,7 @@ export class ConditionsService {
     access.requireMaster('define a condition');
     // The list is the table's: it stays on the cast whatever grid the command names.
     const outcome = await inLockedCast(this.deps.transaction, campaignId, async ({ daos }) => {
+      await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
       const existing = await daos.conditions.findDefinitionByName(campaignId, command.name);
       if (RULES.defineOrReuse(existing).kind === 'reuse') return { value: null, changed: false };
       const fields = toNewConditionDefinition(command);

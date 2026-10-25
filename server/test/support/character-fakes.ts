@@ -130,6 +130,7 @@ export class CharacterTableFake {
       color: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
       stacks: 1,
       remainingRounds: 2,
       appliedRound: null,

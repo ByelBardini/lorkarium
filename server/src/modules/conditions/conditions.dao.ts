@@ -22,6 +22,7 @@ export type ActiveConditionRow = Readonly<{
   color: ConditionDefinitionPo['color'];
   description: string;
   maxStacks: number | null;
+  imageAssetId: string | null;
   stacks: number;
   remainingRounds: number | null;
   appliedRound: number | null;
@@ -44,6 +45,7 @@ const activeRowColumns = {
   color: conditionDefinitions.color,
   description: conditionDefinitions.description,
   maxStacks: conditionDefinitions.maxStacks,
+  imageAssetId: conditionDefinitions.imageAssetId,
   stacks: activeConditions.stacks,
   remainingRounds: activeConditions.remainingRounds,
   appliedRound: activeConditions.appliedRound,

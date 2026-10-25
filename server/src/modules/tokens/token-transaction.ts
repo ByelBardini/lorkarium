@@ -201,12 +201,13 @@ export async function tokensIn(
   });
 }
 
-/** Every image a command puts on tokens must be an asset of the table: the first one that is not
- *  (another table's too) refuses the command with ASSET_NOT_FOUND before anything is written.
+/** Every image a command puts on tokens (or on a condition) must be an asset of the table: the
+ *  first one that is not (another table's too) refuses the command with ASSET_NOT_FOUND before
+ *  anything is written.
  *
  *  Example: `await requireAssetsOf(daos, campaignId, command.tokens.map((t) => t.imageAssetId))` */
 export async function requireAssetsOf(
-  daos: TokenWriteDaos,
+  daos: Readonly<{ assets: Pick<AssetsDao, 'findManyInCampaign'> }>,
   campaignId: string,
   assetIds: readonly (string | null | undefined)[],
 ): Promise<void> {

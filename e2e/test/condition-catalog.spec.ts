@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { test } from './support/player-pages';
 import { BIA, CAIO } from './support/dev-players';
@@ -10,12 +11,14 @@ import {
   joinAsSpectatorAndEnter,
   joinByCodeAndEnter,
 } from './support/tables';
-import { createTokenFor, statusOf } from './support/token-cards';
+import { cardOf, createTokenFor, openCard, statusOf } from './support/token-cards';
 
 // A new token lands at the middle of the default scene; the Goblin is walked 3 cells right.
 const KAEL_CELL = [10, 6] as const;
 const GOBLIN_CELL = [13, 6] as const;
 const SANGRANDO = 'Perde 1d4 PV por turno.';
+const PICTURE = fileURLToPath(new URL('./fixtures/token.png', import.meta.url));
+const ASSET_SRC = /^\/api\/assets\//;
 
 async function openConditionsPage(master: Page): Promise<void> {
   await master.getByRole('link', { name: 'Condições', exact: true }).click();
@@ -58,6 +61,39 @@ async function createSangrando(master: Page): Promise<void> {
   await expect(master.getByRole('button', { name: 'Editar Sangrando' })).toContainText(
     'Acumula até ×3',
   );
+}
+
+// The image drawn in the tag "No token:" of the sheet (the picker shows its own preview too).
+function sheetPreviewOf(sheet: Locator): Locator {
+  return sheet.getByText('No token:').locator('..').locator('img');
+}
+
+async function pictureCego(master: Page): Promise<void> {
+  await master.getByRole('button', { name: 'Editar Cego' }).click();
+  const sheet = sheetOf(master, 'Editar Cego');
+  await sheet.getByLabel('Arquivo de imagem').setInputFiles(PICTURE);
+  await expect(sheetPreviewOf(sheet)).toHaveAttribute('src', ASSET_SRC);
+  await sheet.getByRole('button', { name: 'Salvar alterações' }).click();
+  await expect(sheet.getByRole('button', { name: 'Salvar alterações' })).toBeDisabled();
+  await sheet.getByRole('button', { name: 'Fechar' }).click();
+  await expect(master.getByRole('button', { name: 'Editar Cego' }).locator('img')).toHaveAttribute(
+    'src',
+    ASSET_SRC,
+  );
+}
+
+async function unpictureCego(master: Page): Promise<void> {
+  await master.getByRole('button', { name: 'Editar Cego' }).click();
+  const sheet = sheetOf(master, 'Editar Cego');
+  await sheet.getByRole('button', { name: 'Voltar ao ícone' }).click();
+  await expect(sheetPreviewOf(sheet)).toHaveCount(0);
+  await sheet.getByRole('button', { name: 'Salvar alterações' }).click();
+  await expect(sheet.getByRole('button', { name: 'Salvar alterações' })).toBeDisabled();
+  await sheet.getByRole('button', { name: 'Fechar' }).click();
+}
+
+function activeTagsOf(page: Page, token: string): Locator {
+  return cardOf(page, token).getByRole('list', { name: `Condições ativas de ${token}` });
 }
 
 // Admin's keyboard: the only token on the board is picked by "]" and walked right.
@@ -176,6 +212,46 @@ test('the master keeps the list on its own page, a player stacks conditions on a
   await expect(admin.getByRole('button', { name: 'Editar Cego' })).toBeHidden();
   await admin.getByRole('button', { name: 'Restaurar padrões' }).click();
   await expect(admin.getByRole('button', { name: 'Editar Cego' })).toBeVisible();
+});
+
+test('the master gives a condition an image and the player sees it on the token, until it goes back to the icon', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(180_000);
+  const name = `Mesa condição imagem ${Date.now()}`;
+  const admin = await newPlayerPage();
+  const caio = await newPlayerPage();
+  await signIn(admin, adminCredentials());
+  const code = await createTableAndReadCode(admin, name);
+  await signIn(caio, CAIO);
+  await joinByCodeAndEnter(caio, code, admin);
+  await enterFromTheList(admin, name);
+
+  await createTokenFor(admin, 'Kael', 'Caio');
+  await openCard(admin, 'Kael');
+  const dock = cardOf(admin, 'Kael');
+  await dock.getByRole('combobox', { name: 'Adicionar condição' }).fill('Cego');
+  await dock.getByRole('button', { name: 'Aplicar' }).click();
+  await expect(activeTagsOf(admin, 'Kael')).toContainText('Cego');
+  await openCard(caio, 'Kael');
+  await expect(activeTagsOf(caio, 'Kael')).toContainText('Cego');
+  await expect(activeTagsOf(caio, 'Kael').locator('img')).toHaveCount(0);
+
+  await openConditionsPage(admin);
+  await pictureCego(admin);
+  await expect(activeTagsOf(caio, 'Kael').locator('img')).toHaveAttribute('src', ASSET_SRC);
+  // The image is a campaign asset the player can read, not a broken link that fell back.
+  await expect
+    .poll(() =>
+      activeTagsOf(caio, 'Kael')
+        .locator('img')
+        .evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth),
+    )
+    .toBe(256);
+
+  await unpictureCego(admin);
+  await expect(activeTagsOf(caio, 'Kael').locator('img')).toHaveCount(0);
+  await expect(activeTagsOf(caio, 'Kael')).toContainText('Cego');
 });
 
 test('a spectator has no condition tool and no way to the list', async ({ newPlayerPage }) => {

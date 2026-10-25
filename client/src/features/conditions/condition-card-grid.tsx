@@ -86,7 +86,12 @@ function ConditionCard({ definition, onOpen }: ConditionCardProps): React.JSX.El
       style={edgeStyleOf(definition)}
     >
       <span className="flex items-center gap-2.5">
-        <ConditionMark icon={definition.icon} tone={definition.tone} color={definition.color} />
+        <ConditionMark
+          icon={definition.icon}
+          tone={definition.tone}
+          color={definition.color}
+          imageAssetId={definition.imageAssetId}
+        />
         <span className="truncate font-display text-lg text-foreground group-hover:text-primary">
           {definition.name}
         </span>

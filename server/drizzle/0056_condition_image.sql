@@ -1,0 +1,2 @@
+ALTER TABLE "condition_definitions" ADD COLUMN "image_asset_id" uuid;--> statement-breakpoint
+ALTER TABLE "condition_definitions" ADD CONSTRAINT "condition_definitions_image_asset_id_assets_id_fk" FOREIGN KEY ("image_asset_id") REFERENCES "public"."assets"("id") ON DELETE set null ON UPDATE no action;

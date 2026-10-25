@@ -17,6 +17,19 @@ function renderTags(description = POISON_TEXT): void {
 }
 
 describe('ConditionTags', () => {
+  it('a condition with an image shows it in the tag, in place of the glyph', () => {
+    const pictured = activeCondition({
+      name: 'Cego',
+      imageAssetId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+    });
+    render(<ConditionTags owner="Kael" conditions={[pictured]} />);
+    const tag = screen.getByRole('listitem');
+    expect(tag.querySelector('img')).toHaveAttribute(
+      'src',
+      '/api/assets/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+    );
+  });
+
   it('hovering the name of a described condition opens a tooltip with the description', async () => {
     renderTags();
     await userEvent.hover(screen.getByText('Envenenado'));

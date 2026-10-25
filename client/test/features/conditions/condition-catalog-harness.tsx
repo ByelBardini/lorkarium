@@ -9,6 +9,7 @@ import type { ConditionCatalogLink } from '@/features/conditions/condition-catal
 import { ConditionCatalogPage } from '@/features/conditions/condition-catalog-page';
 import type { BoardEvent } from '@/services/board-events';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { AssetsApiFake } from '../../support/assets-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { eventAt, vharnBoard, VHARN_GRID } from '../../support/table-session-fixtures';
@@ -38,6 +39,7 @@ export function conditionDefinition(
     description: '',
     maxStacks: null,
     color: null,
+    imageAssetId: null,
     ...overrides,
   };
 }
@@ -58,7 +60,8 @@ export function conditionCard(name: string): HTMLElement {
 }
 
 /** A link to a cast holding `definitions` (VHARN at version 4), its commands played by
- *  `commands`; `confirm(event)` delivers the next confirmed event to the cast. Nothing rendered.
+ *  `commands` and its uploads by `assets`; `confirm(event)` delivers the next confirmed event to
+ *  the cast. Nothing rendered.
  *
  *  Example: `const { link, confirm } = catalogLinkOver([conditionDefinition()])` */
 export function catalogLinkOver(definitions: readonly ConditionDefinitionDto[]) {
@@ -68,14 +71,15 @@ export function catalogLinkOver(definitions: readonly ConditionDefinitionDto[]) 
     state: vharnBoard({ conditionDefinitions: [...definitions] }),
   });
   const commands = new TableBoardCommandsFake();
-  const link: ConditionCatalogLink = { scope: VHARN_GRID, cast, commands };
+  const assets = new AssetsApiFake();
+  const link: ConditionCatalogLink = { scope: VHARN_GRID, cast, commands, assets };
   let version = 4;
   const confirm = (event: Parameters<typeof eventAt>[1]): void => {
     version += 1;
     const confirmed: BoardEvent = eventAt(version, event);
     act(() => cast.getState().apply({ kind: 'boardEvent', event: confirmed }));
   };
-  return { link, cast, commands, confirm };
+  return { link, cast, commands, assets, confirm };
 }
 
 /** The page over `catalogLinkOver(definitions)`.

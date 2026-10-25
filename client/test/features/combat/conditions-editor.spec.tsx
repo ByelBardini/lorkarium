@@ -39,6 +39,7 @@ const DEFINITIONS = [
     look: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
   },
   {
     id: CONCENTRANDO.conditionId,
@@ -49,6 +50,7 @@ const DEFINITIONS = [
     look: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
   },
   {
     id: 'c9d8e7f6-a5b4-4c3d-8e2f-1a0b9c8d7e6f',
@@ -59,6 +61,7 @@ const DEFINITIONS = [
     look: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
   },
 ] as const;
 
@@ -315,6 +318,7 @@ describe('ConditionsEditor', () => {
       look: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     } as const;
     act(() =>
       board.getState().apply({
@@ -366,6 +370,7 @@ describe('ConditionsEditor', () => {
       look: 'unconscious',
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     } as const;
     act(() =>
       board.getState().apply({

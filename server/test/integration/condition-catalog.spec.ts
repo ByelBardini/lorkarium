@@ -52,6 +52,7 @@ function envenenadoEdit(table: Table, conditionId: string): Record<string, unkno
     color: null,
     description: DESCRIPTION,
     maxStacks: null,
+    imageAssetId: null,
   };
 }
 
@@ -120,6 +121,7 @@ describe('condition:updateDefinition', () => {
         color: null,
         description: DESCRIPTION,
         maxStacks: null,
+        imageAssetId: null,
       });
     }
   });

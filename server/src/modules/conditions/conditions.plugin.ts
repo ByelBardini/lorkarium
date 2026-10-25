@@ -1,5 +1,6 @@
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
+import { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { MembershipReader } from '../campaigns/cached-memberships';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
@@ -34,6 +35,7 @@ export function createConditionsModule(options: ConditionsModuleOptions): Condit
         tokens: new TokensDao(tx),
         conditions: new ConditionsDao(tx),
         combat: new CombatDao(tx),
+        assets: new AssetsDao(tx),
       }),
     );
   const { members } = options;
