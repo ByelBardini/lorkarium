@@ -28,6 +28,7 @@ Cada regra diz o que custa quebrá-la, medido na cena de estresse. Mexeu em rend
 6. **Token redesenha só a parte que mudou** (`tokenRedrawOf`, `token-redraw.ts`; `PixiTokenLayer.place`): campo novo no `TokenView` que o `drawToken`/`drawDefeated`/a placa lê **precisa entrar na comparação**, senão o token não redesenha quando ele muda. Hover só desenha as duas placas; textura que chega só os tokens daquela url (`refreshArt`); o `animate` percorre só o `Set` de quem desliza — animação nova entra nesse conjunto, nunca num laço sobre todos os sprites.
 7. **Visão e passagem do game-core sobre paredes preparadas** (`preparedWalls`, `wall-index.ts`): `lineOfSight`, `lightLevelAt`, `sightArea`, `doorSeenBy` e `blockedPassage` usam o índice por baldes e os cruzamentos prontos. Função nova de visão ou passagem usa o mesmo índice; `wallSegments(parede)` dentro de laço por chamada (o jeito antigo) multiplica o custo por 200 (`lineOfSight` 0,08 → 0,0004 ms). Para deixar uma parede de fora (a porta olhada), o `exceto` por referência, nunca um array filtrado (array novo = preparação nova).
 8. **Luz: distância antes do cone** (`levelFrom` em `lighting.ts`): quase toda luz da cena está longe de um ponto, e o cone custa mais; inverter a ordem põe o filtro de volta acima do orçamento.
+9. **Imagem de condição sem máscara: textura quadrada do server + `fill({ texture, textureSpace: 'local' })`** (`pixi-condition-marks.ts`): o server guarda a imagem `condition` já quadrada (256), e o círculo preenchido por ela é o recorte redondo. Uma máscara por badge quebraria o lote da GPU em cada token com condição (a arte do token ainda paga isso, ver Armadilhas). A textura só é pedida com o badge grande o bastante (bandas `icons`/`detailed`), e a chegada redesenha só as faixas daquela url (`refreshArt`), nunca o corpo.
 
 ## Armadilhas
 
@@ -73,5 +74,7 @@ Rodar três vezes e anotar a mediana da coluna `mean` (ms). A máquina oscila; o
 | `sightArea` alcance 12      | 0,27        | 0,24   | —         | 7                  |
 | `sightArea` infinito        | 14,6        | 2,1    | —         | 7                  |
 | `lineOfSight` pela masmorra | 0,08        | 0,0004 | —         | 7                  |
+
+A imagem de condição (regra 9) fica fora da tabela: a cena de estresse não tem condição com imagem, e o custo na vista é um `assetUrlOf` por condição no `conditionsOf`, dentro da oscilação do bench.
 
 No renderer (contado pelo probe, não pelo bench): 1 token mudando entre 300 redesenha 1 (antes, 300 a cada desenho); pan sem zoom redesenha 0 sobreposições (antes, todas a cada tique da roda e a cada quadro de W A S D); uma rajada de eventos no mesmo quadro é 1 desenho.

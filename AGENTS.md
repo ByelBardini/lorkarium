@@ -90,7 +90,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | tokens           | Tokens: barras, controle, principal, cone, luz, redação, invisível, elenco     | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
 | member-cards     | Ficha da mesa: nome do personagem, CA, CD e anotações por membro               | [`docs/context/member-cards.md`](docs/context/member-cards.md)         |
 | profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`     | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
-| combat           | Condições (lista da mesa, cor, stacks) e combate: entradas, turno, rodada      | [`docs/context/combat.md`](docs/context/combat.md)                     |
+| combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada      | [`docs/context/combat.md`](docs/context/combat.md)                     |
 | drawings         | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição         | [`docs/context/drawings.md`](docs/context/drawings.md)                 |
 | effect-areas     | Áreas de efeito: formas, casas pintadas, autor, alças, versão                  | [`docs/context/effect-areas.md`](docs/context/effect-areas.md)         |
 | walls            | Paredes e portas: tipos, formas, passagem, porta vista, visão                  | [`docs/context/walls.md`](docs/context/walls.md)                       |
