@@ -4,9 +4,11 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
-import { UsersDao } from '../../src/modules/auth/users.dao';
-import { newUserPo } from '../support/auth-factories';
-import { databaseUrlNamed, migrationsUpTo } from '../support/migrations-up-to';
+import {
+  databaseUrlNamed,
+  migrationsUpTo,
+  insertUserAtOldMigration,
+} from '../support/migrations-up-to';
 
 const SCRATCH_DATABASE = 'lorkarium_condition_stacks_migration';
 const LAST_MIGRATION_BEFORE_STACKS = '0050_condition_descriptions';
@@ -18,7 +20,7 @@ const KAEL = '0f1a2b3c-4d5e-4f6a-9b7c-8d9e0f1a2b3c';
 
 // A table at 0050 with Cego and Sangrando, both on Kael.
 async function seedConditionsAt0050(scratch: DatabaseConnection): Promise<void> {
-  const ownerId = (await new UsersDao(scratch.db).insert(newUserPo({ email: 'ana@mesa.com' }))).id;
+  const ownerId = await insertUserAtOldMigration(scratch.db, { email: 'ana@mesa.com' });
   await scratch.db.execute(sql`
     INSERT INTO campaigns (id, owner_id, name, join_code)
     VALUES (${CAMPAIGN}, ${ownerId}, 'Vharn', 'VHRN7K2Q')`);

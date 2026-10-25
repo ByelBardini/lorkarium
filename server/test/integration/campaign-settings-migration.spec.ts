@@ -4,9 +4,11 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
-import { UsersDao } from '../../src/modules/auth/users.dao';
-import { newUserPo } from '../support/auth-factories';
-import { databaseUrlNamed, migrationsUpTo } from '../support/migrations-up-to';
+import {
+  databaseUrlNamed,
+  migrationsUpTo,
+  insertUserAtOldMigration,
+} from '../support/migrations-up-to';
 
 const SCRATCH_DATABASE = 'lorkarium_campaign_settings_migration';
 const LAST_MIGRATION_BEFORE_SETTINGS = '0047_password_resets';
@@ -48,7 +50,7 @@ describe('migration 0048_campaign_settings on a database with campaigns', () => 
     beforeFolder = await migrationsUpTo(LAST_MIGRATION_BEFORE_SETTINGS);
     settingsFolder = await migrationsUpTo(SETTINGS_MIGRATION);
     await migrate(scratch.db, { migrationsFolder: beforeFolder });
-    ownerId = (await new UsersDao(scratch.db).insert(newUserPo())).id;
+    ownerId = await insertUserAtOldMigration(scratch.db);
     await seedCampaignsAt0047(scratch, ownerId);
     await migrate(scratch.db, { migrationsFolder: settingsFolder });
   });
