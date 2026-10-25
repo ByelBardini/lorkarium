@@ -17,6 +17,7 @@ describe('RealtimeConditionCatalogCommands', () => {
     look: null,
     description: 'Desvantagem em ataques.',
     maxStacks: null,
+    imageAssetId: null,
   } as const;
   let transport: RealtimeTransportFake;
   let commands: RealtimeConditionCatalogCommands;
@@ -50,6 +51,12 @@ describe('RealtimeConditionCatalogCommands', () => {
     expect(transport.sent).toEqual([
       { event, payload: { actionId: ACTION_ID, ...VHARN_GRID, ...fields } },
     ]);
+  });
+
+  it('condition:updateDefinition carries the image the master chose', () => {
+    const imageAssetId = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+    void commands.updateConditionDefinition(VHARN_GRID, { ...edit, imageAssetId });
+    expect(transport.sent[0]?.payload).toMatchObject({ imageAssetId });
   });
 
   it('an ok ack of condition:updateDefinition answers ok with the new version', async () => {

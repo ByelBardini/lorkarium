@@ -16,13 +16,18 @@ import {
 export type { ConditionDefinitionEdit, ConditionUsageResult } from './condition-catalog-commands';
 
 type Envelope = 'actionId' | 'campaignId' | 'sceneId';
-// The description, the stacks and the color are optional on the wire (the contract defaults them
-// to '', null and null): the picker creates without them, the settings page sends them.
+// The description, the stacks, the color and the image are optional on the wire (the contract
+// defaults them to '', null, null and null): the picker creates without them.
 export type NewConditionDefinition = Omit<
   DefineConditionCommandDto,
-  Envelope | 'description' | 'maxStacks' | 'color'
+  Envelope | 'description' | 'maxStacks' | 'color' | 'imageAssetId'
 > &
-  Readonly<{ description?: string; maxStacks?: number | null; color?: ConditionColorDto | null }>;
+  Readonly<{
+    description?: string;
+    maxStacks?: number | null;
+    color?: ConditionColorDto | null;
+    imageAssetId?: string | null;
+  }>;
 /** Where a regroup sends the tokens: into an entry, each into its own, or out of the combat. */
 export type RegroupTarget = RegroupTargetDto;
 

@@ -401,6 +401,7 @@ export function activeCondition(overrides: Partial<ActiveConditionDto> = {}): Ac
     look: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
     stacks: 1,
     remainingRounds: 2,
     ...overrides,
@@ -423,6 +424,7 @@ export function conditionDefinition(
     look: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
     ...overrides,
   };
 }

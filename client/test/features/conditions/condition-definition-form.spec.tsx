@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -7,6 +7,8 @@ import {
 } from '@/features/conditions/condition-catalog-link';
 import { ConditionDefinitionForm } from '@/features/conditions/condition-definition-form';
 import type { BoardCommandResult } from '@/services/table-board-commands';
+import { AssetsApiFake, LYRA_PORTRAIT } from '../../support/assets-api-fake';
+import { VHARN } from '../../support/campaigns-api-fake';
 
 const ENVENENADO: ConditionFormValues = {
   name: 'Envenenado',
@@ -16,6 +18,7 @@ const ENVENENADO: ConditionFormValues = {
   description: 'Desvantagem.',
   maxStacks: null,
   color: null,
+  imageAssetId: null,
 };
 
 // Plays the parent: keeps what each submit sent and answers `answer` (ok by default); `hold()`
@@ -60,10 +63,15 @@ class EscapeWatcher {
 }
 
 let parent: SubmitRecorder;
+let assets: AssetsApiFake;
 
 beforeEach(() => {
   parent = new SubmitRecorder();
+  assets = new AssetsApiFake();
 });
+
+// Where the image field sends the master's picture: VHARN's assets, played by the fake.
+const images = () => ({ campaignId: VHARN.id, assets });
 
 function renderEdit(initial: ConditionFormValues = ENVENENADO): HTMLElement {
   render(
@@ -72,6 +80,7 @@ function renderEdit(initial: ConditionFormValues = ENVENENADO): HTMLElement {
       label="Envenenado"
       initial={initial}
       onSubmit={parent.submit}
+      images={images()}
     />,
   );
   return screen.getByRole('form', { name: 'Envenenado' });
@@ -85,6 +94,7 @@ function renderEditInside(holder: EscapeWatcher, initial: ConditionFormValues = 
         label="Envenenado"
         initial={initial}
         onSubmit={parent.submit}
+        images={images()}
       />
     </div>,
   );
@@ -97,6 +107,7 @@ function renderNew(): HTMLElement {
       label="Nova condição"
       initial={NEW_CONDITION_VALUES}
       onSubmit={parent.submit}
+      images={images()}
       onCancel={parent.cancel}
     />,
   );
@@ -202,6 +213,7 @@ describe('ConditionDefinitionForm (edit)', () => {
         description: 'Não age.',
         maxStacks: null,
         color: null,
+        imageAssetId: null,
       },
     ]);
   });
@@ -272,6 +284,7 @@ describe('ConditionDefinitionForm (edit)', () => {
         initial={ENVENENADO}
         action={<button type="button">Excluir Envenenado</button>}
         onSubmit={parent.submit}
+        images={images()}
       />,
     );
     const form = screen.getByRole('form', { name: 'Envenenado' });
@@ -331,5 +344,87 @@ describe('ConditionDefinitionForm preview', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Benéfica' }));
     expect(preview()).toHaveClass('border-primary/45');
     expect(preview()).not.toHaveClass('border-destructive/60');
+  });
+});
+
+describe('ConditionDefinitionForm image', () => {
+  const pictured: ConditionFormValues = { ...ENVENENADO, imageAssetId: LYRA_PORTRAIT.id };
+
+  async function choosePng(): Promise<File> {
+    const png = new File([new Uint8Array(64)], 'cego.png', { type: 'image/png' });
+    await userEvent.upload(screen.getByLabelText('Arquivo de imagem'), png);
+    return png;
+  }
+
+  it('a PNG chosen in "Imagem" goes up as a condition image and shows in the preview', async () => {
+    renderEdit();
+    const png = await choosePng();
+    expect(assets.sent).toEqual([
+      { kind: 'upload', campaignId: VHARN.id, file: png, purpose: 'condition' },
+    ]);
+    expect(preview().querySelector('img')).toHaveAttribute(
+      'src',
+      `/api/assets/${LYRA_PORTRAIT.id}`,
+    );
+  });
+
+  it('"Salvar alterações" after choosing an image sends the asset the server kept', async () => {
+    renderEdit();
+    await choosePng();
+    await userEvent.click(button('Salvar alterações'));
+    expect(parent.submitted).toEqual([{ ...ENVENENADO, imageAssetId: LYRA_PORTRAIT.id }]);
+  });
+
+  it('"Voltar ao ícone" takes the image off: the preview shows the glyph and saving sends null', async () => {
+    renderEdit(pictured);
+    expect(preview().querySelector('img')).not.toBeNull();
+    await userEvent.click(button('Voltar ao ícone'));
+    expect(preview().querySelector('img')).toBeNull();
+    expect(preview().querySelector('[data-icon="skull"]')).not.toBeNull();
+    await userEvent.click(button('Salvar alterações'));
+    expect(parent.submitted).toEqual([{ ...ENVENENADO, imageAssetId: null }]);
+  });
+
+  it('"Criar condição" with an image sends its asset', async () => {
+    renderNew();
+    await userEvent.type(nameField(), 'Cego');
+    await choosePng();
+    await userEvent.click(button('Criar condição'));
+    expect(parent.submitted).toEqual([
+      { ...NEW_CONDITION_VALUES, name: 'Cego', imageAssetId: LYRA_PORTRAIT.id },
+    ]);
+  });
+
+  it('changing only the image enables "Salvar alterações" and "Descartar" and marks the form dirty', async () => {
+    const form = renderEdit();
+    await choosePng();
+    expect(button('Salvar alterações')).toBeEnabled();
+    expect(button('Descartar')).toBeEnabled();
+    expect(form).toHaveAttribute('data-dirty');
+  });
+
+  it('the field says the icon shows when the image does not load', () => {
+    renderEdit();
+    expect(screen.getByText('O ícone aparece se a imagem não carregar.')).toBeInTheDocument();
+  });
+
+  it('a GIF is refused before sending, asking for PNG, JPEG or WebP', async () => {
+    renderEdit();
+    const gif = new File([new Uint8Array(64)], 'cego.gif', { type: 'image/gif' });
+    fireEvent.change(screen.getByLabelText('Arquivo de imagem'), { target: { files: [gif] } });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Use PNG, JPEG ou WebP.');
+    expect(assets.sent).toEqual([]);
+  });
+
+  it('an image the server refuses says why and keeps what was typed, no image chosen', async () => {
+    renderEdit();
+    await userEvent.type(nameField(), ' forte');
+    assets.answerWith({ ok: false, failure: { kind: 'unsupported' } });
+    await act(async () => {
+      await choosePng();
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Use PNG, JPEG ou WebP.');
+    expect(nameField()).toHaveValue('Envenenado forte');
+    expect(preview().querySelector('img')).toBeNull();
   });
 });

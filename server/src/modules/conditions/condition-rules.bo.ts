@@ -88,7 +88,16 @@ function defaultOf(
   icon: NewConditionDefinition['icon'],
   look: NewConditionDefinition['look'] = null,
 ): NewConditionDefinition {
-  return { name, tone, icon, look, color: null, description: '', maxStacks: null };
+  return {
+    name,
+    tone,
+    icon,
+    look,
+    color: null,
+    description: '',
+    maxStacks: null,
+    imageAssetId: null,
+  };
 }
 
 // A condition that does not stack (`maxStacks: null`) only ever has the one.

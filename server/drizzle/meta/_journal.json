@@ -393,6 +393,13 @@
       "when": 1792953495991,
       "tag": "0055_condition_image_purpose",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1792953773820,
+      "tag": "0056_condition_image",
+      "breakpoints": true
     }
   ]
 }

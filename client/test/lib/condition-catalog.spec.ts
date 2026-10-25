@@ -246,3 +246,39 @@ describe('the stacks of the active conditions after a definition update', () => 
     expect(token?.conditions[0]).toMatchObject({ maxStacks: 2, stacks: 2 });
   });
 });
+
+describe('the image of the active conditions after a definition update', () => {
+  const IMAGE_ID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+  const pictured = conditionDefinition({ imageAssetId: IMAGE_ID });
+
+  it('an image put on the definition reaches every token holding it, rounds kept', () => {
+    const tokens = [lyra({ conditions: [poisonedOn(2)] }), kael({ conditions: [poisonedOn(4)] })];
+    const shown = tokensShowingDefinition(tokens, pictured);
+    expect(shown.map(({ conditions }) => conditions[0])).toEqual([
+      expect.objectContaining({ imageAssetId: IMAGE_ID, remainingRounds: 2 }),
+      expect.objectContaining({ imageAssetId: IMAGE_ID, remainingRounds: 4 }),
+    ]);
+  });
+
+  it('an image taken off the definition goes back to null on the tokens', () => {
+    const pictureOn = activeCondition({ imageAssetId: IMAGE_ID });
+    const [token] = tokensShowingDefinition([kael({ conditions: [pictureOn] })], poisoned);
+    expect(token?.conditions[0]?.imageAssetId).toBeNull();
+  });
+
+  it('a loose token in a grid follows the image of the cast list', () => {
+    const tokens = [kael({ conditions: [poisonedOn(3)] })];
+    const [token] = tokensOverCatalog(tokens, [poisoned], [pictured]);
+    expect(token?.conditions[0]).toMatchObject({ imageAssetId: IMAGE_ID, remainingRounds: 3 });
+  });
+
+  it('the same image saved again gives back the same tokens array', () => {
+    const tokens = [kael({ conditions: [activeCondition({ imageAssetId: IMAGE_ID })] })];
+    expect(tokensShowingDefinition(tokens, pictured)).toBe(tokens);
+  });
+
+  it('a change of the image alone gives a new tokens array', () => {
+    const tokens = [kael({ conditions: [poisonedOn(2)] })];
+    expect(tokensShowingDefinition(tokens, pictured)).not.toBe(tokens);
+  });
+});

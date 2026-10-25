@@ -32,6 +32,7 @@ const CAIDO = {
   look: null,
   description: '',
   maxStacks: null,
+  imageAssetId: null,
 } as const;
 
 describe('condition on several tokens', () => {

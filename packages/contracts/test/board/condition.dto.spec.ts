@@ -104,6 +104,7 @@ describe('activeConditionDto', () => {
     color: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
     stacks: 1,
     remainingRounds: null,
   };
@@ -169,6 +170,7 @@ describe('conditionsAppliedDto', () => {
       color: null,
       description: 'Deitado no chão.',
       maxStacks: null,
+      imageAssetId: null,
       stacks: 1,
       remainingRounds: null,
     };
@@ -244,7 +246,13 @@ describe('the description of a condition', () => {
       look: null,
     };
     expect(conditionDefinitionDto.safeParse(definition).success).toBe(false);
-    const whole = { ...definition, color: null, description: '', maxStacks: null };
+    const whole = {
+      ...definition,
+      color: null,
+      description: '',
+      maxStacks: null,
+      imageAssetId: null,
+    };
     expect(conditionDefinitionDto.parse(whole).description).toBe('');
   });
 });
@@ -260,6 +268,7 @@ describe('updateConditionDefinitionCommandDto', () => {
     color: null,
     description: ' Desvantagem em ataques. ',
     maxStacks: null,
+    imageAssetId: null,
   };
 
   it('a whole definition is accepted, name and description trimmed', () => {
@@ -346,6 +355,7 @@ describe('the stacks of a condition', () => {
     color: null,
     description: '',
     maxStacks: 5,
+    imageAssetId: null,
     remainingRounds: 3,
   };
 
@@ -368,6 +378,7 @@ describe('the stacks of a condition', () => {
       look: null,
       color: null,
       description: '',
+      imageAssetId: null,
     };
     expect(updateConditionDefinitionCommandDto.safeParse(update).success).toBe(false);
     expect(updateConditionDefinitionCommandDto.parse({ ...update, maxStacks: 6 }).maxStacks).toBe(
@@ -430,9 +441,76 @@ describe('the color of a condition', () => {
       look: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     };
     expect(updateConditionDefinitionCommandDto.safeParse(update).success).toBe(false);
     const painted = updateConditionDefinitionCommandDto.parse({ ...update, color: 'ember' });
     expect(painted.color).toBe('ember');
+  });
+});
+
+describe('the image of a condition', () => {
+  const IMAGE_ID = '2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f';
+  const define = { ...BASE, name: 'Queimando', tone: 'harm', icon: 'flame' };
+  const update = {
+    ...define,
+    conditionId: CONDITION_ID,
+    look: null,
+    color: null,
+    description: '',
+    maxStacks: null,
+  };
+  const definition = {
+    id: CONDITION_ID,
+    name: 'Queimando',
+    tone: 'harm',
+    icon: 'flame',
+    look: null,
+    color: null,
+    description: '',
+    maxStacks: null,
+  };
+  const active = {
+    ...definition,
+    conditionId: CONDITION_ID,
+    stacks: 1,
+    remainingRounds: null,
+  };
+
+  it('a define command without an image defines one shown by its icon (imageAssetId null)', () => {
+    expect(defineConditionCommandDto.parse(define).imageAssetId).toBeNull();
+  });
+
+  it('a define command with an image asset id keeps it', () => {
+    const parsed = defineConditionCommandDto.parse({ ...define, imageAssetId: IMAGE_ID });
+    expect(parsed.imageAssetId).toBe(IMAGE_ID);
+  });
+
+  it('an update with imageAssetId null (back to the icon) is accepted', () => {
+    const parsed = updateConditionDefinitionCommandDto.parse({ ...update, imageAssetId: null });
+    expect(parsed.imageAssetId).toBeNull();
+  });
+
+  it('an update without the imageAssetId is refused: it replaces the whole definition', () => {
+    expect(updateConditionDefinitionCommandDto.safeParse(update).success).toBe(false);
+  });
+
+  it('an imageAssetId that is not a uuid (x.png) is refused', () => {
+    const named = { ...define, imageAssetId: 'x.png' };
+    expect(defineConditionCommandDto.safeParse(named).success).toBe(false);
+    const updated = { ...update, imageAssetId: 'x.png' };
+    expect(updateConditionDefinitionCommandDto.safeParse(updated).success).toBe(false);
+  });
+
+  it('a definition without the imageAssetId field is refused (strict) and one with it passes', () => {
+    expect(conditionDefinitionDto.safeParse(definition).success).toBe(false);
+    const pictured = conditionDefinitionDto.parse({ ...definition, imageAssetId: IMAGE_ID });
+    expect(pictured.imageAssetId).toBe(IMAGE_ID);
+  });
+
+  it('an active condition without the imageAssetId field is refused (strict) and one with it passes', () => {
+    expect(activeConditionDto.safeParse(active).success).toBe(false);
+    const pictured = activeConditionDto.parse({ ...active, imageAssetId: IMAGE_ID });
+    expect(pictured.imageAssetId).toBe(IMAGE_ID);
   });
 });

@@ -67,6 +67,12 @@ describe('ConditionCardGrid', () => {
     expect(within(card('Envenenado')).getByText('Desvantagem.')).toHaveClass('line-clamp-3');
   });
 
+  it('a card of a condition with an image shows it in its mark', () => {
+    renderGrid([{ ...ENVENENADO, imageAssetId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' }]);
+    const image = card('Envenenado').querySelector('img');
+    expect(image).toHaveAttribute('src', '/api/assets/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d');
+  });
+
   it('a card without description says "Sem descrição"', () => {
     renderGrid([CAIDO]);
     expect(card('Caído')).toHaveTextContent('CaídoSem descrição');

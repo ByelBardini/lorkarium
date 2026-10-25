@@ -2,6 +2,7 @@ import { CONDITION_DESCRIPTION_MAX_LENGTH, CONDITION_NAME_MAX_LENGTH } from '@lo
 import { LoaderCircleIcon } from 'lucide-react';
 import { useId, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { FormField } from '@/components/form-field';
+import { ImagePicker } from '@/components/image-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,6 +10,7 @@ import { ConditionIconField } from '@/features/combat/condition-icon-field';
 import { ConditionLookField } from '@/features/combat/condition-look-field';
 import { ConditionTagPreview } from '@/features/combat/condition-tag';
 import { ConditionToneField } from '@/features/combat/condition-tone-field';
+import type { AssetsApi } from '@/services/assets-api';
 import type { BoardCommandFailure, BoardCommandResult } from '@/services/table-board-commands';
 import { catalogFailureMessage, type ConditionFormValues } from './condition-catalog-link';
 import {
@@ -21,12 +23,16 @@ import {
 import { ConditionColorField } from './condition-color-field';
 import { ConditionStacksField } from './condition-stacks-field';
 
+/** Where the form's "Imagem" sends the picture: the table's assets. */
+export type ConditionImageTarget = Readonly<{ campaignId: string; assets: AssetsApi }>;
+
 export type ConditionDefinitionFormProps = Readonly<{
   /** `edit` saves changes to a condition of the list; `new` creates one. */
   mode: 'edit' | 'new';
   /** The form's name, e.g. "Editar Envenenado" or "Nova condição". */
   label: string;
   initial: ConditionFormValues;
+  images: ConditionImageTarget;
   /** Beside the title, e.g. "Excluir Envenenado". */
   action?: ReactNode;
   /** Sends the values (name and description trimmed, the stacks parsed). */
@@ -42,12 +48,12 @@ type FormState = Readonly<{
 }>;
 
 /** A condition of the table's list being written, in the editor of "Condições da mesa": the
- *  title with the tag as a token shows it (live), name, icon and nature, color, look on the token,
- *  stacking and description ("N/500"). An edit saves only a change ("Descartar" goes back to the
+ *  title with the tag as a token shows it (live), name, icon and nature, image (in place of the
+ *  icon), color, look on the token, stacking and description ("N/500"). An edit saves only a change ("Descartar" goes back to the
  *  saved one, as does Esc); a new one is created or given up. A refusal keeps what was typed and
  *  says why.
  *
- *  Example: `<ConditionDefinitionForm mode="new" label="Nova condição" initial={NEW_CONDITION_VALUES} onSubmit={create} onCancel={close} />` */
+ *  Example: `<ConditionDefinitionForm mode="new" label="Nova condição" initial={NEW_CONDITION_VALUES} images={{ campaignId, assets }} onSubmit={create} onCancel={close} />` */
 export function ConditionDefinitionForm(props: ConditionDefinitionFormProps): React.JSX.Element {
   const fresh: FormState = {
     draft: conditionFormDraftOf(props.initial),
@@ -78,6 +84,7 @@ export function ConditionDefinitionForm(props: ConditionDefinitionFormProps): Re
         draft={state.draft}
         failure={state.failure}
         autoFocus={props.mode === 'new'}
+        images={props.images}
         onChange={change}
       />
       <FormFooter
@@ -145,10 +152,11 @@ type FieldsProps = Readonly<{
   draft: ConditionFormDraft;
   failure: BoardCommandFailure | null;
   autoFocus: boolean;
+  images: ConditionImageTarget;
   onChange: (edit: Partial<ConditionFormDraft>) => void;
 }>;
 
-function ConditionFormFields({ draft, failure, autoFocus, onChange }: FieldsProps) {
+function ConditionFormFields({ draft, failure, autoFocus, images, onChange }: FieldsProps) {
   return (
     <div className="grid gap-x-6 gap-y-5 @3xl:grid-cols-2">
       <NameField
@@ -158,6 +166,11 @@ function ConditionFormFields({ draft, failure, autoFocus, onChange }: FieldsProp
         onChange={(name) => onChange({ name })}
       />
       <IconAndToneFields draft={draft} onChange={onChange} />
+      <ImageField
+        value={draft.imageAssetId}
+        images={images}
+        onChange={(imageAssetId) => onChange({ imageAssetId })}
+      />
       <ConditionColorField
         value={draft.color}
         tone={draft.tone}
@@ -199,6 +212,30 @@ function IconAndToneFields({ draft, onChange }: DraftFieldProps): React.JSX.Elem
         />
         <ConditionToneField value={draft.tone} onChange={(tone) => onChange({ tone })} />
       </div>
+    </div>
+  );
+}
+
+type ImageFieldProps = Readonly<{
+  value: string | null;
+  images: ConditionImageTarget;
+  onChange: (imageAssetId: string | null) => void;
+}>;
+
+// The image covers the disc where the icon goes; the icon stays saved as its fallback.
+function ImageField({ value, images, onChange }: ImageFieldProps): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-1">
+      <ImagePicker
+        campaignId={images.campaignId}
+        purpose="condition"
+        assets={images.assets}
+        value={value}
+        onChange={(asset) => onChange(asset?.id ?? null)}
+        label="Imagem"
+        removeLabel="Voltar ao ícone"
+      />
+      <p className="text-[13px] text-muted-foreground">O ícone aparece se a imagem não carregar.</p>
     </div>
   );
 }

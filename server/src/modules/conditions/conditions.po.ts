@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { assets } from '../assets/assets.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { tokens } from '../tokens/tokens.po';
 
@@ -36,6 +37,9 @@ export const conditionDefinitions = pgTable(
     description: text('description').notNull().default(''),
     // How many times it piles up at most (2..99, the contract checks); null = it does not stack.
     maxStacks: integer('max_stacks'),
+    // The master's image in place of the icon; null = only the icon. The icon stays saved as the
+    // fallback, so losing the asset (set null) brings the icon back instead of losing the condition.
+    imageAssetId: uuid('image_asset_id').references(() => assets.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -79,5 +83,6 @@ export type NewConditionDefinition = Readonly<{
   color: ConditionDefinitionPo['color'];
   description: string;
   maxStacks: ConditionDefinitionPo['maxStacks'];
+  imageAssetId: ConditionDefinitionPo['imageAssetId'];
 }>;
 export type ActiveConditionPo = typeof activeConditions.$inferSelect;

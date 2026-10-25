@@ -8,6 +8,7 @@ import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { toCampaignAccessBo } from '../campaigns/campaigns.mapper';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { inLockedCast } from '../scenes/locked-cast';
+import { requireAssetsOf } from '../tokens/token-transaction';
 import { gridEventBase, type GridEventBase, type SavedInScene } from '../scenes/locked-scene';
 import { ConditionRulesBo } from './condition-rules.bo';
 import type { ConditionsDao } from './conditions.dao';
@@ -52,6 +53,7 @@ export class ConditionCatalogService {
     const { conditionId } = command;
     const saved = await inLockedCast(this.deps.transaction, campaignId, async ({ daos }) => {
       await knownDefinition(daos, campaignId, conditionId);
+      await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
       const sameName = await daos.conditions.findDefinitionByName(campaignId, command.name);
       RULES.requireNameFree(conditionId, sameName);
       const fields = toNewConditionDefinition(command);

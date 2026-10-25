@@ -48,6 +48,11 @@ describe('ConditionRulesBo', () => {
     expect(icons).not.toContain('circle-dot');
   });
 
+  it('the 11 initial conditions are born with no image, shown by their icon', () => {
+    expect(DEFAULT_CONDITIONS.filter(({ imageAssetId }) => imageAssetId !== null)).toEqual([]);
+    expect(DEFAULT_CONDITIONS).toHaveLength(11);
+  });
+
   it('the server defaults are the names of the contract, in the same order', () => {
     expect(DEFAULT_CONDITIONS.map(({ name }) => name)).toEqual([...DEFAULT_CONDITION_NAMES]);
   });
@@ -66,6 +71,7 @@ describe('ConditionRulesBo', () => {
           color: null,
           description: '',
           maxStacks: null,
+          imageAssetId: null,
         },
       ]);
     });

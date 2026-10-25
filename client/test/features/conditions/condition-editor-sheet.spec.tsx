@@ -54,8 +54,20 @@ describe('ConditionEditorSheet (edit)', () => {
           description: 'Desvantagem.',
           maxStacks: 5,
           color: null,
+          imageAssetId: null,
         },
       },
+    ]);
+  });
+
+  it('saving a condition that has an image sends its imageAssetId back, so the edit keeps it', async () => {
+    const imageAssetId = 'f1e2d3c4-b5a6-4978-8a6b-5c4d3e2f1a0b';
+    const { commands } = renderCatalog([{ ...ENVENENADO, imageAssetId }]);
+    const sheet = await openEditor('Envenenado');
+    await userEvent.type(within(sheet).getByLabelText('Nome'), ' forte');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar alterações' }));
+    expect(commands.sentAs('updateConditionDefinition')).toEqual([
+      expect.objectContaining({ fields: expect.objectContaining({ imageAssetId }) }),
     ]);
   });
 
@@ -73,6 +85,20 @@ describe('ConditionEditorSheet (edit)', () => {
     const restarted = editorSheet('Editar Envenenado forte');
     expect(within(restarted).getByLabelText('Nome')).toHaveValue('Envenenado forte');
     expect(within(restarted).getByRole('button', { name: 'Salvar alterações' })).toBeDisabled();
+  });
+
+  it("another master's new image of the open condition shows in the preview, nothing to save", async () => {
+    const imageAssetId = 'f1e2d3c4-b5a6-4978-8a6b-5c4d3e2f1a0b';
+    const { confirm } = renderCatalog([ENVENENADO]);
+    await openEditor('Envenenado');
+    confirm({
+      type: 'conditionDefinitionUpdated',
+      payload: { definition: { ...ENVENENADO, imageAssetId } },
+    });
+    const sheet = editorSheet('Editar Envenenado');
+    const preview = within(sheet).getByText('No token:').nextElementSibling;
+    expect(preview?.querySelector('img')).toHaveAttribute('src', `/api/assets/${imageAssetId}`);
+    expect(within(sheet).getByRole('button', { name: 'Salvar alterações' })).toBeDisabled();
   });
 
   it("another master's edit of the open condition shows in the form", async () => {
@@ -162,6 +188,7 @@ describe('ConditionEditorSheet (new)', () => {
         description: 'Perde 1 PV por rodada.',
         maxStacks: null,
         color: null,
+        imageAssetId: null,
       },
     ]);
   });

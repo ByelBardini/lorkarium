@@ -13,6 +13,9 @@ import {
   VHARN_ID,
   campaignMemberPo,
 } from '../../support/campaigns-factories';
+import { AssetsDaoFake } from '../../support/assets-fakes';
+import { QUELM_MAP_ID, lyraPortraitPo } from '../../support/assets-factories';
+import { CombatDaoFake } from '../../support/combat-fakes';
 import { ConditionTransactionRunnerFake, ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_CAST_ID, VHARN_SCENE_ID, castPo, scenePo } from '../../support/scenes-factories';
@@ -24,10 +27,12 @@ import type { ConditionCatalogServiceDeps } from '../../../src/modules/condition
 
 const NOW = new Date('2026-10-24T21:00:00Z');
 const SANGRANDO_OF_QUELM = `${QUELM_ID}-Sangrando`;
+const VENENO_ART_ID = '7d6c5b4a-3e2f-4a1b-8c9d-0e1f2a3b4c5d';
 
 describe('ConditionCatalogService', () => {
   let scenes: ScenesDaoFake;
   let conditions: ConditionsDaoFake;
+  let assets: AssetsDaoFake;
   let publisher: BoardPublisherFake;
   let service: ConditionCatalogService;
   let deps: ConditionCatalogServiceDeps;
@@ -49,7 +54,21 @@ describe('ConditionCatalogService', () => {
     cego = conditions.define(VHARN_ID, 'Cego', 'harm', 'eye-off');
     conditions.define(QUELM_ID, 'Sangrando', 'harm');
     publisher = new BoardPublisherFake(scenes.journal);
-    const transaction = new ConditionTransactionRunnerFake(scenes, tokens, conditions);
+    assets = new AssetsDaoFake(
+      [],
+      [
+        lyraPortraitPo({ id: VENENO_ART_ID, purpose: 'condition', width: 256, height: 256 }),
+        lyraPortraitPo({ id: QUELM_MAP_ID, campaignId: QUELM_ID, purpose: 'condition' }),
+      ],
+    );
+    const combat = new CombatDaoFake();
+    const transaction = new ConditionTransactionRunnerFake(
+      scenes,
+      tokens,
+      conditions,
+      combat,
+      assets,
+    );
     deps = {
       members,
       transaction: transaction.run,
@@ -98,6 +117,7 @@ describe('ConditionCatalogService', () => {
               look: null,
               description: 'Desvantagem em ataques.',
               maxStacks: null,
+              imageAssetId: null,
               color: null,
             },
           },
@@ -151,6 +171,66 @@ describe('ConditionCatalogService', () => {
     });
   });
 
+  describe('update of the image', () => {
+    it('an image of the table is saved and goes out in condition:definitionUpdated', async () => {
+      const version = await service.update(
+        ANA_ID,
+        VHARN_ID,
+        envenenadoEdit({ imageAssetId: VENENO_ART_ID }),
+      );
+
+      expect(version).toBe(3);
+      expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+      expect(conditions.definitions.find(({ id }) => id === envenenado)?.imageAssetId).toBe(
+        VENENO_ART_ID,
+      );
+      expect(publisher.catalogEvents).toEqual([
+        expect.objectContaining({
+          event: expect.objectContaining({
+            definition: expect.objectContaining({ id: envenenado, imageAssetId: VENENO_ART_ID }),
+          }),
+        }),
+      ]);
+    });
+
+    it('no image (null) does not look up the assets', async () => {
+      await service.update(ANA_ID, VHARN_ID, envenenadoEdit({ imageAssetId: null }));
+
+      expect(assets.lookups).toEqual([]);
+    });
+
+    it('an image of another table is ASSET_NOT_FOUND citing it: nothing saved nor published', async () => {
+      const update = service.update(
+        ANA_ID,
+        VHARN_ID,
+        envenenadoEdit({ imageAssetId: QUELM_MAP_ID }),
+      );
+
+      await expect(update).rejects.toMatchObject({
+        code: 'ASSET_NOT_FOUND',
+        message: expect.stringContaining(QUELM_MAP_ID),
+      });
+      expect(scenes.journal).toEqual(['lock cast']);
+      expect(conditions.definitions.find(({ id }) => id === envenenado)).toMatchObject({
+        imageAssetId: null,
+        description: '',
+      });
+      expect(publisher.published).toBe(0);
+    });
+
+    it('a player giving an image is FORBIDDEN before anything is locked or looked up', async () => {
+      const update = service.update(
+        BIA_ID,
+        VHARN_ID,
+        envenenadoEdit({ imageAssetId: VENENO_ART_ID }),
+      );
+
+      await expect(update).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(scenes.journal).toEqual([]);
+      expect(assets.lookups).toEqual([]);
+    });
+  });
+
   describe('update of the stacks cap', () => {
     let sangrando: string;
     let stacksSeen: StacksAtPublishPublisherFake;
@@ -173,6 +253,7 @@ describe('ConditionCatalogService', () => {
         look: null,
         description: '',
         maxStacks,
+        imageAssetId: null,
         color: null,
       };
     }
@@ -361,6 +442,7 @@ function envenenadoEditOf(
     color: null,
     description: 'Desvantagem em ataques.',
     maxStacks: null,
+    imageAssetId: null,
     ...overrides,
   };
 }

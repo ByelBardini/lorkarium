@@ -60,6 +60,17 @@ describe('conditions route', () => {
     expect(screen.getByRole('application').closest('.invisible')).not.toBeNull();
   });
 
+  it('the image field of the sheet sends to the assets of the app, for this table, as a condition image', async () => {
+    await openConditionsPage();
+    deps.tableSessionApi.emitToCast(VHARN.id, { kind: 'board', state: vharnBoard() });
+    await userEvent.click(screen.getByRole('button', { name: 'Nova condição' }));
+    const png = new File([new Uint8Array(64)], 'cego.png', { type: 'image/png' });
+    await userEvent.upload(await screen.findByLabelText('Arquivo de imagem'), png);
+    expect(deps.assets.sent).toEqual([
+      { kind: 'upload', campaignId: VHARN.id, file: png, purpose: 'condition' },
+    ]);
+  });
+
   it('a player has no "Condições" link, and the URL takes them back to the room', async () => {
     deps.campaignsApi.answer('detail', { ok: true, value: detailOf(QUELM) });
     renderAt(`/campaigns/${QUELM.id}/table/conditions`);

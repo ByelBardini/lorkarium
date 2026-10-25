@@ -461,6 +461,7 @@ describe('board store', () => {
         look: null,
         description: '',
         maxStacks: null,
+        imageAssetId: null,
       } as const;
       apply(on(eventAt(5, { type: 'conditionDefined', payload: { definition } })));
       expect(store.getState().board?.conditionDefinitions).toEqual([definition]);

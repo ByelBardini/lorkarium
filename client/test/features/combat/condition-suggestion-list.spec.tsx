@@ -12,6 +12,7 @@ const ENVENENADO: ConditionDefinitionDto = {
   look: null,
   description: 'Desvantagem em ataques.',
   maxStacks: null,
+  imageAssetId: null,
 };
 const CAIDO: ConditionDefinitionDto = { ...ENVENENADO, id: 'c-2', name: 'Caído', description: '' };
 
@@ -30,6 +31,23 @@ function renderList({ active = 0, onKeyDown }: ListOptions = {}): void {
 }
 
 describe('ConditionSuggestionList', () => {
+  it('a suggestion with an image shows it in its mark', () => {
+    const pictured = { ...ENVENENADO, imageAssetId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' };
+    render(
+      <ConditionSuggestionList
+        id="list"
+        suggestions={[pictured]}
+        active={0}
+        onTake={() => undefined}
+      />,
+    );
+    const option = screen.getByRole('option', { name: 'Envenenado' });
+    expect(option.querySelector('img')).toHaveAttribute(
+      'src',
+      '/api/assets/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+    );
+  });
+
   it('a described option shows its description on one line and is named by the name alone', () => {
     renderList();
     const option = screen.getByRole('option', { name: 'Envenenado' });

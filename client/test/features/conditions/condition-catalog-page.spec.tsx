@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ConditionCatalogPage } from '@/features/conditions/condition-catalog-page';
 import { createBoardStore } from '@/stores/board-store';
+import { AssetsApiFake } from '../../support/assets-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { VHARN_GRID } from '../../support/table-session-fixtures';
@@ -37,7 +38,8 @@ describe('ConditionCatalogPage', () => {
   it('before the cast has its snapshot it says the conditions are loading', () => {
     const cast = createBoardStore(VHARN.id, () => undefined);
     const commands = new TableBoardCommandsFake();
-    render(<ConditionCatalogPage link={{ scope: VHARN_GRID, cast, commands }} />);
+    const assets = new AssetsApiFake();
+    render(<ConditionCatalogPage link={{ scope: VHARN_GRID, cast, commands, assets }} />);
     expect(screen.getByText('Carregando as condições…')).toBeInTheDocument();
     expect(screen.queryByLabelText('Buscar condição')).toBeNull();
   });

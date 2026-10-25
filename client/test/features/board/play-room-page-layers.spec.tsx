@@ -24,6 +24,7 @@ const CAIDO = {
   look: null,
   description: '',
   maxStacks: null,
+  imageAssetId: null,
 } as const;
 
 describe('play room: layers', () => {

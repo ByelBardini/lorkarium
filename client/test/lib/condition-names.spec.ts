@@ -19,6 +19,7 @@ const DEFINITIONS: readonly ConditionDefinitionDto[] = [
     look: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
   },
   {
     id: 'b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e',
@@ -29,6 +30,7 @@ const DEFINITIONS: readonly ConditionDefinitionDto[] = [
     look: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
   },
   {
     id: 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f',
@@ -39,6 +41,7 @@ const DEFINITIONS: readonly ConditionDefinitionDto[] = [
     look: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
   },
   {
     id: 'd1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a',
@@ -49,6 +52,7 @@ const DEFINITIONS: readonly ConditionDefinitionDto[] = [
     look: null,
     description: '',
     maxStacks: null,
+    imageAssetId: null,
   },
 ];
 
@@ -104,6 +108,7 @@ describe('orderedByTone', () => {
       look: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     } as const;
     const benefit = {
       id: 'b',
@@ -114,6 +119,7 @@ describe('orderedByTone', () => {
       look: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     } as const;
     const harmB = {
       id: 'c',
@@ -124,6 +130,7 @@ describe('orderedByTone', () => {
       look: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     } as const;
     expect(orderedByTone([harmA, benefit, harmB]).map(({ id }) => id)).toEqual(['b', 'a', 'c']);
   });
@@ -138,6 +145,7 @@ describe('orderedByTone', () => {
       look: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     } as const;
     const stop = {
       id: 'b',
@@ -148,6 +156,7 @@ describe('orderedByTone', () => {
       look: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     } as const;
     const benefit = {
       id: 'c',
@@ -158,6 +167,7 @@ describe('orderedByTone', () => {
       look: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     } as const;
     expect(orderedByTone([harm, stop, benefit]).map(({ id }) => id)).toEqual(['c', 'b', 'a']);
   });

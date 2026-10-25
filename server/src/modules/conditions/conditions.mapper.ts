@@ -10,22 +10,22 @@ import type { ConditionDefinitionPo, NewConditionDefinition } from './conditions
  *
  *  Example: `await conditions.updateDefinition(campaignId, command.conditionId, toNewConditionDefinition(command))` */
 export function toNewConditionDefinition(command: NewConditionDefinition): NewConditionDefinition {
-  const { name, tone, icon, look, color, description, maxStacks } = command;
-  return { name, tone, icon, look, color, description, maxStacks };
+  const { name, tone, icon, look, color, description, maxStacks, imageAssetId } = command;
+  return { name, tone, icon, look, color, description, maxStacks, imageAssetId };
 }
 
 /** Example: `toConditionDefinitionDto(await conditions.insertDefinition(campaignId, input))` */
 export function toConditionDefinitionDto(
   definition: ConditionDefinitionPo,
 ): ConditionDefinitionDto {
-  const { id, name, tone, icon, look, color, description, maxStacks } = definition;
-  return { id, name, tone, icon, look, color, description, maxStacks };
+  const { id, name, tone, icon, look, color, description, maxStacks, imageAssetId } = definition;
+  return { id, name, tone, icon, look, color, description, maxStacks, imageAssetId };
 }
 
 /** Example: `toActiveConditionDto(await conditions.apply(tokenId, conditionId, duration))` */
 export function toActiveConditionDto(row: ActiveConditionRow): ActiveConditionDto {
   const { id, conditionId, name, tone, icon, look, description, remainingRounds } = row;
-  const { color, maxStacks, stacks } = row;
+  const { color, maxStacks, imageAssetId, stacks } = row;
   return {
     id,
     conditionId,
@@ -36,6 +36,7 @@ export function toActiveConditionDto(row: ActiveConditionRow): ActiveConditionDt
     color,
     description,
     maxStacks,
+    imageAssetId,
     stacks,
     remainingRounds,
   };

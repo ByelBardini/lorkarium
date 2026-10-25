@@ -1,11 +1,15 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
+import { eq } from 'drizzle-orm';
 import { UsersDao } from '../../src/modules/auth/users.dao';
+import { AssetsDao } from '../../src/modules/assets/assets.dao';
+import { assets } from '../../src/modules/assets/assets.po';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
 import { DEFAULT_CONDITIONS } from '../../src/modules/conditions/condition-rules.bo';
 import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { TokensDao } from '../../src/modules/tokens/tokens.dao';
+import { newAssetPo } from '../support/assets-factories';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
 import { CountingQueryLog } from '../support/query-count';
@@ -76,6 +80,7 @@ describe('ConditionsDao on Postgres', () => {
     color: null,
     description: 'Desvantagem em ataques.',
     maxStacks: null,
+    imageAssetId: null,
   } as const;
 
   it('the initial list has the 11 conditions, benefits and harms, by name', async () => {
@@ -112,6 +117,7 @@ describe('ConditionsDao on Postgres', () => {
       color: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     });
     expect(saved).toMatchObject({ tone: 'incapacitating', look: 'unconscious' });
     expect(await conditions.findDefinitionByName(vharnId, 'inconsciente')).toMatchObject({
@@ -149,6 +155,7 @@ describe('ConditionsDao on Postgres', () => {
       color: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     });
     await expect(duplicate).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } });
     expect(await conditions.findDefinitionByName(vharnId, 'ENVENENADO')).toMatchObject({
@@ -416,6 +423,80 @@ describe('ConditionsDao on Postgres', () => {
         await stacksOf(goblin, sangrando),
         await stacksOf(lyraId, queimando),
       ]).toEqual([2, 1, 5]);
+    });
+  });
+
+  describe('the image of a definition', () => {
+    async function conditionImageOf(campaignId: string): Promise<string> {
+      const asset = newAssetPo({ campaignId, purpose: 'condition', width: 256, height: 256 });
+      return (await new AssetsDao(connection.db).insert(asset)).id;
+    }
+
+    it('insertDefinition with an asset of the table saves its imageAssetId', async () => {
+      const imageAssetId = await conditionImageOf(vharnId);
+
+      const saved = await conditions.insertDefinition(vharnId, {
+        ...ENVENENADO_DESCRIBED,
+        name: 'Queimando',
+        imageAssetId,
+      });
+
+      expect(saved.imageAssetId).toBe(imageAssetId);
+      expect(await conditions.findDefinitionInCampaign(vharnId, saved.id)).toMatchObject({
+        imageAssetId,
+      });
+    });
+
+    it('listOfTokens brings the image of the definition on every active condition', async () => {
+      const imageAssetId = await conditionImageOf(vharnId);
+      const cego = await definitionNamed('Cego');
+      await conditions.updateDefinition(vharnId, cego, {
+        ...ENVENENADO_DESCRIBED,
+        name: 'Cego',
+        imageAssetId,
+      });
+      await conditions.apply(lyraId, cego, FOREVER);
+      await conditions.apply(lyraId, await definitionNamed('Caído'), FOREVER);
+
+      const listed = await conditions.listOfTokens([lyraId]);
+
+      expect(listed.map(({ name, imageAssetId: image }) => [name, image])).toEqual(
+        expect.arrayContaining([
+          ['Cego', imageAssetId],
+          ['Caído', null],
+        ]),
+      );
+    });
+
+    it('deleting the asset row leaves image_asset_id null and the definition stays (set null)', async () => {
+      const imageAssetId = await conditionImageOf(vharnId);
+      const saved = await conditions.insertDefinition(vharnId, {
+        ...ENVENENADO_DESCRIBED,
+        name: 'Queimando',
+        imageAssetId,
+      });
+
+      await connection.db.delete(assets).where(eq(assets.id, imageAssetId));
+
+      expect(await conditions.findDefinitionInCampaign(vharnId, saved.id)).toMatchObject({
+        name: 'Queimando',
+        imageAssetId: null,
+      });
+    });
+
+    it('Quelm does not find the definition of Vharn, nor its image', async () => {
+      const imageAssetId = await conditionImageOf(vharnId);
+      const saved = await conditions.insertDefinition(vharnId, {
+        ...ENVENENADO_DESCRIBED,
+        name: 'Queimando',
+        imageAssetId,
+      });
+
+      expect(await conditions.findDefinitionInCampaign(quelmId, saved.id)).toBeUndefined();
+      const quelmImages = (await conditions.listDefinitions(quelmId)).map(
+        ({ imageAssetId: image }) => image,
+      );
+      expect(quelmImages).not.toContain(imageAssetId);
     });
   });
 });

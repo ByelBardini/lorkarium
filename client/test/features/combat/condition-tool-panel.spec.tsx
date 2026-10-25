@@ -24,6 +24,7 @@ function definition(
     look: null,
     description,
     maxStacks: null,
+    imageAssetId: null,
   };
 }
 

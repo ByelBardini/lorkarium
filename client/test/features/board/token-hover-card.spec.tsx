@@ -114,6 +114,21 @@ describe('TokenHoverCard', () => {
     expect(within(item).getByText('Desvantagem em ataques.')).toHaveClass('line-clamp-4');
   });
 
+  it('a condition with an image shows it beside its name', () => {
+    renderCard(
+      kael({
+        conditions: [
+          activeCondition({ name: 'Cego', imageAssetId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' }),
+        ],
+      }),
+    );
+    const item = within(card()).getByRole('listitem');
+    expect(item.querySelector('img')).toHaveAttribute(
+      'src',
+      '/api/assets/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+    );
+  });
+
   it('a condition without description adds no line under its name', () => {
     renderCard(kael({ conditions: [activeCondition({ name: 'Envenenado', description: '' })] }));
     const item = within(card()).getByRole('listitem');

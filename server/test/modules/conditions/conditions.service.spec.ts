@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ConditionsService } from '../../../src/modules/conditions/conditions.service';
+import {
+  ConditionsService,
+  type DefineCondition,
+} from '../../../src/modules/conditions/conditions.service';
 import { ClockFake } from '../../support/auth-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
@@ -11,6 +14,8 @@ import {
   VHARN_ID,
   campaignMemberPo,
 } from '../../support/campaigns-factories';
+import { AssetsDaoFake } from '../../support/assets-fakes';
+import { QUELM_MAP_ID, lyraPortraitPo } from '../../support/assets-factories';
 import { CombatDaoFake, soloEntries } from '../../support/combat-fakes';
 import { ConditionTransactionRunnerFake, ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
@@ -20,11 +25,13 @@ import { TokensDaoFake } from '../../support/tokens-fakes';
 import { BRAM_ID, LYRA_ID, bramRow, lyraRow } from '../../support/tokens-factories';
 
 const NOW = new Date('2026-10-15T21:00:00Z');
+const GOTA_ART_ID = '8e7d6c5b-4a3f-4b2c-9d0e-1f2a3b4c5d6e';
 
 describe('ConditionsService', () => {
   let scenes: ScenesDaoFake;
   let conditions: ConditionsDaoFake;
   let combat: CombatDaoFake;
+  let assets: AssetsDaoFake;
   let publisher: BoardPublisherFake;
   let service: ConditionsService;
   let abencoado: string;
@@ -45,7 +52,20 @@ describe('ConditionsService', () => {
     conditions.define(QUELM_ID, 'Sangrando', 'harm');
     publisher = new BoardPublisherFake(scenes.journal);
     combat = new CombatDaoFake();
-    const transaction = new ConditionTransactionRunnerFake(scenes, tokens, conditions, combat);
+    assets = new AssetsDaoFake(
+      [],
+      [
+        lyraPortraitPo({ id: GOTA_ART_ID, purpose: 'condition', width: 256, height: 256 }),
+        lyraPortraitPo({ id: QUELM_MAP_ID, campaignId: QUELM_ID, purpose: 'condition' }),
+      ],
+    );
+    const transaction = new ConditionTransactionRunnerFake(
+      scenes,
+      tokens,
+      conditions,
+      combat,
+      assets,
+    );
     service = new ConditionsService({
       members,
       transaction: transaction.run,
@@ -143,6 +163,7 @@ describe('ConditionsService', () => {
       color: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     });
     expect(version).toBe(3);
     expect(publisher.conditionEvents).toEqual([
@@ -165,6 +186,7 @@ describe('ConditionsService', () => {
       color: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     });
     expect(version).toBe(2);
     expect(scenes.journal).toEqual(['lock cast', 'commit']);
@@ -184,6 +206,7 @@ describe('ConditionsService', () => {
       color: null,
       description: '',
       maxStacks: null,
+      imageAssetId: null,
     });
     expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
     expect(conditions.definitions.at(-1)).toMatchObject({
@@ -207,9 +230,64 @@ describe('ConditionsService', () => {
         color: null,
         description: '',
         maxStacks: null,
+        imageAssetId: null,
       }),
     ).rejects.toMatchObject({
       code: 'FORBIDDEN',
+    });
+  });
+
+  describe('define with an image', () => {
+    function sangrando(imageAssetId: string | null): DefineCondition {
+      return {
+        name: 'Sangrando',
+        tone: 'harm',
+        icon: 'droplet',
+        look: null,
+        color: null,
+        description: '',
+        maxStacks: null,
+        imageAssetId,
+      };
+    }
+
+    it('an image of the table is saved and goes out in condition:defined', async () => {
+      const version = await service.define(ANA_ID, VHARN_ID, sangrando(GOTA_ART_ID));
+
+      expect(version).toBe(3);
+      expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+      expect(conditions.definitions.at(-1)).toMatchObject({
+        name: 'Sangrando',
+        imageAssetId: GOTA_ART_ID,
+      });
+      expect(publisher.conditionEvents).toEqual([
+        expect.objectContaining({
+          definition: expect.objectContaining({ name: 'Sangrando', imageAssetId: GOTA_ART_ID }),
+        }),
+      ]);
+    });
+
+    it('no image (null) does not look up the assets', async () => {
+      await service.define(ANA_ID, VHARN_ID, sangrando(null));
+
+      expect(assets.lookups).toEqual([]);
+    });
+
+    it('an image of another table is ASSET_NOT_FOUND citing it: nothing saved nor published', async () => {
+      await expect(service.define(ANA_ID, VHARN_ID, sangrando(QUELM_MAP_ID))).rejects.toMatchObject(
+        { code: 'ASSET_NOT_FOUND', message: expect.stringContaining(QUELM_MAP_ID) },
+      );
+      expect(scenes.journal).toEqual(['lock cast']);
+      expect(conditions.definitions.filter(({ name }) => name === 'Sangrando')).toHaveLength(1);
+      expect(publisher.published).toBe(0);
+    });
+
+    it('a player giving an image is FORBIDDEN before anything is locked or looked up', async () => {
+      await expect(service.define(BIA_ID, VHARN_ID, sangrando(GOTA_ART_ID))).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+      expect(scenes.journal).toEqual([]);
+      expect(assets.lookups).toEqual([]);
     });
   });
 
@@ -590,6 +668,7 @@ describe('ConditionsService', () => {
         color: null,
         description: '',
         maxStacks: null,
+        imageAssetId: null,
       } as const;
 
       const version = await service.define(ANA_ID, VHARN_ID, command);

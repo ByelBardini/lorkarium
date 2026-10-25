@@ -24,7 +24,7 @@ export function withDefinitionsAdded(
 }
 
 /** The tokens with every active condition of that definition showing it as saved now (name,
- *  tone, icon, color, look, description, max stacks — the stacks clamped to it, 1 when it no longer
+ *  tone, icon, color, look, description, max stacks, image — the stacks clamped to it, 1 when it no longer
  *  stacks, as the server does); the rounds left stay. Nothing changed → the same array.
  *
  *  Example: `tokensShowingDefinition(board.tokens, poisoned)` */
@@ -94,9 +94,10 @@ function conditionShowing(
   definition: ConditionDefinitionDto | undefined,
 ): ActiveConditionDto {
   if (!definition || showsDefinition(condition, definition)) return condition;
-  const { name, tone, icon, color, look, description, maxStacks } = definition;
+  const { name, tone, icon, color, look, description, maxStacks, imageAssetId } = definition;
   const stacks = stacksWithin(condition.stacks, maxStacks);
-  return { ...condition, name, tone, icon, color, look, description, maxStacks, stacks };
+  const shown = { name, tone, icon, color, look, description, maxStacks, imageAssetId };
+  return { ...condition, ...shown, stacks };
 }
 
 function stacksWithin(stacks: number, maxStacks: number | null): number {
@@ -115,6 +116,7 @@ function showsDefinition(
     condition.look === definition.look &&
     condition.description === definition.description &&
     condition.maxStacks === definition.maxStacks &&
+    condition.imageAssetId === definition.imageAssetId &&
     condition.stacks === stacksWithin(condition.stacks, definition.maxStacks)
   );
 }
