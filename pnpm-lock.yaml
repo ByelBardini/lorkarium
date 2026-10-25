@@ -75,11 +75,11 @@ importers:
         specifier: ^0.7.1
         version: 0.7.1
       cn:
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.5.0
+        version: 0.5.0
       lucide-react:
-        specifier: ^1.57.0
-        version: 1.57.0(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^1.59.0
+        version: 1.59.0(@types/react@19.3.0)(react@19.3.1)
       pixi.js:
         specifier: ^8.22.0
         version: 8.22.0
@@ -296,8 +296,8 @@ packages:
   '@adobe/css-tools@4.5.0':
     resolution: {integrity: sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q==}
 
-  '@asamuzakjp/css-color@7.1.5':
-    resolution: {integrity: sha512-jCpAvj8apa7SKHZYogk0rbXB3Kb0hLFrpkWF+Ap+vBA5rirItnpv9NKyAyEuDuFizvl0qwnj6JWR70RGJ0rOlw==}
+  '@asamuzakjp/css-color@7.1.7':
+    resolution: {integrity: sha512-Q7ioeear07HwixdIitIn9KS1LZi97CEDFCSjPNm9v+y8KNbsu9q4Lrd4zUQW4faED+E7qxvfeVnbNRW46wFKuw==}
     engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
 
   '@asamuzakjp/dom-selector@9.2.4':
@@ -3034,9 +3034,9 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  cn@0.4.0:
-    resolution: {integrity: sha512-qOAeUhPwPzBxx6jaeQdo646XIKliKHc2j1ZF7Ngb1o0pJZKH5gq8FkA0aVdUdPFUDXNXyUCXpCtoJISo6dhizg==}
-    engines: {node: '>=20'}
+  cn@0.5.0:
+    resolution: {integrity: sha512-JGEixZEpfFXm1P5uXwvEobOFLlHwIWi5v4tjd1ZwfiYmcEilkuD2l+054rvJcYCR1B+uVThHeUbgmNz1FwuxuA==}
+    engines: {node: '>=22'}
     hasBin: true
 
   code-block-writer@13.0.3:
@@ -4144,8 +4144,8 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-react@1.57.0:
-    resolution: {integrity: sha512-bXFZEucYhAzLD62Jse76AbTR6LiSLTn3Tqir2f1n8rZrWAdLodYy7jnRZSPIT89dRLk/IseMOUWG82wJtTyTTw==}
+  lucide-react@1.59.0:
+    resolution: {integrity: sha512-5qgMyyCPU6OvnKpLS2t693+ZtiqA8oaSweWoUows0BLFKFf6V75m4+CptpmohZHpD5IuOVIBXHBBiv2vpLJmtw==}
     peerDependencies:
       '@types/react': '*'
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -5117,8 +5117,8 @@ packages:
     resolution: {integrity: sha512-dkrQXeHSaoamnItlYbmzG0wFYrM0ZwDxCIg0A7aKjTyyhh9svRzCNFEzV+Vm05/yehjCzjDZ31KXfGEjYSztDQ==}
     engines: {node: '>=20.18.1'}
 
-  undici@8.12.1:
-    resolution: {integrity: sha512-usz3OVQBeh1LxNn0DzU0voLXMgn5CU/WUdpBsY6Ti5afNao+vTkmn4H/NxoXolc10cOqe2+YIG0Hspq2rsl64w==}
+  undici@8.12.2:
+    resolution: {integrity: sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg==}
     engines: {node: '>=22.19.0'}
 
   unicorn-magic@0.3.0:
@@ -5423,7 +5423,7 @@ snapshots:
 
   '@adobe/css-tools@4.5.0': {}
 
-  '@asamuzakjp/css-color@7.1.5':
+  '@asamuzakjp/css-color@7.1.7':
     dependencies:
       '@csstools/css-calc': 3.4.3(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)
       '@csstools/css-color-parser': 4.2.6(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)
@@ -7927,7 +7927,7 @@ snapshots:
 
   cn@0.2.6: {}
 
-  cn@0.4.0: {}
+  cn@0.5.0: {}
 
   code-block-writer@13.0.3: {}
 
@@ -8740,7 +8740,7 @@ snapshots:
 
   jsdom@30.1.2(@noble/hashes@2.4.0):
     dependencies:
-      '@asamuzakjp/css-color': 7.1.5
+      '@asamuzakjp/css-color': 7.1.7
       '@asamuzakjp/dom-selector': 9.2.4
       '@bramus/specificity': 2.4.3
       '@csstools/css-syntax-patches-for-csstree': 1.1.15(css-tree@3.2.1)
@@ -8754,7 +8754,7 @@ snapshots:
       parse5: 8.0.1
       saxes: 6.0.0
       tough-cookie: 6.0.2
-      undici: 8.12.1
+      undici: 8.12.2
       w3c-xmlserializer: 6.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -8937,7 +8937,7 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-react@1.57.0(@types/react@19.3.0)(react@19.3.1):
+  lucide-react@1.59.0(@types/react@19.3.0)(react@19.3.1):
     dependencies:
       react: 19.3.1
     optionalDependencies:
@@ -9954,7 +9954,7 @@ snapshots:
 
   undici@7.30.0: {}
 
-  undici@8.12.1: {}
+  undici@8.12.2: {}
 
   unicorn-magic@0.3.0: {}
 
