@@ -1,16 +1,28 @@
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import type { Database } from './database';
 
-export const MIGRATIONS_FOLDER = path.resolve(import.meta.dirname, '../../drizzle');
-
-/** Applies the SQL in `server/drizzle/` that the database has not run yet.
+/** The `server/drizzle/` beside a folder directly under `server/`: `src/` under tsx, `dist/` in
+ *  the bundle (where `import.meta.dirname` is `server/dist`, one level shallower than this file).
  *
- *  Example: `await runMigrations(db)` */
-export async function runMigrations(db: Database): Promise<void> {
-  await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+ *  Example: `migrationsFolderOf(import.meta.dirname) // '/app/server/drizzle'` */
+export function migrationsFolderOf(serverSubfolder: string): string {
+  return path.resolve(serverSubfolder, '..', 'drizzle');
+}
+
+export const MIGRATIONS_FOLDER = migrationsFolderOf(path.resolve(import.meta.dirname, '..'));
+
+/** Applies the SQL in `folder` (`server/drizzle/` by default) that the database has not run yet.
+ *
+ *  Example: `await runMigrations(db, migrationsFolderOf(import.meta.dirname))` */
+export async function runMigrations(db: Database, folder = MIGRATIONS_FOLDER): Promise<void> {
+  const journalPath = path.join(folder, 'meta', '_journal.json');
+  await access(journalPath).catch(() => {
+    throw new Error(`no migrations at ${folder}: expected ${journalPath} (the drizzle-kit output)`);
+  });
+  await migrate(db, { migrationsFolder: folder });
 }
 
 /** Applies the pending migrations up to `lastTag` (inclusive) and stops there: the whole migrate
