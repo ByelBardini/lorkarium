@@ -15,6 +15,8 @@ const STILL = { reducedMotion: 'reduce' } as const;
 
 type Cell = readonly [number, number];
 
+const SAMPLING_TIMEOUT_MS = 20_000;
+
 // The cell of a token, read from its card ("Coluna 11, linha 6" → (10, 5)).
 async function cellOf(page: Page, name: string): Promise<Cell> {
   await openCard(page, name);
@@ -65,10 +67,13 @@ async function createLyra(admin: Page): Promise<void> {
 }
 
 // Reads a point every 150 ms for 1.8 s (three loops of the GIF) and says which frames showed.
-async function framesSeenAt(page: Page, cell: Cell): Promise<ReadonlySet<'red' | 'blue'>> {
+// The point is framed once: framing it per sample took the 12 reads past the 5 s of an expect on
+// the CI runner.
+async function framesSeenAt(page: Page, [col, row]: Cell): Promise<ReadonlySet<'red' | 'blue'>> {
+  const at = await cellCenterOf(page, col, row);
   const seen = new Set<'red' | 'blue'>();
   for (let sample = 0; sample < 12; sample += 1) {
-    const { r, b } = await channelsAtCell(page, cell);
+    const { r, b } = await meanChannelsAt(page, at, 6);
     if (Math.abs(r - b) > 0.2) seen.add(r > b ? 'red' : 'blue');
     await page.waitForTimeout(150);
   }
@@ -134,7 +139,10 @@ test('the aura of whoever controls a token reaches the table, follows it, animat
   await expect(image.getByRole('img', { name: 'Imagem escolhida' })).toBeVisible();
   await saveAura(image);
   const beside: Cell = [4, 3];
-  await expect.poll(async () => (await framesSeenAt(admin, beside)).size).toBe(2);
+  // One call reads for 1.8 s and more: the poll needs room for a few of them.
+  await expect
+    .poll(async () => (await framesSeenAt(admin, beside)).size, { timeout: SAMPLING_TIMEOUT_MS })
+    .toBe(2);
   const animate = admin.getByRole('button', { name: 'Animar auras' });
   await expect(animate).toHaveAttribute('aria-pressed', 'true');
   await animate.click();
