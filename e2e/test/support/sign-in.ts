@@ -43,7 +43,24 @@ export async function submitLogin(page: Page, { email, password }: Credentials):
   await page.goto('/login');
   await page.getByLabel('E-mail ou usuário').fill(email);
   await page.getByLabel('Senha', { exact: true }).fill(password);
+  const throttled = await clickEnterAndReadThrottle(page);
+  if (throttled === null) return;
+  await page.waitForTimeout(throttled);
+  await clickEnterAndReadThrottle(page);
+}
+
+// The login allows 5 attempts a minute per IP and e-mail, and a CI retry starts a new worker that
+// signs the same player in again: past the limit, wait the Retry-After once, as a person would.
+async function clickEnterAndReadThrottle(page: Page): Promise<number | null> {
+  const answer = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/auth/login') && response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Entrar' }).click();
+  const response = await answer;
+  if (response.status() !== 429) return null;
+  const seconds = Number(response.headers()['retry-after'] ?? '60');
+  return (Number.isFinite(seconds) ? seconds : 60) * 1000 + 500;
 }
 
 /** A new session through the login screen, never the saved cookie, then the signed-in shell.
