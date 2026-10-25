@@ -52,8 +52,10 @@ export const accountSecurityResponseDto = z.strictObject({ security: accountSecu
 export type AccountSecurityResponseDto = z.infer<typeof accountSecurityResponseDto>;
 
 // The families the user agent is read into; anything else is `other`. Edge and Opera are their
-// own (they carry "Chrome" in the agent too); no version, city or IP is kept.
+// own (they carry "Chrome" in the agent too), and so is the desktop app (`lorkarium`, its WebView2
+// carries "Edg/" too); no version, city or IP is kept.
 export const accountSessionBrowserDto = z.enum([
+  'lorkarium',
   'chrome',
   'edge',
   'firefox',
