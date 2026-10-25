@@ -21,6 +21,8 @@ import type {
   TokenEdit,
   BoardScope,
 } from '@/services/table-board-commands';
+import { AuraEditor } from './aura-editor';
+import type { AuraFormValues } from './aura-form-state';
 import { BarsEditor } from './bars-editor';
 import { TokenBasicsTab } from './token-basics-tab';
 import {
@@ -29,6 +31,8 @@ import {
   parseTokenForm,
   tabHasErrors,
   tokenFormOf,
+  TOKEN_DIALOG_TABS,
+  withAura,
   type TokenDialogTab,
   type TokenFormErrors,
   type TokenFormValues,
@@ -66,7 +70,7 @@ export type TokenDialogProps = Readonly<{
 }>;
 
 /** "Novo token" / "Editar token" (master): the preview at the side (also where the image is
- *  chosen), the tabs "Básico", "Barras" and "Visão e luz", and the footer. Saving with an error
+ *  chosen), the tabs "Básico", "Barras", "Visão e luz" and "Aura", and the footer. Saving with an error
  *  goes to the first tab that has one. Mounted only while open; saving closes on the ack, and the
  *  change itself arrives as the event everyone gets.
  *
@@ -111,6 +115,7 @@ type TokenDialogState = Readonly<{
   form: TokenFormValues;
   setForm: (form: TokenFormValues) => void;
   setImage: (assetId: string | null) => void;
+  setAura: (update: (aura: AuraFormValues) => AuraFormValues) => void;
   errors: TokenFormErrors;
   tab: TokenDialogTab;
   setTab: (tab: TokenDialogTab) => void;
@@ -148,7 +153,9 @@ function useTokenDialog(props: TokenDialogProps): TokenDialogState {
   // The image arrives after an upload: the fields typed meanwhile are kept.
   const setImage = (imageAssetId: string | null): void =>
     setForm((current) => ({ ...current, imageAssetId }));
-  return { form, setForm, setImage, errors, tab, setTab, failure, saving, save, remove };
+  const setAura = (update: (aura: AuraFormValues) => AuraFormValues): void =>
+    setForm((current) => withAura(current, update(current.aura)));
+  return { form, setForm, setImage, setAura, errors, tab, setTab, failure, saving, save, remove };
 }
 
 function sendToken(props: TokenDialogProps, edit: TokenEdit): Promise<BoardCommandResult> {
@@ -163,6 +170,7 @@ const TAB_LABEL: Readonly<Record<TokenDialogTab, string>> = {
   basics: 'Básico',
   bars: 'Barras',
   vision: 'Visão e luz',
+  aura: 'Aura',
 };
 
 function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
@@ -174,7 +182,7 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
       className="min-w-0 flex-1 md:min-h-0"
     >
       <TabsList className="shrink-0 gap-6 px-6 md:px-7" aria-label="Seções do token">
-        {(['basics', 'bars', 'vision'] as const).map((tab) => (
+        {TOKEN_DIALOG_TABS.map((tab) => (
           <TabsTrigger key={tab} value={tab}>
             {TAB_LABEL[tab]}
             {tab === 'bars' && (
@@ -210,6 +218,15 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
             onChange={setForm}
           />
         </TabsContent>
+        <TabsContent value="aura">
+          <AuraEditor
+            form={form.aura}
+            errors={errors.aura ?? {}}
+            distance={props.distance}
+            images={{ campaignId: props.scope.campaignId, assets: props.assets }}
+            onChange={dialog.setAura}
+          />
+        </TabsContent>
       </div>
     </Tabs>
   );
@@ -226,7 +243,7 @@ function SharedNote({ owner }: Readonly<{ owner: string | null | undefined }>) {
 }
 
 function isDialogTab(value: string): value is TokenDialogTab {
-  return value === 'basics' || value === 'bars' || value === 'vision';
+  return TOKEN_DIALOG_TABS.some((tab) => tab === value);
 }
 
 // Never only by color: the tab is named "Básico (com erro)" for the screen reader.

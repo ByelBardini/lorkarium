@@ -123,6 +123,7 @@ type AvatarButtonsProps = Readonly<{
 // The link field of the table images, over the photo's own send (its refusal shows below).
 function linkSenderOf(upload: AvatarUpload): ImageSender {
   return {
+    accept: AVATAR_ACCEPT,
     busy: upload.sending,
     problem: null,
     sendFile: () => undefined,

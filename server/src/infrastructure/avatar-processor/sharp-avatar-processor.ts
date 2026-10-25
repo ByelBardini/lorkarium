@@ -1,10 +1,11 @@
 import { AVATAR_SIDE } from '@lorkarium/contracts';
-import sharp, { type Metadata, type Sharp } from 'sharp';
+import sharp, { type Sharp } from 'sharp';
 import type {
   AvatarOutcome,
   AvatarProcessorPort,
   AvatarRefusal,
 } from '../../modules/profiles/avatar-processor.port';
+import { framesWithin } from '../sharp-frames';
 
 // An animated photo decodes every frame: the budget is pixels × frames, not one frame.
 const DEFAULT_MAX_TOTAL_PIXELS = 100_000_000;
@@ -56,22 +57,11 @@ export class SharpAvatarProcessor implements AvatarProcessorPort {
     if (!KEPT_FORMATS.has(metadata.format)) {
       return refused('format', `format ${metadata.format} is not kept`);
     }
-    const frames = metadata.pages ?? 1;
-    if (frames > this.maxFrames) {
-      return refused('too-many-frames', `the photo has ${frames} frames`, this.framesExpected());
-    }
-    return this.withinPixels(metadata, frames);
-  }
-
-  private withinPixels(metadata: Metadata, frames: number): Inspected {
-    const pixels = metadata.width * (metadata.pageHeight ?? metadata.height) * frames;
-    if (pixels <= this.maxTotalPixels) return { ok: true, frames };
-    const what = `the photo has ${pixels} pixels across ${frames} frames`;
-    return refused('too-many-pixels', what, `expected at most ${this.maxTotalPixels}`);
-  }
-
-  private framesExpected(): string {
-    return `expected at most ${this.maxFrames} frames`;
+    const limits = { maxFrames: this.maxFrames, maxPixels: this.maxTotalPixels };
+    const counted = framesWithin(metadata, limits, 'photo');
+    if (counted.ok) return counted;
+    const { reason, what, expected } = counted.refusal;
+    return refused(reason, what, expected);
   }
 }
 

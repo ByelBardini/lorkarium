@@ -39,6 +39,7 @@ import {
   type TokenWithConditions,
   type TokenWriteDaos,
 } from './token-transaction';
+import { lookAssetIdsOf } from './token-aura.mapper';
 
 type Envelope = 'actionId' | 'campaignId';
 export type CreateTokens = Omit<CreateTokensCommandDto, Envelope>;
@@ -88,11 +89,7 @@ export class TokenBatchService {
       const rules = this.rulesFor(scene, memberIds);
       const rows = command.tokens.map((token) => newTokenRowOf(scene.id, rules, token));
       rules.admit(await daos.tokens.countOfScene(scene.id), rows.length);
-      await requireAssetsOf(
-        daos,
-        campaignId,
-        command.tokens.map((token) => token.imageAssetId),
-      );
+      await requireAssetsOf(daos, campaignId, command.tokens.flatMap(lookAssetIdsOf));
       const created = await daos.tokens.insertMany(rows);
       const pasted = created.map(({ token }, index) => ({
         tokenId: token.id,

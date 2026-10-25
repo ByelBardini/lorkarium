@@ -42,8 +42,9 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 `asset.dto.ts` — a imagem da mesa (detalhe em [`assets.md`](assets.md)).
 
-- `ASSET_MAX_BYTES` (20 MiB, antes de decodificar), `ASSET_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`; GIF e SVG fora) e `assetMimeTypeDto`; `ASSET_URL_MAX_LENGTH` (2048).
-- `assetPurposeDto` (`background` | `token` | `cover` | `condition`) e `ASSET_MAX_SIDE` (`{ background: 4096, token: 1024, cover: 1600, condition: 256 }`, o maior lado em px que o server guarda; o badge da condição chega a ~120 px na tela, 240 em tela 2x). O `purpose` só decide o tamanho (e, na `condition`, que o server recorta em quadrado): um asset de token pode virar fundo.
+- `ASSET_MAX_BYTES` (20 MiB, antes de decodificar), `ASSET_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`; o GIF só é guardado na finalidade `aura`, SVG fora) e `assetMimeTypeDto`; `ASSET_URL_MAX_LENGTH` (2048).
+- `assetPurposeDto` (`background` | `token` | `cover` | `condition` | `aura`) e `ASSET_MAX_SIDE` (`{ background: 4096, token: 1024, cover: 1600, condition: 256, aura: 512 }`, o maior lado em px que o server guarda; o badge da condição chega a ~120 px na tela, 240 em tela 2x). O `purpose` decide o tamanho (na `condition`, que o server recorta em quadrado; na `aura`, que o GIF fica animado): um asset de token pode virar fundo.
+- `AURA_ANIMATION_LIMITS` `{ maxFrames: 120, maxDecodedPixels: 16_000_000 }` — o orçamento do GIF da aura (o server reduz o lado para caber, ver `assets.md`).
 - `assetDto` `{ id, mimeType, width, height }` (o tamanho **depois** de normalizado) e `assetResponseDto` `{ asset }` — resposta dos dois `POST`.
 - `uploadAssetQueryDto` `{ purpose }` — query de `POST /api/campaigns/:campaignId/assets` (o corpo é o próprio arquivo).
 - `importAssetRequestDto` `{ url, purpose }` — corpo do `POST …/assets/import`: `url` aparada, até 2048 caracteres, só `http:`/`https:` (`ftp:`, `data:`, `javascript:` recusados citando o esquema e "http or https"; texto que não é link, citando o texto). Sem o global `URL` (o `lib` do contracts é só ES2023): o esquema sai por regex.
@@ -99,7 +100,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 ### Tabuleiro (`board/`)
 
-O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, aparência, grupo, condição, combate, desenho, área de efeito, parede, luz, `BOARD_EVENTS` e o snapshot) mora em [`contracts/tabuleiro.md`](contracts/tabuleiro.md). As condições (definição, ativa, descrição, cor, stacks, imagem, a lista da mesa e seus comandos) moram em [`contracts/condicoes.md`](contracts/condicoes.md). Fluxo em [`board.md`](board.md). O ping efêmero (`board:ping` / `board:pinged`, sem versão) mora em [`contracts/ping.md`](contracts/ping.md).
+O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, aparência, grupo, condição, combate, desenho, área de efeito, parede, luz, `BOARD_EVENTS` e o snapshot) mora em [`contracts/tabuleiro.md`](contracts/tabuleiro.md). As condições (definição, ativa, descrição, cor, stacks, imagem, a lista da mesa e seus comandos) moram em [`contracts/condicoes.md`](contracts/condicoes.md). Fluxo em [`board.md`](board.md). O ping efêmero (`board:ping` / `board:pinged`, sem versão) mora em [`contracts/ping.md`](contracts/ping.md). A aura do token (`tokenAuraDto`, os 8 efeitos, a aura no token, no estilo e nos comandos do mestre) mora em [`contracts/aura.md`](contracts/aura.md).
 
 ## Regras de arquitetura
 

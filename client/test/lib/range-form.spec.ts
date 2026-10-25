@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseRangeFields, rangeCellsHint, rangeFieldsOf } from '@/lib/range-form';
+import {
+  cellsIn,
+  distanceTextOf,
+  parseRangeFields,
+  rangeCellsHint,
+  rangeFieldsOf,
+} from '@/lib/range-form';
 
 const METERS = { cellDistance: 1.5, cellUnit: 'm' };
 const FEET = { cellDistance: 5, cellUnit: 'ft' };
@@ -135,5 +141,29 @@ describe('rangeCellsHint', () => {
 
   it('an unreadable distance gives no hint', () => {
     expect(rangeCellsHint('seis', METERS)).toBeNull();
+  });
+});
+
+describe('cellsIn', () => {
+  it.each([
+    ['4,5', 3],
+    ['4.5', 3],
+    ['−3', -2],
+  ])('"%s" m on a 1,5 m grid is %d cells', (typed, cells) => {
+    expect(cellsIn(typed, METERS)).toBe(cells);
+  });
+
+  it('a distance that is not a number is NaN', () => {
+    expect(cellsIn('3 m', METERS)).toBeNaN();
+  });
+});
+
+describe('distanceTextOf', () => {
+  it('3 cells of 1,5 m show as "4,5"', () => {
+    expect(distanceTextOf(3, METERS)).toBe('4,5');
+  });
+
+  it('1,5 cells of 5 ft show as "7,5"', () => {
+    expect(distanceTextOf(1.5, FEET)).toBe('7,5');
   });
 });

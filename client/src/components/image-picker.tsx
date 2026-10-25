@@ -1,6 +1,6 @@
 import type { AssetDto, AssetPurposeDto } from '@lorkarium/contracts';
 import { useId } from 'react';
-import { imageOfClipboard } from '@/lib/image-file';
+import { animatesImage, imageOfClipboard } from '@/lib/image-file';
 import { assetUrlOf, type AssetsApi } from '@/services/assets-api';
 import { ImageSourceButtons } from './image-source-buttons';
 import { useImageSender } from './use-image-sender';
@@ -50,7 +50,9 @@ export function ImagePicker(props: ImagePickerProps): React.JSX.Element {
           />
         )}
         <p id={hintId} className="text-[13px] text-muted-foreground">
-          Solte a imagem aqui ou cole com Ctrl+V. PNG, JPEG ou WebP, até 20 MB.
+          Solte a imagem aqui ou cole com Ctrl+V.{' '}
+          {animatesImage(purpose) ? 'PNG, JPEG, WebP ou GIF animado' : 'PNG, JPEG ou WebP'}, até 20
+          MB.
         </p>
       </div>
       <ImageSourceButtons

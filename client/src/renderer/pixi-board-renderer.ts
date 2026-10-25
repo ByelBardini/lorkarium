@@ -6,6 +6,8 @@ import type {
   CreateBoardRenderer,
   PingMark,
 } from './board-renderer';
+import { auraMotionOf } from './aura-motion';
+import { auraImageUrlsOf } from './aura-view';
 import { boardCursorOf } from './board-cursor';
 import { imageUrlsOf, type BoardView } from './board-view';
 import {
@@ -32,7 +34,7 @@ import {
 } from './camera-input';
 import { FrameWork } from './frame-work';
 import { followHostSize, holdBackBrowserMenu } from './host-listeners';
-import { cellAtWorld } from './grid-geometry';
+import { cellAtWorld, visibleWorldRect } from './grid-geometry';
 import { DrawingGestures } from './drawing-gestures';
 import { EffectAreaGestures } from './effect-area-gestures';
 import { LightGestures } from './light-gestures';
@@ -51,6 +53,9 @@ import { PixiPingLayer, type PingFrame } from './pixi-ping-layer';
 import { resizeCursorOf } from './resize-handles';
 import { PixiSceneBackground } from './pixi-scene-background';
 import { PixiSceneGrid } from './pixi-scene-grid';
+import { PixiAuraAnimator, type AuraMotionFrame } from './pixi-aura-animator';
+import { PixiAuraSources } from './pixi-aura-sources';
+import { pixiAuraDecoding } from './pixi-aura-decoding';
 import { PixiTextureCache } from './pixi-texture-cache';
 import { PixiTokenLayer } from './pixi-token-layer';
 
@@ -61,14 +66,16 @@ const SECONDARY_BUTTON = 2;
 const PRIMARY_BUTTON = 0;
 
 /** The PixiJS board, as `AppDependencies.createBoardRenderer` in the app; the dev panel
- *  (`?perf=1`) hands it a recording probe.
+ *  (`?perf=1`) hands it a recording probe, and `auraMotion` says whether "Animar auras" is on
+ *  (read by the animator each frame, never through the view: toggling it redraws nothing).
  *
- *  Example: `buildRoutes({ ...deps, createBoardRenderer: (onIntent) => createPixiBoardRenderer(onIntent, probe) })` */
+ *  Example: `buildRoutes({ ...deps, createBoardRenderer: (onIntent) => createPixiBoardRenderer(onIntent, probe, () => store.getState().animated) })` */
 export function createPixiBoardRenderer(
   onIntent: Parameters<CreateBoardRenderer>[0],
   probe: PerfProbe = NO_PERF_PROBE,
+  auraMotion: () => boolean = () => true,
 ): BoardRenderer {
-  return new PixiBoardRenderer(onIntent, probe);
+  return new PixiBoardRenderer(onIntent, probe, auraMotion);
 }
 
 /** Thin shell over PixiJS: every decision (camera math, input mapping, grid lines, what to draw)
@@ -94,6 +101,11 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly textures = new PixiTextureCache(
     this.frame.touching((url: string) => this.textureArrived(url)),
   );
+  // Aura images load apart (a GIF is told by its bytes); one arriving draws only its auras.
+  private readonly auraSources = new PixiAuraSources(
+    this.frame.touching((url: string) => this.tokens.refreshAura(url)),
+    pixiAuraDecoding(),
+  );
   private readonly background = new PixiSceneBackground(this.textures);
   private readonly tokens: PixiTokenLayer;
   private readonly gestures = new DrawingGestures(this.drawings, (intent) => this.onIntent(intent));
@@ -101,6 +113,8 @@ class PixiBoardRenderer implements BoardRenderer {
     this.onIntent(intent),
   );
   private readonly press: PrimaryPress;
+  // Steps only the animated auras on screen, at most 30 times per second.
+  private readonly auraAnimator = new PixiAuraAnimator(() => this.tokens.animatedAuras());
   private readonly heldPanKeys = new Set<PanKey>();
   private readonly disposers: Array<() => void> = [];
   private readonly world = new Container();
@@ -109,9 +123,11 @@ class PixiBoardRenderer implements BoardRenderer {
   constructor(
     private readonly onIntent: BoardIntentListener,
     private readonly probe: PerfProbe,
+    private readonly auraMotion: () => boolean,
   ) {
     const beneath = this.effectAreas.under(this.drawings.layer);
-    this.tokens = new PixiTokenLayer(prefersReducedMotion, beneath, this.textures, probe);
+    const { textures, auraSources } = this;
+    this.tokens = new PixiTokenLayer(prefersReducedMotion, beneath, textures, probe, auraSources);
     this.press = new PrimaryPress({
       overlays: this.overlays,
       lights: this.lightGestures,
@@ -124,7 +140,9 @@ class PixiBoardRenderer implements BoardRenderer {
 
   async mount(host: HTMLElement): Promise<void> {
     const app = new Application();
-    await app.init({ resizeTo: host, background: PANEL_COLOR, antialias: true, autoDensity: true });
+    // WebGL even where WebGPU exists: the aura shaders are GLSL only (WebGPU would ask for WGSL).
+    const options = { resizeTo: host, background: PANEL_COLOR, antialias: true, autoDensity: true };
+    await app.init({ ...options, preference: 'webgl' });
     // Unmounted while `init` ran (StrictMode does it on purpose): tear down what init built.
     if (this.destroyed) return void app.destroy(true, { children: true });
     this.app = app;
@@ -152,7 +170,8 @@ class PixiBoardRenderer implements BoardRenderer {
       this.press.tick(this.pressContext(), now);
       this.flush();
       const pinging = this.pings.animate(ticker.deltaMS, this.pingFrame());
-      if (this.tokens.animate(now) || pinging || this.frame.renderDue()) app.render();
+      const auras = this.auraAnimator.animate(now, () => this.auraFrame());
+      if (this.tokens.animate(now) || pinging || auras || this.frame.renderDue()) app.render();
     });
     app.renderer.on('resize', () => this.applyCamera(this.camera));
     if (this.view) this.draw(this.view);
@@ -199,6 +218,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.destroyed = true;
     for (const dispose of this.disposers.splice(0)) dispose();
     this.textures.destroy();
+    this.auraSources.destroy();
     this.lightTint.destroy();
     this.fog.destroy();
     this.app?.destroy(true, { children: true });
@@ -245,6 +265,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.probe.count('view.draw');
     this.sceneGrid.drawFloor(view);
     this.textures.retain(imageUrlsOf(view));
+    this.auraSources.retain(auraImageUrlsOf(view.tokens));
     this.background.sync(view.background);
     this.showCursor();
     this.drawings.sync(view.drawings);
@@ -392,6 +413,12 @@ class PixiBoardRenderer implements BoardRenderer {
     const keys = { shiftKey, altKey, ctrlKey, metaKey };
     const screen = pointOf(event);
     return { screen, world: this.worldOf(event), cell: this.cellAt(event), ...keys, time };
+  }
+
+  private auraFrame(): AuraMotionFrame {
+    const enabled = this.auraMotion();
+    const playing = auraMotionOf({ enabled, reducedMotion: prefersReducedMotion() }) === 'playing';
+    return { visible: visibleWorldRect(this.camera, this.screenSize()), playing };
   }
 
   private pingFrame(): PingFrame {

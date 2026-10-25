@@ -1,5 +1,6 @@
 import type { TokenRow } from '../../src/modules/tokens/tokens.dao';
-import type { TokenBarPo, TokenPo } from '../../src/modules/tokens/tokens.po';
+import type { TokenAuraDto } from '@lorkarium/contracts';
+import type { TokenAuraPo, TokenBarPo, TokenPo } from '../../src/modules/tokens/tokens.po';
 import { BIA_ID, CAIO_ID } from './campaigns-factories';
 import { VHARN_SCENE_ID } from './scenes-factories';
 
@@ -39,10 +40,48 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     lightLit: true,
     lightColor: null,
     lightAngle: 360,
+    auraKind: null,
+    auraRadius: null,
+    auraColor: null,
+    auraEffect: null,
+    auraImageAssetId: null,
+    auraOpacity: null,
     hidden: false,
     anchorTokenId: null,
     createdAt: CREATED,
     updatedAt: CREATED,
+    ...overrides,
+  };
+}
+
+/** A fire aura of 2 cells past the edge, in its natural tone, fully opaque. */
+export const FIRE_AURA: Extract<TokenAuraDto, { kind: 'effect' }> = {
+  kind: 'effect',
+  radius: 2,
+  effect: 'fire',
+  color: null,
+  opacity: 100,
+};
+
+/** A gold tint of 2 cells past the edge, at half opacity. */
+export const GOLD_AURA: Extract<TokenAuraDto, { kind: 'color' }> = {
+  kind: 'color',
+  radius: 2,
+  color: 'gold',
+  opacity: 50,
+};
+
+/** The six columns of `FIRE_AURA` as Postgres reads them back.
+ *
+ *  Example: `lyraPo(fireAuraColumns({ auraColor: 'steel' }))` */
+export function fireAuraColumns(overrides: Partial<TokenAuraPo> = {}): TokenAuraPo {
+  return {
+    auraKind: 'effect',
+    auraRadius: '2.00',
+    auraColor: null,
+    auraEffect: 'fire',
+    auraImageAssetId: null,
+    auraOpacity: 100,
     ...overrides,
   };
 }

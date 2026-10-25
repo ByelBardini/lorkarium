@@ -8,6 +8,7 @@ import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaign
 import {
   BIA_ID,
   CAIO_ID,
+  DUDA_ID,
   QUELM_ID,
   VHARN_ID,
   campaignMemberPo,
@@ -17,7 +18,15 @@ import { ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import { TokenTransactionRunnerFake, TokensDaoFake } from '../../support/tokens-fakes';
-import { BRAM_ID, LYRA_ID, bramRow, lyraPo, lyraRow } from '../../support/tokens-factories';
+import {
+  BRAM_ID,
+  FIRE_AURA,
+  LYRA_ID,
+  bramRow,
+  fireAuraColumns,
+  lyraPo,
+  lyraRow,
+} from '../../support/tokens-factories';
 
 const NOW = new Date('2026-10-17T21:00:00Z');
 const QUELM_TOKEN_ID = '8a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c5d';
@@ -35,6 +44,7 @@ describe('TokenAppearanceService', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' }),
+      campaignMemberPo({ campaignId: VHARN_ID, userId: DUDA_ID, role: 'spectator' }),
     ]);
     scenes = new ScenesDaoFake([
       scenePo({ version: 4 }),
@@ -268,6 +278,87 @@ describe('TokenAppearanceService', () => {
         LYRA_PORTRAIT_ID,
         LYRA_PORTRAIT_ID,
       ]);
+    });
+  });
+
+  describe('restyleMany with an aura', () => {
+    const kindOf = (tokenId: string) => tokenOf(tokenId)?.auraKind;
+
+    it('Bia giving her Lyra a fire aura saves the six columns in one version and publishes the aura', async () => {
+      await service.restyleMany(BIA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID],
+        style: { aura: FIRE_AURA },
+      });
+
+      expect(tokenOf(LYRA_ID)).toMatchObject(fireAuraColumns());
+      expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+      expect(publisher.tokensRestylings[0]).toMatchObject({
+        version: 5,
+        tokenIds: [LYRA_ID],
+        style: { aura: FIRE_AURA },
+      });
+    });
+
+    it('aura null takes the aura of Lyra away and publishes aura null', async () => {
+      tokens.rows[0] = lyraRow({ token: lyraPo(fireAuraColumns()) });
+
+      await service.restyleMany(BIA_ID, VHARN_ID, { tokenIds: [LYRA_ID], style: { aura: null } });
+
+      expect(tokenOf(LYRA_ID)).toMatchObject({
+        auraKind: null,
+        auraRadius: null,
+        auraEffect: null,
+      });
+      expect(publisher.tokensRestylings[0]?.style).toEqual({ aura: null });
+    });
+
+    it('an image aura with an asset of Quelm is ASSET_NOT_FOUND before anything is saved', async () => {
+      const aura = { kind: 'image', radius: 1, imageAssetId: QUELM_MAP_ID, opacity: 80 } as const;
+
+      const restyle = service.restyleMany(BIA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID],
+        style: { aura },
+      });
+
+      await expect(restyle).rejects.toMatchObject({ code: 'ASSET_NOT_FOUND' });
+      expect(kindOf(LYRA_ID)).toBeNull();
+      expect(scenes.journal).toEqual(['lock']);
+    });
+
+    it('an image aura with an asset of the table is saved', async () => {
+      const aura = {
+        kind: 'image',
+        radius: 1,
+        imageAssetId: LYRA_PORTRAIT_ID,
+        opacity: 80,
+      } as const;
+
+      await service.restyleMany(BIA_ID, VHARN_ID, { tokenIds: [LYRA_ID], style: { aura } });
+
+      expect(tokenOf(LYRA_ID)?.auraImageAssetId).toBe(LYRA_PORTRAIT_ID);
+    });
+
+    it('Caio giving an aura to the Lyra of Bia is FORBIDDEN and nothing is saved', async () => {
+      const restyle = service.restyleMany(CAIO_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID],
+        style: { aura: FIRE_AURA },
+      });
+
+      await expect(restyle).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(kindOf(LYRA_ID)).toBeNull();
+      expect(scenes.journal).toEqual(['lock']);
+    });
+
+    it('Duda, a spectator listed in the control of Lyra, giving her an aura is FORBIDDEN', async () => {
+      tokens.rows[0] = lyraRow({ controllerIds: [BIA_ID, DUDA_ID] });
+
+      const restyle = service.restyleMany(DUDA_ID, VHARN_ID, {
+        tokenIds: [LYRA_ID],
+        style: { aura: FIRE_AURA },
+      });
+
+      await expect(restyle).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(kindOf(LYRA_ID)).toBeNull();
     });
   });
 

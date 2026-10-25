@@ -20,6 +20,7 @@ import {
 } from '@lorkarium/game-core';
 import { cellsNumeric } from '../../database/cells-numeric';
 import type { TokenAudience } from './token-access.bo';
+import { toTokenAuraDto, toTokenAuraPo } from './token-aura.mapper';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
 import type {
   TokenBarInputPo,
@@ -63,6 +64,7 @@ export function toTokenDto(
     sight: sightOfToken(row.token),
     light: lightOfToken(row.token),
     lightLit: row.token.lightLit,
+    aura: toTokenAuraDto(row.token),
     hidden: row.token.hidden,
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
@@ -97,6 +99,7 @@ type UpdatedFields = Pick<
   | 'sight'
   | 'sightAngle'
   | 'light'
+  | 'aura'
   | keyof TokenLookPo
 >;
 
@@ -120,6 +123,7 @@ export function toTokenUpdatePo(
       ...(command.sight === undefined ? {} : toTokenSightPo(command.sight)),
       ...(command.sightAngle === undefined ? {} : { sightAngle: command.sightAngle }),
       ...(command.light === undefined ? {} : toTokenLightPo(command.light)),
+      ...(command.aura === undefined ? {} : toTokenAuraPo(command.aura)),
     },
     bars: toBarInputsPo(command.bars),
     controllerIds,

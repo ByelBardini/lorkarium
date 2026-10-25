@@ -1,14 +1,15 @@
+import { auraKeyOf } from './aura-view';
 import type { TokenArtView, TokenBarView, TokenView } from './token-view';
 
-/** What of one token to draw again: its body (disc, art, rings, bar, mark, cross, look) and its
- *  name plate. The condition strip keeps its own key (`PixiConditionMarks`). */
-export type TokenRedraw = Readonly<{ body: boolean; nameTag: boolean }>;
+/** What of one token to draw again: its body (disc, art, rings, bar, mark, cross, look), its
+ *  name plate and its aura. The condition strip keeps its own key (`PixiConditionMarks`). */
+export type TokenRedraw = Readonly<{ body: boolean; nameTag: boolean; aura: boolean }>;
 
 /** What else changed for the token besides its view. */
 export type TokenRedrawCause = Readonly<{ artArrived?: boolean; hoverChanged?: boolean }>;
 
 /** What a new view of a token asks to redraw, comparing only the fields each part reads: a new
- *  cell redraws nothing (the glide moves the sprite), a new name only the plate.
+ *  cell redraws nothing (the glide moves the sprite and its aura), a new name only the plate.
  *
  *  Example: `const { body, nameTag } = tokenRedrawOf(sprite.view, view)` */
 export function tokenRedrawOf(
@@ -21,6 +22,7 @@ export function tokenRedrawOf(
   return {
     body: Boolean(cause.artArrived) || resized || selected || bodyChanged(before, after),
     nameTag: Boolean(cause.hoverChanged) || resized || selected || before.name !== after.name,
+    aura: auraKeyOf(before.aura) !== auraKeyOf(after.aura),
   };
 }
 

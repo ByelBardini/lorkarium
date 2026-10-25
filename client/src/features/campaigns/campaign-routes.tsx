@@ -115,6 +115,7 @@ function tableRoute({
   wallStyle,
   lightReach,
   lightColor,
+  auraMotion,
   clipboard,
   createBoardRenderer,
   boardCommands,
@@ -147,6 +148,7 @@ function tableRoute({
               wallStyle={wallStyle}
               lightReach={lightReach}
               lightColor={lightColor}
+              auraMotion={auraMotion}
               clipboard={clipboard}
               createBoardRenderer={createBoardRenderer}
               boardCommands={boardCommands}

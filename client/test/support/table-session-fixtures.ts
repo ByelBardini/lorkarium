@@ -249,6 +249,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     sight: null,
     light: null,
     lightLit: true,
+    aura: null,
     hidden: false,
     canControl: true,
     bars: [

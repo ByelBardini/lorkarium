@@ -4,6 +4,8 @@ import type { BarColorDto, TokenLayerDto, TokenSideDto } from '@lorkarium/contra
 import { facingVector } from '@lorkarium/game-core';
 import type { GhostView, TokenView } from './board-view';
 import { type Point, zoomProofTextResolution } from './camera';
+import { PixiAuraFloors } from './pixi-aura-floors';
+import type { AuraImages, PixiTokenAura } from './pixi-token-aura';
 import { PixiConditionMarks } from './pixi-condition-marks';
 import { PixiTokenArt, ROUND_RADIUS_SHARE } from './pixi-token-art';
 import type { PixiTextureCache } from './pixi-texture-cache';
@@ -61,15 +63,16 @@ type TokenSprite = Readonly<{
 /** Where the token images come from: a texture, or `null` while it loads (or failed). */
 export type TokenTextures = Pick<PixiTextureCache, 'textureOf'>;
 
-const WHOLE: TokenRedraw = { body: true, nameTag: true };
-const STRIP_ONLY: TokenRedraw = { body: false, nameTag: false };
+const WHOLE: TokenRedraw = { body: true, nameTag: true, aura: true };
+const STRIP_ONLY: TokenRedraw = { body: false, nameTag: false, aura: false };
 
 const FACING_MARK_LENGTH = 7;
 const FACING_MARK_HALF_WIDTH = 5;
 
 /** The tokens on the canvas: one `Container` per token, kept by id so a change redraws only that
  *  token, and of it only the part that changed (`tokenRedrawOf`; spec §14, rendering risk), inside
- *  one `Container` per layer (Fundo under Objetos under Tokens). Only the tokens gliding to a new
+ *  one `Container` per layer (Fundo under Objetos under Tokens), each with the floor of its auras
+ *  right under it (`PixiAuraFloors`). Only the tokens gliding to a new
  *  cell are stepped by the ticker. Each layer has its condition strips and name plates right above its tokens: they hang
  *  under the cell, and the token below must not cover them. Positions are world px of the token's top-left
  *  corner. */
@@ -85,6 +88,7 @@ export class PixiTokenLayer {
     objects: new Container(),
     tokens: new Container(),
   };
+  private readonly auras: PixiAuraFloors;
   private zoom = 1;
   private readonly sprites = new Map<string, TokenSprite>();
   private readonly ghost = new Graphics();
@@ -94,18 +98,23 @@ export class PixiTokenLayer {
 
   /** `beneath`: what goes over Fundo and Objetos and under the tokens of Tokens (the areas of
    *  effect and the drawings); `textures`: where the token images come from (without it, every
-   *  token is the initials disc); `probe` counts each body redrawn (`token.redraw`). */
+   *  token is the initials disc); `probe` counts each body redrawn (`token.redraw`); `auraImages`:
+   *  where the image auras come from (without it, an image aura draws nothing). */
   constructor(
     private readonly reducedMotion: () => boolean,
     beneath?: Container,
     private readonly textures?: TokenTextures,
     private readonly probe: PerfProbe = NO_PERF_PROBE,
+    auraImages?: AuraImages,
   ) {
+    this.auras = new PixiAuraFloors(auraImages);
     const { background, objects, tokens } = this.layers;
     if (beneath) tokens.addChild(beneath);
-    const strips = this.strips;
-    this.container.addChild(background, strips.background, objects, strips.objects);
-    this.container.addChild(tokens, strips.tokens, this.ghost);
+    const { strips } = this;
+    const { floors } = this.auras;
+    this.container.addChild(floors.background, background, strips.background);
+    this.container.addChild(floors.objects, objects, strips.objects);
+    this.container.addChild(floors.tokens, tokens, strips.tokens, this.ghost);
   }
 
   sync(tokens: readonly TokenView[], ghosts: readonly GhostView[], nowMs: number): void {
@@ -114,6 +123,7 @@ export class PixiTokenLayer {
       if (alive.has(id)) continue;
       sprite.root.destroy({ children: true });
       sprite.overlay.destroy({ children: true });
+      this.auras.remove(id);
       this.sprites.delete(id);
       this.gliding.delete(id);
     }
@@ -152,6 +162,16 @@ export class PixiTokenLayer {
     }
   }
 
+  /** The image of an aura arrived: only the auras that show it are drawn, never a body. */
+  refreshAura(url: string): void {
+    this.auras.refresh(url);
+  }
+
+  /** The auras that move with time, for the animator. */
+  animatedAuras(): ReadonlySet<PixiTokenAura> {
+    return this.auras.animated();
+  }
+
   /** How many tokens are gliding to their new cell (what `animate` steps). */
   glidingCount(): number {
     return this.gliding.size;
@@ -164,14 +184,14 @@ export class PixiTokenLayer {
     if (!sprite) return;
     this.dragging = tokenId;
     const rect = tokenWorldRect(sprite.view);
-    moveSprite(sprite, world.x - rect.width / 2, world.y - rect.height / 2);
+    this.moveSprite(sprite, world.x - rect.width / 2, world.y - rect.height / 2);
   }
 
   /** Back to the confirmed cell: the ghost or the confirmed event shows where it goes. */
   release(): void {
     const sprite = this.dragging ? this.sprites.get(this.dragging) : undefined;
     this.dragging = null;
-    if (sprite) moveSprite(sprite, sprite.to.x, sprite.to.y);
+    if (sprite) this.moveSprite(sprite, sprite.to.x, sprite.to.y);
   }
 
   /** Moves each gliding token a step along its 150 ms glide; call from the ticker. A token that
@@ -185,7 +205,7 @@ export class PixiTokenLayer {
       const progress = Math.min(1, (nowMs - sprite.startedMs) / MOVE_ANIMATION_MS);
       const x = sprite.from.x + (sprite.to.x - sprite.from.x) * progress;
       const y = sprite.from.y + (sprite.to.y - sprite.from.y) * progress;
-      moveSprite(sprite, x, y);
+      this.moveSprite(sprite, x, y);
       if (progress === 1) this.gliding.delete(id);
     }
     return stepped;
@@ -207,6 +227,7 @@ export class PixiTokenLayer {
     if (known.view.layer !== view.layer) {
       this.layers[view.layer].addChild(known.root);
       this.strips[view.layer].addChild(known.overlay);
+      this.auras.changeLayer(view.id, view.layer);
     }
     const redraw = tokenRedrawOf(known.view, view);
     known.view = view;
@@ -217,12 +238,13 @@ export class PixiTokenLayer {
     sprite.from = instant ? target : { x: sprite.root.x, y: sprite.root.y };
     sprite.to = target;
     sprite.startedMs = nowMs;
-    if (instant && sprite.view.id !== this.dragging) moveSprite(sprite, target.x, target.y);
+    if (instant && sprite.view.id !== this.dragging) this.moveSprite(sprite, target.x, target.y);
     if (!instant) this.gliding.add(sprite.view.id);
   }
 
   // The strip keeps its own key; the plate moves when the strip under the token changes height.
   private draw(sprite: TokenSprite, redraw: TokenRedraw): void {
+    if (redraw.aura) this.auras.draw(sprite.view, sprite.root.position);
     if (redraw.body) {
       this.probe.count('token.redraw');
       const art = sprite.view.art;
@@ -234,8 +256,16 @@ export class PixiTokenLayer {
     sprite.nameTag.draw(sprite.view, showsNameTag(sprite.view, this.hovered), height);
   }
 
+  // The strip, the name and the aura live in their own layers: they go wherever the token goes
+  // (glide, drag, release).
+  private moveSprite(sprite: TokenSprite, x: number, y: number): void {
+    sprite.root.position.set(x, y);
+    sprite.overlay.position.set(x, y);
+    this.auras.move(sprite.view.id, x, y);
+  }
+
   private add(view: TokenView, at: Point, nowMs: number): void {
-    const root = new Container();
+    const root = new Container({ label: `token:${view.id}` });
     const shape = new Graphics();
     const label = new Text({
       text: '',
@@ -415,13 +445,6 @@ function drawBar(shape: Graphics, view: TokenView, box: TokenShape): void {
 
 function showsConditionImage(view: TokenView, url: string): boolean {
   return view.conditions.some(({ imageUrl }) => imageUrl === url);
-}
-
-// The strip and the name live in their own layer: they go wherever the token goes (glide, drag,
-// release).
-function moveSprite(sprite: TokenSprite, x: number, y: number): void {
-  sprite.root.position.set(x, y);
-  sprite.overlay.position.set(x, y);
 }
 
 function cornerOf(view: TokenView): Point {

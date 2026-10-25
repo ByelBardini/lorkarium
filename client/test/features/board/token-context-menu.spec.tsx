@@ -33,6 +33,7 @@ describe('TokenContextMenu', () => {
   let closed: number;
   let conditionTargets: Array<readonly string[]>;
   let imageOf: string[];
+  let auraOf: string[];
 
   beforeEach(() => {
     board = createBoardStore(VHARN.id, () => undefined);
@@ -52,6 +53,7 @@ describe('TokenContextMenu', () => {
     closed = 0;
     conditionTargets = [];
     imageOf = [];
+    auraOf = [];
   });
 
   function openOn(tokenId: string): void {
@@ -64,6 +66,7 @@ describe('TokenContextMenu', () => {
         interaction={interaction}
         onApplyCondition={(tokenIds) => conditionTargets.push(tokenIds)}
         onChangeImage={(tokenId) => imageOf.push(tokenId)}
+        onChangeAura={(tokenId) => auraOf.push(tokenId)}
         onClose={() => (closed += 1)}
       />,
     );
@@ -455,6 +458,37 @@ describe('TokenContextMenu', () => {
 
       expect(invisible()).toBeNull();
       expect(visible()).toBeNull();
+    });
+  });
+
+  describe('"Aura…", for whoever controls the token', () => {
+    function withTokens(...tokens: ReturnType<typeof lyra>[]): void {
+      board.getState().apply({ kind: 'board', state: vharnBoard({ tokens }) });
+    }
+
+    it('Bia on her Lyra has "Aura…", and it asks for the aura dialog of Lyra alone', async () => {
+      interaction.getState().allowLayerChoice(false);
+      withTokens(lyra({ canControl: true }), kael());
+      interaction.getState().selectMany([LYRA_ID, KAEL_ID], { additive: false });
+      openOn(LYRA_ID);
+
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Aura…' }));
+
+      expect(auraOf).toEqual([LYRA_ID]);
+    });
+
+    it('Caio on the Lyra of Bia, which he does not control, has no "Aura…"', () => {
+      interaction.getState().allowLayerChoice(false);
+      withTokens(lyra({ canControl: false }));
+      openOn(LYRA_ID);
+
+      expect(screen.queryByRole('menuitem', { name: 'Aura…' })).toBeNull();
+    });
+
+    it('the master has "Aura…" on a goblin of the objects layer', () => {
+      openOn(GOBLIN_ID);
+
+      expect(screen.getByRole('menuitem', { name: 'Aura…' })).toBeInTheDocument();
     });
   });
 });

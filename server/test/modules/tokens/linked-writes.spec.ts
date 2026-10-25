@@ -18,6 +18,7 @@ import {
 } from '../../support/character-fakes';
 import { ConditionTransactionRunnerFake } from '../../support/conditions-fakes';
 import { DragGroupsFake } from '../../support/tokens-fakes';
+import { FIRE_AURA } from '../../support/tokens-factories';
 
 const TORRE = { sceneId: VHARN_TORRE_ID };
 const OTHER_ESTRADA_LYRA_ID = '2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a';
@@ -170,6 +171,24 @@ describe('writes on a token linked to a character', () => {
 
       expect(table.journal).toEqual([LOCK_TORRE, 'save', 'bump', 'commit', 'publish']);
       expect(anchor().token.lightLit).toBe(true);
+    });
+
+    it('an aura on the linked Lyra is written on the anchor and published to the cast alone', async () => {
+      await appearance.restyleMany(BIA_ID, VHARN_ID, {
+        ...TORRE,
+        tokenIds: [ESTRADA_LYRA_ID],
+        style: { aura: FIRE_AURA },
+      });
+
+      expect(anchor().token).toMatchObject({ auraKind: 'effect', auraEffect: 'fire' });
+      expect(table.tokens.rowOf(ESTRADA_LYRA_ID).token.auraKind).toBeNull();
+      expect(table.publisher.tokensRestylings).toEqual([
+        expect.objectContaining({
+          sceneId: VHARN_CAST_ID,
+          tokenIds: [LYRA_ANCHOR_ID],
+          style: { aura: FIRE_AURA },
+        }),
+      ]);
     });
 
     it('a group of the linked Lyra and the unlinked Kael: Kael takes the whole style', async () => {

@@ -5,8 +5,11 @@ import { addBar } from '@/features/tokens/bar-form-state';
 import {
   emptyTokenForm,
   renameToken,
+  tokenFormOf,
   type TokenFormValues,
 } from '@/features/tokens/token-form-state';
+import { fireAura, goldAura, RUNE_ASSET_ID, runeAura } from '../../support/aura-fixtures';
+import { lyra } from '../../support/table-session-fixtures';
 import { AssetsApiFake } from '../../support/assets-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 
@@ -158,5 +161,46 @@ describe('TokenPreview, a lantern', () => {
     const { container } = renderPreviewWith(litForm('360', 90));
 
     expect(glow(container)?.style.maskImage).toBe('');
+  });
+});
+
+describe('TokenPreview, the aura', () => {
+  function auraGlow(container: HTMLElement): HTMLElement | null {
+    return container.querySelector<HTMLElement>('[data-aura-glow]');
+  }
+
+  it('a gold tint rings the disc in the gold of the palette, at its opacity', () => {
+    const { container } = renderPreviewWith(tokenFormOf(lyra({ aura: goldAura() }), METERS));
+
+    expect(auraGlow(container)?.style.background).toContain('rgba(197, 164, 109');
+    expect(auraGlow(container)?.style.opacity).toBe('0.5');
+  });
+
+  it('an aura of 2 cells is 2 × 2 × 52 + 52 = 260 px wide around a 1 × 1 disc', () => {
+    const { container } = renderPreviewWith(tokenFormOf(lyra({ aura: goldAura() }), METERS));
+
+    expect(auraGlow(container)?.style.width).toBe('260px');
+  });
+
+  it('a natural fire rings it in the natural tone of the fire', () => {
+    const { container } = renderPreviewWith(tokenFormOf(lyra({ aura: fireAura() }), METERS));
+
+    expect(auraGlow(container)?.style.background).toContain('rgba(255, 122, 42');
+  });
+
+  it('an image aura shows the image behind the disc', () => {
+    const { container } = renderPreviewWith(tokenFormOf(lyra({ aura: runeAura() }), METERS));
+
+    const image = auraGlow(container)?.querySelector('img');
+    expect(image?.getAttribute('src')).toContain(RUNE_ASSET_ID);
+    expect(discOf().contains(image ?? null)).toBe(false);
+  });
+
+  it('with a radius out of range, nothing rings the disc', () => {
+    const form = tokenFormOf(lyra({ aura: goldAura() }), METERS);
+
+    const { container } = renderPreviewWith({ ...form, aura: { ...form.aura, radius: '31' } });
+
+    expect(auraGlow(container)).toBeNull();
   });
 });

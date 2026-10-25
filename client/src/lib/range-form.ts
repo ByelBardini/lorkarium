@@ -27,7 +27,7 @@ export type RangeFieldsResult =
  *  Example: `rangeFieldsOf({ bright: 4, dim: 4 }, { cellDistance: 1.5, cellUnit: 'm' })` → `"6"` and `"12"` */
 export function rangeFieldsOf(range: RangeInCells | null, distance: SceneDistance): RangeFields {
   if (!range) return { on: false, bright: '', dim: '', saved: false };
-  const shown = (cells: number): string => cellsText(toHundredth(cells * distance.cellDistance));
+  const shown = (cells: number): string => distanceTextOf(cells, distance);
   const dim = range.dim === 0 ? '' : shown(toHundredth(range.bright + range.dim));
   return { on: true, bright: shown(range.bright), dim, saved: true };
 }
@@ -61,8 +61,11 @@ export function rangeCellsHint(typed: string, distance: SceneDistance): string |
   return `= ${cellsText(cells)} ${cells === 1 ? 'casa' : 'casas'}`;
 }
 
-// "1,5" and "1.5" alike; the typographic minus too, so "−1" is refused as out of range.
-function cellsIn(typed: string, distance: SceneDistance): number {
+/** A distance typed in the scene's unit, in cells to the hundredth; `NaN` when unreadable. "1,5"
+ *  and "1.5" alike; the typographic minus too, so "−1" is refused as out of range.
+ *
+ *  Example: `cellsIn('4,5', { cellDistance: 1.5, cellUnit: 'm' }) // 3` */
+export function cellsIn(typed: string, distance: SceneDistance): number {
   const text = typed.trim().replace('−', '-').replace(',', '.');
   if (!/^-?\d+(\.\d+)?$/.test(text)) return Number.NaN;
   return toHundredth(Number(text) / distance.cellDistance);
@@ -78,7 +81,14 @@ function withinReach(cells: number): boolean {
   return Number.isFinite(cells) && cells >= 0 && cells <= REACH_MAX;
 }
 
-function limitText(fromCells: number, { cellDistance, cellUnit }: SceneDistance): string {
-  const shown = (cells: number): string => cellsText(toHundredth(cells * cellDistance));
-  return `De ${shown(fromCells)} a ${shown(fromCells + REACH_MAX)} ${cellUnit}.`;
+function limitText(fromCells: number, distance: SceneDistance): string {
+  const shown = (cells: number): string => distanceTextOf(cells, distance);
+  return `De ${shown(fromCells)} a ${shown(fromCells + REACH_MAX)} ${distance.cellUnit}.`;
+}
+
+/** Cells as the field shows them, in the scene's unit with a comma.
+ *
+ *  Example: `distanceTextOf(3, { cellDistance: 1.5, cellUnit: 'm' }) // '4,5'` */
+export function distanceTextOf(cells: number, distance: SceneDistance): string {
+  return cellsText(toHundredth(cells * distance.cellDistance));
 }

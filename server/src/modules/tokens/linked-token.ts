@@ -1,20 +1,22 @@
 import { requireCastLock, type LockedGridMaybeCast } from '../scenes/locked-cast';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
-import type { TokenFieldsPo, TokenPo, TokenStylePo } from './tokens.po';
+import type { TokenAuraPo, TokenFieldsPo, TokenPo } from './tokens.po';
 
 /** What a token linked to a character shows of its anchor, besides the bars, the controllers and
- *  the conditions: the place, size, layer, facing, flips, sight and light stay its own. */
+ *  the conditions: the place, size, layer, facing, flips, sight and light stay its own. The aura
+ *  is the character's too (the paladin's aura goes with him to every grid). */
 export type TokenIdentityPo = Pick<
   TokenPo,
   'name' | 'initials' | 'side' | 'imageAssetId' | 'frame' | 'defeated'
->;
+> &
+  TokenAuraPo;
 
 /** The identity of a token, as an anchor lends it (and an unlinked token keeps a copy of it).
  *
  *  Example: `identityOf(anchor.token) // { name: 'Lyra', initials: 'LY', … }` */
 export function identityOf(token: TokenIdentityPo): TokenIdentityPo {
   const { name, initials, side, imageAssetId, frame, defeated } = token;
-  return { name, initials, side, imageAssetId, frame, defeated };
+  return { name, initials, side, imageAssetId, frame, defeated, ...auraColumnsOf(token) };
 }
 
 /** A token as every reader sees it: linked, it wears its anchor's identity, bars and controllers
@@ -52,16 +54,24 @@ export function stateHolderIn(locked: LockedGridMaybeCast<unknown>, row: TokenRo
   return { tokenId: anchorTokenId, inCast: true };
 }
 
-/** The part of a style a linked token takes from its anchor (image, frame, defeat mark) and the
- *  part that stays its own in the grid (flips, light switch).
+type SharedStyle = Readonly<{
+  imageAssetId?: unknown;
+  frame?: unknown;
+  defeated?: unknown;
+  aura?: unknown;
+}>;
+
+/** The part of a style a linked token takes from its anchor (image, frame, defeat mark, aura) and
+ *  the part that stays its own in the grid (flips, light switch). Works on the style as sent, so
+ *  each part is also the style its event carries.
  *
  *  Example: `splitStyle({ defeated: true, flipX: true }) // { shared: { defeated: true }, own: { flipX: true } }` */
-export function splitStyle(
-  style: Partial<TokenStylePo>,
-): Readonly<{ shared: Partial<TokenStylePo>; own: Partial<TokenStylePo> }> {
-  const { imageAssetId, frame, defeated, ...own } = style;
-  const shared = definedOf({ imageAssetId, frame, defeated });
-  return { shared, own: definedOf(own) };
+export function splitStyle<S extends SharedStyle>(
+  style: S,
+): Readonly<{ shared: Partial<S>; own: Partial<S> }> {
+  const { imageAssetId, frame, defeated, aura, ...own } = style;
+  const shared = definedOf({ imageAssetId, frame, defeated, aura }) as Partial<S>;
+  return { shared, own: definedOf(own) as Partial<S> };
 }
 
 /** A `token:update` of a linked token, split: the identity, look, bars and controllers go to its
@@ -72,11 +82,19 @@ export function splitUpdate(
   update: TokenUpdatePo,
   anchor: Pick<TokenPo, 'width' | 'height'>,
 ): Readonly<{ anchor: TokenUpdatePo; own: Partial<TokenFieldsPo> }> {
-  const { name, initials, side, imageAssetId, frame, ...own } = update.fields;
-  const look = definedOf({ imageAssetId, frame });
+  const { name, initials, side, imageAssetId, frame, ...rest } = update.fields;
+  const { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity, ...own } =
+    rest;
+  const aura = { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity };
+  const look = definedOf({ imageAssetId, frame, ...aura });
   const { width, height } = anchor;
   const fields = { name, initials, side, width, height, ...look };
   return { anchor: { ...update, fields }, own: definedOf(own) };
+}
+
+function auraColumnsOf(token: TokenAuraPo): TokenAuraPo {
+  const { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity } = token;
+  return { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity };
 }
 
 function definedOf<T extends object>(fields: T): Partial<T> {

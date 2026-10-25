@@ -20,6 +20,7 @@ import type { TokenAnchorsDao } from './token-anchors.dao';
 import type { MemberCardsDao } from '../member-cards/member-cards.dao';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
 import { TokenNotFoundError } from './tokens.error';
+import { toTokenAuraPo } from './token-aura.mapper';
 import { toBarInputsPo, toTokenDto, toTokenLightPo, toTokenSightPo } from './tokens.mapper';
 import type { WallsDao } from '../walls/walls.dao';
 
@@ -117,6 +118,7 @@ export function newTokenRowOf(
     sightAngle,
     ...toTokenSightPo(token.sight),
     ...toTokenLightPo(token.light),
+    ...toTokenAuraPo(token.aura),
   };
   return {
     token: { sceneId, name, initials, side, width, height, col, row, layer, ...look },

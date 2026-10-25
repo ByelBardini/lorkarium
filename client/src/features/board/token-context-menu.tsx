@@ -42,6 +42,8 @@ export type TokenContextMenuProps = Readonly<{
   onApplyCondition: (tokenIds: readonly string[]) => void;
   /** "Imagem…": the token whose image dialog opens. */
   onChangeImage: (tokenId: string) => void;
+  /** "Aura…" (whoever controls the token): the token whose aura dialog opens. */
+  onChangeAura: (tokenId: string) => void;
   /** The master's "Ligar à ficha de ▸" / "Desligar da ficha": the table's cast, and where a link
    *  that needs a yes goes. Absent: no character items. */
   characters?: Readonly<{
@@ -57,13 +59,13 @@ export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
 /** The right click on a token for whoever controls it: "Aplicar condição…", "Tornar principal"
  *  (only on a token the viewer is listed in the control of and that is not their main one), the
  *  master's "Tornar principal de ▸" (the players listed in its control), "Morto", "Luz acesa"
- *  (only on a token that gives off light), "Imagem…",
+ *  (only on a token that gives off light), "Aura…" (that token alone, for whoever controls it), "Imagem…",
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
  *  token alone); the master also gets "Ligar à ficha de ▸" / "Desligar da ficha" (with
  *  `characters`), "Tornar invisível" / "Tornar visível" and "Mover para camada". Closing (a choice, Esc, a click away)
  *  tells `onClose`.
  *
- *  Example: `{menu && <TokenContextMenu request={menu} board={board} interaction={interaction} onApplyCondition={open} onChangeImage={openImage} onClose={() => setMenu(null)} />}` */
+ *  Example: `{menu && <TokenContextMenu request={menu} board={board} interaction={interaction} onApplyCondition={open} onChangeImage={openImage} onChangeAura={openAura} onClose={() => setMenu(null)} />}` */
 export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Element | null {
   const { request, board, interaction, onClose } = props;
   const nameId = useId();
@@ -150,6 +152,9 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
         )}
         {hiding.length > 0 && <TokenHiddenItems targets={hiding} interaction={interaction} />}
         <DropdownMenuSeparator />
+        {token.canControl && (
+          <DropdownMenuItem onSelect={() => props.onChangeAura(token.id)}>Aura…</DropdownMenuItem>
+        )}
         <LookItems
           token={token}
           onChangeImage={() => props.onChangeImage(token.id)}

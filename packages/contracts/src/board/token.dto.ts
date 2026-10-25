@@ -5,6 +5,7 @@ import { activeConditionDto } from './condition.dto';
 import { coneAngleDto, facingDto } from './direction.dto';
 import { tokenLightDto } from './light.dto';
 import { REACH_MAX, reachSideDto } from './reach.dto';
+import { tokenAuraDto } from './token-aura.dto';
 
 export const MAX_BARS_PER_TOKEN = 8;
 /** Tokens a scene keeps at most (above the 300 of the target scale; it protects snapshot and render). */
@@ -137,6 +138,8 @@ export const tokenDto = z.strictObject({
   sight: sightDto.nullable(),
   light: tokenLightDto.nullable(),
   lightLit: z.boolean(),
+  /** The aura around it (`null` = none); like the look, every audience gets the same one. */
+  aura: tokenAuraDto.nullable(),
   /** Hidden from the players: only the masters and its controllers ever receive it. */
   hidden: z.boolean(),
   canControl: z.boolean(),
@@ -168,6 +171,7 @@ export const createTokenCommandDto = z.strictObject({
   sightAngle: coneAngleDto('sight').default(360),
   sight: sightDto.nullable().optional(),
   light: tokenLightDto.nullable().optional(),
+  aura: tokenAuraDto.nullable().default(null),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type CreateTokenCommandDto = z.infer<typeof createTokenCommandDto>;
@@ -186,6 +190,7 @@ export const updateTokenCommandDto = z.strictObject({
   sightAngle: coneAngleDto('sight').optional(),
   sight: sightDto.nullable().optional(),
   light: tokenLightDto.nullable().optional(),
+  aura: tokenAuraDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type UpdateTokenCommandDto = z.infer<typeof updateTokenCommandDto>;

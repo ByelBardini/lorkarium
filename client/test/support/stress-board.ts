@@ -1,3 +1,4 @@
+import { AURA_EFFECTS } from '@lorkarium/contracts';
 import type {
   BoardStateDto,
   LightColorDto,
@@ -35,7 +36,7 @@ export const STRESS_PLAYER_IDS: readonly string[] = Array.from({ length: PLAYERS
 const VIEWER_ID = STRESS_PLAYER_IDS[0] ?? '';
 
 /** The stress scene of `docs/context/client/performance.md` as its first player sees it: 300
- *  tokens (art, initials, bars, conditions), 300 walls (≈900 segments, with doors, grates and
+ *  tokens (art, initials, bars, conditions, 30 auras — 10 of them animated effects), 300 walls (≈900 segments, with doors, grates and
  *  curtains) and 40 lights on a dark 100 × 100 scene. The same board at every call.
  *
  *  Example: `buildBoardView({ ...localInput, ...stressBoardOf() })` */
@@ -83,7 +84,19 @@ export function stressToken(index: number): TokenDto {
     bars: barsOf(index),
     conditions: index % 5 === 0 ? [stressCondition(index)] : [],
     ...ownershipOf(index),
+    aura: auraOf(index),
   });
+}
+
+// One token in 10 has an aura; a third of those is an animated effect (the eight in turn), the
+// rest a color of the palette.
+function auraOf(index: number): TokenDto['aura'] {
+  if (index % 10 !== 5) return null;
+  const nth = (index - 5) / 10;
+  const radius = (nth % 3) + 1;
+  if (nth % 3 !== 0) return { kind: 'color', radius, color: 'gold', opacity: 50 };
+  const effect = AURA_EFFECTS[(nth / 3) % AURA_EFFECTS.length] ?? 'fire';
+  return { kind: 'effect', radius, effect, color: null, opacity: 100 };
 }
 
 function layerOf(index: number): TokenLayerDto {

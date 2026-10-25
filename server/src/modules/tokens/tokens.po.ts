@@ -18,6 +18,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { assets } from '../assets/assets.po';
 import { users } from '../auth/users.po';
+import { drawingColor } from '../drawings/drawings.po';
 import { lightColorEnum } from '../lights/lights.po';
 import { scenes } from '../scenes/scenes.po';
 
@@ -28,6 +29,18 @@ export const barColor = pgEnum('bar_color', ['gold', 'steel', 'ember', 'moss', '
 export const barVisibility = pgEnum('bar_visibility', ['everyone', 'controllers']);
 export const barDisplay = pgEnum('bar_display', ['number', 'percent']);
 export const tokenFrame = pgEnum('token_frame', ['square', 'round']);
+export const tokenAuraKind = pgEnum('token_aura_kind', ['color', 'effect', 'image']);
+// The order of the contract's `AURA_EFFECTS`.
+export const auraEffect = pgEnum('aura_effect', [
+  'fire',
+  'water',
+  'lightning',
+  'frost',
+  'radiant',
+  'shadow',
+  'poison',
+  'arcane',
+]);
 
 export const tokens = pgTable(
   'tokens',
@@ -71,6 +84,17 @@ export const tokens = pgTable(
     // How wide the beam opens toward the facing (a lantern); 360 = every side, and no light
     // brings it back to 360.
     lightAngle: smallint('light_angle').notNull().default(360),
+    // The one aura around the token, seen by everyone: all six null = none. `aura_radius` is in
+    // cells past the token's edge (game-core `auraRadius`); an effect without a color is drawn
+    // in its natural tone. Losing the image asset keeps the rest (the mapper reads it as none).
+    auraKind: tokenAuraKind('aura_kind'),
+    auraRadius: numeric('aura_radius', { precision: 6, scale: 2 }),
+    auraColor: drawingColor('aura_color'),
+    auraEffect: auraEffect('aura_effect'),
+    auraImageAssetId: uuid('aura_image_asset_id').references(() => assets.id, {
+      onDelete: 'set null',
+    }),
+    auraOpacity: smallint('aura_opacity'),
     // Hidden from the players: only the masters and its controllers ever receive it.
     hidden: boolean('hidden').notNull().default(false),
     // The anchor (in the table's cast) of the character this token is: it lends its identity,
@@ -99,6 +123,18 @@ export const tokens = pgTable(
     check(
       'tokens_light_color',
       sql`${table.lightColor} IS NULL OR ${table.lightBright} IS NOT NULL`,
+    ),
+    // All six null, or a kind with its radius (0–20 cells, game-core `AURA_RADIUS_MAX`) and its
+    // opacity (10–100 %). A CHECK passes on NULL, so the second branch names each as not null.
+    check(
+      'tokens_aura_shape',
+      sql`(${table.auraKind} IS NULL AND ${table.auraRadius} IS NULL AND ${table.auraColor} IS NULL AND ${table.auraEffect} IS NULL AND ${table.auraImageAssetId} IS NULL AND ${table.auraOpacity} IS NULL) OR (${table.auraKind} IS NOT NULL AND ${table.auraRadius} IS NOT NULL AND ${table.auraOpacity} IS NOT NULL AND ${table.auraRadius} BETWEEN 0 AND 20 AND ${table.auraOpacity} BETWEEN 10 AND 100)`,
+    ),
+    // A color aura has its color; an effect aura has its effect (and maybe a color); only an
+    // image aura has an image, which may be null after its asset is deleted (set null).
+    check(
+      'tokens_aura_fields',
+      sql`(${table.auraKind} IS DISTINCT FROM 'color' OR ${table.auraColor} IS NOT NULL) AND ((${table.auraEffect} IS NOT NULL) = (${table.auraKind} IS NOT DISTINCT FROM 'effect')) AND (${table.auraColor} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'color' OR ${table.auraKind} IS NOT DISTINCT FROM 'effect') AND (${table.auraImageAssetId} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'image')`,
     ),
     check(
       'tokens_box_half_cells',
@@ -147,9 +183,14 @@ export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenI
 export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max'>;
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
-/** What `token:restyleMany` saves: the look plus the defeat mark and the light switch, which
- *  `token:update` never sends. */
-export type TokenStylePo = TokenLookPo & Pick<TokenPo, 'defeated' | 'lightLit'>;
+/** The six aura columns, written always together (all null = no aura). */
+export type TokenAuraPo = Pick<
+  TokenPo,
+  'auraKind' | 'auraRadius' | 'auraColor' | 'auraEffect' | 'auraImageAssetId' | 'auraOpacity'
+>;
+/** What `token:restyleMany` saves: the look, the defeat mark and the light switch (which
+ *  `token:update` never sends) and the aura. */
+export type TokenStylePo = TokenLookPo & Pick<TokenPo, 'defeated' | 'lightLit'> & TokenAuraPo;
 export type TokenSightPo = Pick<TokenPo, 'sightBright' | 'sightDim'>;
 export type TokenLightPo = Pick<TokenPo, 'lightBright' | 'lightDim' | 'lightColor' | 'lightAngle'>;
 /** What `token:update` saves; an absent look field keeps what the token has. */
@@ -157,4 +198,5 @@ export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width'
   Partial<TokenLookPo> &
   Partial<TokenSightPo> &
   Partial<TokenLightPo> &
+  Partial<TokenAuraPo> &
   Partial<Pick<TokenPo, 'sightAngle'>>;

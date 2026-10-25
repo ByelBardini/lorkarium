@@ -134,3 +134,55 @@ describe('tokensRestyledDto', () => {
     expect(tokensRestyledDto.parse(event)).toEqual(event);
   });
 });
+
+describe('tokenStyleDto, aura', () => {
+  const restyle = (style: unknown) =>
+    restyleTokensCommandDto.safeParse({ ...BASE, tokenIds: [LYRA_ID], style });
+
+  it('a fire aura of 2 cells in its natural tone is accepted as sent', () => {
+    const aura = { kind: 'effect', radius: 2, effect: 'fire', color: null, opacity: 100 };
+
+    expect(restyle({ aura }).data?.style).toEqual({ aura });
+  });
+
+  it('a null aura takes the aura away', () => {
+    expect(restyle({ aura: null }).data?.style).toEqual({ aura: null });
+  });
+
+  it('a gold tint of radius 0 at the faintest opacity is accepted', () => {
+    const aura = { kind: 'color', radius: 0, color: 'gold', opacity: 10 };
+
+    expect(restyle({ aura }).success).toBe(true);
+  });
+
+  it('the empty style refusal names aura among the fields', () => {
+    expect(messagesOf(restyle({}))).toEqual([
+      'style is empty; expected at least one of imageAssetId, frame, flipX, flipY, defeated, lightLit, aura',
+    ]);
+  });
+
+  it('a tint without a color is refused at aura.color', () => {
+    const paths = restyle({ aura: { kind: 'color', radius: 2, opacity: 50 } }).error?.issues.map(
+      (issue) => issue.path.join('.'),
+    );
+
+    expect(paths).toEqual(['style.aura.color']);
+  });
+
+  it('an effect that also carries an image is refused (strict object)', () => {
+    const aura = {
+      kind: 'effect',
+      radius: 2,
+      effect: 'fire',
+      color: null,
+      opacity: 100,
+      imageAssetId: ASSET_ID,
+    };
+
+    expect(restyle({ aura }).success).toBe(false);
+  });
+
+  it('an aura kind outside color, effect and image is refused', () => {
+    expect(restyle({ aura: { kind: 'glow', radius: 2, opacity: 50 } }).success).toBe(false);
+  });
+});

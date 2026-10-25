@@ -5,6 +5,7 @@ import type {
   FaceTokensCommandDto,
   ResizeTokensCommandDto,
   RestyleTokensCommandDto,
+  TokenStyleDto,
   TokensFacedDto,
   TokensResizedDto,
 } from '@lorkarium/contracts';
@@ -15,7 +16,7 @@ import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { inLockedGrid } from '../scenes/locked-scene';
 import { placeInScene, requireBox, requireFacing } from './token-rules.bo';
 import type { TokenBoxPo, TokenRow } from './tokens.dao';
-import type { TokenStylePo } from './tokens.po';
+import { lookAssetIdsOf, toTokenStylePo } from './token-aura.mapper';
 import { splitStyle, stateHolderIdOf } from './linked-token';
 import {
   inLockedGridWithCast,
@@ -77,15 +78,16 @@ export class TokenAppearanceService {
   }
 
   /** The look is the controllers' to choose, on any layer (like the bars). On a linked token
-   *  the image, frame and defeat mark are its anchor's (an event of the cast); the flips and the
-   *  light switch stay its own in the grid. */
+   *  the image, frame, defeat mark and aura are its anchor's (an event of the cast); the flips and
+   *  the light switch stay its own in the grid. Every image (the token's, the aura's) must be an
+   *  asset of the table. */
   async restyleMany(userId: string, campaignId: string, command: RestyleTokens): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const address = { campaignId, sceneId: command.sceneId, access };
     const saved = await inLockedGridWithCast(this.deps.transaction, address, async (locked) => {
       const rows = await tokensIn(locked.daos, locked.scene, campaignId, command.tokenIds);
       for (const row of rows) tokenAccessOf(access, row).requireControl('restyle');
-      await requireAssetsOf(locked.daos, campaignId, [command.style.imageAssetId]);
+      await requireAssetsOf(locked.daos, campaignId, lookAssetIdsOf(command.style));
       const restyled = await restyleIn(locked, rows, command.style);
       const veiled = await litWriteOf(locked.daos, locked.scene.id, rows, command.style);
       return { ...restyled, value: { ...restyled.value, veiled } };
@@ -135,13 +137,13 @@ export class TokenAppearanceService {
   }
 }
 
-type Restyled = Readonly<{ tokenIds: string[]; style: Partial<TokenStylePo> }>;
+type Restyled = Readonly<{ tokenIds: string[]; style: TokenStyleDto }>;
 
 // Unlinked tokens take the whole style; linked ones their own part, their anchors the shared one.
 async function restyleIn(
   locked: LockedGridMaybeCast<TokenWriteDaos>,
   rows: readonly TokenRow[],
-  style: Partial<TokenStylePo>,
+  style: TokenStyleDto,
 ): Promise<CastAndGridChange<Readonly<{ grid: Restyled | null; cast: Restyled | null }>>> {
   const { shared, own } = splitStyle(style);
   const loose = rows.filter(({ token }) => token.anchorTokenId === null).map(idOf);
@@ -149,9 +151,10 @@ async function restyleIn(
   const anchors = Object.keys(shared).length > 0 ? linked.map(stateHolderIdOf) : [];
   if (anchors.length > 0) requireCastLock(locked);
   const ownIds = Object.keys(own).length > 0 ? linked.map(idOf) : [];
-  if (loose.length > 0) await locked.daos.tokens.restyle(loose, style);
-  if (ownIds.length > 0) await locked.daos.tokens.restyle(ownIds, own);
-  if (anchors.length > 0) await locked.daos.tokens.restyle(anchors, shared);
+  const { tokens } = locked.daos;
+  if (loose.length > 0) await tokens.restyle(loose, toTokenStylePo(style));
+  if (ownIds.length > 0) await tokens.restyle(ownIds, toTokenStylePo(own));
+  if (anchors.length > 0) await tokens.restyle(anchors, toTokenStylePo(shared));
   const gridIds = [...loose, ...ownIds];
   const grid =
     gridIds.length > 0 ? { tokenIds: gridIds, style: loose.length > 0 ? style : own } : null;
@@ -181,7 +184,7 @@ async function litWriteOf(
   daos: TokenWriteDaos,
   sceneId: string,
   rows: readonly TokenRow[],
-  style: Partial<TokenStylePo>,
+  style: TokenStyleDto,
 ): Promise<VeiledWrite> {
   if (style.lightLit === undefined) return { veil: veilOf(rows), lights: null };
   return veiledWriteOf(

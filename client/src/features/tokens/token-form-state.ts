@@ -25,6 +25,13 @@ import {
 import { initialsOf } from '@/lib/token-initials';
 import { DEFAULT_LIGHT_REACH } from '@/stores/light-reach-store';
 import type { TokenEdit } from '@/services/table-board-commands';
+import {
+  auraFormOf,
+  parseAuraForm,
+  type AuraFormErrors,
+  type AuraFormResult,
+  type AuraFormValues,
+} from './aura-form-state';
 import { barDraftsOf, barFormsOf, type BarFormErrors, type BarFormValues } from './bar-form-state';
 import { BAR_MAX_PROBLEM, SIDE_OPTIONS } from './token-messages';
 
@@ -32,7 +39,7 @@ import { BAR_MAX_PROBLEM, SIDE_OPTIONS } from './token-messages';
 export type TokenPlayer = Readonly<{ userId: string; name: string }>;
 
 /** The tabs of the token dialog, in the order a save looks for the first error. */
-export type TokenDialogTab = 'basics' | 'bars' | 'vision';
+export type TokenDialogTab = 'basics' | 'bars' | 'vision' | 'aura';
 
 export type TokenFormValues = Readonly<{
   name: string;
@@ -60,6 +67,10 @@ export type TokenFormValues = Readonly<{
   /** "Cor da luz": `null` is neutral. */
   lightColor: LightColorDto | null;
   bars: readonly BarFormValues[];
+  /** "Aura": the aura of the token in the unit of the scene. */
+  aura: AuraFormValues;
+  /** Only an aura the master touched is sent: untouched, the token keeps its own. */
+  auraEdited: boolean;
 }>;
 
 export type TokenFormErrors = Readonly<{
@@ -70,6 +81,7 @@ export type TokenFormErrors = Readonly<{
   sightAngle?: string;
   lightAngle?: string;
   bars?: Readonly<Record<number, BarFormErrors>>;
+  aura?: AuraFormErrors;
 }>;
 
 export type TokenFormResult =
@@ -86,7 +98,8 @@ const BAR_ERROR: Readonly<Record<keyof BarFormErrors, string>> = {
   max: BAR_MAX_PROBLEM,
 };
 
-const TAB_ORDER: readonly TokenDialogTab[] = ['basics', 'bars', 'vision'];
+/** The tabs of the dialog, in order (also the order a save looks for the first error). */
+export const TOKEN_DIALOG_TABS: readonly TokenDialogTab[] = ['basics', 'bars', 'vision', 'aura'];
 
 const BASICS_FIELDS = ['name', 'initials'] as const;
 
@@ -106,7 +119,7 @@ type FormRanges = Readonly<{
  *
  *  Example: `firstErrorTab({ bars: { 1: { label: 'Dê um nome à barra.' } } }) // 'bars'` */
 export function firstErrorTab(errors: TokenFormErrors): TokenDialogTab | null {
-  return TAB_ORDER.find((tab) => tabHasErrors(errors, tab)) ?? null;
+  return TOKEN_DIALOG_TABS.find((tab) => tabHasErrors(errors, tab)) ?? null;
 }
 
 /** Whether a tab holds an error, for its mark.
@@ -115,6 +128,7 @@ export function firstErrorTab(errors: TokenFormErrors): TokenDialogTab | null {
 export function tabHasErrors(errors: TokenFormErrors, tab: TokenDialogTab): boolean {
   if (tab === 'basics') return BASICS_FIELDS.some((field) => errors[field] !== undefined);
   if (tab === 'bars') return Object.keys(errors.bars ?? {}).length > 0;
+  if (tab === 'aura') return Object.keys(errors.aura ?? {}).length > 0;
   return [errors.sight, errors.light, errors.sightAngle, errors.lightAngle].some(
     (error) => error !== undefined,
   );
@@ -154,6 +168,8 @@ export function emptyTokenForm(distance: SceneDistance): TokenFormValues {
     light: { on: false, bright: '', dim: '', saved: false },
     lightColor: null,
     bars: [],
+    aura: auraFormOf(null, distance),
+    auraEdited: false,
   };
 }
 
@@ -173,7 +189,8 @@ export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenForm
     lightAngle: coneFieldOf(token.light?.angle ?? 360),
   };
   const look = { controllerIds, imageAssetId, bars, sight, light, lightColor, ...angles };
-  return { name, initials, initialsEdited, side, width, height, ...look };
+  const aura = { aura: auraFormOf(token.aura, distance), auraEdited: false };
+  return { name, initials, initialsEdited, side, width, height, ...look, ...aura };
 }
 
 /** The name changed: the initials follow it until edited by hand. */
@@ -193,6 +210,13 @@ export function lightSwitchedOn(form: TokenFormValues, distance: SceneDistance):
   return { ...form, light: { ...light, ...typed, on: true } };
 }
 
+/** The aura changed in the "Aura" tab: from now on it is sent.
+ *
+ *  Example: `setForm((current) => withAura(current, update(current.aura)))` */
+export function withAura(form: TokenFormValues, aura: AuraFormValues): TokenFormValues {
+  return { ...form, aura, auraEdited: true };
+}
+
 /** "Voltar às iniciais automáticas": the initials of the name, following it again. */
 export function automaticInitials(form: TokenFormValues): TokenFormValues {
   return { ...form, initials: initialsOf(form.name), initialsEdited: false };
@@ -210,6 +234,20 @@ export function stepSide(cells: number, direction: -1 | 1): number {
  *
  *  Example: `const result = parseTokenForm(form, scene); if (result.ok) await commands.updateToken(id, tokenId, result.token)` */
 export function parseTokenForm(form: TokenFormValues, distance: SceneDistance): TokenFormResult {
+  const look = parseTokenLook(form, distance);
+  if (!form.auraEdited) return look;
+  return withParsedAura(look, parseAuraForm(form.aura, distance));
+}
+
+// The aura is not in the DTO parse: its form already gives a valid aura or says what is wrong.
+function withParsedAura(look: TokenFormResult, aura: AuraFormResult): TokenFormResult {
+  if (!aura.ok)
+    return { ok: false, errors: { ...(look.ok ? {} : look.errors), aura: aura.errors } };
+  if (!look.ok) return look;
+  return { ok: true, token: { ...look.token, aura: aura.aura } };
+}
+
+function parseTokenLook(form: TokenFormValues, distance: SceneDistance): TokenFormResult {
   const sight = parseSightFields(form.sight, distance);
   const light = parseRangeFields(form.light, distance, LIGHT_TEXTS);
   const sightAngle = parseConeField(form.sightAngle);

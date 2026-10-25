@@ -16,6 +16,7 @@ import {
 } from '../support/table-session-fixtures';
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch, veiledTorch } from '../support/light-fixtures';
+import { fireAura, goldAura } from '../support/aura-fixtures';
 
 describe('parseBoardEvent', () => {
   it('a valid scene:updated of the table is a sceneUpdated event', () => {
@@ -125,6 +126,25 @@ describe('parseBoardEvent', () => {
       VHARN.id,
     );
     expect(parsed).toEqual({ kind: 'invalid' });
+  });
+
+  describe('token auras', () => {
+    const base = { ...VHARN_GRID, version: 6, at: '2026-10-25T12:00:00.000Z', tokenIds: [LYRA_ID] };
+
+    it('a token:restyledMany with a fire aura is a tokensRestyled event carrying it', () => {
+      const payload = { ...base, style: { aura: fireAura() } };
+
+      expect(parseBoardEvent('token:restyledMany', payload, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type: 'tokensRestyled', payload },
+      });
+    });
+
+    it('a token:restyledMany with an aura of kind glow is invalid (resync)', () => {
+      const payload = { ...base, style: { aura: { ...goldAura(), kind: 'glow' } } };
+
+      expect(parseBoardEvent('token:restyledMany', payload, VHARN.id)).toEqual({ kind: 'invalid' });
+    });
   });
 
   describe('effect areas', () => {

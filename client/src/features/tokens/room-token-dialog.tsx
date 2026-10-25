@@ -9,6 +9,7 @@ import type { TableBoardCommands, BoardScope } from '@/services/table-board-comm
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
+import { TokenAuraDialog } from './token-aura-dialog';
 import { TokenDialog } from './token-dialog';
 import { TokenImageDialog } from './token-image-dialog';
 import type { TokenPlayer } from './token-form-state';
@@ -81,4 +82,17 @@ export function RoomTokenImageDialog(props: RoomTokenImageDialogProps): React.JS
   const { board, tokenId, ...rest } = props;
   const token = useBoard(board, (state) => state.board?.tokens.find(({ id }) => id === tokenId));
   return token ? <TokenImageDialog token={token} {...rest} /> : null;
+}
+
+/** "Aura…" of the right-click menu, over the confirmed token (gone, it closes itself); the radius
+ *  is typed in the unit of the scene.
+ *
+ *  Example: `{auraTokenId && <RoomTokenAuraDialog scope={scope} board={board} tokenId={auraTokenId} commands={commands} assets={assets} onClose={close} />}` */
+export function RoomTokenAuraDialog(props: RoomTokenImageDialogProps): React.JSX.Element | null {
+  const { board, tokenId, ...rest } = props;
+  const token = useBoard(board, (state) => state.board?.tokens.find(({ id }) => id === tokenId));
+  const cellDistance = useBoard(board, (state) => state.board?.scene.cellDistance ?? 1.5);
+  const cellUnit = useBoard(board, (state) => state.board?.scene.cellUnit ?? 'm');
+  if (!token) return null;
+  return <TokenAuraDialog token={token} distance={{ cellDistance, cellUnit }} {...rest} />;
 }

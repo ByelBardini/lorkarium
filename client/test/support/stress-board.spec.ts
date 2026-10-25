@@ -36,6 +36,13 @@ describe('stressBoardOf', () => {
     ).toBe(true);
   });
 
+  it('gives one token in 10 an aura, a third of them an animated effect', () => {
+    const auras = stressBoardOf().tokens.flatMap(({ aura }) => (aura ? [aura.kind] : []));
+    expect(auras).toHaveLength(30);
+    expect(auras.filter((kind) => kind === 'effect')).toHaveLength(10);
+    expect(auras.filter((kind) => kind === 'color')).toHaveLength(20);
+  });
+
   it('fits the scene: the contracts DTO accepts the snapshot', () => {
     expect(boardStateDto.safeParse(stressBoardOf()).success).toBe(true);
   });

@@ -39,6 +39,7 @@ const GOBLIN: NewTokenDto = {
   facing: 0,
   sightAngle: 360,
   hidden: false,
+  aura: null,
   bars: [
     {
       label: 'PV',

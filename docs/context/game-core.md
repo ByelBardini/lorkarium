@@ -29,6 +29,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/token-sight.ts` — o alcance de visão, o olho, o nível de visão de um token e a porta vista
 - `src/reach.ts` — a validação do alcance (plena e penumbra, de 0 a 100 casas) dividida entre visão e luz
 - `src/light.vo.ts` — o alcance da luz e a luz do mapa (VO)
+- `src/aura.vo.ts` — o raio (0 a 20 casas) e a opacidade (10 a 100%) da aura do token (VO)
 - `src/lighting.ts` — a fonte de luz e o nível de luz num ponto
 - `src/stable-hash.ts` — hash estável de um texto (capa da mesa, cor da pessoa)
 - `src/member-color.ts` — as 8 cores da pessoa e a cor efetiva
@@ -129,6 +130,11 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 - `defaultCoverOf(campaignId)` (`campaign-cover.ts`) → `{ drawing, tone }`: a capa de quem nunca escolheu, `hash % COVER_DRAWINGS` (3) e `hash % COVER_TONES + 1` (4). O server devolve no `cover` da mesa sem escolha gravada; o client cai nela (`fallbackCoverOf`). O `campaignCoverDto` do contracts repete os limites 0..2 e 1..4.
 - `MEMBER_COLORS` — `gold`, `steel`, `ember`, `moss`, `violet`, `rose`, `teal`, `bone`, nesta ordem (a das cores do ping de sempre); `MemberColor` é a união dos nomes. O hex mora só no client (`lib/member-color.ts`); o contracts repete os nomes no `memberColorDto`.
 - `memberColorOf(userId, escolha)` — a escolhida ou, com `null`, `MEMBER_COLORS[stableHash(userId) % 8]`: quem nunca escolheu fica com a cor que o ping já dava. O server manda a efetiva; o client desenha.
+
+## Aura
+
+- `auraRadius(r)` — de 0 a `AURA_RADIUS_MAX` (20) casas, finito; 0 = só a pegada do token. O raio conta **a partir da borda** (a emanação do D&D 2024/PF2e): a régua é o `distanceToBox` (euclidiana), não o `cellDistance`. O teto é nosso: aura de shader custa por pixel.
+- `auraOpacity(p)` — inteiro de `AURA_OPACITY_MIN` (10) a `AURA_OPACITY_MAX` (100). As duas lançam `RangeError` citando o valor ("Aura radius 20.01 is invalid: expected 0 to 20 cells."). O contracts repete os limites no `tokenAuraDto`; o mapper do server e o formulário do client passam pelo VO.
 
 ## Visão e luz
 

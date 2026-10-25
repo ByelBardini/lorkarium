@@ -30,6 +30,7 @@ import {
   vharnCombat,
 } from '../support/table-session-fixtures';
 import { BRAZIER_ID, CORRIDOR_TORCH_ID, brazier, corridorTorch } from '../support/light-fixtures';
+import { fireAura, goldAura, runeAura } from '../support/aura-fixtures';
 
 describe('applyBoardEvent, effect areas', () => {
   it('the snapshot carries the areas of the scene', () => {
@@ -694,5 +695,43 @@ describe('applyBoardEvent, the table list of conditions', () => {
       payload: { ...vharnEventBase(5), definitions: [blinded] },
     });
     expect(next.conditionDefinitions).toEqual([blinded]);
+  });
+});
+
+describe('applyBoardEvent, auras', () => {
+  const restyled = (style: Record<string, unknown>, tokenIds = [LYRA_ID]) =>
+    ({ type: 'tokensRestyled', payload: { ...vharnEventBase(5), tokenIds, style } }) as const;
+
+  it('token:restyledMany with an aura changes only the aura of Lyra and keeps the other arrays', () => {
+    const board = vharnBoard({ tokens: [lyra(), kael()], walls: [northWall()] });
+
+    const next = applyBoardEvent(board, restyled({ aura: fireAura() }));
+
+    expect(next.tokens).toEqual([lyra({ aura: fireAura() }), kael()]);
+    expect(next.walls).toBe(board.walls);
+  });
+
+  it('token:restyledMany with a null aura takes the aura away', () => {
+    const board = vharnBoard({ tokens: [lyra({ aura: goldAura() })] });
+
+    const next = applyBoardEvent(board, restyled({ aura: null }));
+
+    expect(next.tokens[0]?.aura).toBeNull();
+  });
+
+  it('token:restyledMany without an aura keeps the one Lyra had', () => {
+    const board = vharnBoard({ tokens: [lyra({ aura: goldAura() })] });
+
+    const next = applyBoardEvent(board, restyled({ flipX: true }));
+
+    expect(next.tokens[0]?.aura).toEqual(goldAura());
+  });
+
+  it('token:restyledMany with a new aura replaces the old one whole, no field of it left behind', () => {
+    const board = vharnBoard({ tokens: [lyra({ aura: fireAura({ color: 'steel' }) })] });
+
+    const next = applyBoardEvent(board, restyled({ aura: runeAura() }));
+
+    expect(next.tokens[0]?.aura).toEqual(runeAura());
   });
 });

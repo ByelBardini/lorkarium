@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { facingDto } from './direction.dto';
 import { tokenFrameDto } from './token.dto';
+import { tokenAuraDto } from './token-aura.dto';
 import { tokenGroupOf, tokenIdGroupDto } from './token-id-group.dto';
 
 const tokenFacingDto = z.strictObject({ tokenId: z.uuid(), facing: facingDto });
@@ -31,7 +32,8 @@ export const tokensFacedDto = z.strictObject({
 export type TokensFacedDto = z.infer<typeof tokensFacedDto>;
 
 /** The look fields to change; an absent field stays, `imageAssetId: null` takes the image away.
- *  `lightLit` lights or puts out the token's light (whoever controls it, like `defeated`).
+ *  `lightLit` lights or puts out the token's light (whoever controls it, like `defeated`), and
+ *  `aura: null` takes the aura away.
  *
  *  Example: `tokenStyleDto.parse({ frame: 'round' })` */
 export const tokenStyleDto = z
@@ -42,13 +44,14 @@ export const tokenStyleDto = z
     flipY: z.boolean().optional(),
     defeated: z.boolean().optional(),
     lightLit: z.boolean().optional(),
+    aura: tokenAuraDto.nullable().optional(),
   })
   .superRefine((style, context) => {
     if (Object.keys(style).length > 0) return;
     context.addIssue({
       code: 'custom',
       message:
-        'style is empty; expected at least one of imageAssetId, frame, flipX, flipY, defeated, lightLit',
+        'style is empty; expected at least one of imageAssetId, frame, flipX, flipY, defeated, lightLit, aura',
     });
   });
 export type TokenStyleDto = z.infer<typeof tokenStyleDto>;

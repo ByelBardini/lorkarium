@@ -23,7 +23,8 @@ describe('the layers of the board, bottom to top', () => {
 
   it('that container sits in the Tokens layer, the last of the three, under its tokens', () => {
     const { beneath, tokens } = stack();
-    const [background, , objects, , tokensLayer] = tokens.container.children as Container[];
+    // Each layer is its aura floor, its tokens and its strips.
+    const [, background, , , objects, , , tokensLayer] = tokens.container.children as Container[];
 
     expect(tokensLayer?.children[0]).toBe(beneath);
     expect(background?.children).not.toContain(beneath);
@@ -41,7 +42,7 @@ describe('the layers of the board, bottom to top', () => {
       imageUrl: null,
     } as const;
     tokens.sync([chestOnObjects([poisoned])], [], 0);
-    const [, backgroundStrips, objects, objectStrips, tokensLayer] = tokens.container
+    const [, , backgroundStrips, , objects, objectStrips, , tokensLayer] = tokens.container
       .children as Container[];
 
     expect(objects?.children).toHaveLength(1);
@@ -80,5 +81,6 @@ function chestOnObjects(conditions: TokenView['conditions']): TokenView {
     defeated: false,
     hidden: false,
     silhouette: null,
+    aura: null,
   };
 }

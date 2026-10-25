@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { resizeFor, requireSize } from '../../../src/modules/assets/asset-upload.bo';
+import { animationFor, resizeFor, requireSize } from '../../../src/modules/assets/asset-upload.bo';
 import { AssetTooLargeError } from '../../../src/modules/assets/assets.error';
 
 const MIB = 1024 * 1024;
 const LIMIT = 20 * MIB;
-const SIDES = { background: 4096, token: 1024, cover: 1600, condition: 256 };
+const SIDES = { background: 4096, token: 1024, cover: 1600, condition: 256, aura: 512 };
+const ANIMATION = { maxFrames: 120, maxDecodedPixels: 16_000_000 };
 
 describe('resizeFor', () => {
   it('a condition image is kept as a square of at most 256 px', () => {
@@ -15,9 +16,26 @@ describe('resizeFor', () => {
     ['token', 1024],
     ['background', 4096],
     ['cover', 1600],
+    ['aura', 512],
   ] as const)('a %s image keeps its shape, up to %i px', (purpose, maxSide) => {
     expect(resizeFor(purpose, SIDES)).toEqual({ maxSide, square: false });
   });
+});
+
+describe('animationFor', () => {
+  it('an aura image may stay animated within 120 frames and 16 MP decoded', () => {
+    expect(animationFor('aura', ANIMATION)).toEqual({
+      maxFrames: 120,
+      maxDecodedPixels: 16_000_000,
+    });
+  });
+
+  it.each(['token', 'background', 'cover', 'condition'] as const)(
+    'a %s image never animates (no budget)',
+    (purpose) => {
+      expect(animationFor(purpose, ANIMATION)).toBeNull();
+    },
+  );
 });
 
 describe('requireSize', () => {

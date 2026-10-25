@@ -6,7 +6,11 @@ import { ApplyConditionDialog } from '@/features/combat/apply-condition-dialog';
 import { ConditionToolPanel } from '@/features/combat/condition-tool-panel';
 import { useConditionToolFollow } from '@/features/combat/use-condition-tool-follow';
 import { TurnLine } from '@/features/combat/turn-line';
-import { RoomTokenDialog, RoomTokenImageDialog } from '@/features/tokens/room-token-dialog';
+import {
+  RoomTokenAuraDialog,
+  RoomTokenDialog,
+  RoomTokenImageDialog,
+} from '@/features/tokens/room-token-dialog';
 import { CardLinkDialog, type CardLinkRequest } from '@/features/tokens/token-link-items';
 import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
 import type { AssetsApi } from '@/services/assets-api';
@@ -32,6 +36,7 @@ import type { DrawingStyleStore } from '@/stores/drawing-style-store';
 import type { EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import type { WallStyleStore } from '@/stores/wall-style-store';
 import type { LightColorStore } from '@/stores/light-color-store';
+import type { AuraMotionStore } from '@/stores/aura-motion-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
@@ -74,6 +79,8 @@ export type PlayRoomPageProps = Readonly<{
   wallStyle: StoreApi<WallStyleStore>;
   lightReach: StoreApi<LightReachStore>;
   lightColor: StoreApi<LightColorStore>;
+  /** "Animar auras" in this browser (the toolbar's button). */
+  auraMotion: StoreApi<AuraMotionStore>;
   clipboard: Clipboard;
   createBoardRenderer: CreateBoardRenderer;
   boardCommands: TableBoardCommands;
@@ -106,6 +113,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [lightMenu, setLightMenu] = useState<LightMenuRequest | null>(null);
   const [conditionTargets, setConditionTargets] = useState<readonly string[] | null>(null);
   const [imageTokenId, setImageTokenId] = useState<string | null>(null);
+  const [auraTokenId, setAuraTokenId] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<SelectionToDelete | null>(null);
   const [cardLink, setCardLink] = useState<CardLinkRequest | null>(null);
   const [conditionTool] = useState(createConditionToolStore);
@@ -219,6 +227,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               interaction={interaction}
               onApplyCondition={setConditionTargets}
               onChangeImage={setImageTokenId}
+              onChangeAura={setAuraTokenId}
               characters={{ cast: table.cast, onConfirmLink: setCardLink }}
               onClose={() => setTokenMenu(null)}
             />
@@ -265,6 +274,16 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               onClose={() => setImageTokenId(null)}
             />
           )}
+          {auraTokenId && table && (
+            <RoomTokenAuraDialog
+              scope={scopeOf()}
+              board={table.board}
+              tokenId={auraTokenId}
+              commands={props.boardCommands}
+              assets={props.assets}
+              onClose={() => setAuraTokenId(null)}
+            />
+          )}
           {deletion && (
             <DeleteSelectionDialog
               selection={deletion}
@@ -288,6 +307,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               interaction={interaction}
               renderer={renderer}
               role={role}
+              auraMotion={props.auraMotion}
               onConfigure={() => setSceneDialog(true)}
               onNewToken={() => setTokenDialog({ tokenId: null })}
             />

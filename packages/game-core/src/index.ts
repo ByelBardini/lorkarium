@@ -92,6 +92,13 @@ export {
 export { blockedPassage, legTouchesSegment, tokenCenter, type BlockedPassage } from './passage';
 export { REACH_MAX, assertReach } from './reach';
 export {
+  AURA_OPACITY_MAX,
+  AURA_OPACITY_MIN,
+  AURA_RADIUS_MAX,
+  auraOpacity,
+  auraRadius,
+} from './aura.vo';
+export {
   LIGHT_RANGE_MAX,
   lightConeOf,
   lightFits,

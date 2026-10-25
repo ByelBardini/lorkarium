@@ -7,7 +7,9 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
+import { createAuraMotionStore, type AuraMotionStore } from '@/stores/aura-motion-store';
 import { BoardRendererFake } from '../../support/board-renderer-fake';
+import { StorageFake } from '../../support/storage-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { BIA_AT_TABLE, LYRA_ID, VHARN_GRID } from '../../support/table-session-fixtures';
 import { cell } from '@lorkarium/game-core';
@@ -16,6 +18,7 @@ import { boardCommandFailureMessage } from '@/features/board/board-messages';
 describe('BoardToolbar', () => {
   let interaction: StoreApi<BoardInteractionStore>;
   let renderer: BoardRendererFake;
+  let auraMotion: StoreApi<AuraMotionStore>;
 
   beforeEach(() => {
     interaction = createBoardInteractionStore({
@@ -24,6 +27,7 @@ describe('BoardToolbar', () => {
       describeRefusal: String,
     });
     renderer = new BoardRendererFake(() => undefined, 'resolve');
+    auraMotion = createAuraMotionStore(new StorageFake());
   });
 
   function renderToolbar(canConfigure = true): void {
@@ -32,6 +36,7 @@ describe('BoardToolbar', () => {
         interaction={interaction}
         renderer={renderer}
         role={canConfigure ? 'master' : 'player'}
+        auraMotion={auraMotion}
         onConfigure={() => undefined}
         onNewToken={() => undefined}
       />,
@@ -53,6 +58,18 @@ describe('BoardToolbar', () => {
     await userEvent.click(tool('Régua (R)'));
     expect(tool('Régua (R)')).toHaveAttribute('aria-pressed', 'true');
     expect(interaction.getState().notice).toBe('Arraste para medir.');
+  });
+
+  it('Animar auras is pressed at first and turns the local aura motion off and on', async () => {
+    renderToolbar(false);
+    expect(tool('Animar auras')).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.click(tool('Animar auras'));
+    expect(tool('Animar auras')).toHaveAttribute('aria-pressed', 'false');
+    expect(auraMotion.getState().animated).toBe(false);
+
+    await userEvent.click(tool('Animar auras'));
+    expect(auraMotion.getState().animated).toBe(true);
   });
 
   it('Grid toggles the local grid only, and says so', async () => {
@@ -117,6 +134,7 @@ describe('BoardToolbar', () => {
   it('a spectator picks only Selecionar and Régua, and keeps the local grid and the camera', () => {
     render(
       <BoardToolbar
+        auraMotion={createAuraMotionStore(new StorageFake())}
         interaction={interaction}
         renderer={renderer}
         role="spectator"
@@ -129,6 +147,7 @@ describe('BoardToolbar', () => {
       'Selecionar (V)',
       'Régua (R)',
       'Grid (G)',
+      'Animar auras',
       'Aproximar (+)',
       'Afastar (−)',
       'Enquadrar cena (0)',
@@ -138,6 +157,7 @@ describe('BoardToolbar', () => {
   it('without a renderer yet, the zoom buttons are disabled', () => {
     render(
       <BoardToolbar
+        auraMotion={createAuraMotionStore(new StorageFake())}
         interaction={interaction}
         renderer={null}
         role="player"
@@ -160,6 +180,7 @@ describe('BoardToolbar, "Ver como os selecionados"', () => {
     interaction.getState().allowLayerChoice(canConfigure);
     render(
       <BoardToolbar
+        auraMotion={createAuraMotionStore(new StorageFake())}
         interaction={interaction}
         renderer={null}
         role={canConfigure ? 'master' : 'player'}
@@ -210,6 +231,7 @@ describe('BoardToolbar, "Adicionar jogadores"', () => {
   function renderToolbar(canConfigure = true): void {
     render(
       <BoardToolbar
+        auraMotion={createAuraMotionStore(new StorageFake())}
         interaction={interaction}
         renderer={renderer}
         role={canConfigure ? 'master' : 'player'}

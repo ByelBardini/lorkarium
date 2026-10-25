@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { IMAGE_ACCEPT } from '@/lib/image-file';
 import type { ImageSender } from './use-image-sender';
 
 export type ImageSourceButtonsProps = Readonly<{
@@ -53,7 +52,7 @@ export function ImageSourceButtons(props: ImageSourceButtonsProps): React.JSX.El
       <input
         ref={fileInput}
         type="file"
-        accept={IMAGE_ACCEPT}
+        accept={sender.accept}
         aria-label="Arquivo de imagem"
         className="sr-only"
         tabIndex={-1}

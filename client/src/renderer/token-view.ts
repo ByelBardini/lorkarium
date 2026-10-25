@@ -15,6 +15,7 @@ import { levelOf, type BoardSight } from '@/lib/board-sight';
 import { tokenLooksOf } from '@/lib/condition-order';
 import { shownStacksOf } from '@/lib/condition-stacks';
 import { assetUrlOf } from '@/services/assets-api';
+import { auraViewOf, type AuraView } from './aura-view';
 
 /** The image of a token; `null` keeps the initials disc. Not a secret: every viewer gets it. */
 export type TokenArtView = Readonly<{
@@ -74,6 +75,8 @@ export type TokenView = Readonly<{
   /** In the penumbra of this viewer: a black shape of the footprint (round or square), and
    *  nothing else. `null` when it is seen. */
   silhouette: 'round' | 'square' | null;
+  /** On the floor of its layer, under every token of it; `null` without aura or as a silhouette. */
+  aura: AuraView | null;
 }>;
 
 /** What the tokens of a view are built from (a part of the `BoardViewInput`). */
@@ -126,6 +129,7 @@ function silhouetteOf(view: TokenView, token: TokenDto): TokenView {
     pickable: false,
     draggable: false,
     selected: false,
+    aura: null,
   };
 }
 
@@ -134,6 +138,8 @@ function tokenViewOf(token: TokenDto, input: TokenViewInput): TokenView {
   const box = input.resizePreview[token.id];
   const at = box ?? input.dragged[token.id] ?? token;
   const pickable = token.layer === input.activeLayer;
+  const width = box?.width ?? token.width;
+  const height = box?.height ?? token.height;
   return {
     id: token.id,
     name: token.name,
@@ -141,8 +147,8 @@ function tokenViewOf(token: TokenDto, input: TokenViewInput): TokenView {
     ring: token.side,
     col: at.col,
     row: at.row,
-    width: box?.width ?? token.width,
-    height: box?.height ?? token.height,
+    width,
+    height,
     bar: first ? { ...barFill(first), color: first.color } : null,
     layer: token.layer,
     pickable,
@@ -156,6 +162,7 @@ function tokenViewOf(token: TokenDto, input: TokenViewInput): TokenView {
     defeated: token.defeated,
     hidden: token.hidden,
     silhouette: null,
+    aura: auraViewOf({ ...token, col: at.col, row: at.row, width, height }),
   };
 }
 

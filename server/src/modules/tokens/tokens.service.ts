@@ -62,6 +62,7 @@ import {
   type TokenWithConditions,
   type TokenWriteDaos,
 } from './token-transaction';
+import { lookAssetIdsOf } from './token-aura.mapper';
 import { TokenAccessBo } from './token-access.bo';
 import type { DragGroupPo, TokenMovePo, TokenRow, TokenUpdatePo, TokensDao } from './tokens.dao';
 import { BarNotFoundError, TokenNotFoundError } from './tokens.error';
@@ -115,7 +116,7 @@ export class TokensService {
       const rules = this.rulesFor(scene, memberIds);
       const row = newTokenRowOf(scene.id, rules, command);
       rules.admit(await daos.tokens.countOfScene(scene.id), 1);
-      await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
+      await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command));
       // A token just created carries no condition: nothing to read back for it.
       return { row: await daos.tokens.insert(row), conditions: [] };
     });
@@ -136,7 +137,7 @@ export class TokensService {
       rules.place(found.token, command);
       const update = toTokenUpdatePo(command, rules.controllers(command.controllerIds));
       const holder = await holderRowOf(locked, found);
-      await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
+      await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command));
       if (holder.inCast) await this.updateLinked(daos, found, holder.row, update);
       else await daos.tokens.update(found.token.id, update);
       await daos.mainTokens.dropLostControl(found.token.id, update.controllerIds);

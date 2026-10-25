@@ -74,6 +74,7 @@ describe('the character on a token', () => {
             interaction={interaction}
             onApplyCondition={() => undefined}
             onChangeImage={() => undefined}
+            onChangeAura={() => undefined}
             characters={{ cast, onConfirmLink: setLink }}
             onClose={() => setMenu(false)}
           />

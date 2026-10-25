@@ -4,11 +4,13 @@ import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { createWallStyleStore } from '@/stores/wall-style-store';
 import { createLightColorStore } from '@/stores/light-color-store';
+import { createAuraMotionStore } from '@/stores/aura-motion-store';
 import { createLightReachStore } from '@/stores/light-reach-store';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { createRailStore } from '@/stores/rail-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { createSessionStore } from '@/stores/session-store';
+import { createAppUpdateStore } from '@/stores/app-update-store';
 import { AccountLinksApiFake } from './account-links-api-fake';
 import { AccountSecurityApiFake } from './account-security-api-fake';
 import { UserAdminApiFake } from './user-admin-api-fake';
@@ -25,6 +27,7 @@ import { SceneActivationFake } from './scene-activation-fake';
 import { StorageFake } from './storage-fake';
 import { PingCommandsFake } from './ping-commands-fake';
 import { ProfileApiFake } from './profile-api-fake';
+import { PageReloadFake, PublishedBuildFake } from './published-build-fake';
 import { RetryWaitFake } from './retry-wait-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
@@ -57,6 +60,8 @@ export type TestDependencies = AppDependencies & {
   lightReachStorage: StorageFake;
   /** The `localStorage` under `lightColor`. */
   lightColorStorage: StorageFake;
+  /** The `localStorage` under `auraMotion`. */
+  auraMotionStorage: StorageFake;
   /** Every board renderer the room created, behind `createBoardRenderer`. */
   boardRenderers: BoardRenderersFake;
   boardCommands: TableBoardCommandsFake;
@@ -67,7 +72,14 @@ export type TestDependencies = AppDependencies & {
   journal: CallJournal;
   /** The boot retry pauses behind `waitBeforeRetry`, released by hand. */
   retryWaits: RetryWaitFake;
+  /** The build the server publishes, under `appUpdate` (the page runs `TEST_BUILD`). */
+  publishedBuild: PublishedBuildFake;
+  /** The reloads asked through `reloadPage`. */
+  pageReloads: PageReloadFake;
 };
+
+/** The client build every spec's page runs, and the server publishes until a spec deploys. */
+export const TEST_BUILD = '/assets/index-test.js';
 
 // Wednesday, 14 October 2026, local time: the date the overline is written against.
 export const TEST_NOW = new Date(2026, 9, 14, 20, 0);
@@ -85,9 +97,12 @@ export function testDependencies(): TestDependencies {
   const wallStyleStorage = new StorageFake();
   const lightReachStorage = new StorageFake();
   const lightColorStorage = new StorageFake();
+  const auraMotionStorage = new StorageFake();
   const boardRenderers = new BoardRenderersFake();
   const boardCommands = new TableBoardCommandsFake();
   const retryWaits = RetryWaitFake.held();
+  const publishedBuild = new PublishedBuildFake(TEST_BUILD);
+  const pageReloads = new PageReloadFake();
   return {
     journal,
     retryWaits,
@@ -113,6 +128,7 @@ export function testDependencies(): TestDependencies {
     wallStyleStorage,
     lightReachStorage,
     lightColorStorage,
+    auraMotionStorage,
     boardRenderers,
     createBoardRenderer: boardRenderers.create,
     boardCommands,
@@ -131,7 +147,12 @@ export function testDependencies(): TestDependencies {
     wallStyle: createWallStyleStore(wallStyleStorage),
     lightReach: createLightReachStore(lightReachStorage),
     lightColor: createLightColorStore(lightColorStorage),
+    auraMotion: createAuraMotionStore(auraMotionStorage),
     now: () => TEST_NOW,
     random: () => 0,
+    publishedBuild,
+    pageReloads,
+    appUpdate: createAppUpdateStore({ running: TEST_BUILD, published: publishedBuild }),
+    reloadPage: pageReloads.reload,
   };
 }
