@@ -162,6 +162,29 @@ describe('buildBoardView', () => {
         `/api/assets/${PORTRAIT_ID}`,
       ]);
     });
+
+    it('the image of a condition shown on a token is among the image urls', () => {
+      const tokens = [lyra({ conditions: [activeCondition({ imageAssetId: PORTRAIT_ID })] })];
+
+      expect([...imageUrlsOf(viewWith(VHARN_SCENE, tokens))]).toEqual([
+        `/api/assets/${PORTRAIT_ID}`,
+      ]);
+    });
+
+    it('two tokens with the same condition image bring its url once', () => {
+      const poisoned = [activeCondition({ imageAssetId: PORTRAIT_ID })];
+      const tokens = [lyra({ conditions: poisoned }), kael({ conditions: poisoned })];
+
+      expect([...imageUrlsOf(viewWith(VHARN_SCENE, tokens))]).toEqual([
+        `/api/assets/${PORTRAIT_ID}`,
+      ]);
+    });
+
+    it('a condition without an image adds no url', () => {
+      const tokens = [lyra({ conditions: [activeCondition({ imageAssetId: null })] })];
+
+      expect([...imageUrlsOf(viewWith(VHARN_SCENE, tokens))]).toEqual([]);
+    });
   });
 
   describe('tokens', () => {

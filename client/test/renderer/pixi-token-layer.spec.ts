@@ -1,11 +1,20 @@
-import type { Texture } from 'pixi.js';
+import { Container, Graphics, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { PixiTokenLayer, type TokenTextures } from '@/renderer/pixi-token-layer';
 import type { TokenView } from '@/renderer/token-view';
 import { PerfProbeFake } from '../support/perf-probe-fake';
+import { TokenTexturesFake } from '../support/token-textures-fake';
 import { goblinView } from '../support/token-view-fixtures';
 
 const ART_X = { url: '/api/assets/x', frame: 'square', flipX: false, flipY: false } as const;
+const BLINDED_X = {
+  icon: 'eye-off',
+  tone: 'harm',
+  color: null,
+  remainingRounds: null,
+  stacks: null,
+  imageUrl: '/api/assets/blinded',
+} as const;
 
 /** Every texture is still loading: the tokens keep their initials disc. */
 class LoadingTextures implements TokenTextures {
@@ -67,6 +76,39 @@ describe('PixiTokenLayer redraws only what changed', () => {
     layer.refreshArt(ART_X.url);
 
     expect(probe.counts['token.redraw']).toBe(3);
+  });
+});
+
+describe('PixiTokenLayer draws the condition images that arrive', () => {
+  function texturedBadges(container: Container, texture: Texture): number {
+    return container.children.reduce((count, child) => {
+      if (!(child instanceof Graphics)) return count + texturedBadges(child as Container, texture);
+      const fills = child.context.instructions.filter(
+        (instruction) => instruction.action === 'fill',
+      );
+      const textured = fills.some(
+        (fill) => (fill.data as { style: { texture: Texture } }).style.texture === texture,
+      );
+      return count + (textured ? 1 : 0);
+    }, 0);
+  }
+
+  it('the image of a condition arriving redraws the strips of the tokens that show it, and no body', () => {
+    const probe = new PerfProbeFake();
+    const textures = new TokenTexturesFake();
+    const layer = new PixiTokenLayer(() => false, undefined, textures, probe);
+    layer.sync(
+      horde(10, (index) => (index < 3 ? { conditions: [BLINDED_X] } : {})),
+      [],
+      0,
+    );
+    probe.counts['token.redraw'] = 0;
+    const square = textures.arrive(BLINDED_X.imageUrl);
+
+    layer.refreshArt(BLINDED_X.imageUrl);
+
+    expect(texturedBadges(layer.container, square)).toBe(3);
+    expect(probe.counts['token.redraw']).toBe(0);
   });
 });
 

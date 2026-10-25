@@ -28,13 +28,15 @@ export type TokenArtView = Readonly<{
 export type TokenBarView = BarFill & Readonly<{ color: BarColorDto }>;
 
 /** A condition drawn on a token: its icon in its color (`null`: its tone's), the rounds it has
- *  left (`null`: until removed) and its stacks (`null`: it does not stack). */
+ *  left (`null`: until removed), its stacks (`null`: it does not stack) and the url of its image
+ *  (`null`: the icon; the icon also stands in while the image loads or when it fails). */
 export type ConditionMarkView = Readonly<{
   icon: ConditionIconDto;
   tone: ConditionToneDto;
   color: ConditionColorDto | null;
   remainingRounds: number | null;
   stacks: number | null;
+  imageUrl: string | null;
 }>;
 
 export type TokenView = Readonly<{
@@ -165,6 +167,7 @@ function conditionsOf(token: TokenDto): Pick<TokenView, 'conditions' | 'looks'> 
     color: mark.color,
     remainingRounds: mark.remainingRounds,
     stacks: shownStacksOf(mark),
+    imageUrl: mark.imageAssetId === null ? null : assetUrlOf(mark.imageAssetId),
   }));
   return { conditions, looks };
 }

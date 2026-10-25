@@ -59,7 +59,16 @@ describe('tokenRedrawOf', () => {
 
   it('new conditions redraw neither: the strip has its own key', () => {
     const poisoned = goblinView({
-      conditions: [{ icon: 'skull', tone: 'harm', color: null, remainingRounds: 2, stacks: null }],
+      conditions: [
+        {
+          icon: 'skull',
+          tone: 'harm',
+          color: null,
+          remainingRounds: 2,
+          stacks: null,
+          imageUrl: null,
+        },
+      ],
     });
     expect(tokenRedrawOf(goblinView(), poisoned)).toEqual(NOTHING);
   });

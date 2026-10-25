@@ -127,12 +127,13 @@ describe('tokenViewsOf', () => {
       activeCondition({ id: 'g', icon: 'moon', tone: 'harm', look: 'unconscious' }),
     ];
     const token = viewsOf({ tokens: [lyra({ conditions })] })[0];
+    const plain = { color: null, stacks: null, imageUrl: null };
     expect(token?.conditions).toEqual([
-      { icon: 'lock', tone: 'incapacitating', color: null, remainingRounds: 1, stacks: null },
-      { icon: 'zap', tone: 'incapacitating', color: null, remainingRounds: 4, stacks: null },
-      { icon: 'skull', tone: 'harm', color: null, remainingRounds: 2, stacks: null },
-      { icon: 'eye-off', tone: 'harm', color: null, remainingRounds: 3, stacks: null },
-      { icon: 'sparkles', tone: 'benefit', color: null, remainingRounds: null, stacks: null },
+      { icon: 'lock', tone: 'incapacitating', remainingRounds: 1, ...plain },
+      { icon: 'zap', tone: 'incapacitating', remainingRounds: 4, ...plain },
+      { icon: 'skull', tone: 'harm', remainingRounds: 2, ...plain },
+      { icon: 'eye-off', tone: 'harm', remainingRounds: 3, ...plain },
+      { icon: 'sparkles', tone: 'benefit', remainingRounds: null, ...plain },
     ]);
     expect(token?.looks).toEqual(['invisible', 'unconscious']);
   });
@@ -145,6 +146,19 @@ describe('tokenViewsOf', () => {
     const token = viewsOf({ tokens: [lyra({ conditions })] })[0];
     expect(token?.conditions.map(({ icon, color }) => [icon, color])).toEqual([
       ['skull', 'ember'],
+      ['eye-off', null],
+    ]);
+  });
+
+  it('a condition with an image carries its asset url, one without carries none', () => {
+    const imageAssetId = '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d';
+    const conditions = [
+      activeCondition({ id: 'a', icon: 'skull', imageAssetId }),
+      activeCondition({ id: 'b', icon: 'eye-off', imageAssetId: null }),
+    ];
+    const token = viewsOf({ tokens: [lyra({ conditions })] })[0];
+    expect(token?.conditions.map(({ icon, imageUrl }) => [icon, imageUrl])).toEqual([
+      ['skull', `/api/assets/${imageAssetId}`],
       ['eye-off', null],
     ]);
   });

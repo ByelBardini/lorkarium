@@ -8,6 +8,7 @@ const POISON: ConditionMarkView = {
   color: null,
   remainingRounds: 2,
   stacks: null,
+  imageUrl: null,
 };
 
 function marks(count: number, mark: ConditionMarkView = POISON): ConditionMarkView[] {
@@ -49,11 +50,39 @@ describe('conditionStripOf', () => {
 
   it('at zoom 0.5 (an icon of 6.5 px on screen) the strip turns into up to 4 dots in order, each in its tone', () => {
     const conditions: ConditionMarkView[] = [
-      { icon: 'lock', tone: 'incapacitating', color: null, remainingRounds: 1, stacks: null },
-      { icon: 'skull', tone: 'harm', color: null, remainingRounds: null, stacks: null },
-      { icon: 'zap', tone: 'harm', color: null, remainingRounds: 3, stacks: null },
-      { icon: 'sparkles', tone: 'benefit', color: null, remainingRounds: null, stacks: null },
-      { icon: 'sun', tone: 'benefit', color: null, remainingRounds: null, stacks: null },
+      {
+        icon: 'lock',
+        tone: 'incapacitating',
+        color: null,
+        remainingRounds: 1,
+        stacks: null,
+        imageUrl: null,
+      },
+      {
+        icon: 'skull',
+        tone: 'harm',
+        color: null,
+        remainingRounds: null,
+        stacks: null,
+        imageUrl: null,
+      },
+      { icon: 'zap', tone: 'harm', color: null, remainingRounds: 3, stacks: null, imageUrl: null },
+      {
+        icon: 'sparkles',
+        tone: 'benefit',
+        color: null,
+        remainingRounds: null,
+        stacks: null,
+        imageUrl: null,
+      },
+      {
+        icon: 'sun',
+        tone: 'benefit',
+        color: null,
+        remainingRounds: null,
+        stacks: null,
+        imageUrl: null,
+      },
     ];
     const strip = conditionStripOf({ ...ONE_CELL, conditions, zoom: 0.5 });
     expect(strip.band).toBe('dots');
@@ -77,6 +106,7 @@ describe('conditionStripOf', () => {
       color: null,
       remainingRounds: null,
       stacks: null,
+      imageUrl: null,
     };
     const strip = conditionStripOf({ ...ONE_CELL, conditions: [POISON, endless], zoom: 2 });
     expect(strip.band).toBe('detailed');

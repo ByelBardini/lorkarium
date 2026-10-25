@@ -1,9 +1,10 @@
-import { Container, Graphics, GraphicsContext, Text } from 'pixi.js';
+import { Container, Graphics, GraphicsContext, Text, type Texture } from 'pixi.js';
 import { conditionColorNumberOf } from '@/lib/condition-colors';
 import { conditionIconSvg } from '@/lib/condition-icons';
 import { zoomProofTextResolution } from './camera';
 import { conditionStripOf, type ConditionStrip, type StripIcon } from './condition-strip';
 import { dashedRingArcs } from './dashed-ring';
+import type { PixiTextureCache } from './pixi-texture-cache';
 import { tokenWorldRect } from './token-box';
 import type { ConditionMarkView, TokenView } from './token-view';
 
@@ -14,6 +15,15 @@ const ENDING_RING_COLOR = 0xeae5da;
 const ICON_SHARE_OF_BADGE = 0.65;
 const LUCIDE_VIEWBOX = 24;
 const NO_STRIP: ConditionStrip = { band: 'none', height: 0 };
+const RING_WIDTH = 1.5;
+// An image covers the middle, so an incapacitating one is told apart by a ring twice as thick.
+const HEAVY_RING_WIDTH = 3;
+
+/** Where the condition images come from: a texture, or `null` while it loads (or failed). */
+export type ConditionTextures = Pick<PixiTextureCache, 'textureOf'>;
+
+// One per icon of the strip, in its order: the image ready to draw, or `null` for the glyph.
+type BadgeImages = readonly (Texture | null)[];
 
 // One parsed SVG per icon and color, shared by every token that shows it.
 const iconContexts = new Map<string, GraphicsContext>();
@@ -21,7 +31,8 @@ const iconContexts = new Map<string, GraphicsContext>();
 /** The condition strip of one token, hung under its cell: dots from afar, badges, badges with
  *  their rounds up close, and "+N". Lives in the strips layer (over the tokens of its layer, so
  *  the neighbor below never covers it); the caller keeps `container` on the token's corner.
- *  Rebuilt only when the strip changes; the dots only rescale with the zoom.
+ *  Rebuilt only when the strip changes (an image that becomes ready included); the dots only
+ *  rescale with the zoom. A condition with an image shows its glyph until `textures` has it.
  *
  *  Example: `const strip = marks.draw(view, zoom); nameTag.draw(view, visible, strip.height)` */
 export class PixiConditionMarks {
@@ -29,10 +40,13 @@ export class PixiConditionMarks {
   private readonly dots = new Container();
   private drawnKey = '';
 
+  constructor(private readonly textures?: ConditionTextures) {}
+
   draw(view: TokenView, zoom: number): ConditionStrip {
     const strip = stripOf(view, zoom);
     this.dots.scale.set(1 / zoom);
-    const key = stripKey(strip);
+    const images = this.imagesOf(strip);
+    const key = stripKey(strip, images);
     if (key === this.drawnKey) return strip;
     this.drawnKey = key;
     for (const child of this.container.removeChildren()) {
@@ -40,8 +54,16 @@ export class PixiConditionMarks {
     }
     for (const child of this.dots.removeChildren()) child.destroy();
     if (strip.band === 'dots') this.drawDots(strip, tokenWorldRect(view).width);
-    if (strip.band === 'icons' || strip.band === 'detailed') this.drawIcons(strip);
+    if (strip.band === 'icons' || strip.band === 'detailed') this.drawIcons(strip, images);
     return strip;
+  }
+
+  // From afar the dots never ask: an image only loads once a badge is big enough to show it.
+  private imagesOf(strip: ConditionStrip): BadgeImages {
+    if (strip.band !== 'icons' && strip.band !== 'detailed') return [];
+    return strip.icons.map(({ imageUrl }) =>
+      imageUrl ? (this.textures?.textureOf(imageUrl) ?? null) : null,
+    );
   }
 
   private drawDots(strip: Extract<ConditionStrip, { band: 'dots' }>, width: number): void {
@@ -54,10 +76,15 @@ export class PixiConditionMarks {
     this.container.addChild(this.dots);
   }
 
-  private drawIcons(strip: Extract<ConditionStrip, { band: 'icons' | 'detailed' }>): void {
+  private drawIcons(
+    strip: Extract<ConditionStrip, { band: 'icons' | 'detailed' }>,
+    images: BadgeImages,
+  ): void {
     const radius = strip.iconSize / 2;
     const y = strip.top + radius;
-    for (const icon of strip.icons) this.container.addChild(badge(icon, radius, y));
+    strip.icons.forEach((icon, index) => {
+      this.container.addChild(badge(icon, radius, y, images[index] ?? null));
+    });
     if (strip.more) this.container.addChild(moreBadge(strip.more.count, radius, strip.more.x, y));
   }
 }
@@ -68,36 +95,58 @@ function stripOf(view: TokenView, zoom: number): ConditionStrip {
   return conditionStripOf({ width, height, conditions: view.conditions, zoom });
 }
 
-function stripKey(strip: ConditionStrip): string {
+// The texture's uid: the glyph (`-`) gives way to the image the moment it is ready.
+function stripKey(strip: ConditionStrip, images: BadgeImages): string {
   if (strip.band === 'none') return 'none';
   if (strip.band === 'dots') {
     return `dots|${strip.top}|${strip.dots.map((d) => `${d.tone}:${d.color}`).join()}`;
   }
   const icons = strip.icons.map(
-    (i) => `${i.icon}:${i.tone}:${i.color}:${i.x}:${i.rounds}:${i.stacks}:${i.ending}`,
+    (i, index) =>
+      `${i.icon}:${i.tone}:${i.color}:${i.x}:${i.rounds}:${i.stacks}:${i.ending}:${images[index]?.uid ?? '-'}`,
   );
   return `${strip.band}|${strip.top}|${strip.iconSize}|${strip.more?.count}|${icons.join()}`;
 }
 
-// Incapacitating is a filled badge in its color with a dark glyph; the others a dark badge ringed
-// and drawn in their color. The last round gets a light dashed ring around it.
-function badge(mark: StripIcon, radius: number, y: number): Container {
+// The image or the glyph in its disc; the last round gets a light dashed ring around it.
+function badge(mark: StripIcon, radius: number, y: number, image: Texture | null): Container {
   const root = new Container();
-  const filled = mark.tone === 'incapacitating';
-  const color = conditionColorNumberOf(mark.color, mark.tone);
-  const disc = new Graphics().circle(0, 0, radius);
-  if (filled) disc.fill(color);
-  else disc.fill({ color: BADGE_COLOR, alpha: 0.92 }).stroke({ width: 1.5, color });
-  const icon = new Graphics(iconContext(mark, filled ? BADGE_COLOR : color));
-  const iconSize = radius * 2 * ICON_SHARE_OF_BADGE;
-  icon.scale.set(iconSize / LUCIDE_VIEWBOX);
-  icon.position.set(-iconSize / 2, -iconSize / 2);
-  root.addChild(disc, icon);
+  if (image) root.addChild(imageDisc(mark, radius, image));
+  else root.addChild(...glyphDisc(mark, radius));
   if (mark.ending) root.addChild(endingRing(radius + 2.5));
   if (mark.rounds !== null) root.addChild(roundsLabel(mark.rounds, radius));
   if (mark.stacks !== null) root.addChild(stacksLabel(mark.stacks, radius));
   root.position.set(mark.x, y);
   return root;
+}
+
+// Incapacitating is a filled badge in its color with a dark glyph; the others a dark badge ringed
+// and drawn in their color.
+function glyphDisc(mark: StripIcon, radius: number): [Graphics, Graphics] {
+  const filled = mark.tone === 'incapacitating';
+  const color = conditionColorNumberOf(mark.color, mark.tone);
+  const disc = new Graphics().circle(0, 0, radius);
+  if (filled) disc.fill(color);
+  else disc.fill({ color: BADGE_COLOR, alpha: 0.92 }).stroke({ width: RING_WIDTH, color });
+  const icon = new Graphics(iconContext(mark, filled ? BADGE_COLOR : color));
+  const iconSize = radius * 2 * ICON_SHARE_OF_BADGE;
+  icon.scale.set(iconSize / LUCIDE_VIEWBOX);
+  icon.position.set(-iconSize / 2, -iconSize / 2);
+  return [disc, icon];
+}
+
+// The server keeps a condition image square, so stretched over the circle (`local`) it is the
+// round cut without a mask: each mask would break the GPU batch (performance.md). The dark disc
+// shows through a transparent PNG.
+function imageDisc(mark: StripIcon, radius: number, image: Texture): Graphics {
+  const color = conditionColorNumberOf(mark.color, mark.tone);
+  const width = mark.tone === 'incapacitating' ? HEAVY_RING_WIDTH : RING_WIDTH;
+  return new Graphics()
+    .circle(0, 0, radius)
+    .fill({ color: BADGE_COLOR, alpha: 0.92 })
+    .circle(0, 0, radius)
+    .fill({ texture: image, textureSpace: 'local' })
+    .stroke({ width, color });
 }
 
 function endingRing(radius: number): Graphics {

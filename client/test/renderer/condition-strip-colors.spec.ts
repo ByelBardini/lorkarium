@@ -9,6 +9,7 @@ const EMBER_POISON: ConditionMarkView = {
   color: 'ember',
   remainingRounds: 2,
   stacks: null,
+  imageUrl: null,
 };
 const PLAIN_BLESS: ConditionMarkView = {
   icon: 'sparkles',
@@ -16,6 +17,7 @@ const PLAIN_BLESS: ConditionMarkView = {
   color: null,
   remainingRounds: null,
   stacks: null,
+  imageUrl: null,
 };
 
 describe('conditionStripOf colors', () => {
