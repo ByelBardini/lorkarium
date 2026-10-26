@@ -11,6 +11,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/sessions/` — sessão ao vivo da mesa (Socket.IO): comandos, eventos e acks
 - `src/assets/` — imagem enviada à mesa (arquivo ou link) e a leitura dela
 - `src/library/` — biblioteca de grids: grids e pastas da mesa por REST, `library:changed`
+- `src/dice/` — rolagem de dados (Socket.IO): comando, ack e eventos com o trajeto 3D; rolagens salvas (REST)
 - `test/<área>/` — specs só de DTO com regra própria (`transform`, `pipe`, `refine`)
 
 ## DTOs
@@ -80,7 +81,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 ### Conta (`account/`)
 
-`usernameDto`, `memberColorDto`, perfil, foto, senha, e-mail, sessões ativas e 2FA: detalhe em [`contracts/conta.md`](contracts/conta.md).
+`usernameDto`, `memberColorDto`, perfil, foto, textura do dado (`diceNumberColorDto`), senha, e-mail, sessões ativas e 2FA: detalhe em [`contracts/conta.md`](contracts/conta.md).
 
 ### Backoffice (`admin/`) e links de conta (`account-links/`)
 
@@ -101,6 +102,10 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 ### Tabuleiro (`board/`)
 
 O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, aparência, grupo, condição, combate, desenho, área de efeito, parede, luz, `BOARD_EVENTS` e o snapshot) mora em [`contracts/tabuleiro.md`](contracts/tabuleiro.md). As condições (definição, ativa, descrição, cor, stacks, imagem, a lista da mesa e seus comandos) moram em [`contracts/condicoes.md`](contracts/condicoes.md). Fluxo em [`board.md`](board.md). O ping efêmero (`board:ping` / `board:pinged`, sem versão) mora em [`contracts/ping.md`](contracts/ping.md). A aura do token (`tokenAuraDto`, os 8 efeitos, a aura no token, no estilo e nos comandos do mestre) mora em [`contracts/aura.md`](contracts/aura.md).
+
+### Dados (`dice/`)
+
+`dice.dto.ts` — comando `dice:roll`, ack com `rollId`, eventos `dice:rolled` (resultado, aparência e trajeto 3D) e `dice:rolledSecretly` (aviso sem valor), `DiceClientEvents`/`DiceServerEvents` no `TableClientEvents`/`TableServerEvents`; `saved-roll.dto.ts` — corpos, params e respostas das rolagens salvas (REST): detalhe em [`contracts/dados.md`](contracts/dados.md).
 
 ## Regras de arquitetura
 

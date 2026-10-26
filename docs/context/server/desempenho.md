@@ -6,6 +6,7 @@ Detalhe do hub [`server.md`](../server.md).
 
 - `test/support/query-count.ts` — `CountingQueryLog` (`queries`, `count`, `matching(/^begin/i)`, `reset()`); o `useTokenTable` o liga por `openTestDatabase({ queryLog })` e o expõe como `live.queries` (zerado a cada `seed`). Para contar um comando: `live.queries.reset()` logo antes de mandá-lo e ler `count` depois do ack. O Drizzle registra também `begin` e `commit`.
 - `test/integration/query-budget.spec.ts` — o teto de consultas de cada comando quente (`BUDGET`); uma consulta a mais num DAO deixa o `it` vermelho. Quando um número baixa, o teto desce junto.
+- `test/bench/dice-physics.bench.ts` (`pnpm bench`) — o custo de CPU de uma onda de dados na física; números em [`../dice/fisica.md`](../dice/fisica.md) (Custo). O projeto `@lorkarium/server-integration` tem `benchmark: { include: [] }`: sem isso o bench do server rodava duas vezes.
 
 | Comando (cenário do spec)                      | Sem memória | Atual | Regras que seguram |
 | ---------------------------------------------- | ----------- | ----- | ------------------ |

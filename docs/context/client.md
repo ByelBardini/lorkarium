@@ -33,6 +33,8 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Ping no mapa: cor por pessoa, segurar/Alt+clique, pulso do anel, seta na borda              | [`pings.md`](client/pings.md)                         |
 | Minha conta: perfil, foto, barra de alterações, senha, e-mail, sessões, 2FA, link do e-mail | [`account.md`](client/account.md)                     |
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas  | [`backoffice.md`](client/backoffice.md)               |
+| Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                      | [`dice.md`](client/dice.md)                           |
+| Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro     | [`dice-tab.md`](client/dice-tab.md)                   |
 | Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                          | [`account-links.md`](client/account-links.md)         |
 | Menu dos campos de texto no app desktop: `isDesktopShell`, itens, `FieldEditing`, raiz      | [`text-field-menu.md`](client/text-field-menu.md)     |
 | Versão nova depois do deploy: impressão do build, aviso, recarga segura                     | [`app-update.md`](client/app-update.md)               |

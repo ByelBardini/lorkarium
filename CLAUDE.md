@@ -42,7 +42,7 @@
 ## Dependencies & Structure
 
 - Inject via constructor/parameter. Never global import (the DAO receives `db`/`tx`; it never imports the instance).
-- Wrap third-party libs behind a thin project-owned interface (a `*.port.ts` with one adapter in `server/src/infrastructure/`; PixiJS only in `client/src/renderer/`, Socket.IO client only in `client/src/services/`, Zustand only in `client/src/stores/`).
+- Wrap third-party libs behind a thin project-owned interface (a `*.port.ts` with one adapter in `server/src/infrastructure/`; PixiJS only in `client/src/renderer/`, three.js only in `client/src/dice-renderer/`, cannon-es only in `server/src/infrastructure/dice-physics/`, Socket.IO client only in `client/src/services/`, Zustand only in `client/src/stores/`).
 - Modular monolith: one folder per feature module in `server/src/modules/`, one per feature area in `client/src/features/`. Small focused modules over god files.
 - `packages/game-core` is pure TypeScript with no runtime dependency (no React, PixiJS, Fastify, Socket.IO, `node:`). `packages/contracts` depends only on `zod`.
 - Validate every input (HTTP body/params, Socket.IO payload) with the Zod DTO from `@lorkarium/contracts` at the edge. Building a new server slice: skill `/desenvolver-server`.

@@ -33,7 +33,7 @@ Id malformado é 400 (o `adminUserParamsDto`). Cada ação vai ao log pino como 
 - `suspend`: na transação `suspended_at = agora` → `AuthSessionsDao.deleteAllOf` → `PasswordResetsDao.deleteOfUser`; depois do commit `sessionEnded` de cada sessão e o aviso "Seu acesso ao Lorkarium foi suspenso". Já suspensa: nada muda, ninguém é avisado. Os lugares nas mesas ficam (a pessoa aparece offline). O login com a senha certa dá 403 `ACCOUNT_SUSPENDED` e o `resolveSession` recusa (ver [`auth.md`](auth.md)).
 - `reactivate`: `suspended_at = null` e "Seu acesso ao Lorkarium voltou"; ativa: nada.
 - `deletionCheck`: `lockOwnedCampaigns` fora de transação (só leitura) → `deletionVerdict`.
-- `delete`: na transação `lockOwnedCampaigns` → veredito (bloqueada lança e nada muda) → `deleteAllOf` das sessões (guarda os ids) → `delete`. Depois do commit: `sessionEnded` de cada, `CachedMemberships.forgetUser(userId)` e a foto (`avatars/<id>`) apagada do S3. As imagens das mesas apagadas ficam como os órfãos de hoje.
+- `delete`: na transação `lockOwnedCampaigns` → veredito (bloqueada lança e nada muda) → `deleteAllOf` das sessões (guarda os ids) → `delete`. Depois do commit: `sessionEnded` de cada, `CachedMemberships.forgetUser(userId)` e a foto (`avatars/<id>`) e a textura do dado (`dice-textures/<id>`) apagadas do S3. As imagens das mesas apagadas ficam como os órfãos de hoje.
 - O `FOR UPDATE` faz um "entrar pelo código" concorrente esperar e falhar pela FK (`23503`) quando a mesa some; o `CampaignJoinService` traduz em `CAMPAIGN_NOT_FOUND` (ver [`campaigns.md`](campaigns.md)).
 - Os avisos usam o `SecurityNoticesService` do `account-security` (best-effort) e os templates do `admin-mail.mapper.ts` ([`mail.md`](mail.md)).
 
