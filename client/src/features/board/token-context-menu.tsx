@@ -59,7 +59,8 @@ export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
 /** The right click on a token for whoever controls it: "Aplicar condição…", "Tornar principal"
  *  (only on a token the viewer is listed in the control of and that is not their main one), the
  *  master's "Tornar principal de ▸" (the players listed in its control), "Morto", "Luz acesa"
- *  (only on a token that gives off light), "Aura…" (that token alone, for whoever controls it), "Imagem…",
+ *  (only on a token that gives off light), "Aura…" (that token alone, for whoever controls it),
+ *  "Tirar aura" (the targets with an aura that the viewer controls, at once), "Imagem…",
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
  *  token alone); the master also gets "Ligar à ficha de ▸" / "Desligar da ficha" (with
  *  `characters`), "Tornar invisível" / "Tornar visível" and "Mover para camada". Closing (a choice, Esc, a click away)
@@ -77,6 +78,7 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
   const layerMenu = useBoardInteraction(interaction, (state) => state.canChooseLayer);
   const players = useMainTokenPlayers(props.board, props.presence, request.tokenId);
   const hiding = useHidingTargets(board, interaction, request.tokenId);
+  const unaura = useAuraTargets(board, interaction, request.tokenId);
   if (!token) return null;
   const targets = (): readonly string[] =>
     targetIdsOf(interaction.getState().selectedTokenIds, request.tokenId);
@@ -155,6 +157,17 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
         {token.canControl && (
           <DropdownMenuItem onSelect={() => props.onChangeAura(token.id)}>Aura…</DropdownMenuItem>
         )}
+        {unaura.length > 0 && (
+          <DropdownMenuItem
+            onSelect={() =>
+              void interaction
+                .getState()
+                .command((commands, scope) => commands.restyleTokens(scope, unaura, { aura: null }))
+            }
+          >
+            Tirar aura
+          </DropdownMenuItem>
+        )}
         <LookItems
           token={token}
           onChangeImage={() => props.onChangeImage(token.id)}
@@ -197,6 +210,24 @@ function useHidingTargets(
     const ids = targetIdsOf(selected, tokenId);
     return state.tokens.filter(({ id }) => ids.includes(id));
   }, [state, selected, tokenId]);
+}
+
+// The menu's targets (`targetIdsOf`) that have an aura to take away and that the viewer controls:
+// the server refuses the whole restyle if one is not theirs.
+function useAuraTargets(
+  board: StoreApi<BoardStore>,
+  interaction: StoreApi<BoardInteractionStore>,
+  tokenId: string,
+): readonly string[] {
+  const tokens = useBoard(board, (current) => current.board?.tokens);
+  const selected = useBoardInteraction(interaction, (current) => current.selectedTokenIds);
+  return useMemo(() => {
+    const ids = targetIdsOf(selected, tokenId);
+    const wearing = (tokens ?? []).filter(({ id, aura, canControl }) => {
+      return ids.includes(id) && aura !== null && canControl;
+    });
+    return wearing.map(({ id }) => id);
+  }, [tokens, selected, tokenId]);
 }
 
 // Only the master chooses for someone else; the players listed in the control, but the master.
