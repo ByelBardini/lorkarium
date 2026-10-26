@@ -17,6 +17,7 @@ import {
 import { inviteRoute, passwordResetRoute } from '@/features/account-links/account-link-routes';
 import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
+import { exploreRoute } from '@/features/explore/explore-route';
 import { homeRoutes } from '@/features/home/home-route';
 import { TextFieldMenu } from '@/features/text-field-menu/text-field-menu';
 import { AppUpdateNotice } from '@/features/app-update/app-update-notice';
@@ -182,7 +183,12 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
           id: 'shell',
           middleware: [guard(deps, 'signed-in'), restoreOpenTables(deps)],
           Component: shellRoute(deps),
-          children: [...homeRoutes(deps), accountRoute(deps), campaignTableRoute(deps)],
+          children: [
+            ...homeRoutes(deps),
+            exploreRoute(deps),
+            accountRoute(deps),
+            campaignTableRoute(deps),
+          ],
         },
         { path: '*', loader: () => redirect('/') },
       ],

@@ -1,11 +1,12 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
-import { LayoutListIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from 'lucide-react';
+import { CompassIcon, LayoutListIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { NavLink, useMatch } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { EXPLORE_PATH } from '@/features/explore/explore-route';
 import { cn } from '@/lib/utils';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { useRail, type RailStore } from '@/stores/rail-store';
@@ -77,6 +78,13 @@ export function RailNav({ expanded, onNavigate }: RailNavProps): React.JSX.Eleme
           to="/"
           label="Mesas"
           icon={LayoutListIcon}
+          expanded={expanded}
+          onNavigate={onNavigate}
+        />
+        <RailLink
+          to={EXPLORE_PATH}
+          label="Explorar mesas"
+          icon={CompassIcon}
           expanded={expanded}
           onNavigate={onNavigate}
         />

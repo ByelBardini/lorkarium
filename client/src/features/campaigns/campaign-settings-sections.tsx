@@ -15,6 +15,7 @@ import { SegmentField, type SegmentOption } from '@/components/segment-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PUBLIC_VISIBILITY_HINT } from './campaign-messages';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -41,7 +42,7 @@ const VISIBILITY_OPTIONS: readonly SegmentOption<CampaignVisibilityDto>[] = [
 
 const VISIBILITY_HINT: Readonly<Record<CampaignVisibilityDto, string>> = {
   private: 'Só entra quem tiver o código.',
-  public: 'Vai aparecer na busca de mesas quando ela existir; ainda se entra pelo código.',
+  public: PUBLIC_VISIBILITY_HINT,
 };
 
 type SettingsSectionProps = Readonly<{

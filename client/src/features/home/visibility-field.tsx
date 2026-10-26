@@ -2,6 +2,7 @@ import type { CampaignVisibilityDto } from '@lorkarium/contracts';
 import { GlobeIcon, LockIcon, type LucideIcon } from 'lucide-react';
 import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 import { useId } from 'react';
+import { PUBLIC_VISIBILITY_HINT } from '@/features/campaigns/campaign-messages';
 
 type VisibilityCard = Readonly<{
   value: CampaignVisibilityDto;
@@ -15,7 +16,7 @@ const VISIBILITY_CARDS: readonly VisibilityCard[] = [
   {
     value: 'public',
     label: 'Pública',
-    hint: 'Vai aparecer na busca de mesas quando ela existir; ainda se entra pelo código.',
+    hint: PUBLIC_VISIBILITY_HINT,
     Icon: GlobeIcon,
   },
 ];

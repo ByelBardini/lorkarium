@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
-import { detailOf, QUELM, VHARN } from '../support/campaigns-api-fake';
+import { detailOf, PUBLIC_VHARN, QUELM, VHARN } from '../support/campaigns-api-fake';
 import { HttpTransportFake } from '../support/http-transport-fake';
 import { duda } from '../support/table-session-fixtures';
 
@@ -57,6 +57,33 @@ describe('HttpCampaignsApi', () => {
     expect(transport.requests).toEqual([
       { method: 'POST', path: '/campaigns/join', body: { code: 'VHRN7K2Q', password: 'sino' } },
     ]);
+  });
+
+  it('a 200 listPublic yields the public campaigns', async () => {
+    transport.respondWith(200, { campaigns: [PUBLIC_VHARN] });
+    expect(await api.listPublic()).toEqual({ ok: true, value: [PUBLIC_VHARN] });
+    expect(transport.requests).toEqual([
+      { method: 'GET', path: '/campaigns/public', body: undefined },
+    ]);
+  });
+
+  it('a joinPublic posts the password to the campaign join path and yields the summary', async () => {
+    transport.respondWith(200, { campaign: QUELM });
+    expect(await api.joinPublic(QUELM.id, { password: 'sino' })).toEqual({
+      ok: true,
+      value: QUELM,
+    });
+    expect(transport.requests).toEqual([
+      { method: 'POST', path: `/campaigns/${QUELM.id}/join`, body: { password: 'sino' } },
+    ]);
+  });
+
+  it('a 403 CAMPAIGN_PASSWORD_REQUIRED on joinPublic becomes password_required', async () => {
+    transport.respondWith(403, apiError('CAMPAIGN_PASSWORD_REQUIRED'));
+    expect(await api.joinPublic(QUELM.id, {})).toEqual({
+      ok: false,
+      failure: { kind: 'password_required' },
+    });
   });
 
   it('an update sends a PATCH with the changed fields and yields the stored detail', async () => {

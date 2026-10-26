@@ -4,10 +4,10 @@ import { searchText } from '@/lib/search-text';
 /** The campaigns whose name or system contains the query, ignoring accents and case.
  *
  *  Example: `filterCampaigns(campaigns, 'pantano') // [Contrato no Pântano]` */
-export function filterCampaigns(
-  campaigns: readonly CampaignSummaryDto[],
+export function filterCampaigns<T extends Pick<CampaignSummaryDto, 'name' | 'system'>>(
+  campaigns: readonly T[],
   query: string,
-): CampaignSummaryDto[] {
+): T[] {
   const needle = searchText(query.trim());
   if (!needle) return [...campaigns];
   return campaigns.filter((campaign) =>

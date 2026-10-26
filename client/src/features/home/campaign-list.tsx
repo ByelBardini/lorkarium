@@ -1,7 +1,6 @@
 import type { CampaignSummaryDto } from '@lorkarium/contracts';
-import { SearchIcon } from 'lucide-react';
 import { useState } from 'react';
-import { Input } from '@/components/ui/input';
+import { CampaignListHeader } from '@/components/campaign-list-header';
 import { filterCampaigns } from '@/lib/campaign-list';
 import { CampaignRow } from './campaign-row';
 import { HomeActions, type HomeActionsProps } from './home-actions';
@@ -22,15 +21,14 @@ export function CampaignList({
   const visible = filterCampaigns(campaigns, query);
   return (
     <section aria-labelledby="campaign-list-title" className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
-        <div className="flex items-baseline gap-3">
-          <h2 id="campaign-list-title" className="font-display text-[28px] font-semibold">
-            Suas mesas
-          </h2>
-          <span className="text-sm text-muted-foreground">{countLabel(visible.length)}</span>
-        </div>
-        <SearchField query={query} onChange={setQuery} />
-      </div>
+      <CampaignListHeader
+        titleId="campaign-list-title"
+        title="Suas mesas"
+        count={visible.length}
+        query={query}
+        onQuery={setQuery}
+        searchLabel="Buscar mesa"
+      />
       {visible.length > 0 ? (
         <ul>
           {visible.map((campaign) => (
@@ -43,31 +41,6 @@ export function CampaignList({
         </p>
       )}
     </section>
-  );
-}
-
-function countLabel(count: number): string {
-  return count === 1 ? '1 mesa' : `${count} mesas`;
-}
-
-type SearchFieldProps = Readonly<{ query: string; onChange: (query: string) => void }>;
-
-function SearchField({ query, onChange }: SearchFieldProps): React.JSX.Element {
-  return (
-    <div className="relative w-full sm:w-72">
-      <SearchIcon
-        aria-hidden="true"
-        className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-placeholder"
-      />
-      <Input
-        type="search"
-        aria-label="Buscar mesa"
-        placeholder="Buscar mesa…"
-        value={query}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 pl-9 text-sm"
-      />
-    </div>
   );
 }
 

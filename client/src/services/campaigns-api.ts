@@ -3,11 +3,14 @@ import {
   campaignResponseDto,
   joinCampaignResponseDto,
   listCampaignsResponseDto,
+  listPublicCampaignsResponseDto,
   type CampaignDetailDto,
   type CampaignMemberDto,
   type CampaignSummaryDto,
   type CreateCampaignRequestDto,
   type JoinCampaignRequestDto,
+  type JoinPublicCampaignRequestDto,
+  type PublicCampaignDto,
   type UpdateCampaignRequestInput,
   type UpdateMemberRoleRequestDto,
 } from '@lorkarium/contracts';
@@ -38,6 +41,13 @@ export type CampaignsResult<T> =
 /** What the screens need from `/api/campaigns`; failures come back as values, never thrown. */
 export interface CampaignsApi {
   list(): Promise<CampaignsResult<CampaignSummaryDto[]>>;
+  /** "Explorar mesas": every public campaign, with the reader's role in each (`null` = not in it). */
+  listPublic(): Promise<CampaignsResult<PublicCampaignDto[]>>;
+  /** Joins a public campaign without its code (as spectator; a member keeps the role). */
+  joinPublic(
+    campaignId: string,
+    input: JoinPublicCampaignRequestDto,
+  ): Promise<CampaignsResult<CampaignSummaryDto>>;
   create(input: CreateCampaignRequestDto): Promise<CampaignsResult<CampaignDetailDto>>;
   detail(campaignId: string): Promise<CampaignsResult<CampaignDetailDto>>;
   join(input: JoinCampaignRequestDto): Promise<CampaignsResult<CampaignSummaryDto>>;
@@ -91,6 +101,21 @@ export class HttpCampaignsApi implements CampaignsApi {
     const call = await callApi(this.transport, 'GET', '/campaigns');
     if (call.kind !== 'ok') return failed(call);
     return parseOk(listCampaignsResponseDto, call.body, (body) => body.campaigns);
+  }
+
+  async listPublic(): Promise<CampaignsResult<PublicCampaignDto[]>> {
+    const call = await callApi(this.transport, 'GET', '/campaigns/public');
+    if (call.kind !== 'ok') return failed(call);
+    return parseOk(listPublicCampaignsResponseDto, call.body, (body) => body.campaigns);
+  }
+
+  async joinPublic(
+    campaignId: string,
+    input: JoinPublicCampaignRequestDto,
+  ): Promise<CampaignsResult<CampaignSummaryDto>> {
+    const call = await callApi(this.transport, 'POST', `${campaignPath(campaignId)}/join`, input);
+    if (call.kind !== 'ok') return failed(call);
+    return parseOk(joinCampaignResponseDto, call.body, (body) => body.campaign);
   }
 
   async create(input: CreateCampaignRequestDto): Promise<CampaignsResult<CampaignDetailDto>> {

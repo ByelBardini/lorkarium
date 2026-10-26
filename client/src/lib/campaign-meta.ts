@@ -1,4 +1,8 @@
-import type { CampaignSummaryDto } from '@lorkarium/contracts';
+import type { CampaignRoleDto, CampaignSummaryDto } from '@lorkarium/contracts';
+
+/** What the meta line reads; `myRole: null` = not in the campaign (a public one). */
+export type CampaignMetaSource = Pick<CampaignSummaryDto, 'system' | 'masterName' | 'memberCount'> &
+  Readonly<{ myRole: CampaignRoleDto | null }>;
 
 /** "1 participante" / "N participantes".
  *
@@ -11,7 +15,7 @@ export function memberCountLabel(count: number): string {
  *  status has its own badge (`StatusBadge`).
  *
  *  Example: `campaignMeta(campaign) // 'Tormenta20 · mestre: Bia · 4 participantes'` */
-export function campaignMeta(campaign: CampaignSummaryDto): string {
+export function campaignMeta(campaign: CampaignMetaSource): string {
   const master = campaign.myRole !== 'master' ? `mestre: ${campaign.masterName}` : null;
   return [campaign.system, master, memberCountLabel(campaign.memberCount)]
     .filter((part): part is string => Boolean(part))
