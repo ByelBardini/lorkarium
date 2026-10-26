@@ -6,6 +6,7 @@ import {
   type CampaignMemberDto,
   type CampaignSummaryDto,
   type ContentWarningDto,
+  type PublicCampaignDto,
   type CreateCampaignRequestDto,
   type UpdateCampaignRequestDto,
 } from '@lorkarium/contracts';
@@ -14,7 +15,11 @@ import { CampaignAccessBo } from './campaign-access.bo';
 import { CampaignJoinBo } from './campaign-join.bo';
 import { CampaignSettingsBo } from './campaign-settings.bo';
 import { MemberRoleBo } from './member-role.bo';
-import type { CampaignListingRow, CampaignMemberRow } from './campaign-members.dao';
+import type {
+  CampaignListingRow,
+  CampaignMemberRow,
+  PublicCampaignRow,
+} from './campaign-members.dao';
 import type { CampaignMemberPo } from './campaign-members.po';
 import type { CampaignPo, NewCampaignPo } from './campaigns.po';
 
@@ -38,21 +43,32 @@ export type CampaignDetailView = CampaignView &
  *
  *  Example: `rows.map(toCampaignSummaryDto)` */
 export function toCampaignSummaryDto(row: CampaignListingRow): CampaignSummaryDto {
-  const { campaign } = row;
   return {
-    id: campaign.id,
-    name: campaign.name,
-    system: campaign.system,
-    status: campaign.status,
-    description: campaign.description,
-    visibility: campaign.visibility,
+    ...campaignInfoOf(row),
     myRole: row.role,
-    masterName: row.masterName,
-    memberCount: row.memberCount,
+    lastEnteredAt: row.lastEnteredAt?.toISOString() ?? null,
+  };
+}
+
+/** Public row → DTO: one card of "Explorar mesas"; the hash never leaves, only whether there is one.
+ *
+ *  Example: `rows.map(toPublicCampaignDto)[0].hasPassword // true` */
+export function toPublicCampaignDto(row: PublicCampaignRow): PublicCampaignDto {
+  return {
+    ...campaignInfoOf(row),
+    myRole: row.myRole,
+    hasPassword: row.campaign.passwordHash !== null,
+  };
+}
+
+type CampaignInfoRow = Readonly<{ campaign: CampaignPo; masterName: string; memberCount: number }>;
+
+function campaignInfoOf({ campaign, masterName, memberCount }: CampaignInfoRow): CampaignInfoDto {
+  const { id, name, system, status, description, visibility, tags } = campaign;
+  return {
+    ...{ id, name, system, status, description, visibility, masterName, memberCount, tags },
     cover: coverOf(campaign),
     contentWarnings: campaign.contentWarnings.filter(isContentWarning),
-    tags: campaign.tags,
-    lastEnteredAt: row.lastEnteredAt?.toISOString() ?? null,
   };
 }
 
@@ -158,6 +174,7 @@ export function toCampaignJoinBo(
     campaignId: campaign.id,
     isMember: membership !== undefined,
     hasPassword: campaign.passwordHash !== null,
+    isPublic: campaign.visibility === 'public',
   });
 }
 

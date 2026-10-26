@@ -4,6 +4,7 @@ import {
   campaignMemberParamsDto,
   createCampaignRequestDto,
   joinCampaignRequestDto,
+  joinPublicCampaignRequestDto,
   updateCampaignRequestDto,
   updateMemberRoleRequestDto,
   type ApiErrorDto,
@@ -12,6 +13,7 @@ import {
   type CampaignResponseDto,
   type JoinCampaignResponseDto,
   type ListCampaignsResponseDto,
+  type ListPublicCampaignsResponseDto,
 } from '@lorkarium/contracts';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
@@ -87,6 +89,11 @@ function registerCampaignRoutes(app: FastifyInstance, service: CampaignsService)
     const campaigns = await service.listMine(userOf(request).id);
     return { campaigns } satisfies ListCampaignsResponseDto;
   });
+  // A static path: Fastify matches it before `/campaigns/:campaignId`.
+  app.get('/campaigns/public', { preHandler: requireAuth }, async (request) => {
+    const campaigns = await service.listPublic(userOf(request).id);
+    return { campaigns } satisfies ListPublicCampaignsResponseDto;
+  });
   app.post('/campaigns', { preHandler: requireAuth }, async (request, reply) => {
     const input = createCampaignRequestDto.parse(request.body);
     const campaign = await service.create(userOf(request).id, input);
@@ -105,6 +112,13 @@ function registerJoinRoutes(app: FastifyInstance, service: CampaignJoinService):
   app.post('/campaigns/join', joinOptions, async (request) => {
     const input = joinCampaignRequestDto.parse(request.body);
     const campaign = await service.join(userOf(request).id, input);
+    return { campaign } satisfies JoinCampaignResponseDto;
+  });
+  // The same limit as the code: a protected public campaign must not be a password oracle.
+  app.post('/campaigns/:campaignId/join', joinOptions, async (request) => {
+    const campaignId = campaignIdOf(request);
+    const input = joinPublicCampaignRequestDto.parse(request.body ?? {});
+    const campaign = await service.joinPublic(userOf(request).id, campaignId, input);
     return { campaign } satisfies JoinCampaignResponseDto;
   });
   app.post('/campaigns/:campaignId/enter', { preHandler: requireAuth }, async (request, reply) => {

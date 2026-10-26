@@ -3,6 +3,7 @@ import type {
   CampaignDetailDto,
   CampaignSummaryDto,
   CreateCampaignRequestDto,
+  PublicCampaignDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
@@ -20,6 +21,7 @@ import {
   toCampaignDetailDto,
   toCampaignSummaryDto,
   toNewCampaignPo,
+  toPublicCampaignDto,
   orderedMembers,
   type CampaignDetailView,
 } from './campaigns.mapper';
@@ -42,7 +44,12 @@ export type CampaignsServiceDeps = Readonly<{
   campaigns: Pick<CampaignsDao, 'findById'>;
   members: Pick<
     CampaignMembersDao,
-    'findMembership' | 'listOfUser' | 'listMembers' | 'campaignIdsOfUser' | 'lastAccessAtOf'
+    | 'findMembership'
+    | 'listOfUser'
+    | 'listPublic'
+    | 'listMembers'
+    | 'campaignIdsOfUser'
+    | 'lastAccessAtOf'
   >;
   /** The cast of each table, whose id the detail carries. */
   scenes: Pick<ScenesDao, 'findCastOf'>;
@@ -81,6 +88,12 @@ export class CampaignsService {
   async listMine(userId: string): Promise<CampaignSummaryDto[]> {
     const rows = await this.deps.members.listOfUser(userId);
     return rows.map(toCampaignSummaryDto);
+  }
+
+  /** "Explorar mesas": every public campaign, whoever reads; the reader only adds their role. */
+  async listPublic(readerId: string): Promise<PublicCampaignDto[]> {
+    const rows = await this.deps.members.listPublic(readerId);
+    return rows.map(toPublicCampaignDto);
   }
 
   async detail(userId: string, campaignId: string): Promise<CampaignDetailDto> {

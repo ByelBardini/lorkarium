@@ -22,10 +22,15 @@ export class CampaignError extends Error {
 }
 
 export type CampaignLookup =
-  Readonly<{ campaignId: string; userId: string }> | Readonly<{ joinCode: string }>;
+  | Readonly<{ campaignId: string; userId: string }>
+  | Readonly<{ joinCode: string }>
+  | Readonly<{ publicCampaignId: string }>;
 
 function describeLookup(lookup: CampaignLookup): string {
   if ('joinCode' in lookup) return `no campaign has join code ${lookup.joinCode}`;
+  if ('publicCampaignId' in lookup) {
+    return `campaign ${lookup.publicCampaignId} is not a public campaign; expected visibility public`;
+  }
   return `campaign ${lookup.campaignId} has no member ${lookup.userId}`;
 }
 

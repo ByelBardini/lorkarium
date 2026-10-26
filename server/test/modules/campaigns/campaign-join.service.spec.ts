@@ -102,4 +102,56 @@ describe('CampaignJoinService', () => {
     await service.enter(BIA_ID, 'vharn');
     expect(members.entered).toEqual([{ campaignId: 'vharn', userId: BIA_ID, at: NOW }]);
   });
+
+  describe('joinPublic (Explorar mesas, no code)', () => {
+    function publicCampaign(passwordHash: string | null = null): void {
+      campaigns.rows.push(campaignPo({ id: 'vharn', visibility: 'public', passwordHash }));
+      members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
+    }
+
+    it('a public campaign without a password takes the newcomer in as spectator', async () => {
+      publicCampaign();
+      const summary = await service.joinPublic(ANA_ID, 'vharn', {});
+      expect(summary).toMatchObject({ id: 'vharn', myRole: 'spectator', masterName: 'Bia' });
+      expect(members.rows[1]).toMatchObject({ userId: ANA_ID, role: 'spectator', joinedAt: NOW });
+    });
+
+    it('a private campaign is refused with CAMPAIGN_NOT_FOUND citing it and writes no membership', async () => {
+      biasCampaign();
+      await expect(service.joinPublic(ANA_ID, 'vharn', {})).rejects.toMatchObject({
+        code: 'CAMPAIGN_NOT_FOUND',
+        message: expect.stringContaining('vharn'),
+      });
+      expect(members.rows).toHaveLength(1);
+    });
+
+    it('an unknown id is refused with CAMPAIGN_NOT_FOUND citing the id', async () => {
+      await expect(service.joinPublic(ANA_ID, 'sumida', {})).rejects.toMatchObject({
+        code: 'CAMPAIGN_NOT_FOUND',
+        message: expect.stringContaining('sumida'),
+      });
+    });
+
+    it('a wrong password for a protected public campaign is refused and writes no membership', async () => {
+      publicCampaign('hashed:sino');
+      await expect(
+        service.joinPublic(ANA_ID, 'vharn', { password: 'errada' }),
+      ).rejects.toMatchObject({ code: 'CAMPAIGN_PASSWORD_INVALID' });
+      expect(members.rows).toHaveLength(1);
+    });
+
+    it('the right password lets the newcomer in', async () => {
+      publicCampaign('hashed:sino');
+      const summary = await service.joinPublic(ANA_ID, 'vharn', { password: 'sino' });
+      expect(summary.myRole).toBe('spectator');
+    });
+
+    it('a player joining again keeps the role and writes no row', async () => {
+      publicCampaign();
+      members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: ANA_ID, role: 'player' }));
+      const summary = await service.joinPublic(ANA_ID, 'vharn', {});
+      expect(summary.myRole).toBe('player');
+      expect(members.rows).toHaveLength(2);
+    });
+  });
 });

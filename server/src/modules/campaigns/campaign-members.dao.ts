@@ -15,6 +15,17 @@ export type CampaignListingRow = Readonly<{
   memberCount: number;
 }>;
 
+/** One public campaign for "Explorar mesas", with the reader's role there (`null` = not in it). */
+export type PublicCampaignRow = Readonly<{
+  campaign: CampaignPo;
+  masterName: string;
+  memberCount: number;
+  myRole: CampaignMemberPo['role'] | null;
+}>;
+
+/** The most "Explorar mesas" lists at once, newest first. */
+export const PUBLIC_CAMPAIGNS_MAX = 200;
+
 /** A member with what the table sees of their profile; `colorChoice` is null when the color is
  *  the automatic one (the mapper draws it with `memberColorOf`). */
 export type CampaignMemberRow = Readonly<{
@@ -29,6 +40,7 @@ export type CampaignMemberRow = Readonly<{
 
 const masterMembers = alias(campaignMembers, 'master_member');
 const masterUsers = alias(users, 'master_user');
+const readerMembers = alias(campaignMembers, 'reader_member');
 
 // The table keeps no trace of who only watches: spectators do not count.
 const memberCountOfCampaign = sql<number>`(
@@ -76,6 +88,31 @@ export class CampaignMembersDao {
         sql`${campaignMembers.lastEnteredAt} desc nulls last`,
         desc(campaignMembers.joinedAt),
       );
+  }
+
+  /** Every public campaign, newest first (up to `PUBLIC_CAMPAIGNS_MAX`), with the reader's role in
+   *  each; the filter is the visibility the master chose, not a membership. */
+  async listPublic(readerId: string): Promise<PublicCampaignRow[]> {
+    return this.db
+      .select({
+        campaign: getTableColumns(campaigns),
+        masterName: masterUsers.name,
+        memberCount: memberCountOfCampaign,
+        myRole: readerMembers.role,
+      })
+      .from(campaigns)
+      .innerJoin(
+        masterMembers,
+        and(eq(masterMembers.campaignId, campaigns.id), eq(masterMembers.role, 'master')),
+      )
+      .innerJoin(masterUsers, eq(masterUsers.id, masterMembers.userId))
+      .leftJoin(
+        readerMembers,
+        and(eq(readerMembers.campaignId, campaigns.id), eq(readerMembers.userId, readerId)),
+      )
+      .where(eq(campaigns.visibility, 'public'))
+      .orderBy(desc(campaigns.createdAt))
+      .limit(PUBLIC_CAMPAIGNS_MAX);
   }
 
   /** The ids of the campaigns the user is a member of; no join, the caller only needs the ids. */

@@ -2,6 +2,7 @@ import {
   campaignDetailDto,
   campaignInfoDto,
   createCampaignRequestDto,
+  publicCampaignDto,
   updateCampaignRequestDto,
   type UpdateCampaignRequestInput,
 } from '@lorkarium/contracts';
@@ -18,6 +19,7 @@ import {
   toCampaignSummaryDto,
   toMemberRoleBo,
   toNewCampaignPo,
+  toPublicCampaignDto,
   type CampaignDetailView,
 } from '../../../src/modules/campaigns/campaigns.mapper';
 import { ANA_ID } from '../../support/auth-factories';
@@ -99,6 +101,41 @@ describe('campaigns mapper', () => {
       contentWarnings: [],
       tags: [],
       lastEnteredAt: '2026-10-13T22:30:00.000Z',
+    });
+  });
+
+  describe('toPublicCampaignDto', () => {
+    const publicRow = (passwordHash: string | null, myRole: 'player' | null) => ({
+      campaign: campaignPo({
+        visibility: 'public',
+        passwordHash,
+        contentWarnings: ['gore', 'old'],
+      }),
+      masterName: 'Bia',
+      memberCount: 3,
+      myRole,
+    });
+
+    it('a public row becomes a card the contract accepts, with the reader not in it', () => {
+      const card = toPublicCampaignDto(publicRow(null, null));
+
+      expect(publicCampaignDto.parse(card)).toEqual(card);
+      expect(card).toMatchObject({
+        id: VHARN_ID,
+        visibility: 'public',
+        masterName: 'Bia',
+        memberCount: 3,
+        myRole: null,
+        hasPassword: false,
+        contentWarnings: ['gore'],
+      });
+    });
+
+    it('a protected campaign says it has a password and never sends the hash', () => {
+      const card = toPublicCampaignDto(publicRow('hashed:sino', 'player'));
+
+      expect(card).toMatchObject({ hasPassword: true, myRole: 'player' });
+      expect(JSON.stringify(card)).not.toContain('hashed:sino');
     });
   });
 

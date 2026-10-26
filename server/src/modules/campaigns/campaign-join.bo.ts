@@ -1,4 +1,8 @@
-import { CampaignPasswordInvalidError, CampaignPasswordRequiredError } from './campaigns.error';
+import {
+  CampaignNotFoundError,
+  CampaignPasswordInvalidError,
+  CampaignPasswordRequiredError,
+} from './campaigns.error';
 
 /** Outcome of checking the password sent against the campaign, computed by the service. */
 export type PasswordCheck = 'not-required' | 'missing' | 'matches' | 'mismatch';
@@ -9,14 +13,22 @@ export type CampaignJoinState = Readonly<{
   campaignId: string;
   isMember: boolean;
   hasPassword: boolean;
+  isPublic: boolean;
 }>;
 
-/** Whether someone holding the join code gets in, and how: newcomers watch until the master
- *  promotes them; members keep their role.
+/** Whether someone holding the join code (or picking a public campaign) gets in, and how:
+ *  newcomers watch until the master promotes them; members keep their role.
  *
  *  Example: `new CampaignJoinBo({ campaignId, isMember: false, hasPassword: true }).decide('missing') // throws CAMPAIGN_PASSWORD_REQUIRED` */
 export class CampaignJoinBo {
   constructor(private readonly state: CampaignJoinState) {}
+
+  /** Joining without the code ("Explorar mesas") only reaches a public campaign; a private one
+   *  answers as if it did not exist, so its id leaks nothing. */
+  requirePublic(): void {
+    if (this.state.isPublic) return;
+    throw new CampaignNotFoundError({ publicCampaignId: this.state.campaignId });
+  }
 
   // A member re-joining is idempotent: the password is not asked again.
   needsPasswordCheck(): boolean {
