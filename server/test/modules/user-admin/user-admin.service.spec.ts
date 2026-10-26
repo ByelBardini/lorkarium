@@ -43,6 +43,7 @@ describe('UserAdminService', () => {
         email: 'bia@x.com',
         name: 'Bia',
         avatarId: '33333333-3333-4333-8333-333333333333',
+        diceTextureId: '44444444-4444-4444-8444-444444444444',
       }),
       userPo({ id: CAIO_ID, email: 'caio@x.com', name: 'Caio' }),
     ]);
@@ -154,12 +155,15 @@ describe('UserAdminService', () => {
   });
 
   describe('delete', () => {
-    it('locks, deletes, then signs out, forgets the memberships and removes the photo', async () => {
+    it('locks, deletes, then signs out, forgets the memberships and removes the photo and texture', async () => {
       await service.delete(ADMIN, BIA_ID);
       expect(accounts.deleted).toEqual([BIA_ID]);
       expect(journal).toEqual(['commit', 'ended sha:bia-1', 'ended sha:bia-2']);
       expect(memberships.forgotten).toEqual([BIA_ID]);
-      expect(storage.removed).toEqual(['avatars/33333333-3333-4333-8333-333333333333']);
+      expect(storage.removed).toEqual([
+        'avatars/33333333-3333-4333-8333-333333333333',
+        'dice-textures/44444444-4444-4444-8444-444444444444',
+      ]);
     });
 
     it('owning a table with others is OWNS_SHARED_CAMPAIGNS and nothing is deleted nor told', async () => {

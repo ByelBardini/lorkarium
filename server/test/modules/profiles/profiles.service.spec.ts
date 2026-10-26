@@ -52,6 +52,8 @@ describe('ProfilesService', () => {
         colorChoice: null,
         bio: null,
         avatarId: null,
+        diceTextureId: null,
+        diceNumberColor: null,
         memberSince: '2026-10-01T12:00:00.000Z',
       });
     });
@@ -83,6 +85,19 @@ describe('ProfilesService', () => {
 
       expect(journal).toEqual(['update:name', `profileChanged:${ANA_ID}`]);
     });
+
+    it('changing only the dice number color saves it without telling the tables', async () => {
+      const profile = await service.update(ANA_ID, { diceNumberColor: '#ffaa00' });
+
+      expect(profile.diceNumberColor).toBe('#ffaa00');
+      expect(journal).toEqual(['update:diceNumberColor']);
+    });
+
+    it('the dice number color along with the nickname still tells the tables', async () => {
+      await service.update(ANA_ID, { name: 'Aninha', diceNumberColor: null });
+
+      expect(profileChanged.told).toEqual([ANA_ID]);
+    });
   });
 
   describe('the photo', () => {
@@ -103,6 +118,12 @@ describe('ProfilesService', () => {
         bytes: processor.result.bytes,
         contentType: 'image/webp',
       });
+    });
+
+    it('the photo is asked of the processor as a 256 square that may move', async () => {
+      await service.replaceAvatar(ANA_ID, PHOTO);
+
+      expect(processor.shapes).toEqual([{ side: 256, animated: true }]);
     });
 
     it('the first photo deletes nothing', async () => {
@@ -220,6 +241,114 @@ describe('ProfilesService', () => {
         code: 'AVATAR_TOO_LARGE',
       });
       expect(journal).toEqual([]);
+    });
+  });
+
+  describe('the dice texture', () => {
+    const LINK = 'https://media.example.com/textura.png';
+
+    it('a texture is normalized still at 512, stored, pointed at and the old one deleted, untold', async () => {
+      profiles.rows[0] = profileRow({ diceTextureId: OLD_AVATAR, avatarId: OLD_AVATAR });
+
+      const profile = await service.replaceDiceTexture(ANA_ID, PHOTO);
+
+      expect(processor.shapes).toEqual([{ side: 512, animated: false }]);
+      expect(journal).toEqual([
+        'normalize',
+        'put',
+        `swapDice:${NEW_AVATAR}`,
+        `remove:dice-textures/${OLD_AVATAR}`,
+      ]);
+      expect(profileChanged.told).toEqual([]);
+      expect(profile).toMatchObject({ diceTextureId: NEW_AVATAR, avatarId: OLD_AVATAR });
+      expect(storage.objects.get(`dice-textures/${NEW_AVATAR}`)?.contentType).toBe('image/webp');
+    });
+
+    it('bytes the processor refuses are UNSUPPORTED_IMAGE and nothing is put', async () => {
+      processor.refusal = { reason: 'not-an-image', detail: 'the 6 bytes do not decode' };
+
+      await expect(service.replaceDiceTexture(ANA_ID, PHOTO)).rejects.toMatchObject({
+        code: 'UNSUPPORTED_IMAGE',
+        message: 'the 6 bytes do not decode',
+      });
+      expect(journal).toEqual(['normalize']);
+    });
+
+    it('a texture above 5 MiB is DICE_TEXTURE_TOO_LARGE before it is decoded', async () => {
+      const huge = new Uint8Array(AVATAR_MAX_BYTES + 1);
+
+      await expect(service.replaceDiceTexture(ANA_ID, huge)).rejects.toMatchObject({
+        code: 'DICE_TEXTURE_TOO_LARGE',
+        message: expect.stringContaining(String(AVATAR_MAX_BYTES + 1)),
+      });
+      expect(journal).toEqual([]);
+    });
+
+    it('a texture from a link is downloaded, then the same path as a sent one', async () => {
+      const profile = await service.replaceDiceTextureFromLink(ANA_ID, LINK);
+
+      expect(fetcher.fetched).toEqual([LINK]);
+      expect(journal).toEqual(['normalize', 'put', `swapDice:${NEW_AVATAR}`]);
+      expect(profile.diceTextureId).toBe(NEW_AVATAR);
+    });
+
+    it('a link that answers no image is LINK_NOT_IMAGE citing the link', async () => {
+      processor.refusal = { reason: 'not-an-image', detail: 'unsupported image format' };
+
+      await expect(service.replaceDiceTextureFromLink(ANA_ID, LINK)).rejects.toMatchObject({
+        code: 'LINK_NOT_IMAGE',
+        message: expect.stringContaining(LINK),
+      });
+    });
+
+    it('a blocked link is LINK_BLOCKED and nothing is kept', async () => {
+      fetcher.refusal = { kind: 'blocked', host: 'localhost', address: '127.0.0.1' };
+
+      await expect(service.replaceDiceTextureFromLink(ANA_ID, LINK)).rejects.toMatchObject({
+        code: 'LINK_BLOCKED',
+      });
+      expect(journal).toEqual([]);
+    });
+
+    it('taking off a texture that is not there touches neither the row nor the storage', async () => {
+      const profile = await service.removeDiceTexture(ANA_ID);
+
+      expect(profile.diceTextureId).toBeNull();
+      expect(journal).toEqual([]);
+    });
+
+    it('taking the texture off unpoints it and deletes the object, untold', async () => {
+      profiles.rows[0] = profileRow({ diceTextureId: OLD_AVATAR });
+
+      const profile = await service.removeDiceTexture(ANA_ID);
+
+      expect(profile.diceTextureId).toBeNull();
+      expect(journal).toEqual(['swapDice:none', `remove:dice-textures/${OLD_AVATAR}`]);
+      expect(profileChanged.told).toEqual([]);
+    });
+
+    it('a current texture is opened from dice-textures/<id>', async () => {
+      profiles.rows[0] = profileRow({ diceTextureId: OLD_AVATAR });
+      await storage.put(`dice-textures/${OLD_AVATAR}`, PHOTO, 'image/webp');
+
+      expect((await service.openDiceTexture(OLD_AVATAR)).size).toBe(PHOTO.byteLength);
+    });
+
+    it('a replaced texture is DICE_TEXTURE_NOT_FOUND even while its object still exists', async () => {
+      await storage.put(`dice-textures/${OLD_AVATAR}`, PHOTO, 'image/webp');
+
+      await expect(service.openDiceTexture(OLD_AVATAR)).rejects.toMatchObject({
+        code: 'DICE_TEXTURE_NOT_FOUND',
+      });
+    });
+
+    it('a photo id is no texture: DICE_TEXTURE_NOT_FOUND', async () => {
+      profiles.rows[0] = profileRow({ avatarId: OLD_AVATAR });
+      await storage.put(`dice-textures/${OLD_AVATAR}`, PHOTO, 'image/webp');
+
+      await expect(service.openDiceTexture(OLD_AVATAR)).rejects.toMatchObject({
+        code: 'DICE_TEXTURE_NOT_FOUND',
+      });
     });
   });
 });

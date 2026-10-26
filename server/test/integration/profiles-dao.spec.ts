@@ -34,7 +34,17 @@ describe('ProfilesDao on Postgres', () => {
 
     expect(row).toMatchObject({ id: anaId, username: 'ana', name: 'Ana', color: null });
     expect(Object.keys(row ?? {}).sort()).toEqual(
-      ['avatarId', 'bio', 'color', 'createdAt', 'id', 'name', 'username'].sort(),
+      [
+        'avatarId',
+        'bio',
+        'color',
+        'createdAt',
+        'diceNumberColor',
+        'diceTextureId',
+        'id',
+        'name',
+        'username',
+      ].sort(),
     );
   });
 
@@ -52,9 +62,9 @@ describe('ProfilesDao on Postgres', () => {
   });
 
   it('swapAvatar answers the photo the account had, and the new one becomes current', async () => {
-    expect(await profiles.swapAvatar(anaId, FIRST)).toEqual({ previousAvatarId: null });
+    expect(await profiles.swapAvatar(anaId, FIRST)).toEqual({ previousId: null });
 
-    expect(await profiles.swapAvatar(anaId, SECOND)).toEqual({ previousAvatarId: FIRST });
+    expect(await profiles.swapAvatar(anaId, SECOND)).toEqual({ previousId: FIRST });
     expect(await profiles.isCurrentAvatar(FIRST)).toBe(false);
     expect(await profiles.isCurrentAvatar(SECOND)).toBe(true);
   });
@@ -67,7 +77,7 @@ describe('ProfilesDao on Postgres', () => {
       profiles.swapAvatar(anaId, UNKNOWN_ID),
     ]);
 
-    const previous = answers.map((answer) => answer?.previousAvatarId).sort();
+    const previous = answers.map((answer) => answer?.previousId).sort();
     const current = (await profiles.findById(anaId))?.avatarId;
     expect(previous).toContain(FIRST);
     expect(new Set([...previous, current]).size).toBe(3);
@@ -75,5 +85,54 @@ describe('ProfilesDao on Postgres', () => {
 
   it('swapAvatar of an account that does not exist answers undefined', async () => {
     expect(await profiles.swapAvatar(UNKNOWN_ID, FIRST)).toBeUndefined();
+  });
+
+  describe('the dice appearance', () => {
+    it('a dice number color that is not #rrggbb is refused by the check of the table', async () => {
+      await expect(profiles.update(anaId, { diceNumberColor: 'red' })).rejects.toMatchObject({
+        cause: { code: '23514', constraint: 'users_dice_number_color_hex' },
+      });
+    });
+
+    it('a #rrggbb dice number color is kept on that account only', async () => {
+      expect(await profiles.update(anaId, { diceNumberColor: '#ffaa00' })).toMatchObject({
+        diceNumberColor: '#ffaa00',
+      });
+      expect((await profiles.findById(biaId))?.diceNumberColor).toBeNull();
+    });
+
+    it('swapDiceTexture answers the previous texture and leaves the photo alone', async () => {
+      await profiles.swapAvatar(anaId, FIRST);
+
+      expect(await profiles.swapDiceTexture(anaId, SECOND)).toEqual({ previousId: null });
+      expect(await profiles.swapDiceTexture(anaId, null)).toEqual({ previousId: SECOND });
+      expect(await profiles.findById(anaId)).toMatchObject({
+        avatarId: FIRST,
+        diceTextureId: null,
+      });
+    });
+
+    it('a texture is current only while pointed at, and a photo id is no texture', async () => {
+      await profiles.swapAvatar(anaId, FIRST);
+      await profiles.swapDiceTexture(anaId, SECOND);
+
+      expect(await profiles.isCurrentDiceTexture(SECOND)).toBe(true);
+      expect(await profiles.isCurrentDiceTexture(FIRST)).toBe(false);
+      expect(await profiles.isCurrentAvatar(SECOND)).toBe(false);
+    });
+
+    it('two texture sends at once never see the same previous texture', async () => {
+      await profiles.swapDiceTexture(anaId, FIRST);
+
+      const answers = await Promise.all([
+        profiles.swapDiceTexture(anaId, SECOND),
+        profiles.swapDiceTexture(anaId, UNKNOWN_ID),
+      ]);
+
+      const previous = answers.map((answer) => answer?.previousId).sort();
+      const current = (await profiles.findById(anaId))?.diceTextureId;
+      expect(previous).toContain(FIRST);
+      expect(new Set([...previous, current]).size).toBe(3);
+    });
   });
 });

@@ -48,6 +48,8 @@ export function userPo(overrides: UserOverrides<UserPo> = {}): UserPo {
     color: null,
     bio: null,
     avatarId: null,
+    diceTextureId: null,
+    diceNumberColor: null,
     passwordChangedAt: null,
     suspendedAt: null,
     lastSeenAt: null,

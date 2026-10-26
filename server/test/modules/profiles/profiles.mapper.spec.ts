@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   avatarKeyOf,
+  diceTextureKeyOf,
   toProfileChanges,
   toProfileDto,
 } from '../../../src/modules/profiles/profiles.mapper';
@@ -30,5 +31,16 @@ describe('profiles mapper', () => {
 
   it('a photo lives under avatars/<id>', () => {
     expect(avatarKeyOf('abc')).toBe('avatars/abc');
+  });
+
+  it('a dice texture lives under dice-textures/<id>', () => {
+    expect(diceTextureKeyOf('abc')).toBe('dice-textures/abc');
+  });
+
+  it('the dice appearance goes out as it is kept, and a cleared number color is written', () => {
+    const row = profileRow({ diceTextureId: 'tex', diceNumberColor: '#ffaa00' });
+
+    expect(toProfileDto(row)).toMatchObject({ diceTextureId: 'tex', diceNumberColor: '#ffaa00' });
+    expect(toProfileChanges({ diceNumberColor: null })).toEqual({ diceNumberColor: null });
   });
 });

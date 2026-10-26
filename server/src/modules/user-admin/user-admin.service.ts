@@ -18,7 +18,7 @@ import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { UserPo } from '../auth/users.po';
-import { avatarKeyOf } from '../profiles/profiles.mapper';
+import { avatarKeyOf, diceTextureKeyOf } from '../profiles/profiles.mapper';
 import { deletionVerdict, requireOtherAccount } from './user-admin.bo';
 import type { AccountListingRow, UserAdminDao } from './user-admin.dao';
 import { OwnsSharedCampaignsError, UserNotFoundError } from './user-admin.error';
@@ -135,6 +135,7 @@ export class UserAdminService {
     for (const sessionId of ended) this.deps.sessionEnded.sessionEnded(sessionId);
     this.deps.memberships.forgetUser(userId);
     if (row.avatarId) await this.deps.storage.remove(avatarKeyOf(row.avatarId));
+    if (row.diceTextureId) await this.deps.storage.remove(diceTextureKeyOf(row.diceTextureId));
   }
 
   private async requireAccount(

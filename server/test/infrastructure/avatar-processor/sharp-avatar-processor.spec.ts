@@ -131,4 +131,34 @@ describe('SharpAvatarProcessor.normalize', () => {
 
     expect(avatar.frames).toBe(1);
   });
+
+  describe('as a still dice texture ({ side: 512, animated: false })', () => {
+    const texture = { side: 512, animated: false } as const;
+
+    it('an 800×400 PNG becomes a 512×512 WebP cut from its center', async () => {
+      const kept = keptOf(await processor.normalize(await bandedPng(), texture));
+
+      const metadata = await sharp(kept.bytes).metadata();
+      expect([metadata.format, metadata.width, metadata.height]).toEqual(['webp', 512, 512]);
+      const { data } = await sharp(kept.bytes).raw().toBuffer({ resolveWithObject: true });
+      expect(data[1]).toBeGreaterThan(150);
+    });
+
+    it('a 3-frame GIF keeps only its first frame', async () => {
+      const kept = keptOf(await processor.normalize(await animatedGif(3), texture));
+
+      expect(kept.frames).toBe(1);
+      const metadata = await sharp(kept.bytes, { animated: true }).metadata();
+      expect(metadata).toMatchObject({ format: 'webp', width: 512, height: 512 });
+      expect(metadata.pages ?? 1).toBe(1);
+    });
+
+    it('a GIF above the frame limit is still refused before decoding', async () => {
+      const strict = new SharpAvatarProcessor({ maxFrames: 2 });
+
+      const refusal = refusalOf(await strict.normalize(await animatedGif(3), texture));
+
+      expect(refusal.reason).toBe('too-many-frames');
+    });
+  });
 });

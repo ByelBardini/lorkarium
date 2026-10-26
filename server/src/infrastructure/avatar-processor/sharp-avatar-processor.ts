@@ -4,6 +4,7 @@ import type {
   AvatarOutcome,
   AvatarProcessorPort,
   AvatarRefusal,
+  ImageShape,
 } from '../../modules/profiles/avatar-processor.port';
 import { framesWithin } from '../sharp-frames';
 
@@ -14,6 +15,7 @@ const QUALITY = 85;
 const EXPECTED = 'expected png, jpeg, webp or gif';
 // SVG is left out on purpose: it decodes through a renderer that may carry script.
 const KEPT_FORMATS: ReadonlySet<string> = new Set(['png', 'jpeg', 'webp', 'gif']);
+const PHOTO_SHAPE: ImageShape = { side: AVATAR_SIDE, animated: true };
 
 export type SharpAvatarProcessorOptions = Readonly<{
   maxTotalPixels?: number;
@@ -24,10 +26,10 @@ type Refused = Readonly<{ ok: false; refusal: AvatarRefusal }>;
 type Inspected = Readonly<{ ok: true; frames: number }> | Refused;
 
 /** `AvatarProcessorPort` over `sharp`: reads the real format from the bytes, refuses a bomb before
- *  decoding it, cuts the center into a 256 × 256 square and re-encodes it as WebP (animated when
- *  the input is) without any metadata.
+ *  decoding it, cuts the center into the square of `shape` (the photo's 256 by default) and
+ *  re-encodes it as WebP (animated when the input is and the shape allows) without any metadata.
  *
- *  Example: `await new SharpAvatarProcessor().normalize(bytes) // { ok: true, avatar }` */
+ *  Example: `await new SharpAvatarProcessor().normalize(bytes, { side: 512, animated: false })` */
 export class SharpAvatarProcessor implements AvatarProcessorPort {
   private readonly maxTotalPixels: number;
   private readonly maxFrames: number;
@@ -37,11 +39,11 @@ export class SharpAvatarProcessor implements AvatarProcessorPort {
     this.maxFrames = options.maxFrames ?? DEFAULT_MAX_FRAMES;
   }
 
-  async normalize(bytes: Uint8Array): Promise<AvatarOutcome> {
+  async normalize(bytes: Uint8Array, shape: ImageShape = PHOTO_SHAPE): Promise<AvatarOutcome> {
     const inspected = await this.inspect(bytes);
     if (!inspected.ok) return inspected;
-    const { frames } = inspected;
-    const output = await squared(bytes, frames, this.maxTotalPixels)
+    const frames = shape.animated ? inspected.frames : 1;
+    const output = await squared(bytes, frames, shape.side, this.maxTotalPixels)
       .webp({ quality: QUALITY })
       .toBuffer()
       .catch(() => null);
@@ -66,11 +68,12 @@ export class SharpAvatarProcessor implements AvatarProcessorPort {
 }
 
 // One frame is turned upright by its EXIF first; an animation has no orientation to honor.
-function squared(bytes: Uint8Array, frames: number, maxTotalPixels: number): Sharp {
+// Without `animated`, sharp decodes only the first frame: that is how a still shape drops the rest.
+function squared(bytes: Uint8Array, frames: number, side: number, maxTotalPixels: number): Sharp {
   const animated = frames > 1;
   const image = sharp(bytes, { animated, limitInputPixels: maxTotalPixels });
   const upright = animated ? image : image.autoOrient();
-  return upright.resize(AVATAR_SIDE, AVATAR_SIDE, { fit: 'cover', position: 'centre' });
+  return upright.resize(side, side, { fit: 'cover', position: 'centre' });
 }
 
 function notAnImage(bytes: Uint8Array): Refused {
