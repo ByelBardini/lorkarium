@@ -49,13 +49,35 @@ describe('updateProfileRequestDto', () => {
 
   it('an empty body is refused with "at least one of name, color, bio"', () => {
     expect(issuesOf({})).toEqual([
-      { path: '', message: 'Empty profile update: expected at least one of name, color, bio.' },
+      {
+        path: '',
+        message:
+          'Empty profile update: expected at least one of name, color, bio, diceNumberColor.',
+      },
     ]);
   });
 
   it('a username in the body is refused because the @ is immutable (strict)', () => {
     expect(issuesOf({ name: 'Ana', username: 'ana2' }).map(({ path }) => path)).toEqual([
       'username',
+    ]);
+  });
+
+  it('a dice number color in capitals is kept in lowercase', () => {
+    expect(updateProfileRequestDto.parse({ diceNumberColor: '#FFAA00' })).toEqual({
+      diceNumberColor: '#ffaa00',
+    });
+  });
+
+  it('a null dice number color goes back to the automatic one', () => {
+    expect(updateProfileRequestDto.parse({ diceNumberColor: null })).toEqual({
+      diceNumberColor: null,
+    });
+  });
+
+  it('a short hex dice number color is refused on its path', () => {
+    expect(issuesOf({ diceNumberColor: '#fff' }).map(({ path }) => path)).toEqual([
+      'diceNumberColor',
     ]);
   });
 });

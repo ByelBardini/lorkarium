@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { campaignRoleDto } from '../campaigns/campaign.dto';
+import type { DiceClientEvents, DiceServerEvents } from '../dice/dice.dto';
 import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto';
 import type { LibraryServerEvents } from '../library/library.dto';
 import {
@@ -486,8 +487,11 @@ export type BoardServerEvents = {
   'board:pinged': (event: BoardPingedDto) => void;
 } & CharacterServerEvents;
 
-/** Every client → server event of a table connection (session + board). */
-export type TableClientEvents = SessionClientEvents & BoardClientEvents;
+/** Every client → server event of a table connection (session + board + dice). */
+export type TableClientEvents = SessionClientEvents & BoardClientEvents & DiceClientEvents;
 
-/** Every server → client event of a table connection (session + board + library). */
-export type TableServerEvents = SessionServerEvents & BoardServerEvents & LibraryServerEvents;
+/** Every server → client event of a table connection (session + board + library + dice). */
+export type TableServerEvents = SessionServerEvents &
+  BoardServerEvents &
+  LibraryServerEvents &
+  DiceServerEvents;
