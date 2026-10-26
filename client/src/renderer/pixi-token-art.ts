@@ -42,6 +42,15 @@ export class PixiTokenArt {
     this.cropTo(art.frame === 'round' ? token : null);
   }
 
+  /** Paints the image one flat color, keeping its transparency (the silhouette in the
+   *  penumbra), or back as drawn with `null`.
+   *
+   *  Example: `art.shade({ color: 0x000000, alpha: 0.9 })` */
+  shade(fill: Readonly<{ color: number; alpha: number }> | null): void {
+    this.sprite.tint = fill?.color ?? 0xffffff;
+    this.sprite.alpha = fill?.alpha ?? 1;
+  }
+
   private cropTo(token: ArtImageSize | null): void {
     this.mask.clear();
     if (token === null) {

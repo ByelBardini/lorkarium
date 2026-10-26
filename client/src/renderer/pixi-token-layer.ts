@@ -41,8 +41,7 @@ const BAR_COLOR: Readonly<Record<BarColorDto, number>> = {
   ash: 0xa9a497,
 };
 const MOVE_ANIMATION_MS = 150;
-const SILHOUETTE_COLOR = 0x000000;
-const SILHOUETTE_ALPHA = 0.9;
+const SILHOUETTE = { color: 0x000000, alpha: 0.9 } as const;
 const DEFEATED_COLOR = BAR_NEGATIVE_COLOR;
 const DEFEATED_OUTLINE = 3;
 
@@ -336,13 +335,14 @@ function shapeOf(view: TokenView): TokenShape {
 function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   const { disc, art, shape, label, view } = sprite;
   const box = shapeOf(view);
-  if (view.silhouette) return drawSilhouette(sprite, box);
+  if (view.silhouette) return drawSilhouette(sprite, box, texture);
   const center = { x: box.width / 2, y: box.height / 2 };
   const image = texture && view.art;
   const square = Boolean(image && view.art?.frame === 'square');
   disc.clear();
   if (!image) disc.ellipse(center.x, center.y, box.rx, box.ry).fill(DISC_COLOR);
   art.draw(view.art, texture, box, view.facing);
+  art.shade(null);
   shape.clear();
   if (!square)
     shape
@@ -376,16 +376,20 @@ function drawDefeated(sprite: TokenSprite, box: TokenShape, square = false): voi
   }
 }
 
-// In the penumbra: a black shape of the footprint, nothing that tells who it is.
-function drawSilhouette(sprite: TokenSprite, box: TokenShape): void {
+// In the penumbra: the image painted black (a cut-out PNG keeps its outline) or, without one
+// loaded, a black shape of the footprint; nothing that tells who it is beyond the shape.
+function drawSilhouette(sprite: TokenSprite, box: TokenShape, texture: Texture | null): void {
   const { disc, art, shape, label, view } = sprite;
+  const image = texture && view.art;
   disc.clear();
-  if (view.silhouette === 'square') disc.rect(0, 0, box.width, box.height);
-  else disc.ellipse(box.width / 2, box.height / 2, box.rx, box.ry);
-  disc.fill({ color: SILHOUETTE_COLOR, alpha: SILHOUETTE_ALPHA });
-  art.draw(null, null, box, 0);
+  art.draw(view.art, texture, box, view.facing);
+  art.shade(SILHOUETTE);
   shape.clear();
   label.visible = false;
+  if (image) return drawDefeated(sprite, box);
+  if (view.silhouette === 'square') disc.rect(0, 0, box.width, box.height);
+  else disc.ellipse(box.width / 2, box.height / 2, box.rx, box.ry);
+  disc.fill(SILHOUETTE);
   drawDefeated(sprite, box);
 }
 

@@ -112,6 +112,7 @@ export function tokenViewsOf(input: TokenViewInput): TokenView[] {
   });
 }
 
+// The image stays: the canvas paints it black, so a cut-out PNG shows its outline.
 function silhouetteOf(view: TokenView, token: TokenDto): TokenView {
   return {
     ...view,
@@ -121,7 +122,6 @@ function silhouetteOf(view: TokenView, token: TokenDto): TokenView {
     bar: null,
     conditions: [],
     looks: [],
-    art: null,
     facingMark: false,
     defeated: false,
     hidden: false,
