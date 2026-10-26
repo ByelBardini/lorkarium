@@ -16,10 +16,16 @@ import {
 } from '../../support/tokens-factories';
 
 const RUNE_ID = '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f';
-const RUNE_AURA = { kind: 'image', radius: 1, imageAssetId: RUNE_ID, opacity: 80 } as const;
+const RUNE_AURA = {
+  kind: 'image',
+  radius: 1,
+  imageAssetId: RUNE_ID,
+  opacity: 80,
+  shape: 'square',
+} as const;
 
 describe('toTokenAuraPo', () => {
-  it('a fire aura becomes its six columns, the radius to the hundredth and no color', () => {
+  it('a fire aura becomes its seven columns, the radius to the hundredth and no color', () => {
     expect(toTokenAuraPo(FIRE_AURA)).toEqual(fireAuraColumns());
   });
 
@@ -44,7 +50,16 @@ describe('toTokenAuraPo', () => {
       auraRadius: '1.00',
       auraImageAssetId: RUNE_ID,
       auraOpacity: 80,
+      auraImageShape: 'square',
     });
+  });
+
+  it('a round image aura keeps its shape', () => {
+    expect(toTokenAuraPo({ ...RUNE_AURA, shape: 'round' }).auraImageShape).toBe('round');
+  });
+
+  it('swapping an image aura for a tint leaves no shape behind', () => {
+    expect(toTokenAuraPo(GOLD_AURA).auraImageShape).toBeNull();
   });
 
   it('a fire aura tinted steel keeps the color with the effect', () => {
@@ -54,7 +69,7 @@ describe('toTokenAuraPo', () => {
     });
   });
 
-  it('no aura (null) is the six columns null', () => {
+  it('no aura (null) is the seven columns null', () => {
     expect(toTokenAuraPo(null)).toEqual({
       auraKind: null,
       auraRadius: null,
@@ -62,12 +77,13 @@ describe('toTokenAuraPo', () => {
       auraEffect: null,
       auraImageAssetId: null,
       auraOpacity: null,
+      auraImageShape: null,
     });
   });
 });
 
 describe('toTokenAuraDto', () => {
-  it('the six columns of a fire aura come back as the effect with a null color', () => {
+  it('the seven columns of a fire aura come back as the effect with a null color', () => {
     expect(toTokenAuraDto(lyraPo(fireAuraColumns()))).toEqual({
       kind: 'effect',
       radius: 2,
@@ -94,9 +110,16 @@ describe('toTokenAuraDto', () => {
       auraKind: 'image',
       auraRadius: '1.00',
       auraOpacity: 80,
+      auraImageShape: 'square',
     } as const;
 
     expect(toTokenAuraDto(lyraPo({ ...image, auraImageAssetId: RUNE_ID }))).toEqual(RUNE_AURA);
+  });
+
+  it('a round image aura comes back round', () => {
+    const round = { ...toTokenAuraPo({ ...RUNE_AURA, shape: 'round' }) };
+
+    expect(toTokenAuraDto(lyraPo(round))).toEqual({ ...RUNE_AURA, shape: 'round' });
   });
 
   it('an image aura whose asset was deleted (set null) is no aura', () => {
@@ -133,7 +156,7 @@ describe('toTokenStylePo', () => {
     });
   });
 
-  it('a style with aura null clears the six columns', () => {
+  it('a style with aura null clears the seven columns', () => {
     expect(toTokenStylePo({ aura: null })).toEqual(NO_AURA_PO);
   });
 

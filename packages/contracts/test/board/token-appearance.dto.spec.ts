@@ -182,6 +182,31 @@ describe('tokenStyleDto, aura', () => {
     expect(restyle({ aura }).success).toBe(false);
   });
 
+  it('an image aura without a shape reads as square (clients from before the shape)', () => {
+    const aura = { kind: 'image', radius: 2, imageAssetId: ASSET_ID, opacity: 100 };
+
+    expect(restyle({ aura }).data?.style.aura).toEqual({ ...aura, shape: 'square' });
+  });
+
+  it('a round image aura is accepted as sent', () => {
+    const aura = { kind: 'image', radius: 2, imageAssetId: ASSET_ID, opacity: 100, shape: 'round' };
+
+    expect(restyle({ aura }).data?.style.aura).toEqual(aura);
+  });
+
+  it('an image aura of another shape is refused at aura.shape', () => {
+    const aura = { kind: 'image', radius: 2, imageAssetId: ASSET_ID, opacity: 100, shape: 'oval' };
+    const paths = restyle({ aura }).error?.issues.map((issue) => issue.path.join('.'));
+
+    expect(paths).toEqual(['style.aura.shape']);
+  });
+
+  it('a color aura with a shape is refused (only an image is cut)', () => {
+    const aura = { kind: 'color', radius: 2, color: 'gold', opacity: 50, shape: 'round' };
+
+    expect(restyle({ aura }).success).toBe(false);
+  });
+
   it('an aura kind outside color, effect and image is refused', () => {
     expect(restyle({ aura: { kind: 'glow', radius: 2, opacity: 50 } }).success).toBe(false);
   });

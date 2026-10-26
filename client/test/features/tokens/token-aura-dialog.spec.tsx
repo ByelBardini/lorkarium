@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { TokenDto } from '@lorkarium/contracts';
 import { TokenAuraDialog } from '@/features/tokens/token-aura-dialog';
 import { AssetsApiFake } from '../../support/assets-api-fake';
-import { fireAura, goldAura } from '../../support/aura-fixtures';
+import { fireAura, goldAura, runeAura } from '../../support/aura-fixtures';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { LYRA_ID, lyra, VHARN_GRID } from '../../support/table-session-fixtures';
 
@@ -56,6 +56,33 @@ describe('TokenAuraDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(sentStyles()).toEqual([{ tokenIds: [LYRA_ID], style: { aura: null } }]);
+  });
+
+  it('"Tirar aura" takes the aura of Lyra away at once and closes, whatever the form holds', async () => {
+    renderDialog(lyra({ aura: fireAura() }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Cor' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tirar aura' }));
+
+    expect(sentStyles()).toEqual([{ tokenIds: [LYRA_ID], style: { aura: null } }]);
+    expect(closed).toBe(1);
+  });
+
+  it('a token without an aura has no "Tirar aura"', () => {
+    renderDialog(lyra({ aura: null }));
+
+    expect(screen.queryByRole('button', { name: 'Tirar aura' })).toBeNull();
+  });
+
+  it('a round image aura saved as Redonda keeps its shape', async () => {
+    renderDialog(lyra({ aura: runeAura() }));
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Redonda' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(sentStyles()).toEqual([
+      { tokenIds: [LYRA_ID], style: { aura: runeAura({ shape: 'round' }) } },
+    ]);
   });
 
   it('a radius of 31 m is told under the field and nothing is sent', async () => {

@@ -22,6 +22,7 @@ const NO_AURA: TokenAuraPo = {
   auraEffect: null,
   auraImageAssetId: null,
   auraOpacity: null,
+  auraImageShape: null,
 };
 
 const FIRE_AURA: TokenAuraPo = {
@@ -40,9 +41,26 @@ const GOLD_AURA: TokenAuraPo = {
   auraOpacity: 50,
 };
 
+const ROUND_RUNE: TokenAuraPo = {
+  ...NO_AURA,
+  auraKind: 'image',
+  auraRadius: '1',
+  auraOpacity: 80,
+  auraImageShape: 'round',
+};
+
 function auraOf(token: TokenPo): TokenAuraPo {
   const { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity } = token;
-  return { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity };
+  const { auraImageShape } = token;
+  return {
+    auraKind,
+    auraRadius,
+    auraColor,
+    auraEffect,
+    auraImageAssetId,
+    auraOpacity,
+    auraImageShape,
+  };
 }
 
 describe('TokensDao: the aura columns on Postgres', () => {
@@ -154,14 +172,20 @@ describe('TokensDao: the aura columns on Postgres', () => {
     expect((await reread(saved.token.id)).auraKind).toBe('effect');
   });
 
-  it('deleting the asset of an image aura nulls only the image (set null)', async () => {
+  it('deleting the asset of an image aura nulls only the image (set null), the shape stays', async () => {
     const assetId = await auraAsset();
-    const image = { ...NO_AURA, auraKind: 'image', auraRadius: '1', auraOpacity: 80 } as const;
-    const saved = await tokens.insert(lyra({ ...image, auraImageAssetId: assetId }));
+    const saved = await tokens.insert(lyra({ ...ROUND_RUNE, auraImageAssetId: assetId }));
 
     await connection.db.delete(assets).where(eq(assets.id, assetId));
 
-    expect(auraOf(await reread(saved.token.id))).toEqual({ ...image, auraRadius: '1.00' });
+    expect(auraOf(await reread(saved.token.id))).toEqual({ ...ROUND_RUNE, auraRadius: '1.00' });
+  });
+
+  it('a round image aura is read back round', async () => {
+    const assetId = await auraAsset();
+    const saved = await tokens.insert(lyra({ ...ROUND_RUNE, auraImageAssetId: assetId }));
+
+    expect((await reread(saved.token.id)).auraImageShape).toBe('round');
   });
 
   it('copyScene (Duplicate of the library) takes the aura of each token', async () => {
@@ -193,6 +217,9 @@ describe('TokensDao: the aura columns on Postgres', () => {
     ['an opacity of 101%', { ...GOLD_AURA, auraOpacity: 101 }],
     ['a color without a kind', { ...NO_AURA, auraColor: 'gold' }],
     ['a radius without a kind', { ...NO_AURA, auraRadius: '2', auraOpacity: 50 }],
+    ['an image aura without its shape', { ...ROUND_RUNE, auraImageShape: null }],
+    ['a color aura with a shape', { ...GOLD_AURA, auraImageShape: 'round' }],
+    ['a shape without a kind', { ...NO_AURA, auraImageShape: 'square' }],
   ] as const)('%s is refused by the aura CHECKs of the table', async (_name, aura) => {
     const image = aura.auraImageAssetId === 'IMAGE' ? { auraImageAssetId: await auraAsset() } : {};
 

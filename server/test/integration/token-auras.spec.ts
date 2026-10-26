@@ -130,11 +130,27 @@ describe('token auras over Socket.IO', () => {
     expect(tokenIn(await synced(bia, live.vharn), lyraId).aura).toBeNull();
   });
 
-  it('an image aura with an image of the table reaches everyone with the asset', async () => {
+  it('an image aura with an image of the table reaches everyone with the asset, square when sent without a shape', async () => {
     const master = await live.atTable(live.ana, live.vharn);
     const lyraId = await lyraOfBia(master);
     const image = await live.sendImage(live.bia, live.vharn);
     const aura = { kind: 'image', radius: 1, imageAssetId: image.id, opacity: 80 };
+
+    await send(
+      await live.atTable(live.bia, live.vharn),
+      'token:restyleMany',
+      restyleOf(lyraId, aura),
+    );
+
+    const state = await synced(await live.atTable(live.caio, live.vharn), live.vharn);
+    expect(tokenIn(state, lyraId).aura).toEqual({ ...aura, shape: 'square' });
+  });
+
+  it('a round image aura is saved round and reaches everyone round', async () => {
+    const master = await live.atTable(live.ana, live.vharn);
+    const lyraId = await lyraOfBia(master);
+    const image = await live.sendImage(live.bia, live.vharn);
+    const aura = { kind: 'image', radius: 1, imageAssetId: image.id, opacity: 80, shape: 'round' };
 
     await send(
       await live.atTable(live.bia, live.vharn),

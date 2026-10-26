@@ -428,6 +428,13 @@
       "when": 1792976498733,
       "tag": "0060_saved_rolls",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1793055608211,
+      "tag": "0061_aura_image_shape",
+      "breakpoints": true
     }
   ]
 }

@@ -313,7 +313,8 @@ describe('TokenAppearanceService', () => {
     });
 
     it('an image aura with an asset of Quelm is ASSET_NOT_FOUND before anything is saved', async () => {
-      const aura = { kind: 'image', radius: 1, imageAssetId: QUELM_MAP_ID, opacity: 80 } as const;
+      const image = { imageAssetId: QUELM_MAP_ID, opacity: 80, shape: 'square' } as const;
+      const aura = { kind: 'image', radius: 1, ...image } as const;
 
       const restyle = service.restyleMany(BIA_ID, VHARN_ID, {
         tokenIds: [LYRA_ID],
@@ -331,6 +332,7 @@ describe('TokenAppearanceService', () => {
         radius: 1,
         imageAssetId: LYRA_PORTRAIT_ID,
         opacity: 80,
+        shape: 'square',
       } as const;
 
       await service.restyleMany(BIA_ID, VHARN_ID, { tokenIds: [LYRA_ID], style: { aura } });

@@ -197,7 +197,11 @@ function AuraGlow({
       style={auraGlowStyle(form, aura)}
     >
       {aura.kind === 'image' && (
-        <img src={assetUrlOf(aura.imageAssetId)} alt="" className="size-full object-contain" />
+        <img
+          src={assetUrlOf(aura.imageAssetId)}
+          alt=""
+          className={aura.shape === 'round' ? 'size-full object-cover' : 'size-full object-contain'}
+        />
       )}
     </span>
   );
@@ -206,6 +210,7 @@ function AuraGlow({
 function auraGlowStyle(form: TokenFormValues, aura: TokenAuraDto): React.CSSProperties {
   const grow = aura.radius * 2 * CELL_PX;
   const tone = auraToneCss(aura);
+  if (aura.kind === 'image' && aura.shape === 'round') return roundGlowStyle(form, aura, grow);
   return {
     width: Math.min(MAX_GLOW_PX, discPx(form.width) + grow),
     height: Math.min(MAX_GLOW_PX, discPx(form.height) + grow),
@@ -213,6 +218,17 @@ function auraGlowStyle(form: TokenFormValues, aura: TokenAuraDto): React.CSSProp
     opacity: aura.opacity / 100,
     background: tone ? auraFillOf(rgbOfHex(tone)) : undefined,
   };
+}
+
+// The circle across the longer side of the disc, as the board cuts a round image aura.
+function roundGlowStyle(
+  form: TokenFormValues,
+  aura: TokenAuraDto,
+  grow: number,
+): React.CSSProperties {
+  const side = Math.max(discPx(form.width), discPx(form.height)) + grow;
+  const size = Math.min(MAX_GLOW_PX, side);
+  return { width: size, height: size, borderRadius: '50%', opacity: aura.opacity / 100 };
 }
 
 function auraFillOf(rgb: string): string {

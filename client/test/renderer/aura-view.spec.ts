@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   auraHaloOf,
   auraImageBox,
+  auraImageCircle,
   auraImageUrlsOf,
   auraKeyOf,
   auraViewOf,
@@ -11,6 +12,14 @@ import {
 
 const GOLD_TWO: TokenAuraDto = { kind: 'color', radius: 2, color: 'gold', opacity: 50 };
 const AURA_IMAGE_ID = '0b9a4c1e-7f43-4d2b-9c1a-5e6f7a8b9c0d';
+const RUNE_TWO: TokenAuraDto = {
+  kind: 'image',
+  radius: 2,
+  imageAssetId: AURA_IMAGE_ID,
+  opacity: 100,
+  shape: 'square',
+};
+const ROUND_RUNE_TWO: TokenAuraDto = { ...RUNE_TWO, shape: 'round' };
 
 function lyraAt(overrides: Partial<AuraViewInput> = {}): AuraViewInput {
   return {
@@ -82,10 +91,12 @@ describe('auraViewOf', () => {
       radius: 1,
       imageAssetId: AURA_IMAGE_ID,
       opacity: 100,
+      shape: 'round',
     };
     expect(auraViewOf(lyraAt({ aura: image }))?.look).toEqual({
       kind: 'image',
       url: `/api/assets/${AURA_IMAGE_ID}`,
+      shape: 'round',
     });
   });
 });
@@ -104,6 +115,12 @@ describe('auraKeyOf', () => {
     ['losing the aura', { aura: null }],
   ])('%s changes the key', (_, change) => {
     expect(auraKeyOf(auraViewOf(lyraAt(change)))).not.toBe(auraKeyOf(auraViewOf(lyraAt())));
+  });
+
+  it('cutting an image aura round changes the key', () => {
+    const round = auraKeyOf(auraViewOf(lyraAt({ aura: ROUND_RUNE_TWO })));
+
+    expect(round).not.toBe(auraKeyOf(auraViewOf(lyraAt({ aura: RUNE_TWO }))));
   });
 });
 
@@ -149,11 +166,41 @@ describe('auraImageBox', () => {
     expect(box?.width).toBeCloseTo(213.33, 1);
     expect(box?.height).toBe(320);
   });
+
+  it('a round image of 400 × 600 covers the 320 px circle: full width, overflowing top and bottom', () => {
+    const view = auraViewOf(lyraAt({ aura: ROUND_RUNE_TWO }));
+    const box = view ? auraImageBox(view, { width: 400, height: 600 }) : null;
+
+    expect(box).toEqual({ x: -128, y: -208, width: 320, height: 480 });
+  });
+});
+
+describe('auraImageCircle', () => {
+  it('a round image of radius 2 on Lyra 1 × 1 is the circle of 160 px around her center', () => {
+    const view = auraViewOf(lyraAt({ aura: ROUND_RUNE_TWO }));
+
+    expect(view && auraImageCircle(view)).toEqual({ x: 32, y: 32, radius: 160 });
+  });
+
+  it('a 2 × 1 token gets a circle across its longer side plus the radius', () => {
+    const view = auraViewOf(lyraAt({ width: 2, aura: ROUND_RUNE_TWO }));
+
+    expect(view && auraImageCircle(view)).toEqual({ x: 64, y: 32, radius: 192 });
+  });
+
+  it.each<[string, TokenAuraDto]>([
+    ['a square image', RUNE_TWO],
+    ['a tint', GOLD_TWO],
+  ])('%s has no circle', (_, aura) => {
+    const view = auraViewOf(lyraAt({ aura }));
+
+    expect(view && auraImageCircle(view)).toBeNull();
+  });
 });
 
 describe('auraImageUrlsOf', () => {
   it('collects the image of every image aura once, and no color or effect', () => {
-    const rune = { kind: 'image', url: '/api/assets/rune' } as const;
+    const rune = { kind: 'image', url: '/api/assets/rune', shape: 'square' } as const;
     const looks = [rune, { kind: 'color', color: 1 }, rune] as const;
     const tokens = looks.map((look) => ({ aura: { ...auraViewOf(lyraAt())!, look } }));
     expect(auraImageUrlsOf([...tokens, { aura: null }])).toEqual(new Set(['/api/assets/rune']));

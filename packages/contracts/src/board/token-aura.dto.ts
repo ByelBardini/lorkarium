@@ -25,13 +25,23 @@ export const AURA_RADIUS_MAX = 20;
 export const AURA_OPACITY_MIN = 10;
 export const AURA_OPACITY_MAX = 100;
 
+/** How an image aura is cut: the whole image in the aura's box, or a circle the image covers. */
+export const AURA_IMAGE_SHAPES = ['square', 'round'] as const;
+
+/** The cut of an image aura (`round` covers a circle around the whole token).
+ *
+ *  Example: `auraImageShapeDto.parse('round')` */
+export const auraImageShapeDto = z.enum(AURA_IMAGE_SHAPES);
+export type AuraImageShapeDto = z.infer<typeof auraImageShapeDto>;
+
 const auraShape = {
   radius: z.number().min(0).max(AURA_RADIUS_MAX),
   opacity: z.number().int().min(AURA_OPACITY_MIN).max(AURA_OPACITY_MAX),
 };
 
 /** The aura around a token, seen by everyone: a tint, a ready-made effect (`color: null` is its
- *  natural tone) or an image of the table. `radius` is in cells past the token's edge.
+ *  natural tone) or an image of the table (`shape` absent = `square`, as before it existed).
+ *  `radius` is in cells past the token's edge.
  *
  *  Example: `tokenAuraDto.parse({ kind: 'effect', radius: 2, effect: 'fire', color: null, opacity: 100 })` */
 export const tokenAuraDto = z.discriminatedUnion('kind', [
@@ -42,7 +52,12 @@ export const tokenAuraDto = z.discriminatedUnion('kind', [
     effect: auraEffectDto,
     color: drawingColorDto.nullable(),
   }),
-  z.strictObject({ kind: z.literal('image'), ...auraShape, imageAssetId: z.uuid() }),
+  z.strictObject({
+    kind: z.literal('image'),
+    ...auraShape,
+    imageAssetId: z.uuid(),
+    shape: auraImageShapeDto.default('square'),
+  }),
 ]);
 export type TokenAuraDto = z.infer<typeof tokenAuraDto>;
 export type TokenAuraKindDto = TokenAuraDto['kind'];

@@ -57,7 +57,7 @@ describe('PixiAuraFloors', () => {
 
 describe('PixiAuraFloors with image auras', () => {
   const RUNE = '/api/assets/rune';
-  const runeAura = { ...GOLD_AURA, look: { kind: 'image', url: RUNE } } as const;
+  const runeAura = { ...GOLD_AURA, look: { kind: 'image', url: RUNE, shape: 'square' } } as const;
 
   function imageShown(floors: PixiAuraFloors, id: string): boolean {
     const aura = floors.floors.tokens.getChildByLabel(`aura:${id}`);
@@ -79,7 +79,10 @@ describe('PixiAuraFloors with image auras', () => {
   it('a GIF that arrives puts its aura among the animated ones; a still image does not', () => {
     const images = new AuraImagesFake();
     const floors = new PixiAuraFloors(images);
-    const still = { ...GOLD_AURA, look: { kind: 'image', url: '/api/assets/still' } } as const;
+    const still = {
+      ...GOLD_AURA,
+      look: { kind: 'image', url: '/api/assets/still', shape: 'square' },
+    } as const;
     floors.draw(goblinView({ id: 'a', aura: runeAura }), { x: 0, y: 0 });
     floors.draw(goblinView({ id: 'b', aura: still }), { x: 0, y: 0 });
     images.arrive(RUNE, fakeAuraSource('animated', 2));

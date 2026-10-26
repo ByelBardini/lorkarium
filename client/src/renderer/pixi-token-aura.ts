@@ -1,7 +1,13 @@
 import type { AuraEffectDto } from '@lorkarium/contracts';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { AURA_EFFECT_LOOKS, auraUniformsOf } from './aura-effect-looks';
-import { auraHaloOf, auraImageBox, type AuraLook, type AuraView } from './aura-view';
+import {
+  auraHaloOf,
+  auraImageBox,
+  auraImageCircle,
+  type AuraLook,
+  type AuraView,
+} from './aura-view';
 import { gifFrameAt } from './gif-frame';
 import { CELL_WORLD_SIZE } from './camera';
 import type { AnimatedAura } from './pixi-aura-animator';
@@ -34,6 +40,7 @@ export class PixiTokenAura implements AnimatedAura {
   readonly container = new Container();
   private readonly halo = new Graphics();
   private readonly image = new Sprite();
+  private readonly imageMask = new Graphics();
   private view: AuraView | null = null;
   private source: AuraImageSource | null = null;
   private effect: AuraEffectDisplay | null = null;
@@ -47,7 +54,8 @@ export class PixiTokenAura implements AnimatedAura {
   ) {
     this.container.label = `aura:${tokenId}`;
     this.image.visible = false;
-    this.container.addChild(this.halo, this.image);
+    this.imageMask.visible = false;
+    this.container.addChild(this.halo, this.image, this.imageMask);
   }
 
   /** Draws the aura again: call only when its key changed (`auraKeyOf`) or its image arrived. */
@@ -145,6 +153,17 @@ export class PixiTokenAura implements AnimatedAura {
     this.image.setSize(box.width, box.height);
     this.image.alpha = view.alpha;
     this.image.visible = true;
+    this.cutImage(view);
+  }
+
+  // A round image aura is cut by a circle mask; a square one keeps its tips (no mask, so the GPU
+  // batch holds).
+  private cutImage(view: AuraView): void {
+    this.imageMask.clear();
+    const circle = auraImageCircle(view);
+    this.imageMask.visible = circle !== null;
+    this.image.mask = circle ? this.imageMask : null;
+    if (circle) this.imageMask.circle(circle.x, circle.y, circle.radius).fill(0xffffff);
   }
 
   private drawHalo(view: AuraView, color: number): void {
