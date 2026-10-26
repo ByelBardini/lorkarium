@@ -126,6 +126,8 @@ type WallBoardInput = Partial<Pick<WallViewInput, 'walls' | 'selectedWallIds' | 
     /** What this viewer sees (absent: everything): hidden tokens are not drawn, the penumbra
      *  ones are silhouettes, and only the seen doors show. */
     sight?: BoardSight;
+    /** The master's "ver como jogador": the wall lines hide as for a player. Absent: off. */
+    sightPreview?: boolean;
   }>;
 
 /** The areas of effect and what this viewer does to them; absent = none (most specs). */
@@ -295,6 +297,7 @@ function wallsOf(input: BoardViewInput): Pick<BoardView, 'walls' | 'doors'> {
     tool: input.tool,
     selectedWallIds: input.selectedWallIds ?? [],
     seenDoorIds: input.seenDoorIds ?? input.sight?.seenDoorIds ?? null,
+    previewing: input.sightPreview ?? false,
   };
   return { walls: wallViewsOf(walls), doors: doorIconsOf(walls) };
 }

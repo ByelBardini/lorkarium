@@ -473,6 +473,7 @@ const LOCAL_VIEW_FIELDS = [
   'drag',
   'readOnly',
   'tool',
+  'sightPreview',
 ] as const;
 
 type LocalViewField = (typeof LOCAL_VIEW_FIELDS)[number];
