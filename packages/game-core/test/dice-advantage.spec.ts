@@ -33,6 +33,10 @@ describe('withAdvantage', () => {
     expect(withAdvantage(['5+1d20+1d6'], 'advantage')).toEqual(['5+2d20kh1+1d6']);
   });
 
+  it('a term of successes exploding on the maximum keeps its success after the rewrite', () => {
+    expect(withAdvantage(['1d20+8d10!10>=7'], 'advantage')).toEqual(['2d20kh1+8d10!10>=7']);
+  });
+
   it('a blocked composition is refused citing the reason', () => {
     expect(() => withAdvantage(['1d6!'], 'advantage')).toThrow(
       new RangeError(

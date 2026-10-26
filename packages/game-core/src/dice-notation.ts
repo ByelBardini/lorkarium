@@ -366,7 +366,8 @@ function signText(sign: DiceSign, first: boolean): string {
 
 function termText(term: DiceExpressionTerm): string {
   if (term.kind === 'number') return String(term.value);
-  const explode = term.explode && explosionText(term.explode, term.sides);
+  const beforeSuccess = term.reroll === undefined && term.success !== undefined;
+  const explode = term.explode && explosionText(term.explode, term.sides, beforeSuccess);
   return [
     `${term.count}d${term.sides}`,
     term.keep && selectionText('k', term.keep),
@@ -381,8 +382,9 @@ function selectionText(letter: 'k' | 'd', selection: DiceSelection): string {
   return `${letter}${selection.which === 'highest' ? 'h' : 'l'}${selection.count}`;
 }
 
-function explosionText(explode: DiceComparison, sides: number): string {
-  if (explode.op === '=' && explode.target === sides) return '!';
+// A bare '!' reads the comparison right after it as its own: before a success it writes the face.
+function explosionText(explode: DiceComparison, sides: number, beforeSuccess: boolean): string {
+  if (explode.op === '=' && explode.target === sides && !beforeSuccess) return '!';
   return `!${bareComparisonText(explode)}`;
 }
 

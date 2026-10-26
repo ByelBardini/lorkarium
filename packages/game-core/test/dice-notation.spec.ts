@@ -162,13 +162,22 @@ describe('formatDiceExpression', () => {
     expect(formatDiceExpression(terms)).toBe('-2d20kh1+1d100-3+1d6!r1+8d10!>=9<=2+3d6=6');
   });
 
-  it.each(['4d6dl1+2', '1d6!5', '2d6r<=2', '3d8dh1-1d4', '+2'])(
+  it.each(['4d6dl1+2', '1d6!5', '2d6r<=2', '3d8dh1-1d4', '+2', '8d10!10>=7', '6d6!6=6'])(
     '%s reads back to the same terms after formatting',
     (text) => {
       const terms = parseDiceExpression(text);
       expect(parseDiceExpression(formatDiceExpression(terms))).toEqual(terms);
     },
   );
+
+  // A bare '!' takes the comparison right after it, so '8d10!>=7' would explode on 7+ and lose the success.
+  it('an explosion on the maximum right before a success keeps its face written', () => {
+    expect(formatDiceExpression(parseDiceExpression('8d10!10>=7'))).toBe('8d10!10>=7');
+  });
+
+  it('an explosion on the maximum before a reroll stays a bare "!"', () => {
+    expect(formatDiceExpression(parseDiceExpression('8d10!10r1>=7'))).toBe('8d10!r1>=7');
+  });
 });
 
 describe('diceComparisonMatches', () => {
