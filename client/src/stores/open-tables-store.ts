@@ -15,6 +15,7 @@ import type {
 } from '@/services/table-session-api';
 import { fallbackCoverOf } from '@/lib/campaign-cover';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createDiceHistoryStore, type DiceHistoryStore } from '@/stores/dice-history-store';
 import {
   createSceneTabsStore,
   groupTabOf,
@@ -51,6 +52,8 @@ export type OpenTable = Omit<OpenTableRef, 'cover'> &
     cast: StoreApi<BoardStore>;
     edits: StoreApi<TableEditStore>;
     tabs: StoreApi<SceneTabsStore>;
+    /** The rolls of this visit: kept across an F5, forgotten when the table closes. */
+    dice: StoreApi<DiceHistoryStore>;
   }>;
 
 export type OpenTableResult = 'opened' | 'already-open' | 'full';
@@ -83,6 +86,9 @@ export type OpenTablesDeps = Readonly<{
   storage: TabStorage;
   /** The interaction of each grid tab (its commands, its refusal messages). */
   createInteraction: CreateTabInteraction;
+  /** Wall-clock milliseconds a roll is received at (its `revealAtMs` survives an F5);
+   *  `Date.now` when absent. */
+  wallClock?: () => number;
 }>;
 
 // Not a network DTO: only what this tab wrote for itself, read back defensively.
@@ -164,7 +170,9 @@ class OpenTablesActions {
     this.handles.delete(campaignId);
     this.casts.delete(campaignId);
     handle.close();
-    this.tableOf(campaignId)?.tabs.getState().dispose(true);
+    const table = this.tableOf(campaignId);
+    table?.tabs.getState().dispose(true);
+    table?.dice.getState().clear();
     this.set({ tables: this.get().tables.filter((table) => table.campaignId !== campaignId) });
     writeStored(this.deps.storage, this.get());
   }
@@ -176,7 +184,10 @@ class OpenTablesActions {
 
   /** Logout: closes every table and forgets the tab's list. */
   closeAll(): void {
-    for (const table of this.get().tables) table.tabs.getState().dispose(true);
+    for (const table of this.get().tables) {
+      table.tabs.getState().dispose(true);
+      table.dice.getState().clear();
+    }
     this.suspendAll();
     removeStored(this.deps.storage);
   }
@@ -206,9 +217,13 @@ class OpenTablesActions {
     const tabs = this.tabsOf(table.campaignId, board, cast);
     const edits = groupTabOf(tabs.getState()).edits;
     const cover = table.cover ?? fallbackCoverOf(table.campaignId);
-    const opened: OpenTable = { ...table, cover, presence, board, cast, edits, tabs };
+    const dice = createDiceHistoryStore({
+      campaignId: table.campaignId,
+      storage: this.deps.storage,
+    });
+    const opened: OpenTable = { ...table, cover, presence, board, cast, edits, tabs, dice };
     this.set({ tables: [...tables, opened] });
-    const stores = { presence, board, tabs };
+    const stores = { presence, board, tabs, dice };
     const listener = (update: TableSessionUpdate): void =>
       this.onUpdate(table.campaignId, stores, update);
     const handle = this.deps.api.open(table.campaignId, listener);
@@ -226,6 +241,7 @@ class OpenTablesActions {
     if (update.kind === 'campaignDeleted') return this.closeDeleted(campaignId);
     if (update.kind === 'campaignUpdated') this.retitle(update.event.campaign);
     applyUpdate(this.set, stores, update);
+    stores.dice.getState().apply(update, (this.deps.wallClock ?? Date.now)());
   }
 
   // The server already took this socket out of the room; closing only forgets the table here.
@@ -287,6 +303,7 @@ type TableStores = Readonly<{
   presence: StoreApi<TablePresenceStore>;
   board: StoreApi<BoardStore>;
   tabs: StoreApi<SceneTabsStore>;
+  dice: StoreApi<DiceHistoryStore>;
 }>;
 
 function applyUpdate(set: SetOpenTables, stores: TableStores, update: TableSessionUpdate): void {

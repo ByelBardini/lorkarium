@@ -7,6 +7,18 @@ export type InteractionClock = Readonly<{
   after: (delayMs: number, run: () => void) => () => void;
 }>;
 
+/** The browser's wall clock (`Date.now`): for times that must survive an F5, like the moment a
+ *  roll of the dice history reveals.
+ *
+ *  Example: `createOpenTablesStore({ ...deps, wallClock: browserWallClock.now })` */
+export const browserWallClock: InteractionClock = {
+  now: () => Date.now(),
+  after: (delayMs, run) => {
+    const id = window.setTimeout(run, delayMs);
+    return () => window.clearTimeout(id);
+  },
+};
+
 /** The browser's clock. Example: `createBoardInteractionStore({ ...deps, clock: browserClock })` */
 export const browserClock: InteractionClock = {
   now: () => performance.now(),

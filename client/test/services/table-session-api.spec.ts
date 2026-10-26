@@ -5,6 +5,7 @@ import {
   type TableSessionUpdate,
 } from '@/services/table-session-api';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
+import { biaRolled, biaRolledSecretly } from '../support/dice-fixtures';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
 import {
   BIA_AT_TABLE,
@@ -218,6 +219,63 @@ describe('RealtimeTableSessionApi', () => {
         ...biaUpdated(),
         member: { ...member, color: 'pink' },
       });
+
+      expect(updates).toHaveLength(count);
+    });
+  });
+
+  describe('dice', () => {
+    it('a valid dice:rolled of this table reaches the listener as diceRolled', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+
+      transport.serverEmits('dice:rolled', biaRolled());
+
+      expect(updates.at(-1)).toEqual({ kind: 'diceRolled', event: biaRolled() });
+    });
+
+    it('a valid dice:rolledSecretly of this table reaches the listener as diceRolledSecretly', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+
+      transport.serverEmits('dice:rolledSecretly', biaRolledSecretly());
+
+      expect(updates.at(-1)).toEqual({ kind: 'diceRolledSecretly', event: biaRolledSecretly() });
+    });
+
+    it.each([
+      ['dice:rolled', biaRolled({ campaignId: QUELM.id })],
+      ['dice:rolledSecretly', biaRolledSecretly({ campaignId: QUELM.id })],
+    ])('a %s of another table is ignored', async (event, payload) => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      const count = updates.length;
+
+      transport.serverEmits(event, payload);
+
+      expect(updates).toHaveLength(count);
+    });
+
+    it('a dice:rolled outside the DTO (a d6 that shows 7) is dropped with no resync', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      const count = updates.length;
+      const sent = transport.sent.length;
+      const d6ShowingSeven = {
+        label: null,
+        expression: '1d6',
+        total: 7,
+        dice: [{ sides: 6, value: 7, status: 'kept' as const }],
+      };
+
+      transport.serverEmits('dice:rolled', biaRolled({ parts: [d6ShowingSeven], throw: null }));
+
+      expect(updates).toHaveLength(count);
+      expect(transport.sent).toHaveLength(sent);
+    });
+
+    it('a dice:rolled after the table closed is not delivered', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      handle.close();
+      const count = updates.length;
+
+      transport.serverEmits('dice:rolled', biaRolled());
 
       expect(updates).toHaveLength(count);
     });

@@ -4,7 +4,7 @@ import { readStoredChoice, writeStoredChoice, type ChoiceStorage } from '@/lib/s
 
 export type RoomPanel = 'open' | 'closed';
 
-export const ROOM_TABS = ['combat', 'people'] as const;
+export const ROOM_TABS = ['combat', 'people', 'dice'] as const;
 
 export type RoomTab = (typeof ROOM_TABS)[number];
 

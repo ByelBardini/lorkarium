@@ -1,8 +1,11 @@
 import {
   BOARD_EVENTS,
+  DICE_EVENTS,
   SESSION_EVENTS,
   boardPingedDto,
   boardSyncAckDto,
+  diceRolledDto,
+  diceRolledSecretlyDto,
   libraryChangedDto,
   sceneActivatedDto,
   sceneClosedDto,
@@ -213,6 +216,7 @@ export class TableVisit {
         this.notify({ kind: 'memberUpdated', event }),
       ),
       ...this.campaignEventSubscriptions(),
+      ...this.diceEventSubscriptions(),
       this.onTableEvent(BOARD_EVENTS.sceneActivated, sceneActivatedDto, (event) => {
         this.groupSceneId = event.sceneId;
         this.notify({ kind: 'sceneActivated', event });
@@ -237,6 +241,18 @@ export class TableVisit {
       ),
       this.onTableEvent(campaignDeleted, sessionCampaignDeletedDto, (event) =>
         this.notify({ kind: 'campaignDeleted', event }),
+      ),
+    ];
+  }
+
+  // A malformed roll is dropped with no resync: nothing is saved, so there is nothing to fetch.
+  private diceEventSubscriptions(): Unsubscribe[] {
+    return [
+      this.onTableEvent(DICE_EVENTS.rolled, diceRolledDto, (event) =>
+        this.notify({ kind: 'diceRolled', event }),
+      ),
+      this.onTableEvent(DICE_EVENTS.rolledSecretly, diceRolledSecretlyDto, (event) =>
+        this.notify({ kind: 'diceRolledSecretly', event }),
       ),
     ];
   }
