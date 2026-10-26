@@ -1,5 +1,5 @@
 import { StrictMode } from 'react';
-import { browserClock } from '@/lib/interaction-clock';
+import { browserClock, browserWallClock } from '@/lib/interaction-clock';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { PerfPanel } from '@/app/perf-panel';
@@ -22,6 +22,10 @@ import { SocketIoRealtimeTransport } from '@/services/realtime-transport';
 import { BoardCommandSender } from '@/services/board-command-sender';
 import { RealtimeTableBoardCommands } from '@/services/table-board-commands';
 import { RealtimePingCommands } from '@/services/table-pings';
+import { RealtimeDiceCommands } from '@/services/dice-commands';
+import { createWebAudioDiceSound } from '@/dice-audio/web-audio-dice-sound';
+import { HttpSavedRollsApi } from '@/services/saved-rolls-api';
+import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
 import { RealtimeTableSessionApi } from '@/services/table-session-api';
 import { RealtimeSceneActivation } from '@/services/scene-activation';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
@@ -93,6 +97,7 @@ const router = createBrowserRouter(
       api: tableSessionApi,
       storage: tabStorage,
       createInteraction: tabInteractionFactory(boardCommands),
+      wallClock: browserWallClock.now,
     }),
     sessionStore,
     railStore: createRailStore(browserStorage),
@@ -111,6 +116,16 @@ const router = createBrowserRouter(
       ),
     boardCommands,
     pings: new RealtimePingCommands(new BoardCommandSender(realtime, newActionId)),
+    dice: new RealtimeDiceCommands(realtime, newActionId),
+    diceClock: browserWallClock,
+    savedRolls: new HttpSavedRollsApi(transport),
+    dicePreferences: createDicePreferencesStore(browserStorage),
+    // Its own chunk: three.js is only fetched on the first roll with "Dados 3D" on.
+    createDiceRenderer: () =>
+      import('@/dice-renderer/three-dice-renderer').then((module) =>
+        module.createThreeDiceRenderer(),
+      ),
+    createDiceSound: () => createWebAudioDiceSound(),
     interactionClock: browserClock,
     now: () => new Date(),
     random: Math.random,

@@ -7,6 +7,7 @@ import type { OpenTable } from '@/stores/open-tables-store';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
+import { biaRolled } from '../../support/dice-fixtures';
 import { TORRE_SCENE, torreBoard } from '../../support/scene-tab-fixtures';
 import {
   KAEL_COMBATANT,
@@ -121,6 +122,29 @@ describe('play room: grid tabs', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Na mesa' }));
     const people = screen.getByRole('tabpanel', { name: 'Na mesa' });
     expect(within(people).getAllByRole('textbox').length).toBeGreaterThan(0);
+  });
+
+  it('"Dados" holds the tray and the history of the table, whatever grid tab is shown', async () => {
+    await userEvent.click(screen.getByRole('tab', { name: 'Dados' }));
+    const dice = screen.getByRole('tabpanel', { name: 'Dados' });
+    expect(within(dice).getByRole('button', { name: 'Rolar' })).toBeInTheDocument();
+    deps.tableSessionApi.emit({ kind: 'diceRolled', event: biaRolled() });
+    const history = within(dice).getByRole('list', { name: 'Histórico de rolagens' });
+    expect(within(history).getByText('Acerto')).toBeInTheDocument();
+  });
+
+  it('a revealed roll shows over the board, with "Dados" closed and another grid shown', async () => {
+    await showTorre();
+    deps.tableSessionApi.emit({ kind: 'diceRolled', event: biaRolled() });
+    expect(screen.queryByTestId('dice-roll-notice')).toBeNull();
+    act(() => deps.diceClock.advance(2400));
+    const notice = screen.getByTestId('dice-roll-notice');
+    expect(within(notice).getByText('Bia rolou · Acerto')).toBeInTheDocument();
+    expect(within(notice).getByText('22')).toBeInTheDocument();
+    const saying = [...document.querySelectorAll('[aria-live]')].filter((region) =>
+      region.textContent?.includes('Bia rolou 22 (Acerto).'),
+    );
+    expect(saying).toHaveLength(1);
   });
 
   it('while reconnecting the tabs stay and the tab shown sends nothing', async () => {

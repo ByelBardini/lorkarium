@@ -11,6 +11,7 @@ import { createRailStore } from '@/stores/rail-store';
 import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { createSessionStore } from '@/stores/session-store';
 import { createAppUpdateStore } from '@/stores/app-update-store';
+import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
 import { AccountLinksApiFake } from './account-links-api-fake';
 import { AccountSecurityApiFake } from './account-security-api-fake';
 import { UserAdminApiFake } from './user-admin-api-fake';
@@ -19,6 +20,9 @@ import { AuthApiFake } from './auth-api-fake';
 import { BoardRenderersFake } from './board-renderer-fake';
 import { CallJournal } from './call-journal';
 import { CampaignsApiFake } from './campaigns-api-fake';
+import { DiceCommandsFake } from './dice-commands-fake';
+import { DiceRenderersFake } from './dice-renderer-fake';
+import { DiceSoundsFake } from './dice-sound-fake';
 import { ClipboardFake } from './clipboard-fake';
 import { FieldEditingFake } from './field-editing-fake';
 import { InteractionClockFake } from './interaction-clock-fake';
@@ -29,6 +33,7 @@ import { PingCommandsFake } from './ping-commands-fake';
 import { ProfileApiFake } from './profile-api-fake';
 import { PageReloadFake, PublishedBuildFake } from './published-build-fake';
 import { RetryWaitFake } from './retry-wait-fake';
+import { SavedRollsApiFake } from './saved-rolls-api-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
 
@@ -66,6 +71,16 @@ export type TestDependencies = AppDependencies & {
   boardRenderers: BoardRenderersFake;
   boardCommands: TableBoardCommandsFake;
   pings: PingCommandsFake;
+  dice: DiceCommandsFake;
+  /** The same fake as `interactionClock`: moving it reveals the rolls of the history. */
+  diceClock: InteractionClockFake;
+  savedRolls: SavedRollsApiFake;
+  /** The `localStorage` under `dicePreferences`. */
+  dicePreferencesStorage: StorageFake;
+  /** Every dice renderer the room created, behind `createDiceRenderer`. */
+  diceRenderers: DiceRenderersFake;
+  /** Every dice sound the room created, behind `createDiceSound`. */
+  diceSounds: DiceSoundsFake;
   /** The board's own time (the hover card's delay), moved by hand. */
   interactionClock: InteractionClockFake;
   /** Where the auth and table session fakes write, in call order. */
@@ -98,7 +113,11 @@ export function testDependencies(): TestDependencies {
   const lightReachStorage = new StorageFake();
   const lightColorStorage = new StorageFake();
   const auraMotionStorage = new StorageFake();
+  const dicePreferencesStorage = new StorageFake();
+  const interactionClock = new InteractionClockFake();
   const boardRenderers = new BoardRenderersFake();
+  const diceRenderers = new DiceRenderersFake();
+  const diceSounds = new DiceSoundsFake();
   const boardCommands = new TableBoardCommandsFake();
   const retryWaits = RetryWaitFake.held();
   const publishedBuild = new PublishedBuildFake(TEST_BUILD);
@@ -133,11 +152,22 @@ export function testDependencies(): TestDependencies {
     createBoardRenderer: boardRenderers.create,
     boardCommands,
     pings: new PingCommandsFake(),
-    interactionClock: new InteractionClockFake(),
+    dice: new DiceCommandsFake(),
+    // One fake clock for the board and the dice: a spec reveals a roll by `advance`.
+    diceClock: interactionClock,
+    savedRolls: new SavedRollsApiFake(),
+    dicePreferencesStorage,
+    dicePreferences: createDicePreferencesStore(dicePreferencesStorage),
+    diceRenderers,
+    createDiceRenderer: diceRenderers.create,
+    diceSounds,
+    createDiceSound: diceSounds.create,
+    interactionClock,
     openTables: createOpenTablesStore({
       api: tableSessionApi,
       storage: tabStorage,
       createInteraction: tabInteractionFactory(boardCommands),
+      wallClock: interactionClock.now,
     }),
     sessionStore: createSessionStore(),
     railStore: createRailStore(new StorageFake()),

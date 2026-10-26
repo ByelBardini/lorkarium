@@ -25,6 +25,14 @@ import { RoomLightPanel } from '@/features/lights/room-light-panel';
 import { DoorMenu, type DoorMenuRequest } from '@/features/walls/door-menu';
 import { LightMenu, type LightMenuRequest } from '@/features/lights/light-menu';
 import type { InteractionClock } from '@/lib/interaction-clock';
+import type { DiceRendererFactory } from '@/dice-renderer/dice-renderer';
+import type { DiceSoundFactory } from '@/dice-audio/dice-sound';
+import { useDiceOverlay } from '@/features/dice/use-dice-overlay';
+import { useDiceSound } from '@/features/dice/use-dice-sound';
+import { DiceRollNotice } from '@/features/dice/dice-roll-notice';
+import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
+import type { DiceCommands } from '@/services/dice-commands';
+import type { SavedRollsApi } from '@/services/saved-rolls-api';
 import { watchesOnly } from '@/lib/table-role';
 import {
   createBoardInteractionStore,
@@ -90,6 +98,15 @@ export type PlayRoomPageProps = Readonly<{
   assets: AssetsApi;
   /** The delay before the hovered token's card shows. */
   interactionClock: InteractionClock;
+  /** "Dados 3D" on this device: the rolls of the table thrown over the window. */
+  dicePreferences: StoreApi<DicePreferencesStore>;
+  createDiceRenderer: DiceRendererFactory;
+  /** "Som dos dados": the knocks of the rolls of the table. */
+  createDiceSound: DiceSoundFactory;
+  /** The "Dados" tab: the roll, the saved rolls and the wall clock of the history. */
+  dice: DiceCommands;
+  savedRolls: SavedRollsApi;
+  diceClock: InteractionClock;
 }>;
 
 /** The play room: the board fills the screen, the top bar, tools and panel float over it, and
@@ -123,6 +140,9 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
   useRoomShortcuts({ roomLayout, interaction, role });
+  const { dicePreferences, createDiceRenderer, createDiceSound } = props;
+  useDiceOverlay({ campaignId: campaign.id, openTables, dicePreferences, createDiceRenderer });
+  useDiceSound({ campaignId: campaign.id, openTables, dicePreferences, createDiceSound });
   useInteractionFollowsTable(table, interaction, role);
   useViewerRole(table && shown.tabs ? { ...table, tabs: shown.tabs } : null, props.sessionStore);
   const players = usePlayerIdsOf(table?.presence ?? null);
@@ -292,6 +312,13 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             />
           )}
           <BoardStatusLine table={table} interaction={interaction} />
+          <DiceRollNotice
+            campaignId={campaign.id}
+            openTables={openTables}
+            presence={table?.presence ?? null}
+            roomLayout={roomLayout}
+            clock={props.diceClock}
+          />
           <FocusToggle roomLayout={roomLayout} />
           {focus && table && (
             <TurnLine
@@ -342,6 +369,17 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               isMaster={isMaster}
               onEditToken={(tokenId) => setTokenDialog({ tokenId })}
               clock={props.interactionClock}
+              dice={{
+                campaignId: campaign.id,
+                role,
+                sessionStore: props.sessionStore,
+                openTables,
+                services: {
+                  dice: props.dice,
+                  savedRolls: props.savedRolls,
+                  diceClock: props.diceClock,
+                },
+              }}
             />
           )}
         </div>

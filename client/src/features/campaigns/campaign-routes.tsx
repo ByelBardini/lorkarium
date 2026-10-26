@@ -124,6 +124,12 @@ function tableRoute({
   assets,
   interactionClock,
   campaignsApi,
+  dicePreferences,
+  createDiceRenderer,
+  createDiceSound,
+  dice,
+  savedRolls,
+  diceClock,
 }: AppDependencies): () => React.JSX.Element {
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
@@ -156,6 +162,12 @@ function tableRoute({
               sessionStore={sessionStore}
               assets={assets}
               interactionClock={interactionClock}
+              dicePreferences={dicePreferences}
+              createDiceRenderer={createDiceRenderer}
+              createDiceSound={createDiceSound}
+              dice={dice}
+              savedRolls={savedRolls}
+              diceClock={diceClock}
             />
           </MemberRoleProvider>
         </div>
