@@ -27,6 +27,7 @@
     "@lorkarium/contracts": "workspace:*",
     "@lorkarium/game-core": "workspace:*",
     "@node-rs/argon2": "^2.2.2",
+    "cannon-es": "^0.20.0",
     "drizzle-orm": "^0.45.4",
     "fastify": "^5.12.7",
     "nodemailer": "^10.2.1",
