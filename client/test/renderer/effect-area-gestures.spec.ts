@@ -104,6 +104,37 @@ describe('EffectAreaGestures', () => {
     expect(intents).toEqual([]);
   });
 
+  describe('a click with the area tool on an area of hers', () => {
+    const onCone = boardView({ effectAreas: [biaCone()] });
+
+    it('picks it instead of creating anything, Shift adding it', () => {
+      gestures.startSketch(onCone, at(7.5, 6.5));
+
+      gestures.release(SCREEN, at(7.6, 6.6), true);
+
+      expect(intents).toEqual([
+        { kind: 'effectAreaPicked', effectAreaId: BIA_CONE_ID, additive: true },
+      ]);
+    });
+
+    it('a drag from it still creates a new area over it', () => {
+      gestures.startSketch(onCone, at(7.5, 6.5));
+
+      gestures.release(SCREEN, at(10.5, 6.5), false);
+
+      expect(intents.map(({ kind }) => kind)).toEqual(['effectAreaSketched']);
+    });
+
+    it('an area she cannot take is not picked by the click', () => {
+      const viewer = { userId: 'outra-pessoa', isMaster: false };
+      gestures.startSketch(boardView({ effectAreas: [biaCone()], viewer }), at(7.5, 6.5));
+
+      gestures.release(SCREEN, at(7.6, 6.6), false);
+
+      expect(intents).toEqual([]);
+    });
+  });
+
   it('Esc lets go of the draft without creating anything', () => {
     gestures.startSketch(boardView(), at(5, 5));
     gestures.move(SCREEN, at(8, 5), false);
