@@ -33,6 +33,8 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/lighting.ts` — a fonte de luz e o nível de luz num ponto
 - `src/stable-hash.ts` — hash estável de um texto (capa da mesa, cor da pessoa)
 - `src/member-color.ts` — as 8 cores da pessoa e a cor efetiva
+- `src/dice-notation.ts` — a notação dos dados (`2d20kh1+5`, `4d6dl1`, `1d6!`, `1d20r1`, `8d10>=7`, `d%`), os limites e a forma canônica; `src/dice-roll.ts` — a rolagem em ondas (explosão, rerrolagem, manter/descartar, sucessos) até o total; `src/dice-advantage.ts` — as peças da rolagem (até 10, até 1000 dados) e a vantagem/desvantagem no primeiro dado. Detalhe em [`game-core/dados.md`](game-core/dados.md)
+- `src/dice-shapes.ts` — os poliedros dos dados com modelo (`DIE_KINDS`), faces, normais, âncoras e valores; `src/dice-rest.ts` — quaternion, a face em repouso (regra do d4) e o d100; `src/dice-frames.ts` — o trajeto em inteiros (30 quadros/s) e a pose no instante; `src/dice-box.ts` — a caixa da física pelo aspecto da janela (server simula, client encaixa). Detalhe em [`game-core/dados.md`](game-core/dados.md)
 
 ## Célula e grid
 

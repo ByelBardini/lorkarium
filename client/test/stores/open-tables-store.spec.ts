@@ -12,6 +12,7 @@ import { StorageFake } from '../support/storage-fake';
 import { tabInteractions } from '../support/tab-interactions';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
 import { copiedOf } from '@/lib/paste-placement';
+import { biaRolled } from '../support/dice-fixtures';
 import {
   BIA_AT_TABLE,
   lyra,
@@ -293,6 +294,74 @@ describe('open tables store', () => {
       store.getState().closeAll();
 
       expect(store.getState().deletedNotice).toBeNull();
+    });
+  });
+
+  describe('dice history', () => {
+    let nowMs: number;
+
+    beforeEach(() => {
+      nowMs = 1000;
+      store = createOpenTablesStore({
+        api,
+        storage,
+        createInteraction: tabInteractions(),
+        wallClock: () => nowMs,
+      });
+      store.getState().restore(ANA.id);
+      store.getState().open(VHARN_TABLE);
+      store.getState().open(QUELM_TABLE);
+    });
+
+    function diceOf(campaignId: string) {
+      const table = store.getState().tables.find((open) => open.campaignId === campaignId);
+      return table?.dice.getState().entries;
+    }
+
+    it('a roll of VHARN enters only the VHARN history, received at the wall clock', () => {
+      api.emitTo(VHARN.id, { kind: 'diceRolled', event: biaRolled() });
+
+      expect(diceOf(VHARN.id)).toEqual([
+        { kind: 'rolled', event: biaRolled(), receivedAtMs: 1000, revealAtMs: 3400 },
+      ]);
+      expect(diceOf(QUELM.id)).toEqual([]);
+    });
+
+    it('closing VHARN forgets its history, and the QUELM one stays', () => {
+      api.emitTo(VHARN.id, { kind: 'diceRolled', event: biaRolled() });
+      api.emitTo(QUELM.id, { kind: 'diceRolled', event: biaRolled({ campaignId: QUELM.id }) });
+
+      store.getState().close(VHARN.id);
+
+      expect(storage.values.has(`lorkarium.dice.${VHARN.id}`)).toBe(false);
+      expect(storage.values.has(`lorkarium.dice.${QUELM.id}`)).toBe(true);
+      expect(diceOf(QUELM.id)).toHaveLength(1);
+    });
+
+    it('closing all on logout forgets the history of every table', () => {
+      api.emitTo(VHARN.id, { kind: 'diceRolled', event: biaRolled() });
+      api.emitTo(QUELM.id, { kind: 'diceRolled', event: biaRolled({ campaignId: QUELM.id }) });
+
+      store.getState().closeAll();
+
+      expect(storage.values.has(`lorkarium.dice.${VHARN.id}`)).toBe(false);
+      expect(storage.values.has(`lorkarium.dice.${QUELM.id}`)).toBe(false);
+    });
+
+    it('the restore after an F5 brings the history of each table back', () => {
+      api.emitTo(VHARN.id, { kind: 'diceRolled', event: biaRolled() });
+      const afterReload = createOpenTablesStore({
+        api: new TableSessionApiFake(),
+        storage,
+        createInteraction: tabInteractions(),
+      });
+
+      afterReload.getState().restore(ANA.id);
+
+      const [vharn] = afterReload.getState().tables;
+      expect(vharn?.dice.getState().entries.map((entry) => entry.event.rollId)).toEqual([
+        biaRolled().rollId,
+      ]);
     });
   });
 

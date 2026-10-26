@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { diceNumberColorDto } from './dice-texture.dto';
 import { memberColorDto } from './username.dto';
 
 export const PROFILE_NAME_MAX_LENGTH = 32;
@@ -16,7 +17,8 @@ export const profileBioDto = z
   .nullable();
 
 /** The signed-in person's own profile. `color` is the effective one; `colorChoice` is `null` when
- *  the color is the automatic one drawn from the id.
+ *  the color is the automatic one drawn from the id. The dice appearance rides along: the texture
+ *  (`null` = the profile color) and the number color (`null` = automatic contrast).
  *
  *  Example: `profileDto.parse(body.profile).colorChoice // null` */
 export const profileDto = z.strictObject({
@@ -27,18 +29,21 @@ export const profileDto = z.strictObject({
   colorChoice: memberColorDto.nullable(),
   bio: z.string().nullable(),
   avatarId: z.uuid().nullable(),
+  diceTextureId: z.uuid().nullable(),
+  diceNumberColor: diceNumberColorDto.nullable(),
   memberSince: z.iso.datetime(),
 });
 
 export type ProfileDto = z.infer<typeof profileDto>;
 
-/** Response of `GET`/`PATCH /api/account/profile` and of the avatar routes. */
+/** Response of `GET`/`PATCH /api/account/profile` and of the avatar and dice texture routes. */
 export const profileResponseDto = z.strictObject({ profile: profileDto });
 
 export type ProfileResponseDto = z.infer<typeof profileResponseDto>;
 
 /** Body of `PATCH /api/account/profile`; strict, so a `username` (immutable) is refused, and at
- *  least one field must come. `color: null` goes back to the automatic color.
+ *  least one field must come. `color: null` goes back to the automatic color and
+ *  `diceNumberColor: null` to the automatic number color.
  *
  *  Example: `updateProfileRequestDto.parse({ bio: '' }) // { bio: null }` */
 export const updateProfileRequestDto = z
@@ -46,9 +51,10 @@ export const updateProfileRequestDto = z
     name: profileNameDto.optional(),
     color: memberColorDto.nullable().optional(),
     bio: profileBioDto.optional(),
+    diceNumberColor: diceNumberColorDto.nullable().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, {
-    error: 'Empty profile update: expected at least one of name, color, bio.',
+    error: 'Empty profile update: expected at least one of name, color, bio, diceNumberColor.',
   });
 
 export type UpdateProfileRequestDto = z.infer<typeof updateProfileRequestDto>;

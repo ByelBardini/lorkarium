@@ -133,3 +133,79 @@ export {
   type FieldBox,
   type ViewField,
 } from './view-field';
+export {
+  DICE_LIMITS,
+  DiceNotationError,
+  diceComparisonMatches,
+  formatDiceExpression,
+  parseDiceExpression,
+  type DiceComparison,
+  type DiceComparisonOp,
+  type DiceExpressionTerm,
+  type DiceSelection,
+  type DiceSign,
+  type DiceTerm,
+  type NumberTerm,
+} from './dice-notation';
+export {
+  continueDiceRoll,
+  startDiceRoll,
+  type DiceRollResult,
+  type DiceRollState,
+  type DiceRollStep,
+  type DieRequest,
+  type DieStatus,
+  type RolledDiceTerm,
+  type RolledDie,
+  type RolledNumberTerm,
+  type RolledPart,
+  type RolledTerm,
+} from './dice-roll';
+export {
+  DICE_PARTS_MAX,
+  advantageBlockOf,
+  parseDiceParts,
+  withAdvantage,
+  type AdvantageBlock,
+  type AdvantageMode,
+  type ParsedDicePart,
+} from './dice-advantage';
+export {
+  DIE_KINDS,
+  DIE_UP,
+  dieShapeOf,
+  isDieKind,
+  type DieFace,
+  type DieKind,
+  type DieShape,
+  type Vector3,
+} from './dice-shapes';
+export {
+  IDENTITY_QUATERNION,
+  percentileValue,
+  quaternionFromAxisAngle,
+  restingValueOf,
+  rotateVector,
+  unitQuaternion,
+  type Quaternion,
+  type RestingFace,
+} from './dice-rest';
+export {
+  DICE_FRAMES_PER_SECOND,
+  DICE_FRAME_MS,
+  DICE_POSE_STRIDE,
+  DICE_POSITION_LIMIT,
+  DICE_POSITION_SCALE,
+  DICE_QUATERNION_SCALE,
+  decodeDiceFrames,
+  encodeDiceFrames,
+  poseAt,
+  type DicePose,
+} from './dice-frames';
+export {
+  DICE_BOX_ASPECT_MAX,
+  DICE_BOX_ASPECT_MIN,
+  DICE_BOX_SHORT_SIDE,
+  diceBoxOf,
+  type DiceBox,
+} from './dice-box';

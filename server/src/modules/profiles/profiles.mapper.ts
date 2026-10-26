@@ -17,6 +17,8 @@ export function toProfileDto(row: ProfileRow): ProfileDto {
     colorChoice: row.color,
     bio: row.bio,
     avatarId: row.avatarId,
+    diceTextureId: row.diceTextureId,
+    diceNumberColor: row.diceNumberColor,
     memberSince: row.createdAt.toISOString(),
   };
 }
@@ -29,6 +31,7 @@ export function toProfileChanges(dto: UpdateProfileRequestDto): ProfileChanges {
     ...(dto.name === undefined ? {} : { name: dto.name }),
     ...(dto.color === undefined ? {} : { color: dto.color }),
     ...(dto.bio === undefined ? {} : { bio: dto.bio }),
+    ...(dto.diceNumberColor === undefined ? {} : { diceNumberColor: dto.diceNumberColor }),
   };
 }
 
@@ -37,4 +40,11 @@ export function toProfileChanges(dto: UpdateProfileRequestDto): ProfileChanges {
  *  Example: `avatarKeyOf(id) // 'avatars/<id>'` */
 export function avatarKeyOf(avatarId: string): string {
   return `avatars/${avatarId}`;
+}
+
+/** Where a dice texture lives in the bucket, apart from the photos.
+ *
+ *  Example: `diceTextureKeyOf(id) // 'dice-textures/<id>'` */
+export function diceTextureKeyOf(diceTextureId: string): string {
+  return `dice-textures/${diceTextureId}`;
 }

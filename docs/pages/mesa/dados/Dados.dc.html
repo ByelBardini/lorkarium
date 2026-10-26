@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Dados</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0A0B0E}
+button:focus-visible,input:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.dd-tab{height:46px;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#8C8F98}
+.dd-tab.is-on{color:#EAE5DA;box-shadow:inset 0 -2px 0 #C5A46D}
+.dd-die{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:62px;padding:0;border:1px solid #262B33;border-radius:10px;background:#14171C;color:#A9A497;font:inherit;cursor:pointer;transition:border-color .12s,background .12s}
+.dd-die:hover{border-color:#4A505B;color:#EAE5DA;background:#171A20}
+.dd-die.is-on{border-color:#C5A46D;color:#E2C793;background:rgba(197,164,109,.08)}
+.dd-count{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:#C5A46D;color:#15130F;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #0F1114}
+.dd-minus{position:absolute;bottom:-7px;right:-7px;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:#303640;color:#EAE5DA;font:inherit;font-size:13px;line-height:1;cursor:pointer;box-shadow:0 0 0 2px #0F1114}
+.dd-minus:hover{background:#C9705A}
+.dd-seg{flex:1;height:36px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:8px;background:transparent;color:#A9A497;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.dd-seg:hover{color:#EAE5DA}
+.dd-seg.is-on{background:#262A31;color:#EAE5DA}
+.dd-seg.is-adv{background:rgba(143,179,154,.16);color:#A9D1B4}
+.dd-seg.is-dis{background:rgba(201,112,90,.16);color:#E6A28F}
+.dd-step{width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:#D5D0C4;font:inherit;font-size:17px;cursor:pointer}
+.dd-step:hover{background:#1F232A;color:#E2C793}
+.dd-input{height:42px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font-family:ui-monospace,Menlo,monospace;font-size:14px;width:100%}
+.dd-input::placeholder{color:#5E636D}
+.dd-input:focus{outline:none;border-color:#C5A46D;box-shadow:0 0 0 3px rgba(197,164,109,.16)}
+.dd-input.is-error{border-color:#C9705A}
+.dd-btn{height:40px;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:10px;background:transparent;color:#D5D0C4;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.dd-btn:hover{border-color:#4A505B;color:#EAE5DA}
+.dd-btn.is-quiet{border-color:transparent}
+.dd-btn.is-quiet:hover{background:#1B1E24}
+.dd-btn:disabled{opacity:.45;cursor:default}
+.dd-roll{flex:1;height:48px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:10px;background:#C5A46D;color:#15130F;font:inherit;font-size:15px;font-weight:700;cursor:pointer;min-width:0}
+.dd-roll:hover{background:#D4B57E}
+.dd-roll:disabled{opacity:.45;cursor:default}
+.dd-ico{width:32px;height:32px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:transparent;color:#8C8F98;cursor:pointer}
+.dd-ico:hover{background:#1F232A;color:#EAE5DA}
+.dd-saved{display:inline-flex;align-items:center;gap:0;border-radius:999px;border:1px solid #303640;background:#14171C;overflow:hidden}
+.dd-saved:hover{border-color:#4A505B}
+.dd-saved-go{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 10px 0 12px;border:0;background:transparent;color:#EAE5DA;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.dd-saved-go:hover{background:#1B1E24}
+.dd-saved-x{width:28px;height:34px;padding:0;border:0;border-left:1px solid #262B33;background:transparent;color:#6F7480;font:inherit;font-size:14px;cursor:pointer}
+.dd-saved-x:hover{color:#E6A28F;background:#1B1E24}
+.dd-chip{min-width:24px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;background:#1F232A;color:#D5D0C4}
+.dd-chip.is-max{background:rgba(197,164,109,.2);color:#E2C793;box-shadow:inset 0 0 0 1px rgba(197,164,109,.5)}
+.dd-chip.is-min{background:rgba(201,112,90,.18);color:#E6A28F;box-shadow:inset 0 0 0 1px rgba(201,112,90,.45)}
+.dd-chip.is-drop{background:transparent;color:#5E636D;text-decoration:line-through;box-shadow:inset 0 0 0 1px #262B33}
+.dd-chip.is-hit{background:rgba(143,179,154,.2);color:#A9D1B4}
+.dd-entry{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:12px;background:#14171C;border:1px solid #1F2329}
+.dd-entry.is-crit{border-color:rgba(197,164,109,.55);background:#1A1813}
+.dd-entry.is-fail{border-color:rgba(201,112,90,.45)}
+</style>
+</helmet>
+<div style="height: 100vh; min-height: 640px; overflow: auto; display: flex; flex-wrap: wrap; background: #0A0B0E; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<main style="position: relative; flex: 999 1 520px; min-width: 0; min-height: 480px; box-sizing: border-box; padding: 20px; display: flex; align-items: center; justify-content: center; background: #08090B">
+<div style="position: relative; width: 100%; max-width: 820px; aspect-ratio: 16 / 12">
+<svg viewBox="0 0 768 576" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+<defs><pattern id="ddGrid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#C5A46D" stroke-opacity=".12"></path></pattern></defs>
+<rect width="768" height="576" fill="#0B0C0F"></rect>
+<path d="M96 96 H480 V48 H720 V528 H384 V480 H96 Z" fill="#1A1D23"></path>
+<path d="M96 96 H480 V48 H720 V528 H384 V480 H96 Z" fill="none" stroke="#7A6F5C" stroke-width="6"></path>
+<rect width="768" height="576" fill="url(#ddGrid)"></rect>
+<g font-family="Cinzel, serif" font-size="12" font-weight="600" text-anchor="middle">
+<circle cx="264" cy="264" r="19" fill="#1F232A" stroke="#C5A46D" stroke-width="2"></circle><text x="264" y="268" fill="#EAE5DA">KA</text>
+<circle cx="168" cy="360" r="19" fill="#1F232A" stroke="#D9D2C2" stroke-width="2"></circle><text x="168" y="364" fill="#EAE5DA">LY</text>
+<circle cx="456" cy="216" r="19" fill="#2A1D1A" stroke="#C9705A" stroke-width="2"></circle><text x="456" y="220" fill="#EAE5DA">OG</text>
+</g>
+</svg>
+</div>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div role="status" aria-live="polite" style="position: absolute; left: 50%; bottom: 32px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; padding: 12px 22px 12px 14px; border-radius: 16px; background: rgba(21,24,29,.96); border: 1px solid {{toastBorder}}; box-shadow: 0 20px 50px rgba(0,0,0,.6)">
+<span style="width: 40px; height: 40px; border-radius: 50%; background: #8FA3BF; color: #15130F; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">LU</span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 13px; color: #A9A497">{{toastWho}}</span>
+<span style="font-family: ui-monospace, monospace; font-size: 12px; color: #6F7480">{{toastExpr}}</span>
+</div>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 48px; font-weight: 600; line-height: 1; color: {{toastColor}}">{{toastTotal}}</span>
+</div>
+</sc-if>
+</main>
+
+<aside style="flex: 1 1 380px; max-width: 100%; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; background: #0F1114; border-left: 1px solid #1F2329">
+<div style="flex-shrink: 0; display: flex; gap: 22px; padding: 0 20px; border-bottom: 1px solid #1F2329">
+<span class="dd-tab">Combate</span>
+<span class="dd-tab">Na mesa</span>
+<span class="dd-tab is-on">Dados</span>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column">
+
+<section aria-label="Montar rolagem" style="padding: 18px 16px 16px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid #1F2329">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding-top: 6px">
+<sc-for list="{{dice}}" as="d" hint-placeholder-count="7">
+<div style="position: relative">
+<button type="button" class="{{d.cls}}" onClick="{{d.add}}" aria-label="{{d.addLabel}}" style="width: 100%">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="{{d.shape}}"></path></svg>
+<span style="font-size: 11px; font-weight: 700; letter-spacing: 0.02em">{{d.label}}</span>
+</button>
+<sc-if value="{{d.has}}" hint-placeholder-val="{{ false }}">
+<span class="dd-count" aria-hidden="true">{{d.count}}</span>
+<button type="button" class="dd-minus" onClick="{{d.remove}}" aria-label="{{d.removeLabel}}">−</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<div style="display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 10px; border: 1px solid #303640" role="group" aria-label="Modificador">
+<button type="button" class="dd-step" onClick="{{modDec}}" aria-label="Diminuir modificador">−</button>
+<span style="min-width: 44px; text-align: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: {{modColor}}">{{modText}}</span>
+<button type="button" class="dd-step" onClick="{{modInc}}" aria-label="Aumentar modificador">+</button>
+</div>
+<span style="font-size: 12px; color: #6F7480">modificador</span>
+<span style="flex: 1"></span>
+<div style="display: inline-flex; align-items: center; gap: 4px">
+<span style="font-size: 13px; color: #8C8F98">d</span>
+<input class="dd-input" type="text" inputmode="numeric" maxlength="4" placeholder="7" aria-label="Lados do dado personalizado" value="{{custom}}" onChange="{{onCustom}}" onKeyDown="{{onCustomKey}}" style="width: 56px; height: 36px; text-align: center">
+<button type="button" class="dd-btn" onClick="{{addCustom}}" disabled="{{customBad}}" style="height: 36px; padding: 0 10px">+ dado</button>
+</div>
+</div>
+
+<div role="radiogroup" aria-label="Vantagem" style="display: flex; gap: 4px; padding: 3px; border-radius: 10px; border: 1px solid #303640">
+<button type="button" role="radio" class="{{mode.normal.cls}}" aria-checked="{{mode.normal.on}}" onClick="{{mode.normal.pick}}">Normal</button>
+<button type="button" role="radio" class="{{mode.adv.cls}}" aria-checked="{{mode.adv.on}}" onClick="{{mode.adv.pick}}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"></path></svg>Vantagem</button>
+<button type="button" role="radio" class="{{mode.dis.cls}}" aria-checked="{{mode.dis.on}}" onClick="{{mode.dis.pick}}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"></path></svg>Desvantagem</button>
+</div>
+<sc-if value="{{hasModeHint}}" hint-placeholder-val="{{ false }}">
+<span style="margin-top: -6px; font-size: 12px; color: #8C8F98">{{modeHint}}</span>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<label for="dd-expr" style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8C8F98">Fórmula</label>
+<button type="button" class="dd-btn is-quiet" onClick="{{toggleHelp}}" aria-expanded="{{helpOpen}}" style="height: 26px; padding: 0 8px; font-size: 12px; color: #C5A46D">{{helpLabel}}</button>
+</div>
+<input id="dd-expr" class="{{exprCls}}" type="text" placeholder="Clica nos dados ou escreve: 2d6+3" value="{{expr}}" onChange="{{onExpr}}" onKeyDown="{{onExprKey}}" spellcheck="false" autocomplete="off">
+<sc-if value="{{hasError}}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size: 12px; color: #E6A28F">{{error}}</span></sc-if>
+<sc-if value="{{helpOpen}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 10px 12px; border-radius: 10px; background: #14171C; border: 1px solid #23272E; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 12px; color: #A9A497">
+<code style="color: #E2C793">2d6+1d4-1</code><span>soma dados e números</span>
+<code style="color: #E2C793">2d20kh1</code><span>fica com o maior (vantagem)</span>
+<code style="color: #E2C793">2d20kl1</code><span>fica com o menor (desvantagem)</span>
+<code style="color: #E2C793">4d6dl1</code><span>descarta o menor</span>
+<code style="color: #E2C793">1d6!</code><span>explode: tirou o máximo, rola de novo</span>
+<code style="color: #E2C793">8d10&gt;=7</code><span>conta quantos deram 7 ou mais</span>
+</div>
+</sc-if>
+</div>
+
+<div style="display: flex; align-items: center; gap: 10px">
+<button type="button" role="switch" aria-checked="{{hiddenAria}}" onClick="{{toggleHidden}}" style="display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px 0 8px; border-radius: 999px; border: 1px solid {{hiddenBorder}}; background: {{hiddenBg}}; color: {{hiddenFg}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">
+<sc-if value="{{hidden}}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></sc-if>
+<sc-if value="{{notHidden}}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c0-1.5 3.5-7 9-7s9 5.5 9 7-3.5 7-9 7-9-5.5-9-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg></sc-if>
+{{hiddenText}}
+</button>
+<span style="flex: 1"></span>
+<button type="button" class="dd-btn is-quiet" onClick="{{clear}}" disabled="{{isEmpty}}" style="color: #8C8F98">Limpar</button>
+</div>
+
+<div style="display: flex; gap: 8px">
+<button type="button" class="dd-roll" onClick="{{roll}}" disabled="{{cantRoll}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L20.5 7v10L12 22L3.5 17V7Z"></path><path d="M12 7l4 7H8Z"></path></svg>
+<span>Rolar</span>
+<sc-if value="{{hasExpr}}" hint-placeholder-val="{{ true }}"><span style="font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{expr}}</span></sc-if>
+</button>
+<button type="button" class="dd-btn" onClick="{{startSave}}" disabled="{{cantRoll}}" aria-label="Salvar esta rolagem" title="Salvar esta rolagem" style="width: 48px; height: 48px; padding: 0">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4Z"></path></svg>
+</button>
+</div>
+<sc-if value="{{saving}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 6px; padding: 10px; border-radius: 10px; background: #14171C; border: 1px solid #303640">
+<input class="dd-input" type="text" maxlength="28" placeholder="Nome, ex.: Ataque com espada" aria-label="Nome da rolagem salva" value="{{saveName}}" onChange="{{onSaveName}}" onKeyDown="{{onSaveKey}}" style="font-family: inherit; height: 38px">
+<button type="button" class="dd-btn" onClick="{{confirmSave}}" style="height: 38px; background: #C5A46D; border-color: #C5A46D; color: #15130F">Salvar</button>
+<button type="button" class="dd-ico" onClick="{{cancelSave}}" aria-label="Cancelar" style="height: 38px">×</button>
+</div>
+</sc-if>
+</section>
+
+<section aria-labelledby="dd-saved-h" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #1F2329">
+<h2 id="dd-saved-h" style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #8C8F98">Rolagens salvas</h2>
+<sc-if value="{{hasSaved}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{saved}}" as="s" hint-placeholder-count="4">
+<span class="dd-saved">
+<button type="button" class="dd-saved-go" onClick="{{s.roll}}" title="{{s.title}}">
+<sc-if value="{{s.hidden}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8C8F98" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Só o mestre"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></sc-if>
+{{s.name}}<span style="font-family: ui-monospace, monospace; font-size: 11px; font-weight: 500; color: #8C8F98">{{s.expr}}</span>
+</button>
+<button type="button" class="dd-saved-x" onClick="{{s.remove}}" aria-label="{{s.removeLabel}}">×</button>
+</span>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{noSaved}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #6F7480">Monta uma rolagem e aperta o marcador do lado do Rolar pra guardar aqui.</span>
+</sc-if>
+</section>
+
+<section aria-labelledby="dd-hist-h" style="padding: 14px 16px 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<h2 id="dd-hist-h" style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #8C8F98">Histórico</h2>
+<span style="font-size: 12px; color: #6F7480">{{histCount}} rolagens</span>
+</div>
+<sc-for list="{{history}}" as="h" hint-placeholder-count="5">
+<article class="{{h.cls}}">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: {{h.color}}; color: #15130F; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700">{{h.ini}}</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+<span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{h.who}}<span style="font-weight: 500; color: #C5A46D">{{h.label}}</span></span>
+<span style="font-size: 11px; color: #6F7480">{{h.time}}{{h.modeText}}</span>
+</div>
+<sc-if value="{{h.hidden}}" hint-placeholder-val="{{ false }}">
+<span style="height: 20px; padding: 0 7px; border-radius: 999px; background: #1F232A; color: #A9A497; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; display: inline-flex; align-items: center; gap: 4px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>MESTRE</span>
+</sc-if>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 600; line-height: 1; color: {{h.totalColor}}; font-variant-numeric: tabular-nums">{{h.total}}</span>
+<button type="button" class="dd-ico" onClick="{{h.again}}" aria-label="{{h.againLabel}}" title="Rolar de novo">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"></path></svg>
+</button>
+</div>
+<div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding-left: 38px">
+<sc-for list="{{h.chips}}" as="c" hint-placeholder-count="3">
+<span class="{{c.cls}}" title="{{c.title}}">{{c.v}}</span>
+</sc-for>
+<sc-if value="{{h.hasMod}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; font-weight: 700; color: #A9A497; padding: 0 2px">{{h.mod}}</span></sc-if>
+<span style="margin-left: auto; font-family: ui-monospace, monospace; font-size: 11px; color: #6F7480">{{h.expr}}</span>
+</div>
+<sc-if value="{{h.hasBadge}}" hint-placeholder-val="{{ false }}">
+<span style="padding-left: 38px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: {{h.badgeColor}}">{{h.badge}}</span>
+</sc-if>
+</article>
+</sc-for>
+</section>
+</div>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+var DD_DICE = [
+  { s: 4, shape: 'M12 3L21.5 19.5H2.5Z' },
+  { s: 6, shape: 'M5 5h14v14H5Z' },
+  { s: 8, shape: 'M12 2L21 12L12 22L3 12Z M3 12h18' },
+  { s: 10, shape: 'M12 2L20.5 10L12 22L3.5 10Z M3.5 10L12 13L20.5 10 M12 13V22' },
+  { s: 12, shape: 'M12 2L21.5 9L18 20.5H6L2.5 9Z' },
+  { s: 20, shape: 'M12 2L20.5 7v10L12 22L3.5 17V7Z M12 7l4.5 7.5h-9Z' },
+  { s: 100, shape: 'M8 3L13 8L8 16L3 8Z M16 8L21 13L16 21L11 13Z' }
+];
+function ddR(n) { return 1 + Math.floor(Math.random() * n); }
+function ddParse(expr) {
+  var src = (expr || '').replace(/\s+/g, '').toLowerCase();
+  if (!src) return { ok: false, empty: true };
+  var parts = src.match(/[+-]?[^+-]+/g);
+  if (!parts) return { ok: false, err: 'Não entendi essa fórmula.' };
+  var terms = [], dice = 0;
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i], sign = 1;
+    if (p[0] === '+') p = p.slice(1); else if (p[0] === '-') { sign = -1; p = p.slice(1); }
+    if (/^\d+$/.test(p)) { terms.push({ k: 'n', v: sign * parseInt(p, 10) }); continue; }
+    var m = p.match(/^(\d*)d(\d+|%)((?:kh|kl|dh|dl)\d+)?(!)?(?:(>=|<=)(\d+))?$/);
+    if (!m) return { ok: false, err: 'Não entendi “' + parts[i].replace(/^\+/, '') + '”.' };
+    var n = m[1] ? parseInt(m[1], 10) : 1, sides = m[2] === '%' ? 100 : parseInt(m[2], 10);
+    if (n < 1 || n > 100) return { ok: false, err: 'De 1 a 100 dados por grupo.' };
+    if (sides < 2 || sides > 1000) return { ok: false, err: 'Dado precisa ter de 2 a 1000 lados.' };
+    var kd = null;
+    if (m[3]) { kd = { t: m[3].slice(0, 2), n: parseInt(m[3].slice(2), 10) }; if (kd.n < 1 || kd.n >= n + (kd.t[0] === 'k' ? 1 : 0)) return { ok: false, err: 'Não dá pra ' + (kd.t[0] === 'k' ? 'ficar com ' : 'descartar ') + kd.n + ' de ' + n + ' dados.' }; }
+    dice += n;
+    terms.push({ k: 'd', sign: sign, n: n, s: sides, kd: kd, ex: !!m[4], cmp: m[5] ? { op: m[5], t: parseInt(m[6], 10) } : null });
+  }
+  if (!dice) return { ok: false, err: 'Coloca pelo menos um dado.' };
+  return { ok: true, terms: terms };
+}
+function ddRoll(parsed) {
+  var total = 0, chips = [], mod = 0, natMax = false, natMin = false, d20s = 0;
+  parsed.terms.forEach(function (t) {
+    if (t.k === 'n') { mod += t.v; total += t.v; return; }
+    var rolls = [];
+    for (var i = 0; i < t.n; i++) {
+      var v = ddR(t.s), r = { v: v, s: t.s, drop: false, ex: false };
+      rolls.push(r);
+      var guard = 0;
+      while (t.ex && v === t.s && guard < 20) { v = ddR(t.s); rolls.push({ v: v, s: t.s, drop: false, ex: true }); guard++; }
+    }
+    if (t.kd) {
+      var idx = rolls.map(function (r, i) { return i; }).sort(function (a, b) { return rolls[a].v - rolls[b].v; });
+      var dropIdx = [];
+      if (t.kd.t === 'kh') dropIdx = idx.slice(0, rolls.length - t.kd.n);
+      if (t.kd.t === 'kl') dropIdx = idx.slice(t.kd.n);
+      if (t.kd.t === 'dl') dropIdx = idx.slice(0, t.kd.n);
+      if (t.kd.t === 'dh') dropIdx = idx.slice(rolls.length - t.kd.n);
+      dropIdx.forEach(function (i) { rolls[i].drop = true; });
+    }
+    var sub = 0;
+    rolls.forEach(function (r) {
+      if (r.drop) return;
+      if (t.cmp) { r.hit = t.cmp.op === '>=' ? r.v >= t.cmp.t : r.v <= t.cmp.t; if (r.hit) sub++; }
+      else sub += r.v;
+      if (r.s === 20) { d20s++; if (r.v === 20) natMax = true; if (r.v === 1) natMin = true; }
+    });
+    total += t.sign * sub;
+    rolls.forEach(function (r) { chips.push(r); });
+  });
+  return { total: total, chips: chips, mod: mod, crit: natMax && d20s > 0, fail: natMin && !natMax && d20s > 0, count: parsed.terms.some(function (t) { return t.cmp; }) };
+}
+function ddBuild(pool, mod, mode) {
+  var parts = [];
+  DD_DICE.forEach(function (d) {
+    var n = pool[d.s] || 0;
+    if (!n) return;
+    if (d.s === 20 && mode !== 'normal') parts.push((n * 2) + 'd20' + (mode === 'adv' ? 'kh' : 'kl') + n);
+    else parts.push(n + 'd' + (d.s === 100 ? '100' : d.s));
+  });
+  Object.keys(pool).forEach(function (k) {
+    var s = parseInt(k, 10);
+    if (DD_DICE.some(function (d) { return d.s === s; })) return;
+    if (pool[k]) parts.push(pool[k] + 'd' + s);
+  });
+  var e = parts.join('+');
+  if (mod) e += (mod > 0 ? '+' : '-') + Math.abs(mod);
+  return e;
+}
+function ddNow() { var d = new Date(); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
+function ddEntry(who, ini, color, time, expr, label, hidden, mode, fixed) {
+  var p = ddParse(expr), r = ddRoll(p);
+  if (fixed) { r = fixed(r) || r; }
+  return { who: who, ini: ini, color: color, time: time, expr: expr, label: label || '', hidden: !!hidden, mode: mode || 'normal', res: r };
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var seedCrit = { total: 25, chips: [{ v: 20, s: 20, drop: false }, { v: 7, s: 20, drop: true }], mod: 5, crit: true, fail: false };
+    var seedFail = { total: 6, chips: [{ v: 1, s: 20, drop: false }], mod: 5, crit: false, fail: true };
+    var seedDmg = { total: 9, chips: [{ v: 6, s: 8, drop: false }], mod: 3 };
+    var seedFire = { total: 31, chips: [6, 4, 2, 5, 1, 3, 6, 4].map(function (v) { return { v: v, s: 6, drop: false }; }), mod: 0 };
+    this.state = {
+      pool: { 20: 1 }, mod: 5, mode: 'adv', manual: null, custom: '', hidden: false, help: false,
+      saving: false, saveName: '', toast: null,
+      saved: [
+        { name: 'Ataque', expr: '1d20+5', hidden: false },
+        { name: 'Dano espada longa', expr: '1d8+3', hidden: false },
+        { name: 'Bola de fogo', expr: '8d6', hidden: false },
+        { name: 'Furtividade', expr: '1d20+7', hidden: true }
+      ],
+      history: [
+        { who: 'Lucas', ini: 'LU', color: '#8FA3BF', time: '23:04', expr: '2d20kh1+5', label: ' · Ataque', hidden: false, mode: 'adv', res: seedCrit },
+        { who: 'Bia', ini: 'BI', color: '#D98FA6', time: '23:03', expr: '8d6', label: ' · Bola de fogo', hidden: false, mode: 'normal', res: seedFire },
+        { who: 'Lucas', ini: 'LU', color: '#8FA3BF', time: '23:02', expr: '1d8+3', label: ' · Dano', hidden: true, mode: 'normal', res: seedDmg },
+        { who: 'Thiago', ini: 'TH', color: '#8FB39A', time: '23:01', expr: '1d20+5', label: '', hidden: false, mode: 'normal', res: seedFail },
+        ddEntry('Carol', 'CA', '#B48CC8', '23:00', '4d6dl1', ' · Atributo')
+      ]
+    };
+  }
+  exprNow() { var s = this.state; return s.manual !== null ? s.manual : ddBuild(s.pool, s.mod, s.mode); }
+  doRoll(expr, label, hidden, mode) {
+    var self = this, p = ddParse(expr);
+    if (!p.ok) return;
+    var r = ddRoll(p);
+    var e = { who: 'Lucas', ini: 'LU', color: '#8FA3BF', time: ddNow(), expr: expr.replace(/\s+/g, ''), label: label ? ' · ' + label : '', hidden: !!hidden, mode: mode || 'normal', res: r };
+    this.setState({ history: [e].concat(this.state.history).slice(0, 40), toast: e });
+    clearTimeout(this._t); this._t = setTimeout(function () { self.setState({ toast: null }); }, 4000);
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var expr = this.exprNow();
+    var parsed = ddParse(expr);
+    var dice = DD_DICE.map(function (d) {
+      var n = s.pool[d.s] || 0;
+      return {
+        label: d.s === 100 ? 'd%' : 'd' + d.s, shape: d.shape, count: n, has: n > 0 && s.manual === null,
+        cls: 'dd-die' + (n > 0 && s.manual === null ? ' is-on' : ''),
+        addLabel: 'Adicionar um d' + d.s, removeLabel: 'Tirar um d' + d.s,
+        add: function () {
+          if (self.state.manual !== null) { var m = self.state.manual.trim(); self.setState({ manual: (m ? m + '+' : '') + '1d' + d.s }); return; }
+          var p = Object.assign({}, self.state.pool); p[d.s] = (p[d.s] || 0) + 1; self.setState({ pool: p });
+        },
+        remove: function () { var p = Object.assign({}, self.state.pool); p[d.s] = Math.max(0, (p[d.s] || 0) - 1); self.setState({ pool: p }); }
+      };
+    });
+    var modeDef = function (k) {
+      var on = s.mode === k;
+      return { on: on ? 'true' : 'false', cls: 'dd-seg' + (on ? (k === 'adv' ? ' is-adv' : k === 'dis' ? ' is-dis' : ' is-on') : ''), pick: function () {
+        var o = { mode: k };
+        if (k !== 'normal' && !(self.state.pool[20] > 0) && self.state.manual === null) { var p = Object.assign({}, self.state.pool); p[20] = 1; o.pool = p; }
+        self.setState(o);
+      } };
+    };
+    var modeHint = '';
+    if (s.manual !== null && s.mode !== 'normal') modeHint = 'Com fórmula escrita à mão, use kh1 ou kl1 direto nela.';
+    else if (s.mode === 'adv') modeHint = 'Rola o d20 duas vezes e fica com o maior.';
+    else if (s.mode === 'dis') modeHint = 'Rola o d20 duas vezes e fica com o menor.';
+    var customN = parseInt(s.custom, 10);
+    var customBad = isNaN(customN) || customN < 2 || customN > 1000;
+    var addCustom = function () {
+      if (customBad) return;
+      if (self.state.manual !== null) { var m = self.state.manual.trim(); self.setState({ manual: (m ? m + '+' : '') + '1d' + customN, custom: '' }); return; }
+      var p = Object.assign({}, self.state.pool); p[customN] = (p[customN] || 0) + 1; self.setState({ pool: p, custom: '' });
+    };
+    var hist = s.history.filter(function (h) { return true; }).map(function (h) {
+      var r = h.res;
+      var chips = r.chips.map(function (c) {
+        var cls = 'dd-chip';
+        if (c.drop) cls += ' is-drop';
+        else if (c.hit) cls += ' is-hit';
+        else if (c.v === c.s && c.s >= 4) cls += ' is-max';
+        else if (c.v === 1) cls += ' is-min';
+        return { v: c.v, cls: cls, title: 'd' + c.s + (c.drop ? ' · descartado' : '') + (c.ex ? ' · explodiu' : '') };
+      });
+      var badge = r.crit ? '20 natural!' : (r.fail ? '1 natural' : (r.count ? r.total + (r.total === 1 ? ' sucesso' : ' sucessos') : ''));
+      return {
+        who: h.who, ini: h.ini, color: h.color, time: h.time, label: h.label, hidden: h.hidden, expr: h.expr,
+        modeText: h.mode === 'adv' ? ' · com vantagem' : (h.mode === 'dis' ? ' · com desvantagem' : ''),
+        total: r.total, totalColor: r.crit ? '#E2C793' : (r.fail ? '#E6A28F' : '#EAE5DA'),
+        cls: 'dd-entry' + (r.crit ? ' is-crit' : (r.fail ? ' is-fail' : '')),
+        chips: chips, hasMod: !!r.mod, mod: (r.mod > 0 ? '+' : '−') + Math.abs(r.mod),
+        hasBadge: !!badge, badge: badge, badgeColor: r.crit ? '#E2C793' : (r.fail ? '#E6A28F' : '#A9D1B4'),
+        againLabel: 'Rolar ' + h.expr + ' de novo',
+        again: function () { self.doRoll(h.expr, h.label.replace(/^ · /, ''), h.hidden, h.mode); }
+      };
+    });
+    var t = s.toast;
+    return {
+      dice: dice,
+      modText: s.mod === 0 ? '0' : (s.mod > 0 ? '+' + s.mod : '−' + Math.abs(s.mod)), modColor: s.mod === 0 ? '#8C8F98' : '#EAE5DA',
+      modDec: function () { self.setState({ mod: self.state.mod - 1 }); }, modInc: function () { self.setState({ mod: self.state.mod + 1 }); },
+      custom: s.custom, onCustom: function (e) { self.setState({ custom: e.target.value.replace(/\D/g, '') }); },
+      onCustomKey: function (e) { if (e.key === 'Enter') addCustom(); }, customBad: customBad, addCustom: addCustom,
+      mode: { normal: modeDef('normal'), adv: modeDef('adv'), dis: modeDef('dis') },
+      hasModeHint: !!modeHint, modeHint: modeHint,
+      expr: expr, hasExpr: !!expr,
+      exprCls: 'dd-input' + (!parsed.ok && !parsed.empty ? ' is-error' : ''),
+      hasError: !parsed.ok && !parsed.empty, error: parsed.err || '',
+      onExpr: function (e) { self.setState({ manual: e.target.value }); },
+      onExprKey: function (e) { if (e.key === 'Enter') { var ex = self.exprNow(); if (ddParse(ex).ok) self.doRoll(ex, '', self.state.hidden, self.state.manual === null ? self.state.mode : 'normal'); } },
+      helpOpen: s.help, helpLabel: s.help ? 'Fechar ajuda' : 'Como escrever?', toggleHelp: function () { self.setState({ help: !self.state.help }); },
+      hidden: s.hidden, notHidden: !s.hidden, hiddenAria: s.hidden ? 'true' : 'false',
+      hiddenText: s.hidden ? 'Só o mestre vê' : 'Todo mundo vê',
+      hiddenBorder: s.hidden ? 'rgba(197,164,109,.5)' : '#303640', hiddenBg: s.hidden ? 'rgba(197,164,109,.1)' : 'transparent', hiddenFg: s.hidden ? '#E2C793' : '#A9A497',
+      toggleHidden: function () { self.setState({ hidden: !self.state.hidden }); },
+      isEmpty: !expr && s.mod === 0,
+      clear: function () { self.setState({ pool: {}, mod: 0, mode: 'normal', manual: null, saving: false }); },
+      cantRoll: !parsed.ok,
+      roll: function () { self.doRoll(expr, '', s.hidden, s.manual === null ? s.mode : 'normal'); },
+      saving: s.saving, saveName: s.saveName,
+      startSave: function () { self.setState({ saving: true, saveName: '' }); },
+      cancelSave: function () { self.setState({ saving: false }); },
+      onSaveName: function (e) { self.setState({ saveName: e.target.value }); },
+      onSaveKey: function (e) { if (e.key === 'Enter') self.confirmSaveNow(); if (e.key === 'Escape') self.setState({ saving: false }); },
+      confirmSave: function () { self.confirmSaveNow(); },
+      saved: s.saved.map(function (sv, i) {
+        return { name: sv.name, expr: sv.expr, hidden: sv.hidden, title: 'Rolar ' + sv.expr + (sv.hidden ? ' (só o mestre vê)' : ''), removeLabel: 'Apagar ' + sv.name,
+          roll: function () { self.doRoll(sv.expr, sv.name, sv.hidden, /kh1/.test(sv.expr) ? 'adv' : (/kl1/.test(sv.expr) ? 'dis' : 'normal')); },
+          remove: function () { self.setState({ saved: self.state.saved.filter(function (x, j) { return j !== i; }) }); } };
+      }),
+      hasSaved: s.saved.length > 0, noSaved: s.saved.length === 0,
+      history: hist, histCount: s.history.length,
+      hasToast: !!t, toastWho: t ? 'Lucas rolou' + t.label.replace(' · ', ' ') : '', toastExpr: t ? t.expr : '',
+      toastTotal: t ? t.res.total : '', toastColor: t && t.res.crit ? '#E2C793' : (t && t.res.fail ? '#E6A28F' : '#EAE5DA'),
+      toastBorder: t && t.res.crit ? '#C5A46D' : '#303640'
+    };
+  }
+  confirmSaveNow() {
+    var name = (this.state.saveName || '').trim() || this.exprNow();
+    var expr = this.exprNow();
+    if (!ddParse(expr).ok) return;
+    this.setState({ saved: this.state.saved.concat([{ name: name, expr: expr, hidden: this.state.hidden }]), saving: false, saveName: '' });
+  }
+}
+</script>
+</body>
+</html>

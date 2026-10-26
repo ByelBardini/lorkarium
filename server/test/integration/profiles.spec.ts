@@ -154,8 +154,13 @@ describe('profiles HTTP edge', () => {
       ['PUT', '/account/avatar'],
       ['DELETE', '/account/avatar'],
       ['GET', `/avatars/${UNKNOWN_ID}`],
+      ['PUT', '/account/dice-texture'],
+      ['POST', '/account/dice-texture/link'],
+      ['DELETE', '/account/dice-texture'],
+      ['GET', `/dice-textures/${UNKNOWN_ID}`],
     ] as const)('%s %s without a session answers 401 UNAUTHENTICATED', async (method, url) => {
-      const payload = method === 'PATCH' ? { name: 'X' } : undefined;
+      const bodies = { PATCH: { name: 'X' }, POST: { url: 'https://example.com/a.png' } };
+      const payload = method === 'PATCH' || method === 'POST' ? bodies[method] : undefined;
       const contentType = method === 'PUT' ? 'image/png' : undefined;
 
       const response = await call(undefined, { method, url, payload, contentType });
@@ -296,6 +301,127 @@ describe('profiles HTTP edge', () => {
 
     it('without a session it answers 401', async () => {
       expect((await linkPhoto(undefined, 'https://example.com/a.gif')).statusCode).toBe(401);
+    });
+  });
+
+  describe('the dice appearance', () => {
+    function sendTexture(
+      user: SignedInUser,
+      bytes: Buffer | string,
+      contentType = 'image/png',
+    ): Promise<LightMyRequestResponse> {
+      return call(user, {
+        method: 'PUT',
+        url: '/account/dice-texture',
+        payload: bytes,
+        contentType,
+      });
+    }
+
+    async function sentTextureId(user: SignedInUser): Promise<string> {
+      const response = await sendTexture(user, photo);
+      expect(response.statusCode).toBe(200);
+      const { diceTextureId } = profileResponseDto.parse(response.json()).profile;
+      if (diceTextureId === null) throw new Error('the texture send answered no diceTextureId');
+      return diceTextureId;
+    }
+
+    it('a PNG becomes a still 512×512 WebP that anyone signed in reads, cached for good', async () => {
+      const diceTextureId = await sentTextureId(ana);
+
+      const response = await call(bia, { method: 'GET', url: `/dice-textures/${diceTextureId}` });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toBe('image/webp');
+      expect(response.headers['cache-control']).toBe('private, max-age=31536000, immutable');
+      const metadata = await sharp(response.rawPayload).metadata();
+      expect([metadata.format, metadata.width, metadata.height]).toEqual(['webp', 512, 512]);
+      expect((await profileOf(ana)).avatarId).toBeNull();
+    });
+
+    it('a second texture makes the old id answer 404 and removes its object', async () => {
+      const oldId = await sentTextureId(ana);
+
+      await sentTextureId(ana);
+
+      const old = await call(ana, { method: 'GET', url: `/dice-textures/${oldId}` });
+      expect(old.statusCode).toBe(404);
+      expect(codeOf(old)).toBe('DICE_TEXTURE_NOT_FOUND');
+      expect(await storage.open(`dice-textures/${oldId}`)).toBeNull();
+    });
+
+    it('a photo id is not served as a dice texture', async () => {
+      const avatarId = await sentPhotoId(ana);
+
+      const response = await call(ana, { method: 'GET', url: `/dice-textures/${avatarId}` });
+
+      expect(response.statusCode).toBe(404);
+      expect(codeOf(response)).toBe('DICE_TEXTURE_NOT_FOUND');
+    });
+
+    it('taking the texture off answers the profile without it, and again is fine', async () => {
+      const diceTextureId = await sentTextureId(ana);
+
+      const removed = await call(ana, { method: 'DELETE', url: '/account/dice-texture' });
+
+      expect(profileResponseDto.parse(removed.json()).profile.diceTextureId).toBeNull();
+      expect(await storage.open(`dice-textures/${diceTextureId}`)).toBeNull();
+      const again = await call(ana, { method: 'DELETE', url: '/account/dice-texture' });
+      expect(again.statusCode).toBe(200);
+    });
+
+    it('a dice number color in capitals is kept in lowercase', async () => {
+      const response = await patch(ana, { diceNumberColor: '#FFAA00' });
+
+      expect(response.statusCode).toBe(200);
+      expect((await profileOf(ana)).diceNumberColor).toBe('#ffaa00');
+    });
+
+    it('a short hex dice number color answers 400 INVALID_BODY', async () => {
+      const response = await patch(ana, { diceNumberColor: '#fff' });
+
+      expect(response.statusCode).toBe(400);
+      expect(codeOf(response)).toBe('INVALID_BODY');
+    });
+
+    it('a texture of 5 MiB + 1 answers 413 DICE_TEXTURE_TOO_LARGE', async () => {
+      const response = await sendTexture(ana, Buffer.alloc(5 * MIB + 1));
+
+      expect(response.statusCode).toBe(413);
+      expect(codeOf(response)).toBe('DICE_TEXTURE_TOO_LARGE');
+    });
+
+    it('a body of type text/plain answers 415 UNSUPPORTED_IMAGE', async () => {
+      const response = await sendTexture(ana, 'x', 'text/plain');
+
+      expect(response.statusCode).toBe(415);
+      expect(codeOf(response)).toBe('UNSUPPORTED_IMAGE');
+    });
+
+    it('a texture link to an internal address answers 422 LINK_BLOCKED', async () => {
+      const payload = { url: 'http://127.0.0.1/t.png' };
+
+      const response = await call(ana, {
+        method: 'POST',
+        url: '/account/dice-texture/link',
+        payload,
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(codeOf(response)).toBe('LINK_BLOCKED');
+    });
+
+    it('the 11th texture send in a minute answers 429, apart from the photo counter', async () => {
+      const tiny = await pngOf(8, 8);
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        expect((await sendTexture(ana, tiny)).statusCode).toBe(200);
+      }
+
+      const response = await sendTexture(ana, tiny);
+
+      expect(response.statusCode).toBe(429);
+      expect(codeOf(response)).toBe('RATE_LIMITED');
+      expect((await sendPhoto(ana, tiny)).statusCode).toBe(200);
     });
   });
 });

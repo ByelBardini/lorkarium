@@ -62,6 +62,8 @@ export class UsersDaoFake implements UsersDaoSlice {
       color: null,
       bio: null,
       avatarId: null,
+      diceTextureId: null,
+      diceNumberColor: null,
       passwordChangedAt: null,
       suspendedAt: null,
       lastSeenAt: null,

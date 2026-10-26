@@ -69,6 +69,7 @@ describe('room layout store', () => {
   it.each([
     ['combat', true],
     ['people', true],
+    ['dice', true],
     ['notes', false],
   ])('isRoomTab(%s) is %s', (value, expected) => {
     expect(isRoomTab(value)).toBe(expected);

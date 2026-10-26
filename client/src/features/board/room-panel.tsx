@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CombatPanel } from '@/features/combat/combat-panel';
+import { DicePanel, type DicePanelProps } from '@/features/dice/dice-panel';
 import { SessionPresencePanel } from '@/features/sessions/session-presence-panel';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
@@ -35,6 +36,8 @@ export type RoomPanelProps = Readonly<{
   onEditToken: (tokenId: string) => void;
   /** The browser's time, for "ausente há N min". */
   clock: InteractionClock;
+  /** The "Dados" tab (its presence is the table's, from `table`). */
+  dice: Omit<DicePanelProps, 'presence'>;
 }>;
 
 const PANEL_TITLE = 'Painel da mesa';
@@ -91,6 +94,7 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
           Na mesa
           {table && <OnlinePill presence={table.presence} />}
         </TabsTrigger>
+        <TabsTrigger value="dice">Dados</TabsTrigger>
       </TabsList>
       <TabsContent value="combat" className="flex flex-col py-4">
         {table && (
@@ -113,6 +117,9 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
             clock={props.clock}
           />
         )}
+      </TabsContent>
+      <TabsContent value="dice" className="-mx-1 overflow-y-auto px-1 py-4">
+        <DicePanel {...props.dice} presence={table?.presence ?? null} />
       </TabsContent>
     </Tabs>
   );

@@ -2,6 +2,7 @@ import type {
   AvatarOutcome,
   AvatarProcessorPort,
   AvatarRefusal,
+  ImageShape,
 } from '../../src/modules/profiles/avatar-processor.port';
 import type { ProfileChangedPort } from '../../src/modules/profiles/profile-changed.port';
 import type {
@@ -11,7 +12,8 @@ import type {
 } from '../../src/modules/profiles/profiles.dao';
 import { ANA_ID } from './auth-factories';
 
-/** A profile row as `ProfilesDao` reads it: Ana, automatic color, no bio, no photo.
+/** A profile row as `ProfilesDao` reads it: Ana, automatic color, no bio, no photo, no dice
+ *  texture and the automatic dice number color.
  *
  *  Example: `profileRow({ color: 'rose' })` */
 export function profileRow(overrides: Partial<ProfileRow> = {}): ProfileRow {
@@ -22,16 +24,23 @@ export function profileRow(overrides: Partial<ProfileRow> = {}): ProfileRow {
     color: null,
     bio: null,
     avatarId: null,
+    diceTextureId: null,
+    diceNumberColor: null,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,
   };
 }
 
-/** In-memory profile columns of `users`; writes `update:<fields>` and `swap:<avatarId>` to the
- *  shared journal and keeps each change asked for in `updates`. */
+/** In-memory profile columns of `users`; writes `update:<fields>`, `swap:<avatarId>` and
+ *  `swapDice:<diceTextureId>` to the shared journal and keeps each change asked for in `updates`. */
 export class ProfilesDaoFake implements Pick<
   ProfilesDao,
-  'findById' | 'update' | 'swapAvatar' | 'isCurrentAvatar'
+  | 'findById'
+  | 'update'
+  | 'swapAvatar'
+  | 'isCurrentAvatar'
+  | 'swapDiceTexture'
+  | 'isCurrentDiceTexture'
 > {
   readonly updates: ProfileChanges[] = [];
 
@@ -53,16 +62,31 @@ export class ProfilesDaoFake implements Pick<
   async swapAvatar(
     userId: string,
     avatarId: string | null,
-  ): Promise<Readonly<{ previousAvatarId: string | null }> | undefined> {
+  ): Promise<Readonly<{ previousId: string | null }> | undefined> {
     this.journal.push(`swap:${avatarId ?? 'none'}`);
     const previous = await this.findById(userId);
     if (!previous) return undefined;
     this.replace(userId, { avatarId });
-    return { previousAvatarId: previous.avatarId };
+    return { previousId: previous.avatarId };
   }
 
   async isCurrentAvatar(avatarId: string): Promise<boolean> {
     return this.rows.some((row) => row.avatarId === avatarId);
+  }
+
+  async swapDiceTexture(
+    userId: string,
+    diceTextureId: string | null,
+  ): Promise<Readonly<{ previousId: string | null }> | undefined> {
+    this.journal.push(`swapDice:${diceTextureId ?? 'none'}`);
+    const previous = await this.findById(userId);
+    if (!previous) return undefined;
+    this.replace(userId, { diceTextureId });
+    return { previousId: previous.diceTextureId };
+  }
+
+  async isCurrentDiceTexture(diceTextureId: string): Promise<boolean> {
+    return this.rows.some((row) => row.diceTextureId === diceTextureId);
   }
 
   private replace(userId: string, changes: Partial<ProfileRow>): ProfileRow | undefined {
@@ -75,15 +99,18 @@ export class ProfilesDaoFake implements Pick<
   }
 }
 
-/** Answers every photo with `result` (or `refusal` when set); writes 'normalize' to the journal. */
+/** Answers every image with `result` (or `refusal` when set); keeps the shape each one was asked
+ *  for in `shapes` and writes 'normalize' to the journal. */
 export class AvatarProcessorFake implements AvatarProcessorPort {
   refusal: AvatarRefusal | null = null;
   readonly result = { bytes: Uint8Array.from([7, 7, 7]), frames: 1 };
+  readonly shapes: ImageShape[] = [];
 
   constructor(private readonly journal: string[] = []) {}
 
-  async normalize(): Promise<AvatarOutcome> {
+  async normalize(_bytes: Uint8Array, shape: ImageShape): Promise<AvatarOutcome> {
     this.journal.push('normalize');
+    this.shapes.push(shape);
     if (this.refusal) return { ok: false, refusal: this.refusal };
     return { ok: true, avatar: this.result };
   }

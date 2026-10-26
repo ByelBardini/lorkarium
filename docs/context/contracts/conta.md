@@ -1,4 +1,4 @@
-# Contracts · conta (perfil, foto, segurança, 2FA)
+# Contracts · conta (perfil, foto, textura do dado, segurança, 2FA)
 
 Hub: [`../contracts.md`](../contracts.md). DTOs de `packages/contracts/src/account/`, todos estritos. Specs em `packages/contracts/test/account/`.
 
@@ -10,14 +10,20 @@ Hub: [`../contracts.md`](../contracts.md). DTOs de `packages/contracts/src/accou
 ## Perfil (`profile.dto.ts`)
 
 - `PROFILE_NAME_MAX_LENGTH` (32), `PROFILE_BIO_MAX_LENGTH` (190); `profileNameDto` (aparado, 1–32) e `profileBioDto` (aparada, até 190, `''` → `null`, aceita `null`).
-- `profileDto` `{ id, username, name, color (efetiva), colorChoice (null = automática), bio | null, avatarId (uuid | null), memberSince (ISO) }` e `profileResponseDto` `{ profile }` (GET/PATCH do perfil e as rotas da foto).
-- `updateProfileRequestDto` `{ name?, color? (null volta à automática), bio? }`: estrito (um `username` é recusado: o @ é imutável) e `{}` recusado com "expected at least one of name, color, bio" (`refine`, caminho vazio). Tipos `UpdateProfileRequestDto` / `UpdateProfileRequestInput`.
+- `profileDto` `{ id, username, name, color (efetiva), colorChoice (null = automática), bio | null, avatarId (uuid | null), diceTextureId (uuid | null = a cor do perfil), diceNumberColor (`#rrggbb` | null = contraste automático), memberSince (ISO) }` e `profileResponseDto` `{ profile }` (GET/PATCH do perfil e as rotas da foto e da textura).
+- `updateProfileRequestDto` `{ name?, color? (null volta à automática), bio?, diceNumberColor? (`diceNumberColorDto` ou null) }`: estrito (um `username` é recusado: o @ é imutável) e `{}` recusado com "expected at least one of name, color, bio, diceNumberColor" (`refine`, caminho vazio). Tipos `UpdateProfileRequestDto` / `UpdateProfileRequestInput`.
 
 ## Foto (`avatar.dto.ts`)
 
 - `AVATAR_MAX_BYTES` (5 MiB, antes de decodificar), `AVATAR_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`; o GIF animado vira WebP animado) e `avatarMimeTypeDto`, `AVATAR_SIDE` (256: o server corta o centro em 256 × 256).
 - `avatarParamsDto` `{ avatarId: uuid }` — params de `GET /api/avatars/:avatarId`.
 - `avatarLinkRequestDto` `{ url }` — corpo de `POST /api/account/avatar/link`, sobre o `assetLinkDto` das imagens da mesa (aparado, http/https, até `ASSET_URL_MAX_LENGTH`; agora exportado).
+
+## Textura do dado (`dice-texture.dto.ts`)
+
+- `DICE_TEXTURE_SIDE` (512: o server corta o centro num WebP 512 × 512 **parado**; o GIF fica com o primeiro quadro). Tamanho e tipos de entrada são os da foto (`AVATAR_MAX_BYTES`, `AVATAR_MIME_TYPES`).
+- `diceNumberColorDto` — a cor do número: aparada, em minúsculas antes de validar (`'#FFAA00'` → `'#ffaa00'`), só `#rrggbb`; a recusa cita o valor e "expected #rrggbb". Mora aqui (e não em `dice/`) porque o perfil a usa; o `diceAppearanceDto` de `dice/dice.dto.ts` a importa.
+- `diceTextureLinkRequestDto` (= `avatarLinkRequestDto`, `{ url }`) — corpo de `POST /api/account/dice-texture/link`; `diceTextureParamsDto` `{ diceTextureId: uuid }` — params de `GET /api/dice-textures/:diceTextureId`.
 
 ## Segurança (`account-security.dto.ts`)
 

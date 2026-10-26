@@ -19,6 +19,7 @@ import { applyProfileToSession } from './session-profile';
 const accountActionRequest = z.discriminatedUnion('intent', [
   z.strictObject({ intent: z.literal('profile-update'), input: updateProfileRequestDto }),
   z.strictObject({ intent: z.literal('avatar-remove') }),
+  z.strictObject({ intent: z.literal('dice-texture-remove') }),
   z.strictObject({ intent: z.literal('password-change'), input: changePasswordRequestDto }),
   z.strictObject({ intent: z.literal('email-change'), input: changeEmailRequestDto }),
   z.strictObject({ intent: z.literal('email-cancel') }),
@@ -72,6 +73,12 @@ const HANDLERS: Handlers = {
     profileOutcome(await context.deps.profileApi.update(input), 'profile-update', context),
   'avatar-remove': async (_, context) =>
     profileOutcome(await context.deps.profileApi.removeAvatar(), 'avatar-remove', context),
+  'dice-texture-remove': async (_, context) =>
+    profileOutcome(
+      await context.deps.profileApi.removeDiceTexture(),
+      'dice-texture-remove',
+      context,
+    ),
   'password-change': async ({ input }, context) =>
     doneOutcome(await security(context).changePassword(input), 'password-change'),
   'email-change': async ({ input }, context) =>

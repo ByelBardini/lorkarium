@@ -36,6 +36,10 @@ export const users = pgTable(
     color: memberColor('color'),
     bio: text('bio'),
     avatarId: uuid('avatar_id'),
+    // The dice appearance (no FK: the texture is an object in the bucket, as the photo).
+    // Null texture = the profile color; null number color = automatic contrast.
+    diceTextureId: uuid('dice_texture_id'),
+    diceNumberColor: text('dice_number_color'),
     passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
     // Set by an admin (backoffice): no login and no session while it holds; null = active.
     suspendedAt: timestamp('suspended_at', { withTimezone: true }),
@@ -50,6 +54,7 @@ export const users = pgTable(
   },
   (table) => [
     check('users_bio_length', sql`char_length(${table.bio}) <= ${sql.raw(String(BIO_MAX_LENGTH))}`),
+    check('users_dice_number_color_hex', sql`${table.diceNumberColor} ~ '^#[0-9a-f]{6}$'`),
     check(
       'users_terms_acceptance_pair',
       sql`(${table.termsAcceptedAt} IS NULL) = (${table.termsVersion} IS NULL)`,

@@ -18,6 +18,7 @@ const MESSAGE_BY_KIND: Readonly<Record<MessageKind, string>> = {
   offline: OFFLINE_MESSAGE,
   unexpected: UNEXPECTED_MESSAGE,
   avatar_too_large: 'A foto pode ter até 5 MB.',
+  dice_texture_too_large: 'A imagem passa de 5 MB.',
   unsupported_image: 'Esse arquivo não é uma imagem que dá para usar (PNG, JPEG, WebP ou GIF).',
   link_blocked: 'Esse link não pode ser usado.',
   link_unreachable: 'Não deu para baixar esse link. Confira o endereço.',

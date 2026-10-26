@@ -7,8 +7,14 @@ import type { MemberColor } from '@lorkarium/game-core';
 import { useState } from 'react';
 import { FIELD_MESSAGES } from './account-messages';
 
-/** What the profile form shows: the confirmed profile with the person's edits on top. */
-export type ProfileDraftValues = Readonly<{ name: string; color: MemberColor; bio: string }>;
+/** What the profile form shows: the confirmed profile with the person's edits on top.
+ *  `diceNumberColor` is `null` while the number color is the automatic one. */
+export type ProfileDraftValues = Readonly<{
+  name: string;
+  color: MemberColor;
+  bio: string;
+  diceNumberColor: string | null;
+}>;
 
 export type ProfileDraftErrors = Partial<Record<'name' | 'bio', string>>;
 
@@ -49,6 +55,7 @@ function confirmedValues(profile: ProfileDto): ProfileDraftValues {
     name: profile.name,
     color: profile.colorChoice ?? profile.color,
     bio: profile.bio ?? '',
+    diceNumberColor: profile.diceNumberColor,
   };
 }
 
@@ -60,6 +67,9 @@ function changesOf(
     ...(values.name === confirmed.name ? {} : { name: values.name }),
     ...(values.color === confirmed.color ? {} : { color: values.color }),
     ...(values.bio === confirmed.bio ? {} : { bio: values.bio }),
+    ...(values.diceNumberColor === confirmed.diceNumberColor
+      ? {}
+      : { diceNumberColor: values.diceNumberColor }),
   };
 }
 

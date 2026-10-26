@@ -1,6 +1,8 @@
 import type {
   BoardPingedDto,
   BoardStateDto,
+  DiceRolledDto,
+  DiceRolledSecretlyDto,
   SessionCampaignDeletedDto,
   SessionCampaignUpdatedDto,
   LibraryChangedDto,
@@ -46,6 +48,11 @@ export type TableSessionUpdate =
   /** The lights of the hidden tokens this viewer does not receive, the whole list: unversioned
    *  like a drag, it replaces the one the board has. */
   | Readonly<{ kind: 'veiledLights'; event: VeiledLightsChangedDto }>
+  /** A roll of the table this viewer may see (the result and the throw); nothing is saved, so
+   *  no version. */
+  | Readonly<{ kind: 'diceRolled'; event: DiceRolledDto }>
+  /** A masters-only roll this viewer may not see: who rolled and when it settles, no value. */
+  | Readonly<{ kind: 'diceRolledSecretly'; event: DiceRolledSecretlyDto }>
   /** Someone else pointed at a spot of the grid: ephemeral, never board state. */
   | Readonly<{ kind: 'pinged'; event: BoardPingedDto }>
   | Readonly<{ kind: 'boardFailed'; failure: BoardSyncFailure }>

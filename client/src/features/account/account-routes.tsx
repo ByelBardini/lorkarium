@@ -91,6 +91,7 @@ function accountScreen(deps: AppDependencies): () => React.JSX.Element {
         profileApi={deps.profileApi}
         sessionStore={deps.sessionStore}
         clipboard={deps.clipboard}
+        dicePreferences={deps.dicePreferences}
       />
     );
   };
