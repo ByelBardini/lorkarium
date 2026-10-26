@@ -24,6 +24,7 @@ export * from './campaigns/campaign-tags.dto';
 export * from './campaigns/update-campaign.dto';
 export * from './campaigns/create-campaign.dto';
 export * from './campaigns/join-campaign.dto';
+export * from './campaigns/public-campaign.dto';
 export * from './campaigns/member-role.dto';
 export * from './sessions/session.dto';
 export * from './board/scene.dto';
