@@ -62,9 +62,11 @@ export class AudioContextFake implements DiceAudioContext {
   readonly decoded: ArrayBuffer[] = [];
   readonly gains: GainFake[] = [];
   readonly sources: SourceFake[] = [];
+  resumes = 0;
   private resumed: (() => void) | null = null;
 
   resume(): Promise<void> {
+    this.resumes += 1;
     return new Promise((resolve) => (this.resumed = resolve));
   }
 
@@ -98,5 +100,25 @@ export class AudioContextFake implements DiceAudioContext {
 
   createDynamicsCompressor(): DiceAudioNode {
     return new AudioNodeFake();
+  }
+}
+
+/** The page's user gestures (a click, a key), fired by the test.
+ *
+ *  Example: `const gestures = new UserGesturesFake(); createWebAudioDiceSound({ onUserGesture: gestures.listen, … })` */
+export class UserGesturesFake {
+  private readonly listeners = new Set<() => void>();
+
+  readonly listen = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  get listening(): number {
+    return this.listeners.size;
+  }
+
+  gesture(): void {
+    this.listeners.forEach((listener) => listener());
   }
 }

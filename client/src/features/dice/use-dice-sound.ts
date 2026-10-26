@@ -26,7 +26,8 @@ export function rollCuesOfEntry(entry: DiceHistoryEntry): DiceRollCue[] {
 }
 
 /** Plays a roll sound for each new roll of the open table, its first hit on the dice landing in
- *  the 3D throw (both start when the event arrives), whether or not "Dados 3D" is on. Muting
+ *  the 3D throw (both start when the event arrives), whether or not "Dados 3D" is on. The sound
+ *  is prepared on entering the room (or on unmuting), so the first roll is heard too. Muting
  *  stops what is still sounding; leaving the room destroys the sound.
  *
  *  Example: `useDiceSound({ campaignId: campaign.id, openTables, dicePreferences, createDiceSound })` */
@@ -47,11 +48,13 @@ function soundOn(
   preferences: StoreApi<DicePreferencesStore>,
   sound: DiceSound,
 ): () => void {
+  if (preferences.getState().sound) sound.prepare();
   const stopHearing = history.getState().onNewEntry((entry) => {
     if (preferences.getState().sound) sound.play(rollCuesOfEntry(entry));
   });
   const stopWatching = preferences.subscribe((state, previous) => {
     if (previous.sound && !state.sound) sound.stop();
+    if (!previous.sound && state.sound) sound.prepare();
   });
   return () => {
     stopHearing();

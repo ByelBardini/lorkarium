@@ -1,11 +1,16 @@
 import type { DiceRollCue } from '@/dice-audio/dice-roll-cues';
 import type { DiceSound, DiceSoundFactory } from '@/dice-audio/dice-sound';
 
-/** A dice sound the test watches: the cues of every roll played, the stops and the end. */
+/** A dice sound the test watches: the cues of every roll played, the preparations, the stops and the end. */
 export class DiceSoundFake implements DiceSound {
   readonly played: (readonly DiceRollCue[])[] = [];
   stops = 0;
+  prepares = 0;
   destroyed = false;
+
+  prepare(): void {
+    this.prepares += 1;
+  }
 
   play(cues: readonly DiceRollCue[]): void {
     this.played.push(cues);
