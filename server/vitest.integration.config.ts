@@ -9,6 +9,8 @@ export default defineProject({
   test: {
     name: '@lorkarium/server-integration',
     include: ['test/integration/**/*.spec.ts'],
+    // The server benches (`pnpm bench`) belong to the unit project; without this they ran twice.
+    benchmark: { include: [] },
     fileParallelism: false,
     hookTimeout: 30_000,
     env: { DATA_ENCRYPTION_KEY: TEST_DATA_ENCRYPTION_KEY },

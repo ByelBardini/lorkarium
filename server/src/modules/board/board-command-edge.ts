@@ -9,6 +9,7 @@ import { AssetError } from '../assets/assets.error';
 import { CombatError } from '../combat/combat.error';
 import { ConditionError } from '../conditions/conditions.error';
 import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
+import { InvalidDiceExpressionError } from '../dice/dice.error';
 import { DrawingError } from '../drawings/drawings.error';
 import { EffectAreaError } from '../effect-areas/effect-areas.error';
 import { LightError } from '../lights/lights.error';
@@ -132,6 +133,10 @@ function toAckError(deps: CommandEdgeDeps, error: unknown): ApiErrorDto {
       message: PUBLIC_MESSAGE[error.code] ?? error.code,
       retryAfterSeconds,
     };
+  }
+  // The person's own text and which piece to fix: the same answer as the saved rolls give.
+  if (error instanceof InvalidDiceExpressionError) {
+    return { code: error.code, message: error.message };
   }
   if (isKnown(error)) {
     const message = PUBLIC_MESSAGE[error.code];

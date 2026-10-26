@@ -414,6 +414,20 @@
       "when": 1792962828987,
       "tag": "0058_token_aura",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1792975572116,
+      "tag": "0059_dice_appearance",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1792976498733,
+      "tag": "0060_saved_rolls",
+      "breakpoints": true
     }
   ]
 }

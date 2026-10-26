@@ -41,3 +41,4 @@ export { recoveryCodes, userTwoFactor } from '../modules/auth/two-factor.po';
 export { twoFactorChallenges } from '../modules/auth/two-factor-challenges.po';
 export { invitations } from '../modules/account-links/invitations.po';
 export { passwordResets } from '../modules/account-links/password-resets.po';
+export { savedRolls } from '../modules/saved-rolls/saved-rolls.po';

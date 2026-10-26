@@ -42,6 +42,7 @@ import { SceneWallsService } from '../modules/walls/scene-walls.service';
 import { createWallsModule } from '../modules/walls/walls.plugin';
 import { createScenesModule } from '../modules/scenes/scenes.plugin';
 import { createLibraryModule } from '../modules/library/library.plugin';
+import { createSavedRollsModule } from '../modules/saved-rolls/saved-rolls.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
 import { createMemberCardsModule } from '../modules/member-cards/member-cards.plugin';
 import { createPingsModule } from '../modules/pings/pings.plugin';
@@ -64,6 +65,7 @@ import { mailerOf, wireAccountSecurity } from './wire-account-security';
 import { serveClient } from './serve-client';
 import { trustProxyOf } from './trust-proxy';
 import { wireBackoffice } from './wire-backoffice';
+import { wireDice } from './wire-dice';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -143,6 +145,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
   const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
   await app.register(library.plugin, { prefix: API_PREFIX });
+  await app.register(createSavedRollsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;
   const avatars = new SharpAvatarProcessor();
   // Capped at the photo's limit: a larger link is cut while it downloads, not after.
@@ -268,6 +271,7 @@ function wireRealtime(
     log: app.log,
   });
   realtime.onConnection(board.gateway);
+  wireDice(realtime, { db, members, clock, log: app.log });
   return { ...outlets, profileChanged, campaignChanged, memberRoleChanged };
 }
 
