@@ -3,6 +3,18 @@ export const COMMANDS_PER_SECOND = 20;
 /** Commands a connection may send at once (a drag that ends, a few quick clicks). */
 export const COMMAND_BURST = 40;
 
+/** How many commands a bucket holds and how fast it refills; each gateway family may have its own. */
+export type CommandRateLimits = Readonly<{ burst: number; perSecond: number }>;
+
+/** The bucket every board and session command drains. */
+export const BOARD_RATE: CommandRateLimits = {
+  burst: COMMAND_BURST,
+  perSecond: COMMANDS_PER_SECOND,
+};
+
+/** The bucket of `dice:roll`, apart from the board's: a roll costs physics CPU on the server. */
+export const DICE_RATE: CommandRateLimits = { burst: 6, perSecond: 2 };
+
 /** A token bucket: `tokens` left, as of `updatedAtMs`. */
 export type CommandBucket = Readonly<{ tokens: number; updatedAtMs: number }>;
 
@@ -16,23 +28,25 @@ export type CommandRateOutcome = Readonly<{
 /** A bucket as a fresh connection gets it: full.
  *
  *  Example: `buckets.set(socket, fullBucket(clock.now().getTime()))` */
-export function fullBucket(nowMs: number): CommandBucket {
-  return { tokens: COMMAND_BURST, updatedAtMs: nowMs };
+export function fullBucket(nowMs: number, limits: CommandRateLimits = BOARD_RATE): CommandBucket {
+  return { tokens: limits.burst, updatedAtMs: nowMs };
 }
 
 /** Whether one more command of a connection passes the limit. The time comes in, so the rule
- *  has no clock; the bucket refills at 20 a second up to 40.
+ *  has no clock; the bucket refills at `limits.perSecond` up to `limits.burst` (20 a second up to
+ *  40 by default).
  *
- *  Example: `const outcome = new CommandRateBo(bucket).take(clock.now().getTime())` */
+ *  Example: `const outcome = new CommandRateBo(bucket, DICE_RATE).take(clock.now().getTime())` */
 export class CommandRateBo {
-  constructor(private readonly bucket: CommandBucket) {}
+  constructor(
+    private readonly bucket: CommandBucket,
+    private readonly limits: CommandRateLimits = BOARD_RATE,
+  ) {}
 
   take(nowMs: number): CommandRateOutcome {
+    const { burst, perSecond } = this.limits;
     const elapsedMs = Math.max(0, nowMs - this.bucket.updatedAtMs);
-    const refilled = Math.min(
-      COMMAND_BURST,
-      this.bucket.tokens + (elapsedMs * COMMANDS_PER_SECOND) / 1000,
-    );
+    const refilled = Math.min(burst, this.bucket.tokens + (elapsedMs * perSecond) / 1000);
     if (refilled >= 1) {
       return {
         allowed: true,
@@ -40,7 +54,7 @@ export class CommandRateBo {
         retryAfterSeconds: 0,
       };
     }
-    const waitMs = ((1 - refilled) * 1000) / COMMANDS_PER_SECOND;
+    const waitMs = ((1 - refilled) * 1000) / perSecond;
     return {
       allowed: false,
       bucket: { tokens: refilled, updatedAtMs: nowMs },

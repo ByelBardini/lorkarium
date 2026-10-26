@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BOARD_RATE,
   COMMAND_BURST,
   COMMANDS_PER_SECOND,
   CommandRateBo,
+  DICE_RATE,
   fullBucket,
 } from '../../src/realtime/command-rate.bo';
 
@@ -54,5 +56,41 @@ describe('CommandRateBo', () => {
   it('the bucket never refills above the burst', () => {
     const later = new CommandRateBo(fullBucket(T0)).take(T0 + 60_000);
     expect(later.bucket.tokens).toBe(COMMAND_BURST - 1);
+  });
+});
+
+describe('CommandRateBo with the dice limits', () => {
+  function diceBurst(times: number): ReturnType<CommandRateBo['take']> {
+    let outcome = new CommandRateBo(fullBucket(T0, DICE_RATE), DICE_RATE).take(T0);
+    for (let index = 1; index < times; index += 1) {
+      outcome = new CommandRateBo(outcome.bucket, DICE_RATE).take(T0);
+    }
+    return outcome;
+  }
+
+  it('the dice limits are 6 at once and 2 a second', () => {
+    expect(DICE_RATE).toEqual({ burst: 6, perSecond: 2 });
+  });
+
+  it('6 rolls at once pass and the 7th is refused, retrying in 1 s', () => {
+    expect(diceBurst(6).allowed).toBe(true);
+    expect(diceBurst(7)).toMatchObject({ allowed: false, retryAfterSeconds: 1 });
+  });
+
+  it('500 ms after the refused 7th, one more roll passes (2 a second)', () => {
+    const refused = diceBurst(7);
+
+    expect(new CommandRateBo(refused.bucket, DICE_RATE).take(T0 + 500).allowed).toBe(true);
+  });
+
+  it('499 ms after the refused 7th, it is still refused', () => {
+    const refused = diceBurst(7);
+
+    expect(new CommandRateBo(refused.bucket, DICE_RATE).take(T0 + 499).allowed).toBe(false);
+  });
+
+  it('without limits the bucket is the board one: 40 at once', () => {
+    expect(BOARD_RATE).toEqual({ burst: 40, perSecond: 20 });
+    expect(fullBucket(T0).tokens).toBe(40);
   });
 });
