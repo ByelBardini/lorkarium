@@ -1,6 +1,7 @@
 import type { StoreApi } from 'zustand/vanilla';
 import type { Clipboard } from '@/services/clipboard';
 import type { ProfileApi } from '@/services/profile-api';
+import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { SessionStore } from '@/stores/session-store';
 import type { AccountLoaderData } from './account-routes';
 import { ProfileSection } from './profile-section';
@@ -12,12 +13,13 @@ export type AccountPageProps = AccountLoaderData &
     profileApi: ProfileApi;
     sessionStore: StoreApi<SessionStore>;
     clipboard: Clipboard;
+    dicePreferences: StoreApi<DicePreferencesStore>;
   }>;
 
 /** "Minha conta": how the person shows up to the table (Perfil) and how they look after the
  *  account (Conta e segurança), one page under the shell, scrolled rather than tabbed.
  *
- *  Example: `<AccountPage {...useLoaderData()} now={now} profileApi={profileApi} sessionStore={sessionStore} clipboard={clipboard} />` */
+ *  Example: `<AccountPage {...useLoaderData()} now={now} profileApi={profileApi} sessionStore={sessionStore} clipboard={clipboard} dicePreferences={dicePreferences} />` */
 export function AccountPage(props: AccountPageProps): React.JSX.Element {
   const { profile } = props;
   return (
@@ -33,6 +35,7 @@ export function AccountPage(props: AccountPageProps): React.JSX.Element {
         profile={profile}
         profileApi={props.profileApi}
         sessionStore={props.sessionStore}
+        dicePreferences={props.dicePreferences}
       />
       <div className="pb-16">
         <SecuritySection

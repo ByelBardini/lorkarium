@@ -37,6 +37,11 @@ import type { Clipboard } from '@/services/clipboard';
 import type { FieldEditing } from '@/services/field-editing';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import type { PingCommands } from '@/services/table-pings';
+import type { DiceCommands } from '@/services/dice-commands';
+import type { SavedRollsApi } from '@/services/saved-rolls-api';
+import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
+import type { DiceRendererFactory } from '@/dice-renderer/dice-renderer';
+import type { DiceSoundFactory } from '@/dice-audio/dice-sound';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { AppUpdateStore } from '@/stores/app-update-store';
 import type { CreateBoardRenderer } from '@/renderer/board-renderer';
@@ -98,6 +103,19 @@ export type AppDependencies = Readonly<{
   boardCommands: TableBoardCommands;
   /** The ping of the board (`board:ping`), apart from the board commands. */
   pings: PingCommands;
+  /** The roll of a table (`dice:roll`); the result arrives as `dice:rolled` to everyone. */
+  dice: DiceCommands;
+  /** The session's own saved rolls at a table (REST). */
+  savedRolls: SavedRollsApi;
+  /** The dice history's own time (wall clock, `Date.now` in the app): the `revealAtMs` of each
+   *  roll is on it, and so is the open tables' `wallClock`. */
+  diceClock: InteractionClock;
+  /** "Dados 3D" on this device, remembered in the browser (on by default). */
+  dicePreferences: StoreApi<DicePreferencesStore>;
+  /** The 3D dice over the window; three.js loaded on demand in the app, a fake in tests. */
+  createDiceRenderer: DiceRendererFactory;
+  /** The knocks of the rolls; Web Audio in the app, a fake in tests. */
+  createDiceSound: DiceSoundFactory;
   /** The board's own time (the hover card's delay); the browser's in the app. */
   interactionClock: InteractionClock;
   /** The instant of the overline date; a parameter so tests fix the day. */

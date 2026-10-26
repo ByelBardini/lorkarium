@@ -112,4 +112,72 @@ describe('HttpProfileApi', () => {
     expect(await api.removeAvatar()).toEqual({ ok: true, value: ANA_PROFILE });
     expect(transport.requests[0]).toMatchObject({ method: 'DELETE', path: '/account/avatar' });
   });
+
+  describe('dice texture', () => {
+    it('uploadDiceTexture PUTs the file itself to /account/dice-texture and yields the profile', async () => {
+      const file = new File([new Uint8Array([1])], 'pedra.png', { type: 'image/png' });
+      transport.respondWith(200, { profile: ANA_PROFILE });
+      expect(await api.uploadDiceTexture(file)).toEqual({ ok: true, value: ANA_PROFILE });
+      expect(transport.requests).toEqual([
+        { method: 'PUT', path: '/account/dice-texture', body: file },
+      ]);
+    });
+
+    it.each([
+      [413, { code: 'DICE_TEXTURE_TOO_LARGE', message: 'x' }, 'dice_texture_too_large'],
+      [413, null, 'dice_texture_too_large'],
+      [415, { code: 'UNSUPPORTED_IMAGE', message: 'x' }, 'unsupported_image'],
+      [422, null, 'unsupported_image'],
+    ] as const)('uploadDiceTexture answered %i with %o fails as %s', async (status, body, kind) => {
+      transport.respondWith(status, body);
+      expect(await api.uploadDiceTexture(new Blob(['x'], { type: 'image/png' }))).toEqual({
+        ok: false,
+        failure: { kind },
+      });
+    });
+
+    it('diceTextureFromLink POSTs the link to /account/dice-texture/link', async () => {
+      transport.respondWith(200, { profile: ANA_PROFILE });
+      expect(await api.diceTextureFromLink('https://media.example.com/pedra.png')).toEqual({
+        ok: true,
+        value: ANA_PROFILE,
+      });
+      expect(transport.requests).toEqual([
+        {
+          method: 'POST',
+          path: '/account/dice-texture/link',
+          body: { url: 'https://media.example.com/pedra.png' },
+        },
+      ]);
+    });
+
+    it.each([
+      ['LINK_BLOCKED', 'link_blocked'],
+      ['LINK_UNREACHABLE', 'link_unreachable'],
+      ['LINK_NOT_IMAGE', 'link_not_image'],
+      ['DICE_TEXTURE_TOO_LARGE', 'dice_texture_too_large'],
+    ] as const)('diceTextureFromLink refused %s fails as %s', async (code, kind) => {
+      transport.respondWith(422, { code, message: 'x' });
+      expect(await api.diceTextureFromLink('https://x.com/a.png')).toEqual({
+        ok: false,
+        failure: { kind },
+      });
+    });
+
+    it('removeDiceTexture DELETEs /account/dice-texture and yields the profile', async () => {
+      transport.respondWith(200, { profile: ANA_PROFILE });
+      expect(await api.removeDiceTexture()).toEqual({ ok: true, value: ANA_PROFILE });
+      expect(transport.requests).toEqual([
+        { method: 'DELETE', path: '/account/dice-texture', body: undefined },
+      ]);
+    });
+
+    it('a photo answered 413 stays the photo refusal, never the texture one', async () => {
+      transport.respondWith(413, null);
+      expect(await api.uploadAvatar(new Blob(['x'], { type: 'image/png' }))).toEqual({
+        ok: false,
+        failure: { kind: 'avatar_too_large' },
+      });
+    });
+  });
 });

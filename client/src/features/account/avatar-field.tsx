@@ -12,7 +12,7 @@ import type { ProfileApi } from '@/services/profile-api';
 import type { SessionStore } from '@/stores/session-store';
 import { accountFailureMessage, type AccountFailure } from './account-messages';
 import { failureOf, useAccountFetcher } from './use-account-fetcher';
-import { useAvatarUpload, type AvatarUpload } from './use-avatar-upload';
+import { useAvatarUpload, type ProfileImageUpload } from './use-profile-image-upload';
 
 export type AvatarFieldProps = Readonly<{
   profile: ProfileDto;
@@ -121,7 +121,7 @@ type AvatarButtonsProps = Readonly<{
 }>;
 
 // The link field of the table images, over the photo's own send (its refusal shows below).
-function linkSenderOf(upload: AvatarUpload): ImageSender {
+function linkSenderOf(upload: ProfileImageUpload): ImageSender {
   return {
     accept: AVATAR_ACCEPT,
     busy: upload.sending,

@@ -13,10 +13,12 @@ import {
 } from './account-failure';
 import type { HttpTransport } from './http-transport';
 
-/** What a profile command can fail with; the photo has its own refusals (file and link). */
+/** What a profile command can fail with; the photo and the dice texture have their own refusals
+ *  (file and link). */
 export type ProfileFailure =
   | AccountCommonFailure
   | Readonly<{ kind: 'avatar_too_large' }>
+  | Readonly<{ kind: 'dice_texture_too_large' }>
   | Readonly<{ kind: 'unsupported_image' }>
   | Readonly<{ kind: 'link_blocked' }>
   | Readonly<{ kind: 'link_unreachable' }>
@@ -31,13 +33,20 @@ export interface ProfileApi {
   /** The photo from a web link (an animated GIF stays animated); the server downloads it. */
   avatarFromLink(url: string): Promise<AccountResult<ProfileDto, ProfileFailure>>;
   removeAvatar(): Promise<AccountResult<ProfileDto, ProfileFailure>>;
+  /** The dice texture from a file; the server keeps a still 512 × 512 WebP of it. */
+  uploadDiceTexture(file: Blob): Promise<AccountResult<ProfileDto, ProfileFailure>>;
+  diceTextureFromLink(url: string): Promise<AccountResult<ProfileDto, ProfileFailure>>;
+  /** Back to the dice in the profile color. */
+  removeDiceTexture(): Promise<AccountResult<ProfileDto, ProfileFailure>>;
 }
 
 const AVATAR_TOO_LARGE = { kind: 'avatar_too_large' } as const;
+const DICE_TEXTURE_TOO_LARGE = { kind: 'dice_texture_too_large' } as const;
 const UNSUPPORTED_IMAGE = { kind: 'unsupported_image' } as const;
 
 const PROFILE_FAILURE_BY_CODE = {
   AVATAR_TOO_LARGE,
+  DICE_TEXTURE_TOO_LARGE,
   UNSUPPORTED_IMAGE,
   LINK_BLOCKED: { kind: 'link_blocked' },
   LINK_UNREACHABLE: { kind: 'link_unreachable' },
@@ -45,10 +54,17 @@ const PROFILE_FAILURE_BY_CODE = {
 } as const;
 
 // A body cut by the server's own limit may not carry the code: the status still says it.
-const AVATAR_FAILURE_BY_STATUS: Readonly<Record<number, ProfileFailure>> = {
+type FailureByStatus = Readonly<Record<number, ProfileFailure>>;
+
+const AVATAR_FAILURE_BY_STATUS: FailureByStatus = {
   413: AVATAR_TOO_LARGE,
   415: UNSUPPORTED_IMAGE,
   422: UNSUPPORTED_IMAGE,
+};
+
+const DICE_TEXTURE_FAILURE_BY_STATUS: FailureByStatus = {
+  ...AVATAR_FAILURE_BY_STATUS,
+  413: DICE_TEXTURE_TOO_LARGE,
 };
 
 /** `ProfileApi` over HTTP: validates every answer by the contracts DTO.
@@ -68,25 +84,47 @@ export class HttpProfileApi implements ProfileApi {
   }
 
   async uploadAvatar(file: Blob): Promise<AccountResult<ProfileDto, ProfileFailure>> {
-    return profileOutcome(await callUpload(this.transport, '/account/avatar', file, 'PUT'));
+    const call = await callUpload(this.transport, '/account/avatar', file, 'PUT');
+    return profileOutcome(call, AVATAR_FAILURE_BY_STATUS);
   }
 
   async avatarFromLink(url: string): Promise<AccountResult<ProfileDto, ProfileFailure>> {
-    return profileOutcome(await callApi(this.transport, 'POST', '/account/avatar/link', { url }));
+    const call = await callApi(this.transport, 'POST', '/account/avatar/link', { url });
+    return profileOutcome(call, AVATAR_FAILURE_BY_STATUS);
   }
 
   async removeAvatar(): Promise<AccountResult<ProfileDto, ProfileFailure>> {
     return profileOutcome(await callApi(this.transport, 'DELETE', '/account/avatar'));
   }
+
+  async uploadDiceTexture(file: Blob): Promise<AccountResult<ProfileDto, ProfileFailure>> {
+    const call = await callUpload(this.transport, '/account/dice-texture', file, 'PUT');
+    return profileOutcome(call, DICE_TEXTURE_FAILURE_BY_STATUS);
+  }
+
+  async diceTextureFromLink(url: string): Promise<AccountResult<ProfileDto, ProfileFailure>> {
+    const call = await callApi(this.transport, 'POST', '/account/dice-texture/link', { url });
+    return profileOutcome(call, DICE_TEXTURE_FAILURE_BY_STATUS);
+  }
+
+  async removeDiceTexture(): Promise<AccountResult<ProfileDto, ProfileFailure>> {
+    return profileOutcome(await callApi(this.transport, 'DELETE', '/account/dice-texture'));
+  }
 }
 
-function profileOutcome(call: ApiCall): AccountResult<ProfileDto, ProfileFailure> {
+function profileOutcome(
+  call: ApiCall,
+  failureByStatus: FailureByStatus = {},
+): AccountResult<ProfileDto, ProfileFailure> {
   if (call.kind === 'ok') return profileOf(call.body);
-  return { ok: false, failure: profileFailureOf(call) };
+  return { ok: false, failure: profileFailureOf(call, failureByStatus) };
 }
 
-function profileFailureOf(call: Exclude<ApiCall, { kind: 'ok' }>): ProfileFailure {
-  const byStatus = call.kind === 'refused' ? AVATAR_FAILURE_BY_STATUS[call.response.status] : null;
+function profileFailureOf(
+  call: Exclude<ApiCall, { kind: 'ok' }>,
+  failureByStatus: FailureByStatus,
+): ProfileFailure {
+  const byStatus = call.kind === 'refused' ? failureByStatus[call.response.status] : null;
   const failure = commandFailureOf<ProfileFailure>(call, PROFILE_FAILURE_BY_CODE);
   return failure.kind === 'unexpected' && byStatus ? byStatus : failure;
 }

@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
-import { ANA_PROFILE, UPLOADED_AVATAR_ID } from '../../support/profile-api-fake';
+import {
+  ANA_PROFILE,
+  UPLOADED_AVATAR_ID,
+  UPLOADED_DICE_TEXTURE_ID,
+} from '../../support/profile-api-fake';
 
 describe('account route (/account)', () => {
   let deps: TestDependencies;
@@ -324,6 +328,150 @@ describe('account route (/account)', () => {
       expect(
         screen.queryByRole('region', { name: 'Alterações do perfil' }),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('dados', () => {
+    const TEXTURE_URL = `/api/dice-textures/${UPLOADED_DICE_TEXTURE_ID}`;
+
+    function png(bytes = 4): File {
+      return new File([new Uint8Array(bytes)], 'pedra.png', { type: 'image/png' });
+    }
+
+    function diceField(): HTMLElement {
+      return screen.getByRole('group', { name: 'Seus dados' });
+    }
+
+    function dicePreview(): HTMLElement {
+      return within(diceField()).getByRole('img', { name: 'Prévia do seu dado' });
+    }
+
+    function diceBase(): Element | null {
+      return dicePreview().querySelector('polygon');
+    }
+
+    function withTexture(): void {
+      deps.profileApi.profile = { ...ANA_PROFILE, diceTextureId: UPLOADED_DICE_TEXTURE_ID };
+    }
+
+    it('"Dados 3D" sits in Minha conta and turns off at once, outside the bar of changes', async () => {
+      await openAccount();
+      const toggle = screen.getByRole('switch', { name: 'Dados 3D' });
+      expect(toggle).toBeChecked();
+
+      await userEvent.click(toggle);
+
+      expect(toggle).not.toBeChecked();
+      expect(deps.dicePreferences.getState().threeD).toBe(false);
+      expect(screen.queryByRole('region', { name: 'Alterações do perfil' })).toBeNull();
+    });
+
+    it('the preview is a d20 in the profile color, with the number in automatic contrast', async () => {
+      await openAccount();
+      expect(diceBase()).toHaveAttribute('fill', '#5cc8c0');
+      expect(within(dicePreview()).getByTestId('dice-number')).toHaveAttribute('fill', '#1a1a1a');
+      expect(within(dicePreview()).queryByTestId('dice-texture')).toBeNull();
+      expect(within(diceField()).queryByLabelText('Cor do número')).toBeNull();
+    });
+
+    it('the preview follows the color picked before it is saved', async () => {
+      await openAccount();
+      const colors = screen.getByRole('radiogroup', { name: 'Sua cor no mapa' });
+      await userEvent.click(within(colors).getByRole('radio', { name: 'Ouro' }));
+      expect(diceBase()).toHaveAttribute('fill', '#e0b25c');
+    });
+
+    it('choosing a file shows "Enviando…", then the texture in the preview and "Cor do número"', async () => {
+      await openAccount();
+      const release = deps.profileApi.answers.hold('uploadDiceTexture');
+      const file = png();
+      await userEvent.upload(within(diceField()).getByLabelText('Arquivo de imagem'), file);
+      expect(await within(diceField()).findByText('Enviando…')).toBeInTheDocument();
+      withTexture();
+      await act(async () => release({ ok: true, value: deps.profileApi.profile }));
+      await waitFor(() =>
+        expect(within(dicePreview()).getByTestId('dice-texture')).toHaveAttribute(
+          'href',
+          TEXTURE_URL,
+        ),
+      );
+      expect(deps.profileApi.answers.callsOf('uploadDiceTexture')).toEqual([file]);
+      expect(within(dicePreview()).getByTestId('dice-number')).toHaveAttribute('fill', '#ffffff');
+      expect(within(diceField()).getByLabelText('Cor do número')).toHaveValue('#ffffff');
+      expect(
+        screen.queryByRole('region', { name: 'Alterações do perfil' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('"Cor do número" enters the bar of changes and is saved by the PATCH alone', async () => {
+      withTexture();
+      await openAccount();
+      fireEvent.change(within(diceField()).getByLabelText('Cor do número'), {
+        target: { value: '#ff3366' },
+      });
+      expect(within(dicePreview()).getByTestId('dice-number')).toHaveAttribute('fill', '#ff3366');
+      const bar = screen.getByRole('region', { name: 'Alterações do perfil' });
+      await userEvent.click(within(bar).getByRole('button', { name: 'Salvar alterações' }));
+      expect(await screen.findByText('Tudo salvo.')).toBeInTheDocument();
+      expect(deps.profileApi.answers.callsOf('update')).toEqual([{ diceNumberColor: '#ff3366' }]);
+      expect(within(diceField()).getByLabelText('Cor do número')).toHaveValue('#ff3366');
+    });
+
+    it('"Tirar textura" goes back to the color, without "Cor do número" nor the bar', async () => {
+      withTexture();
+      await openAccount();
+      await userEvent.click(within(diceField()).getByRole('button', { name: 'Tirar textura' }));
+      await waitFor(() => expect(within(dicePreview()).queryByTestId('dice-texture')).toBeNull());
+      expect(deps.profileApi.answers.callsOf('removeDiceTexture')).toHaveLength(1);
+      expect(diceBase()).toHaveAttribute('fill', '#5cc8c0');
+      expect(within(diceField()).queryByLabelText('Cor do número')).toBeNull();
+      expect(
+        screen.queryByRole('region', { name: 'Alterações do perfil' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('a file of 6 MB says "A imagem passa de 5 MB." without sending', async () => {
+      await openAccount();
+      const input = within(diceField()).getByLabelText('Arquivo de imagem');
+      await userEvent.upload(input, png(6 * 1024 * 1024));
+      expect(within(diceField()).getByRole('alert')).toHaveTextContent('A imagem passa de 5 MB.');
+      expect(deps.profileApi.answers.callsOf('uploadDiceTexture')).toEqual([]);
+    });
+
+    it('a link refused says why in the field alert, with the link still typed', async () => {
+      deps.profileApi.answers.answer('diceTextureFromLink', {
+        ok: false,
+        failure: { kind: 'link_not_image' },
+      });
+      await openAccount();
+      await userEvent.click(
+        within(diceField()).getByRole('button', { name: 'Usar link de imagem' }),
+      );
+      const link = within(diceField()).getByRole('textbox', { name: 'Link da imagem' });
+      await userEvent.type(link, 'https://x.com/pagina{Enter}');
+      expect(await within(diceField()).findByRole('alert')).toHaveTextContent(
+        'Esse link não é de uma imagem. Abra a imagem (ou o GIF) e copie o endereço dela.',
+      );
+      expect(link).toHaveValue('https://x.com/pagina');
+      expect(deps.profileApi.answers.callsOf('diceTextureFromLink')).toEqual([
+        'https://x.com/pagina',
+      ]);
+    });
+
+    it('a link kept shows the texture and closes the link field', async () => {
+      await openAccount();
+      await userEvent.click(
+        within(diceField()).getByRole('button', { name: 'Usar link de imagem' }),
+      );
+      const link = within(diceField()).getByRole('textbox', { name: 'Link da imagem' });
+      await userEvent.type(link, 'https://media.example.com/pedra.png{Enter}');
+      await waitFor(() =>
+        expect(within(dicePreview()).getByTestId('dice-texture')).toHaveAttribute(
+          'href',
+          TEXTURE_URL,
+        ),
+      );
+      expect(within(diceField()).queryByRole('textbox', { name: 'Link da imagem' })).toBeNull();
     });
   });
 });

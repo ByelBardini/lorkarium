@@ -11,9 +11,12 @@ import {
   type UnsavedChangesState,
 } from '@/lib/unsaved-changes';
 import type { ProfileApi } from '@/services/profile-api';
+import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { SessionStore } from '@/stores/session-store';
 import { accountFailureMessage } from './account-messages';
 import { AvatarField } from './avatar-field';
+import { DiceDeviceSwitches } from './dice-device-switches';
+import { DiceAppearanceField } from './dice-appearance-field';
 import { LeaveWithoutSavingDialog } from './leave-without-saving-dialog';
 import { ProfileColorField } from './profile-color-field';
 import { ProfilePreview } from './profile-preview';
@@ -25,12 +28,14 @@ export type ProfileSectionProps = Readonly<{
   profile: ProfileDto;
   profileApi: ProfileApi;
   sessionStore: StoreApi<SessionStore>;
+  dicePreferences: StoreApi<DicePreferencesStore>;
 }>;
 
-/** "Perfil": photo, nickname, the read-only @, color and "Sobre você", with the preview beside
- *  from `lg`. Nickname, color and bio wait in a draft for the bar; leaving with edits asks first.
+/** "Perfil": photo, nickname, the read-only @, color, "Sobre você", "Seus dados" and "Dados 3D",
+ *  with the preview beside from `lg`. Nickname, color, bio and the dice number color wait in a
+ *  draft for the bar; leaving with edits asks first.
  *
- *  Example: `<ProfileSection profile={profile} profileApi={profileApi} sessionStore={sessionStore} />` */
+ *  Example: `<ProfileSection profile={profile} profileApi={profileApi} sessionStore={sessionStore} dicePreferences={dicePreferences} />` */
 export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
   const { profile } = props;
   const draft = useProfileDraft(profile);
@@ -56,6 +61,13 @@ export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
               sessionStore={props.sessionStore}
             />
             <ProfileFields draft={draft} username={profile.username} />
+            <DiceAppearanceField
+              profile={profile}
+              draft={draft}
+              profileApi={props.profileApi}
+              sessionStore={props.sessionStore}
+            />
+            <DiceDeviceSwitches dicePreferences={props.dicePreferences} />
           </div>
           <ProfilePreview
             {...draft.values}
