@@ -21,7 +21,10 @@ export function splashElementsOf(root: Document): SplashElements {
   };
 }
 
-function requireElement(root: Document, id: string): HTMLElement {
+/** One node of `index.html` by id; a missing one is a packaging bug.
+ *
+ *  Example: `requireElement(document, 'splash-title')` */
+export function requireElement(root: Document, id: string): HTMLElement {
   const element = root.getElementById(id);
   if (element === null) throw new Error(`splash sem o elemento #${id}; esperado em index.html`);
   return element;

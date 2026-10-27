@@ -50,6 +50,11 @@ describe('deviceOf', () => {
       { browser: 'lorkarium', os: 'windows', formFactor: 'desktop' },
     ],
     [
+      'the desktop app with its own title bar (LorkariumTitleBar mark after the version)',
+      `${LORKARIUM_DESKTOP} LorkariumTitleBar/1`,
+      { browser: 'lorkarium', os: 'windows', formFactor: 'desktop' },
+    ],
+    [
       'WebView2 without the app suffix is still Edge',
       WEBVIEW2_WINDOWS,
       { browser: 'edge', os: 'windows', formFactor: 'desktop' },

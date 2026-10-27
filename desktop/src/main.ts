@@ -4,7 +4,9 @@ import './splash.css';
 import { TauriShellBridge } from './shell-bridge';
 import { startSplash } from './splash-controller';
 import { splashElementsOf } from './splash-render';
+import { splashTitleBarOf, wireSplashTitleBar } from './splash-title-bar';
 
-void startSplash(new TauriShellBridge(), splashElementsOf(document), (problem) =>
-  console.warn(problem),
-);
+const bridge = new TauriShellBridge();
+const warn = (problem: string): void => console.warn(problem);
+wireSplashTitleBar(bridge, splashTitleBarOf(document), warn);
+void startSplash(bridge, splashElementsOf(document), warn);

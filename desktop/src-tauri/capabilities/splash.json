@@ -1,12 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "splash",
-  "description": "Only the local splash talks to the shell; the remote site gets no IPC at all.",
+  "description": "The local splash starts the shell and drives its own title bar; the remote site only gets the window controls (window_controls.rs).",
   "local": true,
   "windows": ["main"],
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
     "allow-begin-startup",
     "allow-retry-connection"
   ]

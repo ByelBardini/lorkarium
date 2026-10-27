@@ -1,4 +1,6 @@
 use std::future::Future;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use serde::Serialize;
@@ -54,6 +56,49 @@ pub trait UpdateSource: Sync {
 
 pub trait HealthProbe: Sync {
     fn probe(&self) -> impl Future<Output = HealthStatus> + Send;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StartupBegin {
+    Run,
+    Deliver(StartupEvent),
+    AlreadyStarted,
+}
+
+/// Whether the opening already ran and what the splash must show when the site sent the window back to it.
+#[derive(Debug, Default)]
+pub struct StartupGate {
+    started: AtomicBool,
+    pending: Mutex<Option<StartupEvent>>,
+}
+
+impl StartupGate {
+    /// The first call runs the opening; later ones deliver the pending return once, or do nothing
+    /// (a reload of the splash never reruns the update).
+    ///
+    /// Example: `match gate.begin() { StartupBegin::Run => run_startup(…).await, … }`
+    pub fn begin(&self) -> StartupBegin {
+        if !self.started.swap(true, Ordering::SeqCst) {
+            return StartupBegin::Run;
+        }
+        match self.pending_slot().take() {
+            Some(event) => StartupBegin::Deliver(event),
+            None => StartupBegin::AlreadyStarted,
+        }
+    }
+
+    /// Records the view the splash shows after a failed load of the site sent the window back to it.
+    ///
+    /// Example: `gate.send_back(StartupEvent::Offline)`
+    pub fn send_back(&self, event: StartupEvent) {
+        *self.pending_slot() = Some(event);
+    }
+
+    fn pending_slot(&self) -> std::sync::MutexGuard<'_, Option<StartupEvent>> {
+        self.pending
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
 }
 
 /// The whole opening: update first (bounded by `update_timeout`, never blocking play), then the server.
@@ -395,6 +440,42 @@ mod tests {
         assert_eq!(outcome, StartupOutcome::Navigate);
         assert_eq!(events, vec![StartupEvent::Connecting]);
         assert_eq!(health.calls(), 2);
+    }
+
+    #[test]
+    fn first_begin_runs_the_opening() {
+        assert_eq!(StartupGate::default().begin(), StartupBegin::Run);
+    }
+
+    #[test]
+    fn reload_of_the_splash_without_a_return_does_nothing() {
+        let gate = StartupGate::default();
+        gate.begin();
+
+        assert_eq!(gate.begin(), StartupBegin::AlreadyStarted);
+    }
+
+    #[test]
+    fn return_from_the_site_is_delivered_once_and_then_waits_for_retry() {
+        let gate = StartupGate::default();
+        gate.begin();
+        gate.send_back(StartupEvent::ServerUnavailable);
+
+        assert_eq!(
+            gate.begin(),
+            StartupBegin::Deliver(StartupEvent::ServerUnavailable)
+        );
+        assert_eq!(gate.begin(), StartupBegin::AlreadyStarted);
+    }
+
+    #[test]
+    fn latest_return_wins_when_the_site_failed_twice() {
+        let gate = StartupGate::default();
+        gate.begin();
+        gate.send_back(StartupEvent::ServerUnavailable);
+        gate.send_back(StartupEvent::Offline);
+
+        assert_eq!(gate.begin(), StartupBegin::Deliver(StartupEvent::Offline));
     }
 
     #[test]

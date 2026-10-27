@@ -106,7 +106,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | legal            | Termos e Privacidade no app: redirect à landing, aceite no convite, versão       | [`docs/context/legal.md`](docs/context/legal.md)                       |
 | client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho           | [`docs/context/client.md`](docs/context/client.md)                     |
 | ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo   | [`docs/context/ci.md`](docs/context/ci.md)                             |
-| desktop          | Casca Tauri 2: sem moldura, splash, updater, origem, WebView2, bandeja, release  | [`docs/context/desktop.md`](docs/context/desktop.md)                   |
+| desktop          | Casca Tauri 2 sem moldura: splash, updater, WebView2, bandeja, release, instalar | [`docs/context/desktop.md`](docs/context/desktop.md)                   |
 | site             | Landing comercial: Astro estático, download do .exe pela API do GitHub, legais   | [`docs/context/site.md`](docs/context/site.md)                         |
 | brand            | Pacote da marca: paleta crua, fontes self-host, logo                             | [`docs/context/brand.md`](docs/context/brand.md)                       |
 | deploy           | Runbook: imagem, Coolify, AWS S3 e IAM, envs, DNS, primeiro deploy, voltar       | [`docs/context/deploy.md`](docs/context/deploy.md)                     |

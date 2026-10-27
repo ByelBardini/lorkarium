@@ -10,12 +10,22 @@ pub const MAIN_WINDOW: &str = "main";
 // Where Tauri serves the packaged splash on Windows (the default, non-https scheme).
 const PACKAGED_SPLASH: &str = "http://tauri.localhost/";
 
+/// The two places the window may show, the splash depending on dev or packaged build.
+///
+/// Example: `let origins = main_window::shell_origins(app.handle(), app_origin)`
+pub fn shell_origins<R: Runtime>(app: &AppHandle<R>, app_origin: AppOrigin) -> ShellOrigins {
+    ShellOrigins {
+        app: app_origin,
+        splash: splash_url(app),
+    }
+}
+
 /// Opens the one window of the app, from `tauri.conf.json` (`create: false`), held to the lorkarium origin.
 ///
-/// Example: `main_window::create(app.handle(), app_origin)?`
+/// Example: `main_window::create(app.handle(), origins.clone())?`
 pub fn create<R: Runtime>(
     app: &AppHandle<R>,
-    app_origin: AppOrigin,
+    origins: ShellOrigins,
 ) -> tauri::Result<WebviewWindow<R>> {
     let config = app
         .config()
@@ -25,10 +35,6 @@ pub fn create<R: Runtime>(
         .find(|window| window.label == MAIN_WINDOW)
         .cloned()
         .expect("tauri.conf.json sem a janela \"main\"");
-    let origins = ShellOrigins {
-        app: app_origin,
-        splash: splash_url(app),
-    };
     let on_navigation = navigation_guard(app.clone(), origins.clone());
     let on_new_window = new_window_guard(app.clone(), origins);
     let window = WebviewWindowBuilder::from_config(app, &config)?

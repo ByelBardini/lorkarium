@@ -6,7 +6,7 @@
 
 - **Mesma origem do navegador**: o cookie `lk_session` (`SameSite=Lax`), o handshake do Socket.IO (`Origin` == `Host`, ver [`server.md`](server.md)) e as imagens do WebGL servidas pela origem ([`assets.md`](assets.md)) seguem sem mudança. Um front em `http://tauri.localhost` seria outra origem: o cookie Lax não iria e `SameSite=None` exige `Secure`.
 - Cada deploy do front chega ao app sem instalador: o client nota o build novo e recarrega quando é seguro (janela na bandeja, próxima rota) ou pelo aviso "Recarregar" — sem isso valia só pelo "Sair" da bandeja, já que o F5 está desligado ([`client/app-update.md`](client/app-update.md)). O updater só troca a casca (raro).
-- Custo aceito: sem rede nada abre (a splash mostra "Sem conexão"), e a página remota **não tem IPC** — recurso nativo novo exige liberar a origem numa capability.
+- Custo aceito: sem rede nada abre (a splash mostra "Sem conexão"), e a página remota só tem o IPC dos controles da janela (ver Segurança) — recurso nativo novo exige liberar a origem numa capability.
 
 ## Estrutura
 
@@ -19,7 +19,7 @@ desktop/
   scripts/                # installer-art.ts (logo + "LORKARIUM" em Cinzel pelo Chromium → BMP) e bmp-encoder.ts (BMP 24 bits puro; o sharp não grava BMP); rodam direto no Node, por isso o import relativo leva `.ts` (allowImportingTsExtensions)
   src-tauri/
     build.rs              # valida LORKARIUM_APP_URL com o próprio app_origin.rs (#[path]) e gera as permissões dos comandos
-    tauri.conf.json       # janela "main" (create: false), NSIS, updater
+    tauri.conf.json       # janela "main" (create: false, decorations: false), NSIS, updater
     capabilities/splash.json
     icons/                # gerados de client/public/favicon.svg (só os do Windows); icon.ico também é o installerIcon do NSIS
     nsis/installer.nsi    # cópia do template NSIS do Tauri 2.12.4 (bundle.windows.nsis.template); só as páginas trocadas, marcadas "Lorkarium:"
@@ -32,14 +32,16 @@ desktop/
       lib.rs              # run(): plugins, comandos, setup da janela
       app_origin.rs       # AppOrigin::parse(url, BuildProfile) e contains(url)
       navigation.rs       # navigation_decision / new_window_decision (puras)
-      main_window.rs      # cria a janela pelo config, liga on_navigation/on_new_window, X esconde (hide_on_close), focus()
-      webview2.rs         # desktop_user_agent, clipboard_read_permission (puras) + harden() (COM, #[cfg(windows)])
-      startup.rs          # run_startup / check_connection sobre UpdateSource, PendingUpdate, HealthProbe (traits)
-      startup_commands.rs # comandos begin_startup / retry_connection + bordas reais (updater, GET /api/health)
+      main_window.rs      # shell_origins(), cria a janela pelo config, on_navigation/on_new_window, X esconde (hide_on_close), focus()
+      webview2.rs         # desktop_user_agent, clipboard_read_permission (puras) + harden() (COM, #[cfg(windows)], NavigationCompleted)
+      window_controls.rs  # REMOTE_WINDOW_PERMISSIONS, remote_url_pattern (puras) + install(): capability remota do site
+      load_failure.rs     # load_failure_of(&CompletedLoad, &ShellOrigins) (pura): carga do site que falhou → visão da splash
+      startup.rs          # run_startup / check_connection sobre UpdateSource, PendingUpdate, HealthProbe (traits); StartupGate
+      startup_commands.rs # comandos begin_startup / retry_connection, send_back_to_splash + bordas reais (updater, health)
       tray.rs             # ícone na bandeja: tray_menu_action / tray_click_action (puras) + install()
 ```
 
-Splash (`desktop/src/`): `shell-events.ts` (`readShellEvent`: Zod do payload vindo do Rust), `splash-state.ts` (`splashViewOf(previous, event)`), `splash-render.ts` (desenha no DOM do `index.html`), `splash-controller.ts` (`startSplash`: escuta antes de pedir o início), `shell-bridge.ts` (`ShellBridge` + `TauriShellBridge`, o único lugar com `@tauri-apps/api`), `splash.css` (tokens copiados de `client/src/index.css`; outro workspace, sem CSS compartilhado).
+Splash (`desktop/src/`): `splash-title-bar.ts` (`splashTitleBarOf` + `wireSplashTitleBar`: a barra própria, ver Sem moldura), `shell-events.ts` (`readShellEvent`: Zod do payload vindo do Rust), `splash-state.ts` (`splashViewOf(previous, event)`), `splash-render.ts` (desenha no DOM do `index.html`), `splash-controller.ts` (`startSplash`: escuta antes de pedir o início), `shell-bridge.ts` (`ShellBridge` + `TauriShellBridge`, o único lugar com `@tauri-apps/api`: comandos do startup e `minimizeWindow`/`toggleMaximizeWindow`/`closeWindow` pelo `getCurrentWindow()`), `splash.css` (tokens copiados de `client/src/index.css`; outro workspace, sem CSS compartilhado).
 
 ## `LORKARIUM_APP_URL` e `AppOrigin`
 
@@ -65,8 +67,9 @@ Splash (`desktop/src/`): `shell-events.ts` (`readShellEvent`: Zod do payload vin
 - `AreDefaultContextMenusEnabled(false)`: botão direito não mostra o menu do navegador. Os menus do Radix (token, cena) seguem, porque são JS. Nos campos de texto o client desenha o menu dele ([`client/text-field-menu.md`](client/text-field-menu.md)).
 - `AreBrowserAcceleratorKeysEnabled(false)`: F5/Ctrl+R, Ctrl+P, Ctrl+F/F3, F12, Ctrl+Shift+I, zoom por teclado. **Ctrl+C/V/X/Z/A seguem vivos de propósito** (não são aceleradores de navegador): desfazer dos desenhos e edição de texto dependem deles.
 - `zoomHotkeysEnabled: false` no config desliga `IsZoomControlEnabled` e a pinça (o wry usa o mesmo valor): Ctrl+roda dá zoom no tabuleiro, nunca na página.
-- User-agent **acrescido** de ` LorkariumDesktop/<versão>` (`desktop_user_agent`, sem duplicar). Nunca substituir: PixiJS e libs leem `Chrome/`/`Edg/`. O server reconhece o sufixo ("Lorkarium para Windows" em Sessões ativas, ver [`account-security.md`](account-security.md)) e o client também (`isDesktopShell`, `client/src/lib/desktop-shell.ts`).
+- User-agent **acrescido** de ` LorkariumDesktop/<versão> LorkariumTitleBar/1` (`desktop_user_agent`, sem duplicar nenhuma das duas; UA de casca antiga só ganha a marca). Nunca substituir: PixiJS e libs leem `Chrome/`/`Edg/`. A marca `LorkariumTitleBar/1` diz ao client que a janela não tem moldura e que ele desenha a barra (casca antiga, sem a marca → barra nativa e nenhum IPC). O server reconhece o `LorkariumDesktop/<d>` ("Lorkarium para Windows" em Sessões ativas, ver [`account-security.md`](account-security.md)) e o client também (`isDesktopShell`, `client/src/lib/desktop-shell.ts`).
 - `PermissionRequested`: `CLIPBOARD_READ` concedida **só** para a origem do app (`clipboard_read_permission`); o resto fica no padrão (pedido do navegador). É o que deixa o "Colar" do menu dos campos usar `navigator.clipboard.readText` sem pedido. Recusada, o `readText` do client devolve `null` e o "Colar" não faz nada.
+- **Sem moldura** (`decorations: false`; sombra nativa no padrão): quem desenha a barra é a página. O wry 0.57 liga `IsNonClientRegionSupportEnabled`, então o CSS `app-region: drag` vira barra de título de verdade (arrastar, duplo clique maximiza, menu do sistema no botão direito, encaixe) sem IPC; o clicável leva `app-region: no-drag`. A splash tem a barra dela (`#splash-titlebar`, 38 px, só os 3 controles de 46 px, ícones de 10 px com traço de 1 px, fechar com hover `--destructive`, `tabindex="-1"`, `aria-label` "Minimizar"/"Maximizar"/"Fechar"); o site desenha a dele ([`client/title-bar.md`](client/title-bar.md)). Os botões chamam `minimize`/`toggleMaximize`/`close` da janela `main`; o `close` cai no `CloseRequested` e só esconde na bandeja.
 - **Bandeja do Windows** (`tray.rs`, feature `tray-icon` do crate `tauri`): o X da janela (`CloseRequested`) só **esconde** a janela (`prevent_close` + `hide`); o app segue rodando ao lado do relógio. Clique esquerdo no ícone → volta a janela; botão direito → menu "Abrir o Lorkarium" / "Sair". Só o "Sair" encerra (`app.exit(0)`; o `window-state` grava no `Exit`).
 - Plugins: `single-instance` (segunda abertura, inclusive com a janela escondida na bandeja, mostra e foca a mesma janela: `main_window::focus` faz `unminimize` + `show` + `set_focus`; nunca sobe outro processo) e `window-state` (tamanho, posição, maximizado). Devtools só no debug (padrão do Tauri).
 
@@ -79,8 +82,14 @@ splash carrega → escuta "startup" → invoke begin_startup (uma vez; recarga n
                                                               ├─ 2xx  → navega para a origem
                                                               ├─ outro status → server-unavailable ("em manutenção") ┐
                                                               └─ erro de rede → offline ("Sem conexão")             ┴→ "Tentar de novo" → retry_connection → connecting …
+
+site aberto → carga na origem do app falha (NavigationCompleted) → load_failure_of
+  ├─ sem resposta HTTP (rede) → Offline           ┐ send_back_to_splash: StartupGate.send_back(visão) + navega à splash
+  ├─ status ≥ 500             → ServerUnavailable ┘ → splash escuta → begin_startup entrega a visão uma vez → "Tentar de novo"
+  └─ OPERATION_CANCELED, < 500, a splash, outra origem → nada
 ```
 
+- `StartupGate` (`startup.rs`): o 1º `begin_startup` roda a abertura (`Run`); depois, com retorno pendente, entrega a visão uma vez (`Deliver`); sem pendente, nada (`AlreadyStarted`: recarga da splash não refaz o update). Retorno novo substitui o anterior. A navegação de volta sai do handler COM por `async_runtime::spawn`.
 - Eventos casca → splash: `StartupEvent` (`startup.rs`, serde `tag = "kind"`, kebab-case) no evento `startup`; a splash valida com `readShellEvent` e evento ilegível **mantém a tela** (casca × splash de versões diferentes).
 - **A checagem tem prazo e nunca bloqueia**: atualização falha, demora ou baixa pela metade → segue para o health (`update_problem` vai para o stderr). Só a checagem tem prazo; download começado vai até o fim.
 - Progresso é emitido a cada 256 KiB (`PROGRESS_STEP`), não por chunk de rede. `total` nulo (sem `Content-Length`) → barra indeterminada; `downloaded > total` → 100.
@@ -89,13 +98,14 @@ splash carrega → escuta "startup" → invoke begin_startup (uma vez; recarga n
 
 ## Segurança (IPC)
 
-- Só a `capabilities/splash.json` existe: janela `main`, `local: true`, `core:event:allow-listen/unlisten`, `allow-begin-startup`, `allow-retry-connection`. As permissões dos comandos vêm do `AppManifest` no `build.rs` — comando novo precisa entrar lá **e** na capability.
-- O site remoto não casa com nenhuma capability: `invoke` dele é recusado ("not allowed … allowed on: URL: local").
+- `capabilities/splash.json`: janela `main`, `local: true`, `core:event:allow-listen/unlisten`, `core:window:allow-minimize/toggle-maximize/close` (a barra da splash), `allow-begin-startup`, `allow-retry-connection`. As permissões dos comandos vêm do `AppManifest` no `build.rs` — comando novo precisa entrar lá **e** na capability.
+- **Capability remota do site** (`window_controls::install`, no setup, logo depois de criar a janela): `CapabilityBuilder` + `Manager::add_capability` (feature `dynamic-acl`, padrão do `tauri`) em tempo de execução, porque a origem só existe no build. Id `app-window-controls`, janela `main`, `local(false)`, `remote` = `remote_url_pattern(&AppOrigin)` (`https://lorkarium.app/*`; no dev `http://localhost:5173/*`). Libera exatamente `REMOTE_WINDOW_PERMISSIONS`: `core:window:allow-minimize`, `-toggle-maximize`, `-close`, `-is-maximized`, `core:event:allow-listen`, `-unlisten` (o `onResized` do client). Nunca `allow-destroy` (o X só esconde), `set-*` ou `start-dragging` (o arraste é CSS); os comandos do startup ficam fora do alcance do site.
+- Qualquer outro `invoke` do site é recusado ("not allowed … allowed on: URL: local").
 
 ## Testes
 
-- Rust: `#[cfg(test)] mod tests` dentro de cada módulo puro (`app_origin`, `navigation`, `webview2`, `startup`, `tray`). O `startup` roda sobre fakes nomeados (`UpdateSourceFake` com `UpToDate`/`Fails`/`Hangs`/`Offers`, `UpdateFake`, `HealthProbeFake::answering([...])`) e `tauri::async_runtime::block_on`; o prazo da checagem entra por parâmetro (50 ms no teste). Borda (COM, updater, HTTP, janela) não tem teste: fica fina de propósito.
-- Splash: `desktop/test/*.spec.ts`. `ShellBridgeFake` (`calls`, `emit(payload)`) e `loadSplashDocument()` (o `index.html` real no jsdom, `// @vitest-environment jsdom` por arquivo) em `test/support/`; o `shell-bridge.spec.ts` usa o `mockIPC(…, { shouldMockEvents: true })` do `@tauri-apps/api/mocks` para provar os nomes de comando e do evento.
+- Rust: `#[cfg(test)] mod tests` dentro de cada módulo puro (`app_origin`, `navigation`, `webview2`, `window_controls`, `load_failure`, `startup` com o `StartupGate`, `tray`). O `startup` roda sobre fakes nomeados (`UpdateSourceFake` com `UpToDate`/`Fails`/`Hangs`/`Offers`, `UpdateFake`, `HealthProbeFake::answering([...])`) e `tauri::async_runtime::block_on`; o prazo da checagem entra por parâmetro (50 ms no teste). Borda (COM, updater, HTTP, janela) não tem teste: fica fina de propósito.
+- Splash: `desktop/test/*.spec.ts`. `ShellBridgeFake` (`calls`, `emit(payload)`) e `loadSplashDocument()` (o `index.html` real no jsdom, `// @vitest-environment jsdom` por arquivo) em `test/support/`; o `shell-bridge.spec.ts` usa o `mockIPC(…, { shouldMockEvents: true })` + `mockWindows('main')` do `@tauri-apps/api/mocks` para provar os nomes de comando (`plugin:window|minimize`/`toggle_maximize`/`close` na janela `main`) e do evento. `splash-title-bar.spec.ts` prova botões e Tab e lê o `splash.css` para o `app-region` (o jsdom não aplica a propriedade).
 - Instalador: `test/scripts/bmp-encoder.spec.ts` (cabeçalho, padding, BGR de baixo para cima) e `test/installer/nsis-template.spec.ts` (guarda do template, ver Instalador). As telas NSIS não têm teste automático: conferir rodando o setup.
 
 ## Comandos
@@ -120,18 +130,10 @@ Sem certificado de código: a 1ª instalação passa pelo SmartScreen ("Executar
 
 ## Instalador (NSIS próprio)
 
-Um clique, janela escura de 520×420 em escala, logo fixo no topo (`hero-<escala>.bmp` pelo DPI), sem os botões do assistente e com a barra de título escura (DWM). Instalador: tela única → barra → "Tudo pronto.". Pasta sempre a padrão; versão instalada é atualizada no lugar, sem desinstalar antes (como o updater). O botão segue a comparação com o registro: Instalar, Atualizar, Reinstalar, "Instalar mesmo assim" (downgrade, permitido pelo padrão `allowDowngrades: true`; com `false` vira "Fechar"). No `passive` (updater) as telas pulam e só a barra aparece. Desinstalador: confirmação → barra → despedida. Só `nsDialogs` e `System::Call`, sem plugin de skin.
-
-- O "botão" é um `STATIC` com `SS_NOTIFY` (Win32 não pinta botão sem owner-draw); o Enter segue pelo Next escondido. Funções do desinstalador levam `un.`: `LK_CHROME_FUNCTIONS UN` é inserido uma vez por lado.
-- Atalho da área de trabalho e o auto-avanço do desinstalador entram pelos hooks (`NSIS_HOOK_POSTINSTALL` / `NSIS_HOOK_POSTUNINSTALL`), não pela cópia do template. O ícone do desinstalador é o `installerIcon`, definido em `LK_PAGE_HOME` (o MUI fixa o ícone já na primeira página).
-- "Apagar também os dados" (desmarcado por padrão; nunca no `/S`) apaga `%APPDATA%` e `%LOCALAPPDATA%\app.lorkarium.desktop` (o perfil do WebView2, com o cookie de login) e as chaves do registro. As mesas ficam no server.
-- **Atualizar o `@tauri-apps/cli`**: o `desktop/test/installer/nsis-template.spec.ts` falha de propósito (o cabeçalho cita `tauri-cli-v<versão>`), inclusive no PR do grupo minor/patch do Dependabot, que vem vermelho. Baixar o `installer.nsi` da tag nova, comparar com a cópia fora dos trechos `Lorkarium:`, portar o que mudou e trocar a versão no cabeçalho. O spec também confere os marcadores do updater, as macros `LK_*` e o BOM dos `.nsh`.
-- Testar: em `desktop/`, `LORKARIUM_APP_URL=https://… pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` (sem as chaves do updater; ou o `makensis` direto, ver Armadilhas), rodar o setup, e para o updater `<setup>.exe /P /UPDATE`. Silencioso: `/S` no setup e no `uninstall.exe`.
+Um clique, janela escura, tela única (Instalar / Atualizar / Reinstalar / "Instalar mesmo assim"), só `nsDialogs` e `System::Call`. Detalhe, teste e armadilhas do NSIS: [`desktop/instalador.md`](desktop/instalador.md).
 
 ## Armadilhas
 
-- **Build de teste do instalador se atualiza sozinho**: com versão 0.x, ao abrir o app instalado o updater acha a release publicada e reinstala por cima (passive). Testar as telas sem abrir o app, ou carimbar a versão. Para iterar no NSIS sem recompilar o Rust: editar `nsis/*.nsh` e rodar o `makensis` do Tauri (`%LOCALAPPDATA%\tauri\NSIS\Bin\makensis.exe -INPUTCHARSET UTF8`) no `target/release/nsis/x64/installer.nsi` gerado, que inclui os `.nsh` por caminho absoluto.
-- **NSIS e cor de texto**: `SetCtlColors` não pega no status do instfiles (1006) nem no texto de checkbox com tema (fica preto no fundo escuro); por isso a linha de status e o rótulo do atalho são controles nossos. Os `.nsh` com acento ficam em UTF-8 **com BOM**.
 - **Escondido na bandeja o site continua vivo**: o Socket.IO segue ligado e a presença na mesa não cai (a aba do navegador minimizada faz o mesmo). Quem quiser sair da mesa usa o "Sair" da bandeja.
 
 - **Comparar origem por prefixo de texto** deixa `lorkarium.app.evil.com` e `evil.com/?r=https://lorkarium.app` entrarem. A regra é `Url::origin()` (esquema, host **e porta**), em `AppOrigin::contains`.
@@ -141,3 +143,6 @@ Um clique, janela escura de 520×420 em escala, logo fixo no topo (`hero-<escala
 - **`conventional-changelog-conventionalcommits` fica no 9**: o 10 exige o `conventional-changelog-writer` 9, e o `@semantic-release/release-notes-generator` 14 ainda traz o 8; as notas quebram com "Missing helper". O PR major do Dependabot só entra junto com um notes-generator que use o writer 9 (o spec das notas em `desktop/test/release/` acusa).
 - **Release ficou em rascunho** (o `build` falhou): "Re-run failed jobs". Nunca apagar a tag `desktop-v*` à mão sem apagar o rascunho junto, senão o próximo semantic-release refaz a mesma versão.
 - O UA é trocado pelo COM depois da splash; quem lê o sufixo é o site (a próxima navegação), nunca a splash.
+- **`OPERATION_CANCELED` nunca volta à splash**: a própria guarda de navegação (`OpenExternal`/`Block`) cancela no `NavigationStarting`, e o WebView2 completa com `IsSuccess = false` e o `Source` ainda na origem do app. Tratado como erro, todo link externo jogaria a janela na splash "Sem conexão": o `load_failure_of` olha o cancelado antes de tudo.
+- **4xx não é falha de carga**: o WebView2 dá `IsSuccess = false` em 4xx e 5xx; só ≥ 500 e "sem resposta" (`HttpStatusCode` 0) voltam à splash.
+- **Casca sem moldura só depois do client**: casca nova + client antigo = janela sem barra nenhuma. O `decorations: false` só entra na `main` com o client que lê `LorkariumTitleBar/1` já no ar.
