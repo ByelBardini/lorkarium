@@ -209,3 +209,11 @@ export {
   diceBoxOf,
   type DiceBox,
 } from './dice-box';
+export {
+  canCreateTokens,
+  tokenRightsOf,
+  type OwnedToken,
+  type TableTokenRights,
+  type TokenRights,
+  type TokenRightsViewer,
+} from './token-rights';
