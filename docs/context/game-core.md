@@ -31,6 +31,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/light.vo.ts` — o alcance da luz e a luz do mapa (VO)
 - `src/aura.vo.ts` — o raio (0 a 20 casas) e a opacidade (10 a 100%) da aura do token (VO)
 - `src/lighting.ts` — a fonte de luz e o nível de luz num ponto
+- `src/token-rights.ts` — quem cria, edita e exclui token pelas duas chaves da mesa (posse pelo autor)
 - `src/stable-hash.ts` — hash estável de um texto (capa da mesa, cor da pessoa)
 - `src/member-color.ts` — as 8 cores da pessoa e a cor efetiva
 - `src/dice-notation.ts` — a notação dos dados (`2d20kh1+5`, `4d6dl1`, `1d6!`, `1d20r1`, `8d10>=7`, `d%`), os limites e a forma canônica; `src/dice-roll.ts` — a rolagem em ondas (explosão, rerrolagem, manter/descartar, sucessos) até o total; `src/dice-advantage.ts` — as peças da rolagem (até 10, até 1000 dados) e a vantagem/desvantagem no primeiro dado. Detalhe em [`game-core/dados.md`](game-core/dados.md)
@@ -137,6 +138,13 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 
 - `auraRadius(r)` — de 0 a `AURA_RADIUS_MAX` (20) casas, finito; 0 = só a pegada do token. O raio conta **a partir da borda** (a emanação do D&D 2024/PF2e): a régua é o `distanceToBox` (euclidiana), não o `cellDistance`. O teto é nosso: aura de shader custa por pixel.
 - `auraOpacity(p)` — inteiro de `AURA_OPACITY_MIN` (10) a `AURA_OPACITY_MAX` (100). As duas lançam `RangeError` citando o valor ("Aura radius 20.01 is invalid: expected 0 to 20 cells."). O contracts repete os limites no `tokenAuraDto`; o mapper do server e o formulário do client passam pelo VO.
+
+## Posse do token
+
+- `TableTokenRights` `{ create, delete }` — as duas chaves da mesa ("Jogadores criam e editam tokens", "Jogadores excluem os próprios tokens"); `TokenRightsViewer` `{ role, userId }`; `OwnedToken` `{ createdBy, anchorTokenId }`.
+- `canCreateTokens(viewer, chaves)` — o mestre sempre; o jogador com `create`; o espectador nunca.
+- `tokenRightsOf(viewer, chaves, token)` → `{ edit, delete }`: o mestre tudo; o jogador só no token que **ele criou** (`createdBy`) e **sem ligação** à ficha (`anchorTokenId` nulo; o ligado é do mestre), cada direito atrás da sua chave (`create` → editar, `delete` → excluir); `createdBy` nulo (token antigo) e o espectador → nada.
+- O `TokenAuthorshipBo` do server recusa com ela e o client esconde os botões com ela (`lib/token-rights-of-viewer.ts`). Visão, luz e cone ficam fora do alcance do jogador — essa trava é do BO, não daqui.
 
 ## Visão e luz
 

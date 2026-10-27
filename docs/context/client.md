@@ -15,6 +15,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                     | [`board-renderer.md`](client/board-renderer.md)       |
 | Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras                | [`tokens.md`](client/tokens.md)                       |
 | Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Visão e luz                | [`token-dialog.md`](client/token-dialog.md)           |
+| Chaves de token da mesa: o jogador cria, edita e exclui os seus                             | [`token-rights.md`](client/token-rights.md)           |
 | Auras dos tokens: estado e eventos, formulário (`AuraEditor`), onde se edita, desenho       | [`auras.md`](client/auras.md)                         |
 | Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain`   | [`token-dock.md`](client/token-dock.md)               |
 | Aba "Na mesa": mestres, card de cada jogador (ficha, token principal, barras), ausência     | [`table-people.md`](client/table-people.md)           |
