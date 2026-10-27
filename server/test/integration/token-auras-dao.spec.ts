@@ -109,7 +109,7 @@ describe('TokensDao: the aura columns on Postgres', () => {
     return row.id;
   }
 
-  it('a token inserted with a fire aura reads its six columns back', async () => {
+  it('a token inserted with a fire aura reads its seven columns back', async () => {
     const saved = await tokens.insert(lyra(FIRE_AURA));
 
     expect(auraOf(await reread(saved.token.id))).toEqual({
@@ -119,10 +119,11 @@ describe('TokensDao: the aura columns on Postgres', () => {
       auraEffect: 'fire',
       auraImageAssetId: null,
       auraOpacity: 100,
+      auraImageShape: null,
     });
   });
 
-  it('a token inserted without an aura has all six columns null', async () => {
+  it('a token inserted without an aura has all seven columns null', async () => {
     const saved = await tokens.insert(lyra());
 
     expect(auraOf(saved.token)).toEqual(NO_AURA);
@@ -142,7 +143,7 @@ describe('TokensDao: the aura columns on Postgres', () => {
     expect(after).toMatchObject({ name: 'Lyra', frame: 'round', lightBright: '4.00' });
   });
 
-  it('restyle with the null aura clears all six columns', async () => {
+  it('restyle with the null aura clears all seven columns', async () => {
     const saved = await tokens.insert(lyra(GOLD_AURA));
 
     await tokens.restyle([saved.token.id], NO_AURA);
