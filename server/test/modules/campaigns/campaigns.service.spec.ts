@@ -136,7 +136,7 @@ describe('CampaignsService', () => {
   });
 
   it('listMine queries with the user received and returns the summaries', async () => {
-    campaigns.rows.push(campaignPo({ id: 'vharn', name: 'Vharn' }));
+    campaigns.rows.push(campaignPo({ id: 'vharn', name: 'Vharn', ownerId: BIA_ID }));
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: ANA_ID, role: 'player' }));
     const listed = await service.listMine(ANA_ID);
@@ -147,9 +147,12 @@ describe('CampaignsService', () => {
   });
 
   it('listPublic gives only the public campaigns, with the reader role there or null', async () => {
-    campaigns.rows.push(campaignPo({ id: 'vharn', name: 'Vharn', visibility: 'public' }));
-    campaigns.rows.push(campaignPo({ id: 'quelm', name: 'Quelm', visibility: 'public' }));
-    campaigns.rows.push(campaignPo({ id: 'oculta', name: 'Oculta', visibility: 'private' }));
+    const owned = { ownerId: BIA_ID };
+    campaigns.rows.push(campaignPo({ id: 'vharn', name: 'Vharn', visibility: 'public', ...owned }));
+    campaigns.rows.push(campaignPo({ id: 'quelm', name: 'Quelm', visibility: 'public', ...owned }));
+    campaigns.rows.push(
+      campaignPo({ id: 'oculta', name: 'Oculta', visibility: 'private', ...owned }),
+    );
     for (const id of ['vharn', 'quelm', 'oculta']) {
       members.rows.push(campaignMemberPo({ campaignId: id, userId: BIA_ID, role: 'master' }));
     }

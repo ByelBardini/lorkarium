@@ -91,4 +91,12 @@ describe('SceneWatchService', () => {
   it('groupSceneIdOf of a table without an active scene is null', async () => {
     expect(await service.groupSceneIdOf(QUELM_ID)).toBeNull();
   });
+
+  it('privateGridIdsOf lists the private grids of Vharn a player does not see: the Torre only', async () => {
+    const estrada = scenePo({ id: 'estrada', name: 'Estrada', visibility: 'public' });
+    scenes.rows.push(estrada, scenePo({ id: 'pantano', campaignId: QUELM_ID }));
+
+    // The group grid stays out though private: every member sees it; the cast is no grid.
+    expect(await service.privateGridIdsOf(VHARN_ID)).toEqual([TORRE_ID]);
+  });
 });

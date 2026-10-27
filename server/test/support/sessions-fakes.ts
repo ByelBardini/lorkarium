@@ -7,11 +7,13 @@ import type {
   SessionMemberUpdatedDto,
 } from '@lorkarium/contracts';
 import type { CampaignMemberRow } from '../../src/modules/campaigns/campaign-members.dao';
+import type { SceneWatchService } from '../../src/modules/scenes/scene-watch.service';
 import { CampaignNotFoundError } from '../../src/modules/campaigns/campaigns.error';
 import type { CampaignsService } from '../../src/modules/campaigns/campaigns.service';
 import type { PresenceRegistryPort } from '../../src/modules/sessions/presence-registry.port';
 import type { SchedulerPort } from '../../src/modules/sessions/scheduler.port';
 import type {
+  MemberRemovedEvents,
   MemberRoleMove,
   SessionPublisherPort,
 } from '../../src/modules/sessions/session-publisher.port';
@@ -72,7 +74,8 @@ export type PublishedSessionEvent =
   | Readonly<{ name: 'memberUpdated'; event: SessionMemberUpdatedDto }>
   | Readonly<{ name: 'campaignUpdated'; event: SessionCampaignUpdatedDto }>
   | Readonly<{ name: 'campaignDeleted'; event: SessionCampaignDeletedDto }>
-  | Readonly<{ name: 'memberRoleChanged'; event: SessionMemberUpdatedDto; move: MemberRoleMove }>;
+  | Readonly<{ name: 'memberRoleChanged'; event: SessionMemberUpdatedDto; move: MemberRoleMove }>
+  | Readonly<{ name: 'memberRemoved'; event: MemberRemovedEvents }>;
 
 /** Keeps every published event and writes `publish:<name>` to the journal (a role change as
  *  `publish:memberRoleChanged:<campaignId>`, with the rooms move it asked for). */
@@ -115,6 +118,11 @@ export class SessionPublisherFake implements SessionPublisherPort {
     this.journal.entries.push(`publish:memberRoleChanged:${event.campaignId}`);
     this.published.push({ name: 'memberRoleChanged', event, move });
   }
+
+  async memberRemoved(events: MemberRemovedEvents): Promise<void> {
+    this.journal.entries.push(`publish:memberRemoved:${events.removed.campaignId}`);
+    this.published.push({ name: 'memberRemoved', event: events });
+  }
 }
 
 /** Members by table; whoever is not in a table's list is refused like `CampaignsService` does.
@@ -133,5 +141,20 @@ export class CampaignRosterFake implements Pick<CampaignsService, 'rosterOf' | '
       throw new CampaignNotFoundError({ campaignId, userId });
     }
     return [...members];
+  }
+}
+
+/** The private grids of each table (what a player does not see), as `SceneWatchService` reads
+ *  them; `reads` keeps each table asked.
+ *
+ *  Example: `new PrivateGridsFake({ [VHARN_ID]: [CRIPTA_ID] })` */
+export class PrivateGridsFake implements Pick<SceneWatchService, 'privateGridIdsOf'> {
+  readonly reads: string[] = [];
+
+  constructor(private readonly grids: Readonly<Record<string, readonly string[]>> = {}) {}
+
+  async privateGridIdsOf(campaignId: string): Promise<string[]> {
+    this.reads.push(campaignId);
+    return [...(this.grids[campaignId] ?? [])];
   }
 }

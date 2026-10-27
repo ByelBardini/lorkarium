@@ -11,6 +11,7 @@ import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const UNIQUE_VIOLATION = '23505';
 const INVALID_TEXT_REPRESENTATION = '22P02';
+const CHECK_VIOLATION = '23514';
 
 describe('CampaignMembersDao on Postgres', () => {
   let connection: DatabaseConnection;
@@ -120,6 +121,8 @@ describe('CampaignMembersDao on Postgres', () => {
         avatarId: photo,
         bio: 'Mestre',
         role: 'master',
+        owner: true,
+        juggernaut: false,
       },
       {
         userId: biaId,
@@ -129,6 +132,8 @@ describe('CampaignMembersDao on Postgres', () => {
         avatarId: null,
         bio: null,
         role: 'player',
+        owner: false,
+        juggernaut: false,
       },
     ]);
   });
@@ -249,6 +254,147 @@ describe('CampaignMembersDao on Postgres', () => {
       const biaEntered = new Date('2026-10-20T09:00:00Z');
       await membersDao.markEntered(vharnId, biaId, biaEntered);
       expect(await membersDao.lastAccessAtOf(vharnId)).toEqual(biaEntered);
+    });
+  });
+
+  describe('Vharn with two masters: Ana, the owner, and Bia, a co-master', () => {
+    let vharnId: string;
+    let caioId: string;
+
+    beforeEach(async () => {
+      vharnId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+      await membersDao.insert(newCampaignMemberPo({ campaignId: vharnId, userId: biaId }));
+      await membersDao.updateRole(vharnId, biaId, 'master');
+      await playerJoins(vharnId, 'Caio');
+      const members = await membersDao.listMembers(vharnId);
+      caioId = members.find((row) => row.name === 'Caio')?.userId ?? '';
+    });
+
+    it('listOfUser of Caio brings Vharn once, with Ana, the owner, as its master', async () => {
+      const rows = await membersDao.listOfUser(caioId);
+      expect(rows.map((row) => [row.campaign.name, row.masterName])).toEqual([['Vharn', 'Ana']]);
+    });
+
+    it('listOfUser of Bia names Ana as the master, not Bia herself', async () => {
+      const [row] = await membersDao.listOfUser(biaId);
+      expect(row).toMatchObject({ role: 'master', masterName: 'Ana', memberCount: 3 });
+    });
+
+    it('listPublic brings Vharn once with the owner and the ids of both masters', async () => {
+      const rows = await membersDao.listPublic(caioId, true);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ masterName: 'Ana', masterUsername: 'ana', myRole: 'player' });
+      expect([...(rows[0]?.masterIds ?? [])].sort()).toEqual([anaId, biaId].sort());
+    });
+
+    it('listMembers marks Ana as the owner and nobody else', async () => {
+      const members = await membersDao.listMembers(vharnId);
+      const owners = members.filter((member) => member.owner).map((member) => member.userId);
+      expect(owners).toEqual([anaId]);
+    });
+
+    it('a table where Caio is not a member never reaches his list (criterion 14)', async () => {
+      await campaignMasteredBy(biaId, 'Quelm', 'QLM4X7PZ');
+      expect(await listedNamesOf(caioId)).toEqual(['Vharn']);
+    });
+  });
+
+  describe('the juggernaut mode of Root, an admin', () => {
+    const ON = new Date('2026-10-26T20:00:00Z');
+    const AGAIN = new Date('2026-10-26T21:00:00Z');
+    let vharnId: string;
+    let rootId: string;
+
+    beforeEach(async () => {
+      vharnId = await campaignMasteredBy(anaId, 'Vharn', 'VHRN7K2Q');
+      rootId = (await usersDao.insert(newUserPo({ name: 'Root', email: 'root@mesa.com' }))).id;
+    });
+
+    it('turned on at a table he is not in: a master row with the instant and no role before', async () => {
+      await membersDao.startJuggernaut(vharnId, rootId, ON);
+
+      expect(await membersDao.findMembership(vharnId, rootId)).toMatchObject({
+        role: 'master',
+        juggernautSince: ON,
+        roleBeforeJuggernaut: null,
+      });
+    });
+
+    it('turned on while a player: master, keeping player as the role before', async () => {
+      await membersDao.insert(newCampaignMemberPo({ campaignId: vharnId, userId: rootId }));
+
+      const row = await membersDao.startJuggernaut(vharnId, rootId, ON);
+
+      expect(row).toMatchObject({
+        role: 'master',
+        juggernautSince: ON,
+        roleBeforeJuggernaut: 'player',
+      });
+    });
+
+    it('turned on again keeps the first instant and the role before', async () => {
+      await membersDao.insert(newCampaignMemberPo({ campaignId: vharnId, userId: rootId }));
+      await membersDao.startJuggernaut(vharnId, rootId, ON);
+
+      const row = await membersDao.startJuggernaut(vharnId, rootId, AGAIN);
+
+      expect(row).toMatchObject({
+        role: 'master',
+        juggernautSince: ON,
+        roleBeforeJuggernaut: 'player',
+      });
+    });
+
+    it('turned off with a role before: back to player without the two fields, answering player', async () => {
+      await membersDao.insert(newCampaignMemberPo({ campaignId: vharnId, userId: rootId }));
+      await membersDao.startJuggernaut(vharnId, rootId, ON);
+
+      expect(await membersDao.endJuggernaut(vharnId, rootId)).toEqual({ restored: 'player' });
+      expect(await membersDao.findMembership(vharnId, rootId)).toMatchObject({
+        role: 'player',
+        juggernautSince: null,
+        roleBeforeJuggernaut: null,
+      });
+    });
+
+    it('turned off with no role before: the row goes, answering null', async () => {
+      await membersDao.startJuggernaut(vharnId, rootId, ON);
+
+      expect(await membersDao.endJuggernaut(vharnId, rootId)).toEqual({ restored: null });
+      expect(await membersDao.findMembership(vharnId, rootId)).toBeUndefined();
+    });
+
+    it('turning off a mode that is off changes nothing and answers undefined', async () => {
+      await membersDao.insert(newCampaignMemberPo({ campaignId: vharnId, userId: rootId }));
+
+      expect(await membersDao.endJuggernaut(vharnId, rootId)).toBeUndefined();
+      expect((await membersDao.findMembership(vharnId, rootId))?.role).toBe('player');
+    });
+
+    it('juggernautCampaignIdsOf lists only the tables where his mode is on', async () => {
+      const quelmId = await campaignMasteredBy(biaId, 'Quelm', 'QLM4X7PZ');
+      const ermoId = await campaignMasteredBy(biaId, 'Ermo', 'RM0X7PZ2');
+      await membersDao.insert(newCampaignMemberPo({ campaignId: ermoId, userId: rootId }));
+      await membersDao.startJuggernaut(vharnId, rootId, ON);
+      await membersDao.startJuggernaut(quelmId, rootId, ON);
+
+      const ids = await membersDao.juggernautCampaignIdsOf(rootId);
+
+      expect([...ids].sort()).toEqual([vharnId, quelmId].sort());
+    });
+
+    it('Postgres refuses a juggernaut instant on a player row (23514)', async () => {
+      const forged = connection.db.execute(
+        sql`INSERT INTO campaign_members (campaign_id, user_id, role, juggernaut_since) VALUES (${vharnId}, ${rootId}, 'player', now())`,
+      );
+      await expect(forged).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
+    });
+
+    it('Postgres refuses a role before the mode without the mode on (23514)', async () => {
+      const forged = connection.db.execute(
+        sql`INSERT INTO campaign_members (campaign_id, user_id, role, role_before_juggernaut) VALUES (${vharnId}, ${rootId}, 'master', 'player')`,
+      );
+      await expect(forged).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
     });
   });
 });

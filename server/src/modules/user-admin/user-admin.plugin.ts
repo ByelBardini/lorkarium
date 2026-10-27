@@ -10,6 +10,7 @@ import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { MailerPort } from '../account-security/mailer.port';
+import type { JuggernautEnderPort } from './juggernaut-ender.port';
 import { MailSamplesService } from './mail-samples.service';
 import { UserAdminDao } from './user-admin.dao';
 import { userAdminRoutes } from './user-admin.routes';
@@ -21,6 +22,8 @@ export type UserAdminModuleOptions = Readonly<{
   invitations: Readonly<{ listPending(): Promise<AdminInvitationDto[]> }>;
   sessionEnded: SessionEndedPort;
   memberships: Readonly<{ forgetUser(userId: string): void }>;
+  /** The campaigns module's `JuggernautService`: taking the admin role turns its modes off. */
+  juggernauts: JuggernautEnderPort;
   storage: Pick<AssetStoragePort, 'remove'>;
   notices: Pick<SecurityNoticesService, 'send'>;
   cipher: DataCipherPort;

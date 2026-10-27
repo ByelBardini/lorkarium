@@ -315,16 +315,79 @@ describe('TablePresenceBo.lists', () => {
   const roster = presenceRoster({ version: 3, sockets: { [ANA_ID]: ['s1'] }, inGrace: [DUDA_ID] });
 
   it('a spectator online (in grace counts) is listed', () => {
-    expect(new TablePresenceBo(roster).lists({ userId: DUDA_ID, role: 'spectator' })).toBe(true);
+    expect(
+      new TablePresenceBo(roster).lists({ userId: DUDA_ID, role: 'spectator', juggernaut: false }),
+    ).toBe(true);
   });
 
   it('a spectator offline is not listed', () => {
-    expect(new TablePresenceBo(EMPTY_ROSTER).lists({ userId: DUDA_ID, role: 'spectator' })).toBe(
-      false,
-    );
+    expect(
+      new TablePresenceBo(EMPTY_ROSTER).lists({
+        userId: DUDA_ID,
+        role: 'spectator',
+        juggernaut: false,
+      }),
+    ).toBe(false);
   });
 
   it('a player offline is still listed', () => {
-    expect(new TablePresenceBo(roster).lists({ userId: BIA_ID, role: 'player' })).toBe(true);
+    expect(
+      new TablePresenceBo(roster).lists({ userId: BIA_ID, role: 'player', juggernaut: false }),
+    ).toBe(true);
+  });
+});
+
+describe('TablePresenceBo.lists of a juggernaut', () => {
+  const ROOT_ID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+  const root = { userId: ROOT_ID, role: 'master', juggernaut: true } as const;
+
+  it('Root, a juggernaut with a socket, is listed', () => {
+    const online = presenceRoster({ version: 2, sockets: { [ROOT_ID]: ['s1'] } });
+    expect(new TablePresenceBo(online).lists(root)).toBe(true);
+  });
+
+  it('Root, a juggernaut gone offline, is not listed', () => {
+    expect(new TablePresenceBo(EMPTY_ROSTER).lists(root)).toBe(false);
+  });
+
+  it('Ana, a master who is no juggernaut, is listed offline too', () => {
+    const ana = { userId: ANA_ID, role: 'master', juggernaut: false } as const;
+    expect(new TablePresenceBo(EMPTY_ROSTER).lists(ana)).toBe(true);
+  });
+});
+
+describe('TablePresenceBo.remove (a member taken out of the table)', () => {
+  const ROOT_ID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+
+  it('Root with two tabs, one standing still, goes offline at once with the version moved', () => {
+    const roster = presenceRoster({
+      version: 4,
+      sockets: { [ROOT_ID]: ['s1', 's2'], [ANA_ID]: ['s3'] },
+      away: ['s2'],
+    });
+
+    const outcome = new TablePresenceBo(roster).remove(ROOT_ID);
+
+    expect(outcome.change).toBe('went-offline');
+    expect(outcome.roster.version).toBe(5);
+    expect([...outcome.roster.sockets.keys()]).toEqual([ANA_ID]);
+    expect([...outcome.roster.away]).toEqual([]);
+  });
+
+  it('Root inside the grace goes offline too, out of the grace', () => {
+    const roster = presenceRoster({ version: 2, inGrace: [ROOT_ID] });
+
+    const outcome = new TablePresenceBo(roster).remove(ROOT_ID);
+
+    expect([outcome.change, outcome.roster.inGrace.has(ROOT_ID)]).toEqual(['went-offline', false]);
+  });
+
+  it('Root not at the table changes nothing', () => {
+    const roster = presenceRoster({ version: 2, sockets: { [ANA_ID]: ['s1'] } });
+
+    expect(new TablePresenceBo(roster).remove(ROOT_ID)).toEqual({
+      roster,
+      change: 'not-connected',
+    });
   });
 });

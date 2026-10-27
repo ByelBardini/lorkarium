@@ -111,8 +111,20 @@ describe('live table session over Socket.IO', () => {
     const state = await joined(await connect(ana), vharn.id);
     expect(state).toMatchObject({ campaignId: vharn.id, version: 1 });
     expect(state.members).toEqual([
-      { ...profileSeen(ana, 'Ana'), role: 'master', online: true, awaySince: null },
-      { ...profileSeen(bia, 'Bia'), role: 'player', online: false, awaySince: null },
+      {
+        ...profileSeen(ana, 'Ana'),
+        role: 'master',
+        juggernaut: false,
+        online: true,
+        awaySince: null,
+      },
+      {
+        ...profileSeen(bia, 'Bia'),
+        role: 'player',
+        juggernaut: false,
+        online: false,
+        awaySince: null,
+      },
     ]);
   });
 
@@ -127,7 +139,13 @@ describe('live table session over Socket.IO', () => {
         payload: {
           campaignId: vharn.id,
           version: 2,
-          member: { ...profileSeen(bia, 'Bia'), role: 'player', online: true, awaySince: null },
+          member: {
+            ...profileSeen(bia, 'Bia'),
+            role: 'player',
+            juggernaut: false,
+            online: true,
+            awaySince: null,
+          },
           at: expect.any(String),
         },
       },
@@ -526,6 +544,7 @@ describe('live table session over Socket.IO', () => {
         color: 'rose',
         bio: 'Mestre de Vharn',
         role: 'master',
+        juggernaut: false,
         online: false,
         awaySince: null,
       });

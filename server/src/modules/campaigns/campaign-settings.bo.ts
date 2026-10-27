@@ -1,3 +1,4 @@
+import { hasOwnerPowers, type TableSeat } from '@lorkarium/game-core';
 import type { CampaignAccessBo } from './campaign-access.bo';
 import { CampaignNotOpenError, InvalidCampaignCoverError } from './campaigns.error';
 
@@ -11,16 +12,20 @@ export type CampaignPasswordChange =
  *  (another table's asset, or none at all). */
 export type CoverImageCandidate = Readonly<{ assetId: string; purpose: string | null }>;
 
-/** The rules of the campaign settings (edit, new join code, delete): only the master, the
- *  master with the table open, the password kept/removed/replaced, and an image cover only from
- *  this table's cover assets. `atTable` = the asker has the table open in a live connection, as
- *  the service read it from the presence.
+/** Whether the asker created the campaign or is an admin in juggernaut mode at it. */
+export type OwnerPowersSeat = Pick<TableSeat, 'owner' | 'juggernaut'>;
+
+/** The rules of the campaign settings (edit, new join code, delete): any master edits and hands
+ *  out a code, only owner powers delete, always with the table open; the password
+ *  kept/removed/replaced, and an image cover only from this table's cover assets. `atTable` = the
+ *  asker has the table open in a live connection, as the service read it from the presence.
  *
- *  Example: `new CampaignSettingsBo(access, true).requireMasterAtTable('delete the campaign')` */
+ *  Example: `new CampaignSettingsBo(access, true, { owner: true, juggernaut: false }).requireOwnerPowersAtTable('delete the campaign')` */
 export class CampaignSettingsBo {
   constructor(
     private readonly access: CampaignAccessBo,
     private readonly atTable: boolean,
+    private readonly powers: OwnerPowersSeat,
   ) {}
 
   /** A non-member gets CAMPAIGN_NOT_FOUND, a player FORBIDDEN, the master away from the table
@@ -29,6 +34,22 @@ export class CampaignSettingsBo {
    *  Example: `new CampaignSettingsBo(masterAccess, false).requireMasterAtTable('delete the campaign') // throws CAMPAIGN_NOT_OPEN` */
   requireMasterAtTable(action: string): void {
     this.access.requireMaster(action);
+    this.requireAtTable(action);
+  }
+
+  /** As `requireMasterAtTable`, and a co-master (a master without owner powers) gets FORBIDDEN
+   *  citing "owner powers" before the table is looked at.
+   *
+   *  Example: `coMasterSettings.requireOwnerPowersAtTable('delete the campaign') // throws FORBIDDEN` */
+  requireOwnerPowersAtTable(action: string): void {
+    this.access.requireMaster(action);
+    if (!hasOwnerPowers({ role: 'master', ...this.powers })) {
+      this.access.forbid(action, 'owner powers');
+    }
+    this.requireAtTable(action);
+  }
+
+  private requireAtTable(action: string): void {
     if (this.atTable) return;
     throw new CampaignNotOpenError(this.access.campaignIdOf(), this.access.userIdOf(), action);
   }

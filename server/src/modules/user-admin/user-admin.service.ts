@@ -19,6 +19,7 @@ import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { UserPo } from '../auth/users.po';
 import { avatarKeyOf, diceTextureKeyOf } from '../profiles/profiles.mapper';
+import type { JuggernautEnderPort } from './juggernaut-ender.port';
 import { deletionVerdict, requireOtherAccount } from './user-admin.bo';
 import type { AccountListingRow, UserAdminDao } from './user-admin.dao';
 import { OwnsSharedCampaignsError, UserNotFoundError } from './user-admin.error';
@@ -48,6 +49,8 @@ export type UserAdminDeps = Readonly<{
   sessionEnded: SessionEndedPort;
   /** Forgets every membership of a deleted account (`CachedMemberships.forgetUser`). */
   memberships: Readonly<{ forgetUser(userId: string): void }>;
+  /** An account losing the admin role loses every juggernaut mode with it. */
+  juggernauts: JuggernautEnderPort;
   storage: Pick<AssetStoragePort, 'remove'>;
   notices: Pick<SecurityNoticesService, 'send'>;
   cipher: DataCipherPort;
@@ -78,6 +81,7 @@ export class UserAdminService {
       return { before: found, after: { ...found, role } };
     });
     if (before.role !== 'admin' && role === 'admin') await this.tellPromoted(after);
+    if (before.role === 'admin' && role !== 'admin') await this.deps.juggernauts.endAllOf(userId);
     return toAdminUserDto(after, this.deps.cipher);
   }
 

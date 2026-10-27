@@ -150,7 +150,8 @@ export class CampaignMembersDaoFake implements Pick<
   ) {}
 
   async insert(member: NewCampaignMemberPo): Promise<CampaignMemberPo> {
-    const row = { joinedAt: FAKE_DATE, lastEnteredAt: null, ...member };
+    const empty = { lastEnteredAt: null, juggernautSince: null, roleBeforeJuggernaut: null };
+    const row = { joinedAt: FAKE_DATE, ...empty, ...member };
     this.rows.push(row);
     return row;
   }
@@ -169,15 +170,14 @@ export class CampaignMembersDaoFake implements Pick<
       .filter(({ visibility }) => includePrivate || visibility === 'public')
       .map((campaign) => {
         const members = this.rows.filter((member) => member.campaignId === campaign.id);
-        const master = members.find((member) => member.role === 'master');
-        if (!master) throw new Error(`fake has no master for ${campaign.id}`);
+        const masters = members.filter((member) => member.role === 'master');
         const reader = members.find((member) => member.userId === readerId);
         const memberCount = members.filter((member) => member.role !== 'spectator').length;
         return {
           campaign,
-          masterId: master.userId,
-          masterName: this.nameOf(master.userId),
-          masterUsername: this.nameOf(master.userId).toLowerCase(),
+          masterIds: masters.map((member) => member.userId),
+          masterName: this.nameOf(campaign.ownerId),
+          masterUsername: this.nameOf(campaign.ownerId).toLowerCase(),
           memberCount,
           myRole: reader?.role ?? null,
         };
@@ -188,7 +188,7 @@ export class CampaignMembersDaoFake implements Pick<
     this.membersListedFor.push(campaignId);
     return this.rows
       .filter((row) => row.campaignId === campaignId)
-      .map((row) => memberRowOf(row, this.nameOf(row.userId)));
+      .map((row) => memberRowOf(row, this.nameOf(row.userId), this.isOwner(row)));
   }
 
   async campaignIdsOfUser(userId: string): Promise<string[]> {
@@ -224,17 +224,24 @@ export class CampaignMembersDaoFake implements Pick<
 
   private listingOf(row: CampaignMemberPo): CampaignListingRow {
     const members = this.rows.filter((member) => member.campaignId === row.campaignId);
-    const master = members.find((member) => member.role === 'master');
     const campaign = this.campaigns.rows.find((candidate) => candidate.id === row.campaignId);
-    if (!campaign || !master) throw new Error(`fake has no campaign/master for ${row.campaignId}`);
+    if (!campaign) throw new Error(`fake has no campaign for ${row.campaignId}`);
     return {
       campaign,
       role: row.role,
+      juggernautSince: row.juggernautSince,
       joinedAt: row.joinedAt,
       lastEnteredAt: row.lastEnteredAt,
-      masterName: this.nameOf(master.userId),
+      masterName: this.nameOf(campaign.ownerId),
       memberCount: members.length,
     };
+  }
+
+  // As `campaigns.owner_id`: the fake campaign's owner, or the master of a campaign it lacks.
+  private isOwner(row: CampaignMemberPo): boolean {
+    const campaign = this.campaigns.rows.find((candidate) => candidate.id === row.campaignId);
+    if (campaign) return campaign.ownerId === row.userId;
+    return row.role === 'master';
   }
 
   private nameOf(userId: string): string {
@@ -317,7 +324,9 @@ export class MembershipReadsFake implements Pick<
   async listMembers(campaignId: string): Promise<CampaignMemberRow[]> {
     this.reads.push(`list:${campaignId}`);
     const members = this.rows.filter((row) => row.campaignId === campaignId);
-    return members.map((row) => memberRowOf(row, row.userId));
+    // No campaign rows here: the first master of the table stands for its owner.
+    const owner = members.find((row) => row.role === 'master');
+    return members.map((row) => memberRowOf(row, row.userId, row === owner));
   }
 
   async findMembership(campaignId: string, userId: string): Promise<CampaignMemberPo | undefined> {
@@ -327,7 +336,7 @@ export class MembershipReadsFake implements Pick<
 }
 
 // A member as `listMembers` reads it: no chosen color, photo or bio unless a spec sets them.
-function memberRowOf(row: CampaignMemberPo, name: string): CampaignMemberRow {
+function memberRowOf(row: CampaignMemberPo, name: string, owner: boolean): CampaignMemberRow {
   const username = name.toLowerCase();
   return {
     userId: row.userId,
@@ -337,5 +346,7 @@ function memberRowOf(row: CampaignMemberPo, name: string): CampaignMemberRow {
     avatarId: null,
     bio: null,
     role: row.role,
+    owner,
+    juggernaut: row.juggernautSince !== null,
   };
 }

@@ -1,4 +1,5 @@
-import { index, pgEnum, pgTable, primaryKey, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { check, index, pgEnum, pgTable, primaryKey, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { users } from '../auth/users.po';
 import { campaigns } from './campaigns.po';
 
@@ -19,10 +20,22 @@ export const campaignMembers = pgTable(
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
     // Feeds the home's "Continuar" band and the list order.
     lastEnteredAt: timestamp('last_entered_at', { withTimezone: true }),
+    // An admin in juggernaut mode (docs/context/campaigns/papeis.md): not null = on, since then.
+    juggernautSince: timestamp('juggernaut_since', { withTimezone: true }),
+    // The role to go back to when the mode ends; null with the mode on = not a member before.
+    roleBeforeJuggernaut: campaignRole('role_before_juggernaut'),
   },
   (table) => [
     primaryKey({ columns: [table.campaignId, table.userId] }),
     index('campaign_members_user_id_idx').on(table.userId),
+    check(
+      'campaign_members_juggernaut_is_master',
+      sql`${table.juggernautSince} is null or ${table.role} = 'master'`,
+    ),
+    check(
+      'campaign_members_role_before_needs_juggernaut',
+      sql`${table.roleBeforeJuggernaut} is null or ${table.juggernautSince} is not null`,
+    ),
   ],
 );
 

@@ -12,7 +12,7 @@ import { TableSessionService } from './sessions.service';
 
 export type SessionsModuleOptions = Readonly<{
   campaigns: Pick<CampaignsService, 'rosterOf' | 'campaignIdsOf'>;
-  groupGrid: Pick<SceneWatchService, 'groupSceneIdOf' | 'castSceneIdOf'>;
+  groupGrid: Pick<SceneWatchService, 'groupSceneIdOf' | 'castSceneIdOf' | 'privateGridIdsOf'>;
   clock: ClockPort;
   registry: PresenceRegistryPort;
   scheduler: SchedulerPort;
@@ -35,9 +35,10 @@ export type SessionsModule = Readonly<{
  *
  *  Example: `realtime.onConnection(createSessionsModule(options).gateway)` */
 export function createSessionsModule(options: SessionsModuleOptions): SessionsModule {
-  const { campaigns, clock, registry, scheduler, publisher } = options;
-  const service = new TableSessionService({ campaigns, registry, scheduler, publisher, clock });
-  const { groupGrid, realtime, rate, log } = options;
+  const { campaigns, clock, registry, scheduler, publisher, groupGrid } = options;
+  const presence = { registry, scheduler, publisher, clock };
+  const service = new TableSessionService({ campaigns, grids: groupGrid, ...presence });
+  const { realtime, rate, log } = options;
   const gateway = createSessionsGateway({ service, groupGrid, realtime, rate, log });
   return { gateway, service };
 }

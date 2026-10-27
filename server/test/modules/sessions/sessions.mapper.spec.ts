@@ -24,6 +24,30 @@ const MEMBERS = [
   campaignMemberRow({ userId: CAIO_ID, name: 'Caio', role: 'player' }),
 ];
 
+describe('a juggernaut in the snapshot', () => {
+  const ROOT_ID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+  const root = campaignMemberRow({
+    userId: ROOT_ID,
+    name: 'Root',
+    role: 'master',
+    juggernaut: true,
+  });
+
+  it('Root online is in it as a master marked juggernaut', () => {
+    const roster = presenceRoster({ version: 2, sockets: { [ROOT_ID]: ['s1'] } });
+
+    const state = toSessionStateDto(VHARN_ID, [root], roster, AT);
+
+    expect(state.members).toMatchObject([{ userId: ROOT_ID, role: 'master', juggernaut: true }]);
+  });
+
+  it('Root offline is left out', () => {
+    expect(toSessionStateDto(VHARN_ID, [root], presenceRoster({ version: 2 }), AT).members).toEqual(
+      [],
+    );
+  });
+});
+
 describe('sessions mapper', () => {
   it('the snapshot marks online whoever holds a socket or is in grace, in the order received', () => {
     const roster = presenceRoster({ version: 4, sockets: { [ANA_ID]: ['s1'] }, inGrace: [BIA_ID] });
@@ -39,6 +63,7 @@ describe('sessions mapper', () => {
           avatarId: null,
           bio: null,
           role: 'master',
+          juggernaut: false,
           online: true,
           awaySince: null,
         },
@@ -50,6 +75,7 @@ describe('sessions mapper', () => {
           avatarId: null,
           bio: null,
           role: 'player',
+          juggernaut: false,
           online: true,
           awaySince: null,
         },
@@ -61,6 +87,7 @@ describe('sessions mapper', () => {
           avatarId: null,
           bio: null,
           role: 'player',
+          juggernaut: false,
           online: false,
           awaySince: null,
         },
@@ -82,6 +109,7 @@ describe('sessions mapper', () => {
         avatarId: null,
         bio: null,
         role: 'player',
+        juggernaut: false,
         online: true,
         awaySince: null,
       },
@@ -162,6 +190,7 @@ describe('sessions mapper', () => {
 
       expect(members.find(({ userId }) => userId === DUDA_ID)).toMatchObject({
         role: 'spectator',
+        juggernaut: false,
         online: true,
       });
     });

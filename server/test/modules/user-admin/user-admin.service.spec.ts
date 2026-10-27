@@ -14,6 +14,7 @@ import {
 } from '../../support/auth-fakes';
 import { authSessionPo, userPo } from '../../support/auth-factories';
 import {
+  JuggernautEnderFake,
   MembershipsForgetFake,
   StorageRemoveFake,
   UserAdminDaoFake,
@@ -33,6 +34,7 @@ describe('UserAdminService', () => {
   let storage: StorageRemoveFake;
   let mailer: MailerFake;
   let journal: string[];
+  let juggernauts: JuggernautEnderFake;
   let service: UserAdminService;
 
   beforeEach(() => {
@@ -58,6 +60,7 @@ describe('UserAdminService', () => {
     storage = new StorageRemoveFake();
     mailer = new MailerFake();
     journal = [];
+    juggernauts = new JuggernautEnderFake(journal);
     sessionEnded.whenEnded = (sessionId) => journal.push(`ended ${sessionId}`);
     const daos: UserAdminWriteDaos = { accounts, sessions, passwordResets: resets };
     service = new UserAdminService({
@@ -70,6 +73,7 @@ describe('UserAdminService', () => {
       },
       sessionEnded,
       memberships,
+      juggernauts,
       storage,
       notices: new SecurityNoticesService(mailer, () => undefined),
       cipher: new DataCipherFake(),
@@ -127,6 +131,37 @@ describe('UserAdminService', () => {
     it('an active account stays and nobody is told', async () => {
       await service.reactivate(ADMIN, BIA_ID);
       expect(mailer.sent).toEqual([]);
+    });
+  });
+
+  describe('changeRole turns off the juggernaut of an account losing admin', () => {
+    it('admin → user turns it off at every table after the commit', async () => {
+      await service.changeRole(ADMIN, BIA_ID, 'admin');
+      journal.splice(0);
+
+      await service.changeRole(ADMIN, BIA_ID, 'user');
+
+      expect(journal).toEqual(['commit', `endAllOf ${BIA_ID}`]);
+    });
+
+    it.each([
+      ['user → admin', 'user', 'admin'],
+      ['admin → admin', 'admin', 'admin'],
+      ['user → user', 'user', 'user'],
+    ] as const)('%s turns nothing off', async (_case, from, to) => {
+      if (from === 'admin') await service.changeRole(ADMIN, BIA_ID, 'admin');
+
+      await service.changeRole(ADMIN, BIA_ID, to);
+
+      expect(juggernauts.ended).toEqual([]);
+    });
+
+    it.each([
+      ['SELF_ACTION', ADMIN.id],
+      ['USER_NOT_FOUND', '99999999-9999-4999-8999-999999999999'],
+    ])('a refusal (%s) turns nothing off', async (code, userId) => {
+      await expect(service.changeRole(ADMIN, userId, 'user')).rejects.toMatchObject({ code });
+      expect(juggernauts.ended).toEqual([]);
     });
   });
 

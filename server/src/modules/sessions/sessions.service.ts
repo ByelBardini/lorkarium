@@ -2,7 +2,9 @@ import { MAX_OPEN_TABLES, type CampaignInfoDto, type SessionStateDto } from '@lo
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMemberRow } from '../campaigns/campaign-members.dao';
 import type { CampaignsService } from '../campaigns/campaigns.service';
+import type { MemberRemoval } from '../campaigns/member-removed.port';
 import type { MemberRoleChange } from '../campaigns/member-role-changed.port';
+import type { SceneWatchService } from '../scenes/scene-watch.service';
 import { ConnectionTablesBo, type ConnectionTablesOutcome } from './connection-tables.bo';
 import type { PresenceRegistryPort } from './presence-registry.port';
 import type { SchedulerPort } from './scheduler.port';
@@ -14,6 +16,7 @@ import {
   toMemberJoinedDto,
   toMemberLeftDto,
   toMemberUpdatedDto,
+  toRemovedFromTableDto,
   toSessionStateDto,
 } from './sessions.mapper';
 import {
@@ -36,6 +39,8 @@ const UNCHANGED: ReadonlySet<PresenceChange> = new Set([
 
 export type TableSessionServiceDeps = Readonly<{
   campaigns: Pick<CampaignsService, 'rosterOf' | 'campaignIdsOf'>;
+  /** The private grids of a table, whose tabs a demoted master closes. */
+  grids: Pick<SceneWatchService, 'privateGridIdsOf'>;
   registry: PresenceRegistryPort;
   scheduler: SchedulerPort;
   publisher: SessionPublisherPort;
@@ -100,15 +105,17 @@ export class TableSessionService {
     await Promise.all(live.map((campaignId) => this.announceProfile(userId, campaignId)));
   }
 
-  /** The master moved a member between player and spectator: a table with someone at it hears
-   *  the member read again (`session:memberUpdated`, the new role) with the version moved, after
-   *  the member's open connections moved to the rooms of that role; a table nobody is at hears
-   *  nothing and keeps no roster. Implements the campaigns module's `MemberRoleChangedPort`.
+  /** A member's role changed: a table with someone at it hears the member read again
+   *  (`session:memberUpdated`, the new role) with the version moved, after the member's open
+   *  connections moved to the rooms of that role (a demoted master also closes the tabs of the
+   *  private grids); a table nobody is at hears nothing and keeps no roster. Implements the
+   *  campaigns module's `MemberRoleChangedPort`.
    *
    *  Example: `await sessions.memberRoleChanged({ campaignId, userId: dudaId, role: 'player' })` */
   async memberRoleChanged(change: MemberRoleChange): Promise<void> {
     const { campaignId, userId, role } = change;
     if (!this.deps.registry.rosterOf(campaignId)) return;
+    const closedSceneIds = await this.gridsClosedBy(change);
     const members = await this.deps.campaigns.rosterOf(userId, campaignId);
     const member = members.find((candidate) => candidate.userId === userId);
     if (!member) throw new Error(`user ${userId} changed role but is not in ${campaignId}`);
@@ -118,7 +125,34 @@ export class TableSessionService {
     const outcome = new TablePresenceBo(roster).roleChanged();
     this.deps.registry.save(campaignId, outcome.roster);
     const event = toMemberUpdatedDto(campaignId, member, outcome.roster, this.deps.clock.now());
-    await this.deps.publisher.memberRoleChanged(event, { campaignId, userId, audience: role });
+    const move = { campaignId, userId, audience: role, closedSceneIds };
+    await this.deps.publisher.memberRoleChanged(event, move);
+  }
+
+  // Only a master had private grids open; nobody else needs the read.
+  private async gridsClosedBy(change: MemberRoleChange): Promise<string[]> {
+    if (change.from !== 'master' || change.role === 'master') return [];
+    return this.deps.grids.privateGridIdsOf(change.campaignId);
+  }
+
+  /** A member was taken out of the table (a juggernaut who was not a member turned the mode
+   *  off): out of the roster at once (no grace), saved, then their connections hear
+   *  `session:removedFromTable` and leave the table, and the table hears `memberLeft` with the
+   *  version moved. A table nobody is at hears nothing. Implements the campaigns module's
+   *  `MemberRemovedPort`.
+   *
+   *  Example: `await sessions.memberRemoved({ campaignId, userId: rootId })` */
+  async memberRemoved({ campaignId, userId }: MemberRemoval): Promise<void> {
+    const roster = this.deps.registry.rosterOf(campaignId);
+    if (!roster) return;
+    const outcome = new TablePresenceBo(roster).remove(userId);
+    this.deps.scheduler.cancel(graceKey(campaignId, userId));
+    const at = this.deps.clock.now();
+    const gone = outcome.change === 'went-offline';
+    if (gone) this.deps.registry.save(campaignId, outcome.roster);
+    const left = gone ? toMemberLeftDto(campaignId, userId, outcome.roster.version, at) : null;
+    const removed = toRemovedFromTableDto(campaignId, at);
+    await this.deps.publisher.memberRemoved({ userId, removed, left });
   }
 
   /** The master saved the campaign: a table with someone at it hears the campaign read again

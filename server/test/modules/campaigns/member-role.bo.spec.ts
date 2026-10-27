@@ -1,86 +1,116 @@
+import type { TableSeat } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
-import {
-  CampaignAccessBo,
-  type CampaignRole,
-} from '../../../src/modules/campaigns/campaign-access.bo';
-import { MemberRoleBo } from '../../../src/modules/campaigns/member-role.bo';
+import { MemberRoleBo, type SeatedMember } from '../../../src/modules/campaigns/member-role.bo';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, CAIO_ID, DUDA_ID, VHARN_ID } from '../../support/campaigns-factories';
 
-// Who asks (their role at Vharn) and whose role they ask to change (their role at Vharn).
-function roleBo(
-  requester: Readonly<{ userId: string; role: CampaignRole | null }>,
-  target: Readonly<{ userId: string; role: CampaignRole | null }>,
-): MemberRoleBo {
-  return new MemberRoleBo(new CampaignAccessBo({ campaignId: VHARN_ID, ...requester }), target);
+const ROOT_ID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+const EVA_ID = 'e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b';
+
+function seat(role: TableSeat['role'], extra: Partial<TableSeat> = {}): TableSeat {
+  return { role, owner: false, juggernaut: false, ...extra };
 }
 
-const ANA = { userId: ANA_ID, role: 'master' } as const;
-const BIA = { userId: BIA_ID, role: 'player' } as const;
-const DUDA = { userId: DUDA_ID, role: 'spectator' } as const;
+// Ana owns Vharn; Bia and Eva are co-masters; Caio plays; Duda watches; Root is a juggernaut.
+const ANA: SeatedMember = { userId: ANA_ID, seat: seat('master', { owner: true }) };
+const BIA: SeatedMember = { userId: BIA_ID, seat: seat('master') };
+const EVA: SeatedMember = { userId: EVA_ID, seat: seat('master') };
+const CAIO: SeatedMember = { userId: CAIO_ID, seat: seat('player') };
+const DUDA: SeatedMember = { userId: DUDA_ID, seat: seat('spectator') };
+const ROOT: SeatedMember = { userId: ROOT_ID, seat: seat('master', { juggernaut: true }) };
 
-describe('MemberRoleBo.decide', () => {
-  it('Ana, the master, promoting Duda, a spectator, changes her from spectator to player', () => {
-    expect(roleBo(ANA, DUDA).decide('player')).toEqual({
+function decide(requester: SeatedMember, target: SeatedMember, role: TableSeat['role']) {
+  return new MemberRoleBo(VHARN_ID, requester, target).decide(role);
+}
+
+function refusal(code: string, ...cited: string[]) {
+  return expect.objectContaining({ code, message: expect.stringMatching(cited.join('.*')) });
+}
+
+describe('MemberRoleBo.decide: what the owner and the co-masters change', () => {
+  it.each([
+    ['Caio, a player, to master', CAIO, 'master', 'player'],
+    ['Duda, a spectator, to master', DUDA, 'master', 'spectator'],
+    ['Bia, a co-master, to spectator', BIA, 'spectator', 'master'],
+  ] as const)('Ana, the owner, puts %s', (_case, target, to, from) => {
+    expect(decide(ANA, target, to)).toEqual({ change: 'changed', from, to });
+  });
+
+  it('Bia, a co-master, promotes Duda from spectator to player', () => {
+    expect(decide(BIA, DUDA, 'player')).toEqual({
       change: 'changed',
       from: 'spectator',
       to: 'player',
     });
   });
 
-  it('Ana moving Bia, a player, to the spectators changes her from player to spectator', () => {
-    expect(roleBo(ANA, BIA).decide('spectator')).toEqual({
-      change: 'changed',
-      from: 'player',
-      to: 'spectator',
-    });
+  it('Ana asking master for Bia, already a master, is unchanged (asking again is harmless)', () => {
+    expect(decide(ANA, BIA, 'master')).toEqual({ change: 'unchanged', role: 'master' });
   });
 
-  it('Ana asking player for Bia, already a player, is unchanged (asking again is harmless)', () => {
-    expect(roleBo(ANA, BIA).decide('player')).toEqual({ change: 'unchanged', role: 'player' });
+  it('Root, a juggernaut, demotes Bia and promotes Caio, as the owner does', () => {
+    expect(decide(ROOT, BIA, 'player')).toMatchObject({ change: 'changed', to: 'player' });
+    expect(decide(ROOT, CAIO, 'master')).toMatchObject({ change: 'changed', to: 'master' });
+  });
+});
+
+describe('MemberRoleBo.decide: what is refused', () => {
+  it('Bia, a co-master, putting Caio in master is FORBIDDEN citing her, Caio and owner powers', () => {
+    expect(() => decide(BIA, CAIO, 'master')).toThrow(
+      refusal('FORBIDDEN', BIA_ID, CAIO_ID, VHARN_ID, 'owner powers'),
+    );
+  });
+
+  it('Bia, a co-master, demoting Eva, another co-master, is FORBIDDEN', () => {
+    expect(() => decide(BIA, EVA, 'player')).toThrow(
+      refusal('FORBIDDEN', BIA_ID, EVA_ID, VHARN_ID, 'owner powers'),
+    );
   });
 
   it.each([
-    ['Bia, a player', BIA, DUDA],
-    ['Duda, a spectator', DUDA, BIA],
+    ['Bia, a co-master', BIA],
+    ['Root, a juggernaut', ROOT],
+    ['Ana herself', ANA],
   ])(
-    '%s asking is refused with FORBIDDEN citing who asked, the table and the master role',
-    (_who, requester, target) => {
-      expect(() => roleBo(requester, target).decide('spectator')).toThrow(
-        expect.objectContaining({
-          code: 'FORBIDDEN',
-          message: expect.stringMatching(
-            new RegExp(`${requester.userId}.*${target.userId}.*${VHARN_ID}.*the master role`),
-          ),
-        }),
+    "%s asking to change Ana, the owner, is FORBIDDEN: the owner's role does not change",
+    (_who, requester) => {
+      expect(() => decide(requester, ANA, 'player')).toThrow(
+        refusal('FORBIDDEN', ANA_ID, VHARN_ID, "the owner's role does not change"),
       );
     },
   );
 
-  it("Ana as the target is refused with FORBIDDEN citing her, the table and that the master's role does not change", () => {
-    expect(() => roleBo(ANA, ANA).decide('spectator')).toThrow(
-      expect.objectContaining({
-        code: 'FORBIDDEN',
-        message: expect.stringMatching(
-          new RegExp(`${ANA_ID}.*${VHARN_ID}.*the master's role does not change`),
-        ),
-      }),
+  it.each([
+    ['Ana, the owner', ANA],
+    ['Root himself', ROOT],
+  ])(
+    "%s asking to change Root is FORBIDDEN: a juggernaut's role does not change",
+    (_who, requester) => {
+      expect(() => decide(requester, ROOT, 'player')).toThrow(
+        refusal('FORBIDDEN', ROOT_ID, VHARN_ID, "a juggernaut's role does not change"),
+      );
+    },
+  );
+
+  it.each([
+    ['Caio, a player', CAIO, DUDA],
+    ['Duda, a spectator', DUDA, CAIO],
+  ])('%s asking is FORBIDDEN citing the master role', (_who, requester, target) => {
+    expect(() => decide(requester, target, 'spectator')).toThrow(
+      refusal('FORBIDDEN', requester.userId, VHARN_ID, 'the master role'),
     );
   });
 
-  it('Caio, who is not a member of Vharn, as the target is MEMBER_NOT_FOUND citing the table and his id', () => {
-    expect(() => roleBo(ANA, { userId: CAIO_ID, role: null }).decide('player')).toThrow(
-      expect.objectContaining({
-        code: 'MEMBER_NOT_FOUND',
-        message: expect.stringMatching(new RegExp(`${VHARN_ID}.*${CAIO_ID}`)),
-      }),
-    );
-  });
-
-  it('someone who is not a member of Vharn asking gets CAMPAIGN_NOT_FOUND, before the target is looked at', () => {
-    const stranger = { userId: CAIO_ID, role: null };
-    expect(() => roleBo(stranger, { userId: ANA_ID, role: null }).decide('player')).toThrow(
+  it('someone outside Vharn asking gets CAMPAIGN_NOT_FOUND, before the target is looked at', () => {
+    const stranger = { userId: EVA_ID, seat: null };
+    expect(() => decide(stranger, { userId: CAIO_ID, seat: null }, 'player')).toThrow(
       expect.objectContaining({ code: 'CAMPAIGN_NOT_FOUND' }),
+    );
+  });
+
+  it('a target outside Vharn is MEMBER_NOT_FOUND citing the table and the id', () => {
+    expect(() => decide(ANA, { userId: EVA_ID, seat: null }, 'player')).toThrow(
+      refusal('MEMBER_NOT_FOUND', VHARN_ID, EVA_ID),
     );
   });
 });
