@@ -50,14 +50,23 @@ export function toCampaignSummaryDto(row: CampaignListingRow): CampaignSummaryDt
   };
 }
 
-/** Public row → DTO: one card of "Explorar mesas"; the hash never leaves, only whether there is one.
+/** Public row → DTO: one card of "Explorar mesas"; the hash never leaves, only whether "Entrar"
+ *  asks for it (never for an admin, who joins without it).
  *
- *  Example: `rows.map(toPublicCampaignDto)[0].hasPassword // true` */
-export function toPublicCampaignDto(row: PublicCampaignRow): PublicCampaignDto {
+ *  Example: `rows.map((row) => toPublicCampaignDto(row, false, online))[0].hasPassword // true` */
+export function toPublicCampaignDto(
+  row: PublicCampaignRow,
+  readerIsAdmin: boolean,
+  onlineUserIds: ReadonlySet<string>,
+): PublicCampaignDto {
+  const masterOnline = onlineUserIds.has(row.masterId);
   return {
     ...campaignInfoOf(row),
     myRole: row.myRole,
-    hasPassword: row.campaign.passwordHash !== null,
+    hasPassword: row.campaign.passwordHash !== null && !readerIsAdmin,
+    masterUsername: row.masterUsername,
+    masterOnline,
+    playersOnline: onlineUserIds.size - (masterOnline ? 1 : 0),
   };
 }
 
@@ -167,16 +176,18 @@ export function toCampaignSettingsBo(
 
 /** Campaign + membership (or its absence) → BO for the join-by-code decision.
  *
- *  Example: `toCampaignJoinBo(campaign, undefined).needsPasswordCheck()` */
+ *  Example: `toCampaignJoinBo(campaign, undefined, false).needsPasswordCheck()` */
 export function toCampaignJoinBo(
   campaign: CampaignPo,
   membership: CampaignMemberPo | undefined,
+  readerIsAdmin: boolean,
 ): CampaignJoinBo {
   return new CampaignJoinBo({
     campaignId: campaign.id,
     isMember: membership !== undefined,
     hasPassword: campaign.passwordHash !== null,
     isPublic: campaign.visibility === 'public',
+    readerIsAdmin,
   });
 }
 

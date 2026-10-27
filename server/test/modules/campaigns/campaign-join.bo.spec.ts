@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { CampaignJoinBo } from '../../../src/modules/campaigns/campaign-join.bo';
+import {
+  CampaignJoinBo,
+  seesPrivateInExplore,
+} from '../../../src/modules/campaigns/campaign-join.bo';
 import { VHARN_ID } from '../../support/campaigns-factories';
 
-function joinOf(isMember: boolean, hasPassword: boolean, isPublic = false): CampaignJoinBo {
-  return new CampaignJoinBo({ campaignId: VHARN_ID, isMember, hasPassword, isPublic });
+function joinOf(
+  isMember: boolean,
+  hasPassword: boolean,
+  isPublic = false,
+  readerIsAdmin = false,
+): CampaignJoinBo {
+  return new CampaignJoinBo({
+    campaignId: VHARN_ID,
+    isMember,
+    hasPassword,
+    isPublic,
+    readerIsAdmin,
+  });
 }
 
 describe('CampaignJoinBo', () => {
@@ -71,5 +85,22 @@ describe('CampaignJoinBo', () => {
     expect(() => joinOf(true, false, false).requirePublic()).toThrow(
       expect.objectContaining({ code: 'CAMPAIGN_NOT_FOUND' }),
     );
+  });
+
+  it('an admin reaches a private campaign without its code', () => {
+    expect(() => joinOf(false, false, false, true).requirePublic()).not.toThrow();
+  });
+
+  it('an admin newcomer to a protected campaign skips the password and joins as spectator', () => {
+    const join = joinOf(false, true, false, true);
+    expect(join.needsPasswordCheck()).toBe(false);
+    expect(join.decide('not-required')).toBe('join-as-spectator');
+  });
+
+  it.each([
+    ['admin', true],
+    ['user', false],
+  ] as const)('a reader with role %s sees private campaigns in Explorar: %s', (role, sees) => {
+    expect(seesPrivateInExplore(role)).toBe(sees);
   });
 });

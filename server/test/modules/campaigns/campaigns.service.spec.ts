@@ -155,11 +155,47 @@ describe('CampaignsService', () => {
     }
     members.rows.push(campaignMemberPo({ campaignId: 'quelm', userId: ANA_ID, role: 'player' }));
 
-    const listed = await service.listPublic(ANA_ID);
+    const listed = await service.listPublic({ id: ANA_ID, role: 'user' });
 
     expect(listed).toEqual([
-      expect.objectContaining({ id: 'vharn', myRole: null, masterName: 'Bia', hasPassword: false }),
+      expect.objectContaining({
+        ...{ id: 'vharn', myRole: null, masterName: 'Bia', masterUsername: 'bia' },
+        hasPassword: false,
+      }),
       expect.objectContaining({ id: 'quelm', myRole: 'player', memberCount: 2 }),
+    ]);
+  });
+
+  it('listPublic for an admin also gives the private campaigns, none asking a password', async () => {
+    campaigns.rows.push(campaignPo({ id: 'vharn', visibility: 'public' }));
+    campaigns.rows.push(
+      campaignPo({ id: 'oculta', visibility: 'private', passwordHash: 'hashed:sino' }),
+    );
+    for (const id of ['vharn', 'oculta']) {
+      members.rows.push(campaignMemberPo({ campaignId: id, userId: BIA_ID, role: 'master' }));
+    }
+
+    const listed = await service.listPublic({ id: ANA_ID, role: 'admin' });
+
+    expect(listed).toEqual([
+      expect.objectContaining({ id: 'vharn', visibility: 'public' }),
+      expect.objectContaining({ id: 'oculta', visibility: 'private', hasPassword: false }),
+    ]);
+  });
+
+  it('listPublic tells who is at each table from the live presence', async () => {
+    presence = new PresenceReaderFake({ vharn: [BIA_ID, ANA_ID], quelm: [ANA_ID] });
+    build([]);
+    for (const id of ['vharn', 'quelm']) {
+      campaigns.rows.push(campaignPo({ id, visibility: 'public' }));
+      members.rows.push(campaignMemberPo({ campaignId: id, userId: BIA_ID, role: 'master' }));
+    }
+
+    const listed = await service.listPublic({ id: CAIO_ID, role: 'user' });
+
+    expect(listed).toEqual([
+      expect.objectContaining({ id: 'vharn', masterOnline: true, playersOnline: 1 }),
+      expect.objectContaining({ id: 'quelm', masterOnline: false, playersOnline: 1 }),
     ]);
   });
 

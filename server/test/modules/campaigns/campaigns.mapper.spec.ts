@@ -113,19 +113,23 @@ describe('campaigns mapper', () => {
         passwordHash,
         contentWarnings: ['gore', 'old'],
       }),
+      masterId: BIA_ID,
       masterName: 'Bia',
+      masterUsername: 'bia',
       memberCount: 3,
       myRole,
     });
+    const nobody: ReadonlySet<string> = new Set();
 
     it('a public row becomes a card the contract accepts, with the reader not in it', () => {
-      const card = toPublicCampaignDto(publicRow(null, null));
+      const card = toPublicCampaignDto(publicRow(null, null), false, nobody);
 
       expect(publicCampaignDto.parse(card)).toEqual(card);
       expect(card).toMatchObject({
         id: VHARN_ID,
         visibility: 'public',
         masterName: 'Bia',
+        masterUsername: 'bia',
         memberCount: 3,
         myRole: null,
         hasPassword: false,
@@ -134,10 +138,35 @@ describe('campaigns mapper', () => {
     });
 
     it('a protected campaign says it has a password and never sends the hash', () => {
-      const card = toPublicCampaignDto(publicRow('hashed:sino', 'player'));
+      const card = toPublicCampaignDto(publicRow('hashed:sino', 'player'), false, nobody);
 
       expect(card).toMatchObject({ hasPassword: true, myRole: 'player' });
       expect(JSON.stringify(card)).not.toContain('hashed:sino');
+    });
+
+    it('for an admin a protected campaign asks no password: they join without it', () => {
+      const card = toPublicCampaignDto(publicRow('hashed:sino', null), true, nobody);
+
+      expect(card.hasPassword).toBe(false);
+    });
+
+    it('nobody at the table: the master is offline and no player is online', () => {
+      const card = toPublicCampaignDto(publicRow(null, null), false, nobody);
+
+      expect(card).toMatchObject({ masterOnline: false, playersOnline: 0 });
+    });
+
+    it('the master online counts apart from the players at the table', () => {
+      const online = new Set([BIA_ID, ANA_ID, CAIO_ID]);
+      const card = toPublicCampaignDto(publicRow(null, null), false, online);
+
+      expect(card).toMatchObject({ masterOnline: true, playersOnline: 2 });
+    });
+
+    it('players online with the master away', () => {
+      const card = toPublicCampaignDto(publicRow(null, null), false, new Set([CAIO_ID]));
+
+      expect(card).toMatchObject({ masterOnline: false, playersOnline: 1 });
     });
   });
 

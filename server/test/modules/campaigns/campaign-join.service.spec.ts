@@ -6,6 +6,8 @@ import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaign
 import { BIA_ID, campaignMemberPo, campaignPo } from '../../support/campaigns-factories';
 
 const NOW = new Date('2026-10-14T21:00:00Z');
+const ANA = { id: ANA_ID, role: 'user' } as const;
+const ANA_ADMIN = { id: ANA_ID, role: 'admin' } as const;
 
 describe('CampaignJoinService', () => {
   let campaigns: CampaignsDaoFake;
@@ -111,14 +113,14 @@ describe('CampaignJoinService', () => {
 
     it('a public campaign without a password takes the newcomer in as spectator', async () => {
       publicCampaign();
-      const summary = await service.joinPublic(ANA_ID, 'vharn', {});
+      const summary = await service.joinPublic(ANA, 'vharn', {});
       expect(summary).toMatchObject({ id: 'vharn', myRole: 'spectator', masterName: 'Bia' });
       expect(members.rows[1]).toMatchObject({ userId: ANA_ID, role: 'spectator', joinedAt: NOW });
     });
 
     it('a private campaign is refused with CAMPAIGN_NOT_FOUND citing it and writes no membership', async () => {
       biasCampaign();
-      await expect(service.joinPublic(ANA_ID, 'vharn', {})).rejects.toMatchObject({
+      await expect(service.joinPublic(ANA, 'vharn', {})).rejects.toMatchObject({
         code: 'CAMPAIGN_NOT_FOUND',
         message: expect.stringContaining('vharn'),
       });
@@ -126,7 +128,7 @@ describe('CampaignJoinService', () => {
     });
 
     it('an unknown id is refused with CAMPAIGN_NOT_FOUND citing the id', async () => {
-      await expect(service.joinPublic(ANA_ID, 'sumida', {})).rejects.toMatchObject({
+      await expect(service.joinPublic(ANA, 'sumida', {})).rejects.toMatchObject({
         code: 'CAMPAIGN_NOT_FOUND',
         message: expect.stringContaining('sumida'),
       });
@@ -134,24 +136,38 @@ describe('CampaignJoinService', () => {
 
     it('a wrong password for a protected public campaign is refused and writes no membership', async () => {
       publicCampaign('hashed:sino');
-      await expect(
-        service.joinPublic(ANA_ID, 'vharn', { password: 'errada' }),
-      ).rejects.toMatchObject({ code: 'CAMPAIGN_PASSWORD_INVALID' });
+      await expect(service.joinPublic(ANA, 'vharn', { password: 'errada' })).rejects.toMatchObject({
+        code: 'CAMPAIGN_PASSWORD_INVALID',
+      });
       expect(members.rows).toHaveLength(1);
     });
 
     it('the right password lets the newcomer in', async () => {
       publicCampaign('hashed:sino');
-      const summary = await service.joinPublic(ANA_ID, 'vharn', { password: 'sino' });
+      const summary = await service.joinPublic(ANA, 'vharn', { password: 'sino' });
       expect(summary.myRole).toBe('spectator');
     });
 
     it('a player joining again keeps the role and writes no row', async () => {
       publicCampaign();
       members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: ANA_ID, role: 'player' }));
-      const summary = await service.joinPublic(ANA_ID, 'vharn', {});
+      const summary = await service.joinPublic(ANA, 'vharn', {});
       expect(summary.myRole).toBe('player');
       expect(members.rows).toHaveLength(2);
+    });
+
+    it('an admin joins a private campaign as spectator, without its code', async () => {
+      biasCampaign();
+      const summary = await service.joinPublic(ANA_ADMIN, 'vharn', {});
+      expect(summary.myRole).toBe('spectator');
+      expect(members.rows[1]).toMatchObject({ userId: ANA_ID, role: 'spectator' });
+    });
+
+    it('an admin joins a protected campaign without the password, checking no hash', async () => {
+      biasCampaign('hashed:sino');
+      const summary = await service.joinPublic(ANA_ADMIN, 'vharn', {});
+      expect(summary.myRole).toBe('spectator');
+      expect(hasher.verifications).toEqual([]);
     });
   });
 });
