@@ -85,17 +85,23 @@ export function RoomHeader({
           <SceneTabs tabs={tabs} />
         </div>
       )}
-      {board && <TurnLine board={board} interaction={interaction} className="hidden sm:block" />}
-      <div data-app-region="no-drag" className="ml-auto flex items-center gap-3">
+      {board && (
+        <TurnLine
+          board={board}
+          interaction={interaction}
+          className="hidden min-w-0 shrink truncate lg:block"
+        />
+      )}
+      <div data-app-region="no-drag" className="ml-auto flex shrink-0 items-center gap-3">
         {campaign.joinCode && (
           <TableCode code={campaign.joinCode} clipboard={clipboard} centered={slot !== null} />
         )}
-        <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-          <Link to={`/campaigns/${encodeURIComponent(campaign.id)}/table/library`}>
-            <LibraryIcon aria-hidden="true" />
-            Biblioteca
-          </Link>
-        </Button>
+        <MasterPageLink
+          to={`/campaigns/${encodeURIComponent(campaign.id)}/table/library`}
+          name="Biblioteca"
+        >
+          <LibraryIcon aria-hidden="true" />
+        </MasterPageLink>
         {campaign.myRole === 'master' && <MasterPageLinks campaignId={campaign.id} />}
         <PanelToggle roomLayout={roomLayout} />
         <RoomMoreMenu
@@ -196,8 +202,10 @@ function TableCode({ code, clipboard, centered }: TableCodeProps) {
   return (
     <div
       className={cn(
-        'hidden items-center gap-2 lg:flex',
-        centered && 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+        'hidden shrink-0 items-center gap-2 xl:flex',
+        // Centered only where the tabs and the turn line can't reach the middle of the bar.
+        centered &&
+          '2xl:absolute 2xl:top-1/2 2xl:left-1/2 2xl:-translate-x-1/2 2xl:-translate-y-1/2',
       )}
     >
       <span className="font-brand text-sm tracking-[0.2em] text-label">{formatted}</span>
