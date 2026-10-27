@@ -278,12 +278,13 @@ describe('SharpImageProcessor.normalize with an animation budget', () => {
     expect(metadata.delay).toEqual([100, 200, 100]);
   });
 
+  // Encoding 100 frames is slow on a loaded CI runner; the 5 s default timed out there.
   it('a 100-frame 512×512 GIF shrinks to 400×400 to fit 16 MP and keeps its 100 frames', async () => {
     const image = keptOf(await processor.normalize(await animatedGif(100, 512), AURA));
 
     expect([image.width, image.height]).toEqual([400, 400]);
     expect((await framesOf(image.bytes)).pages).toBe(100);
-  });
+  }, 30_000);
 
   it('a single-frame GIF with a budget is kept as a one-page GIF', async () => {
     const image = keptOf(await processor.normalize(await animatedGif(1, 64), AURA));
