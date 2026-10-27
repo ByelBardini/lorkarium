@@ -21,6 +21,7 @@ export const SESSION_EVENTS = {
   memberUpdated: 'session:memberUpdated',
   campaignUpdated: 'session:campaignUpdated',
   campaignDeleted: 'session:campaignDeleted',
+  removedFromTable: 'session:removedFromTable',
 } as const;
 
 /** Payload of `session:join` and `session:leave`; who asks comes from the connection (§7.3).
@@ -34,7 +35,8 @@ export const sessionCommandDto = z.strictObject({
 export type SessionCommandDto = z.infer<typeof sessionCommandDto>;
 
 /** A member of the table; `awaySince` is when every tab of theirs stood still (null: active).
- *  `name` is the nickname, `username` the @, `color` the effective one (chosen or drawn). */
+ *  `name` is the nickname, `username` the @, `color` the effective one (chosen or drawn).
+ *  `juggernaut`: an admin in juggernaut mode (`role` is `master`), listed only while online. */
 export const sessionMemberDto = z.strictObject({
   userId: z.uuid(),
   name: z.string(),
@@ -43,6 +45,7 @@ export const sessionMemberDto = z.strictObject({
   avatarId: z.uuid().nullable(),
   bio: z.string().nullable(),
   role: campaignRoleDto,
+  juggernaut: z.boolean(),
   online: z.boolean(),
   awaySince: z.iso.datetime().nullable(),
 });
@@ -116,6 +119,18 @@ export const sessionCampaignDeletedDto = z.strictObject({
 
 export type SessionCampaignDeletedDto = z.infer<typeof sessionCampaignDeletedDto>;
 
+/** `session:removedFromTable`: the reader left the table without deleting it (a juggernaut who
+ *  was not a member turned the mode off); sent only to that user's connections, which the server
+ *  then takes out of the table's rooms, so no version follows it.
+ *
+ *  Example: `sessionRemovedFromTableDto.parse(event).campaignId` */
+export const sessionRemovedFromTableDto = z.strictObject({
+  campaignId: z.uuid(),
+  at: z.iso.datetime(),
+});
+
+export type SessionRemovedFromTableDto = z.infer<typeof sessionRemovedFromTableDto>;
+
 /** Answer to `session:join`: the snapshot, or the same error body as the HTTP API. */
 export const sessionJoinAckDto = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true), state: sessionStateDto }),
@@ -177,4 +192,5 @@ export type SessionServerEvents = {
   'session:memberUpdated': (event: SessionMemberUpdatedDto) => void;
   'session:campaignUpdated': (event: SessionCampaignUpdatedDto) => void;
   'session:campaignDeleted': (event: SessionCampaignDeletedDto) => void;
+  'session:removedFromTable': (event: SessionRemovedFromTableDto) => void;
 };

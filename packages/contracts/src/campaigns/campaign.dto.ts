@@ -37,7 +37,8 @@ export const contentWarningsDto = z
   .transform((warnings) => [...new Set(warnings)]);
 
 /** The campaign as anyone in it sees it, without what depends on who reads it; the payload of
- *  `session:campaignUpdated`. `playersCreateTokens`/`playersDeleteTokens` are the table settings
+ *  `session:campaignUpdated`. `ownerId` is the creator, the one fixed master (`masterName` is
+ *  theirs); co-masters are other `master` members. `playersCreateTokens`/`playersDeleteTokens` are the table settings
  *  that open creating, editing and deleting their own tokens to players (game-core `token-rights`). */
 export const campaignInfoDto = z.strictObject({
   id: z.uuid(),
@@ -46,6 +47,7 @@ export const campaignInfoDto = z.strictObject({
   status: campaignStatusDto,
   description: z.string().nullable(),
   visibility: campaignVisibilityDto,
+  ownerId: z.uuid(),
   masterName: z.string(),
   memberCount: z.number().int().positive(),
   cover: campaignCoverDto,
@@ -57,11 +59,13 @@ export const campaignInfoDto = z.strictObject({
 
 export type CampaignInfoDto = z.infer<typeof campaignInfoDto>;
 
-/** One row of the signed-in user's campaign list.
+/** One row of the signed-in user's campaign list. `juggernaut` says the reader is an admin in
+ *  juggernaut mode there (then `myRole` is `master`).
  *
  *  Example: `campaignSummaryDto.parse(body).myRole // 'master'` */
 export const campaignSummaryDto = campaignInfoDto.extend({
   myRole: campaignRoleDto,
+  juggernaut: z.boolean(),
   lastEnteredAt: z.iso.datetime().nullable(),
 });
 

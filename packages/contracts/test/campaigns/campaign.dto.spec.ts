@@ -15,6 +15,8 @@ const SUMMARY = {
   description: null,
   visibility: 'private',
   myRole: 'master',
+  juggernaut: false,
+  ownerId: '9d0c1b2a-3e4f-4a5b-8c6d-7e8f9a0b1c2d',
   masterName: 'Ana',
   memberCount: 1,
   cover: { kind: 'drawn', drawing: 1, tone: 2 },
@@ -36,6 +38,16 @@ describe('campaignSummaryDto', () => {
 
   it('refuses a null status: every campaign has one now', () => {
     expect(campaignSummaryDto.safeParse({ ...SUMMARY, status: null }).success).toBe(false);
+  });
+
+  it('refuses a summary without the owner id', () => {
+    const withoutOwner = { ...SUMMARY, ownerId: undefined };
+    expect(campaignSummaryDto.safeParse(withoutOwner).success).toBe(false);
+  });
+
+  it('refuses a summary that does not say whether the reader is a juggernaut', () => {
+    const withoutMode = { ...SUMMARY, juggernaut: undefined };
+    expect(campaignSummaryDto.safeParse(withoutMode).success).toBe(false);
   });
 });
 
