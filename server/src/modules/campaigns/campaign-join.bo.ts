@@ -1,3 +1,4 @@
+import type { UserRoleDto } from '@lorkarium/contracts';
 import {
   CampaignNotFoundError,
   CampaignPasswordInvalidError,
@@ -14,7 +15,16 @@ export type CampaignJoinState = Readonly<{
   isMember: boolean;
   hasPassword: boolean;
   isPublic: boolean;
+  /** Admins look after every table: no code, no password, private or not. */
+  readerIsAdmin: boolean;
 }>;
+
+/** Whether "Explorar mesas" also lists the private campaigns for this reader (admins only).
+ *
+ *  Example: `seesPrivateInExplore('admin') // true` */
+export function seesPrivateInExplore(role: UserRoleDto): boolean {
+  return role === 'admin';
+}
 
 /** Whether someone holding the join code (or picking a public campaign) gets in, and how:
  *  newcomers watch until the master promotes them; members keep their role.
@@ -23,21 +33,21 @@ export type CampaignJoinState = Readonly<{
 export class CampaignJoinBo {
   constructor(private readonly state: CampaignJoinState) {}
 
-  /** Joining without the code ("Explorar mesas") only reaches a public campaign; a private one
-   *  answers as if it did not exist, so its id leaks nothing. */
+  /** Joining without the code ("Explorar mesas") only reaches a public campaign (or any, for an
+   *  admin); a private one answers as if it did not exist, so its id leaks nothing. */
   requirePublic(): void {
-    if (this.state.isPublic) return;
+    if (this.state.isPublic || this.state.readerIsAdmin) return;
     throw new CampaignNotFoundError({ publicCampaignId: this.state.campaignId });
   }
 
   // A member re-joining is idempotent: the password is not asked again.
   needsPasswordCheck(): boolean {
-    return !this.state.isMember && this.state.hasPassword;
+    return !this.state.isMember && !this.state.readerIsAdmin && this.state.hasPassword;
   }
 
   decide(check: PasswordCheck): JoinDecision {
     if (this.state.isMember) return 'already-member';
-    if (!this.state.hasPassword) return 'join-as-spectator';
+    if (!this.state.hasPassword || this.state.readerIsAdmin) return 'join-as-spectator';
     return this.decideWithPassword(check);
   }
 

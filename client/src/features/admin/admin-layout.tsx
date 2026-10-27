@@ -12,7 +12,7 @@ import { ROLE_LABEL } from './admin-messages';
  *  Example: `<AdminLayout user={session.user} />` */
 export function AdminLayout({ user }: Readonly<{ user: AuthUserDto }>): React.JSX.Element {
   return (
-    <div className="flex min-h-svh flex-col bg-background text-foreground md:flex-row">
+    <div className="flex min-h-app flex-col bg-background text-foreground md:flex-row">
       <aside className="flex shrink-0 flex-wrap items-center gap-4 border-b border-border bg-panel px-4 py-3 md:w-60 md:flex-col md:flex-nowrap md:items-stretch md:gap-6 md:border-r md:border-b-0 md:px-3 md:py-6">
         <div className="flex items-center gap-3 md:px-2">
           <BrandMark variant="icon" className="size-7" />

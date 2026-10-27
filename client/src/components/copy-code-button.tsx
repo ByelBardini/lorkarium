@@ -18,6 +18,9 @@ export type CopyCodeButtonProps = Readonly<{
   label?: string;
   /** What the live region says after a copy; "Copiado" by default ("Link copiado."). */
   copiedMessage?: string;
+  /** Only the icon, with the label as its name and tooltip; the outcome is read, not shown
+   *  (the desktop title bar). */
+  iconOnly?: boolean;
 }>;
 
 /** "Copiar código" (or the label given), announcing the outcome in a polite live region.
@@ -28,6 +31,7 @@ export function CopyCodeButton({
   clipboard,
   label = 'Copiar código',
   copiedMessage = ANNOUNCEMENT.copied,
+  iconOnly = false,
 }: CopyCodeButtonProps): React.JSX.Element {
   const [state, setState] = useState<CopyState>('idle');
   const copy = async (): Promise<void> => {
@@ -36,11 +40,17 @@ export function CopyCodeButton({
   const Icon = state === 'copied' ? CheckIcon : CopyIcon;
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Button variant="outline" size="lg" onClick={() => void copy()}>
+      <Button
+        variant="outline"
+        size={iconOnly ? 'icon-sm' : 'lg'}
+        aria-label={iconOnly ? label : undefined}
+        title={iconOnly ? label : undefined}
+        onClick={() => void copy()}
+      >
         <Icon aria-hidden="true" />
-        {label}
+        {!iconOnly && label}
       </Button>
-      <span role="status" className="text-sm text-muted-foreground">
+      <span role="status" className={iconOnly ? 'sr-only' : 'text-sm text-muted-foreground'}>
         {state === 'copied' ? copiedMessage : ANNOUNCEMENT[state]}
       </span>
     </div>

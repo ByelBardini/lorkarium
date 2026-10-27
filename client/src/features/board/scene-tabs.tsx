@@ -58,7 +58,7 @@ function SceneTabItem({ tab, selected, onShow, onClose }: SceneTabItemProps): Re
   return (
     <div
       className={cn(
-        'flex h-12 shrink-0 items-center gap-1 border-b-2',
+        'flex h-12 shrink-0 items-center gap-1 border-b-2 [[data-title-bar]_&]:h-11',
         selected ? 'border-primary' : 'border-transparent',
       )}
     >
@@ -69,7 +69,7 @@ function SceneTabItem({ tab, selected, onShow, onClose }: SceneTabItemProps): Re
         tabIndex={selected ? 0 : -1}
         onClick={onShow}
         className={cn(
-          'flex items-center gap-2 px-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
+          'flex items-baseline gap-2 px-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
           selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
       >

@@ -16,7 +16,8 @@ import { HttpLibraryApi } from '@/services/library-api';
 import { HttpProfileApi } from '@/services/profile-api';
 import { NavigatorClipboard } from '@/services/clipboard';
 import { DocumentFieldEditing } from '@/services/field-editing';
-import { isDesktopShell } from '@/lib/desktop-shell';
+import { desktopShellOf, isDesktopShell } from '@/lib/desktop-shell';
+import { TauriDesktopWindow } from '@/services/desktop-window';
 import { FetchHttpTransport } from '@/services/http-transport';
 import { SocketIoRealtimeTransport } from '@/services/realtime-transport';
 import { BoardCommandSender } from '@/services/board-command-sender';
@@ -92,6 +93,7 @@ const router = createBrowserRouter(
     assets: new HttpAssetsApi(transport),
     clipboard: new NavigatorClipboard(),
     isDesktop: isDesktopShell(navigator.userAgent),
+    desktopWindow: desktopShellOf(navigator.userAgent)?.titleBar ? new TauriDesktopWindow() : null,
     fieldEditing: new DocumentFieldEditing(document),
     openTables: createOpenTablesStore({
       api: tableSessionApi,

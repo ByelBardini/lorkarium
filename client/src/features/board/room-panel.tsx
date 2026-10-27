@@ -151,7 +151,7 @@ export function PanelToggle({
   return (
     <Button
       variant="ghost"
-      size="icon"
+      size="icon-sm"
       aria-label={open ? 'Recolher painel' : 'Abrir painel'}
       aria-expanded={open}
       onClick={() => roomLayout.getState().togglePanel()}

@@ -91,7 +91,7 @@ function registerCampaignRoutes(app: FastifyInstance, service: CampaignsService)
   });
   // A static path: Fastify matches it before `/campaigns/:campaignId`.
   app.get('/campaigns/public', { preHandler: requireAuth }, async (request) => {
-    const campaigns = await service.listPublic(userOf(request).id);
+    const campaigns = await service.listPublic(userOf(request));
     return { campaigns } satisfies ListPublicCampaignsResponseDto;
   });
   app.post('/campaigns', { preHandler: requireAuth }, async (request, reply) => {
@@ -118,7 +118,7 @@ function registerJoinRoutes(app: FastifyInstance, service: CampaignJoinService):
   app.post('/campaigns/:campaignId/join', joinOptions, async (request) => {
     const campaignId = campaignIdOf(request);
     const input = joinPublicCampaignRequestDto.parse(request.body ?? {});
-    const campaign = await service.joinPublic(userOf(request).id, campaignId, input);
+    const campaign = await service.joinPublic(userOf(request), campaignId, input);
     return { campaign } satisfies JoinCampaignResponseDto;
   });
   app.post('/campaigns/:campaignId/enter', { preHandler: requireAuth }, async (request, reply) => {

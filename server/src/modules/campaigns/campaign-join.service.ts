@@ -1,18 +1,24 @@
 import { isForeignKeyViolation } from '../../lib/postgres-error';
 import type {
+  AuthUserDto,
   CampaignSummaryDto,
   JoinCampaignRequestDto,
   JoinPublicCampaignRequestDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
-import type { CampaignJoinBo, PasswordCheck } from './campaign-join.bo';
+import { seesPrivateInExplore, type CampaignJoinBo, type PasswordCheck } from './campaign-join.bo';
 import type { CampaignMembersDao } from './campaign-members.dao';
 import type { CampaignMemberPo } from './campaign-members.po';
 import type { CampaignsDao } from './campaigns.dao';
 import { CampaignNotFoundError } from './campaigns.error';
 import { toCampaignAccessBo, toCampaignJoinBo, toCampaignSummaryOfView } from './campaigns.mapper';
 import type { CampaignPo } from './campaigns.po';
+
+/** Who reads or joins from "Explorar mesas": the role decides whether private campaigns count. */
+export type ExploreReader = Pick<AuthUserDto, 'id' | 'role'>;
+
+type JoinRoute = 'by-code' | 'explore' | 'explore-as-admin';
 
 export type CampaignJoinServiceDeps = Readonly<{
   campaigns: Pick<CampaignsDao, 'findByJoinCode' | 'findById'>;
@@ -34,25 +40,28 @@ export class CampaignJoinService {
     return this.admit(userId, campaign, input.password, 'by-code');
   }
 
+  /** Joining from "Explorar mesas": a public campaign, or any campaign for an admin (who skips
+   *  the password too). */
   async joinPublic(
-    userId: string,
+    reader: ExploreReader,
     campaignId: string,
     input: JoinPublicCampaignRequestDto,
   ): Promise<CampaignSummaryDto> {
     const campaign = await this.deps.campaigns.findById(campaignId);
     if (!campaign) throw new CampaignNotFoundError({ publicCampaignId: campaignId });
-    return this.admit(userId, campaign, input.password, 'public-only');
+    const route = seesPrivateInExplore(reader.role) ? 'explore-as-admin' : 'explore';
+    return this.admit(reader.id, campaign, input.password, route);
   }
 
   private async admit(
     userId: string,
     campaign: CampaignPo,
     password: string | undefined,
-    route: 'by-code' | 'public-only',
+    route: JoinRoute,
   ): Promise<CampaignSummaryDto> {
     const existing = await this.deps.members.findMembership(campaign.id, userId);
-    const join = toCampaignJoinBo(campaign, existing);
-    if (route === 'public-only') join.requirePublic();
+    const join = toCampaignJoinBo(campaign, existing, route === 'explore-as-admin');
+    if (route !== 'by-code') join.requirePublic();
     const decision = join.decide(await this.checkPassword(join, campaign, password));
     const membership =
       decision === 'already-member' ? existing : await this.addSpectator(campaign, userId);

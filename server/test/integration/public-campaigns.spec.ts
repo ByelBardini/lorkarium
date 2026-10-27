@@ -7,11 +7,13 @@ import {
   type CampaignDetailDto,
   type PublicCampaignDto,
 } from '@lorkarium/contracts';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
+import { users } from '../../src/modules/auth/users.po';
 import { signUpAndLogin } from '../support/sign-in';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
@@ -61,6 +63,12 @@ describe('public campaigns HTTP edge ("Explorar mesas")', () => {
     return listPublicCampaignsResponseDto.parse(response.json()).campaigns;
   }
 
+  async function signInAsAdmin(name: string): Promise<string> {
+    const admin = await signUpAndLogin(app, connection.db, name);
+    await connection.db.update(users).set({ role: 'admin' }).where(eq(users.id, admin.id));
+    return admin.token;
+  }
+
   function errorCodeOf(response: LightMyRequestResponse): string {
     return apiErrorDto.parse(response.json()).code;
   }
@@ -81,7 +89,10 @@ describe('public campaigns HTTP edge ("Explorar mesas")', () => {
     const listed = await publicList(bia);
 
     expect(listed.map(({ name }) => name)).toEqual(['Quelm', 'Vharn']);
-    expect(listed[0]).toMatchObject({ masterName: 'Ana', memberCount: 1, myRole: null });
+    expect(listed[0]).toMatchObject({
+      ...{ masterName: 'Ana', memberCount: 1, myRole: null },
+      ...{ masterOnline: false, playersOnline: 0 },
+    });
   });
 
   it('carries the reader role in a campaign they are in, and whether it asks a password', async () => {
@@ -157,5 +168,31 @@ describe('public campaigns HTTP edge ("Explorar mesas")', () => {
     const limited = await call('POST', url, bia, { password: 'sino' });
 
     expect([limited.statusCode, errorCodeOf(limited)]).toEqual([429, 'RATE_LIMITED']);
+  });
+
+  describe('for an admin', () => {
+    it('lists the private campaigns too, none asking a password', async () => {
+      await createCampaign(ana, { name: 'Vharn', visibility: 'public' });
+      await createCampaign(ana, { name: 'Oculta', visibility: 'private', password: 'sino' });
+      const admin = await signInAsAdmin('Lia');
+
+      const listed = await publicList(admin);
+
+      expect(listed.map(({ name, visibility }) => [name, visibility])).toEqual([
+        ['Oculta', 'private'],
+        ['Vharn', 'public'],
+      ]);
+      expect(listed[0]?.hasPassword).toBe(false);
+    });
+
+    it('joins a private protected campaign by id, as spectator, without the password', async () => {
+      const oculta = await createCampaign(ana, { visibility: 'private', password: 'sino' });
+      const admin = await signInAsAdmin('Lia');
+
+      const response = await call('POST', `/campaigns/${oculta.id}/join`, admin, {});
+
+      expect(response.statusCode).toBe(200);
+      expect(joinCampaignResponseDto.parse(response.json()).campaign.myRole).toBe('spectator');
+    });
   });
 });

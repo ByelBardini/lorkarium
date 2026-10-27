@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
@@ -8,8 +7,8 @@ use url::Url;
 use crate::app_origin::AppOrigin;
 use crate::main_window::MAIN_WINDOW;
 use crate::startup::{
-    check_connection, run_startup, HealthProbe, HealthStatus, PendingUpdate, StartupEvent,
-    StartupOutcome, UpdateSource,
+    check_connection, run_startup, HealthProbe, HealthStatus, PendingUpdate, StartupBegin,
+    StartupEvent, StartupGate, StartupOutcome, UpdateSource,
 };
 
 // Same name as STARTUP_EVENT in desktop/src/shell-bridge.ts.
@@ -18,11 +17,12 @@ const STARTUP_EVENT: &str = "startup";
 const UPDATE_CHECK_TIMEOUT: Duration = Duration::from_secs(8);
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// What the startup commands share: where to go and whether the opening already ran.
+/// What the startup commands share: where to go, whether the opening already ran and what to show
+/// when the site sent the window back to the splash.
 pub struct StartupShell {
     app_origin: AppOrigin,
     health: HttpHealthProbe,
-    started: AtomicBool,
+    gate: StartupGate,
 }
 
 impl StartupShell {
@@ -32,29 +32,66 @@ impl StartupShell {
         Ok(Self {
             app_origin,
             health,
-            started: AtomicBool::new(false),
+            gate: StartupGate::default(),
         })
     }
 }
 
-/// Called once by the splash after it listens to `startup`; a reload of the splash never reruns the update.
+/// Called by the splash after it listens to `startup`: the first time runs the opening; after a failed load
+/// of the site it delivers "Sem conexão"/"Em manutenção" once; a plain reload of the splash does nothing.
 #[tauri::command]
 pub async fn begin_startup<R: Runtime>(
     app: AppHandle<R>,
     shell: State<'_, StartupShell>,
 ) -> Result<(), String> {
-    if shell.started.swap(true, Ordering::SeqCst) {
-        return Ok(());
+    match shell.gate.begin() {
+        StartupBegin::AlreadyStarted => Ok(()),
+        StartupBegin::Deliver(event) => {
+            emit(&app, event);
+            Ok(())
+        }
+        StartupBegin::Run => run_opening(&app, &shell).await,
     }
+}
+
+async fn run_opening<R: Runtime>(app: &AppHandle<R>, shell: &StartupShell) -> Result<(), String> {
     let source = UpdaterSource { app: app.clone() };
     let result = run_startup(&source, &shell.health, UPDATE_CHECK_TIMEOUT, &mut |event| {
-        emit(&app, event)
+        emit(app, event)
     })
     .await;
     if let Some(problem) = result.update_problem {
         eprintln!("atualização pulada: {problem}");
     }
-    follow(&app, &shell.app_origin, result.outcome)
+    follow(app, &shell.app_origin, result.outcome)
+}
+
+/// What a failed load of the site does: remember the view and take the window back to the splash, which
+/// asks for it through `begin_startup`. The navigation leaves the WebView2 event handler first.
+///
+/// Example: `webview2::harden(&window, origins, version, startup_commands::send_back_to_splash(handle, splash))`
+pub fn send_back_to_splash<R: Runtime>(
+    app: AppHandle<R>,
+    splash: Url,
+) -> impl Fn(StartupEvent) + Send + 'static {
+    move |event| {
+        eprintln!("o site não carregou ({event:?}): de volta à splash");
+        app.state::<StartupShell>().gate.send_back(event);
+        let app = app.clone();
+        let splash = splash.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(problem) = navigate_main(&app, splash) {
+                eprintln!("a volta à splash falhou: {problem}");
+            }
+        });
+    }
+}
+
+fn navigate_main<R: Runtime>(app: &AppHandle<R>, url: Url) -> Result<(), String> {
+    let window = app
+        .get_webview_window(MAIN_WINDOW)
+        .ok_or_else(|| format!("janela {MAIN_WINDOW:?} não existe"))?;
+    window.navigate(url).map_err(|problem| problem.to_string())
 }
 
 /// The splash's "Tentar de novo" after `offline` or `server-unavailable`.
@@ -81,14 +118,7 @@ fn follow<R: Runtime>(
     match outcome {
         StartupOutcome::Restart => app.restart(),
         StartupOutcome::WaitForRetry => Ok(()),
-        StartupOutcome::Navigate => {
-            let window = app
-                .get_webview_window(MAIN_WINDOW)
-                .ok_or_else(|| format!("janela {MAIN_WINDOW:?} não existe"))?;
-            window
-                .navigate(app_origin.url().clone())
-                .map_err(|problem| problem.to_string())
-        }
+        StartupOutcome::Navigate => navigate_main(app, app_origin.url().clone()),
     }
 }
 

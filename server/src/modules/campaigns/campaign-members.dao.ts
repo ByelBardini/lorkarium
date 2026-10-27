@@ -18,7 +18,9 @@ export type CampaignListingRow = Readonly<{
 /** One public campaign for "Explorar mesas", with the reader's role there (`null` = not in it). */
 export type PublicCampaignRow = Readonly<{
   campaign: CampaignPo;
+  masterId: string;
   masterName: string;
+  masterUsername: string;
   memberCount: number;
   myRole: CampaignMemberPo['role'] | null;
 }>;
@@ -90,13 +92,16 @@ export class CampaignMembersDao {
       );
   }
 
-  /** Every public campaign, newest first (up to `PUBLIC_CAMPAIGNS_MAX`), with the reader's role in
-   *  each; the filter is the visibility the master chose, not a membership. */
-  async listPublic(readerId: string): Promise<PublicCampaignRow[]> {
+  /** Every public campaign (every campaign with `includePrivate`, for an admin), newest first (up
+   *  to `PUBLIC_CAMPAIGNS_MAX`), with the reader's role in each; the filter is the visibility the
+   *  master chose, not a membership. */
+  async listPublic(readerId: string, includePrivate: boolean): Promise<PublicCampaignRow[]> {
     return this.db
       .select({
         campaign: getTableColumns(campaigns),
+        masterId: masterUsers.id,
         masterName: masterUsers.name,
+        masterUsername: masterUsers.username,
         memberCount: memberCountOfCampaign,
         myRole: readerMembers.role,
       })
@@ -110,7 +115,7 @@ export class CampaignMembersDao {
         readerMembers,
         and(eq(readerMembers.campaignId, campaigns.id), eq(readerMembers.userId, readerId)),
       )
-      .where(eq(campaigns.visibility, 'public'))
+      .where(includePrivate ? undefined : eq(campaigns.visibility, 'public'))
       .orderBy(desc(campaigns.createdAt))
       .limit(PUBLIC_CAMPAIGNS_MAX);
   }

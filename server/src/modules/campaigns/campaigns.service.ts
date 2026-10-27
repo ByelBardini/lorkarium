@@ -13,6 +13,8 @@ import { CAST_SCENE_NAME } from '../scenes/scenes.po';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { MembershipReader } from './cached-memberships';
 import type { CampaignCodePort } from './campaign-code.port';
+import { seesPrivateInExplore } from './campaign-join.bo';
+import type { ExploreReader } from './campaign-join.service';
 import type { CampaignMemberRow, CampaignMembersDao } from './campaign-members.dao';
 import type { CampaignsDao } from './campaigns.dao';
 import { CampaignCodeExhaustedError } from './campaigns.error';
@@ -90,10 +92,14 @@ export class CampaignsService {
     return rows.map(toCampaignSummaryDto);
   }
 
-  /** "Explorar mesas": every public campaign, whoever reads; the reader only adds their role. */
-  async listPublic(readerId: string): Promise<PublicCampaignDto[]> {
-    const rows = await this.deps.members.listPublic(readerId);
-    return rows.map(toPublicCampaignDto);
+  /** "Explorar mesas": every public campaign (every campaign, for an admin); the reader adds
+   *  their role in each, and the live presence who is at each table. */
+  async listPublic(reader: ExploreReader): Promise<PublicCampaignDto[]> {
+    const readerIsAdmin = seesPrivateInExplore(reader.role);
+    const rows = await this.deps.members.listPublic(reader.id, readerIsAdmin);
+    return rows.map((row) =>
+      toPublicCampaignDto(row, readerIsAdmin, this.deps.presence.onlineUserIdsOf(row.campaign.id)),
+    );
   }
 
   async detail(userId: string, campaignId: string): Promise<CampaignDetailDto> {

@@ -23,7 +23,7 @@ export function AppUpdateNotice({
   return (
     <div
       role="status"
-      className="fixed top-3 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-[4px] border border-border bg-panel px-4 py-2 text-sm text-foreground"
+      className="fixed top-[calc(var(--title-bar-height)+0.75rem)] left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-[4px] border border-border bg-panel px-4 py-2 text-sm text-foreground"
     >
       <p>Saiu uma versão nova do Lorkarium.</p>
       <Button size="sm" onClick={reloadPage}>

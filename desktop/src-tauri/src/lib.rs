@@ -1,13 +1,15 @@
 mod app_origin;
+mod load_failure;
 mod main_window;
 mod navigation;
 mod startup;
 mod startup_commands;
 mod tray;
 mod webview2;
+mod window_controls;
 
 use app_origin::{AppOrigin, BuildProfile};
-use tauri::Manager;
+use tauri::{AppHandle, Manager, Runtime};
 
 /// The shell: one window that starts on the packaged splash and then opens the lorkarium site.
 ///
@@ -27,18 +29,28 @@ pub fn run() {
             startup_commands::begin_startup,
             startup_commands::retry_connection
         ])
-        .setup(move |app| {
-            app.manage(startup_commands::StartupShell::new(app_origin.clone())?);
-            let window = main_window::create(app.handle(), app_origin.clone())?;
-            tray::install(app.handle())?;
-            #[cfg(windows)]
-            webview2::harden(&window, app_origin, env!("CARGO_PKG_VERSION"))?;
-            #[cfg(not(windows))]
-            let _ = window;
-            Ok(())
-        })
+        .setup(move |app| open_main_window(app.handle(), app_origin.clone()))
         .run(tauri::generate_context!())
         .expect("o Lorkarium não abriu");
+}
+
+fn open_main_window<R: Runtime>(
+    app: &AppHandle<R>,
+    app_origin: AppOrigin,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let origins = main_window::shell_origins(app, app_origin.clone());
+    app.manage(startup_commands::StartupShell::new(app_origin.clone())?);
+    let window = main_window::create(app, origins.clone())?;
+    window_controls::install(app, &app_origin)?;
+    tray::install(app)?;
+    #[cfg(windows)]
+    {
+        let send_back = startup_commands::send_back_to_splash(app.clone(), origins.splash.clone());
+        webview2::harden(&window, origins, env!("CARGO_PKG_VERSION"), send_back)?;
+    }
+    #[cfg(not(windows))]
+    let _ = (window, origins);
+    Ok(())
 }
 
 fn current_profile() -> BuildProfile {

@@ -164,9 +164,9 @@ export class CampaignMembersDaoFake implements Pick<
     return this.rows.filter((row) => row.userId === userId).map((row) => this.listingOf(row));
   }
 
-  async listPublic(readerId: string): Promise<PublicCampaignRow[]> {
+  async listPublic(readerId: string, includePrivate: boolean): Promise<PublicCampaignRow[]> {
     return this.campaigns.rows
-      .filter(({ visibility }) => visibility === 'public')
+      .filter(({ visibility }) => includePrivate || visibility === 'public')
       .map((campaign) => {
         const members = this.rows.filter((member) => member.campaignId === campaign.id);
         const master = members.find((member) => member.role === 'master');
@@ -175,7 +175,9 @@ export class CampaignMembersDaoFake implements Pick<
         const memberCount = members.filter((member) => member.role !== 'spectator').length;
         return {
           campaign,
+          masterId: master.userId,
           masterName: this.nameOf(master.userId),
+          masterUsername: this.nameOf(master.userId).toLowerCase(),
           memberCount,
           myRole: reader?.role ?? null,
         };

@@ -3,12 +3,17 @@ import { campaignInfoDto, campaignRoleDto } from './campaign.dto';
 import { CAMPAIGN_PASSWORD_MAX_LENGTH } from './create-campaign.dto';
 
 /** One public campaign as anyone signed in sees it in "Explorar mesas": `myRole` is the reader's
- *  role there (`null` = not a member yet) and `hasPassword` says whether "Entrar" asks for it.
+ *  role there (`null` = not a member yet), `hasPassword` says whether "Entrar" asks for it, and
+ *  `masterOnline`/`playersOnline` say who has the table open right now (players = everyone else).
  *
  *  Example: `publicCampaignDto.parse(row).myRole // null` */
 export const publicCampaignDto = campaignInfoDto.extend({
   myRole: campaignRoleDto.nullable(),
   hasPassword: z.boolean(),
+  /** The master's @, which the explore search matches exactly. */
+  masterUsername: z.string(),
+  masterOnline: z.boolean(),
+  playersOnline: z.number().int().nonnegative(),
 });
 
 export type PublicCampaignDto = z.infer<typeof publicCampaignDto>;

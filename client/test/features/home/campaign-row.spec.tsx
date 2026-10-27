@@ -31,7 +31,7 @@ describe('CampaignRow', () => {
 
   it('the meta of a player campaign names the master', () => {
     renderRow(QUELM);
-    expect(screen.getByText('Tormenta20 · mestre: Bia · 4 participantes')).toBeInTheDocument();
+    expect(screen.getByText('Tormenta20 · Mestre: Bia · 4 participantes')).toBeInTheDocument();
   });
 
   it('one member is "1 participante"', () => {

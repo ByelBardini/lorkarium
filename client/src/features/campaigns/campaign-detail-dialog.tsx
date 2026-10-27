@@ -85,7 +85,12 @@ function DetailHeader({ campaign, onClose }: DetailHeaderProps): React.JSX.Eleme
   );
 }
 
-function visibilityLabel(campaign: CampaignDetailDto): string {
+/** "Pública" or "Privada", with " · com senha" when joining asks for it.
+ *
+ *  Example: `visibilityLabel({ visibility: 'private', hasPassword: true }) // 'Privada · com senha'` */
+export function visibilityLabel(
+  campaign: Pick<CampaignDetailDto, 'visibility' | 'hasPassword'>,
+): string {
   const visibility = campaign.visibility === 'public' ? 'Pública' : 'Privada';
   return campaign.hasPassword ? `${visibility} · com senha` : visibility;
 }

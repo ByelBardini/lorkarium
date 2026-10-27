@@ -109,6 +109,8 @@ export type PlayRoomPageProps = Readonly<{
   dice: DiceCommands;
   savedRolls: SavedRollsApi;
   diceClock: InteractionClock;
+  /** A page (settings, conditions) covers the room: the desktop title bar gets its place back. */
+  covered?: boolean;
 }>;
 
 /** The play room: the board fills the screen, the top bar, tools and panel float over it, and
@@ -179,6 +181,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             openTables={openTables}
             roomLayout={roomLayout}
             clipboard={clipboard}
+            inTitleBar={!props.covered}
           />
         )}
         <div className="relative min-h-0 flex-1">

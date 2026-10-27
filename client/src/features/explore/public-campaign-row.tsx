@@ -1,5 +1,5 @@
 import type { PublicCampaignDto } from '@lorkarium/contracts';
-import { LockIcon } from 'lucide-react';
+import { EyeOffIcon, LockIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useFetcher } from 'react-router';
 import { CampaignCover } from '@/components/campaign-cover';
@@ -9,37 +9,62 @@ import { campaignMeta, ROLE_LABEL } from '@/lib/campaign-meta';
 import type { ExploreActionRequest, ExploreActionResult } from './explore-action';
 import { PASSWORD_FAILURES, publicJoinFailureMessage } from './explore-messages';
 import { JoinPublicDialog } from './join-public-dialog';
+import { PublicCampaignDialog } from './public-campaign-dialog';
 
 export type PublicCampaignRowProps = Readonly<{ campaign: PublicCampaignDto }>;
 
-/** One public campaign: thumbnail, name, status, meta and, at the right, "Entrar" (asking the
- *  password first when it has one) or, for one the reader is in, their role and "Abrir".
+/** One card of "Explorar mesas": cover, status, name, meta and, in the footer, "Detalhes"
+ *  (the modal with "Entrar", asking the password first when it has one, or the full detail of the
+ *  campaign for one the reader is in).
  *
  *  Example: `<ul>{campaigns.map((c) => <PublicCampaignRow key={c.id} campaign={c} />)}</ul>` */
 export function PublicCampaignRow({ campaign }: PublicCampaignRowProps): React.JSX.Element {
   const join = usePublicJoin(campaign);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const closeDetails = (): void => {
+    setDetailsOpen(false);
+    join.close();
+  };
   return (
-    <li className="flex flex-col gap-2 border-b border-divider py-3 last:border-b-0">
-      <div className="flex items-center gap-4">
-        <CampaignCover cover={campaign.cover} className="size-16 shrink-0" />
+    <li className="flex flex-col overflow-hidden rounded-md border border-border bg-card transition-colors hover:border-primary/40">
+      <CampaignCover cover={campaign.cover} className="aspect-[300/140] w-full" />
+      <div className="flex flex-1 flex-col gap-3 p-4">
         <CampaignText campaign={campaign} />
-        <RowAction campaign={campaign} join={join} />
+        <RowAction campaign={campaign} onDetails={() => setDetailsOpen(true)} />
       </div>
-      {join.rowFailure && (
-        <p role="alert" className="text-sm text-destructive">
+      {join.rowFailure && !detailsOpen && (
+        <p role="alert" className="px-4 pb-4 text-sm text-destructive">
           {publicJoinFailureMessage(join.rowFailure)}
         </p>
       )}
-      {join.asking && (
-        <JoinPublicDialog
-          campaignName={campaign.name}
-          submitting={join.submitting}
-          failure={join.failure}
-          onSubmit={join.send}
-          onClose={join.close}
-        />
-      )}
+      {detailsOpen && <RowDialogs campaign={campaign} join={join} onClose={closeDetails} />}
     </li>
+  );
+}
+
+type RowDialogsProps = PublicCampaignRowProps & Readonly<{ join: PublicJoin; onClose: () => void }>;
+
+// The password dialog stands in for the details while it is open; cancelling it comes back here.
+function RowDialogs({ campaign, join, onClose }: RowDialogsProps): React.JSX.Element {
+  if (join.asking) {
+    return (
+      <JoinPublicDialog
+        campaignName={campaign.name}
+        submitting={join.submitting}
+        failure={join.failure}
+        onSubmit={join.send}
+        onClose={join.close}
+      />
+    );
+  }
+  return (
+    <PublicCampaignDialog
+      campaign={campaign}
+      submitting={join.submitting}
+      failure={join.rowFailure}
+      onEnter={join.start}
+      onClose={onClose}
+    />
   );
 }
 
@@ -72,56 +97,90 @@ function usePublicJoin(campaign: PublicCampaignDto) {
 
 function CampaignText({ campaign }: PublicCampaignRowProps): React.JSX.Element {
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <StatusBadge status={campaign.status} />
       <span className="truncate font-display text-[22px] leading-tight font-semibold">
         {campaign.name}
       </span>
-      <span className="flex min-w-0 items-center gap-3">
-        <StatusBadge status={campaign.status} className="shrink-0" />
-        <span className="truncate text-[13px] text-muted-foreground">{campaignMeta(campaign)}</span>
-        {campaign.hasPassword && (
-          <span className="flex shrink-0 items-center gap-1 text-[13px] text-muted-foreground">
-            <LockIcon aria-hidden="true" className="size-3.5" />
-            com senha
-          </span>
-        )}
-      </span>
+      <span className="truncate text-[13px] text-muted-foreground">{campaignMeta(campaign)}</span>
+      <PresenceLine campaign={campaign} />
       {campaign.description && (
-        <span className="hidden truncate text-[13px] text-placeholder md:block">
-          {campaign.description}
-        </span>
+        <span className="line-clamp-2 text-[13px] text-placeholder">{campaign.description}</span>
       )}
     </div>
   );
 }
 
-type RowActionProps = PublicCampaignRowProps & Readonly<{ join: PublicJoin }>;
+// Said in words beside the dot, so the green is never the only cue.
+function PresenceLine({ campaign }: PublicCampaignRowProps): React.JSX.Element | null {
+  const parts = [
+    campaign.masterOnline ? 'Mestre online' : null,
+    campaign.playersOnline > 0 ? playersOnlineLabel(campaign.playersOnline) : null,
+  ].filter((part): part is string => part !== null);
+  if (parts.length === 0) return null;
+  return (
+    <span className="flex items-center gap-1.5 text-[13px] text-chart-4">
+      <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+      {parts.join(' · ')}
+    </span>
+  );
+}
 
-function RowAction({ campaign, join }: RowActionProps): React.JSX.Element {
-  if (campaign.myRole) {
-    return (
-      <div className="flex shrink-0 items-center gap-3">
-        <span className="hidden text-xs font-semibold tracking-[0.12em] text-label uppercase sm:inline">
+function playersOnlineLabel(count: number): string {
+  return count === 1 ? '1 jogador online' : `${count} jogadores online`;
+}
+
+type RowActionProps = PublicCampaignRowProps & Readonly<{ onDetails: () => void }>;
+
+function RowAction({ campaign, onDetails }: RowActionProps): React.JSX.Element {
+  return (
+    <div className="flex items-center gap-3 border-t border-divider pt-3">
+      <CampaignFlags campaign={campaign} />
+      {campaign.myRole && (
+        <span className="text-xs font-semibold tracking-[0.12em] text-label uppercase">
           {ROLE_LABEL[campaign.myRole]}
         </span>
-        <Button asChild variant="outline">
-          <Link to={`/campaigns/${campaign.id}`} aria-label={`Abrir ${campaign.name}`}>
-            Abrir
-          </Link>
-        </Button>
-      </div>
+      )}
+      <DetailsButton campaign={campaign} onDetails={onDetails} />
+    </div>
+  );
+}
+
+// One the reader is in has the full detail (members, last visit) at its own link over the list.
+function DetailsButton({ campaign, onDetails }: RowActionProps): React.JSX.Element {
+  const label = `Detalhes de ${campaign.name}`;
+  if (campaign.myRole) {
+    return (
+      <Button asChild variant="outline" size="sm">
+        <Link to={campaign.id} aria-label={label}>
+          Detalhes
+        </Link>
+      </Button>
     );
   }
-  const busy = join.submitting && !join.asking;
   return (
-    <Button
-      className="shrink-0"
-      onClick={join.start}
-      disabled={join.submitting}
-      aria-busy={busy}
-      aria-label={`Entrar em ${campaign.name}`}
-    >
-      {busy ? 'Entrando…' : 'Entrar'}
+    <Button variant="outline" size="sm" onClick={onDetails} aria-label={label}>
+      Detalhes
     </Button>
+  );
+}
+
+// "privada" and "com senha" sit at the left of the footer, pushing the action to the right.
+function CampaignFlags({ campaign }: PublicCampaignRowProps): React.JSX.Element {
+  return (
+    <span className="mr-auto flex min-w-0 items-center gap-3 text-[13px] text-muted-foreground">
+      {campaign.visibility === 'private' && (
+        <span className="flex items-center gap-1">
+          <EyeOffIcon aria-hidden="true" className="size-3.5" />
+          privada
+        </span>
+      )}
+      {campaign.hasPassword && (
+        <span className="flex items-center gap-1">
+          <LockIcon aria-hidden="true" className="size-3.5" />
+          com senha
+        </span>
+      )}
+    </span>
   );
 }

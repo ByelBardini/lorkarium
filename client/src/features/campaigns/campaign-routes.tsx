@@ -25,16 +25,24 @@ import { CampaignTableErrorPage } from './campaign-table-page';
 import type { CampaignLoaderData } from './campaign-loader-data';
 import type { EnterCampaignResult } from './enter-campaign-button';
 
-/** The detail modal, a child of the home at `/campaigns/:campaignId`: a shareable link, and
- *  "back" closes it. Its action is "Entrar na mesa".
+export type CampaignDetailPlace = Readonly<{ path: string; closeTo: string }>;
+
+const HOME_DETAIL: CampaignDetailPlace = { path: 'campaigns/:campaignId', closeTo: '/' };
+
+/** The detail modal, a child of the home at `/campaigns/:campaignId` (or of another page, by
+ *  `place`): a shareable link, and closing it goes back to `place.closeTo`. Its action is
+ *  "Entrar na mesa".
  *
  *  Example: `{ id: 'home', path: '/', children: [index, campaignDetailRoute(deps)] }` */
-export function campaignDetailRoute(deps: AppDependencies): RouteObject {
+export function campaignDetailRoute(
+  deps: AppDependencies,
+  place: CampaignDetailPlace = HOME_DETAIL,
+): RouteObject {
   return {
-    path: 'campaigns/:campaignId',
+    path: place.path,
     loader: campaignLoader(deps),
     action: enterCampaignAction(deps),
-    Component: detailRoute(deps),
+    Component: detailRoute(deps, place.closeTo),
     ErrorBoundary: CampaignDetailErrorRoute,
   };
 }
@@ -49,7 +57,7 @@ export function campaignTableRoute(deps: AppDependencies): RouteObject {
   return {
     id: TABLE_ROUTE_ID,
     path: 'campaigns/:campaignId/table',
-    handle: COMPACT_RAIL_HANDLE,
+    handle: { ...COMPACT_RAIL_HANDLE, place: 'Mesa' },
     loader: campaignLoader(deps),
     shouldRevalidate: keepCampaignUnderLibrary,
     Component: tableRoute(deps),
@@ -87,13 +95,16 @@ function enterCampaignAction({ campaignsApi, sessionStore }: AppDependencies): A
   };
 }
 
-function detailRoute({ clipboard, now }: AppDependencies): () => React.JSX.Element {
+function detailRoute(
+  { clipboard, now }: AppDependencies,
+  closeTo: string,
+): () => React.JSX.Element {
   return function DetailRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
     const navigate = useNavigate();
     // Fixed once per visit, so "Último acesso" does not move while the modal is open.
     const [visitNow] = useState(now);
-    const close = (): void => void navigate('/');
+    const close = (): void => void navigate(closeTo);
     return (
       <CampaignDetailDialog campaign={campaign} onClose={close}>
         <CampaignOverview
@@ -168,6 +179,7 @@ function tableRoute({
               dice={dice}
               savedRolls={savedRolls}
               diceClock={diceClock}
+              covered={covered}
             />
           </MemberRoleProvider>
         </div>

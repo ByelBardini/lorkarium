@@ -19,7 +19,7 @@ export function AccountRecoveryPage(): React.JSX.Element {
   const token = useFragmentToken();
   const check = useRecoveryCheck(token);
   return (
-    <main className="flex min-h-svh w-full flex-col items-start gap-8 bg-background px-4 py-12 sm:px-8 lg:px-12">
+    <main className="flex min-h-app w-full flex-col items-start gap-8 bg-background px-4 py-12 sm:px-8 lg:px-12">
       <title>Lorkarium · Recuperar conta</title>
       <BrandMark variant="compact" />
       <RecoveryBody token={token} check={check} />

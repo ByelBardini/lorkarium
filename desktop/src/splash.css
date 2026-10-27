@@ -9,6 +9,9 @@
   --primary-hover: #d4b57e;
   --primary-foreground: #15130f;
   --border: #23272e;
+  --accent: #1b1f25;
+  --accent-foreground: #eae5da;
+  --destructive: #b5654f;
   --ring: #c5a46d;
   --radius: 0.25rem;
   --font-sans: 'Hanken Grotesk Variable', system-ui, sans-serif;
@@ -19,15 +22,61 @@ html,
 body {
   height: 100%;
   margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   user-select: none;
 }
 
+/* The window has no native frame: this bar is what drags it (WebView2 non-client region, via wry). */
+.splash-titlebar {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  height: 38px;
+  background: var(--panel);
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.splash-window-controls {
+  display: flex;
+}
+
+.splash-window-control {
+  display: inline-flex;
+  width: 46px;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.splash-window-control:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.splash-window-close:hover {
+  background: var(--destructive);
+  color: var(--foreground);
+}
+
 .splash {
   display: flex;
-  height: 100%;
+  min-height: 0;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
