@@ -65,7 +65,7 @@ function TitleBarLogo(): React.JSX.Element {
       data-app-region="no-drag"
       className="flex w-14 shrink-0 items-center justify-center group-data-[focused=false]:opacity-50 hover:bg-card"
     >
-      <BrandMark variant="icon" className="[&_svg]:size-[18px]" />
+      <BrandMark variant="icon" className="[&_svg]:size-6" />
     </Link>
   );
 }
