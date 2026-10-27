@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTables, type OpenTablesStore } from '@/stores/open-tables-store';
 
-/** A table its master deleted takes the person out of its screens (the room, the detail) to
+/** A table the server closed (its master deleted it, or the person left it) takes them out of its screens (the room, the detail) to
  *  the home; the store already closed it and keeps the notice the shell shows.
  *
  *  Example: `useLeaveDeletedTable(deps.openTables)` */

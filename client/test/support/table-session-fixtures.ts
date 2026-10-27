@@ -14,6 +14,7 @@ import type {
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
   SessionMemberUpdatedDto,
+  SessionRemovedFromTableDto,
   SessionStateDto,
   TokenDto,
   TokensDraggedDto,
@@ -21,7 +22,7 @@ import type {
   VeiledLightsChangedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
-import { ANA } from './auth-api-fake';
+import { ANA, ROOT_ADMIN } from './auth-api-fake';
 import { VHARN } from './campaigns-api-fake';
 
 export const ANA_AT_TABLE: SessionMemberDto = {
@@ -32,6 +33,7 @@ export const ANA_AT_TABLE: SessionMemberDto = {
   avatarId: null,
   bio: null,
   role: 'master',
+  juggernaut: false,
   online: true,
   awaySince: null,
 };
@@ -44,6 +46,7 @@ export const BIA_AT_TABLE: SessionMemberDto = {
   avatarId: null,
   bio: null,
   role: 'player',
+  juggernaut: false,
   online: false,
   awaySince: null,
 };
@@ -56,6 +59,7 @@ export const CAIO_AT_TABLE: SessionMemberDto = {
   avatarId: null,
   bio: null,
   role: 'player',
+  juggernaut: false,
   online: true,
   awaySince: null,
 };
@@ -73,6 +77,27 @@ export function duda(overrides: Partial<SessionMemberDto> = {}): SessionMemberDt
     avatarId: null,
     bio: null,
     role: 'spectator',
+    juggernaut: false,
+    online: true,
+    awaySince: null,
+    ...overrides,
+  };
+}
+
+/** Root, an admin of Lorkarium in juggernaut mode at VHARN (always `master` while it is on),
+ *  online unless overridden: listed only while online.
+ *
+ *  Example: `vharnState({ members: [rootJuggernaut(), ANA_AT_TABLE] })`, `rootJuggernaut({ online: false })` */
+export function rootJuggernaut(overrides: Partial<SessionMemberDto> = {}): SessionMemberDto {
+  return {
+    userId: ROOT_ADMIN.id,
+    name: 'Root',
+    username: 'admin',
+    color: 'bone',
+    avatarId: null,
+    bio: null,
+    role: 'master',
+    juggernaut: true,
     online: true,
     awaySince: null,
     ...overrides,
@@ -146,6 +171,7 @@ export function vharnRenamed(
       status: VHARN.status,
       description: VHARN.description,
       visibility: VHARN.visibility,
+      ownerId: VHARN.ownerId,
       masterName: VHARN.masterName,
       memberCount: VHARN.memberCount,
       contentWarnings: VHARN.contentWarnings,
@@ -157,6 +183,15 @@ export function vharnRenamed(
     at: AT,
     ...overrides,
   };
+}
+
+/** `session:removedFromTable` of VHARN: the reader left it (a juggernaut who was not a member).
+ *
+ *  Example: `removedFromVharn({ campaignId: QUELM.id })` */
+export function removedFromVharn(
+  overrides: Partial<SessionRemovedFromTableDto> = {},
+): SessionRemovedFromTableDto {
+  return { campaignId: VHARN.id, at: AT, ...overrides };
 }
 
 /** `session:campaignDeleted` of VHARN.

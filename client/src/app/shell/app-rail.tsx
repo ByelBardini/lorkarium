@@ -6,7 +6,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { EXPLORE_PATH } from '@/features/explore/explore-route';
+import { EXPLORE_PATH } from '@/features/explore/explore-path';
 import { cn } from '@/lib/utils';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { useRail, type RailStore } from '@/stores/rail-store';

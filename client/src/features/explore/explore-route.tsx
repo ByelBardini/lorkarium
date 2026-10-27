@@ -4,13 +4,13 @@ import type { AppDependencies } from '@/app/router';
 import { valueOrThrow } from '@/app/shell/api-loader';
 import { campaignDetailRoute } from '@/features/campaigns/campaign-routes';
 import { exploreAction } from './explore-action';
+import { EXPLORE_PATH } from './explore-path';
 import { ExploreErrorScreen, ExploreRoute } from './explore-page';
-
-/** The rail's link to "Explorar mesas". */
-export const EXPLORE_PATH = '/campaigns/public';
 
 export type ExploreLoaderData = Readonly<{
   campaigns: PublicCampaignDto[];
+  /** The signed-in account (`null` only if the session went away meanwhile). */
+  readerId: string | null;
   readerIsAdmin: boolean;
 }>;
 
@@ -33,7 +33,7 @@ function exploreLoader({ campaignsApi, sessionStore }: AppDependencies): LoaderF
   return async ({ request }): Promise<ExploreLoaderData> => {
     const campaigns = valueOrThrow(await campaignsApi.listPublic(), request, sessionStore);
     const { session } = sessionStore.getState();
-    const readerIsAdmin = session.status === 'authenticated' && session.user.role === 'admin';
-    return { campaigns, readerIsAdmin };
+    const reader = session.status === 'authenticated' ? session.user : null;
+    return { campaigns, readerId: reader?.id ?? null, readerIsAdmin: reader?.role === 'admin' };
   };
 }

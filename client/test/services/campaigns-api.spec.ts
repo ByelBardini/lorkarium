@@ -197,12 +197,79 @@ describe('HttpCampaignsApi', () => {
       });
     });
 
+    it('promoting to master sends { role: master }', async () => {
+      transport.respondWith(200, { ...dudaPlayer, role: 'master' });
+
+      const result = await api.setMemberRole(VHARN.id, duda().userId, 'master');
+
+      expect(result).toEqual({ ok: true, value: { ...dudaPlayer, role: 'master' } });
+      expect(transport.requests[0]?.body).toEqual({ role: 'master' });
+    });
+
     it('a network failure becomes offline', async () => {
       transport.failWithNetworkDown();
 
       expect(await api.setMemberRole(VHARN.id, duda().userId, 'player')).toEqual({
         ok: false,
         failure: { kind: 'offline' },
+      });
+    });
+  });
+
+  describe('juggernaut', () => {
+    const asJuggernaut = detailOf(QUELM, { myRole: 'master', juggernaut: true });
+
+    it('startJuggernaut posts to the juggernaut path and yields the detail as master', async () => {
+      transport.respondWith(200, { campaign: asJuggernaut });
+
+      expect(await api.startJuggernaut(QUELM.id)).toEqual({ ok: true, value: asJuggernaut });
+      expect(transport.requests).toEqual([
+        { method: 'POST', path: `/campaigns/${QUELM.id}/juggernaut`, body: undefined },
+      ]);
+    });
+
+    it('a 403 FORBIDDEN_ROLE on startJuggernaut (not an admin) becomes forbidden', async () => {
+      transport.respondWith(403, apiError('FORBIDDEN_ROLE'));
+
+      expect(await api.startJuggernaut(QUELM.id)).toEqual({
+        ok: false,
+        failure: { kind: 'forbidden' },
+      });
+    });
+
+    it('a 409 ALREADY_OWNER on startJuggernaut becomes already_owner', async () => {
+      transport.respondWith(409, apiError('ALREADY_OWNER'));
+
+      expect(await api.startJuggernaut(VHARN.id)).toEqual({
+        ok: false,
+        failure: { kind: 'already_owner' },
+      });
+    });
+
+    it('a 200 startJuggernaut whose body is outside the DTO becomes unexpected', async () => {
+      transport.respondWith(200, { campaign: { ...asJuggernaut, juggernaut: 'yes' } });
+
+      expect(await api.startJuggernaut(QUELM.id)).toEqual({
+        ok: false,
+        failure: { kind: 'unexpected' },
+      });
+    });
+
+    it('endJuggernaut sends a DELETE and yields the role the admin went back to', async () => {
+      transport.respondWith(200, { myRole: null });
+
+      expect(await api.endJuggernaut(QUELM.id)).toEqual({ ok: true, value: { myRole: null } });
+      expect(transport.requests).toEqual([
+        { method: 'DELETE', path: `/campaigns/${QUELM.id}/juggernaut`, body: undefined },
+      ]);
+    });
+
+    it('a 200 endJuggernaut whose role is outside the DTO becomes unexpected', async () => {
+      transport.respondWith(200, { myRole: 'owner' });
+
+      expect(await api.endJuggernaut(QUELM.id)).toEqual({
+        ok: false,
+        failure: { kind: 'unexpected' },
       });
     });
   });

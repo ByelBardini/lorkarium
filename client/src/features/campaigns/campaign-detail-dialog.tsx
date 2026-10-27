@@ -17,6 +17,8 @@ import { failureMessage } from './campaign-messages';
 
 export type CampaignDetailDialogProps = Readonly<{
   campaign: CampaignDetailDto;
+  /** The signed-in account: the owner does not read their own name in the meta. */
+  readerId: string | null;
   onClose: () => void;
   /** The body under the header: the overview. */
   children: React.ReactNode;
@@ -25,9 +27,10 @@ export type CampaignDetailDialogProps = Readonly<{
 /** The campaign in a modal: cover, who you are in it, name, status and who is online, then the
  *  overview. The settings live in the play room (`/campaigns/:id/table/settings`), not here.
  *
- *  Example: `<CampaignDetailDialog campaign={campaign} onClose={back}><CampaignOverview … /></CampaignDetailDialog>` */
+ *  Example: `<CampaignDetailDialog campaign={campaign} readerId={user.id} onClose={back}><CampaignOverview … /></CampaignDetailDialog>` */
 export function CampaignDetailDialog({
   campaign,
+  readerId,
   onClose,
   children,
 }: CampaignDetailDialogProps): React.JSX.Element {
@@ -38,14 +41,14 @@ export function CampaignDetailDialog({
         className="max-h-[90svh] gap-5 overflow-y-auto sm:max-w-3xl"
       >
         <title>{`Lorkarium · ${campaign.name}`}</title>
-        <DetailHeader campaign={campaign} onClose={onClose} />
+        <DetailHeader campaign={campaign} readerId={readerId} onClose={onClose} />
         {children}
       </DialogContent>
     </Dialog>
   );
 }
 
-type DetailHeaderProps = Readonly<{ campaign: CampaignDetailDto; onClose: () => void }>;
+type DetailHeaderProps = Pick<CampaignDetailDialogProps, 'campaign' | 'readerId' | 'onClose'>;
 
 const ROLE_HEADLINE: Readonly<Record<CampaignDetailDto['myRole'], string>> = {
   master: 'Você mestra',
@@ -53,7 +56,7 @@ const ROLE_HEADLINE: Readonly<Record<CampaignDetailDto['myRole'], string>> = {
   spectator: 'Você assiste',
 };
 
-function DetailHeader({ campaign, onClose }: DetailHeaderProps): React.JSX.Element {
+function DetailHeader({ campaign, readerId, onClose }: DetailHeaderProps): React.JSX.Element {
   const online = onlineSummary(campaign.members);
   return (
     <div className="flex items-start gap-4 sm:gap-5">
@@ -76,7 +79,7 @@ function DetailHeader({ campaign, onClose }: DetailHeaderProps): React.JSX.Eleme
           <StatusBadge status={campaign.status} />
           {online && <p className="text-[13px] text-muted-foreground">{online}</p>}
         </div>
-        <DialogDescription>{campaignMeta(campaign)}</DialogDescription>
+        <DialogDescription>{campaignMeta(campaign, readerId)}</DialogDescription>
       </DialogHeader>
       <Button variant="ghost" size="icon-sm" aria-label="Fechar detalhes" onClick={onClose}>
         <XIcon aria-hidden="true" />

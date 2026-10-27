@@ -13,6 +13,7 @@ import {
   biaLeft,
   biaUpdated,
   vharnDeleted,
+  removedFromVharn,
   vharnRenamed,
   vharnState,
 } from '../support/table-session-fixtures';
@@ -298,9 +299,18 @@ describe('RealtimeTableSessionApi', () => {
       expect(updates.at(-1)).toEqual({ kind: 'campaignDeleted', event: vharnDeleted() });
     });
 
+    it('a valid removedFromTable of this table reaches the listener', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+
+      transport.serverEmits('session:removedFromTable', removedFromVharn());
+
+      expect(updates.at(-1)).toEqual({ kind: 'removedFromTable', event: removedFromVharn() });
+    });
+
     it.each([
       ['session:campaignUpdated', vharnRenamed({ campaignId: QUELM.id })],
       ['session:campaignDeleted', vharnDeleted({ campaignId: QUELM.id })],
+      ['session:removedFromTable', removedFromVharn({ campaignId: QUELM.id })],
     ])('a %s of another table is ignored', async (event, payload) => {
       await connectAndAnswer({ ok: true, state: vharnState() });
       const count = updates.length;

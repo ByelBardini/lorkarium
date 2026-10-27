@@ -7,6 +7,13 @@ import { testDependencies, type TestDependencies } from '../../support/app-depen
 import { ANA, ROOT_ADMIN } from '../../support/auth-api-fake';
 import { PUBLIC_VHARN, QUELM } from '../../support/campaigns-api-fake';
 
+const QUELM_PUBLIC = {
+  ...PUBLIC_VHARN,
+  id: QUELM.id,
+  name: QUELM.name,
+  ownerId: QUELM.ownerId,
+};
+
 const PROTECTED = {
   ...PUBLIC_VHARN,
   id: '4c5d6e7f-8a9b-4c0d-9e1f-2a3b4c5d6e7f',
@@ -155,6 +162,58 @@ describe('explore route ("Explorar mesas")', () => {
       'href',
       `/campaigns/public/${PUBLIC_VHARN.id}`,
     );
+  });
+
+  describe('"Entrar como juggernaut" (admin)', () => {
+    const PRIVATE = { ...PUBLIC_VHARN, visibility: 'private' as const };
+    const OWN = { ...QUELM_PUBLIC, ownerId: ROOT_ADMIN.id, myRole: 'master' as const };
+    const juggernautOf = (name: string) =>
+      screen.queryByRole('button', { name: `Entrar como juggernaut em ${name}` });
+
+    beforeEach(() => {
+      deps.authApi.answerMeWith(ROOT_ADMIN);
+      deps.campaignsApi.answer('listPublic', { ok: true, value: [PRIVATE, OWN] });
+    });
+
+    it('an admin sees it on a private campaign they are not in, never on their own', async () => {
+      renderAt('/campaigns/public');
+
+      expect(
+        await screen.findByRole('button', { name: /^Entrar como juggernaut em Os Sinos/ }),
+      ).toHaveTextContent('Entrar como juggernaut');
+      expect(juggernautOf(OWN.name)).toBeNull();
+    });
+
+    it('clicking it turns the mode on and opens the detail of the campaign', async () => {
+      const router = renderAt('/campaigns/public');
+
+      await userEvent.click(await screen.findByRole('button', { name: /^Entrar como juggernaut/ }));
+
+      expect(deps.campaignsApi.callsOf('startJuggernaut')).toEqual([PRIVATE.id]);
+      await vi.waitFor(() =>
+        expect(router.state.location.pathname).toBe(`/campaigns/${PRIVATE.id}`),
+      );
+    });
+
+    it('a refusal (409 ALREADY_OWNER) is said in the row', async () => {
+      deps.campaignsApi.answer('startJuggernaut', {
+        ok: false,
+        failure: { kind: 'already_owner' },
+      });
+      renderAt('/campaigns/public');
+
+      await userEvent.click(await screen.findByRole('button', { name: /^Entrar como juggernaut/ }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Você já é o dono desta mesa.');
+    });
+
+    it('an account that is not admin never sees it', async () => {
+      deps.authApi.answerMeWith(ANA);
+      renderAt('/campaigns/public');
+
+      expect(await screen.findByText(PRIVATE.name)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Entrar como juggernaut/ })).toBeNull();
+    });
   });
 
   async function searchFor(text: string): Promise<void> {

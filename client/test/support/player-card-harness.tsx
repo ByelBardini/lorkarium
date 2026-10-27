@@ -86,7 +86,8 @@ export class PlayerCardHarness {
     const confirmed = vharnBoard({ viewer, tokens: [lyra({ bars: [cardBar()] })], ...state });
     this.board.getState().apply({ kind: 'board', state: confirmed });
     const cast = this.scene.cast ? castBoard({ viewer, ...this.scene.cast }) : null;
-    const roster = tableRosterOf({ members: [member], board: confirmed, cast, viewerId });
+    const { ownerId } = VHARN;
+    const roster = tableRosterOf({ members: [member], board: confirmed, cast, viewerId, ownerId });
     const [player] = roster.players;
     if (!player) throw new Error(`no player card for ${member.name}`);
     return (

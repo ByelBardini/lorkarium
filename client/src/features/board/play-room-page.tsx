@@ -181,6 +181,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             openTables={openTables}
             roomLayout={roomLayout}
             clipboard={clipboard}
+            sessionStore={props.sessionStore}
             inTitleBar={!props.covered}
           />
         )}
@@ -373,6 +374,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               interaction={interaction}
               group={shown.group}
               isMaster={isMaster}
+              ownerId={campaign.ownerId}
               onEditToken={(tokenId) => setTokenDialog({ tokenId })}
               clock={props.interactionClock}
               dice={{

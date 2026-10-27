@@ -35,8 +35,13 @@ export function HomePage(props: HomePageProps): React.JSX.Element {
         <GreetingHeader name={user.name} now={now} draw={greetingDraw} />
         {campaigns.length > 0 && <HomeActions onCreate={openCreate} onJoin={openJoin} />}
       </header>
-      {candidate && <ContinueBand campaign={candidate} />}
-      <CampaignList campaigns={campaigns} onCreate={openCreate} onJoin={openJoin} />
+      {candidate && <ContinueBand campaign={candidate} readerId={user.id} />}
+      <CampaignList
+        campaigns={campaigns}
+        readerId={user.id}
+        onCreate={openCreate}
+        onJoin={openJoin}
+      />
       <HomeDialogs dialog={dialog} clipboard={clipboard} onClose={() => setDialog(null)} />
       <Outlet />
     </div>

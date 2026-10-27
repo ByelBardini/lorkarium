@@ -10,6 +10,7 @@ import {
   sceneActivatedDto,
   sceneClosedDto,
   sessionCampaignDeletedDto,
+  sessionRemovedFromTableDto,
   sessionCampaignUpdatedDto,
   sessionJoinAckDto,
   sessionMemberActivityDto,
@@ -234,13 +235,16 @@ export class TableVisit {
   }
 
   private campaignEventSubscriptions(): Unsubscribe[] {
-    const { campaignUpdated, campaignDeleted } = SESSION_EVENTS;
+    const { campaignUpdated, campaignDeleted, removedFromTable } = SESSION_EVENTS;
     return [
       this.onTableEvent(campaignUpdated, sessionCampaignUpdatedDto, (event) =>
         this.notify({ kind: 'campaignUpdated', event }),
       ),
       this.onTableEvent(campaignDeleted, sessionCampaignDeletedDto, (event) =>
         this.notify({ kind: 'campaignDeleted', event }),
+      ),
+      this.onTableEvent(removedFromTable, sessionRemovedFromTableDto, (event) =>
+        this.notify({ kind: 'removedFromTable', event }),
       ),
     ];
   }

@@ -69,7 +69,8 @@ function PublicCampaignHeader({ campaign, onClose }: PublicCampaignHeaderProps):
         </p>
         <DialogTitle className="break-words">{campaign.name}</DialogTitle>
         <StatusBadge status={campaign.status} />
-        <DialogDescription>{campaignMeta(campaign)}</DialogDescription>
+        {/* The reader is not in the campaign: never its owner. */}
+        <DialogDescription>{campaignMeta(campaign, null)}</DialogDescription>
       </DialogHeader>
       <Button variant="ghost" size="icon-sm" aria-label="Fechar detalhes" onClick={onClose}>
         <XIcon aria-hidden="true" />

@@ -24,13 +24,17 @@ export const PREVIEW_BLIND = 'Selecione um token para ver como ele.';
 /** The badge of the room for whoever only watches. */
 export const SPECTATOR_BADGE = 'Espectador';
 
-/** What the status line says when the master changed this viewer's role with the table open.
+const ROLE_CHANGED_NOTICE: Readonly<Record<CampaignRoleDto, string>> = {
+  master: 'Agora você é mestre desta mesa.',
+  player: 'Agora você é jogador nesta mesa.',
+  spectator: 'Agora você assiste a esta mesa.',
+};
+
+/** What the status line says when someone changed this viewer's role with the table open.
  *
  *  Example: `roleChangedNotice('spectator') // 'Agora você assiste a esta mesa.'` */
-export function roleChangedNotice(role: CampaignRoleDto): string | null {
-  if (role === 'player') return 'Agora você é jogador nesta mesa.';
-  if (role === 'spectator') return 'Agora você assiste a esta mesa.';
-  return null;
+export function roleChangedNotice(role: CampaignRoleDto): string {
+  return ROLE_CHANGED_NOTICE[role];
 }
 
 const OUT_OF_SCENE_TEXT = 'Fora da cena.';

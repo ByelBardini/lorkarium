@@ -14,6 +14,7 @@ import type { AppDependencies } from '@/app/router';
 import { redirectIfSignedOut, valueOrThrow } from '@/app/shell/api-loader';
 import { COMPACT_RAIL_HANDLE } from '@/app/shell/rail-handle';
 import { cn } from '@/lib/utils';
+import { useSession } from '@/stores/session-store';
 import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detail-dialog';
 import { PlayRoomPage } from '@/features/board/play-room-page';
 import { MemberRoleProvider } from '@/features/sessions/member-role-provider';
@@ -96,17 +97,22 @@ function enterCampaignAction({ campaignsApi, sessionStore }: AppDependencies): A
 }
 
 function detailRoute(
-  { clipboard, now }: AppDependencies,
+  { clipboard, now, sessionStore }: AppDependencies,
   closeTo: string,
 ): () => React.JSX.Element {
   return function DetailRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
+    const session = useSession(sessionStore);
     const navigate = useNavigate();
     // Fixed once per visit, so "Último acesso" does not move while the modal is open.
     const [visitNow] = useState(now);
     const close = (): void => void navigate(closeTo);
     return (
-      <CampaignDetailDialog campaign={campaign} onClose={close}>
+      <CampaignDetailDialog
+        campaign={campaign}
+        readerId={session.status === 'authenticated' ? session.user.id : null}
+        onClose={close}
+      >
         <CampaignOverview
           campaign={campaign}
           clipboard={clipboard}

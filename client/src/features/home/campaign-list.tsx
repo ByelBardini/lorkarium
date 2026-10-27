@@ -6,13 +6,14 @@ import { CampaignRow } from './campaign-row';
 import { HomeActions, type HomeActionsProps } from './home-actions';
 
 export type CampaignListProps = HomeActionsProps &
-  Readonly<{ campaigns: readonly CampaignSummaryDto[] }>;
+  Readonly<{ campaigns: readonly CampaignSummaryDto[]; readerId: string }>;
 
 /** "Suas mesas": search over the loaded list and one row per campaign, or the empty invitation.
  *
- *  Example: `<CampaignList campaigns={campaigns} onCreate={openCreate} onJoin={openJoin} />` */
+ *  Example: `<CampaignList campaigns={campaigns} readerId={user.id} onCreate={openCreate} onJoin={openJoin} />` */
 export function CampaignList({
   campaigns,
+  readerId,
   onCreate,
   onJoin,
 }: CampaignListProps): React.JSX.Element {
@@ -32,7 +33,7 @@ export function CampaignList({
       {visible.length > 0 ? (
         <ul>
           {visible.map((campaign) => (
-            <CampaignRow key={campaign.id} campaign={campaign} />
+            <CampaignRow key={campaign.id} campaign={campaign} readerId={readerId} />
           ))}
         </ul>
       ) : (

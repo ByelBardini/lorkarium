@@ -33,6 +33,8 @@ export type RoomPanelProps = Readonly<{
     interaction: StoreApi<BoardInteractionStore>;
   }> | null;
   isMaster: boolean;
+  /** The campaign's creator: "Na mesa" names the owner. */
+  ownerId: string;
   onEditToken: (tokenId: string) => void;
   /** The browser's time, for "ausente há N min". */
   clock: InteractionClock;
@@ -106,7 +108,7 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
           />
         )}
       </TabsContent>
-      <TabsContent value="people" className="-mx-1 overflow-y-auto px-1 py-4">
+      <TabsContent value="people" className="-mx-4 overflow-y-auto px-4 py-4">
         {table && (
           <SessionPresencePanel
             store={table.presence}
@@ -114,6 +116,7 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
             cast={table.cast}
             interaction={props.group?.interaction ?? props.interaction}
             isMaster={props.isMaster}
+            ownerId={props.ownerId}
             clock={props.clock}
           />
         )}

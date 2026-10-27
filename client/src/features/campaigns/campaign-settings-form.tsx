@@ -31,6 +31,9 @@ export type CampaignSettingsFormProps = Readonly<{
   campaign: CampaignDetailDto;
   assets: AssetsApi;
   clipboard: Clipboard;
+  /** Owner powers (the owner, a juggernaut): only they see "Zona de perigo" and delete the table;
+   *  a co-master keeps the rest. */
+  canDelete: boolean;
 }>;
 
 /** "Configurações da mesa" (master only): the section menu, then Geral, Conteúdo, Acesso, Permissões
@@ -38,11 +41,12 @@ export type CampaignSettingsFormProps = Readonly<{
  *  the bar; leaving with edits asks first. The code and the deletion are commands of their own,
  *  outside the bar.
  *
- *  Example: `<CampaignSettingsForm campaign={campaign} assets={assets} clipboard={clipboard} />` */
+ *  Example: `<CampaignSettingsForm campaign={campaign} assets={assets} clipboard={clipboard} canDelete />` */
 export function CampaignSettingsForm({
   campaign,
   assets,
   clipboard,
+  canDelete,
 }: CampaignSettingsFormProps): React.JSX.Element {
   const draft = useCampaignSettingsDraft(campaign);
   const save = useSettingsSave(campaign.id, draft);
@@ -55,7 +59,7 @@ export function CampaignSettingsForm({
         onSubmit={save.submit}
         className="grid gap-x-10 gap-y-6 md:grid-cols-[11rem_minmax(0,1fr)] lg:grid-cols-[12rem_minmax(0,1fr)_18rem] xl:grid-cols-[14rem_minmax(0,1fr)_24rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_28rem] 2xl:gap-x-16"
       >
-        <SettingsSectionNav />
+        <SettingsSectionNav withDanger={canDelete} />
         <div className="flex min-w-0 flex-col gap-6 pb-8">
           <GeneralSection
             draft={draft}
@@ -66,7 +70,7 @@ export function CampaignSettingsForm({
           <ContentSection draft={draft} />
           <AccessSection draft={draft} campaign={campaign} clipboard={clipboard} />
           <PlayersSection draft={draft} />
-          <DangerSection campaignId={campaign.id} campaignName={campaign.name} />
+          {canDelete && <DangerSection campaignId={campaign.id} campaignName={campaign.name} />}
         </div>
         <SettingsPreview draft={draft} />
         {save.barState && (

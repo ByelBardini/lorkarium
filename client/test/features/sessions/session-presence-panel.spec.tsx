@@ -63,6 +63,7 @@ describe('SessionPresencePanel', () => {
         cast={cast}
         interaction={interaction}
         isMaster={true}
+        ownerId={VHARN.ownerId}
         clock={new InteractionClockFake()}
       />,
     );
@@ -75,12 +76,12 @@ describe('SessionPresencePanel', () => {
       .map((card) => card.getAttribute('aria-labelledby'))
       .map((id) => (id ? document.getElementById(id)?.textContent : null));
 
-  it('Ana goes to "Mestre" with the seal, Bia and Caio to "Jogadores · 2 online" as cards', () => {
+  it('Ana goes to "Mestre" with the seal of the owner, Bia and Caio to "Jogadores · 2 online" as cards', () => {
     renderPanel();
 
     const masters = section('Mestre');
     expect(within(masters).getByText('Ana')).toBeInTheDocument();
-    expect(within(masters).getByText('Mestre', { selector: '[data-seal]' })).toBeInTheDocument();
+    expect(within(masters).getByText('Dono', { selector: '[data-seal]' })).toBeInTheDocument();
     expect(section('Jogadores · 2 online')).toBeInTheDocument();
     expect(cardTitles()).toEqual(['Lyra', 'Kael']);
   });
@@ -156,6 +157,7 @@ describe('SessionPresencePanel', () => {
         cast={cast}
         interaction={interaction}
         isMaster
+        ownerId={VHARN.ownerId}
         clock={new InteractionClockFake()}
       />,
     );
@@ -174,6 +176,7 @@ describe('SessionPresencePanel', () => {
         cast={cast}
         interaction={interaction}
         isMaster
+        ownerId={VHARN.ownerId}
         clock={new InteractionClockFake()}
       />,
     );
@@ -212,6 +215,7 @@ describe('SessionPresencePanel', () => {
             cast={cast}
             interaction={interaction}
             isMaster={isMaster}
+            ownerId={VHARN.ownerId}
             clock={new InteractionClockFake()}
           />
         </MemberRoleProvider>,

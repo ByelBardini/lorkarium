@@ -10,6 +10,7 @@ import {
   lyra,
   duda,
   memberCard,
+  rootJuggernaut,
   vharnBoard,
 } from '../support/table-session-fixtures';
 import { LYRA_ANCHOR_ID, castBoard, linkedLyra } from '../support/cast-fixtures';
@@ -32,6 +33,7 @@ describe('tableRosterOf', () => {
       board: boardWith(),
       cast: null,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
     expect(roster.masters.map(({ member }) => member.name)).toEqual(['Ana']);
@@ -46,6 +48,7 @@ describe('tableRosterOf', () => {
       board: boardWith(),
       cast: null,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
     expect(roster.players.map(({ member }) => member.name)).toEqual(['Bia', 'Caio']);
@@ -60,6 +63,7 @@ describe('tableRosterOf', () => {
       board: boardWith(),
       cast: null,
       viewerId: BIA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
     expect(roster.masters.map(({ member }) => member.name)).toEqual(['Ana', 'Caio']);
@@ -75,6 +79,7 @@ describe('tableRosterOf', () => {
       board,
       cast: null,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     }).players;
 
     expect(bia).toMatchObject({ card: memberCard({ armorClass: 15 }), token: { id: LYRA_ID } });
@@ -89,6 +94,7 @@ describe('tableRosterOf', () => {
       board,
       cast: null,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
     expect(roster.players[0]?.token).toBeNull();
@@ -102,6 +108,7 @@ describe('tableRosterOf', () => {
       board: boardWith(),
       cast: null,
       viewerId: BIA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
     expect(roster.masters.map(({ isViewer }) => isViewer)).toEqual([false]);
@@ -114,10 +121,18 @@ describe('tableRosterOf', () => {
       board: null,
       cast: null,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
     expect(roster.players).toEqual([
-      { member: BIA_ONLINE, isViewer: false, card: null, token: null, characterName: null },
+      {
+        member: BIA_ONLINE,
+        isViewer: false,
+        assignable: [],
+        card: null,
+        token: null,
+        characterName: null,
+      },
     ]);
   });
 
@@ -125,7 +140,13 @@ describe('tableRosterOf', () => {
     const board = boardWith({ memberCards: [memberCard({ characterName: 'Lyra Vandel' })] });
     const members = [BIA_ONLINE, CAIO_AT_TABLE];
 
-    const roster = tableRosterOf({ members, board, cast: null, viewerId: ANA_AT_TABLE.userId });
+    const roster = tableRosterOf({
+      members,
+      board,
+      cast: null,
+      viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
+    });
 
     expect(roster.players.map(({ characterName }) => characterName)).toEqual([
       'Lyra Vandel',
@@ -143,9 +164,10 @@ describe('tableRosterOf, spectators', () => {
       board: boardWith(),
       cast: null,
       viewerId: duda().userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
-    expect(roster.spectators).toEqual([{ member: duda(), isViewer: true }]);
+    expect(roster.spectators).toEqual([{ member: duda(), isViewer: true, assignable: [] }]);
     expect(roster.players.map(({ member }) => member.name)).toEqual(['Bia']);
     expect(roster.masters.map(({ member }) => member.name)).toEqual(['Ana']);
   });
@@ -158,6 +180,7 @@ describe('tableRosterOf, spectators', () => {
       board: boardWith(),
       cast: null,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
     expect(roster.spectators).toEqual([]);
@@ -173,9 +196,12 @@ describe('tableRosterOf, spectators', () => {
       board,
       cast: null,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
-    expect(roster.spectators).toEqual([{ member: biaSpectator, isViewer: false }]);
+    expect(roster.spectators).toEqual([
+      { member: biaSpectator, isViewer: false, assignable: ['master', 'player'] },
+    ]);
     expect(roster.players.map(({ member }) => member.name)).toEqual(['Caio']);
   });
 
@@ -185,9 +211,78 @@ describe('tableRosterOf, spectators', () => {
       board: null,
       cast: null,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     });
 
     expect(roster.spectators).toEqual([]);
+  });
+});
+
+describe('tableRosterOf, owner and juggernaut', () => {
+  const biaMaster = { ...BIA_ONLINE, role: 'master' as const };
+
+  function rosterOf(members: Parameters<typeof tableRosterOf>[0]['members']) {
+    return tableRosterOf({
+      members,
+      board: boardWith(),
+      cast: null,
+      viewerId: BIA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
+    });
+  }
+
+  it('Ana the owner comes first among the masters, marked owner, and Bia the co-master after', () => {
+    const roster = rosterOf([biaMaster, CAIO_AT_TABLE, ANA_AT_TABLE]);
+
+    expect(roster.masters).toEqual([
+      { member: ANA_AT_TABLE, isViewer: false, owner: true, assignable: [] },
+      { member: biaMaster, isViewer: true, owner: false, assignable: [] },
+    ]);
+  });
+
+  it('Root the juggernaut online goes to the juggernauts and not to the masters', () => {
+    const roster = rosterOf([ANA_AT_TABLE, rootJuggernaut(), CAIO_AT_TABLE]);
+
+    expect(roster.juggernauts).toEqual([
+      { member: rootJuggernaut(), isViewer: false, assignable: [] },
+    ]);
+    expect(roster.masters.map(({ member }) => member.name)).toEqual(['Ana']);
+  });
+
+  it('each row carries the roles the viewer may give it: Ana the owner, over a co-master and a player', () => {
+    const roster = tableRosterOf({
+      members: [ANA_AT_TABLE, biaMaster, CAIO_AT_TABLE],
+      board: boardWith(),
+      cast: null,
+      viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
+    });
+
+    expect(roster.masters.map(({ assignable }) => assignable)).toEqual([
+      [],
+      ['player', 'spectator'],
+    ]);
+    expect(roster.players.map(({ assignable }) => assignable)).toEqual([['master', 'spectator']]);
+  });
+
+  it('a viewer not in the roster yet gives no role to anyone', () => {
+    const roster = tableRosterOf({
+      members: [ANA_AT_TABLE, CAIO_AT_TABLE],
+      board: null,
+      cast: null,
+      viewerId: '',
+      ownerId: ANA_AT_TABLE.userId,
+    });
+
+    expect(roster.players.map(({ assignable }) => assignable)).toEqual([[]]);
+  });
+
+  it('Root the juggernaut offline is in no section', () => {
+    const roster = rosterOf([ANA_AT_TABLE, rootJuggernaut({ online: false }), CAIO_AT_TABLE]);
+
+    expect(roster.juggernauts).toEqual([]);
+    expect(roster.masters.map(({ member }) => member.name)).toEqual(['Ana']);
+    expect(roster.players.map(({ member }) => member.name)).toEqual(['Caio']);
   });
 });
 
@@ -203,6 +298,7 @@ describe('tableRosterOf, with the cast', () => {
       board,
       cast,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     }).players;
 
     expect(bia?.card).toEqual(biaCard);
@@ -217,6 +313,7 @@ describe('tableRosterOf, with the cast', () => {
       board,
       cast,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     }).players;
 
     expect(bia?.token).toBe(cast.tokens[0]);
@@ -232,6 +329,7 @@ describe('tableRosterOf, with the cast', () => {
       board,
       cast,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     }).players;
 
     expect(bia?.token?.id).toBe(LYRA_ID);
@@ -245,6 +343,7 @@ describe('tableRosterOf, with the cast', () => {
       board: boardWith(),
       cast,
       viewerId: ANA_AT_TABLE.userId,
+      ownerId: ANA_AT_TABLE.userId,
     }).players;
 
     expect(bia?.token?.id).toBe(LYRA_ID);

@@ -1,6 +1,7 @@
 import {
   campaignMemberDto,
   campaignResponseDto,
+  endJuggernautResponseDto,
   joinCampaignResponseDto,
   listCampaignsResponseDto,
   listPublicCampaignsResponseDto,
@@ -8,6 +9,7 @@ import {
   type CampaignMemberDto,
   type CampaignSummaryDto,
   type CreateCampaignRequestDto,
+  type EndJuggernautResponseDto,
   type JoinCampaignRequestDto,
   type JoinPublicCampaignRequestDto,
   type PublicCampaignDto,
@@ -26,6 +28,8 @@ export type CampaignsFailure =
   | Readonly<{ kind: 'forbidden' }>
   /** The master changed the settings without the table open in a tab (403 `CAMPAIGN_NOT_OPEN`). */
   | Readonly<{ kind: 'not_open' }>
+  /** An admin asked for juggernaut mode at a campaign they own (409 `ALREADY_OWNER`). */
+  | Readonly<{ kind: 'already_owner' }>
   | Readonly<{ kind: 'invalid' }>
   | Readonly<{ kind: 'password_required' }>
   | Readonly<{ kind: 'password_invalid' }>
@@ -62,16 +66,23 @@ export interface CampaignsApi {
   regenerateCode(campaignId: string): Promise<CampaignsResult<CampaignDetailDto>>;
   /** Master only: deletes the campaign and everything in it. */
   remove(campaignId: string): Promise<CampaignsResult<null>>;
-  /** Master only: promotes a spectator to player or moves a player to the spectators; yields the
+  /** Master only: moves a member between the roles `assignableRolesOf` (game-core) allows — any
+   *  master swaps players and spectators, owner powers also give and take `master`; yields the
    *  member as the server stored it (the table hears it as `session:memberUpdated`). */
   setMemberRole(
     campaignId: string,
     userId: string,
     role: MemberRole,
   ): Promise<CampaignsResult<CampaignMemberDto>>;
+  /** Admin only: turns juggernaut mode on at the campaign (owner powers, `myRole: 'master'`);
+   *  yields its detail as the server stored it. */
+  startJuggernaut(campaignId: string): Promise<CampaignsResult<CampaignDetailDto>>;
+  /** Admin only: turns juggernaut mode off; yields the role the admin went back to (`null`: they
+   *  were not a member and left the campaign). */
+  endJuggernaut(campaignId: string): Promise<CampaignsResult<EndJuggernautResponseDto>>;
 }
 
-/** The roles the master gives and takes: nobody becomes master by a change. */
+/** The roles a master gives and takes (`master` only with owner powers). */
 export type MemberRole = UpdateMemberRoleRequestDto['role'];
 
 const FAILURE_BY_STATUS: Readonly<Record<number, CampaignsFailure>> = {
@@ -84,10 +95,16 @@ const FAILURE_BY_NOT_FOUND_CODE: Readonly<Record<string, CampaignsFailure>> = {
   MEMBER_NOT_FOUND: { kind: 'member_not_found' },
 };
 
+const FAILURE_BY_CONFLICT_CODE: Readonly<Record<string, CampaignsFailure>> = {
+  ALREADY_OWNER: { kind: 'already_owner' },
+};
+
 const FAILURE_BY_FORBIDDEN_CODE: Readonly<Record<string, CampaignsFailure>> = {
   CAMPAIGN_PASSWORD_REQUIRED: { kind: 'password_required' },
   CAMPAIGN_PASSWORD_INVALID: { kind: 'password_invalid' },
   FORBIDDEN: { kind: 'forbidden' },
+  // The account is not an admin: juggernaut mode is theirs only.
+  FORBIDDEN_ROLE: { kind: 'forbidden' },
   CAMPAIGN_NOT_OPEN: { kind: 'not_open' },
 };
 
@@ -172,10 +189,26 @@ export class HttpCampaignsApi implements CampaignsApi {
     if (call.kind !== 'ok') return failed(call);
     return parseOk(campaignMemberDto, call.body, (member) => member);
   }
+
+  async startJuggernaut(campaignId: string): Promise<CampaignsResult<CampaignDetailDto>> {
+    const call = await callApi(this.transport, 'POST', juggernautPath(campaignId));
+    if (call.kind !== 'ok') return failed(call);
+    return parseOk(campaignResponseDto, call.body, (body) => body.campaign);
+  }
+
+  async endJuggernaut(campaignId: string): Promise<CampaignsResult<EndJuggernautResponseDto>> {
+    const call = await callApi(this.transport, 'DELETE', juggernautPath(campaignId));
+    if (call.kind !== 'ok') return failed(call);
+    return parseOk(endJuggernautResponseDto, call.body, (body) => body);
+  }
 }
 
 function campaignPath(campaignId: string): string {
   return `/campaigns/${encodeURIComponent(campaignId)}`;
+}
+
+function juggernautPath(campaignId: string): string {
+  return `${campaignPath(campaignId)}/juggernaut`;
 }
 
 function failed(call: Exclude<ApiCall, { kind: 'ok' }>): CampaignsResult<never> {
@@ -189,6 +222,9 @@ function failureOf(response: HttpResponse): CampaignsFailure {
   }
   if (response.status === 403) {
     return FAILURE_BY_FORBIDDEN_CODE[errorCodeOf(response) ?? ''] ?? { kind: 'unexpected' };
+  }
+  if (response.status === 409) {
+    return FAILURE_BY_CONFLICT_CODE[errorCodeOf(response) ?? ''] ?? { kind: 'unexpected' };
   }
   if (response.status === 404) {
     return FAILURE_BY_NOT_FOUND_CODE[errorCodeOf(response) ?? ''] ?? { kind: 'not_found' };

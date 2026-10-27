@@ -3,7 +3,9 @@ import { Navigate, useRouteError, useRouteLoaderData, type RouteObject } from 'r
 import type { AppDependencies } from '@/app/router';
 import { SignedOutRedirect } from '@/components/signed-out-redirect';
 import { TABLE_ROUTE_ID } from '@/features/library/library-route';
-import type { SessionStore } from '@/stores/session-store';
+import { hasOwnerPowers } from '@lorkarium/game-core';
+import { readerSeatOf } from '@/lib/campaign-seat';
+import { useSession, type SessionStore } from '@/stores/session-store';
 import type { CampaignLoaderData } from './campaign-loader-data';
 import { UNEXPECTED_MESSAGE } from './campaign-messages';
 import { CampaignSettingsSignedOutError, campaignSettingsAction } from './campaign-settings-action';
@@ -30,9 +32,14 @@ export function campaignSettingsRoute(deps: AppDependencies): RouteObject {
   };
 }
 
-function settingsScreen({ assets, clipboard }: AppDependencies): () => React.JSX.Element | null {
+function settingsScreen({
+  assets,
+  clipboard,
+  sessionStore,
+}: AppDependencies): () => React.JSX.Element | null {
   return function SettingsScreen(): React.JSX.Element | null {
     const data = useRouteLoaderData<CampaignLoaderData>(TABLE_ROUTE_ID);
+    const session = useSession(sessionStore);
     if (!data) return null;
     const { campaign } = data;
     if (campaign.myRole !== 'master') {
@@ -45,10 +52,15 @@ function settingsScreen({ assets, clipboard }: AppDependencies): () => React.JSX
           campaign={campaign}
           assets={assets}
           clipboard={clipboard}
+          canDelete={hasOwnerPowers(readerSeatOf(campaign, readerIdOf(session)))}
         />
       </CampaignSettingsPage>
     );
   };
+}
+
+function readerIdOf(session: ReturnType<typeof useSession>): string | null {
+  return session.status === 'authenticated' ? session.user.id : null;
 }
 
 // Still over the room: a fallen session goes to the login; anything else says so in the page.

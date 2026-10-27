@@ -1,15 +1,15 @@
 import type { MemberCardDto } from '@lorkarium/contracts';
 import { HexagonIcon, ShieldIcon } from 'lucide-react';
-import { useId, useState, type ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { RosterPlayer } from '@/lib/table-roster';
 import { cn } from '@/lib/utils';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
-import { useMemberRoleChange, type MemberRoleChange } from './use-member-role-change';
-import { MoveToSpectatorsConfirm } from './move-to-spectators-confirm';
-import { PlayerActionsMenu } from './player-actions-menu';
+import { useRoleChangeFlow, type RoleChangeFlow } from './use-member-role-change';
+import { RoleActionsMenu } from './role-actions-menu';
+import { RoleChangeFeedback } from './role-change-confirm';
 import {
   CharacterName,
   NoteField,
@@ -33,7 +33,7 @@ export type PlayerCardProps = Readonly<{
 
 /** A player on the "Na mesa" tab: the main token's portrait and bars, the character name, the
  *  nick with the presence symbol, CA, CD and two free lines; the member and the masters edit it,
- *  and the master moves the player to the spectators from its "⋯".
+ *  and the "⋯" moves the player to the roles the viewer may give (`player.assignable`).
  *  Before the board arrives, only the nick line (cards and tokens come with the `board:sync`).
  *
  *  Example: `<PlayerCard player={roster.players[0]} board={board} interaction={interaction} isMaster={false} />` */
@@ -45,7 +45,8 @@ export function PlayerCard(props: PlayerCardProps): React.JSX.Element {
     <article
       aria-labelledby={titleId}
       className={cn(
-        'group flex flex-col gap-3 border-b border-divider py-3 last:border-b-0',
+        // -mx-4/px-4: the divider spans the whole panel, edge to edge.
+        'group -mx-4 flex flex-col gap-3 border-b border-divider px-4 py-3 last:border-b-0',
         !member.online && 'opacity-60',
       )}
     >
@@ -80,7 +81,7 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
   const { player, card, titleId } = props;
   const { member, isViewer, token } = player;
   const editing = useCardEditing(props);
-  const demotion = useDemotion(props);
+  const roleChange = useRoleChange(props);
   const name = player.characterName ?? member.name;
   return (
     <>
@@ -105,7 +106,7 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
         {...props}
         name={name}
         editing={editing}
-        actions={demotionMenuOf(demotion, member.name)}
+        actions={roleMenuOf(roleChange, player.assignable, member.name)}
       />
       <div className="flex flex-col gap-0.5">
         <NoteField
@@ -123,60 +124,24 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
           editing={editing}
         />
       </div>
-      {demotion && <DemotionPrompt demotion={demotion} name={member.name} />}
+      {roleChange && <RoleChangeFeedback flow={roleChange} name={member.name} />}
     </>
   );
 }
 
-type Demotion = Readonly<{
-  move: MemberRoleChange;
-  asking: boolean;
-  setAsking: (asking: boolean) => void;
-}>;
-
-// Only the master moves a player to the spectators; outside the room (no changer) there is no "⋯".
-function useDemotion({ player, isMaster, board }: PlayerCardProps): Demotion | null {
+// Outside the room (no changer) there is no "⋯".
+function useRoleChange({ player, board }: PlayerCardProps): RoleChangeFlow | null {
   const campaignId = useBoard(board, (state) => state.campaignId);
-  const move = useMemberRoleChange(campaignId, player.member.userId);
-  const [asking, setAsking] = useState(false);
-  if (!move || !isMaster || player.isViewer) return null;
-  return { move, asking, setAsking };
+  return useRoleChangeFlow(campaignId, player.member.userId);
 }
 
-function demotionMenuOf(demotion: Demotion | null, name: string): ReactNode {
-  if (!demotion) return null;
-  return (
-    <PlayerActionsMenu
-      name={name}
-      disabled={demotion.move.pending}
-      onMoveToSpectators={() => demotion.setAsking(true)}
-    />
-  );
-}
-
-function DemotionPrompt({ demotion, name }: Readonly<{ demotion: Demotion; name: string }>) {
-  const { move, asking, setAsking } = demotion;
-  const confirm = (): void => {
-    setAsking(false);
-    move.change('spectator');
-  };
-  return (
-    <>
-      {asking && (
-        <MoveToSpectatorsConfirm
-          name={name}
-          disabled={move.pending}
-          onConfirm={confirm}
-          onCancel={() => setAsking(false)}
-        />
-      )}
-      {move.failure && (
-        <p role="alert" className="text-xs text-destructive-text">
-          {move.failure}
-        </p>
-      )}
-    </>
-  );
+function roleMenuOf(
+  flow: RoleChangeFlow | null,
+  roles: RosterPlayer['assignable'],
+  name: string,
+): ReactNode {
+  if (!flow) return null;
+  return <RoleActionsMenu name={name} roles={roles} disabled={flow.pending} onPick={flow.pick} />;
 }
 
 type CardStatsProps = CardBodyProps &

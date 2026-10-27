@@ -132,12 +132,9 @@ describe('roleChangedNotice', () => {
   it.each([
     ['player', 'Agora você é jogador nesta mesa.'],
     ['spectator', 'Agora você assiste a esta mesa.'],
+    ['master', 'Agora você é mestre desta mesa.'],
   ] as const)('becoming %s reads "%s"', (role, notice) => {
     expect(roleChangedNotice(role)).toBe(notice);
-  });
-
-  it('the master never changes role, so nothing is said', () => {
-    expect(roleChangedNotice('master')).toBeNull();
   });
 });
 
