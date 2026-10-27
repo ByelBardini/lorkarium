@@ -68,7 +68,7 @@ export const setTokenLayerCommandDto = z.strictObject({
 });
 export type SetTokenLayerCommandDto = z.infer<typeof setTokenLayerCommandDto>;
 
-/** `token:createMany` (master): 1 to 64 tokens (a paste), all or nothing, one version.
+/** `token:createMany` (master, or a player with the create setting): 1 to 64 tokens (a paste), all or nothing, one version.
  *
  *  Example: `createTokensCommandDto.parse({ actionId, campaignId, tokens: [goblin, goblin] })` */
 export const createTokensCommandDto = z.strictObject({
@@ -77,7 +77,7 @@ export const createTokensCommandDto = z.strictObject({
 });
 export type CreateTokensCommandDto = z.infer<typeof createTokensCommandDto>;
 
-/** `token:deleteMany` (master): all or nothing, one version; `expect` lists the cell each token must
+/** `token:deleteMany` (master, or the creator with the delete setting, each token): all or nothing, one version; `expect` lists the cell each token must
  *  still be on (undoing a paste), and the turn passes on as in `token:delete`.
  *
  *  Example: `deleteTokensCommandDto.parse({ actionId, campaignId, tokenIds: [id] })` */

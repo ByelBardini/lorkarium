@@ -117,6 +117,21 @@ describe('campaign changes at the live table', () => {
       });
     });
 
+    it('a token setting turned on reaches Bia live with the other still off', async () => {
+      await anaAtVharn();
+      const biaEvents = recordEventsOf(await connect(bia));
+      await joined(biaEvents.client, vharn.id);
+
+      await call('PATCH', `/campaigns/${vharn.id}`, ana, { playersCreateTokens: true });
+
+      await biaEvents.until(1);
+      const [event] = eventsNamed(biaEvents.events, 'session:campaignUpdated');
+      expect(sessionCampaignUpdatedDto.parse(event).campaign).toMatchObject({
+        playersCreateTokens: true,
+        playersDeleteTokens: false,
+      });
+    });
+
     it('a new join code is announced too, without the code itself', async () => {
       await anaAtVharn();
       const biaEvents = recordEventsOf(await connect(bia));

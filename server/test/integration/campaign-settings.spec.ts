@@ -228,6 +228,68 @@ describe('campaign settings HTTP edge', () => {
     });
   });
 
+  describe('the token settings of the players', () => {
+    async function settingsOf(campaignId: string, token: string) {
+      const response = await call('GET', `/campaigns/${campaignId}`, token);
+      const { playersCreateTokens, playersDeleteTokens } = campaignResponseDto.parse(
+        response.json(),
+      ).campaign;
+      return { playersCreateTokens, playersDeleteTokens };
+    }
+
+    it('a new table starts with both settings off', async () => {
+      expect(vharn).toMatchObject({ playersCreateTokens: false, playersDeleteTokens: false });
+    });
+
+    it('the master at the table turns one on: 200, and the detail reread keeps the other off', async () => {
+      const response = await call('PATCH', `/campaigns/${vharn.id}`, ana, {
+        playersCreateTokens: true,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(await settingsOf(vharn.id, bia)).toEqual({
+        playersCreateTokens: true,
+        playersDeleteTokens: false,
+      });
+    });
+
+    it('a setting turned off again is stored off', async () => {
+      const on = { playersCreateTokens: true, playersDeleteTokens: true };
+      await call('PATCH', `/campaigns/${vharn.id}`, ana, on);
+      await call('PATCH', `/campaigns/${vharn.id}`, ana, { playersDeleteTokens: false });
+      expect(await settingsOf(vharn.id, ana)).toEqual({
+        playersCreateTokens: true,
+        playersDeleteTokens: false,
+      });
+    });
+
+    it('a player turning one on answers 403 FORBIDDEN and nothing changes', async () => {
+      const response = await call('PATCH', `/campaigns/${vharn.id}`, bia, {
+        playersDeleteTokens: true,
+      });
+      expect(errorOf(response)).toEqual({ status: 403, code: 'FORBIDDEN' });
+      expect((await settingsOf(vharn.id, ana)).playersDeleteTokens).toBe(false);
+    });
+
+    it('the master without the table open answers 403 CAMPAIGN_NOT_OPEN and nothing changes', async () => {
+      const closed = await createCampaign(ana, { name: 'Quelm da Ana' });
+      const response = await call('PATCH', `/campaigns/${closed.id}`, ana, {
+        playersCreateTokens: true,
+      });
+      expect(errorOf(response)).toEqual({ status: 403, code: 'CAMPAIGN_NOT_OPEN' });
+      expect((await settingsOf(closed.id, ana)).playersCreateTokens).toBe(false);
+    });
+
+    it('turning them on in one table leaves another table off (isolation)', async () => {
+      const quelm = await createCampaign(caio, { name: 'Quelm' });
+      const on = { playersCreateTokens: true, playersDeleteTokens: true };
+      await call('PATCH', `/campaigns/${vharn.id}`, ana, on);
+      expect(await settingsOf(quelm.id, caio)).toEqual({
+        playersCreateTokens: false,
+        playersDeleteTokens: false,
+      });
+    });
+  });
+
   describe('POST /campaigns/:id/join-code', () => {
     it('hands out another code; the old one no longer finds the table, members stay and the newcomer only watches', async () => {
       const response = await call('POST', `/campaigns/${vharn.id}/join-code`, ana);

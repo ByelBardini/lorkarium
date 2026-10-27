@@ -1,0 +1,2 @@
+ALTER TABLE "campaigns" ADD COLUMN "players_create_tokens" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "campaigns" ADD COLUMN "players_delete_tokens" boolean DEFAULT false NOT NULL;

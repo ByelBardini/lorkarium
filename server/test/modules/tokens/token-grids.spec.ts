@@ -22,6 +22,7 @@ import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import {
   DragGroupsFake,
   MainTokensDaoFake,
+  TableTokenRightsFake,
   TokenTransactionRunnerFake,
   TokensDaoFake,
 } from '../../support/tokens-fakes';
@@ -91,7 +92,7 @@ describe('token commands on a grid that is not the group one', () => {
     );
     dragGroups = new DragGroupsFake(scenes, tokenRows);
     const common = { members, transaction: runner.run, publisher, clock: new ClockFake(NOW) };
-    const limits = { barLimit: 99_999, tokenLimit: 500 };
+    const limits = { barLimit: 99_999, tokenLimit: 500, tokenRights: new TableTokenRightsFake() };
     tokens = new TokensService({
       ...common,
       ...limits,

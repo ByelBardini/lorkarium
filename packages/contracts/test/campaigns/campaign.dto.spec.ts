@@ -20,6 +20,8 @@ const SUMMARY = {
   cover: { kind: 'drawn', drawing: 1, tone: 2 },
   contentWarnings: ['horror'],
   tags: ['sandbox'],
+  playersCreateTokens: false,
+  playersDeleteTokens: false,
   lastEnteredAt: null,
 } as const;
 

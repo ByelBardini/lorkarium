@@ -435,6 +435,20 @@
       "when": 1793055608211,
       "tag": "0061_aura_image_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1793056921499,
+      "tag": "0062_campaign_token_rights",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1793057509340,
+      "tag": "0063_token_created_by",
+      "breakpoints": true
     }
   ]
 }

@@ -19,7 +19,10 @@ import {
   type LightSource,
 } from '@lorkarium/game-core';
 import { cellsNumeric } from '../../database/cells-numeric';
+import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import type { CampaignTokenRightsPo } from '../campaigns/campaigns.dao';
 import type { TokenAudience } from './token-access.bo';
+import { TokenAuthorshipBo, type AuthoredToken, type EditedToken } from './token-authorship.bo';
 import { toTokenAuraDto, toTokenAuraPo } from './token-aura.mapper';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
 import type {
@@ -70,7 +73,41 @@ export function toTokenDto(
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],
     anchorTokenId: row.token.anchorTokenId,
+    createdBy: row.token.createdBy,
   };
+}
+
+/** The table settings as stored (or a campaign gone) → the rule's two switches; absent is off.
+ *
+ *  Example: `toTokenAuthorshipBo(access, await campaigns.tokenRightsOf(campaignId))` */
+export function toTokenAuthorshipBo(
+  access: CampaignAccessBo,
+  stored: CampaignTokenRightsPo | undefined,
+): TokenAuthorshipBo {
+  const rights = {
+    create: stored?.playersCreateTokens ?? false,
+    delete: stored?.playersDeleteTokens ?? false,
+  };
+  return new TokenAuthorshipBo(access, rights);
+}
+
+/** A saved token → who created it and its link, for the delete rule.
+ *
+ *  Example: `authorship.requireDelete(rows.map(toAuthoredToken))` */
+export function toAuthoredToken({ token }: TokenRow): AuthoredToken {
+  return { tokenId: token.id, createdBy: token.createdBy, anchorTokenId: token.anchorTokenId };
+}
+
+/** A saved token → its authorship and its vision as the wire carries it, for the edit rule.
+ *
+ *  Example: `authorship.requireEdit(toEditedToken(found), command)` */
+export function toEditedToken(row: TokenRow): EditedToken {
+  const vision = {
+    sight: sightOfToken(row.token),
+    light: lightOfToken(row.token),
+    sightAngle: row.token.sightAngle,
+  };
+  return { ...toAuthoredToken(row), vision };
 }
 
 /** The bars of a command → the rows to save, in the order sent (their position).

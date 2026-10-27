@@ -117,6 +117,8 @@ describe('the campaign events', () => {
     cover: { kind: 'drawn', drawing: 0, tone: 1 },
     contentWarnings: [],
     tags: [],
+    playersCreateTokens: false,
+    playersDeleteTokens: false,
   } as const;
 
   it('session:campaignUpdated carries the campaign without what depends on the reader', () => {

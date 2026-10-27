@@ -11,6 +11,7 @@ import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import {
   DragGroupsFake,
+  TableTokenRightsFake,
   TokenTransactionRunnerFake,
   TokensDaoFake,
 } from '../../support/tokens-fakes';
@@ -137,6 +138,7 @@ describe('the diary of a move under the veil', () => {
       clock: new ClockFake(new Date('2026-10-24T21:00:00Z')),
       barLimit: 999,
       tokenLimit: 500,
+      tokenRights: new TableTokenRightsFake(),
     });
   });
 

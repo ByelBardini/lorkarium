@@ -100,6 +100,8 @@ describe('campaigns mapper', () => {
       cover: { kind: 'drawn', ...defaultCoverOf(VHARN_ID) },
       contentWarnings: [],
       tags: [],
+      playersCreateTokens: false,
+      playersDeleteTokens: false,
       lastEnteredAt: '2026-10-13T22:30:00.000Z',
     });
   });
@@ -309,6 +311,26 @@ describe('the campaign settings in the mapper', () => {
     const drawn = patchOf({ cover: { kind: 'drawn', drawing: 0, tone: 3 } }, at);
     expect(image).toMatchObject({ coverAssetId: COVER_ID, coverDrawing: null, coverTone: null });
     expect(drawn).toMatchObject({ coverAssetId: null, coverDrawing: 0, coverTone: 3 });
+  });
+
+  it('a token setting sent alone writes only its column, plus the moment', () => {
+    const updatedAt = new Date('2026-10-26T10:00:00Z');
+    const patch = patchOf({ playersCreateTokens: true }, { passwordHash: undefined, updatedAt });
+    expect(patch).toEqual({ playersCreateTokens: true, updatedAt });
+  });
+
+  it('a token setting turned off is written as false, not dropped as absent', () => {
+    const updatedAt = new Date('2026-10-26T10:00:00Z');
+    const patch = patchOf({ playersDeleteTokens: false }, { passwordHash: undefined, updatedAt });
+    expect(patch).toEqual({ playersDeleteTokens: false, updatedAt });
+  });
+
+  it('the info and the summary carry both token settings as the row stores them', () => {
+    const campaign = campaignPo({ playersCreateTokens: true, playersDeleteTokens: false });
+    const info = toCampaignInfoDto(toCampaignDetailDto(detailView({ campaign })));
+    const summary = toCampaignSummaryDto(campaignListingRow({ campaign }));
+    expect(info).toMatchObject({ playersCreateTokens: true, playersDeleteTokens: false });
+    expect(summary).toMatchObject({ playersCreateTokens: true, playersDeleteTokens: false });
   });
 
   it('the plain password never reaches the patch', () => {

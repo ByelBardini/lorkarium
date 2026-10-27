@@ -432,6 +432,8 @@ describe('TableSessionService campaign changes', () => {
     cover: { kind: 'drawn', drawing: 1, tone: 2 },
     contentWarnings: [],
     tags: [],
+    playersCreateTokens: false,
+    playersDeleteTokens: false,
   };
 
   let journal: SessionsJournal;

@@ -104,6 +104,9 @@ export const tokens = pgTable(
     anchorTokenId: uuid('anchor_token_id').references((): AnyPgColumn => tokens.id, {
       onDelete: 'set null',
     }),
+    // Who created it: a player edits and deletes only their own (game-core `token-rights`).
+    // Null = made before authorship was kept, or the account is gone (only the master then).
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

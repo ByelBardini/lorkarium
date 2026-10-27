@@ -150,10 +150,13 @@ export const tokenDto = z.strictObject({
    *  mark, bars, controllers and conditions; place, size, layer, facing, flips, sight and light
    *  are its own. */
   anchorTokenId: z.uuid().nullable(),
+  /** Who created it (`null` = before authorship was kept, or the account is gone); not a secret,
+   *  every audience gets it. A player edits and deletes only their own (game-core `token-rights`). */
+  createdBy: z.uuid().nullable(),
 });
 export type TokenDto = z.infer<typeof tokenDto>;
 
-/** `token:create` (master); without a `layer` the token lands on `tokens`, and without appearance
+/** `token:create` (master, or a player with the create setting); without a `layer` the token lands on `tokens`, and without appearance
  *  it is the initials disc looking right (a paste sends the copied look and facing).
  *
  *  Example: `createTokenCommandDto.parse({ actionId, campaignId, name, …, layer: 'objects' })` */
@@ -177,7 +180,7 @@ export const createTokenCommandDto = z.strictObject({
 export type CreateTokenCommandDto = z.infer<typeof createTokenCommandDto>;
 export type CreateTokenCommandInput = z.input<typeof createTokenCommandDto>;
 
-/** `token:update` (master): everything but the position and the facing; the bars are replaced as a
+/** `token:update` (master, or the creator with the create setting, never sight or light): everything but the position and the facing; the bars are replaced as a
  *  list, and an absent appearance field keeps what the token has. */
 export const updateTokenCommandDto = z.strictObject({
   ...boardCommandShape,
@@ -248,7 +251,7 @@ export const adjustBarCommandDto = z.strictObject({
 });
 export type AdjustBarCommandDto = z.infer<typeof adjustBarCommandDto>;
 
-/** `token:delete` (master). */
+/** `token:delete` (master, or the creator with the delete setting). */
 export const deleteTokenCommandDto = z.strictObject({ ...boardCommandShape, tokenId: z.uuid() });
 export type DeleteTokenCommandDto = z.infer<typeof deleteTokenCommandDto>;
 

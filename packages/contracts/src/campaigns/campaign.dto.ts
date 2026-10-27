@@ -37,7 +37,8 @@ export const contentWarningsDto = z
   .transform((warnings) => [...new Set(warnings)]);
 
 /** The campaign as anyone in it sees it, without what depends on who reads it; the payload of
- *  `session:campaignUpdated`. */
+ *  `session:campaignUpdated`. `playersCreateTokens`/`playersDeleteTokens` are the table settings
+ *  that open creating, editing and deleting their own tokens to players (game-core `token-rights`). */
 export const campaignInfoDto = z.strictObject({
   id: z.uuid(),
   name: z.string(),
@@ -50,6 +51,8 @@ export const campaignInfoDto = z.strictObject({
   cover: campaignCoverDto,
   contentWarnings: contentWarningsDto,
   tags: campaignTagsDto,
+  playersCreateTokens: z.boolean(),
+  playersDeleteTokens: z.boolean(),
 });
 
 export type CampaignInfoDto = z.infer<typeof campaignInfoDto>;

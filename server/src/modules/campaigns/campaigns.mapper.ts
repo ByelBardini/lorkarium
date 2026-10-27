@@ -65,8 +65,10 @@ type CampaignInfoRow = Readonly<{ campaign: CampaignPo; masterName: string; memb
 
 function campaignInfoOf({ campaign, masterName, memberCount }: CampaignInfoRow): CampaignInfoDto {
   const { id, name, system, status, description, visibility, tags } = campaign;
+  const { playersCreateTokens, playersDeleteTokens } = campaign;
   return {
     ...{ id, name, system, status, description, visibility, masterName, memberCount, tags },
+    ...{ playersCreateTokens, playersDeleteTokens },
     cover: coverOf(campaign),
     contentWarnings: campaign.contentWarnings.filter(isContentWarning),
   };
@@ -133,10 +135,10 @@ export function toCampaignDetailDto(view: CampaignDetailView): CampaignDetailDto
  *  Example: `toCampaignInfoDto(detail).cover` */
 export function toCampaignInfoDto(detail: CampaignDetailDto): CampaignInfoDto {
   const { id, name, system, status, description, visibility, masterName, memberCount } = detail;
-  const { cover, contentWarnings, tags } = detail;
+  const { cover, contentWarnings, tags, playersCreateTokens, playersDeleteTokens } = detail;
   return {
     ...{ id, name, system, status, description, visibility, masterName, memberCount },
-    ...{ cover, contentWarnings, tags },
+    ...{ cover, contentWarnings, tags, playersCreateTokens, playersDeleteTokens },
   };
 }
 
@@ -275,8 +277,10 @@ export function toCampaignPatch(
 ): Partial<NewCampaignPo> {
   // The plain password never reaches the row: only `written.passwordHash` does.
   const { name, system, status, description, visibility, contentWarnings, tags } = input;
+  const { playersCreateTokens, playersDeleteTokens } = input;
   const fields = { name, system, status, description, visibility, contentWarnings, tags };
-  const columns = { ...fields, ...coverColumnsOf(input.cover), ...written };
+  const tokenRights = { playersCreateTokens, playersDeleteTokens };
+  const columns = { ...fields, ...tokenRights, ...coverColumnsOf(input.cover), ...written };
   const present = Object.entries(columns).filter(([, value]) => value !== undefined);
   return Object.fromEntries(present) as Partial<NewCampaignPo>;
 }

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { CampaignAccessBo } from '../../../src/modules/campaigns/campaign-access.bo';
 import {
+  toEditedToken,
+  toTokenAuthorshipBo,
   toTokenDto,
   toTokenLightPo,
   toTokenUpdatePo,
@@ -7,7 +10,7 @@ import {
   tokenLightOf,
 } from '../../../src/modules/tokens/tokens.mapper';
 import { LYRA_PORTRAIT_ID } from '../../support/assets-factories';
-import { BIA_ID } from '../../support/campaigns-factories';
+import { BIA_ID, VHARN_ID } from '../../support/campaigns-factories';
 import {
   FIRE_AURA,
   GOLD_AURA,
@@ -277,6 +280,41 @@ describe('tokens mapper', () => {
       auraOpacity: null,
     });
     expect(toTokenUpdatePo(command, []).fields).not.toHaveProperty('auraKind');
+  });
+
+  it.each(['privileged', 'others'] as const)(
+    'the author reaches the %s audience as stored (not a secret)',
+    (audience) => {
+      const row = lyraRow({ token: lyraPo({ createdBy: BIA_ID }) });
+
+      expect(toTokenDto(row, audience).createdBy).toBe(BIA_ID);
+    },
+  );
+
+  it('a token without an author (before authorship, or the account gone) has createdBy null', () => {
+    const row = lyraRow({ token: lyraPo({ createdBy: null }) });
+
+    expect(toTokenDto(row, 'privileged').createdBy).toBeNull();
+  });
+
+  it('a saved token becomes its author, its link and its vision as the wire carries it', () => {
+    const vision = { sightBright: '6.00', sightDim: '2.00', sightAngle: 90 };
+    const row = lyraRow({ token: lyraPo({ createdBy: BIA_ID, ...vision }) });
+
+    expect(toEditedToken(row)).toEqual({
+      tokenId: LYRA_ID,
+      createdBy: BIA_ID,
+      anchorTokenId: null,
+      vision: { sight: { bright: 6, dim: 2 }, light: null, sightAngle: 90 },
+    });
+  });
+
+  it('a campaign gone (no stored settings) gives a player no right to create', () => {
+    const bia = new CampaignAccessBo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' });
+    const stored = { playersCreateTokens: true, playersDeleteTokens: false };
+
+    expect(() => toTokenAuthorshipBo(bia, undefined).requireCreate({})).toThrow('create a token');
+    expect(() => toTokenAuthorshipBo(bia, stored).requireCreate({})).not.toThrow();
   });
 
   it('the token DTO carries no persistence fields', () => {

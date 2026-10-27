@@ -49,6 +49,7 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     auraImageShape: null,
     hidden: false,
     anchorTokenId: null,
+    createdBy: null,
     createdAt: CREATED,
     updatedAt: CREATED,
     ...overrides,

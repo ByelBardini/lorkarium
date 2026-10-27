@@ -13,6 +13,10 @@ import type {
   TokensDao,
 } from '../../src/modules/tokens/tokens.dao';
 import type { TokenTransactionRunner } from '../../src/modules/tokens/token-transaction';
+import type {
+  CampaignsDao,
+  CampaignTokenRightsPo,
+} from '../../src/modules/campaigns/campaigns.dao';
 import { composedTokenRow, type TokenIdentityPo } from '../../src/modules/tokens/linked-token';
 import type { TokenAnchorsDao } from '../../src/modules/tokens/token-anchors.dao';
 import { MemberCardsDaoFake } from './member-cards-fakes';
@@ -370,6 +374,27 @@ export class TokenAnchorsDaoFake implements AnchorWrites {
     this.journal.push('drop state');
     this.tokens.store(tokenId, (row) => ({ ...row, bars: [], controllerIds: [] }));
     this.conditions.active = this.conditions.active.filter((c) => c.tokenId !== tokenId);
+  }
+}
+
+/** The two token settings of each table, both off until a spec turns them on; `reads` keeps
+ *  each table asked, so a spec proves the master's commands never read them.
+ *
+ *  Example: `tokenRights.turnOn(VHARN_ID, { create: true, delete: false })` */
+export class TableTokenRightsFake implements Pick<CampaignsDao, 'tokenRightsOf'> {
+  readonly reads: string[] = [];
+  private readonly byCampaign = new Map<string, CampaignTokenRightsPo>();
+
+  turnOn(campaignId: string, rights: Readonly<{ create: boolean; delete: boolean }>): void {
+    const columns = { playersCreateTokens: rights.create, playersDeleteTokens: rights.delete };
+    this.byCampaign.set(campaignId, columns);
+  }
+
+  async tokenRightsOf(campaignId: string): Promise<CampaignTokenRightsPo | undefined> {
+    this.reads.push(campaignId);
+    return (
+      this.byCampaign.get(campaignId) ?? { playersCreateTokens: false, playersDeleteTokens: false }
+    );
   }
 }
 

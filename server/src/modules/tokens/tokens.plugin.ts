@@ -4,6 +4,7 @@ import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import { AssetsDao } from '../assets/assets.dao';
 import type { MembershipReader } from '../campaigns/cached-memberships';
+import { CampaignsDao } from '../campaigns/campaigns.dao';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { CombatDao } from '../combat/combat.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
@@ -64,10 +65,11 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
   const dragGroups = new TokensDao(options.db);
   const limits = { barLimit: BAR_VALUE_LIMIT, tokenLimit: TOKENS_PER_SCENE_MAX };
   const deps = { members, transaction, publisher, clock, ...limits };
-  const tokenDeps = { ...deps, dragGroups, sceneWalls };
+  const tokenRights = new CampaignsDao(options.db);
+  const tokenDeps = { ...deps, dragGroups, sceneWalls, tokenRights };
   return {
     service: new TokensService(tokenDeps),
-    batch: new TokenBatchService(deps),
+    batch: new TokenBatchService({ ...deps, tokenRights }),
     appearance: new TokenAppearanceService(deps),
     mainToken: new MainTokenService(deps),
     link: new TokenLinkService(deps),

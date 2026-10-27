@@ -49,6 +49,7 @@ import {
 import { splitUpdate } from './linked-token';
 import { TokenRulesBo } from './token-rules.bo';
 import {
+  authorshipOf,
   combatOf,
   holderRowOf,
   newTokenRowOf,
@@ -58,6 +59,7 @@ import {
   tokenIn,
   tokensIn,
   withConditions,
+  type TokenRightsReader,
   type TokenTransactionRunner,
   type TokenWithConditions,
   type TokenWriteDaos,
@@ -66,7 +68,7 @@ import { lookAssetIdsOf } from './token-aura.mapper';
 import { TokenAccessBo } from './token-access.bo';
 import type { DragGroupPo, TokenMovePo, TokenRow, TokenUpdatePo, TokensDao } from './tokens.dao';
 import { BarNotFoundError, TokenNotFoundError } from './tokens.error';
-import { toTokenUpdatePo } from './tokens.mapper';
+import { toAuthoredToken, toEditedToken, toTokenUpdatePo } from './tokens.mapper';
 import type { SceneWallsService } from '../walls/scene-walls.service';
 
 type Envelope = 'actionId' | 'campaignId';
@@ -96,6 +98,8 @@ export type TokensServiceDeps = Readonly<{
   barLimit: number;
   /** `TOKENS_PER_SCENE_MAX`, handed to the rule. */
   tokenLimit: number;
+  /** The table settings a player's create, edit and delete read (the master's never do). */
+  tokenRights: TokenRightsReader;
 }>;
 
 type Locked = LockedGrid<TokenWriteDaos>;
@@ -110,11 +114,13 @@ export class TokensService {
 
   async create(userId: string, campaignId: string, command: CreateToken): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    access.requireMaster('create a token');
+    const authorship = await authorshipOf(this.deps.tokenRights, access);
+    authorship.requireCreate(command);
+    const controllerIds = authorship.newControllersOf(command.controllerIds);
     const memberIds = await this.memberIdsOf(campaignId);
     const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
       const rules = this.rulesFor(scene, memberIds);
-      const row = newTokenRowOf(scene.id, rules, command);
+      const row = newTokenRowOf(scene.id, rules, { ...command, controllerIds }, userId);
       rules.admit(await daos.tokens.countOfScene(scene.id), 1);
       await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command));
       // A token just created carries no condition: nothing to read back for it.
@@ -128,11 +134,12 @@ export class TokensService {
    *  (an event of the cast) and the rest stays on the token (an event of the grid). */
   async update(userId: string, campaignId: string, command: UpdateToken): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    access.requireMaster('edit a token');
+    const authorship = await authorshipOf(this.deps.tokenRights, access);
     const memberIds = await this.memberIdsOf(campaignId);
     const saved = await this.inSharedGrid(access, command.sceneId, async (locked) => {
       const { daos, scene } = locked;
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
+      authorship.requireEdit(toEditedToken(found), command);
       const rules = this.rulesFor(scene, memberIds);
       rules.place(found.token, command);
       const update = toTokenUpdatePo(command, rules.controllers(command.controllerIds));
@@ -273,9 +280,10 @@ export class TokensService {
   /** A hidden token leaves as `token:deletedMany` (whoever did not see it gets the combat at most). */
   async delete(userId: string, campaignId: string, command: DeleteToken): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    access.requireMaster('delete a token');
+    const authorship = await authorshipOf(this.deps.tokenRights, access);
     const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
+      authorship.requireDelete([toAuthoredToken(found)]);
       await leaveCombat(daos, scene, access, [found.token.id]);
       await daos.tokens.delete(found.token.id);
       const combat = await combatOf(daos, scene);

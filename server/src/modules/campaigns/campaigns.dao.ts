@@ -2,6 +2,9 @@ import { eq } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { campaigns, type CampaignPo, type NewCampaignPo } from './campaigns.po';
 
+/** The two table settings that open tokens to players. */
+export type CampaignTokenRightsPo = Pick<CampaignPo, 'playersCreateTokens' | 'playersDeleteTokens'>;
+
 export class CampaignsDao {
   constructor(private readonly db: DatabaseExecutor) {}
 
@@ -66,6 +69,21 @@ export class CampaignsDao {
       .where(eq(campaigns.id, campaignId))
       .returning({ id: campaigns.id });
     return rows.length > 0;
+  }
+
+  /** The token settings of the table, read on every token command of a player (turning one off
+   *  counts from the next command on); `undefined` when the campaign is gone.
+   *
+   *  Example: `await dao.tokenRightsOf(campaignId) // { playersCreateTokens: true, … }` */
+  async tokenRightsOf(campaignId: string): Promise<CampaignTokenRightsPo | undefined> {
+    const [row] = await this.db
+      .select({
+        playersCreateTokens: campaigns.playersCreateTokens,
+        playersDeleteTokens: campaigns.playersDeleteTokens,
+      })
+      .from(campaigns)
+      .where(eq(campaigns.id, campaignId));
+    return row;
   }
 
   async findByJoinCode(joinCode: string): Promise<CampaignPo | undefined> {

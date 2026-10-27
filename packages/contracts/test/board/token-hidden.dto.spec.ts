@@ -46,6 +46,7 @@ const WOLF = {
   bars: [],
   conditions: [],
   anchorTokenId: null,
+  createdBy: null,
 };
 const STATE = {
   campaignId: CAMPAIGN_ID,

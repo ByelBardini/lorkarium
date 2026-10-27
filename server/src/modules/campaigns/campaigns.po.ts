@@ -1,4 +1,5 @@
 import {
+  boolean,
   pgEnum,
   pgTable,
   smallint,
@@ -48,6 +49,9 @@ export const campaigns = pgTable('campaigns', {
   // Only the values of the contract's `contentWarningDto`; the mapper reads them back through it.
   contentWarnings: text('content_warnings').array().notNull().default([]),
   tags: text('tags').array().notNull().default([]),
+  // Table settings read on every token command: turning one off counts from the next command on.
+  playersCreateTokens: boolean('players_create_tokens').notNull().default(false),
+  playersDeleteTokens: boolean('players_delete_tokens').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
