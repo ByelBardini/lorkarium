@@ -273,7 +273,9 @@ Serão considerados inicialmente três papéis.
 - Visualização de informações públicas.
 - Sem permissão para modificar o estado.
 
-Quem entra na campanha pelo código entra como espectador; o mestre o promove a jogador (e pode movê-lo de volta para espectador).
+Quem entra na campanha pelo código entra como espectador; qualquer mestre o promove a jogador (e pode movê-lo de volta para espectador).
+
+O criador da mesa é o **dono**: um mestre fixo, que ninguém rebaixa. Só o dono promove um jogador ou espectador a **mestre** (co-mestre) e o rebaixa de volta; o co-mestre tem tudo do mestre, menos gerir os mestres e excluir a mesa. Um admin do Lorkarium pode ligar, mesa a mesa, o modo **juggernaut**: enquanto ligado, é mestre com os poderes do dono, ninguém o rebaixa, e a mesa só o vê enquanto ele está online.
 
 As permissões serão validadas exclusivamente no servidor.
 

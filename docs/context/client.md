@@ -19,6 +19,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Auras dos tokens: estado e eventos, formulário (`AuraEditor`), onde se edita, desenho       | [`auras.md`](client/auras.md)                         |
 | Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain`   | [`token-dock.md`](client/token-dock.md)               |
 | Aba "Na mesa": mestres, card de cada jogador (ficha, token principal, barras), ausência     | [`table-people.md`](client/table-people.md)           |
+| Papéis na mesa: dono, co-mestre, juggernaut, troca de papel e o modo do admin               | [`table-roles.md`](client/table-roles.md)             |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro                | [`combat.md`](client/combat.md)                       |
 | Condições: etiquetas, descrição, stacks, página "Condições da mesa", ferramenta (C)         | [`conditions.md`](client/conditions.md)               |
 | Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)                     | [`drawings.md`](client/drawings.md)                   |
@@ -85,7 +86,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/lib/use-draft-field.ts` — `useDraftField({ confirmed, normalize?, save })`: rascunho × confirmado (ficha, nome do grid)
 - `src/lib/{member-since,since-label,two-factor-text,avatar-file,download-text}.ts` — de "Minha conta" ([`client/account.md`](client/account.md))
 - `src/lib/campaign-list.ts` — `filterCampaigns(mesas, busca)` (nome ou sistema, sem acento nem caixa) e `continueCandidate(mesas)` (a de `lastEnteredAt` mais recente, ou `null`)
-- `src/lib/campaign-meta.ts` — `campaignMeta(mesa)` ("Tormenta20 · Mestre: Bia · 4 participantes"; o mestre só aparece para quem joga; sem o status), `memberCountLabel(n)`, `ROLE_LABEL`
+- `src/lib/campaign-meta.ts` — `campaignMeta(mesa, readerId)` ("Tormenta20 · Mestre: Bia · 4 participantes"; o dono só não aparece para ele mesmo — o co-mestre lê; sem o status), `memberCountLabel(n)`, `ROLE_LABEL`
 - `src/services/http-transport.ts` — `HttpTransport` (interface; `GET`, `POST`, `PUT`, `PATCH`, `DELETE`; `upload(path, file, 'POST' | 'PUT')`), `FetchHttpTransport` (base `/api`, JSON, `credentials: 'same-origin'`), `NetworkUnavailableError`; resposta com `body` JSON, `null` se vazia, `undefined` se não-JSON
 - `src/services/api-call.ts` — o comum a todo serviço: `callApi(transport, método, caminho, corpo?)` → `ok` (status < 300) | `refused` (com a resposta, para o serviço nomear o `kind`) | `offline`; `parseOk(dto, corpo, pick)` (corpo fora do DTO → `unexpected`); `retryAfterOf(resposta)` (`Retry-After`, senão `retryAfterSeconds` do corpo, senão 60); `errorCodeOf(resposta)`
 - `src/services/auth-api.ts` — `AuthApi` / `HttpAuthApi` (falhas, `login` e `verifyTwoFactor` em [`auth.md`](auth.md), Client)

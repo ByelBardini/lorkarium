@@ -7,7 +7,7 @@ O backoffice sobre as contas: listar, trocar o papel, suspender e reativar, conf
 - `user-admin.dao.ts` — `UserAdminDao` (`DatabaseExecutor`): `listAccounts()` (todas as contas com `campaignCount` de `campaign_members`, numa consulta agrupada, a mais nova primeiro), `findAccount`, `setRole`, `setSuspendedAt`, `lockOwnedCampaigns(userId)` (`FOR UPDATE` nas mesas de que é dona, depois a contagem dos **outros** membros) e `delete` (sessões, participações, mesas e o que pende delas vão por cascade).
 - `user-admin.bo.ts` — `requireOtherAccount(ator, alvo, ação)` → `SelfActionError`; `deletionVerdict(mesasPróprias)` → `blocked` (com as mesas de `otherMembers > 0`) ou `allowed` (com `soloCampaigns`).
 - `user-admin.mapper.ts` — `toAdminUserDto(linha, cifra)` (e-mail aberto com o id, `status` de `suspended_at`, cor efetiva, `lastSeenAt`/`createdAt` em ISO; nunca hash nem colunas seladas) e `toDeletionCheckDto`.
-- `user-admin.service.ts` — `UserAdminService`: `directory`, `changeRole`, `suspend`, `reactivate`, `deletionCheck`, `delete`. Escritas pelo `UserAdminTransactionRunner` (DAOs sobre o `tx`: contas, sessões, links de nova senha).
+- `user-admin.service.ts` — `UserAdminService` (dep `juggernauts: JuggernautEnderPort`): `directory`, `changeRole`, `suspend`, `reactivate`, `deletionCheck`, `delete`. Escritas pelo `UserAdminTransactionRunner` (DAOs sobre o `tx`: contas, sessões, links de nova senha).
 - `user-admin.routes.ts` (+ error handler próprio), `user-admin.error.ts` (`SELF_ACTION` 409, `USER_NOT_FOUND` 404, `OWNS_SHARED_CAMPAIGNS` 409 com `blockingCampaigns`), `user-admin.plugin.ts` (`createUserAdminModule`), ligado por `src/app/wire-backoffice.ts` depois do `account-links` (a lista lê os convites dele).
 
 ## Contrato (prefixo `/api`, sessão **e** papel `admin`: 401 `UNAUTHENTICATED` · 403 `FORBIDDEN_ROLE`)
@@ -29,7 +29,7 @@ Id malformado é 400 (o `adminUserParamsDto`). Cada ação vai ao log pino como 
 
 - O `otherMembers` conta todo papel da mesa, espectador incluído: mesa só com espectadores também bloqueia excluir a conta do dono.
 - **Ninguém age sobre si** (`SELF_ACTION`): quem pede é um admin ativo, então tirar o admin de outro nunca zera os admins. Não há regra de "último admin".
-- `changeRole`: grava; virar admin (de `user`) manda "Você agora é admin do Lorkarium", sem dizer quem deu (o e-mail é neutro). Tirar não avisa.
+- `changeRole`: grava; virar admin (de `user`) manda "Você agora é admin do Lorkarium", sem dizer quem deu (o e-mail é neutro). Tirar não avisa por e-mail, mas **desliga todo modo juggernaut** da conta depois do commit (`juggernauts.endAllOf(userId)`, porta `juggernaut-ender.port.ts`, ligada pelo `wireBackoffice` ao `JuggernautService` do `campaigns`): em cada mesa volta ao papel de antes (a mesa ouve `session:memberUpdated`) ou sai dela (`session:removedFromTable`), ver [`campaigns/juggernaut.md`](campaigns/juggernaut.md). A suspensão não desliga (a pessoa segue admin e as sessões já caem).
 - `suspend`: na transação `suspended_at = agora` → `AuthSessionsDao.deleteAllOf` → `PasswordResetsDao.deleteOfUser`; depois do commit `sessionEnded` de cada sessão e o aviso "Seu acesso ao Lorkarium foi suspenso". Já suspensa: nada muda, ninguém é avisado. Os lugares nas mesas ficam (a pessoa aparece offline). O login com a senha certa dá 403 `ACCOUNT_SUSPENDED` e o `resolveSession` recusa (ver [`auth.md`](auth.md)).
 - `reactivate`: `suspended_at = null` e "Seu acesso ao Lorkarium voltou"; ativa: nada.
 - `deletionCheck`: `lockOwnedCampaigns` fora de transação (só leitura) → `deletionVerdict`.
@@ -45,8 +45,8 @@ Id malformado é 400 (o `adminUserParamsDto`). Cada ação vai ao log pino como 
 
 ## Testes
 
-- Unit: `server/test/modules/user-admin/{user-admin.bo,user-admin.mapper,user-admin.service,mail-samples.service}.spec.ts` (fakes em `test/support/user-admin-fakes.ts`: `UserAdminDaoFake` com `owned` e `deleted`, `MembershipsForgetFake`, `StorageRemoveFake`; a transação é um runner que escreve `commit` no diário).
-- Integração: `server/test/integration/user-admin.spec.ts` (lista e o que não sai no corpo, 401/403, suspensão com o socket caindo e o login 403, reativação, papel, `SELF_ACTION`, 400/404, exclusão livre e bloqueada, a mesa de outra campanha intacta, o `23503` do entrar concorrente com uma transação segurada).
+- Unit: `server/test/modules/user-admin/{user-admin.bo,user-admin.mapper,user-admin.service,mail-samples.service}.spec.ts` (fakes em `test/support/user-admin-fakes.ts`: `UserAdminDaoFake` com `owned` e `deleted`, `MembershipsForgetFake`, `StorageRemoveFake`, `JuggernautEnderFake` (`endAllOf <id>` no diário); a transação é um runner que escreve `commit` no diário).
+- Integração: `server/test/integration/user-admin.spec.ts` (o `describe` "the juggernaut mode falls with the admin role": a mesa em que era jogador volta a `player`, a outra some, e com as mesas abertas os dois eventos; lista e o que não sai no corpo, 401/403, suspensão com o socket caindo e o login 403, reativação, papel, `SELF_ACTION`, 400/404, exclusão livre e bloqueada, a mesa de outra campanha intacta, o `23503` do entrar concorrente com uma transação segurada).
 
 ## Armadilhas
 
