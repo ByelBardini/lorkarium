@@ -47,7 +47,7 @@ export function TokenAuraDialog(props: TokenAuraDialogProps): React.JSX.Element 
   const dialog = useTokenAuraDialog(props);
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md">
+      <DialogContent className="max-h-[calc(100svh-var(--title-bar-height)-2rem)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{`Aura de ${token.name}`}</DialogTitle>
           <DialogDescription>Anda com o token. Todos na mesa veem.</DialogDescription>

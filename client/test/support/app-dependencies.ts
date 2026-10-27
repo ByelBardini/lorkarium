@@ -138,6 +138,8 @@ export function testDependencies(): TestDependencies {
     clipboard: new ClipboardFake(),
     // The browser by default: specs of the desktop field menu turn it on.
     isDesktop: false,
+    // No title bar of our own: specs of the desktop title bar pass a `DesktopWindowFake`.
+    desktopWindow: null,
     fieldEditing: new FieldEditingFake(),
     tableSessionApi,
     tabStorage,

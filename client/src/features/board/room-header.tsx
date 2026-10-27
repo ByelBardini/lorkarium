@@ -1,13 +1,16 @@
 import type { CampaignDetailDto } from '@lorkarium/contracts';
 import { LibraryIcon, SettingsIcon, TagIcon } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
+import { useTitleBarSlot } from '@/app/title-bar/title-bar-slot';
 import { CopyCodeButton } from '@/components/copy-code-button';
 import { Button } from '@/components/ui/button';
 import { TurnLine } from '@/features/combat/turn-line';
 import { useLeaveTable } from '@/features/sessions/use-leave-table';
 import { formatCampaignCode } from '@/lib/campaign-code';
 import { watchesOnly } from '@/lib/table-role';
+import { cn } from '@/lib/utils';
 import type { Clipboard } from '@/services/clipboard';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
@@ -34,11 +37,14 @@ export type RoomHeaderProps = Readonly<{
   openTables: StoreApi<OpenTablesStore>;
   roomLayout: StoreApi<RoomLayoutStore>;
   clipboard: Clipboard;
+  /** Whether the room is shown (not covered by a page), so the desktop title bar can host it. */
+  inTitleBar: boolean;
 }>;
 
 /** The 48px top bar of the room: name (and the "Espectador" badge of whoever only watches), who is online, the open grid tabs, the code (master
  *  only), "Biblioteca", "Condições" and "Configurações da mesa" (master only), the panel toggle
- *  and "Sair da mesa".
+ *  and "Sair da mesa". In the desktop app it moves into the window title bar (a portal), which
+ *  drags the window from its empty space.
  *
  *  Example: `<RoomHeader campaign={campaign} presence={presence} board={board} tabs={tabs} interaction={interaction} openTables={openTables} roomLayout={roomLayout} clipboard={clipboard} />` */
 export function RoomHeader({
@@ -50,22 +56,33 @@ export function RoomHeader({
   openTables,
   roomLayout,
   clipboard,
-}: RoomHeaderProps): React.JSX.Element {
+  inTitleBar,
+}: RoomHeaderProps): React.JSX.Element | null {
   const leaveTable = useLeaveTable(openTables);
-  return (
+  const slot = useTitleBarSlot(inTitleBar);
+  const top = (
     <section
       aria-label="Topo da sala"
-      className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-panel px-3"
+      className={cn(
+        'flex shrink-0 items-center gap-4',
+        slot ? 'min-w-0 flex-1 pr-2' : 'h-12 border-b border-border bg-panel px-3',
+      )}
     >
       <h1 className="min-w-0 truncate font-display text-xl font-semibold">{campaign.name}</h1>
       {watchesOnly(campaign.myRole) && <SpectatorBadge />}
       {presence && (
         <OnlineCount presence={presence} onShow={() => roomLayout.getState().showTab('people')} />
       )}
-      {tabs && <SceneTabs tabs={tabs} />}
+      {tabs && (
+        <div data-app-region="no-drag" className="flex min-w-0">
+          <SceneTabs tabs={tabs} />
+        </div>
+      )}
       {board && <TurnLine board={board} interaction={interaction} className="hidden sm:block" />}
-      <div className="ml-auto flex items-center gap-3">
-        {campaign.joinCode && <TableCode code={campaign.joinCode} clipboard={clipboard} />}
+      <div data-app-region="no-drag" className="ml-auto flex items-center gap-3">
+        {campaign.joinCode && (
+          <TableCode code={campaign.joinCode} clipboard={clipboard} centered={slot !== null} />
+        )}
         <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
           <Link to={`/campaigns/${encodeURIComponent(campaign.id)}/table/library`}>
             <LibraryIcon aria-hidden="true" />
@@ -74,12 +91,15 @@ export function RoomHeader({
         </Button>
         {campaign.myRole === 'master' && <MasterPageLinks campaignId={campaign.id} />}
         <PanelToggle roomLayout={roomLayout} />
+        {/* Apart from the view controls: leaving is the one action that closes the room. */}
+        <span aria-hidden="true" className="h-5 w-px bg-border" />
         <Button variant="outline" size="sm" onClick={() => void leaveTable(campaign.id)}>
           Sair da mesa
         </Button>
       </div>
     </section>
   );
+  return slot ? createPortal(top, slot) : top;
 }
 
 // Text, not an icon: it tells why the tools are gone (a reconnection would look the same).
@@ -142,6 +162,7 @@ function OnlineCount({ presence, onShow }: OnlineCountProps): React.JSX.Element 
   return (
     <button
       type="button"
+      data-app-region="no-drag"
       onClick={onShow}
       className="shrink-0 text-xs tracking-[0.12em] text-muted-foreground uppercase outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
     >
@@ -150,10 +171,22 @@ function OnlineCount({ presence, onShow }: OnlineCountProps): React.JSX.Element 
   );
 }
 
-function TableCode({ code, clipboard }: Readonly<{ code: string; clipboard: Clipboard }>) {
+type TableCodeProps = Readonly<{
+  code: string;
+  clipboard: Clipboard;
+  /** In the window title bar: in the middle of the bar, apart from the actions on the right. */
+  centered: boolean;
+}>;
+
+function TableCode({ code, clipboard, centered }: TableCodeProps) {
   const formatted = formatCampaignCode(code);
   return (
-    <div className="hidden items-center gap-2 lg:flex">
+    <div
+      className={cn(
+        'hidden items-center gap-2 lg:flex',
+        centered && 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+      )}
+    >
       <span className="font-brand text-sm tracking-[0.2em] text-label">{formatted}</span>
       <CopyCodeButton code={formatted} clipboard={clipboard} />
     </div>

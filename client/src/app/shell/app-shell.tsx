@@ -15,6 +15,8 @@ export type AppShellProps = Readonly<{
   openTables: StoreApi<OpenTablesStore>;
   user: AuthUserDto;
   onSignOut: () => Promise<void>;
+  /** The desktop title bar already shows the logo, so the rail leaves it out. */
+  brandInTitleBar?: boolean;
 }>;
 
 /** The frame of every signed-in screen: rail on desktop, top bar + drawer on mobile, route in `main`
@@ -28,13 +30,14 @@ export function AppShell({
   openTables,
   user,
   onSignOut,
+  brandInTitleBar = false,
 }: AppShellProps): React.JSX.Element {
   const compact = wantsCompactRail(useMatches());
   return (
     <div
       className={cn(
         'flex bg-background text-foreground',
-        compact ? 'h-svh overflow-hidden' : 'min-h-svh',
+        compact ? 'h-app overflow-hidden' : 'min-h-app',
       )}
     >
       <AppRail
@@ -43,6 +46,7 @@ export function AppShell({
         user={user}
         onSignOut={onSignOut}
         compact={compact}
+        showBrand={!brandInTitleBar}
         className="hidden md:flex"
       />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -67,7 +71,7 @@ function NavigationProgress(): React.JSX.Element | null {
   return (
     <div
       aria-hidden="true"
-      className="fixed inset-x-0 top-0 z-50 h-0.5 animate-pulse bg-primary motion-reduce:animate-none"
+      className="fixed inset-x-0 top-(--title-bar-height) z-50 h-0.5 animate-pulse bg-primary motion-reduce:animate-none"
     />
   );
 }

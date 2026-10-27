@@ -96,7 +96,7 @@ export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
   const editSubtitle = player ? PLAYER_EDIT_TOKEN_SUBTITLE : EDIT_TOKEN_SUBTITLE;
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex h-[min(800px,calc(100svh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[900px]">
+      <DialogContent className="flex h-[min(800px,calc(100svh-var(--title-bar-height)-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[900px]">
         <DialogHeader className="shrink-0 gap-1 border-b border-border py-5 pr-14 pl-6 md:pl-7">
           <DialogTitle>{token ? 'Editar token' : 'Novo token'}</DialogTitle>
           <DialogDescription>{token ? editSubtitle : newSubtitle}</DialogDescription>

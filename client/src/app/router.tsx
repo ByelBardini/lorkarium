@@ -3,6 +3,7 @@ import type { InteractionClock } from '@/lib/interaction-clock';
 import {
   Outlet,
   redirect,
+  useMatches,
   useNavigate,
   useSearchParams,
   type MiddlewareFunction,
@@ -36,6 +37,7 @@ import type { ProfileApi } from '@/services/profile-api';
 import type { SceneActivation } from '@/services/scene-activation';
 import type { Clipboard } from '@/services/clipboard';
 import type { FieldEditing } from '@/services/field-editing';
+import type { DesktopWindow } from '@/services/desktop-window';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import type { PingCommands } from '@/services/table-pings';
 import type { DiceCommands } from '@/services/dice-commands';
@@ -60,6 +62,8 @@ import { decideAccess, type RouteAccess } from './route-access';
 import { RouteErrorScreen } from './route-error-screen';
 import { AppShell } from './shell/app-shell';
 import { SplashScreen } from './splash-screen';
+import { TitleBarFrame } from './title-bar/title-bar-frame';
+import { placeOf, type PlaceHandle } from './title-bar/title-bar-place';
 
 export type AppDependencies = Readonly<{
   authApi: AuthApi;
@@ -81,6 +85,9 @@ export type AppDependencies = Readonly<{
   clipboard: Clipboard;
   /** Inside the desktop shell (Tauri), whose WebView2 has the browser's right-click menu off. */
   isDesktop: boolean;
+  /** The frameless window of a desktop shell with its own title bar; `null` in a browser and in
+   *  an older shell, which keeps the native frame. */
+  desktopWindow: DesktopWindow | null;
   /** Cut, copy, paste and select-all on a text field (the desktop field menu). */
   fieldEditing: FieldEditing;
   openTables: StoreApi<OpenTablesStore>;
@@ -142,29 +149,43 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
       middleware: [resolveSessionOnce(deps)],
       // The root middleware keeps the first navigation pending, so the splash covers the "who am I".
       HydrateFallback: bootSplash(deps),
-      ErrorBoundary: RouteErrorScreen,
+      ErrorBoundary: rootErrorScreen(deps),
       Component: rootRoute(deps),
       children: [
-        { path: 'login', middleware: [guard(deps, 'public-only')], Component: loginRoute(deps) },
+        {
+          path: 'login',
+          middleware: [guard(deps, 'public-only')],
+          handle: place('Entrar'),
+          Component: loginRoute(deps),
+        },
         {
           path: 'account/email/confirm',
           middleware: [guard(deps, 'anyone')],
+          handle: place('Confirmar e-mail'),
           ...emailConfirmRoute(deps),
         },
         {
           path: 'account/recover',
           middleware: [guard(deps, 'anyone')],
+          handle: place('Recuperar conta'),
           ...accountRecoveryRoute(deps),
         },
-        { path: 'invite', middleware: [guard(deps, 'anyone')], ...inviteRoute(deps) },
+        {
+          path: 'invite',
+          middleware: [guard(deps, 'anyone')],
+          handle: place('Convite'),
+          ...inviteRoute(deps),
+        },
         {
           path: 'reset-password',
           middleware: [guard(deps, 'anyone')],
+          handle: place('Nova senha'),
           ...passwordResetRoute(deps),
         },
         {
           path: 'admin',
           middleware: [guard(deps, 'admin')],
+          handle: place('Backoffice'),
           // Lazy: players never download the backoffice.
           lazy: async () => (await import('@/features/admin/admin-routes')).adminLayoutRoute(deps),
           children: [
@@ -184,9 +205,9 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
           middleware: [guard(deps, 'signed-in'), restoreOpenTables(deps)],
           Component: shellRoute(deps),
           children: [
-            ...homeRoutes(deps),
-            exploreRoute(deps),
-            accountRoute(deps),
+            ...homeRoutes(deps).map((route) => withPlace(route, 'Suas mesas')),
+            withPlace(exploreRoute(deps), 'Explorar mesas'),
+            withPlace(accountRoute(deps), 'Minha conta'),
             campaignTableRoute(deps),
           ],
         },
@@ -196,8 +217,17 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
   ];
 }
 
+function place(name: string): PlaceHandle {
+  return { place: name };
+}
+
+function withPlace(route: RouteObject, name: string): RouteObject {
+  return { ...route, handle: { ...(route.handle as object | undefined), place: name } };
+}
+
 function rootRoute({
   isDesktop,
+  desktopWindow,
   clipboard,
   fieldEditing,
   appUpdate,
@@ -205,18 +235,32 @@ function rootRoute({
 }: AppDependencies): () => React.JSX.Element {
   return function RootRoute(): React.JSX.Element {
     return (
-      <>
+      <TitleBarFrame desktopWindow={desktopWindow} place={placeOf(useMatches())}>
         <Outlet />
         <TextFieldMenu isDesktop={isDesktop} clipboard={clipboard} fieldEditing={fieldEditing} />
         <AppUpdateNotice appUpdate={appUpdate} reloadPage={reloadPage} />
-      </>
+      </TitleBarFrame>
     );
   };
 }
 
-function bootSplash({ sessionStore }: AppDependencies): () => React.JSX.Element {
+function bootSplash({ sessionStore, desktopWindow }: AppDependencies): () => React.JSX.Element {
   return function BootSplash(): React.JSX.Element {
-    return <SplashScreen sessionStore={sessionStore} />;
+    return (
+      <TitleBarFrame desktopWindow={desktopWindow} place={null}>
+        <SplashScreen sessionStore={sessionStore} />
+      </TitleBarFrame>
+    );
+  };
+}
+
+function rootErrorScreen({ desktopWindow }: AppDependencies): () => React.JSX.Element {
+  return function RootErrorScreen(): React.JSX.Element {
+    return (
+      <TitleBarFrame desktopWindow={desktopWindow} place={null}>
+        <RouteErrorScreen />
+      </TitleBarFrame>
+    );
   };
 }
 
@@ -274,7 +318,7 @@ function loginRoute({
 }
 
 function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
-  const { authApi, sessionStore, railStore, openTables, interactionClock } = deps;
+  const { authApi, sessionStore, railStore, openTables, interactionClock, desktopWindow } = deps;
   // Stable across renders: the activity watch restarts only when this changes.
   const setAway = (away: boolean): void => openTables.getState().setAway(away);
   return function ShellRoute(): React.JSX.Element | null {
@@ -298,6 +342,7 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
         openTables={openTables}
         user={session.user}
         onSignOut={signOut}
+        brandInTitleBar={desktopWindow !== null}
       />
     );
   };

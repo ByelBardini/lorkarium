@@ -27,6 +27,7 @@ const PAGE_TITLE = 'Condições da mesa';
 export function conditionsRoute(deps: AppDependencies): RouteObject {
   return {
     path: 'conditions',
+    handle: { place: 'Condições da mesa' },
     Component: conditionsScreen(deps),
     ErrorBoundary: conditionsErrorScreen(),
   };

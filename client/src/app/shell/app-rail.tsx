@@ -21,6 +21,8 @@ export type AppRailProps = Readonly<{
   onSignOut: () => Promise<void>;
   /** Forced collapsed with no toggle, leaving the stored preference alone (the play room). */
   compact?: boolean;
+  /** Off in the desktop app, whose title bar already shows the logo right above. */
+  showBrand?: boolean;
   className?: string;
 }>;
 
@@ -34,6 +36,7 @@ export function AppRail({
   user,
   onSignOut,
   compact = false,
+  showBrand = true,
   className,
 }: AppRailProps): React.JSX.Element {
   const { rail, toggle } = useRail(railStore);
@@ -42,12 +45,12 @@ export function AppRail({
     <aside
       aria-label="Menu lateral"
       className={cn(
-        'sticky top-0 h-svh shrink-0 flex-col border-r border-border bg-panel transition-[width] duration-150 motion-reduce:transition-none',
+        'sticky top-0 h-app shrink-0 flex-col border-r border-border bg-panel transition-[width] duration-150 motion-reduce:transition-none',
         expanded ? 'w-56' : 'w-14',
         className,
       )}
     >
-      <RailBrand expanded={expanded} />
+      {showBrand && <RailBrand expanded={expanded} />}
       <RailNav expanded={expanded} />
       <OpenTablesNav openTables={openTables} expanded={expanded} />
       <div className="mt-auto flex flex-col gap-1 border-t border-border p-2">

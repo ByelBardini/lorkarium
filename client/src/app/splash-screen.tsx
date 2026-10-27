@@ -12,7 +12,7 @@ export function SplashScreen({
   const session = useSession(sessionStore);
   const reconnecting = session.status === 'unknown' && session.reconnecting;
   return (
-    <div className="grid min-h-svh place-items-center bg-background">
+    <div className="grid min-h-app place-items-center bg-background">
       <div role="status" className="flex flex-col items-center gap-5">
         <BrandMark />
         {reconnecting ? (

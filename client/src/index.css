@@ -108,6 +108,16 @@
   --sidebar-accent-foreground: #eae5da;
   --sidebar-border: #23272e;
   --sidebar-ring: #c5a46d;
+  /* The desktop title bar sets it while mounted (38 or 44 px); the browser has none. */
+  --title-bar-height: 0px;
+}
+
+/* The viewport under the desktop title bar (the whole viewport in a browser). */
+@utility h-app {
+  height: calc(100svh - var(--title-bar-height));
+}
+@utility min-h-app {
+  min-height: calc(100svh - var(--title-bar-height));
 }
 
 @layer base {
@@ -130,6 +140,16 @@
   }
   button:disabled {
     @apply cursor-not-allowed;
+  }
+  /* The desktop title bar: WebView2 turns `app-region: drag` into the real caption (drag, double
+     click, system menu, snap); see docs/context/client/title-bar.md. */
+  [data-app-region='drag'] {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  [data-app-region='no-drag'] {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
   }
   /* Chrome paints autofilled fields pale yellow, which breaks the dark surface. */
   input:-webkit-autofill,

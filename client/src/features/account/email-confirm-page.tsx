@@ -28,7 +28,7 @@ export function EmailConfirmPage({
     if (token) void fetcher.submit({ token }, { method: 'post', encType: 'application/json' });
   };
   return (
-    <main className="flex min-h-svh w-full flex-col items-start gap-8 bg-background px-4 py-12 sm:px-8 lg:px-12">
+    <main className="flex min-h-app w-full flex-col items-start gap-8 bg-background px-4 py-12 sm:px-8 lg:px-12">
       <title>Lorkarium · Confirmar e-mail</title>
       <BrandMark variant="compact" />
       {settled && 'confirmed' in settled ? (

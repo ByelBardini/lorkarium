@@ -43,7 +43,8 @@ export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
   return (
     <section
       aria-label={selected ? 'Token selecionado' : 'Token principal'}
-      className="flex max-h-[58%] shrink-0 flex-col gap-3 overflow-y-auto border-t border-border pt-3"
+      // -mx-1 px-1: overflow-y-auto also clips X, and the avatar's side ring is a shadow outside it.
+      className="-mx-1 flex max-h-[58%] shrink-0 flex-col gap-3 overflow-y-auto border-t border-border px-1 pt-3"
     >
       <DockHeader
         token={token}

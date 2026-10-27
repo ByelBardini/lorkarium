@@ -26,7 +26,7 @@ export function AuthFrame({
   legalLinks = true,
 }: AuthFrameProps): React.JSX.Element {
   return (
-    <div className="flex min-h-svh bg-background text-foreground">
+    <div className="flex min-h-app bg-background text-foreground">
       <title>{pageTitle}</title>
       <HeroPanel />
       <main className="flex min-w-0 flex-1 flex-col items-center px-4 py-10 sm:px-8 lg:max-w-[560px]">

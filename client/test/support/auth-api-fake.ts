@@ -47,6 +47,7 @@ export class AuthApiFake implements AuthApi {
   logoutCalls = 0;
   meCalls = 0;
   private meFailures: AuthFailure[] = [];
+  private meCrash: Error | null = null;
   private loginAnswer: LoginResult | Pending<LoginResult> = {
     ok: true,
     value: ANA,
@@ -87,6 +88,12 @@ export class AuthApiFake implements AuthApi {
     return this;
   }
 
+  /** The next "who am I" throws (a bug, not a refusal), so the root error screen shows. */
+  crashMe(): this {
+    this.meCrash = new Error('who am I crashed in the fake');
+    return this;
+  }
+
   holdMe(): (user: AuthUserDto | null) => void {
     const held = pending<AuthResult<AuthUserDto | null>>();
     this.meAnswer = held;
@@ -105,6 +112,7 @@ export class AuthApiFake implements AuthApi {
 
   async me(): Promise<AuthResult<AuthUserDto | null>> {
     this.meCalls += 1;
+    if (this.meCrash) throw this.meCrash;
     const failure = this.meFailures.shift();
     if (failure) return { ok: false, failure };
     return 'promise' in this.meAnswer ? this.meAnswer.promise : this.meAnswer;
