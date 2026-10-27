@@ -57,6 +57,9 @@ export const PUBLIC_VHARN: PublicCampaignDto = {
   masterName: 'Bia',
   myRole: null,
   hasPassword: false,
+  masterUsername: 'bia',
+  masterOnline: false,
+  playersOnline: 0,
 };
 
 // The summary without what depends on the reader: the plain object drops the keys it does not know.

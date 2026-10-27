@@ -23,6 +23,7 @@ export const CAMPAIGN_SETTINGS_PATH = '/campaigns/:campaignId/table/settings';
 export function campaignSettingsRoute(deps: AppDependencies): RouteObject {
   return {
     path: 'settings',
+    handle: { place: 'Configurações da mesa' },
     action: campaignSettingsAction(deps),
     Component: settingsScreen(deps),
     ErrorBoundary: settingsErrorScreen(deps.sessionStore),

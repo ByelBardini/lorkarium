@@ -14,9 +14,9 @@ export function memberCountLabel(count: number): string {
 /** The one-line meta of a campaign: system, the master (when it is not you) and members; the
  *  status has its own badge (`StatusBadge`).
  *
- *  Example: `campaignMeta(campaign) // 'Tormenta20 · mestre: Bia · 4 participantes'` */
+ *  Example: `campaignMeta(campaign) // 'Tormenta20 · Mestre: Bia · 4 participantes'` */
 export function campaignMeta(campaign: CampaignMetaSource): string {
-  const master = campaign.myRole !== 'master' ? `mestre: ${campaign.masterName}` : null;
+  const master = campaign.myRole !== 'master' ? `Mestre: ${campaign.masterName}` : null;
   return [campaign.system, master, memberCountLabel(campaign.memberCount)]
     .filter((part): part is string => Boolean(part))
     .join(' · ');

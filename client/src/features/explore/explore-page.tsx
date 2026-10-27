@@ -1,17 +1,25 @@
 import type { PublicCampaignDto } from '@lorkarium/contracts';
 import { useState } from 'react';
-import { useLoaderData } from 'react-router';
-import { CampaignListHeader } from '@/components/campaign-list-header';
+import { Outlet, useLoaderData } from 'react-router';
 import { LoadErrorScreen } from '@/components/load-error-screen';
-import { filterCampaigns } from '@/lib/campaign-list';
+import {
+  applyExploreSearch,
+  EMPTY_EXPLORE_SEARCH,
+  explorePage,
+  explorePageCount,
+  type ExploreSearch,
+} from './explore-filters';
+import { ExplorePagination } from './explore-pagination';
+import type { ExploreLoaderData } from './explore-route';
+import { ExploreSearchForm } from './explore-search-form';
 import { PublicCampaignRow } from './public-campaign-row';
 
 /** The page of the explore route, over what its loader read.
  *
  *  Example: `{ path: 'campaigns/public', Component: ExploreRoute }` */
 export function ExploreRoute(): React.JSX.Element {
-  const { campaigns } = useLoaderData<Readonly<{ campaigns: PublicCampaignDto[] }>>();
-  return <ExplorePage campaigns={campaigns} />;
+  const { campaigns, readerIsAdmin } = useLoaderData<ExploreLoaderData>();
+  return <ExplorePage campaigns={campaigns} readerIsAdmin={readerIsAdmin} />;
 }
 
 /** The explore route when its list could not load: what happened and "Tentar de novo".
@@ -26,38 +34,52 @@ export function ExploreErrorScreen(): React.JSX.Element {
   );
 }
 
-export type ExplorePageProps = Readonly<{ campaigns: readonly PublicCampaignDto[] }>;
+export type ExplorePageProps = Readonly<{
+  campaigns: readonly PublicCampaignDto[];
+  /** Shows the "Visibilidade" filter: only an admin is sent private campaigns. */
+  readerIsAdmin: boolean;
+}>;
 
-/** "Explorar mesas": the public campaigns, searchable by name or system, each with "Entrar" (or
- *  "Abrir" for one the reader is already in).
+/** "Explorar mesas": the public campaigns, every one until a search ("Pesquisar") narrows them
+ *  by name or the master's exact @ and the panel's filters; twelve to a page.
  *
- *  Example: `<ExplorePage campaigns={campaigns} />` */
-export function ExplorePage({ campaigns }: ExplorePageProps): React.JSX.Element {
-  const [query, setQuery] = useState('');
-  const visible = filterCampaigns(campaigns, query);
+ *  Example: `<ExplorePage campaigns={campaigns} readerIsAdmin={false} />` */
+export function ExplorePage({ campaigns, readerIsAdmin }: ExplorePageProps): React.JSX.Element {
+  const [search, setSearch] = useState<ExploreSearch>(EMPTY_EXPLORE_SEARCH);
+  const [page, setPage] = useState(1);
+  const found = applyExploreSearch(campaigns, search);
+  const pageCount = explorePageCount(found.length);
+  const shownPage = Math.min(page, pageCount);
+  const onSearch = (next: ExploreSearch): void => {
+    setSearch(next);
+    setPage(1);
+  };
   return (
-    <div className="flex w-full flex-col gap-8 px-4 py-8 sm:px-8 sm:py-10 lg:px-12">
+    <section
+      aria-labelledby="explore-title"
+      className="flex w-full flex-col gap-6 px-4 py-8 sm:px-8 sm:py-10 lg:px-12"
+    >
       <title>Lorkarium · Explorar mesas</title>
-      <header className="flex flex-col gap-2">
-        <h1 className="font-display text-[34px] leading-tight font-semibold">Explorar mesas</h1>
-        <p className="max-w-prose text-muted-foreground">
-          As mesas que os mestres deixaram públicas. Quem entra assiste até o mestre te chamar para
-          jogar.
-        </p>
-      </header>
-      <section aria-labelledby="public-list-title" className="flex flex-col gap-2">
-        <CampaignListHeader
-          titleId="public-list-title"
-          title="Mesas públicas"
-          count={visible.length}
-          query={query}
-          onQuery={setQuery}
-          searchLabel="Buscar mesa pública"
-        />
-        <PublicList campaigns={visible} query={query} empty={campaigns.length === 0} />
-      </section>
-    </div>
+      <div className="flex items-baseline gap-3">
+        <h1 id="explore-title" className="font-display text-[34px] leading-tight font-semibold">
+          Explorar mesas
+        </h1>
+        <span className="text-sm text-muted-foreground">{foundLabel(found.length)}</span>
+      </div>
+      <ExploreSearchForm applied={search} onSearch={onSearch} readerIsAdmin={readerIsAdmin} />
+      <PublicList
+        campaigns={explorePage(found, shownPage)}
+        query={search.query}
+        empty={campaigns.length === 0}
+      />
+      <ExplorePagination page={shownPage} pageCount={pageCount} onPage={setPage} />
+      <Outlet />
+    </section>
   );
+}
+
+function foundLabel(count: number): string {
+  return count === 1 ? '1 mesa' : `${count} mesas`;
 }
 
 type PublicListProps = Readonly<{
@@ -71,14 +93,13 @@ function PublicList({ campaigns, query, empty }: PublicListProps): React.JSX.Ele
     return <p className="py-6 text-sm text-muted-foreground">Nenhuma mesa pública por enquanto.</p>;
   }
   if (campaigns.length === 0) {
-    return (
-      <p className="py-6 text-sm text-muted-foreground">
-        Nenhuma mesa pública com “{query.trim()}”.
-      </p>
-    );
+    const words = query.trim()
+      ? `Nenhuma mesa pública com “${query.trim()}”.`
+      : 'Nenhuma mesa pública com esses filtros.';
+    return <p className="py-6 text-sm text-muted-foreground">{words}</p>;
   }
   return (
-    <ul>
+    <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {campaigns.map((campaign) => (
         <PublicCampaignRow key={campaign.id} campaign={campaign} />
       ))}

@@ -8,12 +8,12 @@ describe('campaignMeta', () => {
   });
 
   it('a player sees who masters it', () => {
-    expect(campaignMeta(QUELM)).toBe('Tormenta20 · mestre: Bia · 4 participantes');
+    expect(campaignMeta(QUELM)).toBe('Tormenta20 · Mestre: Bia · 4 participantes');
   });
 
   it('a spectator also sees who masters it', () => {
     const watched = { ...QUELM, myRole: 'spectator' as const };
-    expect(campaignMeta(watched)).toBe('Tormenta20 · mestre: Bia · 4 participantes');
+    expect(campaignMeta(watched)).toBe('Tormenta20 · Mestre: Bia · 4 participantes');
   });
 });
 
