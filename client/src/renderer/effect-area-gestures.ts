@@ -37,12 +37,15 @@ type Sketch = Readonly<{
   scene: SceneSize;
   press: Point;
   footprints: readonly AreaFootprint[];
+  /** The pickable area under the press: a click there (no area drawn) picks it. */
+  underPress: string | null;
 }> & { area: EffectArea | null };
 
 const DRAFT_ID = 'draft';
 
 /** The pointer on areas of effect, apart from the PixiJS shell. With the area tool, a press is
- *  where the area is born, the drag shows it with its size and the release reports its shape.
+ *  where the area is born, the drag shows it with its size and the release reports its shape; a
+ *  click with no area drawn on one of the viewer's areas picks it (so Delete reaches it).
  *  With Selecionar, a press on a pickable area picks it or (from 4 px) drags it with the other
  *  areas selected (the tokens selected follow from the drop). Esc lets go of either.
  *
@@ -68,6 +71,7 @@ export class EffectAreaGestures {
       scene: view.grid.cells,
       press,
       footprints,
+      underPress: topEffectAreaAt(view.effectAreas, world)?.id ?? null,
       area: null,
     };
   }
@@ -103,11 +107,14 @@ export class EffectAreaGestures {
     if (this.pressed) return this.drop(world, snap);
     if (!this.drawing) return false;
     this.move(screen, world, snap);
-    const { area, sketch } = this.drawing;
+    const { area, sketch, underPress } = this.drawing;
     this.drawing = null;
     this.canvas.showDraft(null);
-    if (area)
+    if (area) {
       this.emit({ kind: 'effectAreaSketched', shape: sentShapeOf(area, sketch.style.color) });
+    } else if (underPress) {
+      this.emit({ kind: 'effectAreaPicked', effectAreaId: underPress, additive: snap });
+    }
     return true;
   }
 

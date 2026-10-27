@@ -3,7 +3,7 @@ import { auraOpacity, auraRadius } from '@lorkarium/game-core';
 import { cellsNumeric } from '../../database/cells-numeric';
 import type { TokenAuraPo, TokenPo, TokenStylePo } from './tokens.po';
 
-/** The six aura columns of a token without an aura: written whole to take one away. */
+/** The seven aura columns of a token without an aura: written whole to take one away. */
 export const NO_AURA_PO: TokenAuraPo = Object.freeze({
   auraKind: null,
   auraRadius: null,
@@ -11,10 +11,11 @@ export const NO_AURA_PO: TokenAuraPo = Object.freeze({
   auraEffect: null,
   auraImageAssetId: null,
   auraOpacity: null,
+  auraImageShape: null,
 });
 
-/** An aura as sent → the six columns, the radius to the hundredth; every field the kind does not
- *  use is written null, so swapping kinds leaves nothing behind (and `null` clears all six).
+/** An aura as sent → the seven columns, the radius to the hundredth; every field the kind does not
+ *  use is written null, so swapping kinds leaves nothing behind (and `null` clears all seven).
  *
  *  Example: `toTokenAuraPo({ kind: 'color', radius: 2, color: 'gold', opacity: 50 }).auraRadius // '2.00'` */
 export function toTokenAuraPo(aura: TokenAuraDto | null): TokenAuraPo {
@@ -27,7 +28,7 @@ export function toTokenAuraPo(aura: TokenAuraDto | null): TokenAuraPo {
   };
   if (aura.kind === 'color') return { ...shape, auraColor: aura.color };
   if (aura.kind === 'effect') return { ...shape, auraEffect: aura.effect, auraColor: aura.color };
-  return { ...shape, auraImageAssetId: aura.imageAssetId };
+  return { ...shape, auraImageAssetId: aura.imageAssetId, auraImageShape: aura.shape };
 }
 
 /** The saved aura of a token, checked by the game-core rule; an image aura whose asset was
@@ -40,10 +41,16 @@ export function toTokenAuraDto(token: Pick<TokenPo, 'id'> & TokenAuraPo): TokenA
   const shape = checkedShapeOf(token.id, Number(token.auraRadius), token.auraOpacity);
   if (kind === 'color') return color === null ? null : { kind, ...shape, color };
   if (kind === 'effect') return effect === null ? null : { kind, ...shape, effect, color };
-  return auraImageAssetId === null ? null : { kind, ...shape, imageAssetId: auraImageAssetId };
+  if (auraImageAssetId === null) return null;
+  return {
+    kind,
+    ...shape,
+    imageAssetId: auraImageAssetId,
+    shape: token.auraImageShape ?? 'square',
+  };
 }
 
-/** A restyle as sent → what the DAO writes: the look as it is and the aura as its six columns
+/** A restyle as sent → what the DAO writes: the look as it is and the aura as its seven columns
  *  (left out when the style does not touch it).
  *
  *  Example: `toTokenStylePo({ aura: null, flipX: true }) // { flipX: true, auraKind: null, … }` */

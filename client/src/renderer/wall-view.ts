@@ -33,14 +33,18 @@ export type WallViewInput = Readonly<{
   selectedWallIds: readonly string[];
   /** The doors a player's tokens see; `null` when sight is off (every door). */
   seenDoorIds: ReadonlySet<string> | null;
+  /** The master sees the table through a player's eyes ("ver como jogador"). */
+  previewing: boolean;
 }>;
 
 /** The lines of the walls, for the master only: a player never sees a wall drawn, only what it
- *  hides (the fog) and the doors they see.
+ *  hides (the fog) and the doors they see. Previewing a player, the master sees it that way too,
+ *  except with the walls tool on.
  *
- *  Example: `wallViewsOf({ walls, viewer, tool, selectedWallIds, seenDoorIds })` */
+ *  Example: `wallViewsOf({ walls, viewer, tool, selectedWallIds, seenDoorIds, previewing })` */
 export function wallViewsOf(input: WallViewInput): WallView[] {
   if (!input.viewer.isMaster) return [];
+  if (input.previewing && input.tool !== 'walls') return [];
   const emphasis = input.tool === 'walls' ? 'full' : 'faint';
   return input.walls.map((wall) => ({
     id: wall.id,

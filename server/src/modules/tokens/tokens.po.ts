@@ -84,7 +84,7 @@ export const tokens = pgTable(
     // How wide the beam opens toward the facing (a lantern); 360 = every side, and no light
     // brings it back to 360.
     lightAngle: smallint('light_angle').notNull().default(360),
-    // The one aura around the token, seen by everyone: all six null = none. `aura_radius` is in
+    // The one aura around the token, seen by everyone: all seven null = none. `aura_radius` is in
     // cells past the token's edge (game-core `auraRadius`); an effect without a color is drawn
     // in its natural tone. Losing the image asset keeps the rest (the mapper reads it as none).
     auraKind: tokenAuraKind('aura_kind'),
@@ -95,6 +95,8 @@ export const tokens = pgTable(
       onDelete: 'set null',
     }),
     auraOpacity: smallint('aura_opacity'),
+    // How an image aura is cut (the token frame's values): only and always on an image aura.
+    auraImageShape: tokenFrame('aura_image_shape'),
     // Hidden from the players: only the masters and its controllers ever receive it.
     hidden: boolean('hidden').notNull().default(false),
     // The anchor (in the table's cast) of the character this token is: it lends its identity,
@@ -102,6 +104,9 @@ export const tokens = pgTable(
     anchorTokenId: uuid('anchor_token_id').references((): AnyPgColumn => tokens.id, {
       onDelete: 'set null',
     }),
+    // Who created it: a player edits and deletes only their own (game-core `token-rights`).
+    // Null = made before authorship was kept, or the account is gone (only the master then).
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -124,17 +129,18 @@ export const tokens = pgTable(
       'tokens_light_color',
       sql`${table.lightColor} IS NULL OR ${table.lightBright} IS NOT NULL`,
     ),
-    // All six null, or a kind with its radius (0–20 cells, game-core `AURA_RADIUS_MAX`) and its
+    // All seven null, or a kind with its radius (0–20 cells, game-core `AURA_RADIUS_MAX`) and its
     // opacity (10–100 %). A CHECK passes on NULL, so the second branch names each as not null.
     check(
       'tokens_aura_shape',
-      sql`(${table.auraKind} IS NULL AND ${table.auraRadius} IS NULL AND ${table.auraColor} IS NULL AND ${table.auraEffect} IS NULL AND ${table.auraImageAssetId} IS NULL AND ${table.auraOpacity} IS NULL) OR (${table.auraKind} IS NOT NULL AND ${table.auraRadius} IS NOT NULL AND ${table.auraOpacity} IS NOT NULL AND ${table.auraRadius} BETWEEN 0 AND 20 AND ${table.auraOpacity} BETWEEN 10 AND 100)`,
+      sql`(${table.auraKind} IS NULL AND ${table.auraRadius} IS NULL AND ${table.auraColor} IS NULL AND ${table.auraEffect} IS NULL AND ${table.auraImageAssetId} IS NULL AND ${table.auraOpacity} IS NULL AND ${table.auraImageShape} IS NULL) OR (${table.auraKind} IS NOT NULL AND ${table.auraRadius} IS NOT NULL AND ${table.auraOpacity} IS NOT NULL AND ${table.auraRadius} BETWEEN 0 AND 20 AND ${table.auraOpacity} BETWEEN 10 AND 100)`,
     ),
     // A color aura has its color; an effect aura has its effect (and maybe a color); only an
-    // image aura has an image, which may be null after its asset is deleted (set null).
+    // image aura has an image, which may be null after its asset is deleted (set null), and
+    // its shape, which stays.
     check(
       'tokens_aura_fields',
-      sql`(${table.auraKind} IS DISTINCT FROM 'color' OR ${table.auraColor} IS NOT NULL) AND ((${table.auraEffect} IS NOT NULL) = (${table.auraKind} IS NOT DISTINCT FROM 'effect')) AND (${table.auraColor} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'color' OR ${table.auraKind} IS NOT DISTINCT FROM 'effect') AND (${table.auraImageAssetId} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'image')`,
+      sql`(${table.auraKind} IS DISTINCT FROM 'color' OR ${table.auraColor} IS NOT NULL) AND ((${table.auraEffect} IS NOT NULL) = (${table.auraKind} IS NOT DISTINCT FROM 'effect')) AND (${table.auraColor} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'color' OR ${table.auraKind} IS NOT DISTINCT FROM 'effect') AND (${table.auraImageAssetId} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'image') AND ((${table.auraImageShape} IS NOT NULL) = (${table.auraKind} IS NOT DISTINCT FROM 'image'))`,
     ),
     check(
       'tokens_box_half_cells',
@@ -183,10 +189,16 @@ export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenI
 export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max'>;
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
-/** The six aura columns, written always together (all null = no aura). */
+/** The seven aura columns, written always together (all null = no aura). */
 export type TokenAuraPo = Pick<
   TokenPo,
-  'auraKind' | 'auraRadius' | 'auraColor' | 'auraEffect' | 'auraImageAssetId' | 'auraOpacity'
+  | 'auraKind'
+  | 'auraRadius'
+  | 'auraColor'
+  | 'auraEffect'
+  | 'auraImageAssetId'
+  | 'auraOpacity'
+  | 'auraImageShape'
 >;
 /** What `token:restyleMany` saves: the look, the defeat mark and the light switch (which
  *  `token:update` never sends) and the aura. */

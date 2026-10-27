@@ -146,6 +146,23 @@ describe('CampaignsService', () => {
     ]);
   });
 
+  it('listPublic gives only the public campaigns, with the reader role there or null', async () => {
+    campaigns.rows.push(campaignPo({ id: 'vharn', name: 'Vharn', visibility: 'public' }));
+    campaigns.rows.push(campaignPo({ id: 'quelm', name: 'Quelm', visibility: 'public' }));
+    campaigns.rows.push(campaignPo({ id: 'oculta', name: 'Oculta', visibility: 'private' }));
+    for (const id of ['vharn', 'quelm', 'oculta']) {
+      members.rows.push(campaignMemberPo({ campaignId: id, userId: BIA_ID, role: 'master' }));
+    }
+    members.rows.push(campaignMemberPo({ campaignId: 'quelm', userId: ANA_ID, role: 'player' }));
+
+    const listed = await service.listPublic(ANA_ID);
+
+    expect(listed).toEqual([
+      expect.objectContaining({ id: 'vharn', myRole: null, masterName: 'Bia', hasPassword: false }),
+      expect.objectContaining({ id: 'quelm', myRole: 'player', memberCount: 2 }),
+    ]);
+  });
+
   it('detail for someone who is not a member is refused with CAMPAIGN_NOT_FOUND', async () => {
     campaigns.rows.push(campaignPo({ id: 'vharn' }));
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));

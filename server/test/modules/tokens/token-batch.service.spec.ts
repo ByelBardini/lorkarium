@@ -17,7 +17,11 @@ import { LYRA_PORTRAIT_ID, QUELM_MAP_ID, lyraPortraitPo } from '../../support/as
 import { ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
-import { TokenTransactionRunnerFake, TokensDaoFake } from '../../support/tokens-fakes';
+import {
+  TableTokenRightsFake,
+  TokenTransactionRunnerFake,
+  TokensDaoFake,
+} from '../../support/tokens-fakes';
 import { BRAM_ID, LYRA_ID, bramRow, lyraPo, lyraRow } from '../../support/tokens-factories';
 
 const NOW = new Date('2026-10-16T21:00:00Z');
@@ -98,6 +102,7 @@ describe('TokenBatchService', () => {
       clock: new ClockFake(NOW),
       barLimit: 99_999,
       tokenLimit: 500,
+      tokenRights: new TableTokenRightsFake(),
     });
   });
 

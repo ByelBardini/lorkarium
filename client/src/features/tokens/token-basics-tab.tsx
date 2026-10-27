@@ -19,6 +19,8 @@ export type TokenBasicsTabProps = Readonly<{
   form: TokenFormValues;
   errors: TokenFormErrors;
   players: readonly TokenPlayer[];
+  /** The creator on a player's own token: always in "Quem controla". */
+  lockedIds?: readonly string[];
   onChange: (form: TokenFormValues) => void;
 }>;
 
@@ -56,6 +58,7 @@ export function TokenBasicsTab(props: TokenBasicsTabProps): React.JSX.Element {
       <ControlField
         controllerIds={form.controllerIds}
         players={players}
+        lockedIds={props.lockedIds}
         onChange={(controllerIds) => onChange({ ...form, controllerIds })}
       />
     </div>

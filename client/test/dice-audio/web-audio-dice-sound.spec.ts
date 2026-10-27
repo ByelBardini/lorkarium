@@ -13,6 +13,7 @@ import {
   AudioContextFake,
   DECODED_ROLLS,
   type SourceFake,
+  UserGesturesFake,
 } from '../support/dice-audio-context-fake';
 
 /** One d20 landing 400 ms after the event, a full-strength throw. */
@@ -40,10 +41,12 @@ describe('createWebAudioDiceSound', () => {
   let contexts: number;
   let fetches: number;
   let clockMs: number;
+  let gestures: UserGesturesFake;
   let sound: DiceSound;
 
   beforeEach(() => {
     context = new AudioContextFake();
+    gestures = new UserGesturesFake();
     contexts = 0;
     fetches = 0;
     clockMs = 0;
@@ -58,7 +61,57 @@ describe('createWebAudioDiceSound', () => {
       },
       random: () => 0,
       now: () => clockMs,
+      onUserGesture: gestures.listen,
     });
+  });
+
+  it('prepare loads ahead, so the first roll is not lost to a slow fetch', async () => {
+    sound.prepare();
+    sound.prepare();
+    await settle();
+    expect([contexts, fetches]).toEqual([1, 1]);
+
+    clockMs = 5000;
+    sound.play([ONE_DIE]);
+    await settle();
+
+    expect(context.sources).toHaveLength(1);
+    expect(fetches).toBe(1);
+  });
+
+  it('a context opened before any gesture resumes on the first one, then the rolls sound', async () => {
+    context.state = 'suspended';
+    sound.prepare();
+    await settle();
+    expect(context.resumes).toBe(0);
+
+    gestures.gesture();
+    context.finishResume();
+    gestures.gesture();
+    await settle();
+    sound.play([ONE_DIE]);
+    await settle();
+
+    expect(context.resumes).toBe(1);
+    expect(context.sources).toHaveLength(1);
+  });
+
+  it('destroy stops listening to the gestures', async () => {
+    sound.prepare();
+    await settle();
+    expect(gestures.listening).toBe(1);
+
+    sound.destroy();
+
+    expect(gestures.listening).toBe(0);
+  });
+
+  it('destroyed while loading, it never starts listening to the gestures', async () => {
+    sound.prepare();
+    sound.destroy();
+    await settle();
+
+    expect(gestures.listening).toBe(0);
   });
 
   it('creates no context nor fetches the sprite before the first roll, then only once', async () => {
@@ -178,6 +231,7 @@ describe('createWebAudioDiceSound', () => {
       fetchRolls: () => Promise.reject(new Error('offline')),
       random: () => 0,
       now: () => 0,
+      onUserGesture: gestures.listen,
     });
 
     silent.play([ONE_DIE]);
@@ -194,6 +248,7 @@ describe('createWebAudioDiceSound', () => {
       fetchRolls: () => Promise.resolve(SPRITE),
       random: () => 0,
       now: () => 0,
+      onUserGesture: gestures.listen,
     });
 
     expect(() => silent.play([ONE_DIE])).not.toThrow();

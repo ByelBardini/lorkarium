@@ -205,6 +205,7 @@ describe('tokenDto', () => {
       bars: [bar(1), bar(2)],
       conditions: [],
       anchorTokenId: null,
+      createdBy: null,
     };
     expect(tokenDto.parse(token).bars.map((b) => b.position)).toEqual([1, 2]);
   });
@@ -335,6 +336,7 @@ describe('defeated', () => {
     bars: [],
     conditions: [],
     anchorTokenId: null,
+    createdBy: null,
   };
 
   // Only `token:restyleMany` marks a token: a new token (and a pasted copy) is never defeated.
@@ -416,6 +418,7 @@ describe('the field of view and the lantern of a token', () => {
       bars: [],
       conditions: [],
       anchorTokenId: null,
+      createdBy: null,
     } as Record<string, unknown>;
     delete token.actionId;
     delete token.campaignId;

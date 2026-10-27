@@ -23,6 +23,7 @@ function input(overrides: Partial<WallViewInput> = {}): WallViewInput {
     tool: 'select',
     selectedWallIds: [],
     seenDoorIds: null,
+    previewing: false,
     ...overrides,
   };
 }
@@ -40,6 +41,14 @@ describe('wallViewsOf', () => {
       kind: 'wall',
       segments: [{ from: { x: 128, y: 128 }, to: { x: 384, y: 128 } }],
     });
+  });
+
+  it('the master previewing a player sees no lines, as the player would', () => {
+    expect(wallViewsOf(input({ previewing: true }))).toEqual([]);
+  });
+
+  it('the master previewing still sees the lines with the walls tool, to draw them', () => {
+    expect(wallViewsOf(input({ previewing: true, tool: 'walls' }))).toHaveLength(2);
   });
 
   it('the lines are full with the walls tool and faint with any other', () => {

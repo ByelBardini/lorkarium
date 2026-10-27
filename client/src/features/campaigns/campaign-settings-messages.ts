@@ -6,6 +6,13 @@ import {
   CAMPAIGN_PASSWORD_MIN_LENGTH,
 } from '@lorkarium/contracts';
 
+/** The words of "Permissões dos jogadores": each switch and the hint under both. */
+export const PLAYER_TOKEN_RIGHTS_TEXT = {
+  create: 'Jogadores criam e editam tokens',
+  remove: 'Jogadores excluem os próprios tokens',
+  hint: 'Valem para todo jogador; espectador nunca cria nem exclui.',
+} as const;
+
 /** The text fields of the settings tab the `updateCampaignRequestDto` can refuse. */
 export type SettingsField = 'name' | 'system' | 'description' | 'password';
 

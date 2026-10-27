@@ -1,3 +1,5 @@
+import { campaignInfoDto, type CampaignInfoDto } from '@lorkarium/contracts';
+import { z } from 'zod';
 import type {
   CampaignMemberDto,
   CampaignRoleDto,
@@ -5,6 +7,8 @@ import type {
   CampaignSummaryDto,
   CreateCampaignRequestDto,
   JoinCampaignRequestDto,
+  JoinPublicCampaignRequestDto,
+  PublicCampaignDto,
   UpdateCampaignRequestInput,
 } from '@lorkarium/contracts';
 import { memberColorOf } from '@lorkarium/game-core';
@@ -24,6 +28,8 @@ export const VHARN: CampaignSummaryDto = {
   cover: { kind: 'drawn', drawing: 2, tone: 1 },
   contentWarnings: ['horror'],
   tags: ['Investigação', 'Masmorra'],
+  playersCreateTokens: false,
+  playersDeleteTokens: false,
 };
 
 export const QUELM: CampaignSummaryDto = {
@@ -40,7 +46,23 @@ export const QUELM: CampaignSummaryDto = {
   cover: { kind: 'drawn', drawing: 0, tone: 4 },
   contentWarnings: [],
   tags: [],
+  playersCreateTokens: false,
+  playersDeleteTokens: false,
 };
+
+/** A public campaign of Bia that the reader is not in yet, without a password. */
+export const PUBLIC_VHARN: PublicCampaignDto = {
+  ...withoutReaderFields(VHARN),
+  visibility: 'public',
+  masterName: 'Bia',
+  myRole: null,
+  hasPassword: false,
+};
+
+// The summary without what depends on the reader: the plain object drops the keys it does not know.
+function withoutReaderFields(summary: CampaignSummaryDto): CampaignInfoDto {
+  return z.object(campaignInfoDto.shape).parse(summary);
+}
 
 // The same ids as the roster fixtures (`table-session-fixtures.ts`), so a member of the detail and
 // of the live table is the same person.
@@ -86,6 +108,8 @@ export function detailOf(
 
 type Answers = {
   list: CampaignsResult<CampaignSummaryDto[]>;
+  listPublic: CampaignsResult<PublicCampaignDto[]>;
+  joinPublic: CampaignsResult<CampaignSummaryDto>;
   create: CampaignsResult<CampaignDetailDto>;
   detail: CampaignsResult<CampaignDetailDto>;
   join: CampaignsResult<CampaignSummaryDto>;
@@ -105,6 +129,8 @@ export class CampaignsApiFake implements CampaignsApi {
   readonly calls: Array<{ method: Method; argument: unknown }> = [];
   private readonly answers: { [M in Method]: Answers[M] | Pending<Answers[M]> } = {
     list: { ok: true, value: [VHARN, QUELM] },
+    listPublic: { ok: true, value: [PUBLIC_VHARN] },
+    joinPublic: { ok: true, value: { ...VHARN, myRole: 'spectator', masterName: 'Bia' } },
     create: { ok: true, value: detailOf(VHARN) },
     detail: { ok: true, value: detailOf(VHARN) },
     join: { ok: true, value: QUELM },
@@ -136,6 +162,18 @@ export class CampaignsApiFake implements CampaignsApi {
 
   list(): Promise<Answers['list']> {
     return this.reply('list', undefined);
+  }
+
+  listPublic(): Promise<Answers['listPublic']> {
+    return this.reply('listPublic', undefined);
+  }
+
+  /** The argument recorded is `{ campaignId, input }`. */
+  joinPublic(
+    campaignId: string,
+    input: JoinPublicCampaignRequestDto,
+  ): Promise<Answers['joinPublic']> {
+    return this.reply('joinPublic', { campaignId, input });
   }
 
   create(input: CreateCampaignRequestDto): Promise<Answers['create']> {

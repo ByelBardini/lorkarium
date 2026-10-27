@@ -1,4 +1,4 @@
-import type { AuraEffectDto, DrawingColorDto } from '@lorkarium/contracts';
+import type { AuraEffectDto, AuraImageShapeDto, DrawingColorDto } from '@lorkarium/contracts';
 import {
   DropletsIcon,
   FlameIcon,
@@ -49,6 +49,11 @@ const KIND_OPTIONS: readonly SegmentOption<AuraKindChoice>[] = [
   { value: 'color', label: 'Cor' },
   { value: 'effect', label: 'Efeito' },
   { value: 'image', label: 'Imagem' },
+];
+
+const IMAGE_SHAPE_OPTIONS: readonly SegmentOption<AuraImageShapeDto>[] = [
+  { value: 'square', label: 'Quadrada' },
+  { value: 'round', label: 'Redonda' },
 ];
 
 const EFFECT_ICONS: Readonly<Record<AuraEffectDto, LucideIcon>> = {
@@ -120,12 +125,21 @@ function AuraLook({ form, errors, images, onChange }: AuraLookProps) {
   if (form.kind === 'effect') return <EffectFields form={form} onChange={onChange} />;
   if (form.kind === 'image') {
     return (
-      <ImageField
-        value={form.imageAssetId}
-        error={errors.image}
-        images={images}
-        onChange={onChange}
-      />
+      <>
+        <ImageField
+          value={form.imageAssetId}
+          error={errors.image}
+          images={images}
+          onChange={onChange}
+        />
+        <SegmentField
+          legend="Forma"
+          value={form.imageShape}
+          options={IMAGE_SHAPE_OPTIONS}
+          fill
+          onChange={(imageShape) => onChange({ imageShape })}
+        />
+      </>
     );
   }
   return (

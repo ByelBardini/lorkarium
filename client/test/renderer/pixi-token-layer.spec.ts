@@ -308,7 +308,10 @@ describe('PixiTokenLayer draws the aura images that arrive', () => {
     const probe = new PerfProbeFake();
     const images = new AuraImagesFake();
     const layer = new PixiTokenLayer(() => false, undefined, new LoadingTextures(), probe, images);
-    const rune = { ...GOLD_AURA, look: { kind: 'image', url: '/api/assets/rune' } } as const;
+    const rune = {
+      ...GOLD_AURA,
+      look: { kind: 'image', url: '/api/assets/rune', shape: 'square' },
+    } as const;
     layer.sync(
       horde(4, (index) => ({ aura: index < 2 ? rune : GOLD_AURA })),
       [],

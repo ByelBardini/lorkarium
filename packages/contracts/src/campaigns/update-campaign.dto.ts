@@ -35,6 +35,8 @@ export const updateCampaignRequestDto = z
     tags: campaignTagsDto.optional(),
     cover: campaignCoverDto.optional(),
     password: campaignPasswordDto.nullable().optional(),
+    playersCreateTokens: z.boolean().optional(),
+    playersDeleteTokens: z.boolean().optional(),
   })
   .refine((body) => Object.values(body).some((value) => value !== undefined), {
     message: 'Expected at least one campaign field to change, received an empty body',

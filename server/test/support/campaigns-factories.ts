@@ -43,6 +43,8 @@ export function campaignPo(overrides: Partial<CampaignPo> = {}): CampaignPo {
     coverAssetId: null,
     contentWarnings: [],
     tags: [],
+    playersCreateTokens: false,
+    playersDeleteTokens: false,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     updatedAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,

@@ -1,3 +1,4 @@
+import type { TableTokenRights } from '@lorkarium/game-core';
 import {
   MAX_OPEN_TABLES,
   campaignCoverDto,
@@ -14,6 +15,7 @@ import type {
   TableSessionUpdate,
 } from '@/services/table-session-api';
 import { fallbackCoverOf } from '@/lib/campaign-cover';
+import { tableTokenRightsOf } from '@/lib/token-rights-of-viewer';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { createDiceHistoryStore, type DiceHistoryStore } from '@/stores/dice-history-store';
 import {
@@ -47,6 +49,9 @@ export type OpenTable = Omit<OpenTableRef, 'cover'> &
   Readonly<{
     /** Kept up to date by `session:campaignUpdated`, like the name. */
     cover: CampaignCoverDto;
+    /** The players' token keys from the last `session:campaignUpdated`; `null` until one comes
+     *  (the route's campaign answers then: an F5 restores tables without it). */
+    tokenRights: TableTokenRights | null;
     presence: StoreApi<TablePresenceStore>;
     board: StoreApi<BoardStore>;
     cast: StoreApi<BoardStore>;
@@ -221,7 +226,8 @@ class OpenTablesActions {
       campaignId: table.campaignId,
       storage: this.deps.storage,
     });
-    const opened: OpenTable = { ...table, cover, presence, board, cast, edits, tabs, dice };
+    const parts = { cover, tokenRights: null, presence, board, cast, edits, tabs, dice };
+    const opened: OpenTable = { ...table, ...parts };
     this.set({ tables: [...tables, opened] });
     const stores = { presence, board, tabs, dice };
     const listener = (update: TableSessionUpdate): void =>
@@ -255,7 +261,12 @@ class OpenTablesActions {
   private retitle(campaign: CampaignInfoDto): void {
     const tables = this.get().tables.map((table) =>
       table.campaignId === campaign.id
-        ? { ...table, name: campaign.name, cover: campaign.cover }
+        ? {
+            ...table,
+            name: campaign.name,
+            cover: campaign.cover,
+            tokenRights: tableTokenRightsOf(campaign),
+          }
         : table,
     );
     this.set({ tables });

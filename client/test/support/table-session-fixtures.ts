@@ -150,6 +150,8 @@ export function vharnRenamed(
       memberCount: VHARN.memberCount,
       contentWarnings: VHARN.contentWarnings,
       tags: VHARN.tags,
+      playersCreateTokens: VHARN.playersCreateTokens,
+      playersDeleteTokens: VHARN.playersDeleteTokens,
       cover: { kind: 'image', assetId: 'e1d2c3b4-a596-4877-8899-aabbccddeeff' },
     },
     at: AT,
@@ -276,6 +278,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     ],
     conditions: [],
     anchorTokenId: null,
+    createdBy: null,
     ...overrides,
   };
 }

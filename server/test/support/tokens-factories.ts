@@ -46,8 +46,10 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     auraEffect: null,
     auraImageAssetId: null,
     auraOpacity: null,
+    auraImageShape: null,
     hidden: false,
     anchorTokenId: null,
+    createdBy: null,
     createdAt: CREATED,
     updatedAt: CREATED,
     ...overrides,
@@ -82,6 +84,7 @@ export function fireAuraColumns(overrides: Partial<TokenAuraPo> = {}): TokenAura
     auraEffect: 'fire',
     auraImageAssetId: null,
     auraOpacity: 100,
+    auraImageShape: null,
     ...overrides,
   };
 }

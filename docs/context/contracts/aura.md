@@ -9,7 +9,7 @@
 - `tokenAuraDto` — `z.discriminatedUnion('kind')` de três objetos estritos, todos com `radius` (casas além da borda, 0 a 20, decimal) e `opacity` (inteiro 10 a 100):
   - `color` — `color: drawingColorDto` (obrigatória; a paleta dos desenhos, 8 tons);
   - `effect` — `effect: auraEffectDto` e `color: drawingColorDto | null` (`null` = cor natural do efeito);
-  - `image` — `imageAssetId: uuid` (asset da mesa, finalidade `aura`; o server confere com o `requireAssetsOf`).
+  - `image` — `imageAssetId: uuid` (asset da mesa, finalidade `aura`; o server confere com o `requireAssetsOf`) e `shape: auraImageShapeDto.default('square')` (`AURA_IMAGE_SHAPES` = `square` | `round`: inteira na caixa ou cobrindo um círculo; ausente = `square`, então o client antigo segue válido e a saída sempre traz a forma).
     Campo de outro `kind` (efeito com `imageAssetId`) é recusado pelo objeto estrito.
 
 Onde a aura entra:
@@ -20,4 +20,4 @@ Onde a aura entra:
 
 Assets (`src/assets/asset.dto.ts`): finalidade `aura` (`ASSET_MAX_SIDE.aura` = 512), `image/gif` no `ASSET_MIME_TYPES` (guardado só para a aura) e `AURA_ANIMATION_LIMITS` = `{ maxFrames: 120, maxDecodedPixels: 16_000_000 }`.
 
-Specs: `test/board/token-appearance.dto.spec.ts` ("tokenStyleDto, aura").
+Specs: `test/board/token-appearance.dto.spec.ts` ("tokenStyleDto, aura": inclusive imagem sem forma → `square`, `round`, forma `oval` recusada em `aura.shape`, cor com forma recusada).

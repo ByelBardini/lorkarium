@@ -22,6 +22,7 @@ import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import {
   DragGroupsFake,
   MainTokensDaoFake,
+  TableTokenRightsFake,
   TokenTransactionRunnerFake,
   TokensDaoFake,
 } from '../../support/tokens-fakes';
@@ -115,6 +116,7 @@ describe('TokensService', () => {
       clock: new ClockFake(NOW),
       barLimit: 99_999,
       tokenLimit: 500,
+      tokenRights: new TableTokenRightsFake(),
     };
     service = new TokensService(serviceDeps);
   });

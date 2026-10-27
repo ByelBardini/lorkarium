@@ -8,20 +8,29 @@ import { testDependencies, type TestDependencies } from '../../support/app-depen
 import { ANA } from '../../support/auth-api-fake';
 import { VHARN, detailOf } from '../../support/campaigns-api-fake';
 import { SQUARE_ID, square } from '../../support/drawing-fixtures';
-import { BIA_AT_TABLE, lyra, vharnBoard, vharnState } from '../../support/table-session-fixtures';
+import {
+  BIA_AT_TABLE,
+  CAIO_AT_TABLE,
+  lyra,
+  vharnBoard,
+  vharnState,
+} from '../../support/table-session-fixtures';
 
 const GOBLIN = lyra({ id: 'goblin-token', name: 'Goblin', canControl: false });
+const BIAS_WOLF = lyra({ id: 'wolf-token', name: 'Lobo', createdBy: BIA_AT_TABLE.userId });
+const CAIOS_HAWK = lyra({ id: 'hawk-token', name: 'Falcão', createdBy: CAIO_AT_TABLE.userId });
 
 async function openRoom(
   role: 'master' | 'player',
   tokens: readonly TokenDto[] = [GOBLIN],
+  playersDeleteTokens = false,
 ): Promise<TestDependencies> {
   const deps = testDependencies();
   deps.authApi.answerMeWith(ANA);
   if (role === 'player') {
     deps.campaignsApi.answer('detail', {
       ok: true,
-      value: detailOf({ ...VHARN, myRole: 'player' }),
+      value: detailOf({ ...VHARN, myRole: 'player', playersDeleteTokens }),
     });
   }
   const router = createMemoryRouter(buildRoutes(deps), {
@@ -153,5 +162,40 @@ describe('play room: Delete with tokens in the selection', () => {
     expect(screen.getByRole('status', { name: 'Status do tabuleiro' })).toHaveTextContent(
       'Sem conexão com o servidor.',
     );
+  });
+  describe('a player with the delete key', () => {
+    it('Bia’s Delete on her own token asks "Excluir Lobo?" and "Excluir" deletes it', async () => {
+      const deps = await openRoom('player', [BIAS_WOLF], true);
+      await deleteKey(deps, ['wolf-token'], false);
+
+      screen.getByRole('alertdialog', { name: 'Excluir Lobo?' });
+      await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+
+      expect(deps.boardCommands.sentAs('deleteTokens').map(({ fields }) => fields)).toEqual([
+        { tokenIds: ['wolf-token'] },
+      ]);
+    });
+
+    it('with Caio’s token in the selection, his stays out and the dialog says how many go', async () => {
+      const deps = await openRoom('player', [BIAS_WOLF, CAIOS_HAWK], true);
+      await deleteKey(deps, ['wolf-token', 'hawk-token'], false);
+
+      const dialog = screen.getByRole('alertdialog', { name: 'Excluir Lobo?' });
+      expect(dialog).toHaveTextContent('1 token que não é seu fica.');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }));
+
+      expect(deps.boardCommands.sentAs('deleteTokens').map(({ fields }) => fields)).toEqual([
+        { tokenIds: ['wolf-token'] },
+      ]);
+    });
+
+    it('without the key, Bia’s Delete on her own token asks nothing and sends no token', async () => {
+      const deps = await openRoom('player', [BIAS_WOLF], false);
+
+      await deleteKey(deps, ['wolf-token']);
+
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(deps.boardCommands.sentAs('deleteTokens')).toEqual([]);
+    });
   });
 });

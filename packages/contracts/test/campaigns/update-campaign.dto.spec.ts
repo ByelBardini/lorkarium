@@ -67,3 +67,19 @@ describe('updateCampaignRequestDto', () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe('updateCampaignRequestDto token settings', () => {
+  it('accepts only playersCreateTokens as the one field to change', () => {
+    const body = updateCampaignRequestDto.parse({ playersCreateTokens: true });
+    expect(body).toEqual({ playersCreateTokens: true });
+  });
+
+  it('accepts playersDeleteTokens false, which is not an empty body', () => {
+    const body = updateCampaignRequestDto.parse({ playersDeleteTokens: false });
+    expect(body.playersDeleteTokens).toBe(false);
+  });
+
+  it('refuses a non-boolean playersCreateTokens on its path', () => {
+    expect(issuePathsOf({ playersCreateTokens: 'sim' })).toEqual(['playersCreateTokens']);
+  });
+});

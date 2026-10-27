@@ -13,6 +13,7 @@ import {
 import { memberCardPo } from '../../support/member-cards-factories';
 import { VHARN_CAST_ID, scenePo } from '../../support/scenes-factories';
 import { lyraPo } from '../../support/tokens-factories';
+import { TableTokenRightsFake } from '../../support/tokens-fakes';
 
 const DAVI_ID = '2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a';
 const BRAM_ANCHOR_ID = '3e4f5a6b-7c8d-4e9f-a0b1-2c3d4e5f6a7b';
@@ -43,6 +44,7 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
       clock,
       barLimit: 99_999,
       tokenLimit: 500,
+      tokenRights: new TableTokenRightsFake(),
     });
   });
 

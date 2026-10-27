@@ -196,6 +196,18 @@ describe('TokenPreview, the aura', () => {
     expect(discOf().contains(image ?? null)).toBe(false);
   });
 
+  it('a round image aura is a circle across the longer side of a 2 × 1 disc, covered by the image', () => {
+    const aura = runeAura({ shape: 'round' });
+    const form = tokenFormOf(lyra({ aura, width: 2, height: 1 }), METERS);
+
+    const { container } = renderPreviewWith(form);
+
+    const glow = auraGlow(container);
+    expect([glow?.style.width, glow?.style.height]).toEqual(['208px', '208px']);
+    expect(glow?.style.borderRadius).toBe('50%');
+    expect(glow?.querySelector('img')?.className).toContain('object-cover');
+  });
+
   it('with a radius out of range, nothing rings the disc', () => {
     const form = tokenFormOf(lyra({ aura: goldAura() }), METERS);
 

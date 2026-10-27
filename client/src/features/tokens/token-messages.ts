@@ -51,6 +51,9 @@ export function deleteTokenQuestion(name: string): string {
 
 export const NEW_TOKEN_SUBTITLE = 'Todo mundo na mesa vê o token assim que você criar.';
 export const EDIT_TOKEN_SUBTITLE = 'As mudanças aparecem pra todo mundo assim que você salvar.';
+/** A player's dialog has no "Visão e luz": it opens the fog, so it stays with the master. */
+export const PLAYER_NEW_TOKEN_SUBTITLE = `${NEW_TOKEN_SUBTITLE} Visão e luz ficam com o mestre.`;
+export const PLAYER_EDIT_TOKEN_SUBTITLE = `${EDIT_TOKEN_SUBTITLE} Visão e luz ficam com o mestre.`;
 
 /** The footer of the token dialog after a save with something to fix. */
 export const MISSING_FIELDS = 'Falta preencher o que está marcado.';
@@ -65,6 +68,7 @@ export const SIZE_PRESETS: readonly Readonly<{ cells: number; label: string; sho
 ];
 
 export const MASTER_CONTROLS_HINT = 'Você, como mestre, já controla tudo.';
+export const CREATOR_CONTROLS_HINT = 'Você criou, então sempre controla.';
 export const NO_PLAYERS_HINT = 'Nenhum jogador na mesa ainda.';
 export const CONTROL_HINT =
   'Quem controla move o token, mexe nas barras e condições e vê as barras escondidas.';

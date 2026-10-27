@@ -1,6 +1,6 @@
 # Client · diálogo do token ("Novo token" / "Editar token")
 
-O diálogo em que o mestre cria e ajusta um token: a prévia ao lado (que é também o lugar da imagem), as abas "Básico", "Barras", "Visão e luz" e "Aura", e o rodapé. Só o mestre o abre (o server recusa `token:create`/`update`/`delete` de quem não é); abre pelo "+" da barra de ferramentas (Novo) e pelo "Editar token" do detalhe do token no painel (Editar). O resto dos tokens na sala está em [`tokens.md`](tokens.md). Plano de origem: [`2026-10-19-tela-novo-token.md`](../../plans/2026-10-19-tela-novo-token.md); exemplo de base em `docs/pages/mesa/novo-token/`.
+O diálogo em que se cria e ajusta um token: a prévia ao lado (que é também o lugar da imagem), as abas "Básico", "Barras", "Visão e luz" e "Aura", e o rodapé. Abre o mestre e, pelas chaves da mesa, o jogador (modo jogador, abaixo; quem vê os botões em [`token-rights.md`](token-rights.md)); abre pelo "+" da barra de ferramentas (Novo) e pelo "Editar token" do detalhe do token no painel (Editar). O resto dos tokens na sala está em [`tokens.md`](tokens.md). Plano de origem: [`2026-10-19-tela-novo-token.md`](../../plans/2026-10-19-tela-novo-token.md); exemplo de base em `docs/pages/mesa/novo-token/`.
 
 ## A casca (`features/tokens/token-dialog.tsx`)
 
@@ -10,6 +10,14 @@ O diálogo em que o mestre cria e ajusta um token: a prévia ao lado (que é tam
 - Rodapé: "Excluir token" em dois passos (Editar: "Excluir Lyra? Isso não tem volta." → "Excluir" / "Manter"), a linha de status, `DISCONNECTED_COMMAND` sem conexão ("Criar token"/"Salvar" desabilitados, sem fila), "Esc fecha", "Cancelar" e "Criar token" / "Salvar" ("Salvando…" com `aria-busy`). Recusa em `Alert` acima do rodapé (`tokenCommandFailureMessage`), e o diálogo fica. O token apagado por outro durante a edição fecha o diálogo (`RoomTokenDialog` devolve `null`).
 - `sendToken`: Novo → `createToken` com a casa do centro da vista e a camada ativa; Editar → `updateToken`.
 - `cardOwner` (B9): no token ligado à ficha, o nome do jogador (`RoomTokenDialog` pelo `cardOwnerOf`) → "Na ficha de Bia · vale em todo grid" no topo das abas Básico e Barras (campos que mudam o personagem em todo grid; ver [`characters.md`](characters.md)).
+
+## Modo jogador (`viewer`)
+
+- `TokenDialogViewer` = `{ mode: 'master' }` (o padrão, sem a prop) | `{ mode: 'player', userId, canDelete }`; o `RoomTokenDialog` monta pelo `board.viewer` e pelo `of(token).delete` do `useViewerTokenRights`.
+- Sem a aba "Visão e luz" (`dialogTabsOf('player')` → Básico, Barras, Aura); subtítulos `PLAYER_NEW_TOKEN_SUBTITLE` / `PLAYER_EDIT_TOKEN_SUBTITLE` (o do mestre + " Visão e luz ficam com o mestre."). O Novo nasce com "Enxerga no escuro" desligado (o server cria sem visão nem luz).
+- Envio: `parseTokenForm(form, distância, 'player')` não lê nem manda `sight`, `light` e `sightAngle` (campo errado escondido não trava); `createToken` vai em `layer: 'tokens'` mesmo com Objetos ativa.
+- "Quem controla": `ControlField` com `lockedIds` (o próprio jogador): o botão dele vem marcado e desabilitado, descrito por "Você criou, então sempre controla." (`CREATOR_CONTROLS_HINT`, no lugar do "Você, como mestre…"); `withControllers` o põe no começo da lista ao abrir (também se o mestre o tirou). O mestre editando o token da Bia desmarca a Bia normalmente.
+- "Excluir token" só com `canDelete` (a chave de excluir).
 
 ## A prévia e a imagem (`token-preview.tsx`)
 
@@ -40,6 +48,7 @@ O diálogo em que o mestre cria e ajusta um token: a prévia ao lado (que é tam
 ## Testes
 
 - Sem DOM: `test/features/tokens/bar-form-state.spec.ts` (PV primeiro, presets, sugestões, cheia no máximo, o atual mantido, 8 no máximo), `test/lib/token-side.spec.ts`; `firstErrorTab`, `previewMetaOf`, `controllerIds`, `stepSide`, `SIZE_PRESETS`, a visão padrão do `emptyTokenForm(distância)` e o `lightSwitchedOn` e a cor da luz (`lightColor`: o token com luz `moon` abre e salva `moon`, o novo é `null`, desligar manda `light: null`) em `test/features/tokens/token-form-state.spec.ts`.
+- Modo jogador: `test/features/tokens/token-dialog-player.spec.tsx` (sem a aba, envio sem visão em `tokens`, Bia travada e de volta, "Excluir token" pela chave, o mestre desmarca a Bia), o `lockedIds` em `control-field.spec.tsx` e `dialogTabsOf`/`withControllers`/modo `player` em `token-form-state.spec.ts`.
 - Componentes: `test/features/tokens/token-dialog.spec.tsx` (a casca, a imagem pela prévia, os erros por aba, criar/editar/excluir, visão e luz, a cor: "Lua" e criar → `color: 'moon'`, a Lyra com Fogo abre marcada e "Neutra" mantém o alcance), `token-preview.spec.tsx` (anel, tamanho do disco, brilho na cor da luz e no dourado da Neutra, "Solta aqui", os botões de imagem), `bars-editor.spec.tsx` (vazio, "Nova barra", sugestões, ordem e "No token", cores, alternâncias, amostra, "8 de 8", erros), `token-face.spec.tsx`, `bar-track.spec.tsx`, `token-basics-tab.spec.tsx`, `size-field.spec.tsx`, `control-field.spec.tsx`, `vision-light-tab.spec.tsx` ("Cor da luz" só com "Emite luz" ligado, Neutra marcada, "Fogo" → `lightColor: 'fire'`), `reach-section.spec.tsx` e `test/components/segment-field.spec.tsx` e `image-source-buttons.spec.tsx`. E2E: `chooseController(dialog, jogador)` em `e2e/test/support/token-cards.ts` (aperta o botão do jogador), usado por `createTokenFor` e pelos specs de tokens, visão, luz, imagens e combate.
 
 ## Armadilhas

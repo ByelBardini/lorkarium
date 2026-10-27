@@ -33,6 +33,14 @@ A tela que a pessoa vê ao logar e a moldura que as telas logadas herdam. Plano 
   - `create-campaign-messages.ts` — mensagens de campo, `CREATE_FIELDS` (ordem do foco), `SYSTEM_SUGGESTIONS`, `CREATED_NEXT_STEPS`.
 - `join-campaign-dialog.tsx` + `join-campaign-form.tsx` — "Entrar numa mesa": código em Cinzel com a máscara `XXXX-XXXX` ao digitar (`maskCampaignCode`; sem `maxLength`, para colar com espaços funcionar) e marcado para gerenciadores de senha ignorarem; senha só depois de `password_required` (aparece focada, código mantido); `password_invalid` limpa e refoca a senha (o campo remonta por `key`); `not_found` sob o código; `rate_limited`/`offline`/`unexpected` em `Alert`.
 
+## Explorar mesas (`src/features/explore/`)
+
+- `explore-route.tsx` — `exploreRoute(deps)` (filha do shell, `EXPLORE_PATH` = `/campaigns/public`, estática: vence o `campaigns/:campaignId`): `loader` = `campaignsApi.listPublic()`, `action` = `exploreAction`. Link "Explorar mesas" (ícone `Compass`) no `RailNav`, depois de "Mesas".
+- `explore-page.tsx` — `ExploreRoute`, `ExploreErrorScreen` ("Não deu para carregar as mesas públicas.") e `ExplorePage`: `h1` "Explorar mesas", "Mesas públicas" + contagem + busca "Buscar mesa pública" (o `CampaignListHeader` de `components/`, dividido com "Suas mesas"; o `filterCampaigns` é genérico), "Nenhuma mesa pública por enquanto." / "Nenhuma mesa pública com “x”.".
+- `public-campaign-row.tsx` — capa, nome, status, meta (`campaignMeta` aceita `myRole: null`), "com senha" (cadeado) e, à direita, "Entrar" (`aria-label` "Entrar em <nome>") ou, para membro, o papel e "Abrir" (link ao detalhe). Um `useFetcher` por mesa (`explore-join-<id>`); com senha, abre o `JoinPublicDialog` (também quando o server pede senha que a lista não sabia); outra recusa num `role="alert"` na linha (`explore-messages.ts`: "Essa mesa não está mais aberta ao público.", "Senha incorreta.").
+- `explore-action.ts` — `{ campaignId, input }` pelo DTO → `joinPublic`; ok → `redirect('/campaigns/:id')` (o detalhe sobre a home, com "Entrar na mesa"); recusa → `{ campaignId, failure }`.
+- Testes: `client/test/features/explore/explore-route.spec.tsx` (router inteiro).
+
 ## Mesa (`src/features/campaigns/`)
 
 - `campaign-routes.tsx` — `campaignDetailRoute(deps)` (filha da home, `campaigns/:campaignId`, sem filhas: `loader` do detalhe, `action` = `enter` + `redirect` para `/table`, ou `{ failure }`; o componente monta o diálogo com a visão geral e fixa o `now` uma vez por visita) e `campaignTableRoute(deps)` (filha do shell, `campaigns/:campaignId/table`, filhas `library` e `settings`; as configurações da mesa são página sobre a sala, ver [`campaign-settings.md`](campaign-settings.md)).

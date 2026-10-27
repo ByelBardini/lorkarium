@@ -1,4 +1,5 @@
 import { cell } from '@lorkarium/game-core';
+import type { TokenDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { boardSightOf } from '@/lib/board-sight';
 import { tokenViewsOf, type TokenViewInput } from '@/renderer/token-view';
@@ -219,25 +220,24 @@ describe('tokenViewsOf', () => {
       }),
       kael({ ...others, id: GOBLIN_ID, col: 11, row: 4 }),
     ];
-    const board = vharnBoard({
-      viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
-      scene: { ...VHARN_SCENE, vision: 'dark' },
-      tokens,
-    });
-    const views = viewsOf({
-      tokens,
-      currentTokenIds: [KAEL_ID],
-      sight: boardSightOf(board, { previewEyeIds: null }),
-    });
+    const sightOf = (seen: readonly TokenDto[]) =>
+      boardSightOf(
+        vharnBoard({
+          viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+          scene: { ...VHARN_SCENE, vision: 'dark' },
+          tokens: [...seen],
+        }),
+        { previewEyeIds: null },
+      );
+    const views = viewsOf({ tokens, currentTokenIds: [KAEL_ID], sight: sightOf(tokens) });
 
-    it('the token in the penumbra is a silhouette with no art, name, bar, marks, facing, defeat nor hidden mark, and cannot be taken', () => {
+    it('the token in the penumbra is a silhouette with no name, bar, marks, facing, defeat nor hidden mark, and cannot be taken', () => {
       expect(views.find(({ id }) => id === KAEL_ID)).toMatchObject({
         silhouette: 'square',
         defeated: false,
         hidden: false,
         name: '',
         initials: '',
-        art: null,
         bar: null,
         conditions: [],
         looks: [],
@@ -246,6 +246,18 @@ describe('tokenViewsOf', () => {
         pickable: false,
         draggable: false,
         aura: null,
+      });
+    });
+
+    it('a silhouette keeps its image, so the canvas paints the cut-out PNG black', () => {
+      const PNG_ID = '9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a';
+      const cutOut = kael({ ...others, col: 8, row: 4, imageAssetId: PNG_ID, frame: 'square' });
+      const seen = [lyra({ sight: { bright: 3, dim: 3 } }), cutOut];
+      const [, shade] = viewsOf({ tokens: seen, sight: sightOf(seen) });
+
+      expect(shade).toMatchObject({
+        silhouette: 'square',
+        art: { url: `/api/assets/${PNG_ID}`, frame: 'square' },
       });
     });
 

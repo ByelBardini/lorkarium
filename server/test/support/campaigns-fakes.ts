@@ -1,6 +1,7 @@
 import type { CampaignCodePort } from '../../src/modules/campaigns/campaign-code.port';
 import type {
   CampaignListingRow,
+  PublicCampaignRow,
   CampaignMemberRow,
   CampaignMembersDao,
 } from '../../src/modules/campaigns/campaign-members.dao';
@@ -129,6 +130,7 @@ export class CampaignMembersDaoFake implements Pick<
   | 'insert'
   | 'findMembership'
   | 'listOfUser'
+  | 'listPublic'
   | 'listMembers'
   | 'markEntered'
   | 'campaignIdsOfUser'
@@ -160,6 +162,24 @@ export class CampaignMembersDaoFake implements Pick<
   async listOfUser(userId: string): Promise<CampaignListingRow[]> {
     this.listedFor.push(userId);
     return this.rows.filter((row) => row.userId === userId).map((row) => this.listingOf(row));
+  }
+
+  async listPublic(readerId: string): Promise<PublicCampaignRow[]> {
+    return this.campaigns.rows
+      .filter(({ visibility }) => visibility === 'public')
+      .map((campaign) => {
+        const members = this.rows.filter((member) => member.campaignId === campaign.id);
+        const master = members.find((member) => member.role === 'master');
+        if (!master) throw new Error(`fake has no master for ${campaign.id}`);
+        const reader = members.find((member) => member.userId === readerId);
+        const memberCount = members.filter((member) => member.role !== 'spectator').length;
+        return {
+          campaign,
+          masterName: this.nameOf(master.userId),
+          memberCount,
+          myRole: reader?.role ?? null,
+        };
+      });
   }
 
   async listMembers(campaignId: string): Promise<CampaignMemberRow[]> {

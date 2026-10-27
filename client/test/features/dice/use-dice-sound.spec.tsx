@@ -109,6 +109,22 @@ describe('useDiceSound', () => {
     expect(deps.diceSounds.latest().played).toHaveLength(1);
   });
 
+  it('entering the room prepares the sound before any roll', () => {
+    render(<Sound deps={deps} />);
+
+    expect(deps.diceSounds.latest().prepares).toBe(1);
+  });
+
+  it('muted, the sound is not prepared until it is turned on', () => {
+    deps.dicePreferences.getState().setSound(false);
+    render(<Sound deps={deps} />);
+    expect(deps.diceSounds.latest().prepares).toBe(0);
+
+    act(() => deps.dicePreferences.getState().setSound(true));
+
+    expect(deps.diceSounds.latest().prepares).toBe(1);
+  });
+
   it('muting stops what is still sounding', () => {
     render(<Sound deps={deps} />);
 

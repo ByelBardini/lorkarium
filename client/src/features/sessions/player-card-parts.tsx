@@ -95,9 +95,13 @@ export function NickLine({
     >
       {withMark && <PresenceMark presence={presenceOf(member)} />}
       <MemberCardPopover member={member} />
-      {isViewer && <span className="font-semibold text-primary">· você</span>}
-      {member.online && awayLabel && <span>{`· ${awayLabel}`}</span>}
-      {!member.online && <span>· offline</span>}
+      {isViewer && (
+        <span className="shrink-0 font-semibold whitespace-nowrap text-primary">· você</span>
+      )}
+      {member.online && awayLabel && (
+        <span className="shrink-0 whitespace-nowrap">{`· ${awayLabel}`}</span>
+      )}
+      {!member.online && <span className="shrink-0 whitespace-nowrap">· offline</span>}
     </p>
   );
 }

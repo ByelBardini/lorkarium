@@ -1,5 +1,9 @@
 import { isForeignKeyViolation } from '../../lib/postgres-error';
-import type { CampaignSummaryDto, JoinCampaignRequestDto } from '@lorkarium/contracts';
+import type {
+  CampaignSummaryDto,
+  JoinCampaignRequestDto,
+  JoinPublicCampaignRequestDto,
+} from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import type { CampaignJoinBo, PasswordCheck } from './campaign-join.bo';
@@ -11,14 +15,14 @@ import { toCampaignAccessBo, toCampaignJoinBo, toCampaignSummaryOfView } from '.
 import type { CampaignPo } from './campaigns.po';
 
 export type CampaignJoinServiceDeps = Readonly<{
-  campaigns: Pick<CampaignsDao, 'findByJoinCode'>;
+  campaigns: Pick<CampaignsDao, 'findByJoinCode' | 'findById'>;
   members: Pick<CampaignMembersDao, 'findMembership' | 'insert' | 'listMembers' | 'markEntered'>;
   hasher: PasswordHasherPort;
   clock: ClockPort;
 }>;
 
-/** People getting into a campaign: by its join code (as spectators, until the master promotes
- *  them), and into its table ("entrou por último").
+/** People getting into a campaign: by its join code or, when public, by picking it in "Explorar
+ *  mesas" (as spectators, until the master promotes them), and into its table ("entrou por último").
  *
  *  Example: `await campaignJoinService.join(userOf(request).id, { code: 'VHRN7K2Q' })` */
 export class CampaignJoinService {
@@ -27,9 +31,29 @@ export class CampaignJoinService {
   async join(userId: string, input: JoinCampaignRequestDto): Promise<CampaignSummaryDto> {
     const campaign = await this.deps.campaigns.findByJoinCode(input.code);
     if (!campaign) throw new CampaignNotFoundError({ joinCode: input.code });
+    return this.admit(userId, campaign, input.password, 'by-code');
+  }
+
+  async joinPublic(
+    userId: string,
+    campaignId: string,
+    input: JoinPublicCampaignRequestDto,
+  ): Promise<CampaignSummaryDto> {
+    const campaign = await this.deps.campaigns.findById(campaignId);
+    if (!campaign) throw new CampaignNotFoundError({ publicCampaignId: campaignId });
+    return this.admit(userId, campaign, input.password, 'public-only');
+  }
+
+  private async admit(
+    userId: string,
+    campaign: CampaignPo,
+    password: string | undefined,
+    route: 'by-code' | 'public-only',
+  ): Promise<CampaignSummaryDto> {
     const existing = await this.deps.members.findMembership(campaign.id, userId);
     const join = toCampaignJoinBo(campaign, existing);
-    const decision = join.decide(await this.checkPassword(join, campaign, input.password));
+    if (route === 'public-only') join.requirePublic();
+    const decision = join.decide(await this.checkPassword(join, campaign, password));
     const membership =
       decision === 'already-member' ? existing : await this.addSpectator(campaign, userId);
     return this.summaryOf(campaign, membership);

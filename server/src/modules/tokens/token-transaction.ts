@@ -2,6 +2,7 @@ import type { ActiveConditionDto, CombatDto, NewTokenDto, TokenDto } from '@lork
 import type { AssetsDao } from '../assets/assets.dao';
 import { AssetNotFoundError } from '../assets/assets.error';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import type { CampaignsDao } from '../campaigns/campaigns.dao';
 import { CombatRosterBo, type PastedToken } from '../combat/combat-roster.bo';
 import type { CombatDao } from '../combat/combat.dao';
 import { toCombatDto, toCombatState } from '../combat/combat.mapper';
@@ -19,9 +20,17 @@ import type { MainTokensDao } from './main-tokens.dao';
 import type { TokenAnchorsDao } from './token-anchors.dao';
 import type { MemberCardsDao } from '../member-cards/member-cards.dao';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
+import type { NewTokenPo } from './tokens.po';
 import { TokenNotFoundError } from './tokens.error';
 import { toTokenAuraPo } from './token-aura.mapper';
-import { toBarInputsPo, toTokenDto, toTokenLightPo, toTokenSightPo } from './tokens.mapper';
+import type { TokenAuthorshipBo } from './token-authorship.bo';
+import {
+  toBarInputsPo,
+  toTokenAuthorshipBo,
+  toTokenDto,
+  toTokenLightPo,
+  toTokenSightPo,
+} from './tokens.mapper';
 import type { WallsDao } from '../walls/walls.dao';
 
 /** The DAOs a token transaction hands out, bound to the open `tx`. */
@@ -62,6 +71,9 @@ export type TokenWriteDaos = Readonly<{
   memberCards: Pick<MemberCardsDao, 'findOfMember' | 'listOfCampaign' | 'save'>;
 }>;
 
+/** Where a player's token commands read the table settings: on the pool, before any lock. */
+export type TokenRightsReader = Pick<CampaignsDao, 'tokenRightsOf'>;
+
 export type TokenTransactionRunner = SceneTransaction<TokenWriteDaos>;
 
 export type TokenWithConditions = Readonly<{ row: TokenRow; conditions: ActiveConditionDto[] }>;
@@ -96,34 +108,35 @@ export function audiencesOf({ row, conditions }: TokenWithConditions): TokenAudi
   };
 }
 
-/** A token as the master sent it → the row to insert, placed and with checked controllers. A
- *  paste carries `hidden`; "New token" does not, and is born visible.
+type NewTokenInput = Omit<NewTokenDto, 'hidden'> & Partial<Pick<NewTokenDto, 'hidden'>>;
+
+/** A token as sent → the row to insert, placed, with checked controllers and its author. A paste
+ *  carries `hidden`; "New token" does not, and is born visible.
  *
- *  Example: `await daos.tokens.insert(newTokenRowOf(scene.id, rules, command))` */
+ *  Example: `await daos.tokens.insert(newTokenRowOf(scene.id, rules, command, userId))` */
 export function newTokenRowOf(
   sceneId: string,
   rules: TokenRulesBo,
-  token: Omit<NewTokenDto, 'hidden'> & Partial<Pick<NewTokenDto, 'hidden'>>,
+  token: NewTokenInput,
+  createdBy: string,
 ): NewTokenRow {
   const { col, row } = rules.place(token, token);
   const { name, initials, side, width, height, layer } = token;
+  const placed = { sceneId, name, initials, side, width, height, col, row, layer, createdBy };
+  return {
+    token: { ...placed, ...newTokenLookOf(token) },
+    bars: toBarInputsPo(token.bars),
+    controllerIds: rules.controllers(token.controllerIds),
+  };
+}
+
+function newTokenLookOf(token: NewTokenInput): Partial<NewTokenPo> {
   const { imageAssetId, frame, flipX, flipY, facing, sightAngle } = token;
-  const look = {
-    hidden: token.hidden ?? false,
-    imageAssetId,
-    frame,
-    flipX,
-    flipY,
-    facing,
-    sightAngle,
+  return {
+    ...{ hidden: token.hidden ?? false, imageAssetId, frame, flipX, flipY, facing, sightAngle },
     ...toTokenSightPo(token.sight),
     ...toTokenLightPo(token.light),
     ...toTokenAuraPo(token.aura),
-  };
-  return {
-    token: { sceneId, name, initials, side, width, height, col, row, layer, ...look },
-    bars: toBarInputsPo(token.bars),
-    controllerIds: rules.controllers(token.controllerIds),
   };
 }
 
@@ -220,6 +233,19 @@ export async function requireAssetsOf(
   );
   const missing = wanted.find((assetId) => !found.has(assetId));
   if (missing !== undefined) throw new AssetNotFoundError(missing);
+}
+
+/** Who may create, edit and delete: the master without reading anything; a player by the table
+ *  settings as they are now, read before the command locks the grid (a refused create locks
+ *  nothing).
+ *
+ *  Example: `(await authorshipOf(this.deps.tokenRights, access)).requireCreate(command)` */
+export async function authorshipOf(
+  reader: TokenRightsReader,
+  access: CampaignAccessBo,
+): Promise<TokenAuthorshipBo> {
+  if (access.isMaster()) return toTokenAuthorshipBo(access, undefined);
+  return toTokenAuthorshipBo(access, await reader.tokenRightsOf(access.campaignIdOf()));
 }
 
 export function tokenAccessOf(access: CampaignAccessBo, row: TokenRow): TokenAccessBo {

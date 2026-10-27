@@ -9,6 +9,7 @@ import {
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
+import { fireAura, goldAura } from '../../support/aura-fixtures';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
@@ -489,6 +490,61 @@ describe('TokenContextMenu', () => {
       openOn(GOBLIN_ID);
 
       expect(screen.getByRole('menuitem', { name: 'Aura…' })).toBeInTheDocument();
+    });
+  });
+
+  describe('"Tirar aura", at once', () => {
+    function withTokens(...tokens: ReturnType<typeof lyra>[]): void {
+      board.getState().apply({ kind: 'board', state: vharnBoard({ tokens }) });
+    }
+
+    function restyled(): unknown[] {
+      return commands.sentAs('restyleTokens').map(({ fields }) => fields);
+    }
+
+    it('Bia on her Lyra with a fire aura takes it away with no dialog', async () => {
+      withTokens(lyra({ canControl: true, aura: fireAura() }));
+      openOn(LYRA_ID);
+
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Tirar aura' }));
+
+      expect(restyled()).toEqual([{ tokenIds: [LYRA_ID], style: { aura: null } }]);
+      expect(auraOf).toEqual([]);
+    });
+
+    it('with Lyra and Kael selected, both with an aura, it takes both away in one restyle', async () => {
+      withTokens(lyra({ aura: fireAura() }), kael({ aura: goldAura() }));
+      interaction.getState().selectMany([LYRA_ID, KAEL_ID], { additive: false });
+      openOn(LYRA_ID);
+
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Tirar aura' }));
+
+      expect(restyled()).toEqual([{ tokenIds: [LYRA_ID, KAEL_ID], style: { aura: null } }]);
+    });
+
+    it('a selected token without an aura, or not controlled, is left out', async () => {
+      const goblin = lyra({ id: GOBLIN_ID, name: 'Goblin', aura: goldAura(), canControl: false });
+      withTokens(lyra({ aura: fireAura() }), kael(), goblin);
+      interaction.getState().selectMany([LYRA_ID, KAEL_ID, GOBLIN_ID], { additive: false });
+      openOn(LYRA_ID);
+
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Tirar aura' }));
+
+      expect(restyled()).toEqual([{ tokenIds: [LYRA_ID], style: { aura: null } }]);
+    });
+
+    it('a token without an aura has no "Tirar aura"', () => {
+      withTokens(lyra({ aura: null }));
+      openOn(LYRA_ID);
+
+      expect(screen.queryByRole('menuitem', { name: 'Tirar aura' })).toBeNull();
+    });
+
+    it('Caio on the Lyra of Bia, which he does not control, has no "Tirar aura"', () => {
+      withTokens(lyra({ canControl: false, aura: fireAura() }));
+      openOn(LYRA_ID);
+
+      expect(screen.queryByRole('menuitem', { name: 'Tirar aura' })).toBeNull();
     });
   });
 });

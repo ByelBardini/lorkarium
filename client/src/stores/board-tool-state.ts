@@ -8,7 +8,8 @@ export type { DrawMode, WallMode };
 
 export const RULER_HINT = 'Arraste para medir.';
 export const DRAW_HINT = 'Arraste para desenhar; Shift encaixa a forma na grade.';
-export const AREA_HINT = 'Arraste a partir de onde a magia nasce; Shift encaixa a forma perfeita.';
+export const AREA_HINT =
+  'Arraste a partir de onde a magia nasce; clique numa área sua para selecioná-la (Delete apaga).';
 export const WALL_HINT = 'Arraste para criar a parede; Shift encaixa na grade.';
 export const LIGHT_HINT = 'Clique para pôr uma luz; Shift encaixa na meia casa.';
 /** The condition tool before a condition is picked; `conditionToolHintOf` says the picked one. */

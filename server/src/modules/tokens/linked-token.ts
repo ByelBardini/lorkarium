@@ -83,10 +83,11 @@ export function splitUpdate(
   anchor: Pick<TokenPo, 'width' | 'height'>,
 ): Readonly<{ anchor: TokenUpdatePo; own: Partial<TokenFieldsPo> }> {
   const { name, initials, side, imageAssetId, frame, ...rest } = update.fields;
-  const { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity, ...own } =
+  const { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity, ...more } =
     rest;
+  const { auraImageShape, ...own } = more;
   const aura = { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity };
-  const look = definedOf({ imageAssetId, frame, ...aura });
+  const look = definedOf({ imageAssetId, frame, ...aura, auraImageShape });
   const { width, height } = anchor;
   const fields = { name, initials, side, width, height, ...look };
   return { anchor: { ...update, fields }, own: definedOf(own) };
@@ -94,7 +95,16 @@ export function splitUpdate(
 
 function auraColumnsOf(token: TokenAuraPo): TokenAuraPo {
   const { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity } = token;
-  return { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity };
+  const { auraImageShape } = token;
+  return {
+    auraKind,
+    auraRadius,
+    auraColor,
+    auraEffect,
+    auraImageAssetId,
+    auraOpacity,
+    auraImageShape,
+  };
 }
 
 function definedOf<T extends object>(fields: T): Partial<T> {

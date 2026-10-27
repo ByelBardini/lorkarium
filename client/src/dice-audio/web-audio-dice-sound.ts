@@ -63,15 +63,31 @@ export type WebAudioDiceSoundDeps = Readonly<{
   random: () => number;
   /** Milliseconds: how late the rolls became playable (loading, a suspended context). */
   now: () => number;
+  /** Calls back on each click or key of the page; returns the unsubscribe. */
+  onUserGesture: (listener: () => void) => () => void;
 }>;
+
+const USER_GESTURES = ['pointerdown', 'keydown'] as const;
+
+function listenToUserGestures(listener: () => void): () => void {
+  USER_GESTURES.forEach((type) => window.addEventListener(type, listener, { capture: true }));
+  return () =>
+    USER_GESTURES.forEach((type) => window.removeEventListener(type, listener, { capture: true }));
+}
 
 class WebAudioDiceSound implements DiceSound {
   private loading: Promise<Voice | null> | null = null;
   private destroyed = false;
   private buses: Bus[] = [];
   private previous: DiceRollSample | null = null;
+  private stopListening: (() => void) | null = null;
 
   constructor(private readonly deps: WebAudioDiceSoundDeps) {}
+
+  prepare(): void {
+    if (this.destroyed) return;
+    this.loading ??= this.load();
+  }
 
   play(cues: readonly DiceRollCue[]): void {
     if (this.destroyed || cues.length === 0) return;
@@ -88,6 +104,8 @@ class WebAudioDiceSound implements DiceSound {
   destroy(): void {
     this.stop();
     this.destroyed = true;
+    this.stopListening?.();
+    this.stopListening = null;
     void this.loading?.then((voice) => voice?.context.close().catch(() => undefined));
   }
 
@@ -101,10 +119,21 @@ class WebAudioDiceSound implements DiceSound {
     try {
       const context = this.deps.createContext();
       const rolls = await context.decodeAudioData(await this.deps.fetchRolls());
+      this.resumeOnGesture(context);
       return voiceOf(context, rolls);
     } catch {
       return null;
     }
+  }
+
+  /** A context opened before any click starts suspended (autoplay policy) and its `resume` waits
+   *  for one: resuming on the gesture itself makes the next roll sound instead of being dropped
+   *  late. */
+  private resumeOnGesture(context: DiceAudioContext): void {
+    if (this.destroyed) return;
+    this.stopListening = this.deps.onUserGesture(() => {
+      if (context.state !== 'running') void context.resume().catch(() => undefined);
+    });
   }
 
   private async running(voice: Voice): Promise<Voice | null> {
@@ -177,8 +206,8 @@ class WebAudioDiceSound implements DiceSound {
 
 /** The dice rolls from real recordings (`dice-rolls.wav`, cut in `DICE_ROLL_SAMPLES`): each cue
  *  plays one whole roll, its first hit on the dice landing, as loud as the throw; a handful of
- *  dice layers a second roll. The context is created and the sprite fetched on the first `play`;
- *  without Web Audio it stays silent.
+ *  dice layers a second roll. The context is created and the sprite fetched on `prepare` (or the
+ *  first `play`), and resumed on the user's gestures; without Web Audio it stays silent.
  *
  *  Example: `createWebAudioDiceSound().play(diceRollCuesOf(event.throw))` */
 export function createWebAudioDiceSound(
@@ -187,6 +216,7 @@ export function createWebAudioDiceSound(
     fetchRolls: () => fetch(rollsUrl).then((response) => response.arrayBuffer()),
     random: Math.random,
     now: () => performance.now(),
+    onUserGesture: listenToUserGestures,
   },
 ): DiceSound {
   return new WebAudioDiceSound(deps);

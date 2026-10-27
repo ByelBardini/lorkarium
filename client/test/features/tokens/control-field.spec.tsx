@@ -11,13 +11,22 @@ const PLAYERS: readonly TokenPlayer[] = [BIA_AT_TABLE, CAIO_AT_TABLE].map(({ use
   name,
 }));
 
-type HarnessProps = Readonly<{ initial?: readonly string[]; players?: readonly TokenPlayer[] }>;
+type HarnessProps = Readonly<{
+  initial?: readonly string[];
+  players?: readonly TokenPlayer[];
+  lockedIds?: readonly string[];
+}>;
 
-function Harness({ initial = [], players = PLAYERS }: HarnessProps) {
+function Harness({ initial = [], players = PLAYERS, lockedIds }: HarnessProps) {
   const [controllerIds, setControllerIds] = useState(initial);
   return (
     <>
-      <ControlField controllerIds={controllerIds} players={players} onChange={setControllerIds} />
+      <ControlField
+        controllerIds={controllerIds}
+        players={players}
+        lockedIds={lockedIds}
+        onChange={setControllerIds}
+      />
       <output aria-label="Quem controla agora">{controllerIds.join(',')}</output>
     </>
   );
@@ -64,5 +73,30 @@ describe('ControlField', () => {
 
     expect(screen.getByText('Nenhum jogador na mesa ainda.')).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  describe('with the creator locked (a player on her own token)', () => {
+    const lockedBia = { initial: [BIA_AT_TABLE.userId], lockedIds: [BIA_AT_TABLE.userId] };
+
+    it('Bia’s button is pressed and disabled, described by "Você criou, então sempre controla."', () => {
+      render(<Harness {...lockedBia} />);
+
+      const bia = screen.getByRole('button', { name: 'Bia' });
+      expect(bia).toHaveAttribute('aria-pressed', 'true');
+      expect(bia).toBeDisabled();
+      expect(bia).toHaveAccessibleDescription('Você criou, então sempre controla.');
+      expect(screen.queryByText('Você, como mestre, já controla tudo.')).toBeNull();
+    });
+
+    it('Caio is pressed and taken out again, and Bia stays', async () => {
+      render(<Harness {...lockedBia} />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Caio' }));
+      expect(screen.getByLabelText('Quem controla agora')).toHaveTextContent(
+        `${BIA_AT_TABLE.userId},${CAIO_AT_TABLE.userId}`,
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Caio' }));
+      expect(screen.getByLabelText('Quem controla agora')).toHaveTextContent(BIA_AT_TABLE.userId);
+    });
   });
 });

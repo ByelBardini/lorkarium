@@ -8,6 +8,7 @@ import type {
   DeleteTokensCommandDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
+import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
@@ -28,6 +29,7 @@ import type { ScenePo } from '../scenes/scenes.po';
 import { TokenRulesBo } from './token-rules.bo';
 import {
   audiencesOf,
+  authorshipOf,
   combatOf,
   joinPastedToCombat,
   newTokenRowOf,
@@ -35,11 +37,13 @@ import {
   leaveCombat,
   tokensIn,
   withConditions,
+  type TokenRightsReader,
   type TokenTransactionRunner,
   type TokenWithConditions,
   type TokenWriteDaos,
 } from './token-transaction';
 import { lookAssetIdsOf } from './token-aura.mapper';
+import { toAuthoredToken } from './tokens.mapper';
 
 type Envelope = 'actionId' | 'campaignId';
 export type CreateTokens = Omit<CreateTokensCommandDto, Envelope>;
@@ -63,9 +67,12 @@ export type TokenBatchServiceDeps = Readonly<{
   barLimit: number;
   /** `TOKENS_PER_SCENE_MAX`, handed to the rule. */
   tokenLimit: number;
+  /** The table settings a player's paste and batch delete read (the master's never do). */
+  tokenRights: TokenRightsReader;
 }>;
 
-/** The token batches of a paste and of its undo (master only), on the grid the command names:
+/** The token batches of a paste and of its undo (the master, or a player by the table settings,
+ *  on their own tokens), on the grid the command names:
  *  all or nothing in one version,
  *  published once after the commit.
  *
@@ -81,19 +88,19 @@ export class TokenBatchService {
     command: CreateTokens,
   ): Promise<CreatedInScene> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    access.requireMaster('create tokens');
+    const copies = await this.copiesOf(access, command.tokens);
     const members = await this.deps.members.listMembers(campaignId);
     const memberIds = members.map((member) => member.userId);
     const address = { campaignId, sceneId: command.sceneId, access };
     const saved = await inLockedGrid(this.deps.transaction, address, async ({ daos, scene }) => {
       const rules = this.rulesFor(scene, memberIds);
-      const rows = command.tokens.map((token) => newTokenRowOf(scene.id, rules, token));
+      const rows = copies.map((token) => newTokenRowOf(scene.id, rules, token, userId));
       rules.admit(await daos.tokens.countOfScene(scene.id), rows.length);
-      await requireAssetsOf(daos, campaignId, command.tokens.flatMap(lookAssetIdsOf));
+      await requireAssetsOf(daos, campaignId, copies.flatMap(lookAssetIdsOf));
       const created = await daos.tokens.insertMany(rows);
       const pasted = created.map(({ token }, index) => ({
         tokenId: token.id,
-        combatantId: command.tokens[index]?.combatantId,
+        combatantId: copies[index]?.combatantId,
       }));
       await joinPastedToCombat(daos, scene, access, pasted);
       // A token just created carries no condition: nothing to read back for it.
@@ -118,11 +125,12 @@ export class TokenBatchService {
    *  the turn passes past every deleted combatant in the same transaction. */
   async deleteMany(userId: string, campaignId: string, command: DeleteTokens): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    access.requireMaster('delete tokens');
+    const authorship = await authorshipOf(this.deps.tokenRights, access);
     const { tokenIds } = command;
     const address = { campaignId, sceneId: command.sceneId, access };
     const saved = await inLockedGrid(this.deps.transaction, address, async ({ daos, scene }) => {
       const rows = await tokensIn(daos, scene, campaignId, tokenIds);
+      authorship.requireDelete(rows.map(toAuthoredToken));
       const rules = this.rulesFor(scene, []);
       for (const { token } of rows) {
         const expected = command.expect?.find(({ tokenId }) => tokenId === token.id);
@@ -208,6 +216,19 @@ export class TokenBatchService {
     const cells = placeCharacters({ sceneId: scene.id, scene, center, footprints, occupied });
     this.rulesFor(scene, []).admit(await daos.tokens.countOfScene(scene.id), anchors.length);
     return anchors.map((anchor, index) => linkedRowOf(scene.id, anchor, cells[index]));
+  }
+
+  // A player's copies land like their new token, with them in the control; each is a create.
+  private async copiesOf(
+    access: CampaignAccessBo,
+    tokens: CreateTokens['tokens'],
+  ): Promise<CreateTokens['tokens']> {
+    const authorship = await authorshipOf(this.deps.tokenRights, access);
+    return tokens.map((token) => {
+      const copy = authorship.copyOf(token);
+      authorship.requireCreate(copy);
+      return { ...copy, controllerIds: authorship.newControllersOf(copy.controllerIds) };
+    });
   }
 
   private rulesFor(scene: ScenePo, memberIds: readonly string[]): TokenRulesBo {

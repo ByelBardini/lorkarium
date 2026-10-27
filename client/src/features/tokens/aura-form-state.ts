@@ -1,5 +1,6 @@
 import type {
   AuraEffectDto,
+  AuraImageShapeDto,
   DrawingColorDto,
   TokenAuraDto,
   TokenAuraKindDto,
@@ -19,6 +20,8 @@ export type AuraFormValues = Readonly<{
   /** `null` = the natural tone of the effect. */
   effectColor: DrawingColorDto | null;
   imageAssetId: string | null;
+  /** How the image is cut: whole in a square, or covering a circle around the token. */
+  imageShape: AuraImageShapeDto;
   opacity: number;
 }>;
 
@@ -52,13 +55,15 @@ export function auraFormOf(aura: TokenAuraDto | null, distance: SceneDistance): 
     effect: 'fire',
     effectColor: null,
     imageAssetId: null,
+    imageShape: 'square',
     opacity: OPENING_OPACITY.color,
   };
   if (!aura) return blank;
   const shared = { radius: distanceTextOf(aura.radius, distance), opacity: aura.opacity };
   if (aura.kind === 'color') return { ...blank, ...shared, kind: 'color', color: aura.color };
   if (aura.kind === 'image') {
-    return { ...blank, ...shared, kind: 'image', imageAssetId: aura.imageAssetId };
+    const image = { imageAssetId: aura.imageAssetId, imageShape: aura.shape };
+    return { ...blank, ...shared, kind: 'image', ...image };
   }
   return { ...blank, ...shared, kind: 'effect', effect: aura.effect, effectColor: aura.color };
 }
@@ -89,7 +94,8 @@ export function parseAuraForm(form: AuraFormValues, distance: SceneDistance): Au
     return { ok: true, aura: { kind: 'effect', radius, opacity, ...effect } };
   }
   if (!form.imageAssetId) return { ok: false, errors: { image: AURA_IMAGE_MISSING } };
-  return { ok: true, aura: { kind: 'image', radius, opacity, imageAssetId: form.imageAssetId } };
+  const image = { imageAssetId: form.imageAssetId, shape: form.imageShape };
+  return { ok: true, aura: { kind: 'image', radius, opacity, ...image } };
 }
 
 // The cells of the typed radius, or the words of what is wrong with it.

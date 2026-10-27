@@ -1,62 +1,36 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildRoutes } from '@/app/router';
 import type { CampaignsFailure } from '@/services/campaigns-api';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { LYRA_PORTRAIT } from '../../support/assets-api-fake';
 import { ANA } from '../../support/auth-api-fake';
 import { detailOf, QUELM, VHARN } from '../../support/campaigns-api-fake';
-import { vharnBoard, vharnState } from '../../support/table-session-fixtures';
-
-const ROOM_PATH = `/campaigns/${VHARN.id}/table`;
-const SETTINGS_PATH = `${ROOM_PATH}/settings`;
+import {
+  CampaignSettingsHarness,
+  SETTINGS_PAGE_PATH as SETTINGS_PATH,
+  SETTINGS_ROOM_PATH as ROOM_PATH,
+} from '../../support/campaign-settings-harness';
 
 describe('campaign settings page', () => {
   let deps: TestDependencies;
-  let router: ReturnType<typeof createMemoryRouter>;
+  let harness: CampaignSettingsHarness;
 
   beforeEach(() => {
     deps = testDependencies();
     deps.authApi.answerMeWith(ANA);
+    harness = new CampaignSettingsHarness(deps);
   });
 
-  function renderAt(path: string): void {
-    router = createMemoryRouter(buildRoutes(deps), { initialEntries: [path] });
-    render(<RouterProvider router={router} />);
-  }
-
-  // VHARN's room, live, as the master; then its "Configurações da mesa" button.
-  async function openSettings(overrides: Parameters<typeof detailOf>[1] = {}) {
-    deps.campaignsApi.answer('detail', { ok: true, value: detailOf(VHARN, overrides) });
-    renderAt(ROOM_PATH);
-    await screen.findByRole('heading', { level: 1, name: VHARN.name });
-    deps.tableSessionApi.emit(
-      { kind: 'state', state: vharnState() },
-      { kind: 'status', status: 'live' },
-      { kind: 'board', state: vharnBoard() },
-    );
-    await act(() => Promise.resolve());
-    await userEvent.click(screen.getByRole('link', { name: 'Configurações da mesa' }));
-    return screen.findByRole('form', { name: 'Configurações da mesa' });
-  }
+  const renderAt = (path: string): void => harness.renderAt(path);
+  const openSettings = (overrides: Parameters<typeof detailOf>[1] = {}): Promise<HTMLElement> =>
+    harness.open(overrides);
+  const bar = (): HTMLElement => harness.bar();
+  const save = (): Promise<void> => harness.save();
+  const lastUpdateInput = (): unknown => harness.lastUpdateInput();
 
   function pageHeading(): HTMLElement {
     return screen.getByRole('heading', { level: 1, name: 'Configurações da mesa' });
-  }
-
-  function bar(): HTMLElement {
-    return screen.getByRole('region', { name: 'Alterações da mesa' });
-  }
-
-  async function save(): Promise<void> {
-    await userEvent.click(within(bar()).getByRole('button', { name: 'Salvar alterações' }));
-  }
-
-  function lastUpdateInput(): unknown {
-    const calls = deps.campaignsApi.callsOf('update') as Array<{ input: unknown }>;
-    return calls.at(-1)?.input;
   }
 
   describe('form', () => {
@@ -263,7 +237,7 @@ describe('campaign settings page', () => {
   describe('page in the room', () => {
     it('opens from the room as a page over it, and the table stays open', async () => {
       await openSettings();
-      expect(router.state.location.pathname).toBe(SETTINGS_PATH);
+      expect(harness.pathname()).toBe(SETTINGS_PATH);
       expect(pageHeading()).toBeInTheDocument();
       expect(deps.tableSessionApi.closedIds).toEqual([]);
       expect(deps.openTables.getState().tables.map((table) => table.campaignId)).toEqual([
@@ -271,14 +245,14 @@ describe('campaign settings page', () => {
       ]);
     });
 
-    it('the side menu names the four sections of the form and jumps to one', async () => {
+    it('the side menu names the five sections of the form and jumps to one', async () => {
       await openSettings();
       const menu = screen.getByRole('navigation', { name: 'Seções das configurações' });
       expect(
         within(menu)
           .getAllByRole('button')
           .map((button) => button.textContent),
-      ).toEqual(['Geral', 'Conteúdo', 'Acesso', 'Zona de perigo']);
+      ).toEqual(['Geral', 'Conteúdo', 'Acesso', 'Permissões', 'Zona de perigo']);
       await userEvent.click(within(menu).getByRole('button', { name: 'Acesso' }));
       expect(screen.getByRole('region', { name: 'Acesso' })).toHaveFocus();
     });
@@ -310,7 +284,7 @@ describe('campaign settings page', () => {
           screen.queryByRole('form', { name: 'Configurações da mesa' }),
         ).not.toBeInTheDocument(),
       );
-      expect(router.state.location.pathname).toBe(ROOM_PATH);
+      expect(harness.pathname()).toBe(ROOM_PATH);
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
 
@@ -324,9 +298,7 @@ describe('campaign settings page', () => {
     it('a player has no settings button, and the URL takes them back to the room', async () => {
       deps.campaignsApi.answer('detail', { ok: true, value: detailOf(QUELM) });
       renderAt(`/campaigns/${QUELM.id}/table/settings`);
-      await waitFor(() =>
-        expect(router.state.location.pathname).toBe(`/campaigns/${QUELM.id}/table`),
-      );
+      await waitFor(() => expect(harness.pathname()).toBe(`/campaigns/${QUELM.id}/table`));
       await screen.findByRole('heading', { level: 1, name: QUELM.name });
       expect(screen.queryByRole('link', { name: 'Configurações da mesa' })).not.toBeInTheDocument();
       expect(screen.queryByRole('form', { name: 'Configurações da mesa' })).not.toBeInTheDocument();
@@ -342,13 +314,13 @@ describe('campaign settings page', () => {
       await userEvent.click(back);
       const ask = await screen.findByRole('alertdialog', { name: 'Descartar alterações?' });
       await userEvent.click(within(ask).getByRole('button', { name: 'Continuar editando' }));
-      expect(router.state.location.pathname).toBe(SETTINGS_PATH);
+      expect(harness.pathname()).toBe(SETTINGS_PATH);
       expect(within(form).getByLabelText('Nome da mesa')).toHaveValue(`${VHARN.name} II`);
 
       await userEvent.click(back);
       const again = await screen.findByRole('alertdialog', { name: 'Descartar alterações?' });
       await userEvent.click(within(again).getByRole('button', { name: 'Descartar' }));
-      await waitFor(() => expect(router.state.location.pathname).toBe(ROOM_PATH));
+      await waitFor(() => expect(harness.pathname()).toBe(ROOM_PATH));
     });
 
     it('leaving for another route (the rail) with an edit asks first and discarding goes', async () => {
@@ -358,10 +330,10 @@ describe('campaign settings page', () => {
 
       await userEvent.click(within(rail).getByRole('link', { name: 'Mesas' }));
       const ask = await screen.findByRole('alertdialog', { name: 'Descartar alterações?' });
-      expect(router.state.location.pathname).toBe(SETTINGS_PATH);
+      expect(harness.pathname()).toBe(SETTINGS_PATH);
       await userEvent.click(within(ask).getByRole('button', { name: 'Descartar' }));
 
-      await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+      await waitFor(() => expect(harness.pathname()).toBe('/'));
     });
   });
 
@@ -437,7 +409,7 @@ describe('campaign settings page', () => {
 
       await userEvent.click(confirm);
 
-      await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+      await waitFor(() => expect(harness.pathname()).toBe('/'));
       expect(deps.campaignsApi.callsOf('remove')).toEqual([VHARN.id]);
       expect(deps.tableSessionApi.closedIds).toEqual([VHARN.id]);
     });
@@ -451,7 +423,7 @@ describe('campaign settings page', () => {
       await userEvent.click(within(ask).getByRole('button', { name: 'Excluir para sempre' }));
 
       expect(await within(ask).findByRole('alert')).toHaveTextContent('Sem conexão com o servidor');
-      expect(router.state.location.pathname).toBe(SETTINGS_PATH);
+      expect(harness.pathname()).toBe(SETTINGS_PATH);
     });
   });
 

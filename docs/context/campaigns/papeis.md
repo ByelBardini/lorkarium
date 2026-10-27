@@ -12,6 +12,10 @@ Detalhe de [`../campaigns.md`](../campaigns.md). O papel de cada membro mora em 
 
 **Quem entra pelo código é espectador** (`CampaignJoinBo.decide` → `join-as-spectator`; `CampaignJoinService` grava `spectator`); quem já é membro, de qualquer papel, entra de novo sem mudar (`already-member`). Vira jogador só quando o mestre promove (abaixo). Por isso os suportes de teste que põem um jogador na mesa entram e promovem pela rota, e o `pnpm db:seed-stress` promove o Caio pelo `MemberRoleService`.
 
+## Chaves de token dos jogadores
+
+Duas colunas da mesa (`players_create_tokens`, `players_delete_tokens`, padrão `false`, migração 0062), ligadas e desligadas pelo mestre no `PATCH /campaigns/:id` (mesa aberta, como as outras configurações) e avisadas no `session:campaignUpdated` (o `campaignInfoDto` as leva, como o resumo e o detalhe). Com a de criar, o jogador cria tokens e edita os que **ele criou** (menos visão e luz); com a de excluir, exclui os que criou. Valem para todo jogador; o espectador nunca recebe (`requireMember`). A regra é o `canCreateTokens`/`tokenRightsOf` do game-core, aplicada no server pelo `TokenAuthorshipBo` ([`../tokens.md`](../tokens.md)); o server lê as chaves a cada comando, então desligar vale no comando seguinte.
+
 ## Nega por padrão (`CampaignAccessBo`)
 
 - `requireViewer()` → o papel de qualquer membro, espectador incluído; quem não é membro → `CAMPAIGN_NOT_FOUND`.

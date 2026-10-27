@@ -9,7 +9,13 @@ import { ANA } from '../../support/auth-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { square } from '../../support/drawing-fixtures';
 import { BIA_CONE_ID, biaCone } from '../../support/effect-area-fixtures';
-import { LYRA_ID, lyra, vharnBoard, vharnState } from '../../support/table-session-fixtures';
+import {
+  BIA_AT_TABLE,
+  LYRA_ID,
+  lyra,
+  vharnBoard,
+  vharnState,
+} from '../../support/table-session-fixtures';
 
 const NEW_AREA_ID = 'c4d5e6f7-a8b9-4c0d-8e1f-2a3b4c5d6e7f';
 const CONE = { kind: 'diagonal_cone', x: 6, y: 6, reach: 3, facing: 45, color: 'ember' } as const;
@@ -92,6 +98,45 @@ describe('play room: areas of effect', () => {
           expect: [{ effectAreaId: NEW_AREA_ID, shape: CONE }],
         }),
       );
+    });
+  });
+
+  describe('a player and the area she made', () => {
+    beforeEach(async () => {
+      const viewer = { userId: BIA_AT_TABLE.userId, role: 'player' } as const;
+      deps.tableSessionApi.emit({
+        kind: 'board',
+        state: vharnBoard({ viewer, version: 5, tokens: [lyra()], effectAreas: [biaCone()] }),
+      });
+      await act(() => Promise.resolve());
+    });
+
+    it('her own cone can be taken on the board', () => {
+      expect(renderer().lastView?.effectAreas[0]?.pickable).toBe(true);
+    });
+
+    it('with the area tool on, a click on her cone selects it and Delete deletes it', async () => {
+      screen.getByRole('application').focus();
+      await userEvent.keyboard('m');
+      renderer().emit({ kind: 'effectAreaPicked', effectAreaId: BIA_CONE_ID, additive: false });
+
+      expect(renderer().lastView?.effectAreas[0]?.selected).toBe(true);
+      await userEvent.keyboard('{Delete}');
+
+      expect(deps.boardCommands.sentAs('deleteEffectAreas')[0]?.fields).toMatchObject({
+        effectAreaIds: [BIA_CONE_ID],
+      });
+    });
+
+    it('Delete with her cone selected deletes it in one command', async () => {
+      renderer().emit({ kind: 'effectAreaPicked', effectAreaId: BIA_CONE_ID, additive: false });
+      screen.getByRole('application').focus();
+
+      await userEvent.keyboard('{Delete}');
+
+      expect(deps.boardCommands.sentAs('deleteEffectAreas')[0]?.fields).toMatchObject({
+        effectAreaIds: [BIA_CONE_ID],
+      });
     });
   });
 

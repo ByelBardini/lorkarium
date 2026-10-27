@@ -38,7 +38,8 @@ export type TokenAuraDialogProps = Readonly<{
 }>;
 
 /** "Aura de Lyra": whoever controls the token picks its aura (or takes it away) with the same
- *  editor as the master's dialog. Saving restyles that token alone with the new aura.
+ *  editor as the master's dialog. Saving restyles that token alone with the new aura; "Tirar aura"
+ *  (only on a token wearing one) takes it away at once, whatever the form holds.
  *
  *  Example: `{target && <TokenAuraDialog scope={scope} token={target} commands={commands} assets={assets} distance={scene} onClose={close} />}` */
 export function TokenAuraDialog(props: TokenAuraDialogProps): React.JSX.Element {
@@ -64,6 +65,17 @@ export function TokenAuraDialog(props: TokenAuraDialogProps): React.JSX.Element 
           </Alert>
         )}
         <DialogFooter>
+          {token.aura && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="sm:mr-auto"
+              disabled={dialog.saving}
+              onClick={dialog.takeAway}
+            >
+              Tirar aura
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
@@ -88,6 +100,7 @@ type TokenAuraDialogState = Readonly<{
   failure: BoardCommandFailure | null;
   saving: boolean;
   save: () => void;
+  takeAway: () => void;
 }>;
 
 function useTokenAuraDialog(props: TokenAuraDialogProps): TokenAuraDialogState {
@@ -108,5 +121,6 @@ function useTokenAuraDialog(props: TokenAuraDialogProps): TokenAuraDialogState {
     setErrors(parsed.ok ? {} : parsed.errors);
     if (parsed.ok) void send(parsed.aura);
   };
-  return { form, setForm, errors, failure, saving, save };
+  const takeAway = (): void => void send(null);
+  return { form, setForm, errors, failure, saving, save, takeAway };
 }

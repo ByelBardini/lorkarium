@@ -3,6 +3,9 @@ import type { SelectionToDelete } from './delete-selection-dialog';
 import { sightNowOf } from './use-board-sight';
 import { useTablePlayers } from './table-players';
 import { watchesOnly } from '@/lib/table-role';
+import { viewerTokenRightsOf } from '@/lib/token-rights-of-viewer';
+import { useTableTokenKeys } from './table-token-rights';
+import type { TableTokenRights } from '@lorkarium/game-core';
 import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
 import { blockedPassage, cell, tokenCenter, turnFacing, type Cell } from '@lorkarium/game-core';
 import { gameWallsOf } from '@/lib/wall-geometry';
@@ -28,7 +31,7 @@ export type BoardKeyboardDeps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   /** Enter on a selected token: its card. */
   onOpen: (tokenId: string) => void;
-  /** The master's Delete with tokens selected: ask first, then delete everything selected. */
+  /** A Delete with tokens this viewer may delete: ask first, then delete them and the rest. */
   onDeleteSelection: (selection: SelectionToDelete) => void;
 }>;
 
@@ -41,25 +44,27 @@ const STEP: Readonly<Record<'up' | 'down' | 'left' | 'right', readonly [number, 
 
 /** Playing without a mouse: ] and [ select one, the arrows move the selection a cell (one
  *  command, for a group too), Enter opens its card, Delete deletes the selected drawings, areas
- *  and walls (and, for the master, the selected tokens after `onDeleteSelection` asks); every
+ *  and walls (and the selected tokens this viewer may delete, after `onDeleteSelection` asks); every
  *  step is said on the status line. A spectator only selects and opens.
  *
  *  Example: `<div onKeyDown={useBoardKeyboard({ board, interaction, onOpen, onDeleteSelection })} />` */
 export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.KeyboardEvent) => void {
   const { board, interaction, onOpen, onDeleteSelection } = deps;
   const players = useTablePlayers();
+  const tokenKeys = useTableTokenKeys();
   return useCallback(
     (event) => {
       const key = boardKeyOf(event);
       if (!key) return;
       event.preventDefault();
-      runBoardKey(key, { board, interaction, onOpen, onDeleteSelection, players });
+      runBoardKey(key, { board, interaction, onOpen, onDeleteSelection, players, tokenKeys });
     },
-    [board, interaction, onOpen, onDeleteSelection, players],
+    [board, interaction, onOpen, onDeleteSelection, players, tokenKeys],
   );
 }
 
-type KeyRunDeps = BoardKeyboardDeps & Readonly<{ players: readonly string[] }>;
+type KeyRunDeps = BoardKeyboardDeps &
+  Readonly<{ players: readonly string[]; tokenKeys: TableTokenRights }>;
 
 // What a spectator's keys may still do: pick a token and open its card.
 const LOOKING_KEYS: readonly BoardKey[] = ['next', 'previous', 'open'];
@@ -85,9 +90,10 @@ function runBoardKey(key: BoardKey, deps: KeyRunDeps): void {
   moveGroupByKey(deps, inSelectionOrder(selected, selectedTokenIds), STEP[key]);
 }
 
-// The master's Delete with tokens asks first and then takes the whole selection; without tokens,
-// or for a player (who never deletes a token), the drawings, areas, walls and lights go at once.
-function deleteSelectedPieces(deps: BoardKeyboardDeps): void {
+// A Delete with tokens this viewer may delete (the master any, a player her own with the key)
+// asks first and then takes them with the rest; without such tokens, the drawings, areas, walls
+// and lights go at once.
+function deleteSelectedPieces(deps: KeyRunDeps): void {
   const { board, interaction } = deps;
   const local = interaction.getState();
   const state = board.getState().board;
@@ -99,9 +105,12 @@ function deleteSelectedPieces(deps: BoardKeyboardDeps): void {
   const effectAreas = pick(state?.effectAreas, local.selectedEffectAreaIds);
   const walls = pick(state?.walls, local.selectedWallIds);
   const lights = pick(state?.lights, local.selectedLightIds);
-  const tokens = pick(state?.tokens, local.selectedTokenIds);
-  if (tokens.length > 0 && state?.viewer.role === 'master') {
-    return deps.onDeleteSelection({ tokens, drawings, effectAreas, walls });
+  const selected = pick(state?.tokens, local.selectedTokenIds);
+  const rights = viewerTokenRightsOf(deps.tokenKeys, state?.viewer ?? null);
+  const tokens = selected.filter((token) => rights.of(token).delete);
+  if (tokens.length > 0) {
+    const keptTokens = selected.length - tokens.length;
+    return deps.onDeleteSelection({ tokens, keptTokens, drawings, effectAreas, walls });
   }
   if (drawings.length > 0) void local.deleteDrawings(drawings);
   if (effectAreas.length > 0) void local.deleteEffectAreas(effectAreas);

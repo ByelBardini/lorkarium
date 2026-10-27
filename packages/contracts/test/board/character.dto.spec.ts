@@ -67,6 +67,8 @@ describe('the commands of a character', () => {
       cover: { kind: 'drawn', drawing: 0, tone: 1 },
       contentWarnings: [],
       tags: [],
+      playersCreateTokens: false,
+      playersDeleteTokens: false,
       lastEnteredAt: null,
       members: [
         { userId: VHARN, name: 'Ana', role: 'master', color: 'gold', avatarId: null, online: true },

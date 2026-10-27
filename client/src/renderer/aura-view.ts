@@ -1,4 +1,4 @@
-import type { AuraEffectDto, TokenAuraDto } from '@lorkarium/contracts';
+import type { AuraEffectDto, AuraImageShapeDto, TokenAuraDto } from '@lorkarium/contracts';
 import { drawingColorValue } from '@/lib/drawing-style';
 import { assetUrlOf } from '@/services/assets-api';
 import { CELL_WORLD_SIZE } from './camera';
@@ -7,11 +7,12 @@ import { artBox, type ArtBox, type ArtImageSize } from './token-art';
 import { HIDDEN_ALPHA } from './token-look';
 
 /** What an aura paints: a tint, a ready-made effect (`tint: null` = its natural tone) or an
- *  image of the table. */
+ *  image of the table, whole in the aura (`square`) or covering a circle around the token
+ *  (`round`). */
 export type AuraLook =
   | Readonly<{ kind: 'color'; color: number }>
   | Readonly<{ kind: 'effect'; effect: AuraEffectDto; tint: number | null }>
-  | Readonly<{ kind: 'image'; url: string }>;
+  | Readonly<{ kind: 'image'; url: string; shape: AuraImageShapeDto }>;
 
 /** The aura of a token as drawn: the footprint grown by the radius (`box`, world px), with corners
  *  rounded by that radius (`corner`), at `alpha` (0–1). */
@@ -53,7 +54,9 @@ export function auraKeyOf(view: AuraView | null): string {
 
 function auraLookOf(aura: TokenAuraDto): AuraLook {
   if (aura.kind === 'color') return { kind: 'color', color: drawingColorValue(aura.color) };
-  if (aura.kind === 'image') return { kind: 'image', url: assetUrlOf(aura.imageAssetId) };
+  if (aura.kind === 'image') {
+    return { kind: 'image', url: assetUrlOf(aura.imageAssetId), shape: aura.shape };
+  }
   const tint = aura.color === null ? null : drawingColorValue(aura.color);
   return { kind: 'effect', effect: aura.effect, tint };
 }
@@ -101,9 +104,34 @@ export function auraHaloOf(view: AuraView): AuraHaloStep[] {
  *
  *  Example: `auraImageBox(view, { width: 400, height: 600 }) // { x: -74.67, y: -128, width: 213.33, height: 320 }` */
 export function auraImageBox(view: AuraView, image: ArtImageSize): ArtBox {
+  const circle = auraImageCircle(view);
+  if (circle) return roundImageBox(circle, image);
   const { box, corner } = view;
   const fit = artBox('square', image, box);
   return { ...fit, x: fit.x - corner, y: fit.y - corner };
+}
+
+/** A circle of the aura, in world px from the token's top-left corner. */
+export type AuraCircle = Readonly<{ x: number; y: number; radius: number }>;
+
+/** The circle a round image aura covers: centered on the token, across its longer side plus the
+ *  radius to each side (a 2 × 1 token gets a circle that holds it whole). `null` for any other
+ *  aura.
+ *
+ *  Example: `auraImageCircle(view) // { x: 32, y: 32, radius: 160 } for a 1 × 1 token, 2 cells` */
+export function auraImageCircle(view: AuraView): AuraCircle | null {
+  if (view.look.kind !== 'image' || view.look.shape !== 'round') return null;
+  const { box, corner } = view;
+  const token = { width: box.width - corner * 2, height: box.height - corner * 2 };
+  const radius = Math.max(token.width, token.height) / 2 + corner;
+  return { x: token.width / 2, y: token.height / 2, radius };
+}
+
+// Cover: the image fills the circle's square and the mask trims what overflows it.
+function roundImageBox(circle: AuraCircle, image: ArtImageSize): ArtBox {
+  const side = circle.radius * 2;
+  const fit = artBox('round', image, { width: side, height: side });
+  return { ...fit, x: fit.x + circle.x - circle.radius, y: fit.y + circle.y - circle.radius };
 }
 
 /** The image of every image aura of the view, once: what the aura sources keep loaded.

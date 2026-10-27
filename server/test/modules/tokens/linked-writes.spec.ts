@@ -17,7 +17,7 @@ import {
   linkedLyraRow,
 } from '../../support/character-fakes';
 import { ConditionTransactionRunnerFake } from '../../support/conditions-fakes';
-import { DragGroupsFake } from '../../support/tokens-fakes';
+import { DragGroupsFake, TableTokenRightsFake } from '../../support/tokens-fakes';
 import { FIRE_AURA } from '../../support/tokens-factories';
 
 const TORRE = { sceneId: VHARN_TORRE_ID };
@@ -45,7 +45,7 @@ describe('writes on a token linked to a character', () => {
     const { members, publisher, clock } = table;
     const transaction = table.transaction.run;
     const dragGroups = new DragGroupsFake(table.scenes, table.tokens);
-    const limits = { barLimit: 99_999, tokenLimit: 500 };
+    const limits = { barLimit: 99_999, tokenLimit: 500, tokenRights: new TableTokenRightsFake() };
     const sceneWalls = new SceneWallsService();
     tokens = new TokensService({
       members,

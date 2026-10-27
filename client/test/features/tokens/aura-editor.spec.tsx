@@ -7,7 +7,7 @@ import { AuraEditor } from '@/features/tokens/aura-editor';
 import { auraFormOf, type AuraFormErrors } from '@/features/tokens/aura-form-state';
 import { AssetsApiFake } from '../../support/assets-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
-import { fireAura, goldAura } from '../../support/aura-fixtures';
+import { fireAura, goldAura, runeAura } from '../../support/aura-fixtures';
 
 const METERS = { cellDistance: 1.5, cellUnit: 'm' };
 
@@ -75,6 +75,38 @@ describe('AuraEditor', () => {
     expect(screen.getByRole('group', { name: 'Área da imagem' })).toHaveAccessibleDescription(
       'Solte a imagem aqui ou cole com Ctrl+V. PNG, JPEG, WebP ou GIF animado, até 20 MB.',
     );
+  });
+
+  it('Imagem offers the shape Quadrada or Redonda, Quadrada checked at first', async () => {
+    render(<Harness />);
+
+    await pickKind('Imagem');
+
+    expect(screen.getByRole('radiogroup', { name: 'Forma' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Quadrada' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Redonda' })).not.toBeChecked();
+  });
+
+  it('picking Redonda checks it', async () => {
+    render(<Harness aura={runeAura()} />);
+
+    await pickKind('Redonda');
+
+    expect(screen.getByRole('radio', { name: 'Redonda' })).toBeChecked();
+  });
+
+  it('a round image aura opens on Redonda', () => {
+    render(<Harness aura={runeAura({ shape: 'round' })} />);
+
+    expect(screen.getByRole('radio', { name: 'Redonda' })).toBeChecked();
+  });
+
+  it('Cor shows no shape: only an image is cut', async () => {
+    render(<Harness />);
+
+    await pickKind('Cor');
+
+    expect(screen.queryByRole('radiogroup', { name: 'Forma' })).not.toBeInTheDocument();
   });
 
   it('a fire aura of 2 cells opens on Efeito Fogo with the radius at "3" (= 2 casas)', () => {

@@ -17,11 +17,18 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
-import { DELETE_CANNOT_UNDO, TOO_MANY_TO_DELETE, deleteSelectionQuestion } from './board-messages';
+import {
+  DELETE_CANNOT_UNDO,
+  TOO_MANY_TO_DELETE,
+  deleteSelectionQuestion,
+  keptTokensNotice,
+} from './board-messages';
 
-/** What the master's Delete takes away when the selection has tokens. */
+/** What a Delete takes away when the selection has tokens this viewer may delete;
+ *  `keptTokens`: the selected ones that stay (not hers). */
 export type SelectionToDelete = Readonly<{
   tokens: readonly TokenDto[];
+  keptTokens: number;
   drawings: readonly DrawingDto[];
   effectAreas: readonly EffectAreaDto[];
   walls: readonly WallDto[];
@@ -33,8 +40,8 @@ export type DeleteSelectionDialogProps = Readonly<{
   onClose: () => void;
 }>;
 
-/** "Excluir 2 tokens e 1 desenho?": the confirmation of the master's Delete with tokens in the
- *  selection. "Excluir" takes everything; the tokens go without precondition and never onto the
+/** "Excluir 2 tokens e 1 desenho?": the confirmation of a Delete with tokens this viewer may
+ *  delete (the ones that are not hers are counted apart and stay). "Excluir" takes everything; the tokens go without precondition and never onto the
  *  undo stack (the dialog is the protection); the other pieces go as a plain Delete does.
  *
  *  Example: `{deletion && <DeleteSelectionDialog selection={deletion} interaction={interaction} onClose={close} />}` */
@@ -54,6 +61,7 @@ export function DeleteSelectionDialog(props: DeleteSelectionDialogProps): React.
           <AlertDialogTitle>{question}</AlertDialogTitle>
           <AlertDialogDescription>
             {tooMany ? TOO_MANY_TO_DELETE : DELETE_CANNOT_UNDO}
+            {selection.keptTokens > 0 && ` ${keptTokensNotice(selection.keptTokens)}`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

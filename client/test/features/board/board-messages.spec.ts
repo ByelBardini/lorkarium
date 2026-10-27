@@ -4,6 +4,7 @@ import {
   boardCommandFailureMessage,
   connectionStatusLine,
   deleteSelectionQuestion,
+  keptTokensNotice,
   movedAnnouncement,
   pingAnnouncement,
   resizedAnnouncement,
@@ -137,5 +138,14 @@ describe('roleChangedNotice', () => {
 
   it('the master never changes role, so nothing is said', () => {
     expect(roleChangedNotice('master')).toBeNull();
+  });
+});
+
+describe('keptTokensNotice', () => {
+  it.each([
+    [1, '1 token que não é seu fica.'],
+    [2, '2 tokens que não são seus ficam.'],
+  ])('%i kept reads "%s"', (count, text) => {
+    expect(keptTokensNotice(count)).toBe(text);
   });
 });

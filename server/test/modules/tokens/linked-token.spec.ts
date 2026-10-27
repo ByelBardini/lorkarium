@@ -94,7 +94,7 @@ describe('a token linked to a character', () => {
 });
 
 describe('the aura of a token linked to a character', () => {
-  it('belongs to the anchor: identityOf carries the six aura columns', () => {
+  it('belongs to the anchor: identityOf carries the seven aura columns', () => {
     expect(identityOf(lyraPo(fireAuraColumns()))).toMatchObject(fireAuraColumns());
   });
 
@@ -124,5 +124,22 @@ describe('the aura of a token linked to a character', () => {
 
     expect(anchor.fields).toMatchObject(fireAuraColumns());
     expect(own).toEqual({ width: 1, height: 1 });
+  });
+
+  it('splitUpdate sends the shape of a round image aura to the anchor, never to the token', () => {
+    const fields = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 } as const;
+    const round = fireAuraColumns({ auraKind: 'image', auraEffect: null, auraImageShape: 'round' });
+    const update = { fields: { ...fields, ...round }, bars: [], controllerIds: [] };
+
+    const { anchor, own } = splitUpdate(update, { width: 1, height: 1 });
+
+    expect(anchor.fields).toMatchObject({ auraImageShape: 'round' });
+    expect(own).not.toHaveProperty('auraImageShape');
+  });
+
+  it('identityOf carries the shape of a round image aura', () => {
+    const round = fireAuraColumns({ auraKind: 'image', auraEffect: null, auraImageShape: 'round' });
+
+    expect(identityOf(lyraPo(round))).toMatchObject({ auraImageShape: 'round' });
   });
 });

@@ -4,6 +4,9 @@ import type { TableSessionFailure } from '@/services/table-session-api';
 
 export const OFFLINE_MESSAGE = 'Sem conexão com o servidor. Confira sua internet e tente de novo.';
 export const UNEXPECTED_MESSAGE = 'Algo deu errado do nosso lado. Tente de novo em instantes.';
+/** What "Pública" means, in the new-table form and in the settings. */
+export const PUBLIC_VISIBILITY_HINT =
+  'Aparece em Explorar mesas: quem quiser entra sem o código (com a senha, se houver).';
 export const NOT_MEMBER_MESSAGE = 'Essa mesa não existe ou você não participa dela.';
 export const FORBIDDEN_MESSAGE = 'Só o mestre da mesa pode fazer isso.';
 export const NOT_OPEN_MESSAGE = 'Abra a mesa para mudar as configurações.';

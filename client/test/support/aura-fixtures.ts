@@ -21,9 +21,12 @@ export function goldAura(
   return { kind: 'color', radius: 2, color: 'gold', opacity: 50, ...overrides };
 }
 
-/** The rune image of the table as an aura, one cell past the edge.
+/** The rune image of the table as a square aura, one cell past the edge.
  *
- *  Example: `kael({ aura: runeAura() })` */
-export function runeAura(): TokenAuraDto {
-  return { kind: 'image', radius: 1, imageAssetId: RUNE_ASSET_ID, opacity: 100 };
+ *  Example: `kael({ aura: runeAura({ shape: 'round' }) })` */
+export function runeAura(
+  overrides: Partial<Omit<Extract<TokenAuraDto, { kind: 'image' }>, 'kind'>> = {},
+): TokenAuraDto {
+  const rune = { radius: 1, imageAssetId: RUNE_ASSET_ID, opacity: 100, shape: 'square' } as const;
+  return { kind: 'image', ...rune, ...overrides };
 }

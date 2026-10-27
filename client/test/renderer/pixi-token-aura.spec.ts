@@ -39,7 +39,8 @@ describe('PixiTokenAura draws by kind', () => {
 
 describe('PixiTokenAura draws an image aura', () => {
   const RUNE = '/api/assets/rune';
-  const runeAura = auraOf({ kind: 'image', url: RUNE });
+  const runeAura = auraOf({ kind: 'image', url: RUNE, shape: 'square' });
+  const roundRuneAura = auraOf({ kind: 'image', url: RUNE, shape: 'round' });
 
   function spriteOf(aura: PixiTokenAura): Sprite | undefined {
     return aura.container.children.find((child): child is Sprite => child instanceof Sprite);
@@ -79,6 +80,41 @@ describe('PixiTokenAura draws an image aura', () => {
     expect(spriteOf(aura)?.texture).toBe(flames.frames[1]?.texture);
     aura.tick(0.25);
     expect(spriteOf(aura)?.texture).toBe(flames.frames[0]?.texture);
+  });
+
+  it('a square image has no mask: its tips stay', () => {
+    const images = new AuraImagesFake();
+    images.arrive(RUNE, fakeAuraSource('still', 1));
+    const aura = new PixiTokenAura('lyra', images);
+
+    aura.draw(runeAura);
+
+    expect(spriteOf(aura)?.mask ?? null).toBeNull();
+  });
+
+  it('a round image covers the circle around the token, cut by a circle mask', () => {
+    const images = new AuraImagesFake();
+    images.arrive(RUNE, fakeAuraSource('still', 1));
+    const aura = new PixiTokenAura('lyra', images);
+
+    aura.draw(roundRuneAura);
+
+    const sprite = spriteOf(aura);
+    expect([sprite?.x, sprite?.y, sprite?.width, sprite?.height]).toEqual([-160, -64, 384, 192]);
+    const mask = sprite?.mask;
+    expect(mask).toBeInstanceOf(Graphics);
+    expect((mask as Graphics).getLocalBounds()).toMatchObject({ x: -64, y: -64, width: 192 });
+  });
+
+  it('a round image made square again drops the mask', () => {
+    const images = new AuraImagesFake();
+    images.arrive(RUNE, fakeAuraSource('still', 1));
+    const aura = new PixiTokenAura('lyra', images);
+    aura.draw(roundRuneAura);
+
+    aura.draw(runeAura);
+
+    expect(spriteOf(aura)?.mask ?? null).toBeNull();
   });
 
   it('turning the image aura into a color hides the image and stops animating', () => {

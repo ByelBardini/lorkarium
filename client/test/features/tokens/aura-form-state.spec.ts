@@ -42,8 +42,19 @@ describe('auraFormOf', () => {
     expect(auraFormOf(runeAura(), METERS)).toMatchObject({
       kind: 'image',
       imageAssetId: RUNE_ASSET_ID,
+      imageShape: 'square',
       radius: '1,5',
     });
+  });
+
+  it('a round image aura opens as Redonda', () => {
+    expect(auraFormOf(runeAura({ shape: 'round' }), METERS).imageShape).toBe('round');
+  });
+
+  it('switching from a round image to Cor and back keeps Redonda', () => {
+    const round = auraFormOf(runeAura({ shape: 'round' }), METERS);
+
+    expect(auraKindChosen(auraKindChosen(round, 'color'), 'image').imageShape).toBe('round');
   });
 });
 
@@ -91,8 +102,20 @@ describe('parseAuraForm', () => {
 
     expect(parseAuraForm(form, METERS)).toEqual({
       ok: true,
-      aura: { kind: 'image', imageAssetId: RUNE_ASSET_ID, radius: 0, opacity: 100 },
+      aura: {
+        kind: 'image',
+        imageAssetId: RUNE_ASSET_ID,
+        radius: 0,
+        opacity: 100,
+        shape: 'square',
+      },
     });
+  });
+
+  it('an image chosen as Redonda is the round image aura', () => {
+    const form = chosen('image', { imageAssetId: RUNE_ASSET_ID, imageShape: 'round' });
+
+    expect(parseAuraForm(form, METERS)).toMatchObject({ ok: true, aura: { shape: 'round' } });
   });
 
   it('"Nenhuma" sends no aura (null), whatever was typed', () => {

@@ -187,7 +187,8 @@ function valuesOf(kind: DieKind, throws: number, seed: number): number[] {
   });
 }
 
-describe('CannonDicePhysics fairness (chi-square at p 0.01)', () => {
+// Thousands of full simulations: past the 5 s default on a loaded CI runner.
+describe('CannonDicePhysics fairness (chi-square at p 0.01)', { timeout: 30_000 }, () => {
   it('600 d6 throws stay below 15.09 (5 degrees of freedom)', () => {
     expect(chiSquareOf(valuesOf('d6', 600, 101), [1, 2, 3, 4, 5, 6])).toBeLessThan(15.09);
   });
