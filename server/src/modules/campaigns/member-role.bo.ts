@@ -1,43 +1,61 @@
-import type { CampaignAccessBo, CampaignRole } from './campaign-access.bo';
-import { MasterRoleLockedError, MemberNotFoundError } from './campaigns.error';
+import { assignableRolesOf, type TableSeat } from '@lorkarium/game-core';
+import { CampaignAccessBo, type CampaignRole } from './campaign-access.bo';
+import {
+  JuggernautRoleLockedError,
+  MemberNotFoundError,
+  OwnerRoleLockedError,
+} from './campaigns.error';
 
-/** The roles the master hands out and takes back; nobody becomes master by a change. */
-export type AssignableRole = Exclude<CampaignRole, 'master'>;
-
-/** The member whose role is asked to change, and their role now (`null` = not on the table). */
-export type MemberRoleTarget = Readonly<{ userId: string; role: CampaignRole | null }>;
+/** Someone at (or outside) the table: their seat, `null` when they are not a member. */
+export type SeatedMember = Readonly<{ userId: string; seat: TableSeat | null }>;
 
 export type MemberRoleDecision =
-  | Readonly<{ change: 'changed'; from: AssignableRole; to: AssignableRole }>
-  | Readonly<{ change: 'unchanged'; role: AssignableRole }>;
+  | Readonly<{ change: 'changed'; from: CampaignRole; to: CampaignRole }>
+  | Readonly<{ change: 'unchanged'; role: CampaignRole }>;
 
-/** Who may move a member between player and spectator: only the master, never on the master.
+/** Who may put which member in which role: any master swaps players and spectators; only owner
+ *  powers (the owner, a juggernaut) promote to master and demote a master; nobody changes the
+ *  owner nor a juggernaut (game-core `assignableRolesOf`).
  *
- *  Example: `new MemberRoleBo(access, { userId: dudaId, role: 'spectator' }).decide('player')` */
+ *  Example: `new MemberRoleBo(campaignId, owner, { userId: biaId, seat: player }).decide('master')` */
 export class MemberRoleBo {
-  constructor(
-    private readonly access: CampaignAccessBo,
-    private readonly target: MemberRoleTarget,
-  ) {}
+  private readonly access: CampaignAccessBo;
 
-  /** The change to write, or `unchanged` when the member already has `role` (asking again is
-   *  harmless). A non-member asking gets CAMPAIGN_NOT_FOUND, a player or a spectator FORBIDDEN,
-   *  an id outside the table MEMBER_NOT_FOUND, and the master as the target FORBIDDEN.
-   *
-   *  Example: `bo.decide('spectator') // { change: 'changed', from: 'player', to: 'spectator' }` */
-  decide(role: AssignableRole): MemberRoleDecision {
-    const { userId } = this.target;
-    this.access.requireMaster(`change the role of member ${userId}`);
-    const from = this.currentRole();
-    if (from === role) return { change: 'unchanged', role };
-    return { change: 'changed', from, to: role };
+  constructor(
+    private readonly campaignId: string,
+    private readonly requester: SeatedMember,
+    private readonly target: SeatedMember,
+  ) {
+    const role = requester.seat?.role ?? null;
+    this.access = new CampaignAccessBo({ campaignId, userId: requester.userId, role });
   }
 
-  private currentRole(): AssignableRole {
-    const { userId, role } = this.target;
-    const campaignId = this.access.campaignIdOf();
-    if (role === null) throw new MemberNotFoundError(campaignId, userId);
-    if (role !== 'master') return role;
-    throw new MasterRoleLockedError(campaignId, this.access.userIdOf(), userId);
+  /** The change to write, or `unchanged` when the member already has `role`. In this order: a
+   *  non-member asking gets CAMPAIGN_NOT_FOUND, a player or a spectator FORBIDDEN, a target
+   *  outside the table MEMBER_NOT_FOUND, the owner or a juggernaut as the target FORBIDDEN, and a
+   *  change beyond the requester's powers FORBIDDEN citing "owner powers".
+   *
+   *  Example: `bo.decide('spectator') // { change: 'changed', from: 'master', to: 'spectator' }` */
+  decide(role: CampaignRole): MemberRoleDecision {
+    this.access.requireMaster(`change the role of member ${this.target.userId}`);
+    const targetSeat = this.unlockedTargetSeat();
+    if (targetSeat.role === role) return { change: 'unchanged', role };
+    const actorSeat = this.requester.seat;
+    if (actorSeat && assignableRolesOf(actorSeat, targetSeat).includes(role)) {
+      return { change: 'changed', from: targetSeat.role, to: role };
+    }
+    return this.access.forbid(
+      `put member ${this.target.userId} in the role ${role}`,
+      'owner powers',
+    );
+  }
+
+  private unlockedTargetSeat(): TableSeat {
+    const { userId, seat } = this.target;
+    const by = this.requester.userId;
+    if (!seat) throw new MemberNotFoundError(this.campaignId, userId);
+    if (seat.owner) throw new OwnerRoleLockedError(this.campaignId, by, userId);
+    if (seat.juggernaut) throw new JuggernautRoleLockedError(this.campaignId, by, userId);
+    return seat;
   }
 }

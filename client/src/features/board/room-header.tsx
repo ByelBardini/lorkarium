@@ -17,12 +17,14 @@ import type { BoardStore } from '@/stores/board-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { RoomLayoutStore } from '@/stores/room-layout-store';
 import type { SceneTabsStore } from '@/stores/scene-tabs-store';
+import { useSession, type SessionStore } from '@/stores/session-store';
 import {
   selectOnlineCount,
   useTablePresence,
   type TablePresenceStore,
 } from '@/stores/table-presence-store';
 import { SPECTATOR_BADGE } from './board-messages';
+import { RoomMoreMenu } from './room-more-menu';
 import { PanelToggle } from './room-panel';
 import { SceneTabs } from './scene-tabs';
 
@@ -37,13 +39,15 @@ export type RoomHeaderProps = Readonly<{
   openTables: StoreApi<OpenTablesStore>;
   roomLayout: StoreApi<RoomLayoutStore>;
   clipboard: Clipboard;
+  /** The signed-in account: an admin gets the juggernaut switch ("Mais ações da mesa"). */
+  sessionStore: StoreApi<SessionStore>;
   /** Whether the room is shown (not covered by a page), so the desktop title bar can host it. */
   inTitleBar: boolean;
 }>;
 
 /** The 48px top bar of the room: name (and the "Espectador" badge of whoever only watches), who is online, the open grid tabs, the code (master
- *  only), "Biblioteca", "Condições" and "Configurações da mesa" (master only), the panel toggle
- *  and "Sair da mesa". In the desktop app it moves into the window title bar (a portal), which
+ *  only), "Biblioteca", "Condições" and "Configurações da mesa" (master only), the panel toggle,
+ *  the admin's "Mais ações da mesa" (juggernaut mode) and "Sair da mesa". In the desktop app it moves into the window title bar (a portal), which
  *  drags the window from its empty space.
  *
  *  Example: `<RoomHeader campaign={campaign} presence={presence} board={board} tabs={tabs} interaction={interaction} openTables={openTables} roomLayout={roomLayout} clipboard={clipboard} />` */
@@ -56,9 +60,12 @@ export function RoomHeader({
   openTables,
   roomLayout,
   clipboard,
+  sessionStore,
   inTitleBar,
 }: RoomHeaderProps): React.JSX.Element | null {
   const leaveTable = useLeaveTable(openTables);
+  const session = useSession(sessionStore);
+  const reader = session.status === 'authenticated' ? session.user : null;
   const slot = useTitleBarSlot(inTitleBar);
   const top = (
     <section
@@ -91,6 +98,12 @@ export function RoomHeader({
         </Button>
         {campaign.myRole === 'master' && <MasterPageLinks campaignId={campaign.id} />}
         <PanelToggle roomLayout={roomLayout} />
+        <RoomMoreMenu
+          campaign={campaign}
+          reader={reader}
+          openTables={openTables}
+          interaction={interaction}
+        />
         {/* Apart from the view controls: leaving is the one action that closes the room. */}
         <span aria-hidden="true" className="h-5 w-px bg-border" />
         <Button variant="outline" size="sm" onClick={() => void leaveTable(campaign.id)}>

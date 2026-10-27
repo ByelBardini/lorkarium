@@ -4,6 +4,7 @@ import type {
   DiceRolledDto,
   DiceRolledSecretlyDto,
   SessionCampaignDeletedDto,
+  SessionRemovedFromTableDto,
   SessionCampaignUpdatedDto,
   LibraryChangedDto,
   SceneActivatedDto,
@@ -38,6 +39,9 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'campaignUpdated'; event: SessionCampaignUpdatedDto }>
   /** The master deleted the campaign; the server already took this socket out of its room. */
   | Readonly<{ kind: 'campaignDeleted'; event: SessionCampaignDeletedDto }>
+  /** The reader left the table without it being deleted (a juggernaut who was not a member
+   *  turned the mode off); the server already took this socket out of its rooms. */
+  | Readonly<{ kind: 'removedFromTable'; event: SessionRemovedFromTableDto }>
   | Readonly<{ kind: 'status'; status: TableSessionStatus }>
   | Readonly<{ kind: 'failed'; failure: TableSessionFailure }>
   | Readonly<{ kind: 'board'; state: BoardStateDto }>

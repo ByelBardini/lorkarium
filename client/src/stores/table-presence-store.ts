@@ -130,7 +130,8 @@ function memberCameOnline(
   return { version: event.version, members };
 }
 
-// A spectator who leaves leaves no trace at the table: only the ones online are listed.
+// A spectator (or a juggernaut) who leaves leaves no trace at the table: only the ones online
+// are listed.
 function memberWentOffline(
   state: TablePresenceState,
   event: SessionMemberLeftDto,
@@ -171,5 +172,6 @@ function memberProfileOf(
 }
 
 function isListable(member: SessionMemberDto): boolean {
-  return member.role !== 'spectator' || member.online;
+  if (member.online) return true;
+  return member.role !== 'spectator' && !member.juggernaut;
 }

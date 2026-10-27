@@ -146,12 +146,26 @@ export class TablePresenceBo {
     return this.roster.sockets.has(userId) || this.roster.inGrace.has(userId);
   }
 
-  /** Whether the table shows `member`: a player or the master always, a spectator only while
-   *  online (the table keeps no trace of who only watches).
+  /** Whether the table shows `member`: a player or a master always, a spectator or a juggernaut
+   *  only while online (the table keeps no trace of who only watches nor of a juggernaut).
    *
-   *  Example: `presence.lists({ userId: dudaId, role: 'spectator' }) // false once she left` */
-  lists(member: Readonly<{ userId: string; role: CampaignRole }>): boolean {
-    return member.role !== 'spectator' || this.isOnline(member.userId);
+   *  Example: `presence.lists({ userId: dudaId, role: 'spectator', juggernaut: false }) // false once she left` */
+  lists(member: Readonly<{ userId: string; role: CampaignRole; juggernaut: boolean }>): boolean {
+    if (member.role === 'spectator' || member.juggernaut) return this.isOnline(member.userId);
+    return true;
+  }
+
+  /** The member was taken out of the table: every socket of theirs, the grace and the away marks
+   *  go at once (`went-offline`, version +1); someone not at it is `not-connected`.
+   *
+   *  Example: `new TablePresenceBo(roster).remove(rootId).change // 'went-offline'` */
+  remove(userId: string): PresenceOutcome {
+    if (!this.isOnline(userId)) return this.unchanged('not-connected');
+    const held = this.roster.sockets.get(userId) ?? new Set<string>();
+    const away = new Set([...this.roster.away].filter((socketId) => !held.has(socketId)));
+    const sockets = withSockets(this.roster.sockets, userId, []);
+    const inGrace = without(this.roster.inGrace, userId);
+    return this.offline({ ...this.roster, sockets, inGrace, away }, userId);
   }
 
   awaySinceOf(userId: string): Date | null {

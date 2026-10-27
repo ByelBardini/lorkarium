@@ -1,4 +1,9 @@
-import type { AddressedSceneRow, SceneRow, ScenesDao } from '../../src/modules/scenes/scenes.dao';
+import type {
+  AddressedSceneRow,
+  LibrarySceneRow,
+  SceneRow,
+  ScenesDao,
+} from '../../src/modules/scenes/scenes.dao';
 import type { SceneTransactionRunner } from '../../src/modules/scenes/scenes.service';
 import type { NewScenePo, SceneConfigPo, ScenePo } from '../../src/modules/scenes/scenes.po';
 import { AssetsDaoFake } from './assets-fakes';
@@ -20,6 +25,7 @@ export class ScenesDaoFake implements Pick<
   | 'lockCastOf'
   | 'bumpVersion'
   | 'update'
+  | 'listOfCampaign'
 > {
   readonly journal: string[] = [];
   readonly activeOf = new Map<string, string>();
@@ -31,6 +37,12 @@ export class ScenesDaoFake implements Pick<
     const row = scenePo({ id: `scene-${this.rows.length + 1}`, version: 0, ...scene });
     this.rows.push(row);
     return row;
+  }
+
+  /** The grids of the library (no cast), oldest first as stored, with no tokens counted. */
+  async listOfCampaign(campaignId: string): Promise<LibrarySceneRow[]> {
+    const grids = this.rows.filter((row) => row.campaignId === campaignId && row.kind === 'grid');
+    return grids.map((row) => ({ ...this.withBackground(row), tokenCount: 0 }));
   }
 
   async findActiveOf(campaignId: string): Promise<SceneRow | undefined> {

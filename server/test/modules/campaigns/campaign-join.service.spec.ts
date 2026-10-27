@@ -25,7 +25,9 @@ describe('CampaignJoinService', () => {
   });
 
   function biasCampaign(passwordHash: string | null = null): void {
-    campaigns.rows.push(campaignPo({ id: 'vharn', joinCode: 'VHRN7K2Q', passwordHash }));
+    campaigns.rows.push(
+      campaignPo({ id: 'vharn', ownerId: BIA_ID, joinCode: 'VHRN7K2Q', passwordHash }),
+    );
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
   }
 
@@ -107,7 +109,9 @@ describe('CampaignJoinService', () => {
 
   describe('joinPublic (Explorar mesas, no code)', () => {
     function publicCampaign(passwordHash: string | null = null): void {
-      campaigns.rows.push(campaignPo({ id: 'vharn', visibility: 'public', passwordHash }));
+      campaigns.rows.push(
+        campaignPo({ id: 'vharn', ownerId: BIA_ID, visibility: 'public', passwordHash }),
+      );
       members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
     }
 

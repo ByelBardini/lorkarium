@@ -1,7 +1,8 @@
-import type { CampaignRole } from '../campaigns/campaign-access.bo';
+import { CampaignAccessBo, type CampaignRole } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { toCampaignAccessBo } from '../campaigns/campaigns.mapper';
 import { reachedGridOf, type SceneTransaction } from './locked-scene';
+import { SceneAccessBo } from './scene-access.bo';
 import type { ScenesDao } from './scenes.dao';
 
 /** The DAOs of the watch transaction, bound to its `tx`. */
@@ -10,7 +11,7 @@ export type SceneShareDaos = Readonly<{ scenes: Pick<ScenesDao, 'shareInCampaign
 export type SceneWatchServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
   share: SceneTransaction<SceneShareDaos>;
-  scenes: Pick<ScenesDao, 'findActiveOf' | 'findCastOf'>;
+  scenes: Pick<ScenesDao, 'findActiveOf' | 'findCastOf' | 'listOfCampaign'>;
 }>;
 
 /** Enters the rooms of one grid; the role picks the masters' room too. */
@@ -49,6 +50,19 @@ export class SceneWatchService {
    *  Example: `const groupId = await sceneWatch.groupSceneIdOf(campaignId)` */
   async groupSceneIdOf(campaignId: string): Promise<string | null> {
     return (await this.deps.scenes.findActiveOf(campaignId))?.id ?? null;
+  }
+
+  /** The grids of a table that a player does not reach (private, not the group grid): what a
+   *  master demoted to player or spectator can no longer have open as a tab.
+   *
+   *  Example: `await sceneWatch.privateGridIdsOf(campaignId) // [criptaId]` */
+  async privateGridIdsOf(campaignId: string): Promise<string[]> {
+    const groupSceneId = await this.groupSceneIdOf(campaignId);
+    // Any player reaches the same grids: who it is only shows in errors, which this never raises.
+    const player = new CampaignAccessBo({ campaignId, userId: 'a player', role: 'player' });
+    const access = new SceneAccessBo(player, groupSceneId);
+    const grids = await this.deps.scenes.listOfCampaign(campaignId);
+    return grids.filter((grid) => !access.canSee(grid)).map((grid) => grid.id);
   }
 
   /** The cast of a table (the scene of the characters' anchors), or `null` for a table without

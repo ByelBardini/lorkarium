@@ -6,6 +6,7 @@ import type {
   CampaignDetailDto,
   CampaignSummaryDto,
   CreateCampaignRequestDto,
+  EndJuggernautResponseDto,
   JoinCampaignRequestDto,
   JoinPublicCampaignRequestDto,
   PublicCampaignDto,
@@ -21,7 +22,9 @@ export const VHARN: CampaignSummaryDto = {
   status: 'recruiting',
   description: 'Um sino toca sozinho na torre de Vharn.',
   visibility: 'private',
+  ownerId: '7d0f8c39-2b8e-4f4e-9d1a-5c6b7a8e9f01',
   myRole: 'master',
+  juggernaut: false,
   masterName: 'Ana',
   memberCount: 3,
   lastEnteredAt: '2026-10-13T22:30:00.000Z',
@@ -39,7 +42,9 @@ export const QUELM: CampaignSummaryDto = {
   status: 'building',
   description: null,
   visibility: 'public',
+  ownerId: '9c2f4e61-7a3b-4d5c-8e9f-0b1a2c3d4e5f',
   myRole: 'player',
+  juggernaut: false,
   masterName: 'Bia',
   memberCount: 4,
   lastEnteredAt: null,
@@ -54,6 +59,7 @@ export const QUELM: CampaignSummaryDto = {
 export const PUBLIC_VHARN: PublicCampaignDto = {
   ...withoutReaderFields(VHARN),
   visibility: 'public',
+  ownerId: '9c2f4e61-7a3b-4d5c-8e9f-0b1a2c3d4e5f',
   masterName: 'Bia',
   myRole: null,
   hasPassword: false,
@@ -121,6 +127,8 @@ type Answers = {
   regenerateCode: CampaignsResult<CampaignDetailDto>;
   remove: CampaignsResult<null>;
   setMemberRole: CampaignsResult<CampaignMemberDto>;
+  startJuggernaut: CampaignsResult<CampaignDetailDto>;
+  endJuggernaut: CampaignsResult<EndJuggernautResponseDto>;
 };
 
 type Method = keyof Answers;
@@ -133,7 +141,10 @@ export class CampaignsApiFake implements CampaignsApi {
   private readonly answers: { [M in Method]: Answers[M] | Pending<Answers[M]> } = {
     list: { ok: true, value: [VHARN, QUELM] },
     listPublic: { ok: true, value: [PUBLIC_VHARN] },
-    joinPublic: { ok: true, value: { ...VHARN, myRole: 'spectator', masterName: 'Bia' } },
+    joinPublic: {
+      ok: true,
+      value: { ...VHARN, myRole: 'spectator', masterName: 'Bia', ownerId: QUELM.ownerId },
+    },
     create: { ok: true, value: detailOf(VHARN) },
     detail: { ok: true, value: detailOf(VHARN) },
     join: { ok: true, value: QUELM },
@@ -142,6 +153,8 @@ export class CampaignsApiFake implements CampaignsApi {
     regenerateCode: { ok: true, value: detailOf(VHARN, { joinCode: 'QWER5TYU' }) },
     remove: { ok: true, value: null },
     setMemberRole: { ok: true, value: detailMemberOf('Duda', 'player') },
+    startJuggernaut: { ok: true, value: detailOf(QUELM, { myRole: 'master', juggernaut: true }) },
+    endJuggernaut: { ok: true, value: { myRole: null } },
   };
 
   answer<M extends Method>(method: M, result: Answers[M]): this {
@@ -215,6 +228,14 @@ export class CampaignsApiFake implements CampaignsApi {
     role: MemberRole,
   ): Promise<Answers['setMemberRole']> {
     return this.reply('setMemberRole', { campaignId, userId, role });
+  }
+
+  startJuggernaut(campaignId: string): Promise<Answers['startJuggernaut']> {
+    return this.reply('startJuggernaut', campaignId);
+  }
+
+  endJuggernaut(campaignId: string): Promise<Answers['endJuggernaut']> {
+    return this.reply('endJuggernaut', campaignId);
   }
 
   private async reply<M extends Method>(method: M, argument: unknown): Promise<Answers[M]> {

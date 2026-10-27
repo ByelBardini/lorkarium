@@ -1,0 +1,4 @@
+ALTER TABLE "campaign_members" ADD COLUMN "juggernaut_since" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "campaign_members" ADD COLUMN "role_before_juggernaut" "campaign_role";--> statement-breakpoint
+ALTER TABLE "campaign_members" ADD CONSTRAINT "campaign_members_juggernaut_is_master" CHECK ("campaign_members"."juggernaut_since" is null or "campaign_members"."role" = 'master');--> statement-breakpoint
+ALTER TABLE "campaign_members" ADD CONSTRAINT "campaign_members_role_before_needs_juggernaut" CHECK ("campaign_members"."role_before_juggernaut" is null or "campaign_members"."juggernaut_since" is not null);

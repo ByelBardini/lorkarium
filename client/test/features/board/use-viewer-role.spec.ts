@@ -77,6 +77,11 @@ describe('followViewerRole', () => {
     api.emitTo(VHARN.id, { kind: 'state', state: vharnState({ members }) });
   }
 
+  function biaMaster(): void {
+    const members = [ANA_AT_TABLE, { ...BIA_AT_TABLE, role: 'master' as const, online: true }];
+    api.emitTo(VHARN.id, { kind: 'state', state: vharnState({ members }) });
+  }
+
   function memberUpdated(member: SessionMemberDto, version = 2): void {
     api.emitTo(VHARN.id, { kind: 'memberUpdated', event: biaUpdated({ member, version }) });
   }
@@ -114,6 +119,53 @@ describe('followViewerRole', () => {
     const shown = visibleTabOf(table.tabs.getState()).interaction.getState();
     expect(shown.notice).toBe('Agora você é jogador nesta mesa.');
     expect(revalidation.count).toBe(1);
+  });
+
+  it('Bia promoted to master live: every grid and the cast resync, and she hears it', () => {
+    biaOnline();
+    followAs(BIA_AT_TABLE.userId);
+    memberUpdated({ ...BIA_AT_TABLE, role: 'master' });
+
+    expect(resyncsSinceStart()).toEqual({
+      group: [VHARN.id],
+      tabs: [`${VHARN.id}:${TORRE_SCENE.id}`],
+      cast: [`${VHARN.id}:${VHARN_CAST_ID}`],
+    });
+    expect(revalidation.count).toBe(1);
+    const shown = visibleTabOf(table.tabs.getState()).interaction.getState();
+    expect(shown.notice).toBe('Agora você é mestre desta mesa.');
+  });
+
+  it('Bia demoted from master to player with Paredes on drops back to Selecionar', () => {
+    biaMaster();
+    const group = groupTabOf(table.tabs.getState()).interaction.getState();
+    group.allowLayerChoice(true);
+    group.setTool('walls');
+    expect(groupTabOf(table.tabs.getState()).interaction.getState().tool).toBe('walls');
+    followAs(BIA_AT_TABLE.userId);
+    memberUpdated({ ...BIA_AT_TABLE, role: 'player' });
+
+    expect(groupTabOf(table.tabs.getState()).interaction.getState().tool).toBe('select');
+    const shown = visibleTabOf(table.tabs.getState()).interaction.getState();
+    expect(shown.notice).toBe('Agora você é jogador nesta mesa.');
+  });
+
+  it('Bia demoted from master to player keeps Desenhar, a tool players have too', () => {
+    biaMaster();
+    groupTabOf(table.tabs.getState()).interaction.getState().setTool('draw');
+    followAs(BIA_AT_TABLE.userId);
+    memberUpdated({ ...BIA_AT_TABLE, role: 'player' });
+
+    expect(groupTabOf(table.tabs.getState()).interaction.getState().tool).toBe('draw');
+  });
+
+  it('the same role with juggernaut switched asks nothing', () => {
+    biaMaster();
+    followAs(BIA_AT_TABLE.userId);
+    memberUpdated({ ...BIA_AT_TABLE, role: 'master', juggernaut: true });
+
+    expect(resyncsSinceStart()).toEqual({ group: [], tabs: [], cast: [] });
+    expect(revalidation.count).toBe(0);
   });
 
   it('a new profile of Bia with the same role asks nothing', () => {

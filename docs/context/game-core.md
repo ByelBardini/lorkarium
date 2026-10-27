@@ -32,6 +32,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/aura.vo.ts` — o raio (0 a 20 casas) e a opacidade (10 a 100%) da aura do token (VO)
 - `src/lighting.ts` — a fonte de luz e o nível de luz num ponto
 - `src/token-rights.ts` — quem cria, edita e exclui token pelas duas chaves da mesa (posse pelo autor)
+- `src/table-seats.ts` — `TableSeat { role, owner, juggernaut }`; `hasOwnerPowers` e `isRoleLocked` (dono e juggernaut); `assignableRolesOf(ator, alvo)`: poder de dono põe qualquer um destravado em outro papel, o co-mestre só troca jogador ↔ espectador, ninguém mexe no dono, no juggernaut nem em si. Usado pelo `MemberRoleBo` (recusa) e pelos menus do painel "Na mesa" (client)
 - `src/stable-hash.ts` — hash estável de um texto (capa da mesa, cor da pessoa)
 - `src/member-color.ts` — as 8 cores da pessoa e a cor efetiva
 - `src/dice-notation.ts` — a notação dos dados (`2d20kh1+5`, `4d6dl1`, `1d6!`, `1d20r1`, `8d10>=7`, `d%`), os limites e a forma canônica; `src/dice-roll.ts` — a rolagem em ondas (explosão, rerrolagem, manter/descartar, sucessos) até o total; `src/dice-advantage.ts` — as peças da rolagem (até 10, até 1000 dados) e a vantagem/desvantagem no primeiro dado. Detalhe em [`game-core/dados.md`](game-core/dados.md)

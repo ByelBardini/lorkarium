@@ -1,3 +1,4 @@
+import type { JuggernautEnderPort } from '../../src/modules/user-admin/juggernaut-ender.port';
 import type { UserPo } from '../../src/modules/auth/users.po';
 import type {
   AccountListingRow,
@@ -67,5 +68,20 @@ export class StorageRemoveFake {
 
   async remove(key: string): Promise<void> {
     this.removed.push(key);
+  }
+}
+
+/** Records each account whose juggernaut mode was turned off everywhere and writes
+ *  `endAllOf <userId>` to `journal` (share the transaction's journal to read "after the commit").
+ *
+ *  Example: `new JuggernautEnderFake(journal).ended // [biaId]` */
+export class JuggernautEnderFake implements JuggernautEnderPort {
+  readonly ended: string[] = [];
+
+  constructor(private readonly journal: string[]) {}
+
+  async endAllOf(userId: string): Promise<void> {
+    this.ended.push(userId);
+    this.journal.push(`endAllOf ${userId}`);
   }
 }

@@ -62,6 +62,8 @@ describe('the commands of a character', () => {
       description: null,
       visibility: 'private',
       myRole: 'master',
+      juggernaut: false,
+      ownerId: '9d0c1b2a-3e4f-4a5b-8c6d-7e8f9a0b1c2d',
       masterName: 'Ana',
       memberCount: 1,
       cover: { kind: 'drawn', drawing: 0, tone: 1 },

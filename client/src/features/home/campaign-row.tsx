@@ -5,15 +5,19 @@ import { CampaignCover } from '@/components/campaign-cover';
 import { StatusBadge } from '@/components/status-badge';
 import { campaignMeta, ROLE_LABEL } from '@/lib/campaign-meta';
 
-export type CampaignRowProps = Readonly<{ campaign: CampaignSummaryDto }>;
+export type CampaignRowProps = Readonly<{
+  campaign: CampaignSummaryDto;
+  /** The signed-in account: the owner does not read their own name in the meta. */
+  readerId: string;
+}>;
 
 /** One campaign as an index line: thumbnail, name, status, meta, a line of description and the
  *  role.
  *  No box, shadow or lift: rows are separated by a hairline; hover paints no background (a
  *  full-width band looks detached), it turns the name gold and shows the arrow.
  *
- *  Example: `<ul>{campaigns.map((c) => <CampaignRow key={c.id} campaign={c} />)}</ul>` */
-export function CampaignRow({ campaign }: CampaignRowProps): React.JSX.Element {
+ *  Example: `<ul>{campaigns.map((c) => <CampaignRow key={c.id} campaign={c} readerId={user.id} />)}</ul>` */
+export function CampaignRow({ campaign, readerId }: CampaignRowProps): React.JSX.Element {
   return (
     <li className="border-b border-divider last:border-b-0">
       <Link
@@ -31,7 +35,7 @@ export function CampaignRow({ campaign }: CampaignRowProps): React.JSX.Element {
           <span className="flex min-w-0 items-center gap-3">
             <StatusBadge status={campaign.status} className="shrink-0" />
             <span className="truncate text-[13px] text-muted-foreground">
-              {campaignMeta(campaign)}
+              {campaignMeta(campaign, readerId)}
             </span>
           </span>
           {campaign.description && (

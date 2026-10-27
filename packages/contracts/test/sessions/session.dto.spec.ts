@@ -6,6 +6,8 @@ import {
   sessionCommandDto,
   sessionJoinAckDto,
   sessionMemberActivityDto,
+  sessionMemberDto,
+  sessionRemovedFromTableDto,
 } from '../../src/sessions/session.dto';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
@@ -112,6 +114,7 @@ describe('the campaign events', () => {
     status: 'ongoing',
     description: null,
     visibility: 'private',
+    ownerId: '9d0c1b2a-3e4f-4a5b-8c6d-7e8f9a0b1c2d',
     masterName: 'Ana',
     memberCount: 2,
     cover: { kind: 'drawn', drawing: 0, tone: 1 },
@@ -135,5 +138,39 @@ describe('the campaign events', () => {
   it('session:campaignDeleted carries only the campaign and the moment', () => {
     const event = { campaignId: CAMPAIGN_ID, at: STATE.at };
     expect(sessionCampaignDeletedDto.parse(event)).toEqual(event);
+  });
+
+  it('session:removedFromTable carries only the campaign and the moment', () => {
+    const event = { campaignId: CAMPAIGN_ID, at: STATE.at };
+    expect(sessionRemovedFromTableDto.parse(event)).toEqual(event);
+  });
+
+  it('session:removedFromTable refuses a forged userId', () => {
+    const event = { campaignId: CAMPAIGN_ID, at: STATE.at, userId: ACTION_ID };
+    expect(sessionRemovedFromTableDto.safeParse(event).success).toBe(false);
+  });
+});
+
+describe('sessionMemberDto', () => {
+  const ROOT = {
+    userId: ACTION_ID,
+    name: 'Root',
+    username: 'root',
+    color: 'rose',
+    avatarId: null,
+    bio: null,
+    role: 'master',
+    juggernaut: true,
+    online: true,
+    awaySince: null,
+  } as const;
+
+  it('carries whether the member is a juggernaut', () => {
+    expect(sessionMemberDto.parse(ROOT)).toEqual(ROOT);
+  });
+
+  it('refuses a member that does not say whether they are a juggernaut', () => {
+    const withoutMode = { ...ROOT, juggernaut: undefined };
+    expect(sessionMemberDto.safeParse(withoutMode).success).toBe(false);
   });
 });

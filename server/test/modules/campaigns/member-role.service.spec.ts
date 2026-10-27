@@ -15,12 +15,13 @@ import {
 import { ForgottenMembershipsFake, MemberRoleChangedFake } from '../../support/member-role-fakes';
 
 describe('MemberRoleService.change', () => {
+  let campaigns: CampaignsDaoFake;
   let members: CampaignMembersDaoFake;
   let changed: MemberRoleChangedFake;
   let service: MemberRoleService;
 
   beforeEach(() => {
-    const campaigns = new CampaignsDaoFake([
+    campaigns = new CampaignsDaoFake([
       campaignPo({ id: VHARN_ID }),
       campaignPo({ id: QUELM_ID, joinCode: 'QLMR2345' }),
     ]);
@@ -33,6 +34,7 @@ describe('MemberRoleService.change', () => {
     ]);
     changed = new MemberRoleChangedFake(members.writes);
     service = new MemberRoleService({
+      campaigns,
       members,
       memberships: new ForgottenMembershipsFake(members.writes),
       changed,
@@ -52,6 +54,7 @@ describe('MemberRoleService.change', () => {
       campaignId: VHARN_ID,
       userId: DUDA_ID,
       role: 'player',
+      from: 'spectator',
     });
   });
 
@@ -107,6 +110,31 @@ describe('MemberRoleService.change', () => {
     const change = service.change(userId, { campaignId: VHARN_ID, targetId, role: 'spectator' });
 
     await expect(change).rejects.toMatchObject({ code });
+    expect(members.writes).toEqual([]);
+  });
+
+  it('Ana, the owner of Vharn, promoting Bia to master saves it and tells the table from player', async () => {
+    await service.change(ANA_ID, { campaignId: VHARN_ID, targetId: BIA_ID, role: 'master' });
+
+    expect(changed.told[0]?.change).toEqual({
+      campaignId: VHARN_ID,
+      userId: BIA_ID,
+      role: 'master',
+      from: 'player',
+    });
+  });
+
+  it('Bia, a co-master but not the owner of Vharn, promoting Duda to master is FORBIDDEN and writes nothing', async () => {
+    await service.change(ANA_ID, { campaignId: VHARN_ID, targetId: BIA_ID, role: 'master' });
+    members.writes.splice(0);
+
+    const promotion = service.change(BIA_ID, {
+      campaignId: VHARN_ID,
+      targetId: DUDA_ID,
+      role: 'master',
+    });
+
+    await expect(promotion).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(members.writes).toEqual([]);
   });
 });

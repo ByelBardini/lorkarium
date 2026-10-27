@@ -63,8 +63,14 @@ export type OpenTable = Omit<OpenTableRef, 'cover'> &
 
 export type OpenTableResult = 'opened' | 'already-open' | 'full';
 
-/** A table the master deleted while it was open here: closed, and named for the notice. */
-export type DeletedTableNotice = Readonly<{ campaignId: string; name: string }>;
+/** A table closed under this tab by the server while it was open here, named for the notice:
+ *  its master deleted it (`deleted`) or the person was taken out of it (`removed`: a juggernaut
+ *  who was not a member turned the mode off). */
+export type DeletedTableNotice = Readonly<{
+  campaignId: string;
+  name: string;
+  reason: 'deleted' | 'removed';
+}>;
 
 export type OpenTablesState = Readonly<{
   ownerId: string | null;
@@ -244,18 +250,19 @@ class OpenTablesActions {
   }
 
   private onUpdate(campaignId: string, stores: TableStores, update: TableSessionUpdate): void {
-    if (update.kind === 'campaignDeleted') return this.closeDeleted(campaignId);
+    if (update.kind === 'campaignDeleted') return this.closeDeleted(campaignId, 'deleted');
+    if (update.kind === 'removedFromTable') return this.closeDeleted(campaignId, 'removed');
     if (update.kind === 'campaignUpdated') this.retitle(update.event.campaign);
     applyUpdate(this.set, stores, update);
     stores.dice.getState().apply(update, (this.deps.wallClock ?? Date.now)());
   }
 
   // The server already took this socket out of the room; closing only forgets the table here.
-  private closeDeleted(campaignId: string): void {
+  private closeDeleted(campaignId: string, reason: DeletedTableNotice['reason']): void {
     const table = this.tableOf(campaignId);
     if (!table) return;
     this.close(campaignId);
-    this.set({ deletedNotice: { campaignId, name: table.name } });
+    this.set({ deletedNotice: { campaignId, name: table.name, reason } });
   }
 
   private retitle(campaign: CampaignInfoDto): void {

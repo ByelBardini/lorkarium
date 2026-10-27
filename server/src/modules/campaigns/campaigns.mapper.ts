@@ -10,10 +10,11 @@ import {
   type CreateCampaignRequestDto,
   type UpdateCampaignRequestDto,
 } from '@lorkarium/contracts';
-import { defaultCoverOf, memberColorOf } from '@lorkarium/game-core';
+import { defaultCoverOf, memberColorOf, type TableSeat } from '@lorkarium/game-core';
 import { CampaignAccessBo } from './campaign-access.bo';
 import { CampaignJoinBo } from './campaign-join.bo';
 import { CampaignSettingsBo } from './campaign-settings.bo';
+import { JuggernautBo } from './juggernaut.bo';
 import { MemberRoleBo } from './member-role.bo';
 import type {
   CampaignListingRow,
@@ -46,12 +47,14 @@ export function toCampaignSummaryDto(row: CampaignListingRow): CampaignSummaryDt
   return {
     ...campaignInfoOf(row),
     myRole: row.role,
+    juggernaut: row.juggernautSince !== null,
     lastEnteredAt: row.lastEnteredAt?.toISOString() ?? null,
   };
 }
 
 /** Public row → DTO: one card of "Explorar mesas"; the hash never leaves, only whether "Entrar"
- *  asks for it (never for an admin, who joins without it).
+ *  asks for it (never for an admin, who joins without it). "A master is online" is any master of
+ *  the table; the players online are everyone else online.
  *
  *  Example: `rows.map((row) => toPublicCampaignDto(row, false, online))[0].hasPassword // true` */
 export function toPublicCampaignDto(
@@ -59,24 +62,25 @@ export function toPublicCampaignDto(
   readerIsAdmin: boolean,
   onlineUserIds: ReadonlySet<string>,
 ): PublicCampaignDto {
-  const masterOnline = onlineUserIds.has(row.masterId);
+  const mastersOnline = row.masterIds.filter((id) => onlineUserIds.has(id)).length;
   return {
     ...campaignInfoOf(row),
     myRole: row.myRole,
     hasPassword: row.campaign.passwordHash !== null && !readerIsAdmin,
     masterUsername: row.masterUsername,
-    masterOnline,
-    playersOnline: onlineUserIds.size - (masterOnline ? 1 : 0),
+    masterOnline: mastersOnline > 0,
+    playersOnline: onlineUserIds.size - mastersOnline,
   };
 }
 
 type CampaignInfoRow = Readonly<{ campaign: CampaignPo; masterName: string; memberCount: number }>;
 
 function campaignInfoOf({ campaign, masterName, memberCount }: CampaignInfoRow): CampaignInfoDto {
-  const { id, name, system, status, description, visibility, tags } = campaign;
+  const { id, name, system, status, description, visibility, tags, ownerId } = campaign;
   const { playersCreateTokens, playersDeleteTokens } = campaign;
   return {
     ...{ id, name, system, status, description, visibility, masterName, memberCount, tags },
+    ownerId,
     ...{ playersCreateTokens, playersDeleteTokens },
     cover: coverOf(campaign),
     contentWarnings: campaign.contentWarnings.filter(isContentWarning),
@@ -106,6 +110,7 @@ export function toCampaignSummaryOfView(view: CampaignView): CampaignSummaryDto 
   return toCampaignSummaryDto({
     campaign: view.campaign,
     role: view.membership.role,
+    juggernautSince: view.membership.juggernautSince,
     joinedAt: view.membership.joinedAt,
     lastEnteredAt: view.membership.lastEnteredAt,
     masterName: masterNameOf(view),
@@ -113,12 +118,12 @@ export function toCampaignSummaryOfView(view: CampaignView): CampaignSummaryDto 
   });
 }
 
-/** The members the table keeps a record of: everyone but the spectators, who leave no trace in
- *  the participants nor in the count.
+/** The members the table keeps a record of: everyone but the spectators and the juggernauts,
+ *  who leave no trace in the participants nor in the count.
  *
  *  Example: `membersOfRecord(view.members).length // the memberCount` */
 export function membersOfRecord(members: readonly CampaignMemberRow[]): CampaignMemberRow[] {
-  return members.filter((member) => member.role !== 'spectator');
+  return members.filter((member) => member.role !== 'spectator' && !member.juggernaut);
 }
 
 /** View → DTO: the detail modal; the join code only reaches the master, the hash never leaves,
@@ -147,6 +152,7 @@ export function toCampaignInfoDto(detail: CampaignDetailDto): CampaignInfoDto {
   const { cover, contentWarnings, tags, playersCreateTokens, playersDeleteTokens } = detail;
   return {
     ...{ id, name, system, status, description, visibility, masterName, memberCount },
+    ownerId: detail.ownerId,
     ...{ cover, contentWarnings, tags, playersCreateTokens, playersDeleteTokens },
   };
 }
@@ -162,16 +168,47 @@ export function toCampaignAccessBo(
   return new CampaignAccessBo({ campaignId, userId, role: membership?.role ?? null });
 }
 
-/** Membership (or its absence) → BO for the settings rules (edit, new code, delete).
+/** Membership (or its absence) and the campaign's owner → where the member sits at the table;
+ *  `null` for someone who is not a member.
  *
- *  Example: `toCampaignSettingsBo(campaignId, userId, membership, true).requireMasterAtTable('delete the campaign')` */
+ *  Example: `toTableSeat(membership, campaign.ownerId) // { role: 'master', owner: true, juggernaut: false }` */
+export function toTableSeat(
+  membership: CampaignMemberPo | undefined,
+  ownerId: string | null,
+): TableSeat | null {
+  if (!membership) return null;
+  const owner = membership.userId === ownerId;
+  return { role: membership.role, owner, juggernaut: membership.juggernautSince !== null };
+}
+
+/** Campaign + the admin's membership (or its absence) → BO for turning juggernaut mode on/off.
+ *
+ *  Example: `toJuggernautBo(campaign, rootId, undefined).start()` */
+export function toJuggernautBo(
+  campaign: CampaignPo,
+  userId: string,
+  membership: CampaignMemberPo | undefined,
+): JuggernautBo {
+  const seat = toTableSeat(membership, campaign.ownerId);
+  const roleBefore = membership?.roleBeforeJuggernaut ?? null;
+  return new JuggernautBo(campaign.id, userId, seat && { ...seat, roleBefore });
+}
+
+/** Membership (or its absence) → BO for the settings rules (edit, new code, delete); `ownerId`
+ *  tells whether the member holds owner powers (`null` = the campaign is gone).
+ *
+ *  Example: `toCampaignSettingsBo(campaignId, userId, membership, true, ownerId).requireOwnerPowersAtTable('delete the campaign')` */
 export function toCampaignSettingsBo(
   campaignId: string,
   userId: string,
   membership: CampaignMemberPo | undefined,
   atTable: boolean,
+  ownerId: string | null,
 ): CampaignSettingsBo {
-  return new CampaignSettingsBo(toCampaignAccessBo(campaignId, userId, membership), atTable);
+  const access = toCampaignAccessBo(campaignId, userId, membership);
+  const seat = toTableSeat(membership, ownerId);
+  const powers = { owner: seat?.owner ?? false, juggernaut: seat?.juggernaut ?? false };
+  return new CampaignSettingsBo(access, atTable, powers);
 }
 
 /** Campaign + membership (or its absence) → BO for the join-by-code decision.
@@ -191,35 +228,43 @@ export function toCampaignJoinBo(
   });
 }
 
-/** Who asks to change a role, and of whom: the two memberships (`undefined` = not a member). */
+/** Who asks to change a role, and of whom: the two memberships (`undefined` = not a member)
+ *  and the campaign's owner (`null` = the campaign is gone). */
 export type MemberRoleLookup = Readonly<{
   campaignId: string;
   userId: string;
   targetId: string;
   requester: CampaignMemberPo | undefined;
   target: CampaignMemberPo | undefined;
+  ownerId: string | null;
 }>;
 
-/** Both memberships → BO for the role change rules.
+/** Both memberships → BO for the role change rules, with the seat of each.
  *
- *  Example: `toMemberRoleBo({ campaignId, userId, targetId, requester, target }).decide('player')` */
+ *  Example: `toMemberRoleBo({ campaignId, userId, targetId, requester, target, ownerId }).decide('master')` */
 export function toMemberRoleBo(lookup: MemberRoleLookup): MemberRoleBo {
-  const { campaignId, userId, targetId } = lookup;
-  const access = toCampaignAccessBo(campaignId, userId, lookup.requester);
-  return new MemberRoleBo(access, { userId: targetId, role: lookup.target?.role ?? null });
+  const { campaignId, userId, targetId, ownerId } = lookup;
+  const requester = { userId, seat: toTableSeat(lookup.requester, ownerId) };
+  const target = { userId: targetId, seat: toTableSeat(lookup.target, ownerId) };
+  return new MemberRoleBo(campaignId, requester, target);
 }
 
+// "Mestre: X" is the owner's name, however many co-masters the table has.
 function masterNameOf(view: CampaignView): string {
-  const master = view.members.find((member) => member.role === 'master');
-  if (master) return master.name;
-  throw new Error(`campaign ${view.campaign.id} has no member with role master`);
+  const { id, ownerId } = view.campaign;
+  const owner = view.members.find((member) => member.userId === ownerId);
+  if (owner) return owner.name;
+  throw new Error(`campaign ${id} has no member with the owner_id ${ownerId}`);
 }
 
-/** The order every member list is shown in: the master first, then by name in pt-BR.
+/** The order every member list is shown in: the owner first, then the other masters, then the
+ *  rest, each group by name in pt-BR.
  *
  *  Example: `orderedMembers(await dao.listMembers(campaignId))[0].role // 'master'` */
 export function orderedMembers(members: readonly CampaignMemberRow[]): CampaignMemberRow[] {
-  return [...members].sort((a, b) => masterFirst(a, b) || a.name.localeCompare(b.name, 'pt-BR'));
+  return [...members].sort(
+    (a, b) => seatRank(a) - seatRank(b) || a.name.localeCompare(b.name, 'pt-BR'),
+  );
 }
 
 function sortedMembers(
@@ -245,8 +290,9 @@ export function toCampaignMemberDto(member: CampaignMemberRow, online: boolean):
   };
 }
 
-function masterFirst(a: CampaignMemberRow, b: CampaignMemberRow): number {
-  return Number(b.role === 'master') - Number(a.role === 'master');
+function seatRank(member: CampaignMemberRow): number {
+  if (member.owner) return 0;
+  return member.role === 'master' ? 1 : 2;
 }
 
 /** DTO → PO: the row to insert; the plain password never reaches it, only its hash.

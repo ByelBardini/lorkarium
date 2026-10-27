@@ -70,6 +70,8 @@ export function campaignMemberPo(overrides: Partial<CampaignMemberPo> = {}): Cam
     role: 'master',
     joinedAt: new Date('2026-10-01T12:00:00Z'),
     lastEnteredAt: null,
+    juggernautSince: null,
+    roleBeforeJuggernaut: null,
     ...overrides,
   };
 }
@@ -83,6 +85,7 @@ export function campaignListingRow(
   return {
     campaign: campaignPo(),
     role: 'master',
+    juggernautSince: null,
     joinedAt: new Date('2026-10-01T12:00:00Z'),
     lastEnteredAt: null,
     masterName: 'Ana',
@@ -103,6 +106,9 @@ export function campaignMemberRow(overrides: Partial<CampaignMemberRow> = {}): C
     avatarId: null,
     bio: null,
     role: 'master',
+    // The factory campaign is Ana's (`campaignPo`), so Ana's row is the owner's.
+    owner: (overrides.userId ?? ANA_ID) === ANA_ID,
+    juggernaut: false,
     ...overrides,
   };
 }

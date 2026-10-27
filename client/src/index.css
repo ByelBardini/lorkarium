@@ -5,6 +5,7 @@
 @import '@fontsource-variable/cormorant-garamond';
 @import '@fontsource-variable/cormorant-garamond/wght-italic.css';
 @import '@fontsource-variable/cinzel';
+@import '@fontsource-variable/jetbrains-mono';
 
 /* The app has one theme, and it is dark: every `dark:` style of the shadcn components always applies. */
 @custom-variant dark (&);
@@ -14,6 +15,9 @@
   --font-heading: var(--font-display);
   --font-display: 'Cormorant Garamond Variable', Georgia, serif;
   --font-brand: 'Cinzel Variable', Georgia, serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  /* No ligatures: `>=` must read as typed, not as ≥. */
+  --font-mono--font-feature-settings: 'calt' 0, 'liga' 0;
   --color-panel: var(--panel);
   --color-label: var(--label);
   --color-placeholder: var(--placeholder);

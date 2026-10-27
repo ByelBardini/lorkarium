@@ -32,6 +32,7 @@ describe('campaign settings HTTP edge', () => {
   let baseUrl: string;
   let anaUser: SignedInUser;
   let caioUser: SignedInUser;
+  let biaUser: SignedInUser;
   let ana: string;
   let bia: string;
   let caio: string;
@@ -50,7 +51,7 @@ describe('campaign settings HTTP edge', () => {
     anaUser = await signUpAndLogin(app, connection.db, 'Ana');
     caioUser = await signUpAndLogin(app, connection.db, 'Caio');
     ana = anaUser.token;
-    const biaUser = await signUpAndLogin(app, connection.db, 'Bia');
+    biaUser = await signUpAndLogin(app, connection.db, 'Bia');
     bia = biaUser.token;
     caio = caioUser.token;
     vharn = await createCampaign(ana, { name: 'Os Sinos de Vharn', password: 'sino' });
@@ -338,6 +339,32 @@ describe('campaign settings HTTP edge', () => {
       await call('DELETE', `/campaigns/${vharn.id}`, ana);
       const again = await call('DELETE', `/campaigns/${vharn.id}`, ana);
       expect(errorOf(again)).toEqual({ status: 404, code: 'CAMPAIGN_NOT_FOUND' });
+    });
+  });
+
+  describe('Bia, a co-master, at the settings', () => {
+    beforeEach(async () => {
+      await call('PATCH', `/campaigns/${vharn.id}/members/${biaUser.id}`, ana, { role: 'master' });
+      await openTable(biaUser, vharn);
+    });
+
+    it('edits the campaign: 200 with the name saved', async () => {
+      const response = await call('PATCH', `/campaigns/${vharn.id}`, bia, { name: 'Vharn da Bia' });
+      expect(response.statusCode).toBe(200);
+      expect(campaignResponseDto.parse(response.json()).campaign.name).toBe('Vharn da Bia');
+    });
+
+    it('hands out another join code: 200 with a code that is not the old one', async () => {
+      const response = await call('POST', `/campaigns/${vharn.id}/join-code`, bia);
+      expect(response.statusCode).toBe(200);
+      const { joinCode } = campaignResponseDto.parse(response.json()).campaign;
+      expect(joinCode).not.toBe(vharn.joinCode);
+    });
+
+    it('deleting is 403 FORBIDDEN and the campaign is still there', async () => {
+      const response = await call('DELETE', `/campaigns/${vharn.id}`, bia);
+      expect(errorOf(response)).toEqual({ status: 403, code: 'FORBIDDEN' });
+      expect((await call('GET', `/campaigns/${vharn.id}`, ana)).statusCode).toBe(200);
     });
   });
 });

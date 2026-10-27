@@ -11,6 +11,7 @@ import {
   type CampaignMemberDto,
   type CampaignMemberParamsDto,
   type CampaignResponseDto,
+  type EndJuggernautResponseDto,
   type JoinCampaignResponseDto,
   type ListCampaignsResponseDto,
   type ListPublicCampaignsResponseDto,
@@ -28,6 +29,7 @@ import {
   type CampaignErrorCode,
 } from './campaigns.error';
 import type { CampaignsService } from './campaigns.service';
+import type { JuggernautService } from './juggernaut.service';
 import type { MemberRoleService } from './member-role.service';
 
 // Spec §8.4: keyed by the signed-in user, so guessing codes costs one account per 10 tries a minute.
@@ -44,6 +46,7 @@ const STATUS_BY_CODE: Readonly<Record<CampaignErrorCode, number>> = {
   CAMPAIGN_NOT_OPEN: 403,
   INVALID_BODY: 400,
   MEMBER_NOT_FOUND: 404,
+  ALREADY_OWNER: 409,
 };
 
 // Public text only: the internal message cites ids and codes and stays in the log.
@@ -58,6 +61,7 @@ const PUBLIC_MESSAGE: Readonly<Record<CampaignErrorCode, string>> = {
   CAMPAIGN_NOT_OPEN: 'Open the campaign table to change its settings',
   INVALID_BODY: 'cover: the image must be a cover sent to this campaign',
   MEMBER_NOT_FOUND: 'Member not found',
+  ALREADY_OWNER: 'You already own this campaign',
 };
 
 export type CampaignsRoutesServices = Readonly<{
@@ -65,6 +69,7 @@ export type CampaignsRoutesServices = Readonly<{
   join: CampaignJoinService;
   settings: CampaignSettingsService;
   roles: MemberRoleService;
+  juggernaut: JuggernautService;
 }>;
 
 /** HTTP edge of campaigns; every route needs a session and acts as the session's user.
@@ -80,6 +85,7 @@ export function campaignsRoutes(
     registerJoinRoutes(app, services.join);
     registerSettingsRoutes(app, services.settings);
     registerMemberRoleRoutes(app, services.roles);
+    registerJuggernautRoutes(app, services.juggernaut);
   };
 }
 
@@ -156,6 +162,25 @@ function registerMemberRoleRoutes(app: FastifyInstance, service: MemberRoleServi
     const { role } = updateMemberRoleRequestDto.parse(request.body);
     const member = await service.change(userOf(request).id, { campaignId, targetId, role });
     return member satisfies CampaignMemberDto;
+  });
+}
+
+// Admin only (any campaign, private or not); each turn goes to the log, never with the e-mail.
+function registerJuggernautRoutes(app: FastifyInstance, service: JuggernautService): void {
+  const { requireRole, userOf } = app.authGuards;
+  const admin = { preHandler: requireRole('admin') };
+  const path = '/campaigns/:campaignId/juggernaut';
+  app.post(path, admin, async (request) => {
+    const campaignId = campaignIdOf(request);
+    const adminId = userOf(request).id;
+    request.log.info({ adminId, campaignId, action: 'juggernaut:start' }, 'juggernaut');
+    return { campaign: await service.start(adminId, campaignId) } satisfies CampaignResponseDto;
+  });
+  app.delete(path, admin, async (request) => {
+    const campaignId = campaignIdOf(request);
+    const adminId = userOf(request).id;
+    request.log.info({ adminId, campaignId, action: 'juggernaut:end' }, 'juggernaut');
+    return (await service.end(adminId, campaignId)) satisfies EndJuggernautResponseDto;
   });
 }
 

@@ -3,13 +3,14 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import type { CampaignSummaryDto } from '@lorkarium/contracts';
 import { CampaignRow } from '@/features/home/campaign-row';
+import { ANA } from '../../support/auth-api-fake';
 import { QUELM, VHARN } from '../../support/campaigns-api-fake';
 
 function renderRow(campaign: CampaignSummaryDto): void {
   render(
     <MemoryRouter>
       <ul>
-        <CampaignRow campaign={campaign} />
+        <CampaignRow campaign={campaign} readerId={ANA.id} />
       </ul>
     </MemoryRouter>,
   );

@@ -1,24 +1,41 @@
 import type { PublicCampaignDto } from '@lorkarium/contracts';
-import { EyeOffIcon, LockIcon } from 'lucide-react';
+import { EyeOffIcon, LockIcon, ShieldAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useFetcher } from 'react-router';
 import { CampaignCover } from '@/components/campaign-cover';
 import { StatusBadge } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { campaignMeta, ROLE_LABEL } from '@/lib/campaign-meta';
-import type { ExploreActionRequest, ExploreActionResult } from './explore-action';
+import type {
+  ExploreActionRequest,
+  ExploreActionResult,
+  ExploreJuggernautRequest,
+} from './explore-action';
 import { PASSWORD_FAILURES, publicJoinFailureMessage } from './explore-messages';
 import { JoinPublicDialog } from './join-public-dialog';
 import { PublicCampaignDialog } from './public-campaign-dialog';
 
 export type PublicCampaignRowProps = Readonly<{ campaign: PublicCampaignDto }>;
 
+export type PublicCampaignCardProps = PublicCampaignRowProps &
+  Readonly<{
+    /** The signed-in account: the owner does not read their own name in the meta. */
+    readerId: string | null;
+    /** An admin may enter any campaign as a juggernaut. */
+    readerIsAdmin: boolean;
+  }>;
+
 /** One card of "Explorar mesas": cover, status, name, meta and, in the footer, "Detalhes"
  *  (the modal with "Entrar", asking the password first when it has one, or the full detail of the
- *  campaign for one the reader is in).
+ *  campaign for one the reader is in) and, for an admin who does not master it, "Entrar como
+ *  juggernaut".
  *
- *  Example: `<ul>{campaigns.map((c) => <PublicCampaignRow key={c.id} campaign={c} />)}</ul>` */
-export function PublicCampaignRow({ campaign }: PublicCampaignRowProps): React.JSX.Element {
+ *  Example: `<ul>{campaigns.map((c) => <PublicCampaignRow key={c.id} campaign={c} readerId={user.id} readerIsAdmin={false} />)}</ul>` */
+export function PublicCampaignRow({
+  campaign,
+  readerId,
+  readerIsAdmin,
+}: PublicCampaignCardProps): React.JSX.Element {
   const join = usePublicJoin(campaign);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const closeDetails = (): void => {
@@ -29,8 +46,12 @@ export function PublicCampaignRow({ campaign }: PublicCampaignRowProps): React.J
     <li className="flex flex-col overflow-hidden rounded-md border border-border bg-card transition-colors hover:border-primary/40">
       <CampaignCover cover={campaign.cover} className="aspect-[300/140] w-full" />
       <div className="flex flex-1 flex-col gap-3 p-4">
-        <CampaignText campaign={campaign} />
-        <RowAction campaign={campaign} onDetails={() => setDetailsOpen(true)} />
+        <CampaignText campaign={campaign} readerId={readerId} />
+        <RowAction campaign={campaign} onDetails={() => setDetailsOpen(true)}>
+          {readerIsAdmin && offersJuggernaut(campaign, readerId) && (
+            <JuggernautButton campaign={campaign} join={join} />
+          )}
+        </RowAction>
       </div>
       {join.rowFailure && !detailsOpen && (
         <p role="alert" className="px-4 pb-4 text-sm text-destructive">
@@ -87,22 +108,31 @@ function usePublicJoin(campaign: PublicCampaignDto) {
     void fetcher.submit(body, { method: 'post', encType: 'application/json' });
   };
   const start = (): void => (campaign.hasPassword ? setOpened(true) : send());
+  const juggernaut = (): void => {
+    const body: ExploreJuggernautRequest = { intent: 'juggernaut', campaignId: campaign.id };
+    void fetcher.submit(body, { method: 'post', encType: 'application/json' });
+  };
   const close = (): void => {
     setOpened(false);
     fetcher.reset();
   };
   const rowFailure = asking ? null : failure;
-  return { submitting, failure, asking, rowFailure, send, start, close };
+  return { submitting, failure, asking, rowFailure, send, start, juggernaut, close };
 }
 
-function CampaignText({ campaign }: PublicCampaignRowProps): React.JSX.Element {
+function CampaignText({
+  campaign,
+  readerId,
+}: Pick<PublicCampaignCardProps, 'campaign' | 'readerId'>): React.JSX.Element {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
       <StatusBadge status={campaign.status} />
       <span className="truncate font-display text-[22px] leading-tight font-semibold">
         {campaign.name}
       </span>
-      <span className="truncate text-[13px] text-muted-foreground">{campaignMeta(campaign)}</span>
+      <span className="truncate text-[13px] text-muted-foreground">
+        {campaignMeta(campaign, readerId)}
+      </span>
       <PresenceLine campaign={campaign} />
       {campaign.description && (
         <span className="line-clamp-2 text-[13px] text-placeholder">{campaign.description}</span>
@@ -130,19 +160,45 @@ function playersOnlineLabel(count: number): string {
   return count === 1 ? '1 jogador online' : `${count} jogadores online`;
 }
 
-type RowActionProps = PublicCampaignRowProps & Readonly<{ onDetails: () => void }>;
+type RowActionProps = PublicCampaignRowProps &
+  Readonly<{ onDetails: () => void; children?: React.ReactNode }>;
 
-function RowAction({ campaign, onDetails }: RowActionProps): React.JSX.Element {
+function RowAction({ campaign, onDetails, children }: RowActionProps): React.JSX.Element {
   return (
-    <div className="flex items-center gap-3 border-t border-divider pt-3">
+    <div className="flex flex-wrap items-center gap-3 border-t border-divider pt-3">
       <CampaignFlags campaign={campaign} />
       {campaign.myRole && (
         <span className="text-xs font-semibold tracking-[0.12em] text-label uppercase">
           {ROLE_LABEL[campaign.myRole]}
         </span>
       )}
+      {children}
       <DetailsButton campaign={campaign} onDetails={onDetails} />
     </div>
+  );
+}
+
+// Not on a campaign the admin already masters (their own, or one they are a juggernaut at).
+function offersJuggernaut(campaign: PublicCampaignDto, readerId: string | null): boolean {
+  return campaign.ownerId !== readerId && campaign.myRole !== 'master';
+}
+
+function JuggernautButton({
+  campaign,
+  join,
+}: PublicCampaignRowProps & Readonly<{ join: PublicJoin }>): React.JSX.Element {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-label={`Entrar como juggernaut em ${campaign.name}`}
+      disabled={join.submitting}
+      onClick={join.juggernaut}
+      className="text-destructive-text hover:border-destructive"
+    >
+      <ShieldAlertIcon aria-hidden="true" />
+      Entrar como juggernaut
+    </Button>
   );
 }
 

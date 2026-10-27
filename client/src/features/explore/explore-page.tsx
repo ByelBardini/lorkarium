@@ -18,8 +18,8 @@ import { PublicCampaignRow } from './public-campaign-row';
  *
  *  Example: `{ path: 'campaigns/public', Component: ExploreRoute }` */
 export function ExploreRoute(): React.JSX.Element {
-  const { campaigns, readerIsAdmin } = useLoaderData<ExploreLoaderData>();
-  return <ExplorePage campaigns={campaigns} readerIsAdmin={readerIsAdmin} />;
+  const { campaigns, readerId, readerIsAdmin } = useLoaderData<ExploreLoaderData>();
+  return <ExplorePage campaigns={campaigns} readerId={readerId} readerIsAdmin={readerIsAdmin} />;
 }
 
 /** The explore route when its list could not load: what happened and "Tentar de novo".
@@ -36,6 +36,7 @@ export function ExploreErrorScreen(): React.JSX.Element {
 
 export type ExplorePageProps = Readonly<{
   campaigns: readonly PublicCampaignDto[];
+  readerId: string | null;
   /** Shows the "Visibilidade" filter: only an admin is sent private campaigns. */
   readerIsAdmin: boolean;
 }>;
@@ -43,8 +44,12 @@ export type ExplorePageProps = Readonly<{
 /** "Explorar mesas": the public campaigns, every one until a search ("Pesquisar") narrows them
  *  by name or the master's exact @ and the panel's filters; twelve to a page.
  *
- *  Example: `<ExplorePage campaigns={campaigns} readerIsAdmin={false} />` */
-export function ExplorePage({ campaigns, readerIsAdmin }: ExplorePageProps): React.JSX.Element {
+ *  Example: `<ExplorePage campaigns={campaigns} readerId={user.id} readerIsAdmin={false} />` */
+export function ExplorePage({
+  campaigns,
+  readerId,
+  readerIsAdmin,
+}: ExplorePageProps): React.JSX.Element {
   const [search, setSearch] = useState<ExploreSearch>(EMPTY_EXPLORE_SEARCH);
   const [page, setPage] = useState(1);
   const found = applyExploreSearch(campaigns, search);
@@ -71,6 +76,8 @@ export function ExplorePage({ campaigns, readerIsAdmin }: ExplorePageProps): Rea
         campaigns={explorePage(found, shownPage)}
         query={search.query}
         empty={campaigns.length === 0}
+        readerId={readerId}
+        readerIsAdmin={readerIsAdmin}
       />
       <ExplorePagination page={shownPage} pageCount={pageCount} onPage={setPage} />
       <Outlet />
@@ -86,9 +93,11 @@ type PublicListProps = Readonly<{
   campaigns: readonly PublicCampaignDto[];
   query: string;
   empty: boolean;
+  readerId: string | null;
+  readerIsAdmin: boolean;
 }>;
 
-function PublicList({ campaigns, query, empty }: PublicListProps): React.JSX.Element {
+function PublicList({ campaigns, query, empty, ...reader }: PublicListProps): React.JSX.Element {
   if (empty) {
     return <p className="py-6 text-sm text-muted-foreground">Nenhuma mesa pública por enquanto.</p>;
   }
@@ -101,7 +110,7 @@ function PublicList({ campaigns, query, empty }: PublicListProps): React.JSX.Ele
   return (
     <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {campaigns.map((campaign) => (
-        <PublicCampaignRow key={campaign.id} campaign={campaign} />
+        <PublicCampaignRow key={campaign.id} campaign={campaign} {...reader} />
       ))}
     </ul>
   );

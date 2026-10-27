@@ -8,7 +8,8 @@ export type CampaignErrorCode =
   | 'FORBIDDEN'
   | 'CAMPAIGN_NOT_OPEN'
   | 'INVALID_BODY'
-  | 'MEMBER_NOT_FOUND';
+  | 'MEMBER_NOT_FOUND'
+  | 'ALREADY_OWNER';
 
 /** Every campaign refusal; the edge translates `code` into the HTTP status and public message. */
 export class CampaignError extends Error {
@@ -146,8 +147,21 @@ export class MemberNotFoundError extends CampaignError {
   }
 }
 
-// The master's role is not one the master hands out or takes: nobody becomes nor stops being it.
-export class MasterRoleLockedError extends CampaignError {
+// The owner already holds every power juggernaut mode gives; their seat would change for nothing.
+export class AlreadyOwnerError extends CampaignError {
+  constructor(
+    readonly campaignId: string,
+    readonly userId: string,
+  ) {
+    super(
+      'ALREADY_OWNER',
+      `user ${userId} may not turn juggernaut mode on in campaign ${campaignId}: they own it; expected a campaign owned by someone else`,
+    );
+  }
+}
+
+// The owner created the table and stays its master: nobody demotes them, not even a juggernaut.
+export class OwnerRoleLockedError extends CampaignError {
   constructor(
     readonly campaignId: string,
     readonly userId: string,
@@ -155,7 +169,21 @@ export class MasterRoleLockedError extends CampaignError {
   ) {
     super(
       'FORBIDDEN',
-      `user ${userId} may not change the role of ${targetId} in campaign ${campaignId}: the master's role does not change`,
+      `user ${userId} may not change the role of ${targetId} in campaign ${campaignId}: the owner's role does not change`,
+    );
+  }
+}
+
+// A juggernaut holds owner powers while the mode is on; only turning it off changes their seat.
+export class JuggernautRoleLockedError extends CampaignError {
+  constructor(
+    readonly campaignId: string,
+    readonly userId: string,
+    readonly targetId: string,
+  ) {
+    super(
+      'FORBIDDEN',
+      `user ${userId} may not change the role of ${targetId} in campaign ${campaignId}: a juggernaut's role does not change`,
     );
   }
 }

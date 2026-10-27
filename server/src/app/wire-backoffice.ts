@@ -11,7 +11,7 @@ import {
 /** What `buildApp` already has for the backoffice: the links module's needs plus the deletion's
  *  (memberships to forget, the bucket of the photos). */
 export type BackofficeWiring = AccountLinksModuleOptions &
-  Pick<UserAdminModuleOptions, 'memberships' | 'storage' | 'mailer'>;
+  Pick<UserAdminModuleOptions, 'memberships' | 'juggernauts' | 'storage' | 'mailer'>;
 
 /** Registers the invitation and new-password links and the backoffice over the accounts under
  *  `prefix`; the account list reads the pending invitations from the links module.
@@ -31,6 +31,7 @@ export async function wireBackoffice(
     invitations: links.invitations,
     sessionEnded,
     memberships,
+    juggernauts: wiring.juggernauts,
     storage,
     notices,
     cipher,

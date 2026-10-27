@@ -56,7 +56,7 @@ export function buildStressSceneSeed(db: Database): StressSceneSeedService {
     campaigns: campaignsModule.service,
     join: new CampaignJoinService({ campaigns, members, hasher, clock }),
     roles: new MemberRoleService({
-      ...{ members, memberships },
+      ...{ campaigns, members, memberships },
       ...{ changed: NO_LIVE_TABLE, presence: NOBODY_ONLINE },
     }),
     scenes: createScenesModule({

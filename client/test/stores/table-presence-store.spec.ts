@@ -15,6 +15,7 @@ import {
   biaLeft,
   biaUpdated,
   duda,
+  rootJuggernaut,
   vharnRenamed,
   vharnState,
 } from '../support/table-session-fixtures';
@@ -261,6 +262,13 @@ describe('table presence store', () => {
 
       expect(store.getState().members).toEqual([ANA_AT_TABLE, BIA_AT_TABLE, CAIO_AT_TABLE]);
       expect(store.getState().version).toBe(7);
+    });
+
+    it('Root the juggernaut leaving drops out of the list, like a spectator', () => {
+      apply(snapshot, joined(4, rootJuggernaut()), left(5, rootJuggernaut().userId));
+
+      expect(store.getState().members).toEqual([ANA_AT_TABLE, BIA_AT_TABLE, CAIO_AT_TABLE]);
+      expect(store.getState().version).toBe(5);
     });
 
     it('Duda promoted to player swaps in place, still online', () => {

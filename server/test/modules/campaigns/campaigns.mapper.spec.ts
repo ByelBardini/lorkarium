@@ -94,7 +94,9 @@ describe('campaigns mapper', () => {
       status: 'ongoing',
       description: null,
       visibility: 'private',
+      ownerId: ANA_ID,
       myRole: 'player',
+      juggernaut: false,
       masterName: 'Bia',
       memberCount: 4,
       cover: { kind: 'drawn', ...defaultCoverOf(VHARN_ID) },
@@ -113,7 +115,7 @@ describe('campaigns mapper', () => {
         passwordHash,
         contentWarnings: ['gore', 'old'],
       }),
-      masterId: BIA_ID,
+      masterIds: [BIA_ID],
       masterName: 'Bia',
       masterUsername: 'bia',
       memberCount: 3,
@@ -230,17 +232,6 @@ describe('campaigns mapper', () => {
     const detail = detailFor('master', 'hashed:sino');
     expect(campaignDetailDto.safeParse(detail).success).toBe(true);
     expect(JSON.stringify(detail)).not.toContain('hashed:sino');
-  });
-
-  it('members without a master is an invariant break citing the campaign', () => {
-    const build = () =>
-      toCampaignDetailDto(
-        detailView({
-          membership: campaignMemberPo({ role: 'player' }),
-          members: [campaignMemberRow({ role: 'player' })],
-        }),
-      );
-    expect(build).toThrow(VHARN_ID);
   });
 });
 
@@ -429,6 +420,7 @@ describe('the role change in the mapper', () => {
       userId: ANA_ID,
       targetId: DUDA_ID,
       requester: campaignMemberPo({ userId: ANA_ID, role: 'master' }),
+      ownerId: ANA_ID,
     };
     const spectator = campaignMemberPo({ userId: DUDA_ID, role: 'spectator' });
 

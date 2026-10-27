@@ -6,13 +6,13 @@ import { StatusBadge } from '@/components/status-badge';
 import { campaignMeta } from '@/lib/campaign-meta';
 import { EnterCampaignButton } from '@/features/campaigns/enter-campaign-button';
 
-export type ContinueBandProps = Readonly<{ campaign: CampaignSummaryDto }>;
+export type ContinueBandProps = Readonly<{ campaign: CampaignSummaryDto; readerId: string }>;
 
 /** "Continuar": the campaign the user entered last, with a large cover and a way straight in.
  *  A band separated by hairlines, not a floating card.
  *
- *  Example: `{candidate && <ContinueBand campaign={candidate} />}` */
-export function ContinueBand({ campaign }: ContinueBandProps): React.JSX.Element {
+ *  Example: `{candidate && <ContinueBand campaign={candidate} readerId={user.id} />}` */
+export function ContinueBand({ campaign, readerId }: ContinueBandProps): React.JSX.Element {
   return (
     <section
       aria-labelledby="continue-band-title"
@@ -27,7 +27,7 @@ export function ContinueBand({ campaign }: ContinueBandProps): React.JSX.Element
           <h2 className="font-display text-[34px] leading-[1.1] font-semibold">{campaign.name}</h2>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             <StatusBadge status={campaign.status} />
-            <span>{campaignMeta(campaign)}</span>
+            <span>{campaignMeta(campaign, readerId)}</span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4">

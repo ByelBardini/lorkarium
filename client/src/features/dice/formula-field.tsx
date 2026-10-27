@@ -11,14 +11,19 @@ export type FormulaFieldProps = Readonly<{
   onEnter: () => void;
 }>;
 
-const NOTATION_EXAMPLES: ReadonlyArray<readonly [string, string]> = [
-  ['2d6+1d4-1', 'soma dados e números'],
-  ['2d20kh1', 'fica com o maior (vantagem)'],
-  ['2d20kl1', 'fica com o menor (desvantagem)'],
-  ['4d6dl1', 'descarta o menor'],
-  ['1d6!', 'explode: tirou o máximo, rola de novo'],
-  ['8d10>=7', 'conta quantos deram 7 ou mais'],
-  ['1d20r1', 'tirou 1, rola de novo'],
+type NotationFlag = Readonly<{ flag: string; meaning: string; example: string }>;
+
+// N stands for any number, so the flag reads apart from the digits of the example.
+const NOTATION_FLAGS: ReadonlyArray<NotationFlag> = [
+  { flag: '+ -', meaning: 'soma e subtrai dados e números', example: '2d6+1d4-1' },
+  { flag: 'khN', meaning: 'fica com os N maiores (vantagem)', example: '2d20kh1' },
+  { flag: 'klN', meaning: 'fica com os N menores (desvantagem)', example: '4d6kl2' },
+  { flag: 'dlN', meaning: 'descarta os N menores', example: '5d6dl2' },
+  { flag: 'dhN', meaning: 'descarta os N maiores', example: '4d6dh1' },
+  { flag: '!', meaning: 'explode: tirou o máximo, rola de novo', example: '1d6!' },
+  { flag: '>N', meaning: 'conta quantos deram mais que N', example: '8d10>6' },
+  { flag: '<N', meaning: 'conta quantos deram menos que N', example: '4d6<3' },
+  { flag: 'rN', meaning: 'tirou N, rola de novo', example: '1d20r1' },
 ];
 
 /** "Fórmula": the tray's text as typed (the dice buttons edit the same value), its notation
@@ -53,7 +58,7 @@ export function FormulaField({ tray, onTray, onEnter }: FormulaFieldProps): Reac
       <Input
         id={id}
         value={tray.loose}
-        placeholder="Clique nos dados ou escreva: 2d6+3"
+        placeholder="Ex.: 2d6+3"
         autoComplete="off"
         spellCheck={false}
         aria-invalid={message !== null}
@@ -77,12 +82,17 @@ export function FormulaField({ tray, onTray, onEnter }: FormulaFieldProps): Reac
 function NotationHelp(): React.JSX.Element {
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3.5 gap-y-1.5 rounded-md border border-border bg-card px-3 py-2.5 text-xs text-muted-foreground">
-      {NOTATION_EXAMPLES.map(([notation, meaning]) => (
-        <div key={notation} className="contents">
+      {NOTATION_FLAGS.map(({ flag, meaning, example }) => (
+        <div key={flag} className="contents">
           <dt>
-            <code className="font-mono text-primary">{notation}</code>
+            <code className="font-mono text-primary">{flag}</code>
           </dt>
-          <dd>{meaning}</dd>
+          <dd>
+            {meaning}
+            <span className="block text-placeholder">
+              ex.: <code className="font-mono">{example}</code>
+            </span>
+          </dd>
         </div>
       ))}
     </dl>

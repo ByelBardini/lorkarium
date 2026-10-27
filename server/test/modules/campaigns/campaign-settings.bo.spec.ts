@@ -6,10 +6,22 @@ import { VHARN_ID } from '../../support/campaigns-factories';
 
 const COVER_ID = '7d6c5b4a-3f2e-4d1c-8b0a-9f8e7d6c5b4a';
 
-function settingsOf(role: 'master' | 'player' | null, atTable = true): CampaignSettingsBo {
+type Powers = Readonly<{ owner: boolean; juggernaut: boolean }>;
+
+const OWNER: Powers = { owner: true, juggernaut: false };
+const CO_MASTER: Powers = { owner: false, juggernaut: false };
+const JUGGERNAUT: Powers = { owner: false, juggernaut: true };
+
+// Ana by default, the owner of Vharn; `powers` turns her into a co-master or a juggernaut.
+function settingsOf(
+  role: 'master' | 'player' | null,
+  atTable = true,
+  powers: Powers = OWNER,
+): CampaignSettingsBo {
   return new CampaignSettingsBo(
     new CampaignAccessBo({ campaignId: VHARN_ID, userId: ANA_ID, role }),
     atTable,
+    powers,
   );
 }
 
@@ -50,6 +62,52 @@ describe('CampaignSettingsBo.requireMasterAtTable', () => {
 
   it('refuses someone outside the table with CAMPAIGN_NOT_FOUND, not FORBIDDEN', () => {
     expect(() => settingsOf(null).requireMasterAtTable('delete the campaign')).toThrow(
+      expect.objectContaining({ code: 'CAMPAIGN_NOT_FOUND' }),
+    );
+  });
+});
+
+describe('CampaignSettingsBo.requireOwnerPowersAtTable (deleting the campaign)', () => {
+  const DELETE = 'delete the campaign';
+
+  it.each([
+    ['the owner', OWNER],
+    ['a juggernaut', JUGGERNAUT],
+  ])('%s with the table open may delete it', (_who, powers) => {
+    expect(settingsOf('master', true, powers).requireOwnerPowersAtTable(DELETE)).toBeUndefined();
+  });
+
+  it('a co-master with the table open is FORBIDDEN citing her, the action and owner powers', () => {
+    expect(() => settingsOf('master', true, CO_MASTER).requireOwnerPowersAtTable(DELETE)).toThrow(
+      expect.objectContaining({
+        code: 'FORBIDDEN',
+        message: expect.stringMatching(
+          new RegExp(`${ANA_ID}.*${DELETE}.*${VHARN_ID}.*owner powers`),
+        ),
+      }),
+    );
+  });
+
+  it('a co-master with the table open still edits and hands out a new code', () => {
+    const coMaster = settingsOf('master', true, CO_MASTER);
+    expect(coMaster.requireMasterAtTable('change the campaign settings')).toBeUndefined();
+    expect(coMaster.requireMasterAtTable('generate another join code')).toBeUndefined();
+  });
+
+  it('the owner away from the table is CAMPAIGN_NOT_OPEN', () => {
+    expect(() => settingsOf('master', false).requireOwnerPowersAtTable(DELETE)).toThrow(
+      expect.objectContaining({ code: 'CAMPAIGN_NOT_OPEN' }),
+    );
+  });
+
+  it('a player is FORBIDDEN citing the master role, and a stranger CAMPAIGN_NOT_FOUND', () => {
+    expect(() => settingsOf('player').requireOwnerPowersAtTable(DELETE)).toThrow(
+      expect.objectContaining({
+        code: 'FORBIDDEN',
+        message: expect.stringContaining('the master role'),
+      }),
+    );
+    expect(() => settingsOf(null).requireOwnerPowersAtTable(DELETE)).toThrow(
       expect.objectContaining({ code: 'CAMPAIGN_NOT_FOUND' }),
     );
   });

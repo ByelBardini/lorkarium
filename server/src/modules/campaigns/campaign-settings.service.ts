@@ -15,7 +15,8 @@ import { MAX_CODE_ATTEMPTS, type CampaignsService } from './campaigns.service';
 import type { PresenceReaderPort } from './presence-reader.port';
 
 export type CampaignSettingsServiceDeps = Readonly<{
-  campaigns: Pick<CampaignsDao, 'update' | 'replaceJoinCode' | 'delete'>;
+  /** `findById`: the owner, who alone (with a juggernaut) deletes the campaign. */
+  campaigns: Pick<CampaignsDao, 'findById' | 'update' | 'replaceJoinCode' | 'delete'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
   /** The image of a cover must be an asset of the same table. */
   assets: Pick<AssetsDao, 'findInCampaign'>;
@@ -31,8 +32,8 @@ export type CampaignSettingsServiceDeps = Readonly<{
   clock: ClockPort;
 }>;
 
-/** The master's settings of a campaign: edit it, hand out another join code and delete it; each
- *  write is saved before the live table hears of it.
+/** The masters' settings of a campaign: edit it and hand out another join code (any master), and
+ *  delete it (owner powers only); each write is saved before the live table hears of it.
  *
  *  Example: `await settings.update(userOf(request).id, campaignId, input)` */
 export class CampaignSettingsService {
@@ -69,7 +70,8 @@ export class CampaignSettingsService {
   }
 
   async delete(userId: string, campaignId: string): Promise<void> {
-    await this.masterSettings(userId, campaignId, 'delete the campaign');
+    const settings = await this.settingsOf(userId, campaignId);
+    settings.requireOwnerPowersAtTable('delete the campaign');
     const deleted = await this.deps.campaigns.delete(campaignId);
     if (!deleted) throw new CampaignNotFoundError({ campaignId, userId });
     this.deps.memberships.forgetCampaign(campaignId);
@@ -81,11 +83,16 @@ export class CampaignSettingsService {
     campaignId: string,
     action: string,
   ): Promise<CampaignSettingsBo> {
-    const membership = await this.deps.members.findMembership(campaignId, userId);
-    const atTable = this.deps.presence.onlineUserIdsOf(campaignId).has(userId);
-    const settings = toCampaignSettingsBo(campaignId, userId, membership, atTable);
+    const settings = await this.settingsOf(userId, campaignId);
     settings.requireMasterAtTable(action);
     return settings;
+  }
+
+  private async settingsOf(userId: string, campaignId: string): Promise<CampaignSettingsBo> {
+    const membership = await this.deps.members.findMembership(campaignId, userId);
+    const atTable = this.deps.presence.onlineUserIdsOf(campaignId).has(userId);
+    const ownerId = (await this.deps.campaigns.findById(campaignId))?.ownerId ?? null;
+    return toCampaignSettingsBo(campaignId, userId, membership, atTable, ownerId);
   }
 
   private async checkCoverImage(

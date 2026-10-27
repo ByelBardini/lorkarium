@@ -2,7 +2,10 @@ import {
   adminDirectoryResponseDto,
   adminUserResponseDto,
   apiErrorDto,
+  listCampaignsResponseDto,
   mailSamplesResponseDto,
+  sessionMemberUpdatedDto,
+  sessionRemovedFromTableDto,
   userDeletionCheckDto,
 } from '@lorkarium/contracts';
 import { eq, sql } from 'drizzle-orm';
@@ -13,7 +16,13 @@ import { readEnv } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import { users } from '../../src/modules/auth/users.po';
 import { MailerFake } from '../support/account-security-fakes';
-import { connectRealtime, disconnectionOf, type RealtimeClient } from '../support/realtime-client';
+import { atTable, eventPayload } from '../support/live-table';
+import {
+  connectRealtime,
+  disconnectionOf,
+  recordEventsOf,
+  type RealtimeClient,
+} from '../support/realtime-client';
 import { insertTestAccount, logIn, type SignedInUser } from '../support/sign-in';
 import { createTable, joinByCode } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
@@ -282,6 +291,50 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
       });
       expect(response.statusCode).toBe(502);
       expect(codeOf(response)).toBe('MAIL_DELIVERY_FAILED');
+    });
+  });
+
+  describe('the juggernaut mode falls with the admin role', () => {
+    // Root, an admin: juggernaut at Vharn (where he played before) and at Quelm (not a member).
+    async function rootAsJuggernautAtTwoTables() {
+      const root = await account('Root', 'admin');
+      const vharn = await createTable(app, ana, 'Vharn');
+      const quelm = await createTable(app, caio, 'Quelm');
+      await joinByCode(app, root, vharn);
+      for (const table of [vharn, quelm]) {
+        await call('POST', `/campaigns/${table.id}/juggernaut`, root.token);
+      }
+      return { root, vharn, quelm };
+    }
+
+    it('Fernanda taking the admin of Root: a player again at Vharn, out of Quelm', async () => {
+      const { root } = await rootAsJuggernautAtTwoTables();
+
+      await call('PATCH', `/admin/users/${root.id}`, admin.token, { role: 'user' });
+
+      const listed = listCampaignsResponseDto.parse(
+        (await call('GET', '/campaigns', root.token)).json(),
+      );
+      expect(
+        listed.campaigns.map(({ name, myRole, juggernaut }) => ({ name, myRole, juggernaut })),
+      ).toEqual([{ name: 'Vharn', myRole: 'player', juggernaut: false }]);
+    });
+
+    it('with both tables open, Root hears memberUpdated as a player at Vharn and removedFromTable of Quelm', async () => {
+      const { root, vharn, quelm } = await rootAsJuggernautAtTwoTables();
+      const atVharn = recordEventsOf(await atTable(baseUrl, sockets, root, vharn));
+      const atQuelm = recordEventsOf(await atTable(baseUrl, sockets, root, quelm));
+
+      await call('PATCH', `/admin/users/${root.id}`, admin.token, { role: 'user' });
+
+      const updated = sessionMemberUpdatedDto.parse(
+        await eventPayload(atVharn, 'session:memberUpdated'),
+      );
+      expect(updated.member).toMatchObject({ userId: root.id, role: 'player', juggernaut: false });
+      const removed = sessionRemovedFromTableDto.parse(
+        await eventPayload(atQuelm, 'session:removedFromTable'),
+      );
+      expect(removed.campaignId).toBe(quelm.id);
     });
   });
 });

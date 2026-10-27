@@ -1,11 +1,9 @@
-import type { SceneClosedDto, TableServerEvents } from '@lorkarium/contracts';
-import type { RemoteSocket } from 'socket.io';
 import type {
   GridEviction,
   SceneAudiencePort,
   TableMove,
 } from '../../modules/scenes/scene-audience.port';
-import type { RealtimeServer, RealtimeSocketData } from '../../realtime/realtime-server';
+import type { RealtimeServer } from '../../realtime/realtime-server';
 import {
   campaignMastersRoom,
   campaignRoom,
@@ -14,9 +12,7 @@ import {
   sceneRoom,
   type TableAudience,
 } from '../../realtime/rooms';
-import { withoutWatchedScene } from '../../realtime/watched-scenes';
-
-type TableSocket = RemoteSocket<TableServerEvents, RealtimeSocketData>;
+import { closeTab, hasTab, leaveGrid, type TableSocket } from '../../realtime/scene-tabs';
 
 /** Moves the sockets between the rooms of each grid (`server/src/realtime/rooms.ts`); every
  *  socket of a table is in its table room since its `session:join`.
@@ -46,24 +42,10 @@ function moveSocket(socket: TableSocket, { campaignId, sceneId, previous, at }: 
   const audience = audienceAt(socket, campaignId);
   void socket.join(sceneAudienceRooms(campaignId, sceneId, socket.data.user.id, audience));
   if (!previous) return;
-  const hasTab = socket.data.watchedSceneIds.get(campaignId)?.has(previous.sceneId) ?? false;
-  if (hasTab && (audience === 'master' || previous.playersKeepTabs)) return;
-  if (!hasTab) return leaveGrid(socket, campaignId, previous.sceneId);
+  const tabOpen = hasTab(socket, campaignId, previous.sceneId);
+  if (tabOpen && (audience === 'master' || previous.playersKeepTabs)) return;
+  if (!tabOpen) return leaveGrid(socket, campaignId, previous.sceneId);
   closeTab(socket, { campaignId, sceneId: previous.sceneId, reason: 'private', at });
-}
-
-function closeTab(socket: TableSocket, closed: SceneClosedDto): void {
-  const { campaignId, sceneId, reason, at } = closed;
-  leaveGrid(socket, campaignId, sceneId);
-  const { watchedSceneIds } = socket.data;
-  socket.data.watchedSceneIds = withoutWatchedScene(watchedSceneIds, campaignId, sceneId);
-  socket.emit('scene:closed', { campaignId, sceneId, reason, at });
-}
-
-function leaveGrid(socket: TableSocket, campaignId: string, sceneId: string): void {
-  for (const room of sceneAudienceRooms(campaignId, sceneId, socket.data.user.id, 'master')) {
-    void socket.leave(room);
-  }
 }
 
 // The rooms the join gave the socket say its role, with no database read.

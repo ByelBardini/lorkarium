@@ -5,12 +5,13 @@ export const campaignMemberParamsDto = z.strictObject({ campaignId: z.uuid(), us
 
 export type CampaignMemberParamsDto = z.infer<typeof campaignMemberParamsDto>;
 
-/** Body of `PATCH /api/campaigns/:campaignId/members/:userId` (master only): the master promotes a
- *  spectator to player or moves a player to the spectators; nobody becomes master here.
+/** Body of `PATCH /api/campaigns/:campaignId/members/:userId` (master only): any master swaps
+ *  players and spectators; only owner powers (the owner, a juggernaut) promote to master and
+ *  demote a master (game-core `assignableRolesOf`).
  *
- *  Example: `updateMemberRoleRequestDto.parse({ role: 'player' })` */
+ *  Example: `updateMemberRoleRequestDto.parse({ role: 'master' })` */
 export const updateMemberRoleRequestDto = z.strictObject({
-  role: z.enum(['player', 'spectator']),
+  role: z.enum(['master', 'player', 'spectator']),
 });
 
 export type UpdateMemberRoleRequestDto = z.infer<typeof updateMemberRoleRequestDto>;

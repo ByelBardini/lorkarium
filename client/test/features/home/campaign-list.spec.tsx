@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import type { CampaignSummaryDto } from '@lorkarium/contracts';
 import { CampaignList } from '@/features/home/campaign-list';
+import { ANA } from '../../support/auth-api-fake';
 import { QUELM, VHARN } from '../../support/campaigns-api-fake';
 
 const THIRD = { ...QUELM, id: '5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b', name: 'A Torre de Quelm' };
@@ -13,7 +14,7 @@ function renderList(campaigns: CampaignSummaryDto[]) {
   const onJoin = vi.fn();
   render(
     <MemoryRouter>
-      <CampaignList campaigns={campaigns} onCreate={onCreate} onJoin={onJoin} />
+      <CampaignList campaigns={campaigns} readerId={ANA.id} onCreate={onCreate} onJoin={onJoin} />
     </MemoryRouter>,
   );
   return { onCreate, onJoin };

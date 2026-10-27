@@ -2,7 +2,7 @@ import type { CampaignRoleDto, SessionMemberDto } from '@lorkarium/contracts';
 import { useEffect } from 'react';
 import { useRevalidator } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
-import { watchesOnly } from '@/lib/table-role';
+import { toolsOf } from '@/lib/table-role';
 import type { BoardStore } from '@/stores/board-store';
 import { visibleTabOf, type SceneTabsStore } from '@/stores/scene-tabs-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
@@ -24,11 +24,12 @@ export type ViewerRoleDeps = ViewerRoleTable &
     revalidate: () => void;
   }>;
 
-/** Follows the viewer's own role in the roster: when the master promotes or demotes them with the
+/** Follows the viewer's own role in the roster: when someone promotes or demotes them with the
  *  table open (a `session:memberUpdated` with another role), every open grid and the cast ask
  *  their snapshot again (the server redacts them for the new role), the campaign is read again,
- *  a spectator drops back to Selecionar and the status line says what changed. A new profile
- *  (same role) or another member's change does nothing. Returns the unsubscribe.
+ *  a tool the new role does not have (`toolsOf`) drops back to Selecionar and the status line
+ *  says what changed. A new profile, juggernaut switched on the same role or another member's
+ *  change does nothing. Returns the unsubscribe.
  *
  *  Example: `const stop = followViewerRole({ presence, tabs, cast, viewerId, revalidate })` */
 export function followViewerRole(deps: ViewerRoleDeps): () => void {
@@ -74,10 +75,11 @@ function onRoleChanged(deps: ViewerRoleDeps, role: CampaignRoleDto): void {
   const { tabs } = deps.tabs.getState();
   for (const tab of tabs) {
     tab.board.getState().resync();
-    if (watchesOnly(role)) tab.interaction.getState().setTool('select');
+    const interaction = tab.interaction.getState();
+    if (!toolsOf(role).includes(interaction.tool)) interaction.setTool('select');
+    interaction.allowLayerChoice(role === 'master');
   }
   deps.cast.getState().resync();
   deps.revalidate();
-  const notice = roleChangedNotice(role);
-  if (notice) visibleTabOf(deps.tabs.getState()).interaction.getState().say(notice);
+  visibleTabOf(deps.tabs.getState()).interaction.getState().say(roleChangedNotice(role));
 }

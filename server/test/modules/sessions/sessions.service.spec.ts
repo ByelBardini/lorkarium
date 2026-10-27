@@ -14,6 +14,7 @@ import {
 } from '../../support/campaigns-factories';
 import {
   CampaignRosterFake,
+  PrivateGridsFake,
   PresenceRegistryFake,
   SchedulerFake,
   SessionPublisherFake,
@@ -39,6 +40,7 @@ describe('TableSessionService', () => {
     scheduler = new SchedulerFake();
     publisher = new SessionPublisherFake(journal);
     service = new TableSessionService({
+      grids: new PrivateGridsFake(),
       campaigns: new CampaignRosterFake({ [VHARN_ID]: [ANA, BIA], [QUELM_ID]: [CAIO] }),
       registry,
       scheduler,
@@ -61,6 +63,7 @@ describe('TableSessionService', () => {
           avatarId: null,
           bio: null,
           role: 'master',
+          juggernaut: false,
           online: true,
           awaySince: null,
         },
@@ -72,6 +75,7 @@ describe('TableSessionService', () => {
           avatarId: null,
           bio: null,
           role: 'player',
+          juggernaut: false,
           online: false,
           awaySince: null,
         },
@@ -92,6 +96,7 @@ describe('TableSessionService', () => {
             avatarId: null,
             bio: null,
             role: 'master',
+            juggernaut: false,
             online: true,
             awaySince: null,
           },
@@ -128,6 +133,7 @@ describe('TableSessionService', () => {
         avatarId: null,
         bio: null,
         role: 'master',
+        juggernaut: false,
         online: true,
         awaySince: null,
       },
@@ -192,6 +198,7 @@ describe('TableSessionService tables of a connection', () => {
   beforeEach(() => {
     journal = new SessionsJournal();
     service = new TableSessionService({
+      grids: new PrivateGridsFake(),
       campaigns: new CampaignRosterFake({ [VHARN_ID]: [ANA] }),
       registry: new PresenceRegistryFake(journal),
       scheduler: new SchedulerFake(),
@@ -224,6 +231,7 @@ describe('TableSessionService activity', () => {
     journal = new SessionsJournal();
     publisher = new SessionPublisherFake(journal);
     service = new TableSessionService({
+      grids: new PrivateGridsFake(),
       campaigns: new CampaignRosterFake({ [VHARN_ID]: [ANA, BIA] }),
       registry: new PresenceRegistryFake(journal),
       scheduler: new SchedulerFake(),
@@ -332,6 +340,7 @@ describe('TableSessionService.profileChanged', () => {
     const anaAtQuelm = campaignMemberRow({ userId: ANA_ID, name: 'Ana', role: 'player' });
     campaigns = new CampaignRosterFake({ [VHARN_ID]: [ANA, BIA], [QUELM_ID]: [CAIO, anaAtQuelm] });
     service = new TableSessionService({
+      grids: new PrivateGridsFake(),
       campaigns,
       registry,
       scheduler: new SchedulerFake(),
@@ -370,6 +379,7 @@ describe('TableSessionService.profileChanged', () => {
           avatarId: null,
           bio: null,
           role: 'master',
+          juggernaut: false,
           online: false,
           awaySince: null,
         },
@@ -427,6 +437,7 @@ describe('TableSessionService campaign changes', () => {
     status: 'ongoing',
     description: null,
     visibility: 'private',
+    ownerId: ANA_ID,
     masterName: 'Ana',
     memberCount: 2,
     cover: { kind: 'drawn', drawing: 1, tone: 2 },
@@ -448,6 +459,7 @@ describe('TableSessionService campaign changes', () => {
     scheduler = new SchedulerFake();
     publisher = new SessionPublisherFake(journal);
     service = new TableSessionService({
+      grids: new PrivateGridsFake(),
       campaigns: new CampaignRosterFake({ [VHARN_ID]: [ANA, BIA], [QUELM_ID]: [CAIO] }),
       registry,
       scheduler,

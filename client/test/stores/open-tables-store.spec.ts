@@ -17,6 +17,7 @@ import {
   BIA_AT_TABLE,
   lyra,
   vharnDeleted,
+  removedFromVharn,
   vharnRenamed,
   vharnState,
 } from '../support/table-session-fixtures';
@@ -276,7 +277,23 @@ describe('open tables store', () => {
       expect(api.closedIds).toEqual([VHARN.id]);
       expect(openIds()).toEqual([QUELM.id]);
       expect(stored()).toEqual({ userId: ANA.id, tables: [QUELM_TABLE] });
-      expect(store.getState().deletedNotice).toEqual({ campaignId: VHARN.id, name: 'Vharn' });
+      expect(store.getState().deletedNotice).toEqual({
+        campaignId: VHARN.id,
+        name: 'Vharn',
+        reason: 'deleted',
+      });
+    });
+
+    it('removedFromTable closes that table with the notice that the person left it', () => {
+      api.emitTo(VHARN.id, { kind: 'removedFromTable', event: removedFromVharn() });
+
+      expect(api.closedIds).toEqual([VHARN.id]);
+      expect(openIds()).toEqual([QUELM.id]);
+      expect(store.getState().deletedNotice).toEqual({
+        campaignId: VHARN.id,
+        name: 'Vharn',
+        reason: 'removed',
+      });
     });
 
     it('dismissing the notice clears it and keeps the other tables', () => {

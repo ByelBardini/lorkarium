@@ -7,6 +7,7 @@ import type {
   SessionMemberJoinedDto,
   SessionMemberLeftDto,
   SessionMemberUpdatedDto,
+  SessionRemovedFromTableDto,
   SessionStateDto,
 } from '@lorkarium/contracts';
 import { memberColorOf } from '@lorkarium/game-core';
@@ -101,6 +102,13 @@ export function toCampaignDeletedDto(campaignId: string, at: Date): SessionCampa
   return { campaignId, at: at.toISOString() };
 }
 
+/** The table a member was taken out of → `session:removedFromTable`, for their connections only.
+ *
+ *  Example: `toRemovedFromTableDto(campaignId, clock.now()).campaignId` */
+export function toRemovedFromTableDto(campaignId: string, at: Date): SessionRemovedFromTableDto {
+  return { campaignId, at: at.toISOString() };
+}
+
 function profileOf(member: CampaignMemberRow): Omit<SessionMemberDto, 'online' | 'awaySince'> {
   return {
     userId: member.userId,
@@ -110,6 +118,7 @@ function profileOf(member: CampaignMemberRow): Omit<SessionMemberDto, 'online' |
     avatarId: member.avatarId,
     bio: member.bio,
     role: member.role,
+    juggernaut: member.juggernaut,
   };
 }
 

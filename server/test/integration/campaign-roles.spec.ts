@@ -1,6 +1,8 @@
 import {
   campaignMemberDto,
   campaignResponseDto,
+  libraryDto,
+  librarySceneDto,
   sessionJoinAckDto,
   sessionMemberUpdatedDto,
 } from '@lorkarium/contracts';
@@ -140,7 +142,7 @@ describe('what the route refuses', () => {
   });
 
   it.each([
-    ['the master role', { role: 'master' }],
+    ['a role that does not exist', { role: 'owner' }],
     ['an extra key', { role: 'player', userId: crypto.randomUUID() }],
     ['no role', {}],
   ])('a body with %s is 400 INVALID_BODY', async (_case, payload) => {
@@ -196,5 +198,86 @@ describe('what the route refuses', () => {
     const response = await setRole(eva, duda.id, { role: 'player' }, ermo);
 
     expect([response.statusCode, response.json().code]).toEqual([404, 'MEMBER_NOT_FOUND']);
+  });
+});
+
+const GRID = {
+  widthCells: 20,
+  heightCells: 12,
+  cellDistance: 1.5,
+  cellUnit: 'm',
+  gridVisible: true,
+  gridOpacity: 30,
+};
+
+async function privateGridOfAna(): Promise<string> {
+  const url = `/api/campaigns/${live.vharn.id}/scenes`;
+  const response = await live.http(live.ana, { method: 'POST', url, payload: { name: 'Cripta' } });
+  return librarySceneDto.parse(response.json()).id;
+}
+
+async function gridIdsSeenBy(user: SignedInUser): Promise<string[]> {
+  const url = `/api/campaigns/${live.vharn.id}/scenes`;
+  const response = await live.http(user, { method: 'GET', url });
+  return libraryDto.parse(response.json()).scenes.map(({ id }) => id);
+}
+
+describe('Bia, a co-master, by the route', () => {
+  it('Ana promoting Bia answers 200 with Bia as master, who then lists a private grid', async () => {
+    const cripta = await privateGridOfAna();
+
+    const response = await setRole(live.ana, live.bia.id, { role: 'master' });
+
+    expect(response.statusCode).toBe(200);
+    expect(campaignMemberDto.parse(response.json())).toMatchObject({ role: 'master' });
+    expect(await gridIdsSeenBy(live.bia)).toContain(cripta);
+  });
+
+  it('Bia promoted with the table open configures the grid', async () => {
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    await setRole(live.ana, live.bia.id, { role: 'master' });
+    const ack = await send(bia, 'scene:configure', { ...envelope(live.vharn.id), ...GRID });
+
+    expect(ack).toMatchObject({ ok: true });
+  });
+
+  it('Bia, a co-master, promotes Duda from spectator to player: 200', async () => {
+    const duda = await dudaWatches();
+    await setRole(live.ana, live.bia.id, { role: 'master' });
+
+    const response = await setRole(live.bia, duda.id, { role: 'player' });
+
+    expect([response.statusCode, response.json().role]).toEqual([200, 'player']);
+  });
+
+  it.each([
+    ['putting Caio in master', () => live.caio.id, 'master'],
+    ['demoting Ana, the owner', () => live.ana.id, 'player'],
+  ])('Bia, a co-master, %s is 403 FORBIDDEN', async (_case, targetOf, role) => {
+    await setRole(live.ana, live.bia.id, { role: 'master' });
+
+    const response = await setRole(live.bia, targetOf(), { role });
+
+    expect([response.statusCode, response.json().code]).toEqual([403, 'FORBIDDEN']);
+  });
+
+  it('Ana moving Bia back to the spectators: 200, and her next master command is FORBIDDEN', async () => {
+    await setRole(live.ana, live.bia.id, { role: 'master' });
+    // The join remembers her membership as a master: only the forget refuses the command.
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    const response = await setRole(live.ana, live.bia.id, { role: 'spectator' });
+    const ack = await send(bia, 'scene:configure', { ...envelope(live.vharn.id), ...GRID });
+
+    expect(response.statusCode).toBe(200);
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+  });
+
+  it('Ana, outside Quelm, promoting Caio there is 404 and Caio stays a player at Vharn', async () => {
+    const response = await setRole(live.ana, live.caio.id, { role: 'master' }, live.quelm);
+
+    expect([response.statusCode, response.json().code]).toEqual([404, 'CAMPAIGN_NOT_FOUND']);
+    expect((await setRole(live.ana, live.caio.id, { role: 'player' })).json().role).toBe('player');
   });
 });

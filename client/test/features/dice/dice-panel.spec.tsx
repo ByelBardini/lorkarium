@@ -69,7 +69,7 @@ describe('DicePanel — the tray', () => {
   it('the formula field has its placeholder and Enter in it rolls', async () => {
     renderDicePanel(deps);
     const field = screen.getByRole('textbox', { name: 'Fórmula' });
-    expect(field).toHaveAttribute('placeholder', 'Clique nos dados ou escreva: 2d6+3');
+    expect(field).toHaveAttribute('placeholder', 'Ex.: 2d6+3');
     await user.type(field, '2d6+3{Enter}');
     expect(lastSent(deps)?.request.parts).toEqual([{ label: null, expression: '2d6+3' }]);
   });
@@ -80,7 +80,7 @@ describe('DicePanel — the tray', () => {
     expect(deps.dice.sent).toEqual([]);
   });
 
-  it('"Como escrever?" opens the seven examples and "Fechar ajuda" hides them', async () => {
+  it('"Como escrever?" opens each flag with an example and "Fechar ajuda" hides them', async () => {
     renderDicePanel(deps);
     const toggle = screen.getByRole('button', { name: 'Como escrever?' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -88,10 +88,11 @@ describe('DicePanel — the tray', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(toggle).toHaveAccessibleName('Fechar ajuda');
     const help = document.getElementById(toggle.getAttribute('aria-controls') ?? '');
-    const examples = ['2d6+1d4-1', '2d20kh1', '2d20kl1', '4d6dl1', '1d6!', '8d10>=7', '1d20r1'];
-    expect([...(help?.querySelectorAll('code') ?? [])].map((code) => code.textContent)).toEqual(
-      examples,
-    );
+    const codes = [...(help?.querySelectorAll('code') ?? [])].map((code) => code.textContent);
+    expect(codes).toEqual([
+      ...['+ -', '2d6+1d4-1', 'khN', '2d20kh1', 'klN', '4d6kl2', 'dlN', '5d6dl2'],
+      ...['dhN', '4d6dh1', '!', '1d6!', '>N', '8d10>6', '<N', '4d6<3', 'rN', '1d20r1'],
+    ]);
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('1d20r1')).toBeNull();

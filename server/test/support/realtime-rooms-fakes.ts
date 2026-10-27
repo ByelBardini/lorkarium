@@ -8,7 +8,7 @@ import { VHARN_ID } from './campaigns-factories';
  *  Example: `new TableSocketFake(BIA_ID, new Set([campaignRoom(VHARN_ID)]))` */
 export class TableSocketFake {
   readonly told: Array<Readonly<{ name: string; payload: unknown }>> = [];
-  readonly data: Pick<RealtimeSocketData, 'user' | 'watchedSceneIds'>;
+  readonly data: Pick<RealtimeSocketData, 'user' | 'watchedSceneIds' | 'campaignIds'>;
 
   constructor(
     userId: string,
@@ -20,7 +20,8 @@ export class TableSocketFake {
       ...{ id: userId, username: userId, email: `${userId}@vharn.test`, name: userId },
       ...{ role: 'user' as const, color: 'gold' as const, avatarId: null },
     };
-    this.data = { user, watchedSceneIds: new Map([[VHARN_ID, new Set(watched)]]) };
+    const watchedSceneIds = new Map([[VHARN_ID, new Set(watched)]]);
+    this.data = { user, watchedSceneIds, campaignIds: new Set([VHARN_ID]) };
   }
 
   join(rooms: string | string[]): void {

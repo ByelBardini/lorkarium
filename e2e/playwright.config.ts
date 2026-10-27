@@ -47,6 +47,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
     'table-cards',
     'campaign-settings',
     'spectators',
+    'co-masters',
   ],
   tokens: [
     'tokens',
