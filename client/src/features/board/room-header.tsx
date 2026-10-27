@@ -188,7 +188,7 @@ function TableCode({ code, clipboard, centered }: TableCodeProps) {
       )}
     >
       <span className="font-brand text-sm tracking-[0.2em] text-label">{formatted}</span>
-      <CopyCodeButton code={formatted} clipboard={clipboard} />
+      <CopyCodeButton code={formatted} clipboard={clipboard} iconOnly={centered} />
     </div>
   );
 }

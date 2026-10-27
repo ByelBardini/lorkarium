@@ -92,11 +92,26 @@ describe('the room header inside the window title bar', () => {
     expect(bar()).toHaveAttribute('data-variant', 'place');
   });
 
+  it('in the bar the code is copied by its icon alone', async () => {
+    await renderRoom();
+    await waitFor(() => expect(bar()).toContainElement(roomTop()));
+    const copy = within(roomTop()).getByRole('button', { name: 'Copiar código' });
+
+    expect(copy).not.toHaveTextContent('Copiar código');
+    expect(copy).toHaveAttribute('title', 'Copiar código');
+    await userEvent.click(copy);
+    expect(deps.clipboard.copied).toEqual(['VHRN-7K2Q']);
+    expect(within(copy.parentElement!).getByRole('status')).toHaveTextContent('Copiado');
+  });
+
   it('in a browser the room top stays in the room, with no title bar', async () => {
     await renderRoom(`/campaigns/${VHARN.id}/table`, false);
 
     expect(roomTop()).toBeInTheDocument();
     expect(screen.queryByRole('banner', { name: 'Barra da janela' })).not.toBeInTheDocument();
+    expect(within(roomTop()).getByRole('button', { name: 'Copiar código' })).toHaveTextContent(
+      'Copiar código',
+    );
   });
 
   it('a spectator sees the badge in the bar', async () => {
