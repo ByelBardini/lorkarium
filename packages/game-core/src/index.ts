@@ -217,3 +217,10 @@ export {
   type TokenRights,
   type TokenRightsViewer,
 } from './token-rights';
+export {
+  assignableRolesOf,
+  hasOwnerPowers,
+  isRoleLocked,
+  type TableRole,
+  type TableSeat,
+} from './table-seats';
