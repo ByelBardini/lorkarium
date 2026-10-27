@@ -25,7 +25,7 @@ export function SettingsSectionNav(): React.JSX.Element {
           className={LINK_CLASS}
           onClick={() => jumpTo(section.id)}
         >
-          {section.title}
+          {'menuTitle' in section ? section.menuTitle : section.title}
         </button>
       ))}
     </nav>

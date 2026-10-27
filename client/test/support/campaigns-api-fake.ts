@@ -28,6 +28,8 @@ export const VHARN: CampaignSummaryDto = {
   cover: { kind: 'drawn', drawing: 2, tone: 1 },
   contentWarnings: ['horror'],
   tags: ['Investigação', 'Masmorra'],
+  playersCreateTokens: false,
+  playersDeleteTokens: false,
 };
 
 export const QUELM: CampaignSummaryDto = {
@@ -44,6 +46,8 @@ export const QUELM: CampaignSummaryDto = {
   cover: { kind: 'drawn', drawing: 0, tone: 4 },
   contentWarnings: [],
   tags: [],
+  playersCreateTokens: false,
+  playersDeleteTokens: false,
 };
 
 /** A public campaign of Bia that the reader is not in yet, without a password. */

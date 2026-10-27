@@ -14,6 +14,7 @@ import { TableBoardCommandsFake } from '../../support/table-board-commands-fake'
 import { BIA_AT_TABLE, LYRA_ID, VHARN_GRID } from '../../support/table-session-fixtures';
 import { cell } from '@lorkarium/game-core';
 import { boardCommandFailureMessage } from '@/features/board/board-messages';
+import { TableTokenKeysContext } from '@/features/board/table-token-rights';
 
 describe('BoardToolbar', () => {
   let interaction: StoreApi<BoardInteractionStore>;
@@ -282,5 +283,45 @@ describe('BoardToolbar, "Adicionar jogadores"', () => {
     await userEvent.click(addPlayers());
     expect(commands.sentAs('addPlayers')).toEqual([]);
     expect(interaction.getState().notice).toBe('Traga o grid para a vista primeiro.');
+  });
+});
+
+describe('BoardToolbar, "Novo token" of a player', () => {
+  function renderAs(
+    role: 'player' | 'spectator',
+    keys: Readonly<{ create: boolean; delete: boolean }>,
+  ): void {
+    render(
+      <TableTokenKeysContext value={keys}>
+        <BoardToolbar
+          interaction={createBoardInteractionStore({
+            scopeOf: () => VHARN_GRID,
+            commands: new TableBoardCommandsFake(),
+            describeRefusal: String,
+          })}
+          renderer={null}
+          role={role}
+          auraMotion={createAuraMotionStore(new StorageFake())}
+          onConfigure={() => undefined}
+          onNewToken={() => undefined}
+        />
+      </TableTokenKeysContext>,
+    );
+  }
+
+  it('a player with the create key sees "Novo token", and still no "Configurar cena"', () => {
+    renderAs('player', { create: true, delete: false });
+    expect(screen.getByRole('button', { name: 'Novo token' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Configurar cena' })).toBeNull();
+  });
+
+  it('a player without the create key sees no "Novo token"', () => {
+    renderAs('player', { create: false, delete: true });
+    expect(screen.queryByRole('button', { name: 'Novo token' })).toBeNull();
+  });
+
+  it('a spectator with the create key sees no "Novo token"', () => {
+    renderAs('spectator', { create: true, delete: true });
+    expect(screen.queryByRole('button', { name: 'Novo token' })).toBeNull();
   });
 });

@@ -23,6 +23,8 @@ export type SettingsValues = Readonly<{
   cover: CampaignCoverDto;
   requirePassword: boolean;
   password: string;
+  playersCreateTokens: boolean;
+  playersDeleteTokens: boolean;
 }>;
 
 export type SettingsErrors = Partial<Record<SettingsField, string>>;
@@ -71,6 +73,8 @@ function confirmedValues(campaign: CampaignDetailDto): SettingsValues {
     cover: campaign.cover,
     requirePassword: campaign.hasPassword,
     password: '',
+    playersCreateTokens: campaign.playersCreateTokens,
+    playersDeleteTokens: campaign.playersDeleteTokens,
   };
 }
 
@@ -88,7 +92,22 @@ function changesOf(values: SettingsValues, confirmed: SettingsValues): Changes {
   }
   if (!sameList(values.tags, confirmed.tags)) changes.tags = [...values.tags];
   if (!sameCover(values.cover, confirmed.cover)) changes.cover = values.cover;
-  return { ...changes, ...passwordChange(values, confirmed.requirePassword) };
+  return {
+    ...changes,
+    ...tokenRightsChanges(values, confirmed),
+    ...passwordChange(values, confirmed.requirePassword),
+  };
+}
+
+function tokenRightsChanges(values: SettingsValues, confirmed: SettingsValues): Changes {
+  const changes: Changes = {};
+  if (values.playersCreateTokens !== confirmed.playersCreateTokens) {
+    changes.playersCreateTokens = values.playersCreateTokens;
+  }
+  if (values.playersDeleteTokens !== confirmed.playersDeleteTokens) {
+    changes.playersDeleteTokens = values.playersDeleteTokens;
+  }
+  return changes;
 }
 
 // Switched on with nothing typed is kept for a campaign that has a password; for one that has

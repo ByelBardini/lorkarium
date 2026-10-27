@@ -26,6 +26,7 @@ import type { AuraFormValues } from './aura-form-state';
 import { BarsEditor } from './bars-editor';
 import { TokenBasicsTab } from './token-basics-tab';
 import {
+  dialogTabsOf,
   emptyTokenForm,
   firstErrorTab,
   parseTokenForm,
@@ -33,6 +34,7 @@ import {
   tokenFormOf,
   TOKEN_DIALOG_TABS,
   withAura,
+  withControllers,
   type TokenDialogTab,
   type TokenFormErrors,
   type TokenFormValues,
@@ -43,10 +45,19 @@ import {
   EDIT_TOKEN_SUBTITLE,
   MISSING_FIELDS,
   NEW_TOKEN_SUBTITLE,
+  PLAYER_EDIT_TOKEN_SUBTITLE,
+  PLAYER_NEW_TOKEN_SUBTITLE,
   sharedFieldsNote,
 } from './token-messages';
 import { TokenPreview } from './token-preview';
 import { VisionLightTab } from './vision-light-tab';
+
+/** Who opens the dialog: the master (everything), or a player on a token she may edit, who never
+ *  sees "Visão e luz", always stays in "Quem controla" and deletes only with the room's key. */
+export type TokenDialogViewer =
+  Readonly<{ mode: 'master' }> | Readonly<{ mode: 'player'; userId: string; canDelete: boolean }>;
+
+const MASTER: TokenDialogViewer = { mode: 'master' };
 
 export type TokenDialogProps = Readonly<{
   /** The grid the token is on (or lands on). */
@@ -66,11 +77,13 @@ export type TokenDialogProps = Readonly<{
   /** The player whose character the token is linked to: identity, control and bars are the
    *  character's, in every grid (`null`/absent: a loose token). */
   cardOwner?: string | null;
+  /** The master when absent. */
+  viewer?: TokenDialogViewer;
   onClose: () => void;
 }>;
 
-/** "Novo token" / "Editar token" (master): the preview at the side (also where the image is
- *  chosen), the tabs "Básico", "Barras", "Visão e luz" and "Aura", and the footer. Saving with an error
+/** "Novo token" / "Editar token": the preview at the side (also where the image is chosen), the
+ *  tabs "Básico", "Barras", "Visão e luz" (not for a player) and "Aura", and the footer. Saving with an error
  *  goes to the first tab that has one. Mounted only while open; saving closes on the ack, and the
  *  change itself arrives as the event everyone gets.
  *
@@ -78,12 +91,15 @@ export type TokenDialogProps = Readonly<{
 export function TokenDialog(props: TokenDialogProps): React.JSX.Element {
   const { token, onClose } = props;
   const dialog = useTokenDialog(props);
+  const player = props.viewer?.mode === 'player';
+  const newSubtitle = player ? PLAYER_NEW_TOKEN_SUBTITLE : NEW_TOKEN_SUBTITLE;
+  const editSubtitle = player ? PLAYER_EDIT_TOKEN_SUBTITLE : EDIT_TOKEN_SUBTITLE;
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="flex h-[min(800px,calc(100svh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[900px]">
         <DialogHeader className="shrink-0 gap-1 border-b border-border py-5 pr-14 pl-6 md:pl-7">
           <DialogTitle>{token ? 'Editar token' : 'Novo token'}</DialogTitle>
-          <DialogDescription>{token ? EDIT_TOKEN_SUBTITLE : NEW_TOKEN_SUBTITLE}</DialogDescription>
+          <DialogDescription>{token ? editSubtitle : newSubtitle}</DialogDescription>
         </DialogHeader>
         <form
           noValidate
@@ -126,10 +142,10 @@ type TokenDialogState = Readonly<{
 }>;
 
 function useTokenDialog(props: TokenDialogProps): TokenDialogState {
-  const { token, distance, onClose } = props;
-  const [form, setForm] = useState(() =>
-    token ? tokenFormOf(token, distance) : emptyTokenForm(distance),
-  );
+  const { distance, onClose } = props;
+  const viewer = props.viewer ?? MASTER;
+  const token = props.token;
+  const [form, setForm] = useState(() => initialFormOf(props));
   const [errors, setErrors] = useState<TokenFormErrors>({});
   const [tab, setTab] = useState<TokenDialogTab>('basics');
   const [failure, setFailure] = useState<BoardCommandFailure | null>(null);
@@ -142,7 +158,7 @@ function useTokenDialog(props: TokenDialogProps): TokenDialogState {
     setFailure(result.failure);
   };
   const save = (): void => {
-    const parsed = parseTokenForm(form, distance);
+    const parsed = parseTokenForm(form, distance, viewer.mode);
     setErrors(parsed.ok ? {} : parsed.errors);
     if (!parsed.ok) return setTab(firstErrorTab(parsed.errors) ?? tab);
     void run(() => sendToken(props, parsed.token));
@@ -158,9 +174,24 @@ function useTokenDialog(props: TokenDialogProps): TokenDialogState {
   return { form, setForm, setImage, setAura, errors, tab, setTab, failure, saving, save, remove };
 }
 
+// A player's token is born without sight and with her in control (the server's rule): the form
+// starts that way so the preview and "Quem controla" do not say otherwise.
+function initialFormOf({ token, distance, viewer }: TokenDialogProps): TokenFormValues {
+  const form = token ? tokenFormOf(token, distance) : emptyTokenForm(distance);
+  if (viewer?.mode !== 'player') return form;
+  const unseeing = token ? form : { ...form, sight: { ...form.sight, sees: false } };
+  return withControllers(unseeing, [viewer.userId]);
+}
+
+function lockedIdsOf(viewer: TokenDialogViewer | undefined): readonly string[] {
+  return viewer?.mode === 'player' ? [viewer.userId] : [];
+}
+
+// A player only moves on the Tokens layer, so hers lands there whatever layer is active.
 function sendToken(props: TokenDialogProps, edit: TokenEdit): Promise<BoardCommandResult> {
-  const { commands, scope, token, placeAt, layer } = props;
+  const { commands, scope, token, placeAt } = props;
   if (token) return commands.updateToken(scope, token.id, edit);
+  const layer = props.viewer?.mode === 'player' ? 'tokens' : props.layer;
   return commands.createToken(scope, { ...edit, col: placeAt.col, row: placeAt.row, layer });
 }
 
@@ -182,7 +213,7 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
       className="min-w-0 flex-1 md:min-h-0"
     >
       <TabsList className="shrink-0 gap-6 px-6 md:px-7" aria-label="Seções do token">
-        {TOKEN_DIALOG_TABS.map((tab) => (
+        {dialogTabsOf(props.viewer?.mode ?? 'master').map((tab) => (
           <TabsTrigger key={tab} value={tab}>
             {TAB_LABEL[tab]}
             {tab === 'bars' && (
@@ -200,7 +231,13 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
       <div className="px-6 py-6 md:min-h-0 md:flex-1 md:overflow-y-auto md:px-7">
         <TabsContent value="basics">
           <SharedNote owner={props.cardOwner} />
-          <TokenBasicsTab form={form} errors={errors} players={props.players} onChange={setForm} />
+          <TokenBasicsTab
+            form={form}
+            errors={errors}
+            players={props.players}
+            lockedIds={lockedIdsOf(props.viewer)}
+            onChange={setForm}
+          />
         </TabsContent>
         <TabsContent value="bars">
           <SharedNote owner={props.cardOwner} />
@@ -259,6 +296,8 @@ function ErrorMark(): React.JSX.Element {
 function TokenDialogFooter({ props, dialog }: DialogPartProps): React.JSX.Element {
   const { token, connected, onClose } = props;
   const { saving } = dialog;
+  const viewer = props.viewer ?? MASTER;
+  const canDelete = viewer.mode === 'master' || viewer.canDelete;
   return (
     <div className="flex shrink-0 flex-col border-t border-border">
       {dialog.failure && (
@@ -267,7 +306,7 @@ function TokenDialogFooter({ props, dialog }: DialogPartProps): React.JSX.Elemen
         </Alert>
       )}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-3.5">
-        {token && (
+        {token && canDelete && (
           <DeleteToken
             name={token.name}
             disabled={saving || !connected}

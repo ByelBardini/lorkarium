@@ -185,7 +185,11 @@ export function copiedAnnouncement(count: number): string {
   return count === 1 ? '1 item copiado.' : `${count} itens copiados.`;
 }
 
-export const PASTE_TOKENS_MASTER_ONLY = 'Só o mestre cola tokens.';
+/** Ctrl+V with tokens by someone who may not create them (a player without the create setting). */
+export const PASTE_TOKENS_REFUSED =
+  'Você não pode criar tokens nesta mesa; eles ficaram fora da colagem.';
+/** Ctrl+Z/Y on a token step this user may no longer take (the master turned a key off). */
+export const EDIT_SKIPPED = 'Você não tem mais permissão para essa ação; ela saiu do desfazer.';
 export const NOT_YOUR_TOKEN = 'Esse token não é seu.';
 export const OUT_OF_SCENE = OUT_OF_SCENE_TEXT;
 
@@ -199,6 +203,13 @@ export const LAYER_LABEL: Readonly<Record<TokenLayerDto, string>> = {
 /** What a deletion from the board cannot do: come back. */
 export const DELETE_CANNOT_UNDO = 'Isso não tem volta.';
 export const TOO_MANY_TO_DELETE = 'Selecione até 64 tokens para excluir.';
+
+/** The selected tokens a player's Delete leaves alone (not hers).
+ *
+ *  Example: `keptTokensNotice(2) // '2 tokens que não são seus ficam.'` */
+export function keptTokensNotice(count: number): string {
+  return count === 1 ? '1 token que não é seu fica.' : `${count} tokens que não são seus ficam.`;
+}
 
 /** How many of each piece a Delete with tokens takes away. */
 export type DeletionCounts = Readonly<{

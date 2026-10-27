@@ -3,19 +3,31 @@ import { useId } from 'react';
 import { initialsOf } from '@/lib/token-initials';
 import { cn } from '@/lib/utils';
 import type { TokenPlayer } from './token-form-state';
-import { CONTROL_HINT, MASTER_CONTROLS_HINT, NO_PLAYERS_HINT } from './token-messages';
+import {
+  CONTROL_HINT,
+  CREATOR_CONTROLS_HINT,
+  MASTER_CONTROLS_HINT,
+  NO_PLAYERS_HINT,
+} from './token-messages';
 
 export type ControlFieldProps = Readonly<{
   controllerIds: readonly string[];
   players: readonly TokenPlayer[];
+  /** Who stays pressed whatever happens: the creator, on a player's own token (the server
+   *  refuses a player's list without her). The master gets none. */
+  lockedIds?: readonly string[];
   onChange: (controllerIds: readonly string[]) => void;
 }>;
 
+const NOBODY: readonly string[] = [];
+
 /** "Quem controla": one button per player of the table, pressed when that player controls the
- *  token (several may). Nobody pressed is the master's alone, who controls everything anyway.
+ *  token (several may). Nobody pressed is the master's alone, who controls everything anyway; a
+ *  locked player stays pressed and disabled ("Você criou, então sempre controla.").
  *
- *  Example: `<ControlField controllerIds={form.controllerIds} players={players} onChange={setControllers} />` */
-export function ControlField({ controllerIds, players, onChange }: ControlFieldProps) {
+ *  Example: `<ControlField controllerIds={form.controllerIds} players={players} lockedIds={[bia]} onChange={setControllers} />` */
+export function ControlField(props: ControlFieldProps) {
+  const { controllerIds, players, lockedIds = NOBODY, onChange } = props;
   const id = useId();
   const toggle = (userId: string): void => {
     const others = controllerIds.filter((chosen) => chosen !== userId);
@@ -27,7 +39,9 @@ export function ControlField({ controllerIds, players, onChange }: ControlFieldP
         <span id={`${id}-legend`} className="text-[13px] text-label">
           Quem controla
         </span>
-        <span className="text-xs text-muted-foreground">{MASTER_CONTROLS_HINT}</span>
+        <span id={`${id}-hint`} className="text-xs text-muted-foreground">
+          {lockedIds.length > 0 ? CREATOR_CONTROLS_HINT : MASTER_CONTROLS_HINT}
+        </span>
       </div>
       {players.length === 0 ? (
         <p className="text-[13px] text-muted-foreground">{NO_PLAYERS_HINT}</p>
@@ -38,6 +52,7 @@ export function ControlField({ controllerIds, players, onChange }: ControlFieldP
               key={player.userId}
               player={player}
               pressed={controllerIds.includes(player.userId)}
+              lockedBy={lockedIds.includes(player.userId) ? `${id}-hint` : null}
               onToggle={() => toggle(player.userId)}
             />
           ))}
@@ -51,14 +66,19 @@ export function ControlField({ controllerIds, players, onChange }: ControlFieldP
 type PlayerToggleProps = Readonly<{
   player: TokenPlayer;
   pressed: boolean;
+  /** The id of the text saying why the button is locked, or `null` when it toggles. */
+  lockedBy: string | null;
   onToggle: () => void;
 }>;
 
-function PlayerToggle({ player, pressed, onToggle }: PlayerToggleProps): React.JSX.Element {
+function PlayerToggle(props: PlayerToggleProps): React.JSX.Element {
+  const { player, pressed, lockedBy, onToggle } = props;
   return (
     <button
       type="button"
       aria-pressed={pressed}
+      disabled={lockedBy !== null}
+      aria-describedby={lockedBy ?? undefined}
       onClick={onToggle}
       className={cn(
         'inline-flex h-10 items-center gap-2 rounded-md border pr-3.5 pl-1.5 text-sm font-medium outline-offset-2 transition-colors focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none',

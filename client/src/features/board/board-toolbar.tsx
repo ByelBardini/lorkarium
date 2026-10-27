@@ -27,10 +27,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import type { BoardRenderer } from '@/renderer/board-renderer';
 import type { AddPlayersResult } from '@/services/table-board-commands';
 import { toolsOf } from '@/lib/table-role';
+import { roleCanCreateTokens } from '@/lib/token-rights-of-viewer';
 import { useAuraMotion, type AuraMotionStore } from '@/stores/aura-motion-store';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardTool } from '@/stores/board-tool-state';
 import { LAYER_LABEL, VIEW_OFF_GRID, addPlayersNotice } from './board-messages';
+import { useTableTokenKeys } from './table-token-rights';
 
 /** A member "Adicionar jogadores" may name as skipped. */
 export type ToolbarMember = Readonly<{ userId: string; name: string }>;
@@ -76,7 +78,7 @@ const LAYER_TOOLS: ReadonlyArray<
 
 /** The floating tools at the left of the board: select, ruler, draw, area of effect, condition
  *  (not for a spectator), local grid, "Animar auras", zoom and framing, plus walls, lights, tokens and
- *  "Configurar cena" for the master. Every tool also has its key (in the name).
+ *  "Configurar cena" for the master; "Novo token" also for a player with the room's create key. Every tool also has its key (in the name).
  *
  *  Example: `<BoardToolbar interaction={interaction} renderer={renderer} role={campaign.myRole} onConfigure={openGridDialog} />` */
 export function BoardToolbar({
@@ -94,6 +96,7 @@ export function BoardToolbar({
   const previewing = useBoardInteraction(interaction, (state) => state.sightPreview);
   const actions = interaction.getState();
   const canConfigure = role === 'master';
+  const canCreate = roleCanCreateTokens(role, useTableTokenKeys());
   return (
     <TooltipProvider>
       {/* Taller than the board, it scrolls inside: overflowing, it let the room scroll and shift
@@ -135,10 +138,12 @@ export function BoardToolbar({
           onClick={() => renderer?.fitScene()}
         />
         <LayerTools interaction={interaction} />
+        {(canConfigure || canCreate) && (
+          <span aria-hidden="true" className="my-1 h-px bg-divider" />
+        )}
+        {canCreate && <ToolButton label="Novo token" icon={UserPlusIcon} onClick={onNewToken} />}
         {canConfigure && (
           <>
-            <span aria-hidden="true" className="my-1 h-px bg-divider" />
-            <ToolButton label="Novo token" icon={UserPlusIcon} onClick={onNewToken} />
             <ToolButton
               label="Adicionar jogadores"
               icon={UsersIcon}

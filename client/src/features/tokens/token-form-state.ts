@@ -41,6 +41,10 @@ export type TokenPlayer = Readonly<{ userId: string; name: string }>;
 /** The tabs of the token dialog, in the order a save looks for the first error. */
 export type TokenDialogTab = 'basics' | 'bars' | 'vision' | 'aura';
 
+/** Who fills the form: the master everything; a player never vision, light nor field of view
+ *  (they open the fog; the server refuses them from a player). */
+export type TokenFormMode = 'master' | 'player';
+
 export type TokenFormValues = Readonly<{
   name: string;
   initials: string;
@@ -101,6 +105,27 @@ const BAR_ERROR: Readonly<Record<keyof BarFormErrors, string>> = {
 /** The tabs of the dialog, in order (also the order a save looks for the first error). */
 export const TOKEN_DIALOG_TABS: readonly TokenDialogTab[] = ['basics', 'bars', 'vision', 'aura'];
 
+const PLAYER_TABS = TOKEN_DIALOG_TABS.filter((tab) => tab !== 'vision');
+
+/** The tabs a mode sees: a player has no "Visão e luz".
+ *
+ *  Example: `dialogTabsOf('player') // ['basics', 'bars', 'aura']` */
+export function dialogTabsOf(mode: TokenFormMode): readonly TokenDialogTab[] {
+  return mode === 'player' ? PLAYER_TABS : TOKEN_DIALOG_TABS;
+}
+
+/** The form with each locked player in "Quem controla" (first, as the server puts the creator).
+ *
+ *  Example: `withControllers(emptyTokenForm(scene), [bia]).controllerIds // [bia]` */
+export function withControllers(
+  form: TokenFormValues,
+  lockedIds: readonly string[],
+): TokenFormValues {
+  const missing = lockedIds.filter((id) => !form.controllerIds.includes(id));
+  if (missing.length === 0) return form;
+  return { ...form, controllerIds: [...missing, ...form.controllerIds] };
+}
+
 const BASICS_FIELDS = ['name', 'initials'] as const;
 
 const LIGHT_TEXTS = { missingBright: 'Informe a luz plena.' };
@@ -114,6 +139,14 @@ type FormRanges = Readonly<{
   sightAngle: number | undefined;
   lightAngle: number | undefined;
 }>;
+
+// A player's send: none of the fields of "Visão e luz" goes.
+const NO_RANGES: FormRanges = {
+  sight: undefined,
+  light: undefined,
+  sightAngle: undefined,
+  lightAngle: undefined,
+};
 
 /** The first tab, in order, with something to fix; `null` when nothing is wrong.
  *
@@ -230,11 +263,17 @@ export function stepSide(cells: number, direction: -1 | 1): number {
 }
 
 /** The form → the token fields to send, validated by the same DTO as the server; the sight and
- *  the light are read in the unit of the scene (`distance`).
+ *  the light are read in the unit of the scene (`distance`). A player's (`mode: 'player'`) goes
+ *  without sight, light and field of view, which she never sees.
  *
  *  Example: `const result = parseTokenForm(form, scene); if (result.ok) await commands.updateToken(id, tokenId, result.token)` */
-export function parseTokenForm(form: TokenFormValues, distance: SceneDistance): TokenFormResult {
-  const look = parseTokenLook(form, distance);
+export function parseTokenForm(
+  form: TokenFormValues,
+  distance: SceneDistance,
+  mode: TokenFormMode = 'master',
+): TokenFormResult {
+  const player = mode === 'player';
+  const look = player ? parseTokenFields(form, NO_RANGES) : parseTokenLook(form, distance);
   if (!form.auraEdited) return look;
   return withParsedAura(look, parseAuraForm(form.aura, distance));
 }

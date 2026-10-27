@@ -3,7 +3,10 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
+import type { TableTokenRights } from '@lorkarium/game-core';
+import { TableTokenKeysContext } from '@/features/board/table-token-rights';
 import { TokenDock } from '@/features/tokens/token-dock';
+import { NO_TOKEN_KEYS } from '@/lib/token-rights-of-viewer';
 import {
   createBoardInteractionStore,
   type BoardInteractionStore,
@@ -29,6 +32,9 @@ import {
   VHARN_GRID,
 } from '../../support/table-session-fixtures';
 
+const BIA_VIEWER = { userId: BIA_AT_TABLE.userId, role: 'player' } as const;
+const ANCHOR_ID = '7f6e5d4c-3b2a-4f1e-9d8c-7b6a5f4e3d2c';
+
 describe('TokenDock', () => {
   let board: StoreApi<BoardStore>;
   let presence: StoreApi<TablePresenceStore>;
@@ -49,21 +55,27 @@ describe('TokenDock', () => {
     edited = [];
   });
 
+  // A player's dock reads Bia's board: the token rights come from the board's viewer.
   function renderDock(
     state: Partial<BoardStateDto> = {},
     isMaster = true,
     selected: readonly string[] = [LYRA_ID],
+    keys: TableTokenRights = NO_TOKEN_KEYS,
   ): void {
-    board.getState().apply({ kind: 'board', state: vharnBoard({ tokens: [lyra()], ...state }) });
+    const viewer = isMaster ? {} : { viewer: BIA_VIEWER };
+    const initial = vharnBoard({ tokens: [lyra()], ...viewer, ...state });
+    board.getState().apply({ kind: 'board', state: initial });
     interaction.getState().selectMany([...selected], { additive: false });
     render(
-      <TokenDock
-        board={board}
-        presence={presence}
-        interaction={interaction}
-        isMaster={isMaster}
-        onEditToken={(tokenId) => edited.push(tokenId)}
-      />,
+      <TableTokenKeysContext value={keys}>
+        <TokenDock
+          board={board}
+          presence={presence}
+          interaction={interaction}
+          isMaster={isMaster}
+          onEditToken={(tokenId) => edited.push(tokenId)}
+        />
+      </TableTokenKeysContext>,
     );
   }
 
@@ -347,6 +359,38 @@ describe('TokenDock', () => {
       ]);
 
       expect(within(mainDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
+    });
+  });
+  describe('"Editar token" of a player with the create key', () => {
+    const CREATE = { create: true, delete: false };
+
+    it('Bia sees "Editar token" on the token she created, and it asks to edit it', async () => {
+      const own = lyra({ createdBy: BIA_AT_TABLE.userId });
+      renderDock({ tokens: [own] }, false, [LYRA_ID], CREATE);
+
+      await userEvent.click(within(dock()).getByRole('button', { name: 'Editar token' }));
+
+      expect(edited).toEqual([LYRA_ID]);
+    });
+
+    it('Bia sees no "Editar token" on the master’s token', () => {
+      renderDock({ tokens: [lyra({ createdBy: ANA_AT_TABLE.userId })] }, false, [LYRA_ID], CREATE);
+
+      expect(within(dock()).queryByRole('button', { name: 'Editar token' })).toBeNull();
+    });
+
+    it('Bia sees no "Editar token" on her token linked to a character', () => {
+      const linked = lyra({ createdBy: BIA_AT_TABLE.userId, anchorTokenId: ANCHOR_ID });
+      renderDock({ tokens: [linked] }, false, [LYRA_ID], CREATE);
+
+      expect(within(dock()).queryByRole('button', { name: 'Editar token' })).toBeNull();
+    });
+
+    it('without the create key Bia sees no "Editar token" on her own token', () => {
+      const own = lyra({ createdBy: BIA_AT_TABLE.userId });
+      renderDock({ tokens: [own] }, false, [LYRA_ID], { create: false, delete: true });
+
+      expect(within(dock()).queryByRole('button', { name: 'Editar token' })).toBeNull();
     });
   });
 });

@@ -72,7 +72,9 @@ import { useTokenHover } from './use-token-hover';
 import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
-import { TablePlayersContext, usePlayerIdsOf } from './table-players';
+import { usePlayerIdsOf } from './table-players';
+import { RoomContexts } from './room-contexts';
+import { useRoomTokenKeys } from './table-token-rights';
 import { useViewerRole } from './use-viewer-role';
 import { useBoardPings } from './use-board-pings';
 import { useEditShortcuts } from './use-edit-shortcuts';
@@ -147,7 +149,8 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   useViewerRole(table && shown.tabs ? { ...table, tabs: shown.tabs } : null, props.sessionStore);
   const players = usePlayerIdsOf(table?.presence ?? null);
   const commands = props.boardCommands;
-  useEditShortcuts({ scopeOf, table, interaction, commands, role });
+  const tokenKeys = useRoomTokenKeys(openTables, campaign);
+  useEditShortcuts({ scopeOf, table, interaction, commands, role, tokenKeys });
   useConditionToolFollow(table ? { board: table.board, interaction, conditionTool } : null);
   const tool = useBoardInteraction(interaction, (state) => state.tool);
   const drawMode = useBoardInteraction(interaction, (state) => state.drawMode);
@@ -163,7 +166,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
     role,
   });
   return (
-    <TablePlayersContext value={players}>
+    <RoomContexts players={players} tokenKeys={tokenKeys}>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
         <title>{`Lorkarium · ${campaign.name}`}</title>
         {!focus && (
@@ -384,7 +387,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           )}
         </div>
       </div>
-    </TablePlayersContext>
+    </RoomContexts>
   );
 }
 

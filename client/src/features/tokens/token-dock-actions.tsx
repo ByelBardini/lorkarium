@@ -1,6 +1,7 @@
 import type { TokenDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
+import { useViewerTokenRights } from '@/features/board/table-token-rights';
 import { InitiativeField } from '@/features/combat/initiative-field';
 import { canRunEntry, entryOfToken } from '@/lib/combat-entries';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
@@ -15,7 +16,8 @@ export type TokenDockActionsProps = Readonly<{
 }>;
 
 /** The foot of the token's detail: in combat, the initiative of its entry (for whoever runs it)
- *  and the master's "Tirar do combate" (only this token); always, the master's "Editar token".
+ *  and the master's "Tirar do combate" (only this token); always, "Editar token" for whoever may
+ *  edit it (the master, or its creator with the room's create key).
  *
  *  Example: `<TokenDockActions token={kael} board={board} interaction={interaction} isMaster onEditToken={edit} />` */
 export function TokenDockActions(props: TokenDockActionsProps): React.JSX.Element | null {
@@ -24,7 +26,8 @@ export function TokenDockActions(props: TokenDockActionsProps): React.JSX.Elemen
   const readOnly = useBoardInteraction(interaction, (current) => current.readOnly);
   const entry = entryOfToken(state?.combat ?? null, token.id);
   const runs = entry !== null && canRunEntry(entry, state?.tokens ?? [], isMaster);
-  if (!runs && !isMaster) return null;
+  const canEdit = useViewerTokenRights(props.board).of(token).edit;
+  if (!runs && !isMaster && !canEdit) return null;
   const send = interaction.getState().command;
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-divider pt-3">
@@ -53,7 +56,7 @@ export function TokenDockActions(props: TokenDockActionsProps): React.JSX.Elemen
           Tirar do combate
         </Button>
       )}
-      {isMaster && (
+      {canEdit && (
         <Button
           type="button"
           variant="outline"

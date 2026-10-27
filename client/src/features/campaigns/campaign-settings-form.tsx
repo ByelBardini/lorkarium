@@ -16,6 +16,7 @@ import {
   ContentSection,
   DangerSection,
   GeneralSection,
+  PlayersSection,
 } from './campaign-settings-sections';
 import { DiscardSettingsDialog } from './discard-settings-dialog';
 import { SettingsSectionNav } from './settings-section-nav';
@@ -32,8 +33,8 @@ export type CampaignSettingsFormProps = Readonly<{
   clipboard: Clipboard;
 }>;
 
-/** "Configurações da mesa" (master only): the section menu, then Geral, Conteúdo, Acesso and Zona
- *  de perigo in one form, with the hub preview beside from `lg`. The fields wait in a draft for
+/** "Configurações da mesa" (master only): the section menu, then Geral, Conteúdo, Acesso, Permissões
+ *  dos jogadores and Zona de perigo in one form, with the hub preview beside from `lg`. The fields wait in a draft for
  *  the bar; leaving with edits asks first. The code and the deletion are commands of their own,
  *  outside the bar.
  *
@@ -64,6 +65,7 @@ export function CampaignSettingsForm({
           />
           <ContentSection draft={draft} />
           <AccessSection draft={draft} campaign={campaign} clipboard={clipboard} />
+          <PlayersSection draft={draft} />
           <DangerSection campaignId={campaign.id} campaignName={campaign.name} />
         </div>
         <SettingsPreview draft={draft} />

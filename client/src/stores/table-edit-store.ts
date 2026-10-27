@@ -5,6 +5,7 @@ import {
   EMPTY_HISTORY,
   afterRedo,
   afterUndo,
+  dropRedo,
   dropUndo,
   inverseOf,
   record,
@@ -31,18 +32,27 @@ import type {
   TableBoardCommands,
 } from '@/services/table-board-commands';
 
-/** Who edits and how: the commands of the table, whether they may create tokens (the master),
- *  and whether the table is read only right now (nothing is sent then). */
+/** What this user may do with tokens right now: the game-core rule over the room's keys
+ *  (`viewerTokenRightsOf`), asked per token id since the undo stack keeps only ids. */
+export type EditTokenRights = Readonly<{
+  canCreate: boolean;
+  canDelete: (tokenId: string) => boolean;
+}>;
+
+/** Who edits and how: the commands of the table, what they may do with tokens, and whether the
+ *  table is read only right now (nothing is sent then). */
 export type EditContext = Readonly<{
   scope: BoardScope;
   commands: TableBoardCommands;
-  isMaster: boolean;
+  tokenRights: EditTokenRights;
   readOnly: boolean;
 }>;
 
 export type EditOutcome =
   | Readonly<{ kind: 'done' }>
   | Readonly<{ kind: 'nothing' }>
+  /** The step needs a token key this user lacks now: it left the stack, nothing was sent. */
+  | Readonly<{ kind: 'skipped' }>
   | Readonly<{ kind: 'out_of_scene' }>
   | Readonly<{ kind: 'refused'; failure: BoardCommandFailure }>;
 
@@ -81,6 +91,7 @@ type RunOutcome =
   | Readonly<{ kind: 'refused'; failure: BoardCommandFailure; done: EditEntry }>;
 
 const NOTHING: EditOutcome = { kind: 'nothing' };
+const SKIPPED: EditOutcome = { kind: 'skipped' };
 
 /** The copy area of one open table, for this user only: every grid tab of it reads and fills it.
  *
@@ -93,7 +104,7 @@ export function createCopyArea(): StoreApi<CopyArea> {
  *  by the scene tabs store beside the board). Undoing sends the inverse with the expected state as
  *  its precondition, so the server refuses (`stale_undo`) when someone else changed it after.
  *
- *  Example: `await edits.getState().undo({ scope, commands, isMaster, readOnly })` */
+ *  Example: `await edits.getState().undo({ scope, commands, tokenRights, readOnly })` */
 export function createTableEditStore(
   campaignId: string,
   copyArea: StoreApi<CopyArea> = createCopyArea(),
@@ -142,7 +153,12 @@ type SetEdits = StoreApi<TableEditStore>['setState'];
 async function undoNow(get: GetEdits, set: SetEdits, context: EditContext): Promise<EditOutcome> {
   const entry = get().history.past.at(-1);
   if (!entry || context.readOnly) return NOTHING;
-  const run = await runEntry(inverseOf(entry), context);
+  const inverse = inverseOf(entry);
+  if (!canRunEditEntry(inverse, context.tokenRights)) {
+    set({ history: dropUndo(get().history) });
+    return SKIPPED;
+  }
+  const run = await runEntry(inverse, context);
   if (run.kind === 'done') {
     set({ history: afterUndo(get().history, run.mapping) });
     return { kind: 'done' };
@@ -154,6 +170,10 @@ async function undoNow(get: GetEdits, set: SetEdits, context: EditContext): Prom
 async function redoNow(get: GetEdits, set: SetEdits, context: EditContext): Promise<EditOutcome> {
   const entry = get().history.future[0];
   if (!entry || context.readOnly) return NOTHING;
+  if (!canRunEditEntry(entry, context.tokenRights)) {
+    set({ history: dropRedo(get().history) });
+    return SKIPPED;
+  }
   const run = await runEntry(entry, context);
   if (run.kind !== 'done') return { kind: 'refused', failure: run.failure };
   set({ history: afterRedo(get().history, run.mapping) });
@@ -168,7 +188,7 @@ async function pasteNow(
 ): Promise<PasteOutcome> {
   const { copied } = get();
   if (!copied || context.readOnly) return { outcome: NOTHING, skippedTokens: false };
-  const skippedTokens = !context.isMaster && copied.tokens.length > 0;
+  const skippedTokens = !context.tokenRights.canCreate && copied.tokens.length > 0;
   const allowed = skippedTokens ? { ...copied, tokens: [] } : copied;
   if (allowed.tokens.length + allowed.drawings.length + allowed.effectAreas.length === 0) {
     return { outcome: NOTHING, skippedTokens };
@@ -181,6 +201,16 @@ async function pasteNow(
   const outcome: EditOutcome =
     run.kind === 'done' ? { kind: 'done' } : { kind: 'refused', failure: run.failure };
   return { outcome, skippedTokens };
+}
+
+// Undoing a creation is a deletion, redoing one a creation: each follows its token key, so the
+// stack never opens a way around the room's keys.
+function canRunEditEntry(entry: EditEntry, rights: EditTokenRights): boolean {
+  return entry.every((op) => {
+    if (op.kind === 'tokensAdded') return rights.canCreate;
+    if (op.kind === 'tokensRemoved') return op.tokens.every(({ id }) => rights.canDelete(id));
+    return true;
+  });
 }
 
 // The pasted items get their ids from the server: until then each one stands by its index.

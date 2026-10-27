@@ -26,6 +26,7 @@ import {
 import type { AssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import { CampaignTagsField, ContentWarningsField } from './campaign-label-fields';
+import { PLAYER_TOKEN_RIGHTS_TEXT } from './campaign-settings-messages';
 import { DeleteCampaignDialog } from './delete-campaign-dialog';
 import { JoinCodeSetting } from './join-code-setting';
 import { SETTINGS_SECTIONS } from './settings-sections';
@@ -235,39 +236,77 @@ export function AccessSection({ draft, campaign, clipboard }: AccessSectionProps
 type PasswordSettingProps = Readonly<{ draft: SettingsDraft; hasPassword: boolean }>;
 
 function PasswordSetting({ draft, hasPassword }: PasswordSettingProps): React.JSX.Element {
-  const ids = { toggle: useId(), password: useId() };
+  const passwordId = useId();
   const { values, errors, change } = draft;
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <Label htmlFor={ids.toggle} className="text-sm text-foreground">
-          Pedir senha para entrar
-        </Label>
-        <Switch
-          id={ids.toggle}
-          checked={values.requirePassword}
-          onCheckedChange={(requirePassword) => change({ requirePassword, password: '' })}
-        />
-      </div>
+      <SwitchRow
+        label="Pedir senha para entrar"
+        checked={values.requirePassword}
+        onCheckedChange={(requirePassword) => change({ requirePassword, password: '' })}
+      />
       {values.requirePassword && (
         <FormField
-          id={ids.password}
+          id={passwordId}
           label={hasPassword ? 'Nova senha' : 'Senha da mesa'}
           error={errors.password}
           hint={hasPassword ? 'Deixe em branco para manter a senha atual.' : undefined}
         >
           <PasswordField
-            id={ids.password}
+            id={passwordId}
             value={values.password}
             onValueChange={(password) => change({ password })}
             invalid={errors.password !== undefined}
-            describedBy={errors.password ? `${ids.password}-error` : undefined}
+            describedBy={errors.password ? `${passwordId}-error` : undefined}
             autoComplete="new-password"
             autoFocus={!hasPassword}
           />
         </FormField>
       )}
     </div>
+  );
+}
+
+type SwitchRowProps = Readonly<{
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}>;
+
+function SwitchRow({ label, ...toggle }: SwitchRowProps): React.JSX.Element {
+  const id = useId();
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <Label htmlFor={id} className="text-sm text-foreground">
+        {label}
+      </Label>
+      <Switch id={id} {...toggle} />
+    </div>
+  );
+}
+
+/** "Permissões dos jogadores": the two campaign switches that let every player create and edit,
+ *  and delete, the tokens they created (the server reads them on each command).
+ *
+ *  Example: `<PlayersSection draft={draft} />` */
+export function PlayersSection({ draft }: Readonly<{ draft: SettingsDraft }>): React.JSX.Element {
+  const { values, change } = draft;
+  return (
+    <SettingsSection
+      section={SETTINGS_SECTIONS.players}
+      description={PLAYER_TOKEN_RIGHTS_TEXT.hint}
+    >
+      <SwitchRow
+        label={PLAYER_TOKEN_RIGHTS_TEXT.create}
+        checked={values.playersCreateTokens}
+        onCheckedChange={(playersCreateTokens) => change({ playersCreateTokens })}
+      />
+      <SwitchRow
+        label={PLAYER_TOKEN_RIGHTS_TEXT.remove}
+        checked={values.playersDeleteTokens}
+        onCheckedChange={(playersDeleteTokens) => change({ playersDeleteTokens })}
+      />
+    </SettingsSection>
   );
 }
 

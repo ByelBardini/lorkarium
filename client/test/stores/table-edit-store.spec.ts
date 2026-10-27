@@ -31,6 +31,12 @@ const NEW_SQUARE = 'f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c';
 const NEW_AREA = 'a3b4c5d6-e7f8-4a9b-8c1d-2e3f4a5b6c7d';
 const NEW_WALL = 'b4c5d6e7-f8a9-4b0c-9d2e-3f4a5b6c7d8e';
 
+// What the game-core gives the master, a player without keys, and Bia with one key each.
+const MASTER = { canCreate: true, canDelete: () => true };
+const NO_KEYS = { canCreate: false, canDelete: () => false };
+const CREATE_ONLY = { canCreate: true, canDelete: () => false };
+const DELETE_ONLY = { canCreate: false, canDelete: (tokenId: string) => tokenId === NEW_GOBLIN };
+
 function lyraMoved(from: number, to: number): EditEntry {
   return [
     {
@@ -50,7 +56,7 @@ describe('table edit store', () => {
   });
 
   function context(overrides: Partial<EditContext> = {}): EditContext {
-    return { scope: VHARN_GRID, commands, isMaster: true, readOnly: false, ...overrides };
+    return { scope: VHARN_GRID, commands, tokenRights: MASTER, readOnly: false, ...overrides };
   }
 
   describe('copy and paste', () => {
@@ -120,7 +126,7 @@ describe('table edit store', () => {
     it('a player pasting a selection with a token pastes only the drawings and says so', async () => {
       edits.getState().copy(copiedOf([lyra()], [square()]));
 
-      const pasted = await edits.getState().paste(context({ isMaster: false }), {
+      const pasted = await edits.getState().paste(context({ tokenRights: NO_KEYS }), {
         cursor: cell(10, 6),
         scene: SCENE,
       });
@@ -146,7 +152,7 @@ describe('table edit store', () => {
     it('a player pastes areas too: only the tokens are skipped', async () => {
       edits.getState().copy(copiedOf([lyra()], [], [biaCone()]));
 
-      const pasted = await edits.getState().paste(context({ isMaster: false }), {
+      const pasted = await edits.getState().paste(context({ tokenRights: NO_KEYS }), {
         cursor: cell(10, 6),
         scene: SCENE,
       });
@@ -678,5 +684,56 @@ describe('table edit store', () => {
     edits.getState().record(entry);
 
     expect(edits.getState().history.past).toEqual([entry]);
+  });
+  describe('a player under the room’s token keys', () => {
+    beforeEach(() => {
+      commands.answerWith({ ok: true, version: 5, createdIds: [NEW_GOBLIN] });
+      edits.getState().copy(copiedOf([lyra()], []));
+    });
+
+    async function pasteAs(tokenRights: EditContext['tokenRights']) {
+      return edits
+        .getState()
+        .paste(context({ tokenRights }), { cursor: cell(10, 6), scene: SCENE });
+    }
+
+    it('with the create key, the copied tokens go into the paste', async () => {
+      const pasted = await pasteAs(CREATE_ONLY);
+
+      expect(pasted.skippedTokens).toBe(false);
+      expect(commands.sentAs('createTokens')).toHaveLength(1);
+    });
+
+    it('undoing her paste without the delete key is skipped: nothing sent, the entry leaves the stack', async () => {
+      await pasteAs(CREATE_ONLY);
+      commands.sent.length = 0;
+
+      const outcome = await edits.getState().undo(context({ tokenRights: CREATE_ONLY }));
+
+      expect(outcome).toEqual({ kind: 'skipped' });
+      expect(commands.sent).toEqual([]);
+      expect(edits.getState().history).toEqual({ past: [], future: [] });
+    });
+
+    it('undoing her paste with the delete key deletes the pasted token', async () => {
+      await pasteAs(CREATE_ONLY);
+
+      const outcome = await edits.getState().undo(context({ tokenRights: DELETE_ONLY }));
+
+      expect(outcome).toEqual({ kind: 'done' });
+      expect(commands.sentAs('deleteTokens')[0]?.fields).toMatchObject({ tokenIds: [NEW_GOBLIN] });
+    });
+
+    it('redoing her paste after the create key went off is skipped and leaves the redo stack', async () => {
+      await pasteAs(CREATE_ONLY);
+      await edits.getState().undo(context({ tokenRights: MASTER }));
+      commands.sent.length = 0;
+
+      const outcome = await edits.getState().redo(context({ tokenRights: DELETE_ONLY }));
+
+      expect(outcome).toEqual({ kind: 'skipped' });
+      expect(commands.sent).toEqual([]);
+      expect(edits.getState().history.future).toEqual([]);
+    });
   });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { addBar } from '@/features/tokens/bar-form-state';
 import {
+  dialogTabsOf,
   emptyTokenForm,
   firstErrorTab,
   lightSwitchedOn,
@@ -12,6 +13,7 @@ import {
   tabHasErrors,
   tokenFormOf,
   withAura,
+  withControllers,
   type TokenFormValues,
 } from '@/features/tokens/token-form-state';
 import { auraFormOf, auraKindChosen } from '@/features/tokens/aura-form-state';
@@ -400,5 +402,51 @@ describe('token form state, the aura', () => {
     expect(result.ok).toBe(false);
     expect(!result.ok && result.errors.aura).toEqual({ image: 'Escolha a imagem da aura.' });
     expect(!result.ok && firstErrorTab(result.errors)).toBe('basics');
+  });
+});
+
+describe('token form state, a player sending', () => {
+  const lit = lightSwitchedOn({ ...named('Lobo'), sightAngle: '90' }, METERS);
+
+  it('a player’s token goes without sight, light and field of view, whatever the form holds', () => {
+    const result = parseTokenForm(lit, METERS, 'player');
+
+    expect(result.ok).toBe(true);
+    const token = result.ok ? result.token : {};
+    expect(token).toMatchObject({ name: 'Lobo', initials: 'LO' });
+    expect(token).not.toHaveProperty('sight');
+    expect(token).not.toHaveProperty('light');
+    expect(token).not.toHaveProperty('sightAngle');
+  });
+
+  it('a mistyped sight the player never sees does not stop the save', () => {
+    const form = { ...named('Lobo'), sightAngle: '0', sight: { ...SIGHT_OFF, sees: true } };
+
+    expect(parseTokenForm(form, METERS, 'player').ok).toBe(true);
+  });
+
+  it('the master sending the same form still sends the sight, the light and the field of view', () => {
+    const result = parseTokenForm(lit, METERS, 'master');
+
+    expect(result.ok && result.token).toMatchObject({ sightAngle: 90, light: { bright: 4 } });
+  });
+});
+
+describe('token form state, the player’s dialog', () => {
+  it('a player’s tabs leave out "Visão e luz"; the master’s keep all four', () => {
+    expect(dialogTabsOf('player')).toEqual(['basics', 'bars', 'aura']);
+    expect(dialogTabsOf('master')).toEqual(['basics', 'bars', 'vision', 'aura']);
+  });
+
+  it('withControllers puts the locked creator first, and once', () => {
+    const caio = '9c8b7a6f-5e4d-4c3b-8a29-1f0e9d8c7b6a';
+    const form = { ...named('Lobo'), controllerIds: [caio] };
+
+    expect(withControllers(form, [BIA_AT_TABLE.userId]).controllerIds).toEqual([
+      BIA_AT_TABLE.userId,
+      caio,
+    ]);
+    const withBia = { ...form, controllerIds: [caio, BIA_AT_TABLE.userId] };
+    expect(withControllers(withBia, [BIA_AT_TABLE.userId])).toBe(withBia);
   });
 });
