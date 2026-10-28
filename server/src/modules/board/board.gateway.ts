@@ -51,6 +51,7 @@ import {
   faceTokensCommandDto,
   restyleTokensCommandDto,
   resizeTokensCommandDto,
+  setTokenFormCommandDto,
   setMainTokenCommandDto,
   startCombatCommandDto,
   updateTokenCommandDto,
@@ -75,6 +76,7 @@ import type { SceneActivationService } from '../scenes/scene-activation.service'
 import type { SceneWatchService } from '../scenes/scene-watch.service';
 import type { ScenesService } from '../scenes/scenes.service';
 import type { TokenAppearanceService } from '../tokens/token-appearance.service';
+import type { TokenFormService } from '../tokens/token-form.service';
 import type { TokenVisibilityService } from '../tokens/token-visibility.service';
 import type { MainTokenService } from '../tokens/main-token.service';
 import type { TokenBatchService } from '../tokens/token-batch.service';
@@ -108,6 +110,7 @@ export type BoardGatewayDeps = Readonly<{
   >;
   tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany' | 'addPlayers'>;
   tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany' | 'resizeMany'>;
+  tokenForm: Pick<TokenFormService, 'setForm'>;
   mainToken: Pick<MainTokenService, 'choose'>;
   tokenVisibility: Pick<TokenVisibilityService, 'setHiddenMany'>;
   tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
@@ -177,7 +180,7 @@ type Creation<Command> = (
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
   const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
   const { effectAreas, walls, lights, mainToken, memberCards, tokenVisibility } = deps;
-  const { rate } = deps;
+  const { rate, tokenForm } = deps;
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
       onCommand({ deps, rate, socket }, schema, handler);
@@ -257,6 +260,7 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
       'token:resizeMany',
       mutate(resizeTokensCommandDto, appearance.resizeMany.bind(appearance)),
     );
+    socket.on('token:setForm', mutate(setTokenFormCommandDto, tokenForm.setForm.bind(tokenForm)));
     socket.on('token:adjustBar', mutate(adjustBarCommandDto, tokens.adjustBar.bind(tokens)));
     socket.on('token:setMain', mutate(setMainTokenCommandDto, mainToken.choose.bind(mainToken)));
     socket.on(

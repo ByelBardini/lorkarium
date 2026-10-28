@@ -18,6 +18,14 @@ export type UpdateMany = Readonly<{
 
 const VALUES = sql.identifier('batch');
 
+/** The value a batch row brings for `column`, for an `alsoSet` that compares it with the stored
+ *  one (the stored one is the column itself).
+ *
+ *  Example: `sql\`${tokens.width} IS DISTINCT FROM ${batchColumn(tokens.width)}\`` */
+export function batchColumn(column: PgColumn): SQL {
+  return sql`${VALUES}.${sql.identifier(column.name)}`;
+}
+
 /** `UPDATE t SET c = batch.c … FROM (VALUES (…), (…)) AS batch(key, c…) WHERE t.key = batch.key
  *  AND <where>`: a group of up to 64 moves in one statement instead of one per row.
  *

@@ -33,7 +33,7 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
     table.withLyraAnchor();
     const bram = lyraAnchorRow();
     const bramToken = { ...bram.token, id: BRAM_ANCHOR_ID, name: 'Bram', width: 2, height: 2 };
-    table.tokens.rows.push({ token: bramToken, bars: [], controllerIds: [CAIO_ID] });
+    table.tokens.rows.push({ token: bramToken, bars: [], controllerIds: [CAIO_ID], forms: [] });
     table.memberCards.rows.push(memberCardPo({ userId: CAIO_ID, anchorTokenId: BRAM_ANCHOR_ID }));
     table.scenes.rows.push(scenePo({ id: CELA_ID, widthCells: 2, heightCells: 1 }));
     const { members, publisher, clock } = table;
@@ -119,7 +119,7 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
 
   it('a grid without room is NO_FREE_CELLS citing the grid and how many were left out', async () => {
     const goblin = lyraPo({ id: 'goblin', sceneId: CELA_ID, col: 1, row: 0, anchorTokenId: null });
-    table.tokens.rows.push({ token: goblin, bars: [], controllerIds: [] });
+    table.tokens.rows.push({ token: goblin, bars: [], controllerIds: [], forms: [] });
 
     const adding = service.addPlayers(ANA_ID, VHARN_ID, {
       sceneId: CELA_ID,

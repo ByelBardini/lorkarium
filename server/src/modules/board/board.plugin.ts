@@ -28,6 +28,7 @@ export type BoardModuleOptions = Readonly<{
   tokens: BoardGatewayDeps['tokens'];
   tokenBatch: BoardGatewayDeps['tokenBatch'];
   tokenAppearance: BoardGatewayDeps['tokenAppearance'];
+  tokenForm: BoardGatewayDeps['tokenForm'];
   mainToken: BoardGatewayDeps['mainToken'];
   tokenVisibility: BoardGatewayDeps['tokenVisibility'];
   tokenLink: BoardGatewayDeps['tokenLink'];
@@ -57,7 +58,7 @@ export function createBoardModule(options: BoardModuleOptions): BoardModule {
   const { clock, effectAreas, walls, lights, mainToken, memberCards } = options;
   const { realtime, rate, queue, log } = options;
   const { members, sceneWatch, sceneActivation, tokenLink, pings, conditionCatalog } = options;
-  const { tokenVisibility } = options;
+  const { tokenVisibility, tokenForm } = options;
   const snapshot: BoardSnapshotRunner = (work) =>
     runInSnapshot(db, (tx) =>
       work({
@@ -82,6 +83,7 @@ export function createBoardModule(options: BoardModuleOptions): BoardModule {
     tokens,
     tokenBatch,
     tokenAppearance,
+    tokenForm,
     mainToken,
     tokenVisibility,
     tokenLink,

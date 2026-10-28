@@ -34,6 +34,7 @@ import type {
   WallsDeletedDto,
   WallsMovedDto,
   TokensResizedDto,
+  TokenFormChangedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
   TokenLayerChangedDto,
@@ -177,6 +178,13 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     veil: VeilCuts<GridEvent<TokensResizedDto>>,
   ): void {
     this.emitCuts('token:resizedMany', event, veil);
+  }
+
+  tokenFormChanged(
+    event: GridEvent<TokenFormChangedDto>,
+    veil: VeilCuts<GridEvent<TokenFormChangedDto>>,
+  ): void {
+    this.emitCuts('token:formChanged', event, veil);
   }
 
   mainTokenChanged(
@@ -391,6 +399,7 @@ type VeiledEventName =
   | 'token:facedMany'
   | 'token:restyledMany'
   | 'token:resizedMany'
+  | 'token:formChanged'
   | 'token:mainChanged'
   | 'condition:applied'
   | 'condition:appliedMany'

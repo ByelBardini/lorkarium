@@ -24,6 +24,7 @@ import type { CampaignTokenRightsPo } from '../campaigns/campaigns.dao';
 import type { TokenAudience } from './token-access.bo';
 import { TokenAuthorshipBo, type AuthoredToken, type EditedToken } from './token-authorship.bo';
 import { toTokenAuraDto, toTokenAuraPo } from './token-aura.mapper';
+import { toTokenFormInputsPo, toTokenFormsDto } from './token-form.mapper';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
 import type {
   TokenBarInputPo,
@@ -34,8 +35,8 @@ import type {
   TokenSightPo,
 } from './tokens.po';
 
-/** A token as one audience may see it: `others` never receive a `controllers` bar, and the bars
- *  they do receive keep their position (the second does not become "the first").
+/** A token as one audience may see it: `others` never receive a `controllers` bar nor the forms,
+ *  and the bars they do receive keep their position (the second does not become "the first").
  *
  *  Example: `toTokenDto(row, access.audience())` */
 export function toTokenDto(
@@ -74,6 +75,8 @@ export function toTokenDto(
     conditions: [...conditions],
     anchorTokenId: row.token.anchorTokenId,
     createdBy: row.token.createdBy,
+    forms: toTokenFormsDto(row.forms, audience),
+    activeFormId: row.token.activeFormId,
   };
 }
 
@@ -137,11 +140,12 @@ type UpdatedFields = Pick<
   | 'sightAngle'
   | 'light'
   | 'aura'
+  | 'forms'
   | keyof TokenLookPo
 >;
 
 /** `token:update` fields → what to save, with the controllers already checked by the rule; a look
- *  field the command left out is not written (the token keeps it).
+ *  field the command left out is not written (the token keeps it), and absent forms are kept.
  *
  *  Example: `toTokenUpdatePo(command, rules.controllers(command.controllerIds))` */
 export function toTokenUpdatePo(
@@ -164,6 +168,7 @@ export function toTokenUpdatePo(
     },
     bars: toBarInputsPo(command.bars),
     controllerIds,
+    ...(command.forms === undefined ? {} : { forms: toTokenFormInputsPo(command.forms) }),
   };
 }
 

@@ -122,6 +122,41 @@ describe('token commands that touch a hidden token', () => {
     await caioAfter(table);
   });
 
+  it('token:setForm of the Lobo by Bia: Bia gets the form, Caio board:advanced and the torch moved', async () => {
+    const table = await hiddenTable(live);
+    const cub = {
+      id: crypto.randomUUID(),
+      name: 'Filhote',
+      imageAssetId: null,
+      width: 1,
+      height: 1,
+      frame: 'square',
+    };
+    await send(table.ana.client, 'token:update', {
+      ...loboUpdate(table, [live.bia.id]),
+      forms: [cub],
+    });
+    const lobo = (await synced(table.ana.client, live.vharn)).tokens.find(
+      ({ id }) => id === table.loboId,
+    );
+    const formId = lobo?.forms[0]?.id ?? '';
+
+    const ack = await send(
+      table.bia.client,
+      'token:setForm',
+      on({ tokenId: table.loboId, formId }),
+    );
+
+    expect(ack).toMatchObject({ ok: true });
+    expect(await eventPayload(table.bia, 'token:formChanged')).toMatchObject({
+      tokenId: table.loboId,
+      box: { col: 3, row: 4, width: 1, height: 1 },
+    });
+    const caio = await caioAfter(table);
+    const advanced = caio.events.filter(({ name }) => name === 'board:advanced');
+    expect(advanced.at(-1)?.payload).toMatchObject({ version: ack.ok ? ack.version : -1 });
+  });
+
   it('token:adjustBar on the Lobo by Bia: Ana and Bia get token:updated, Caio board:advanced', async () => {
     const table = await hiddenTable(live);
     const lobo = (await synced(table.bia.client, live.vharn)).tokens.find(

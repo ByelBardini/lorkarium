@@ -1,6 +1,11 @@
 import type { TokenRow } from '../../src/modules/tokens/tokens.dao';
 import type { TokenAuraDto } from '@lorkarium/contracts';
-import type { TokenAuraPo, TokenBarPo, TokenPo } from '../../src/modules/tokens/tokens.po';
+import type {
+  TokenAuraPo,
+  TokenBarPo,
+  TokenFormPo,
+  TokenPo,
+} from '../../src/modules/tokens/tokens.po';
 import { BIA_ID, CAIO_ID } from './campaigns-factories';
 import { VHARN_SCENE_ID } from './scenes-factories';
 
@@ -10,6 +15,11 @@ export const LYRA_INSPIRATION_ID = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e';
 export const BRAM_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
 export const LOBO_ID = '7f6e5d4c-3b2a-4f1e-8d9c-0b1a2c3d4e5f';
 export const SOMBRA_ID = '8a7f6e5d-4c3b-4a2f-9e1d-1c2b3a4d5e6f';
+
+export const LYRA_ELF_FORM_ID = 'c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f';
+export const LYRA_WOLF_FORM_ID = 'd4e5f6a7-b8c9-4d0e-9f1a-3b4c5d6e7f8a';
+export const LYRA_RAVEN_FORM_ID = 'e5f6a7b8-c9d0-4e1f-8a2b-4c5d6e7f8a9b';
+export const WOLF_IMAGE_ID = 'f6a7b8c9-d0e1-4f2a-9b3c-5d6e7f8a9b0c';
 
 const CREATED = new Date('2026-10-15T12:00:00Z');
 
@@ -50,6 +60,7 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     hidden: false,
     anchorTokenId: null,
     createdBy: null,
+    activeFormId: null,
     createdAt: CREATED,
     updatedAt: CREATED,
     ...overrides,
@@ -127,6 +138,7 @@ export function lyraRow(overrides: Partial<TokenRow> = {}): TokenRow {
     token: lyraPo(),
     bars: [pvBar(), inspirationBar()],
     controllerIds: [BIA_ID],
+    forms: [],
     ...overrides,
   };
 }
@@ -139,6 +151,7 @@ export function bramRow(overrides: Partial<TokenRow> = {}): TokenRow {
     token: lyraPo({ id: BRAM_ID, name: 'Bram', initials: 'BR', col: 6, row: 4 }),
     bars: [],
     controllerIds: [CAIO_ID],
+    forms: [],
     ...overrides,
   };
 }
@@ -161,6 +174,7 @@ export function loboRow(overrides: Partial<TokenRow> = {}): TokenRow {
     }),
     bars: [],
     controllerIds: [BIA_ID],
+    forms: [],
     ...overrides,
   };
 }
@@ -181,6 +195,47 @@ export function sombraRow(overrides: Partial<TokenRow> = {}): TokenRow {
     }),
     bars: [],
     controllerIds: [],
+    forms: [],
     ...overrides,
   };
+}
+
+/** A form of Lyra; `elfForm()` is her base: no image, 1×1, at position 0. */
+export function elfForm(overrides: Partial<TokenFormPo> = {}): TokenFormPo {
+  return {
+    id: LYRA_ELF_FORM_ID,
+    tokenId: LYRA_ID,
+    position: 0,
+    name: 'Elfa',
+    imageAssetId: null,
+    width: 1,
+    height: 1,
+    frame: 'square',
+    ...overrides,
+  };
+}
+
+/** Lyra's "Lobo atroz": the wolf image, 2×2 and round, at position 1. */
+export function wolfForm(overrides: Partial<TokenFormPo> = {}): TokenFormPo {
+  const look = {
+    name: 'Lobo atroz',
+    imageAssetId: WOLF_IMAGE_ID,
+    width: 2,
+    height: 2,
+    frame: 'round' as const,
+  };
+  return elfForm({ id: LYRA_WOLF_FORM_ID, position: 1, ...look, ...overrides });
+}
+
+/** Lyra's "Corvo": no image, half a cell, at position 2. */
+export function ravenForm(overrides: Partial<TokenFormPo> = {}): TokenFormPo {
+  const look = { name: 'Corvo', width: 0.5, height: 0.5 };
+  return elfForm({ id: LYRA_RAVEN_FORM_ID, position: 2, ...look, ...overrides });
+}
+
+/** Lyra's three forms, the base first.
+ *
+ *  Example: `lyraRow({ forms: lyraForms() })` */
+export function lyraForms(): TokenFormPo[] {
+  return [elfForm(), wolfForm(), ravenForm()];
 }

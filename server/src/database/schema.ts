@@ -13,6 +13,7 @@ export {
   tokenAuraKind,
   tokenBars,
   tokenControllers,
+  tokenForms,
   tokenFrame,
   tokenLayer,
   tokenSide,

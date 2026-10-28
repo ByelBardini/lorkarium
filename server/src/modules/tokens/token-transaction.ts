@@ -23,6 +23,7 @@ import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
 import type { NewTokenPo } from './tokens.po';
 import { TokenNotFoundError } from './tokens.error';
 import { toTokenAuraPo } from './token-aura.mapper';
+import { pastedFormsOf } from './token-form.mapper';
 import type { TokenAuthorshipBo } from './token-authorship.bo';
 import {
   toBarInputsPo,
@@ -111,7 +112,7 @@ export function audiencesOf({ row, conditions }: TokenWithConditions): TokenAudi
 type NewTokenInput = Omit<NewTokenDto, 'hidden'> & Partial<Pick<NewTokenDto, 'hidden'>>;
 
 /** A token as sent → the row to insert, placed, with checked controllers and its author. A paste
- *  carries `hidden`; "New token" does not, and is born visible.
+ *  carries `hidden` and the copied forms; "New token" does not, and is born visible.
  *
  *  Example: `await daos.tokens.insert(newTokenRowOf(scene.id, rules, command, userId))` */
 export function newTokenRowOf(
@@ -127,6 +128,7 @@ export function newTokenRowOf(
     token: { ...placed, ...newTokenLookOf(token) },
     bars: toBarInputsPo(token.bars),
     controllerIds: rules.controllers(token.controllerIds),
+    ...pastedFormsOf(token),
   };
 }
 

@@ -40,6 +40,7 @@ import type {
   TokensMovedDto,
   TokensRestyledDto,
   TokensResizedDto,
+  TokenFormChangedDto,
   MainTokenChangedDto,
   MemberCardChangedDto,
   TokenMovedDto,
@@ -72,6 +73,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly tokensFacings: TokensFacedDto[] = [];
   readonly tokensRestylings: TokensRestyledDto[] = [];
   readonly tokensResizes: TokensResizedDto[] = [];
+  readonly tokenFormChanges: TokenFormChangedDto[] = [];
   readonly mainTokenChanges: MainTokenChangedDto[] = [];
   readonly memberCardChanges: MemberCardChangedDto[] = [];
   readonly tokensMoves: TokensMovedDto[] = [];
@@ -219,6 +221,12 @@ export class BoardPublisherFake implements BoardPublisherPort {
     this.journal.push('publish');
     this.remember('tokensResized', veil);
     this.tokensResizes.push(event);
+  }
+
+  tokenFormChanged(event: TokenFormChangedDto, veil: VeilCuts<unknown>): void {
+    this.journal.push('publish');
+    this.remember('tokenFormChanged', veil);
+    this.tokenFormChanges.push(event);
   }
 
   drawingsCreated(event: DrawingsCreatedDto): void {

@@ -14,7 +14,14 @@ import {
   lyraAnchorRow,
   linkedLyraRow,
 } from '../../support/character-fakes';
-import { FIRE_AURA, fireAuraColumns, lyraPo, lyraRow } from '../../support/tokens-factories';
+import {
+  FIRE_AURA,
+  LYRA_WOLF_FORM_ID,
+  fireAuraColumns,
+  lyraForms,
+  lyraPo,
+  lyraRow,
+} from '../../support/tokens-factories';
 
 function anchorWithLook() {
   const anchor = lyraAnchorRow();
@@ -141,5 +148,44 @@ describe('the aura of a token linked to a character', () => {
     const round = fireAuraColumns({ auraKind: 'image', auraEffect: null, auraImageShape: 'round' });
 
     expect(identityOf(lyraPo(round))).toMatchObject({ auraImageShape: 'round' });
+  });
+});
+
+describe('the forms of a token linked to a character', () => {
+  function anchorInWolf() {
+    const anchor = lyraAnchorRow();
+    const forms = lyraForms().map((form) => ({ ...form, tokenId: LYRA_ANCHOR_ID }));
+    return { ...anchor, token: { ...anchor.token, activeFormId: LYRA_WOLF_FORM_ID }, forms };
+  }
+
+  it('shows the forms and the shown form of its anchor, not its own', () => {
+    const own = linkedLyraRow({ activeFormId: null });
+
+    const composed = composedTokenRow({ ...own, forms: [] }, anchorInWolf());
+
+    expect(composed.forms.map(({ name }) => name)).toEqual(['Elfa', 'Lobo atroz', 'Corvo']);
+    expect(composed.token.activeFormId).toBe(LYRA_WOLF_FORM_ID);
+    expect(toTokenDto(composed, 'privileged').forms).toHaveLength(3);
+  });
+
+  it('identityOf leaves the shown form out: an unlinked copy must not point at the anchor form', () => {
+    expect(identityOf(anchorInWolf().token)).not.toHaveProperty('activeFormId');
+  });
+
+  it('splitUpdate sends the forms and the shown form to the anchor, never to the token', () => {
+    const fields = { name: 'Lyra', initials: 'LY', side: 'ally', width: 2, height: 2 } as const;
+    const forms = lyraForms();
+    const update = {
+      fields: { ...fields, activeFormId: null },
+      bars: [],
+      controllerIds: [],
+      forms,
+    };
+
+    const { anchor, own } = splitUpdate(update, { width: 1, height: 1 });
+
+    expect(anchor.forms).toBe(forms);
+    expect(anchor.fields).toMatchObject({ activeFormId: null, width: 1 });
+    expect(own).toEqual({ width: 2, height: 2 });
   });
 });

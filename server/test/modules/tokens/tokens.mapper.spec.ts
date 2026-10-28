@@ -14,8 +14,13 @@ import { BIA_ID, VHARN_ID } from '../../support/campaigns-factories';
 import {
   FIRE_AURA,
   GOLD_AURA,
+  LYRA_ELF_FORM_ID,
   LYRA_ID,
+  LYRA_RAVEN_FORM_ID,
+  LYRA_WOLF_FORM_ID,
+  WOLF_IMAGE_ID,
   fireAuraColumns,
+  lyraForms,
   lyraPo,
   lyraRow,
 } from '../../support/tokens-factories';
@@ -405,5 +410,69 @@ describe('tokens mapper, the field of view and the lantern', () => {
   it('a light of 360° shines every side (cone null)', () => {
     const torch = { lightBright: '4.00', lightDim: '4.00', facing: 90 };
     expect(tokenLightOf(lyraRow({ token: lyraPo(torch) }))?.cone).toBeNull();
+  });
+});
+
+describe('tokens mapper, the forms', () => {
+  const inWolf = () =>
+    lyraRow({ token: lyraPo({ activeFormId: LYRA_WOLF_FORM_ID }), forms: lyraForms() });
+
+  it('the privileged audience gets the three forms in their order, and the shown one', () => {
+    const dto = toTokenDto(inWolf(), 'privileged');
+
+    expect(dto.forms).toEqual([
+      {
+        id: LYRA_ELF_FORM_ID,
+        name: 'Elfa',
+        imageAssetId: null,
+        width: 1,
+        height: 1,
+        frame: 'square',
+      },
+      {
+        id: LYRA_WOLF_FORM_ID,
+        name: 'Lobo atroz',
+        imageAssetId: WOLF_IMAGE_ID,
+        width: 2,
+        height: 2,
+        frame: 'round',
+      },
+      {
+        id: LYRA_RAVEN_FORM_ID,
+        name: 'Corvo',
+        imageAssetId: null,
+        width: 0.5,
+        height: 0.5,
+        frame: 'square',
+      },
+    ]);
+    expect(dto.activeFormId).toBe(LYRA_WOLF_FORM_ID);
+  });
+
+  it('the others get no form (the list reveals the unused ones) but the shown form id', () => {
+    const dto = toTokenDto(inWolf(), 'others');
+
+    expect(dto.forms).toEqual([]);
+    expect(dto.activeFormId).toBe(LYRA_WOLF_FORM_ID);
+  });
+
+  it('the update carries the forms only when the command sends them', () => {
+    const command = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 } as const;
+    const kept = toTokenUpdatePo({ ...command, controllerIds: [], bars: [] }, []);
+    const forms = [
+      {
+        id: LYRA_WOLF_FORM_ID,
+        name: 'Lobo',
+        imageAssetId: null,
+        width: 2,
+        height: 2,
+        frame: 'round' as const,
+      },
+    ];
+
+    const replaced = toTokenUpdatePo({ ...command, controllerIds: [], bars: [], forms }, []);
+
+    expect(kept).not.toHaveProperty('forms');
+    expect(replaced.forms).toEqual(forms);
   });
 });

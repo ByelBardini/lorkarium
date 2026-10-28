@@ -48,6 +48,7 @@ import {
 } from '../scenes/locked-cast';
 import { splitUpdate } from './linked-token';
 import { TokenRulesBo } from './token-rules.bo';
+import { activeFormAfterEdit, type ShownForm } from './token-forms.bo';
 import {
   authorshipOf,
   combatOf,
@@ -130,8 +131,9 @@ export class TokensService {
     return saved.version;
   }
 
-  /** On a linked token, the name, initials, side, look, bars and controllers go to its anchor
-   *  (an event of the cast) and the rest stays on the token (an event of the grid). */
+  /** On a linked token, the name, initials, side, look, bars, controllers and forms go to its
+   *  anchor (an event of the cast) and the rest stays on the token (an event of the grid). A new
+   *  image or size, or dropping the shown form, leaves the holder without its form. */
   async update(userId: string, campaignId: string, command: UpdateToken): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const authorship = await authorshipOf(this.deps.tokenRights, access);
@@ -146,7 +148,7 @@ export class TokensService {
       const holder = await holderRowOf(locked, found);
       await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command));
       if (holder.inCast) await this.updateLinked(daos, found, holder.row, update);
-      else await daos.tokens.update(found.token.id, update);
+      else await daos.tokens.update(found.token.id, withShownForm(found.token, update));
       await daos.mainTokens.dropLostControl(found.token.id, update.controllerIds);
       const anchor = holder.inCast ? await this.reread(daos, holder.scene, holder.row) : null;
       const token = await this.reread(daos, scene, found);
@@ -318,7 +320,7 @@ export class TokensService {
     update: TokenUpdatePo,
   ): Promise<void> {
     const split = splitUpdate(update, anchor.token);
-    await daos.tokens.update(anchor.token.id, split.anchor);
+    await daos.tokens.update(anchor.token.id, withShownForm(anchor.token, split.anchor));
     await daos.tokens.updateFields(found.token.id, split.own);
   }
 
@@ -446,4 +448,12 @@ function movedRowsOf(rows: readonly TokenRow[], moves: readonly TokenMovePo[]): 
     const move = byId.get(row.token.id);
     return move ? { ...row, token: { ...row.token, col: move.col, row: move.row } } : row;
   });
+}
+
+// The update with the form the holder keeps: always written, since replacing the forms drops the
+// shown one (FK set null) even when its id stays in the list.
+function withShownForm(shown: ShownForm, update: TokenUpdatePo): TokenUpdatePo {
+  const formIds = update.forms?.map(({ id }) => id);
+  const activeFormId = activeFormAfterEdit(shown, { ...update.fields, formIds });
+  return { ...update, fields: { ...update.fields, activeFormId } };
 }

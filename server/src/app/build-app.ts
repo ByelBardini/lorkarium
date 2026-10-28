@@ -233,6 +233,7 @@ function wireRealtime(
   const tokensModule = createTokensModule({ ...shared, sceneWalls });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
   const { mainToken, link: tokenLink, visibility: tokenVisibility } = tokensModule;
+  const { form: tokenForm } = tokensModule;
   const { service: conditions, catalog: conditionCatalog } = createConditionsModule(shared);
   const combat = createCombatModule(shared).service;
   const drawings = createDrawingsModule(shared).service;
@@ -255,6 +256,7 @@ function wireRealtime(
     tokens,
     tokenBatch,
     tokenAppearance,
+    tokenForm,
     mainToken,
     tokenVisibility,
     tokenLink,

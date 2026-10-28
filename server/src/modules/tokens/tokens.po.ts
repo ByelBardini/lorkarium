@@ -107,6 +107,11 @@ export const tokens = pgTable(
     // Who created it: a player edits and deletes only their own (game-core `token-rights`).
     // Null = made before authorship was kept, or the account is gone (only the master then).
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    // The form it shows now (its own, or a linked token's anchor's); losing the form, or changing
+    // the image or the size by hand, leaves it without one.
+    activeFormId: uuid('active_form_id').references((): AnyPgColumn => tokenForms.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -182,10 +187,41 @@ export const tokenBars = pgTable(
   (table) => [unique('token_bars_token_id_position_unique').on(table.tokenId, table.position)],
 );
 
+// The named forms of a token (a linked one keeps them on its anchor): the image and the size it
+// takes when switched to, position 0 the base. Losing the asset brings the initials back.
+export const tokenForms = pgTable(
+  'token_forms',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tokenId: uuid('token_id')
+      .notNull()
+      .references(() => tokens.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    name: text('name').notNull(),
+    imageAssetId: uuid('image_asset_id').references(() => assets.id, { onDelete: 'set null' }),
+    width: doublePrecision('width').notNull(),
+    height: doublePrecision('height').notNull(),
+    frame: tokenFrame('frame').notNull().default('square'),
+  },
+  (table) => [
+    unique('token_forms_token_id_position_unique').on(table.tokenId, table.position),
+    check(
+      'token_forms_size_half_cells',
+      sql`${table.width} BETWEEN 0.5 AND 10 AND ${table.height} BETWEEN 0.5 AND 10 AND (${table.width} * 2) = floor(${table.width} * 2) AND (${table.height} * 2) = floor(${table.height} * 2)`,
+    ),
+  ],
+);
+
 export type TokenPo = typeof tokens.$inferSelect;
 export type NewTokenPo = typeof tokens.$inferInsert;
 export type TokenBarPo = typeof tokenBars.$inferSelect;
 export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenId' | 'position'>;
+export type TokenFormPo = typeof tokenForms.$inferSelect;
+/** A form as a write sends it, in list order; `id` is kept only when the token already has it. */
+export type TokenFormInputPo = Pick<
+  TokenFormPo,
+  'id' | 'name' | 'imageAssetId' | 'width' | 'height' | 'frame'
+>;
 export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max'>;
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
@@ -201,8 +237,11 @@ export type TokenAuraPo = Pick<
   | 'auraImageShape'
 >;
 /** What `token:restyleMany` saves: the look, the defeat mark and the light switch (which
- *  `token:update` never sends) and the aura. */
-export type TokenStylePo = TokenLookPo & Pick<TokenPo, 'defeated' | 'lightLit'> & TokenAuraPo;
+ *  `token:update` never sends) and the aura; `activeFormId` only from a form switch. */
+export type TokenStylePo = TokenLookPo &
+  Pick<TokenPo, 'defeated' | 'lightLit'> &
+  TokenAuraPo &
+  Partial<Pick<TokenPo, 'activeFormId'>>;
 export type TokenSightPo = Pick<TokenPo, 'sightBright' | 'sightDim'>;
 export type TokenLightPo = Pick<TokenPo, 'lightBright' | 'lightDim' | 'lightColor' | 'lightAngle'>;
 /** What `token:update` saves; an absent look field keeps what the token has. */
@@ -211,4 +250,4 @@ export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width'
   Partial<TokenSightPo> &
   Partial<TokenLightPo> &
   Partial<TokenAuraPo> &
-  Partial<Pick<TokenPo, 'sightAngle'>>;
+  Partial<Pick<TokenPo, 'sightAngle' | 'activeFormId'>>;

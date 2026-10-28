@@ -17,6 +17,7 @@ import { TokensDao } from './tokens.dao';
 import type { SceneWallsService } from '../walls/scene-walls.service';
 import { WallsDao } from '../walls/walls.dao';
 import { TokenAppearanceService } from './token-appearance.service';
+import { TokenFormService } from './token-form.service';
 import { TokenBatchService } from './token-batch.service';
 import { TokenLinkService } from './token-link.service';
 import { TokenVisibilityService } from './token-visibility.service';
@@ -37,6 +38,7 @@ export type TokensModule = Readonly<{
   service: TokensService;
   batch: TokenBatchService;
   appearance: TokenAppearanceService;
+  form: TokenFormService;
   mainToken: MainTokenService;
   link: TokenLinkService;
   visibility: TokenVisibilityService;
@@ -71,6 +73,7 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
     service: new TokensService(tokenDeps),
     batch: new TokenBatchService({ ...deps, tokenRights }),
     appearance: new TokenAppearanceService(deps),
+    form: new TokenFormService(deps),
     mainToken: new MainTokenService(deps),
     link: new TokenLinkService(deps),
     visibility: new TokenVisibilityService(deps),
