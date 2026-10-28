@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Formas do token</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#08090B}
+button:focus-visible,input:focus-visible,label:focus-within{outline:2px solid #C5A46D;outline-offset:2px}
+.fm-tab{height:46px;padding:0 4px;margin-right:22px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8C8F98;font:inherit;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
+.fm-tab.is-on{color:#EAE5DA;border-bottom-color:#C5A46D}
+.fm-count{min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#262A31;color:#D5D0C4;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+.fm-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px 12px;border:1px solid #262B33;border-radius:12px;background:#13161B;color:inherit;font:inherit;cursor:pointer;text-align:center}
+.fm-card:hover{border-color:#4A505B}
+.fm-card.is-sel{border-color:#C5A46D;box-shadow:0 0 0 1px #C5A46D}
+.fm-new{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:150px;border:1px dashed #3A404A;border-radius:12px;background:transparent;color:#A9A497;font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.fm-new:hover{border-color:#C5A46D;color:#EAE5DA}
+.fm-input{height:42px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #303640;background:#101216;color:#EAE5DA;font:inherit;font-size:14px;width:100%}
+.fm-input::placeholder{color:#6F7480}
+.fm-input:focus{outline:none;border-color:#C5A46D;box-shadow:0 0 0 3px rgba(197,164,109,.16)}
+.fm-input.is-error{border-color:#C9705A}
+.fm-preset{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:48px;border:1px solid #303640;border-radius:8px;background:transparent;color:#A9A497;font:inherit;cursor:pointer}
+.fm-preset:hover{border-color:#4A505B;color:#EAE5DA}
+.fm-preset.is-on{border-color:#C5A46D;background:rgba(197,164,109,.08);color:#EAE5DA}
+.fm-btn{height:38px;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #303640;border-radius:10px;background:transparent;color:#D5D0C4;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.fm-btn:hover{border-color:#4A505B;color:#EAE5DA}
+.fm-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.fm-btn.is-gold:hover{background:#D4B57E}
+.fm-btn.is-quiet{border-color:transparent}
+.fm-btn.is-quiet:hover{background:#1B1E24}
+.fm-btn:disabled{opacity:.4;cursor:default}
+.fm-swatch{width:26px;height:26px;padding:0;border-radius:50%;border:2px solid transparent;cursor:pointer;box-shadow:inset 0 0 0 2px #15181D}
+.fm-swatch.is-on{border-color:#EAE5DA}
+.fm-opt{width:100%;display:flex;align-items:center;gap:12px;padding:8px 10px;border:0;border-radius:10px;background:transparent;color:#D5D0C4;font:inherit;font-size:14px;font-weight:500;cursor:pointer;text-align:left}
+.fm-opt:hover{background:#262A31;color:#EAE5DA}
+.fm-opt.is-on{background:rgba(197,164,109,.1);color:#E2C793}
+.fm-tok{position:absolute;padding:0;border:0;background:transparent;cursor:pointer;transition:all .35s cubic-bezier(.3,1.4,.5,1)}
+.fm-key{min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:5px;border:1px solid #3A404A;color:#8C8F98;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; padding: 48px 56px; display: flex; flex-direction: column; gap: 28px; background: #08090B; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif">
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #C5A46D">Tokens</span>
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 40px">Formas do token</h1>
+<p style="margin: 0; font-size: 15px; color: #A9A497">Cadastra no modal do token, troca no mapa em um clique. Barras, condições, iniciativa e posição continuam as mesmas, só muda a cara e o tamanho.</p>
+</div>
+
+<div style="flex: 1; min-height: 0; display: flex; gap: 28px">
+
+<section aria-label="Cadastrar formas" style="flex: 0 0 820px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #8C8F98">1 · No modal Editar token, aba nova</span>
+<div role="dialog" aria-labelledby="fm-title" style="flex: 1; min-height: 0; border-radius: 16px; background: #15181D; border: 1px solid #303640; box-shadow: 0 30px 80px rgba(0,0,0,.55); display: flex; flex-direction: column; overflow: hidden">
+<header style="flex-shrink: 0; padding: 20px 24px 0 28px; display: flex; flex-direction: column; gap: 4px">
+<h2 id="fm-title" style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 28px">Editar token · Thoren</h2>
+<p style="margin: 0; font-size: 13px; color: #8C8F98">Controlado por Thiago</p>
+</header>
+<div role="tablist" style="flex-shrink: 0; padding: 0 28px; display: flex; border-bottom: 1px solid #23272E">
+<span class="fm-tab">Básico</span>
+<span class="fm-tab">Barras <span class="fm-count">2</span></span>
+<span class="fm-tab is-on">Formas <span class="fm-count">{{formCount}}</span></span>
+<span class="fm-tab">Visão e luz</span>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow: auto; padding: 20px 28px; display: flex; flex-direction: column; gap: 18px">
+<p style="margin: 0; font-size: 13px; line-height: 1.55; color: #8C8F98">Cada forma guarda uma imagem e um tamanho. A primeira é a <strong style="color: #D5D0C4">forma base</strong>, usada quando o token é criado ou volta ao normal.</p>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{forms}}" as="f" hint-placeholder-count="3">
+<button type="button" class="{{f.cls}}" onClick="{{f.pick}}" aria-pressed="{{f.selected}}">
+<sc-if value="{{f.isBase}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 8px; left: 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: #8C8F98">BASE</span></sc-if>
+<sc-if value="{{f.isActive}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 6px; right: 6px; height: 18px; padding: 0 7px; border-radius: 999px; background: rgba(143,208,168,.16); color: #8FD0A8; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px"><span style="width: 5px; height: 5px; border-radius: 50%; background: currentColor"></span>NO MAPA</span></sc-if>
+<span style="width: 72px; height: 72px; margin-top: 8px; display: flex; align-items: center; justify-content: center">
+<span style="width: {{f.thumb}}; height: {{f.thumb}}; border-radius: 50%; overflow: hidden; background: {{f.bg}}; box-shadow: 0 0 0 2px #D9D2C2; display: flex; align-items: center; justify-content: center; font-family: Cinzel, serif; font-size: 13px; font-weight: 600">
+<sc-if value="{{f.hasImg}}" hint-placeholder-val="{{ false }}"><img src="{{f.img}}" alt="" style="width: 100%; height: 100%; object-fit: cover"></sc-if>
+<sc-if value="{{f.noImg}}" hint-placeholder-val="{{ true }}"><span>{{f.ini}}</span></sc-if>
+</span>
+</span>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 600; line-height: 1.1">{{f.name}}</span>
+<span style="font-size: 12px; color: #8C8F98">{{f.sizeText}} · tecla {{f.key}}</span>
+</button>
+</sc-for>
+<sc-if value="{{canAdd}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="fm-new" onClick="{{addForm}}">
+<span style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid currentColor; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span>
+Nova forma
+</button>
+</sc-if>
+</div>
+
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 18px; border-radius: 12px; background: #101216; border: 1px solid #23272E; display: flex; gap: 20px">
+<label onDragOver="{{onDragOver}}" onDrop="{{onDrop}}" style="position: relative; width: 132px; height: 132px; flex-shrink: 0; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer; background-color: #0C0E11; background-image: linear-gradient(rgba(197,164,109,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(197,164,109,.08) 1px, transparent 1px); background-size: 22px 22px; border: 1px dashed #3A404A">
+<span style="width: 92px; height: 92px; border-radius: 50%; overflow: hidden; background: {{sel.bg}}; box-shadow: 0 0 0 3px #D9D2C2; display: flex; align-items: center; justify-content: center; font-family: Cinzel, serif; font-size: 22px; font-weight: 600">
+<sc-if value="{{sel.hasImg}}" hint-placeholder-val="{{ false }}"><img src="{{sel.img}}" alt="" style="width: 100%; height: 100%; object-fit: cover"></sc-if>
+<sc-if value="{{sel.noImg}}" hint-placeholder-val="{{ true }}"><span>{{sel.ini}}</span></sc-if>
+</span>
+<span style="position: absolute; left: 0; right: 0; bottom: 0; padding: 5px; background: rgba(10,11,14,.8); font-size: 11px; font-weight: 600; text-align: center; color: #D5D0C4">{{sel.imgLabel}}</span>
+<input type="file" accept="image/png,image/jpeg,image/webp" onChange="{{onFile}}" aria-label="Imagem da forma" style="position: absolute; width: 1px; height: 1px; opacity: 0">
+</label>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="fm-name" style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #A9A497">Nome da forma</label>
+<input id="fm-name" class="{{sel.nameCls}}" type="text" maxlength="30" placeholder="Ex.: Lobo atroz" value="{{sel.name}}" onChange="{{sel.onName}}" style="font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #A9A497">Tamanho</span>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{sel.presets}}" as="p" hint-placeholder-count="5">
+<button type="button" class="{{p.cls}}" aria-pressed="{{p.on}}" onClick="{{p.pick}}"><span style="font-size: 14px; font-weight: 600">{{p.size}}</span><span style="font-size: 10px">{{p.name}}</span></button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<span style="font-size: 12px; color: #8C8F98">Cor do fundo sem imagem</span>
+<sc-for list="{{sel.swatches}}" as="sw" hint-placeholder-count="5">
+<button type="button" class="{{sw.cls}}" onClick="{{sw.pick}}" aria-label="{{sw.name}}" aria-pressed="{{sw.on}}" style="background: {{sw.hex}}"></button>
+</sc-for>
+</div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid #1F2329">
+<button type="button" class="fm-btn is-quiet" onClick="{{sel.duplicate}}" disabled="{{cantAdd}}" style="margin-top: 8px">Duplicar</button>
+<button type="button" class="fm-btn is-quiet" onClick="{{sel.makeBase}}" disabled="{{sel.isBase}}" style="margin-top: 8px">Tornar base</button>
+<span style="flex: 1"></span>
+<button type="button" class="fm-btn is-quiet" onClick="{{sel.remove}}" disabled="{{sel.cantRemove}}" style="margin-top: 8px; color: #E6A28F">Excluir forma</button>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+<footer style="flex-shrink: 0; padding: 14px 24px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #23272E; background: #13161B">
+<button type="button" class="fm-btn is-quiet">Cancelar</button>
+<button type="button" class="fm-btn is-gold">Salvar</button>
+</footer>
+</div>
+</section>
+
+<section aria-label="Trocar forma no mapa" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #8C8F98">2 · Na hora do jogo · clica no token</span>
+<div style="position: relative; flex: 1; min-height: 0; border-radius: 16px; overflow: hidden; border: 1px solid #262B33; background-color: #1A1D23; background-image: linear-gradient(rgba(197,164,109,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(197,164,109,.12) 1px, transparent 1px); background-size: 56px 56px">
+<button type="button" class="fm-tok" onClick="{{toggleMenu}}" aria-label="{{tokAria}}" aria-expanded="{{menuOpen}}" style="left: {{tokLeft}}; top: {{tokTop}}; width: {{tokSize}}; height: {{tokSize}}">
+<span style="position: absolute; inset: 8%; border-radius: 50%; overflow: hidden; background: {{act.bg}}; box-shadow: 0 0 0 2px #D9D2C2{{menuRing}}, 0 6px 16px rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; font-family: Cinzel, serif; font-size: {{tokFont}}; font-weight: 600; color: #EAE5DA; transition: all .35s">
+<sc-if value="{{act.hasImg}}" hint-placeholder-val="{{ false }}"><img src="{{act.img}}" alt="" style="width: 100%; height: 100%; object-fit: cover"></sc-if>
+<sc-if value="{{act.noImg}}" hint-placeholder-val="{{ true }}"><span>{{act.ini}}</span></sc-if>
+</span>
+<span style="position: absolute; left: 14%; right: 14%; top: 100%; display: flex; flex-direction: column; gap: 2px"><span style="height: 4px; border-radius: 2px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: 16%; background: #C9705A"></span></span><span style="height: 4px; border-radius: 2px; background: #262A31; overflow: hidden"><span style="display: block; height: 100%; width: 75%; background: #C5A46D"></span></span></span>
+</button>
+<span style="position: absolute; left: 50%; top: 18px; transform: translateX(-50%); height: 26px; padding: 0 12px; border-radius: 999px; background: rgba(21,24,29,.92); border: 1px solid #303640; font-size: 12px; color: #A9A497; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap">Thoren · <strong style="color: #EAE5DA; font-weight: 600">{{act.name}}</strong></span>
+
+<sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="Trocar forma" style="position: absolute; left: {{menuLeft}}; top: {{menuTop}}; width: 240px; box-sizing: border-box; padding: 6px; border-radius: 12px; background: #1B1E24; border: 1px solid #303640; box-shadow: 0 18px 50px rgba(0,0,0,.6)">
+<span style="display: block; padding: 6px 10px 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #6F7480">TROCAR FORMA</span>
+<sc-for list="{{menuForms}}" as="m" hint-placeholder-count="3">
+<button type="button" role="menuitemradio" aria-checked="{{m.on}}" class="{{m.cls}}" onClick="{{m.pick}}">
+<span style="width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: {{m.bg}}; box-shadow: 0 0 0 1.5px #D9D2C2; display: inline-flex; align-items: center; justify-content: center; font-family: Cinzel, serif; font-size: 10px; font-weight: 600; color: #EAE5DA">
+<sc-if value="{{m.hasImg}}" hint-placeholder-val="{{ false }}"><img src="{{m.img}}" alt="" style="width: 100%; height: 100%; object-fit: cover"></sc-if>
+<sc-if value="{{m.noImg}}" hint-placeholder-val="{{ true }}"><span>{{m.ini}}</span></sc-if>
+</span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span>{{m.name}}</span><span style="font-size: 11px; color: #8C8F98">{{m.sizeText}}</span></span>
+<sc-if value="{{m.isOn}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></sc-if>
+<sc-if value="{{m.notOn}}" hint-placeholder-val="{{ true }}"><span class="fm-key">{{m.key}}</span></sc-if>
+</button>
+</sc-for>
+<div style="height: 1px; margin: 6px 4px; background: #303640"></div>
+<button type="button" role="menuitem" class="fm-opt" onClick="{{closeMenu}}" style="font-size: 13px; color: #A9A497">Editar formas…</button>
+</div>
+</sc-if>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: rgba(21,24,29,.95); border: 1px solid #303640; font-size: 13px; color: #D5D0C4; white-space: nowrap; box-shadow: 0 12px 30px rgba(0,0,0,.5)">{{toast}}</div>
+</sc-if>
+</div>
+<div style="padding: 14px 16px; border-radius: 12px; background: #121418; border: 1px solid #23272E; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.5; color: #A9A497">
+<span><strong style="color: #EAE5DA">Atalho:</strong> com o token selecionado, aperta <span class="fm-key">1</span>–<span class="fm-key">9</span> pra trocar de forma.</span>
+<span><strong style="color: #EAE5DA">Quem pode:</strong> o mestre e quem controla o token. A troca aparece pra mesa toda e entra no chat.</span>
+<span><strong style="color: #EAE5DA">Tamanho maior:</strong> o token cresce a partir do canto de cima à esquerda. Se não couber, cresce pro lado que tiver espaço.</span>
+</div>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+var FM_COLORS = [{ hex: '#33463A', name: 'Musgo' }, { hex: '#4A3A2E', name: 'Couro' }, { hex: '#2F3A4E', name: 'Aço' }, { hex: '#4A3846', name: 'Ametista' }, { hex: '#3A3A40', name: 'Cinza' }];
+var FM_PRESETS = [{ v: 0.5, name: 'Miúdo', size: '½' }, { v: 1, name: 'Médio', size: '1×1' }, { v: 2, name: 'Grande', size: '2×2' }, { v: 3, name: 'Enorme', size: '3×3' }, { v: 4, name: 'Imenso', size: '4×4' }];
+var fmSeq = 10;
+function fmIni(n) { var w = (n || '').trim().split(/\s+/).filter(function (x) { return x && ['de', 'da', 'do', 'das', 'dos', 'e'].indexOf(x.toLowerCase()) === -1; }); if (!w.length) return '?'; return (w.length > 1 ? w[0][0] + w[1][0] : w[0].slice(0, 2)).toUpperCase(); }
+function fmSize(v) { return v === 0.5 ? '½ casa' : v + '×' + v + ' casas'; }
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      forms: [
+        { id: 1, name: 'Anão', size: 1, bg: '#4A3A2E', img: null },
+        { id: 2, name: 'Lobo atroz', size: 2, bg: '#3A3A40', img: null },
+        { id: 3, name: 'Corvo', size: 0.5, bg: '#2F3A4E', img: null }
+      ],
+      sel: 2, active: 1, menu: false, toast: null
+    };
+  }
+  setForms(fn) { var f = this.state.forms.map(function (x) { return Object.assign({}, x); }); fn(f); this.setState({ forms: f }); }
+  switchTo(id) {
+    var self = this, f = this.state.forms.find(function (x) { return x.id === id; });
+    if (!f) return;
+    this.setState({ active: id, menu: false, toast: 'Thoren virou ' + (f.name.trim() || 'forma sem nome') + '.' });
+    clearTimeout(this._t); this._t = setTimeout(function () { self.setState({ toast: null }); }, 2600);
+  }
+  readFile(file) {
+    var self = this;
+    if (!file || !/^image\//.test(file.type)) return;
+    var r = new FileReader(), id = this.state.sel;
+    r.onload = function () { self.setForms(function (fs) { fs.forEach(function (x) { if (x.id === id) x.img = r.result; }); }); };
+    r.readAsDataURL(file);
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var n = s.forms.length;
+    var view = function (f, i) {
+      return { name: f.name.trim() || 'Sem nome', ini: fmIni(f.name), bg: f.bg, img: f.img || '', hasImg: !!f.img, noImg: !f.img, sizeText: fmSize(f.size), key: i + 1 };
+    };
+    var forms = s.forms.map(function (f, i) {
+      var v = view(f, i);
+      return Object.assign(v, { cls: 'fm-card' + (s.sel === f.id ? ' is-sel' : ''), selected: s.sel === f.id ? 'true' : 'false',
+        isBase: i === 0, isActive: s.active === f.id, thumb: Math.round(28 + Math.min(f.size, 3) * 14) + 'px',
+        pick: function () { self.setState({ sel: f.id }); } });
+    });
+    var selF = s.forms.find(function (f) { return f.id === s.sel; });
+    var selIdx = s.forms.indexOf(selF);
+    var sel = {};
+    if (selF) {
+      sel = Object.assign(view(selF, selIdx), {
+        name: selF.name, nameCls: 'fm-input' + (!selF.name.trim() ? ' is-error' : ''), imgLabel: selF.img ? 'Trocar imagem' : 'Enviar imagem',
+        onName: function (e) { var v = e.target.value; self.setForms(function (fs) { fs[selIdx].name = v; }); },
+        presets: FM_PRESETS.map(function (p) { var on = selF.size === p.v; return { size: p.size, name: p.name, on: on ? 'true' : 'false', cls: 'fm-preset' + (on ? ' is-on' : ''), pick: function () { self.setForms(function (fs) { fs[selIdx].size = p.v; }); } }; }),
+        swatches: FM_COLORS.map(function (c) { var on = selF.bg === c.hex; return { hex: c.hex, name: c.name, on: on ? 'true' : 'false', cls: 'fm-swatch' + (on ? ' is-on' : ''), pick: function () { self.setForms(function (fs) { fs[selIdx].bg = c.hex; }); } }; }),
+        isBase: selIdx === 0, cantRemove: n <= 1 || selIdx === 0,
+        duplicate: function () { var c = Object.assign({}, selF, { id: ++fmSeq, name: selF.name + ' (cópia)' }); self.setForms(function (fs) { fs.splice(selIdx + 1, 0, c); }); self.setState({ sel: c.id }); },
+        makeBase: function () { self.setForms(function (fs) { var x = fs.splice(selIdx, 1)[0]; fs.unshift(x); }); },
+        remove: function () {
+          var id = selF.id, fs = s.forms.filter(function (x) { return x.id !== id; });
+          self.setState({ forms: fs, sel: fs[Math.max(0, selIdx - 1)].id, active: s.active === id ? fs[0].id : s.active });
+        }
+      });
+    }
+    var act = s.forms.find(function (f) { return f.id === s.active; }) || s.forms[0];
+    var actV = view(act, s.forms.indexOf(act));
+    var cell = 56, px = act.size * cell;
+    var left = cell, top = 3 * cell;
+    return {
+      formCount: n, forms: forms, canAdd: n < 8, cantAdd: n >= 8,
+      addForm: function () {
+        var base = s.forms[0];
+        var f = { id: ++fmSeq, name: '', size: base.size, bg: FM_COLORS[(n + 1) % FM_COLORS.length].hex, img: null };
+        self.setState({ forms: s.forms.concat([f]), sel: f.id });
+      },
+      hasSel: !!selF, sel: sel,
+      onFile: function (e) { self.readFile(e.target.files && e.target.files[0]); e.target.value = ''; },
+      onDragOver: function (e) { e.preventDefault(); },
+      onDrop: function (e) { e.preventDefault(); self.readFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); },
+      act: actV, tokLeft: left + 'px', tokTop: top + 'px', tokSize: px + 'px', tokFont: Math.max(10, Math.round(px * 0.22)) + 'px',
+      tokAria: 'Thoren, forma ' + actV.name + '. Clique pra trocar de forma.',
+      menuOpen: s.menu, menuRing: s.menu ? ', 0 0 0 6px rgba(197,164,109,.35)' : '',
+      menuLeft: (left + px + 14) + 'px', menuTop: Math.max(12, top - 20) + 'px',
+      toggleMenu: function () { self.setState({ menu: !self.state.menu }); },
+      closeMenu: function () { self.setState({ menu: false }); },
+      menuForms: s.forms.map(function (f, i) { var v = view(f, i), on = f.id === s.active; return Object.assign(v, { on: on ? 'true' : 'false', isOn: on, notOn: !on, cls: 'fm-opt' + (on ? ' is-on' : ''), pick: function () { self.switchTo(f.id); } }); }),
+      hasToast: !!s.toast, toast: s.toast || ''
+    };
+  }
+}
+</script>
+</body>
+</html>
