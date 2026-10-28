@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { combatDto } from './combat.dto';
+import { tokenFormsDto } from './token-form.dto';
 import {
   cellIndexDto,
   createTokenCommandDto,
@@ -28,10 +29,14 @@ const tokenMoveDto = tokenCellDto.extend({
 export type TokenMoveDto = z.infer<typeof tokenMoveDto>;
 
 /** One token of `token:createMany`: the body of `token:create` without `actionId`/`campaignId`;
- *  `combatantId` is the entry of the copied original, which the paste joins when it is still there. */
-export const newTokenDto = createTokenCommandDto
-  .omit({ actionId: true, campaignId: true })
-  .extend({ combatantId: z.uuid().optional(), hidden: z.boolean().default(false) });
+ *  `combatantId` is the entry of the copied original, which the paste joins when it is still there.
+ *  A paste carries the copied `forms` (saved with new ids) and the `activeFormId` it shows. */
+export const newTokenDto = createTokenCommandDto.omit({ actionId: true, campaignId: true }).extend({
+  combatantId: z.uuid().optional(),
+  hidden: z.boolean().default(false),
+  forms: tokenFormsDto.optional(),
+  activeFormId: z.uuid().nullable().optional(),
+});
 export type NewTokenDto = z.infer<typeof newTokenDto>;
 export type NewTokenInput = z.input<typeof newTokenDto>;
 

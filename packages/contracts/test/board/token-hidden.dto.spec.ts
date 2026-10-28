@@ -47,6 +47,8 @@ const WOLF = {
   conditions: [],
   anchorTokenId: null,
   createdBy: null,
+  forms: [],
+  activeFormId: null,
 };
 const STATE = {
   campaignId: CAMPAIGN_ID,

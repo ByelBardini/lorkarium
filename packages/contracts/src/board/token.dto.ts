@@ -5,7 +5,19 @@ import { activeConditionDto } from './condition.dto';
 import { coneAngleDto, facingDto } from './direction.dto';
 import { tokenLightDto } from './light.dto';
 import { REACH_MAX, reachSideDto } from './reach.dto';
+import { cellIndexDto, tokenSideLengthDto } from './half-cell.dto';
 import { tokenAuraDto } from './token-aura.dto';
+import { tokenFormsDto } from './token-form.dto';
+import { tokenFrameDto } from './token-frame.dto';
+
+export {
+  TOKEN_SIZE_MAX,
+  TOKEN_SIZE_MIN,
+  cellIndexDto,
+  halfCellDto,
+  tokenSideLengthDto,
+} from './half-cell.dto';
+export { tokenFrameDto, type TokenFrameDto } from './token-frame.dto';
 
 export const MAX_BARS_PER_TOKEN = 8;
 /** Tokens a scene keeps at most (above the 300 of the target scale; it protects snapshot and render). */
@@ -17,9 +29,6 @@ export const BAR_VALUE_LIMIT = 99_999;
 export const TOKEN_NAME_MAX_LENGTH = 60;
 export const TOKEN_INITIALS_MAX_LENGTH = 3;
 export const BAR_LABEL_MAX_LENGTH = 24;
-/** A token side goes from half a cell to ten, in steps of half a cell (game-core `tokenSize`). */
-export const TOKEN_SIZE_MIN = 0.5;
-export const TOKEN_SIZE_MAX = 10;
 
 export const tokenSideDto = z.enum(['ally', 'enemy', 'neutral']);
 export type TokenSideDto = z.infer<typeof tokenSideDto>;
@@ -40,10 +49,6 @@ export type BarVisibilityDto = z.infer<typeof barVisibilityDto>;
  *  values travel the same either way. */
 export const barDisplayDto = z.enum(['number', 'percent']);
 export type BarDisplayDto = z.infer<typeof barDisplayDto>;
-
-/** `square` shows the whole image (contain); `round` crops it to a circle (cover) with the side ring. */
-export const tokenFrameDto = z.enum(['square', 'round']);
-export type TokenFrameDto = z.infer<typeof tokenFrameDto>;
 
 /** The look of a token; not a secret, so every audience gets the same values. `defeated` (the red
  *  cross of a fallen foe) changes only by `token:restyleMany`: a new token or a copy is alive. */
@@ -72,23 +77,6 @@ export type SightDto = z.infer<typeof sightDto>;
 
 const barCurrentDto = z.number().int().min(-BAR_VALUE_LIMIT).max(BAR_VALUE_LIMIT);
 const barMaxDto = z.number().int().min(1).max(BAR_VALUE_LIMIT);
-
-/** A number in steps of half a cell from `min` to `max`, refused citing `noun` and the value.
- *
- *  Example: `halfCellDto('width', 0.5, 10).parse(2.5)` → `2.5` */
-export function halfCellDto(noun: string, min: number, max: number) {
-  return z.number().superRefine((value, context) => {
-    if (Number.isInteger(value * 2) && value >= min && value <= max) return;
-    context.addIssue({
-      code: 'custom',
-      message: `${noun} ${value} is invalid; expected a multiple of 0.5 from ${min} to ${max}`,
-    });
-  });
-}
-
-/** A token position on the grid: half cells allowed, so a 0.5 token stands at 1.5. */
-export const cellIndexDto = halfCellDto('cell', 0, Number.MAX_SAFE_INTEGER);
-export const tokenSideLengthDto = halfCellDto('token side', TOKEN_SIZE_MIN, TOKEN_SIZE_MAX);
 
 /** A bar as the master writes it (create or edit); its position is its index in the list. */
 export const barInputDto = z.strictObject({
@@ -153,6 +141,11 @@ export const tokenDto = z.strictObject({
   /** Who created it (`null` = before authorship was kept, or the account is gone); not a secret,
    *  every audience gets it. A player edits and deletes only their own (game-core `token-rights`). */
   createdBy: z.uuid().nullable(),
+  /** Its named forms (a linked token: the anchor's), only for the masters and its controllers;
+   *  the others get `[]` and just the `activeFormId` (the list would reveal the unused forms). */
+  forms: tokenFormsDto,
+  /** The form it shows now, or `null`: changing the image or the size by hand clears it. */
+  activeFormId: z.uuid().nullable(),
 });
 export type TokenDto = z.infer<typeof tokenDto>;
 
@@ -195,6 +188,8 @@ export const updateTokenCommandDto = z.strictObject({
   light: tokenLightDto.nullable().optional(),
   aura: tokenAuraDto.nullable().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
+  /** The forms replaced as a list, like the bars; absent keeps them. */
+  forms: tokenFormsDto.optional(),
 });
 export type UpdateTokenCommandDto = z.infer<typeof updateTokenCommandDto>;
 
