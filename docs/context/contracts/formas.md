@@ -1,0 +1,9 @@
+# Contracts — formas do token
+
+DTOs das formas nomeadas do token (imagem, borda e tamanho trocados num clique). Regra e server em [`../tokens/formas.md`](../tokens/formas.md).
+
+- `half-cell.dto.ts` — `TOKEN_SIZE_MIN`/`MAX`, `halfCellDto`, `cellIndexDto`, `tokenSideLengthDto` e `tokenBoxShape` (`{ col, row, width, height }`), reexportados pelo `token.dto.ts`; arquivo próprio para o `token-form.dto.ts` não importar o `token.dto.ts` (que importa as formas).
+- `token-form.dto.ts` — as formas do token ([`tokens/formas.md`](../tokens/formas.md)): `TOKEN_FORMS_MAX` (8), `TOKEN_FORM_NAME_MAX_LENGTH` (30), `tokenFormDto` `{ id, name (aparado, 1–30), imageAssetId | null, width, height, frame }` (`frame` = o `tokenFrameDto`, `square` | `round`, que mora em `token-frame.dto.ts` e é reexportado pelo `token.dto.ts`, pelo mesmo motivo do `half-cell.dto.ts`) e `tokenFormsDto` (até 8, id repetido recusado citando-o). O `tokenDto` leva `forms` (só o público `privileged`; `others` recebe `[]`) e `activeFormId | null`; o `updateTokenCommandDto` aceita `forms?` (troca a lista inteira, como as barras). `setTokenFormCommandDto` `{ …boardCommandShape, tokenId, formId, expect?: { activeFormId | null } }` (`token:setForm`) e o evento `tokenFormChangedDto` `{ …boardEventShape, tokenId, activeFormId, imageAssetId, frame, box? }` (`token:formChanged`; o do elenco vem sem `box`, porque o tamanho é por grid).
+- `token-group.dto.ts` — o `newTokenDto` (cada item do `token:createMany`) aceita `forms?` e `activeFormId?` (uuid ou `null`): o colar leva as formas copiadas; o server grava com ids novos e aponta a cópia para a forma na mesma posição (um `activeFormId` fora da lista = nenhuma). Opcionais, para o client que ainda não manda.
+
+Specs: `packages/contracts/test/board/token-form.dto.spec.ts` e o caso do colar em `token-group.dto.spec.ts`.
