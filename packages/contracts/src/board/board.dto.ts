@@ -131,6 +131,7 @@ import {
   type UpdateMemberCardCommandDto,
 } from './member-card.dto';
 import type { ResizeTokensCommandDto, TokensResizedDto } from './token-resize.dto';
+import type { SetTokenFormCommandDto, TokenFormChangedDto } from './token-form.dto';
 import type {
   CreateTokensCommandDto,
   DeleteTokensCommandDto,
@@ -169,6 +170,7 @@ export const BOARD_EVENTS = {
   faceTokens: 'token:faceMany',
   restyleTokens: 'token:restyleMany',
   resizeTokens: 'token:resizeMany',
+  setTokenForm: 'token:setForm',
   adjustBar: 'token:adjustBar',
   setMainToken: 'token:setMain',
   deleteToken: 'token:delete',
@@ -186,6 +188,7 @@ export const BOARD_EVENTS = {
   tokensFaced: 'token:facedMany',
   tokensRestyled: 'token:restyledMany',
   tokensResized: 'token:resizedMany',
+  tokenFormChanged: 'token:formChanged',
   tokenDeleted: 'token:deleted',
   tokensDeleted: 'token:deletedMany',
   mainTokenChanged: 'token:mainChanged',
@@ -381,6 +384,7 @@ export type BoardClientEvents = {
   'token:faceMany': Command<FaceTokensCommandDto>;
   'token:restyleMany': Command<RestyleTokensCommandDto>;
   'token:resizeMany': Command<ResizeTokensCommandDto>;
+  'token:setForm': Command<SetTokenFormCommandDto>;
   'token:adjustBar': Command<AdjustBarCommandDto>;
   'token:setMain': Command<SetMainTokenCommandDto>;
   'token:setHiddenMany': Command<SetTokensHiddenCommandDto>;
@@ -446,6 +450,7 @@ export type BoardServerEvents = {
   'token:facedMany': (event: TokensFacedDto) => void;
   'token:restyledMany': (event: TokensRestyledDto) => void;
   'token:resizedMany': (event: TokensResizedDto) => void;
+  'token:formChanged': (event: TokenFormChangedDto) => void;
   'token:deleted': (event: TokenDeletedDto) => void;
   'token:deletedMany': (event: TokensDeletedDto) => void;
   'token:mainChanged': (event: MainTokenChangedDto) => void;

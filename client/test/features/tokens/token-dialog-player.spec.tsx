@@ -19,6 +19,7 @@ const BIA_WITH_DELETE: TokenDialogViewer = {
   mode: 'player',
   userId: BIA_AT_TABLE.userId,
   canDelete: true,
+  canEdit: true,
 };
 const BIA_NO_DELETE: TokenDialogViewer = { ...BIA_WITH_DELETE, canDelete: false };
 const BIAS_LYRA = lyra({ createdBy: BIA_AT_TABLE.userId, controllerIds: [BIA_AT_TABLE.userId] });

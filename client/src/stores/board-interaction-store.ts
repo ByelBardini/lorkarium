@@ -1,9 +1,15 @@
 import type { BoardScope } from '@/services/board-command-sender';
 import type {
   BarChangeDto,
+  DoorStateDto,
+  DrawingDto,
   EffectAreaDto,
   EffectAreaShapeDto,
+  LightDto,
+  SceneVisionDto,
   TokenLayerDto,
+  WallDto,
+  WallKindDto,
 } from '@lorkarium/contracts';
 import type { Cell, SceneSize, TokenBox, Wall } from '@lorkarium/game-core';
 import { useStore } from 'zustand';
@@ -25,14 +31,6 @@ import type {
   BoardCommandResult,
   TableBoardCommands,
 } from '@/services/table-board-commands';
-import type {
-  DoorStateDto,
-  DrawingDto,
-  LightDto,
-  SceneVisionDto,
-  WallDto,
-  WallKindDto,
-} from '@lorkarium/contracts';
 import type { DrawingStyle } from '@/lib/drawing-style';
 import { deleteDrawingsOf, moveSelection, type SelectionMove } from './drawing-edit-flow';
 import { sendSketch, type FinishedSketch } from './drawing-tool-flow';
@@ -68,6 +66,7 @@ import {
 import { TokenDragFlow } from './token-drag-flow';
 import { faceTokensOf, previewFacing } from './token-facing-flow';
 import { previewResize, resizeTokensOf } from './token-resize-flow';
+import { setTokenFormOf, type TokenFormSwitch } from './token-form-flow';
 
 /** Where a token was asked to go, shown until the server answers. */
 export type TokenPreview = Readonly<{ tokenId: string; col: number; row: number }>;
@@ -172,6 +171,7 @@ export type BoardInteractionStore = BoardInteractionState &
     resizeTokens: (resizes: readonly TokenResize[], announce?: string) => Promise<void>;
     /** The handle being dragged (`null`: let go without a resize). */
     previewResize: (tokenId: string, box: TokenBox | null) => void;
+    setTokenForm: (change: TokenFormSwitch) => Promise<void>;
     /** The draw tool released: one drawing on the active layer, in `style`. */
     finishSketch: (sketch: FinishedSketch, style: DrawingStyle) => Promise<void>;
     /** The area tool released: one area of effect with this shape. */
@@ -263,7 +263,6 @@ export type BoardInteractionDeps = Readonly<{
 }>;
 
 type SetInteraction = StoreApi<BoardInteractionStore>['setState'];
-
 const NO_PREVIEWS = {
   preview: [],
   drawingPreview: [],
@@ -362,6 +361,7 @@ export function createBoardInteractionStore(
       previewFacing: (tokenId, facing) => previewFacing(store, tokenId, facing),
       resizeTokens: (resizes, announce) => resizeTokensOf(deps, store, resizes, announce),
       previewResize: (tokenId, box) => previewResize(store, tokenId, box),
+      setTokenForm: (change) => setTokenFormOf(deps, store, change),
       finishSketch: (sketch, style) => {
         const say = (notice: string): void => set({ notice });
         const recordEdit = deps.recordEdit ?? (() => undefined);

@@ -289,6 +289,8 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     aura: null,
     hidden: false,
     canControl: true,
+    forms: [],
+    activeFormId: null,
     bars: [
       {
         id: LYRA_PV_ID,

@@ -30,6 +30,12 @@ export type TokenFacingTarget = Readonly<{
   facing: number;
   expect?: Readonly<{ facing: number }>;
 }>;
+/** The form a token switches to; `expect` (an undo) is the form it must still show. */
+export type TokenFormTarget = Readonly<{
+  tokenId: string;
+  formId: string;
+  expect?: Readonly<{ activeFormId: string | null }>;
+}>;
 /** The look fields to change on a group; an absent field stays, `imageAssetId: null` drops it. */
 export type TokenStyle = TokenStyleDto;
 /** The cell one token of a group is dragged over; `null` ends its drag with no move. */

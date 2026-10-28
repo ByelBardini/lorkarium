@@ -1,14 +1,7 @@
 import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
-import { cellIndexDto, tokenSideLengthDto } from './token.dto';
+import { tokenBoxShape } from './half-cell.dto';
 import { tokenGroupOf } from './token-id-group.dto';
-
-const tokenBoxShape = {
-  col: cellIndexDto,
-  row: cellIndexDto,
-  width: tokenSideLengthDto,
-  height: tokenSideLengthDto,
-};
 
 /** Where a token stands and how much it covers after a resize. */
 const tokenBoxDto = z.strictObject({ tokenId: z.uuid(), ...tokenBoxShape });

@@ -33,13 +33,20 @@ import {
   type AuraFormValues,
 } from './aura-form-state';
 import { barDraftsOf, barFormsOf, type BarFormErrors, type BarFormValues } from './bar-form-state';
+import {
+  emptyFormsForm,
+  formsFormOf,
+  parseFormsForm,
+  type FormsFormErrors,
+  type FormsFormValues,
+} from './forms-form-state';
 import { BAR_MAX_PROBLEM, SIDE_OPTIONS } from './token-messages';
 
 /** Someone at the table who may control a token. */
 export type TokenPlayer = Readonly<{ userId: string; name: string }>;
 
 /** The tabs of the token dialog, in the order a save looks for the first error. */
-export type TokenDialogTab = 'basics' | 'bars' | 'vision' | 'aura';
+export type TokenDialogTab = 'basics' | 'bars' | 'vision' | 'aura' | 'forms';
 
 /** Who fills the form: the master everything; a player never vision, light nor field of view
  *  (they open the fog; the server refuses them from a player). */
@@ -75,6 +82,8 @@ export type TokenFormValues = Readonly<{
   aura: AuraFormValues;
   /** Only an aura the master touched is sent: untouched, the token keeps its own. */
   auraEdited: boolean;
+  /** "Formas": only on "Editar token", and sent only once touched. */
+  forms: FormsFormValues;
 }>;
 
 export type TokenFormErrors = Readonly<{
@@ -86,6 +95,7 @@ export type TokenFormErrors = Readonly<{
   lightAngle?: string;
   bars?: Readonly<Record<number, BarFormErrors>>;
   aura?: AuraFormErrors;
+  forms?: FormsFormErrors;
 }>;
 
 export type TokenFormResult =
@@ -103,15 +113,24 @@ const BAR_ERROR: Readonly<Record<keyof BarFormErrors, string>> = {
 };
 
 /** The tabs of the dialog, in order (also the order a save looks for the first error). */
-export const TOKEN_DIALOG_TABS: readonly TokenDialogTab[] = ['basics', 'bars', 'vision', 'aura'];
+export const TOKEN_DIALOG_TABS: readonly TokenDialogTab[] = [
+  'basics',
+  'bars',
+  'forms',
+  'vision',
+  'aura',
+];
 
-const PLAYER_TABS = TOKEN_DIALOG_TABS.filter((tab) => tab !== 'vision');
+const MASTER_TABS = TOKEN_DIALOG_TABS.filter((tab) => tab !== 'forms');
+const PLAYER_TABS = MASTER_TABS.filter((tab) => tab !== 'vision');
 
-/** The tabs a mode sees: a player has no "Visão e luz".
+/** The tabs a mode sees: a player has no "Visão e luz"; "Formas" only when `forms` (editing a
+ *  token one may edit).
  *
  *  Example: `dialogTabsOf('player') // ['basics', 'bars', 'aura']` */
-export function dialogTabsOf(mode: TokenFormMode): readonly TokenDialogTab[] {
-  return mode === 'player' ? PLAYER_TABS : TOKEN_DIALOG_TABS;
+export function dialogTabsOf(mode: TokenFormMode, forms = false): readonly TokenDialogTab[] {
+  if (!forms) return mode === 'player' ? PLAYER_TABS : MASTER_TABS;
+  return TOKEN_DIALOG_TABS.filter((tab) => mode !== 'player' || tab !== 'vision');
 }
 
 /** The form with each locked player in "Quem controla" (first, as the server puts the creator).
@@ -162,6 +181,7 @@ export function tabHasErrors(errors: TokenFormErrors, tab: TokenDialogTab): bool
   if (tab === 'basics') return BASICS_FIELDS.some((field) => errors[field] !== undefined);
   if (tab === 'bars') return Object.keys(errors.bars ?? {}).length > 0;
   if (tab === 'aura') return Object.keys(errors.aura ?? {}).length > 0;
+  if (tab === 'forms') return Object.keys(errors.forms ?? {}).length > 0;
   return [errors.sight, errors.light, errors.sightAngle, errors.lightAngle].some(
     (error) => error !== undefined,
   );
@@ -203,6 +223,7 @@ export function emptyTokenForm(distance: SceneDistance): TokenFormValues {
     bars: [],
     aura: auraFormOf(null, distance),
     auraEdited: false,
+    forms: emptyFormsForm(),
   };
 }
 
@@ -223,7 +244,8 @@ export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenForm
   };
   const look = { controllerIds, imageAssetId, bars, sight, light, lightColor, ...angles };
   const aura = { aura: auraFormOf(token.aura, distance), auraEdited: false };
-  return { name, initials, initialsEdited, side, width, height, ...look, ...aura };
+  const forms = formsFormOf(token);
+  return { name, initials, initialsEdited, side, width, height, ...look, ...aura, forms };
 }
 
 /** The name changed: the initials follow it until edited by hand. */
@@ -274,16 +296,34 @@ export function parseTokenForm(
 ): TokenFormResult {
   const player = mode === 'player';
   const look = player ? parseTokenFields(form, NO_RANGES) : parseTokenLook(form, distance);
-  if (!form.auraEdited) return look;
-  return withParsedAura(look, parseAuraForm(form.aura, distance));
+  const aura = form.auraEdited ? withPart(look, auraPartOf(form, distance)) : look;
+  return form.forms.edited ? withPart(aura, formsPartOf(form.forms)) : aura;
+}
+
+/** A tab parsed on its own (the aura, the forms): the fields it adds, or what is wrong. */
+type PartResult =
+  | Readonly<{ ok: true; edit: Partial<TokenEdit> }>
+  | Readonly<{ ok: false; errors: TokenFormErrors }>;
+
+function withPart(look: TokenFormResult, part: PartResult): TokenFormResult {
+  if (!part.ok) return { ok: false, errors: { ...(look.ok ? {} : look.errors), ...part.errors } };
+  if (!look.ok) return look;
+  return { ok: true, token: { ...look.token, ...part.edit } };
 }
 
 // The aura is not in the DTO parse: its form already gives a valid aura or says what is wrong.
-function withParsedAura(look: TokenFormResult, aura: AuraFormResult): TokenFormResult {
-  if (!aura.ok)
-    return { ok: false, errors: { ...(look.ok ? {} : look.errors), aura: aura.errors } };
-  if (!look.ok) return look;
-  return { ok: true, token: { ...look.token, aura: aura.aura } };
+function auraPartOf(form: TokenFormValues, distance: SceneDistance): PartResult {
+  const aura: AuraFormResult = parseAuraForm(form.aura, distance);
+  return aura.ok
+    ? { ok: true, edit: { aura: aura.aura } }
+    : { ok: false, errors: { aura: aura.errors } };
+}
+
+function formsPartOf(forms: FormsFormValues): PartResult {
+  const parsed = parseFormsForm(forms);
+  return parsed.ok
+    ? { ok: true, edit: { forms: parsed.forms } }
+    : { ok: false, errors: { forms: parsed.errors } };
 }
 
 function parseTokenLook(form: TokenFormValues, distance: SceneDistance): TokenFormResult {

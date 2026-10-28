@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardKeyOf, readingOrder, stepFrom } from '@/lib/board-keys';
+import { boardKeyOf, formSlotOf, readingOrder, stepFrom } from '@/lib/board-keys';
 
 const PLAIN = { ctrlKey: false, metaKey: false, altKey: false, shiftKey: false };
 
@@ -25,6 +25,26 @@ describe('boardKeyOf', () => {
   it('an arrow with Ctrl or Alt belongs to the browser', () => {
     expect(boardKeyOf({ key: 'ArrowUp', ...PLAIN, ctrlKey: true })).toBeNull();
     expect(boardKeyOf({ key: 'ArrowUp', ...PLAIN, altKey: true })).toBeNull();
+  });
+});
+
+describe('formSlotOf', () => {
+  it.each([
+    ['1', 0],
+    ['2', 1],
+    ['8', 7],
+    ['9', null],
+    ['0', null],
+    ['12', null],
+    ['a', null],
+  ])('%s → form slot %s', (key, slot) => {
+    expect(formSlotOf({ key, ...PLAIN })).toBe(slot);
+  });
+
+  it('a digit with Ctrl, ⌘ or Alt switches no form', () => {
+    expect(formSlotOf({ key: '2', ...PLAIN, ctrlKey: true })).toBeNull();
+    expect(formSlotOf({ key: '2', ...PLAIN, metaKey: true })).toBeNull();
+    expect(formSlotOf({ key: '2', ...PLAIN, altKey: true })).toBeNull();
   });
 });
 

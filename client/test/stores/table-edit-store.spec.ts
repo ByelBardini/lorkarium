@@ -24,6 +24,7 @@ import {
 } from '../support/table-session-fixtures';
 import { shapeOfWall } from '@/lib/wall-geometry';
 import { NORTH_WALL_ID, northWall } from '../support/wall-fixtures';
+import { BASE_FORM_ID as BASE_ID, WOLF_FORM_ID as WOLF_ID } from '../support/token-form-fixtures';
 
 const SCENE = { widthCells: 20, heightCells: 12 };
 const NEW_GOBLIN = 'e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b';
@@ -624,6 +625,20 @@ describe('table edit store', () => {
       expect(commands.sentAs('resizeTokens')[0]?.fields).toEqual({
         resizes: [{ tokenId: LYRA_ID, ...small, expect: wide }],
       });
+    });
+
+    it('Ctrl+Z after Lyra became the wolf switches her back to the base, expecting the wolf', async () => {
+      edits
+        .getState()
+        .record([{ kind: 'tokenFormChanged', tokenId: LYRA_ID, from: BASE_ID, to: WOLF_ID }]);
+
+      await edits.getState().undo(context());
+      await edits.getState().redo(context());
+
+      expect(commands.sentAs('setTokenForm').map(({ fields }) => fields)).toEqual([
+        { tokenId: LYRA_ID, formId: BASE_ID, expect: { activeFormId: WOLF_ID } },
+        { tokenId: LYRA_ID, formId: WOLF_ID, expect: { activeFormId: BASE_ID } },
+      ]);
     });
 
     it('an undo refused with stale_undo leaves the stack: someone moved it after', async () => {

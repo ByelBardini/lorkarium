@@ -77,6 +77,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   SCENE_NOT_FOUND: 'Scene not found',
   CHARACTER_ALREADY_PLACED: 'This character already has a token here',
   TOKEN_NOT_LINKED: 'This token is not linked to a card',
+  TOKEN_FORM_NOT_FOUND: 'This token has no such form',
   NO_FREE_CELLS: 'There are no free cells around there',
 };
 

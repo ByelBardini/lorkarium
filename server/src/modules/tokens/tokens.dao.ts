@@ -3,15 +3,23 @@ import { copyRowsSql, uuidArray } from '../../database/copy-rows';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { updateManySql, type UpdatedColumn } from '../../database/update-many';
 import { campaigns } from '../campaigns/campaigns.po';
-import { activeConditions } from '../conditions/conditions.po';
 import { scenes, type ScenePo } from '../scenes/scenes.po';
 import { IS_GROUP_GRID, gridOfCampaign } from '../scenes/scenes.dao';
 import { composedTokenRow } from './linked-token';
+import {
+  FORMS_OF_TOKEN,
+  TokenFormsDao,
+  formKeptByLook,
+  formKeptIfSameSize,
+} from './token-forms.dao';
+import { TokenHangingDao, savedRowOf } from './token-hanging.dao';
 import {
   tokenBars,
   tokenControllers,
   tokens,
   type NewTokenPo,
+  type TokenFormInputPo,
+  type TokenFormPo,
   type TokenBarInputPo,
   type TokenBarPo,
   type BarValuesPo,
@@ -21,17 +29,21 @@ import {
   type TokenPo,
 } from './tokens.po';
 
-/** A token with what hangs on it: bars by position, and who controls it. */
+/** A token with what hangs on it: bars by position, who controls it and its forms by position. */
 export type TokenRow = Readonly<{
   token: TokenPo;
   bars: readonly TokenBarPo[];
   controllerIds: readonly string[];
+  forms: readonly TokenFormPo[];
 }>;
 
+/** `activeFormIndex` is the position of the form it shows (a paste carries it), `null` = none. */
 export type NewTokenRow = Readonly<{
   token: NewTokenPo;
   bars: readonly TokenBarInputPo[];
   controllerIds: readonly string[];
+  forms?: readonly TokenFormInputPo[];
+  activeFormIndex?: number | null;
 }>;
 
 /** Where one token of a group lands. */
@@ -47,10 +59,13 @@ export type TokenBoxPo = Readonly<{
   height: number;
 }>;
 
+/** `forms` replaces the list (absent keeps it); `fields.activeFormId` must name a form the token
+ *  keeps (an id it already had, see `TokenFormsDao.replace`) or be `null`. */
 export type TokenUpdatePo = Readonly<{
   fields: TokenFieldsPo;
   bars: readonly TokenBarInputPo[];
   controllerIds: readonly string[];
+  forms?: readonly TokenFormInputPo[];
 }>;
 
 /** What a drag preview checks of one token: where it may go and who controls it. */
@@ -82,7 +97,13 @@ const COPY_MAP = sql.raw('copy_map');
 
 /** Tokens of a scene. Writes spanning tables (insert, update) must run on a DAO built with a `tx`. */
 export class TokensDao {
-  constructor(private readonly db: DatabaseExecutor) {}
+  private readonly forms: TokenFormsDao;
+  private readonly hanging: TokenHangingDao;
+
+  constructor(private readonly db: DatabaseExecutor) {
+    this.forms = new TokenFormsDao(db);
+    this.hanging = new TokenHangingDao(db);
+  }
 
   /** Two statements (see `insertMany`): run it on the `tx` DAO. */
   async insert(row: NewTokenRow): Promise<TokenRow> {
@@ -91,9 +112,9 @@ export class TokensDao {
     return saved;
   }
 
-  /** The whole batch in two statements, whatever its size: the tokens, then their bars and
-   *  controllers together. The ids are made here, so each row is matched by id and the result
-   *  keeps the order sent. Run it on the `tx` DAO. */
+  /** The whole batch in two statements, whatever its size: the tokens, then their bars,
+   *  controllers, forms and shown forms together. The ids are made here, so each row is matched
+   *  by id and the result keeps the order sent. Run it on the `tx` DAO. */
   async insertMany(rows: readonly NewTokenRow[]): Promise<TokenRow[]> {
     if (rows.length === 0) return [];
     const withIds = rows.map((row) => ({
@@ -106,13 +127,13 @@ export class TokensDao {
       .returning();
     const byId = new Map(inserted.map((token) => [token.id, token]));
     const saved = withIds.map((row) => savedRowOf(row, byId.get(row.token.id)));
-    await this.writeHanging(saved);
+    await this.hanging.writeBatch(saved);
     return saved;
   }
 
   /** Copies every token of `fromSceneId` into `toSceneId` with new ids, and what hangs on each:
-   *  bars, controllers and conditions (out of any combat: `appliedRound` null). The combat and
-   *  the main token choices stay behind. Runs several statements: call it on the `tx` DAO.
+   *  bars, controllers, forms (the shown one pointed at its copy) and conditions (out of any
+   *  combat: `appliedRound` null). The combat and the main token choices stay behind. Runs several statements: call it on the `tx` DAO.
    *  Returns the id of each copy by the id of its original. */
   async copyScene(fromSceneId: string, toSceneId: string): Promise<ReadonlyMap<string, string>> {
     const pairs = await this.db
@@ -125,7 +146,8 @@ export class TokensDao {
     const newIds = uuidArray(pairs.map(({ newId }) => newId));
     const map = sql`unnest(${oldIds}, ${newIds}) AS ${COPY_MAP}(old_id, new_id)`;
     await this.copyTokensBy(map, toSceneId);
-    await this.copyHangingBy(map);
+    await this.hanging.copyBy(map, COPY_MAP);
+    await this.forms.copyBy(map, COPY_MAP);
     return new Map(pairs.map(({ oldId, newId }) => [oldId, newId]));
   }
 
@@ -257,7 +279,8 @@ export class TokensDao {
     await this.updateInScene(sceneId, [{ column: tokens.facing, cast: 'smallint' }], rows);
   }
 
-  /** One `UPDATE` for the group; a token of another scene in it keeps its box (§2.6). */
+  /** One `UPDATE` for the group; a token of another scene in it keeps its box (§2.6). A token
+   *  whose size changes is left without its form (resized by hand). */
   async resizeMany(sceneId: string, boxes: readonly TokenBoxPo[]): Promise<void> {
     const rows = boxes.map(({ tokenId, col, row, width, height }) => [
       tokenId,
@@ -266,14 +289,16 @@ export class TokensDao {
       width,
       height,
     ]);
-    await this.updateInScene(sceneId, Object.values(CELL_COLUMNS), rows);
+    await this.updateInScene(sceneId, Object.values(CELL_COLUMNS), rows, formKeptIfSameSize());
   }
 
-  /** The same look fields (and the defeat mark) on every listed token; an absent field is not written. */
+  /** The same look fields (and the defeat mark) on every listed token; an absent field is not
+   *  written. A new image leaves each token without its form, unless the style names the form
+   *  (a form switch). */
   async restyle(tokenIds: readonly string[], style: Partial<TokenStylePo>): Promise<void> {
     await this.db
       .update(tokens)
-      .set({ ...style, updatedAt: sql`now()` })
+      .set({ ...style, ...formKeptByLook(style), updatedAt: sql`now()` })
       .where(inArray(tokens.id, [...tokenIds]));
   }
 
@@ -281,15 +306,14 @@ export class TokensDao {
     await this.db.update(tokenBars).set({ current, max }).where(eq(tokenBars.id, barId));
   }
 
+  /** Several statements (forms, token, bars, controllers): run it on the `tx` DAO. */
   async update(tokenId: string, update: TokenUpdatePo): Promise<void> {
+    if (update.forms) await this.forms.replace(tokenId, update.forms);
     await this.db
       .update(tokens)
       .set({ ...update.fields, updatedAt: sql`now()` })
       .where(eq(tokens.id, tokenId));
-    await this.db.delete(tokenBars).where(eq(tokenBars.tokenId, tokenId));
-    await this.writeBars(tokenId, update.bars);
-    await this.db.delete(tokenControllers).where(eq(tokenControllers.tokenId, tokenId));
-    await this.writeControllers(tokenId, update.controllerIds);
+    await this.hanging.replaceBarsAndControllers(tokenId, update.bars, update.controllerIds);
   }
 
   /** Writes only the fields given, on the token alone (its bars and controllers stay). */
@@ -324,62 +348,29 @@ export class TokensDao {
   }
 
   private async copyTokensBy(map: SQL, toSceneId: string): Promise<void> {
-    const replaced = { id: sql`${COPY_MAP}.new_id`, sceneId: sql`${toSceneId}::uuid` };
+    // The shown form is pointed at its copy once the forms are copied (`TokenFormsDao.copyBy`).
+    const replaced = {
+      id: sql`${COPY_MAP}.new_id`,
+      sceneId: sql`${toSceneId}::uuid`,
+      activeFormId: sql`NULL::uuid`,
+    };
     const source = sql`FROM ${tokens} JOIN ${map} ON ${tokens.id} = ${COPY_MAP}.old_id`;
     await this.db.execute(copyRowsSql(tokens, replaced, source));
-  }
-
-  private async copyHangingBy(map: SQL): Promise<void> {
-    const newId = sql`${COPY_MAP}.new_id`;
-    const fresh = sql`gen_random_uuid()`;
-    const barsSource = sql`FROM ${tokenBars} JOIN ${map} ON ${tokenBars.tokenId} = ${COPY_MAP}.old_id`;
-    await this.db.execute(copyRowsSql(tokenBars, { id: fresh, tokenId: newId }, barsSource));
-    const controllers = sql`FROM ${tokenControllers} JOIN ${map} ON ${tokenControllers.tokenId} = ${COPY_MAP}.old_id`;
-    await this.db.execute(copyRowsSql(tokenControllers, { tokenId: newId }, controllers));
-    const conditions = sql`FROM ${activeConditions} JOIN ${map} ON ${activeConditions.tokenId} = ${COPY_MAP}.old_id`;
-    const outOfCombat = { id: fresh, tokenId: newId, appliedRound: sql`NULL::integer` };
-    await this.db.execute(copyRowsSql(activeConditions, outOfCombat, conditions));
   }
 
   private async updateInScene(
     sceneId: string,
     columns: readonly UpdatedColumn[],
     rows: readonly (readonly unknown[])[],
+    alsoSetMore?: SQL,
   ): Promise<void> {
     if (rows.length === 0) return;
     const where = eq(tokens.sceneId, sceneId);
-    const alsoSet = sql`${sql.identifier(tokens.updatedAt.name)} = now()`;
+    const touched = sql`${sql.identifier(tokens.updatedAt.name)} = now()`;
+    const alsoSet = alsoSetMore ? sql`${touched}, ${alsoSetMore}` : touched;
     await this.db.execute(
       updateManySql({ table: tokens, key: tokens.id, columns, rows, where, alsoSet }),
     );
-  }
-
-  // Bars and controllers of a whole batch in one statement (a data-modifying WITH).
-  private async writeHanging(saved: readonly TokenRow[]): Promise<void> {
-    const bars = saved.flatMap((row) => row.bars);
-    const controllers = saved.flatMap(({ token, controllerIds }) =>
-      controllerIds.map((userId) => ({ tokenId: token.id, userId })),
-    );
-    const barsInsert = bars.length > 0 ? this.db.insert(tokenBars).values(bars).getSQL() : null;
-    const controllersInsert =
-      controllers.length > 0 ? this.db.insert(tokenControllers).values(controllers).getSQL() : null;
-    if (barsInsert && controllersInsert) {
-      await this.db.execute(sql`WITH written_bars AS (${barsInsert}) ${controllersInsert}`);
-      return;
-    }
-    const only = barsInsert ?? controllersInsert;
-    if (only) await this.db.execute(only);
-  }
-
-  private async writeBars(tokenId: string, bars: readonly TokenBarInputPo[]): Promise<void> {
-    if (bars.length === 0) return;
-    const rows = bars.map((bar, position) => ({ ...bar, tokenId, position }));
-    await this.db.insert(tokenBars).values(rows);
-  }
-
-  private async writeControllers(tokenId: string, userIds: readonly string[]): Promise<void> {
-    if (userIds.length === 0) return;
-    await this.db.insert(tokenControllers).values(userIds.map((userId) => ({ tokenId, userId })));
   }
 
   private async rowOf(token: TokenPo): Promise<TokenRow> {
@@ -406,14 +397,16 @@ export class TokensDao {
       .from(tokenBars)
       .where(inArray(tokenBars.tokenId, ids))
       .orderBy(asc(tokenBars.position));
-    const controllers = await this.db
-      .select()
-      .from(tokenControllers)
-      .where(inArray(tokenControllers.tokenId, ids));
+    const hanging = await this.db
+      .select({ tokenId: tokens.id, controllerIds: OWN_CONTROLLER_IDS, forms: FORMS_OF_TOKEN })
+      .from(tokens)
+      .where(inArray(tokens.id, ids));
+    const byId = new Map(hanging.map((each) => [each.tokenId, each]));
     return found.map((token) => ({
       token,
       bars: bars.filter((bar) => bar.tokenId === token.id),
-      controllerIds: controllers.filter((c) => c.tokenId === token.id).map((c) => c.userId),
+      controllerIds: byId.get(token.id)?.controllerIds ?? [],
+      forms: byId.get(token.id)?.forms ?? [],
     }));
   }
 }
@@ -423,6 +416,12 @@ const CONTROLLERS_OF_HOLDER = eq(
   tokenControllers.tokenId,
   sql`coalesce(${tokens.anchorTokenId}, ${tokens.id})`,
 );
+
+// The token's own controllers, `{}` for none, as a column of a select from `tokens`.
+// Spelled out with the table names: a select from one table drops the qualifier of its columns.
+const OWN_CONTROLLER_IDS = sql<string[]>`coalesce((${sql.raw(
+  `select array_agg(c.user_id::text) from token_controllers AS c where c.token_id = "tokens"."id"`,
+)}), '{}')`;
 
 // The controllers of the grouped token, `{}` for none (the LEFT JOIN gives one null row then).
 const CONTROLLER_IDS = sql<
@@ -469,21 +468,3 @@ const CELL_COLUMNS = {
   width: { column: tokens.width, cast: 'double precision' },
   height: { column: tokens.height, cast: 'double precision' },
 } as const satisfies Record<string, UpdatedColumn>;
-
-const BAR_DISPLAY_DEFAULT = 'number';
-
-// The row as saved: the token Postgres returned and the bars as written (ids made here).
-function savedRowOf(
-  row: NewTokenRow & { token: { id: string } },
-  token: TokenPo | undefined,
-): TokenRow {
-  if (!token) throw new Error(`insert into tokens returned no row for ${row.token.id}`);
-  const bars: TokenBarPo[] = row.bars.map((bar, position) => ({
-    ...bar,
-    display: bar.display ?? BAR_DISPLAY_DEFAULT,
-    id: crypto.randomUUID(),
-    tokenId: token.id,
-    position,
-  }));
-  return { token, bars, controllerIds: [...row.controllerIds] };
-}

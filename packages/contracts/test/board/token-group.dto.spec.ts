@@ -230,6 +230,24 @@ describe('createTokensCommandDto', () => {
     expect(parsed.tokens[0]?.layer).toBe('tokens');
   });
 
+  it('a pasted copy carries its forms and the one it shows; two forms with one id are refused', () => {
+    const wolf = {
+      id: BRAM_ID,
+      name: 'Lobo',
+      imageAssetId: null,
+      width: 2,
+      height: 2,
+      frame: 'round' as const,
+    };
+    const copy = { ...GOBLIN, forms: [wolf], activeFormId: BRAM_ID };
+
+    const parsed = createTokensCommandDto.parse({ ...BASE, tokens: [copy] });
+    const twice = { ...copy, forms: [wolf, wolf] };
+
+    expect(parsed.tokens[0]).toMatchObject({ forms: [wolf], activeFormId: BRAM_ID });
+    expect(createTokensCommandDto.safeParse({ ...BASE, tokens: [twice] }).success).toBe(false);
+  });
+
   it(`${TOKEN_GROUP_MAX} tokens are accepted and 65 refused`, () => {
     expect(createTokensCommandDto.safeParse({ ...BASE, tokens: tokensOf(64) }).success).toBe(true);
     expect(createTokensCommandDto.safeParse({ ...BASE, tokens: tokensOf(65) }).success).toBe(false);

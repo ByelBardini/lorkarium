@@ -58,6 +58,7 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   SCENE_NOT_FOUND: 'scene_not_found',
   TOKEN_NOT_FOUND: 'token_not_found',
   BAR_NOT_FOUND: 'token_not_found',
+  TOKEN_FORM_NOT_FOUND: 'token_not_found',
   [TOKEN_LIMIT_CODE]: 'token_limit',
   OUT_OF_SCENE: 'out_of_scene',
   DRAWING_NOT_FOUND: 'drawing_not_found',

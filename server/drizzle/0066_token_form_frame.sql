@@ -1,0 +1,1 @@
+ALTER TABLE "token_forms" ADD COLUMN "frame" "token_frame" DEFAULT 'square' NOT NULL;

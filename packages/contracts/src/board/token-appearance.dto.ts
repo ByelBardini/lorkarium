@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { facingDto } from './direction.dto';
-import { tokenFrameDto } from './token.dto';
+import { tokenFrameDto } from './token-frame.dto';
 import { tokenAuraDto } from './token-aura.dto';
 import { tokenGroupOf, tokenIdGroupDto } from './token-id-group.dto';
 

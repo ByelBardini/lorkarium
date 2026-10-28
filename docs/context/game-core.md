@@ -9,6 +9,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/free-cells.ts` — as casas livres em volta de um ponto (onde nascem os tokens de "Adicionar jogadores")
 - `src/token-size.vo.ts` — largura e altura do token (VO)
 - `src/token-resize.ts` — a caixa do token (e de qualquer caixa com limites próprios) depois de arrastar uma alça
+- `src/token-form.ts` — `formBoxIn(cena, caixa, tamanho)`: a caixa do token ao trocar de forma; o canto de cima à esquerda fica e recua para dentro da cena só o que o tamanho novo pede (sem paredes nem colisão, §12); tamanho fora dos passos → `RangeError` do `tokenSize`; maior que a cena → `RangeError` citando "3×3" e "scene 2×2"
 - `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
 - `src/bar.ts` — ajuste de barra (PV e qualquer outra)
 - `src/initiative.vo.ts` — o valor da iniciativa (VO)

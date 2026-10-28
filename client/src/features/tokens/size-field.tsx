@@ -19,12 +19,9 @@ export function SizeField({ size, onChange }: SizeFieldProps): React.JSX.Element
   const id = useId();
   return (
     <div role="group" aria-labelledby={`${id}-legend`} className="flex flex-col gap-2.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <span id={`${id}-legend`} className="text-[13px] text-label">
-          Tamanho
-        </span>
-        <span className="text-xs text-muted-foreground">em casas do grid</span>
-      </div>
+      <span id={`${id}-legend`} className="text-[13px] text-label">
+        Tamanho
+      </span>
       <div className="grid grid-cols-5 gap-2">
         {SIZE_PRESETS.map((preset) => {
           const pressed = size.width === preset.cells && size.height === preset.cells;
@@ -45,21 +42,23 @@ export function SizeField({ size, onChange }: SizeFieldProps): React.JSX.Element
           );
         })}
       </div>
-      <div className="flex flex-wrap items-center justify-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <span className="text-[13px] text-muted-foreground">Personalizado</span>
-        <SideStepper
-          side="largura"
-          cells={size.width}
-          onChange={(width) => onChange({ ...size, width })}
-        />
-        <span aria-hidden="true" className="text-placeholder">
-          ×
+        <span className="inline-flex items-center gap-2">
+          <SideStepper
+            side="largura"
+            cells={size.width}
+            onChange={(width) => onChange({ ...size, width })}
+          />
+          <span aria-hidden="true" className="text-placeholder">
+            ×
+          </span>
+          <SideStepper
+            side="altura"
+            cells={size.height}
+            onChange={(height) => onChange({ ...size, height })}
+          />
         </span>
-        <SideStepper
-          side="altura"
-          cells={size.height}
-          onChange={(height) => onChange({ ...size, height })}
-        />
       </div>
     </div>
   );

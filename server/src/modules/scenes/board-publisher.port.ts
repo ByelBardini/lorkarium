@@ -40,6 +40,7 @@ import type {
   TokenLayerChangedDto,
   TokenMovedDto,
   TokenDto,
+  TokenFormChangedDto,
   TokenUpdatedDto,
   TokensDeletedDto,
   TokensResizedDto,
@@ -165,6 +166,12 @@ export interface BoardPublisherPort {
   tokensResized(
     event: GridEvent<TokensResizedDto>,
     veil: VeilCuts<GridEvent<TokensResizedDto>>,
+  ): void;
+  /** A form switch: the image and the form are not secrets either (the list of forms is, and it
+   *  is not in the event). */
+  tokenFormChanged(
+    event: GridEvent<TokenFormChangedDto>,
+    veil: VeilCuts<GridEvent<TokenFormChangedDto>>,
   ): void;
   /** A person's main token: not a secret, everyone with the grid open gets it. */
   mainTokenChanged(

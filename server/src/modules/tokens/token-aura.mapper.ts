@@ -59,15 +59,21 @@ export function toTokenStylePo(style: TokenStyleDto): Partial<TokenStylePo> {
   return aura === undefined ? look : { ...look, ...toTokenAuraPo(aura) };
 }
 
-/** The assets a look puts on a token: its image and the image of its aura, each of which must be
+/** The assets a look puts on a token: its image, the image of its aura and those of its forms,
+ *  each of which must be
  *  of the table (`requireAssetsOf`); a missing one is `null`/`undefined` and is skipped.
  *
  *  Example: `await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command.style))` */
 export function lookAssetIdsOf(
-  look: Readonly<{ imageAssetId?: string | null; aura?: TokenAuraDto | null }>,
+  look: Readonly<{
+    imageAssetId?: string | null;
+    aura?: TokenAuraDto | null;
+    forms?: readonly Readonly<{ imageAssetId: string | null }>[];
+  }>,
 ): (string | null | undefined)[] {
   const auraImage = look.aura?.kind === 'image' ? look.aura.imageAssetId : null;
-  return [look.imageAssetId, auraImage];
+  const formImages = (look.forms ?? []).map(({ imageAssetId }) => imageAssetId);
+  return [look.imageAssetId, auraImage, ...formImages];
 }
 
 function checkedShapeOf(

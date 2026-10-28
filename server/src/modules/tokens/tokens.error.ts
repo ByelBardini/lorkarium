@@ -8,6 +8,7 @@ export type TokenErrorCode =
   | 'CHARACTER_ALREADY_PLACED'
   | 'TOKEN_NOT_LINKED'
   | 'NO_FREE_CELLS'
+  | 'TOKEN_FORM_NOT_FOUND'
   | typeof TOKEN_LIMIT_CODE;
 
 /** Every token refusal of its own; the gateway turns `code` into the ack error. */
@@ -134,6 +135,19 @@ export class NoFreeCellsError extends TokenError {
     super(
       'NO_FREE_CELLS',
       `scene ${sceneId} has no free cells for ${missing} of the ${wanted} characters to add; expected room around the center for every one`,
+    );
+  }
+}
+
+/** A form switch to a form the token (or its anchor) does not keep. */
+export class TokenFormNotFoundError extends TokenError {
+  constructor(
+    readonly tokenId: string,
+    readonly formId: string,
+  ) {
+    super(
+      'TOKEN_FORM_NOT_FOUND',
+      `token ${tokenId} has no form ${formId}; expected the id of one of its forms`,
     );
   }
 }

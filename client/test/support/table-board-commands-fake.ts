@@ -21,6 +21,7 @@ import type {
   TokenDragTarget,
   TokenEdit,
   TokenFacingTarget,
+  TokenFormTarget,
   TokenResizeTarget,
   TokenMoveTarget,
   TokenStyle,
@@ -242,6 +243,10 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     hidden: boolean,
   ): Promise<BoardCommandResult> {
     return this.record('setTokensHidden', scope, { tokenIds: [...ids], hidden });
+  }
+
+  setTokenForm(scope: BoardScope, target: TokenFormTarget): Promise<BoardCommandResult> {
+    return this.record('setTokenForm', scope, { ...target });
   }
 
   setMainToken(scope: BoardScope, tokenId: string, playerId?: string): Promise<BoardCommandResult> {

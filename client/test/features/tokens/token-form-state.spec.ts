@@ -450,3 +450,52 @@ describe('token form state, the player’s dialog', () => {
     expect(withControllers(withBia, [BIA_AT_TABLE.userId])).toBe(withBia);
   });
 });
+
+describe('token form state, the forms', () => {
+  const DWARF = {
+    id: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+    name: 'Anão',
+    imageAssetId: null,
+    width: 1,
+    height: 1,
+    frame: 'square' as const,
+  };
+  const shapeshifter = () => tokenFormOf(lyra({ forms: [DWARF] }), METERS);
+
+  it('"Formas" comes after "Barras" when shown, for the master and for a player', () => {
+    expect(dialogTabsOf('master', true)).toEqual(['basics', 'bars', 'forms', 'vision', 'aura']);
+    expect(dialogTabsOf('player', true)).toEqual(['basics', 'bars', 'forms', 'aura']);
+  });
+
+  it('a name error of a form marks "Formas", found after "Barras" and before "Visão e luz"', () => {
+    const errors = { forms: { [DWARF.id]: 'Dê um nome à forma.' }, sightAngle: 'De 1 a 360.' };
+
+    expect(tabHasErrors(errors, 'forms')).toBe(true);
+    expect(firstErrorTab(errors)).toBe('forms');
+    expect(firstErrorTab({ ...errors, bars: { 0: { label: 'x' } } })).toBe('bars');
+  });
+
+  it('untouched forms are not sent, so the token keeps its own', () => {
+    const result = parseTokenForm(shapeshifter(), METERS);
+
+    expect(result.ok && result.token).not.toHaveProperty('forms');
+  });
+
+  it('touched forms go as the whole list', () => {
+    const form = shapeshifter();
+    const forms = { ...form.forms, list: [{ ...DWARF, name: 'Anã' }], edited: true };
+
+    const result = parseTokenForm({ ...form, forms }, METERS);
+
+    expect(result.ok && result.token.forms).toEqual([{ ...DWARF, name: 'Anã' }]);
+  });
+
+  it('a form without a name refuses the save, with the error on that form', () => {
+    const form = shapeshifter();
+    const forms = { ...form.forms, list: [{ ...DWARF, name: ' ' }], edited: true };
+
+    const result = parseTokenForm({ ...form, forms }, METERS);
+
+    expect(result).toEqual({ ok: false, errors: { forms: { [DWARF.id]: 'Dê um nome à forma.' } } });
+  });
+});

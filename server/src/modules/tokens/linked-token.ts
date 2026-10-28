@@ -19,16 +19,19 @@ export function identityOf(token: TokenIdentityPo): TokenIdentityPo {
   return { name, initials, side, imageAssetId, frame, defeated, ...auraColumnsOf(token) };
 }
 
-/** A token as every reader sees it: linked, it wears its anchor's identity, bars and controllers
- *  over its own place in the grid; unlinked (or with the anchor not found), it is itself.
+/** A token as every reader sees it: linked, it wears its anchor's identity, bars, controllers,
+ *  forms and shown form over its own place in the grid; unlinked (or with the anchor not found),
+ *  it is itself.
  *
  *  Example: `composedTokenRow(lyraOfEstrada, lyraAnchor).bars // the anchor's PV` */
 export function composedTokenRow(row: TokenRow, anchor: TokenRow | undefined): TokenRow {
   if (!anchor || row.token.anchorTokenId !== anchor.token.id) return row;
+  const { activeFormId } = anchor.token;
   return {
-    token: { ...row.token, ...identityOf(anchor.token) },
+    token: { ...row.token, ...identityOf(anchor.token), activeFormId },
     bars: anchor.bars,
     controllerIds: anchor.controllerIds,
+    forms: anchor.forms,
   };
 }
 
@@ -74,20 +77,20 @@ export function splitStyle<S extends SharedStyle>(
   return { shared, own: definedOf(own) as Partial<S> };
 }
 
-/** A `token:update` of a linked token, split: the identity, look, bars and controllers go to its
- *  anchor (which keeps its own size), the rest stays on the token.
+/** A `token:update` of a linked token, split: the identity, look, bars, controllers, forms and
+ *  shown form go to its anchor (which keeps its own size), the rest stays on the token.
  *
  *  Example: `const { anchor, own } = splitUpdate(update, anchorRow.token)` */
 export function splitUpdate(
   update: TokenUpdatePo,
   anchor: Pick<TokenPo, 'width' | 'height'>,
 ): Readonly<{ anchor: TokenUpdatePo; own: Partial<TokenFieldsPo> }> {
-  const { name, initials, side, imageAssetId, frame, ...rest } = update.fields;
+  const { name, initials, side, imageAssetId, frame, activeFormId, ...rest } = update.fields;
   const { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity, ...more } =
     rest;
   const { auraImageShape, ...own } = more;
   const aura = { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity };
-  const look = definedOf({ imageAssetId, frame, ...aura, auraImageShape });
+  const look = definedOf({ imageAssetId, frame, activeFormId, ...aura, auraImageShape });
   const { width, height } = anchor;
   const fields = { name, initials, side, width, height, ...look };
   return { anchor: { ...update, fields }, own: definedOf(own) };

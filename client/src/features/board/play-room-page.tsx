@@ -112,6 +112,8 @@ export type PlayRoomPageProps = Readonly<{
   /** A page (settings, conditions) covers the room: the desktop title bar gets its place back. */
   covered?: boolean;
 }>;
+// `{ tokenId: null }` is "Novo token"; a token id is "Editar token", on `initialTab` when given.
+type TokenDialogRequest = Readonly<{ tokenId: string | null; initialTab?: 'forms' }>;
 
 /** The play room: the board fills the screen, the top bar, tools and panel float over it, and
  *  focus mode (F, Esc) leaves the board alone. Opens the table among the tab's open tables; the
@@ -127,8 +129,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const { view, table, interaction, scopeOf } = shown;
   const [renderer, setRenderer] = useState<BoardRenderer | null>(null);
   const [sceneDialog, setSceneDialog] = useState(false);
-  // `{ tokenId: null }` is "Novo token"; a token id is "Editar token".
-  const [tokenDialog, setTokenDialog] = useState<Readonly<{ tokenId: string | null }> | null>(null);
+  const [tokenDialog, setTokenDialog] = useState<TokenDialogRequest | null>(null);
   const [tokenMenu, setTokenMenu] = useState<TokenMenuRequest | null>(null);
   const [doorMenu, setDoorMenu] = useState<DoorMenuRequest | null>(null);
   const [lightMenu, setLightMenu] = useState<LightMenuRequest | null>(null);
@@ -255,6 +256,8 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               onApplyCondition={setConditionTargets}
               onChangeImage={setImageTokenId}
               onChangeAura={setAuraTokenId}
+              onEditForms={(tokenId) => setTokenDialog({ tokenId, initialTab: 'forms' })}
+              onEditToken={(tokenId) => setTokenDialog({ tokenId })}
               characters={{ cast: table.cast, onConfirmLink: setCardLink }}
               onClose={() => setTokenMenu(null)}
             />
@@ -359,7 +362,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             <RoomTokenDialog
               scope={scopeOf()}
               table={table}
-              tokenId={tokenDialog.tokenId}
+              {...tokenDialog}
               renderer={renderer}
               interaction={interaction}
               commands={props.boardCommands}

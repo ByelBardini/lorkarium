@@ -18,6 +18,7 @@ import type {
   CampaignTokenRightsPo,
 } from '../../src/modules/campaigns/campaigns.dao';
 import { composedTokenRow, type TokenIdentityPo } from '../../src/modules/tokens/linked-token';
+import { savedFormsOf } from '../../src/modules/tokens/token-forms.dao';
 import type { TokenAnchorsDao } from '../../src/modules/tokens/token-anchors.dao';
 import { MemberCardsDaoFake } from './member-cards-fakes';
 import type { MainTokenChoicePo, MainTokensDao } from '../../src/modules/tokens/main-tokens.dao';
@@ -69,7 +70,14 @@ export class TokensDaoFake implements Pick<
     const bars = row.bars.map((bar, position) =>
       pvBar({ ...bar, id: `${id}-bar-${position}`, tokenId: id, position }),
     );
-    const saved: TokenRow = { token, bars, controllerIds: [...row.controllerIds] };
+    const forms = savedFormsOf(id, row.forms ?? []);
+    const activeFormId = forms[row.activeFormIndex ?? -1]?.id ?? null;
+    const saved: TokenRow = {
+      token: { ...token, activeFormId },
+      bars,
+      controllerIds: [...row.controllerIds],
+      forms,
+    };
     this.rows.push(saved);
     return saved;
   }
@@ -121,14 +129,26 @@ export class TokensDaoFake implements Pick<
     }
   }
 
+  // A new size leaves the token without its form, as the real UPDATE does.
   async resizeMany(sceneId: string, boxes: readonly TokenBoxPo[]): Promise<void> {
     this.journal.push('save');
-    for (const { tokenId, ...box } of this.inScene(sceneId, boxes)) this.changeToken(tokenId, box);
+    for (const { tokenId, ...box } of this.inScene(sceneId, boxes)) {
+      const { width, height, activeFormId } = this.rowOf(tokenId).token;
+      const kept = width === box.width && height === box.height ? activeFormId : null;
+      this.changeToken(tokenId, { ...box, activeFormId: kept });
+    }
   }
 
+  // A new image or frame leaves the token without its form unless the style names one (a switch).
   async restyle(tokenIds: readonly string[], style: Partial<TokenStylePo>): Promise<void> {
     this.journal.push('save');
-    for (const tokenId of tokenIds) this.changeToken(tokenId, style);
+    for (const tokenId of tokenIds) {
+      const { imageAssetId, frame, activeFormId } = this.rowOf(tokenId).token;
+      const newImage = style.imageAssetId !== undefined && style.imageAssetId !== imageAssetId;
+      const newFrame = style.frame !== undefined && style.frame !== frame;
+      const kept = newImage || newFrame ? null : activeFormId;
+      this.changeToken(tokenId, { activeFormId: kept, ...style });
+    }
   }
 
   async setLayer(tokenIds: readonly string[], layer: TokenLayerPo): Promise<void> {
@@ -214,6 +234,7 @@ export class TokensDaoFake implements Pick<
     }));
   }
 
+  // The forms keep the ids the token had, like the real `TokenFormsDao.replace`.
   async update(tokenId: string, update: TokenUpdatePo): Promise<void> {
     this.replace(tokenId, (found) => ({
       token: { ...found.token, ...update.fields },
@@ -221,6 +242,9 @@ export class TokensDaoFake implements Pick<
         pvBar({ ...bar, id: `${tokenId}-bar-${position}`, tokenId, position }),
       ),
       controllerIds: [...update.controllerIds],
+      forms: update.forms
+        ? savedFormsOf(tokenId, update.forms, new Set(found.forms.map(({ id }) => id)))
+        : found.forms,
     }));
   }
 

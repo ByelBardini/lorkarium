@@ -12,6 +12,7 @@ Como a sala aplica as duas chaves da mesa ("Jogadores criam e editam tokens", "J
 
 - "Novo token" na toolbar: `canCreate` (ver [`board.md`](board.md)).
 - "Editar token" no rodapé do detalhe (`TokenDockActions`): `of(token).edit` — o mestre, ou quem criou o token solto, com a chave de criar.
+- "Editar token…" no menu do botão direito (`TokenContextMenu.onEditToken`, primeiro item, separado do resto): a mesma regra `of(token).edit`; age só no token clicado, nunca na seleção, e a `play-room-page` abre o mesmo `RoomTokenDialog` do rodapé (`setTokenDialog({ tokenId })`). Sem `onEditToken`, o item não existe.
 - O diálogo no modo jogador (sem "Visão e luz", criador travado em "Quem controla", "Excluir token" pela chave de excluir): [`token-dialog.md`](token-dialog.md).
 - Delete com tokens (`use-board-keyboard.ts`): só os que o viewer pode excluir vão ao `DeleteSelectionDialog`; os outros ficam e a descrição diz "1 token que não é seu fica." (`keptTokensNotice`, `SelectionToDelete.keptTokens`). Sem nenhum excluível, desenhos, áreas, paredes e luzes vão na hora, como antes.
 - Ctrl+V cola os tokens copiados com `canCreate` (sem ela, só desenhos e áreas e "Só o mestre cola tokens."). `EditContext.tokenRights` = `{ canCreate, canDelete(id) }` (o `useEditShortcuts` monta pelo tabuleiro; token que sumiu do tabuleiro conta como sem autor). O desfazer de uma criação sem a chave de excluir, e o refazer de uma criação sem a de criar, é **pulado**: sai da pilha sem enviar (`canRunEditEntry`, outcome `skipped` → "Você não tem mais permissão para essa ação; ela saiu do desfazer.", `EDIT_SKIPPED`).
@@ -19,7 +20,7 @@ Como a sala aplica as duas chaves da mesa ("Jogadores criam e editam tokens", "J
 ## Testes
 
 - Sem DOM: `test/lib/token-rights-of-viewer.spec.ts` (a regra pela mesa aberta, o `campaignUpdated` que desliga a chave sem tocar nos tokens) e o bloco "a player under the room's token keys" de `test/stores/table-edit-store.spec.ts`.
-- Componentes: `test/features/board/play-room-page-token-rights.spec.tsx` (o "Novo token" some e volta sem F5; o diálogo da Bia), os casos de jogador em `board-toolbar.spec.tsx`, `token-dock.spec.tsx` (`renderDock(…, false)` usa o viewer da Bia) e `play-room-page-delete.spec.tsx`.
+- Componentes: `test/features/board/token-context-menu-edit.spec.tsx` (o "Editar token…" do menu pela regra), `test/features/board/play-room-page-token-rights.spec.tsx` (o "Novo token" some e volta sem F5; o diálogo da Bia), os casos de jogador em `board-toolbar.spec.tsx`, `token-dock.spec.tsx` (`renderDock(…, false)` usa o viewer da Bia) e `play-room-page-delete.spec.tsx`.
 
 ## Armadilhas
 

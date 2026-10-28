@@ -5,6 +5,7 @@ Os tokens na sala: o que cada um vê, como se move e como se ajustam as barras. 
 ## Estado e comandos
 
 - `board-store` aplica `token:created` / `token:updated` (troca no lugar, ou entra no fim), `token:moved` e `token:deleted` (`board-reducer.ts`), pela mesma regra de versão; conta `snapshots` (cada snapshot invalida a prévia local). Os principais (`mainTokens`, `token:mainChanged`, `setMainToken`): [`token-dock.md`](token-dock.md).
+- **Formas** (`token:formChanged`, `setTokenForm`, "Trocar forma ▸", teclas 1–8): em [`token-forms.md`](token-forms.md).
 - **Token invisível** (`hidden`, `board:advanced`, `token:hiddenChanged`, luz velada): em [`hidden-tokens.md`](hidden-tokens.md).
 - `board-events.ts` valida os eventos de token pelo DTO (`tokenCreated`, `tokenUpdated`, `tokenMoved`, `tokenDeleted`, `tokensMoved` — o `token:movedMany` — e `tokenLayerChanged`); o reducer move o grupo inteiro e troca a `layer` de cada id listado.
 - `TableBoardCommands` tem `createToken`, `updateToken`, `moveToken`, `adjustBar`, `deleteToken`; falhas novas `token_not_found` (`TOKEN_NOT_FOUND`, `BAR_NOT_FOUND`) e `out_of_scene`; `INVALID_CONTROLLER` → `invalid`. `TableBoardCommandsFake.sentAs(nome)`. Grupo e camada: `moveTokens(scope, TokenPlacement[])`, `dragTokens(scope, TokenDragTarget[])` e `setTokenLayer(scope, tokenIds, camada)`, com as mesmas falhas (`forbidden`, `token_not_found`, `out_of_scene`, 5 s → `offline`).

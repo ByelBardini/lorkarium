@@ -28,6 +28,7 @@ import {
 import { biaCone } from '../support/effect-area-fixtures';
 import { ESTRADA_SCENE, estradaBoard } from '../support/scene-tab-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch, veiledTorch } from '../support/light-fixtures';
+import { formChangedAt, shapeshiftingLyra } from '../support/token-form-fixtures';
 
 const AT_OF_AREAS = '2026-10-18T12:00:00.000Z';
 
@@ -77,6 +78,15 @@ describe('board store', () => {
   it('an event at or below the current version is a duplicate and is ignored', () => {
     apply({ kind: 'board', state: vharnBoard() }, sceneEvent(4), sceneEvent(3));
     expect(store.getState().board).toMatchObject({ version: 4, scene: { widthCells: 20 } });
+    expect(resyncs).toBe(0);
+  });
+
+  it('a token:formChanged at or below the version is a duplicate and leaves Lyra as she was', () => {
+    apply(
+      { kind: 'board', state: vharnBoard({ tokens: [shapeshiftingLyra()] }) },
+      { kind: 'boardEvent', event: formChangedAt(4) },
+    );
+    expect(store.getState().board?.tokens[0]).toEqual(shapeshiftingLyra());
     expect(resyncs).toBe(0);
   });
 

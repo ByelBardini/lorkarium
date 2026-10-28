@@ -36,6 +36,7 @@ export function lyraAnchorRow(): TokenRow {
       inspirationBar({ id: `${id}-insp`, tokenId: id }),
     ],
     controllerIds: [BIA_ID],
+    forms: [],
   };
 }
 
@@ -48,6 +49,7 @@ export function linkedLyraRow(overrides: Partial<TokenRow['token']> = {}): Token
     token: { ...token, anchorTokenId: LYRA_ANCHOR_ID, ...overrides },
     bars: [],
     controllerIds: [],
+    forms: [],
   };
 }
 
@@ -62,7 +64,7 @@ export function kaelRow(): TokenRow {
     row: 2,
   });
   const pv = pvBar({ id: `${KAEL_ID}-pv`, tokenId: KAEL_ID, current: 10, max: 10 });
-  return { token, bars: [pv], controllerIds: [CAIO_ID] };
+  return { token, bars: [pv], controllerIds: [CAIO_ID], forms: [] };
 }
 
 /** Vharn with Ana master, Bia and Caio players; the Salão (group grid, version 4), the public

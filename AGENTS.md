@@ -87,7 +87,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | campaigns        | Mesas: criação, detalhe, config., código, papéis (dono, co-mestre, juggernaut)   | [`docs/context/campaigns.md`](docs/context/campaigns.md)               |
 | board            | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas      | [`docs/context/board.md`](docs/context/board.md)                       |
 | library          | Biblioteca de grids: pastas, visibilidade, REST, duplicar, ativação e expulsão   | [`docs/context/library.md`](docs/context/library.md)                   |
-| tokens           | Tokens: barras, controle, principal, cone, luz, aura, redação, invisível, elenco | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
+| tokens           | Tokens: barras, controle, principal, cone, luz, aura, formas, invisível, elenco  | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
 | member-cards     | Ficha da mesa: nome do personagem, CA, CD e anotações por membro                 | [`docs/context/member-cards.md`](docs/context/member-cards.md)         |
 | profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`       | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
 | combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada        | [`docs/context/combat.md`](docs/context/combat.md)                     |
