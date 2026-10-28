@@ -57,6 +57,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
     'token-resize',
     'images',
     'auras',
+    'token-forms',
   ],
   scene: ['layers', 'token-hidden', 'drawings', 'effect-areas', 'pings'],
   combat: ['combat'],
