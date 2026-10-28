@@ -51,8 +51,9 @@ const FRAME_OPTIONS: readonly SegmentOption<TokenFrameDto>[] = [
   { value: 'round', label: 'Redonda' },
 ];
 
-/** "Formas" of "Editar token": the cards (up to 8, the first is the base) and, under them, the
- *  editor of the open one — image, name, size, "Duplicar", "Tornar base", "Excluir forma".
+/** "Formas" of "Editar token": the editor of the open form on top — image, name, size, frame,
+ *  "Duplicar", "Tornar base", "Excluir forma" — and, under it, the cards (up to 8, the first is
+ *  the base).
  *
  *  Example: `<FormsTab forms={form.forms} errors={errors.forms} look={look} activeFormId={token.activeFormId} images={images} onChange={setForms} />` */
 export function FormsTab(props: FormsTabProps): React.JSX.Element {
@@ -62,31 +63,10 @@ export function FormsTab(props: FormsTabProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-5">
       <p className="text-[13px] leading-relaxed text-muted-foreground">
-        Cada forma guarda uma imagem e um tamanho. A primeira é a{' '}
+        Cada forma guarda uma imagem, uma borda e um tamanho. A primeira é a{' '}
         <strong className="font-semibold text-label">forma base</strong>, a de quando o token volta
         ao normal. No mapa, troque pelo menu do token ou pelas teclas 1 a {TOKEN_FORMS_MAX}.
       </p>
-      <ul aria-label="Formas do token" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {forms.list.map((form, index) => (
-          <li key={form.id} className="grid">
-            <FormCard
-              form={form}
-              index={index}
-              selected={form.id === forms.selectedId}
-              onMap={form.id === props.activeFormId}
-              invalid={errors?.[form.id] !== undefined}
-              onSelect={() => onChange((current) => selectForm(current, form.id))}
-            />
-          </li>
-        ))}
-        {canAddForm(forms) && (
-          <li className="grid">
-            <NewFormButton
-              onClick={() => onChange((current) => addForm(current, props.look, newId))}
-            />
-          </li>
-        )}
-      </ul>
       {selected && (
         <FormEditor
           key={selected.id}
@@ -99,7 +79,37 @@ export function FormsTab(props: FormsTabProps): React.JSX.Element {
           newId={newId}
         />
       )}
+      <FormCards {...props} newId={newId} />
     </div>
+  );
+}
+
+type FormCardsProps = FormsTabProps & Readonly<{ newId: () => string }>;
+
+function FormCards(props: FormCardsProps): React.JSX.Element {
+  const { forms, errors, onChange, newId } = props;
+  return (
+    <ul aria-label="Formas do token" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {forms.list.map((form, index) => (
+        <li key={form.id} className="grid">
+          <FormCard
+            form={form}
+            index={index}
+            selected={form.id === forms.selectedId}
+            onMap={form.id === props.activeFormId}
+            invalid={errors?.[form.id] !== undefined}
+            onSelect={() => onChange((current) => selectForm(current, form.id))}
+          />
+        </li>
+      ))}
+      {canAddForm(forms) && (
+        <li className="grid">
+          <NewFormButton
+            onClick={() => onChange((current) => addForm(current, props.look, newId))}
+          />
+        </li>
+      )}
+    </ul>
   );
 }
 
