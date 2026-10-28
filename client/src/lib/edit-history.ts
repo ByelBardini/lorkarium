@@ -68,6 +68,8 @@ export type EditOp =
   | Readonly<{ kind: 'tokensMoved'; moves: readonly TokenMove[] }>
   | Readonly<{ kind: 'tokensFaced'; turns: readonly TokenTurn[] }>
   | Readonly<{ kind: 'tokensResized'; resizes: readonly TokenResize[] }>
+  /** A switch between two forms of the token (one from no form has nothing to go back to). */
+  | Readonly<{ kind: 'tokenFormChanged'; tokenId: string; from: string; to: string }>
   /** Hidden from the players (or shown): only the tokens that changed, so the inverse is exact. */
   | Readonly<{ kind: 'tokensHidden'; tokenIds: readonly string[]; hidden: boolean }>
   | Readonly<{ kind: 'drawingsMoved'; moves: readonly DrawingMove[] }>
@@ -186,6 +188,8 @@ function inverseOp(op: EditOp): EditOp {
       };
     case 'tokensHidden':
       return { ...op, hidden: !op.hidden };
+    case 'tokenFormChanged':
+      return { ...op, from: op.to, to: op.from };
     case 'tokensAdded':
       return { kind: 'tokensRemoved', tokens: op.tokens };
     case 'tokensRemoved':
@@ -316,6 +320,8 @@ function remapOp(op: EditOp, mapping: IdMapping): EditOp {
       };
     case 'tokensHidden':
       return { ...op, tokenIds: op.tokenIds.map(idOf) };
+    case 'tokenFormChanged':
+      return { ...op, tokenId: idOf(op.tokenId) };
     case 'drawingsMoved':
       return {
         ...op,

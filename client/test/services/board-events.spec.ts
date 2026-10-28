@@ -17,6 +17,7 @@ import {
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch, veiledTorch } from '../support/light-fixtures';
 import { fireAura, goldAura } from '../support/aura-fixtures';
+import { castFormChangedAt, formChangedAt } from '../support/token-form-fixtures';
 
 describe('parseBoardEvent', () => {
   it('a valid scene:updated of the table is a sceneUpdated event', () => {
@@ -116,6 +117,27 @@ describe('parseBoardEvent', () => {
       ],
     };
     expect(parseBoardEvent('token:resizedMany', payload, VHARN.id)).toEqual({ kind: 'invalid' });
+  });
+
+  it('a token:formChanged of the grid is a tokenFormChanged event carrying its box', () => {
+    const { payload } = formChangedAt(6);
+    expect(parseBoardEvent('token:formChanged', payload, VHARN.id)).toEqual({
+      kind: 'event',
+      event: { type: 'tokenFormChanged', payload },
+    });
+  });
+
+  it('a token:formChanged of the cast, with no box, is a tokenFormChanged event too', () => {
+    const { payload } = castFormChangedAt(6, LYRA_ID);
+    expect(parseBoardEvent('token:formChanged', payload, VHARN.id)).toMatchObject({
+      kind: 'event',
+      event: { type: 'tokenFormChanged', payload: { tokenId: LYRA_ID } },
+    });
+  });
+
+  it('a token:formChanged with a quarter cell box is invalid (resync)', () => {
+    const { payload } = formChangedAt(6, { box: { col: 0, row: 0, width: 1.25, height: 1 } });
+    expect(parseBoardEvent('token:formChanged', payload, VHARN.id)).toEqual({ kind: 'invalid' });
   });
 
   it('a token:layerChanged of the table on an unknown layer is invalid', () => {

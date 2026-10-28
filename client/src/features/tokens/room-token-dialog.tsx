@@ -14,7 +14,7 @@ import { useTablePresence, type TablePresenceStore } from '@/stores/table-presen
 import { TokenAuraDialog } from './token-aura-dialog';
 import { TokenDialog, type TokenDialogViewer } from './token-dialog';
 import { TokenImageDialog } from './token-image-dialog';
-import type { TokenPlayer } from './token-form-state';
+import type { TokenDialogTab, TokenPlayer } from './token-form-state';
 
 const NO_CARDS: MemberCardDto[] = [];
 
@@ -28,6 +28,8 @@ export type RoomTokenDialogProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   commands: TableBoardCommands;
   assets: AssetsApi;
+  /** The tab it opens on; `'basics'` when absent. */
+  initialTab?: TokenDialogTab;
   onClose: () => void;
 }>;
 
@@ -67,6 +69,7 @@ export function RoomTokenDialog(props: RoomTokenDialogProps): React.JSX.Element 
       connected={live}
       cardOwner={token && cardOwnerOf(token, cards, members)}
       viewer={dialogViewerOf(boardViewer, rights, token)}
+      initialTab={props.initialTab}
       onClose={props.onClose}
     />
   );
@@ -78,8 +81,9 @@ function dialogViewerOf(
   token: TokenDto | null,
 ): TokenDialogViewer {
   if (!viewer || viewer.role === 'master') return { mode: 'master' };
-  const canDelete = token !== null && rights.of(token).delete;
-  return { mode: 'player', userId: viewer.userId, canDelete };
+  const keys = token === null ? null : rights.of(token);
+  const canDelete = keys?.delete ?? false;
+  return { mode: 'player', userId: viewer.userId, canDelete, canEdit: keys?.edit ?? false };
 }
 
 export type RoomTokenImageDialogProps = Readonly<{

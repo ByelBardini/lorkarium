@@ -7,6 +7,8 @@ const SHARED_FIELDS = [
   'initials',
   'side',
   'imageAssetId',
+  'forms',
+  'activeFormId',
   'frame',
   'defeated',
   'aura',
@@ -26,7 +28,7 @@ type ResolvedBoard = Readonly<{ cast: BoardStateDto | null; board: BoardStateDto
 const tokensMemo = new WeakMap<TokenDto[], ResolvedTokens>();
 const boardMemo = new WeakMap<BoardStateDto, ResolvedBoard>();
 
-/** The tokens of a grid with each linked one showing its anchor's identity, aura, bars, conditions
+/** The tokens of a grid with each linked one showing its anchor's identity, forms, aura, bars, conditions
  *  and control (the anchors live in the cast); position, size, layer, facing, flips, sight and light
  *  stay the token's own. A loose token, or a linked one whose anchor is not known yet (the cast
  *  still loading), passes as it came. Nothing changed → the same array.
@@ -79,12 +81,14 @@ function sharesAll(token: TokenDto, anchor: TokenDto): boolean {
 
 function sharedOf(anchor: TokenDto): Pick<TokenDto, SharedField> {
   const { name, initials, side, imageAssetId, frame, defeated, aura } = anchor;
-  const { bars, conditions, controllerIds, canControl } = anchor;
+  const { bars, conditions, controllerIds, canControl, forms, activeFormId } = anchor;
   return {
     name,
     initials,
     side,
     imageAssetId,
+    forms,
+    activeFormId,
     frame,
     defeated,
     aura,

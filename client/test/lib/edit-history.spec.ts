@@ -444,3 +444,21 @@ describe('inverseOf and remapEntry, hidden tokens', () => {
     ]);
   });
 });
+
+describe('inverseOf and remapEntry, token forms', () => {
+  const SWITCHED: EditEntry = [
+    { kind: 'tokenFormChanged', tokenId: 'lyra', from: 'base', to: 'wolf' },
+  ];
+
+  it('a form switch is undone by switching back, from the new form to the old one', () => {
+    expect(inverseOf(SWITCHED)).toEqual([
+      { kind: 'tokenFormChanged', tokenId: 'lyra', from: 'wolf', to: 'base' },
+    ]);
+  });
+
+  it('a token created again takes its new id in the switch', () => {
+    expect(remapEntry(SWITCHED, { lyra: 'lyra-2' })).toEqual([
+      { kind: 'tokenFormChanged', tokenId: 'lyra-2', from: 'base', to: 'wolf' },
+    ]);
+  });
+});

@@ -46,6 +46,15 @@ export function boardKeyOf(press: BoardKeyPress): BoardKey | null {
   return BOARD_KEY[press.key] ?? null;
 }
 
+/** The place in the token's list of the form the digit 1–8 switches to (0 for the 1), or `null`
+ *  for any other key or with Ctrl/⌘/Alt.
+ *
+ *  Example: `formSlotOf(event) // 1 for the 2: the second form` */
+export function formSlotOf(press: BoardKeyPress): number | null {
+  if (press.ctrlKey || press.metaKey || press.altKey) return null;
+  return /^[1-8]$/.test(press.key) ? Number(press.key) - 1 : null;
+}
+
 type Placed = Readonly<{ id: string; name: string; col: number; row: number }>;
 
 /** Tokens as a reader meets them: top to bottom, left to right, then by name.

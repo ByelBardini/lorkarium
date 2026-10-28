@@ -7,7 +7,6 @@ import {
   type SceneVisionDto,
   type TokenLayerDto,
 } from '@lorkarium/contracts';
-import type { TokenBox } from '@lorkarium/game-core';
 import type {
   CellTarget,
   DrawingMoveTarget,
@@ -16,6 +15,7 @@ import type {
   TokenDragTarget,
   TokenEdit,
   TokenFacingTarget,
+  TokenFormTarget,
   TokenMoveTarget,
   TokenPlacement,
   TokenResizeTarget,
@@ -57,6 +57,10 @@ import {
 } from './token-link-commands';
 import type { RealtimeTransport } from './realtime-transport';
 import {
+  RealtimeTokenAppearanceCommands,
+  type TokenAppearanceCommands,
+} from './token-appearance-commands';
+import {
   RealtimeWallCommands,
   type DoorState,
   type WallCommands,
@@ -90,7 +94,8 @@ export interface TableBoardCommands
     MainTokenCommands,
     TokenVisibilityCommands,
     MemberCardCommands,
-    TokenLinkCommands {
+    TokenLinkCommands,
+    TokenAppearanceCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
    *  absent keeps it; `vision` absent keeps the scene's mode. */
   configureScene(
@@ -139,17 +144,6 @@ export interface TableBoardCommands
   ): Promise<BoardCommandResult>;
   /** Turns a group (master or controllers, tokens layer), all or nothing in one version. */
   faceTokens(scope: BoardScope, faces: readonly TokenFacingTarget[]): Promise<BoardCommandResult>;
-  /** Sizes and origins after the handles (`token:resizeMany`); the controllers' to choose. */
-  resizeTokens(
-    scope: BoardScope,
-    resizes: readonly TokenResizeTarget[],
-  ): Promise<BoardCommandResult>;
-  /** Changes the look of a group (master or controllers), all or nothing in one version. */
-  restyleTokens(
-    scope: BoardScope,
-    tokenIds: readonly string[],
-    style: TokenStyle,
-  ): Promise<BoardCommandResult>;
   adjustBar(
     scope: BoardScope,
     tokenId: string,
@@ -173,6 +167,7 @@ export class RealtimeTableBoardCommands
   private readonly visibility: TokenVisibilityCommands;
   private readonly memberCard: MemberCardCommands;
   private readonly tokenLink: TokenLinkCommands;
+  private readonly appearance: TokenAppearanceCommands;
 
   constructor(transport: RealtimeTransport, newActionId: () => string) {
     super(new BoardCommandSender(transport, newActionId));
@@ -183,6 +178,7 @@ export class RealtimeTableBoardCommands
     this.visibility = new RealtimeTokenVisibilityCommands(this.sender);
     this.memberCard = new RealtimeMemberCardCommands(this.sender);
     this.tokenLink = new RealtimeTokenLinkCommands(this.sender);
+    this.appearance = new RealtimeTokenAppearanceCommands(this.sender);
   }
 
   linkTokenToCard(
@@ -454,15 +450,7 @@ export class RealtimeTableBoardCommands
     scope: BoardScope,
     resizes: readonly TokenResizeTarget[],
   ): Promise<BoardCommandResult> {
-    const boxes = resizes.map(({ tokenId, col, row, width, height, expect }) => ({
-      tokenId,
-      col,
-      row,
-      width,
-      height,
-      ...(expect && { expect: boxOf(expect) }),
-    }));
-    return this.send(BOARD_EVENTS.resizeTokens, scope, { resizes: boxes });
+    return this.appearance.resizeTokens(scope, resizes);
   }
 
   restyleTokens(
@@ -470,10 +458,11 @@ export class RealtimeTableBoardCommands
     tokenIds: readonly string[],
     style: TokenStyle,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.restyleTokens, scope, {
-      tokenIds: [...tokenIds],
-      style: { ...style },
-    });
+    return this.appearance.restyleTokens(scope, tokenIds, style);
+  }
+
+  setTokenForm(scope: BoardScope, target: TokenFormTarget): Promise<BoardCommandResult> {
+    return this.appearance.setTokenForm(scope, target);
   }
 
   adjustBar(
@@ -488,8 +477,4 @@ export class RealtimeTableBoardCommands
   deleteToken(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
     return this.send(BOARD_EVENTS.deleteToken, scope, { tokenId });
   }
-}
-
-function boxOf({ col, row, width, height }: TokenBox): TokenBox {
-  return { col, row, width, height };
 }

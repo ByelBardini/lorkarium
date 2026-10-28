@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { boardWithCast, resolveLinkedTokens } from '@/lib/linked-tokens';
 import { fireAura, goldAura } from '../support/aura-fixtures';
 import { castBoard, linkedLyra, lyraAnchor } from '../support/cast-fixtures';
+import { LYRA_FORMS, WOLF_FORM_ID } from '../support/token-form-fixtures';
 import {
   BIA_AT_TABLE,
   activeCondition,
@@ -50,6 +51,13 @@ describe('resolveLinkedTokens', () => {
       controllerIds: anchor.controllerIds,
       canControl: false,
     });
+  });
+
+  it("a linked token shows its anchor's forms and active form, the anchor's switch reaching every grid", () => {
+    const own = linkedLyra({ forms: [], activeFormId: null });
+    const switched = lyraAnchor({ forms: [...LYRA_FORMS], activeFormId: WOLF_FORM_ID });
+    const [token] = resolveLinkedTokens([own], [switched]);
+    expect(token).toMatchObject({ forms: LYRA_FORMS, activeFormId: WOLF_FORM_ID, width: 1 });
   });
 
   // Regression: the server keeps the aura on the anchor (an event of the cast), so a linked

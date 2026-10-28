@@ -46,6 +46,8 @@ import {
   mainTokenChangedDto,
   memberCardChangedDto,
   tokensRestyledDto,
+  tokenFormChangedDto,
+  type TokenFormChangedDto,
   wallKindsChangedDto,
   wallsCreatedDto,
   wallsDeletedDto,
@@ -113,6 +115,8 @@ export type BoardEvent =
   | Readonly<{ type: 'tokensFaced'; payload: TokensFacedDto }>
   | Readonly<{ type: 'tokensResized'; payload: TokensResizedDto }>
   | Readonly<{ type: 'tokensRestyled'; payload: TokensRestyledDto }>
+  /** With `box`: the grid's token; without: the cast's anchor (image and form, every grid). */
+  | Readonly<{ type: 'tokenFormChanged'; payload: TokenFormChangedDto }>
   | Readonly<{ type: 'tokensCreated'; payload: TokensCreatedDto }>
   | Readonly<{ type: 'tokensDeleted'; payload: TokensDeletedDto }>
   /** The grid moved a version and nothing of it is for this viewer (it touched hidden tokens). */
@@ -182,6 +186,7 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.tokensFaced]: specOf('tokensFaced', tokensFacedDto),
   [BOARD_EVENTS.tokensResized]: specOf('tokensResized', tokensResizedDto),
   [BOARD_EVENTS.tokensRestyled]: specOf('tokensRestyled', tokensRestyledDto),
+  [BOARD_EVENTS.tokenFormChanged]: specOf('tokenFormChanged', tokenFormChangedDto),
   [BOARD_EVENTS.tokensCreated]: specOf('tokensCreated', tokensCreatedDto),
   [BOARD_EVENTS.tokensDeleted]: specOf('tokensDeleted', tokensDeletedDto),
   [BOARD_EVENTS.boardAdvanced]: specOf('boardAdvanced', boardAdvancedDto),

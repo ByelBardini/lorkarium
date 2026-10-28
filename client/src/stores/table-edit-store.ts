@@ -284,6 +284,11 @@ async function runOp(op: EditOp, { scope, commands }: EditContext): Promise<OpRe
     }
     case 'tokensHidden':
       return createdIdsOf(await commands.setTokensHidden(scope, op.tokenIds, op.hidden), []);
+    case 'tokenFormChanged': {
+      const { tokenId, from, to } = op;
+      const target = { tokenId, formId: to, expect: { activeFormId: from } };
+      return createdIdsOf(await commands.setTokenForm(scope, target), []);
+    }
     case 'drawingsMoved': {
       const moves = op.moves.map(({ drawingId, from, to }) => ({
         drawingId,

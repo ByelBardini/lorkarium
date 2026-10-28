@@ -14,8 +14,10 @@ import type {
   MainTokenDto,
   MemberCardDto,
   TokenDto,
+  TokenFormChangedDto,
   TokensFacedDto,
   TokensResizedDto,
+  TokensRestyledDto,
   TokensMovedDto,
   WallDto,
   WallKindsChangedDto,
@@ -74,8 +76,10 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
       return { tokens: withBoxes(board.tokens, event.payload.resizes) };
     case 'tokensRestyled': {
       const { tokenIds, style } = event.payload;
-      return { tokens: mapTokens(board.tokens, tokenIds, (token) => ({ ...token, ...style })) };
+      return { tokens: mapTokens(board.tokens, tokenIds, (token) => restyledToken(token, style)) };
     }
+    case 'tokenFormChanged':
+      return { tokens: withForm(board.tokens, event.payload) };
     case 'tokenDeleted':
       return {
         tokens: board.tokens.filter((token) => token.id !== event.payload.tokenId),
@@ -369,8 +373,31 @@ function withBoxes(tokens: readonly TokenDto[], boxes: TokensResizedDto['resizes
     const box = boxes.find(({ tokenId }) => tokenId === token.id);
     if (!box) return token;
     const { col, row, width, height } = box;
-    return { ...token, col, row, width, height };
+    // A size set by hand is no form any more, as the server does; a linked token keeps the
+    // anchor's form, since its size is per grid.
+    const resized = width !== token.width || height !== token.height;
+    const activeFormId = resized && !token.anchorTokenId ? null : token.activeFormId;
+    return { ...token, col, row, width, height, activeFormId };
   });
+}
+
+// An image or a frame set by hand is no form any more: the server clears it the same way.
+function restyledToken(token: TokenDto, style: TokensRestyledDto['style']): TokenDto {
+  const newImage = 'imageAssetId' in style && style.imageAssetId !== token.imageAssetId;
+  const newFrame = style.frame !== undefined && style.frame !== token.frame;
+  const activeFormId = newImage || newFrame ? null : token.activeFormId;
+  return { ...token, ...style, activeFormId };
+}
+
+// The grid's event (with `box`) is its token's; the cast's (no box, the size being per grid)
+// reaches the anchor and every token linked to it.
+function withForm(tokens: readonly TokenDto[], change: TokenFormChangedDto): TokenDto[] {
+  const { tokenId, activeFormId, imageAssetId, frame, box } = change;
+  const switched = (token: TokenDto): boolean =>
+    token.id === tokenId || (box === undefined && token.anchorTokenId === tokenId);
+  return tokens.map((token) =>
+    switched(token) ? { ...token, ...box, activeFormId, imageAssetId, frame } : token,
+  );
 }
 
 function withFacings(tokens: readonly TokenDto[], faces: TokensFacedDto['faces']): TokenDto[] {

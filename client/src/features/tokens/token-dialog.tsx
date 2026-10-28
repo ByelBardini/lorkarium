@@ -24,6 +24,7 @@ import type {
 import { AuraEditor } from './aura-editor';
 import type { AuraFormValues } from './aura-form-state';
 import { BarsEditor } from './bars-editor';
+import { FormsTab, type FormsUpdate } from './forms-tab';
 import { TokenBasicsTab } from './token-basics-tab';
 import {
   dialogTabsOf,
@@ -52,10 +53,14 @@ import {
 import { TokenPreview } from './token-preview';
 import { VisionLightTab } from './vision-light-tab';
 
+export type { TokenDialogTab } from './token-form-state';
+
 /** Who opens the dialog: the master (everything), or a player on a token she may edit, who never
- *  sees "Visão e luz", always stays in "Quem controla" and deletes only with the room's key. */
+ *  sees "Visão e luz", always stays in "Quem controla", deletes only with the room's key and sees
+ *  "Formas" only with the key to edit it (`canEdit`). */
 export type TokenDialogViewer =
-  Readonly<{ mode: 'master' }> | Readonly<{ mode: 'player'; userId: string; canDelete: boolean }>;
+  | Readonly<{ mode: 'master' }>
+  | Readonly<{ mode: 'player'; userId: string; canDelete: boolean; canEdit: boolean }>;
 
 const MASTER: TokenDialogViewer = { mode: 'master' };
 
@@ -79,6 +84,8 @@ export type TokenDialogProps = Readonly<{
   cardOwner?: string | null;
   /** The master when absent. */
   viewer?: TokenDialogViewer;
+  /** The tab it opens on ("Editar formas…" opens on "Formas"); `'basics'` when absent. */
+  initialTab?: TokenDialogTab;
   onClose: () => void;
 }>;
 
@@ -132,6 +139,7 @@ type TokenDialogState = Readonly<{
   setForm: (form: TokenFormValues) => void;
   setImage: (assetId: string | null) => void;
   setAura: (update: (aura: AuraFormValues) => AuraFormValues) => void;
+  setForms: FormsUpdate;
   errors: TokenFormErrors;
   tab: TokenDialogTab;
   setTab: (tab: TokenDialogTab) => void;
@@ -147,7 +155,7 @@ function useTokenDialog(props: TokenDialogProps): TokenDialogState {
   const token = props.token;
   const [form, setForm] = useState(() => initialFormOf(props));
   const [errors, setErrors] = useState<TokenFormErrors>({});
-  const [tab, setTab] = useState<TokenDialogTab>('basics');
+  const [tab, setTab] = useState<TokenDialogTab>(() => initialTabOf(props));
   const [failure, setFailure] = useState<BoardCommandFailure | null>(null);
   const [saving, setSaving] = useState(false);
   const run = async (send: () => Promise<BoardCommandResult>): Promise<void> => {
@@ -171,7 +179,21 @@ function useTokenDialog(props: TokenDialogProps): TokenDialogState {
     setForm((current) => ({ ...current, imageAssetId }));
   const setAura = (update: (aura: AuraFormValues) => AuraFormValues): void =>
     setForm((current) => withAura(current, update(current.aura)));
-  return { form, setForm, setImage, setAura, errors, tab, setTab, failure, saving, save, remove };
+  const setForms: FormsUpdate = (update) =>
+    setForm((current) => ({ ...current, forms: update(current.forms) }));
+  const parts = { setImage, setAura, setForms };
+  return { form, setForm, ...parts, errors, tab, setTab, failure, saving, save, remove };
+}
+
+// "Formas" edits a token that exists, and only for whoever may edit it.
+function tabsOf({ token, viewer = MASTER }: TokenDialogProps): readonly TokenDialogTab[] {
+  const forms = token !== null && (viewer.mode === 'master' || viewer.canEdit);
+  return dialogTabsOf(viewer.mode, forms);
+}
+
+function initialTabOf(props: TokenDialogProps): TokenDialogTab {
+  const wanted = props.initialTab ?? 'basics';
+  return tabsOf(props).includes(wanted) ? wanted : 'basics';
 }
 
 // A player's token is born without sight and with her in control (the server's rule): the form
@@ -200,6 +222,7 @@ type DialogPartProps = Readonly<{ props: TokenDialogProps; dialog: TokenDialogSt
 const TAB_LABEL: Readonly<Record<TokenDialogTab, string>> = {
   basics: 'Básico',
   bars: 'Barras',
+  forms: 'Formas',
   vision: 'Visão e luz',
   aura: 'Aura',
 };
@@ -213,17 +236,11 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
       className="min-w-0 flex-1 md:min-h-0"
     >
       <TabsList className="shrink-0 gap-6 px-6 md:px-7" aria-label="Seções do token">
-        {dialogTabsOf(props.viewer?.mode ?? 'master').map((tab) => (
+        {tabsOf(props).map((tab) => (
           <TabsTrigger key={tab} value={tab}>
             {TAB_LABEL[tab]}
-            {tab === 'bars' && (
-              <>
-                {' '}
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] text-label tabular-nums">
-                  {form.bars.length}
-                </span>
-              </>
-            )}
+            {tab === 'bars' && <TabCount count={form.bars.length} />}
+            {tab === 'forms' && <TabCount count={form.forms.list.length} />}
             {tabHasErrors(errors, tab) && <ErrorMark />}
           </TabsTrigger>
         ))}
@@ -245,6 +262,16 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
             bars={form.bars}
             errors={errors.bars}
             onChange={(bars) => setForm({ ...form, bars })}
+          />
+        </TabsContent>
+        <TabsContent value="forms">
+          <FormsTab
+            forms={form.forms}
+            errors={errors.forms}
+            look={{ ...form, frame: props.token?.frame ?? 'square' }}
+            activeFormId={props.token?.activeFormId ?? null}
+            images={{ campaignId: props.scope.campaignId, assets: props.assets }}
+            onChange={dialog.setForms}
           />
         </TabsContent>
         <TabsContent value="vision">
@@ -276,6 +303,17 @@ function SharedNote({ owner }: Readonly<{ owner: string | null | undefined }>) {
     <p className="mb-4 border-l-2 border-primary pl-3 text-[13px] text-label">
       {sharedFieldsNote(owner)}
     </p>
+  );
+}
+
+function TabCount({ count }: Readonly<{ count: number }>): React.JSX.Element {
+  return (
+    <>
+      {' '}
+      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] text-label tabular-nums">
+        {count}
+      </span>
+    </>
   );
 }
 

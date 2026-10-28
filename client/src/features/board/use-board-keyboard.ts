@@ -11,7 +11,7 @@ import { blockedPassage, cell, tokenCenter, turnFacing, type Cell } from '@lorka
 import { gameWallsOf } from '@/lib/wall-geometry';
 import { useCallback } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { boardKeyOf, readingOrder, stepFrom, type BoardKey } from '@/lib/board-keys';
+import { boardKeyOf, formSlotOf, readingOrder, stepFrom, type BoardKey } from '@/lib/board-keys';
 import { groupMemberOf, shiftGroup } from '@/lib/token-group';
 import { singleSelectedOf, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
@@ -54,6 +54,7 @@ export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.Keyboar
   const tokenKeys = useTableTokenKeys();
   return useCallback(
     (event) => {
+      if (switchFormByKey(event, board, interaction)) return;
       const key = boardKeyOf(event);
       if (!key) return;
       event.preventDefault();
@@ -88,6 +89,27 @@ function runBoardKey(key: BoardKey, deps: KeyRunDeps): void {
   if (key === 'turnBack' || key === 'turnOn') return turnByKey(deps, selected, TURN[key]);
   if (selected.length === 1) return moveByKey(only, STEP[key], deps);
   moveGroupByKey(deps, inSelectionOrder(selected, selectedTokenIds), STEP[key]);
+}
+
+// 1–8 with one token selected that the viewer controls and that has that form: the switch takes
+// the key, so the master's 1 2 3 (the active layer, on the window) do not also run.
+function switchFormByKey(
+  event: React.KeyboardEvent,
+  board: StoreApi<BoardStore>,
+  interaction: StoreApi<BoardInteractionStore>,
+): boolean {
+  const slot = formSlotOf(event);
+  const state = board.getState().board;
+  if (slot === null || !state || watchesOnly(state.viewer.role)) return false;
+  const local = interaction.getState();
+  const selectedId = singleSelectedOf(local.selectedTokenIds);
+  const token = state.tokens.find(({ id }) => id === selectedId);
+  const form = token?.canControl ? token.forms[slot] : undefined;
+  if (!token || !form) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  void local.setTokenForm({ token, formId: form.id, scene: state.scene });
+  return true;
 }
 
 // A Delete with tokens this viewer may delete (the master any, a player her own with the key)

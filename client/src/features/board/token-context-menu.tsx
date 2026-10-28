@@ -27,6 +27,8 @@ import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { LAYER_LABEL } from './board-messages';
+import { useViewerTokenRights } from './table-token-rights';
+import { TokenFormItems } from './token-form-items';
 import { TokenHiddenItems } from './token-hidden-items';
 
 /** Where a token was right clicked: its id and the viewport point to open the menu at. */
@@ -44,6 +46,10 @@ export type TokenContextMenuProps = Readonly<{
   onChangeImage: (tokenId: string) => void;
   /** "Aura…" (whoever controls the token): the token whose aura dialog opens. */
   onChangeAura: (tokenId: string) => void;
+  /** "Trocar forma ▸ Editar formas…": the token whose dialog opens on the Formas tab. */
+  onEditForms?: (tokenId: string) => void;
+  /** "Editar token…" (whoever may edit the token): the token whose dialog opens. Absent: no such item. */
+  onEditToken?: (tokenId: string) => void;
   /** The master's "Ligar à ficha de ▸" / "Desligar da ficha": the table's cast, and where a link
    *  that needs a yes goes. Absent: no character items. */
   characters?: Readonly<{
@@ -54,13 +60,16 @@ export type TokenContextMenuProps = Readonly<{
 }>;
 
 const LAYER_TITLE = 'Mover para camada';
+export const EDIT_TOKEN_LABEL = 'Editar token…';
 export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
 
-/** The right click on a token for whoever controls it: "Aplicar condição…", "Tornar principal"
+/** The right click on a token for whoever controls it: "Editar token…" (that token alone, for
+ *  whoever may edit it, with `onEditToken`), "Aplicar condição…", "Tornar principal"
  *  (only on a token the viewer is listed in the control of and that is not their main one), the
  *  master's "Tornar principal de ▸" (the players listed in its control), "Morto", "Luz acesa"
  *  (only on a token that gives off light), "Aura…" (that token alone, for whoever controls it),
- *  "Tirar aura" (the targets with an aura that the viewer controls, at once), "Imagem…",
+ *  "Tirar aura" (the targets with an aura that the viewer controls, at once), "Trocar forma ▸"
+ *  (that token alone, with forms, for whoever controls it), "Imagem…",
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
  *  token alone); the master also gets "Ligar à ficha de ▸" / "Desligar da ficha" (with
  *  `characters`), "Tornar invisível" / "Tornar visível" and "Mover para camada". Closing (a choice, Esc, a click away)
@@ -105,6 +114,7 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <span id={nameId} className="sr-only">{`Ações de ${token.name}`}</span>
+        <EditTokenItem token={token} board={board} onEditToken={props.onEditToken} />
         <DropdownMenuItem onSelect={() => props.onApplyCondition(targets())}>
           Aplicar condição…
         </DropdownMenuItem>
@@ -168,6 +178,12 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
             Tirar aura
           </DropdownMenuItem>
         )}
+        <TokenFormItems
+          token={token}
+          board={board}
+          interaction={interaction}
+          onEditForms={props.onEditForms}
+        />
         <LookItems
           token={token}
           onChangeImage={() => props.onChangeImage(token.id)}
@@ -181,6 +197,28 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+type EditTokenItemProps = Readonly<{
+  token: TokenDto;
+  board: StoreApi<BoardStore>;
+  onEditToken: TokenContextMenuProps['onEditToken'];
+}>;
+
+// The same rule as the dock's "Editar token" (`of(token).edit`).
+function EditTokenItem({
+  token,
+  board,
+  onEditToken,
+}: EditTokenItemProps): React.JSX.Element | null {
+  const rights = useViewerTokenRights(board);
+  if (!onEditToken || !rights.of(token).edit) return null;
+  return (
+    <>
+      <DropdownMenuItem onSelect={() => onEditToken(token.id)}>{EDIT_TOKEN_LABEL}</DropdownMenuItem>
+      <DropdownMenuSeparator />
+    </>
   );
 }
 
