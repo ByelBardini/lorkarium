@@ -2,9 +2,9 @@
 # Landing page image (docs/context/deploy.md): the static Astro build served by Caddy on :80.
 # Build context is the repo root (docker build -f site/Dockerfile .): site/ needs packages/brand and packages/tsconfig.
 
-FROM node:22-bookworm-slim AS build
+FROM node:26.13.0-bookworm-slim AS build
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH HUSKY=0 CI=1
-RUN corepack enable
+RUN npm install --global pnpm@11.9.0
 WORKDIR /repo
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \

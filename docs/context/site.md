@@ -4,7 +4,7 @@ A landing comercial do Lorkarium: um site estático em `site/` (`@lorkarium/site
 
 ## Stack e comandos
 
-- Astro 7 estático (`output` padrão), Tailwind v4 pelo `@tailwindcss/vite`, Zod 4 só para a resposta do GitHub. Exige **Node ≥ 22.23.4** (`engines` da raiz).
+- Astro 7 estático (`output` padrão), Tailwind v4 pelo `@tailwindcss/vite`, Zod 4 só para a resposta do GitHub. O projeto usa **Node ≥ 26.13.0** (`engines` da raiz e `.nvmrc`).
 - Marca de [`brand.md`](brand.md): `global.css` importa `@lorkarium/brand/fonts.css` e `tokens.css` e mapeia no `@theme` os papéis do site (`page`, `band`, `surface`, `surface-deep`, `line`, `edge`, `edge-strong`, `gold*`, `ink`, `parchment`, `label`, `muted`, `faint`, `ember*`; fontes `font-sans`, `font-display`, `font-wordmark`). Utilitário `site-wrap`: a coluna de até 1680 px com gutter `clamp(20px, 4vw, 64px)` (o 1200 px do mockup deixava muito vazio dos lados).
 - Visual alinhado ao app (`client/design-system.md`): raio de 4 px (`rounded-sm`), sem sombra; seções separadas por divisórias finas (`border-edge`) em grade, nunca cards arredondados soltos. Botão secundário em `secondary-link.astro`.
 - `pnpm site:dev` (4321) · `pnpm site:build` (`site/dist/`) · `pnpm --filter @lorkarium/site preview` · `pnpm --filter @lorkarium/site typecheck` (`astro check`) · `pnpm test:e2e:site`.

@@ -95,7 +95,7 @@ flowchart LR
 | Camada    | Tecnologias                                                                                                                                       |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Frontend  | React 19, TypeScript, Vite 8, PixiJS 8, Zustand 5, Tailwind CSS v4, shadcn/ui, React Router 8, Socket.IO Client 4, Zod 4                          |
-| Backend   | Node.js 22, TypeScript, Fastify 5, Socket.IO 4, Zod 4, PostgreSQL 17, Drizzle ORM, Pino, AWS SDK (S3), sharp, nodemailer, otpauth                 |
+| Backend   | Node.js 26, TypeScript, Fastify 5, Socket.IO 4, Zod 4, PostgreSQL 17, Drizzle ORM, Pino, AWS SDK (S3), sharp, nodemailer, otpauth                 |
 | Desktop   | Tauri 2 + Rust, instalador NSIS; splash em TypeScript puro + Vite                                                                                 |
 | Landing   | Astro 7 estático, Tailwind CSS v4, servido por Caddy                                                                                              |
 | Qualidade | Vitest 5, Playwright, Testing Library, ESLint 10, Prettier 3, TypeScript 6 strict, Husky + lint-staged                                            |
@@ -130,7 +130,7 @@ Os pacotes internos (`@lorkarium/game-core`, `@lorkarium/contracts`) são consum
 
 ### Pré-requisitos
 
-- Node.js 22 (>= 22.23.4) e pnpm 11
+- Node.js 26 (>= 26.13.0) e pnpm 11
 - Docker Desktop aberto (Postgres, SeaweedFS e Mailpit locais)
 - Só para o app desktop: Rust estável >= 1.90 e o MSVC Build Tools (C++)
 

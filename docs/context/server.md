@@ -1,6 +1,6 @@
 # Server
 
-API Fastify 5 em `server/` (Node 22, ESM, `tsx`). Este hub cobre o **encanamento** transversal (env, banco, migrações, montagem do app, testes); cada módulo de feature tem o seu doc (`docs/context/<módulo>.md`). As camadas por sufixo estão no `AGENTS.md` e na skill `desenvolver-server`.
+API Fastify 5 em `server/` (Node 26, ESM, `tsx`). Este hub cobre o **encanamento** transversal (env, banco, migrações, montagem do app, testes); cada módulo de feature tem o seu doc (`docs/context/<módulo>.md`). As camadas por sufixo estão no `AGENTS.md` e na skill `desenvolver-server`.
 
 ## Estrutura
 

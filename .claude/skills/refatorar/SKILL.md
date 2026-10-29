@@ -20,7 +20,7 @@ O alvo chega em `$ARGUMENTS`. O diagnóstico é feito por `.claude/skills/refato
 
 ## Pré-requisitos
 
-Node 22 (`.nvmrc`) e `pnpm install` feito na raiz. O driver carrega o `typescript` de `node_modules/` da raiz; não instala nada e não escreve nada.
+Node 26 (`.nvmrc`) e `pnpm install` feito na raiz. O driver carrega o `typescript` de `node_modules/` da raiz; não instala nada e não escreve nada.
 
 ```bash
 node --version   # v22.17.0
