@@ -12,6 +12,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/assets/` — imagem enviada à mesa (arquivo ou link) e a leitura dela
 - `src/library/` — biblioteca de grids: grids e pastas da mesa por REST, `library:changed`
 - `src/dice/` — rolagem de dados (Socket.IO): comando, ack e eventos com o trajeto 3D; rolagens salvas (REST)
+- `src/chat/` — chat da mesa (Socket.IO): `chat:send`, ack e `chat:sent`, sem versão
 - `test/<área>/` — specs só de DTO com regra própria (`transform`, `pipe`, `refine`)
 
 ## DTOs
@@ -108,6 +109,10 @@ O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, apar
 ### Dados (`dice/`)
 
 `dice.dto.ts` — comando `dice:roll`, ack com `rollId`, eventos `dice:rolled` (resultado, aparência e trajeto 3D) e `dice:rolledSecretly` (aviso sem valor), `DiceClientEvents`/`DiceServerEvents` no `TableClientEvents`/`TableServerEvents`; `saved-roll.dto.ts` — corpos, params e respostas das rolagens salvas (REST): detalhe em [`contracts/dados.md`](contracts/dados.md).
+
+### Chat (`chat/`)
+
+`chat.dto.ts` — canal (Mesa/sussurro, privado, grupo), quem fala (si ou token), `chat:send` com ack `messageId` e `chat:sent` sem versão; `ChatClientEvents`/`ChatServerEvents` no `TableClientEvents`/`TableServerEvents`: detalhe em [`contracts/chat.md`](contracts/chat.md).
 
 ## Regras de arquitetura
 
