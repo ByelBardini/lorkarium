@@ -5,6 +5,7 @@ import {
   type TableSessionUpdate,
 } from '@/services/table-session-api';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
+import { chatSent } from '../support/chat-fixtures';
 import { biaRolled, biaRolledSecretly } from '../support/dice-fixtures';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
 import {
@@ -279,6 +280,36 @@ describe('RealtimeTableSessionApi', () => {
       transport.serverEmits('dice:rolled', biaRolled());
 
       expect(updates).toHaveLength(count);
+    });
+  });
+
+  describe('chat', () => {
+    it('a valid chat:sent of this table reaches the listener as chatSent', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+
+      transport.serverEmits('chat:sent', chatSent());
+
+      expect(updates.at(-1)).toEqual({ kind: 'chatSent', event: chatSent() });
+    });
+
+    it('a chat:sent of another table is ignored', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      const count = updates.length;
+
+      transport.serverEmits('chat:sent', chatSent({ campaignId: QUELM.id }));
+
+      expect(updates).toHaveLength(count);
+    });
+
+    it('a chat:sent outside the DTO (an empty text) is dropped with no resync', async () => {
+      await connectAndAnswer({ ok: true, state: vharnState() });
+      const count = updates.length;
+      const sent = transport.sent.length;
+
+      transport.serverEmits('chat:sent', chatSent({ text: '   ' }));
+
+      expect(updates).toHaveLength(count);
+      expect(transport.sent).toHaveLength(sent);
     });
   });
 

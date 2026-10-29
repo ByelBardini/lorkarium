@@ -1,9 +1,11 @@
 import {
   BOARD_EVENTS,
+  CHAT_EVENTS,
   DICE_EVENTS,
   SESSION_EVENTS,
   boardPingedDto,
   boardSyncAckDto,
+  chatSentDto,
   diceRolledDto,
   diceRolledSecretlyDto,
   libraryChangedDto,
@@ -218,6 +220,10 @@ export class TableVisit {
       ),
       ...this.campaignEventSubscriptions(),
       ...this.diceEventSubscriptions(),
+      // Like a roll: a malformed message is dropped with no resync, nothing is saved.
+      this.onTableEvent(CHAT_EVENTS.sent, chatSentDto, (event) =>
+        this.notify({ kind: 'chatSent', event }),
+      ),
       this.onTableEvent(BOARD_EVENTS.sceneActivated, sceneActivatedDto, (event) => {
         this.groupSceneId = event.sceneId;
         this.notify({ kind: 'sceneActivated', event });
