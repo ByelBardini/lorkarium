@@ -12,6 +12,15 @@ export function campaignUserRoom(campaignId: string, userId: string): string {
   return `${campaignRoom(campaignId)}:user:${userId}`;
 }
 
+/** One person's chat inside a table, the spectator included (unlike `campaignUserRoom`, which
+ *  receives the board): whispers, direct and group messages reach every tab of each of their
+ *  people here, and nobody else.
+ *
+ *  Example: `io.to([campaignChatRoom(campaignId, anaId), campaignChatRoom(campaignId, biaId)])` */
+export function campaignChatRoom(campaignId: string, userId: string): string {
+  return `${campaignRoom(campaignId)}:chat:${userId}`;
+}
+
 /** The masters of a table: they always get the unredacted board.
  *
  *  Example: `io.to(campaignMastersRoom(campaignId)).emit('token:updated', full)` */

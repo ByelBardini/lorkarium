@@ -15,6 +15,10 @@ export const BOARD_RATE: CommandRateLimits = {
 /** The bucket of `dice:roll`, apart from the board's: a roll costs physics CPU on the server. */
 export const DICE_RATE: CommandRateLimits = { burst: 6, perSecond: 2 };
 
+/** The bucket of `chat:send`, apart from the board's and the dice's: a message is cheap, but a
+ *  flood of them would bury the conversation of everyone at the table. */
+export const CHAT_RATE: CommandRateLimits = { burst: 8, perSecond: 2 };
+
 /** A token bucket: `tokens` left, as of `updatedAtMs`. */
 export type CommandBucket = Readonly<{ tokens: number; updatedAtMs: number }>;
 

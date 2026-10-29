@@ -15,6 +15,7 @@ import type { CommandRateGuard } from '../../realtime/command-rate-guard';
 import { answerAck } from '../../realtime/realtime-ack';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
 import {
+  campaignChatRoom,
   campaignMastersRoom,
   campaignRoom,
   campaignUserRoom,
@@ -105,9 +106,10 @@ function audienceIn(state: SessionStateDto, userId: string): TableAudience {
 }
 
 // The table room for everyone, plus the rooms that receive the unredacted board (§3.9); the
-// spectator stays out of their own room, so a control kept from before a demotion is inert.
+// spectator stays out of their own room, so a control kept from before a demotion is inert. The
+// chat room is everyone's, the spectator's too: they also receive whispers and direct messages.
 function audienceRoomsOf(campaignId: string, userId: string, audience: TableAudience): string[] {
-  const rooms = [campaignRoom(campaignId)];
+  const rooms = [campaignRoom(campaignId), campaignChatRoom(campaignId, userId)];
   if (audience === 'spectator') return rooms;
   rooms.push(campaignUserRoom(campaignId, userId));
   if (audience === 'master') rooms.push(campaignMastersRoom(campaignId));

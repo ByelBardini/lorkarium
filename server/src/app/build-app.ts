@@ -66,6 +66,7 @@ import { mailerOf, wireAccountSecurity } from './wire-account-security';
 import { serveClient } from './serve-client';
 import { trustProxyOf } from './trust-proxy';
 import { wireBackoffice } from './wire-backoffice';
+import { wireChat } from './wire-chat';
 import { wireDice } from './wire-dice';
 
 declare module 'fastify' {
@@ -277,6 +278,7 @@ function wireRealtime(
   });
   realtime.onConnection(board.gateway);
   wireDice(realtime, { db, members, clock, log: app.log });
+  wireChat(realtime, { db, members, clock, log: app.log });
   return { ...outlets, profileChanged, campaignChanged, memberRoleChanged, memberRemoved };
 }
 
