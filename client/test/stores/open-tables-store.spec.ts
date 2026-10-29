@@ -12,6 +12,7 @@ import { StorageFake } from '../support/storage-fake';
 import { tabInteractions } from '../support/tab-interactions';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
 import { copiedOf } from '@/lib/paste-placement';
+import { chatSent, directBetween } from '../support/chat-fixtures';
 import { biaRolled } from '../support/dice-fixtures';
 import {
   BIA_AT_TABLE,
@@ -379,6 +380,93 @@ describe('open tables store', () => {
       expect(vharn?.dice.getState().entries.map((entry) => entry.event.rollId)).toEqual([
         biaRolled().rollId,
       ]);
+    });
+  });
+
+  describe('chat', () => {
+    let nowMs: number;
+
+    beforeEach(() => {
+      nowMs = 1000;
+      store = createOpenTablesStore({
+        api,
+        storage,
+        createInteraction: tabInteractions(),
+        wallClock: () => nowMs,
+      });
+      store.getState().restore(ANA.id);
+      store.getState().open(VHARN_TABLE);
+      store.getState().open(QUELM_TABLE);
+    });
+
+    function chatOf(campaignId: string) {
+      const table = store.getState().tables.find((open) => open.campaignId === campaignId);
+      return table?.chat.getState().conversations;
+    }
+
+    it('a message of VHARN enters only the VHARN chat, received at the wall clock', () => {
+      api.emitTo(VHARN.id, { kind: 'chatSent', event: chatSent() });
+
+      expect(chatOf(VHARN.id)?.[0]?.messages).toEqual([{ event: chatSent(), receivedAtMs: 1000 }]);
+      expect(chatOf(QUELM.id)?.[0]?.messages).toEqual([]);
+    });
+
+    it('the owner is the viewer: a direct with Bia opens direct:<Bia>, and her own message is not unread', () => {
+      api.emitTo(VHARN.id, { kind: 'chatSent', event: chatSent({ fromUserId: ANA.id }) });
+      api.emitTo(VHARN.id, {
+        kind: 'chatSent',
+        event: chatSent({
+          messageId: '3f2e1d0c-9b8a-4765-a432-000000000002',
+          channel: directBetween(ANA.id, BIA_AT_TABLE.userId),
+        }),
+      });
+
+      expect(chatOf(VHARN.id)?.map((each) => [each.key, each.unread])).toEqual([
+        ['table', 0],
+        [`direct:${BIA_AT_TABLE.userId}`, 1],
+      ]);
+    });
+
+    it('the roster name of the owner makes @Ana a mention', () => {
+      api.emitTo(VHARN.id, { kind: 'state', state: vharnState() });
+      api.emitTo(VHARN.id, { kind: 'chatSent', event: chatSent({ text: '@ana vem cá' }) });
+
+      expect(chatOf(VHARN.id)?.[0]?.mentioned).toBe(true);
+    });
+
+    it('closing VHARN forgets its chat, and the QUELM one stays', () => {
+      api.emitTo(VHARN.id, { kind: 'chatSent', event: chatSent() });
+      api.emitTo(QUELM.id, { kind: 'chatSent', event: chatSent({ campaignId: QUELM.id }) });
+
+      store.getState().close(VHARN.id);
+
+      expect(storage.values.has(`lorkarium.chat.${VHARN.id}`)).toBe(false);
+      expect(storage.values.has(`lorkarium.chat.${QUELM.id}`)).toBe(true);
+    });
+
+    it('closing all on logout forgets the chat of every table', () => {
+      api.emitTo(VHARN.id, { kind: 'chatSent', event: chatSent() });
+      api.emitTo(QUELM.id, { kind: 'chatSent', event: chatSent({ campaignId: QUELM.id }) });
+
+      store.getState().closeAll();
+
+      expect(storage.values.has(`lorkarium.chat.${VHARN.id}`)).toBe(false);
+      expect(storage.values.has(`lorkarium.chat.${QUELM.id}`)).toBe(false);
+    });
+
+    it('the restore after an F5 brings the chat of each table back', () => {
+      api.emitTo(VHARN.id, { kind: 'chatSent', event: chatSent() });
+      const afterReload = createOpenTablesStore({
+        api: new TableSessionApiFake(),
+        storage,
+        createInteraction: tabInteractions(),
+      });
+
+      afterReload.getState().restore(ANA.id);
+
+      const [vharn] = afterReload.getState().tables;
+      const [table] = vharn?.chat.getState().conversations ?? [];
+      expect(table?.messages.map((message) => message.event.text)).toEqual(['Oi, mesa.']);
     });
   });
 

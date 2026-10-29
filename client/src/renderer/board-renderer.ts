@@ -2,6 +2,9 @@ import type { EffectAreaShapeDto } from '@lorkarium/contracts';
 import type { Cell, TokenBox } from '@lorkarium/game-core';
 import type { CellPoint } from '@/lib/drawing-geometry';
 import type { BoardView } from './board-view';
+import type { SpeechBalloon } from './speech-balloon';
+
+export type { SpeechBalloon } from './speech-balloon';
 
 /** A primary-button pointer step over the board, in cells (`null` off the scene). The renderer
  *  only reports it; what it means (measure, select, drag) is decided outside, by the tool. */
@@ -150,6 +153,11 @@ export interface BoardRenderer {
   /** A ring growing and fading for 3 s at the point, with the name; an arrow on the edge while it
    *  is off screen. Up to 30 at once. */
   showPing(ping: PingMark): void;
+  /** The lines said as tokens on the Mesa: each hangs in a balloon over its token for 4.5 s
+   *  from `shownAt` (cut at 80 characters), the newest of a token replacing the older, only on
+   *  grid `sceneId` and only over a token this viewer sees. Replaces the whole list on each call
+   *  (old lines fall out alone); nothing is drawn until the next frame. */
+  showSpeech(sceneId: string, balloons: readonly SpeechBalloon[]): void;
   /** Safe at any time, even before `mount` resolves. */
   destroy(): void;
 }

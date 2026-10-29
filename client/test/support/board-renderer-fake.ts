@@ -7,6 +7,7 @@ import type {
   BoardRenderer,
   CreateBoardRenderer,
   PingMark,
+  SpeechBalloon,
 } from '@/renderer/board-renderer';
 
 type MountMode = 'resolve' | 'hold' | 'reject';
@@ -74,6 +75,13 @@ export class BoardRendererFake implements BoardRenderer {
 
   showPing(ping: PingMark): void {
     this.pings.push(ping);
+  }
+
+  /** Each `showSpeech` call, in order: the grid and the whole list handed over. */
+  readonly speeches: Array<Readonly<{ sceneId: string; balloons: readonly SpeechBalloon[] }>> = [];
+
+  showSpeech(sceneId: string, balloons: readonly SpeechBalloon[]): void {
+    this.speeches.push({ sceneId, balloons });
   }
 
   destroy(): void {

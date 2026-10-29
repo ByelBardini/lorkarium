@@ -1,6 +1,7 @@
 import type {
   BoardPingedDto,
   BoardStateDto,
+  ChatSentDto,
   DiceRolledDto,
   DiceRolledSecretlyDto,
   SessionCampaignDeletedDto,
@@ -57,6 +58,9 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'diceRolled'; event: DiceRolledDto }>
   /** A masters-only roll this viewer may not see: who rolled and when it settles, no value. */
   | Readonly<{ kind: 'diceRolledSecretly'; event: DiceRolledSecretlyDto }>
+  /** A chat message this viewer may read (the Table, or a whisper, direct or group they are
+   *  in); nothing is saved, so no version. */
+  | Readonly<{ kind: 'chatSent'; event: ChatSentDto }>
   /** Someone else pointed at a spot of the grid: ephemeral, never board state. */
   | Readonly<{ kind: 'pinged'; event: BoardPingedDto }>
   | Readonly<{ kind: 'boardFailed'; failure: BoardSyncFailure }>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  campaignChatRoom,
   campaignMastersRoom,
   campaignRoom,
   campaignUserRoom,
@@ -90,10 +91,30 @@ describe('sceneIdOfRoom', () => {
   it.each([
     ['the table', campaignRoom(CAMPAIGN)],
     ['a user at the table', campaignUserRoom(CAMPAIGN, USER)],
+    ['the chat of a user at the table', campaignChatRoom(CAMPAIGN, USER)],
     ['the masters of a grid', sceneMastersRoom(CAMPAIGN, SCENE)],
     ['a user in a grid', sceneUserRoom(CAMPAIGN, SCENE, USER)],
     ['a grid of another table', sceneRoom(OTHER, SCENE)],
   ])('the room of %s is no grid of the table', (_room, room) => {
     expect(sceneIdOfRoom(room, CAMPAIGN)).toBeUndefined();
+  });
+});
+
+describe('campaignChatRoom', () => {
+  const CAMPAIGN = '3b1e9a52-6c4d-4f8a-9e2b-1a7c5d3f8e10';
+  const OTHER = '5e8d2c1b-4a3f-4b6e-9d7c-2f1a0b9c8d7e';
+  const USER = '9c2f4e61-7a3b-4d5c-8e9f-0b1a2c3d4e5f';
+
+  it('the chat room of one person sits under the table room', () => {
+    expect(campaignChatRoom(CAMPAIGN, USER)).toBe(`campaign:${CAMPAIGN}:chat:${USER}`);
+  });
+
+  it('is apart from the board room of the same person, which leaves the spectator out', () => {
+    expect(campaignChatRoom(CAMPAIGN, USER)).not.toBe(campaignUserRoom(CAMPAIGN, USER));
+  });
+
+  it('is a room of its table, so leaving the table leaves it; of another table it is not', () => {
+    expect(isRoomOfCampaign(campaignChatRoom(CAMPAIGN, USER), CAMPAIGN)).toBe(true);
+    expect(isRoomOfCampaign(campaignChatRoom(OTHER, USER), CAMPAIGN)).toBe(false);
   });
 });

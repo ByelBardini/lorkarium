@@ -9,6 +9,7 @@ import { AssetError } from '../assets/assets.error';
 import { CombatError } from '../combat/combat.error';
 import { ConditionError } from '../conditions/conditions.error';
 import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
+import { ChatError } from '../chat/chat.error';
 import { InvalidDiceExpressionError } from '../dice/dice.error';
 import { DrawingError } from '../drawings/drawings.error';
 import { EffectAreaError } from '../effect-areas/effect-areas.error';
@@ -79,6 +80,10 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   TOKEN_NOT_LINKED: 'This token is not linked to a card',
   TOKEN_FORM_NOT_FOUND: 'This token has no such form',
   NO_FREE_CELLS: 'There are no free cells around there',
+  CHAT_RECIPIENT_NOT_MEMBER: 'That person is not at this table',
+  CHAT_RECIPIENT_IS_SENDER: 'A private message needs someone else',
+  CHAT_SENDER_NOT_IN_GROUP: 'You are not in this group',
+  CHAT_SPEAKER_NOT_ALLOWED: 'A character only speaks to the whole table',
 };
 
 /** The answer of a command that only reports the version it produced.
@@ -159,7 +164,8 @@ type KnownError =
   | LightError
   | AssetError
   | SceneError
-  | BoardError;
+  | BoardError
+  | ChatError;
 
 function isKnown(error: unknown): error is KnownError {
   return (
@@ -174,6 +180,7 @@ function isKnown(error: unknown): error is KnownError {
     error instanceof LightError ||
     error instanceof AssetError ||
     error instanceof SceneError ||
-    error instanceof BoardError
+    error instanceof BoardError ||
+    error instanceof ChatError
   );
 }

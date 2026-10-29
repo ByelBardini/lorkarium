@@ -20,6 +20,8 @@ import { AuthApiFake } from './auth-api-fake';
 import { BoardRenderersFake } from './board-renderer-fake';
 import { CallJournal } from './call-journal';
 import { CampaignsApiFake } from './campaigns-api-fake';
+import { ChatCommandsFake } from './chat-commands-fake';
+import { ChatWindowHostFake } from './chat-window-host-fake';
 import { DiceCommandsFake } from './dice-commands-fake';
 import { DiceRenderersFake } from './dice-renderer-fake';
 import { DiceSoundsFake } from './dice-sound-fake';
@@ -72,6 +74,9 @@ export type TestDependencies = AppDependencies & {
   boardCommands: TableBoardCommandsFake;
   pings: PingCommandsFake;
   dice: DiceCommandsFake;
+  chat: ChatCommandsFake;
+  /** The chat's own window: every `open` and the window handed out (`windows`). */
+  chatWindowHost: ChatWindowHostFake;
   /** The same fake as `interactionClock`: moving it reveals the rolls of the history. */
   diceClock: InteractionClockFake;
   savedRolls: SavedRollsApiFake;
@@ -155,6 +160,8 @@ export function testDependencies(): TestDependencies {
     boardCommands,
     pings: new PingCommandsFake(),
     dice: new DiceCommandsFake(),
+    chat: new ChatCommandsFake(),
+    chatWindowHost: new ChatWindowHostFake(),
     // One fake clock for the board and the dice: a spec reveals a roll by `advance`.
     diceClock: interactionClock,
     savedRolls: new SavedRollsApiFake(),

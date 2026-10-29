@@ -62,6 +62,24 @@ pub fn harden<R: tauri::Runtime>(
     })
 }
 
+/// The chat window gets the main window's app look (no browser menu or shortcuts, same user agent, clipboard for
+/// the app); it has no load-failure return, since it never shows the splash.
+///
+/// Example: `webview2::harden_chat(&window, origins.app.clone(), env!("CARGO_PKG_VERSION"))`
+#[cfg(windows)]
+pub fn harden_chat<R: tauri::Runtime>(
+    window: &tauri::WebviewWindow<R>,
+    app: AppOrigin,
+    version: &'static str,
+) -> tauri::Result<()> {
+    window.with_webview(move |platform| {
+        // SAFETY: the controller is alive for the whole closure; WebView2 calls must run on this UI thread.
+        if let Err(problem) = unsafe { com::harden_chat(&platform.controller(), app, version) } {
+            eprintln!("ajuste do WebView2 do chat falhou: {problem}");
+        }
+    })
+}
+
 #[cfg(windows)]
 mod com {
     use webview2_com::Microsoft::Web::WebView2::Win32::{
@@ -90,6 +108,16 @@ mod com {
         disable_browser_chrome(&webview, version)?;
         allow_clipboard_read_for(&webview, origins.app.clone())?;
         send_back_on_load_failure(&webview, origins, send_back)
+    }
+
+    pub unsafe fn harden_chat(
+        controller: &ICoreWebView2Controller,
+        app: AppOrigin,
+        version: &str,
+    ) -> windows::core::Result<()> {
+        let webview = controller.CoreWebView2()?;
+        disable_browser_chrome(&webview, version)?;
+        allow_clipboard_read_for(&webview, app)
     }
 
     // A failed load of the site would leave the window on WebView2's error page, with no title bar to drag.

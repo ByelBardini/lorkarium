@@ -70,6 +70,7 @@ describe('room layout store', () => {
     ['combat', true],
     ['people', true],
     ['dice', true],
+    ['chat', true],
     ['notes', false],
   ])('isRoomTab(%s) is %s', (value, expected) => {
     expect(isRoomTab(value)).toBe(expected);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BOARD_RATE,
+  CHAT_RATE,
   COMMAND_BURST,
   COMMANDS_PER_SECOND,
   CommandRateBo,
@@ -92,5 +93,27 @@ describe('CommandRateBo with the dice limits', () => {
   it('without limits the bucket is the board one: 40 at once', () => {
     expect(BOARD_RATE).toEqual({ burst: 40, perSecond: 20 });
     expect(fullBucket(T0).tokens).toBe(40);
+  });
+});
+
+describe('CommandRateBo with the chat limits', () => {
+  function chatBurst(times: number): ReturnType<CommandRateBo['take']> {
+    let outcome = new CommandRateBo(fullBucket(T0, CHAT_RATE), CHAT_RATE).take(T0);
+    for (let index = 1; index < times; index += 1) {
+      outcome = new CommandRateBo(outcome.bucket, CHAT_RATE).take(T0);
+    }
+    return outcome;
+  }
+
+  it('the chat limits are 8 at once and 2 a second', () => {
+    expect(CHAT_RATE).toEqual({ burst: 8, perSecond: 2 });
+  });
+
+  it('8 messages at once pass and the 9th is refused; 500 ms later one more passes', () => {
+    expect(chatBurst(8).allowed).toBe(true);
+    const refused = chatBurst(9);
+
+    expect(refused).toMatchObject({ allowed: false, retryAfterSeconds: 1 });
+    expect(new CommandRateBo(refused.bucket, CHAT_RATE).take(T0 + 500).allowed).toBe(true);
   });
 });

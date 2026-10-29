@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- The chat's own window: an empty page of the app's origin. The main window draws the chat
+     into this body by a React portal (same connection, same stores) and copies its styles in;
+     see docs/context/client/chat-janela.md. -->
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Chat · Lorkarium</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #101216;
+        color: #eae5da;
+        color-scheme: dark;
+      }
+    </style>
+  </head>
+  <body data-lorkarium-chat-window></body>
+</html>

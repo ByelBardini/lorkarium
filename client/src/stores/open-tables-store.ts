@@ -16,7 +16,9 @@ import type {
 } from '@/services/table-session-api';
 import { fallbackCoverOf } from '@/lib/campaign-cover';
 import { tableTokenRightsOf } from '@/lib/token-rights-of-viewer';
+import type { ChatViewer } from '@/lib/chat-conversations';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createChatHistoryStore, type ChatHistoryStore } from '@/stores/chat-history-store';
 import { createDiceHistoryStore, type DiceHistoryStore } from '@/stores/dice-history-store';
 import {
   createSceneTabsStore,
@@ -59,6 +61,8 @@ export type OpenTable = Omit<OpenTableRef, 'cover'> &
     tabs: StoreApi<SceneTabsStore>;
     /** The rolls of this visit: kept across an F5, forgotten when the table closes. */
     dice: StoreApi<DiceHistoryStore>;
+    /** The chat conversations of this visit: kept across an F5, forgotten when the table closes. */
+    chat: StoreApi<ChatHistoryStore>;
   }>;
 
 export type OpenTableResult = 'opened' | 'already-open' | 'full';
@@ -97,8 +101,8 @@ export type OpenTablesDeps = Readonly<{
   storage: TabStorage;
   /** The interaction of each grid tab (its commands, its refusal messages). */
   createInteraction: CreateTabInteraction;
-  /** Wall-clock milliseconds a roll is received at (its `revealAtMs` survives an F5);
-   *  `Date.now` when absent. */
+  /** Wall-clock milliseconds a roll or a chat message is received at (its `revealAtMs` survives
+   *  an F5); `Date.now` when absent. */
   wallClock?: () => number;
 }>;
 
@@ -184,6 +188,7 @@ class OpenTablesActions {
     const table = this.tableOf(campaignId);
     table?.tabs.getState().dispose(true);
     table?.dice.getState().clear();
+    table?.chat.getState().clear();
     this.set({ tables: this.get().tables.filter((table) => table.campaignId !== campaignId) });
     writeStored(this.deps.storage, this.get());
   }
@@ -198,6 +203,7 @@ class OpenTablesActions {
     for (const table of this.get().tables) {
       table.tabs.getState().dispose(true);
       table.dice.getState().clear();
+      table.chat.getState().clear();
     }
     this.suspendAll();
     removeStored(this.deps.storage);
@@ -232,10 +238,11 @@ class OpenTablesActions {
       campaignId: table.campaignId,
       storage: this.deps.storage,
     });
-    const parts = { cover, tokenRights: null, presence, board, cast, edits, tabs, dice };
+    const chat = this.chatOf(table.campaignId, presence);
+    const parts = { cover, tokenRights: null, presence, board, cast, edits, tabs, dice, chat };
     const opened: OpenTable = { ...table, ...parts };
     this.set({ tables: [...tables, opened] });
-    const stores = { presence, board, tabs, dice };
+    const stores = { presence, board, tabs, dice, chat };
     const listener = (update: TableSessionUpdate): void =>
       this.onUpdate(table.campaignId, stores, update);
     const handle = this.deps.api.open(table.campaignId, listener);
@@ -254,7 +261,18 @@ class OpenTablesActions {
     if (update.kind === 'removedFromTable') return this.closeDeleted(campaignId, 'removed');
     if (update.kind === 'campaignUpdated') this.retitle(update.event.campaign);
     applyUpdate(this.set, stores, update);
-    stores.dice.getState().apply(update, (this.deps.wallClock ?? Date.now)());
+    const receivedAtMs = (this.deps.wallClock ?? Date.now)();
+    stores.dice.getState().apply(update, receivedAtMs);
+    stores.chat.getState().apply(update, receivedAtMs);
+  }
+
+  // The viewer is read at each message: the owner may come after the table, the roster later.
+  private chatOf(
+    campaignId: string,
+    presence: StoreApi<TablePresenceStore>,
+  ): StoreApi<ChatHistoryStore> {
+    const viewer = (): ChatViewer | null => chatViewerOf(this.get().ownerId, presence);
+    return createChatHistoryStore({ campaignId, storage: this.deps.storage, viewer });
   }
 
   // The server already took this socket out of the room; closing only forgets the table here.
@@ -322,7 +340,18 @@ type TableStores = Readonly<{
   board: StoreApi<BoardStore>;
   tabs: StoreApi<SceneTabsStore>;
   dice: StoreApi<DiceHistoryStore>;
+  chat: StoreApi<ChatHistoryStore>;
 }>;
+
+// The roster names the owner for an `@` (nickname and @); before the snapshot, only the id.
+function chatViewerOf(
+  ownerId: string | null,
+  presence: StoreApi<TablePresenceStore>,
+): ChatViewer | null {
+  if (ownerId === null) return null;
+  const member = presence.getState().members.find((each) => each.userId === ownerId);
+  return { userId: ownerId, names: member ? [member.name, member.username] : [] };
+}
 
 function applyUpdate(set: SetOpenTables, stores: TableStores, update: TableSessionUpdate): void {
   stores.presence.getState().apply(update);

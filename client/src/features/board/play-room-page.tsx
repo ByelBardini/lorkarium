@@ -1,7 +1,10 @@
 import type { CampaignDetailDto } from '@lorkarium/contracts';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTable, type OpenTableView } from '@/features/sessions/use-open-table';
+import { useOpenTableOf } from '@/features/chat/use-chat-people';
+import { useSpeechBalloons } from '@/features/chat/use-speech-balloons';
+import { useRoomChatWindow } from '@/features/chat/use-room-chat-window';
 import { ApplyConditionDialog } from '@/features/combat/apply-condition-dialog';
 import { ConditionToolPanel } from '@/features/combat/condition-tool-panel';
 import { useConditionToolFollow } from '@/features/combat/use-condition-tool-follow';
@@ -33,6 +36,8 @@ import { DiceRollNotice } from '@/features/dice/dice-roll-notice';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { DiceCommands } from '@/services/dice-commands';
 import type { SavedRollsApi } from '@/services/saved-rolls-api';
+import type { ChatCommands } from '@/services/chat-commands';
+import type { ChatWindowHost } from '@/services/chat-window-host';
 import { watchesOnly } from '@/lib/table-role';
 import {
   createBoardInteractionStore,
@@ -63,7 +68,7 @@ import { BoardArea } from './board-area';
 import { DeleteSelectionDialog, type SelectionToDelete } from './delete-selection-dialog';
 import { tokenCommandFailureMessage } from './board-messages';
 import { BoardStatusLine } from './board-status-line';
-import { BoardToolbar, type BoardToolbarProps } from './board-toolbar';
+import { RoomToolbar } from './room-toolbar';
 import { ConfigureSceneDialog } from './configure-scene-dialog';
 import { FocusToggle } from './focus-toggle';
 import { TokenContextMenu, type TokenMenuRequest } from './token-context-menu';
@@ -109,6 +114,9 @@ export type PlayRoomPageProps = Readonly<{
   dice: DiceCommands;
   savedRolls: SavedRollsApi;
   diceClock: InteractionClock;
+  /** The "Chat" tab: `chat:send` (the rest it shares with "Dados"). */
+  chat: ChatCommands;
+  chatWindowHost: ChatWindowHost;
   /** A page (settings, conditions) covers the room: the desktop title bar gets its place back. */
   covered?: boolean;
 }>;
@@ -168,8 +176,24 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
     session: props.sessionStore,
     role,
   });
+  const speechSceneOf = useCallback(() => scopeOf().sceneId, [scopeOf]);
+  const chat = useOpenTableOf(openTables, campaign.id)?.chat ?? null;
+  useSpeechBalloons({ renderer, chat, sceneIdOf: speechSceneOf });
+  const chatWindow = useRoomChatWindow(
+    {
+      campaignId: campaign.id,
+      role,
+      sessionStore: props.sessionStore,
+      openTables,
+      presence: table?.presence ?? null,
+      board: table?.board ?? null,
+      services: props,
+    },
+    props.chatWindowHost,
+  );
   return (
     <RoomContexts players={players} tokenKeys={tokenKeys}>
+      {chatWindow.portal}
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
         <title>{`Lorkarium · ${campaign.name}`}</title>
         {!focus && (
@@ -391,6 +415,8 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                   diceClock: props.diceClock,
                 },
               }}
+              chat={props.chat}
+              chatWindow={chatWindow.slot}
             />
           )}
         </div>
@@ -472,29 +498,4 @@ function RoomSceneDialog({ campaignId, table, commands, assets, onClose }: RoomS
       onClose={onClose}
     />
   );
-}
-
-type RoomToolbarProps = Omit<BoardToolbarProps, 'sightOn' | 'members'> &
-  Readonly<{
-    board: StoreApi<BoardStore> | null;
-    presence: StoreApi<TablePresenceStore> | null;
-  }>;
-
-// The toolbar before the table opens has no scene to preview; once it does, Escuro and Luz do dia
-// give the master "Ver como os selecionados".
-function RoomToolbar({ board, presence, ...toolbar }: RoomToolbarProps): React.JSX.Element {
-  if (!board || !presence) return <BoardToolbar {...toolbar} />;
-  return <TableToolbar board={board} presence={presence} {...toolbar} />;
-}
-
-function TableToolbar({
-  board,
-  presence,
-  ...toolbar
-}: Omit<BoardToolbarProps, 'sightOn' | 'members'> &
-  Readonly<{ board: StoreApi<BoardStore>; presence: StoreApi<TablePresenceStore> }>) {
-  const vision = useBoard(board, (state) => state.board?.scene.vision);
-  const members = useTablePresence(presence, (state) => state.members);
-  const sightOn = vision === 'dark' || vision === 'daylight';
-  return <BoardToolbar {...toolbar} members={members} sightOn={sightOn} />;
 }

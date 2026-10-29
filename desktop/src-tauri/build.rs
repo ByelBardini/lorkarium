@@ -23,7 +23,11 @@ fn main() {
     }
     println!("cargo:rustc-env=LORKARIUM_APP_URL={raw}");
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
-        tauri_build::AppManifest::new().commands(&["begin_startup", "retry_connection"]),
+        tauri_build::AppManifest::new().commands(&[
+            "begin_startup",
+            "retry_connection",
+            "set_chat_always_on_top",
+        ]),
     ))
     .expect("tauri-build falhou");
 }

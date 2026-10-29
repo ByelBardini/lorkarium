@@ -40,6 +40,8 @@ import type { FieldEditing } from '@/services/field-editing';
 import type { DesktopWindow } from '@/services/desktop-window';
 import type { TableBoardCommands } from '@/services/table-board-commands';
 import type { PingCommands } from '@/services/table-pings';
+import type { ChatCommands } from '@/services/chat-commands';
+import type { ChatWindowHost } from '@/services/chat-window-host';
 import type { DiceCommands } from '@/services/dice-commands';
 import type { SavedRollsApi } from '@/services/saved-rolls-api';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
@@ -113,6 +115,10 @@ export type AppDependencies = Readonly<{
   pings: PingCommands;
   /** The roll of a table (`dice:roll`); the result arrives as `dice:rolled` to everyone. */
   dice: DiceCommands;
+  /** The chat of a table (`chat:send`); the message arrives as `chat:sent` to whom it is for. */
+  chat: ChatCommands;
+  /** "Abrir em outra janela" of the chat: `window.open` in the app, a fake in tests. */
+  chatWindowHost: ChatWindowHost;
   /** The session's own saved rolls at a table (REST). */
   savedRolls: SavedRollsApi;
   /** The dice history's own time (wall clock, `Date.now` in the app): the `revealAtMs` of each

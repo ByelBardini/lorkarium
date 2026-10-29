@@ -55,3 +55,4 @@ export * from './assets/asset.dto';
 export * from './library/library.dto';
 export * from './dice/dice.dto';
 export * from './dice/saved-roll.dto';
+export * from './chat/chat.dto';

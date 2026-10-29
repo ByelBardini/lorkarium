@@ -31,8 +31,10 @@ desktop/
     src/
       lib.rs              # run(): plugins, comandos, setup da janela
       app_origin.rs       # AppOrigin::parse(url, BuildProfile) e contains(url)
-      navigation.rs       # navigation_decision / new_window_decision (puras)
-      main_window.rs      # shell_origins(), cria a janela pelo config, on_navigation/on_new_window, X esconde (hide_on_close), focus()
+      navigation.rs       # navigation_decision / new_window_decision (puras), CHAT_WINDOW_PATH
+      main_window.rs      # shell_origins(), cria a janela pelo config, on_navigation/on_new_window, X esconde (hide_on_close), focus(), keeps_window_state
+      chat_window.rs      # chat_window_label (pura) + open(): a 2ª janela, do window.open do chat
+      chat_window_controls.rs # fixar/desfixar só a janela de chat, por comando restrito da main
       webview2.rs         # desktop_user_agent, clipboard_read_permission (puras) + harden() (COM, #[cfg(windows)], NavigationCompleted)
       window_controls.rs  # REMOTE_WINDOW_PERMISSIONS, remote_url_pattern (puras) + install(): capability remota do site
       load_failure.rs     # load_failure_of(&CompletedLoad, &ShellOrigins) (pura): carga do site que falhou → visão da splash
@@ -53,12 +55,15 @@ Splash (`desktop/src/`): `splash-title-bar.ts` (`splashTitleBarOf` + `wireSplash
 
 | Para onde                                                           | `navigation_decision` | `new_window_decision` (`window.open`, `target=_blank`) |
 | ------------------------------------------------------------------- | --------------------- | ------------------------------------------------------ |
+| `<origem do app>/chat-window.html` (qualquer query/hash)            | `Stay`                | `ChatWindow` (a janela do chat, ver abaixo)            |
 | mesma origem do app (esquema + host + porta; `blob:` do app também) | `Stay`                | `OpenExternal` (o site abre no navegador)              |
 | a splash (`http://tauri.localhost/`; no dev, o `devUrl` 1420)       | `Stay`                | `Block`                                                |
 | outro `https`/`http`/`mailto:`                                      | `OpenExternal`        | `OpenExternal`                                         |
 | `javascript:`, `file:`, `data:`, `about:` e o resto                 | `Block`               | `Block`                                                |
 
-`OpenExternal` abre no app padrão do Windows pelo `tauri-plugin-opener` e cancela a navegação. Nova janela é sempre `NewWindowResponse::Deny`: nunca existe uma segunda janela Tauri. O crédito do desenvolvedor (`developer-credit.tsx`) cai no `OpenExternal`.
+`OpenExternal` abre no app padrão do Windows pelo `tauri-plugin-opener` e cancela a navegação. Fora o `ChatWindow`, nova janela é sempre `NewWindowResponse::Deny`. O crédito do desenvolvedor (`developer-credit.tsx`) cai no `OpenExternal`.
+
+**Janela do chat — a única 2ª janela**: o `window.open('/chat-window.html', …)` do "Abrir em outra janela" vira uma `WebviewWindow` `chat-<n>` por `NewWindowResponse::Create` (mesmo ambiente WebView2, então o `window.opener` existe e o React da `main` desenha o chat por portal nela). Só esse caminho exato da origem do app; moldura do sistema, sem IPC, o X fecha, fora do `window-state`. Detalhe e por quê: [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
 
 ## Cara de app (WebView2)
 
@@ -100,11 +105,12 @@ site aberto → carga na origem do app falha (NavigationCompleted) → load_fail
 
 - `capabilities/splash.json`: janela `main`, `local: true`, `core:event:allow-listen/unlisten`, `core:window:allow-minimize/toggle-maximize/close` (a barra da splash), `allow-begin-startup`, `allow-retry-connection`. As permissões dos comandos vêm do `AppManifest` no `build.rs` — comando novo precisa entrar lá **e** na capability.
 - **Capability remota do site** (`window_controls::install`, no setup, logo depois de criar a janela): `CapabilityBuilder` + `Manager::add_capability` (feature `dynamic-acl`, padrão do `tauri`) em tempo de execução, porque a origem só existe no build. Id `app-window-controls`, janela `main`, `local(false)`, `remote` = `remote_url_pattern(&AppOrigin)` (`https://lorkarium.app/*`; no dev `http://localhost:5173/*`). Libera exatamente `REMOTE_WINDOW_PERMISSIONS`: `core:window:allow-minimize`, `-toggle-maximize`, `-close`, `-is-maximized`, `core:event:allow-listen`, `-unlisten` (o `onResized` do client). Nunca `allow-destroy` (o X só esconde), `set-*` ou `start-dragging` (o arraste é CSS); os comandos do startup ficam fora do alcance do site.
+- **Sempre por cima do chat**: capability `chat-window-controls` permite à `main` da origem do app somente `set_chat_always_on_top`; o comando confere emissor, rótulo `chat-<n>` e URL do chat na mesma origem antes de alterar a janela. Não libera setters genéricos de janela. Detalhe em [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
 - Qualquer outro `invoke` do site é recusado ("not allowed … allowed on: URL: local").
 
 ## Testes
 
-- Rust: `#[cfg(test)] mod tests` dentro de cada módulo puro (`app_origin`, `navigation`, `webview2`, `window_controls`, `load_failure`, `startup` com o `StartupGate`, `tray`). O `startup` roda sobre fakes nomeados (`UpdateSourceFake` com `UpToDate`/`Fails`/`Hangs`/`Offers`, `UpdateFake`, `HealthProbeFake::answering([...])`) e `tauri::async_runtime::block_on`; o prazo da checagem entra por parâmetro (50 ms no teste). Borda (COM, updater, HTTP, janela) não tem teste: fica fina de propósito.
+- Rust: `#[cfg(test)] mod tests` dentro de cada módulo puro (`app_origin`, `navigation`, `chat_window`, `main_window`, `webview2`, `window_controls`, `load_failure`, `startup` com o `StartupGate`, `tray`). O `startup` roda sobre fakes nomeados (`UpdateSourceFake` com `UpToDate`/`Fails`/`Hangs`/`Offers`, `UpdateFake`, `HealthProbeFake::answering([...])`) e `tauri::async_runtime::block_on`; o prazo da checagem entra por parâmetro (50 ms no teste). Borda (COM, updater, HTTP, janela) não tem teste: fica fina de propósito.
 - Splash: `desktop/test/*.spec.ts`. `ShellBridgeFake` (`calls`, `emit(payload)`) e `loadSplashDocument()` (o `index.html` real no jsdom, `// @vitest-environment jsdom` por arquivo) em `test/support/`; o `shell-bridge.spec.ts` usa o `mockIPC(…, { shouldMockEvents: true })` + `mockWindows('main')` do `@tauri-apps/api/mocks` para provar os nomes de comando (`plugin:window|minimize`/`toggle_maximize`/`close` na janela `main`) e do evento. `splash-title-bar.spec.ts` prova botões e Tab e lê o `splash.css` para o `app-region` (o jsdom não aplica a propriedade).
 - Instalador: `test/scripts/bmp-encoder.spec.ts` (cabeçalho, padding, BGR de baixo para cima) e `test/installer/nsis-template.spec.ts` (guarda do template, ver Instalador). As telas NSIS não têm teste automático: conferir rodando o setup.
 
