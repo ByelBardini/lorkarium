@@ -1,4 +1,4 @@
-# Desktop · janela do chat (a única 2ª janela)
+# Desktop · janelas auxiliares do chat e dos dados
 
 Hub: [`../desktop.md`](../desktop.md). Plano de origem: `docs/plans/2026-10-27-tela-chat-da-mesa.md` (fase 12). O lado do client (botão, portal, "Trazer de volta"): [`../client/chat-janela.md`](../client/chat-janela.md).
 
@@ -19,9 +19,11 @@ O "Abrir em outra janela" do chat faz `window.open('/chat-window.html', 'lorkari
 - O X **fecha** (sem `hide_on_close`); o client nota o fechamento e traz o chat de volta à aba. O "Sair" da bandeja encerra tudo.
 - O `window-state` só guarda a `main` (`with_filter(main_window::keeps_window_state)`): a do chat abre sempre no tamanho pedido, sem acumular `chat-<n>` no arquivo de estado.
 
-## Moldura: a do sistema
+## Moldura e controles próprios
 
-A janela do chat usa a moldura nativa (`decorations` padrão), não a barra própria da `main`. A página dela é só o portal do painel do chat, sem o `TitleBarFrame` ([`../client/title-bar.md`](../client/title-bar.md)), e a capability remota `app-window-controls` (`window_controls.rs`) libera os controles só para a janela `main`. A janela do chat não recebe permissões IPC próprias.
+As janelas auxiliares usam `decorations(false)` e a marca imutável `__LORKARIUM_DETACHED_TITLE_BAR__`. O client desenha `DetachedWindowFrame`, com região CSS de arraste e Minimizar/Maximizar/Restaurar/Fechar. O mesmo `/chat-window.html` serve Dados por `?panel=dice`; nomes distintos no client permitem chat e dados simultâneos, cada um com seu rótulo `chat-<n>` na casca. A guarda de caminho/origem segue exata.
+
+`control_detached_window` recebe o rótulo e uma ação desserializada (`close`, `minimize`, `toggle-maximize`, `is-maximized`); usa a mesma validação de emissor `main`, rótulo e origem/caminho de `chat_control_allowed`. A capability remota `chat-window-controls` acrescenta apenas `allow-control-detached-window`. A própria janela auxiliar não recebe IPC; o React na principal invoca a operação. Fechar usa `WebviewWindow::close`, tanto pelo X do topo quanto por “Trazer de volta” e ao sair da sala. O `window-state` continua restrito à principal.
 
 ## Sempre por cima
 
@@ -39,6 +41,8 @@ Smoke CDP em 2026-10-28, com os componentes reais `useChatWindow`, `BrowserChatW
 **Pendente (manual):** o envio Socket.IO foi provado no popup Chromium pelo e2e, mas não neste smoke nativo isolado. Na casca, ainda conferir envio para a mesa e F5/menu desligados: `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333 pnpm desktop:dev`, CDP em `http://localhost:9333/json`.
 
 ## Armadilhas
+
+- **Fechar pelo JavaScript do WebView2 pode deixar a casca vazia.** O `window.close()` passa pelo `WindowCloseRequested` do wry, que chama `DestroyWindow` no HWND do container da WebView diretamente. Nas janelas auxiliares da casca nova, usar o comando nativo `close` (com as mesmas guardas de alvo), nunca o `Window.close` do navegador. O adaptador marca o handle fechado após a confirmação da IPC e compartilha a promessa de fechamento entre chamadas concorrentes. “Trazer de volta” só desmonta o portal depois da confirmação; recusa mantém o conteúdo na janela para tentar de novo.
 
 - **`Create` exige o mesmo ambiente WebView2 e a janela sem navegação**: sem `window_features(features)` (o `environment` do opener) ou com uma URL real no builder, o `SetNewWindow` falha e o `window.open` não devolve a janela. Por isso `about:blank`.
 - Criar a janela dentro do `on_new_window` não trava: o wry 0.57 adia o handler (`GetDeferral` + `dispatch_handler`) para depois do callback COM, e a criação na thread principal é feita direto (sem canal).

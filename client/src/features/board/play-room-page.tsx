@@ -5,6 +5,7 @@ import { useOpenTable, type OpenTableView } from '@/features/sessions/use-open-t
 import { useOpenTableOf } from '@/features/chat/use-chat-people';
 import { useSpeechBalloons } from '@/features/chat/use-speech-balloons';
 import { useRoomChatWindow } from '@/features/chat/use-room-chat-window';
+import { useRoomDiceWindow } from '@/features/dice/use-room-dice-window';
 import { ApplyConditionDialog } from '@/features/combat/apply-condition-dialog';
 import { ConditionToolPanel } from '@/features/combat/condition-tool-panel';
 import { useConditionToolFollow } from '@/features/combat/use-condition-tool-follow';
@@ -191,9 +192,21 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
     },
     props.chatWindowHost,
   );
+  const diceWindow = useRoomDiceWindow(
+    {
+      campaignId: campaign.id,
+      role,
+      sessionStore: props.sessionStore,
+      openTables,
+      presence: table?.presence ?? null,
+      services: props,
+    },
+    props.chatWindowHost,
+  );
   return (
     <RoomContexts players={players} tokenKeys={tokenKeys}>
       {chatWindow.portal}
+      {diceWindow.portal}
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
         <title>{`Lorkarium · ${campaign.name}`}</title>
         {!focus && (
@@ -417,6 +430,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               }}
               chat={props.chat}
               chatWindow={chatWindow.slot}
+              diceWindow={diceWindow.slot}
             />
           )}
         </div>

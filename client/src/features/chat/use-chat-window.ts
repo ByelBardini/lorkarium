@@ -7,6 +7,8 @@ import {
   type ChatWindowHost,
 } from '@/services/chat-window-host';
 import { useChatWindowTopmost, type ChatWindowTopmost } from './use-chat-window-topmost';
+import { DICE_WINDOW_URL } from '@/services/chat-window-host';
+import type { DesktopWindow } from '@/services/desktop-window';
 
 /** How often the open window is checked: closed by its X, or the chat page loaded. A browser has
  *  no event for either that reaches the opener reliably (the first `about:blank` shares the
@@ -27,21 +29,32 @@ export type ChatWindow = ChatWindowTopmost &
     /** The window's `document.body` for `ChatWindowPortal`; `null` until the page loads. */
     portalTarget: HTMLElement | null;
     canAlwaysOnTop: boolean;
+    desktopWindow: DesktopWindow | null;
   }>;
 
 type ChatWindowState = Readonly<{
   status: ChatWindowStatus;
   target: HTMLElement | null;
   canAlwaysOnTop: boolean;
+  desktopWindow: DesktopWindow | null;
 }>;
 
-const DOCKED: ChatWindowState = { status: 'docked', target: null, canAlwaysOnTop: false };
+const DOCKED: ChatWindowState = {
+  status: 'docked',
+  target: null,
+  canAlwaysOnTop: false,
+  desktopWindow: null,
+};
 
 /** The chat of one table in its own system window, mirrored from the room by a portal: the hook
  *  owns the window (open, focus, close when the room goes away) and follows its X.
  *
  *  Example: `const chatWindow = useChatWindow(campaignId, deps.chatWindowHost); chatWindow.open()` */
-export function useChatWindow(campaignId: string, host: ChatWindowHost): ChatWindow {
+export function useChatWindow(
+  campaignId: string,
+  host: ChatWindowHost,
+  panel: 'chat' | 'dice' = 'chat',
+): ChatWindow {
   const [state, setState] = useState<ChatWindowState>(DOCKED);
   const handleRef = useRef<ChatWindowHandle | null>(null);
   const { resetAlwaysOnTop, ...topmost } = useChatWindowTopmost(handleRef);
@@ -51,19 +64,28 @@ export function useChatWindow(campaignId: string, host: ChatWindowHost): ChatWin
     const current = handleRef.current;
     if (current && !current.closed) return current.focus();
     resetAlwaysOnTop();
-    const opened = host.open(CHAT_WINDOW_URL, chatWindowNameOf(campaignId), CHAT_WINDOW_FEATURES);
+    const url = panel === 'dice' ? DICE_WINDOW_URL : CHAT_WINDOW_URL;
+    const name = panel === 'dice' ? `lorkarium-dice-${campaignId}` : chatWindowNameOf(campaignId);
+    const opened = host.open(url, name, CHAT_WINDOW_FEATURES);
     handleRef.current = opened;
     setState({
       status: opened ? 'detached' : 'blocked',
       target: null,
       canAlwaysOnTop: !!opened?.setAlwaysOnTop,
+      desktopWindow: null,
     });
-  }, [campaignId, host, resetAlwaysOnTop]);
+  }, [campaignId, host, panel, resetAlwaysOnTop]);
   const bringBack = useCallback(() => {
-    handleRef.current?.close();
-    handleRef.current = null;
-    setState(DOCKED);
-    resetAlwaysOnTop();
+    const handle = handleRef.current;
+    const dock = (): void => {
+      if (handleRef.current !== handle) return;
+      handleRef.current = null;
+      setState(DOCKED);
+      resetAlwaysOnTop();
+    };
+    const closing = handle?.close();
+    if (closing) void closing.then(dock, () => undefined);
+    else dock();
   }, [resetAlwaysOnTop]);
   return {
     ...topmost,
@@ -73,6 +95,7 @@ export function useChatWindow(campaignId: string, host: ChatWindowHost): ChatWin
     bringBack,
     portalTarget: state.target,
     canAlwaysOnTop: state.canAlwaysOnTop,
+    desktopWindow: state.desktopWindow,
   };
 }
 
@@ -105,7 +128,12 @@ function nextChatWindowState(
   if (!handle) return DOCKED;
   const target = loadedChatBodyOf(handle);
   if (!target || target === previous.target) return previous;
-  return { status: 'detached', target, canAlwaysOnTop: !!handle.setAlwaysOnTop };
+  return {
+    status: 'detached',
+    target,
+    canAlwaysOnTop: !!handle.setAlwaysOnTop,
+    desktopWindow: handle.desktopWindow ?? null,
+  };
 }
 
 function loadedChatBodyOf(handle: ChatWindowHandle): HTMLElement | null {
@@ -120,7 +148,8 @@ function useCloseChatWindowOnLeave(handleRef: RefObject<ChatWindowHandle | null>
     const close = (): void => {
       const handle = handleRef.current;
       handleRef.current = null;
-      handle?.close();
+      const closing = handle?.close();
+      if (closing) void closing.catch(() => undefined);
     };
     window.addEventListener('pagehide', close);
     return () => {

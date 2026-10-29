@@ -3,7 +3,7 @@ import { ChatPanel, type ChatPanelProps } from './chat-panel';
 import { ChatWindowPortal } from './chat-window-portal';
 import type { ChatWindowSlot } from './chat-window-slot';
 import { useChatWindow } from './use-chat-window';
-import { ChatWindowOptions } from './chat-window-options';
+import { DetachedWindowFrame } from './detached-window-frame';
 
 /** Owns the popup for the whole room, including when another panel tab or focus mode is shown.
  *
@@ -23,10 +23,9 @@ export function useRoomChatWindow(
         };
   const portal = chatWindow.portalTarget && (
     <ChatWindowPortal target={chatWindow.portalTarget}>
-      <div className="flex h-dvh min-h-0 flex-col bg-panel px-4 pt-3">
-        <ChatWindowOptions chatWindow={chatWindow} />
+      <DetachedWindowFrame title="Chat" window={chatWindow}>
         <ChatPanel {...props} />
-      </div>
+      </DetachedWindowFrame>
     </ChatWindowPortal>
   );
   return { slot, portal };

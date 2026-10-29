@@ -27,6 +27,7 @@ fn main() {
             "begin_startup",
             "retry_connection",
             "set_chat_always_on_top",
+            "control_detached_window",
         ]),
     ))
     .expect("tauri-build falhou");

@@ -3,6 +3,8 @@ import {
   type ChatWindowHandle,
   type ChatWindowHost,
 } from '@/services/chat-window-host';
+import { DetachedDesktopWindow, nativeChatLabelOf } from './detached-desktop-window';
+import type { DesktopWindow } from './desktop-window';
 
 /** The native shell keeps the browser opener and adds a checked command for its chat window.
  *
@@ -21,28 +23,33 @@ export class TauriChatWindowHost implements ChatWindowHost {
 }
 
 class NativeChatWindow implements ChatWindowHandle {
+  private controls: DetachedDesktopWindow | null = null;
   constructor(private readonly opened: ChatWindowHandle) {}
+
+  get desktopWindow(): DesktopWindow | null {
+    const page = this.document.defaultView as
+      (Window & { __LORKARIUM_DETACHED_TITLE_BAR__?: boolean }) | null;
+    if (!page?.__LORKARIUM_DETACHED_TITLE_BAR__) return null;
+    this.controls ??= new DetachedDesktopWindow(this.opened);
+    return this.controls;
+  }
 
   get document(): Document {
     return this.opened.document;
   }
   get closed(): boolean {
-    return this.opened.closed;
+    return this.opened.closed || !!this.controls?.closed;
   }
-  close(): void {
-    this.opened.close();
+  close(): void | Promise<void> {
+    if (this.closed) return;
+    const controls = this.desktopWindow;
+    return controls ? controls.close() : this.opened.close();
   }
   focus(): void {
     this.opened.focus();
   }
   async setAlwaysOnTop(enabled: boolean): Promise<void> {
-    if (this.closed) throw new Error('cannot pin a closed chat window');
-    const page = this.document.defaultView as
-      (Window & { __LORKARIUM_CHAT_WINDOW_LABEL__?: unknown }) | null;
-    const label = page?.__LORKARIUM_CHAT_WINDOW_LABEL__;
-    if (typeof label !== 'string' || !/^chat-\d+$/.test(label)) {
-      throw new Error(`native chat marker ${String(label)} is invalid; expected chat-<number>`);
-    }
+    const label = nativeChatLabelOf(this.opened);
     const { invoke } = await import('@tauri-apps/api/core');
     await invoke('set_chat_always_on_top', { label, enabled });
   }

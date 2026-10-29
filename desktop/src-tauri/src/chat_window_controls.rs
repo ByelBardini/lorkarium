@@ -9,6 +9,52 @@ use crate::window_controls::remote_url_pattern;
 
 const CHAT_CONTROL_PERMISSION: &str = "allow-set-chat-always-on-top";
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DetachedWindowAction {
+    Close,
+    Minimize,
+    ToggleMaximize,
+    IsMaximized,
+}
+
+/// Controls only an auxiliary window belonging to the requesting main page.
+/// Example: `invoke("control_detached_window", { label: "chat-1", action: "minimize" })`
+#[tauri::command]
+pub async fn control_detached_window<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    label: String,
+    action: DetachedWindowAction,
+) -> Result<bool, String> {
+    let target = app
+        .get_webview_window(&label)
+        .ok_or_else(|| format!("auxiliary window {label:?} does not exist"))?;
+    let requester_url = window.url().map_err(|problem| problem.to_string())?;
+    let target_url = target.url().map_err(|problem| problem.to_string())?;
+    if !chat_control_allowed(window.label(), &requester_url, &label, &target_url) {
+        return Err(format!(
+            "window {label:?} at {target_url} refused; expected the app's auxiliary window"
+        ));
+    }
+    match action {
+        DetachedWindowAction::Close => target.close().map(|()| false),
+        DetachedWindowAction::Minimize => target.minimize().map(|()| false),
+        DetachedWindowAction::ToggleMaximize => target
+            .is_maximized()
+            .and_then(|maximized| {
+                if maximized {
+                    target.unmaximize()
+                } else {
+                    target.maximize()
+                }
+            })
+            .map(|()| false),
+        DetachedWindowAction::IsMaximized => target.is_maximized(),
+    }
+    .map_err(|problem| problem.to_string())
+}
+
 /// Only the main page may pin an actual chat window from the same app origin.
 ///
 /// Example: `chat_control_allowed("main", &app_url, "chat-1", &chat_url)`
@@ -62,7 +108,8 @@ pub fn install<R: Runtime>(app: &AppHandle<R>, origin: &AppOrigin) -> tauri::Res
             .remote(remote_url_pattern(origin))
             .local(false)
             .window(MAIN_WINDOW)
-            .permission(CHAT_CONTROL_PERMISSION),
+            .permission(CHAT_CONTROL_PERMISSION)
+            .permission("allow-control-detached-window"),
     )
 }
 
@@ -126,5 +173,28 @@ mod tests {
     #[test]
     fn capability_grants_only_the_checked_chat_command() {
         assert_eq!(CHAT_CONTROL_PERMISSION, "allow-set-chat-always-on-top");
+    }
+
+    #[test]
+    fn detached_controls_accept_only_the_title_bar_actions() {
+        for action in ["close", "minimize", "toggle-maximize", "is-maximized"] {
+            assert!(
+                serde_json::from_value::<DetachedWindowAction>(serde_json::json!(action)).is_ok()
+            );
+        }
+        for action in ["destroy", "set-always-on-top", "main"] {
+            assert!(
+                serde_json::from_value::<DetachedWindowAction>(serde_json::json!(action)).is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn dice_query_is_an_auxiliary_window_on_the_same_origin() {
+        assert!(allowed(
+            "main",
+            "chat-9",
+            "https://lorkarium.app/chat-window.html?panel=dice"
+        ));
     }
 }

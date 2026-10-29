@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHAT_WINDOW_POLL_MS, useChatWindow } from '@/features/chat/use-chat-window';
 import { CHAT_WINDOW_FEATURES, CHAT_WINDOW_URL } from '@/services/chat-window-host';
-import { ChatWindowHostFake } from '../../support/chat-window-host-fake';
+import { ChatWindowFake, ChatWindowHostFake } from '../../support/chat-window-host-fake';
 
 const CAMPAIGN_ID = '0b9e7b54-3f0a-4c6e-9d51-6d2f4b0a1c11';
 
@@ -22,6 +22,26 @@ class AlwaysOnTopFake {
     this.calls.push(enabled);
     if (this.problem) throw this.problem;
   };
+}
+
+class DeferredCloseFake {
+  private accept!: () => void;
+  private refuse!: (problem: Error) => void;
+  private readonly result = new Promise<void>((resolve, reject) => {
+    this.accept = resolve;
+    this.refuse = reject;
+  });
+  constructor(private readonly popup: ChatWindowFake) {
+    popup.close = this.close;
+  }
+  readonly close = (): Promise<void> => this.result;
+  finish(): void {
+    this.popup.closeByUser();
+    this.accept();
+  }
+  fail(): void {
+    this.refuse(new Error('native close refused'));
+  }
 }
 
 describe('useChatWindow', () => {
@@ -154,6 +174,35 @@ describe('useChatWindow', () => {
     expect(host.last().closed).toBe(true);
     expect(result.current.status).toBe('docked');
     expect(result.current.portalTarget).toBeNull();
+  });
+
+  it('keeps the portal until the native window confirms closing', async () => {
+    const host = new ChatWindowHostFake();
+    const { result } = renderChatWindow(host);
+    act(() => result.current.open());
+    host.last().load();
+    tick();
+    const close = new DeferredCloseFake(host.last());
+    act(() => result.current.bringBack());
+    expect(result.current.status).toBe('detached');
+    expect(result.current.portalTarget).toBe(host.last().document.body);
+    await act(async () => close.finish());
+    expect(result.current.status).toBe('docked');
+    expect(result.current.portalTarget).toBeNull();
+  });
+
+  it('a refused native close leaves the panel in its window instead of an empty window', async () => {
+    const host = new ChatWindowHostFake();
+    const { result } = renderChatWindow(host);
+    act(() => result.current.open());
+    host.last().load();
+    tick();
+    const close = new DeferredCloseFake(host.last());
+    act(() => result.current.bringBack());
+    await act(async () => close.fail());
+    expect(result.current.status).toBe('detached');
+    expect(result.current.portalTarget).toBe(host.last().document.body);
+    expect(host.last().closed).toBe(false);
   });
 
   it('leaving the room (unmount) closes the window', () => {
