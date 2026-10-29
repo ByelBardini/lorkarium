@@ -5,6 +5,7 @@ import type {
   BoardRenderer,
   CreateBoardRenderer,
   PingMark,
+  SpeechBalloon,
 } from './board-renderer';
 import { auraMotionOf } from './aura-motion';
 import { auraImageUrlsOf } from './aura-view';
@@ -50,6 +51,7 @@ import { PixiBoardOverlays } from './pixi-board-overlays';
 import { PixiFogLayer } from './pixi-fog-layer';
 import { PixiLightTintLayer } from './pixi-light-tint-layer';
 import { PixiPingLayer, type PingFrame } from './pixi-ping-layer';
+import { PixiSpeechLayer } from './pixi-speech-layer';
 import { resizeCursorOf } from './resize-handles';
 import { PixiSceneBackground } from './pixi-scene-background';
 import { PixiSceneGrid } from './pixi-scene-grid';
@@ -93,6 +95,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly lightTint = new PixiLightTintLayer();
   private readonly fog = new PixiFogLayer();
   private readonly pings = new PixiPingLayer(prefersReducedMotion);
+  private readonly speech = new PixiSpeechLayer();
   private readonly overlays = new PixiBoardOverlays((intent) => this.onIntent(intent));
   private readonly lightGestures = new LightGestures((intent) => this.onIntent(intent));
   // Every change only marks what to redraw; the ticker draws once per frame (`flush`).
@@ -159,7 +162,7 @@ class PixiBoardRenderer implements BoardRenderer {
       ...this.overlays.containers(sketches),
       this.pings.world,
     );
-    app.stage.addChild(this.world, this.pings.edges);
+    app.stage.addChild(this.world, this.speech.container, this.pings.edges);
     this.listen(host, app.canvas);
     this.disposers.push(followHostSize(host, app));
     app.ticker.remove(app.render, app);
@@ -170,8 +173,10 @@ class PixiBoardRenderer implements BoardRenderer {
       this.press.tick(this.pressContext(), now);
       this.flush();
       const pinging = this.pings.animate(ticker.deltaMS, this.pingFrame());
+      const speaking = this.speech.animate({ camera: this.camera });
       const auras = this.auraAnimator.animate(now, () => this.auraFrame());
-      if (this.tokens.animate(now) || pinging || auras || this.frame.renderDue()) app.render();
+      const moving = this.tokens.animate(now) || pinging || speaking || auras;
+      if (moving || this.frame.renderDue()) app.render();
     });
     app.renderer.on('resize', () => this.applyCamera(this.camera));
     if (this.view) this.draw(this.view);
@@ -212,6 +217,11 @@ class PixiBoardRenderer implements BoardRenderer {
   // Only kept: the ticker draws it (`animate`), like the tokens that glide.
   showPing(ping: PingMark): void {
     this.pings.show(ping);
+  }
+
+  // Only kept, like the pings: the ticker builds and places the bubbles (`speech.animate`).
+  showSpeech(sceneId: string, balloons: readonly SpeechBalloon[]): void {
+    this.speech.showSpeech(sceneId, balloons);
   }
 
   destroy(): void {
@@ -271,6 +281,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.drawings.sync(view.drawings);
     this.effectAreas.sync(view.effectAreas, view.sceneSize);
     this.tokens.sync(view.tokens, view.ghosts, performance.now());
+    this.speech.syncTokens(view.tokens);
     this.lightTint.sync(view.lightTint, app.renderer);
     this.fog.sync(view.fog, app.renderer);
   }
