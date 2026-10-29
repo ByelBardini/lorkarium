@@ -6,11 +6,16 @@ use crate::app_origin::AppOrigin;
 pub enum Navigation {
     Stay,
     OpenExternal,
+    ChatWindow,
     Block,
 }
 
 // What the operating system has a safe default app for; anything else (javascript:, file:, data:) is dropped.
 const EXTERNAL_SCHEMES: [&str; 3] = ["https", "http", "mailto"];
+
+// The client's empty page for the separate chat: its React draws into it through `window.opener`, so it must be
+// a window of this WebView2 (a page in the default browser would have no opener and stay blank).
+pub const CHAT_WINDOW_PATH: &str = "/chat-window.html";
 
 /// The two places the window may show: the packaged splash and the lorkarium site.
 #[derive(Debug, Clone)]
@@ -32,11 +37,15 @@ pub fn navigation_decision(url: &Url, origins: &ShellOrigins) -> Navigation {
     Navigation::Block
 }
 
-/// A `window.open` / `target="_blank"` never becomes a second Tauri window: the app's own pages and other
-/// sites go to the default browser, where the site works as well; the splash and unsafe schemes go nowhere.
+/// A `window.open` / `target="_blank"` becomes a second Tauri window only for the app's chat page (any query or
+/// hash; the path is exact and case-sensitive); the app's other pages and other sites go to the default browser,
+/// where the site works as well; the splash and unsafe schemes go nowhere.
 ///
-/// Example: `new_window_decision(&Url::parse("https://lorkarium.app/x")?, &origins) // OpenExternal`
+/// Example: `new_window_decision(&Url::parse("https://lorkarium.app/chat-window.html")?, &origins) // ChatWindow`
 pub fn new_window_decision(url: &Url, origins: &ShellOrigins) -> Navigation {
+    if origins.app.contains(url) && url.path() == CHAT_WINDOW_PATH {
+        return Navigation::ChatWindow;
+    }
     match navigation_decision(url, origins) {
         Navigation::Stay if origins.app.contains(url) => Navigation::OpenExternal,
         Navigation::Stay => Navigation::Block,
@@ -161,6 +170,78 @@ mod tests {
     #[test]
     fn new_window_with_a_script_url_is_blocked() {
         assert_eq!(new_window_for("javascript:alert(1)"), Navigation::Block);
+    }
+
+    #[test]
+    fn new_window_of_the_chat_page_becomes_the_chat_window() {
+        assert_eq!(
+            new_window_for("https://lorkarium.app/chat-window.html"),
+            Navigation::ChatWindow
+        );
+    }
+
+    #[test]
+    fn chat_page_with_query_and_hash_still_becomes_the_chat_window() {
+        assert_eq!(
+            new_window_for("https://lorkarium.app/chat-window.html?campaign=7#feed"),
+            Navigation::ChatWindow
+        );
+    }
+
+    #[test]
+    fn chat_page_on_another_site_opens_in_the_browser() {
+        assert_eq!(
+            new_window_for("https://evil.com/chat-window.html"),
+            Navigation::OpenExternal
+        );
+    }
+
+    #[test]
+    fn chat_page_on_plain_http_of_the_app_host_opens_in_the_browser() {
+        assert_eq!(
+            new_window_for("http://lorkarium.app/chat-window.html"),
+            Navigation::OpenExternal
+        );
+    }
+
+    #[test]
+    fn chat_page_on_another_port_of_the_app_host_opens_in_the_browser() {
+        assert_eq!(
+            new_window_for("https://lorkarium.app:8443/chat-window.html"),
+            Navigation::OpenExternal
+        );
+    }
+
+    #[test]
+    fn chat_page_inside_another_path_of_the_app_opens_in_the_browser() {
+        assert_eq!(
+            new_window_for("https://lorkarium.app/campaigns/chat-window.html"),
+            Navigation::OpenExternal
+        );
+    }
+
+    #[test]
+    fn page_that_only_starts_with_the_chat_page_opens_in_the_browser() {
+        assert_eq!(
+            new_window_for("https://lorkarium.app/chat-window.html.evil"),
+            Navigation::OpenExternal
+        );
+    }
+
+    #[test]
+    fn chat_page_in_another_case_opens_in_the_browser() {
+        assert_eq!(
+            new_window_for("https://lorkarium.app/Chat-Window.html"),
+            Navigation::OpenExternal
+        );
+    }
+
+    #[test]
+    fn navigating_to_the_chat_page_stays_in_the_window() {
+        assert_eq!(
+            decision_for("https://lorkarium.app/chat-window.html"),
+            Navigation::Stay
+        );
     }
 
     #[test]
