@@ -3,12 +3,17 @@ import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChatPanel } from '@/features/chat/chat-panel';
+import { useChatUnreadMark } from '@/features/chat/chat-unread-mark';
+import type { ChatWindowSlot } from '@/features/chat/chat-window-slot';
 import { CombatPanel } from '@/features/combat/combat-panel';
 import { DicePanel, type DicePanelProps } from '@/features/dice/dice-panel';
 import { SessionPresencePanel } from '@/features/sessions/session-presence-panel';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
 import type { InteractionClock } from '@/lib/interaction-clock';
+import type { ChatCommands } from '@/services/chat-commands';
+import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { DESKTOP_QUERY, useMediaQuery } from '@/lib/use-media-query';
 import { isRoomTab, useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
 import {
@@ -40,6 +45,10 @@ export type RoomPanelProps = Readonly<{
   clock: InteractionClock;
   /** The "Dados" tab (its presence is the table's, from `table`). */
   dice: Omit<DicePanelProps, 'presence'>;
+  /** The "Chat" tab sends through it; the rest it shares with "Dados". */
+  chat: ChatCommands;
+  /** Phase 11: the chat docked here (with "Abrir em outra janela") or in another window. */
+  chatWindow?: ChatWindowSlot | null;
 }>;
 
 const PANEL_TITLE = 'Painel da mesa';
@@ -64,11 +73,18 @@ export function RoomSidePanel(props: RoomPanelProps): React.JSX.Element | null {
 }
 
 function PhonePanel(props: RoomPanelProps): React.JSX.Element {
+  const unread = useChatUnreadMark(props.dice.openTables, props.dice.campaignId);
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="absolute right-3 bottom-3 bg-panel">
+        <Button
+          variant="outline"
+          size="sm"
+          aria-describedby={unread.describedBy}
+          className="absolute right-3 bottom-3 bg-panel"
+        >
           Painel
+          {unread.mark}
         </Button>
       </SheetTrigger>
       <SheetContent side="bottom" className="max-h-[70svh] bg-panel px-4 pb-6">
@@ -82,6 +98,7 @@ function PhonePanel(props: RoomPanelProps): React.JSX.Element {
 function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
   const { roomLayout, table } = props;
   const tab = useRoomLayout(roomLayout, (state) => state.tab);
+  const unread = useChatUnreadMark(props.dice.openTables, props.dice.campaignId);
   return (
     <Tabs
       value={tab}
@@ -97,6 +114,10 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
           {table && <OnlinePill presence={table.presence} />}
         </TabsTrigger>
         <TabsTrigger value="dice">Dados</TabsTrigger>
+        <TabsTrigger value="chat" aria-describedby={unread.describedBy}>
+          Chat
+          {unread.mark}
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="combat" className="flex flex-col py-4">
         {table && (
@@ -124,7 +145,26 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
       <TabsContent value="dice" className="-mx-1 overflow-y-auto px-1 py-4">
         <DicePanel {...props.dice} presence={table?.presence ?? null} />
       </TabsContent>
+      <TabsContent value="chat" className="flex flex-col max-md:h-[60svh]">
+        <RoomChat {...props} />
+      </TabsContent>
     </Tabs>
+  );
+}
+
+function RoomChat({ dice, chat, table, chatWindow }: RoomPanelProps): React.JSX.Element {
+  const { campaignId, role, sessionStore, openTables, services } = dice;
+  return (
+    <ChatPanel
+      campaignId={campaignId}
+      role={role}
+      sessionStore={sessionStore}
+      openTables={openTables}
+      presence={table?.presence ?? null}
+      board={table?.board ?? null}
+      services={{ ...services, chat }}
+      window={chatWindow ?? null}
+    />
   );
 }
 
@@ -141,14 +181,22 @@ function OnlinePill({ presence }: Readonly<{ presence: StoreApi<TablePresenceSto
   );
 }
 
+export type PanelToggleProps = Readonly<{
+  roomLayout: StoreApi<RoomLayoutStore>;
+  /** The table whose chat counter "Abrir painel" carries while the panel is collapsed. */
+  openTables: StoreApi<OpenTablesStore>;
+  campaignId: string;
+}>;
+
 /** "Recolher painel" ↔ "Abrir painel", remembered by the layout store; only beside the board.
+ *  Collapsed, it carries the chat's unread counter.
  *
- *  Example: `<PanelToggle roomLayout={roomLayout} />` */
-export function PanelToggle({
-  roomLayout,
-}: Readonly<{ roomLayout: StoreApi<RoomLayoutStore> }>): React.JSX.Element | null {
+ *  Example: `<PanelToggle roomLayout={roomLayout} openTables={openTables} campaignId={campaign.id} />` */
+export function PanelToggle(props: PanelToggleProps): React.JSX.Element | null {
+  const { roomLayout } = props;
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const open = useRoomLayout(roomLayout, (state) => state.panel === 'open');
+  const unread = useChatUnreadMark(props.openTables, props.campaignId);
   if (!desktop) return null;
   const Icon = open ? PanelRightCloseIcon : PanelRightOpenIcon;
   return (
@@ -157,10 +205,16 @@ export function PanelToggle({
       size="icon-sm"
       aria-label={open ? 'Recolher painel' : 'Abrir painel'}
       aria-expanded={open}
+      aria-describedby={open ? undefined : unread.describedBy}
       onClick={() => roomLayout.getState().togglePanel()}
-      className="text-muted-foreground"
+      className={
+        open || unread.mark === null
+          ? 'text-muted-foreground'
+          : 'w-auto px-1.5 text-muted-foreground'
+      }
     >
       <Icon aria-hidden="true" />
+      {!open && unread.mark}
     </Button>
   );
 }

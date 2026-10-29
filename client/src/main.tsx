@@ -23,6 +23,9 @@ import { SocketIoRealtimeTransport } from '@/services/realtime-transport';
 import { BoardCommandSender } from '@/services/board-command-sender';
 import { RealtimeTableBoardCommands } from '@/services/table-board-commands';
 import { RealtimePingCommands } from '@/services/table-pings';
+import { RealtimeChatCommands } from '@/services/chat-commands';
+import { BrowserChatWindowHost } from '@/services/chat-window-host';
+import { TauriChatWindowHost } from '@/services/desktop-chat-window-host';
 import { RealtimeDiceCommands } from '@/services/dice-commands';
 import { createWebAudioDiceSound } from '@/dice-audio/web-audio-dice-sound';
 import { HttpSavedRollsApi } from '@/services/saved-rolls-api';
@@ -119,6 +122,10 @@ const router = createBrowserRouter(
     boardCommands,
     pings: new RealtimePingCommands(new BoardCommandSender(realtime, newActionId)),
     dice: new RealtimeDiceCommands(realtime, newActionId),
+    chat: new RealtimeChatCommands(realtime, newActionId),
+    chatWindowHost: isDesktopShell(navigator.userAgent)
+      ? new TauriChatWindowHost(window)
+      : new BrowserChatWindowHost(window),
     diceClock: browserWallClock,
     savedRolls: new HttpSavedRollsApi(transport),
     dicePreferences: createDicePreferencesStore(browserStorage),

@@ -147,6 +147,8 @@ function tableRoute({
   dice,
   savedRolls,
   diceClock,
+  chat,
+  chatWindowHost,
 }: AppDependencies): () => React.JSX.Element {
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
@@ -185,6 +187,8 @@ function tableRoute({
               dice={dice}
               savedRolls={savedRolls}
               diceClock={diceClock}
+              chat={chat}
+              chatWindowHost={chatWindowHost}
               covered={covered}
             />
           </MemberRoleProvider>

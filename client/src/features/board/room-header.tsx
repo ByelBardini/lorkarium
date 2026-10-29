@@ -103,7 +103,7 @@ export function RoomHeader({
           <LibraryIcon aria-hidden="true" />
         </MasterPageLink>
         {campaign.myRole === 'master' && <MasterPageLinks campaignId={campaign.id} />}
-        <PanelToggle roomLayout={roomLayout} />
+        <PanelToggle roomLayout={roomLayout} openTables={openTables} campaignId={campaign.id} />
         <RoomMoreMenu
           campaign={campaign}
           reader={reader}

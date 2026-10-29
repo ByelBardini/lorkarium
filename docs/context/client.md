@@ -2,7 +2,7 @@
 
 SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board-renderer.md`](client/board-renderer.md)), dados 3D em `src/dice-renderer/` (o único lugar do `three`) e som dos dados em `src/dice-audio/` (ver [`client/dice.md`](client/dice.md)).
 
-> **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda a estrutura, as rotas e os testes.
+> **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda a estrutura e os testes.
 
 | Assunto                                                                                     | Arquivo                                               |
 | ------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -38,6 +38,9 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas  | [`backoffice.md`](client/backoffice.md)               |
 | Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                      | [`dice.md`](client/dice.md)                           |
 | Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro     | [`dice-tab.md`](client/dice-tab.md)                   |
+| Chat da mesa: `chat:send`/`chat:sent`, store de conversas, leitura do campo, feed, destino  | [`chat.md`](client/chat.md)                           |
+| Chat em outra janela: porta da janela, portal, container dos portais Radix                  | [`chat-janela.md`](client/chat-janela.md)             |
+| Rotas: tabela, guardas, `restoreOpenTables`, árvore, `next` do login                        | [`rotas.md`](client/rotas.md)                         |
 | Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                          | [`account-links.md`](client/account-links.md)         |
 | Barra de título do app desktop: `WindowTitleBar`, controles, lugar por rota, slot da sala   | [`title-bar.md`](client/title-bar.md)                 |
 | Menu dos campos de texto no app desktop: `isDesktopShell`, itens, `FieldEditing`, raiz      | [`text-field-menu.md`](client/text-field-menu.md)     |
@@ -48,7 +51,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 ## Estrutura
 
 - `src/main.tsx` — monta `createBrowserRouter(buildRoutes(deps))` com os adaptadores reais (`HttpAuthApi`, `HttpCampaignsApi`, `createOpenTablesStore` (com `tabInteractionFactory(boardCommands)`) sobre a `RealtimeTableSessionApi` (sobre `SocketIoRealtimeTransport` com `crypto.randomUUID`) e o `sessionStorage`, `NavigatorClipboard`, `isDesktopShell`, `desktopWindow` (`TauriDesktopWindow` só com `desktopShellOf(ua)?.titleBar`, senão `null`), `DocumentFieldEditing`, `createRailStore` sobre o `localStorage`, `new Date()`, `Math.random`; os dados: `RealtimeDiceCommands`, `HttpSavedRollsApi`, `createDicePreferencesStore`, o `three-dice-renderer` por `import()` e `createWebAudioDiceSound()`; o `browserWallClock` como `diceClock` e como `wallClock` do `createOpenTablesStore`)
-- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, profileApi, accountSecurityApi, userAdminApi, accountLinksApi, libraryApi, sceneActivation, assets, clipboard, isDesktop, desktopWindow, fieldEditing, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, auraMotion, createBoardRenderer, boardCommands, pings, dice, savedRolls, diceClock, dicePreferences, createDiceRenderer, createDiceSound, interactionClock, now, random, waitBeforeRetry, appUpdate, reloadPage }`, para o teste injetar fakes (os dos dados em [`client/dice.md`](client/dice.md))
+- `src/app/router.tsx` — `buildRoutes(deps)`: rotas do modo data do React Router 8 (abaixo); `AppDependencies` = `{ authApi, campaignsApi, profileApi, accountSecurityApi, userAdminApi, accountLinksApi, libraryApi, sceneActivation, assets, clipboard, isDesktop, desktopWindow, fieldEditing, openTables, sessionStore, railStore, roomLayout, drawingStyle, effectAreaStyle, wallStyle, lightReach, lightColor, auraMotion, createBoardRenderer, boardCommands, pings, dice, chat, chatWindowHost, savedRolls, diceClock, dicePreferences, createDiceRenderer, createDiceSound, interactionClock, now, random, waitBeforeRetry, appUpdate, reloadPage }`, para o teste injetar fakes (os dos dados em [`client/dice.md`](client/dice.md))
 - `src/app/route-access.ts` — `decideAccess(session, access, url)`: decisão pura `allow` | `redirect` por `RouteAccess` (`public-only`, `signed-in`, `admin`, `anyone`); `loginPathFor(url)` → `/login?next=…`
 - `src/app/title-bar/` — barra de título do app desktop (`TitleBarFrame`, `WindowTitleBar`, slot da sala) e `src/lib/title-bar-target.ts` (`keepOpenOnTitleBar`): ver [`client/title-bar.md`](client/title-bar.md)
 - `src/app/splash-screen.tsx` (`role="status"`, "Carregando…" ou "Reconectando ao servidor…"), `src/app/boot-session.ts` ([`auth.md`](auth.md), Boot) e `src/app/route-error-screen.tsx`
@@ -104,27 +107,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 
 ## Rotas
 
-| Caminho                                   | Acesso        | Tela                                                                                                                                           |
-| ----------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/login`                                  | `public-only` | `LoginPage`; logado vai para o `next` seguro ou `/`                                                                                            |
-| `/account`                                | `signed-in`   | shell + "Minha conta" ([`client/account.md`](client/account.md))                                                                               |
-| `/account/email/confirm`                  | `anyone`      | confirmação da troca de e-mail (fora do shell)                                                                                                 |
-| `/`                                       | `signed-in`   | shell + `HomePage` (`loader` da lista, `action` de criar/entrar por código)                                                                    |
-| `/campaigns/:campaignId`                  | `signed-in`   | a home com o modal de detalhes por cima (`loader` do detalhe, `action` de "Entrar na mesa")                                                    |
-| `/campaigns/:campaignId/table`            | `signed-in`   | shell (trilho compacto) + sala de jogo (`loader` do detalhe, `handle: COMPACT_RAIL_HANDLE`)                                                    |
-| `/campaigns/:campaignId/table/library`    | `signed-in`   | biblioteca em modal sobre a sala ([`client/library.md`](client/library.md))                                                                    |
-| `/campaigns/:campaignId/table/settings`   | `signed-in`   | "Configurações da mesa": página sobre a sala, só o mestre; jogador volta à sala ([`client/campaign-settings.md`](client/campaign-settings.md)) |
-| `/campaigns/:campaignId/table/conditions` | `signed-in`   | "Condições da mesa": página sobre a sala, só o mestre; jogador volta à sala ([`client/conditions.md`](client/conditions.md))                   |
-| `/account/recover`                        | `anyone`      | recuperação pelo link "Não fui eu" (fora do shell)                                                                                             |
-| `/invite` · `/reset-password`             | `anyone`      | aceitar convite · nova senha pelo link do admin (fora do shell)                                                                                |
-| `/admin` → `/admin/users`                 | `admin`       | backoffice, `lazy` (fora do shell): moldura própria + "Usuários"                                                                               |
-| `*`                                       | —             | redireciona para `/`                                                                                                                           |
-
-- O root tem `middleware` que faz o `GET /api/auth/me` enquanto a sessão está `unknown` (repetido enquanto o server não responde) e o `HydrateFallback` (splash) cobre essa espera. Cada rota tem um `middleware` de guarda que chama `decideAccess` e lança `redirect`; as rotas logadas vivem sob a rota de layout `shell` (sem `path`, guarda `signed-in`).
-- A rota `shell` tem um segundo `middleware`, `restoreOpenTables`: com a sessão autenticada, `openTables.restore(user.id)` (idempotente) reabre as mesas da aba depois de um F5. "Sair" no menu chama `openTables.closeAll()` **antes** do `authApi.logout()` (depois, o server recusaria os `session:leave` e os outros só veriam a saída depois da tolerância).
-- Árvore: `root` → `login` · `account/email/confirm` · `account/recover` · `invite` · `reset-password` · `admin` → [índice, `users`] · `shell` → [`home` (`path: '/'`) → [índice, `campaigns/:campaignId`], `account` (id `account`), `campaigns/:campaignId/table` (id `campaign-table`) → [índice, `library`, `settings`]] · `*`.
-- Visitante em rota protegida vai para `/login?next=<caminho+query codificados>`; depois do login, `safeRedirectTarget(next)`. `loader`/`action` que recebe `unauthenticated` faz o mesmo (`redirectIfSignedOut`), menos a `action` chamada por **fetcher**: ela lança para o `ErrorBoundary`, que rende o `SignedOutRedirect` (ver [`client/armadilhas.md`](client/armadilhas.md)).
-- A guarda do client só evita mostrar a tela errada; quem recusa é o server.
+Tabela de caminhos, guardas (`middleware` + `decideAccess`), `restoreOpenTables`, árvore e o `next` do login: [`client/rotas.md`](client/rotas.md). `/api` e `/assets/` são reservados (ver Regras de arquitetura).
 
 ## Regras de arquitetura
 
