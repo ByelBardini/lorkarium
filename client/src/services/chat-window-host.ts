@@ -1,6 +1,7 @@
 /** The page the chat's own window opens: empty, of the app's origin (`client/public/`). The
  *  desktop shell lets exactly this path become its second native window. */
 export const CHAT_WINDOW_URL = '/chat-window.html';
+export const DICE_WINDOW_URL = '/chat-window.html?panel=dice';
 
 /** A system window (not a tab) the size of the room's side panel. */
 export const CHAT_WINDOW_FEATURES = 'popup,width=420,height=720';
@@ -11,9 +12,10 @@ export const CHAT_WINDOW_MARK = 'data-lorkarium-chat-window';
 
 /** The part of the opened `Window` the chat uses; a real `Window` fits it. */
 export interface ChatWindowHandle {
+  readonly desktopWindow?: import('./desktop-window').DesktopWindow | null;
   readonly closed: boolean;
   readonly document: Document;
-  close(): void;
+  close(): void | Promise<void>;
   focus(): void;
   /** Available only when the host can guarantee a native always-on-top window. */
   setAlwaysOnTop?(enabled: boolean): Promise<void>;

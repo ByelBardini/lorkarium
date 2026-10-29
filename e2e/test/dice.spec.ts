@@ -73,6 +73,33 @@ async function overlayPaints(page: Page): Promise<boolean> {
   return !withDice.equals(withoutDice);
 }
 
+test('detached dice rolls stay live alongside the chat window and return when closed', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(180_000);
+  const { admin, bia } = await openDiceTable(newPlayerPage, false);
+  const diceOpened = bia.waitForEvent('popup');
+  await bia.getByRole('button', { name: 'Abrir em outra janela' }).click();
+  const dice = await diceOpened;
+  await expect(dice.getByLabel('Fórmula')).toBeVisible();
+  await expect(dice).toHaveTitle('Dados · Lorkarium');
+  await bia.getByRole('tab', { name: 'Chat' }).click();
+  const chatOpened = bia.waitForEvent('popup');
+  await bia.getByRole('button', { name: 'Abrir em outra janela' }).click();
+  const chat = await chatOpened;
+  await expect(chat.getByRole('log')).toBeVisible();
+  await expect(chat).toHaveTitle('Chat · Lorkarium');
+  await dice.getByLabel('Fórmula').fill('1d20+5');
+  await dice.getByRole('button', { name: 'Rolar', exact: true }).click();
+  const total = await revealedTotalOf(admin);
+  await expect(newestTotalOf(dice)).toHaveText(total);
+  await dice.close();
+  await bia.getByRole('tab', { name: 'Dados' }).click();
+  await expect(bia.getByLabel('Fórmula')).toBeVisible();
+  await expect(newestTotalOf(bia)).toHaveText(total);
+  expect(chat.isClosed()).toBe(false);
+});
+
 test('Bia rolls 1d20+5: both pages wait on "…", then show the same total, with the 3D dice over the admin\'s screen', async ({
   newPlayerPage,
 }) => {

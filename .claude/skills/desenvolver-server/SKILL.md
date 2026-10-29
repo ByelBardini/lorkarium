@@ -66,7 +66,7 @@ O molde vivo é o módulo `server/src/modules/auth/` (doc em `docs/context/auth.
 
 ## Pré-requisitos
 
-Node 22.23.4 (`.nvmrc`) e `pnpm install` feito na raiz. O driver carrega o `typescript` da raiz; não instala nada e não escreve nada.
+Node 26.13.0 (`.nvmrc`) e `pnpm install` feito na raiz. O driver carrega o `typescript` da raiz; não instala nada e não escreve nada.
 
 ## Passo a passo
 

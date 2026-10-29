@@ -63,7 +63,7 @@ Splash (`desktop/src/`): `splash-title-bar.ts` (`splashTitleBarOf` + `wireSplash
 
 `OpenExternal` abre no app padrão do Windows pelo `tauri-plugin-opener` e cancela a navegação. Fora o `ChatWindow`, nova janela é sempre `NewWindowResponse::Deny`. O crédito do desenvolvedor (`developer-credit.tsx`) cai no `OpenExternal`.
 
-**Janela do chat — a única 2ª janela**: o `window.open('/chat-window.html', …)` do "Abrir em outra janela" vira uma `WebviewWindow` `chat-<n>` por `NewWindowResponse::Create` (mesmo ambiente WebView2, então o `window.opener` existe e o React da `main` desenha o chat por portal nela). Só esse caminho exato da origem do app; moldura do sistema, sem IPC, o X fecha, fora do `window-state`. Detalhe e por quê: [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
+**Janelas auxiliares de Chat e Dados**: `window.open('/chat-window.html', …)` (Dados usa `?panel=dice`) cria uma `WebviewWindow` `chat-<n>` por `NewWindowResponse::Create`, no mesmo ambiente WebView2. O React da principal desenha o painel por portal. Só esse caminho exato da origem do app é aceito. A janela tem topo próprio sem moldura nativa; minimizar, maximizar/restaurar e consultar o estado usam `control_detached_window` pela principal, com validação de emissor e alvo. O X fecha; fora do `window-state`. Detalhe: [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
 
 ## Cara de app (WebView2)
 
@@ -105,7 +105,7 @@ site aberto → carga na origem do app falha (NavigationCompleted) → load_fail
 
 - `capabilities/splash.json`: janela `main`, `local: true`, `core:event:allow-listen/unlisten`, `core:window:allow-minimize/toggle-maximize/close` (a barra da splash), `allow-begin-startup`, `allow-retry-connection`. As permissões dos comandos vêm do `AppManifest` no `build.rs` — comando novo precisa entrar lá **e** na capability.
 - **Capability remota do site** (`window_controls::install`, no setup, logo depois de criar a janela): `CapabilityBuilder` + `Manager::add_capability` (feature `dynamic-acl`, padrão do `tauri`) em tempo de execução, porque a origem só existe no build. Id `app-window-controls`, janela `main`, `local(false)`, `remote` = `remote_url_pattern(&AppOrigin)` (`https://lorkarium.app/*`; no dev `http://localhost:5173/*`). Libera exatamente `REMOTE_WINDOW_PERMISSIONS`: `core:window:allow-minimize`, `-toggle-maximize`, `-close`, `-is-maximized`, `core:event:allow-listen`, `-unlisten` (o `onResized` do client). Nunca `allow-destroy` (o X só esconde), `set-*` ou `start-dragging` (o arraste é CSS); os comandos do startup ficam fora do alcance do site.
-- **Sempre por cima do chat**: capability `chat-window-controls` permite à `main` da origem do app somente `set_chat_always_on_top`; o comando confere emissor, rótulo `chat-<n>` e URL do chat na mesma origem antes de alterar a janela. Não libera setters genéricos de janela. Detalhe em [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
+- **Controles de Chat e Dados**: capability `chat-window-controls` permite à `main` da origem do app `set_chat_always_on_top` e `control_detached_window`; ambos conferem emissor, rótulo `chat-<n>` e URL auxiliar na mesma origem. O segundo aceita somente fechar, minimizar, alternar maximização e consultar maximização. Não libera setters genéricos de janela. Detalhe em [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
 - Qualquer outro `invoke` do site é recusado ("not allowed … allowed on: URL: local").
 
 ## Testes

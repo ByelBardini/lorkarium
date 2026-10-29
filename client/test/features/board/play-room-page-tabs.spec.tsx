@@ -184,6 +184,33 @@ describe('play room: the "Chat" tab and its counter', () => {
     expect(deps.chat.sent.map(({ request }) => request.text)).toEqual(['Oi!']);
   });
 
+  it('dice and chat open independent windows, keep rolling across tabs, and dock after closing', async () => {
+    await userEvent.click(screen.getByRole('tab', { name: 'Dados' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir em outra janela' }));
+    const dicePopup = deps.chatWindowHost.last();
+    dicePopup.load();
+    await waitFor(() =>
+      expect(within(dicePopup.document.body).getByLabelText('Fórmula')).toBeInTheDocument(),
+    );
+    expect(deps.chatWindowHost.calls.at(-1)?.url).toBe('/chat-window.html?panel=dice');
+    expect(dicePopup.document.title).toBe('Dados · Lorkarium');
+    await userEvent.click(screen.getByRole('tab', { name: 'Chat' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir em outra janela' }));
+    const chatPopup = deps.chatWindowHost.last();
+    chatPopup.load();
+    await waitFor(() =>
+      expect(within(chatPopup.document.body).getByRole('log')).toBeInTheDocument(),
+    );
+    expect(deps.chatWindowHost.calls[0]?.name).not.toBe(deps.chatWindowHost.calls[1]?.name);
+    await userEvent.type(within(dicePopup.document.body).getByLabelText('Fórmula'), '1d20');
+    await userEvent.click(within(dicePopup.document.body).getByRole('button', { name: 'Rolar' }));
+    expect(deps.dice.sent).toHaveLength(1);
+    await userEvent.click(screen.getByRole('tab', { name: 'Dados' }));
+    dicePopup.closeByUser();
+    await waitFor(() => expect(screen.getByLabelText('Fórmula')).toBeInTheDocument());
+    expect(chatPopup.closed).toBe(false);
+  });
+
   it('the separate chat stays live after switching tabs and returns when brought back', async () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Chat' }));
     await userEvent.click(screen.getByRole('button', { name: 'Abrir em outra janela' }));

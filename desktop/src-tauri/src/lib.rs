@@ -39,7 +39,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             startup_commands::begin_startup,
             startup_commands::retry_connection,
-            chat_window_controls::set_chat_always_on_top
+            chat_window_controls::set_chat_always_on_top,
+            chat_window_controls::control_detached_window
         ])
         .setup(move |app| open_main_window(app.handle(), app_origin.clone()))
         .run(tauri::generate_context!())

@@ -4,6 +4,8 @@
 
 ## Aba "Dados" (`src/features/dice/`)
 
+“Abrir em outra janela” (ícone discreto à direita das abas, visível com Dados selecionado, sem linha extra acima da bandeja) destaca o painel inteiro (bandeja, salvas e histórico). A sala mantém `useRoomDiceWindow` montado ao trocar de aba, recolher o painel ou usar o modo foco. A janela tem o topo compartilhado com o chat, controles nativos na casca nova e “Sempre por cima” no aplicativo. X ou “Trazer de volta” devolve Dados à sala; bloqueio do navegador conserva o painel e mostra aviso. Chat e Dados usam nomes de janela diferentes e podem abrir juntos. Detalhe: [`chat-janela.md`](chat-janela.md).
+
 A terceira aba do painel da sala (`room-panel.tsx`, valor `dice`): `DicePanel({ campaignId, role, sessionStore, openTables, presence, services })`, com `services` = `{ dice, savedRolls, diceClock }` do `AppDependencies`. De cima para baixo: "Montar rolagem", as salvas e o histórico. "Dados 3D" e a aparência do dado ficam só em "Minha conta". **Espectador** (`watchesOnly`): só o histórico — sem bandeja, sem "Rolar de novo", e as salvas nem são listadas (o server recusaria). A aba só monta aberta (Radix).
 
 ### Bandeja, conta pura (`src/lib/dice-tray.ts`, sem DOM)

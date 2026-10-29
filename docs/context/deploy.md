@@ -8,7 +8,7 @@ Runbook de produção: **Coolify** num VPS Linux (Traefik na frente), Postgres 1
 
 ## A imagem (`Dockerfile` na raiz)
 
-- Multi-estágio em `node:22-bookworm-slim` (glibc: `sharp` e `argon2` têm binário nativo glibc, nada de Alpine). O build gera `client/dist` (Vite) e `server/dist` (`index.mjs` e `deploy-migrate.mjs`, com os `@lorkarium/*` no bundle); o runtime leva só isso, `server/drizzle/` e as dependências de produção do server.
+- Multi-estágio em `node:26.13.0-bookworm-slim` (glibc: `sharp` e `argon2` têm binário nativo glibc, nada de Alpine). O build gera `client/dist` (Vite) e `server/dist` (`index.mjs` e `deploy-migrate.mjs`, com os `@lorkarium/*` no bundle); o runtime leva só isso, `server/drizzle/` e as dependências de produção do server.
 - Runtime: `WORKDIR /app/server`, `ENV NODE_ENV=production CLIENT_DIST_DIR=/app/client/dist PORT=3333`, `USER node`, `EXPOSE 3333`.
 - `HEALTHCHECK` por `node -e "fetch('http://127.0.0.1:3333/api/health')…"` (não há `curl` na imagem). É ele que o Coolify usa para trocar o container.
 - `CMD sh -c "node dist/deploy-migrate.mjs && exec node dist/index.mjs"`: migra no início do container, depois sobe o server. Migração que falha sai com 1 e o server nem sobe. O `exec` deixa o Node como PID 1, para o SIGTERM do `docker stop` chegar ao `app.close()`.
@@ -117,7 +117,7 @@ O primeiro deploy migra o banco vazio inteiro (as `0000…` de `server/drizzle/`
 
 A landing de `site/` ([`site.md`](site.md)) é outra Application do Coolify, no mesmo repositório e servidor.
 
-- Build Pack **Dockerfile**, Dockerfile `/site/Dockerfile`, Base Directory `/` (o build precisa de `packages/brand` e `packages/tsconfig`). Imagem: build em `node:22-bookworm-slim`, runtime `caddy:2-alpine` servindo `/srv` na **porta 80** como `nobody` (o binário do Caddy tem `cap_net_bind_service`), sem TLS (é do Traefik), admin e autosave desligados (`site/Caddyfile`).
+- Build Pack **Dockerfile**, Dockerfile `/site/Dockerfile`, Base Directory `/` (o build precisa de `packages/brand` e `packages/tsconfig`). Imagem: build em `node:26.13.0-bookworm-slim`, runtime `caddy:2-alpine` servindo `/srv` na **porta 80** como `nobody` (o binário do Caddy tem `cap_net_bind_service`), sem TLS (é do Traefik), admin e autosave desligados (`site/Caddyfile`).
 - _Watch Paths_ `site/**` e `packages/brand/**`: push só no app não reconstrói a landing, e vice-versa.
 - _Domains_ `https://lorkarium.<tld>` e `https://www.lorkarium.<tld>` (redirecionando para a raiz); o app segue em `mesa.`. DNS: registro `A` da raiz (e do `www`) para o VPS, como o do app.
 - Envs como **Build Variables** (ao contrário das do app: o `astro:env` embute no build, trocar = rebuild): `SITE_URL`, `PUBLIC_APP_URL` (o `APP_PUBLIC_URL` do app), `PUBLIC_CONTACT_EMAIL`. **Não** passe `LEGAL_DRAFTS_ALLOWED`: Termos/Privacidade em rascunho derrubam o build de produção (só o CI passa `true`).

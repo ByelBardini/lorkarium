@@ -1,4 +1,4 @@
-import { PanelRightCloseIcon, PanelRightOpenIcon } from 'lucide-react';
+import { ExternalLinkIcon, PanelRightCloseIcon, PanelRightOpenIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -49,6 +49,7 @@ export type RoomPanelProps = Readonly<{
   chat: ChatCommands;
   /** Phase 11: the chat docked here (with "Abrir em outra janela") or in another window. */
   chatWindow?: ChatWindowSlot | null;
+  diceWindow?: ChatWindowSlot | null;
 }>;
 
 const PANEL_TITLE = 'Painel da mesa';
@@ -107,18 +108,32 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
       }}
       className="min-h-0 flex-1 px-4"
     >
-      <TabsList>
-        <TabsTrigger value="combat">Combate</TabsTrigger>
-        <TabsTrigger value="people">
-          Na mesa
-          {table && <OnlinePill presence={table.presence} />}
-        </TabsTrigger>
-        <TabsTrigger value="dice">Dados</TabsTrigger>
-        <TabsTrigger value="chat" aria-describedby={unread.describedBy}>
-          Chat
-          {unread.mark}
-        </TabsTrigger>
-      </TabsList>
+      <div className="flex items-center gap-1 border-b border-border">
+        <TabsList className="min-w-0 flex-1 border-b-0">
+          <TabsTrigger value="combat">Combate</TabsTrigger>
+          <TabsTrigger value="people">
+            Na mesa
+            {table && <OnlinePill presence={table.presence} />}
+          </TabsTrigger>
+          <TabsTrigger value="dice">Dados</TabsTrigger>
+          <TabsTrigger value="chat" aria-describedby={unread.describedBy}>
+            Chat
+            {unread.mark}
+          </TabsTrigger>
+        </TabsList>
+        {tab === 'dice' && props.diceWindow?.kind === 'docked' && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Abrir em outra janela"
+            title="Abrir Dados em outra janela"
+            onClick={props.diceWindow.open}
+            className="shrink-0 text-muted-foreground"
+          >
+            <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
+          </Button>
+        )}
+      </div>
       <TabsContent value="combat" className="flex flex-col py-4">
         {table && (
           <CombatPanel
@@ -143,12 +158,37 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
         )}
       </TabsContent>
       <TabsContent value="dice" className="-mx-1 overflow-y-auto px-1 py-4">
-        <DicePanel {...props.dice} presence={table?.presence ?? null} />
+        <RoomDice {...props} />
       </TabsContent>
       <TabsContent value="chat" className="flex flex-col max-md:h-[60svh]">
         <RoomChat {...props} />
       </TabsContent>
     </Tabs>
+  );
+}
+
+function RoomDice({ dice, table, diceWindow }: RoomPanelProps): React.JSX.Element {
+  if (diceWindow?.kind === 'detached')
+    return (
+      <section
+        aria-label="Dados"
+        className="flex flex-col items-start gap-3 py-6 text-sm text-muted-foreground"
+      >
+        <p>Dados abertos em outra janela</p>
+        <Button variant="outline" size="sm" onClick={diceWindow.bringBack}>
+          Trazer de volta
+        </Button>
+      </section>
+    );
+  return (
+    <>
+      {diceWindow?.kind === 'docked' && diceWindow.notice && (
+        <p role="status" className="mb-3 text-xs text-muted-foreground">
+          {diceWindow.notice}
+        </p>
+      )}
+      <DicePanel {...dice} presence={table?.presence ?? null} />
+    </>
   );
 }
 

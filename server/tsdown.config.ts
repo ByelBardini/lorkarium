@@ -6,7 +6,7 @@ export default defineConfig({
   entry: ['src/index.ts', 'src/deploy-migrate.ts'],
   format: 'esm',
   platform: 'node',
-  target: 'node22',
+  target: 'node26',
   outDir: 'dist',
   sourcemap: true,
   dts: false,

@@ -44,8 +44,7 @@ pub fn open<R: Runtime>(
     }
 }
 
-// System frame on purpose: the client only portals the chat panel into this page (no title bar of its own, and
-// no IPC for the window controls), so the native frame is what lets the window move, resize and close.
+// The opener draws the title bar and invokes the narrowly scoped auxiliary controls.
 fn build<R: Runtime>(
     app: &AppHandle<R>,
     features: NewWindowFeatures,
@@ -55,10 +54,11 @@ fn build<R: Runtime>(
     // about:blank is not loaded by the runtime: WebView2 navigates the new window to the requested page itself.
     let blank = WebviewUrl::External(Url::parse("about:blank").expect("URL fixa about:blank"));
     let marker = format!(
-        "Object.defineProperty(window, '__LORKARIUM_CHAT_WINDOW_LABEL__', {{ value: {label:?} }});"
+        "Object.defineProperty(window, '__LORKARIUM_CHAT_WINDOW_LABEL__', {{ value: {label:?} }}); Object.defineProperty(window, '__LORKARIUM_DETACHED_TITLE_BAR__', {{ value: true }});"
     );
     let window = WebviewWindowBuilder::new(app, label, blank)
         .title(CHAT_WINDOW_TITLE)
+        .decorations(false)
         .inner_size(CHAT_WINDOW_SIZE.0, CHAT_WINDOW_SIZE.1)
         .min_inner_size(CHAT_WINDOW_MIN_SIZE.0, CHAT_WINDOW_MIN_SIZE.1)
         .theme(Some(Theme::Dark))

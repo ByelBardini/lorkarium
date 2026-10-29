@@ -28,18 +28,20 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 
 `pnpm build` roda o `build` de cada workspace: client (`tsc && vite build` → `client/dist/`) e server (`tsdown` → `server/dist/index.mjs` e `server/dist/deploy-migrate.mjs`, com um chunk comum, + sourcemap). Config em `server/tsdown.config.ts`:
 
-- ESM, `platform: 'node'`, alvo `node22`, entradas `src/index.ts` e `src/deploy-migrate.ts`.
+- ESM, `platform: 'node'`, alvo `node26`, entradas `src/index.ts` e `src/deploy-migrate.ts`.
 - `@lorkarium/*` vão **dentro** do bundle (`deps.alwaysBundle`): os pacotes internos exportam `.ts` cru, que o Node não carrega de `node_modules`.
 - As outras dependências ficam externas (inclusive o binário nativo do `@node-rs/argon2`): o deploy precisa do `node_modules` de produção do server ao lado do `dist/`.
 - O `src/database/migrate.ts` entra no bundle pelo `deploy-migrate.mjs`: em produção a migração é ele, no início do container, sem `drizzle-kit` (ver `server/scripts.md`).
 
 ## Imagem de produção (`Dockerfile`)
 
-`Dockerfile` e `.dockerignore` na raiz (detalhe e runbook em [`deploy.md`](deploy.md)). Estágios em `node:22-bookworm-slim`: `build` (`pnpm install --frozen-lockfile` só de `.`, `@lorkarium/client...` e `@lorkarium/server...`, cache do store por `--mount=type=cache`; build do client e do server), `prod-deps` (`pnpm --filter @lorkarium/server deploy --prod --legacy /out`: o pnpm 11 pede `--legacy` sem `inject-workspace-packages`) e `runtime` (`node_modules` de produção, `server/dist`, `server/drizzle`, `client/dist`; `USER node`; `HEALTHCHECK` por `fetch`; `CMD` migra e `exec` o server). O `.dockerignore` leva só o `package.json` do `e2e/` e do `desktop/`: o lockfile cita os dois workspaces.
+`Dockerfile` e `.dockerignore` na raiz (detalhe e runbook em [`deploy.md`](deploy.md)). Estágios em `node:26.13.0-bookworm-slim`: `build` (`pnpm install --frozen-lockfile` só de `.`, `@lorkarium/client...` e `@lorkarium/server...`, cache do store por `--mount=type=cache`; build do client e do server), `prod-deps` (`pnpm --filter @lorkarium/server deploy --prod --legacy /out`: o pnpm 11 pede `--legacy` sem `inject-workspace-packages`) e `runtime` (`node_modules` de produção, `server/dist`, `server/drizzle`, `client/dist`; `USER node`; `HEALTHCHECK` por `fetch`; `CMD` migra e `exec` o server). O `.dockerignore` leva só o `package.json` do `e2e/` e do `desktop/`: o lockfile cita os dois workspaces.
+
+Node **26.13.0 LTS**, alinhado com `.nvmrc` e `engines`, inclui a correção do Brotli (CVE-2026-111497) publicada no 26.12.1. Os Dockerfiles fixam a versão completa e instalam `pnpm@11.9.0` pelo npm: Node 26 não distribui Corepack.
 
 ## Pipeline (`.github/workflows/ci.yml`)
 
-Roda **só** em `pull_request`: a `main` é protegida (PR + `ci-ok`), então um run no `push` do merge repetiria os mesmos checks. `permissions: contents: read`; `concurrency` por ref, cancelando o run antigo do PR. Todo job começa com `actions/checkout` + o composite `./.github/actions/setup` (pnpm pelo `packageManager`, Node pelo `.nvmrc` (versão exata `22.23.4`, o mínimo do Astro), cache do store, `pnpm install --frozen-lockfile` com `HUSKY=0`).
+Roda **só** em `pull_request`: a `main` é protegida (PR + `ci-ok`), então um run no `push` do merge repetiria os mesmos checks. `permissions: contents: read`; `concurrency` por ref, cancelando o run antigo do PR. Todo job começa com `actions/checkout` + o composite `./.github/actions/setup` (pnpm pelo `packageManager`, Node pelo `.nvmrc` (versão exata `26.13.0`, LTS com as correções de segurança de outubro de 2026), cache do store, `pnpm install --frozen-lockfile` com `HUSKY=0`).
 
 | Job                | Comando                                                                                                                                                                                                                                                                             | O que barra                                                                                     |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |

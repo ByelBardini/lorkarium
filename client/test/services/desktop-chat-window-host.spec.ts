@@ -40,6 +40,32 @@ describe('TauriChatWindowHost', () => {
     return { popup, opener, handle };
   }
 
+  it('exposes custom controls only for a shell that draws the detached title bar', async () => {
+    const { popup, handle } = openNative();
+    expect(handle.desktopWindow).toBeNull();
+    Object.defineProperty(popup.document.defaultView, '__LORKARIUM_DETACHED_TITLE_BAR__', {
+      value: true,
+    });
+    const controls = handle.desktopWindow;
+    expect(controls).not.toBeNull();
+    await controls?.minimize();
+    await controls?.toggleMaximize();
+    await controls?.isMaximized();
+    expect(calls.map(({ args }) => args)).toEqual([
+      { label: 'chat-7', action: 'minimize' },
+      { label: 'chat-7', action: 'toggle-maximize' },
+      { label: 'chat-7', action: 'is-maximized' },
+    ]);
+    expect(calls.every(({ command }) => command === 'control_detached_window')).toBe(true);
+    await controls?.close();
+    expect(calls.at(-1)).toEqual({
+      command: 'control_detached_window',
+      args: { label: 'chat-7', action: 'close' },
+    });
+    expect(handle.closed).toBe(true);
+    expect(popup.closes).toBe(0);
+  });
+
   it('pins and unpins only the label provided by the native chat window', async () => {
     const { handle } = openNative();
 

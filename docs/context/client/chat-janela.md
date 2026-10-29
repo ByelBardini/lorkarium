@@ -24,6 +24,12 @@
 
 ## Integração na sala
 
+Dados também abre em janela própria: `useRoomDiceWindow` usa o mesmo host, portal e ciclo de vida (`useChatWindow(campaignId, host, 'dice')`), com `/chat-window.html?panel=dice` e nome `lorkarium-dice-<campaignId>`. Chat e Dados podem ficar abertos ao mesmo tempo, inclusive ao trocar a aba da sala, recolher o painel ou entrar no modo foco. O histórico e os comandos continuam nas mesmas stores e conexão da sala. Fechar pelo X ou usar “Trazer de volta” devolve o painel à sala.
+
+`DetachedWindowFrame` desenha o topo compartilhado (marca, nome do painel e, na casca nova, controles Minimizar/Maximizar/Fechar) e a opção “Sempre por cima”. O título e `--title-bar-height` são definidos no documento do popup, para os portais de diálogos respeitarem o topo. `ChatWindowHandle.desktopWindow` só existe com a marca nativa `__LORKARIUM_DETACHED_TITLE_BAR__`; a casca anterior conserva a moldura do sistema. `DetachedDesktopWindow` executa os controles pela IPC da principal, com o rótulo da janela auxiliar, e segue o resize do popup para o ícone Maximizar/Restaurar.
+
+`ChatWindowHandle.close()` pode devolver uma promessa na casca nova. “Trazer de volta” mantém o portal montado enquanto ela não resolve; rejeição conserva o painel na janela. O adaptador usa o comando nativo `close`, compartilha o fechamento em andamento e marca seu handle fechado ao confirmar. O X do topo usa a mesma operação; o polling nota o fechamento e devolve o painel. O navegador continua com `Window.close()` síncrono.
+
 `use-room-chat-window.tsx` liga o ciclo da janela ao `PlayRoomPage`, que recebe `chatWindowHost` pela rota da campanha. O hook monta `ChatPanel` no `ChatWindowPortal` e fornece o slot docked/detached ao `RoomSidePanel`. Assim a janela continua viva ao trocar a aba do painel, recolhê-lo ou ativar o modo foco. A conversa mostrada na janela fica ativa na mesma store: mensagens vistas ali não aumentam o contador da sala; as outras conversas continuam contando normalmente.
 
 O painel na sala mostra "Chat aberto em outra janela · Trazer de volta"; ao trazer de volta, a janela fecha e a aba monta o chat com o mesmo histórico. Bloqueio do navegador mantém o chat na aba com aviso. A janela fecha ao sair da sala ou no `pagehide` da principal.
@@ -38,6 +44,8 @@ O caso integrado em `test/features/board/play-room-page-tabs.spec.tsx` prova env
 - Lido no código do Radix e **não verificado**: o `FocusScope` (diálogo) lê o `document.activeElement` global; a volta do Tab no fim do diálogo e a retenção do foco não valem na janela do chat (o foco inicial e o retorno ao gatilho pelo Esc funcionaram).
 
 ## Testes
+
+`test/features/chat/detached-window-frame.spec.tsx` cobre o título no documento correto, offset dos diálogos e os três controles nativos (inclusive Restaurar). O caso integrado de Chat e Dados em `play-room-page-tabs.spec.tsx` cobre janelas simultâneas, rolagem pela janela de Dados após trocar a aba da sala e retorno pelo X sem fechar o chat. `e2e/test/dice.spec.ts` prova o mesmo fluxo com popups Chromium reais e total sincronizado com outro participante via servidor.
 
 Validação real em 2026-10-28: o e2e `chat.spec.ts` passou com popup Chromium, envio público/privado, diálogo dentro da janela, troca de aba na sala e retorno pelo X. O smoke CDP no WebView2, com `useChatWindow`, `BrowserChatWindowHost` e `ChatWindowPortal` reais, confirmou `window.opener`, portal React, cópia de estilos, clique chamando callback na principal e `detached → docked` ao fechar; esse smoke isolado não usou Socket.IO.
 
