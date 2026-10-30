@@ -1,4 +1,6 @@
 import { HttpImagePresentationApi } from '@/services/image-presentation-api';
+import { HttpDocumentsApi } from '@/services/documents-api';
+import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
 import { StrictMode } from 'react';
 import { browserClock, browserWallClock } from '@/lib/interaction-clock';
 import { createRoot } from 'react-dom/client';
@@ -71,6 +73,8 @@ const perfProbe =
 const auraMotion = createAuraMotionStore(browserStorage);
 const transport = new FetchHttpTransport();
 const imagePresentationApi = new HttpImagePresentationApi(transport);
+const documentsApi = new HttpDocumentsApi(transport);
+const documentWorkspace = createDocumentWorkspaceStore({ api: documentsApi, clock: browserClock });
 const newActionId = (): string => crypto.randomUUID();
 // One socket for every open table: the session, the board sync and the board commands.
 const realtime = new SocketIoRealtimeTransport();
@@ -94,6 +98,8 @@ const router = createBrowserRouter(
     userAdminApi: new HttpUserAdminApi(transport),
     accountLinksApi: new HttpAccountLinksApi(transport),
     libraryApi: new HttpLibraryApi(transport),
+    documentsApi,
+    documentWorkspace,
     imagePresentationApi,
     sceneActivation: new RealtimeSceneActivation(realtime, newActionId),
     assets: new HttpAssetsApi(transport),

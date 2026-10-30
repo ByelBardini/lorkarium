@@ -27,6 +27,7 @@ import { SPECTATOR_BADGE } from './board-messages';
 import { RoomMoreMenu } from './room-more-menu';
 import { PanelToggle } from './room-panel';
 import { SceneTabs } from './scene-tabs';
+import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
 
 export type RoomHeaderProps = Readonly<{
   campaign: CampaignDetailDto;
@@ -43,6 +44,7 @@ export type RoomHeaderProps = Readonly<{
   sessionStore: StoreApi<SessionStore>;
   /** Whether the room is shown (not covered by a page), so the desktop title bar can host it. */
   inTitleBar: boolean;
+  documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
 }>;
 
 /** The 48px top bar of the room: name (and the "Espectador" badge of whoever only watches), who is online, the open grid tabs, the code (master
@@ -62,6 +64,7 @@ export function RoomHeader({
   clipboard,
   sessionStore,
   inTitleBar,
+  documentWorkspace,
 }: RoomHeaderProps): React.JSX.Element | null {
   const leaveTable = useLeaveTable(openTables);
   const session = useSession(sessionStore);
@@ -81,8 +84,9 @@ export function RoomHeader({
         <OnlineCount presence={presence} onShow={() => roomLayout.getState().showTab('people')} />
       )}
       {tabs && (
-        <div data-app-region="no-drag" className="flex min-w-0">
-          <SceneTabs tabs={tabs} />
+        // Fills the bar so the tabs know their room; only the tabs themselves stop the window drag.
+        <div className="flex min-w-0 flex-1">
+          <SceneTabs tabs={tabs} documents={documentWorkspace} campaignId={campaign.id} />
         </div>
       )}
       {board && (

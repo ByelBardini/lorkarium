@@ -9,11 +9,12 @@ import {
   FolderOpenIcon,
   LayoutGridIcon,
   ImageIcon,
+  FileTextIcon,
   LockIcon,
   UsersIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { imageIdOf, type LibraryEntry } from '@/lib/library-entries';
+import { documentIdOf, imageIdOf, type LibraryEntry } from '@/lib/library-entries';
 import type { FolderNode } from '@/lib/folder-tree';
 import { cn } from '@/lib/utils';
 import { folderDescription, sceneDescription } from './library-messages';
@@ -150,7 +151,8 @@ function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Elem
     <>
       {scenes.map((scene) => {
         const image = 'asset' in scene;
-        const isGroupGrid = !image && scene.id === context.groupSceneId;
+        const document = 'kind' in scene && scene.kind === 'document';
+        const isGroupGrid = !image && !document && scene.id === context.groupSceneId;
         return (
           <TreeRow
             key={scene.id}
@@ -159,13 +161,25 @@ function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Elem
             label={scene.name}
             level={level}
             description={
-              image
-                ? `Imagem · ${scene.visibility === 'public' ? 'Público' : 'Privado'}`
-                : `Grid · ${sceneDescription(scene, context.now, isGroupGrid, context.playersOnline)}`
+              document
+                ? `Documento · ${scene.visibility === 'public' ? 'Público' : 'Privado'}`
+                : image
+                  ? `Imagem · ${scene.visibility === 'public' ? 'Público' : 'Privado'}`
+                  : 'widthCells' in scene
+                    ? `Grid · ${sceneDescription(scene, context.now, isGroupGrid, context.playersOnline)}`
+                    : 'Documento'
             }
             live={isGroupGrid}
             isPrivate={scene.visibility === 'private'}
-            icon={image ? <ImageIcon aria-hidden="true" /> : <LayoutGridIcon aria-hidden="true" />}
+            icon={
+              document ? (
+                <FileTextIcon aria-hidden="true" />
+              ) : image ? (
+                <ImageIcon aria-hidden="true" />
+              ) : (
+                <LayoutGridIcon aria-hidden="true" />
+              )
+            }
           />
         );
       })}
@@ -287,7 +301,15 @@ function ItemRename({ context, itemKey, label }: TreeRowLineProps): React.JSX.El
   return (
     <span className="min-w-0 flex-1">
       <RenameField
-        label={imageIdOf(itemKey) ? 'Nome da imagem' : isScene ? 'Nome do grid' : 'Nome da pasta'}
+        label={
+          documentIdOf(itemKey)
+            ? 'Nome do documento'
+            : imageIdOf(itemKey)
+              ? 'Nome da imagem'
+              : isScene
+                ? 'Nome do grid'
+                : 'Nome da pasta'
+        }
         confirmed={label}
         maxLength={
           isScene || imageIdOf(itemKey) ? SCENE_NAME_MAX_LENGTH : SCENE_FOLDER_NAME_MAX_LENGTH

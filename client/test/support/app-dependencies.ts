@@ -1,4 +1,6 @@
 import { ImagePresentationApiFake } from './image-presentation-api-fake';
+import { DocumentsApiFake } from './documents-api-fake';
+import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
 import type { AppDependencies } from '@/app/router';
 import { tabInteractionFactory } from '@/features/board/tab-interaction';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
@@ -48,6 +50,7 @@ export type TestDependencies = AppDependencies & {
   userAdminApi: UserAdminApiFake;
   accountLinksApi: AccountLinksApiFake;
   libraryApi: LibraryApiFake;
+  documentsApi: DocumentsApiFake;
   imagePresentationApi: ImagePresentationApiFake;
   sceneActivation: SceneActivationFake;
   assets: AssetsApiFake;
@@ -123,6 +126,7 @@ export function testDependencies(): TestDependencies {
   const auraMotionStorage = new StorageFake();
   const dicePreferencesStorage = new StorageFake();
   const interactionClock = new InteractionClockFake();
+  const documentsApi = new DocumentsApiFake();
   const boardRenderers = new BoardRenderersFake();
   const diceRenderers = new DiceRenderersFake();
   const diceSounds = new DiceSoundsFake();
@@ -141,6 +145,8 @@ export function testDependencies(): TestDependencies {
     userAdminApi: new UserAdminApiFake(TEST_NOW),
     accountLinksApi: new AccountLinksApiFake(),
     libraryApi: new LibraryApiFake(),
+    documentsApi,
+    documentWorkspace: createDocumentWorkspaceStore({ api: documentsApi, clock: interactionClock }),
     imagePresentationApi,
     sceneActivation: new SceneActivationFake(),
     assets: new AssetsApiFake(),

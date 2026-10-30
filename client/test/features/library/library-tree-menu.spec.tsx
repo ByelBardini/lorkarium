@@ -49,6 +49,7 @@ describe('the context menu of the library tree', () => {
       expect(menuItemNames(await openTreeMenu(treeItem('Ato 1')))).toEqual([
         'Novo grid aqui',
         'Nova imagem aqui',
+        'Novo documento aqui',
         'Nova pasta aqui',
         'Renomear',
         'Mover para…',
@@ -71,12 +72,14 @@ describe('the context menu of the library tree', () => {
       expect(menuItemNames(await openTreeMenu(treeItem('Sem pasta')))).toEqual([
         'Novo grid',
         'Nova imagem',
+        'Novo documento',
         'Nova pasta',
       ]);
       await userEvent.keyboard('{Escape}');
       expect(menuItemNames(await openTreeMenu(treeArea()))).toEqual([
         'Novo grid',
         'Nova imagem',
+        'Novo documento',
         'Nova pasta',
       ]);
     });

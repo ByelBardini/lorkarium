@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { imageIdOf, imageKey, libraryEntries } from '@/lib/library-entries';
+import {
+  documentIdOf,
+  documentKey,
+  imageIdOf,
+  imageKey,
+  libraryEntries,
+} from '@/lib/library-entries';
 import { masterLibrary } from '../support/library-fixtures';
 
 const portrait = {
@@ -12,6 +18,25 @@ const portrait = {
 };
 
 describe('mixed library entries', () => {
+  it('documents sharing an image id keep separate identities and filter independently', () => {
+    const document = {
+      id: portrait.id,
+      name: 'Carta',
+      folderId: null,
+      visibility: 'private' as const,
+      version: 0,
+      updatedAt: portrait.updatedAt,
+      canEdit: true,
+      canManage: true,
+    };
+    const entries = libraryEntries(
+      { ...masterLibrary(), images: [portrait], documents: [document] },
+      'document',
+    );
+    expect(entries).toEqual([{ ...document, id: 'document:portrait', kind: 'document' }]);
+    expect(documentIdOf(documentKey(document.id))).toBe(document.id);
+    expect(imageIdOf(documentKey(document.id))).toBeNull();
+  });
   it('images and grids sharing an id keep different tree identities', () => {
     const library = masterLibrary();
     const image = { ...portrait, id: library.scenes[0]!.id };

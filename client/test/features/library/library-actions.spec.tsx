@@ -15,6 +15,7 @@ describe('the actions of the library', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Novo grid',
+      'Novo documento',
       'Nova imagem',
       'Nova pasta',
     ]);

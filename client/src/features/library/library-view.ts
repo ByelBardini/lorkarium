@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { imageIdOf, type MixedLibrary, type LibraryTypeFilter } from '@/lib/library-entries';
+import {
+  documentIdOf,
+  imageIdOf,
+  type MixedLibrary,
+  type LibraryTypeFilter,
+} from '@/lib/library-entries';
 import type { LibraryContents, TreeFolder, TreeScene, VisibilityFilter } from '@/lib/folder-tree';
 
 /** The tree item of the grids without folder; a folder's item is its id. */
@@ -11,7 +16,9 @@ const SCENE_KEY_PREFIX = 'scene:';
  *
  *  Example: `sceneKey(ossuarioId) // 'scene:0a1b…'` */
 export function sceneKey(sceneId: string): string {
-  return sceneId.startsWith('image:') ? sceneId : `${SCENE_KEY_PREFIX}${sceneId}`;
+  return sceneId.startsWith('image:') || sceneId.startsWith('document:')
+    ? sceneId
+    : `${SCENE_KEY_PREFIX}${sceneId}`;
 }
 
 /** The grid of a tree item, or `null` for a folder, "Sem pasta" or nothing.
@@ -27,9 +34,12 @@ export function sceneIdOf(key: string | null): string | null {
  *
  *  Example: `folderForNew(library, sceneKey(ossuarioId)) // catacumbasId` */
 export function folderForNew(
-  library: LibraryContents<TreeFolder, TreeScene> & Partial<Pick<MixedLibrary, 'images'>>,
+  library: LibraryContents<TreeFolder, TreeScene> &
+    Partial<Pick<MixedLibrary, 'images' | 'documents'>>,
   key: string | null,
 ): string | null {
+  const documentId = documentIdOf(key);
+  if (documentId) return library.documents?.find(({ id }) => id === documentId)?.folderId ?? null;
   const imageId = imageIdOf(key);
   if (imageId) return library.images?.find(({ id }) => id === imageId)?.folderId ?? null;
   const sceneId = sceneIdOf(key);

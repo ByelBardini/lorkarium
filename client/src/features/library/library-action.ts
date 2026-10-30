@@ -4,6 +4,7 @@ import { loginPathFor } from '@/app/route-access';
 import { tokenCommandFailureMessage } from '@/features/board/board-messages';
 import type { LibraryResult } from '@/services/library-api';
 import type { SceneActivationResult } from '@/services/scene-activation';
+import type { DocumentsResult } from '@/services/documents-api';
 import { libraryIntentDto, type LibraryIntent, type LibraryOutcome } from './library-intents';
 import { libraryFailureMessage } from './library-messages';
 
@@ -37,6 +38,20 @@ async function runIntent(
   intent: LibraryIntent,
 ): Promise<IntentAnswer> {
   const { libraryApi } = deps;
+  if (intent.intent === 'createDocument') {
+    const result = await deps.documentsApi.create(campaignId, intent.changes);
+    return result.ok
+      ? { ok: true, createdId: result.value.document.id }
+      : fromDocumentFailure(result);
+  }
+  if (intent.intent === 'updateDocument') {
+    const result = await deps.documentsApi.update(campaignId, intent.documentId, intent.changes);
+    return result.ok ? { ok: true, createdId: null } : fromDocumentFailure(result);
+  }
+  if (intent.intent === 'removeDocument') {
+    const result = await deps.documentsApi.remove(campaignId, intent.documentId, intent.changes);
+    return result.ok ? { ok: true, createdId: null } : fromDocumentFailure(result);
+  }
   if (intent.intent === 'activateScene') {
     const scope = { campaignId, sceneId: intent.sceneId };
     return fromActivation(await deps.sceneActivation.activate(scope));
@@ -59,6 +74,19 @@ async function runIntent(
   if (intent.intent === 'removeImage')
     return fromLibrary(await libraryApi.removeImage(campaignId, intent.imageId), false);
   return runSceneIntent(deps, campaignId, intent);
+}
+
+function fromDocumentFailure(result: Extract<DocumentsResult<never>, { ok: false }>): IntentAnswer {
+  const kind = result.failure.kind;
+  const message =
+    kind === 'conflict'
+      ? 'O documento mudou. Confira a versão atual antes de tentar novamente.'
+      : kind === 'offline'
+        ? 'Sem conexão. Tente novamente quando a mesa reconectar.'
+        : kind === 'forbidden'
+          ? 'Você não tem permissão para alterar este documento.'
+          : 'Não foi possível alterar o documento.';
+  return { ok: false, message, signedOut: kind === 'unauthenticated' };
 }
 
 async function runSceneIntent(

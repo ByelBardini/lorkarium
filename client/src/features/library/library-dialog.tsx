@@ -1,5 +1,10 @@
 import type { CampaignDetailDto, CampaignLibraryDto } from '@lorkarium/contracts';
-import { Suspense, use } from 'react';
+import { Suspense, use, useCallback, useRef } from 'react';
+import type { DocumentsApi } from '@/services/documents-api';
+import type { InteractionClock } from '@/lib/interaction-clock';
+import type { Clipboard } from '@/services/clipboard';
+import type { ChatWindowHost } from '@/services/chat-window-host';
+import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
 import { useRevalidator } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { SignedOutRedirect } from '@/components/signed-out-redirect';
@@ -25,6 +30,12 @@ export type LibraryDialogProps = Readonly<{
   assets: AssetsApi;
   api: LibraryApi;
   presentations: ImagePresentationApi;
+  documentsApi: DocumentsApi;
+  clock: InteractionClock;
+  clipboard: Clipboard;
+  documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
+  chatWindowHost?: ChatWindowHost;
+  onRegisterLeave?: (guard: (() => Promise<boolean>) | null) => void;
   onClose: () => void;
 }>;
 
@@ -34,15 +45,25 @@ export type LibraryDialogProps = Readonly<{
  *  Example: `<LibraryDialog campaign={campaign} library={promise} tableView={view} sessionStore={sessionStore} now={now} onClose={back} />` */
 export function LibraryDialog(props: LibraryDialogProps): React.JSX.Element {
   useRevalidateOnLibraryChange(props.tableView.table?.tabs ?? null);
+  const leaveGuard = useRef<(() => Promise<boolean>) | null>(null);
+  const onRegisterLeave = useCallback((guard: (() => Promise<boolean>) | null) => {
+    leaveGuard.current = guard;
+  }, []);
+  const close = (): void => {
+    void (async () => {
+      if (!leaveGuard.current || (await leaveGuard.current())) props.onClose();
+    })();
+  };
+  const guardedProps = { ...props, onClose: close, onRegisterLeave };
   return (
-    <Dialog open onOpenChange={(open) => !open && props.onClose()}>
+    <Dialog open onOpenChange={(open) => !open && close()}>
       <DialogContent
         showCloseButton={false}
         onEscapeKeyDown={keepOpenWhileEditing}
         className="flex h-[90svh] w-[calc(100%_-_2rem)] max-w-[1360px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1360px]"
       >
-        <Suspense fallback={<LibraryLoading {...props} />}>
-          <LoadedLibrary {...props} />
+        <Suspense fallback={<LibraryLoading {...guardedProps} />}>
+          <LoadedLibrary {...guardedProps} />
         </Suspense>
       </DialogContent>
     </Dialog>

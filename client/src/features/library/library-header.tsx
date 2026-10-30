@@ -79,6 +79,7 @@ function SearchAndFilter({ controls }: Readonly<{ controls: LibraryControls }>) 
           <option value="all">Todos os tipos</option>
           <option value="grid">Grids</option>
           <option value="image">Imagens</option>
+          <option value="document">Documentos</option>
         </select>
       )}
       {controls.visibility && (

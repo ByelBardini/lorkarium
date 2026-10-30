@@ -3,6 +3,9 @@ import {
   updateLibraryImageRequestDto,
   updateLibrarySceneRequestDto,
   updateSceneFolderRequestDto,
+  createDocumentRequestDto,
+  updateDocumentRequestDto,
+  deleteDocumentRequestDto,
 } from '@lorkarium/contracts';
 import { z } from 'zod';
 
@@ -10,6 +13,17 @@ const id = z.string().min(1);
 
 /** What the library screen asks of its route `action` (sent as JSON by the library fetcher). */
 export const libraryIntentDto = z.discriminatedUnion('intent', [
+  z.strictObject({ intent: z.literal('createDocument'), changes: createDocumentRequestDto }),
+  z.strictObject({
+    intent: z.literal('updateDocument'),
+    documentId: id,
+    changes: updateDocumentRequestDto,
+  }),
+  z.strictObject({
+    intent: z.literal('removeDocument'),
+    documentId: id,
+    changes: deleteDocumentRequestDto,
+  }),
   z.strictObject({ intent: z.literal('createScene'), folderId: id.nullable() }),
   z.strictObject({
     intent: z.literal('updateScene'),

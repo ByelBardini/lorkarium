@@ -1,0 +1,110 @@
+.document-prose {
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.document-prose > * + * {
+  margin-top: 0.35em;
+}
+.document-prose h1 {
+  font-size: 2em;
+  font-weight: 700;
+}
+.document-prose h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+}
+.document-prose h3 {
+  font-size: 1.25em;
+  font-weight: 700;
+}
+.document-prose ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+.document-prose ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+}
+.document-prose blockquote {
+  border-left: 2px solid var(--primary);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+}
+.document-prose a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.document-prose hr {
+  border-color: var(--divider);
+}
+.document-prose table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  min-width: 18rem;
+}
+.document-prose th,
+.document-prose td {
+  border: 1px solid var(--input);
+  min-width: 4rem;
+  padding: 0.5em;
+  vertical-align: top;
+  position: relative;
+}
+.document-prose th {
+  background: var(--panel);
+  font-weight: 600;
+}
+.document-prose .selectedCell::after {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  pointer-events: none;
+  content: '';
+}
+.document-prose .ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+}
+.document-prose img {
+  display: block;
+}
+
+.document-workspace .document-scroll {
+  background: var(--background);
+  scrollbar-gutter: stable;
+}
+.document-workspace .document-prose {
+  min-height: calc(100vh - 15rem);
+  padding: 24px 32px 64px;
+  font-size: 16px;
+}
+.document-workspace .document-prose h1,
+.document-workspace .document-prose h2,
+.document-workspace .document-prose h3 {
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+.document-workspace .document-prose h1 {
+  margin-top: 1.2em;
+}
+.document-workspace .document-prose h2 {
+  margin-top: 1.5em;
+}
+.document-workspace .document-prose blockquote {
+  margin-block: 1.5em;
+  padding-block: 0.15em;
+}
+.document-workspace .document-prose table {
+  margin-block: 1.5em;
+}
+.document-workspace .document-prose img {
+  margin-block: 1.5em;
+}
+.document-toolbar button[aria-pressed='true'] {
+  color: var(--primary);
+}
+@media (max-width: 640px) {
+  .document-workspace .document-prose {
+    padding: 16px 16px 48px;
+  }
+}

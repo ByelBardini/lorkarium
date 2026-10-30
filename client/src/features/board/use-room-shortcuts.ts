@@ -12,6 +12,7 @@ export type RoomShortcutStores = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   /** The keys of the tools this role may not pick do nothing (a spectator's B, M and C). */
   role: CampaignRoleDto;
+  enabled?: boolean;
 }>;
 
 const TOOL_OF: Partial<Record<BoardShortcut, BoardTool>> = {
@@ -34,15 +35,21 @@ const LAYER_OF: Partial<Record<BoardShortcut, TokenLayerDto>> = {
  *  and 1 2 3 for the master), except while typing or in a dialog. Ctrl/⌘+C stays the copy.
  *
  *  Example: `useRoomShortcuts({ roomLayout, interaction, role: campaign.myRole })` */
-export function useRoomShortcuts({ roomLayout, interaction, role }: RoomShortcutStores): void {
+export function useRoomShortcuts({
+  roomLayout,
+  interaction,
+  role,
+  enabled = true,
+}: RoomShortcutStores): void {
   useEffect(() => {
+    if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent): void => {
       const shortcut = shortcutFor(event);
       if (shortcut) runShortcut(shortcut, { roomLayout, interaction, role });
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [roomLayout, interaction, role]);
+  }, [roomLayout, interaction, role, enabled]);
 }
 
 function runShortcut(shortcut: BoardShortcut, stores: RoomShortcutStores): void {

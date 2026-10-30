@@ -1,7 +1,22 @@
-import { XIcon } from 'lucide-react';
+import { useRef } from 'react';
+import { ChevronDownIcon, FileTextIcon, XIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { splitTabsToFit, tabsThatFit } from '@/lib/tab-overflow';
+import { useElementWidth } from '@/lib/use-element-width';
 import { cn } from '@/lib/utils';
 import { useBoard } from '@/stores/board-store';
+import {
+  useDocumentWorkspaceSlice,
+  type DocumentWorkspaceStore,
+  type DocumentWorkspaceEntry,
+} from '@/stores/document-workspace-store';
 import {
   GROUP_TAB,
   useSceneTabs,
@@ -9,7 +24,12 @@ import {
   type SceneTabsStore,
 } from '@/stores/scene-tabs-store';
 
-export type SceneTabsProps = Readonly<{ tabs: StoreApi<SceneTabsStore> }>;
+export type SceneTabsProps = Readonly<{
+  tabs: StoreApi<SceneTabsStore>;
+  documents?: StoreApi<DocumentWorkspaceStore>;
+  campaignId?: string;
+}>;
+const NO_DOCUMENTS: readonly DocumentWorkspaceEntry[] = [];
 
 const LOADING_NAME = 'Carregando…';
 
@@ -19,29 +39,178 @@ const LOADING_NAME = 'Carregando…';
  *  server) is said in a `role="status"`.
  *
  *  Example: `<SceneTabs tabs={table.tabs} />` */
-export function SceneTabs({ tabs }: SceneTabsProps): React.JSX.Element {
+export function SceneTabs({ tabs, documents, campaignId }: SceneTabsProps): React.JSX.Element {
   const open = useSceneTabs(tabs, (state) => state.tabs);
   const visibleKey = useSceneTabs(tabs, (state) => state.visibleKey);
+  const activeDocument = useDocumentWorkspaceSlice(
+    documents,
+    (state) => state.activeByCampaign[campaignId ?? ''] ?? null,
+    null,
+  );
+  const allDocuments = useDocumentWorkspaceSlice(documents, (state) => state.entries, NO_DOCUMENTS);
+  const documentEntries = allDocuments.filter((entry) => entry.campaign.id === campaignId);
+  const strip = useRef<HTMLDivElement>(null);
+  const width = useElementWidth(strip);
+  const keys = [...open.map((tab) => tab.key), ...documentEntries.map((entry) => entry.key)];
+  const fit = tabsThatFit({
+    width,
+    count: keys.length,
+    minWidth: TAB_MIN_WIDTH,
+    moreWidth: MORE_BUTTON_WIDTH,
+  });
+  const split = splitTabsToFit(keys, fit, [GROUP_TAB, activeDocument ?? visibleKey]);
+  const showScene = (key: string): void => {
+    if (campaignId) documents?.getState().activate(campaignId, null);
+    tabs.getState().show(key);
+  };
+  const showDocument = (entry: DocumentWorkspaceEntry): void =>
+    documents?.getState().activate(entry.campaign.id, entry.key);
+  const isShown = (key: string): boolean => split.shown.includes(key);
   return (
-    <div className="flex min-w-0 items-center gap-3">
+    <div ref={strip} className="flex min-w-0 flex-1 items-center gap-3">
       <div
         role="tablist"
         aria-label="Grids abertos"
+        data-app-region="no-drag"
         onKeyDown={moveFocusAlongTabs}
-        className="flex min-w-0 items-center gap-1 overflow-x-auto"
+        className="flex min-w-0 items-center gap-1 overflow-hidden"
       >
-        {open.map((tab) => (
-          <SceneTabItem
-            key={tab.key}
-            tab={tab}
-            selected={tab.key === visibleKey}
-            onShow={() => tabs.getState().show(tab.key)}
-            onClose={() => tabs.getState().close(tab.key)}
-          />
-        ))}
+        {open
+          .filter((tab) => isShown(tab.key))
+          .map((tab) => (
+            <SceneTabItem
+              key={tab.key}
+              tab={tab}
+              selected={!activeDocument && tab.key === visibleKey}
+              onShow={() => showScene(tab.key)}
+              onClose={() => tabs.getState().close(tab.key)}
+            />
+          ))}
+        {documentEntries
+          .filter((entry) => isShown(entry.key))
+          .map((entry) => (
+            <DocumentTabItem
+              key={entry.key}
+              entry={entry}
+              selected={activeDocument === entry.key}
+              onShow={() => showDocument(entry)}
+              onClose={() => void documents?.getState().close(entry.key)}
+            />
+          ))}
       </div>
+      {split.hidden.length > 0 && (
+        <HiddenTabsMenu
+          count={split.hidden.length}
+          scenes={open.filter((tab) => !isShown(tab.key))}
+          documents={documentEntries.filter((entry) => !isShown(entry.key))}
+          onShowScene={showScene}
+          onShowDocument={showDocument}
+        />
+      )}
       <TabsNotice tabs={tabs} />
     </div>
+  );
+}
+
+// The width a tab shrinks to before it moves into the "+N" menu: still a readable title.
+const TAB_MIN_WIDTH = 112;
+const MORE_BUTTON_WIDTH = 52;
+
+type HiddenTabsMenuProps = Readonly<{
+  count: number;
+  scenes: readonly SceneTab[];
+  documents: readonly DocumentWorkspaceEntry[];
+  onShowScene: (key: string) => void;
+  onShowDocument: (entry: DocumentWorkspaceEntry) => void;
+}>;
+
+function HiddenTabsMenu(props: HiddenTabsMenuProps): React.JSX.Element {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          data-app-region="no-drag"
+          variant="ghost"
+          size="sm"
+          aria-label={`Mais ${props.count} ${props.count === 1 ? 'aba' : 'abas'}`}
+          className="shrink-0 gap-1 px-2 text-muted-foreground"
+        >
+          +{props.count}
+          <ChevronDownIcon aria-hidden="true" className="size-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56 max-w-72">
+        {props.scenes.map((tab) => (
+          <HiddenSceneItem key={tab.key} tab={tab} onShow={() => props.onShowScene(tab.key)} />
+        ))}
+        {props.documents.map((entry) => (
+          <DropdownMenuItem key={entry.key} onSelect={() => props.onShowDocument(entry)}>
+            <FileTextIcon aria-hidden="true" />
+            <span className="truncate">{entry.document.name}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function HiddenSceneItem({
+  tab,
+  onShow,
+}: Readonly<{ tab: SceneTab; onShow: () => void }>): React.JSX.Element {
+  const name = useBoard(tab.board, (state) => state.board?.scene.name) ?? LOADING_NAME;
+  return (
+    <DropdownMenuItem onSelect={onShow}>
+      <span className="truncate">{name}</span>
+    </DropdownMenuItem>
+  );
+}
+
+function DocumentTabItem({
+  entry,
+  selected,
+  onShow,
+  onClose,
+}: Readonly<{
+  entry: DocumentWorkspaceEntry;
+  selected: boolean;
+  onShow: () => void;
+  onClose: () => void;
+}>): React.JSX.Element {
+  return (
+    <div className={tabFrameClass(selected)}>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={selected}
+        aria-description="Documento"
+        tabIndex={selected ? 0 : -1}
+        onClick={onShow}
+        className={cn(
+          'flex min-w-0 items-center gap-2 px-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
+          selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        <FileTextIcon aria-hidden className="size-3.5 shrink-0" />
+        <span className="max-w-40 truncate">{entry.document.name}</span>
+      </button>
+      <button
+        type="button"
+        aria-label={`Fechar documento ${entry.document.name}`}
+        onClick={onClose}
+        className="grid size-6 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <XIcon aria-hidden className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
+// min-w-28 is TAB_MIN_WIDTH: the tabs shrink together down to it, then overflow into "+N".
+function tabFrameClass(selected: boolean): string {
+  return cn(
+    'flex h-12 min-w-28 shrink items-center gap-1 border-b-2 [[data-title-bar]_&]:h-11',
+    selected ? 'border-primary' : 'border-transparent',
   );
 }
 
@@ -56,12 +225,7 @@ function SceneTabItem({ tab, selected, onShow, onClose }: SceneTabItemProps): Re
   const name = useBoard(tab.board, (state) => state.board?.scene.name) ?? LOADING_NAME;
   const isGroup = tab.key === GROUP_TAB;
   return (
-    <div
-      className={cn(
-        'flex h-12 shrink-0 items-center gap-1 border-b-2 [[data-title-bar]_&]:h-11',
-        selected ? 'border-primary' : 'border-transparent',
-      )}
-    >
+    <div className={tabFrameClass(selected)}>
       <button
         type="button"
         role="tab"
@@ -69,7 +233,7 @@ function SceneTabItem({ tab, selected, onShow, onClose }: SceneTabItemProps): Re
         tabIndex={selected ? 0 : -1}
         onClick={onShow}
         className={cn(
-          'flex items-baseline gap-2 px-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
+          'flex min-w-0 items-baseline gap-2 px-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
           selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
       >

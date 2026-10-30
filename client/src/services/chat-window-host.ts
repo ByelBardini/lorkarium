@@ -4,6 +4,8 @@ export const CHAT_WINDOW_URL = '/chat-window.html';
 export const DICE_WINDOW_URL = '/chat-window.html?panel=dice';
 export const IMAGE_WINDOW_URL = '/chat-window.html?panel=image';
 export const IMAGE_WINDOW_FEATURES = 'popup,width=960,height=720';
+export const DOCUMENT_WINDOW_URL = '/chat-window.html?panel=document';
+export const DOCUMENT_WINDOW_FEATURES = 'popup,width=1000,height=800';
 
 /** A system window (not a tab) the size of the room's side panel. */
 export const CHAT_WINDOW_FEATURES = 'popup,width=420,height=720';

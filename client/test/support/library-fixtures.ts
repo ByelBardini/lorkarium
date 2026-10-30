@@ -44,6 +44,7 @@ export function libraryScene(
 export function vharnLibrary(overrides: Partial<CampaignLibraryDto> = {}): CampaignLibraryDto {
   return {
     images: [],
+    documents: [],
     activeSceneId: VHARN_SCENE.id,
     folders: [ATO_1, CATACUMBAS],
     scenes: [
@@ -99,6 +100,7 @@ export function playerLibrary(overrides: Partial<CampaignLibraryDto> = {}): Camp
     .map((scene) => ({ ...scene, tokenCount: null }));
   return {
     images: [],
+    documents: [],
     activeSceneId: master.activeSceneId,
     folders: [ATO_1],
     scenes,
