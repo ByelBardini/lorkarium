@@ -3,6 +3,8 @@ import {
   CHAT_WINDOW_FEATURES,
   CHAT_WINDOW_MARK,
   CHAT_WINDOW_URL,
+  IMAGE_WINDOW_URL,
+  IMAGE_WINDOW_FEATURES,
   type ChatWindowHandle,
   type ChatWindowHost,
 } from '@/services/chat-window-host';
@@ -30,6 +32,7 @@ export type ChatWindow = ChatWindowTopmost &
     portalTarget: HTMLElement | null;
     canAlwaysOnTop: boolean;
     desktopWindow: DesktopWindow | null;
+    closeError: string | null;
   }>;
 
 type ChatWindowState = Readonly<{
@@ -37,6 +40,7 @@ type ChatWindowState = Readonly<{
   target: HTMLElement | null;
   canAlwaysOnTop: boolean;
   desktopWindow: DesktopWindow | null;
+  closeError: string | null;
 }>;
 
 const DOCKED: ChatWindowState = {
@@ -44,6 +48,7 @@ const DOCKED: ChatWindowState = {
   target: null,
   canAlwaysOnTop: false,
   desktopWindow: null,
+  closeError: null,
 };
 
 /** The chat of one table in its own system window, mirrored from the room by a portal: the hook
@@ -53,7 +58,7 @@ const DOCKED: ChatWindowState = {
 export function useChatWindow(
   campaignId: string,
   host: ChatWindowHost,
-  panel: 'chat' | 'dice' = 'chat',
+  panel: 'chat' | 'dice' | 'image' = 'chat',
 ): ChatWindow {
   const [state, setState] = useState<ChatWindowState>(DOCKED);
   const handleRef = useRef<ChatWindowHandle | null>(null);
@@ -64,15 +69,22 @@ export function useChatWindow(
     const current = handleRef.current;
     if (current && !current.closed) return current.focus();
     resetAlwaysOnTop();
-    const url = panel === 'dice' ? DICE_WINDOW_URL : CHAT_WINDOW_URL;
-    const name = panel === 'dice' ? `lorkarium-dice-${campaignId}` : chatWindowNameOf(campaignId);
-    const opened = host.open(url, name, CHAT_WINDOW_FEATURES);
+    const url =
+      panel === 'image' ? IMAGE_WINDOW_URL : panel === 'dice' ? DICE_WINDOW_URL : CHAT_WINDOW_URL;
+    const name =
+      panel === 'chat' ? chatWindowNameOf(campaignId) : `lorkarium-${panel}-${campaignId}`;
+    const opened = host.open(
+      url,
+      name,
+      panel === 'image' ? IMAGE_WINDOW_FEATURES : CHAT_WINDOW_FEATURES,
+    );
     handleRef.current = opened;
     setState({
       status: opened ? 'detached' : 'blocked',
       target: null,
       canAlwaysOnTop: !!opened?.setAlwaysOnTop,
       desktopWindow: null,
+      closeError: null,
     });
   }, [campaignId, host, panel, resetAlwaysOnTop]);
   const bringBack = useCallback(() => {
@@ -84,7 +96,13 @@ export function useChatWindow(
       resetAlwaysOnTop();
     };
     const closing = handle?.close();
-    if (closing) void closing.then(dock, () => undefined);
+    if (closing)
+      void closing.then(dock, (error: unknown) =>
+        setState((previous) => ({
+          ...previous,
+          closeError: error instanceof Error ? error.message : String(error),
+        })),
+      );
     else dock();
   }, [resetAlwaysOnTop]);
   return {
@@ -96,6 +114,7 @@ export function useChatWindow(
     portalTarget: state.target,
     canAlwaysOnTop: state.canAlwaysOnTop,
     desktopWindow: state.desktopWindow,
+    closeError: state.closeError,
   };
 }
 
@@ -111,10 +130,25 @@ function useFollowChatWindow(
 ): void {
   useEffect(() => {
     if (!detached) return;
+    const startedAt = Date.now();
+    let failedToLoad = false;
     const follow = (): void => {
+      if (failedToLoad) return;
       const handle = handleRef.current;
-      if (!handle || handle.closed) handleRef.current = null;
-      setState((previous) => nextChatWindowState(previous, handleRef.current));
+      if (!handle || handle.closed) {
+        handleRef.current = null;
+        setState(() => DOCKED);
+        return;
+      }
+      if (!loadedChatBodyOf(handle) && Date.now() - startedAt >= 5000) {
+        failedToLoad = true;
+        const closing = handle.close();
+        if (closing) void closing.catch(() => undefined);
+        handleRef.current = null;
+        setState(() => ({ ...DOCKED, status: 'blocked' }));
+        return;
+      }
+      setState((previous) => nextChatWindowState(previous, handle));
     };
     const timer = setInterval(follow, CHAT_WINDOW_POLL_MS);
     return () => clearInterval(timer);
@@ -133,12 +167,17 @@ function nextChatWindowState(
     target,
     canAlwaysOnTop: !!handle.setAlwaysOnTop,
     desktopWindow: handle.desktopWindow ?? null,
+    closeError: null,
   };
 }
 
 function loadedChatBodyOf(handle: ChatWindowHandle): HTMLElement | null {
-  const body = handle.document.body;
-  return body?.hasAttribute(CHAT_WINDOW_MARK) ? body : null;
+  try {
+    const body = handle.document.body;
+    return body?.hasAttribute(CHAT_WINDOW_MARK) ? body : null;
+  } catch {
+    return null;
+  }
 }
 
 // Leaving the room unmounts the hook; a reload or closing the tab does not, so `pagehide` too.

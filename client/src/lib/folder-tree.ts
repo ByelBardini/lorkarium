@@ -37,7 +37,11 @@ export type FolderTree<F extends TreeFolder, S extends TreeScene> = Readonly<{
 export type VisibilityFilter = 'all' | TreeScene['visibility'];
 
 /** The search box and the visibility filter of the library. */
-export type LibraryFilter = Readonly<{ query: string; visibility: VisibilityFilter }>;
+export type LibraryFilter = Readonly<{
+  query: string;
+  visibility: VisibilityFilter;
+  active?: boolean;
+}>;
 
 export type LibraryDragged = Readonly<{ kind: 'folder' | 'scene'; id: string }>;
 
@@ -118,7 +122,7 @@ function subtreeLevels(folders: readonly TreeFolder[], folderId: string): Map<st
  *
  *  Example: `isFiltering({ query: ' ', visibility: 'all' }) // false` */
 export function isFiltering(filter: LibraryFilter): boolean {
-  return filter.query.trim() !== '' || filter.visibility !== 'all';
+  return filter.active === true || filter.query.trim() !== '' || filter.visibility !== 'all';
 }
 
 /** The tree the library shows: with a query (no accent, no case) or a visibility filter, only

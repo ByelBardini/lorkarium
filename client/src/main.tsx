@@ -1,3 +1,4 @@
+import { HttpImagePresentationApi } from '@/services/image-presentation-api';
 import { StrictMode } from 'react';
 import { browserClock, browserWallClock } from '@/lib/interaction-clock';
 import { createRoot } from 'react-dom/client';
@@ -69,6 +70,7 @@ const perfProbe =
 // One "Animar auras" for the toolbar and the board renderer.
 const auraMotion = createAuraMotionStore(browserStorage);
 const transport = new FetchHttpTransport();
+const imagePresentationApi = new HttpImagePresentationApi(transport);
 const newActionId = (): string => crypto.randomUUID();
 // One socket for every open table: the session, the board sync and the board commands.
 const realtime = new SocketIoRealtimeTransport();
@@ -92,6 +94,7 @@ const router = createBrowserRouter(
     userAdminApi: new HttpUserAdminApi(transport),
     accountLinksApi: new HttpAccountLinksApi(transport),
     libraryApi: new HttpLibraryApi(transport),
+    imagePresentationApi,
     sceneActivation: new RealtimeSceneActivation(realtime, newActionId),
     assets: new HttpAssetsApi(transport),
     clipboard: new NavigatorClipboard(),
@@ -100,6 +103,7 @@ const router = createBrowserRouter(
     fieldEditing: new DocumentFieldEditing(document),
     openTables: createOpenTablesStore({
       api: tableSessionApi,
+      imagePresentationApi,
       storage: tabStorage,
       createInteraction: tabInteractionFactory(boardCommands),
       wallClock: browserWallClock.now,

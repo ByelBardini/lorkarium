@@ -1,3 +1,4 @@
+import type { ImagePresentationApi } from '@/services/image-presentation-api';
 import type { AuthUserDto } from '@lorkarium/contracts';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import {
@@ -80,6 +81,7 @@ export type AppDependencies = Readonly<{
   accountLinksApi: AccountLinksApi;
   /** The grids and folders of a table (the library). */
   libraryApi: LibraryApi;
+  imagePresentationApi: ImagePresentationApi;
   /** "Levar o grupo pra cá" (`scene:activate`). */
   sceneActivation: SceneActivation;
   /** Images sent to a table (file or link). */

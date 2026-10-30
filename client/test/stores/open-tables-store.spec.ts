@@ -1,3 +1,5 @@
+import { ImagePresentationApiFake } from '../support/image-presentation-api-fake';
+import { imagePresentation } from '../support/image-presentation-fixtures';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -65,6 +67,33 @@ describe('open tables store', () => {
   function storeWith(value: unknown): void {
     storage.values.set(OPEN_TABLES_STORAGE_KEY, JSON.stringify(value));
   }
+
+  it('every confirmed join recovers the presentation independently of scene changes; closing clears it', async () => {
+    const presentationApi = new ImagePresentationApiFake();
+    presentationApi.answer = { ok: true, value: imagePresentation() };
+    store = createOpenTablesStore({
+      api,
+      storage,
+      createInteraction: tabInteractions(),
+      imagePresentationApi: presentationApi,
+    });
+    store.getState().restore(ANA.id);
+    store.getState().open(VHARN_TABLE);
+    api.emitTo(VHARN.id, { kind: 'state', state: vharnState() });
+    await Promise.resolve();
+    const presentation = store.getState().tables[0]?.imagePresentation;
+    expect(presentation?.getState().presentation?.name).toBe('Retrato');
+    presentation?.getState().dismiss();
+    api.emitTo(VHARN.id, { kind: 'state', state: vharnState() });
+    await Promise.resolve();
+    expect(presentation?.getState().dismissed).toBe(true);
+    expect(presentationApi.calls).toEqual([
+      { method: 'snapshot', campaignId: VHARN.id },
+      { method: 'snapshot', campaignId: VHARN.id },
+    ]);
+    store.getState().close(VHARN.id);
+    expect(presentation?.getState().presentation).toBeNull();
+  });
 
   it('opening VHARN after restoring Ana lists it, opens its session and stores it with her id', () => {
     store.getState().restore(ANA.id);

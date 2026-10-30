@@ -47,7 +47,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 `asset.dto.ts` — a imagem da mesa (detalhe em [`assets.md`](assets.md)).
 
 - `ASSET_MAX_BYTES` (20 MiB, antes de decodificar), `ASSET_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`; o GIF só é guardado na finalidade `aura`, SVG fora) e `assetMimeTypeDto`; `ASSET_URL_MAX_LENGTH` (2048).
-- `assetPurposeDto` (`background` | `token` | `cover` | `condition` | `aura`) e `ASSET_MAX_SIDE` (`{ background: 4096, token: 1024, cover: 1600, condition: 256, aura: 512 }`, o maior lado em px que o server guarda; o badge da condição chega a ~120 px na tela, 240 em tela 2x). O `purpose` decide o tamanho (na `condition`, que o server recorta em quadrado; na `aura`, que o GIF fica animado): um asset de token pode virar fundo.
+- `assetPurposeDto` (`background` | `token` | `cover` | `condition` | `aura` | `library_image`) e `ASSET_MAX_SIDE` (`{ background: 4096, token: 1024, cover: 1600, condition: 256, aura: 512, library_image: 4096 }`, o maior lado em px que o server guarda; o badge da condição chega a ~120 px na tela, 240 em tela 2x). O `purpose` decide o tamanho (na `condition`, que o server recorta em quadrado; na `aura`, que o GIF fica animado): um asset de token pode virar fundo; `library_image` é reservado à biblioteca e sua autorização de leitura depende do item/apresentação.
 - `AURA_ANIMATION_LIMITS` `{ maxFrames: 120, maxDecodedPixels: 16_000_000 }` — o orçamento do GIF da aura (o server reduz o lado para caber, ver `assets.md`).
 - `assetDto` `{ id, mimeType, width, height }` (o tamanho **depois** de normalizado) e `assetResponseDto` `{ asset }` — resposta dos dois `POST`.
 - `uploadAssetQueryDto` `{ purpose }` — query de `POST /api/campaigns/:campaignId/assets` (o corpo é o próprio arquivo).
@@ -72,6 +72,8 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `SessionClientEvents` / `SessionServerEvents` — mapas de tipo para os genéricos do Socket.IO no server e no client.
 
 ### Biblioteca (`library/`)
+
+Imagem, agregado e apresentação versionada: [contracts/biblioteca.md](contracts/biblioteca.md).
 
 `library.dto.ts` — os grids e as pastas da mesa por REST (detalhe e rotas em [`library.md`](library.md)).
 

@@ -1,3 +1,4 @@
+import { imagePresentation } from '../support/image-presentation-fixtures';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   RealtimeTableSessionApi,
@@ -44,6 +45,26 @@ describe('pings of a table visit', () => {
     handle.watch(TORRE_SCENE.id, (update) => torreUpdates.push(update));
     await transport.answerAck({ ok: true, state: torreBoard() }, 'scene:watch');
   }
+
+  it('presentation events reach the campaign before join and discard foreign or malformed payloads', () => {
+    const earlyTransport = new RealtimeTransportFake();
+    const updates: TableSessionUpdate[] = [];
+    const early = new RealtimeTableSessionApi(earlyTransport, () => ACTION_ID).open(
+      VHARN.id,
+      (update) => updates.push(update),
+    );
+    const event = { ...imagePresentation(), eventId: ACTION_ID };
+    earlyTransport.serverEmits('library:imagePresentationChanged', event);
+    earlyTransport.serverEmits('library:imagePresentationChanged', {
+      ...event,
+      campaignId: QUELM.id,
+    });
+    earlyTransport.serverEmits('library:imagePresentationChanged', { ...event, version: -1 });
+    expect(updates.filter((update) => update.kind === 'imagePresentationChanged')).toEqual([
+      { kind: 'imagePresentationChanged', event },
+    ]);
+    early.close();
+  });
 
   it('a valid board:pinged of the group grid reaches the table as pinged', () => {
     transport.serverEmits('board:pinged', boardPinged());

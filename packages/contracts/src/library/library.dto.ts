@@ -1,3 +1,4 @@
+import type { ImagePresentationChangedDto } from './image-presentation.dto';
 import { z } from 'zod';
 import { sceneBackgroundDto } from '../board/scene.dto';
 
@@ -158,6 +159,7 @@ export type SceneClosedDto = z.infer<typeof sceneClosedDto>;
 
 /** Every server → client event of the library. */
 export type LibraryServerEvents = {
+  'library:imagePresentationChanged': (event: ImagePresentationChangedDto) => void;
   'library:changed': (event: LibraryChangedDto) => void;
   'scene:activated': (event: SceneActivatedDto) => void;
   'scene:closed': (event: SceneClosedDto) => void;

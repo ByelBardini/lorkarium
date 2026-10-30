@@ -2,6 +2,8 @@
  *  desktop shell lets exactly this path become its second native window. */
 export const CHAT_WINDOW_URL = '/chat-window.html';
 export const DICE_WINDOW_URL = '/chat-window.html?panel=dice';
+export const IMAGE_WINDOW_URL = '/chat-window.html?panel=image';
+export const IMAGE_WINDOW_FEATURES = 'popup,width=960,height=720';
 
 /** A system window (not a tab) the size of the room's side panel. */
 export const CHAT_WINDOW_FEATURES = 'popup,width=420,height=720';

@@ -32,7 +32,7 @@ describe('the library of grids', () => {
   });
 
   function library(): HTMLElement {
-    return screen.getByRole('dialog', { name: 'Biblioteca de grids' });
+    return screen.getByRole('dialog', { name: 'Biblioteca' });
   }
 
   function panel(): HTMLElement {
@@ -53,19 +53,19 @@ describe('the library of grids', () => {
     const release = deps.libraryApi.hold('list');
     await openRoom(deps);
     await userEvent.click(screen.getByRole('link', { name: 'Biblioteca' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Biblioteca de grids' });
+    const dialog = await screen.findByRole('dialog', { name: 'Biblioteca' });
     expect(within(dialog).getByRole('status')).toHaveTextContent('Carregando a biblioteca…');
     release({ ok: true, value: masterLibrary() });
-    expect(await screen.findByRole('tree', { name: 'Grids e pastas' })).toBeInTheDocument();
+    expect(await screen.findByRole('tree', { name: 'Itens e pastas' })).toBeInTheDocument();
   });
 
   it('the tree has the root folders and "Sem pasta" open with its grid, with their counts', async () => {
     await openLibrary(deps);
     expect(treeItemNames()).toEqual(['Ato 1', 'Lugares fixos', 'Sem pasta', 'Cena 1']);
-    expect(treeItem('Ato 1')).toHaveAccessibleDescription('3 grids');
+    expect(treeItem('Ato 1')).toHaveAccessibleDescription('3 itens');
     expect(treeItem('Ato 1')).toHaveAttribute('aria-expanded', 'false');
     expect(treeItem('Lugares fixos')).not.toHaveAttribute('aria-expanded');
-    expect(treeItem('Sem pasta')).toHaveAccessibleDescription('1 grid · o grupo está aqui');
+    expect(treeItem('Sem pasta')).toHaveAccessibleDescription('1 item · o grupo está aqui');
     expect(treeItem('Cena 1')).toHaveAttribute('aria-level', '2');
     expect(treeItem('Cena 1')).not.toHaveAttribute('aria-expanded');
     expect(screen.queryByRole('treeitem', { name: 'Todos os grids' })).toBeNull();
@@ -95,7 +95,7 @@ describe('the library of grids', () => {
       value: masterLibrary({ activeSceneId: OSSUARIO.id }),
     });
     await openLibrary(deps);
-    expect(treeItem('Ato 1')).toHaveAccessibleDescription('3 grids · o grupo está aqui');
+    expect(treeItem('Ato 1')).toHaveAccessibleDescription('3 itens · o grupo está aqui');
     await openCatacumbas();
     expect(treeItem('Ossuário')).toHaveAccessibleDescription(/ · No ar/);
   });
@@ -151,10 +151,12 @@ describe('the library of grids', () => {
       }),
     });
     expect(treeItem('Cena 1')).toHaveAccessibleDescription(
-      /^Público · 20×12 casas · 2 tokens · editado .+ · No ar · 2 jogadores aqui$/,
+      /^Grid · Público · 20×12 casas · 2 tokens · editado .+ · No ar · 2 jogadores aqui$/,
     );
     await openCatacumbas();
-    expect(treeItem('Ossuário')).toHaveAccessibleDescription(/^Privado · 28×28 casas · 14 tokens/);
+    expect(treeItem('Ossuário')).toHaveAccessibleDescription(
+      /^Grid · Privado · 28×28 casas · 14 tokens/,
+    );
   });
 
   it('the panel shows the background of the grid picked', async () => {
@@ -169,21 +171,24 @@ describe('the library of grids', () => {
 
   it('searching keeps the grids that match and opens the folders above them', async () => {
     await openLibrary(deps);
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar grid' }), 'ossuario');
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar item' }), 'ossuario');
     expect(treeItemNames()).toEqual(['Ato 1', 'Catacumbas', 'Ossuário']);
     expect(treeItem('Ato 1')).toHaveAttribute('aria-expanded', 'true');
-    expect(treeItem('Ato 1')).toHaveAccessibleDescription('1 grid');
-    await userEvent.clear(screen.getByRole('searchbox', { name: 'Buscar grid' }));
+    expect(treeItem('Ato 1')).toHaveAccessibleDescription('1 item');
+    await userEvent.clear(screen.getByRole('searchbox', { name: 'Buscar item' }));
     expect(treeItemNames()).toContain('Lugares fixos');
     expect(treeItemNames()).toContain('Cena 1');
   });
 
   it('"Privados" keeps only the private grids, and an empty result says so', async () => {
     await openLibrary(deps);
-    await userEvent.click(screen.getByRole('radio', { name: 'Privados' }));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Visibilidade' }),
+      'private',
+    );
     expect(treeItemNames()).toEqual(['Ato 1', 'Catacumbas', 'Torre', 'Ossuário']);
     expect(within(library()).queryByText('Nada por aqui com esse filtro.')).toBeNull();
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar grid' }), 'cena');
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar item' }), 'cena');
     expect(treeItemNames()).toEqual([]);
     expect(within(library()).getByText('Nada por aqui com esse filtro.')).toBeInTheDocument();
   });
@@ -195,7 +200,7 @@ describe('the library of grids', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Sem conexão com o servidor.');
     deps.libraryApi.answer('list', { ok: true, value: masterLibrary() });
     await userEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
-    expect(await screen.findByRole('tree', { name: 'Grids e pastas' })).toBeInTheDocument();
+    expect(await screen.findByRole('tree', { name: 'Itens e pastas' })).toBeInTheDocument();
     expect(deps.libraryApi.callsOf('list')).toHaveLength(2);
   });
 
@@ -233,9 +238,9 @@ describe('the library of grids', () => {
       await openLibrary(deps, { role: 'player' });
       await userEvent.click(treeItem('Ato 1'));
       expect(treeItemNames()).toEqual(['Ato 1', 'Estrada de Vharn', 'Sem pasta', 'Cena 1']);
-      expect(screen.queryByRole('radiogroup', { name: 'Visibilidade' })).toBeNull();
+      expect(screen.queryByRole('combobox', { name: 'Visibilidade' })).toBeNull();
       expect(treeItem('Estrada de Vharn')).toHaveAccessibleDescription(
-        /^Público · 30×20 casas · editado/,
+        /^Grid · Público · 30×20 casas · editado/,
       );
     });
 

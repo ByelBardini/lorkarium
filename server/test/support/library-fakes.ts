@@ -184,6 +184,7 @@ export class LibraryScenesDaoFake implements Pick<
 /** Records every `library:changed` ('publish' in the shared journal) and `scene:activated`
  *  ('publish activated'), to prove the order. */
 export class LibraryPublisherFake implements LibraryPublisherPort {
+  imagePresentationChanged(): void {}
   readonly changes: LibraryChangedDto[] = [];
   readonly activations: SceneActivatedDto[] = [];
 

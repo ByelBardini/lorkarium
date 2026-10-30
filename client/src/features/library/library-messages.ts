@@ -73,7 +73,7 @@ export function sceneDescription(
  *
  *  Example: `folderDescription(3, true) // '3 grids · o grupo está aqui'` */
 export function folderDescription(gridCount: number, holdsGroupGrid: boolean): string {
-  const count = gridCountLabel(gridCount);
+  const count = gridCount === 1 ? '1 item' : `${gridCount} itens`;
   return holdsGroupGrid ? `${count} · o grupo está aqui` : count;
 }
 

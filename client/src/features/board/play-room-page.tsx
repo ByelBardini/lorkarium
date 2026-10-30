@@ -1,3 +1,5 @@
+import { RoomImagePresentation } from '@/features/library/room-image-presentation';
+import { isDesktopShell } from '@/lib/desktop-shell';
 import type { CampaignDetailDto } from '@lorkarium/contracts';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
@@ -178,7 +180,8 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
     role,
   });
   const speechSceneOf = useCallback(() => scopeOf().sceneId, [scopeOf]);
-  const chat = useOpenTableOf(openTables, campaign.id)?.chat ?? null;
+  const openTable = useOpenTableOf(openTables, campaign.id);
+  const chat = openTable?.chat ?? null;
   useSpeechBalloons({ renderer, chat, sceneIdOf: speechSceneOf });
   const chatWindow = useRoomChatWindow(
     {
@@ -205,6 +208,13 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   );
   return (
     <RoomContexts players={players} tokenKeys={tokenKeys}>
+      {openTable?.imagePresentation && (
+        <RoomImagePresentation
+          store={openTable.imagePresentation}
+          host={props.chatWindowHost}
+          isDesktop={isDesktopShell(navigator.userAgent)}
+        />
+      )}
       {chatWindow.portal}
       {diceWindow.portal}
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">

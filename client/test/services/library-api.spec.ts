@@ -1,3 +1,4 @@
+import { PORTRAIT } from '../support/library-fixtures';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { HttpLibraryApi } from '@/services/library-api';
 import { VHARN } from '../support/campaigns-api-fake';
@@ -26,7 +27,40 @@ describe('HttpLibraryApi', () => {
   it('list gets the library of the table and yields it', async () => {
     transport.respondWith(200, vharnLibrary());
     expect(await api.list(VHARN.id)).toEqual({ ok: true, value: vharnLibrary() });
-    expect(transport.requests).toEqual([{ method: 'GET', path: SCENES, body: undefined }]);
+    expect(transport.requests).toEqual([
+      { method: 'GET', path: `/campaigns/${VHARN.id}/library`, body: undefined },
+    ]);
+  });
+
+  it('creates an image with a dedicated asset and patches visibility without scene commands', async () => {
+    const input = { name: 'Retrato', assetId: PORTRAIT.asset.id };
+    transport.respondWith(201, PORTRAIT);
+    const created = await api.createImage(VHARN.id, input);
+    expect(created.ok && created.value.name).toBe('Retrato');
+    transport.respondWith(200, { ...PORTRAIT, visibility: 'public' });
+    const updated = await api.updateImage(VHARN.id, PORTRAIT.id, { visibility: 'public' });
+    expect(updated.ok && updated.value.visibility).toBe('public');
+    expect(transport.requests).toEqual([
+      { method: 'POST', path: `/campaigns/${VHARN.id}/library-images`, body: input },
+      {
+        method: 'PATCH',
+        path: `/campaigns/${VHARN.id}/library-images/${PORTRAIT.id}`,
+        body: { visibility: 'public' },
+      },
+    ]);
+  });
+
+  it('deletes an image using its endpoint and handles a forbidden mutation', async () => {
+    transport.respondWith(204, null);
+    expect(await api.removeImage(VHARN.id, PORTRAIT.id)).toEqual({ ok: true, value: null });
+    expect(transport.requests[0]?.path).toBe(
+      `/campaigns/${VHARN.id}/library-images/${PORTRAIT.id}`,
+    );
+    transport.respondWith(403, apiError('FORBIDDEN'));
+    expect(await api.updateImage(VHARN.id, PORTRAIT.id, { name: 'Outra' })).toEqual({
+      ok: false,
+      failure: { kind: 'forbidden' },
+    });
   });
 
   it('createScene posts the name and folder and yields the new grid', async () => {

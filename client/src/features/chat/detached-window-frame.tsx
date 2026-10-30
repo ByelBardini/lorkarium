@@ -10,10 +10,12 @@ export function DetachedWindowFrame({
   title,
   window: popup,
   children,
+  hideOptions = false,
 }: Readonly<{
   title: string;
   window: ChatWindow;
   children: ReactNode;
+  hideOptions?: boolean;
 }>): React.JSX.Element {
   const container = usePortalContainer();
   useEffect(() => {
@@ -46,7 +48,7 @@ export function DetachedWindowFrame({
         {popup.desktopWindow && <WindowControls desktopWindow={popup.desktopWindow} />}
       </header>
       <div className="flex min-h-0 flex-1 flex-col px-4 pt-3">
-        <ChatWindowOptions chatWindow={popup} />
+        {!hideOptions && <ChatWindowOptions chatWindow={popup} />}
         {children}
       </div>
     </div>

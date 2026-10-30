@@ -1,20 +1,16 @@
 import { MapIcon, SearchIcon, XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { SegmentField, type SegmentOption } from '@/components/segment-field';
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import type { LibraryTypeFilter } from '@/lib/library-entries';
 import type { VisibilityFilter } from '@/lib/folder-tree';
-
-const VISIBILITY_OPTIONS: readonly SegmentOption<VisibilityFilter>[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'public', label: 'Públicos' },
-  { value: 'private', label: 'Privados' },
-];
 
 /** The search and the filter; the filter only for the master (a player sees public grids). */
 export type LibraryControls = Readonly<{
   query: string;
+  type?: LibraryTypeFilter;
+  onType?: (type: LibraryTypeFilter) => void;
   onQuery: (query: string) => void;
   visibility: VisibilityFilter | null;
   onVisibility: (visibility: VisibilityFilter) => void;
@@ -34,16 +30,22 @@ export type LibraryHeaderProps = Readonly<{
  *  Example: `<LibraryHeader subtitle="Os Sinos de Vharn · 4 grids" onClose={close} controls={controls} />` */
 export function LibraryHeader({ subtitle, onClose, controls, actions }: LibraryHeaderProps) {
   return (
-    <header className="flex shrink-0 flex-wrap items-center gap-3.5 border-b border-border py-4 pr-4 pl-6">
+    <header className="relative flex shrink-0 flex-wrap items-center gap-4 border-b border-border py-4 pr-16 pl-6">
       <MapIcon aria-hidden="true" className="size-5 text-primary" />
-      <div className="mr-2 flex flex-col gap-0.5">
-        <DialogTitle className="text-[26px]">Biblioteca de grids</DialogTitle>
+      <div className="mr-2 flex min-w-0 flex-col gap-0.5">
+        <DialogTitle className="text-[26px]">Biblioteca</DialogTitle>
         <DialogDescription className="text-xs">{subtitle}</DialogDescription>
       </div>
       {controls && <SearchAndFilter controls={controls} />}
       <span className="flex-1" />
       {actions}
-      <Button variant="ghost" size="icon" aria-label="Fechar biblioteca" onClick={onClose}>
+      <Button
+        className="absolute top-4 right-4 lg:top-1/2 lg:-translate-y-1/2"
+        variant="ghost"
+        size="icon"
+        aria-label="Fechar biblioteca"
+        onClick={onClose}
+      >
         <XIcon aria-hidden="true" />
       </Button>
     </header>
@@ -60,21 +62,36 @@ function SearchAndFilter({ controls }: Readonly<{ controls: LibraryControls }>) 
         />
         <Input
           type="search"
-          aria-label="Buscar grid"
-          placeholder="Buscar grid…"
+          aria-label="Buscar item"
+          placeholder="Buscar item…"
           value={controls.query}
           onChange={(event) => controls.onQuery(event.target.value)}
           className="h-10 pl-9 text-sm"
         />
       </div>
+      {controls.onType && (
+        <select
+          aria-label="Tipo de item"
+          value={controls.type ?? 'all'}
+          className="h-10 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+          onChange={(event) => controls.onType?.(event.target.value as LibraryTypeFilter)}
+        >
+          <option value="all">Todos os tipos</option>
+          <option value="grid">Grids</option>
+          <option value="image">Imagens</option>
+        </select>
+      )}
       {controls.visibility && (
-        <SegmentField
-          legend="Visibilidade"
-          compact
+        <select
+          aria-label="Visibilidade"
           value={controls.visibility}
-          options={VISIBILITY_OPTIONS}
-          onChange={controls.onVisibility}
-        />
+          className="h-10 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+          onChange={(event) => controls.onVisibility(event.target.value as VisibilityFilter)}
+        >
+          <option value="all">Toda visibilidade</option>
+          <option value="public">Públicos</option>
+          <option value="private">Privados</option>
+        </select>
       )}
     </>
   );

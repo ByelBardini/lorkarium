@@ -1,3 +1,4 @@
+import type { AssetReadPolicyPort } from './asset-read-policy.port';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
@@ -14,6 +15,7 @@ export type AssetsModuleOptions = Readonly<{
   storage: AssetStoragePort;
   processor: ImageProcessorPort;
   fetcher: ImageFetcherPort;
+  readPolicy?: AssetReadPolicyPort;
 }>;
 
 export type AssetsModule = Readonly<{
@@ -32,6 +34,7 @@ export function createAssetsModule(options: AssetsModuleOptions): AssetsModule {
     processor: options.processor,
     fetcher: options.fetcher,
     newId: randomUUID,
+    readPolicy: options.readPolicy,
   });
   return { plugin: assetsRoutes(service), service };
 }

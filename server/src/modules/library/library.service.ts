@@ -1,3 +1,4 @@
+import type { LibraryImagesDao } from './library-images.dao';
 import {
   SCENE_COPY_SUFFIX,
   SCENE_NAME_MAX_LENGTH,
@@ -42,6 +43,7 @@ export type LibraryReadDaos = Readonly<{
 }>;
 
 export type LibraryWriteDaos = Readonly<{
+  images?: Pick<LibraryImagesDao, 'moveFromFolder'>;
   campaigns: Pick<CampaignsDao, 'lockById'>;
   folders: Pick<
     SceneFoldersDao,
@@ -239,6 +241,7 @@ export class LibraryService {
       const { campaignId } = requester;
       await daos.folders.moveChildren(campaignId, removal.childFolderIds, removal.parentId);
       await daos.scenes.moveScenes(campaignId, removal.sceneIds, removal.parentId);
+      await daos.images?.moveFromFolder(campaignId, folderId, removal.parentId);
       await daos.folders.delete(campaignId, folderId);
     });
   }

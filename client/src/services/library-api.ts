@@ -1,10 +1,14 @@
 import {
-  libraryDto,
+  campaignLibraryDto,
+  libraryImageDto,
+  type CampaignLibraryDto,
+  type LibraryImageDto,
+  type CreateLibraryImageRequestDto,
+  type UpdateLibraryImageRequestDto,
   librarySceneDto,
   sceneFolderDto,
   type CreateLibrarySceneRequestDto,
   type CreateSceneFolderRequestDto,
-  type LibraryDto,
   type LibrarySceneDto,
   type SceneFolderDto,
   type UpdateLibrarySceneRequestDto,
@@ -38,7 +42,17 @@ export type LibraryResult<T> =
  *
  *  Example: `const result = await libraryApi.list(campaignId); if (result.ok) result.value.scenes` */
 export interface LibraryApi {
-  list(campaignId: string): Promise<LibraryResult<LibraryDto>>;
+  list(campaignId: string): Promise<LibraryResult<CampaignLibraryDto>>;
+  createImage(
+    campaignId: string,
+    input: CreateLibraryImageRequestDto,
+  ): Promise<LibraryResult<LibraryImageDto>>;
+  updateImage(
+    campaignId: string,
+    imageId: string,
+    changes: UpdateLibraryImageRequestDto,
+  ): Promise<LibraryResult<LibraryImageDto>>;
+  removeImage(campaignId: string, imageId: string): Promise<LibraryResult<null>>;
   createScene(
     campaignId: string,
     input: CreateLibrarySceneRequestDto,
@@ -83,8 +97,36 @@ const FAILURE_BY_STATUS: Readonly<Record<number, LibraryFailure>> = {
 export class HttpLibraryApi implements LibraryApi {
   constructor(private readonly transport: HttpTransport) {}
 
-  list(campaignId: string): Promise<LibraryResult<LibraryDto>> {
-    return this.answer('GET', scenesPath(campaignId), libraryDto);
+  list(campaignId: string): Promise<LibraryResult<CampaignLibraryDto>> {
+    return this.answer(
+      'GET',
+      `/campaigns/${encodeURIComponent(campaignId)}/library`,
+      campaignLibraryDto,
+    );
+  }
+
+  createImage(
+    campaignId: string,
+    input: CreateLibraryImageRequestDto,
+  ): Promise<LibraryResult<LibraryImageDto>> {
+    return this.answer('POST', imagesPath(campaignId), libraryImageDto, input);
+  }
+
+  updateImage(
+    campaignId: string,
+    imageId: string,
+    changes: UpdateLibraryImageRequestDto,
+  ): Promise<LibraryResult<LibraryImageDto>> {
+    return this.answer(
+      'PATCH',
+      `${imagesPath(campaignId)}/${encodeURIComponent(imageId)}`,
+      libraryImageDto,
+      changes,
+    );
+  }
+
+  removeImage(campaignId: string, imageId: string): Promise<LibraryResult<null>> {
+    return this.remove(`${imagesPath(campaignId)}/${encodeURIComponent(imageId)}`);
   }
 
   createScene(
@@ -171,4 +213,8 @@ function failureOf(response: HttpResponse): LibraryFailure {
   const byCode = FAILURE_BY_CODE[errorCodeOf(response) ?? ''];
   if (byCode) return byCode;
   return FAILURE_BY_STATUS[response.status] ?? { kind: 'unexpected' };
+}
+
+function imagesPath(campaignId: string): string {
+  return `/campaigns/${encodeURIComponent(campaignId)}/library-images`;
 }

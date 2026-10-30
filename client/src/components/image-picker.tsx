@@ -1,5 +1,5 @@
 import type { AssetDto, AssetPurposeDto } from '@lorkarium/contracts';
-import { useId } from 'react';
+import { useEffect, useId } from 'react';
 import { animatesImage, imageOfClipboard } from '@/lib/image-file';
 import { assetUrlOf, type AssetsApi } from '@/services/assets-api';
 import { ImageSourceButtons } from './image-source-buttons';
@@ -16,6 +16,8 @@ export type ImagePickerProps = Readonly<{
   label: string;
   /** The name of the button that takes the image away; "Remover imagem" by default. */
   removeLabel?: string;
+  disabled?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }>;
 
 /** One place to choose an image: the area takes a dropped or pasted (Ctrl+V) file and shows the
@@ -23,22 +25,25 @@ export type ImagePickerProps = Readonly<{
  *
  *  Example: `<ImagePicker campaignId={id} purpose="token" assets={assets} value={imageAssetId} onChange={setImage} label="Imagem" />` */
 export function ImagePicker(props: ImagePickerProps): React.JSX.Element {
-  const { campaignId, purpose, assets, value, onChange, label } = props;
+  const { campaignId, purpose, assets, value, onChange, label, onBusyChange } = props;
   const sender = useImageSender({ campaignId, purpose, assets, onSent: onChange });
+  useEffect(() => onBusyChange?.(sender.busy), [onBusyChange, sender.busy]);
   const hintId = useId();
   return (
-    <fieldset className="flex flex-col gap-3" aria-busy={sender.busy}>
+    <fieldset disabled={props.disabled} className="flex flex-col gap-3" aria-busy={sender.busy}>
       <legend className="mb-1 text-[13px] font-medium text-label">{label}</legend>
       <div
         role="group"
         aria-label="Área da imagem"
         aria-describedby={hintId}
         tabIndex={0}
-        onPaste={(event) => sender.sendFile(imageOfClipboard(event.clipboardData))}
+        onPaste={(event) =>
+          !props.disabled && sender.sendFile(imageOfClipboard(event.clipboardData))
+        }
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
-          sender.sendFile(imageOfClipboard(event.dataTransfer));
+          if (!props.disabled) sender.sendFile(imageOfClipboard(event.dataTransfer));
         }}
         className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-input bg-card px-3 py-4 text-center outline-none focus-visible:border-primary"
       >

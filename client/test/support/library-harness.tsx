@@ -57,6 +57,6 @@ export async function openLibrary(
 ): Promise<LibraryRoom> {
   const room = await openRoom(deps, options);
   await userEvent.click(screen.getByRole('link', { name: 'Biblioteca' }));
-  await screen.findByRole('tree', { name: 'Grids e pastas' });
+  await screen.findByRole('tree', { name: 'Itens e pastas' });
   return room;
 }

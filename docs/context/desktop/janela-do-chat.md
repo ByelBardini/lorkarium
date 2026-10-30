@@ -1,6 +1,6 @@
-# Desktop · janelas auxiliares do chat e dos dados
+# Desktop · janelas auxiliares de Chat, Dados e Imagens
 
-Hub: [`../desktop.md`](../desktop.md). Plano de origem: `docs/plans/2026-10-27-tela-chat-da-mesa.md` (fase 12). O lado do client (botão, portal, "Trazer de volta"): [`../client/chat-janela.md`](../client/chat-janela.md).
+Hub: [`../desktop.md`](../desktop.md). O lado do client (botão, portal, "Trazer de volta"): [`../client/chat-janela.md`](../client/chat-janela.md).
 
 O "Abrir em outra janela" do chat faz `window.open('/chat-window.html', 'lorkarium-chat-<campaignId>', 'popup,width=420,height=720')` e o React da janela principal desenha o chat por portal no `document.body` da nova — precisa de `window.opener` e mesma origem. No navegador padrão a página ficaria em branco (sem opener), por isso é a **única** URL que vira janela Tauri; todo outro `window.open` segue `Deny` (ver a tabela do hub).
 
@@ -29,16 +29,12 @@ As janelas auxiliares usam `decorations(false)` e a marca imutável `__LORKARIUM
 
 - O client desktop usa `TauriChatWindowHost` (`client/src/services/desktop-chat-window-host.ts`): preserva `window.open` e acrescenta `setAlwaysOnTop(enabled)` ao handle. O navegador comum não fornece essa operação.
 - `chat_window.rs` escreve a marca imutável `__LORKARIUM_CHAT_WINDOW_LABEL__` no documento da nova janela por `initialization_script`. O adaptador lê esse rótulo da janela carregada e chama `set_chat_always_on_top` pela IPC da **principal**.
-- `chat_window_controls.rs`: capability `chat-window-controls`, só remota na origem do app e só na `main`, libera apenas `allow-set-chat-always-on-top`. O comando aceita a janela alvo só se o emissor é `main`, o rótulo é `chat-<n>` e o alvo está em `/chat-window.html` na mesma origem. Não concede `core:window:allow-set-always-on-top` nem permite fixar a janela principal.
+- `chat_window_controls.rs`: capability `chat-window-controls`, só remota na origem do app e só na `main`, libera `allow-set-chat-always-on-top` e `allow-control-detached-window`. Os comandos aceitam a janela alvo só se o emissor é `main`, o rótulo é `chat-<n>` e o alvo está em `/chat-window.html` na mesma origem. Não concede `core:window:allow-set-always-on-top` nem permite fixar a janela principal.
 - A chamada resolve depois de `WebviewWindow::set_always_on_top(enabled)` confirmar; erro chega ao checkbox para manter o estado anterior. Cada nova janela começa sem fixação; o `window-state` não guarda essa preferência.
 
 ## Testes
 
-`navigation.rs` (9 casos: aceita com e sem query/hash; recusa outro site, http, outra porta, outro caminho, prefixo, outra caixa; navegação comum `Stay`), `chat_window.rs` (rótulo), `chat_window_controls.rs` (emissor, rótulo, origem/caminho e permissão) e `main_window.rs` (`keeps_window_state`). `client/test/services/desktop-chat-window-host.spec.ts` prova o comando de fixar/desfixar, marca inválida, janela fechada e recusa IPC. A borda (`open`, `harden_chat`) não tem teste, como o resto da casca. APIs conferidas no Tauri 2.12.5 e wry 0.57.1 do lock; o [`NewWindowResponse::Create`](https://docs.rs/tauri/2.12.5/tauri/webview/enum.NewWindowResponse.html) exige o mesmo ambiente WebView2 no Windows.
-
-Smoke CDP em 2026-10-28, com os componentes reais `useChatWindow`, `BrowserChatWindowHost` e `ChatWindowPortal`: a 2ª WebView2 expôs `window.opener`, desenhou o portal, copiou estilos e executou callback React na principal por clique na nova janela. Fechá-la retornou `detached → docked`. Os 75 testes Rust, fmt, clippy e build também passaram.
-
-**Pendente (manual):** o envio Socket.IO foi provado no popup Chromium pelo e2e, mas não neste smoke nativo isolado. Na casca, ainda conferir envio para a mesa e F5/menu desligados: `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333 pnpm desktop:dev`, CDP em `http://localhost:9333/json`.
+`navigation.rs` cobre origem e caminho exatos, query/hash e navegação comum `Stay`; `chat_window.rs`, o rótulo; `chat_window_controls.rs`, emissor, rótulo, origem/caminho, permissões, ações aceitas/recusadas e a query de Dados; `main_window.rs`, `keeps_window_state`. `client/test/services/desktop-chat-window-host.spec.ts` cobre fixar/desfixar, marca inválida, janela fechada, recusa IPC e os controles nativos sem `Window.close()`. A borda (`open`, `harden_chat`) não tem teste automático; o fluxo Socket.IO com janelas simultâneas está no Chromium em `e2e/test/dice.spec.ts`. Conferência manual da casca: CDP descrito no hub.
 
 ## Armadilhas
 
@@ -46,3 +42,9 @@ Smoke CDP em 2026-10-28, com os componentes reais `useChatWindow`, `BrowserChatW
 
 - **`Create` exige o mesmo ambiente WebView2 e a janela sem navegação**: sem `window_features(features)` (o `environment` do opener) ou com uma URL real no builder, o `SetNewWindow` falha e o `window.open` não devolve a janela. Por isso `about:blank`.
 - Criar a janela dentro do `on_new_window` não trava: o wry 0.57 adia o handler (`GetDeferral` + `dispatch_handler`) para depois do callback COM, e a criação na thread principal é feita direto (sem canal).
+
+## Terceiro painel: imagem apresentada
+
+A principal instala a marca imutável `__LORKARIUM_IMAGE_WINDOW_SUPPORTED__` por `initialization_script`. O client só tenta abertura automática com marca verdadeira e casca desktop; nova release da casca habilita o caminho. Casca anterior mantém modal funcional.
+
+`?panel=image` reaproveita caminho/origem, ambiente WebView2 e rótulos `chat-<n>`. Nome do client: `lorkarium-image-<campaignId>`; tamanho 960×720. Nenhuma permissão IPC ou allowlist adicional. Substituir mantém janela e troca portal; X fecha só a apresentação local. Controles nativos existentes minimizam/maximizam/fecham. Falha de abertura/documento retorna ao modal; recusa de fechamento mantém conteúdo e aviso.

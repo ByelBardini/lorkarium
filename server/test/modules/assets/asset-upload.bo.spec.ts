@@ -4,7 +4,14 @@ import { AssetTooLargeError } from '../../../src/modules/assets/assets.error';
 
 const MIB = 1024 * 1024;
 const LIMIT = 20 * MIB;
-const SIDES = { background: 4096, token: 1024, cover: 1600, condition: 256, aura: 512 };
+const SIDES = {
+  library_image: 4096,
+  background: 4096,
+  token: 1024,
+  cover: 1600,
+  condition: 256,
+  aura: 512,
+};
 const ANIMATION = { maxFrames: 120, maxDecodedPixels: 16_000_000 };
 
 describe('resizeFor', () => {
@@ -15,6 +22,7 @@ describe('resizeFor', () => {
   it.each([
     ['token', 1024],
     ['background', 4096],
+    ['library_image', 4096],
     ['cover', 1600],
     ['aura', 512],
   ] as const)('a %s image keeps its shape, up to %i px', (purpose, maxSide) => {

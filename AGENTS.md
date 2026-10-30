@@ -78,41 +78,41 @@ O vocabulário segue o artigo [Diferença entre os patterns PO, POJO, BO, DTO e 
 
 Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um workspace tem o nome dele (`server.md`, `client.md`, `game-core.md`, `contracts.md`) e o de uma área, o nome da pasta dela no código (`combat.md`, `board.md`) — é assim que os drivers montam o `leia antes:`.
 
-| Área             | O que cobre                                                                      | Arquivo                                                                |
-| ---------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| contracts        | DTOs Zod compartilhados (auth, mesas, sessão, tabuleiro, erro)                   | [`docs/context/contracts.md`](docs/context/contracts.md)               |
-| game-core        | Regra de jogo pura: célula, distância, barra, turno, visão, cone, luz            | [`docs/context/game-core.md`](docs/context/game-core.md)               |
-| server           | Encanamento: env, banco, migrações, app, tempo real, regras de desempenho        | [`docs/context/server.md`](docs/context/server.md)                     |
-| auth             | Contas, @, e-mail cifrado, login em 2 etapas, sessão por cookie, papel global    | [`docs/context/auth.md`](docs/context/auth.md)                         |
-| campaigns        | Mesas: criação, detalhe, config., código, papéis (dono, co-mestre, juggernaut)   | [`docs/context/campaigns.md`](docs/context/campaigns.md)               |
-| board            | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas      | [`docs/context/board.md`](docs/context/board.md)                       |
-| library          | Biblioteca de grids: pastas, visibilidade, REST, duplicar, ativação e expulsão   | [`docs/context/library.md`](docs/context/library.md)                   |
-| tokens           | Tokens: barras, controle, principal, cone, luz, aura, formas, invisível, elenco  | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
-| member-cards     | Ficha da mesa: nome do personagem, CA, CD e anotações por membro                 | [`docs/context/member-cards.md`](docs/context/member-cards.md)         |
-| profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`       | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
-| combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada        | [`docs/context/combat.md`](docs/context/combat.md)                     |
-| drawings         | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição           | [`docs/context/drawings.md`](docs/context/drawings.md)                 |
-| effect-areas     | Áreas de efeito: formas, casas pintadas, autor, alças, versão                    | [`docs/context/effect-areas.md`](docs/context/effect-areas.md)         |
-| walls            | Paredes e portas: tipos, formas, passagem, porta vista, visão                    | [`docs/context/walls.md`](docs/context/walls.md)                       |
-| lights           | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre             | [`docs/context/lights.md`](docs/context/lights.md)                     |
-| pings            | Ping no mapa: anel efêmero com o nome, alcance pela sala do grid, sem versão     | [`docs/context/pings.md`](docs/context/pings.md)                       |
-| dice             | Dados: física no server, ondas, até 20 modelos, secreta, balde próprio, salvas   | [`docs/context/dice.md`](docs/context/dice.md)                         |
-| chat             | Chat da mesa (efêmero): Mesa, sussurro, privado, grupo, falar como token, salas  | [`docs/context/chat.md`](docs/context/chat.md)                         |
-| sessions         | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão         | [`docs/context/sessions.md`](docs/context/sessions.md)                 |
-| account-security | Conta: senha, sessões ativas, troca de e-mail, 2FA da conta, avisos por e-mail   | [`docs/context/account-security.md`](docs/context/account-security.md) |
-| assets           | Imagens da mesa: S3, envio, link seguro, leitura pela origem                     | [`docs/context/assets.md`](docs/context/assets.md)                     |
-| mail             | E-mails do sistema: molde HTML/texto, catálogo de templates, PNGs, prévia        | [`docs/context/mail.md`](docs/context/mail.md)                         |
-| user-admin       | Backoffice das contas: lista, papel, suspensão, exclusão, teste de e-mail        | [`docs/context/user-admin.md`](docs/context/user-admin.md)             |
-| account-links    | Links de uso único: convite (escolhe @ e senha) e nova senha pelo admin          | [`docs/context/account-links.md`](docs/context/account-links.md)       |
-| legal            | Termos e Privacidade no app: redirect à landing, aceite no convite, versão       | [`docs/context/legal.md`](docs/context/legal.md)                       |
-| client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho           | [`docs/context/client.md`](docs/context/client.md)                     |
-| ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo   | [`docs/context/ci.md`](docs/context/ci.md)                             |
-| desktop          | Casca Tauri 2 sem moldura: splash, updater, WebView2, bandeja, release, instalar | [`docs/context/desktop.md`](docs/context/desktop.md)                   |
-| site             | Landing comercial: Astro estático, download do .exe pela API do GitHub, legais   | [`docs/context/site.md`](docs/context/site.md)                         |
-| brand            | Pacote da marca: paleta crua, fontes self-host, logo                             | [`docs/context/brand.md`](docs/context/brand.md)                       |
-| deploy           | Runbook: imagem, Coolify, AWS S3 e IAM, envs, DNS, primeiro deploy, voltar       | [`docs/context/deploy.md`](docs/context/deploy.md)                     |
-| health           | `GET /api/health` (ping no Postgres, 200/503, pública)                           | [`docs/context/health.md`](docs/context/health.md)                     |
-| access-log       | Registro de acesso (Marco Civil art. 15): IP, hora e conta no S3 por 6 meses     | [`docs/context/access-log.md`](docs/context/access-log.md)             |
+| Área             | O que cobre                                                                         | Arquivo                                                                |
+| ---------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| contracts        | DTOs Zod compartilhados (auth, mesas, sessão, tabuleiro, erro)                      | [`docs/context/contracts.md`](docs/context/contracts.md)               |
+| game-core        | Regra de jogo pura: célula, distância, barra, turno, visão, cone, luz               | [`docs/context/game-core.md`](docs/context/game-core.md)               |
+| server           | Encanamento: env, banco, migrações, app, tempo real, regras de desempenho           | [`docs/context/server.md`](docs/context/server.md)                     |
+| auth             | Contas, @, e-mail cifrado, login em 2 etapas, sessão por cookie, papel global       | [`docs/context/auth.md`](docs/context/auth.md)                         |
+| campaigns        | Mesas: criação, detalhe, config., código, papéis (dono, co-mestre, juggernaut)      | [`docs/context/campaigns.md`](docs/context/campaigns.md)               |
+| board            | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas         | [`docs/context/board.md`](docs/context/board.md)                       |
+| library          | Biblioteca: grids, imagens, pastas, visibilidade, apresentação e ativação           | [`docs/context/library.md`](docs/context/library.md)                   |
+| tokens           | Tokens: barras, controle, principal, cone, luz, aura, formas, invisível, elenco     | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
+| member-cards     | Ficha da mesa: nome do personagem, CA, CD e anotações por membro                    | [`docs/context/member-cards.md`](docs/context/member-cards.md)         |
+| profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`          | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
+| combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada           | [`docs/context/combat.md`](docs/context/combat.md)                     |
+| drawings         | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição              | [`docs/context/drawings.md`](docs/context/drawings.md)                 |
+| effect-areas     | Áreas de efeito: formas, casas pintadas, autor, alças, versão                       | [`docs/context/effect-areas.md`](docs/context/effect-areas.md)         |
+| walls            | Paredes e portas: tipos, formas, passagem, porta vista, visão                       | [`docs/context/walls.md`](docs/context/walls.md)                       |
+| lights           | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre                | [`docs/context/lights.md`](docs/context/lights.md)                     |
+| pings            | Ping no mapa: anel efêmero com o nome, alcance pela sala do grid, sem versão        | [`docs/context/pings.md`](docs/context/pings.md)                       |
+| dice             | Dados: física no server, ondas, até 20 modelos, secreta, balde próprio, salvas      | [`docs/context/dice.md`](docs/context/dice.md)                         |
+| chat             | Chat da mesa (efêmero): Mesa, sussurro, privado, grupo, falar como token, salas     | [`docs/context/chat.md`](docs/context/chat.md)                         |
+| sessions         | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão            | [`docs/context/sessions.md`](docs/context/sessions.md)                 |
+| account-security | Conta: senha, sessões ativas, troca de e-mail, 2FA da conta, avisos por e-mail      | [`docs/context/account-security.md`](docs/context/account-security.md) |
+| assets           | Imagens da mesa: S3, envio, link seguro, leitura pela origem                        | [`docs/context/assets.md`](docs/context/assets.md)                     |
+| mail             | E-mails do sistema: molde HTML/texto, catálogo de templates, PNGs, prévia           | [`docs/context/mail.md`](docs/context/mail.md)                         |
+| user-admin       | Backoffice das contas: lista, papel, suspensão, exclusão, teste de e-mail           | [`docs/context/user-admin.md`](docs/context/user-admin.md)             |
+| account-links    | Links de uso único: convite (escolhe @ e senha) e nova senha pelo admin             | [`docs/context/account-links.md`](docs/context/account-links.md)       |
+| legal            | Termos e Privacidade no app: redirect à landing, aceite no convite, versão          | [`docs/context/legal.md`](docs/context/legal.md)                       |
+| client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho              | [`docs/context/client.md`](docs/context/client.md)                     |
+| ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo      | [`docs/context/ci.md`](docs/context/ci.md)                             |
+| desktop          | Casca Tauri 2: splash, updater, bandeja, janelas de Chat/Dados/Imagens e instalador | [`docs/context/desktop.md`](docs/context/desktop.md)                   |
+| site             | Landing comercial: Astro estático, download do .exe pela API do GitHub, legais      | [`docs/context/site.md`](docs/context/site.md)                         |
+| brand            | Pacote da marca: paleta crua, fontes self-host, logo                                | [`docs/context/brand.md`](docs/context/brand.md)                       |
+| deploy           | Runbook: imagem, Coolify, AWS S3 e IAM, envs, DNS, primeiro deploy, voltar          | [`docs/context/deploy.md`](docs/context/deploy.md)                     |
+| health           | `GET /api/health` (ping no Postgres, 200/503, pública)                              | [`docs/context/health.md`](docs/context/health.md)                     |
+| access-log       | Registro de acesso (Marco Civil art. 15): IP, hora e conta no S3 por 6 meses        | [`docs/context/access-log.md`](docs/context/access-log.md)             |
 
 Área sem linha aqui ainda não tem doc: o `/atualizar-contexto` cria o hub junto com o primeiro código da área. Até lá, a referência é o `docs/spec.md`.
 

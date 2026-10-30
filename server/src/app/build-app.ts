@@ -1,3 +1,6 @@
+import { LibraryImageReadPolicy } from '../modules/library/library-image-read-policy.service';
+import { libraryImageDaos } from '../modules/library/library.plugin';
+import { runInSnapshot } from '../database/transaction';
 import cookie from '@fastify/cookie';
 import { AVATAR_MAX_BYTES } from '@lorkarium/contracts';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
@@ -126,7 +129,10 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
   const processor = new SharpImageProcessor();
   const fetcher = new GuardedImageFetcher();
-  const assets = createAssetsModule({ db: deps.db, storage, processor, fetcher });
+  const readPolicy = new LibraryImageReadPolicy((work) =>
+    runInSnapshot(deps.db, (tx) => work(libraryImageDaos(tx))),
+  );
+  const assets = createAssetsModule({ db: deps.db, storage, processor, fetcher, readPolicy });
   await app.register(assets.plugin, { prefix: API_PREFIX });
   const { memberships } = campaigns;
   const realtimeModules = {

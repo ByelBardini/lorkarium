@@ -4,6 +4,7 @@ import { AssetsService } from '../../../src/modules/assets/assets.service';
 import { ANA_ID } from '../../support/auth-factories';
 import {
   AssetsDaoFake,
+  AssetReadPolicyFake,
   AssetStorageFake,
   ImageFetcherFake,
   ImageProcessorFake,
@@ -35,6 +36,8 @@ describe('AssetsService', () => {
   let fetcher: ImageFetcherFake;
   let assets: AssetsDaoFake;
   let service: AssetsService;
+  let policy: AssetReadPolicyFake;
+  let members: CampaignMembersDaoFake;
 
   beforeEach(() => {
     journal = [];
@@ -42,7 +45,8 @@ describe('AssetsService', () => {
     processor = new ImageProcessorFake(journal);
     fetcher = new ImageFetcherFake();
     assets = new AssetsDaoFake(journal);
-    const members = new CampaignMembersDaoFake(new CampaignsDaoFake(), {}, [
+    policy = new AssetReadPolicyFake();
+    members = new CampaignMembersDaoFake(new CampaignsDaoFake(), {}, [
       campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
       campaignMemberPo({ campaignId: QUELM_ID, userId: CAIO_ID, role: 'master' }),
@@ -54,7 +58,90 @@ describe('AssetsService', () => {
       processor,
       fetcher,
       newId: () => NEW_ID,
+      readPolicy: policy,
     });
+  });
+
+  it('a master uploads a library image with a proportional 4096 px static budget', async () => {
+    const asset = await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_image' });
+    expect(asset).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
+    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(assets.rows[0]).toMatchObject({ purpose: 'library_image', ownerId: ANA_ID });
+    expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it('a player cannot upload a library image and processing never starts', async () => {
+    await expect(
+      service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_image' }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(journal).toEqual([]);
+    expect(assets.rows).toEqual([]);
+  });
+
+  it('a player cannot import a library image and the remote link is never fetched', async () => {
+    await expect(
+      service.importLink(BIA_ID, VHARN_ID, {
+        url: 'https://example.com/private.webp',
+        purpose: 'library_image',
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(fetcher.fetched).toEqual([]);
+    expect(journal).toEqual([]);
+  });
+
+  it('a master imports a static library image with the same proportional budget', async () => {
+    await service.importLink(ANA_ID, VHARN_ID, {
+      url: 'https://example.com/portrait.webp',
+      purpose: 'library_image',
+    });
+    expect(fetcher.fetched).toEqual(['https://example.com/portrait.webp']);
+    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(assets.rows[0]?.purpose).toBe('library_image');
+  });
+
+  it('a policy refusal hides the dedicated asset even from a campaign member', async () => {
+    assets.rows.push(lyraPortraitPo({ purpose: 'library_image' }));
+    storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
+    await expect(service.open(BIA_ID, lyraPortraitPo().id)).rejects.toMatchObject({
+      code: 'ASSET_NOT_FOUND',
+    });
+    expect(policy.checks).toEqual([
+      { userId: BIA_ID, campaignId: VHARN_ID, assetId: lyraPortraitPo().id },
+    ]);
+  });
+
+  it('an authorized dedicated asset returns its bytes with private no-store caching', async () => {
+    policy.allowed = true;
+    assets.rows.push(lyraPortraitPo({ purpose: 'library_image' }));
+    storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
+    const opened = await service.open(BIA_ID, lyraPortraitPo().id);
+    expect(opened.cacheControl).toBe('private, no-store');
+    expect(await bytesOf(opened.body)).toEqual([...PNG]);
+  });
+
+  it('without an injected policy a dedicated asset is refused even to the master', async () => {
+    assets.rows.push(lyraPortraitPo({ purpose: 'library_image' }));
+    storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
+    const withoutPolicy = new AssetsService({
+      members,
+      assets,
+      storage,
+      processor,
+      fetcher,
+      newId: () => NEW_ID,
+    });
+    await expect(withoutPolicy.open(ANA_ID, lyraPortraitPo().id)).rejects.toMatchObject({
+      code: 'ASSET_NOT_FOUND',
+    });
+  });
+
+  it('legacy token reads bypass the new policy and retain their existing cache behavior', async () => {
+    assets.rows.push(lyraPortraitPo());
+    storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
+    const opened = await service.open(BIA_ID, lyraPortraitPo().id);
+    expect(opened.cacheControl).toBeUndefined();
+    expect(policy.checks).toEqual([]);
+    expect(await bytesOf(opened.body)).toEqual([...PNG]);
   });
 
   it('a member sending a token PNG gets it normalized, stored, recorded and answered', async () => {

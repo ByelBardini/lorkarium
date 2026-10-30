@@ -1,4 +1,8 @@
-import type { LibraryChangedDto, SceneActivatedDto } from '@lorkarium/contracts';
+import type {
+  LibraryChangedDto,
+  SceneActivatedDto,
+  ImagePresentationChangedDto,
+} from '@lorkarium/contracts';
 import type { LibraryPublisherPort } from '../../modules/library/library-publisher.port';
 import type { RealtimeServer } from '../../realtime/realtime-server';
 import { campaignRoom } from '../../realtime/rooms';
@@ -8,6 +12,10 @@ import { campaignRoom } from '../../realtime/rooms';
  *  Example: `new SocketIoLibraryPublisher(realtime.io).libraryChanged({ campaignId, at })` */
 export class SocketIoLibraryPublisher implements LibraryPublisherPort {
   constructor(private readonly io: RealtimeServer) {}
+
+  imagePresentationChanged(event: ImagePresentationChangedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('library:imagePresentationChanged', event);
+  }
 
   libraryChanged(event: LibraryChangedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('library:changed', event);

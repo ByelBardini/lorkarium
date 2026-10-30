@@ -1,4 +1,4 @@
-import type { LibraryDto, LibrarySceneDto, SceneFolderDto } from '@lorkarium/contracts';
+import type { CampaignLibraryDto, LibrarySceneDto, SceneFolderDto } from '@lorkarium/contracts';
 import { ESTRADA_SCENE, TORRE_SCENE } from './scene-tab-fixtures';
 import { VHARN_SCENE } from './table-session-fixtures';
 
@@ -41,8 +41,9 @@ export function libraryScene(
  *  private Torre in "Catacumbas".
  *
  *  Example: `vharnLibrary({ activeSceneId: ESTRADA_SCENE.id })` */
-export function vharnLibrary(overrides: Partial<LibraryDto> = {}): LibraryDto {
+export function vharnLibrary(overrides: Partial<CampaignLibraryDto> = {}): CampaignLibraryDto {
   return {
+    images: [],
     activeSceneId: VHARN_SCENE.id,
     folders: [ATO_1, CATACUMBAS],
     scenes: [
@@ -76,7 +77,7 @@ const ESTRADA_BACKGROUND = {
  *  in "Ato 1", the Torre and the Ossuário in "Ato 1 › Catacumbas", and "Lugares fixos" empty.
  *
  *  Example: `masterLibrary({ activeSceneId: OSSUARIO.id })` */
-export function masterLibrary(overrides: Partial<LibraryDto> = {}): LibraryDto {
+export function masterLibrary(overrides: Partial<CampaignLibraryDto> = {}): CampaignLibraryDto {
   const base = vharnLibrary();
   const [cena, estrada, torre] = base.scenes;
   if (!cena || !estrada || !torre) throw new Error('vharnLibrary() lost a grid');
@@ -91,10 +92,30 @@ export function masterLibrary(overrides: Partial<LibraryDto> = {}): LibraryDto {
 /** VHARN's library as Bia (player) gets it: the public grids and the group's, no token counts.
  *
  *  Example: `playerLibrary().scenes.length // 2` */
-export function playerLibrary(overrides: Partial<LibraryDto> = {}): LibraryDto {
+export function playerLibrary(overrides: Partial<CampaignLibraryDto> = {}): CampaignLibraryDto {
   const master = masterLibrary();
   const scenes = master.scenes
     .filter(({ id, visibility }) => visibility === 'public' || id === master.activeSceneId)
     .map((scene) => ({ ...scene, tokenCount: null }));
-  return { activeSceneId: master.activeSceneId, folders: [ATO_1], scenes, ...overrides };
+  return {
+    images: [],
+    activeSceneId: master.activeSceneId,
+    folders: [ATO_1],
+    scenes,
+    ...overrides,
+  };
 }
+
+export const PORTRAIT = {
+  id: '40d430a4-0657-4ba0-90e5-9df6820f49db',
+  name: 'Retrato',
+  folderId: null,
+  visibility: 'private' as const,
+  asset: {
+    id: '80c01c4d-268a-4603-a0d0-5470045bf4b6',
+    width: 400,
+    height: 600,
+    mimeType: 'image/png' as const,
+  },
+  updatedAt: '2026-10-29T12:00:00.000Z',
+};

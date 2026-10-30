@@ -4,18 +4,23 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { NEW_FOLDER, NEW_GRID } from '../../support/library-api-fake';
-import {
-  ATO_1,
-  CATACUMBAS,
-  OSSUARIO,
-  masterLibrary,
-  playerLibrary,
-} from '../../support/library-fixtures';
+import { ATO_1, OSSUARIO, masterLibrary, playerLibrary } from '../../support/library-fixtures';
 import { openLibrary } from '../../support/library-harness';
 import { openCatacumbas, treeItem } from '../../support/library-tree';
 import { VHARN_SCENE } from '../../support/table-session-fixtures';
 
 describe('the actions of the library', () => {
+  it('the create dropdown offers grid, image and folder and starts a folder field', async () => {
+    await openLibrary(testDependencies());
+    await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Novo grid',
+      'Nova imagem',
+      'Nova pasta',
+    ]);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Nova pasta' }));
+    expect(screen.getByRole('textbox', { name: 'Nome da nova pasta' })).toHaveFocus();
+  });
   let deps: TestDependencies;
 
   beforeEach(() => {
@@ -23,7 +28,7 @@ describe('the actions of the library', () => {
   });
 
   function library(): HTMLElement {
-    return screen.getByRole('dialog', { name: 'Biblioteca de grids' });
+    return screen.getByRole('dialog', { name: 'Biblioteca' });
   }
 
   function panel(): HTMLElement {
@@ -48,28 +53,30 @@ describe('the actions of the library', () => {
   }
 
   describe('grids', () => {
-    it('"Novo grid" creates in the folder picked, picks the new grid and focuses its name', async () => {
+    it('header creation ignores the selected folder, creates at root and focuses its name', async () => {
       await openLibrary(deps);
       await userEvent.click(treeItem('Ato 1'));
       await userEvent.click(treeItem('Ato 1'));
       deps.libraryApi.answer('list', {
         ok: true,
-        value: withScene({ ...NEW_GRID, folderId: ATO_1.id }),
+        value: withScene({ ...NEW_GRID, folderId: null }),
       });
-      await userEvent.click(screen.getByRole('button', { name: 'Novo grid' }));
-      expect(deps.libraryApi.callsOf('createScene')).toEqual([[{ folderId: ATO_1.id }]]);
+      await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Novo grid' }));
+      expect(deps.libraryApi.callsOf('createScene')).toEqual([[{ folderId: null }]]);
       const name = await within(panel()).findByRole('textbox', { name: 'Nome' });
       expect(name).toHaveValue('Grid sem nome');
       expect(name).toHaveFocus();
       expect(treeItem('Grid sem nome')).toHaveAttribute('aria-selected', 'true');
-      expect(treeItem('Ato 1')).toHaveAttribute('aria-expanded', 'true');
+      expect(treeItem('Ato 1')).toHaveAttribute('aria-expanded', 'false');
     });
 
-    it('"Novo grid" with a grid picked creates in that grid\'s folder', async () => {
+    it('header creation with a grid selected still creates at root', async () => {
       await openLibrary(deps);
       await pickOssuario();
-      await userEvent.click(screen.getByRole('button', { name: 'Novo grid' }));
-      expect(deps.libraryApi.callsOf('createScene')).toEqual([[{ folderId: CATACUMBAS.id }]]);
+      await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Novo grid' }));
+      expect(deps.libraryApi.callsOf('createScene')).toEqual([[{ folderId: null }]]);
     });
 
     it('the name goes on Enter and on leaving the field, only when it changed; Esc undoes', async () => {
@@ -234,7 +241,7 @@ describe('the actions of the library', () => {
       await openLibrary(deps);
       await pickOssuario();
       deps.tableSessionApi.emit({ kind: 'status', status: 'reconnecting' });
-      expect(screen.getByRole('button', { name: 'Novo grid' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Criar item' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Nova pasta' })).toBeDisabled();
       expect(within(panel()).getByRole('textbox', { name: 'Nome' })).toBeDisabled();
       expect(within(panel()).getByRole('button', { name: 'Levar o grupo pra cá' })).toBeDisabled();
