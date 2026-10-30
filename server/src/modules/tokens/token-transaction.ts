@@ -232,7 +232,7 @@ export async function requireAssetsOf(
   if (wanted.length === 0) return;
   const found = new Set(
     (await daos.assets.findManyInCampaign(campaignId, wanted))
-      .filter((asset) => asset.purpose !== 'library_image')
+      .filter((asset) => asset.purpose !== 'library_image' && asset.purpose !== 'document_image')
       .map((a) => a.id),
   );
   const missing = wanted.find((assetId) => !found.has(assetId));

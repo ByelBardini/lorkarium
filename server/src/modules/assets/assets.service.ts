@@ -57,6 +57,26 @@ export class AssetsService {
     campaignId: string,
     file: Readonly<{ bytes: Uint8Array; purpose: AssetPurposeDto }>,
   ): Promise<AssetDto> {
+    if (file.purpose === 'document_image') {
+      const access = await memberAccessOf(this.deps.members, campaignId, userId);
+      access.forbid('upload document_image through generic assets', 'the document image endpoint');
+    }
+    return this.uploadFor(userId, campaignId, file);
+  }
+
+  async uploadDocumentImage(
+    userId: string,
+    campaignId: string,
+    bytes: Uint8Array,
+  ): Promise<AssetDto> {
+    return this.uploadFor(userId, campaignId, { bytes, purpose: 'document_image' });
+  }
+
+  private async uploadFor(
+    userId: string,
+    campaignId: string,
+    file: Readonly<{ bytes: Uint8Array; purpose: AssetPurposeDto }>,
+  ): Promise<AssetDto> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     if (file.purpose === 'library_image') access.requireMaster('upload a library image');
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
@@ -66,6 +86,22 @@ export class AssetsService {
   }
 
   async importLink(
+    userId: string,
+    campaignId: string,
+    link: Readonly<{ url: string; purpose: AssetPurposeDto }>,
+  ): Promise<AssetDto> {
+    if (link.purpose === 'document_image') {
+      const access = await memberAccessOf(this.deps.members, campaignId, userId);
+      access.forbid('import document_image through generic assets', 'the document image endpoint');
+    }
+    return this.importFor(userId, campaignId, link);
+  }
+
+  async importDocumentImage(userId: string, campaignId: string, url: string): Promise<AssetDto> {
+    return this.importFor(userId, campaignId, { url, purpose: 'document_image' });
+  }
+
+  private async importFor(
     userId: string,
     campaignId: string,
     link: Readonly<{ url: string; purpose: AssetPurposeDto }>,
@@ -87,7 +123,7 @@ export class AssetsService {
     const membership = await this.deps.members.findMembership(row.campaignId, userId);
     if (membership === undefined) throw new AssetNotFoundError(assetId);
     if (
-      row.purpose === 'library_image' &&
+      (row.purpose === 'library_image' || row.purpose === 'document_image') &&
       !(await this.deps.readPolicy?.canRead(userId, row.campaignId, row.id))
     )
       throw new AssetNotFoundError(assetId);
@@ -97,7 +133,9 @@ export class AssetsService {
       body: object.body,
       size: object.size,
       mimeType: row.mimeType,
-      ...(row.purpose === 'library_image' ? { cacheControl: 'private, no-store' } : {}),
+      ...(row.purpose === 'library_image' || row.purpose === 'document_image'
+        ? { cacheControl: 'private, no-store' }
+        : {}),
     };
   }
 

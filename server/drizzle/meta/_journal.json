@@ -477,6 +477,20 @@
       "when": 1793309556477,
       "tag": "0067_amazing_reavers",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1793324089912,
+      "tag": "0068_document_image_purpose",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1793324103504,
+      "tag": "0069_library_documents",
+      "breakpoints": true
     }
   ]
 }

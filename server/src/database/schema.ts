@@ -46,3 +46,9 @@ export { savedRolls } from '../modules/saved-rolls/saved-rolls.po';
 
 export { libraryImages } from '../modules/library/library-images.po';
 export { libraryImagePresentations } from '../modules/library/image-presentations.po';
+export {
+  libraryDocuments,
+  libraryDocumentOwners,
+  libraryDocumentAssets,
+  libraryDocumentActions,
+} from '../modules/documents/documents.po';

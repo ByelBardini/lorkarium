@@ -1,6 +1,9 @@
 import { LibraryImageReadPolicy } from '../modules/library/library-image-read-policy.service';
 import { libraryImageDaos } from '../modules/library/library.plugin';
 import { runInSnapshot } from '../database/transaction';
+import { createDocumentsModule, documentDaos } from '../modules/documents/documents.plugin';
+import { DocumentAssetReadPolicy } from '../modules/documents/document-asset-read-policy.service';
+import { AssetsDao } from '../modules/assets/assets.dao';
 import cookie from '@fastify/cookie';
 import { AVATAR_MAX_BYTES } from '@lorkarium/contracts';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
@@ -129,9 +132,23 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
   const processor = new SharpImageProcessor();
   const fetcher = new GuardedImageFetcher();
-  const readPolicy = new LibraryImageReadPolicy((work) =>
+  const libraryReadPolicy = new LibraryImageReadPolicy((work) =>
     runInSnapshot(deps.db, (tx) => work(libraryImageDaos(tx))),
   );
+  const documentReadPolicy = new DocumentAssetReadPolicy((work) =>
+    runInSnapshot(deps.db, (tx) => work(documentDaos(tx))),
+  );
+  const readPolicy = {
+    canRead: async (userId: string, campaignId: string, assetId: string): Promise<boolean> => {
+      const row = await new AssetsDao(deps.db).findInCampaign(campaignId, assetId);
+      if (row?.purpose === 'document_image')
+        return documentReadPolicy.canRead(userId, campaignId, assetId);
+      return (
+        (await libraryReadPolicy.canRead(userId, campaignId, assetId)) ||
+        (await documentReadPolicy.canRead(userId, campaignId, assetId))
+      );
+    },
+  };
   const assets = createAssetsModule({ db: deps.db, storage, processor, fetcher, readPolicy });
   await app.register(assets.plugin, { prefix: API_PREFIX });
   const { memberships } = campaigns;
@@ -152,6 +169,13 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
   const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
   await app.register(library.plugin, { prefix: API_PREFIX });
+  const documents = createDocumentsModule({
+    db: deps.db,
+    assets: assets.service,
+    clock,
+    publisher,
+  });
+  await app.register(documents.plugin, { prefix: API_PREFIX });
   await app.register(createSavedRollsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;
   const avatars = new SharpAvatarProcessor();
