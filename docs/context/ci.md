@@ -22,6 +22,8 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 
 - Os três primeiros rodam com `--coverage` (`@vitest/coverage-v8`), configurado em `vitest.config.ts`: reporter `text-summary` (log) + `html` (em `coverage/`). **Sem limiar mínimo**: cenário vem do contrato, não de linha descoberta (skill `testar`). A integração roda sem cobertura.
 - `pnpm typecheck` checa os specs: o `include` de cada `tsconfig.json` de workspace tem `test`.
+- ESLint e Prettier ignoram `.claude/worktrees/`: um checkout aninhado tem seu próprio ciclo de verificação e não deve duplicar o código nem reintroduzir fixtures e artefatos nos checks da raiz.
+- Em máquina local sob carga, `pnpm test --maxWorkers=2` limita os processos sem mudar os cenários executados; o padrão pode causar timeouts de interação por disputa de CPU/memória.
 - `pnpm bench` (`vitest bench --run`, os `*.bench.ts`) fica **fora** do `pnpm test` e do CI: os runners oscilam e a suíte já é instável sob carga, então um limiar de tempo daria vermelho falso. É medição local, fase a fase (ver [`client/performance.md`](client/performance.md)).
 
 ## Build

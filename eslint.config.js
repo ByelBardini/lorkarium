@@ -16,6 +16,7 @@ export default tseslint.config(
       '**/playwright-report',
       '**/test-results',
       '.claude/skills/*/fixtures',
+      '.claude/worktrees',
       'docs/pages',
       'desktop/src-tauri/target',
       'desktop/src-tauri/gen',
