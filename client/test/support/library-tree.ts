@@ -1,11 +1,11 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-/** The tree of the open library ("Grids e pastas").
+/** The tree of the open library ("Itens e pastas").
  *
  *  Example: `within(libraryTree()).getAllByRole('treeitem')` */
 export function libraryTree(): HTMLElement {
-  return screen.getByRole('tree', { name: 'Grids e pastas' });
+  return screen.getByRole('tree', { name: 'Itens e pastas' });
 }
 
 /** A folder or grid of the tree, by its name (it must be showing).

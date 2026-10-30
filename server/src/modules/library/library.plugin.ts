@@ -1,3 +1,15 @@
+import { ImagePresentationService } from './image-presentation.service';
+import { randomUUID } from 'node:crypto';
+import { runInSnapshot } from '../../database/transaction';
+import { AssetsDao } from '../assets/assets.dao';
+import { LibraryImagesDao } from './library-images.dao';
+import { ImagePresentationsDao } from './image-presentations.dao';
+import {
+  LibraryImageService,
+  type LibraryImageDaos,
+  type LibraryImageServiceDeps,
+} from './library-image.service';
+import { libraryImageRoutes } from './library-image.routes';
 import { SCENE_FOLDER_DEPTH_MAX } from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
@@ -38,6 +50,7 @@ export function createLibraryModule(options: LibraryModuleOptions): LibraryModul
   const transaction: LibraryTransactionRunner = (work) =>
     runInTransaction(db, (tx) =>
       work({
+        images: new LibraryImagesDao(tx),
         campaigns: new CampaignsDao(tx),
         folders: new SceneFoldersDao(tx),
         scenes: new ScenesDao(tx),
@@ -65,5 +78,35 @@ export function createLibraryModule(options: LibraryModuleOptions): LibraryModul
     clock,
     maxFolderDepth,
   });
-  return { plugin: libraryRoutes(service) };
+  const imageDeps: LibraryImageServiceDeps = {
+    read: libraryImageDaos(db),
+    transaction: (work) => runInTransaction(db, (tx) => work(libraryImageDaos(tx))),
+    snapshot: (work) => runInSnapshot(db, (tx) => work(libraryImageDaos(tx))),
+    clock,
+    newId: randomUUID,
+    publisher,
+    maxFolderDepth,
+  };
+  const images = new LibraryImageService(imageDeps);
+  const presentations = new ImagePresentationService(imageDeps);
+  return {
+    plugin: async (app) => {
+      await libraryRoutes(service)(app);
+      await libraryImageRoutes(images, presentations)(app);
+    },
+  };
+}
+
+export function libraryImageDaos(
+  executor: import('../../database/transaction').DatabaseExecutor,
+): LibraryImageDaos {
+  return {
+    campaigns: new CampaignsDao(executor),
+    members: new CampaignMembersDao(executor),
+    assets: new AssetsDao(executor),
+    images: new LibraryImagesDao(executor),
+    presentations: new ImagePresentationsDao(executor),
+    folders: new SceneFoldersDao(executor),
+    scenes: new ScenesDao(executor),
+  };
 }

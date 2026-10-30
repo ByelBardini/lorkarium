@@ -231,7 +231,9 @@ export async function requireAssetsOf(
   const wanted = [...new Set(assetIds.filter((id): id is string => typeof id === 'string'))];
   if (wanted.length === 0) return;
   const found = new Set(
-    (await daos.assets.findManyInCampaign(campaignId, wanted)).map((a) => a.id),
+    (await daos.assets.findManyInCampaign(campaignId, wanted))
+      .filter((asset) => asset.purpose !== 'library_image')
+      .map((a) => a.id),
   );
   const missing = wanted.find((assetId) => !found.has(assetId));
   if (missing !== undefined) throw new AssetNotFoundError(missing);

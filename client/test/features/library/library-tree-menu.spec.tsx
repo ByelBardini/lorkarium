@@ -48,6 +48,7 @@ describe('the context menu of the library tree', () => {
       await openLibrary(deps);
       expect(menuItemNames(await openTreeMenu(treeItem('Ato 1')))).toEqual([
         'Novo grid aqui',
+        'Nova imagem aqui',
         'Nova pasta aqui',
         'Renomear',
         'Mover para…',
@@ -69,10 +70,15 @@ describe('the context menu of the library tree', () => {
       await openLibrary(deps);
       expect(menuItemNames(await openTreeMenu(treeItem('Sem pasta')))).toEqual([
         'Novo grid',
+        'Nova imagem',
         'Nova pasta',
       ]);
       await userEvent.keyboard('{Escape}');
-      expect(menuItemNames(await openTreeMenu(treeArea()))).toEqual(['Novo grid', 'Nova pasta']);
+      expect(menuItemNames(await openTreeMenu(treeArea()))).toEqual([
+        'Novo grid',
+        'Nova imagem',
+        'Nova pasta',
+      ]);
     });
 
     it('the menu key on the focused item opens the menu of that item', async () => {
@@ -138,9 +144,9 @@ describe('the context menu of the library tree', () => {
 
     it('creating clears the search, so what is created shows', async () => {
       await openLibrary(deps);
-      await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar grid' }), 'estrada');
+      await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar item' }), 'estrada');
       await choose(treeItem('Ato 1'), 'Nova pasta aqui');
-      expect(screen.getByRole('searchbox', { name: 'Buscar grid' })).toHaveValue('');
+      expect(screen.getByRole('searchbox', { name: 'Buscar item' })).toHaveValue('');
       expect(within(treeItem('Ato 1')).getByRole('treeitem', { name: 'Catacumbas' })).toBeVisible();
     });
   });
@@ -166,7 +172,7 @@ describe('the context menu of the library tree', () => {
       await userEvent.clear(field);
       await userEvent.type(field, 'Cidade{Escape}');
       expect(screen.queryByRole('textbox', { name: 'Nome da pasta' })).toBeNull();
-      expect(screen.getByRole('dialog', { name: 'Biblioteca de grids' })).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Biblioteca' })).toBeInTheDocument();
       await choose(treeItem('Lugares fixos'), 'Renomear');
       await userEvent.type(screen.getByRole('textbox', { name: 'Nome da pasta' }), '{Enter}');
       expect(deps.libraryApi.callsOf('updateFolder')).toEqual([]);
@@ -252,7 +258,7 @@ describe('the context menu of the library tree', () => {
       await choose(treeItem('Catacumbas'), 'Excluir pasta');
       const confirm = screen.getByRole('alertdialog', { name: 'Excluir a pasta Catacumbas?' });
       expect(confirm).toHaveTextContent(
-        'Os grids e as pastas de dentro vão para Ato 1. Nenhum grid é apagado.',
+        'Os grids, as imagens e as pastas de dentro vão para Ato 1. Nenhum item é apagado.',
       );
       await userEvent.click(within(confirm).getByRole('button', { name: 'Excluir' }));
       await waitFor(() =>
@@ -264,7 +270,7 @@ describe('the context menu of the library tree', () => {
       await openLibrary(deps);
       await choose(treeItem('Ato 1'), 'Excluir pasta');
       expect(screen.getByRole('alertdialog', { name: 'Excluir a pasta Ato 1?' })).toHaveTextContent(
-        'Os grids e as pastas de dentro vão para Sem pasta. Nenhum grid é apagado.',
+        'Os grids, as imagens e as pastas de dentro vão para Sem pasta. Nenhum item é apagado.',
       );
     });
 
@@ -277,7 +283,7 @@ describe('the context menu of the library tree', () => {
         LUGARES_FIXOS.id,
       );
       await userEvent.click(screen.getByRole('button', { name: 'Mover' }));
-      const library = screen.getByRole('dialog', { name: 'Biblioteca de grids' });
+      const library = screen.getByRole('dialog', { name: 'Biblioteca' });
       await waitFor(() =>
         expect(within(library).getByRole('status')).toHaveTextContent(
           'Uma pasta não entra nela mesma nem numa pasta de dentro dela.',

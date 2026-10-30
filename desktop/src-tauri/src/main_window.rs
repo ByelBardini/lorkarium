@@ -46,6 +46,7 @@ pub fn create<R: Runtime>(
     let on_navigation = navigation_guard(app.clone(), origins.clone());
     let on_new_window = new_window_guard(app.clone(), origins);
     let window = WebviewWindowBuilder::from_config(app, &config)?
+        .initialization_script("Object.defineProperty(window, '__LORKARIUM_IMAGE_WINDOW_SUPPORTED__', { value: true, writable: false, configurable: false });")
         .on_navigation(on_navigation)
         .on_new_window(on_new_window)
         .build()?;

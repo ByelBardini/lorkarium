@@ -5,14 +5,14 @@ import { expect, type Locator, type Page } from '@playwright/test';
  *  Example: `const library = await openLibrary(admin); await library.getByRole('button', { name: 'Novo grid' }).click()` */
 export async function openLibrary(page: Page): Promise<Locator> {
   await page.getByRole('link', { name: 'Biblioteca', exact: true }).click();
-  const library = page.getByRole('dialog', { name: 'Biblioteca de grids' });
+  const library = page.getByRole('dialog', { name: 'Biblioteca', exact: true });
   await expect(treeOf(library)).toBeVisible();
   return library;
 }
 
 /** The tree of the open library ("Grids e pastas"): folders, grids and "Sem pasta". */
 export function treeOf(library: Locator): Locator {
-  return library.getByRole('tree', { name: 'Grids e pastas' });
+  return library.getByRole('tree', { name: 'Itens e pastas' });
 }
 
 /** A grid (or folder) item of the library tree, by its name; it shows only inside open folders.
@@ -26,7 +26,7 @@ export function gridItemOf(library: Locator, name: string): Locator {
  *
  *  Example: `await pickGrid(library, 'Torre')` */
 export async function pickGrid(library: Locator, name: string): Promise<void> {
-  const search = library.getByRole('searchbox', { name: 'Buscar grid' });
+  const search = library.getByRole('searchbox', { name: 'Buscar item' });
   await search.fill(name);
   await gridItemOf(library, name).click();
   await search.fill('');
@@ -48,7 +48,8 @@ export function gridNoticeOf(page: Page): Locator {
  *
  *  Example: `await createGrid(library, 'Torre')` */
 export async function createGrid(library: Locator, name: string): Promise<void> {
-  await library.getByRole('button', { name: 'Novo grid' }).click();
+  await library.getByRole('button', { name: 'Criar item' }).click();
+  await library.page().getByRole('menuitem', { name: 'Novo grid', exact: true }).click();
   await nameNewGrid(library, name);
 }
 

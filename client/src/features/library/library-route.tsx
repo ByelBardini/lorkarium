@@ -1,4 +1,4 @@
-import type { LibraryDto } from '@lorkarium/contracts';
+import type { CampaignLibraryDto } from '@lorkarium/contracts';
 import { useState } from 'react';
 import {
   useLoaderData,
@@ -17,7 +17,7 @@ import { useLibraryTable } from './use-library-table';
 /** The id of the play room route, whose loader has the campaign the library belongs to. */
 export const TABLE_ROUTE_ID = 'campaign-table';
 
-export type LibraryLoaderData = Readonly<{ library: Promise<LibraryResult<LibraryDto>> }>;
+export type LibraryLoaderData = Readonly<{ library: Promise<LibraryResult<CampaignLibraryDto>> }>;
 
 /** The library at `/campaigns/:campaignId/table/library`, a child of the play room: the room
  *  stays mounted under the modal, the link is shareable and "back" closes it.
@@ -53,6 +53,9 @@ function libraryScreen(deps: AppDependencies): () => React.JSX.Element | null {
         tableView={tableView}
         sessionStore={deps.sessionStore}
         now={now}
+        assets={deps.assets}
+        api={deps.libraryApi}
+        presentations={deps.imagePresentationApi}
         onClose={() => void navigate(`/campaigns/${encodeURIComponent(campaignId)}/table`)}
       />
     );

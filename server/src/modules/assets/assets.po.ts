@@ -17,6 +17,7 @@ export const assetPurpose = pgEnum('asset_purpose', [
   'cover',
   'condition',
   'aura',
+  'library_image',
 ]);
 // GIF is kept only for an aura (the processor refuses it for any other purpose).
 export const assetMimeType = pgEnum('asset_mime_type', [
@@ -46,6 +47,7 @@ export const assets = pgTable(
   },
   (table) => [
     index('assets_campaign_id_idx').on(table.campaignId),
+    uniqueIndex('assets_campaign_id_id_unique').on(table.campaignId, table.id),
     uniqueIndex('assets_storage_key_idx').on(table.storageKey),
   ],
 );

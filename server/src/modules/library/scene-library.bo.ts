@@ -113,11 +113,17 @@ export class SceneLibraryBo<
    *  empty folders included.
    *
    *  Example: `library.visibleTo(new SceneAccessBo(access, activeSceneId)).scenes` */
-  visibleTo(access: SceneAccessBo): VisibleLibrary<F, S> {
+  visibleTo(
+    access: SceneAccessBo,
+    additionalFolderIds: readonly (string | null)[] = [],
+  ): VisibleLibrary<F, S> {
     const { folders, scenes } = this.state;
     if (access.seesEveryGrid()) return { folders, scenes };
     const visibleScenes = scenes.filter((scene) => access.canSee(scene));
-    const reached = new Set(visibleScenes.flatMap((scene) => this.chainOf(scene.folderId)));
+    const reached = new Set([
+      ...visibleScenes.flatMap((scene) => this.chainOf(scene.folderId)),
+      ...additionalFolderIds.flatMap((id) => this.chainOf(id)),
+    ]);
     return { folders: folders.filter(({ id }) => reached.has(id)), scenes: visibleScenes };
   }
 

@@ -1,3 +1,4 @@
+import type { AssetReadPolicyPort } from './asset-read-policy.port';
 import {
   ASSET_MAX_BYTES,
   ASSET_MAX_SIDE,
@@ -30,6 +31,7 @@ export type AssetsServiceDeps = Readonly<{
   processor: ImageProcessorPort;
   fetcher: ImageFetcherPort;
   newId: () => string;
+  readPolicy?: AssetReadPolicyPort;
 }>;
 
 /** An asset read back for a member: the stream with the type of the record. */
@@ -37,6 +39,7 @@ export type OpenedAsset = Readonly<{
   body: StoredObject['body'];
   size: number;
   mimeType: AssetMimeTypeDto;
+  cacheControl?: string;
 }>;
 
 type Incoming = Readonly<{ campaignId: string; userId: string; purpose: AssetPurposeDto }>;
@@ -54,7 +57,8 @@ export class AssetsService {
     campaignId: string,
     file: Readonly<{ bytes: Uint8Array; purpose: AssetPurposeDto }>,
   ): Promise<AssetDto> {
-    await memberAccessOf(this.deps.members, campaignId, userId);
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    if (file.purpose === 'library_image') access.requireMaster('upload a library image');
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
     const normalized = await this.deps.processor.normalize(file.bytes, keptAs(file.purpose));
     if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
@@ -66,7 +70,8 @@ export class AssetsService {
     campaignId: string,
     link: Readonly<{ url: string; purpose: AssetPurposeDto }>,
   ): Promise<AssetDto> {
-    await memberAccessOf(this.deps.members, campaignId, userId);
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    if (link.purpose === 'library_image') access.requireMaster('import a library image');
     const fetched = await this.deps.fetcher.fetch(link.url);
     if (!fetched.ok) throw linkErrorOf(link.url, fetched.refusal);
     requireSize(fetched.image.bytes.byteLength, ASSET_MAX_BYTES);
@@ -81,9 +86,19 @@ export class AssetsService {
     if (row === undefined) throw new AssetNotFoundError(assetId);
     const membership = await this.deps.members.findMembership(row.campaignId, userId);
     if (membership === undefined) throw new AssetNotFoundError(assetId);
+    if (
+      row.purpose === 'library_image' &&
+      !(await this.deps.readPolicy?.canRead(userId, row.campaignId, row.id))
+    )
+      throw new AssetNotFoundError(assetId);
     const object = await this.deps.storage.open(row.storageKey);
     if (object === null) throw new AssetNotFoundError(assetId);
-    return { body: object.body, size: object.size, mimeType: row.mimeType };
+    return {
+      body: object.body,
+      size: object.size,
+      mimeType: row.mimeType,
+      ...(row.purpose === 'library_image' ? { cacheControl: 'private, no-store' } : {}),
+    };
   }
 
   // A link that answers with a web page (an image search result) is a wrong link, not a bad file.

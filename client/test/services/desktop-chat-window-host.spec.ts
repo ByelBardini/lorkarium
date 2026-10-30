@@ -66,6 +66,25 @@ describe('TauriChatWindowHost', () => {
     expect(popup.closes).toBe(0);
   });
 
+  it('2026-10-29 pagehide submits native close immediately before navigation can discard asynchronous work', async () => {
+    const { popup, handle } = openNative();
+    Object.defineProperty(popup.document.defaultView, '__LORKARIUM_DETACHED_TITLE_BAR__', {
+      value: true,
+    });
+    await handle.desktopWindow?.isMaximized();
+    calls.length = 0;
+    const closing = handle.close();
+    try {
+      expect(calls).toEqual([
+        { command: 'control_detached_window', args: { label: 'chat-7', action: 'close' } },
+      ]);
+    } finally {
+      await closing;
+    }
+    expect(handle.closed).toBe(true);
+    expect(popup.closes).toBe(0);
+  });
+
   it('pins and unpins only the label provided by the native chat window', async () => {
     const { handle } = openNative();
 

@@ -1,6 +1,7 @@
-import type { LibraryDto } from '@lorkarium/contracts';
+type LibraryDragged = Readonly<{ kind: 'folder' | 'scene' | 'image'; id: string }>;
 import { useState, type DragEvent } from 'react';
-import { canDrop, type LibraryDragged } from '@/lib/folder-tree';
+import { canDrop } from '@/lib/folder-tree';
+import { imageIdOf, type MixedLibrary } from '@/lib/library-entries';
 import type { LibraryIntent } from './library-intents';
 import { NO_FOLDER, sceneIdOf } from './library-view';
 import type { LibrarySubmit } from './use-library-submit';
@@ -18,7 +19,7 @@ export type LibraryDrag = Readonly<{
 }>;
 
 type DragOptions = Readonly<{
-  library: LibraryDto;
+  library: MixedLibrary;
   /** The master, with the table live. */
   enabled: boolean;
   submit: LibrarySubmit;
@@ -50,17 +51,19 @@ export function useLibraryDrag({ library, enabled, submit }: DragOptions): Libra
   if (!enabled) return { treeItemProps: () => ({}) };
   return {
     treeItemProps: (key) => {
-      if (sceneIdOf(key)) return sourceOf(library, key, sources);
+      if (sceneIdOf(key) || imageIdOf(key)) return sourceOf(library, key, sources);
       return { ...sourceOf(library, key, sources), ...target(key) };
     },
   };
 }
 
 function sourceOf(
-  library: LibraryDto,
+  library: MixedLibrary,
   key: string,
   sources: (item: LibraryDragged, name: string) => DragProps,
 ): DragProps {
+  const image = library.images?.find(({ id }) => id === imageIdOf(key));
+  if (image) return sources({ kind: 'image', id: image.id }, image.name);
   const sceneId = sceneIdOf(key);
   const scene = library.scenes.find(({ id }) => id === sceneId);
   if (scene) return sources({ kind: 'scene', id: scene.id }, scene.name);
@@ -69,13 +72,17 @@ function sourceOf(
 }
 
 function dropTarget(
-  library: LibraryDto,
+  library: MixedLibrary,
   dragged: LibraryDragged,
   key: string,
   onDrop: (intent: LibraryIntent | null) => void,
 ): DragProps {
   const folderId = key === NO_FOLDER ? null : key;
-  const allowed = canDrop(library.folders, dragged, folderId);
+  const allowed = canDrop(
+    library.folders,
+    { id: dragged.id, kind: dragged.kind === 'folder' ? 'folder' : 'scene' },
+    folderId,
+  );
   const accept = (event: DragEvent): void => {
     event.stopPropagation();
     event.dataTransfer.dropEffect = allowed ? 'move' : 'none';
@@ -95,10 +102,15 @@ function dropTarget(
 
 // The move to send, or `null` when the piece is already there.
 function moveIntent(
-  library: LibraryDto,
+  library: MixedLibrary,
   dragged: LibraryDragged,
   folderId: string | null,
 ): LibraryIntent | null {
+  if (dragged.kind === 'image') {
+    const image = library.images?.find(({ id }) => id === dragged.id);
+    if (!image || image.folderId === folderId) return null;
+    return { intent: 'updateImage', imageId: image.id, changes: { folderId } };
+  }
   if (dragged.kind === 'scene') {
     const scene = library.scenes.find(({ id }) => id === dragged.id);
     if (!scene || scene.folderId === folderId) return null;
@@ -113,7 +125,18 @@ function moveIntent(
  *  its new place; a refusal brings the list the server still has, so it goes back.
  *
  *  Example: `const shown = withPendingMove(library, pending)` */
-export function withPendingMove(library: LibraryDto, pending: LibraryIntent | null): LibraryDto {
+export function withPendingMove(
+  library: MixedLibrary,
+  pending: LibraryIntent | null,
+): MixedLibrary {
+  if (pending?.intent === 'updateImage' && pending.changes.folderId !== undefined) {
+    const images = library.images?.map((image) =>
+      image.id === pending.imageId
+        ? { ...image, folderId: pending.changes.folderId ?? null }
+        : image,
+    );
+    return { ...library, images };
+  }
   if (pending?.intent === 'updateScene' && pending.changes.folderId !== undefined) {
     const { sceneId, changes } = pending;
     const folderId = changes.folderId ?? null;

@@ -6,17 +6,19 @@ import FaqList from '@/components/faq-list.astro';
 import FeatureGrid from '@/components/feature-grid.astro';
 import Hero from '@/components/hero.astro';
 import HowItWorks from '@/components/how-it-works.astro';
+import PlayShowcase from '@/components/play-showcase.astro';
 import SiteLayout from '@/layouts/site-layout.astro';
 ---
 
 <SiteLayout
-  title="Lorkarium · Mesa virtual de RPG pra jogar com os amigos"
-  description="Mapa com grid, tokens, iniciativa, condições e barras num lugar só. Baixe o Lorkarium pra Windows ou jogue pelo navegador."
+  title="Lorkarium · Mapas e combate para o seu RPG"
+  description="Prepare mapas e acompanhe iniciativa, pontos de vida e condições no Lorkarium. Mesa virtual de RPG com dados 3D e chat, para Windows e navegador."
 >
   <Hero />
   <AudienceStrip />
   <FeatureGrid />
   <CombatShowcase />
+  <PlayShowcase />
   <HowItWorks />
   <DownloadPanel />
   <FaqList />

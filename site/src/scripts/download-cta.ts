@@ -21,7 +21,7 @@ const NOTE_OF_PLATFORM: Record<VisitorPlatform, string | null> = {
 };
 
 const COPIED = 'Link copiado.';
-const NOT_COPIED = 'Não deu pra copiar. Copia o endereço da barra do navegador.';
+const NOT_COPIED = 'Não foi possível copiar o link. Copie o endereço na barra do navegador.';
 
 /**
  * Fills the download lines with the latest release and shows the note for a non-Windows visitor.

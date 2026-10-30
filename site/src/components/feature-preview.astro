@@ -1,0 +1,38 @@
+---
+import { Picture } from 'astro:assets';
+import boardShot from '@/assets/screens/feature-board.png';
+import combatShot from '@/assets/screens/feature-combat.png';
+import playShot from '@/assets/screens/feature-play.png';
+
+interface Props {
+  kind: 'board' | 'combat' | 'play';
+}
+
+const previews = {
+  board: {
+    image: boardShot,
+    alt: 'Kael sendo arrastado em direção a Lyra, com a trajetória e a distância de 4 casas ou 6 metros no tabuleiro',
+  },
+  combat: {
+    image: combatShot,
+    alt: 'Kael e o Ogro das Cinzas na iniciativa, com pontos de vida e condições de Abençoado e Envenenado',
+  },
+  play: {
+    image: playShot,
+    alt: 'Área de magia em cone diagonal de 4 casas ou 6 metros, com casas atingidas destacadas e origem junto ao token de Lyra',
+  },
+};
+const { image, alt } = previews[Astro.props.kind];
+---
+
+<figure class="m-0 max-w-160 overflow-hidden rounded-sm border border-edge bg-surface-deep lg:max-w-none">
+  <Picture
+    src={image}
+    alt={alt}
+    formats={['avif', 'webp']}
+    widths={[400, image.width]}
+    sizes="(min-width: 1680px) 526px, (min-width: 1024px) 34vw, (min-width: 768px) 640px, 92vw"
+    loading="lazy"
+    class="block h-auto w-full"
+  />
+</figure>

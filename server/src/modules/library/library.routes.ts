@@ -11,6 +11,8 @@ import {
   type SceneFolderDto,
 } from '@lorkarium/contracts';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { LibraryImageNotFoundError } from './library-image.error';
+import { AssetError } from '../assets/assets.error';
 import { ZodError } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
 import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
@@ -125,6 +127,8 @@ function folderIdOf(request: FastifyRequest, requester: LibraryRequester): strin
 }
 
 function domainReplyOf(error: unknown): LibraryReply | null {
+  if (error instanceof LibraryImageNotFoundError || error instanceof AssetError)
+    return { status: 404, body: { code: error.code, message: 'Image not found' } };
   if (error instanceof LibraryError) {
     const body = { code: error.code, message: PUBLIC_MESSAGE[error.code] };
     return { status: STATUS_BY_CODE[error.code], body };

@@ -1,3 +1,4 @@
+import { imageIdOf } from '@/lib/library-entries';
 import { useState } from 'react';
 import type { LibraryIntent } from './library-intents';
 import { sceneIdOf } from './library-view';
@@ -50,6 +51,8 @@ export function useTreeEditing(
 }
 
 function renameIntent(key: string, name: string): LibraryIntent {
+  const imageId = imageIdOf(key);
+  if (imageId) return { intent: 'updateImage', imageId, changes: { name } };
   const sceneId = sceneIdOf(key);
   if (sceneId) return { intent: 'updateScene', sceneId, changes: { name } };
   return { intent: 'updateFolder', folderId: key, changes: { name } };

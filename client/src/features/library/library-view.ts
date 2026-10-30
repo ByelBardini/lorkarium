@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { imageIdOf, type MixedLibrary, type LibraryTypeFilter } from '@/lib/library-entries';
 import type { LibraryContents, TreeFolder, TreeScene, VisibilityFilter } from '@/lib/folder-tree';
 
 /** The tree item of the grids without folder; a folder's item is its id. */
@@ -10,7 +11,7 @@ const SCENE_KEY_PREFIX = 'scene:';
  *
  *  Example: `sceneKey(ossuarioId) // 'scene:0a1b…'` */
 export function sceneKey(sceneId: string): string {
-  return `${SCENE_KEY_PREFIX}${sceneId}`;
+  return sceneId.startsWith('image:') ? sceneId : `${SCENE_KEY_PREFIX}${sceneId}`;
 }
 
 /** The grid of a tree item, or `null` for a folder, "Sem pasta" or nothing.
@@ -26,9 +27,11 @@ export function sceneIdOf(key: string | null): string | null {
  *
  *  Example: `folderForNew(library, sceneKey(ossuarioId)) // catacumbasId` */
 export function folderForNew(
-  library: LibraryContents<TreeFolder, TreeScene>,
+  library: LibraryContents<TreeFolder, TreeScene> & Partial<Pick<MixedLibrary, 'images'>>,
   key: string | null,
 ): string | null {
+  const imageId = imageIdOf(key);
+  if (imageId) return library.images?.find(({ id }) => id === imageId)?.folderId ?? null;
   const sceneId = sceneIdOf(key);
   if (sceneId) return library.scenes.find(({ id }) => id === sceneId)?.folderId ?? null;
   return library.folders.some(({ id }) => id === key) ? key : null;
@@ -40,6 +43,8 @@ export type LibraryView = Readonly<{
   pickedKey: string | null;
   query: string;
   visibility: VisibilityFilter;
+  type: LibraryTypeFilter;
+  filterType: (type: LibraryTypeFilter) => void;
   pick: (key: string | null) => void;
   search: (query: string) => void;
   filter: (visibility: VisibilityFilter) => void;
@@ -52,5 +57,6 @@ export function useLibraryView(): LibraryView {
   const [pickedKey, pick] = useState<string | null>(null);
   const [query, search] = useState('');
   const [visibility, filter] = useState<VisibilityFilter>('all');
-  return { pickedKey, query, visibility, pick, search, filter };
+  const [type, filterType] = useState<LibraryTypeFilter>('all');
+  return { pickedKey, query, visibility, pick, search, filter, type, filterType };
 }

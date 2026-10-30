@@ -1,17 +1,23 @@
 import type {
   CreateLibrarySceneRequestDto,
   CreateSceneFolderRequestDto,
-  LibraryDto,
+  CampaignLibraryDto,
+  CreateLibraryImageRequestDto,
+  UpdateLibraryImageRequestDto,
+  LibraryImageDto,
   LibrarySceneDto,
   SceneFolderDto,
   UpdateLibrarySceneRequestDto,
   UpdateSceneFolderRequestDto,
 } from '@lorkarium/contracts';
 import type { LibraryApi, LibraryResult } from '@/services/library-api';
-import { masterLibrary, OSSUARIO, libraryScene } from './library-fixtures';
+import { masterLibrary, OSSUARIO, PORTRAIT, libraryScene } from './library-fixtures';
 
 type Answers = {
-  list: LibraryResult<LibraryDto>;
+  createImage: LibraryResult<LibraryImageDto>;
+  updateImage: LibraryResult<LibraryImageDto>;
+  removeImage: LibraryResult<null>;
+  list: LibraryResult<CampaignLibraryDto>;
   createScene: LibraryResult<LibrarySceneDto>;
   updateScene: LibraryResult<LibrarySceneDto>;
   duplicateScene: LibraryResult<LibrarySceneDto>;
@@ -44,6 +50,9 @@ export class LibraryApiFake implements LibraryApi {
   readonly calls: Array<{ method: LibraryMethod; args: readonly unknown[] }> = [];
   private readonly answers: { [M in LibraryMethod]: Answers[M] | Pending<Answers[M]> } = {
     list: { ok: true, value: masterLibrary() },
+    createImage: { ok: true, value: PORTRAIT },
+    updateImage: { ok: true, value: PORTRAIT },
+    removeImage: { ok: true, value: null },
     createScene: { ok: true, value: NEW_GRID },
     updateScene: { ok: true, value: OSSUARIO },
     duplicateScene: { ok: true, value: { ...OSSUARIO, id: NEW_GRID.id, name: 'Ossuário (cópia)' } },
@@ -119,6 +128,23 @@ export class LibraryApiFake implements LibraryApi {
 
   removeFolder(campaignId: string, folderId: string): Promise<Answers['removeFolder']> {
     return this.reply('removeFolder', [campaignId, folderId]);
+  }
+
+  createImage(
+    campaignId: string,
+    input: CreateLibraryImageRequestDto,
+  ): Promise<Answers['createImage']> {
+    return this.reply('createImage', [campaignId, input]);
+  }
+  updateImage(
+    campaignId: string,
+    imageId: string,
+    changes: UpdateLibraryImageRequestDto,
+  ): Promise<Answers['updateImage']> {
+    return this.reply('updateImage', [campaignId, imageId, changes]);
+  }
+  removeImage(campaignId: string, imageId: string): Promise<Answers['removeImage']> {
+    return this.reply('removeImage', [campaignId, imageId]);
   }
 
   private async reply<M extends LibraryMethod>(

@@ -13,6 +13,7 @@ describe('detached panel title bar', () => {
     const controls = new DesktopWindowFake();
     const state: ChatWindow = {
       status: 'detached',
+      closeError: null,
       portalTarget: popup.document.body,
       desktopWindow: controls,
       canAlwaysOnTop: true,

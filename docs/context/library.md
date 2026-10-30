@@ -1,8 +1,14 @@
 # Library
 
-A biblioteca de grids da mesa: vários grids (cenas) por mesa, em pastas aninhadas, públicos ou privados. Na tela é "grid"; no código continua `scene`. A cena em si (grid, fundo, visão, versão) está em [`board.md`](board.md) (Cena).
+A biblioteca de grids e imagens da mesa: vários grids (cenas) por mesa, em pastas aninhadas, públicos ou privados. Na tela é "grid"; no código continua `scene`. A cena em si (grid, fundo, visão, versão) está em [`board.md`](board.md) (Cena).
 
 Aqui: o banco, a regra, o REST de grids e pastas, o duplicar e a **ativação com expulsões**. O **endereço da cena** (`sceneId` nos comandos, `inLockedGrid`) e as **salas por grid** com abas extras (`scene:watch`/`scene:unwatch`) estão em [`board.md`](board.md).
+
+> **Detalhe por assunto:** o CRUD de grids e pastas fica neste hub.
+
+| Assunto                                                    | Arquivo                        |
+| ---------------------------------------------------------- | ------------------------------ |
+| Imagens, autorização dos arquivos, apresentação e agregado | [images.md](library/images.md) |
 
 ## Tabelas (migração `0033_scene_library`)
 
@@ -30,10 +36,10 @@ Aqui: o banco, a regra, o REST de grids e pastas, o duplicar e a **ativação co
 - **`SceneLibraryBo({ campaignId, activeSceneId, maxFolderDepth, folders, scenes })`** (`library/scene-library.bo.ts`): a árvore de uma mesa. Pasta = `{ id, parentId }`, grid = `{ id, folderId, visibility }`; genérico, então campos a mais (nome, contagem) passam intactos. `maxFolderDepth` é o `SCENE_FOLDER_DEPTH_MAX` passado pelo plugin (o BO não lê o contrato). Pasta da raiz = nível 1.
   - `requireMove(folderId, parentId | null)`: pasta ou pai fora da mesa → `FOLDER_NOT_FOUND`; pai = ela mesma ou descendente → `FOLDER_CYCLE`; nível do pai + altura da subárvore > máximo → `FOLDER_TOO_DEEP`.
   - `requireCreateIn(parentId | null)`: pai desconhecido → `FOLDER_NOT_FOUND`; nível do pai + 1 > máximo → `FOLDER_TOO_DEEP`.
-  - `removal(folderId)` → `{ folderId, parentId, childFolderIds, sceneIds }`: o que sobe para o pai (raiz quando não há); o service da A4 grava isso antes de apagar (o `SET NULL` do banco levaria à raiz).
+  - `removal(folderId)` → `{ folderId, parentId, childFolderIds, sceneIds }`: o que sobe para o pai (raiz quando não há); o service grava isso antes de apagar (o `SET NULL` do banco levaria à raiz).
   - `requireDeletable(sceneId)`: o grid do grupo → `SCENE_IS_ACTIVE`.
   - `requireKnown(folderId | null)`: a pasta onde um grid vai ficar; desconhecida → `FOLDER_NOT_FOUND` (profundidade não conta: grid não é nível).
-  - `visibleTo(sceneAccess)`: mestre vê tudo (pastas vazias inclusive); jogador vê os grids de `canSee` e só as pastas no caminho até algum deles (pasta só com privados some; pasta sem grid próprio com subpasta visível aparece). Ordem de entrada mantida.
+  - `visibleTo(sceneAccess, additionalFolderIds = [])`: mestre vê tudo (pastas vazias inclusive); jogador vê os grids de `canSee` e só as pastas no caminho até algum deles (pasta só com privados some; pasta sem grid próprio com subpasta visível aparece). O agregado inclui os ancestrais das imagens públicas por `additionalFolderIds`; a apresentação privada não participa dessa projeção. Ordem de entrada mantida.
 - `sceneCopyName(name, suffix, maxLength)` (mesmo arquivo): o nome da cópia, cortado (e sem espaço no fim) para caber o sufixo.
 - **Erros** (`library/library.error.ts`, base `LibraryError`): `FolderNotFoundError` (`FOLDER_NOT_FOUND`), `FolderCycleError` (`FOLDER_CYCLE`, cita as duas pastas), `FolderTooDeepError` (`FOLDER_TOO_DEEP`, "would be N levels deep; expected at most 5"), `SceneIsActiveError` (`SCENE_IS_ACTIVE`). O contracts não tem enum de códigos (`apiErrorDto.code` é `string`): os códigos vivem nos `*.error.ts` e na tabela de status da borda.
 - **Limites e textos** em `packages/contracts/src/library/library.dto.ts`: `SCENE_NAME_MAX_LENGTH` 60, `SCENE_FOLDER_NAME_MAX_LENGTH` 40, `SCENE_FOLDER_DEPTH_MAX` 5, `UNNAMED_SCENE_NAME` ("Grid sem nome"), `SCENE_COPY_SUFFIX` (" (cópia)").
@@ -59,11 +65,11 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 ## Service e publicador
 
 - `LibraryService` (`library.service.ts`), montado por `createLibraryModule({ db, publisher, audience, grids, clock })` (`library.plugin.ts`, registrado no `build-app` **depois** do `wireRealtime`, que agora devolve o `io`): `list`, `createScene`, `updateScene`, `deleteScene`, `duplicate`, `createFolder`, `updateFolder`, `deleteFolder`. O requerente é `LibraryRequester { userId, campaignId }` (sessão + URL, nunca o corpo).
-- Toda edição passa por `edit`: `memberAccessOf` → `requireMaster` → transação (`LibraryTransactionRunner` com `LibraryWriteDaos`: campaigns, folders, scenes e os cinco `SceneCopyDaos`) que trava a mesa (`lockById`), lê pastas e grids para a `SceneLibraryBo` e executa → commit → `publisher.libraryChanged`.
+- Toda edição passa por `edit`: `memberAccessOf` → `requireMaster` → transação (`LibraryTransactionRunner` com `LibraryWriteDaos`: campaigns, folders, scenes, images e os cinco `SceneCopyDaos`) que trava a mesa (`lockById`), lê pastas e grids para a `SceneLibraryBo` e executa → commit → `publisher.libraryChanged`.
 - `list` lê sem transação (`LibraryReadDaos`) e aceita o espectador (`viewerAccessOf`: ele lê como jogador; toda edição continua `memberAccessOf`), filtra por `visibleTo(new SceneAccessBo(access, activeSceneId))`, e só o mestre recebe `tokenCount` (`toLibrarySceneDto(row, seesTokenCount)` em `library.mapper.ts`).
-- Excluir pasta: `removal` → `moveChildren` → `moveScenes` → `delete`, na mesma transação (o `SET NULL` do banco levaria à raiz; o service leva ao pai).
+- Excluir pasta: `removal` → `moveChildren` → `moveScenes` → `images.moveFromFolder` → `delete`, na mesma transação (o `SET NULL` do banco levaria à raiz; o service leva ao pai).
 - **Renomear um grid** (`updateScene` com `name`): na mesma transação `ScenesDao.bumpVersion` (diário `lock → save → bump → commit`) e, depois do `library:changed`, `scene:updated { campaignId, sceneId, version, at, scene }` às salas do grid pela dependência `grids: Pick<BoardPublisherPort, 'sceneUpdated'>` (o `SocketIoBoardPublisher`, que o `wireRealtime` devolve como `boardPublisher` em `RealtimeOutlets`). Sem isso a aba e o rótulo do tabuleiro de quem estava no grid ficavam com o nome velho até o F5 (achado pelo e2e `character.spec.ts`). Mover e publicar/privar não somam versão.
-- `LibraryPublisherPort` (`library-publisher.port.ts`) com o adaptador `SocketIoLibraryPublisher` (`server/src/infrastructure/library-publisher/`). O evento entrou em `TableServerEvents` (contracts `LibraryServerEvents`).
+- `LibraryPublisherPort` (`library-publisher.port.ts`) com o adaptador `SocketIoLibraryPublisher` (`server/src/infrastructure/library-publisher/`). Publica `library:changed` e `library:imagePresentationChanged` em `TableServerEvents` (contracts `LibraryServerEvents`).
 
 ## Ativação e expulsão
 

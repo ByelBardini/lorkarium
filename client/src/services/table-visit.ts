@@ -9,6 +9,7 @@ import {
   diceRolledDto,
   diceRolledSecretlyDto,
   libraryChangedDto,
+  imagePresentationChangedDto,
   sceneActivatedDto,
   sceneClosedDto,
   sessionCampaignDeletedDto,
@@ -234,6 +235,9 @@ export class TableVisit {
         this.watches.delete(event.sceneId);
         this.notify({ kind: 'sceneClosed', event });
       }),
+      this.onTableEvent('library:imagePresentationChanged', imagePresentationChangedDto, (event) =>
+        this.notify({ kind: 'imagePresentationChanged', event }),
+      ),
       this.onTableEvent(LIBRARY_CHANGED, libraryChangedDto, (event) =>
         this.notify({ kind: 'libraryChanged', event }),
       ),

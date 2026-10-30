@@ -110,7 +110,7 @@ test('the character crosses grids: linked to the card, added to the Estrada, wit
   // Ana takes the group to the Estrada: Bia's Lyra there has the PV and the condition.
   await takeTheGroupTo(await openLibrary(admin), 'Estrada');
   await admin
-    .getByRole('dialog', { name: 'Biblioteca de grids' })
+    .getByRole('dialog', { name: 'Biblioteca', exact: true })
     .getByRole('button', {
       name: 'Fechar biblioteca',
     })

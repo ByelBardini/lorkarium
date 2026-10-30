@@ -1,4 +1,5 @@
 import { Readable } from 'node:stream';
+import type { AssetReadPolicyPort } from '../../src/modules/assets/asset-read-policy.port';
 import type { AddressPolicy } from '../../src/infrastructure/image-fetcher/address-policy';
 import type { AssetStoragePort, StoredObject } from '../../src/modules/assets/asset-storage.port';
 import type { AssetsDao } from '../../src/modules/assets/assets.dao';
@@ -18,6 +19,17 @@ import type {
 } from '../../src/modules/assets/image-processor.port';
 
 const FAKE_DATE = new Date('2026-10-17T12:00:00Z');
+
+/** Records access checks and lets a spec allow or refuse the dedicated file. */
+export class AssetReadPolicyFake implements AssetReadPolicyPort {
+  allowed = false;
+  readonly checks: Readonly<{ userId: string; campaignId: string; assetId: string }>[] = [];
+
+  async canRead(userId: string, campaignId: string, assetId: string): Promise<boolean> {
+    this.checks.push({ userId, campaignId, assetId });
+    return this.allowed;
+  }
+}
 
 /** Lets the fetcher reach only the IPv4 loopback, where the spec's HTTP server listens. */
 export class LoopbackOnlyPolicyFake implements AddressPolicy {

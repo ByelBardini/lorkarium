@@ -100,7 +100,7 @@ function registerReadRoute(app: FastifyInstance, service: AssetsService): void {
     return reply
       .header('content-type', opened.mimeType)
       .header('content-length', opened.size)
-      .header('cache-control', ASSET_CACHE_CONTROL)
+      .header('cache-control', opened.cacheControl ?? ASSET_CACHE_CONTROL)
       .header('x-content-type-options', 'nosniff')
       .send(opened.body);
   });

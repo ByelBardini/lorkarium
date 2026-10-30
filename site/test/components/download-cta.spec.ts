@@ -9,7 +9,7 @@ describe('DownloadCta', () => {
 
     const link = cta.querySelector<HTMLAnchorElement>('a[data-download-cta]');
     expect(link?.getAttribute('href')).toBe('/obrigado/');
-    expect(link?.textContent?.trim()).toBe('Baixar pra Windows');
+    expect(link?.textContent?.trim()).toBe('Baixar para Windows');
   });
 
   it('takes a smaller variant for the header', async () => {

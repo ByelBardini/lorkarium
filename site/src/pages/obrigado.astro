@@ -6,23 +6,23 @@ import { RELEASES_PAGE_URL } from '@/lib/desktop-release';
 
 const installSteps = [
   {
-    title: 'Abre o instalador',
-    text: 'Quando o download terminar, abre o arquivo Lorkarium_…_x64-setup.exe. Ele instala sem pedir administrador.',
+    title: 'Abra o instalador',
+    text: 'Ao terminar o download, abra o arquivo Lorkarium_…_x64-setup.exe e siga as etapas de instalação. Não é necessária permissão de administrador.',
   },
   {
-    title: 'Passa pelo SmartScreen',
-    text: 'Se o Windows mostrar “O Windows protegeu o computador”, clica em Mais informações e depois em Executar assim mesmo. O aviso aparece porque o app é novo.',
+    title: 'Se aparecer um aviso do Windows',
+    text: 'O SmartScreen pode exibir “O Windows protegeu o computador” se ainda não reconhecer o instalador. Para continuar com o arquivo baixado por este site, selecione Mais informações e depois Executar assim mesmo.',
   },
   {
-    title: 'Entra com o seu convite',
-    text: 'O Lorkarium abre na tela de entrada. Usa o @ e a senha que você escolheu no convite.',
+    title: 'Entre na sua conta',
+    text: 'Abra o Lorkarium e entre com o nome de usuário e a senha definidos ao aceitar o convite.',
   },
 ];
 ---
 
 <SiteLayout
   title="Baixando o Lorkarium"
-  description="O download do Lorkarium pra Windows começou. Veja como instalar."
+  description="Baixe o Lorkarium para Windows e veja as instruções de instalação e acesso à sua conta."
   noindex
 >
   <section class="py-16 md:py-24">
@@ -33,9 +33,9 @@ const installSteps = [
           Seu download está começando
         </h1>
         <p class="m-0 text-[17px] leading-relaxed text-muted">
-          <span data-release-label>Lorkarium pra Windows 10 e 11</span>. O download não começou?
+          <span data-release-label>Lorkarium para Windows 10 e 11</span>. O download não começou?
           <a href={RELEASES_PAGE_URL} data-manual-download class="font-semibold">
-            Clica aqui pra baixar
+            Baixar manualmente
           </a>
         </p>
         <p
@@ -44,8 +44,8 @@ const installSteps = [
           hidden
           class="m-0 border-l-2 border-gold bg-gold/6 px-4 py-3 text-sm leading-[1.55] text-label"
         >
-          Não deu pra achar a versão mais nova agora. Baixa o arquivo Lorkarium_…_x64-setup.exe pela
-          página de versões no link acima.
+          Não foi possível consultar a versão mais recente. Use o link acima para abrir a página de
+          versões e baixar o arquivo Lorkarium_…_x64-setup.exe.
         </p>
       </div>
       <ol aria-label="Como instalar" class="m-0 grid list-none border-t border-edge p-0">

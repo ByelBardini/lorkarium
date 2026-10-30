@@ -33,8 +33,8 @@ desktop/
       app_origin.rs       # AppOrigin::parse(url, BuildProfile) e contains(url)
       navigation.rs       # navigation_decision / new_window_decision (puras), CHAT_WINDOW_PATH
       main_window.rs      # shell_origins(), cria a janela pelo config, on_navigation/on_new_window, X esconde (hide_on_close), focus(), keeps_window_state
-      chat_window.rs      # chat_window_label (pura) + open(): a 2ª janela, do window.open do chat
-      chat_window_controls.rs # fixar/desfixar só a janela de chat, por comando restrito da main
+      chat_window.rs      # chat_window_label (pura) + open(): janelas auxiliares de Chat e Dados
+      chat_window_controls.rs # fixação e controles das auxiliares, por comandos restritos da main
       webview2.rs         # desktop_user_agent, clipboard_read_permission (puras) + harden() (COM, #[cfg(windows)], NavigationCompleted)
       window_controls.rs  # REMOTE_WINDOW_PERMISSIONS, remote_url_pattern (puras) + install(): capability remota do site
       load_failure.rs     # load_failure_of(&CompletedLoad, &ShellOrigins) (pura): carga do site que falhou → visão da splash
@@ -63,7 +63,9 @@ Splash (`desktop/src/`): `splash-title-bar.ts` (`splashTitleBarOf` + `wireSplash
 
 `OpenExternal` abre no app padrão do Windows pelo `tauri-plugin-opener` e cancela a navegação. Fora o `ChatWindow`, nova janela é sempre `NewWindowResponse::Deny`. O crédito do desenvolvedor (`developer-credit.tsx`) cai no `OpenExternal`.
 
-**Janelas auxiliares de Chat e Dados**: `window.open('/chat-window.html', …)` (Dados usa `?panel=dice`) cria uma `WebviewWindow` `chat-<n>` por `NewWindowResponse::Create`, no mesmo ambiente WebView2. O React da principal desenha o painel por portal. Só esse caminho exato da origem do app é aceito. A janela tem topo próprio sem moldura nativa; minimizar, maximizar/restaurar e consultar o estado usam `control_detached_window` pela principal, com validação de emissor e alvo. O X fecha; fora do `window-state`. Detalhe: [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
+**Janelas auxiliares de Chat, Dados e Imagens**: `window.open('/chat-window.html', …)` (Dados usa `?panel=dice`, Imagens usa `?panel=image`) cria uma `WebviewWindow` `chat-<n>` por `NewWindowResponse::Create`, no mesmo ambiente WebView2. O React da principal desenha o painel por portal. Só esse caminho exato da origem do app é aceito. A janela tem topo próprio sem moldura nativa; minimizar, maximizar/restaurar e consultar o estado usam `control_detached_window` pela principal, com validação de emissor e alvo. O X fecha; fora do `window-state`. Detalhe: [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
+
+A principal define a marca imutável `__LORKARIUM_IMAGE_WINDOW_SUPPORTED__`: somente com ela o client abre apresentações remotas automaticamente em janela. Sem suporte nativo, usa modal. Detalhe do terceiro painel em [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
 
 ## Cara de app (WebView2)
 
@@ -110,7 +112,7 @@ site aberto → carga na origem do app falha (NavigationCompleted) → load_fail
 
 ## Testes
 
-- Rust: `#[cfg(test)] mod tests` dentro de cada módulo puro (`app_origin`, `navigation`, `chat_window`, `main_window`, `webview2`, `window_controls`, `load_failure`, `startup` com o `StartupGate`, `tray`). O `startup` roda sobre fakes nomeados (`UpdateSourceFake` com `UpToDate`/`Fails`/`Hangs`/`Offers`, `UpdateFake`, `HealthProbeFake::answering([...])`) e `tauri::async_runtime::block_on`; o prazo da checagem entra por parâmetro (50 ms no teste). Borda (COM, updater, HTTP, janela) não tem teste: fica fina de propósito.
+- Rust: `#[cfg(test)] mod tests` dentro de cada módulo puro (`app_origin`, `navigation`, `chat_window`, `chat_window_controls`, `main_window`, `webview2`, `window_controls`, `load_failure`, `startup` com o `StartupGate`, `tray`). O `startup` roda sobre fakes nomeados (`UpdateSourceFake` com `UpToDate`/`Fails`/`Hangs`/`Offers`, `UpdateFake`, `HealthProbeFake::answering([...])`) e `tauri::async_runtime::block_on`; o prazo da checagem entra por parâmetro (50 ms no teste). Borda (COM, updater, HTTP, janela) não tem teste: fica fina de propósito.
 - Splash: `desktop/test/*.spec.ts`. `ShellBridgeFake` (`calls`, `emit(payload)`) e `loadSplashDocument()` (o `index.html` real no jsdom, `// @vitest-environment jsdom` por arquivo) em `test/support/`; o `shell-bridge.spec.ts` usa o `mockIPC(…, { shouldMockEvents: true })` + `mockWindows('main')` do `@tauri-apps/api/mocks` para provar os nomes de comando (`plugin:window|minimize`/`toggle_maximize`/`close` na janela `main`) e do evento. `splash-title-bar.spec.ts` prova botões e Tab e lê o `splash.css` para o `app-region` (o jsdom não aplica a propriedade).
 - Instalador: `test/scripts/bmp-encoder.spec.ts` (cabeçalho, padding, BGR de baixo para cima) e `test/installer/nsis-template.spec.ts` (guarda do template, ver Instalador). As telas NSIS não têm teste automático: conferir rodando o setup.
 
@@ -152,3 +154,7 @@ Um clique, janela escura, tela única (Instalar / Atualizar / Reinstalar / "Inst
 - **`OPERATION_CANCELED` nunca volta à splash**: a própria guarda de navegação (`OpenExternal`/`Block`) cancela no `NavigationStarting`, e o WebView2 completa com `IsSuccess = false` e o `Source` ainda na origem do app. Tratado como erro, todo link externo jogaria a janela na splash "Sem conexão": o `load_failure_of` olha o cancelado antes de tudo.
 - **4xx não é falha de carga**: o WebView2 dá `IsSuccess = false` em 4xx e 5xx; só ≥ 500 e "sem resposta" (`HttpStatusCode` 0) voltam à splash.
 - **Casca sem moldura só depois do client**: casca nova + client antigo = janela sem barra nenhuma. O `decorations: false` só entra na `main` com o client que lê `LorkariumTitleBar/1` já no ar.
+
+### Imagens apresentadas
+
+A casca nova marca a principal com `__LORKARIUM_IMAGE_WINDOW_SUPPORTED__` e reutiliza a auxiliar com `?panel=image` (960×720). O terceiro painel compartilha guardas/controles de Chat e Dados; versões anteriores usam modal. Detalhes em [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).

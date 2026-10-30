@@ -1,3 +1,8 @@
+import type { ImagePresentationApi } from '@/services/image-presentation-api';
+import {
+  createImagePresentationStore,
+  type ImagePresentationStore,
+} from './image-presentation-store';
 import type { TableTokenRights } from '@lorkarium/game-core';
 import {
   MAX_OPEN_TABLES,
@@ -63,6 +68,7 @@ export type OpenTable = Omit<OpenTableRef, 'cover'> &
     dice: StoreApi<DiceHistoryStore>;
     /** The chat conversations of this visit: kept across an F5, forgotten when the table closes. */
     chat: StoreApi<ChatHistoryStore>;
+    imagePresentation: StoreApi<ImagePresentationStore>;
   }>;
 
 export type OpenTableResult = 'opened' | 'already-open' | 'full';
@@ -98,6 +104,7 @@ export type OpenTablesStore = OpenTablesState &
 
 export type OpenTablesDeps = Readonly<{
   api: TableSessionApi;
+  imagePresentationApi?: ImagePresentationApi;
   storage: TabStorage;
   /** The interaction of each grid tab (its commands, its refusal messages). */
   createInteraction: CreateTabInteraction;
@@ -189,6 +196,7 @@ class OpenTablesActions {
     table?.tabs.getState().dispose(true);
     table?.dice.getState().clear();
     table?.chat.getState().clear();
+    table?.imagePresentation.getState().clear();
     this.set({ tables: this.get().tables.filter((table) => table.campaignId !== campaignId) });
     writeStored(this.deps.storage, this.get());
   }
@@ -204,6 +212,7 @@ class OpenTablesActions {
       table.tabs.getState().dispose(true);
       table.dice.getState().clear();
       table.chat.getState().clear();
+      table.imagePresentation.getState().clear();
     }
     this.suspendAll();
     removeStored(this.deps.storage);
@@ -212,7 +221,10 @@ class OpenTablesActions {
   /** A refused session: closes every table but keeps the tab's list for the next `restore`. */
   suspendAll(): void {
     for (const handle of this.handles.values()) handle.close();
-    for (const table of this.get().tables) table.tabs.getState().dispose(false);
+    for (const table of this.get().tables) {
+      table.tabs.getState().dispose(false);
+      table.imagePresentation.getState().clear();
+    }
     this.handles.clear();
     this.casts.clear();
     this.set({ ownerId: null, tables: [], sessionRefused: false, deletedNotice: null });
@@ -239,10 +251,27 @@ class OpenTablesActions {
       storage: this.deps.storage,
     });
     const chat = this.chatOf(table.campaignId, presence);
-    const parts = { cover, tokenRights: null, presence, board, cast, edits, tabs, dice, chat };
+    const imagePresentation = createImagePresentationStore({
+      campaignId: table.campaignId,
+      userId: this.get().ownerId ?? '',
+      storage: this.deps.storage,
+      api: this.deps.imagePresentationApi,
+    });
+    const parts = {
+      cover,
+      tokenRights: null,
+      presence,
+      board,
+      cast,
+      edits,
+      tabs,
+      dice,
+      chat,
+      imagePresentation,
+    };
     const opened: OpenTable = { ...table, ...parts };
     this.set({ tables: [...tables, opened] });
-    const stores = { presence, board, tabs, dice, chat };
+    const stores = { presence, board, tabs, dice, chat, imagePresentation };
     const listener = (update: TableSessionUpdate): void =>
       this.onUpdate(table.campaignId, stores, update);
     const handle = this.deps.api.open(table.campaignId, listener);
@@ -260,6 +289,9 @@ class OpenTablesActions {
     if (update.kind === 'campaignDeleted') return this.closeDeleted(campaignId, 'deleted');
     if (update.kind === 'removedFromTable') return this.closeDeleted(campaignId, 'removed');
     if (update.kind === 'campaignUpdated') this.retitle(update.event.campaign);
+    if (update.kind === 'imagePresentationChanged')
+      stores.imagePresentation.getState().apply(update.event);
+    if (update.kind === 'state') void stores.imagePresentation.getState().sync();
     applyUpdate(this.set, stores, update);
     const receivedAtMs = (this.deps.wallClock ?? Date.now)();
     stores.dice.getState().apply(update, receivedAtMs);
@@ -341,6 +373,7 @@ type TableStores = Readonly<{
   tabs: StoreApi<SceneTabsStore>;
   dice: StoreApi<DiceHistoryStore>;
   chat: StoreApi<ChatHistoryStore>;
+  imagePresentation: StoreApi<ImagePresentationStore>;
 }>;
 
 // The roster names the owner for an `@` (nickname and @); before the snapshot, only the id.

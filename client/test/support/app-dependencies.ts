@@ -1,3 +1,4 @@
+import { ImagePresentationApiFake } from './image-presentation-api-fake';
 import type { AppDependencies } from '@/app/router';
 import { tabInteractionFactory } from '@/features/board/tab-interaction';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
@@ -47,6 +48,7 @@ export type TestDependencies = AppDependencies & {
   userAdminApi: UserAdminApiFake;
   accountLinksApi: AccountLinksApiFake;
   libraryApi: LibraryApiFake;
+  imagePresentationApi: ImagePresentationApiFake;
   sceneActivation: SceneActivationFake;
   assets: AssetsApiFake;
   clipboard: ClipboardFake;
@@ -110,6 +112,7 @@ export const TEST_NOW = new Date(2026, 9, 14, 20, 0);
 export function testDependencies(): TestDependencies {
   const journal = new CallJournal();
   const tableSessionApi = new TableSessionApiFake(journal);
+  const imagePresentationApi = new ImagePresentationApiFake();
   const tabStorage = new StorageFake();
   const roomLayoutStorage = new StorageFake();
   const drawingStyleStorage = new StorageFake();
@@ -138,6 +141,7 @@ export function testDependencies(): TestDependencies {
     userAdminApi: new UserAdminApiFake(TEST_NOW),
     accountLinksApi: new AccountLinksApiFake(),
     libraryApi: new LibraryApiFake(),
+    imagePresentationApi,
     sceneActivation: new SceneActivationFake(),
     assets: new AssetsApiFake(),
     clipboard: new ClipboardFake(),
@@ -174,6 +178,7 @@ export function testDependencies(): TestDependencies {
     interactionClock,
     openTables: createOpenTablesStore({
       api: tableSessionApi,
+      imagePresentationApi,
       storage: tabStorage,
       createInteraction: tabInteractionFactory(boardCommands),
       wallClock: interactionClock.now,

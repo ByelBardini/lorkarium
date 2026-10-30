@@ -1,5 +1,6 @@
-import type { LibrarySceneDto, SceneFolderDto } from '@lorkarium/contracts';
-import { useId, useState, type KeyboardEvent, type ReactNode } from 'react';
+import type { SceneFolderDto } from '@lorkarium/contracts';
+import { useEffect, useRef, useId, useState, type KeyboardEvent, type ReactNode } from 'react';
+import type { LibraryEntry } from '@/lib/library-entries';
 import type { FolderTree } from '@/lib/folder-tree';
 import { LibraryTreeMenu, type TreeMaster } from './library-tree-menu';
 import { NO_FOLDER } from './library-view';
@@ -21,11 +22,12 @@ import {
 } from './tree-rows';
 import { useTreeEditing, type TreeEditingControls } from './use-tree-editing';
 
-export type LibraryTree = FolderTree<SceneFolderDto, LibrarySceneDto>;
+export type LibraryTree = FolderTree<SceneFolderDto, LibraryEntry>;
 
 export type FolderTreeNavProps = Readonly<{
   /** The tree as shown: already filtered while `filtering`. */
   tree: LibraryTree;
+  newFolderRequest?: number;
   /** A search or filter is on: every folder left in the tree opens. */
   filtering: boolean;
   pickedKey: string | null;
@@ -49,6 +51,17 @@ export type FolderTreeNavProps = Readonly<{
  *  Example: `<FolderTreeNav tree={tree} filtering={false} pickedKey={key} onPick={view.pick} … master={null} />` */
 export function FolderTreeNav(props: FolderTreeNavProps): React.JSX.Element {
   const state = useTreeState(props);
+  const handledRequest = useRef(0);
+  useEffect(() => {
+    if (
+      !props.master ||
+      !props.newFolderRequest ||
+      handledRequest.current === props.newFolderRequest
+    )
+      return;
+    handledRequest.current = props.newFolderRequest;
+    state.controls.startNewFolder(props.master.newParentId);
+  }, [props.master, props.newFolderRequest, state.controls]);
   return (
     <div className="flex min-h-0 flex-col bg-panel">
       <TreeHeader master={props.master} onNewFolder={state.controls.startNewFolder} />
@@ -72,7 +85,7 @@ function TreeList({ tree, filtering, context, onKeyDown }: TreeListProps): React
   return (
     <ul
       role="tree"
-      aria-label="Grids e pastas"
+      aria-label="Itens e pastas"
       onKeyDown={onKeyDown}
       className="flex flex-col gap-0.5"
     >
@@ -167,7 +180,7 @@ function TreeHeader({ master, onNewFolder }: TreeHeaderProps): React.JSX.Element
         aria-hidden="true"
         className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase"
       >
-        Grids e pastas
+        Itens e pastas
       </span>
       {master && <NewFolderButton live={master.live} onStart={start} />}
     </div>

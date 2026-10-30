@@ -1,7 +1,6 @@
 import {
   SCENE_FOLDER_NAME_MAX_LENGTH,
   SCENE_NAME_MAX_LENGTH,
-  type LibrarySceneDto,
   type SceneFolderDto,
 } from '@lorkarium/contracts';
 import {
@@ -9,10 +8,12 @@ import {
   FolderIcon,
   FolderOpenIcon,
   LayoutGridIcon,
+  ImageIcon,
   LockIcon,
   UsersIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { imageIdOf, type LibraryEntry } from '@/lib/library-entries';
 import type { FolderNode } from '@/lib/folder-tree';
 import { cn } from '@/lib/utils';
 import { folderDescription, sceneDescription } from './library-messages';
@@ -20,7 +21,7 @@ import { NO_FOLDER, sceneIdOf, sceneKey } from './library-view';
 import { NewNameEntry, RenameField } from './tree-name-fields';
 import { treeItemId } from './tree-navigation';
 
-type LibraryNode = FolderNode<SceneFolderDto, LibrarySceneDto>;
+type LibraryNode = FolderNode<SceneFolderDto, LibraryEntry>;
 
 /** What a tree item adds for dragging (A17): its own props, given its key. */
 export type TreeItemExtras = (key: string) => Readonly<Record<string, unknown>>;
@@ -114,7 +115,7 @@ export function FolderItem({
 export function LooseItem({
   context,
   scenes,
-}: Readonly<{ context: TreeContext; scenes: readonly LibrarySceneDto[] }>) {
+}: Readonly<{ context: TreeContext; scenes: readonly LibraryEntry[] }>) {
   const expandable = scenes.length > 0;
   const open = expandable && context.expanded.has(NO_FOLDER);
   const groupHere = scenes.some(({ id }) => id === context.groupSceneId);
@@ -140,7 +141,7 @@ export function LooseItem({
 
 type SceneItemsProps = Readonly<{
   context: TreeContext;
-  scenes: readonly LibrarySceneDto[];
+  scenes: readonly LibraryEntry[];
   level: number;
 }>;
 
@@ -148,7 +149,8 @@ function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Elem
   return (
     <>
       {scenes.map((scene) => {
-        const isGroupGrid = scene.id === context.groupSceneId;
+        const image = 'asset' in scene;
+        const isGroupGrid = !image && scene.id === context.groupSceneId;
         return (
           <TreeRow
             key={scene.id}
@@ -156,10 +158,14 @@ function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Elem
             itemKey={sceneKey(scene.id)}
             label={scene.name}
             level={level}
-            description={sceneDescription(scene, context.now, isGroupGrid, context.playersOnline)}
+            description={
+              image
+                ? `Imagem · ${scene.visibility === 'public' ? 'Público' : 'Privado'}`
+                : `Grid · ${sceneDescription(scene, context.now, isGroupGrid, context.playersOnline)}`
+            }
             live={isGroupGrid}
             isPrivate={scene.visibility === 'private'}
-            icon={<LayoutGridIcon aria-hidden="true" />}
+            icon={image ? <ImageIcon aria-hidden="true" /> : <LayoutGridIcon aria-hidden="true" />}
           />
         );
       })}
@@ -281,9 +287,11 @@ function ItemRename({ context, itemKey, label }: TreeRowLineProps): React.JSX.El
   return (
     <span className="min-w-0 flex-1">
       <RenameField
-        label={isScene ? 'Nome do grid' : 'Nome da pasta'}
+        label={imageIdOf(itemKey) ? 'Nome da imagem' : isScene ? 'Nome do grid' : 'Nome da pasta'}
         confirmed={label}
-        maxLength={isScene ? SCENE_NAME_MAX_LENGTH : SCENE_FOLDER_NAME_MAX_LENGTH}
+        maxLength={
+          isScene || imageIdOf(itemKey) ? SCENE_NAME_MAX_LENGTH : SCENE_FOLDER_NAME_MAX_LENGTH
+        }
         onSave={(name) => editing.onRename(itemKey, name)}
         onDone={(byKey) => editing.onDone(byKey ? itemKey : null)}
       />

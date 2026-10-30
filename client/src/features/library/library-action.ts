@@ -51,6 +51,13 @@ async function runIntent(
   if (intent.intent === 'removeFolder') {
     return fromLibrary(await libraryApi.removeFolder(campaignId, intent.folderId), false);
   }
+  if (intent.intent === 'updateImage')
+    return fromLibrary(
+      await libraryApi.updateImage(campaignId, intent.imageId, intent.changes),
+      false,
+    );
+  if (intent.intent === 'removeImage')
+    return fromLibrary(await libraryApi.removeImage(campaignId, intent.imageId), false);
   return runSceneIntent(deps, campaignId, intent);
 }
 

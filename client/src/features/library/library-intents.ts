@@ -1,5 +1,6 @@
 import {
   createSceneFolderRequestDto,
+  updateLibraryImageRequestDto,
   updateLibrarySceneRequestDto,
   updateSceneFolderRequestDto,
 } from '@lorkarium/contracts';
@@ -17,6 +18,12 @@ export const libraryIntentDto = z.discriminatedUnion('intent', [
   }),
   z.strictObject({ intent: z.literal('duplicateScene'), sceneId: id }),
   z.strictObject({ intent: z.literal('removeScene'), sceneId: id }),
+  z.strictObject({
+    intent: z.literal('updateImage'),
+    imageId: id,
+    changes: updateLibraryImageRequestDto,
+  }),
+  z.strictObject({ intent: z.literal('removeImage'), imageId: id }),
   z.strictObject({ intent: z.literal('activateScene'), sceneId: id }),
   z.strictObject({ intent: z.literal('createFolder'), folder: createSceneFolderRequestDto }),
   z.strictObject({

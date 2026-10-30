@@ -1,10 +1,13 @@
-import type { CampaignDetailDto, LibraryDto } from '@lorkarium/contracts';
+import type { CampaignDetailDto, CampaignLibraryDto } from '@lorkarium/contracts';
 import { Suspense, use } from 'react';
 import { useRevalidator } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { SignedOutRedirect } from '@/components/signed-out-redirect';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import type { AssetsApi } from '@/services/assets-api';
+import type { LibraryApi } from '@/services/library-api';
+import type { ImagePresentationApi } from '@/services/image-presentation-api';
 import type { LibraryFailure, LibraryResult } from '@/services/library-api';
 import type { SessionStore } from '@/stores/session-store';
 import { LibraryBrowser } from './library-browser';
@@ -15,10 +18,13 @@ import { useRevalidateOnLibraryChange, type LibraryTableView } from './use-libra
 export type LibraryDialogProps = Readonly<{
   campaign: CampaignDetailDto;
   /** The list as the loader asked for it, not awaited: the modal opens while it comes. */
-  library: Promise<LibraryResult<LibraryDto>>;
+  library: Promise<LibraryResult<CampaignLibraryDto>>;
   tableView: LibraryTableView;
   sessionStore: StoreApi<SessionStore>;
   now: Date;
+  assets: AssetsApi;
+  api: LibraryApi;
+  presentations: ImagePresentationApi;
   onClose: () => void;
 }>;
 
@@ -33,7 +39,7 @@ export function LibraryDialog(props: LibraryDialogProps): React.JSX.Element {
       <DialogContent
         showCloseButton={false}
         onEscapeKeyDown={keepOpenWhileEditing}
-        className="flex h-[90svh] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1120px]"
+        className="flex h-[90svh] w-[calc(100%_-_2rem)] max-w-[1360px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1360px]"
       >
         <Suspense fallback={<LibraryLoading {...props} />}>
           <LoadedLibrary {...props} />

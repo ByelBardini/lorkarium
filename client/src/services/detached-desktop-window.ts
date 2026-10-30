@@ -5,6 +5,7 @@ import type { DesktopWindow } from './desktop-window';
 export class DetachedDesktopWindow implements DesktopWindow {
   closed = false;
   private closing: Promise<void> | null = null;
+  private invoke: (typeof import('@tauri-apps/api/core'))['invoke'] | null = null;
   constructor(private readonly opened: ChatWindowHandle) {}
 
   minimize(): Promise<void> {
@@ -39,7 +40,9 @@ export class DetachedDesktopWindow implements DesktopWindow {
 
   private async command<T>(action: string): Promise<T> {
     const label = nativeChatLabelOf(this.opened);
+    if (this.invoke) return this.invoke<T>('control_detached_window', { label, action });
     const { invoke } = await import('@tauri-apps/api/core');
+    this.invoke = invoke;
     return invoke<T>('control_detached_window', { label, action });
   }
 }

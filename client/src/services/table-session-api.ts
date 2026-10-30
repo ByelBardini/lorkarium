@@ -8,6 +8,7 @@ import type {
   SessionRemovedFromTableDto,
   SessionCampaignUpdatedDto,
   LibraryChangedDto,
+  ImagePresentationChangedDto,
   SceneActivatedDto,
   SceneClosedDto,
   SessionMemberActivityDto,
@@ -69,7 +70,8 @@ export type TableSessionUpdate =
   /** The server took this tab out of a grid (it became private or was deleted). */
   | Readonly<{ kind: 'sceneClosed'; event: SceneClosedDto }>
   /** Something in the library changed: read it again by its route. */
-  | Readonly<{ kind: 'libraryChanged'; event: LibraryChangedDto }>;
+  | Readonly<{ kind: 'libraryChanged'; event: LibraryChangedDto }>
+  | Readonly<{ kind: 'imagePresentationChanged'; event: ImagePresentationChangedDto }>;
 
 /** What reaches the store of one grid: its snapshot, its events and the drags over it. */
 export type GridUpdate = Extract<

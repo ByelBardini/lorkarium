@@ -94,7 +94,7 @@ describe('dragging in the library', () => {
     const answer = deps.libraryApi.hold('updateScene');
     drag(treeItem('Ossuário'), treeItem('Lugares fixos'));
     await waitFor(() => expect(treeItemNames()).not.toContain('Ossuário'));
-    expect(treeItem('Lugares fixos')).toHaveAccessibleDescription('1 grid');
+    expect(treeItem('Lugares fixos')).toHaveAccessibleDescription('1 item');
     answer({ ok: false, failure: { kind: 'folder_not_found' } });
     await waitFor(() => expect(treeItemNames()).toContain('Ossuário'));
     expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent(

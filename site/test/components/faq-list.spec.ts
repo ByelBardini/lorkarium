@@ -25,7 +25,7 @@ describe('FaqList', () => {
     const price = [...faq.querySelectorAll('details')].find((item) =>
       item.querySelector('summary')?.textContent?.includes('Quanto custa?'),
     );
-    expect(price?.textContent).toContain('grátis enquanto está em acesso antecipado');
+    expect(price?.textContent).toContain('gratuito durante o acesso antecipado');
   });
 
   it('links the account question to an invite request e-mail', async () => {
