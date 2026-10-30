@@ -112,3 +112,7 @@ Unit assets.service inclui AssetReadPolicyFake e guarda antes de I/O; policy cob
 - **Conferir o host por texto não protege de SSRF.** `evil.example` pode resolver para 127.0.0.1, um redirect pode levar para 169.254.169.254 e o DNS pode mudar entre a conferência e a conexão (rebinding). A conferência mora no `lookup` do socket (o IP conferido é o conectado), em cada salto, e o IP literal é conferido à parte porque o Node não chama `lookup` para ele.
 
 - SeaweedFS cria uma _collection_ por bucket e reserva volumes para ela. Com os padrões (volume de 30 GB, limite de volumes pelo disco livre), um tmpfs pequeno não tem volume livre e o `PutObject` num bucket novo dá `InternalError` 500 ("No writable volumes and no free volumes left"). Por isso `-master.volumeSizeLimitMB=64 -volume.max=200` no compose, na action do CI e na receita.
+
+## Imagens de documentos
+
+A migração 0068 acrescenta document_image, reservado a endpoints de documentos: PNG/JPEG/WebP estáticos, até 20 MiB e 4096 px. Rotas genéricas recusam antes de I/O; outros usos (fundo/token/aura/condição/capa) também recusam. A política de leitura composta permite referência autorizada em documento para document_image e library_image; sem política, nega ambos. Bytes usam private, no-store. Detalhe: [documents/imagens.md](documents/imagens.md).

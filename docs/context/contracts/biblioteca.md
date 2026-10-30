@@ -9,3 +9,7 @@ image-presentation.dto.ts: imagePresentationDto {id,imageId,name,asset}, nome co
 assetPurposeDto aceita library_image; ASSET_MAX_SIDE.library_image=4096. Permissões ficam no server. Rotas e garantias: [library/images.md](../library/images.md).
 
 Spec packages/contracts/test/library/library-image.dto.spec.ts cobre trim, limites, PATCH vazio, identidade forjada, versão negativa e compatibilidade estrita do endpoint antigo.
+
+## Documentos no agregado
+
+campaignLibraryDto exige documents: DocumentSummaryDto[], com id, nome, pasta, visibilidade, versão, updatedAt e capacidades; ownerIds só para mestre. Não inclui conteúdo. libraryDto de GET /scenes segue sem documentos. Contratos completos em [../documents/contratos.md](../documents/contratos.md).

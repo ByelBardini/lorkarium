@@ -104,3 +104,7 @@ Medidas, orçamentos e as regras de desempenho que não se desfazem: [`server/de
 - `pnpm db:migrate` com o banco fora do ar falha só com `Exit status 1`, sem mensagem: o `drizzle-kit` engole o `ECONNREFUSED`. Confira se `pnpm db:up` subiu o `lorkarium-postgres-1` e se nada mais ocupa a 5432.
 - O `drizzle-kit generate` escreve `drizzle/meta/*.json` (e o `_journal.json`) fora do estilo do Prettier: rode `pnpm format` depois de gerar, senão o `format:check` do CI falha.
 - Spec de migração nunca semeia pela DAO atual (`new UsersDao(scratch.db).insert`): o PO escreve **todas** as colunas de hoje e o banco parado numa migração antiga não tem as novas (`terms_accepted_at` da `0054` derrubou os specs da `0048` à `0051`). Use SQL cru, como o `insertUserAtOldMigration` de `test/support/migrations-up-to.ts`.
+
+## Documentos na biblioteca
+
+O módulo documents é registrado no build-app; migrações 0068 (propósito) e 0069 (quatro tabelas), DAOs transacionais, DTOs e guardas estão em [documents.md](documents.md) e [documents/server.md](documents/server.md). O agregado da biblioteca inclui resumos autorizados, sem carregar corpos.

@@ -52,3 +52,7 @@ Complementa [`library.md`](library.md). O contrato e a autorização ficam em [`
 O dropdown de criação do cabeçalho sempre usa a raiz. No menu contextual, o destino é a pasta de origem da ação. O cadastro de imagem recebe esse destino e não oferece seletor de pasta.
 
 A apresentação automática exige presença na sala visível. `RoomImagePresentation` chama `setViewing(true/false)` ao montar/desmontar. O primeiro snapshot da visita apenas sincroniza o estado e dispensa a apresentação anterior; eventos recebidos fora da sala também ficam dispensados. Entrar depois ou voltar de outra tela não abre imagens passadas. Rejoin na sala ainda recupera uma apresentação nova perdida durante desconexão.
+
+## Imagens em documentos
+
+DocumentImagePicker reaproveita ImagePicker por adaptador para endpoints do documento, além de seleção dos itens autorizados da biblioteca. A seleção associa o asset antes de inserir no editor. A autorização dos bytes passa pela referência no documento, independente da existência posterior do item da biblioteca. Ver [documents.md](documents.md).

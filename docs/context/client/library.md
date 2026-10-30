@@ -67,3 +67,7 @@ Specs: `client/test/lib/library-entries.spec.ts`, `client/test/lib/folder-tree.s
 - Grid numa pasta fechada não está no DOM: no e2e, `pickGrid(biblioteca, nome)` busca o nome (a busca abre as pastas), clica e limpa a busca.
 
 O dropdown de criação do cabeçalho sempre usa a raiz. No menu contextual, o destino é a pasta de origem da ação. O cadastro de imagem recebe esse destino e não oferece seletor de pasta.
+
+## Documentos livres
+
+A árvore também aceita document:<id>, filtro Documentos, contagem, busca, teclado e arraste administrativo versionado com rollback. Novo documento herda pasta no menu; cabeçalho cria na raiz. O painel amplo carrega Tiptap sob demanda e pode recolher a árvore. Fechar/trocar consulta pendências do documento. Ver [documents.md](documents.md).
