@@ -52,12 +52,12 @@ test('Baixar opens the thank-you page and downloads the installer', async ({ pag
   await page.goto('/');
 
   const download = page.waitForEvent('download');
-  await page.locator('#topo').getByRole('link', { name: 'Baixar pra Windows' }).click();
+  await page.locator('#topo').getByRole('link', { name: 'Baixar para Windows' }).click();
 
   expect((await download).suggestedFilename()).toBe(INSTALLER_NAME);
   await expect(page).toHaveURL(/\/obrigado\/$/);
   await expect(page.getByRole('heading', { name: 'Seu download está começando' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Clica aqui pra baixar' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Baixar manualmente' })).toHaveAttribute(
     'href',
     INSTALLER_URL,
   );
@@ -70,10 +70,12 @@ test('with the GitHub API refusing, downloading falls back to the releases page'
   await page.goto('/');
 
   await expect(page.locator('#topo').getByText('Windows 10 ou 11 · 64 bits')).toBeVisible();
-  await page.locator('#topo').getByRole('link', { name: 'Baixar pra Windows' }).click();
+  await page.locator('#topo').getByRole('link', { name: 'Baixar para Windows' }).click();
 
-  await expect(page.getByRole('status').filter({ hasText: 'Não deu pra achar' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Clica aqui pra baixar' })).toHaveAttribute(
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Não foi possível consultar' }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Baixar manualmente' })).toHaveAttribute(
     'href',
     RELEASES_PAGE,
   );

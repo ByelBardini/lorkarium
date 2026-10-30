@@ -1,22 +1,55 @@
 ---
+import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
 import SectionHeading from '@/components/section-heading.astro';
-import { landingCopy } from '@/copy/landing-copy';
+import { inviteMailto, landingCopy } from '@/copy/landing-copy';
 ---
 
 <section id="como" class="border-y border-line bg-band py-20 md:py-28">
-  <div class="site-wrap flex flex-col gap-12">
-    <SectionHeading kicker="Como funciona" title="Do download à primeira rolagem em minutos" />
-    <ol class="m-0 grid list-none border-t border-edge p-0 md:grid-cols-3">
+  <div class="site-wrap grid gap-12 lg:grid-cols-[.85fr_1.5fr] lg:gap-16 xl:gap-24">
+    <div class="flex flex-col items-start gap-7 lg:pt-2">
+      <SectionHeading kicker="Como funciona" title="Como começar sua mesa">
+        Você pode preparar a mesa antes de reunir os jogadores. Mapas, tokens e configurações ficam
+        salvos entre as sessões.
+      </SectionHeading>
+      <a
+        href={inviteMailto(PUBLIC_CONTACT_EMAIL)}
+        class="inline-flex items-center gap-3 border-b border-gold/40 pb-2 text-sm font-semibold text-gold hover:border-gold"
+      >
+        Pedir convite
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <path d="M4 12h16m-6-6 6 6-6 6" />
+        </svg>
+      </a>
+    </div>
+    <ol class="m-0 flex list-none flex-col p-0">
       {landingCopy.steps.map((step, index) => (
-        <li class="flex flex-col gap-3 border-edge pt-8 pb-2 max-md:[&+li]:border-t md:pr-10 md:[&+li]:border-l md:[&+li]:pl-10">
+        <li class="relative grid grid-cols-[44px_1fr] gap-x-5 pb-10 last:pb-0 sm:grid-cols-[56px_1fr] sm:gap-x-7">
+          {index < landingCopy.steps.length - 1 && (
+            <span
+              class="absolute top-12 bottom-2 left-[21px] w-px bg-edge-strong sm:top-16 sm:left-[27px]"
+              aria-hidden="true"
+            />
+          )}
           <span
-            class="font-display text-[64px] leading-[0.8] font-medium text-gold"
+            class="relative flex size-11 items-center justify-center rounded-sm border border-gold/35 bg-page font-display text-2xl text-gold sm:size-14 sm:text-3xl"
             aria-hidden="true"
           >
-            {index + 1}
+            {String(index + 1).padStart(2, '0')}
           </span>
-          <h3 class="m-0 mt-2 font-display text-[28px] font-semibold">{step.title}</h3>
-          <p class="m-0 max-w-[42ch] text-[15px] leading-relaxed text-muted">{step.text}</p>
+          <div class="flex flex-col gap-3 pt-1 sm:pt-2">
+            <h3 class="m-0 font-display text-[28px] leading-tight font-semibold text-parchment">
+              {step.title}
+            </h3>
+            <p class="m-0 max-w-[60ch] text-[15px] leading-relaxed text-muted">{step.text}</p>
+          </div>
         </li>
       ))}
     </ol>

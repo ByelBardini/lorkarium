@@ -7,7 +7,7 @@ describe('the landing page', () => {
     const page = await renderAstro(IndexPage);
 
     expect(page.documentElement.lang).toBe('pt-BR');
-    expect(page.title).toBe('Lorkarium · Mesa virtual de RPG pra jogar com os amigos');
+    expect(page.title).toBe('Lorkarium · Mapas e combate para o seu RPG');
   });
 
   it('shows the LORKARIUM wordmark', async () => {
@@ -20,7 +20,16 @@ describe('the landing page', () => {
     const page = await renderAstro(IndexPage);
 
     const ids = [...page.querySelectorAll('section[id]')].map((section) => section.id);
-    expect(ids).toEqual(['topo', 'recursos', 'combate', 'como', 'baixar', 'perguntas']);
+    expect(ids).toEqual([
+      'topo',
+      'recursos',
+      'combate',
+      'dados',
+      'chat',
+      'como',
+      'baixar',
+      'perguntas',
+    ]);
   });
 
   it('has a target for every in-page anchor', async () => {

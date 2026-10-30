@@ -107,7 +107,7 @@ describe('enhanceDownloadCtas', () => {
     await settle();
 
     expect(document.querySelector('[data-copy-status]')?.textContent).toBe(
-      'Não deu pra copiar. Copia o endereço da barra do navegador.',
+      'Não foi possível copiar o link. Copie o endereço na barra do navegador.',
     );
   });
 });
