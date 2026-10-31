@@ -37,6 +37,8 @@ import { TimerScheduler } from '../infrastructure/scheduler/timer-scheduler';
 import { SocketIoSessionPublisher } from '../infrastructure/session-publisher/socket-io-session-publisher';
 import { SocketIoBoardPublisher } from '../infrastructure/board-publisher/socket-io-board-publisher';
 import { SocketIoLibraryPublisher } from '../infrastructure/library-publisher/socket-io-library-publisher';
+import { SocketIoSheetPublisher } from '../infrastructure/sheet-publisher/socket-io-sheet-publisher';
+import { createSheetBarsService, createSheetsModule } from '../modules/sheets/sheets.plugin';
 import { SocketIoSceneAudience } from '../infrastructure/scene-audience/socket-io-scene-audience';
 import { SocketIoGridAudience } from '../infrastructure/grid-audience/socket-io-grid-audience';
 import { SocketIoPingPublisher } from '../infrastructure/ping-publisher/socket-io-ping-publisher';
@@ -176,6 +178,15 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     publisher,
   });
   await app.register(documents.plugin, { prefix: API_PREFIX });
+  const { sheetPublisher } = outlets;
+  const sheets = createSheetsModule({
+    db: deps.db,
+    clock,
+    libraryPublisher: publisher,
+    sheetPublisher,
+    boardPublisher: grids,
+  });
+  await app.register(sheets.plugin, { prefix: API_PREFIX });
   await app.register(createSavedRollsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;
   const avatars = new SharpAvatarProcessor();
@@ -211,6 +222,8 @@ type RealtimeOutlets = Readonly<{
   audience: SocketIoSceneAudience;
   libraryPublisher: SocketIoLibraryPublisher;
   boardPublisher: SocketIoBoardPublisher;
+  /** `sheet:changed` to the table's room, after each sheet write over HTTP. */
+  sheetPublisher: SocketIoSheetPublisher;
   /** The live session service: a saved profile reaches every live table of the person. */
   profileChanged: ProfileChangedPort;
   /** The same service: a saved or deleted campaign reaches its live table. */
@@ -244,6 +257,7 @@ function wireRealtime(
     audience: new SocketIoSceneAudience(realtime.io),
     libraryPublisher: new SocketIoLibraryPublisher(realtime.io),
     boardPublisher: publisher,
+    sheetPublisher: new SocketIoSheetPublisher(realtime.io),
   };
   const { audience, libraryPublisher } = outlets;
   const scenesModule = createScenesModule({ ...shared, audience, libraryPublisher });
@@ -278,6 +292,7 @@ function wireRealtime(
     publisher: new SocketIoPingPublisher(realtime.io),
     clock,
   }).service;
+  const sheetBars = createSheetBarsService({ db, members, tokens });
   const board = createBoardModule({
     db,
     members,
@@ -295,6 +310,7 @@ function wireRealtime(
     pings,
     conditions,
     conditionCatalog,
+    sheetBars,
     combat,
     drawings,
     effectAreas,

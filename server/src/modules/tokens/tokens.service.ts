@@ -40,6 +40,7 @@ import {
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
 import {
+  inLockedCast,
   inLockedGridWithCast,
   type CastAndGridChange,
   type LockedGridMaybeCast,
@@ -68,6 +69,7 @@ import {
 import { lookAssetIdsOf } from './token-aura.mapper';
 import { TokenAccessBo } from './token-access.bo';
 import type { DragGroupPo, TokenMovePo, TokenRow, TokenUpdatePo, TokensDao } from './tokens.dao';
+import type { BarValuesPo } from './tokens.po';
 import { BarNotFoundError, TokenNotFoundError } from './tokens.error';
 import { toAuthoredToken, toEditedToken, toTokenUpdatePo } from './tokens.mapper';
 import type { SceneWallsService } from '../walls/scene-walls.service';
@@ -81,6 +83,13 @@ export type DeleteToken = Omit<DeleteTokenCommandDto, Envelope>;
 export type SetTokenLayer = Omit<SetTokenLayerCommandDto, Envelope>;
 export type MoveTokens = Omit<MoveTokensCommandDto, Envelope>;
 export type DragTokens = Omit<DragTokensCommandDto, Envelope>;
+/** A bar of the token that holds it: `sceneId` is its grid, or `null` for an anchor of the cast. */
+export type HolderBar = Readonly<{
+  tokenId: string;
+  sceneId: string | null;
+  barId: string;
+  change: AdjustBar['change'];
+}>;
 type GroupCell = Readonly<{ tokenId: string; cell: Readonly<{ col: number; row: number }> | null }>;
 type CellAt = Readonly<{ col: number; row: number }>;
 /** One token's way across the scene: from where it stands, by its bends, to `to`. */
@@ -261,12 +270,9 @@ export class TokensService {
     const saved = await this.inSharedGrid(access, command.sceneId, async (locked) => {
       const { daos, scene } = locked;
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
-      tokenAccessOf(access, found).requireControl('adjust a bar of');
-      const bar = found.bars.find(({ id }) => id === command.barId);
-      if (!bar) throw new BarNotFoundError(command.tokenId, command.barId);
-      const values = this.rulesFor(scene, []).adjustBar(bar, command.change);
+      const values = this.adjustedBar(access, found, scene, command);
       const holder = await holderRowOf(locked, found);
-      await daos.tokens.setBarValues(bar.id, values);
+      await daos.tokens.setBarValues(command.barId, values);
       const changed = await this.reread(daos, holder.scene, holder.row);
       const veiled = holder.inCast
         ? null
@@ -276,6 +282,24 @@ export class TokensService {
     const touched = saved.cast ?? saved.grid;
     const { changed, veiled } = saved.value;
     if (touched) this.publishSaved('token:updated', campaignId, changed, touched, veiled);
+    return saved.version;
+  }
+
+  /** The bar of the token that holds it, found by the server (a sheet's token): an anchor of the
+   *  cast (`sceneId: null`) or an unlinked token on its grid. The same rule, lock order and event
+   *  as `token:adjustBar`.
+   *
+   *  Example: `await tokens.adjustHolderBar(userId, campaignId, { tokenId: anchorId, sceneId: null, barId, change })` */
+  async adjustHolderBar(userId: string, campaignId: string, command: HolderBar): Promise<number> {
+    const { sceneId, ...bar } = command;
+    if (sceneId !== null) return this.adjustBar(userId, campaignId, { ...bar, sceneId });
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const saved = await inLockedCast(this.deps.transaction, campaignId, async ({ daos, cast }) => {
+      const found = await tokenIn(daos, cast, campaignId, bar.tokenId);
+      await daos.tokens.setBarValues(bar.barId, this.adjustedBar(access, found, cast, bar));
+      return { value: await this.reread(daos, cast, found), changed: true };
+    });
+    this.publishSaved('token:updated', campaignId, saved.value, saved);
     return saved.version;
   }
 
@@ -399,6 +423,20 @@ export class TokensService {
     for (const { row, path, to } of walking) {
       rules.requirePassage(row.token.id, [row.token, ...(path ?? []), to], row.token, walls);
     }
+  }
+
+  // Control first, then the bar of the token and the rule of the game-core (`set` over the max
+  // is cut there).
+  private adjustedBar(
+    access: CampaignAccessBo,
+    found: TokenRow,
+    scene: Pick<ScenePo, 'widthCells' | 'heightCells'>,
+    { tokenId, barId, change }: Pick<AdjustBar, 'tokenId' | 'barId' | 'change'>,
+  ): BarValuesPo {
+    tokenAccessOf(access, found).requireControl('adjust a bar of');
+    const bar = found.bars.find(({ id }) => id === barId);
+    if (!bar) throw new BarNotFoundError(tokenId, barId);
+    return this.rulesFor(scene, []).adjustBar(bar, change);
   }
 
   private rulesFor(

@@ -16,6 +16,7 @@ import { EffectAreaError } from '../effect-areas/effect-areas.error';
 import { LightError } from '../lights/lights.error';
 import { SceneError } from '../scenes/scenes.error';
 import { SessionEndedError, SessionError } from '../sessions/sessions.error';
+import { SheetError } from '../sheets/sheets.error';
 import { TokenError } from '../tokens/tokens.error';
 import { WallError } from '../walls/walls.error';
 import { BoardError, CommandRateLimitedError } from './board.error';
@@ -84,6 +85,8 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   CHAT_RECIPIENT_IS_SENDER: 'A private message needs someone else',
   CHAT_SENDER_NOT_IN_GROUP: 'You are not in this group',
   CHAT_SPEAKER_NOT_ALLOWED: 'A character only speaks to the whole table',
+  SHEET_NOT_FOUND: 'Sheet not found',
+  SHEET_HAS_NO_TOKEN: 'This sheet is not held by a token',
 };
 
 /** The answer of a command that only reports the version it produced.
@@ -165,7 +168,8 @@ type KnownError =
   | AssetError
   | SceneError
   | BoardError
-  | ChatError;
+  | ChatError
+  | SheetError;
 
 function isKnown(error: unknown): error is KnownError {
   return (
@@ -181,6 +185,7 @@ function isKnown(error: unknown): error is KnownError {
     error instanceof AssetError ||
     error instanceof SceneError ||
     error instanceof BoardError ||
-    error instanceof ChatError
+    error instanceof ChatError ||
+    error instanceof SheetError
   );
 }

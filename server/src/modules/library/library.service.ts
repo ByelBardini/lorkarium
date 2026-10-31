@@ -1,5 +1,7 @@
 import type { LibraryImagesDao } from './library-images.dao';
 import type { DocumentsDao } from '../documents/documents.dao';
+import type { SheetTemplatesDao } from '../sheets/sheet-templates.dao';
+import type { SheetsDao } from '../sheets/sheets.dao';
 import {
   SCENE_COPY_SUFFIX,
   SCENE_NAME_MAX_LENGTH,
@@ -45,6 +47,8 @@ export type LibraryReadDaos = Readonly<{
 
 export type LibraryWriteDaos = Readonly<{
   documents?: Pick<DocumentsDao, 'moveFromFolder'>;
+  sheetTemplates?: Pick<SheetTemplatesDao, 'moveFromFolder'>;
+  sheets?: Pick<SheetsDao, 'moveFromFolder'>;
   images?: Pick<LibraryImagesDao, 'moveFromFolder'>;
   campaigns: Pick<CampaignsDao, 'lockById'>;
   folders: Pick<
@@ -236,7 +240,8 @@ export class LibraryService {
     });
   }
 
-  /** Deletes a folder; its subfolders and grids go up to its parent, and no grid is deleted. */
+  /** Deletes a folder; its subfolders, grids, images, documents, sheet templates and sheets go up to its
+   *  parent, and none of them is deleted. */
   async deleteFolder(requester: LibraryRequester, folderId: string): Promise<void> {
     await this.edit(requester, `delete folder ${folderId}`, async ({ daos, library }) => {
       const removal = library.removal(folderId);
@@ -245,6 +250,8 @@ export class LibraryService {
       await daos.scenes.moveScenes(campaignId, removal.sceneIds, removal.parentId);
       await daos.images?.moveFromFolder(campaignId, folderId, removal.parentId);
       await daos.documents?.moveFromFolder(campaignId, folderId, removal.parentId);
+      await daos.sheetTemplates?.moveFromFolder(campaignId, folderId, removal.parentId);
+      await daos.sheets?.moveFromFolder(campaignId, folderId, removal.parentId);
       await daos.folders.delete(campaignId, folderId);
     });
   }
