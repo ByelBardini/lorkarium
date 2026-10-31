@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DICE_OVERLAY_Z_INDEX, diceStageScaleOf, labelRightOf } from '@/dice-renderer/dice-stage';
+import { DICE_OVERLAY_Z_INDEX, diceStageScaleOf, labelRightOf } from '../src/dice-stage';
 
 describe('DICE_OVERLAY_Z_INDEX', () => {
   it('sits above the pages over the room (z-30) and below the dialogs (z-50)', () => {

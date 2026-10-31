@@ -1,10 +1,6 @@
 import { useEffect } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import type {
-  DiceRenderer,
-  DiceRendererFactory,
-  DiceRendererRoll,
-} from '@/dice-renderer/dice-renderer';
+import type { DiceRenderer, DiceRendererFactory, DiceRendererRoll } from '@lorkarium/dice-renderer';
 import type { DiceHistoryEntry, DiceHistoryStore } from '@/stores/dice-history-store';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import { useOpenTables, type OpenTablesStore } from '@/stores/open-tables-store';

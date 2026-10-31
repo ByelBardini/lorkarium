@@ -1,13 +1,23 @@
 import type * as Three from 'three';
-import type { DieKind } from '@lorkarium/game-core';
+import type { DieKind, MemberColor } from '@lorkarium/game-core';
 import type { DiceAppearanceDto } from '@lorkarium/contracts';
-import { dieGeometryOf, type DieLabel } from '@/dice-renderer/die-geometry';
-import { labelRightOf } from '@/dice-renderer/dice-stage';
-import { diceNumberColorOf } from '@/lib/dice-number-color';
-import { diceTextureUrlOf } from '@/lib/dice-texture-url';
-import { MEMBER_COLOR_HEX } from '@/lib/member-color';
+import { dieGeometryOf, type DieLabel } from './die-geometry';
+import { labelRightOf } from './dice-stage';
 
 export type ThreeModule = typeof Three;
+
+/** How the roller's appearance becomes colors and images. Injected because the palette and
+ *  the texture address belong to the page hosting the dice (the app, the landing).
+ *
+ *  Example: `{ colorHex: MEMBER_COLOR_HEX, numberColorOf: diceNumberColorOf, textureUrlOf: diceTextureUrlOf }` */
+export interface DiceLook {
+  /** The `0xrrggbb` of each profile color the page may receive. */
+  readonly colorHex: Readonly<Partial<Record<MemberColor, number>>>;
+  /** The `#rrggbb` of the numbers for an appearance. */
+  readonly numberColorOf: (appearance: DiceAppearanceDto) => string;
+  /** Where an uploaded texture is fetched from. */
+  readonly textureUrlOf: (textureId: string) => string;
+}
 
 const LABEL_CANVAS_PX = 128;
 const LABEL_FONT_PX = 92;
@@ -40,6 +50,7 @@ export class ThreeDiceMeshes {
   constructor(
     private readonly three: ThreeModule,
     private readonly ownerDocument: Document,
+    private readonly look: DiceLook,
   ) {
     this.labelPlane = new three.PlaneGeometry(1, 1);
   }
@@ -48,9 +59,9 @@ export class ThreeDiceMeshes {
    *
    *  Example: `meshes.rollObjects(['d20'], event.appearance).dice[0].position.set(0, 1, 0)` */
   rollObjects(kinds: readonly DieKind[], appearance: DiceAppearanceDto): DiceRollObjects {
-    const base = this.baseMaterialOf(appearance);
+    const base = this.baseMaterialOf(appearance, this.colorHexOf(appearance.color, kinds));
     const labels = new Map<string, Three.MeshLambertMaterial>();
-    const numberColor = diceNumberColorOf(appearance);
+    const numberColor = this.look.numberColorOf(appearance);
     const labelMaterialOf = (text: string): Three.MeshLambertMaterial =>
       this.labelMaterialIn(labels, text, numberColor);
     const root = new this.three.Group();
@@ -123,9 +134,20 @@ export class ThreeDiceMeshes {
     return geometry;
   }
 
-  private baseMaterialOf(appearance: DiceAppearanceDto): Three.MeshLambertMaterial {
+  private colorHexOf(color: MemberColor, kinds: readonly DieKind[]): number {
+    const hex = this.look.colorHex[color];
+    if (hex !== undefined) return hex;
+    throw new RangeError(
+      `Dice color "${color}" of ${kinds.join(', ')} has no hex in the look: expected colorHex.${color} = 0xrrggbb.`,
+    );
+  }
+
+  private baseMaterialOf(
+    appearance: DiceAppearanceDto,
+    colorHex: number,
+  ): Three.MeshLambertMaterial {
     const material = new this.three.MeshLambertMaterial({
-      color: MEMBER_COLOR_HEX[appearance.color],
+      color: colorHex,
       transparent: true,
     });
     if (appearance.textureId === null) return material;
@@ -144,7 +166,7 @@ export class ThreeDiceMeshes {
     if (known !== undefined) return known;
     const loading = new Promise<Three.Texture | null>((resolve) => {
       new this.three.TextureLoader().load(
-        diceTextureUrlOf(textureId),
+        this.look.textureUrlOf(textureId),
         (texture) => {
           texture.colorSpace = this.three.SRGBColorSpace;
           resolve(texture);

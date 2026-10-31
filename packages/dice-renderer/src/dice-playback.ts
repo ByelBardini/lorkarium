@@ -6,7 +6,7 @@ import {
   type DieKind,
 } from '@lorkarium/game-core';
 import type { DiceThrowDto, DiceThrowModelDto } from '@lorkarium/contracts';
-import { DICE_VISIBLE_AFTER_SETTLE_MS, diceOpacityAt } from '@/dice-renderer/dice-fade';
+import { DICE_VISIBLE_AFTER_SETTLE_MS, diceOpacityAt } from './dice-fade';
 
 interface PlayingDieModel {
   readonly kind: DieKind;

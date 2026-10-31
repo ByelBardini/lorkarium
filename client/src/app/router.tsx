@@ -54,7 +54,7 @@ import type { SheetTemplatesApi } from '@/services/sheet-templates-api';
 import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import type { SavedRollsApi } from '@/services/saved-rolls-api';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
-import type { DiceRendererFactory } from '@/dice-renderer/dice-renderer';
+import type { DiceRendererFactory } from '@lorkarium/dice-renderer';
 import type { DiceSoundFactory } from '@/dice-audio/dice-sound';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { AppUpdateStore } from '@/stores/app-update-store';

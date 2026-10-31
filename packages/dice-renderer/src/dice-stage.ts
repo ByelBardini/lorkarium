@@ -1,5 +1,5 @@
 import { diceBoxOf, type Vector3 } from '@lorkarium/game-core';
-import { fitDiceBox, type ViewportSize } from '@/dice-renderer/box-fit';
+import { fitDiceBox, type ViewportSize } from './box-fit';
 
 /** Above the room panel and the settings pages over the room (`z-30`), below every dialog,
  *  sheet, popover and menu (`z-50`). */

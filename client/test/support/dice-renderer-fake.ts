@@ -1,9 +1,5 @@
 import { act } from '@testing-library/react';
-import type {
-  DiceRenderer,
-  DiceRendererFactory,
-  DiceRendererRoll,
-} from '@/dice-renderer/dice-renderer';
+import type { DiceRenderer, DiceRendererFactory, DiceRendererRoll } from '@lorkarium/dice-renderer';
 
 /** A dice renderer the test watches: every roll shown, the clears and whether it was destroyed. */
 export class DiceRendererFake implements DiceRenderer {

@@ -1,18 +1,19 @@
 import type * as Three from 'three';
-import type { DiceRenderer, DiceRendererRoll } from '@/dice-renderer/dice-renderer';
+import type { DiceRenderer, DiceRendererRoll } from './dice-renderer';
 import {
   diceSceneAt,
   isDiceThrowGone,
   playDiceThrow,
   type DiceSceneThrow,
   type PlayingDiceThrow,
-} from '@/dice-renderer/dice-playback';
-import { DICE_OVERLAY_Z_INDEX, diceStageScaleOf } from '@/dice-renderer/dice-stage';
+} from './dice-playback';
+import { DICE_OVERLAY_Z_INDEX, diceStageScaleOf } from './dice-stage';
 import {
   ThreeDiceMeshes,
+  type DiceLook,
   type DiceRollObjects,
   type ThreeModule,
-} from '@/dice-renderer/three-dice-meshes';
+} from './three-dice-meshes';
 
 // High enough that a die bouncing at the spawn height (6 units) never crosses the camera.
 const CAMERA_HEIGHT = 5000;
@@ -41,17 +42,31 @@ export type DiceGlFactory = (canvas: HTMLCanvasElement, three: ThreeModule) => D
 const webGlOf: DiceGlFactory = (canvas, three) =>
   new three.WebGLRenderer({ canvas, alpha: true, antialias: true });
 
+/** What the overlay needs from its page: the `look` of the dice, and the window and WebGL
+ *  (`window` and a `WebGLRenderer` when left out). With a `container` (the landing's dice
+ *  stage) the canvas covers that element and takes its size, instead of the whole window; `zoom`
+ *  (1 when left out) draws the middle of the roller's box larger.
+ *
+ *  Example: `{ look: { colorHex, numberColorOf, textureUrlOf } }` */
+export interface ThreeDiceRendererOptions {
+  readonly look: DiceLook;
+  readonly view?: DiceOverlayHost;
+  readonly createGl?: DiceGlFactory;
+  readonly container?: HTMLElement;
+  readonly zoom?: number;
+}
+
 interface LiveDiceRoll {
   readonly played: PlayingDiceThrow;
   readonly objects: DiceRollObjects;
 }
 
-function overlayCanvasOf(ownerDocument: Document): HTMLCanvasElement {
+function overlayCanvasOf(ownerDocument: Document, contained: boolean): HTMLCanvasElement {
   const canvas = ownerDocument.createElement('canvas');
   canvas.setAttribute('aria-hidden', 'true');
   canvas.dataset.diceOverlay = '';
   Object.assign(canvas.style, {
-    position: 'fixed',
+    position: contained ? 'absolute' : 'fixed',
     inset: '0',
     width: '100%',
     height: '100%',
@@ -60,6 +75,12 @@ function overlayCanvasOf(ownerDocument: Document): HTMLCanvasElement {
     display: 'none',
   });
   return canvas;
+}
+
+function zoomOf(zoom: number | undefined): number {
+  if (zoom === undefined) return 1;
+  if (zoom > 0) return zoom;
+  throw new RangeError(`The dice zoom must be a positive number, got ${zoom}`);
 }
 
 function sceneOf(three: ThreeModule): Three.Scene {
@@ -81,8 +102,10 @@ function cameraOf(three: ThreeModule): Three.OrthographicCamera {
 }
 
 /** The three.js adapter of `DiceRenderer`: one transparent canvas over the whole window that
- *  takes no pointer events, hidden and without a frame loop while no roll is alive. */
-class ThreeDiceRenderer implements DiceRenderer {
+ *  takes no pointer events, hidden and without a frame loop while no roll is alive.
+ *
+ *  Example: `new ThreeDiceRenderer(await import('three'), { look }).show(roll)` */
+export class ThreeDiceRenderer implements DiceRenderer {
   private readonly canvas: HTMLCanvasElement;
   private readonly gl: DiceGl;
   private readonly scene: Three.Scene;
@@ -90,29 +113,31 @@ class ThreeDiceRenderer implements DiceRenderer {
   private readonly meshes: ThreeDiceMeshes;
   private readonly live = new Map<string, LiveDiceRoll>();
   private readonly shown = new Set<string>();
+  private readonly view: DiceOverlayHost;
+  private readonly container: HTMLElement | undefined;
+  private readonly zoom: number;
   private frameId: number | null = null;
   private size = { width: 0, height: 0 };
 
-  constructor(
-    three: ThreeModule,
-    private readonly view: DiceOverlayHost,
-    createGl: DiceGlFactory,
-  ) {
-    this.canvas = overlayCanvasOf(view.document);
-    view.document.body.append(this.canvas);
-    this.gl = createGl(this.canvas, three);
+  constructor(three: ThreeModule, options: ThreeDiceRendererOptions) {
+    this.view = options.view ?? window;
+    this.container = options.container;
+    this.zoom = zoomOf(options.zoom);
+    this.canvas = overlayCanvasOf(this.view.document, this.container !== undefined);
+    (this.container ?? this.view.document.body).append(this.canvas);
+    this.gl = (options.createGl ?? webGlOf)(this.canvas, three);
     this.gl.setClearColor(0x000000, 0);
     this.scene = sceneOf(three);
     this.camera = cameraOf(three);
-    this.meshes = new ThreeDiceMeshes(three, view.document);
+    this.meshes = new ThreeDiceMeshes(three, this.view.document, options.look);
   }
 
   show(roll: DiceRendererRoll): void {
     if (this.shown.has(roll.rollId)) return;
-    this.shown.add(roll.rollId);
     const played = playDiceThrow(roll.rollId, roll.throw, this.view.performance.now());
     const kinds = roll.throw.models.map((model) => model.kind);
     const objects = this.meshes.rollObjects(kinds, roll.appearance);
+    this.shown.add(roll.rollId);
     this.scene.add(objects.root);
     this.live.set(roll.rollId, { played, objects });
     this.wake();
@@ -180,8 +205,8 @@ class ThreeDiceRenderer implements DiceRenderer {
   }
 
   private fitToWindow(): void {
-    const width = this.view.innerWidth;
-    const height = this.view.innerHeight;
+    const width = this.container?.clientWidth ?? this.view.innerWidth;
+    const height = this.container?.clientHeight ?? this.view.innerHeight;
     if (width === this.size.width && height === this.size.height) return;
     this.size = { width, height };
     this.gl.setPixelRatio(Math.min(this.view.devicePixelRatio || 1, MAX_PIXEL_RATIO));
@@ -199,7 +224,7 @@ class ThreeDiceRenderer implements DiceRenderer {
     const { root, dice } = roll.objects;
     root.visible = scene !== undefined && this.size.width > 0 && this.size.height > 0;
     if (scene === undefined || !root.visible) return;
-    root.scale.setScalar(diceStageScaleOf(scene.aspect, this.size));
+    root.scale.setScalar(diceStageScaleOf(scene.aspect, this.size) * this.zoom);
     roll.objects.setOpacity(scene.opacity);
     dice.forEach((die) => (die.visible = false));
     for (const { modelIndex, pose } of scene.dice) {
@@ -218,13 +243,12 @@ class ThreeDiceRenderer implements DiceRenderer {
 }
 
 /** Loads three.js on demand (its own chunk, never fetched while 3D is off) and opens the dice
- *  overlay on `view`'s document; `createGl` is WebGL in the app.
+ *  overlay on the document of `options.view`; `createGl` is WebGL in the app.
  *
- *  Example: `const renderer = await createThreeDiceRenderer(); renderer.show(roll)` */
+ *  Example: `const renderer = await createThreeDiceRenderer({ look }); renderer.show(roll)` */
 export async function createThreeDiceRenderer(
-  view: DiceOverlayHost = window,
-  createGl: DiceGlFactory = webGlOf,
+  options: ThreeDiceRendererOptions,
 ): Promise<DiceRenderer> {
   const three = await import('three');
-  return new ThreeDiceRenderer(three, view, createGl);
+  return new ThreeDiceRenderer(three, options);
 }

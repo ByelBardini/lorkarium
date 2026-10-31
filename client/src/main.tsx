@@ -160,9 +160,7 @@ const router = createBrowserRouter(
     dicePreferences: createDicePreferencesStore(browserStorage),
     // Its own chunk: three.js is only fetched on the first roll with "Dados 3D" on.
     createDiceRenderer: () =>
-      import('@/dice-renderer/three-dice-renderer').then((module) =>
-        module.createThreeDiceRenderer(),
-      ),
+      import('@/features/dice/app-dice-renderer').then((module) => module.createAppDiceRenderer()),
     createDiceSound: () => createWebAudioDiceSound(),
     interactionClock: browserClock,
     now: () => new Date(),

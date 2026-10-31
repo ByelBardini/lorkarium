@@ -1,0 +1,22 @@
+{
+  "name": "@lorkarium/dice-renderer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@lorkarium/contracts": "workspace:*",
+    "@lorkarium/game-core": "workspace:*",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@lorkarium/tsconfig": "workspace:*",
+    "@types/three": "^0.186.0",
+    "jsdom": "^30.1.3"
+  }
+}

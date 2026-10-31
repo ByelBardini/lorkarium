@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DIE_KINDS, dieShapeOf } from '@lorkarium/game-core';
-import { dieGeometryOf } from '@/dice-renderer/die-geometry';
+import { dieGeometryOf } from '../src/die-geometry';
 
 describe('dieGeometryOf', () => {
   it.each([

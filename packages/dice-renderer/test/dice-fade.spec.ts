@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DICE_FADE_MS, DICE_REST_HOLD_MS, diceOpacityAt } from '@/dice-renderer/dice-fade';
+import { DICE_FADE_MS, DICE_REST_HOLD_MS, diceOpacityAt } from '../src/dice-fade';
 
 const SETTLE_MS = 2400;
 

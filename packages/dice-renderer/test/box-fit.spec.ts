@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitDiceBox } from '@/dice-renderer/box-fit';
+import { fitDiceBox } from '../src/box-fit';
 
 const WIDE = 16 / 9;
 

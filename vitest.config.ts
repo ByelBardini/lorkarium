@@ -8,6 +8,7 @@ export default defineConfig({
       'server/vitest.integration.config.ts',
       'packages/contracts',
       'packages/game-core/vitest.config.ts',
+      'packages/dice-renderer/vitest.config.ts',
       'desktop',
       'site/vitest.config.ts',
     ],

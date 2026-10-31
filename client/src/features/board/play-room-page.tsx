@@ -37,7 +37,7 @@ import { RoomLightPanel } from '@/features/lights/room-light-panel';
 import { DoorMenu, type DoorMenuRequest } from '@/features/walls/door-menu';
 import { LightMenu, type LightMenuRequest } from '@/features/lights/light-menu';
 import type { InteractionClock } from '@/lib/interaction-clock';
-import type { DiceRendererFactory } from '@/dice-renderer/dice-renderer';
+import type { DiceRendererFactory } from '@lorkarium/dice-renderer';
 import type { DiceSoundFactory } from '@/dice-audio/dice-sound';
 import { useDiceOverlay } from '@/features/dice/use-dice-overlay';
 import { useDiceSound } from '@/features/dice/use-dice-sound';

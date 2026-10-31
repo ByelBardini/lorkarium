@@ -1,5 +1,5 @@
 import type * as Three from 'three';
-import type { DiceGl, DiceOverlayHost } from '@/dice-renderer/three-dice-renderer';
+import type { DiceGl, DiceOverlayHost } from '../../src/three-dice-renderer';
 
 /** The window under the dice overlay: the jsdom document, a clock and animation frames that
  *  only run on `step(ms)`.

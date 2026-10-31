@@ -9,7 +9,7 @@ import {
   quaternionFromAxisAngle,
   type DicePose,
 } from '@lorkarium/game-core';
-import { diceSceneAt, isDiceThrowGone, playDiceThrow } from '@/dice-renderer/dice-playback';
+import { diceSceneAt, isDiceThrowGone, playDiceThrow } from '../src/dice-playback';
 
 const STARTED_AT_MS = 10_000;
 
