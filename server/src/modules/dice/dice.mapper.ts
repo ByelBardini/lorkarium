@@ -65,7 +65,7 @@ export function toDiceRolledDto(outcome: DiceRollOutcome): DiceRolledDto {
     parts: result.parts.map((part, index) => toRolledPartDto(outcome, part, index)),
     total: result.total,
     appearance: outcome.appearance,
-    throw: toDiceThrowDto(command.aspect, outcome.models),
+    throw: outcome.models.length === 0 ? null : toDiceThrowDto(command.aspect, outcome.models),
     settlesInMs: outcome.settlesInMs,
     at: outcome.at,
   };
@@ -80,8 +80,11 @@ export function toDiceRolledSecretlyDto(event: DiceRolledDto): DiceRolledSecretl
   return { campaignId, rollId, rollerId, settlesInMs, at };
 }
 
-function toDiceThrowDto(aspect: number, models: readonly DieThrowModel[]): DiceThrowDto | null {
-  if (models.length === 0) return null;
+/** The recorded throw everyone replays: the box aspect, the frame step and each model's frames
+ *  (the `value` stays on the server; the event carries it in the parts).
+ *
+ *  Example: `toDiceThrowDto(16 / 9, physics.throw(request).models).models[0].kind // 'd20'` */
+export function toDiceThrowDto(aspect: number, models: readonly DieThrowModel[]): DiceThrowDto {
   return {
     aspect,
     frameMs: DICE_FRAME_MS,
