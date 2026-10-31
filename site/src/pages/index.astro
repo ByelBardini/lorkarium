@@ -30,8 +30,10 @@ import SiteLayout from '@/layouts/site-layout.astro';
   import { landingCopy } from '@/copy/landing-copy';
   import { visitorPlatformOf } from '@/lib/visitor-platform';
   import { browserReleaseSource } from '@/scripts/browser-release-source';
+  import { startDiceAct } from '@/scripts/dice-act';
   import { enhanceDownloadCtas } from '@/scripts/download-cta';
   import { startHeroParallax } from '@/scripts/hero-parallax';
+  import { loadLandingDice } from '@/scripts/landing-dice-renderer';
   import { REVEAL_ROOT_MARGIN, startRevealOnScroll } from '@/scripts/reveal-on-scroll';
   import { startStagedRound } from '@/scripts/staged-round';
   import { AnimationFrameScheduler } from '@/services/frame-scheduler';
@@ -50,6 +52,13 @@ import SiteLayout from '@/layouts/site-layout.astro';
     frames: new AnimationFrameScheduler(),
     watch: browserViewportWatch(window),
     motion,
+  });
+  startDiceAct(document, {
+    loadDice: loadLandingDice,
+    watch: browserViewportWatch(window, { rootMargin: '0px 0px -20% 0px' }),
+    motion,
+    timer: new TimeoutStepTimer(),
+    random: Math.random,
   });
   startStagedRound(document, {
     encounter: landingCopy.encounter,

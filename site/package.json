@@ -12,6 +12,8 @@
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
     "@lorkarium/brand": "workspace:*",
+    "@lorkarium/contracts": "workspace:*",
+    "@lorkarium/dice-renderer": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.4.2",
     "tailwindcss": "^4.3.3",
