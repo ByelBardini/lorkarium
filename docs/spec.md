@@ -306,7 +306,22 @@ Extensão aprovada em 29/10/2026: a biblioteca também organiza documentos de te
 
 O conteúdo usa JSON validado pelo servidor, com fontes locais, estilos, listas, links seguros, tabelas simples e imagens guardadas no armazenamento da campanha. O editor Tiptap é carregado ao abrir o documento. Salvamento automático usa versão esperada e recibos idempotentes; conflito preserva o rascunho e exige reconciliação explícita. Invalidação e reconexão reautorizam o documento aberto; perda de leitura desmonta conteúdo e imagens. A biblioteca transmite somente resumos autorizados, sem corpos.
 
+**Abas (extensão de 31/10/2026).** Cada documento tem abas nomeadas (1–40 caracteres), cada uma com o próprio conteúdo e a própria versão: duas pessoas editando abas diferentes não conflitam, e só os comandos estruturais (criar, renomear, ocultar, reordenar, excluir) usam a versão do documento. Todo documento nasce com a aba "Geral", tem no máximo 200 abas e nunca fica sem nenhuma. Quem edita o documento cria, renomeia, reordena (pelo menu ou arrastando) e exclui abas; só o mestre marca uma aba como "só mestres". Essa aba e as imagens dela não chegam ao jogador por nenhuma via — nem na lista de abas, nem pelo id, nem pelos bytes —, e o jogador não tem como descobrir que ela existe; quando ele reordena as que vê, a oculta fica no mesmo lugar para o mestre. Leitores sem edição só trocam de aba.
+
 Contratos, limites, persistência e rotas: [context/documents.md](context/documents.md). Escopo aprovado: [plano de documentos](plans/2026-10-29-documentos-na-biblioteca.md). Sem fichas mecânicas de sistemas, colaboração CRDT/OT, histórico de versões ou persistência offline nesta entrega.
+
+---
+
+### 3.12. Fichas personalizadas
+
+Extensão aprovada em 31/10/2026. O mestre (co-mestre incluso) escreve na biblioteca um **modelo** de ficha em HTML, CSS e JS; jogadores não veem nem escrevem modelos. Uma **ficha** liga um modelo a um token: no personagem de um jogador ela mora na âncora do elenco e vale em todo grid; um token só tem uma ficha. Corrigir o modelo atualiza todas as fichas dele, e excluir um modelo em uso é recusado.
+
+- **Sandbox.** A ficha roda num iframe `sandbox="allow-scripts"` **sem** `allow-same-origin` (origem opaca: não lê o app, o cookie nem o storage), com o código em `srcdoc` atrás de um CSP sem rede (`default-src 'none'`; imagem e fonte só por `data:`/`blob:`). O app declara `frame-src 'self'`, então a ficha também não navega para fora; se tentar, o frame é destruído ("Ficha recarregada"). Uma ficha que não responde em 5 s ganha o aviso "A ficha não respondeu" e o botão de recarregar. Uma moldura do app diz o nome do modelo e "Ficha da mesa · código do mestre".
+- **API (`window.lorkarium`, por `MessagePort`).** Ler o token ligado (nome, retrato e barras que quem olha já vê), ajustar as barras dele, rolar dados com o rótulo "<modelo> · <rótulo>" e guardar valores próprios no servidor. Nenhuma mensagem do frame escolhe token, mesa ou ficha: o host sabe qual ficha é, e o servidor reautoriza cada pedido com a identidade da sessão. A ficha nunca faz mais do que quem está olhando faria à mão.
+- **Acesso.** Editam valores e barras o mestre e quem controla o token. Veem o mestre e os controladores (padrão) **ou** a mesa toda, só leitura, por escolha do mestre ficha a ficha. Quem não pode ver recebe 404, e a ficha aberta fecha com o motivo.
+- **Limites.** Código até 512 KiB (HTML + CSS + JS); valores até 256 KiB, 1000 chaves, 8 níveis, chave de até 64 caracteres; até 10 rolagens em 10 s por ficha aberta. Valores sem versão esperada: a última escrita vence por chave, como as barras.
+
+Contratos, tabelas, rotas e provas: [context/sheets.md](context/sheets.md). Escopo aprovado: [plano de documentos com abas e fichas](plans/2026-10-31-documentos-com-abas-e-fichas.md). Fora desta entrega: API de chat, condições, combate ou mover token, rede dentro da ficha, modelo escrito por jogador, importação de fichas de outros VTTs e histórico de versões do modelo.
 
 ## 4. Tecnologias
 
@@ -992,9 +1007,7 @@ Não fazem parte do MVP inicial:
 - Pathfinding.
 - Medição avançada de áreas de efeito.
 - Sistema de dados.
-- Fichas específicas de RPG.
 - Automação de regras.
-- Macros.
 - Efeitos de partículas.
 - Áudio sincronizado.
 - Chat.

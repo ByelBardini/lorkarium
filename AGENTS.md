@@ -6,7 +6,7 @@ Leia este arquivo **antes** de explorar ou alterar o código. O produto está de
 
 | Workspace            | Tecnologias                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `client/`            | React 19, Vite 8, TypeScript, Tailwind v4 (`@tailwindcss/vite`), shadcn/ui (estilo `radix-nova`, sobre `radix-ui`, ícones `lucide-react`), React Router 8, PixiJS 8 (tabuleiro), three 0.186 (dados 3D, carregado sob demanda), Zustand 5 (estado), Socket.IO Client 4, Zod 4, `@tauri-apps/api` 2 (só a janela da casca desktop, por `import()`)                                                                                                                                 |
+| `client/`            | React 19, Vite 8, TypeScript, Tailwind v4 (`@tailwindcss/vite`), shadcn/ui (estilo `radix-nova`, sobre `radix-ui`, ícones `lucide-react`), React Router 8, PixiJS 8 (tabuleiro), three 0.186 (dados 3D, carregado sob demanda), Zustand 5 (estado), Socket.IO Client 4, Zod 4, `@tauri-apps/api` 2 (só a janela da casca desktop, por `import()`), CodeMirror 6 (`@codemirror/*` + `@lezer/highlight`, editor do modelo de ficha, carregado sob demanda)                          |
 | `server/`            | Node 26, Fastify 5, Socket.IO 4, Drizzle ORM 0.45 + `pg` (PostgreSQL 17), Pino 10, Zod 4, `@aws-sdk/client-s3` 3 (assets num S3 compatível; SeaweedFS no dev), `sharp` 0.35 (normaliza a imagem enviada e a foto do perfil), `nodemailer` 10 (SMTP; Mailpit no dev), `otpauth` 9 (TOTP do 2FA), `qrcode` 1 (QR do 2FA), `cannon-es` 0.20 (física dos dados), `tsx` (dev), `tsdown` (build → `server/dist/`), `drizzle-kit` (`server/drizzle.config.ts`, SQL em `server/drizzle/`) |
 | `desktop/`           | Tauri 2 + Rust (casca Windows que abre o site; plugins `updater`, `opener`, `single-instance`, `window-state`; bandeja `tray-icon`; COM do WebView2 por `webview2-com`), splash em TypeScript puro + Vite 8 (porta 1420) com `@tauri-apps/api` e Zod 4; versão por `semantic-release` 25 (commits convencionais de `desktop/`); instalador NSIS próprio (template do Tauri copiado + `nsDialogs`), arte por `playwright` + `sharp`                                                |
 | `site/`              | Astro 7 estático (exige Node ≥ 26.13.0), Tailwind v4 (`@tailwindcss/vite`), Zod 4, `@astrojs/sitemap`; imagem `caddy:2-alpine` (ver `docs/context/site.md`)                                                                                                                                                                                                                                                                                                                       |
@@ -21,6 +21,8 @@ Leia este arquivo **antes** de explorar ou alterar o código. O produto está de
 ```
 client/                  # Front React + Vite (dev em http://localhost:5173); alias @/* → src/*
 client/src/lib/utils.ts  # O `cn` gerado pelo shadcn (aliases do components.json)
+client/src/code-editor/  # CodeMirror 6 (o único lugar que o importa, por `lazy`): o campo de código do editor de modelo de ficha
+client/src/sheet-sandbox/ # Iframe isolado da ficha (srcdoc + CSP), SDK `window.lorkarium`, ponte do host e host da prévia
 server/                  # API Fastify (PORT 3333, rotas sob /api); encanamento em src/{app,config,database}/
 site/                    # @lorkarium/site: landing comercial em Astro (download do .exe); specs em site/test/, imagem em site/Dockerfile
 packages/brand/          # @lorkarium/brand: paleta, fontes e logo compartilháveis (o site; a arte do instalador do desktop lê paleta e logo)
@@ -78,42 +80,43 @@ O vocabulário segue o artigo [Diferença entre os patterns PO, POJO, BO, DTO e 
 
 Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um workspace tem o nome dele (`server.md`, `client.md`, `game-core.md`, `contracts.md`) e o de uma área, o nome da pasta dela no código (`combat.md`, `board.md`) — é assim que os drivers montam o `leia antes:`.
 
-| Área             | O que cobre                                                                         | Arquivo                                                                |
-| ---------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| contracts        | DTOs Zod compartilhados (auth, mesas, sessão, tabuleiro, erro)                      | [`docs/context/contracts.md`](docs/context/contracts.md)               |
-| game-core        | Regra de jogo pura: célula, distância, barra, turno, visão, cone, luz               | [`docs/context/game-core.md`](docs/context/game-core.md)               |
-| server           | Encanamento: env, banco, migrações, app, tempo real, regras de desempenho           | [`docs/context/server.md`](docs/context/server.md)                     |
-| auth             | Contas, @, e-mail cifrado, login em 2 etapas, sessão por cookie, papel global       | [`docs/context/auth.md`](docs/context/auth.md)                         |
-| campaigns        | Mesas: criação, detalhe, config., código, papéis (dono, co-mestre, juggernaut)      | [`docs/context/campaigns.md`](docs/context/campaigns.md)               |
-| board            | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas         | [`docs/context/board.md`](docs/context/board.md)                       |
-| library          | Biblioteca: grids, imagens, pastas, visibilidade, apresentação e ativação           | [`docs/context/library.md`](docs/context/library.md)                   |
-| documents        | Documentos ricos: conteúdo, posse, versão, edição e imagens protegidas              | [`docs/context/documents.md`](docs/context/documents.md)               |
-| tokens           | Tokens: barras, controle, principal, cone, luz, aura, formas, invisível, elenco     | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
-| member-cards     | Ficha da mesa: nome do personagem, CA, CD e anotações por membro                    | [`docs/context/member-cards.md`](docs/context/member-cards.md)         |
-| profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`          | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
-| combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada           | [`docs/context/combat.md`](docs/context/combat.md)                     |
-| drawings         | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição              | [`docs/context/drawings.md`](docs/context/drawings.md)                 |
-| effect-areas     | Áreas de efeito: formas, casas pintadas, autor, alças, versão                       | [`docs/context/effect-areas.md`](docs/context/effect-areas.md)         |
-| walls            | Paredes e portas: tipos, formas, passagem, porta vista, visão                       | [`docs/context/walls.md`](docs/context/walls.md)                       |
-| lights           | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre                | [`docs/context/lights.md`](docs/context/lights.md)                     |
-| pings            | Ping no mapa: anel efêmero com o nome, alcance pela sala do grid, sem versão        | [`docs/context/pings.md`](docs/context/pings.md)                       |
-| dice             | Dados: física no server, ondas, até 20 modelos, secreta, balde próprio, salvas      | [`docs/context/dice.md`](docs/context/dice.md)                         |
-| chat             | Chat da mesa (efêmero): Mesa, sussurro, privado, grupo, falar como token, salas     | [`docs/context/chat.md`](docs/context/chat.md)                         |
-| sessions         | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão            | [`docs/context/sessions.md`](docs/context/sessions.md)                 |
-| account-security | Conta: senha, sessões ativas, troca de e-mail, 2FA da conta, avisos por e-mail      | [`docs/context/account-security.md`](docs/context/account-security.md) |
-| assets           | Imagens da mesa: S3, envio, link seguro, leitura pela origem                        | [`docs/context/assets.md`](docs/context/assets.md)                     |
-| mail             | E-mails do sistema: molde HTML/texto, catálogo de templates, PNGs, prévia           | [`docs/context/mail.md`](docs/context/mail.md)                         |
-| user-admin       | Backoffice das contas: lista, papel, suspensão, exclusão, teste de e-mail           | [`docs/context/user-admin.md`](docs/context/user-admin.md)             |
-| account-links    | Links de uso único: convite (escolhe @ e senha) e nova senha pelo admin             | [`docs/context/account-links.md`](docs/context/account-links.md)       |
-| legal            | Termos e Privacidade no app: redirect à landing, aceite no convite, versão          | [`docs/context/legal.md`](docs/context/legal.md)                       |
-| client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho              | [`docs/context/client.md`](docs/context/client.md)                     |
-| ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo      | [`docs/context/ci.md`](docs/context/ci.md)                             |
-| desktop          | Casca Tauri 2: splash, updater, bandeja, janelas de Chat/Dados/Imagens e instalador | [`docs/context/desktop.md`](docs/context/desktop.md)                   |
-| site             | Landing comercial: Astro estático, download do .exe pela API do GitHub, legais      | [`docs/context/site.md`](docs/context/site.md)                         |
-| brand            | Pacote da marca: paleta crua, fontes self-host, logo                                | [`docs/context/brand.md`](docs/context/brand.md)                       |
-| deploy           | Runbook: imagem, Coolify, AWS S3 e IAM, envs, DNS, primeiro deploy, voltar          | [`docs/context/deploy.md`](docs/context/deploy.md)                     |
-| health           | `GET /api/health` (ping no Postgres, 200/503, pública)                              | [`docs/context/health.md`](docs/context/health.md)                     |
-| access-log       | Registro de acesso (Marco Civil art. 15): IP, hora e conta no S3 por 6 meses        | [`docs/context/access-log.md`](docs/context/access-log.md)             |
+| Área             | O que cobre                                                                          | Arquivo                                                                |
+| ---------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| contracts        | DTOs Zod compartilhados (auth, mesas, sessão, tabuleiro, erro)                       | [`docs/context/contracts.md`](docs/context/contracts.md)               |
+| game-core        | Regra de jogo pura: célula, distância, barra, turno, visão, cone, luz                | [`docs/context/game-core.md`](docs/context/game-core.md)               |
+| server           | Encanamento: env, banco, migrações, app, tempo real, regras de desempenho            | [`docs/context/server.md`](docs/context/server.md)                     |
+| auth             | Contas, @, e-mail cifrado, login em 2 etapas, sessão por cookie, papel global        | [`docs/context/auth.md`](docs/context/auth.md)                         |
+| campaigns        | Mesas: criação, detalhe, config., código, papéis (dono, co-mestre, juggernaut)       | [`docs/context/campaigns.md`](docs/context/campaigns.md)               |
+| board            | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas          | [`docs/context/board.md`](docs/context/board.md)                       |
+| library          | Biblioteca: grids, imagens, pastas, visibilidade, apresentação e ativação            | [`docs/context/library.md`](docs/context/library.md)                   |
+| documents        | Documentos ricos: abas, conteúdo, posse, versão, edição e imagens protegidas         | [`docs/context/documents.md`](docs/context/documents.md)               |
+| tokens           | Tokens: barras, controle, principal, cone, luz, aura, formas, invisível, elenco      | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
+| member-cards     | Ficha da mesa: nome do personagem, CA, CD e anotações por membro                     | [`docs/context/member-cards.md`](docs/context/member-cards.md)         |
+| profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`           | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
+| combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada            | [`docs/context/combat.md`](docs/context/combat.md)                     |
+| drawings         | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição               | [`docs/context/drawings.md`](docs/context/drawings.md)                 |
+| effect-areas     | Áreas de efeito: formas, casas pintadas, autor, alças, versão                        | [`docs/context/effect-areas.md`](docs/context/effect-areas.md)         |
+| walls            | Paredes e portas: tipos, formas, passagem, porta vista, visão                        | [`docs/context/walls.md`](docs/context/walls.md)                       |
+| lights           | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre                 | [`docs/context/lights.md`](docs/context/lights.md)                     |
+| pings            | Ping no mapa: anel efêmero com o nome, alcance pela sala do grid, sem versão         | [`docs/context/pings.md`](docs/context/pings.md)                       |
+| sheets           | Fichas: modelo e ficha na biblioteca, dono (jogador ou token), sandbox, SDK, console | [`docs/context/sheets.md`](docs/context/sheets.md)                     |
+| dice             | Dados: física no server, ondas, até 20 modelos, secreta, balde próprio, salvas       | [`docs/context/dice.md`](docs/context/dice.md)                         |
+| chat             | Chat da mesa (efêmero): Mesa, sussurro, privado, grupo, falar como token, salas      | [`docs/context/chat.md`](docs/context/chat.md)                         |
+| sessions         | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão             | [`docs/context/sessions.md`](docs/context/sessions.md)                 |
+| account-security | Conta: senha, sessões ativas, troca de e-mail, 2FA da conta, avisos por e-mail       | [`docs/context/account-security.md`](docs/context/account-security.md) |
+| assets           | Imagens da mesa: S3, envio, link seguro, leitura pela origem                         | [`docs/context/assets.md`](docs/context/assets.md)                     |
+| mail             | E-mails do sistema: molde HTML/texto, catálogo de templates, PNGs, prévia            | [`docs/context/mail.md`](docs/context/mail.md)                         |
+| user-admin       | Backoffice das contas: lista, papel, suspensão, exclusão, teste de e-mail            | [`docs/context/user-admin.md`](docs/context/user-admin.md)             |
+| account-links    | Links de uso único: convite (escolhe @ e senha) e nova senha pelo admin              | [`docs/context/account-links.md`](docs/context/account-links.md)       |
+| legal            | Termos e Privacidade no app: redirect à landing, aceite no convite, versão           | [`docs/context/legal.md`](docs/context/legal.md)                       |
+| client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho               | [`docs/context/client.md`](docs/context/client.md)                     |
+| ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo       | [`docs/context/ci.md`](docs/context/ci.md)                             |
+| desktop          | Casca Tauri 2: splash, updater, bandeja, janelas de Chat/Dados/Imagens e instalador  | [`docs/context/desktop.md`](docs/context/desktop.md)                   |
+| site             | Landing comercial: Astro estático, download do .exe pela API do GitHub, legais       | [`docs/context/site.md`](docs/context/site.md)                         |
+| brand            | Pacote da marca: paleta crua, fontes self-host, logo                                 | [`docs/context/brand.md`](docs/context/brand.md)                       |
+| deploy           | Runbook: imagem, Coolify, AWS S3 e IAM, envs, DNS, primeiro deploy, voltar           | [`docs/context/deploy.md`](docs/context/deploy.md)                     |
+| health           | `GET /api/health` (ping no Postgres, 200/503, pública)                               | [`docs/context/health.md`](docs/context/health.md)                     |
+| access-log       | Registro de acesso (Marco Civil art. 15): IP, hora e conta no S3 por 6 meses         | [`docs/context/access-log.md`](docs/context/access-log.md)             |
 
 Área sem linha aqui ainda não tem doc: o `/atualizar-contexto` cria o hub junto com o primeiro código da área. Até lá, a referência é o `docs/spec.md`.
 

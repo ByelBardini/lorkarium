@@ -1,0 +1,63 @@
+# Fichas — servidor
+
+Hub: [`../sheets.md`](../sheets.md). Módulo `server/src/modules/sheets/`. Contratos em [`contratos.md`](contratos.md).
+
+## Tabelas
+
+- `sheet_templates` (`0072_sheet_templates`, `sheet-templates.po.ts`): `id`, `campaign_id` (cascade), `folder_id` nulo = raiz, `name` (`CHECK` 1–60), `html`, `css`, `js`, `version` (≥ 0, começa em 0), `created_by` (→ `users`, set null), timestamps. Único `(campaign_id, id)`, índice `(campaign_id, folder_id)`. FK composta `sheet_templates_folder_fk` (`campaign_id`, `folder_id`) → `scene_folders` **editada à mão** para `ON DELETE SET NULL ("folder_id")` (a armadilha da `0033`, ver [`../library.md`](../library.md)).
+- `token_sheets` (`0073_token_sheets` + `0074_sheets_in_library`, `sheets.po.ts`): `id`, `campaign_id` (cascade), `template_id`, `name` (`CHECK` `token_sheets_name_length` 1–60), `folder_id` nulo = raiz, `token_id` **nulo** = sem dono (→ `tokens`, **set null**: apagar o token deixa a ficha na biblioteca, sem dono), `visibility` (enum `sheet_visibility`: `controllers` padrão | `table`), `values` JSONB (`{}`), `version` (≥ 0), timestamps. **Várias fichas por token** (sem índice único em `token_id`). Índices `(campaign_id, template_id)` (a contagem "em uso"), `(campaign_id, token_id)` e `(campaign_id, folder_id)`. FK composta `token_sheets_template_fk` → `sheet_templates` **restrict**; FK composta `token_sheets_folder_fk` → `scene_folders` **editada à mão** para `ON DELETE SET NULL ("folder_id")`.
+- `0074` (gerada e editada à mão): `name` entra nulo, é preenchido com o nome do modelo (`UPDATE … FROM sheet_templates`) e só então vira `NOT NULL`; a FK de `token_id` troca cascade por set null.
+- `sheet_actions`: recibos por `(campaign_id, user_id, action_id)`, como `library_document_actions` (operação, SHA-256 canônico do pedido pelo `commandFingerprint` do documents, recibo sem valores).
+- Exportadas no `schema.ts`; `truncateAllTables` inclui as três. O `values` é tipado no PO por `SheetValuesPo` (o JSON que o orçamento do contrato deixou entrar), para o PO não importar DTO.
+
+## Modelos
+
+- `SheetTemplateBo(access)`: `requireAuthor` (só mestre, co-mestre incluso; espectador e jogador → `FORBIDDEN`), `requireVersion` (→ `SHEET_TEMPLATE_VERSION_CONFLICT` "version N; expected M"), `requireUnused(template, n)` (→ `SHEET_TEMPLATE_IN_USE` "is used by N sheets; expected none"; conta **todas** as fichas, com ou sem dono), `requireFolder` (→ `FOLDER_NOT_FOUND`).
+- `SheetTemplatesService` (`get`, `create`, `update`, `delete`): `memberAccessOf` → `requireAuthor` **antes** de qualquer trava → transação com `CampaignsDao.lockById` → trabalho → commit → `library:changed`. Recusa não publica. Toda gravação soma a versão; `delete` conta as fichas (`SheetsDao.countOfTemplate`) dentro da trava.
+- Biblioteca: `LibraryService.deleteFolder` chama `SheetTemplatesDao.moveFromFolder` **e** `SheetsDao.moveFromFolder` (sobem ao pai na mesma transação, **sem** somar a versão). O agregado `GET /campaigns/:id/library` (`LibraryImageService.list`) leva `sheetTemplates` (resumo, sem código) **só ao mestre** e `sheets` (resumos, ver abaixo).
+
+## Fichas na biblioteca
+
+- **Dono** (`holder`): ninguém, um token ou um jogador. Um token ligado entrega a ficha à **âncora** do elenco; dar a um jogador (`{ memberId }`) = `token_id` é a âncora da Ficha da mesa dele. Não há coluna de membro: o `memberId` do DTO vem do `member_cards.anchor_token_id` (left join no `placesOf`).
+- `SheetHolderService` (`sheet-holder.service.ts`, deps `{ publisher: BoardPublisherPort (tokenChanged, veiledLightsChanged, memberCardChanged), clock }`): `resolve(daos, campaignId, holder)` dentro da transação da ficha (mesa já travada) → `ResolvedHolder { place, created }`. `{ tokenId }` → `placeOf` (token de outra mesa → `TOKEN_NOT_FOUND`) e sobe à âncora. `{ memberId }` → `CharacterLinkBo.requirePlayer` (mestre, espectador, estranho → `MEMBER_NOT_FOUND`) → `lockCastOf` (trava o elenco **antes** de ler a ficha, como o `TokenLinkService.link`) → ficha com âncora: usa a âncora; sem âncora: `insert` da âncora no elenco (identidade do `SheetItemBo.anchorIdentityOf`: nome do personagem da Ficha da mesa, senão o apelido; iniciais pelo `initialsOf` do game-core; lado `ally`; 1×1 em (0, 0); controlador = o jogador; sem barras) → `bumpVersion` do elenco (versão do `token:created`) → `memberCards.save({ anchorTokenId })` → `bumpVersion` de novo (versão do `member:cardChanged`). `publishCreated` (depois do commit): `token:created` ao elenco por público, depois `member:cardChanged`.
+- Ordem das travas: mesa (`lockById`) → elenco (`lockCastOf`). Nenhum comando do board trava a mesa, então não há ciclo.
+- `SheetItemBo(campaignId)`: `requireFolder` (→ `FOLDER_NOT_FOUND`), `anchorIdentityOf`, `requireToken` (ficha sem dono → `SHEET_HAS_NO_TOKEN` "Sheet X has no holder; expected a sheet held by a token").
+- `SheetsDao`: `find`, `listOfToken` (ordem de criação), `listOfCampaign`, `countOfTemplate`, `insert`, `patchValues`, `update` (`SheetChangesPo`: `name`, `folderId`, `tokenId`, `visibility`, `templateId` + versão), `delete`, `moveFromFolder`, `placeOf`/`placesOf` (`TokenPlacePo`: token, âncora, cena, `kind`, visibilidade, é o grid do grupo, controladores, `memberId`; duas consultas para qualquer número de tokens), `action`, `recordAction`.
+- `SheetAccessBo(access, { sheetId, visibility, holder: TokenControl | null, holderSeen })` (por `toSheetAccessBo(access, sheet, place | null)`): **sem dono** → só mestres leem, escrevem e gerenciam; com dono, `canRead` = vê a cena do token (elenco sempre; grid pelo `SceneAccessBo.canSee`) **e** (mestre, controlador, ou `table`); `canEdit` = lê e controla; `canManage` = lê e é mestre. Ilegível → `SHEET_NOT_FOUND` (nunca 403); legível sem edição → `FORBIDDEN`.
+- `SheetsService` (`get`, `listOfToken`, `create`, `updateValues`, `update`, `delete`; deps `read`, `transaction`, `snapshot`, `clock`, `publisher` (`sheet:changed`), `library` (`library:changed`), `holders`): escrita trava a **mesa** (`lockById`). Recibo idempotente: mesmo `actionId` + mesmo pedido devolve o recibo com o estado atual e reautoriza (sem publicar nem criar âncora de novo); pedido diferente → `SHEET_ACTION_REUSED`.
+- `listOfToken`: resolve a âncora do token (ligado) e devolve os resumos que quem pede lê (`readableSheetSummaries`).
+- Valores: `patchValues` é um `UPDATE` só, `values = (values || set) - removed::text[]`, versão + 1. O resultado é conferido de novo com `sheetValuesDto`; estourou → `ZodError` → 400 e a transação desfaz.
+- **Publicações** (depois do commit, nessa ordem): a âncora criada e a ficha da mesa; `sheet:changed { campaignId, sheetId, version, at }` (sem valores) a cada escrita aplicada; `library:changed` em criar, renomear, mover, trocar dono, visibilidade, modelo e excluir. **Valores só `sheet:changed`.** Porta `SheetPublisherPort`, adaptador `SocketIoSheetPublisher` (`RealtimeOutlets.sheetPublisher`); o `library` e o `boardPublisher` do `createSheetsModule` são os mesmos do resto do app (`build-app.ts`).
+- Agregado: `LibraryImageService.list` lê `SheetsDao.listOfCampaign` + `placesOf` e filtra por `readableSheetSummaries` (mestre todas; jogador e espectador as que leem; ninguém lê uma sem dono); as pastas delas entram nos ancestrais visíveis.
+
+## Rotas (sob `/api`, sessão obrigatória, `cache-control: private, no-store`)
+
+| Rota                                                       | Quem                  | Saída                      | Erros                                                                                  |
+| ---------------------------------------------------------- | --------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| `POST /campaigns/:c/sheet-templates`                       | mestre                | 201 `{ template }`         | 400 · 403 · 404 `FOLDER_NOT_FOUND`                                                     |
+| `GET/PATCH /campaigns/:c/sheet-templates/:t`               | mestre                | 200 `{ template }`         | 400 · 403 · 404 `SHEET_TEMPLATE_NOT_FOUND` · 409 `…_VERSION_CONFLICT`                  |
+| `DELETE /campaigns/:c/sheet-templates/:t`                  | mestre                | 204                        | 403 · 404 · 409 `SHEET_TEMPLATE_IN_USE` (mensagem cita "N sheets")                     |
+| `POST /campaigns/:c/sheets`                                | mestre                | 201 `{ sheet, receipt }`   | 400 · 403 · 404 `TOKEN_`/`MEMBER_`/`FOLDER_`/`SHEET_TEMPLATE_NOT_FOUND` · 409          |
+| `GET /campaigns/:c/sheets/:s`                              | quem lê               | 200 `{ sheet, template }`  | 404 `SHEET_NOT_FOUND`                                                                  |
+| `GET /campaigns/:c/tokens/:t/sheets`                       | membro                | 200 `{ sheets }` (resumos) | 404 `TOKEN_NOT_FOUND` (outra mesa, id malformado)                                      |
+| `PATCH /campaigns/:c/sheets/:s/values`                     | mestre ou controlador | 200 `{ sheet, receipt }`   | 400 · 403 · 404 · 409 `SHEET_ACTION_REUSED`                                            |
+| `PATCH /campaigns/:c/sheets/:s`                            | mestre                | 200 `{ sheet, receipt }`   | 400 · 403 · 404 `SHEET_`/`TOKEN_`/`MEMBER_`/`FOLDER_`/`SHEET_TEMPLATE_NOT_FOUND` · 409 |
+| `DELETE /campaigns/:c/sheets/:s` (`{ actionId }` no corpo) | mestre                | **204**                    | 403 · 404                                                                              |
+
+Corpo até 2 MiB. Id malformado na URL = 404. Não membro → 404 `CAMPAIGN_NOT_FOUND`; `MEMBER_NOT_FOUND` responde "Player not found at this table".
+
+## Barras pela ficha
+
+- `sheet:adjustBar` (`sheetAdjustBarCommandDto`, estrito) ligado em `board/sheet-commands.ts` pelo `mutate` do board gateway: `onCommand` + **fila da mesa**, ack `{ ok, version }`. `SHEET_NOT_FOUND` e `SHEET_HAS_NO_TOKEN` ("This sheet is not held by a token") estão no `PUBLIC_MESSAGE` de `board-command-edge.ts`.
+- `SheetBarsService.adjustBar`: lê a ficha no pool, `requireEdit` (Caio numa `table` → `FORBIDDEN`; ficha da Quelm, ou sem dono para quem não é mestre → `SHEET_NOT_FOUND`), `SheetItemBo.requireToken` (o mestre numa ficha sem dono → `SHEET_HAS_NO_TOKEN`), e chama `TokensService.adjustHolderBar` com o token da ficha e `sceneId: null` para a âncora.
+- `TokensService.adjustHolderBar`: grid → o mesmo `adjustBar`; âncora → `inLockedCast` e `token:updated` do elenco. O `tokens.service.ts` tem 497 linhas: o próximo método ali exige extração.
+
+## Testes
+
+- Unit (`server/test/modules/sheets/`): `sheet-template.bo`, `sheet-templates.mapper`, `sheet-templates.service`, `sheet-access.bo` (sem dono: só mestre), `sheet-item.bo` (pasta, identidade da âncora, `SHEET_HAS_NO_TOKEN`), `sheet-holder.service` (âncora do ligado, Bia com âncora só trava o elenco, Caio sem âncora → elenco v3/ficha v4, publicação), `sheets.mapper` (resumos legíveis, `toSheetChangesPo`), `sheets.service` (sem dono, pasta, dar ao Caio com diário `lock → save → save → insert → receipt → commit → publish ×4`, Bia com âncora, `MEMBER_NOT_FOUND` ×3, duas fichas na Lyra, replay sem 2ª âncora, listar por token, valores sem `library:changed`, tirar do dono, mover, dar pelo `update`, excluir), `sheet-bars.service` (sem dono: Ana `SHEET_HAS_NO_TOKEN`, Bia `SHEET_NOT_FOUND`). Fakes: `test/support/sheets-fakes.ts` (`SheetsDaoFake` acha a âncora nova pelo `TokensDaoFake`, `SheetsHarness` com elenco, cards, users, board e library).
+- Integração: `sheet-templates.spec.ts`, `sheets.spec.ts` (ligar, duas fichas no personagem, lista por token, Quelm `TOKEN_NOT_FOUND`), `sheets-library.spec.ts` (sem dono só mestre + `library:changed`, dar ao Caio → `token:created` no elenco + `member:cardChanged` na versão seguinte, nome do personagem "Kael", Bia com âncora sem evento, `MEMBER_NOT_FOUND`, agregado Ana × Caio × Bia, tirar do dono, mover e excluir pasta, pasta da Quelm, 403, Quelm isolada, modelo em uso por 2), `sheets-library-migration.spec.ts` (0073 → 0074: nome do modelo, duas por token, sem dono, `CHECK`, pasta e token apagados mantêm a ficha) e `sheet-bars.spec.ts` (+ ficha sem dono → `SHEET_HAS_NO_TOKEN`).
+
+## Armadilhas
+
+- O `sheet:changed` do create chega depois da resposta HTTP: um spec que grava em seguida e espera o evento da escrita precisa de `silence()` antes de gravar os eventos, senão lê o do create.
+- Apagar um token (inclusive a âncora) não publica `library:changed`: a ficha fica sem dono (`set null`) e a biblioteca aberta só vê isso no próximo `library:changed` ou recarga.

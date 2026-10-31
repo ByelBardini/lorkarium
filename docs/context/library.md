@@ -108,3 +108,7 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 ## Documentos
 
 O agregado também inclui documentos autorizados (públicos ou ocultos próprios), sem corpo. Ancestrais de documentos visíveis integram a árvore. Excluir pasta move documentos ao pai na mesma transação, conservando texto e donos. GET /scenes conserva o contrato anterior. Ver [documents.md](documents.md).
+
+## Modelos de ficha e fichas
+
+A pasta também guarda **modelos de ficha** (`sheet_templates`) e **fichas** (`token_sheets.folder_id`, `0074`), as duas com FK composta `SET NULL ("folder_id")`. Excluir pasta sobe modelos e fichas ao pai na mesma transação (`SheetTemplatesDao.moveFromFolder` e `SheetsDao.moveFromFolder`, sem somar a versão). O agregado `GET …/library` leva `sheetTemplates` (sem código) só ao mestre e `sheets` (resumos sem valores: o mestre todas, os outros as que leem; as pastas delas entram nos ancestrais visíveis). Criar, renomear, mover, dar, tirar do dono, mudar visibilidade ou modelo e excluir uma ficha publicam `library:changed`; valores, não. Ver [sheets/server.md](sheets/server.md).

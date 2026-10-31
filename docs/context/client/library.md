@@ -60,6 +60,7 @@ Specs: `client/test/lib/library-entries.spec.ts`, `client/test/lib/folder-tree.s
 
 - O jsdom não tem `DataTransfer`: o `fireEvent.dragStart(el, { dataTransfer })` só copia o objeto dado; use o `DataTransferFake`. O hook guarda o arrastado em estado (não relê o `dataTransfer` no `drop`).
 - `dragstart`/`drop`/`click`/`focus` de um `treeitem` aninhado sobem para o da pasta mãe: os handlers param a propagação (ou conferem `target === currentTarget`).
+- Expandir um documento abre o painel com a biblioteca ainda montada: o diálogo do Radix prende o foco, então um `focus()` no nome volta ao diálogo e se perde no desmonte (antes passava só porque o painel demorava a carregar). O `aria-hidden` não serve de sinal: o painel pode nascer depois de o Radix marcar a página. O `DocumentPanel` foca pelo `focusWhenUncovered` (`src/lib/`), que espera não haver `[role=dialog][data-state=open]` fora do campo nem `aria-hidden`/`inert` acima dele. O e2e `createDocument` confere esse foco.
 - O Radix Dialog escuta o Esc no `document` em captura: o `preventDefault` do campo chega tarde. Quem impede o fechar é o `onEscapeKeyDown` do `DialogContent`.
 - `DropdownMenu` que abre `Dialog` ou campo: `modal={false}` e `onCloseAutoFocus` com `preventDefault`, senão o foco volta ao gatilho por cima do campo.
 - Item aberto da árvore contém os filhos: no Playwright, `click()` (e o botão direito) no `treeitem` de uma pasta aberta cai no **centro**, que é um filho (o botão direito em "Sem pasta" abriu o menu da "Cena 1"). Mire a linha do item (`position: { x: 60, y: 16 }`); no jsdom o `fireEvent` vai ao próprio elemento.
@@ -67,6 +68,25 @@ Specs: `client/test/lib/library-entries.spec.ts`, `client/test/lib/folder-tree.s
 - Grid numa pasta fechada não está no DOM: no e2e, `pickGrid(biblioteca, nome)` busca o nome (a busca abre as pastas), clica e limpa a busca.
 
 O dropdown de criação do cabeçalho sempre usa a raiz. No menu contextual, o destino é a pasta de origem da ação. O cadastro de imagem recebe esse destino e não oferece seletor de pasta.
+
+## Modelos de ficha
+
+Só o mestre: `sheet-template:<id>`, filtro "Modelos de ficha", editor CodeMirror no lugar do painel, criar/excluir pelo menu, arrastar entre pastas; "Abrir modelo em aba"/"Abrir modelo em janela" levam o rascunho (com o texto não salvo) ao workspace, e um modelo já aberto em aba divide o rascunho com a biblioteca. Ver [sheet-template-editor.md](sheet-template-editor.md).
+
+## Fichas
+
+Plano [`fichas-na-biblioteca`](../../plans/2026-10-31-fichas-na-biblioteca.md); a ficha em si (aba, janela, ponte) em [`sheets.md`](sheets.md).
+
+- **Itens:** `campaignLibraryDto.sheets` (o mestre recebe todas; o jogador as que lê) viram `SheetEntry` (`kind: 'sheet'`, `sheetKey(id)` = `sheet:<id>`, `sheetIdOf` volta; `src/lib/library-entries.ts`). Para o filtro de visibilidade, só a ficha com dono e `table` é pública. Ícone `ScrollTextIcon` (o do modelo é `FileCode2Icon`), sem cadeado; a descrição diz o dono por `sheetHolderLabel` (`sheet-messages.ts`): "Ficha · de Bia (Lyra)" (o apelido do membro da mesa + o nome do personagem da Ficha da mesa do elenco), "Ficha · sem dono, só mestres", "Ficha · token Goblin" (o nome vem do elenco ou do grid do grupo; senão "Ficha · num token"). Os nomes vêm de `useSheetHolderNames(campaign.members, table)` (`use-sheet-holder-names.ts`), que também dá os `players` ("Bia (Lyra)") do "Dar a ▸" e do diálogo. O `libraryEntries(library, tipo, rótulo)` recebe a função da linha do dono.
+- **Filtro** "Fichas" (`sheet`) no "Tipo de item", para mestre e jogador.
+- **Criar (mestre):** "Nova ficha" no "Criar item" (`library-create-menu.tsx`, raiz) e "Nova ficha" / "Nova ficha aqui" no menu da raiz / da pasta abrem o `NewSheetDialog` (`new-sheet-dialog.tsx`, "Nova ficha"): "Nome da ficha" (1–60), "Modelo" (os `sheetTemplates`; sem nenhum, o aviso "Crie um modelo de ficha…" e "Criar ficha" desabilitado) e "Dono" ("Ninguém (só mestres)" ou um jogador → `holder: { memberId }`). Envia o intent `createSheet` pelo fetcher e fecha; a ficha criada fica escolhida (e a pasta dela abre); a recusa vai à linha de status.
+- **Intents** `createSheet` / `updateSheet` / `removeSheet` (`library-intents.ts`, corpos do contracts), rodados por `sheet-intent.ts` no `SheetsApi` (texto da recusa pelo `sheetCommandFailureMessage`).
+- **Menu do item (mestre, `library-sheet-menu.tsx`):** "Abrir ficha", "Abrir ficha em janela", "Renomear" (no lugar: "Nome da ficha", 60), "Dar a ▸ <jogadores>" (o dono atual desabilitado; sem jogador "Nenhum jogador na mesa"), "Tirar do dono" (desabilitado sem dono), "Quem vê a ficha ▸" (rádio) e "Excluir ficha…" (confirmação "Excluir <nome>?" / "A ficha e os valores guardados nela somem para todos…"). Todos mandam `updateSheet`/`removeSheet` com `actionId` novo.
+- **Arrastar** move (`updateSheet` `{ actionId, folderId }`, com o otimista do `withPendingMove`).
+- **Escolher** o item mostra `SheetDetails` (`sheet-details.tsx`, `region` "Ficha escolhida": nome, linha do dono e quem vê, "Modelo · <nome>" só para quem vê os modelos) com "Abrir ficha" (aba da sala e volta à sala) e "Abrir ficha em janela" (a sala fica no que mostrava, a biblioteca aberta). **Decisão:** prévia com botões, como o documento (`DocumentPreview`), e não a ficha rodando ali: o código do modelo só roda quando a ficha é aberta, e escolher na árvore continua barato. O jogador vê só as dele (o server filtra) e tem o mesmo painel, sem menu.
+- **Abrir:** `useLibraryOpener` (`use-library-opener.ts`) põe documento ou ficha no workspace (`open` / `openSheet`) e navega à sala, ou abre a janela no gesto e reativa o que a sala mostrava (pop-up barrado cai na aba). O `library-browser.tsx` usa o mesmo para o documento.
+- **Revelar:** `ancestorKeysOf` (`tree-navigation.ts`) reconhece as chaves com prefixo (imagem, documento, modelo, ficha) como id da árvore: o item escolhido dentro de uma pasta fechada abre a pasta (antes só imagem e modelo; documento escolhido numa pasta fechada não abria).
+- Testes: `client/test/features/library/library-sheets.spec.tsx` (filtro e descrições, painel e "Abrir ficha", janela, jogador, menu, dar, tirar, quem vê, renomear, excluir, arrastar, diálogo pelo cabeçalho e pela pasta, nome em branco, recusa), `client/test/lib/library-entries.spec.ts` (chave e filtro de ficha) e `tree-navigation.spec.ts` (ancestrais de ficha e documento).
 
 ## Documentos livres
 
