@@ -46,6 +46,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `SceneSize` `{ widthCells, heightCells }` — tamanho da cena em casas.
 - `cellDistance(a, b)` — distância em casas com a diagonal valendo 1 (Chebyshev): `(0,0)` → `(3,2)` = 3. É a régua do §3.2; outras regras de diagonal são do §12.
 - `pathDistance(caminho)` — soma das pernas pelo `cellDistance` (a régua com curvas do arraste): `(0,0)` → `(3,0)` → `(3,4)` = 7; um ponto ou nenhum = 0.
+- `pathCells(caminho)` — as casas por onde o caminho passa, uma por casa do `pathDistance` mais a origem (a trilha do arraste): cada perna anda 1 no eixo maior e espalha os passos do outro, então todo passo é vizinho (diagonal inclusa); `(0,0)` → `(3,1)` = `(0,0) (1,0) (2,1) (3,1)`; a curva aparece uma vez; meia casa anda de meia em meia.
 - `footprintFits(scene, origin, size)` — o token é um retângulo `size.width × size.height` ancorado no canto superior esquerdo (`origin`); cabe se `col + width ≤ widthCells` e `row + height ≤ heightCells`, cada eixo por si. Encostar na borda cabe (18,5 + 1,5 = 20). Sem colisão entre tokens (colisão é do §12).
 - `TokenSize` `{ width, height }` — `tokenSize(w, h)` aceita múltiplos de 0,5 de `TOKEN_SIZE_MIN` (0,5) a `TOKEN_SIZE_MAX` (10); fora disso, `RangeError` citando o lado e o valor ("width 0.25 … multiple of 0.5 from 0.5 to 10"). O contracts repete os limites no `tokenSideLengthDto` (só depende do `zod`).
 

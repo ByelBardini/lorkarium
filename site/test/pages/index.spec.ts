@@ -22,11 +22,12 @@ describe('the landing page', () => {
     const ids = [...page.querySelectorAll('section[id]')].map((section) => section.id);
     expect(ids).toEqual([
       'topo',
-      'recursos',
+      'cena',
+      'grupo',
+      'iniciativa',
       'combate',
       'dados',
       'chat',
-      'como',
       'baixar',
       'perguntas',
     ]);
@@ -53,6 +54,12 @@ describe('the landing page', () => {
     );
     expect(images.length).toBeGreaterThan(0);
     expect(loose.map((img) => img.outerHTML)).toEqual([]);
+  });
+
+  it('closes the session with the download act', async () => {
+    const page = await renderAstro(IndexPage);
+
+    expect(page.querySelector('#baixar h2')?.textContent?.trim()).toBe('Baixe e jogue');
   });
 
   it('offers an invite request next to the download', async () => {

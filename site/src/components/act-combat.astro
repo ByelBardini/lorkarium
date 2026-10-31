@@ -1,0 +1,22 @@
+---
+import combatShot from '@/assets/screens/feature-combat.png';
+import ActFeatures from '@/components/act-features.astro';
+import ActPoints from '@/components/act-points.astro';
+import ActSection from '@/components/act-section.astro';
+import ActShot from '@/components/act-shot.astro';
+import { landingCopy } from '@/copy/landing-copy';
+---
+
+<ActSection id="combate" tone="band">
+  <div class="grid items-start gap-[clamp(32px,5vw,96px)] lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
+    <div data-reveal="2" class="flex flex-col gap-6 lg:sticky lg:top-10">
+      <ActShot
+        image={combatShot}
+        alt="Kael e o Ogro das Cinzas na iniciativa, com pontos de vida e condições de Abençoado e Envenenado"
+        sizes="(min-width: 1024px) 560px, 92vw"
+      />
+      <ActPoints points={landingCopy.combatPoints} />
+    </div>
+    <ActFeatures act="combate" />
+  </div>
+</ActSection>

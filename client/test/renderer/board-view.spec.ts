@@ -82,6 +82,7 @@ describe('buildBoardView', () => {
         { x: 32, y: 32 },
         { x: 3 * CELL_WORLD_SIZE + 32, y: 2 * CELL_WORLD_SIZE + 32 },
       ],
+      steps: [],
       label: '3 casas · 4,5 m',
     });
   });
@@ -277,10 +278,37 @@ describe('buildBoardView', () => {
     });
 
     it('the ruler runs from the start through each bend to the token, summing the legs', () => {
-      expect(viewOf({ drag: dragOf() }).ruler).toEqual({
-        points: [centerOf(3, 4), centerOf(6, 4), centerOf(6, 1)],
-        label: '6 casas · 9 m',
-      });
+      const ruler = viewOf({ drag: dragOf() }).ruler;
+      expect(ruler?.points).toEqual([centerOf(3, 4), centerOf(6, 4), centerOf(6, 1)]);
+      expect(ruler?.label).toBe('6 casas · 9 m');
+    });
+
+    it('the trail of a drag marks the center of every cell it passes, bend included', () => {
+      const cells = [
+        [3, 4],
+        [4, 4],
+        [5, 4],
+        [6, 4],
+        [6, 3],
+        [6, 2],
+        [6, 1],
+      ] as const;
+      const steps = cells.map(([col, row]) => centerOf(col, row));
+      expect(viewOf({ drag: dragOf() }).ruler?.steps).toEqual(steps);
+    });
+
+    it('a diagonal drag trails one diagonal cell at a time, as many as the label counts', () => {
+      const route = stepRoute(startRoute(cell(3, 4), 0), cell(6, 3), 0);
+      const ruler = viewOf({ drag: dragOf(route) }).ruler;
+      const steps = [centerOf(3, 4), centerOf(4, 4), centerOf(5, 3), centerOf(6, 3)];
+      expect([ruler?.steps, ruler?.label]).toEqual([steps, '3 casas · 4,5 m']);
+    });
+
+    it('the trail of a 2×2 token runs through the middle of its footprint', () => {
+      const route = stepRoute(startRoute(cell(3, 4), 0), cell(5, 4), 0);
+      const view = viewOf({ tokens: [lyra({ width: 2, height: 2 })], drag: dragOf(route) });
+      const steps = [centerOf(3, 4, 2), centerOf(4, 4, 2), centerOf(5, 4, 2)];
+      expect(view.ruler?.steps).toEqual(steps);
     });
 
     it('the ruler of a 2×2 token runs through the middle of its footprint', () => {

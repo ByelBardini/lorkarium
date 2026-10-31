@@ -1,0 +1,23 @@
+---
+interface Props {
+  numeral: string;
+  title: string;
+}
+
+const { numeral, title } = Astro.props;
+---
+
+<div class="grid max-w-245 grid-cols-1 items-start gap-x-[clamp(18px,2.4vw,36px)] sm:grid-cols-[auto_1fr]">
+  <span
+    class="mb-3 flex items-center gap-3 font-wordmark text-[clamp(16px,1.3vw,20px)] font-medium tracking-[0.2em] text-gold after:h-px after:w-[clamp(24px,4vw,64px)] after:bg-gold/60 sm:mb-0 sm:pt-[0.9em]"
+    aria-hidden="true"
+  >
+    {numeral}
+  </span>
+  <h2 class="act-title m-0">{title}</h2>
+  {Astro.slots.has('default') && (
+    <p class="m-0 mt-4.5 max-w-155 text-[clamp(17px,1.3vw,19px)] leading-relaxed text-label sm:col-start-2">
+      <slot />
+    </p>
+  )}
+</div>

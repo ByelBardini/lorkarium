@@ -9,3 +9,4 @@ docs/pages/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 site/.astro/
+site/src/assets/dice/throws.json

@@ -1,0 +1,25 @@
+---
+import type { ImageMetadata } from 'astro';
+import { Picture } from 'astro:assets';
+
+interface Props {
+  image: ImageMetadata;
+  alt: string;
+  sizes: string;
+}
+
+const { image, alt, sizes } = Astro.props;
+const widths = [400, 640, 960, 1440, image.width].filter((width) => width <= image.width);
+---
+
+<figure class="m-0 overflow-hidden rounded-sm border border-edge-strong bg-surface-deep">
+  <Picture
+    src={image}
+    alt={alt}
+    formats={['avif', 'webp']}
+    widths={[...new Set(widths)]}
+    sizes={sizes}
+    loading="lazy"
+    class="block h-auto w-full"
+  />
+</figure>

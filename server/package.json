@@ -16,6 +16,7 @@
     "seed:dev": "tsx --env-file-if-exists=.env src/dev-seed.ts",
     "seed:stress": "tsx --env-file-if-exists=.env src/stress-seed.ts",
     "mail:preview": "tsx --env-file-if-exists=.env src/mail-preview.ts",
+    "dice:record": "tsx src/record-dice-throws.ts",
     "e2e:database": "tsx --env-file-if-exists=.env test/support/prepare-e2e-database.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },

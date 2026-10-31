@@ -13,7 +13,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run --project=!@lorkarium/server-integration",
     "test:integration": "vitest run --project=@lorkarium/server-integration",
-    "test:packages": "vitest run --project=@lorkarium/game-core --project=@lorkarium/contracts --project=@lorkarium/desktop --coverage --coverage.include=src/**",
+    "test:packages": "vitest run --project=@lorkarium/game-core --project=@lorkarium/contracts --project=@lorkarium/dice-renderer --project=@lorkarium/desktop --coverage --coverage.include=src/**",
     "test:client": "vitest run --project=@lorkarium/client --coverage --coverage.include=src/**",
     "test:server": "vitest run --project=@lorkarium/server --coverage --coverage.include=src/**",
     "test:e2e": "pnpm --filter @lorkarium/e2e exec playwright test",

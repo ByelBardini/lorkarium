@@ -1,47 +1,44 @@
 ---
-import heroShot from '@/assets/screens/hero.png';
+import LogoMark from '@lorkarium/brand/logo-mark.svg';
 import DownloadCta from '@/components/download-cta.astro';
-import HeroBackdrop from '@/components/hero-backdrop.astro';
+import HeroScene from '@/components/hero-scene.astro';
 import PlatformNote from '@/components/platform-note.astro';
-import ProductShot from '@/components/product-shot.astro';
 import ReleaseMeta from '@/components/release-meta.astro';
 import SecondaryLink from '@/components/secondary-link.astro';
 ---
 
-<section id="topo" class="relative pt-16 pb-20 md:pt-18 md:pb-24">
-  <HeroBackdrop />
-  <div class="site-wrap relative flex flex-wrap items-center gap-12 xl:gap-16">
-    <div class="flex min-w-0 flex-[1_1_420px] flex-col gap-6.5">
-      <div class="flex items-center gap-3">
-        <span class="h-px w-7 bg-gold"></span>
-        <span class="text-xs font-bold tracking-[0.2em] text-gold uppercase">
-          Mesa virtual de RPG
-        </span>
-      </div>
-      <h1 class="m-0 font-display text-[clamp(48px,6vw,80px)] leading-[0.98] font-medium tracking-[-0.015em]">
-        Mapas e combate
-        <br />
-        <em class="text-gold">para o seu RPG.</em>
-      </h1>
-      <p class="m-0 max-w-125 text-[19px] leading-relaxed text-muted">
-        Prepare os mapas da sessão e acompanhe iniciativa, pontos de vida e condições enquanto o
-        grupo joga. Com dados 3D e chat, no Windows ou pelo navegador.
-      </p>
-      <div class="flex flex-wrap items-center gap-3">
-        <DownloadCta />
-        <SecondaryLink href="#como">Ver como funciona</SecondaryLink>
-      </div>
+<section
+  id="topo"
+  class="relative isolate -mt-18 flex min-h-[max(640px,100svh)] items-end overflow-clip"
+>
+  <div class="absolute inset-0 -z-10">
+    <HeroScene />
+    <div class="hero-shade absolute inset-0"></div>
+    <LogoMark
+      aria-hidden="true"
+      data-parallax-depth="0.6"
+      class="absolute top-[18%] right-[6%] w-[clamp(120px,16vw,260px)] text-gold opacity-16"
+    />
+  </div>
+  <div class="site-wrap pt-30 pb-[clamp(56px,9vh,110px)]">
+    <p class="eyebrow m-0 mb-5.5">Mesa virtual para RPG</p>
+    <h1 class="headline m-0 max-w-[19ch]">
+      <span class="block text-ember">Role a iniciativa.</span>{' '}
+      <span class="block text-parchment">E que comece o combate.</span>
+    </h1>
+    <p class="mt-6.5 mb-0 max-w-140 text-[clamp(17px,1.4vw,20px)] leading-relaxed text-label">
+      Mapas, iniciativa, pontos de vida e condições num só lugar, enquanto o grupo joga.{' '}
+      <em class="font-display text-[1.22em] text-gold-light">
+        O mestre conduz; o Lorkarium faz as contas.
+      </em>
+    </p>
+    <div class="mt-8.5 flex flex-wrap items-center gap-3.5">
+      <DownloadCta />
+      <SecondaryLink href="#cena">Ver uma sessão</SecondaryLink>
+    </div>
+    <div class="mt-4 flex flex-col gap-3">
       <ReleaseMeta />
       <PlatformNote />
-    </div>
-    <div class="min-w-0 flex-[1.7_1_560px]">
-      <ProductShot
-        image={heroShot}
-        alt="O Lorkarium na rodada 3 de um combate: o mapa com grid e tokens no centro e a ordem de iniciativa ao lado"
-        windowTitle="Lorkarium — Os Sinos de Vharn"
-        sizes="(min-width: 1440px) 840px, (min-width: 768px) 60vw, 100vw"
-        eager
-      />
     </div>
   </div>
 </section>

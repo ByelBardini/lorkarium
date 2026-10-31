@@ -7,14 +7,17 @@ interface Props {
 }
 
 const { size = 'large', label = 'Baixar para Windows' } = Astro.props;
-const sizeClass = size === 'large' ? 'h-13 gap-2.5 px-6 text-base' : 'h-10 gap-2 px-4 text-sm';
+const sizeClass =
+  size === 'large'
+    ? 'h-15 gap-3 px-7 text-[15px] tracking-[0.12em] font-extrabold hover:-translate-y-0.5'
+    : 'h-9 gap-2 px-3.5 text-[13px] tracking-[0.08em] font-bold';
 ---
 
 <a
   href="/obrigado/"
   data-download-cta
   class:list={[
-    'inline-flex items-center justify-center rounded-sm bg-gold font-bold whitespace-nowrap text-ink transition-colors hover:bg-gold-hover',
+    'inline-flex items-center justify-center rounded-sm bg-gold whitespace-nowrap text-ink uppercase transition hover:bg-gold-hover',
     sizeClass,
   ]}
 >

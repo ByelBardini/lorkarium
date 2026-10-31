@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cell } from '../src/cell.vo';
-import { cellDistance, footprintFits, pathDistance } from '../src/grid';
+import { cellDistance, footprintFits, pathCells, pathDistance } from '../src/grid';
 import { tokenSize } from '../src/token-size.vo';
 
 const SCENE_20_BY_12 = { widthCells: 20, heightCells: 12 };
@@ -40,6 +40,57 @@ describe('pathDistance', () => {
   it('one cell or an empty path is 0', () => {
     expect(pathDistance([cell(5, 5)])).toBe(0);
     expect(pathDistance([])).toBe(0);
+  });
+});
+
+describe('pathCells', () => {
+  it('a straight leg passes through every cell between its ends', () => {
+    const cells = pathCells([cell(0, 0), cell(3, 0)]);
+    expect(cells).toEqual([cell(0, 0), cell(1, 0), cell(2, 0), cell(3, 0)]);
+  });
+
+  it('a diagonal leg steps one diagonal cell at a time', () => {
+    expect(pathCells([cell(0, 0), cell(2, 2)])).toEqual([cell(0, 0), cell(1, 1), cell(2, 2)]);
+  });
+
+  it('a leg off the axes spreads its diagonal steps along the way: (0,0) → (3,1)', () => {
+    const cells = pathCells([cell(0, 0), cell(3, 1)]);
+    expect(cells).toEqual([cell(0, 0), cell(1, 0), cell(2, 1), cell(3, 1)]);
+  });
+
+  it('walking the leg backwards passes through the same cells', () => {
+    const cells = pathCells([cell(3, 1), cell(0, 0)]);
+    expect(cells).toEqual([cell(3, 1), cell(2, 1), cell(1, 0), cell(0, 0)]);
+  });
+
+  it('a bend is one cell of the trail, not two', () => {
+    const cells = pathCells([cell(0, 0), cell(2, 0), cell(2, 2)]);
+    expect(cells).toEqual([cell(0, 0), cell(1, 0), cell(2, 0), cell(2, 1), cell(2, 2)]);
+  });
+
+  it('the trail has one cell per cell counted by pathDistance, plus the start', () => {
+    const path = [cell(1, 1), cell(6, 3), cell(4, 9), cell(4, 9), cell(0, 2)];
+    expect(pathCells(path)).toHaveLength(pathDistance(path) + 1);
+  });
+
+  it('every step of the trail is one cell away from the one before', () => {
+    const cells = pathCells([cell(0, 0), cell(7, 3), cell(2, 5)]);
+    const steps = cells.slice(1).map((step, index) => cellDistance(cells[index]!, step));
+    expect(new Set(steps)).toEqual(new Set([1]));
+  });
+
+  it('a token on a half cell keeps the half on the axis that started with it', () => {
+    const cells = pathCells([cell(0.5, 0), cell(2.5, 1)]);
+    expect(cells).toEqual([cell(0.5, 0), cell(1.5, 1), cell(2.5, 1)]);
+  });
+
+  it('a leg of half a cell is one step', () => {
+    expect(pathCells([cell(0, 0), cell(0.5, 0)])).toEqual([cell(0, 0), cell(0.5, 0)]);
+  });
+
+  it('one cell is the trail itself, and an empty path has none', () => {
+    expect(pathCells([cell(5, 5)])).toEqual([cell(5, 5)]);
+    expect(pathCells([])).toEqual([]);
   });
 });
 

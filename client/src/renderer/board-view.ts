@@ -6,7 +6,13 @@ import type {
   VeiledLightDto,
 } from '@lorkarium/contracts';
 import { assetUrlOf } from '@/services/assets-api';
-import { pathDistance, type Cell, type SceneSize, type TokenBox } from '@lorkarium/game-core';
+import {
+  pathCells,
+  pathDistance,
+  type Cell,
+  type SceneSize,
+  type TokenBox,
+} from '@lorkarium/game-core';
 import type { DrawingStyle } from '@/lib/drawing-style';
 import { DEFAULT_EFFECT_AREA_STYLE, type EffectAreaStyle } from '@/lib/effect-area-style';
 import { DEFAULT_WALL_STYLE, wallSketchPreviewOf, type WallStyle } from '@/lib/wall-style';
@@ -48,8 +54,13 @@ export type { ConditionMarkView, TokenArtView, TokenBarView, TokenView } from '.
 export type RulerState = Readonly<{ from: Cell; to: Cell }>;
 
 /** A ruler as drawn: world px through the centers it passes (two for the tool, one more per
- *  bend of a drag), and its reading. */
-export type RulerView = Readonly<{ points: readonly Point[]; label: string }>;
+ *  bend of a drag), the center of every cell a drag walks (`steps`: the trail the label counts;
+ *  empty for the tool, which stays a straight line) and its reading. */
+export type RulerView = Readonly<{
+  points: readonly Point[];
+  steps: readonly Point[];
+  label: string;
+}>;
 
 /** The group this viewer drags: the anchor's path, and where each member would land (`null`:
  *  one would leave the scene, so there is nowhere to show). */
@@ -342,17 +353,22 @@ function rulerOf({ drag, ruler, scene, tokens }: BoardViewInput): RulerView | nu
   if (drag) {
     const anchor = tokens.find(({ id }) => id === drag.anchorId) ?? ONE_CELL;
     const path = routePath(drag.route);
-    return rulerAlong(path, anchor, scene);
+    const steps = pathCells(path).map((step) => footprintCenter(step, anchor));
+    return { ...rulerAlong(path, anchor, scene), steps };
   }
   return ruler && rulerAlong([ruler.from, ruler.to], ONE_CELL, scene);
 }
 
 function rulerAlong(path: readonly Cell[], size: TokenSizeOf, scene: SceneDto): RulerView {
-  const points = path.map(({ col, row }) => ({
+  const points = path.map((point) => footprintCenter(point, size));
+  return { points, steps: [], label: rulerLabel(pathDistance(path), scene) };
+}
+
+function footprintCenter({ col, row }: Cell, size: TokenSizeOf): Point {
+  return {
     x: (col + size.width / 2) * CELL_WORLD_SIZE,
     y: (row + size.height / 2) * CELL_WORLD_SIZE,
-  }));
-  return { points, label: rulerLabel(pathDistance(path), scene) };
+  };
 }
 
 // Stretched to the cells, whatever the image's own proportion (the lock decided that before).

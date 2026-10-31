@@ -12,13 +12,13 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 
 ## Testes por camada
 
-| Script                  | Projeto(s) Vitest                                                    | O que prova                                                                                                                 |
-| ----------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm test:packages`    | `@lorkarium/game-core`, `@lorkarium/contracts`, `@lorkarium/desktop` | regra de jogo pura, DTO com regra própria e a casca desktop: splash, release, guarda do NSIS (o Rust roda no job `desktop`) |
-| `pnpm test:client`      | `@lorkarium/client`                                                  | `src/lib/`, stores, serviços, conta do renderer                                                                             |
-| `pnpm test:server`      | `@lorkarium/server`                                                  | BO, mapper, service, config e adaptadores (sem banco, sem Fastify)                                                          |
-| `pnpm test:integration` | `@lorkarium/server-integration`                                      | bordas, DAO, permissão e isolamento por campanha em Postgres real; o teto de consultas por comando (`query-budget.spec.ts`) |
-| `pnpm test`             | todos menos a integração                                             | atalho local, sem cobertura                                                                                                 |
+| Script                  | Projeto(s) Vitest                                                                                | O que prova                                                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm test:packages`    | `@lorkarium/game-core`, `@lorkarium/contracts`, `@lorkarium/dice-renderer`, `@lorkarium/desktop` | regra de jogo pura, DTO com regra própria, o renderer dos dados 3D (jsdom, sem WebGL) e a casca desktop: splash, release, guarda do NSIS (o Rust roda no job `desktop`) |
+| `pnpm test:client`      | `@lorkarium/client`                                                                              | `src/lib/`, stores, serviços, conta do renderer                                                                                                                         |
+| `pnpm test:server`      | `@lorkarium/server`                                                                              | BO, mapper, service, config e adaptadores (sem banco, sem Fastify)                                                                                                      |
+| `pnpm test:integration` | `@lorkarium/server-integration`                                                                  | bordas, DAO, permissão e isolamento por campanha em Postgres real; o teto de consultas por comando (`query-budget.spec.ts`)                                             |
+| `pnpm test`             | todos menos a integração                                                                         | atalho local, sem cobertura                                                                                                                                             |
 
 - Os três primeiros rodam com `--coverage` (`@vitest/coverage-v8`), configurado em `vitest.config.ts`: reporter `text-summary` (log) + `html` (em `coverage/`). **Sem limiar mínimo**: cenário vem do contrato, não de linha descoberta (skill `testar`). A integração roda sem cobertura.
 - `pnpm typecheck` checa os specs: o `include` de cada `tsconfig.json` de workspace tem `test`.

@@ -39,11 +39,91 @@
   padding-inline: clamp(20px, 4vw, 64px);
 }
 
+/* The landing's display type (approved board, docs/plans/assets/2026-10-31-landing-prancha.html):
+   Cinzel in capitals, the ember for headlines and the gold kept for the action. */
+@utility act-title {
+  @apply font-wordmark font-bold text-ember uppercase;
+  font-size: clamp(34px, 5vw, 76px);
+  line-height: 1;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+}
+
+@utility headline {
+  @apply font-wordmark font-bold uppercase;
+  font-size: clamp(38px, 6.2vw, 112px);
+  line-height: 0.98;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+}
+
+/* An act of the session: generous rhythm and the board grid fading in from the top right, the
+   motif that comes back in every act. */
+@utility act {
+  padding-block: clamp(80px, 12vw, 160px);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(#c5a46d0d 1px, transparent 1px),
+      linear-gradient(90deg, #c5a46d0d 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(60% 80% at 85% 30%, #000, transparent 70%);
+  }
+}
+
+/* The act V stage once the 3D dice are live: the dark board with its grid, where the d20 lands
+   (the poster capture hides). */
+@utility dice-felt {
+  &[data-dice-live] {
+    background:
+      radial-gradient(70% 70% at 50% 45%, #1c2420 0%, #0f1114 75%), var(--color-surface-deep);
+  }
+  &[data-dice-live]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(#c5a46d1f 1px, transparent 1px),
+      linear-gradient(90deg, #c5a46d1f 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(75% 75% at 50% 45%, #000, transparent 85%);
+  }
+}
+
+/* Small capitals over a gold rule: the line above the hero headline. */
+@utility eyebrow {
+  @apply inline-flex items-center gap-3 text-xs font-bold tracking-[0.24em] text-gold uppercase;
+  &::before {
+    @apply h-px w-7 bg-current content-[''];
+  }
+}
+
+/* Dark where the headline sits, clear over the action on the map, fused with the page at the foot. */
+@utility hero-shade {
+  background:
+    linear-gradient(180deg, #0a0b0ecc 0%, #0a0b0e00 20%, #0a0b0e00 78%, var(--color-page) 100%),
+    linear-gradient(90deg, #0a0b0ef2 0%, #0a0b0ee0 30%, #0a0b0e66 50%, #0a0b0e00 66%);
+  @media (width < 40rem) {
+    background: linear-gradient(
+      180deg,
+      #0a0b0ee6 0%,
+      #0a0b0e59 25%,
+      #0a0b0e80 50%,
+      #0a0b0ef2 72%,
+      var(--color-page) 100%
+    );
+  }
+}
+
 /* The legal Markdown arrives as bare tags and the preflight strips their look: headings, lists and
    inline code get it back here, since the CSP forbids inline styles. */
 @utility legal-prose {
   & h2 {
-    @apply mt-14 font-display text-2xl font-medium text-parchment md:text-3xl;
+    @apply mt-14 font-wordmark text-xl font-bold tracking-[0.02em] text-ember uppercase md:text-2xl;
   }
   & h3 {
     @apply mt-8 text-lg font-semibold text-parchment;
@@ -56,6 +136,37 @@
   }
   & code {
     @apply rounded-sm bg-surface px-1.5 py-0.5 text-[0.9em] text-parchment;
+  }
+}
+
+/* Hidden only once the reveal script marks <html data-motion>: without JS or with reduced motion
+   nothing is ever invisible (docs/context/site.md, Movimento). */
+html[data-motion] [data-reveal]:not([data-revealed]) {
+  opacity: 0;
+  translate: 0 28px;
+}
+html[data-motion] [data-reveal] {
+  transition:
+    opacity 0.8s cubic-bezier(0.2, 0.8, 0.2, 1),
+    translate 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+html[data-motion] [data-reveal='2'] {
+  transition-delay: 0.12s;
+}
+html[data-motion] [data-reveal='3'] {
+  transition-delay: 0.24s;
+}
+[data-parallax-depth] {
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
   }
 }
 

@@ -36,7 +36,7 @@ export default tseslint.config(
   },
   ...astro.configs['flat/recommended'],
   {
-    files: ['desktop/src/**/*.ts', 'site/src/**/*.{ts,astro}'],
+    files: ['desktop/src/**/*.ts', 'site/src/**/*.{ts,astro}', 'packages/dice-renderer/**/*.ts'],
     languageOptions: { globals: globals.browser },
   },
   {

@@ -53,7 +53,7 @@ export class PixiBoardOverlays {
     this.walls.draw(view.walls, view.doors, zoom);
     this.lights.draw(view.lights, zoom);
     this.sightCone.draw(view.sightCone, zoom);
-    this.ruler.draw(view, zoom);
+    this.ruler.draw(view.ruler, zoom);
     this.resizeHandles.draw(view, zoom);
     this.facingHandle.draw(view, zoom);
   }

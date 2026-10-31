@@ -4,20 +4,20 @@ import BrandWordmark from '@/components/brand-wordmark.astro';
 import DownloadCta from '@/components/download-cta.astro';
 
 const anchors: ReadonlyArray<{ label: string; href: string }> = [
-  { label: 'Recursos', href: '/#recursos' },
-  { label: 'Como funciona', href: '/#como' },
+  { label: 'A sessão', href: '/#cena' },
+  { label: 'Combate', href: '/#combate' },
   { label: 'Perguntas', href: '/#perguntas' },
 ];
 const loginUrl = new URL('/login', PUBLIC_APP_URL).href;
-const navLinkClass = 'text-sm font-medium text-muted hover:text-parchment';
+const navLinkClass = 'text-sm font-medium tracking-[0.02em] text-label hover:text-gold-light';
 ---
 
-<header class="relative z-10 border-b border-line">
+<header class="relative z-10 border-b border-parchment/7">
   <div class="site-wrap flex min-h-18 items-center gap-4 py-2.5 md:gap-7">
     <a href="/#topo" aria-label="Lorkarium, início" class="inline-flex">
       <BrandWordmark />
     </a>
-    <nav aria-label="Principal" class="hidden gap-6.5 md:flex">
+    <nav aria-label="Principal" class="ml-auto hidden gap-6 md:flex">
       {anchors.map(({ label, href }) => (
         <a href={href} class={navLinkClass}>
           {label}
