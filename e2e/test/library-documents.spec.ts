@@ -59,6 +59,15 @@ async function expandDocument(page: Page, library: Locator, name: string): Promi
   await expect(panel).toBeVisible();
   return panel;
 }
+// At the 1280px viewport the tab strip fits only the pinned tabs, so an inactive document sits in "+N".
+async function showDocumentTab(page: Page, name: string): Promise<void> {
+  await page.getByRole('button', { name: /^Mais \d+ abas?$/ }).click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+  await expect(gridTabsOf(page).getByRole('tab', { name, exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+}
 async function readDocument(page: Page, id: string): Promise<DocumentRecord> {
   const response = await page.request.get(documentUrl(page, id));
   expect(response.status()).toBe(200);
@@ -154,7 +163,7 @@ test('rich document formats a selection, expands a table, and survives reload', 
   await tabs.getByRole('tab', { name: /Grupo/ }).click();
   await expect(boardOf(master)).toBeVisible();
   await expect(restoredPanel).toBeHidden();
-  await tabs.getByRole('tab', { name: 'Carta da rainha', exact: true }).click();
+  await showDocumentTab(master, 'Carta da rainha');
   await expect(restored.locator('table')).toBeVisible();
   await tabs.getByRole('button', { name: 'Fechar documento Carta da rainha', exact: true }).click();
   await expect(tabs.getByRole('tab', { name: 'Carta da rainha', exact: true })).toHaveCount(0);
@@ -255,7 +264,7 @@ test('document popup opens directly from preview and saves while the primary win
     .toContain('Rascunho salvo pela janela separada');
   await expect(boardOf(master)).toBeVisible();
   await popup.close();
-  await gridTabsOf(master).getByRole('tab', { name: 'Anotações em janela', exact: true }).click();
+  await showDocumentTab(master, 'Anotações em janela');
   await expect(
     master
       .getByRole('region', { name: 'Documento escolhido' })

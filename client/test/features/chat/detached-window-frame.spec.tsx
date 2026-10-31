@@ -39,6 +39,10 @@ describe('detached panel title bar', () => {
       '38px',
     );
     expect(panel.getByRole('banner')).toHaveAttribute('data-app-region', 'drag');
+    expect(
+      within(panel.getByRole('banner')).getByRole('button', { name: 'Sempre por cima' }),
+    ).toBeInTheDocument();
+    expect(panel.queryByRole('checkbox', { name: 'Sempre por cima' })).not.toBeInTheDocument();
     await userEvent.click(panel.getByRole('button', { name: 'Minimizar' }));
     await userEvent.click(panel.getByRole('button', { name: 'Maximizar' }));
     act(() => controls.resize(true));
@@ -47,6 +51,34 @@ describe('detached panel title bar', () => {
     expect(controls.calls).toEqual(['minimize', 'toggleMaximize', 'toggleMaximize', 'close']);
     view.unmount();
     expect(popup.document.documentElement.style.getPropertyValue('--title-bar-height')).toBe('');
+    popup.close();
+  });
+
+  it('drops the pin with hidePin and shows the always-on-top problem in the body', () => {
+    const popup = new ChatWindowFake();
+    const state: ChatWindow = {
+      status: 'detached',
+      closeError: null,
+      portalTarget: popup.document.body,
+      desktopWindow: null,
+      canAlwaysOnTop: true,
+      alwaysOnTop: false,
+      changingAlwaysOnTop: false,
+      alwaysOnTopProblem: 'Falhou',
+      open: () => popup.focus(),
+      bringBack: () => popup.close(),
+      setAlwaysOnTop: async () => undefined,
+    };
+    render(
+      <ChatWindowPortal target={popup.document.body}>
+        <DetachedWindowFrame title="Imagem" window={state} hidePin>
+          <p>Mapa</p>
+        </DetachedWindowFrame>
+      </ChatWindowPortal>,
+    );
+    const panel = within(popup.document.body);
+    expect(panel.queryByRole('button', { name: 'Sempre por cima' })).not.toBeInTheDocument();
+    expect(panel.getByRole('alert')).toHaveTextContent('Falhou');
     popup.close();
   });
 });

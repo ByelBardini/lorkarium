@@ -7,8 +7,7 @@ import type { AppDependencies } from '@/app/router';
 import { Button } from '@/components/ui/button';
 import { ChatWindowPortal } from '@/features/chat/chat-window-portal';
 import { DetachedWindowFrame } from '@/features/chat/detached-window-frame';
-import { useChatWindow, type ChatWindow } from '@/features/chat/use-chat-window';
-import { WindowPinToggle } from '@/features/chat/window-pin-toggle';
+import { useChatWindow } from '@/features/chat/use-chat-window';
 import { PanelTopCloseIcon } from 'lucide-react';
 import { useLibraryTable } from '@/features/library/use-library-table';
 import type { LibraryIntent, LibraryOutcome } from '@/features/library/library-intents';
@@ -155,9 +154,8 @@ function WorkspaceDocument({
           <DetachedWindowFrame
             title={entry.document.name}
             window={popup}
-            hideOptions
             flush
-            actions={<DetachedDocumentActions window={popup} onReturn={returnToTab} />}
+            actions={<ReturnToTabButton onReturn={returnToTab} />}
           >
             {problem && (
               <p role="alert" className="px-4 py-2 text-sm text-destructive-text">
@@ -188,25 +186,19 @@ function WorkspaceDocument({
   );
   return entry.target ? <>{createPortal(content, entry.target)}</> : <div hidden>{content}</div>;
 }
-function DetachedDocumentActions({
-  window: popup,
-  onReturn,
-}: Readonly<{ window: ChatWindow; onReturn: () => void }>): React.JSX.Element {
+function ReturnToTabButton({ onReturn }: Readonly<{ onReturn: () => void }>): React.JSX.Element {
   return (
-    <>
-      <WindowPinToggle chatWindow={popup} />
-      <Button
-        size="sm"
-        variant="ghost"
-        aria-label="Voltar para a aba"
-        title="Voltar para a aba"
-        className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
-        onClick={onReturn}
-      >
-        <PanelTopCloseIcon aria-hidden="true" className="size-3.5" />
-        Voltar à aba
-      </Button>
-    </>
+    <Button
+      size="sm"
+      variant="ghost"
+      aria-label="Voltar para a aba"
+      title="Voltar para a aba"
+      className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+      onClick={onReturn}
+    >
+      <PanelTopCloseIcon aria-hidden="true" className="size-3.5" />
+      Voltar à aba
+    </Button>
   );
 }
 function DetachedDocumentNotice({

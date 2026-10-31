@@ -4,10 +4,9 @@ import type { ChatWindow } from './use-chat-window';
 
 const UNAVAILABLE = 'Sempre por cima: disponível no aplicativo para Windows.';
 
-/** "Sempre por cima" as a pressed/unpressed pin for a title bar; the same native option as
- *  `ChatWindowOptions`, without its own row.
+/** "Sempre por cima" as a pressed/unpressed pin for a detached window's title bar.
  *
- *  Example: `<DetachedWindowFrame actions={<WindowPinToggle chatWindow={popup} />} …>` */
+ *  Example: `<WindowPinToggle chatWindow={popup} />` */
 export function WindowPinToggle({
   chatWindow,
 }: Readonly<{ chatWindow: ChatWindow }>): React.JSX.Element {
