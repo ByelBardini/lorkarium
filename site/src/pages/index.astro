@@ -27,10 +27,36 @@ import SiteLayout from '@/layouts/site-layout.astro';
 </SiteLayout>
 
 <script>
+  import { landingCopy } from '@/copy/landing-copy';
   import { visitorPlatformOf } from '@/lib/visitor-platform';
   import { browserReleaseSource } from '@/scripts/browser-release-source';
   import { enhanceDownloadCtas } from '@/scripts/download-cta';
+  import { startHeroParallax } from '@/scripts/hero-parallax';
+  import { REVEAL_ROOT_MARGIN, startRevealOnScroll } from '@/scripts/reveal-on-scroll';
+  import { startStagedRound } from '@/scripts/staged-round';
+  import { AnimationFrameScheduler } from '@/services/frame-scheduler';
   import { NavigatorLinkClipboard } from '@/services/link-clipboard';
+  import { MediaQueryMotionPreference } from '@/services/motion-preference';
+  import { TimeoutStepTimer } from '@/services/step-timer';
+  import { browserViewportWatch } from '@/services/viewport-watch';
+
+  const motion = new MediaQueryMotionPreference();
+  startRevealOnScroll(document, {
+    watch: browserViewportWatch(window, { rootMargin: REVEAL_ROOT_MARGIN }),
+    motion,
+  });
+  startHeroParallax(document, {
+    viewport: window,
+    frames: new AnimationFrameScheduler(),
+    watch: browserViewportWatch(window),
+    motion,
+  });
+  startStagedRound(document, {
+    encounter: landingCopy.encounter,
+    timer: new TimeoutStepTimer(),
+    watch: browserViewportWatch(window),
+    motion,
+  });
 
   void enhanceDownloadCtas(document, {
     source: browserReleaseSource(),
