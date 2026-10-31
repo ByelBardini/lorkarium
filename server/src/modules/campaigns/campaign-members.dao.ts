@@ -77,11 +77,16 @@ export class CampaignMembersDao {
     return row;
   }
 
-  async findMembership(campaignId: string, userId: string): Promise<CampaignMemberPo | undefined> {
-    const [row] = await this.db
+  async findMembership(
+    campaignId: string,
+    userId: string,
+    protect = false,
+  ): Promise<CampaignMemberPo | undefined> {
+    const query = this.db
       .select()
       .from(campaignMembers)
       .where(and(eq(campaignMembers.campaignId, campaignId), eq(campaignMembers.userId, userId)));
+    const [row] = await (protect ? query.for('share') : query);
     return row;
   }
 

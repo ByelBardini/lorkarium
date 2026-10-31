@@ -1,12 +1,32 @@
 import type { CampaignDetailDto } from '@lorkarium/contracts';
-import { useRevalidator } from 'react-router';
-import { imageIdOf, imageKey, libraryEntries, type MixedLibrary } from '@/lib/library-entries';
+import { useNavigate, useRevalidator } from 'react-router';
+import {
+  documentIdOf,
+  documentKey,
+  imageIdOf,
+  imageKey,
+  libraryEntries,
+  type MixedLibrary,
+} from '@/lib/library-entries';
+import { DocumentPreview } from '@/features/documents/document-preview';
+import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
+import type { StoreApi } from 'zustand/vanilla';
+import type { ChatWindowHost } from '@/services/chat-window-host';
+import type { DocumentsApi } from '@/services/documents-api';
+import type { InteractionClock } from '@/lib/interaction-clock';
+import type { Clipboard } from '@/services/clipboard';
 import type { AssetsApi } from '@/services/assets-api';
 import type { LibraryApi } from '@/services/library-api';
 import type { ImagePresentationApi } from '@/services/image-presentation-api';
 import { ImageDetails } from './image-details';
 import { LibraryImageForm } from './library-image-form';
-import { FolderPlusIcon, Grid2X2PlusIcon, ImagePlusIcon, SquarePlusIcon } from 'lucide-react';
+import {
+  FilePlusIcon,
+  FolderPlusIcon,
+  Grid2X2PlusIcon,
+  ImagePlusIcon,
+  SquarePlusIcon,
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -41,6 +61,12 @@ export type LibraryBrowserProps = Readonly<{
   assets: AssetsApi;
   api: LibraryApi;
   presentations: ImagePresentationApi;
+  documentsApi: DocumentsApi;
+  clock: InteractionClock;
+  clipboard: Clipboard;
+  documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
+  chatWindowHost?: ChatWindowHost;
+  onRegisterLeave?: (guard: (() => Promise<boolean>) | null) => void;
   onClose: () => void;
 }>;
 
@@ -63,6 +89,8 @@ type BrowserModel = Readonly<{
   focusNameId: string | null;
   openTab: (sceneId: string) => void;
   createGrid: (folderId: string | null) => void;
+  createDocument: (folderId: string | null) => void;
+  editDocument: (documentId: string) => void;
 }>;
 
 /** The loaded library: header with search, filter and "Novo grid", the tree of folders and
@@ -75,13 +103,33 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
   const [creating, setCreating] = useState<string | null | undefined>(undefined);
   const [folderRequest, requestFolder] = useState(0);
   const { revalidate } = useRevalidator();
+  const navigate = useNavigate();
   const { library, view, isMaster, live } = model;
+  const documentId = documentIdOf(model.pickedKey);
+  const document = library.documents?.find((item) => item.id === documentId);
+  const openDocument = (detached = false): void => {
+    if (!document) return;
+    const previous =
+      props.documentWorkspace?.getState().activeByCampaign[props.campaign.id] ?? null;
+    const key = props.documentWorkspace
+      ?.getState()
+      .open({ campaign: props.campaign, document, focusName: model.focusNameId === document.id });
+    if (detached && key && props.chatWindowHost) {
+      props.documentWorkspace?.getState().openWindow(key, props.chatWindowHost);
+      const opened = props.documentWorkspace?.getState().entries.find((entry) => entry.key === key);
+      if (opened?.windowHandle) {
+        props.documentWorkspace?.getState().activate(props.campaign.id, previous);
+        return;
+      }
+    }
+    void navigate(`/campaigns/${encodeURIComponent(props.campaign.id)}/table`);
+  };
   const pickedSceneId = sceneIdOf(model.pickedKey);
   const image = library.images?.find(({ id }) => id === imageIdOf(model.pickedKey));
   return (
     <>
       <LibraryHeader
-        subtitle={`${props.campaign.name} · ${gridCountLabel(library.scenes.length)} · ${library.images?.length ?? 0} imagens`}
+        subtitle={`${props.campaign.name} · ${gridCountLabel(library.scenes.length)} · ${library.images?.length ?? 0} imagens · ${library.documents?.length ?? 0} documentos`}
         onClose={props.onClose}
         controls={{
           query: view.query,
@@ -107,6 +155,10 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
                 <DropdownMenuItem onSelect={() => model.createGrid(null)}>
                   <Grid2X2PlusIcon />
                   Novo grid
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => model.createDocument(null)}>
+                  <FilePlusIcon />
+                  Novo documento
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => {
@@ -143,7 +195,17 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
             setCreating(folderId);
           }}
         />
-        {image ? (
+        {document ? (
+          <DocumentPreview
+            key={documentId}
+            campaignId={props.campaign.id}
+            summary={document}
+            api={props.documentsApi}
+            live={live}
+            onOpen={() => openDocument()}
+            onOpenWindow={() => openDocument(true)}
+          />
+        ) : image ? (
           <ImageDetails
             key={image.id}
             image={image}
@@ -195,12 +257,18 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
 }
 
 function useBrowserModel(props: LibraryBrowserProps): BrowserModel {
+  const navigate = useNavigate();
   const { tableView } = props;
   const view = useLibraryView();
   const [focusNameId, setFocusNameId] = useState<string | null>(null);
   const submit = useLibrarySubmit();
   const { pending, refusal } = useLibraryOutcome((intent, createdId) => {
     if (intent === 'createFolder') return view.pick(createdId);
+    if (intent === 'createDocument') {
+      view.pick(documentKey(createdId));
+      setFocusNameId(createdId);
+      return;
+    }
     view.pick(sceneKey(createdId));
     setFocusNameId(createdId);
   });
@@ -228,6 +296,18 @@ function useBrowserModel(props: LibraryBrowserProps): BrowserModel {
     resetFilter(view);
     void submit({ intent: 'createScene', folderId });
   };
+  const createDocument = (folderId: string | null): void => {
+    resetFilter(view);
+    void submit({ intent: 'createDocument', changes: { actionId: crypto.randomUUID(), folderId } });
+  };
+  const editDocument = (documentId: string): void => {
+    const document = props.library.documents?.find((item) => item.id === documentId);
+    if (!document) return;
+    props.documentWorkspace
+      ?.getState()
+      .open({ campaign: props.campaign, document, focusName: true });
+    void navigate(`/campaigns/${encodeURIComponent(props.campaign.id)}/table`);
+  };
   const drag = useLibraryDrag({ library, enabled: isMaster && tableView.live, submit });
   const pickedKey = knownKey(library, view.pickedKey);
   const live = tableView.live;
@@ -245,6 +325,8 @@ function useBrowserModel(props: LibraryBrowserProps): BrowserModel {
     focusNameId,
     openTab,
     createGrid,
+    createDocument,
+    editDocument,
   };
 }
 
@@ -287,6 +369,8 @@ function masterOf(model: BrowserModel): TreeMaster {
     submit: model.submit,
     newParentId: folderForNew(model.library, model.pickedKey),
     createGrid: model.createGrid,
+    createDocument: model.createDocument,
+    editDocument: model.editDocument,
     resetFilter: () => resetFilter(model.view),
   };
 }
@@ -301,6 +385,8 @@ function resetFilter(view: LibraryView): void {
 // An item deleted under the library (another master, another tab) leaves nothing picked.
 function knownKey(library: MixedLibrary, key: string | null): string | null {
   if (key === null || key === NO_FOLDER) return key;
+  const documentId = documentIdOf(key);
+  if (documentId) return library.documents?.some(({ id }) => id === documentId) ? key : null;
   const imageId = imageIdOf(key);
   if (imageId) return library.images?.some(({ id }) => id === imageId) ? key : null;
   const sceneId = sceneIdOf(key);
@@ -311,6 +397,7 @@ function knownKey(library: MixedLibrary, key: string | null): string | null {
 function nothingOpenYet(library: MixedLibrary): boolean {
   return (
     (library.images?.length ?? 0) === 0 &&
+    (library.documents?.length ?? 0) === 0 &&
     library.scenes.every(({ id }) => id === library.activeSceneId)
   );
 }

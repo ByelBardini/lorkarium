@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHAT_WINDOW_POLL_MS, useChatWindow } from '@/features/chat/use-chat-window';
 import { CHAT_WINDOW_FEATURES, CHAT_WINDOW_URL } from '@/services/chat-window-host';
@@ -48,11 +49,57 @@ describe('useChatWindow', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it('StrictMode keeps an adopted document window alive through the initial effect rehearsal', () => {
+    const host = new ChatWindowHostFake();
+    const handle = host.open('/chat-window.html?panel=document', 'document-strict', 'popup');
+    host.last().load();
+    const { result } = renderHook(
+      () => useChatWindow('campaign:document', host, 'document', handle),
+      { wrapper: StrictMode },
+    );
+    act(() => vi.advanceTimersByTime(0));
+    tick();
+    expect(host.last().closed).toBe(false);
+    expect(result.current.portalTarget).toBe(host.last().document.body);
+  });
+
   it('starts docked, with nothing to portal into', () => {
     const { result } = renderChatWindow(new ChatWindowHostFake());
 
     expect(result.current.status).toBe('docked');
     expect(result.current.portalTarget).toBeNull();
+  });
+
+  it('adopts a document popup opened synchronously without opening a second window', () => {
+    const host = new ChatWindowHostFake();
+    const handle = host.open(
+      '/chat-window.html?panel=document',
+      'lorkarium-document-test',
+      'popup,width=1000,height=800',
+    );
+    host.last().load();
+    const { result } = renderHook(() =>
+      useChatWindow('campaign:document', host, 'document', handle),
+    );
+    act(() => vi.advanceTimersByTime(0));
+    tick();
+    expect(result.current.status).toBe('detached');
+    expect(result.current.portalTarget).toBe(host.last().document.body);
+    expect(host.calls).toHaveLength(1);
+    act(() => result.current.open());
+    expect(host.last().focuses).toBe(1);
+  });
+  it('document panel opens a distinct wide popup without sharing chat or image names', () => {
+    const host = new ChatWindowHostFake();
+    const { result } = renderHook(() => useChatWindow('campaign:document', host, 'document'));
+    act(() => result.current.open());
+    expect(host.calls).toEqual([
+      {
+        url: '/chat-window.html?panel=document',
+        name: 'lorkarium-document-campaign:document',
+        features: 'popup,width=1000,height=800',
+      },
+    ]);
   });
 
   it('a native chat can enable and disable always on top through its own window handle', async () => {

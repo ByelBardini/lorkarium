@@ -104,3 +104,7 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 - **`SET NULL` de FK composta.** O drizzle-kit gera `ON DELETE set null`, que anularia também o `campaign_id` (`NOT NULL`) e faria a exclusão falhar. A `0033` foi editada à mão para `SET NULL ("parent_id")` / `SET NULL ("folder_id")` (Postgres 15+). Ao gerar a próxima migração, conferir que o drizzle-kit não tenta "corrigir" essas FKs; FK composta nova com `set null` precisa da mesma edição.
 
 - **Nome do grid mora no snapshot.** A sala lê o nome da aba e do tabuleiro do `scene` do board (snapshot + `scene:updated`), não da biblioteca: mudança no `scenes` que a sala mostra precisa somar a versão do grid e publicar `scene:updated`; o `library:changed` só relê a lista do modal.
+
+## Documentos
+
+O agregado também inclui documentos autorizados (públicos ou ocultos próprios), sem corpo. Ancestrais de documentos visíveis integram a árvore. Excluir pasta move documentos ao pai na mesma transação, conservando texto e donos. GET /scenes conserva o contrato anterior. Ver [documents.md](documents.md).

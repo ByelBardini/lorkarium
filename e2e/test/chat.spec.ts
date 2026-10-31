@@ -139,10 +139,12 @@ test('detached window: popup menus and sending work, changing the room tab keeps
   await admin.getByRole('button', { name: 'Abrir em outra janela' }).click();
   const popup = await popupOpened;
   await expect(popup).toHaveURL(/\/chat-window\.html$/);
-  await expect(popup.getByRole('checkbox', { name: 'Sempre por cima' })).toBeDisabled();
-  await expect(
-    popup.getByText('Disponível no aplicativo para Windows.', { exact: true }),
-  ).toBeVisible();
+  const pin = popup.getByRole('button', { name: 'Sempre por cima' });
+  await expect(pin).toBeDisabled();
+  await expect(pin).toHaveAttribute(
+    'title',
+    'Sempre por cima: disponível no aplicativo para Windows.',
+  );
   await expect(admin.getByText('Chat aberto em outra janela', { exact: true })).toBeVisible();
   await sendChat(popup, 'Voz da outra janela.');
   await expect(chatFeedOf(bia)).toContainText('Voz da outra janela.');

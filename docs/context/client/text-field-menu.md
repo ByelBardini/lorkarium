@@ -19,3 +19,7 @@ A casca desktop (Tauri/WebView2) desliga o menu de contexto do navegador. Nos ca
 - `client/test/lib/desktop-shell.spec.ts`, `client/test/features/text-field-menu/*` (itens e alvo sem React; o componente com Testing Library) e `client/test/services/{clipboard,field-editing}.spec.ts` (`EditingCommandsFake` no lugar do `execCommand`, que o jsdom não tem).
 - `FieldEditingFake` (`calls`): o `insertText` imita o navegador (setter nativo do `value` + `input` borbulhando), então o `onChange` controlado dispara. `ClipboardFake.pasteText` é o que o `readText` devolve; `new ClipboardFake(true)` recusa.
 - `testDependencies()` traz `isDesktop: false`; o `router.spec.tsx` liga com `{ ...deps, isDesktop: true }` e prova o menu no campo de e-mail do login.
+
+## Editor de documentos
+
+DocumentEditorMenu em rich-text-editor oferece menu próprio de Recortar/Copiar/Colar/Selecionar tudo no contenteditable da casca, preservando seleção e permissão de edição. Campos comuns continuam no menu existente. Clipboard textual não interpreta HTML arbitrário. O comportamento do WebView2 real exige conferência manual; Chromium só prova navegador. Ver [documents.md](documents.md).

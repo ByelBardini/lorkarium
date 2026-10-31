@@ -300,6 +300,14 @@ O estado deverá sobreviver à atualização da página, desconexão dos partici
 
 ---
 
+### 3.11. Documentos livres na biblioteca
+
+Extensão aprovada em 29/10/2026: a biblioteca também organiza documentos de texto rico nas pastas da campanha. Mestres criam e administram; jogadores escolhidos como donos editam título e conteúdo, inclusive dos documentos ocultos. Outros jogadores e espectadores consultam apenas os públicos. A posse depende do papel atual de jogador e não concede administração.
+
+O conteúdo usa JSON validado pelo servidor, com fontes locais, estilos, listas, links seguros, tabelas simples e imagens guardadas no armazenamento da campanha. O editor Tiptap é carregado ao abrir o documento. Salvamento automático usa versão esperada e recibos idempotentes; conflito preserva o rascunho e exige reconciliação explícita. Invalidação e reconexão reautorizam o documento aberto; perda de leitura desmonta conteúdo e imagens. A biblioteca transmite somente resumos autorizados, sem corpos.
+
+Contratos, limites, persistência e rotas: [context/documents.md](context/documents.md). Escopo aprovado: [plano de documentos](plans/2026-10-29-documentos-na-biblioteca.md). Sem fichas mecânicas de sistemas, colaboração CRDT/OT, histórico de versões ou persistência offline nesta entrega.
+
 ## 4. Tecnologias
 
 ### 4.1. Frontend

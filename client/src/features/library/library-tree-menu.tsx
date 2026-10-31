@@ -1,4 +1,9 @@
-import type { LibraryImageDto, LibrarySceneDto, SceneFolderDto } from '@lorkarium/contracts';
+import type {
+  DocumentSummaryDto,
+  LibraryImageDto,
+  LibrarySceneDto,
+  SceneFolderDto,
+} from '@lorkarium/contracts';
 import { useId, useState, type ReactNode } from 'react';
 import {
   ContextMenu,
@@ -10,7 +15,7 @@ import {
 } from '@/components/ui/context-menu';
 import { DeleteConfirmDialog } from './delete-scene-dialog';
 import { sceneDeletionText } from './library-messages';
-import { imageIdOf, imageKey, type MixedLibrary } from '@/lib/library-entries';
+import { documentIdOf, imageIdOf, imageKey, type MixedLibrary } from '@/lib/library-entries';
 import { sceneIdOf, sceneKey } from './library-view';
 import { MoveFolderDialog } from './move-folder-dialog';
 import type { LibrarySubmit } from './use-library-submit';
@@ -26,6 +31,8 @@ export type TreeMaster = Readonly<{
   /** "Novo grid" in a folder (`null` = the root): the new grid gets picked. */
   createGrid: (folderId: string | null) => void;
   createImage?: (folderId: string | null) => void;
+  createDocument?: (folderId: string | null) => void;
+  editDocument?: (documentId: string) => void;
   /** Clears the search and the filter, so the item about to be created shows. */
   resetFilter: () => void;
 }>;
@@ -44,6 +51,7 @@ export type LibraryTreeMenuProps = Readonly<{
 type MenuTask =
   | Readonly<{ kind: 'deleteScene'; scene: LibrarySceneDto }>
   | Readonly<{ kind: 'deleteImage'; image: LibraryImageDto }>
+  | Readonly<{ kind: 'deleteDocument'; document: DocumentSummaryDto }>
   | Readonly<{ kind: 'deleteFolder' | 'moveFolder'; folder: SceneFolderDto }>
   | null;
 
@@ -88,6 +96,8 @@ function treeKeyAt(target: EventTarget): string | null {
 
 function TargetItems(props: MenuActions & Readonly<{ targetKey: string | null }>) {
   const { library } = props.master;
+  const document = library.documents?.find(({ id }) => id === documentIdOf(props.targetKey));
+  if (document) return <DocumentItems {...props} document={document} />;
   const image = library.images?.find(({ id }) => id === imageIdOf(props.targetKey));
   if (image) return <ImageItems {...props} image={image} />;
   const sceneId = sceneIdOf(props.targetKey);
@@ -107,6 +117,11 @@ function RootItems({ master, startNewFolder }: MenuActions): React.JSX.Element {
       {master.createImage && (
         <ContextMenuItem disabled={!master.live} onSelect={() => master.createImage?.(null)}>
           Nova imagem
+        </ContextMenuItem>
+      )}
+      {master.createDocument && (
+        <ContextMenuItem disabled={!master.live} onSelect={() => master.createDocument?.(null)}>
+          Novo documento
         </ContextMenuItem>
       )}
       <ContextMenuItem
@@ -133,6 +148,11 @@ function FolderItems(props: MenuActions & Readonly<{ folder: SceneFolderDto }>) 
       {master.createImage && (
         <ContextMenuItem disabled={off} onSelect={() => master.createImage?.(folder.id)}>
           Nova imagem aqui
+        </ContextMenuItem>
+      )}
+      {master.createDocument && (
+        <ContextMenuItem disabled={off} onSelect={() => master.createDocument?.(folder.id)}>
+          Novo documento aqui
         </ContextMenuItem>
       )}
       <ContextMenuItem
@@ -197,6 +217,21 @@ function SceneItems(props: MenuActions & Readonly<{ scene: LibrarySceneDto }>) {
 type TaskDialogProps = Readonly<{ master: TreeMaster; task: MenuTask; onClose: () => void }>;
 
 function TaskDialog({ master, task, onClose }: TaskDialogProps): React.JSX.Element | null {
+  if (task?.kind === 'deleteDocument')
+    return (
+      <DeleteConfirmDialog
+        title={`Excluir ${task.document.name}?`}
+        description="O documento e seu conteúdo serão excluídos para todos."
+        onClose={onClose}
+        onConfirm={() =>
+          void master.submit({
+            intent: 'removeDocument',
+            documentId: task.document.id,
+            changes: { actionId: crypto.randomUUID(), expectedVersion: task.document.version },
+          })
+        }
+      />
+    );
   if (task?.kind === 'deleteImage')
     return (
       <DeleteConfirmDialog
@@ -216,6 +251,29 @@ function TaskDialog({ master, task, onClose }: TaskDialogProps): React.JSX.Eleme
     return <MoveFolderTask master={master} folder={task.folder} onClose={onClose} />;
   }
   return null;
+}
+
+function DocumentItems(
+  props: MenuActions & Readonly<{ document: DocumentSummaryDto }>,
+): React.JSX.Element {
+  const { master, document } = props;
+  return (
+    <>
+      <ContextMenuItem
+        disabled={!master.live || !document.canEdit}
+        onSelect={() => master.editDocument?.(document.id)}
+      >
+        Renomear
+      </ContextMenuItem>
+      <ContextMenuItem
+        variant="destructive"
+        disabled={!master.live || !document.canManage}
+        onSelect={() => props.setTask({ kind: 'deleteDocument', document })}
+      >
+        Excluir documento
+      </ContextMenuItem>
+    </>
+  );
 }
 
 type SceneTaskProps = Readonly<{ master: TreeMaster; scene: LibrarySceneDto; onClose: () => void }>;

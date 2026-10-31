@@ -17,9 +17,10 @@ export function libraryImageRoutes(
 ): (app: FastifyInstance) => Promise<void> {
   return async (app) => {
     const opts = { preHandler: app.authGuards.requireAuth };
-    app.get('/campaigns/:campaignId/library', opts, (request) =>
-      service.list(requesterOf(app, request)),
-    );
+    app.get('/campaigns/:campaignId/library', opts, (request, reply) => {
+      reply.header('cache-control', 'private, no-store');
+      return service.list(requesterOf(app, request));
+    });
     app.get('/campaigns/:campaignId/image-presentation', opts, (request) =>
       presentations.snapshot(requesterOf(app, request)),
     );

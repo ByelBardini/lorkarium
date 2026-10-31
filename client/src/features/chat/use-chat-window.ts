@@ -5,6 +5,8 @@ import {
   CHAT_WINDOW_URL,
   IMAGE_WINDOW_URL,
   IMAGE_WINDOW_FEATURES,
+  DOCUMENT_WINDOW_URL,
+  DOCUMENT_WINDOW_FEATURES,
   type ChatWindowHandle,
   type ChatWindowHost,
 } from '@/services/chat-window-host';
@@ -58,11 +60,22 @@ const DOCKED: ChatWindowState = {
 export function useChatWindow(
   campaignId: string,
   host: ChatWindowHost,
-  panel: 'chat' | 'dice' | 'image' = 'chat',
+  panel: 'chat' | 'dice' | 'image' | 'document' = 'chat',
+  adoptedHandle: ChatWindowHandle | null = null,
 ): ChatWindow {
   const [state, setState] = useState<ChatWindowState>(DOCKED);
   const handleRef = useRef<ChatWindowHandle | null>(null);
   const { resetAlwaysOnTop, ...topmost } = useChatWindowTopmost(handleRef);
+  useEffect(() => {
+    if (!adoptedHandle || adoptedHandle.closed || adoptedHandle === handleRef.current) return;
+    const adoption = setTimeout(() => {
+      if (adoptedHandle.closed) return;
+      handleRef.current = adoptedHandle;
+      resetAlwaysOnTop();
+      setState({ ...DOCKED, status: 'detached', canAlwaysOnTop: !!adoptedHandle.setAlwaysOnTop });
+    }, 0);
+    return () => clearTimeout(adoption);
+  }, [adoptedHandle, resetAlwaysOnTop]);
   useFollowChatWindow(handleRef, state.status === 'detached', setState);
   useCloseChatWindowOnLeave(handleRef);
   const open = useCallback(() => {
@@ -70,13 +83,23 @@ export function useChatWindow(
     if (current && !current.closed) return current.focus();
     resetAlwaysOnTop();
     const url =
-      panel === 'image' ? IMAGE_WINDOW_URL : panel === 'dice' ? DICE_WINDOW_URL : CHAT_WINDOW_URL;
+      panel === 'document'
+        ? DOCUMENT_WINDOW_URL
+        : panel === 'image'
+          ? IMAGE_WINDOW_URL
+          : panel === 'dice'
+            ? DICE_WINDOW_URL
+            : CHAT_WINDOW_URL;
     const name =
       panel === 'chat' ? chatWindowNameOf(campaignId) : `lorkarium-${panel}-${campaignId}`;
     const opened = host.open(
       url,
       name,
-      panel === 'image' ? IMAGE_WINDOW_FEATURES : CHAT_WINDOW_FEATURES,
+      panel === 'document'
+        ? DOCUMENT_WINDOW_FEATURES
+        : panel === 'image'
+          ? IMAGE_WINDOW_FEATURES
+          : CHAT_WINDOW_FEATURES,
     );
     handleRef.current = opened;
     setState({
@@ -187,7 +210,7 @@ function useCloseChatWindowOnLeave(handleRef: RefObject<ChatWindowHandle | null>
     const close = (): void => {
       const handle = handleRef.current;
       handleRef.current = null;
-      const closing = handle?.close();
+      const closing = handle && !handle.closed ? handle.close() : undefined;
       if (closing) void closing.catch(() => undefined);
     };
     window.addEventListener('pagehide', close);

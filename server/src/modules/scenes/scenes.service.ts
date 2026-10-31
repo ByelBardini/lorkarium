@@ -93,7 +93,8 @@ async function backgroundFor(
   if (choice === undefined) return backgroundOfScene(scene);
   if (choice === null) return null;
   const asset = await assets.findInCampaign(scene.campaignId, choice);
-  if (!asset || asset.purpose === 'library_image') throw new AssetNotFoundError(choice);
+  if (!asset || asset.purpose === 'library_image' || asset.purpose === 'document_image')
+    throw new AssetNotFoundError(choice);
   return { assetId: asset.id, width: asset.width, height: asset.height };
 }
 

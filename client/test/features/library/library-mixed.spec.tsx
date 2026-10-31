@@ -6,8 +6,48 @@ import { ATO_1, CATACUMBAS, PORTRAIT, masterLibrary } from '../../support/librar
 import { openLibrary } from '../../support/library-harness';
 import { openTreeMenu, treeItem, treeItemNames, menuItemNames } from '../../support/library-tree';
 import { DataTransferFake } from '../../support/data-transfer-fake';
+import { documentFixture } from '../../support/documents-fixtures';
 
 describe('mixed library browser', () => {
+  it('document filter preserves its ancestors and distinguishes the item from grids and images', async () => {
+    const deps = testDependencies();
+    deps.libraryApi.answer('list', {
+      ok: true,
+      value: masterLibrary({
+        images: [PORTRAIT],
+        documents: [documentFixture({ name: 'Visão dos deuses', folderId: CATACUMBAS.id })],
+      }),
+    });
+    await openLibrary(deps);
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Tipo de item' }),
+      'document',
+    );
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar item' }), 'visao');
+    expect(treeItemNames()).toEqual(['Ato 1', 'Catacumbas', 'Visão dos deuses']);
+    expect(treeItem('Visão dos deuses')).toHaveAccessibleDescription('Documento · Privado');
+  });
+  it('refused document movement restores the confirmed folder and sends the versioned document command', async () => {
+    const deps = testDependencies();
+    deps.documentsApi.updateResult = { ok: false, failure: { kind: 'conflict' } };
+    deps.libraryApi.answer('list', {
+      ok: true,
+      value: masterLibrary({ documents: [documentFixture({ version: 4 })] }),
+    });
+    await openLibrary(deps);
+    const transfer = new DataTransferFake();
+    fireEvent.dragStart(treeItem('Carta'), { dataTransfer: transfer });
+    fireEvent.drop(treeItem('Ato 1'), { dataTransfer: transfer });
+    await screen.findByText('O documento mudou. Confira a versão atual antes de tentar novamente.');
+    expect(deps.documentsApi.updates).toEqual([
+      { actionId: expect.any(String), expectedVersion: 4, folderId: ATO_1.id },
+    ]);
+    expect(
+      within(treeItem('Sem pasta')).getByRole('treeitem', { name: 'Carta' }),
+    ).toBeInTheDocument();
+    expect(deps.libraryApi.callsOf('updateImage')).toEqual([]);
+    expect(deps.libraryApi.callsOf('updateScene')).toEqual([]);
+  });
   it('type filter alone prunes folders without matching images and opens the retained ancestors', async () => {
     const deps = testDependencies();
     deps.libraryApi.answer('list', {

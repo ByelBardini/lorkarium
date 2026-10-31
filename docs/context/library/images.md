@@ -53,3 +53,7 @@ Integração library-images.spec.ts: CRUD privado/público, bytes/cache, imagem 
 - No PowerShell, argumentos SeaweedFS como '-ip.bind=0.0.0.0' exigem aspas ou o endereço vira .bind=0.0.0.0.
 - Driver de camadas aponta policy fora de infrastructure; falso positivo: implementação de regra de domínio fica na biblioteca conforme plano, só orquestra DAOs/BO, sem lib externa.
 - Driver testar aponta DAO/rotas sem unit espelho; cobertos pelas integrações HTTP/Postgres/sockets acima. Erros são provados nas recusas.
+
+## Referências em documentos
+
+O agregado contém documents, com resumos autorizados por DocumentAccessBo e ancestrais unidos aos demais itens. Um asset library_image também pode ser lido por referência autorizada em documento, mesmo após apagar o item da biblioteca; o vínculo aponta ao asset imutável. Preparações só abrem para editores, referências confirmadas para leitores autorizados. Ver [../documents/imagens.md](../documents/imagens.md).

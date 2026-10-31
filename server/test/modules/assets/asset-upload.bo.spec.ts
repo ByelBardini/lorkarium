@@ -5,6 +5,7 @@ import { AssetTooLargeError } from '../../../src/modules/assets/assets.error';
 const MIB = 1024 * 1024;
 const LIMIT = 20 * MIB;
 const SIDES = {
+  document_image: 4096,
   library_image: 4096,
   background: 4096,
   token: 1024,
@@ -23,6 +24,7 @@ describe('resizeFor', () => {
     ['token', 1024],
     ['background', 4096],
     ['library_image', 4096],
+    ['document_image', 4096],
     ['cover', 1600],
     ['aura', 512],
   ] as const)('a %s image keeps its shape, up to %i px', (purpose, maxSide) => {

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -6,7 +6,8 @@ import { buildRoutes } from '@/app/router';
 import type { OpenTable } from '@/stores/open-tables-store';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
-import { VHARN } from '../../support/campaigns-api-fake';
+import { detailOf, VHARN } from '../../support/campaigns-api-fake';
+import { documentFixture } from '../../support/documents-fixtures';
 import { chatSent } from '../../support/chat-fixtures';
 import { biaRolled } from '../../support/dice-fixtures';
 import { emulateViewport } from '../../support/viewport';
@@ -83,6 +84,50 @@ describe('play room: grid tabs', () => {
       'href',
       `/campaigns/${VHARN.id}/table/library`,
     );
+  });
+
+  it('a document tab keeps the board mounted and blocks its tools and global shortcuts until a grid is selected', async () => {
+    const renderer = deps.boardRenderers.latest();
+    const interaction = table.tabs.getState().tabs[0]!.interaction;
+    await act(async () => {
+      deps.documentWorkspace
+        .getState()
+        .open({ campaign: detailOf(VHARN), document: documentFixture() });
+    });
+    expect(await screen.findByRole('textbox', { name: 'Nome do documento' })).toHaveValue('Carta');
+    expect(screen.getByRole('tab', { name: 'Carta' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('application')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('toolbar', { name: 'Ferramentas do tabuleiro' }),
+    ).not.toBeInTheDocument();
+    expect(renderer.destroyed).toBe(false);
+    expect(deps.boardRenderers.latest()).toBe(renderer);
+    fireEvent.keyDown(window, { key: 'b' });
+    fireEvent.keyDown(window, { key: 'f' });
+    expect(interaction.getState().tool).toBe('select');
+    expect(deps.roomLayout.getState().focus).toBe(false);
+    await userEvent.click(screen.getByRole('tab', { name: /Cena 1/ }));
+    expect(screen.getByRole('application')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Nome do documento' })).not.toBeInTheDocument();
+    expect(deps.documentWorkspace.getState().entries).toHaveLength(1);
+    expect(deps.boardRenderers.latest()).toBe(renderer);
+    act(() => deps.documentWorkspace.getState().clear());
+  });
+
+  it('an active document keeps the tab strip accessible while the board is in focus mode', async () => {
+    act(() => deps.roomLayout.getState().toggleFocus());
+    expect(screen.queryByRole('region', { name: 'Topo da sala' })).not.toBeInTheDocument();
+    await act(async () => {
+      deps.documentWorkspace
+        .getState()
+        .open({ campaign: detailOf(VHARN), document: documentFixture() });
+    });
+    expect(await screen.findByRole('tab', { name: 'Carta' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('region', { name: 'Topo da sala' })).toBeInTheDocument();
+    act(() => deps.documentWorkspace.getState().clear());
   });
 
   it('showing a tab puts its grid on the canvas, and the group tab brings the group grid back', async () => {

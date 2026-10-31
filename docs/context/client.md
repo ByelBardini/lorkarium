@@ -31,6 +31,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Cone: campo de visão, lanterna, holofote mirado, contorno do mestre                         | [`cones.md`](client/cones.md)                         |
 | Desempenho: orçamento, regras que não podem ser desfeitas, cena de estresse, bench, painel  | [`performance.md`](client/performance.md)             |
 | Biblioteca: rota, modal, árvore de pastas e grids, menu, painel e arrastar                  | [`library.md`](client/library.md)                     |
+| Documentos: editor rico, rascunhos, salvamento, posse e leitura protegida                   | [`documents.md`](client/documents.md)                 |
 | Imagens na biblioteca: cadastro, árvore mista, prévia, apresentação e janela desktop        | [`library-images.md`](client/library-images.md)       |
 | Abas de grid na sala: escopo do comando, `watch`, `scene-tabs-store`, `SceneTabs`           | [`grid-tabs.md`](client/grid-tabs.md)                 |
 | Personagem: elenco, token ligado composto, ligar à ficha, "Adicionar jogadores"             | [`characters.md`](client/characters.md)               |

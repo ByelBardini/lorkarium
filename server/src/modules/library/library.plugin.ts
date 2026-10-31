@@ -1,4 +1,5 @@
 import { ImagePresentationService } from './image-presentation.service';
+import { DocumentsDao } from '../documents/documents.dao';
 import { randomUUID } from 'node:crypto';
 import { runInSnapshot } from '../../database/transaction';
 import { AssetsDao } from '../assets/assets.dao';
@@ -50,6 +51,7 @@ export function createLibraryModule(options: LibraryModuleOptions): LibraryModul
   const transaction: LibraryTransactionRunner = (work) =>
     runInTransaction(db, (tx) =>
       work({
+        documents: new DocumentsDao(tx),
         images: new LibraryImagesDao(tx),
         campaigns: new CampaignsDao(tx),
         folders: new SceneFoldersDao(tx),
@@ -101,6 +103,7 @@ export function libraryImageDaos(
   executor: import('../../database/transaction').DatabaseExecutor,
 ): LibraryImageDaos {
   return {
+    documents: new DocumentsDao(executor),
     campaigns: new CampaignsDao(executor),
     members: new CampaignMembersDao(executor),
     assets: new AssetsDao(executor),

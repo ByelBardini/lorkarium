@@ -32,7 +32,7 @@ Complementa [`library.md`](library.md). O contrato e a autorização ficam em [`
 
 - Só tenta abrir automaticamente quando é casca desktop e `__LORKARIUM_IMAGE_WINDOW_SUPPORTED__ === true`. Casca antiga ou navegador usa modal; falha de abertura/documento também cai no modal.
 - `useImagePresentationWindow` reutiliza o host de Chat/Dados com `panel=image`, nome próprio por campanha e tamanho 960×720. O conteúdo continua no mesmo React/store/socket via `ChatWindowPortal`.
-- `DetachedWindowFrame hideOptions` preserva barra e controles nativos, omitindo opções de chat. P2 reutiliza a janela existente; X dispensa apenas a apresentação local. Recusa do fechamento conserva o conteúdo e mostra erro recuperável.
+- `DetachedWindowFrame hidePin` preserva barra e controles nativos, sem o alfinete “Sempre por cima”. P2 reutiliza a janela existente; X dispensa apenas a apresentação local. Recusa do fechamento conserva o conteúdo e mostra erro recuperável.
 - A marca exige nova release da casca. Não altera allowlist de URL, IPC ou ambiente WebView2. A abertura sem gesto local e o fechamento durante recarga exigem conferência no WebView2 real; Chromium não prova o comportamento do host.
 
 ## Testes
@@ -52,3 +52,7 @@ Complementa [`library.md`](library.md). O contrato e a autorização ficam em [`
 O dropdown de criação do cabeçalho sempre usa a raiz. No menu contextual, o destino é a pasta de origem da ação. O cadastro de imagem recebe esse destino e não oferece seletor de pasta.
 
 A apresentação automática exige presença na sala visível. `RoomImagePresentation` chama `setViewing(true/false)` ao montar/desmontar. O primeiro snapshot da visita apenas sincroniza o estado e dispensa a apresentação anterior; eventos recebidos fora da sala também ficam dispensados. Entrar depois ou voltar de outra tela não abre imagens passadas. Rejoin na sala ainda recupera uma apresentação nova perdida durante desconexão.
+
+## Imagens em documentos
+
+DocumentImagePicker reaproveita ImagePicker por adaptador para endpoints do documento, além de seleção dos itens autorizados da biblioteca. A seleção associa o asset antes de inserir no editor. A autorização dos bytes passa pela referência no documento, independente da existência posterior do item da biblioteca. Ver [documents.md](documents.md).

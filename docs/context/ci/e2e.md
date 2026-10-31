@@ -21,3 +21,7 @@ Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do V
 - Credenciais: o spec lê `ADMIN_EMAIL`/`ADMIN_PASSWORD` do ambiente (o mesmo admin que o server semeia no boot). No CI o job `e2e` define um admin descartável no `env`; localmente o `playwright.config.ts` carrega o `server/.env` sem sobrescrever o que já está exportado.
 - Local: o `webServer` reaproveita só o Vite da 5173. Um Vite antigo pode servir código velho.
 - Configs locais em outras portas, para rodar com um `pnpm dev` de pé ou ao lado de outra rodada: `playwright.tmp.config.ts` + `client/vite.e2e-tmp.config.ts` (client 5174, server 3334) e `playwright.dice.config.ts` + `client/vite.e2e-dice.config.ts` (5175, 3335). Nenhum dos dois reaproveita server; os dois herdam **todos** os `projects` do base, então passe `--project=<grupo>` (ver [`armadilhas.md`](armadilhas.md)).
+
+## Documentos da biblioteca
+
+library-documents.spec.ts está no grupo library. Fragmentar por --grep 'rich document', 'multiple document owners', 'document popup opens' e 'concurrent remote', --workers=1, em processos sequenciais; depois rodar library, library-images e character. Cada boot limpa o mesmo banco _e2e, portanto nunca iniciar fragmentos simultâneos. Ver [../documents/testes.md](../documents/testes.md).

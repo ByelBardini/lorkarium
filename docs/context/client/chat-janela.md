@@ -53,7 +53,7 @@ O caso integrado em `test/features/board/play-room-page-tabs.spec.tsx` prova env
 
 ## Apresentações em janela de imagem
 
-`useChatWindow` aceita `image`: `/chat-window.html?panel=image`, nome `lorkarium-image-<campaignId>`, tamanho 960×720. Chat, Dados e imagem têm handles independentes. `DetachedWindowFrame.hideOptions` oculta opções do chat. O fechamento nativo espera confirmação; `closeError` expõe recusa e conserva conteúdo destacado para nova tentativa.
+`useChatWindow` aceita `image`: `/chat-window.html?panel=image`, nome `lorkarium-image-<campaignId>`, tamanho 960×720. Chat, Dados e imagem têm handles independentes. `DetachedWindowFrame` põe o alfinete `WindowPinToggle` (“Sempre por cima”) na barra de título, ao lado de `actions`; `hidePin` o omite (imagem). Erro do “Sempre por cima” aparece como alerta no corpo. O fechamento nativo espera confirmação; `closeError` expõe recusa e conserva conteúdo destacado para nova tentativa.
 
 `useImagePresentationWindow` só abre automaticamente se `imageWindowSupported(isDesktop)` encontra a marca verdadeira `__LORKARIUM_IMAGE_WINDOW_SUPPORTED__` na principal. Navegador/casca antiga usam modal sem tentar popup. Substituir reutiliza a janela; X dispensa o ID atual, novo ID abre. Recusa do host ou página auxiliar sem carregar em cinco segundos retorna ao modal. Desmontar sala e `pagehide` fecham a auxiliar.
 

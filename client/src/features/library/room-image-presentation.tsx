@@ -49,7 +49,7 @@ export function RoomImagePresentation({
   if (!native.popup.portalTarget) return null;
   return (
     <ChatWindowPortal target={native.popup.portalTarget}>
-      <DetachedWindowFrame title={image.name} window={native.popup} hideOptions>
+      <DetachedWindowFrame title={image.name} window={native.popup} hidePin>
         <ImageViewer key={image.id} image={image} />
         {native.closeError && <p role="alert">{native.closeError}</p>}
         <Button variant="outline" className="my-3 self-end" onClick={native.popup.bringBack}>

@@ -1,4 +1,8 @@
 import type { ImagePresentationApi } from '@/services/image-presentation-api';
+import type { DocumentsApi } from '@/services/documents-api';
+import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
+import { DocumentWorkspaceHost } from '@/features/documents/document-workspace-host';
+import { DocumentWorkspaceLifecycle } from '@/features/documents/document-workspace-lifecycle';
 import type { AuthUserDto } from '@lorkarium/contracts';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import {
@@ -81,6 +85,8 @@ export type AppDependencies = Readonly<{
   accountLinksApi: AccountLinksApi;
   /** The grids and folders of a table (the library). */
   libraryApi: LibraryApi;
+  documentsApi: DocumentsApi;
+  documentWorkspace: StoreApi<DocumentWorkspaceStore>;
   imagePresentationApi: ImagePresentationApi;
   /** "Levar o grupo pra cá" (`scene:activate`). */
   sceneActivation: SceneActivation;
@@ -240,11 +246,14 @@ function rootRoute({
   fieldEditing,
   appUpdate,
   reloadPage,
+  documentWorkspace,
+  sessionStore,
 }: AppDependencies): () => React.JSX.Element {
   return function RootRoute(): React.JSX.Element {
     return (
       <TitleBarFrame desktopWindow={desktopWindow} place={placeOf(useMatches())}>
         <Outlet />
+        <DocumentWorkspaceLifecycle sessionStore={sessionStore} workspace={documentWorkspace} />
         <TextFieldMenu isDesktop={isDesktop} clipboard={clipboard} fieldEditing={fieldEditing} />
         <AppUpdateNotice appUpdate={appUpdate} reloadPage={reloadPage} />
       </TitleBarFrame>
@@ -340,18 +349,22 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
       // Before the logout: once the session ends the server refuses the leaves, and the others
       // would only see these tables go after the grace period.
       openTables.getState().closeAll();
+      deps.documentWorkspace.getState().clear();
       await authApi.logout();
       sessionStore.getState().signedOut();
       await navigate('/login', { replace: true });
     };
     return (
-      <AppShell
-        railStore={railStore}
-        openTables={openTables}
-        user={session.user}
-        onSignOut={signOut}
-        brandInTitleBar={desktopWindow !== null}
-      />
+      <>
+        <AppShell
+          railStore={railStore}
+          openTables={openTables}
+          user={session.user}
+          onSignOut={signOut}
+          brandInTitleBar={desktopWindow !== null}
+        />
+        <DocumentWorkspaceHost deps={deps} />
+      </>
     );
   };
 }

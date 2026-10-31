@@ -1,21 +1,30 @@
 import { useEffect, type ReactNode } from 'react';
 import { usePortalContainer } from '@/lib/portal-window';
+import { cn } from '@/lib/utils';
 import { BrandMark } from '@/components/brand-mark';
 import { WindowControls } from '@/app/title-bar/window-controls';
-import { ChatWindowOptions } from './chat-window-options';
+import { WindowPinToggle } from './window-pin-toggle';
 import type { ChatWindow } from './use-chat-window';
 
-/** Shared title bar and content of a detached panel. Example: `<DetachedWindowFrame title="Dados" window={popup}>…</DetachedWindowFrame>` */
+/** Shared title bar and content of a detached panel. The "Sempre por cima" pin and `actions` go
+ *  in the title bar, beside the window controls (`hidePin` drops the pin); `flush` lets the
+ *  content reach the edges (it draws its own spacing).
+ *
+ *  Example: `<DetachedWindowFrame title="Dados" window={popup}>…</DetachedWindowFrame>` */
 export function DetachedWindowFrame({
   title,
   window: popup,
   children,
-  hideOptions = false,
+  hidePin = false,
+  actions,
+  flush = false,
 }: Readonly<{
   title: string;
   window: ChatWindow;
   children: ReactNode;
-  hideOptions?: boolean;
+  hidePin?: boolean;
+  actions?: ReactNode;
+  flush?: boolean;
 }>): React.JSX.Element {
   const container = usePortalContainer();
   useEffect(() => {
@@ -45,10 +54,20 @@ export function DetachedWindowFrame({
             LORKARIUM <span className="text-muted-foreground">/ {title}</span>
           </span>
         </div>
+        {(actions || !hidePin) && (
+          <div data-app-region="no-drag" className="flex shrink-0 items-center gap-1 px-2">
+            {!hidePin && <WindowPinToggle chatWindow={popup} />}
+            {actions}
+          </div>
+        )}
         {popup.desktopWindow && <WindowControls desktopWindow={popup.desktopWindow} />}
       </header>
-      <div className="flex min-h-0 flex-1 flex-col px-4 pt-3">
-        {!hideOptions && <ChatWindowOptions chatWindow={popup} />}
+      <div className={cn('flex min-h-0 flex-1 flex-col', !flush && 'px-4 pt-3')}>
+        {popup.alwaysOnTopProblem && (
+          <p role="alert" className="px-4 py-2 text-xs text-destructive-text">
+            {popup.alwaysOnTopProblem}
+          </p>
+        )}
         {children}
       </div>
     </div>

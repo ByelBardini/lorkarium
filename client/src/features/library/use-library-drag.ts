@@ -1,7 +1,7 @@
-type LibraryDragged = Readonly<{ kind: 'folder' | 'scene' | 'image'; id: string }>;
+type LibraryDragged = Readonly<{ kind: 'folder' | 'scene' | 'image' | 'document'; id: string }>;
 import { useState, type DragEvent } from 'react';
 import { canDrop } from '@/lib/folder-tree';
-import { imageIdOf, type MixedLibrary } from '@/lib/library-entries';
+import { documentIdOf, imageIdOf, type MixedLibrary } from '@/lib/library-entries';
 import type { LibraryIntent } from './library-intents';
 import { NO_FOLDER, sceneIdOf } from './library-view';
 import type { LibrarySubmit } from './use-library-submit';
@@ -51,7 +51,8 @@ export function useLibraryDrag({ library, enabled, submit }: DragOptions): Libra
   if (!enabled) return { treeItemProps: () => ({}) };
   return {
     treeItemProps: (key) => {
-      if (sceneIdOf(key) || imageIdOf(key)) return sourceOf(library, key, sources);
+      if (sceneIdOf(key) || imageIdOf(key) || documentIdOf(key))
+        return sourceOf(library, key, sources);
       return { ...sourceOf(library, key, sources), ...target(key) };
     },
   };
@@ -62,6 +63,9 @@ function sourceOf(
   key: string,
   sources: (item: LibraryDragged, name: string) => DragProps,
 ): DragProps {
+  const document = library.documents?.find(({ id }) => id === documentIdOf(key));
+  if (document)
+    return document.canManage ? sources({ kind: 'document', id: document.id }, document.name) : {};
   const image = library.images?.find(({ id }) => id === imageIdOf(key));
   if (image) return sources({ kind: 'image', id: image.id }, image.name);
   const sceneId = sceneIdOf(key);
@@ -106,6 +110,15 @@ function moveIntent(
   dragged: LibraryDragged,
   folderId: string | null,
 ): LibraryIntent | null {
+  if (dragged.kind === 'document') {
+    const document = library.documents?.find(({ id }) => id === dragged.id);
+    if (!document || !document.canManage || document.folderId === folderId) return null;
+    return {
+      intent: 'updateDocument',
+      documentId: document.id,
+      changes: { actionId: crypto.randomUUID(), expectedVersion: document.version, folderId },
+    };
+  }
   if (dragged.kind === 'image') {
     const image = library.images?.find(({ id }) => id === dragged.id);
     if (!image || image.folderId === folderId) return null;
@@ -129,6 +142,16 @@ export function withPendingMove(
   library: MixedLibrary,
   pending: LibraryIntent | null,
 ): MixedLibrary {
+  if (pending?.intent === 'updateDocument' && pending.changes.folderId !== undefined) {
+    return {
+      ...library,
+      documents: library.documents?.map((document) =>
+        document.id === pending.documentId
+          ? { ...document, folderId: pending.changes.folderId ?? null }
+          : document,
+      ),
+    };
+  }
   if (pending?.intent === 'updateImage' && pending.changes.folderId !== undefined) {
     const images = library.images?.map((image) =>
       image.id === pending.imageId

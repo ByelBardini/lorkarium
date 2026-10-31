@@ -1,10 +1,15 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SceneTabs } from '@/features/board/scene-tabs';
+import { fakeClientWidth } from '../../support/client-width-fake';
 import type { OpenTable } from '@/stores/open-tables-store';
 import { GROUP_TAB } from '@/stores/scene-tabs-store';
-import { VHARN } from '../../support/campaigns-api-fake';
+import { detailOf, VHARN } from '../../support/campaigns-api-fake';
+import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
+import { DocumentsApiFake } from '../../support/documents-api-fake';
+import { InteractionClockFake } from '../../support/interaction-clock-fake';
+import { documentFixture } from '../../support/documents-fixtures';
 import { TORRE_SCENE, estradaBoard, sceneActivated } from '../../support/scene-tab-fixtures';
 import { openTorreTab, openVharnTabs } from '../../support/scene-tabs-harness';
 import { TableSessionApiFake } from '../../support/table-session-api-fake';
@@ -77,5 +82,68 @@ describe('SceneTabs', () => {
   it('a tab whose grid has not loaded yet says so', () => {
     act(() => table.tabs.getState().open('2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e'));
     expect(within(tablist()).getAllByRole('tab').at(-1)).toHaveTextContent('Carregando…');
+  });
+});
+
+describe('SceneTabs in a narrow strip', () => {
+  // 300px fits two 112px tabs beside the "+N" button, not three.
+  let restoreWidth: () => void = () => {};
+  beforeEach(() => {
+    restoreWidth = fakeClientWidth(() => 300);
+  });
+  afterEach(() => restoreWidth());
+
+  it('moves what does not fit into "+N", keeping the group and the tab shown, and shows it from there', async () => {
+    const api = new TableSessionApiFake();
+    const table = openVharnTabs(api);
+    openTorreTab(api, table);
+    const documents = createDocumentWorkspaceStore({
+      api: new DocumentsApiFake(),
+      clock: new InteractionClockFake(),
+    });
+    documents.getState().open({ campaign: detailOf(VHARN), document: documentFixture() });
+    render(<SceneTabs tabs={table.tabs} documents={documents} campaignId={VHARN.id} />);
+    await act(() => Promise.resolve());
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Cena 1Grupo',
+      'Carta',
+    ]);
+    await userEvent.click(screen.getByRole('button', { name: 'Mais 1 aba' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Torre' }));
+    expect(documents.getState().activeByCampaign[VHARN.id]).toBeNull();
+    expect(table.tabs.getState().visibleKey).toBe(TORRE_SCENE.id);
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Cena 1Grupo',
+      'Torre',
+    ]);
+  });
+});
+
+describe('SceneTabs with documents', () => {
+  it('lists documents after the group and grid tabs and switches back without closing its draft', async () => {
+    const api = new TableSessionApiFake();
+    const table = openVharnTabs(api);
+    openTorreTab(api, table);
+    const documents = createDocumentWorkspaceStore({
+      api: new DocumentsApiFake(),
+      clock: new InteractionClockFake(),
+    });
+    const key = documents
+      .getState()
+      .open({ campaign: detailOf(VHARN), document: documentFixture() });
+    render(<SceneTabs tabs={table.tabs} documents={documents} campaignId={VHARN.id} />);
+    await act(() => Promise.resolve());
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Cena 1Grupo', 'Torre', 'Carta']);
+    expect(screen.getByRole('tab', { name: 'Carta' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Torre' })).toHaveAttribute('aria-selected', 'false');
+    await userEvent.click(screen.getByRole('tab', { name: /Cena 1/ }));
+    expect(documents.getState().activeByCampaign[VHARN.id]).toBeNull();
+    expect(documents.getState().entries).toHaveLength(1);
+    await userEvent.click(screen.getByRole('tab', { name: 'Carta' }));
+    expect(documents.getState().activeByCampaign[VHARN.id]).toBe(key);
+    await userEvent.click(screen.getByRole('button', { name: 'Fechar documento Carta' }));
+    expect(screen.queryByRole('tab', { name: 'Carta' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Cena 1/ })).toHaveAttribute('aria-selected', 'true');
   });
 });

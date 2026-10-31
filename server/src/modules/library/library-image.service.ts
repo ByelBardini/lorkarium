@@ -24,7 +24,11 @@ import { LibraryImageNotFoundError } from './library-image.error';
 import { toLibraryImageDto, toImagePresentationState } from './library-image.mapper';
 import { toLibrarySceneDto, toSceneFolderDto } from './library.mapper';
 import { SceneLibraryBo } from './scene-library.bo';
+import { DocumentAccessBo } from '../documents/document-access.bo';
+import { toDocumentSummary } from '../documents/documents.mapper';
+import type { DocumentsDao } from '../documents/documents.dao';
 export type LibraryImageDaos = Readonly<{
+  documents?: Pick<DocumentsDao, 'listOfCampaign' | 'ownersOfCampaign'>;
   campaigns: Pick<CampaignsDao, 'lockById' | 'findById'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
   assets: Pick<AssetsDao, 'findInCampaign'>;
@@ -67,15 +71,25 @@ export class LibraryImageService {
         folders,
         scenes,
       });
-      const visible = tree.visibleTo(
-        new SceneAccessBo(access, campaign.activeSceneId),
-        images.map((row) => row.image.folderId),
-      );
+      const ownerRows = (await daos.documents?.ownersOfCampaign(requester.campaignId)) ?? [];
+      const documentRows = (await daos.documents?.listOfCampaign(requester.campaignId)) ?? [];
+      const documents = documentRows.flatMap((row) => {
+        const owners = ownerRows
+          .filter((owner) => owner.documentId === row.id)
+          .map((owner) => owner.userId);
+        if (!new DocumentAccessBo(access, { ...row, ownerIds: owners }).canRead()) return [];
+        return [toDocumentSummary(row, owners, access)];
+      });
+      const visible = tree.visibleTo(new SceneAccessBo(access, campaign.activeSceneId), [
+        ...images.map((row) => row.image.folderId),
+        ...documents.map((document) => document.folderId),
+      ]);
       return {
         activeSceneId: campaign.activeSceneId,
         folders: visible.folders.map(toSceneFolderDto),
         scenes: visible.scenes.map((row) => toLibrarySceneDto(row, access.isMaster())),
         images: images.map(toLibraryImageDto),
+        documents,
       };
     });
   }

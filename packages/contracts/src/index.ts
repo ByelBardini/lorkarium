@@ -60,3 +60,6 @@ export * from './chat/chat.dto';
 export * from './library/library-image.dto';
 export * from './library/image-presentation.dto';
 export * from './library/campaign-library.dto';
+export * from './documents/document-content.dto';
+export * from './documents/document.dto';
+export * from './documents/document-image.dto';

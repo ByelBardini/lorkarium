@@ -33,6 +33,21 @@ export async function pickGrid(library: Locator, name: string): Promise<void> {
   await expect(gridItemOf(library, name)).toHaveAttribute('aria-selected', 'true');
 }
 
+/** The tabs drawn in the strip and, in order, the ones moved into its "+N" menu: at the 1280px
+ *  viewport the strip fits only the pinned tabs (the group and the one shown). */
+export async function expectTabsOf(
+  page: Page,
+  drawn: readonly (string | RegExp)[],
+  hidden: readonly string[],
+): Promise<void> {
+  await expect(gridTabsOf(page).getByRole('tab')).toHaveText([...drawn]);
+  await page
+    .getByRole('button', { name: `Mais ${hidden.length} ${hidden.length === 1 ? 'aba' : 'abas'}` })
+    .click();
+  await expect(page.getByRole('menuitem')).toHaveText([...hidden]);
+  await page.keyboard.press('Escape');
+}
+
 /** The tab strip at the top of the room ("Grids abertos"). */
 export function gridTabsOf(page: Page): Locator {
   return page.getByRole('tablist', { name: 'Grids abertos' });

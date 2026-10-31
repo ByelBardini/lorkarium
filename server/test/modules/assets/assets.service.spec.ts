@@ -70,6 +70,21 @@ describe('AssetsService', () => {
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
 
+  it('generic upload refuses reserved document purpose before any processing even for master', async () => {
+    await expect(
+      service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'document_image' }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(journal).toEqual([]);
+    expect(assets.rows).toEqual([]);
+  });
+  it('document ingestion keeps static pixels within 4096 px and records its reserved purpose', async () => {
+    const result = await service.uploadDocumentImage(BIA_ID, VHARN_ID, PNG);
+    expect(result).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
+    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(assets.rows[0]).toMatchObject({ purpose: 'document_image', ownerId: BIA_ID });
+    expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
   it('a player cannot upload a library image and processing never starts', async () => {
     await expect(
       service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_image' }),

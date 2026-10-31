@@ -21,6 +21,7 @@ export const assetPurposeDto = z.enum([
   'condition',
   'aura',
   'library_image',
+  'document_image',
 ]);
 
 export type AssetPurposeDto = z.infer<typeof assetPurposeDto>;
@@ -29,6 +30,7 @@ export type AssetPurposeDto = z.infer<typeof assetPurposeDto>;
 export const ASSET_MAX_SIDE: Readonly<Record<AssetPurposeDto, number>> = {
   background: 4096,
   library_image: 4096,
+  document_image: 4096,
   token: 1024,
   // The cover is at most a wide card or the detail banner; 1600 keeps it sharp on 2x screens.
   cover: 1600,
