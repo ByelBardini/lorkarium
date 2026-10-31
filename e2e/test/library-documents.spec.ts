@@ -115,6 +115,11 @@ test('rich document formats a selection, expands a table, and survives reload', 
   await editor.click();
   await editor.press('Control+End');
   await expect.poll(() => master.evaluate<string>('window.getSelection()?.toString()')).toBe('');
+  // The DOM caret moves before ProseMirror reads it; Enter too early replaces the stale "Carta" selection.
+  await expect(panel.getByRole('button', { name: 'Negrito', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
   await editor.press('Enter');
   await expect(editor).toContainText('Carta secreta');
   await panel.getByRole('button', { name: 'Inserir tabela', exact: true }).click();
