@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { DocumentPanel } from '@/features/documents/document-panel';
 import { createDocumentEditorStore } from '@/stores/document-editor-store';
@@ -8,6 +9,7 @@ import { InteractionClockFake } from '../../support/interaction-clock-fake';
 import { ClipboardFake } from '../../support/clipboard-fake';
 import { detailOf, VHARN } from '../../support/campaigns-api-fake';
 import { vharnLibrary } from '../../support/library-fixtures';
+import { GENERAL_TAB_ID, documentText } from '../../support/documents-fixtures';
 
 class WorkspacePanelActions {
   intents: LibraryIntent[] = [];
@@ -55,6 +57,50 @@ describe('document panel workspace ownership', () => {
     });
     expect(api.saves[0]?.name).toBe('Carta pendente');
     expect(store.getState().confirmed?.name).toBe('Carta pendente');
+    store.getState().dispose();
+  });
+  it('a conflict in the tab keeps the name editable and copies the tab draft', async () => {
+    const api = new DocumentsApiFake();
+    const clock = new InteractionClockFake();
+    const clipboard = new ClipboardFake();
+    const store = createDocumentEditorStore({
+      api,
+      campaignId: VHARN.id,
+      documentId: api.document.id,
+      clock,
+      newActionId: () => '10000000-0000-4000-8000-000000000002',
+    });
+    await store.getState().load();
+    const tab = store.getState().openTab(GENERAL_TAB_ID)!;
+    await tab.getState().load();
+    api.tabSaveResults[GENERAL_TAB_ID] = { ok: false, failure: { kind: 'conflict' } };
+    tab.getState().edit({ content: documentText('Meu texto') });
+    await tab.getState().flush();
+    render(
+      <DocumentPanel
+        campaign={detailOf(VHARN)}
+        documentId={api.document.id}
+        api={api}
+        library={vharnLibrary()}
+        live
+        revision={0}
+        clock={clock}
+        clipboard={clipboard}
+        editorStore={store}
+        submit={new WorkspacePanelActions().submit}
+        onChanged={() => undefined}
+      />,
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent('Outra edição foi salva');
+    expect(screen.getByRole('textbox', { name: 'Nome do documento' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Copiar meu rascunho' }));
+    expect(clipboard.copied).toEqual([JSON.stringify(documentText('Meu texto'))]);
+    await userEvent.click(screen.getByRole('button', { name: 'Carregar versão atual' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Descartar alterações' }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(tab.getState()).toMatchObject({ dirty: false, status: 'saved' });
     store.getState().dispose();
   });
 });

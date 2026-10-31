@@ -25,6 +25,7 @@ import {
   vharnBoard,
   vharnState,
 } from '../support/table-session-fixtures';
+import { LYRA_SHEET_ID } from '../support/sheet-fixtures';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const WATCH_TORRE = { actionId: ACTION_ID, campaignId: VHARN.id, sceneId: TORRE_SCENE.id };
@@ -194,6 +195,22 @@ describe('extra grid tabs of a table visit', () => {
     transport.serverEmits('library:changed', libraryChanged());
     expect(tableUpdates.filter(({ kind }) => kind === 'libraryChanged')).toEqual([
       { kind: 'libraryChanged', event: libraryChanged() },
+    ]);
+  });
+
+  it('sheet:changed of this table reaches it; one of another table or with values does not', async () => {
+    await joinedWithGroupBoard();
+    const event = {
+      campaignId: VHARN.id,
+      sheetId: LYRA_SHEET_ID,
+      version: 2,
+      at: '2026-10-31T12:00:00.000Z',
+    };
+    transport.serverEmits('sheet:changed', { ...event, campaignId: QUELM.id });
+    transport.serverEmits('sheet:changed', { ...event, values: { forca: 18 } });
+    transport.serverEmits('sheet:changed', event);
+    expect(tableUpdates.filter(({ kind }) => kind === 'sheetChanged')).toEqual([
+      { kind: 'sheetChanged', event },
     ]);
   });
 });

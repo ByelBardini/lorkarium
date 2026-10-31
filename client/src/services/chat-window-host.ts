@@ -6,6 +6,14 @@ export const IMAGE_WINDOW_URL = '/chat-window.html?panel=image';
 export const IMAGE_WINDOW_FEATURES = 'popup,width=960,height=720';
 export const DOCUMENT_WINDOW_URL = '/chat-window.html?panel=document';
 export const DOCUMENT_WINDOW_FEATURES = 'popup,width=1000,height=800';
+export const SHEET_WINDOW_URL = '/chat-window.html?panel=sheet';
+export const SHEET_WINDOW_FEATURES = 'popup,width=720,height=800';
+export const SHEET_TEMPLATE_WINDOW_URL = '/chat-window.html?panel=sheet-template';
+// The code beside the preview: the library's editor width.
+export const SHEET_TEMPLATE_WINDOW_FEATURES = 'popup,width=1100,height=800';
+export const SHEET_PREVIEW_WINDOW_URL = '/chat-window.html?panel=sheet-preview';
+// A sheet's own size: the room's sheet window.
+export const SHEET_PREVIEW_WINDOW_FEATURES = 'popup,width=720,height=800';
 
 /** A system window (not a tab) the size of the room's side panel. */
 export const CHAT_WINDOW_FEATURES = 'popup,width=420,height=720';

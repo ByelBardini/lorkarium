@@ -1,8 +1,9 @@
-import type { DocumentSummaryDto, DocumentDto } from '@lorkarium/contracts';
-import type { DocumentsApi } from '@/services/documents-api';
+import type { DocumentSummaryDto, DocumentTabDto } from '@lorkarium/contracts';
+import type { DocumentsApi, DocumentsFailure } from '@/services/documents-api';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { ArrowUpRightIcon, FileTextIcon, LockKeyholeIcon, PanelsTopLeftIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ToolbarMenuSelect } from '@/rich-text-editor/toolbar-menu-select';
 import { documentFailureMessage } from './document-messages';
 const DocumentReader = lazy(() => import('@/rich-text-editor/document-editor'));
 
@@ -16,21 +17,10 @@ export type DocumentPreviewProps = Readonly<{
 }>;
 /** A read-only glimpse before opening a document workspace. Example: `<DocumentPreview {...props} />`. */
 export function DocumentPreview(props: DocumentPreviewProps): React.JSX.Element {
-  const [document, setDocument] = useState<DocumentDto | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [attempt, retry] = useState(0);
-  const { api, campaignId, summary, live } = props;
-  useEffect(() => {
-    let current = true;
-    void api.detail(campaignId, summary.id).then((result) => {
-      if (!current) return;
-      setDocument(result.ok ? result.value : null);
-      setProblem(result.ok ? null : documentFailureMessage(result.failure));
-    });
-    return () => {
-      current = false;
-    };
-  }, [api, campaignId, summary.id, summary.version, summary.canEdit, live, attempt]);
+  const [chosenTabId, chooseTab] = useState<string | null>(null);
+  const preview = usePreviewTab(props, chosenTabId);
+  const { summary } = props;
+  const { tab, tabs, problem } = preview;
   return (
     <section
       aria-label="Prévia do documento"
@@ -52,7 +42,17 @@ export function DocumentPreview(props: DocumentPreviewProps): React.JSX.Element 
         {summary.canEdit ? 'Você pode editar' : 'Somente leitura'}
       </div>
       <div className="mx-5 my-6 min-h-52 overflow-hidden rounded-sm border border-border bg-background shadow-sm">
-        {document ? (
+        {tabs.length > 1 && tab && (
+          <div className="border-b border-border px-3 py-1.5">
+            <ToolbarMenuSelect
+              label="Aba da prévia"
+              value={tab.id}
+              options={tabs.map(({ id, name }) => ({ value: id, label: name }))}
+              onChoose={chooseTab}
+            />
+          </div>
+        )}
+        {tab ? (
           <Suspense
             fallback={
               <p role="status" className="p-5 text-sm text-muted-foreground">
@@ -61,7 +61,7 @@ export function DocumentPreview(props: DocumentPreviewProps): React.JSX.Element 
             }
           >
             <div className="pointer-events-none max-h-72 overflow-hidden text-sm">
-              <DocumentReader content={document.content} editable={false} />
+              <DocumentReader key={tab.id} content={tab.content} editable={false} />
             </div>
           </Suspense>
         ) : (
@@ -69,7 +69,7 @@ export function DocumentPreview(props: DocumentPreviewProps): React.JSX.Element 
             <FileTextIcon aria-hidden className="size-8 opacity-35" />
             <p role="status">{problem ?? 'Carregando prévia…'}</p>
             {problem && (
-              <Button variant="outline" size="sm" onClick={() => retry((value) => value + 1)}>
+              <Button variant="outline" size="sm" onClick={preview.retry}>
                 Tentar de novo
               </Button>
             )}
@@ -92,4 +92,43 @@ export function DocumentPreview(props: DocumentPreviewProps): React.JSX.Element 
       </div>
     </section>
   );
+}
+
+type PreviewTab = Readonly<{
+  tab: DocumentTabDto | null;
+  tabs: readonly Readonly<{ id: string; name: string }>[];
+  problem: string | null;
+  retry: () => void;
+}>;
+// The detail lists the tabs the reader sees; the body shown is the chosen one, else the first.
+function usePreviewTab(props: DocumentPreviewProps, chosenTabId: string | null): PreviewTab {
+  const [tab, setTab] = useState<DocumentTabDto | null>(null);
+  const [tabs, setTabs] = useState<PreviewTab['tabs']>([]);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [attempt, retry] = useState(0);
+  const { api, campaignId, summary, live } = props;
+  useEffect(() => {
+    let current = true;
+    const fail = (failure: DocumentsFailure): void => {
+      if (!current) return;
+      setTab(null);
+      setProblem(documentFailureMessage(failure));
+    };
+    void api.detail(campaignId, summary.id).then(async (detail) => {
+      if (!current) return;
+      if (!detail.ok) return fail(detail.failure);
+      setTabs(detail.value.tabs);
+      const shown = detail.value.tabs.find(({ id }) => id === chosenTabId) ?? detail.value.tabs[0];
+      if (!shown) return fail({ kind: 'not_found' });
+      const body = await api.tab(campaignId, summary.id, shown.id);
+      if (!body.ok) return fail(body.failure);
+      if (!current) return;
+      setTab(body.value);
+      setProblem(null);
+    });
+    return () => {
+      current = false;
+    };
+  }, [api, campaignId, summary.id, summary.version, summary.canEdit, live, attempt, chosenTabId]);
+  return { tab, tabs, problem, retry: () => retry((value) => value + 1) };
 }

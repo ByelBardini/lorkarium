@@ -1,7 +1,16 @@
-type LibraryDragged = Readonly<{ kind: 'folder' | 'scene' | 'image' | 'document'; id: string }>;
+type LibraryDragged = Readonly<{
+  kind: 'folder' | 'scene' | 'image' | 'document' | 'sheet-template' | 'sheet';
+  id: string;
+}>;
 import { useState, type DragEvent } from 'react';
 import { canDrop } from '@/lib/folder-tree';
-import { documentIdOf, imageIdOf, type MixedLibrary } from '@/lib/library-entries';
+import {
+  documentIdOf,
+  imageIdOf,
+  sheetIdOf,
+  sheetTemplateIdOf,
+  type MixedLibrary,
+} from '@/lib/library-entries';
 import type { LibraryIntent } from './library-intents';
 import { NO_FOLDER, sceneIdOf } from './library-view';
 import type { LibrarySubmit } from './use-library-submit';
@@ -51,11 +60,17 @@ export function useLibraryDrag({ library, enabled, submit }: DragOptions): Libra
   if (!enabled) return { treeItemProps: () => ({}) };
   return {
     treeItemProps: (key) => {
-      if (sceneIdOf(key) || imageIdOf(key) || documentIdOf(key))
-        return sourceOf(library, key, sources);
+      if (isLeafKey(key)) return sourceOf(library, key, sources);
       return { ...sourceOf(library, key, sources), ...target(key) };
     },
   };
+}
+
+// Items are only dragged; folders (and "Sem pasta") also take drops.
+function isLeafKey(key: string): boolean {
+  return [sceneIdOf, imageIdOf, documentIdOf, sheetTemplateIdOf, sheetIdOf].some(
+    (idOf) => idOf(key) !== null,
+  );
 }
 
 function sourceOf(
@@ -68,6 +83,10 @@ function sourceOf(
     return document.canManage ? sources({ kind: 'document', id: document.id }, document.name) : {};
   const image = library.images?.find(({ id }) => id === imageIdOf(key));
   if (image) return sources({ kind: 'image', id: image.id }, image.name);
+  const template = library.sheetTemplates?.find(({ id }) => id === sheetTemplateIdOf(key));
+  if (template) return sources({ kind: 'sheet-template', id: template.id }, template.name);
+  const sheet = library.sheets?.find(({ id }) => id === sheetIdOf(key));
+  if (sheet) return sources({ kind: 'sheet', id: sheet.id }, sheet.name);
   const sceneId = sceneIdOf(key);
   const scene = library.scenes.find(({ id }) => id === sceneId);
   if (scene) return sources({ kind: 'scene', id: scene.id }, scene.name);
@@ -110,6 +129,8 @@ function moveIntent(
   dragged: LibraryDragged,
   folderId: string | null,
 ): LibraryIntent | null {
+  if (dragged.kind === 'sheet-template') return templateMove(library, dragged.id, folderId);
+  if (dragged.kind === 'sheet') return sheetMove(library, dragged.id, folderId);
   if (dragged.kind === 'document') {
     const document = library.documents?.find(({ id }) => id === dragged.id);
     if (!document || !document.canManage || document.folderId === folderId) return null;
@@ -134,6 +155,27 @@ function moveIntent(
   return { intent: 'updateFolder', folderId: folder.id, changes: { parentId: folderId } };
 }
 
+function templateMove(
+  library: MixedLibrary,
+  templateId: string,
+  folderId: string | null,
+): LibraryIntent | null {
+  const template = library.sheetTemplates?.find(({ id }) => id === templateId);
+  if (!template || template.folderId === folderId) return null;
+  const changes = { expectedVersion: template.version, folderId };
+  return { intent: 'updateSheetTemplate', templateId, changes };
+}
+
+function sheetMove(
+  library: MixedLibrary,
+  sheetId: string,
+  folderId: string | null,
+): LibraryIntent | null {
+  const sheet = library.sheets?.find(({ id }) => id === sheetId);
+  if (!sheet || sheet.folderId === folderId) return null;
+  return { intent: 'updateSheet', sheetId, changes: { actionId: crypto.randomUUID(), folderId } };
+}
+
 /** The library as it will be once the move being sent lands: the grid or folder already in
  *  its new place; a refusal brings the list the server still has, so it goes back.
  *
@@ -142,6 +184,20 @@ export function withPendingMove(
   library: MixedLibrary,
   pending: LibraryIntent | null,
 ): MixedLibrary {
+  if (pending?.intent === 'updateSheet' && pending.changes.folderId !== undefined) {
+    const folderId = pending.changes.folderId;
+    const sheets = library.sheets?.map((sheet) =>
+      sheet.id === pending.sheetId ? { ...sheet, folderId } : sheet,
+    );
+    return { ...library, sheets };
+  }
+  if (pending?.intent === 'updateSheetTemplate' && pending.changes.folderId !== undefined) {
+    const folderId = pending.changes.folderId;
+    const sheetTemplates = library.sheetTemplates?.map((template) =>
+      template.id === pending.templateId ? { ...template, folderId } : template,
+    );
+    return { ...library, sheetTemplates };
+  }
   if (pending?.intent === 'updateDocument' && pending.changes.folderId !== undefined) {
     return {
       ...library,

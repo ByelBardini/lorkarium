@@ -6,6 +6,11 @@ import {
   createDocumentRequestDto,
   updateDocumentRequestDto,
   deleteDocumentRequestDto,
+  createSheetTemplateRequestDto,
+  updateSheetTemplateRequestDto,
+  createSheetRequestDto,
+  updateSheetRequestDto,
+  deleteSheetRequestDto,
 } from '@lorkarium/contracts';
 import { z } from 'zod';
 
@@ -46,6 +51,19 @@ export const libraryIntentDto = z.discriminatedUnion('intent', [
     changes: updateSceneFolderRequestDto,
   }),
   z.strictObject({ intent: z.literal('removeFolder'), folderId: id }),
+  z.strictObject({
+    intent: z.literal('createSheetTemplate'),
+    template: createSheetTemplateRequestDto,
+  }),
+  z.strictObject({
+    intent: z.literal('updateSheetTemplate'),
+    templateId: id,
+    changes: updateSheetTemplateRequestDto,
+  }),
+  z.strictObject({ intent: z.literal('removeSheetTemplate'), templateId: id }),
+  z.strictObject({ intent: z.literal('createSheet'), sheet: createSheetRequestDto }),
+  z.strictObject({ intent: z.literal('updateSheet'), sheetId: id, changes: updateSheetRequestDto }),
+  z.strictObject({ intent: z.literal('removeSheet'), sheetId: id, changes: deleteSheetRequestDto }),
 ]);
 
 export type LibraryIntent = z.infer<typeof libraryIntentDto>;

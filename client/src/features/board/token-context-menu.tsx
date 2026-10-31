@@ -21,6 +21,7 @@ import {
   mainTokenPlayersOf,
   type MainTokenPlayer,
 } from '@/lib/main-token';
+import { TokenSheetItems } from '@/features/sheets/token-sheet-items';
 import { TokenLinkItems, type CardLinkRequest } from '@/features/tokens/token-link-items';
 import type { TokenStyle } from '@/services/table-board-commands';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
@@ -73,7 +74,8 @@ export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
  *  token alone); the master also gets "Ligar à ficha de ▸" / "Desligar da ficha" (with
  *  `characters`), "Tornar invisível" / "Tornar visível" and "Mover para camada". Closing (a choice, Esc, a click away)
- *  tells `onClose`.
+ *  tells `onClose`. Under a `SheetRoomProvider`, "Abrir ficha" (or "Fichas ▸") and the master's "Nova ficha ▸"
+ *  (`TokenSheetItems`) come after the character items.
  *
  *  Example: `{menu && <TokenContextMenu request={menu} board={board} interaction={interaction} onApplyCondition={open} onChangeImage={openImage} onChangeAura={openAura} onClose={() => setMenu(null)} />}` */
 export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Element | null {
@@ -148,6 +150,7 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
             onConfirmLink={props.characters.onConfirmLink}
           />
         )}
+        <TokenSheetItems token={token} name={token.name} isMaster={layerMenu} />
         <DropdownMenuCheckboxItem
           checked={token.defeated}
           onSelect={() => restyle({ defeated: !token.defeated })}

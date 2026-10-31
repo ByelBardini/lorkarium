@@ -2,6 +2,7 @@ import type { MemberCardDto } from '@lorkarium/contracts';
 import { HexagonIcon, ShieldIcon } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
+import { characterAnchorOf } from '@/lib/character-anchor';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { RosterPlayer } from '@/lib/table-roster';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ import {
   StatField,
   type CardEditing,
 } from './player-card-fields';
+import { CharacterSheetButton } from '@/features/sheets/character-sheet-button';
 import { CardBars, CardPortrait, LocateButton, NickLine } from './player-card-parts';
 import { useAwayLabel } from './use-away-label';
 
@@ -106,7 +108,17 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
         {...props}
         name={name}
         editing={editing}
-        actions={roleMenuOf(roleChange, player.assignable, member.name)}
+        actions={
+          <>
+            <CharacterSheetButton
+              memberId={member.userId}
+              anchorTokenId={characterAnchorOf(card, token)}
+              name={name}
+              isMaster={props.isMaster}
+            />
+            {roleMenuOf(roleChange, player.assignable, member.name)}
+          </>
+        }
       />
       <div className="flex flex-col gap-0.5">
         <NoteField

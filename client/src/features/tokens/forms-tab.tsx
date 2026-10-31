@@ -9,7 +9,7 @@ import { FormField } from '@/components/form-field';
 import { SegmentField, type SegmentOption } from '@/components/segment-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { initialsOf } from '@/lib/token-initials';
+import { initialsOf } from '@lorkarium/game-core';
 import type { AssetsApi } from '@/services/assets-api';
 import { FormCard } from './form-card';
 import { FormImageField } from './form-image-field';

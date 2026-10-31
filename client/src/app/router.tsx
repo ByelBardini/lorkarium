@@ -48,6 +48,10 @@ import type { PingCommands } from '@/services/table-pings';
 import type { ChatCommands } from '@/services/chat-commands';
 import type { ChatWindowHost } from '@/services/chat-window-host';
 import type { DiceCommands } from '@/services/dice-commands';
+import type { SheetCommands } from '@/services/sheet-commands';
+import type { SheetsApi } from '@/services/sheets-api';
+import type { SheetTemplatesApi } from '@/services/sheet-templates-api';
+import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import type { SavedRollsApi } from '@/services/saved-rolls-api';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { DiceRendererFactory } from '@/dice-renderer/dice-renderer';
@@ -87,6 +91,11 @@ export type AppDependencies = Readonly<{
   libraryApi: LibraryApi;
   documentsApi: DocumentsApi;
   documentWorkspace: StoreApi<DocumentWorkspaceStore>;
+  sheetsApi: SheetsApi;
+  sheetTemplatesApi: SheetTemplatesApi;
+  /** Where the template editor remembers its divider and console, per person. */
+  sheetEditorLayout: SheetEditorLayoutMemory;
+  sheetCommands: SheetCommands;
   imagePresentationApi: ImagePresentationApi;
   /** "Levar o grupo pra cá" (`scene:activate`). */
   sceneActivation: SceneActivation;

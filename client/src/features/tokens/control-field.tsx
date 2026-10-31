@@ -1,6 +1,6 @@
 import { CheckIcon } from 'lucide-react';
 import { useId } from 'react';
-import { initialsOf } from '@/lib/token-initials';
+import { initialsOf } from '@lorkarium/game-core';
 import { cn } from '@/lib/utils';
 import type { TokenPlayer } from './token-form-state';
 import {

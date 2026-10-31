@@ -5,7 +5,7 @@ import type { SceneTabsStore } from '@/stores/scene-tabs-store';
 import { TokenFace } from '@/features/tokens/token-face';
 import { UserAvatar } from '@/components/user-avatar';
 import { mentionsAny, type ChatMessage } from '@/lib/chat-conversations';
-import { initialsOf } from '@/lib/token-initials';
+import { initialsOf } from '@lorkarium/game-core';
 import { cn } from '@/lib/utils';
 import { MENTION_MARK, whisperMark } from './chat-messages';
 import type { ChatPeople } from './use-chat-people';

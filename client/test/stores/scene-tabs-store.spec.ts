@@ -24,6 +24,7 @@ import { openTorreTab, openVharnTabs } from '../support/scene-tabs-harness';
 import { StorageFake } from '../support/storage-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
+import { LYRA_SHEET_ID } from '../support/sheet-fixtures';
 import {
   LYRA_ID,
   VHARN_SCENE,
@@ -160,6 +161,22 @@ describe('scene tabs store', () => {
     expect(keys(table)).toEqual([GROUP_TAB]);
     expect(visible(table).key).toBe(GROUP_TAB);
     expect(tabsOf(table).getState().notice).toBe(notice);
+  });
+
+  it('sheet:changed is kept as the last change, one new object per event', () => {
+    const table = openVharn();
+    const seen: unknown[] = [];
+    tabsOf(table).subscribe((state) => seen.push(state.sheetChange));
+    const event = {
+      campaignId: VHARN.id,
+      sheetId: LYRA_SHEET_ID,
+      version: 2,
+      at: '2026-10-31T12:00:00.000Z',
+    };
+    api.emitTo(VHARN.id, { kind: 'sheetChanged', event });
+    api.emitTo(VHARN.id, { kind: 'sheetChanged', event: { ...event } });
+    expect(seen).toEqual([event, event]);
+    expect(seen[0]).not.toBe(seen[1]);
   });
 
   it('library:changed grows the library revision', () => {

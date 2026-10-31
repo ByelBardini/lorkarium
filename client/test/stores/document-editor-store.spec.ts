@@ -1,18 +1,23 @@
-import { describe, expect, it } from 'vitest';
-import { createDocumentEditorStore } from '@/stores/document-editor-store';
+import { describe, expect, it, vi } from 'vitest';
+import { createDocumentEditorStore, documentTabEditorKey } from '@/stores/document-editor-store';
 import { DocumentsApiFake } from '../support/documents-api-fake';
 import { InteractionClockFake } from '../support/interaction-clock-fake';
 import {
   DOCUMENT_ACTION_ID,
   DOCUMENT_CAMPAIGN_ID,
   DOCUMENT_ID,
+  GENERAL_TAB_ID,
+  ITEMS_TAB_ID,
+  SECRETS_TAB_ID,
   documentFixture,
+  documentTabFixture,
   documentText,
   documentWrite,
+  tabSummaryFixture,
+  threeTabs,
 } from '../support/documents-fixtures';
 
-async function setup() {
-  const api = new DocumentsApiFake();
+async function setup(api = new DocumentsApiFake()) {
   const clock = new InteractionClockFake();
   const store = createDocumentEditorStore({
     api,
@@ -79,9 +84,7 @@ describe('document autosave', () => {
     expect(api.saves).toEqual([]);
     clock.advance(1);
     await Promise.resolve();
-    expect(api.saves).toEqual([
-      { name: 'B', content: documentText('A'), actionId: DOCUMENT_ACTION_ID, expectedVersion: 0 },
-    ]);
+    expect(api.saves).toEqual([{ name: 'B', actionId: DOCUMENT_ACTION_ID, expectedVersion: 0 }]);
   });
   it('preserves B typed while A is saving and sends it against the acknowledged version', async () => {
     const { api, store } = await setup();
@@ -140,5 +143,139 @@ describe('document autosave', () => {
     await saving;
     expect(store.getState().draft).toBeNull();
     expect(store.getState().confirmed).toBeNull();
+  });
+});
+
+async function withThreeTabs() {
+  const api = new DocumentsApiFake();
+  api.document = documentFixture({ tabs: threeTabs() });
+  const opened = await setup(api);
+  const open = async (tabId: string) => {
+    const tab = opened.store.getState().openTab(tabId)!;
+    await tab.getState().load();
+    return tab;
+  };
+  return { ...opened, open };
+}
+const keyOf = (tabId: string): string =>
+  documentTabEditorKey(DOCUMENT_CAMPAIGN_ID, DOCUMENT_ID, tabId);
+describe('one draft per document tab', () => {
+  it('switching from "Itens" to "Geral" saves "Itens" at once and keeps the drafts apart', async () => {
+    const { api, store, open } = await withThreeTabs();
+    const items = await open(ITEMS_TAB_ID);
+    items.getState().edit({ content: documentText('Espada') });
+    const general = await open(GENERAL_TAB_ID);
+    await Promise.resolve();
+    expect(api.tabSaves).toEqual([
+      {
+        tabId: ITEMS_TAB_ID,
+        actionId: DOCUMENT_ACTION_ID,
+        expectedVersion: 0,
+        content: documentText('Espada'),
+      },
+    ]);
+    expect(general.getState().draft?.content).toEqual(documentText('A'));
+    expect(store.getState().tabEditors[keyOf(ITEMS_TAB_ID)]).toBe(items);
+  });
+  it('the answer for "Itens" does not clear what was typed in "Geral" meanwhile', async () => {
+    const { api, store, open } = await withThreeTabs();
+    const items = await open(ITEMS_TAB_ID);
+    const general = await open(GENERAL_TAB_ID);
+    api.holdTabSaves = true;
+    items.getState().edit({ content: documentText('Espada') });
+    const saving = items.getState().flush();
+    general.getState().edit({ content: documentText('Mapa') });
+    api.heldTabSaves[ITEMS_TAB_ID]?.({
+      ok: true,
+      value: {
+        tab: tabSummaryFixture({ id: ITEMS_TAB_ID, name: 'Itens', version: 1 }),
+        receipt: {
+          actionId: DOCUMENT_ACTION_ID,
+          documentId: DOCUMENT_ID,
+          tabId: ITEMS_TAB_ID,
+          version: 1,
+          operation: 'tab-content',
+        },
+      },
+    });
+    await saving;
+    expect(items.getState()).toMatchObject({ dirty: false, status: 'saved' });
+    expect(general.getState().draft?.content).toEqual(documentText('Mapa'));
+    expect(general.getState().dirty).toBe(true);
+    expect(store.getState().dirty).toBe(true);
+  });
+  it('a conflict in one tab does not pause another', async () => {
+    const { api, open } = await withThreeTabs();
+    const items = await open(ITEMS_TAB_ID);
+    const general = await open(GENERAL_TAB_ID);
+    api.tabSaveResults[ITEMS_TAB_ID] = { ok: false, failure: { kind: 'conflict' } };
+    items.getState().edit({ content: documentText('Espada') });
+    general.getState().edit({ content: documentText('Mapa') });
+    await Promise.all([items.getState().flush(), general.getState().flush()]);
+    expect(items.getState().status).toBe('conflict');
+    expect(general.getState()).toMatchObject({ status: 'saved', dirty: false });
+    expect(api.tabBodies[GENERAL_TAB_ID]?.content).toEqual(documentText('Mapa'));
+  });
+  it('a tab hidden by the master drops its draft on the next read and keeps the others', async () => {
+    const { api, store, open } = await withThreeTabs();
+    const secrets = await open(SECRETS_TAB_ID);
+    const general = await open(GENERAL_TAB_ID);
+    secrets.getState().edit({ content: documentText('Traidor') });
+    general.getState().edit({ content: documentText('Mapa') });
+    api.document = documentFixture({ tabs: threeTabs().filter(({ id }) => id !== SECRETS_TAB_ID) });
+    await store.getState().revalidate();
+    expect(Object.keys(store.getState().tabEditors)).toEqual([keyOf(GENERAL_TAB_ID)]);
+    expect(secrets.getState().draft).toBeNull();
+    expect(general.getState().draft?.content).toEqual(documentText('Mapa'));
+  });
+  it('another tab edited elsewhere is read again when the document lists its new version', async () => {
+    const { api, store, open } = await withThreeTabs();
+    const items = await open(ITEMS_TAB_ID);
+    const before = api.tabReads.length;
+    await store.getState().revalidate();
+    expect(api.tabReads).toHaveLength(before);
+    api.writeTab(
+      documentTabFixture({
+        id: ITEMS_TAB_ID,
+        name: 'Itens',
+        version: 3,
+        content: documentText('Escudo'),
+      }),
+    );
+    await store.getState().revalidate();
+    await vi.waitFor(() => expect(items.getState().draft?.content).toEqual(documentText('Escudo')));
+  });
+  it('a tab command goes against the document version and the next name save uses the new one', async () => {
+    const { api, store } = await withThreeTabs();
+    const created = await store.getState().runTabCommand({ kind: 'create', name: 'Mapas' });
+    expect(created.ok && created.value.receipt.tabId).toBe('10000000-0000-4000-8000-0000000000b1');
+    expect(api.tabCommands[0]).toEqual({
+      operation: 'create',
+      input: { actionId: DOCUMENT_ACTION_ID, expectedVersion: 0, name: 'Mapas' },
+    });
+    expect(store.getState().confirmed?.tabs.map(({ name }) => name)).toEqual([
+      'Geral',
+      'Itens',
+      'Segredos',
+      'Mapas',
+    ]);
+    store.getState().edit({ name: 'Carta nova' });
+    await store.getState().flush();
+    expect(api.saves[0]?.expectedVersion).toBe(1);
+    expect(store.getState().status).toBe('saved');
+  });
+  it('opening a tab the document does not list gives no editor', async () => {
+    const { store } = await withThreeTabs();
+    expect(store.getState().openTab('10000000-0000-4000-8000-0000000000ff')).toBeNull();
+    expect(store.getState().tabEditors).toEqual({});
+  });
+  it('a tab answering 404 drops its draft and reads the tab list again', async () => {
+    const { api, store, open } = await withThreeTabs();
+    await open(SECRETS_TAB_ID);
+    const reads = api.detailCalls;
+    api.tabResults[SECRETS_TAB_ID] = { ok: false, failure: { kind: 'not_found' } };
+    await store.getState().tabEditors[keyOf(SECRETS_TAB_ID)]!.getState().revalidate();
+    expect(store.getState().tabEditors).toEqual({});
+    expect(api.detailCalls).toBe(reads + 1);
   });
 });

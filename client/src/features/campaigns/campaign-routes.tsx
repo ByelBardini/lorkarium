@@ -18,6 +18,8 @@ import { useSession } from '@/stores/session-store';
 import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detail-dialog';
 import { PlayRoomPage } from '@/features/board/play-room-page';
 import { MemberRoleProvider } from '@/features/sessions/member-role-provider';
+import { SheetRoomProvider } from '@/features/sheets/sheet-room';
+import type { SheetRoomServices } from '@/features/sheets/sheet-room-context';
 import { libraryRoute, TABLE_ROUTE_ID } from '@/features/library/library-route';
 import { CONDITIONS_PATH, conditionsRoute } from '@/features/conditions/conditions-route';
 import { CampaignOverview } from './campaign-overview';
@@ -150,7 +152,15 @@ function tableRoute({
   chat,
   chatWindowHost,
   documentWorkspace,
+  sheetsApi,
+  libraryApi,
 }: AppDependencies): () => React.JSX.Element {
+  const sheetServices: SheetRoomServices = {
+    sheetsApi,
+    libraryApi,
+    workspace: documentWorkspace,
+    openTables,
+  };
   return function TableRoute(): React.JSX.Element {
     const { campaign } = useLoaderData<CampaignLoaderData>();
     // The settings and conditions pages cover the room instead of replacing it: the board and the live session
@@ -164,35 +174,37 @@ function tableRoute({
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className={cn('flex min-h-0 flex-1 flex-col', covered && 'invisible')}>
           <MemberRoleProvider changer={campaignsApi}>
-            <PlayRoomPage
-              key={campaign.id}
-              campaign={campaign}
-              openTables={openTables}
-              roomLayout={roomLayout}
-              drawingStyle={drawingStyle}
-              effectAreaStyle={effectAreaStyle}
-              wallStyle={wallStyle}
-              lightReach={lightReach}
-              lightColor={lightColor}
-              auraMotion={auraMotion}
-              clipboard={clipboard}
-              createBoardRenderer={createBoardRenderer}
-              boardCommands={boardCommands}
-              pings={pings}
-              sessionStore={sessionStore}
-              assets={assets}
-              interactionClock={interactionClock}
-              dicePreferences={dicePreferences}
-              createDiceRenderer={createDiceRenderer}
-              createDiceSound={createDiceSound}
-              dice={dice}
-              savedRolls={savedRolls}
-              diceClock={diceClock}
-              chat={chat}
-              chatWindowHost={chatWindowHost}
-              documentWorkspace={documentWorkspace}
-              covered={covered}
-            />
+            <SheetRoomProvider campaign={campaign} services={sheetServices}>
+              <PlayRoomPage
+                key={campaign.id}
+                campaign={campaign}
+                openTables={openTables}
+                roomLayout={roomLayout}
+                drawingStyle={drawingStyle}
+                effectAreaStyle={effectAreaStyle}
+                wallStyle={wallStyle}
+                lightReach={lightReach}
+                lightColor={lightColor}
+                auraMotion={auraMotion}
+                clipboard={clipboard}
+                createBoardRenderer={createBoardRenderer}
+                boardCommands={boardCommands}
+                pings={pings}
+                sessionStore={sessionStore}
+                assets={assets}
+                interactionClock={interactionClock}
+                dicePreferences={dicePreferences}
+                createDiceRenderer={createDiceRenderer}
+                createDiceSound={createDiceSound}
+                dice={dice}
+                savedRolls={savedRolls}
+                diceClock={diceClock}
+                chat={chat}
+                chatWindowHost={chatWindowHost}
+                documentWorkspace={documentWorkspace}
+                covered={covered}
+              />
+            </SheetRoomProvider>
           </MemberRoleProvider>
         </div>
         <Outlet />

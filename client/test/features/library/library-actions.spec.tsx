@@ -16,6 +16,8 @@ describe('the actions of the library', () => {
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Novo grid',
       'Novo documento',
+      'Novo modelo de ficha',
+      'Nova ficha',
       'Nova imagem',
       'Nova pasta',
     ]);

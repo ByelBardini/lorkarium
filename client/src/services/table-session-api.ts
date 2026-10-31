@@ -16,6 +16,7 @@ import type {
   SessionMemberLeftDto,
   SessionMemberUpdatedDto,
   SessionStateDto,
+  SheetChangedEventDto,
   TokensDraggedDto,
   VeiledLightsChangedDto,
 } from '@lorkarium/contracts';
@@ -71,6 +72,8 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'sceneClosed'; event: SceneClosedDto }>
   /** Something in the library changed: read it again by its route. */
   | Readonly<{ kind: 'libraryChanged'; event: LibraryChangedDto }>
+  /** A sheet of the table changed (no values): whoever shows it reads it again by its route. */
+  | Readonly<{ kind: 'sheetChanged'; event: SheetChangedEventDto }>
   | Readonly<{ kind: 'imagePresentationChanged'; event: ImagePresentationChangedDto }>;
 
 /** What reaches the store of one grid: its snapshot, its events and the drags over it. */

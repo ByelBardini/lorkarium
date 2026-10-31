@@ -1,6 +1,8 @@
 import type { CampaignDetailDto, CampaignLibraryDto } from '@lorkarium/contracts';
 import { Suspense, use, useCallback, useRef } from 'react';
 import type { DocumentsApi } from '@/services/documents-api';
+import type { SheetTemplatesApi } from '@/services/sheet-templates-api';
+import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { Clipboard } from '@/services/clipboard';
 import type { ChatWindowHost } from '@/services/chat-window-host';
@@ -17,6 +19,7 @@ import type { ImagePresentationApi } from '@/services/image-presentation-api';
 import type { LibraryFailure, LibraryResult } from '@/services/library-api';
 import type { SessionStore } from '@/stores/session-store';
 import { LibraryBrowser } from './library-browser';
+import { OWNS_ESCAPE_ATTRIBUTE } from '@/features/sheets/sheet-template-workbench';
 import { LibraryHeader } from './library-header';
 import { libraryFailureMessage } from './library-messages';
 import { useRevalidateOnLibraryChange, type LibraryTableView } from './use-library-table';
@@ -32,6 +35,8 @@ export type LibraryDialogProps = Readonly<{
   api: LibraryApi;
   presentations: ImagePresentationApi;
   documentsApi: DocumentsApi;
+  sheetTemplatesApi?: SheetTemplatesApi;
+  sheetEditorLayout?: SheetEditorLayoutMemory;
   clock: InteractionClock;
   clipboard: Clipboard;
   documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
@@ -76,6 +81,12 @@ export function LibraryDialog(props: LibraryDialogProps): React.JSX.Element {
 function keepOpenWhileEditing(event: KeyboardEvent): void {
   const target = event.target;
   if (target instanceof HTMLInputElement && target.type !== 'search') event.preventDefault();
+  // CodeMirror's Esc (leaving the code field, closing its search) must not close the library.
+  if (target instanceof Element && target.closest('[contenteditable="true"]'))
+    event.preventDefault();
+  // The template editor's full-screen preview takes its own Esc (back to the code).
+  if (target instanceof Element && target.closest(`[${OWNS_ESCAPE_ATTRIBUTE}]`))
+    event.preventDefault();
 }
 
 function LibraryLoading({ campaign, onClose }: LibraryDialogProps): React.JSX.Element {

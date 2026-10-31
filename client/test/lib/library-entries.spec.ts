@@ -5,8 +5,12 @@ import {
   imageIdOf,
   imageKey,
   libraryEntries,
+  sheetIdOf,
+  sheetKey,
+  sheetTemplateIdOf,
 } from '@/lib/library-entries';
 import { masterLibrary } from '../support/library-fixtures';
+import { lyraSummary, spareSummary } from '../support/sheet-fixtures';
 
 const portrait = {
   id: 'portrait',
@@ -50,5 +54,22 @@ describe('mixed library entries', () => {
     expect(libraryEntries({ ...masterLibrary(), images: [image] }, 'image')).toEqual([
       { ...image, id: 'image:portrait', kind: 'image' },
     ]);
+  });
+  it('a sheet key never reads as a template key, nor the other way round', () => {
+    expect(sheetIdOf(sheetKey('s1'))).toBe('s1');
+    expect(sheetTemplateIdOf(sheetKey('s1'))).toBeNull();
+    expect(sheetIdOf('sheet-template:t1')).toBeNull();
+  });
+  it('the sheet filter keeps only sheets: public when the table reads them, the holder line given', () => {
+    const table = lyraSummary({ visibility: 'table' });
+    const nobodys = spareSummary({ visibility: 'table' });
+    const library = { ...masterLibrary(), sheets: [table, nobodys, lyraSummary({ id: 'c' })] };
+    const entries = libraryEntries(library, 'sheet', (sheet) => `de ${sheet.name}`);
+    expect(entries.map((entry) => [entry.id, entry.visibility])).toEqual([
+      [sheetKey(table.id), 'public'],
+      [sheetKey(nobodys.id), 'private'],
+      [sheetKey('c'), 'private'],
+    ]);
+    expect(entries[0]).toMatchObject({ kind: 'sheet', holderLabel: 'de Lyra de Vharn' });
   });
 });

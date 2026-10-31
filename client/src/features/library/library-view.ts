@@ -2,6 +2,8 @@ import { useState } from 'react';
 import {
   documentIdOf,
   imageIdOf,
+  sheetIdOf,
+  sheetTemplateIdOf,
   type MixedLibrary,
   type LibraryTypeFilter,
 } from '@/lib/library-entries';
@@ -16,7 +18,10 @@ const SCENE_KEY_PREFIX = 'scene:';
  *
  *  Example: `sceneKey(ossuarioId) // 'scene:0a1b…'` */
 export function sceneKey(sceneId: string): string {
-  return sceneId.startsWith('image:') || sceneId.startsWith('document:')
+  return sceneId.startsWith('image:') ||
+    sceneId.startsWith('document:') ||
+    sheetTemplateIdOf(sceneId) !== null ||
+    sheetIdOf(sceneId) !== null
     ? sceneId
     : `${SCENE_KEY_PREFIX}${sceneId}`;
 }
@@ -35,9 +40,14 @@ export function sceneIdOf(key: string | null): string | null {
  *  Example: `folderForNew(library, sceneKey(ossuarioId)) // catacumbasId` */
 export function folderForNew(
   library: LibraryContents<TreeFolder, TreeScene> &
-    Partial<Pick<MixedLibrary, 'images' | 'documents'>>,
+    Partial<Pick<MixedLibrary, 'images' | 'documents' | 'sheetTemplates' | 'sheets'>>,
   key: string | null,
 ): string | null {
+  const sheetId = sheetIdOf(key);
+  if (sheetId) return library.sheets?.find(({ id }) => id === sheetId)?.folderId ?? null;
+  const templateId = sheetTemplateIdOf(key);
+  if (templateId)
+    return library.sheetTemplates?.find(({ id }) => id === templateId)?.folderId ?? null;
   const documentId = documentIdOf(key);
   if (documentId) return library.documents?.find(({ id }) => id === documentId)?.folderId ?? null;
   const imageId = imageIdOf(key);

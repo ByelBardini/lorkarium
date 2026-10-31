@@ -1,6 +1,8 @@
 import {
   SCENE_FOLDER_NAME_MAX_LENGTH,
   SCENE_NAME_MAX_LENGTH,
+  SHEET_NAME_MAX_LENGTH,
+  type LibrarySceneDto,
   type SceneFolderDto,
 } from '@lorkarium/contracts';
 import {
@@ -10,11 +12,13 @@ import {
   LayoutGridIcon,
   ImageIcon,
   FileTextIcon,
+  FileCode2Icon,
   LockIcon,
+  ScrollTextIcon,
   UsersIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { documentIdOf, imageIdOf, type LibraryEntry } from '@/lib/library-entries';
+import { documentIdOf, imageIdOf, sheetIdOf, type LibraryEntry } from '@/lib/library-entries';
 import type { FolderNode } from '@/lib/folder-tree';
 import { cn } from '@/lib/utils';
 import { folderDescription, sceneDescription } from './library-messages';
@@ -150,9 +154,7 @@ function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Elem
   return (
     <>
       {scenes.map((scene) => {
-        const image = 'asset' in scene;
-        const document = 'kind' in scene && scene.kind === 'document';
-        const isGroupGrid = !image && !document && scene.id === context.groupSceneId;
+        const look = entryLookOf(scene, context);
         return (
           <TreeRow
             key={scene.id}
@@ -160,31 +162,52 @@ function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Elem
             itemKey={sceneKey(scene.id)}
             label={scene.name}
             level={level}
-            description={
-              document
-                ? `Documento · ${scene.visibility === 'public' ? 'Público' : 'Privado'}`
-                : image
-                  ? `Imagem · ${scene.visibility === 'public' ? 'Público' : 'Privado'}`
-                  : 'widthCells' in scene
-                    ? `Grid · ${sceneDescription(scene, context.now, isGroupGrid, context.playersOnline)}`
-                    : 'Documento'
-            }
-            live={isGroupGrid}
-            isPrivate={scene.visibility === 'private'}
-            icon={
-              document ? (
-                <FileTextIcon aria-hidden="true" />
-              ) : image ? (
-                <ImageIcon aria-hidden="true" />
-              ) : (
-                <LayoutGridIcon aria-hidden="true" />
-              )
-            }
+            description={look.description}
+            live={look.isGroupGrid}
+            isPrivate={look.showsLock && scene.visibility === 'private'}
+            icon={look.icon}
           />
         );
       })}
     </>
   );
+}
+
+type EntryLook = Readonly<{
+  description: string;
+  icon: ReactNode;
+  isGroupGrid: boolean;
+  /** Templates and sheets say who sees them in the description, without the lock. */
+  showsLock: boolean;
+}>;
+
+function entryLookOf(entry: LibraryEntry, context: TreeContext): EntryLook {
+  const shown = entry.visibility === 'public' ? 'Público' : 'Privado';
+  const look = (description: string, icon: ReactNode, showsLock = true): EntryLook => ({
+    description,
+    icon,
+    isGroupGrid: false,
+    showsLock,
+  });
+  if ('kind' in entry && entry.kind === 'sheet')
+    return look(entry.holderLabel, <ScrollTextIcon aria-hidden="true" />, false);
+  if ('kind' in entry && entry.kind === 'sheet-template')
+    return look('Modelo de ficha · só mestres', <FileCode2Icon aria-hidden="true" />, false);
+  if ('kind' in entry && entry.kind === 'document')
+    return look(`Documento · ${shown}`, <FileTextIcon aria-hidden="true" />);
+  if ('asset' in entry) return look(`Imagem · ${shown}`, <ImageIcon aria-hidden="true" />);
+  return gridLookOf(entry, context);
+}
+
+function gridLookOf(scene: LibrarySceneDto, context: TreeContext): EntryLook {
+  const isGroupGrid = scene.id === context.groupSceneId;
+  const meta = sceneDescription(scene, context.now, isGroupGrid, context.playersOnline);
+  return {
+    description: `Grid · ${meta}`,
+    icon: <LayoutGridIcon aria-hidden="true" />,
+    isGroupGrid,
+    showsLock: true,
+  };
 }
 
 type TreeRowProps = Readonly<{
@@ -297,26 +320,25 @@ function ItemName(props: TreeRowLineProps): React.JSX.Element {
 function ItemRename({ context, itemKey, label }: TreeRowLineProps): React.JSX.Element | null {
   const editing = context.editing;
   if (!editing) return null;
-  const isScene = sceneIdOf(itemKey) !== null;
+  const field = renameFieldOf(itemKey);
   return (
     <span className="min-w-0 flex-1">
       <RenameField
-        label={
-          documentIdOf(itemKey)
-            ? 'Nome do documento'
-            : imageIdOf(itemKey)
-              ? 'Nome da imagem'
-              : isScene
-                ? 'Nome do grid'
-                : 'Nome da pasta'
-        }
+        label={field.label}
         confirmed={label}
-        maxLength={
-          isScene || imageIdOf(itemKey) ? SCENE_NAME_MAX_LENGTH : SCENE_FOLDER_NAME_MAX_LENGTH
-        }
+        maxLength={field.maxLength}
         onSave={(name) => editing.onRename(itemKey, name)}
         onDone={(byKey) => editing.onDone(byKey ? itemKey : null)}
       />
     </span>
   );
+}
+
+function renameFieldOf(itemKey: string): Readonly<{ label: string; maxLength: number }> {
+  if (sheetIdOf(itemKey)) return { label: 'Nome da ficha', maxLength: SHEET_NAME_MAX_LENGTH };
+  if (documentIdOf(itemKey))
+    return { label: 'Nome do documento', maxLength: SCENE_FOLDER_NAME_MAX_LENGTH };
+  if (imageIdOf(itemKey)) return { label: 'Nome da imagem', maxLength: SCENE_NAME_MAX_LENGTH };
+  if (sceneIdOf(itemKey)) return { label: 'Nome do grid', maxLength: SCENE_NAME_MAX_LENGTH };
+  return { label: 'Nome da pasta', maxLength: SCENE_FOLDER_NAME_MAX_LENGTH };
 }

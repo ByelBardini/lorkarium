@@ -4,51 +4,53 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 
 > **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda a estrutura e os testes.
 
-| Assunto                                                                                     | Arquivo                                               |
-| ------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Tokens de cor, tipografia, forma, componentes base e regras anti-template                   | [`design-system.md`](client/design-system.md)         |
-| Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe                              | [`home.md`](client/home.md)                           |
-| Peças da mesa: capa, status, avisos, tags, prévia, `update`/código/excluir, eventos ao vivo | [`campaign-parts.md`](client/campaign-parts.md)       |
-| Página "Configurações da mesa" na sala: rota, moldura, ação, rascunho, seções, pendência    | [`campaign-settings.md`](client/campaign-settings.md) |
-| Tempo real: transporte Socket.IO, sessão da mesa, mesas abertas da aba, presença e versão   | [`realtime.md`](client/realtime.md)                   |
-| Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos                     | [`board.md`](client/board.md)                         |
-| Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                     | [`board-renderer.md`](client/board-renderer.md)       |
-| Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras                | [`tokens.md`](client/tokens.md)                       |
-| Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Formas, Visão e luz        | [`token-dialog.md`](client/token-dialog.md)           |
-| Formas no mapa: `token:formChanged`, `setTokenForm`, desfazer, "Trocar forma", teclas 1–8   | [`token-forms.md`](client/token-forms.md)             |
-| Chaves de token da mesa: o jogador cria, edita e exclui os seus                             | [`token-rights.md`](client/token-rights.md)           |
-| Auras dos tokens: estado e eventos, formulário (`AuraEditor`), onde se edita, desenho       | [`auras.md`](client/auras.md)                         |
-| Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain`   | [`token-dock.md`](client/token-dock.md)               |
-| Aba "Na mesa": mestres, card de cada jogador (ficha, token principal, barras), ausência     | [`table-people.md`](client/table-people.md)           |
-| Papéis na mesa: dono, co-mestre, juggernaut, troca de papel e o modo do admin               | [`table-roles.md`](client/table-roles.md)             |
-| Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro                | [`combat.md`](client/combat.md)                       |
-| Condições: etiquetas, descrição, stacks, página "Condições da mesa", ferramenta (C)         | [`conditions.md`](client/conditions.md)               |
-| Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)                     | [`drawings.md`](client/drawings.md)                   |
-| Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar                     | [`effect-areas.md`](client/effect-areas.md)           |
-| Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas                    | [`walls.md`](client/walls.md)                         |
-| Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre                | [`vision.md`](client/vision.md)                       |
-| Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender                      | [`lights.md`](client/lights.md)                       |
-| Cone: campo de visão, lanterna, holofote mirado, contorno do mestre                         | [`cones.md`](client/cones.md)                         |
-| Desempenho: orçamento, regras que não podem ser desfeitas, cena de estresse, bench, painel  | [`performance.md`](client/performance.md)             |
-| Biblioteca: rota, modal, árvore de pastas e grids, menu, painel e arrastar                  | [`library.md`](client/library.md)                     |
-| Documentos: editor rico, rascunhos, salvamento, posse e leitura protegida                   | [`documents.md`](client/documents.md)                 |
-| Imagens na biblioteca: cadastro, árvore mista, prévia, apresentação e janela desktop        | [`library-images.md`](client/library-images.md)       |
-| Abas de grid na sala: escopo do comando, `watch`, `scene-tabs-store`, `SceneTabs`           | [`grid-tabs.md`](client/grid-tabs.md)                 |
-| Personagem: elenco, token ligado composto, ligar à ficha, "Adicionar jogadores"             | [`characters.md`](client/characters.md)               |
-| Ping no mapa: cor por pessoa, segurar/Alt+clique, pulso do anel, seta na borda              | [`pings.md`](client/pings.md)                         |
-| Minha conta: perfil, foto, barra de alterações, senha, e-mail, sessões, 2FA, link do e-mail | [`account.md`](client/account.md)                     |
-| Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas  | [`backoffice.md`](client/backoffice.md)               |
-| Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                      | [`dice.md`](client/dice.md)                           |
-| Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro     | [`dice-tab.md`](client/dice-tab.md)                   |
-| Chat da mesa: `chat:send`/`chat:sent`, store de conversas, leitura do campo, feed, destino  | [`chat.md`](client/chat.md)                           |
-| Janelas de Chat, Dados e Imagens: host, portal, controles e portais Radix                   | [`chat-janela.md`](client/chat-janela.md)             |
-| Rotas: tabela, guardas, `restoreOpenTables`, árvore, `next` do login                        | [`rotas.md`](client/rotas.md)                         |
-| Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                          | [`account-links.md`](client/account-links.md)         |
-| Barra de título do app desktop: `WindowTitleBar`, controles, lugar por rota, slot da sala   | [`title-bar.md`](client/title-bar.md)                 |
-| Menu dos campos de texto no app desktop: `isDesktopShell`, itens, `FieldEditing`, raiz      | [`text-field-menu.md`](client/text-field-menu.md)     |
-| Versão nova depois do deploy: impressão do build, aviso, recarga segura                     | [`app-update.md`](client/app-update.md)               |
-| Testes: Vitest em jsdom, setup, `testDependencies()`, fakes do `test/support/`              | [`testes.md`](client/testes.md)                       |
-| Armadilhas gerais do client (router, Radix, React Compiler, jsdom, Playwright)              | [`armadilhas.md`](client/armadilhas.md)               |
+| Assunto                                                                                     | Arquivo                                                       |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Tokens de cor, tipografia, forma, componentes base e regras anti-template                   | [`design-system.md`](client/design-system.md)                 |
+| Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe                              | [`home.md`](client/home.md)                                   |
+| Peças da mesa: capa, status, avisos, tags, prévia, `update`/código/excluir, eventos ao vivo | [`campaign-parts.md`](client/campaign-parts.md)               |
+| Página "Configurações da mesa" na sala: rota, moldura, ação, rascunho, seções, pendência    | [`campaign-settings.md`](client/campaign-settings.md)         |
+| Tempo real: transporte Socket.IO, sessão da mesa, mesas abertas da aba, presença e versão   | [`realtime.md`](client/realtime.md)                           |
+| Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos                     | [`board.md`](client/board.md)                                 |
+| Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                     | [`board-renderer.md`](client/board-renderer.md)               |
+| Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras                | [`tokens.md`](client/tokens.md)                               |
+| Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Formas, Visão e luz        | [`token-dialog.md`](client/token-dialog.md)                   |
+| Formas no mapa: `token:formChanged`, `setTokenForm`, desfazer, "Trocar forma", teclas 1–8   | [`token-forms.md`](client/token-forms.md)                     |
+| Chaves de token da mesa: o jogador cria, edita e exclui os seus                             | [`token-rights.md`](client/token-rights.md)                   |
+| Auras dos tokens: estado e eventos, formulário (`AuraEditor`), onde se edita, desenho       | [`auras.md`](client/auras.md)                                 |
+| Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain`   | [`token-dock.md`](client/token-dock.md)                       |
+| Aba "Na mesa": mestres, card de cada jogador (ficha, token principal, barras), ausência     | [`table-people.md`](client/table-people.md)                   |
+| Papéis na mesa: dono, co-mestre, juggernaut, troca de papel e o modo do admin               | [`table-roles.md`](client/table-roles.md)                     |
+| Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro                | [`combat.md`](client/combat.md)                               |
+| Condições: etiquetas, descrição, stacks, página "Condições da mesa", ferramenta (C)         | [`conditions.md`](client/conditions.md)                       |
+| Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)                     | [`drawings.md`](client/drawings.md)                           |
+| Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar                     | [`effect-areas.md`](client/effect-areas.md)                   |
+| Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas                    | [`walls.md`](client/walls.md)                                 |
+| Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre                | [`vision.md`](client/vision.md)                               |
+| Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender                      | [`lights.md`](client/lights.md)                               |
+| Cone: campo de visão, lanterna, holofote mirado, contorno do mestre                         | [`cones.md`](client/cones.md)                                 |
+| Desempenho: orçamento, regras que não podem ser desfeitas, cena de estresse, bench, painel  | [`performance.md`](client/performance.md)                     |
+| Biblioteca: rota, modal, árvore de pastas e grids, menu, painel e arrastar                  | [`library.md`](client/library.md)                             |
+| Documentos: editor rico, rascunhos, salvamento, posse e leitura protegida                   | [`documents.md`](client/documents.md)                         |
+| Fichas: `SheetsApi`, store, ponte do host, ficha na sala (aba/janela), editor de modelo     | [`sheets.md`](client/sheets.md)                               |
+| Editor de modelo de ficha: CodeMirror, rascunho, prévia, biblioteca, aba e janela           | [`sheet-template-editor.md`](client/sheet-template-editor.md) |
+| Imagens na biblioteca: cadastro, árvore mista, prévia, apresentação e janela desktop        | [`library-images.md`](client/library-images.md)               |
+| Abas de grid na sala: escopo do comando, `watch`, `scene-tabs-store`, `SceneTabs`           | [`grid-tabs.md`](client/grid-tabs.md)                         |
+| Personagem: elenco, token ligado composto, ligar à ficha, "Adicionar jogadores"             | [`characters.md`](client/characters.md)                       |
+| Ping no mapa: cor por pessoa, segurar/Alt+clique, pulso do anel, seta na borda              | [`pings.md`](client/pings.md)                                 |
+| Minha conta: perfil, foto, barra de alterações, senha, e-mail, sessões, 2FA, link do e-mail | [`account.md`](client/account.md)                             |
+| Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas  | [`backoffice.md`](client/backoffice.md)                       |
+| Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                      | [`dice.md`](client/dice.md)                                   |
+| Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro     | [`dice-tab.md`](client/dice-tab.md)                           |
+| Chat da mesa: `chat:send`/`chat:sent`, store de conversas, leitura do campo, feed, destino  | [`chat.md`](client/chat.md)                                   |
+| Janelas de Chat, Dados e Imagens: host, portal, controles e portais Radix                   | [`chat-janela.md`](client/chat-janela.md)                     |
+| Rotas: tabela, guardas, `restoreOpenTables`, árvore, `next` do login                        | [`rotas.md`](client/rotas.md)                                 |
+| Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                          | [`account-links.md`](client/account-links.md)                 |
+| Barra de título do app desktop: `WindowTitleBar`, controles, lugar por rota, slot da sala   | [`title-bar.md`](client/title-bar.md)                         |
+| Menu dos campos de texto no app desktop: `isDesktopShell`, itens, `FieldEditing`, raiz      | [`text-field-menu.md`](client/text-field-menu.md)             |
+| Versão nova depois do deploy: impressão do build, aviso, recarga segura                     | [`app-update.md`](client/app-update.md)                       |
+| Testes: Vitest em jsdom, setup, `testDependencies()`, fakes do `test/support/`              | [`testes.md`](client/testes.md)                               |
+| Armadilhas gerais do client (router, Radix, React Compiler, jsdom, Playwright)              | [`armadilhas.md`](client/armadilhas.md)                       |
 
 ## Estrutura
 
@@ -62,7 +64,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `index.html` + `public/favicon.svg` — favicon: o cristal da `BrandMark` em dourado num círculo `#0c0e11` (o `panel`), traço mais grosso para ler em 16px
 - `src/assets/` — imagens importadas pelo Vite (`evolutiva-mark.png`)
 - `src/index.css` — tokens do tema (único, escuro) e as fontes self-host (`@fontsource-variable`)
-- `src/components/ui/` — componentes shadcn (`button`, `input`, `label`, `checkbox`, `alert`, `textarea`, `radio-group`, `dialog`, `alert-dialog` (confirmação destrutiva, `role="alertdialog"`; gerado pelo `shadcn add` com `--overwrite` e o `button.tsx` do projeto restaurado), `sheet`, `dropdown-menu`, `tooltip`, `context-menu`, `popover`, `tabs`, `switch` (escrito à mão sobre o `radix-ui`)), já ajustados ao design system
+- `src/components/ui/` — componentes shadcn (`button`, `input`, `label`, `checkbox`, `alert`, `textarea`, `radio-group`, `dialog`, `alert-dialog` (confirmação destrutiva, `role="alertdialog"`; gerado pelo `shadcn add` com `--overwrite` e o `button.tsx` do projeto restaurado), `sheet`, `dropdown-menu`, `tooltip`, `context-menu`, `popover`, `tabs`, `switch` (escrito à mão sobre o `radix-ui`), `select` (gerado e reescrito: `position="popper"`, portal da janela por `usePortalContainer`, sem sombra; no lugar do `<select>` nativo, cuja lista aberta o navegador pinta clara)), já ajustados ao design system
 - `src/components/brand-mark.tsx` — `BrandMark` (logo; variantes `full`, `compact` e `icon`, só o cristal, sempre anunciado como "LORKARIUM")
 - `src/components/image-picker.tsx` — `ImagePicker` (área de soltar/colar + botões), sobre `use-image-sender.ts` (`useImageSender`: envio de arquivo e link) e `image-source-buttons.tsx` (`ImageSourceButtons`, `ImageLinkField`, `ImageSendNotice`); detalhe em [`client/board.md`](client/board.md)
 - `src/components/signed-out-redirect.tsx` — `SignedOutRedirect` (sessão caída fora do loader: `signedOut` + `/login?next=<caminho e query>`, `replace`), usado pelo diálogo da biblioteca e pelo `ErrorBoundary` de "Minha conta"

@@ -1,3 +1,4 @@
+import { DOCUMENT_TABS_MAX } from '@lorkarium/contracts';
 import type { DocumentsFailure } from '@/services/documents-api';
 import type { DocumentSaveStatus } from '@/stores/document-editor-store';
 
@@ -21,5 +22,7 @@ export function documentFailureMessage(failure: DocumentsFailure): string {
   if (failure.kind === 'offline') return 'Sem conexão com o servidor.';
   if (failure.kind === 'invalid') return 'Confira os campos e o formato da imagem.';
   if (failure.kind === 'unauthenticated') return 'Sua sessão terminou.';
+  if (failure.kind === 'tab_limit') return `Um documento tem no máximo ${DOCUMENT_TABS_MAX} abas.`;
+  if (failure.kind === 'last_tab') return 'O documento precisa de pelo menos uma aba.';
   return 'Não foi possível concluir. Tente novamente.';
 }

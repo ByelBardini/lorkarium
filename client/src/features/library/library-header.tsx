@@ -11,6 +11,8 @@ export type LibraryControls = Readonly<{
   query: string;
   type?: LibraryTypeFilter;
   onType?: (type: LibraryTypeFilter) => void;
+  /** "Modelos de ficha" among the types: the master only. */
+  sheetTemplates?: boolean;
   onQuery: (query: string) => void;
   visibility: VisibilityFilter | null;
   onVisibility: (visibility: VisibilityFilter) => void;
@@ -80,6 +82,8 @@ function SearchAndFilter({ controls }: Readonly<{ controls: LibraryControls }>) 
           <option value="grid">Grids</option>
           <option value="image">Imagens</option>
           <option value="document">Documentos</option>
+          {controls.sheetTemplates && <option value="sheet-template">Modelos de ficha</option>}
+          <option value="sheet">Fichas</option>
         </select>
       )}
       {controls.visibility && (

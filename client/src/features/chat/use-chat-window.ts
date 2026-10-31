@@ -3,15 +3,21 @@ import {
   CHAT_WINDOW_FEATURES,
   CHAT_WINDOW_MARK,
   CHAT_WINDOW_URL,
+  DICE_WINDOW_URL,
   IMAGE_WINDOW_URL,
   IMAGE_WINDOW_FEATURES,
   DOCUMENT_WINDOW_URL,
   DOCUMENT_WINDOW_FEATURES,
+  SHEET_WINDOW_URL,
+  SHEET_WINDOW_FEATURES,
+  SHEET_TEMPLATE_WINDOW_URL,
+  SHEET_TEMPLATE_WINDOW_FEATURES,
+  SHEET_PREVIEW_WINDOW_URL,
+  SHEET_PREVIEW_WINDOW_FEATURES,
   type ChatWindowHandle,
   type ChatWindowHost,
 } from '@/services/chat-window-host';
 import { useChatWindowTopmost, type ChatWindowTopmost } from './use-chat-window-topmost';
-import { DICE_WINDOW_URL } from '@/services/chat-window-host';
 import type { DesktopWindow } from '@/services/desktop-window';
 
 /** How often the open window is checked: closed by its X, or the chat page loaded. A browser has
@@ -45,6 +51,20 @@ type ChatWindowState = Readonly<{
   closeError: string | null;
 }>;
 
+/** What a window of the room shows: each opens its own page with its own size. */
+export type ChatWindowPanel =
+  'chat' | 'dice' | 'image' | 'document' | 'sheet' | 'sheet-template' | 'sheet-preview';
+
+const WINDOW_OF_PANEL: Readonly<Record<ChatWindowPanel, { url: string; features: string }>> = {
+  chat: { url: CHAT_WINDOW_URL, features: CHAT_WINDOW_FEATURES },
+  dice: { url: DICE_WINDOW_URL, features: CHAT_WINDOW_FEATURES },
+  image: { url: IMAGE_WINDOW_URL, features: IMAGE_WINDOW_FEATURES },
+  document: { url: DOCUMENT_WINDOW_URL, features: DOCUMENT_WINDOW_FEATURES },
+  sheet: { url: SHEET_WINDOW_URL, features: SHEET_WINDOW_FEATURES },
+  'sheet-template': { url: SHEET_TEMPLATE_WINDOW_URL, features: SHEET_TEMPLATE_WINDOW_FEATURES },
+  'sheet-preview': { url: SHEET_PREVIEW_WINDOW_URL, features: SHEET_PREVIEW_WINDOW_FEATURES },
+};
+
 const DOCKED: ChatWindowState = {
   status: 'docked',
   target: null,
@@ -60,7 +80,7 @@ const DOCKED: ChatWindowState = {
 export function useChatWindow(
   campaignId: string,
   host: ChatWindowHost,
-  panel: 'chat' | 'dice' | 'image' | 'document' = 'chat',
+  panel: ChatWindowPanel = 'chat',
   adoptedHandle: ChatWindowHandle | null = null,
 ): ChatWindow {
   const [state, setState] = useState<ChatWindowState>(DOCKED);
@@ -82,25 +102,10 @@ export function useChatWindow(
     const current = handleRef.current;
     if (current && !current.closed) return current.focus();
     resetAlwaysOnTop();
-    const url =
-      panel === 'document'
-        ? DOCUMENT_WINDOW_URL
-        : panel === 'image'
-          ? IMAGE_WINDOW_URL
-          : panel === 'dice'
-            ? DICE_WINDOW_URL
-            : CHAT_WINDOW_URL;
+    const { url, features } = WINDOW_OF_PANEL[panel];
     const name =
       panel === 'chat' ? chatWindowNameOf(campaignId) : `lorkarium-${panel}-${campaignId}`;
-    const opened = host.open(
-      url,
-      name,
-      panel === 'document'
-        ? DOCUMENT_WINDOW_FEATURES
-        : panel === 'image'
-          ? IMAGE_WINDOW_FEATURES
-          : CHAT_WINDOW_FEATURES,
-    );
+    const opened = host.open(url, name, features);
     handleRef.current = opened;
     setState({
       status: opened ? 'detached' : 'blocked',
