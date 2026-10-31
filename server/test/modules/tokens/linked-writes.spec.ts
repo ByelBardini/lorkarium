@@ -103,6 +103,61 @@ describe('writes on a token linked to a character', () => {
     });
   });
 
+  describe('adjustHolderBar (the bar of a sheet)', () => {
+    it('Bia taking 7 PV from the anchor itself locks only the cast and publishes it there', async () => {
+      const change = { op: 'add', amount: -7 } as const;
+
+      const version = await tokens.adjustHolderBar(BIA_ID, VHARN_ID, {
+        ...{ tokenId: LYRA_ANCHOR_ID, sceneId: null, barId: PV_ANCHOR, change },
+      });
+
+      expect(version).toBe(3);
+      expect(table.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+      expect(anchor().bars[0]?.current).toBe(25);
+      const [published] = table.publisher.tokenChanges;
+      expect(published).toMatchObject({ sceneId: VHARN_CAST_ID });
+      expect(published?.privileged).toMatchObject({ version: 3, token: { id: LYRA_ANCHOR_ID } });
+    });
+
+    it('the bar is free above its max but cut at the value limit by the game-core rule', async () => {
+      await tokens.adjustHolderBar(BIA_ID, VHARN_ID, {
+        ...{ tokenId: LYRA_ANCHOR_ID, sceneId: null, barId: PV_ANCHOR },
+        change: { op: 'add', amount: 150_000 },
+      });
+
+      expect(anchor().bars[0]?.current).toBe(99_999);
+    });
+
+    it('Caio on the anchor bar is FORBIDDEN and nothing is published', async () => {
+      const adjusting = tokens.adjustHolderBar(CAIO_ID, VHARN_ID, {
+        ...{ tokenId: LYRA_ANCHOR_ID, sceneId: null, barId: PV_ANCHOR },
+        change: { op: 'add', amount: -7 },
+      });
+
+      await expect(adjusting).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(table.publisher.tokenChanges).toEqual([]);
+    });
+
+    it('a bar of another token is BAR_NOT_FOUND', async () => {
+      const adjusting = tokens.adjustHolderBar(BIA_ID, VHARN_ID, {
+        ...{ tokenId: LYRA_ANCHOR_ID, sceneId: null, barId: `${KAEL_ID}-pv` },
+        change: { op: 'add', amount: -7 },
+      });
+
+      await expect(adjusting).rejects.toMatchObject({ code: 'BAR_NOT_FOUND' });
+    });
+
+    it('a holder on a grid goes the way of token:adjustBar on that grid', async () => {
+      await tokens.adjustHolderBar(BIA_ID, VHARN_ID, {
+        ...{ tokenId: ESTRADA_LYRA_ID, sceneId: VHARN_TORRE_ID, barId: PV_ANCHOR },
+        change: { op: 'add', amount: -7 },
+      });
+
+      expect(table.journal[0]).toBe(LOCK_TORRE);
+      expect(anchor().bars[0]?.current).toBe(25);
+    });
+  });
+
   describe('token:update', () => {
     it('name, initials, side, bars and controllers go to the anchor; sight and size stay on the token', async () => {
       await tokens.update(ANA_ID, VHARN_ID, {

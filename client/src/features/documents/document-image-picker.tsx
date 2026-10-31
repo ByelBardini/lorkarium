@@ -17,37 +17,48 @@ type DocumentImagePickerProps = Readonly<{
   api: DocumentsApi;
   campaignId: string;
   documentId: string;
+  tabId: string;
   images: readonly LibraryImageDto[];
   onChoose: (asset: AssetDto | null) => void;
 }>;
 
-/** Reuses the existing sender against document-scoped routes. Example: `new DocumentImageAssets(api, campaignId, documentId)`. */
+/** Reuses the existing sender against the open tab's image routes. Example: `new DocumentImageAssets(api, campaignId, documentId, tabId)`. */
 class DocumentImageAssets implements AssetsApi {
   constructor(
     private readonly api: DocumentsApi,
     private readonly campaignId: string,
     private readonly documentId: string,
+    private readonly tabId: string,
   ) {}
   async upload(_campaignId: string, file: Blob): Promise<AssetsResult> {
-    return imageAnswer(await this.api.uploadImage(this.campaignId, this.documentId, file));
+    return imageAnswer(
+      await this.api.uploadImage(this.campaignId, this.documentId, this.tabId, file),
+    );
   }
   async importLink(_campaignId: string, url: string): Promise<AssetsResult> {
-    return imageAnswer(await this.api.importImage(this.campaignId, this.documentId, url));
+    return imageAnswer(
+      await this.api.importImage(this.campaignId, this.documentId, this.tabId, url),
+    );
   }
 }
 
 /** Computer, imported URL, or authorized library image. Example: `<DocumentImagePicker {...props} />`. */
 export function DocumentImagePicker(props: DocumentImagePickerProps): React.JSX.Element {
   const assets = useMemo(
-    () => new DocumentImageAssets(props.api, props.campaignId, props.documentId),
-    [props.api, props.campaignId, props.documentId],
+    () => new DocumentImageAssets(props.api, props.campaignId, props.documentId, props.tabId),
+    [props.api, props.campaignId, props.documentId, props.tabId],
   );
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const choose = async (imageId: string): Promise<void> => {
     setBusy(true);
     setProblem(null);
-    const result = await props.api.libraryImage(props.campaignId, props.documentId, imageId);
+    const result = await props.api.libraryImage(
+      props.campaignId,
+      props.documentId,
+      props.tabId,
+      imageId,
+    );
     setBusy(false);
     if (result.ok) props.onChoose(result.value);
     else setProblem(documentFailureMessage(result.failure));

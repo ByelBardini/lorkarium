@@ -14,6 +14,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/documents/` — documentos da biblioteca: conteúdo rico fechado, comandos versionados, resumos e imagens; [contratos](documents/contratos.md).
 - `src/dice/` — rolagem de dados (Socket.IO): comando, ack e eventos com o trajeto 3D; rolagens salvas (REST)
 - `src/chat/` — chat da mesa (Socket.IO): `chat:send`, ack e `chat:sent`, sem versão
+- `src/sheets/` — fichas personalizadas: modelo (código do mestre), ficha na biblioteca (nome, pasta, dono opcional: token ou jogador), valores com orçamento, `sheet:changed`, `sheet:adjustBar` e a ponte frame ↔ host; [contratos](sheets/contratos.md). `src/utf8-length.ts` conta bytes UTF-8 sem `TextEncoder`
 - `test/<área>/` — specs só de DTO com regra própria (`transform`, `pipe`, `refine`)
 
 ## DTOs
@@ -116,6 +117,10 @@ O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, apar
 ### Chat (`chat/`)
 
 `chat.dto.ts` — canal (Mesa/sussurro, privado, grupo), quem fala (si ou token), `chat:send` com ack `messageId` e `chat:sent` sem versão; `ChatClientEvents`/`ChatServerEvents` no `TableClientEvents`/`TableServerEvents`: detalhe em [`contracts/chat.md`](contracts/chat.md).
+
+### Fichas (`sheets/`)
+
+`sheet-template.dto.ts` (modelo: resumo sem código, código com 512 KiB somados, criar e editar com o código inteiro), `sheet.dto.ts` (ficha e resumo da biblioteca, dono `holder`, lista por token, visibilidade `controllers`/`table`, comandos com `actionId`, recibo, `sheet:changed` sem valores, `sheet:adjustBar` com o `barChangeDto`), `sheet-values.dto.ts` (valores JSON com travessia iterativa: 256 KiB, profundidade 8, 1000 chaves, chave de até 64) e `sheet-bridge.dto.ts` (mensagens do `MessagePort`): detalhe em [`sheets/contratos.md`](sheets/contratos.md).
 
 ## Regras de arquitetura
 

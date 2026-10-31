@@ -1,6 +1,16 @@
-import { expect, type Locator, type Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { expect } from '@playwright/test';
 import { BIA, CAIO } from './support/dev-players';
+import {
+  campaignIdOf,
+  changeDocument,
+  createDocument,
+  documentUrl,
+  expandDocument,
+  pastePortraitIntoDocument,
+  readDocument,
+  readTabContent,
+  showDocumentTab,
+} from './support/documents';
 import { gridItemOf, gridTabsOf, openLibrary, pickGrid } from './support/library';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
@@ -10,77 +20,6 @@ import {
   enterFromTheList,
   joinByCodeAndEnter,
 } from './support/tables';
-
-type DocumentRecord = {
-  id: string;
-  name: string;
-  version: number;
-  content: object;
-  ownerIds?: string[];
-};
-function campaignIdOf(page: Page): string {
-  const id = /\/campaigns\/([0-9a-f-]{36})/.exec(new URL(page.url()).pathname)?.[1];
-  if (!id) throw new Error(`Expected campaign ID in ${page.url()}`);
-  return id;
-}
-function documentUrl(page: Page, documentId: string): string {
-  return `/api/campaigns/${campaignIdOf(page)}/documents/${documentId}`;
-}
-async function createDocument(page: Page, library: Locator, name: string): Promise<string> {
-  await library.getByRole('button', { name: 'Criar item' }).click();
-  const created = page.waitForResponse(
-    (response) => response.request().method() === 'POST' && response.url().endsWith('/documents'),
-  );
-  await page.getByRole('menuitem', { name: 'Novo documento', exact: true }).click();
-  const response = await created;
-  expect(response.status()).toBe(201);
-  const answer: { document: DocumentRecord } = await response.json();
-  await library.getByRole('button', { name: 'Expandir documento', exact: true }).click();
-  await expect(library).toBeHidden();
-  const panel = page.getByRole('region', { name: 'Documento escolhido' });
-  const title = panel.getByRole('textbox', { name: 'Nome do documento' });
-  await expect(title).toBeFocused();
-  await title.fill(name);
-  await expect.poll(async () => (await readDocument(page, answer.document.id)).name).toBe(name);
-  await expect(panel.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible();
-  await expect(gridTabsOf(page).getByRole('tab', { name, exact: true })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
-  return answer.document.id;
-}
-async function expandDocument(page: Page, library: Locator, name: string): Promise<Locator> {
-  await pickGrid(library, name);
-  await expect(library.getByRole('region', { name: 'Prévia do documento' })).toBeVisible();
-  await expect(library.getByRole('toolbar', { name: 'Formatação do documento' })).toHaveCount(0);
-  await library.getByRole('button', { name: 'Expandir documento', exact: true }).click();
-  await expect(library).toBeHidden();
-  const panel = page.getByRole('region', { name: 'Documento escolhido' });
-  await expect(panel).toBeVisible();
-  return panel;
-}
-// At the 1280px viewport the tab strip fits only the pinned tabs, so an inactive document sits in "+N".
-async function showDocumentTab(page: Page, name: string): Promise<void> {
-  await page.getByRole('button', { name: /^Mais \d+ abas?$/ }).click();
-  await page.getByRole('menuitem', { name, exact: true }).click();
-  await expect(gridTabsOf(page).getByRole('tab', { name, exact: true })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
-}
-async function readDocument(page: Page, id: string): Promise<DocumentRecord> {
-  const response = await page.request.get(documentUrl(page, id));
-  expect(response.status()).toBe(200);
-  const answer: { document: DocumentRecord } = await response.json();
-  return answer.document;
-}
-async function changeDocument(page: Page, id: string, changes: object): Promise<void> {
-  const current = await readDocument(page, id);
-  const response = await page.request.patch(documentUrl(page, id), {
-    data: { actionId: crypto.randomUUID(), expectedVersion: current.version, ...changes },
-  });
-  expect(response.status()).toBe(200);
-}
 
 test('rich document formats a selection, expands a table, and survives reload', async ({
   newPlayerPage,
@@ -127,25 +66,9 @@ test('rich document formats a selection, expands a table, and survives reload', 
   await panel.getByRole('button', { name: 'Mais opções de formatação', exact: true }).click();
   await master.getByRole('menuitem', { name: 'Adicionar linha', exact: true }).click();
   await expect(editor.locator('tr')).toHaveCount(3);
-  const imageBytes = readFileSync(
-    new URL('./fixtures/library-portrait.png', import.meta.url),
-  ).toString('base64');
-  await master.evaluate<void>(
-    `(() => {
-    const element=document.querySelector('[aria-label="Conteúdo do documento"]');
-    const encoded=${JSON.stringify(imageBytes)};
-    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
-    const clipboard = new DataTransfer();
-    clipboard.items.add(new File([bytes], 'retrato.png', { type: 'image/png' }));
-    element.dispatchEvent(
-      new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true }),
-    );
-  })()`,
-  );
+  await pastePortraitIntoDocument(master);
   await expect(editor.locator('img')).toHaveCount(1);
-  await expect
-    .poll(async () => JSON.stringify((await readDocument(master, id)).content))
-    .toContain('24px');
+  await expect.poll(() => readTabContent(master, id, 'Geral')).toContain('24px');
   await expect(panel.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible();
   await master.screenshot({ path: testInfo.outputPath('document-toolbar-and-table.png') });
   await master.reload();
@@ -265,7 +188,7 @@ test('document popup opens directly from preview and saves while the primary win
     .fill('Rascunho salvo pela janela separada');
   await expect(panel.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible();
   await expect
-    .poll(async () => JSON.stringify((await readDocument(master, id)).content))
+    .poll(() => readTabContent(master, id, 'Geral'))
     .toContain('Rascunho salvo pela janela separada');
   await expect(boardOf(master)).toBeVisible();
   await popup.close();

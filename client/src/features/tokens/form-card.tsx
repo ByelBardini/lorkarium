@@ -1,4 +1,4 @@
-import { initialsOf } from '@/lib/token-initials';
+import { initialsOf } from '@lorkarium/game-core';
 import { cn } from '@/lib/utils';
 import { formSizeText, type FormDraft } from './forms-form-state';
 import { TokenFace } from './token-face';

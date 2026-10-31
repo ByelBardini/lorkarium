@@ -93,6 +93,7 @@ import {
   type Handler,
 } from './board-command-edge';
 import { bindCharacterCommands } from './character-commands';
+import { bindSheetCommands, type SheetCommandsDeps } from './sheet-commands';
 import {
   bindConditionCatalogCommands,
   type ConditionCatalogCommandsDeps,
@@ -121,6 +122,7 @@ export type BoardGatewayDeps = Readonly<{
     'define' | 'apply' | 'applyMany' | 'remove' | 'setRounds' | 'setStacks'
   >;
   conditionCatalog: ConditionCatalogCommandsDeps['conditionCatalog'];
+  sheetBars: SheetCommandsDeps['sheetBars'];
   combat: Pick<
     CombatService,
     | 'start'
@@ -273,6 +275,7 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     );
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
     bindCharacterCommands(socket, { mutate, write }, deps);
+    bindSheetCommands(socket, mutate, deps);
     socket.on(
       'token:createMany',
       create(createTokensCommandDto, tokenBatch.createMany.bind(tokenBatch)),

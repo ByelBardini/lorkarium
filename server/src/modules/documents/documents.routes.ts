@@ -3,8 +3,14 @@ import {
   ASSET_MAX_BYTES,
   ASSET_MIME_TYPES,
   createDocumentRequestDto,
+  createDocumentTabRequestDto,
   deleteDocumentRequestDto,
+  deleteDocumentTabRequestDto,
   documentParamsDto,
+  documentTabParamsDto,
+  reorderDocumentTabsRequestDto,
+  updateDocumentTabContentRequestDto,
+  updateDocumentTabRequestDto,
   importDocumentImageRequestDto,
   documentImageFromLibraryRequestDto,
   updateDocumentContentRequestDto,
@@ -24,15 +30,36 @@ import { AssetError } from '../assets/assets.error';
 import { LibraryError } from '../library/library.error';
 import { LibraryImageNotFoundError } from '../library/library-image.error';
 import type { LibraryRequester } from '../library/library.service';
-import { DocumentError, DocumentNotFoundError } from './documents.error';
+import {
+  DocumentError,
+  DocumentNotFoundError,
+  DocumentTabNotFoundError,
+  type DocumentErrorCode,
+} from './documents.error';
 import type { DocumentsService } from './documents.service';
-import type { DocumentImagesService } from './document-images.service';
+import type { DocumentTabsService } from './document-tabs.service';
+import type { DocumentImagesService, DocumentTabTarget } from './document-images.service';
 
 const DOCUMENTS = '/campaigns/:campaignId/documents';
 const DOCUMENT = `${DOCUMENTS}/:documentId`;
+const TABS = `${DOCUMENT}/tabs`;
+const TAB = `${TABS}/:tabId`;
+const DOCUMENT_ERROR_STATUS: Partial<Record<DocumentErrorCode, number>> = {
+  DOCUMENT_VERSION_CONFLICT: 409,
+  DOCUMENT_ACTION_REUSED: 409,
+  DOCUMENT_TAB_LAST: 409,
+  DOCUMENT_TAB_LIMIT: 422,
+};
+export type DocumentServices = Readonly<{
+  documents: DocumentsService;
+  tabs: DocumentTabsService;
+  images: DocumentImagesService;
+}>;
+/** The document, tab and tab-image routes under `/campaigns/:campaignId/documents`.
+ *
+ *  Example: `await app.register(documentsRoutes({ documents, tabs, images }), { prefix: '/api' })` */
 export function documentsRoutes(
-  service: DocumentsService,
-  images: DocumentImagesService,
+  services: DocumentServices,
 ): (app: FastifyInstance) => Promise<void> {
   return async (app) => {
     app.setErrorHandler(documentErrorReply);
@@ -44,8 +71,10 @@ export function documentsRoutes(
     app.addContentTypeParser([...ASSET_MIME_TYPES], { parseAs: 'buffer' }, (_request, body, done) =>
       done(null, body),
     );
-    registerDocumentRoutes(app, service);
-    registerImageRoutes(app, images);
+    registerDocumentRoutes(app, services.documents);
+    registerTabRoutes(app, services.tabs);
+    registerTabContentRoutes(app, services.tabs);
+    registerImageRoutes(app, services.images);
   };
 }
 function registerDocumentRoutes(app: FastifyInstance, service: DocumentsService): void {
@@ -87,6 +116,49 @@ function registerDocumentRoutes(app: FastifyInstance, service: DocumentsService)
     return reply.code(204).send();
   });
 }
+function registerTabRoutes(app: FastifyInstance, tabs: DocumentTabsService): void {
+  const options = { preHandler: app.authGuards.requireAuth, bodyLimit: 1024 * 1024 };
+  app.post(TABS, options, async (request, reply) =>
+    reply
+      .code(201)
+      .send(
+        await tabs.create(
+          requesterOf(app, request),
+          documentIdOf(request),
+          createDocumentTabRequestDto.parse(request.body),
+        ),
+      ),
+  );
+  app.patch(`${TABS}/order`, options, (request) =>
+    tabs.reorder(
+      requesterOf(app, request),
+      documentIdOf(request),
+      reorderDocumentTabsRequestDto.parse(request.body),
+    ),
+  );
+  app.patch(TAB, options, (request) => {
+    const { documentId, tabId } = tabTargetOf(request);
+    const input = updateDocumentTabRequestDto.parse(request.body);
+    return tabs.update(requesterOf(app, request), documentId, tabId, input);
+  });
+  app.delete(TAB, options, (request) => {
+    const { documentId, tabId } = tabTargetOf(request);
+    const input = deleteDocumentTabRequestDto.parse(request.body);
+    return tabs.delete(requesterOf(app, request), documentId, tabId, input);
+  });
+}
+function registerTabContentRoutes(app: FastifyInstance, tabs: DocumentTabsService): void {
+  const options = { preHandler: app.authGuards.requireAuth, bodyLimit: 1024 * 1024 };
+  app.get(TAB, options, async (request) => {
+    const { documentId, tabId } = tabTargetOf(request);
+    return { tab: await tabs.get(requesterOf(app, request), documentId, tabId) };
+  });
+  app.patch(`${TAB}/content`, options, (request) => {
+    const { documentId, tabId } = tabTargetOf(request);
+    const input = updateDocumentTabContentRequestDto.parse(request.body);
+    return tabs.updateContent(requesterOf(app, request), documentId, tabId, input);
+  });
+}
 function registerImageRoutes(app: FastifyInstance, images: DocumentImagesService): void {
   const onRequest = app.authGuards.requireAuth as onRequestAsyncHookHandler;
   const options = {
@@ -100,28 +172,24 @@ function registerImageRoutes(app: FastifyInstance, images: DocumentImagesService
       },
     },
   };
-  app.post(
-    `${DOCUMENT}/images`,
-    { ...options, bodyLimit: ASSET_MAX_BYTES },
-    async (request, reply) => {
-      const asset = await images.upload(
-        requesterOf(app, request),
-        documentIdOf(request),
-        new Uint8Array(request.body as Buffer),
-      );
-      return reply.code(201).send({ asset });
-    },
-  );
-  app.post(`${DOCUMENT}/images/import`, options, async (request, reply) => {
+  app.post(`${TAB}/images`, { ...options, bodyLimit: ASSET_MAX_BYTES }, async (request, reply) => {
+    const asset = await images.upload(
+      requesterOf(app, request),
+      tabTargetOf(request),
+      new Uint8Array(request.body as Buffer),
+    );
+    return reply.code(201).send({ asset });
+  });
+  app.post(`${TAB}/images/import`, options, async (request, reply) => {
     const { url } = importDocumentImageRequestDto.parse(request.body);
     return reply.code(201).send({
-      asset: await images.importLink(requesterOf(app, request), documentIdOf(request), url),
+      asset: await images.importLink(requesterOf(app, request), tabTargetOf(request), url),
     });
   });
-  app.post(`${DOCUMENT}/images/from-library`, options, async (request, reply) => {
+  app.post(`${TAB}/images/from-library`, options, async (request, reply) => {
     const { imageId } = documentImageFromLibraryRequestDto.parse(request.body);
     return reply.code(201).send({
-      asset: await images.fromLibrary(requesterOf(app, request), documentIdOf(request), imageId),
+      asset: await images.fromLibrary(requesterOf(app, request), tabTargetOf(request), imageId),
     });
   });
 }
@@ -138,6 +206,13 @@ function documentIdOf(request: FastifyRequest): string {
   if (!parsed.success) throw new DocumentNotFoundError(String(campaignId), String(documentId));
   return parsed.data;
 }
+function tabTargetOf(request: FastifyRequest): DocumentTabTarget {
+  const documentId = documentIdOf(request);
+  const { tabId } = request.params as Record<string, unknown>;
+  const parsed = documentTabParamsDto.shape.tabId.safeParse(tabId);
+  if (!parsed.success) throw new DocumentTabNotFoundError(documentId, String(tabId));
+  return { documentId, tabId: parsed.data };
+}
 async function documentErrorReply(
   error: FastifyError,
   request: FastifyRequest,
@@ -145,19 +220,10 @@ async function documentErrorReply(
 ): Promise<FastifyReply> {
   if (error instanceof ZodError) return reply.code(400).send(invalidBodyError(error));
   if (error instanceof DocumentError)
-    return reply
-      .code(
-        error.code === 'DOCUMENT_VERSION_CONFLICT' || error.code === 'DOCUMENT_ACTION_REUSED'
-          ? 409
-          : 404,
-      )
-      .send({
-        code: error.code,
-        message:
-          error.code === 'DOCUMENT_VERSION_CONFLICT'
-            ? 'Document version conflict'
-            : 'Document not available',
-      });
+    return reply.code(DOCUMENT_ERROR_STATUS[error.code] ?? 404).send({
+      code: error.code,
+      message: documentErrorMessage(error.code),
+    });
   if (error instanceof CampaignError)
     return reply.code(error.code === 'FORBIDDEN' ? 403 : 404).send({
       code: error.code,
@@ -184,4 +250,10 @@ async function documentErrorReply(
     return reply.code(error.statusCode).send({ code: error.code, message: error.message });
   request.log.error({ err: error }, 'unexpected error in documents');
   return reply.code(500).send({ code: 'INTERNAL_ERROR', message: 'Unexpected server error' });
+}
+function documentErrorMessage(code: DocumentErrorCode): string {
+  if (code === 'DOCUMENT_VERSION_CONFLICT') return 'Document version conflict';
+  if (code === 'DOCUMENT_TAB_LIMIT') return 'Document tab limit reached';
+  if (code === 'DOCUMENT_TAB_LAST') return 'A document keeps at least one tab';
+  return 'Document not available';
 }

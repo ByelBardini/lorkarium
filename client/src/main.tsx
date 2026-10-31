@@ -30,6 +30,10 @@ import { RealtimeChatCommands } from '@/services/chat-commands';
 import { BrowserChatWindowHost } from '@/services/chat-window-host';
 import { TauriChatWindowHost } from '@/services/desktop-chat-window-host';
 import { RealtimeDiceCommands } from '@/services/dice-commands';
+import { RealtimeSheetCommands } from '@/services/sheet-commands';
+import { HttpSheetsApi, fetchAssetBytes } from '@/services/sheets-api';
+import { HttpSheetTemplatesApi } from '@/services/sheet-templates-api';
+import { storedSheetEditorLayout } from '@/lib/sheet-editor-layout';
 import { createWebAudioDiceSound } from '@/dice-audio/web-audio-dice-sound';
 import { HttpSavedRollsApi } from '@/services/saved-rolls-api';
 import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
@@ -74,8 +78,19 @@ const auraMotion = createAuraMotionStore(browserStorage);
 const transport = new FetchHttpTransport();
 const imagePresentationApi = new HttpImagePresentationApi(transport);
 const documentsApi = new HttpDocumentsApi(transport);
-const documentWorkspace = createDocumentWorkspaceStore({ api: documentsApi, clock: browserClock });
+const sheetsApi = new HttpSheetsApi(transport, fetchAssetBytes());
+const sheetTemplatesApi = new HttpSheetTemplatesApi(transport);
+const documentWorkspace = createDocumentWorkspaceStore({
+  api: documentsApi,
+  sheetsApi,
+  sheetTemplatesApi,
+  clock: browserClock,
+});
 const newActionId = (): string => crypto.randomUUID();
+const signedInUserId = (): string | null => {
+  const { session } = sessionStore.getState();
+  return session.status === 'authenticated' ? session.user.id : null;
+};
 // One socket for every open table: the session, the board sync and the board commands.
 const realtime = new SocketIoRealtimeTransport();
 const tableSessionApi = new RealtimeTableSessionApi(realtime, newActionId);
@@ -100,6 +115,10 @@ const router = createBrowserRouter(
     libraryApi: new HttpLibraryApi(transport),
     documentsApi,
     documentWorkspace,
+    sheetsApi,
+    sheetTemplatesApi,
+    sheetEditorLayout: storedSheetEditorLayout(browserStorage, signedInUserId),
+    sheetCommands: new RealtimeSheetCommands(realtime, newActionId),
     imagePresentationApi,
     sceneActivation: new RealtimeSceneActivation(realtime, newActionId),
     assets: new HttpAssetsApi(transport),

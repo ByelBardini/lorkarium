@@ -3,16 +3,21 @@ import { describe, expect, it } from 'vitest';
 import { campaigns } from '../../src/modules/campaigns/campaigns.po';
 import {
   libraryDocumentActions,
-  libraryDocumentAssets,
   libraryDocumentOwners,
   libraryDocuments,
 } from '../../src/modules/documents/documents.po';
+import { libraryDocumentAssets } from '../../src/modules/documents/document-assets.po';
+import { libraryDocumentTabs } from '../../src/modules/documents/document-tabs.po';
 import { SceneFoldersDao } from '../../src/modules/library/scene-folders.dao';
-import { DocumentHttpHarness } from '../support/document-http';
+import type { DocumentDto } from '@lorkarium/contracts';
+import { DocumentHttpHarness, firstTabOf } from '../support/document-http';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
 const documents = new DocumentHttpHarness(live);
+function tabOf(document: DocumentDto): Readonly<{ documentId: string; tabId: string }> {
+  return { documentId: document.id, tabId: firstTabOf(document).id };
+}
 describe('document database campaign constraints', () => {
   it('rejects a folder of campaign B in a document of campaign A', async () => {
     const document = await documents.create();
@@ -45,7 +50,7 @@ describe('document database campaign constraints', () => {
     await expect(
       live.connection.db
         .insert(libraryDocumentAssets)
-        .values({ campaignId: live.vharn.id, documentId: document.id, assetId: asset.id }),
+        .values({ ...tabOf(document), campaignId: live.vharn.id, assetId: asset.id }),
     ).rejects.toMatchObject({ cause: { code: '23503' } });
     expect(await live.connection.db.select().from(libraryDocumentAssets)).toEqual([]);
   });
@@ -60,7 +65,7 @@ describe('document database campaign constraints', () => {
     await expect(
       live.connection.db
         .insert(libraryDocumentAssets)
-        .values({ campaignId: live.quelm.id, documentId: document.id, assetId: asset.id }),
+        .values({ ...tabOf(document), campaignId: live.quelm.id, assetId: asset.id }),
     ).rejects.toMatchObject({ cause: { code: '23503' } });
   });
   it('cascades documents, owners, references and receipts when the campaign is deleted', async () => {
@@ -70,10 +75,11 @@ describe('document database campaign constraints', () => {
     const asset = await live.sendImage(live.ana, live.vharn);
     await live.connection.db
       .insert(libraryDocumentAssets)
-      .values({ campaignId: live.vharn.id, documentId: document.id, assetId: asset.id });
+      .values({ ...tabOf(document), campaignId: live.vharn.id, assetId: asset.id });
     expect((await live.connection.db.select().from(libraryDocumentActions)).length).toBe(2);
     await live.connection.db.delete(campaigns).where(eq(campaigns.id, live.vharn.id));
     expect(await live.connection.db.select().from(libraryDocuments)).toEqual([]);
+    expect(await live.connection.db.select().from(libraryDocumentTabs)).toEqual([]);
     expect(await live.connection.db.select().from(libraryDocumentOwners)).toEqual([]);
     expect(await live.connection.db.select().from(libraryDocumentAssets)).toEqual([]);
     expect(await live.connection.db.select().from(libraryDocumentActions)).toEqual([]);

@@ -1,4 +1,4 @@
-import { imageIdOf } from '@/lib/library-entries';
+import { imageIdOf, sheetIdOf } from '@/lib/library-entries';
 import { useState } from 'react';
 import type { LibraryIntent } from './library-intents';
 import { sceneIdOf } from './library-view';
@@ -51,6 +51,9 @@ export function useTreeEditing(
 }
 
 function renameIntent(key: string, name: string): LibraryIntent {
+  const sheetId = sheetIdOf(key);
+  if (sheetId)
+    return { intent: 'updateSheet', sheetId, changes: { actionId: crypto.randomUUID(), name } };
   const imageId = imageIdOf(key);
   if (imageId) return { intent: 'updateImage', imageId, changes: { name } };
   const sceneId = sceneIdOf(key);

@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { ChevronDownIcon, FileTextIcon, XIcon } from 'lucide-react';
+import { useMemo, useRef } from 'react';
+import { ChevronDownIcon, FileCode2Icon, FileTextIcon, ScrollTextIcon, XIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,14 +8,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { moveFocusAlongTabs } from '@/lib/tab-focus';
 import { splitTabsToFit, tabsThatFit } from '@/lib/tab-overflow';
 import { useElementWidth } from '@/lib/use-element-width';
 import { cn } from '@/lib/utils';
 import { useBoard } from '@/stores/board-store';
 import {
   useDocumentWorkspaceSlice,
+  workspaceItemTitle,
   type DocumentWorkspaceStore,
-  type DocumentWorkspaceEntry,
+  type WorkspaceItem,
 } from '@/stores/document-workspace-store';
 import {
   GROUP_TAB,
@@ -29,7 +31,7 @@ export type SceneTabsProps = Readonly<{
   documents?: StoreApi<DocumentWorkspaceStore>;
   campaignId?: string;
 }>;
-const NO_DOCUMENTS: readonly DocumentWorkspaceEntry[] = [];
+const NO_ITEMS: readonly WorkspaceItem[] = [];
 
 const LOADING_NAME = 'Carregando…';
 
@@ -47,8 +49,7 @@ export function SceneTabs({ tabs, documents, campaignId }: SceneTabsProps): Reac
     (state) => state.activeByCampaign[campaignId ?? ''] ?? null,
     null,
   );
-  const allDocuments = useDocumentWorkspaceSlice(documents, (state) => state.entries, NO_DOCUMENTS);
-  const documentEntries = allDocuments.filter((entry) => entry.campaign.id === campaignId);
+  const documentEntries = useWorkspaceItemsOf(documents, campaignId);
   const strip = useRef<HTMLDivElement>(null);
   const width = useElementWidth(strip);
   const keys = [...open.map((tab) => tab.key), ...documentEntries.map((entry) => entry.key)];
@@ -63,7 +64,7 @@ export function SceneTabs({ tabs, documents, campaignId }: SceneTabsProps): Reac
     if (campaignId) documents?.getState().activate(campaignId, null);
     tabs.getState().show(key);
   };
-  const showDocument = (entry: DocumentWorkspaceEntry): void =>
+  const showDocument = (entry: WorkspaceItem): void =>
     documents?.getState().activate(entry.campaign.id, entry.key);
   const isShown = (key: string): boolean => split.shown.includes(key);
   return (
@@ -119,9 +120,9 @@ const MORE_BUTTON_WIDTH = 52;
 type HiddenTabsMenuProps = Readonly<{
   count: number;
   scenes: readonly SceneTab[];
-  documents: readonly DocumentWorkspaceEntry[];
+  documents: readonly WorkspaceItem[];
   onShowScene: (key: string) => void;
-  onShowDocument: (entry: DocumentWorkspaceEntry) => void;
+  onShowDocument: (entry: WorkspaceItem) => void;
 }>;
 
 function HiddenTabsMenu(props: HiddenTabsMenuProps): React.JSX.Element {
@@ -145,8 +146,8 @@ function HiddenTabsMenu(props: HiddenTabsMenuProps): React.JSX.Element {
         ))}
         {props.documents.map((entry) => (
           <DropdownMenuItem key={entry.key} onSelect={() => props.onShowDocument(entry)}>
-            <FileTextIcon aria-hidden="true" />
-            <span className="truncate">{entry.document.name}</span>
+            <WorkspaceItemIcon item={entry} />
+            <span className="truncate">{workspaceItemTitle(entry)}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -172,18 +173,20 @@ function DocumentTabItem({
   onShow,
   onClose,
 }: Readonly<{
-  entry: DocumentWorkspaceEntry;
+  entry: WorkspaceItem;
   selected: boolean;
   onShow: () => void;
   onClose: () => void;
 }>): React.JSX.Element {
+  const title = workspaceItemTitle(entry);
+  const kindName = KIND_NAME[entry.kind];
   return (
     <div className={tabFrameClass(selected)}>
       <button
         type="button"
         role="tab"
         aria-selected={selected}
-        aria-description="Documento"
+        aria-description={kindName}
         tabIndex={selected ? 0 : -1}
         onClick={onShow}
         className={cn(
@@ -191,18 +194,48 @@ function DocumentTabItem({
           selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
       >
-        <FileTextIcon aria-hidden className="size-3.5 shrink-0" />
-        <span className="max-w-40 truncate">{entry.document.name}</span>
+        <WorkspaceItemIcon item={entry} />
+        <span className="max-w-40 truncate">{title}</span>
       </button>
       <button
         type="button"
-        aria-label={`Fechar documento ${entry.document.name}`}
+        aria-label={entry.kind === 'document' ? `Fechar documento ${title}` : `Fechar ${title}`}
         onClick={onClose}
         className="grid size-6 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
       >
         <XIcon aria-hidden className="size-3.5" />
       </button>
     </div>
+  );
+}
+
+const KIND_NAME: Readonly<Record<WorkspaceItem['kind'], string>> = {
+  document: 'Documento',
+  sheet: 'Ficha',
+  'sheet-template': 'Modelo de ficha',
+};
+const KIND_ICON = {
+  document: FileTextIcon,
+  sheet: ScrollTextIcon,
+  'sheet-template': FileCode2Icon,
+} as const;
+
+function WorkspaceItemIcon({ item }: Readonly<{ item: WorkspaceItem }>): React.JSX.Element {
+  const Icon = KIND_ICON[item.kind];
+  return <Icon aria-hidden="true" className="size-3.5 shrink-0" />;
+}
+
+// The documents, the sheets, then the templates of this table, each list in the order opened.
+function useWorkspaceItemsOf(
+  workspace: StoreApi<DocumentWorkspaceStore> | undefined,
+  campaignId: string | undefined,
+): readonly WorkspaceItem[] {
+  const documents = useDocumentWorkspaceSlice(workspace, (state) => state.entries, NO_ITEMS);
+  const sheets = useDocumentWorkspaceSlice(workspace, (state) => state.sheets, NO_ITEMS);
+  const templates = useDocumentWorkspaceSlice(workspace, (state) => state.templates, NO_ITEMS);
+  return useMemo(
+    () => [...documents, ...sheets, ...templates].filter((item) => item.campaign.id === campaignId),
+    [documents, sheets, templates, campaignId],
   );
 }
 
@@ -268,17 +301,4 @@ function TabsNotice({ tabs }: Readonly<{ tabs: StoreApi<SceneTabsStore> }>): Rea
       {notice}
     </p>
   );
-}
-
-const FOCUS_STEP: Readonly<Record<string, number>> = { ArrowRight: 1, ArrowLeft: -1 };
-
-// Roving focus over the tabs (the close buttons keep their own place in the Tab order).
-function moveFocusAlongTabs(event: React.KeyboardEvent<HTMLDivElement>): void {
-  const step = FOCUS_STEP[event.key];
-  if (step === undefined) return;
-  const all = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')];
-  const at = all.findIndex((tab) => tab === document.activeElement);
-  if (at === -1) return;
-  event.preventDefault();
-  all[(at + step + all.length) % all.length]?.focus();
 }

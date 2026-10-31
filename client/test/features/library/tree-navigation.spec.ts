@@ -8,6 +8,9 @@ import {
   visibleTreeItems,
 } from '@/features/library/tree-navigation';
 import { folderTreeOf } from '@/lib/folder-tree';
+import { documentKey, libraryEntries, sheetKey } from '@/lib/library-entries';
+import { lyraSummary } from '../../support/sheet-fixtures';
+import { documentFixture } from '../../support/documents-fixtures';
 import {
   ATO_1,
   CATACUMBAS,
@@ -115,6 +118,16 @@ describe('ancestorKeysOf', () => {
 
   it('puts a grid without folder under "Sem pasta"', () => {
     expect(ancestorKeysOf(vharnTree(), sceneKey(VHARN_SCENE.id))).toEqual([NO_FOLDER]);
+  });
+
+  it('lists the folders above a sheet and a document, whose keys are their tree ids', () => {
+    const library = masterLibrary({
+      sheets: [lyraSummary({ folderId: CATACUMBAS.id })],
+      documents: [documentFixture({ folderId: ATO_1.id })],
+    });
+    const tree = folderTreeOf({ ...library, scenes: libraryEntries(library) }, null);
+    expect(ancestorKeysOf(tree, sheetKey(lyraSummary().id))).toEqual([ATO_1.id, CATACUMBAS.id]);
+    expect(ancestorKeysOf(tree, documentKey(documentFixture().id))).toEqual([ATO_1.id]);
   });
 
   it('is empty for a root folder, "Sem pasta" and a key the tree lacks', () => {

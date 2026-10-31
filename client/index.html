@@ -2,6 +2,9 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+    <!-- Sheets run author code in a sandboxed srcdoc frame; frame-src keeps that frame from
+         navigating itself to an outside site (docs/context/sheets/sandbox.md). -->
+    <meta http-equiv="Content-Security-Policy" content="frame-src 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Lorkarium</title>

@@ -1,5 +1,7 @@
 import { ImagePresentationService } from './image-presentation.service';
 import { DocumentsDao } from '../documents/documents.dao';
+import { SheetTemplatesDao } from '../sheets/sheet-templates.dao';
+import { SheetsDao } from '../sheets/sheets.dao';
 import { randomUUID } from 'node:crypto';
 import { runInSnapshot } from '../../database/transaction';
 import { AssetsDao } from '../assets/assets.dao';
@@ -52,6 +54,8 @@ export function createLibraryModule(options: LibraryModuleOptions): LibraryModul
     runInTransaction(db, (tx) =>
       work({
         documents: new DocumentsDao(tx),
+        sheetTemplates: new SheetTemplatesDao(tx),
+        sheets: new SheetsDao(tx),
         images: new LibraryImagesDao(tx),
         campaigns: new CampaignsDao(tx),
         folders: new SceneFoldersDao(tx),
@@ -104,6 +108,8 @@ export function libraryImageDaos(
 ): LibraryImageDaos {
   return {
     documents: new DocumentsDao(executor),
+    sheetTemplates: new SheetTemplatesDao(executor),
+    sheets: new SheetsDao(executor),
     campaigns: new CampaignsDao(executor),
     members: new CampaignMembersDao(executor),
     assets: new AssetsDao(executor),

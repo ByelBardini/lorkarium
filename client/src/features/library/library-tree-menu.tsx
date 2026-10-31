@@ -3,6 +3,8 @@ import type {
   LibraryImageDto,
   LibrarySceneDto,
   SceneFolderDto,
+  SheetSummaryDto,
+  SheetTemplateSummaryDto,
 } from '@lorkarium/contracts';
 import { useId, useState, type ReactNode } from 'react';
 import {
@@ -15,7 +17,17 @@ import {
 } from '@/components/ui/context-menu';
 import { DeleteConfirmDialog } from './delete-scene-dialog';
 import { sceneDeletionText } from './library-messages';
-import { documentIdOf, imageIdOf, imageKey, type MixedLibrary } from '@/lib/library-entries';
+import {
+  documentIdOf,
+  imageIdOf,
+  imageKey,
+  sheetIdOf,
+  sheetTemplateIdOf,
+  type MixedLibrary,
+} from '@/lib/library-entries';
+import { DeleteSheetTask, NewSheetItem, SheetTreeItems } from './library-sheet-menu';
+import type { LibraryOpener } from './use-library-opener';
+import type { SheetPlayer } from './use-sheet-holder-names';
 import { sceneIdOf, sceneKey } from './library-view';
 import { MoveFolderDialog } from './move-folder-dialog';
 import type { LibrarySubmit } from './use-library-submit';
@@ -33,6 +45,13 @@ export type TreeMaster = Readonly<{
   createImage?: (folderId: string | null) => void;
   createDocument?: (folderId: string | null) => void;
   editDocument?: (documentId: string) => void;
+  /** "Novo modelo de ficha" in a folder (`null` = the root): the new template gets picked. */
+  createSheetTemplate?: (folderId: string | null) => void;
+  /** "Nova ficha" in a folder (`null` = the root): asks name, template and holder first. */
+  createSheet?: (folderId: string | null) => void;
+  openSheet?: LibraryOpener['openSheet'];
+  /** Who "Dar a ▸" offers. */
+  players?: readonly SheetPlayer[];
   /** Clears the search and the filter, so the item about to be created shows. */
   resetFilter: () => void;
 }>;
@@ -52,6 +71,8 @@ type MenuTask =
   | Readonly<{ kind: 'deleteScene'; scene: LibrarySceneDto }>
   | Readonly<{ kind: 'deleteImage'; image: LibraryImageDto }>
   | Readonly<{ kind: 'deleteDocument'; document: DocumentSummaryDto }>
+  | Readonly<{ kind: 'deleteTemplate'; template: SheetTemplateSummaryDto }>
+  | Readonly<{ kind: 'deleteSheet'; sheet: SheetSummaryDto }>
   | Readonly<{ kind: 'deleteFolder' | 'moveFolder'; folder: SceneFolderDto }>
   | null;
 
@@ -98,6 +119,19 @@ function TargetItems(props: MenuActions & Readonly<{ targetKey: string | null }>
   const { library } = props.master;
   const document = library.documents?.find(({ id }) => id === documentIdOf(props.targetKey));
   if (document) return <DocumentItems {...props} document={document} />;
+  const sheet = library.sheets?.find(({ id }) => id === sheetIdOf(props.targetKey));
+  if (sheet)
+    return (
+      <SheetTreeItems
+        master={props.master}
+        sheet={sheet}
+        startRename={props.startRename}
+        askDelete={(asked) => props.setTask({ kind: 'deleteSheet', sheet: asked })}
+      />
+    );
+  const templateId = sheetTemplateIdOf(props.targetKey);
+  const template = library.sheetTemplates?.find(({ id }) => id === templateId);
+  if (template) return <TemplateItems {...props} template={template} />;
   const image = library.images?.find(({ id }) => id === imageIdOf(props.targetKey));
   if (image) return <ImageItems {...props} image={image} />;
   const sceneId = sceneIdOf(props.targetKey);
@@ -124,6 +158,8 @@ function RootItems({ master, startNewFolder }: MenuActions): React.JSX.Element {
           Novo documento
         </ContextMenuItem>
       )}
+      <NewTemplateItem master={master} folderId={null} label="Novo modelo de ficha" />
+      <NewSheetItem master={master} folderId={null} label="Nova ficha" />
       <ContextMenuItem
         disabled={!master.live}
         onSelect={() => {
@@ -155,6 +191,8 @@ function FolderItems(props: MenuActions & Readonly<{ folder: SceneFolderDto }>) 
           Novo documento aqui
         </ContextMenuItem>
       )}
+      <NewTemplateItem master={master} folderId={folder.id} label="Novo modelo de ficha aqui" />
+      <NewSheetItem master={master} folderId={folder.id} label="Nova ficha aqui" />
       <ContextMenuItem
         disabled={off}
         onSelect={() => {
@@ -217,6 +255,10 @@ function SceneItems(props: MenuActions & Readonly<{ scene: LibrarySceneDto }>) {
 type TaskDialogProps = Readonly<{ master: TreeMaster; task: MenuTask; onClose: () => void }>;
 
 function TaskDialog({ master, task, onClose }: TaskDialogProps): React.JSX.Element | null {
+  if (task?.kind === 'deleteSheet')
+    return <DeleteSheetTask master={master} sheet={task.sheet} onClose={onClose} />;
+  if (task?.kind === 'deleteTemplate')
+    return <DeleteTemplateTask master={master} template={task.template} onClose={onClose} />;
   if (task?.kind === 'deleteDocument')
     return (
       <DeleteConfirmDialog
@@ -339,5 +381,55 @@ function ImageItems(props: MenuActions & Readonly<{ image: LibraryImageDto }>): 
         Excluir imagem
       </ContextMenuItem>
     </>
+  );
+}
+
+type NewTemplateItemProps = Readonly<{
+  master: TreeMaster;
+  folderId: string | null;
+  label: string;
+}>;
+
+function NewTemplateItem({ master, folderId, label }: NewTemplateItemProps) {
+  if (!master.createSheetTemplate) return null;
+  return (
+    <ContextMenuItem
+      disabled={!master.live}
+      onSelect={() => master.createSheetTemplate?.(folderId)}
+    >
+      {label}
+    </ContextMenuItem>
+  );
+}
+
+function TemplateItems(props: MenuActions & Readonly<{ template: SheetTemplateSummaryDto }>) {
+  const { master, template } = props;
+  return (
+    <ContextMenuItem
+      variant="destructive"
+      disabled={!master.live}
+      onSelect={() => props.setTask({ kind: 'deleteTemplate', template })}
+    >
+      Excluir modelo
+    </ContextMenuItem>
+  );
+}
+
+type TemplateTaskProps = Readonly<{
+  master: TreeMaster;
+  template: SheetTemplateSummaryDto;
+  onClose: () => void;
+}>;
+
+function DeleteTemplateTask({ master, template, onClose }: TemplateTaskProps) {
+  return (
+    <DeleteConfirmDialog
+      title={`Excluir ${template.name}?`}
+      description="O código do modelo some para todos os mestres. Um modelo ligado a fichas não pode ser excluído."
+      onClose={onClose}
+      onConfirm={() =>
+        void master.submit({ intent: 'removeSheetTemplate', templateId: template.id })
+      }
+    />
   );
 }

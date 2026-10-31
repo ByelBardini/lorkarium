@@ -22,7 +22,7 @@ import {
   type SightFieldErrors,
   type SightFields,
 } from '@/lib/sight-form';
-import { initialsOf } from '@/lib/token-initials';
+import { initialsOf } from '@lorkarium/game-core';
 import { DEFAULT_LIGHT_REACH } from '@/stores/light-reach-store';
 import type { TokenEdit } from '@/services/table-board-commands';
 import {

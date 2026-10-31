@@ -50,6 +50,8 @@ describe('the context menu of the library tree', () => {
         'Novo grid aqui',
         'Nova imagem aqui',
         'Novo documento aqui',
+        'Novo modelo de ficha aqui',
+        'Nova ficha aqui',
         'Nova pasta aqui',
         'Renomear',
         'Mover para…',
@@ -73,6 +75,8 @@ describe('the context menu of the library tree', () => {
         'Novo grid',
         'Nova imagem',
         'Novo documento',
+        'Novo modelo de ficha',
+        'Nova ficha',
         'Nova pasta',
       ]);
       await userEvent.keyboard('{Escape}');
@@ -80,6 +84,8 @@ describe('the context menu of the library tree', () => {
         'Novo grid',
         'Nova imagem',
         'Novo documento',
+        'Novo modelo de ficha',
+        'Nova ficha',
         'Nova pasta',
       ]);
     });

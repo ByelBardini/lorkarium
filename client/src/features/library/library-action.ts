@@ -7,6 +7,8 @@ import type { SceneActivationResult } from '@/services/scene-activation';
 import type { DocumentsResult } from '@/services/documents-api';
 import { libraryIntentDto, type LibraryIntent, type LibraryOutcome } from './library-intents';
 import { libraryFailureMessage } from './library-messages';
+import { isSheetIntent, runSheetIntent } from './sheet-intent';
+import { isSheetTemplateIntent, runSheetTemplateIntent } from './sheet-template-intent';
 
 type Intent<K extends LibraryIntent['intent']> = Extract<LibraryIntent, { intent: K }>;
 
@@ -38,6 +40,9 @@ async function runIntent(
   intent: LibraryIntent,
 ): Promise<IntentAnswer> {
   const { libraryApi } = deps;
+  if (isSheetTemplateIntent(intent))
+    return runSheetTemplateIntent(deps.sheetTemplatesApi, campaignId, intent);
+  if (isSheetIntent(intent)) return runSheetIntent(deps.sheetsApi, campaignId, intent);
   if (intent.intent === 'createDocument') {
     const result = await deps.documentsApi.create(campaignId, intent.changes);
     return result.ok

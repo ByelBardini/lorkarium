@@ -3,6 +3,7 @@ import {
   CHAT_EVENTS,
   DICE_EVENTS,
   SESSION_EVENTS,
+  SHEET_EVENTS,
   boardPingedDto,
   boardSyncAckDto,
   chatSentDto,
@@ -20,6 +21,7 @@ import {
   sessionMemberJoinedDto,
   sessionMemberLeftDto,
   sessionMemberUpdatedDto,
+  sheetChangedEventDto,
   tokensDraggedDto,
   type ApiErrorDto,
   type BoardSyncAckDto,
@@ -240,6 +242,9 @@ export class TableVisit {
       ),
       this.onTableEvent(LIBRARY_CHANGED, libraryChangedDto, (event) =>
         this.notify({ kind: 'libraryChanged', event }),
+      ),
+      this.onTableEvent(SHEET_EVENTS.changed, sheetChangedEventDto, (event) =>
+        this.notify({ kind: 'sheetChanged', event }),
       ),
     ];
   }

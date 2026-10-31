@@ -5,6 +5,7 @@ export { MEMBER_COLORS, memberColorOf, type MemberColor } from './member-color';
 export { cellDistance, footprintFits, pathDistance, type SceneSize } from './grid';
 export { freeCellsAround } from './free-cells';
 export { formBoxIn } from './token-form';
+export { initialsOf } from './token-initials';
 export { TOKEN_SIZE_MAX, TOKEN_SIZE_MIN, tokenSize, type TokenSize } from './token-size.vo';
 export {
   RESIZE_STEP,

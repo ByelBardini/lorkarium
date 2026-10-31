@@ -49,6 +49,9 @@ export { libraryImagePresentations } from '../modules/library/image-presentation
 export {
   libraryDocuments,
   libraryDocumentOwners,
-  libraryDocumentAssets,
   libraryDocumentActions,
 } from '../modules/documents/documents.po';
+export { libraryDocumentAssets } from '../modules/documents/document-assets.po';
+export { documentTabVisibility, libraryDocumentTabs } from '../modules/documents/document-tabs.po';
+export { sheetTemplates } from '../modules/sheets/sheet-templates.po';
+export { sheetActions, sheetVisibility, tokenSheets } from '../modules/sheets/sheets.po';

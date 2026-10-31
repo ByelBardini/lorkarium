@@ -1,7 +1,6 @@
-import type { MemberColor } from '@lorkarium/game-core';
+import { initialsOf, type MemberColor } from '@lorkarium/game-core';
 import { useState } from 'react';
 import { memberColorCss } from '@/lib/member-color';
-import { initialsOf } from '@/lib/token-initials';
 import { cn } from '@/lib/utils';
 
 export type UserAvatarSize = 'sm' | 'md' | 'lg' | 'xl';

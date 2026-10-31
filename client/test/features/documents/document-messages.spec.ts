@@ -11,6 +11,8 @@ describe('document failure explanations', () => {
     ['offline', 'Sem conexão com o servidor.'],
     ['invalid', 'Confira os campos e o formato da imagem.'],
     ['unauthenticated', 'Sua sessão terminou.'],
+    ['tab_limit', 'Um documento tem no máximo 200 abas.'],
+    ['last_tab', 'O documento precisa de pelo menos uma aba.'],
     ['unexpected', 'Não foi possível concluir. Tente novamente.'],
   ])('explains %s without hiding the recovery action', (kind, expected) =>
     expect(documentFailureMessage({ kind })).toBe(expected),

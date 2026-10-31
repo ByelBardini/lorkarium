@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { DocumentImagePicker } from '@/features/documents/document-image-picker';
 import { DocumentsApiFake } from '../../support/documents-api-fake';
-import { DOCUMENT_CAMPAIGN_ID, DOCUMENT_ID } from '../../support/documents-fixtures';
+import { DOCUMENT_CAMPAIGN_ID, DOCUMENT_ID, ITEMS_TAB_ID } from '../../support/documents-fixtures';
 
 const asset: AssetDto = {
   id: '10000000-0000-4000-8000-000000000010',
@@ -35,6 +35,7 @@ function picker(ready = true): { api: DocumentsApiFake; recorder: ImageChoiceRec
       api={api}
       campaignId={DOCUMENT_CAMPAIGN_ID}
       documentId={DOCUMENT_ID}
+      tabId={ITEMS_TAB_ID}
       images={[image]}
       onChoose={recorder.choose}
     />,
@@ -42,16 +43,22 @@ function picker(ready = true): { api: DocumentsApiFake; recorder: ImageChoiceRec
   return { api, recorder };
 }
 describe('document scoped image selection', () => {
-  it('sends a computer image to the selected document and returns only the kept asset', async () => {
+  it('sends a computer image to the open tab and returns only the kept asset', async () => {
     const { api, recorder } = picker();
     const file = new File(['png pixels'], 'carta.png', { type: 'image/png' });
     await userEvent.upload(screen.getByLabelText('Arquivo de imagem'), file);
     await waitFor(() => expect(recorder.choices).toEqual([asset]));
     expect(api.imageRequests).toEqual([
-      { operation: 'upload', campaignId: DOCUMENT_CAMPAIGN_ID, documentId: DOCUMENT_ID, file },
+      {
+        operation: 'upload',
+        campaignId: DOCUMENT_CAMPAIGN_ID,
+        documentId: DOCUMENT_ID,
+        tabId: ITEMS_TAB_ID,
+        file,
+      },
     ]);
   });
-  it('imports and trims a URL using the document endpoint instead of persisting a hotlink', async () => {
+  it("imports and trims a URL using the open tab's endpoint instead of persisting a hotlink", async () => {
     const { api, recorder } = picker();
     await userEvent.click(screen.getByRole('button', { name: 'Usar link de imagem' }));
     await userEvent.type(
@@ -65,11 +72,12 @@ describe('document scoped image selection', () => {
         operation: 'import',
         campaignId: DOCUMENT_CAMPAIGN_ID,
         documentId: DOCUMENT_ID,
+        tabId: ITEMS_TAB_ID,
         source: 'https://example.test/carta.png',
       },
     ]);
   });
-  it('associates a selected library image with this document before insertion', async () => {
+  it('associates a selected library image with the open tab before insertion', async () => {
     const { api, recorder } = picker();
     await userEvent.selectOptions(
       screen.getByRole('combobox', { name: 'Imagem da biblioteca' }),
@@ -81,6 +89,7 @@ describe('document scoped image selection', () => {
         operation: 'library',
         campaignId: DOCUMENT_CAMPAIGN_ID,
         documentId: DOCUMENT_ID,
+        tabId: ITEMS_TAB_ID,
         source: '10000000-0000-4000-8000-000000000011',
       },
     ]);

@@ -1,4 +1,4 @@
-import type { SceneActivatedDto, SceneClosedDto } from '@lorkarium/contracts';
+import type { SceneActivatedDto, SceneClosedDto, SheetChangedEventDto } from '@lorkarium/contracts';
 import type { Cell } from '@lorkarium/game-core';
 import { useCallback, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
@@ -50,6 +50,9 @@ export type SceneTabsState = Readonly<{
   notice: string | null;
   /** Grows at each `library:changed`: the library reads itself again when it changes. */
   libraryRevision: number;
+  /** The last `sheet:changed` of the table: each one is a new object, so a subscriber sees them
+   *  all, one by one. */
+  sheetChange: SheetChangedEventDto | null;
 }>;
 
 export type SceneTabsStore = SceneTabsState &
@@ -106,6 +109,7 @@ export function createSceneTabsStore(deps: SceneTabsDeps): StoreApi<SceneTabsSto
       visibleKey: GROUP_TAB,
       notice: null,
       libraryRevision: 0,
+      sheetChange: null,
       open: (sceneId) => actions.open(sceneId),
       show: (key) => actions.show(key),
       close: (sceneId) => actions.close(sceneId),
@@ -202,6 +206,7 @@ class SceneTabsActions {
     if (update.kind === 'sceneActivated') return this.onActivated(update.event);
     if (update.kind === 'sceneClosed') return this.onClosed(update.event);
     if (update.kind === 'pinged') return groupTabOf(this.get()).pings.push(update.event);
+    if (update.kind === 'sheetChanged') return this.set({ sheetChange: update.event });
     if (update.kind === 'libraryChanged') {
       this.set({ libraryRevision: this.get().libraryRevision + 1 });
     }

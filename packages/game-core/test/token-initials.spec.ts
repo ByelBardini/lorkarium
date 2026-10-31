@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialsOf } from '@/lib/token-initials';
+import { initialsOf } from '../src/token-initials';
 
 describe('initialsOf', () => {
   it.each([

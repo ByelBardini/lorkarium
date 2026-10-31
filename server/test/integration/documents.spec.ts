@@ -17,20 +17,24 @@ describe('document creation and authorized reads', () => {
       visibility: 'private',
       version: 0,
       ownerIds: [],
-      schemaVersion: 1,
-      content: EMPTY_DOCUMENT_CONTENT,
+      schemaVersion: 2,
+      tabs: [{ name: 'Geral', visibility: 'document', version: 0 }],
       canEdit: true,
       canManage: true,
     });
+  });
+  it('creates the "Geral" tab with an empty paragraph as the body', async () => {
+    const document = await documents.create();
+    expect(await documents.firstTabContent(document.id)).toEqual(EMPTY_DOCUMENT_CONTENT);
   });
   it('keeps the confirmed content after restarting the application', async () => {
     const document = await documents.create();
     await documents.save(document, documentText('Carta persistida'));
     await live.restart();
-    expect(await documents.read(document.id)).toMatchObject({
-      version: 1,
-      content: documentText('Carta persistida'),
-    });
+    expect((await documents.read(document.id)).tabs).toEqual([
+      expect.objectContaining({ name: 'Geral', version: 1 }),
+    ]);
+    expect(await documents.firstTabContent(document.id)).toEqual(documentText('Carta persistida'));
   });
   it('refuses player creation and anonymous reads without revealing a body', async () => {
     const document = await documents.create();
@@ -68,16 +72,21 @@ describe('document creation and authorized reads', () => {
     await documents.save(document, documentText('Corpo secreto'));
     const response = await live.http(live.ana, { method: 'GET', url: documents.url(document.id) });
     expect(response.headers['cache-control']).toBe('private, no-store');
-    expect(documentResponseDto.parse(response.json()).document.content).toEqual(
-      documentText('Corpo secreto'),
-    );
+    expect(response.body).not.toContain('Corpo secreto');
+    const tabId = documentResponseDto.parse(response.json()).document.tabs[0]?.id ?? '';
+    const tab = await live.http(live.ana, {
+      method: 'GET',
+      url: documents.tabUrl(document.id, tabId),
+    });
+    expect(tab.headers['cache-control']).toBe('private, no-store');
+    expect(tab.body).toContain('Corpo secreto');
     const aggregate = await live.http(live.ana, {
       method: 'GET',
       url: `/api/campaigns/${live.vharn.id}/library`,
     });
     expect(aggregate.headers['cache-control']).toBe('private, no-store');
     expect(campaignLibraryDto.parse(aggregate.json()).documents).toEqual([
-      expect.objectContaining({ id: document.id, version: 1 }),
+      expect.objectContaining({ id: document.id, version: 0 }),
     ]);
     expect(aggregate.body).not.toContain('Corpo secreto');
   });
@@ -121,7 +130,7 @@ describe('document creation and authorized reads', () => {
     expect(await documents.read(created.id)).toMatchObject({
       folderId: parent.id,
       ownerIds: [live.bia.id],
-      content: documentText('Preservar'),
     });
+    expect(await documents.firstTabContent(created.id)).toEqual(documentText('Preservar'));
   });
 });

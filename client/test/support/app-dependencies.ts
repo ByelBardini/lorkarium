@@ -26,6 +26,9 @@ import { CampaignsApiFake } from './campaigns-api-fake';
 import { ChatCommandsFake } from './chat-commands-fake';
 import { ChatWindowHostFake } from './chat-window-host-fake';
 import { DiceCommandsFake } from './dice-commands-fake';
+import { SheetCommandsFake } from './sheet-commands-fake';
+import { SheetsApiFake } from './sheets-api-fake';
+import { SheetTemplatesApiFake } from './sheet-templates-api-fake';
 import { DiceRenderersFake } from './dice-renderer-fake';
 import { DiceSoundsFake } from './dice-sound-fake';
 import { ClipboardFake } from './clipboard-fake';
@@ -41,6 +44,7 @@ import { RetryWaitFake } from './retry-wait-fake';
 import { SavedRollsApiFake } from './saved-rolls-api-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
+import { storedSheetEditorLayout } from '@/lib/sheet-editor-layout';
 
 export type TestDependencies = AppDependencies & {
   authApi: AuthApiFake;
@@ -51,6 +55,11 @@ export type TestDependencies = AppDependencies & {
   accountLinksApi: AccountLinksApiFake;
   libraryApi: LibraryApiFake;
   documentsApi: DocumentsApiFake;
+  sheetsApi: SheetsApiFake;
+  sheetTemplatesApi: SheetTemplatesApiFake;
+  /** The `localStorage` under `sheetEditorLayout` (the person is "test-user"). */
+  sheetEditorLayoutStorage: StorageFake;
+  sheetCommands: SheetCommandsFake;
   imagePresentationApi: ImagePresentationApiFake;
   sceneActivation: SceneActivationFake;
   assets: AssetsApiFake;
@@ -127,6 +136,9 @@ export function testDependencies(): TestDependencies {
   const dicePreferencesStorage = new StorageFake();
   const interactionClock = new InteractionClockFake();
   const documentsApi = new DocumentsApiFake();
+  const sheetsApi = new SheetsApiFake();
+  const sheetTemplatesApi = new SheetTemplatesApiFake();
+  const sheetEditorLayoutStorage = new StorageFake();
   const boardRenderers = new BoardRenderersFake();
   const diceRenderers = new DiceRenderersFake();
   const diceSounds = new DiceSoundsFake();
@@ -146,7 +158,17 @@ export function testDependencies(): TestDependencies {
     accountLinksApi: new AccountLinksApiFake(),
     libraryApi: new LibraryApiFake(),
     documentsApi,
-    documentWorkspace: createDocumentWorkspaceStore({ api: documentsApi, clock: interactionClock }),
+    documentWorkspace: createDocumentWorkspaceStore({
+      api: documentsApi,
+      sheetsApi,
+      sheetTemplatesApi,
+      clock: interactionClock,
+    }),
+    sheetsApi,
+    sheetTemplatesApi,
+    sheetEditorLayoutStorage,
+    sheetEditorLayout: storedSheetEditorLayout(sheetEditorLayoutStorage, () => 'test-user'),
+    sheetCommands: new SheetCommandsFake(),
     imagePresentationApi,
     sceneActivation: new SceneActivationFake(),
     assets: new AssetsApiFake(),

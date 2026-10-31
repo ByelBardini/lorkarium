@@ -1,6 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { test } from './support/player-pages';
-import { cellCenterOf } from './support/board-cells';
 import { BIA } from './support/dev-players';
 import { createGrid, gridItemOf, openLibrary, takeTheGroupTo } from './support/library';
 import { adminCredentials, signIn } from './support/sign-in';
@@ -11,17 +10,12 @@ import {
   joinByCodeAndEnter,
   openRoomPeople,
 } from './support/tables';
-import { cardOf, createTokenWithPvFor, openCard } from './support/token-cards';
-
-// "Ligar à ficha de… → Bia" from the menu of Lyra, born on the center cell (10, 6).
-async function linkLyraToBiasCard(admin: Page): Promise<void> {
-  const lyra = await cellCenterOf(admin, 10, 6);
-  await admin.mouse.click(lyra.x, lyra.y, { button: 'right' });
-  const menu = admin.getByRole('menu', { name: 'Ações de Lyra' });
-  await menu.getByRole('menuitem', { name: 'Ligar à ficha de…' }).click();
-  await admin.getByRole('menuitem', { name: 'Bia', exact: true }).click();
-  await expect(menu).toBeHidden();
-}
+import {
+  cardOf,
+  createTokenWithPvFor,
+  linkCenterTokenToCard,
+  openCard,
+} from './support/token-cards';
 
 async function openLyraDialog(admin: Page): Promise<Locator> {
   await openCard(admin, 'Lyra');
@@ -91,7 +85,7 @@ test('the character crosses grids: linked to the card, added to the Estrada, wit
   await library.getByRole('button', { name: 'Fechar biblioteca' }).click();
   await expect(boardOf(admin)).toHaveAccessibleName(/^Tabuleiro: Salão/);
   await createTokenWithPvFor(admin, 'Lyra', 'Bia');
-  await linkLyraToBiasCard(admin);
+  await linkCenterTokenToCard(admin, 'Lyra', 'Bia');
   await lightLyraHere(admin);
   await poisonLyra(admin);
 

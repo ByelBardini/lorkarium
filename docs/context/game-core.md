@@ -10,6 +10,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/token-size.vo.ts` — largura e altura do token (VO)
 - `src/token-resize.ts` — a caixa do token (e de qualquer caixa com limites próprios) depois de arrastar uma alça
 - `src/token-form.ts` — `formBoxIn(cena, caixa, tamanho)`: a caixa do token ao trocar de forma; o canto de cima à esquerda fica e recua para dentro da cena só o que o tamanho novo pede (sem paredes nem colisão, §12); tamanho fora dos passos → `RangeError` do `tokenSize`; maior que a cena → `RangeError` citando "3×3" e "scene 2×2"
+- `src/token-initials.ts` — `initialsOf(nome)`: as iniciais do token (primeira letra das duas primeiras palavras que não são conectivo, ou as duas primeiras letras de uma palavra só; "Ogro das Cinzas" → "OC"). O server a usa na âncora criada ao dar uma ficha a um jogador; o client (avatar, chat, formulário do token) importa a mesma daqui (não há cópia no client)
 - `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
 - `src/bar.ts` — ajuste de barra (PV e qualquer outra)
 - `src/initiative.vo.ts` — o valor da iniciativa (VO)

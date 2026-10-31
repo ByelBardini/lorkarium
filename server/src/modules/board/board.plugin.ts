@@ -36,6 +36,7 @@ export type BoardModuleOptions = Readonly<{
   pings: BoardGatewayDeps['pings'];
   conditions: BoardGatewayDeps['conditions'];
   conditionCatalog: BoardGatewayDeps['conditionCatalog'];
+  sheetBars: BoardGatewayDeps['sheetBars'];
   combat: BoardGatewayDeps['combat'];
   drawings: BoardGatewayDeps['drawings'];
   effectAreas: BoardGatewayDeps['effectAreas'];
@@ -58,7 +59,7 @@ export function createBoardModule(options: BoardModuleOptions): BoardModule {
   const { clock, effectAreas, walls, lights, mainToken, memberCards } = options;
   const { realtime, rate, queue, log } = options;
   const { members, sceneWatch, sceneActivation, tokenLink, pings, conditionCatalog } = options;
-  const { tokenVisibility, tokenForm } = options;
+  const { tokenVisibility, tokenForm, sheetBars } = options;
   const snapshot: BoardSnapshotRunner = (work) =>
     runInSnapshot(db, (tx) =>
       work({
@@ -91,6 +92,7 @@ export function createBoardModule(options: BoardModuleOptions): BoardModule {
     pings,
     conditions,
     conditionCatalog,
+    sheetBars,
     combat,
     drawings,
     effectAreas,

@@ -8,6 +8,8 @@ import { GROUP_TAB } from '@/stores/scene-tabs-store';
 import { detailOf, VHARN } from '../../support/campaigns-api-fake';
 import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
 import { DocumentsApiFake } from '../../support/documents-api-fake';
+import { SheetTemplatesApiFake } from '../../support/sheet-templates-api-fake';
+import { SheetsApiFake } from '../../support/sheets-api-fake';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
 import { documentFixture } from '../../support/documents-fixtures';
 import { TORRE_SCENE, estradaBoard, sceneActivated } from '../../support/scene-tab-fixtures';
@@ -99,6 +101,8 @@ describe('SceneTabs in a narrow strip', () => {
     openTorreTab(api, table);
     const documents = createDocumentWorkspaceStore({
       api: new DocumentsApiFake(),
+      sheetsApi: new SheetsApiFake(),
+      sheetTemplatesApi: new SheetTemplatesApiFake(),
       clock: new InteractionClockFake(),
     });
     documents.getState().open({ campaign: detailOf(VHARN), document: documentFixture() });
@@ -126,6 +130,8 @@ describe('SceneTabs with documents', () => {
     openTorreTab(api, table);
     const documents = createDocumentWorkspaceStore({
       api: new DocumentsApiFake(),
+      sheetsApi: new SheetsApiFake(),
+      sheetTemplatesApi: new SheetTemplatesApiFake(),
       clock: new InteractionClockFake(),
     });
     const key = documents

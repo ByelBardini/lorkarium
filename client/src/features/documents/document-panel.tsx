@@ -1,36 +1,32 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import type { AssetDto, CampaignDetailDto } from '@lorkarium/contracts';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { CampaignDetailDto } from '@lorkarium/contracts';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import { CheckIcon, FileTextIcon, LockKeyholeIcon, PanelTopIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-  AlertDialogCancel,
-} from '@/components/ui/alert-dialog';
-import { assetUrlOf } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import type { DocumentsApi } from '@/services/documents-api';
 import type { InteractionClock } from '@/lib/interaction-clock';
+import { focusWhenUncovered } from '@/lib/focus-when-uncovered';
 import type { MixedLibrary } from '@/lib/library-entries';
+import { isBlankDocumentContent } from '@/lib/document-blank';
 import {
   createDocumentEditorStore,
+  documentTabEditorKey,
   type DocumentEditorState,
+  type DocumentSaveStatus,
+  type DocumentTabEditorState,
 } from '@/stores/document-editor-store';
 import { useLibrarySubmit, type LibrarySubmit } from '@/features/library/use-library-submit';
 import { DocumentSharing } from './document-sharing';
-import { DocumentImagePicker } from './document-image-picker';
-import { DOCUMENT_SAVE_LABEL, documentFailureMessage } from './document-messages';
+import { DOCUMENT_SAVE_LABEL } from './document-messages';
+import { DocumentPanelDialog, type DocumentPanelConfirmation } from './document-panel-dialog';
+import { DocumentTabBody } from './document-tab-body';
+import { DocumentTabStrip } from './document-tab-strip';
+import { DraftProblemActions } from './draft-problem-actions';
 
-const RichDocumentEditor = lazy(() => import('@/rich-text-editor/document-editor'));
-type ImageReference = Readonly<{ assetId: string; alt?: string }>;
 export type DocumentPanelProps = Readonly<{
   campaign: CampaignDetailDto;
   documentId: string;
@@ -49,6 +45,9 @@ export type DocumentPanelProps = Readonly<{
   onRegisterLeave?: (guard: (() => Promise<boolean>) | null) => void;
   /** A detached window: one short header line, the window's title bar already names the table. */
   compact?: boolean;
+  /** The tab shown, kept by the workspace; without it the panel remembers its own. */
+  activeTabId?: string | null;
+  onActivateTab?: (tabId: string) => void;
 }>;
 
 /** An authorized document with an in-memory versioned draft. Example: `<DocumentPanel {...props} />`. */
@@ -79,9 +78,8 @@ function DocumentPanelContent(
   const submit = props.submit;
   const disposal = useRef<(() => void) | null>(null);
   const [leaveAnswer, setLeaveAnswer] = useState<((discard: boolean) => void) | null>(null);
-  const [confirmation, setConfirmation] = useState<'reload' | 'delete' | null>(null);
-  const [imageAnswer, setImageAnswer] = useState<((image: AssetDto | null) => void) | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<DocumentPanelConfirmation | null>(null);
+  const [localTabId, setLocalTabId] = useState<string | null>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (props.editorStore) return;
@@ -100,7 +98,9 @@ function DocumentPanelContent(
   const confirmedId = state.confirmed?.id;
   const confirmedVersion = state.confirmed?.version;
   useEffect(() => {
-    if (focusName && confirmedId) nameInput.current?.focus();
+    const input = nameInput.current;
+    if (!focusName || !confirmedId || !input) return;
+    return focusWhenUncovered(input);
   }, [focusName, confirmedId]);
   useEffect(() => {
     const guard = async (): Promise<boolean> => {
@@ -123,30 +123,30 @@ function DocumentPanelContent(
   useEffect(() => {
     if (state.status === 'saved' && confirmedVersion) onChanged();
   }, [state.status, confirmedVersion, onChanged]);
-  const insertImage = (): Promise<ImageReference | null> =>
-    new Promise((resolve) =>
-      setImageAnswer(
-        () => (asset: AssetDto | null) => resolve(asset ? { assetId: asset.id } : null),
-      ),
-    );
-  const upload = async (file: File): Promise<ImageReference> => {
-    const result = await props.api.uploadImage(props.campaign.id, props.documentId, file);
-    if (!result.ok) {
-      const message = documentFailureMessage(result.failure);
-      setProblem(message);
-      throw new Error(message);
-    }
-    return { assetId: result.value.id, alt: file.name };
+  const tabs = state.confirmed?.tabs ?? [];
+  const wantedTabId = props.activeTabId ?? localTabId;
+  const activeTabId = tabs.some((tab) => tab.id === wantedTabId)
+    ? wantedTabId
+    : (tabs[0]?.id ?? null);
+  const hasConfirmed = !!state.confirmed;
+  useEffect(() => {
+    if (activeTabId && hasConfirmed) store.getState().openTab(activeTabId);
+  }, [store, activeTabId, hasConfirmed]);
+  const tabKey = (tabId: string): string =>
+    documentTabEditorKey(props.campaign.id, props.documentId, tabId);
+  const tabEditor = activeTabId ? state.tabEditors[tabKey(activeTabId)] : undefined;
+  const tabStatus = useTabStatus(tabEditor);
+  const activateTab = (tabId: string): void => {
+    if (props.onActivateTab) return props.onActivateTab(tabId);
+    store.getState().openTab(tabId);
+    setLocalTabId(tabId);
   };
-  const importImage = async (url: string): Promise<ImageReference> => {
-    const result = await props.api.importImage(props.campaign.id, props.documentId, url);
-    if (!result.ok) {
-      const message = documentFailureMessage(result.failure);
-      setProblem(message);
-      throw new Error(message);
-    }
-    return { assetId: result.value.id };
+  const isBlank = (tabId: string): boolean => {
+    const tab = state.tabEditors[tabKey(tabId)]?.getState();
+    return !!tab?.confirmed && !tab.dirty && isBlankDocumentContent(tab.confirmed.content);
   };
+  const askReload = (discard: () => Promise<void>): void =>
+    setConfirmation({ kind: 'reload', discard });
   const document = state.confirmed;
   if (!document || !state.draft)
     return (
@@ -156,6 +156,9 @@ function DocumentPanelContent(
     );
   const editable =
     document.canEdit && !['conflict', 'forbidden', 'not_found', 'loading'].includes(state.status);
+  // A conflict on the name keeps the tabs writable: each has its own version.
+  const bodyEditable = document.canEdit && !['forbidden', 'not_found'].includes(state.status);
+  const shownStatus = worseStatus(state.status, tabStatus);
   return (
     <section
       aria-label="Documento escolhido"
@@ -197,8 +200,8 @@ function DocumentPanelContent(
           />
         </div>
         <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {state.status === 'saved' && <CheckIcon aria-hidden="true" className="size-3.5" />}
-          {DOCUMENT_SAVE_LABEL[state.status]}
+          {shownStatus === 'saved' && <CheckIcon aria-hidden="true" className="size-3.5" />}
+          {DOCUMENT_SAVE_LABEL[shownStatus]}
         </p>
         <DocumentSharing
           key={`${document.id}:${document.version}`}
@@ -206,7 +209,7 @@ function DocumentPanelContent(
           campaign={props.campaign}
           submit={submit}
           disabled={!props.live || state.dirty || state.status === 'saving'}
-          onDelete={() => setConfirmation('delete')}
+          onDelete={() => setConfirmation({ kind: 'delete' })}
         />
         {!document.canManage && (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -237,112 +240,89 @@ function DocumentPanelContent(
           </Button>
         )}
       </header>
-      {['conflict', 'forbidden', 'failure', 'offline'].includes(state.status) && (
-        <div className="flex flex-wrap gap-2 p-4">
-          <Button
-            variant="outline"
-            onClick={() => void props.clipboard.copy(JSON.stringify(state.draft))}
-          >
-            Copiar meu rascunho
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => (state.dirty ? setConfirmation('reload') : void state.discard())}
-          >
-            Carregar versão atual
-          </Button>
-          {state.status === 'failure' && (
-            <Button onClick={() => void state.flush()}>Tentar salvar novamente</Button>
-          )}
-        </div>
-      )}
-      <Suspense
-        fallback={
-          <p role="status" className="p-4">
-            Carregando editor…
-          </p>
-        }
-      >
-        <RichDocumentEditor
-          content={editable ? state.draft.content : document.content}
-          editable={editable}
-          onChange={(content) => state.edit({ content })}
-          assetUrl={assetUrlOf}
-          onInsertImage={insertImage}
-          onImageFiles={(files) => Promise.all(files.map(upload))}
-          onImportImage={importImage}
-        />
-      </Suspense>
-      {problem && (
-        <p role="alert" className="p-4 text-destructive-text">
-          {problem}
-        </p>
-      )}
-      {imageAnswer && editable && (
-        <DocumentImagePicker
+      <DraftProblemActions
+        status={state.status}
+        dirty={state.dirty}
+        draft={state.draft}
+        clipboard={props.clipboard}
+        onDiscard={() => state.discard()}
+        onConfirmReload={askReload}
+        onRetry={() => void state.flush()}
+      />
+      <DocumentTabStrip
+        tabs={document.tabs}
+        activeTabId={activeTabId}
+        canEdit={bodyEditable && props.live}
+        canManage={document.canManage}
+        isBlank={isBlank}
+        onActivate={activateTab}
+        onCommand={(command) => state.runTabCommand(command)}
+      />
+      {tabEditor && activeTabId && (
+        <DocumentTabBody
+          key={tabKey(activeTabId)}
+          editor={tabEditor}
           api={props.api}
           campaignId={props.campaign.id}
           documentId={document.id}
-          images={props.library.images ?? []}
-          onChoose={(asset) => {
-            imageAnswer(asset);
-            setImageAnswer(null);
-          }}
+          tabId={activeTabId}
+          library={props.library}
+          clipboard={props.clipboard}
+          canEdit={bodyEditable}
+          onConfirmReload={askReload}
         />
       )}
       {(leaveAnswer || confirmation) && (
-        <AlertDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              leaveAnswer?.(false);
-              setLeaveAnswer(null);
-              setConfirmation(null);
-            }
+        <DocumentPanelDialog
+          leaving={!!leaveAnswer}
+          confirmation={confirmation}
+          onCancel={() => {
+            leaveAnswer?.(false);
+            setLeaveAnswer(null);
+            setConfirmation(null);
           }}
-        >
-          <AlertDialogContent>
-            <AlertDialogTitle>
-              {leaveAnswer
-                ? 'Alterações ainda não salvas'
-                : confirmation === 'reload'
-                  ? 'Descartar meu rascunho?'
-                  : 'Excluir documento?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {state.dirty
-                ? 'Continue editando para conservar o rascunho ou descarte as alterações locais.'
-                : 'O documento será excluído da mesa.'}
-            </AlertDialogDescription>
-            <AlertDialogFooter>
-              <AlertDialogCancel>
-                {state.dirty ? 'Continuar editando' : 'Cancelar'}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  if (leaveAnswer) {
-                    leaveAnswer(true);
-                    setLeaveAnswer(null);
-                    return;
-                  }
-                  setConfirmation(null);
-                  if (confirmation === 'reload') {
-                    void state.discard();
-                    return;
-                  }
-                  void submit({
-                    intent: 'removeDocument',
-                    documentId: document.id,
-                    changes: { actionId: crypto.randomUUID(), expectedVersion: document.version },
-                  });
-                }}
-              >
-                {state.dirty ? 'Descartar alterações' : 'Excluir'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          onConfirm={() => {
+            if (leaveAnswer) {
+              leaveAnswer(true);
+              setLeaveAnswer(null);
+              return;
+            }
+            setConfirmation(null);
+            if (confirmation?.kind === 'reload') return void confirmation.discard();
+            void submit({
+              intent: 'removeDocument',
+              documentId: document.id,
+              changes: { actionId: crypto.randomUUID(), expectedVersion: document.version },
+            });
+          }}
+        />
       )}
     </section>
+  );
+}
+
+// The header says the worst of the name's and the shown tab's state.
+const STATUS_WEIGHT: readonly DocumentSaveStatus[] = [
+  'saved',
+  'loading',
+  'pending',
+  'saving',
+  'offline',
+  'failure',
+  'conflict',
+  'forbidden',
+  'not_found',
+];
+function worseStatus(name: DocumentSaveStatus, tab: DocumentSaveStatus | null): DocumentSaveStatus {
+  if (tab === null) return name;
+  return STATUS_WEIGHT.indexOf(tab) > STATUS_WEIGHT.indexOf(name) ? tab : name;
+}
+
+function useTabStatus(
+  editor: StoreApi<DocumentTabEditorState> | undefined,
+): DocumentSaveStatus | null {
+  return useSyncExternalStore(
+    (changed) => editor?.subscribe(changed) ?? (() => undefined),
+    () => editor?.getState().status ?? null,
   );
 }

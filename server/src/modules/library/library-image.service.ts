@@ -1,4 +1,6 @@
 import type {
+  SheetTemplateSummaryDto,
+  SheetSummaryDto,
   CampaignLibraryDto,
   CreateLibraryImageRequestDto,
   UpdateLibraryImageRequestDto,
@@ -27,7 +29,14 @@ import { SceneLibraryBo } from './scene-library.bo';
 import { DocumentAccessBo } from '../documents/document-access.bo';
 import { toDocumentSummary } from '../documents/documents.mapper';
 import type { DocumentsDao } from '../documents/documents.dao';
+import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import type { SheetTemplatesDao } from '../sheets/sheet-templates.dao';
+import type { SheetsDao } from '../sheets/sheets.dao';
+import { readableSheetSummaries } from '../sheets/sheets.mapper';
+import { toSheetTemplateSummaryDto } from '../sheets/sheet-templates.mapper';
 export type LibraryImageDaos = Readonly<{
+  sheetTemplates?: Pick<SheetTemplatesDao, 'listOfCampaign'>;
+  sheets?: Pick<SheetsDao, 'listOfCampaign' | 'placesOf'>;
   documents?: Pick<DocumentsDao, 'listOfCampaign' | 'ownersOfCampaign'>;
   campaigns: Pick<CampaignsDao, 'lockById' | 'findById'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
@@ -80,9 +89,11 @@ export class LibraryImageService {
         if (!new DocumentAccessBo(access, { ...row, ownerIds: owners }).canRead()) return [];
         return [toDocumentSummary(row, owners, access)];
       });
+      const sheets = await sheetsFor(daos, access);
       const visible = tree.visibleTo(new SceneAccessBo(access, campaign.activeSceneId), [
         ...images.map((row) => row.image.folderId),
         ...documents.map((document) => document.folderId),
+        ...sheets.map((sheet) => sheet.folderId),
       ]);
       return {
         activeSceneId: campaign.activeSceneId,
@@ -90,6 +101,8 @@ export class LibraryImageService {
         scenes: visible.scenes.map((row) => toLibrarySceneDto(row, access.isMaster())),
         images: images.map(toLibraryImageDto),
         documents,
+        ...(await sheetTemplatesFor(daos, access)),
+        ...(daos.sheets ? { sheets } : {}),
       };
     });
   }
@@ -182,4 +195,25 @@ export class LibraryImageService {
   private presented(state: ImagePresentationStateDto): void {
     this.deps.publisher.imagePresentationChanged({ ...state, eventId: this.deps.newId() });
   }
+}
+// Only masters get the templates (without their code): it runs on every screen of the table.
+async function sheetTemplatesFor(
+  daos: LibraryImageDaos,
+  access: CampaignAccessBo,
+): Promise<{ sheetTemplates?: SheetTemplateSummaryDto[] }> {
+  if (!access.isMaster() || !daos.sheetTemplates) return {};
+  const rows = await daos.sheetTemplates.listOfCampaign(access.campaignIdOf());
+  return { sheetTemplates: rows.map(toSheetTemplateSummaryDto) };
+}
+
+// A master gets every sheet; anyone else those they read (by their token's place and control).
+async function sheetsFor(
+  daos: LibraryImageDaos,
+  access: CampaignAccessBo,
+): Promise<SheetSummaryDto[]> {
+  if (!daos.sheets) return [];
+  const sheets = await daos.sheets.listOfCampaign(access.campaignIdOf());
+  const tokenIds = [...new Set(sheets.flatMap(({ tokenId }) => (tokenId ? [tokenId] : [])))];
+  const places = await daos.sheets.placesOf(access.campaignIdOf(), tokenIds);
+  return readableSheetSummaries(access, sheets, places);
 }
