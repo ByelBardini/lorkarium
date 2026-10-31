@@ -32,7 +32,7 @@ Complementa [`library.md`](library.md). O contrato e a autorização ficam em [`
 
 - Só tenta abrir automaticamente quando é casca desktop e `__LORKARIUM_IMAGE_WINDOW_SUPPORTED__ === true`. Casca antiga ou navegador usa modal; falha de abertura/documento também cai no modal.
 - `useImagePresentationWindow` reutiliza o host de Chat/Dados com `panel=image`, nome próprio por campanha e tamanho 960×720. O conteúdo continua no mesmo React/store/socket via `ChatWindowPortal`.
-- `DetachedWindowFrame hideOptions` preserva barra e controles nativos, omitindo opções de chat. P2 reutiliza a janela existente; X dispensa apenas a apresentação local. Recusa do fechamento conserva o conteúdo e mostra erro recuperável.
+- `DetachedWindowFrame hidePin` preserva barra e controles nativos, sem o alfinete “Sempre por cima”. P2 reutiliza a janela existente; X dispensa apenas a apresentação local. Recusa do fechamento conserva o conteúdo e mostra erro recuperável.
 - A marca exige nova release da casca. Não altera allowlist de URL, IPC ou ambiente WebView2. A abertura sem gesto local e o fechamento durante recarga exigem conferência no WebView2 real; Chromium não prova o comportamento do host.
 
 ## Testes
