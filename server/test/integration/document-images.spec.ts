@@ -1,6 +1,6 @@
 import { assetResponseDto, libraryImageDto, type DocumentDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { DocumentHttpHarness, documentText } from '../support/document-http';
+import { DocumentHttpHarness, documentText, firstTabOf } from '../support/document-http';
 import { pngOf, animatedGifOf } from '../support/images';
 import type { SignedInUser } from '../support/sign-in';
 import { useTokenTable } from '../support/token-table';
@@ -10,7 +10,7 @@ const documents = new DocumentHttpHarness(live);
 async function upload(document: DocumentDto, user: SignedInUser = live.ana) {
   const response = await live.http(user, {
     method: 'POST',
-    url: `${documents.url(document.id)}/images`,
+    url: documents.imagesUrl(document),
     headers: { 'content-type': 'image/png' },
     payload: await pngOf(80, 40),
   });
@@ -58,7 +58,7 @@ describe('document image authorization and references', () => {
     const asset = await upload(other);
     const response = await live.http(live.ana, {
       method: 'PATCH',
-      url: `${documents.url(document.id)}/content`,
+      url: `${documents.tabUrl(document.id, firstTabOf(document).id)}/content`,
       payload: {
         actionId: crypto.randomUUID(),
         expectedVersion: 0,
@@ -66,7 +66,8 @@ describe('document image authorization and references', () => {
       },
     });
     expect(response.statusCode).toBe(404);
-    expect((await documents.read(document.id)).version).toBe(0);
+    expect(response.json()).toMatchObject({ code: 'DOCUMENT_ASSET_NOT_FOUND' });
+    expect((await documents.read(document.id)).tabs[0]?.version).toBe(0);
   });
   it('refuses public non-owner uploads and import before exposing private fetch diagnostics', async () => {
     const document = await documents.administer(await documents.create(), { visibility: 'public' });
@@ -74,7 +75,7 @@ describe('document image authorization and references', () => {
       (
         await live.http(live.bia, {
           method: 'POST',
-          url: `${documents.url(document.id)}/images`,
+          url: documents.imagesUrl(document),
           headers: { 'content-type': 'image/png' },
           payload: await pngOf(20, 10),
         })
@@ -84,14 +85,14 @@ describe('document image authorization and references', () => {
       (
         await live.http(live.bia, {
           method: 'POST',
-          url: `${documents.url(document.id)}/images/import`,
+          url: `${documents.imagesUrl(document)}/import`,
           payload: { url: 'http://127.0.0.1/private.png' },
         })
       ).statusCode,
     ).toBe(403);
     const blocked = await live.http(live.ana, {
       method: 'POST',
-      url: `${documents.url(document.id)}/images/import`,
+      url: `${documents.imagesUrl(document)}/import`,
       payload: { url: 'http://127.0.0.1/private.png' },
     });
     expect(blocked.statusCode).toBe(422);
@@ -124,7 +125,7 @@ describe('document image authorization and references', () => {
     for (const bytes of [await animatedGifOf(2, 10), Buffer.from('<html>not an image</html>')]) {
       const response = await live.http(live.ana, {
         method: 'POST',
-        url: `${documents.url(document.id)}/images`,
+        url: documents.imagesUrl(document),
         headers: { 'content-type': 'image/png' },
         payload: bytes,
       });
@@ -148,7 +149,7 @@ describe('document image authorization and references', () => {
     let document = await documents.administer(await documents.create(), { visibility: 'public' });
     const associated = await live.http(live.ana, {
       method: 'POST',
-      url: `${documents.url(document.id)}/images/from-library`,
+      url: `${documents.imagesUrl(document)}/from-library`,
       payload: { imageId: image.id },
     });
     expect(associated.statusCode, associated.body).toBe(201);
@@ -166,7 +167,7 @@ describe('document image authorization and references', () => {
       ).statusCode,
     ).toBe(204);
     expect((await readAsset(live.bia, asset.id)).statusCode).toBe(200);
-    expect((await documents.read(document.id)).content).toEqual({
+    expect(await documents.firstTabContent(document.id)).toEqual({
       type: 'doc',
       content: [{ type: 'image', attrs: { assetId: asset.id } }],
     });
@@ -192,7 +193,7 @@ describe('document image authorization and references', () => {
       (
         await live.http(live.bia, {
           method: 'POST',
-          url: `${documents.url(document.id)}/images/from-library`,
+          url: `${documents.imagesUrl(document)}/from-library`,
           payload: { imageId: image.id },
         })
       ).statusCode,

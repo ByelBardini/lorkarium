@@ -18,13 +18,13 @@ describe('document versioned edits and ownership', () => {
       canManage: false,
     });
     const saved = await documents.save(owned, documentText('Dos dois'), live.bia);
-    expect(saved.version).toBe(2);
+    expect(saved).toMatchObject({ version: 1, tabs: [{ name: 'Geral', version: 1 }] });
     expect(
       (
         await live.http(live.bia, {
           method: 'PATCH',
           url: documents.url(owned.id),
-          payload: { actionId: crypto.randomUUID(), expectedVersion: 2, visibility: 'public' },
+          payload: { actionId: crypto.randomUUID(), expectedVersion: 1, visibility: 'public' },
         })
       ).statusCode,
     ).toBe(403);
@@ -33,7 +33,7 @@ describe('document versioned edits and ownership', () => {
         await live.http(live.caio, {
           method: 'DELETE',
           url: documents.url(owned.id),
-          payload: { actionId: crypto.randomUUID(), expectedVersion: 2 },
+          payload: { actionId: crypto.randomUUID(), expectedVersion: 1 },
         })
       ).statusCode,
     ).toBe(403);

@@ -4,7 +4,7 @@ import {
   DocumentImagesService,
   type DocumentImagesDeps,
 } from '../../../src/modules/documents/document-images.service';
-import { ACTION_ID, DOCUMENT_ID } from '../../support/documents-fakes';
+import { ACTION_ID, DOCUMENT_ID, ITENS_TAB_ID } from '../../support/documents-fakes';
 import { VHARN_ID } from '../../support/campaigns-factories';
 import { ANA_ID } from '../../support/auth-factories';
 
@@ -14,18 +14,27 @@ class DocumentEditorAuthorizationFake implements DocumentAuthorization {
   denied = false;
   revoked = false;
   constructor(readonly journal: string[]) {}
-  async authorizeEditor(): Promise<void> {
+  async authorizeEditor(_requester: unknown, _documentId: string, tabId: string): Promise<void> {
     if (this.denied) throw new Error('not an editor');
-    this.journal.push('authorize');
+    this.journal.push(`authorize ${tabId}`);
   }
-  async associateAsset(): Promise<void> {
+  async associateAsset(
+    _requester: unknown,
+    _documentId: string,
+    tabId: string,
+    assetId: string,
+  ): Promise<void> {
     this.journal.push('revalidate');
     if (this.revoked) throw new Error('editor revoked');
-    this.journal.push('associate');
+    this.journal.push(`associate ${assetId} to ${tabId}`);
   }
-  async associateLibraryAsset(): Promise<AssetDto> {
-    await this.authorizeEditor();
-    await this.associateAsset();
+  async associateLibraryAsset(
+    _requester: unknown,
+    documentId: string,
+    tabId: string,
+  ): Promise<AssetDto> {
+    await this.authorizeEditor(null, documentId, tabId);
+    await this.associateAsset(null, documentId, tabId, ACTION_ID);
     return { id: ACTION_ID, width: 80, height: 40, mimeType: 'image/png' };
   }
 }
@@ -50,27 +59,33 @@ function imageHarness() {
   };
 }
 const requester = { campaignId: VHARN_ID, userId: ANA_ID };
+const ITENS = { documentId: DOCUMENT_ID, tabId: ITENS_TAB_ID };
 describe('DocumentImagesService', () => {
   it('non editor cannot trigger URL fetching or association', async () => {
     const harness = imageHarness();
     harness.documents.denied = true;
     await expect(
-      harness.service.importLink(requester, DOCUMENT_ID, 'https://example.com/map.png'),
+      harness.service.importLink(requester, ITENS, 'https://example.com/map.png'),
     ).rejects.toThrow('not an editor');
     expect(harness.journal).toEqual([]);
   });
   it('uploaded image is returned only after association revalidates current editor access', async () => {
     const harness = imageHarness();
-    const asset = await harness.service.upload(requester, DOCUMENT_ID, new Uint8Array([1, 2]));
+    const asset = await harness.service.upload(requester, ITENS, new Uint8Array([1, 2]));
     expect(asset).toEqual({ id: ACTION_ID, width: 80, height: 40, mimeType: 'image/png' });
-    expect(harness.journal).toEqual(['authorize', 'upload', 'revalidate', 'associate']);
+    expect(harness.journal).toEqual([
+      `authorize ${ITENS_TAB_ID}`,
+      'upload',
+      'revalidate',
+      `associate ${ACTION_ID} to ${ITENS_TAB_ID}`,
+    ]);
   });
   it('editor revoked during import receives no successful preparation', async () => {
     const harness = imageHarness();
     harness.documents.revoked = true;
     await expect(
-      harness.service.importLink(requester, DOCUMENT_ID, 'https://example.com/map.png'),
+      harness.service.importLink(requester, ITENS, 'https://example.com/map.png'),
     ).rejects.toThrow('editor revoked');
-    expect(harness.journal).toEqual(['authorize', 'fetch', 'revalidate']);
+    expect(harness.journal).toEqual([`authorize ${ITENS_TAB_ID}`, 'fetch', 'revalidate']);
   });
 });

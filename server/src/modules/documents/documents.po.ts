@@ -1,6 +1,5 @@
 import { sql } from 'drizzle-orm';
 import {
-  boolean,
   check,
   foreignKey,
   index,
@@ -16,7 +15,6 @@ import {
 import { campaigns } from '../campaigns/campaigns.po';
 import { campaignMembers } from '../campaigns/campaign-members.po';
 import { users } from '../auth/users.po';
-import { assets } from '../assets/assets.po';
 import { sceneFolders } from '../library/scene-folders.po';
 import { sceneVisibility } from '../scenes/scenes.po';
 
@@ -30,8 +28,6 @@ export const libraryDocuments = pgTable(
     folderId: uuid('folder_id'),
     name: text('name').notNull(),
     visibility: sceneVisibility('visibility').notNull().default('private'),
-    content: jsonb('content').notNull(),
-    schemaVersion: integer('schema_version').notNull().default(1),
     version: integer('version').notNull().default(0),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -69,27 +65,6 @@ export const libraryDocumentOwners = pgTable(
     }).onDelete('cascade'),
   ],
 );
-export const libraryDocumentAssets = pgTable(
-  'library_document_assets',
-  {
-    campaignId: uuid('campaign_id').notNull(),
-    documentId: uuid('document_id').notNull(),
-    assetId: uuid('asset_id').notNull(),
-    inContent: boolean('in_content').notNull().default(false),
-  },
-  (t) => [
-    primaryKey({ columns: [t.campaignId, t.documentId, t.assetId] }),
-    index('library_document_assets_asset_idx').on(t.campaignId, t.assetId),
-    foreignKey({
-      columns: [t.campaignId, t.documentId],
-      foreignColumns: [libraryDocuments.campaignId, libraryDocuments.id],
-    }).onDelete('cascade'),
-    foreignKey({
-      columns: [t.campaignId, t.assetId],
-      foreignColumns: [assets.campaignId, assets.id],
-    }).onDelete('cascade'),
-  ],
-);
 export const libraryDocumentActions = pgTable(
   'library_document_actions',
   {
@@ -107,6 +82,6 @@ export const libraryDocumentActions = pgTable(
 export type DocumentPo = typeof libraryDocuments.$inferSelect;
 export type NewDocumentPo = typeof libraryDocuments.$inferInsert;
 export type DocumentChangesPo = Partial<
-  Pick<DocumentPo, 'name' | 'content' | 'folderId' | 'visibility' | 'version' | 'updatedAt'>
+  Pick<DocumentPo, 'name' | 'folderId' | 'visibility' | 'version' | 'updatedAt'>
 >;
 export type DocumentActionPo = typeof libraryDocumentActions.$inferSelect;

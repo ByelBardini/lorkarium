@@ -13,6 +13,12 @@ export class DocumentAccessBo {
     private readonly access: CampaignAccessBo,
     private readonly document: DocumentAccessState,
   ) {}
+  idOf(): string {
+    return this.document.id;
+  }
+  campaignIdOf(): string {
+    return this.access.campaignIdOf();
+  }
   canRead(): boolean {
     return this.document.visibility === 'public' || this.canEdit();
   }

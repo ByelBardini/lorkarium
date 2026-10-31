@@ -3,13 +3,14 @@ import { DocumentsService } from '../../../src/modules/documents/documents.servi
 import {
   ACTION_ID,
   DOCUMENT_ID,
+  GERAL_TAB_ID,
   DocumentsHarness,
   documentPo,
 } from '../../support/documents-fakes';
 import { BIA_ID } from '../../support/campaigns-factories';
 
 describe('DocumentsService', () => {
-  it('master creates a private canonical document and commits the receipt before publishing', async () => {
+  it('master creates a private document with its "Geral" tab and commits the receipt before publishing', async () => {
     const harness = new DocumentsHarness();
     const result = await new DocumentsService(harness.deps).create(harness.requester, {
       actionId: ACTION_ID,
@@ -19,9 +20,22 @@ describe('DocumentsService', () => {
       visibility: 'private',
       version: 0,
       ownerIds: [],
-      content: { type: 'doc', content: [{ type: 'paragraph' }] },
+      schemaVersion: 2,
+      tabs: [{ id: GERAL_TAB_ID, name: 'Geral', visibility: 'document', version: 0 }],
     });
-    expect(harness.journal).toEqual(['lock', 'insert', 'receipt', 'commit', 'publish']);
+    expect(harness.tabs.rows[0]?.content).toEqual({
+      type: 'doc',
+      content: [{ type: 'paragraph' }],
+    });
+    expect(harness.journal).toEqual([
+      'lock',
+      'insert',
+      'insert tab',
+      'receipt',
+      'load tabs',
+      'commit',
+      'publish',
+    ]);
   });
   it('same action replays its receipt without applying or publishing twice', async () => {
     const harness = new DocumentsHarness();
@@ -48,6 +62,7 @@ describe('DocumentsService', () => {
       new DocumentsService(harness.deps).create(harness.requester, { actionId: ACTION_ID }),
     ).rejects.toThrow('commit failed');
     expect(harness.documents.rows).toEqual([]);
+    expect(harness.tabs.rows).toEqual([]);
     expect(harness.documents.actions).toEqual([]);
     expect(harness.journal).not.toContain('publish');
   });
@@ -75,19 +90,6 @@ describe('DocumentsService', () => {
     expect(harness.documents.rows[0]).toMatchObject({ version: 4, name: 'Winner' });
     expect(harness.documents.actions).toEqual([]);
     expect(harness.journal).not.toContain('publish');
-  });
-  it('unassociated asset refuses content and preserves old image references', async () => {
-    const harness = new DocumentsHarness();
-    harness.documents.rows.push(documentPo());
-    await expect(
-      new DocumentsService(harness.deps).updateContent(harness.requester, DOCUMENT_ID, {
-        actionId: ACTION_ID,
-        expectedVersion: 0,
-        content: { type: 'doc', content: [{ type: 'image', attrs: { assetId: ACTION_ID } }] },
-      }),
-    ).rejects.toMatchObject({ code: 'DOCUMENT_ASSET_NOT_FOUND' });
-    expect(harness.documents.referencesRows).toEqual([]);
-    expect(harness.documents.rows[0]?.version).toBe(0);
   });
   it('owner permission is rechecked before replaying an old action', async () => {
     const harness = new DocumentsHarness();

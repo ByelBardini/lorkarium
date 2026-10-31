@@ -1,9 +1,8 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import {
   libraryDocuments,
   libraryDocumentOwners,
-  libraryDocumentAssets,
   libraryDocumentActions,
   type DocumentPo,
   type NewDocumentPo,
@@ -11,10 +10,7 @@ import {
   type DocumentActionPo,
 } from './documents.po';
 
-export type DocumentSummaryPo = Omit<
-  DocumentPo,
-  'content' | 'schemaVersion' | 'createdBy' | 'createdAt'
->;
+export type DocumentSummaryPo = Omit<DocumentPo, 'createdBy' | 'createdAt'>;
 export class DocumentsDao {
   constructor(private readonly db: DatabaseExecutor) {}
   async findInCampaign(campaignId: string, documentId: string): Promise<DocumentPo | undefined> {
@@ -116,56 +112,6 @@ export class DocumentsDao {
       await this.db
         .insert(libraryDocumentOwners)
         .values(ownerIds.map((userId) => ({ campaignId, documentId, userId })));
-  }
-  async references(
-    campaignId: string,
-    documentId: string,
-  ): Promise<(typeof libraryDocumentAssets.$inferSelect)[]> {
-    return this.db
-      .select()
-      .from(libraryDocumentAssets)
-      .where(
-        and(
-          eq(libraryDocumentAssets.campaignId, campaignId),
-          eq(libraryDocumentAssets.documentId, documentId),
-        ),
-      );
-  }
-  async documentsForAsset(
-    campaignId: string,
-    assetId: string,
-  ): Promise<(typeof libraryDocumentAssets.$inferSelect)[]> {
-    return this.db
-      .select()
-      .from(libraryDocumentAssets)
-      .where(
-        and(
-          eq(libraryDocumentAssets.campaignId, campaignId),
-          eq(libraryDocumentAssets.assetId, assetId),
-        ),
-      );
-  }
-  async associateAsset(campaignId: string, documentId: string, assetId: string): Promise<void> {
-    await this.db
-      .insert(libraryDocumentAssets)
-      .values({ campaignId, documentId, assetId })
-      .onConflictDoNothing();
-  }
-  async confirmAssets(
-    campaignId: string,
-    documentId: string,
-    assetIds: readonly string[],
-  ): Promise<void> {
-    const where = and(
-      eq(libraryDocumentAssets.campaignId, campaignId),
-      eq(libraryDocumentAssets.documentId, documentId),
-    );
-    await this.db.update(libraryDocumentAssets).set({ inContent: false }).where(where);
-    if (assetIds.length)
-      await this.db
-        .update(libraryDocumentAssets)
-        .set({ inContent: true })
-        .where(and(where, inArray(libraryDocumentAssets.assetId, [...assetIds])));
   }
   async action(
     campaignId: string,
