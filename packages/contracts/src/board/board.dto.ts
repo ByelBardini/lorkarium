@@ -4,6 +4,7 @@ import type { DiceClientEvents, DiceServerEvents } from '../dice/dice.dto';
 import type { ChatClientEvents, ChatServerEvents } from '../chat/chat.dto';
 import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto';
 import type { LibraryServerEvents } from '../library/library.dto';
+import type { SheetClientEvents, SheetServerEvents } from '../sheets/sheet-events';
 import {
   sessionLeaveAckDto,
   type SessionClientEvents,
@@ -493,15 +494,18 @@ export type BoardServerEvents = {
   'board:pinged': (event: BoardPingedDto) => void;
 } & CharacterServerEvents;
 
-/** Every client → server event of a table connection (session + board + dice + chat). */
+/** Every client → server event of a table connection (session + board + dice + chat + sheets). */
 export type TableClientEvents = SessionClientEvents &
   BoardClientEvents &
   DiceClientEvents &
-  ChatClientEvents;
+  ChatClientEvents &
+  SheetClientEvents;
 
-/** Every server → client event of a table connection (session + board + library + dice + chat). */
+/** Every server → client event of a table connection (session + board + library + dice + chat
+ *  + sheets). */
 export type TableServerEvents = SessionServerEvents &
   BoardServerEvents &
   LibraryServerEvents &
   DiceServerEvents &
-  ChatServerEvents;
+  ChatServerEvents &
+  SheetServerEvents;

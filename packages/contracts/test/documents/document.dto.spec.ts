@@ -32,6 +32,12 @@ describe('document commands', () => {
         .success,
     ).toBe(false);
   });
+  it('refuses a document body in the rename command now that the body lives in the tabs', () => {
+    const content = { type: 'doc', content: [] };
+    expect(
+      updateDocumentContentRequestDto.safeParse({ ...action, name: 'Carta', content }).success,
+    ).toBe(false);
+  });
   it.each(['', ' ', 'x'.repeat(61)])('refuses invalid document title %j', (name) =>
     expect(createDocumentRequestDto.safeParse({ actionId: id, name }).success).toBe(false),
   );
