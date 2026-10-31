@@ -121,13 +121,14 @@ flowchart LR
 
 ```text
 lorkarium/
-├── client/                 # SPA (React + Vite); PixiJS em src/renderer/, three.js em src/dice-renderer/
+├── client/                 # SPA (React + Vite); PixiJS em src/renderer/; dados 3D pelo packages/dice-renderer/
 ├── server/                 # API e tempo real (Fastify + Socket.IO + Drizzle); módulos em src/modules/
 ├── site/                   # Landing (Astro): apresentação, download do instalador, Termos e Privacidade
 ├── desktop/                # App para Windows (Tauri 2): splash em src/, Rust e instalador em src-tauri/
 ├── packages/
 │   ├── game-core/          # Regra de jogo pura: células, distância, turnos, condições, visão, luz
 │   ├── contracts/          # DTOs Zod que atravessam client ↔ server (HTTP e Socket.IO)
+│   ├── dice-renderer/      # Dados 3D em three.js, usados pelo client
 │   ├── brand/              # Paleta, fontes e logo
 │   └── tsconfig/           # Configurações TypeScript compartilhadas
 ├── e2e/                    # Testes ponta a ponta com Playwright

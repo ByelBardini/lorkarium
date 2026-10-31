@@ -64,7 +64,7 @@ Máquina de estados pura: `startDiceRoll(expressões)` valida pelo `parseDicePar
 ## Formas e numeração (`dice-shapes.ts`)
 
 - `dieShapeOf(tipo)` → `DieShape` `{ kind, reads, vertices, faces, vertexValues }`, o mesmo poliedro na física do server e na malha do client. Cada `DieFace` tem normal, âncora e `value`. Memoizado e **compartilhado**; o congelamento é raso (o objeto, cada face e o `vertexValues`; os arrays `vertices`/`faces` e os vetores não): não mute. Tipo sem modelo (`'d7'`) → `RangeError`. Vértices anti-horários vistos de fora; faces em ordem fixa (de cima para baixo, depois pelo ângulo em volta de y).
-- `DIE_KINDS`, `isDieKind(texto)` (guarda de tipo), `DIE_UP` (`{ 0, 1, 0 }`) e `dot3(a, b)` — este exportado pelo `dice-shapes.ts` mas **fora** do `index.ts` (o client tem cópia, `dot` em `client/src/dice-renderer/die-geometry.ts`).
+- `DIE_KINDS`, `isDieKind(texto)` (guarda de tipo), `DIE_UP` (`{ 0, 1, 0 }`) e `dot3(a, b)` — este exportado pelo `dice-shapes.ts` mas **fora** do `index.ts` (o renderer tem cópia, `dot` em `packages/dice-renderer/src/die-geometry.ts`).
 - **Numeração como a do dado físico:** faces opostas somam N + 1 no d6 (7), d8 (9), d12 (13) e d20 (21). O **d10** é impresso de 0 a 9 com opostas somando 9 (0↔9, 1↔8…), como o `d100tens` (00↔90); a face "0" vale **10** no `value`. O d4 vale pela face de baixo (`reads: 'bottom'`), lida no canto de cima (`vertexValues`: cada canto leva o valor da face oposta). O d10 **não** segue N + 1 no `value` (o 10 é o "0" impresso, oposto ao 9): o spec confere a soma sobre o número impresso (`value % 10`).
 
 ## Repouso (`dice-rest.ts`)
