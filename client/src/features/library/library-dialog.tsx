@@ -10,6 +10,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { SignedOutRedirect } from '@/components/signed-out-redirect';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { keepMovedFocus } from '@/lib/keep-moved-focus';
 import type { AssetsApi } from '@/services/assets-api';
 import type { LibraryApi } from '@/services/library-api';
 import type { ImagePresentationApi } from '@/services/image-presentation-api';
@@ -60,6 +61,7 @@ export function LibraryDialog(props: LibraryDialogProps): React.JSX.Element {
       <DialogContent
         showCloseButton={false}
         onEscapeKeyDown={keepOpenWhileEditing}
+        onCloseAutoFocus={keepMovedFocus}
         className="flex h-[90svh] w-[calc(100%_-_2rem)] max-w-[1360px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1360px]"
       >
         <Suspense fallback={<LibraryLoading {...guardedProps} />}>
