@@ -23,8 +23,8 @@ describe('the site header', () => {
   });
 
   it.each([
-    ['Recursos', '/#recursos'],
-    ['Como funciona', '/#como'],
+    ['A sessão', '/#cena'],
+    ['Combate', '/#combate'],
     ['Perguntas', '/#perguntas'],
   ])('links "%s" to the landing anchor %s', async (name, href) => {
     const page = await renderAstro(SiteHeader);

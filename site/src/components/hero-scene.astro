@@ -1,0 +1,384 @@
+---
+import { type SceneToken, sceneCenterOf } from '@/lib/hero-scene';
+
+// The demo table "Os Sinos de Vharn" at round 3. The scene shows only what the board draws
+// (docs/context/site.md, Direção visual): tokens sit in their cells, the turn ring does not pulse.
+const tokens: readonly SceneToken[] = [
+  { label: 'OC', side: 'foe', col: 18, row: 6, size: 2, hp: 0.6 },
+  { label: 'KA', side: 'party', col: 16, row: 10, size: 1, hp: 0.84 },
+  { label: 'LY', side: 'party', col: 15, row: 12, size: 1, hp: 0.81 },
+  { label: 'TH', side: 'party', col: 14, row: 11, size: 1, hp: 0.19 },
+  { label: 'B1', side: 'foe', col: 21, row: 9, size: 1, hp: 0.7 },
+  { label: 'B2', side: 'foe', col: 17, row: 12, size: 1, hp: 0.5 },
+  { label: 'B3', side: 'foe', col: 17, row: 4, size: 1, hp: 0.9 },
+  { label: 'B4', side: 'foe', col: 23, row: 11, size: 1, hp: 0.6 },
+  { label: 'B5', side: 'foe', col: 20, row: 3, size: 1, hp: 0.8 },
+  { label: 'B6', side: 'foe', col: 20, row: 13, size: 1, hp: 0.4 },
+];
+const ringOf = { party: '#eae5da', foe: '#c9705a' } as const;
+const placed = tokens.map((token) => ({
+  ...token,
+  ...sceneCenterOf(token),
+  r: token.size === 1 ? 26 : 58,
+}));
+const ogre = placed[0];
+const kael = placed[1];
+// Kael's drag, cell by cell as the board's trail draws it (origin first, Kael's cell last): a
+// diagonal then a straight step, so the dashes restart at the bend like on the board.
+const dragCells = [
+  { col: 13, row: 8 },
+  { col: 14, row: 9 },
+  { col: 15, row: 10 },
+  { col: 16, row: 10 },
+].map((cell) => sceneCenterOf({ ...cell, size: 1 }));
+const dragOrigin = dragCells[0];
+const dragTrail = dragCells
+  .map(({ cx, cy }, index) => `${index === 0 ? 'M' : 'L'}${cx} ${cy}`)
+  .join(' ');
+const dragRuns = dragCells.slice(1).reduce<{ cx: number; cy: number }[][]>((runs, cell, index) => {
+  const from = dragCells[index] ?? cell;
+  const run = runs.at(-1);
+  const last = run?.at(-1);
+  const before = run?.at(-2);
+  const sameWay =
+    last &&
+    before &&
+    cell.cx - last.cx === last.cx - before.cx &&
+    cell.cy - last.cy === last.cy - before.cy;
+  if (run && sameWay) run.push(cell);
+  else runs.push([from, cell]);
+  return runs;
+}, []);
+const dragSteps = dragCells.length - 1;
+const dragLabel = `${dragSteps} casas · ${String(dragSteps * 1.5).replace('.', ',')} m`;
+const svgClass =
+  'absolute -inset-y-[8%] -inset-x-[4%] h-[116%] w-[108%] max-sm:right-[-10%] max-sm:left-[-190%] max-sm:w-auto max-sm:h-[112%] max-sm:-inset-y-[6%]';
+---
+
+<svg
+  class={svgClass}
+  data-parallax-depth="0.3"
+  data-scene-layer
+  viewBox="0 0 1600 1000"
+  preserveAspectRatio="xMidYMid slice"
+  role="img"
+  aria-label="Um mapa de combate: estrada na floresta com grid, os heróis Kael, Lyra e Thoren, bandidos e o Ogro das Cinzas"
+>
+  <defs>
+    <filter id="hero-grass" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".012" numOctaves="4" seed="3" />
+      <feColorMatrix values="0 0 0 0 .16  0 0 0 0 .27  0 0 0 0 .19  0 0 0 -1.1 .9" />
+    </filter>
+    <filter id="hero-dirt" x="-5%" y="-20%" width="110%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="3" seed="9" result="n" />
+      <feColorMatrix
+        in="n"
+        values="0 0 0 0 .30  0 0 0 0 .25  0 0 0 0 .18  0 0 0 -1.2 .8"
+        result="speck"
+      />
+      <feComposite in="speck" in2="SourceGraphic" operator="in" result="s" />
+      <feMerge>
+        <feMergeNode in="SourceGraphic" />
+        <feMergeNode in="s" />
+      </feMerge>
+    </filter>
+    <filter id="hero-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="6" dy="10" stdDeviation="8" flood-color="#05070a" flood-opacity=".55" />
+    </filter>
+    <pattern id="hero-cells" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0H0V64" fill="none" stroke="#e2c793" stroke-opacity=".2" stroke-width="1.5" />
+    </pattern>
+  </defs>
+  <rect width="1600" height="1000" fill="#2a4230" />
+  <rect width="1600" height="1000" filter="url(#hero-grass)" />
+  <path
+    d="M-40 760 C 260 700, 480 560, 760 600 S 1180 560, 1640 420"
+    fill="none"
+    stroke="#4d4232"
+    stroke-width="190"
+    stroke-linecap="round"
+    opacity=".7"
+  />
+  <path
+    d="M-40 760 C 260 700, 480 560, 760 600 S 1180 560, 1640 420"
+    fill="none"
+    stroke="#8c7656"
+    stroke-width="160"
+    stroke-linecap="round"
+    filter="url(#hero-dirt)"
+  />
+  <path
+    d="M-40 760 C 260 700, 480 560, 760 600 S 1180 560, 1640 420"
+    fill="none"
+    stroke="#5b4a35"
+    stroke-width="7"
+    stroke-dasharray="34 26"
+    opacity=".8"
+  />
+  <polygon
+    points="954,230 969.6,207.9 995.6,211.8 1006,232.6 987.8,250.8 964.4,245.6"
+    fill="#6b6d6a"
+    stroke="#4a4c4a"
+    stroke-width="3"
+    filter="url(#hero-shadow)"
+  />
+  <polygon
+    points="1310,360 1322.0,343.0 1342.0,346.0 1350,362.0 1336.0,376.0 1318.0,372.0"
+    fill="#6b6d6a"
+    stroke="#4a4c4a"
+    stroke-width="3"
+    filter="url(#hero-shadow)"
+  />
+  <polygon
+    points="1150,960 1168.0,934.5 1198.0,939.0 1210,963.0 1189.0,984.0 1162.0,978.0"
+    fill="#6b6d6a"
+    stroke="#4a4c4a"
+    stroke-width="3"
+    filter="url(#hero-shadow)"
+  />
+  <polygon
+    points="1217,1000 1227.8,984.7 1245.8,987.4 1253,1001.8 1240.4,1014.4 1224.2,1010.8"
+    fill="#6b6d6a"
+    stroke="#4a4c4a"
+    stroke-width="3"
+    filter="url(#hero-shadow)"
+  />
+  <polygon
+    points="744,790 753.6,776.4 769.6,778.8 776,791.6 764.8,802.8 750.4,799.6"
+    fill="#6b6d6a"
+    stroke="#4a4c4a"
+    stroke-width="3"
+    filter="url(#hero-shadow)"
+  />
+  <g filter="url(#hero-shadow)">
+    <circle cx="1486" cy="92" r="64" fill="#1d3324" />
+    <circle cx="1465" cy="123" r="58" fill="#1d3324" />
+    <circle cx="1464" cy="121" r="50" fill="#1d3324" />
+    <circle cx="1495" cy="85" r="52" fill="#1d3324" />
+    <circle cx="1486" cy="102" r="40" fill="#2c4a33" />
+    <circle cx="1478" cy="93" r="16" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="1376" cy="78" r="35" fill="#1d3324" />
+    <circle cx="1365" cy="67" r="47" fill="#1d3324" />
+    <circle cx="1384" cy="54" r="48" fill="#1d3324" />
+    <circle cx="1356" cy="79" r="37" fill="#1d3324" />
+    <circle cx="1371" cy="48" r="27" fill="#2c4a33" />
+    <circle cx="1365" cy="42" r="11" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="674" cy="42" r="50" fill="#1d3324" />
+    <circle cx="723" cy="47" r="56" fill="#1d3324" />
+    <circle cx="710" cy="61" r="55" fill="#1d3324" />
+    <circle cx="669" cy="38" r="48" fill="#1d3324" />
+    <circle cx="688" cy="54" r="36" fill="#2c4a33" />
+    <circle cx="680" cy="46" r="14" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="569" cy="136" r="35" fill="#1d3324" />
+    <circle cx="564" cy="138" r="34" fill="#1d3324" />
+    <circle cx="575" cy="150" r="34" fill="#1d3324" />
+    <circle cx="564" cy="141" r="42" fill="#1d3324" />
+    <circle cx="552" cy="129" r="25" fill="#2c4a33" />
+    <circle cx="546" cy="124" r="10" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="1577" cy="505" r="64" fill="#1d3324" />
+    <circle cx="1533" cy="514" r="59" fill="#1d3324" />
+    <circle cx="1535" cy="519" r="45" fill="#1d3324" />
+    <circle cx="1572" cy="539" r="55" fill="#1d3324" />
+    <circle cx="1548" cy="504" r="36" fill="#2c4a33" />
+    <circle cx="1540" cy="496" r="14" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="1552" cy="864" r="69" fill="#1d3324" />
+    <circle cx="1528" cy="887" r="63" fill="#1d3324" />
+    <circle cx="1549" cy="918" r="64" fill="#1d3324" />
+    <circle cx="1534" cy="842" r="69" fill="#1d3324" />
+    <circle cx="1506" cy="861" r="43" fill="#2c4a33" />
+    <circle cx="1496" cy="852" r="17" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="1309" cy="981" r="53" fill="#1d3324" />
+    <circle cx="1286" cy="943" r="50" fill="#1d3324" />
+    <circle cx="1270" cy="948" r="41" fill="#1d3324" />
+    <circle cx="1276" cy="922" r="52" fill="#1d3324" />
+    <circle cx="1290" cy="936" r="32" fill="#2c4a33" />
+    <circle cx="1282" cy="929" r="13" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="953" cy="942" r="52" fill="#1d3324" />
+    <circle cx="1007" cy="930" r="53" fill="#1d3324" />
+    <circle cx="984" cy="988" r="60" fill="#1d3324" />
+    <circle cx="1006" cy="944" r="52" fill="#1d3324" />
+    <circle cx="968" cy="944" r="36" fill="#2c4a33" />
+    <circle cx="960" cy="936" r="14" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="752" cy="951" r="47" fill="#1d3324" />
+    <circle cx="741" cy="913" r="36" fill="#1d3324" />
+    <circle cx="746" cy="929" r="42" fill="#1d3324" />
+    <circle cx="747" cy="903" r="39" fill="#1d3324" />
+    <circle cx="751" cy="918" r="27" fill="#2c4a33" />
+    <circle cx="745" cy="912" r="11" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="409" cy="905" r="71" fill="#1d3324" />
+    <circle cx="435" cy="901" r="63" fill="#1d3324" />
+    <circle cx="434" cy="864" r="70" fill="#1d3324" />
+    <circle cx="443" cy="930" r="67" fill="#1d3324" />
+    <circle cx="406" cy="882" r="40" fill="#2c4a33" />
+    <circle cx="398" cy="873" r="16" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="232" cy="112" r="49" fill="#1d3324" />
+    <circle cx="250" cy="87" r="48" fill="#1d3324" />
+    <circle cx="218" cy="94" r="54" fill="#1d3324" />
+    <circle cx="206" cy="82" r="50" fill="#1d3324" />
+    <circle cx="227" cy="103" r="38" fill="#2c4a33" />
+    <circle cx="219" cy="94" r="15" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="58" cy="469" r="50" fill="#1d3324" />
+    <circle cx="120" cy="489" r="53" fill="#1d3324" />
+    <circle cx="70" cy="468" r="58" fill="#1d3324" />
+    <circle cx="59" cy="508" r="72" fill="#1d3324" />
+    <circle cx="76" cy="462" r="40" fill="#2c4a33" />
+    <circle cx="68" cy="453" r="16" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="298" cy="639" r="29" fill="#1d3324" />
+    <circle cx="282" cy="633" r="31" fill="#1d3324" />
+    <circle cx="315" cy="625" r="28" fill="#1d3324" />
+    <circle cx="320" cy="641" r="29" fill="#1d3324" />
+    <circle cx="292" cy="630" r="22" fill="#2c4a33" />
+    <circle cx="288" cy="625" r="9" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="1002" cy="94" r="41" fill="#1d3324" />
+    <circle cx="1026" cy="140" r="43" fill="#1d3324" />
+    <circle cx="987" cy="113" r="36" fill="#1d3324" />
+    <circle cx="1015" cy="122" r="45" fill="#1d3324" />
+    <circle cx="991" cy="108" r="27" fill="#2c4a33" />
+    <circle cx="985" cy="102" r="11" fill="#3b5e42" opacity=".7" />
+  </g>
+  <g filter="url(#hero-shadow)">
+    <circle cx="1173" cy="49" r="34" fill="#1d3324" />
+    <circle cx="1200" cy="74" r="34" fill="#1d3324" />
+    <circle cx="1193" cy="70" r="27" fill="#1d3324" />
+    <circle cx="1181" cy="54" r="25" fill="#1d3324" />
+    <circle cx="1173" cy="51" r="20" fill="#2c4a33" />
+    <circle cx="1169" cy="46" r="8" fill="#3b5e42" opacity=".7" />
+  </g>
+  <rect width="1600" height="1000" fill="url(#hero-cells)" />
+</svg>
+<svg
+  class={svgClass}
+  data-parallax-depth="0.3"
+  data-scene-layer
+  data-scene-tokens
+  viewBox="0 0 1600 1000"
+  preserveAspectRatio="xMidYMid slice"
+  aria-hidden="true"
+  font-family="Hanken Grotesk Variable, system-ui, sans-serif"
+>
+  {ogre && kael && dragOrigin && (
+    <Fragment>
+      <path
+        data-drag-trail
+        d={dragTrail}
+        fill="none"
+        stroke="#c5a46d"
+        stroke-width="8"
+        stroke-opacity=".3"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      {dragRuns.map((run) => (
+        <path
+          d={run.map(({ cx, cy }, index) => `${index === 0 ? 'M' : 'L'}${cx} ${cy}`).join(' ')}
+          fill="none"
+          stroke="#c5a46d"
+          stroke-width="3"
+          stroke-dasharray="10 8"
+          stroke-linecap="round"
+        />
+      ))}
+      <circle
+        cx={dragOrigin.cx}
+        cy={dragOrigin.cy}
+        r="9"
+        fill="none"
+        stroke="#c5a46d"
+        stroke-width="2.5"
+      />
+      <text
+        data-drag-label
+        x={kael.cx + 38}
+        y={kael.cy - 32}
+        font-size="17"
+        fill="#d5d0c4"
+        stroke="#0a0b0e"
+        stroke-width="4"
+        paint-order="stroke"
+      >
+        {dragLabel}
+      </text>
+      <circle
+        cx={ogre.cx}
+        cy={ogre.cy}
+        r={ogre.r + 14}
+        fill="none"
+        stroke="#c5a46d"
+        stroke-width="5"
+      />
+    </Fragment>
+  )}
+  {placed.map(({ label, side, cx, cy, r, hp, size }) => (
+    <g data-scene-token={label} data-token-size={size}>
+      <circle cx={cx} cy={cy} r={r + 4} fill="#0a0b0e" opacity=".5" transform="translate(3 5)" />
+      <circle
+        data-token-body
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="#16181d"
+        stroke={ringOf[side]}
+        stroke-width="4"
+      />
+      <path
+        d={`M${cx + r + 3} ${cy - 6} L${cx + r + 11} ${cy} L${cx + r + 3} ${cy + 6} Z`}
+        fill={ringOf[side]}
+        opacity=".9"
+      />
+      <text
+        x={cx}
+        y={cy}
+        dy=".36em"
+        text-anchor="middle"
+        font-size={Math.round(r * 0.78)}
+        font-weight="600"
+        fill="#eae5da"
+      >
+        {label}
+      </text>
+      <rect
+        x={cx - r}
+        y={cy + r + 8}
+        width={r * 2}
+        height="7"
+        rx="3"
+        fill="#0c0e11"
+        opacity=".85"
+      />
+      <rect
+        x={cx - r}
+        y={cy + r + 8}
+        width={Math.round(r * 2 * hp)}
+        height="7"
+        rx="3"
+        fill="#c9705a"
+      />
+    </g>
+  ))}
+</svg>

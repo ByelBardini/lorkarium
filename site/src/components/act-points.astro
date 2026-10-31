@@ -1,0 +1,14 @@
+---
+interface Props {
+  points: readonly string[];
+}
+---
+
+<ul class="m-0 flex list-none flex-col gap-3 p-0 text-[15px] leading-relaxed text-label">
+  {Astro.props.points.map((point) => (
+    <li class="flex items-start gap-3">
+      <span class="mt-2 size-1.75 shrink-0 rotate-45 border border-gold" aria-hidden="true" />
+      {point}
+    </li>
+  ))}
+</ul>

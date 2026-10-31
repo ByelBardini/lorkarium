@@ -19,14 +19,42 @@ export interface FaqCopy {
   invite?: boolean;
 }
 
-export interface AudienceCopy {
-  title: string;
-  text: string;
-}
-
 export interface RequirementCopy {
   label: string;
   value: string;
+}
+
+export type ActId = 'cena' | 'grupo' | 'iniciativa' | 'combate' | 'dados' | 'chat';
+
+export interface ActCopy {
+  /** The `<section>` id and anchor; lowercase letters only. */
+  id: ActId;
+  numeral: string;
+  title: string;
+  lead: string;
+  /** Indexes into `features`; every feature belongs to exactly one act. */
+  featureIndexes: readonly number[];
+}
+
+export interface ConditionCopy {
+  name: string;
+  /** Rounds left; `null` lasts until someone removes it. */
+  rounds: number | null;
+}
+
+export interface CombatantCopy {
+  name: string;
+  detail: string;
+  initiative: number;
+  hp: number;
+  maxHp: number;
+  conditions: readonly ConditionCopy[];
+  hasTurn: boolean;
+}
+
+export interface EncounterCopy {
+  round: number;
+  combatants: readonly CombatantCopy[];
 }
 
 const features: FeatureCopy[] = [
@@ -75,21 +103,19 @@ const features: FeatureCopy[] = [
     icon: 'M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2 M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z',
     text: 'Um druida pode alternar entre sua aparência e a de um lobo mantendo PV e condições. Cada token aceita até 8 formas, além de auras com cor, animação ou imagem.',
   },
+  {
+    title: 'Fichas programáveis',
+    icon: 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z M14 3v6h6 M10 13l-2 2 2 2 M14 13l2 2-2 2',
+    text: 'Escreva o modelo de ficha do seu sistema em HTML, CSS e JavaScript e dê uma ficha a cada jogador. Ela ajusta as barras do token, rola os dados na mesa e guarda os próprios valores, isolada do resto da página.',
+  },
 ];
 
-const audience: AudienceCopy[] = [
-  {
-    title: 'Prepare antes da sessão',
-    text: 'Deixe mapas e criaturas prontos e escolha quando mostrá-los ao grupo.',
-  },
-  {
-    title: 'Reúna o grupo',
-    text: 'Compartilhe o código da mesa com os jogadores que já têm conta.',
-  },
-  {
-    title: 'Use as regras da sua mesa',
-    text: 'Configure barras e condições para D&D, Tormenta20, Ordem Paranormal ou seu próprio sistema.',
-  },
+// What the staged round of act III shows, in plain words beside the live tracker.
+const initiativePoints: string[] = [
+  'A rodada e quem vem “a seguir” ficam à vista de toda a mesa',
+  'A duração das condições desce a cada turno de quem as sofre',
+  'Criaturas que agem juntas ocupam uma linha só',
+  'O dano entra direto na barra do token',
 ];
 
 const combatPoints: string[] = [
@@ -120,18 +146,116 @@ const chat = {
   ],
 };
 
+// The night of play the landing tells, act by act; feature indexes point into `features`.
+const acts: ActCopy[] = [
+  {
+    id: 'cena',
+    numeral: 'I',
+    title: 'Prepare a cena',
+    lead: 'Antes da sessão, o mapa já está no grid e o ogro espera atrás das árvores. O grupo só vê a cena quando você abrir.',
+    featureIndexes: [4, 0, 5],
+  },
+  {
+    id: 'grupo',
+    numeral: 'II',
+    title: 'Reúna o grupo',
+    lead: 'Passe o código da mesa. Quem entra chega como espectador, e você decide quem senta para jogar.',
+    featureIndexes: [],
+  },
+  {
+    id: 'iniciativa',
+    numeral: 'III',
+    title: 'Role a iniciativa',
+    lead: 'Lyra age primeiro, os seis bandidos agem juntos e o ogro ainda tem 41 PV. Você só aperta “Próximo turno”.',
+    featureIndexes: [1],
+  },
+  {
+    id: 'combate',
+    numeral: 'IV',
+    title: 'O combate',
+    lead: 'Kael acerta 12 de dano, o veneno do ogro desce uma rodada e o druida vira lobo sem perder os PV. Na ficha que você programou, “−5 PV” já cai na barra.',
+    featureIndexes: [3, 2, 8, 9],
+  },
+  {
+    id: 'dados',
+    numeral: 'V',
+    title: 'Os dados',
+    lead: 'Role o d20 com vantagem ou os oito d6 da bola de fogo. A mesa inteira vê o mesmo arremesso cair.',
+    featureIndexes: [6],
+  },
+  {
+    id: 'chat',
+    numeral: 'VI',
+    title: 'A conversa',
+    lead: 'Narre para a mesa, sussurre para um jogador ou fale como Kael, com o balão sobre o token.',
+    featureIndexes: [7],
+  },
+];
+
+// The demo table "Os Sinos de Vharn" at round 3, the same state as the site captures.
+const encounter: EncounterCopy = {
+  round: 3,
+  combatants: [
+    {
+      name: 'Lyra',
+      detail: 'jogado por Caio',
+      initiative: 19,
+      hp: 22,
+      maxHp: 27,
+      conditions: [{ name: 'Concentrando', rounds: null }],
+      hasTurn: false,
+    },
+    {
+      name: 'Bandidos ×6',
+      detail: '6 de 6 de pé',
+      initiative: 15,
+      hp: 44,
+      maxHp: 66,
+      conditions: [],
+      hasTurn: false,
+    },
+    {
+      name: 'Kael',
+      detail: 'jogado por Caio',
+      initiative: 14,
+      hp: 38,
+      maxHp: 45,
+      conditions: [{ name: 'Abençoado', rounds: 8 }],
+      hasTurn: false,
+    },
+    {
+      name: 'Ogro das Cinzas',
+      detail: 'NPC',
+      initiative: 11,
+      hp: 41,
+      maxHp: 68,
+      conditions: [{ name: 'Envenenado', rounds: 2 }],
+      hasTurn: true,
+    },
+    {
+      name: 'Thoren',
+      detail: 'jogado por Caio',
+      initiative: 8,
+      hp: 6,
+      maxHp: 32,
+      conditions: [{ name: 'Abençoado', rounds: 8 }],
+      hasTurn: false,
+    },
+  ],
+};
+
 const steps: StepCopy[] = [
   {
-    title: 'Entre na sua conta',
-    text: 'O acesso é por convite. Depois de criar sua conta, entre pelo aplicativo para Windows ou pelo navegador.',
+    title: 'Peça o convite',
+    text: 'O acesso é por convite. Com o link, você escolhe seu nome de usuário e a senha e entra pelo aplicativo para Windows ou pelo navegador.',
   },
   {
-    title: 'Crie a mesa',
-    text: 'Escolha o nome e o sistema e compartilhe o código com o grupo. Os participantes entram como espectadores; o mestre define quem será jogador.',
+    title: 'Passe o código',
+    text: 'Crie a mesa, escolha o sistema e envie o código ao grupo. Quem entra pelo código chega como espectador.',
   },
   {
-    title: 'Prepare o primeiro encontro',
-    text: 'Abra um mapa, ajuste o grid e posicione os personagens e as criaturas. Quando o combate começar, adicione os participantes à ordem de iniciativa.',
+    title: 'Chame para a mesa',
+    text: 'Você promove os espectadores a jogadores e define quais tokens cada um controla.',
   },
 ];
 
@@ -166,7 +290,7 @@ const faqs: FaqCopy[] = [
   {
     question: 'Funciona com qual sistema de RPG?',
     answer:
-      'O Lorkarium não aplica as regras de um sistema específico. Você configura barras, condições e iniciativa conforme a mesa, seja de D&D, Tormenta20, Ordem Paranormal ou um sistema próprio. A interpretação das regras continua com o grupo.',
+      'O Lorkarium não aplica as regras de um sistema específico. Você configura barras, condições e iniciativa conforme a mesa, seja de D&D, Tormenta20, Ordem Paranormal ou um sistema próprio, e pode programar a ficha do seu sistema. A interpretação das regras continua com o grupo.',
   },
   {
     question: 'Minhas mesas ficam salvas?',
@@ -187,7 +311,9 @@ const faqs: FaqCopy[] = [
 
 export const landingCopy = {
   features,
-  audience,
+  acts,
+  encounter,
+  initiativePoints,
   combatPoints,
   dice,
   chat,
@@ -195,6 +321,19 @@ export const landingCopy = {
   requirements,
   faqs,
 } as const;
+
+/**
+ * The act of the landing with this anchor.
+ * Example: `actById('iniciativa').numeral // 'III'`
+ */
+export function actById(id: ActId): ActCopy {
+  const act = acts.find((candidate) => candidate.id === id);
+  if (!act)
+    throw new Error(
+      `No landing act with id "${id}"; expected one of ${acts.map((a) => a.id).join(', ')}`,
+    );
+  return act;
+}
 
 export const INVITE_SUBJECT = 'Convite para o Lorkarium';
 

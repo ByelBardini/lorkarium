@@ -28,6 +28,26 @@ describe('FaqList', () => {
     expect(price?.textContent).toContain('gratuito durante o acesso antecipado');
   });
 
+  it('titles the questions in the voice of the table', async () => {
+    const faq = await renderAstro(FaqList);
+
+    expect(faq.querySelector('section#perguntas h2')?.textContent?.trim()).toBe(
+      'Perguntas da mesa',
+    );
+  });
+
+  it('ends every answer that asks for an invite with the "Pedir convite" link', async () => {
+    const faq = await renderAstro(FaqList);
+
+    const inviteAnswers = [...faq.querySelectorAll('details p')].filter((answer) =>
+      answer.querySelector('a[href*="subject="]'),
+    );
+    expect(inviteAnswers.length).toBe(1);
+    expect(
+      inviteAnswers.every((answer) => answer.lastElementChild?.textContent === 'Pedir convite'),
+    ).toBe(true);
+  });
+
   it('links the account question to an invite request e-mail', async () => {
     const faq = await renderAstro(FaqList);
 

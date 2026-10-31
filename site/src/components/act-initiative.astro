@@ -1,0 +1,17 @@
+---
+import ActFeatures from '@/components/act-features.astro';
+import ActPoints from '@/components/act-points.astro';
+import ActSection from '@/components/act-section.astro';
+import EncounterTracker from '@/components/encounter-tracker.astro';
+import { landingCopy } from '@/copy/landing-copy';
+---
+
+<ActSection id="iniciativa">
+  <div class="flex flex-col gap-8">
+    <ActFeatures act="iniciativa" />
+    <div data-reveal="2">
+      <ActPoints points={landingCopy.initiativePoints} />
+    </div>
+  </div>
+  <EncounterTracker slot="aside" encounter={landingCopy.encounter} />
+</ActSection>

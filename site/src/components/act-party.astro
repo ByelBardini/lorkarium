@@ -1,0 +1,36 @@
+---
+import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import ActSection from '@/components/act-section.astro';
+import SecondaryLink from '@/components/secondary-link.astro';
+import { inviteMailto, landingCopy } from '@/copy/landing-copy';
+---
+
+<ActSection id="grupo" tone="band">
+  <div class="grid items-start gap-10 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-20">
+    <ol class="m-0 grid list-none p-0 md:grid-cols-3 md:gap-8">
+      {landingCopy.steps.map((step, index) => (
+        <li
+          data-reveal={String(index + 1)}
+          class="flex flex-col gap-3 border-t border-edge py-7 md:border-t-2 md:border-ember/60"
+        >
+          <span
+            class="font-wordmark text-[clamp(28px,3vw,40px)] leading-none font-bold text-ember"
+            aria-hidden="true"
+          >
+            {index + 1}
+          </span>
+          <h3 class="m-0 font-wordmark text-[21px] font-semibold tracking-[0.04em] text-parchment">
+            {step.title}
+          </h3>
+          <p class="m-0 text-base leading-relaxed text-muted">{step.text}</p>
+        </li>
+      ))}
+    </ol>
+    <div data-reveal="2" class="flex flex-col items-start gap-5 border-l-2 border-gold/50 pl-6">
+      <p class="m-0 text-[17px] leading-relaxed text-label">
+        O acesso é por convite. Peça o seu e chame o grupo quando a cena estiver pronta.
+      </p>
+      <SecondaryLink href={inviteMailto(PUBLIC_CONTACT_EMAIL)}>Pedir convite</SecondaryLink>
+    </div>
+  </div>
+</ActSection>

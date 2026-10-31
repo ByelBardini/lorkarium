@@ -1,12 +1,13 @@
 ---
-import AudienceStrip from '@/components/audience-strip.astro';
-import CombatShowcase from '@/components/combat-showcase.astro';
+import ActChat from '@/components/act-chat.astro';
+import ActCombat from '@/components/act-combat.astro';
+import ActDice from '@/components/act-dice.astro';
+import ActInitiative from '@/components/act-initiative.astro';
+import ActParty from '@/components/act-party.astro';
+import ActScene from '@/components/act-scene.astro';
 import DownloadPanel from '@/components/download-panel.astro';
 import FaqList from '@/components/faq-list.astro';
-import FeatureGrid from '@/components/feature-grid.astro';
 import Hero from '@/components/hero.astro';
-import HowItWorks from '@/components/how-it-works.astro';
-import PlayShowcase from '@/components/play-showcase.astro';
 import SiteLayout from '@/layouts/site-layout.astro';
 ---
 
@@ -15,11 +16,12 @@ import SiteLayout from '@/layouts/site-layout.astro';
   description="Prepare mapas e acompanhe iniciativa, pontos de vida e condições no Lorkarium. Mesa virtual de RPG com dados 3D e chat, para Windows e navegador."
 >
   <Hero />
-  <AudienceStrip />
-  <FeatureGrid />
-  <CombatShowcase />
-  <PlayShowcase />
-  <HowItWorks />
+  <ActScene />
+  <ActParty />
+  <ActInitiative />
+  <ActCombat />
+  <ActDice />
+  <ActChat />
   <DownloadPanel />
   <FaqList />
 </SiteLayout>

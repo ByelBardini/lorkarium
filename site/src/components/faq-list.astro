@@ -1,22 +1,22 @@
 ---
 import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
-import SectionHeading from '@/components/section-heading.astro';
+import ActHeading from '@/components/act-heading.astro';
 import { inviteMailto, landingCopy } from '@/copy/landing-copy';
 ---
 
-<section id="perguntas" class="pt-5 pb-20 md:pb-28">
+<section id="perguntas" class="act relative isolate overflow-clip border-t border-edge bg-band">
   <div class="site-wrap flex flex-wrap gap-14">
-    <div class="flex flex-[1_1_280px] flex-col gap-3.5">
-      <SectionHeading kicker="Perguntas" title="Antes de baixar" />
+    <div class="flex flex-[1_1_320px] flex-col gap-5" data-reveal>
+      <ActHeading numeral="?" title="Perguntas da mesa" />
       <p class="m-0 text-[15px] leading-relaxed text-faint">
         Para outras dúvidas, entre em contato pelo e-mail{' '}
         <a href={`mailto:${PUBLIC_CONTACT_EMAIL}`}>{PUBLIC_CONTACT_EMAIL}</a>.
       </p>
     </div>
-    <div class="flex min-w-0 flex-[2_1_520px] flex-col">
+    <div class="flex min-w-0 flex-[2_1_520px] flex-col" data-reveal="2">
       {landingCopy.faqs.map((faq, index) => (
         <details name="faq" open={index === 0} class="group border-t border-edge">
-          <summary class="flex cursor-pointer list-none items-center gap-4 px-1 py-5.5 text-lg font-semibold text-parchment hover:text-gold-light [&::-webkit-details-marker]:hidden">
+          <summary class="flex cursor-pointer list-none items-center gap-4 px-1 py-5.5 font-wordmark text-lg font-semibold tracking-[0.02em] text-parchment hover:text-gold-light [&::-webkit-details-marker]:hidden">
             <span class="flex-1">{faq.question}</span>
             <svg
               width="20"

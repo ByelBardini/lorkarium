@@ -3,11 +3,11 @@ import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
 import DownloadCta from '@/components/download-cta.astro';
 import ReleaseMeta from '@/components/release-meta.astro';
 import SecondaryLink from '@/components/secondary-link.astro';
-import SectionHeading from '@/components/section-heading.astro';
+import ActHeading from '@/components/act-heading.astro';
 import { inviteMailto, landingCopy } from '@/copy/landing-copy';
 ---
 
-<section id="baixar" class="relative overflow-hidden border-b border-line py-20 md:py-28">
+<section id="baixar" class="act relative isolate overflow-clip border-t border-edge">
   <svg
     viewBox="0 0 120 120"
     width="520"
@@ -17,7 +17,7 @@ import { inviteMailto, landingCopy } from '@/copy/landing-copy';
     stroke-linejoin="round"
     stroke-linecap="round"
     aria-hidden="true"
-    class="pointer-events-none absolute -top-20 -right-24 text-gold opacity-[.06]"
+    class="pointer-events-none absolute -top-20 -right-24 text-gold opacity-[.08]"
   >
     <g stroke-width="1.2">
       <path d="M60 9 L78 42 L60 99 L42 42 Z"></path>
@@ -26,18 +26,18 @@ import { inviteMailto, landingCopy } from '@/copy/landing-copy';
     </g>
   </svg>
   <div class="site-wrap relative grid items-start gap-14 lg:grid-cols-[1.2fr_1fr]">
-    <div class="flex min-w-0 flex-col gap-5">
-      <SectionHeading kicker="Download" title="Instale o Lorkarium no Windows">
+    <div class="flex min-w-0 flex-col gap-7" data-reveal>
+      <ActHeading numeral="✦" title="Baixe e jogue">
         O aplicativo é gratuito durante o acesso antecipado. Para criar sua conta, você precisa de
         um convite. Também é possível jogar pelo navegador, inclusive no Mac e no Linux.
-      </SectionHeading>
-      <div class="flex flex-wrap items-center gap-3">
+      </ActHeading>
+      <div class="flex flex-wrap items-center gap-3.5">
         <DownloadCta />
         <SecondaryLink href={inviteMailto(PUBLIC_CONTACT_EMAIL)}>Pedir convite</SecondaryLink>
       </div>
       <ReleaseMeta lead="Instalador .exe" />
     </div>
-    <div class="min-w-0 border-t border-gold/40 pt-5">
+    <div class="min-w-0 border-t border-gold/40 pt-5" data-reveal="2">
       <h3 class="m-0 pb-2 text-xs font-bold tracking-[0.14em] text-faint uppercase">Requisitos</h3>
       <dl class="m-0">
         {landingCopy.requirements.map((requirement) => (

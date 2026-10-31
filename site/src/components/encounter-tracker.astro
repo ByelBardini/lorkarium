@@ -1,0 +1,101 @@
+---
+import type { EncounterCopy } from '@/copy/landing-copy';
+import { hpFillOf } from '@/lib/hit-points';
+
+interface Props {
+  encounter: EncounterCopy;
+}
+
+// The DOM is the contract of scripts/staged-round.ts: it only changes texts and the width,
+// hidden, aria-current and aria-pressed attributes, never style= (the CSP refuses it).
+const { encounter } = Astro.props;
+const current = encounter.combatants.find((combatant) => combatant.hasTurn);
+---
+
+<div data-encounter-tracker class="rounded-sm border border-edge bg-band p-4 sm:p-5">
+  <div class="flex items-center gap-3.5">
+    <div class="min-w-16 rounded-sm border border-edge-strong px-3 py-1.5 text-center">
+      <span class="block text-[10px] font-bold tracking-[0.2em] text-gold">RODADA</span>
+      <span data-encounter-round class="font-wordmark text-[26px] font-semibold">
+        {encounter.round}
+      </span>
+    </div>
+    <div class="min-w-0">
+      <span class="block text-[13px] text-muted">Vez de</span>
+      <span
+        data-encounter-turn
+        aria-live="polite"
+        class="block font-wordmark text-[22px] font-semibold"
+      >
+        {current?.name}
+      </span>
+    </div>
+    <button
+      type="button"
+      data-round-pause
+      hidden
+      aria-pressed="false"
+      class="ml-auto cursor-pointer rounded-sm border border-edge-strong bg-transparent px-2.5 py-1.5 font-sans text-xs text-label hover:text-parchment"
+    >
+      Pausar
+    </button>
+  </div>
+  <ol class="m-0 mt-4.5 grid list-none gap-1.5 p-0">
+    {encounter.combatants.map((combatant, index) => (
+      <li
+        data-combatant={String(index)}
+        aria-current={combatant.hasTurn ? 'true' : undefined}
+        class="grid grid-cols-[40px_1fr_84px] items-center gap-2.5 rounded-sm border border-transparent px-2 py-2.5 transition-colors duration-400 aria-[current=true]:border-gold/35 aria-[current=true]:bg-gold/8 aria-[current=true]:shadow-[inset_3px_0_0_var(--color-gold)] sm:grid-cols-[44px_1fr_120px] sm:gap-3.5 sm:px-3"
+      >
+        <span
+          data-combatant-initiative
+          class="rounded-sm border border-edge-strong py-1.5 text-center text-[15px] tabular-nums"
+        >
+          {combatant.initiative}
+        </span>
+        <div class="min-w-0">
+          <span class="block text-[15px] font-bold">{combatant.name}</span>
+          <span class="text-xs text-muted">{combatant.detail}</span>
+          <span
+            data-combatant-down
+            hidden={combatant.hp > 0}
+            class="ml-2 text-xs font-bold text-ember-light"
+          >
+            Caído
+          </span>
+          <span class="mt-1.5 flex flex-wrap gap-1.5">
+            {combatant.conditions.map((condition) => (
+              <span
+                data-condition={condition.name}
+                class="inline-flex gap-1.5 rounded-sm border border-edge-strong px-2 py-0.5 text-xs text-label"
+              >
+                {condition.name}
+                {condition.rounds !== null && <span data-condition-rounds>{condition.rounds}</span>}
+              </span>
+            ))}
+          </span>
+        </div>
+        <div class="text-right text-[13px] text-label tabular-nums">
+          <span data-combatant-hp>
+            {combatant.hp} / {combatant.maxHp}
+          </span>
+          <svg
+            viewBox="0 0 100 6"
+            preserveAspectRatio="none"
+            class="mt-1.5 block h-1.5 w-full"
+            aria-hidden="true"
+          >
+            <rect width="100" height="6" rx="2" fill="#23272e" />
+            <rect
+              data-hp-fill
+              width={hpFillOf(combatant.hp, combatant.maxHp)}
+              height="6"
+              rx="2"
+              fill="#c9705a"
+            />
+          </svg>
+        </div>
+      </li>
+    ))}
+  </ol>
+</div>

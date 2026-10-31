@@ -25,13 +25,11 @@ const installSteps = [
   description="Baixe o Lorkarium para Windows e veja as instruções de instalação e acesso à sua conta."
   noindex
 >
-  <section class="py-16 md:py-24">
-    <div class="site-wrap flex max-w-[880px] flex-col gap-10">
-      <div class="flex flex-col gap-4">
-        <span class="text-xs font-bold tracking-[0.2em] text-gold uppercase">Download</span>
-        <h1 class="m-0 font-display text-[clamp(40px,5vw,60px)] leading-[1.02] font-medium tracking-[-0.01em]">
-          Seu download está começando
-        </h1>
+  <section class="act relative isolate overflow-clip">
+    <div class="site-wrap flex max-w-[960px] flex-col gap-10">
+      <div class="flex flex-col gap-5">
+        <span class="eyebrow">Download</span>
+        <h1 class="act-title m-0">Seu download está começando</h1>
         <p class="m-0 text-[17px] leading-relaxed text-muted">
           <span data-release-label>Lorkarium para Windows 10 e 11</span>. O download não começou?
           <a href={RELEASES_PAGE_URL} data-manual-download class="font-semibold">
@@ -52,13 +50,15 @@ const installSteps = [
         {installSteps.map((step, index) => (
           <li class="flex gap-6 border-b border-edge py-6">
             <span
-              class="w-8 shrink-0 font-display text-5xl leading-[0.8] font-medium text-gold"
+              class="w-8 shrink-0 font-wordmark text-4xl leading-[0.9] font-bold text-ember"
               aria-hidden="true"
             >
               {index + 1}
             </span>
             <span class="flex flex-col gap-2">
-              <strong class="font-display text-2xl font-semibold">{step.title}</strong>
+              <strong class="font-wordmark text-xl font-semibold tracking-[0.04em]">
+                {step.title}
+              </strong>
               <span class="text-[15px] leading-relaxed text-muted">{step.text}</span>
             </span>
           </li>
