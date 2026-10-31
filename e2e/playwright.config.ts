@@ -64,8 +64,10 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   combat: ['combat'],
   vision: ['vision', 'vision-cone'],
   lighting: ['lighting'],
-  library: ['library', 'library-images', 'library-documents', 'character'],
+  library: ['library', 'library-images', 'library-documents', 'library-document-tabs', 'character'],
   dice: ['dice'],
+  // The sandbox proof of the sheets (B1), the sheets in the room (B9) and in the library (S5).
+  sheets: ['sheet-sandbox', 'sheets', 'sheets-library'],
   'player-tokens': ['player-tokens'],
   // Borrows Bia and Caio for password and 2FA (undone at the end): kept away from the others.
   account: ['account'],

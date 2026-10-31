@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { cellCenterOf } from './board-cells';
 
 /** The status line of the board, where moves, selections and refusals are said. */
 export function statusOf(page: Page): Locator {
@@ -64,4 +65,21 @@ export async function createTokenFor(master: Page, name: string, player: string)
   await chooseController(dialog, player);
   await dialog.getByRole('button', { name: 'Criar token' }).click();
   await expect(dialog).toBeHidden();
+}
+
+/** The master's "Ligar à ficha de… → <player>" on the token born at the center cell (10, 6):
+ *  the token becomes the player's character (its state on the anchor, valid in every grid).
+ *
+ *  Example: `await linkCenterTokenToCard(admin, 'Lyra', 'Bia')` */
+export async function linkCenterTokenToCard(
+  master: Page,
+  name: string,
+  player: string,
+): Promise<void> {
+  const center = await cellCenterOf(master, 10, 6);
+  await master.mouse.click(center.x, center.y, { button: 'right' });
+  const menu = master.getByRole('menu', { name: `Ações de ${name}` });
+  await menu.getByRole('menuitem', { name: 'Ligar à ficha de…' }).click();
+  await master.getByRole('menuitem', { name: player, exact: true }).click();
+  await expect(menu).toBeHidden();
 }
