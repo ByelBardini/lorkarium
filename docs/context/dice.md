@@ -4,10 +4,10 @@ A rolagem de dados da sala. O server rola: para os dados com modelo (d4, d6, d8,
 
 ## Índice
 
-| Arquivo                            | O que cobre                                                                                       |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [`dice/fisica.md`](dice/fisica.md) | Portas de física e sorteio, adaptador cannon-es, caixa, eixos, gravação, relançar, justiça, custo |
-| [`dice/salvas.md`](dice/salvas.md) | Rolagens salvas: tabela `saved_rolls`, DAO, regra, REST, erros, limites (50, 30 escritas/min)     |
+| Arquivo                            | O que cobre                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [`dice/fisica.md`](dice/fisica.md) | Portas de física e sorteio, adaptador cannon-es, caixa, gravação, relançar, rolagens gravadas, justiça |
+| [`dice/salvas.md`](dice/salvas.md) | Rolagens salvas: tabela `saved_rolls`, DAO, regra, REST, erros, limites (50, 30 escritas/min)          |
 
 ## Estrutura (server)
 
@@ -63,6 +63,6 @@ A rolagem é efêmera, como o ping: não há tabela, versão nem snapshot (o `bo
 
 ## Testes
 
-- Unit: `server/test/modules/dice/dice-roll.bo.spec.ts`, `dice.service.spec.ts` e `dice.mapper.spec.ts`; `server/test/realtime/command-rate.bo.spec.ts` (limites do dado); `server/test/infrastructure/dice-physics/cannon-dice-physics.spec.ts` e `die-launch.spec.ts`, `dice-random/crypto-dice-random.spec.ts` (ver [`dice/fisica.md`](dice/fisica.md)).
+- Unit: `server/test/modules/dice/dice-roll.bo.spec.ts`, `dice.service.spec.ts` e `dice.mapper.spec.ts`; `server/test/realtime/command-rate.bo.spec.ts` (limites do dado); `server/test/infrastructure/dice-physics/cannon-dice-physics.spec.ts`, `die-launch.spec.ts` e `dice-throw-recording.spec.ts`, `dice-random/crypto-dice-random.spec.ts` (ver [`dice/fisica.md`](dice/fisica.md)).
 - Integração: `server/test/integration/dice.spec.ts` (`useTokenTable` + Duda espectadora): a pública é ouvida igual por Ana, Bia, Caio e Duda; secreta da Bia (completo a Ana e Bia, aviso a Caio e Duda) e da Ana (só ela); Duda `FORBIDDEN`, sem evento; Quelm `CAMPAIGN_NOT_FOUND`, e quem está nela não ouve (critério 14); `userId` forjado `INVALID_BODY`; `1001d6` e `2d` `INVALID_DICE_EXPRESSION`; a 7ª da rajada `RATE_LIMITED`, a versão do board igual e o `token:move` passa.
 - O gateway não tem unit: a integração o prova.
