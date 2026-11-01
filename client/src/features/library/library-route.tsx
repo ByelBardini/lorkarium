@@ -61,6 +61,7 @@ function libraryScreen(deps: AppDependencies): () => React.JSX.Element | null {
         sheetEditorLayout={deps.sheetEditorLayout}
         clock={deps.interactionClock}
         clipboard={deps.clipboard}
+        fileDownload={deps.fileDownload}
         documentWorkspace={deps.documentWorkspace}
         chatWindowHost={deps.chatWindowHost}
         onClose={() => void navigate(`/campaigns/${encodeURIComponent(campaignId)}/table`)}

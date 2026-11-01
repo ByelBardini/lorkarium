@@ -5,11 +5,16 @@ import { testDependencies, type TestDependencies } from '../../support/app-depen
 import { VHARN } from '../../support/campaigns-api-fake';
 import { replaceCode } from '../../support/code-editor-input';
 import { DataTransferFake } from '../../support/data-transfer-fake';
+import { readSheetTemplateFile } from '@/lib/sheet-template-file';
 import { ATO_1, CATACUMBAS, masterLibrary, playerLibrary } from '../../support/library-fixtures';
 import { openLibrary } from '../../support/library-harness';
 import { menuItemNames, openTreeMenu, treeItem, treeItemNames } from '../../support/library-tree';
 import { TORMENTA_TEMPLATE_ID } from '../../support/sheet-fixtures';
-import { NEW_TEMPLATE_ID, tormentaSummary } from '../../support/sheet-template-fixtures';
+import {
+  NEW_TEMPLATE_ID,
+  tormentaSummary,
+  tormentaTemplate,
+} from '../../support/sheet-template-fixtures';
 
 function withTormenta(folderId: string | null = null): TestDependencies {
   const deps = testDependencies();
@@ -90,11 +95,71 @@ describe('sheet templates in the library', () => {
     deps.sheetTemplatesApi.answer = { ok: false, failure: { kind: 'in_use' } };
     await openLibrary(deps);
     const menu = await openTreeMenu(treeItem('Ficha Tormenta'));
-    expect(menuItemNames(menu)).toEqual(['Excluir modelo']);
+    expect(menuItemNames(menu)).toEqual(['Exportar modelo', 'Excluir modelo']);
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Excluir modelo' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Excluir' }));
     expect(await screen.findByText(/ligado a fichas/u)).toBeInTheDocument();
     expect(deps.sheetTemplatesApi.removals).toEqual([TORMENTA_TEMPLATE_ID]);
+  });
+
+  describe('"Exportar modelo" in the tree', () => {
+    async function exportFromTree(deps: TestDependencies) {
+      await openLibrary(deps);
+      const menu = await openTreeMenu(treeItem('Ficha Tormenta'));
+      await userEvent.click(within(menu).getByRole('menuitem', { name: 'Exportar modelo' }));
+    }
+
+    it('reads the saved template and downloads it as "Ficha Tormenta.lksheet"', async () => {
+      const deps = withTormenta();
+      await exportFromTree(deps);
+      await waitFor(() => expect(deps.fileDownload.saves).toHaveLength(1));
+      expect(deps.sheetTemplatesApi.detailCalls).toEqual([TORMENTA_TEMPLATE_ID]);
+      const [saved] = deps.fileDownload.saves;
+      expect(saved).toMatchObject({ fileName: 'Ficha Tormenta.lksheet', type: 'application/json' });
+      const { name, html, css, js } = tormentaTemplate();
+      expect(readSheetTemplateFile(saved?.text ?? '')).toEqual({
+        ok: true,
+        template: { name, html, css, js },
+      });
+    });
+
+    it('a template gone on the server says so in the status line and saves nothing', async () => {
+      const deps = withTormenta();
+      deps.sheetTemplatesApi.detailResult = { ok: false, failure: { kind: 'not_found' } };
+      await exportFromTree(deps);
+      const library = screen.getByRole('dialog', { name: 'Biblioteca' });
+      await waitFor(() =>
+        expect(within(library).getByRole('status')).toHaveTextContent(
+          'Este modelo não existe mais.',
+        ),
+      );
+      expect(deps.fileDownload.saves).toEqual([]);
+    });
+
+    it('while reconnecting the item is disabled', async () => {
+      const deps = withTormenta();
+      await openLibrary(deps);
+      deps.tableSessionApi.emit({ kind: 'status', status: 'reconnecting' });
+      const menu = await openTreeMenu(treeItem('Ficha Tormenta'));
+      expect(within(menu).getByRole('menuitem', { name: 'Exportar modelo' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      );
+    });
+
+    // The server lists templates only to masters; even one listed, a player gets no menu.
+    it('a player never gets it: right-clicking a listed template opens no menu', async () => {
+      const deps = testDependencies();
+      deps.libraryApi.answer('list', {
+        ok: true,
+        value: playerLibrary({ sheetTemplates: [tormentaSummary()] }),
+      });
+      await openLibrary(deps, { role: 'player' });
+      fireEvent.contextMenu(treeItem('Ficha Tormenta'));
+      expect(screen.queryByRole('menu')).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: 'Exportar modelo' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Exportar modelo' })).toBeNull();
+    });
   });
 
   it('dragging the template onto a folder moves it against its version', async () => {

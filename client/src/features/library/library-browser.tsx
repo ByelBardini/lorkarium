@@ -14,7 +14,6 @@ import {
 } from '@/lib/library-entries';
 import { sheetHolderLabel } from '@/features/sheets/sheet-messages';
 import { LibrarySheetTemplateEditor } from '@/features/sheets/library-sheet-template-editor';
-import { STARTER_SHEET_SOURCE } from '@/features/sheets/sheet-template-starter';
 import type { SheetTemplatesApi } from '@/services/sheet-templates-api';
 import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import { DocumentPreview } from '@/features/documents/document-preview';
@@ -24,6 +23,7 @@ import type { ChatWindowHost } from '@/services/chat-window-host';
 import type { DocumentsApi } from '@/services/documents-api';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { Clipboard } from '@/services/clipboard';
+import type { FileDownload } from '@/services/file-download';
 import type { AssetsApi } from '@/services/assets-api';
 import type { LibraryApi } from '@/services/library-api';
 import type { ImagePresentationApi } from '@/services/image-presentation-api';
@@ -53,6 +53,9 @@ import { useLibraryDrag, withPendingMove, type LibraryDrag } from './use-library
 import { useGuardedPick, type GuardedPick } from './use-guarded-pick';
 import type { LibraryTableView } from './use-library-table';
 import { useLibraryOutcome, useLibrarySubmit, type LibrarySubmit } from './use-library-submit';
+import { SheetTemplateImport } from './import-sheet-template-dialog';
+import { useSheetTemplateCreate } from './use-sheet-template-create';
+import { useSheetTemplateFiles, type SheetTemplateFiles } from './use-sheet-template-files';
 
 export type LibraryBrowserProps = Readonly<{
   campaign: CampaignDetailDto;
@@ -68,6 +71,8 @@ export type LibraryBrowserProps = Readonly<{
   sheetEditorLayout?: SheetEditorLayoutMemory;
   clock: InteractionClock;
   clipboard: Clipboard;
+  /** "Exportar modelo" saves the `.lksheet` through it. */
+  fileDownload?: FileDownload;
   documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
   chatWindowHost?: ChatWindowHost;
   onRegisterLeave?: (guard: (() => Promise<boolean>) | null) => void;
@@ -96,6 +101,7 @@ type BrowserModel = Readonly<{
   createDocument: (folderId: string | null) => void;
   editDocument: (documentId: string) => void;
   createSheetTemplate: (folderId: string | null) => void;
+  templateFiles: SheetTemplateFiles;
   /** "Nova ficha": opens the dialog for a sheet in `folderId`. */
   createSheet: (folderId: string | null) => void;
   /** The folder of the "Nova ficha" dialog open; `undefined` = closed. */
@@ -142,6 +148,7 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
                 grid: () => model.createGrid(null),
                 document: () => model.createDocument(null),
                 sheetTemplate: () => model.createSheetTemplate(null),
+                importSheetTemplate: () => model.templateFiles.importer.choose(null),
                 sheet: () => model.createSheet(null),
                 image: () => {
                   resetFilter(view);
@@ -201,11 +208,12 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
           onClose={model.closeNewSheet}
         />
       )}
+      {isMaster && <SheetTemplateImport importer={model.templateFiles.importer} live={live} />}
       <p
         role="status"
         className="min-h-9 shrink-0 border-t border-border px-6 py-2 text-sm text-destructive-text"
       >
-        {model.refusal}
+        {model.refusal ?? model.templateFiles.exportProblem}
       </p>
     </>
   );
@@ -237,6 +245,7 @@ function BrowserPanel({ model, templateId, ...props }: BrowserPanelProps): React
         chatWindowHost={props.chatWindowHost}
         layoutMemory={props.sheetEditorLayout}
         clipboard={props.clipboard}
+        exportPorts={model.templateFiles.exportPorts}
         onRegisterLeave={model.guardedPick.registerLeave}
         onOpenedTab={() =>
           void navigate(`/campaigns/${encodeURIComponent(props.campaign.id)}/table`)
@@ -360,10 +369,15 @@ function useBrowserModel(props: LibraryBrowserProps): BrowserModel {
     resetFilter(view);
     setNewSheetFolder(folderId);
   };
-  const createSheetTemplate = (folderId: string | null): void => {
-    resetFilter(view);
-    void submit({ intent: 'createSheetTemplate', template: { folderId, ...STARTER_SHEET_SOURCE } });
-  };
+  const { createSheetTemplate, importSheetTemplate } = useSheetTemplateCreate(submit, () =>
+    resetFilter(view),
+  );
+  const templateFiles = useSheetTemplateFiles({
+    ...props,
+    campaignId: props.campaign.id,
+    importTemplate: importSheetTemplate,
+    refusal,
+  });
   const drag = useLibraryDrag({ library, enabled: isMaster && tableView.live, submit });
   const pickedKey = knownKey(library, view.pickedKey);
   const guardedPick = useGuardedPick(pickedKey, view.pick, props.onRegisterLeave);
@@ -385,6 +399,7 @@ function useBrowserModel(props: LibraryBrowserProps): BrowserModel {
     createDocument,
     editDocument,
     createSheetTemplate,
+    templateFiles,
     createSheet,
     newSheetFolder,
     closeNewSheet: () => setNewSheetFolder(undefined),
@@ -436,6 +451,8 @@ function masterOf(model: BrowserModel): TreeMaster {
     createDocument: model.createDocument,
     editDocument: model.editDocument,
     createSheetTemplate: model.createSheetTemplate,
+    importSheetTemplate: model.templateFiles.importer.choose,
+    exportSheetTemplate: model.templateFiles.exportTemplate,
     createSheet: model.createSheet,
     openSheet: model.opener.openSheet,
     players: model.holders.players,

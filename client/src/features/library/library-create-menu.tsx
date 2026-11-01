@@ -1,6 +1,7 @@
 import {
   FileCode2Icon,
   FilePlusIcon,
+  FileUpIcon,
   FolderPlusIcon,
   Grid2X2PlusIcon,
   ImagePlusIcon,
@@ -20,6 +21,7 @@ export type LibraryCreateActions = Readonly<{
   grid: () => void;
   document: () => void;
   sheetTemplate: () => void;
+  importSheetTemplate: () => void;
   sheet: () => void;
   image: () => void;
   folder: () => void;
@@ -27,7 +29,7 @@ export type LibraryCreateActions = Readonly<{
 
 /** The master's "Criar item" menu of the library header.
  *
- *  Example: `<LibraryCreateMenu live={live} create={{ grid, document, sheetTemplate, sheet, image, folder }} />` */
+ *  Example: `<LibraryCreateMenu live={live} create={{ grid, document, sheetTemplate, importSheetTemplate, sheet, image, folder }} />` */
 export function LibraryCreateMenu({
   live,
   create,
@@ -55,6 +57,10 @@ export function LibraryCreateMenu({
         <DropdownMenuItem onSelect={create.sheetTemplate}>
           <FileCode2Icon />
           Novo modelo de ficha
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={create.importSheetTemplate}>
+          <FileUpIcon />
+          Importar modelo de ficha
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={create.sheet}>
           <ScrollTextIcon />
