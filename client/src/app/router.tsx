@@ -41,6 +41,7 @@ import type { LibraryApi } from '@/services/library-api';
 import type { ProfileApi } from '@/services/profile-api';
 import type { SceneActivation } from '@/services/scene-activation';
 import type { Clipboard } from '@/services/clipboard';
+import type { FileDownload } from '@/services/file-download';
 import type { FieldEditing } from '@/services/field-editing';
 import type { DesktopWindow } from '@/services/desktop-window';
 import type { TableBoardCommands } from '@/services/table-board-commands';
@@ -102,6 +103,8 @@ export type AppDependencies = Readonly<{
   /** Images sent to a table (file or link). */
   assets: AssetsApi;
   clipboard: Clipboard;
+  /** Saves a text as a file on the person's machine (an exported sheet template). */
+  fileDownload: FileDownload;
   /** Inside the desktop shell (Tauri), whose WebView2 has the browser's right-click menu off. */
   isDesktop: boolean;
   /** The frameless window of a desktop shell with its own title bar; `null` in a browser and in
