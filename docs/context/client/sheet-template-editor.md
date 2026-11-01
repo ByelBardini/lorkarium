@@ -1,6 +1,6 @@
 # Client · fichas: editor de modelo (biblioteca, aba e janela)
 
-Índice: [`sheets.md`](sheets.md). Biblioteca: [`library.md`](library.md). Workspace e janela destacada: [`documents.md`](documents.md).
+Índice: [`sheets.md`](sheets.md). Exportar e importar (`.lksheet`, botão "Exportar modelo" do cabeçalho pela prop `exportPorts`): [`sheet-template-file.md`](sheet-template-file.md). Biblioteca: [`library.md`](library.md). Workspace e janela destacada: [`documents.md`](documents.md).
 
 ## Editor (`src/features/sheets/` + `src/code-editor/`)
 

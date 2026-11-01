@@ -12,6 +12,17 @@ Fontes: `packages/contracts/src/sheets/`, exportadas por `@lorkarium/contracts`.
 - `updateSheetTemplateRequestDto`: `expectedVersion` (conflito entre mestres), `name?`, `folderId?` (nulo move à raiz) e o código **inteiro ou nada**: só parte das fontes é recusada com "source has only js; expected html, css and js together". Sem alteração nenhuma, a mensagem é "changes is empty; expected at least one of name, folderId, html, css, js".
 - `sheetTemplateParamsDto` (`campaignId`, `templateId`) e `sheetTemplateResponseDto` (`{ template }`).
 - Mensagem de orçamento: "html + css + js have N bytes; expected at most 524288".
+- `sheetTemplateNameDto`, `sheetTemplateSourceShape` e `checkSheetTemplateSourceBudget` são exportados para o arquivo do modelo compor sem duplicar.
+
+## Arquivo do modelo (`sheet-template-file.dto.ts`)
+
+O `.lksheet` que o mestre exporta e importa: um JSON com o nome e o código de um modelo, nunca fichas, valores, dono ou versão.
+
+- Constantes: `SHEET_TEMPLATE_FILE_FORMAT` (`"lorkarium.sheet-template"`), `SHEET_TEMPLATE_FILE_VERSION` (1), `SHEET_TEMPLATE_FILE_EXTENSION` (`.lksheet`) e `SHEET_TEMPLATE_FILE_MAX_BYTES` (2 MiB, o teto do corpo HTTP: o escape do JSON infla o código, então o arquivo maior é recusado antes da leitura e o orçamento real de 512 KiB fica com o DTO).
+- Leitura em duas etapas:
+  - `sheetTemplateFileHeaderDto` (objeto solto): `format` literal e `formatVersion` inteiro ≥ 1. Um arquivo de versão mais nova passa aqui, e o client diz "versão mais nova" em vez de "campo a mais";
+  - `sheetTemplateFileDto` (estrito): `format`, `formatVersion` literal 1, `exportedAt?` (ISO), `name` (o mesmo do modelo, aparado, 1–60), `html`, `css`, `js` e o mesmo refine de orçamento.
+- Mensagens: `format "outra.coisa"; expected lorkarium.sheet-template` e `formatVersion 2; expected 1`. Campo a mais (como `values`) é recusado pelo estrito.
 
 ## Valores (`sheet-values.dto.ts`)
 
