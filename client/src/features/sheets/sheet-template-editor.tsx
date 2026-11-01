@@ -13,10 +13,12 @@ import {
   TemplateEditorMoveButtons,
   type TemplateEditorMoves,
 } from './sheet-template-editor-actions';
+import { SheetTemplateExportButton } from './sheet-template-export-button';
 import { sheetSourceSizeLabel } from './sheet-template-messages';
 import { SheetTemplateWorkbench } from './sheet-template-workbench';
 import { useSheetTemplateDraft, type TemplateDraftModel } from './use-sheet-template-draft';
 import { useSaveShortcut } from './use-save-shortcut';
+import type { SheetTemplateExportPorts } from './use-sheet-template-export';
 import { useTemplateLeaveGuard, type RegisterLeave } from './use-template-leave-guard';
 
 export type SheetTemplateEditorProps = Readonly<{
@@ -37,6 +39,8 @@ export type SheetTemplateEditorProps = Readonly<{
   now?: () => Date;
   /** "Copiar documentação" of the API tab. */
   clipboard?: Clipboard;
+  /** "Exportar modelo": reads the saved version and downloads it as a `.lksheet`. */
+  exportPorts?: SheetTemplateExportPorts;
 }>;
 
 /** The master's editor of one sheet template: name, HTML/CSS/JS with highlight, the size against
@@ -57,7 +61,12 @@ export function SheetTemplateEditor(props: SheetTemplateEditorProps): React.JSX.
       aria-label="Editor do modelo"
       className="flex min-h-0 flex-1 flex-col border-l border-border bg-panel"
     >
-      <EditorHeader model={model} live={props.live} moves={props.moves} />
+      <EditorHeader
+        model={model}
+        live={props.live}
+        moves={props.moves}
+        exportPorts={props.exportPorts}
+      />
       <EditorProblem model={model} />
       <SheetTemplateWorkbench
         templateId={model.base?.id ?? ''}
@@ -95,9 +104,10 @@ type EditorHeaderProps = Readonly<{
   model: TemplateDraftModel;
   live: boolean;
   moves: TemplateEditorMoves | undefined;
+  exportPorts: SheetTemplateExportPorts | undefined;
 }>;
 
-function EditorHeader({ model, live, moves }: EditorHeaderProps) {
+function EditorHeader({ model, live, moves, exportPorts }: EditorHeaderProps) {
   const saving = model.phase === 'saving';
   const blocked = saveBlocked(model, live);
   return (
@@ -131,6 +141,12 @@ function EditorHeader({ model, live, moves }: EditorHeaderProps) {
       >
         {saving ? 'Salvando…' : 'Salvar'}
       </Button>
+      <SheetTemplateExportButton
+        ports={exportPorts}
+        templateId={model.base?.id ?? ''}
+        live={live}
+        dirty={model.dirty}
+      />
       <TemplateEditorMoveButtons moves={moves} />
     </header>
   );
