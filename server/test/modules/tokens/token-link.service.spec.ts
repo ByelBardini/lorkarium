@@ -13,6 +13,7 @@ import {
   kaelRow,
   linkedLyraRow,
 } from '../../support/character-fakes';
+import { LYRA_CHARACTER_ID } from '../../support/characters-factories';
 import { LYRA_ID } from '../../support/tokens-factories';
 
 describe('TokenLinkService', () => {
@@ -66,7 +67,10 @@ describe('TokenLinkService', () => {
       expect(anchor?.bars.map(({ label }) => label)).toEqual(['PV', 'Inspiração']);
       expect(anchor?.controllerIds).toEqual([BIA_ID]);
       expect(table.conditions.active.map(({ tokenId }) => tokenId)).toEqual([anchor?.token.id]);
-      expect(table.tokens.rowOf(LYRA_ID).token.anchorTokenId).toBe(anchor?.token.id);
+      expect(table.tokens.rowOf(LYRA_ID).token).toMatchObject({
+        anchorTokenId: anchor?.token.id,
+        characterId: LYRA_CHARACTER_ID,
+      });
       expect(table.memberCards.rows[0]).toMatchObject({
         userId: BIA_ID,
         anchorTokenId: anchor?.token.id,
@@ -119,6 +123,7 @@ describe('TokenLinkService', () => {
         id: KAEL_ID,
         name: 'Lyra',
         anchorTokenId: LYRA_ANCHOR_ID,
+        characterId: LYRA_CHARACTER_ID,
         controllerIds: [BIA_ID],
       });
       expect(updated?.privileged.token.bars.map(({ current }) => current)).toEqual([32, 1]);
@@ -178,8 +183,12 @@ describe('TokenLinkService', () => {
       table.tokens.rows.push(linkedLyraRow());
     });
 
-    it('the token keeps a copy of the anchor state and identity; the anchor stays', async () => {
+    it('the token keeps a copy of what it wore: the character bars and control, the anchor conditions', async () => {
       table.poison(LYRA_ANCHOR_ID);
+      const [lyra] = table.characters.rows;
+      if (!lyra) throw new Error('the table has no Lyra');
+      const wounded = lyra.bars.map((bar, index) => (index === 0 ? { ...bar, current: 20 } : bar));
+      table.characters.rows[0] = { ...lyra, bars: wounded };
       const tokenId = linkedLyraRow().token.id;
 
       await service.unlink(ANA_ID, VHARN_ID, { sceneId: VHARN_TORRE_ID, tokenId });
@@ -189,13 +198,18 @@ describe('TokenLinkService', () => {
         `lockInCampaign:${VHARN_TORRE_ID}`,
         'copy state',
         'unlink',
+        'save',
         'bump',
         'commit',
         'publish',
       ]);
       const unlinked = table.tokens.rowOf(tokenId);
-      expect(unlinked.token).toMatchObject({ anchorTokenId: null, name: 'Lyra' });
-      expect(unlinked.bars.map(({ current }) => current)).toEqual([32, 1]);
+      expect(unlinked.token).toMatchObject({
+        anchorTokenId: null,
+        characterId: null,
+        name: 'Lyra',
+      });
+      expect(unlinked.bars.map(({ current }) => current)).toEqual([20, 1]);
       expect(unlinked.controllerIds).toEqual([BIA_ID]);
       const tokenIds = table.conditions.active.map((condition) => condition.tokenId);
       expect(tokenIds).toEqual([LYRA_ANCHOR_ID, tokenId]);

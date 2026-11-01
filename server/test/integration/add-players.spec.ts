@@ -11,6 +11,7 @@ import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
 import type { Table } from '../support/tables';
+import { characterOfUser, lyraBarsOnBia, renameCharacter } from '../support/table-characters';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
@@ -33,14 +34,17 @@ async function partyAndEstrada() {
   const table = await lyraPoisonedAtVharn(live);
   const { ana, bia, caio, lyra } = table;
   await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+  const lyraCharacterId = await lyraBarsOnBia(live);
   const anaEvents = recordEventsOf(ana);
   await send(ana, 'token:create', { ...tokenCommandFor(live.vharn, live.caio.id), name: 'Bram' });
   const bram = await createdTokenOf(anaEvents);
   await linkToCard(ana, live.vharn, { tokenId: bram.id, memberId: live.caio.id });
+  const caioCharacter = await characterOfUser(live, live.vharn, live.caio);
+  await renameCharacter(live, caioCharacter.character.id, 'Bram');
   const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada');
   await setGridVisibility(live, live.ana, live.vharn, estrada, 'public');
   for (const client of [ana, bia, caio]) await gridAck(client, 'scene:watch', live.vharn, estrada);
-  return { ...table, estrada };
+  return { ...table, estrada, lyraCharacterId };
 }
 
 describe('"Adicionar jogadores" (token:addPlayers)', () => {
@@ -63,13 +67,14 @@ describe('"Adicionar jogadores" (token:addPlayers)', () => {
     expect(lyraForCaio?.bars.map(({ label }) => label)).toEqual(['Inspiração']);
   });
 
-  it('the PV and the Envenenado of the Lyra on the Estrada are her anchor ones', async () => {
-    const { ana, bia, estrada } = await partyAndEstrada();
+  it('the Lyra on the Estrada wears her character (its PV) and the Envenenado of her anchor', async () => {
+    const { ana, bia, estrada, lyraCharacterId } = await partyAndEstrada();
     const ack = await addPlayers(ana, live.vharn, estrada);
     const lyraId = ack.ok ? (ack.createdIds[0] ?? '') : '';
 
     const lyra = tokenIn(await gridState(bia, live.vharn, estrada), lyraId);
 
+    expect(lyra.characterId).toBe(lyraCharacterId);
     expect(lyra.bars.map(({ current }) => current)).toEqual([32, 1]);
     expect(lyra.conditions.map(({ name }) => name)).toEqual(['Envenenado']);
     expect(lyra).toMatchObject({ layer: 'tokens', facing: 0, sight: null, light: null });

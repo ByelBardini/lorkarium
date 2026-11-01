@@ -5,6 +5,8 @@ import type { ClockPort } from '../auth/clock.port';
 import { AssetsDao } from '../assets/assets.dao';
 import type { MembershipReader } from '../campaigns/cached-memberships';
 import { CampaignsDao } from '../campaigns/campaigns.dao';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
+import { CharactersDao } from '../characters/characters.dao';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { CombatDao } from '../combat/combat.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
@@ -29,6 +31,8 @@ export type TokensModuleOptions = Readonly<{
   /** Shared by the board modules: the memberships remembered by the campaigns module. */
   members: MembershipReader;
   publisher: BoardPublisherPort;
+  /** Where a write on a linked token's character is told (character:changed). */
+  characterPublisher: CharacterPublisherPort;
   clock: ClockPort;
   /** The walls of each scene in memory, shared with the walls module (which forgets them). */
   sceneWalls: SceneWallsService;
@@ -61,12 +65,13 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
         mainTokens: new MainTokensDao(tx),
         anchors: new TokenAnchorsDao(tx),
         memberCards: new MemberCardsDao(tx),
+        characters: new CharactersDao(tx),
       }),
     );
-  const { members, publisher, clock, sceneWalls } = options;
+  const { members, publisher, characterPublisher, clock, sceneWalls } = options;
   const dragGroups = new TokensDao(options.db);
   const limits = { barLimit: BAR_VALUE_LIMIT, tokenLimit: TOKENS_PER_SCENE_MAX };
-  const deps = { members, transaction, publisher, clock, ...limits };
+  const deps = { members, transaction, publisher, characterPublisher, clock, ...limits };
   const tokenRights = new CampaignsDao(options.db);
   const tokenDeps = { ...deps, dragGroups, sceneWalls, tokenRights };
   return {

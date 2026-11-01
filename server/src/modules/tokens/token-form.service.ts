@@ -5,14 +5,17 @@ import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort, GridEvent } from '../scenes/board-publisher.port';
+import { savedEventBase } from '../scenes/locked-cast';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
+import type { CharacterRow } from '../characters/characters.dao';
 import {
-  inLockedGridWithCast,
-  savedEventBase,
-  type CastAndGridChange,
-  type LockedGridMaybeCast,
-  type SavedInCastAndGrid,
-} from '../scenes/locked-cast';
-import { stateHolderIn, type StateHolder } from './linked-token';
+  inLockedGridWithCharacters,
+  type CharactersAndGridChange,
+  type LockedGridMaybeCharacters,
+  type SavedInCharactersAndGrid,
+} from '../characters/locked-characters-grid';
+import { linkedCharacterIn } from './linked-token';
+import { publishCharactersChange, restyleCharacters } from './character-writes';
 import { formBoxOf, isShowing, requireActiveForm, requireForm } from './token-forms.bo';
 import {
   tokenAccessOf,
@@ -20,7 +23,7 @@ import {
   type TokenTransactionRunner,
   type TokenWriteDaos,
 } from './token-transaction';
-import { NO_VEIL, cutsOf, tokenSeenBy } from './token-veil.mapper';
+import { cutsOf, tokenSeenBy } from './token-veil.mapper';
 import { publishVeiledLights, veiledWriteOf, type VeiledWrite } from './token-veil';
 import type { TokenRow } from './tokens.dao';
 import type { TokenFormPo } from './tokens.po';
@@ -31,6 +34,8 @@ export type TokenFormServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
   transaction: TokenTransactionRunner;
   publisher: BoardPublisherPort;
+  /** Where the new look of a linked token's character is told (`character:changed`). */
+  characterPublisher: CharacterPublisherPort;
   clock: ClockPort;
 }>;
 
@@ -38,7 +43,8 @@ type Switched = Readonly<{
   row: TokenRow;
   form: TokenFormPo;
   box: TokenBox;
-  holder: StateHolder;
+  /** The character of a linked token, with the form's image and frame (`[]` unlinked). */
+  shared: CharacterRow[];
   veiled: VeiledWrite;
 }>;
 
@@ -49,13 +55,15 @@ type Switched = Readonly<{
 export class TokenFormService {
   constructor(private readonly deps: TokenFormServiceDeps) {}
 
-  /** The master, or a controller on any layer (like the look). On a linked token the image, the
-   *  frame and the shown form are its anchor's (an event of the cast) and the box its own (an event of the
-   *  grid). Switching to the form already shown changes nothing: same version, no event. */
+  /** The master, or a controller on any layer (like the look). The forms, the shown form and the
+   *  box are the token's own (an event of the grid); on a linked token the form's image and frame
+   *  go to its character too, since the character lends them to every grid (a
+   *  `character:changed`). Switching to the form already shown changes nothing: same version, no
+   *  event. */
   async setForm(userId: string, campaignId: string, command: SetTokenForm): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const address = { campaignId, sceneId: command.sceneId, access };
-    const saved = await inLockedGridWithCast(this.deps.transaction, address, (locked) =>
+    const saved = await inLockedGridWithCharacters(this.deps.transaction, address, (locked) =>
       this.switchIn(locked, access, command),
     );
     if (saved.value) this.publish(campaignId, saved, saved.value);
@@ -63,32 +71,34 @@ export class TokenFormService {
   }
 
   private async switchIn(
-    locked: LockedGridMaybeCast<TokenWriteDaos>,
+    locked: LockedGridMaybeCharacters<TokenWriteDaos>,
     access: CampaignAccessBo,
     command: SetTokenForm,
-  ): Promise<CastAndGridChange<Switched | null>> {
+  ): Promise<CharactersAndGridChange<Switched | null>> {
     const { daos, scene } = locked;
     const row = await tokenIn(daos, scene, scene.campaignId, command.tokenId);
     tokenAccessOf(access, row).requireControl('setForm');
     const form = requireForm(row.token.id, row.forms, command.formId);
     requireActiveForm(row.token.id, command.expect, row.token.activeFormId);
     const box = formBoxOf(scene, row.token, form);
-    if (isShowing(row.token, form, box)) return { value: null, grid: false, cast: false };
-    const holder = stateHolderIn(locked, row);
-    const veiled = await writeForm(daos, { row, form, box, holder });
-    return { value: { row, form, box, holder, veiled }, grid: true, cast: holder.inCast };
+    if (isShowing(row.token, form, box)) return { value: null, grid: false, characters: false };
+    const character = await linkedCharacterIn(locked, row);
+    const veiled = await writeForm(daos, { row, form, box });
+    const ids = character ? [character.character.id] : [];
+    const look = { imageAssetId: form.imageAssetId, frame: form.frame };
+    const shared = await restyleCharacters(daos, scene.campaignId, ids, look);
+    const value = { row, form, box, shared, veiled };
+    return { value, grid: true, characters: shared.length > 0 };
   }
 
   private publish(
     campaignId: string,
-    saved: SavedInCastAndGrid<unknown>,
-    { row, form, box, holder, veiled }: Switched,
+    saved: SavedInCharactersAndGrid<unknown>,
+    { row, form, box, shared, veiled }: Switched,
   ): void {
     const look = lookOf(form);
-    if (saved.cast) {
-      const event = { ...savedEventBase(campaignId, saved.cast, this.deps.clock), ...look };
-      this.deps.publisher.tokenFormChanged({ ...event, tokenId: holder.tokenId }, NO_VEIL);
-    }
+    const outlet = { publisher: this.deps.characterPublisher, clock: this.deps.clock };
+    publishCharactersChange(outlet, campaignId, saved.characters, shared);
     if (!saved.grid) return;
     const base = savedEventBase(campaignId, saved.grid, this.deps.clock);
     const event: GridEvent<TokenFormChangedDto> = { ...base, ...look, tokenId: row.token.id, box };
@@ -106,15 +116,15 @@ function lookOf({
   return { activeFormId: id, imageAssetId, frame };
 }
 
-// The box on the token of the grid, the image and the form on the holder. The resize goes first:
-// it clears the form of a token whose size changes, and the restyle, naming the form, sets it.
+// The box, the image and the form on the token of the grid. The resize goes first: it clears the
+// form of a token whose size changes, and the restyle, naming the form, sets it.
 async function writeForm(
   daos: TokenWriteDaos,
-  { row, form, box, holder }: Omit<Switched, 'veiled'>,
+  { row, form, box }: Pick<Switched, 'row' | 'form' | 'box'>,
 ): Promise<VeiledWrite> {
   await daos.tokens.resizeMany(row.token.sceneId, [{ tokenId: row.token.id, ...box }]);
   const look = lookOf(form);
-  await daos.tokens.restyle([holder.tokenId], look);
+  await daos.tokens.restyle([row.token.id], look);
   const switchedRow = { ...row, token: { ...row.token, ...box, ...look } };
   return veiledWriteOf(daos, row.token.sceneId, [switchedRow]);
 }

@@ -114,7 +114,11 @@ export class TokenLinkService {
       const placed = await daos.tokens.findLinkedInScene(scene.id, anchorId);
       rules.requireNotPlaced(tokenId, memberId, placed?.token);
       await daos.anchors.dropState(tokenId);
-      await daos.anchors.linkToAnchor(tokenId, anchorId);
+      await daos.anchors.linkToAnchor(
+        tokenId,
+        anchorId,
+        await characterIdOf(daos, scene, memberId),
+      );
       const token = await this.reread(daos, scene, tokenId);
       const veiled = await changeSceneOf(daos, scene, found, token.row, false);
       return { value: { token, created: null, veiled }, grid: true, cast: false };
@@ -134,7 +138,8 @@ export class TokenLinkService {
   ): Promise<NewAnchor> {
     const anchor = await daos.tokens.insert(anchorRowOf(cast.id, found));
     await daos.anchors.moveStateTo(found.token.id, anchor.token.id);
-    await daos.anchors.linkToAnchor(found.token.id, anchor.token.id);
+    const characterId = await characterIdOf(daos, cast, memberId);
+    await daos.anchors.linkToAnchor(found.token.id, anchor.token.id, characterId);
     const createdIn = { sceneId: cast.id, version: await daos.scenes.bumpVersion(cast.id) };
     const card = await daos.memberCards.save(cast.campaignId, memberId, {
       anchorTokenId: anchor.token.id,
@@ -153,6 +158,7 @@ export class TokenLinkService {
     const anchorId = rules.anchorOf(found.token);
     await daos.anchors.copyStateTo(anchorId, tokenId);
     await daos.anchors.unlinkWith(tokenId, identityOf(found.token));
+    await keepWornState(daos, found);
     const token = await this.reread(daos, scene, tokenId);
     const veiled = await changeSceneOf(daos, scene, found, token.row, false);
     return { value: { token, veiled }, grid: true, cast: false };
@@ -190,4 +196,27 @@ function anchorRowOf(castId: string, found: TokenRow): NewTokenRow {
   const { width, height } = found.token;
   const token = { sceneId: castId, ...identityOf(found.token), width, height, col: 0, row: 0 };
   return { token, bars: [], controllerIds: [] };
+}
+
+// The character the card's player has at the table (`null` = none yet). Until links go by the
+// character (phase 8 of the plan), a link to a card also wears the player's character.
+async function characterIdOf(
+  daos: TokenWriteDaos,
+  scene: SceneRow,
+  memberId: string,
+): Promise<string | null> {
+  const character = await daos.characters.findOfUser(scene.campaignId, memberId);
+  return character?.character.id ?? null;
+}
+
+// An unlinked token keeps the bars and controllers it wore (its character's); the conditions are
+// still the anchor's copy.
+async function keepWornState(daos: TokenWriteDaos, worn: TokenRow): Promise<void> {
+  if (worn.token.characterId === null) return;
+  const { name, initials, side, width, height } = worn.token;
+  const bars = worn.bars.map(({ label, current, max, color, visibility, display }) => ({
+    ...{ label, current, max, color, visibility, display },
+  }));
+  const fields = { name, initials, side, width, height };
+  await daos.tokens.update(worn.token.id, { fields, bars, controllerIds: worn.controllerIds });
 }

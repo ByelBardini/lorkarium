@@ -1,28 +1,32 @@
-import { tokenUpdatedDto } from '@lorkarium/contracts';
+import { characterChangedEventDto } from '@lorkarium/contracts';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect, it } from 'vitest';
 import { COMMANDS_PER_SECOND } from '../../src/realtime/command-rate.bo';
-import {
-  castIdOf,
-  gridState,
-  linkToCard,
-  lyraPoisonedAtVharn,
-  tokenIn,
-} from '../support/characters';
+import { gridState, linkToCard, lyraPoisonedAtVharn, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
-import { envelope, eventPayload, send, synced } from '../support/live-table';
+import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
+import { CHARACTER_MANA, characterOfUser, giveBars } from '../support/table-characters';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+const LYRA_PV = {
+  label: 'PV',
+  current: 32,
+  max: 45,
+  color: 'ember',
+  visibility: 'controllers',
+} as const;
 
-// Lyra of Bia on the Salão (the group grid) and on the public Estrada, both linked to her card;
-// Caio has the Estrada open.
+// Lyra of Bia on the Salão (the group grid) and on the public Estrada, both linked to her card,
+// so both wear Bia's character, which holds PV 32/45 (controllers only) and Mana 4/10; Caio has
+// the Estrada open.
 async function lyraOnTwoGrids() {
-  const castId = await castIdOf(live, live.ana, live.vharn);
   const table = await lyraPoisonedAtVharn(live);
   const { ana, bia, caio, lyra } = table;
   await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+  const character = await characterOfUser(live, live.vharn, live.bia);
+  await giveBars(live, character.character.id, [LYRA_PV, CHARACTER_MANA]);
   const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada');
   await setGridVisibility(live, live.ana, live.vharn, estrada, 'public');
   for (const client of [ana, bia, caio]) await gridAck(client, 'scene:watch', live.vharn, estrada);
@@ -35,27 +39,59 @@ async function lyraOnTwoGrids() {
     tokenId: lyraOfEstrada,
     memberId: live.bia.id,
   });
-  return { ...table, castId, estrada, lyraOfEstrada };
+  return { ...table, characterId: character.character.id, estrada, lyraOfEstrada };
 }
 
 function pvOf(state: Awaited<ReturnType<typeof synced>>, tokenId: string): number | undefined {
   return tokenIn(state, tokenId).bars.find(({ label }) => label === 'PV')?.current;
 }
 
-describe('shared writes on a linked token go to its anchor', () => {
-  it('Bia takes 7 PV from Lyra on the Salão: Caio hears the anchor through the cast and the Estrada already shows it', async () => {
-    const { bia, caio, lyra, castId, estrada, lyraOfEstrada } = await lyraOnTwoGrids();
+describe('shared writes on a linked token go to its character', () => {
+  it('Bia takes 7 PV from Lyra on the Salão: Caio hears character:changed and the Estrada already shows it', async () => {
+    const { bia, caio, lyra, characterId, estrada, lyraOfEstrada } = await lyraOnTwoGrids();
     const caioEvents = recordEventsOf(caio);
+    const salaoBefore = (await synced(bia, live.vharn)).version;
     const pvId = tokenIn(await synced(bia, live.vharn), lyra.id).bars[0]?.id ?? '';
 
     const change = { op: 'add', amount: -7 };
     const adjust = { ...envelope(live.vharn.id), tokenId: lyra.id, barId: pvId, change };
-    expect(await send(bia, 'token:adjustBar', adjust)).toMatchObject({ ok: true });
+    const ack = await send(bia, 'token:adjustBar', adjust);
+    expect(ack).toMatchObject({ ok: true });
 
-    const heard = tokenUpdatedDto.parse(await eventPayload(caioEvents, 'token:updated'));
-    expect(heard.sceneId).toBe(castId);
+    const heard = characterChangedEventDto.parse(
+      await eventPayload(caioEvents, 'character:changed'),
+    );
+    expect(heard.characters.map(({ id }) => id)).toEqual([characterId]);
+    expect(heard.characters[0]?.bars.map(({ label }) => label)).toEqual(['Mana']);
+    expect(ack).toMatchObject({ version: heard.version });
+    await silence();
+    expect(caioEvents.events.map(({ name }) => name)).not.toContain('token:updated');
     expect(pvOf(await gridState(bia, live.vharn, estrada), lyraOfEstrada)).toBe(25);
-    expect(pvOf(await synced(bia, live.vharn), lyra.id)).toBe(25);
+    const salao = await synced(bia, live.vharn);
+    expect(pvOf(salao, lyra.id)).toBe(25);
+    expect(salao.version).toBe(salaoBefore);
+  });
+
+  it('the snapshot of both grids names the character of Lyra', async () => {
+    const { ana, lyra, characterId, estrada, lyraOfEstrada } = await lyraOnTwoGrids();
+
+    expect(tokenIn(await synced(ana, live.vharn), lyra.id).characterId).toBe(characterId);
+    const onEstrada = tokenIn(await gridState(ana, live.vharn, estrada), lyraOfEstrada);
+    expect(onEstrada.characterId).toBe(characterId);
+  });
+
+  it('a new name for Lyra on the Estrada is the name of the Lyra of the Salão', async () => {
+    const { ana, lyra, estrada, lyraOfEstrada } = await lyraOnTwoGrids();
+    const shown = tokenIn(await gridState(ana, live.vharn, estrada), lyraOfEstrada);
+    const bars = shown.bars.map(({ label, current, max, color, visibility, display }) => ({
+      ...{ label, current, max, color, visibility, display },
+    }));
+    const { initials, side, width, height, controllerIds } = shown;
+    const update = { ...envelope(live.vharn.id), sceneId: estrada, tokenId: lyraOfEstrada };
+    const fields = { name: 'Lyra Vento', initials, side, width, height, controllerIds, bars };
+    expect(await send(ana, 'token:update', { ...update, ...fields })).toMatchObject({ ok: true });
+
+    expect(tokenIn(await synced(ana, live.vharn), lyra.id).name).toBe('Lyra Vento');
   });
 
   it('the Envenenado of Lyra on the Salão is on the Lyra of the Estrada too', async () => {
@@ -109,7 +145,7 @@ describe('shared writes on a linked token go to its anchor', () => {
     expect(ack).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
   });
 
-  it('Bia moves and drags the Lyra of the Estrada: her control comes from the anchor', async () => {
+  it('Bia moves and drags the Lyra of the Estrada: her control comes from the character', async () => {
     const { bia, estrada, lyraOfEstrada } = await lyraOnTwoGrids();
     const base = { ...envelope(live.vharn.id), sceneId: estrada, tokenId: lyraOfEstrada };
 
@@ -119,7 +155,7 @@ describe('shared writes on a linked token go to its anchor', () => {
     expect(await send(bia, 'token:dragMany', drag)).toMatchObject({ ok: true });
   });
 
-  it('the cast is always locked before a grid: 50 rounds of crossed writes on both grids all pass', async () => {
+  it('the characters are always locked before a grid: 50 rounds of crossed writes on both grids all pass', async () => {
     const { ana, bia, lyra, estrada, lyraOfEstrada } = await lyraOnTwoGrids();
     const pvId = tokenIn(await synced(bia, live.vharn), lyra.id).bars[0]?.id ?? '';
     const style = (defeated: boolean) => ({
@@ -153,4 +189,16 @@ describe('shared writes on a linked token go to its anchor', () => {
     expect(pvOf(await synced(bia, live.vharn), lyra.id)).toBe(32);
     // 50 paced rounds take 2.5 s on their own, beside the setup.
   }, 20_000);
+
+  it('a write on the Lyra of Vharn reaches nobody at Quelm', async () => {
+    const { bia, lyra } = await lyraOnTwoGrids();
+    const quelmEvents = recordEventsOf(await live.atTable(live.caio, live.quelm));
+    const pvId = tokenIn(await synced(bia, live.vharn), lyra.id).bars[0]?.id ?? '';
+
+    const adjust = { ...envelope(live.vharn.id), tokenId: lyra.id, barId: pvId };
+    await send(bia, 'token:adjustBar', { ...adjust, change: { op: 'add', amount: -1 } });
+
+    await silence();
+    expect(quelmEvents.events.map(({ name }) => name)).not.toContain('character:changed');
+  });
 });

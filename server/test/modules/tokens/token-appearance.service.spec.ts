@@ -1,3 +1,4 @@
+import { CharacterPublisherFake } from '../../support/characters-fakes';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TokenAppearanceService } from '../../../src/modules/tokens/token-appearance.service';
 import { AssetsDaoFake } from '../../support/assets-fakes';
@@ -80,6 +81,7 @@ describe('TokenAppearanceService', () => {
       members,
       transaction: transaction.run,
       publisher,
+      characterPublisher: new CharacterPublisherFake(),
       clock: new ClockFake(NOW),
     });
   });

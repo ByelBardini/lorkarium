@@ -1,3 +1,4 @@
+import { CharacterPublisherFake } from '../../support/characters-fakes';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { changeSceneOf, combatVeilOf, veiledWriteOf } from '../../../src/modules/tokens/token-veil';
 import { TokensService } from '../../../src/modules/tokens/tokens.service';
@@ -135,6 +136,7 @@ describe('the diary of a move under the veil', () => {
       dragGroups: new DragGroupsFake(scenes, tokens),
       sceneWalls: new SceneWallsFake(),
       publisher,
+      characterPublisher: new CharacterPublisherFake(),
       clock: new ClockFake(new Date('2026-10-24T21:00:00Z')),
       barLimit: 999,
       tokenLimit: 500,

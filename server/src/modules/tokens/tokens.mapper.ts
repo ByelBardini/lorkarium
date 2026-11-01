@@ -74,6 +74,7 @@ export function toTokenDto(
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],
     anchorTokenId: row.token.anchorTokenId,
+    characterId: row.token.characterId,
     createdBy: row.token.createdBy,
     forms: toTokenFormsDto(row.forms, audience),
     activeFormId: row.token.activeFormId,

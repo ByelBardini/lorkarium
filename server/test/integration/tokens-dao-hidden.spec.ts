@@ -2,6 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { UsersDao } from '../../src/modules/auth/users.dao';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
+import { CharactersDao } from '../../src/modules/characters/characters.dao';
+import { runInTransaction } from '../../src/database/transaction';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { TokensDao, type NewTokenRow } from '../../src/modules/tokens/tokens.dao';
 import { newUserPo } from '../support/auth-factories';
@@ -13,7 +15,7 @@ describe('TokensDao: hidden tokens on Postgres', () => {
   let connection: DatabaseConnection;
   let tokens: TokensDao;
   let vharnScene: string;
-  let castScene: string;
+  let vharnId: string;
   let quelmScene: string;
   let biaId: string;
   let caioId: string;
@@ -37,7 +39,7 @@ describe('TokensDao: hidden tokens on Postgres', () => {
     );
     const scenes = new ScenesDao(connection.db);
     vharnScene = (await scenes.insert({ campaignId: vharn.id })).id;
-    castScene = (await scenes.insert({ campaignId: vharn.id, kind: 'cast' })).id;
+    vharnId = vharn.id;
     quelmScene = (await scenes.insert({ campaignId: quelm.id })).id;
   });
 
@@ -126,10 +128,18 @@ describe('TokensDao: hidden tokens on Postgres', () => {
     expect(veil).toHaveLength(1);
   });
 
-  it('veilOfScene gives a hidden linked token the controllers of its anchor', async () => {
-    const anchor = { ...tokenOf('Lyra', { sceneId: castScene }), controllerIds: [caioId] };
-    const lyraAnchor = await tokens.insert(anchor);
-    const linked = tokenOf('Lyra', { hidden: true, anchorTokenId: lyraAnchor.token.id });
+  it('veilOfScene gives a hidden linked token the controllers of its character', async () => {
+    const lyra = {
+      campaignId: vharnId,
+      userId: biaId,
+      name: 'Lyra',
+      initials: 'LY',
+      side: 'ally' as const,
+    };
+    const character = await runInTransaction(connection.db, (tx) =>
+      new CharactersDao(tx).insert({ character: lyra, bars: [], controllerIds: [caioId] }),
+    );
+    const linked = tokenOf('Lyra', { hidden: true, characterId: character.character.id });
     await tokens.insert({ ...linked, controllerIds: [biaId] });
 
     const veil = await tokens.veilOfScene(vharnScene);

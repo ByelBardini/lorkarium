@@ -1,6 +1,10 @@
 # Personagens
 
-O `Character` do spec §6 (o Actor do Foundry): a entidade da mesa por trás dos tokens ligados a ela. Um por jogador, criado ao virar jogador; guarda nome, iniciais, lado, imagem, borda, abatido, aura, tamanho padrão, CA, CD, duas anotações, barras, condições, controle, as fichas e a ficha principal. O token ligado guarda o que é por grid (posição, tamanho, camada, direção, inverter, visão, cone, luz e as formas). Plano de origem: `docs/plans/2026-10-31-personagem.md` (entrega numa release só; até a Fase 13 o app ainda lê a âncora do elenco, [`tokens/character.md`](tokens/character.md), e a Ficha da mesa, [`member-cards.md`](member-cards.md)). Módulo `server/src/modules/characters/`.
+O `Character` do spec §6 (o Actor do Foundry): a entidade da mesa por trás dos tokens ligados a ela. Um por jogador, criado ao virar jogador; guarda nome, iniciais, lado, imagem, borda, abatido, aura, tamanho padrão, CA, CD, duas anotações, barras, condições, controle, as fichas e a ficha principal. O token ligado guarda o que é por grid (posição, tamanho, camada, direção, inverter, visão, cone, luz e as formas). Plano de origem: `docs/plans/2026-10-31-personagem.md` (entrega numa release só; até a Fase 13 a âncora do elenco, [`tokens/character.md`](tokens/character.md), ainda guarda as condições, e a Ficha da mesa, [`member-cards.md`](member-cards.md), ainda existe). Módulo `server/src/modules/characters/`.
+
+| Arquivo                                                    | O que cobre                                                                                                                                       |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`characters/token-ligado.md`](characters/token-ligado.md) | Fase 6: token ligado composto pelo personagem, travas personagens → grid, escritas compartilhadas (tabela), ligar/desligar mínimo, testes e fakes |
 
 ## Contrato
 

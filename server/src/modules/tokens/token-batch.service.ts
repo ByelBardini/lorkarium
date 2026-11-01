@@ -194,7 +194,8 @@ export class TokenBatchService {
       return { value, grid: false, cast: false };
     }
     const anchors = await tokensIn(daos, cast, scene.campaignId, missing);
-    const rows = await this.linkedRowsOf(daos, scene, anchors, center, onGrid);
+    const worn = await wornCharactersOf(daos, scene.campaignId, cards);
+    const rows = await this.linkedRowsOf(daos, scene, { anchors, worn }, center, onGrid);
     const created = await daos.tokens.insertMany(rows);
     const ids = created.map(({ token }) => token.id);
     const composed = await tokensIn(daos, scene, scene.campaignId, ids);
@@ -207,7 +208,7 @@ export class TokenBatchService {
   private async linkedRowsOf(
     daos: TokenWriteDaos,
     scene: ScenePo,
-    anchors: readonly TokenRow[],
+    { anchors, worn }: Readonly<{ anchors: readonly TokenRow[]; worn: WornCharacters }>,
     center: AddPlayers['center'],
     onGrid: readonly TokenRow[],
   ): Promise<NewTokenRow[]> {
@@ -215,7 +216,9 @@ export class TokenBatchService {
     const footprints = anchors.map(({ token }) => token);
     const cells = placeCharacters({ sceneId: scene.id, scene, center, footprints, occupied });
     this.rulesFor(scene, []).admit(await daos.tokens.countOfScene(scene.id), anchors.length);
-    return anchors.map((anchor, index) => linkedRowOf(scene.id, anchor, cells[index]));
+    return anchors.map((anchor, index) =>
+      linkedRowOf(scene.id, anchor, cells[index], worn.get(anchor.token.id) ?? null),
+    );
   }
 
   // A player's copies land like their new token, with them in the control; each is a create.
@@ -254,10 +257,41 @@ function boxOf({ token }: TokenRow): TokenBox {
 }
 
 // A token of the character: the anchor's identity and size, facing right, without sight nor light.
-function linkedRowOf(sceneId: string, anchor: TokenRow, at: Cell | undefined): NewTokenRow {
+function linkedRowOf(
+  sceneId: string,
+  anchor: TokenRow,
+  at: Cell | undefined,
+  characterId: string | null,
+): NewTokenRow {
   if (!at) throw new Error(`no cell was placed for anchor ${anchor.token.id}`);
   const { width, height } = anchor.token;
   const placed = { col: at.col, row: at.row, width, height, layer: 'tokens' as const, facing: 0 };
-  const token = { sceneId, ...identityOf(anchor.token), ...placed, anchorTokenId: anchor.token.id };
+  const token = {
+    sceneId,
+    ...identityOf(anchor.token),
+    ...placed,
+    anchorTokenId: anchor.token.id,
+    characterId,
+  };
   return { token, bars: [], controllerIds: [] };
+}
+
+/** The character each anchor's player has at the table, by the anchor's id. */
+type WornCharacters = ReadonlyMap<string, string>;
+
+// Until "Add the players" reads the characters (phase 8 of the plan), each new token linked to an
+// anchor also wears the character of the anchor's player.
+async function wornCharactersOf(
+  daos: TokenWriteDaos,
+  campaignId: string,
+  cards: readonly Readonly<{ userId: string; anchorTokenId: string | null }>[],
+): Promise<WornCharacters> {
+  const characters = await daos.characters.listOfCampaign(campaignId);
+  const byUser = new Map(characters.map(({ character }) => [character.userId, character.id]));
+  return new Map(
+    cards.flatMap(({ userId, anchorTokenId }) => {
+      const characterId = byUser.get(userId);
+      return anchorTokenId && characterId ? [[anchorTokenId, characterId] as const] : [];
+    }),
+  );
 }

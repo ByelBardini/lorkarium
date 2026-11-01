@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { campaignMembers, type CampaignMemberPo } from '../campaigns/campaign-members.po';
 import { campaigns } from '../campaigns/campaigns.po';
+import { scenes } from '../scenes/scenes.po';
 import type { BarValuesPo } from '../tokens/tokens.po';
 import {
   characterBars,
@@ -10,6 +11,7 @@ import {
   type CharacterBarInputPo,
   type CharacterBarPo,
   type CharacterChangesPo,
+  type CharacterLookChangesPo,
   type CharacterPo,
   type NewCharacterPo,
 } from './characters.po';
@@ -66,6 +68,24 @@ export class CharactersDao {
     return this.rowsWhere(and(eq(characters.campaignId, campaignId), asked));
   }
 
+  /** The asked characters of the table `sceneId` belongs to (an id of another table is left
+   *  out), in bulk: what the tokens of one grid read to wear their characters, without the
+   *  campaign at hand (§2.6 by the scene's own table).
+   *
+   *  Example: `await dao.findManyAtSceneTable(estradaId, [lyraId])` */
+  async findManyAtSceneTable(
+    sceneId: string,
+    characterIds: readonly string[],
+  ): Promise<CharacterRow[]> {
+    if (characterIds.length === 0) return [];
+    const table = this.db
+      .select({ id: scenes.campaignId })
+      .from(scenes)
+      .where(eq(scenes.id, sceneId));
+    const asked = inArray(characters.id, [...characterIds]);
+    return this.rowsWhere(and(inArray(characters.campaignId, table), asked));
+  }
+
   async findInCampaign(campaignId: string, characterId: string): Promise<CharacterRow | undefined> {
     const [row] = await this.findManyInCampaign(campaignId, [characterId]);
     return row;
@@ -87,8 +107,12 @@ export class CharactersDao {
     return this.requireRow(saved);
   }
 
-  /** Writes only the keys in `changes` (a patch: absent stays, `null` clears). */
-  async update(characterId: string, changes: CharacterChangesPo): Promise<void> {
+  /** Writes only the keys in `changes` (a patch: absent stays, `null` clears): the card fields,
+   *  or what a linked token writes on it (identity, look, aura). */
+  async update(
+    characterId: string,
+    changes: CharacterChangesPo & CharacterLookChangesPo,
+  ): Promise<void> {
     await this.db
       .update(characters)
       .set({ ...changes, updatedAt: sql`now()` })

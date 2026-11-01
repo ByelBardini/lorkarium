@@ -12,19 +12,25 @@ import { tokenBars, tokenControllers, tokens } from './tokens.po';
 export class TokenAnchorsDao {
   constructor(private readonly db: DatabaseExecutor) {}
 
-  /** Links the token to the anchor: from now on it reads as the anchor's character. */
-  async linkToAnchor(tokenId: string, anchorTokenId: string): Promise<void> {
+  /** Links the token to the anchor (which still holds its conditions) and to the character it
+   *  wears from now on (`null` = the card's player has none). */
+  async linkToAnchor(
+    tokenId: string,
+    anchorTokenId: string,
+    characterId: string | null,
+  ): Promise<void> {
     await this.db
       .update(tokens)
-      .set({ anchorTokenId, updatedAt: sql`now()` })
+      .set({ anchorTokenId, characterId, updatedAt: sql`now()` })
       .where(eq(tokens.id, tokenId));
   }
 
-  /** Unlinks the token, writing on it the identity it showed (the anchor's). */
+  /** Unlinks the token from its anchor and its character, writing on it the identity it showed
+   *  (the character's). */
   async unlinkWith(tokenId: string, identity: TokenIdentityPo): Promise<void> {
     await this.db
       .update(tokens)
-      .set({ ...identity, anchorTokenId: null, updatedAt: sql`now()` })
+      .set({ ...identity, anchorTokenId: null, characterId: null, updatedAt: sql`now()` })
       .where(eq(tokens.id, tokenId));
   }
 

@@ -282,7 +282,8 @@ function wireRealtime(
   const { service: profileChanged, service: campaignChanged } = sessions;
   const { service: memberRoleChanged } = sessions;
   const sceneWalls = new SceneWallsService();
-  const tokensModule = createTokensModule({ ...shared, sceneWalls });
+  const characterPublisher = new SocketIoCharacterPublisher(realtime.io);
+  const tokensModule = createTokensModule({ ...shared, sceneWalls, characterPublisher });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
   const { mainToken, link: tokenLink, visibility: tokenVisibility } = tokensModule;
   const { form: tokenForm } = tokensModule;
@@ -293,7 +294,6 @@ function wireRealtime(
   const walls = createWallsModule({ ...shared, sceneWalls }).service;
   const lights = createLightsModule(shared).service;
   const memberCards = createMemberCardsModule(shared).service;
-  const characterPublisher = new SocketIoCharacterPublisher(realtime.io);
   const characters = createCharactersModule({ ...shared, publisher: characterPublisher });
   const pings = createPingsModule({
     members,

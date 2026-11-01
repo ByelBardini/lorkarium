@@ -1,4 +1,7 @@
+import type { CharacterRow } from '../../src/modules/characters/characters.dao';
 import type { TokenRow } from '../../src/modules/tokens/tokens.dao';
+import { CharacterPublisherFake, CharactersDaoFake } from './characters-fakes';
+import { LYRA_CHARACTER_ID, characterBarPo, characterPo } from './characters-factories';
 import { ClockFake } from './auth-fakes';
 import { ANA_ID } from './auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from './campaigns-fakes';
@@ -40,13 +43,37 @@ export function lyraAnchorRow(): TokenRow {
   };
 }
 
-/** Lyra on the Torre, linked to her anchor, at (8, 2): stored without bars nor controllers.
+/** Lyra, the character of Bia at Vharn: her PV (32/45, only for its controllers) and
+ *  Inspiração (1/1, seen by everyone), controlled by Bia. */
+export function lyraCharacterRow(): CharacterRow {
+  const id = LYRA_CHARACTER_ID;
+  return {
+    character: characterPo(),
+    bars: [
+      characterBarPo({ id: `${id}-pv`, current: 32, max: 45 }),
+      characterBarPo({
+        ...{ id: `${id}-insp`, position: 1, label: 'Inspiração', current: 1, max: 1 },
+        ...{ color: 'gold', visibility: 'everyone' },
+      }),
+    ],
+    controllerIds: [BIA_ID],
+    holderRole: 'player',
+  };
+}
+
+/** Lyra on the Torre, linked to her character (and to the anchor that still holds her
+ *  conditions), at (8, 2): stored without bars nor controllers.
  *
  *  Example: `table.tokens.rows.push(lyraAnchorRow(), linkedLyraRow())` */
 export function linkedLyraRow(overrides: Partial<TokenRow['token']> = {}): TokenRow {
   const token = lyraPo({ id: ESTRADA_LYRA_ID, sceneId: VHARN_TORRE_ID, col: 8, row: 2 });
   return {
-    token: { ...token, anchorTokenId: LYRA_ANCHOR_ID, ...overrides },
+    token: {
+      ...token,
+      anchorTokenId: LYRA_ANCHOR_ID,
+      characterId: LYRA_CHARACTER_ID,
+      ...overrides,
+    },
     bars: [],
     controllerIds: [],
     forms: [],
@@ -68,8 +95,8 @@ export function kaelRow(): TokenRow {
 }
 
 /** Vharn with Ana master, Bia and Caio players; the Salão (group grid, version 4), the public
- *  Torre (version 7), the cast (version 2) and Quelm's scene; Lyra on the Salão. Every fake
- *  writes to `scenes.journal`. Built fresh per spec.
+ *  Torre (version 7), the cast (version 2) and Quelm's scene; Lyra on the Salão; Lyra the
+ *  character (characters' version 5). Every fake writes to `scenes.journal`. Built fresh per spec.
  *
  *  Example: `const table = new CharacterTableFake(); table.tokens.rows.push(lyraAnchorRow())` */
 export class CharacterTableFake {
@@ -100,6 +127,10 @@ export class CharacterTableFake {
   readonly memberCards = new MemberCardsDaoFake(this.journal);
   readonly mainTokens = new MainTokensDaoFake(this.journal);
   readonly publisher = new BoardPublisherFake(this.journal);
+  readonly characters = new CharactersDaoFake(this.journal, [lyraCharacterRow()], {
+    [VHARN_ID]: 5,
+  });
+  readonly characterPublisher = new CharacterPublisherFake(this.journal);
   readonly clock = new ClockFake(NOW);
   readonly transaction = new TokenTransactionRunnerFake(
     this.scenes,
@@ -111,6 +142,7 @@ export class CharacterTableFake {
     this.mainTokens,
     this.memberCards,
     this.anchors,
+    this.characters,
   );
 
   constructor() {

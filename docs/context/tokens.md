@@ -2,18 +2,18 @@
 
 Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de cada um (a vida generalizada) e o que cada público recebe. Server em `server/src/modules/tokens/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts.md`](contracts.md) (`token.dto.ts`); regra da barra em [`game-core.md`](game-core.md). O client fica em [`client/board.md`](client/board.md).
 
-| Sub-arquivo                                    | O que cobre                                                                                        |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| [`tokens/main-token.md`](tokens/main-token.md) | Token principal: tabela `main_tokens`, DAO, regra de quem escolhe, `token:setMain`                 |
-| [`tokens/arraste.md`](tokens/arraste.md)       | Arraste ao vivo (`token:dragMany`): uma consulta, sem transação, ordem das prévias                 |
-| [`tokens/grupos.md`](tokens/grupos.md)         | Comandos de grupo: tudo ou nada, paredes no caminho, `expect`, redação do lote, camada             |
-| [`tokens/character.md`](tokens/character.md)   | Personagem global: o elenco, a âncora, token ligado, escritas compartilhadas, adicionar jogadores  |
-| [`tokens/invisivel.md`](tokens/invisivel.md)   | Token invisível: `hidden`, o véu por público, `token:setHiddenMany`, luz velada, snapshot          |
-| [`tokens/aura.md`](tokens/aura.md)             | Aura do token: as sete colunas `aura_*`, os dois `CHECK`, mapper, restyle, âncora, forma da imagem |
-| [`tokens/autoria.md`](tokens/autoria.md)       | Autor (`created_by`) e as chaves dos jogadores: `TokenAuthorshipBo`, leitura das chaves, colar     |
-| [`tokens/aparencia.md`](tokens/aparencia.md)   | Direção e aparência: `faceMany`, `restyleMany`, `resizeMany`, camada, `expect`, eventos            |
-| [`tokens/formas.md`](tokens/formas.md)         | Formas: `token_forms`, `active_form_id`, redação, troca à mão, `token:setForm`, âncora             |
-| [`tokens/testes.md`](tokens/testes.md)         | Testes do módulo: unit × integração, specs por service e por grid                                  |
+| Sub-arquivo                                    | O que cobre                                                                                               |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [`tokens/main-token.md`](tokens/main-token.md) | Token principal: tabela `main_tokens`, DAO, regra de quem escolhe, `token:setMain`                        |
+| [`tokens/arraste.md`](tokens/arraste.md)       | Arraste ao vivo (`token:dragMany`): uma consulta, sem transação, ordem das prévias                        |
+| [`tokens/grupos.md`](tokens/grupos.md)         | Comandos de grupo: tudo ou nada, paredes no caminho, `expect`, redação do lote, camada                    |
+| [`tokens/character.md`](tokens/character.md)   | Elenco e âncora (condições até a Fase 7), ligar à ficha, adicionar jogadores; token ligado: `characters/` |
+| [`tokens/invisivel.md`](tokens/invisivel.md)   | Token invisível: `hidden`, o véu por público, `token:setHiddenMany`, luz velada, snapshot                 |
+| [`tokens/aura.md`](tokens/aura.md)             | Aura do token: as sete colunas `aura_*`, os dois `CHECK`, mapper, restyle, âncora, forma da imagem        |
+| [`tokens/autoria.md`](tokens/autoria.md)       | Autor (`created_by`) e as chaves dos jogadores: `TokenAuthorshipBo`, leitura das chaves, colar            |
+| [`tokens/aparencia.md`](tokens/aparencia.md)   | Direção e aparência: `faceMany`, `restyleMany`, `resizeMany`, camada, `expect`, eventos                   |
+| [`tokens/formas.md`](tokens/formas.md)         | Formas: `token_forms`, `active_form_id`, redação, troca à mão, `token:setForm`, âncora                    |
+| [`tokens/testes.md`](tokens/testes.md)         | Testes do módulo: unit × integração, specs por service e por grid                                         |
 
 ## Tabelas (`tokens.po.ts`, migrações `0003_tokens`, `0006_token_layers`, `0012_token_appearance`, `0013_token_box`, `0014_token_box_drop_size`, `0018_token_sight`, `0021_bar_display`, `0022_token_defeated`, `0023_token_light`, `0026_token_light_color`, `0027_token_cones`, `0053_token_hidden`, `0058_token_aura`, `0061_aura_image_shape`, `0063_token_created_by` e `0065_token_forms`)
 
@@ -54,7 +54,7 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 
 ## Token ligado
 
-- Um token pode estar **ligado** a um personagem (`anchor_token_id` → a âncora no elenco da mesa): o DAO o devolve composto, as escritas compartilhadas (barra, condição, identidade, aparência compartilhada, abatido, controle) vão à âncora e saem como eventos do elenco. Tudo em [`tokens/character.md`](tokens/character.md).
+- Um token pode estar **ligado** a um personagem (`character_id` → `characters`): o DAO o devolve composto pelo personagem e as escritas compartilhadas (barra, identidade, aparência compartilhada, abatido, aura, controle) vão ao personagem e saem como `character:changed`; posição, tamanho, visão, luz e formas são do token. Tudo em [`characters/token-ligado.md`](characters/token-ligado.md). As condições ainda moram na âncora do elenco (`anchor_token_id`, [`tokens/character.md`](tokens/character.md)) até a Fase 7.
 
 ## Grid do comando
 

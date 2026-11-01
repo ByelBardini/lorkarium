@@ -74,6 +74,6 @@ export function buildStressSceneSeed(db: Database): StressSceneSeedService {
     }).service,
     walls: createWallsModule(board).service,
     lights: createLightsModule(board).service,
-    tokens: createTokensModule(board).batch,
+    tokens: createTokensModule({ ...board, characterPublisher: SILENT_CHARACTERS }).batch,
   }).stressScene;
 }

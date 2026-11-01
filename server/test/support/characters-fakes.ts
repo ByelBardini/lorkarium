@@ -11,6 +11,7 @@ import type {
   CharacterBarInputPo,
   CharacterBarPo,
   CharacterChangesPo,
+  CharacterLookChangesPo,
 } from '../../src/modules/characters/characters.po';
 import type {
   CharacterReadDaos,
@@ -27,15 +28,17 @@ type FakeDaoMethods =
   | 'versionOf'
   | 'listOfCampaign'
   | 'findInCampaign'
+  | 'findManyInCampaign'
   | 'findOfUser'
   | 'insert'
   | 'update'
   | 'setBarValues'
   | 'setUser'
+  | 'replaceBars'
   | 'replaceControllers';
 
 /** In-memory characters and the characters' version of each table. Writes `lock characters`,
- *  `bump characters`, `update`, `set bar`, `insert`, `set user` and `controllers` to `journal`
+ *  `bump characters`, `update`, `set bar`, `insert`, `set user`, `bars` and `controllers` to `journal`
  *  (share it with the publisher fake to read the order). `holderRole` stays as given; an inserted
  *  character takes its player's role from `roles` (absent = none), and `setUser(null)` clears it.
  *
@@ -79,6 +82,15 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
     );
   }
 
+  async findManyInCampaign(
+    campaignId: string,
+    characterIds: readonly string[],
+  ): Promise<CharacterRow[]> {
+    return this.rows.filter(
+      ({ character }) => character.campaignId === campaignId && characterIds.includes(character.id),
+    );
+  }
+
   async findOfUser(campaignId: string, userId: string): Promise<CharacterRow | undefined> {
     return this.rows.find(
       (row) => row.character.campaignId === campaignId && row.character.userId === userId,
@@ -95,7 +107,10 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
     return saved;
   }
 
-  async update(characterId: string, changes: CharacterChangesPo): Promise<void> {
+  async update(
+    characterId: string,
+    changes: CharacterChangesPo & CharacterLookChangesPo,
+  ): Promise<void> {
     this.journal.push('update');
     this.replace(characterId, (row) => ({ ...row, character: { ...row.character, ...changes } }));
   }
@@ -115,6 +130,12 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
       character: { ...row.character, userId },
       holderRole: userId === null ? null : row.holderRole,
     }));
+  }
+
+  async replaceBars(characterId: string, bars: readonly CharacterBarInputPo[]): Promise<void> {
+    this.journal.push('bars');
+    const saved = bars.map((bar, position) => barOf(characterId, bar, position));
+    this.replace(characterId, (row) => ({ ...row, bars: saved }));
   }
 
   async replaceControllers(characterId: string, userIds: readonly string[]): Promise<void> {

@@ -1,3 +1,4 @@
+import { CharacterPublisherFake } from '../../support/characters-fakes';
 import type { NewTokenDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TokenBatchService } from '../../../src/modules/tokens/token-batch.service';
@@ -80,7 +81,13 @@ describe('the player creates, edits and deletes tokens by the table settings', (
       new ConditionsDaoFake(),
       combat,
     );
-    const common = { members, transaction: transaction.run, publisher, clock: new ClockFake(NOW) };
+    const common = {
+      members,
+      transaction: transaction.run,
+      publisher,
+      characterPublisher: new CharacterPublisherFake(),
+      clock: new ClockFake(NOW),
+    };
     const limits = { barLimit: 99_999, tokenLimit: 500, tokenRights };
     const walls = {
       dragGroups: new DragGroupsFake(scenes, tokens),

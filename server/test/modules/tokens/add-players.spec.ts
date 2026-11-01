@@ -10,6 +10,7 @@ import {
   linkedLyraRow,
   lyraAnchorRow,
 } from '../../support/character-fakes';
+import { LYRA_CHARACTER_ID } from '../../support/characters-factories';
 import { memberCardPo } from '../../support/member-cards-factories';
 import { VHARN_CAST_ID, scenePo } from '../../support/scenes-factories';
 import { lyraPo } from '../../support/tokens-factories';
@@ -58,8 +59,12 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
     expect(added.createdIds).toHaveLength(2);
     const made = added.createdIds.map((id) => table.tokens.rowOf(id).token);
     expect(made).toEqual([
-      expect.objectContaining({ anchorTokenId: LYRA_ANCHOR_ID, col: 5, row: 5, width: 1 }),
-      expect.objectContaining({ anchorTokenId: BRAM_ANCHOR_ID, width: 2, height: 2 }),
+      expect.objectContaining({
+        ...{ anchorTokenId: LYRA_ANCHOR_ID, characterId: LYRA_CHARACTER_ID },
+        ...{ col: 5, row: 5, width: 1 },
+      }),
+      // Caio has no character in this table: his token wears the anchor alone (phase 8 reads characters).
+      expect.objectContaining({ anchorTokenId: BRAM_ANCHOR_ID, characterId: null, width: 2 }),
     ]);
     for (const token of made) {
       expect(token).toMatchObject({

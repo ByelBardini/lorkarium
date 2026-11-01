@@ -69,3 +69,33 @@ export function characterUpdate(
 ): object {
   return { ...envelope(table.id), characterId, changes };
 }
+
+/** The bars of the Lyra of `tokenCommandFor` (PV 32/45 for its controllers, Inspiração 1/1 for
+ *  everyone), as a character holds them. */
+export const LYRA_BARS: readonly CharacterBarInputPo[] = [
+  { label: 'PV', current: 32, max: 45, color: 'ember', visibility: 'controllers' },
+  { label: 'Inspiração', current: 1, max: 1, color: 'gold', visibility: 'everyone' },
+];
+
+/** Bia's character at Vharn becomes Lyra: her name, initials and bars (what a link to her card
+ *  carried to the anchor before tokens wore characters), with no event; returns the character's id.
+ *
+ *  Example: `const lyraCharacterId = await lyraBarsOnBia(live)` */
+export async function lyraBarsOnBia(live: TokenTableHarness): Promise<string> {
+  const { character } = await characterOfUser(live, live.vharn, live.bia);
+  await giveBars(live, character.id, LYRA_BARS);
+  await renameCharacter(live, character.id, 'Lyra');
+  return character.id;
+}
+
+/** Gives one character a name (and the initials of its first two letters), with no event.
+ *
+ *  Example: `await renameCharacter(live, caioCharacterId, 'Bram')` */
+export async function renameCharacter(
+  live: TokenTableHarness,
+  characterId: string,
+  name: string,
+): Promise<void> {
+  const initials = name.slice(0, 2).toUpperCase();
+  await new CharactersDao(live.connection.db).update(characterId, { name, initials });
+}

@@ -1,20 +1,15 @@
 import {
   sheetTemplateResponseDto,
   sheetWriteResponseDto,
-  tokenUpdatedDto,
+  characterChangedEventDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import {
-  castIdOf,
-  gridState,
-  linkToCard,
-  lyraPoisonedAtVharn,
-  tokenIn,
-} from '../support/characters';
+import { gridState, linkToCard, lyraPoisonedAtVharn, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
 import type { Table } from '../support/tables';
+import { lyraBarsOnBia } from '../support/table-characters';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
@@ -54,6 +49,7 @@ async function lyraOnTwoGrids() {
   const table = await lyraPoisonedAtVharn(live);
   const { ana, bia, caio, lyra } = table;
   await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+  await lyraBarsOnBia(live);
   const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada');
   await setGridVisibility(live, live.ana, live.vharn, estrada, 'public');
   for (const client of [ana, bia, caio]) await gridAck(client, 'scene:watch', live.vharn, estrada);
@@ -72,18 +68,18 @@ function pvOf(state: Awaited<ReturnType<typeof synced>>, tokenId: string): numbe
 }
 
 describe('sheet:adjustBar', () => {
-  it('Bia takes 7 PV through the sheet of Lyra: Caio hears the anchor and the Estrada shows 25', async () => {
+  it('Bia takes 7 PV through the sheet of Lyra: Caio hears her character and the Estrada shows 25', async () => {
     const { bia, caio, lyra, estrada, lyraOfEstrada, pvId } = await lyraOnTwoGrids();
     const sheetId = await sheetOf(lyra.id);
-    const castId = await castIdOf(live, live.ana, live.vharn);
     await silence();
     const caioEvents = recordEventsOf(caio);
 
     const ack = await send(bia, 'sheet:adjustBar', adjust(sheetId, pvId));
 
     expect(ack).toMatchObject({ ok: true, version: expect.any(Number) });
-    const heard = tokenUpdatedDto.parse(await eventPayload(caioEvents, 'token:updated'));
-    expect(heard.sceneId).toBe(castId);
+    const heard = characterChangedEventDto.parse(
+      await eventPayload(caioEvents, 'character:changed'),
+    );
     expect(ack.ok && ack.version).toBe(heard.version);
     expect(pvOf(await gridState(bia, live.vharn, estrada), lyraOfEstrada)).toBe(25);
   });
@@ -109,7 +105,10 @@ describe('sheet:adjustBar', () => {
 
     expect(ack).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
     await silence();
-    expect(anaEvents.events.filter(({ name }) => name === 'token:updated')).toEqual([]);
+    const heard = anaEvents.events.map(({ name }) => name);
+    expect(
+      heard.filter((name) => name === 'token:updated' || name === 'character:changed'),
+    ).toEqual([]);
   });
 
   it('a bar of another token is BAR_NOT_FOUND', async () => {

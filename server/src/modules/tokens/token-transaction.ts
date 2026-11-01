@@ -11,9 +11,8 @@ import { toActiveConditionDto } from '../conditions/conditions.mapper';
 import type { SceneTransaction } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
-import { stateHolderIdOf, stateHolderIn } from './linked-token';
-import type { LockedGridMaybeCast } from '../scenes/locked-cast';
-import type { SceneRow } from '../scenes/scenes.dao';
+import { stateHolderIdOf } from './linked-token';
+import type { CharactersDao } from '../characters/characters.dao';
 import { TokenAccessBo } from './token-access.bo';
 import type { TokenRulesBo } from './token-rules.bo';
 import type { MainTokensDao } from './main-tokens.dao';
@@ -70,6 +69,19 @@ export type TokenWriteDaos = Readonly<{
     'linkToAnchor' | 'unlinkWith' | 'moveStateTo' | 'copyStateTo' | 'dropState'
   >;
   memberCards: Pick<MemberCardsDao, 'findOfMember' | 'listOfCampaign' | 'save'>;
+  characters: Pick<
+    CharactersDao,
+    | 'lockVersion'
+    | 'bumpVersion'
+    | 'findInCampaign'
+    | 'findManyInCampaign'
+    | 'findOfUser'
+    | 'listOfCampaign'
+    | 'update'
+    | 'setBarValues'
+    | 'replaceBars'
+    | 'replaceControllers'
+  >;
 }>;
 
 /** Where a player's token commands read the table settings: on the pool, before any lock. */
@@ -86,7 +98,7 @@ export type TokenAudiences = Readonly<{
   others: TokenDto;
 }>;
 
-/** A token row with its active conditions (a linked token's are its anchor's), as every token
+/** A token row with its active conditions (a linked token's are still its anchor's), as every token
  *  event carries it.
  *
  *  Example: `await withConditions(daos, await daos.tokens.insert(row))` */
@@ -254,18 +266,4 @@ export async function authorshipOf(
 
 export function tokenAccessOf(access: CampaignAccessBo, row: TokenRow): TokenAccessBo {
   return new TokenAccessBo(access, { tokenId: row.token.id, controllerIds: row.controllerIds });
-}
-
-/** The row that holds a token's shared state and the scene it stands on: the anchor in the cast
- *  for a linked token (the cast must be locked: see `stateHolderIn`), the token itself otherwise.
- *
- *  Example: `const holder = await holderRowOf(locked, lyra); await daos.tokens.setBarValues(…)` */
-export async function holderRowOf(
-  locked: LockedGridMaybeCast<TokenReads>,
-  row: TokenRow,
-): Promise<Readonly<{ row: TokenRow; scene: SceneRow; inCast: boolean }>> {
-  const holder = stateHolderIn(locked, row);
-  if (!holder.inCast || !locked.cast) return { row, scene: locked.scene, inCast: false };
-  const anchor = await tokenIn(locked.daos, locked.cast, locked.scene.campaignId, holder.tokenId);
-  return { row: anchor, scene: locked.cast, inCast: true };
 }

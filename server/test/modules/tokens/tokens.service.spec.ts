@@ -1,3 +1,4 @@
+import { CharacterPublisherFake } from '../../support/characters-fakes';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SceneWallsFake, WallsDaoFake } from '../../support/walls-fakes';
 import { northWallPo } from '../../support/walls-factories';
@@ -113,6 +114,7 @@ describe('TokensService', () => {
       dragGroups: new DragGroupsFake(scenes, tokens),
       sceneWalls: new SceneWallsFake(),
       publisher,
+      characterPublisher: new CharacterPublisherFake(),
       clock: new ClockFake(NOW),
       barLimit: 99_999,
       tokenLimit: 500,

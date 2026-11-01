@@ -127,3 +127,24 @@ export type CharacterBarInputPo = Omit<
 export type CharacterChangesPo = Partial<
   Pick<CharacterPo, 'name' | 'armorClass' | 'difficultyClass' | 'noteOne' | 'noteTwo'>
 >;
+
+/** What a token linked to the character writes on it: its identity, look, defeat mark and aura
+ *  (an absent key stays). */
+export type CharacterLookChangesPo = Partial<
+  Pick<
+    CharacterPo,
+    | 'name'
+    | 'initials'
+    | 'side'
+    | 'imageAssetId'
+    | 'frame'
+    | 'defeated'
+    | 'auraKind'
+    | 'auraRadius'
+    | 'auraColor'
+    | 'auraEffect'
+    | 'auraImageAssetId'
+    | 'auraOpacity'
+    | 'auraImageShape'
+  >
+>;

@@ -1,52 +1,71 @@
+import type { CharacterRow, CharactersDao } from '../characters/characters.dao';
+import { CharacterNotFoundError } from '../characters/characters.error';
+import type {
+  CharacterBarInputPo,
+  CharacterBarPo,
+  CharacterLookChangesPo,
+} from '../characters/characters.po';
+import {
+  requireCharactersLock,
+  type LockedGridMaybeCharacters,
+} from '../characters/locked-characters-grid';
 import { requireCastLock, type LockedGridMaybeCast } from '../scenes/locked-cast';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
-import type { TokenAuraPo, TokenFieldsPo, TokenPo } from './tokens.po';
+import type {
+  TokenAuraPo,
+  TokenBarPo,
+  TokenFieldsPo,
+  TokenFormInputPo,
+  TokenPo,
+} from './tokens.po';
 
-/** What a token linked to a character shows of its anchor, besides the bars, the controllers and
- *  the conditions: the place, size, layer, facing, flips, sight and light stay its own. The aura
- *  is the character's too (the paladin's aura goes with him to every grid). */
+/** What a token linked to a character shows of it, besides the bars and the controllers: the
+ *  place, size, layer, facing, flips, sight, light and forms stay its own. The aura is the
+ *  character's too (the paladin's aura goes with him to every grid). */
 export type TokenIdentityPo = Pick<
   TokenPo,
   'name' | 'initials' | 'side' | 'imageAssetId' | 'frame' | 'defeated'
 > &
   TokenAuraPo;
 
-/** The identity of a token, as an anchor lends it (and an unlinked token keeps a copy of it).
+/** The identity of a token or a character, as a character lends it (and an unlinked token keeps
+ *  a copy of it).
  *
- *  Example: `identityOf(anchor.token) // { name: 'Lyra', initials: 'LY', … }` */
+ *  Example: `identityOf(lyra.character) // { name: 'Lyra', initials: 'LY', … }` */
 export function identityOf(token: TokenIdentityPo): TokenIdentityPo {
   const { name, initials, side, imageAssetId, frame, defeated } = token;
   return { name, initials, side, imageAssetId, frame, defeated, ...auraColumnsOf(token) };
 }
 
-/** A token as every reader sees it: linked, it wears its anchor's identity, bars, controllers,
- *  forms and shown form over its own place in the grid; unlinked (or with the anchor not found),
- *  it is itself.
+/** A token as every reader sees it: linked, it wears its character's identity, bars and
+ *  controllers over its own place, look settings and forms in the grid; unlinked (or with the
+ *  character not found), it is itself. The bars keep the character's ids (a bar write lands on
+ *  the character).
  *
- *  Example: `composedTokenRow(lyraOfEstrada, lyraAnchor).bars // the anchor's PV` */
-export function composedTokenRow(row: TokenRow, anchor: TokenRow | undefined): TokenRow {
-  if (!anchor || row.token.anchorTokenId !== anchor.token.id) return row;
-  const { activeFormId } = anchor.token;
+ *  Example: `composedTokenRow(lyraOfEstrada, lyra).bars // the character's PV` */
+export function composedTokenRow(row: TokenRow, character: CharacterRow | undefined): TokenRow {
+  if (!character || row.token.characterId !== character.character.id) return row;
+  const tokenId = row.token.id;
   return {
-    token: { ...row.token, ...identityOf(anchor.token), activeFormId },
-    bars: anchor.bars,
-    controllerIds: anchor.controllerIds,
-    forms: anchor.forms,
+    token: { ...row.token, ...identityOf(character.character) },
+    bars: character.bars.map((bar) => tokenBarOf(bar, tokenId)),
+    controllerIds: character.controllerIds,
+    forms: row.forms,
   };
 }
 
-/** The token whose rows hold the shared state (bars, conditions, controllers): the anchor of a
- *  linked token, the token itself otherwise.
+/** The token whose rows hold the conditions: the anchor of a linked token, the token itself
+ *  otherwise (the conditions move to the character in a later phase of the plan).
  *
  *  Example: `await conditions.listOfTokens(rows.map(stateHolderIdOf))` */
 export function stateHolderIdOf(row: TokenRow): string {
   return row.token.anchorTokenId ?? row.token.id;
 }
 
-/** Where a write on the shared state of a token lands: its anchor (in the cast) or itself. */
+/** Where a condition write on a token lands: its anchor (in the cast) or itself. */
 export type StateHolder = Readonly<{ tokenId: string; inCast: boolean }>;
 
-/** The holder of a token's shared state; a linked token needs the cast locked (the run starts
+/** The holder of a token's conditions; a linked token needs the cast locked (the run starts
  *  again with it otherwise, see `requireCastLock`).
  *
  *  Example: `const holder = stateHolderIn(locked, lyra); await conditions.apply(holder.tokenId, …)` */
@@ -57,6 +76,36 @@ export function stateHolderIn(locked: LockedGridMaybeCast<unknown>, row: TokenRo
   return { tokenId: anchorTokenId, inCast: true };
 }
 
+type CharacterReads = Readonly<{ characters: Pick<CharactersDao, 'findInCampaign'> }>;
+
+/** The character a token wears, `null` for an unlinked one. A linked token needs the
+ *  characters locked: without their lock, the run starts again with it
+ *  (`requireCharactersLock`). Call it before the first write.
+ *
+ *  Example: `const lyra = await linkedCharacterIn(locked, row); if (lyra) await daos.characters.setBarValues(…)` */
+export async function linkedCharacterIn(
+  locked: LockedGridMaybeCharacters<CharacterReads>,
+  row: TokenRow,
+): Promise<CharacterRow | null> {
+  const { characterId } = row.token;
+  if (characterId === null) return null;
+  requireCharactersLock(locked);
+  return characterIn(locked.daos, locked.scene.campaignId, characterId);
+}
+
+/** The character of the table as saved now, or CHARACTER_NOT_FOUND citing the table and the id.
+ *
+ *  Example: `const reread = await characterIn(daos, campaignId, lyraId)` */
+export async function characterIn(
+  daos: CharacterReads,
+  campaignId: string,
+  characterId: string,
+): Promise<CharacterRow> {
+  const found = await daos.characters.findInCampaign(campaignId, characterId);
+  if (!found) throw new CharacterNotFoundError(campaignId, characterId);
+  return found;
+}
+
 type SharedStyle = Readonly<{
   imageAssetId?: unknown;
   frame?: unknown;
@@ -64,9 +113,9 @@ type SharedStyle = Readonly<{
   aura?: unknown;
 }>;
 
-/** The part of a style a linked token takes from its anchor (image, frame, defeat mark, aura) and
- *  the part that stays its own in the grid (flips, light switch). Works on the style as sent, so
- *  each part is also the style its event carries.
+/** The part of a style a linked token takes from its character (image, frame, defeat mark,
+ *  aura) and the part that stays its own in the grid (flips, light switch). Works on the style as
+ *  sent, so each part is also the style its event carries.
  *
  *  Example: `splitStyle({ defeated: true, flipX: true }) // { shared: { defeated: true }, own: { flipX: true } }` */
 export function splitStyle<S extends SharedStyle>(
@@ -77,23 +126,41 @@ export function splitStyle<S extends SharedStyle>(
   return { shared, own: definedOf(own) as Partial<S> };
 }
 
-/** A `token:update` of a linked token, split: the identity, look, bars, controllers, forms and
- *  shown form go to its anchor (which keeps its own size), the rest stays on the token.
+/** What a `token:update` of a linked token writes on its character: the identity, look and aura
+ *  given, and the bars and controllers whole. */
+export type SharedTokenUpdatePo = Readonly<{
+  look: CharacterLookChangesPo;
+  bars: readonly CharacterBarInputPo[];
+  controllerIds: readonly string[];
+}>;
+
+/** What it writes on the token: size, sight, light, flips, the shown form and the forms. */
+export type OwnTokenUpdatePo = Readonly<{
+  fields: Partial<TokenFieldsPo>;
+  forms?: readonly TokenFormInputPo[];
+}>;
+
+/** A `token:update` of a linked token, split: the identity, look, aura, bars and controllers go
+ *  to its character, the rest (forms and shown form included) stays on the token.
  *
- *  Example: `const { anchor, own } = splitUpdate(update, anchorRow.token)` */
+ *  Example: `const { shared, own } = splitUpdate(update)` */
 export function splitUpdate(
   update: TokenUpdatePo,
-  anchor: Pick<TokenPo, 'width' | 'height'>,
-): Readonly<{ anchor: TokenUpdatePo; own: Partial<TokenFieldsPo> }> {
-  const { name, initials, side, imageAssetId, frame, activeFormId, ...rest } = update.fields;
+): Readonly<{ shared: SharedTokenUpdatePo; own: OwnTokenUpdatePo }> {
+  const { name, initials, side, imageAssetId, frame, ...rest } = update.fields;
   const { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity, ...more } =
     rest;
   const { auraImageShape, ...own } = more;
   const aura = { auraKind, auraRadius, auraColor, auraEffect, auraImageAssetId, auraOpacity };
-  const look = definedOf({ imageAssetId, frame, activeFormId, ...aura, auraImageShape });
-  const { width, height } = anchor;
-  const fields = { name, initials, side, width, height, ...look };
-  return { anchor: { ...update, fields }, own: definedOf(own) };
+  const look = definedOf({ name, initials, side, imageAssetId, frame, ...aura, auraImageShape });
+  const { bars, controllerIds } = update;
+  const forms = update.forms === undefined ? {} : { forms: update.forms };
+  return { shared: { look, bars, controllerIds }, own: { fields: definedOf(own), ...forms } };
+}
+
+function tokenBarOf(bar: CharacterBarPo, tokenId: string): TokenBarPo {
+  const { id, position, label, current, max, color, visibility, display } = bar;
+  return { id, tokenId, position, label, current, max, color, visibility, display };
 }
 
 function auraColumnsOf(token: TokenAuraPo): TokenAuraPo {

@@ -9,7 +9,6 @@ import {
   KAEL_ID,
   LYRA_ANCHOR_ID,
   QUELM_TOKEN_ID,
-  VHARN_CAST_ID,
   VHARN_SCENE_ID,
   VHARN_TORRE_ID,
   kaelRow,
@@ -39,6 +38,7 @@ describe('TokenFormService.setForm', () => {
       members,
       transaction: table.transaction.run,
       publisher,
+      characterPublisher: table.characterPublisher,
       clock,
     });
   });
@@ -146,9 +146,9 @@ describe('TokenFormService.setForm', () => {
   describe('a token linked to a character', () => {
     beforeEach(() => {
       table.withLyraAnchor();
-      const forms = lyraForms().map((form) => ({ ...form, tokenId: LYRA_ANCHOR_ID }));
-      table.tokens.store(LYRA_ANCHOR_ID, (row) => ({ ...row, forms }));
       table.tokens.rows.push(linkedLyraRow());
+      const forms = lyraForms().map((form) => ({ ...form, tokenId: ESTRADA_LYRA_ID }));
+      table.tokens.store(ESTRADA_LYRA_ID, (row) => ({ ...row, forms }));
     });
 
     const toWolfOnTorre = {
@@ -156,48 +156,59 @@ describe('TokenFormService.setForm', () => {
       tokenId: ESTRADA_LYRA_ID,
       formId: LYRA_WOLF_FORM_ID,
     };
+    const character = () => table.characters.rows[0]?.character;
 
-    it('the image and the form go to the anchor, the box to the token of the grid', async () => {
+    it('the form and the box go to the token of the grid, the image and frame to its character', async () => {
       const version = await service.setForm(BIA_ID, VHARN_ID, toWolfOnTorre);
 
       expect(version).toBe(8);
-      const anchor = table.tokens.rowOf(LYRA_ANCHOR_ID).token;
-      expect(anchor).toMatchObject({
-        imageAssetId: WOLF_IMAGE_ID,
-        activeFormId: LYRA_WOLF_FORM_ID,
-        frame: 'round',
-      });
-      expect(anchor).toMatchObject({ width: 1, height: 1 });
       const own = table.tokens.rowOf(ESTRADA_LYRA_ID).token;
-      expect(own).toMatchObject({ col: 8, row: 2, width: 2, height: 2, activeFormId: null });
+      expect(own).toMatchObject({ col: 8, row: 2, width: 2, height: 2 });
+      expect(own.activeFormId).toBe(LYRA_WOLF_FORM_ID);
+      expect(character()).toMatchObject({ imageAssetId: WOLF_IMAGE_ID, frame: 'round' });
+      expect(character()).toMatchObject({ width: 1, height: 1 });
+      expect(table.tokens.rowOf(LYRA_ANCHOR_ID).token.activeFormId).toBeNull();
     });
 
-    it('locks the cast before the grid and publishes one event per scene, each in its version', async () => {
+    it('locks the characters before the grid: one character:changed and the grid event, each in its version', async () => {
       await service.setForm(BIA_ID, VHARN_ID, toWolfOnTorre);
 
       expect(table.journal).toEqual([
         LOCK_TORRE,
-        'lock cast',
+        'lock characters',
         LOCK_TORRE,
         'save',
         'save',
-        'bump cast',
+        'update',
+        'bump characters',
         'bump',
         'commit',
         'publish',
         'publish',
       ]);
-      const [cast, grid] = table.publisher.tokenFormChanges;
-      expect(cast).toMatchObject({ sceneId: VHARN_CAST_ID, version: 3, tokenId: LYRA_ANCHOR_ID });
-      expect(cast).not.toHaveProperty('box');
-      expect(cast).toMatchObject({ frame: 'round' });
-      expect(grid).toMatchObject({
-        sceneId: VHARN_TORRE_ID,
-        version: 8,
-        tokenId: ESTRADA_LYRA_ID,
-        imageAssetId: WOLF_IMAGE_ID,
-        box: { col: 8, row: 2, width: 2, height: 2 },
-      });
+      const [changed] = table.characterPublisher.changes;
+      expect(changed).toMatchObject({ campaignId: VHARN_ID, version: 6 });
+      expect(changed?.characters.map(({ privileged }) => privileged.imageAssetId)).toEqual([
+        WOLF_IMAGE_ID,
+      ]);
+      expect(table.publisher.tokenFormChanges).toEqual([
+        expect.objectContaining({
+          sceneId: VHARN_TORRE_ID,
+          version: 8,
+          tokenId: ESTRADA_LYRA_ID,
+          imageAssetId: WOLF_IMAGE_ID,
+          activeFormId: LYRA_WOLF_FORM_ID,
+          box: { col: 8, row: 2, width: 2, height: 2 },
+        }),
+      ]);
+    });
+
+    it('Caio, who does not control Lyra, is FORBIDDEN and nothing is written', async () => {
+      const switching = service.setForm(CAIO_ID, VHARN_ID, toWolfOnTorre);
+
+      await expect(switching).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(character()?.imageAssetId).toBeNull();
+      expect(table.characterPublisher.changes).toEqual([]);
     });
   });
 });

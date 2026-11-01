@@ -10,6 +10,7 @@ import {
 import { gridAck, newGrid } from '../support/grids';
 import { envelope, eventPayload, send, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
+import { lyraBarsOnBia } from '../support/table-characters';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
@@ -48,12 +49,14 @@ describe('linking a token to a card (token:linkToCard)', () => {
     const castId = await castIdOf(live, live.ana, live.vharn);
     const { ana, bia, lyra } = await lyraPoisonedAtVharn(live);
     await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+    const characterId = await lyraBarsOnBia(live);
 
     const cast = await gridState(bia, live.vharn, castId);
     const [anchor] = cast.tokens;
     const salao = await synced(bia, live.vharn);
     expect(tokenIn(salao, lyra.id)).toMatchObject({
       anchorTokenId: anchor?.id,
+      characterId,
       canControl: true,
       conditions: [expect.objectContaining({ name: 'Envenenado' })],
     });
@@ -63,9 +66,10 @@ describe('linking a token to a card (token:linkToCard)', () => {
     ]);
   });
 
-  it('Kael on the Estrada linked to the same card adopts the anchor: his own bars are gone', async () => {
+  it('Kael on the Estrada linked to the same card adopts the character: his own bars are gone', async () => {
     const { ana, lyra } = await lyraPoisonedAtVharn(live);
     await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+    await lyraBarsOnBia(live);
     const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada');
     await gridAck(ana, 'scene:watch', live.vharn, estrada);
     const anaEvents = recordEventsOf(ana);
@@ -102,16 +106,20 @@ describe('linking a token to a card (token:linkToCard)', () => {
     expect(tokenIn(await synced(ana, live.vharn), echo.id).anchorTokenId).toBeNull();
   });
 
-  it('unlinking Lyra leaves her a copy of the bars and Envenenado; the anchor stays in the cast', async () => {
+  it('unlinking Lyra leaves her a copy of the bars she wore and Envenenado; the anchor stays in the cast', async () => {
     const castId = await castIdOf(live, live.ana, live.vharn);
     const { ana, lyra } = await lyraPoisonedAtVharn(live);
     await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+    await lyraBarsOnBia(live);
 
     const unlink = { ...envelope(live.vharn.id), tokenId: lyra.id };
     expect(await send(ana, 'token:unlinkFromCard', unlink)).toMatchObject({ ok: true });
 
     const free = tokenIn(await synced(ana, live.vharn), lyra.id);
-    expect(free).toMatchObject({ anchorTokenId: null, name: 'Lyra', controllerIds: [live.bia.id] });
+    expect(free).toMatchObject({
+      ...{ anchorTokenId: null, characterId: null },
+      ...{ name: 'Lyra', controllerIds: [live.bia.id] },
+    });
     expect(labelsOf(free.bars)).toEqual(['PV', 'Inspiração']);
     expect(free.conditions.map(({ name }) => name)).toEqual(['Envenenado']);
     const cast = await gridState(ana, live.vharn, castId);
@@ -157,6 +165,7 @@ describe('linking a token to a card (token:linkToCard)', () => {
   it('pasting a linked Lyra in the same grid makes an unlinked copy of what she shows', async () => {
     const { ana, lyra } = await lyraPoisonedAtVharn(live);
     await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+    await lyraBarsOnBia(live);
     const shown = tokenIn(await synced(ana, live.vharn), lyra.id);
     const { name, initials, side, width, height, row, layer, controllerIds } = shown;
     const bars = shown.bars.map(({ label, current, max, color, visibility, display }) => ({
