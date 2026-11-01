@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SHEET_BRIDGE_BOOTSTRAP, SHEET_PORT_HANDOFF } from '@/sheet-sandbox/sheet-bridge-bootstrap';
-import { SheetFrameWindowFake, SheetPortFake } from '../support/sheet-frame-fakes';
+import {
+  FrameWindowRefFake,
+  SheetFrameWindowFake,
+  SheetPortFake,
+} from '../support/sheet-frame-fakes';
 
 const PV_BAR = '6f1d2c4e-8a1b-4c3d-9e2f-0a1b2c3d4e5f';
 const LYRA_STATE = {
@@ -65,12 +69,23 @@ describe('sheet bridge bootstrap: the port', () => {
     ]);
   });
 
-  it('ignores a port offered by anyone but the parent', () => {
+  // The sheet's own window draws the frame by the room's portal: the room's window posts the port.
+  it('takes the port handed off by a window outside the frame that is not its parent', () => {
     frame.dispatch({
-      source: { name: 'author popup' },
+      source: new FrameWindowRefFake('room window'),
       data: { type: SHEET_PORT_HANDOFF },
       ports: [port],
     });
+    void frame.sdk.ready();
+    expect(port.sent).toEqual([{ type: 'ready', requestId: '1' }]);
+  });
+
+  it.each([
+    ['something that is not a window', () => ({ name: 'author popup' })],
+    ['the frame itself', () => frame],
+    ['a frame nested inside the sheet', () => new FrameWindowRefFake('nested', frame)],
+  ])('ignores a port offered by %s', (_case, sourceOf) => {
+    frame.dispatch({ source: sourceOf(), data: { type: SHEET_PORT_HANDOFF }, ports: [port] });
     void frame.sdk.ready();
     expect(port.sent).toEqual([]);
   });

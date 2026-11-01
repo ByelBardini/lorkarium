@@ -51,7 +51,7 @@ O bootstrap é a função `installLorkariumSdk` serializada por `toString()`: el
 
 ## Porta e 2º `load` (`SheetFrame`)
 
-- 1º `load`: cria o `MessageChannel`, manda `{ type: 'lorkarium:port' }` com o `port2` por `contentWindow.postMessage(…, '*', [port2])` (origem opaca não pode ser alvo nomeado) e entrega o `port1` ao pai por `onConnect`. O bootstrap só aceita a primeira entrega, vinda do `parent`, com o `type` certo e exatamente uma porta.
+- 1º `load`: cria o `MessageChannel`, manda `{ type: 'lorkarium:port' }` com o `port2` por `contentWindow.postMessage(…, '*', [port2])` (origem opaca não pode ser alvo nomeado) e entrega o `port1` ao pai por `onConnect`. O bootstrap só aceita a primeira entrega, vinda de uma janela **fora do frame** (sobe pelos `parent` até a do topo sem passar pelo próprio frame; nunca o frame nem um filho dele), com o `type` certo e exatamente uma porta. Não é `source === parent`: o `event.source` é quem chamou o `postMessage`, e na janela da ficha é a janela da sala (o portal), não a auxiliar que embute o frame.
 - 2º `load` (o código do autor navegou o frame — `location = …`, `<meta refresh>`): fecha as duas pontas, desmonta o iframe e chama `onReloaded()`; o pai mostra "Ficha recarregada" (B7). Nenhuma porta sai depois do 1º `load`. Desmontar também fecha o canal.
 
 ## O que está provado
