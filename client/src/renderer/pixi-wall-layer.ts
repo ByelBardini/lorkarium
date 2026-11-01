@@ -121,6 +121,10 @@ function drawDoorIcon(graphics: Graphics, door: DoorIconView, zoom: number): voi
   if (door.state !== 'locked') return;
   const unit = size / 8;
   graphics.rect(door.x - 2 * unit, door.y - unit / 2, 4 * unit, 3 * unit).fill(BONE);
-  graphics.arc(door.x, door.y - unit / 2, 1.3 * unit, Math.PI, 0);
+  // PixiJS 8 opens the path after a fill at the last point (the origin after a rect): without
+  // this moveTo the shackle is stroked from (0, 0), a long white line across the map.
+  const shackle = 1.3 * unit;
+  graphics.moveTo(door.x - shackle, door.y - unit / 2);
+  graphics.arc(door.x, door.y - unit / 2, shackle, Math.PI, 0);
   graphics.stroke({ width: unit / 1.5, color: BONE });
 }

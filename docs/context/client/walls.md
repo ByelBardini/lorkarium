@@ -57,3 +57,5 @@ As paredes na sala: estado confirmado, comandos, a ferramenta "Paredes" (P, só 
 - Arrastar parede (o antigo `WallGestures`) roubava o aperto de quem queria **começar** outra parede na ponta de uma: por isso Desenhar sempre rascunha. Não volte a ligar o aperto na linha ao arrasto.
 
 - Um `sed` que acrescenta `walls: []` a todo `effectAreas: []` dos specs também acerta objetos que **não** são tabuleiro (o resultado esperado do `selectionMoveOf`): confira o que cada literal é antes de editar em massa.
+
+- **Caminho aberto em (0, 0) no PixiJS 8**: depois de um `fill`/`stroke`, o próximo caminho começa no último ponto do anterior (a origem, depois de um `rect`); um `arc` sem `moveTo` antes risca uma linha da origem até ele. O cadeado da porta trancada desenhava uma linha branca atravessando o mapa. Regressão em `test/renderer/pixi-wall-layer.spec.ts`.
