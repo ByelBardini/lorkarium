@@ -52,7 +52,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   ],
   tokens: [
     'tokens',
-    'main-token',
+    'character-dock',
     'token-conditions',
     'condition-catalog',
     'token-resize',
@@ -64,7 +64,14 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   combat: ['combat'],
   vision: ['vision', 'vision-cone'],
   lighting: ['lighting'],
-  library: ['library', 'library-images', 'library-documents', 'library-document-tabs', 'character'],
+  library: [
+    'library',
+    'library-images',
+    'library-documents',
+    'library-document-tabs',
+    'character',
+    'characters',
+  ],
   dice: ['dice'],
   // The sandbox proof of the sheets (B1), the sheets in the room (B9), in the library (S5) and
   // the template's `.lksheet` file between two tables.

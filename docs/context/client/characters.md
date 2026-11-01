@@ -46,6 +46,8 @@ O personagem (`characterDto`, contrato em `packages/contracts/src/board/characte
 
 `client/test/services/{character-follow,character-commands,token-link-commands,sheets-api}.spec.ts`, `client/test/stores/{characters-store,table-stream-reducer,scene-tabs-store}.spec.ts` ("the characters", "the condition list of the table stream"), `client/test/lib/{linked-tokens,main-token,character-link,table-roster,token-rights-of-viewer}.spec.ts`, `client/test/features/sessions/player-card{,-editing}.spec.tsx`, `client/test/features/tokens/{token-dock,token-link,bar-quick-edit}.spec.tsx`, `client/test/features/sheets/{character-sheet-button,token-sheet-items}.spec.tsx`, `play-room-page.spec.tsx` (o `character:changed` muda o PV no canvas). Fixtures `test/support/character-fixtures.ts`: `LYRA_CHARACTER_ID`/`KAEL_CHARACTER_ID`, `lyraCharacter` (Bia, PV 25/45, CA 15), `kaelCharacter` (Caio, sem barras), `linkedLyra`/`linkedKael`, `lyraPvAt(pv)`, `charactersSynced` (lista vazia), `tableSynced(versão, personagens, lista)`, `characterChangedAt`, `characterRemovedAt`, `conditionDefinedAt`, `definitionUpdatedAt`, `definitionDeletedAt`, `defaultsRestoredAt`, `syncedCharacters()` (store pronta). O `cast-fixtures.ts` e o `table-cast.spec.ts` saíram com o elenco (o `linkedLyra` é o do personagem).
 
+E2E: `e2e/test/characters.spec.ts` (promover, ligar, PV entre grids, ficha principal, rebaixar e promover mantém a CA), `character.spec.ts` (Salão × Estrada) e `character-dock.spec.ts` (o rodapé); ver [`../ci/e2e-specs.md`](../ci/e2e-specs.md).
+
 ## Armadilhas
 
 - **"Sem dono" não é `tokenId === null`.** Com o personagem, a ficha dele vem sem `tokenId`; testar só o `tokenId` trata a ficha da Lyra como sobrando (só mestres, frame sem token). Usar `isSpareSheet`.
