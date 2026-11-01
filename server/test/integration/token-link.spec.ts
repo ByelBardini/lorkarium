@@ -1,186 +1,246 @@
-import { memberCardChangedDto, tokenCreatedDto, tokenUpdatedDto } from '@lorkarium/contracts';
+import { tokenUpdatedDto } from '@lorkarium/contracts';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { CharactersDao } from '../../src/modules/characters/characters.dao';
+import { toSeatedCharacterRow } from '../../src/modules/characters/characters.mapper';
+import { activeConditions } from '../../src/modules/conditions/conditions.po';
+import { tokenBars } from '../../src/modules/tokens/tokens.po';
 import {
-  castIdOf,
   gridState,
   linkToCard,
+  linkToCharacter,
   lyraPoisonedAtVharn,
+  poison,
   tokenIn,
+  unlinkFromCharacter,
 } from '../support/characters';
 import { gridAck, newGrid } from '../support/grids';
 import { envelope, eventPayload, send, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
-import { lyraBarsOnBia } from '../support/table-characters';
+import { charactersSynced, lyraBarsOnBia, poisonCharacter } from '../support/table-characters';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
 
 const labelsOf = (bars: readonly { label: string }[]): string[] => bars.map(({ label }) => label);
 
-describe('linking a token to a card (token:linkToCard)', () => {
-  it('Ana links Lyra to Bia: the anchor is born in the cast with her bars and Envenenado, and all three hear it', async () => {
-    const castId = await castIdOf(live, live.ana, live.vharn);
-    const { ana, lyra, recorders } = await lyraPoisonedAtVharn(live);
+// Kael of Caio on the Salão (his own Vigor and Envenenado), and Bia's character turned Lyra.
+async function kaelAndLyra() {
+  const table = await lyraPoisonedAtVharn(live);
+  const lyraCharacterId = await lyraBarsOnBia(live);
+  const anaEvents = recordEventsOf(table.ana);
+  const vigor = { label: 'Vigor', current: 5, max: 5, color: 'moss', visibility: 'everyone' };
+  const kael = { ...tokenCommandFor(live.vharn, live.caio.id), name: 'Kael', bars: [vigor] };
+  await send(table.ana, 'token:create', { ...kael, col: 8 });
+  const kaelId = (await createdTokenOf(anaEvents)).id;
+  return { ...table, kaelId, lyraCharacterId };
+}
 
-    const ack = await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+describe('linking a token to a character (token:linkToCharacter)', () => {
+  it('Ana links Kael to Lyra: all three hear token:updated of Kael wearing her, Caio without the PV', async () => {
+    const { ana, kaelId, lyraCharacterId } = await kaelAndLyra();
+    const recorders = [
+      ana,
+      ...(await Promise.all([live.bia, live.caio].map((u) => live.atTable(u, live.vharn)))),
+    ].map(recordEventsOf);
+
+    const ack = await linkToCharacter(ana, live.vharn, {
+      tokenId: kaelId,
+      characterId: lyraCharacterId,
+    });
     expect(ack).toMatchObject({ ok: true });
 
-    const [anaCreated, biaCreated, caioCreated] = await Promise.all(
-      recorders.map(async (recorder) =>
-        tokenCreatedDto.parse(await eventPayload(recorder, 'token:created')),
-      ),
-    );
-    expect(anaCreated).toMatchObject({ sceneId: castId, token: { name: 'Lyra' } });
-    expect(labelsOf(anaCreated!.token.bars)).toEqual(['PV', 'Inspiração']);
-    expect(anaCreated!.token.conditions.map(({ name }) => name)).toEqual(['Envenenado']);
-    expect(labelsOf(biaCreated!.token.bars)).toEqual(['PV', 'Inspiração']);
-    expect(labelsOf(caioCreated!.token.bars)).toEqual(['Inspiração']);
-    const updates = await Promise.all(
+    const [forAna, forBia, forCaio] = await Promise.all(
       recorders.map(async (r) => tokenUpdatedDto.parse(await eventPayload(r, 'token:updated'))),
     );
-    for (const updated of updates) {
-      expect(updated.token).toMatchObject({ id: lyra.id, anchorTokenId: anaCreated!.token.id });
-    }
-    const card = memberCardChangedDto.parse(await eventPayload(recorders[2], 'member:cardChanged'));
-    expect(card).toMatchObject({ sceneId: castId, card: { anchorTokenId: anaCreated!.token.id } });
-  });
-
-  it('the snapshots read the link: Lyra composed on the group grid, the anchor in the cast, the card pointing at it', async () => {
-    const castId = await castIdOf(live, live.ana, live.vharn);
-    const { ana, bia, lyra } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
-    const characterId = await lyraBarsOnBia(live);
-
-    const cast = await gridState(bia, live.vharn, castId);
-    const [anchor] = cast.tokens;
-    const salao = await synced(bia, live.vharn);
-    expect(tokenIn(salao, lyra.id)).toMatchObject({
-      anchorTokenId: anchor?.id,
-      characterId,
-      canControl: true,
-      conditions: [expect.objectContaining({ name: 'Envenenado' })],
+    expect(forAna?.token).toMatchObject({
+      ...{ id: kaelId, name: 'Lyra', characterId: lyraCharacterId },
+      ...{ controllerIds: [live.bia.id], conditions: [] },
     });
-    expect(tokenIn(salao, lyra.id).bars.map(({ current }) => current)).toEqual([32, 1]);
-    expect(salao.memberCards).toEqual([
-      expect.objectContaining({ userId: live.bia.id, anchorTokenId: anchor?.id }),
-    ]);
+    expect(ack.ok && ack.version).toBe(forAna?.version);
+    expect(labelsOf(forBia!.token.bars)).toEqual(['PV', 'Inspiração']);
+    expect(labelsOf(forCaio!.token.bars)).toEqual(['Inspiração']);
   });
 
-  it('Kael on the Estrada linked to the same card adopts the character: his own bars are gone', async () => {
-    const { ana, lyra } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
-    await lyraBarsOnBia(live);
+  it("Kael's own Vigor and Envenenado are gone; the characters' version does not move", async () => {
+    const { ana, kaelId, lyraCharacterId } = await kaelAndLyra();
+    await poison(ana, live.vharn, kaelId);
+    const before = await charactersSynced(ana, live.vharn);
+
+    await linkToCharacter(ana, live.vharn, { tokenId: kaelId, characterId: lyraCharacterId });
+
+    const linked = tokenIn(await synced(ana, live.vharn), kaelId);
+    expect(labelsOf(linked.bars)).toEqual(['PV', 'Inspiração']);
+    expect(linked.conditions).toEqual([]);
+    expect((await charactersSynced(ana, live.vharn)).version).toBe(before.version);
+    const { db } = live.connection;
+    expect(await db.select().from(tokenBars).where(eq(tokenBars.tokenId, kaelId))).toEqual([]);
+    const held = await db
+      .select()
+      .from(activeConditions)
+      .where(eq(activeConditions.tokenId, kaelId));
+    expect(held).toEqual([]);
+  });
+
+  it('a second token of Lyra in the grid, or a token already linked, is CHARACTER_ALREADY_PLACED', async () => {
+    const { ana, lyra, kaelId, lyraCharacterId } = await kaelAndLyra();
+    await linkToCharacter(ana, live.vharn, { tokenId: lyra.id, characterId: lyraCharacterId });
+
+    const second = await linkToCharacter(ana, live.vharn, {
+      ...{ tokenId: kaelId, characterId: lyraCharacterId },
+    });
+    const again = await linkToCharacter(ana, live.vharn, {
+      ...{ tokenId: lyra.id, characterId: lyraCharacterId },
+    });
+
+    expect(second).toMatchObject({ ok: false, error: { code: 'CHARACTER_ALREADY_PLACED' } });
+    expect(again).toMatchObject({ ok: false, error: { code: 'CHARACTER_ALREADY_PLACED' } });
+    expect(tokenIn(await synced(ana, live.vharn), kaelId)).toMatchObject({
+      characterId: null,
+      name: 'Kael',
+    });
+  });
+
+  it('the same character in another grid is fine: Lyra on the Estrada too', async () => {
+    const { ana, lyra, lyraCharacterId } = await kaelAndLyra();
+    await linkToCharacter(ana, live.vharn, { tokenId: lyra.id, characterId: lyraCharacterId });
     const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada');
     await gridAck(ana, 'scene:watch', live.vharn, estrada);
     const anaEvents = recordEventsOf(ana);
-    const kael = { ...tokenCommandFor(live.vharn, live.caio.id), name: 'Kael', sceneId: estrada };
     await send(ana, 'token:create', {
-      ...kael,
-      bars: [{ label: 'Vigor', current: 5, max: 5, color: 'moss', visibility: 'everyone' }],
-    });
-    const created = await createdTokenOf(anaEvents);
-
-    const ack = await linkToCard(ana, live.vharn, {
+      ...tokenCommandFor(live.vharn, live.ana.id),
       sceneId: estrada,
-      tokenId: created.id,
-      memberId: live.bia.id,
     });
+    const echo = (await createdTokenOf(anaEvents)).id;
+
+    const ack = await linkToCharacter(ana, live.vharn, {
+      ...{ sceneId: estrada, tokenId: echo, characterId: lyraCharacterId },
+    });
+
     expect(ack).toMatchObject({ ok: true });
-
-    const linked = tokenIn(await gridState(ana, live.vharn, estrada), created.id);
-    expect(linked).toMatchObject({ name: 'Lyra', controllerIds: [live.bia.id] });
-    expect(labelsOf(linked.bars)).toEqual(['PV', 'Inspiração']);
-    expect(linked.conditions.map(({ name }) => name)).toEqual(['Envenenado']);
+    expect(tokenIn(await gridState(ana, live.vharn, estrada), echo).characterId).toBe(
+      lyraCharacterId,
+    );
   });
 
-  it('a second token in the group grid for the card of Bia is CHARACTER_ALREADY_PLACED', async () => {
-    const { ana, lyra } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
-    const anaEvents = recordEventsOf(ana);
-    await send(ana, 'token:create', { ...tokenCommandFor(live.vharn, live.bia.id), name: 'Eco' });
-    const echo = await createdTokenOf(anaEvents);
-
-    const again = await linkToCard(ana, live.vharn, { tokenId: echo.id, memberId: live.bia.id });
-
-    expect(again).toMatchObject({ ok: false, error: { code: 'CHARACTER_ALREADY_PLACED' } });
-    expect(tokenIn(await synced(ana, live.vharn), echo.id).anchorTokenId).toBeNull();
-  });
-
-  it('unlinking Lyra leaves her a copy of the bars she wore and Envenenado; the anchor stays in the cast', async () => {
-    const castId = await castIdOf(live, live.ana, live.vharn);
-    const { ana, lyra } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
-    await lyraBarsOnBia(live);
-
-    const unlink = { ...envelope(live.vharn.id), tokenId: lyra.id };
-    expect(await send(ana, 'token:unlinkFromCard', unlink)).toMatchObject({ ok: true });
-
-    const free = tokenIn(await synced(ana, live.vharn), lyra.id);
-    expect(free).toMatchObject({
-      ...{ anchorTokenId: null, characterId: null },
-      ...{ name: 'Lyra', controllerIds: [live.bia.id] },
-    });
-    expect(labelsOf(free.bars)).toEqual(['PV', 'Inspiração']);
-    expect(free.conditions.map(({ name }) => name)).toEqual(['Envenenado']);
-    const cast = await gridState(ana, live.vharn, castId);
-    expect(cast.tokens).toHaveLength(1);
-    expect(cast.tokens[0]?.conditions.map(({ name }) => name)).toEqual(['Envenenado']);
-  });
-
-  it('Bia linking is FORBIDDEN; a token of Quelm is TOKEN_NOT_FOUND; a forged userId is INVALID_BODY', async () => {
-    const { ana, bia, lyra } = await lyraPoisonedAtVharn(live);
+  it('a character of Quelm is CHARACTER_NOT_FOUND; a token of Quelm is TOKEN_NOT_FOUND', async () => {
+    const { ana, kaelId, lyraCharacterId } = await kaelAndLyra();
+    const quelm = await new CharactersDao(live.connection.db).insert(
+      toSeatedCharacterRow(live.quelm.id, live.caio.id, 'Gorm'),
+    );
     const caioAtQuelm = await live.atTable(live.caio, live.quelm);
     const quelmEvents = recordEventsOf(caioAtQuelm);
     await send(caioAtQuelm, 'token:create', tokenCommandFor(live.quelm, live.caio.id));
-    const quelmToken = await createdTokenOf(quelmEvents);
+    const quelmToken = (await createdTokenOf(quelmEvents)).id;
 
-    const byBia = await linkToCard(bia, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
-    expect(byBia).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
-    const stranger = await linkToCard(ana, live.vharn, {
-      tokenId: quelmToken.id,
-      memberId: live.bia.id,
+    const otherCharacter = await linkToCharacter(ana, live.vharn, {
+      ...{ tokenId: kaelId, characterId: quelm.character.id },
     });
-    expect(stranger).toMatchObject({ ok: false, error: { code: 'TOKEN_NOT_FOUND' } });
-    const forged = await send(ana, 'token:linkToCard', {
-      ...envelope(live.vharn.id),
-      tokenId: lyra.id,
-      memberId: live.bia.id,
-      userId: live.ana.id,
+    const otherToken = await linkToCharacter(ana, live.vharn, {
+      ...{ tokenId: quelmToken, characterId: lyraCharacterId },
+    });
+
+    expect(otherCharacter).toMatchObject({ ok: false, error: { code: 'CHARACTER_NOT_FOUND' } });
+    expect(otherToken).toMatchObject({ ok: false, error: { code: 'TOKEN_NOT_FOUND' } });
+  });
+
+  it('Bia linking is FORBIDDEN; a forged userId is INVALID_BODY', async () => {
+    const { ana, bia, kaelId, lyraCharacterId } = await kaelAndLyra();
+    const link = { tokenId: kaelId, characterId: lyraCharacterId };
+
+    expect(await linkToCharacter(bia, live.vharn, link)).toMatchObject({
+      ok: false,
+      error: { code: 'FORBIDDEN' },
+    });
+    const forged = await send(ana, 'token:linkToCharacter', {
+      ...{ ...envelope(live.vharn.id), ...link, userId: live.ana.id },
     });
     expect(forged).toMatchObject({ ok: false, error: { code: 'INVALID_BODY' } });
   });
 
   it('the link survives a restart of the app', async () => {
-    const { ana, lyra } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+    const { ana, kaelId, lyraCharacterId } = await kaelAndLyra();
+    await linkToCharacter(ana, live.vharn, { tokenId: kaelId, characterId: lyraCharacterId });
 
     await live.restart();
 
     const bia = await live.atTable(live.bia, live.vharn);
-    const after = tokenIn(await synced(bia, live.vharn), lyra.id);
-    expect(after.anchorTokenId).toEqual(expect.any(String));
-    expect(after.conditions.map(({ name }) => name)).toEqual(['Envenenado']);
+    const after = tokenIn(await synced(bia, live.vharn), kaelId);
+    expect(after).toMatchObject({ characterId: lyraCharacterId, name: 'Lyra' });
   });
 
-  it('pasting a linked Lyra in the same grid makes an unlinked copy of what she shows', async () => {
-    const { ana, lyra } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
-    await lyraBarsOnBia(live);
-    const shown = tokenIn(await synced(ana, live.vharn), lyra.id);
-    const { name, initials, side, width, height, row, layer, controllerIds } = shown;
-    const bars = shown.bars.map(({ label, current, max, color, visibility, display }) => ({
-      ...{ label, current, max, color, visibility, display },
-    }));
-    const copied = { name, initials, side, width, height, col: 9, row, layer, controllerIds, bars };
+  it("the old token:linkToCard still links to the character of the card's player", async () => {
+    const { ana, kaelId, lyraCharacterId } = await kaelAndLyra();
 
-    const ack = await send(ana, 'token:createMany', {
-      ...envelope(live.vharn.id),
-      tokens: [copied],
+    const ack = await linkToCard(ana, live.vharn, { tokenId: kaelId, memberId: live.bia.id });
+
+    expect(ack).toMatchObject({ ok: true });
+    expect(tokenIn(await synced(ana, live.vharn), kaelId)).toMatchObject({
+      ...{ characterId: lyraCharacterId, anchorTokenId: null },
     });
+  });
+});
 
-    const copyId = ack.ok ? (ack.createdIds?.[0] ?? '') : '';
-    const copy = tokenIn(await synced(ana, live.vharn), copyId);
-    expect(copy).toMatchObject({ anchorTokenId: null, name: 'Lyra', controllerIds: [live.bia.id] });
-    expect(labelsOf(copy.bars)).toEqual(['PV', 'Inspiração']);
+describe('unlinking a token from its character (token:unlinkFromCharacter)', () => {
+  it('Kael keeps a copy of what he wore (bars with new ids, control, Envenenado); Lyra stays', async () => {
+    const { ana, kaelId, lyraCharacterId } = await kaelAndLyra();
+    await linkToCharacter(ana, live.vharn, { tokenId: kaelId, characterId: lyraCharacterId });
+    await poisonCharacter(live, ana, lyraCharacterId);
+
+    const ack = await unlinkFromCharacter(ana, live.vharn, { tokenId: kaelId });
+    expect(ack).toMatchObject({ ok: true });
+
+    const free = tokenIn(await synced(ana, live.vharn), kaelId);
+    expect(free).toMatchObject({
+      ...{ characterId: null, anchorTokenId: null, name: 'Lyra' },
+      ...{ controllerIds: [live.bia.id] },
+    });
+    expect(free.bars.map(({ current }) => current)).toEqual([32, 1]);
+    expect(free.conditions).toEqual([
+      expect.objectContaining({ name: 'Envenenado', remainingRounds: 3 }),
+    ]);
+    const [lyra] = (await charactersSynced(ana, live.vharn)).characters.filter(
+      ({ id }) => id === lyraCharacterId,
+    );
+    expect(lyra?.bars.map(({ current }) => current)).toEqual([32, 1]);
+    const characterBarIds = new Set(lyra?.bars.map(({ id }) => id));
+    expect(free.bars.some(({ id }) => characterBarIds.has(id))).toBe(false);
+  });
+
+  it('a copied PV goes its own way: a hit on Kael does not touch Lyra', async () => {
+    const { ana, kaelId, lyraCharacterId } = await kaelAndLyra();
+    await linkToCharacter(ana, live.vharn, { tokenId: kaelId, characterId: lyraCharacterId });
+    await unlinkFromCharacter(ana, live.vharn, { tokenId: kaelId });
+    const pv = tokenIn(await synced(ana, live.vharn), kaelId).bars[0];
+
+    const hit = await send(ana, 'token:adjustBar', {
+      ...{
+        ...envelope(live.vharn.id),
+        tokenId: kaelId,
+        barId: pv?.id,
+        change: { op: 'add', amount: -7 },
+      },
+    });
+    expect(hit).toMatchObject({ ok: true });
+
+    expect(tokenIn(await synced(ana, live.vharn), kaelId).bars[0]?.current).toBe(25);
+    const [lyra] = (await charactersSynced(ana, live.vharn)).characters.filter(
+      ({ id }) => id === lyraCharacterId,
+    );
+    expect(lyra?.bars[0]?.current).toBe(32);
+  });
+
+  it('a loose token is TOKEN_NOT_LINKED; Bia unlinking is FORBIDDEN', async () => {
+    const { ana, bia, kaelId, lyra, lyraCharacterId } = await kaelAndLyra();
+    await linkToCharacter(ana, live.vharn, { tokenId: lyra.id, characterId: lyraCharacterId });
+
+    expect(await unlinkFromCharacter(ana, live.vharn, { tokenId: kaelId })).toMatchObject({
+      ok: false,
+      error: { code: 'TOKEN_NOT_LINKED' },
+    });
+    expect(await unlinkFromCharacter(bia, live.vharn, { tokenId: lyra.id })).toMatchObject({
+      ok: false,
+      error: { code: 'FORBIDDEN' },
+    });
   });
 });

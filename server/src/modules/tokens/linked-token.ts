@@ -1,4 +1,4 @@
-import type { CharacterRow, CharactersDao } from '../characters/characters.dao';
+import type { CharacterRow, CharactersDao, WornCharacterRow } from '../characters/characters.dao';
 import { CharacterNotFoundError } from '../characters/characters.error';
 import type {
   CharacterBarInputPo,
@@ -9,7 +9,6 @@ import {
   requireCharactersLock,
   type LockedGridMaybeCharacters,
 } from '../characters/locked-characters-grid';
-import { requireCastLock, type LockedGridMaybeCast } from '../scenes/locked-cast';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
 import type {
   TokenAuraPo,
@@ -43,7 +42,7 @@ export function identityOf(token: TokenIdentityPo): TokenIdentityPo {
  *  the character).
  *
  *  Example: `composedTokenRow(lyraOfEstrada, lyra).bars // the character's PV` */
-export function composedTokenRow(row: TokenRow, character: CharacterRow | undefined): TokenRow {
+export function composedTokenRow(row: TokenRow, character: WornCharacterRow | undefined): TokenRow {
   if (!character || row.token.characterId !== character.character.id) return row;
   const tokenId = row.token.id;
   return {
@@ -54,29 +53,8 @@ export function composedTokenRow(row: TokenRow, character: CharacterRow | undefi
   };
 }
 
-/** The token whose rows hold the conditions: the anchor of a linked token, the token itself
- *  otherwise (the conditions move to the character in a later phase of the plan).
- *
- *  Example: `await conditions.listOfTokens(rows.map(stateHolderIdOf))` */
-export function stateHolderIdOf(row: TokenRow): string {
-  return row.token.anchorTokenId ?? row.token.id;
-}
-
-/** Where a condition write on a token lands: its anchor (in the cast) or itself. */
-export type StateHolder = Readonly<{ tokenId: string; inCast: boolean }>;
-
-/** The holder of a token's conditions; a linked token needs the cast locked (the run starts
- *  again with it otherwise, see `requireCastLock`).
- *
- *  Example: `const holder = stateHolderIn(locked, lyra); await conditions.apply(holder.tokenId, …)` */
-export function stateHolderIn(locked: LockedGridMaybeCast<unknown>, row: TokenRow): StateHolder {
-  const anchorTokenId = row.token.anchorTokenId;
-  if (anchorTokenId === null) return { tokenId: row.token.id, inCast: false };
-  requireCastLock(locked);
-  return { tokenId: anchorTokenId, inCast: true };
-}
-
 type CharacterReads = Readonly<{ characters: Pick<CharactersDao, 'findInCampaign'> }>;
+type CharactersReads = Readonly<{ characters: Pick<CharactersDao, 'findManyInCampaign'> }>;
 
 /** The character a token wears, `null` for an unlinked one. A linked token needs the
  *  characters locked: without their lock, the run starts again with it
@@ -103,6 +81,23 @@ export async function characterIn(
 ): Promise<CharacterRow> {
   const found = await daos.characters.findInCampaign(campaignId, characterId);
   if (!found) throw new CharacterNotFoundError(campaignId, characterId);
+  return found;
+}
+
+/** The listed characters of the table as saved now (each once, in the table's order), in one
+ *  read; one missing (gone, or of another table) → CHARACTER_NOT_FOUND citing it.
+ *
+ *  Example: `const changed = await charactersIn(daos, campaignId, [lyraId, bramId])` */
+export async function charactersIn(
+  daos: CharactersReads,
+  campaignId: string,
+  characterIds: readonly string[],
+): Promise<CharacterRow[]> {
+  const unique = [...new Set(characterIds)];
+  if (unique.length === 0) return [];
+  const found = await daos.characters.findManyInCampaign(campaignId, unique);
+  const missing = unique.find((id) => !found.some(({ character }) => character.id === id));
+  if (missing) throw new CharacterNotFoundError(campaignId, missing);
   return found;
 }
 

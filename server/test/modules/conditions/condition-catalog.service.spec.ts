@@ -86,8 +86,14 @@ describe('ConditionCatalogService', () => {
   }
 
   async function heldByLyraAndBram(conditionId: string): Promise<void> {
-    await conditions.apply(LYRA_ID, conditionId, { remainingRounds: null, appliedRound: null });
-    await conditions.apply(BRAM_ID, conditionId, { remainingRounds: 2, appliedRound: null });
+    await conditions.apply({ tokenId: LYRA_ID }, conditionId, {
+      remainingRounds: null,
+      appliedRound: null,
+    });
+    await conditions.apply({ tokenId: BRAM_ID }, conditionId, {
+      remainingRounds: 2,
+      appliedRound: null,
+    });
     scenes.journal.splice(0);
   }
 
@@ -238,8 +244,8 @@ describe('ConditionCatalogService', () => {
     beforeEach(async () => {
       sangrando = conditions.define(VHARN_ID, 'Sangrando', 'harm', 'droplet', null, '', 5);
       const duration = { remainingRounds: null, appliedRound: null };
-      await conditions.apply(LYRA_ID, sangrando, duration, 4);
-      await conditions.apply(BRAM_ID, sangrando, duration, 1);
+      await conditions.apply({ tokenId: LYRA_ID }, sangrando, duration, 4);
+      await conditions.apply({ tokenId: BRAM_ID }, sangrando, duration, 1);
       stacksSeen = new StacksAtPublishPublisherFake(conditions, scenes.journal);
       service = new ConditionCatalogService({ ...deps, publisher: stacksSeen });
     });

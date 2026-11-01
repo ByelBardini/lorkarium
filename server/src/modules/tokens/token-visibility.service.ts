@@ -2,7 +2,6 @@ import type { SetTokensHiddenCommandDto } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
-import { conditionsByToken } from '../conditions/conditions.mapper';
 import type { BoardPublisherPort, VeiledLightsChange } from '../scenes/board-publisher.port';
 import {
   inLockedGridWithCast,
@@ -10,12 +9,12 @@ import {
   type LockedGridMaybeCast,
   type SavedVersion,
 } from '../scenes/locked-cast';
-import { stateHolderIdOf } from './linked-token';
 import { hiddenCutsOf, veiledLightsCutsOf, type VeilChange } from './token-hidden.mapper';
 import { changedVisibility } from './token-rules.bo';
 import {
   audiencesOf,
   combatOf,
+  tokenConditionsOf,
   tokensIn,
   type TokenAudiences,
   type TokenTransactionRunner,
@@ -132,14 +131,11 @@ function withoutIds(veil: VeilChange['after'], ids: ReadonlySet<string>): VeilCh
 }
 
 // The changed tokens as each audience sees them, with their conditions (a linked one's are its
-// anchor's), in one read.
+// character's), in one read.
 async function audiencesWithConditions(
   daos: TokenWriteDaos,
   rows: readonly TokenRow[],
 ): Promise<TokenAudiences[]> {
-  const active = await daos.conditions.listOfTokens([...new Set(rows.map(stateHolderIdOf))]);
-  const byHolder = conditionsByToken(active);
-  return rows.map((row) =>
-    audiencesOf({ row, conditions: byHolder.get(stateHolderIdOf(row)) ?? [] }),
-  );
+  const conditionsOf = await tokenConditionsOf(daos.conditions, rows);
+  return rows.map((row) => audiencesOf({ row, conditions: conditionsOf(row) }));
 }

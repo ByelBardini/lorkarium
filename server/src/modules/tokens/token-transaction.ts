@@ -7,16 +7,17 @@ import { CombatRosterBo, type PastedToken } from '../combat/combat-roster.bo';
 import type { CombatDao } from '../combat/combat.dao';
 import { toCombatDto, toCombatState } from '../combat/combat.mapper';
 import type { ConditionsDao } from '../conditions/conditions.dao';
-import { toActiveConditionDto } from '../conditions/conditions.mapper';
+import { holderIdOf } from '../conditions/conditions.po';
+import { conditionsByHolder, holderOfToken } from '../conditions/conditions.mapper';
 import type { SceneTransaction } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
-import { stateHolderIdOf } from './linked-token';
 import type { CharactersDao } from '../characters/characters.dao';
 import { TokenAccessBo } from './token-access.bo';
 import type { TokenRulesBo } from './token-rules.bo';
 import type { MainTokensDao } from './main-tokens.dao';
 import type { TokenAnchorsDao } from './token-anchors.dao';
+import type { TokenCharacterLinkDao } from './token-character-link.dao';
 import type { MemberCardsDao } from '../member-cards/member-cards.dao';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
 import type { NewTokenPo } from './tokens.po';
@@ -59,7 +60,7 @@ export type TokenWriteDaos = Readonly<{
     | 'setHidden'
     | 'veilOfScene'
   >;
-  conditions: Pick<ConditionsDao, 'listOfTokens'>;
+  conditions: Pick<ConditionsDao, 'listOfHolders'>;
   combat: Pick<CombatDao, 'findOfScene' | 'setTurn' | 'removeCombatants' | 'linkTokens'>;
   assets: Pick<AssetsDao, 'findManyInCampaign'>;
   walls: Pick<WallsDao, 'listOfScene'>;
@@ -68,6 +69,7 @@ export type TokenWriteDaos = Readonly<{
     TokenAnchorsDao,
     'linkToAnchor' | 'unlinkWith' | 'moveStateTo' | 'copyStateTo' | 'dropState'
   >;
+  characterLinks: Pick<TokenCharacterLinkDao, 'placedOn' | 'adopt' | 'release'>;
   memberCards: Pick<MemberCardsDao, 'findOfMember' | 'listOfCampaign' | 'save'>;
   characters: Pick<
     CharactersDao,
@@ -98,16 +100,29 @@ export type TokenAudiences = Readonly<{
   others: TokenDto;
 }>;
 
-/** A token row with its active conditions (a linked token's are still its anchor's), as every token
- *  event carries it.
+/** A token row with its active conditions (a linked token's are its character's), as every
+ *  token event carries it.
  *
  *  Example: `await withConditions(daos, await daos.tokens.insert(row))` */
 export async function withConditions(
   daos: Pick<TokenWriteDaos, 'conditions'>,
   row: TokenRow,
 ): Promise<TokenWithConditions> {
-  const active = await daos.conditions.listOfTokens([stateHolderIdOf(row)]);
-  return { row, conditions: active.map(toActiveConditionDto) };
+  const conditionsOf = await tokenConditionsOf(daos.conditions, [row]);
+  return { row, conditions: conditionsOf(row) };
+}
+
+/** The conditions each listed token shows, in one read: an unlinked token's own, a linked one's
+ *  from the character it wears (on every grid).
+ *
+ *  Example: `const conditionsOf = await tokenConditionsOf(daos.conditions, rows); conditionsOf(lyra)` */
+export async function tokenConditionsOf(
+  conditions: Pick<ConditionsDao, 'listOfHolders'>,
+  rows: readonly Pick<TokenRow, 'token'>[],
+): Promise<(row: Pick<TokenRow, 'token'>) => ActiveConditionDto[]> {
+  const holders = rows.map(({ token }) => holderOfToken(token));
+  const byHolder = conditionsByHolder(await conditions.listOfHolders(holders));
+  return ({ token }) => byHolder.get(holderIdOf(holderOfToken(token))) ?? [];
 }
 
 /** The token as each audience sees it.

@@ -114,7 +114,7 @@ export type BoardGatewayDeps = Readonly<{
   tokenForm: Pick<TokenFormService, 'setForm'>;
   mainToken: Pick<MainTokenService, 'choose'>;
   tokenVisibility: Pick<TokenVisibilityService, 'setHiddenMany'>;
-  tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
+  tokenLink: Pick<TokenLinkService, 'link' | 'linkToCard' | 'unlink'>;
   memberCards: Pick<MemberCardsService, 'update'>;
   characters: CharacterCommandsDeps['characters'];
   pings: Pick<PingsService, 'ping'>;

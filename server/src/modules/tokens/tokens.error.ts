@@ -100,17 +100,18 @@ export class WallBlockedError extends TokenError {
 }
 
 /** A link that would give a character two tokens in one grid, or make a character of a token
- *  that already is one. */
+ *  that already wears one. */
 export class CharacterAlreadyPlacedError extends TokenError {
   constructor(
     readonly tokenId: string,
     readonly placedTokenId: string,
-    readonly memberId: string | null,
+    readonly characterId: string,
   ) {
-    const whose = memberId ? `the character of member ${memberId}` : 'a character';
     super(
       'CHARACTER_ALREADY_PLACED',
-      `token ${tokenId} cannot become ${whose}: token ${placedTokenId} of the same grid already is one; expected one token per character in a grid`,
+      placedTokenId === tokenId
+        ? `token ${tokenId} already wears character ${characterId}; expected an unlinked token`
+        : `token ${tokenId} cannot wear character ${characterId}: token ${placedTokenId} of the same grid already does; expected one token per character in a grid`,
     );
   }
 }
@@ -120,7 +121,7 @@ export class TokenNotLinkedError extends TokenError {
   constructor(readonly tokenId: string) {
     super(
       'TOKEN_NOT_LINKED',
-      `token ${tokenId} is linked to no card; expected a token linked to a character`,
+      `token ${tokenId} wears no character; expected a token linked to a character`,
     );
   }
 }

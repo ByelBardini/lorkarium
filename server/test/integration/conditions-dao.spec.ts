@@ -5,6 +5,7 @@ import { UsersDao } from '../../src/modules/auth/users.dao';
 import { AssetsDao } from '../../src/modules/assets/assets.dao';
 import { assets } from '../../src/modules/assets/assets.po';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
+import { CharactersDao } from '../../src/modules/characters/characters.dao';
 import { DEFAULT_CONDITIONS } from '../../src/modules/conditions/condition-rules.bo';
 import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
@@ -129,7 +130,7 @@ describe('ConditionsDao on Postgres', () => {
   });
 
   it('listOfTokens brings the look of the definition', async () => {
-    await conditions.apply(lyraId, await definitionNamed('Invisível'), {
+    await conditions.apply({ tokenId: lyraId }, await definitionNamed('Invisível'), {
       remainingRounds: null,
       appliedRound: null,
     });
@@ -165,8 +166,11 @@ describe('ConditionsDao on Postgres', () => {
 
   it('apply saves the active condition with its name and tone, and applying again replaces the duration and the round', async () => {
     const envenenado = await definitionNamed('Envenenado');
-    await conditions.apply(lyraId, envenenado, { remainingRounds: 2, appliedRound: null });
-    const again = await conditions.apply(lyraId, envenenado, {
+    await conditions.apply({ tokenId: lyraId }, envenenado, {
+      remainingRounds: 2,
+      appliedRound: null,
+    });
+    const again = await conditions.apply({ tokenId: lyraId }, envenenado, {
       remainingRounds: 5,
       appliedRound: 3,
     });
@@ -182,24 +186,34 @@ describe('ConditionsDao on Postgres', () => {
   });
 
   it('remove takes the condition off the token, and only from that token', async () => {
-    const applied = await conditions.apply(lyraId, await definitionNamed('Caído'), {
+    const applied = await conditions.apply({ tokenId: lyraId }, await definitionNamed('Caído'), {
       remainingRounds: null,
       appliedRound: null,
     });
-    expect(await conditions.remove('00000000-0000-4000-8000-000000000000', applied.id)).toBe(false);
-    expect(await conditions.remove(lyraId, applied.id)).toBe(true);
+    expect(
+      await conditions.remove({ tokenId: '00000000-0000-4000-8000-000000000000' }, applied.id),
+    ).toBe(false);
+    expect(await conditions.remove({ tokenId: lyraId }, applied.id)).toBe(true);
     expect(await conditions.listOfTokens([lyraId])).toEqual([]);
   });
 
   it('decrementRemaining and deleteActive keep the countdown of the turns', async () => {
-    const atordoado = await conditions.apply(lyraId, await definitionNamed('Atordoado'), {
-      remainingRounds: 1,
-      appliedRound: null,
-    });
-    const envenenado = await conditions.apply(lyraId, await definitionNamed('Envenenado'), {
-      remainingRounds: 3,
-      appliedRound: null,
-    });
+    const atordoado = await conditions.apply(
+      { tokenId: lyraId },
+      await definitionNamed('Atordoado'),
+      {
+        remainingRounds: 1,
+        appliedRound: null,
+      },
+    );
+    const envenenado = await conditions.apply(
+      { tokenId: lyraId },
+      await definitionNamed('Envenenado'),
+      {
+        remainingRounds: 3,
+        appliedRound: null,
+      },
+    );
     await conditions.decrementRemaining([envenenado.id]);
     await conditions.deleteActive([atordoado.id]);
     expect(await conditions.listOfTokens([lyraId])).toEqual([
@@ -209,9 +223,17 @@ describe('ConditionsDao on Postgres', () => {
 
   it('decrementRemaining takes one round off every listed condition in 1 UPDATE and leaves the rest', async () => {
     const timed = { remainingRounds: 3, appliedRound: null };
-    const caido = await conditions.apply(lyraId, await definitionNamed('Caído'), timed);
-    const cego = await conditions.apply(lyraId, await definitionNamed('Cego'), timed);
-    const kept = await conditions.apply(lyraId, await definitionNamed('Envenenado'), timed);
+    const caido = await conditions.apply(
+      { tokenId: lyraId },
+      await definitionNamed('Caído'),
+      timed,
+    );
+    const cego = await conditions.apply({ tokenId: lyraId }, await definitionNamed('Cego'), timed);
+    const kept = await conditions.apply(
+      { tokenId: lyraId },
+      await definitionNamed('Envenenado'),
+      timed,
+    );
     queries.reset();
 
     await conditions.decrementRemaining([caido.id, cego.id]);
@@ -240,7 +262,7 @@ describe('ConditionsDao on Postgres', () => {
 
   it('updateDefinition replaces the fields, and the active condition reads the new icon and description', async () => {
     const envenenado = await definitionNamed('Envenenado');
-    await conditions.apply(lyraId, envenenado, FOREVER);
+    await conditions.apply({ tokenId: lyraId }, envenenado, FOREVER);
 
     const updated = await conditions.updateDefinition(vharnId, envenenado, ENVENENADO_DESCRIBED);
 
@@ -278,8 +300,8 @@ describe('ConditionsDao on Postgres', () => {
 
   it('deleteDefinition answers true and the cascade takes the condition off the token', async () => {
     const cego = await definitionNamed('Cego');
-    await conditions.apply(lyraId, cego, FOREVER);
-    await conditions.apply(lyraId, await definitionNamed('Caído'), FOREVER);
+    await conditions.apply({ tokenId: lyraId }, cego, FOREVER);
+    await conditions.apply({ tokenId: lyraId }, await definitionNamed('Caído'), FOREVER);
 
     expect(await conditions.deleteDefinition(vharnId, cego)).toBe(true);
 
@@ -304,8 +326,9 @@ describe('ConditionsDao on Postgres', () => {
     const goblin = await tokenIn(torre, 'Goblin');
     const kael = await tokenIn(cast, 'Kael');
     const spared = await tokenIn(torre, 'Bram');
-    for (const tokenId of [lyraId, goblin, kael]) await conditions.apply(tokenId, cego, FOREVER);
-    await conditions.apply(spared, await definitionNamed('Caído'), FOREVER);
+    for (const tokenId of [lyraId, goblin, kael])
+      await conditions.apply({ tokenId }, cego, FOREVER);
+    await conditions.apply({ tokenId: spared }, await definitionNamed('Caído'), FOREVER);
 
     expect(await conditions.countActiveOf(vharnId, cego)).toBe(3);
   });
@@ -316,7 +339,7 @@ describe('ConditionsDao on Postgres', () => {
 
   it('countActiveOf under Quelm does not count the tokens of Vharn', async () => {
     const cego = await definitionNamed('Cego');
-    await conditions.apply(lyraId, cego, FOREVER);
+    await conditions.apply({ tokenId: lyraId }, cego, FOREVER);
 
     expect(await conditions.countActiveOf(quelmId, cego)).toBe(0);
   });
@@ -330,9 +353,9 @@ describe('ConditionsDao on Postgres', () => {
     });
 
     it('apply without stacks saves 1, and applying again with 3 replaces them on the same row', async () => {
-      const first = await conditions.apply(lyraId, sangrando, FOREVER);
+      const first = await conditions.apply({ tokenId: lyraId }, sangrando, FOREVER);
 
-      const again = await conditions.apply(lyraId, sangrando, FOREVER, 3);
+      const again = await conditions.apply({ tokenId: lyraId }, sangrando, FOREVER, 3);
 
       expect(first).toMatchObject({ stacks: 1, maxStacks: 5 });
       expect(again).toMatchObject({ id: first.id, stacks: 3, maxStacks: 5 });
@@ -343,12 +366,15 @@ describe('ConditionsDao on Postgres', () => {
       const torre = (await scenesDao.insert({ campaignId: vharnId, name: 'Torre' })).id;
       const goblin = await tokenIn(torre, 'Goblin');
       const spared = await tokenIn(torre, 'Bram');
-      await conditions.apply(lyraId, sangrando, FOREVER, 4);
-      await conditions.apply(goblin, sangrando, FOREVER, 2);
-      await conditions.apply(spared, await definitionNamed('Cego'), FOREVER);
+      await conditions.apply({ tokenId: lyraId }, sangrando, FOREVER, 4);
+      await conditions.apply({ tokenId: goblin }, sangrando, FOREVER, 2);
+      await conditions.apply({ tokenId: spared }, await definitionNamed('Cego'), FOREVER);
       queries.reset();
 
-      const held = await conditions.stacksOf([lyraId, goblin, spared], sangrando);
+      const held = await conditions.stacksOf(
+        [lyraId, goblin, spared].map((tokenId) => ({ tokenId })),
+        sangrando,
+      );
 
       expect(queries.count).toBe(1);
       expect([...held.entries()].sort()).toEqual(
@@ -366,24 +392,24 @@ describe('ConditionsDao on Postgres', () => {
       expect(queries.count).toBe(0);
     });
 
-    it('findActiveOnToken finds the condition only on its own token', async () => {
+    it('findActiveOf finds the condition only on its own token', async () => {
       const goblin = await tokenIn((await scenesDao.insert({ campaignId: vharnId })).id, 'Goblin');
-      const applied = await conditions.apply(lyraId, sangrando, FOREVER, 2);
+      const applied = await conditions.apply({ tokenId: lyraId }, sangrando, FOREVER, 2);
 
-      expect(await conditions.findActiveOnToken(lyraId, applied.id)).toMatchObject({
+      expect(await conditions.findActiveOf({ tokenId: lyraId }, applied.id)).toMatchObject({
         stacks: 2,
         maxStacks: 5,
       });
-      expect(await conditions.findActiveOnToken(goblin, applied.id)).toBeUndefined();
+      expect(await conditions.findActiveOf({ tokenId: goblin }, applied.id)).toBeUndefined();
     });
 
     it('setStacks changes only the stacks of that token: rounds and applied round stay', async () => {
-      const applied = await conditions.apply(lyraId, sangrando, {
+      const applied = await conditions.apply({ tokenId: lyraId }, sangrando, {
         remainingRounds: 3,
         appliedRound: 2,
       });
 
-      const changed = await conditions.setStacks(lyraId, applied.id, 4);
+      const changed = await conditions.setStacks({ tokenId: lyraId }, applied.id, 4);
 
       expect(changed).toMatchObject({
         id: applied.id,
@@ -395,10 +421,12 @@ describe('ConditionsDao on Postgres', () => {
 
     it('setStacks with the id under another token is undefined and the stacks stay', async () => {
       const goblin = await tokenIn((await scenesDao.insert({ campaignId: vharnId })).id, 'Goblin');
-      const applied = await conditions.apply(lyraId, sangrando, FOREVER, 2);
+      const applied = await conditions.apply({ tokenId: lyraId }, sangrando, FOREVER, 2);
 
-      expect(await conditions.setStacks(goblin, applied.id, 4)).toBeUndefined();
-      expect(await conditions.findActiveOnToken(lyraId, applied.id)).toMatchObject({ stacks: 2 });
+      expect(await conditions.setStacks({ tokenId: goblin }, applied.id, 4)).toBeUndefined();
+      expect(await conditions.findActiveOf({ tokenId: lyraId }, applied.id)).toMatchObject({
+        stacks: 2,
+      });
     });
 
     it('capStacks brings down only the holders of that condition above the ceiling', async () => {
@@ -410,14 +438,14 @@ describe('ConditionsDao on Postgres', () => {
           maxStacks: 5,
         })
       ).id;
-      await conditions.apply(lyraId, sangrando, FOREVER, 4);
-      await conditions.apply(goblin, sangrando, FOREVER, 1);
-      await conditions.apply(lyraId, queimando, FOREVER, 5);
+      await conditions.apply({ tokenId: lyraId }, sangrando, FOREVER, 4);
+      await conditions.apply({ tokenId: goblin }, sangrando, FOREVER, 1);
+      await conditions.apply({ tokenId: lyraId }, queimando, FOREVER, 5);
 
       await conditions.capStacks(sangrando, 2);
 
       const stacksOf = async (tokenId: string, conditionId: string) =>
-        (await conditions.stacksOf([tokenId], conditionId)).get(tokenId);
+        (await conditions.stacksOf([{ tokenId }], conditionId)).get(tokenId);
       expect([
         await stacksOf(lyraId, sangrando),
         await stacksOf(goblin, sangrando),
@@ -455,8 +483,8 @@ describe('ConditionsDao on Postgres', () => {
         name: 'Cego',
         imageAssetId,
       });
-      await conditions.apply(lyraId, cego, FOREVER);
-      await conditions.apply(lyraId, await definitionNamed('Caído'), FOREVER);
+      await conditions.apply({ tokenId: lyraId }, cego, FOREVER);
+      await conditions.apply({ tokenId: lyraId }, await definitionNamed('Caído'), FOREVER);
 
       const listed = await conditions.listOfTokens([lyraId]);
 
@@ -497,6 +525,97 @@ describe('ConditionsDao on Postgres', () => {
         ({ imageAssetId: image }) => image,
       );
       expect(quelmImages).not.toContain(imageAssetId);
+    });
+  });
+
+  describe('a character as the holder', () => {
+    async function characterOf(campaignId: string, name: string): Promise<string> {
+      const character = { campaignId, userId: null, name, initials: 'LY', side: 'ally' as const };
+      const row = await new CharactersDao(connection.db).insert({
+        character,
+        bars: [],
+        controllerIds: [],
+      });
+      return row.character.id;
+    }
+
+    it('apply on a character holds it by character_id, with no token, and applying again renews it', async () => {
+      const lyra = await characterOf(vharnId, 'Lyra');
+      const envenenado = await definitionNamed('Envenenado');
+
+      const first = await conditions.apply({ characterId: lyra }, envenenado, FOREVER);
+      const again = await conditions.apply({ characterId: lyra }, envenenado, {
+        remainingRounds: 2,
+        appliedRound: 3,
+      });
+
+      expect(first).toMatchObject({ tokenId: null, characterId: lyra, name: 'Envenenado' });
+      expect(again.id).toBe(first.id);
+      expect(await conditions.listOfCharacters([lyra])).toEqual([
+        expect.objectContaining({ remainingRounds: 2, appliedRound: 3 }),
+      ]);
+      expect(await conditions.listOfTokens([lyra])).toEqual([]);
+    });
+
+    it('listOfHolders reads a token and a character together in 1 query', async () => {
+      const lyra = await characterOf(vharnId, 'Lyra');
+      await conditions.apply({ characterId: lyra }, await definitionNamed('Envenenado'), FOREVER);
+      await conditions.apply({ tokenId: lyraId }, await definitionNamed('Caído'), FOREVER);
+      queries.reset();
+
+      const both = await conditions.listOfHolders([{ tokenId: lyraId }, { characterId: lyra }]);
+
+      expect(queries.count).toBe(1);
+      expect(both.map(({ name, tokenId, characterId }) => [name, tokenId, characterId])).toEqual([
+        ['Envenenado', null, lyra],
+        ['Caído', lyraId, null],
+      ]);
+      expect(await conditions.listOfHolders([])).toEqual([]);
+    });
+
+    it('stacksOf, setRounds, setStacks and remove find the condition only on its own holder', async () => {
+      const lyra = await characterOf(vharnId, 'Lyra');
+      const envenenado = await definitionNamed('Envenenado');
+      const held = await conditions.apply({ characterId: lyra }, envenenado, FOREVER, 2);
+      const token = { tokenId: lyraId };
+
+      expect(
+        (await conditions.stacksOf([{ characterId: lyra }, token], envenenado)).get(lyra),
+      ).toBe(2);
+      expect(await conditions.setRounds(token, held.id, 4)).toBeUndefined();
+      expect(await conditions.setRounds({ characterId: lyra }, held.id, 4)).toMatchObject({
+        remainingRounds: 4,
+      });
+      expect(await conditions.setStacks({ characterId: lyra }, held.id, 3)).toMatchObject({
+        stacks: 3,
+      });
+      expect(await conditions.findActiveOf(token, held.id)).toBeUndefined();
+      expect(await conditions.remove(token, held.id)).toBe(false);
+      expect(await conditions.remove({ characterId: lyra }, held.id)).toBe(true);
+      expect(await conditions.listOfCharacters([lyra])).toEqual([]);
+    });
+
+    it('countActiveOf counts a character of the table once, and none of Quelm', async () => {
+      const cego = await definitionNamed('Cego');
+      await conditions.apply({ characterId: await characterOf(vharnId, 'Lyra') }, cego, FOREVER);
+      await conditions.apply({ tokenId: lyraId }, cego, FOREVER);
+      const quelmCego = await definitionNamed('Cego', quelmId);
+      const quelms = await characterOf(quelmId, 'Mira');
+      await conditions.apply({ characterId: quelms }, quelmCego, FOREVER);
+
+      expect(await conditions.countActiveOf(vharnId, cego)).toBe(2);
+      expect(await conditions.countActiveOf(quelmId, quelmCego)).toBe(1);
+    });
+
+    it('the CHECK refuses a condition with no holder', async () => {
+      const lyra = await characterOf(vharnId, 'Lyra');
+      const both = conditions.apply(
+        { tokenId: lyraId, characterId: lyra } as unknown as { tokenId: string },
+        await definitionNamed('Cego'),
+        FOREVER,
+      );
+
+      await expect(both).rejects.toMatchObject({ cause: { code: '23514' } });
     });
   });
 });

@@ -1,6 +1,7 @@
 import type { CombatEntryInput } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CombatService } from '../../../src/modules/combat/combat.service';
+import { CharacterPublisherFake } from '../../support/characters-fakes';
 import { ClockFake } from '../../support/auth-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
@@ -57,6 +58,7 @@ describe('CombatService', () => {
       members,
       transaction: transaction.run,
       publisher,
+      characterPublisher: new CharacterPublisherFake(scenes.journal),
       clock: new ClockFake(NOW),
     });
   });
@@ -144,8 +146,11 @@ describe('CombatService', () => {
     await started();
     const envenenado = conditions.define(VHARN_ID, 'Envenenado', 'harm');
     const caido = conditions.define(VHARN_ID, 'Caído', 'harm');
-    await conditions.apply('ogro', envenenado, { remainingRounds: 1, appliedRound: 1 });
-    await conditions.apply('ogro', caido, { remainingRounds: 3, appliedRound: 1 });
+    await conditions.apply({ tokenId: 'ogro' }, envenenado, {
+      remainingRounds: 1,
+      appliedRound: 1,
+    });
+    await conditions.apply({ tokenId: 'ogro' }, caido, { remainingRounds: 3, appliedRound: 1 });
     await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 2, 'c-ogro');
     publisher.combatEvents.splice(0);
     const version = await service.nextTurn(ANA_ID, VHARN_ID, { fromCombatantId: 'c-ogro' });
@@ -168,7 +173,7 @@ describe('CombatService', () => {
   it('"Caído 1" applied in round 1 survives the end of the Ogro’s turn in round 1, untouched', async () => {
     await started();
     const caido = conditions.define(VHARN_ID, 'Caído', 'harm');
-    await conditions.apply('ogro', caido, { remainingRounds: 1, appliedRound: 1 });
+    await conditions.apply({ tokenId: 'ogro' }, caido, { remainingRounds: 1, appliedRound: 1 });
     await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 1, 'c-ogro');
     await service.nextTurn(ANA_ID, VHARN_ID, { fromCombatantId: 'c-ogro' });
     expect(conditions.active).toEqual([
@@ -219,7 +224,7 @@ describe('CombatService', () => {
 
   it('ending deletes the combat and keeps the conditions on the tokens', async () => {
     await started();
-    await conditions.apply('ogro', conditions.define(VHARN_ID, 'Caído', 'harm'), {
+    await conditions.apply({ tokenId: 'ogro' }, conditions.define(VHARN_ID, 'Caído', 'harm'), {
       remainingRounds: null,
       appliedRound: 1,
     });
@@ -302,8 +307,11 @@ describe('CombatService', () => {
     await started(GROUPED);
     const caido = conditions.define(VHARN_ID, 'Caído', 'harm');
     const envenenado = conditions.define(VHARN_ID, 'Envenenado', 'harm');
-    await conditions.apply('goblin', caido, { remainingRounds: 1, appliedRound: 1 });
-    await conditions.apply('lobo', envenenado, { remainingRounds: 2, appliedRound: 1 });
+    await conditions.apply({ tokenId: 'goblin' }, caido, { remainingRounds: 1, appliedRound: 1 });
+    await conditions.apply({ tokenId: 'lobo' }, envenenado, {
+      remainingRounds: 2,
+      appliedRound: 1,
+    });
     await combat.setTurn(`combat-${VHARN_SCENE_ID}`, 2, 'c-goblin');
 
     await service.nextTurn(ANA_ID, VHARN_ID, { fromCombatantId: 'c-goblin' });

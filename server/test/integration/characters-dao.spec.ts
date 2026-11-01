@@ -6,10 +6,14 @@ import { UsersDao } from '../../src/modules/auth/users.dao';
 import { CampaignMembersDao } from '../../src/modules/campaigns/campaign-members.dao';
 import { campaignMembers } from '../../src/modules/campaigns/campaign-members.po';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
+import { DEFAULT_CONDITIONS } from '../../src/modules/conditions/condition-rules.bo';
+import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
 import { CharactersDao, type NewCharacterRow } from '../../src/modules/characters/characters.dao';
 import type { CharacterBarInputPo } from '../../src/modules/characters/characters.po';
+import { scenes } from '../../src/modules/scenes/scenes.po';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
+import { CountingQueryLog } from '../support/query-count';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const PV: CharacterBarInputPo = {
@@ -34,6 +38,7 @@ describe('CharactersDao on Postgres', () => {
   let quelmId: string;
   let biaId: string;
   let caioId: string;
+  const queries = new CountingQueryLog();
 
   function newCharacter(
     campaignId: string,
@@ -53,7 +58,7 @@ describe('CharactersDao on Postgres', () => {
   }
 
   beforeAll(async () => {
-    connection = await openTestDatabase();
+    connection = await openTestDatabase({ queryLog: queries });
     dao = new CharactersDao(connection.db);
   });
 
@@ -149,6 +154,45 @@ describe('CharactersDao on Postgres', () => {
 
       const row = await dao.findInCampaign(vharnId, lyraId);
       expect([row?.character.userId, row?.holderRole]).toEqual([biaId, null]);
+    });
+  });
+
+  describe('the conditions of a character', () => {
+    async function poisoned(characterId: string): Promise<string> {
+      const conditions = new ConditionsDao(connection.db);
+      const [envenenado] = await conditions.insertDefinitions(vharnId, DEFAULT_CONDITIONS);
+      if (!envenenado) throw new Error('the default conditions were not saved');
+      const forever = { remainingRounds: null, appliedRound: null };
+      await conditions.apply({ characterId }, envenenado.id, forever);
+      return envenenado.name;
+    }
+
+    it('every read brings its conditions, the whole table in one query more', async () => {
+      const lyra = await insertLyra();
+      const name = await poisoned(lyra);
+      queries.reset();
+
+      const [listed] = await dao.listOfCampaign(vharnId);
+
+      expect(queries.count).toBe(3);
+      expect(listed?.conditions.map((c) => [c.name, c.characterId])).toEqual([[name, lyra]]);
+      expect((await dao.findInCampaign(vharnId, lyra))?.conditions).toHaveLength(1);
+      expect((await dao.findOfUser(vharnId, biaId))?.conditions).toHaveLength(1);
+    });
+
+    it('what a grid wears of it (findManyAtSceneTable) reads no condition', async () => {
+      const lyra = await insertLyra();
+      await poisoned(lyra);
+      const [salao] = await connection.db
+        .insert(scenes)
+        .values({ campaignId: vharnId, name: 'Salão' })
+        .returning();
+      queries.reset();
+
+      const [worn] = await dao.findManyAtSceneTable(salao?.id ?? '', [lyra]);
+
+      expect(queries.count).toBe(2);
+      expect(worn).not.toHaveProperty('conditions');
     });
   });
 

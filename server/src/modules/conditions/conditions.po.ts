@@ -93,3 +93,25 @@ export type NewConditionDefinition = Readonly<{
   imageAssetId: ConditionDefinitionPo['imageAssetId'];
 }>;
 export type ActiveConditionPo = typeof activeConditions.$inferSelect;
+
+/** Who holds an active condition: an unlinked token, or the character a linked token wears (its
+ *  conditions follow it to every grid). */
+export type ConditionHolder = Readonly<{ tokenId: string }> | Readonly<{ characterId: string }>;
+
+/** The id of a holder: its token's or its character's (both uuids, never the same).
+ *
+ *  Example: `holderIdOf({ characterId: lyraId }) // lyraId` */
+export function holderIdOf(holder: ConditionHolder): string {
+  return 'tokenId' in holder ? holder.tokenId : holder.characterId;
+}
+
+/** The id of the holder of a saved condition (`active_conditions_one_holder`: exactly one is set).
+ *
+ *  Example: `active.filter((row) => holderIdOfRow(row) === lyraId)` */
+export function holderIdOfRow(
+  row: Readonly<{ tokenId: string | null; characterId: string | null }>,
+): string {
+  const id = row.tokenId ?? row.characterId;
+  if (id === null) throw new Error(`active condition with no holder: ${JSON.stringify(row)}`);
+  return id;
+}

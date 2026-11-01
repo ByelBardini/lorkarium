@@ -79,6 +79,7 @@ export function characterRow(overrides: Partial<CharacterRow> = {}): CharacterRo
     bars: [characterBarPo(), characterManaPo()],
     controllerIds: [BIA_ID],
     holderRole: 'player',
+    conditions: [],
     ...overrides,
   };
 }

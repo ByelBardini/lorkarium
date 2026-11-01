@@ -11,7 +11,7 @@ import { toCampaignAccessBo } from '../campaigns/campaigns.mapper';
 import type { CombatDao } from '../combat/combat.dao';
 import { toCombatDto } from '../combat/combat.mapper';
 import type { ConditionsDao } from '../conditions/conditions.dao';
-import { conditionsByToken, toConditionDefinitionDto } from '../conditions/conditions.mapper';
+import { toConditionDefinitionDto } from '../conditions/conditions.mapper';
 import type { DrawingsDao } from '../drawings/drawings.dao';
 import { toDrawingDto } from '../drawings/drawings.mapper';
 import type { EffectAreasDao } from '../effect-areas/effect-areas.dao';
@@ -23,7 +23,7 @@ import { toLightDto } from '../lights/lights.mapper';
 import { seenGridOf } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { MainTokensDao } from '../tokens/main-tokens.dao';
-import { stateHolderIdOf } from '../tokens/linked-token';
+import { tokenConditionsOf } from '../tokens/token-transaction';
 import { TokenAccessBo, type TokenAudience } from '../tokens/token-access.bo';
 import { veilOf, veiledLightsOf } from '../tokens/token-veil.mapper';
 import { combatSeenBy } from '../combat/combat-veil.mapper';
@@ -37,7 +37,7 @@ import { toBoardStateDto } from './board.mapper';
 export type BoardReadDaos = Readonly<{
   scenes: Pick<ScenesDao, 'findGridInCampaign'>;
   tokens: Pick<TokensDao, 'listOfScene'>;
-  conditions: Pick<ConditionsDao, 'listDefinitions' | 'listOfTokens'>;
+  conditions: Pick<ConditionsDao, 'listDefinitions' | 'listOfHolders'>;
   combat: Pick<CombatDao, 'findOfScene'>;
   drawings: Pick<DrawingsDao, 'listOfScene'>;
   effectAreas: Pick<EffectAreasDao, 'listOfScene'>;
@@ -114,10 +114,9 @@ async function tokensFor(
   const unseen = rows.filter((row) => row.token.hidden && audienceOf(access, row) === 'others');
   const invisible = new Set(unseen.map(({ token }) => token.id));
   const seen = rows.filter(({ token }) => !invisible.has(token.id));
-  // A linked token shows its anchor's conditions.
-  const active = await daos.conditions.listOfTokens([...new Set(seen.map(stateHolderIdOf))]);
-  const byToken = conditionsByToken(active);
-  const tokens = seen.map((row) => tokenFor(access, row, byToken.get(stateHolderIdOf(row)) ?? []));
+  // A linked token shows its character's conditions; one read for the whole grid.
+  const conditionsOf = await tokenConditionsOf(daos.conditions, seen);
+  const tokens = seen.map((row) => tokenFor(access, row, conditionsOf(row)));
   return { tokens, invisible, veiledLights: veiledLightsOf(veilOf(unseen), invisible) };
 }
 

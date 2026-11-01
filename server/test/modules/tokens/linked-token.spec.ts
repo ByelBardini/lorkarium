@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  charactersIn,
   composedTokenRow,
   identityOf,
   splitStyle,
   splitUpdate,
-  stateHolderIdOf,
 } from '../../../src/modules/tokens/linked-token';
 import { toTokenDto } from '../../../src/modules/tokens/tokens.mapper';
-import { BIA_ID, CAIO_ID } from '../../support/campaigns-factories';
+import { BIA_ID, CAIO_ID, QUELM_ID, VHARN_ID } from '../../support/campaigns-factories';
+import { CharactersDaoFake } from '../../support/characters-fakes';
 import {
   ESTRADA_LYRA_ID,
   LYRA_ANCHOR_ID,
@@ -118,11 +119,6 @@ describe('a token linked to a character', () => {
 
     expect(dto.bars.map(({ label }) => label)).toEqual(['Inspiração']);
     expect(dto.controllerIds).toEqual([BIA_ID, CAIO_ID]);
-  });
-
-  it('still holds its conditions in the anchor: they are read by the anchor id', () => {
-    expect(stateHolderIdOf(linkedLyraRow())).toBe(LYRA_ANCHOR_ID);
-    expect(stateHolderIdOf(lyraRow())).toBe(lyraRow().token.id);
   });
 });
 
@@ -247,5 +243,32 @@ describe('the forms of a token linked to a character', () => {
     expect(own.forms).toBe(forms);
     expect(own.fields).toEqual({ width: 2, height: 2, activeFormId: null });
     expect(shared.look).not.toHaveProperty('activeFormId');
+  });
+});
+
+describe('charactersIn', () => {
+  const quelms = characterPo({ id: 'quelm-character', campaignId: QUELM_ID });
+  const daos = {
+    characters: new CharactersDaoFake(
+      [],
+      [lyraCharacterRow(), { ...lyraCharacterRow(), character: quelms }],
+    ),
+  };
+
+  it('reads each listed character of the table once', async () => {
+    const found = await charactersIn(daos, VHARN_ID, [LYRA_CHARACTER_ID, LYRA_CHARACTER_ID]);
+
+    expect(found.map(({ character }) => character.id)).toEqual([LYRA_CHARACTER_ID]);
+  });
+
+  it('a character of another table is CHARACTER_NOT_FOUND citing it', async () => {
+    await expect(charactersIn(daos, VHARN_ID, ['quelm-character'])).rejects.toMatchObject({
+      code: 'CHARACTER_NOT_FOUND',
+      message: expect.stringContaining('quelm-character'),
+    });
+  });
+
+  it('no character asked reads nothing', async () => {
+    expect(await charactersIn(daos, VHARN_ID, [])).toEqual([]);
   });
 });

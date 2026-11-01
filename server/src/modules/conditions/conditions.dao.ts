@@ -1,19 +1,24 @@
-import { and, asc, countDistinct, eq, gt, inArray, sql } from 'drizzle-orm';
+import { and, asc, countDistinct, eq, gt, inArray, or, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { characters } from '../characters/characters.po';
 import { scenes } from '../scenes/scenes.po';
 import { tokens } from '../tokens/tokens.po';
 import {
   activeConditions,
   conditionDefinitions,
+  holderIdOf,
+  holderIdOfRow,
   type ConditionDefinitionPo,
+  type ConditionHolder,
   type NewConditionDefinition,
 } from './conditions.po';
 
 /** An active condition with the name, tone, icon, look, color, description and stack cap of its
- *  definition. */
+ *  definition. Exactly one of `tokenId` and `characterId` is set: its holder. */
 export type ActiveConditionRow = Readonly<{
   id: string;
-  tokenId: string;
+  tokenId: string | null;
+  characterId: string | null;
   conditionId: string;
   name: string;
   tone: ConditionDefinitionPo['tone'];
@@ -34,13 +39,14 @@ export type ConditionDuration = Readonly<{
   appliedRound: number | null;
 }>;
 
-// Every read here is filtered by token_id, so it is never null in a row: a character's conditions
-// (token_id null, 0075) are not read by this DAO yet.
-const heldTokenId = sql<string>`${activeConditions.tokenId}`;
+const HOLDER_COLUMNS = {
+  tokenId: activeConditions.tokenId,
+  characterId: activeConditions.characterId,
+};
 
 const activeRowColumns = {
   id: activeConditions.id,
-  tokenId: heldTokenId,
+  ...HOLDER_COLUMNS,
   conditionId: activeConditions.conditionId,
   name: conditionDefinitions.name,
   tone: conditionDefinitions.tone,
@@ -55,7 +61,7 @@ const activeRowColumns = {
   appliedRound: activeConditions.appliedRound,
 };
 
-/** Condition definitions of a campaign and the conditions active on its tokens. */
+/** Condition definitions of a campaign and the conditions active on its tokens and characters. */
 export class ConditionsDao {
   constructor(private readonly db: DatabaseExecutor) {}
 
@@ -149,106 +155,108 @@ export class ConditionsDao {
     return deleted.length > 0;
   }
 
-  /** How many tokens of the campaign hold the condition, on every grid and the cast. */
+  /** How many holders of the campaign have the condition: the tokens of every grid and the cast,
+   *  and the characters (one each, however many grids show it). */
   async countActiveOf(campaignId: string, conditionId: string): Promise<number> {
+    const holder = sql`coalesce(${activeConditions.tokenId}, ${activeConditions.characterId})`;
+    const ofCampaign = or(eq(scenes.campaignId, campaignId), eq(characters.campaignId, campaignId));
     const [row] = await this.db
-      .select({ tokens: countDistinct(activeConditions.tokenId) })
+      .select({ holders: countDistinct(holder) })
       .from(activeConditions)
-      .innerJoin(tokens, eq(tokens.id, activeConditions.tokenId))
-      .innerJoin(scenes, eq(scenes.id, tokens.sceneId))
-      .where(and(eq(scenes.campaignId, campaignId), eq(activeConditions.conditionId, conditionId)));
-    return row?.tokens ?? 0;
+      .leftJoin(tokens, eq(tokens.id, activeConditions.tokenId))
+      .leftJoin(scenes, eq(scenes.id, tokens.sceneId))
+      .leftJoin(characters, eq(characters.id, activeConditions.characterId))
+      .where(and(eq(activeConditions.conditionId, conditionId), ofCampaign));
+    return row?.holders ?? 0;
   }
 
-  /** Puts the condition on the token with `stacks` (what the BO decided); applying it again
-   *  replaces the duration and the stacks. */
+  /** Puts the condition on the holder with `stacks` (what the BO decided); applying it again
+   *  replaces the duration and the stacks.
+   *
+   *  Example: `await dao.apply({ characterId: lyraId }, envenenadoId, { remainingRounds: 2, appliedRound: 1 })` */
   async apply(
-    tokenId: string,
+    holder: ConditionHolder,
     conditionId: string,
     duration: ConditionDuration,
     stacks = 1,
   ): Promise<ActiveConditionRow> {
     const [saved] = await this.db
       .insert(activeConditions)
-      .values({ tokenId, conditionId, ...duration, stacks })
+      .values({ ...holder, conditionId, ...duration, stacks })
       .onConflictDoUpdate({
-        target: [activeConditions.tokenId, activeConditions.conditionId],
+        target: [holderColumnOf(holder), activeConditions.conditionId],
         set: { ...duration, stacks, appliedAt: sql`now()` },
       })
       .returning({ id: activeConditions.id });
-    if (!saved) throw new Error(`apply of ${conditionId} on ${tokenId} returned no row`);
+    if (!saved) throw new Error(`apply of ${conditionId} on ${holderIdOf(holder)} returned no row`);
     const [row] = await this.activeRows(eq(activeConditions.id, saved.id));
     if (!row) throw new Error(`active condition ${saved.id} vanished right after it was saved`);
     return row;
   }
 
-  /** `false` when the active condition is not on that token. */
-  async remove(tokenId: string, activeConditionId: string): Promise<boolean> {
+  /** `false` when the active condition is not on that holder. */
+  async remove(holder: ConditionHolder, activeConditionId: string): Promise<boolean> {
     const removed = await this.db
       .delete(activeConditions)
-      .where(and(eq(activeConditions.tokenId, tokenId), eq(activeConditions.id, activeConditionId)))
+      .where(activeOn(holder, activeConditionId))
       .returning({ id: activeConditions.id });
     return removed.length > 0;
   }
 
   /** Only the rounds left change (the applied round stays); `undefined` when the condition is not
-   *  on that token. */
+   *  on that holder. */
   async setRounds(
-    tokenId: string,
+    holder: ConditionHolder,
     activeConditionId: string,
     remainingRounds: number | null,
   ): Promise<ActiveConditionRow | undefined> {
     const changed = await this.db
       .update(activeConditions)
       .set({ remainingRounds })
-      .where(and(eq(activeConditions.tokenId, tokenId), eq(activeConditions.id, activeConditionId)))
+      .where(activeOn(holder, activeConditionId))
       .returning({ id: activeConditions.id });
     if (changed.length === 0) return undefined;
     const [row] = await this.activeRows(eq(activeConditions.id, activeConditionId));
     return row;
   }
 
-  /** The stacks each listed token already has of the condition, in one query; a token without
-   *  it is missing from the map.
+  /** The stacks each listed holder already has of the condition, in one query, by the holder's id
+   *  (`holderIdOf`); a holder without it is missing from the map.
    *
-   *  Example: `(await dao.stacksOf([tokenId], conditionId)).get(tokenId) ?? null` */
+   *  Example: `(await dao.stacksOf([{ tokenId }], conditionId)).get(tokenId) ?? null` */
   async stacksOf(
-    tokenIds: readonly string[],
+    holders: readonly ConditionHolder[],
     conditionId: string,
   ): Promise<ReadonlyMap<string, number>> {
-    if (tokenIds.length === 0) return new Map();
+    const held = heldByAny(holders);
+    if (!held) return new Map();
     const rows = await this.db
-      .select({ tokenId: heldTokenId, stacks: activeConditions.stacks })
+      .select({ ...HOLDER_COLUMNS, stacks: activeConditions.stacks })
       .from(activeConditions)
-      .where(
-        and(
-          eq(activeConditions.conditionId, conditionId),
-          inArray(activeConditions.tokenId, [...tokenIds]),
-        ),
-      );
-    return new Map(rows.map((row) => [row.tokenId, row.stacks]));
+      .where(and(eq(activeConditions.conditionId, conditionId), held));
+    return new Map(rows.map((row) => [holderIdOfRow(row), row.stacks]));
   }
 
-  /** `undefined` when the active condition is not on that token. */
-  async findActiveOnToken(
-    tokenId: string,
+  /** `undefined` when the active condition is not on that holder. */
+  async findActiveOf(
+    holder: ConditionHolder,
     activeConditionId: string,
   ): Promise<ActiveConditionRow | undefined> {
-    const [row] = await this.activeRows(this.activeOn(tokenId, activeConditionId));
+    const [row] = await this.activeRows(activeOn(holder, activeConditionId));
     return row;
   }
 
   /** Only the stacks change (rounds and applied round stay); `undefined` when the condition is
-   *  not on that token. */
+   *  not on that holder. */
   async setStacks(
-    tokenId: string,
+    holder: ConditionHolder,
     activeConditionId: string,
     stacks: number,
   ): Promise<ActiveConditionRow | undefined> {
     const changed = await this.db
       .update(activeConditions)
       .set({ stacks })
-      .where(this.activeOn(tokenId, activeConditionId))
+      .where(activeOn(holder, activeConditionId))
       .returning({ id: activeConditions.id });
     if (changed.length === 0) return undefined;
     const [row] = await this.activeRows(eq(activeConditions.id, activeConditionId));
@@ -267,8 +275,21 @@ export class ConditionsDao {
   }
 
   async listOfTokens(tokenIds: readonly string[]): Promise<ActiveConditionRow[]> {
-    if (tokenIds.length === 0) return [];
-    return this.activeRows(inArray(activeConditions.tokenId, [...tokenIds]));
+    return this.listOfHolders(tokenIds.map((tokenId) => ({ tokenId })));
+  }
+
+  async listOfCharacters(characterIds: readonly string[]): Promise<ActiveConditionRow[]> {
+    return this.listOfHolders(characterIds.map((characterId) => ({ characterId })));
+  }
+
+  /** The conditions of tokens and characters together, in one query (a grid shows both). No
+   *  holder, no query.
+   *
+   *  Example: `await dao.listOfHolders([{ tokenId: kaelId }, { characterId: lyraId }])` */
+  async listOfHolders(holders: readonly ConditionHolder[]): Promise<ActiveConditionRow[]> {
+    const held = heldByAny(holders);
+    if (!held) return [];
+    return this.activeRows(held);
   }
 
   /** One round off each listed condition, in one `UPDATE` (the end of a turn). */
@@ -294,13 +315,7 @@ export class ConditionsDao {
     );
   }
 
-  private activeOn(tokenId: string, activeConditionId: string): ReturnType<typeof and> {
-    return and(eq(activeConditions.tokenId, tokenId), eq(activeConditions.id, activeConditionId));
-  }
-
-  private activeRows(
-    where: ReturnType<typeof eq> | ReturnType<typeof and>,
-  ): Promise<ActiveConditionRow[]> {
+  private activeRows(where: SQL | undefined): Promise<ActiveConditionRow[]> {
     return this.db
       .select(activeRowColumns)
       .from(activeConditions)
@@ -308,4 +323,28 @@ export class ConditionsDao {
       .where(where)
       .orderBy(asc(activeConditions.appliedAt), asc(conditionDefinitions.name));
   }
+}
+
+type HolderColumn = typeof activeConditions.tokenId | typeof activeConditions.characterId;
+
+function holderColumnOf(holder: ConditionHolder): HolderColumn {
+  return 'tokenId' in holder ? activeConditions.tokenId : activeConditions.characterId;
+}
+
+function activeOn(holder: ConditionHolder, activeConditionId: string): SQL | undefined {
+  return and(
+    eq(holderColumnOf(holder), holderIdOf(holder)),
+    eq(activeConditions.id, activeConditionId),
+  );
+}
+
+// One `IN` per kind of holder; nothing listed → `undefined` (the caller reads nothing).
+function heldByAny(holders: readonly ConditionHolder[]): SQL | undefined {
+  const tokenIds = holders.flatMap((holder) => ('tokenId' in holder ? [holder.tokenId] : []));
+  const characterIds = holders.flatMap((h) => ('characterId' in h ? [h.characterId] : []));
+  const parts: SQL[] = [];
+  if (tokenIds.length > 0) parts.push(inArray(activeConditions.tokenId, tokenIds));
+  if (characterIds.length > 0) parts.push(inArray(activeConditions.characterId, characterIds));
+  if (parts.length === 0) return undefined;
+  return or(...parts);
 }

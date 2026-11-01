@@ -287,8 +287,9 @@ function wireRealtime(
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
   const { mainToken, link: tokenLink, visibility: tokenVisibility } = tokensModule;
   const { form: tokenForm } = tokensModule;
-  const { service: conditions, catalog: conditionCatalog } = createConditionsModule(shared);
-  const combat = createCombatModule(shared).service;
+  const conditionsModule = createConditionsModule({ ...shared, characterPublisher });
+  const { service: conditions, catalog: conditionCatalog } = conditionsModule;
+  const combat = createCombatModule({ ...shared, characterPublisher }).service;
   const drawings = createDrawingsModule(shared).service;
   const effectAreas = createEffectAreasModule(shared).service;
   const walls = createWallsModule({ ...shared, sceneWalls }).service;

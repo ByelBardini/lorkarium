@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { campaignMembers, type CampaignMemberPo } from '../campaigns/campaign-members.po';
 import { campaigns } from '../campaigns/campaigns.po';
+import { ConditionsDao, type ActiveConditionRow } from '../conditions/conditions.dao';
 import { scenes } from '../scenes/scenes.po';
 import type { BarValuesPo } from '../tokens/tokens.po';
 import {
@@ -16,14 +17,20 @@ import {
   type NewCharacterPo,
 } from './characters.po';
 
-/** A character with what hangs on it: bars by position, who controls it, and the role its player
- *  has at the table now (`null` = nobody's, or its player left). */
-export type CharacterRow = Readonly<{
+/** What a linked token wears of its character: the character, its bars by position, who
+ *  controls it, and the role its player has at the table now (`null` = nobody's, or its player
+ *  left). */
+export type WornCharacterRow = Readonly<{
   character: CharacterPo;
   bars: readonly CharacterBarPo[];
   controllerIds: readonly string[];
   holderRole: CampaignMemberPo['role'] | null;
 }>;
+
+/** A character whole: what its tokens wear and its active conditions (every `character:changed`
+ *  carries them). */
+export type CharacterRow = WornCharacterRow &
+  Readonly<{ conditions: readonly ActiveConditionRow[] }>;
 
 /** A character to insert: its bars in order (their position) and its controllers. */
 export type NewCharacterRow = Readonly<{
@@ -48,7 +55,11 @@ const CONTROLLER_IDS = sql<string[]>`coalesce((${sql.raw(
  *
  *  Example: `await new CharactersDao(tx).findInCampaign(vharnId, lyraId)` */
 export class CharactersDao {
-  constructor(private readonly db: DatabaseExecutor) {}
+  private readonly conditions: ConditionsDao;
+
+  constructor(private readonly db: DatabaseExecutor) {
+    this.conditions = new ConditionsDao(db);
+  }
 
   /** Every character of the table, oldest first, the stored ones included. */
   async listOfCampaign(campaignId: string): Promise<CharacterRow[]> {
@@ -70,20 +81,21 @@ export class CharactersDao {
 
   /** The asked characters of the table `sceneId` belongs to (an id of another table is left
    *  out), in bulk: what the tokens of one grid read to wear their characters, without the
-   *  campaign at hand (§2.6 by the scene's own table).
+   *  campaign at hand (§2.6 by the scene's own table). Without their conditions: a grid reads
+   *  those with its tokens' own, in one query.
    *
    *  Example: `await dao.findManyAtSceneTable(estradaId, [lyraId])` */
   async findManyAtSceneTable(
     sceneId: string,
     characterIds: readonly string[],
-  ): Promise<CharacterRow[]> {
+  ): Promise<WornCharacterRow[]> {
     if (characterIds.length === 0) return [];
     const table = this.db
       .select({ id: scenes.campaignId })
       .from(scenes)
       .where(eq(scenes.id, sceneId));
     const asked = inArray(characters.id, [...characterIds]);
-    return this.rowsWhere(and(inArray(characters.campaignId, table), asked));
+    return this.wornWhere(and(inArray(characters.campaignId, table), asked));
   }
 
   async findInCampaign(campaignId: string, characterId: string): Promise<CharacterRow | undefined> {
@@ -188,8 +200,20 @@ export class CharactersDao {
     return row;
   }
 
-  // Two statements: the characters with their controllers and holder, then all their bars.
+  // Three statements: what `wornWhere` reads, then the conditions of all of them.
   private async rowsWhere(where: SQL | undefined): Promise<CharacterRow[]> {
+    const worn = await this.wornWhere(where);
+    if (worn.length === 0) return [];
+    const ids = worn.map(({ character }) => character.id);
+    const conditions = await this.conditions.listOfCharacters(ids);
+    return worn.map((row) => ({
+      ...row,
+      conditions: conditions.filter(({ characterId }) => characterId === row.character.id),
+    }));
+  }
+
+  // Two statements: the characters with their controllers and holder, then all their bars.
+  private async wornWhere(where: SQL | undefined): Promise<WornCharacterRow[]> {
     const found = await this.db
       .select({
         character: characters,

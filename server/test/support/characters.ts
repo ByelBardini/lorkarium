@@ -85,3 +85,21 @@ export function linkToCard(
 ): ReturnType<typeof send> {
   return send(client, 'token:linkToCard', { ...envelope(table.id), ...link });
 }
+
+/** `token:linkToCharacter` of `tokenId` to the character `characterId`; the ack as it came. */
+export function linkToCharacter(
+  client: RealtimeClient,
+  table: Table,
+  link: Readonly<{ tokenId: string; characterId: string; sceneId?: string }>,
+): ReturnType<typeof send> {
+  return send(client, 'token:linkToCharacter', { ...envelope(table.id), ...link });
+}
+
+/** `token:unlinkFromCharacter` of `tokenId`; the ack as it came. */
+export function unlinkFromCharacter(
+  client: RealtimeClient,
+  table: Table,
+  unlink: Readonly<{ tokenId: string; sceneId?: string }>,
+): ReturnType<typeof send> {
+  return send(client, 'token:unlinkFromCharacter', { ...envelope(table.id), ...unlink });
+}

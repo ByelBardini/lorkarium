@@ -20,6 +20,7 @@ import {
 } from './tokens-fakes';
 import { LYRA_ID, inspirationBar, lyraPo, lyraRow, pvBar } from './tokens-factories';
 import { WallsDaoFake } from './walls-fakes';
+import { TokenCharacterLinkDaoFake } from './token-character-link-fakes';
 
 export const NOW = new Date('2026-10-23T21:00:00Z');
 export const LYRA_ANCHOR_ID = '9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f';
@@ -58,6 +59,7 @@ export function lyraCharacterRow(): CharacterRow {
     ],
     controllerIds: [BIA_ID],
     holderRole: 'player',
+    conditions: [],
   };
 }
 
@@ -130,6 +132,12 @@ export class CharacterTableFake {
   readonly characters = new CharactersDaoFake(this.journal, [lyraCharacterRow()], {
     [VHARN_ID]: 5,
   });
+  readonly characterLinks = new TokenCharacterLinkDaoFake(
+    this.journal,
+    this.tokens,
+    this.conditions,
+    this.characters,
+  );
   readonly characterPublisher = new CharacterPublisherFake(this.journal);
   readonly clock = new ClockFake(NOW);
   readonly transaction = new TokenTransactionRunnerFake(
@@ -143,11 +151,13 @@ export class CharacterTableFake {
     this.memberCards,
     this.anchors,
     this.characters,
+    this.characterLinks,
   );
 
   constructor() {
     this.scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
     this.scenes.activeOf.set(QUELM_ID, QUELM_SCENE_ID);
+    this.characters.conditionsFrom(this.conditions);
   }
 
   /** Envenenado (2 rounds) on `tokenId`, without touching the journal. */
@@ -156,6 +166,7 @@ export class CharacterTableFake {
     const active = {
       id: `${tokenId}-poison`,
       tokenId,
+      characterId: null,
       conditionId,
       name: 'Envenenado',
       tone: 'harm' as const,

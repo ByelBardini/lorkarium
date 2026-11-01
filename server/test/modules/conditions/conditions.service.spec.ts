@@ -4,6 +4,7 @@ import {
   type DefineCondition,
 } from '../../../src/modules/conditions/conditions.service';
 import { ClockFake } from '../../support/auth-fakes';
+import { CharacterPublisherFake } from '../../support/characters-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
 import {
@@ -70,6 +71,7 @@ describe('ConditionsService', () => {
       members,
       transaction: transaction.run,
       publisher,
+      characterPublisher: new CharacterPublisherFake(scenes.journal),
       clock: new ClockFake(NOW),
     });
   });

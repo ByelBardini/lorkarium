@@ -1,8 +1,11 @@
 import { characterSyncAckDto, type CharacterSyncDto } from '@lorkarium/contracts';
+import { eq } from 'drizzle-orm';
 import { runInTransaction } from '../../src/database/transaction';
 import { CharactersDao, type CharacterRow } from '../../src/modules/characters/characters.dao';
 import type { CharacterBarInputPo } from '../../src/modules/characters/characters.po';
-import { envelope } from './live-table';
+import { tokens } from '../../src/modules/tokens/tokens.po';
+import { activeConditions } from '../../src/modules/conditions/conditions.po';
+import { envelope, synced } from './live-table';
 import type { RealtimeClient } from './realtime-client';
 import type { SignedInUser } from './sign-in';
 import type { Table } from './tables';
@@ -98,4 +101,32 @@ export async function renameCharacter(
 ): Promise<void> {
   const initials = name.slice(0, 2).toUpperCase();
   await new CharactersDao(live.connection.db).update(characterId, { name, initials });
+}
+
+/** Envenenado (3 rounds) held by the character itself, with no event (seeding a spec).
+ *
+ *  Example: `await poisonCharacter(live, ana, lyraCharacterId)` */
+export async function poisonCharacter(
+  live: TokenTableHarness,
+  client: RealtimeClient,
+  characterId: string,
+): Promise<void> {
+  const definitions = (await synced(client, live.vharn)).conditionDefinitions;
+  const envenenado = definitions.find(({ name }) => name === 'Envenenado');
+  if (!envenenado) throw new Error('the table has no Envenenado');
+  await live.connection.db
+    .insert(activeConditions)
+    .values({ characterId, conditionId: envenenado.id, remainingRounds: 3 });
+}
+
+/** Links one token to a character straight in the database, with no event (seeding a spec
+ *  without going through the link command).
+ *
+ *  Example: `await wearCharacter(live, lyraOfSalao, lyraCharacterId)` */
+export async function wearCharacter(
+  live: TokenTableHarness,
+  tokenId: string,
+  characterId: string,
+): Promise<void> {
+  await live.connection.db.update(tokens).set({ characterId }).where(eq(tokens.id, tokenId));
 }

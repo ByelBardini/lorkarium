@@ -14,6 +14,7 @@ import { ScenesDao } from '../scenes/scenes.dao';
 import { MainTokensDao } from './main-tokens.dao';
 import { MemberCardsDao } from '../member-cards/member-cards.dao';
 import { TokenAnchorsDao } from './token-anchors.dao';
+import { TokenCharacterLinkDao } from './token-character-link.dao';
 import { MainTokenService } from './main-token.service';
 import { TokensDao } from './tokens.dao';
 import type { SceneWallsService } from '../walls/scene-walls.service';
@@ -64,6 +65,7 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
         walls: new WallsDao(tx),
         mainTokens: new MainTokensDao(tx),
         anchors: new TokenAnchorsDao(tx),
+        characterLinks: new TokenCharacterLinkDao(tx),
         memberCards: new MemberCardsDao(tx),
         characters: new CharactersDao(tx),
       }),

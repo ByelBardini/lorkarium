@@ -13,12 +13,13 @@ import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { inLockedGrid, type CreatedInScene } from '../scenes/locked-scene';
+import { savedEventBase } from '../scenes/locked-cast';
+import type { CharacterRow } from '../characters/characters.dao';
 import {
-  inLockedCastAndGrid,
-  savedEventBase,
-  type CastAndGridChange,
-  type LockedCastAndGrid,
-} from '../scenes/locked-cast';
+  inLockedCharactersAndGrid,
+  type CharactersAndGridChange,
+  type LockedGridMaybeCharacters,
+} from '../characters/locked-characters-grid';
 import type { CombatDto } from '@lorkarium/contracts';
 import type { Cell, TokenBox } from '@lorkarium/game-core';
 import { orderedMembers } from '../campaigns/campaigns.mapper';
@@ -51,7 +52,8 @@ export type DeleteTokens = Omit<DeleteTokensCommandDto, Envelope>;
 export type AddPlayers = Omit<AddPlayersCommandDto, Envelope>;
 
 /** What "Adicionar jogadores" answers: the version, the tokens made (in the order of the players)
- *  and the players skipped because they have no anchor yet. */
+ *  and the players skipped because they have no character (every player gets one on becoming a
+ *  player, so it is usually empty). */
 export type PlayersAdded = Readonly<{
   version: number;
   createdIds: string[];
@@ -152,10 +154,11 @@ export class TokenBatchService {
     return saved.version;
   }
 
-  /** Puts in the grid a token linked to each player who has an anchor and is not there yet, in
-   *  the free cells around `center`: the anchor's size, the Tokens layer, facing right, without
-   *  sight nor light. One `token:createdMany` (each audience its own); nobody to place answers
-   *  zero created and bumps nothing. A grid without room is NO_FREE_CELLS. */
+  /** Puts in the grid a token linked to the character of each player who is not there yet, in
+   *  the free cells around `center`: the character's size, the Tokens layer, facing right,
+   *  without sight nor light. The characters are locked before the grid and read, never changed.
+   *  One `token:createdMany` (each audience its own); nobody to place answers zero created and
+   *  bumps nothing. A grid without room is NO_FREE_CELLS. */
   async addPlayers(userId: string, campaignId: string, command: AddPlayers): Promise<PlayersAdded> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster('add the players to a grid');
@@ -163,7 +166,7 @@ export class TokenBatchService {
       .filter(({ role }) => role === 'player')
       .map(({ userId: playerId }) => playerId);
     const address = { campaignId, sceneId: command.sceneId, access };
-    const saved = await inLockedCastAndGrid(this.deps.transaction, address, (locked) =>
+    const saved = await inLockedCharactersAndGrid(this.deps.transaction, address, (locked) =>
       this.placePlayers(locked, players, command.center),
     );
     const { tokens, skippedMemberIds, combat, veil } = saved.value;
@@ -177,48 +180,43 @@ export class TokenBatchService {
   }
 
   private async placePlayers(
-    { daos, scene, cast }: LockedCastAndGrid<TokenWriteDaos>,
+    { daos, scene }: LockedGridMaybeCharacters<TokenWriteDaos>,
     players: readonly string[],
     center: AddPlayers['center'],
-  ): Promise<CastAndGridChange<AddedPlayers>> {
-    const cards = await daos.memberCards.listOfCampaign(scene.campaignId);
-    const anchorOf = (playerId: string) =>
-      cards.find((card) => card.userId === playerId)?.anchorTokenId ?? null;
-    const skippedMemberIds = players.filter((playerId) => anchorOf(playerId) === null);
+  ): Promise<CharactersAndGridChange<AddedPlayers>> {
+    const { worn, skippedMemberIds } = playersCharactersOf(
+      players,
+      await daos.characters.listOfCampaign(scene.campaignId),
+    );
     const onGrid = await daos.tokens.listOfScene(scene.id);
-    const placed = new Set(onGrid.map(({ token }) => token.anchorTokenId));
-    const anchorIds = players.flatMap((playerId) => anchorOf(playerId) ?? []);
-    const missing = anchorIds.filter((anchorId) => !placed.has(anchorId));
+    const placed = new Set(onGrid.map(({ token }) => token.characterId));
+    const missing = worn.filter(({ character }) => !placed.has(character.id));
     if (missing.length === 0) {
       const value = { tokens: [], skippedMemberIds, combat: null, veil: veilOf([]) };
-      return { value, grid: false, cast: false };
+      return { value, grid: false, characters: false };
     }
-    const anchors = await tokensIn(daos, cast, scene.campaignId, missing);
-    const worn = await wornCharactersOf(daos, scene.campaignId, cards);
-    const rows = await this.linkedRowsOf(daos, scene, { anchors, worn }, center, onGrid);
+    const rows = await this.linkedRowsOf(daos, scene, missing, center, onGrid);
     const created = await daos.tokens.insertMany(rows);
     const ids = created.map(({ token }) => token.id);
     const composed = await tokensIn(daos, scene, scene.campaignId, ids);
     const tokens = await Promise.all(composed.map((row) => withConditions(daos, row)));
     const combat = await combatOf(daos, scene);
     const veil = await combatVeilOf(daos, scene.id, composed, combat);
-    return { value: { tokens, skippedMemberIds, combat, veil }, grid: true, cast: false };
+    return { value: { tokens, skippedMemberIds, combat, veil }, grid: true, characters: false };
   }
 
   private async linkedRowsOf(
     daos: TokenWriteDaos,
     scene: ScenePo,
-    { anchors, worn }: Readonly<{ anchors: readonly TokenRow[]; worn: WornCharacters }>,
+    characters: readonly CharacterRow[],
     center: AddPlayers['center'],
     onGrid: readonly TokenRow[],
   ): Promise<NewTokenRow[]> {
     const occupied = onGrid.filter(({ token }) => token.layer === 'tokens').map(boxOf);
-    const footprints = anchors.map(({ token }) => token);
+    const footprints = characters.map(({ character }) => character);
     const cells = placeCharacters({ sceneId: scene.id, scene, center, footprints, occupied });
-    this.rulesFor(scene, []).admit(await daos.tokens.countOfScene(scene.id), anchors.length);
-    return anchors.map((anchor, index) =>
-      linkedRowOf(scene.id, anchor, cells[index], worn.get(anchor.token.id) ?? null),
-    );
+    this.rulesFor(scene, []).admit(await daos.tokens.countOfScene(scene.id), characters.length);
+    return characters.map((character, index) => linkedRowOf(scene.id, character, cells[index]));
   }
 
   // A player's copies land like their new token, with them in the control; each is a create.
@@ -256,42 +254,25 @@ function boxOf({ token }: TokenRow): TokenBox {
   return { col: token.col, row: token.row, width: token.width, height: token.height };
 }
 
-// A token of the character: the anchor's identity and size, facing right, without sight nor light.
-function linkedRowOf(
-  sceneId: string,
-  anchor: TokenRow,
-  at: Cell | undefined,
-  characterId: string | null,
-): NewTokenRow {
-  if (!at) throw new Error(`no cell was placed for anchor ${anchor.token.id}`);
-  const { width, height } = anchor.token;
+// A token of the character: its identity and size, facing right, without sight nor light.
+function linkedRowOf(sceneId: string, worn: CharacterRow, at: Cell | undefined): NewTokenRow {
+  const { character } = worn;
+  if (!at) throw new Error(`no cell was placed for character ${character.id}`);
+  const { width, height } = character;
   const placed = { col: at.col, row: at.row, width, height, layer: 'tokens' as const, facing: 0 };
-  const token = {
-    sceneId,
-    ...identityOf(anchor.token),
-    ...placed,
-    anchorTokenId: anchor.token.id,
-    characterId,
-  };
+  const token = { sceneId, ...identityOf(character), ...placed, characterId: character.id };
   return { token, bars: [], controllerIds: [] };
 }
 
-/** The character each anchor's player has at the table, by the anchor's id. */
-type WornCharacters = ReadonlyMap<string, string>;
+/** The players' characters in the order of the players, and the players without one. */
+type PlayersCharacters = Readonly<{ worn: CharacterRow[]; skippedMemberIds: string[] }>;
 
-// Until "Add the players" reads the characters (phase 8 of the plan), each new token linked to an
-// anchor also wears the character of the anchor's player.
-async function wornCharactersOf(
-  daos: TokenWriteDaos,
-  campaignId: string,
-  cards: readonly Readonly<{ userId: string; anchorTokenId: string | null }>[],
-): Promise<WornCharacters> {
-  const characters = await daos.characters.listOfCampaign(campaignId);
-  const byUser = new Map(characters.map(({ character }) => [character.userId, character.id]));
-  return new Map(
-    cards.flatMap(({ userId, anchorTokenId }) => {
-      const characterId = byUser.get(userId);
-      return anchorTokenId && characterId ? [[anchorTokenId, characterId] as const] : [];
-    }),
-  );
+function playersCharactersOf(
+  players: readonly string[],
+  characters: readonly CharacterRow[],
+): PlayersCharacters {
+  const byUser = new Map(characters.map((row) => [row.character.userId, row]));
+  const worn = players.flatMap((playerId) => byUser.get(playerId) ?? []);
+  const skippedMemberIds = players.filter((playerId) => !byUser.has(playerId));
+  return { worn, skippedMemberIds };
 }

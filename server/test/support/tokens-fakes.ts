@@ -21,6 +21,7 @@ import { composedTokenRow, type TokenIdentityPo } from '../../src/modules/tokens
 import { savedFormsOf } from '../../src/modules/tokens/token-forms.dao';
 import type { TokenAnchorsDao } from '../../src/modules/tokens/token-anchors.dao';
 import { MemberCardsDaoFake } from './member-cards-fakes';
+import { TokenCharacterLinkDaoFake } from './token-character-link-fakes';
 import { CharactersDaoFake } from './characters-fakes';
 import type { MainTokenChoicePo, MainTokensDao } from '../../src/modules/tokens/main-tokens.dao';
 import { AssetsDaoFake } from './assets-fakes';
@@ -203,7 +204,7 @@ export class TokensDaoFake implements Pick<
     return own.map(({ token, controllerIds }) => ({
       tokenId: token.id,
       controllerIds: [...controllerIds],
-      anchorTokenId: token.anchorTokenId,
+      characterId: token.characterId,
       hidden: token.hidden,
     }));
   }
@@ -452,7 +453,10 @@ export class TokenTransactionRunnerFake {
   constructor(
     private readonly scenes: ScenesDaoFake,
     private readonly tokens: TokensDaoFake,
-    private readonly conditions: Pick<ConditionsDaoFake, 'listOfTokens'> = new ConditionsDaoFake(),
+    private readonly conditions: Pick<
+      ConditionsDaoFake,
+      'listOfTokens' | 'listOfHolders'
+    > = new ConditionsDaoFake(),
     private readonly combat: CombatDaoFake = new CombatDaoFake(),
     private readonly assets: AssetsDaoFake = new AssetsDaoFake(),
     private readonly walls: Pick<WallsDaoFake, 'listOfScene'> = new WallsDaoFake([]),
@@ -464,6 +468,12 @@ export class TokenTransactionRunnerFake {
       new ConditionsDaoFake(),
     ),
     private readonly characters: CharactersDaoFake = new CharactersDaoFake(scenes.journal),
+    private readonly characterLinks: TokenCharacterLinkDaoFake = new TokenCharacterLinkDaoFake(
+      scenes.journal,
+      tokens,
+      new ConditionsDaoFake(),
+      characters,
+    ),
   ) {
     tokens.wearFrom(characters);
   }
@@ -481,6 +491,7 @@ export class TokenTransactionRunnerFake {
       anchors: this.anchors,
       memberCards: this.memberCards,
       characters: this.characters,
+      characterLinks: this.characterLinks,
     });
     this.scenes.journal.push('commit');
     return result;

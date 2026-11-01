@@ -3,6 +3,8 @@ import { runInTransaction } from '../../database/transaction';
 import { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { MembershipReader } from '../campaigns/cached-memberships';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
+import { CharactersDao } from '../characters/characters.dao';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { CombatDao } from '../combat/combat.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
@@ -16,6 +18,8 @@ export type ConditionsModuleOptions = Readonly<{
   /** Shared by the board modules: the memberships remembered by the campaigns module. */
   members: MembershipReader;
   publisher: BoardPublisherPort;
+  /** A condition on a linked token goes out with its character. */
+  characterPublisher: CharacterPublisherPort;
   clock: ClockPort;
 }>;
 
@@ -26,7 +30,7 @@ export type ConditionsModule = Readonly<{
 
 /** Wires the conditions module; its edge is the board gateway, which receives both services.
  *
- *  Example: `const conditions = createConditionsModule({ db, publisher, clock })` */
+ *  Example: `const conditions = createConditionsModule({ db, members, publisher, characterPublisher, clock })` */
 export function createConditionsModule(options: ConditionsModuleOptions): ConditionsModule {
   const transaction: ConditionTransactionRunner = (work) =>
     runInTransaction(options.db, (tx) =>
@@ -36,13 +40,14 @@ export function createConditionsModule(options: ConditionsModuleOptions): Condit
         conditions: new ConditionsDao(tx),
         combat: new CombatDao(tx),
         assets: new AssetsDao(tx),
+        characters: new CharactersDao(tx),
       }),
     );
   const { members } = options;
-  const { publisher, clock } = options;
+  const { publisher, characterPublisher, clock } = options;
   const reader = new ConditionsDao(options.db);
   return {
-    service: new ConditionsService({ members, transaction, publisher, clock }),
+    service: new ConditionsService({ members, transaction, publisher, characterPublisher, clock }),
     catalog: new ConditionCatalogService({ members, transaction, reader, publisher, clock }),
   };
 }

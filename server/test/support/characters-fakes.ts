@@ -6,7 +6,9 @@ import type {
   CharacterRow,
   CharactersDao,
   NewCharacterRow,
+  WornCharacterRow,
 } from '../../src/modules/characters/characters.dao';
+import type { ActiveConditionRow } from '../../src/modules/conditions/conditions.dao';
 import type {
   CharacterBarInputPo,
   CharacterBarPo,
@@ -21,6 +23,11 @@ import type {
 } from '../../src/modules/characters/characters.service';
 import type { BarValuesPo } from '../../src/modules/tokens/tokens.po';
 import { characterBarPo, characterPo } from './characters-factories';
+
+/** A character as the fake keeps it: its `conditions`, if given, are ignored (reads take them
+ *  from `conditionsFrom`). */
+type StoredCharacterRow = WornCharacterRow &
+  Readonly<{ conditions?: readonly ActiveConditionRow[] }>;
 
 type FakeDaoMethods =
   | 'lockVersion'
@@ -44,16 +51,26 @@ type FakeDaoMethods =
  *
  *  Example: `new CharactersDaoFake(journal, [characterRow()], { [VHARN_ID]: 4 })` */
 export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
-  readonly rows: CharacterRow[];
+  /** Stored without their conditions: every read takes them from `conditionsFrom` (none until
+   *  it is called), like the DAO reads them from `active_conditions`. */
+  readonly rows: StoredCharacterRow[];
   /** The role of each user at the table, for the characters inserted here. */
   readonly roles: Record<string, CharacterRow['holderRole']> = {};
+  private conditions: Readonly<{ active: readonly ActiveConditionRow[] }> = { active: [] };
 
   constructor(
     readonly journal: string[] = [],
-    rows: readonly CharacterRow[] = [],
+    rows: readonly StoredCharacterRow[] = [],
     readonly versions: Record<string, number> = {},
   ) {
     this.rows = [...rows];
+  }
+
+  /** The conditions the characters read from now on: the ones of `conditions` held by them.
+   *
+   *  Example: `characters.conditionsFrom(conditionsFake)` */
+  conditionsFrom(conditions: Readonly<{ active: readonly ActiveConditionRow[] }>): void {
+    this.conditions = conditions;
   }
 
   async lockVersion(campaignId: string): Promise<number | undefined> {
@@ -73,28 +90,33 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
   }
 
   async listOfCampaign(campaignId: string): Promise<CharacterRow[]> {
-    return this.rows.filter((row) => row.character.campaignId === campaignId);
+    return this.held(this.rows.filter((row) => row.character.campaignId === campaignId));
   }
 
   async findInCampaign(campaignId: string, characterId: string): Promise<CharacterRow | undefined> {
-    return this.rows.find(
-      (row) => row.character.campaignId === campaignId && row.character.id === characterId,
-    );
+    const [row] = await this.findManyInCampaign(campaignId, [characterId]);
+    return row;
   }
 
   async findManyInCampaign(
     campaignId: string,
     characterIds: readonly string[],
   ): Promise<CharacterRow[]> {
-    return this.rows.filter(
-      ({ character }) => character.campaignId === campaignId && characterIds.includes(character.id),
+    return this.held(
+      this.rows.filter(
+        ({ character }) =>
+          character.campaignId === campaignId && characterIds.includes(character.id),
+      ),
     );
   }
 
   async findOfUser(campaignId: string, userId: string): Promise<CharacterRow | undefined> {
-    return this.rows.find(
-      (row) => row.character.campaignId === campaignId && row.character.userId === userId,
+    const [row] = this.held(
+      this.rows.filter(
+        (row) => row.character.campaignId === campaignId && row.character.userId === userId,
+      ),
     );
+    return row;
   }
 
   async insert(row: NewCharacterRow): Promise<CharacterRow> {
@@ -104,7 +126,9 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
     const holderRole = this.roles[character.userId ?? ''] ?? null;
     const saved = { character, bars, controllerIds: [...row.controllerIds], holderRole };
     this.rows.push(saved);
-    return saved;
+    const [held] = this.held([saved]);
+    if (!held) throw new Error(`CharactersDaoFake lost ${character.id} right after its insert`);
+    return held;
   }
 
   async update(
@@ -143,7 +167,14 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
     this.replace(characterId, (row) => ({ ...row, controllerIds: [...new Set(userIds)] }));
   }
 
-  private replace(characterId: string, change: (row: CharacterRow) => CharacterRow): void {
+  private held(rows: readonly StoredCharacterRow[]): CharacterRow[] {
+    return rows.map((row) => ({
+      ...row,
+      conditions: this.conditions.active.filter((c) => c.characterId === row.character.id),
+    }));
+  }
+
+  private replace(characterId: string, change: (row: WornCharacterRow) => WornCharacterRow): void {
     const index = this.rows.findIndex((row) => row.character.id === characterId);
     const found = this.rows[index];
     if (found) this.rows[index] = change(found);

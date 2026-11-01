@@ -74,12 +74,12 @@ export type DragTokenPo = Readonly<{
   controllerIds: readonly string[];
 }>;
 
-/** A token of a scene, who controls it (a linked one, its character's controllers) and the anchor
- *  that still holds its conditions, if any. */
+/** A token of a scene, who controls it (a linked one, its character's controllers) and the
+ *  character it wears, if any (which holds its conditions). */
 export type TokenControlPo = Readonly<{
   tokenId: string;
   controllerIds: string[];
-  anchorTokenId: string | null;
+  characterId: string | null;
   hidden: boolean;
 }>;
 
@@ -217,7 +217,7 @@ export class TokensDao {
       .select({
         tokenId: tokens.id,
         controllerIds: HOLDER_CONTROLLER_IDS,
-        anchorTokenId: tokens.anchorTokenId,
+        characterId: tokens.characterId,
         hidden: tokens.hidden,
       })
       .from(tokens)

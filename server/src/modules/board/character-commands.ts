@@ -3,7 +3,9 @@ import {
   adjustCharacterBarCommandDto,
   characterSyncCommandDto,
   linkTokenToCardCommandDto,
+  linkTokenToCharacterCommandDto,
   unlinkTokenFromCardCommandDto,
+  unlinkTokenFromCharacterCommandDto,
   updateCharacterCommandDto,
   type AddPlayersAckDto,
   type CharacterSyncAckDto,
@@ -29,7 +31,7 @@ export type WriteCommand = <C extends CampaignCommand, A>(
 ) => (payload: unknown, ack: AckOf<A>) => void;
 
 export type CharacterCommandsDeps = Readonly<{
-  tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
+  tokenLink: Pick<TokenLinkService, 'link' | 'linkToCard' | 'unlink'>;
   tokenBatch: Pick<TokenBatchService, 'addPlayers'>;
   characters: Pick<CharactersService, 'update' | 'adjustBar' | 'sync'>;
 }>;
@@ -46,7 +48,7 @@ type AddPlayersOk = Extract<AddPlayersAckDto, { ok: true }>;
 type CharacterSyncOk = Extract<CharacterSyncAckDto, { ok: true }>;
 
 /** The commands of the characters on one connection: change one and read them all, link a token
- *  to a card and back, and put every player's character in a grid.
+ *  to a character and back, and put every player's character in a grid.
  *
  *  Example: `bindCharacterCommands(socket, { bind, mutate, write }, { tokenLink, tokenBatch, characters })` */
 export function bindCharacterCommands(
@@ -57,11 +59,7 @@ export function bindCharacterCommands(
   bindCharacterOwnCommands(socket, binders, deps.characters);
   const { mutate, write } = binders;
   const { tokenLink, tokenBatch } = deps;
-  socket.on('token:linkToCard', mutate(linkTokenToCardCommandDto, tokenLink.link.bind(tokenLink)));
-  socket.on(
-    'token:unlinkFromCard',
-    mutate(unlinkTokenFromCardCommandDto, tokenLink.unlink.bind(tokenLink)),
-  );
+  bindLinkCommands(socket, mutate, tokenLink);
   socket.on(
     'token:addPlayers',
     write(addPlayersCommandDto, async (userId, command): Promise<AddPlayersOk> => {
@@ -69,6 +67,22 @@ export function bindCharacterCommands(
       return { ok: true, ...added };
     }),
   );
+}
+
+// The link by the character, and the old one by the card (the client stopped sending it; it goes
+// in phase 13 of the plan) answering the same.
+function bindLinkCommands(
+  socket: RealtimeSocket,
+  mutate: MutateCommand,
+  tokenLink: CharacterCommandsDeps['tokenLink'],
+): void {
+  const link = tokenLink.link.bind(tokenLink);
+  const unlink = tokenLink.unlink.bind(tokenLink);
+  socket.on('token:linkToCharacter', mutate(linkTokenToCharacterCommandDto, link));
+  socket.on('token:unlinkFromCharacter', mutate(unlinkTokenFromCharacterCommandDto, unlink));
+  const linkToCard = tokenLink.linkToCard.bind(tokenLink);
+  socket.on('token:linkToCard', mutate(linkTokenToCardCommandDto, linkToCard));
+  socket.on('token:unlinkFromCard', mutate(unlinkTokenFromCardCommandDto, unlink));
 }
 
 // The commands on the character itself; the sync is a read, so it skips the table's queue.

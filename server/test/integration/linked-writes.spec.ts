@@ -6,7 +6,12 @@ import { gridState, linkToCard, lyraPoisonedAtVharn, tokenIn } from '../support/
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
-import { CHARACTER_MANA, characterOfUser, giveBars } from '../support/table-characters';
+import {
+  CHARACTER_MANA,
+  characterOfUser,
+  giveBars,
+  poisonCharacter,
+} from '../support/table-characters';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
@@ -27,6 +32,8 @@ async function lyraOnTwoGrids() {
   await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
   const character = await characterOfUser(live, live.vharn, live.bia);
   await giveBars(live, character.character.id, [LYRA_PV, CHARACTER_MANA]);
+  // A link drops the token's own Envenenado (phase 8); the character holds one instead.
+  await poisonCharacter(live, ana, character.character.id);
   const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada');
   await setGridVisibility(live, live.ana, live.vharn, estrada, 'public');
   for (const client of [ana, bia, caio]) await gridAck(client, 'scene:watch', live.vharn, estrada);
