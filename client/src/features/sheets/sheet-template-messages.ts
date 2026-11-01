@@ -1,4 +1,5 @@
 import { SHEET_TEMPLATE_SOURCE_MAX_BYTES } from '@lorkarium/contracts';
+import type { SheetTemplateFileProblem } from '@/lib/sheet-template-file';
 import type { SheetTemplatesFailure } from '@/services/sheet-templates-api';
 
 const FAILURE_MESSAGES: Readonly<Record<SheetTemplatesFailure['kind'], string>> = {
@@ -26,4 +27,19 @@ export function sheetTemplateFailureMessage(kind: SheetTemplatesFailure['kind'])
 export function sheetSourceSizeLabel(bytes: number): string {
   const kib = (bytes / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
   return `${kib} KiB de ${SHEET_TEMPLATE_SOURCE_MAX_BYTES / 1024} KiB`;
+}
+
+const FILE_PROBLEM_MESSAGES: Readonly<Record<SheetTemplateFileProblem, string>> = {
+  not_json: 'Este arquivo não é um modelo de ficha (.lksheet).',
+  not_lksheet: 'Este arquivo não é um modelo de ficha (.lksheet).',
+  newer_version: 'Este arquivo foi feito numa versão mais nova do Lorkarium.',
+  over_budget: `O código do arquivo passa de ${SHEET_TEMPLATE_SOURCE_MAX_BYTES / 1024} KiB.`,
+  invalid: 'Este arquivo de modelo está incompleto ou foi alterado.',
+};
+
+/** Why a picked `.lksheet` was refused, worded for the import alert.
+ *
+ *  Example: `sheetTemplateFileProblemMessage('newer_version')` */
+export function sheetTemplateFileProblemMessage(problem: SheetTemplateFileProblem): string {
+  return FILE_PROBLEM_MESSAGES[problem];
 }

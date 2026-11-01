@@ -26,6 +26,12 @@ import {
   type MixedLibrary,
 } from '@/lib/library-entries';
 import { DeleteSheetTask, NewSheetItem, SheetTreeItems } from './library-sheet-menu';
+import {
+  DeleteTemplateTask,
+  ImportTemplateItem,
+  NewTemplateItem,
+  TemplateItems,
+} from './library-template-menu-items';
 import type { LibraryOpener } from './use-library-opener';
 import type { SheetPlayer } from './use-sheet-holder-names';
 import { sceneIdOf, sceneKey } from './library-view';
@@ -47,6 +53,10 @@ export type TreeMaster = Readonly<{
   editDocument?: (documentId: string) => void;
   /** "Novo modelo de ficha" in a folder (`null` = the root): the new template gets picked. */
   createSheetTemplate?: (folderId: string | null) => void;
+  /** "Importar modelo de ficha" in a folder (`null` = the root): picks a `.lksheet` first. */
+  importSheetTemplate?: (folderId: string | null) => void;
+  /** "Exportar modelo": downloads the saved version as a `.lksheet`. */
+  exportSheetTemplate?: (templateId: string) => void;
   /** "Nova ficha" in a folder (`null` = the root): asks name, template and holder first. */
   createSheet?: (folderId: string | null) => void;
   openSheet?: LibraryOpener['openSheet'];
@@ -76,7 +86,7 @@ type MenuTask =
   | Readonly<{ kind: 'deleteFolder' | 'moveFolder'; folder: SceneFolderDto }>
   | null;
 
-type MenuActions = LibraryTreeMenuProps & Readonly<{ setTask: (task: MenuTask) => void }>;
+export type MenuActions = LibraryTreeMenuProps & Readonly<{ setTask: (task: MenuTask) => void }>;
 
 /** The master's context menu over the tree: on a folder, on a grid, or on "Sem pasta" and the
  *  empty area (the root). Deleting asks first; everything is disabled while reconnecting.
@@ -159,6 +169,7 @@ function RootItems({ master, startNewFolder }: MenuActions): React.JSX.Element {
         </ContextMenuItem>
       )}
       <NewTemplateItem master={master} folderId={null} label="Novo modelo de ficha" />
+      <ImportTemplateItem master={master} folderId={null} label="Importar modelo de ficha" />
       <NewSheetItem master={master} folderId={null} label="Nova ficha" />
       <ContextMenuItem
         disabled={!master.live}
@@ -192,6 +203,7 @@ function FolderItems(props: MenuActions & Readonly<{ folder: SceneFolderDto }>) 
         </ContextMenuItem>
       )}
       <NewTemplateItem master={master} folderId={folder.id} label="Novo modelo de ficha aqui" />
+      <ImportTemplateItem master={master} folderId={folder.id} label="Importar modelo aqui" />
       <NewSheetItem master={master} folderId={folder.id} label="Nova ficha aqui" />
       <ContextMenuItem
         disabled={off}
@@ -381,55 +393,5 @@ function ImageItems(props: MenuActions & Readonly<{ image: LibraryImageDto }>): 
         Excluir imagem
       </ContextMenuItem>
     </>
-  );
-}
-
-type NewTemplateItemProps = Readonly<{
-  master: TreeMaster;
-  folderId: string | null;
-  label: string;
-}>;
-
-function NewTemplateItem({ master, folderId, label }: NewTemplateItemProps) {
-  if (!master.createSheetTemplate) return null;
-  return (
-    <ContextMenuItem
-      disabled={!master.live}
-      onSelect={() => master.createSheetTemplate?.(folderId)}
-    >
-      {label}
-    </ContextMenuItem>
-  );
-}
-
-function TemplateItems(props: MenuActions & Readonly<{ template: SheetTemplateSummaryDto }>) {
-  const { master, template } = props;
-  return (
-    <ContextMenuItem
-      variant="destructive"
-      disabled={!master.live}
-      onSelect={() => props.setTask({ kind: 'deleteTemplate', template })}
-    >
-      Excluir modelo
-    </ContextMenuItem>
-  );
-}
-
-type TemplateTaskProps = Readonly<{
-  master: TreeMaster;
-  template: SheetTemplateSummaryDto;
-  onClose: () => void;
-}>;
-
-function DeleteTemplateTask({ master, template, onClose }: TemplateTaskProps) {
-  return (
-    <DeleteConfirmDialog
-      title={`Excluir ${template.name}?`}
-      description="O código do modelo some para todos os mestres. Um modelo ligado a fichas não pode ser excluído."
-      onClose={onClose}
-      onConfirm={() =>
-        void master.submit({ intent: 'removeSheetTemplate', templateId: template.id })
-      }
-    />
   );
 }

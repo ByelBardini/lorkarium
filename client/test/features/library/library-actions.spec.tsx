@@ -17,6 +17,7 @@ describe('the actions of the library', () => {
       'Novo grid',
       'Novo documento',
       'Novo modelo de ficha',
+      'Importar modelo de ficha',
       'Nova ficha',
       'Nova imagem',
       'Nova pasta',

@@ -15,6 +15,7 @@ import {
   createSheetTemplateDraftStore,
   type SheetTemplateDraftState,
 } from '@/stores/sheet-template-draft-store';
+import type { SheetTemplateExportPorts } from './use-sheet-template-export';
 import { SheetTemplateEditor } from './sheet-template-editor';
 import type { TemplateEditorMoves } from './sheet-template-editor-actions';
 import type { RegisterLeave } from './use-template-leave-guard';
@@ -32,6 +33,7 @@ export type LibrarySheetTemplateEditorProps = Readonly<{
   chatWindowHost?: ChatWindowHost;
   layoutMemory?: SheetEditorLayoutMemory;
   clipboard?: Clipboard;
+  exportPorts?: SheetTemplateExportPorts;
   onRegisterLeave?: RegisterLeave;
   /** After "Abrir modelo em aba": the library goes back to the room, where the tab is. */
   onOpenedTab: () => void;
@@ -65,6 +67,7 @@ export function LibrarySheetTemplateEditor(
       layoutMemory={props.layoutMemory}
       windows={props.chatWindowHost}
       clipboard={props.clipboard}
+      exportPorts={props.exportPorts}
     />
   );
 }

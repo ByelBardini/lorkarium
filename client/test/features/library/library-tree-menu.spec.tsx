@@ -51,6 +51,7 @@ describe('the context menu of the library tree', () => {
         'Nova imagem aqui',
         'Novo documento aqui',
         'Novo modelo de ficha aqui',
+        'Importar modelo aqui',
         'Nova ficha aqui',
         'Nova pasta aqui',
         'Renomear',
@@ -76,6 +77,7 @@ describe('the context menu of the library tree', () => {
         'Nova imagem',
         'Novo documento',
         'Novo modelo de ficha',
+        'Importar modelo de ficha',
         'Nova ficha',
         'Nova pasta',
       ]);
@@ -85,6 +87,7 @@ describe('the context menu of the library tree', () => {
         'Nova imagem',
         'Novo documento',
         'Novo modelo de ficha',
+        'Importar modelo de ficha',
         'Nova ficha',
         'Nova pasta',
       ]);

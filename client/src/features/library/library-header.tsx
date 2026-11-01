@@ -1,4 +1,4 @@
-import { MapIcon, SearchIcon, XIcon } from 'lucide-react';
+import { ChevronDownIcon, MapIcon, SearchIcon, XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -72,11 +72,10 @@ function SearchAndFilter({ controls }: Readonly<{ controls: LibraryControls }>) 
         />
       </div>
       {controls.onType && (
-        <select
-          aria-label="Tipo de item"
+        <FilterSelect
+          label="Tipo de item"
           value={controls.type ?? 'all'}
-          className="h-10 rounded-md border border-input bg-card px-3 text-sm text-foreground"
-          onChange={(event) => controls.onType?.(event.target.value as LibraryTypeFilter)}
+          onChange={(value) => controls.onType?.(value as LibraryTypeFilter)}
         >
           <option value="all">Todos os tipos</option>
           <option value="grid">Grids</option>
@@ -84,20 +83,46 @@ function SearchAndFilter({ controls }: Readonly<{ controls: LibraryControls }>) 
           <option value="document">Documentos</option>
           {controls.sheetTemplates && <option value="sheet-template">Modelos de ficha</option>}
           <option value="sheet">Fichas</option>
-        </select>
+        </FilterSelect>
       )}
       {controls.visibility && (
-        <select
-          aria-label="Visibilidade"
+        <FilterSelect
+          label="Visibilidade"
           value={controls.visibility}
-          className="h-10 rounded-md border border-input bg-card px-3 text-sm text-foreground"
-          onChange={(event) => controls.onVisibility(event.target.value as VisibilityFilter)}
+          onChange={(value) => controls.onVisibility(value as VisibilityFilter)}
         >
           <option value="all">Toda visibilidade</option>
           <option value="public">Públicos</option>
           <option value="private">Privados</option>
-        </select>
+        </FilterSelect>
       )}
     </>
+  );
+}
+
+type FilterSelectProps = Readonly<{
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}>;
+
+// Chromium paints the native arrow button white on hover, outside the dark theme: own chevron.
+function FilterSelect({ label, value, onChange, children }: FilterSelectProps) {
+  return (
+    <div className="relative">
+      <select
+        aria-label={label}
+        value={value}
+        className="h-10 cursor-pointer appearance-none rounded-md border border-input bg-card pr-9 pl-3 text-sm text-foreground hover:bg-muted"
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {children}
+      </select>
+      <ChevronDownIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
+      />
+    </div>
   );
 }

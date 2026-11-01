@@ -71,7 +71,7 @@ O dropdown de criação do cabeçalho sempre usa a raiz. No menu contextual, o d
 
 ## Modelos de ficha
 
-Só o mestre: `sheet-template:<id>`, filtro "Modelos de ficha", editor CodeMirror no lugar do painel, criar/excluir pelo menu, arrastar entre pastas; "Abrir modelo em aba"/"Abrir modelo em janela" levam o rascunho (com o texto não salvo) ao workspace, e um modelo já aberto em aba divide o rascunho com a biblioteca. Ver [sheet-template-editor.md](sheet-template-editor.md).
+Só o mestre: `sheet-template:<id>`, filtro "Modelos de ficha", editor CodeMirror no lugar do painel, criar/excluir pelo menu, arrastar entre pastas; "Abrir modelo em aba"/"Abrir modelo em janela" levam o rascunho (com o texto não salvo) ao workspace, e um modelo já aberto em aba divide o rascunho com a biblioteca. Ver [sheet-template-editor.md](sheet-template-editor.md). "Exportar modelo" no menu do modelo, "Importar modelo de ficha" no "Criar item" e no menu da raiz e "Importar modelo aqui" no da pasta: ver [sheet-template-file.md](sheet-template-file.md).
 
 ## Fichas
 

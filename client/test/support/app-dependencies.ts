@@ -32,6 +32,7 @@ import { SheetTemplatesApiFake } from './sheet-templates-api-fake';
 import { DiceRenderersFake } from './dice-renderer-fake';
 import { DiceSoundsFake } from './dice-sound-fake';
 import { ClipboardFake } from './clipboard-fake';
+import { FileDownloadFake } from './file-download-fake';
 import { FieldEditingFake } from './field-editing-fake';
 import { InteractionClockFake } from './interaction-clock-fake';
 import { LibraryApiFake } from './library-api-fake';
@@ -64,6 +65,7 @@ export type TestDependencies = AppDependencies & {
   sceneActivation: SceneActivationFake;
   assets: AssetsApiFake;
   clipboard: ClipboardFake;
+  fileDownload: FileDownloadFake;
   fieldEditing: FieldEditingFake;
   /** The session api under `openTables`, for specs to play the server. */
   tableSessionApi: TableSessionApiFake;
@@ -173,6 +175,7 @@ export function testDependencies(): TestDependencies {
     sceneActivation: new SceneActivationFake(),
     assets: new AssetsApiFake(),
     clipboard: new ClipboardFake(),
+    fileDownload: new FileDownloadFake(),
     // The browser by default: specs of the desktop field menu turn it on.
     isDesktop: false,
     // No title bar of our own: specs of the desktop title bar pass a `DesktopWindowFake`.

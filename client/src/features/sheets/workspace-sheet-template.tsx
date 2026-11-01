@@ -35,6 +35,11 @@ export function WorkspaceSheetTemplate({
           layoutMemory={deps.sheetEditorLayout}
           windows={deps.chatWindowHost}
           clipboard={deps.clipboard}
+          exportPorts={{
+            api: deps.sheetTemplatesApi,
+            fileDownload: deps.fileDownload,
+            campaignId: entry.campaign.id,
+          }}
           now={deps.now}
         />
       )}

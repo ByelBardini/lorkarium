@@ -3,9 +3,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SheetTemplateEditor } from '@/features/sheets/sheet-template-editor';
+import { readSheetTemplateFile } from '@/lib/sheet-template-file';
 import { createSheetTemplateDraftStore } from '@/stores/sheet-template-draft-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { codeTextOf, replaceCode } from '../../support/code-editor-input';
+import { FileDownloadFake } from '../../support/file-download-fake';
 import { TORMENTA_TEMPLATE_ID } from '../../support/sheet-fixtures';
 import { SheetChannelsFake } from '../../support/sheet-frame-fakes';
 import { tormentaTemplate } from '../../support/sheet-template-fixtures';
@@ -13,10 +15,12 @@ import { SheetTemplatesApiFake } from '../../support/sheet-templates-api-fake';
 
 let api: SheetTemplatesApiFake;
 let channels: SheetChannelsFake;
+let fileDownload: FileDownloadFake;
 
 beforeEach(() => {
   api = new SheetTemplatesApiFake();
   channels = new SheetChannelsFake();
+  fileDownload = new FileDownloadFake();
 });
 
 function tormentaDraft() {
@@ -39,6 +43,24 @@ async function openTormenta(live = true) {
 async function showCode(user: ReturnType<typeof userEvent.setup>, title: 'HTML' | 'CSS' | 'JS') {
   await user.click(screen.getByRole('tab', { name: title }));
   return screen.findByRole('textbox', { name: `${title} do modelo` });
+}
+
+async function openTormentaWithExport() {
+  const user = userEvent.setup();
+  render(
+    <SheetTemplateEditor
+      draft={tormentaDraft()}
+      live
+      exportPorts={{ api, fileDownload, campaignId: VHARN.id }}
+    />,
+  );
+  await screen.findByRole('textbox', { name: 'HTML do modelo' });
+  return user;
+}
+
+function exportedJs(): string | null {
+  const reading = readSheetTemplateFile(fileDownload.saves[0]?.text ?? '');
+  return reading.ok ? reading.template.js : null;
 }
 
 function saveButton(): HTMLElement {
@@ -187,6 +209,40 @@ describe('SheetTemplateEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Fechar modelo' }));
     expect(screen.queryByRole('button', { name: 'Abrir modelo em janela' })).toBeNull();
     expect(opened).toEqual(['tab', 'close']);
+  });
+
+  describe('"Exportar modelo"', () => {
+    const UNSAVED_NOTE = 'Exporta a versão salva; salve antes para levar o que mudou';
+
+    it('a clean editor downloads the saved version, with no note about unsaved code', async () => {
+      const user = await openTormentaWithExport();
+      const button = screen.getByRole('button', { name: 'Exportar modelo' });
+      expect(button).not.toHaveAccessibleDescription(UNSAVED_NOTE);
+      await user.click(button);
+      await waitFor(() => expect(fileDownload.saves).toHaveLength(1));
+      expect(api.detailCalls.at(-1)).toBe(TORMENTA_TEMPLATE_ID);
+      expect(fileDownload.saves[0]).toMatchObject({
+        fileName: 'Ficha Tormenta.lksheet',
+        type: 'application/json',
+      });
+      expect(exportedJs()).toBe(tormentaTemplate().js);
+    });
+
+    it('with JS typed and not saved it says so, and the file carries the server JS', async () => {
+      const user = await openTormentaWithExport();
+      await showCode(user, 'JS');
+      replaceCode('JS do modelo', 'lorkarium.onState(() => {});');
+      const button = screen.getByRole('button', { name: 'Exportar modelo' });
+      expect(button).toHaveAccessibleDescription(UNSAVED_NOTE);
+      await user.click(button);
+      await waitFor(() => expect(fileDownload.saves).toHaveLength(1));
+      expect(exportedJs()).toBe('lorkarium.ready();');
+    });
+
+    it('without the export ports there is no button', async () => {
+      await openTormenta();
+      expect(screen.queryByRole('button', { name: 'Exportar modelo' })).toBeNull();
+    });
   });
 
   it('the API tab lists the five SDK calls and the limits', async () => {

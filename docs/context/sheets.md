@@ -13,12 +13,14 @@ O mestre escreve um **modelo** de ficha (HTML, CSS e JS) na biblioteca e cria **
 | [`sheets/server.md`](sheets/server.md)                               | Server: tabelas `0072`–`0074`, modelos, fichas na biblioteca, dono e âncora, acesso, valores, rotas, eventos, `sheet:adjustBar` |
 | [`client/sheets.md`](client/sheets.md)                               | Client: APIs, store dos valores, ponte do host, ficha na sala (aba, janela, moldura, selo do console, card e menu do token)     |
 | [`client/sheet-template-editor.md`](client/sheet-template-editor.md) | Editor de modelo: CodeMirror, rascunho, aba/janela, divisória, prévia (tela cheia, janela), console, Ctrl+S, referência da API  |
+| [`client/sheet-template-file.md`](client/sheet-template-file.md)     | Arquivo `.lksheet`: ler/escrever, porta `FileDownload`, exportar (árvore, editor) e importar com confirmação                    |
 | [`client/library.md`](client/library.md) (Fichas)                    | Ficha como item da biblioteca: `sheet:<id>`, filtro, "Nova ficha", menu (dar, tirar, quem vê, excluir), painel                  |
 | [`ci/e2e.md`](ci/e2e.md) (Fichas)                                    | Grupo `sheets` do e2e: `sheet-sandbox`, `sheets` e `sheets-library`, helpers de `e2e/test/support/sheets.ts`                    |
 
 ## Regras de negócio
 
 - Sem "modo seguro": a medição de processo (laço infinito na ficha × processo do frame no Chrome e na casca) não foi feita; o procedimento está em [`sheets/sandbox.md`](sheets/sandbox.md). Até lá, uma ficha travada só é contida pelo cão de guarda ("A ficha não respondeu").
+- Exportar e importar modelo (`.lksheet`) é só do mestre: exporta sempre a versão salva e importa sempre como modelo **novo**, pelo `POST` de sempre; o código importado roda na mesma sandbox, sem exceção.
 - O console da ficha na sala é só de quem gerencia (`canManage`, o mestre); o jogador não recebe linha nenhuma.
 
 ## Armadilhas

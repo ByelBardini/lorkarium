@@ -36,4 +36,14 @@ describe('downloadText', () => {
     expect(urls.made[0]?.type).toContain('text/plain');
     expect(urls.revoked).toEqual(['blob:fake/1']);
   });
+
+  it('keeps plain UTF-8 text as the Blob type when no type is passed', () => {
+    downloadText('k7m2p-9qrst\n', 'codigos.txt');
+    expect(urls.made[0]?.type).toBe('text/plain;charset=utf-8');
+  });
+
+  it('gives the Blob the type passed', () => {
+    downloadText('{"format":"lorkarium.sheet-template"}', 'Ficha.lksheet', 'application/json');
+    expect(urls.made[0]?.type).toBe('application/json');
+  });
 });

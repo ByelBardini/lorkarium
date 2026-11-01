@@ -5,6 +5,7 @@ import type { SheetTemplatesApi } from '@/services/sheet-templates-api';
 import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { Clipboard } from '@/services/clipboard';
+import type { FileDownload } from '@/services/file-download';
 import type { ChatWindowHost } from '@/services/chat-window-host';
 import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
 import { useRevalidator } from 'react-router';
@@ -39,6 +40,7 @@ export type LibraryDialogProps = Readonly<{
   sheetEditorLayout?: SheetEditorLayoutMemory;
   clock: InteractionClock;
   clipboard: Clipboard;
+  fileDownload?: FileDownload;
   documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
   chatWindowHost?: ChatWindowHost;
   onRegisterLeave?: (guard: (() => Promise<boolean>) | null) => void;

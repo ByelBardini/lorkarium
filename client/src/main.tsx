@@ -18,6 +18,7 @@ import { HttpCampaignsApi } from '@/services/campaigns-api';
 import { HttpLibraryApi } from '@/services/library-api';
 import { HttpProfileApi } from '@/services/profile-api';
 import { NavigatorClipboard } from '@/services/clipboard';
+import { BrowserFileDownload } from '@/services/file-download';
 import { DocumentFieldEditing } from '@/services/field-editing';
 import { desktopShellOf, isDesktopShell } from '@/lib/desktop-shell';
 import { TauriDesktopWindow } from '@/services/desktop-window';
@@ -123,6 +124,7 @@ const router = createBrowserRouter(
     sceneActivation: new RealtimeSceneActivation(realtime, newActionId),
     assets: new HttpAssetsApi(transport),
     clipboard: new NavigatorClipboard(),
+    fileDownload: new BrowserFileDownload(),
     isDesktop: isDesktopShell(navigator.userAgent),
     desktopWindow: desktopShellOf(navigator.userAgent)?.titleBar ? new TauriDesktopWindow() : null,
     fieldEditing: new DocumentFieldEditing(document),
