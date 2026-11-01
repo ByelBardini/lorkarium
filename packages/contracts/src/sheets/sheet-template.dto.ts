@@ -8,10 +8,14 @@ export const UNNAMED_SHEET_TEMPLATE_NAME = 'Modelo sem nome';
 const SOURCE_KEYS = ['html', 'css', 'js'] as const;
 const CHANGE_KEYS = ['name', 'folderId', ...SOURCE_KEYS] as const;
 
-const sheetTemplateNameDto = z.string().trim().min(1).max(SHEET_TEMPLATE_NAME_MAX_LENGTH);
+export const sheetTemplateNameDto = z.string().trim().min(1).max(SHEET_TEMPLATE_NAME_MAX_LENGTH);
 // Characters never outnumber UTF-8 bytes, so this cheap cap runs before the byte count.
 const sourceTextDto = z.string().max(SHEET_TEMPLATE_SOURCE_MAX_BYTES);
-const sheetTemplateSourceShape = { html: sourceTextDto, css: sourceTextDto, js: sourceTextDto };
+export const sheetTemplateSourceShape = {
+  html: sourceTextDto,
+  css: sourceTextDto,
+  js: sourceTextDto,
+};
 
 interface PartialSource {
   html?: string;
@@ -19,7 +23,10 @@ interface PartialSource {
   js?: string;
 }
 
-function checkSourceBudget(source: PartialSource, context: z.RefinementCtx): void {
+export function checkSheetTemplateSourceBudget(
+  source: PartialSource,
+  context: z.RefinementCtx,
+): void {
   const bytes = SOURCE_KEYS.reduce((sum, key) => sum + utf8Length(source[key] ?? ''), 0);
   if (bytes <= SHEET_TEMPLATE_SOURCE_MAX_BYTES) return;
   context.addIssue({
@@ -45,7 +52,7 @@ export type SheetTemplateSummaryDto = z.infer<typeof sheetTemplateSummaryDto>;
  *  Example: `sheetTemplateDto.parse({ ...summary, html: '<p></p>', css: '', js: '' })` */
 export const sheetTemplateDto = z
   .strictObject({ ...sheetTemplateSummaryDto.shape, ...sheetTemplateSourceShape })
-  .superRefine(checkSourceBudget);
+  .superRefine(checkSheetTemplateSourceBudget);
 export type SheetTemplateDto = z.infer<typeof sheetTemplateDto>;
 
 /** The code a sheet runs, sent with the sheet so one read mounts the frame.
@@ -57,7 +64,7 @@ export const sheetTemplateCodeDto = z
     version: stateVersionDto,
     ...sheetTemplateSourceShape,
   })
-  .superRefine(checkSourceBudget);
+  .superRefine(checkSheetTemplateSourceBudget);
 export type SheetTemplateCodeDto = z.infer<typeof sheetTemplateCodeDto>;
 
 /** Body of `POST /campaigns/:campaignId/sheet-templates` (master only): no name =
@@ -70,7 +77,7 @@ export const createSheetTemplateRequestDto = z
     folderId: z.uuid().nullable().optional(),
     ...sheetTemplateSourceShape,
   })
-  .superRefine(checkSourceBudget);
+  .superRefine(checkSheetTemplateSourceBudget);
 export type CreateSheetTemplateRequestDto = z.infer<typeof createSheetTemplateRequestDto>;
 
 interface TemplateChanges extends PartialSource {
@@ -108,7 +115,7 @@ export const updateSheetTemplateRequestDto = z
   })
   .superRefine((changes, context) => {
     checkTemplateChanges(changes, context);
-    checkSourceBudget(changes, context);
+    checkSheetTemplateSourceBudget(changes, context);
   });
 export type UpdateSheetTemplateRequestDto = z.infer<typeof updateSheetTemplateRequestDto>;
 

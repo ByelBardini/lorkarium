@@ -65,6 +65,7 @@ export * from './documents/document-tab.dto';
 export * from './documents/document.dto';
 export * from './documents/document-image.dto';
 export * from './sheets/sheet-template.dto';
+export * from './sheets/sheet-template-file.dto';
 export * from './sheets/sheet.dto';
 export * from './sheets/sheet-values.dto';
 export * from './sheets/sheet-bridge.dto';
