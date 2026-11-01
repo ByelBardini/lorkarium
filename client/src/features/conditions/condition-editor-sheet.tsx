@@ -110,9 +110,9 @@ function NewConditionEditor({ link, onChoose }: NewConditionEditorProps): React.
   const create = async (values: ConditionFormValues): Promise<BoardCommandResult> => {
     const result = await link.commands.defineCondition(link.scope, values);
     if (!result.ok) return result;
-    const created = link.cast
+    const created = link.table
       .getState()
-      .board?.conditionDefinitions.find((definition) => definition.name === values.name);
+      .conditionDefinitions.find((definition) => definition.name === values.name);
     onChoose(created ? { kind: 'edit', conditionId: created.id } : null);
     return result;
   };

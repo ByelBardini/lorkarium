@@ -9,6 +9,7 @@ import {
   ContextMenuSubTrigger,
 } from '@/components/ui/context-menu';
 import { sheetKey } from '@/lib/library-entries';
+import { isSpareSheet } from '@/lib/sheet-holder';
 import {
   DELETE_SHEET,
   GIVE_SHEET,
@@ -59,7 +60,7 @@ export function SheetTreeItems(props: SheetTreeItemsProps): React.JSX.Element {
       </ContextMenuItem>
       <GiveItems master={master} sheet={sheet} change={change} />
       <ContextMenuItem
-        disabled={off || sheet.tokenId === null}
+        disabled={off || isSpareSheet(sheet)}
         onSelect={() => change({ holder: null })}
       >
         {RELEASE_FROM_HOLDER}

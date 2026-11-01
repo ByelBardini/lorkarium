@@ -61,7 +61,7 @@ describe('TokenLinkService', () => {
       });
 
       const stored = table.tokens.rowOf(KAEL_ID);
-      expect(stored.token).toMatchObject({ characterId: LYRA_CHARACTER_ID, anchorTokenId: null });
+      expect(stored.token).toMatchObject({ characterId: LYRA_CHARACTER_ID });
       expect(stored.bars).toEqual([]);
       expect(stored.controllerIds).toEqual([]);
       expect(table.conditions.active).toEqual([]);
@@ -137,25 +137,6 @@ describe('TokenLinkService', () => {
     });
   });
 
-  describe('the old link to a card', () => {
-    it("links to the character of the card's player", async () => {
-      await service.linkToCard(ANA_ID, VHARN_ID, {
-        ...{ ...ON_TORRE, tokenId: KAEL_ID, memberId: BIA_ID },
-      });
-
-      expect(table.tokens.rowOf(KAEL_ID).token.characterId).toBe(LYRA_CHARACTER_ID);
-    });
-
-    it('a member without a character (the master) is MEMBER_NOT_FOUND, nothing written', async () => {
-      const linking = service.linkToCard(ANA_ID, VHARN_ID, {
-        ...{ ...ON_TORRE, tokenId: KAEL_ID, memberId: ANA_ID },
-      });
-
-      await expect(linking).rejects.toMatchObject({ code: 'MEMBER_NOT_FOUND' });
-      expect(table.journal).not.toContain('adopt');
-    });
-  });
-
   describe('unlink', () => {
     beforeEach(() => {
       table.tokens.rows.push(linkedLyraRow());
@@ -176,7 +157,6 @@ describe('TokenLinkService', () => {
       const unlinked = table.tokens.rowOf(ESTRADA_LYRA_ID);
       expect(unlinked.token).toMatchObject({
         characterId: null,
-        anchorTokenId: null,
         name: 'Lyra',
       });
       expect(unlinked.bars.map(({ current }) => current)).toEqual([20, 1]);

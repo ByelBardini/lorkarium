@@ -36,7 +36,7 @@ function toTokenControl(place: TokenPlacePo): TokenControl {
 
 function isTokenSeen(access: CampaignAccessBo, place: TokenPlacePo): boolean {
   const groupSceneId = place.isActive ? place.sceneId : null;
-  const grid = { id: place.sceneId, visibility: place.visibility, kind: place.kind };
+  const grid = { id: place.sceneId, visibility: place.visibility };
   return new SceneAccessBo(access, groupSceneId).canSee(grid);
 }
 

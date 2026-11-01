@@ -37,9 +37,9 @@ import {
   reachedGridOf,
   type LockedGrid,
   type SavedInScene,
+  type SavedVersion,
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
-import type { SavedVersion } from '../scenes/locked-cast';
 import type { CharacterRow } from '../characters/characters.dao';
 import {
   inLockedGridWithCharacters,
@@ -332,7 +332,6 @@ export class TokensService {
     await requireAssetsOf(daos, scene.campaignId, lookAssetIdsOf(command));
     if (character) await updateLinkedToken(daos, found, character, update);
     else await daos.tokens.update(found.token.id, update);
-    await daos.mainTokens.dropLostControl(found.token.id, update.controllerIds);
     const shared = character && (await characterIn(daos, scene.campaignId, character.character.id));
     const token = await this.reread(daos, scene, found);
     const veiled = await changeSceneOf(daos, scene, found, token.row, true);

@@ -8,20 +8,25 @@ import type { AppDependencies } from '@/app/router';
 import { DocumentWorkspaceHost } from '@/features/documents/document-workspace-host';
 import { SheetPanel } from '@/features/sheets/sheet-panel';
 import { SHEET_READY_TIMEOUT_MS } from '@/features/sheets/sheet-sandbox-view';
-import { boardTokenSource, type BoardTokenSource } from '@/sheet-sandbox/sheet-token-source';
-import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { characterSource, type SheetHolderSource } from '@/sheet-sandbox/sheet-token-source';
+import type { CharactersStore } from '@/stores/characters-store';
 import { createSheetStore, type SheetStoreState } from '@/stores/sheet-store';
 import { testDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 import { detailOf, VHARN } from '../../support/campaigns-api-fake';
-import { LYRA_ANCHOR_ID, VHARN_CAST_ID, castBoard, lyraAnchor } from '../../support/cast-fixtures';
+import {
+  characterChangedAt,
+  charactersSynced,
+  lyraCharacter,
+  syncedCharacters,
+} from '../../support/character-fixtures';
 import { DiceCommandsFake } from '../../support/dice-commands-fake';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
 import { SheetCommandsFake } from '../../support/sheet-commands-fake';
 import { LYRA_SHEET_ID, lyraSheet, sheetResponse } from '../../support/sheet-fixtures';
 import { SheetChannelsFake } from '../../support/sheet-frame-fakes';
 import { SheetsApiFake } from '../../support/sheets-api-fake';
-import { vharnBoard, vharnState } from '../../support/table-session-fixtures';
+import { BIA_AT_TABLE, vharnBoard, vharnState } from '../../support/table-session-fixtures';
 
 const TITLE = 'Ficha · Lyra de Vharn';
 
@@ -29,19 +34,18 @@ describe('SheetPanel', () => {
   let api: SheetsApiFake;
   let clock: InteractionClockFake;
   let channels: SheetChannelsFake;
-  let cast: StoreApi<BoardStore>;
+  let characters: StoreApi<CharactersStore>;
   let store: StoreApi<SheetStoreState>;
 
   beforeEach(async () => {
     api = new SheetsApiFake();
     clock = new InteractionClockFake();
     channels = new SheetChannelsFake();
-    cast = createBoardStore(VHARN.id, () => undefined);
-    cast.getState().apply({ kind: 'board', state: castBoard() });
+    characters = syncedCharacters(lyraCharacter());
   });
 
   async function renderLyra(
-    tokens: BoardTokenSource | null = boardTokenSource(cast, LYRA_ANCHOR_ID),
+    tokens: SheetHolderSource | null = characterSource(characters, BIA_AT_TABLE.userId),
   ): Promise<void> {
     store = createSheetStore({
       ...{ api, campaignId: VHARN.id, sheetId: LYRA_SHEET_ID, clock },
@@ -146,7 +150,7 @@ describe('SheetPanel', () => {
     );
   });
 
-  it('a held sheet whose token is not in the room yet sends no state (still loading)', async () => {
+  it('a held sheet whose holder is not in the room yet sends no state (still loading)', async () => {
     await renderLyra(null);
     loadFrame();
     frameSaysReady();
@@ -176,15 +180,12 @@ describe('SheetPanel', () => {
     );
   });
 
-  it('losing the control of the token reads the sheet again from the server', async () => {
+  it('losing the control of the character reads the sheet again from the server', async () => {
     await renderLyra();
     const reads = api.detailCalls;
     api.detailResult = { ok: false, failure: { kind: 'not_found' } };
     act(() =>
-      cast.getState().apply({
-        kind: 'board',
-        state: castBoard({ version: 4, tokens: [lyraAnchor({ canControl: false })] }),
-      }),
+      characters.getState().apply(characterChangedAt(4, lyraCharacter({ canControl: false }))),
     );
     await waitFor(() => expect(store.getState().status).toBe('not_found'));
     expect(api.detailCalls).toBe(reads + 1);
@@ -229,15 +230,13 @@ describe('a sheet in the room', () => {
     const deps = testDependencies();
     deps.sessionStore.getState().signedIn(ANA);
     deps.openTables.getState().restore(ANA.id);
-    deps.openTables
-      .getState()
-      .open({ campaignId: VHARN.id, name: VHARN.name, castSceneId: VHARN_CAST_ID });
+    deps.openTables.getState().open({ campaignId: VHARN.id, name: VHARN.name });
     deps.tableSessionApi.emitTo(
       VHARN.id,
       { kind: 'state', state: vharnState() },
       { kind: 'board', state: vharnBoard() },
     );
-    deps.tableSessionApi.emitToCast(VHARN.id, { kind: 'board', state: castBoard() });
+    deps.tableSessionApi.emitToCharacters(VHARN.id, charactersSynced(3, lyraCharacter()));
     deps.documentWorkspace
       .getState()
       .openSheet({ campaign: detailOf(VHARN), sheetId: LYRA_SHEET_ID, sheetName: 'Lyra de Vharn' });
@@ -281,13 +280,13 @@ describe('a sheet in the room', () => {
     act(() => deps.documentWorkspace.getState().clear());
   });
 
-  it('the master taking Bia off the token closes its `controllers` sheet and says so', async () => {
+  it('the master taking Bia off her character closes its `controllers` sheet and says so', async () => {
     const deps = await roomWithLyraSheet();
     deps.sheetsApi.detailResult = { ok: false, failure: { kind: 'not_found' } };
-    deps.tableSessionApi.emitToCast(VHARN.id, {
-      kind: 'board',
-      state: castBoard({ version: 4, tokens: [lyraAnchor({ canControl: false })] }),
-    });
+    deps.tableSessionApi.emitToCharacters(
+      VHARN.id,
+      characterChangedAt(4, lyraCharacter({ canControl: false })),
+    );
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'A ficha Lyra de Vharn foi fechada: ela foi excluída ou você não pode mais vê-la.',
     );

@@ -13,9 +13,8 @@ export type OpenTableView =
       kind: 'open';
       presence: StoreApi<TablePresenceStore>;
       board: StoreApi<BoardStore>;
-      /** The table's cast: the conditions defined, in the table's version. */
-      cast: StoreApi<BoardStore>;
-      /** The table's characters: the cards, the dock and the linked tokens. */
+      /** The table stream: the characters (the cards, the dock and the linked tokens) and the
+       *  table's list of conditions. */
       characters: StoreApi<CharactersStore>;
       edits: StoreApi<TableEditStore>;
       /** The grid tabs; `null` until the table actually opens. */
@@ -29,14 +28,13 @@ export type OpenTableView =
  *
  *  Example: `const view = useOpenTable(campaign, deps.openTables)` */
 export function useOpenTable(
-  campaign: Pick<CampaignDetailDto, 'id' | 'name' | 'castSceneId' | 'cover'>,
+  campaign: Pick<CampaignDetailDto, 'id' | 'name' | 'cover'>,
   openTables: StoreApi<OpenTablesStore>,
 ): OpenTableView {
   // Until the effect opens it, the room reads these: connecting, nobody listed, board loading.
   const [pending] = useState(() => ({
     presence: createTablePresenceStore(campaign.id),
     board: createBoardStore(campaign.id, () => undefined),
-    cast: createBoardStore(campaign.id, () => undefined),
     characters: createCharactersStore(campaign.id, () => undefined),
     edits: createTableEditStore(campaign.id),
   }));
@@ -46,14 +44,14 @@ export function useOpenTable(
     (state) => !tableOf(state, campaign.id) && state.tables.length >= MAX_OPEN_TABLES,
   );
   // Reruns only when a slot frees up, so closing this very table does not reopen it.
-  const { id: campaignId, name, castSceneId, cover } = campaign;
+  const { id: campaignId, name, cover } = campaign;
   useEffect(() => {
-    if (!isFull) openTables.getState().open({ campaignId, name, castSceneId, cover });
-  }, [campaignId, name, castSceneId, cover, isFull, openTables]);
+    if (!isFull) openTables.getState().open({ campaignId, name, cover });
+  }, [campaignId, name, cover, isFull, openTables]);
   if (isFull) return { kind: 'full' };
   if (table) {
-    const { presence, board, cast, characters, edits, tabs } = table;
-    return { kind: 'open', presence, board, cast, characters, edits, tabs };
+    const { presence, board, characters, edits, tabs } = table;
+    return { kind: 'open', presence, board, characters, edits, tabs };
   }
   return { kind: 'open', ...pending, tabs: null };
 }

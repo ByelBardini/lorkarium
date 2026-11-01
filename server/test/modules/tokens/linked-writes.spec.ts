@@ -36,7 +36,6 @@ describe('writes on a token linked to a character', () => {
 
   beforeEach(() => {
     table = new CharacterTableFake();
-    table.withLyraAnchor();
     table.tokens.rows.push(linkedLyraRow(), kaelRow());
     const { members, publisher, characterPublisher, clock } = table;
     const transaction = table.transaction.run;

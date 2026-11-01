@@ -7,7 +7,7 @@ import {
   type SheetWriteResponseDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { linkToCard, lyraPoisonedAtVharn, tokenIn } from '../support/characters';
+import { linkToPlayerCharacter, lyraPoisonedAtVharn, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
@@ -75,7 +75,7 @@ function readSheet(user: SignedInUser, sheetId: string) {
 async function lyraOnTwoGrids() {
   const table = await lyraPoisonedAtVharn(live);
   const { ana, lyra } = table;
-  await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+  await linkToPlayerCharacter(live, ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
   const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada');
   await setGridVisibility(live, live.ana, live.vharn, estrada, 'public');
   await gridAck(ana, 'scene:watch', live.vharn, estrada);
@@ -83,7 +83,7 @@ async function lyraOnTwoGrids() {
   const command = { ...tokenCommandFor(live.vharn, live.bia.id), sceneId: estrada, bars: [] };
   await send(ana, 'token:create', command);
   const lyraOfEstrada = (await createdTokenOf(anaEvents)).id;
-  await linkToCard(ana, live.vharn, {
+  await linkToPlayerCharacter(live, ana, live.vharn, {
     sceneId: estrada,
     tokenId: lyraOfEstrada,
     memberId: live.bia.id,
@@ -172,11 +172,11 @@ describe('sheets linked to tokens over HTTP', () => {
 
   it('unlinking Lyra leaves the sheet on the character', async () => {
     const { ana, lyra } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+    await linkToPlayerCharacter(live, ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
     const { sheet } = await linked(lyra.id);
     const { character } = await characterOfUser(live, live.vharn, live.bia);
 
-    await send(ana, 'token:unlinkFromCard', { ...envelope(live.vharn.id), tokenId: lyra.id });
+    await send(ana, 'token:unlinkFromCharacter', { ...envelope(live.vharn.id), tokenId: lyra.id });
 
     expect(await sheetIdsOf(live.bia, lyra.id)).toEqual([]);
     expect(await sheetIdsOfCharacter(live.bia, character.id)).toEqual([sheet.id]);

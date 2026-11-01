@@ -4,11 +4,11 @@ import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort, VeiledLightsChange } from '../scenes/board-publisher.port';
 import {
-  inLockedGridWithCast,
-  type CastAndGridChange,
-  type LockedGridMaybeCast,
+  reachedGridOf,
+  type GridAddress,
+  type LockedGrid,
   type SavedVersion,
-} from '../scenes/locked-cast';
+} from '../scenes/locked-scene';
 import { hiddenCutsOf, veiledLightsCutsOf, type VeilChange } from './token-hidden.mapper';
 import { changedVisibility } from './token-rules.bo';
 import {
@@ -39,11 +39,8 @@ type HiddenWrite = Readonly<{
   lights: VeiledLightsChange['cuts'];
 }>;
 
-const NOTHING_CHANGED: CastAndGridChange<HiddenWrite | null> = {
-  value: null,
-  grid: false,
-  cast: false,
-};
+/** What the transaction saved: the write (`null` = nothing changed) and the grid's version. */
+type SavedHidden = Readonly<{ value: HiddenWrite | null; grid: SavedVersion }>;
 
 /** The master hides tokens from the players or shows them again, on the grid the command names.
  *  Who keeps seeing them gets the flag; who stops gets them deleted, who starts gets them created
@@ -64,18 +61,26 @@ export class TokenVisibilityService {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster('hide tokens');
     const address = { campaignId, sceneId: command.sceneId, access };
-    const saved = await inLockedGridWithCast(this.deps.transaction, address, (locked) =>
-      this.write(locked, command),
-    );
-    if (saved.grid && saved.value)
-      this.publish(campaignId, saved.grid, command.hidden, saved.value);
-    return saved.version;
+    const saved = await this.inLockedGrid(address, command);
+    if (saved.value) this.publish(campaignId, saved.grid, command.hidden, saved.value);
+    return saved.grid.version;
+  }
+
+  // The grid alone (hiding never touches a character), bumped only when a token changed.
+  private async inLockedGrid(address: GridAddress, command: SetTokensHidden): Promise<SavedHidden> {
+    return this.deps.transaction(async (daos) => {
+      const row = await daos.scenes.lockInCampaign(address.campaignId, address.sceneId);
+      const scene = reachedGridOf(address, row);
+      const value = await this.write({ daos, scene }, command);
+      const version = value ? await daos.scenes.bumpVersion(scene.id) : scene.version;
+      return { value, grid: { sceneId: scene.id, version } };
+    });
   }
 
   private async write(
-    { daos, scene }: LockedGridMaybeCast<TokenWriteDaos>,
+    { daos, scene }: LockedGrid<TokenWriteDaos>,
     { tokenIds, hidden }: SetTokensHidden,
-  ): Promise<CastAndGridChange<HiddenWrite | null>> {
+  ): Promise<HiddenWrite | null> {
     const rows = await tokensIn(daos, scene, scene.campaignId, tokenIds);
     const changedIds = new Set(
       changedVisibility(
@@ -83,7 +88,7 @@ export class TokenVisibilityService {
         hidden,
       ),
     );
-    if (changedIds.size === 0) return NOTHING_CHANGED;
+    if (changedIds.size === 0) return null;
     await daos.tokens.setHidden(scene.id, [...changedIds], hidden);
     const after = sceneVeilOf(await daos.tokens.veilOfScene(scene.id));
     const changed = flaggedAll(
@@ -92,7 +97,7 @@ export class TokenVisibilityService {
     );
     const touched = veilOf(flaggedAll(changed, true));
     const before = hidden ? withoutIds(after, changedIds) : joinedVeil(after, touched);
-    const value = {
+    return {
       changed: await audiencesWithConditions(daos, changed),
       scene: { before, after, combat: await combatOf(daos, scene) },
       lights: veiledLightsCutsOf(
@@ -100,7 +105,6 @@ export class TokenVisibilityService {
         touched.tokens.filter(({ light }) => light !== null),
       ),
     };
-    return { value, grid: true, cast: false };
   }
 
   private publish(

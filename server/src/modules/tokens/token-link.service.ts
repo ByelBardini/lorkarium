@@ -1,14 +1,11 @@
 import { changeSceneOf, publishTokenChange, type ChangeScene } from './token-veil';
 import type {
-  LinkTokenToCardCommandDto,
   LinkTokenToCharacterCommandDto,
   UnlinkTokenFromCharacterCommandDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
-import { MemberNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf } from '../campaigns/member-access';
-import type { CharacterRow } from '../characters/characters.dao';
 import {
   inLockedCharactersAndGrid,
   type CharactersAndGridChange,
@@ -16,7 +13,7 @@ import {
   type SavedInCharactersAndGrid,
 } from '../characters/locked-characters-grid';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
-import { savedEventBase } from '../scenes/locked-cast';
+import { gridEventBase } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
 import { CharacterLinkBo } from './character-link.bo';
 import { characterIn, identityOf } from './linked-token';
@@ -32,7 +29,6 @@ import type { TokenRow } from './tokens.dao';
 type Envelope = 'actionId' | 'campaignId';
 export type LinkTokenToCharacter = Omit<LinkTokenToCharacterCommandDto, Envelope>;
 export type UnlinkTokenFromCharacter = Omit<UnlinkTokenFromCharacterCommandDto, Envelope>;
-export type LinkTokenToCard = Omit<LinkTokenToCardCommandDto, Envelope>;
 
 export type TokenLinkServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
@@ -43,9 +39,6 @@ export type TokenLinkServiceDeps = Readonly<{
 
 type Locked = LockedGridMaybeCharacters<TokenWriteDaos>;
 type Relinked = Readonly<{ token: TokenWithConditions; veiled: ChangeScene }>;
-type TokenAddress = Readonly<{ sceneId?: string | undefined; tokenId: string }>;
-// How a link names its character, read in the transaction: by its id, or by its player.
-type CharacterTarget = (daos: TokenWriteDaos) => Promise<CharacterRow>;
 
 /** Links a grid token to a character of the table and back, master only. The characters are
  *  locked before the grid; only the grid gets a version (the character does not change), and
@@ -59,22 +52,14 @@ export class TokenLinkService {
    *  CHARACTER_ALREADY_PLACED when the token already wears one or the grid already has the
    *  character's; CHARACTER_NOT_FOUND for a character of another table. */
   async link(userId: string, campaignId: string, command: LinkTokenToCharacter): Promise<number> {
-    const { characterId, ...token } = command;
-    return this.linkTo(userId, campaignId, token, (daos) =>
-      characterIn(daos, campaignId, characterId),
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    access.requireMaster('link a token to a character');
+    const rules = new CharacterLinkBo();
+    const address = { campaignId, sceneId: command.sceneId, access };
+    const saved = await inLockedCharactersAndGrid(this.deps.transaction, address, (locked) =>
+      this.linkIn(locked, rules, command),
     );
-  }
-
-  /** The old link to a player's card (`token:linkToCard`, gone in phase 13 of the plan): the
-   *  character of the card's player. MEMBER_NOT_FOUND for a member without one (the master, a
-   *  stranger). */
-  async linkToCard(userId: string, campaignId: string, command: LinkTokenToCard): Promise<number> {
-    const { memberId, ...token } = command;
-    return this.linkTo(userId, campaignId, token, async (daos) => {
-      const found = await daos.characters.findOfUser(campaignId, memberId);
-      if (!found) throw new MemberNotFoundError(campaignId, memberId);
-      return found;
-    });
+    return this.published(campaignId, saved);
   }
 
   /** The token keeps a copy of what it showed (the character's identity, bars, controllers and
@@ -94,31 +79,14 @@ export class TokenLinkService {
     return this.published(campaignId, saved);
   }
 
-  private async linkTo(
-    userId: string,
-    campaignId: string,
-    command: TokenAddress,
-    target: CharacterTarget,
-  ): Promise<number> {
-    const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    access.requireMaster('link a token to a character');
-    const rules = new CharacterLinkBo();
-    const address = { campaignId, sceneId: command.sceneId, access };
-    const saved = await inLockedCharactersAndGrid(this.deps.transaction, address, (locked) =>
-      this.linkIn(locked, rules, command.tokenId, target),
-    );
-    return this.published(campaignId, saved);
-  }
-
   private async linkIn(
     { daos, scene }: Locked,
     rules: CharacterLinkBo,
-    tokenId: string,
-    target: CharacterTarget,
+    { tokenId, characterId }: LinkTokenToCharacter,
   ): Promise<CharactersAndGridChange<Relinked>> {
     const found = await tokenIn(daos, scene, scene.campaignId, tokenId);
     rules.requireFree(found.token);
-    const characterId = (await target(daos)).character.id;
+    await characterIn(daos, scene.campaignId, characterId);
     const placed = await daos.characterLinks.placedOn(scene.id, characterId);
     rules.requireNotPlaced(tokenId, characterId, placed);
     await daos.characterLinks.adopt(tokenId, characterId);
@@ -139,7 +107,7 @@ export class TokenLinkService {
 
   private published(campaignId: string, saved: SavedInCharactersAndGrid<Relinked>): number {
     if (!saved.grid) return saved.version;
-    const base = savedEventBase(campaignId, saved.grid, this.deps.clock);
+    const base = gridEventBase(campaignId, saved.grid, this.deps.clock);
     const { token, veiled } = saved.value;
     publishTokenChange(this.deps.publisher, 'token:updated', base, token, veiled);
     return saved.version;

@@ -7,7 +7,6 @@ import {
   CharacterTableFake,
   ESTRADA_LYRA_ID,
   KAEL_ID,
-  LYRA_ANCHOR_ID,
   QUELM_TOKEN_ID,
   VHARN_SCENE_ID,
   VHARN_TORRE_ID,
@@ -145,7 +144,6 @@ describe('TokenFormService.setForm', () => {
 
   describe('a token linked to a character', () => {
     beforeEach(() => {
-      table.withLyraAnchor();
       table.tokens.rows.push(linkedLyraRow());
       const forms = lyraForms().map((form) => ({ ...form, tokenId: ESTRADA_LYRA_ID }));
       table.tokens.store(ESTRADA_LYRA_ID, (row) => ({ ...row, forms }));
@@ -167,7 +165,6 @@ describe('TokenFormService.setForm', () => {
       expect(own.activeFormId).toBe(LYRA_WOLF_FORM_ID);
       expect(character()).toMatchObject({ imageAssetId: WOLF_IMAGE_ID, frame: 'round' });
       expect(character()).toMatchObject({ width: 1, height: 1 });
-      expect(table.tokens.rowOf(LYRA_ANCHOR_ID).token.activeFormId).toBeNull();
     });
 
     it('locks the characters before the grid: one character:changed and the grid event, each in its version', async () => {

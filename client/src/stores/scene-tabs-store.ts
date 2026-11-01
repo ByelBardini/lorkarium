@@ -85,9 +85,8 @@ export type SceneTabsDeps = Readonly<{
   campaignId: string;
   /** The group grid's board, fed by the table's own updates. */
   groupBoard: StoreApi<BoardStore>;
-  /** The table's cast: every tab's list of conditions is read from it. */
-  cast: StoreApi<BoardStore>;
-  /** The table's characters: every tab's linked tokens wear them. */
+  /** The table stream: every tab's linked tokens wear its characters, and its list of
+   *  conditions is every tab's. */
   characters: StoreApi<CharactersStore>;
   watch: (sceneId: string, listener: GridListener) => GridWatchHandle;
   storage: TabStorage;
@@ -178,7 +177,6 @@ class SceneTabsActions {
     private readonly get: GetTabs,
   ) {
     deps.groupBoard.subscribe(() => this.followGroupGrid());
-    deps.cast.subscribe(() => this.relinkTabs());
     deps.characters.subscribe(() => this.relinkTabs());
   }
 
@@ -233,7 +231,7 @@ class SceneTabsActions {
     const board = createBoardStore(
       this.deps.campaignId,
       () => this.watches.get(sceneId)?.resync(),
-      tableLinksOf(this.deps.cast, this.deps.characters),
+      tableLinksOf(this.deps.characters),
     );
     const pings = createPingFeed();
     const handle = this.deps.watch(sceneId, (update) => {

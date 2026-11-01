@@ -11,11 +11,7 @@ import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { CombatDao } from '../combat/combat.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
-import { MainTokensDao } from './main-tokens.dao';
-import { MemberCardsDao } from '../member-cards/member-cards.dao';
-import { TokenAnchorsDao } from './token-anchors.dao';
 import { TokenCharacterLinkDao } from './token-character-link.dao';
-import { MainTokenService } from './main-token.service';
 import { TokensDao } from './tokens.dao';
 import type { SceneWallsService } from '../walls/scene-walls.service';
 import { WallsDao } from '../walls/walls.dao';
@@ -44,7 +40,6 @@ export type TokensModule = Readonly<{
   batch: TokenBatchService;
   appearance: TokenAppearanceService;
   form: TokenFormService;
-  mainToken: MainTokenService;
   link: TokenLinkService;
   visibility: TokenVisibilityService;
 }>;
@@ -63,10 +58,7 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
         combat: new CombatDao(tx),
         assets: new AssetsDao(tx),
         walls: new WallsDao(tx),
-        mainTokens: new MainTokensDao(tx),
-        anchors: new TokenAnchorsDao(tx),
         characterLinks: new TokenCharacterLinkDao(tx),
-        memberCards: new MemberCardsDao(tx),
         characters: new CharactersDao(tx),
       }),
     );
@@ -81,7 +73,6 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
     batch: new TokenBatchService({ ...deps, tokenRights }),
     appearance: new TokenAppearanceService(deps),
     form: new TokenFormService(deps),
-    mainToken: new MainTokenService(deps),
     link: new TokenLinkService(deps),
     visibility: new TokenVisibilityService(deps),
   };

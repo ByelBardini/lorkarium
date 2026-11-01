@@ -41,5 +41,5 @@ Formas nomeadas do token (imagem, borda e tamanho), trocadas no mapa em um cliqu
 
 ## Pendente
 
-- Ligar um token com formas a uma ficha (`token:linkToCard`) não leva as formas à âncora, e desligar não copia as da âncora ao token (o `TokenAnchorsDao` move barras, condições e controle).
+- Ligar um token com formas a um personagem (`token:linkToCharacter`) mantém as formas no token, e desligar também (o `TokenCharacterLinkDao` só troca barras, condições e controle).
 - Editar a forma ativa (imagem ou tamanho) pelo `token:update` não reaplica no token: ele fica com a aparência antiga até a forma ser escolhida de novo (a troca para a mesma forma, nesse caso, grava — o `isShowing` compara imagem e caixa).

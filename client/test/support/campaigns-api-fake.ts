@@ -108,7 +108,6 @@ export function detailOf(
     members: [detailMemberOf(summary.masterName, 'master'), ...others],
     joinCode: summary.myRole === 'master' ? 'VHRN7K2Q' : null,
     hasPassword: false,
-    castSceneId: '8e4d3c2b-1a0f-4e9d-a8b7-6f5e4d3c2b1a',
     createdAt: '2026-09-01T20:00:00.000Z',
     lastAccessAt: summary.lastEnteredAt,
     ...overrides,

@@ -73,7 +73,6 @@ export function toTokenDto(
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],
-    anchorTokenId: row.token.anchorTokenId,
     characterId: row.token.characterId,
     createdBy: row.token.createdBy,
     forms: toTokenFormsDto(row.forms, audience),
@@ -99,7 +98,7 @@ export function toTokenAuthorshipBo(
  *
  *  Example: `authorship.requireDelete(rows.map(toAuthoredToken))` */
 export function toAuthoredToken({ token }: TokenRow): AuthoredToken {
-  return { tokenId: token.id, createdBy: token.createdBy, anchorTokenId: token.anchorTokenId };
+  return { tokenId: token.id, createdBy: token.createdBy, characterId: token.characterId };
 }
 
 /** A saved token → its authorship and its vision as the wire carries it, for the edit rule.

@@ -9,12 +9,7 @@ import {
 import { toTokenDto } from '../../../src/modules/tokens/tokens.mapper';
 import { BIA_ID, CAIO_ID, QUELM_ID, VHARN_ID } from '../../support/campaigns-factories';
 import { CharactersDaoFake } from '../../support/characters-fakes';
-import {
-  ESTRADA_LYRA_ID,
-  LYRA_ANCHOR_ID,
-  linkedLyraRow,
-  lyraCharacterRow,
-} from '../../support/character-fakes';
+import { ESTRADA_LYRA_ID, linkedLyraRow, lyraCharacterRow } from '../../support/character-fakes';
 import { LYRA_CHARACTER_ID, characterPo } from '../../support/characters-factories';
 import {
   FIRE_AURA,
@@ -99,14 +94,12 @@ describe('a token linked to a character', () => {
     expect(composedTokenRow(linkedLyraRow(), undefined)).toEqual(linkedLyraRow());
   });
 
-  it('the DTO names its character and its anchor; an unlinked token has both null', () => {
+  it('the DTO names its character; an unlinked token has null', () => {
     const dto = toTokenDto(composedTokenRow(linkedLyraRow(), lyraCharacterRow()), 'privileged');
 
-    expect(dto).toMatchObject({ characterId: LYRA_CHARACTER_ID, anchorTokenId: LYRA_ANCHOR_ID });
-    expect(toTokenDto(lyraRow(), 'others')).toMatchObject({
-      characterId: null,
-      anchorTokenId: null,
-    });
+    expect(dto.characterId).toBe(LYRA_CHARACTER_ID);
+    expect(dto).not.toHaveProperty('anchorTokenId');
+    expect(toTokenDto(lyraRow(), 'others').characterId).toBeNull();
   });
 
   it('the redacted DTO keeps only the character bars seen by everyone, with the control', () => {

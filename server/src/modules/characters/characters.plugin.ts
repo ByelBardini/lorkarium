@@ -11,6 +11,7 @@ import {
   type CharacterSeatDaos,
   type CharacterSeatTransactionRunner,
 } from './character-seat.service';
+import { ConditionsDao } from '../conditions/conditions.dao';
 import { SheetsDao } from '../sheets/sheets.dao';
 import { CharactersDao } from './characters.dao';
 import { CharactersService } from './characters.service';
@@ -44,7 +45,10 @@ export function createCharactersModule(options: CharactersModuleOptions): Charac
       runInTransaction(db, (tx) =>
         work({ characters: new CharactersDao(tx), sheets: new SheetsDao(tx) }),
       ),
-    snapshot: (work) => runInSnapshot(db, (tx) => work({ characters: new CharactersDao(tx) })),
+    snapshot: (work) =>
+      runInSnapshot(db, (tx) =>
+        work({ characters: new CharactersDao(tx), conditions: new ConditionsDao(tx) }),
+      ),
     publisher,
     clock,
     barLimit: BAR_VALUE_LIMIT,

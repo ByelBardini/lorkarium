@@ -7,7 +7,6 @@ import { MobileRail } from '@/app/shell/mobile-rail';
 import { createOpenTablesStore, type OpenTablesStore } from '@/stores/open-tables-store';
 import { ANA } from '../../support/auth-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
-import { VHARN_CAST_ID } from '../../support/cast-fixtures';
 import { StorageFake } from '../../support/storage-fake';
 import { tabInteractions } from '../../support/tab-interactions';
 import { TableSessionApiFake } from '../../support/table-session-api-fake';
@@ -49,7 +48,7 @@ describe('MobileRail', () => {
   });
 
   it('the drawer lists the open tables, and choosing one closes it and goes to that table', async () => {
-    openTables.getState().open({ campaignId: VHARN.id, name: 'Vharn', castSceneId: VHARN_CAST_ID });
+    openTables.getState().open({ campaignId: VHARN.id, name: 'Vharn' });
     renderDrawer();
     await userEvent.click(screen.getByRole('button', { name: 'Abrir menu' }));
     const nav = within(await screen.findByRole('dialog')).getByRole('navigation', {

@@ -28,20 +28,22 @@ import { LYRA_SHEET_ID } from '../support/sheet-fixtures';
 import {
   LYRA_ID,
   VHARN_SCENE,
+  activeCondition,
   boardPinged,
+  kael,
   lyra,
   conditionDefinition,
   vharnBoard,
 } from '../support/table-session-fixtures';
-import { VHARN_CAST_ID, anchorUpdatedAt, castBoard } from '../support/cast-fixtures';
 import {
   characterChangedAt,
   charactersSynced,
+  definitionUpdatedAt,
   linkedLyra,
   lyraCharacter,
   lyraPvAt,
+  tableSynced,
 } from '../support/character-fixtures';
-import type { GridUpdate } from '@/services/table-session-api';
 
 const TABS_KEY = `${SCENE_TABS_STORAGE_PREFIX}${VHARN.id}`;
 const TORRE_WATCH = `${VHARN.id}:${TORRE_SCENE.id}`;
@@ -231,27 +233,37 @@ describe('scene tabs store', () => {
     expect(group.edits.getState().history.past).toHaveLength(1);
   });
 
-  describe('the cast', () => {
-    function castEvent(version: number, pv: number): GridUpdate {
-      return { kind: 'boardEvent', event: anchorUpdatedAt(version, pv) };
-    }
-
-    it('the open table follows its cast (board:sync of castSceneId) and applies its events', () => {
-      const table = openVharn();
-      expect(api.castFollowed).toEqual([`${VHARN.id}:${VHARN_CAST_ID}`]);
-      api.emitToCast(VHARN.id, { kind: 'board', state: castBoard() }, castEvent(4, 20));
-      expect(table.cast.getState().board?.tokens[0]?.bars[0]?.current).toBe(20);
-      expect(table.board.getState().board?.scene.id).toBe(VHARN_SCENE.id);
-    });
-
-    it('the conditions defined of every tab are the cast ones', () => {
+  describe('the condition list of the table stream', () => {
+    it('the conditions defined of every tab are the table stream ones', () => {
       const table = openVharn();
       const defined = [conditionDefinition({ name: 'Nauseado' })];
-      api.emitToCast(VHARN.id, {
-        kind: 'board',
-        state: castBoard({ conditionDefinitions: defined }),
-      });
+      api.emitTo(VHARN.id, { kind: 'board', state: vharnBoard() });
+      api.emitToCharacters(VHARN.id, tableSynced(3, [], defined));
       expect(table.board.getState().board?.conditionDefinitions).toEqual(defined);
+    });
+
+    it('condition:definitionUpdated shows on a linked Lyra in every tab and on a free Kael', () => {
+      const table = openVharn();
+      const poisoned = [activeCondition()];
+      const tokens = [linkedLyra(), kael({ conditions: poisoned })];
+      api.emitTo(VHARN.id, { kind: 'board', state: vharnBoard({ tokens }) });
+      table.tabs.getState().open(TORRE_SCENE.id);
+      api.emitToGrid(TORRE_SCENE.id, {
+        kind: 'board',
+        state: torreBoard({ tokens: [linkedLyra()] }),
+      });
+      const lyra = lyraCharacter({ conditions: poisoned });
+      api.emitToCharacters(VHARN.id, tableSynced(3, [lyra], [conditionDefinition()]));
+      api.emitToCharacters(
+        VHARN.id,
+        definitionUpdatedAt(4, conditionDefinition({ name: 'Nauseado' })),
+      );
+      const group = groupTabOf(tabsOf(table).getState()).board.getState().board;
+      const torre = visible(table).board.getState().board;
+      const conditionNames = [...(group?.tokens ?? []), ...(torre?.tokens ?? [])].map(
+        ({ conditions }) => conditions[0]?.name,
+      );
+      expect(conditionNames).toEqual(['Nauseado', 'Nauseado', 'Nauseado']);
     });
   });
 

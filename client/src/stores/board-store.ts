@@ -35,38 +35,38 @@ export type BoardStore = BoardStoreState &
     /** Asks the snapshot again while the board stays shown (the viewer's role changed: the
      *  server redacts it anew). Asked even with a resync on its way, which may predate the change. */
     resync: () => void;
-    /** The cast or the characters changed: the linked tokens and the table's list are read
-     *  from them again. */
+    /** The table stream changed: the linked tokens and the table's list are read from it
+     *  again. */
     relink: () => void;
   }>;
 
-/** The table's cast and characters as they stand (both `null` for the cast's own store). */
-export type LinksOf = () => TableLinks;
+/** The table stream as it stands; `null` before its first sync (or for a board of no table). */
+export type LinksOf = () => TableLinks | null;
 
-const NO_LINKS: TableLinks = { cast: null, characters: null };
-const UNLINKED: LinksOf = () => NO_LINKS;
+const UNLINKED: LinksOf = () => null;
 
-/** The links of an open table's grids: its cast's board and its characters (`null` until the
- *  first `character:sync`), read when asked.
+/** The links of an open table's grids: its table stream's characters and condition list
+ *  (`null` until the first `character:sync`), read when asked. The same object while the stream
+ *  did not change, so the boards' memo holds.
  *
- *  Example: `createBoardStore(campaignId, resync, tableLinksOf(cast, characters))` */
-export function tableLinksOf(
-  cast: StoreApi<BoardStore>,
-  characters: StoreApi<CharactersStore>,
-): LinksOf {
+ *  Example: `createBoardStore(campaignId, resync, tableLinksOf(characters))` */
+export function tableLinksOf(characters: StoreApi<CharactersStore>): LinksOf {
   return () => {
     const confirmed = characters.getState();
-    const shown = confirmed.version === null ? null : confirmed.characters;
-    return { cast: cast.getState().board, characters: shown };
+    if (confirmed.version === null) return null;
+    return {
+      characters: confirmed.characters,
+      conditionDefinitions: confirmed.conditionDefinitions,
+    };
   };
 }
 
 /** A board store for one open table. A snapshot always replaces the board; an event applies only
  *  at `version + 1`, is a duplicate at or below it, and a gap asks `requestResync` once. With
  *  `linksOf`, the board shown is the grid's over the table (`boardWithTable`): the linked tokens
- *  wearing their characters, the conditions defined from the cast's version.
+ *  wearing their characters, the conditions defined from the table stream's version.
  *
- *  Example: `const board = createBoardStore(campaignId, () => handle.resync(), () => ({ cast, characters }))` */
+ *  Example: `const board = createBoardStore(campaignId, () => handle.resync(), tableLinksOf(characters))` */
 export function createBoardStore(
   campaignId: string,
   requestResync: () => void,

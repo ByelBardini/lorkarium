@@ -32,7 +32,8 @@ import {
   campaignMemberRow,
   campaignPo,
 } from '../../support/campaigns-factories';
-import { VHARN_CAST_ID } from '../../support/scenes-factories';
+
+const DUDA_AVATAR_ID = '8e4d3c2b-1a0f-4e9d-a8b7-6f5e4d3c2b1a';
 
 const CAIO_ID = '5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b';
 
@@ -57,7 +58,6 @@ function detailView(overrides: Partial<CampaignDetailView> = {}): CampaignDetail
     campaign: campaignPo({ joinCode: 'VHRN7K2Q' }),
     membership: campaignMemberPo({ role: 'master', lastEnteredAt: null }),
     members: MEMBERS,
-    castSceneId: VHARN_CAST_ID,
     lastAccessAt: null,
     onlineUserIds: NOBODY_ONLINE,
     ...overrides,
@@ -74,11 +74,6 @@ function detailFor(role: 'master' | 'player', passwordHash: string | null = null
 }
 
 describe('campaigns mapper', () => {
-  it('the detail carries the id of the table cast, to master and player alike', () => {
-    expect(detailFor('master').castSceneId).toBe(VHARN_CAST_ID);
-    expect(detailFor('player').castSceneId).toBe(VHARN_CAST_ID);
-  });
-
   it('a listing row becomes the summary with ISO dates and the nulls preserved', () => {
     const row = campaignListingRow({
       campaign: campaignPo({ system: null, status: 'ongoing', description: null }),
@@ -402,14 +397,14 @@ describe('the table keeps no trace of a spectator', () => {
 describe('the role change in the mapper', () => {
   it('toCampaignMemberDto turns a member row into the participant the table shows, with the online given', () => {
     const duda = campaignMemberRow({ userId: DUDA_ID, name: 'Duda', role: 'player' });
-    const rose = { ...duda, colorChoice: 'rose' as const, avatarId: VHARN_CAST_ID };
+    const rose = { ...duda, colorChoice: 'rose' as const, avatarId: DUDA_AVATAR_ID };
 
     expect(toCampaignMemberDto(rose, true)).toEqual({
       userId: DUDA_ID,
       name: 'Duda',
       role: 'player',
       color: 'rose',
-      avatarId: VHARN_CAST_ID,
+      avatarId: DUDA_AVATAR_ID,
       online: true,
     });
   });

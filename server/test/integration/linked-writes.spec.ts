@@ -2,7 +2,12 @@ import { characterChangedEventDto } from '@lorkarium/contracts';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect, it } from 'vitest';
 import { COMMANDS_PER_SECOND } from '../../src/realtime/command-rate.bo';
-import { gridState, linkToCard, lyraPoisonedAtVharn, tokenIn } from '../support/characters';
+import {
+  gridState,
+  linkToPlayerCharacter,
+  lyraPoisonedAtVharn,
+  tokenIn,
+} from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
@@ -29,7 +34,7 @@ const LYRA_PV = {
 async function lyraOnTwoGrids() {
   const table = await lyraPoisonedAtVharn(live);
   const { ana, bia, caio, lyra } = table;
-  await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+  await linkToPlayerCharacter(live, ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
   const character = await characterOfUser(live, live.vharn, live.bia);
   await giveBars(live, character.character.id, [LYRA_PV, CHARACTER_MANA]);
   // A link drops the token's own Envenenado (phase 8); the character holds one instead.
@@ -41,7 +46,7 @@ async function lyraOnTwoGrids() {
   const command = { ...tokenCommandFor(live.vharn, live.bia.id), sceneId: estrada, bars: [] };
   await send(ana, 'token:create', command);
   const lyraOfEstrada = (await createdTokenOf(anaEvents)).id;
-  await linkToCard(ana, live.vharn, {
+  await linkToPlayerCharacter(live, ana, live.vharn, {
     sceneId: estrada,
     tokenId: lyraOfEstrada,
     memberId: live.bia.id,

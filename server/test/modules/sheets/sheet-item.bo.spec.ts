@@ -32,18 +32,15 @@ describe('SheetItemBo', () => {
     );
   });
 
-  it('a token of a grid holds sheets; one of the cast or none found is TOKEN_NOT_FOUND', () => {
-    const [anchor, lyra] = tablePlaces();
+  it('a token of a grid of the table holds sheets; none found is TOKEN_NOT_FOUND citing it', () => {
+    const [lyra] = tablePlaces();
 
     expect(rules.requireGridToken('lyra', lyra)).toBe(lyra);
-    expect(() => rules.requireGridToken('anchor', anchor)).toThrow(
+    expect(() => rules.requireGridToken('gone', undefined)).toThrow(
       expect.objectContaining({
         code: 'TOKEN_NOT_FOUND',
-        message: expect.stringContaining('anchor'),
+        message: expect.stringContaining('gone'),
       }),
-    );
-    expect(() => rules.requireGridToken('gone', undefined)).toThrow(
-      expect.objectContaining({ code: 'TOKEN_NOT_FOUND' }),
     );
   });
 

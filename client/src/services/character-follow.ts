@@ -3,15 +3,20 @@ import {
   characterChangedEventDto,
   characterRemovedEventDto,
   characterSyncAckDto,
+  conditionDefaultsRestoredDto,
+  conditionDefinedDto,
+  conditionDefinitionDeletedDto,
+  conditionDefinitionUpdatedDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
 import type { RealtimeTransport, Unsubscribe } from './realtime-transport';
 import { syncFailureOf } from './sync-failure';
 import type { CharacterListener, CharacterUpdate, CharactersHandle } from './table-session-api';
 
-/** The characters of one table visit: `character:sync` after each join (and on `resync`), and the
- *  validated `character:*` events of this table to the listener. A malformed event of this
- *  table syncs again: what it changed is unknown. */
+/** The table stream of one table visit: `character:sync` after each join (and on `resync`), and
+ *  the validated `character:*` and condition-list events of this table to the listener (they
+ *  name no grid; their version is the table stream's). A malformed event of this table syncs
+ *  again: what it changed is unknown. */
 export class CharacterFollow {
   private listener: CharacterListener | null = null;
 
@@ -30,6 +35,30 @@ export class CharacterFollow {
       })),
       this.onEvent(BOARD_EVENTS.characterRemoved, characterRemovedEventDto, (event) => ({
         kind: 'characterRemoved',
+        event,
+      })),
+      ...this.conditionListSubscriptions(),
+    ];
+  }
+
+  private conditionListSubscriptions(): Unsubscribe[] {
+    const { conditionDefined, conditionDefinitionUpdated } = BOARD_EVENTS;
+    const { conditionDefinitionDeleted, conditionDefaultsRestored } = BOARD_EVENTS;
+    return [
+      this.onEvent(conditionDefined, conditionDefinedDto, (event) => ({
+        kind: 'conditionDefined',
+        event,
+      })),
+      this.onEvent(conditionDefinitionUpdated, conditionDefinitionUpdatedDto, (event) => ({
+        kind: 'conditionDefinitionUpdated',
+        event,
+      })),
+      this.onEvent(conditionDefinitionDeleted, conditionDefinitionDeletedDto, (event) => ({
+        kind: 'conditionDefinitionDeleted',
+        event,
+      })),
+      this.onEvent(conditionDefaultsRestored, conditionDefaultsRestoredDto, (event) => ({
+        kind: 'conditionDefaultsRestored',
         event,
       })),
     ];
@@ -85,8 +114,8 @@ function snapshotUpdateOf(answer: unknown): CharacterUpdate {
   if (!parsed.success) return { kind: 'charactersFailed', failure: 'unexpected' };
   if (!parsed.data.ok)
     return { kind: 'charactersFailed', failure: syncFailureOf(parsed.data.error) };
-  const { version, characters } = parsed.data;
-  return { kind: 'characters', sync: { version, characters } };
+  const { version, characters, conditionDefinitions } = parsed.data;
+  return { kind: 'characters', sync: { version, characters, conditionDefinitions } };
 }
 
 function campaignIdOf(payload: unknown): string | null {

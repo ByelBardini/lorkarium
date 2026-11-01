@@ -61,8 +61,7 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
   const transaction = transactionOver(options.db);
   const { hasher, codes, clock, presence } = options;
   const memberships = new CachedMemberships(members);
-  const scenes = new ScenesDao(options.db);
-  const readDeps = { campaigns, members, scenes, memberships, presence };
+  const readDeps = { campaigns, members, memberships, presence };
   const service = new CampaignsService({ ...readDeps, transaction, codes, hasher, clock });
   const join = new CampaignJoinService({ campaigns, members, hasher, clock });
   const assets = new AssetsDao(options.db);

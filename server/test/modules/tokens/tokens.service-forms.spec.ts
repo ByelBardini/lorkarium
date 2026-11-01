@@ -8,7 +8,6 @@ import {
   CharacterTableFake,
   ESTRADA_LYRA_ID,
   KAEL_ID,
-  LYRA_ANCHOR_ID,
   VHARN_TORRE_ID,
   kaelRow,
   linkedLyraRow,
@@ -152,18 +151,16 @@ describe('token:update with the forms of a token', () => {
 
   describe('a token linked to a character', () => {
     beforeEach(() => {
-      table.withLyraAnchor();
       table.tokens.rows.push(linkedLyraRow());
     });
 
     const torreUpdate = (overrides: Partial<UpdateToken>) =>
       lyraUpdate({ sceneId: VHARN_TORRE_ID, tokenId: ESTRADA_LYRA_ID, ...overrides });
 
-    it('the forms stay on the token of the grid, never on the anchor nor the character', async () => {
+    it('the forms stay on the token of the grid, never on the character', async () => {
       await tokens.update(ANA_ID, VHARN_ID, torreUpdate({ forms: sentForms() }));
 
       expect(table.tokens.rowOf(ESTRADA_LYRA_ID).forms).toHaveLength(3);
-      expect(table.tokens.rowOf(LYRA_ANCHOR_ID).forms).toEqual([]);
     });
 
     it('the same size keeps the shown form of the token; a new size drops it', async () => {

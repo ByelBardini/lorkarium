@@ -6,7 +6,7 @@ Como a sala aplica as duas chaves da mesa ("Jogadores criam e editam tokens", "J
 
 - `src/lib/token-rights-of-viewer.ts` (nunca reescreve a regra): `tableTokenRightsOf(campanha)` (`playersCreateTokens`/`playersDeleteTokens` → `{ create, delete }`), `liveTableTokenRightsOf(mesa, campanha)` (o `tokenRights` da `OpenTable`, gravado pelo `session:campaignUpdated`; `null` até o primeiro — o F5 restaura a mesa sem ele — e aí vale a campanha da rota), `viewerTokenRightsOf(chaves, viewer)` → `{ canCreate, of(token) → { edit, delete } }` (sem viewer, com o tabuleiro carregando: nada) e `roleCanCreateTokens(papel, chaves)` (a toolbar sabe o papel antes do tabuleiro dizer quem é o viewer).
 - `features/board/table-token-rights.ts`: `useRoomTokenKeys(openTables, campanha)` na `play-room-page`, que dá o `TableTokenKeysContext` (fora da sala, as duas desligadas: só o mestre) e passa as chaves ao `useEditShortcuts`; `useViewerTokenRights(board)` junta as chaves ao `board.viewer`. Desligar a chave tira os botões ao vivo, sem F5.
-- Token ligado à ficha (`anchorTokenId`) ou com `createdBy` nulo (anterior aos autores) é só do mestre; o espectador nunca recebe.
+- Token ligado a personagem (`characterId`) ou com `createdBy` nulo (anterior aos autores) é só do mestre; o espectador nunca recebe.
 
 ## Quem vê o quê
 

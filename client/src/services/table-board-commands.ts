@@ -71,7 +71,12 @@ import {
   type WallShape,
 } from './wall-commands';
 
-export type { BoardCommandFailure, BoardCommandResult, BoardScope } from './board-command-sender';
+export type {
+  BoardCommandFailure,
+  BoardCommandResult,
+  BoardScope,
+  TableScope,
+} from './board-command-sender';
 export type {
   ConditionDefinitionEdit,
   ConditionUsageResult,

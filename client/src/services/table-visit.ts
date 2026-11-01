@@ -34,7 +34,6 @@ import type { RealtimeLifecycle, RealtimeTransport, Unsubscribe } from './realti
 import { CharacterFollow } from './character-follow';
 import { syncFailureOf, type AckOutcome } from './sync-failure';
 import type {
-  CastHandle,
   CharacterListener,
   CharactersHandle,
   GridListener,
@@ -68,8 +67,6 @@ export class TableVisit {
   // Learned from each group snapshot and each activation; until then every event may be the group's.
   private groupSceneId: string | null = null;
   private readonly watches = new Map<string, GridWatch>();
-  // The table's cast: synced (never watched) after the group grid, its events only to it.
-  private cast: GridWatch | null = null;
   private readonly characters: CharacterFollow;
   private readonly unsubscribes: Unsubscribe[] = [];
 
@@ -132,25 +129,10 @@ export class TableVisit {
     return { close: () => this.unwatch(watch), resync: () => void this.syncWatch(watch) };
   }
 
-  /** Follows the table's cast (the anchors of the characters): a `board:sync` of it now if the
-   *  table is joined, else after the join, and again after every reconnection. Every member is
-   *  in its rooms from the join, so there is nothing to watch. */
-  followCast(sceneId: string, listener: GridListener): CastHandle {
-    const cast: GridWatch = { sceneId, listener };
-    this.cast = cast;
-    if (this.joined) void this.syncCast(cast);
-    return { resync: () => void this.syncCast(cast) };
-  }
-
-  /** Follows the table's characters: a `character:sync` now if the table is joined, else after
-   *  the join, and again after every reconnection. */
+  /** Follows the table stream (the characters and the condition list): a `character:sync` now
+   *  if the table is joined, else after the join, and again after every reconnection. */
   followCharacters(listener: CharacterListener): CharactersHandle {
     return this.characters.follow(listener, this.joined);
-  }
-
-  private async syncCast(cast: GridWatch): Promise<void> {
-    const ack = await this.ackOf(BOARD_EVENTS.sync, boardSyncAckDto, { sceneId: cast.sceneId });
-    if (!this.closed && this.cast === cast) cast.listener(snapshotUpdateOf(ack));
   }
 
   private async syncWatch(watch: GridWatch): Promise<void> {
@@ -192,7 +174,6 @@ export class TableVisit {
     if (this.away && !this.closed) this.sendActivity();
     if (this.closed) return;
     await this.syncBoard();
-    if (this.cast) void this.syncCast(this.cast);
     void this.characters.sync();
     for (const watch of this.watches.values()) void this.syncWatch(watch);
   }
@@ -331,7 +312,6 @@ export class TableVisit {
   }
 
   private route(sceneId: string, update: GridUpdate): void {
-    if (this.cast?.sceneId === sceneId) return this.toCast(this.cast, update);
     if (this.groupSceneId === null || this.groupSceneId === sceneId) this.notify(update);
     const watch = this.watches.get(sceneId);
     if (watch) this.toWatch(watch, update);
@@ -339,7 +319,6 @@ export class TableVisit {
 
   private resyncGridOf(payload: unknown): void {
     const sceneId = sceneIdOf(payload);
-    if (this.cast?.sceneId === sceneId) return void this.syncCast(this.cast);
     const watch = this.watches.get(sceneId);
     if (watch) return void this.syncWatch(watch);
     void this.syncBoard();
@@ -352,10 +331,6 @@ export class TableVisit {
   // An update for a tab closed meanwhile (or after the visit closed) is no one's any more.
   private toWatch(watch: GridWatch, update: GridUpdate): void {
     if (!this.closed && this.watches.get(watch.sceneId) === watch) watch.listener(update);
-  }
-
-  private toCast(cast: GridWatch, update: GridUpdate): void {
-    if (!this.closed) cast.listener(update);
   }
 
   // An ack or event that lands after close() belongs to a visit the screen already left.

@@ -2,11 +2,10 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ConditionCatalogPage } from '@/features/conditions/condition-catalog-page';
-import { createBoardStore } from '@/stores/board-store';
+import { createCharactersStore } from '@/stores/characters-store';
 import { AssetsApiFake } from '../../support/assets-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
-import { VHARN_GRID } from '../../support/table-session-fixtures';
 import {
   conditionCard,
   conditionDefinition,
@@ -35,11 +34,13 @@ describe('ConditionCatalogPage', () => {
     expect(screen.queryByRole('button', { name: 'Nova condição' })).toBeNull();
   });
 
-  it('before the cast has its snapshot it says the conditions are loading', () => {
-    const cast = createBoardStore(VHARN.id, () => undefined);
+  it('before the table stream has its first sync it says the conditions are loading', () => {
+    const table = createCharactersStore(VHARN.id, () => undefined);
     const commands = new TableBoardCommandsFake();
     const assets = new AssetsApiFake();
-    render(<ConditionCatalogPage link={{ scope: VHARN_GRID, cast, commands, assets }} />);
+    render(
+      <ConditionCatalogPage link={{ scope: { campaignId: VHARN.id }, table, commands, assets }} />,
+    );
     expect(screen.getByText('Carregando as condições…')).toBeInTheDocument();
     expect(screen.queryByLabelText('Buscar condição')).toBeNull();
   });

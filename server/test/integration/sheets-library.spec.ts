@@ -8,7 +8,7 @@ import {
   type SheetDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { linkToCard, lyraPoisonedAtVharn } from '../support/characters';
+import { linkToPlayerCharacter, lyraPoisonedAtVharn } from '../support/characters';
 import { eventPayload, send, silence } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
@@ -107,7 +107,7 @@ describe('sheets in the library', () => {
 
   it('giving a sheet to Bia or to her linked Lyra hangs both on the same character', async () => {
     const { ana, lyra } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+    await linkToPlayerCharacter(live, ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
     const templateId = await templateOf();
 
     const byMember = await create({ holder: { memberId: live.bia.id } }, templateId);
@@ -134,7 +134,7 @@ describe('sheets in the library', () => {
 
   it("the library: Ana gets every sheet, Caio only the table one of Lyra's", async () => {
     const { ana, lyra } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+    await linkToPlayerCharacter(live, ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
     const templateId = await templateOf();
     await create({ name: 'Lyra', holder: { tokenId: lyra.id } }, templateId);
     await create({ name: 'Diário', holder: { tokenId: lyra.id }, visibility: 'table' }, templateId);

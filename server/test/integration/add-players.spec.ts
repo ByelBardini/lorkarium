@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { addPlayersAckDto, tokensCreatedDto, type AddPlayersAckDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { characters } from '../../src/modules/characters/characters.po';
-import { castIdOf, gridState, tokenIn } from '../support/characters';
+import { gridState, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
@@ -64,7 +64,7 @@ describe('"Adicionar jogadores" (token:addPlayers)', () => {
     const forCaio = tokensCreatedDto.parse(await eventPayload(caioEvents, 'token:createdMany'));
     expect(forBia.sceneId).toBe(estrada);
     expect(forBia.tokens.map(({ name }) => name)).toEqual(['Lyra', 'Bram']);
-    expect(forBia.tokens.every(({ anchorTokenId }) => anchorTokenId === null)).toBe(true);
+    expect(forBia.tokens.every(({ characterId }) => characterId !== null)).toBe(true);
     expect(forBia.tokens.map(({ width }) => width)).toEqual([1, 2]);
     const lyraForBia = forBia.tokens[0];
     const lyraForCaio = forCaio.tokens[0];
@@ -110,21 +110,18 @@ describe('"Adicionar jogadores" (token:addPlayers)', () => {
     expect(back.characterId).toBe(lyraCharacterId);
   });
 
-  it('Bia is FORBIDDEN; a grid of Quelm and the cast are SCENE_NOT_FOUND', async () => {
+  it('Bia is FORBIDDEN; a grid of Quelm is SCENE_NOT_FOUND', async () => {
     const { ana, bia, estrada } = await partyAndEstrada();
     const caioAtQuelm = await live.atTable(live.caio, live.quelm);
     const quelmGrid = (await synced(caioAtQuelm, live.quelm)).scene.id;
-    const castId = await castIdOf(live, live.ana, live.vharn);
 
     expect(await addPlayers(bia, live.vharn, estrada)).toMatchObject({
       ok: false,
       error: { code: 'FORBIDDEN' },
     });
-    for (const sceneId of [quelmGrid, castId]) {
-      expect(await addPlayers(ana, live.vharn, sceneId)).toMatchObject({
-        ok: false,
-        error: { code: 'SCENE_NOT_FOUND' },
-      });
-    }
+    expect(await addPlayers(ana, live.vharn, quelmGrid)).toMatchObject({
+      ok: false,
+      error: { code: 'SCENE_NOT_FOUND' },
+    });
   });
 });

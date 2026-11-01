@@ -9,7 +9,7 @@ import {
   linkedLyraRow,
 } from '../../support/character-fakes';
 import { LYRA_CHARACTER_ID, characterPo } from '../../support/characters-factories';
-import { VHARN_CAST_ID, scenePo } from '../../support/scenes-factories';
+import { scenePo } from '../../support/scenes-factories';
 import { lyraPo } from '../../support/tokens-factories';
 import { TableTokenRightsFake } from '../../support/tokens-fakes';
 
@@ -57,7 +57,7 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
     const made = added.createdIds.map((id) => table.tokens.rowOf(id).token);
     expect(made).toEqual([
       expect.objectContaining({
-        ...{ characterId: LYRA_CHARACTER_ID, anchorTokenId: null, name: 'Lyra' },
+        ...{ characterId: LYRA_CHARACTER_ID, name: 'Lyra' },
         ...{ col: 5, row: 5, width: 1, height: 1 },
       }),
       expect.objectContaining({
@@ -143,7 +143,7 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
   });
 
   it('a grid without room is NO_FREE_CELLS citing the grid and how many were left out', async () => {
-    const goblin = lyraPo({ id: 'goblin', sceneId: CELA_ID, col: 1, row: 0, anchorTokenId: null });
+    const goblin = lyraPo({ id: 'goblin', sceneId: CELA_ID, col: 1, row: 0 });
     table.tokens.rows.push({ token: goblin, bars: [], controllerIds: [], forms: [] });
 
     const adding = service.addPlayers(ANA_ID, VHARN_ID, {
@@ -168,14 +168,5 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
       center: { col: 1, row: 1 },
     });
     await expect(quelm).rejects.toMatchObject({ code: 'SCENE_NOT_FOUND' });
-  });
-
-  it('the cast itself is no grid to add to: SCENE_NOT_FOUND', async () => {
-    const adding = service.addPlayers(ANA_ID, VHARN_ID, {
-      sceneId: VHARN_CAST_ID,
-      center: { col: 1, row: 1 },
-    });
-
-    await expect(adding).rejects.toMatchObject({ code: 'SCENE_NOT_FOUND' });
   });
 });

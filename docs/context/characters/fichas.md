@@ -1,11 +1,11 @@
 # Personagens — fichas e ficha principal
 
-Detalhe do hub [`../characters.md`](../characters.md). Desde a Fase 9 a ficha de um personagem mora em `token_sheets.character_id` (`token_id` nulo); nenhuma âncora nasce no elenco por causa de ficha. O lado das fichas (tabelas, recibos, rotas) está em [`../sheets/server.md`](../sheets/server.md).
+Detalhe do hub [`../characters.md`](../characters.md). Desde a Fase 9 a ficha de um personagem mora em `token_sheets.character_id` (`token_id` nulo); nada nasce por causa de ficha. O lado das fichas (tabelas, recibos, rotas) está em [`../sheets/server.md`](../sheets/server.md).
 
 ## Dono
 
 - `holder: { memberId }` → o personagem do jogador (`SheetsDao.characterPlaceOfUser`, guardados inclusive) → `SheetItemBo.requirePlayerCharacter`: só passa o personagem que a mesa vê (`isSeenByTable`: o jogador é `player` ou `master`); mestre sem personagem, espectador (personagem guardado) e estranho → `MEMBER_NOT_FOUND`.
-- `holder: { tokenId }` → `SheetItemBo.requireGridToken` (token de outra mesa **ou do elenco** → `TOKEN_NOT_FOUND`) → token ligado (`tokens.character_id`) entrega ao personagem; solto fica com a ficha.
+- `holder: { tokenId }` → `SheetItemBo.requireGridToken` (token de outra mesa → `TOKEN_NOT_FOUND`) → token ligado (`tokens.character_id`) entrega ao personagem; solto fica com a ficha.
 - `SheetHolderService` (sem deps, nada cria): `resolve`, `placeOfSheet` (onde uma ficha salva está) e `sheetsOf` (as fichas do dono). `characterPlaceIn(daos, mesa, id)` → `CHARACTER_NOT_FOUND`.
 - `CharacterPlacePo { characterId, userId, holderRole, controllerIds }` vem do `CharactersDao.findManyInCampaign`/`findOfUser` (o `SheetsDao` monta um `CharactersDao` no mesmo executor, como o `CharactersDao` monta o `ConditionsDao`). `SheetHolderPlacePo = { token } | { character }`; `SheetPlacesPo { tokens, characters }` em lote (`SheetsDao.holdersOf`, o agregado da biblioteca).
 

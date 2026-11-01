@@ -9,7 +9,6 @@ import { RAIL_STORAGE_KEY, createRailStore, type RailStore } from '@/stores/rail
 import type { StoreApi } from 'zustand/vanilla';
 import { ANA } from '../../support/auth-api-fake';
 import { QUELM, VHARN } from '../../support/campaigns-api-fake';
-import { VHARN_CAST_ID } from '../../support/cast-fixtures';
 import { StorageFake } from '../../support/storage-fake';
 import { tabInteractions } from '../../support/tab-interactions';
 import { TableSessionApiFake } from '../../support/table-session-api-fake';
@@ -147,12 +146,8 @@ describe('AppShell', () => {
 
   describe('open tables', () => {
     function openVharnAndQuelm(): void {
-      openTables
-        .getState()
-        .open({ campaignId: VHARN.id, name: 'Vharn', castSceneId: VHARN_CAST_ID });
-      openTables
-        .getState()
-        .open({ campaignId: QUELM.id, name: 'Quelm', castSceneId: VHARN_CAST_ID });
+      openTables.getState().open({ campaignId: VHARN.id, name: 'Vharn' });
+      openTables.getState().open({ campaignId: QUELM.id, name: 'Quelm' });
     }
 
     function openTablesNav(): HTMLElement {

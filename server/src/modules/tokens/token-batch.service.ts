@@ -12,8 +12,7 @@ import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
-import { inLockedGrid, type CreatedInScene } from '../scenes/locked-scene';
-import { savedEventBase } from '../scenes/locked-cast';
+import { gridEventBase, inLockedGrid, type CreatedInScene } from '../scenes/locked-scene';
 import type { CharacterRow } from '../characters/characters.dao';
 import {
   inLockedCharactersAndGrid,
@@ -171,7 +170,7 @@ export class TokenBatchService {
     );
     const { tokens, skippedMemberIds, combat, veil } = saved.value;
     if (saved.grid) {
-      const base = savedEventBase(campaignId, saved.grid, this.deps.clock);
+      const base = gridEventBase(campaignId, saved.grid, this.deps.clock);
       const creation = { ...base, tokens: tokens.map(audiencesOf), combat };
       this.deps.publisher.tokensCreated(creation, creationCutsOf(creation, veil));
     }

@@ -1,6 +1,5 @@
 import { CharacterPublisherFake } from '../../support/characters-fakes';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { MainTokenService } from '../../../src/modules/tokens/main-token.service';
 import { TokenAppearanceService } from '../../../src/modules/tokens/token-appearance.service';
 import { TokenBatchService } from '../../../src/modules/tokens/token-batch.service';
 import { TokensService, type CreateToken } from '../../../src/modules/tokens/tokens.service';
@@ -22,7 +21,6 @@ import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import {
   DragGroupsFake,
-  MainTokensDaoFake,
   TableTokenRightsFake,
   TokenTransactionRunnerFake,
   TokensDaoFake,
@@ -60,7 +58,6 @@ describe('token commands on a grid that is not the group one', () => {
   let tokens: TokensService;
   let batch: TokenBatchService;
   let appearance: TokenAppearanceService;
-  let mainToken: MainTokenService;
 
   beforeEach(() => {
     const members = new CampaignMembersDaoFake(new CampaignsDaoFake(), {}, [
@@ -89,7 +86,6 @@ describe('token commands on a grid that is not the group one', () => {
       new CombatDaoFake(),
       new AssetsDaoFake(),
       new WallsDaoFake(scenes.journal),
-      new MainTokensDaoFake(scenes.journal),
     );
     dragGroups = new DragGroupsFake(scenes, tokenRows);
     const common = {
@@ -108,7 +104,6 @@ describe('token commands on a grid that is not the group one', () => {
     });
     batch = new TokenBatchService({ ...common, ...limits });
     appearance = new TokenAppearanceService(common);
-    mainToken = new MainTokenService(common);
   });
 
   function versionOf(sceneId: string): number | undefined {
@@ -266,20 +261,5 @@ describe('token commands on a grid that is not the group one', () => {
     ];
     expect(published.map((event) => event?.sceneId)).toEqual([TORRE_ID, TORRE_ID, TORRE_ID]);
     expect(published.map((event) => event?.version)).toEqual([8, 9, 10]);
-  });
-
-  it('Bia choosing her Lyra of the public Torre as main locks the Torre and token:mainChanged carries it', async () => {
-    scenes.setVisibility(TORRE_ID, 'public');
-
-    await mainToken.choose(BIA_ID, VHARN_ID, { sceneId: TORRE_ID, tokenId: TORRE_LYRA_ID });
-
-    expect(scenes.journal).toEqual([
-      `lockInCampaign:${TORRE_ID}`,
-      'choose',
-      'bump',
-      'commit',
-      'publish',
-    ]);
-    expect(publisher.mainTokenChanges[0]).toMatchObject({ sceneId: TORRE_ID, version: 8 });
   });
 });

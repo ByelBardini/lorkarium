@@ -6,6 +6,14 @@ import { VHARN_GRID } from '../support/table-session-fixtures';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 
+const LIST_COMMANDS: ReadonlySet<string> = new Set([
+  'condition:define',
+  'condition:updateDefinition',
+  'condition:deleteDefinition',
+  'condition:restoreDefaults',
+  'condition:usage',
+]);
+
 describe('RealtimeCombatCommands', () => {
   const KAEL = 'c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c';
   const LOBO = 'd2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d';
@@ -126,8 +134,10 @@ describe('RealtimeCombatCommands', () => {
     ],
   ] as const)('%s goes out with its fields', (event, sendIt, fields) => {
     void sendIt();
+    // The condition list's commands are the table stream's: they name no grid.
+    const scope = LIST_COMMANDS.has(event) ? { campaignId: VHARN_GRID.campaignId } : VHARN_GRID;
     expect(transport.sent).toEqual([
-      { event, payload: { actionId: ACTION_ID, ...VHARN_GRID, ...fields } },
+      { event, payload: { actionId: ACTION_ID, ...scope, ...fields } },
     ]);
   });
 

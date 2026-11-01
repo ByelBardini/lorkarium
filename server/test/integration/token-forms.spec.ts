@@ -6,7 +6,7 @@ import {
   type TokenFormDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { gridState, linkToCard, tokenIn } from '../support/characters';
+import { gridState, linkToPlayerCharacter, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import {
@@ -233,7 +233,7 @@ describe('token:setForm over Socket.IO', () => {
 async function linkedOnTwoGrids(ana: RealtimeClient, bia: RealtimeClient, lyraId: string) {
   const salao = (await synced(ana, live.vharn)).scene.id;
   const forms = tokenIn(await synced(ana, live.vharn), lyraId).forms;
-  await linkToCard(ana, live.vharn, { tokenId: lyraId, memberId: live.bia.id });
+  await linkToPlayerCharacter(live, ana, live.vharn, { tokenId: lyraId, memberId: live.bia.id });
   const command = tokenCommandFor(live.vharn, live.bia.id);
   const update = { ...command, ...envelope(live.vharn.id), tokenId: lyraId, forms };
   delete (update as { col?: number }).col;
@@ -246,6 +246,6 @@ async function linkedOnTwoGrids(ana: RealtimeClient, bia: RealtimeClient, lyraId
   await send(ana, 'token:create', { ...command, sceneId: estrada, bars: [] });
   const lyraOfEstrada = (await createdTokenOf(anaEvents)).id;
   const link = { sceneId: estrada, tokenId: lyraOfEstrada, memberId: live.bia.id };
-  await linkToCard(ana, live.vharn, link);
+  await linkToPlayerCharacter(live, ana, live.vharn, link);
   return { salao, estrada, lyraOfEstrada };
 }

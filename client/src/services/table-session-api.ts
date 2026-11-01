@@ -5,6 +5,10 @@ import type {
   CharacterRemovedEventDto,
   CharacterSyncDto,
   ChatSentDto,
+  ConditionDefaultsRestoredDto,
+  ConditionDefinedDto,
+  ConditionDefinitionDeletedDto,
+  ConditionDefinitionUpdatedDto,
   DiceRolledDto,
   DiceRolledSecretlyDto,
   SessionCampaignDeletedDto,
@@ -97,19 +101,18 @@ export type GridWatchHandle = Readonly<{
   resync: () => void;
 }>;
 
-/** The table's cast followed by an open table. */
-export type CastHandle = Readonly<{
-  /** Asks for a fresh snapshot of the cast; it arrives as a `board` update. */
-  resync: () => void;
-}>;
-
-/** What reaches the table's characters: their snapshot (`character:sync`, after every join),
- *  its failure, and the versioned events of the table's characters. */
+/** What reaches the table stream: its snapshot (`character:sync`, after every join: the
+ *  characters and the table's condition list), its failure, and its versioned events — the
+ *  characters' and the condition list's share one version. */
 export type CharacterUpdate =
   | Readonly<{ kind: 'characters'; sync: CharacterSyncDto }>
   | Readonly<{ kind: 'charactersFailed'; failure: BoardSyncFailure }>
   | Readonly<{ kind: 'characterChanged'; event: CharacterChangedEventDto }>
-  | Readonly<{ kind: 'characterRemoved'; event: CharacterRemovedEventDto }>;
+  | Readonly<{ kind: 'characterRemoved'; event: CharacterRemovedEventDto }>
+  | Readonly<{ kind: 'conditionDefined'; event: ConditionDefinedDto }>
+  | Readonly<{ kind: 'conditionDefinitionUpdated'; event: ConditionDefinitionUpdatedDto }>
+  | Readonly<{ kind: 'conditionDefinitionDeleted'; event: ConditionDefinitionDeletedDto }>
+  | Readonly<{ kind: 'conditionDefaultsRestored'; event: ConditionDefaultsRestoredDto }>;
 
 export type CharacterListener = (update: CharacterUpdate) => void;
 
@@ -130,11 +133,8 @@ export type TableSessionHandle = Readonly<{
   /** Opens an extra tab of one grid of this table: its snapshot and events go to `listener`
    *  (the group grid's keep going to the table's), again after every reconnection. */
   watch: (sceneId: string, listener: GridListener) => GridWatchHandle;
-  /** Follows the table's cast (`castSceneId` of the campaign detail): its snapshot and events go
-   *  to `listener`, again after every reconnection. */
-  followCast: (sceneId: string, listener: GridListener) => CastHandle;
-  /** Follows the table's characters: a `character:sync` after the join (and after every
-   *  reconnection), then their `character:*` events, to `listener`. */
+  /** Follows the table stream: a `character:sync` after the join (and after every
+   *  reconnection), then the `character:*` and condition-list events, to `listener`. */
   followCharacters: (listener: CharacterListener) => CharactersHandle;
 }>;
 
@@ -170,7 +170,6 @@ export class RealtimeTableSessionApi implements TableSessionApi {
       resync: () => void visit.syncBoard(),
       setAway: (away) => visit.setAway(away),
       watch: (sceneId, listener) => visit.watch(sceneId, listener),
-      followCast: (sceneId, listener) => visit.followCast(sceneId, listener),
       followCharacters: (listener) => visit.followCharacters(listener),
     };
   }

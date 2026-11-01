@@ -1,12 +1,12 @@
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { VHARN_GRID } from '../../support/table-session-fixtures';
 import {
   conditionCard,
   conditionDefinition,
   editorSheet,
   renderCatalog,
+  VHARN_TABLE,
 } from './condition-catalog-harness';
 
 const ENVENENADO = conditionDefinition({
@@ -44,7 +44,7 @@ describe('ConditionEditorSheet (edit)', () => {
     expect(commands.sentAs('updateConditionDefinition')).toEqual([
       {
         name: 'updateConditionDefinition',
-        ...VHARN_GRID,
+        ...VHARN_TABLE,
         fields: {
           conditionId: ENVENENADO.id,
           name: 'Envenenado forte',

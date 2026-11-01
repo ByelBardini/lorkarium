@@ -9,40 +9,19 @@ import { BIA_ID, CAIO_ID, QUELM_ID, VHARN_ID, campaignMemberPo } from './campaig
 import { CombatDaoFake } from './combat-fakes';
 import { ConditionsDaoFake } from './conditions-fakes';
 import { torrePo } from './library-factories';
-import { MemberCardsDaoFake } from './member-cards-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from './scenes-fakes';
-import { VHARN_CAST_ID, VHARN_SCENE_ID, castPo, scenePo } from './scenes-factories';
-import {
-  MainTokensDaoFake,
-  TokenAnchorsDaoFake,
-  TokenTransactionRunnerFake,
-  TokensDaoFake,
-} from './tokens-fakes';
-import { LYRA_ID, inspirationBar, lyraPo, lyraRow, pvBar } from './tokens-factories';
+import { VHARN_SCENE_ID, scenePo } from './scenes-factories';
+import { TokenTransactionRunnerFake, TokensDaoFake } from './tokens-fakes';
+import { LYRA_ID, lyraPo, lyraRow, pvBar } from './tokens-factories';
 import { WallsDaoFake } from './walls-fakes';
 import { TokenCharacterLinkDaoFake } from './token-character-link-fakes';
 
 export const NOW = new Date('2026-10-23T21:00:00Z');
-export const LYRA_ANCHOR_ID = '9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f';
 export const KAEL_ID = '0b1c2d3e-4f5a-4b6c-9d7e-8f9a0b1c2d3e';
 export const ESTRADA_LYRA_ID = '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
 export const VHARN_TORRE_ID = torrePo().id;
 export const QUELM_SCENE_ID = 'quelm-scene';
 export const QUELM_TOKEN_ID = '8a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c5d';
-
-/** Lyra's anchor in the cast of Vharn: her PV and Inspiração, controlled by Bia. */
-export function lyraAnchorRow(): TokenRow {
-  const id = LYRA_ANCHOR_ID;
-  return {
-    token: lyraPo({ id, sceneId: VHARN_CAST_ID, col: 0, row: 0 }),
-    bars: [
-      pvBar({ id: `${id}-pv`, tokenId: id }),
-      inspirationBar({ id: `${id}-insp`, tokenId: id }),
-    ],
-    controllerIds: [BIA_ID],
-    forms: [],
-  };
-}
 
 /** Lyra, the character of Bia at Vharn: her PV (32/45, only for its controllers) and
  *  Inspiração (1/1, seen by everyone), controlled by Bia. */
@@ -63,19 +42,13 @@ export function lyraCharacterRow(): CharacterRow {
   };
 }
 
-/** Lyra on the Torre, linked to her character (and to the anchor that still holds her
- *  conditions), at (8, 2): stored without bars nor controllers.
+/** Lyra on the Torre, linked to her character, at (8, 2): stored without bars nor controllers.
  *
- *  Example: `table.tokens.rows.push(lyraAnchorRow(), linkedLyraRow())` */
+ *  Example: `table.tokens.rows.push(linkedLyraRow())` */
 export function linkedLyraRow(overrides: Partial<TokenRow['token']> = {}): TokenRow {
   const token = lyraPo({ id: ESTRADA_LYRA_ID, sceneId: VHARN_TORRE_ID, col: 8, row: 2 });
   return {
-    token: {
-      ...token,
-      anchorTokenId: LYRA_ANCHOR_ID,
-      characterId: LYRA_CHARACTER_ID,
-      ...overrides,
-    },
+    token: { ...token, characterId: LYRA_CHARACTER_ID, ...overrides },
     bars: [],
     controllerIds: [],
     forms: [],
@@ -97,10 +70,10 @@ export function kaelRow(): TokenRow {
 }
 
 /** Vharn with Ana master, Bia and Caio players; the Salão (group grid, version 4), the public
- *  Torre (version 7), the cast (version 2) and Quelm's scene; Lyra on the Salão; Lyra the
+ *  Torre (version 7) and Quelm's scene; Lyra on the Salão; Lyra the
  *  character (characters' version 5). Every fake writes to `scenes.journal`. Built fresh per spec.
  *
- *  Example: `const table = new CharacterTableFake(); table.tokens.rows.push(lyraAnchorRow())` */
+ *  Example: `const table = new CharacterTableFake(); table.tokens.rows.push(linkedLyraRow())` */
 export class CharacterTableFake {
   readonly members = new CampaignMembersDaoFake(
     new CampaignsDaoFake(),
@@ -115,7 +88,6 @@ export class CharacterTableFake {
   readonly scenes = new ScenesDaoFake([
     scenePo({ version: 4, visibility: 'public' }),
     torrePo({ visibility: 'public' }),
-    castPo(),
     scenePo({ id: QUELM_SCENE_ID, campaignId: QUELM_ID }),
   ]);
   readonly journal = this.scenes.journal;
@@ -125,9 +97,6 @@ export class CharacterTableFake {
   ]);
   readonly conditions = new ConditionsDaoFake(this.journal);
   readonly combat = new CombatDaoFake(this.journal);
-  readonly anchors = new TokenAnchorsDaoFake(this.journal, this.tokens, this.conditions);
-  readonly memberCards = new MemberCardsDaoFake(this.journal);
-  readonly mainTokens = new MainTokensDaoFake(this.journal);
   readonly publisher = new BoardPublisherFake(this.journal);
   readonly characters = new CharactersDaoFake(this.journal, [lyraCharacterRow()], {
     [VHARN_ID]: 5,
@@ -147,9 +116,6 @@ export class CharacterTableFake {
     this.combat,
     undefined,
     new WallsDaoFake([]),
-    this.mainTokens,
-    this.memberCards,
-    this.anchors,
     this.characters,
     this.characterLinks,
   );
@@ -183,22 +149,6 @@ export class CharacterTableFake {
     this.conditions.active.push(active);
     return active.id;
   }
-
-  /** Bia's card already points at Lyra's anchor, which stands in the cast. */
-  withLyraAnchor(): void {
-    this.tokens.rows.push(lyraAnchorRow());
-    this.memberCards.rows.push({
-      campaignId: VHARN_ID,
-      userId: BIA_ID,
-      characterName: null,
-      armorClass: null,
-      difficultyClass: null,
-      noteOne: null,
-      noteTwo: null,
-      anchorTokenId: LYRA_ANCHOR_ID,
-      updatedAt: NOW,
-    });
-  }
 }
 
-export { VHARN_CAST_ID, VHARN_SCENE_ID };
+export { VHARN_SCENE_ID };

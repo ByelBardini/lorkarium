@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { castIdOf, gridState } from '../support/characters';
+import { characterOfUser, characterUpdate, charactersSynced } from '../support/table-characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type EventRecorder } from '../support/realtime-client';
@@ -149,31 +149,35 @@ describe('walls, lights, drawings, areas, conditions and combat on a grid that i
     expect((await synced(ana, live.vharn)).combat).not.toBeNull();
   });
 
-  it('condition:define and member:updateCard naming the Torre stay on the cast: the group grid keeps its version', async () => {
+  it('condition:define and character:update naming the Torre ride the table stream: the group grid keeps its version', async () => {
     const torre = await newGrid(live, live.ana, live.vharn, 'Torre');
-    const castId = await castIdOf(live, live.ana, live.vharn);
     const ana = await live.atTable(live.ana, live.vharn);
     const bia = await live.atTable(live.bia, live.vharn);
     const biaEvents = recordEventsOf(bia);
     const group = await synced(ana, live.vharn);
-    const before = await gridState(ana, live.vharn, castId);
-    const on = { ...envelope(live.vharn.id), sceneId: torre };
+    const before = await charactersSynced(ana, live.vharn);
+    const lyra = await characterOfUser(live, live.vharn, live.bia);
 
     const defined = await send(ana, 'condition:define', {
-      ...on,
+      ...envelope(live.vharn.id),
+      sceneId: torre,
       name: 'Sangrando',
       tone: 'harm',
       icon: 'droplet',
     });
-    const card = { ...on, memberId: live.bia.id, changes: { armorClass: 15 } };
-    const updated = await send(bia, 'member:updateCard', card);
+    const card = characterUpdate(live.vharn, lyra.character.id, { armorClass: 15 });
+    const updated = await send(bia, 'character:update', card);
 
     expect([defined, updated]).toEqual([
       { ok: true, version: before.version + 1 },
       { ok: true, version: before.version + 2 },
     ]);
-    expect(await eventPayload(biaEvents, 'condition:defined')).toMatchObject({ sceneId: castId });
-    expect(await eventPayload(biaEvents, 'member:cardChanged')).toMatchObject({ sceneId: castId });
+    const event = await eventPayload(biaEvents, 'condition:defined');
+    expect(event).toMatchObject({ campaignId: live.vharn.id, version: before.version + 1 });
+    expect(event).not.toHaveProperty('sceneId');
+    expect(await eventPayload(biaEvents, 'character:changed')).toMatchObject({
+      version: before.version + 2,
+    });
     expect((await synced(ana, live.vharn)).version).toBe(group.version);
   });
 

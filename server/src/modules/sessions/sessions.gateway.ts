@@ -33,8 +33,8 @@ import type { TableSessionService } from './sessions.service';
 
 export type SessionsGatewayDeps = Readonly<{
   service: TableSessionService;
-  /** The group grid and the cast a join enters: everyone at the table has both open. */
-  groupGrid: Pick<SceneWatchService, 'groupSceneIdOf' | 'castSceneIdOf'>;
+  /** The group grid a join enters: everyone at the table has it open. */
+  groupGrid: Pick<SceneWatchService, 'groupSceneIdOf'>;
   realtime: Pick<Realtime, 'reauthenticate'>;
   rate: CommandRateGuard;
   log: FastifyBaseLogger;
@@ -117,7 +117,7 @@ function audienceRoomsOf(campaignId: string, userId: string, audience: TableAudi
 }
 
 // Read only once the socket is in the table room: a group grid changed after this read moves
-// everyone in that room, this socket included. The cast never changes.
+// everyone in that room, this socket included.
 async function enterTableGrids(
   deps: SessionsGatewayDeps,
   socket: RealtimeSocket,
@@ -125,12 +125,10 @@ async function enterTableGrids(
   audience: TableAudience,
 ): Promise<void> {
   const groupSceneId = await deps.groupGrid.groupSceneIdOf(campaignId);
-  const castSceneId = await deps.groupGrid.castSceneIdOf(campaignId);
   // A leave (or a drop) during the read already left the table: it must not re-enter a grid.
   if (socket.disconnected || !socket.data.campaignIds.has(campaignId)) return;
-  const sceneIds = [groupSceneId, castSceneId].filter((id): id is string => id !== null);
-  const rooms = sceneIds.flatMap((id) => sceneAudienceRooms(campaignId, id, userId, audience));
-  if (rooms.length > 0) await socket.join(rooms);
+  if (groupSceneId === null) return;
+  await socket.join(sceneAudienceRooms(campaignId, groupSceneId, userId, audience));
 }
 
 async function joinOrRelease(

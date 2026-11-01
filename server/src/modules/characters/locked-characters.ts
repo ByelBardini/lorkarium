@@ -62,6 +62,10 @@ export async function savedVersionOf(
   return locked.daos.characters.bumpVersion(locked.campaignId);
 }
 
+/** The fields every event of the table stream opens with (the characters and the condition
+ *  list): its table, version and when. */
+export type TableEventBase = Readonly<{ campaignId: string; version: number; at: string }>;
+
 /** The opening of a characters event: its table, version and now.
  *
  *  Example: `publisher.charactersChanged({ ...charactersEventBase(campaignId, saved.version, clock), characters })` */
@@ -69,6 +73,6 @@ export function charactersEventBase(
   campaignId: string,
   version: number,
   clock: ClockPort,
-): Readonly<{ campaignId: string; version: number; at: string }> {
+): TableEventBase {
   return { campaignId, version, at: clock.now().toISOString() };
 }

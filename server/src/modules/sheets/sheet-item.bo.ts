@@ -14,8 +14,8 @@ export type CharacterMainRef = Readonly<{ characterId: string; mainSheetId: stri
 /** One write of a character's main sheet (`null` = it has none). */
 export type MainSheetWrite = Readonly<{ characterId: string; mainSheetId: string | null }>;
 
-/** The rules of a sheet as an item of the library: its folder must be the table's, a token of the
- *  cast holds none, a player hands it to their character, only a held sheet has bars, and a
+/** The rules of a sheet as an item of the library: its folder must be the table's, a token of
+ *  another table holds none, a player hands it to their character, only a held sheet has bars, and a
  *  character's first sheet becomes its main one.
  *
  *  Example: `new SheetItemBo(campaignId).requireFolder(folderIds, folderId)` */
@@ -28,12 +28,11 @@ export class SheetItemBo {
     throw new FolderNotFoundError(this.campaignId, folderId);
   }
 
-  /** A token of a grid of the table; one of the cast (an anchor, until the cast goes) or of
-   *  another table is TOKEN_NOT_FOUND.
+  /** A token of a grid of the table; one of another table is TOKEN_NOT_FOUND.
    *
    *  Example: `rules.requireGridToken(lyraId, await sheets.placeOf(campaignId, lyraId))` */
   requireGridToken(tokenId: string, place: TokenPlacePo | undefined): TokenPlacePo {
-    if (place && place.kind === 'grid') return place;
+    if (place) return place;
     throw new TokenNotFoundError(this.campaignId, tokenId);
   }
 

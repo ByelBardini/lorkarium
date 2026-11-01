@@ -51,6 +51,10 @@ export type CommandAnswer =
 /** The grid a command acts on: the table and one of its scenes (the group grid or an open tab). */
 export type BoardScope = Readonly<{ campaignId: string; sceneId: string }>;
 
+/** A command of the table itself (a character's, the condition list's): no grid. A `BoardScope`
+ *  is one too, its grid left out. */
+export type TableScope = Readonly<{ campaignId: string }>;
+
 // Same patience as the join: past this the command counts as lost.
 const COMMAND_ACK_TIMEOUT_MS = 5000;
 
@@ -134,12 +138,15 @@ export class BoardCommandSender {
     campaignId: string,
     fields: object,
   ): Promise<BoardCommandResult> {
-    const answer = await this.emitCommand(event, {
-      actionId: this.newActionId(),
-      campaignId,
-      ...fields,
-    });
+    const answer = await this.askTable(event, campaignId, fields);
     return answer.answered ? resultOf(answer.ack) : { ok: false, failure: 'offline' };
+  }
+
+  /** `ask` for a command of the table itself: its ack unread, and no `sceneId`.
+   *
+   *  Example: `const answer = await sender.askTable('condition:usage', campaignId, { conditionId })` */
+  askTable(event: string, campaignId: string, fields: object): Promise<CommandAnswer> {
+    return this.emitCommand(event, { actionId: this.newActionId(), campaignId, ...fields });
   }
 
   private async emitCommand(event: string, payload: object): Promise<CommandAnswer> {

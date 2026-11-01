@@ -88,7 +88,7 @@ export type HiddenTokenPo = Readonly<{ token: TokenPo; controllerIds: readonly s
 
 /** The active scene of a campaign (size and version) and the asked tokens found on it. */
 export type DragGroupPo = Readonly<{
-  scene: Pick<ScenePo, 'id' | 'widthCells' | 'heightCells' | 'version' | 'visibility' | 'kind'> &
+  scene: Pick<ScenePo, 'id' | 'widthCells' | 'heightCells' | 'version' | 'visibility'> &
     Readonly<{ isActive: boolean }>;
   tokens: readonly DragTokenPo[];
 }>;
@@ -339,17 +339,6 @@ export class TokensDao {
       .where(and(eq(tokens.sceneId, sceneId), inArray(tokens.id, [...tokenIds])));
   }
 
-  /** The token of `sceneId` linked to `anchorTokenId`, if the grid has one (one at most).
-   *
-   *  Example: `await tokensDao.findLinkedInScene(estradaId, lyraAnchorId)` */
-  async findLinkedInScene(sceneId: string, anchorTokenId: string): Promise<TokenRow | undefined> {
-    const [token] = await this.db
-      .select()
-      .from(tokens)
-      .where(and(eq(tokens.sceneId, sceneId), eq(tokens.anchorTokenId, anchorTokenId)));
-    return token && this.rowOf(token);
-  }
-
   private async copyTokensBy(map: SQL, toSceneId: string): Promise<void> {
     // The shown form is pointed at its copy once the forms are copied (`TokenFormsDao.copyBy`).
     const replaced = {
@@ -435,7 +424,6 @@ const DRAG_COLUMNS = {
     heightCells: scenes.heightCells,
     version: scenes.version,
     visibility: scenes.visibility,
-    kind: scenes.kind,
     isActive: IS_GROUP_GRID,
   },
   tokenId: tokens.id,

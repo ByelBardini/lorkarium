@@ -3,9 +3,7 @@ import {
   adjustCharacterBarCommandDto,
   characterSyncCommandDto,
   setMainSheetCommandDto,
-  linkTokenToCardCommandDto,
   linkTokenToCharacterCommandDto,
-  unlinkTokenFromCardCommandDto,
   unlinkTokenFromCharacterCommandDto,
   updateCharacterCommandDto,
   type AddPlayersAckDto,
@@ -32,7 +30,7 @@ export type WriteCommand = <C extends CampaignCommand, A>(
 ) => (payload: unknown, ack: AckOf<A>) => void;
 
 export type CharacterCommandsDeps = Readonly<{
-  tokenLink: Pick<TokenLinkService, 'link' | 'linkToCard' | 'unlink'>;
+  tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
   tokenBatch: Pick<TokenBatchService, 'addPlayers'>;
   characters: Pick<CharactersService, 'update' | 'adjustBar' | 'setMainSheet' | 'sync'>;
 }>;
@@ -70,8 +68,6 @@ export function bindCharacterCommands(
   );
 }
 
-// The link by the character, and the old one by the card (the client stopped sending it; it goes
-// in phase 13 of the plan) answering the same.
 function bindLinkCommands(
   socket: RealtimeSocket,
   mutate: MutateCommand,
@@ -81,9 +77,6 @@ function bindLinkCommands(
   const unlink = tokenLink.unlink.bind(tokenLink);
   socket.on('token:linkToCharacter', mutate(linkTokenToCharacterCommandDto, link));
   socket.on('token:unlinkFromCharacter', mutate(unlinkTokenFromCharacterCommandDto, unlink));
-  const linkToCard = tokenLink.linkToCard.bind(tokenLink);
-  socket.on('token:linkToCard', mutate(linkTokenToCardCommandDto, linkToCard));
-  socket.on('token:unlinkFromCard', mutate(unlinkTokenFromCardCommandDto, unlink));
 }
 
 // The commands on the character itself; the sync is a read, so it skips the table's queue.

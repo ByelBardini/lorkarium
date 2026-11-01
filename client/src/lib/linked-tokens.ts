@@ -1,4 +1,9 @@
-import type { BoardStateDto, CharacterDto, TokenDto } from '@lorkarium/contracts';
+import type {
+  BoardStateDto,
+  CharacterDto,
+  ConditionDefinitionDto,
+  TokenDto,
+} from '@lorkarium/contracts';
 import { tokensOverCatalog } from './condition-catalog';
 
 /** What a token linked to a character wears from it, in every grid. */
@@ -18,11 +23,11 @@ const SHARED_FIELDS = [
 
 type SharedField = (typeof SHARED_FIELDS)[number];
 
-/** What the room composes a grid's board over: the table's cast (its list of conditions, in the
- *  table's version) and the table's characters (`null` while either loads). */
+/** What the room composes a grid's board over: the table stream — the table's characters and
+ *  its list of conditions, in the stream's own version. */
 export type TableLinks = Readonly<{
-  cast: BoardStateDto | null;
-  characters: readonly CharacterDto[] | null;
+  characters: readonly CharacterDto[];
+  conditionDefinitions: ConditionDefinitionDto[];
 }>;
 
 type ResolvedTokens = Readonly<{ characters: readonly CharacterDto[]; tokens: TokenDto[] }>;
@@ -32,8 +37,6 @@ type ResolvedBoard = TableLinks & Readonly<{ board: BoardStateDto }>;
 // One remembered answer per input: the same input gives back the same object (no render loop).
 const tokensMemo = new WeakMap<TokenDto[], ResolvedTokens>();
 const boardMemo = new WeakMap<BoardStateDto, ResolvedBoard>();
-
-const NO_CHARACTERS: readonly CharacterDto[] = [];
 
 /** The tokens of a grid with each linked one wearing its character's identity, look, aura,
  *  bars, conditions and control; position, size, layer, facing, flips, forms, sight and light stay
@@ -56,23 +59,29 @@ export function resolveLinkedTokens(
 }
 
 /** A grid's board as the room shows it: the linked tokens wearing their characters, and the
- *  table's list of conditions from the cast, whose version is the table's (the grid's copy stops
- *  at its own snapshot; the tokens' conditions follow the list, `tokensOverCatalog`). Nothing
- *  known yet → the board.
+ *  table's list of conditions from the table stream, whose version is the table's (the grid's
+ *  copy stops at its own snapshot; the free tokens' conditions follow the list,
+ *  `tokensOverCatalog`). The stream not synced yet (`null`) → the board.
  *
- *  Example: `boardWithTable(groupBoard, { cast, characters }).tokens` */
-export function boardWithTable(board: BoardStateDto, links: TableLinks): BoardStateDto {
-  const { cast, characters } = links;
-  if (!cast && !characters) return board;
+ *  Example: `boardWithTable(groupBoard, { characters, conditionDefinitions }).tokens` */
+export function boardWithTable(board: BoardStateDto, links: TableLinks | null): BoardStateDto {
+  if (!links) return board;
+  const { characters, conditionDefinitions } = links;
   const known = boardMemo.get(board);
-  if (known?.cast === cast && known.characters === characters) return known.board;
-  const linked = resolveLinkedTokens(board.tokens, characters ?? NO_CHARACTERS);
-  const definitions = cast?.conditionDefinitions ?? board.conditionDefinitions;
+  if (known?.characters === characters && known.conditionDefinitions === conditionDefinitions) {
+    return known.board;
+  }
+  const result = composedBoard(board, links);
+  boardMemo.set(board, { characters, conditionDefinitions, board: result });
+  return result;
+}
+
+function composedBoard(board: BoardStateDto, links: TableLinks): BoardStateDto {
+  const linked = resolveLinkedTokens(board.tokens, links.characters);
+  const definitions = links.conditionDefinitions;
   const tokens = tokensOverCatalog(linked, board.conditionDefinitions, definitions);
   const same = tokens === board.tokens && definitions === board.conditionDefinitions;
-  const result = same ? board : { ...board, tokens, conditionDefinitions: definitions };
-  boardMemo.set(board, { cast, characters, board: result });
-  return result;
+  return same ? board : { ...board, tokens, conditionDefinitions: definitions };
 }
 
 function withCharacterOf(token: TokenDto, characters: ReadonlyMap<string, CharacterDto>): TokenDto {

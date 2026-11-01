@@ -4,7 +4,7 @@ import type { DatabaseExecutor } from '../../database/transaction';
 import type { CampaignRole } from '../campaigns/campaign-access.bo';
 import { campaigns } from '../campaigns/campaigns.po';
 import { CharactersDao, type CharacterRow } from '../characters/characters.dao';
-import { scenes, type SceneKindPo, type ScenePo } from '../scenes/scenes.po';
+import { scenes, type ScenePo } from '../scenes/scenes.po';
 import { tokenControllers, tokens } from '../tokens/tokens.po';
 import {
   sheetActions,
@@ -15,13 +15,11 @@ import {
   type SheetValuesPo,
 } from './sheets.po';
 
-/** Where a token of the table stands, as the sheet's access reads it: the grid (or the cast) it
- *  is on, whether that is the group's grid, the character it is linked to and who controls it. */
+/** Where a token of the table stands, as the sheet's access reads it: the grid it is on, whether that is the group's grid, the character it is linked to and who controls it. */
 export type TokenPlacePo = Readonly<{
   tokenId: string;
   characterId: string | null;
   sceneId: string;
-  kind: SceneKindPo;
   visibility: ScenePo['visibility'];
   isActive: boolean;
   controllerIds: readonly string[];
@@ -160,7 +158,6 @@ export class SheetsDao {
         tokenId: tokens.id,
         characterId: tokens.characterId,
         sceneId: scenes.id,
-        kind: scenes.kind,
         visibility: scenes.visibility,
         isActive: sql<boolean>`coalesce(${campaigns.activeSceneId} = ${scenes.id}, false)`,
       })

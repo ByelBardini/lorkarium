@@ -2,6 +2,9 @@ import type { ActiveConditionDto, ConditionDefinitionDto, TokenDto } from '@lork
 
 type Definitions = readonly ConditionDefinitionDto[];
 
+/** Whatever carries active conditions: a token or a character. */
+type ConditionHolder = Readonly<{ conditions: ActiveConditionDto[] }>;
+
 /** The table's list with one definition replaced where it stands (unknown → as it was).
  *
  *  Example: `withDefinitionReplaced(board.conditionDefinitions, poisoned)` */
@@ -23,33 +26,36 @@ export function withDefinitionsAdded(
   return [...definitions, ...added.filter(({ id }) => !known.has(id))];
 }
 
-/** The tokens with every active condition of that definition showing it as saved now (name,
- *  tone, icon, color, look, description, max stacks, image — the stacks clamped to it, 1 when it no longer
- *  stacks, as the server does); the rounds left stay. Nothing changed → the same array.
+/** The holders (tokens or characters) with every active condition of that definition showing it
+ *  as saved now (name, tone, icon, color, look, description, max stacks, image — the stacks
+ *  clamped to it, 1 when it no longer stacks, as the server does); the rounds left stay. Each
+ *  holder that did not change stays the same object; nothing changed → the same array.
  *
- *  Example: `tokensShowingDefinition(board.tokens, poisoned)` */
-export function tokensShowingDefinition(
-  tokens: TokenDto[],
+ *  Example: `holdersShowingDefinition(characters, poisoned)` */
+export function holdersShowingDefinition<H extends ConditionHolder>(
+  holders: readonly H[],
   definition: ConditionDefinitionDto,
-): TokenDto[] {
+): readonly H[] {
   const byId = new Map([[definition.id, definition]]);
-  return tokensOverDefinitions(tokens, byId, new Set());
+  return holdersOverDefinitions(holders, byId, new Set());
 }
 
-/** The tokens without any active condition of that definition (it left the table's list).
+/** The holders without any active condition of that definition (it left the table's list).
  *
- *  Example: `tokensWithoutDefinition(board.tokens, blindedId)` */
-export function tokensWithoutDefinition(tokens: TokenDto[], conditionId: string): TokenDto[] {
-  return tokensOverDefinitions(tokens, new Map(), new Set([conditionId]));
+ *  Example: `holdersWithoutDefinition(characters, blindedId)` */
+export function holdersWithoutDefinition<H extends ConditionHolder>(
+  holders: readonly H[],
+  conditionId: string,
+): readonly H[] {
+  return holdersOverDefinitions(holders, new Map(), new Set([conditionId]));
 }
 
-/** A grid's tokens after the table's list moved from `before` to `after` (the cast's version):
- *  the conditions of an edited definition show it, those of a deleted one go — a linked token's
- *  too, since its character's conditions hold the same definitions. Only a definition `before`
- *  knew and `after` lacks counts as deleted — one `after` lacks but `before` never had may simply
- *  not have reached the list yet. Nothing changed → the same array.
+/** A grid's tokens after the table's list moved from `before` to `after` (the table stream's
+ *  version): the conditions of an edited definition show it, those of a deleted one go. Only a
+ *  definition `before` knew and `after` lacks counts as deleted — one `after` lacks but `before`
+ *  never had may simply not have reached the list yet. Nothing changed → the same array.
  *
- *  Example: `tokensOverCatalog(grid.tokens, grid.conditionDefinitions, cast.conditionDefinitions)` */
+ *  Example: `tokensOverCatalog(grid.tokens, grid.conditionDefinitions, table.conditionDefinitions)` */
 export function tokensOverCatalog(
   tokens: TokenDto[],
   before: Definitions,
@@ -58,31 +64,32 @@ export function tokensOverCatalog(
   if (before === after) return tokens;
   const byId = new Map(after.map((definition) => [definition.id, definition]));
   const deleted = new Set(before.filter(({ id }) => !byId.has(id)).map(({ id }) => id));
-  return tokensOverDefinitions(tokens, byId, deleted);
+  const next = holdersOverDefinitions(tokens, byId, deleted);
+  return next === tokens ? tokens : [...next];
 }
 
-function tokensOverDefinitions(
-  tokens: TokenDto[],
+function holdersOverDefinitions<H extends ConditionHolder>(
+  holders: readonly H[],
   byId: ReadonlyMap<string, ConditionDefinitionDto>,
   deleted: ReadonlySet<string>,
-): TokenDto[] {
-  const next = tokens.map((token) => tokenOverDefinitions(token, byId, deleted));
-  return next.some((token, index) => token !== tokens[index]) ? next : tokens;
+): readonly H[] {
+  const next = holders.map((holder) => holderOverDefinitions(holder, byId, deleted));
+  return next.some((holder, index) => holder !== holders[index]) ? next : holders;
 }
 
-function tokenOverDefinitions(
-  token: TokenDto,
+function holderOverDefinitions<H extends ConditionHolder>(
+  holder: H,
   byId: ReadonlyMap<string, ConditionDefinitionDto>,
   deleted: ReadonlySet<string>,
-): TokenDto {
-  const kept = token.conditions.filter(({ conditionId }) => !deleted.has(conditionId));
+): H {
+  const kept = holder.conditions.filter(({ conditionId }) => !deleted.has(conditionId));
   const shown = kept.map((condition) =>
     conditionShowing(condition, byId.get(condition.conditionId)),
   );
   const same =
-    shown.length === token.conditions.length &&
-    shown.every((condition, index) => condition === token.conditions[index]);
-  return same ? token : { ...token, conditions: shown };
+    shown.length === holder.conditions.length &&
+    shown.every((condition, index) => condition === holder.conditions[index]);
+  return same ? holder : { ...holder, conditions: shown };
 }
 
 function conditionShowing(

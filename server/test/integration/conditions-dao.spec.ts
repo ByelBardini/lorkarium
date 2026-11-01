@@ -319,12 +319,12 @@ describe('ConditionsDao on Postgres', () => {
     });
   });
 
-  it('countActiveOf counts the tokens holding it on every grid and the cast, once each', async () => {
+  it('countActiveOf counts the tokens holding it on every grid, once each', async () => {
     const cego = await definitionNamed('Cego');
     const torre = (await scenesDao.insert({ campaignId: vharnId, name: 'Torre' })).id;
-    const cast = (await scenesDao.insert({ campaignId: vharnId, kind: 'cast' })).id;
+    const estrada = (await scenesDao.insert({ campaignId: vharnId, name: 'Estrada' })).id;
     const goblin = await tokenIn(torre, 'Goblin');
-    const kael = await tokenIn(cast, 'Kael');
+    const kael = await tokenIn(estrada, 'Kael');
     const spared = await tokenIn(torre, 'Bram');
     for (const tokenId of [lyraId, goblin, kael])
       await conditions.apply({ tokenId }, cego, FOREVER);

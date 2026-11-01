@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useDiceOverlay } from '@/features/dice/use-dice-overlay';
 import { ANA } from '../../support/auth-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
-import { VHARN_CAST_ID } from '../../support/cast-fixtures';
 import { BIA_ROLL_ID, biaRolled, biaRolledSecretly, rollIdOf } from '../../support/dice-fixtures';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 
@@ -25,7 +24,6 @@ function openVharn(deps: TestDependencies): void {
     deps.openTables.getState().open({
       campaignId: VHARN.id,
       name: 'Vharn',
-      castSceneId: VHARN_CAST_ID,
       cover: VHARN.cover,
     });
   });

@@ -65,8 +65,8 @@ export function sheetHolderLabel(
   sheet: Pick<SheetSummaryDto, 'tokenId' | 'memberId'>,
   names: SheetHolderNames,
 ): string {
-  if (sheet.tokenId === null) return 'Ficha · sem dono, só mestres';
   if (sheet.memberId !== null) return `Ficha · de ${memberLabelOf(sheet.memberId, names)}`;
+  if (sheet.tokenId === null) return 'Ficha · sem dono, só mestres';
   const token = names.tokenName(sheet.tokenId);
   return token === null ? 'Ficha · num token' : `Ficha · token ${token}`;
 }

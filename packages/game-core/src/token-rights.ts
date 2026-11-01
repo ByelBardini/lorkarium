@@ -15,7 +15,7 @@ export interface TokenRightsViewer {
  *  master's, since editing it changes the character on every grid). */
 export interface OwnedToken {
   createdBy: string | null;
-  anchorTokenId: string | null;
+  characterId: string | null;
 }
 
 export interface TokenRights {
@@ -49,5 +49,5 @@ export function tokenRightsOf(
 
 function ownsToken(viewer: TokenRightsViewer, token: OwnedToken): boolean {
   if (viewer.role !== 'player') return false;
-  return token.createdBy === viewer.userId && token.anchorTokenId === null;
+  return token.createdBy === viewer.userId && token.characterId === null;
 }

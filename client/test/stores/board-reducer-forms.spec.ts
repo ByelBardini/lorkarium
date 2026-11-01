@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyBoardEvent } from '@/stores/board-reducer';
-import { LYRA_ANCHOR_ID, castBoard, linkedLyra, lyraAnchor } from '../support/cast-fixtures';
+import { linkedLyra } from '../support/character-fixtures';
 import { vharnEventBase } from '../support/drawing-fixtures';
 import { KAEL_ID, LYRA_ID, kael, vharnBoard } from '../support/table-session-fixtures';
 import {
@@ -8,8 +8,8 @@ import {
   LYRA_FORMS,
   WOLF_FORM_ID,
   WOLF_IMAGE_ID,
-  castFormChangedAt,
   formChangedAt,
+  formSwitchedAt,
   shapeshiftingLyra,
 } from '../support/token-form-fixtures';
 
@@ -36,39 +36,22 @@ describe('applyBoardEvent, token forms', () => {
     expect(next.version).toBe(5);
   });
 
-  it('token:formChanged of the cast changes the anchor image and form, not its box', () => {
-    const board = castBoard({ tokens: [lyraAnchor({ activeFormId: BASE_FORM_ID })] });
+  it('token:formChanged without a box changes only that token: image and form, not its box', () => {
+    const elsewhere = linkedLyra({ id: KAEL_ID, col: 7, row: 2, activeFormId: BASE_FORM_ID });
+    const board = vharnBoard({ tokens: [linkedLyra({ col: 0, row: 0 }), elsewhere] });
 
-    const next = applyBoardEvent(board, castFormChangedAt(4, LYRA_ANCHOR_ID));
+    const next = applyBoardEvent(board, formSwitchedAt(5, LYRA_ID));
 
     expect(next.tokens[0]).toMatchObject({
       imageAssetId: WOLF_IMAGE_ID,
       activeFormId: WOLF_FORM_ID,
+      frame: 'round',
       col: 0,
       row: 0,
       width: 1,
       height: 1,
     });
-  });
-
-  it('token:formChanged of the cast changes every token linked to the anchor, keeping its box', () => {
-    const elsewhere = linkedLyra({ id: KAEL_ID, col: 7, row: 2, width: 1.5, height: 1.5 });
-    const board = vharnBoard({ tokens: [linkedLyra(), elsewhere, shapeshiftingLyra({ id: 'x' })] });
-
-    const next = applyBoardEvent(board, castFormChangedAt(5, LYRA_ANCHOR_ID));
-
-    expect(
-      next.tokens.map(({ imageAssetId, activeFormId, frame }) => [
-        imageAssetId,
-        activeFormId,
-        frame,
-      ]),
-    ).toEqual([
-      [WOLF_IMAGE_ID, WOLF_FORM_ID, 'round'],
-      [WOLF_IMAGE_ID, WOLF_FORM_ID, 'round'],
-      [null, BASE_FORM_ID, 'square'],
-    ]);
-    expect(next.tokens[1]).toMatchObject({ col: 7, row: 2, width: 1.5, height: 1.5 });
+    expect(next.tokens[1]).toEqual(elsewhere);
   });
 
   it('token:restyledMany with an image clears the active form, as the server does', () => {
@@ -146,7 +129,8 @@ describe('applyBoardEvent, token forms', () => {
     expect(next.tokens.map(({ activeFormId }) => activeFormId)).toEqual([null, WOLF_FORM_ID]);
   });
 
-  it('token:resizedMany keeps the form of a linked token: its size is per grid', () => {
+  // The forms of a linked token are its own (no anchor any more): resized by hand, it has none.
+  it('token:resizedMany clears the form of a linked token too, as the server does', () => {
     const board = vharnBoard({ tokens: [linkedLyra({ activeFormId: WOLF_FORM_ID })] });
 
     const next = applyBoardEvent(board, {
@@ -157,7 +141,7 @@ describe('applyBoardEvent, token forms', () => {
       },
     });
 
-    expect(next.tokens[0]?.activeFormId).toBe(WOLF_FORM_ID);
+    expect(next.tokens[0]?.activeFormId).toBeNull();
   });
 
   it('token:resizedMany that only moves the origin keeps the active form', () => {

@@ -5,7 +5,6 @@ import { SheetRoomProvider } from '@/features/sheets/sheet-room';
 import { testDependencies } from './app-dependencies';
 import { ANA } from './auth-api-fake';
 import { detailOf, VHARN } from './campaigns-api-fake';
-import { VHARN_CAST_ID } from './cast-fixtures';
 import { vharnLibrary } from './library-fixtures';
 import { lyraSheet, sheetResponse, sheetWrite } from './sheet-fixtures';
 import { tormentaSummary } from './sheet-template-fixtures';
@@ -21,9 +20,7 @@ export function sheetRoom(campaign: CampaignDetailDto = detailOf(VHARN)) {
   const deps = testDependencies();
   deps.sessionStore.getState().signedIn(ANA);
   deps.openTables.getState().restore(ANA.id);
-  deps.openTables
-    .getState()
-    .open({ campaignId: VHARN.id, name: VHARN.name, castSceneId: VHARN_CAST_ID });
+  deps.openTables.getState().open({ campaignId: VHARN.id, name: VHARN.name });
   deps.tableSessionApi.emitTo(
     VHARN.id,
     { kind: 'state', state: vharnState() },

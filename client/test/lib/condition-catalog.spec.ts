@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   tokensOverCatalog,
-  tokensShowingDefinition,
-  tokensWithoutDefinition,
+  holdersShowingDefinition,
+  holdersWithoutDefinition,
   withDefinitionReplaced,
   withDefinitionsAdded,
 } from '@/lib/condition-catalog';
@@ -71,10 +71,10 @@ describe('withDefinitionsAdded', () => {
   });
 });
 
-describe('tokensShowingDefinition', () => {
+describe('holdersShowingDefinition', () => {
   it('every token holding the condition shows the saved name, tone, icon, look and description', () => {
     const tokens = [lyra({ conditions: [poisonedOn(2)] }), kael({ conditions: [poisonedOn(4)] })];
-    const shown = tokensShowingDefinition(tokens, sickened);
+    const shown = holdersShowingDefinition(tokens, sickened);
     expect(shown.map(({ conditions }) => conditions[0])).toEqual([
       expect.objectContaining({
         name: 'Nauseado',
@@ -89,7 +89,7 @@ describe('tokensShowingDefinition', () => {
 
   it('an edit of the description alone reaches the tokens', () => {
     const described = conditionDefinition({ description: 'Desvantagem em testes.' });
-    const [token] = tokensShowingDefinition([lyra({ conditions: [poisonedOn(2)] })], described);
+    const [token] = holdersShowingDefinition([lyra({ conditions: [poisonedOn(2)] })], described);
     expect(token?.conditions[0]?.description).toBe('Desvantagem em testes.');
   });
 
@@ -98,13 +98,13 @@ describe('tokensShowingDefinition', () => {
       lyra({ conditions: [poisonedOn(2)] }),
       kael({ conditions: [poisonedOn(null)] }),
     ];
-    const shown = tokensShowingDefinition(tokens, sickened);
+    const shown = holdersShowingDefinition(tokens, sickened);
     expect(shown.map(({ conditions }) => conditions[0]?.remainingRounds)).toEqual([2, null]);
   });
 
   it('the other conditions of the token stay untouched', () => {
     const other = blessedOn();
-    const [token] = tokensShowingDefinition(
+    const [token] = holdersShowingDefinition(
       [lyra({ conditions: [other, poisonedOn(2)] })],
       sickened,
     );
@@ -113,7 +113,7 @@ describe('tokensShowingDefinition', () => {
 
   it('a token without the condition stays the same object', () => {
     const untouched = kael({ conditions: [blessedOn()] });
-    const shown = tokensShowingDefinition(
+    const shown = holdersShowingDefinition(
       [lyra({ conditions: [poisonedOn(2)] }), untouched],
       sickened,
     );
@@ -122,7 +122,7 @@ describe('tokensShowingDefinition', () => {
 
   it('a definition saved as the tokens already show it keeps each token', () => {
     const token = lyra({ conditions: [poisonedOn(2)] });
-    expect(tokensShowingDefinition([token], poisoned)[0]).toBe(token);
+    expect(holdersShowingDefinition([token], poisoned)[0]).toBe(token);
   });
 
   // Regression: the reducer got a new tokens array even with no token changed, against the
@@ -130,17 +130,17 @@ describe('tokensShowingDefinition', () => {
   // docs/context/client/performance.md). Found writing these specs, 2026-10-24.
   it('no token holding the condition gives back the same array', () => {
     const tokens = [kael({ conditions: [blessedOn()] })];
-    expect(tokensShowingDefinition(tokens, sickened)).toBe(tokens);
+    expect(holdersShowingDefinition(tokens, sickened)).toBe(tokens);
   });
 });
 
-describe('tokensWithoutDefinition', () => {
+describe('holdersWithoutDefinition', () => {
   it('takes the condition off every token holding it and keeps their other ones', () => {
     const tokens = [
       lyra({ conditions: [blessedOn(), poisonedOn(2)] }),
       kael({ conditions: [poisonedOn(1)] }),
     ];
-    const left = tokensWithoutDefinition(tokens, poisoned.id);
+    const left = holdersWithoutDefinition(tokens, poisoned.id);
     expect(left.map(({ conditions }) => conditions.map(({ name }) => name))).toEqual([
       ['Abençoado'],
       [],
@@ -149,13 +149,13 @@ describe('tokensWithoutDefinition', () => {
 
   it('a token without the condition stays the same object', () => {
     const untouched = kael({ conditions: [blessedOn()] });
-    expect(tokensWithoutDefinition([untouched], poisoned.id)[0]).toBe(untouched);
+    expect(holdersWithoutDefinition([untouched], poisoned.id)[0]).toBe(untouched);
   });
 
-  // Regression: same as `tokensShowingDefinition` — a new array with no token changed (2026-10-24).
+  // Regression: same as `holdersShowingDefinition` — a new array with no token changed (2026-10-24).
   it('no token holding the condition gives back the same array', () => {
     const tokens = [kael({ conditions: [blessedOn()] })];
-    expect(tokensWithoutDefinition(tokens, poisoned.id)).toBe(tokens);
+    expect(holdersWithoutDefinition(tokens, poisoned.id)).toBe(tokens);
   });
 });
 
@@ -203,7 +203,7 @@ describe('the stacks of the active conditions after a definition update', () => 
     activeCondition({ id: 'c1c2c3c4-d5d6-4e7e-8f8f-9a9a0b0b1c1c', maxStacks: 5, stacks });
 
   it('a lower max stacks copies to the active condition and clamps 5 stacks to 2', () => {
-    const [token] = tokensShowingDefinition(
+    const [token] = holdersShowingDefinition(
       [kael({ conditions: [stackingOn(5)] })],
       conditionDefinition({ maxStacks: 2 }),
     );
@@ -211,7 +211,7 @@ describe('the stacks of the active conditions after a definition update', () => 
   });
 
   it('a definition that no longer stacks leaves the active condition with 1 stack', () => {
-    const [token] = tokensShowingDefinition(
+    const [token] = holdersShowingDefinition(
       [kael({ conditions: [stackingOn(5)] })],
       conditionDefinition({ maxStacks: null }),
     );
@@ -219,7 +219,7 @@ describe('the stacks of the active conditions after a definition update', () => 
   });
 
   it('a higher max stacks keeps the stacks the token had', () => {
-    const [token] = tokensShowingDefinition(
+    const [token] = holdersShowingDefinition(
       [kael({ conditions: [stackingOn(3)] })],
       conditionDefinition({ maxStacks: 9 }),
     );
@@ -227,7 +227,7 @@ describe('the stacks of the active conditions after a definition update', () => 
   });
 
   it('a non-stacking condition that starts to stack keeps its single stack', () => {
-    const [token] = tokensShowingDefinition(
+    const [token] = holdersShowingDefinition(
       [kael({ conditions: [poisonedOn(2)] })],
       conditionDefinition({ maxStacks: 4 }),
     );
@@ -236,7 +236,7 @@ describe('the stacks of the active conditions after a definition update', () => 
 
   it('the same max stacks saved again gives back the same tokens array', () => {
     const tokens = [kael({ conditions: [stackingOn(3)] })];
-    expect(tokensShowingDefinition(tokens, conditionDefinition({ maxStacks: 5 }))).toBe(tokens);
+    expect(holdersShowingDefinition(tokens, conditionDefinition({ maxStacks: 5 }))).toBe(tokens);
   });
 
   it('a loose token in a grid follows the lower max of the cast list', () => {
@@ -253,7 +253,7 @@ describe('the image of the active conditions after a definition update', () => {
 
   it('an image put on the definition reaches every token holding it, rounds kept', () => {
     const tokens = [lyra({ conditions: [poisonedOn(2)] }), kael({ conditions: [poisonedOn(4)] })];
-    const shown = tokensShowingDefinition(tokens, pictured);
+    const shown = holdersShowingDefinition(tokens, pictured);
     expect(shown.map(({ conditions }) => conditions[0])).toEqual([
       expect.objectContaining({ imageAssetId: IMAGE_ID, remainingRounds: 2 }),
       expect.objectContaining({ imageAssetId: IMAGE_ID, remainingRounds: 4 }),
@@ -262,7 +262,7 @@ describe('the image of the active conditions after a definition update', () => {
 
   it('an image taken off the definition goes back to null on the tokens', () => {
     const pictureOn = activeCondition({ imageAssetId: IMAGE_ID });
-    const [token] = tokensShowingDefinition([kael({ conditions: [pictureOn] })], poisoned);
+    const [token] = holdersShowingDefinition([kael({ conditions: [pictureOn] })], poisoned);
     expect(token?.conditions[0]?.imageAssetId).toBeNull();
   });
 
@@ -274,11 +274,11 @@ describe('the image of the active conditions after a definition update', () => {
 
   it('the same image saved again gives back the same tokens array', () => {
     const tokens = [kael({ conditions: [activeCondition({ imageAssetId: IMAGE_ID })] })];
-    expect(tokensShowingDefinition(tokens, pictured)).toBe(tokens);
+    expect(holdersShowingDefinition(tokens, pictured)).toBe(tokens);
   });
 
   it('a change of the image alone gives a new tokens array', () => {
     const tokens = [kael({ conditions: [poisonedOn(2)] })];
-    expect(tokensShowingDefinition(tokens, pictured)).not.toBe(tokens);
+    expect(holdersShowingDefinition(tokens, pictured)).not.toBe(tokens);
   });
 });

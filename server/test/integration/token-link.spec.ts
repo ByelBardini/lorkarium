@@ -7,7 +7,6 @@ import { activeConditions } from '../../src/modules/conditions/conditions.po';
 import { tokenBars } from '../../src/modules/tokens/tokens.po';
 import {
   gridState,
-  linkToCard,
   linkToCharacter,
   lyraPoisonedAtVharn,
   poison,
@@ -168,17 +167,6 @@ describe('linking a token to a character (token:linkToCharacter)', () => {
     const after = tokenIn(await synced(bia, live.vharn), kaelId);
     expect(after).toMatchObject({ characterId: lyraCharacterId, name: 'Lyra' });
   });
-
-  it("the old token:linkToCard still links to the character of the card's player", async () => {
-    const { ana, kaelId, lyraCharacterId } = await kaelAndLyra();
-
-    const ack = await linkToCard(ana, live.vharn, { tokenId: kaelId, memberId: live.bia.id });
-
-    expect(ack).toMatchObject({ ok: true });
-    expect(tokenIn(await synced(ana, live.vharn), kaelId)).toMatchObject({
-      ...{ characterId: lyraCharacterId, anchorTokenId: null },
-    });
-  });
 });
 
 describe('unlinking a token from its character (token:unlinkFromCharacter)', () => {
@@ -192,7 +180,7 @@ describe('unlinking a token from its character (token:unlinkFromCharacter)', () 
 
     const free = tokenIn(await synced(ana, live.vharn), kaelId);
     expect(free).toMatchObject({
-      ...{ characterId: null, anchorTokenId: null, name: 'Lyra' },
+      ...{ characterId: null, name: 'Lyra' },
       ...{ controllerIds: [live.bia.id] },
     });
     expect(free.bars.map(({ current }) => current)).toEqual([32, 1]);

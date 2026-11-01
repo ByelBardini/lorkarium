@@ -5,7 +5,7 @@ import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { BoardPublisherPort, GridEvent } from '../scenes/board-publisher.port';
-import { savedEventBase } from '../scenes/locked-cast';
+import { gridEventBase } from '../scenes/locked-scene';
 import type { CharacterPublisherPort } from '../characters/character-publisher.port';
 import type { CharacterRow } from '../characters/characters.dao';
 import {
@@ -100,7 +100,7 @@ export class TokenFormService {
     const outlet = { publisher: this.deps.characterPublisher, clock: this.deps.clock };
     publishCharactersChange(outlet, campaignId, saved.characters, shared);
     if (!saved.grid) return;
-    const base = savedEventBase(campaignId, saved.grid, this.deps.clock);
+    const base = gridEventBase(campaignId, saved.grid, this.deps.clock);
     const event: GridEvent<TokenFormChangedDto> = { ...base, ...look, tokenId: row.token.id, box };
     this.deps.publisher.tokenFormChanged(event, cutsOf(event, veiled.veil, tokenSeenBy));
     publishVeiledLights(this.deps.publisher, base, veiled.lights);

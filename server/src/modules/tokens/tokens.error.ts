@@ -140,7 +140,7 @@ export class NoFreeCellsError extends TokenError {
   }
 }
 
-/** A form switch to a form the token (or its anchor) does not keep. */
+/** A form switch to a form the token does not keep. */
 export class TokenFormNotFoundError extends TokenError {
   constructor(
     readonly tokenId: string,

@@ -18,7 +18,7 @@ export type SheetHolderDaos = Readonly<{
  *
  *  Example: `const place = await holders.resolve(daos, campaignId, { memberId: biaId })` */
 export class SheetHolderService {
-  /** `null` = nobody. A token of another table (or of the cast) is TOKEN_NOT_FOUND; a member
+  /** `null` = nobody. A token of another table is TOKEN_NOT_FOUND; a member
    *  without a character the table sees is MEMBER_NOT_FOUND. */
   async resolve(
     daos: SheetHolderDaos,

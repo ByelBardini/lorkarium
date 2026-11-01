@@ -1,6 +1,6 @@
 # Ligar, desligar e "Adicionar jogadores" (Fase 8)
 
-Detalhe do hub [`../characters.md`](../characters.md). Desde a Fase 8 o token de grid liga **direto ao personagem** (`tokens.character_id`), sem âncora no elenco: nada novo nasce no elenco, a Ficha da mesa não muda e `tokens.anchor_token_id` fica `null` em todo token ligado ou desligado por aqui (a coluna sai na Fase 13).
+Detalhe do hub [`../characters.md`](../characters.md). Desde a Fase 8 o token de grid liga **direto ao personagem** (`tokens.character_id`): nada nasce além do vínculo (o elenco, a âncora e a Ficha da mesa saíram na Fase 13).
 
 ## Comandos
 
@@ -10,8 +10,8 @@ Detalhe do hub [`../characters.md`](../characters.md). Desde a Fase 8 o token de
 | `token:unlinkFromCharacter` | mestre | `{ …boardCommandShape, tokenId }`              | `{ ok, version }` (do grid) · `TOKEN_NOT_LINKED`, `TOKEN_NOT_FOUND`, `FORBIDDEN`, `SCENE_NOT_FOUND`                                                | `token:updated` no grid, por público |
 | `token:addPlayers`          | mestre | `{ …boardCommandShape, center }`               | `addPlayersAckDto` `{ ok, version, createdIds, skippedMemberIds }` · `NO_FREE_CELLS`, `OUT_OF_SCENE`, `FORBIDDEN`, `SCENE_NOT_FOUND`               | um `token:createdMany` no grid       |
 
-- Ligados em `board/character-commands.ts` (`bindLinkCommands`, pelo `mutate`, fila da mesa; o `token:addPlayers` pelo `write`). Dep `tokenLink: Pick<TokenLinkService, 'link' | 'linkToCard' | 'unlink'>` (também no `BoardGatewayDeps`).
-- **Legado até a Fase 13:** `token:linkToCard` agora **delega** ao fluxo novo (`TokenLinkService.linkToCard`: o personagem do jogador da ficha, `characters.findOfUser`; sem personagem — o mestre, um estranho → `MEMBER_NOT_FOUND`); `token:unlinkFromCard` é o mesmo `unlink`. O client não manda mais nenhum dos dois; nenhum cria âncora.
+- Ligados em `board/character-commands.ts` (`bindLinkCommands`, pelo `mutate`, fila da mesa; o `token:addPlayers` pelo `write`). Dep `tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>` (também no `BoardGatewayDeps`).
+- `token:linkToCard`/`token:unlinkFromCard` (o legado pela Ficha da mesa) saíram do contrato e do gateway na Fase 13.
 
 ## Regra (`tokens/character-link.bo.ts`, `CharacterLinkBo`)
 
@@ -29,20 +29,20 @@ Detalhe do hub [`../characters.md`](../characters.md). Desde a Fase 8 o token de
 
 ## DAO (`tokens/token-character-link.dao.ts`, `TokenCharacterLinkDao`, no `tx`)
 
-`TokenWriteDaos.characterLinks: Pick<TokenCharacterLinkDao, 'placedOn' | 'adopt' | 'release'>` (fiação no `tokens.plugin.ts`). Separado do `TokenAnchorsDao`, que sai inteiro na Fase 13.
+`TokenWriteDaos.characterLinks: Pick<TokenCharacterLinkDao, 'placedOn' | 'adopt' | 'release'>` (fiação no `tokens.plugin.ts`).
 
 - `placedOn(grid, personagem)` → `{ id }` do token do personagem no grid (o índice único `tokens_scene_id_character_id_unique` garante no máximo um).
-- `adopt(token, personagem)`: apaga as barras, os controladores e as condições **do token** (`active_conditions.token_id`) e grava `character_id` (e `anchor_token_id = null`).
+- `adopt(token, personagem)`: apaga as barras, os controladores e as condições **do token** (`active_conditions.token_id`) e grava `character_id`.
 - `release(token, personagem, identidade)`: apaga o que o token tinha, copia `character_bars` → `token_bars` (ids novos, mesma posição; colunas comuns lidas do PO), `character_controllers` → `token_controllers`, as condições do personagem (`active_conditions.character_id`) → linhas novas com `token_id` (ids novos, mesmas rodadas e stacks; `copyRowsSql`), grava a identidade e zera `character_id`/`anchor_token_id`. O personagem fica como estava.
 - Não mexe no `ConditionsDao` (da Fase 7): as condições do token/personagem são lidas e escritas por SQL aqui.
 
 ## "Adicionar jogadores" (`TokenBatchService.addPlayers`)
 
-- `requireMaster` → jogadores da mesa (`orderedMembers`, só `player`) → `inLockedCharactersAndGrid` (personagens lidos sob trava, nunca escritos) → `characters.listOfCampaign` → `playersCharactersOf`: o personagem de cada jogador na ordem dos jogadores; jogador **sem personagem** vai para `skippedMemberIds` (todo jogador ganha um ao virar jogador, então sai `[]` na prática) → quem já tem token do seu personagem no grid é pulado (sem entrar em `skippedMemberIds`) → ninguém a pôr: zero criados, **sem somar nem publicar** → `placeCharacters` com o **tamanho do personagem** (`width`/`height`) → `TokenRulesBo.admit` → `insertMany` dos ligados (identidade do personagem, camada `tokens`, direção 0, sem visão nem luz, `characterId`, `anchorTokenId` nulo) → relê compostos → um `token:createdMany` na versão do grid.
+- `requireMaster` → jogadores da mesa (`orderedMembers`, só `player`) → `inLockedCharactersAndGrid` (personagens lidos sob trava, nunca escritos) → `characters.listOfCampaign` → `playersCharactersOf`: o personagem de cada jogador na ordem dos jogadores; jogador **sem personagem** vai para `skippedMemberIds` (todo jogador ganha um ao virar jogador, então sai `[]` na prática) → quem já tem token do seu personagem no grid é pulado (sem entrar em `skippedMemberIds`) → ninguém a pôr: zero criados, **sem somar nem publicar** → `placeCharacters` com o **tamanho do personagem** (`width`/`height`) → `TokenRulesBo.admit` → `insertMany` dos ligados (identidade do personagem, camada `tokens`, direção 0, sem visão nem luz, `characterId`) → relê compostos → um `token:createdMany` na versão do grid.
 - `NO_FREE_CELLS` ("scene X has no free cells for 1 of the 2 characters") e `OUT_OF_SCENE` como antes (`character-placement.bo.ts`).
 
 ## Testes
 
 - Unit: `test/modules/tokens/character-link.bo.spec.ts` (as três regras e as mensagens), `token-link.service.spec.ts` (diário `lock characters → lockInCampaign → adopt → bump → commit → publish`, sem `character:changed`; o Kael adota a Lyra e perde PV, controle e Envenenado; segundo token no grid e token já ligado → `CHARACTER_ALREADY_PLACED` sem escrita; personagem da Quelm → `CHARACTER_NOT_FOUND`; `FORBIDDEN` sem trava; token da Quelm; `linkToCard` delega e o mestre é `MEMBER_NOT_FOUND`; desligar copia barras com ids novos, controle e a condição do personagem, diário com `release`; `TOKEN_NOT_LINKED`), `add-players.spec.ts` (Lyra 1×1 e Bram 2×2, ninguém pulado; diário `lock characters → … → bump`; redação; jogador sem personagem é o único pulado; quem já está é pulado; todos já lá = versão 7 sem `bump`; `NO_FREE_CELLS`; `FORBIDDEN`, Quelm e elenco).
-- Integração: `token-link.spec.ts` (Ana, Bia e Caio ouvem `token:updated` do Kael vestindo a Lyra, o Caio sem o PV, ack = versão do evento; o Vigor e o Envenenado do Kael somem e a versão dos personagens não anda; `CHARACTER_ALREADY_PLACED` ×2; o mesmo personagem na Estrada; personagem e token da Quelm; `FORBIDDEN`/`userId` forjado; reinício; `token:linkToCard` delega; desligar: cópia com ids novos, controle e Envenenado do personagem, a Lyra intacta; o PV copiado anda sozinho; `TOKEN_NOT_LINKED`) e `add-players.spec.ts` (Lyra e Bram ligados sem âncora, Bram 2×2; PV e Envenenado do personagem; segunda vez = zero na mesma versão; apagar a Lyra e adicionar de novo põe só ela; `FORBIDDEN`, Quelm e elenco).
+- Integração: `token-link.spec.ts` (Ana, Bia e Caio ouvem `token:updated` do Kael vestindo a Lyra, o Caio sem o PV, ack = versão do evento; o Vigor e o Envenenado do Kael somem e a versão dos personagens não anda; `CHARACTER_ALREADY_PLACED` ×2; o mesmo personagem na Estrada; personagem e token da Quelm; `FORBIDDEN`/`userId` forjado; reinício; `token:linkToCard` delega; desligar: cópia com ids novos, controle e Envenenado do personagem, a Lyra intacta; o PV copiado anda sozinho; `TOKEN_NOT_LINKED`) e `add-players.spec.ts` (Lyra e Bram ligados, Bram 2×2; PV e Envenenado do personagem; segunda vez = zero na mesma versão; apagar a Lyra e adicionar de novo põe só ela; `FORBIDDEN`, Quelm e elenco).
 - Suporte: `TokenCharacterLinkDaoFake` (`test/support/token-character-link-fakes.ts`; diário `adopt`/`release`; copia as condições do personagem do `ConditionsDaoFake.active` pelo `characterId`), 11º parâmetro do `TokenTransactionRunnerFake` e `CharacterTableFake.characterLinks`; integração `linkToCharacter`/`unlinkFromCharacter` em `test/support/characters.ts` e `poisonCharacter` (Envenenado direto no personagem) em `test/support/table-characters.ts`.

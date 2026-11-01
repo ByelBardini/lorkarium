@@ -7,11 +7,11 @@ import { buildRoutes } from '@/app/router';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 import { VHARN, detailOf } from '../../support/campaigns-api-fake';
+import { definitionDeletedAt, tableSynced } from '../../support/character-fixtures';
 import {
   BIA_AT_TABLE,
   KAEL_ID,
   activeCondition,
-  eventAt,
   kael,
   vharnBoard,
   vharnState,
@@ -169,13 +169,11 @@ describe('play room: the condition tool', () => {
     const deps = await openRoom();
     await userEvent.keyboard('c');
     await userEvent.click(screen.getByRole('option', { name: 'Envenenado' }));
-    deps.tableSessionApi.emit({
-      kind: 'boardEvent',
-      event: eventAt(5, {
-        type: 'conditionDefinitionDeleted',
-        payload: { conditionId: ENVENENADO.id },
-      }),
-    });
+    deps.tableSessionApi.emitToCharacters(
+      VHARN.id,
+      tableSynced(3, [], [ENVENENADO]),
+      definitionDeletedAt(4, ENVENENADO.id),
+    );
     await act(() => Promise.resolve());
     stamp(deps);
     expect(deps.boardCommands.sent).toEqual([]);

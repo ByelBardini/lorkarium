@@ -7,12 +7,18 @@ import {
 import type { StoreApi } from 'zustand/vanilla';
 import type { ConditionCatalogLink } from '@/features/conditions/condition-catalog-link';
 import { ConditionCatalogPage } from '@/features/conditions/condition-catalog-page';
-import type { BoardEvent } from '@/services/board-events';
-import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import type { CharacterUpdate } from '@/services/table-session-api';
+import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
 import { AssetsApiFake } from '../../support/assets-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
+import {
+  conditionDefinedAt,
+  defaultsRestoredAt,
+  definitionDeletedAt,
+  definitionUpdatedAt,
+  tableSynced,
+} from '../../support/character-fixtures';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
-import { eventAt, vharnBoard, VHARN_GRID } from '../../support/table-session-fixtures';
 
 const TONE_OF: Readonly<Record<string, ConditionToneDto>> = {
   Abençoado: 'benefit',
@@ -59,27 +65,55 @@ export function conditionCard(name: string): HTMLElement {
   return screen.getByRole('button', { name: `Editar ${name}`, hidden: true });
 }
 
-/** A link to a cast holding `definitions` (VHARN at version 4), its commands played by
- *  `commands` and its uploads by `assets`; `confirm(event)` delivers the next confirmed event to
- *  the cast. Nothing rendered.
+/** One confirmed change of the table's list, as `confirm` takes it. */
+export type ListChange =
+  | Readonly<{
+      type: 'conditionDefined';
+      payload: Readonly<{ definition: ConditionDefinitionDto }>;
+    }>
+  | Readonly<{
+      type: 'conditionDefinitionUpdated';
+      payload: Readonly<{ definition: ConditionDefinitionDto }>;
+    }>
+  | Readonly<{ type: 'conditionDefinitionDeleted'; payload: Readonly<{ conditionId: string }> }>
+  | Readonly<{
+      type: 'conditionDefaultsRestored';
+      payload: Readonly<{ definitions: ConditionDefinitionDto[] }>;
+    }>;
+
+function updateOf(version: number, change: ListChange): CharacterUpdate {
+  switch (change.type) {
+    case 'conditionDefined':
+      return conditionDefinedAt(version, change.payload.definition);
+    case 'conditionDefinitionUpdated':
+      return definitionUpdatedAt(version, change.payload.definition);
+    case 'conditionDefinitionDeleted':
+      return definitionDeletedAt(version, change.payload.conditionId);
+    case 'conditionDefaultsRestored':
+      return defaultsRestoredAt(version, ...change.payload.definitions);
+  }
+}
+
+/** The scope of the list's commands: the table, no grid. */
+export const VHARN_TABLE = { campaignId: VHARN.id } as const;
+
+/** A link to a table stream holding `definitions` (VHARN at version 4), its commands played by
+ *  `commands` and its uploads by `assets`; `confirm(change)` delivers the next confirmed event
+ *  of the list to the stream. Nothing rendered.
  *
  *  Example: `const { link, confirm } = catalogLinkOver([conditionDefinition()])` */
 export function catalogLinkOver(definitions: readonly ConditionDefinitionDto[]) {
-  const cast: StoreApi<BoardStore> = createBoardStore(VHARN.id, () => undefined);
-  cast.getState().apply({
-    kind: 'board',
-    state: vharnBoard({ conditionDefinitions: [...definitions] }),
-  });
+  const table: StoreApi<CharactersStore> = createCharactersStore(VHARN.id, () => undefined);
+  table.getState().apply(tableSynced(4, [], [...definitions]));
   const commands = new TableBoardCommandsFake();
   const assets = new AssetsApiFake();
-  const link: ConditionCatalogLink = { scope: VHARN_GRID, cast, commands, assets };
+  const link: ConditionCatalogLink = { scope: VHARN_TABLE, table, commands, assets };
   let version = 4;
-  const confirm = (event: Parameters<typeof eventAt>[1]): void => {
+  const confirm = (change: ListChange): void => {
     version += 1;
-    const confirmed: BoardEvent = eventAt(version, event);
-    act(() => cast.getState().apply({ kind: 'boardEvent', event: confirmed }));
+    act(() => table.getState().apply(updateOf(version, change)));
   };
-  return { link, cast, commands, assets, confirm };
+  return { link, table, commands, assets, confirm };
 }
 
 /** The page over `catalogLinkOver(definitions)`.

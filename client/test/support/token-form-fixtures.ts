@@ -1,7 +1,6 @@
 import type { TokenDto, TokenFormDto, TokenFormChangedDto } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
 import { LYRA_PORTRAIT } from './assets-api-fake';
-import { VHARN_CAST } from './cast-fixtures';
 import { vharnEventBase } from './drawing-fixtures';
 import { LYRA_ID, lyra } from './table-session-fixtures';
 
@@ -60,14 +59,12 @@ export function formChangedAt(
   return { type: 'tokenFormChanged', payload };
 }
 
-/** The cast's `token:formChanged` (no box: the size is per grid): the anchor `tokenId` became
- *  the dire wolf.
+/** `token:formChanged` with no box (the token keeps its size): `tokenId` became the dire wolf.
  *
- *  Example: `castFormChangedAt(8, LYRA_ANCHOR_ID)` */
-export function castFormChangedAt(version: number, tokenId: string): BoardEvent {
+ *  Example: `formSwitchedAt(8, LYRA_ID)` */
+export function formSwitchedAt(version: number, tokenId: string): BoardEvent {
   const payload: TokenFormChangedDto = {
     ...vharnEventBase(version),
-    ...VHARN_CAST,
     tokenId,
     activeFormId: WOLF_FORM_ID,
     imageAssetId: WOLF_IMAGE_ID,

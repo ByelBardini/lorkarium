@@ -1,26 +1,22 @@
-import type {
-  CharacterChangedEventDto,
-  CharacterDto,
-  CharacterRemovedEventDto,
-} from '@lorkarium/contracts';
+import type { CharacterDto, CharacterSyncDto, ConditionDefinitionDto } from '@lorkarium/contracts';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { BoardSyncFailure, CharacterUpdate } from '@/services/table-session-api';
+import { tableStreamAfter, type TableStreamEvent } from './table-stream-reducer';
 
-type CharacterEvent =
-  | Readonly<{ kind: 'characterChanged'; event: CharacterChangedEventDto }>
-  | Readonly<{ kind: 'characterRemoved'; event: CharacterRemovedEventDto }>;
-
-/** The confirmed characters of one open table, in the version of the table's characters (apart
- *  from the grids'). `version` is `null` until the first `character:sync`; `held` are events that
- *  cannot apply yet: before it, or after a gap while the resync is on its way. */
+/** The confirmed table stream of one open table: its characters and its condition list, in one
+ *  version of its own (apart from the grids'). `version` is `null` until the first
+ *  `character:sync`; `held` are events that cannot apply yet: before it, or after a gap while
+ *  the resync is on its way. */
 export type CharactersStoreState = Readonly<{
   campaignId: string;
   status: 'loading' | 'ready' | 'failed';
   failure: BoardSyncFailure | null;
   version: number | null;
   characters: readonly CharacterDto[];
-  held: readonly CharacterEvent[];
+  /** The table's list of conditions: the catalog, the picker and every token's conditions. */
+  conditionDefinitions: ConditionDefinitionDto[];
+  held: readonly TableStreamEvent[];
   resyncAsked: boolean;
 }>;
 
@@ -32,10 +28,12 @@ export type CharactersStore = CharactersStoreState &
   }>;
 
 const NO_CHARACTERS: readonly CharacterDto[] = [];
+const NO_DEFINITIONS: ConditionDefinitionDto[] = [];
 
-/** The characters store of one open table. A sync always replaces them (and replays the events
- *  held past its version); an event applies only at `version + 1`, is a duplicate at or below it,
- *  and a gap asks `requestResync` once.
+/** The table stream store of one open table. A sync always replaces it (and replays the events
+ *  held past its version); an event — a character's or the condition list's, one counter —
+ *  applies only at `version + 1`, is a duplicate at or below it, and a gap asks `requestResync`
+ *  once.
  *
  *  Example: `const characters = createCharactersStore(campaignId, () => followed.resync())` */
 export function createCharactersStore(
@@ -85,6 +83,7 @@ function initialState(campaignId: string): CharactersStoreState {
     failure: null,
     version: null,
     characters: NO_CHARACTERS,
+    conditionDefinitions: NO_DEFINITIONS,
     held: [],
     resyncAsked: false,
   };
@@ -103,27 +102,31 @@ function nextState(
 
 function syncedState(
   state: CharactersStoreState,
-  sync: Readonly<{ version: number; characters: CharacterDto[] }>,
+  sync: CharacterSyncDto,
 ): Partial<CharactersStoreState> {
   const later = state.held
     .filter(({ event }) => event.version > sync.version)
     .sort((a, b) => a.event.version - b.event.version);
-  const fresh = { version: sync.version, characters: sync.characters };
-  const replayed = later.reduce(replayedOne, fresh);
+  const { version, characters, conditionDefinitions } = sync;
+  const replayed = later.reduce(replayedOne, { version, characters, conditionDefinitions });
   return { ...replayed, status: 'ready', failure: null, held: [], resyncAsked: false };
 }
 
-type Confirmed = Readonly<{ version: number; characters: readonly CharacterDto[] }>;
+type Confirmed = Readonly<{
+  version: number;
+  characters: readonly CharacterDto[];
+  conditionDefinitions: ConditionDefinitionDto[];
+}>;
 
 // A held event past a hole after the snapshot is dropped: the next gap asks again.
-function replayedOne(confirmed: Confirmed, held: CharacterEvent): Confirmed {
+function replayedOne(confirmed: Confirmed, held: TableStreamEvent): Confirmed {
   if (held.event.version !== confirmed.version + 1) return confirmed;
-  return { version: held.event.version, characters: charactersAfter(confirmed.characters, held) };
+  return { ...tableStreamAfter(confirmed, held), version: held.event.version };
 }
 
 function eventState(
   state: CharactersStoreState,
-  update: CharacterEvent,
+  update: TableStreamEvent,
   resyncOnce: () => Partial<CharactersStoreState>,
 ): Partial<CharactersStoreState> {
   const { version } = state;
@@ -132,20 +135,7 @@ function eventState(
   if (update.event.version > version + 1) {
     return { ...resyncOnce(), held: [...state.held, update] };
   }
-  return { version: update.event.version, characters: charactersAfter(state.characters, update) };
-}
-
-function charactersAfter(
-  characters: readonly CharacterDto[],
-  update: CharacterEvent,
-): readonly CharacterDto[] {
-  if (update.kind === 'characterRemoved') {
-    return characters.filter(({ id }) => id !== update.event.characterId);
-  }
-  const changed = new Map(update.event.characters.map((character) => [character.id, character]));
-  const kept = characters.map((character) => changed.get(character.id) ?? character);
-  const known = new Set(characters.map(({ id }) => id));
-  return [...kept, ...update.event.characters.filter(({ id }) => !known.has(id))];
+  return { ...tableStreamAfter(state, update), version: update.event.version };
 }
 
 // A failed resync keeps the characters already shown; only a first sync that failed fails.

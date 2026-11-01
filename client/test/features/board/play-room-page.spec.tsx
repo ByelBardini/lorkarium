@@ -363,7 +363,6 @@ describe('play room page', () => {
       const OTHER_TABLES = [1, 2, 3, 4, 5].map((n) => ({
         campaignId: `a1000000-0000-4000-8000-00000000000${n}`,
         name: `Mesa ${n}`,
-        castSceneId: `c1000000-0000-4000-8000-00000000000${n}`,
       }));
 
       beforeEach(() => {

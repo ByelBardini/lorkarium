@@ -55,7 +55,6 @@ import { createScenesModule } from '../modules/scenes/scenes.plugin';
 import { createLibraryModule } from '../modules/library/library.plugin';
 import { createSavedRollsModule } from '../modules/saved-rolls/saved-rolls.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
-import { createMemberCardsModule } from '../modules/member-cards/member-cards.plugin';
 import { createCharactersModule } from '../modules/characters/characters.plugin';
 import { SocketIoCharacterPublisher } from '../infrastructure/character-publisher/socket-io-character-publisher';
 import { createPingsModule } from '../modules/pings/pings.plugin';
@@ -288,7 +287,7 @@ function wireRealtime(
   const { characterPublisher } = outlets;
   const tokensModule = createTokensModule({ ...shared, sceneWalls, characterPublisher });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
-  const { mainToken, link: tokenLink, visibility: tokenVisibility } = tokensModule;
+  const { link: tokenLink, visibility: tokenVisibility } = tokensModule;
   const { form: tokenForm } = tokensModule;
   const conditionsModule = createConditionsModule({ ...shared, characterPublisher });
   const { service: conditions, catalog: conditionCatalog } = conditionsModule;
@@ -297,7 +296,6 @@ function wireRealtime(
   const effectAreas = createEffectAreasModule(shared).service;
   const walls = createWallsModule({ ...shared, sceneWalls }).service;
   const lights = createLightsModule(shared).service;
-  const memberCards = createMemberCardsModule(shared).service;
   const characters = createCharactersModule({ ...shared, publisher: characterPublisher });
   const pings = createPingsModule({
     members,
@@ -321,10 +319,8 @@ function wireRealtime(
     tokenBatch,
     tokenAppearance,
     tokenForm,
-    mainToken,
     tokenVisibility,
     tokenLink,
-    memberCards,
     characters: characters.service,
     pings,
     conditions,

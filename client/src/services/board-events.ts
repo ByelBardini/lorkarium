@@ -11,13 +11,8 @@ import {
   combatTurnChangedDto,
   combatUpdatedDto,
   conditionAppliedDto,
-  conditionDefaultsRestoredDto,
-  conditionDefinedDto,
-  conditionDefinitionDeletedDto,
-  conditionDefinitionUpdatedDto,
   conditionRemovedDto,
   conditionsAppliedDto,
-  conditionsChangedDto,
   doorChangedDto,
   drawingsCreatedDto,
   drawingsDeletedDto,
@@ -43,8 +38,6 @@ import {
   tokensMovedDto,
   tokensFacedDto,
   tokensResizedDto,
-  mainTokenChangedDto,
-  memberCardChangedDto,
   tokensRestyledDto,
   tokenFormChangedDto,
   type TokenFormChangedDto,
@@ -79,11 +72,6 @@ import {
   type CombatTurnChangedDto,
   type CombatUpdatedDto,
   type ConditionAppliedDto,
-  type ConditionDefaultsRestoredDto,
-  type ConditionDefinedDto,
-  type ConditionDefinitionDeletedDto,
-  type ConditionDefinitionUpdatedDto,
-  type ConditionsChangedDto,
   type ConditionRemovedDto,
   type ConditionsAppliedDto,
   type DrawingsCreatedDto,
@@ -98,8 +86,6 @@ import {
   type TokensCreatedDto,
   type TokensDeletedDto,
   type TokensMovedDto,
-  type MainTokenChangedDto,
-  type MemberCardChangedDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
 
@@ -115,15 +101,13 @@ export type BoardEvent =
   | Readonly<{ type: 'tokensFaced'; payload: TokensFacedDto }>
   | Readonly<{ type: 'tokensResized'; payload: TokensResizedDto }>
   | Readonly<{ type: 'tokensRestyled'; payload: TokensRestyledDto }>
-  /** With `box`: the grid's token; without: the cast's anchor (image and form, every grid). */
+  /** With `box`, the size of the form too; without, only the image, the frame and the form. */
   | Readonly<{ type: 'tokenFormChanged'; payload: TokenFormChangedDto }>
   | Readonly<{ type: 'tokensCreated'; payload: TokensCreatedDto }>
   | Readonly<{ type: 'tokensDeleted'; payload: TokensDeletedDto }>
   /** The grid moved a version and nothing of it is for this viewer (it touched hidden tokens). */
   | Readonly<{ type: 'boardAdvanced'; payload: BoardAdvancedDto }>
   | Readonly<{ type: 'tokensHiddenChanged'; payload: TokensHiddenChangedDto }>
-  | Readonly<{ type: 'mainTokenChanged'; payload: MainTokenChangedDto }>
-  | Readonly<{ type: 'memberCardChanged'; payload: MemberCardChangedDto }>
   | Readonly<{ type: 'drawingsCreated'; payload: DrawingsCreatedDto }>
   | Readonly<{ type: 'drawingsMoved'; payload: DrawingsMovedDto }>
   | Readonly<{ type: 'drawingsDeleted'; payload: DrawingsDeletedDto }>
@@ -144,15 +128,8 @@ export type BoardEvent =
   | Readonly<{ type: 'lightConesChanged'; payload: LightConesChangedDto }>
   | Readonly<{ type: 'lightsLitChanged'; payload: LightsLitChangedDto }>
   | Readonly<{ type: 'lightsDeleted'; payload: LightsDeletedDto }>
-  | Readonly<{ type: 'conditionDefined'; payload: ConditionDefinedDto }>
-  /** The table's list (the cast): a definition edited, deleted, or the missing defaults back. */
-  | Readonly<{ type: 'conditionDefinitionUpdated'; payload: ConditionDefinitionUpdatedDto }>
-  | Readonly<{ type: 'conditionDefinitionDeleted'; payload: ConditionDefinitionDeletedDto }>
-  | Readonly<{ type: 'conditionDefaultsRestored'; payload: ConditionDefaultsRestoredDto }>
   | Readonly<{ type: 'conditionApplied'; payload: ConditionAppliedDto }>
   | Readonly<{ type: 'conditionsApplied'; payload: ConditionsAppliedDto }>
-  /** The anchors' conditions after the end of a turn of a token linked to them (the cast). */
-  | Readonly<{ type: 'conditionsChanged'; payload: ConditionsChangedDto }>
   | Readonly<{ type: 'conditionRemoved'; payload: ConditionRemovedDto }>
   | Readonly<{ type: 'combatStarted'; payload: CombatStartedDto }>
   | Readonly<{ type: 'combatUpdated'; payload: CombatUpdatedDto }>
@@ -191,8 +168,6 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.tokensDeleted]: specOf('tokensDeleted', tokensDeletedDto),
   [BOARD_EVENTS.boardAdvanced]: specOf('boardAdvanced', boardAdvancedDto),
   [BOARD_EVENTS.tokensHiddenChanged]: specOf('tokensHiddenChanged', tokensHiddenChangedDto),
-  [BOARD_EVENTS.mainTokenChanged]: specOf('mainTokenChanged', mainTokenChangedDto),
-  [BOARD_EVENTS.memberCardChanged]: specOf('memberCardChanged', memberCardChangedDto),
   [BOARD_EVENTS.drawingsCreated]: specOf('drawingsCreated', drawingsCreatedDto),
   [BOARD_EVENTS.drawingsMoved]: specOf('drawingsMoved', drawingsMovedDto),
   [BOARD_EVENTS.drawingsDeleted]: specOf('drawingsDeleted', drawingsDeletedDto),
@@ -213,23 +188,9 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.lightConesChanged]: specOf('lightConesChanged', lightConesChangedDto),
   [BOARD_EVENTS.lightsLitChanged]: specOf('lightsLitChanged', lightsLitChangedDto),
   [BOARD_EVENTS.lightsDeleted]: specOf('lightsDeleted', lightsDeletedDto),
-  [BOARD_EVENTS.conditionDefined]: specOf('conditionDefined', conditionDefinedDto),
-  [BOARD_EVENTS.conditionDefinitionUpdated]: specOf(
-    'conditionDefinitionUpdated',
-    conditionDefinitionUpdatedDto,
-  ),
-  [BOARD_EVENTS.conditionDefinitionDeleted]: specOf(
-    'conditionDefinitionDeleted',
-    conditionDefinitionDeletedDto,
-  ),
-  [BOARD_EVENTS.conditionDefaultsRestored]: specOf(
-    'conditionDefaultsRestored',
-    conditionDefaultsRestoredDto,
-  ),
   [BOARD_EVENTS.conditionApplied]: specOf('conditionApplied', conditionAppliedDto),
   [BOARD_EVENTS.conditionsApplied]: specOf('conditionsApplied', conditionsAppliedDto),
   [BOARD_EVENTS.conditionRemoved]: specOf('conditionRemoved', conditionRemovedDto),
-  [BOARD_EVENTS.conditionsChanged]: specOf('conditionsChanged', conditionsChangedDto),
   [BOARD_EVENTS.combatStarted]: specOf('combatStarted', combatStartedDto),
   [BOARD_EVENTS.combatUpdated]: specOf('combatUpdated', combatUpdatedDto),
   [BOARD_EVENTS.combatTurnChanged]: specOf('combatTurnChanged', combatTurnChangedDto),

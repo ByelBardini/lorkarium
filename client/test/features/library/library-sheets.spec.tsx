@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import type { SheetSummaryDto } from '@lorkarium/contracts';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { VHARN } from '../../support/campaigns-api-fake';
-import { castBoard } from '../../support/cast-fixtures';
 import { charactersSynced, kaelCharacter } from '../../support/character-fixtures';
 import { DataTransferFake } from '../../support/data-transfer-fake';
 import { ATO_1, masterLibrary, playerLibrary } from '../../support/library-fixtures';
@@ -46,7 +45,6 @@ function withSheets(sheets: readonly SheetSummaryDto[] = [CAIO_SHEET, GOBLIN_SHE
 async function openWithHolders(deps: TestDependencies, options: LibraryRoomOptions = {}) {
   const room = await openLibrary(deps, options);
   act(() => {
-    deps.tableSessionApi.emitToCast(VHARN.id, { kind: 'board', state: castBoard() });
     deps.tableSessionApi.emitToCharacters(VHARN.id, charactersSynced(2, kaelCharacter()));
     deps.tableSessionApi.emit({
       kind: 'board',

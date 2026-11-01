@@ -95,7 +95,6 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | documents        | Documentos ricos: abas, conteúdo, posse, versão, edição e imagens protegidas         | [`docs/context/documents.md`](docs/context/documents.md)               |
 | tokens           | Tokens: barras, controle, principal, cone, luz, aura, formas, invisível, elenco      | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
 | characters       | Personagem da mesa: tabelas, regra, `character:*`, ciclo de vida, token ligado       | [`docs/context/characters.md`](docs/context/characters.md)             |
-| member-cards     | Ficha da mesa: nome do personagem, CA, CD e anotações por membro                     | [`docs/context/member-cards.md`](docs/context/member-cards.md)         |
 | profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`           | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
 | combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada            | [`docs/context/combat.md`](docs/context/combat.md)                     |
 | drawings         | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição               | [`docs/context/drawings.md`](docs/context/drawings.md)                 |

@@ -6,7 +6,6 @@ import { BIA_ID, CAIO_ID, DUDA_ID, VHARN_ID } from '../../support/campaigns-fact
 import { LYRA_CHARACTER_ID } from '../../support/characters-factories';
 import {
   KAEL_CHARACTER_ID,
-  LYRA_ANCHOR_ID,
   QUELM_TOKEN_ID,
   SheetsHarness,
   lyraPlace,
@@ -66,15 +65,12 @@ describe('SheetHolderService', () => {
     });
   });
 
-  it.each([
-    ['a token of Quelm', QUELM_TOKEN_ID],
-    ["Lyra's old anchor in the cast", LYRA_ANCHOR_ID],
-  ])('%s is TOKEN_NOT_FOUND at Vharn, citing it', async (_what, tokenId) => {
+  it('a token of Quelm is TOKEN_NOT_FOUND at Vharn, citing it', async () => {
     const harness = new SheetsHarness();
 
-    await expect(resolve(harness, { tokenId })).rejects.toMatchObject({
+    await expect(resolve(harness, { tokenId: QUELM_TOKEN_ID })).rejects.toMatchObject({
       code: 'TOKEN_NOT_FOUND',
-      message: expect.stringContaining(tokenId),
+      message: expect.stringContaining(QUELM_TOKEN_ID),
     });
   });
 

@@ -11,9 +11,9 @@ import {
 /** Both keys off: what a table answers until it says otherwise. */
 export const NO_TOKEN_KEYS: TableTokenRights = { create: false, delete: false };
 
-/** A token as its rights read it: a link to a character (`characterId`) counts as the
- *  game-core's link (`anchorTokenId`) until the game-core names the character itself. */
-export type RightsToken = OwnedToken & Readonly<{ characterId?: string | null }>;
+/** A token as its rights read it: its author and its link to a character (a linked token is
+ *  the master's, since editing it changes the character on every grid). */
+export type RightsToken = Readonly<{ createdBy: string | null; characterId: string | null }>;
 
 /** What one viewer may do with tokens on this table, by the game-core rule the server uses. */
 export type ViewerTokenRights = Readonly<{
@@ -61,8 +61,8 @@ export function viewerTokenRightsOf(
   };
 }
 
-function ownedTokenOf({ createdBy, anchorTokenId, characterId }: RightsToken): OwnedToken {
-  return { createdBy, anchorTokenId: anchorTokenId ?? characterId ?? null };
+function ownedTokenOf({ createdBy, characterId }: RightsToken): OwnedToken {
+  return { createdBy, characterId };
 }
 
 /** Whether a role may create tokens: creating asks only for the role, and the toolbar knows the

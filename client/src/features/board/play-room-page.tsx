@@ -488,7 +488,6 @@ type ShownTab = Readonly<{
   table: Readonly<{
     presence: StoreApi<TablePresenceStore>;
     board: StoreApi<BoardStore>;
-    cast: StoreApi<BoardStore>;
     characters: StoreApi<CharactersStore>;
     edits: StoreApi<TableEditStore>;
   }> | null;

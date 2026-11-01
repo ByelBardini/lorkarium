@@ -4,7 +4,7 @@ A aba "Na mesa" do `RoomSidePanel`: os mestres numa seção compacta e um card p
 
 ## Estado e comando do personagem
 
-- O card lê a `characters-store` da mesa (`SessionPresencePanel.characters`; o `RoomSidePanel` passa `table.characters`): `null` até o 1º `character:sync`. O `member:cardChanged`/`memberCards` do board não são mais lidos (o parse e o reducer ficam até a limpeza, pela continuidade da versão).
+- O card lê a `characters-store` da mesa (`SessionPresencePanel.characters`; o `RoomSidePanel` passa `table.characters`): `null` até o 1º `character:sync`. O board não traz mais ficha da mesa (`memberCards`) nem `member:cardChanged`: tudo do card é o personagem.
 - Edição: `interaction.command((c, s) => c.updateCharacter(s, character.id, changes))` (`character:update`, sem `sceneId` nem `userId`); recusa → `forbidden` / `character_not_found` na linha de status. Barras: `adjustCharacterBar`. Ficha principal: `setMainSheet`. Ver [`characters.md`](characters.md).
 - Specs: `character-commands.spec.ts`, `characters-store.spec.ts`, `player-card{,-editing}.spec.tsx`.
 

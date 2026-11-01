@@ -25,7 +25,7 @@ import {
 } from '../../support/campaigns-factories';
 import { ChatPublisherFake } from '../../support/chat-fakes';
 import { GridAudienceFake } from '../../support/pings-fakes';
-import { VHARN_CAST_ID, VHARN_SCENE_ID } from '../../support/scenes-factories';
+import { VHARN_SCENE_ID } from '../../support/scenes-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
 import { LYRA_ID, lyraRow } from '../../support/tokens-factories';
 
@@ -227,7 +227,8 @@ describe('ChatService.send — refusals', () => {
 
   it('a token of a grid the connection does not have open is SCENE_NOT_FOUND', async () => {
     const { service } = harness();
-    const speaker: ChatSpeakerDto = { kind: 'token', sceneId: VHARN_CAST_ID, tokenId: LYRA_ID };
+    const closedGridId = '8e4d3c2b-1a0f-4e9d-a8b7-6f5e4d3c2b1a';
+    const speaker: ChatSpeakerDto = { kind: 'token', sceneId: closedGridId, tokenId: LYRA_ID };
 
     await expect(service.send(ANA_ID, commandOf({ speaker }), CONNECTION)).rejects.toThrow(
       SceneNotFoundError,

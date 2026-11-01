@@ -155,7 +155,7 @@ export class ConditionsDao {
     return deleted.length > 0;
   }
 
-  /** How many holders of the campaign have the condition: the tokens of every grid and the cast,
+  /** How many holders of the campaign have the condition: the tokens of every grid
    *  and the characters (one each, however many grids show it). */
   async countActiveOf(campaignId: string, conditionId: string): Promise<number> {
     const holder = sql`coalesce(${activeConditions.tokenId}, ${activeConditions.characterId})`;

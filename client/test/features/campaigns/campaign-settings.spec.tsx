@@ -392,9 +392,7 @@ describe('campaign settings page', () => {
 
   describe('delete', () => {
     it('only with the exact name: deletes, closes the table in this tab and goes to /', async () => {
-      deps.openTables
-        .getState()
-        .open({ campaignId: VHARN.id, name: VHARN.name, castSceneId: detailOf(VHARN).castSceneId });
+      deps.openTables.getState().open({ campaignId: VHARN.id, name: VHARN.name });
       const form = await openSettings();
 
       await userEvent.click(within(form).getByRole('button', { name: 'Excluir mesa' }));

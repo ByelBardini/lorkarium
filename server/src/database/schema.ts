@@ -3,7 +3,7 @@ export { authSessions } from '../modules/auth/auth-sessions.po';
 export { memberColor, userRole, users } from '../modules/auth/users.po';
 export { campaignRole, campaignMembers } from '../modules/campaigns/campaign-members.po';
 export { campaignStatus, campaignVisibility, campaigns } from '../modules/campaigns/campaigns.po';
-export { sceneKind, sceneVision, sceneVisibility, scenes } from '../modules/scenes/scenes.po';
+export { sceneVision, sceneVisibility, scenes } from '../modules/scenes/scenes.po';
 export { sceneFolders } from '../modules/library/scene-folders.po';
 export {
   auraEffect,
@@ -31,8 +31,6 @@ export { effectAreaKind, effectAreas } from '../modules/effect-areas/effect-area
 export { doorState, wallKind, wallShape, walls } from '../modules/walls/walls.po';
 export { assetMimeType, assetPurpose, assets } from '../modules/assets/assets.po';
 export { lightColorEnum, lights } from '../modules/lights/lights.po';
-export { mainTokens } from '../modules/tokens/main-tokens.po';
-export { memberCards } from '../modules/member-cards/member-cards.po';
 export { emailChangeRequests } from '../modules/account-security/email-change-requests.po';
 export {
   accountRecoveryKind,

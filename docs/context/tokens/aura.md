@@ -50,7 +50,7 @@ Sem comando nem evento novo (tirar a aura é `style: { aura: null }`):
 
 ## Token ligado
 
-A aura é do **personagem**: está no `TokenIdentityPo`/`identityOf` (`linked-token.ts`), então o ligado mostra a aura do personagem (`characters.aura_*`) em todo grid, desligar a copia para o token (`unlinkWith`) e o "Adicionar jogadores" nasce com a da âncora. `splitStyle` põe `aura` (inclusive `null`) no compartilhado; `splitUpdate` manda as sete colunas ao personagem (as formas ficam no token). Ver a tabela de [`../characters/token-ligado.md`](../characters/token-ligado.md).
+A aura é do **personagem**: está no `TokenIdentityPo`/`identityOf` (`linked-token.ts`), então o ligado mostra a aura do personagem (`characters.aura_*`) em todo grid, desligar a copia para o token (`TokenCharacterLinkDao.release`) e o "Adicionar jogadores" nasce com a do personagem. `splitStyle` põe `aura` (inclusive `null`) no compartilhado; `splitUpdate` manda as sete colunas ao personagem (as formas ficam no token). Ver a tabela de [`../characters/token-ligado.md`](../characters/token-ligado.md).
 
 ## Testes
 

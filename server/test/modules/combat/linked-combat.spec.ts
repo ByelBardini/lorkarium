@@ -70,7 +70,6 @@ describe('the end of the turn of a token linked to a character', () => {
     ]);
     const [lyra] = table.characterPublisher.changes[0]?.characters ?? [];
     expect(lyra).toMatchObject({ characterId: LYRA_CHARACTER_ID, privileged: { conditions: [] } });
-    expect(table.publisher.conditionsChanges).toEqual([]);
     expect(table.publisher.combatEvents).toEqual([
       expect.objectContaining({
         name: 'combat:turnChanged',

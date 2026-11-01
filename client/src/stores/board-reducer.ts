@@ -11,8 +11,6 @@ import type {
   LightConesChangedDto,
   LightRangesChangedDto,
   LightsMovedDto,
-  MainTokenDto,
-  MemberCardDto,
   TokenDto,
   TokenFormChangedDto,
   TokensFacedDto,
@@ -24,33 +22,13 @@ import type {
   WallsMovedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
-import {
-  tokensShowingDefinition,
-  tokensWithoutDefinition,
-  withDefinitionReplaced,
-  withDefinitionsAdded,
-} from '@/lib/condition-catalog';
 
 /** The board after one confirmed event, already checked to be `board.version + 1`.
  *
  *  Example: `applyBoardEvent(board, { type: 'tokenMoved', payload }).tokens` */
 export function applyBoardEvent(board: BoardStateDto, event: BoardEvent): BoardStateDto {
   const { version, at } = event.payload;
-  const next = { ...board, ...changesOf(board, event), version, at };
-  return { ...next, mainTokens: mainTokensAfter(next, event) };
-}
-
-// The server drops a choice when its token goes or stops listing the person (cascade and
-// `dropLostControl`), with no event of its own: the client does the same on every event.
-function mainTokensAfter(board: BoardStateDto, event: BoardEvent): MainTokenDto[] {
-  const chosen =
-    event.type === 'mainTokenChanged'
-      ? [...board.mainTokens.filter(({ userId }) => userId !== event.payload.userId), event.payload]
-      : board.mainTokens;
-  const kept = chosen.filter(({ userId, tokenId }) =>
-    board.tokens.some(({ id, controllerIds }) => id === tokenId && controllerIds.includes(userId)),
-  );
-  return kept.map(({ userId, tokenId }) => ({ userId, tokenId }));
+  return { ...board, ...changesOf(board, event), version, at };
 }
 
 function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> {
@@ -98,7 +76,6 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
         effectAreaChangesOf(board, event) ??
         wallChangesOf(board, event) ??
         lightChangesOf(board, event) ??
-        catalogChangesOf(board, event) ??
         combatChangesOf(board, event)
       );
   }
@@ -281,41 +258,8 @@ function withDrawingMoves(
   });
 }
 
-// The table's list (the cast's events): an edit shows on every token holding the condition, a
-// deletion takes it off them, the restored defaults join the list once.
-function catalogChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> | null {
-  switch (event.type) {
-    case 'conditionDefinitionUpdated': {
-      const { definition } = event.payload;
-      return {
-        conditionDefinitions: withDefinitionReplaced(board.conditionDefinitions, definition),
-        tokens: tokensShowingDefinition(board.tokens, definition),
-      };
-    }
-    case 'conditionDefinitionDeleted': {
-      const { conditionId } = event.payload;
-      return {
-        conditionDefinitions: board.conditionDefinitions.filter(({ id }) => id !== conditionId),
-        tokens: tokensWithoutDefinition(board.tokens, conditionId),
-      };
-    }
-    case 'conditionDefaultsRestored': {
-      const { definitions } = event.payload;
-      return {
-        conditionDefinitions: withDefinitionsAdded(board.conditionDefinitions, definitions),
-      };
-    }
-    default:
-      return null;
-  }
-}
-
 function combatChangesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> {
   switch (event.type) {
-    case 'conditionDefined':
-      return { conditionDefinitions: [...board.conditionDefinitions, event.payload.definition] };
-    case 'memberCardChanged':
-      return { memberCards: withMemberCard(board.memberCards, event.payload.card) };
     case 'conditionApplied': {
       const { tokenId, condition } = event.payload;
       return {
@@ -346,8 +290,6 @@ function combatChangesOf(board: BoardStateDto, event: BoardEvent): Partial<Board
         combat: event.payload.combat,
         tokens: withConditionChanges(board.tokens, event.payload.conditionChanges),
       };
-    case 'conditionsChanged':
-      return { tokens: withConditionChanges(board.tokens, event.payload.changes) };
     case 'combatEnded':
       return { combat: null };
     default:
@@ -373,10 +315,9 @@ function withBoxes(tokens: readonly TokenDto[], boxes: TokensResizedDto['resizes
     const box = boxes.find(({ tokenId }) => tokenId === token.id);
     if (!box) return token;
     const { col, row, width, height } = box;
-    // A size set by hand is no form any more, as the server does; a linked token keeps the
-    // anchor's form, since its size is per grid.
+    // A size set by hand is no form any more, as the server does.
     const resized = width !== token.width || height !== token.height;
-    const activeFormId = resized && !token.anchorTokenId ? null : token.activeFormId;
+    const activeFormId = resized ? null : token.activeFormId;
     return { ...token, col, row, width, height, activeFormId };
   });
 }
@@ -389,15 +330,16 @@ function restyledToken(token: TokenDto, style: TokensRestyledDto['style']): Toke
   return { ...token, ...style, activeFormId };
 }
 
-// The grid's event (with `box`) is its token's; the cast's (no box, the size being per grid)
-// reaches the anchor and every token linked to it.
+// Without `box` the token keeps its size: only the image, the frame and the form switch.
 function withForm(tokens: readonly TokenDto[], change: TokenFormChangedDto): TokenDto[] {
   const { tokenId, activeFormId, imageAssetId, frame, box } = change;
-  const switched = (token: TokenDto): boolean =>
-    token.id === tokenId || (box === undefined && token.anchorTokenId === tokenId);
-  return tokens.map((token) =>
-    switched(token) ? { ...token, ...box, activeFormId, imageAssetId, frame } : token,
-  );
+  return mapToken(tokens, tokenId, (token) => ({
+    ...token,
+    ...box,
+    activeFormId,
+    imageAssetId,
+    frame,
+  }));
 }
 
 function withFacings(tokens: readonly TokenDto[], faces: TokensFacedDto['faces']): TokenDto[] {
@@ -445,10 +387,4 @@ function withConditionChanges(
     const change = changes.find(({ tokenId }) => tokenId === token.id);
     return change ? { ...token, conditions: change.conditions } : token;
   });
-}
-
-function withMemberCard(cards: readonly MemberCardDto[], card: MemberCardDto): MemberCardDto[] {
-  const found = cards.some(({ userId }) => userId === card.userId);
-  if (!found) return [...cards, card];
-  return cards.map((each) => (each.userId === card.userId ? card : each));
 }

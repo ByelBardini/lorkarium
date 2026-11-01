@@ -2,6 +2,7 @@ import type {
   CharacterChangedEventDto,
   CharacterDto,
   CharacterRemovedEventDto,
+  ConditionDefinitionDto,
   TokenDto,
 } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
@@ -80,9 +81,55 @@ export function linkedKael(overrides: Partial<TokenDto> = {}): TokenDto {
   return kael({ id: KAEL_ID, characterId: KAEL_CHARACTER_ID, ...overrides });
 }
 
-/** The `character:sync` answer of VHARN at `version`. */
+/** The `character:sync` answer of VHARN at `version`, with no condition on the list. */
 export function charactersSynced(version: number, ...characters: CharacterDto[]): CharacterUpdate {
-  return { kind: 'characters', sync: { version, characters } };
+  return tableSynced(version, characters, []);
+}
+
+/** The `character:sync` answer of VHARN at `version`: the characters and the condition list.
+ *
+ *  Example: `tableSynced(3, [lyraCharacter()], [conditionDefinition()])` */
+export function tableSynced(
+  version: number,
+  characters: CharacterDto[],
+  conditionDefinitions: ConditionDefinitionDto[],
+): CharacterUpdate {
+  return { kind: 'characters', sync: { version, characters, conditionDefinitions } };
+}
+
+type TableEventFields = Readonly<{ campaignId: string; version: number; at: string }>;
+
+function tableEventAt(version: number): TableEventFields {
+  return { campaignId: VHARN.id, version, at: EVENT_AT };
+}
+
+/** `condition:defined` of VHARN at `version`, as the table stream receives it. */
+export function conditionDefinedAt(
+  version: number,
+  definition: ConditionDefinitionDto,
+): CharacterUpdate {
+  return { kind: 'conditionDefined', event: { ...tableEventAt(version), definition } };
+}
+
+/** `condition:definitionUpdated` of VHARN at `version`, as the table stream receives it. */
+export function definitionUpdatedAt(
+  version: number,
+  definition: ConditionDefinitionDto,
+): CharacterUpdate {
+  return { kind: 'conditionDefinitionUpdated', event: { ...tableEventAt(version), definition } };
+}
+
+/** `condition:definitionDeleted` of VHARN at `version`, as the table stream receives it. */
+export function definitionDeletedAt(version: number, conditionId: string): CharacterUpdate {
+  return { kind: 'conditionDefinitionDeleted', event: { ...tableEventAt(version), conditionId } };
+}
+
+/** `condition:defaultsRestored` of VHARN at `version`, as the table stream receives it. */
+export function defaultsRestoredAt(
+  version: number,
+  ...definitions: ConditionDefinitionDto[]
+): CharacterUpdate {
+  return { kind: 'conditionDefaultsRestored', event: { ...tableEventAt(version), definitions } };
 }
 
 export function characterChanged(
@@ -126,8 +173,8 @@ export function lyraPvAt(pv: number, overrides: Partial<CharacterDto> = {}): Cha
   return { ...character, bars };
 }
 
-/** A characters store of VHARN already synced (version 3) with `characters`; none given = Lyra
- *  and Kael.
+/** A table stream store of VHARN already synced (version 3) with `characters` and no condition
+ *  on the list; none given = Lyra and Kael.
  *
  *  Example: `<SessionPresencePanel characters={syncedCharacters()} … />` */
 export function syncedCharacters(...characters: CharacterDto[]): StoreApi<CharactersStore> {

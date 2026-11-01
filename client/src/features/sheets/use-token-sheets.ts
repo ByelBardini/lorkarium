@@ -1,6 +1,7 @@
 import type { SheetSummaryDto, SheetTemplateSummaryDto, TokenDto } from '@lorkarium/contracts';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { SheetRoom } from './sheet-room-context';
+import { isSpareSheet } from '@/lib/sheet-holder';
 
 /** The sheets of one holder this reader may read, in order of creation (the server leaves out
  *  the ones they may not). */
@@ -74,11 +75,6 @@ function useSheetChangesOf(room: SheetRoom | null): unknown {
   return useSyncExternalStore(subscribe, () => tabs?.getState().sheetChange ?? null);
 }
 
-// Nobody holds it: no token, no character (a character's sheet names its player).
-function isSpare({ tokenId, memberId }: SheetSummaryDto): boolean {
-  return tokenId === null && memberId === null;
-}
-
 /** What the master's "Nova ficha ▸" and "Dar ficha existente ▸" offer: the templates and the
  *  sheets nobody holds. */
 export type SheetLibrary = Readonly<{
@@ -100,7 +96,7 @@ export function useSheetLibrary(room: SheetRoom | null): SheetLibrary | null {
     void room.libraryApi.list(room.campaign.id).then((result) => {
       if (!current) return;
       if (!result.ok) return setLibrary(EMPTY_LIBRARY);
-      const spareSheets = (result.value.sheets ?? []).filter(isSpare);
+      const spareSheets = (result.value.sheets ?? []).filter(isSpareSheet);
       setLibrary({ templates: result.value.sheetTemplates ?? [], spareSheets });
     });
     return () => {

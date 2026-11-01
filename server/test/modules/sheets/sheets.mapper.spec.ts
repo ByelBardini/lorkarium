@@ -53,7 +53,7 @@ describe('sheets mapper', () => {
   });
 
   it("the token on the private Torre, out of the group, is out of Bia's sight", () => {
-    expect(toSheetAccessBo(bia, sheetPo(), placeOf(3)).canRead()).toBe(false);
+    expect(toSheetAccessBo(bia, sheetPo(), placeOf(2)).canRead()).toBe(false);
   });
 
   it('the receipt carries the sheet, its version and the operation, no values', () => {
@@ -135,7 +135,7 @@ describe('sheets mapper', () => {
       tokenId: null,
       characterId: null,
     });
-    expect(toSheetChangesPo({ actionId, holder: { tokenId: BRAM_ID } }, placeOf(2))).toEqual({
+    expect(toSheetChangesPo({ actionId, holder: { tokenId: BRAM_ID } }, placeOf(1))).toEqual({
       tokenId: BRAM_ID,
       characterId: null,
     });

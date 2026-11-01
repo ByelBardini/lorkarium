@@ -13,7 +13,7 @@ import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { createConditionToolStore, type ConditionToolStore } from '@/stores/condition-tool-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
-import { eventAt, vharnBoard, VHARN_GRID } from '../../support/table-session-fixtures';
+import { vharnBoard, VHARN_GRID } from '../../support/table-session-fixtures';
 
 const ENVENENADO: ConditionDefinitionDto = {
   id: 'e5f6a7b8-c9d0-4e1f-8a2b-3c4d5e6f7a8b',
@@ -75,13 +75,8 @@ describe('followConditionTool', () => {
   it('a picked condition deleted from the list is unpicked', () => {
     conditionTool.getState().pick(ENVENENADO.id);
     followConditionTool({ board, interaction, conditionTool });
-    board.getState().apply({
-      kind: 'boardEvent',
-      event: eventAt(5, {
-        type: 'conditionDefinitionDeleted',
-        payload: { conditionId: ENVENENADO.id },
-      }),
-    });
+    // The list moves with the table stream; the board shows it as a new list without it.
+    board.getState().apply({ kind: 'board', state: vharnBoard({ conditionDefinitions: [] }) });
     expect(conditionTool.getState().conditionId).toBeNull();
   });
 
@@ -120,13 +115,8 @@ describe('followConditionTool', () => {
     conditionTool.getState().pick(ENVENENADO.id);
     const stop = followConditionTool({ board, interaction, conditionTool });
     stop();
-    board.getState().apply({
-      kind: 'boardEvent',
-      event: eventAt(5, {
-        type: 'conditionDefinitionDeleted',
-        payload: { conditionId: ENVENENADO.id },
-      }),
-    });
+    // The list moves with the table stream; the board shows it as a new list without it.
+    board.getState().apply({ kind: 'board', state: vharnBoard({ conditionDefinitions: [] }) });
     expect(conditionTool.getState().conditionId).toBe(ENVENENADO.id);
   });
 

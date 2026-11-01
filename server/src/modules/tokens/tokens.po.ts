@@ -87,20 +87,15 @@ export const tokens = pgTable(
     ...auraColumns(),
     // Hidden from the players: only the masters and its controllers ever receive it.
     hidden: boolean('hidden').notNull().default(false),
-    // The anchor (in the table's cast) of the character this token is: it lends its identity,
-    // bars, controllers, conditions and defeat mark. Losing the anchor unlinks the token.
-    anchorTokenId: uuid('anchor_token_id').references((): AnyPgColumn => tokens.id, {
-      onDelete: 'set null',
-    }),
-    // The character this token is an instance of (filled by the 0075 migration from the anchor);
-    // losing the character unlinks the token.
+    // The character this token is an instance of: it lends its identity, look, bars,
+    // controllers, conditions and defeat mark. Losing the character unlinks the token.
     characterId: uuid('character_id').references((): AnyPgColumn => characters.id, {
       onDelete: 'set null',
     }),
     // Who created it: a player edits and deletes only their own (game-core `token-rights`).
     // Null = made before authorship was kept, or the account is gone (only the master then).
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
-    // The form it shows now (its own, or a linked token's anchor's); losing the form, or changing
+    // The form it shows now (always its own); losing the form, or changing
     // the image or the size by hand, leaves it without one.
     activeFormId: uuid('active_form_id').references((): AnyPgColumn => tokenForms.id, {
       onDelete: 'set null',
@@ -111,7 +106,6 @@ export const tokens = pgTable(
   (table) => [
     index('tokens_scene_id_idx').on(table.sceneId),
     // One token of each character per grid.
-    unique('tokens_scene_id_anchor_token_id_unique').on(table.sceneId, table.anchorTokenId),
     unique('tokens_scene_id_character_id_unique').on(table.sceneId, table.characterId),
     check('tokens_facing_range', sql`${table.facing} >= 0 AND ${table.facing} <= 359`),
     check('tokens_sight_angle', sql`${table.sightAngle} BETWEEN 1 AND 360`),

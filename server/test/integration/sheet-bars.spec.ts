@@ -4,7 +4,12 @@ import {
   characterChangedEventDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { gridState, linkToCard, lyraPoisonedAtVharn, tokenIn } from '../support/characters';
+import {
+  gridState,
+  linkToPlayerCharacter,
+  lyraPoisonedAtVharn,
+  tokenIn,
+} from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
@@ -48,7 +53,7 @@ function adjust(sheetId: string, barId: string, change: object = { op: 'add', am
 async function lyraOnTwoGrids() {
   const table = await lyraPoisonedAtVharn(live);
   const { ana, bia, caio, lyra } = table;
-  await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+  await linkToPlayerCharacter(live, ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
   await lyraBarsOnBia(live);
   const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada');
   await setGridVisibility(live, live.ana, live.vharn, estrada, 'public');
@@ -58,7 +63,7 @@ async function lyraOnTwoGrids() {
   await send(ana, 'token:create', command);
   const lyraOfEstrada = (await createdTokenOf(anaEvents)).id;
   const link = { sceneId: estrada, tokenId: lyraOfEstrada, memberId: live.bia.id };
-  await linkToCard(ana, live.vharn, link);
+  await linkToPlayerCharacter(live, ana, live.vharn, link);
   const pvId = tokenIn(await synced(bia, live.vharn), lyra.id).bars[0]?.id ?? '';
   return { ...table, estrada, lyraOfEstrada, pvId };
 }

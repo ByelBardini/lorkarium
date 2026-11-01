@@ -1,4 +1,4 @@
-# Client — rodapé do token (`TokenDock`) e token principal
+# Client — rodapé do token (`TokenDock`) e o token do meu personagem
 
 O rodapé da aba Combate com a ficha de um token: o selecionado ou, sem seleção, o **token do personagem** de quem vê no grid aberto e, sem ele, o próprio personagem. O personagem (store, composição, comandos) está em [`characters.md`](characters.md). Hub: [`../client.md`](../client.md); o resto dos tokens em [`tokens.md`](tokens.md).
 
@@ -16,6 +16,6 @@ O rodapé da aba Combate com a ficha de um token: o selecionado ou, sem seleçã
 - Quem consome passa o resultado pelo filtro de visão (`seenTokensOf`, armadilha do [`vision.md`](vision.md)).
 - Spec `client/test/lib/main-token.spec.ts`.
 
-## Estado e comando (até a limpeza)
+## Sem token principal
 
-- O comando `token:setMain` (`main-token-commands.ts`) e o item "Tornar principal"/"Tornar principal de" do menu do token saíram do client. O `token:mainChanged` (`board-events.ts`) e o `mainTokensAfter` do `board-reducer.ts` ficam até a Fase 13 do plano do personagem (o server tira `main_tokens`): ignorar o evento abriria buraco na versão do grid.
+- O `token:setMain`, o `token:mainChanged`, o `mainTokens` do board e o item "Tornar principal" saíram do client (Fase 13 do plano do personagem): o "principal" é só o token do personagem no grid aberto (`mainTokenIdOf`).

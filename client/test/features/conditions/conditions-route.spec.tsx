@@ -6,6 +6,7 @@ import { buildRoutes } from '@/app/router';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 import { detailOf, QUELM, VHARN } from '../../support/campaigns-api-fake';
+import { charactersSynced } from '../../support/character-fixtures';
 import { vharnBoard, vharnState } from '../../support/table-session-fixtures';
 
 const ROOM_PATH = `/campaigns/${VHARN.id}/table`;
@@ -62,7 +63,7 @@ describe('conditions route', () => {
 
   it('the image field of the sheet sends to the assets of the app, for this table, as a condition image', async () => {
     await openConditionsPage();
-    deps.tableSessionApi.emitToCast(VHARN.id, { kind: 'board', state: vharnBoard() });
+    deps.tableSessionApi.emitToCharacters(VHARN.id, charactersSynced(3));
     await userEvent.click(screen.getByRole('button', { name: 'Nova condição' }));
     const png = new File([new Uint8Array(64)], 'cego.png', { type: 'image/png' });
     await userEvent.upload(await screen.findByLabelText('Arquivo de imagem'), png);

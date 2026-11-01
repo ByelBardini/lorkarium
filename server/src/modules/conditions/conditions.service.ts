@@ -29,8 +29,8 @@ import {
   type SavedInCharactersAndGrid,
 } from '../characters/locked-characters-grid';
 import type { BoardPublisherPort, GridEvent } from '../scenes/board-publisher.port';
-import { gridEventBase } from '../scenes/locked-scene';
-import { inLockedCast, type SavedVersion } from '../scenes/locked-cast';
+import { charactersEventBase, inLockedCharacters } from '../characters/locked-characters';
+import { gridEventBase, type SavedVersion } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import { publishCharactersChange } from '../tokens/character-writes';
@@ -61,7 +61,7 @@ export type SetConditionStacks = Omit<SetConditionStacksCommandDto, Envelope>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type ConditionWriteDaos = Readonly<{
-  scenes: Pick<ScenesDao, 'lockInCampaign' | 'lockCastOf' | 'bumpVersion'>;
+  scenes: Pick<ScenesDao, 'lockInCampaign' | 'bumpVersion'>;
   tokens: Pick<TokensDao, 'findInScene' | 'findManyInScene'>;
   combat: Pick<CombatDao, 'findOfScene'>;
   conditions: Pick<
@@ -123,8 +123,8 @@ const RULES = new ConditionRulesBo();
  *  player, never the spectator) applies, adjusts and removes them on any token of the grid the
  *  command names — a condition is a marker everyone sees, the table corrects itself (spec §3.7).
  *  On a linked token the condition lives on its character (every grid shows it), in the
- *  characters' version. Persisted, version bumped, then published (the list itself, to the cast:
- *  every member). Editing and deleting the list is `ConditionCatalogService`'s.
+ *  characters' version. Persisted, version bumped, then published (the list itself, on the table
+ *  stream, to every member). Editing and deleting the list is `ConditionCatalogService`'s.
  *
  *  Example: `await conditionsService.apply(user.id, campaignId, { tokenId, conditionId, rounds: 2 })` */
 export class ConditionsService {
@@ -133,18 +133,22 @@ export class ConditionsService {
   async define(userId: string, campaignId: string, command: DefineCondition): Promise<number> {
     const access = await this.accessOf(userId, campaignId);
     access.requireMaster('define a condition');
-    // The list is the table's: it stays on the cast whatever grid the command names.
-    const outcome = await inLockedCast(this.deps.transaction, campaignId, async ({ daos }) => {
-      await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
-      const existing = await daos.conditions.findDefinitionByName(campaignId, command.name);
-      if (RULES.defineOrReuse(existing).kind === 'reuse') return { value: null, changed: false };
-      const fields = toNewConditionDefinition(command);
-      const created = await daos.conditions.insertDefinition(campaignId, fields);
-      return { value: created, changed: true };
-    });
+    // The list is the table's: it rides the table stream whatever grid the command names.
+    const outcome = await inLockedCharacters(
+      this.deps.transaction,
+      campaignId,
+      async ({ daos }) => {
+        await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
+        const existing = await daos.conditions.findDefinitionByName(campaignId, command.name);
+        if (RULES.defineOrReuse(existing).kind === 'reuse') return { value: null, changed: false };
+        const fields = toNewConditionDefinition(command);
+        const created = await daos.conditions.insertDefinition(campaignId, fields);
+        return { value: created, changed: true };
+      },
+    );
     if (!outcome.value) return outcome.version;
     const definition = toConditionDefinitionDto(outcome.value);
-    const base = gridEventBase(campaignId, outcome, this.deps.clock);
+    const base = charactersEventBase(campaignId, outcome.version, this.deps.clock);
     this.deps.publisher.conditionDefined({ ...base, definition });
     return outcome.version;
   }

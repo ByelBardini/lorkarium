@@ -10,21 +10,22 @@ import { boardCommandFailureMessage } from '@/features/board/board-messages';
 import { conditionSuggestions, orderedByTone } from '@/lib/condition-names';
 import type {
   BoardCommandFailure,
-  BoardScope,
   TableBoardCommands,
+  TableScope,
 } from '@/services/table-board-commands';
 import type { AssetsApi } from '@/services/assets-api';
-import type { BoardStore } from '@/stores/board-store';
+import type { CharactersStore } from '@/stores/characters-store';
 
-/** What the "Condições da mesa" page needs from the open table: its cast (whose list of
+/** What the "Condições da mesa" page needs from the open table: its table stream (whose list of
  *  conditions is the table's, live), where to address the commands, the commands themselves and
  *  where a condition's image goes up.
  *
- *  Example: `<ConditionCatalogPage link={{ scope, cast, commands, assets }} />` */
+ *  Example: `<ConditionCatalogPage link={{ scope, table, commands, assets }} />` */
 export type ConditionCatalogLink = Readonly<{
-  /** The table and its cast: the list's commands act on the table's version, not on a grid. */
-  scope: BoardScope;
-  cast: StoreApi<BoardStore>;
+  /** The table: the list's commands act on the table stream's version, never on a grid. */
+  scope: TableScope;
+  /** The open table's stream (`OpenTable.characters`): the list, in its version. */
+  table: StoreApi<CharactersStore>;
   commands: TableBoardCommands;
   /** Uploads the image of a condition (`purpose: 'condition'`) to the table of `scope`. */
   assets: AssetsApi;

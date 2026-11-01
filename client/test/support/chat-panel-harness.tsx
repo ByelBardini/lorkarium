@@ -13,7 +13,6 @@ import type { OpenTable } from '@/stores/open-tables-store';
 import type { TableSessionStatus } from '@/services/table-session-api';
 import { ANA } from './auth-api-fake';
 import { VHARN } from './campaigns-api-fake';
-import { VHARN_CAST_ID } from './cast-fixtures';
 import { BIA_ACCOUNT } from './dice-panel-harness';
 import { ANA_AT_TABLE, BIA_AT_TABLE, CAIO_AT_TABLE, vharnState } from './table-session-fixtures';
 import type { TestDependencies } from './app-dependencies';
@@ -48,7 +47,6 @@ export function openVharnChat(deps: TestDependencies, setup: ChatTableSetup = {}
     deps.openTables.getState().open({
       campaignId: VHARN.id,
       name: 'Vharn',
-      castSceneId: VHARN_CAST_ID,
       cover: VHARN.cover,
     });
   });

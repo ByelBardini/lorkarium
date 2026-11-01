@@ -19,7 +19,6 @@ import {
 } from '../../support/campaigns-factories';
 import { JuggernautMembersFake, MemberRemovedFake } from '../../support/juggernaut-fakes';
 import { ForgottenMembershipsFake, MemberRoleChangedFake } from '../../support/member-role-fakes';
-import { castPo } from '../../support/scenes-factories';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
 
 const NOW = new Date('2026-10-26T20:00:00Z');
@@ -45,11 +44,7 @@ describe('JuggernautService', () => {
     ]);
     changed = new MemberRoleChangedFake(members.writes);
     removed = new MemberRemovedFake(members.writes);
-    const casts = [
-      castPo({ campaignId: VHARN_ID }),
-      castPo({ id: 'quelm-cast', campaignId: QUELM_ID }),
-    ];
-    const scenes = new ScenesDaoFake(casts);
+    const scenes = new ScenesDaoFake();
     const presence = new PresenceReaderFake();
     const clock = new ClockFake(NOW);
     const conditions = new ConditionDefinitionsFake();

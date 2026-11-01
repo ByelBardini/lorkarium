@@ -9,6 +9,8 @@ import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
+import type { ConditionsDao } from '../conditions/conditions.dao';
+import { toConditionDefinitionDto } from '../conditions/conditions.mapper';
 import type { SheetsDao } from '../sheets/sheets.dao';
 import type { CharacterBo } from './character.bo';
 import type { CharacterPublisherPort } from './character-publisher.port';
@@ -43,10 +45,12 @@ export type CharacterWriteDaos = CharactersLockDaos &
 
 export type CharacterReadDaos = Readonly<{
   characters: Pick<CharactersDao, 'versionOf' | 'listOfCampaign'>;
+  /** The table's condition list rides the same stream (and version) as the characters. */
+  conditions: Pick<ConditionsDao, 'listDefinitions'>;
 }>;
 
 export type CharacterTransactionRunner = CharactersTransaction<CharacterWriteDaos>;
-/** One consistent read of the table's characters and their version (`runInSnapshot`). */
+/** One consistent read of the table stream and its version (`runInSnapshot`). */
 export type CharacterSnapshotRunner = CharactersTransaction<CharacterReadDaos>;
 
 export type CharactersServiceDeps = Readonly<{
@@ -101,18 +105,21 @@ export class CharactersService {
     });
   }
 
-  /** Every character this member sees, as they may see it, in the characters' version; a
-   *  spectator reads too (redacted, and never the characters of spectators).
+  /** The table stream as this member sees it: every character they see, as they may see it, and
+   *  the table's condition list, in one version; a spectator reads too (redacted, and never the
+   *  characters of spectators).
    *
    *  Example: `(await characters.sync(dudaId, vharnId)).characters.length // 2` */
   async sync(userId: string, campaignId: string): Promise<CharacterSyncDto> {
     const access = await viewerAccessOf(this.deps.members, campaignId, userId);
-    const { version, rows } = await this.deps.snapshot(async ({ characters }) => ({
-      version: await characters.versionOf(campaignId),
-      rows: await characters.listOfCampaign(campaignId),
+    const { version, rows, definitions } = await this.deps.snapshot(async (daos) => ({
+      version: await daos.characters.versionOf(campaignId),
+      rows: await daos.characters.listOfCampaign(campaignId),
+      definitions: await daos.conditions.listDefinitions(campaignId),
     }));
     if (version === undefined) throw new Error(`campaign ${campaignId} vanished during its sync`);
-    return { version, characters: rows.flatMap((row) => seenDtoOf(access, row)) };
+    const characters = rows.flatMap((row) => seenDtoOf(access, row));
+    return { version, characters, conditionDefinitions: definitions.map(toConditionDefinitionDto) };
   }
 
   private async write(

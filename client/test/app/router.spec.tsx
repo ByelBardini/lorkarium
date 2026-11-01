@@ -6,7 +6,6 @@ import { buildRoutes } from '@/app/router';
 import { ANA, ROOT_ADMIN } from '../support/auth-api-fake';
 import { testDependencies, type TestDependencies } from '../support/app-dependencies';
 import { VHARN } from '../support/campaigns-api-fake';
-import { VHARN_CAST_ID } from '../support/cast-fixtures';
 
 describe('app router', () => {
   let deps: TestDependencies;
@@ -130,7 +129,7 @@ describe('app router', () => {
   });
 
   describe('open tables of the tab', () => {
-    const VHARN_TABLE = { campaignId: VHARN.id, name: VHARN.name, castSceneId: VHARN_CAST_ID };
+    const VHARN_TABLE = { campaignId: VHARN.id, name: VHARN.name };
 
     beforeEach(() => {
       deps.tabStorage.values.set(

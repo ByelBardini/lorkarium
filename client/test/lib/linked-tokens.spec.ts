@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { boardWithTable, resolveLinkedTokens } from '@/lib/linked-tokens';
 import { fireAura, goldAura } from '../support/aura-fixtures';
-import { castBoard } from '../support/cast-fixtures';
 import {
   LYRA_CHARACTER_ID,
   kaelCharacter,
@@ -131,41 +130,35 @@ describe('resolveLinkedTokens', () => {
 });
 
 describe('boardWithTable', () => {
-  it('takes the defined conditions from the cast and dresses the linked tokens in their characters', () => {
-    const cast = castBoard();
+  it('takes the defined conditions from the table stream and dresses the linked tokens in their characters', () => {
+    const conditionDefinitions = [conditionDefinition()];
     const grid = vharnBoard({ tokens: [linkedLyra()] });
     const characters = [lyraCharacter()];
-    const board = boardWithTable(grid, { cast, characters });
-    expect(board.conditionDefinitions).toBe(cast.conditionDefinitions);
+    const board = boardWithTable(grid, { characters, conditionDefinitions });
+    expect(board.conditionDefinitions).toBe(conditionDefinitions);
     expect(board.tokens[0]?.bars[0]?.current).toBe(25);
     expect(board.version).toBe(grid.version);
-    expect(boardWithTable(grid, { cast, characters })).toBe(board);
+    expect(boardWithTable(grid, { characters, conditionDefinitions })).toBe(board);
   });
 
-  it('the characters alone (the cast still loading) already dress the linked tokens', () => {
+  it('another characters array with the same list composes again', () => {
+    const conditionDefinitions = [conditionDefinition()];
     const grid = vharnBoard({ tokens: [linkedLyra()] });
-    const board = boardWithTable(grid, { cast: null, characters: [lyraCharacter()] });
-    expect(board.tokens[0]?.bars[0]?.current).toBe(25);
-    expect(board.conditionDefinitions).toBe(grid.conditionDefinitions);
-  });
-
-  it('another characters array with the same cast composes again', () => {
-    const cast = castBoard();
-    const grid = vharnBoard({ tokens: [linkedLyra()] });
-    const first = boardWithTable(grid, { cast, characters: [lyraCharacter()] });
+    const first = boardWithTable(grid, { characters: [lyraCharacter()], conditionDefinitions });
     const hurt = lyraCharacter({ bars: [] });
-    expect(boardWithTable(grid, { cast, characters: [hurt] }).tokens[0]?.bars).toEqual([]);
+    const again = boardWithTable(grid, { characters: [hurt], conditionDefinitions });
+    expect(again.tokens[0]?.bars).toEqual([]);
     expect(first.tokens[0]?.bars).toHaveLength(2);
   });
 
-  it('a free token shows the edit of a definition the cast already has', () => {
+  it('a free token shows the edit of a definition the table stream already has', () => {
     const grid = vharnBoard({
       tokens: [kael({ conditions: [activeCondition()] })],
       conditionDefinitions: [conditionDefinition()],
     });
     const edited = conditionDefinition({ name: 'Nauseado', description: 'Desvantagem.' });
-    const cast = castBoard({ conditionDefinitions: [edited] });
-    expect(boardWithTable(grid, { cast, characters: null }).tokens[0]?.conditions).toEqual([
+    const board = boardWithTable(grid, { characters: [], conditionDefinitions: [edited] });
+    expect(board.tokens[0]?.conditions).toEqual([
       expect.objectContaining({
         name: 'Nauseado',
         description: 'Desvantagem.',
@@ -174,37 +167,37 @@ describe('boardWithTable', () => {
     ]);
   });
 
-  it('a free token loses a condition the cast deleted from the list', () => {
+  it('a free token loses a condition the table stream deleted from the list', () => {
     const grid = vharnBoard({
       tokens: [kael({ conditions: [activeCondition()] })],
       conditionDefinitions: [conditionDefinition()],
     });
-    const cast = castBoard({ conditionDefinitions: [] });
-    expect(boardWithTable(grid, { cast, characters: null }).tokens[0]?.conditions).toEqual([]);
+    const board = boardWithTable(grid, { characters: [], conditionDefinitions: [] });
+    expect(board.tokens[0]?.conditions).toEqual([]);
   });
 
-  it('a cast list that changes no token keeps the grid tokens array', () => {
+  it('a list that changes no token keeps the grid tokens array', () => {
     const grid = vharnBoard({
       tokens: [kael({ conditions: [activeCondition()] })],
       conditionDefinitions: [conditionDefinition()],
     });
-    const cast = castBoard({ tokens: [], conditionDefinitions: [conditionDefinition()] });
-    expect(boardWithTable(grid, { cast, characters: null }).tokens).toBe(grid.tokens);
+    const links = { characters: [], conditionDefinitions: [conditionDefinition()] };
+    expect(boardWithTable(grid, links).tokens).toBe(grid.tokens);
   });
 
-  it('a free token clamps its stacks to the lower max the cast list has', () => {
+  it('a free token clamps its stacks to the lower max the list has', () => {
     const grid = vharnBoard({
       tokens: [kael({ conditions: [activeCondition({ maxStacks: 5, stacks: 5 })] })],
       conditionDefinitions: [conditionDefinition({ maxStacks: 5 })],
     });
-    const cast = castBoard({ conditionDefinitions: [conditionDefinition({ maxStacks: 2 })] });
-    expect(boardWithTable(grid, { cast, characters: null }).tokens[0]?.conditions).toEqual([
+    const links = { characters: [], conditionDefinitions: [conditionDefinition({ maxStacks: 2 })] };
+    expect(boardWithTable(grid, links).tokens[0]?.conditions).toEqual([
       expect.objectContaining({ maxStacks: 2, stacks: 2 }),
     ]);
   });
 
-  it('without cast nor characters the board is the grid snapshot', () => {
+  it('before the table stream syncs (null) the board is the grid snapshot', () => {
     const grid = vharnBoard({ tokens: [linkedLyra()] });
-    expect(boardWithTable(grid, { cast: null, characters: null })).toBe(grid);
+    expect(boardWithTable(grid, null)).toBe(grid);
   });
 });

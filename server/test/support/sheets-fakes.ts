@@ -35,11 +35,10 @@ import {
   LibraryPublisherFake,
   SceneFoldersDaoFake,
 } from './library-fakes';
-import { VHARN_CAST_ID, VHARN_SCENE_ID } from './scenes-factories';
+import { VHARN_SCENE_ID } from './scenes-factories';
 import { QUELM_TEMPLATE_ID, SheetTemplatesDaoFake, sheetTemplatePo } from './sheet-templates-fakes';
 import { BRAM_ID, LOBO_ID, LYRA_ID } from './tokens-factories';
 
-export const LYRA_ANCHOR_ID = '9b8a7f6e-5d4c-4b3a-8f2e-1d0c9b8a7f6e';
 export const LYRA_SHEET_ID = 'ab9c8d7e-6f5a-4b4c-9d3e-2f1a0b9c8d7e';
 export const QUELM_SHEET_ID = 'bc0d9e8f-7a6b-4c5d-8e4f-3a2b1c0d9e8f';
 export const SHEET_ACTION_ID = 'cd1e0f9a-8b7c-4d6e-9f5a-4b3c2d1e0f9a';
@@ -68,20 +67,16 @@ export function sheetPo(overrides: Partial<SheetPo> = {}): SheetPo {
   };
 }
 
-/** The token places of Vharn: Lyra's old anchor in the cast (Bia), Lyra on the Salão linked to
+/** The token places of Vharn: Lyra on the Salão linked to
  *  her character, Bram unlinked on the Salão (Caio), the Lobo on the private Torre (Bia). */
 export function tablePlaces(): TokenPlacePo[] {
   const salao = { sceneId: VHARN_SCENE_ID, isActive: true } as const;
-  const shown = { ...salao, kind: 'grid', visibility: 'public' } as const;
+  const shown = { ...salao, visibility: 'public' } as const;
   return [
-    {
-      ...{ tokenId: LYRA_ANCHOR_ID, characterId: null, sceneId: VHARN_CAST_ID, kind: 'cast' },
-      ...{ visibility: 'public', isActive: false, controllerIds: [BIA_ID] },
-    },
     { tokenId: LYRA_ID, characterId: LYRA_CHARACTER_ID, ...shown, controllerIds: [BIA_ID] },
     { tokenId: BRAM_ID, characterId: null, ...shown, controllerIds: [CAIO_ID] },
     {
-      ...{ tokenId: LOBO_ID, characterId: null, sceneId: TORRE_ID, kind: 'grid' },
+      ...{ tokenId: LOBO_ID, characterId: null, sceneId: TORRE_ID },
       ...{ visibility: 'private', isActive: false, controllerIds: [BIA_ID] },
     },
   ];
@@ -123,7 +118,7 @@ export class SheetsDaoFake implements SheetOperations {
     private readonly journal: string[],
     private readonly characters: CharactersDaoFake = new CharactersDaoFake(),
   ) {
-    const quelmPlace = { ...tablePlaces()[2], tokenId: QUELM_TOKEN_ID } as TokenPlacePo;
+    const quelmPlace = { ...tablePlaces()[1], tokenId: QUELM_TOKEN_ID } as TokenPlacePo;
     this.places.set(QUELM_ID, new Map([[QUELM_TOKEN_ID, quelmPlace]]));
   }
   async find(campaignId: string, sheetId: string): Promise<SheetPo | undefined> {

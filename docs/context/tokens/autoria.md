@@ -8,7 +8,7 @@ Detalhe do hub [`../tokens.md`](../tokens.md). As duas chaves da mesa (`players_
 - Nulo = token de antes da autoria (a migração não preenche o que existe) ou a conta do autor foi apagada: só o mestre edita e exclui. O token fica.
 - Os tokens ligados que o "Adicionar jogadores" põe nascem com `created_by` nulo: token ligado é do mestre de todo jeito.
 - `copyScene` (Duplicar da biblioteca) copia o autor (`copyRowsSql` leva a coluna).
-- `toTokenDto` devolve `createdBy` igual aos dois públicos (não é segredo). Num token ligado, o `createdBy` é o do token do grid, não o da âncora (`composedTokenRow` não o empresta).
+- `toTokenDto` devolve `createdBy` igual aos dois públicos (não é segredo). Num token ligado, o `createdBy` é o do token do grid, não vem do personagem (`composedTokenRow` não o empresta).
 
 ## Regra (`token-authorship.bo.ts`)
 
@@ -22,7 +22,7 @@ Detalhe do hub [`../tokens.md`](../tokens.md). As duas chaves da mesa (`players_
 | `requireDelete(tokens)`      | todos com `tokenRightsOf(...).delete`                                                                                                                       | "delete token X" do primeiro que não é dele (nenhum sai)                                                           |
 | `copyOf(cópia)`              | — a cópia colada pelo jogador vira o token novo dele: camada `tokens`, `hidden: false`, sem `combatantId`, `sight`/`light` nulos, `sightAngle` 360          | — (o `requireCreate` decide depois)                                                                                |
 
-- O mapper entrega `toAuthoredToken(linha)` (`{ tokenId, createdBy, anchorTokenId }`) e `toEditedToken(linha)` (mais a visão como o fio a leva: `sight`/`light` em números, `sightAngle`), para comparar com o que o comando mandou.
+- O mapper entrega `toAuthoredToken(linha)` (`{ tokenId, createdBy, characterId }`; o `ownedTokenOf` do BO o entrega ao `tokenRightsOf` do game-core, que lê o `characterId`) e `toEditedToken(linha)` (mais a visão como o fio a leva: `sight`/`light` em números, `sightAngle`), para comparar com o que o comando mandou.
 - Só o `token:update` mexe nos controladores; outro jogador não edita o token, então "nenhum jogador tira o criador" é a trava do próprio criador. O mestre tira (o próximo evento chega redigido para ele).
 
 ## Onde os services leem as chaves

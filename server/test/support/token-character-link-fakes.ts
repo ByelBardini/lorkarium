@@ -30,7 +30,7 @@ export class TokenCharacterLinkDaoFake implements CharacterLinkWrites {
     this.dropOwnState(tokenId);
     this.tokens.store(tokenId, (row) => ({
       ...row,
-      token: { ...row.token, characterId, anchorTokenId: null },
+      token: { ...row.token, characterId },
     }));
   }
 
@@ -48,7 +48,7 @@ export class TokenCharacterLinkDaoFake implements CharacterLinkWrites {
     const controllerIds = [...(worn?.controllerIds ?? [])];
     this.tokens.store(tokenId, (row) => ({
       ...row,
-      token: { ...row.token, ...identity, characterId: null, anchorTokenId: null },
+      token: { ...row.token, ...identity, characterId: null },
       bars,
       controllerIds,
     }));

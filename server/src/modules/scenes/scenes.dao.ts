@@ -54,15 +54,8 @@ export function gridOfCampaign(campaignId: string, sceneId: string | undefined):
   return and(eq(campaigns.id, campaignId), eq(scenes.campaignId, campaignId), which);
 }
 
-// Only grids are the library's: the cast of the table is never listed, edited nor deleted.
-const IS_LIBRARY_GRID = eq(scenes.kind, 'grid');
-
 function sceneOfCampaign(campaignId: string, sceneId: string): SQL | undefined {
-  return and(eq(scenes.campaignId, campaignId), eq(scenes.id, sceneId), IS_LIBRARY_GRID);
-}
-
-function castOfCampaign(campaignId: string): SQL | undefined {
-  return and(eq(scenes.campaignId, campaignId), eq(scenes.kind, 'cast'));
+  return and(eq(scenes.campaignId, campaignId), eq(scenes.id, sceneId));
 }
 
 // The active scene must also belong to the campaign: a stray active_scene_id never leaks another table.
@@ -161,32 +154,6 @@ export class ScenesDao {
     return row;
   }
 
-  /** The cast of the table (the hidden scene of the characters' anchors); every table has one.
-   *
-   *  Example: `const cast = await scenesDao.findCastOf(campaignId)` */
-  async findCastOf(campaignId: string): Promise<SceneRow | undefined> {
-    const [row] = await this.db
-      .select(sceneWithBackground)
-      .from(scenes)
-      .leftJoin(assets, backgroundOfScene)
-      .where(castOfCampaign(campaignId));
-    return row;
-  }
-
-  /** The cast of the table, locked until the transaction ends. Locked before any grid (the one
-   *  order of the two locks), so two commands never wait on each other. Call it on the `tx` DAO.
-   *
-   *  Example: `const cast = await new ScenesDao(tx).lockCastOf(campaignId)` */
-  async lockCastOf(campaignId: string): Promise<SceneRow | undefined> {
-    const [row] = await this.db
-      .select(sceneWithBackground)
-      .from(scenes)
-      .leftJoin(assets, backgroundOfScene)
-      .where(castOfCampaign(campaignId))
-      .for('update', { of: scenes });
-    return row;
-  }
-
   async bumpVersion(sceneId: string): Promise<number> {
     const [row] = await this.db
       .update(scenes)
@@ -213,7 +180,7 @@ export class ScenesDao {
       .select({ ...sceneWithBackground, tokenCount: tokenCountOfScene })
       .from(scenes)
       .leftJoin(assets, backgroundOfScene)
-      .where(and(eq(scenes.campaignId, campaignId), IS_LIBRARY_GRID))
+      .where(eq(scenes.campaignId, campaignId))
       .orderBy(asc(scenes.createdAt), asc(scenes.id));
   }
 
@@ -261,9 +228,7 @@ export class ScenesDao {
     await this.db
       .update(scenes)
       .set({ folderId, updatedAt: sql`now()` })
-      .where(
-        and(eq(scenes.campaignId, campaignId), inArray(scenes.id, [...sceneIds]), IS_LIBRARY_GRID),
-      );
+      .where(and(eq(scenes.campaignId, campaignId), inArray(scenes.id, [...sceneIds])));
   }
 
   /** Deletes the scene of the campaign and, in cascade, everything on it. */

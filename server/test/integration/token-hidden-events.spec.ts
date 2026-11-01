@@ -213,18 +213,6 @@ describe('token commands that touch a hidden token', () => {
     expect(updated.token).toMatchObject({ id: table.loboId, hidden: true, canControl: true });
   });
 
-  it('token:setMain of the Lobo by Bia: Caio gets board:advanced', async () => {
-    const table = await hiddenTable(live);
-
-    await send(table.bia.client, 'token:setMain', on({ tokenId: table.loboId }));
-
-    expect(await eventPayload(table.ana, 'token:mainChanged')).toMatchObject({
-      tokenId: table.loboId,
-    });
-    expect(await eventPayload(table.caio, 'board:advanced')).toMatchObject({ version: 3 });
-    await caioAfter(table);
-  });
-
   it('token:createMany of a hidden copy: Ana and Bia get it, Caio board:advanced and the torch', async () => {
     const table = await hiddenTable(live);
     const copy = tokenCommandFor(live.vharn, live.bia.id, {

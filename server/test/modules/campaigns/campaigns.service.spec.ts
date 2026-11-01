@@ -12,7 +12,6 @@ import {
 } from '../../support/campaigns-fakes';
 import { PresenceReaderFake } from '../../support/campaign-settings-fakes';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
-import { VHARN_CAST_ID, castPo } from '../../support/scenes-factories';
 import {
   BIA_ID,
   CAIO_ID,
@@ -46,7 +45,6 @@ describe('CampaignsService', () => {
     service = new CampaignsService({
       campaigns,
       members,
-      scenes,
       memberships: members,
       presence,
       transaction: runner.run,
@@ -70,23 +68,18 @@ describe('CampaignsService', () => {
     build(['VHRN7K2Q', 'PNTN2345', 'QLMR2345', 'ZZZZ2345']);
   });
 
-  it('create writes the campaign, the master, the active scene, the cast and the initial conditions, all in the transaction', async () => {
+  it('create writes the campaign, the master, the active scene and the initial conditions, all in the transaction', async () => {
     const detail = await service.create(ANA_ID, NEW_CAMPAIGN);
     expect(runner.writesInside).toEqual([
       'campaigns.insert',
       'members.insert',
       'scenes.insert',
       'campaigns.setActiveScene',
-      'scenes.insert',
       'conditions.insertDefinitions',
     ]);
     expect(conditions.seeded.get(campaigns.rows[0]?.id ?? '')).toHaveLength(11);
     const campaignId = campaigns.rows[0]?.id;
-    expect(scenes.rows).toEqual([
-      expect.objectContaining({ campaignId, kind: 'grid' }),
-      expect.objectContaining({ campaignId, kind: 'cast', name: 'Elenco' }),
-    ]);
-    expect(detail.castSceneId).toBe(scenes.rows[1]?.id);
+    expect(scenes.rows).toEqual([expect.objectContaining({ campaignId })]);
     expect(campaigns.rows[0]?.activeSceneId).toBe(scenes.rows[0]?.id);
     expect(campaigns.rows[0]).toMatchObject({ ownerId: ANA_ID, joinCode: 'VHRN7K2Q' });
     expect(members.rows[0]).toMatchObject({ userId: ANA_ID, role: 'master', joinedAt: NOW });
@@ -122,7 +115,7 @@ describe('CampaignsService', () => {
   it('a code collision retries without leaving a second scene behind', async () => {
     campaigns.rows.push(campaignPo({ id: 'taken', joinCode: 'VHRN7K2Q' }));
     await service.create(ANA_ID, NEW_CAMPAIGN);
-    expect(scenes.rows.map(({ kind }) => kind)).toEqual(['grid', 'cast']);
+    expect(scenes.rows).toHaveLength(1);
   });
 
   it('three collisions in a row give up with an error citing the attempts', async () => {
@@ -214,10 +207,8 @@ describe('CampaignsService', () => {
     campaigns.rows.push(campaignPo({ id: 'vharn' }));
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: ANA_ID, role: 'player' }));
-    scenes.rows.push(castPo({ campaignId: 'vharn' }));
     const detail = await service.detail(ANA_ID, 'vharn');
     expect(detail).toMatchObject({ id: 'vharn', myRole: 'player', joinCode: null });
-    expect(detail.castSceneId).toBe(VHARN_CAST_ID);
   });
 
   it('create keeps the status and the drawn cover chosen', async () => {
@@ -247,7 +238,6 @@ describe('CampaignsService', () => {
         }),
         campaignMemberPo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' }),
       );
-      scenes.rows.push(castPo({ campaignId: VHARN_ID }));
     });
 
     it('the last access is the latest entry of any member, not the reader own', async () => {
@@ -291,7 +281,7 @@ describe('CampaignsService', () => {
     it('the membership is read through the remembered memberships, which session:join warms', async () => {
       const memberships = new MembershipReadsFake([...members.rows]);
       service = new CampaignsService({
-        ...{ campaigns, members, scenes, memberships, presence, transaction: runner.run, codes },
+        ...{ campaigns, members, memberships, presence, transaction: runner.run, codes },
         ...{ hasher: new PasswordHasherFake(), clock: new ClockFake(NOW) },
       });
       await service.rosterOf(BIA_ID, VHARN_ID);

@@ -8,9 +8,7 @@ import type {
   TokenDto,
   WallDto,
   LightDto,
-  MainTokenDto,
   VeiledLightDto,
-  MemberCardDto,
 } from '@lorkarium/contracts';
 import { toSceneDto } from '../scenes/scenes.mapper';
 import type { SceneRow } from '../scenes/scenes.dao';
@@ -29,8 +27,6 @@ export type BoardSnapshotParts = Readonly<{
   veiledLights: readonly VeiledLightDto[];
   combat: CombatDto | null;
   conditionDefinitions: readonly ConditionDefinitionDto[];
-  mainTokens: readonly MainTokenDto[];
-  memberCards: readonly MemberCardDto[];
   at: Date;
 }>;
 
@@ -52,7 +48,5 @@ export function toBoardStateDto(parts: BoardSnapshotParts): BoardStateDto {
     veiledLights: [...parts.veiledLights],
     combat: parts.combat,
     conditionDefinitions: [...parts.conditionDefinitions],
-    mainTokens: parts.mainTokens.map(({ userId, tokenId }) => ({ userId, tokenId })),
-    memberCards: [...parts.memberCards],
   };
 }

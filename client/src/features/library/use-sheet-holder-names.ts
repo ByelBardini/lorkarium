@@ -10,24 +10,20 @@ import type { OpenTable } from '@/stores/open-tables-store';
 export type SheetPlayer = Readonly<{ userId: string; label: string }>;
 
 /** The names the library says about sheet holders, from the table's members, its characters
- *  (each player's character's name) and its cast and group grid (a token's name). */
+ *  (each player's character's name) and its group grid (a token's name). */
 export type SheetHolderDirectory = Readonly<{ names: SheetHolderNames; players: SheetPlayer[] }>;
 
-/** Who holds the library's sheets, as this reader knows them; follows the characters, the cast
- *  and the grid.
+/** Who holds the library's sheets, as this reader knows them; follows the characters and the
+ *  grid.
  *
  *  Example: `const { names, players } = useSheetHolderNames(campaign.members, tableView.table)` */
 export function useSheetHolderNames(
   members: readonly CampaignMemberDto[],
   table: OpenTable | null,
 ): SheetHolderDirectory {
-  const cast = useBoardOf(table?.cast ?? null);
   const grid = useBoardOf(table?.board ?? null);
   const characters = useCharactersOf(table?.characters ?? null);
-  return useMemo(
-    () => directoryOf(members, characters, [cast, grid]),
-    [members, characters, cast, grid],
-  );
+  return useMemo(() => directoryOf(members, characters, grid), [members, characters, grid]);
 }
 
 const NO_CHARACTERS: readonly CharacterDto[] = [];
@@ -51,9 +47,9 @@ function useBoardOf(store: StoreApi<BoardStore> | null): BoardStateDto | null {
 function directoryOf(
   members: readonly CampaignMemberDto[],
   characters: readonly CharacterDto[],
-  boards: ReadonlyArray<BoardStateDto | null>,
+  grid: BoardStateDto | null,
 ): SheetHolderDirectory {
-  const tokens = boards.flatMap((board) => board?.tokens ?? []);
+  const tokens = grid?.tokens ?? [];
   const names: SheetHolderNames = {
     memberName: (userId) => members.find((member) => member.userId === userId)?.name ?? null,
     characterName: (userId) =>

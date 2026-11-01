@@ -1,9 +1,9 @@
-import type { SavedVersion } from '../scenes/locked-cast';
 import {
   reachedGridOf,
   type GridAddress,
   type GridLockDaos,
   type LockedGrid,
+  type SavedVersion,
   type SceneTransaction,
 } from '../scenes/locked-scene';
 import type { AddressedSceneRow } from '../scenes/scenes.dao';

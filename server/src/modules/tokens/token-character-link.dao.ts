@@ -33,12 +33,12 @@ export class TokenCharacterLinkDao {
   }
 
   /** The token wears the character from now on: its own bars, conditions and controllers go
-   *  (it shows the character's), and so does a link to an old anchor. */
+   *  (it shows the character's). */
   async adopt(tokenId: string, characterId: string): Promise<void> {
     await this.dropOwnState(tokenId);
     await this.db
       .update(tokens)
-      .set({ characterId, anchorTokenId: null, updatedAt: sql`now()` })
+      .set({ characterId, updatedAt: sql`now()` })
       .where(eq(tokens.id, tokenId));
   }
 
@@ -59,7 +59,7 @@ export class TokenCharacterLinkDao {
     await this.db.execute(copyRowsSql(activeConditions, fresh, held));
     await this.db
       .update(tokens)
-      .set({ ...identity, characterId: null, anchorTokenId: null, updatedAt: sql`now()` })
+      .set({ ...identity, characterId: null, updatedAt: sql`now()` })
       .where(eq(tokens.id, tokenId));
   }
 

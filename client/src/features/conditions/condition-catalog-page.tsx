@@ -3,14 +3,12 @@ import { PlusIcon, SearchIcon } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useBoard } from '@/stores/board-store';
+import { useCharacters } from '@/stores/characters-store';
 import { ConditionCardGrid } from './condition-card-grid';
 import { conditionsInListOrder, type ConditionCatalogLink } from './condition-catalog-link';
 import { ConditionEditorSheet, type EditorChoice } from './condition-editor-sheet';
 import { DeleteConditionConfirm } from './delete-condition-confirm';
 import { RestoreDefaultsButton } from './restore-defaults-button';
-
-const NO_DEFINITIONS: readonly ConditionDefinitionDto[] = [];
 
 /** The body of "Condições da mesa" (master), under the page's bar: the search, "Restaurar
  *  padrões" and "Nova condição" on top, then the table's conditions as cards by nature, live from
@@ -31,8 +29,8 @@ function PageNotice({ text }: Readonly<{ text: string }>): React.JSX.Element {
 }
 
 function ConditionCatalog({ link }: Readonly<{ link: ConditionCatalogLink }>): React.JSX.Element {
-  const definitions = useBoard(link.cast, (s) => s.board?.conditionDefinitions ?? NO_DEFINITIONS);
-  const loading = useBoard(link.cast, (s) => s.board === null);
+  const definitions = useCharacters(link.table, (s) => s.conditionDefinitions);
+  const loading = useCharacters(link.table, (s) => s.version === null);
   const [query, setQuery] = useState('');
   const [choice, setChoice] = useState<EditorChoice | null>(null);
   const [deleting, setDeleting] = useState<ConditionDefinitionDto | null>(null);

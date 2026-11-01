@@ -4,7 +4,11 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { AppDependencies } from '@/app/router';
 import { WorkspaceItemSurface } from '@/features/documents/workspace-item-surface';
 import { useOpenTable } from '@/features/sessions/use-open-table';
-import { firstTokenSource, type BoardTokenSource } from '@/sheet-sandbox/sheet-token-source';
+import {
+  characterSource,
+  firstTokenSource,
+  type SheetHolderSource,
+} from '@/sheet-sandbox/sheet-token-source';
 import { workspaceItemTitle, type SheetWorkspaceEntry } from '@/stores/document-workspace-store';
 import { useOpenTables, type OpenTable } from '@/stores/open-tables-store';
 import type { SceneTab, SceneTabsStore } from '@/stores/scene-tabs-store';
@@ -12,7 +16,8 @@ import type { SheetStoreState } from '@/stores/sheet-store';
 import { SheetPanel, type SheetPanelServices } from './sheet-panel';
 
 /** One open sheet of the workspace: its panel in the room tab or its window, `sheet:changed` of
- *  its table handed to its store, and its token read from the table's cast and open grids.
+ *  its table handed to its store, and its holder read from the table's characters (a character's
+ *  sheet) or its open grids (a loose token's).
  *
  *  Example: `{sheets.map((entry) => <WorkspaceSheet key={entry.key} deps={deps} entry={entry} />)}` */
 export function WorkspaceSheet({
@@ -70,17 +75,24 @@ function useForwardSheetChanges(
 
 const NO_TABS: readonly SceneTab[] = [];
 
-// The anchor of a character lives in the cast; a loose token on one of the grids open here.
+// A character's sheet names its player (`memberId`); a loose token is on one of the grids open here.
 function useSheetTokenSource(
   table: OpenTable | null,
   store: StoreApi<SheetStoreState>,
-): BoardTokenSource | null {
+): SheetHolderSource | null {
   const tokenId = useStore(store, (state) => state.sheet?.tokenId ?? null);
+  const memberId = useStore(store, (state) => state.sheet?.memberId ?? null);
   const tabs = useSceneTabsOf(table?.tabs ?? null);
   return useMemo(() => {
-    if (!table || !tokenId) return null;
-    return firstTokenSource([table.cast, ...tabs.map((tab) => tab.board)], tokenId);
-  }, [table, tokenId, tabs]);
+    if (!table) return null;
+    if (memberId) return characterSource(table.characters, memberId);
+    return tokenId
+      ? firstTokenSource(
+          tabs.map((tab) => tab.board),
+          tokenId,
+        )
+      : null;
+  }, [table, tokenId, memberId, tabs]);
 }
 
 function useSceneTabsOf(tabs: StoreApi<SceneTabsStore> | null): readonly SceneTab[] {

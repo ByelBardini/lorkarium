@@ -314,7 +314,7 @@ Contratos, limites, persistência e rotas: [context/documents.md](context/docume
 
 ### 3.12. Fichas personalizadas
 
-Extensão aprovada em 31/10/2026. O mestre (co-mestre incluso) escreve na biblioteca um **modelo** de ficha em HTML, CSS e JS; jogadores não veem nem escrevem modelos. Uma **ficha** liga um modelo a um token: no personagem de um jogador ela mora na âncora do elenco e vale em todo grid; um token só tem uma ficha. Corrigir o modelo atualiza todas as fichas dele, e excluir um modelo em uso é recusado.
+Extensão aprovada em 31/10/2026. O mestre (co-mestre incluso) escreve na biblioteca um **modelo** de ficha em HTML, CSS e JS; jogadores não veem nem escrevem modelos. Uma **ficha** liga um modelo a um dono: o personagem de um jogador (vale em todo grid em que ele tem token; a primeira dada vira a principal) ou um token solto. Corrigir o modelo atualiza todas as fichas dele, e excluir um modelo em uso é recusado.
 
 - **Sandbox.** A ficha roda num iframe `sandbox="allow-scripts"` **sem** `allow-same-origin` (origem opaca: não lê o app, o cookie nem o storage), com o código em `srcdoc` atrás de um CSP sem rede (`default-src 'none'`; imagem e fonte só por `data:`/`blob:`). O app declara `frame-src 'self'`, então a ficha também não navega para fora; se tentar, o frame é destruído ("Ficha recarregada"). Uma ficha que não responde em 5 s ganha o aviso "A ficha não respondeu" e o botão de recarregar. Uma moldura do app diz o nome do modelo e "Ficha da mesa · código do mestre".
 - **API (`window.lorkarium`, por `MessagePort`).** Ler o token ligado (nome, retrato e barras que quem olha já vê), ajustar as barras dele, rolar dados com o rótulo "<modelo> · <rótulo>" e guardar valores próprios no servidor. Nenhuma mensagem do frame escolhe token, mesa ou ficha: o host sabe qual ficha é, e o servidor reautoriza cada pedido com a identidade da sessão. A ficha nunca faz mais do que quem está olhando faria à mão.
@@ -534,9 +534,11 @@ Campos: id, ownerId, storageKey, mimeType, size, createdAt.
 
 ### Character
 
-Representa uma entidade reutilizável.
+Representa o personagem de um jogador na mesa: a fonte única da identidade, das barras, das condições e do controle que todo token ligado a ele veste em todo grid (como o Actor do Foundry). Nasce quando o membro vira jogador (um por jogador por mesa); rebaixar a espectador o guarda inerte, sair da mesa o deixa sem jogador (só o mestre vê), e promover de novo a mesma pessoa traz o mesmo. Tem versão própria por mesa (o fluxo da mesa, que também leva a lista de condições), separada da de cada grid.
 
-Campos: id, campaignId, name, imageAssetId, attributes.
+Campos: id, campaignId, userId (nulo = sem jogador), name, initials, side, imageAssetId, frame, defeated, aura, width, height (tamanho padrão do token), armorClass, difficultyClass, noteOne, noteTwo, bars, conditions, controllerIds, mainSheetId (a ficha principal).
+
+O que fica no token (por grid): posição, tamanho, camada, direção, inverter, visão, cone, luz e formas.
 
 ### Token
 

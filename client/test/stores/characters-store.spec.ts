@@ -13,10 +13,19 @@ import {
   characterChangedAt,
   characterRemovedAt,
   charactersSynced,
+  conditionDefinedAt,
+  definitionDeletedAt,
+  definitionUpdatedAt,
   kaelCharacter,
   lyraCharacter,
+  tableSynced,
 } from '../support/character-fixtures';
-import { BIA_AT_TABLE, CAIO_AT_TABLE } from '../support/table-session-fixtures';
+import {
+  BIA_AT_TABLE,
+  CAIO_AT_TABLE,
+  activeCondition,
+  conditionDefinition,
+} from '../support/table-session-fixtures';
 import { VHARN } from '../support/campaigns-api-fake';
 
 describe('createCharactersStore', () => {
@@ -129,6 +138,78 @@ describe('createCharactersStore', () => {
     apply(characterChangedAt(5, lyraCharacter()));
     store.getState().resync();
     expect(resyncs).toBe(2);
+  });
+});
+
+describe('createCharactersStore, the condition list on the table stream', () => {
+  const BLINDED_ID = 'f7a8b9c0-d1e2-4f3a-8b5c-6d7e8f901234';
+  const blinded = conditionDefinition({ id: BLINDED_ID, name: 'Cego', icon: 'eye-off' });
+  const poisonedLyra = lyraCharacter({ conditions: [activeCondition({ remainingRounds: 2 })] });
+  let resyncs: number;
+  let store: StoreApi<CharactersStore>;
+
+  beforeEach(() => {
+    resyncs = 0;
+    store = createCharactersStore(VHARN.id, () => {
+      resyncs += 1;
+    });
+  });
+
+  function apply(...updates: Parameters<CharactersStore['apply']>[0][]): void {
+    for (const update of updates) store.getState().apply(update);
+  }
+
+  function listNames(): string[] {
+    return store.getState().conditionDefinitions.map(({ name }) => name);
+  }
+
+  it('starts with no condition on the list; the sync brings the list with the characters', () => {
+    expect(store.getState().conditionDefinitions).toEqual([]);
+    apply(tableSynced(3, [lyraCharacter()], [conditionDefinition()]));
+    expect(listNames()).toEqual(['Envenenado']);
+  });
+
+  it('a condition event and a character event share one version: each is the next of the other', () => {
+    apply(tableSynced(3, [lyraCharacter()], []));
+    apply(conditionDefinedAt(4, blinded), characterChangedAt(5, lyraCharacter({ armorClass: 17 })));
+    expect(store.getState().version).toBe(5);
+    expect(listNames()).toEqual(['Cego']);
+    expect(store.getState().characters[0]?.armorClass).toBe(17);
+    expect(resyncs).toBe(0);
+  });
+
+  it('a condition event past a gap left by a character event is held and asks one resync', () => {
+    apply(tableSynced(3, [lyraCharacter()], []));
+    apply(conditionDefinedAt(5, blinded));
+    expect(store.getState()).toMatchObject({ version: 3, resyncAsked: true });
+    expect(listNames()).toEqual([]);
+    expect(resyncs).toBe(1);
+  });
+
+  it('the resync replays a held condition event past its version', () => {
+    apply(tableSynced(3, [lyraCharacter()], []));
+    apply(conditionDefinedAt(5, blinded));
+    apply(tableSynced(4, [lyraCharacter()], [conditionDefinition()]));
+    expect(store.getState().version).toBe(5);
+    expect(listNames()).toEqual(['Envenenado', 'Cego']);
+  });
+
+  it('condition:definitionUpdated changes the look of the condition on the character holding it', () => {
+    apply(tableSynced(3, [poisonedLyra, kaelCharacter()], [conditionDefinition()]));
+    const kael = store.getState().characters[1];
+    apply(definitionUpdatedAt(4, conditionDefinition({ name: 'Nauseado', look: 'unconscious' })));
+    const [lyra] = store.getState().characters;
+    expect(lyra?.conditions[0]).toMatchObject({ name: 'Nauseado', look: 'unconscious' });
+    expect(lyra?.conditions[0]?.remainingRounds).toBe(2);
+    expect(store.getState().characters[1]).toBe(kael);
+    expect(listNames()).toEqual(['Nauseado']);
+  });
+
+  it('condition:definitionDeleted takes the condition off the list and off every character', () => {
+    apply(tableSynced(3, [poisonedLyra], [conditionDefinition(), blinded]));
+    apply(definitionDeletedAt(4, conditionDefinition().id));
+    expect(store.getState().characters[0]?.conditions).toEqual([]);
+    expect(listNames()).toEqual(['Cego']);
   });
 });
 

@@ -38,7 +38,7 @@ export const tokenSheets = pgTable(
     templateId: uuid('template_id').notNull(),
     name: text('name').notNull(),
     folderId: uuid('folder_id'),
-    // The token that holds it (a character's is its anchor, in the cast); null = nobody's. Many
+    // The free token that holds it (a linked token's go to its character); null = nobody's. Many
     // sheets per token; losing the token leaves the sheet in the library, without a holder.
     tokenId: uuid('token_id').references(() => tokens.id, { onDelete: 'set null' }),
     // The character that holds it, in place of a token (at most one of the two, CHECK

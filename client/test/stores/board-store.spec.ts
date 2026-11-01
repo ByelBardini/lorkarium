@@ -461,22 +461,6 @@ describe('board store', () => {
       expect(store.getState().board?.tokens[0]?.conditions).toEqual([]);
     });
 
-    it('condition:defined adds to the list of the table', () => {
-      const definition = {
-        id: activeCondition().conditionId,
-        name: 'Sangrando',
-        tone: 'harm',
-        icon: 'droplet',
-        color: null,
-        look: null,
-        description: '',
-        maxStacks: null,
-        imageAssetId: null,
-      } as const;
-      apply(on(eventAt(5, { type: 'conditionDefined', payload: { definition } })));
-      expect(store.getState().board?.conditionDefinitions).toEqual([definition]);
-    });
-
     it('combat:ended keeps the conditions on the tokens', () => {
       apply(
         on(

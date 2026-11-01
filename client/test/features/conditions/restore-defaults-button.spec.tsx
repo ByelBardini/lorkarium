@@ -4,19 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { ConditionCatalogLink } from '@/features/conditions/condition-catalog-link';
 import { RestoreDefaultsButton } from '@/features/conditions/restore-defaults-button';
-import { useBoard } from '@/stores/board-store';
-import { VHARN_GRID } from '../../support/table-session-fixtures';
+import { useCharacters } from '@/stores/characters-store';
 import {
+  VHARN_TABLE,
   catalogLinkOver,
   conditionDefinition,
   defaultDefinitions,
 } from './condition-catalog-harness';
 
-const NONE: readonly ConditionDefinitionDto[] = [];
-
-// Plays the page: the button over the cast's live list.
+// Plays the page: the button over the table stream's live list.
 function RestoreHost({ link }: Readonly<{ link: ConditionCatalogLink }>) {
-  const definitions = useBoard(link.cast, (s) => s.board?.conditionDefinitions ?? NONE);
+  const definitions = useCharacters(link.table, (s) => s.conditionDefinitions);
   return <RestoreDefaultsButton definitions={definitions} link={link} />;
 }
 
@@ -68,7 +66,7 @@ describe('RestoreDefaultsButton', () => {
     const { commands, confirm } = renderRestore(withoutCego());
     await userEvent.click(restoreButton());
     expect(commands.sentAs('restoreDefaultConditions')).toEqual([
-      { name: 'restoreDefaultConditions', ...VHARN_GRID, fields: {} },
+      { name: 'restoreDefaultConditions', ...VHARN_TABLE, fields: {} },
     ]);
     confirm({
       type: 'conditionDefaultsRestored',

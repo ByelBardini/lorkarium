@@ -25,6 +25,7 @@ import type { SheetsDao } from '../../src/modules/sheets/sheets.dao';
 import type { SheetPo } from '../../src/modules/sheets/sheets.po';
 import type { BarValuesPo } from '../../src/modules/tokens/tokens.po';
 import { characterBarPo, characterPo } from './characters-factories';
+import { ConditionsDaoFake } from './conditions-fakes';
 
 /** A character as the fake keeps it: its `conditions`, if given, are ignored (reads take them
  *  from `conditionsFrom`). */
@@ -221,11 +222,17 @@ export class CharacterTransactionRunnerFake {
 
 /** Runs a read on the DAO fake, with nothing to commit. */
 export class CharacterSnapshotRunnerFake {
-  constructor(private readonly characters: CharactersDaoFake) {}
+  constructor(
+    private readonly characters: CharactersDaoFake,
+    private readonly conditions: Pick<
+      ConditionsDaoFake,
+      'listDefinitions'
+    > = new ConditionsDaoFake(),
+  ) {}
 
   readonly run: CharacterSnapshotRunner = async <T>(
     work: (daos: CharacterReadDaos) => Promise<T>,
-  ): Promise<T> => work({ characters: this.characters });
+  ): Promise<T> => work({ characters: this.characters, conditions: this.conditions });
 }
 
 /** Keeps each change published and writes `publish` to `journal`. */

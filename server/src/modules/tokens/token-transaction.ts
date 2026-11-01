@@ -15,10 +15,7 @@ import type { ScenePo } from '../scenes/scenes.po';
 import type { CharactersDao } from '../characters/characters.dao';
 import { TokenAccessBo } from './token-access.bo';
 import type { TokenRulesBo } from './token-rules.bo';
-import type { MainTokensDao } from './main-tokens.dao';
-import type { TokenAnchorsDao } from './token-anchors.dao';
 import type { TokenCharacterLinkDao } from './token-character-link.dao';
-import type { MemberCardsDao } from '../member-cards/member-cards.dao';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
 import type { NewTokenPo } from './tokens.po';
 import { TokenNotFoundError } from './tokens.error';
@@ -36,12 +33,11 @@ import type { WallsDao } from '../walls/walls.dao';
 
 /** The DAOs a token transaction hands out, bound to the open `tx`. */
 export type TokenWriteDaos = Readonly<{
-  scenes: Pick<ScenesDao, 'lockInCampaign' | 'lockCastOf' | 'bumpVersion'>;
+  scenes: Pick<ScenesDao, 'lockInCampaign' | 'bumpVersion'>;
   tokens: Pick<
     TokensDao,
     | 'insert'
     | 'listOfScene'
-    | 'findLinkedInScene'
     | 'insertMany'
     | 'countOfScene'
     | 'findInScene'
@@ -64,13 +60,7 @@ export type TokenWriteDaos = Readonly<{
   combat: Pick<CombatDao, 'findOfScene' | 'setTurn' | 'removeCombatants' | 'linkTokens'>;
   assets: Pick<AssetsDao, 'findManyInCampaign'>;
   walls: Pick<WallsDao, 'listOfScene'>;
-  mainTokens: Pick<MainTokensDao, 'choose' | 'dropLostControl'>;
-  anchors: Pick<
-    TokenAnchorsDao,
-    'linkToAnchor' | 'unlinkWith' | 'moveStateTo' | 'copyStateTo' | 'dropState'
-  >;
   characterLinks: Pick<TokenCharacterLinkDao, 'placedOn' | 'adopt' | 'release'>;
-  memberCards: Pick<MemberCardsDao, 'findOfMember' | 'listOfCampaign' | 'save'>;
   characters: Pick<
     CharactersDao,
     | 'lockVersion'

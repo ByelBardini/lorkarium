@@ -1,6 +1,6 @@
 # Condições e combate no personagem (Fase 7)
 
-Detalhe do hub [`../characters.md`](../characters.md). A condição aplicada num token **ligado** mora no personagem (`active_conditions.character_id`, `token_id` nulo); a do token solto continua no token. Todo grid em que o personagem tem token mostra as mesmas condições. A âncora do elenco não guarda mais condição nenhuma (as dela foram para o personagem na `0075`). A regra, os eventos e a tabela de comandos do combate em [`../combat.md`](../combat.md).
+Detalhe do hub [`../characters.md`](../characters.md). A condição aplicada num token **ligado** mora no personagem (`active_conditions.character_id`, `token_id` nulo); a do token solto continua no token. Todo grid em que o personagem tem token mostra as mesmas condições. As das âncoras foram para o personagem na `0075`; a `0076` apagou as âncoras. A regra, os eventos e a tabela de comandos do combate em [`../combat.md`](../combat.md).
 
 ## O dono da condição
 
@@ -24,8 +24,8 @@ Detalhe do hub [`../characters.md`](../characters.md). A condição aplicada num
 
 ## Fim do turno (`combat.service.ts`)
 
-- `combat:nextTurn`: `holdersOf` separa os tokens da entrada que jogou pelo `TokenControlPo.characterId` (era `anchorTokenId`): soltos e personagens (cada um uma vez). Com personagem, `requireCharactersLock` (personagens → grid). `tickConditions` desce **todos** os donos numa leitura, um `decrementRemaining` e um `deleteActive`; o `combat:turnChanged` leva só os soltos e o personagem sai relido num `character:changed` (versão dos personagens). Sem ligado na entrada, nada trava os personagens; `previousTurn` não muda.
-- O `condition:changedMany` (`BoardPublisherPort.conditionsChanged`, `conditionsChangedDto`) **não é mais emitido**; o DTO e o método da porta ficam para a limpeza (Fase 13).
+- `combat:nextTurn`: `holdersOf` separa os tokens da entrada que jogou pelo `TokenControlPo.characterId` : soltos e personagens (cada um uma vez). Com personagem, `requireCharactersLock` (personagens → grid). `tickConditions` desce **todos** os donos numa leitura, um `decrementRemaining` e um `deleteActive`; o `combat:turnChanged` leva só os soltos e o personagem sai relido num `character:changed` (versão dos personagens). Sem ligado na entrada, nada trava os personagens; `previousTurn` não muda.
+- O `condition:changedMany` (`conditionsChangedDto`, `BoardPublisherPort.conditionsChanged`) saiu na Fase 13: o fim do turno de um ligado sai como `character:changed`.
 - Deps: `characterPublisher` (`createCombatModule({ …, characterPublisher })`); `CombatWriteDaos.characters` e `conditions.listOfHolders`.
 
 ## Testes
