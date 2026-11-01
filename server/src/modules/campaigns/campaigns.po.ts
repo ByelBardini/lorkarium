@@ -1,5 +1,6 @@
 import {
   boolean,
+  integer,
   pgEnum,
   pgTable,
   smallint,
@@ -52,6 +53,9 @@ export const campaigns = pgTable('campaigns', {
   // Table settings read on every token command: turning one off counts from the next command on.
   playersCreateTokens: boolean('players_create_tokens').notNull().default(false),
   playersDeleteTokens: boolean('players_delete_tokens').notNull().default(false),
+  // The version of the table's characters: every character:* event counts it, apart from the
+  // version of each grid (spec §5.5).
+  charactersVersion: integer('characters_version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

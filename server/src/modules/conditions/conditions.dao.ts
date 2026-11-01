@@ -34,9 +34,13 @@ export type ConditionDuration = Readonly<{
   appliedRound: number | null;
 }>;
 
+// Every read here is filtered by token_id, so it is never null in a row: a character's conditions
+// (token_id null, 0075) are not read by this DAO yet.
+const heldTokenId = sql<string>`${activeConditions.tokenId}`;
+
 const activeRowColumns = {
   id: activeConditions.id,
-  tokenId: activeConditions.tokenId,
+  tokenId: heldTokenId,
   conditionId: activeConditions.conditionId,
   name: conditionDefinitions.name,
   tone: conditionDefinitions.tone,
@@ -214,7 +218,7 @@ export class ConditionsDao {
   ): Promise<ReadonlyMap<string, number>> {
     if (tokenIds.length === 0) return new Map();
     const rows = await this.db
-      .select({ tokenId: activeConditions.tokenId, stacks: activeConditions.stacks })
+      .select({ tokenId: heldTokenId, stacks: activeConditions.stacks })
       .from(activeConditions)
       .where(
         and(

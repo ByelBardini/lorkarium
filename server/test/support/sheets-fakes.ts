@@ -51,6 +51,7 @@ export function sheetPo(overrides: Partial<SheetPo> = {}): SheetPo {
     name: 'Lyra',
     folderId: null,
     tokenId: LYRA_ANCHOR_ID,
+    characterId: null,
     visibility: 'controllers',
     values: { forca: 14 },
     version: 4,

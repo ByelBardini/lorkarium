@@ -1,6 +1,7 @@
 import type { ConditionColorDto, ConditionIconDto } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
 import {
+  check,
   integer,
   pgEnum,
   pgTable,
@@ -12,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { assets } from '../assets/assets.po';
 import { campaigns } from '../campaigns/campaigns.po';
+import { characters } from '../characters/characters.po';
 import { tokens } from '../tokens/tokens.po';
 
 export const conditionTone = pgEnum('condition_tone', ['benefit', 'harm', 'incapacitating']);
@@ -55,9 +57,9 @@ export const activeConditions = pgTable(
   'active_conditions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tokenId: uuid('token_id')
-      .notNull()
-      .references(() => tokens.id, { onDelete: 'cascade' }),
+    // Exactly one holder (CHECK active_conditions_one_holder): a loose token or a character.
+    tokenId: uuid('token_id').references(() => tokens.id, { onDelete: 'cascade' }),
+    characterId: uuid('character_id').references(() => characters.id, { onDelete: 'cascade' }),
     conditionId: uuid('condition_id')
       .notNull()
       .references(() => conditionDefinitions.id, { onDelete: 'cascade' }),
@@ -70,6 +72,11 @@ export const activeConditions = pgTable(
   },
   (table) => [
     unique('active_conditions_token_condition_unique').on(table.tokenId, table.conditionId),
+    unique('active_conditions_character_condition_unique').on(table.characterId, table.conditionId),
+    check(
+      'active_conditions_one_holder',
+      sql`(${table.tokenId} IS NULL) <> (${table.characterId} IS NULL)`,
+    ),
   ],
 );
 

@@ -6,7 +6,6 @@ import {
   index,
   integer,
   numeric,
-  pgEnum,
   pgTable,
   primaryKey,
   smallint,
@@ -18,29 +17,31 @@ import {
 } from 'drizzle-orm/pg-core';
 import { assets } from '../assets/assets.po';
 import { users } from '../auth/users.po';
-import { drawingColor } from '../drawings/drawings.po';
+import { characters } from '../characters/characters.po';
 import { lightColorEnum } from '../lights/lights.po';
 import { scenes } from '../scenes/scenes.po';
+import {
+  auraColumns,
+  auraFieldsSql,
+  auraShapeSql,
+  barColumns,
+  boxSizeColumns,
+  halfCellSizeSql,
+  tokenFrame,
+  tokenLayer,
+  tokenSide,
+} from './token-columns.po';
 
-export const tokenSide = pgEnum('token_side', ['ally', 'enemy', 'neutral']);
-// The order is the drawing order, top to bottom (`tokenLayerDto`).
-export const tokenLayer = pgEnum('token_layer', ['tokens', 'objects', 'background']);
-export const barColor = pgEnum('bar_color', ['gold', 'steel', 'ember', 'moss', 'ash']);
-export const barVisibility = pgEnum('bar_visibility', ['everyone', 'controllers']);
-export const barDisplay = pgEnum('bar_display', ['number', 'percent']);
-export const tokenFrame = pgEnum('token_frame', ['square', 'round']);
-export const tokenAuraKind = pgEnum('token_aura_kind', ['color', 'effect', 'image']);
-// The order of the contract's `AURA_EFFECTS`.
-export const auraEffect = pgEnum('aura_effect', [
-  'fire',
-  'water',
-  'lightning',
-  'frost',
-  'radiant',
-  'shadow',
-  'poison',
-  'arcane',
-]);
+export {
+  auraEffect,
+  barColor,
+  barDisplay,
+  barVisibility,
+  tokenAuraKind,
+  tokenFrame,
+  tokenLayer,
+  tokenSide,
+} from './token-columns.po';
 
 export const tokens = pgTable(
   'tokens',
@@ -53,8 +54,7 @@ export const tokens = pgTable(
     initials: text('initials').notNull(),
     side: tokenSide('side').notNull(),
     // In cells, in steps of half a cell: a width × height box anchored at (col, row).
-    width: doublePrecision('width').notNull().default(1),
-    height: doublePrecision('height').notNull().default(1),
+    ...boxSizeColumns(),
     col: doublePrecision('col').notNull(),
     row: doublePrecision('row').notNull(),
     layer: tokenLayer('layer').notNull().default('tokens'),
@@ -84,24 +84,17 @@ export const tokens = pgTable(
     // How wide the beam opens toward the facing (a lantern); 360 = every side, and no light
     // brings it back to 360.
     lightAngle: smallint('light_angle').notNull().default(360),
-    // The one aura around the token, seen by everyone: all seven null = none. `aura_radius` is in
-    // cells past the token's edge (game-core `auraRadius`); an effect without a color is drawn
-    // in its natural tone. Losing the image asset keeps the rest (the mapper reads it as none).
-    auraKind: tokenAuraKind('aura_kind'),
-    auraRadius: numeric('aura_radius', { precision: 6, scale: 2 }),
-    auraColor: drawingColor('aura_color'),
-    auraEffect: auraEffect('aura_effect'),
-    auraImageAssetId: uuid('aura_image_asset_id').references(() => assets.id, {
-      onDelete: 'set null',
-    }),
-    auraOpacity: smallint('aura_opacity'),
-    // How an image aura is cut (the token frame's values): only and always on an image aura.
-    auraImageShape: tokenFrame('aura_image_shape'),
+    ...auraColumns(),
     // Hidden from the players: only the masters and its controllers ever receive it.
     hidden: boolean('hidden').notNull().default(false),
     // The anchor (in the table's cast) of the character this token is: it lends its identity,
     // bars, controllers, conditions and defeat mark. Losing the anchor unlinks the token.
     anchorTokenId: uuid('anchor_token_id').references((): AnyPgColumn => tokens.id, {
+      onDelete: 'set null',
+    }),
+    // The character this token is an instance of (filled by the 0075 migration from the anchor);
+    // losing the character unlinks the token.
+    characterId: uuid('character_id').references((): AnyPgColumn => characters.id, {
       onDelete: 'set null',
     }),
     // Who created it: a player edits and deletes only their own (game-core `token-rights`).
@@ -119,6 +112,7 @@ export const tokens = pgTable(
     index('tokens_scene_id_idx').on(table.sceneId),
     // One token of each character per grid.
     unique('tokens_scene_id_anchor_token_id_unique').on(table.sceneId, table.anchorTokenId),
+    unique('tokens_scene_id_character_id_unique').on(table.sceneId, table.characterId),
     check('tokens_facing_range', sql`${table.facing} >= 0 AND ${table.facing} <= 359`),
     check('tokens_sight_angle', sql`${table.sightAngle} BETWEEN 1 AND 360`),
     check('tokens_light_angle', sql`${table.lightAngle} BETWEEN 1 AND 360`),
@@ -134,19 +128,9 @@ export const tokens = pgTable(
       'tokens_light_color',
       sql`${table.lightColor} IS NULL OR ${table.lightBright} IS NOT NULL`,
     ),
-    // All seven null, or a kind with its radius (0–20 cells, game-core `AURA_RADIUS_MAX`) and its
-    // opacity (10–100 %). A CHECK passes on NULL, so the second branch names each as not null.
-    check(
-      'tokens_aura_shape',
-      sql`(${table.auraKind} IS NULL AND ${table.auraRadius} IS NULL AND ${table.auraColor} IS NULL AND ${table.auraEffect} IS NULL AND ${table.auraImageAssetId} IS NULL AND ${table.auraOpacity} IS NULL AND ${table.auraImageShape} IS NULL) OR (${table.auraKind} IS NOT NULL AND ${table.auraRadius} IS NOT NULL AND ${table.auraOpacity} IS NOT NULL AND ${table.auraRadius} BETWEEN 0 AND 20 AND ${table.auraOpacity} BETWEEN 10 AND 100)`,
-    ),
-    // A color aura has its color; an effect aura has its effect (and maybe a color); only an
-    // image aura has an image, which may be null after its asset is deleted (set null), and
-    // its shape, which stays.
-    check(
-      'tokens_aura_fields',
-      sql`(${table.auraKind} IS DISTINCT FROM 'color' OR ${table.auraColor} IS NOT NULL) AND ((${table.auraEffect} IS NOT NULL) = (${table.auraKind} IS NOT DISTINCT FROM 'effect')) AND (${table.auraColor} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'color' OR ${table.auraKind} IS NOT DISTINCT FROM 'effect') AND (${table.auraImageAssetId} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'image') AND ((${table.auraImageShape} IS NOT NULL) = (${table.auraKind} IS NOT DISTINCT FROM 'image'))`,
-    ),
+    // The aura rules, shared with the character (token-columns.po.ts).
+    check('tokens_aura_shape', auraShapeSql(table)),
+    check('tokens_aura_fields', auraFieldsSql(table)),
     check(
       'tokens_box_half_cells',
       sql`${table.col} >= 0 AND ${table.row} >= 0 AND ${table.width} BETWEEN 0.5 AND 10 AND ${table.height} BETWEEN 0.5 AND 10 AND (${table.col} * 2) = floor(${table.col} * 2) AND (${table.row} * 2) = floor(${table.row} * 2) AND (${table.width} * 2) = floor(${table.width} * 2) AND (${table.height} * 2) = floor(${table.height} * 2)`,
@@ -176,13 +160,7 @@ export const tokenBars = pgTable(
     tokenId: uuid('token_id')
       .notNull()
       .references(() => tokens.id, { onDelete: 'cascade' }),
-    position: integer('position').notNull(),
-    label: text('label').notNull(),
-    current: integer('current').notNull(),
-    max: integer('max').notNull(),
-    color: barColor('color').notNull(),
-    visibility: barVisibility('visibility').notNull(),
-    display: barDisplay('display').notNull().default('number'),
+    ...barColumns(),
   },
   (table) => [unique('token_bars_token_id_position_unique').on(table.tokenId, table.position)],
 );
@@ -205,10 +183,7 @@ export const tokenForms = pgTable(
   },
   (table) => [
     unique('token_forms_token_id_position_unique').on(table.tokenId, table.position),
-    check(
-      'token_forms_size_half_cells',
-      sql`${table.width} BETWEEN 0.5 AND 10 AND ${table.height} BETWEEN 0.5 AND 10 AND (${table.width} * 2) = floor(${table.width} * 2) AND (${table.height} * 2) = floor(${table.height} * 2)`,
-    ),
+    check('token_forms_size_half_cells', halfCellSizeSql(table.width, table.height)),
   ],
 );
 
