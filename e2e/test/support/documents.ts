@@ -79,11 +79,19 @@ export function savedStatusOf(panel: Locator): Locator {
   return panel.getByRole('status').filter({ hasText: /^Salvo$/ });
 }
 
-// At the 1280px viewport the tab strip fits only the pinned tabs, so an inactive document sits in "+N".
-/** Shows a document tab of the room from the "+N" menu. Example: `await showDocumentTab(page, 'Diário')` */
+// Whether an inactive document fits the strip or sits in "+N" depends on the room's width and on
+// how many tabs are open, so the helper takes whichever the strip shows.
+/** Shows a document tab of the room, from the strip or the "+N" menu. Example: `await showDocumentTab(page, 'Diário')` */
 export async function showDocumentTab(page: Page, name: string): Promise<void> {
-  await page.getByRole('button', { name: /^Mais \d+ abas?$/ }).click();
-  await page.getByRole('menuitem', { name, exact: true }).click();
+  const tab = gridTabsOf(page).getByRole('tab', { name, exact: true });
+  const more = page.getByRole('button', { name: /^Mais \d+ abas?$/ });
+  await expect(tab.or(more).first()).toBeVisible();
+  if (await tab.isVisible()) {
+    await tab.click();
+  } else {
+    await more.click();
+    await page.getByRole('menuitem', { name, exact: true }).click();
+  }
   await expect(gridTabsOf(page).getByRole('tab', { name, exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
