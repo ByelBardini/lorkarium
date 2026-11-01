@@ -116,3 +116,14 @@ export type CharacterPo = typeof characters.$inferSelect;
 export type NewCharacterPo = typeof characters.$inferInsert;
 export type CharacterBarPo = typeof characterBars.$inferSelect;
 export type CharacterControllerPo = typeof characterControllers.$inferSelect;
+
+/** One bar to write on a character: its position is its place in the list written. */
+export type CharacterBarInputPo = Omit<
+  typeof characterBars.$inferInsert,
+  'id' | 'characterId' | 'position'
+>;
+
+/** The card fields one update writes: an absent key stays, `null` clears. */
+export type CharacterChangesPo = Partial<
+  Pick<CharacterPo, 'name' | 'armorClass' | 'difficultyClass' | 'noteOne' | 'noteTwo'>
+>;

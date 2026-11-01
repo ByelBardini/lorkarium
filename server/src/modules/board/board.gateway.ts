@@ -92,7 +92,7 @@ import {
   type CommandOk,
   type Handler,
 } from './board-command-edge';
-import { bindCharacterCommands } from './character-commands';
+import { bindCharacterCommands, type CharacterCommandsDeps } from './character-commands';
 import { bindSheetCommands, type SheetCommandsDeps } from './sheet-commands';
 import {
   bindConditionCatalogCommands,
@@ -116,6 +116,7 @@ export type BoardGatewayDeps = Readonly<{
   tokenVisibility: Pick<TokenVisibilityService, 'setHiddenMany'>;
   tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
   memberCards: Pick<MemberCardsService, 'update'>;
+  characters: CharacterCommandsDeps['characters'];
   pings: Pick<PingsService, 'ping'>;
   conditions: Pick<
     ConditionsService,
@@ -274,7 +275,7 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
       mutate(updateMemberCardCommandDto, memberCards.update.bind(memberCards)),
     );
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
-    bindCharacterCommands(socket, { mutate, write }, deps);
+    bindCharacterCommands(socket, { bind, mutate, write }, deps);
     bindSheetCommands(socket, mutate, deps);
     socket.on(
       'token:createMany',

@@ -243,7 +243,10 @@ function definedLookOf(command: Partial<TokenLookPo>): Partial<TokenLookPo> {
   return look;
 }
 
-function toTokenBarDto(bar: TokenBarPo): TokenBarDto {
+/** A saved bar (a token's or a character's) as the wire carries it.
+ *
+ *  Example: `row.bars.map(toTokenBarDto)` */
+export function toTokenBarDto(bar: Omit<TokenBarPo, 'tokenId'>): TokenBarDto {
   const { id, position, label, current, max, color, visibility, display } = bar;
   return { id, position, label, current, max, color, visibility, display };
 }

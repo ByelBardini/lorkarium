@@ -1,6 +1,8 @@
 import { LibraryImageReadPolicy } from '../modules/library/library-image-read-policy.service';
 import { libraryImageDaos } from '../modules/library/library.plugin';
-import { runInSnapshot } from '../database/transaction';
+import { runInSnapshot, type Transaction } from '../database/transaction';
+import type { MemberSeatPort } from '../modules/campaigns/member-seat.port';
+import { removedInOrder } from './member-outlets';
 import { createDocumentsModule, documentDaos } from '../modules/documents/documents.plugin';
 import { DocumentAssetReadPolicy } from '../modules/documents/document-asset-read-policy.service';
 import { AssetsDao } from '../modules/assets/assets.dao';
@@ -54,6 +56,8 @@ import { createLibraryModule } from '../modules/library/library.plugin';
 import { createSavedRollsModule } from '../modules/saved-rolls/saved-rolls.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
 import { createMemberCardsModule } from '../modules/member-cards/member-cards.plugin';
+import { createCharactersModule } from '../modules/characters/characters.plugin';
+import { SocketIoCharacterPublisher } from '../infrastructure/character-publisher/socket-io-character-publisher';
 import { createPingsModule } from '../modules/pings/pings.plugin';
 import { createConditionsModule } from '../modules/conditions/conditions.plugin';
 import { createCombatModule } from '../modules/combat/combat.plugin';
@@ -166,7 +170,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const outlets = wireRealtime(app, auth.guards, realtimeModules);
   // Registered once the live session exists: each saved campaign change reaches its room.
   const { campaignChanged: changed, memberRoleChanged: roleChanged, memberRemoved } = outlets;
-  const campaignOutlets = { changed, roleChanged, removed: memberRemoved };
+  const campaignOutlets = { changed, roleChanged, removed: memberRemoved, seatIn: outlets.seatIn };
   await app.register(campaigns.pluginWith(campaignOutlets), { prefix: API_PREFIX });
   const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
   const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
@@ -230,8 +234,11 @@ type RealtimeOutlets = Readonly<{
   campaignChanged: CampaignChangedPort;
   /** The same service: a member's saved role reaches the live table and moves their rooms. */
   memberRoleChanged: MemberRoleChangedPort;
-  /** The same service: a member taken out of a table leaves it live. */
+  /** The same service, then the characters: a member taken out of a table leaves it live and
+   *  their character goes nobody's. */
   memberRemoved: MemberRemovedPort;
+  /** The character of a member, written in the transaction of their new role. */
+  seatIn: (tx: Transaction) => MemberSeatPort;
 }>;
 
 function wireRealtime(
@@ -273,7 +280,7 @@ function wireRealtime(
   });
   realtime.onConnection(sessions.gateway);
   const { service: profileChanged, service: campaignChanged } = sessions;
-  const { service: memberRoleChanged, service: memberRemoved } = sessions;
+  const { service: memberRoleChanged } = sessions;
   const sceneWalls = new SceneWallsService();
   const tokensModule = createTokensModule({ ...shared, sceneWalls });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
@@ -286,6 +293,8 @@ function wireRealtime(
   const walls = createWallsModule({ ...shared, sceneWalls }).service;
   const lights = createLightsModule(shared).service;
   const memberCards = createMemberCardsModule(shared).service;
+  const characterPublisher = new SocketIoCharacterPublisher(realtime.io);
+  const characters = createCharactersModule({ ...shared, publisher: characterPublisher });
   const pings = createPingsModule({
     members,
     audience: new SocketIoGridAudience(realtime.io),
@@ -307,6 +316,7 @@ function wireRealtime(
     tokenVisibility,
     tokenLink,
     memberCards,
+    characters: characters.service,
     pings,
     conditions,
     conditionCatalog,
@@ -325,7 +335,9 @@ function wireRealtime(
   realtime.onConnection(board.gateway);
   wireDice(realtime, { db, members, clock, log: app.log });
   wireChat(realtime, { db, members, clock, log: app.log });
-  return { ...outlets, profileChanged, campaignChanged, memberRoleChanged, memberRemoved };
+  const memberRemoved = removedInOrder(sessions.service, characters.seats);
+  const { seatIn } = characters;
+  return { ...outlets, profileChanged, campaignChanged, memberRoleChanged, memberRemoved, seatIn };
 }
 
 // The bucket is ensured once per boot (dev, CI and integration alike), before the first request.

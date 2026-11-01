@@ -9,6 +9,7 @@ import { AssetError } from '../assets/assets.error';
 import { CombatError } from '../combat/combat.error';
 import { ConditionError } from '../conditions/conditions.error';
 import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
+import { CharacterError } from '../characters/characters.error';
 import { ChatError } from '../chat/chat.error';
 import { InvalidDiceExpressionError } from '../dice/dice.error';
 import { DrawingError } from '../drawings/drawings.error';
@@ -78,6 +79,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   MEMBER_NOT_FOUND: 'Member not found',
   SCENE_NOT_FOUND: 'Scene not found',
   CHARACTER_ALREADY_PLACED: 'This character already has a token here',
+  CHARACTER_NOT_FOUND: 'Character not found',
   TOKEN_NOT_LINKED: 'This token is not linked to a card',
   TOKEN_FORM_NOT_FOUND: 'This token has no such form',
   NO_FREE_CELLS: 'There are no free cells around there',
@@ -169,7 +171,8 @@ type KnownError =
   | SceneError
   | BoardError
   | ChatError
-  | SheetError;
+  | SheetError
+  | CharacterError;
 
 function isKnown(error: unknown): error is KnownError {
   return (
@@ -186,6 +189,7 @@ function isKnown(error: unknown): error is KnownError {
     error instanceof SceneError ||
     error instanceof BoardError ||
     error instanceof ChatError ||
-    error instanceof SheetError
+    error instanceof SheetError ||
+    error instanceof CharacterError
   );
 }
