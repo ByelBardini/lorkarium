@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   expect,
+  type Download,
   type FrameLocator,
   type Locator,
   type Page,
@@ -60,6 +61,29 @@ export async function createTemplateByApi(
     data: source,
   });
   expect(response.status(), `template ${source.name} in ${campaignId}`).toBe(201);
+}
+
+/** The tree menu of a template → "Exportar modelo": the `.lksheet` of the saved version.
+ *
+ *  Example: `const file = await exportSheetTemplate(library, 'Modelo exportado')` */
+export async function exportSheetTemplate(library: Locator, template: string): Promise<Download> {
+  const page = library.page();
+  await gridItemOf(library, template).click({ button: 'right' });
+  const download = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Exportar modelo' }).click();
+  return download;
+}
+
+/** "Criar item" → "Importar modelo de ficha" with a file on disk; stops at the confirmation (or
+ *  the refusal) so the spec decides what to check.
+ *
+ *  Example: `await importSheetTemplate(library, await download.path())` */
+export async function importSheetTemplate(library: Locator, filePath: string): Promise<void> {
+  const page = library.page();
+  const chooser = page.waitForEvent('filechooser');
+  await library.getByRole('button', { name: 'Criar item' }).click();
+  await page.getByRole('menuitem', { name: 'Importar modelo de ficha' }).click();
+  await (await chooser).setFiles(filePath);
 }
 
 /** The master's "Nova ficha ▸ <template>" on the token born at the center cell (10, 6): the
