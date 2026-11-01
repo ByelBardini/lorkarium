@@ -7,6 +7,7 @@ O `Character` do spec §6 (o Actor do Foundry): a entidade da mesa por trás dos
 | [`characters/token-ligado.md`](characters/token-ligado.md) | Fase 6: token ligado composto pelo personagem, travas personagens → grid, escritas compartilhadas (tabela), ligar/desligar mínimo, testes e fakes                                              |
 | [`characters/ligar.md`](characters/ligar.md)               | Fase 8: `token:linkToCharacter`/`token:unlinkFromCharacter` sem âncora, `CharacterLinkBo`, `TokenCharacterLinkDao`, "Adicionar jogadores" pelos personagens, legado `token:linkToCard`, testes |
 | [`characters/condicoes.md`](characters/condicoes.md)       | Fase 7: o dono da condição (token solto ou personagem), `CharacterRow.conditions`, escritas e fim do turno no personagem, testes e fakes                                                       |
+| [`characters/fichas.md`](characters/fichas.md)             | Fase 9: ficha no personagem (`token_sheets.character_id`), dono `{ memberId }`/token ligado, acesso, ficha principal, `character:setMainSheet`, `GET …/characters/:c/sheets`, barras, testes   |
 
 ## Contrato
 
@@ -75,13 +76,14 @@ Testes: integração `server/test/integration/characters-migration.spec.ts` (mig
 - `CharactersService({ members, transaction, snapshot, publisher, clock, barLimit })` (`characters.plugin.ts`, `createCharactersModule({ db, members, publisher, clock })` → `{ service, seats, seatIn }`, montado no `wireRealtime`):
   - `update(usuário, mesa, { characterId, changes })` e `adjustBar(usuário, mesa, { characterId, barId, change })` → versão: `memberAccessOf` (fora da mesa `CAMPAIGN_NOT_FOUND`, espectador `FORBIDDEN`, os dois **sem trava**) → `inLockedCharacters` → `findInCampaign` (outra mesa → `CHARACTER_NOT_FOUND`) → BO → grava → relê → soma → commit → `charactersChanged`. Recusa não grava, não soma nem publica.
   - `sync(usuário, mesa)` → `CharacterSyncDto { version, characters }`: `viewerAccessOf` (o espectador lê), `runInSnapshot` (versão + lista consistentes), só os que o leitor vê, cada um na sua audiência.
-  - `setMainSheet` fica para a Fase 9 (o comando `character:setMainSheet` ainda não é ligado).
+  - `setMainSheet(usuário, mesa, { characterId, sheetId })` (Fase 9): o mesmo `write`, `requireEdit` → a ficha precisa ser do personagem (`requireOwnSheet`, senão `SHEET_NOT_FOUND`) → `setMainSheet` → `character:changed`. Detalhe em [`characters/fichas.md`](characters/fichas.md).
 
-| Comando               | Quem                              | Ack                                                                                                                            | Evento                       |
-| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
-| `character:update`    | jogador, controladores, mestre    | `{ ok, version }` (dos personagens) · `FORBIDDEN`, `CHARACTER_NOT_FOUND`, `CAMPAIGN_NOT_FOUND`, `INVALID_BODY`, `RATE_LIMITED` | `character:changed` (abaixo) |
-| `character:adjustBar` | idem                              | idem + `BAR_NOT_FOUND`                                                                                                         | `character:changed`          |
-| `character:sync`      | todo membro, espectador inclusive | `characterSyncAckDto` `{ ok, version, characters }` · `CAMPAIGN_NOT_FOUND`                                                     | —                            |
+| Comando                  | Quem                              | Ack                                                                                                                            | Evento                       |
+| ------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| `character:update`       | jogador, controladores, mestre    | `{ ok, version }` (dos personagens) · `FORBIDDEN`, `CHARACTER_NOT_FOUND`, `CAMPAIGN_NOT_FOUND`, `INVALID_BODY`, `RATE_LIMITED` | `character:changed` (abaixo) |
+| `character:adjustBar`    | idem                              | idem + `BAR_NOT_FOUND`                                                                                                         | `character:changed`          |
+| `character:setMainSheet` | idem                              | idem + `SHEET_NOT_FOUND` (ficha de outro personagem, sem dono ou de outra mesa)                                                | `character:changed`          |
+| `character:sync`         | todo membro, espectador inclusive | `characterSyncAckDto` `{ ok, version, characters }` · `CAMPAIGN_NOT_FOUND`                                                     | —                            |
 
 - Borda: `board/character-commands.ts` (`bindCharacterCommands(socket, { bind, mutate, write }, deps)`; dep `characters` no `BoardGatewayDeps`/`createBoardModule`): os dois comandos pelo `mutate` (fila da mesa), o `character:sync` pelo `bind` (leitura, fora da fila). `CHARACTER_NOT_FOUND: 'Character not found'` no `PUBLIC_MESSAGE` e `CharacterError` entre os erros conhecidos (`board-command-edge.ts`). Payload estrito: `userId` forjado → `INVALID_BODY`.
 
@@ -105,6 +107,10 @@ Testes: integração `server/test/integration/characters-migration.spec.ts` (mig
 ## Condições e combate
 
 Condição em token ligado mora no personagem (`active_conditions.character_id`): `condition:apply`/`applyMany`/`remove`/`setRounds`/`setStacks` gravam nele (personagens travados antes do grid) e publicam `character:changed` com o personagem inteiro na versão dos personagens; só os soltos ganham evento do grid (`applyMany` misto = um de cada). O `combat:nextTurn` desce as condições do personagem da entrada e as publica pelo `character:changed`; o `combat:turnChanged` leva só os soltos; o `condition:changedMany` não sai mais. Snapshot, eventos de token e `character:sync` leem as condições pelo dono. Detalhe em [`characters/condicoes.md`](characters/condicoes.md).
+
+## Fichas e ficha principal
+
+Desde a Fase 9 a ficha do personagem mora em `token_sheets.character_id`: `holder: { memberId }` resolve para o personagem do jogador e `{ tokenId }` de um token ligado para o personagem dele (nada é criado; mestre, espectador e estranho → `MEMBER_NOT_FOUND`; token do elenco → `TOKEN_NOT_FOUND`). A primeira ficha dada vira `main_sheet_id` (e sai `character:changed`); a segunda não troca; apagar ou tirar a principal deixa `null`. `GET /api/campaigns/:c/characters/:characterId/sheets` lista as que o leitor lê; `sheet:adjustBar` numa ficha do personagem ajusta a barra dele. Detalhe em [`characters/fichas.md`](characters/fichas.md).
 
 ## Armadilhas
 

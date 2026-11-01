@@ -1,5 +1,6 @@
 import { adjustBarValues, type BarAdjustment, type BarValues } from '@lorkarium/game-core';
 import type { CampaignAccessBo, CampaignRole } from '../campaigns/campaign-access.bo';
+import { SheetNotFoundError } from '../sheets/sheets.error';
 import { CharacterBarNotFoundError, CharacterNotFoundError } from './characters.error';
 
 /** Whose a character is: its player, the role they have at the table now (`null` = nobody's, or
@@ -61,13 +62,30 @@ export class CharacterBo {
     return this.canControl() ? 'privileged' : 'others';
   }
 
+  /** A character this member does not see (stored, for anyone but the masters) is
+   *  CHARACTER_NOT_FOUND, never FORBIDDEN: its existence does not leak. */
+  requireSeen(): void {
+    if (this.isSeen()) return;
+    throw new CharacterNotFoundError(this.access.campaignIdOf(), this.seat.characterId);
+  }
+
+  /** The sheet must be one this character holds (`holderId` = the character that holds it);
+   *  another's, or none, is SHEET_NOT_FOUND.
+   *
+   *  Example: `bo.requireOwnSheet(sheetId, sheet?.characterId ?? null)` */
+  requireOwnSheet(sheetId: string, holderId: string | null): void {
+    if (holderId === this.seat.characterId) return;
+    throw new SheetNotFoundError(
+      this.access.campaignIdOf(),
+      `sheet ${sheetId} held by character ${this.seat.characterId}`,
+    );
+  }
+
   /** Throws FORBIDDEN for a spectator, CHARACTER_NOT_FOUND for a character this member does not
    *  see, FORBIDDEN for anyone but its player, its controllers and the masters. */
   requireEdit(action: string): void {
     this.access.requireMember();
-    if (!this.isSeen()) {
-      throw new CharacterNotFoundError(this.access.campaignIdOf(), this.seat.characterId);
-    }
+    this.requireSeen();
     if (this.canControl()) return;
     this.access.forbid(
       `${action} character ${this.seat.characterId}`,

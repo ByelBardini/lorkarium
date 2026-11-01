@@ -1,17 +1,15 @@
 import {
   campaignLibraryDto,
-  memberCardChangedDto,
   sceneFolderDto,
   sheetResponseDto,
   sheetTemplateResponseDto,
   sheetWriteResponseDto,
-  tokenCreatedDto,
   type CampaignLibraryDto,
   type SheetDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { castIdOf, gridState, linkToCard, lyraPoisonedAtVharn } from '../support/characters';
-import { envelope, eventPayload, send, silence } from '../support/live-table';
+import { linkToCard, lyraPoisonedAtVharn } from '../support/characters';
+import { eventPayload, send, silence } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
 import type { Table } from '../support/tables';
@@ -65,6 +63,12 @@ function sheetNamesOf(library: CampaignLibraryDto): string[] {
   return (library.sheets ?? []).map(({ name }) => name);
 }
 
+async function spectatorDuda(): Promise<string> {
+  const duda = await live.signUp('Duda');
+  await live.joinAsSpectator(duda, live.vharn);
+  return duda.id;
+}
+
 describe('sheets in the library', () => {
   it('Ana creates the Goblin without a holder: only masters read it and the table hears library:changed', async () => {
     const bia = await live.atTable(live.bia, live.vharn);
@@ -84,68 +88,44 @@ describe('sheets in the library', () => {
     expect(sheetNamesOf(await libraryOf(live.bia))).toEqual([]);
   });
 
-  it('giving a sheet to Caio, who has no character, creates his anchor: the table hears it in the cast', async () => {
-    const { ana, recorders } = await lyraPoisonedAtVharn(live);
-    const castId = await castIdOf(live, live.ana, live.vharn);
-    await silence();
-    const caioEvents = recordEventsOf(await live.atTable(live.caio, live.vharn));
-
-    const kael = await created({ name: 'Kael', holder: { memberId: live.caio.id } });
-
-    const anchor = tokenCreatedDto.parse(await eventPayload(recorders[1], 'token:created'));
-    expect(anchor).toMatchObject({ sceneId: castId, token: { name: 'Caio', initials: 'CA' } });
-    expect(anchor.token).toMatchObject({ side: 'ally', width: 1, height: 1, col: 0, row: 0 });
-    const card = memberCardChangedDto.parse(await eventPayload(caioEvents, 'member:cardChanged'));
-    expect(card.card).toMatchObject({ userId: live.caio.id, anchorTokenId: anchor.token.id });
-    expect(card.version).toBe(anchor.version + 1);
-    expect(kael).toMatchObject({ tokenId: anchor.token.id, memberId: live.caio.id });
-    const read = sheetResponseDto.parse((await readSheet(live.caio, kael.id)).json());
-    expect(read.sheet).toMatchObject({ canEdit: true, canManage: false });
-    expect((await gridState(ana, live.vharn, castId)).tokens.map(({ id }) => id)).toContain(
-      anchor.token.id,
-    );
-  });
-
-  it('the anchor takes the character name of the card when Caio wrote one', async () => {
-    const caio = await live.atTable(live.caio, live.vharn);
-    const changes = { characterName: 'Kael' };
-    await send(caio, 'member:updateCard', {
-      ...envelope(live.vharn.id),
-      memberId: live.caio.id,
-      changes,
-    });
-
-    const sheet = await created({ holder: { memberId: live.caio.id } });
-
-    const castId = await castIdOf(live, live.ana, live.vharn);
-    const anchor = (await gridState(caio, live.vharn, castId)).tokens.find(
-      ({ id }) => id === sheet.tokenId,
-    );
-    expect(anchor).toMatchObject({ name: 'Kael', initials: 'KA' });
-  });
-
-  it('giving a sheet to Bia, whose Lyra is her character, hangs it on the anchor and creates nothing', async () => {
-    const { ana, lyra, recorders } = await lyraPoisonedAtVharn(live);
-    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
-    const castId = await castIdOf(live, live.ana, live.vharn);
-    const anchorId = (await gridState(ana, live.vharn, castId)).tokens[0]?.id;
+  it('giving a sheet to Caio hangs it on his character: nothing is created in the cast', async () => {
+    const { recorders } = await lyraPoisonedAtVharn(live);
     await silence();
     const before = recorders[2].events.length;
 
-    const sheet = await created({ holder: { memberId: live.bia.id } });
+    const kael = await created({ name: 'Kael', holder: { memberId: live.caio.id } });
 
-    expect(sheet).toMatchObject({ tokenId: anchorId, memberId: live.bia.id });
+    expect(kael).toMatchObject({ tokenId: null, memberId: live.caio.id });
+    const read = sheetResponseDto.parse((await readSheet(live.caio, kael.id)).json());
+    expect(read.sheet).toMatchObject({ canEdit: true, canManage: false });
     await silence();
     const heard = recorders[2].events.slice(before).map(({ name }) => name);
+    expect(heard).toContain('character:changed');
     expect(heard).not.toContain('token:created');
     expect(heard).not.toContain('member:cardChanged');
   });
 
+  it('giving a sheet to Bia or to her linked Lyra hangs both on the same character', async () => {
+    const { ana, lyra } = await lyraPoisonedAtVharn(live);
+    await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
+    const templateId = await templateOf();
+
+    const byMember = await create({ holder: { memberId: live.bia.id } }, templateId);
+    const byToken = await create({ name: 'Diário', holder: { tokenId: lyra.id } }, templateId);
+
+    const sheets = [byMember, byToken].map((answer) => sheetWriteResponseDto.parse(answer.json()));
+    expect(sheets.map(({ sheet }) => [sheet.tokenId, sheet.memberId])).toEqual([
+      [null, live.bia.id],
+      [null, live.bia.id],
+    ]);
+  });
+
   it.each([
-    ['the master Ana', () => live.ana.id],
-    ['a player of Quelm only', () => crypto.randomUUID()],
+    ['the master Ana', async () => live.ana.id],
+    ['a player of Quelm only', async () => crypto.randomUUID()],
+    ['the spectator Duda', async () => spectatorDuda()],
   ])('giving a sheet to %s is 404 MEMBER_NOT_FOUND', async (_who, memberOf) => {
-    const response = await create({ holder: { memberId: memberOf() } }, await templateOf());
+    const response = await create({ holder: { memberId: await memberOf() } }, await templateOf());
 
     expect(response.statusCode).toBe(404);
     expect(response.json()).toMatchObject({ code: 'MEMBER_NOT_FOUND' });

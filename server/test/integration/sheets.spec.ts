@@ -7,17 +7,12 @@ import {
   type SheetWriteResponseDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import {
-  castIdOf,
-  gridState,
-  linkToCard,
-  lyraPoisonedAtVharn,
-  tokenIn,
-} from '../support/characters';
+import { linkToCard, lyraPoisonedAtVharn, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
+import { characterOfUser } from '../support/table-characters';
 import type { Table } from '../support/tables';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
@@ -64,6 +59,13 @@ async function sheetIdsOf(user: SignedInUser, tokenId: string): Promise<string[]
   return tokenSheetsResponseDto.parse(response.json()).sheets.map(({ id }) => id);
 }
 
+async function sheetIdsOfCharacter(user: SignedInUser, characterId: string): Promise<string[]> {
+  const url = `/api/campaigns/${live.vharn.id}/characters/${characterId}/sheets`;
+  const response = await live.http(user, { method: 'GET', url });
+  if (response.statusCode !== 200) throw new Error(`list answered ${response.body}`);
+  return tokenSheetsResponseDto.parse(response.json()).sheets.map(({ id }) => id);
+}
+
 function readSheet(user: SignedInUser, sheetId: string) {
   return live.http(user, { method: 'GET', url: `${sheetsUrl()}/${sheetId}` });
 }
@@ -90,16 +92,16 @@ async function lyraOnTwoGrids() {
 }
 
 describe('sheets linked to tokens over HTTP', () => {
-  it("Ana links Ficha Tormenta to Lyra: the sheet is the anchor's and both Lyras open it", async () => {
-    const { ana, lyra, lyraOfEstrada } = await lyraOnTwoGrids();
-    const castId = await castIdOf(live, live.ana, live.vharn);
-    const anchorId = (await gridState(ana, live.vharn, castId)).tokens[0]?.id;
+  it("Ana links Ficha Tormenta to Lyra: the sheet is Bia's character's and both Lyras open it", async () => {
+    const { lyra, lyraOfEstrada } = await lyraOnTwoGrids();
+    const { character } = await characterOfUser(live, live.vharn, live.bia);
 
     const { sheet } = await linked(lyra.id);
 
-    expect(sheet.tokenId).toBe(anchorId);
+    expect(sheet).toMatchObject({ tokenId: null, memberId: live.bia.id });
     expect(await sheetIdsOf(live.bia, lyra.id)).toEqual([sheet.id]);
     expect(await sheetIdsOf(live.bia, lyraOfEstrada)).toEqual([sheet.id]);
+    expect(await sheetIdsOfCharacter(live.bia, character.id)).toEqual([sheet.id]);
     const read = sheetResponseDto.parse((await readSheet(live.bia, sheet.id)).json());
     expect(read.template).toMatchObject({ name: 'Ficha Tormenta', html: CODE.html });
     expect(read.sheet).toMatchObject({ name: 'Lyra', memberId: live.bia.id, folderId: null });
@@ -168,15 +170,16 @@ describe('sheets linked to tokens over HTTP', () => {
     expect(read.sheet.version).toBe(2);
   });
 
-  it('unlinking Lyra leaves the sheet on the anchor', async () => {
+  it('unlinking Lyra leaves the sheet on the character', async () => {
     const { ana, lyra } = await lyraPoisonedAtVharn(live);
     await linkToCard(ana, live.vharn, { tokenId: lyra.id, memberId: live.bia.id });
     const { sheet } = await linked(lyra.id);
+    const { character } = await characterOfUser(live, live.vharn, live.bia);
 
     await send(ana, 'token:unlinkFromCard', { ...envelope(live.vharn.id), tokenId: lyra.id });
 
     expect(await sheetIdsOf(live.bia, lyra.id)).toEqual([]);
-    expect(await sheetIdsOf(live.bia, sheet.tokenId ?? '')).toEqual([sheet.id]);
+    expect(await sheetIdsOfCharacter(live.bia, character.id)).toEqual([sheet.id]);
   });
 
   it('a controllers sheet is 404 SHEET_NOT_FOUND to Caio by id, and missing from the token list', async () => {

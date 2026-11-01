@@ -1,26 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { CharacterLinkBo } from '../../../src/modules/tokens/character-link.bo';
-import { BIA_ID, VHARN_ID } from '../../support/campaigns-factories';
 
-const rules = new CharacterLinkBo(VHARN_ID);
+const rules = new CharacterLinkBo();
 const KAEL = 'kael';
 const LYRA_TOKEN = 'lyra-token';
 const LYRA = 'lyra-character';
 
 describe('CharacterLinkBo', () => {
-  it('only a player has a character for a sheet: the master and a stranger are MEMBER_NOT_FOUND', () => {
-    expect(() => rules.requirePlayer(BIA_ID, 'player')).not.toThrow();
-    expect(() => rules.requirePlayer(BIA_ID, 'master')).toThrow(
-      expect.objectContaining({
-        code: 'MEMBER_NOT_FOUND',
-        message: expect.stringContaining(BIA_ID),
-      }),
-    );
-    expect(() => rules.requirePlayer(BIA_ID, null)).toThrow(
-      expect.objectContaining({ code: 'MEMBER_NOT_FOUND' }),
-    );
-  });
-
   it('a token that already wears a character is CHARACTER_ALREADY_PLACED, citing it', () => {
     expect(() => rules.requireFree({ id: KAEL, characterId: null })).not.toThrow();
     expect(() => rules.requireFree({ id: LYRA_TOKEN, characterId: LYRA })).toThrow(

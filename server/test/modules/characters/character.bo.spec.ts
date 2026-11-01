@@ -156,3 +156,36 @@ describe('CharacterBo.adjustBar', () => {
     expect(adjust).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
   });
 });
+
+describe('CharacterBo.requireSeen and requireOwnSheet', () => {
+  const SHEET_ID = '7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d';
+  const KAEL_ID = '8b7c6d5e-4f3a-4b2c-8d9e-0f1a2b3c4d5e';
+
+  it('a stored Lyra (Bia demoted) is CHARACTER_NOT_FOUND to Caio and seen by Ana', () => {
+    const stored = { holderRole: 'spectator' } as const;
+
+    expect(() => lyraFor(CAIO_ID, 'player', stored).requireSeen()).toThrow(
+      expect.objectContaining({
+        code: 'CHARACTER_NOT_FOUND',
+        message: expect.stringContaining(LYRA_CHARACTER_ID),
+      }),
+    );
+    expect(() => lyraFor(ANA_ID, 'master', stored).requireSeen()).not.toThrow();
+  });
+
+  it("a sheet Lyra holds passes; Kael's, or nobody's, is SHEET_NOT_FOUND citing both", () => {
+    const bo = lyraFor(BIA_ID, 'player');
+
+    expect(() => bo.requireOwnSheet(SHEET_ID, LYRA_CHARACTER_ID)).not.toThrow();
+    for (const holderId of [KAEL_ID, null]) {
+      expect(() => bo.requireOwnSheet(SHEET_ID, holderId)).toThrow(
+        expect.objectContaining({
+          code: 'SHEET_NOT_FOUND',
+          message: expect.stringContaining(
+            `sheet ${SHEET_ID} held by character ${LYRA_CHARACTER_ID}`,
+          ),
+        }),
+      );
+    }
+  });
+});

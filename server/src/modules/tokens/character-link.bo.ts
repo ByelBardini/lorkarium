@@ -1,5 +1,3 @@
-import type { CampaignRole } from '../campaigns/campaign-access.bo';
-import { MemberNotFoundError } from '../campaigns/campaigns.error';
 import { CharacterAlreadyPlacedError, TokenNotLinkedError } from './tokens.error';
 
 /** What the link rules read of a token: which one and the character it wears, if any. */
@@ -8,19 +6,8 @@ export type LinkedTokenRef = Readonly<{ id: string; characterId: string | null }
 /** Who and what may become a character: a token wears one character at most, and a grid holds
  *  one token per character.
  *
- *  Example: `new CharacterLinkBo(campaignId).requireFree(kael.token)` */
+ *  Example: `new CharacterLinkBo().requireFree(kael.token)` */
 export class CharacterLinkBo {
-  constructor(private readonly campaignId: string) {}
-
-  /** Only a player of the table has a character to hand a sheet to (a master has none). Still
-   *  read by the sheet holder until the sheets go by the character (phase 9 of the plan).
-   *
-   *  Example: `rules.requirePlayer(memberId, membership?.role ?? null)` */
-  requirePlayer(memberId: string, role: CampaignRole | null): void {
-    if (role === 'player') return;
-    throw new MemberNotFoundError(this.campaignId, memberId);
-  }
-
   /** A token that already wears a character must be unlinked before it wears another one.
    *
    *  Example: `rules.requireFree({ id: kaelId, characterId: null })` */

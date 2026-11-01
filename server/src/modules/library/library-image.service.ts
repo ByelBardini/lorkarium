@@ -36,7 +36,7 @@ import { readableSheetSummaries } from '../sheets/sheets.mapper';
 import { toSheetTemplateSummaryDto } from '../sheets/sheet-templates.mapper';
 export type LibraryImageDaos = Readonly<{
   sheetTemplates?: Pick<SheetTemplatesDao, 'listOfCampaign'>;
-  sheets?: Pick<SheetsDao, 'listOfCampaign' | 'placesOf'>;
+  sheets?: Pick<SheetsDao, 'listOfCampaign' | 'holdersOf'>;
   documents?: Pick<DocumentsDao, 'listOfCampaign' | 'ownersOfCampaign'>;
   campaigns: Pick<CampaignsDao, 'lockById' | 'findById'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
@@ -206,14 +206,13 @@ async function sheetTemplatesFor(
   return { sheetTemplates: rows.map(toSheetTemplateSummaryDto) };
 }
 
-// A master gets every sheet; anyone else those they read (by their token's place and control).
+// A master gets every sheet; anyone else those they read (by their holder's place and control).
 async function sheetsFor(
   daos: LibraryImageDaos,
   access: CampaignAccessBo,
 ): Promise<SheetSummaryDto[]> {
   if (!daos.sheets) return [];
   const sheets = await daos.sheets.listOfCampaign(access.campaignIdOf());
-  const tokenIds = [...new Set(sheets.flatMap(({ tokenId }) => (tokenId ? [tokenId] : [])))];
-  const places = await daos.sheets.placesOf(access.campaignIdOf(), tokenIds);
+  const places = await daos.sheets.holdersOf(access.campaignIdOf(), sheets);
   return readableSheetSummaries(access, sheets, places);
 }

@@ -1,12 +1,10 @@
-import type { BarAdjustment } from '@lorkarium/game-core';
 import type { ClockPort } from '../auth/clock.port';
-import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CharacterPublisherPort } from '../characters/character-publisher.port';
 import type { CharacterRow } from '../characters/characters.dao';
-import { toCharacterBo, toCharacterView } from '../characters/characters.mapper';
+import { toCharacterView } from '../characters/characters.mapper';
 import type { CharacterLookChangesPo } from '../characters/characters.po';
 import { charactersEventBase } from '../characters/locked-characters';
-import { characterIn, splitUpdate } from './linked-token';
+import { splitUpdate } from './linked-token';
 import type { TokenWriteDaos } from './token-transaction';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
 
@@ -64,26 +62,4 @@ export function publishCharactersChange(
   if (version === null || rows.length === 0) return;
   const base = charactersEventBase(campaignId, version, outlet.clock);
   outlet.publisher.charactersChanged({ ...base, characters: rows.map(toCharacterView) });
-}
-
-/** A bar of the character behind an anchor of the cast (a sheet still held by the anchor), by the
- *  character's rule: the one of the card's player that points at the anchor. `null` when no card
- *  points at it or its player has no character (the anchor keeps its own bars then).
- *
- *  Example: `const lyra = await adjustCharacterOfAnchor(daos, access, { tokenId: anchorId, barId, change }, BAR_VALUE_LIMIT)` */
-export async function adjustCharacterOfAnchor(
-  daos: TokenWriteDaos,
-  access: CampaignAccessBo,
-  bar: Readonly<{ tokenId: string; barId: string; change: BarAdjustment }>,
-  barLimit: number,
-): Promise<CharacterRow | null> {
-  const campaignId = access.campaignIdOf();
-  const cards = await daos.memberCards.listOfCampaign(campaignId);
-  const card = cards.find(({ anchorTokenId }) => anchorTokenId === bar.tokenId);
-  const character = card && (await daos.characters.findOfUser(campaignId, card.userId));
-  if (!character) return null;
-  const bo = toCharacterBo(access, character);
-  const values = bo.adjustBar(character.bars, bar.barId, bar.change, barLimit);
-  await daos.characters.setBarValues(bar.barId, values);
-  return characterIn(daos, campaignId, character.character.id);
 }

@@ -18,7 +18,7 @@ Detalhe do hub [`../characters.md`](../characters.md). Desde a Fase 8 o token de
 - `requireFree(token)`: token que já veste um personagem (`characterId` ≠ `null`) → `CHARACTER_ALREADY_PLACED` ("token X already wears character C; expected an unlinked token").
 - `requireNotPlaced(tokenId, characterId, placed)`: o grid já tem um token do personagem → `CHARACTER_ALREADY_PLACED` citando os dois tokens e o personagem. O mesmo personagem em **outro** grid é permitido (é o ponto do personagem).
 - `linkedOf(token)` → o `characterId`; solto → `TOKEN_NOT_LINKED` ("token X wears no character").
-- `requirePlayer` fica só para o `SheetHolderService` até a Fase 9.
+- `requirePlayer` saiu na Fase 9 (a ficha resolve o jogador pelo personagem, [`fichas.md`](fichas.md)); `CharacterLinkBo` não recebe mais a mesa.
 - Erros em `tokens.error.ts`: `CharacterAlreadyPlacedError(tokenId, placedTokenId, characterId)` (o 3º campo era `memberId`), `TokenNotLinkedError`.
 
 ## Service (`tokens/token-link.service.ts`, `TokenLinkService`)

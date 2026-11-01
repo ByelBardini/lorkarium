@@ -12,34 +12,38 @@ import {
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { CampaignsDao } from '../campaigns/campaigns.dao';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { viewerAccessOf } from '../campaigns/member-access';
+import { CharacterBo } from '../characters/character.bo';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
 import { commandFingerprint } from '../documents/document-writes.service';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
 import type { LibraryRequester } from '../library/library.service';
 import type { SceneFoldersDao } from '../library/scene-folders.dao';
-import { TokenNotFoundError } from '../tokens/tokens.error';
+import { publishCharactersChange } from '../tokens/character-writes';
 import type { SheetAccessBo } from './sheet-access.bo';
-import type {
-  CreatedAnchor,
-  ResolvedHolder,
-  SheetHolderDaos,
-  SheetHolderService,
+import {
+  characterPlaceIn,
+  type SheetHolderDaos,
+  type SheetHolderService,
 } from './sheet-holder.service';
+import { keepMainSheet, type MainSheetDaos, type SavedMainSheets } from './main-sheet-writes';
 import { SheetItemBo } from './sheet-item.bo';
 import type { SheetPublisherPort } from './sheet-publisher.port';
 import type { SheetTemplatesDao } from './sheet-templates.dao';
 import { toSheetTemplateCodeDto } from './sheet-templates.mapper';
 import type { SheetTemplatePo } from './sheet-templates.po';
-import type { SheetsDao, TokenPlacePo } from './sheets.dao';
+import type { SheetHolderPlacePo, SheetsDao } from './sheets.dao';
 import {
   SheetActionReusedError,
   SheetNotFoundError,
   SheetTemplateNotFoundError,
 } from './sheets.error';
 import {
-  readableSheetSummaries,
+  readableHolderSheets,
+  toHolderColumns,
   toSheetAccessBo,
   toSheetChangesPo,
   toSheetDto,
@@ -49,18 +53,22 @@ import {
 import type { SheetPo } from './sheets.po';
 
 export type SheetDaos = SheetHolderDaos &
+  MainSheetDaos &
   Readonly<{
     campaigns: Pick<CampaignsDao, 'lockById'>;
+    members: Pick<CampaignMembersDao, 'findMembership'>;
     sheets: Pick<
       SheetsDao,
       | 'find'
       | 'listOfToken'
+      | 'listOfCharacter'
+      | 'characterPlacesOf'
+      | 'characterPlaceOfUser'
       | 'insert'
       | 'patchValues'
       | 'update'
       | 'delete'
       | 'placeOf'
-      | 'placesOf'
       | 'action'
       | 'recordAction'
     >;
@@ -76,23 +84,25 @@ export type SheetsServiceDeps = Readonly<{
   publisher: SheetPublisherPort;
   /** `library:changed` after a sheet appears, goes, or changes its line in the library. */
   library: Pick<LibraryPublisherPort, 'libraryChanged'>;
+  /** `character:changed` after a character's main sheet changes. */
+  characterPublisher: CharacterPublisherPort;
   holders: SheetHolderService;
 }>;
 
-/** One sheet loaded for a command: the row, its token's place and what the requester may do. */
+/** One sheet loaded for a command: the row, its holder's place and what the requester may do. */
 type SheetScope = Readonly<{
   daos: SheetDaos;
   sheet: SheetPo;
-  place: TokenPlacePo | null;
+  place: SheetHolderPlacePo | null;
   rules: SheetAccessBo;
 }>;
 /** What a transaction answers and what to tell after the commit: the sheet's new version, whether
- *  its library line changed, and the anchor a player's sheet created. */
+ *  its library line changed, and the characters whose main sheet it changed. */
 type Applied<T> = Readonly<{
   value: T;
   changed: Readonly<{ sheetId: string; version: number }> | null;
   library: boolean;
-  created: CreatedAnchor | null;
+  characters: SavedMainSheets | null;
 }>;
 /** The receipt a write gets: which action, its fingerprint and what it did. */
 type ReceiptCommand = Readonly<{
@@ -100,7 +110,7 @@ type ReceiptCommand = Readonly<{
   fingerprint: string;
   operation: SheetReceiptDto['operation'];
 }>;
-type Saved = Readonly<{ sheet: SheetPo; created: CreatedAnchor | null }>;
+type Saved = Readonly<{ sheet: SheetPo; characters: SavedMainSheets | null }>;
 type WriteInput = UpdateSheetValuesRequestDto | UpdateSheetRequestDto;
 /** What a write is, for the receipt, what it takes of the requester (checked on a replay too)
  *  and whether the library shows what it changes. */
@@ -120,10 +130,10 @@ const MANAGE_WRITE: WriteKind = {
   library: true,
 };
 
-/** The sheets of the library: read, create (nobody's, a token's or a player's), write values,
+/** The sheets of the library: read, create (nobody's, a token's or a character's), write values,
  *  manage and delete. Every write locks the table, keeps an idempotent receipt per `actionId`,
- *  commits, and only then tells the table `sheet:changed` (without values) and, when the library
- *  line changed, `library:changed`.
+ *  commits, and only then tells the table `sheet:changed` (without values), `library:changed`
+ *  when the library line changed and `character:changed` when a character's main sheet did.
  *
  *  Example: `await sheets.updateValues({ userId, campaignId }, sheetId, { actionId, changes: { forca: 16 } })` */
 export class SheetsService {
@@ -136,21 +146,45 @@ export class SheetsService {
     });
   }
 
-  /** The sheets of a token the reader may read: a linked token's are its anchor's. A token of
+  /** The sheets of a token the reader may read: a linked token's are its character's. A token of
    *  another table is TOKEN_NOT_FOUND. */
   async listOfToken(requester: LibraryRequester, tokenId: string): Promise<TokenSheetsResponseDto> {
     const { campaignId, userId } = requester;
     return this.deps.snapshot(async (daos) => {
       const access = await viewerAccessOf(daos.members, campaignId, userId);
-      const holder = await this.deps.holders.resolve(daos, campaignId, { tokenId });
-      if (!holder.place) throw new TokenNotFoundError(campaignId, tokenId);
-      const sheets = await daos.sheets.listOfToken(campaignId, holder.place.tokenId);
-      return { sheets: readableSheetSummaries(access, sheets, [holder.place]) };
+      const place = await this.deps.holders.resolve(daos, campaignId, { tokenId });
+      return this.readableOf(daos, access, place);
     });
   }
 
+  /** The sheets of a character the reader may read, from any grid. A character of another table,
+   *  or one the reader does not see (stored), is CHARACTER_NOT_FOUND. */
+  async listOfCharacter(
+    requester: LibraryRequester,
+    characterId: string,
+  ): Promise<TokenSheetsResponseDto> {
+    const { campaignId, userId } = requester;
+    return this.deps.snapshot(async (daos) => {
+      const access = await viewerAccessOf(daos.members, campaignId, userId);
+      const character = await characterPlaceIn(daos, campaignId, characterId);
+      new CharacterBo(access, character).requireSeen();
+      return this.readableOf(daos, access, { character });
+    });
+  }
+
+  private async readableOf(
+    daos: SheetDaos,
+    access: CampaignAccessBo,
+    place: SheetHolderPlacePo | null,
+  ): Promise<TokenSheetsResponseDto> {
+    if (!place) return { sheets: [] };
+    const sheets = await this.deps.holders.sheetsOf(daos, access.campaignIdOf(), place);
+    return { sheets: readableHolderSheets(access, sheets, place) };
+  }
+
   /** A sheet of `templateId` in the library (master only): nobody's, a token's (a linked one's
-   *  goes to its anchor) or a player's (their character's anchor, created when missing). */
+   *  goes to its character) or a player's (their character's); a character's first sheet becomes
+   *  its main one. */
   async create(
     requester: LibraryRequester,
     input: CreateSheetRequestDto,
@@ -178,12 +212,14 @@ export class SheetsService {
     await this.templateOf(daos, campaignId, input.templateId);
     await this.requireFolder(daos, campaignId, folderId);
     const holder = await this.deps.holders.resolve(daos, campaignId, input.holder ?? null);
+    const columns = toHolderColumns(holder);
     const sheet = await daos.sheets.insert({
       ...{ campaignId, templateId: input.templateId, name: input.name, folderId },
-      tokenId: holder.place?.tokenId ?? null,
+      ...columns,
       visibility: input.visibility ?? 'controllers',
     });
-    return { sheet, created: holder.created };
+    const move = { from: null, to: columns.characterId };
+    return { sheet, characters: await keepMainSheet(daos, campaignId, sheet.id, move) };
   }
 
   /** Each key replaces the stored one, `null` removes it; the last write wins per key. The merged
@@ -197,12 +233,12 @@ export class SheetsService {
       const change = { ...toValuesChange(input.changes), updatedAt: this.deps.clock.now() };
       const saved = await daos.sheets.patchValues(requester.campaignId, sheetId, change);
       sheetValuesDto.parse(saved.values);
-      return { sheet: saved, created: null };
+      return { sheet: saved, characters: null };
     });
   }
 
   /** Renames, moves, gives (or takes from its holder), changes the visibility or the template of
-   *  a sheet (master only). */
+   *  a sheet (master only); the main sheets follow a sheet given or taken. */
   async update(
     requester: LibraryRequester,
     sheetId: string,
@@ -213,12 +249,14 @@ export class SheetsService {
       if (input.templateId) await this.templateOf(daos, campaignId, input.templateId);
       if (input.folderId !== undefined) await this.requireFolder(daos, campaignId, input.folderId);
       const holder = await this.holderChangeOf(daos, campaignId, input);
+      const from = sheet.characterId;
       const saved = await daos.sheets.update(campaignId, sheetId, {
-        ...toSheetChangesPo(input, holder?.place ?? null),
+        ...toSheetChangesPo(input, holder),
         version: sheet.version + 1,
         updatedAt: this.deps.clock.now(),
       });
-      return { sheet: saved, created: holder?.created ?? null };
+      const move = { from, to: saved.characterId };
+      return { sheet: saved, characters: await keepMainSheet(daos, campaignId, sheetId, move) };
     });
   }
 
@@ -226,12 +264,13 @@ export class SheetsService {
     daos: SheetDaos,
     campaignId: string,
     input: UpdateSheetRequestDto,
-  ): Promise<ResolvedHolder | undefined> {
-    if (input.holder === undefined) return undefined;
+  ): Promise<SheetHolderPlacePo | null> {
+    if (input.holder === undefined) return null;
     return this.deps.holders.resolve(daos, campaignId, input.holder);
   }
 
-  /** Master only; a repeated `actionId` does nothing again. */
+  /** Master only; a repeated `actionId` does nothing again. A character's main sheet goes with
+   *  it (the character has none). */
   async delete(
     requester: LibraryRequester,
     sheetId: string,
@@ -241,15 +280,17 @@ export class SheetsService {
       const access = await this.lockedAccess(daos, requester);
       const fingerprint = commandFingerprint('sheet-delete', sheetId, input);
       if (await this.previous(daos, requester, input.actionId, fingerprint))
-        return { value: undefined, changed: null, library: false, created: null };
+        return { value: undefined, changed: null, library: false, characters: null };
       const { sheet, rules } = await this.scopeOf(daos, access, sheetId);
       rules.requireManage('delete');
+      const move = { from: sheet.characterId, to: null };
+      const characters = await keepMainSheet(daos, requester.campaignId, sheetId, move);
       await daos.sheets.delete(requester.campaignId, sheetId);
       const gone = { id: sheet.id, version: sheet.version + 1 };
       const receipt = toSheetReceiptDto(input.actionId, gone, 'delete');
       await this.record(daos, requester, receipt, fingerprint);
       const changed = { sheetId, version: gone.version };
-      return { value: undefined, changed, library: true, created: null };
+      return { value: undefined, changed, library: true, characters };
     });
     this.published(requester.campaignId, result);
   }
@@ -296,17 +337,10 @@ export class SheetsService {
   ): Promise<SheetScope> {
     const sheet = await daos.sheets.find(access.campaignIdOf(), sheetId);
     if (!sheet) throw new SheetNotFoundError(access.campaignIdOf(), `sheet ${sheetId}`);
-    const place = await this.placeOfSheet(daos, sheet);
+    const place = await this.deps.holders.placeOfSheet(daos, sheet);
     const rules = toSheetAccessBo(access, sheet, place);
     rules.requireRead();
     return { daos, sheet, place, rules };
-  }
-
-  private async placeOfSheet(daos: SheetDaos, sheet: SheetPo): Promise<TokenPlacePo | null> {
-    if (!sheet.tokenId) return null;
-    const place = await daos.sheets.placeOf(sheet.campaignId, sheet.tokenId);
-    if (!place) throw new Error(`Sheet ${sheet.id} hangs on token ${sheet.tokenId}, not found`);
-    return place;
   }
 
   private async templateOf(
@@ -346,10 +380,10 @@ export class SheetsService {
   ): Promise<Applied<SheetWriteResponseDto>> {
     const receipt = toSheetReceiptDto(command.actionId, saved.sheet, command.operation);
     await this.record(daos, requester, receipt, command.fingerprint);
-    const place = await this.placeOfSheet(daos, saved.sheet);
+    const place = await this.deps.holders.placeOfSheet(daos, saved.sheet);
     const sheet = toSheetDto(saved.sheet, place, toSheetAccessBo(access, saved.sheet, place));
     const changed = { sheetId: saved.sheet.id, version: saved.sheet.version };
-    return { value: { sheet, receipt }, changed, library: true, created: saved.created };
+    return { value: { sheet, receipt }, changed, library: true, characters: saved.characters };
   }
 
   /** An action already applied: reauthorized and answered with the current sheet. */
@@ -360,7 +394,7 @@ export class SheetsService {
   ): Promise<Applied<SheetWriteResponseDto>> {
     const { sheet, place, rules } = await this.scopeOf(daos, access, receipt.sheetId);
     const value = { sheet: toSheetDto(sheet, place, rules), receipt };
-    return { value, changed: null, library: false, created: null };
+    return { value, changed: null, library: false, characters: null };
   }
 
   /** The receipt of an action already applied with the same command, or null for a new one. */
@@ -394,13 +428,16 @@ export class SheetsService {
     });
   }
 
-  /** Publishes only for an applied command, after its commit: the new anchor and its card, the
-   *  sheet's version, then the library. */
+  /** Publishes only for an applied command, after its commit: the sheet's version, the library,
+   *  then the characters whose main sheet changed. */
   private published<T>(campaignId: string, result: Applied<T>): T {
-    this.deps.holders.publishCreated(campaignId, result.created);
-    const at = this.deps.clock.now().toISOString();
+    const { clock, characterPublisher: publisher } = this.deps;
+    const at = clock.now().toISOString();
     if (result.changed) this.deps.publisher.sheetChanged({ campaignId, ...result.changed, at });
     if (result.library) this.deps.library.libraryChanged({ campaignId, at });
+    const { characters: saved } = result;
+    const version = saved?.version ?? null;
+    publishCharactersChange({ publisher, clock }, campaignId, version, saved?.rows ?? []);
     return result.value;
   }
 }

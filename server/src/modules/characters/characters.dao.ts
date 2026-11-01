@@ -152,6 +152,17 @@ export class CharactersDao {
     await this.db.insert(characterControllers).values(rows);
   }
 
+  /** The sheet the card and the dock open first; `null` = none. The sheet must be the
+   *  character's (the composite key keeps it at the table).
+   *
+   *  Example: `await dao.setMainSheet(lyraId, sheetId)` */
+  async setMainSheet(characterId: string, sheetId: string | null): Promise<void> {
+    await this.db
+      .update(characters)
+      .set({ mainSheetId: sheetId, updatedAt: sql`now()` })
+      .where(eq(characters.id, characterId));
+  }
+
   /** The player of a character: `null` when they leave the table (it stays, nobody's). */
   async setUser(characterId: string, userId: string | null): Promise<void> {
     await this.db

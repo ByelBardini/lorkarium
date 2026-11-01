@@ -2,12 +2,14 @@ import type {
   AdjustCharacterBarCommandDto,
   CharacterDto,
   CharacterSyncDto,
+  SetMainSheetCommandDto,
   UpdateCharacterCommandDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
+import type { SheetsDao } from '../sheets/sheets.dao';
 import type { CharacterBo } from './character.bo';
 import type { CharacterPublisherPort } from './character-publisher.port';
 import type { CharacterRow, CharactersDao } from './characters.dao';
@@ -27,13 +29,16 @@ import {
 
 export type UpdateCharacter = Omit<UpdateCharacterCommandDto, 'actionId' | 'campaignId'>;
 export type AdjustCharacterBar = Omit<AdjustCharacterBarCommandDto, 'actionId' | 'campaignId'>;
+export type SetMainSheet = Omit<SetMainSheetCommandDto, 'actionId' | 'campaignId'>;
 
 export type CharacterWriteDaos = CharactersLockDaos &
   Readonly<{
     characters: Pick<
       CharactersDao,
-      'lockVersion' | 'bumpVersion' | 'findInCampaign' | 'update' | 'setBarValues'
+      'lockVersion' | 'bumpVersion' | 'findInCampaign' | 'update' | 'setBarValues' | 'setMainSheet'
     >;
+    /** The sheet a `character:setMainSheet` names, read under the characters' lock. */
+    sheets: Pick<SheetsDao, 'find'>;
   }>;
 
 export type CharacterReadDaos = Readonly<{
@@ -79,6 +84,20 @@ export class CharactersService {
     return this.write(userId, campaignId, command.characterId, async (daos, bo, row) => {
       const values = bo.adjustBar(row.bars, barId, change, this.deps.barLimit);
       await daos.characters.setBarValues(barId, values);
+    });
+  }
+
+  /** One of its sheets becomes the main one (the card and the dock open it first); a sheet of
+   *  another character, of nobody or of another table is SHEET_NOT_FOUND.
+   *
+   *  Example: `await characters.setMainSheet(biaId, vharnId, { characterId: lyraId, sheetId })` */
+  async setMainSheet(userId: string, campaignId: string, command: SetMainSheet): Promise<number> {
+    const { sheetId } = command;
+    return this.write(userId, campaignId, command.characterId, async (daos, bo, row) => {
+      bo.requireEdit('choose the main sheet of');
+      const sheet = await daos.sheets.find(campaignId, sheetId);
+      bo.requireOwnSheet(sheetId, sheet?.characterId ?? null);
+      await daos.characters.setMainSheet(row.character.id, sheetId);
     });
   }
 

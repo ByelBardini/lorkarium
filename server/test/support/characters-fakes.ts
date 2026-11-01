@@ -21,6 +21,8 @@ import type {
   CharacterTransactionRunner,
   CharacterWriteDaos,
 } from '../../src/modules/characters/characters.service';
+import type { SheetsDao } from '../../src/modules/sheets/sheets.dao';
+import type { SheetPo } from '../../src/modules/sheets/sheets.po';
 import type { BarValuesPo } from '../../src/modules/tokens/tokens.po';
 import { characterBarPo, characterPo } from './characters-factories';
 
@@ -41,6 +43,7 @@ type FakeDaoMethods =
   | 'update'
   | 'setBarValues'
   | 'setUser'
+  | 'setMainSheet'
   | 'replaceBars'
   | 'replaceControllers';
 
@@ -156,6 +159,14 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
     }));
   }
 
+  async setMainSheet(characterId: string, sheetId: string | null): Promise<void> {
+    this.journal.push('main sheet');
+    this.replace(characterId, (row) => ({
+      ...row,
+      character: { ...row.character, mainSheetId: sheetId },
+    }));
+  }
+
   async replaceBars(characterId: string, bars: readonly CharacterBarInputPo[]): Promise<void> {
     this.journal.push('bars');
     const saved = bars.map((bar, position) => barOf(characterId, bar, position));
@@ -185,14 +196,24 @@ function barOf(characterId: string, bar: CharacterBarInputPo, position: number):
   return characterBarPo({ ...bar, id: crypto.randomUUID(), characterId, position });
 }
 
-/** Runs the work on the DAO fake and writes `commit` after it resolved, like the real one. */
+/** No sheet at all: what a characters transaction reads when the spec gives it no sheets. */
+export class NoSheetsDaoFake implements Pick<SheetsDao, 'find'> {
+  async find(): Promise<SheetPo | undefined> {
+    return undefined;
+  }
+}
+
+/** Runs the work on the DAO fakes and writes `commit` after it resolved, like the real one. */
 export class CharacterTransactionRunnerFake {
-  constructor(private readonly characters: CharactersDaoFake) {}
+  constructor(
+    private readonly characters: CharactersDaoFake,
+    private readonly sheets: Pick<SheetsDao, 'find'> = new NoSheetsDaoFake(),
+  ) {}
 
   readonly run: CharacterTransactionRunner = async <T>(
     work: (daos: CharacterWriteDaos) => Promise<T>,
   ): Promise<T> => {
-    const result = await work({ characters: this.characters });
+    const result = await work({ characters: this.characters, sheets: this.sheets });
     this.characters.journal.push('commit');
     return result;
   };

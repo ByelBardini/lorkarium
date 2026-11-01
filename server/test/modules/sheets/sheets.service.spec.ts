@@ -4,11 +4,13 @@ import { SheetsService } from '../../../src/modules/sheets/sheets.service';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, CAIO_ID, DUDA_ID, VHARN_ID } from '../../support/campaigns-factories';
 import { ATO_1_ID, QUELM_FOLDER_ID } from '../../support/library-factories';
-import { VHARN_CAST_ID } from '../../support/scenes-factories';
+import { LYRA_CHARACTER_ID } from '../../support/characters-factories';
 import { QUELM_TEMPLATE_ID, TORMENTA_ID } from '../../support/sheet-templates-fakes';
 import {
-  LYRA_ANCHOR_ID,
+  KAEL_CHARACTER_ID,
   LYRA_SHEET_ID,
+  MIRA_CHARACTER_ID,
+  QUELM_CHARACTER_ID,
   QUELM_SHEET_ID,
   QUELM_TOKEN_ID,
   SHEET_ACTION_ID,
@@ -75,58 +77,50 @@ describe('SheetsService: creating', () => {
     await expect(refused).rejects.toMatchObject({ code: 'FOLDER_NOT_FOUND' });
   });
 
-  it("a sheet of the linked Lyra goes to the anchor, Bia's character", async () => {
+  it("a sheet of the linked Lyra goes to her character, Bia's, and no token holds it", async () => {
     const harness = new SheetsHarness();
 
     const { sheet } = await linkLyra(harness);
 
-    expect(sheet).toMatchObject({ tokenId: LYRA_ANCHOR_ID, memberId: BIA_ID, version: 0 });
+    expect(sheet).toMatchObject({ tokenId: null, memberId: BIA_ID, version: 0, canEdit: true });
+    expect(harness.sheets.rows.at(-1)).toMatchObject({ characterId: LYRA_CHARACTER_ID });
   });
 
-  it('giving a sheet to Caio, who has no character, creates his anchor in the cast and his card', async () => {
+  it("the first sheet given to Caio becomes Kael's main one: lock, main, bump, then character:changed", async () => {
     const harness = new SheetsHarness();
 
     const { sheet } = await create(harness, { name: 'Kael', holder: { memberId: CAIO_ID } });
 
-    const anchor = harness.tokens.rows[0]?.token;
-    expect(anchor).toMatchObject({ sceneId: VHARN_CAST_ID, name: 'Caio', initials: 'CA' });
-    expect(anchor).toMatchObject({ side: 'ally', width: 1, height: 1, col: 0, row: 0 });
-    expect(harness.tokens.rows[0]?.controllerIds).toEqual([CAIO_ID]);
-    expect(sheet).toMatchObject({ tokenId: anchor?.id, memberId: CAIO_ID, canEdit: true });
-    expect(await harness.cards.findOfMember(VHARN_ID, CAIO_ID)).toMatchObject({
-      anchorTokenId: anchor?.id,
-    });
-    expect(harness.scenes.journal).toEqual(['lock cast', 'bump cast', 'bump cast']);
+    expect(sheet).toMatchObject({ tokenId: null, memberId: CAIO_ID, canEdit: true });
+    expect(harness.mainSheetOf(KAEL_CHARACTER_ID)).toBe(sheet.id);
     expect(harness.journal).toEqual([
-      ...['lock', 'save', 'save', 'insert', 'receipt', 'commit'],
-      ...['publish', 'publish', 'publish sheet', 'publish'],
+      ...['lock', 'insert', 'lock characters', 'main sheet', 'bump characters', 'receipt'],
+      ...['commit', 'publish sheet', 'publish', 'publish'],
     ]);
+    const [change] = harness.characterPublisher.changes;
+    expect(change).toMatchObject({ campaignId: VHARN_ID, version: 5 });
+    expect(change?.characters.map(({ privileged }) => privileged.mainSheetId)).toEqual([sheet.id]);
+    expect(harness.characters.rows).toHaveLength(4);
   });
 
-  it('the new anchor reaches the cast as token:created, then the card at the next cast version', async () => {
+  it('a second sheet of Lyra keeps the first as her main one, and no characters version is spent', async () => {
     const harness = new SheetsHarness();
+    const first = await linkLyra(harness);
 
-    await create(harness, { holder: { memberId: CAIO_ID } });
+    await create(harness, { actionId: OTHER_ACTION_ID, holder: { memberId: BIA_ID } });
 
-    const created = harness.board.tokenChanges[0];
-    expect(created).toMatchObject({ name: 'token:created', sceneId: VHARN_CAST_ID });
-    expect(created?.privileged).toMatchObject({ version: 3, token: { name: 'Caio' } });
-    expect(created?.controllerIds).toEqual([CAIO_ID]);
-    expect(harness.board.memberCardChanges).toEqual([
-      expect.objectContaining({ sceneId: VHARN_CAST_ID, version: 4 }),
-    ]);
-    expect(harness.board.memberCardChanges[0]?.card).toMatchObject({ userId: CAIO_ID });
+    expect(harness.mainSheetOf(LYRA_CHARACTER_ID)).toBe(first.sheet.id);
+    expect(harness.characterPublisher.changes).toHaveLength(1);
+    expect(harness.characters.versions[VHARN_ID]).toBe(5);
   });
 
-  it('giving a sheet to Bia, who has a character, uses its anchor and creates nothing', async () => {
+  it('a sheet of a loose token touches no character', async () => {
     const harness = new SheetsHarness();
 
-    const { sheet } = await create(harness, { holder: { memberId: BIA_ID } });
+    await create(harness, { holder: { tokenId: BRAM_ID } });
 
-    expect(sheet).toMatchObject({ tokenId: LYRA_ANCHOR_ID, memberId: BIA_ID });
-    expect(harness.tokens.rows).toEqual([]);
-    expect(harness.scenes.journal).toEqual(['lock cast']);
-    expect(harness.board.tokenChanges).toEqual([]);
+    expect(harness.journal).not.toContain('lock characters');
+    expect(harness.characterPublisher.changes).toEqual([]);
   });
 
   it.each([
@@ -140,7 +134,7 @@ describe('SheetsService: creating', () => {
       code: 'MEMBER_NOT_FOUND',
     });
     expect(harness.journal).not.toContain('insert');
-    expect(harness.board.tokenChanges).toEqual([]);
+    expect(harness.characterPublisher.changes).toEqual([]);
   });
 
   it('Lyra holds two sheets, and the list of the linked Lyra has both', async () => {
@@ -161,16 +155,17 @@ describe('SheetsService: creating', () => {
     expect(sheets[0]).not.toHaveProperty('values');
   });
 
-  it('the same create again replays its receipt without a second sheet, anchor or event', async () => {
+  it('the same create again replays its receipt without a second sheet, main sheet or event', async () => {
     const harness = new SheetsHarness();
 
     const first = await create(harness, { holder: { memberId: CAIO_ID } });
     const again = await create(harness, { holder: { memberId: CAIO_ID } });
 
     expect(again).toEqual(first);
-    expect(harness.tokens.rows).toHaveLength(1);
+    expect(harness.sheets.rows).toHaveLength(2);
     expect(harness.publisher.events).toHaveLength(1);
     expect(harness.library.changes).toHaveLength(1);
+    expect(harness.characterPublisher.changes).toHaveLength(1);
   });
 
   it.each([
@@ -208,6 +203,19 @@ describe('SheetsService: reading by token', () => {
     expect(sheets.map(({ id }) => id)).toEqual([OTHER_ACTION_ID]);
   });
 
+  it("the linked Lyra lists her character's sheets; Bram, loose, his own", async () => {
+    const harness = new SheetsHarness()
+      .withLyraSheet()
+      .withLyraSheet({ id: OTHER_ACTION_ID, name: 'Bram', characterId: null, tokenId: BRAM_ID });
+    const service = new SheetsService(harness.deps);
+
+    const lyra = await service.listOfToken(harness.as(ANA_ID), LYRA_ID);
+    const bram = await service.listOfToken(harness.as(ANA_ID), BRAM_ID);
+
+    expect(lyra.sheets.map(({ id }) => id)).toEqual([LYRA_SHEET_ID]);
+    expect(bram.sheets.map(({ id }) => id)).toEqual([OTHER_ACTION_ID]);
+  });
+
   it('a token without sheets lists none; the token of Quelm is TOKEN_NOT_FOUND', async () => {
     const harness = new SheetsHarness();
     const service = new SheetsService(harness.deps);
@@ -219,7 +227,7 @@ describe('SheetsService: reading by token', () => {
   });
 
   it('the Lobo on the private Torre: Bia, its controller, lists none of its sheets', async () => {
-    const harness = new SheetsHarness().withLyraSheet({ tokenId: LOBO_ID });
+    const harness = new SheetsHarness().withLyraSheet({ characterId: null, tokenId: LOBO_ID });
 
     const { sheets } = await new SheetsService(harness.deps).listOfToken(
       harness.as(BIA_ID),
@@ -248,15 +256,53 @@ describe('SheetsService: reading by token', () => {
     expect(caio.template).toMatchObject({ name: 'Ficha Tormenta', version: 2 });
   });
 
-  it('once the master takes Bia out of the control, her controllers sheet is SHEET_NOT_FOUND', async () => {
+  it('Caio, once the master lists him in the control of Lyra, reads her controllers sheet', async () => {
     const harness = new SheetsHarness().withLyraSheet();
-    const anchor = await harness.sheets.placeOf(VHARN_ID, LYRA_ANCHOR_ID);
-    if (anchor)
-      harness.sheets.places.get(VHARN_ID)?.set(LYRA_ANCHOR_ID, { ...anchor, controllerIds: [] });
+    const before = new SheetsService(harness.deps).get(harness.as(CAIO_ID), LYRA_SHEET_ID);
+    await expect(before).rejects.toMatchObject({ code: 'SHEET_NOT_FOUND' });
+    await harness.characters.replaceControllers(LYRA_CHARACTER_ID, [BIA_ID, CAIO_ID]);
 
-    const read = new SheetsService(harness.deps).get(harness.as(BIA_ID), LYRA_SHEET_ID);
+    const { sheet } = await new SheetsService(harness.deps).get(harness.as(CAIO_ID), LYRA_SHEET_ID);
 
-    await expect(read).rejects.toMatchObject({ code: 'SHEET_NOT_FOUND' });
+    expect(sheet).toMatchObject({ canEdit: true, canManage: false });
+  });
+});
+
+describe('SheetsService: reading by character', () => {
+  function listOf(harness: SheetsHarness, userId: string, characterId: string) {
+    return new SheetsService(harness.deps).listOfCharacter(harness.as(userId), characterId);
+  }
+
+  it('Bia lists both sheets of Lyra; Caio only the table one', async () => {
+    const harness = new SheetsHarness()
+      .withLyraSheet()
+      .withLyraSheet({ id: OTHER_ACTION_ID, name: 'Diário', visibility: 'table' });
+
+    const bia = await listOf(harness, BIA_ID, LYRA_CHARACTER_ID);
+    const caio = await listOf(harness, CAIO_ID, LYRA_CHARACTER_ID);
+
+    expect(bia.sheets.map(({ id }) => id)).toEqual([LYRA_SHEET_ID, OTHER_ACTION_ID]);
+    expect(caio.sheets.map(({ id }) => id)).toEqual([OTHER_ACTION_ID]);
+    expect(bia.sheets[0]).toMatchObject({ tokenId: null, memberId: BIA_ID });
+    expect(bia.sheets[0]).not.toHaveProperty('values');
+  });
+
+  it('the stored Mira is CHARACTER_NOT_FOUND to Caio but listed to Ana', async () => {
+    const harness = new SheetsHarness().withLyraSheet({ characterId: MIRA_CHARACTER_ID });
+
+    await expect(listOf(harness, CAIO_ID, MIRA_CHARACTER_ID)).rejects.toMatchObject({
+      code: 'CHARACTER_NOT_FOUND',
+    });
+    expect((await listOf(harness, ANA_ID, MIRA_CHARACTER_ID)).sheets).toHaveLength(1);
+  });
+
+  it('the character of Quelm at Vharn is CHARACTER_NOT_FOUND, citing it', async () => {
+    const harness = new SheetsHarness();
+
+    await expect(listOf(harness, ANA_ID, QUELM_CHARACTER_ID)).rejects.toMatchObject({
+      code: 'CHARACTER_NOT_FOUND',
+      message: expect.stringContaining(QUELM_CHARACTER_ID),
+    });
   });
 });
 
@@ -308,7 +354,7 @@ describe('SheetsService: values', () => {
   });
 
   it('Ana writes values on a sheet nobody holds; Bia does not find it', async () => {
-    const harness = new SheetsHarness().withLyraSheet({ tokenId: null });
+    const harness = new SheetsHarness().withLyraSheet({ characterId: null });
 
     const { sheet } = await write(harness, ANA_ID, { forca: 18 });
 
@@ -351,6 +397,7 @@ describe('SheetsService: managing', () => {
     const { sheet, receipt } = await manage(harness, { holder: null });
 
     expect(sheet).toMatchObject({ tokenId: null, memberId: null, version: 5 });
+    expect(harness.sheets.rows.at(-1)?.characterId).toBeNull();
     expect(receipt.operation).toBe('update');
     expect(harness.library.changes).toHaveLength(1);
     expect(harness.publisher.events.map(({ version }) => version)).toEqual([5]);
@@ -364,12 +411,9 @@ describe('SheetsService: managing', () => {
 
     const { sheet } = await manage(harness, { name: 'Lyra, a Ruiva', folderId: ATO_1_ID });
 
-    expect(sheet).toMatchObject({
-      name: 'Lyra, a Ruiva',
-      folderId: ATO_1_ID,
-      tokenId: LYRA_ANCHOR_ID,
-    });
+    expect(sheet).toMatchObject({ name: 'Lyra, a Ruiva', folderId: ATO_1_ID, memberId: BIA_ID });
     expect(harness.library.changes).toHaveLength(1);
+    expect(harness.journal).not.toContain('lock characters');
   });
 
   it('moving to a folder of Quelm is FOLDER_NOT_FOUND and nothing changes', async () => {
@@ -381,14 +425,31 @@ describe('SheetsService: managing', () => {
     expect(harness.library.changes).toEqual([]);
   });
 
-  it('Ana gives the Goblin to Caio: his anchor is created and the sheet hangs on it', async () => {
-    const harness = new SheetsHarness().withLyraSheet({ tokenId: null, name: 'Goblin' });
+  it('Ana gives the Goblin to Caio: Kael holds it and makes it his main sheet', async () => {
+    const harness = new SheetsHarness().withLyraSheet({ characterId: null, name: 'Goblin' });
 
     const { sheet } = await manage(harness, { holder: { memberId: CAIO_ID } });
 
-    const anchorId = harness.tokens.rows[0]?.token.id;
-    expect(sheet).toMatchObject({ tokenId: anchorId, memberId: CAIO_ID });
-    expect(harness.board.memberCardChanges).toHaveLength(1);
+    expect(sheet).toMatchObject({ tokenId: null, memberId: CAIO_ID });
+    expect(harness.mainSheetOf(KAEL_CHARACTER_ID)).toBe(LYRA_SHEET_ID);
+    expect(harness.characterPublisher.changes.map(({ version }) => version)).toEqual([5]);
+  });
+
+  it("Ana moves Lyra's main sheet to Kael: Lyra has none, Kael gets it, in one version", async () => {
+    const harness = new SheetsHarness()
+      .withLyraSheet()
+      .withMainSheet(LYRA_CHARACTER_ID, LYRA_SHEET_ID);
+
+    await manage(harness, { holder: { memberId: CAIO_ID } });
+
+    expect(harness.mainSheetOf(LYRA_CHARACTER_ID)).toBeNull();
+    expect(harness.mainSheetOf(KAEL_CHARACTER_ID)).toBe(LYRA_SHEET_ID);
+    const [change] = harness.characterPublisher.changes;
+    expect(change?.version).toBe(5);
+    expect(change?.characters.map(({ characterId }) => characterId)).toEqual([
+      LYRA_CHARACTER_ID,
+      KAEL_CHARACTER_ID,
+    ]);
   });
 
   it('Ana puts the sheet in table, and Bia changing the visibility or the template is FORBIDDEN', async () => {
@@ -413,5 +474,24 @@ describe('SheetsService: managing', () => {
     expect(harness.sheets.rows.map(({ id }) => id)).toEqual([QUELM_SHEET_ID]);
     expect(harness.publisher.events.map(({ version }) => version)).toEqual([5]);
     expect(harness.library.changes).toHaveLength(1);
+    expect(harness.characterPublisher.changes).toEqual([]);
+  });
+
+  it("Ana deletes Lyra's main sheet: Lyra has none and the table hears character:changed", async () => {
+    const harness = new SheetsHarness()
+      .withLyraSheet()
+      .withMainSheet(LYRA_CHARACTER_ID, LYRA_SHEET_ID);
+
+    await new SheetsService(harness.deps).delete(harness.as(ANA_ID), LYRA_SHEET_ID, {
+      actionId: SHEET_ACTION_ID,
+    });
+
+    expect(harness.mainSheetOf(LYRA_CHARACTER_ID)).toBeNull();
+    expect(harness.journal).toEqual([
+      ...['lock', 'lock characters', 'main sheet', 'bump characters', 'delete', 'receipt'],
+      ...['commit', 'publish sheet', 'publish', 'publish'],
+    ]);
+    const [change] = harness.characterPublisher.changes;
+    expect(change?.characters[0]?.privileged).toMatchObject({ mainSheetId: null });
   });
 });

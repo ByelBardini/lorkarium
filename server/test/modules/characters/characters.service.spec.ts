@@ -24,6 +24,7 @@ import {
   CharacterTransactionRunnerFake,
   CharactersDaoFake,
 } from '../../support/characters-fakes';
+import { KAEL_CHARACTER_ID, SheetsDaoFake, sheetPo } from '../../support/sheets-fakes';
 
 const NOW = new Date('2026-10-31T21:00:00Z');
 const STRANGER_ID = 'f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b';
@@ -34,6 +35,7 @@ describe('CharactersService', () => {
   let journal: string[];
   let characters: CharactersDaoFake;
   let publisher: CharacterPublisherFake;
+  let sheets: SheetsDaoFake;
   let service: CharactersService;
 
   beforeEach(() => {
@@ -67,9 +69,10 @@ describe('CharactersService', () => {
       { [VHARN_ID]: 4, [QUELM_ID]: 9 },
     );
     publisher = new CharacterPublisherFake(journal);
+    sheets = new SheetsDaoFake(journal, characters);
     service = new CharactersService({
       members,
-      transaction: new CharacterTransactionRunnerFake(characters).run,
+      transaction: new CharacterTransactionRunnerFake(characters, sheets).run,
       snapshot: new CharacterSnapshotRunnerFake(characters).run,
       publisher,
       clock: new ClockFake(NOW),
@@ -187,6 +190,60 @@ describe('CharactersService', () => {
         code: 'BAR_NOT_FOUND',
       });
       expect(journal).toEqual(['lock characters']);
+    });
+  });
+
+  describe('setMainSheet', () => {
+    const GRIMORIO_ID = '6c5d4e3f-2a1b-4c0d-9e8f-7a6b5c4d3e2f';
+    const choose = (userId: string, sheetId: string = GRIMORIO_ID) =>
+      service.setMainSheet(userId, VHARN_ID, { characterId: LYRA_CHARACTER_ID, sheetId });
+
+    beforeEach(() => {
+      sheets.rows.push(sheetPo(), sheetPo({ id: GRIMORIO_ID, name: 'Grimório' }));
+    });
+
+    it('Bia makes the Grimório the main sheet of Lyra: lock, write, bump, commit, publish', async () => {
+      const version = await choose(BIA_ID);
+
+      expect(version).toBe(5);
+      expect(journal).toEqual([
+        'lock characters',
+        'main sheet',
+        'bump characters',
+        'commit',
+        'publish',
+      ]);
+      expect(characters.rows[0]?.character.mainSheetId).toBe(GRIMORIO_ID);
+      const published = publisher.changes[0]?.characters[0];
+      expect([published?.privileged.mainSheetId, published?.others.mainSheetId]).toEqual([
+        GRIMORIO_ID,
+        GRIMORIO_ID,
+      ]);
+    });
+
+    it('Ana, the master, chooses it too', async () => {
+      await expect(choose(ANA_ID)).resolves.toBe(5);
+    });
+
+    it('Caio on the character of Bia is FORBIDDEN and nothing is written nor published', async () => {
+      await expect(choose(CAIO_ID)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(journal).toEqual(['lock characters']);
+      expect(publisher.changes).toEqual([]);
+    });
+
+    it.each([
+      ['a sheet of Kael', () => sheetPo({ id: STRANGER_ID, characterId: KAEL_CHARACTER_ID })],
+      ['a sheet nobody holds', () => sheetPo({ id: STRANGER_ID, characterId: null })],
+      ['a sheet of Quelm', () => sheetPo({ id: STRANGER_ID, campaignId: QUELM_ID })],
+    ])('%s is SHEET_NOT_FOUND and the main sheet stays', async (_what, sheetOf) => {
+      sheets.rows.push(sheetOf());
+
+      await expect(choose(BIA_ID, STRANGER_ID)).rejects.toMatchObject({
+        code: 'SHEET_NOT_FOUND',
+        message: expect.stringContaining(STRANGER_ID),
+      });
+      expect(characters.rows[0]?.character.mainSheetId).toBeNull();
+      expect(publisher.changes).toEqual([]);
     });
   });
 

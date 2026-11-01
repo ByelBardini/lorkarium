@@ -11,6 +11,7 @@ import {
   type CharacterSeatDaos,
   type CharacterSeatTransactionRunner,
 } from './character-seat.service';
+import { SheetsDao } from '../sheets/sheets.dao';
 import { CharactersDao } from './characters.dao';
 import { CharactersService } from './characters.service';
 
@@ -40,7 +41,9 @@ export function createCharactersModule(options: CharactersModuleOptions): Charac
   const service = new CharactersService({
     members,
     transaction: (work) =>
-      runInTransaction(db, (tx) => work({ characters: new CharactersDao(tx) })),
+      runInTransaction(db, (tx) =>
+        work({ characters: new CharactersDao(tx), sheets: new SheetsDao(tx) }),
+      ),
     snapshot: (work) => runInSnapshot(db, (tx) => work({ characters: new CharactersDao(tx) })),
     publisher,
     clock,

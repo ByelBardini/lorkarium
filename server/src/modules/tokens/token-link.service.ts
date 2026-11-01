@@ -86,7 +86,7 @@ export class TokenLinkService {
   ): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster('unlink a token from its character');
-    const rules = new CharacterLinkBo(campaignId);
+    const rules = new CharacterLinkBo();
     const address = { campaignId, sceneId: command.sceneId, access };
     const saved = await inLockedCharactersAndGrid(this.deps.transaction, address, (locked) =>
       this.unlinkIn(locked, rules, command.tokenId),
@@ -102,7 +102,7 @@ export class TokenLinkService {
   ): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster('link a token to a character');
-    const rules = new CharacterLinkBo(campaignId);
+    const rules = new CharacterLinkBo();
     const address = { campaignId, sceneId: command.sceneId, access };
     const saved = await inLockedCharactersAndGrid(this.deps.transaction, address, (locked) =>
       this.linkIn(locked, rules, command.tokenId, target),

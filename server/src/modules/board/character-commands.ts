@@ -2,6 +2,7 @@ import {
   addPlayersCommandDto,
   adjustCharacterBarCommandDto,
   characterSyncCommandDto,
+  setMainSheetCommandDto,
   linkTokenToCardCommandDto,
   linkTokenToCharacterCommandDto,
   unlinkTokenFromCardCommandDto,
@@ -33,7 +34,7 @@ export type WriteCommand = <C extends CampaignCommand, A>(
 export type CharacterCommandsDeps = Readonly<{
   tokenLink: Pick<TokenLinkService, 'link' | 'linkToCard' | 'unlink'>;
   tokenBatch: Pick<TokenBatchService, 'addPlayers'>;
-  characters: Pick<CharactersService, 'update' | 'adjustBar' | 'sync'>;
+  characters: Pick<CharactersService, 'update' | 'adjustBar' | 'setMainSheet' | 'sync'>;
 }>;
 
 /** How the commands of one connection are bound: a read (`bind`), a write answering its version
@@ -98,6 +99,10 @@ function bindCharacterOwnCommands(
   socket.on(
     'character:adjustBar',
     mutate(adjustCharacterBarCommandDto, characters.adjustBar.bind(characters)),
+  );
+  socket.on(
+    'character:setMainSheet',
+    mutate(setMainSheetCommandDto, characters.setMainSheet.bind(characters)),
   );
   socket.on(
     'character:sync',

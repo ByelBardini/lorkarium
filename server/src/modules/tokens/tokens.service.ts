@@ -39,7 +39,7 @@ import {
   type SavedInScene,
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
-import { inLockedCast, type SavedVersion } from '../scenes/locked-cast';
+import type { SavedVersion } from '../scenes/locked-cast';
 import type { CharacterRow } from '../characters/characters.dao';
 import {
   inLockedGridWithCharacters,
@@ -49,12 +49,7 @@ import {
 } from '../characters/locked-characters-grid';
 import type { CharacterPublisherPort } from '../characters/character-publisher.port';
 import { characterIn, linkedCharacterIn } from './linked-token';
-import {
-  adjustCharacterOfAnchor,
-  publishCharactersChange,
-  updateLinkedToken,
-} from './character-writes';
-import { inLockedCharacters } from '../characters/locked-characters';
+import { publishCharactersChange, updateLinkedToken } from './character-writes';
 import {
   controlOfDragged,
   movedRowsOf,
@@ -95,14 +90,6 @@ export type DeleteToken = Omit<DeleteTokenCommandDto, Envelope>;
 export type SetTokenLayer = Omit<SetTokenLayerCommandDto, Envelope>;
 export type MoveTokens = Omit<MoveTokensCommandDto, Envelope>;
 export type DragTokens = Omit<DragTokensCommandDto, Envelope>;
-/** A bar of the token that holds it: `sceneId` is its grid, or `null` for an anchor of the cast. */
-export type HolderBar = Readonly<{
-  tokenId: string;
-  sceneId: string | null;
-  barId: string;
-  change: AdjustBar['change'];
-}>;
-
 export type TokensServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership' | 'listMembers'>;
   transaction: TokenTransactionRunner;
@@ -297,41 +284,6 @@ export class TokensService {
     );
     if (saved.grid && changed)
       this.publishSaved('token:updated', campaignId, changed, saved.grid, veiled);
-    return saved.version;
-  }
-
-  /** The bar of the token that holds it, found by the server (a sheet's token): a token on its
-   *  grid (the same rule, lock order and event as `token:adjustBar`), or an anchor of the cast
-   *  (`sceneId: null`), whose bars are its player's character's: the character changes, in the
-   *  characters' version. An anchor with no character keeps its own bar, as an event of the cast.
-   *
-   *  Example: `await tokens.adjustHolderBar(userId, campaignId, { tokenId: anchorId, sceneId: null, barId, change })` */
-  async adjustHolderBar(userId: string, campaignId: string, command: HolderBar): Promise<number> {
-    const { sceneId, ...bar } = command;
-    if (sceneId !== null) return this.adjustBar(userId, campaignId, { ...bar, sceneId });
-    const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    const { barLimit } = this.deps;
-    const shared = await inLockedCharacters(this.deps.transaction, campaignId, async ({ daos }) => {
-      const value = await adjustCharacterOfAnchor(daos, access, bar, barLimit);
-      return { value, changed: value !== null };
-    });
-    if (!shared.value) return this.adjustAnchorBar(access, bar);
-    publishCharactersChange(this.characterOutlet(), campaignId, shared.version, [shared.value]);
-    return shared.version;
-  }
-
-  // The bar of an anchor no character stands behind: written on the anchor, an event of the cast.
-  private async adjustAnchorBar(
-    access: CampaignAccessBo,
-    bar: Omit<HolderBar, 'sceneId'>,
-  ): Promise<number> {
-    const campaignId = access.campaignIdOf();
-    const saved = await inLockedCast(this.deps.transaction, campaignId, async ({ daos, cast }) => {
-      const found = await tokenIn(daos, cast, campaignId, bar.tokenId);
-      await daos.tokens.setBarValues(bar.barId, this.adjustedBar(access, found, cast, bar));
-      return { value: await this.reread(daos, cast, found), changed: true };
-    });
-    this.publishSaved('token:updated', campaignId, saved.value, saved);
     return saved.version;
   }
 

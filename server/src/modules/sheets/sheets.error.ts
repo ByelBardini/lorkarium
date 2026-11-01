@@ -58,6 +58,9 @@ export class SheetActionReusedError extends SheetError {
 // A sheet nobody holds has no bars: the frame's bar buttons have nothing to change.
 export class SheetHasNoTokenError extends SheetError {
   constructor(sheetId: string) {
-    super('SHEET_HAS_NO_TOKEN', `Sheet ${sheetId} has no holder; expected a sheet held by a token`);
+    super(
+      'SHEET_HAS_NO_TOKEN',
+      `Sheet ${sheetId} has no holder; expected a sheet held by a token or a character`,
+    );
   }
 }

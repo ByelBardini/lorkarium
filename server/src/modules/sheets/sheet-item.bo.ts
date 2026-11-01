@@ -1,16 +1,24 @@
-import { initialsOf } from '@lorkarium/game-core';
+import { MemberNotFoundError } from '../campaigns/campaigns.error';
+import { isSeenByTable } from '../characters/character.bo';
 import { FolderNotFoundError } from '../library/library.error';
-import type { TokenPo } from '../tokens/tokens.po';
+import { TokenNotFoundError } from '../tokens/tokens.error';
+import type { CharacterPlacePo, TokenPlacePo } from './sheets.dao';
 import { SheetHasNoTokenError } from './sheets.error';
 
-/** What a new anchor shows of the character before anyone styles it. */
-export type AnchorIdentity = Readonly<{ name: string; initials: string; side: TokenPo['side'] }>;
+/** What holds a sheet's bars: a token on its grid, or a character. */
+export type SheetBarsHolder = Readonly<{ tokenId: string }> | Readonly<{ characterId: string }>;
 
-/** The rules of a sheet as an item of the library: its folder must be the table's, a sheet given
- *  to a player without a character makes the character's anchor from their card, and only a held
- *  sheet has bars.
+/** A character as its main sheet reads it: which one and its main sheet now. */
+export type CharacterMainRef = Readonly<{ characterId: string; mainSheetId: string | null }>;
+
+/** One write of a character's main sheet (`null` = it has none). */
+export type MainSheetWrite = Readonly<{ characterId: string; mainSheetId: string | null }>;
+
+/** The rules of a sheet as an item of the library: its folder must be the table's, a token of the
+ *  cast holds none, a player hands it to their character, only a held sheet has bars, and a
+ *  character's first sheet becomes its main one.
  *
- *  Example: `new SheetItemBo(campaignId).anchorIdentityOf('Lyra', 'Bia') // { name: 'Lyra', initials: 'LY', side: 'ally' }` */
+ *  Example: `new SheetItemBo(campaignId).requireFolder(folderIds, folderId)` */
 export class SheetItemBo {
   constructor(private readonly campaignId: string) {}
 
@@ -20,20 +28,51 @@ export class SheetItemBo {
     throw new FolderNotFoundError(this.campaignId, folderId);
   }
 
-  /** The card's character name, else the member's nickname; the initials of that name (its
-   *  first letters when it is all connectives); on the players' side.
+  /** A token of a grid of the table; one of the cast (an anchor, until the cast goes) or of
+   *  another table is TOKEN_NOT_FOUND.
    *
-   *  Example: `rules.anchorIdentityOf(null, 'Bia') // { name: 'Bia', initials: 'BI', side: 'ally' }` */
-  anchorIdentityOf(characterName: string | null, memberName: string): AnchorIdentity {
-    // Both fit a token name: a character name has at most 40 characters, a nickname 32.
-    const name = characterName?.trim() || memberName.trim();
-    const initials = initialsOf(name) || name.slice(0, 2).toLocaleUpperCase('pt-BR');
-    return { name, initials, side: 'ally' };
+   *  Example: `rules.requireGridToken(lyraId, await sheets.placeOf(campaignId, lyraId))` */
+  requireGridToken(tokenId: string, place: TokenPlacePo | undefined): TokenPlacePo {
+    if (place && place.kind === 'grid') return place;
+    throw new TokenNotFoundError(this.campaignId, tokenId);
   }
 
-  /** The token whose bars a sheet changes; a sheet nobody holds has none. */
-  requireToken(sheet: Readonly<{ id: string; tokenId: string | null }>): string {
-    if (sheet.tokenId) return sheet.tokenId;
+  /** The character of a member the table sees play (a player, or a master who kept theirs); a
+   *  stored one (a spectator's), none (a master's) or a stranger's is MEMBER_NOT_FOUND.
+   *
+   *  Example: `rules.requirePlayerCharacter(biaId, await sheets.characterPlaceOfUser(campaignId, biaId))` */
+  requirePlayerCharacter(
+    memberId: string,
+    character: CharacterPlacePo | undefined,
+  ): CharacterPlacePo {
+    if (character && isSeenByTable(character.holderRole)) return character;
+    throw new MemberNotFoundError(this.campaignId, memberId);
+  }
+
+  /** What a sheet changes the bars of; a sheet nobody holds has none.
+   *
+   *  Example: `rules.requireHolder(sheet) // { characterId: lyraId }` */
+  requireHolder(
+    sheet: Readonly<{ id: string; tokenId: string | null; characterId: string | null }>,
+  ): SheetBarsHolder {
+    if (sheet.tokenId) return { tokenId: sheet.tokenId };
+    if (sheet.characterId) return { characterId: sheet.characterId };
     throw new SheetHasNoTokenError(sheet.id);
+  }
+
+  /** The main sheets a move of `sheetId` from one character to another writes: the one that loses
+   *  its main sheet has none, the one that gets a sheet with no main yet makes it the main. The
+   *  same character on both ends writes nothing.
+   *
+   *  Example: `rules.mainSheetWritesOf(sheetId, null, { characterId: kaelId, mainSheetId: null }) // [{ characterId: kaelId, mainSheetId: sheetId }]` */
+  mainSheetWritesOf(
+    sheetId: string,
+    from: CharacterMainRef | null,
+    to: CharacterMainRef | null,
+  ): MainSheetWrite[] {
+    if (from?.characterId === to?.characterId) return [];
+    const lost = from?.mainSheetId === sheetId ? [{ ...from, mainSheetId: null }] : [];
+    const gained = to && to.mainSheetId === null ? [{ ...to, mainSheetId: sheetId }] : [];
+    return [...lost, ...gained];
   }
 }

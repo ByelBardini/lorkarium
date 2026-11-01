@@ -1,4 +1,4 @@
-import type { AdjustBarCommandDto, BarInputDto } from '@lorkarium/contracts';
+import type { BarInputDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TokenAppearanceService } from '../../../src/modules/tokens/token-appearance.service';
 import { TokensService } from '../../../src/modules/tokens/tokens.service';
@@ -9,8 +9,6 @@ import {
   CharacterTableFake,
   ESTRADA_LYRA_ID,
   KAEL_ID,
-  LYRA_ANCHOR_ID,
-  VHARN_CAST_ID,
   VHARN_TORRE_ID,
   kaelRow,
   linkedLyraRow,
@@ -19,10 +17,8 @@ import { LYRA_CHARACTER_ID } from '../../support/characters-factories';
 import { DragGroupsFake, TableTokenRightsFake } from '../../support/tokens-fakes';
 import { FIRE_AURA } from '../../support/tokens-factories';
 
-type AdjustChange = AdjustBarCommandDto['change'];
 const TORRE = { sceneId: VHARN_TORRE_ID };
 const LOCK_TORRE = `lockInCampaign:${VHARN_TORRE_ID}`;
-const PV_ANCHOR = `${LYRA_ANCHOR_ID}-pv`;
 const PV = `${LYRA_CHARACTER_ID}-pv`;
 const VIGOR: BarInputDto = {
   label: 'Vigor',
@@ -60,7 +56,6 @@ describe('writes on a token linked to a character', () => {
   });
 
   const lyra = () => table.characters.rows[0];
-  const anchor = () => table.tokens.rowOf(LYRA_ANCHOR_ID);
   const torreVersion = () => table.scenes.rows.find(({ id }) => id === VHARN_TORRE_ID)?.version;
   const charactersVersion = () => table.characters.versions[VHARN_ID];
 
@@ -120,97 +115,6 @@ describe('writes on a token linked to a character', () => {
       expect(table.journal).toEqual([LOCK_TORRE, 'save', 'bump', 'commit', 'publish']);
       expect(table.tokens.rowOf(KAEL_ID).bars[0]?.current).toBe(7);
       expect(table.characterPublisher.changes).toEqual([]);
-    });
-  });
-
-  describe('adjustHolderBar (the bar of a sheet)', () => {
-    const onAnchor = (barId: string, change: AdjustChange) => ({
-      ...{ tokenId: LYRA_ANCHOR_ID, sceneId: null, barId, change },
-    });
-
-    it('a sheet held by the anchor changes the character of its card: the characters alone are locked', async () => {
-      const version = await tokens.adjustHolderBar(
-        BIA_ID,
-        VHARN_ID,
-        onAnchor(PV, { op: 'add', amount: -7 }),
-      );
-
-      expect(version).toBe(6);
-      expect(table.journal).toEqual([
-        'lock characters',
-        'set bar',
-        'bump characters',
-        'commit',
-        'publish',
-      ]);
-      expect(lyra()?.bars[0]?.current).toBe(25);
-      expect(anchor().bars[0]?.current).toBe(32);
-      expect(table.publisher.tokenChanges).toEqual([]);
-      expect(table.characterPublisher.changes.map(({ version: v }) => v)).toEqual([6]);
-    });
-
-    it('the bar is free above its max but cut at the value limit by the game-core rule', async () => {
-      await tokens.adjustHolderBar(BIA_ID, VHARN_ID, onAnchor(PV, { op: 'add', amount: 150_000 }));
-
-      expect(lyra()?.bars[0]?.current).toBe(99_999);
-    });
-
-    it('Caio on the character bar is FORBIDDEN and nothing is published nor bumped', async () => {
-      const adjusting = tokens.adjustHolderBar(
-        CAIO_ID,
-        VHARN_ID,
-        onAnchor(PV, { op: 'add', amount: -7 }),
-      );
-
-      await expect(adjusting).rejects.toMatchObject({ code: 'FORBIDDEN' });
-      expect(charactersVersion()).toBe(5);
-      expect(table.characterPublisher.changes).toEqual([]);
-    });
-
-    it('a bar of another token is BAR_NOT_FOUND', async () => {
-      const adjusting = tokens.adjustHolderBar(
-        BIA_ID,
-        VHARN_ID,
-        onAnchor(`${KAEL_ID}-pv`, { op: 'add', amount: -7 }),
-      );
-
-      await expect(adjusting).rejects.toMatchObject({ code: 'BAR_NOT_FOUND' });
-    });
-
-    it('an anchor no card points at keeps its own bar, as an event of the cast', async () => {
-      table.memberCards.rows.splice(0);
-
-      const version = await tokens.adjustHolderBar(
-        BIA_ID,
-        VHARN_ID,
-        onAnchor(PV_ANCHOR, { op: 'add', amount: -7 }),
-      );
-
-      expect(version).toBe(3);
-      expect(table.journal).toEqual([
-        'lock characters',
-        'commit',
-        'lock cast',
-        'save',
-        'bump cast',
-        'commit',
-        'publish',
-      ]);
-      expect(anchor().bars[0]?.current).toBe(25);
-      const [published] = table.publisher.tokenChanges;
-      expect(published).toMatchObject({ sceneId: VHARN_CAST_ID });
-      expect(published?.privileged).toMatchObject({ version: 3, token: { id: LYRA_ANCHOR_ID } });
-    });
-
-    it('a linked holder on a grid goes the way of token:adjustBar: the character bar changes', async () => {
-      await tokens.adjustHolderBar(BIA_ID, VHARN_ID, {
-        ...{ tokenId: ESTRADA_LYRA_ID, sceneId: VHARN_TORRE_ID, barId: PV },
-        change: { op: 'add', amount: -7 },
-      });
-
-      expect(table.journal[0]).toBe(LOCK_TORRE);
-      expect(lyra()?.bars[0]?.current).toBe(25);
-      expect(table.characterPublisher.changes).toHaveLength(1);
     });
   });
 

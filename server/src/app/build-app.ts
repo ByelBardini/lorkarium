@@ -182,13 +182,13 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     publisher,
   });
   await app.register(documents.plugin, { prefix: API_PREFIX });
-  const { sheetPublisher } = outlets;
+  const { sheetPublisher, characterPublisher } = outlets;
   const sheets = createSheetsModule({
     db: deps.db,
     clock,
     libraryPublisher: publisher,
     sheetPublisher,
-    boardPublisher: grids,
+    characterPublisher,
   });
   await app.register(sheets.plugin, { prefix: API_PREFIX });
   await app.register(createSavedRollsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
@@ -228,6 +228,8 @@ type RealtimeOutlets = Readonly<{
   boardPublisher: SocketIoBoardPublisher;
   /** `sheet:changed` to the table's room, after each sheet write over HTTP. */
   sheetPublisher: SocketIoSheetPublisher;
+  /** `character:changed` to the table, after a write over HTTP changes a character. */
+  characterPublisher: SocketIoCharacterPublisher;
   /** The live session service: a saved profile reaches every live table of the person. */
   profileChanged: ProfileChangedPort;
   /** The same service: a saved or deleted campaign reaches its live table. */
@@ -265,6 +267,7 @@ function wireRealtime(
     libraryPublisher: new SocketIoLibraryPublisher(realtime.io),
     boardPublisher: publisher,
     sheetPublisher: new SocketIoSheetPublisher(realtime.io),
+    characterPublisher: new SocketIoCharacterPublisher(realtime.io),
   };
   const { audience, libraryPublisher } = outlets;
   const scenesModule = createScenesModule({ ...shared, audience, libraryPublisher });
@@ -282,7 +285,7 @@ function wireRealtime(
   const { service: profileChanged, service: campaignChanged } = sessions;
   const { service: memberRoleChanged } = sessions;
   const sceneWalls = new SceneWallsService();
-  const characterPublisher = new SocketIoCharacterPublisher(realtime.io);
+  const { characterPublisher } = outlets;
   const tokensModule = createTokensModule({ ...shared, sceneWalls, characterPublisher });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
   const { mainToken, link: tokenLink, visibility: tokenVisibility } = tokensModule;
@@ -302,7 +305,12 @@ function wireRealtime(
     publisher: new SocketIoPingPublisher(realtime.io),
     clock,
   }).service;
-  const sheetBars = createSheetBarsService({ db, members, tokens });
+  const sheetBars = createSheetBarsService({
+    db,
+    members,
+    tokens,
+    characters: characters.service,
+  });
   const board = createBoardModule({
     db,
     members,

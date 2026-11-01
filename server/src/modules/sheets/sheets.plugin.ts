@@ -2,6 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
 import { runInSnapshot, runInTransaction, type DatabaseExecutor } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
+import { CharactersDao } from '../characters/characters.dao';
+import type { CharactersService } from '../characters/characters.service';
 import type { TokensService } from '../tokens/tokens.service';
 import { SheetBarsService, type SheetBarsServiceDeps } from './sheet-bars.service';
 import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -9,11 +12,7 @@ import { CampaignsDao } from '../campaigns/campaigns.dao';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
 import { SceneFoldersDao } from '../library/scene-folders.dao';
 import type { SheetPublisherPort } from './sheet-publisher.port';
-import { SheetHolderService, type SheetHolderServiceDeps } from './sheet-holder.service';
-import { UsersDao } from '../auth/users.dao';
-import { MemberCardsDao } from '../member-cards/member-cards.dao';
-import { ScenesDao } from '../scenes/scenes.dao';
-import { TokensDao } from '../tokens/tokens.dao';
+import { SheetHolderService } from './sheet-holder.service';
 import { SheetTemplatesDao } from './sheet-templates.dao';
 import { SheetTemplatesService, type SheetTemplateDaos } from './sheet-templates.service';
 import { SheetsDao } from './sheets.dao';
@@ -27,8 +26,8 @@ export type SheetsModuleOptions = Readonly<{
   libraryPublisher: Pick<LibraryPublisherPort, 'libraryChanged'>;
   /** `sheet:changed` after each sheet write. */
   sheetPublisher: SheetPublisherPort;
-  /** `token:created` and `member:cardChanged` of the anchor a player's sheet creates. */
-  boardPublisher: SheetHolderServiceDeps['publisher'];
+  /** `character:changed` when a character's main sheet changes. */
+  characterPublisher: CharacterPublisherPort;
 }>;
 
 export type SheetsModule = Readonly<{ plugin: (app: FastifyInstance) => Promise<void> }>;
@@ -36,9 +35,9 @@ export type SheetsModule = Readonly<{ plugin: (app: FastifyInstance) => Promise<
 /** Wires the sheets: templates and sheets, their DAOs, services and HTTP edge. Needs
  *  `app.authGuards`.
  *
- *  Example: `await app.register(createSheetsModule({ db, clock, libraryPublisher, sheetPublisher, boardPublisher }).plugin, { prefix: '/api' })` */
+ *  Example: `await app.register(createSheetsModule({ db, clock, libraryPublisher, sheetPublisher, characterPublisher }).plugin, { prefix: '/api' })` */
 export function createSheetsModule(options: SheetsModuleOptions): SheetsModule {
-  const { db, clock, libraryPublisher, sheetPublisher, boardPublisher } = options;
+  const { db, clock, libraryPublisher, sheetPublisher, characterPublisher } = options;
   const templates = new SheetTemplatesService({
     members: new CampaignMembersDao(db),
     read: templateDaos(db),
@@ -53,7 +52,8 @@ export function createSheetsModule(options: SheetsModuleOptions): SheetsModule {
     clock,
     publisher: sheetPublisher,
     library: libraryPublisher,
-    holders: new SheetHolderService({ publisher: boardPublisher, clock }),
+    characterPublisher,
+    holders: new SheetHolderService(),
   });
   return { plugin: sheetsRoutes({ templates, sheets }) };
 }
@@ -75,24 +75,23 @@ export function sheetDaos(executor: DatabaseExecutor): SheetDaos {
     sheets: new SheetsDao(executor),
     templates: new SheetTemplatesDao(executor),
     folders: new SceneFoldersDao(executor),
-    scenes: new ScenesDao(executor),
-    tokens: new TokensDao(executor),
-    memberCards: new MemberCardsDao(executor),
-    users: new UsersDao(executor),
+    characters: new CharactersDao(executor),
   };
 }
 
-/** The `sheet:adjustBar` use case, on the tokens service of the board (built by the realtime
- *  wiring, which binds the command in the table's queue).
+/** The `sheet:adjustBar` use case, on the tokens and the characters services of the board (built
+ *  by the realtime wiring, which binds the command in the table's queue).
  *
- *  Example: `createSheetBarsService({ db, members, tokens })` */
+ *  Example: `createSheetBarsService({ db, members, tokens, characters })` */
 export function createSheetBarsService(
   options: Readonly<{
     db: Database;
     members: SheetBarsServiceDeps['members'];
-    tokens: Pick<TokensService, 'adjustHolderBar'>;
+    tokens: Pick<TokensService, 'adjustBar'>;
+    characters: Pick<CharactersService, 'adjustBar'>;
   }>,
 ): SheetBarsService {
-  const { db, members, tokens } = options;
-  return new SheetBarsService({ members, sheets: new SheetsDao(db), tokens });
+  const { db, members, tokens, characters } = options;
+  const holders = new SheetHolderService();
+  return new SheetBarsService({ members, sheets: new SheetsDao(db), holders, tokens, characters });
 }
