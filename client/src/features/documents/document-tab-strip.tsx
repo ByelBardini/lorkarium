@@ -33,6 +33,10 @@ export type DocumentTabStripProps = Readonly<{
 // The width a tab shrinks to before it moves into the "+N" menu.
 const TAB_MIN_WIDTH = 96;
 const MORE_BUTTON_WIDTH = 52;
+// gap-0.5 between the tabs, gap-1 before the "+N" and the "+" (size-7): the strip spends them too.
+const TAB_GAP = 2;
+const STRIP_GAP = 4;
+const NEW_TAB_BUTTON_WIDTH = 28;
 
 /** The tabs of one document under its title: "+" creates one and focuses its name, each tab's
  *  menu renames, moves, hides (master only) and deletes it, and dragging reorders. A reader sees
@@ -54,10 +58,11 @@ export function DocumentTabStrip(props: DocumentTabStripProps): React.JSX.Elemen
   };
   const drag = useDocumentTabDrag({ order: ids, enabled: canEdit, onReorder: run });
   const fit = tabsThatFit({
-    width,
+    width: Math.max(0, width - (canEdit ? NEW_TAB_BUTTON_WIDTH + STRIP_GAP : 0)),
     count: ids.length,
     minWidth: TAB_MIN_WIDTH,
-    moreWidth: MORE_BUTTON_WIDTH,
+    moreWidth: MORE_BUTTON_WIDTH + STRIP_GAP,
+    gap: TAB_GAP,
   });
   const split = splitTabsToFit(ids, fit, [activeTabId ?? '', renaming ?? '']);
   const create = async (): Promise<void> => {

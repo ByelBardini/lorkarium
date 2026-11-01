@@ -88,10 +88,12 @@ describe('SceneTabs', () => {
 });
 
 describe('SceneTabs in a narrow strip', () => {
-  // 300px fits two 112px tabs beside the "+N" button, not three.
+  // 340px fits two 112px tabs, their gap and the "+N" button with its gaps, not three.
+  let width = 340;
   let restoreWidth: () => void = () => {};
   beforeEach(() => {
-    restoreWidth = fakeClientWidth(() => 300);
+    width = 340;
+    restoreWidth = fakeClientWidth(() => width);
   });
   afterEach(() => restoreWidth());
 
@@ -120,6 +122,21 @@ describe('SceneTabs in a narrow strip', () => {
       'Cena 1Grupo',
       'Torre',
     ]);
+    expect(screen.getByRole('tablist')).not.toHaveAttribute('data-squeezed');
+  });
+
+  it('lets the pinned tabs shrink past the minimum when they alone pass the room, so none hides under "+N"', async () => {
+    width = 200;
+    const api = new TableSessionApiFake();
+    const table = openVharnTabs(api);
+    openTorreTab(api, table);
+    render(<SceneTabs tabs={table.tabs} />);
+    await act(() => Promise.resolve());
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Cena 1Grupo',
+      'Torre',
+    ]);
+    expect(screen.getByRole('tablist')).toHaveAttribute('data-squeezed', 'true');
   });
 });
 

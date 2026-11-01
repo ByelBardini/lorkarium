@@ -54,10 +54,11 @@ export function SceneTabs({ tabs, documents, campaignId }: SceneTabsProps): Reac
   const width = useElementWidth(strip);
   const keys = [...open.map((tab) => tab.key), ...documentEntries.map((entry) => entry.key)];
   const fit = tabsThatFit({
-    width,
+    width: Math.max(0, width - STRIP_GAP),
     count: keys.length,
     minWidth: TAB_MIN_WIDTH,
-    moreWidth: MORE_BUTTON_WIDTH,
+    moreWidth: MORE_BUTTON_WIDTH + STRIP_GAP,
+    gap: TAB_GAP,
   });
   const split = splitTabsToFit(keys, fit, [GROUP_TAB, activeDocument ?? visibleKey]);
   const showScene = (key: string): void => {
@@ -73,8 +74,9 @@ export function SceneTabs({ tabs, documents, campaignId }: SceneTabsProps): Reac
         role="tablist"
         aria-label="Grids abertos"
         data-app-region="no-drag"
+        data-squeezed={split.shown.length > fit || undefined}
         onKeyDown={moveFocusAlongTabs}
-        className="flex min-w-0 items-center gap-1 overflow-hidden"
+        className="group/tabs flex min-w-0 items-center gap-1 overflow-hidden"
       >
         {open
           .filter((tab) => isShown(tab.key))
@@ -116,6 +118,10 @@ export function SceneTabs({ tabs, documents, campaignId }: SceneTabsProps): Reac
 // The width a tab shrinks to before it moves into the "+N" menu: still a readable title.
 const TAB_MIN_WIDTH = 112;
 const MORE_BUTTON_WIDTH = 52;
+// gap-1 between the tabs and gap-3 around the "+N" and the notice: the strip spends them too,
+// and leaving them out drew the last tab's close button under the "+N".
+const TAB_GAP = 4;
+const STRIP_GAP = 12;
 
 type HiddenTabsMenuProps = Readonly<{
   count: number;
@@ -190,7 +196,7 @@ function DocumentTabItem({
         tabIndex={selected ? 0 : -1}
         onClick={onShow}
         className={cn(
-          'flex min-w-0 items-center gap-2 px-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
+          'flex min-w-0 items-center gap-2 overflow-hidden px-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
           selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
       >
@@ -201,7 +207,7 @@ function DocumentTabItem({
         type="button"
         aria-label={entry.kind === 'document' ? `Fechar documento ${title}` : `Fechar ${title}`}
         onClick={onClose}
-        className="grid size-6 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
       >
         <XIcon aria-hidden className="size-3.5" />
       </button>
@@ -239,10 +245,12 @@ function useWorkspaceItemsOf(
   );
 }
 
-// min-w-28 is TAB_MIN_WIDTH: the tabs shrink together down to it, then overflow into "+N".
+// min-w-28 is TAB_MIN_WIDTH: the tabs shrink together down to it, then overflow into "+N". When
+// the pinned tabs alone pass the room (`data-squeezed`), they shrink past it, or the strip would
+// clip the last one under the "+N".
 function tabFrameClass(selected: boolean): string {
   return cn(
-    'flex h-12 min-w-28 shrink items-center gap-1 border-b-2 [[data-title-bar]_&]:h-11',
+    'flex h-12 min-w-28 shrink items-center gap-1 border-b-2 group-data-squeezed/tabs:min-w-0 [[data-title-bar]_&]:h-11',
     selected ? 'border-primary' : 'border-transparent',
   );
 }
@@ -266,7 +274,7 @@ function SceneTabItem({ tab, selected, onShow, onClose }: SceneTabItemProps): Re
         tabIndex={selected ? 0 : -1}
         onClick={onShow}
         className={cn(
-          'flex min-w-0 items-baseline gap-2 px-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
+          'flex min-w-0 items-baseline gap-2 overflow-hidden px-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
           selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
       >
@@ -280,7 +288,7 @@ function SceneTabItem({ tab, selected, onShow, onClose }: SceneTabItemProps): Re
           type="button"
           aria-label={`Fechar ${name}`}
           onClick={onClose}
-          className="grid size-6 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
         >
           <XIcon aria-hidden="true" className="size-3.5" />
         </button>

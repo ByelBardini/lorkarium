@@ -118,9 +118,7 @@ export async function newSheetFromCard(
   await master.getByRole('menuitem', { name: 'Nova ficha', exact: true }).click();
   await master.getByRole('menuitem', { name: template, exact: true }).click();
   const sheet = await librarySheetOf(await created);
-  // By the frame's own button: with several grid tabs the tab's close button may sit under the
-  // overflow of the tab bar.
-  await sheetRegionOf(master, sheet.name).getByRole('button', { name: 'Fechar ficha' }).click();
+  await closeSheetTab(master, sheet.name);
   await expect(boardOf(master)).toBeVisible();
   return sheet;
 }
