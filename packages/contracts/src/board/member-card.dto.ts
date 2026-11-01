@@ -1,9 +1,15 @@
 import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
+import {
+  CHARACTER_NOTE_MAX,
+  CHARACTER_STAT_MAX,
+  characterStatDto as cardStatDto,
+  characterTextDto as cardTextDto,
+} from './character-fields.dto';
 
 export const MEMBER_CARD_NAME_MAX = 40;
-export const MEMBER_CARD_NOTE_MAX = 80;
-export const MEMBER_CARD_STAT_MAX = 999;
+export const MEMBER_CARD_NOTE_MAX = CHARACTER_NOTE_MAX;
+export const MEMBER_CARD_STAT_MAX = CHARACTER_STAT_MAX;
 
 const MEMBER_CARD_FIELDS = [
   'characterName',
@@ -12,34 +18,6 @@ const MEMBER_CARD_FIELDS = [
   'noteOne',
   'noteTwo',
 ] as const;
-
-function cardTextDto(field: string, maxLength: number) {
-  return z
-    .string()
-    .trim()
-    .superRefine((text, context) => {
-      if (text.length <= maxLength) return;
-      context.addIssue({
-        code: 'custom',
-        message: `${field} has ${text.length} characters; expected at most ${maxLength}`,
-      });
-    })
-    .nullable()
-    .transform((text) => (text ? text : null));
-}
-
-function cardStatDto(field: string) {
-  return z
-    .number()
-    .superRefine((value, context) => {
-      if (Number.isInteger(value) && value >= 0 && value <= MEMBER_CARD_STAT_MAX) return;
-      context.addIssue({
-        code: 'custom',
-        message: `${field} ${value} is invalid; expected a whole number from 0 to ${MEMBER_CARD_STAT_MAX}`,
-      });
-    })
-    .nullable();
-}
 
 /** A member's card on the table: what the party board shows besides the main token. Every
  *  field is `null` until someone writes it; a `null` name follows the main token's name.

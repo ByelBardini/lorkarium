@@ -138,6 +138,10 @@ export const tokenDto = z.strictObject({
    *  mark, bars, controllers and conditions; place, size, layer, facing, flips, sight and light
    *  are its own. */
   anchorTokenId: z.uuid().nullable(),
+  /** The character this token is an instance of (`null` = a free token). A linked token already
+   *  comes with the character's identity, look, bars, controllers and conditions. Optional only
+   *  while the anchor model is being replaced (plan 2026-10-31-personagem, Fase 13). */
+  characterId: z.uuid().nullable().optional(),
   /** Who created it (`null` = before authorship was kept, or the account is gone); not a secret,
    *  every audience gets it. A player edits and deletes only their own (game-core `token-rights`). */
   createdBy: z.uuid().nullable(),
