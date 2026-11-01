@@ -9,6 +9,7 @@ import { createBoardInteractionStore } from '@/stores/board-interaction-store';
 import { createBoardStore } from '@/stores/board-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 import { CampaignsApiFake, VHARN } from '../../support/campaigns-api-fake';
+import { syncedCharacters } from '../../support/character-fixtures';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
@@ -57,7 +58,7 @@ describe('SessionPresencePanel, owner, co-masters and juggernaut', () => {
         <SessionPresencePanel
           store={presence}
           board={board}
-          cast={createBoardStore(VHARN.id, () => undefined)}
+          characters={syncedCharacters()}
           interaction={createBoardInteractionStore({
             scopeOf: () => VHARN_GRID,
             commands: new TableBoardCommandsFake(),

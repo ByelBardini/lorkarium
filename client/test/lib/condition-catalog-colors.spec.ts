@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { tokensOverCatalog, tokensShowingDefinition } from '@/lib/condition-catalog';
-import { linkedLyra } from '../support/cast-fixtures';
+import { linkedLyra } from '../support/character-fixtures';
 import {
   activeCondition,
   conditionDefinition,
@@ -45,7 +45,7 @@ describe('the color of the active conditions after a definition update', () => {
     expect(tokensShowingDefinition(tokens, conditionDefinition({ color: 'ember' }))).toBe(tokens);
   });
 
-  it('a loose token in a grid follows the color of the cast list; a linked one is left alone', () => {
+  it('every token of a grid, loose or linked to a character, follows the color of the cast list', () => {
     const loose = kael({ conditions: [poisonedOn()] });
     const linked = linkedLyra({ conditions: [poisonedOn()] });
     const [kaelAfter, lyraAfter] = tokensOverCatalog(
@@ -54,6 +54,6 @@ describe('the color of the active conditions after a definition update', () => {
       [conditionDefinition({ color: 'sky' })],
     );
     expect(kaelAfter?.conditions[0]?.color).toBe('sky');
-    expect(lyraAfter).toBe(linked);
+    expect(lyraAfter?.conditions[0]?.color).toBe('sky');
   });
 });

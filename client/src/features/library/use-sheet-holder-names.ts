@@ -1,18 +1,20 @@
-import type { BoardStateDto, CampaignMemberDto } from '@lorkarium/contracts';
+import type { BoardStateDto, CampaignMemberDto, CharacterDto } from '@lorkarium/contracts';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { SheetHolderNames } from '@/features/sheets/sheet-messages';
 import type { BoardStore } from '@/stores/board-store';
+import type { CharactersStore } from '@/stores/characters-store';
 import type { OpenTable } from '@/stores/open-tables-store';
 
 /** A player the master may give a sheet to: "Bia (Lyra)" in the menus. */
 export type SheetPlayer = Readonly<{ userId: string; label: string }>;
 
-/** The names the library says about sheet holders, from the table's members, its cast (the
- *  characters' names and anchors) and its group grid (a loose token's name). */
+/** The names the library says about sheet holders, from the table's members, its characters
+ *  (each player's character's name) and its cast and group grid (a token's name). */
 export type SheetHolderDirectory = Readonly<{ names: SheetHolderNames; players: SheetPlayer[] }>;
 
-/** Who holds the library's sheets, as this reader knows them; follows the cast and the grid.
+/** Who holds the library's sheets, as this reader knows them; follows the characters, the cast
+ *  and the grid.
  *
  *  Example: `const { names, players } = useSheetHolderNames(campaign.members, tableView.table)` */
 export function useSheetHolderNames(
@@ -21,7 +23,21 @@ export function useSheetHolderNames(
 ): SheetHolderDirectory {
   const cast = useBoardOf(table?.cast ?? null);
   const grid = useBoardOf(table?.board ?? null);
-  return useMemo(() => directoryOf(members, cast, grid), [members, cast, grid]);
+  const characters = useCharactersOf(table?.characters ?? null);
+  return useMemo(
+    () => directoryOf(members, characters, [cast, grid]),
+    [members, characters, cast, grid],
+  );
+}
+
+const NO_CHARACTERS: readonly CharacterDto[] = [];
+
+function useCharactersOf(store: StoreApi<CharactersStore> | null): readonly CharacterDto[] {
+  const subscribe = useCallback(
+    (onChange: () => void) => store?.subscribe(onChange) ?? (() => undefined),
+    [store],
+  );
+  return useSyncExternalStore(subscribe, () => store?.getState().characters ?? NO_CHARACTERS);
 }
 
 function useBoardOf(store: StoreApi<BoardStore> | null): BoardStateDto | null {
@@ -34,14 +50,14 @@ function useBoardOf(store: StoreApi<BoardStore> | null): BoardStateDto | null {
 
 function directoryOf(
   members: readonly CampaignMemberDto[],
-  cast: BoardStateDto | null,
-  grid: BoardStateDto | null,
+  characters: readonly CharacterDto[],
+  boards: ReadonlyArray<BoardStateDto | null>,
 ): SheetHolderDirectory {
-  const tokens = [...(cast?.tokens ?? []), ...(grid?.tokens ?? [])];
+  const tokens = boards.flatMap((board) => board?.tokens ?? []);
   const names: SheetHolderNames = {
     memberName: (userId) => members.find((member) => member.userId === userId)?.name ?? null,
     characterName: (userId) =>
-      cast?.memberCards.find((card) => card.userId === userId)?.characterName ?? null,
+      characters.find((character) => character.userId === userId)?.name ?? null,
     tokenName: (tokenId) => tokens.find((token) => token.id === tokenId)?.name ?? null,
   };
   const players = members

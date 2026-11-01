@@ -2,7 +2,8 @@ import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PlayerCardHarness, cardBar } from '../../support/player-card-harness';
-import { ANA_AT_TABLE, CAIO_AT_TABLE, LYRA_ID, lyra } from '../../support/table-session-fixtures';
+import { LYRA_CHARACTER_ID } from '../../support/character-fixtures';
+import { ANA_AT_TABLE, CAIO_AT_TABLE } from '../../support/table-session-fixtures';
 
 const PV_ID = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 const pv = cardBar({ id: PV_ID });
@@ -15,14 +16,14 @@ describe('BarQuickEdit', () => {
   });
 
   function renderAsBia(bar = pv): void {
-    harness.render({ state: { tokens: [lyra({ bars: [bar] })] } });
+    harness.render({ character: { bars: [bar] } });
   }
 
   const trigger = () => screen.getByRole('button', { name: 'Editar PV de Lyra' });
   const balloon = () => screen.queryByRole('dialog', { name: 'PV' });
   const current = () => within(balloon() ?? document.body).getByRole('textbox', { name: 'Atual' });
   const max = () => within(balloon() ?? document.body).getByRole('textbox', { name: 'Máx' });
-  const sent = () => harness.commands.sentAs('adjustBar').map(({ fields }) => fields);
+  const sent = () => harness.commands.sentAs('adjustCharacterBar').map(({ fields }) => fields);
 
   async function retype(field: HTMLElement, text: string): Promise<void> {
     await userEvent.clear(field);
@@ -49,7 +50,9 @@ describe('BarQuickEdit', () => {
 
     await retype(current(), '−7{Enter}');
 
-    expect(sent()).toEqual([{ tokenId: LYRA_ID, barId: PV_ID, change: { op: 'add', amount: -7 } }]);
+    expect(sent()).toEqual([
+      { characterId: LYRA_CHARACTER_ID, barId: PV_ID, change: { op: 'add', amount: -7 } },
+    ]);
     expect(balloon()).toBeNull();
   });
 
@@ -62,7 +65,7 @@ describe('BarQuickEdit', () => {
 
     await retype(current(), `${typed}{Enter}`);
 
-    expect(sent()).toEqual([{ tokenId: LYRA_ID, barId: PV_ID, change }]);
+    expect(sent()).toEqual([{ characterId: LYRA_CHARACTER_ID, barId: PV_ID, change }]);
   });
 
   it('"40" in "Máx" and Tab set the maximum', async () => {
@@ -72,7 +75,9 @@ describe('BarQuickEdit', () => {
     await retype(max(), '40');
     await userEvent.tab();
 
-    expect(sent()).toEqual([{ tokenId: LYRA_ID, barId: PV_ID, change: { op: 'max', value: 40 } }]);
+    expect(sent()).toEqual([
+      { characterId: LYRA_CHARACTER_ID, barId: PV_ID, change: { op: 'max', value: 40 } },
+    ]);
   });
 
   it('leaving "Atual" without changing it sends nothing', async () => {
@@ -145,8 +150,7 @@ describe('BarQuickEdit', () => {
   });
 
   it('Caio, without control of Lyra, has nothing to open on her PV', async () => {
-    const theirs = lyra({ bars: [pv], canControl: false });
-    harness.render({ state: { tokens: [theirs] }, viewerId: CAIO_AT_TABLE.userId });
+    harness.render({ character: { bars: [pv] }, viewerId: CAIO_AT_TABLE.userId });
 
     await userEvent.dblClick(screen.getByRole('meter', { name: 'PV de Lyra' }));
 
@@ -155,11 +159,7 @@ describe('BarQuickEdit', () => {
   });
 
   it('Ana, the master, opens it on the Lyra of Bia', async () => {
-    harness.render({
-      state: { tokens: [lyra({ bars: [pv] })] },
-      viewerId: ANA_AT_TABLE.userId,
-      isMaster: true,
-    });
+    harness.render({ character: { bars: [pv] }, viewerId: ANA_AT_TABLE.userId, isMaster: true });
 
     await userEvent.dblClick(trigger());
 

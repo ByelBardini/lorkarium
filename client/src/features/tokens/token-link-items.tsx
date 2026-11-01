@@ -17,65 +17,59 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cardLinkTargetsOf, type CardLinkTarget } from '@/lib/character-link';
+import { characterLinkTargetsOf, type CharacterLinkTarget } from '@/lib/character-link';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
-import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
-import { characterLinkQuestion, LINK_TO_CARD_TITLE, UNLINK_FROM_CARD } from './token-messages';
+import { useCharacters, type CharactersStore } from '@/stores/characters-store';
+import {
+  characterLinkQuestion,
+  LINK_TO_CHARACTER_TITLE,
+  UNLINK_FROM_CHARACTER,
+} from './token-messages';
 
-/** A link that waits for the master's yes: the token adopts the bars and conditions of a
- *  character that already exists. */
-export type CardLinkRequest = Readonly<{
+/** A link that waits for the master's yes: the token drops its own bars and conditions for the
+ *  character's. */
+export type CharacterLinkRequest = Readonly<{
   tokenId: string;
-  memberId: string;
-  memberName: string;
+  characterId: string;
   characterName: string;
 }>;
 
 export type TokenLinkItemsProps = Readonly<{
   token: TokenDto;
-  /** The table's cast: which players already have a character. */
-  cast: StoreApi<BoardStore>;
-  presence: StoreApi<TablePresenceStore>;
+  /** The grid the token is on: a character already placed in it cannot get a second token. */
+  board: StoreApi<BoardStore>;
+  /** The table's characters, the ones a token can be linked to. */
+  characters: StoreApi<CharactersStore>;
   interaction: StoreApi<BoardInteractionStore>;
-  /** Linking to a card that has a character asks first (`CardLinkRequest`). */
-  onConfirmLink: (request: CardLinkRequest) => void;
+  /** Picking a character asks first (`CharacterLinkRequest`). */
+  onConfirmLink: (request: CharacterLinkRequest) => void;
 }>;
 
-/** The master's character items on a token's menu: "Ligar à ficha de ▸" (one item per player)
- *  on a loose token, "Desligar da ficha" on a linked one. A card without a character links at
- *  once; one with a character asks first.
+/** The master's character items on a token's menu: "Ligar a personagem ▸" (one item per
+ *  character of the table, the one already in this grid disabled) on a free token, "Desligar do
+ *  personagem" on a linked one. A pick asks first.
  *
- *  Example: `<TokenLinkItems token={lyra} cast={table.cast} presence={presence} interaction={interaction} onConfirmLink={ask} />` */
+ *  Example: `<TokenLinkItems token={goblin} board={board} characters={table.characters} interaction={interaction} onConfirmLink={ask} />` */
 export function TokenLinkItems(props: TokenLinkItemsProps): React.JSX.Element {
   const { token, interaction } = props;
-  const targets = useCardLinkTargets(props.cast, props.presence);
-  if (token.anchorTokenId !== null) {
-    return (
-      <DropdownMenuItem
-        onSelect={() =>
-          void interaction
-            .getState()
-            .command((commands, scope) => commands.unlinkTokenFromCard(scope, token.id))
-        }
-      >
-        {UNLINK_FROM_CARD}
-      </DropdownMenuItem>
-    );
-  }
-  const choose = (target: CardLinkTarget): void => {
-    if (target.characterName === null) return linkToCard(interaction, token.id, target.memberId);
-    props.onConfirmLink({ ...target, tokenId: token.id, characterName: target.characterName });
-  };
+  const targets = useCharacterLinkTargets(props.board, props.characters);
+  if (token.characterId) return <UnlinkItem token={token} interaction={interaction} />;
+  const choose = ({ characterId, name }: CharacterLinkTarget): void =>
+    props.onConfirmLink({ tokenId: token.id, characterId, characterName: name });
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger disabled={targets.length === 0}>
-        {LINK_TO_CARD_TITLE}
+        {LINK_TO_CHARACTER_TITLE}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
         {targets.map((target) => (
-          <DropdownMenuItem key={target.memberId} onSelect={() => choose(target)}>
-            {target.memberName}
+          <DropdownMenuItem
+            key={target.characterId}
+            disabled={target.placed}
+            onSelect={() => choose(target)}
+          >
+            {target.name}
           </DropdownMenuItem>
         ))}
       </DropdownMenuSubContent>
@@ -83,31 +77,43 @@ export function TokenLinkItems(props: TokenLinkItemsProps): React.JSX.Element {
   );
 }
 
-export type CardLinkDialogProps = Readonly<{
-  request: CardLinkRequest;
+function UnlinkItem({ token, interaction }: Pick<TokenLinkItemsProps, 'token' | 'interaction'>) {
+  return (
+    <DropdownMenuItem
+      onSelect={() =>
+        void interaction
+          .getState()
+          .command((commands, scope) => commands.unlinkTokenFromCharacter(scope, token.id))
+      }
+    >
+      {UNLINK_FROM_CHARACTER}
+    </DropdownMenuItem>
+  );
+}
+
+export type CharacterLinkDialogProps = Readonly<{
+  request: CharacterLinkRequest;
   interaction: StoreApi<BoardInteractionStore>;
   onClose: () => void;
 }>;
 
-/** "Ligar à ficha de Bia?": the token is about to drop its own bars and conditions for the
- *  character's. "Ligar" sends the link; a refusal goes to the status line.
+/** "Ligar a Lyra?": the token is about to drop its own bars and conditions for the character's.
+ *  "Ligar" sends the link; a refusal goes to the status line.
  *
- *  Example: `{link && <CardLinkDialog request={link} interaction={interaction} onClose={close} />}` */
-export function CardLinkDialog({ request, interaction, onClose }: CardLinkDialogProps) {
+ *  Example: `{link && <CharacterLinkDialog request={link} interaction={interaction} onClose={close} />}` */
+export function CharacterLinkDialog({ request, interaction, onClose }: CharacterLinkDialogProps) {
   return (
     <AlertDialog open onOpenChange={(open) => !open && onClose()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{`Ligar à ficha de ${request.memberName}?`}</AlertDialogTitle>
+          <AlertDialogTitle>{`Ligar a ${request.characterName}?`}</AlertDialogTitle>
           <AlertDialogDescription>
-            {characterLinkQuestion(request.characterName, request.memberName)}
+            {characterLinkQuestion(request.characterName)}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => linkToCard(interaction, request.tokenId, request.memberId)}
-          >
+          <AlertDialogAction onClick={() => linkToCharacter(interaction, request)}>
             Ligar
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -116,21 +122,20 @@ export function CardLinkDialog({ request, interaction, onClose }: CardLinkDialog
   );
 }
 
-function linkToCard(
+function linkToCharacter(
   interaction: StoreApi<BoardInteractionStore>,
-  tokenId: string,
-  memberId: string,
+  { tokenId, characterId }: CharacterLinkRequest,
 ): void {
   void interaction
     .getState()
-    .command((commands, scope) => commands.linkTokenToCard(scope, tokenId, memberId));
+    .command((commands, scope) => commands.linkTokenToCharacter(scope, tokenId, characterId));
 }
 
-function useCardLinkTargets(
-  cast: StoreApi<BoardStore>,
-  presence: StoreApi<TablePresenceStore>,
-): readonly CardLinkTarget[] {
-  const castBoard = useBoard(cast, (state) => state.board);
-  const members = useTablePresence(presence, (state) => state.members);
-  return useMemo(() => cardLinkTargetsOf(members, castBoard), [members, castBoard]);
+function useCharacterLinkTargets(
+  board: StoreApi<BoardStore>,
+  characters: StoreApi<CharactersStore>,
+): readonly CharacterLinkTarget[] {
+  const tokens = useBoard(board, (state) => state.board?.tokens);
+  const confirmed = useCharacters(characters, (state) => state.characters);
+  return useMemo(() => characterLinkTargetsOf(confirmed, tokens ?? []), [confirmed, tokens]);
 }

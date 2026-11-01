@@ -1,11 +1,6 @@
-import type {
-  BoardStateDto,
-  MemberCardDto,
-  SessionMemberDto,
-  TokenDto,
-} from '@lorkarium/contracts';
+import type { BoardStateDto, CharacterDto, SessionMemberDto, TokenDto } from '@lorkarium/contracts';
 import { assignableRolesOf, type TableRole, type TableSeat } from '@lorkarium/game-core';
-import { mainTokenIdOfMember } from './main-token';
+import { characterTokenOf } from './main-token';
 
 /** Someone on the party board. `assignable`: the roles the viewer may give them, by the
  *  game-core `assignableRolesOf` (empty: no role control on their row). A spectator (only while
@@ -21,13 +16,13 @@ export type RosterSpectator = RosterRow;
 /** A master on the party board: the compact row; `owner` is the campaign's creator. */
 export type RosterMaster = RosterRow & Readonly<{ owner: boolean }>;
 
-/** A player on the party board. `card` and `token` are `null` while the board is loading (they
- *  come with the `board:sync`); a player who never had a card written gets an empty one. */
+/** A player on the party board. `character` is `null` while the characters load (or, briefly,
+ *  before the server made theirs); `token` is their character's token in the group grid, `null`
+ *  while the board loads or with none of it there. */
 export type RosterPlayer = RosterRow &
   Readonly<{
-    card: MemberCardDto | null;
+    character: CharacterDto | null;
     token: TokenDto | null;
-    characterName: string | null;
   }>;
 
 export type TableRoster = Readonly<{
@@ -42,9 +37,8 @@ export type TableRosterInput = Readonly<{
   members: readonly SessionMemberDto[];
   /** The group grid's board (`null` while it loads). */
   board: BoardStateDto | null;
-  /** The table's cast: the cards in the table's version and the characters' anchors (`null`
-   *  while it loads: the grid's copy of the cards stands in). */
-  cast: BoardStateDto | null;
+  /** The table's characters (`null` until their first `character:sync`). */
+  characters: readonly CharacterDto[] | null;
   viewerId: string;
   /** The campaign's creator (`campaign.ownerId`): first among the masters. */
   ownerId: string;
@@ -52,11 +46,10 @@ export type TableRosterInput = Readonly<{
 
 /** Who goes in which section of the "Na mesa" tab: the juggernauts online apart, the masters
  *  (the owner first), then the players online first (in the server's order) and the offline ones
- *  after, each with card and main token — the group grid's, else the anchor of their character
- *  (who is in no grid of the group yet) —, and the spectators online (the table keeps no trace
+ *  after, each with their character and its token in the group grid, and the spectators online (the table keeps no trace
  *  of one who left, nor of a juggernaut).
  *
- *  Example: `tableRosterOf({ members, board, cast, viewerId: user.id, ownerId }).players[0].characterName` */
+ *  Example: `tableRosterOf({ members, board, characters, viewerId: user.id, ownerId }).players[0].character?.name` */
 export function tableRosterOf(input: TableRosterInput): TableRoster {
   const { members } = input;
   const rowOf = rowsOf(input);
@@ -105,40 +98,9 @@ function mastersOf({ members, ownerId }: TableRosterInput): SessionMemberDto[] {
   ];
 }
 
-/** The name the card shows: the nickname written on it, else the main token's name.
- *
- *  Example: `characterNameOf({ characterName: null, … }, lyra) // 'Lyra'` */
-export function characterNameOf(
-  card: Pick<MemberCardDto, 'characterName'> | null,
-  token: Pick<TokenDto, 'name'> | null,
-): string | null {
-  return card?.characterName ?? token?.name ?? null;
-}
-
-function playerOf(row: RosterRow, { board, cast }: TableRosterInput): RosterPlayer {
-  const { member } = row;
-  if (!board) return { ...row, card: null, token: null, characterName: null };
-  const memberCards = (cast ?? board).memberCards;
-  const card =
-    memberCards.find(({ userId }) => userId === member.userId) ?? emptyCard(member.userId);
-  const tokenId = mainTokenIdOfMember({ ...board, memberCards }, member.userId);
-  const token = board.tokens.find(({ id }) => id === tokenId) ?? anchorOf(cast, card);
-  return { ...row, card, token, characterName: characterNameOf(card, token) };
-}
-
-function anchorOf(cast: BoardStateDto | null, card: MemberCardDto): TokenDto | null {
-  if (!cast || !card.anchorTokenId) return null;
-  return cast.tokens.find(({ id }) => id === card.anchorTokenId) ?? null;
-}
-
-function emptyCard(userId: string): MemberCardDto {
-  return {
-    userId,
-    characterName: null,
-    armorClass: null,
-    difficultyClass: null,
-    noteOne: null,
-    noteTwo: null,
-    anchorTokenId: null,
-  };
+// A character with no player (who left the table) has no card: only a member has one.
+function playerOf(row: RosterRow, { board, characters }: TableRosterInput): RosterPlayer {
+  const character = characters?.find(({ userId }) => userId === row.member.userId) ?? null;
+  const token = board ? characterTokenOf(board.tokens, character) : null;
+  return { ...row, character, token };
 }

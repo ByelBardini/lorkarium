@@ -11,6 +11,7 @@ import {
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
+import { syncedCharacters } from '../../support/character-fixtures';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
   ANA_AT_TABLE,
@@ -57,7 +58,7 @@ describe('CombatPanel', () => {
       .apply({ kind: 'board', state: vharnBoard({ tokens: [KAEL, LYRA], ...state }) });
     render(
       <CombatPanel
-        table={{ board, presence }}
+        table={{ board, presence, characters: syncedCharacters() }}
         interaction={interaction}
         isMaster={isMaster}
         onEditToken={() => undefined}

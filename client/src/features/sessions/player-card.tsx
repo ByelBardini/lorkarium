@@ -1,8 +1,7 @@
-import type { MemberCardDto } from '@lorkarium/contracts';
+import type { CharacterDto } from '@lorkarium/contracts';
 import { HexagonIcon, ShieldIcon } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { characterAnchorOf } from '@/lib/character-anchor';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { RosterPlayer } from '@/lib/table-roster';
 import { cn } from '@/lib/utils';
@@ -26,21 +25,21 @@ export type PlayerCardProps = Readonly<{
   player: RosterPlayer;
   board: StoreApi<BoardStore>;
   interaction: StoreApi<BoardInteractionStore>;
-  /** Whether the viewer is a master: the master edits every card. */
+  /** Whether the viewer is a master: the masters may give and make sheets. */
   isMaster: boolean;
   clock: InteractionClock;
   /** The server time of the last presence update ("há N min" counts from it). */
   serverAt: string | null;
 }>;
 
-/** A player on the "Na mesa" tab: the main token's portrait and bars, the character name, the
- *  nick with the presence symbol, CA, CD and two free lines; the member and the masters edit it,
- *  and the "⋯" moves the player to the roles the viewer may give (`player.assignable`).
- *  Before the board arrives, only the nick line (cards and tokens come with the `board:sync`).
+/** A player on the "Na mesa" tab: their character's portrait and bars, its name, the nick with
+ *  the presence symbol, CA, CD, two free lines and its sheets; who controls the character (its
+ *  player and the masters, `canControl`) edits it, and the "⋯" moves the player to the roles the
+ *  viewer may give (`player.assignable`). Before the characters arrive, only the nick line.
  *
  *  Example: `<PlayerCard player={roster.players[0]} board={board} interaction={interaction} isMaster={false} />` */
 export function PlayerCard(props: PlayerCardProps): React.JSX.Element {
-  const { member, isViewer, card } = props.player;
+  const { member, isViewer, character } = props.player;
   const titleId = useId();
   const awayLabel = useAwayLabel(member.awaySince, props.serverAt, props.clock);
   return (
@@ -52,8 +51,8 @@ export function PlayerCard(props: PlayerCardProps): React.JSX.Element {
         !member.online && 'opacity-60',
       )}
     >
-      {card ? (
-        <CardBody {...props} card={card} titleId={titleId} awayLabel={awayLabel} />
+      {character ? (
+        <CardBody {...props} character={character} titleId={titleId} awayLabel={awayLabel} />
       ) : (
         <NickLine id={titleId} member={member} isViewer={isViewer} awayLabel={awayLabel} withMark />
       )}
@@ -62,82 +61,98 @@ export function PlayerCard(props: PlayerCardProps): React.JSX.Element {
 }
 
 type CardBodyProps = PlayerCardProps &
-  Readonly<{ card: MemberCardDto; titleId: string; awayLabel: string | null }>;
+  Readonly<{ character: CharacterDto; titleId: string; awayLabel: string | null }>;
 
-function useCardEditing({ player, interaction, isMaster }: PlayerCardProps): CardEditing {
+function useCardEditing({ character, interaction }: CardBodyProps): CardEditing {
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
   const hintId = useId();
-  const { userId } = player.member;
+  const characterId = character.id;
   return {
-    editable: player.isViewer || isMaster,
+    editable: character.canControl,
     disabled: readOnly,
     hintId,
     send: (changes) =>
       interaction
         .getState()
-        .command((commands, scope) => commands.updateMemberCard(scope, userId, changes)),
+        .command((commands, scope) => commands.updateCharacter(scope, characterId, changes)),
   };
 }
 
 function CardBody(props: CardBodyProps): React.JSX.Element {
-  const { player, card, titleId } = props;
+  const { player, character, titleId } = props;
   const { member, isViewer, token } = player;
   const editing = useCardEditing(props);
   const roleChange = useRoleChange(props);
-  const name = player.characterName ?? member.name;
+  const { name } = character;
   return (
     <>
       <span id={editing.hintId} className="sr-only">
         {SAVE_HINT}
       </span>
       <div className="flex gap-3">
-        <CardPortrait token={token} member={member} name={name} />
+        <CardPortrait face={character} member={member} name={name} onGrid={token !== null} />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <CharacterName
-            titleId={titleId}
-            shown={player.characterName ?? 'Sem personagem'}
-            nickname={card.characterName}
-            tokenName={token?.name ?? ''}
-            editing={editing}
-          />
+          <CharacterName titleId={titleId} shown={name} editing={editing} />
           <NickLine member={member} isViewer={isViewer} awayLabel={props.awayLabel} />
-          <CardBars token={token} name={name} board={props.board} interaction={props.interaction} />
+          <CardBars character={character} name={name} interaction={props.interaction} />
         </div>
       </div>
       <CardStats
         {...props}
-        name={name}
         editing={editing}
         actions={
           <>
-            <CharacterSheetButton
-              memberId={member.userId}
-              anchorTokenId={characterAnchorOf(card, token)}
-              name={name}
-              isMaster={props.isMaster}
-            />
+            <CardSheets {...props} />
             {roleMenuOf(roleChange, player.assignable, member.name)}
           </>
         }
       />
-      <div className="flex flex-col gap-0.5">
-        <NoteField
-          label={`Anotação 1 de ${name}`}
-          field="noteOne"
-          value={card.noteOne}
-          placeholder="Linha livre"
-          editing={editing}
-        />
-        <NoteField
-          label={`Anotação 2 de ${name}`}
-          field="noteTwo"
-          value={card.noteTwo}
-          placeholder="Linha livre"
-          editing={editing}
-        />
-      </div>
+      <CardNotes character={character} editing={editing} />
       {roleChange && <RoleChangeFeedback flow={roleChange} name={member.name} />}
     </>
+  );
+}
+
+function CardSheets({ character, interaction, isMaster }: CardBodyProps): React.JSX.Element {
+  const makeMain = (sheetId: string): void => {
+    void interaction
+      .getState()
+      .command((commands, scope) => commands.setMainSheet(scope, character.id, sheetId));
+  };
+  return (
+    <CharacterSheetButton
+      characterId={character.id}
+      memberId={character.userId}
+      mainSheetId={character.mainSheetId}
+      name={character.name}
+      isMaster={isMaster}
+      canControl={character.canControl}
+      onMakeMain={makeMain}
+    />
+  );
+}
+
+function CardNotes({
+  character,
+  editing,
+}: Readonly<{ character: CharacterDto; editing: CardEditing }>) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <NoteField
+        label={`Anotação 1 de ${character.name}`}
+        field="noteOne"
+        value={character.noteOne}
+        placeholder="Linha livre"
+        editing={editing}
+      />
+      <NoteField
+        label={`Anotação 2 de ${character.name}`}
+        field="noteTwo"
+        value={character.noteTwo}
+        placeholder="Linha livre"
+        editing={editing}
+      />
+    </div>
   );
 }
 
@@ -156,11 +171,10 @@ function roleMenuOf(
   return <RoleActionsMenu name={name} roles={roles} disabled={flow.pending} onPick={flow.pick} />;
 }
 
-type CardStatsProps = CardBodyProps &
-  Readonly<{ name: string; editing: CardEditing; actions: ReactNode }>;
+type CardStatsProps = CardBodyProps & Readonly<{ editing: CardEditing; actions: ReactNode }>;
 
 function CardStats(props: CardStatsProps) {
-  const { card, name, editing } = props;
+  const { character, editing } = props;
   const { token } = props.player;
   return (
     <div className="flex items-center gap-2">
@@ -169,8 +183,8 @@ function CardStats(props: CardStatsProps) {
         short="CA"
         title="Classe de Armadura"
         field="armorClass"
-        value={card.armorClass}
-        owner={name}
+        value={character.armorClass}
+        owner={character.name}
         editing={editing}
       />
       <StatField
@@ -178,15 +192,15 @@ function CardStats(props: CardStatsProps) {
         short="CD"
         title="Classe de Dificuldade"
         field="difficultyClass"
-        value={card.difficultyClass}
-        owner={name}
+        value={character.difficultyClass}
+        owner={character.name}
         editing={editing}
       />
       <span className="flex-1" />
       {token && (
         <LocateButton
           token={token}
-          name={name}
+          name={character.name}
           board={props.board}
           interaction={props.interaction}
         />

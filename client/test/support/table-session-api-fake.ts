@@ -1,5 +1,7 @@
 import { act } from '@testing-library/react';
 import type {
+  CharacterListener,
+  CharacterUpdate,
   GridListener,
   GridUpdate,
   TableSessionApi,
@@ -16,7 +18,9 @@ import { CallJournal } from './call-journal';
  *  `watch` and tab `close` as `<campaignId>:<sceneId>`, `watchResyncs` each tab `resync()`, and
  *  `emitToGrid(sceneId, update)` delivers to the open tab of that grid. The cast: `castFollowed`
  *  lists each `followCast` as `<campaignId>:<sceneId>`, `castResyncs` each cast `resync()`, and
- *  `emitToCast(campaignId, update)` delivers to that table's cast.
+ *  `emitToCast(campaignId, update)` delivers to that table's cast. The characters:
+ *  `charactersFollowed` lists each `followCharacters` by table, `characterResyncs` each of their
+ *  `resync()`, and `emitToCharacters(campaignId, update)` delivers to that table's characters.
  *
  *  Example: `tableSessionApi.emitTo(VHARN.id, { kind: 'state', state: vharnState() })` */
 export class TableSessionApiFake implements TableSessionApi {
@@ -32,6 +36,9 @@ export class TableSessionApiFake implements TableSessionApi {
   readonly castFollowed: string[] = [];
   readonly castResyncs: string[] = [];
   private readonly castListeners = new Map<string, GridListener>();
+  readonly charactersFollowed: string[] = [];
+  readonly characterResyncs: string[] = [];
+  private readonly characterListeners = new Map<string, CharacterListener>();
   private listener: TableSessionListener | null = null;
   private readonly listeners = new Map<string, TableSessionListener>();
   private readonly gridListeners = new Map<string, GridListener>();
@@ -63,7 +70,24 @@ export class TableSessionApiFake implements TableSessionApi {
         this.castListeners.set(campaignId, listener);
         return { resync: () => void this.castResyncs.push(`${campaignId}:${sceneId}`) };
       },
+      followCharacters: (listener) => {
+        this.charactersFollowed.push(campaignId);
+        this.characterListeners.set(campaignId, listener);
+        return { resync: () => void this.characterResyncs.push(campaignId) };
+      },
     };
+  }
+
+  emitToCharacters(campaignId: string, ...updates: CharacterUpdate[]): void {
+    const listener = this.characterListeners.get(campaignId);
+    if (!listener) {
+      throw new Error(
+        `table ${campaignId} follows no characters; followed: ${this.charactersFollowed}`,
+      );
+    }
+    act(() => {
+      for (const update of updates) listener(update);
+    });
   }
 
   emitToGrid(sceneId: string, ...updates: GridUpdate[]): void {

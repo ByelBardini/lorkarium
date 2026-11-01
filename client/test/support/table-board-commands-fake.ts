@@ -2,7 +2,7 @@ import type {
   BarChangeDto,
   CombatEntryInput,
   DrawingShapeInput,
-  MemberCardChangesInput,
+  CharacterChangesInput,
   SceneGridDto,
   SceneVisionDto,
   TokenLayerDto,
@@ -249,16 +249,29 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('setTokenForm', scope, { ...target });
   }
 
-  setMainToken(scope: BoardScope, tokenId: string, playerId?: string): Promise<BoardCommandResult> {
-    return this.record('setMainToken', scope, { tokenId, ...(playerId && { playerId }) });
+  updateCharacter(
+    scope: BoardScope,
+    characterId: string,
+    changes: CharacterChangesInput,
+  ): Promise<BoardCommandResult> {
+    return this.record('updateCharacter', scope, { characterId, changes });
   }
 
-  updateMemberCard(
+  adjustCharacterBar(
     scope: BoardScope,
-    memberId: string,
-    changes: MemberCardChangesInput,
+    characterId: string,
+    barId: string,
+    change: BarChangeDto,
   ): Promise<BoardCommandResult> {
-    return this.record('updateMemberCard', scope, { memberId, changes });
+    return this.record('adjustCharacterBar', scope, { characterId, barId, change });
+  }
+
+  setMainSheet(
+    scope: BoardScope,
+    characterId: string,
+    sheetId: string,
+  ): Promise<BoardCommandResult> {
+    return this.record('setMainSheet', scope, { characterId, sheetId });
   }
 
   deleteLights(
@@ -475,16 +488,16 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('previousTurn', scope, { fromCombatantId });
   }
 
-  linkTokenToCard(
+  linkTokenToCharacter(
     scope: BoardScope,
     tokenId: string,
-    memberId: string,
+    characterId: string,
   ): Promise<BoardCommandResult> {
-    return this.record('linkTokenToCard', scope, { tokenId, memberId });
+    return this.record('linkTokenToCharacter', scope, { tokenId, characterId });
   }
 
-  unlinkTokenFromCard(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
-    return this.record('unlinkTokenFromCard', scope, { tokenId });
+  unlinkTokenFromCharacter(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
+    return this.record('unlinkTokenFromCharacter', scope, { tokenId });
   }
 
   async addPlayers(scope: BoardScope, center: CellTarget): Promise<AddPlayersResult> {

@@ -30,10 +30,17 @@ import {
   VHARN_SCENE,
   boardPinged,
   lyra,
-  memberCard,
+  conditionDefinition,
   vharnBoard,
 } from '../support/table-session-fixtures';
-import { VHARN_CAST_ID, anchorUpdatedAt, castBoard, linkedLyra } from '../support/cast-fixtures';
+import { VHARN_CAST_ID, anchorUpdatedAt, castBoard } from '../support/cast-fixtures';
+import {
+  characterChangedAt,
+  charactersSynced,
+  linkedLyra,
+  lyraCharacter,
+  lyraPvAt,
+} from '../support/character-fixtures';
 import type { GridUpdate } from '@/services/table-session-api';
 
 const TABS_KEY = `${SCENE_TABS_STORAGE_PREFIX}${VHARN.id}`;
@@ -229,11 +236,6 @@ describe('scene tabs store', () => {
       return { kind: 'boardEvent', event: anchorUpdatedAt(version, pv) };
     }
 
-    function lyraPvOf(tab: SceneTab): number | undefined {
-      const lyraToken = tab.board.getState().board?.tokens.find(({ id }) => id === LYRA_ID);
-      return lyraToken?.bars[0]?.current;
-    }
-
     it('the open table follows its cast (board:sync of castSceneId) and applies its events', () => {
       const table = openVharn();
       expect(api.castFollowed).toEqual([`${VHARN.id}:${VHARN_CAST_ID}`]);
@@ -242,7 +244,41 @@ describe('scene tabs store', () => {
       expect(table.board.getState().board?.scene.id).toBe(VHARN_SCENE.id);
     });
 
-    it('a linked Lyra shows the anchor PV in the group tab and in an extra tab, and follows it', () => {
+    it('the conditions defined of every tab are the cast ones', () => {
+      const table = openVharn();
+      const defined = [conditionDefinition({ name: 'Nauseado' })];
+      api.emitToCast(VHARN.id, {
+        kind: 'board',
+        state: castBoard({ conditionDefinitions: defined }),
+      });
+      expect(table.board.getState().board?.conditionDefinitions).toEqual(defined);
+    });
+  });
+
+  describe('the characters', () => {
+    function lyraPvOf(tab: SceneTab): number | undefined {
+      const lyraToken = tab.board.getState().board?.tokens.find(({ id }) => id === LYRA_ID);
+      return lyraToken?.bars[0]?.current;
+    }
+
+    it('the open table follows its characters and applies their events in their own version', () => {
+      const table = openVharn();
+      expect(api.charactersFollowed).toEqual([VHARN.id]);
+      api.emitToCharacters(VHARN.id, charactersSynced(3, lyraCharacter()));
+      api.emitToCharacters(VHARN.id, characterChangedAt(4, lyraCharacter({ armorClass: 18 })));
+      expect(table.characters.getState().characters[0]?.armorClass).toBe(18);
+    });
+
+    it('a gap in the characters asks their resync, not the grid one', () => {
+      const table = openVharn();
+      api.emitToCharacters(VHARN.id, charactersSynced(3, lyraCharacter()));
+      api.emitToCharacters(VHARN.id, characterChangedAt(6, lyraCharacter()));
+      expect(api.characterResyncs).toEqual([VHARN.id]);
+      expect(api.resyncedIds).toEqual([]);
+      expect(table.characters.getState().version).toBe(3);
+    });
+
+    it("a linked Lyra wears her character's PV in the group tab and in an extra tab, and follows it", () => {
       const table = openVharn();
       api.emitTo(VHARN.id, { kind: 'board', state: vharnBoard({ tokens: [linkedLyra()] }) });
       table.tabs.getState().open(TORRE_SCENE.id);
@@ -252,19 +288,12 @@ describe('scene tabs store', () => {
       });
       const group = groupTabOf(tabsOf(table).getState());
       expect(lyraPvOf(group)).toBe(32);
-      api.emitToCast(VHARN.id, { kind: 'board', state: castBoard() });
+      api.emitToCharacters(VHARN.id, charactersSynced(3, lyraCharacter()));
       expect(lyraPvOf(group)).toBe(25);
-      api.emitToCast(VHARN.id, castEvent(4, 18));
+      api.emitToCharacters(VHARN.id, characterChangedAt(4, lyraPvAt(18)));
       expect(lyraPvOf(group)).toBe(18);
       expect(lyraPvOf(visible(table))).toBe(18);
       expect(visible(table).board.getState().board?.tokens[0]?.col).toBe(9);
-    });
-
-    it('the cards and the conditions defined of every tab are the cast ones', () => {
-      const table = openVharn();
-      const card = memberCard({ armorClass: 16 });
-      api.emitToCast(VHARN.id, { kind: 'board', state: castBoard({ memberCards: [card] }) });
-      expect(table.board.getState().board?.memberCards).toEqual([card]);
     });
   });
 

@@ -12,8 +12,17 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
+import {
+  charactersSynced,
+  kaelCharacter,
+  linkedKael,
+  linkedLyra,
+  lyraCharacter,
+  LYRA_CHARACTER_ID,
+} from '../../support/character-fixtures';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
   ANA_AT_TABLE,
@@ -33,11 +42,11 @@ import {
 } from '../../support/table-session-fixtures';
 
 const BIA_VIEWER = { userId: BIA_AT_TABLE.userId, role: 'player' } as const;
-const ANCHOR_ID = '7f6e5d4c-3b2a-4f1e-9d8c-7b6a5f4e3d2c';
 
 describe('TokenDock', () => {
   let board: StoreApi<BoardStore>;
   let presence: StoreApi<TablePresenceStore>;
+  let characters: StoreApi<CharactersStore>;
   let interaction: StoreApi<BoardInteractionStore>;
   let commands: TableBoardCommandsFake;
   let edited: string[];
@@ -46,6 +55,7 @@ describe('TokenDock', () => {
     board = createBoardStore(VHARN.id, () => undefined);
     presence = createTablePresenceStore(VHARN.id);
     presence.setState({ members: [ANA_AT_TABLE, BIA_AT_TABLE] });
+    characters = createCharactersStore(VHARN.id, () => undefined);
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
       scopeOf: () => VHARN_GRID,
@@ -71,6 +81,7 @@ describe('TokenDock', () => {
         <TokenDock
           board={board}
           presence={presence}
+          characters={characters}
           interaction={interaction}
           isMaster={isMaster}
           onEditToken={(tokenId) => edited.push(tokenId)}
@@ -242,6 +253,7 @@ describe('TokenDock', () => {
       <TokenDock
         board={board}
         presence={presence}
+        characters={characters}
         interaction={interaction}
         isMaster
         onEditToken={() => undefined}
@@ -310,15 +322,17 @@ describe('TokenDock', () => {
     });
   });
 
-  describe('the main token', () => {
+  describe("the viewer's character", () => {
     const asBia = { viewer: { userId: BIA_AT_TABLE.userId, role: 'player' as const } };
     const mainDock = () => screen.getByRole('region', { name: 'Token principal' });
+    const ownDock = () => screen.getByRole('region', { name: 'Meu personagem' });
 
     function renderForBia(state: Partial<BoardStateDto> = {}, selected: readonly string[] = []) {
-      renderDock({ ...asBia, tokens: [lyra(), kael()], ...state }, false, selected);
+      characters.getState().apply(charactersSynced(3, lyraCharacter(), kaelCharacter()));
+      renderDock({ ...asBia, tokens: [linkedLyra(), linkedKael()], ...state }, false, selected);
     }
 
-    it('with nothing selected Bia sees her Lyra, its bars and the "Principal" mark, with no "Fechar ficha"', () => {
+    it('with nothing selected Bia sees the token of her character, its bars and the "Principal" mark, with no "Fechar ficha"', () => {
       renderForBia();
 
       expect(within(mainDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
@@ -330,10 +344,17 @@ describe('TokenDock', () => {
       expect(screen.queryByRole('button', { name: 'Fechar ficha' })).toBeNull();
     });
 
+    it('a free token she controls is not her main one: with only it, her character shows', () => {
+      renderForBia({ tokens: [lyra()] });
+
+      expect(within(ownDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
+    });
+
     it('selecting Kael shows Kael with "Fechar ficha", which brings Lyra back', async () => {
       renderForBia({}, [KAEL_ID]);
 
       expect(within(dock()).getByRole('heading', { name: 'Kael' })).toBeInTheDocument();
+      expect(within(dock()).queryByText('Principal')).toBeNull();
       await userEvent.click(within(dock()).getByRole('button', { name: 'Fechar ficha' }));
 
       expect(within(mainDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
@@ -353,14 +374,53 @@ describe('TokenDock', () => {
     });
 
     it('a selected token hidden by the dark gives way to the main token', () => {
-      const unseen = kael({ canControl: false, controllerIds: [] });
-      renderForBia({ scene: { ...VHARN_SCENE, vision: 'dark' }, tokens: [lyra(), unseen] }, [
-        KAEL_ID,
-      ]);
+      const unseen = linkedKael({ canControl: false, controllerIds: [] });
+      const scene = { ...VHARN_SCENE, vision: 'dark' as const };
+      renderForBia({ scene, tokens: [linkedLyra(), unseen] }, [KAEL_ID]);
 
       expect(within(mainDock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
     });
+
+    it('in a grid without Lyra the dock shows her character, its bars adjusted by character:adjustBar', async () => {
+      renderForBia({ tokens: [linkedKael()] });
+
+      expect(ownDock()).toHaveTextContent('Sem token neste grid');
+      expect(ownDock()).toHaveTextContent('PV25 / 45');
+      await userEvent.dblClick(
+        within(ownDock()).getByRole('button', { name: 'Editar PV de Lyra' }),
+      );
+      const current = screen.getByRole('textbox', { name: 'Atual' });
+      await userEvent.clear(current);
+      await userEvent.type(current, '−7{Enter}');
+
+      expect(commands.sentAs('adjustCharacterBar').map(({ fields }) => fields)).toEqual([
+        { characterId: LYRA_CHARACTER_ID, barId: LYRA_PV_ID, change: { op: 'add', amount: -7 } },
+      ]);
+    });
+
+    it('a character Bia does not control only reads its bars', () => {
+      characters.getState().apply(charactersSynced(3, lyraCharacter({ canControl: false })));
+      renderDock({ ...asBia, tokens: [] }, false, []);
+
+      expect(within(ownDock()).queryByRole('button', { name: 'Editar PV de Lyra' })).toBeNull();
+      expect(ownDock()).toHaveTextContent('PV25 / 45');
+    });
+
+    it('a character without bars says so', () => {
+      characters.getState().apply(charactersSynced(3, lyraCharacter({ bars: [] })));
+      renderDock({ ...asBia, tokens: [] }, false, []);
+
+      expect(ownDock()).toHaveTextContent('Esse personagem não tem barras.');
+    });
+
+    it('the master, with no character, gets no dock with nothing selected', () => {
+      characters.getState().apply(charactersSynced(3, lyraCharacter(), kaelCharacter()));
+      renderDock({ tokens: [linkedLyra()] }, true, []);
+
+      expect(screen.queryByRole('region')).toBeNull();
+    });
   });
+
   describe('"Editar token" of a player with the create key', () => {
     const CREATE = { create: true, delete: false };
 
@@ -380,7 +440,7 @@ describe('TokenDock', () => {
     });
 
     it('Bia sees no "Editar token" on her token linked to a character', () => {
-      const linked = lyra({ createdBy: BIA_AT_TABLE.userId, anchorTokenId: ANCHOR_ID });
+      const linked = linkedLyra({ createdBy: BIA_AT_TABLE.userId });
       renderDock({ tokens: [linked] }, false, [LYRA_ID], CREATE);
 
       expect(within(dock()).queryByRole('button', { name: 'Editar token' })).toBeNull();

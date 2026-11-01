@@ -2,14 +2,10 @@ import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PlayerCardHarness } from '../../support/player-card-harness';
-import {
-  ANA_AT_TABLE,
-  BIA_AT_TABLE,
-  CAIO_AT_TABLE,
-  memberCard,
-} from '../../support/table-session-fixtures';
+import { LYRA_CHARACTER_ID } from '../../support/character-fixtures';
+import { ANA_AT_TABLE, CAIO_AT_TABLE } from '../../support/table-session-fixtures';
 
-const BIA = BIA_AT_TABLE.userId;
+const LYRA = LYRA_CHARACTER_ID;
 
 describe('PlayerCard, editing', () => {
   let harness: PlayerCardHarness;
@@ -19,7 +15,7 @@ describe('PlayerCard, editing', () => {
   });
 
   const field = (name: string) => screen.getByRole('textbox', { name });
-  const sent = () => harness.commands.sentAs('updateMemberCard').map(({ fields }) => fields);
+  const sent = () => harness.commands.sentAs('updateCharacter').map(({ fields }) => fields);
   const pencil = () => screen.queryByRole('button', { name: 'Mudar o nome de Lyra' });
 
   it('Bia typing 15 in her CA and leaving the field sends armorClass 15 for her', async () => {
@@ -28,7 +24,7 @@ describe('PlayerCard, editing', () => {
     await userEvent.type(field('CA de Lyra'), '15');
     await userEvent.tab();
 
-    expect(sent()).toEqual([{ memberId: BIA, changes: { armorClass: 15 } }]);
+    expect(sent()).toEqual([{ characterId: LYRA, changes: { armorClass: 15 } }]);
   });
 
   it('Enter in the first note sends noteOne', async () => {
@@ -36,33 +32,35 @@ describe('PlayerCard, editing', () => {
 
     await userEvent.type(field('Anotação 1 de Lyra'), 'Percepção passiva 14{Enter}');
 
-    expect(sent()).toEqual([{ memberId: BIA, changes: { noteOne: 'Percepção passiva 14' } }]);
+    expect(sent()).toEqual([{ characterId: LYRA, changes: { noteOne: 'Percepção passiva 14' } }]);
   });
 
-  it('the pencil opens "Nome do personagem" with the token name as placeholder; Enter sends it', async () => {
+  it('the pencil opens "Nome do personagem" with the name in it; Enter sends the new one', async () => {
     harness.render();
 
     await userEvent.click(pencil() ?? document.body);
     const name = field('Nome do personagem');
-    expect(name).toHaveAttribute('placeholder', 'Lyra');
+    expect(name).toHaveValue('Lyra');
+    await userEvent.clear(name);
     await userEvent.type(name, 'Lyra Vandel{Enter}');
 
-    expect(sent()).toEqual([{ memberId: BIA, changes: { characterName: 'Lyra Vandel' } }]);
+    expect(sent()).toEqual([{ characterId: LYRA, changes: { name: 'Lyra Vandel' } }]);
     expect(screen.queryByRole('textbox', { name: 'Nome do personagem' })).toBeNull();
   });
 
-  it('erasing the nickname and pressing Enter sends characterName null (back to the token name)', async () => {
-    harness.render({ state: { memberCards: [memberCard({ characterName: 'Lyra Vandel' })] } });
+  it('erasing the name and pressing Enter sends nothing: a character always has a name', async () => {
+    harness.render({ character: { name: 'Lyra Vandel' } });
 
     await userEvent.click(screen.getByRole('button', { name: 'Mudar o nome de Lyra Vandel' }));
     await userEvent.clear(field('Nome do personagem'));
     await userEvent.keyboard('{Enter}');
 
-    expect(sent()).toEqual([{ memberId: BIA, changes: { characterName: null } }]);
+    expect(sent()).toEqual([]);
+    expect(screen.getByRole('heading', { level: 3, name: 'Lyra Vandel' })).toBeInTheDocument();
   });
 
   it('leaving a field without changing it sends nothing', async () => {
-    harness.render({ state: { memberCards: [memberCard({ armorClass: 15 })] } });
+    harness.render({ character: { armorClass: 15 } });
 
     await userEvent.click(field('CA de Lyra'));
     await userEvent.tab();
@@ -82,7 +80,7 @@ describe('PlayerCard, editing', () => {
     harness.render();
     await userEvent.type(field('Anotação 1 de Lyra'), 'Fer');
 
-    act(() => harness.confirm({ memberCards: [memberCard({ noteOne: 'Envenenada' })] }));
+    act(() => harness.confirm({ noteOne: 'Envenenada' }));
     expect(field('Anotação 1 de Lyra')).toHaveValue('Fer');
     harness.commands.answerWith({ ok: false, failure: 'forbidden' });
     await userEvent.tab();
@@ -90,16 +88,16 @@ describe('PlayerCard, editing', () => {
     expect(field('Anotação 1 de Lyra')).toHaveValue('Envenenada');
   });
 
-  it('Ana, the master, edits the card of Bia', async () => {
+  it('Ana, a master, edits the character of Bia', async () => {
     harness.render({ viewerId: ANA_AT_TABLE.userId, isMaster: true });
 
     await userEvent.type(field('CD de Lyra'), '13{Enter}');
 
-    expect(sent()).toEqual([{ memberId: BIA, changes: { difficultyClass: 13 } }]);
+    expect(sent()).toEqual([{ characterId: LYRA, changes: { difficultyClass: 13 } }]);
   });
 
   it('Esc after typing goes back to the confirmed value without sending', async () => {
-    harness.render({ state: { memberCards: [memberCard({ armorClass: 15 })] } });
+    harness.render({ character: { armorClass: 15 } });
 
     await userEvent.type(field('CA de Lyra'), '{Backspace}{Backspace}9{Escape}');
 
@@ -117,7 +115,7 @@ describe('PlayerCard, editing', () => {
     expect(harness.interaction.getState().notice).toBe('forbidden');
   });
 
-  it('Caio sees the fields of Bia read only and no pencil', () => {
+  it('Caio, who does not control Lyra, sees her fields read only and no pencil', () => {
     harness.render({ viewerId: CAIO_AT_TABLE.userId });
 
     expect(field('CA de Lyra')).toHaveAttribute('readonly');

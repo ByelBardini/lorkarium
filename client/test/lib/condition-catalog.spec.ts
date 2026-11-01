@@ -6,7 +6,7 @@ import {
   withDefinitionReplaced,
   withDefinitionsAdded,
 } from '@/lib/condition-catalog';
-import { linkedLyra } from '../support/cast-fixtures';
+import { linkedLyra } from '../support/character-fixtures';
 import {
   activeCondition,
   conditionDefinition,
@@ -179,10 +179,10 @@ describe('tokensOverCatalog', () => {
     expect(tokensOverCatalog(tokens, [blessed], [blessed])).toBe(tokens);
   });
 
-  it('a linked token is left to its anchor', () => {
+  it("a token linked to a character follows the list too (its conditions are the character's)", () => {
     const linked = linkedLyra({ conditions: [poisonedOn(3)] });
     const [token] = tokensOverCatalog([linked], [poisoned], []);
-    expect(token).toBe(linked);
+    expect(token?.conditions).toEqual([]);
   });
 
   it('a list that moved without touching the tokens gives back the same array', () => {

@@ -1,6 +1,9 @@
 import type {
   BoardPingedDto,
   BoardStateDto,
+  CharacterChangedEventDto,
+  CharacterRemovedEventDto,
+  CharacterSyncDto,
   ChatSentDto,
   DiceRolledDto,
   DiceRolledSecretlyDto,
@@ -100,6 +103,22 @@ export type CastHandle = Readonly<{
   resync: () => void;
 }>;
 
+/** What reaches the table's characters: their snapshot (`character:sync`, after every join),
+ *  its failure, and the versioned events of the table's characters. */
+export type CharacterUpdate =
+  | Readonly<{ kind: 'characters'; sync: CharacterSyncDto }>
+  | Readonly<{ kind: 'charactersFailed'; failure: BoardSyncFailure }>
+  | Readonly<{ kind: 'characterChanged'; event: CharacterChangedEventDto }>
+  | Readonly<{ kind: 'characterRemoved'; event: CharacterRemovedEventDto }>;
+
+export type CharacterListener = (update: CharacterUpdate) => void;
+
+/** The table's characters followed by an open table. */
+export type CharactersHandle = Readonly<{
+  /** Asks for a fresh `character:sync`; it arrives as a `characters` update. */
+  resync: () => void;
+}>;
+
 export type TableSessionListener = (update: TableSessionUpdate) => void;
 
 export type TableSessionHandle = Readonly<{
@@ -114,6 +133,9 @@ export type TableSessionHandle = Readonly<{
   /** Follows the table's cast (`castSceneId` of the campaign detail): its snapshot and events go
    *  to `listener`, again after every reconnection. */
   followCast: (sceneId: string, listener: GridListener) => CastHandle;
+  /** Follows the table's characters: a `character:sync` after the join (and after every
+   *  reconnection), then their `character:*` events, to `listener`. */
+  followCharacters: (listener: CharacterListener) => CharactersHandle;
 }>;
 
 /** The live session of one table, as the screen sees it: validated updates, never raw packets.
@@ -149,6 +171,7 @@ export class RealtimeTableSessionApi implements TableSessionApi {
       setAway: (away) => visit.setAway(away),
       watch: (sceneId, listener) => visit.watch(sceneId, listener),
       followCast: (sceneId, listener) => visit.followCast(sceneId, listener),
+      followCharacters: (listener) => visit.followCharacters(listener),
     };
   }
 

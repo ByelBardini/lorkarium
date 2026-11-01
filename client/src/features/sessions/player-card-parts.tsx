@@ -1,8 +1,7 @@
-import type { SessionMemberDto, TokenBarDto, TokenDto } from '@lorkarium/contracts';
+import type { CharacterDto, SessionMemberDto, TokenBarDto, TokenDto } from '@lorkarium/contracts';
 import { CrosshairIcon, LockIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
-import { UserAvatar } from '@/components/user-avatar';
 import { useBoardSight } from '@/features/board/use-board-sight';
 import { BarMeter } from '@/features/tokens/bar-meter';
 import { BarQuickEdit } from '@/features/tokens/bar-quick-edit';
@@ -15,43 +14,34 @@ import { presenceOf } from '@/lib/member-presence';
 import { MemberCardPopover } from './member-card-popover';
 import { PresenceMark } from './presence-mark';
 
-/** The portrait of a card: the main token's image (or initials) with its side ring and the
- *  "Token" tag; the account's avatar (photo or initials) when the player has no main token. The
- *  member's presence rides on its corner.
+/** What a portrait shows: a character's face (a linked token wears the same). */
+export type PortraitFace = Pick<CharacterDto, 'side' | 'initials' | 'imageAssetId'>;
+
+/** The portrait of a card: the character's image (or initials) with its side ring, and the
+ *  "Token" tag while a token of it stands on the group grid. The member's presence rides on its
+ *  corner.
  *
- *  Example: `<CardPortrait token={lyra} member={bia} name="Lyra" />` */
+ *  Example: `<CardPortrait face={lyraCharacter} member={bia} name="Lyra" onGrid />` */
 export function CardPortrait({
-  token,
+  face,
   member,
   name,
-}: Readonly<{ token: TokenDto | null; member: SessionMemberDto; name: string }>) {
-  const ring = token ? { boxShadow: `inset 0 0 0 2px ${sideRingVar(token.side)}` } : undefined;
+  onGrid,
+}: Readonly<{ face: PortraitFace; member: SessionMemberDto; name: string; onGrid: boolean }>) {
   return (
     <div
       data-testid="portrait"
-      style={ring}
+      style={{ boxShadow: `inset 0 0 0 2px ${sideRingVar(face.side)}` }}
       className="relative min-h-27 w-21 shrink-0 self-stretch overflow-hidden rounded-md bg-muted"
     >
-      {token ? (
-        <TokenFace
-          initials={token.initials}
-          imageAssetId={token.imageAssetId}
-          round={false}
-          alt={`Retrato de ${name}`}
-          className="absolute inset-0 size-full font-brand text-[22px] text-foreground/85"
-        />
-      ) : (
-        <span className="absolute inset-0 grid place-items-center">
-          <UserAvatar
-            name={member.name}
-            color={member.color}
-            avatarId={member.avatarId}
-            size="xl"
-            alt={`Foto de ${member.name}`}
-          />
-        </span>
-      )}
-      {token && <PortraitTag />}
+      <TokenFace
+        initials={face.initials}
+        imageAssetId={face.imageAssetId}
+        round={false}
+        alt={`Retrato de ${name}`}
+        className="absolute inset-0 size-full font-brand text-[22px] text-foreground/85"
+      />
+      {onGrid && <PortraitTag />}
       <PresenceMark
         presence={presenceOf(member)}
         placement="badge"
@@ -106,33 +96,29 @@ export function NickLine({
   );
 }
 
-/** The bars of the main token, as this viewer received them (a hidden bar never comes); whoever
- *  controls the token edits each one in its balloon, while it is on this grid (the anchor of a
- *  character in no grid of the group is only shown).
+/** The bars of the character, as this viewer received them (a hidden bar never comes); whoever
+ *  controls it edits each one in its balloon, on any grid or none (`character:adjustBar`).
  *
- *  Example: `<CardBars token={lyra} name="Lyra" board={board} interaction={interaction} />` */
+ *  Example: `<CardBars character={lyra} name="Lyra" interaction={interaction} />` */
 export function CardBars({
-  token,
+  character,
   name,
-  board,
   interaction,
 }: Readonly<{
-  token: TokenDto | null;
+  character: CharacterDto;
   name: string;
-  board: StoreApi<BoardStore>;
   interaction: StoreApi<BoardInteractionStore>;
 }>) {
-  const onGrid = useOnGrid(board, token?.id ?? null);
-  if (!token) return <CardNote>Sem token principal nesta cena.</CardNote>;
-  if (token.bars.length === 0) return <CardNote>Token sem barras</CardNote>;
-  const bars = [...token.bars].sort((a, b) => a.position - b.position);
+  if (character.bars.length === 0) return <CardNote>Personagem sem barras</CardNote>;
+  const bars = [...character.bars].sort((a, b) => a.position - b.position);
+  const target = { characterId: character.id };
   return (
     <div className="flex flex-col gap-1.5">
       {bars.map((bar) =>
-        token.canControl && onGrid ? (
+        character.canControl ? (
           <BarQuickEdit
             key={bar.id}
-            tokenId={token.id}
+            target={target}
             bar={bar}
             name={`${bar.label} de ${name}`}
             interaction={interaction}
@@ -183,7 +169,7 @@ export type LocateButtonProps = Readonly<{
 
 /** "Achar no mapa": selects the token, and the board's camera goes to the selection. Only for a
  *  token on this grid that this viewer sees: the card itself shows past the sight filter (and
- *  shows the character's anchor when it is in no grid of the group), the button does not.
+ *  shows the character when it is in no grid of the group), the button does not.
  *
  *  Example: `<LocateButton token={lyra} name="Lyra" board={board} interaction={interaction} />` */
 export function LocateButton({ token, name, board, interaction }: LocateButtonProps) {

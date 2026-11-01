@@ -3,6 +3,7 @@ import { HttpSheetsApi, fetchAssetBytes } from '@/services/sheets-api';
 import { AssetBytesReaderFake, FetchFake } from '../support/asset-bytes-fakes';
 import { VHARN } from '../support/campaigns-api-fake';
 import { LYRA_ANCHOR_ID } from '../support/cast-fixtures';
+import { LYRA_CHARACTER_ID } from '../support/character-fixtures';
 import { HttpTransportFake } from '../support/http-transport-fake';
 import {
   LYRA_SHEET_ID,
@@ -35,6 +36,18 @@ describe('sheets HTTP API', () => {
     expect({ result, path: transport.requests[0]?.path }).toEqual({
       result: { ok: true, value: [lyraSummary()] },
       path: `/campaigns/${VHARN.id}/tokens/${LYRA_ANCHOR_ID}/sheets`,
+    });
+  });
+
+  it('reads the sheets of a character by the character route, the same shape as a token', async () => {
+    const transport = new HttpTransportFake().respondWith(200, { sheets: [lyraSummary()] });
+    const result = await apiOver(transport).ofCharacter(VHARN.id, LYRA_CHARACTER_ID);
+    expect({ result, request: transport.requests[0] }).toMatchObject({
+      result: { ok: true, value: [lyraSummary()] },
+      request: {
+        method: 'GET',
+        path: `/campaigns/${VHARN.id}/characters/${LYRA_CHARACTER_ID}/sheets`,
+      },
     });
   });
 

@@ -52,6 +52,11 @@ export interface SheetsApi {
   /** The sheets of a token this reader may read (the anchor's, for a linked token), in order of
    *  creation; a token of another table is `not_found`. */
   ofToken(campaignId: string, tokenId: string): Promise<SheetsResult<readonly SheetSummaryDto[]>>;
+  /** The sheets of a character this reader may read (`GET …/characters/:id/sheets`). */
+  ofCharacter(
+    campaignId: string,
+    characterId: string,
+  ): Promise<SheetsResult<readonly SheetSummaryDto[]>>;
   create(
     campaignId: string,
     input: CreateSheetRequestDto,
@@ -111,11 +116,20 @@ export class HttpSheetsApi implements SheetsApi {
   detail(campaignId: string, sheetId: string): Promise<SheetsResult<SheetResponseDto>> {
     return this.answer('GET', sheetPathOf(campaignId, sheetId), sheetResponseDto);
   }
-  async ofToken(
+  ofToken(campaignId: string, tokenId: string): Promise<SheetsResult<readonly SheetSummaryDto[]>> {
+    return this.sheetsAt(
+      `${campaignPathOf(campaignId)}/tokens/${encodeURIComponent(tokenId)}/sheets`,
+    );
+  }
+  ofCharacter(
     campaignId: string,
-    tokenId: string,
+    characterId: string,
   ): Promise<SheetsResult<readonly SheetSummaryDto[]>> {
-    const path = `${campaignPathOf(campaignId)}/tokens/${encodeURIComponent(tokenId)}/sheets`;
+    const id = encodeURIComponent(characterId);
+    return this.sheetsAt(`${campaignPathOf(campaignId)}/characters/${id}/sheets`);
+  }
+  // A token's and a character's answer have the same shape.
+  private async sheetsAt(path: string): Promise<SheetsResult<readonly SheetSummaryDto[]>> {
     const result = await this.answer('GET', path, tokenSheetsResponseDto);
     return result.ok ? { ok: true, value: result.value.sheets } : result;
   }

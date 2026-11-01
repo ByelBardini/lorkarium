@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { BoardCommandSender } from '@/services/board-command-sender';
 import { RealtimeTokenLinkCommands } from '@/services/token-link-commands';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
-import { BIA_AT_TABLE, KAEL_ID, LYRA_ID, VHARN_GRID } from '../support/table-session-fixtures';
+import { LYRA_CHARACTER_ID } from '../support/character-fixtures';
+import { KAEL_ID, LYRA_ID, VHARN_GRID } from '../support/table-session-fixtures';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const DAVI_ID = 'd4a7e1b2-3c5f-4e6a-8b9c-0d1e2f3a4b5c';
@@ -17,40 +18,41 @@ describe('RealtimeTokenLinkCommands', () => {
     commands = new RealtimeTokenLinkCommands(new BoardCommandSender(transport, () => ACTION_ID));
   });
 
-  it('linkTokenToCard sends token:linkToCard with the token and the member', async () => {
-    const result = commands.linkTokenToCard(VHARN_GRID, LYRA_ID, BIA_AT_TABLE.userId);
+  it('linkTokenToCharacter sends token:linkToCharacter with the token and the character', async () => {
+    const result = commands.linkTokenToCharacter(VHARN_GRID, KAEL_ID, LYRA_CHARACTER_ID);
     expect(transport.sent).toEqual([
       {
-        event: 'token:linkToCard',
+        event: 'token:linkToCharacter',
         payload: {
           actionId: ACTION_ID,
           ...VHARN_GRID,
-          tokenId: LYRA_ID,
-          memberId: BIA_AT_TABLE.userId,
+          tokenId: KAEL_ID,
+          characterId: LYRA_CHARACTER_ID,
         },
       },
     ]);
-    await transport.answerAck({ ok: true, version: 9 }, 'token:linkToCard');
+    await transport.answerAck({ ok: true, version: 9 }, 'token:linkToCharacter');
     expect(await result).toEqual({ ok: true, version: 9 });
   });
 
   it.each([
     ['CHARACTER_ALREADY_PLACED', 'character_already_placed'],
-    ['MEMBER_NOT_FOUND', 'member_not_found'],
+    ['CHARACTER_NOT_FOUND', 'character_not_found'],
   ])('linking refused with %s is %s', async (code, failure) => {
-    const result = commands.linkTokenToCard(VHARN_GRID, LYRA_ID, BIA_AT_TABLE.userId);
-    await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'token:linkToCard');
+    const result = commands.linkTokenToCharacter(VHARN_GRID, KAEL_ID, LYRA_CHARACTER_ID);
+    const refusal = { ok: false, error: { code, message: 'x' } };
+    await transport.answerAck(refusal, 'token:linkToCharacter');
     expect(await result).toEqual({ ok: false, failure });
   });
 
-  it('unlinkTokenFromCard sends token:unlinkFromCard; TOKEN_NOT_LINKED is token_not_linked', async () => {
-    const result = commands.unlinkTokenFromCard(VHARN_GRID, KAEL_ID);
+  it('unlinkTokenFromCharacter sends token:unlinkFromCharacter; TOKEN_NOT_LINKED is token_not_linked', async () => {
+    const result = commands.unlinkTokenFromCharacter(VHARN_GRID, KAEL_ID);
     expect(transport.sent.at(-1)).toEqual({
-      event: 'token:unlinkFromCard',
+      event: 'token:unlinkFromCharacter',
       payload: { actionId: ACTION_ID, ...VHARN_GRID, tokenId: KAEL_ID },
     });
     const refusal = { ok: false, error: { code: 'TOKEN_NOT_LINKED', message: 'x' } };
-    await transport.answerAck(refusal, 'token:unlinkFromCard');
+    await transport.answerAck(refusal, 'token:unlinkFromCharacter');
     expect(await result).toEqual({ ok: false, failure: 'token_not_linked' });
   });
 

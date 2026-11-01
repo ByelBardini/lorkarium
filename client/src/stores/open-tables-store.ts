@@ -15,6 +15,7 @@ import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type {
   CastHandle,
+  CharactersHandle,
   TableSessionApi,
   TableSessionHandle,
   TableSessionUpdate,
@@ -22,13 +23,15 @@ import type {
 import { fallbackCoverOf } from '@/lib/campaign-cover';
 import { tableTokenRightsOf } from '@/lib/token-rights-of-viewer';
 import type { ChatViewer } from '@/lib/chat-conversations';
-import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createBoardStore, tableLinksOf, type BoardStore } from '@/stores/board-store';
+import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
 import { createChatHistoryStore, type ChatHistoryStore } from '@/stores/chat-history-store';
 import { createDiceHistoryStore, type DiceHistoryStore } from '@/stores/dice-history-store';
 import {
   createSceneTabsStore,
   groupTabOf,
   type CreateTabInteraction,
+  type SceneTabsDeps,
   type SceneTabsStore,
 } from '@/stores/scene-tabs-store';
 import type { TabStorage } from '@/stores/scene-tabs-storage';
@@ -62,6 +65,9 @@ export type OpenTable = Omit<OpenTableRef, 'cover'> &
     presence: StoreApi<TablePresenceStore>;
     board: StoreApi<BoardStore>;
     cast: StoreApi<BoardStore>;
+    /** The table's characters (one version per table): the cards, the dock and every linked
+     *  token read them. */
+    characters: StoreApi<CharactersStore>;
     edits: StoreApi<TableEditStore>;
     tabs: StoreApi<SceneTabsStore>;
     /** The rolls of this visit: kept across an F5, forgotten when the table closes. */
@@ -161,6 +167,7 @@ class OpenTablesActions {
   // Handles are not renderable state, so they live beside the store, not in it.
   private readonly handles = new Map<string, TableSessionHandle>();
   private readonly casts = new Map<string, CastHandle>();
+  private readonly followedCharacters = new Map<string, CharactersHandle>();
   // A table opened while the tab stands still is told so at once.
   private away = false;
 
@@ -191,6 +198,7 @@ class OpenTablesActions {
     if (!handle) return;
     this.handles.delete(campaignId);
     this.casts.delete(campaignId);
+    this.followedCharacters.delete(campaignId);
     handle.close();
     const table = this.tableOf(campaignId);
     table?.tabs.getState().dispose(true);
@@ -227,6 +235,7 @@ class OpenTablesActions {
     }
     this.handles.clear();
     this.casts.clear();
+    this.followedCharacters.clear();
     this.set({ ownerId: null, tables: [], sessionRefused: false, deletedNotice: null });
   }
 
@@ -238,12 +247,15 @@ class OpenTablesActions {
     const cast = createBoardStore(table.campaignId, () =>
       this.casts.get(table.campaignId)?.resync(),
     );
+    const characters = createCharactersStore(table.campaignId, () =>
+      this.followedCharacters.get(table.campaignId)?.resync(),
+    );
     const board = createBoardStore(
       table.campaignId,
       () => this.handles.get(table.campaignId)?.resync(),
-      () => cast.getState().board,
+      tableLinksOf(cast, characters),
     );
-    const tabs = this.tabsOf(table.campaignId, board, cast);
+    const tabs = this.tabsOf(table.campaignId, board, { cast, characters });
     const edits = groupTabOf(tabs.getState()).edits;
     const cover = table.cover ?? fallbackCoverOf(table.campaignId);
     const dice = createDiceHistoryStore({
@@ -263,6 +275,7 @@ class OpenTablesActions {
       presence,
       board,
       cast,
+      characters,
       edits,
       tabs,
       dice,
@@ -280,6 +293,10 @@ class OpenTablesActions {
       cast.getState().apply(update),
     );
     this.casts.set(table.campaignId, followed);
+    const followedCharacters = handle.followCharacters((update) =>
+      characters.getState().apply(update),
+    );
+    this.followedCharacters.set(table.campaignId, followedCharacters);
     if (this.away) handle.setAway(true);
     tabs.getState().restore();
     return 'opened';
@@ -333,12 +350,12 @@ class OpenTablesActions {
   private tabsOf(
     campaignId: string,
     groupBoard: StoreApi<BoardStore>,
-    cast: StoreApi<BoardStore>,
+    links: Pick<SceneTabsDeps, 'cast' | 'characters'>,
   ): StoreApi<SceneTabsStore> {
     return createSceneTabsStore({
       campaignId,
       groupBoard,
-      cast,
+      ...links,
       watch: (sceneId, listener) => this.handleOf(campaignId).watch(sceneId, listener),
       storage: this.deps.storage,
       createInteraction: this.deps.createInteraction,

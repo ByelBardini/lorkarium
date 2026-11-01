@@ -9,6 +9,7 @@ import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { ANA } from '../support/auth-api-fake';
 import { VHARN } from '../support/campaigns-api-fake';
 import { VHARN_CAST_ID } from '../support/cast-fixtures';
+import { LYRA_CHARACTER_ID } from '../support/character-fixtures';
 import { StorageFake } from '../support/storage-fake';
 import { tabInteractions } from '../support/tab-interactions';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
@@ -38,7 +39,11 @@ describe('viewerTokenRightsOf', () => {
   it.each([
     ['Caio’s token', lyra({ createdBy: CAIO_AT_TABLE.userId })],
     ['a token from before authors (createdBy null)', lyra({ createdBy: null })],
-    ['her token linked to a character', lyra({ createdBy: BIA.userId, anchorTokenId: ANCHOR_ID })],
+    ['her token linked to an anchor', lyra({ createdBy: BIA.userId, anchorTokenId: ANCHOR_ID })],
+    [
+      'her token linked to a character',
+      lyra({ createdBy: BIA.userId, characterId: LYRA_CHARACTER_ID }),
+    ],
   ])('with both keys on, the player gets nothing on %s', (_case, token) => {
     expect(viewerTokenRightsOf(BOTH_KEYS, BIA).of(token)).toEqual({ edit: false, delete: false });
   });

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTables, type OpenTable, type OpenTablesStore } from '@/stores/open-tables-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
 import type { SceneTabsStore } from '@/stores/scene-tabs-store';
 import { createTableEditStore, type TableEditStore } from '@/stores/table-edit-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
@@ -12,8 +13,10 @@ export type OpenTableView =
       kind: 'open';
       presence: StoreApi<TablePresenceStore>;
       board: StoreApi<BoardStore>;
-      /** The table's cast: the characters' anchors, the cards and the conditions defined. */
+      /** The table's cast: the conditions defined, in the table's version. */
       cast: StoreApi<BoardStore>;
+      /** The table's characters: the cards, the dock and the linked tokens. */
+      characters: StoreApi<CharactersStore>;
       edits: StoreApi<TableEditStore>;
       /** The grid tabs; `null` until the table actually opens. */
       tabs: StoreApi<SceneTabsStore> | null;
@@ -34,6 +37,7 @@ export function useOpenTable(
     presence: createTablePresenceStore(campaign.id),
     board: createBoardStore(campaign.id, () => undefined),
     cast: createBoardStore(campaign.id, () => undefined),
+    characters: createCharactersStore(campaign.id, () => undefined),
     edits: createTableEditStore(campaign.id),
   }));
   const table = useOpenTables(openTables, (state) => tableOf(state, campaign.id));
@@ -48,8 +52,8 @@ export function useOpenTable(
   }, [campaignId, name, castSceneId, cover, isFull, openTables]);
   if (isFull) return { kind: 'full' };
   if (table) {
-    const { presence, board, cast, edits, tabs } = table;
-    return { kind: 'open', presence, board, cast, edits, tabs };
+    const { presence, board, cast, characters, edits, tabs } = table;
+    return { kind: 'open', presence, board, cast, characters, edits, tabs };
   }
   return { kind: 'open', ...pending, tabs: null };
 }

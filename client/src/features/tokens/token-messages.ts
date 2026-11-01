@@ -82,19 +82,19 @@ export const SIGHT_ANGLE_HINT =
 export const LIGHT_ANGLE_HINT =
   '360 = ilumina em volta; menos, ilumina em cone, como uma lanterna.';
 
-export const LINK_TO_CARD_TITLE = 'Ligar à ficha de…';
-export const UNLINK_FROM_CARD = 'Desligar da ficha';
+export const LINK_TO_CHARACTER_TITLE = 'Ligar a personagem…';
+export const UNLINK_FROM_CHARACTER = 'Desligar do personagem';
 
-/** The confirmation of linking a token to a card that already has a character.
+/** The confirmation of linking a token to a character: its own bars and conditions go.
  *
- *  Example: `characterLinkQuestion('Lyra', 'Bia') // 'Este token passa a usar as barras e condições de Lyra (ficha de Bia).'` */
-export function characterLinkQuestion(characterName: string, memberName: string): string {
-  return `Este token passa a usar as barras e condições de ${characterName} (ficha de ${memberName}).`;
+ *  Example: `characterLinkQuestion('Lyra') // 'Este token passa a usar as barras e condições de Lyra.'` */
+export function characterLinkQuestion(characterName: string): string {
+  return `Este token passa a usar as barras e condições de ${characterName}.`;
 }
 
 /** The mark of the fields a linked token shares with its character.
  *
- *  Example: `sharedFieldsNote('Bia') // 'Na ficha de Bia · vale em todo grid'` */
-export function sharedFieldsNote(memberName: string): string {
-  return `Na ficha de ${memberName} · vale em todo grid`;
+ *  Example: `sharedFieldsNote('Lyra') // 'No personagem Lyra · vale em todo grid'` */
+export function sharedFieldsNote(characterName: string): string {
+  return `No personagem ${characterName} · vale em todo grid`;
 }

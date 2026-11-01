@@ -1,26 +1,30 @@
-import type { BoardViewerDto, MemberCardDto, TokenDto } from '@lorkarium/contracts';
+import type { BoardViewerDto, TokenDto } from '@lorkarium/contracts';
 import { cell } from '@lorkarium/game-core';
 import { useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useViewerTokenRights } from '@/features/board/table-token-rights';
-import { cardOwnerOf } from '@/lib/character-link';
+import { linkedCharacterOf } from '@/lib/character-link';
 import type { ViewerTokenRights } from '@/lib/token-rights-of-viewer';
 import type { BoardRenderer } from '@/renderer/board-renderer';
 import type { AssetsApi } from '@/services/assets-api';
 import type { TableBoardCommands, BoardScope } from '@/services/table-board-commands';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
+import { useCharacters, type CharactersStore } from '@/stores/characters-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { TokenAuraDialog } from './token-aura-dialog';
 import { TokenDialog, type TokenDialogViewer } from './token-dialog';
 import { TokenImageDialog } from './token-image-dialog';
 import type { TokenDialogTab, TokenPlayer } from './token-form-state';
 
-const NO_CARDS: MemberCardDto[] = [];
-
 export type RoomTokenDialogProps = Readonly<{
   scope: BoardScope;
-  table: Readonly<{ presence: StoreApi<TablePresenceStore>; board: StoreApi<BoardStore> }>;
+  table: Readonly<{
+    presence: StoreApi<TablePresenceStore>;
+    board: StoreApi<BoardStore>;
+    /** The linked token's notice names its character. */
+    characters: StoreApi<CharactersStore>;
+  }>;
   /** `null` for "Novo token". */
   tokenId: string | null;
   renderer: BoardRenderer | null;
@@ -44,7 +48,7 @@ export function RoomTokenDialog(props: RoomTokenDialogProps): React.JSX.Element 
     tokenId ? (state.board?.tokens.find(({ id }) => id === tokenId) ?? null) : null,
   );
   const members = useTablePresence(table.presence, (state) => state.members);
-  const cards = useBoard(table.board, (state) => state.board?.memberCards ?? NO_CARDS);
+  const characters = useCharacters(table.characters, (state) => state.characters);
   const cellDistance = useBoard(table.board, (state) => state.board?.scene.cellDistance ?? 1.5);
   const cellUnit = useBoard(table.board, (state) => state.board?.scene.cellUnit ?? 'm');
   const live = useTablePresence(table.presence, (state) => state.status === 'live');
@@ -67,7 +71,7 @@ export function RoomTokenDialog(props: RoomTokenDialogProps): React.JSX.Element 
       assets={props.assets}
       distance={{ cellDistance, cellUnit }}
       connected={live}
-      cardOwner={token && cardOwnerOf(token, cards, members)}
+      characterName={token && linkedCharacterOf(token, characters)?.name}
       viewer={dialogViewerOf(boardViewer, rights, token)}
       initialTab={props.initialTab}
       onClose={props.onClose}

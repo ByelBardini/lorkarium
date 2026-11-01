@@ -43,11 +43,11 @@ export function tokensWithoutDefinition(tokens: TokenDto[], conditionId: string)
   return tokensOverDefinitions(tokens, new Map(), new Set([conditionId]));
 }
 
-/** A grid's loose tokens after the table's list moved from `before` to `after` (the cast's
- *  version): the conditions of an edited definition show it, those of a deleted one go. Only a
- *  definition `before` knew and `after` lacks counts as deleted — one `after` lacks but `before`
- *  never had may simply not have reached the list yet. Linked tokens are their anchors' (the
- *  cast's reducer already did them). Nothing changed → the same array.
+/** A grid's tokens after the table's list moved from `before` to `after` (the cast's version):
+ *  the conditions of an edited definition show it, those of a deleted one go — a linked token's
+ *  too, since its character's conditions hold the same definitions. Only a definition `before`
+ *  knew and `after` lacks counts as deleted — one `after` lacks but `before` never had may simply
+ *  not have reached the list yet. Nothing changed → the same array.
  *
  *  Example: `tokensOverCatalog(grid.tokens, grid.conditionDefinitions, cast.conditionDefinitions)` */
 export function tokensOverCatalog(
@@ -58,11 +58,7 @@ export function tokensOverCatalog(
   if (before === after) return tokens;
   const byId = new Map(after.map((definition) => [definition.id, definition]));
   const deleted = new Set(before.filter(({ id }) => !byId.has(id)).map(({ id }) => id));
-  const loose = (token: TokenDto): boolean => token.anchorTokenId === null;
-  const next = tokens.map((token) =>
-    loose(token) ? tokenOverDefinitions(token, byId, deleted) : token,
-  );
-  return next.some((token, index) => token !== tokens[index]) ? next : tokens;
+  return tokensOverDefinitions(tokens, byId, deleted);
 }
 
 function tokensOverDefinitions(

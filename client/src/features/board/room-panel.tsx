@@ -11,6 +11,7 @@ import { DicePanel, type DicePanelProps } from '@/features/dice/dice-panel';
 import { SessionPresencePanel } from '@/features/sessions/session-presence-panel';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
+import type { CharactersStore } from '@/stores/characters-store';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { ChatCommands } from '@/services/chat-commands';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
@@ -28,8 +29,8 @@ export type RoomPanelProps = Readonly<{
   table: Readonly<{
     presence: StoreApi<TablePresenceStore>;
     board: StoreApi<BoardStore>;
-    /** The table's cast: "Na mesa" reads the cards and the characters' anchors from it. */
-    cast: StoreApi<BoardStore>;
+    /** The table's characters: "Na mesa" and the dock read them. */
+    characters: StoreApi<CharactersStore>;
   }> | null;
   interaction: StoreApi<BoardInteractionStore>;
   /** The group grid's tab: "Na mesa" always shows the group, whatever tab is shown. */
@@ -149,7 +150,7 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
           <SessionPresencePanel
             store={table.presence}
             board={props.group?.board ?? table.board}
-            cast={table.cast}
+            characters={table.characters}
             interaction={props.group?.interaction ?? props.interaction}
             isMaster={props.isMaster}
             ownerId={props.ownerId}

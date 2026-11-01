@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import type { SheetSummaryDto } from '@lorkarium/contracts';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { VHARN } from '../../support/campaigns-api-fake';
-import { castBoard, lyraAnchor } from '../../support/cast-fixtures';
+import { castBoard } from '../../support/cast-fixtures';
+import { charactersSynced, kaelCharacter } from '../../support/character-fixtures';
 import { DataTransferFake } from '../../support/data-transfer-fake';
 import { ATO_1, masterLibrary, playerLibrary } from '../../support/library-fixtures';
 import { openLibrary, type LibraryRoomOptions } from '../../support/library-harness';
@@ -18,11 +19,11 @@ import {
   spareSummary,
 } from '../../support/sheet-fixtures';
 import { tormentaSummary } from '../../support/sheet-template-fixtures';
-import { CAIO_AT_TABLE, lyra, memberCard, vharnBoard } from '../../support/table-session-fixtures';
+import { CAIO_AT_TABLE, lyra, vharnBoard } from '../../support/table-session-fixtures';
 
 const CAIO = CAIO_AT_TABLE.userId;
 const GOBLIN_TOKEN_ID = '0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
-// Caio's character (the cast's card says "Kael"), a token's on the grid, and one nobody holds.
+// Caio's character (Kael), a token's on the grid, and one nobody holds.
 const CAIO_SHEET = lyraSummary({ name: 'Kael de Vharn', memberId: CAIO, folderId: ATO_1.id });
 const GOBLIN_SHEET = lyraSummary({
   id: GOBLIN_SHEET_ID,
@@ -41,17 +42,12 @@ function withSheets(sheets: readonly SheetSummaryDto[] = [CAIO_SHEET, GOBLIN_SHE
   return deps;
 }
 
-// The cast names Caio's character; the group grid has the goblin.
+// The characters name Caio's; the group grid has the goblin.
 async function openWithHolders(deps: TestDependencies, options: LibraryRoomOptions = {}) {
   const room = await openLibrary(deps, options);
   act(() => {
-    deps.tableSessionApi.emitToCast(VHARN.id, {
-      kind: 'board',
-      state: castBoard({
-        tokens: [lyraAnchor()],
-        memberCards: [memberCard({ userId: CAIO, characterName: 'Kael' })],
-      }),
-    });
+    deps.tableSessionApi.emitToCast(VHARN.id, { kind: 'board', state: castBoard() });
+    deps.tableSessionApi.emitToCharacters(VHARN.id, charactersSynced(2, kaelCharacter()));
     deps.tableSessionApi.emit({
       kind: 'board',
       state: vharnBoard({ version: 5, tokens: [lyra({ id: GOBLIN_TOKEN_ID, name: 'Goblin' })] }),

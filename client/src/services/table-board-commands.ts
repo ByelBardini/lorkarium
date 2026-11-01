@@ -2,7 +2,7 @@ import {
   BOARD_EVENTS,
   type BarChangeDto,
   type DrawingShapeInput,
-  type MemberCardChangesInput,
+  type CharacterChangesInput,
   type SceneGridDto,
   type SceneVisionDto,
   type TokenLayerDto,
@@ -44,12 +44,11 @@ import {
   type EffectAreaShape,
   type EffectAreaShaped,
 } from './effect-area-commands';
-import { RealtimeMainTokenCommands, type MainTokenCommands } from './main-token-commands';
+import { RealtimeCharacterCommands, type CharacterCommands } from './character-commands';
 import {
   RealtimeTokenVisibilityCommands,
   type TokenVisibilityCommands,
 } from './token-visibility-commands';
-import { RealtimeMemberCardCommands, type MemberCardCommands } from './member-card-commands';
 import {
   RealtimeTokenLinkCommands,
   type AddPlayersResult,
@@ -91,9 +90,8 @@ export interface TableBoardCommands
     EffectAreaCommands,
     WallCommands,
     LightCommands,
-    MainTokenCommands,
     TokenVisibilityCommands,
-    MemberCardCommands,
+    CharacterCommands,
     TokenLinkCommands,
     TokenAppearanceCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
@@ -163,9 +161,8 @@ export class RealtimeTableBoardCommands
   private readonly effectAreas: EffectAreaCommands;
   private readonly walls: WallCommands;
   private readonly lights: LightCommands;
-  private readonly mainToken: MainTokenCommands;
   private readonly visibility: TokenVisibilityCommands;
-  private readonly memberCard: MemberCardCommands;
+  private readonly characters: CharacterCommands;
   private readonly tokenLink: TokenLinkCommands;
   private readonly appearance: TokenAppearanceCommands;
 
@@ -174,39 +171,51 @@ export class RealtimeTableBoardCommands
     this.effectAreas = new RealtimeEffectAreaCommands(this.sender);
     this.walls = new RealtimeWallCommands(this.sender);
     this.lights = new RealtimeLightCommands(this.sender);
-    this.mainToken = new RealtimeMainTokenCommands(this.sender);
     this.visibility = new RealtimeTokenVisibilityCommands(this.sender);
-    this.memberCard = new RealtimeMemberCardCommands(this.sender);
+    this.characters = new RealtimeCharacterCommands(this.sender);
     this.tokenLink = new RealtimeTokenLinkCommands(this.sender);
     this.appearance = new RealtimeTokenAppearanceCommands(this.sender);
   }
 
-  linkTokenToCard(
+  linkTokenToCharacter(
     scope: BoardScope,
     tokenId: string,
-    memberId: string,
+    characterId: string,
   ): Promise<BoardCommandResult> {
-    return this.tokenLink.linkTokenToCard(scope, tokenId, memberId);
+    return this.tokenLink.linkTokenToCharacter(scope, tokenId, characterId);
   }
 
-  unlinkTokenFromCard(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
-    return this.tokenLink.unlinkTokenFromCard(scope, tokenId);
+  unlinkTokenFromCharacter(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
+    return this.tokenLink.unlinkTokenFromCharacter(scope, tokenId);
   }
 
   addPlayers(scope: BoardScope, center: CellTarget): Promise<AddPlayersResult> {
     return this.tokenLink.addPlayers(scope, center);
   }
 
-  updateMemberCard(
+  updateCharacter(
     scope: BoardScope,
-    memberId: string,
-    changes: MemberCardChangesInput,
+    characterId: string,
+    changes: CharacterChangesInput,
   ): Promise<BoardCommandResult> {
-    return this.memberCard.updateMemberCard(scope, memberId, changes);
+    return this.characters.updateCharacter(scope, characterId, changes);
   }
 
-  setMainToken(scope: BoardScope, tokenId: string, playerId?: string): Promise<BoardCommandResult> {
-    return this.mainToken.setMainToken(scope, tokenId, playerId);
+  adjustCharacterBar(
+    scope: BoardScope,
+    characterId: string,
+    barId: string,
+    change: BarChangeDto,
+  ): Promise<BoardCommandResult> {
+    return this.characters.adjustCharacterBar(scope, characterId, barId, change);
+  }
+
+  setMainSheet(
+    scope: BoardScope,
+    characterId: string,
+    sheetId: string,
+  ): Promise<BoardCommandResult> {
+    return this.characters.setMainSheet(scope, characterId, sheetId);
   }
 
   setTokensHidden(

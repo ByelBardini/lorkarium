@@ -20,6 +20,8 @@ export type BoardCommandFailure =
   | 'light_not_found'
   | 'light_limit'
   | 'member_not_found'
+  | 'character_not_found'
+  | 'sheet_not_found'
   | 'character_already_placed'
   | 'token_not_linked'
   | 'no_free_cells'
@@ -74,6 +76,8 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   LIGHT_NOT_FOUND: 'light_not_found',
   LIGHT_LIMIT: 'light_limit',
   MEMBER_NOT_FOUND: 'member_not_found',
+  CHARACTER_NOT_FOUND: 'character_not_found',
+  SHEET_NOT_FOUND: 'sheet_not_found',
   CHARACTER_ALREADY_PLACED: 'character_already_placed',
   TOKEN_NOT_LINKED: 'token_not_linked',
   NO_FREE_CELLS: 'no_free_cells',
@@ -113,7 +117,32 @@ export class BoardCommandSender {
    *  Example: `const answer = await sender.ask('token:addPlayers', scope, { center })` */
   async ask(event: string, scope: BoardScope, fields: object): Promise<CommandAnswer> {
     const { campaignId, sceneId } = scope;
-    const payload = { actionId: this.newActionId(), campaignId, sceneId, ...fields };
+    return this.emitCommand(event, {
+      actionId: this.newActionId(),
+      campaignId,
+      sceneId,
+      ...fields,
+    });
+  }
+
+  /** Sends a command of the table itself (a character's), which names no grid: the strict DTO
+   *  of such a command refuses a `sceneId`.
+   *
+   *  Example: `await sender.sendToTable('character:update', campaignId, { characterId, changes })` */
+  async sendToTable(
+    event: string,
+    campaignId: string,
+    fields: object,
+  ): Promise<BoardCommandResult> {
+    const answer = await this.emitCommand(event, {
+      actionId: this.newActionId(),
+      campaignId,
+      ...fields,
+    });
+    return answer.answered ? resultOf(answer.ack) : { ok: false, failure: 'offline' };
+  }
+
+  private async emitCommand(event: string, payload: object): Promise<CommandAnswer> {
     try {
       const ack = await this.transport.emitWithAck(event, payload, COMMAND_ACK_TIMEOUT_MS);
       return { answered: true, ack };

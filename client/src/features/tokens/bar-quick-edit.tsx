@@ -7,8 +7,12 @@ import { BAR_MAX_PROBLEM } from '@/features/tokens/token-messages';
 import { parseBarInput, parseBarMax } from '@/lib/bar-input';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 
+/** Whose bar it is: a token's on its grid, or a character's itself (the card, the dock without
+ *  a token of it). */
+export type BarTarget = Readonly<{ tokenId: string }> | Readonly<{ characterId: string }>;
+
 export type BarQuickEditProps = Readonly<{
-  tokenId: string;
+  target: BarTarget;
   bar: TokenBarDto;
   /** Names the bar: "PV de Lyra". */
   name: string;
@@ -18,13 +22,13 @@ export type BarQuickEditProps = Readonly<{
 
 const HOW_TO_WRITE = 'Escreva −7, +5 ou 12.';
 
-/** A bar that whoever controls the token edits in place (the party card and the dock): a double click (or
+/** A bar that whoever controls the token or character edits in place (the party card and the dock): a double click (or
  *  Enter / Space on it) opens a balloon over it with "Atual" (−7 takes, +5 adds, 12 sets) and
  *  "Máx". Enter or leaving a field sends it; Esc closes without sending. Never opens while
  *  reconnecting.
  *
- *  Example: `<BarQuickEdit tokenId={lyra.id} bar={pv} name="PV de Lyra" interaction={interaction}>…</BarQuickEdit>` */
-export function BarQuickEdit({ tokenId, bar, name, interaction, children }: BarQuickEditProps) {
+ *  Example: `<BarQuickEdit target={{ tokenId: lyra.id }} bar={pv} name="PV de Lyra" interaction={interaction}>…</BarQuickEdit>` */
+export function BarQuickEdit({ target, bar, name, interaction, children }: BarQuickEditProps) {
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
   const [open, setOpen] = useState(false);
   const titleId = useId();
@@ -32,9 +36,7 @@ export function BarQuickEdit({ tokenId, bar, name, interaction, children }: BarQ
     if (readOnly) return;
     setOpen(true);
   };
-  const adjust = (change: BarChangeDto): void => {
-    void interaction.getState().adjustBar(tokenId, bar.id, change);
-  };
+  const adjust = (change: BarChangeDto): void => adjustBarOf(interaction, target, bar.id, change);
   return (
     <Popover open={open && !readOnly} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
@@ -63,6 +65,20 @@ export function BarQuickEdit({ tokenId, bar, name, interaction, children }: BarQ
       </PopoverContent>
     </Popover>
   );
+}
+
+function adjustBarOf(
+  interaction: StoreApi<BoardInteractionStore>,
+  target: BarTarget,
+  barId: string,
+  change: BarChangeDto,
+): void {
+  if ('tokenId' in target)
+    return void interaction.getState().adjustBar(target.tokenId, barId, change);
+  const { characterId } = target;
+  void interaction
+    .getState()
+    .command((commands, scope) => commands.adjustCharacterBar(scope, characterId, barId, change));
 }
 
 function opensOnKey(event: KeyboardEvent<HTMLElement>, open: () => void): void {

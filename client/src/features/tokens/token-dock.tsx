@@ -1,29 +1,31 @@
-import type { TokenBarDto, TokenDto } from '@lorkarium/contracts';
+import type { CharacterDto, TokenDto } from '@lorkarium/contracts';
 import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useBoardSight } from '@/features/board/use-board-sight';
 import { ConditionsEditor } from '@/features/combat/conditions-editor';
-import { barFill, formatBarValue } from '@/lib/bar-display';
 import { seenTokensOf } from '@/lib/board-sight';
 import { cellsText } from '@/lib/cells-text';
 import { facingLabel } from '@/lib/facing-label';
 import { mainTokenIdOf } from '@/lib/main-token';
-import { cn } from '@/lib/utils';
 import {
   singleSelectedOf,
   useBoardInteraction,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
+import { characterOfUser, useCharacters, type CharactersStore } from '@/stores/characters-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { BarQuickEdit } from './bar-quick-edit';
-import { BarTrack } from './bar-track';
+import { BarLine } from './bar-line';
+import { CharacterDock } from './character-dock';
 import { DockHeader } from './token-dock-header';
 import { TokenDockActions } from './token-dock-actions';
 
 export type TokenDockProps = Readonly<{
   board: StoreApi<BoardStore>;
   presence: StoreApi<TablePresenceStore>;
+  /** The table's characters: with nothing selected, the viewer's own one is the fallback. */
+  characters: StoreApi<CharactersStore>;
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
   onEditToken: (tokenId: string) => void;
@@ -32,14 +34,18 @@ export type TokenDockProps = Readonly<{
 /** The token at the foot of the panel (in combat and out of it): who plays it and where, every bar
  *  received with −/+, Dano/Cura and "Máx." for whoever controls it, its conditions, and the actions
  *  (initiative, "Editar token", "Tirar do combate"). One selected token this viewer sees opens it;
- *  with none (or a group), the viewer's main token does. The list above never grows.
+ *  with none (or a group), the token of the viewer's character in this grid does, and with none
+ *  of it here, the character itself (`CharacterDock`). The list above never grows.
  *
  *  Example: `<TokenDock board={board} presence={presence} interaction={interaction} isMaster onEditToken={edit} />` */
 export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
-  const docked = useDockedToken(props.board, props.interaction);
+  const docked = useDockedToken(props);
   const members = useTablePresence(props.presence, (state) => state.members);
   if (!docked) return null;
-  const { token, isMain, selected, viewerId } = docked;
+  if (docked.kind === 'character') {
+    return <CharacterDock character={docked.character} interaction={props.interaction} />;
+  }
+  const { token, isMain, selected } = docked;
   return (
     <section
       aria-label={selected ? 'Token selecionado' : 'Token principal'}
@@ -50,7 +56,6 @@ export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
         token={token}
         isMain={isMain}
         isMaster={props.isMaster}
-        viewerId={viewerId}
         members={members}
         interaction={props.interaction}
       />
@@ -67,35 +72,36 @@ export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
   );
 }
 
-type DockedToken = Readonly<{
-  token: TokenDto;
-  isMain: boolean;
-  /** It came from the selection, not from falling back to the main token. */
-  selected: boolean;
-  viewerId: string;
-}>;
+type DockedToken =
+  | Readonly<{
+      kind: 'token';
+      token: TokenDto;
+      isMain: boolean;
+      /** It came from the selection, not from falling back to the main token. */
+      selected: boolean;
+    }>
+  | Readonly<{ kind: 'character'; character: CharacterDto }>;
 
 // The main token counts as a sheet only: the arrows, Q/E, Delete and the ring follow the real
 // selection, so nobody moves their own token by accident.
-function useDockedToken(
-  board: StoreApi<BoardStore>,
-  interaction: StoreApi<BoardInteractionStore>,
-): DockedToken | null {
+function useDockedToken({ board, interaction, characters }: TokenDockProps): DockedToken | null {
   const state = useBoard(board, (current) => current.board);
   const sight = useBoardSight(board, interaction);
+  const confirmed = useCharacters(characters, (current) => current.characters);
   const selectedId = useBoardInteraction(interaction, (current) =>
     singleSelectedOf(current.selectedTokenIds),
   );
   return useMemo(() => {
     if (!state) return null;
+    const mine = characterOfUser(confirmed, state.viewer.userId);
     const seen = seenTokensOf(state, sight);
-    const mainId = mainTokenIdOf(state);
+    const mainId = mainTokenIdOf(seen, mine);
     const picked = seen.find(({ id }) => id === selectedId);
     const token = picked ?? seen.find(({ id }) => id === mainId);
-    if (!token) return null;
-    const viewerId = state.viewer.userId;
-    return { token, isMain: token.id === mainId, selected: picked !== undefined, viewerId };
-  }, [state, sight, selectedId]);
+    if (!token) return mine && { kind: 'character', character: mine };
+    const isMain = token.id === mainId;
+    return { kind: 'token', token, isMain, selected: picked !== undefined };
+  }, [state, sight, selectedId, confirmed]);
 }
 
 // "Coluna 5, linha 6 · 1 × 1 casas · Olha para o leste": cells counted from 1, as a person
@@ -125,7 +131,7 @@ function DockBars({ token, interaction, isMaster }: DockBarsProps) {
         <li key={bar.id}>
           {token.canControl ? (
             <BarQuickEdit
-              tokenId={token.id}
+              target={{ tokenId: token.id }}
               bar={bar}
               name={`${bar.label} de ${token.name}`}
               interaction={interaction}
@@ -138,30 +144,5 @@ function DockBars({ token, interaction, isMaster }: DockBarsProps) {
         </li>
       ))}
     </ul>
-  );
-}
-
-/** A bar as text and a rounded track: label, value ("−4 / 38" in the error color), the fill and,
- *  past either end, a second bar growing from the left (crimson below zero, bone above the max). */
-export function BarLine({
-  bar,
-  withNumbers = false,
-}: Readonly<{ bar: TokenBarDto; withNumbers?: boolean }>): React.JSX.Element {
-  const fill = barFill(bar);
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-3 text-sm">
-        <span className="text-label">{bar.label}</span>
-        <span
-          className={cn(
-            'tabular-nums',
-            fill.state === 'negative' ? 'text-destructive-text' : 'text-foreground',
-          )}
-        >
-          {formatBarValue(bar, { withNumbers })}
-        </span>
-      </div>
-      <BarTrack fill={fill} color={bar.color} />
-    </div>
   );
 }

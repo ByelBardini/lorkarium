@@ -10,7 +10,6 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
-import { createTablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
@@ -47,7 +46,6 @@ describe('TokenFormItems ("Trocar forma" in the token menu)', () => {
       <TokenContextMenu
         request={{ tokenId: token.id, x: 120, y: 80 }}
         board={board}
-        presence={createTablePresenceStore(VHARN.id)}
         interaction={interaction}
         onApplyCondition={() => undefined}
         onChangeImage={() => undefined}
@@ -129,7 +127,6 @@ describe('TokenFormItems ("Trocar forma" in the token menu)', () => {
         <TokenContextMenu
           request={{ tokenId: LYRA_ID, x: 120, y: 80 }}
           board={board}
-          presence={createTablePresenceStore(VHARN.id)}
           interaction={interaction}
           onApplyCondition={() => undefined}
           onChangeImage={() => undefined}

@@ -10,8 +10,16 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 import { CampaignsApiFake, VHARN } from '../../support/campaigns-api-fake';
+import {
+  charactersSynced,
+  kaelCharacter,
+  linkedKael,
+  linkedLyra,
+  lyraCharacter,
+} from '../../support/character-fixtures';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
@@ -21,8 +29,6 @@ import {
   biaLeft,
   biaUpdated,
   duda,
-  kael,
-  lyra,
   vharnBoard,
   vharnState,
   VHARN_GRID,
@@ -34,13 +40,13 @@ const EVERYONE = [ANA_AT_TABLE, BIA_ONLINE, CAIO_AT_TABLE];
 describe('SessionPresencePanel', () => {
   let presence: StoreApi<TablePresenceStore>;
   let board: StoreApi<BoardStore>;
-  let cast: StoreApi<BoardStore>;
+  let characters: StoreApi<CharactersStore>;
   let interaction: StoreApi<BoardInteractionStore>;
 
   beforeEach(() => {
     presence = createTablePresenceStore(VHARN.id);
     board = createBoardStore(VHARN.id, () => undefined);
-    cast = createBoardStore(VHARN.id, () => undefined);
+    characters = createCharactersStore(VHARN.id, () => undefined);
     interaction = createBoardInteractionStore({
       scopeOf: () => VHARN_GRID,
       commands: new TableBoardCommandsFake(),
@@ -53,14 +59,15 @@ describe('SessionPresencePanel', () => {
       presence.getState().apply({ kind: 'state', state: vharnState({ members }) });
       presence.getState().apply({ kind: 'status', status: 'live' });
       if (!withBoard) return;
-      const tokens = [lyra(), kael({ controllerIds: [CAIO_AT_TABLE.userId] })];
+      const tokens = [linkedLyra(), linkedKael()];
       board.getState().apply({ kind: 'board', state: vharnBoard({ tokens }) });
+      characters.getState().apply(charactersSynced(3, lyraCharacter(), kaelCharacter()));
     });
     render(
       <SessionPresencePanel
         store={presence}
         board={board}
-        cast={cast}
+        characters={characters}
         interaction={interaction}
         isMaster={true}
         ownerId={VHARN.ownerId}
@@ -112,7 +119,7 @@ describe('SessionPresencePanel', () => {
     expect(within(within(masters).getByTestId('nick-line')).queryByRole('img')).toBeNull();
   });
 
-  it("while the board loads, the player's presence goes before the nick (no portrait to wear it)", () => {
+  it("while the characters load, the player's presence goes before the nick (no portrait to wear it)", () => {
     renderPanel(EVERYONE, false);
 
     const bia = within(section(/^Jogadores/)).getAllByTestId('nick-line')[0];
@@ -140,7 +147,7 @@ describe('SessionPresencePanel', () => {
     expect(section('Jogadores · 0 online')).toHaveTextContent('Nenhum jogador nesta mesa ainda.');
   });
 
-  it('while the board loads, the sections show the presence only (no portrait, bars or fields)', () => {
+  it('while the characters load, the sections show the presence only (no portrait, bars or fields)', () => {
     renderPanel(EVERYONE, false);
 
     expect(within(section(/^Jogadores/)).getByText('Bia')).toBeInTheDocument();
@@ -154,7 +161,7 @@ describe('SessionPresencePanel', () => {
       <SessionPresencePanel
         store={presence}
         board={board}
-        cast={cast}
+        characters={characters}
         interaction={interaction}
         isMaster
         ownerId={VHARN.ownerId}
@@ -173,7 +180,7 @@ describe('SessionPresencePanel', () => {
       <SessionPresencePanel
         store={presence}
         board={board}
-        cast={cast}
+        characters={characters}
         interaction={interaction}
         isMaster
         ownerId={VHARN.ownerId}
@@ -203,16 +210,17 @@ describe('SessionPresencePanel', () => {
       act(() => {
         presence.getState().apply({ kind: 'state', state: vharnState({ members }) });
         presence.getState().apply({ kind: 'status', status: 'live' });
-        const tokens = [lyra(), kael({ controllerIds: [CAIO_AT_TABLE.userId] })];
+        const tokens = [linkedLyra(), linkedKael()];
         const view = { userId: viewer.userId, role: viewer.role };
         board.getState().apply({ kind: 'board', state: vharnBoard({ tokens, viewer: view }) });
+        characters.getState().apply(charactersSynced(3, lyraCharacter(), kaelCharacter()));
       });
       render(
         <MemberRoleProvider changer={campaigns}>
           <SessionPresencePanel
             store={presence}
             board={board}
-            cast={cast}
+            characters={characters}
             interaction={interaction}
             isMaster={isMaster}
             ownerId={VHARN.ownerId}

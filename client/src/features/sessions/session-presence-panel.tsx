@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
+import { useCharacters, type CharactersStore } from '@/stores/characters-store';
 import {
   useTablePresence,
   type TablePresenceState,
@@ -25,8 +26,8 @@ import { SpectatorRow } from './spectator-row';
 export type SessionPresencePanelProps = Readonly<{
   store: StoreApi<TablePresenceStore>;
   board: StoreApi<BoardStore>;
-  /** The table's cast: the cards in the table's version and the characters' anchors. */
-  cast: StoreApi<BoardStore>;
+  /** The table's characters: each player's card shows theirs. */
+  characters: StoreApi<CharactersStore>;
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
   /** The campaign's creator (`campaign.ownerId`): first among the masters. */
@@ -46,7 +47,7 @@ const STATUS_LABEL: Readonly<Record<Exclude<TablePresenceState['status'], 'faile
  *  and the spectators online, as the server confirmed them, and the connection state. Each row
  *  offers the role changes the viewer may make (game-core `assignableRolesOf`).
  *
- *  Example: `<SessionPresencePanel store={table.presence} board={table.board} cast={table.cast} interaction={interaction} isMaster />` */
+ *  Example: `<SessionPresencePanel store={table.presence} board={table.board} characters={table.characters} interaction={interaction} isMaster />` */
 export function SessionPresencePanel(props: SessionPresencePanelProps): React.JSX.Element {
   const titleId = useId();
   const status = useTablePresence(props.store, (state) => state.status);
@@ -77,12 +78,14 @@ export function SessionPresencePanel(props: SessionPresencePanelProps): React.JS
 function TableSections(props: SessionPresencePanelProps): React.JSX.Element | null {
   const members = useTablePresence(props.store, (state) => state.members);
   const board = useBoard(props.board, (state) => state.board);
-  const cast = useBoard(props.cast, (state) => state.board);
+  const characters = useCharacters(props.characters, (state) =>
+    state.version === null ? null : state.characters,
+  );
   const serverAt = useTablePresence(props.store, (state) => state.at);
   const campaignId = useTablePresence(props.store, (state) => state.campaignId);
   if (members.length === 0) return null;
   const viewerId = board?.viewer.userId ?? '';
-  const roster = tableRosterOf({ members, board, cast, viewerId, ownerId: props.ownerId });
+  const roster = tableRosterOf({ members, board, characters, viewerId, ownerId: props.ownerId });
   const rows = { campaignId, clock: props.clock, serverAt };
   return (
     <>

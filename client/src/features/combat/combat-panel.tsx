@@ -7,6 +7,7 @@ import { TokenDock } from '@/features/tokens/token-dock';
 import { seenTokensOf } from '@/lib/board-sight';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
+import type { CharactersStore } from '@/stores/characters-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { CombatHeader } from './combat-header';
 import { CombatPrep, type CombatPrepMode } from './combat-prep';
@@ -18,6 +19,8 @@ import { useCombatRecap } from './use-combat-recap';
 export type CombatPanelTable = Readonly<{
   presence: StoreApi<TablePresenceStore>;
   board: StoreApi<BoardStore>;
+  /** The dock falls back to the viewer's character. */
+  characters: StoreApi<CharactersStore>;
 }>;
 
 export type CombatPanelProps = Readonly<{
@@ -70,6 +73,7 @@ export function CombatPanel(props: CombatPanelProps): React.JSX.Element {
       <TokenDock
         board={table.board}
         presence={table.presence}
+        characters={table.characters}
         interaction={interaction}
         isMaster={isMaster}
         onEditToken={props.onEditToken}

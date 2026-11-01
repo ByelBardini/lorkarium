@@ -10,23 +10,14 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  isListedIn,
-  mainTokenIdOf,
-  mainTokenPlayersOf,
-  type MainTokenPlayer,
-} from '@/lib/main-token';
 import { TokenSheetItems } from '@/features/sheets/token-sheet-items';
-import { TokenLinkItems, type CardLinkRequest } from '@/features/tokens/token-link-items';
+import { TokenLinkItems, type CharacterLinkRequest } from '@/features/tokens/token-link-items';
 import type { TokenStyle } from '@/services/table-board-commands';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
-import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
+import type { CharactersStore } from '@/stores/characters-store';
 import { LAYER_LABEL } from './board-messages';
 import { useViewerTokenRights } from './table-token-rights';
 import { TokenFormItems } from './token-form-items';
@@ -38,8 +29,6 @@ export type TokenMenuRequest = Readonly<{ tokenId: string; x: number; y: number 
 export type TokenContextMenuProps = Readonly<{
   request: TokenMenuRequest;
   board: StoreApi<BoardStore>;
-  /** The names of the players "Tornar principal de" lists. */
-  presence: StoreApi<TablePresenceStore>;
   interaction: StoreApi<BoardInteractionStore>;
   /** "Aplicar condição…": the tokens it goes to. */
   onApplyCondition: (tokenIds: readonly string[]) => void;
@@ -51,11 +40,11 @@ export type TokenContextMenuProps = Readonly<{
   onEditForms?: (tokenId: string) => void;
   /** "Editar token…" (whoever may edit the token): the token whose dialog opens. Absent: no such item. */
   onEditToken?: (tokenId: string) => void;
-  /** The master's "Ligar à ficha de ▸" / "Desligar da ficha": the table's cast, and where a link
-   *  that needs a yes goes. Absent: no character items. */
+  /** The master's "Ligar a personagem ▸" / "Desligar do personagem": the table's characters,
+   *  and where a link that needs a yes goes. Absent: no character items. */
   characters?: Readonly<{
-    cast: StoreApi<BoardStore>;
-    onConfirmLink: (request: CardLinkRequest) => void;
+    store: StoreApi<CharactersStore>;
+    onConfirmLink: (request: CharacterLinkRequest) => void;
   }>;
   onClose: () => void;
 }>;
@@ -65,14 +54,12 @@ export const EDIT_TOKEN_LABEL = 'Editar token…';
 export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
 
 /** The right click on a token for whoever controls it: "Editar token…" (that token alone, for
- *  whoever may edit it, with `onEditToken`), "Aplicar condição…", "Tornar principal"
- *  (only on a token the viewer is listed in the control of and that is not their main one), the
- *  master's "Tornar principal de ▸" (the players listed in its control), "Morto", "Luz acesa"
+ *  whoever may edit it, with `onEditToken`), "Aplicar condição…", "Morto", "Luz acesa"
  *  (only on a token that gives off light), "Aura…" (that token alone, for whoever controls it),
  *  "Tirar aura" (the targets with an aura that the viewer controls, at once), "Trocar forma ▸"
  *  (that token alone, with forms, for whoever controls it), "Imagem…",
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
- *  token alone); the master also gets "Ligar à ficha de ▸" / "Desligar da ficha" (with
+ *  token alone); the master also gets "Ligar a personagem ▸" / "Desligar do personagem" (with
  *  `characters`), "Tornar invisível" / "Tornar visível" and "Mover para camada". Closing (a choice, Esc, a click away)
  *  tells `onClose`. Under a `SheetRoomProvider`, "Abrir ficha" (or "Fichas ▸") and the master's "Nova ficha ▸"
  *  (`TokenSheetItems`) come after the character items.
@@ -85,9 +72,7 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
     board,
     (state) => state.board?.tokens.find(({ id }) => id === request.tokenId) ?? null,
   );
-  const canMakeMain = useBoard(board, (state) => canMakeMainToken(state.board, request.tokenId));
   const layerMenu = useBoardInteraction(interaction, (state) => state.canChooseLayer);
-  const players = useMainTokenPlayers(props.board, props.presence, request.tokenId);
   const hiding = useHidingTargets(board, interaction, request.tokenId);
   const unaura = useAuraTargets(board, interaction, request.tokenId);
   if (!token) return null;
@@ -120,32 +105,11 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
         <DropdownMenuItem onSelect={() => props.onApplyCondition(targets())}>
           Aplicar condição…
         </DropdownMenuItem>
-        {canMakeMain && (
-          <DropdownMenuItem
-            onSelect={() =>
-              void interaction
-                .getState()
-                .command((commands, scope) => commands.setMainToken(scope, token.id))
-            }
-          >
-            Tornar principal
-          </DropdownMenuItem>
-        )}
-        {players.length > 0 && (
-          <MainTokenPlayersItems
-            players={players}
-            onChoose={(playerId) =>
-              void interaction
-                .getState()
-                .command((commands, scope) => commands.setMainToken(scope, token.id, playerId))
-            }
-          />
-        )}
         {layerMenu && props.characters && (
           <TokenLinkItems
             token={token}
-            cast={props.characters.cast}
-            presence={props.presence}
+            board={board}
+            characters={props.characters.store}
             interaction={interaction}
             onConfirmLink={props.characters.onConfirmLink}
           />
@@ -225,14 +189,6 @@ function EditTokenItem({
   );
 }
 
-// The same rule as the dock's star: listed in the control (the master's power does not count).
-function canMakeMainToken(board: BoardStore['board'], tokenId: string): boolean {
-  if (!board) return false;
-  const token = board.tokens.find(({ id }) => id === tokenId);
-  if (!token || !isListedIn(token, board.viewer.userId)) return false;
-  return mainTokenIdOf(board) !== tokenId;
-}
-
 // Every item acts on the selection when the token is in it, or on that token alone.
 function targetIdsOf(selected: readonly string[], tokenId: string): readonly string[] {
   return selected.includes(tokenId) ? selected : [tokenId];
@@ -269,44 +225,6 @@ function useAuraTargets(
     });
     return wearing.map(({ id }) => id);
   }, [tokens, selected, tokenId]);
-}
-
-// Only the master chooses for someone else; the players listed in the control, but the master.
-function useMainTokenPlayers(
-  board: StoreApi<BoardStore>,
-  presence: StoreApi<TablePresenceStore>,
-  tokenId: string,
-): readonly MainTokenPlayer[] {
-  const state = useBoard(board, (current) => current.board);
-  const members = useTablePresence(presence, (current) => current.members);
-  return useMemo(() => {
-    if (state?.viewer.role !== 'master') return [];
-    return mainTokenPlayersOf(state, tokenId, members);
-  }, [state, members, tokenId]);
-}
-
-type MainTokenPlayersItemsProps = Readonly<{
-  players: readonly MainTokenPlayer[];
-  onChoose: (playerId: string) => void;
-}>;
-
-function MainTokenPlayersItems({ players, onChoose }: MainTokenPlayersItemsProps) {
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>Tornar principal de</DropdownMenuSubTrigger>
-      <DropdownMenuSubContent>
-        {players.map((player) => (
-          <DropdownMenuCheckboxItem
-            key={player.userId}
-            checked={player.isMain}
-            onSelect={() => !player.isMain && onChoose(player.userId)}
-          >
-            {player.name}
-          </DropdownMenuCheckboxItem>
-        ))}
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
-  );
 }
 
 type LookItemsProps = Readonly<{
