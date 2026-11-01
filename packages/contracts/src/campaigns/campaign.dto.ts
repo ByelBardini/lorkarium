@@ -85,7 +85,6 @@ export const campaignMemberDto = z.strictObject({
 export type CampaignMemberDto = z.infer<typeof campaignMemberDto>;
 
 /** The campaign as its detail modal shows it; `joinCode` is `null` for anyone but the master.
- *  `castSceneId` is the hidden scene of the characters' anchors (`board:sync` with it).
  *  `lastAccessAt` is the latest entry of any member (`null` = nobody entered yet).
  *
  *  Example: `campaignDetailDto.parse(body.campaign).members[0].role // 'master'` */
@@ -93,7 +92,6 @@ export const campaignDetailDto = campaignSummaryDto.extend({
   members: z.array(campaignMemberDto),
   joinCode: z.string().nullable(),
   hasPassword: z.boolean(),
-  castSceneId: z.uuid(),
   createdAt: z.iso.datetime(),
   lastAccessAt: z.iso.datetime().nullable(),
 });

@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto';
-import { boardCommandShape, boardEventShape } from './board-event.dto';
+import { boardCommandShape, tableEventShape } from './board-event.dto';
 import type { BoardCommandAckDto } from './board.dto';
-import { conditionChangeDto } from './combat.dto';
-import { activeConditionDto } from './condition.dto';
+import { activeConditionDto, conditionDefinitionDto } from './condition.dto';
 import {
   CHARACTER_NOTE_MAX,
   CHARACTER_STAT_MAX,
@@ -27,29 +26,7 @@ export { CHARACTER_NOTE_MAX, CHARACTER_STAT_MAX } from './character-fields.dto';
 /** A character's name is the name its linked tokens wear, so it has the token's limit. */
 export const CHARACTER_NAME_MAX = TOKEN_NAME_MAX_LENGTH;
 
-/** `token:linkToCard` (master): the token becomes the character of `memberId` (a player). The
- *  first link creates the anchor in the cast with the token's bars, conditions and controllers;
- *  a later one, in another grid, adopts the anchor's (the token's own are dropped).
- *
- *  Example: `linkTokenToCardCommandDto.parse({ actionId, campaignId, sceneId, tokenId, memberId })` */
-export const linkTokenToCardCommandDto = z.strictObject({
-  ...boardCommandShape,
-  tokenId: z.uuid(),
-  memberId: z.uuid(),
-});
-export type LinkTokenToCardCommandDto = z.infer<typeof linkTokenToCardCommandDto>;
-
-/** `token:unlinkFromCard` (master): the token keeps a copy of what it showed (the anchor's
- *  identity, bars, controllers and conditions) and stops following it; the anchor stays.
- *
- *  Example: `unlinkTokenFromCardCommandDto.parse({ actionId, campaignId, sceneId, tokenId })` */
-export const unlinkTokenFromCardCommandDto = z.strictObject({
-  ...boardCommandShape,
-  tokenId: z.uuid(),
-});
-export type UnlinkTokenFromCardCommandDto = z.infer<typeof unlinkTokenFromCardCommandDto>;
-
-/** `token:addPlayers` (master): puts in the grid a token linked to each player who has an anchor,
+/** `token:addPlayers` (master): puts in the grid a token linked to each player's character,
  *  in the free cells around `center` (the middle of the master's view).
  *
  *  Example: `addPlayersCommandDto.parse({ actionId, campaignId, sceneId, center: { col: 10, row: 6 } })` */
@@ -60,7 +37,7 @@ export const addPlayersCommandDto = z.strictObject({
 export type AddPlayersCommandDto = z.infer<typeof addPlayersCommandDto>;
 
 /** Answer to `token:addPlayers`: the ids of the tokens created (in the order of the players) and
- *  the players skipped because they have no anchor yet. With nobody to place, `createdIds` is
+ *  the players skipped because they have no character. With nobody to place, `createdIds` is
  *  empty and the version did not change. */
 export const addPlayersAckDto = z.discriminatedUnion('ok', [
   z.strictObject({
@@ -72,14 +49,6 @@ export const addPlayersAckDto = z.discriminatedUnion('ok', [
   realtimeAckFailureDto,
 ]);
 export type AddPlayersAckDto = z.infer<typeof addPlayersAckDto>;
-
-/** `condition:changedMany`, to the cast: the conditions of anchors after the end of a turn of a
- *  token linked to them (counted down, the expired gone), in the cast's version. */
-export const conditionsChangedDto = z.strictObject({
-  ...boardEventShape,
-  changes: z.array(conditionChangeDto),
-});
-export type ConditionsChangedDto = z.infer<typeof conditionsChangedDto>;
 
 /** A player's character at the table (spec §6 `Character`): the one source of the identity,
  *  bars, conditions and control that every token linked to it wears in every grid; the place,
@@ -197,20 +166,12 @@ export const unlinkTokenFromCharacterCommandDto = z.strictObject({
 });
 export type UnlinkTokenFromCharacterCommandDto = z.infer<typeof unlinkTokenFromCharacterCommandDto>;
 
-/** Fields of every character event: the table, its characters' version and when (§5.5). The
- *  characters have one version per table, apart from the grids'. */
-const characterEventShape = {
-  campaignId: z.uuid(),
-  version: stateVersionDto,
-  at: z.iso.datetime(),
-};
-
 /** `character:changed`: the characters one command changed, whole, as this viewer may see them,
  *  all in one version.
  *
  *  Example: `characterChangedEventDto.parse(event).characters[0]?.bars` */
 export const characterChangedEventDto = z.strictObject({
-  ...characterEventShape,
+  ...tableEventShape,
   characters: z.array(characterDto).min(1),
 });
 export type CharacterChangedEventDto = z.infer<typeof characterChangedEventDto>;
@@ -218,7 +179,7 @@ export type CharacterChangedEventDto = z.infer<typeof characterChangedEventDto>;
 /** `character:removed`: the character is no longer for this viewer (its player became a
  *  spectator or left the table); it stays stored. */
 export const characterRemovedEventDto = z.strictObject({
-  ...characterEventShape,
+  ...tableEventShape,
   characterId: z.uuid(),
 });
 export type CharacterRemovedEventDto = z.infer<typeof characterRemovedEventDto>;
@@ -229,10 +190,12 @@ export type CharacterRemovedEventDto = z.infer<typeof characterRemovedEventDto>;
 export const characterSyncCommandDto = z.strictObject({ campaignId: z.uuid() });
 export type CharacterSyncCommandDto = z.infer<typeof characterSyncCommandDto>;
 
-/** Every character this viewer sees, in the version of the table's characters. */
+/** The table stream as this viewer sees it: every character and the table's condition list, in
+ *  the version of the table stream (`condition:defined` & co. share it with `character:*`). */
 export const characterSyncDto = z.strictObject({
   version: stateVersionDto,
   characters: z.array(characterDto),
+  conditionDefinitions: z.array(conditionDefinitionDto),
 });
 export type CharacterSyncDto = z.infer<typeof characterSyncDto>;
 
@@ -248,8 +211,6 @@ type CommandAck = CharacterAck<BoardCommandAckDto>;
 
 /** Client → server commands of the characters, merged into `BoardClientEvents`. */
 export type CharacterClientEvents = {
-  'token:linkToCard': (command: LinkTokenToCardCommandDto, ack: CommandAck) => void;
-  'token:unlinkFromCard': (command: UnlinkTokenFromCardCommandDto, ack: CommandAck) => void;
   'token:addPlayers': (command: AddPlayersCommandDto, ack: CharacterAck<AddPlayersAckDto>) => void;
   'token:linkToCharacter': (command: LinkTokenToCharacterCommandDto, ack: CommandAck) => void;
   'token:unlinkFromCharacter': (
@@ -267,7 +228,6 @@ export type CharacterClientEvents = {
 
 /** Server → room events of the characters, merged into `BoardServerEvents`. */
 export type CharacterServerEvents = {
-  'condition:changedMany': (event: ConditionsChangedDto) => void;
   'character:changed': (event: CharacterChangedEventDto) => void;
   'character:removed': (event: CharacterRemovedEventDto) => void;
 };

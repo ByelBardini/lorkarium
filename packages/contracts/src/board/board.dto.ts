@@ -122,16 +122,6 @@ import type {
   TokensFacedDto,
   TokensRestyledDto,
 } from './token-appearance.dto';
-import {
-  mainTokenDto,
-  type MainTokenChangedDto,
-  type SetMainTokenCommandDto,
-} from './token-main.dto';
-import {
-  memberCardDto,
-  type MemberCardChangedDto,
-  type UpdateMemberCardCommandDto,
-} from './member-card.dto';
 import type { ResizeTokensCommandDto, TokensResizedDto } from './token-resize.dto';
 import type { SetTokenFormCommandDto, TokenFormChangedDto } from './token-form.dto';
 import type {
@@ -174,11 +164,8 @@ export const BOARD_EVENTS = {
   resizeTokens: 'token:resizeMany',
   setTokenForm: 'token:setForm',
   adjustBar: 'token:adjustBar',
-  setMainToken: 'token:setMain',
   deleteToken: 'token:delete',
   deleteTokens: 'token:deleteMany',
-  linkTokenToCard: 'token:linkToCard',
-  unlinkTokenFromCard: 'token:unlinkFromCard',
   addPlayers: 'token:addPlayers',
   linkTokenToCharacter: 'token:linkToCharacter',
   unlinkTokenFromCharacter: 'token:unlinkFromCharacter',
@@ -201,13 +188,10 @@ export const BOARD_EVENTS = {
   tokenFormChanged: 'token:formChanged',
   tokenDeleted: 'token:deleted',
   tokensDeleted: 'token:deletedMany',
-  mainTokenChanged: 'token:mainChanged',
   setTokensHidden: 'token:setHiddenMany',
   tokensHiddenChanged: 'token:hiddenChanged',
   veiledLightsChanged: 'token:veiledLightsChanged',
   boardAdvanced: 'board:advanced',
-  updateMemberCard: 'member:updateCard',
-  memberCardChanged: 'member:cardChanged',
   createDrawings: 'drawing:createMany',
   moveDrawings: 'drawing:moveMany',
   deleteDrawings: 'drawing:deleteMany',
@@ -265,7 +249,6 @@ export const BOARD_EVENTS = {
   conditionApplied: 'condition:applied',
   conditionsApplied: 'condition:appliedMany',
   conditionRemoved: 'condition:removed',
-  conditionsChanged: 'condition:changedMany',
   startCombat: 'combat:start',
   endCombat: 'combat:end',
   addCombatants: 'combat:addCombatants',
@@ -315,9 +298,6 @@ export const boardStateDto = z.strictObject({
   veiledLights: z.array(veiledLightDto),
   combat: combatDto.nullable(),
   conditionDefinitions: z.array(conditionDefinitionDto),
-  mainTokens: z.array(mainTokenDto),
-  /** Only the cards someone wrote on; a member without one has an empty card. */
-  memberCards: z.array(memberCardDto),
 });
 
 export type BoardStateDto = z.infer<typeof boardStateDto>;
@@ -396,9 +376,7 @@ export type BoardClientEvents = {
   'token:resizeMany': Command<ResizeTokensCommandDto>;
   'token:setForm': Command<SetTokenFormCommandDto>;
   'token:adjustBar': Command<AdjustBarCommandDto>;
-  'token:setMain': Command<SetMainTokenCommandDto>;
   'token:setHiddenMany': Command<SetTokensHiddenCommandDto>;
-  'member:updateCard': Command<UpdateMemberCardCommandDto>;
   'token:delete': Command<DeleteTokenCommandDto>;
   'token:deleteMany': Command<DeleteTokensCommandDto>;
   'drawing:createMany': Command<CreateDrawingsCommandDto>;
@@ -463,11 +441,9 @@ export type BoardServerEvents = {
   'token:formChanged': (event: TokenFormChangedDto) => void;
   'token:deleted': (event: TokenDeletedDto) => void;
   'token:deletedMany': (event: TokensDeletedDto) => void;
-  'token:mainChanged': (event: MainTokenChangedDto) => void;
   'token:hiddenChanged': (event: TokensHiddenChangedDto) => void;
   'token:veiledLightsChanged': (event: VeiledLightsChangedDto) => void;
   'board:advanced': (event: BoardAdvancedDto) => void;
-  'member:cardChanged': (event: MemberCardChangedDto) => void;
   'drawing:createdMany': (event: DrawingsCreatedDto) => void;
   'drawing:movedMany': (event: DrawingsMovedDto) => void;
   'drawing:deletedMany': (event: DrawingsDeletedDto) => void;

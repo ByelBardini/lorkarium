@@ -11,6 +11,7 @@ import {
   unlinkTokenFromCharacterCommandDto,
   updateCharacterCommandDto,
 } from '../../src/board/character.dto';
+import { conditionDefinitionDeletedDto } from '../../src/board/condition.dto';
 import { tokenDto } from '../../src/board/token.dto';
 
 const ACTION = '0f9e8d7c-6b5a-4f3e-9d2c-1b0a9f8e7d6c';
@@ -148,13 +149,23 @@ describe('the character events', () => {
   });
 
   it('the character:sync ack is the version and the characters, or the API error', () => {
-    const ok = { ok: true, version: 4, characters: [lyra] };
+    const ok = { ok: true, version: 4, characters: [lyra], conditionDefinitions: [] };
     expect(characterSyncAckDto.parse(ok)).toEqual(ok);
     const error = {
       ok: false,
       error: { code: 'CAMPAIGN_NOT_FOUND', message: 'Campaign not found' },
     };
     expect(characterSyncAckDto.parse(error)).toEqual(error);
+  });
+});
+
+describe('the condition list on the table stream', () => {
+  it('condition:definitionDeleted carries the table version and no grid', () => {
+    const event = { campaignId: VHARN, version: 6, at: AT, conditionId: SHEET };
+    expect(conditionDefinitionDeletedDto.parse(event)).toEqual(event);
+    expect(conditionDefinitionDeletedDto.safeParse({ ...event, sceneId: SALAO }).success).toBe(
+      false,
+    );
   });
 });
 
