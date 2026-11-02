@@ -39,10 +39,17 @@ describe('viewerTokenRightsOf', () => {
     ['a token from before authors (createdBy null)', lyra({ createdBy: null })],
     [
       'her token linked to a character',
-      lyra({ createdBy: BIA.userId, characterId: LYRA_CHARACTER_ID }),
+      lyra({ createdBy: BIA.userId, characterId: LYRA_CHARACTER_ID, controllerIds: [] }),
     ],
   ])('with both keys on, the player gets nothing on %s', (_case, token) => {
     expect(viewerTokenRightsOf(BOTH_KEYS, BIA).of(token)).toEqual({ edit: false, delete: false });
+  });
+
+  it('the player edits the token of the character she controls, with both keys off', () => {
+    const rights = viewerTokenRightsOf({ create: false, delete: false }, BIA);
+    const token = lyra({ characterId: LYRA_CHARACTER_ID, controllerIds: [BIA.userId] });
+
+    expect(rights.of(token)).toEqual({ edit: true, delete: false });
   });
 
   it('without a viewer yet (board loading) nobody creates or edits', () => {

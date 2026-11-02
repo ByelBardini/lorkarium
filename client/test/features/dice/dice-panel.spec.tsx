@@ -421,3 +421,99 @@ describe('DicePanel — spectator', () => {
     expect(deps.savedRolls.answers.callsOf('list')).toEqual([]);
   });
 });
+
+describe('DicePanel — folders of saved rolls', () => {
+  const MAGIAS = { id: '3b5d7f91-2c4e-4a6b-8d9f-0e1a2b3c4d5e', name: 'Magias' };
+  let deps: TestDependencies;
+  let user: UserEvent;
+
+  beforeEach(() => {
+    deps = testDependencies();
+    user = userEvent.setup();
+    deps.savedRolls.folders.set(VHARN.id, [MAGIAS]);
+    deps.savedRolls.rolls.set(VHARN.id, [{ ...ACERTO, folderId: MAGIAS.id }, BENCAO]);
+    openVharnWithRoster(deps);
+  });
+
+  async function folderButton() {
+    return screen.findByRole('button', { name: 'Pasta Magias, 1 rolagem' });
+  }
+
+  it('a folder starts closed and clicking it shows the rolls inside, which still roll', async () => {
+    renderDicePanel(deps);
+    const folder = await folderButton();
+
+    expect(screen.queryByRole('button', { name: 'Rolar Acerto' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Rolar Bênção' })).toBeInTheDocument();
+
+    await user.click(folder);
+
+    expect(folder).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Rolar Acerto' })).toBeInTheDocument();
+  });
+
+  it('"Nova pasta" creates a folder through the API', async () => {
+    renderDicePanel(deps);
+    await folderButton();
+
+    await user.click(screen.getByRole('button', { name: 'Nova pasta' }));
+    await user.type(screen.getByRole('textbox', { name: 'Nome da pasta' }), 'Ataques{Enter}');
+
+    expect(deps.savedRolls.answers.callsOf('createFolder')).toEqual(['Ataques']);
+    expect(await screen.findByRole('button', { name: 'Pasta Ataques, 0 rolagens' })).toBeVisible();
+  });
+
+  it('a folder name taken says so under the field', async () => {
+    deps.savedRolls.answers.answer('createFolder', {
+      ok: false,
+      failure: { kind: 'folder_name_taken' },
+    });
+    renderDicePanel(deps);
+    await folderButton();
+
+    await user.click(screen.getByRole('button', { name: 'Nova pasta' }));
+    await user.type(screen.getByRole('textbox', { name: 'Nome da pasta' }), 'Magias{Enter}');
+
+    expect(await screen.findByText('Já existe uma pasta com esse nome.')).toBeVisible();
+  });
+
+  it('"Renomear pasta" renames it', async () => {
+    renderDicePanel(deps);
+    await folderButton();
+
+    await user.click(screen.getByRole('button', { name: 'Renomear pasta Magias' }));
+    const field = screen.getByRole('textbox', { name: 'Nome da pasta' });
+    await user.clear(field);
+    await user.type(field, 'Feitiços{Enter}');
+
+    expect(await screen.findByRole('button', { name: 'Pasta Feitiços, 1 rolagem' })).toBeVisible();
+  });
+
+  it('deleting a folder asks first and its rolls stay, out of any folder', async () => {
+    renderDicePanel(deps);
+    await folderButton();
+
+    await user.click(screen.getByRole('button', { name: 'Apagar pasta Magias' }));
+    expect(deps.savedRolls.answers.callsOf('removeFolder')).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'Apagar' }));
+
+    expect(deps.savedRolls.answers.callsOf('removeFolder')).toEqual([MAGIAS.id]);
+    expect(await screen.findByRole('button', { name: 'Rolar Acerto' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Pasta Magias/ })).toBeNull();
+    expect(deps.savedRolls.answers.callsOf('remove')).toEqual([]);
+  });
+
+  it('"Mover" puts a roll in a folder', async () => {
+    renderDicePanel(deps);
+    await folderButton();
+
+    await user.click(screen.getByRole('button', { name: 'Mover Bênção' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Magias' }));
+
+    expect(deps.savedRolls.answers.callsOf('update')).toEqual([
+      { savedRollId: BENCAO.id, changes: { folderId: MAGIAS.id } },
+    ]);
+    expect(await screen.findByRole('button', { name: 'Pasta Magias, 2 rolagens' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Rolar Bênção' })).toBeNull();
+  });
+});

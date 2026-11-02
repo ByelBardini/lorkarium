@@ -17,7 +17,7 @@ export type TokenDockActionsProps = Readonly<{
 
 /** The foot of the token's detail: in combat, the initiative of its entry (for whoever runs it)
  *  and the master's "Tirar do combate" (only this token); always, "Editar token" for whoever may
- *  edit it (the master, or its creator with the room's create key).
+ *  edit it (the master, whoever controls its linked token, or its creator with the room's create key).
  *
  *  Example: `<TokenDockActions token={kael} board={board} interaction={interaction} isMaster onEditToken={edit} />` */
 export function TokenDockActions(props: TokenDockActionsProps): React.JSX.Element | null {

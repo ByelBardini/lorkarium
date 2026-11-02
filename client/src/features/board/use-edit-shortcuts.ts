@@ -119,7 +119,7 @@ function contextOf(deps: OpenEditDeps): EditContext {
 
 // A token no longer on the board has no author here: the master's step still goes (the server
 // answers), a player's is skipped.
-const UNKNOWN_TOKEN = { createdBy: null, characterId: null };
+const UNKNOWN_TOKEN = { createdBy: null, characterId: null, controllerIds: [] };
 
 function editTokenRightsOf({ table, tokenKeys }: OpenEditDeps): EditTokenRights {
   const board = table.board.getState().board;

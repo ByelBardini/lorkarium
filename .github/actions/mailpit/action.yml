@@ -8,6 +8,12 @@ runs:
     - name: Start Mailpit
       shell: bash
       run: |
+        # Docker Hub answers a 502 on a layer now and then, and docker run gives up on the first one.
+        for attempt in 1 2 3 4 5; do
+          docker pull axllent/mailpit:v1.27.0 && break
+          if [ "$attempt" = 5 ]; then exit 1; fi
+          sleep $((attempt * 10))
+        done
         docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.27.0
         for _ in $(seq 1 60); do
           if curl -sf -o /dev/null http://localhost:8025/readyz; then exit 0; fi

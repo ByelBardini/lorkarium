@@ -214,3 +214,39 @@ describe('shared writes on a linked token go to its character', () => {
     expect(quelmEvents.events.map(({ name }) => name)).not.toContain('character:changed');
   });
 });
+
+describe('a player edits the token of her character', () => {
+  it('Bia renames Lyra with the table keys off, and her sight stays closed', async () => {
+    const { bia, lyra, characterId } = await lyraOnTwoGrids();
+    const state = await synced(bia, live.vharn);
+    const { id, name, initials, side, width, height, bars, controllerIds } = tokenIn(
+      state,
+      lyra.id,
+    );
+    const edit = { tokenId: id, initials, side, width, height, controllerIds };
+    const editBars = bars.map(({ label, current, max, color, visibility, display }) => {
+      return { label, current, max, color, visibility, display };
+    });
+    expect(name).not.toBe('Lyra, a Rubra');
+
+    const renamed = { ...edit, name: 'Lyra, a Rubra', bars: editBars };
+    const ack = await send(bia, 'token:update', { ...envelope(live.vharn.id), ...renamed });
+    const blinded = { ...renamed, sight: { bright: 60, dim: 60 } };
+    const refused = await send(bia, 'token:update', { ...envelope(live.vharn.id), ...blinded });
+
+    expect(ack).toMatchObject({ ok: true });
+    expect(refused).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
+    const after = await characterOfUser(live, live.vharn, live.bia);
+    expect([after.character.id, after.character.name]).toEqual([characterId, 'Lyra, a Rubra']);
+  });
+
+  it('Caio, who does not control her, is refused', async () => {
+    const { caio, lyra } = await lyraOnTwoGrids();
+    const update = { tokenId: lyra.id, name: 'Roubada', initials: 'RO', side: 'ally' as const };
+    const command = { ...update, width: 1, height: 1, bars: [], controllerIds: [live.caio.id] };
+
+    const ack = await send(caio, 'token:update', { ...envelope(live.vharn.id), ...command });
+
+    expect(ack).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
+  });
+});

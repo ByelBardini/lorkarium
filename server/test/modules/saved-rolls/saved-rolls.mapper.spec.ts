@@ -14,6 +14,7 @@ describe('toSavedRollDto', () => {
     expect(toSavedRollDto(savedRollPo())).toEqual({
       id: ACERTO_ID,
       name: 'Acerto',
+      folderId: null,
       parts: [{ label: null, expression: '1d20+5' }],
     });
   });
@@ -28,6 +29,7 @@ describe('toNewSavedRollPo', () => {
       userId: BIA_ID,
       name: 'Bênção',
       nameKey: 'bencao',
+      folderId: null,
       parts: BLESS,
     });
   });
@@ -36,6 +38,10 @@ describe('toNewSavedRollPo', () => {
 describe('toSavedRollChangesPo', () => {
   it('a new name goes with its key', () => {
     expect(toSavedRollChangesPo({ name: 'ACÉRTO' })).toEqual({ name: 'ACÉRTO', nameKey: 'acerto' });
+  });
+
+  it('a move writes only the folder, and null takes the roll out', () => {
+    expect(toSavedRollChangesPo({ folderId: null })).toEqual({ folderId: null });
   });
 
   it('only the pieces write only the pieces', () => {

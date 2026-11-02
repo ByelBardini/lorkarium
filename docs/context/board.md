@@ -68,6 +68,8 @@ O tabuleiro da mesa: as cenas (grids) e o que vive nelas — tokens, paredes, lu
 
 ## Armadilhas
 
+- **Ordem das travas:** quem trava a mesa e o grid na mesma transação trava a mesa primeiro, em comando próprio. O `shareInCampaign` travava os dois numa consulta só e podia pegar o grid antes da mesa, invertendo a ordem do `PATCH` da biblioteca (risco de deadlock e 500).
+
 - **A trava do `scene:watch` é `FOR SHARE` na cena e na mesa, e o socket entra nas salas dentro dela.** Quem muda o acesso (`PATCH visibility` trava a mesa `FOR NO KEY UPDATE` e atualiza a cena; a ativação trava a mesa) espera o `watch` terminar, ou o `watch` espera a mudança: a que chega depois encontra o socket na sala e o expulsa (`SceneAudiencePort.evict`); a que chegou antes faz o `watch` recusar. Provado pelo `scene-rooms.spec.ts` (100 corridas `watch` × `PATCH private`); a recusa do snapshot depois do `watch` (que sai das salas) é a segunda rede. Entrar na sala depois do commit abriria uma janela em que nenhum dos dois vê o outro. `FOR SHARE` não roda em transação `read only`: por isso o `watch` tem transação própria (`share`) e o snapshot vem depois.
 
 - `campaigns.active_scene_id` e `scenes.campaign_id` se referenciam: no PO de `campaigns`, a referência é `(): AnyPgColumn => scenes.id`, senão o TypeScript acusa o tipo circular.

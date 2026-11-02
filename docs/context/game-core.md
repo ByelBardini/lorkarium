@@ -147,7 +147,7 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 
 - `TableTokenRights` `{ create, delete }` — as duas chaves da mesa ("Jogadores criam e editam tokens", "Jogadores excluem os próprios tokens"); `TokenRightsViewer` `{ role, userId }`; `OwnedToken` `{ createdBy, characterId }`.
 - `canCreateTokens(viewer, chaves)` — o mestre sempre; o jogador com `create`; o espectador nunca.
-- `tokenRightsOf(viewer, chaves, token)` → `{ edit, delete }`: o mestre tudo; o jogador só no token que **ele criou** (`createdBy`) e **sem ligação** a personagem (`characterId` nulo; o ligado é do mestre), cada direito atrás da sua chave (`create` → editar, `delete` → excluir); `createdBy` nulo (token antigo) e o espectador → nada.
+- `tokenRightsOf(viewer, chaves, token)` → `{ edit, delete }`: o mestre tudo; o jogador edita o token **ligado** a personagem quando está em `controllerIds` (sem depender das chaves; excluir o ligado segue do mestre) e, no token solto que **ele criou** (`createdBy`), cada direito fica atrás da sua chave (`create` → editar, `delete` → excluir); `createdBy` nulo no solto (token antigo) e o espectador → nada.
 - O `TokenAuthorshipBo` do server recusa com ela e o client esconde os botões com ela (`lib/token-rights-of-viewer.ts`). Visão, luz e cone ficam fora do alcance do jogador — essa trava é do BO, não daqui.
 
 ## Visão e luz

@@ -54,6 +54,7 @@ export function savedRollOf(n: number, name: string, expression = '1d20'): Saved
   return {
     id: `5a7e0c1d-2b3f-4a6c-8d9e-${String(n).padStart(12, '0')}`,
     name,
+    folderId: null,
     parts: [{ label: null, expression }],
   };
 }

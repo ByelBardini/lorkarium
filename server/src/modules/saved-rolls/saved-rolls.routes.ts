@@ -1,10 +1,13 @@
 import rateLimit from '@fastify/rate-limit';
 import {
   createSavedRollRequestDto,
+  savedRollFolderParamsDto,
+  savedRollFolderRequestDto,
   savedRollParamsDto,
   updateSavedRollRequestDto,
   type ApiErrorDto,
   type SavedRollDto,
+  type SavedRollFolderDto,
   type SavedRollsResponseDto,
 } from '@lorkarium/contracts';
 import type {
@@ -19,7 +22,9 @@ import { invalidBodyError } from '../../lib/invalid-body';
 import { perUserRateLimit } from '../../lib/per-user-rate-limit';
 import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { InvalidDiceExpressionError } from '../dice/dice.error';
+import type { SavedRollFoldersService } from './saved-roll-folders.service';
 import {
+  SavedRollFolderNotFoundError,
   SavedRollNotFoundError,
   SavedRollsError,
   SavedRollsRateLimitedError,
@@ -30,7 +35,9 @@ import type { SavedRollsService } from './saved-rolls.service';
 
 const SAVED_ROLLS_URL = '/campaigns/:campaignId/saved-rolls';
 const SAVED_ROLL_URL = `${SAVED_ROLLS_URL}/:savedRollId`;
-/** Creates, edits and deletes of one user, summed over the three routes. */
+const FOLDERS_URL = '/campaigns/:campaignId/saved-roll-folders';
+const FOLDER_URL = `${FOLDERS_URL}/:folderId`;
+/** Creates, edits and deletes of one user, summed over the write routes of rolls and folders. */
 const SAVED_ROLL_WRITES_PER_MINUTE = 30;
 
 type SavedRollsReply = Readonly<{ status: number; body: ApiErrorDto }>;
@@ -39,6 +46,9 @@ const STATUS_BY_CODE: Readonly<Record<SavedRollsErrorCode, number>> = {
   SAVED_ROLL_NOT_FOUND: 404,
   SAVED_ROLL_NAME_TAKEN: 409,
   SAVED_ROLLS_LIMIT: 422,
+  SAVED_ROLL_FOLDER_NOT_FOUND: 404,
+  SAVED_ROLL_FOLDER_NAME_TAKEN: 409,
+  SAVED_ROLL_FOLDERS_LIMIT: 422,
   RATE_LIMITED: 429,
 };
 
@@ -49,28 +59,40 @@ const PUBLIC_MESSAGE: Readonly<Record<SavedRollsErrorCode, string>> = {
   SAVED_ROLL_NOT_FOUND: 'Saved roll not found',
   SAVED_ROLL_NAME_TAKEN: 'You already have a saved roll with this name',
   SAVED_ROLLS_LIMIT: 'You already keep 50 saved rolls at this table',
+  SAVED_ROLL_FOLDER_NOT_FOUND: 'Saved roll folder not found',
+  SAVED_ROLL_FOLDER_NAME_TAKEN: 'You already have a folder with this name',
+  SAVED_ROLL_FOLDERS_LIMIT: 'You already keep 50 folders at this table',
   RATE_LIMITED: 'Too many changes in a row',
 };
 
 /** HTTP edge of the saved rolls, nested in the table (§2.6); every route needs a session and
  *  acts as the session's user, who is always the owner (never the body's).
  *
- *  Example: `app.register(savedRollsRoutes(service), { prefix: '/api' })` */
+ *  Example: `app.register(savedRollsRoutes(service, folders), { prefix: '/api' })` */
 export function savedRollsRoutes(
   service: SavedRollsService,
+  folders: SavedRollFoldersService,
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
     await app.register(rateLimit, { global: false, errorResponseBuilder: rateLimitedError });
     app.setErrorHandler(replyWithApiError);
-    registerSavedRollRoutes(app, service);
+    const { requireAuth, userOf } = app.authGuards;
+    // One limiter (one store) for every write route, keyed by the signed-in user.
+    const writes = app.rateLimit(
+      perUserRateLimit(SAVED_ROLL_WRITES_PER_MINUTE, '1 minute', userOf),
+    );
+    const writeGuards: preHandlerAsyncHookHandler[] = [requireAuth, writes];
+    registerSavedRollRoutes(app, service, writeGuards);
+    registerFolderRoutes(app, folders, writeGuards);
   };
 }
 
-function registerSavedRollRoutes(app: FastifyInstance, service: SavedRollsService): void {
-  const { requireAuth, userOf } = app.authGuards;
-  // One limiter (one store) for the three write routes, keyed by the signed-in user.
-  const writes = app.rateLimit(perUserRateLimit(SAVED_ROLL_WRITES_PER_MINUTE, '1 minute', userOf));
-  const writeGuards: preHandlerAsyncHookHandler[] = [requireAuth, writes];
+function registerSavedRollRoutes(
+  app: FastifyInstance,
+  service: SavedRollsService,
+  writeGuards: preHandlerAsyncHookHandler[],
+): void {
+  const { requireAuth } = app.authGuards;
   app.get(SAVED_ROLLS_URL, { preHandler: requireAuth }, async (request) => {
     return (await service.list(ownerOf(app, request))) satisfies SavedRollsResponseDto;
   });
@@ -92,6 +114,33 @@ function registerSavedRollRoutes(app: FastifyInstance, service: SavedRollsServic
   });
 }
 
+function registerFolderRoutes(
+  app: FastifyInstance,
+  service: SavedRollFoldersService,
+  writeGuards: preHandlerAsyncHookHandler[],
+): void {
+  const { requireAuth } = app.authGuards;
+  app.get(FOLDERS_URL, { preHandler: requireAuth }, async (request) => {
+    return { folders: await service.list(ownerOf(app, request)) };
+  });
+  app.post(FOLDERS_URL, { preHandler: writeGuards }, async (request, reply) => {
+    const { name } = savedRollFolderRequestDto.parse(request.body);
+    const folder = await service.create(ownerOf(app, request), name);
+    return reply.code(201).send(folder satisfies SavedRollFolderDto);
+  });
+  app.patch(FOLDER_URL, { preHandler: writeGuards }, async (request) => {
+    const owner = ownerOf(app, request);
+    const { name } = savedRollFolderRequestDto.parse(request.body);
+    const folderId = folderIdOf(request, owner);
+    return (await service.rename(owner, folderId, name)) satisfies SavedRollFolderDto;
+  });
+  app.delete(FOLDER_URL, { preHandler: writeGuards }, async (request, reply) => {
+    const owner = ownerOf(app, request);
+    await service.remove(owner, folderIdOf(request, owner));
+    return reply.code(204).send();
+  });
+}
+
 // A malformed id finds nothing, exactly like an id of another table (critério 14).
 function ownerOf(app: FastifyInstance, request: FastifyRequest): SavedRollOwner {
   const userId = app.authGuards.userOf(request).id;
@@ -106,6 +155,13 @@ function savedRollIdOf(request: FastifyRequest, owner: SavedRollOwner): string {
   const parsed = savedRollParamsDto.shape.savedRollId.safeParse(savedRollId);
   if (parsed.success) return parsed.data;
   throw new SavedRollNotFoundError(owner.campaignId, owner.userId, String(savedRollId));
+}
+
+function folderIdOf(request: FastifyRequest, owner: SavedRollOwner): string {
+  const { folderId } = request.params as Readonly<Record<string, unknown>>;
+  const parsed = savedRollFolderParamsDto.shape.folderId.safeParse(folderId);
+  if (parsed.success) return parsed.data;
+  throw new SavedRollFolderNotFoundError(owner.campaignId, owner.userId, String(folderId));
 }
 
 function rateLimitedError(

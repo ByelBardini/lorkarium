@@ -8,6 +8,12 @@ runs:
     - name: Start SeaweedFS
       shell: bash
       run: |
+        # Docker Hub answers a 502 on a layer now and then, and docker run gives up on the first one.
+        for attempt in 1 2 3 4 5; do
+          docker pull chrislusf/seaweedfs:4.48 && break
+          if [ "$attempt" = 5 ]; then exit 1; fi
+          sleep $((attempt * 10))
+        done
         docker run -d --name seaweedfs -p 8333:8333 --tmpfs /data \
           -v "$GITHUB_WORKSPACE/infra/compose/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro" \
           chrislusf/seaweedfs:4.48 \

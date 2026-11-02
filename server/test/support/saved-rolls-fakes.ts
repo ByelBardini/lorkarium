@@ -1,7 +1,10 @@
 import type { SavedRollsDao } from '../../src/modules/saved-rolls/saved-rolls.dao';
+import type { SavedRollFoldersDao } from '../../src/modules/saved-rolls/saved-roll-folders.dao';
 import type {
+  NewSavedRollFolderPo,
   NewSavedRollPo,
   SavedRollChangesPo,
+  SavedRollFolderPo,
   SavedRollPo,
 } from '../../src/modules/saved-rolls/saved-rolls.po';
 import type {
@@ -23,11 +26,111 @@ export function savedRollPo(overrides: Partial<SavedRollPo> = {}): SavedRollPo {
     userId: BIA_ID,
     name: 'Acerto',
     nameKey: 'acerto',
+    folderId: null,
     parts: [{ label: null, expression: '1d20+5' }],
     createdAt: FAKE_DATE,
     updatedAt: FAKE_DATE,
     ...overrides,
   };
+}
+
+export const MAGIAS_ID = '2a4c6e80-1b3d-4f5a-8c7e-9d0b1a2c3d4e';
+
+/** The folder "Magias" of Bia at Vharn.
+ *
+ *  Example: `savedRollFolderPo({ userId: CAIO_ID })` */
+export function savedRollFolderPo(overrides: Partial<SavedRollFolderPo> = {}): SavedRollFolderPo {
+  return {
+    id: MAGIAS_ID,
+    campaignId: VHARN_ID,
+    userId: BIA_ID,
+    name: 'Magias',
+    nameKey: 'magias',
+    createdAt: FAKE_DATE,
+    ...overrides,
+  };
+}
+
+/** What Drizzle throws when `saved_roll_folders_member_name_unique` refuses a repeated name. */
+export class SavedRollFolderNameViolationFake extends Error {
+  override readonly cause = { code: '23505', constraint: 'saved_roll_folders_member_name_unique' };
+}
+
+/** In-memory folders; a repeated name key of the same owner throws like the unique index. Writes
+ *  `folder:find`, `folder:count`, `folder:insert:<name>`, `folder:rename:<id>` and
+ *  `folder:remove:<id>` in the journal. */
+export class SavedRollFoldersDaoFake implements Pick<
+  SavedRollFoldersDao,
+  'listOf' | 'findOf' | 'countOf' | 'insert' | 'rename' | 'remove'
+> {
+  constructor(
+    private readonly journal: string[],
+    readonly rows: SavedRollFolderPo[] = [],
+  ) {}
+
+  async listOf(campaignId: string, userId: string): Promise<SavedRollFolderPo[]> {
+    return this.ownedBy(campaignId, userId);
+  }
+
+  async findOf(
+    campaignId: string,
+    userId: string,
+    folderId: string,
+  ): Promise<SavedRollFolderPo | undefined> {
+    this.journal.push('folder:find');
+    return this.ownedBy(campaignId, userId).find((row) => row.id === folderId);
+  }
+
+  async countOf(campaignId: string, userId: string): Promise<number> {
+    this.journal.push('folder:count');
+    return this.ownedBy(campaignId, userId).length;
+  }
+
+  async insert(row: NewSavedRollFolderPo): Promise<SavedRollFolderPo> {
+    this.requireFreeName(row.campaignId, row.userId, row.nameKey, null);
+    this.journal.push(`folder:insert:${row.name}`);
+    const inserted = savedRollFolderPo({ ...row, id: `folder-${this.rows.length + 1}` });
+    this.rows.push(inserted);
+    return inserted;
+  }
+
+  async rename(
+    campaignId: string,
+    userId: string,
+    folderId: string,
+    named: Pick<SavedRollFolderPo, 'name' | 'nameKey'>,
+  ): Promise<SavedRollFolderPo | undefined> {
+    const found = this.ownedBy(campaignId, userId).find((row) => row.id === folderId);
+    if (!found) return undefined;
+    this.requireFreeName(campaignId, userId, named.nameKey, folderId);
+    this.journal.push(`folder:rename:${folderId}`);
+    Object.assign(found, named);
+    return found;
+  }
+
+  async remove(campaignId: string, userId: string, folderId: string): Promise<boolean> {
+    const found = this.ownedBy(campaignId, userId).find((row) => row.id === folderId);
+    if (!found) return false;
+    this.journal.push(`folder:remove:${folderId}`);
+    this.rows.splice(this.rows.indexOf(found), 1);
+    return true;
+  }
+
+  private ownedBy(campaignId: string, userId: string): SavedRollFolderPo[] {
+    return this.rows.filter((row) => row.campaignId === campaignId && row.userId === userId);
+  }
+
+  private requireFreeName(
+    campaignId: string,
+    userId: string,
+    nameKey: string,
+    exceptId: string | null,
+  ): void {
+    const taken = this.ownedBy(campaignId, userId).some(
+      (row) => row.nameKey === nameKey && row.id !== exceptId,
+    );
+    if (taken) throw new SavedRollFolderNameViolationFake('duplicate key');
+  }
 }
 
 /** What Drizzle throws when `saved_rolls_member_name_unique` refuses a repeated name. */

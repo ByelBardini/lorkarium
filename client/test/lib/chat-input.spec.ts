@@ -231,3 +231,13 @@ describe('readChatInput', () => {
     });
   });
 });
+
+describe('a saved roll inside a folder', () => {
+  it('answers its chat command exactly like one out of any folder', () => {
+    const inFolder = { ...ATAQUE, folderId: '3b5d7f91-2c4e-4a6b-8d9f-0e1a2b3c4d5e' };
+
+    expect(readChatInput('/ataque', { ...PLAYER, savedRolls: [inFolder] })).toEqual(
+      readChatInput('/ataque', PLAYER),
+    );
+  });
+});

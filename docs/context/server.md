@@ -88,7 +88,7 @@ O `TRUST_PROXY` vira `env.trustProxyHops` e o `buildApp` o passa ao Fastify por 
 
 - Unit (`test/**`, exceto `test/integration/`): sem banco nem Fastify. Encanamento (`build-app`, `database`, `migrate`) não tem unit: é provado pela integração.
 - Integração (`test/integration/**`): `test/support/sign-in.ts` (`signUpAndLogin(app, db, nome)` → `{ id, token }`) e `test/support/realtime-client.ts` (`connectRealtime(url, { token, origin })`, só websocket e sem reconexão; `disconnectionOf(socket)`); o handshake é provado em `realtime.spec.ts` (app em porta efêmera por `app.listen({ port: 0 })`).
-- Integração (`test/integration/**`): arquivos em série (um Postgres compartilhado), `hookTimeout` de 30 s. Sempre no Postgres descartável da receita do `/testar` (porta 5434), nunca no do `pnpm db:up`.
+- Integração (`test/integration/**`): arquivos em paralelo, um banco por worker (ver `ci.md`), `hookTimeout` de 30 s. Sempre no Postgres descartável da receita do `/testar` (porta 5434), nunca no do `pnpm db:up`.
 
 ## Desempenho
 

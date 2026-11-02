@@ -9,8 +9,13 @@ import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf } from '../campaigns/member-access';
 import { SavedRollRulesBo } from './saved-roll.bo';
+import type { SavedRollFoldersDao } from './saved-roll-folders.dao';
 import type { SavedRollsDao } from './saved-rolls.dao';
-import { SavedRollNameTakenError, SavedRollNotFoundError } from './saved-rolls.error';
+import {
+  SavedRollFolderNotFoundError,
+  SavedRollNameTakenError,
+  SavedRollNotFoundError,
+} from './saved-rolls.error';
 import {
   toNewSavedRollPo,
   toSavedRollChangesPo,
@@ -22,6 +27,7 @@ const NAME_UNIQUE_INDEX = 'saved_rolls_member_name_unique';
 
 export type SavedRollWriteDaos = Readonly<{
   rolls: Pick<SavedRollsDao, 'lockOwner' | 'countOf' | 'insert'>;
+  folders: Pick<SavedRollFoldersDao, 'findOf' | 'countOf' | 'insert'>;
 }>;
 
 export type SavedRollsTransactionRunner = <T>(
@@ -31,6 +37,7 @@ export type SavedRollsTransactionRunner = <T>(
 export type SavedRollsServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
   rolls: Pick<SavedRollsDao, 'listOf' | 'update' | 'remove'>;
+  folders: Pick<SavedRollFoldersDao, 'findOf'>;
   transaction: SavedRollsTransactionRunner;
   /** `SAVED_ROLLS_MAX`, passed in: the BO does not read the contract. */
   maxSaved: number;
@@ -59,9 +66,10 @@ export class SavedRollsService {
     await this.requireMember(owner);
     this.rules.requireReadable(input.parts.map((part) => part.expression));
     const row = await this.namedWrite(input.name, () =>
-      this.deps.transaction(async ({ rolls }) => {
+      this.deps.transaction(async ({ rolls, folders }) => {
         if (!(await rolls.lockOwner(owner.campaignId, owner.userId))) throw notMember(owner);
         this.rules.requireRoomFor(await rolls.countOf(owner.campaignId, owner.userId));
+        await requireOwnFolder(folders, owner, input.folderId);
         return rolls.insert(toNewSavedRollPo(owner, input));
       }),
     );
@@ -75,6 +83,7 @@ export class SavedRollsService {
   ): Promise<SavedRollDto> {
     await this.requireMember(owner);
     if (changes.parts) this.rules.requireReadable(changes.parts.map((part) => part.expression));
+    await requireOwnFolder(this.deps.folders, owner, changes.folderId);
     const { campaignId, userId } = owner;
     const write = () =>
       this.deps.rolls.update(campaignId, userId, savedRollId, toSavedRollChangesPo(changes));
@@ -103,6 +112,18 @@ export class SavedRollsService {
       throw new SavedRollNameTakenError(name);
     }
   }
+}
+
+// The foreign key only says the folder exists; whose it is, the owner's query says.
+async function requireOwnFolder(
+  folders: Pick<SavedRollFoldersDao, 'findOf'>,
+  owner: SavedRollOwner,
+  folderId: string | null | undefined,
+): Promise<void> {
+  if (folderId === undefined || folderId === null) return;
+  const { campaignId, userId } = owner;
+  if (await folders.findOf(campaignId, userId, folderId)) return;
+  throw new SavedRollFolderNotFoundError(campaignId, userId, folderId);
 }
 
 function notMember(owner: SavedRollOwner): CampaignNotFoundError {

@@ -1,4 +1,4 @@
-import { SAVED_ROLLS_MAX } from '@lorkarium/contracts';
+import { SAVED_ROLL_FOLDERS_MAX, SAVED_ROLLS_MAX } from '@lorkarium/contracts';
 import type { DiceRollFailure } from '@/services/dice-commands';
 import type { SavedRollsFailure } from '@/services/saved-rolls-api';
 import type { AdvantageMode } from '@lorkarium/game-core';
@@ -77,6 +77,9 @@ const SAVED_ROLL_FAILURES: Readonly<
   limit: `Você já tem ${SAVED_ROLLS_MAX} rolagens salvas. Apague uma para salvar outra.`,
   invalid_expression: 'Essa rolagem não pode ser salva: confira a notação.',
   not_found: 'Essa rolagem salva não existe mais.',
+  folder_name_taken: 'Já existe uma pasta com esse nome.',
+  folder_limit: `Você já tem ${SAVED_ROLL_FOLDERS_MAX} pastas. Apague uma para criar outra.`,
+  folder_not_found: 'Essa pasta não existe mais.',
 };
 
 /** The refusal of a saved-roll call, in pt-BR.
@@ -87,6 +90,15 @@ export function savedRollFailureMessage(failure: SavedRollsFailure): string {
     return `Muitas ações seguidas. Espere ${failure.retryAfterSeconds} s.`;
   }
   return SAVED_ROLL_FAILURES[failure.kind];
+}
+
+/** What a saved-roll action leaves under the list: its refusal, or nothing when it worked.
+ *
+ *  Example: `setProblem(savedRollProblemOf(await saved.remove(id)))` */
+export function savedRollProblemOf(
+  result: Readonly<{ ok: true } | { ok: false; failure: SavedRollsFailure }>,
+): string | null {
+  return result.ok ? null : savedRollFailureMessage(result.failure);
 }
 
 /** Why "Vantagem" and "Desvantagem" are off, or `null` when there is nothing worth saying (an

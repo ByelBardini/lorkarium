@@ -30,11 +30,13 @@ export type TokenCreation = VisionChange & Readonly<{ layer?: string | undefined
 export type PastedCopy = TokenCreation &
   Readonly<{ hidden?: boolean | undefined; combatantId?: string | undefined }>;
 
-/** A saved token as authorship sees it: who created it and the character it wears, if any. */
+/** A saved token as authorship sees it: who created it, the character it wears, if any, and who
+ *  controls it. */
 export type AuthoredToken = Readonly<{
   tokenId: string;
   createdBy: string | null;
   characterId: string | null;
+  controllerIds: readonly string[];
 }>;
 
 export type EditedToken = AuthoredToken & Readonly<{ vision: TokenVision }>;
@@ -101,8 +103,8 @@ export class TokenAuthorshipBo {
     return [creator, ...controllerIds.filter((userId) => userId !== creator)];
   }
 
-  /** An edit: a player only on an unlinked token they created, with the create setting, without
-   *  touching its vision and keeping themselves in the control.
+  /** An edit: a player on a linked token they control, or on an unlinked one they created with
+   *  the create setting; never touching its vision, and keeping themselves in the control.
    *
    *  Example: `authorship.requireEdit(toEditedToken(found), command)` */
   requireEdit(token: EditedToken, edit: TokenEdit): void {
@@ -111,7 +113,7 @@ export class TokenAuthorshipBo {
     if (!tokenRightsOf(this.viewer(), this.rights, ownedTokenOf(token)).edit)
       this.campaign.forbid(
         `edit token ${id}`,
-        'the master role, or being its creator with the players-create-tokens setting (unlinked)',
+        'the master role, controlling it (linked), or being its creator with the players-create-tokens setting (unlinked)',
       );
     const field = changedVisionField(token.vision, edit);
     if (field) this.campaign.forbid(`change the ${field} of token ${id}`, NO_VISION);
@@ -145,7 +147,11 @@ export class TokenAuthorshipBo {
 }
 
 function ownedTokenOf(token: AuthoredToken): OwnedToken {
-  return { createdBy: token.createdBy, characterId: token.characterId };
+  return {
+    createdBy: token.createdBy,
+    characterId: token.characterId,
+    controllerIds: token.controllerIds,
+  };
 }
 
 function changedVisionField(current: TokenVision, change: VisionChange): string | undefined {

@@ -310,6 +310,7 @@ describe('tokens mapper', () => {
       tokenId: LYRA_ID,
       createdBy: BIA_ID,
       characterId: null,
+      controllerIds: row.controllerIds,
       vision: { sight: { bright: 6, dim: 2 }, light: null, sightAngle: 90 },
     });
   });
