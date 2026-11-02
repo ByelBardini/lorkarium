@@ -7,7 +7,7 @@ import { BarTrack } from './bar-track';
 export type BarMeterProps = Readonly<{
   /** Names the meter: "PV de Kael". */
   name: string;
-  bar: Pick<TokenBarDto, 'current' | 'max' | 'display'>;
+  bar: Pick<TokenBarDto, 'current' | 'max' | 'temp' | 'display'>;
   color: BarColorDto;
   className?: string;
 }>;

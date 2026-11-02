@@ -27,6 +27,9 @@ const BAR_OUTLINE_COLOR = 0x15130f;
 // Below zero and above the maximum need hues no bar color has: crimson and bone.
 const BAR_NEGATIVE_COLOR = 0xd6455d;
 const BAR_OVER_COLOR = 0xeae5da;
+// The temp is a pale strip on the top half: it has to read over every other tone of the bar.
+const BAR_TEMP_COLOR = 0xa9d4e6;
+const BAR_TEMP_HEIGHT = 3;
 const BAR_HEIGHT = 6;
 const RING_COLOR: Readonly<Record<TokenSideDto, number>> = {
   ally: 0xd5d0c4,
@@ -435,14 +438,16 @@ function drawBar(shape: Graphics, view: TokenView, box: TokenShape): void {
     fill: BAR_COLOR[view.bar.color],
     negative: BAR_NEGATIVE_COLOR,
     over: BAR_OVER_COLOR,
+    temp: BAR_TEMP_COLOR,
   };
   shape
     .roundRect(left - 1, top - 1, width + 2, BAR_HEIGHT + 2, BAR_HEIGHT / 2 + 1)
     .fill(BAR_OUTLINE_COLOR);
   for (const segment of barSegments(view.bar, width)) {
-    const radius = Math.min(BAR_HEIGHT, segment.width) / 2;
+    const height = segment.tone === 'temp' ? BAR_TEMP_HEIGHT : BAR_HEIGHT;
+    const radius = Math.min(height, segment.width) / 2;
     shape
-      .roundRect(left + segment.left, top, segment.width, BAR_HEIGHT, radius)
+      .roundRect(left + segment.left, top, segment.width, height, radius)
       .fill(tones[segment.tone]);
   }
 }
