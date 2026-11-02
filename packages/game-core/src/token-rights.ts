@@ -11,11 +11,12 @@ export interface TokenRightsViewer {
   userId: string;
 }
 
-/** What decides ownership: the author, and the link to a character (a linked token is the
- *  master's, since editing it changes the character on every grid). */
+/** What decides ownership: the author, and the link to a character with who controls it (a
+ *  linked token opens to its controllers by control alone, never by the table settings). */
 export interface OwnedToken {
   createdBy: string | null;
   characterId: string | null;
+  controllerIds: readonly string[];
 }
 
 export interface TokenRights {
@@ -33,8 +34,9 @@ export function canCreateTokens(viewer: TokenRightsViewer, rights: TableTokenRig
   return viewer.role === 'player' && rights.create;
 }
 
-/** What the viewer may do to one token: the master everything; a player only on an unlinked
- *  token they created, each right behind its own setting.
+/** What the viewer may do to one token: the master everything; a player edits a linked token
+ *  they control (deleting it stays the master's), and on an unlinked token they created each
+ *  right sits behind its own setting.
  *
  *  Example: `tokenRightsOf(bia, { create: true, delete: false }, token) // { edit: true, delete: false }` */
 export function tokenRightsOf(
@@ -43,11 +45,9 @@ export function tokenRightsOf(
   token: OwnedToken,
 ): TokenRights {
   if (viewer.role === 'master') return { edit: true, delete: true };
-  if (!ownsToken(viewer, token)) return NO_RIGHTS;
+  if (viewer.role !== 'player') return NO_RIGHTS;
+  if (token.characterId !== null)
+    return { edit: token.controllerIds.includes(viewer.userId), delete: false };
+  if (token.createdBy !== viewer.userId) return NO_RIGHTS;
   return { edit: rights.create, delete: rights.delete };
-}
-
-function ownsToken(viewer: TokenRightsViewer, token: OwnedToken): boolean {
-  if (viewer.role !== 'player') return false;
-  return token.createdBy === viewer.userId && token.characterId === null;
 }

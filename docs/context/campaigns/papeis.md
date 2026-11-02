@@ -16,7 +16,7 @@ Detalhe de [`../campaigns.md`](../campaigns.md). O papel de cada membro mora em 
 
 ## Chaves de token dos jogadores
 
-Duas colunas da mesa (`players_create_tokens`, `players_delete_tokens`, padrão `false`, migração 0062), ligadas e desligadas pelo mestre no `PATCH /campaigns/:id` (mesa aberta, como as outras configurações) e avisadas no `session:campaignUpdated` (o `campaignInfoDto` as leva, como o resumo e o detalhe). Com a de criar, o jogador cria tokens e edita os que **ele criou** (menos visão e luz); com a de excluir, exclui os que criou. Valem para todo jogador; o espectador nunca recebe (`requireMember`). A regra é o `canCreateTokens`/`tokenRightsOf` do game-core, aplicada no server pelo `TokenAuthorshipBo` ([`../tokens.md`](../tokens.md)); o server lê as chaves a cada comando, então desligar vale no comando seguinte.
+Duas colunas da mesa (`players_create_tokens`, `players_delete_tokens`, padrão `false`, migração 0062), ligadas e desligadas pelo mestre no `PATCH /campaigns/:id` (mesa aberta, como as outras configurações) e avisadas no `session:campaignUpdated` (o `campaignInfoDto` as leva, como o resumo e o detalhe). Com a de criar, o jogador cria tokens e edita os que **ele criou** (menos visão e luz); com a de excluir, exclui os que criou. Valem para todo jogador; o espectador nunca recebe (`requireMember`). A regra é o `canCreateTokens`/`tokenRightsOf` do game-core, aplicada no server pelo `TokenAuthorshipBo` ([`../tokens.md`](../tokens.md)); o server lê as chaves a cada comando, então desligar vale no comando seguinte. As chaves não valem para o token ligado: quem controla o personagem edita o token dele com as duas desligadas ([`../tokens/autoria.md`](../tokens/autoria.md)).
 
 ## Nega por padrão (`CampaignAccessBo`)
 

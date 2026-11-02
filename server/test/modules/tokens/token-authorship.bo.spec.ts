@@ -25,7 +25,15 @@ function authorshipOf(userId: string, role: Role, rights: Rights = BOTH_ON): Tok
 }
 
 function tokenBy(createdBy: string | null, overrides: Partial<EditedToken> = {}): EditedToken {
-  return { tokenId: LYRA_ID, createdBy, characterId: null, vision: BLIND, ...overrides };
+  const controllerIds = [BIA_ID];
+  return {
+    tokenId: LYRA_ID,
+    createdBy,
+    characterId: null,
+    controllerIds,
+    vision: BLIND,
+    ...overrides,
+  };
 }
 
 function editOf(overrides: Partial<TokenEdit> = {}): TokenEdit {
@@ -60,6 +68,31 @@ describe('TokenAuthorshipBo.requireCreate', () => {
     const create = () => authorshipOf(BIA_ID, 'player').requireCreate({ layer: 'objects' });
 
     expect(create).toThrow(forbiddenCiting(BIA_ID, 'objects layer'));
+  });
+
+  it('Bia edits the linked token she controls, with both settings off', () => {
+    const linked = tokenBy(null, { characterId: LYRA_CHARACTER_ID });
+
+    expect(() =>
+      authorshipOf(BIA_ID, 'player', BOTH_OFF).requireEdit(linked, editOf()),
+    ).not.toThrow();
+  });
+
+  it('Bia cannot widen the sight of the linked token she controls', () => {
+    const linked = tokenBy(null, { characterId: LYRA_CHARACTER_ID });
+    const edit = editOf({ sight: { bright: 60, dim: 0 } });
+
+    expect(() => authorshipOf(BIA_ID, 'player').requireEdit(linked, edit)).toThrow(
+      forbiddenCiting(BIA_ID, 'change the sight'),
+    );
+  });
+
+  it('Bia cannot delete the linked token she controls', () => {
+    const linked = tokenBy(null, { characterId: LYRA_CHARACTER_ID });
+
+    expect(() => authorshipOf(BIA_ID, 'player').requireDelete([linked])).toThrow(
+      forbiddenCiting(BIA_ID, `delete token ${LYRA_ID}`),
+    );
   });
 
   it.each([
@@ -117,7 +150,10 @@ describe('TokenAuthorshipBo.requireEdit', () => {
   it.each([
     ['created by Caio', tokenBy(CAIO_ID)],
     ['without an author', tokenBy(null)],
-    ['linked to a character', tokenBy(BIA_ID, { characterId: LYRA_CHARACTER_ID })],
+    [
+      'linked to a character she does not control',
+      tokenBy(BIA_ID, { characterId: LYRA_CHARACTER_ID, controllerIds: [] }),
+    ],
   ])('Bia editing a token %s is refused citing the token', (_case, token) => {
     expect(() => authorshipOf(BIA_ID, 'player').requireEdit(token, editOf())).toThrow(
       forbiddenCiting(BIA_ID, `edit token ${LYRA_ID}`),

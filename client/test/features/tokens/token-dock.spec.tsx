@@ -439,8 +439,15 @@ describe('TokenDock', () => {
       expect(within(dock()).queryByRole('button', { name: 'Editar token' })).toBeNull();
     });
 
-    it('Bia sees no "Editar token" on her token linked to a character', () => {
-      const linked = linkedLyra({ createdBy: BIA_AT_TABLE.userId });
+    it('Bia sees "Editar token" on the linked token she controls, without any key', () => {
+      const linked = linkedLyra({ controllerIds: [BIA_AT_TABLE.userId] });
+      renderDock({ tokens: [linked] }, false, [LYRA_ID], { create: false, delete: false });
+
+      expect(within(dock()).getByRole('button', { name: 'Editar token' })).toBeInTheDocument();
+    });
+
+    it('Bia sees no "Editar token" on a linked token she does not control', () => {
+      const linked = linkedLyra({ createdBy: BIA_AT_TABLE.userId, controllerIds: [] });
       renderDock({ tokens: [linked] }, false, [LYRA_ID], CREATE);
 
       expect(within(dock()).queryByRole('button', { name: 'Editar token' })).toBeNull();

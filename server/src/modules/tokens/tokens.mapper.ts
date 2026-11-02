@@ -97,8 +97,9 @@ export function toTokenAuthorshipBo(
 /** A saved token → who created it and its link, for the delete rule.
  *
  *  Example: `authorship.requireDelete(rows.map(toAuthoredToken))` */
-export function toAuthoredToken({ token }: TokenRow): AuthoredToken {
-  return { tokenId: token.id, createdBy: token.createdBy, characterId: token.characterId };
+export function toAuthoredToken({ token, controllerIds }: TokenRow): AuthoredToken {
+  const { id: tokenId, createdBy, characterId } = token;
+  return { tokenId, createdBy, characterId, controllerIds };
 }
 
 /** A saved token → its authorship and its vision as the wire carries it, for the edit rule.

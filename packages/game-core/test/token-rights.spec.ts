@@ -15,7 +15,7 @@ const master: TokenRightsViewer = { role: 'master', userId: CAIO_ID };
 const spectator: TokenRightsViewer = { role: 'spectator', userId: BIA_ID };
 const allOn: TableTokenRights = { create: true, delete: true };
 const allOff: TableTokenRights = { create: false, delete: false };
-const biaToken = { createdBy: BIA_ID, characterId: null };
+const biaToken = { createdBy: BIA_ID, characterId: null, controllerIds: [BIA_ID] };
 
 describe('canCreateTokens', () => {
   it('a player creates when the table lets players create', () => {
@@ -41,7 +41,7 @@ describe('tokenRightsOf', () => {
   });
 
   it('the master edits and deletes a linked token of someone else with every setting off', () => {
-    const linked = { createdBy: BIA_ID, characterId: LYRA_CHARACTER_ID };
+    const linked = { createdBy: BIA_ID, characterId: LYRA_CHARACTER_ID, controllerIds: [] };
     expect(tokenRightsOf(master, allOff, linked)).toEqual({ edit: true, delete: true });
   });
 
@@ -55,8 +55,8 @@ describe('tokenRightsOf', () => {
     expect(rights).toEqual({ edit: false, delete: true });
   });
 
-  it('a token of hers linked to a character belongs to the master', () => {
-    const linked = { createdBy: BIA_ID, characterId: LYRA_CHARACTER_ID };
+  it('a token of hers linked to a character she does not control stays closed', () => {
+    const linked = { createdBy: BIA_ID, characterId: LYRA_CHARACTER_ID, controllerIds: [] };
     expect(tokenRightsOf(bia, allOn, linked)).toEqual({ edit: false, delete: false });
   });
 
@@ -64,11 +64,24 @@ describe('tokenRightsOf', () => {
     ['created by Caio', CAIO_ID],
     ['with no known creator', null],
   ])('a token %s gives her nothing', (_label, createdBy) => {
-    const token = { createdBy, characterId: null };
+    const token = { createdBy, characterId: null, controllerIds: [BIA_ID] };
     expect(tokenRightsOf(bia, allOn, token)).toEqual({ edit: false, delete: false });
   });
 
   it('a spectator gets nothing, even on a token they created', () => {
     expect(tokenRightsOf(spectator, allOn, biaToken)).toEqual({ edit: false, delete: false });
+  });
+});
+
+describe('tokenRightsOf on the token of her character', () => {
+  const lyra = { createdBy: null, characterId: LYRA_CHARACTER_ID, controllerIds: [BIA_ID] };
+
+  it('the player who controls it edits with every setting off, and never deletes', () => {
+    expect(tokenRightsOf(bia, allOff, lyra)).toEqual({ edit: true, delete: false });
+    expect(tokenRightsOf(bia, allOn, lyra)).toEqual({ edit: true, delete: false });
+  });
+
+  it('a spectator kept in the control stays out', () => {
+    expect(tokenRightsOf(spectator, allOn, lyra)).toEqual({ edit: false, delete: false });
   });
 });
