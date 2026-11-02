@@ -1,9 +1,9 @@
 import type { CampaignRoleDto, ChatSpeakerDto, TokenDto } from '@lorkarium/contracts';
-import { useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { watchesOnly } from '@/lib/table-role';
 import type { ChatSendFailure } from '@/services/chat-commands';
 import { createBoardStore, useBoard, type BoardStore } from '@/stores/board-store';
+import { useChatHistory, type ChatHistoryStore } from '@/stores/chat-history-store';
 import type { ComposerVoice } from './chat-composer';
 import { SpeakAsMenu } from './speak-as-menu';
 
@@ -17,16 +17,19 @@ const NO_TOKENS: readonly Speakable[] = [];
 const NO_BOARD = createBoardStore('', () => undefined);
 
 /** "Falar como" of the Table: oneself, or a token-layer character of the grid shown that the viewer controls
- *  (the server's `canControl`: the master's is every token). A token gone, or no longer
+ *  (the server's `canControl`: the master's is every token). The choice lives in the table's chat
+ *  store, so it outlasts the panel (the tab only mounts open). A token gone, or no longer
  *  controlled, puts "Você" back, as does the server answering that it is gone. Who only watches
  *  has no menu.
  *
- *  Example: `const voice = useSpeakAsVoice(table.board, campaign.myRole)` */
+ *  Example: `const voice = useSpeakAsVoice(table.board, table.chat, campaign.myRole)` */
 export function useSpeakAsVoice(
   board: StoreApi<BoardStore> | null,
+  chat: StoreApi<ChatHistoryStore>,
   role: CampaignRoleDto,
 ): ComposerVoice {
-  const [chosenId, setChosenId] = useState<string | null>(null);
+  const chosenId = useChatHistory(chat, (state) => state.speakAsTokenId);
+  const { setSpeakAsTokenId } = chat.getState();
   const sceneId = useBoard(board ?? NO_BOARD, (state) => state.board?.scene.id ?? null);
   const tokens = useBoard(board ?? NO_BOARD, (state) => state.board?.tokens ?? null);
   const speakable = speakableOf(tokens);
@@ -34,11 +37,16 @@ export function useSpeakAsVoice(
   const speaker: ChatSpeakerDto =
     chosen && sceneId ? { kind: 'token', sceneId, tokenId: chosen.id } : SELF_SPEAKER;
   const onRefused = (failure: ChatSendFailure) => {
-    if (failure.kind === 'speaker_not_found') setChosenId(null);
+    if (failure.kind === 'speaker_not_found') setSpeakAsTokenId(null);
   };
   if (watchesOnly(role)) return { speaker: SELF_SPEAKER, menu: () => null, onRefused };
   const menu = (whispering: boolean) => (
-    <SpeakAsMenu tokens={speakable} chosen={chosen} onChoose={setChosenId} disabled={whispering} />
+    <SpeakAsMenu
+      tokens={speakable}
+      chosen={chosen}
+      onChoose={setSpeakAsTokenId}
+      disabled={whispering}
+    />
   );
   return { speaker, menu, onRefused };
 }
