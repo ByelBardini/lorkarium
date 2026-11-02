@@ -1,5 +1,5 @@
 import { requireReadableDice } from '../dice/dice-roll.bo';
-import { SavedRollsLimitError } from './saved-rolls.error';
+import { SavedRollFoldersLimitError, SavedRollsLimitError } from './saved-rolls.error';
 
 /** The rules of one member's saved rolls: every piece reads as dice notation (the game-core's,
  *  the same the roll uses) and a member keeps at most `maxSaved` rolls per table.
@@ -25,4 +25,13 @@ export class SavedRollRulesBo {
     if (wanted <= this.maxSaved) return;
     throw new SavedRollsLimitError(wanted, this.maxSaved);
   }
+}
+
+/** Throws `SAVED_ROLL_FOLDERS_LIMIT` when one more folder would pass the ceiling.
+ *
+ *  Example: `requireFolderRoom(50, SAVED_ROLL_FOLDERS_MAX)` → throws "saving would keep 51 of 50 …" */
+export function requireFolderRoom(keptCount: number, maxFolders: number): void {
+  const wanted = keptCount + 1;
+  if (wanted <= maxFolders) return;
+  throw new SavedRollFoldersLimitError(wanted, maxFolders);
 }

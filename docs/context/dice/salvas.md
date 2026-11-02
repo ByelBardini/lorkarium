@@ -9,6 +9,22 @@ Detalhe de [`../dice.md`](../dice.md). A combinação de peças da bandeja que a
 - **Único** `saved_rolls_member_name_unique` em `(campaign_id, user_id, name_key)`. `name_key` é o nome sem caixa, sem acento e sem espaço nas pontas, calculado no app por `savedRollNameKey` (contracts), porque o `unaccent` do Postgres exige extensão. "Acerto" e " ACÉRTO" repetem para a Bia; o Caio pode usar o mesmo nome. O índice também serve à lista (prefixo `campaign_id, user_id`).
 - `truncateAllTables` (`server/test/support/test-database.ts`) inclui `saved_rolls`.
 
+## Pastas (`saved_roll_folders`, migração `0077_saved_roll_folders`)
+
+- Um nível só, do membro e da mesa, como as rolagens: `id`, `campaign_id`, `user_id`, `name`, `name_key`, `created_at`, a mesma FK composta `on delete cascade`, único `saved_roll_folders_member_name_unique` e `CHECK` de 1 a 40. Até `SAVED_ROLL_FOLDERS_MAX` (50) por membro.
+- `saved_rolls.folder_id` → pasta, **set null**: apagar a pasta deixa as rolagens fora de pastas. O FK só diz que a pasta existe; a posse é conferida no service (`requireOwnFolder`, `findOf` pelo dono), e pasta de outro → `SAVED_ROLL_FOLDER_NOT_FOUND`.
+- **O nome da rolagem continua único por membro entre todas as pastas**, de propósito: os comandos do chat acham a salva pelo nome (`savedRollSlugOf`) e não sabem de pasta. A pasta é só organização.
+- `SavedRollFoldersDao` e `SavedRollFoldersService` (`list`, `create` sob o `lockOwner`, `rename`, `remove`). O mesmo limitador de 30 escritas por minuto soma as rotas de pasta.
+
+| Rota                                                   | Resposta                             |
+| ------------------------------------------------------ | ------------------------------------ |
+| `GET /campaigns/:campaignId/saved-roll-folders`        | 200 `savedRollFoldersResponseDto`    |
+| `POST /campaigns/:campaignId/saved-roll-folders`       | 201 `savedRollFolderDto` · 409 · 422 |
+| `PATCH /campaigns/:campaignId/saved-roll-folders/:id`  | 200 `savedRollFolderDto` · 404 · 409 |
+| `DELETE /campaigns/:campaignId/saved-roll-folders/:id` | 204 · 404                            |
+
+Códigos: `SAVED_ROLL_FOLDER_NOT_FOUND` (404), `SAVED_ROLL_FOLDER_NAME_TAKEN` (409), `SAVED_ROLL_FOLDERS_LIMIT` (422). Testes: `saved-roll-folders.service.spec.ts`, o `describe` de pastas em `saved-rolls.service.spec.ts` e na integração `saved-rolls.spec.ts`; fake `SavedRollFoldersDaoFake`.
+
 ## DAO (`saved-rolls.dao.ts`)
 
 `SavedRollsDao(db | tx)` — toda consulta filtra pelo par `(campaign_id, user_id)` do dono (§2.6): rolagem de outro membro ou de outra mesa nunca é lida, mudada nem apagada.

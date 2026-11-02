@@ -11,8 +11,11 @@ import {
 import { MembershipReadsFake } from '../../support/campaigns-fakes';
 import {
   ACERTO_ID,
+  MAGIAS_ID,
+  SavedRollFoldersDaoFake,
   SavedRollsDaoFake,
   SavedRollsTransactionRunnerFake,
+  savedRollFolderPo,
   savedRollPo,
 } from '../../support/saved-rolls-fakes';
 
@@ -29,8 +32,9 @@ function setup(rows = [savedRollPo()]) {
     campaignMemberPo({ userId: DUDA_ID, role: 'spectator' }),
   ]);
   const rolls = new SavedRollsDaoFake(journal, rows);
-  const transaction = new SavedRollsTransactionRunnerFake(journal, { rolls }).run;
-  const service = new SavedRollsService({ members, rolls, transaction, maxSaved: 50 });
+  const folders = new SavedRollFoldersDaoFake(journal, [savedRollFolderPo()]);
+  const transaction = new SavedRollsTransactionRunnerFake(journal, { rolls, folders }).run;
+  const service = new SavedRollsService({ members, rolls, folders, transaction, maxSaved: 50 });
   return { service, journal, members, rolls };
 }
 
@@ -45,7 +49,7 @@ describe('SavedRollsService.list', () => {
     const { service } = setup();
 
     expect(await service.list(BIA)).toEqual({
-      savedRolls: [{ id: ACERTO_ID, name: 'Acerto', parts: ATTACK }],
+      savedRolls: [{ id: ACERTO_ID, name: 'Acerto', folderId: null, parts: ATTACK }],
     });
   });
 
@@ -69,6 +73,7 @@ describe('SavedRollsService.create', () => {
     expect(roll).toEqual({
       id: 'roll-2',
       name: 'Bênção',
+      folderId: null,
       parts: [{ label: null, expression: '1d4' }],
     });
   });
@@ -145,7 +150,7 @@ describe('SavedRollsService.update', () => {
 
     const roll = await service.update(BIA, ACERTO_ID, { name: 'Acerto com espada', parts });
 
-    expect(roll).toEqual({ id: ACERTO_ID, name: 'Acerto com espada', parts });
+    expect(roll).toEqual({ id: ACERTO_ID, name: 'Acerto com espada', folderId: null, parts });
     expect(journal).toEqual([`update:${ACERTO_ID}`]);
   });
 
@@ -207,5 +212,44 @@ describe('SavedRollsService.remove', () => {
       code: 'SAVED_ROLL_NOT_FOUND',
     });
     expect(rolls.rows).toHaveLength(1);
+  });
+});
+
+describe('SavedRollsService and folders', () => {
+  it('saves into her own folder', async () => {
+    const { service } = setup();
+
+    const roll = await service.create(BIA, { name: 'Luz', folderId: MAGIAS_ID, parts: ATTACK });
+
+    expect(roll.folderId).toBe(MAGIAS_ID);
+  });
+
+  it('moves a roll into her folder and back out', async () => {
+    const { service } = setup();
+
+    const moved = await service.update(BIA, ACERTO_ID, { folderId: MAGIAS_ID });
+    const out = await service.update(BIA, ACERTO_ID, { folderId: null });
+
+    expect([moved.folderId, out.folderId]).toEqual([MAGIAS_ID, null]);
+  });
+
+  it('moving to a folder of someone else finds nothing and nothing is written', async () => {
+    const { service, rolls, journal } = setup([savedRollPo({ userId: CAIO_ID })]);
+
+    await expect(service.update(CAIO, ACERTO_ID, { folderId: MAGIAS_ID })).rejects.toMatchObject({
+      code: 'SAVED_ROLL_FOLDER_NOT_FOUND',
+    });
+    expect(journal).toEqual(['folder:find']);
+    expect(rolls.rows[0]?.folderId).toBeNull();
+  });
+
+  it('creating into a folder of someone else stops before the insert', async () => {
+    const { service, rolls, journal } = setup();
+    rolls.owners.add(`${VHARN_ID}:${CAIO_ID}`);
+
+    const create = service.create(CAIO, { name: 'Luz', folderId: MAGIAS_ID, parts: ATTACK });
+
+    await expect(create).rejects.toMatchObject({ code: 'SAVED_ROLL_FOLDER_NOT_FOUND' });
+    expect(journal).not.toContain('insert:Luz');
   });
 });

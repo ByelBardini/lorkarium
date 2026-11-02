@@ -64,6 +64,7 @@ export const BENCAO_ID = 'b6d4f2a1-3c5e-4d7f-9a1b-2c4e6a8b0d3f';
 export const ACERTO: SavedRollDto = {
   id: ACERTO_ID,
   name: 'Acerto',
+  folderId: null,
   parts: [{ label: null, expression: '1d20+5' }],
 };
 
@@ -71,5 +72,6 @@ export const ACERTO: SavedRollDto = {
 export const BENCAO: SavedRollDto = {
   id: BENCAO_ID,
   name: 'Bênção',
+  folderId: null,
   parts: [{ label: null, expression: '1d4' }],
 };

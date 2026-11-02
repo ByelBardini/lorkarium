@@ -1,5 +1,11 @@
 export type SavedRollsErrorCode =
-  'SAVED_ROLL_NOT_FOUND' | 'SAVED_ROLL_NAME_TAKEN' | 'SAVED_ROLLS_LIMIT' | 'RATE_LIMITED';
+  | 'SAVED_ROLL_NOT_FOUND'
+  | 'SAVED_ROLL_NAME_TAKEN'
+  | 'SAVED_ROLLS_LIMIT'
+  | 'SAVED_ROLL_FOLDER_NOT_FOUND'
+  | 'SAVED_ROLL_FOLDER_NAME_TAKEN'
+  | 'SAVED_ROLL_FOLDERS_LIMIT'
+  | 'RATE_LIMITED';
 
 /** Every refusal of the saved rolls of their own; the edge turns `code` into the HTTP status. */
 export class SavedRollsError extends Error {
@@ -43,6 +49,41 @@ export class SavedRollsLimitError extends SavedRollsError {
     super(
       'SAVED_ROLLS_LIMIT',
       `saving would keep ${wanted} of ${limit} saved rolls; expected at most ${limit} per member`,
+    );
+  }
+}
+
+// Also for a folder of someone else or of another table, like the roll's.
+export class SavedRollFolderNotFoundError extends SavedRollsError {
+  constructor(
+    readonly campaignId: string,
+    readonly userId: string,
+    readonly folderId: string,
+  ) {
+    super(
+      'SAVED_ROLL_FOLDER_NOT_FOUND',
+      `user ${userId} keeps no saved roll folder ${folderId} at campaign ${campaignId}`,
+    );
+  }
+}
+
+export class SavedRollFolderNameTakenError extends SavedRollsError {
+  constructor(readonly folderName: string) {
+    super(
+      'SAVED_ROLL_FOLDER_NAME_TAKEN',
+      `a saved roll folder named "${folderName}" already exists; expected a name unique per member, ignoring case and accents`,
+    );
+  }
+}
+
+export class SavedRollFoldersLimitError extends SavedRollsError {
+  constructor(
+    readonly wanted: number,
+    readonly limit: number,
+  ) {
+    super(
+      'SAVED_ROLL_FOLDERS_LIMIT',
+      `saving would keep ${wanted} of ${limit} saved roll folders; expected at most ${limit} per member`,
     );
   }
 }

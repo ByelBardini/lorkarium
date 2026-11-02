@@ -60,7 +60,9 @@ describe('updateSavedRollRequestDto', () => {
   it('an empty body is refused naming the keys it expects', () => {
     const result = updateSavedRollRequestDto.safeParse({});
 
-    expect(issuesOf(result)).toEqual(['changes is empty; expected at least one of name, parts']);
+    expect(issuesOf(result)).toEqual([
+      'changes is empty; expected at least one of name, folderId, parts',
+    ]);
   });
 
   it('only the parts are accepted', () => {

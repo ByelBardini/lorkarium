@@ -31,7 +31,7 @@ export class SavedRollsApiFake implements SavedRollsApi {
 
   create(campaignId: string, input: CreateSavedRollRequestDto): Promise<Answers['create']> {
     return this.answers.reply('create', input, () => {
-      const created: SavedRollDto = { id: CREATED_SAVED_ROLL_ID, ...input };
+      const created: SavedRollDto = { id: CREATED_SAVED_ROLL_ID, folderId: null, ...input };
       this.rolls.set(campaignId, [...this.of(campaignId), created]);
       return { ok: true, value: created };
     });

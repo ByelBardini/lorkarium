@@ -1,6 +1,8 @@
 import {
   apiErrorDto,
   savedRollDto,
+  savedRollFolderDto,
+  savedRollFoldersResponseDto,
   savedRollNameKey,
   savedRollsResponseDto,
   type SavedRollDto,
@@ -62,6 +64,7 @@ describe('the saved rolls over HTTP', () => {
     expect(savedRollDto.parse(response.json())).toEqual({
       id: expect.any(String),
       name: 'Acerto',
+      folderId: null,
       parts: [{ label: 'Espada', expression: '1d20+5' }],
     });
   });
@@ -87,7 +90,9 @@ describe('the saved rolls over HTTP', () => {
     const response = await patch(live.bia, acerto.id, { name: 'Acerto com espada', parts });
 
     expect(response.statusCode).toBe(200);
-    expect(await listOf(live.bia)).toEqual([{ id: acerto.id, name: 'Acerto com espada', parts }]);
+    expect(await listOf(live.bia)).toEqual([
+      { id: acerto.id, name: 'Acerto com espada', folderId: null, parts },
+    ]);
   });
 
   it('Bia deletes "Acerto": 204 and GET is empty', async () => {
@@ -206,5 +211,67 @@ describe('the saved rolls over HTTP', () => {
       retryAfterSeconds: expect.any(Number),
     });
     expect((await post(live.caio, { name: 'Do Caio', parts: ATTACK })).statusCode).toBe(201);
+  });
+});
+
+describe('the folders of saved rolls over HTTP', () => {
+  const foldersUrl = () => `/api/campaigns/${live.vharn.id}/saved-roll-folders`;
+
+  function postFolder(user: SignedInUser, name: string) {
+    return live.http(user, { method: 'POST', url: foldersUrl(), payload: { name } });
+  }
+
+  async function folderOf(user: SignedInUser, name: string) {
+    const response = await postFolder(user, name);
+    if (response.statusCode !== 201) throw new Error(`folder answered ${response.body}`);
+    return savedRollFolderDto.parse(response.json());
+  }
+
+  it('Bia keeps a roll in her folder, and deleting the folder keeps the roll out of any', async () => {
+    const magias = await folderOf(live.bia, 'Magias');
+    const acerto = await saved(live.bia, 'Acerto');
+
+    const moved = await patch(live.bia, acerto.id, { folderId: magias.id });
+    expect(savedRollDto.parse(moved.json()).folderId).toBe(magias.id);
+
+    const url = `${foldersUrl()}/${magias.id}`;
+    const gone = await live.http(live.bia, { method: 'DELETE', url });
+
+    expect(gone.statusCode).toBe(204);
+    expect(await listOf(live.bia)).toEqual([{ ...acerto, folderId: null }]);
+  });
+
+  it('the rolls answer by name whatever the folder: the name stays unique across folders', async () => {
+    const magias = await folderOf(live.bia, 'Magias');
+    await post(live.bia, { name: 'Acerto', folderId: magias.id, parts: ATTACK });
+
+    const repeated = await post(live.bia, { name: 'ACÉRTO', parts: ATTACK });
+
+    expect(repeated.statusCode).toBe(409);
+    expect(errorOf(repeated).code).toBe('SAVED_ROLL_NAME_TAKEN');
+  });
+
+  it('a folder of Bia does not exist for Caio: not listed, not usable, not deletable', async () => {
+    const magias = await folderOf(live.bia, 'Magias');
+    const lista = await live.http(live.caio, { method: 'GET', url: foldersUrl() });
+    const roll = await post(live.caio, { name: 'Luz', folderId: magias.id, parts: ATTACK });
+    const url = `${foldersUrl()}/${magias.id}`;
+    const gone = await live.http(live.caio, { method: 'DELETE', url });
+
+    expect(savedRollFoldersResponseDto.parse(lista.json()).folders).toEqual([]);
+    expect(roll.statusCode).toBe(404);
+    expect(errorOf(roll).code).toBe('SAVED_ROLL_FOLDER_NOT_FOUND');
+    expect(gone.statusCode).toBe(404);
+  });
+
+  it('a repeated folder name is 409, and a spectator is 403', async () => {
+    await folderOf(live.bia, 'Magias');
+    const repeated = await postFolder(live.bia, 'MÁGIAS');
+    const duda = await spectatorDuda();
+    const refused = await postFolder(duda, 'Minha');
+
+    expect(errorOf(repeated).code).toBe('SAVED_ROLL_FOLDER_NAME_TAKEN');
+    expect(repeated.statusCode).toBe(409);
+    expect(refused.statusCode).toBe(403);
   });
 });
