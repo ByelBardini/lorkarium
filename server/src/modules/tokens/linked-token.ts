@@ -154,8 +154,8 @@ export function splitUpdate(
 }
 
 function tokenBarOf(bar: CharacterBarPo, tokenId: string): TokenBarPo {
-  const { id, position, label, current, max, color, visibility, display } = bar;
-  return { id, tokenId, position, label, current, max, color, visibility, display };
+  const { id, position, label, current, max, temp, color, visibility, display } = bar;
+  return { id, tokenId, position, label, current, max, temp, color, visibility, display };
 }
 
 function auraColumnsOf(token: TokenAuraPo): TokenAuraPo {

@@ -62,7 +62,7 @@ export type SheetConsoleFrameLimits = typeof SHEET_CONSOLE_FRAME_LIMITS;
 // Mirrors barChangeDto by hand: this file is serialized into the frame and imports nothing.
 export type SheetBarChange =
   | { readonly op: 'add'; readonly amount: number }
-  | { readonly op: 'set' | 'max'; readonly value: number };
+  | { readonly op: 'set' | 'max' | 'temp'; readonly value: number };
 
 export interface SheetDiceRequest {
   readonly expression: string;

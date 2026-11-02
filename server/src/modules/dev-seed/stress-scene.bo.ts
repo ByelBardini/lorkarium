@@ -138,11 +138,11 @@ function layerOf(index: number): TokenLayerDto {
 function barsOf(index: number): NewTokenDto['bars'] {
   return [
     {
-      ...{ label: 'PV', current: (index % 45) + 1, max: 45, color: 'ember' },
+      ...{ label: 'PV', current: (index % 45) + 1, max: 45, temp: 0, color: 'ember' },
       ...{ visibility: 'controllers', display: 'number' },
     },
     {
-      ...{ label: 'Inspiração', current: 1, max: 1, color: 'gold' },
+      ...{ label: 'Inspiração', current: 1, max: 1, temp: 0, color: 'gold' },
       ...{ visibility: 'everyone', display: 'number' },
     },
   ];

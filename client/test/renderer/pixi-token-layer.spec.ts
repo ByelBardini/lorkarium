@@ -57,7 +57,9 @@ describe('PixiTokenLayer redraws only what changed', () => {
     layer.sync(horde(300), [], 0);
     probe.counts['token.redraw'] = 0;
     const hurt = horde(300, (index) =>
-      index === 7 ? { bar: { fraction: 0.6, state: 'normal', excess: 0, color: 'ember' } } : {},
+      index === 7
+        ? { bar: { fraction: 0.6, state: 'normal', excess: 0, temp: 0, color: 'ember' } }
+        : {},
     );
 
     layer.sync(hurt, [], 16);

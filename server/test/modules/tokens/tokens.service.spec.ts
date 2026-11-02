@@ -2,7 +2,7 @@ import { CharacterPublisherFake } from '../../support/characters-fakes';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SceneWallsFake, WallsDaoFake } from '../../support/walls-fakes';
 import { northWallPo } from '../../support/walls-factories';
-import type { BarInputDto } from '@lorkarium/contracts';
+import type { BarChangeDto, BarInputDto } from '@lorkarium/contracts';
 import {
   TokensService,
   type CreateToken,
@@ -37,6 +37,7 @@ const PV: BarInputDto = {
   label: 'PV',
   current: 30,
   max: 30,
+  temp: 0,
   color: 'ember',
   visibility: 'controllers',
   display: 'number',
@@ -246,6 +247,21 @@ describe('TokensService', () => {
     });
     expect(tokens.rows[0]?.bars[0]?.current).toBe(25);
     expect(publisher.tokenChanges[0]?.privileged.token.bars[0]?.current).toBe(25);
+  });
+
+  it('Bia setting a temp of 5 on Lyra, then taking 8, saves 29 +0 and publishes each', async () => {
+    const adjust = (change: BarChangeDto): Promise<number> =>
+      service.adjustBar(BIA_ID, VHARN_ID, { tokenId: LYRA_ID, barId: LYRA_PV_ID, change });
+    await adjust({ op: 'temp', value: 5 });
+    expect(tokens.rows[0]?.bars[0]).toMatchObject({ current: 32, temp: 5 });
+    expect(publisher.tokenChanges[0]?.privileged.token.bars[0]?.temp).toBe(5);
+
+    await adjust({ op: 'add', amount: -8 });
+    expect(tokens.rows[0]?.bars[0]).toMatchObject({ current: 29, temp: 0 });
+    expect(publisher.tokenChanges[1]?.privileged.token.bars[0]).toMatchObject({
+      current: 29,
+      temp: 0,
+    });
   });
 
   it('Bia setting the PV maximum of Lyra to 60 saves 32 / 60 and publishes token:updated', async () => {

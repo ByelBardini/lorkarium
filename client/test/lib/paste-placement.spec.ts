@@ -73,8 +73,15 @@ describe('copiedOf', () => {
         light: null,
         aura: null,
         bars: [
-          { label: 'PV', current: 32, max: 45, color: 'ember', visibility: 'controllers' },
-          { label: 'Inspiração', current: 1, max: 1, color: 'gold', visibility: 'everyone' },
+          { label: 'PV', current: 32, max: 45, temp: 0, color: 'ember', visibility: 'controllers' },
+          {
+            label: 'Inspiração',
+            current: 1,
+            max: 1,
+            temp: 0,
+            color: 'gold',
+            visibility: 'everyone',
+          },
         ],
       },
     ]);

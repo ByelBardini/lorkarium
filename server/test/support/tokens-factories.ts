@@ -109,6 +109,7 @@ export function pvBar(overrides: Partial<TokenBarPo> = {}): TokenBarPo {
     label: 'PV',
     current: 32,
     max: 45,
+    temp: 0,
     color: 'ember',
     visibility: 'controllers',
     display: 'number',

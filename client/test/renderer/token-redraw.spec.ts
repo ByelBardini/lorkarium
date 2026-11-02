@@ -24,7 +24,11 @@ describe('tokenRedrawOf', () => {
   it.each<[string, Partial<TokenView>]>([
     [
       'the bar going from 7 to 6',
-      { bar: { fraction: 0.6, state: 'normal', excess: 0, color: 'ember' } },
+      { bar: { fraction: 0.6, state: 'normal', excess: 0, temp: 0, color: 'ember' } },
+    ],
+    [
+      'the temp alone',
+      { bar: { fraction: 0.7, state: 'normal', excess: 0, temp: 0.2, color: 'ember' } },
     ],
     ['the facing', { facing: 90 }],
     ['the turn ring', { onTurn: true }],

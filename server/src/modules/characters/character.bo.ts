@@ -16,7 +16,7 @@ export type CharacterSeat = Readonly<{
  *  rest of the table (`others`, without the `controllers` bars). */
 export type CharacterAudience = 'privileged' | 'others';
 
-export type CharacterBarRef = Readonly<{ id: string; current: number; max: number }>;
+export type CharacterBarRef = Readonly<{ id: string; current: number; max: number; temp: number }>;
 
 /** Whether the whole table sees a character, or only the masters: a character whose player is a
  *  spectator (demoted) or nobody (left) stays stored, hidden and inert.

@@ -51,6 +51,7 @@ describe('tokenViewsOf', () => {
       fraction: 32 / 45,
       state: 'normal',
       excess: 0,
+      temp: 0,
       color: 'ember',
     });
   });

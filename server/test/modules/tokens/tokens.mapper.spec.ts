@@ -29,6 +29,7 @@ const PERCENT_PV = {
   label: 'PV',
   current: 1,
   max: 9,
+  temp: 3,
   color: 'ember',
   visibility: 'everyone',
   display: 'percent',

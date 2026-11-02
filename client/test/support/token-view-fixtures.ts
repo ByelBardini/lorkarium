@@ -13,7 +13,7 @@ export function goblinView(overrides: Partial<TokenView> = {}): TokenView {
     row: 0,
     width: 1,
     height: 1,
-    bar: { fraction: 0.7, state: 'normal', excess: 0, color: 'ember' },
+    bar: { fraction: 0.7, state: 'normal', excess: 0, temp: 0, color: 'ember' },
     layer: 'tokens',
     pickable: true,
     selected: false,

@@ -126,10 +126,11 @@ describe('CharacterBo.adjustBar', () => {
   const bars = [characterBarPo()];
 
   it.each([
-    ['add -7', { op: 'add', amount: -7 }, { current: 18, max: 30 }],
-    ['set 40, over the max', { op: 'set', value: 40 }, { current: 40, max: 30 }],
-    ['max 35', { op: 'max', value: 35 }, { current: 25, max: 35 }],
-    ['add past the limit', { op: 'add', amount: 200_000 }, { current: LIMIT, max: 30 }],
+    ['add -7', { op: 'add', amount: -7 }, { current: 18, max: 30, temp: 0 }],
+    ['set 40, over the max', { op: 'set', value: 40 }, { current: 40, max: 30, temp: 0 }],
+    ['max 35', { op: 'max', value: 35 }, { current: 25, max: 35, temp: 0 }],
+    ['temp 6', { op: 'temp', value: 6 }, { current: 25, max: 30, temp: 6 }],
+    ['add past the limit', { op: 'add', amount: 200_000 }, { current: LIMIT, max: 30, temp: 0 }],
   ] as const)(
     '%s on the PV of Lyra gives the values of the game-core rule',
     (_c, change, values) => {

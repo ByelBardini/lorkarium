@@ -24,6 +24,7 @@ const SAMPLE_BAR: TokenBarDto = {
   label: 'PV',
   current: 20,
   max: 20,
+  temp: 0,
   color: 'ember',
   visibility: 'everyone',
   display: 'number',

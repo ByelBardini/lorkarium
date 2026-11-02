@@ -16,7 +16,7 @@ export type TrackerRow = Readonly<{
   tiedBelow: boolean;
 }>;
 
-export type SummedBar = Readonly<{ current: number; max: number }>;
+export type SummedBar = Readonly<{ current: number; max: number; temp: number }>;
 
 /** The tracker lines in the server's order, named only by the seen tokens (`seenTokensOf`).
  *
@@ -53,12 +53,13 @@ export function standingTextOf(tokens: readonly TokenDto[]): string {
 }
 
 /** The position-0 bars this viewer received, added up; `null` when none came (a hidden bar is
- *  not in the token at all). Example: `summedBarOf(bandits) // { current: 42, max: 60 }` */
+ *  not in the token at all). Example: `summedBarOf(bandits) // { current: 42, max: 60, temp: 0 }` */
 export function summedBarOf(tokens: readonly TokenDto[]): SummedBar | null {
   const bars = tokens.flatMap(({ bars }) => bars.filter(({ position }) => position === 0));
   if (bars.length === 0) return null;
-  const current = bars.reduce((total, bar) => total + bar.current, 0);
-  return { current, max: bars.reduce((total, bar) => total + bar.max, 0) };
+  const sumOf = (field: 'current' | 'max' | 'temp'): number =>
+    bars.reduce((total, bar) => total + bar[field], 0);
+  return { current: sumOf('current'), max: sumOf('max'), temp: sumOf('temp') };
 }
 
 /** "A seguir: Bandido", or "A seguir: Kael · rodada 3" from the last of the order; `null` while

@@ -30,3 +30,15 @@ export function parseBarMax(text: string): number | null {
   const max = Number(trimmed);
   return max >= 1 && max <= BAR_VALUE_LIMIT ? max : null;
 }
+
+/** What the "Temp" field means: a whole number from 0 to `BAR_VALUE_LIMIT` (empty is 0), or `null`
+ *  (nothing is sent). No sign: the temp is set here; a subtraction on the bar is what spends it.
+ *
+ *  Example: `parseBarTemp('5') // 5` */
+export function parseBarTemp(text: string): number | null {
+  const trimmed = text.trim();
+  if (trimmed === '') return 0;
+  if (!/^\d+$/.test(trimmed)) return null;
+  const temp = Number(trimmed);
+  return temp <= BAR_VALUE_LIMIT ? temp : null;
+}

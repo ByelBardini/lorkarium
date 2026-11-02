@@ -299,8 +299,8 @@ export class TokensDao {
       .where(inArray(tokens.id, [...tokenIds]));
   }
 
-  async setBarValues(barId: string, { current, max }: BarValuesPo): Promise<void> {
-    await this.db.update(tokenBars).set({ current, max }).where(eq(tokenBars.id, barId));
+  async setBarValues(barId: string, { current, max, temp }: BarValuesPo): Promise<void> {
+    await this.db.update(tokenBars).set({ current, max, temp }).where(eq(tokenBars.id, barId));
   }
 
   /** Several statements (forms, token, bars, controllers): run it on the `tx` DAO. */

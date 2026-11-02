@@ -131,8 +131,11 @@ export class CharactersDao {
       .where(eq(characters.id, characterId));
   }
 
-  async setBarValues(barId: string, { current, max }: BarValuesPo): Promise<void> {
-    await this.db.update(characterBars).set({ current, max }).where(eq(characterBars.id, barId));
+  async setBarValues(barId: string, { current, max, temp }: BarValuesPo): Promise<void> {
+    await this.db
+      .update(characterBars)
+      .set({ current, max, temp })
+      .where(eq(characterBars.id, barId));
   }
 
   /** The bars of one character, replaced whole, in the order given (their position). */

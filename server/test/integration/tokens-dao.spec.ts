@@ -379,12 +379,22 @@ describe('TokensDao on Postgres', () => {
     const saved = await tokens.insert(lyra());
     const pv = saved.bars[0];
     if (!pv) throw new Error('Lyra was saved without bars');
-    await tokens.setBarValues(pv.id, { current: -4, max: 50 });
+    await tokens.setBarValues(pv.id, { current: -4, max: 50, temp: 0 });
     const found = await tokens.findInScene(sceneId, saved.token.id);
     expect(found?.bars.map(({ current, max }) => [current, max])).toEqual([
       [-4, 50],
       [1, 1],
     ]);
+  });
+
+  it('setBarValues stores the temp, and a bar saved without one reads back as 0', async () => {
+    const saved = await tokens.insert(lyra());
+    const pv = saved.bars[0];
+    if (!pv) throw new Error('Lyra was saved without bars');
+    expect(pv.temp).toBe(0);
+    await tokens.setBarValues(pv.id, { current: 30, max: 50, temp: 7 });
+    const found = await tokens.findInScene(sceneId, saved.token.id);
+    expect(found?.bars.map(({ temp }) => temp)).toEqual([7, 0]);
   });
 
   it('a bar saved without a display reads back as number, and percent is kept', async () => {

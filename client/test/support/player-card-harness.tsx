@@ -31,6 +31,7 @@ export function cardBar(overrides: Partial<TokenBarDto> = {}): TokenBarDto {
     label: 'PV',
     current: 21,
     max: 28,
+    temp: 0,
     color: 'ember',
     visibility: 'everyone',
     display: 'number',

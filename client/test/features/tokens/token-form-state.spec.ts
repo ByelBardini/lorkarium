@@ -89,6 +89,19 @@ describe('token form state', () => {
     });
   });
 
+  it('saving the dialog keeps the temp the bar has, and sends the one typed', () => {
+    const token = lyra();
+    const [pv, other] = token.bars;
+    if (!pv || !other) throw new Error('Lyra without her two bars');
+    const form = tokenFormOf({ ...token, bars: [{ ...pv, temp: 5 }, other] }, METERS);
+    const kept = parseTokenForm(form, METERS);
+    expect(kept.ok && kept.token.bars.map(({ temp }) => temp)).toEqual([5, 0]);
+    const [first, second] = form.bars;
+    if (!first || !second) throw new Error('the form lost the bars');
+    const typed = parseTokenForm({ ...form, bars: [{ ...first, tempText: '9' }, second] }, METERS);
+    expect(typed.ok && typed.token.bars[0]?.temp).toBe(9);
+  });
+
   it('a valid form becomes the token to send, with numbers in the bars', () => {
     const result = parseTokenForm({ ...named('Kael'), bars: addBar([]) }, METERS);
     expect(result).toEqual({
@@ -108,6 +121,7 @@ describe('token form state', () => {
             label: 'PV',
             current: 10,
             max: 10,
+            temp: 0,
             color: 'ember',
             visibility: 'controllers',
             display: 'number',
@@ -163,6 +177,18 @@ describe('the max of a bar', () => {
       });
     },
   );
+});
+
+describe('the temp of a bar', () => {
+  it('a temp past the limit reads "De 0 a 99 999." on that bar', () => {
+    const [bar] = addBar([]);
+    if (!bar) throw new Error('no bar');
+    const form = { ...named('Kael'), bars: [{ ...bar, tempText: '100000' }] };
+    expect(parseTokenForm(form, METERS)).toMatchObject({
+      ok: false,
+      errors: { bars: { 0: { temp: 'De 0 a 99 999.' } } },
+    });
+  });
 });
 
 describe('firstErrorTab', () => {

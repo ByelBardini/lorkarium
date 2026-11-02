@@ -48,6 +48,7 @@ function sameBar(before: TokenBarView | null, after: TokenBarView | null): boole
     before.fraction === after.fraction &&
     before.state === after.state &&
     before.excess === after.excess &&
+    before.temp === after.temp &&
     before.color === after.color
   );
 }

@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 export type BarTrackProps = Readonly<{ fill: BarFill; color: BarColorDto; className?: string }>;
 
 /** The track of a bar, filled in its color; past either end, a second bar grows from the left
- *  (crimson below zero, bone above the maximum), as on the board.
+ *  (crimson below zero, bone above the maximum), and the temp is a pale strip on the top half, as
+ *  on the board.
  *
  *  Example: `<BarTrack fill={barFill(bar)} color={bar.color} />` */
 export function BarTrack({ fill, color, className }: BarTrackProps): React.JSX.Element {
@@ -26,6 +27,13 @@ export function BarTrack({ fill, color, className }: BarTrackProps): React.JSX.E
             fill.state === 'negative' ? 'bg-bar-negative' : 'bg-bar-over',
           )}
           style={{ width: `${fill.excess * 100}%` }}
+        />
+      )}
+      {fill.temp > 0 && (
+        <span
+          data-bar-temp
+          className="absolute top-0 left-0 h-1/2 rounded-full bg-bar-temp"
+          style={{ width: `${fill.temp * 100}%` }}
         />
       )}
     </span>

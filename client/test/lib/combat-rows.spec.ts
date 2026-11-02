@@ -110,7 +110,7 @@ describe('summedBarOf', () => {
   it('sums the position-0 bars received', () => {
     const pair = [bandit(1, { bars: [pv(4, 10)] }), bandit(2, { bars: [pv(6, 12)] })];
 
-    expect(summedBarOf(pair)).toEqual({ current: 10, max: 22 });
+    expect(summedBarOf(pair)).toEqual({ current: 10, max: 22, temp: 0 });
   });
 
   it('a token whose bar did not come (hidden) adds nothing, nor a bar in another position', () => {
@@ -119,7 +119,17 @@ describe('summedBarOf', () => {
     expect(summedBarOf([bandit(1, { bars: [pv(4, 10)] }), hidden])).toEqual({
       current: 4,
       max: 10,
+      temp: 0,
     });
+  });
+
+  it('sums the temps too', () => {
+    const pair = [
+      bandit(1, { bars: [{ ...pv(4, 10), temp: 3 }] }),
+      bandit(2, { bars: [{ ...pv(6, 12), temp: 2 }] }),
+    ];
+
+    expect(summedBarOf(pair)?.temp).toBe(5);
   });
 
   it('no bar received at all is null', () => {
