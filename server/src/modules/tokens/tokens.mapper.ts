@@ -73,7 +73,7 @@ export function toTokenDto(
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],
-    anchorTokenId: row.token.anchorTokenId,
+    characterId: row.token.characterId,
     createdBy: row.token.createdBy,
     forms: toTokenFormsDto(row.forms, audience),
     activeFormId: row.token.activeFormId,
@@ -98,7 +98,7 @@ export function toTokenAuthorshipBo(
  *
  *  Example: `authorship.requireDelete(rows.map(toAuthoredToken))` */
 export function toAuthoredToken({ token }: TokenRow): AuthoredToken {
-  return { tokenId: token.id, createdBy: token.createdBy, anchorTokenId: token.anchorTokenId };
+  return { tokenId: token.id, createdBy: token.createdBy, characterId: token.characterId };
 }
 
 /** A saved token → its authorship and its vision as the wire carries it, for the edit rule.
@@ -243,7 +243,10 @@ function definedLookOf(command: Partial<TokenLookPo>): Partial<TokenLookPo> {
   return look;
 }
 
-function toTokenBarDto(bar: TokenBarPo): TokenBarDto {
+/** A saved bar (a token's or a character's) as the wire carries it.
+ *
+ *  Example: `row.bars.map(toTokenBarDto)` */
+export function toTokenBarDto(bar: Omit<TokenBarPo, 'tokenId'>): TokenBarDto {
   const { id, position, label, current, max, color, visibility, display } = bar;
   return { id, position, label, current, max, color, visibility, display };
 }

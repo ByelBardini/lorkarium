@@ -1,6 +1,6 @@
 import { tokensRestyledDto, tokenUpdatedDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { gridState, linkToCard, tokenIn } from '../support/characters';
+import { gridState, linkToPlayerCharacter, tokenIn } from '../support/characters';
 import { gridAck, newGrid } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
@@ -165,7 +165,10 @@ describe('token auras over Socket.IO', () => {
   it('the aura of the linked Lyra is the character: it shows on both grids she stands on', async () => {
     const master = await live.atTable(live.ana, live.vharn);
     const lyraId = await lyraOfBia(master);
-    await linkToCard(master, live.vharn, { tokenId: lyraId, memberId: live.bia.id });
+    await linkToPlayerCharacter(live, master, live.vharn, {
+      tokenId: lyraId,
+      memberId: live.bia.id,
+    });
     const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada');
     await gridAck(master, 'scene:watch', live.vharn, estrada);
     const events = recordEventsOf(master);
@@ -175,7 +178,7 @@ describe('token auras over Socket.IO', () => {
       bars: [],
     });
     const onEstrada = (await createdTokenOf(events)).id;
-    await linkToCard(master, live.vharn, {
+    await linkToPlayerCharacter(live, master, live.vharn, {
       sceneId: estrada,
       tokenId: onEstrada,
       memberId: live.bia.id,

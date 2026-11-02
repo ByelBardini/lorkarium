@@ -9,7 +9,7 @@ import {
   openRoomPeople,
   presenceOf,
 } from './support/tables';
-import { createTokenWithPvFor } from './support/token-cards';
+import { createCharacterTokenWithPv } from './support/token-cards';
 
 function playerCardOf(page: Page, character: string): Locator {
   return page
@@ -30,7 +30,8 @@ test('the card and the presence reach the other browser, and a reload keeps the 
   await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
   await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online');
-  await createTokenWithPvFor(admin, 'Lyra', 'Bia');
+  await createCharacterTokenWithPv(admin, 'Lyra', 'Bia');
+  await admin.getByRole('tab', { name: 'Na mesa' }).click();
 
   // Bia writes her CA and a nickname on her own card; the master sees both.
   const ownCard = playerCardOf(bia, 'Lyra');

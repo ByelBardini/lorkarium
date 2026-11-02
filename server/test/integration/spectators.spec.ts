@@ -1,4 +1,3 @@
-import { and, eq } from 'drizzle-orm';
 import {
   campaignResponseDto,
   libraryDto,
@@ -12,7 +11,6 @@ import {
   type TokenDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { campaignMembers } from '../../src/modules/campaigns/campaign-members.po';
 import { activateGrid, gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { pngOf } from '../support/images';
 import { envelope, eventPayload, send, synced } from '../support/live-table';
@@ -209,14 +207,17 @@ const COMMANDS: Array<[string, (table: SpectatorTable) => object]> = [
       change: { op: 'add', amount: -1 },
     }),
   ],
-  ['token:setMain', (t) => ({ ...envelope(live.vharn.id), tokenId: t.kaelId })],
   ['drawing:createMany', () => ({ ...envelope(live.vharn.id), drawings: [CIRCLE] })],
   ['effectArea:createMany', () => ({ ...envelope(live.vharn.id), effectAreas: [CONE] })],
   ['wall:setDoor', (t) => ({ ...envelope(live.vharn.id), wallId: t.doorId, state: 'open' })],
   ['light:createMany', () => ({ ...envelope(live.vharn.id), lights: [TORCH] })],
   [
-    'member:updateCard',
-    (t) => ({ ...envelope(live.vharn.id), memberId: t.duda.id, changes: { armorClass: 12 } }),
+    'character:update',
+    () => ({
+      ...envelope(live.vharn.id),
+      characterId: crypto.randomUUID(),
+      changes: { armorClass: 12 },
+    }),
   ],
   [
     'condition:apply',
@@ -415,21 +416,5 @@ describe('the table keeps no trace of a spectator', () => {
     const { campaign } = campaignResponseDto.parse(response.json());
     expect(campaign.members.map(({ userId }) => userId)).not.toContain(duda.id);
     expect(campaign.memberCount).toBe(3);
-  });
-
-  it('the card of Bia, made a spectator in the database, is not in the board:sync of Caio', async () => {
-    const bia = await live.atTable(live.bia, live.vharn);
-    const card = { memberId: live.bia.id, changes: { armorClass: 15 } };
-    await send(bia, 'member:updateCard', { ...envelope(live.vharn.id), ...card });
-    const ofBia = and(
-      eq(campaignMembers.campaignId, live.vharn.id),
-      eq(campaignMembers.userId, live.bia.id),
-    );
-
-    await live.connection.db.update(campaignMembers).set({ role: 'spectator' }).where(ofBia);
-
-    const caio = await live.atTable(live.caio, live.vharn);
-    const cards = (await synced(caio, live.vharn)).memberCards;
-    expect(cards.map(({ userId }) => userId)).not.toContain(live.bia.id);
   });
 });

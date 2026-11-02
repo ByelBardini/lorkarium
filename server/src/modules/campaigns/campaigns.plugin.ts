@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
-import { runInTransaction } from '../../database/transaction';
+import { runInTransaction, type Transaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import { AssetsDao } from '../assets/assets.dao';
@@ -18,7 +18,8 @@ import { CampaignsService, type CampaignTransactionRunner } from './campaigns.se
 import { JuggernautService } from './juggernaut.service';
 import type { MemberRemovedPort } from './member-removed.port';
 import type { MemberRoleChangedPort } from './member-role-changed.port';
-import { MemberRoleService } from './member-role.service';
+import { MemberRoleService, type MemberRoleTransactionRunner } from './member-role.service';
+import type { MemberSeatPort } from './member-seat.port';
 import type { PresenceReaderPort } from './presence-reader.port';
 
 export type CampaignsModuleOptions = Readonly<{
@@ -34,6 +35,8 @@ export type CampaignOutlets = Readonly<{
   changed: CampaignChangedPort;
   roleChanged: MemberRoleChangedPort;
   removed: MemberRemovedPort;
+  /** The seat (character) of a member, bound to the role's transaction. */
+  seatIn: (tx: Transaction) => MemberSeatPort;
 }>;
 
 export type CampaignsModule = Readonly<{
@@ -58,18 +61,18 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
   const transaction = transactionOver(options.db);
   const { hasher, codes, clock, presence } = options;
   const memberships = new CachedMemberships(members);
-  const scenes = new ScenesDao(options.db);
-  const readDeps = { campaigns, members, scenes, memberships, presence };
+  const readDeps = { campaigns, members, memberships, presence };
   const service = new CampaignsService({ ...readDeps, transaction, codes, hasher, clock });
   const join = new CampaignJoinService({ campaigns, members, hasher, clock });
   const assets = new AssetsDao(options.db);
   let juggernaut: JuggernautService | null = null;
   const pluginWith = (outlets: CampaignOutlets): ((app: FastifyInstance) => Promise<void>) => {
-    const { changed, roleChanged, removed } = outlets;
+    const { changed, roleChanged, removed, seatIn } = outlets;
     const settingsDeps = { campaigns, members, assets, memberships, changed, codes, hasher, clock };
     const settings = new CampaignSettingsService({ ...settingsDeps, presence, detail: service });
     const roleDeps = { campaigns, members, memberships, presence };
-    const roles = new MemberRoleService({ ...roleDeps, changed: roleChanged });
+    const transaction = memberRoleTransactionOver(options.db, seatIn);
+    const roles = new MemberRoleService({ ...roleDeps, transaction, changed: roleChanged });
     const writes = { campaigns, members, memberships, clock, detail: service };
     juggernaut = new JuggernautService({ ...writes, changed: roleChanged, removed });
     return campaignsRoutes({ campaigns: service, join, settings, roles, juggernaut });
@@ -91,4 +94,15 @@ function transactionOver(db: Database): CampaignTransactionRunner {
         conditions: new ConditionsDao(tx),
       }),
     );
+}
+
+/** The role's transaction: the membership and the member's seat on the same `tx`.
+ *
+ *  Example: `new MemberRoleService({ …, transaction: memberRoleTransactionOver(db, characters.seatIn) })` */
+export function memberRoleTransactionOver(
+  db: Database,
+  seatIn: (tx: Transaction) => MemberSeatPort,
+): MemberRoleTransactionRunner {
+  return (work) =>
+    runInTransaction(db, (tx) => work({ members: new CampaignMembersDao(tx), seat: seatIn(tx) }));
 }

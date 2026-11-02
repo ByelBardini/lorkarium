@@ -1,9 +1,10 @@
 import { and, asc, count, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import type { DatabaseExecutor } from '../../database/transaction';
+import type { CampaignRole } from '../campaigns/campaign-access.bo';
 import { campaigns } from '../campaigns/campaigns.po';
-import { memberCards } from '../member-cards/member-cards.po';
-import { scenes, type SceneKindPo, type ScenePo } from '../scenes/scenes.po';
+import { CharactersDao, type CharacterRow } from '../characters/characters.dao';
+import { scenes, type ScenePo } from '../scenes/scenes.po';
 import { tokenControllers, tokens } from '../tokens/tokens.po';
 import {
   sheetActions,
@@ -14,30 +15,49 @@ import {
   type SheetValuesPo,
 } from './sheets.po';
 
-/** Where a token of the table stands, as the sheet's access reads it: the grid (or the cast) it
- *  is on, whether that is the group's grid, the anchor it is linked to, who controls it and the
- *  player whose character it is (the card that anchors on it). */
+/** Where a token of the table stands, as the sheet's access reads it: the grid it is on, whether that is the group's grid, the character it is linked to and who controls it. */
 export type TokenPlacePo = Readonly<{
   tokenId: string;
-  anchorTokenId: string | null;
+  characterId: string | null;
   sceneId: string;
-  kind: SceneKindPo;
   visibility: ScenePo['visibility'];
   isActive: boolean;
   controllerIds: readonly string[];
-  memberId: string | null;
+}>;
+
+/** Whose a character holding sheets is, as the sheet's access reads it: its player, the role
+ *  they have at the table now (`null` = nobody's, or they left) and who controls it. */
+export type CharacterPlacePo = Readonly<{
+  characterId: string;
+  userId: string | null;
+  holderRole: CampaignRole | null;
+  controllerIds: readonly string[];
+}>;
+
+/** The one holder of a sheet: a token, or a character. */
+export type SheetHolderPlacePo =
+  Readonly<{ token: TokenPlacePo }> | Readonly<{ character: CharacterPlacePo }>;
+
+/** The holders of a list of sheets, read in bulk (the library). */
+export type SheetPlacesPo = Readonly<{
+  tokens: readonly TokenPlacePo[];
+  characters: readonly CharacterPlacePo[];
 }>;
 
 /** What a sheet write changes besides the values: an absent key stays. */
 export type SheetChangesPo = Partial<
-  Pick<SheetPo, 'visibility' | 'templateId' | 'name' | 'folderId' | 'tokenId'>
+  Pick<SheetPo, 'visibility' | 'templateId' | 'name' | 'folderId' | 'tokenId' | 'characterId'>
 > &
   Pick<SheetPo, 'version' | 'updatedAt'>;
 
 /** The sheets of a table, their receipts and the token places they hang on; every query filters
  *  by the campaign (§2.6). Run the writes on a DAO built with the `tx`. */
 export class SheetsDao {
-  constructor(private readonly db: DatabaseExecutor) {}
+  private readonly characters: CharactersDao;
+
+  constructor(private readonly db: DatabaseExecutor) {
+    this.characters = new CharactersDao(db);
+  }
 
   async find(campaignId: string, sheetId: string): Promise<SheetPo | undefined> {
     const [row] = await this.db.select().from(tokenSheets).where(this.oneOf(campaignId, sheetId));
@@ -47,6 +67,15 @@ export class SheetsDao {
   /** The sheets a token holds, in creation order. */
   async listOfToken(campaignId: string, tokenId: string): Promise<SheetPo[]> {
     const where = and(eq(tokenSheets.campaignId, campaignId), eq(tokenSheets.tokenId, tokenId));
+    return this.db.select().from(tokenSheets).where(where).orderBy(asc(tokenSheets.createdAt));
+  }
+
+  /** The sheets a character holds, in creation order. */
+  async listOfCharacter(campaignId: string, characterId: string): Promise<SheetPo[]> {
+    const where = and(
+      eq(tokenSheets.campaignId, campaignId),
+      eq(tokenSheets.characterId, characterId),
+    );
     return this.db.select().from(tokenSheets).where(where).orderBy(asc(tokenSheets.createdAt));
   }
 
@@ -127,23 +156,50 @@ export class SheetsDao {
     const found = await this.db
       .select({
         tokenId: tokens.id,
-        anchorTokenId: tokens.anchorTokenId,
+        characterId: tokens.characterId,
         sceneId: scenes.id,
-        kind: scenes.kind,
         visibility: scenes.visibility,
         isActive: sql<boolean>`coalesce(${campaigns.activeSceneId} = ${scenes.id}, false)`,
-        memberId: memberCards.userId,
       })
       .from(tokens)
       .innerJoin(scenes, eq(scenes.id, tokens.sceneId))
       .innerJoin(campaigns, eq(campaigns.id, scenes.campaignId))
-      .leftJoin(memberCards, cardAnchoredOn(campaignId))
       .where(and(inArray(tokens.id, [...tokenIds]), eq(scenes.campaignId, campaignId)));
     const controllers = await this.controllersOf(found.map(({ tokenId }) => tokenId));
     return found.map((place) => ({
       ...place,
       controllerIds: controllers.filter((row) => row.tokenId === place.tokenId).map(userIdOf),
     }));
+  }
+
+  /** The characters of the table among `characterIds` (others are left out), as holders. */
+  async characterPlacesOf(
+    campaignId: string,
+    characterIds: readonly string[],
+  ): Promise<CharacterPlacePo[]> {
+    const rows = await this.characters.findManyInCampaign(campaignId, characterIds);
+    return rows.map(toCharacterPlace);
+  }
+
+  /** The character of a player at the table (stored ones included), as a holder. */
+  async characterPlaceOfUser(
+    campaignId: string,
+    userId: string,
+  ): Promise<CharacterPlacePo | undefined> {
+    const row = await this.characters.findOfUser(campaignId, userId);
+    return row && toCharacterPlace(row);
+  }
+
+  /** The holders of `sheets`, tokens and characters, in bulk.
+   *
+   *  Example: `const places = await dao.holdersOf(vharnId, await dao.listOfCampaign(vharnId))` */
+  async holdersOf(campaignId: string, sheets: readonly SheetPo[]): Promise<SheetPlacesPo> {
+    const tokenIds = new Set(sheets.flatMap(({ tokenId }) => (tokenId ? [tokenId] : [])));
+    const characterIds = new Set(sheets.flatMap(({ characterId: id }) => (id ? [id] : [])));
+    return {
+      tokens: await this.placesOf(campaignId, [...tokenIds]),
+      characters: await this.characterPlacesOf(campaignId, [...characterIds]),
+    };
   }
 
   async action(
@@ -197,8 +253,9 @@ export class SheetsDao {
   }
 }
 
-function cardAnchoredOn(campaignId: string): SQL | undefined {
-  return and(eq(memberCards.campaignId, campaignId), eq(memberCards.anchorTokenId, tokens.id));
+function toCharacterPlace(row: CharacterRow): CharacterPlacePo {
+  const { id: characterId, userId } = row.character;
+  return { characterId, userId, holderRole: row.holderRole, controllerIds: row.controllerIds };
 }
 
 function userIdOf({ userId }: Readonly<{ userId: string }>): string {

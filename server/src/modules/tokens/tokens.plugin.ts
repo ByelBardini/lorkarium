@@ -5,14 +5,13 @@ import type { ClockPort } from '../auth/clock.port';
 import { AssetsDao } from '../assets/assets.dao';
 import type { MembershipReader } from '../campaigns/cached-memberships';
 import { CampaignsDao } from '../campaigns/campaigns.dao';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
+import { CharactersDao } from '../characters/characters.dao';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { CombatDao } from '../combat/combat.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
-import { MainTokensDao } from './main-tokens.dao';
-import { MemberCardsDao } from '../member-cards/member-cards.dao';
-import { TokenAnchorsDao } from './token-anchors.dao';
-import { MainTokenService } from './main-token.service';
+import { TokenCharacterLinkDao } from './token-character-link.dao';
 import { TokensDao } from './tokens.dao';
 import type { SceneWallsService } from '../walls/scene-walls.service';
 import { WallsDao } from '../walls/walls.dao';
@@ -29,6 +28,8 @@ export type TokensModuleOptions = Readonly<{
   /** Shared by the board modules: the memberships remembered by the campaigns module. */
   members: MembershipReader;
   publisher: BoardPublisherPort;
+  /** Where a write on a linked token's character is told (character:changed). */
+  characterPublisher: CharacterPublisherPort;
   clock: ClockPort;
   /** The walls of each scene in memory, shared with the walls module (which forgets them). */
   sceneWalls: SceneWallsService;
@@ -39,7 +40,6 @@ export type TokensModule = Readonly<{
   batch: TokenBatchService;
   appearance: TokenAppearanceService;
   form: TokenFormService;
-  mainToken: MainTokenService;
   link: TokenLinkService;
   visibility: TokenVisibilityService;
 }>;
@@ -58,15 +58,14 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
         combat: new CombatDao(tx),
         assets: new AssetsDao(tx),
         walls: new WallsDao(tx),
-        mainTokens: new MainTokensDao(tx),
-        anchors: new TokenAnchorsDao(tx),
-        memberCards: new MemberCardsDao(tx),
+        characterLinks: new TokenCharacterLinkDao(tx),
+        characters: new CharactersDao(tx),
       }),
     );
-  const { members, publisher, clock, sceneWalls } = options;
+  const { members, publisher, characterPublisher, clock, sceneWalls } = options;
   const dragGroups = new TokensDao(options.db);
   const limits = { barLimit: BAR_VALUE_LIMIT, tokenLimit: TOKENS_PER_SCENE_MAX };
-  const deps = { members, transaction, publisher, clock, ...limits };
+  const deps = { members, transaction, publisher, characterPublisher, clock, ...limits };
   const tokenRights = new CampaignsDao(options.db);
   const tokenDeps = { ...deps, dragGroups, sceneWalls, tokenRights };
   return {
@@ -74,7 +73,6 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
     batch: new TokenBatchService({ ...deps, tokenRights }),
     appearance: new TokenAppearanceService(deps),
     form: new TokenFormService(deps),
-    mainToken: new MainTokenService(deps),
     link: new TokenLinkService(deps),
     visibility: new TokenVisibilityService(deps),
   };

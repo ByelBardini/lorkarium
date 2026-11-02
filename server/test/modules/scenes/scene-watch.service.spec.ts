@@ -9,7 +9,7 @@ import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaign
 import { BIA_ID, QUELM_ID, VHARN_ID, campaignMemberPo } from '../../support/campaigns-factories';
 import { TORRE_ID } from '../../support/library-factories';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
-import { VHARN_CAST_ID, VHARN_SCENE_ID, castPo, scenePo } from '../../support/scenes-factories';
+import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 
 describe('SceneWatchService', () => {
   let scenes: ScenesDaoFake;
@@ -26,7 +26,7 @@ describe('SceneWatchService', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
     ]);
-    scenes = new ScenesDaoFake([scenePo(), scenePo({ id: TORRE_ID, name: 'Torre' }), castPo()]);
+    scenes = new ScenesDaoFake([scenePo(), scenePo({ id: TORRE_ID, name: 'Torre' })]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
     entered = [];
     const share = async <T>(work: (daos: SceneShareDaos) => Promise<T>): Promise<T> => {
@@ -71,17 +71,6 @@ describe('SceneWatchService', () => {
       code: 'CAMPAIGN_NOT_FOUND',
     });
     expect(scenes.journal).toEqual([]);
-  });
-
-  it('castSceneIdOf names the cast of the table, and null for a table without one', async () => {
-    expect(await service.castSceneIdOf(VHARN_ID)).toBe(VHARN_CAST_ID);
-    expect(await service.castSceneIdOf(QUELM_ID)).toBeNull();
-  });
-
-  it('Bia watching the cast is refused with SCENE_NOT_FOUND and enters no room', async () => {
-    const watch = service.watch(BIA_ID, VHARN_ID, VHARN_CAST_ID, enter);
-    await expect(watch).rejects.toMatchObject({ code: 'SCENE_NOT_FOUND' });
-    expect(entered).toEqual([]);
   });
 
   it('groupSceneIdOf names the active scene of the table', async () => {

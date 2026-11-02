@@ -7,6 +7,7 @@ import type { OpenTable } from '@/stores/open-tables-store';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 import { detailOf, VHARN } from '../../support/campaigns-api-fake';
+import { charactersSynced, lyraCharacter } from '../../support/character-fixtures';
 import { documentFixture } from '../../support/documents-fixtures';
 import { chatSent } from '../../support/chat-fixtures';
 import { biaRolled } from '../../support/dice-fixtures';
@@ -166,6 +167,7 @@ describe('play room: grid tabs', () => {
   });
 
   it('"Na mesa" keeps showing the group grid while another tab is still loading', async () => {
+    deps.tableSessionApi.emitToCharacters(VHARN.id, charactersSynced(3, lyraCharacter()));
     act(() => table.tabs.getState().open(UNLOADED_GRID));
     await userEvent.click(screen.getByRole('tab', { name: 'Na mesa' }));
     const people = screen.getByRole('tabpanel', { name: 'Na mesa' });

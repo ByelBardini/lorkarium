@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { tokensOverCatalog, tokensShowingDefinition } from '@/lib/condition-catalog';
-import { linkedLyra } from '../support/cast-fixtures';
+import { tokensOverCatalog, holdersShowingDefinition } from '@/lib/condition-catalog';
+import { linkedLyra } from '../support/character-fixtures';
 import {
   activeCondition,
   conditionDefinition,
@@ -15,7 +15,7 @@ const poisonedOn = (color: 'ember' | 'sky' | null = null) =>
 describe('the color of the active conditions after a definition update', () => {
   it('a color given to the definition reaches every token holding it, rounds kept', () => {
     const tokens = [kael({ conditions: [poisonedOn()] }), lyra({ conditions: [poisonedOn()] })];
-    const shown = tokensShowingDefinition(tokens, conditionDefinition({ color: 'ember' }));
+    const shown = holdersShowingDefinition(tokens, conditionDefinition({ color: 'ember' }));
     expect(
       shown.map(({ conditions }) => [conditions[0]?.color, conditions[0]?.remainingRounds]),
     ).toEqual([
@@ -25,7 +25,7 @@ describe('the color of the active conditions after a definition update', () => {
   });
 
   it('a color taken off the definition (back to the nature) clears it on the tokens', () => {
-    const [token] = tokensShowingDefinition(
+    const [token] = holdersShowingDefinition(
       [kael({ conditions: [poisonedOn('sky')] })],
       conditionDefinition({ color: null }),
     );
@@ -33,7 +33,7 @@ describe('the color of the active conditions after a definition update', () => {
   });
 
   it('a color changed alone (everything else as saved) still reaches the token', () => {
-    const [token] = tokensShowingDefinition(
+    const [token] = holdersShowingDefinition(
       [kael({ conditions: [poisonedOn('sky')] })],
       conditionDefinition({ color: 'ember' }),
     );
@@ -42,10 +42,10 @@ describe('the color of the active conditions after a definition update', () => {
 
   it('the same color saved again gives back the same tokens array', () => {
     const tokens = [kael({ conditions: [poisonedOn('ember')] })];
-    expect(tokensShowingDefinition(tokens, conditionDefinition({ color: 'ember' }))).toBe(tokens);
+    expect(holdersShowingDefinition(tokens, conditionDefinition({ color: 'ember' }))).toBe(tokens);
   });
 
-  it('a loose token in a grid follows the color of the cast list; a linked one is left alone', () => {
+  it('every token of a grid, loose or linked to a character, follows the color of the cast list', () => {
     const loose = kael({ conditions: [poisonedOn()] });
     const linked = linkedLyra({ conditions: [poisonedOn()] });
     const [kaelAfter, lyraAfter] = tokensOverCatalog(
@@ -54,6 +54,6 @@ describe('the color of the active conditions after a definition update', () => {
       [conditionDefinition({ color: 'sky' })],
     );
     expect(kaelAfter?.conditions[0]?.color).toBe('sky');
-    expect(lyraAfter).toBe(linked);
+    expect(lyraAfter?.conditions[0]?.color).toBe('sky');
   });
 });

@@ -1,6 +1,4 @@
 import type {
-  MainTokenChangedDto,
-  MemberCardChangedDto,
   CombatEndedDto,
   CombatStartedDto,
   CombatTurnChangedDto,
@@ -12,7 +10,6 @@ import type {
   ConditionDefinitionDeletedDto,
   ConditionDefaultsRestoredDto,
   ConditionRemovedDto,
-  ConditionsChangedDto,
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
@@ -60,7 +57,7 @@ import type {
   VeiledLightsChange,
 } from '../../modules/scenes/board-publisher.port';
 import type { RealtimeServer } from '../../realtime/realtime-server';
-import { sceneMastersRoom, sceneRoom, sceneUserRoom } from '../../realtime/rooms';
+import { campaignRoom, sceneMastersRoom, sceneRoom, sceneUserRoom } from '../../realtime/rooms';
 
 /** Emits each confirmed board change to the rooms of its grid, and only there (spec §2.6): who
  *  has that grid open. A token goes whole to the masters and its controllers, and redacted to
@@ -187,17 +184,6 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     this.emitCuts('token:formChanged', event, veil);
   }
 
-  mainTokenChanged(
-    event: GridEvent<MainTokenChangedDto>,
-    veil: VeilCuts<GridEvent<MainTokenChangedDto>>,
-  ): void {
-    this.emitCuts('token:mainChanged', event, veil);
-  }
-
-  memberCardChanged(event: GridEvent<MemberCardChangedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('member:cardChanged', event);
-  }
-
   // A drawing is not a secret: the layer only decides who picks it up, not who sees it.
   drawingsCreated(event: GridEvent<DrawingsCreatedDto>): void {
     this.io.to(gridRoomOf(event)).emit('drawing:createdMany', event);
@@ -280,21 +266,22 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     this.io.to(gridRoomOf(event)).emit('light:deletedMany', event);
   }
 
-  // Conditions are on the token for everyone to see: nothing to redact (spec §3.7).
-  conditionDefined(event: GridEvent<ConditionDefinedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('condition:defined', event);
+  // The list is the table's and no secret (spec §3.7): every member, whatever grid is open, in
+  // the version of the table stream the characters share.
+  conditionDefined(event: ConditionDefinedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('condition:defined', event);
   }
 
-  conditionDefinitionUpdated(event: GridEvent<ConditionDefinitionUpdatedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('condition:definitionUpdated', event);
+  conditionDefinitionUpdated(event: ConditionDefinitionUpdatedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('condition:definitionUpdated', event);
   }
 
-  conditionDefinitionDeleted(event: GridEvent<ConditionDefinitionDeletedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('condition:definitionDeleted', event);
+  conditionDefinitionDeleted(event: ConditionDefinitionDeletedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('condition:definitionDeleted', event);
   }
 
-  conditionDefaultsRestored(event: GridEvent<ConditionDefaultsRestoredDto>): void {
-    this.io.to(gridRoomOf(event)).emit('condition:defaultsRestored', event);
+  conditionDefaultsRestored(event: ConditionDefaultsRestoredDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('condition:defaultsRestored', event);
   }
 
   conditionApplied(
@@ -316,10 +303,6 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     veil: VeilCuts<GridEvent<ConditionRemovedDto>>,
   ): void {
     this.emitCuts('condition:removed', event, veil);
-  }
-
-  conditionsChanged(event: GridEvent<ConditionsChangedDto>): void {
-    this.io.to(gridRoomOf(event)).emit('condition:changedMany', event);
   }
 
   combatStarted(
@@ -400,7 +383,6 @@ type VeiledEventName =
   | 'token:restyledMany'
   | 'token:resizedMany'
   | 'token:formChanged'
-  | 'token:mainChanged'
   | 'condition:applied'
   | 'condition:appliedMany'
   | 'condition:removed'

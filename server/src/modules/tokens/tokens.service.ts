@@ -37,23 +37,31 @@ import {
   reachedGridOf,
   type LockedGrid,
   type SavedInScene,
+  type SavedVersion,
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
+import type { CharacterRow } from '../characters/characters.dao';
 import {
-  inLockedCast,
-  inLockedGridWithCast,
-  type CastAndGridChange,
-  type LockedGridMaybeCast,
-  type SavedInCastAndGrid,
-  type SavedVersion,
-} from '../scenes/locked-cast';
-import { splitUpdate } from './linked-token';
-import { TokenRulesBo } from './token-rules.bo';
+  inLockedGridWithCharacters,
+  type CharactersAndGridChange,
+  type LockedGridMaybeCharacters,
+  type SavedInCharactersAndGrid,
+} from '../characters/locked-characters-grid';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
+import { characterIn, linkedCharacterIn } from './linked-token';
+import { publishCharactersChange, updateLinkedToken } from './character-writes';
+import {
+  controlOfDragged,
+  movedRowsOf,
+  placedGroupOf,
+  requireDrags,
+  requirePassages,
+  tokenRulesOf,
+} from './token-group-moves';
 import { activeFormAfterEdit, type ShownForm } from './token-forms.bo';
 import {
   authorshipOf,
   combatOf,
-  holderRowOf,
   newTokenRowOf,
   leaveCombat,
   requireAssetsOf,
@@ -67,10 +75,9 @@ import {
   type TokenWriteDaos,
 } from './token-transaction';
 import { lookAssetIdsOf } from './token-aura.mapper';
-import { TokenAccessBo } from './token-access.bo';
-import type { DragGroupPo, TokenMovePo, TokenRow, TokenUpdatePo, TokensDao } from './tokens.dao';
+import type { TokenRow, TokenUpdatePo, TokensDao } from './tokens.dao';
 import type { BarValuesPo } from './tokens.po';
-import { BarNotFoundError, TokenNotFoundError } from './tokens.error';
+import { BarNotFoundError } from './tokens.error';
 import { toAuthoredToken, toEditedToken, toTokenUpdatePo } from './tokens.mapper';
 import type { SceneWallsService } from '../walls/scene-walls.service';
 
@@ -83,18 +90,6 @@ export type DeleteToken = Omit<DeleteTokenCommandDto, Envelope>;
 export type SetTokenLayer = Omit<SetTokenLayerCommandDto, Envelope>;
 export type MoveTokens = Omit<MoveTokensCommandDto, Envelope>;
 export type DragTokens = Omit<DragTokensCommandDto, Envelope>;
-/** A bar of the token that holds it: `sceneId` is its grid, or `null` for an anchor of the cast. */
-export type HolderBar = Readonly<{
-  tokenId: string;
-  sceneId: string | null;
-  barId: string;
-  change: AdjustBar['change'];
-}>;
-type GroupCell = Readonly<{ tokenId: string; cell: Readonly<{ col: number; row: number }> | null }>;
-type CellAt = Readonly<{ col: number; row: number }>;
-/** One token's way across the scene: from where it stands, by its bends, to `to`. */
-type TokenPassage = Readonly<{ row: TokenRow; path: readonly CellAt[] | undefined; to: CellAt }>;
-
 export type TokensServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership' | 'listMembers'>;
   transaction: TokenTransactionRunner;
@@ -103,6 +98,8 @@ export type TokensServiceDeps = Readonly<{
   /** The walls of each scene, remembered; filled only under the scene lock. */
   sceneWalls: Pick<SceneWallsService, 'wallsOf'>;
   publisher: BoardPublisherPort;
+  /** Where a write on a linked token's character is told (`character:changed`). */
+  characterPublisher: CharacterPublisherPort;
   clock: ClockPort;
   /** `BAR_VALUE_LIMIT`, handed to the rule. */
   barLimit: number;
@@ -113,6 +110,17 @@ export type TokensServiceDeps = Readonly<{
 }>;
 
 type Locked = LockedGrid<TokenWriteDaos>;
+type SharedLocked = LockedGridMaybeCharacters<TokenWriteDaos>;
+type Updated = Readonly<{
+  token: TokenWithConditions;
+  shared: CharacterRow | null;
+  veiled: ChangeScene;
+}>;
+type AdjustedBar = Readonly<{
+  changed: TokenWithConditions | null;
+  shared: CharacterRow | null;
+  veiled: ChangeScene | null;
+}>;
 
 /** The token use cases, on the grid the command names (absent = the group grid): each locks
  *  that grid, decides, saves, bumps the version and, only after
@@ -129,7 +137,7 @@ export class TokensService {
     const controllerIds = authorship.newControllersOf(command.controllerIds);
     const memberIds = await this.memberIdsOf(campaignId);
     const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
-      const rules = this.rulesFor(scene, memberIds);
+      const rules = tokenRulesOf(scene, memberIds, this.deps);
       const row = newTokenRowOf(scene.id, rules, { ...command, controllerIds }, userId);
       rules.admit(await daos.tokens.countOfScene(scene.id), 1);
       await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command));
@@ -140,32 +148,28 @@ export class TokensService {
     return saved.version;
   }
 
-  /** On a linked token, the name, initials, side, look, bars, controllers and forms go to its
-   *  anchor (an event of the cast) and the rest stays on the token (an event of the grid). A new
-   *  image or size, or dropping the shown form, leaves the holder without its form. */
+  /** On a linked token, the name, initials, side, look, aura, bars and controllers go to its
+   *  character (a `character:changed`) and the rest, forms included, stays on the token (an event
+   *  of the grid). A new image or size, or dropping the shown form, leaves the token without it. */
   async update(userId: string, campaignId: string, command: UpdateToken): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const authorship = await authorshipOf(this.deps.tokenRights, access);
     const memberIds = await this.memberIdsOf(campaignId);
     const saved = await this.inSharedGrid(access, command.sceneId, async (locked) => {
-      const { daos, scene } = locked;
-      const found = await tokenIn(daos, scene, campaignId, command.tokenId);
+      const found = await tokenIn(locked.daos, locked.scene, campaignId, command.tokenId);
       authorship.requireEdit(toEditedToken(found), command);
-      const rules = this.rulesFor(scene, memberIds);
+      const rules = tokenRulesOf(locked.scene, memberIds, this.deps);
       rules.place(found.token, command);
       const update = toTokenUpdatePo(command, rules.controllers(command.controllerIds));
-      const holder = await holderRowOf(locked, found);
-      await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command));
-      if (holder.inCast) await this.updateLinked(daos, found, holder.row, update);
-      else await daos.tokens.update(found.token.id, withShownForm(found.token, update));
-      await daos.mainTokens.dropLostControl(found.token.id, update.controllerIds);
-      const anchor = holder.inCast ? await this.reread(daos, holder.scene, holder.row) : null;
-      const token = await this.reread(daos, scene, found);
-      const veiled = await changeSceneOf(daos, scene, found, token.row, true);
-      return { value: { token, anchor, veiled }, grid: true, cast: holder.inCast };
+      return this.updateIn(locked, found, withShownForm(found.token, update), command);
     });
-    const { token, anchor, veiled } = saved.value;
-    if (saved.cast && anchor) this.publishSaved('token:updated', campaignId, anchor, saved.cast);
+    const { token, shared, veiled } = saved.value;
+    publishCharactersChange(
+      this.characterOutlet(),
+      campaignId,
+      saved.characters,
+      shared ? [shared] : [],
+    );
     if (saved.grid) this.publishSaved('token:updated', campaignId, token, saved.grid, veiled);
     return saved.version;
   }
@@ -175,9 +179,9 @@ export class TokensService {
     const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
       tokenAccessOf(access, found).requireMove('move', found.token.layer);
-      const { col, row } = this.rulesFor(scene, []).place(command, found.token);
+      const { col, row } = tokenRulesOf(scene, [], this.deps).place(command, found.token);
       const passage = { row: found, path: command.path, to: command };
-      await this.requirePassages({ daos, scene }, access, [passage]);
+      await requirePassages({ daos, scene }, access, [passage], this.passageDeps());
       await daos.tokens.move(found.token.id, col, row);
       const moved = { ...found, token: { ...found.token, col, row } };
       return { col, row, veiled: await veiledWriteOf(daos, scene.id, [moved]) };
@@ -201,8 +205,8 @@ export class TokensService {
     const cells = command.moves.map(({ tokenId, col, row }) => ({ tokenId, cell: { col, row } }));
     const moves = command.moves.map(({ tokenId, col, row }) => ({ tokenId, col, row }));
     const saved = await this.inGrid(access, command.sceneId, async (locked) => {
-      const rows = await this.placeGroup(locked, access, cells, 'move');
-      const rules = this.rulesFor(locked.scene, []);
+      const rows = await placedGroupOf(locked, access, cells, 'move', this.deps);
+      const rules = tokenRulesOf(locked.scene, [], this.deps);
       rows.forEach((row, index) => {
         rules.requireAt(row.token.id, command.moves[index]?.expect, row.token);
       });
@@ -210,7 +214,7 @@ export class TokensService {
         const move = command.moves[index];
         return move ? [{ row, path: move.path, to: move }] : [];
       });
-      await this.requirePassages(locked, access, passages);
+      await requirePassages(locked, access, passages, this.passageDeps());
       await locked.daos.tokens.moveMany(locked.scene.id, moves);
       return veiledWriteOf(locked.daos, locked.scene.id, movedRowsOf(rows, moves));
     });
@@ -238,7 +242,7 @@ export class TokensService {
     const tokenIds = command.drags.map(({ tokenId }) => tokenId);
     const group = await this.deps.dragGroups.findDragGroup(campaignId, sceneId, tokenIds);
     const scene = reachedGridOf({ campaignId, sceneId, access }, group?.scene);
-    this.placeDrags(access, scene, group?.tokens ?? [], command.drags);
+    requireDrags(access, scene, group?.tokens ?? [], command.drags, this.deps);
     const drags = command.drags.map(({ tokenId, cell }) => ({ tokenId, cell }));
     const event = { campaignId, sceneId: scene.id, at: this.now(), drags };
     const veil = controlVeilOf((group?.tokens ?? []).map(controlOfDragged));
@@ -264,42 +268,22 @@ export class TokensService {
     return saved.version;
   }
 
-  /** The bar of a linked token is its anchor's: the anchor changes, in the cast's version. */
+  /** The bar of a linked token is its character's: the character changes, in the characters'
+   *  version (a `character:changed`), and the grid does not. */
   async adjustBar(userId: string, campaignId: string, command: AdjustBar): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    const saved = await this.inSharedGrid(access, command.sceneId, async (locked) => {
-      const { daos, scene } = locked;
-      const found = await tokenIn(daos, scene, campaignId, command.tokenId);
-      const values = this.adjustedBar(access, found, scene, command);
-      const holder = await holderRowOf(locked, found);
-      await daos.tokens.setBarValues(command.barId, values);
-      const changed = await this.reread(daos, holder.scene, holder.row);
-      const veiled = holder.inCast
-        ? null
-        : await changeSceneOf(daos, scene, found, changed.row, false);
-      return { value: { changed, veiled }, grid: !holder.inCast, cast: holder.inCast };
-    });
-    const touched = saved.cast ?? saved.grid;
-    const { changed, veiled } = saved.value;
-    if (touched) this.publishSaved('token:updated', campaignId, changed, touched, veiled);
-    return saved.version;
-  }
-
-  /** The bar of the token that holds it, found by the server (a sheet's token): an anchor of the
-   *  cast (`sceneId: null`) or an unlinked token on its grid. The same rule, lock order and event
-   *  as `token:adjustBar`.
-   *
-   *  Example: `await tokens.adjustHolderBar(userId, campaignId, { tokenId: anchorId, sceneId: null, barId, change })` */
-  async adjustHolderBar(userId: string, campaignId: string, command: HolderBar): Promise<number> {
-    const { sceneId, ...bar } = command;
-    if (sceneId !== null) return this.adjustBar(userId, campaignId, { ...bar, sceneId });
-    const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    const saved = await inLockedCast(this.deps.transaction, campaignId, async ({ daos, cast }) => {
-      const found = await tokenIn(daos, cast, campaignId, bar.tokenId);
-      await daos.tokens.setBarValues(bar.barId, this.adjustedBar(access, found, cast, bar));
-      return { value: await this.reread(daos, cast, found), changed: true };
-    });
-    this.publishSaved('token:updated', campaignId, saved.value, saved);
+    const saved = await this.inSharedGrid(access, command.sceneId, (locked) =>
+      this.adjustIn(locked, access, command),
+    );
+    const { changed, shared, veiled } = saved.value;
+    publishCharactersChange(
+      this.characterOutlet(),
+      campaignId,
+      saved.characters,
+      shared ? [shared] : [],
+    );
+    if (saved.grid && changed)
+      this.publishSaved('token:updated', campaignId, changed, saved.grid, veiled);
     return saved.version;
   }
 
@@ -336,16 +320,43 @@ export class TokensService {
     return (await this.deps.members.listMembers(campaignId)).map(({ userId }) => userId);
   }
 
-  // A linked token's anchor and its grid token: each written with what is its own.
-  private async updateLinked(
-    daos: TokenWriteDaos,
+  // Each part where it lives; the character first checked (and locked) before any write.
+  private async updateIn(
+    locked: SharedLocked,
     found: TokenRow,
-    anchor: TokenRow,
     update: TokenUpdatePo,
-  ): Promise<void> {
-    const split = splitUpdate(update, anchor.token);
-    await daos.tokens.update(anchor.token.id, withShownForm(anchor.token, split.anchor));
-    await daos.tokens.updateFields(found.token.id, split.own);
+    command: UpdateToken,
+  ): Promise<CharactersAndGridChange<Updated>> {
+    const { daos, scene } = locked;
+    const character = await linkedCharacterIn(locked, found);
+    await requireAssetsOf(daos, scene.campaignId, lookAssetIdsOf(command));
+    if (character) await updateLinkedToken(daos, found, character, update);
+    else await daos.tokens.update(found.token.id, update);
+    const shared = character && (await characterIn(daos, scene.campaignId, character.character.id));
+    const token = await this.reread(daos, scene, found);
+    const veiled = await changeSceneOf(daos, scene, found, token.row, true);
+    return { value: { token, shared, veiled }, grid: true, characters: shared !== null };
+  }
+
+  // Control and the rule first; then the bar where it lives (the character's, or the token's).
+  private async adjustIn(
+    locked: SharedLocked,
+    access: CampaignAccessBo,
+    command: AdjustBar,
+  ): Promise<CharactersAndGridChange<AdjustedBar>> {
+    const { daos, scene } = locked;
+    const found = await tokenIn(daos, scene, scene.campaignId, command.tokenId);
+    const values = this.adjustedBar(access, found, scene, command);
+    const character = await linkedCharacterIn(locked, found);
+    if (character) {
+      await daos.characters.setBarValues(command.barId, values);
+      const shared = await characterIn(daos, scene.campaignId, character.character.id);
+      return { value: { changed: null, shared, veiled: null }, grid: false, characters: true };
+    }
+    await daos.tokens.setBarValues(command.barId, values);
+    const changed = await this.reread(daos, scene, found);
+    const veiled = await changeSceneOf(daos, scene, found, changed.row, false);
+    return { value: { changed, shared: null, veiled }, grid: true, characters: false };
   }
 
   private async reread(
@@ -359,10 +370,14 @@ export class TokensService {
   private inSharedGrid<T>(
     access: CampaignAccessBo,
     sceneId: string | undefined,
-    work: (locked: LockedGridMaybeCast<TokenWriteDaos>) => Promise<CastAndGridChange<T>>,
-  ): Promise<SavedInCastAndGrid<T>> {
+    work: (locked: SharedLocked) => Promise<CharactersAndGridChange<T>>,
+  ): Promise<SavedInCharactersAndGrid<T>> {
     const address = { campaignId: access.campaignIdOf(), sceneId, access };
-    return inLockedGridWithCast(this.deps.transaction, address, work);
+    return inLockedGridWithCharacters(this.deps.transaction, address, work);
+  }
+
+  private characterOutlet(): Readonly<{ publisher: CharacterPublisherPort; clock: ClockPort }> {
+    return { publisher: this.deps.characterPublisher, clock: this.deps.clock };
   }
 
   private inGrid<T>(
@@ -372,57 +387,6 @@ export class TokensService {
   ): Promise<SavedInScene<T>> {
     const address = { campaignId: access.campaignIdOf(), sceneId, access };
     return inLockedGrid(this.deps.transaction, address, work);
-  }
-
-  // Every token found, movable by the requester and fitting where it goes, before any write.
-  private async placeGroup(
-    { daos, scene }: Locked,
-    access: CampaignAccessBo,
-    cells: readonly GroupCell[],
-    action: 'move' | 'drag',
-  ): Promise<TokenRow[]> {
-    const tokenIds = cells.map(({ tokenId }) => tokenId);
-    const rows = await tokensIn(daos, scene, access.campaignIdOf(), tokenIds);
-    const rules = this.rulesFor(scene, []);
-    rows.forEach((row, index) => {
-      tokenAccessOf(access, row).requireMove(action, row.token.layer);
-      const cell = cells[index]?.cell;
-      if (cell) rules.place(cell, row.token);
-    });
-    return rows;
-  }
-
-  // The same checks as `placeGroup`, over what the drag query found.
-  private placeDrags(
-    access: CampaignAccessBo,
-    scene: DragGroupPo['scene'],
-    dragged: DragGroupPo['tokens'],
-    drags: readonly GroupCell[],
-  ): void {
-    const byId = new Map(dragged.map((each) => [each.token.id, each]));
-    const rules = this.rulesFor(scene, []);
-    for (const { tokenId, cell } of drags) {
-      const found = byId.get(tokenId);
-      if (!found) throw new TokenNotFoundError(access.campaignIdOf(), tokenId);
-      const { controllerIds } = found;
-      new TokenAccessBo(access, { tokenId, controllerIds }).requireMove('drag', found.token.layer);
-      if (cell) rules.place(cell, found.token);
-    }
-  }
-
-  // The master passes every wall; a player's token walks its path center to center (spec §5.4).
-  private async requirePassages(
-    { daos, scene }: Locked,
-    access: CampaignAccessBo,
-    passages: readonly TokenPassage[],
-  ): Promise<void> {
-    const walking = passages.filter(({ row }) => !tokenAccessOf(access, row).ignoresWalls());
-    if (walking.length === 0) return;
-    const walls = await this.deps.sceneWalls.wallsOf(scene.id, daos.walls);
-    const rules = this.rulesFor(scene, []);
-    for (const { row, path, to } of walking) {
-      rules.requirePassage(row.token.id, [row.token, ...(path ?? []), to], row.token, walls);
-    }
   }
 
   // Control first, then the bar of the token and the rule of the game-core (`set` over the max
@@ -436,16 +400,11 @@ export class TokensService {
     tokenAccessOf(access, found).requireControl('adjust a bar of');
     const bar = found.bars.find(({ id }) => id === barId);
     if (!bar) throw new BarNotFoundError(tokenId, barId);
-    return this.rulesFor(scene, []).adjustBar(bar, change);
+    return tokenRulesOf(scene, [], this.deps).adjustBar(bar, change);
   }
 
-  private rulesFor(
-    scene: Pick<ScenePo, 'widthCells' | 'heightCells'>,
-    memberIds: readonly string[],
-  ): TokenRulesBo {
-    const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-    const { barLimit, tokenLimit } = this.deps;
-    return new TokenRulesBo({ scene: sceneSize, memberIds, barLimit, tokenLimit });
+  private passageDeps(): Parameters<typeof requirePassages>[3] {
+    return { walls: this.deps.sceneWalls, limits: this.deps };
   }
 
   private publishChange(
@@ -474,19 +433,6 @@ export class TokensService {
 
 const MOVES_SEEN_BY = entriesSeenBy<TokensMovedDto>('moves');
 const DRAGS_SEEN_BY = entriesSeenBy<GridEvent<TokensDraggedDto>>('drags');
-
-function controlOfDragged({ token, controllerIds }: DragGroupPo['tokens'][number]) {
-  return { tokenId: token.id, controllerIds, hidden: token.hidden };
-}
-
-// The rows as the moves left them (the veil's lights shine from where the tokens now are).
-function movedRowsOf(rows: readonly TokenRow[], moves: readonly TokenMovePo[]): TokenRow[] {
-  const byId = new Map(moves.map((move) => [move.tokenId, move]));
-  return rows.map((row) => {
-    const move = byId.get(row.token.id);
-    return move ? { ...row, token: { ...row.token, col: move.col, row: move.row } } : row;
-  });
-}
 
 // The update with the form the holder keeps: always written, since replacing the forms drops the
 // shown one (FK set null) even when its id stays in the list.

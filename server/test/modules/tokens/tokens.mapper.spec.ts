@@ -309,7 +309,7 @@ describe('tokens mapper', () => {
     expect(toEditedToken(row)).toEqual({
       tokenId: LYRA_ID,
       createdBy: BIA_ID,
-      anchorTokenId: null,
+      characterId: null,
       vision: { sight: { bright: 6, dim: 2 }, light: null, sightAngle: 90 },
     });
   });

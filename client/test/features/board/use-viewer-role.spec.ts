@@ -4,7 +4,6 @@ import { followViewerRole } from '@/features/board/use-viewer-role';
 import type { OpenTable } from '@/stores/open-tables-store';
 import { groupTabOf, visibleTabOf } from '@/stores/scene-tabs-store';
 import { VHARN } from '../../support/campaigns-api-fake';
-import { VHARN_CAST_ID } from '../../support/cast-fixtures';
 import { TORRE_SCENE } from '../../support/scene-tab-fixtures';
 import { openTorreTab, openVharnTabs } from '../../support/scene-tabs-harness';
 import { TableSessionApiFake } from '../../support/table-session-api-fake';
@@ -27,8 +26,8 @@ class RouteRevalidationFake {
 }
 
 // What the stores asked of the session since the test began: the group grid's sync (by table),
-// each extra tab's and the cast's.
-type Resyncs = Readonly<{ group: string[]; tabs: string[]; cast: string[] }>;
+// each extra tab's and the table stream's.
+type Resyncs = Readonly<{ group: string[]; tabs: string[]; characters: string[] }>;
 
 describe('followViewerRole', () => {
   let api: TableSessionApiFake;
@@ -48,7 +47,11 @@ describe('followViewerRole', () => {
   afterEach(() => stop());
 
   function resyncs(): Resyncs {
-    return { group: [...api.resyncedIds], tabs: [...api.watchResyncs], cast: [...api.castResyncs] };
+    return {
+      group: [...api.resyncedIds],
+      tabs: [...api.watchResyncs],
+      characters: [...api.characterResyncs],
+    };
   }
 
   function resyncsSinceStart(): Resyncs {
@@ -56,16 +59,16 @@ describe('followViewerRole', () => {
     return {
       group: now.group.slice(before.group.length),
       tabs: now.tabs.slice(before.tabs.length),
-      cast: now.cast.slice(before.cast.length),
+      characters: now.characters.slice(before.characters.length),
     };
   }
 
   function followAs(viewerId: string): void {
-    const { presence, tabs, cast } = table;
+    const { presence, tabs, characters } = table;
     stop = followViewerRole({
       presence,
       tabs,
-      cast,
+      characters,
       viewerId,
       revalidate: revalidation.revalidate,
     });
@@ -86,7 +89,7 @@ describe('followViewerRole', () => {
     api.emitTo(VHARN.id, { kind: 'memberUpdated', event: biaUpdated({ member, version }) });
   }
 
-  it('Bia demoted live: every open grid and the cast ask their snapshot, and the route is read again', () => {
+  it('Bia demoted live: every open grid and the table stream ask their snapshot, and the route is read again', () => {
     biaOnline();
     followAs(BIA_AT_TABLE.userId);
     memberUpdated({ ...BIA_AT_TABLE, role: 'spectator' });
@@ -94,7 +97,7 @@ describe('followViewerRole', () => {
     expect(resyncsSinceStart()).toEqual({
       group: [VHARN.id],
       tabs: [`${VHARN.id}:${TORRE_SCENE.id}`],
-      cast: [`${VHARN.id}:${VHARN_CAST_ID}`],
+      characters: [VHARN.id],
     });
     expect(revalidation.count).toBe(1);
   });
@@ -121,7 +124,7 @@ describe('followViewerRole', () => {
     expect(revalidation.count).toBe(1);
   });
 
-  it('Bia promoted to master live: every grid and the cast resync, and she hears it', () => {
+  it('Bia promoted to master live: every grid and the table stream resync, and she hears it', () => {
     biaOnline();
     followAs(BIA_AT_TABLE.userId);
     memberUpdated({ ...BIA_AT_TABLE, role: 'master' });
@@ -129,7 +132,7 @@ describe('followViewerRole', () => {
     expect(resyncsSinceStart()).toEqual({
       group: [VHARN.id],
       tabs: [`${VHARN.id}:${TORRE_SCENE.id}`],
-      cast: [`${VHARN.id}:${VHARN_CAST_ID}`],
+      characters: [VHARN.id],
     });
     expect(revalidation.count).toBe(1);
     const shown = visibleTabOf(table.tabs.getState()).interaction.getState();
@@ -164,7 +167,7 @@ describe('followViewerRole', () => {
     followAs(BIA_AT_TABLE.userId);
     memberUpdated({ ...BIA_AT_TABLE, role: 'master', juggernaut: true });
 
-    expect(resyncsSinceStart()).toEqual({ group: [], tabs: [], cast: [] });
+    expect(resyncsSinceStart()).toEqual({ group: [], tabs: [], characters: [] });
     expect(revalidation.count).toBe(0);
   });
 
@@ -172,7 +175,7 @@ describe('followViewerRole', () => {
     followAs(BIA_AT_TABLE.userId);
     memberUpdated({ ...BIA_AT_TABLE, name: 'Bia Rosa' });
 
-    expect(resyncsSinceStart()).toEqual({ group: [], tabs: [], cast: [] });
+    expect(resyncsSinceStart()).toEqual({ group: [], tabs: [], characters: [] });
     expect(revalidation.count).toBe(0);
   });
 
@@ -180,7 +183,7 @@ describe('followViewerRole', () => {
     followAs(BIA_AT_TABLE.userId);
     memberUpdated({ ...CAIO_AT_TABLE, role: 'spectator' });
 
-    expect(resyncsSinceStart()).toEqual({ group: [], tabs: [], cast: [] });
+    expect(resyncsSinceStart()).toEqual({ group: [], tabs: [], characters: [] });
     expect(revalidation.count).toBe(0);
   });
 

@@ -9,10 +9,9 @@ import { ConditionsDaoFake } from '../../support/conditions-fakes';
 import { DrawingsDaoFake } from '../../support/drawings-fakes';
 import { EffectAreasDaoFake } from '../../support/effect-areas-fakes';
 import { LightsDaoFake } from '../../support/lights-fakes';
-import { MemberCardsDaoFake } from '../../support/member-cards-fakes';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
-import { MainTokensDaoFake, TokensDaoFake } from '../../support/tokens-fakes';
+import { TokensDaoFake } from '../../support/tokens-fakes';
 import {
   LOBO_ID,
   LYRA_ID,
@@ -50,11 +49,6 @@ describe('BoardService.snapshotFor with hidden tokens', () => {
       effectAreas: new EffectAreasDaoFake(journal),
       walls: new WallsDaoFake(journal),
       lights: new LightsDaoFake(journal),
-      mainTokens: new MainTokensDaoFake(journal, [
-        { sceneId: VHARN_SCENE_ID, userId: BIA_ID, tokenId: LOBO_ID },
-        { sceneId: VHARN_SCENE_ID, userId: CAIO_ID, tokenId: LYRA_ID },
-      ]),
-      memberCards: new MemberCardsDaoFake(journal),
     };
     service = new BoardService({
       members,
@@ -63,12 +57,11 @@ describe('BoardService.snapshotFor with hidden tokens', () => {
     });
   });
 
-  it('Caio gets neither the Lobo nor the Sombra, nor them in the combat, nor the main token on the Lobo', async () => {
+  it('Caio gets neither the Lobo nor the Sombra, nor them in the combat', async () => {
     const state = await service.snapshotFor(CAIO_ID, VHARN_ID);
 
     expect(state.tokens.map(({ id }) => id)).toEqual([LYRA_ID]);
     expect(state.combat?.combatants.map(({ tokenIds }) => tokenIds)).toEqual([[LYRA_ID]]);
-    expect(state.mainTokens).toEqual([{ userId: CAIO_ID, tokenId: LYRA_ID }]);
     expect(JSON.stringify(state)).not.toContain(LOBO_ID);
     expect(JSON.stringify(state)).not.toContain(SOMBRA_ID);
   });
@@ -93,7 +86,6 @@ describe('BoardService.snapshotFor with hidden tokens', () => {
 
     expect(state.tokens.map(({ id }) => id)).toEqual([LYRA_ID, LOBO_ID]);
     expect(state.veiledLights).toEqual([]);
-    expect(state.mainTokens).toContainEqual({ userId: BIA_ID, tokenId: LOBO_ID });
   });
 
   it('Ana, the master, gets every token and no veiled light', async () => {

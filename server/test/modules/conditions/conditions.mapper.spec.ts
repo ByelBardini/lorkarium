@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
-  conditionsByToken,
+  conditionsByHolder,
+  holderOfToken,
   toActiveConditionDto,
   toConditionDefinitionDto,
   toNewConditionDefinition,
+  toTokenConditionDto,
 } from '../../../src/modules/conditions/conditions.mapper';
 
 const ENVENENADO = {
   id: 'active-1',
   tokenId: 'lyra',
+  characterId: null,
   conditionId: 'env',
   name: 'Envenenado',
   tone: 'harm',
@@ -109,15 +112,30 @@ describe('conditions mapper', () => {
     expect(toActiveConditionDto(invisivel)).toMatchObject({ tone: 'benefit', look: 'invisible' });
   });
 
-  it('conditions are grouped by token', () => {
-    const grouped = conditionsByToken([
+  it('conditions are grouped by holder: a token and a character side by side', () => {
+    const grouped = conditionsByHolder([
       ENVENENADO,
       { ...ENVENENADO, id: 'active-2', tokenId: 'kael' },
       { ...ENVENENADO, id: 'active-3', name: 'Caído', remainingRounds: null },
+      { ...ENVENENADO, id: 'active-4', tokenId: null, characterId: 'lyra-character' },
     ]);
     expect(grouped.get('lyra')?.map(({ id }) => id)).toEqual(['active-1', 'active-3']);
     expect(grouped.get('kael')).toHaveLength(1);
+    expect(grouped.get('lyra-character')?.map(({ id }) => id)).toEqual(['active-4']);
     expect(grouped.get('goblin')).toBeUndefined();
+  });
+
+  it('a linked token holds its conditions by its character, an unlinked one by itself', () => {
+    expect(holderOfToken({ id: 'lyra-salao', characterId: 'lyra' })).toEqual({
+      characterId: 'lyra',
+    });
+    expect(holderOfToken({ id: 'kael', characterId: null })).toEqual({ tokenId: 'kael' });
+  });
+
+  it('a condition held by a character has no token to go out with in condition:appliedMany', () => {
+    const onLyra = { ...ENVENENADO, tokenId: null, characterId: 'lyra-character' };
+    expect(() => toTokenConditionDto(onLyra)).toThrow(/character lyra-character, not a token/);
+    expect(toTokenConditionDto(ENVENENADO)).toMatchObject({ tokenId: 'lyra' });
   });
 
   it('a stacking definition carries its maxStacks 5', () => {

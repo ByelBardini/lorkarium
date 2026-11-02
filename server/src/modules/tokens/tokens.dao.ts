@@ -3,6 +3,7 @@ import { copyRowsSql, uuidArray } from '../../database/copy-rows';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { updateManySql, type UpdatedColumn } from '../../database/update-many';
 import { campaigns } from '../campaigns/campaigns.po';
+import { CharactersDao } from '../characters/characters.dao';
 import { scenes, type ScenePo } from '../scenes/scenes.po';
 import { IS_GROUP_GRID, gridOfCampaign } from '../scenes/scenes.dao';
 import { composedTokenRow } from './linked-token';
@@ -15,7 +16,6 @@ import {
 import { TokenHangingDao, savedRowOf } from './token-hanging.dao';
 import {
   tokenBars,
-  tokenControllers,
   tokens,
   type NewTokenPo,
   type TokenFormInputPo,
@@ -74,11 +74,12 @@ export type DragTokenPo = Readonly<{
   controllerIds: readonly string[];
 }>;
 
-/** A token of a scene, who controls it and the anchor it is linked to, if any. */
+/** A token of a scene, who controls it (a linked one, its character's controllers) and the
+ *  character it wears, if any (which holds its conditions). */
 export type TokenControlPo = Readonly<{
   tokenId: string;
   controllerIds: string[];
-  anchorTokenId: string | null;
+  characterId: string | null;
   hidden: boolean;
 }>;
 
@@ -87,7 +88,7 @@ export type HiddenTokenPo = Readonly<{ token: TokenPo; controllerIds: readonly s
 
 /** The active scene of a campaign (size and version) and the asked tokens found on it. */
 export type DragGroupPo = Readonly<{
-  scene: Pick<ScenePo, 'id' | 'widthCells' | 'heightCells' | 'version' | 'visibility' | 'kind'> &
+  scene: Pick<ScenePo, 'id' | 'widthCells' | 'heightCells' | 'version' | 'visibility'> &
     Readonly<{ isActive: boolean }>;
   tokens: readonly DragTokenPo[];
 }>;
@@ -99,10 +100,12 @@ const COPY_MAP = sql.raw('copy_map');
 export class TokensDao {
   private readonly forms: TokenFormsDao;
   private readonly hanging: TokenHangingDao;
+  private readonly characters: CharactersDao;
 
   constructor(private readonly db: DatabaseExecutor) {
     this.forms = new TokenFormsDao(db);
     this.hanging = new TokenHangingDao(db);
+    this.characters = new CharactersDao(db);
   }
 
   /** Two statements (see `insertMany`): run it on the `tx` DAO. */
@@ -201,39 +204,33 @@ export class TokensDao {
       .from(scenes)
       .innerJoin(campaigns, eq(campaigns.id, scenes.campaignId))
       .leftJoin(tokens, and(eq(tokens.sceneId, scenes.id), inArray(tokens.id, [...tokenIds])))
-      .leftJoin(tokenControllers, CONTROLLERS_OF_HOLDER)
-      .where(gridOfCampaign(campaignId, sceneId))
-      .groupBy(scenes.id, campaigns.id, tokens.id);
+      .where(gridOfCampaign(campaignId, sceneId));
     const [first] = found;
     if (!first) return undefined;
     return { scene: first.scene, tokens: found.flatMap(dragTokenOf) };
   }
 
-  /** Who controls each token of the scene (a linked one, by its anchor), in one query and
+  /** Who controls each token of the scene (a linked one, by its character), in one query and
    *  without the bars nor the token columns: what a combat command checks. */
   async controlOfScene(sceneId: string): Promise<TokenControlPo[]> {
     return this.db
       .select({
         tokenId: tokens.id,
-        controllerIds: CONTROLLER_IDS,
-        anchorTokenId: tokens.anchorTokenId,
+        controllerIds: HOLDER_CONTROLLER_IDS,
+        characterId: tokens.characterId,
         hidden: tokens.hidden,
       })
       .from(tokens)
-      .leftJoin(tokenControllers, CONTROLLERS_OF_HOLDER)
-      .where(eq(tokens.sceneId, sceneId))
-      .groupBy(tokens.id);
+      .where(eq(tokens.sceneId, sceneId));
   }
 
-  /** The hidden tokens of the scene (a linked one controlled by its anchor's controllers), in one
+  /** The hidden tokens of the scene (a linked one controlled by its character's controllers), in one
    *  query: what the veil of a snapshot or of the hidden lights needs. */
   async veilOfScene(sceneId: string): Promise<HiddenTokenPo[]> {
     return this.db
-      .select({ token: tokens, controllerIds: CONTROLLER_IDS })
+      .select({ token: tokens, controllerIds: HOLDER_CONTROLLER_IDS })
       .from(tokens)
-      .leftJoin(tokenControllers, CONTROLLERS_OF_HOLDER)
       .where(and(eq(tokens.sceneId, sceneId), eq(tokens.hidden, true)))
-      .groupBy(tokens.id)
       .orderBy(asc(tokens.createdAt), asc(tokens.id));
   }
 
@@ -316,8 +313,14 @@ export class TokensDao {
     await this.hanging.replaceBarsAndControllers(tokenId, update.bars, update.controllerIds);
   }
 
-  /** Writes only the fields given, on the token alone (its bars and controllers stay). */
-  async updateFields(tokenId: string, fields: Partial<TokenFieldsPo>): Promise<void> {
+  /** Writes only the fields given, on the token alone (its bars and controllers stay), and its
+   *  forms when given (a linked token's own part of an update). Run it on the `tx` DAO. */
+  async updateFields(
+    tokenId: string,
+    fields: Partial<TokenFieldsPo>,
+    forms?: readonly TokenFormInputPo[],
+  ): Promise<void> {
+    if (forms) await this.forms.replace(tokenId, forms);
     await this.db
       .update(tokens)
       .set({ ...fields, updatedAt: sql`now()` })
@@ -334,17 +337,6 @@ export class TokensDao {
     await this.db
       .delete(tokens)
       .where(and(eq(tokens.sceneId, sceneId), inArray(tokens.id, [...tokenIds])));
-  }
-
-  /** The token of `sceneId` linked to `anchorTokenId`, if the grid has one (one at most).
-   *
-   *  Example: `await tokensDao.findLinkedInScene(estradaId, lyraAnchorId)` */
-  async findLinkedInScene(sceneId: string, anchorTokenId: string): Promise<TokenRow | undefined> {
-    const [token] = await this.db
-      .select()
-      .from(tokens)
-      .where(and(eq(tokens.sceneId, sceneId), eq(tokens.anchorTokenId, anchorTokenId)));
-    return token && this.rowOf(token);
   }
 
   private async copyTokensBy(map: SQL, toSceneId: string): Promise<void> {
@@ -379,14 +371,16 @@ export class TokensDao {
     return row;
   }
 
-  // A linked token comes composed with its anchor; one more read only when some token is linked.
+  // A linked token comes composed with its character; two more reads (the characters, their
+  // bars) only when some token is linked. Every row is of one scene, so of one table.
   private async rowsOf(found: readonly TokenPo[]): Promise<TokenRow[]> {
     const own = await this.hangingOf(found);
-    const anchorIds = [...new Set(found.flatMap(({ anchorTokenId: id }) => (id ? [id] : [])))];
-    if (anchorIds.length === 0) return own;
-    const anchorTokens = await this.db.select().from(tokens).where(inArray(tokens.id, anchorIds));
-    const anchors = new Map((await this.hangingOf(anchorTokens)).map((a) => [a.token.id, a]));
-    return own.map((row) => composedTokenRow(row, anchors.get(row.token.anchorTokenId ?? '')));
+    const linked = [...new Set(found.flatMap(({ characterId: id }) => (id ? [id] : [])))];
+    const [first] = found;
+    if (!first || linked.length === 0) return own;
+    const worn = await this.characters.findManyAtSceneTable(first.sceneId, linked);
+    const byId = new Map(worn.map((row) => [row.character.id, row]));
+    return own.map((row) => composedTokenRow(row, byId.get(row.token.characterId ?? '')));
   }
 
   private async hangingOf(found: readonly TokenPo[]): Promise<TokenRow[]> {
@@ -411,22 +405,17 @@ export class TokensDao {
   }
 }
 
-// A linked token is controlled by whoever controls its anchor.
-const CONTROLLERS_OF_HOLDER = eq(
-  tokenControllers.tokenId,
-  sql`coalesce(${tokens.anchorTokenId}, ${tokens.id})`,
-);
+// Who controls a token, `{}` for none: a linked one, whoever controls its character.
+// Spelled out with the table names: a select from one table drops the qualifier of its columns.
+const HOLDER_CONTROLLER_IDS = sql<string[]>`${sql.raw(
+  `case when "tokens"."character_id" is null then coalesce((select array_agg(c.user_id::text) from token_controllers AS c where c.token_id = "tokens"."id"), '{}') else coalesce((select array_agg(c.user_id::text order by c.user_id) from character_controllers AS c where c.character_id = "tokens"."character_id"), '{}') end`,
+)}`;
 
 // The token's own controllers, `{}` for none, as a column of a select from `tokens`.
 // Spelled out with the table names: a select from one table drops the qualifier of its columns.
 const OWN_CONTROLLER_IDS = sql<string[]>`coalesce((${sql.raw(
   `select array_agg(c.user_id::text) from token_controllers AS c where c.token_id = "tokens"."id"`,
 )}), '{}')`;
-
-// The controllers of the grouped token, `{}` for none (the LEFT JOIN gives one null row then).
-const CONTROLLER_IDS = sql<
-  string[]
->`coalesce(array_agg(${tokenControllers.userId}::text) filter (where ${tokenControllers.userId} is not null), '{}')`;
 
 const DRAG_COLUMNS = {
   scene: {
@@ -435,7 +424,6 @@ const DRAG_COLUMNS = {
     heightCells: scenes.heightCells,
     version: scenes.version,
     visibility: scenes.visibility,
-    kind: scenes.kind,
     isActive: IS_GROUP_GRID,
   },
   tokenId: tokens.id,
@@ -443,7 +431,7 @@ const DRAG_COLUMNS = {
   width: tokens.width,
   height: tokens.height,
   hidden: tokens.hidden,
-  controllerIds: CONTROLLER_IDS,
+  controllerIds: HOLDER_CONTROLLER_IDS,
 };
 
 type DragColumnsRow = Readonly<{

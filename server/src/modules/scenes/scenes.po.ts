@@ -8,10 +8,8 @@ import {
   pgTable,
   text,
   timestamp,
-  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
 import { assets } from '../assets/assets.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { sceneFolders } from '../library/scene-folders.po';
@@ -22,13 +20,6 @@ export const sceneVision = pgEnum('scene_vision', ['off', 'dark', 'daylight']);
 
 // Who sees the scene in the library: only the master (private) or every member (public).
 export const sceneVisibility = pgEnum('scene_visibility', ['private', 'public']);
-
-// A grid of the library, or the hidden cast of the table: one per campaign, holding the anchor
-// token of each character; never listed, drawn nor activated.
-export const sceneKind = pgEnum('scene_kind', ['grid', 'cast']);
-
-/** The name the cast is born with; no screen shows it. */
-export const CAST_SCENE_NAME = 'Elenco';
 
 export const scenes = pgTable(
   'scenes',
@@ -52,7 +43,6 @@ export const scenes = pgTable(
     visionMode: sceneVision('vision_mode').notNull().default('off'),
     visibility: sceneVisibility('visibility').notNull().default('private'),
     folderId: uuid('folder_id'),
-    kind: sceneKind('kind').notNull().default('grid'),
     // The board state version (spec §5.5): persisted, so it survives a server restart.
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -60,9 +50,6 @@ export const scenes = pgTable(
   },
   (table) => [
     index('scenes_campaign_id_idx').on(table.campaignId),
-    uniqueIndex('scenes_one_cast_per_campaign')
-      .on(table.campaignId)
-      .where(sql`${table.kind} = 'cast'`),
     // The migration narrows it to SET NULL ("folder_id"): deleting a folder never touches
     // campaign_id, and a folder of another campaign is refused.
     foreignKey({
@@ -75,7 +62,6 @@ export const scenes = pgTable(
 
 export type ScenePo = typeof scenes.$inferSelect;
 export type NewScenePo = typeof scenes.$inferInsert;
-export type SceneKindPo = ScenePo['kind'];
 export type SceneGridPo = Pick<
   ScenePo,
   'widthCells' | 'heightCells' | 'cellDistance' | 'cellUnit' | 'gridVisible' | 'gridOpacity'

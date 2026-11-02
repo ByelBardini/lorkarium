@@ -23,7 +23,13 @@ import {
   vharnState,
   VHARN_GRID,
 } from '../../support/table-session-fixtures';
-import { anchorUpdatedAt, castBoard, linkedLyra } from '../../support/cast-fixtures';
+import {
+  characterChangedAt,
+  charactersSynced,
+  linkedLyra,
+  lyraCharacter,
+  lyraPvAt,
+} from '../../support/character-fixtures';
 import { emulateViewport } from '../../support/viewport';
 
 const TOO_MANY = 'Você já tem 5 mesas abertas. Feche uma no menu lateral para abrir esta.';
@@ -357,7 +363,6 @@ describe('play room page', () => {
       const OTHER_TABLES = [1, 2, 3, 4, 5].map((n) => ({
         campaignId: `a1000000-0000-4000-8000-00000000000${n}`,
         name: `Mesa ${n}`,
-        castSceneId: `c1000000-0000-4000-8000-00000000000${n}`,
       }));
 
       beforeEach(() => {
@@ -554,16 +559,13 @@ describe('play room page', () => {
       expect(deps.boardCommands.sent).toEqual([]);
     });
 
-    it("the anchor's token:updated in the cast changes the PV of a linked Lyra on the canvas", async () => {
+    it("the character's character:changed changes the PV of a linked Lyra on the canvas", async () => {
       await renderLiveRoom();
       deps.tableSessionApi.emit({ kind: 'board', state: vharnBoard({ tokens: [linkedLyra()] }) });
-      deps.tableSessionApi.emitToCast(VHARN.id, { kind: 'board', state: castBoard() });
+      deps.tableSessionApi.emitToCharacters(VHARN.id, charactersSynced(3, lyraCharacter()));
       await act(() => Promise.resolve());
       expect(lastView()?.tokens[0]?.bar?.fraction).toBe(25 / 45);
-      deps.tableSessionApi.emitToCast(VHARN.id, {
-        kind: 'boardEvent',
-        event: anchorUpdatedAt(4, 18),
-      });
+      deps.tableSessionApi.emitToCharacters(VHARN.id, characterChangedAt(4, lyraPvAt(18)));
       await act(() => Promise.resolve());
       expect(lastView()?.tokens[0]?.bar?.fraction).toBe(18 / 45);
       expect(lastView()?.tokens[0]).toMatchObject({ col: 3, row: 4 });

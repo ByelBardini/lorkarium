@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import type { ConditionCatalogLink } from '@/features/conditions/condition-catalog-link';
 import { DeleteConditionConfirm } from '@/features/conditions/delete-condition-confirm';
-import { VHARN_GRID } from '../../support/table-session-fixtures';
-import { catalogLinkOver, conditionDefinition } from './condition-catalog-harness';
+import { VHARN_TABLE, catalogLinkOver, conditionDefinition } from './condition-catalog-harness';
 
 const CEGO = conditionDefinition({ name: 'Cego' });
 
@@ -91,7 +90,7 @@ describe('DeleteConditionConfirm', () => {
     expect(commands.sentAs('deleteConditionDefinition')).toEqual([
       {
         name: 'deleteConditionDefinition',
-        ...VHARN_GRID,
+        ...VHARN_TABLE,
         fields: { conditionId: CEGO.id },
       },
     ]);

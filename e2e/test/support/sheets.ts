@@ -15,9 +15,6 @@ import { boardOf } from './tables';
  *  and confirmed name (the title of its tab, region and frame). */
 export type LibrarySheet = Readonly<{ sheetId: string; name: string }>;
 
-/** A sheet made on a token: also the token that holds it (the anchor of a character). */
-export type LinkedSheet = LibrarySheet & Readonly<{ tokenId: string }>;
-
 export type SheetSourceCode = Readonly<{ name: string; html: string; css: string; js: string }>;
 
 /** The id of the table whose room or detail is on screen, from the URL.
@@ -87,22 +84,43 @@ export async function importSheetTemplate(library: Locator, filePath: string): P
 }
 
 /** The master's "Nova ficha ▸ <template>" on the token born at the center cell (10, 6): the
- *  sheet is named "<template> · <token>" and opens in a tab of the master's room, which this
- *  closes again (back to the board).
+ *  sheet is named "<template> · <token>" (on a linked token it is the character's) and opens in a
+ *  tab of the master's room, which this closes again (back to the board).
  *
  *  Example: `const { sheetId, name } = await newSheetOnToken(admin, 'Lyra', 'Ficha Tormenta')` */
 export async function newSheetOnToken(
   master: Page,
   token: string,
   template: string,
-): Promise<LinkedSheet> {
+): Promise<LibrarySheet> {
   const created = master.waitForResponse(isSheetCreation);
   const menu = await openTokenMenu(master, token);
   await menu.getByRole('menuitem', { name: 'Nova ficha', exact: true }).click();
   await master.getByRole('menuitem', { name: template, exact: true }).click();
-  const linked = await linkedSheetOf(await created);
-  await closeSheetTab(master, linked.name);
-  return linked;
+  const sheet = await librarySheetOf(await created);
+  await closeSheetTab(master, sheet.name);
+  return sheet;
+}
+
+/** The master's "Fichas de <character> ▸ Nova ficha ▸ <template>" on the player's card of the
+ *  "Na mesa" tab: the sheet is the character's ("<template> · <character>"; the first one becomes
+ *  its main sheet) and opens in a tab of the master's room, which this closes again.
+ *
+ *  Example: `const { name } = await newSheetFromCard(admin, 'Lyra', 'Ficha Tormenta')` */
+export async function newSheetFromCard(
+  master: Page,
+  character: string,
+  template: string,
+): Promise<LibrarySheet> {
+  const created = master.waitForResponse(isSheetCreation);
+  await master.getByRole('tab', { name: 'Na mesa' }).click();
+  await sheetsMenuOf(master, character).click();
+  await master.getByRole('menuitem', { name: 'Nova ficha', exact: true }).click();
+  await master.getByRole('menuitem', { name: template, exact: true }).click();
+  const sheet = await librarySheetOf(await created);
+  await closeSheetTab(master, sheet.name);
+  await expect(boardOf(master)).toBeVisible();
+  return sheet;
 }
 
 /** The master's "Quem vê a ficha ▸" on the token at the center cell (a token with one sheet, so
@@ -289,15 +307,6 @@ async function librarySheetOf(response: Response): Promise<LibrarySheet> {
     throw new Error(`expected { sheet: { id, name } }, received ${JSON.stringify(sheet)}`);
   }
   return { sheetId, name };
-}
-
-async function linkedSheetOf(response: Response): Promise<LinkedSheet> {
-  const { sheetId, name } = await librarySheetOf(response);
-  const tokenId = fieldOf(fieldOf(await response.json(), 'sheet'), 'tokenId');
-  if (typeof tokenId !== 'string') {
-    throw new Error(`expected sheet ${sheetId} on a token, received tokenId ${String(tokenId)}`);
-  }
-  return { sheetId, name, tokenId };
 }
 
 function fieldOf(body: unknown, key: string): unknown {

@@ -1,14 +1,22 @@
 export type TabOverflowSplit = Readonly<{ shown: readonly string[]; hidden: readonly string[] }>;
 
-/** How many tabs of `minWidth` fit in `width`, keeping room for the "+N" button when some
- *  don't. An unmeasured strip (`width` 0) fits them all, so nothing hides before the first layout.
+/** How many tabs of `minWidth`, `gap` apart, fit in `width`, keeping room for the "+N" button
+ *  (and the gap before it) when some don't. An unmeasured strip (`width` 0) fits them all, so
+ *  nothing hides before the first layout.
  *
- *  Example: `tabsThatFit({ width: 500, count: 6, minWidth: 112, moreWidth: 48 })` → 4 */
+ *  Example: `tabsThatFit({ width: 500, count: 6, minWidth: 112, moreWidth: 48, gap: 0 })` → 4 */
 export function tabsThatFit(
-  strip: Readonly<{ width: number; count: number; minWidth: number; moreWidth: number }>,
+  strip: Readonly<{
+    width: number;
+    count: number;
+    minWidth: number;
+    moreWidth: number;
+    gap: number;
+  }>,
 ): number {
-  if (strip.width <= 0 || strip.count * strip.minWidth <= strip.width) return strip.count;
-  return Math.max(1, Math.floor((strip.width - strip.moreWidth) / strip.minWidth));
+  const step = strip.minWidth + strip.gap;
+  if (strip.width <= 0 || strip.count * step - strip.gap <= strip.width) return strip.count;
+  return Math.max(1, Math.floor((strip.width - strip.moreWidth) / step));
 }
 
 /** Splits the tabs into the ones drawn and the ones in the "+N" menu, in their order. The pinned

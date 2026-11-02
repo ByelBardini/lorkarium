@@ -4,6 +4,7 @@ import {
   type DefineCondition,
 } from '../../../src/modules/conditions/conditions.service';
 import { ClockFake } from '../../support/auth-fakes';
+import { CharacterPublisherFake, CharactersDaoFake } from '../../support/characters-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
 import {
@@ -19,7 +20,7 @@ import { QUELM_MAP_ID, lyraPortraitPo } from '../../support/assets-factories';
 import { CombatDaoFake, soloEntries } from '../../support/combat-fakes';
 import { ConditionTransactionRunnerFake, ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
-import { VHARN_CAST_ID, VHARN_SCENE_ID, castPo, scenePo } from '../../support/scenes-factories';
+import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import { TORRE_ID, torrePo } from '../../support/library-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
 import { BRAM_ID, LYRA_ID, bramRow, lyraRow } from '../../support/tokens-factories';
@@ -44,7 +45,7 @@ describe('ConditionsService', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: DUDA_ID, role: 'spectator' }),
     ]);
-    scenes = new ScenesDaoFake([scenePo({ version: 4 }), torrePo(), castPo({ version: 2 })]);
+    scenes = new ScenesDaoFake([scenePo({ version: 4 }), torrePo()]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
     const tokens = new TokensDaoFake(scenes.journal, [lyraRow(), bramRow()]);
     conditions = new ConditionsDaoFake(scenes.journal);
@@ -65,11 +66,13 @@ describe('ConditionsService', () => {
       conditions,
       combat,
       assets,
+      new CharactersDaoFake(scenes.journal, [], { [VHARN_ID]: 2 }),
     );
     service = new ConditionsService({
       members,
       transaction: transaction.run,
       publisher,
+      characterPublisher: new CharacterPublisherFake(scenes.journal),
       clock: new ClockFake(NOW),
     });
   });
@@ -154,7 +157,7 @@ describe('ConditionsService', () => {
     ).rejects.toMatchObject({ code: 'CONDITION_NOT_FOUND' });
   });
 
-  it('the master defining "Sangrando" adds it and publishes condition:defined as an event of the cast', async () => {
+  it('the master defining "Sangrando" adds it and publishes condition:defined on the table stream', async () => {
     const version = await service.define(ANA_ID, VHARN_ID, {
       name: 'Sangrando',
       tone: 'harm',
@@ -169,7 +172,6 @@ describe('ConditionsService', () => {
     expect(publisher.conditionEvents).toEqual([
       {
         campaignId: VHARN_ID,
-        sceneId: VHARN_CAST_ID,
         version: 3,
         at: NOW.toISOString(),
         definition: expect.objectContaining({ name: 'Sangrando', tone: 'harm', icon: 'droplet' }),
@@ -189,7 +191,7 @@ describe('ConditionsService', () => {
       imageAssetId: null,
     });
     expect(version).toBe(2);
-    expect(scenes.journal).toEqual(['lock cast', 'commit']);
+    expect(scenes.journal).toEqual(['lock characters', 'commit']);
     expect(conditions.definitions.filter(({ campaignId }) => campaignId === VHARN_ID)).toHaveLength(
       1,
     );
@@ -208,7 +210,13 @@ describe('ConditionsService', () => {
       maxStacks: null,
       imageAssetId: null,
     });
-    expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+    expect(scenes.journal).toEqual([
+      'lock characters',
+      'save',
+      'bump characters',
+      'commit',
+      'publish',
+    ]);
     expect(conditions.definitions.at(-1)).toMatchObject({
       tone: 'incapacitating',
       look: 'unconscious',
@@ -255,7 +263,13 @@ describe('ConditionsService', () => {
       const version = await service.define(ANA_ID, VHARN_ID, sangrando(GOTA_ART_ID));
 
       expect(version).toBe(3);
-      expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+      expect(scenes.journal).toEqual([
+        'lock characters',
+        'save',
+        'bump characters',
+        'commit',
+        'publish',
+      ]);
       expect(conditions.definitions.at(-1)).toMatchObject({
         name: 'Sangrando',
         imageAssetId: GOTA_ART_ID,
@@ -277,7 +291,7 @@ describe('ConditionsService', () => {
       await expect(service.define(ANA_ID, VHARN_ID, sangrando(QUELM_MAP_ID))).rejects.toMatchObject(
         { code: 'ASSET_NOT_FOUND', message: expect.stringContaining(QUELM_MAP_ID) },
       );
-      expect(scenes.journal).toEqual(['lock cast']);
+      expect(scenes.journal).toEqual(['lock characters']);
       expect(conditions.definitions.filter(({ name }) => name === 'Sangrando')).toHaveLength(1);
       expect(publisher.published).toBe(0);
     });
@@ -658,7 +672,7 @@ describe('ConditionsService', () => {
       });
     });
 
-    it('condition:define naming the Torre stays on the cast: the Torre and the group grid keep their versions', async () => {
+    it('condition:define naming the Torre rides the table stream: the Torre and the group grid keep their versions', async () => {
       const command = {
         sceneId: TORRE_ID,
         name: 'Atordoado',
@@ -674,9 +688,10 @@ describe('ConditionsService', () => {
       const version = await service.define(ANA_ID, VHARN_ID, command);
 
       expect(version).toBe(3);
-      expect(scenes.journal[0]).toBe('lock cast');
-      expect(scenes.rows.map(({ version }) => version)).toEqual([4, 7, 3]);
-      expect(publisher.conditionEvents[0]).toMatchObject({ sceneId: VHARN_CAST_ID, version: 3 });
+      expect(scenes.journal[0]).toBe('lock characters');
+      expect(scenes.rows.map(({ version }) => version)).toEqual([4, 7]);
+      expect(publisher.conditionEvents[0]).toMatchObject({ version: 3 });
+      expect(publisher.conditionEvents[0]).not.toHaveProperty('sceneId');
     });
 
     it('without sceneId condition:applied carries the group grid', async () => {

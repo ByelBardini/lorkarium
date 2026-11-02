@@ -57,8 +57,8 @@ function conditionsScreen({
   };
 }
 
-// The room under the page holds the table open: its cast carries the list of conditions, live,
-// and the list's commands go to the table's version (the cast), not to a grid.
+// The room under the page holds the table open: its table stream carries the list of conditions,
+// live, and the list's commands go to the table stream's version, not to a grid.
 type CatalogSources = Readonly<{
   openTables: StoreApi<OpenTablesStore>;
   commands: TableBoardCommands;
@@ -73,12 +73,11 @@ function useConditionCatalogLink(
     openTables,
     (state) => state.tables.find((open) => open.campaignId === campaignId) ?? null,
   );
-  const cast = table?.cast ?? null;
-  const castSceneId = table?.castSceneId ?? null;
+  const stream = table?.characters ?? null;
   return useMemo(() => {
-    if (!campaignId || !cast || !castSceneId) return null;
-    return { scope: { campaignId, sceneId: castSceneId }, cast, commands, assets };
-  }, [campaignId, cast, castSceneId, commands, assets]);
+    if (!campaignId || !stream) return null;
+    return { scope: { campaignId }, table: stream, commands, assets };
+  }, [campaignId, stream, commands, assets]);
 }
 
 // Still over the room, so the table stays open: the failure says so inside the page's frame.

@@ -2,17 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { splitTabsToFit, tabsThatFit } from '@/lib/tab-overflow';
 
 describe('tabsThatFit', () => {
+  const strip = { minWidth: 112, moreWidth: 52, gap: 0 };
+
   it('fits every tab while they all fit at the minimum width', () => {
-    expect(tabsThatFit({ width: 400, count: 3, minWidth: 112, moreWidth: 52 })).toBe(3);
+    expect(tabsThatFit({ ...strip, width: 400, count: 3 })).toBe(3);
   });
   it('fits every tab before the strip is measured', () => {
-    expect(tabsThatFit({ width: 0, count: 9, minWidth: 112, moreWidth: 52 })).toBe(9);
+    expect(tabsThatFit({ ...strip, width: 0, count: 9 })).toBe(9);
   });
   it('keeps room for the "+N" button once some tabs do not fit', () => {
-    expect(tabsThatFit({ width: 500, count: 6, minWidth: 112, moreWidth: 52 })).toBe(4);
+    expect(tabsThatFit({ ...strip, width: 500, count: 6 })).toBe(4);
   });
   it('always fits at least one tab', () => {
-    expect(tabsThatFit({ width: 60, count: 4, minWidth: 112, moreWidth: 52 })).toBe(1);
+    expect(tabsThatFit({ ...strip, width: 60, count: 4 })).toBe(1);
+  });
+  it('counts the gaps between the tabs before saying they all fit', () => {
+    // 3 × 112 = 336 fits in 340, but 2 gaps of 4 push the strip to 344.
+    expect(tabsThatFit({ ...strip, gap: 4, width: 340, count: 3 })).toBe(2);
+  });
+  it('counts the gap before the "+N" button, so the last tab is not drawn under it', () => {
+    // 4 tabs + 3 gaps + the gap and the button = 448 + 12 + 4 + 52 = 516 > 510.
+    expect(tabsThatFit({ ...strip, gap: 4, width: 510, count: 6 })).toBe(3);
   });
 });
 

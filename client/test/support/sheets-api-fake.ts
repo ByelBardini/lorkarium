@@ -34,6 +34,9 @@ export class SheetsApiFake implements SheetsApi {
   sheetsOfToken: Record<string, readonly SheetSummaryDto[]> = {};
   ofTokenResult: SheetsResult<readonly SheetSummaryDto[]> | null = null;
   readonly ofTokenCalls: string[] = [];
+  /** `ofCharacter` answers the sheets of this character id, else none. */
+  sheetsOfCharacter: Record<string, readonly SheetSummaryDto[]> = {};
+  readonly ofCharacterCalls: string[] = [];
   /** The master's commands answer these (refused by default: the fake has no master). */
   createResult: SheetsResult<SheetWriteResponseDto> = { ok: false, failure: { kind: 'forbidden' } };
   updateResult: SheetsResult<SheetWriteResponseDto> = { ok: false, failure: { kind: 'forbidden' } };
@@ -54,6 +57,13 @@ export class SheetsApiFake implements SheetsApi {
   async ofToken(_: string, tokenId: string): Promise<SheetsResult<readonly SheetSummaryDto[]>> {
     this.ofTokenCalls.push(tokenId);
     return this.ofTokenResult ?? { ok: true, value: this.sheetsOfToken[tokenId] ?? [] };
+  }
+  async ofCharacter(
+    _: string,
+    characterId: string,
+  ): Promise<SheetsResult<readonly SheetSummaryDto[]>> {
+    this.ofCharacterCalls.push(characterId);
+    return { ok: true, value: this.sheetsOfCharacter[characterId] ?? [] };
   }
   async create(
     _: string,

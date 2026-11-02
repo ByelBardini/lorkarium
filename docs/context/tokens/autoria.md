@@ -6,9 +6,9 @@ Detalhe do hub [`../tokens.md`](../tokens.md). As duas chaves da mesa (`players_
 
 - `tokens.created_by` → `users.id` **set null**, nulo permitido. Todo token criado por `token:create` e `token:createMany` grava quem mandou (o `userId` da conexão, nunca o payload): `newTokenRowOf(sceneId, regra, token, createdBy)` (`token-transaction.ts`).
 - Nulo = token de antes da autoria (a migração não preenche o que existe) ou a conta do autor foi apagada: só o mestre edita e exclui. O token fica.
-- Os tokens ligados que o "Adicionar jogadores" põe e a âncora nova do elenco (`token:linkToCard`) nascem com `created_by` nulo: token ligado é do mestre de todo jeito.
+- Os tokens ligados que o "Adicionar jogadores" põe nascem com `created_by` nulo: token ligado é do mestre de todo jeito.
 - `copyScene` (Duplicar da biblioteca) copia o autor (`copyRowsSql` leva a coluna).
-- `toTokenDto` devolve `createdBy` igual aos dois públicos (não é segredo). Num token ligado, o `createdBy` é o do token do grid, não o da âncora (`composedTokenRow` não o empresta).
+- `toTokenDto` devolve `createdBy` igual aos dois públicos (não é segredo). Num token ligado, o `createdBy` é o do token do grid, não vem do personagem (`composedTokenRow` não o empresta).
 
 ## Regra (`token-authorship.bo.ts`)
 
@@ -22,14 +22,14 @@ Detalhe do hub [`../tokens.md`](../tokens.md). As duas chaves da mesa (`players_
 | `requireDelete(tokens)`      | todos com `tokenRightsOf(...).delete`                                                                                                                       | "delete token X" do primeiro que não é dele (nenhum sai)                                                           |
 | `copyOf(cópia)`              | — a cópia colada pelo jogador vira o token novo dele: camada `tokens`, `hidden: false`, sem `combatantId`, `sight`/`light` nulos, `sightAngle` 360          | — (o `requireCreate` decide depois)                                                                                |
 
-- O mapper entrega `toAuthoredToken(linha)` (`{ tokenId, createdBy, anchorTokenId }`) e `toEditedToken(linha)` (mais a visão como o fio a leva: `sight`/`light` em números, `sightAngle`), para comparar com o que o comando mandou.
+- O mapper entrega `toAuthoredToken(linha)` (`{ tokenId, createdBy, characterId }`; o `ownedTokenOf` do BO o entrega ao `tokenRightsOf` do game-core, que lê o `characterId`) e `toEditedToken(linha)` (mais a visão como o fio a leva: `sight`/`light` em números, `sightAngle`), para comparar com o que o comando mandou.
 - Só o `token:update` mexe nos controladores; outro jogador não edita o token, então "nenhum jogador tira o criador" é a trava do próprio criador. O mestre tira (o próximo evento chega redigido para ele).
 
 ## Onde os services leem as chaves
 
 - `CampaignsDao.tokenRightsOf(campaignId)` → `CampaignTokenRightsPo` (as duas colunas) ou `undefined`, no **pool**, antes da trava: dep `tokenRights: TokenRightsReader` de `TokensService` e `TokenBatchService` (o `tokens.plugin.ts` monta um `CampaignsDao(db)`). `authorshipOf(reader, access)` (`token-transaction.ts`) só lê quando quem pede não é mestre. Recusa de criação não trava o grid.
 - `create`: `requireCreate` → `newControllersOf` → trava → `newTokenRowOf(…, userId)`. `update`: dentro da trava, `requireEdit(toEditedToken(found), comando)` antes de gravar. `delete`: `requireDelete([toAuthoredToken(found)])`. `createMany`: cada item passa por `copyOf` + `requireCreate` + `newControllersOf` antes da trava (tudo ou nada). `deleteMany` (também o desfazer da colagem): `requireDelete(linhas)` antes do `requireAt`.
-- Seguem só do mestre: `token:setLayer`, `token:setHiddenMany`, `token:linkToCard`/`unlinkFromCard`, `token:addPlayers`. O teto de 500 por cena vale igual para o jogador.
+- Seguem só do mestre: `token:setLayer`, `token:setHiddenMany`, `token:linkToCharacter`/`unlinkFromCharacter` (e o legado `linkToCard`/`unlinkFromCard`), `token:addPlayers`. O teto de 500 por cena vale igual para o jogador.
 
 ## Testes
 

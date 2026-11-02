@@ -11,7 +11,7 @@ export type SceneShareDaos = Readonly<{ scenes: Pick<ScenesDao, 'shareInCampaign
 export type SceneWatchServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
   share: SceneTransaction<SceneShareDaos>;
-  scenes: Pick<ScenesDao, 'findActiveOf' | 'findCastOf' | 'listOfCampaign'>;
+  scenes: Pick<ScenesDao, 'findActiveOf' | 'listOfCampaign'>;
 }>;
 
 /** Enters the rooms of one grid; the role picks the masters' room too. */
@@ -63,13 +63,5 @@ export class SceneWatchService {
     const access = new SceneAccessBo(player, groupSceneId);
     const grids = await this.deps.scenes.listOfCampaign(campaignId);
     return grids.filter((grid) => !access.canSee(grid)).map((grid) => grid.id);
-  }
-
-  /** The cast of a table (the scene of the characters' anchors), or `null` for a table without
-   *  one. Every member follows it, like the group grid.
-   *
-   *  Example: `const castId = await sceneWatch.castSceneIdOf(campaignId)` */
-  async castSceneIdOf(campaignId: string): Promise<string | null> {
-    return (await this.deps.scenes.findCastOf(campaignId))?.id ?? null;
   }
 }

@@ -2,7 +2,7 @@ import type {
   BarChangeDto,
   CombatEntryInput,
   DrawingShapeInput,
-  MemberCardChangesInput,
+  CharacterChangesInput,
   SceneGridDto,
   SceneVisionDto,
   TokenLayerDto,
@@ -10,6 +10,7 @@ import type {
 import type {
   BoardCommandResult,
   BoardScope,
+  TableScope,
   CellTarget,
   ConditionDefinitionEdit,
   ConditionUsageResult,
@@ -52,10 +53,11 @@ import type {
 import type { RegroupTarget } from '@/services/combat-commands';
 import type { AddPlayersResult } from '@/services/token-link-commands';
 
+/** `sceneId` is absent for a command of the table itself (the condition list's). */
 export type SentBoardCommand = Readonly<{
   name: string;
   campaignId: string;
-  sceneId: string;
+  sceneId?: string;
   fields: unknown;
 }>;
 
@@ -249,16 +251,29 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('setTokenForm', scope, { ...target });
   }
 
-  setMainToken(scope: BoardScope, tokenId: string, playerId?: string): Promise<BoardCommandResult> {
-    return this.record('setMainToken', scope, { tokenId, ...(playerId && { playerId }) });
+  updateCharacter(
+    scope: BoardScope,
+    characterId: string,
+    changes: CharacterChangesInput,
+  ): Promise<BoardCommandResult> {
+    return this.record('updateCharacter', scope, { characterId, changes });
   }
 
-  updateMemberCard(
+  adjustCharacterBar(
     scope: BoardScope,
-    memberId: string,
-    changes: MemberCardChangesInput,
+    characterId: string,
+    barId: string,
+    change: BarChangeDto,
   ): Promise<BoardCommandResult> {
-    return this.record('updateMemberCard', scope, { memberId, changes });
+    return this.record('adjustCharacterBar', scope, { characterId, barId, change });
+  }
+
+  setMainSheet(
+    scope: BoardScope,
+    characterId: string,
+    sheetId: string,
+  ): Promise<BoardCommandResult> {
+    return this.record('setMainSheet', scope, { characterId, sheetId });
   }
 
   deleteLights(
@@ -339,28 +354,28 @@ export class TableBoardCommandsFake implements TableBoardCommands {
   }
 
   defineCondition(
-    scope: BoardScope,
+    scope: TableScope,
     definition: NewConditionDefinition,
   ): Promise<BoardCommandResult> {
     return this.record('defineCondition', scope, { ...definition });
   }
 
   updateConditionDefinition(
-    scope: BoardScope,
+    scope: TableScope,
     edit: ConditionDefinitionEdit,
   ): Promise<BoardCommandResult> {
     return this.record('updateConditionDefinition', scope, { ...edit });
   }
 
-  deleteConditionDefinition(scope: BoardScope, conditionId: string): Promise<BoardCommandResult> {
+  deleteConditionDefinition(scope: TableScope, conditionId: string): Promise<BoardCommandResult> {
     return this.record('deleteConditionDefinition', scope, { conditionId });
   }
 
-  restoreDefaultConditions(scope: BoardScope): Promise<BoardCommandResult> {
+  restoreDefaultConditions(scope: TableScope): Promise<BoardCommandResult> {
     return this.record('restoreDefaultConditions', scope, {});
   }
 
-  async conditionUsage(scope: BoardScope, conditionId: string): Promise<ConditionUsageResult> {
+  async conditionUsage(scope: TableScope, conditionId: string): Promise<ConditionUsageResult> {
     const answer = await this.record('conditionUsage', scope, { conditionId });
     return answer.ok ? { ok: true, tokens: this.usageTokens } : answer;
   }
@@ -475,16 +490,16 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.record('previousTurn', scope, { fromCombatantId });
   }
 
-  linkTokenToCard(
+  linkTokenToCharacter(
     scope: BoardScope,
     tokenId: string,
-    memberId: string,
+    characterId: string,
   ): Promise<BoardCommandResult> {
-    return this.record('linkTokenToCard', scope, { tokenId, memberId });
+    return this.record('linkTokenToCharacter', scope, { tokenId, characterId });
   }
 
-  unlinkTokenFromCard(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
-    return this.record('unlinkTokenFromCard', scope, { tokenId });
+  unlinkTokenFromCharacter(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
+    return this.record('unlinkTokenFromCharacter', scope, { tokenId });
   }
 
   async addPlayers(scope: BoardScope, center: CellTarget): Promise<AddPlayersResult> {
@@ -499,8 +514,13 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     return this.sent.filter((command) => command.name === name);
   }
 
-  private record(name: string, scope: BoardScope, fields: unknown): Promise<BoardCommandResult> {
-    this.sent.push({ name, campaignId: scope.campaignId, sceneId: scope.sceneId, fields });
+  private record(
+    name: string,
+    scope: BoardScope | TableScope,
+    fields: unknown,
+  ): Promise<BoardCommandResult> {
+    const grid = 'sceneId' in scope ? { sceneId: scope.sceneId } : {};
+    this.sent.push({ name, campaignId: scope.campaignId, ...grid, fields });
     if (!this.holdNext) return Promise.resolve(this.answer);
     this.holdNext = false;
     return new Promise((resolve) => {

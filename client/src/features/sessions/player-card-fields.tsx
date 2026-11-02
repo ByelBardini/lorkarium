@@ -1,17 +1,17 @@
-import type { MemberCardChangesInput } from '@lorkarium/contracts';
+import { CHARACTER_NAME_MAX, type CharacterChangesInput } from '@lorkarium/contracts';
 import { PencilIcon, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { digitsOnly } from '@/lib/numeric-text';
 import { useDraftField } from '@/lib/use-draft-field';
 
-/** What the fields of one card may do: `editable` (the member or a master), `disabled` while
+/** What the fields of one card may do: `editable` (its player or a master), `disabled` while
  *  reconnecting, the id of the "how to save" hint, and the command that saves a change. */
 export type CardEditing = Readonly<{
   editable: boolean;
   disabled: boolean;
   hintId: string;
-  send: (changes: MemberCardChangesInput) => Promise<boolean>;
+  send: (changes: CharacterChangesInput) => Promise<boolean>;
 }>;
 
 /** The words the screen reader hears on an editable field: there is no save button. */
@@ -116,21 +116,18 @@ export function NoteField({ label, field, value, placeholder, editing }: NoteFie
 
 export type CharacterNameProps = Readonly<{
   titleId: string;
-  /** What the heading shows: the nickname, the token's name or "Sem personagem". */
+  /** The character's name, or "Sem personagem" while there is none. */
   shown: string;
-  nickname: string | null;
-  /** The main token's name, which an empty nickname falls back to. */
-  tokenName: string;
   editing: CardEditing;
 }>;
 
 /** The character's name: the heading, and the pencil that turns it into "Nome do personagem"
- *  (Enter or leaving saves the nickname, empty goes back to the token's name; Esc keeps it).
+ *  (Enter or leaving saves it; an empty name is never sent and the name stays; Esc keeps it).
  *
- *  Example: `<CharacterName titleId={id} shown="Lyra" nickname={null} tokenName="Lyra" … />` */
+ *  Example: `<CharacterName titleId={id} shown="Lyra" editing={editing} />` */
 export function CharacterName(props: CharacterNameProps) {
   const [open, setOpen] = useState(false);
-  if (open) return <NicknameInput {...props} onClose={() => setOpen(false)} />;
+  if (open) return <NameInput {...props} onClose={() => setOpen(false)} />;
   return (
     <div className="flex min-h-8 items-center gap-1">
       <h3
@@ -156,18 +153,24 @@ export function CharacterName(props: CharacterNameProps) {
   );
 }
 
-function NicknameInput(props: CharacterNameProps & Readonly<{ onClose: () => void }>) {
+// A character always has a name: an empty one goes back to the confirmed, nothing sent.
+function nameChange(draft: string, editing: CardEditing): Promise<boolean> {
+  const name = textChange(draft);
+  return name === null ? Promise.resolve(false) : editing.send({ name });
+}
+
+function NameInput(props: CharacterNameProps & Readonly<{ onClose: () => void }>) {
   const { editing, onClose } = props;
   const binding = useDraftField({
-    confirmed: props.nickname ?? '',
-    save: (draft) => editing.send({ characterName: textChange(draft) }),
+    confirmed: props.shown,
+    save: (draft) => nameChange(draft, editing),
   });
   return (
     <input
       aria-label="Nome do personagem"
       aria-describedby={editing.hintId}
-      maxLength={40}
-      placeholder={props.tokenName}
+      maxLength={CHARACTER_NAME_MAX}
+      placeholder={props.shown}
       autoFocus
       {...binding}
       onBlur={() => {

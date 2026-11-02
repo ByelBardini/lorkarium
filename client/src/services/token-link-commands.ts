@@ -7,7 +7,7 @@ import {
   type BoardScope,
 } from './board-command-sender';
 
-/** `token:addPlayers` answered: the tokens created and the players skipped (no anchor yet). */
+/** `token:addPlayers` answered: the tokens created and the players skipped. */
 export type AddPlayersResult =
   | Readonly<{
       ok: true;
@@ -19,19 +19,18 @@ export type AddPlayersResult =
 
 /** The character commands of an open table (master); each answers with its ack, never throws.
  *
- *  Example: `await commands.linkTokenToCard(scope, lyraId, bia.id)` */
+ *  Example: `await commands.linkTokenToCharacter(scope, lyraTokenId, lyraCharacterId)` */
 export interface TokenLinkCommands {
-  /** The token becomes the character of the player `memberId`: the first link creates the
-   *  anchor with the token's bars and conditions; a later one, in another grid, adopts the
-   *  anchor's. */
-  linkTokenToCard(
+  /** The token becomes an instance of the character: it drops its own bars, conditions and
+   *  controllers and wears the character's. */
+  linkTokenToCharacter(
     scope: BoardScope,
     tokenId: string,
-    memberId: string,
+    characterId: string,
   ): Promise<BoardCommandResult>;
   /** The token keeps a copy of what it showed and stops following the character. */
-  unlinkTokenFromCard(scope: BoardScope, tokenId: string): Promise<BoardCommandResult>;
-  /** Puts in the grid a token of each player who has a character, around `center`. */
+  unlinkTokenFromCharacter(scope: BoardScope, tokenId: string): Promise<BoardCommandResult>;
+  /** Puts in the grid a token of each player's character not in it yet, around `center`. */
   addPlayers(
     scope: BoardScope,
     center: Readonly<{ col: number; row: number }>,
@@ -44,16 +43,16 @@ export interface TokenLinkCommands {
 export class RealtimeTokenLinkCommands implements TokenLinkCommands {
   constructor(private readonly sender: BoardCommandSender) {}
 
-  linkTokenToCard(
+  linkTokenToCharacter(
     scope: BoardScope,
     tokenId: string,
-    memberId: string,
+    characterId: string,
   ): Promise<BoardCommandResult> {
-    return this.sender.send(BOARD_EVENTS.linkTokenToCard, scope, { tokenId, memberId });
+    return this.sender.send(BOARD_EVENTS.linkTokenToCharacter, scope, { tokenId, characterId });
   }
 
-  unlinkTokenFromCard(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
-    return this.sender.send(BOARD_EVENTS.unlinkTokenFromCard, scope, { tokenId });
+  unlinkTokenFromCharacter(scope: BoardScope, tokenId: string): Promise<BoardCommandResult> {
+    return this.sender.send(BOARD_EVENTS.unlinkTokenFromCharacter, scope, { tokenId });
   }
 
   async addPlayers(

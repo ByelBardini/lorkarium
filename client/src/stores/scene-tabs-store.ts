@@ -11,7 +11,8 @@ import type {
   TableSessionUpdate,
 } from '@/services/table-session-api';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
-import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createBoardStore, tableLinksOf, type BoardStore } from '@/stores/board-store';
+import type { CharactersStore } from '@/stores/characters-store';
 import { createPingFeed, type PingFeed } from '@/stores/ping-feed';
 import {
   forgetSceneTabs,
@@ -84,8 +85,9 @@ export type SceneTabsDeps = Readonly<{
   campaignId: string;
   /** The group grid's board, fed by the table's own updates. */
   groupBoard: StoreApi<BoardStore>;
-  /** The table's cast: every tab's linked tokens and table pieces are read from it. */
-  cast: StoreApi<BoardStore>;
+  /** The table stream: every tab's linked tokens wear its characters, and its list of
+   *  conditions is every tab's. */
+  characters: StoreApi<CharactersStore>;
   watch: (sceneId: string, listener: GridListener) => GridWatchHandle;
   storage: TabStorage;
   createInteraction: CreateTabInteraction;
@@ -175,7 +177,7 @@ class SceneTabsActions {
     private readonly get: GetTabs,
   ) {
     deps.groupBoard.subscribe(() => this.followGroupGrid());
-    deps.cast.subscribe(() => this.relinkTabs());
+    deps.characters.subscribe(() => this.relinkTabs());
   }
 
   groupTab(): SceneTab {
@@ -229,7 +231,7 @@ class SceneTabsActions {
     const board = createBoardStore(
       this.deps.campaignId,
       () => this.watches.get(sceneId)?.resync(),
-      () => this.deps.cast.getState().board,
+      tableLinksOf(this.deps.characters),
     );
     const pings = createPingFeed();
     const handle = this.deps.watch(sceneId, (update) => {

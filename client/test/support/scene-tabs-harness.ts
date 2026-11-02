@@ -1,7 +1,6 @@
 import { createOpenTablesStore, type OpenTable } from '@/stores/open-tables-store';
 import { ANA } from './auth-api-fake';
 import { VHARN } from './campaigns-api-fake';
-import { VHARN_CAST_ID } from './cast-fixtures';
 import { TORRE_SCENE, torreBoard } from './scene-tab-fixtures';
 import { StorageFake } from './storage-fake';
 import { tabInteractions } from './tab-interactions';
@@ -24,9 +23,7 @@ export function openVharnTabs(
     createInteraction: tabInteractions(commands),
   });
   openTables.getState().restore(ANA.id);
-  openTables
-    .getState()
-    .open({ campaignId: VHARN.id, name: VHARN.name, castSceneId: VHARN_CAST_ID });
+  openTables.getState().open({ campaignId: VHARN.id, name: VHARN.name });
   api.emitTo(
     VHARN.id,
     { kind: 'state', state: vharnState() },

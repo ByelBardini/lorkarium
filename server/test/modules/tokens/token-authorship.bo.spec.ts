@@ -14,7 +14,7 @@ type Rights = Readonly<{ create: boolean; delete: boolean }>;
 
 const BOTH_ON: Rights = { create: true, delete: true };
 const BOTH_OFF: Rights = { create: false, delete: false };
-const ANCHOR_ID = 'c0ffee00-1a2b-4c3d-8e5f-6a7b8c9d0e1f';
+const LYRA_CHARACTER_ID = 'c0ffee00-1a2b-4c3d-8e5f-6a7b8c9d0e1f';
 const BLIND = { sight: null, light: null, sightAngle: 360 } as const;
 
 function authorshipOf(userId: string, role: Role, rights: Rights = BOTH_ON): TokenAuthorshipBo {
@@ -25,7 +25,7 @@ function authorshipOf(userId: string, role: Role, rights: Rights = BOTH_ON): Tok
 }
 
 function tokenBy(createdBy: string | null, overrides: Partial<EditedToken> = {}): EditedToken {
-  return { tokenId: LYRA_ID, createdBy, anchorTokenId: null, vision: BLIND, ...overrides };
+  return { tokenId: LYRA_ID, createdBy, characterId: null, vision: BLIND, ...overrides };
 }
 
 function editOf(overrides: Partial<TokenEdit> = {}): TokenEdit {
@@ -117,7 +117,7 @@ describe('TokenAuthorshipBo.requireEdit', () => {
   it.each([
     ['created by Caio', tokenBy(CAIO_ID)],
     ['without an author', tokenBy(null)],
-    ['linked to a character', tokenBy(BIA_ID, { anchorTokenId: ANCHOR_ID })],
+    ['linked to a character', tokenBy(BIA_ID, { characterId: LYRA_CHARACTER_ID })],
   ])('Bia editing a token %s is refused citing the token', (_case, token) => {
     expect(() => authorshipOf(BIA_ID, 'player').requireEdit(token, editOf())).toThrow(
       forbiddenCiting(BIA_ID, `edit token ${LYRA_ID}`),

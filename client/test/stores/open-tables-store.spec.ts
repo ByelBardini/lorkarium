@@ -9,7 +9,6 @@ import {
 } from '@/stores/open-tables-store';
 import { ANA } from '../support/auth-api-fake';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
-import { VHARN_CAST_ID } from '../support/cast-fixtures';
 import { StorageFake } from '../support/storage-fake';
 import { tabInteractions } from '../support/tab-interactions';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
@@ -25,23 +24,19 @@ import {
   vharnState,
 } from '../support/table-session-fixtures';
 
-const QUELM_CAST_ID = '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e';
 const VHARN_TABLE = {
   campaignId: VHARN.id,
   name: 'Vharn',
-  castSceneId: VHARN_CAST_ID,
   cover: VHARN.cover,
 };
 const QUELM_TABLE = {
   campaignId: QUELM.id,
   name: 'Quelm',
-  castSceneId: QUELM_CAST_ID,
   cover: QUELM.cover,
 };
 const MORE_TABLES = [1, 2, 3, 4].map((n) => ({
   campaignId: `a1000000-0000-4000-8000-00000000000${n}`,
   name: `Mesa ${n}`,
-  castSceneId: `c1000000-0000-4000-8000-00000000000${n}`,
 }));
 
 describe('open tables store', () => {
@@ -264,6 +259,16 @@ describe('open tables store', () => {
       { campaignId: VHARN.id, away: true },
       { campaignId: QUELM.id, away: true },
     ]);
+  });
+
+  it('a list stored while the tables had a cast (castSceneId) reads as no list and opens nothing', () => {
+    const castSceneId = 'c1000000-0000-4000-8000-000000000001';
+    storeWith({ userId: ANA.id, tables: [{ ...VHARN_TABLE, castSceneId }] });
+
+    store.getState().restore(ANA.id);
+
+    expect(store.getState().tables).toEqual([]);
+    expect(api.opened).toEqual([]);
   });
 
   it('a table stored without a cover (an older tab) reopens with the drawing of its id', () => {

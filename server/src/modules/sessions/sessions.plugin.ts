@@ -12,7 +12,7 @@ import { TableSessionService } from './sessions.service';
 
 export type SessionsModuleOptions = Readonly<{
   campaigns: Pick<CampaignsService, 'rosterOf' | 'campaignIdsOf'>;
-  groupGrid: Pick<SceneWatchService, 'groupSceneIdOf' | 'castSceneIdOf' | 'privateGridIdsOf'>;
+  groupGrid: Pick<SceneWatchService, 'groupSceneIdOf' | 'privateGridIdsOf'>;
   clock: ClockPort;
   registry: PresenceRegistryPort;
   scheduler: SchedulerPort;

@@ -1,20 +1,18 @@
-import type { BoardStateDto, SessionMemberDto } from '@lorkarium/contracts';
+import type { BoardStateDto, CharacterDto, SessionMemberDto } from '@lorkarium/contracts';
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { linkedLyra } from '../../support/character-fixtures';
 import { BIA_ONLINE, PlayerCardHarness, cardBar } from '../../support/player-card-harness';
 import {
+  ANA_AT_TABLE,
   BIA_AT_TABLE,
   CAIO_AT_TABLE,
   LYRA_ID,
   VHARN_SCENE,
-  lyra,
-  memberCard,
 } from '../../support/table-session-fixtures';
-import { LYRA_ANCHOR_ID, lyraAnchor } from '../../support/cast-fixtures';
 
 const IMAGE_ID = '7f6e5d4c-3b2a-4f1e-8d9c-0b1a2c3d4e5f';
-const AVATAR_ID = '3c1b2a09-8f7e-4d6c-9b5a-4e3d2c1b0a99';
 const LYRA_BARS = [cardBar(), cardBar({ position: 1, label: 'Mana', current: 9, max: 16 })];
 
 describe('PlayerCard', () => {
@@ -24,21 +22,22 @@ describe('PlayerCard', () => {
     harness = new PlayerCardHarness();
   });
 
-  function renderCard(
-    state: Partial<BoardStateDto> = {},
-    member: SessionMemberDto = BIA_ONLINE,
-    viewerId = BIA_AT_TABLE.userId,
-  ): void {
-    harness.render({ state: { tokens: [lyra({ bars: LYRA_BARS })], ...state }, member, viewerId });
+  type CardOptions = Readonly<{
+    character?: Partial<CharacterDto> | null;
+    state?: Partial<BoardStateDto>;
+    member?: SessionMemberDto;
+    viewerId?: string;
+  }>;
+
+  function renderCard({ character = {}, ...rest }: CardOptions = {}): void {
+    harness.render({ character: character && { bars: LYRA_BARS, ...character }, ...rest });
   }
 
   const card = () => screen.getByRole('article');
 
-  it('shows the portrait, the character, the nick with "você", the bars, CA and the note of Bia', () => {
-    const notes = memberCard({ armorClass: 15, noteOne: 'Percepção passiva 14' });
+  it('shows Lyra\'s portrait, her name, the nick with "você", her bars, CA and note', () => {
     renderCard({
-      tokens: [lyra({ bars: LYRA_BARS, imageAssetId: IMAGE_ID })],
-      memberCards: [notes],
+      character: { imageAssetId: IMAGE_ID, armorClass: 15, noteOne: 'Percepção passiva 14' },
     });
 
     expect(screen.getByRole('img', { name: 'Retrato de Lyra' })).toHaveAttribute(
@@ -64,68 +63,60 @@ describe('PlayerCard', () => {
     expect(within(screen.getByTestId('nick-line')).queryByRole('img')).toBeNull();
   });
 
-  it('a nickname on the card names the character instead of the token', () => {
-    renderCard({ memberCards: [memberCard({ characterName: 'Lyra Vandel' })] });
+  it("the character's name is the heading, whatever its token is called", () => {
+    renderCard({
+      character: { name: 'Lyra Vandel' },
+      state: { tokens: [linkedLyra({ name: 'Lyra' })] },
+    });
 
     expect(screen.getByRole('heading', { level: 3, name: 'Lyra Vandel' })).toBeInTheDocument();
   });
 
-  it('a token without an image shows its initials in the portrait', () => {
+  it('a character without an image shows its initials, tagged "Token" while on the grid', () => {
     renderCard();
 
-    expect(within(screen.getByTestId('portrait')).getByText('LY')).toBeInTheDocument();
+    const portrait = screen.getByTestId('portrait');
+    expect(within(portrait).getByText('LY')).toBeInTheDocument();
+    expect(within(portrait).getByText('Token')).toBeInTheDocument();
   });
 
   it('a bar only its controllers see carries the lock for whoever receives it', () => {
-    renderCard({ tokens: [lyra({ bars: [cardBar({ visibility: 'controllers' })] })] });
+    renderCard({ character: { bars: [cardBar({ visibility: 'controllers' })] } });
 
     expect(screen.getByRole('img', { name: 'Só quem controla vê' })).toBeInTheDocument();
   });
 
-  it('a token without bars says so', () => {
-    renderCard({ tokens: [lyra({ bars: [] })] });
+  it('a character without bars says so', () => {
+    renderCard({ character: { bars: [] } });
 
-    expect(card()).toHaveTextContent('Token sem barras');
+    expect(card()).toHaveTextContent('Personagem sem barras');
   });
 
-  it('a player without a main token: initials of the account, no bars and no "Achar no mapa"', () => {
-    renderCard({ tokens: [] });
+  it('with no token of Lyra in the group grid: her portrait and bars still, no tag, no "Achar no mapa"', () => {
+    renderCard({ state: { tokens: [] } });
 
-    expect(screen.getByRole('heading', { level: 3, name: 'Sem personagem' })).toBeInTheDocument();
-    expect(within(screen.getByTestId('portrait')).getByText('BI')).toBeInTheDocument();
-    expect(card()).toHaveTextContent('Sem token principal nesta cena.');
+    expect(screen.getByRole('meter', { name: 'PV de Lyra' })).toHaveTextContent('21 / 28');
+    expect(within(screen.getByTestId('portrait')).queryByText('Token')).toBeNull();
     expect(screen.queryByRole('button', { name: /no mapa/ })).toBeNull();
-    expect(screen.getByRole('textbox', { name: 'CA de Bia' })).toBeInTheDocument();
   });
 
-  it('a player without a main token and with a photo shows the photo of the account', () => {
-    renderCard({ tokens: [] }, { ...BIA_ONLINE, avatarId: AVATAR_ID });
+  it('with the characters still loading, only the nick line with the presence symbol', () => {
+    renderCard({ character: null });
 
-    expect(screen.getByRole('img', { name: 'Foto de Bia' })).toHaveAttribute(
-      'src',
-      `/api/avatars/${AVATAR_ID}`,
-    );
-  });
-
-  it('with a main token the portrait stays the token, not the photo of the account', () => {
-    renderCard(
-      { tokens: [lyra({ bars: LYRA_BARS, imageAssetId: IMAGE_ID })] },
-      { ...BIA_ONLINE, avatarId: AVATAR_ID },
-    );
-
-    expect(screen.getByRole('img', { name: 'Retrato de Lyra' })).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: 'Foto de Bia' })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
+    expect(
+      within(screen.getByTestId('nick-line')).getByRole('img', { name: 'online' }),
+    ).toBeVisible();
   });
 
   it('Caio offline reads offline in the symbol and in the nick line', () => {
-    const caioLyra = lyra({ controllerIds: [CAIO_AT_TABLE.userId] });
-    renderCard({ tokens: [caioLyra] }, { ...CAIO_AT_TABLE, online: false });
+    renderCard({ member: { ...CAIO_AT_TABLE, online: false } });
 
     expect(screen.getByRole('img', { name: 'offline' })).toBeInTheDocument();
     expect(screen.getByTestId('nick-line')).toHaveTextContent('Caio· offline');
   });
 
-  it('"Achar Lyra no mapa" selects Lyra on the board', async () => {
+  it('"Achar Lyra no mapa" selects her token on the board', async () => {
     renderCard();
 
     await userEvent.click(screen.getByRole('button', { name: 'Achar Lyra no mapa' }));
@@ -134,16 +125,34 @@ describe('PlayerCard', () => {
   });
 
   it('a token in the dark for the viewer shows the whole card, without "Achar no mapa"', () => {
-    const unseen = lyra({
-      bars: LYRA_BARS,
-      canControl: false,
-      controllerIds: [BIA_AT_TABLE.userId],
-    });
-    const caio = CAIO_AT_TABLE.userId;
-    renderCard({ scene: { ...VHARN_SCENE, vision: 'dark' }, tokens: [unseen] }, BIA_ONLINE, caio);
+    const unseen = linkedLyra({ canControl: false, controllerIds: [BIA_AT_TABLE.userId] });
+    const scene = { ...VHARN_SCENE, vision: 'dark' as const };
+    renderCard({ state: { scene, tokens: [unseen] }, viewerId: CAIO_AT_TABLE.userId });
 
     expect(screen.getByRole('meter', { name: 'PV de Lyra' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Achar Lyra no mapa' })).toBeNull();
+  });
+
+  it('Bia edits her bar in its balloon off any grid: character:adjustBar with her character', async () => {
+    renderCard({ state: { tokens: [] } });
+
+    await userEvent.dblClick(screen.getByRole('button', { name: 'Editar PV de Lyra' }));
+    const current = screen.getByRole('textbox', { name: 'Atual' });
+    await userEvent.clear(current);
+    await userEvent.type(current, '−7{Enter}');
+
+    const [sent] = harness.commands.sentAs('adjustCharacterBar');
+    expect(sent?.fields).toMatchObject({ change: { op: 'add', amount: -7 } });
+  });
+
+  it('Caio, who does not control Lyra, has no balloon on her bars', () => {
+    renderCard({ viewerId: CAIO_AT_TABLE.userId });
+    expect(screen.queryByRole('button', { name: 'Editar PV de Lyra' })).toBeNull();
+  });
+
+  it('Ana, a master, gets the balloon on the card of Bia', () => {
+    harness.render({ viewerId: ANA_AT_TABLE.userId, isMaster: true });
+    expect(screen.getByRole('button', { name: 'Editar PV de Lyra' })).toBeInTheDocument();
   });
 
   describe('away', () => {
@@ -172,35 +181,6 @@ describe('PlayerCard', () => {
 
       expect(screen.getByTestId('nick-line')).not.toHaveTextContent('ausente');
       expect(screen.getByRole('img', { name: 'online' })).toBeInTheDocument();
-    });
-  });
-
-  describe('with the cast', () => {
-    const biaCard = memberCard({ armorClass: 17, anchorTokenId: LYRA_ANCHOR_ID });
-
-    it("the card is the cast's (the table's version), not the grid snapshot's", () => {
-      harness.render({
-        state: { memberCards: [memberCard({ armorClass: 12 })] },
-        cast: { memberCards: [biaCard] },
-      });
-
-      expect(screen.getByRole('textbox', { name: 'CA de Lyra' })).toHaveValue('17');
-    });
-
-    it("without Lyra on the group grid, Bia's card shows the anchor's portrait and bars", () => {
-      const anchor = lyraAnchor({
-        imageAssetId: IMAGE_ID,
-        bars: [cardBar({ current: 25, max: 45 })],
-      });
-      harness.render({ state: { tokens: [] }, cast: { tokens: [anchor], memberCards: [biaCard] } });
-
-      expect(screen.getByRole('img', { name: 'Retrato de Lyra' })).toHaveAttribute(
-        'src',
-        expect.stringContaining(IMAGE_ID),
-      );
-      expect(screen.getByRole('meter', { name: 'PV de Lyra' })).toHaveTextContent('25 / 45');
-      expect(screen.queryByRole('button', { name: 'Achar Lyra no mapa' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Editar PV de Lyra' })).toBeNull();
     });
   });
 });

@@ -5,20 +5,21 @@ import {
   sheetRollLabelOf,
   type SheetBridgeHost,
 } from '@/sheet-sandbox/sheet-bridge-host';
-import { boardTokenSource } from '@/sheet-sandbox/sheet-token-source';
-import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { characterSource } from '@/sheet-sandbox/sheet-token-source';
+import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
 import { createSheetStore, type SheetStoreState } from '@/stores/sheet-store';
 import { VHARN } from '../support/campaigns-api-fake';
-import { LYRA_ANCHOR_ID, castBoard, lyraAnchor } from '../support/cast-fixtures';
+import { charactersSynced, lyraCharacter } from '../support/character-fixtures';
 import { DiceCommandsFake } from '../support/dice-commands-fake';
 import { InteractionClockFake } from '../support/interaction-clock-fake';
 import { SheetCommandsFake } from '../support/sheet-commands-fake';
 import { LYRA_SHEET_ID, lyraSheet, sheetResponse } from '../support/sheet-fixtures';
 import { SheetHostPortFake } from '../support/sheet-host-port-fake';
 import { SheetsApiFake } from '../support/sheets-api-fake';
+import { BIA_AT_TABLE, LYRA_ID, LYRA_PV_ID } from '../support/table-session-fixtures';
 
 const PORTRAIT_ID = '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e';
-const PV_BAR_ID = 'f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b';
+const PV_BAR_ID = LYRA_PV_ID;
 
 const ADD_ONE = { op: 'add', amount: 1 } as const;
 
@@ -32,7 +33,7 @@ describe('sheet bridge host', () => {
   let clock: InteractionClockFake;
   let commands: SheetCommandsFake;
   let dice: DiceCommandsFake;
-  let cast: StoreApi<BoardStore>;
+  let characters: StoreApi<CharactersStore>;
   let sheet: StoreApi<SheetStoreState>;
   let host: SheetBridgeHost;
 
@@ -42,15 +43,20 @@ describe('sheet bridge host', () => {
     clock = new InteractionClockFake();
     commands = new SheetCommandsFake();
     dice = new DiceCommandsFake();
-    cast = createBoardStore(VHARN.id, () => undefined);
-    cast.getState().apply({ kind: 'board', state: castBoard() });
+    characters = createCharactersStore(VHARN.id, () => undefined);
+    characters.getState().apply(charactersSynced(3, lyraCharacter()));
     sheet = createSheetStore({
       ...{ api, campaignId: VHARN.id, sheetId: LYRA_SHEET_ID, clock },
       newActionId: () => '00000000-0000-4000-8000-000000000001',
     });
     await sheet.getState().load();
     host = createSheetBridgeHost({
-      ...{ port, campaignId: VHARN.id, sheet, token: boardTokenSource(cast, LYRA_ANCHOR_ID) },
+      ...{
+        port,
+        campaignId: VHARN.id,
+        sheet,
+        token: characterSource(characters, BIA_AT_TABLE.userId),
+      },
       ...{ images: api, commands, dice, clock, diceAspect: () => 1.5 },
     });
   });
@@ -61,10 +67,10 @@ describe('sheet bridge host', () => {
   }
 
   function anchorChanges(pv: number): void {
-    const [first, ...rest] = lyraAnchor().bars;
-    if (!first) throw new Error('lyraAnchor() lost its PV bar');
-    const anchor = lyraAnchor({ bars: [{ ...first, current: pv }, ...rest] });
-    cast.getState().apply({ kind: 'board', state: castBoard({ version: 4, tokens: [anchor] }) });
+    const [first, ...rest] = lyraCharacter().bars;
+    if (!first) throw new Error('lyraCharacter() lost its PV bar');
+    const lyra = lyraCharacter({ bars: [{ ...first, current: pv }, ...rest] });
+    characters.getState().apply(charactersSynced(4, lyra));
   }
 
   async function reloadWithCanEdit(canEdit: boolean): Promise<void> {
@@ -86,7 +92,7 @@ describe('sheet bridge host', () => {
       {
         type: 'state',
         token: { name: 'Lyra', image: null },
-        bars: lyraAnchor().bars,
+        bars: lyraCharacter().bars,
         values: { forca: 14 },
         canEdit: true,
       },
@@ -100,10 +106,10 @@ describe('sheet bridge host', () => {
   });
 
   it('a source still without the token sends no state until the token arrives', async () => {
-    cast.getState().apply({ kind: 'board', state: castBoard({ version: 4, tokens: [] }) });
+    characters.getState().apply(charactersSynced(4));
     await frameSends({ type: 'ready', requestId: '1' });
     const before = port.ofType('state').length;
-    cast.getState().apply({ kind: 'board', state: castBoard({ version: 5 }) });
+    characters.getState().apply(charactersSynced(5, lyraCharacter()));
     expect({ before, after: port.ofType('state').map((state) => state.token?.name) }).toEqual({
       before: 0,
       after: ['Lyra'],
@@ -113,10 +119,7 @@ describe('sheet bridge host', () => {
   it('the token image goes as bytes, and the state waits for them', async () => {
     const bytes = new Uint8Array([1, 2, 3]).buffer;
     api.images[PORTRAIT_ID] = { type: 'image/webp', bytes };
-    cast.getState().apply({
-      kind: 'board',
-      state: castBoard({ tokens: [lyraAnchor({ imageAssetId: PORTRAIT_ID })] }),
-    });
+    characters.getState().apply(charactersSynced(4, lyraCharacter({ imageAssetId: PORTRAIT_ID })));
     await frameSends({ type: 'ready', requestId: '1' });
     const [state] = port.ofType('state');
     expect({
@@ -205,13 +208,10 @@ describe('sheet bridge host', () => {
   });
 
   it('bars.adjust by a label two bars share is BAR_AMBIGUOUS without a command', async () => {
-    const [pv, inspiration] = lyraAnchor().bars;
-    if (!pv || !inspiration) throw new Error('lyraAnchor() lost its bars');
+    const [pv, inspiration] = lyraCharacter().bars;
+    if (!pv || !inspiration) throw new Error('lyraCharacter() lost its bars');
     const twins = [pv, { ...inspiration, label: 'PV' }];
-    cast.getState().apply({
-      kind: 'board',
-      state: castBoard({ version: 4, tokens: [lyraAnchor({ bars: twins })] }),
-    });
+    characters.getState().apply(charactersSynced(4, lyraCharacter({ bars: twins })));
     await frameSends({ type: 'bars.adjust', requestId: '4', bar: 'PV', change: ADD_ONE });
     expect({ sent: commands.sent, error: port.ofType('error')[0]?.code }).toEqual({
       sent: [],
@@ -292,7 +292,7 @@ describe('sheet bridge host', () => {
         requestId: '7',
         bar: PV_BAR_ID,
         change: { op: 'add', amount: 1 },
-        tokenId: LYRA_ANCHOR_ID,
+        tokenId: LYRA_ID,
       },
       '7',
     ],

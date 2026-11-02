@@ -133,15 +133,13 @@ export const tokenDto = z.strictObject({
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
   conditions: z.array(activeConditionDto),
-  /** The anchor of the character this token is linked to (in the table's cast), or `null`. A
-   *  linked token already comes with the anchor's name, initials, side, image, frame, defeat
-   *  mark, bars, controllers and conditions; place, size, layer, facing, flips, sight and light
-   *  are its own. */
-  anchorTokenId: z.uuid().nullable(),
+  /** The character this token is an instance of (`null` = a free token). A linked token already
+   *  comes with the character's identity, look, bars, controllers and conditions. */
+  characterId: z.uuid().nullable(),
   /** Who created it (`null` = before authorship was kept, or the account is gone); not a secret,
    *  every audience gets it. A player edits and deletes only their own (game-core `token-rights`). */
   createdBy: z.uuid().nullable(),
-  /** Its named forms (a linked token: the anchor's), only for the masters and its controllers;
+  /** Its named forms (a linked token keeps its own), only for the masters and its controllers;
    *  the others get `[]` and just the `activeFormId` (the list would reveal the unused forms). */
   forms: tokenFormsDto,
   /** The form it shows now, or `null`: changing the image or the size by hand clears it. */

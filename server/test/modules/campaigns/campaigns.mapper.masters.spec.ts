@@ -19,7 +19,6 @@ import {
   campaignMemberRow,
   campaignPo,
 } from '../../support/campaigns-factories';
-import { VHARN_CAST_ID } from '../../support/scenes-factories';
 
 // Bia, the co-master, is named Ágata so she sorts before Ana by name; Abel, a player, sorts
 // before both: only the owner rule puts Ana first and the master rule puts Bia before Abel.
@@ -33,7 +32,6 @@ function detailView(overrides: Partial<CampaignDetailView> = {}): CampaignDetail
     campaign: campaignPo({ ownerId: ANA_ID }),
     membership: campaignMemberPo({ userId: CAIO_ID, role: 'player' }),
     members: [CAIO, BIA, ABEL, ANA],
-    castSceneId: VHARN_CAST_ID,
     lastAccessAt: null,
     onlineUserIds: new Set(),
     ...overrides,

@@ -1,46 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import { cardLinkTargetsOf, cardOwnerOf } from '@/lib/character-link';
-import { LYRA_ANCHOR_ID, castBoard, linkedLyra } from '../support/cast-fixtures';
+import { characterLinkTargetsOf, linkedCharacterOf } from '@/lib/character-link';
 import {
-  ANA_AT_TABLE,
-  BIA_AT_TABLE,
-  CAIO_AT_TABLE,
-  kael,
-  memberCard,
-} from '../support/table-session-fixtures';
+  KAEL_CHARACTER_ID,
+  LYRA_CHARACTER_ID,
+  kaelCharacter,
+  linkedLyra,
+  lyraCharacter,
+} from '../support/character-fixtures';
+import { kael } from '../support/table-session-fixtures';
 
-const MEMBERS = [ANA_AT_TABLE, BIA_AT_TABLE, CAIO_AT_TABLE];
-const BIA_CARD = memberCard({ anchorTokenId: LYRA_ANCHOR_ID });
+describe('characterLinkTargetsOf', () => {
+  const characters = [lyraCharacter(), kaelCharacter()];
 
-describe('cardLinkTargetsOf', () => {
-  it('lists the players only, with the character of whoever has one', () => {
-    const cast = castBoard({ memberCards: [BIA_CARD] });
-    expect(cardLinkTargetsOf(MEMBERS, cast)).toEqual([
-      { memberId: BIA_AT_TABLE.userId, memberName: 'Bia', characterName: 'Lyra' },
-      { memberId: CAIO_AT_TABLE.userId, memberName: 'Caio', characterName: null },
+  it("lists the table's characters in order, the one already in this grid marked placed", () => {
+    expect(characterLinkTargetsOf(characters, [linkedLyra(), kael()])).toEqual([
+      { characterId: LYRA_CHARACTER_ID, name: 'Lyra', placed: true },
+      { characterId: KAEL_CHARACTER_ID, name: 'Kael', placed: false },
     ]);
   });
 
-  it('the nickname on the card names the character', () => {
-    const cast = castBoard({ memberCards: [{ ...BIA_CARD, characterName: 'Lyra Vandel' }] });
-    expect(cardLinkTargetsOf(MEMBERS, cast)[0]?.characterName).toBe('Lyra Vandel');
-  });
-
-  it('with the cast still loading, nobody has a character yet', () => {
-    expect(cardLinkTargetsOf(MEMBERS, null).map(({ characterName }) => characterName)).toEqual([
-      null,
-      null,
+  it('a character nobody plays is a target too; no characters, no targets', () => {
+    const orphan = lyraCharacter({ userId: null });
+    expect(characterLinkTargetsOf([orphan], [])).toEqual([
+      { characterId: LYRA_CHARACTER_ID, name: 'Lyra', placed: false },
     ]);
+    expect(characterLinkTargetsOf([], [linkedLyra()])).toEqual([]);
   });
 });
 
-describe('cardOwnerOf', () => {
-  it('names the player whose character the token is linked to', () => {
-    expect(cardOwnerOf(linkedLyra(), [BIA_CARD], MEMBERS)).toBe('Bia');
-  });
-
-  it('a loose token, or a card not known yet, has no owner', () => {
-    expect(cardOwnerOf(kael(), [BIA_CARD], MEMBERS)).toBeNull();
-    expect(cardOwnerOf(linkedLyra(), [], MEMBERS)).toBeNull();
+describe('linkedCharacterOf', () => {
+  it('a linked token gives its character; a free one, or an unknown character, none', () => {
+    const characters = [kaelCharacter(), lyraCharacter()];
+    expect(linkedCharacterOf(linkedLyra(), characters)?.name).toBe('Lyra');
+    expect(linkedCharacterOf(kael(), characters)).toBeNull();
+    expect(linkedCharacterOf(linkedLyra(), [kaelCharacter()])).toBeNull();
   });
 });

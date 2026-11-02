@@ -21,8 +21,6 @@ export class ScenesDaoFake implements Pick<
   | 'lockInCampaign'
   | 'shareInCampaign'
   | 'findGridInCampaign'
-  | 'findCastOf'
-  | 'lockCastOf'
   | 'bumpVersion'
   | 'update'
   | 'listOfCampaign'
@@ -39,9 +37,9 @@ export class ScenesDaoFake implements Pick<
     return row;
   }
 
-  /** The grids of the library (no cast), oldest first as stored, with no tokens counted. */
+  /** The grids of the library, oldest first as stored, with no tokens counted. */
   async listOfCampaign(campaignId: string): Promise<LibrarySceneRow[]> {
-    const grids = this.rows.filter((row) => row.campaignId === campaignId && row.kind === 'grid');
+    const grids = this.rows.filter((row) => row.campaignId === campaignId);
     return grids.map((row) => ({ ...this.withBackground(row), tokenCount: 0 }));
   }
 
@@ -79,20 +77,9 @@ export class ScenesDaoFake implements Pick<
     return this.addressed(campaignId, sceneId);
   }
 
-  async findCastOf(campaignId: string): Promise<SceneRow | undefined> {
-    const row = this.rows.find((each) => each.campaignId === campaignId && each.kind === 'cast');
-    return row && this.withBackground(row);
-  }
-
-  async lockCastOf(campaignId: string): Promise<SceneRow | undefined> {
-    this.journal.push('lock cast');
-    return this.findCastOf(campaignId);
-  }
-
-  /** Writes `bump` for a grid and `bump cast` for the cast. */
   async bumpVersion(sceneId: string): Promise<number> {
     const row = this.rowOf(sceneId);
-    this.journal.push(row.kind === 'cast' ? 'bump cast' : 'bump');
+    this.journal.push('bump');
     row.version += 1;
     return row.version;
   }

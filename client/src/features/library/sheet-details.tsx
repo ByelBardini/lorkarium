@@ -1,6 +1,7 @@
 import type { SheetSummaryDto } from '@lorkarium/contracts';
 import { ArrowUpRightIcon, PanelsTopLeftIcon, ScrollTextIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { isSpareSheet } from '@/lib/sheet-holder';
 import {
   OPEN_SHEET,
   OPEN_SHEET_WINDOW,
@@ -25,10 +26,9 @@ export type SheetDetailsProps = Readonly<{
 export function SheetDetails(props: SheetDetailsProps): React.JSX.Element {
   const { sheet } = props;
   // A sheet nobody holds already says "só mestres".
-  const meta =
-    sheet.tokenId === null
-      ? props.holderLabel
-      : `${props.holderLabel} · ${SHEET_VISIBILITY_LABEL[sheet.visibility]}`;
+  const meta = isSpareSheet(sheet)
+    ? props.holderLabel
+    : `${props.holderLabel} · ${SHEET_VISIBILITY_LABEL[sheet.visibility]}`;
   return (
     <section
       aria-label="Ficha escolhida"

@@ -1,6 +1,6 @@
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
-import { SceneAccessBo, type GridKind, type GridReach } from './scene-access.bo';
+import { SceneAccessBo, type GridReach } from './scene-access.bo';
 import type { AddressedSceneRow, ScenesDao } from './scenes.dao';
 import { SceneNotFoundError } from './scenes.error';
 
@@ -9,6 +9,8 @@ export type GridLockDaos = Readonly<{ scenes: Pick<ScenesDao, 'lockInCampaign' |
 
 export type SceneTransaction<Daos> = <T>(work: (daos: Daos) => Promise<T>) => Promise<T>;
 export type LockedGrid<Daos> = Readonly<{ daos: Daos; scene: AddressedSceneRow }>;
+/** The version a transaction left one grid at. */
+export type SavedVersion = Readonly<{ sceneId: string; version: number }>;
 /** What a board transaction saved, the version it produced and the grid it was on. */
 export type SavedInScene<T> = Readonly<{ value: T; version: number; sceneId: string }>;
 /** The fields every event of one grid opens with (spec §5.5). */
@@ -22,9 +24,8 @@ export type GridEventBase = Readonly<{
 /** What a creating command answers: the version and the ids given, in the order sent. */
 export type CreatedInScene = Readonly<{ version: number; createdIds: string[] }>;
 
-/** What `reachedGridOf` reads of a grid: which one, its visibility, its kind and whether it is
- *  the group's. */
-export type ReachedGrid = GridReach & Readonly<{ isActive: boolean; kind: GridKind }>;
+/** What `reachedGridOf` reads of a grid: which one, its visibility and whether it is the group's. */
+export type ReachedGrid = GridReach & Readonly<{ isActive: boolean }>;
 
 /** The grid a command or a snapshot names: absent `sceneId` = the group grid. `access` is the
  *  requester's role at the table, already known to be a member. */
@@ -53,7 +54,7 @@ export async function inLockedGrid<Daos extends GridLockDaos, T>(
 }
 
 /** The grid read for an address, if the requester may act on it: the master any grid of the
- *  table, a player the group grid or a public one; the cast, the rest and an unknown id are
+ *  table, a player the group grid or a public one; the rest and an unknown id are
  *  SCENE_NOT_FOUND.
  *
  *  Example: `reachedGridOf(address, await scenes.findGridInCampaign(campaignId, sceneId))` */
@@ -63,19 +64,6 @@ export function reachedGridOf<Scene extends ReachedGrid>(
 ): Scene {
   const found = addressedGridOf(address, scene);
   new SceneAccessBo(address.access, groupIdOf(found)).requireAct(found);
-  return found;
-}
-
-/** The grid read for a snapshot, if the requester sees it: what `reachedGridOf` reaches plus the
- *  table's cast, which every member follows.
- *
- *  Example: `seenGridOf(address, await scenes.findGridInCampaign(campaignId, castId))` */
-export function seenGridOf<Scene extends ReachedGrid>(
-  address: GridAddress,
-  scene: Scene | undefined,
-): Scene {
-  const found = addressedGridOf(address, scene);
-  new SceneAccessBo(address.access, groupIdOf(found)).requireSee(found);
   return found;
 }
 

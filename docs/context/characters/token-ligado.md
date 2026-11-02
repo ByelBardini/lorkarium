@@ -1,0 +1,53 @@
+# Token ligado ao personagem (Fase 6)
+
+Detalhe do hub [`../characters.md`](../characters.md). O token ligado é composto **pelo personagem** (`tokens.character_id`); as condições também moram no personagem desde a Fase 7 ([`condicoes.md`](condicoes.md)).
+
+## Composição (`tokens/linked-token.ts`)
+
+- `composedTokenRow(row, personagem)`: o ligado veste `name`, `initials`, `side`, `imageAssetId`, `frame`, `defeated` e as sete colunas da aura (`identityOf(personagem.character)`), as **barras** (`character_bars`, com o id da barra do personagem e o `tokenId` do token: uma escrita de barra cai no personagem) e o **controle** (`character_controllers`). Posição, tamanho, camada, direção, inverter, visão, cone, luz, **formas e `activeFormId`** são do token. Personagem ausente ou de outro id → o token como está.
+- `TokensDao` (`listOfScene`/`findInScene`/`findManyInScene`, pelo `rowsOf`): só quando algum token tem `character_id`, **duas** leituras a mais (`CharactersDao.findManyAtSceneTable(sceneId, ids)` — personagens + controle + papel, depois as barras), filtradas pela mesa da cena (§2.6: personagem de outra mesa não é vestido). Antes eram três (tokens da âncora + barras + pendurados): o ligado ficou 1 consulta mais barato; o caminho sem ligado não mudou.
+- `controlOfScene`, `findDragGroup` e `veilOfScene`: o controle sai de `HOLDER_CONTROLLER_IDS` (`case` sobre `tokens.character_id`: subconsulta em `character_controllers` do personagem, senão em `token_controllers` do token) — sem `LEFT JOIN` nem `GROUP BY`, a mesma uma consulta. `TokenControlPo.characterId` (era `anchorTokenId`; Fase 7): o fim do turno acha o personagem que guarda as condições.
+- `tokenDto.characterId` (o `tokensMapper` emite sempre; `null` no solto); o `anchorTokenId` saiu na Fase 13.
+- `stateHolderIdOf` / `stateHolderIn` saíram na Fase 7: o dono da condição é o `holderOfToken` ([`condicoes.md`](condicoes.md)). `composedTokenRow` recebe um `WornCharacterRow`.
+
+## Travas personagens → grid (`characters/locked-characters-grid.ts`)
+
+- `inLockedGridWithCharacters(transaction, endereço, work)`: a 1ª rodada trava só o grid; o `work` que acha um ligado chama `requireCharactersLock(locked)` (ou `linkedCharacterIn`), que lança `CharactersLockNeeded`: a transação desfaz e roda de novo pelo `inLockedCharactersAndGrid` — `lockCharacters` (versão dos personagens, `FOR NO KEY UPDATE` na linha da mesa) **antes** do `lockInCampaign` do grid. Comando só em soltos nunca trava os personagens.
+- O `work` devolve `CharactersAndGridChange { value, grid, characters }`; o resultado é `SavedInCharactersAndGrid { value, grid: SavedVersion | null, characters: número | null, version }` — soma os personagens primeiro, depois o grid; `version` (o ack) = a do grid, senão a dos personagens, senão a do grid como estava. Marcar `characters: true` sem a trava é erro de programação ("touched the characters without requireCharactersLock").
+- `LockedGridMaybeCharacters<Daos>` = `LockedGrid` + `characters: LockedCharacters | null`; `CharactersAndGridLockDaos` = `characters.lockVersion/bumpVersion` + `scenes.lockInCampaign/bumpVersion`.
+- Ordem global: **personagens → grid** (o elenco saiu na Fase 13). Nenhum comando trava um grid e depois os personagens: quem descobre um ligado com só o grid travado (`requireCharactersLock`) desfaz e roda de novo travando os personagens antes.
+
+## O dono do estado (`linkedCharacterIn`, substitui o `holderRowOf`)
+
+- `linkedCharacterIn(locked, row)` → `CharacterRow | null`: `null` no solto; no ligado, exige a trava dos personagens e relê o personagem no `tx` (`characterIn(daos, mesa, id)`, `CHARACTER_NOT_FOUND` citando mesa e id). Chame antes da primeira escrita.
+- `TokenWriteDaos.characters` = `CharactersDao(tx)` (`lockVersion`, `bumpVersion`, `findInCampaign`, `findManyInCampaign`, `findOfUser`, `listOfCampaign`, `update`, `setBarValues`, `replaceBars`, `replaceControllers`). `CharactersDao.update` aceita também `CharacterLookChangesPo` (identidade, imagem, borda, abatido, aura).
+- `tokens/character-writes.ts`: `updateLinkedToken(daos, token, personagem, update)`, `restyleCharacters(daos, mesa, ids, look)` (um `update` por personagem, relidos juntos) e `publishCharactersChange(outlet, mesa, versão, linhas)` (um `character:changed` com a lista, nada sem versão ou sem personagem). Os services recebem `characterPublisher: CharacterPublisherPort` (`createTokensModule({ …, characterPublisher })`; o `wireRealtime` cria o `SocketIoCharacterPublisher` antes do módulo dos tokens; o seed de estresse passa o mudo).
+
+## Escritas compartilhadas vão ao personagem
+
+| Comando                                                               | Vai ao personagem (`character:changed`, versão dos personagens) | Fica no token (evento do grid)                            |
+| --------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------- |
+| `token:adjustBar`                                                     | a barra (as barras compostas são as do personagem)              | — (o grid não soma)                                       |
+| `token:update`                                                        | nome, iniciais, lado, imagem, borda, aura, barras, controle     | tamanho, inverter, visão, cone, luz, formas e forma vista |
+| `token:restyleMany`                                                   | imagem, borda, abatido, aura                                    | inverter e `lightLit` (o solto leva o estilo todo)        |
+| `token:setForm`                                                       | a imagem e a borda da forma                                     | a forma vista e a caixa (`token:formChanged`)             |
+| `token:move`/`moveMany`/`dragMany`/`faceMany`/`resizeMany`/`setLayer` | —                                                               | tudo (o controle vem composto do personagem)              |
+| `sheet:adjustBar` de ficha num token solto                            | —                                                               | a barra, pelo `token:adjustBar` do grid                   |
+| `sheet:adjustBar` de ficha do personagem (Fase 9)                     | a barra, pelo `character:adjustBar` ([`fichas.md`](fichas.md))  | —                                                         |
+| `condition:*`, `combat:nextTurn`                                      | as condições (Fase 7, [`condicoes.md`](condicoes.md))           | a do solto                                                |
+
+- `token:update` ligado: `withShownForm` decide a forma vista sobre o token composto (imagem nova, tamanho novo ou forma tirada da lista → sem forma) → `splitUpdate(update)` → `{ shared: { look, bars, controllerIds }, own: { fields, forms? } }` → `characters.update` + `replaceBars` + `replaceControllers` → `tokens.updateFields(token, fields, forms)` (as formas no token). Publica `character:changed` (personagem relido) e `token:updated` do grid (token composto). Ack = versão do grid.
+- `token:adjustBar` ligado: `requireControl` pelo controle composto → `characters.setBarValues` → relê → só `character:changed`; ack = versão dos personagens.
+- `token:restyleMany` misto: `splitStyle`; com parte compartilhada e algum ligado, trava os personagens; um `character:changed` com a lista e um `token:restyledMany` do grid (soltos + parte própria dos ligados; `style` inteiro se há solto). Só `lightLit`/inverter não trava os personagens.
+- Desde a Fase 9 o `adjustHolderBar`/`adjustCharacterOfAnchor` saíram: a ficha do personagem ajusta pelo `CharactersService.adjustBar` ([`fichas.md`](fichas.md)).
+- **Conhecido (Fase 7/8):** imagem nova pelo `restyleMany` não tira a forma vista dos tokens ligados (a forma é por token, a imagem do personagem); desde a Fase 7 o `character:changed` leva as condições.
+
+## Ligar, desligar e "Adicionar jogadores"
+
+A correção mínima da Fase 6 (âncora + `character_id`, `keepWornState`, `wornCharactersOf`) foi substituída na Fase 8: ver [`ligar.md`](ligar.md).
+
+## Testes
+
+- Unit: `test/modules/tokens/linked-token.spec.ts` (composição pelo personagem, DTO com `characterId`, redação, `splitUpdate`/`splitStyle`, formas do token), `linked-writes.spec.ts` (diário `lockInCampaign → lock characters → lockInCampaign → set bar → bump characters → commit → publish`; o Caio → `FORBIDDEN` sem versão; Kael solto sem trava; `update` separa e publica `character:changed` + `token:updated`; `restyleMany` defeated/flip, `lightLit` sem trava, aura só no personagem, grupo misto), `character-writes.spec.ts`, `token-form.service.spec.ts` (forma ligada: forma vista no token, imagem no personagem, diário com `lock characters`), `tokens.service-forms.spec.ts`, `token-link.service.spec.ts` (`characterId` ao ligar; desligar copia as barras do personagem), `add-players.spec.ts`, `characters/locked-characters-grid.spec.ts`.
+- Integração: `linked-writes.spec.ts` (a Bia tira 7 de PV da Lyra no Salão, o Caio ouve `character:changed` sem o PV e sem `token:updated`, a versão do Salão não muda, o `board:sync` da Estrada traz 25; o snapshot dos dois grids traz o `characterId`; nome novo na Estrada vale no Salão; Envenenado e Caído nos dois grids; luz do Salão não acende a da Estrada; `FORBIDDEN`; mover e arrastar; 50 rodadas cruzadas; a Quelm não ouve nada), `tokens-dao-linked.spec.ts` (composição nas três leituras, controle do personagem nas três consultas de controle, solto com o próprio, personagem da Quelm não vestido, `listOfScene` com ligado = 5 consultas), `tokens-dao-hidden.spec.ts` (véu com o controle do personagem); `sheet-bars.spec.ts` (a Bia tira 7 de PV pela ficha da Lyra, o Caio ouve `character:changed` na versão do ack); `token-link.spec.ts`, `add-players.spec.ts` e `token-forms.spec.ts` ajustados ao token que veste o personagem (suporte `lyraBarsOnBia`, `renameCharacter`, `LYRA_BARS` em `test/support/table-characters.ts`).
+- Fakes: `TokensDaoFake.wearFrom(characters)` (compõe pelo `character_id`; o `TokenTransactionRunnerFake` recebe `characters: CharactersDaoFake` como 7º parâmetro e liga sozinho), `updateFields(id, campos, formas?)`; `CharactersDaoFake` ganhou `findManyInCampaign` e `replaceBars` (diário `bars`); `CharacterTableFake` tem `characters` (Lyra, versão 5, `lyraCharacterRow()`: PV 32/45 e Inspiração 1/1, Bia no controle) e `characterPublisher`; `linkedLyraRow()` aponta para o personagem.

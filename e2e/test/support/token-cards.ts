@@ -38,25 +38,6 @@ export async function chooseController(dialog: Locator, player: string): Promise
   await dialog.getByRole('button', { name: player, exact: true }).click();
 }
 
-/** "Novo token" with a name, one player in control and a PV bar ("Nova barra": PV 10 / 10,
- *  only its controllers see it), at the center of the view.
- *
- *  Example: `await createTokenWithPvFor(admin, 'Lyra', 'Bia')` */
-export async function createTokenWithPvFor(
-  master: Page,
-  name: string,
-  player: string,
-): Promise<void> {
-  await master.getByRole('button', { name: 'Novo token' }).click();
-  const dialog = master.getByRole('dialog', { name: 'Novo token' });
-  await dialog.getByLabel('Nome').fill(name);
-  await chooseController(dialog, player);
-  await dialog.getByRole('tab', { name: /^Barras/ }).click();
-  await dialog.getByRole('button', { name: 'Nova barra' }).click();
-  await dialog.getByRole('button', { name: 'Criar token' }).click();
-  await expect(dialog).toBeHidden();
-}
-
 /** "Novo token" with a name and one player in control, at the center of the view. */
 export async function createTokenFor(master: Page, name: string, player: string): Promise<void> {
   await master.getByRole('button', { name: 'Novo token' }).click();
@@ -67,19 +48,48 @@ export async function createTokenFor(master: Page, name: string, player: string)
   await expect(dialog).toBeHidden();
 }
 
-/** The master's "Ligar à ficha de… → <player>" on the token born at the center cell (10, 6):
- *  the token becomes the player's character (its state on the anchor, valid in every grid).
+/** The master's "Ligar a personagem… → <character>" on the token born at the center cell
+ *  (10, 6), confirmed in "Ligar a <character>?": the token wears the character (name, bars,
+ *  conditions and control, valid in every grid). A player's character is named after the nick.
  *
- *  Example: `await linkCenterTokenToCard(admin, 'Lyra', 'Bia')` */
-export async function linkCenterTokenToCard(
+ *  Example: `await linkCenterTokenToCharacter(admin, 'Lobo', 'Bia')` */
+export async function linkCenterTokenToCharacter(
+  master: Page,
+  token: string,
+  character: string,
+): Promise<void> {
+  const center = await cellCenterOf(master, 10, 6);
+  await master.mouse.click(center.x, center.y, { button: 'right' });
+  const menu = master.getByRole('menu', { name: `Ações de ${token}` });
+  await menu.getByRole('menuitem', { name: 'Ligar a personagem…' }).click();
+  await master.getByRole('menuitem', { name: character, exact: true }).click();
+  const question = master.getByRole('alertdialog', { name: `Ligar a ${character}?` });
+  await question.getByRole('button', { name: 'Ligar', exact: true }).click();
+  await expect(question).toBeHidden();
+}
+
+/** `player`'s character on a token at the center cell, named `name` and with a PV bar (10 / 10,
+ *  only its controllers see it): "Novo token", linked to the character (still named after the
+ *  nick), then the master's "Editar token" renames it and adds "Nova barra" — both on the
+ *  character, so the card of "Na mesa" reads `name` too.
+ *
+ *  Example: `await createCharacterTokenWithPv(admin, 'Lyra', 'Bia')` */
+export async function createCharacterTokenWithPv(
   master: Page,
   name: string,
   player: string,
 ): Promise<void> {
-  const center = await cellCenterOf(master, 10, 6);
-  await master.mouse.click(center.x, center.y, { button: 'right' });
-  const menu = master.getByRole('menu', { name: `Ações de ${name}` });
-  await menu.getByRole('menuitem', { name: 'Ligar à ficha de…' }).click();
-  await master.getByRole('menuitem', { name: player, exact: true }).click();
-  await expect(menu).toBeHidden();
+  await createTokenFor(master, name, player);
+  await linkCenterTokenToCharacter(master, name, player);
+  await openCard(master, player);
+  await cardOf(master, player).getByRole('button', { name: 'Editar token' }).click();
+  const dialog = master.getByRole('dialog', { name: 'Editar token' });
+  await expect(dialog).toContainText(`No personagem ${player} · vale em todo grid`);
+  await dialog.getByLabel('Nome').fill(name);
+  await dialog.getByRole('tab', { name: /^Barras/ }).click();
+  await dialog.getByRole('button', { name: 'Nova barra' }).click();
+  await dialog.getByRole('button', { name: 'Salvar' }).click();
+  await expect(dialog).toBeHidden();
+  await openCard(master, name);
+  await expect(cardOf(master, name)).toContainText('10 / 10');
 }

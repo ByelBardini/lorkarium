@@ -10,7 +10,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/token-size.vo.ts` — largura e altura do token (VO)
 - `src/token-resize.ts` — a caixa do token (e de qualquer caixa com limites próprios) depois de arrastar uma alça
 - `src/token-form.ts` — `formBoxIn(cena, caixa, tamanho)`: a caixa do token ao trocar de forma; o canto de cima à esquerda fica e recua para dentro da cena só o que o tamanho novo pede (sem paredes nem colisão, §12); tamanho fora dos passos → `RangeError` do `tokenSize`; maior que a cena → `RangeError` citando "3×3" e "scene 2×2"
-- `src/token-initials.ts` — `initialsOf(nome)`: as iniciais do token (primeira letra das duas primeiras palavras que não são conectivo, ou as duas primeiras letras de uma palavra só; "Ogro das Cinzas" → "OC"). O server a usa na âncora criada ao dar uma ficha a um jogador; o client (avatar, chat, formulário do token) importa a mesma daqui (não há cópia no client)
+- `src/token-initials.ts` — `initialsOf(nome)`: as iniciais do token (primeira letra das duas primeiras palavras que não são conectivo, ou as duas primeiras letras de uma palavra só; "Ogro das Cinzas" → "OC"). O server a usa no personagem criado ao virar jogador; o client (avatar, chat, formulário do token) importa a mesma daqui (não há cópia no client)
 - `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
 - `src/bar.ts` — ajuste de barra (PV e qualquer outra)
 - `src/initiative.vo.ts` — o valor da iniciativa (VO)
@@ -145,9 +145,9 @@ O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em cas
 
 ## Posse do token
 
-- `TableTokenRights` `{ create, delete }` — as duas chaves da mesa ("Jogadores criam e editam tokens", "Jogadores excluem os próprios tokens"); `TokenRightsViewer` `{ role, userId }`; `OwnedToken` `{ createdBy, anchorTokenId }`.
+- `TableTokenRights` `{ create, delete }` — as duas chaves da mesa ("Jogadores criam e editam tokens", "Jogadores excluem os próprios tokens"); `TokenRightsViewer` `{ role, userId }`; `OwnedToken` `{ createdBy, characterId }`.
 - `canCreateTokens(viewer, chaves)` — o mestre sempre; o jogador com `create`; o espectador nunca.
-- `tokenRightsOf(viewer, chaves, token)` → `{ edit, delete }`: o mestre tudo; o jogador só no token que **ele criou** (`createdBy`) e **sem ligação** à ficha (`anchorTokenId` nulo; o ligado é do mestre), cada direito atrás da sua chave (`create` → editar, `delete` → excluir); `createdBy` nulo (token antigo) e o espectador → nada.
+- `tokenRightsOf(viewer, chaves, token)` → `{ edit, delete }`: o mestre tudo; o jogador só no token que **ele criou** (`createdBy`) e **sem ligação** a personagem (`characterId` nulo; o ligado é do mestre), cada direito atrás da sua chave (`create` → editar, `delete` → excluir); `createdBy` nulo (token antigo) e o espectador → nada.
 - O `TokenAuthorshipBo` do server recusa com ela e o client esconde os botões com ela (`lib/token-rights-of-viewer.ts`). Visão, luz e cone ficam fora do alcance do jogador — essa trava é do BO, não daqui.
 
 ## Visão e luz

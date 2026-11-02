@@ -1,3 +1,4 @@
+import { CharactersDaoFake } from './characters-fakes';
 import type {
   CombatDao,
   CombatantRow,
@@ -160,11 +161,14 @@ export class CombatTransactionRunnerFake {
       tokens: TokensDaoFake;
       combat: CombatDaoFake;
       conditions: ConditionsDaoFake;
+      /** The characters linked tokens wear (none by default): their conditions count down there. */
+      characters?: CharactersDaoFake;
     }>,
   ) {}
 
   readonly run: CombatTransactionRunner = async (work) => {
-    const result = await work(this.daos);
+    const characters = this.daos.characters ?? new CharactersDaoFake(this.daos.scenes.journal);
+    const result = await work({ ...this.daos, characters });
     this.daos.scenes.journal.push('commit');
     return result;
   };

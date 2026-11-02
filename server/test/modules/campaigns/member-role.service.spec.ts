@@ -12,12 +12,18 @@ import {
   campaignMemberPo,
   campaignPo,
 } from '../../support/campaigns-factories';
-import { ForgottenMembershipsFake, MemberRoleChangedFake } from '../../support/member-role-fakes';
+import {
+  ForgottenMembershipsFake,
+  MemberRoleChangedFake,
+  MemberRoleTransactionRunnerFake,
+  MemberSeatFake,
+} from '../../support/member-role-fakes';
 
 describe('MemberRoleService.change', () => {
   let campaigns: CampaignsDaoFake;
   let members: CampaignMembersDaoFake;
   let changed: MemberRoleChangedFake;
+  let seat: MemberSeatFake;
   let service: MemberRoleService;
 
   beforeEach(() => {
@@ -33,22 +39,27 @@ describe('MemberRoleService.change', () => {
       campaignMemberPo({ campaignId: QUELM_ID, userId: CAIO_ID, role: 'master' }),
     ]);
     changed = new MemberRoleChangedFake(members.writes);
+    seat = new MemberSeatFake(members.writes);
     service = new MemberRoleService({
       campaigns,
       members,
+      transaction: new MemberRoleTransactionRunnerFake(members, seat).run,
       memberships: new ForgottenMembershipsFake(members.writes),
       changed,
       presence: new PresenceReaderFake({ [VHARN_ID]: [DUDA_ID] }),
     });
   });
 
-  it('Ana promoting Duda saves the role, forgets the remembered membership, then tells the table', async () => {
+  it('Ana promoting Duda saves the role and its seat in one transaction, forgets the membership, then tells the rooms and the seat', async () => {
     await service.change(ANA_ID, { campaignId: VHARN_ID, targetId: DUDA_ID, role: 'player' });
 
     expect(members.writes).toEqual([
       `updateRole:${VHARN_ID}:${DUDA_ID}:player`,
+      `seat:${DUDA_ID}:player`,
+      'commit',
       `forget:${VHARN_ID}:${DUDA_ID}`,
       `memberRoleChanged:${DUDA_ID}:player`,
+      `notice:${DUDA_ID}`,
     ]);
     expect(changed.told[0]?.change).toEqual({
       campaignId: VHARN_ID,
@@ -56,6 +67,23 @@ describe('MemberRoleService.change', () => {
       role: 'player',
       from: 'spectator',
     });
+  });
+
+  it('a seat that fails to save rolls the role back: no commit, nothing forgotten nor told', async () => {
+    seat.failure = new Error('insert into characters failed');
+
+    const promotion = service.change(ANA_ID, {
+      campaignId: VHARN_ID,
+      targetId: DUDA_ID,
+      role: 'player',
+    });
+
+    await expect(promotion).rejects.toThrow('insert into characters failed');
+    expect(members.writes).toEqual([
+      `updateRole:${VHARN_ID}:${DUDA_ID}:player`,
+      `seat:${DUDA_ID}:player`,
+    ]);
+    expect(changed.told).toEqual([]);
   });
 
   it('the answer is Duda read back after the write: her profile, the new role and online', async () => {
@@ -85,8 +113,11 @@ describe('MemberRoleService.change', () => {
     expect(member).toMatchObject({ userId: BIA_ID, role: 'spectator', online: false });
     expect(members.writes).toEqual([
       `updateRole:${VHARN_ID}:${BIA_ID}:spectator`,
+      `seat:${BIA_ID}:spectator`,
+      'commit',
       `forget:${VHARN_ID}:${BIA_ID}`,
       `memberRoleChanged:${BIA_ID}:spectator`,
+      `notice:${BIA_ID}`,
     ]);
   });
 

@@ -1,4 +1,9 @@
-import { canCreateTokens, tokenRightsOf, type TableTokenRights } from '@lorkarium/game-core';
+import {
+  canCreateTokens,
+  tokenRightsOf,
+  type OwnedToken,
+  type TableTokenRights,
+} from '@lorkarium/game-core';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 
 type CellRange = Readonly<{ bright: number; dim: number }>;
@@ -25,11 +30,11 @@ export type TokenCreation = VisionChange & Readonly<{ layer?: string | undefined
 export type PastedCopy = TokenCreation &
   Readonly<{ hidden?: boolean | undefined; combatantId?: string | undefined }>;
 
-/** A saved token as authorship sees it: who created it and whether it is linked. */
+/** A saved token as authorship sees it: who created it and the character it wears, if any. */
 export type AuthoredToken = Readonly<{
   tokenId: string;
   createdBy: string | null;
-  anchorTokenId: string | null;
+  characterId: string | null;
 }>;
 
 export type EditedToken = AuthoredToken & Readonly<{ vision: TokenVision }>;
@@ -103,7 +108,7 @@ export class TokenAuthorshipBo {
   requireEdit(token: EditedToken, edit: TokenEdit): void {
     if (this.campaign.isMaster()) return;
     const id = token.tokenId;
-    if (!tokenRightsOf(this.viewer(), this.rights, token).edit)
+    if (!tokenRightsOf(this.viewer(), this.rights, ownedTokenOf(token)).edit)
       this.campaign.forbid(
         `edit token ${id}`,
         'the master role, or being its creator with the players-create-tokens setting (unlinked)',
@@ -124,7 +129,9 @@ export class TokenAuthorshipBo {
   requireDelete(tokens: readonly AuthoredToken[]): void {
     if (this.campaign.isMaster()) return;
     const viewer = this.viewer();
-    const refused = tokens.find((token) => !tokenRightsOf(viewer, this.rights, token).delete);
+    const refused = tokens.find(
+      (token) => !tokenRightsOf(viewer, this.rights, ownedTokenOf(token)).delete,
+    );
     if (!refused) return;
     this.campaign.forbid(
       `delete token ${refused.tokenId}`,
@@ -135,6 +142,10 @@ export class TokenAuthorshipBo {
   private viewer(): Readonly<{ role: 'master' | 'player'; userId: string }> {
     return { role: this.campaign.requireMember(), userId: this.campaign.userIdOf() };
   }
+}
+
+function ownedTokenOf(token: AuthoredToken): OwnedToken {
+  return { createdBy: token.createdBy, characterId: token.characterId };
 }
 
 function changedVisionField(current: TokenVision, change: VisionChange): string | undefined {

@@ -1,4 +1,9 @@
-import type { BoardStateDto, SessionMemberDto, TokenBarDto } from '@lorkarium/contracts';
+import type {
+  BoardStateDto,
+  CharacterDto,
+  SessionMemberDto,
+  TokenBarDto,
+} from '@lorkarium/contracts';
 import { render } from '@testing-library/react';
 import type { StoreApi } from 'zustand/vanilla';
 import { PlayerCard } from '@/features/sessions/player-card';
@@ -9,10 +14,10 @@ import {
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { VHARN } from './campaigns-api-fake';
-import { castBoard } from './cast-fixtures';
+import { linkedLyra, lyraCharacter } from './character-fixtures';
 import { InteractionClockFake } from './interaction-clock-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
-import { BIA_AT_TABLE, lyra, vharnBoard, VHARN_GRID } from './table-session-fixtures';
+import { BIA_AT_TABLE, vharnBoard, VHARN_GRID } from './table-session-fixtures';
 
 export const BIA_ONLINE: SessionMemberDto = { ...BIA_AT_TABLE, online: true };
 
@@ -34,9 +39,11 @@ export function cardBar(overrides: Partial<TokenBarDto> = {}): TokenBarDto {
 }
 
 export type CardScene = Readonly<{
+  /** The group grid over `vharnBoard()`, Lyra's linked token in it unless told otherwise. */
   state?: Partial<BoardStateDto>;
-  /** The table's cast over `castBoard()`; absent = still loading. */
-  cast?: Partial<BoardStateDto>;
+  /** The member's character over `lyraCharacter()` (the PV `cardBar()`, nothing written, its
+   *  `canControl` the member or a master); `null` = the characters still loading. */
+  character?: Partial<CharacterDto> | null;
   member?: SessionMemberDto;
   viewerId?: string;
   isMaster?: boolean;
@@ -45,8 +52,8 @@ export type CardScene = Readonly<{
 }>;
 
 /** One PlayerCard over real board and interaction stores, the commands played by the fake.
- *  `confirm(state)` puts a new confirmed board (an event arriving) under the same card, and
- *  `confirmMember(member)` a new presence of the member; `clock` plays the browser's time.
+ *  `confirm(character)` puts a new confirmed character (an event arriving) under the same card,
+ *  and `confirmMember(member)` a new presence of the member; `clock` plays the browser's time.
  *
  *  Example: `const card = new PlayerCardHarness(); card.render({ member: caio })` */
 export class PlayerCardHarness {
@@ -60,34 +67,38 @@ export class PlayerCardHarness {
   });
   private rerenderWith: ((ui: React.JSX.Element) => void) | null = null;
   private scene: CardScene = {};
-  private state: Partial<BoardStateDto> = {};
 
   render(scene: CardScene = {}): void {
     this.scene = scene;
-    this.state = scene.state ?? {};
-    this.rerenderWith = render(this.cardFor(this.state)).rerender;
+    this.rerenderWith = render(this.cardFor()).rerender;
   }
 
-  /** The board as a later event left it, under the same card (its fields keep their focus). */
-  confirm(state: Partial<BoardStateDto>): void {
-    this.state = state;
-    this.rerenderWith?.(this.cardFor(state));
+  /** The character as a later event left it, under the same card (its fields keep their focus). */
+  confirm(character: Partial<CharacterDto>): void {
+    this.scene = { ...this.scene, character: { ...this.scene.character, ...character } };
+    this.rerenderWith?.(this.cardFor());
   }
 
   /** The member as a later presence update left them, under the same card. */
   confirmMember(member: SessionMemberDto, serverAt: string | null = null): void {
     this.scene = { ...this.scene, member, serverAt };
-    this.rerenderWith?.(this.cardFor(this.state));
+    this.rerenderWith?.(this.cardFor());
   }
 
-  private cardFor(state: Partial<BoardStateDto>): React.JSX.Element {
+  private cardFor(): React.JSX.Element {
     const { member = BIA_ONLINE, viewerId = BIA_AT_TABLE.userId, isMaster = false } = this.scene;
     const viewer = { userId: viewerId, role: isMaster ? ('master' as const) : ('player' as const) };
-    const confirmed = vharnBoard({ viewer, tokens: [lyra({ bars: [cardBar()] })], ...state });
+    const confirmed = vharnBoard({ viewer, tokens: [linkedLyra()], ...this.scene.state });
     this.board.getState().apply({ kind: 'board', state: confirmed });
-    const cast = this.scene.cast ? castBoard({ viewer, ...this.scene.cast }) : null;
     const { ownerId } = VHARN;
-    const roster = tableRosterOf({ members: [member], board: confirmed, cast, viewerId, ownerId });
+    const characters = this.charactersFor(member, viewerId, isMaster);
+    const roster = tableRosterOf({
+      members: [member],
+      board: confirmed,
+      characters,
+      viewerId,
+      ownerId,
+    });
     const [player] = roster.players;
     if (!player) throw new Error(`no player card for ${member.name}`);
     return (
@@ -100,5 +111,17 @@ export class PlayerCardHarness {
         serverAt={this.scene.serverAt ?? null}
       />
     );
+  }
+
+  private charactersFor(
+    member: SessionMemberDto,
+    viewerId: string,
+    isMaster: boolean,
+  ): CharacterDto[] | null {
+    const { character } = this.scene;
+    if (character === null) return null;
+    const canControl = isMaster || viewerId === member.userId;
+    const base = { userId: member.userId, bars: [cardBar()], armorClass: null, canControl };
+    return [lyraCharacter({ ...base, ...character })];
   }
 }

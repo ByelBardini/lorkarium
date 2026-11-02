@@ -10,12 +10,7 @@ import {
   joinByCodeAndEnter,
   openRoomPeople,
 } from './support/tables';
-import {
-  cardOf,
-  createTokenWithPvFor,
-  linkCenterTokenToCard,
-  openCard,
-} from './support/token-cards';
+import { cardOf, createCharacterTokenWithPv, openCard } from './support/token-cards';
 
 async function openLyraDialog(admin: Page): Promise<Locator> {
   await openCard(admin, 'Lyra');
@@ -26,7 +21,7 @@ async function openLyraDialog(admin: Page): Promise<Locator> {
 // "Editar token" → "Visão e luz" → "Emite luz": a torch on this grid's Lyra only.
 async function lightLyraHere(admin: Page): Promise<void> {
   const dialog = await openLyraDialog(admin);
-  await expect(dialog).toContainText('Na ficha de Bia · vale em todo grid');
+  await expect(dialog).toContainText('No personagem Lyra · vale em todo grid');
   await dialog.getByRole('tab', { name: 'Visão e luz' }).click();
   await dialog.getByRole('switch', { name: 'Emite luz' }).click();
   await dialog.getByRole('button', { name: 'Salvar' }).click();
@@ -62,7 +57,7 @@ async function expectHurtAndPoisoned(page: Page): Promise<void> {
   ).toContainText('Envenenado');
 }
 
-test('the character crosses grids: linked to the card, added to the Estrada, with the PV and the condition of the Salão but not its light, kept on F5', async ({
+test('the character crosses grids: linked to the token, added to the Estrada, with the PV and the condition of the Salão but not its light, kept on F5', async ({
   newPlayerPage,
 }) => {
   test.setTimeout(180_000);
@@ -75,7 +70,7 @@ test('the character crosses grids: linked to the card, added to the Estrada, wit
   await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
-  // The group grid is the Salão: Ana renames it and puts Bia's Lyra there, linked to her card.
+  // The group grid is the Salão: Ana renames it and puts Bia's character there, as Lyra.
   const library = await openLibrary(admin);
   await gridItemOf(library, 'Cena 1').click();
   const nameField = library.getByRole('region', { name: 'Grid escolhido' }).getByLabel('Nome');
@@ -84,8 +79,7 @@ test('the character crosses grids: linked to the card, added to the Estrada, wit
   await expect(gridItemOf(library, 'Salão')).toBeVisible();
   await library.getByRole('button', { name: 'Fechar biblioteca' }).click();
   await expect(boardOf(admin)).toHaveAccessibleName(/^Tabuleiro: Salão/);
-  await createTokenWithPvFor(admin, 'Lyra', 'Bia');
-  await linkCenterTokenToCard(admin, 'Lyra', 'Bia');
+  await createCharacterTokenWithPv(admin, 'Lyra', 'Bia');
   await lightLyraHere(admin);
   await poisonLyra(admin);
 

@@ -8,6 +8,8 @@ import type { SheetsFailure } from '@/services/sheets-api';
 export const OPEN_SHEET = 'Abrir ficha';
 export const OPEN_SHEET_WINDOW = 'Abrir ficha em janela';
 export const SHEETS_SUBMENU = 'Fichas';
+export const MAKE_MAIN_SHEET = 'Tornar principal';
+export const MAIN_SHEET_MARK = 'principal';
 export const NEW_SHEET = 'Nova ficha';
 export const GIVE_SPARE_SHEET = 'Dar ficha existente';
 export const GIVE_SHEET = 'Dar a';
@@ -63,8 +65,8 @@ export function sheetHolderLabel(
   sheet: Pick<SheetSummaryDto, 'tokenId' | 'memberId'>,
   names: SheetHolderNames,
 ): string {
-  if (sheet.tokenId === null) return 'Ficha · sem dono, só mestres';
   if (sheet.memberId !== null) return `Ficha · de ${memberLabelOf(sheet.memberId, names)}`;
+  if (sheet.tokenId === null) return 'Ficha · sem dono, só mestres';
   const token = names.tokenName(sheet.tokenId);
   return token === null ? 'Ficha · num token' : `Ficha · token ${token}`;
 }

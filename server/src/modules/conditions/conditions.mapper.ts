@@ -4,7 +4,12 @@ import type {
   TokenConditionDto,
 } from '@lorkarium/contracts';
 import type { ActiveConditionRow } from './conditions.dao';
-import type { ConditionDefinitionPo, NewConditionDefinition } from './conditions.po';
+import {
+  holderIdOfRow,
+  type ConditionDefinitionPo,
+  type ConditionHolder,
+  type NewConditionDefinition,
+} from './conditions.po';
 
 /** Only the definition's own fields: the command's envelope (`actionId`, `sceneId`…) stays out.
  *
@@ -42,20 +47,36 @@ export function toActiveConditionDto(row: ActiveConditionRow): ActiveConditionDt
   };
 }
 
-/** Example: `applied.map(toTokenConditionDto)` after a `condition:applyMany` */
+/** A condition of an unlinked token, as `condition:appliedMany` carries it; a character's has no
+ *  place here (it goes out whole, in `character:changed`).
+ *
+ *  Example: `applied.map(toTokenConditionDto)` after a `condition:applyMany` */
 export function toTokenConditionDto(row: ActiveConditionRow): TokenConditionDto {
+  if (row.tokenId === null)
+    throw new Error(`condition ${row.id} is held by character ${row.characterId}, not a token`);
   return { tokenId: row.tokenId, condition: toActiveConditionDto(row) };
 }
 
-/** Active conditions grouped by token, for the snapshot and the token events.
+/** Who holds the conditions a token shows: the character it wears, or the token itself.
  *
- *  Example: `conditionsByToken(await conditions.listOfTokens(ids)).get(token.id) ?? []` */
-export function conditionsByToken(
+ *  Example: `holderOfToken(lyraOfEstrada.token) // { characterId: lyraId }` */
+export function holderOfToken(
+  token: Readonly<{ id: string; characterId: string | null }>,
+): ConditionHolder {
+  return token.characterId === null ? { tokenId: token.id } : { characterId: token.characterId };
+}
+
+/** Active conditions grouped by holder id (a token's or a character's), for the snapshot, the
+ *  token events and the characters.
+ *
+ *  Example: `conditionsByHolder(await conditions.listOfHolders(holders)).get(lyraId) ?? []` */
+export function conditionsByHolder(
   rows: readonly ActiveConditionRow[],
 ): ReadonlyMap<string, ActiveConditionDto[]> {
   const grouped = new Map<string, ActiveConditionDto[]>();
   for (const row of rows) {
-    grouped.set(row.tokenId, [...(grouped.get(row.tokenId) ?? []), toActiveConditionDto(row)]);
+    const holderId = holderIdOfRow(row);
+    grouped.set(holderId, [...(grouped.get(holderId) ?? []), toActiveConditionDto(row)]);
   }
   return grouped;
 }

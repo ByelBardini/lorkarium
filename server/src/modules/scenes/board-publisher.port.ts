@@ -1,6 +1,4 @@
 import type {
-  MainTokenChangedDto,
-  MemberCardChangedDto,
   CombatDto,
   CombatEndedDto,
   CombatStartedDto,
@@ -13,7 +11,6 @@ import type {
   ConditionDefinitionDeletedDto,
   ConditionDefaultsRestoredDto,
   ConditionRemovedDto,
-  ConditionsChangedDto,
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
@@ -173,13 +170,6 @@ export interface BoardPublisherPort {
     event: GridEvent<TokenFormChangedDto>,
     veil: VeilCuts<GridEvent<TokenFormChangedDto>>,
   ): void;
-  /** A person's main token: not a secret, everyone with the grid open gets it. */
-  mainTokenChanged(
-    event: GridEvent<MainTokenChangedDto>,
-    veil: VeilCuts<GridEvent<MainTokenChangedDto>>,
-  ): void;
-  /** A member's card on the party board: not a secret; it goes to the group grid. */
-  memberCardChanged(event: GridEvent<MemberCardChangedDto>): void;
   /** Drawings have no secret: the whole table gets the same events. */
   drawingsCreated(event: GridEvent<DrawingsCreatedDto>): void;
   drawingsMoved(event: GridEvent<DrawingsMovedDto>): void;
@@ -205,11 +195,12 @@ export interface BoardPublisherPort {
   lightConesChanged(event: GridEvent<LightConesChangedDto>): void;
   lightsLitChanged(event: GridEvent<LightsLitChangedDto>): void;
   lightsDeleted(event: GridEvent<LightsDeletedDto>): void;
-  conditionDefined(event: GridEvent<ConditionDefinedDto>): void;
-  /** The table's list changed: the three go to the cast's rooms (every member), like the define. */
-  conditionDefinitionUpdated(event: GridEvent<ConditionDefinitionUpdatedDto>): void;
-  conditionDefinitionDeleted(event: GridEvent<ConditionDefinitionDeletedDto>): void;
-  conditionDefaultsRestored(event: GridEvent<ConditionDefaultsRestoredDto>): void;
+  /** The table's condition list changed: on the table stream (the characters' version), to the
+   *  whole table — every member, spectators included; the list is no secret. */
+  conditionDefined(event: ConditionDefinedDto): void;
+  conditionDefinitionUpdated(event: ConditionDefinitionUpdatedDto): void;
+  conditionDefinitionDeleted(event: ConditionDefinitionDeletedDto): void;
+  conditionDefaultsRestored(event: ConditionDefaultsRestoredDto): void;
   conditionApplied(
     event: GridEvent<ConditionAppliedDto>,
     veil: VeilCuts<GridEvent<ConditionAppliedDto>>,
@@ -222,8 +213,6 @@ export interface BoardPublisherPort {
     event: GridEvent<ConditionRemovedDto>,
     veil: VeilCuts<GridEvent<ConditionRemovedDto>>,
   ): void;
-  /** The anchors' conditions after the end of a turn of tokens linked to them, to the cast. */
-  conditionsChanged(event: GridEvent<ConditionsChangedDto>): void;
   combatStarted(
     event: GridEvent<CombatStartedDto>,
     veil: VeilCuts<GridEvent<CombatStartedDto>>,

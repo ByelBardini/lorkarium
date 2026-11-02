@@ -19,20 +19,22 @@ import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { toCampaignAccessBo } from '../campaigns/campaigns.mapper';
-import type { BoardPublisherPort, GridEvent } from '../scenes/board-publisher.port';
-import { gridEventBase, type GridEventBase } from '../scenes/locked-scene';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
+import type { CharacterRow, CharactersDao } from '../characters/characters.dao';
 import {
-  inLockedCast,
-  inLockedGridWithCast,
-  savedEventBase,
-  type CastAndGridChange,
-  type LockedGridMaybeCast,
-  type SavedInCastAndGrid,
-  type SavedVersion,
-} from '../scenes/locked-cast';
-import { stateHolderIn, type StateHolder } from '../tokens/linked-token';
+  inLockedGridWithCharacters,
+  requireCharactersLock,
+  type CharactersAndGridChange,
+  type LockedGridMaybeCharacters,
+  type SavedInCharactersAndGrid,
+} from '../characters/locked-characters-grid';
+import type { BoardPublisherPort, GridEvent } from '../scenes/board-publisher.port';
+import { charactersEventBase, inLockedCharacters } from '../characters/locked-characters';
+import { gridEventBase, type SavedVersion } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
+import { publishCharactersChange } from '../tokens/character-writes';
+import { charactersIn } from '../tokens/linked-token';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { TokenNotFoundError } from '../tokens/tokens.error';
 import { requireAssetsOf } from '../tokens/token-transaction';
@@ -40,8 +42,9 @@ import { ConditionRulesBo } from './condition-rules.bo';
 import type { CombatDao } from '../combat/combat.dao';
 import type { ActiveConditionRow, ConditionDuration, ConditionsDao } from './conditions.dao';
 import { ConditionNotFoundError } from './conditions.error';
-import type { ConditionDefinitionPo } from './conditions.po';
+import { holderIdOf, type ConditionDefinitionPo, type ConditionHolder } from './conditions.po';
 import {
+  holderOfToken,
   toActiveConditionDto,
   toConditionDefinitionDto,
   toNewConditionDefinition,
@@ -58,7 +61,7 @@ export type SetConditionStacks = Omit<SetConditionStacksCommandDto, Envelope>;
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type ConditionWriteDaos = Readonly<{
-  scenes: Pick<ScenesDao, 'lockInCampaign' | 'lockCastOf' | 'bumpVersion'>;
+  scenes: Pick<ScenesDao, 'lockInCampaign' | 'bumpVersion'>;
   tokens: Pick<TokensDao, 'findInScene' | 'findManyInScene'>;
   combat: Pick<CombatDao, 'findOfScene'>;
   conditions: Pick<
@@ -74,12 +77,14 @@ export type ConditionWriteDaos = Readonly<{
     | 'remove'
     | 'setRounds'
     | 'stacksOf'
-    | 'findActiveOnToken'
+    | 'findActiveOf'
     | 'setStacks'
     | 'capStacks'
   >;
   /** A definition's image must be an asset of the table. */
   assets: Pick<AssetsDao, 'findManyInCampaign'>;
+  /** A linked token's conditions live on its character: its lock, version and reread. */
+  characters: Pick<CharactersDao, 'lockVersion' | 'bumpVersion' | 'findManyInCampaign'>;
 }>;
 
 export type ConditionTransactionRunner = <T>(
@@ -90,20 +95,36 @@ export type ConditionsServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
   transaction: ConditionTransactionRunner;
   publisher: BoardPublisherPort;
+  /** Where a condition on a linked token is told: its character, whole, to the table. */
+  characterPublisher: CharacterPublisherPort;
   clock: ClockPort;
 }>;
 
-type Locked = LockedGridMaybeCast<ConditionWriteDaos>;
-/** A condition as saved and the token that holds it (a linked token's anchor). */
-type Held<T> = Readonly<{ tokenId: string; saved: T; veil: TokenVeil }>;
+type Locked = LockedGridMaybeCharacters<ConditionWriteDaos>;
+
+/** Where one command on one token landed: the token of the grid (its event, under its veil), or
+ *  the character it wears (`character`, reread after the write, goes out whole). */
+type Landed<T> = Readonly<{
+  saved: T;
+  tokenId: string;
+  veil: TokenVeil;
+  character: CharacterRow | null;
+}>;
+
+type AppliedMany = Readonly<{
+  grid: ActiveConditionRow[];
+  characters: CharacterRow[];
+  veil: TokenVeil;
+}>;
 
 const RULES = new ConditionRulesBo();
 
 /** The conditions of a table: the master adds to the list; any member who acts (master or
  *  player, never the spectator) applies, adjusts and removes them on any token of the grid the
  *  command names — a condition is a marker everyone sees, the table corrects itself (spec §3.7).
- *  Persisted, version bumped, then published to who has that grid open (the list itself, to the
- *  cast: every member). Editing and deleting the list is `ConditionCatalogService`'s.
+ *  On a linked token the condition lives on its character (every grid shows it), in the
+ *  characters' version. Persisted, version bumped, then published (the list itself, on the table
+ *  stream, to every member). Editing and deleting the list is `ConditionCatalogService`'s.
  *
  *  Example: `await conditionsService.apply(user.id, campaignId, { tokenId, conditionId, rounds: 2 })` */
 export class ConditionsService {
@@ -112,43 +133,44 @@ export class ConditionsService {
   async define(userId: string, campaignId: string, command: DefineCondition): Promise<number> {
     const access = await this.accessOf(userId, campaignId);
     access.requireMaster('define a condition');
-    // The list is the table's: it stays on the cast whatever grid the command names.
-    const outcome = await inLockedCast(this.deps.transaction, campaignId, async ({ daos }) => {
-      await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
-      const existing = await daos.conditions.findDefinitionByName(campaignId, command.name);
-      if (RULES.defineOrReuse(existing).kind === 'reuse') return { value: null, changed: false };
-      const fields = toNewConditionDefinition(command);
-      const created = await daos.conditions.insertDefinition(campaignId, fields);
-      return { value: created, changed: true };
-    });
+    // The list is the table's: it rides the table stream whatever grid the command names.
+    const outcome = await inLockedCharacters(
+      this.deps.transaction,
+      campaignId,
+      async ({ daos }) => {
+        await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
+        const existing = await daos.conditions.findDefinitionByName(campaignId, command.name);
+        if (RULES.defineOrReuse(existing).kind === 'reuse') return { value: null, changed: false };
+        const fields = toNewConditionDefinition(command);
+        const created = await daos.conditions.insertDefinition(campaignId, fields);
+        return { value: created, changed: true };
+      },
+    );
     if (!outcome.value) return outcome.version;
     const definition = toConditionDefinitionDto(outcome.value);
-    const base = gridEventBase(campaignId, outcome, this.deps.clock);
+    const base = charactersEventBase(campaignId, outcome.version, this.deps.clock);
     this.deps.publisher.conditionDefined({ ...base, definition });
     return outcome.version;
   }
 
-  /** On a linked token the condition lands on its anchor: an event of the cast, every grid.
-   *  Applying a stacking condition the token already has adds a stack and renews the duration. */
+  /** On a linked token the condition lands on its character: `character:changed`, every grid.
+   *  Applying a stacking condition the holder already has adds a stack and renews the duration. */
   async apply(userId: string, campaignId: string, command: ApplyCondition): Promise<number> {
     const access = await this.accessOf(userId, campaignId);
-    const saved = await this.inSharedGrid(access, command.sceneId, async (locked) => {
-      const { daos, scene } = locked;
-      const token = await tokenInScene(daos, scene, command.tokenId);
+    const saved = await this.onHolderOf(access, command, async ({ daos, scene }, holder) => {
       const known = await knownDefinition(daos, campaignId, command.conditionId);
       const duration = await durationIn(daos, scene, command.rounds);
-      const holder = stateHolderIn(locked, token);
-      const [applied] = await applyTo(daos, [holder.tokenId], known, duration);
-      if (!applied) throw new Error(`apply of ${known.id} on ${holder.tokenId} saved nothing`);
-      return heldBy(holder, applied, token);
+      const [applied] = await applyTo(daos, [holder], known, duration);
+      if (!applied) throw new Error(`apply of ${known.id} on ${holderIdOf(holder)} saved nothing`);
+      return applied;
     });
     this.publishOne(campaignId, saved);
     return saved.version;
   }
 
-  /** All or nothing: one token missing from the grid refuses the whole group, one version. */
-  /** A group mixing linked and unlinked tokens: the anchors' conditions go out as an event of
-   *  the cast, the others' as one of the grid. */
+  /** All or nothing: one token missing from the grid refuses the whole group. A group mixing
+   *  linked and unlinked tokens goes out as one `character:changed` (the characters' version)
+   *  and one `condition:appliedMany` of the grid (its version). */
   async applyMany(userId: string, campaignId: string, command: ApplyConditions): Promise<number> {
     const access = await this.accessOf(userId, campaignId);
     const saved = await this.inGrid(access, command.sceneId, async (locked) => {
@@ -156,33 +178,31 @@ export class ConditionsService {
       const tokens = await tokensInScene(daos, scene, command.tokenIds);
       const known = await knownDefinition(daos, campaignId, command.conditionId);
       const duration = await durationIn(daos, scene, command.rounds);
-      const holders = tokens.map((row) => stateHolderIn(locked, row));
-      const holderIds = holders.map((holder) => holder.tokenId);
-      const applied = await applyTo(daos, holderIds, known, duration);
-      const inCast = (index: number): boolean => holders[index]?.inCast ?? false;
-      const grid = applied.filter((_, index) => !inCast(index));
-      const cast = applied.filter((_, index) => inCast(index));
-      const veil = veilOf(tokens.filter((_, index) => !inCast(index)));
-      return { value: { grid, cast, veil }, grid: grid.length > 0, cast: cast.length > 0 };
+      const holders = uniqueHolders(tokens.map((row) => holderIn(locked, row)));
+      const applied = await applyTo(daos, holders, known, duration);
+      const grid = applied.filter(({ tokenId }) => tokenId !== null);
+      const characters = await charactersIn(daos, campaignId, characterIdsOf(holders));
+      const veil = veilOf(tokens.filter(({ token }) => token.characterId === null));
+      const value = { grid, characters, veil };
+      return { value, grid: grid.length > 0, characters: characters.length > 0 };
     });
-    this.publishApplied(campaignId, saved.cast, saved.value.cast, NO_HIDDEN);
-    this.publishApplied(campaignId, saved.grid, saved.value.grid, saved.value.veil);
+    this.publishMany(campaignId, saved);
     return saved.version;
   }
 
   async remove(userId: string, campaignId: string, command: RemoveCondition): Promise<number> {
     const access = await this.accessOf(userId, campaignId);
     const { activeConditionId } = command;
-    const saved = await this.inSharedGrid(access, command.sceneId, async (locked) => {
-      const token = await tokenInScene(locked.daos, locked.scene, command.tokenId);
-      const holder = stateHolderIn(locked, token);
-      const removed = await locked.daos.conditions.remove(holder.tokenId, activeConditionId);
+    const saved = await this.onHolderOf(access, command, async ({ daos }, holder) => {
+      const removed = await daos.conditions.remove(holder, activeConditionId);
       if (!removed) throw new ConditionNotFoundError(campaignId, activeConditionId);
-      return heldBy(holder, removed, token);
     });
-    const { tokenId, veil } = saved.value;
-    const event = { ...this.baseOf(campaignId, saved), tokenId, activeConditionId };
-    this.deps.publisher.conditionRemoved(event, cutsOf(event, veil, tokenSeenBy));
+    const { tokenId, veil, character } = saved.value;
+    if (character) return this.publishCharacter(campaignId, saved, character);
+    if (!saved.grid) throw new Error(`condition:remove on ${tokenId} touched neither holder`);
+    const event = { ...gridEventBase(campaignId, saved.grid, this.deps.clock), tokenId };
+    const removed = { ...event, activeConditionId };
+    this.deps.publisher.conditionRemoved(removed, cutsOf(removed, veil, tokenSeenBy));
     return saved.version;
   }
 
@@ -194,15 +214,12 @@ export class ConditionsService {
     command: SetConditionRounds,
   ): Promise<number> {
     const access = await this.accessOf(userId, campaignId);
-    const saved = await this.inSharedGrid(access, command.sceneId, async (locked) => {
-      const token = await tokenInScene(locked.daos, locked.scene, command.tokenId);
+    const { activeConditionId } = command;
+    const saved = await this.onHolderOf(access, command, async ({ daos }, holder) => {
       const rounds = RULES.durationOf(command.rounds);
-      const { activeConditionId } = command;
-      const holder = stateHolderIn(locked, token);
-      const conditions = locked.daos.conditions;
-      const changed = await conditions.setRounds(holder.tokenId, activeConditionId, rounds);
+      const changed = await daos.conditions.setRounds(holder, activeConditionId, rounds);
       if (!changed) throw new ConditionNotFoundError(campaignId, activeConditionId);
-      return heldBy(holder, changed, token);
+      return changed;
     });
     this.publishOne(campaignId, saved);
     return saved.version;
@@ -218,12 +235,9 @@ export class ConditionsService {
     command: SetConditionStacks,
   ): Promise<number> {
     const access = await this.accessOf(userId, campaignId);
-    const saved = await this.inSharedGrid(access, command.sceneId, async (locked) => {
-      const token = await tokenInScene(locked.daos, locked.scene, command.tokenId);
-      const holder = stateHolderIn(locked, token);
-      const changed = await stacksSetOn(locked.daos, campaignId, holder.tokenId, command);
-      return heldBy(holder, changed, token);
-    });
+    const saved = await this.onHolderOf(access, command, ({ daos }, holder) =>
+      stacksSetOn(daos, campaignId, holder, command),
+    );
     this.publishOne(campaignId, saved);
     return saved.version;
   }
@@ -238,38 +252,62 @@ export class ConditionsService {
   private inGrid<T>(
     access: CampaignAccessBo,
     sceneId: string | undefined,
-    work: (locked: Locked) => Promise<CastAndGridChange<T>>,
-  ): Promise<SavedInCastAndGrid<T>> {
+    work: (locked: Locked) => Promise<CharactersAndGridChange<T>>,
+  ): Promise<SavedInCharactersAndGrid<T>> {
     const address = { campaignId: access.campaignIdOf(), sceneId, access };
-    return inLockedGridWithCast(this.deps.transaction, address, work);
+    return inLockedGridWithCharacters(this.deps.transaction, address, work);
   }
 
-  // A command on one token touches one scene: the grid, or the cast for a linked token.
-  private inSharedGrid<T>(
+  // A command on one token touches one part: the grid, or the character a linked token wears.
+  private onHolderOf<T>(
     access: CampaignAccessBo,
-    sceneId: string | undefined,
-    work: (locked: Locked) => Promise<Readonly<{ held: Held<T>; inCast: boolean }>>,
-  ): Promise<SavedInCastAndGrid<Held<T>>> {
-    return this.inGrid(access, sceneId, async (locked) => {
-      const { held, inCast } = await work(locked);
-      return { value: held, grid: !inCast, cast: inCast };
+    command: Readonly<{ sceneId?: string; tokenId: string }>,
+    write: (locked: Locked, holder: ConditionHolder) => Promise<T>,
+  ): Promise<SavedInCharactersAndGrid<Landed<T>>> {
+    return this.inGrid(access, command.sceneId, async (locked) => {
+      const token = await tokenInScene(locked.daos, locked.scene, command.tokenId);
+      const holder = holderIn(locked, token);
+      const saved = await write(locked, holder);
+      const tokenId = token.token.id;
+      if ('tokenId' in holder) {
+        const value = { saved, tokenId, veil: veilOf([token]), character: null };
+        return { value, grid: true, characters: false };
+      }
+      const campaignId = locked.scene.campaignId;
+      const [character] = await charactersIn(locked.daos, campaignId, [holder.characterId]);
+      const value = { saved, tokenId, veil: NO_HIDDEN, character: character ?? null };
+      return { value, grid: false, characters: true };
     });
-  }
-
-  private baseOf(campaignId: string, saved: SavedInCastAndGrid<unknown>): GridEventBase {
-    const touched = saved.cast ?? saved.grid;
-    if (!touched) throw new Error('a condition command touched neither its grid nor the cast');
-    return savedEventBase(campaignId, touched, this.deps.clock);
   }
 
   private publishOne(
     campaignId: string,
-    saved: SavedInCastAndGrid<Held<ActiveConditionRow>>,
+    saved: SavedInCharactersAndGrid<Landed<ActiveConditionRow>>,
   ): void {
-    const { tokenId, saved: row, veil } = saved.value;
-    const condition = toActiveConditionDto(row);
-    const event = { ...this.baseOf(campaignId, saved), tokenId, condition };
+    const { tokenId, saved: row, veil, character } = saved.value;
+    if (character) {
+      this.publishCharacter(campaignId, saved, character);
+      return;
+    }
+    if (!saved.grid) throw new Error(`a condition command on ${tokenId} touched neither holder`);
+    const base = gridEventBase(campaignId, saved.grid, this.deps.clock);
+    const event = { ...base, tokenId, condition: toActiveConditionDto(row) };
     this.deps.publisher.conditionApplied(event, cutsOf(event, veil, tokenSeenBy));
+  }
+
+  private publishCharacter(
+    campaignId: string,
+    saved: SavedInCharactersAndGrid<unknown>,
+    character: CharacterRow,
+  ): number {
+    publishCharactersChange(this.outlet(), campaignId, saved.characters, [character]);
+    return saved.version;
+  }
+
+  private publishMany(campaignId: string, saved: SavedInCharactersAndGrid<AppliedMany>): void {
+    const { grid, characters, veil } = saved.value;
+    publishCharactersChange(this.outlet(), campaignId, saved.characters, characters);
+    this.publishApplied(campaignId, saved.grid, grid, veil);
   }
 
   private publishApplied(
@@ -279,10 +317,31 @@ export class ConditionsService {
     veil: TokenVeil,
   ): void {
     if (!saved || applied.length === 0) return;
-    const base = savedEventBase(campaignId, saved, this.deps.clock);
+    const base = gridEventBase(campaignId, saved, this.deps.clock);
     const event = { ...base, applied: applied.map(toTokenConditionDto) };
     this.deps.publisher.conditionsApplied(event, cutsOf(event, veil, APPLIED_SEEN_BY));
   }
+
+  private outlet(): Readonly<{ publisher: CharacterPublisherPort; clock: ClockPort }> {
+    return { publisher: this.deps.characterPublisher, clock: this.deps.clock };
+  }
+}
+
+// The holder of a token's conditions; a linked one needs the characters locked (the run starts
+// again with them otherwise, see `requireCharactersLock`).
+function holderIn(locked: Locked, row: TokenRow): ConditionHolder {
+  const holder = holderOfToken(row.token);
+  if ('characterId' in holder) requireCharactersLock(locked);
+  return holder;
+}
+
+function characterIdsOf(holders: readonly ConditionHolder[]): string[] {
+  return holders.flatMap((holder) => ('characterId' in holder ? [holder.characterId] : []));
+}
+
+function uniqueHolders(holders: readonly ConditionHolder[]): ConditionHolder[] {
+  const byId = new Map(holders.map((holder) => [holderIdOf(holder), holder]));
+  return [...byId.values()];
 }
 
 // Stamped with the combat round so the end of the holder's turn in this round does not count it.
@@ -308,15 +367,16 @@ async function knownDefinition(
 // One read for every holder: each lands one stack above what it had, up to the cap.
 async function applyTo(
   daos: ConditionWriteDaos,
-  tokenIds: readonly string[],
+  holders: readonly ConditionHolder[],
   known: ConditionDefinitionPo,
   duration: ConditionDuration,
 ): Promise<ActiveConditionRow[]> {
-  const current = await daos.conditions.stacksOf(tokenIds, known.id);
+  const current = await daos.conditions.stacksOf(holders, known.id);
   const applied: ActiveConditionRow[] = [];
-  for (const tokenId of tokenIds) {
-    const stacks = RULES.stacksAfterApply(current.get(tokenId) ?? null, known.maxStacks);
-    applied.push(await daos.conditions.apply(tokenId, known.id, duration, stacks));
+  for (const holder of holders) {
+    const had = current.get(holderIdOf(holder)) ?? null;
+    const stacks = RULES.stacksAfterApply(had, known.maxStacks);
+    applied.push(await daos.conditions.apply(holder, known.id, duration, stacks));
   }
   return applied;
 }
@@ -324,14 +384,14 @@ async function applyTo(
 async function stacksSetOn(
   daos: ConditionWriteDaos,
   campaignId: string,
-  holderTokenId: string,
+  holder: ConditionHolder,
   command: SetConditionStacks,
 ): Promise<ActiveConditionRow> {
   const { activeConditionId, stacks } = command;
-  const active = await daos.conditions.findActiveOnToken(holderTokenId, activeConditionId);
+  const active = await daos.conditions.findActiveOf(holder, activeConditionId);
   if (!active) throw new ConditionNotFoundError(campaignId, activeConditionId);
   RULES.requireStacksWithin(active, stacks);
-  const changed = await daos.conditions.setStacks(holderTokenId, activeConditionId, stacks);
+  const changed = await daos.conditions.setStacks(holder, activeConditionId, stacks);
   if (!changed) throw new ConditionNotFoundError(campaignId, activeConditionId);
   return changed;
 }
@@ -360,15 +420,6 @@ async function tokenInScene(
   return token;
 }
 
-// A condition on an anchor goes to the cast, out of any veil; one on a grid token, under its own.
-function heldBy<T>(
-  holder: StateHolder,
-  saved: T,
-  token: TokenRow,
-): Readonly<{ held: Held<T>; inCast: boolean }> {
-  const veil = holder.inCast ? NO_HIDDEN : veilOf([token]);
-  return { held: { tokenId: holder.tokenId, saved, veil }, inCast: holder.inCast };
-}
-
+// A character's condition goes out with the character, out of any token's veil.
 const NO_HIDDEN: TokenVeil = { tokens: [] };
 const APPLIED_SEEN_BY = entriesSeenBy<GridEvent<ConditionsAppliedDto>>('applied');

@@ -129,7 +129,6 @@ describe('what each audience receives of an event', () => {
   it.each([
     ['token:moved', { tokenId: LOBO_ID, col: 1, row: 1 }],
     ['condition:applied', { tokenId: LOBO_ID }],
-    ['token:mainChanged', { tokenId: LOBO_ID, userId: BIA_ID }],
   ])('%s of the Lobo alone is null for who does not see it', (_name, fields) => {
     expect(tokenSeenBy({ ...BASE, ...fields }, invisible)).toBeNull();
     expect(tokenSeenBy({ ...BASE, ...fields }, new Set([SOMBRA_ID]))).toEqual({

@@ -9,7 +9,6 @@ import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import { DEFAULT_CONDITIONS } from '../conditions/condition-rules.bo';
 import type { ConditionsDao } from '../conditions/conditions.dao';
-import { CAST_SCENE_NAME } from '../scenes/scenes.po';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { MembershipReader } from './cached-memberships';
 import type { CampaignCodePort } from './campaign-code.port';
@@ -53,8 +52,6 @@ export type CampaignsServiceDeps = Readonly<{
     | 'campaignIdsOfUser'
     | 'lastAccessAtOf'
   >;
-  /** The cast of each table, whose id the detail carries. */
-  scenes: Pick<ScenesDao, 'findCastOf'>;
   /** The remembered memberships: the roster of the live session (`session:join`) warms them for
    *  the board commands that follow. */
   memberships: MembershipReader;
@@ -130,11 +127,9 @@ export class CampaignsService {
     const campaign = await this.deps.campaigns.findById(campaignId);
     if (!membership || !campaign) throw new Error(`member of missing campaign ${campaignId}`);
     const members = await this.deps.members.listMembers(campaignId);
-    const cast = await this.deps.scenes.findCastOf(campaignId);
-    if (!cast) throw new Error(`campaign ${campaignId} has no cast; every campaign has one`);
     const lastAccessAt = await this.deps.members.lastAccessAtOf(campaignId);
     const onlineUserIds = this.deps.presence.onlineUserIdsOf(campaignId);
-    return { campaign, membership, members, castSceneId: cast.id, lastAccessAt, onlineUserIds };
+    return { campaign, membership, members, lastAccessAt, onlineUserIds };
   }
 
   private async insertUnlessCodeTaken(
@@ -151,7 +146,6 @@ export class CampaignsService {
         await daos.members.insert({ campaignId: campaign.id, userId, role: 'master', joinedAt });
         const scene = await daos.scenes.insert({ campaignId: campaign.id });
         await daos.campaigns.setActiveScene(campaign.id, scene.id);
-        await daos.scenes.insert({ campaignId: campaign.id, name: CAST_SCENE_NAME, kind: 'cast' });
         await daos.conditions.insertDefinitions(campaign.id, DEFAULT_CONDITIONS);
         return { ...campaign, activeSceneId: scene.id };
       });

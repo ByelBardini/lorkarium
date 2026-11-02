@@ -26,7 +26,6 @@ import {
   campaignMemberPo,
   campaignPo,
 } from '../../support/campaigns-factories';
-import { castPo } from '../../support/scenes-factories';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
 
 const NOW = new Date('2026-10-24T20:00:00Z');
@@ -44,7 +43,6 @@ describe('CampaignSettingsService', () => {
 
   function build(): void {
     const scenes = new ScenesDaoFake();
-    scenes.rows.push(castPo({ campaignId: VHARN_ID }));
     const conditions = new ConditionDefinitionsFake();
     const runner = new TransactionRunnerFake({ campaigns, members, scenes, conditions });
     const hasher = new PasswordHasherFake();

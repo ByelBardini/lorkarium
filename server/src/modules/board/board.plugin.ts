@@ -8,10 +8,8 @@ import { ConditionsDao } from '../conditions/conditions.dao';
 import { DrawingsDao } from '../drawings/drawings.dao';
 import { EffectAreasDao } from '../effect-areas/effect-areas.dao';
 import { LightsDao } from '../lights/lights.dao';
-import { MemberCardsDao } from '../member-cards/member-cards.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenesService } from '../scenes/scenes.service';
-import { MainTokensDao } from '../tokens/main-tokens.dao';
 import { TokensDao } from '../tokens/tokens.dao';
 import { WallsDao } from '../walls/walls.dao';
 import { createBoardGateway, type BoardGatewayDeps } from './board.gateway';
@@ -29,10 +27,9 @@ export type BoardModuleOptions = Readonly<{
   tokenBatch: BoardGatewayDeps['tokenBatch'];
   tokenAppearance: BoardGatewayDeps['tokenAppearance'];
   tokenForm: BoardGatewayDeps['tokenForm'];
-  mainToken: BoardGatewayDeps['mainToken'];
   tokenVisibility: BoardGatewayDeps['tokenVisibility'];
   tokenLink: BoardGatewayDeps['tokenLink'];
-  memberCards: BoardGatewayDeps['memberCards'];
+  characters: BoardGatewayDeps['characters'];
   pings: BoardGatewayDeps['pings'];
   conditions: BoardGatewayDeps['conditions'];
   conditionCatalog: BoardGatewayDeps['conditionCatalog'];
@@ -56,10 +53,10 @@ export type BoardModule = Readonly<{ gateway: (socket: RealtimeSocket) => void }
  *  Example: `realtime.onConnection(createBoardModule(options).gateway)` */
 export function createBoardModule(options: BoardModuleOptions): BoardModule {
   const { db, scenes, tokens, tokenBatch, tokenAppearance, conditions, combat, drawings } = options;
-  const { clock, effectAreas, walls, lights, mainToken, memberCards } = options;
+  const { clock, effectAreas, walls, lights } = options;
   const { realtime, rate, queue, log } = options;
   const { members, sceneWatch, sceneActivation, tokenLink, pings, conditionCatalog } = options;
-  const { tokenVisibility, tokenForm, sheetBars } = options;
+  const { tokenVisibility, tokenForm, sheetBars, characters } = options;
   const snapshot: BoardSnapshotRunner = (work) =>
     runInSnapshot(db, (tx) =>
       work({
@@ -71,8 +68,6 @@ export function createBoardModule(options: BoardModuleOptions): BoardModule {
         effectAreas: new EffectAreasDao(tx),
         walls: new WallsDao(tx),
         lights: new LightsDao(tx),
-        mainTokens: new MainTokensDao(tx),
-        memberCards: new MemberCardsDao(tx),
       }),
     );
   const board = new BoardService({ members, snapshot, clock });
@@ -85,10 +80,9 @@ export function createBoardModule(options: BoardModuleOptions): BoardModule {
     tokenBatch,
     tokenAppearance,
     tokenForm,
-    mainToken,
     tokenVisibility,
     tokenLink,
-    memberCards,
+    characters,
     pings,
     conditions,
     conditionCatalog,

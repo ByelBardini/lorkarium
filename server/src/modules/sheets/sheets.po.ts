@@ -12,8 +12,10 @@ import {
   timestamp,
   unique,
   uuid,
+  type PgTableExtraConfigValue,
 } from 'drizzle-orm/pg-core';
 import { campaigns } from '../campaigns/campaigns.po';
+import { characters } from '../characters/characters.po';
 import { sceneFolders } from '../library/scene-folders.po';
 import { tokens } from '../tokens/tokens.po';
 import { sheetTemplates } from './sheet-templates.po';
@@ -36,20 +38,31 @@ export const tokenSheets = pgTable(
     templateId: uuid('template_id').notNull(),
     name: text('name').notNull(),
     folderId: uuid('folder_id'),
-    // The token that holds it (a character's is its anchor, in the cast); null = nobody's. Many
+    // The free token that holds it (a linked token's go to its character); null = nobody's. Many
     // sheets per token; losing the token leaves the sheet in the library, without a holder.
     tokenId: uuid('token_id').references(() => tokens.id, { onDelete: 'set null' }),
+    // The character that holds it, in place of a token (at most one of the two, CHECK
+    // token_sheets_one_holder); losing the character leaves the sheet without a holder.
+    characterId: uuid('character_id'),
     visibility: sheetVisibility('visibility').notNull().default('controllers'),
     values: jsonb('values').$type<SheetValuesPo>().notNull().default({}),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
+  (t): PgTableExtraConfigValue[] => [
     unique('token_sheets_campaign_id_id_unique').on(t.campaignId, t.id),
     index('token_sheets_template_idx').on(t.campaignId, t.templateId),
     index('token_sheets_token_idx').on(t.campaignId, t.tokenId),
     index('token_sheets_folder_idx').on(t.campaignId, t.folderId),
+    index('token_sheets_character_idx').on(t.campaignId, t.characterId),
+    // Narrowed by hand to SET NULL ("character_id"), as the folder key below.
+    foreignKey({
+      name: 'token_sheets_character_fk',
+      columns: [t.campaignId, t.characterId],
+      foreignColumns: [characters.campaignId, characters.id],
+    }).onDelete('set null'),
+    check('token_sheets_one_holder', sql`${t.tokenId} IS NULL OR ${t.characterId} IS NULL`),
     // The migration narrows it to SET NULL ("folder_id"): a plain set null would also null the
     // campaign_id (see the 0033 trap in docs/context/library.md).
     foreignKey({

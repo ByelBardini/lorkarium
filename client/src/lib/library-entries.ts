@@ -6,6 +6,7 @@ import type {
   SheetSummaryDto,
   SheetTemplateSummaryDto,
 } from '@lorkarium/contracts';
+import { isSpareSheet } from './sheet-holder';
 
 export type ImageEntry = LibraryImageDto & Readonly<{ kind: 'image' }>;
 export type DocumentEntry = DocumentSummaryDto & Readonly<{ kind: 'document' }>;
@@ -111,7 +112,7 @@ function sheetEntries(library: MixedLibrary, holderLabel: SheetHolderLabeler): S
     ...sheet,
     id: sheetKey(sheet.id),
     kind: 'sheet',
-    visibility: sheet.tokenId !== null && sheet.visibility === 'table' ? 'public' : 'private',
+    visibility: !isSpareSheet(sheet) && sheet.visibility === 'table' ? 'public' : 'private',
     sheetVisibility: sheet.visibility,
     holderLabel: holderLabel(sheet),
   }));

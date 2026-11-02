@@ -74,11 +74,11 @@ function useRefocusOpener(): (event: Event) => void {
 function useUsage(link: ConditionCatalogLink, conditionId: string): Usage {
   const [usage, setUsage] = useState<Usage>({ kind: 'counting' });
   const { commands } = link;
-  const { campaignId, sceneId } = link.scope;
+  const { campaignId } = link.scope;
   // Asked once per opening: the scope's fields, not the link object, decide when to ask again.
   useEffect(() => {
     let current = true;
-    void commands.conditionUsage({ campaignId, sceneId }, conditionId).then((result) => {
+    void commands.conditionUsage({ campaignId }, conditionId).then((result) => {
       if (!current) return;
       const text = result.ok ? usageText(result.tokens) : catalogFailureMessage(result.failure);
       setUsage({ kind: 'counted', text });
@@ -86,7 +86,7 @@ function useUsage(link: ConditionCatalogLink, conditionId: string): Usage {
     return () => {
       current = false;
     };
-  }, [commands, campaignId, sceneId, conditionId]);
+  }, [commands, campaignId, conditionId]);
   return usage;
 }
 

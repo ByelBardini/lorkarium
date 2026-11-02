@@ -18,8 +18,8 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Formas no mapa: `token:formChanged`, `setTokenForm`, desfazer, "Trocar forma", teclas 1–8   | [`token-forms.md`](client/token-forms.md)                     |
 | Chaves de token da mesa: o jogador cria, edita e exclui os seus                             | [`token-rights.md`](client/token-rights.md)                   |
 | Auras dos tokens: estado e eventos, formulário (`AuraEditor`), onde se edita, desenho       | [`auras.md`](client/auras.md)                                 |
-| Rodapé do token (`TokenDock`): selecionado ou principal, `mainTokenIdOf`, `token:setMain`   | [`token-dock.md`](client/token-dock.md)                       |
-| Aba "Na mesa": mestres, card de cada jogador (ficha, token principal, barras), ausência     | [`table-people.md`](client/table-people.md)                   |
+| Rodapé do token (`TokenDock`): selecionado, token do meu personagem ou o personagem         | [`token-dock.md`](client/token-dock.md)                       |
+| Aba "Na mesa": mestres, card do personagem de cada jogador (barras, CA, fichas), ausência   | [`table-people.md`](client/table-people.md)                   |
 | Papéis na mesa: dono, co-mestre, juggernaut, troca de papel e o modo do admin               | [`table-roles.md`](client/table-roles.md)                     |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro                | [`combat.md`](client/combat.md)                               |
 | Condições: etiquetas, descrição, stacks, página "Condições da mesa", ferramenta (C)         | [`conditions.md`](client/conditions.md)                       |
@@ -36,7 +36,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Editor de modelo de ficha: CodeMirror, rascunho, prévia, biblioteca, aba e janela           | [`sheet-template-editor.md`](client/sheet-template-editor.md) |
 | Imagens na biblioteca: cadastro, árvore mista, prévia, apresentação e janela desktop        | [`library-images.md`](client/library-images.md)               |
 | Abas de grid na sala: escopo do comando, `watch`, `scene-tabs-store`, `SceneTabs`           | [`grid-tabs.md`](client/grid-tabs.md)                         |
-| Personagem: elenco, token ligado composto, ligar à ficha, "Adicionar jogadores"             | [`characters.md`](client/characters.md)                       |
+| Personagem: store `character:*`, token ligado composto, ligar a personagem, fichas          | [`characters.md`](client/characters.md)                       |
 | Ping no mapa: cor por pessoa, segurar/Alt+clique, pulso do anel, seta na borda              | [`pings.md`](client/pings.md)                                 |
 | Minha conta: perfil, foto, barra de alterações, senha, e-mail, sessões, 2FA, link do e-mail | [`account.md`](client/account.md)                             |
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas  | [`backoffice.md`](client/backoffice.md)                       |
@@ -101,10 +101,10 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/services/{profile-api,account-security-api,account-failure}.ts` — ver [`client/account.md`](client/account.md); `user-admin-api.ts`, `account-links-api.ts` — ver os sub-docs do backoffice e dos links
 - `src/services/campaigns-api.ts` — `CampaignsApi` / `HttpCampaignsApi`: `list`, `create`, `detail`, `join`, `enter`, `update`, `regenerateCode`, `remove`, cada um devolvendo `CampaignsResult<T>`; falhas em [`client/campaign-parts.md`](client/campaign-parts.md)
 - `src/services/realtime-transport.ts` — `RealtimeTransport` / `SocketIoRealtimeTransport`: o único lugar do `socket.io-client` ([`client/realtime.md`](client/realtime.md))
-- `src/services/table-session-api.ts` — `TableSessionApi` / `RealtimeTableSessionApi`: várias mesas sobre um socket, `open(campaignId, listener)` → handle com `close`, `setAway`, `watch`, `followCast` ([`client/realtime.md`](client/realtime.md))
+- `src/services/table-session-api.ts` — `TableSessionApi` / `RealtimeTableSessionApi`: várias mesas sobre um socket, `open(campaignId, listener)` → handle com `close`, `setAway`, `watch`, `followCharacters` ([`client/realtime.md`](client/realtime.md))
 - `src/services/clipboard.ts` — `Clipboard` (interface) e `NavigatorClipboard` (`copy(texto)` → `false` quando o navegador recusa; `readText()` → `null`)
 - `src/stores/rail-store.ts` — `createRailStore(storage)` (Zustand vanilla), `useRail(store)`; `rail` = `expanded` (padrão) | `collapsed`, gravado em `localStorage` (`lorkarium.rail`); storage que lança cai na memória
-- `src/stores/open-tables-store.ts` — `createOpenTablesStore({ api, storage, createInteraction, wallClock? })`: as mesas abertas da aba (até `MAX_OPEN_TABLES`, no `sessionStorage`), cada uma com presença, tabuleiro, elenco, edição, abas e o histórico de dados ([`client/realtime.md`](client/realtime.md))
+- `src/stores/open-tables-store.ts` — `createOpenTablesStore({ api, storage, createInteraction, wallClock? })`: as mesas abertas da aba (até `MAX_OPEN_TABLES`, no `sessionStorage`), cada uma com presença, tabuleiro, fluxo da mesa (personagens e lista de condições), edição, abas e o histórico de dados ([`client/realtime.md`](client/realtime.md))
 - Dados: `src/features/dice/`, `src/lib/dice-*.ts`, `src/services/{dice-commands,saved-rolls-api}.ts`, `src/stores/dice-{history,preferences}-store.ts` e o `browserWallClock` de `src/lib/interaction-clock.ts` ([`client/dice.md`](client/dice.md), [`client/dice-tab.md`](client/dice-tab.md))
 - `src/stores/table-presence-store.ts` — `createTablePresenceStore(campaignId)`: quem está na mesa, com a regra de versão ([`client/realtime.md`](client/realtime.md))
 - `src/stores/session-store.ts` — `createSessionStore()` (Zustand vanilla), singleton `sessionStore`, hook `useSession(store)`; estado `unknown { reconnecting }` (`serverUnreachable()`) → `authenticated { user }` | `anonymous`

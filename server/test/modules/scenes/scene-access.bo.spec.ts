@@ -4,7 +4,7 @@ import { SceneAccessBo, type GridVisibility } from '../../../src/modules/scenes/
 import { SceneNotFoundError } from '../../../src/modules/scenes/scenes.error';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, VHARN_ID } from '../../support/campaigns-factories';
-import { VHARN_CAST_ID, VHARN_SCENE_ID } from '../../support/scenes-factories';
+import { VHARN_SCENE_ID } from '../../support/scenes-factories';
 
 const OSSUARY_ID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
 
@@ -60,27 +60,5 @@ describe('SceneAccessBo.seesEveryGrid', () => {
   it('is true for the master and false for a player', () => {
     expect(accessOf(ANA_ID, 'master').seesEveryGrid()).toBe(true);
     expect(accessOf(BIA_ID, 'player').seesEveryGrid()).toBe(false);
-  });
-});
-
-describe('SceneAccessBo and the cast of the table', () => {
-  const cast = { id: VHARN_CAST_ID, visibility: 'private', kind: 'cast' } as const;
-
-  it('every member sees the cast, though it is private and not the group grid', () => {
-    expect(accessOf(BIA_ID, 'player').canSee(cast)).toBe(true);
-    expect(() => accessOf(BIA_ID, 'player').requireSee(cast)).not.toThrow();
-    expect(() => accessOf(ANA_ID, 'master').requireSee(cast)).not.toThrow();
-  });
-
-  it('no one acts on the cast directly, not even Ana the master: SCENE_NOT_FOUND', () => {
-    expect(() => accessOf(ANA_ID, 'master').requireAct(cast)).toThrow(SceneNotFoundError);
-    expect(() => accessOf(BIA_ID, 'player').requireAct(cast)).toThrow(
-      expect.objectContaining({ code: 'SCENE_NOT_FOUND' }),
-    );
-  });
-
-  it('requireSee still refuses Bia a private grid outside the group', () => {
-    const see = () => accessOf(BIA_ID, 'player').requireSee(grid(OSSUARY_ID, 'private'));
-    expect(see).toThrow(expect.objectContaining({ code: 'SCENE_NOT_FOUND' }));
   });
 });

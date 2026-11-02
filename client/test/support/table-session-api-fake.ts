@@ -1,5 +1,7 @@
 import { act } from '@testing-library/react';
 import type {
+  CharacterListener,
+  CharacterUpdate,
   GridListener,
   GridUpdate,
   TableSessionApi,
@@ -14,9 +16,10 @@ import { CallJournal } from './call-journal';
  *  `emitTo(campaignId, update)` to that table's, both inside `act`; `close` writes
  *  `close:<campaignId>` to the journal. Extra grid tabs: `watched` / `unwatched` list each
  *  `watch` and tab `close` as `<campaignId>:<sceneId>`, `watchResyncs` each tab `resync()`, and
- *  `emitToGrid(sceneId, update)` delivers to the open tab of that grid. The cast: `castFollowed`
- *  lists each `followCast` as `<campaignId>:<sceneId>`, `castResyncs` each cast `resync()`, and
- *  `emitToCast(campaignId, update)` delivers to that table's cast.
+ *  `emitToGrid(sceneId, update)` delivers to the open tab of that grid. The table stream (the
+ *  characters and the condition list): `charactersFollowed` lists each `followCharacters` by
+ *  table, `characterResyncs` each of their `resync()`, and `emitToCharacters(campaignId, update)`
+ *  delivers to that table's stream.
  *
  *  Example: `tableSessionApi.emitTo(VHARN.id, { kind: 'state', state: vharnState() })` */
 export class TableSessionApiFake implements TableSessionApi {
@@ -29,9 +32,9 @@ export class TableSessionApiFake implements TableSessionApi {
   readonly watched: string[] = [];
   readonly unwatched: string[] = [];
   readonly watchResyncs: string[] = [];
-  readonly castFollowed: string[] = [];
-  readonly castResyncs: string[] = [];
-  private readonly castListeners = new Map<string, GridListener>();
+  readonly charactersFollowed: string[] = [];
+  readonly characterResyncs: string[] = [];
+  private readonly characterListeners = new Map<string, CharacterListener>();
   private listener: TableSessionListener | null = null;
   private readonly listeners = new Map<string, TableSessionListener>();
   private readonly gridListeners = new Map<string, GridListener>();
@@ -58,26 +61,29 @@ export class TableSessionApiFake implements TableSessionApi {
         this.awayCalls.push({ campaignId, away });
       },
       watch: (sceneId, listener) => this.watch(campaignId, sceneId, listener),
-      followCast: (sceneId, listener) => {
-        this.castFollowed.push(`${campaignId}:${sceneId}`);
-        this.castListeners.set(campaignId, listener);
-        return { resync: () => void this.castResyncs.push(`${campaignId}:${sceneId}`) };
+      followCharacters: (listener) => {
+        this.charactersFollowed.push(campaignId);
+        this.characterListeners.set(campaignId, listener);
+        return { resync: () => void this.characterResyncs.push(campaignId) };
       },
     };
   }
 
-  emitToGrid(sceneId: string, ...updates: GridUpdate[]): void {
-    const listener = this.gridListeners.get(sceneId);
-    if (!listener) throw new Error(`no tab of ${sceneId} is open; watched: ${this.watched}`);
+  emitToCharacters(campaignId: string, ...updates: CharacterUpdate[]): void {
+    const listener = this.characterListeners.get(campaignId);
+    if (!listener) {
+      throw new Error(
+        `table ${campaignId} follows no characters; followed: ${this.charactersFollowed}`,
+      );
+    }
     act(() => {
       for (const update of updates) listener(update);
     });
   }
 
-  emitToCast(campaignId: string, ...updates: GridUpdate[]): void {
-    const listener = this.castListeners.get(campaignId);
-    if (!listener)
-      throw new Error(`table ${campaignId} follows no cast; followed: ${this.castFollowed}`);
+  emitToGrid(sceneId: string, ...updates: GridUpdate[]): void {
+    const listener = this.gridListeners.get(sceneId);
+    if (!listener) throw new Error(`no tab of ${sceneId} is open; watched: ${this.watched}`);
     act(() => {
       for (const update of updates) listener(update);
     });

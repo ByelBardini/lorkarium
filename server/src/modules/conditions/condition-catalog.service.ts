@@ -7,9 +7,13 @@ import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { toCampaignAccessBo } from '../campaigns/campaigns.mapper';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
-import { inLockedCast } from '../scenes/locked-cast';
+import {
+  charactersEventBase,
+  inLockedCharacters,
+  type SavedInCharacters,
+  type TableEventBase,
+} from '../characters/locked-characters';
 import { requireAssetsOf } from '../tokens/token-transaction';
-import { gridEventBase, type GridEventBase, type SavedInScene } from '../scenes/locked-scene';
 import { ConditionRulesBo } from './condition-rules.bo';
 import type { ConditionsDao } from './conditions.dao';
 import { ConditionNotFoundError } from './conditions.error';
@@ -35,8 +39,10 @@ const RULES = new ConditionRulesBo();
 
 /** The table's list of conditions, the master's alone: edit, delete (it leaves every token),
  *  count where it is held and bring back the missing defaults. The list is the table's, so the
- *  writes lock and bump the CAST whatever grid the command names, and publish to its rooms
- *  (every member) after the commit.
+ *  writes lock and bump the table stream (the characters' version) whatever grid the command
+ *  names, and publish to the whole table after the commit. A holder's conditions change with the
+ *  list (renamed, clamped, gone) without a `character:changed`: one event per version, and the
+ *  client applies the definition event to the characters it holds.
  *
  *  Example: `await catalog.update(user.id, campaignId, { conditionId, name: 'Envenenado', tone: 'harm', icon: 'flask-conical', look: null, color: null, description: '', maxStacks: null })` */
 export class ConditionCatalogService {
@@ -51,7 +57,7 @@ export class ConditionCatalogService {
   ): Promise<number> {
     await this.requireMaster(userId, campaignId, 'edit a condition');
     const { conditionId } = command;
-    const saved = await inLockedCast(this.deps.transaction, campaignId, async ({ daos }) => {
+    const saved = await inLockedCharacters(this.deps.transaction, campaignId, async ({ daos }) => {
       await knownDefinition(daos, campaignId, conditionId);
       await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
       const sameName = await daos.conditions.findDefinitionByName(campaignId, command.name);
@@ -70,7 +76,7 @@ export class ConditionCatalogService {
     return saved.version;
   }
 
-  /** The active conditions pointing at it go with it (the cascade), on every grid and the cast. */
+  /** The active conditions pointing at it go with it (the cascade), on every grid and every character. */
   async delete(
     userId: string,
     campaignId: string,
@@ -78,7 +84,7 @@ export class ConditionCatalogService {
   ): Promise<number> {
     await this.requireMaster(userId, campaignId, 'delete a condition');
     const { conditionId } = command;
-    const saved = await inLockedCast(this.deps.transaction, campaignId, async ({ daos }) => {
+    const saved = await inLockedCharacters(this.deps.transaction, campaignId, async ({ daos }) => {
       const deleted = await daos.conditions.deleteDefinition(campaignId, conditionId);
       if (!deleted) throw new ConditionNotFoundError(campaignId, conditionId);
       return { value: conditionId, changed: true };
@@ -90,7 +96,7 @@ export class ConditionCatalogService {
     return saved.version;
   }
 
-  /** How many tokens hold it, on every grid and the cast: no lock, no version.
+  /** How many tokens hold it, on every grid and every character: no lock, no version.
    *
    *  Example: `const tokens = await catalog.usage(user.id, campaignId, { conditionId }) // 3` */
   async usage(userId: string, campaignId: string, command: ConditionUsage): Promise<number> {
@@ -104,7 +110,7 @@ export class ConditionCatalogService {
   /** Nothing missing: the current version, with no bump and no event. */
   async restoreDefaults(userId: string, campaignId: string): Promise<number> {
     await this.requireMaster(userId, campaignId, 'restore the default conditions');
-    const saved = await inLockedCast(this.deps.transaction, campaignId, async ({ daos }) => {
+    const saved = await inLockedCharacters(this.deps.transaction, campaignId, async ({ daos }) => {
       const existing = await daos.conditions.listDefinitions(campaignId);
       const missing = RULES.missingDefaults(existing.map((definition) => definition.name));
       const restored = await daos.conditions.insertDefinitions(campaignId, missing);
@@ -126,8 +132,8 @@ export class ConditionCatalogService {
     access.requireMaster(action);
   }
 
-  private baseOf(campaignId: string, saved: SavedInScene<unknown>): GridEventBase {
-    return gridEventBase(campaignId, saved, this.deps.clock);
+  private baseOf(campaignId: string, saved: SavedInCharacters<unknown>): TableEventBase {
+    return charactersEventBase(campaignId, saved.version, this.deps.clock);
   }
 }
 

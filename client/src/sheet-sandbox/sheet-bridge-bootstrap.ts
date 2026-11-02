@@ -37,7 +37,6 @@ export interface SheetFrameRejectionEvent {
 /** The sandboxed frame's `window` as the bootstrap sees it. Structural, with no DOM type, so the
  *  e2e (Node types only) can import the builder that embeds this file. */
 export interface SheetFrameScope {
-  readonly parent: unknown;
   readonly console: SheetFrameConsole;
   setTimeout(callback: () => void, delayMs: number): unknown;
   addEventListener(type: 'message', listener: (event: SheetFrameMessageEvent) => void): void;
@@ -391,9 +390,23 @@ function installLorkariumSdk(scope: SheetFrameScope, limits: SheetConsoleFrameLi
       settle(answer, answer.type === 'result');
   }
 
+  // `event.source` is the window that called `postMessage`, not the frame's `parent`: in the
+  // sheet's own window the room's window posts the port through its portal. Any window outside
+  // the frame may hand it off; the frame itself (or one inside it) never, or the author's code
+  // could fake the host. The walk stops at the top window (its `parent` is itself).
+  function isOutsideFrame(source: unknown): boolean {
+    let current = source as { parent?: unknown } | null;
+    for (let depth = 0; depth < 64; depth += 1) {
+      if (typeof current !== 'object' || current === null || current === scope) return false;
+      if (current.parent === current) return true;
+      current = current.parent as { parent?: unknown } | null;
+    }
+    return false;
+  }
+
   function onWindowMessage(event: SheetFrameMessageEvent): void {
     const data = event.data as { type?: unknown } | null;
-    if (port !== null || event.source !== scope.parent || event.ports.length !== 1) return;
+    if (port !== null || !isOutsideFrame(event.source) || event.ports.length !== 1) return;
     if (typeof data !== 'object' || data === null || data.type !== 'lorkarium:port') return;
     port = event.ports[0] as SheetSdkPort;
     port.addEventListener('message', onHostMessage);

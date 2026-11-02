@@ -8,7 +8,7 @@ import {
 import { createOpenTablesStore } from '@/stores/open-tables-store';
 import { ANA } from '../support/auth-api-fake';
 import { VHARN } from '../support/campaigns-api-fake';
-import { VHARN_CAST_ID } from '../support/cast-fixtures';
+import { LYRA_CHARACTER_ID } from '../support/character-fixtures';
 import { StorageFake } from '../support/storage-fake';
 import { tabInteractions } from '../support/tab-interactions';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
@@ -17,7 +17,6 @@ import { BIA_AT_TABLE, CAIO_AT_TABLE, lyra, vharnRenamed } from '../support/tabl
 const BIA = { userId: BIA_AT_TABLE.userId, role: 'player' } as const;
 const BOTH_KEYS = { create: true, delete: true };
 const BIAS_TOKEN = lyra({ createdBy: BIA_AT_TABLE.userId });
-const ANCHOR_ID = '7f6e5d4c-3b2a-4f1e-9d8c-7b6a5f4e3d2c';
 
 describe('viewerTokenRightsOf', () => {
   it('a player with the create key may create and edit, not delete, her own token', () => {
@@ -38,7 +37,10 @@ describe('viewerTokenRightsOf', () => {
   it.each([
     ['Caio’s token', lyra({ createdBy: CAIO_AT_TABLE.userId })],
     ['a token from before authors (createdBy null)', lyra({ createdBy: null })],
-    ['her token linked to a character', lyra({ createdBy: BIA.userId, anchorTokenId: ANCHOR_ID })],
+    [
+      'her token linked to a character',
+      lyra({ createdBy: BIA.userId, characterId: LYRA_CHARACTER_ID }),
+    ],
   ])('with both keys on, the player gets nothing on %s', (_case, token) => {
     expect(viewerTokenRightsOf(BOTH_KEYS, BIA).of(token)).toEqual({ edit: false, delete: false });
   });
@@ -68,7 +70,7 @@ describe('liveTableTokenRightsOf', () => {
       createInteraction: tabInteractions(),
     });
     store.getState().restore(ANA.id);
-    store.getState().open({ campaignId: VHARN.id, name: 'Vharn', castSceneId: VHARN_CAST_ID });
+    store.getState().open({ campaignId: VHARN.id, name: 'Vharn' });
     const table = () => store.getState().tables[0] ?? null;
     return { api, table };
   }

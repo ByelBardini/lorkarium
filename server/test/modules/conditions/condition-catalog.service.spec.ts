@@ -18,7 +18,8 @@ import { QUELM_MAP_ID, lyraPortraitPo } from '../../support/assets-factories';
 import { CombatDaoFake } from '../../support/combat-fakes';
 import { ConditionTransactionRunnerFake, ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
-import { VHARN_CAST_ID, VHARN_SCENE_ID, castPo, scenePo } from '../../support/scenes-factories';
+import { CharactersDaoFake } from '../../support/characters-fakes';
+import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
 import { BRAM_ID, LYRA_ID, bramRow, lyraRow } from '../../support/tokens-factories';
 import { DEFAULT_CONDITIONS } from '../../../src/modules/conditions/condition-rules.bo';
@@ -46,7 +47,7 @@ describe('ConditionCatalogService', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: DUDA_ID, role: 'spectator' }),
     ]);
-    scenes = new ScenesDaoFake([scenePo({ version: 4 }), castPo({ version: 2 })]);
+    scenes = new ScenesDaoFake([scenePo({ version: 4 })]);
     scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
     const tokens = new TokensDaoFake(scenes.journal, [lyraRow(), bramRow()]);
     conditions = new ConditionsDaoFake(scenes.journal);
@@ -68,6 +69,7 @@ describe('ConditionCatalogService', () => {
       conditions,
       combat,
       assets,
+      new CharactersDaoFake(scenes.journal, [], { [VHARN_ID]: 2 }),
     );
     deps = {
       members,
@@ -86,8 +88,14 @@ describe('ConditionCatalogService', () => {
   }
 
   async function heldByLyraAndBram(conditionId: string): Promise<void> {
-    await conditions.apply(LYRA_ID, conditionId, { remainingRounds: null, appliedRound: null });
-    await conditions.apply(BRAM_ID, conditionId, { remainingRounds: 2, appliedRound: null });
+    await conditions.apply({ tokenId: LYRA_ID }, conditionId, {
+      remainingRounds: null,
+      appliedRound: null,
+    });
+    await conditions.apply({ tokenId: BRAM_ID }, conditionId, {
+      remainingRounds: 2,
+      appliedRound: null,
+    });
     scenes.journal.splice(0);
   }
 
@@ -96,17 +104,22 @@ describe('ConditionCatalogService', () => {
   }
 
   describe('update', () => {
-    it('the master describing Envenenado saves it, bumps the cast and publishes the new definition after the commit', async () => {
+    it('the master describing Envenenado saves it, bumps the table stream and publishes the new definition after the commit', async () => {
       const version = await service.update(ANA_ID, VHARN_ID, envenenadoEdit());
 
       expect(version).toBe(3);
-      expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+      expect(scenes.journal).toEqual([
+        'lock characters',
+        'save',
+        'bump characters',
+        'commit',
+        'publish',
+      ]);
       expect(publisher.catalogEvents).toEqual([
         {
           name: 'condition:definitionUpdated',
           event: {
             campaignId: VHARN_ID,
-            sceneId: VHARN_CAST_ID,
             version: 3,
             at: NOW.toISOString(),
             definition: {
@@ -180,7 +193,13 @@ describe('ConditionCatalogService', () => {
       );
 
       expect(version).toBe(3);
-      expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+      expect(scenes.journal).toEqual([
+        'lock characters',
+        'save',
+        'bump characters',
+        'commit',
+        'publish',
+      ]);
       expect(conditions.definitions.find(({ id }) => id === envenenado)?.imageAssetId).toBe(
         VENENO_ART_ID,
       );
@@ -210,7 +229,7 @@ describe('ConditionCatalogService', () => {
         code: 'ASSET_NOT_FOUND',
         message: expect.stringContaining(QUELM_MAP_ID),
       });
-      expect(scenes.journal).toEqual(['lock cast']);
+      expect(scenes.journal).toEqual(['lock characters']);
       expect(conditions.definitions.find(({ id }) => id === envenenado)).toMatchObject({
         imageAssetId: null,
         description: '',
@@ -238,8 +257,8 @@ describe('ConditionCatalogService', () => {
     beforeEach(async () => {
       sangrando = conditions.define(VHARN_ID, 'Sangrando', 'harm', 'droplet', null, '', 5);
       const duration = { remainingRounds: null, appliedRound: null };
-      await conditions.apply(LYRA_ID, sangrando, duration, 4);
-      await conditions.apply(BRAM_ID, sangrando, duration, 1);
+      await conditions.apply({ tokenId: LYRA_ID }, sangrando, duration, 4);
+      await conditions.apply({ tokenId: BRAM_ID }, sangrando, duration, 1);
       stacksSeen = new StacksAtPublishPublisherFake(conditions, scenes.journal);
       service = new ConditionCatalogService({ ...deps, publisher: stacksSeen });
     });
@@ -288,7 +307,13 @@ describe('ConditionCatalogService', () => {
       const version = await service.delete(ANA_ID, VHARN_ID, { conditionId: cego });
 
       expect(version).toBe(3);
-      expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+      expect(scenes.journal).toEqual([
+        'lock characters',
+        'save',
+        'bump characters',
+        'commit',
+        'publish',
+      ]);
       expect(vharnDefinitionNames()).toEqual(['Envenenado']);
       expect(conditions.active).toEqual([]);
       expect(publisher.catalogEvents).toEqual([
@@ -296,7 +321,6 @@ describe('ConditionCatalogService', () => {
           name: 'condition:definitionDeleted',
           event: {
             campaignId: VHARN_ID,
-            sceneId: VHARN_CAST_ID,
             version: 3,
             at: NOW.toISOString(),
             conditionId: cego,
@@ -322,7 +346,7 @@ describe('ConditionCatalogService', () => {
 
       expect(tokens).toBe(2);
       expect(scenes.journal).toEqual([]);
-      expect(scenes.rows.map(({ version }) => version)).toEqual([4, 2]);
+      expect(scenes.rows.map(({ version }) => version)).toEqual([4]);
       expect(publisher.published).toBe(0);
     });
 
@@ -346,7 +370,13 @@ describe('ConditionCatalogService', () => {
       const version = await service.restoreDefaults(ANA_ID, VHARN_ID);
 
       expect(version).toBe(4);
-      expect(scenes.journal).toEqual(['lock cast', 'save', 'bump cast', 'commit', 'publish']);
+      expect(scenes.journal).toEqual([
+        'lock characters',
+        'save',
+        'bump characters',
+        'commit',
+        'publish',
+      ]);
       const [published] = publisher.catalogEvents;
       expect(published?.name).toBe('condition:defaultsRestored');
       const restored = published?.event as { definitions: { name: string }[]; version: number };
@@ -376,7 +406,7 @@ describe('ConditionCatalogService', () => {
       const version = await service.restoreDefaults(ANA_ID, VHARN_ID);
 
       expect(version).toBe(2);
-      expect(scenes.journal).toEqual(['lock cast', 'commit']);
+      expect(scenes.journal).toEqual(['lock characters', 'commit']);
       expect(publisher.published).toBe(0);
     });
   });

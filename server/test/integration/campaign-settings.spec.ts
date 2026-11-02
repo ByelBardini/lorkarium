@@ -331,7 +331,7 @@ describe('campaign settings HTTP edge', () => {
       const vharnConditions = eq(conditionDefinitions.campaignId, vharn.id);
       expect(await db.select().from(conditionDefinitions).where(vharnConditions)).toEqual([]);
       expect(await db.select().from(assets).where(eq(assets.campaignId, vharn.id))).toEqual([]);
-      expect(await db.select().from(scenes).where(eq(scenes.campaignId, quelm.id))).toHaveLength(2);
+      expect(await db.select().from(scenes).where(eq(scenes.campaignId, quelm.id))).toHaveLength(1);
       expect(await db.select().from(assets).where(eq(assets.campaignId, quelm.id))).toHaveLength(1);
     });
 

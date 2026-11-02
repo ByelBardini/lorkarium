@@ -3,6 +3,7 @@ import {
   sceneClosedDto,
   tokenUpdatedDto,
   type BoardStateDto,
+  type CharacterSyncDto,
   type TokenDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
@@ -14,6 +15,7 @@ import {
   type EventRecorder,
   type RealtimeClient,
 } from '../support/realtime-client';
+import { characterOfUser, characterUpdate, charactersSynced } from '../support/table-characters';
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
@@ -38,13 +40,13 @@ function setRole(targetId: string, role: 'master' | 'player' | 'spectator') {
   return live.http(live.ana, { method: 'PATCH', url, payload: { role } });
 }
 
-// Ana, Bia and Caio with Vharn open; Lyra of Bia on the group grid; Bia's card filled in.
+// Ana, Bia and Caio with Vharn open; Lyra of Bia on the group grid; Bia's character filled in.
 async function liveRoleTable(): Promise<LiveRoleTable> {
   const ana = await live.atTable(live.ana, live.vharn);
   await send(ana, 'token:create', tokenCommandFor(live.vharn, live.bia.id));
   const bia = await live.atTable(live.bia, live.vharn);
-  const card = { memberId: live.bia.id, changes: BIA_CARD };
-  await send(bia, 'member:updateCard', { ...envelope(live.vharn.id), ...card });
+  const { character } = await characterOfUser(live, live.vharn, live.bia);
+  await send(bia, 'character:update', characterUpdate(live.vharn, character.id, BIA_CARD));
   const caio = await live.atTable(live.caio, live.vharn);
   return { ana, bia, caio, lyraId: lyraOf(await synced(ana, live.vharn)).id };
 }
@@ -59,6 +61,10 @@ async function renameLyra(table: LiveRoleTable, name: string): Promise<void> {
 
 async function updatedLyraOf(recorder: EventRecorder): Promise<TokenDto> {
   return tokenUpdatedDto.parse(await eventPayload(recorder, 'token:updated')).token;
+}
+
+function userIdsIn(sync: CharacterSyncDto): (string | null)[] {
+  return sync.characters.map(({ userId }) => userId);
 }
 
 function labelsOf(token: TokenDto): string[] {
@@ -77,23 +83,22 @@ describe('live: the role change moves the connections of the member between the 
     expect([lyra.canControl, labelsOf(lyra)]).toEqual([false, ['Inspiração']]);
   });
 
-  it('the board:sync of Bia moved to the spectators: Lyra out of her control and no card of her own', async () => {
+  it('the syncs of Bia moved to the spectators: Lyra out of her control and no character of her own', async () => {
     const table = await liveRoleTable();
 
     await setRole(live.bia.id, 'spectator');
     const state = await synced(table.bia, live.vharn);
 
     expect(lyraOf(state).canControl).toBe(false);
-    expect(state.memberCards.map(({ userId }) => userId)).not.toContain(live.bia.id);
+    expect(userIdsIn(await charactersSynced(table.bia, live.vharn))).not.toContain(live.bia.id);
   });
 
-  it('the board:sync of Caio comes without the card of Bia once she is a spectator', async () => {
+  it('the character:sync of Caio comes without the character of Bia once she is a spectator', async () => {
     const table = await liveRoleTable();
 
     await setRole(live.bia.id, 'spectator');
-    const state = await synced(table.caio, live.vharn);
 
-    expect(state.memberCards.map(({ userId }) => userId)).not.toContain(live.bia.id);
+    expect(userIdsIn(await charactersSynced(table.caio, live.vharn))).not.toContain(live.bia.id);
   });
 
   it('Bia promoted back hears Lyra whole again, with control', async () => {
@@ -108,7 +113,7 @@ describe('live: the role change moves the connections of the member between the 
     expect([lyra.canControl, labelsOf(lyra)]).toEqual([true, ['PV', 'Inspiração']]);
   });
 
-  it('Bia promoted back finds in her board:sync the control of Lyra and her card as it was', async () => {
+  it('Bia promoted back finds the control of Lyra and her character as it was', async () => {
     const table = await liveRoleTable();
     await setRole(live.bia.id, 'spectator');
 
@@ -116,7 +121,8 @@ describe('live: the role change moves the connections of the member between the 
     const state = await synced(table.bia, live.vharn);
 
     expect(lyraOf(state).canControl).toBe(true);
-    expect(state.memberCards.find(({ userId }) => userId === live.bia.id)).toMatchObject(BIA_CARD);
+    const { characters } = await charactersSynced(table.bia, live.vharn);
+    expect(characters.find(({ userId }) => userId === live.bia.id)).toMatchObject(BIA_CARD);
   });
 
   it('Caio at Quelm hears nothing of the role changes at Vharn', async () => {

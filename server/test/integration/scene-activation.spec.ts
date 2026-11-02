@@ -1,6 +1,5 @@
 import { sceneActivatedDto, sceneClosedDto, sceneUpdatedDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { castIdOf } from '../support/characters';
 import { activateGrid, gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence } from '../support/live-table';
 import {
@@ -9,6 +8,7 @@ import {
   type RealtimeClient,
 } from '../support/realtime-client';
 import type { Table } from '../support/tables';
+import { characterOfUser, characterUpdate } from '../support/table-characters';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
@@ -117,19 +117,15 @@ describe('taking the group to another grid (scene:activate)', () => {
     expect(sceneUpdatesOf(biaEvents)).toEqual([]);
   });
 
-  it("after the move, Caio's sheet and a defined condition still reach Bia, as events of the cast", async () => {
+  it("after the move, Caio's character and a defined condition still reach Bia, on the table stream", async () => {
     const estrada = await newGrid(live, live.ana, live.vharn, 'Estrada de Vharn');
-    const castId = await castIdOf(live, live.bia, live.vharn);
     const [ana, bia, caio] = await threeAtVharn();
     const biaEvents = recordEventsOf(bia);
+    const kael = await characterOfUser(live, live.vharn, live.caio);
 
     await activateGrid(ana, live.vharn, estrada);
-    const card = {
-      ...envelope(live.vharn.id),
-      memberId: live.caio.id,
-      changes: { armorClass: 15 },
-    };
-    expect(await send(caio, 'member:updateCard', card)).toMatchObject({ ok: true });
+    const card = characterUpdate(live.vharn, kael.character.id, { armorClass: 15 });
+    expect(await send(caio, 'character:update', card)).toMatchObject({ ok: true });
     const condition = {
       ...envelope(live.vharn.id),
       name: 'Sangrando',
@@ -138,8 +134,11 @@ describe('taking the group to another grid (scene:activate)', () => {
     };
     expect(await send(ana, 'condition:define', condition)).toMatchObject({ ok: true });
 
-    expect(await eventPayload(biaEvents, 'member:cardChanged')).toMatchObject({ sceneId: castId });
-    expect(await eventPayload(biaEvents, 'condition:defined')).toMatchObject({ sceneId: castId });
+    const changed = await eventPayload(biaEvents, 'character:changed');
+    const defined = await eventPayload(biaEvents, 'condition:defined');
+    expect(changed).toMatchObject({ campaignId: live.vharn.id });
+    expect(defined).toMatchObject({ campaignId: live.vharn.id });
+    expect(defined).not.toHaveProperty('sceneId');
   });
 
   it('Bia taking the group anywhere is FORBIDDEN and nobody is moved', async () => {

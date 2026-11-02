@@ -85,7 +85,9 @@ export function RoomHeader({
       )}
       {tabs && (
         // Fills the bar so the tabs know their room; only the tabs themselves stop the window drag.
-        <div className="flex min-w-0 flex-1">
+        // The floor (two tabs and the "+N") makes a long table name truncate before the tabs
+        // shrink to nothing.
+        <div className="flex min-w-[min(20rem,35%)] flex-1">
           <SceneTabs tabs={tabs} documents={documentWorkspace} campaignId={campaign.id} />
         </div>
       )}

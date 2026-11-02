@@ -46,12 +46,16 @@ describe('RealtimeConditionCatalogCommands', () => {
       () => commands.conditionUsage(VHARN_GRID, poisoned.id),
       { conditionId: poisoned.id },
     ],
-  ] as const)('%s goes out with the envelope and its fields', (event, sendIt, fields) => {
-    void sendIt();
-    expect(transport.sent).toEqual([
-      { event, payload: { actionId: ACTION_ID, ...VHARN_GRID, ...fields } },
-    ]);
-  });
+  ] as const)(
+    '%s goes out with the table envelope (no grid) and its fields',
+    (event, sendIt, fields) => {
+      void sendIt();
+      // The list is the table stream's: even given a grid, the command names none.
+      expect(transport.sent).toEqual([
+        { event, payload: { actionId: ACTION_ID, campaignId: VHARN_GRID.campaignId, ...fields } },
+      ]);
+    },
+  );
 
   it('condition:updateDefinition carries the image the master chose', () => {
     const imageAssetId = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';

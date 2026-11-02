@@ -1,4 +1,4 @@
-import { NO_VEIL, cutsOf, entriesSeenBy, tokenIdsSeenBy, veilOf } from './token-veil.mapper';
+import { cutsOf, entriesSeenBy, tokenIdsSeenBy, veilOf } from './token-veil.mapper';
 import { publishVeiledLights, veiledWriteOf, type VeiledWrite } from './token-veil';
 import type { GridEvent } from '../scenes/board-publisher.port';
 import type {
@@ -17,13 +17,16 @@ import { inLockedGrid } from '../scenes/locked-scene';
 import { placeInScene, requireBox, requireFacing } from './token-rules.bo';
 import type { TokenBoxPo, TokenRow } from './tokens.dao';
 import { lookAssetIdsOf, toTokenStylePo } from './token-aura.mapper';
-import { splitStyle, stateHolderIdOf } from './linked-token';
+import { splitStyle } from './linked-token';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
+import type { CharacterRow } from '../characters/characters.dao';
 import {
-  inLockedGridWithCast,
-  requireCastLock,
-  type CastAndGridChange,
-  type LockedGridMaybeCast,
-} from '../scenes/locked-cast';
+  inLockedGridWithCharacters,
+  requireCharactersLock,
+  type CharactersAndGridChange,
+  type LockedGridMaybeCharacters,
+} from '../characters/locked-characters-grid';
+import { publishCharactersChange, restyleCharacters } from './character-writes';
 import {
   requireAssetsOf,
   tokenAccessOf,
@@ -41,6 +44,8 @@ export type TokenAppearanceServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
   transaction: TokenTransactionRunner;
   publisher: BoardPublisherPort;
+  /** Where a restyle of a linked token's character is told (`character:changed`). */
+  characterPublisher: CharacterPublisherPort;
   clock: ClockPort;
 }>;
 
@@ -78,24 +83,28 @@ export class TokenAppearanceService {
   }
 
   /** The look is the controllers' to choose, on any layer (like the bars). On a linked token
-   *  the image, frame, defeat mark and aura are its anchor's (an event of the cast); the flips and
-   *  the light switch stay its own in the grid. Every image (the token's, the aura's) must be an
+   *  the image, frame, defeat mark and aura are its character's (one `character:changed`); the
+   *  flips and the light switch stay its own in the grid. Every image (the token's, the aura's) must be an
    *  asset of the table. */
   async restyleMany(userId: string, campaignId: string, command: RestyleTokens): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const address = { campaignId, sceneId: command.sceneId, access };
-    const saved = await inLockedGridWithCast(this.deps.transaction, address, async (locked) => {
-      const rows = await tokensIn(locked.daos, locked.scene, campaignId, command.tokenIds);
-      for (const row of rows) tokenAccessOf(access, row).requireControl('restyle');
-      await requireAssetsOf(locked.daos, campaignId, lookAssetIdsOf(command.style));
-      const restyled = await restyleIn(locked, rows, command.style);
-      const veiled = await litWriteOf(locked.daos, locked.scene.id, rows, command.style);
-      return { ...restyled, value: { ...restyled.value, veiled } };
-    });
+    const saved = await inLockedGridWithCharacters(
+      this.deps.transaction,
+      address,
+      async (locked) => {
+        const rows = await tokensIn(locked.daos, locked.scene, campaignId, command.tokenIds);
+        for (const row of rows) tokenAccessOf(access, row).requireControl('restyle');
+        await requireAssetsOf(locked.daos, campaignId, lookAssetIdsOf(command.style));
+        const restyled = await restyleIn(locked, rows, command.style);
+        const veiled = await litWriteOf(locked.daos, locked.scene.id, rows, command.style);
+        return { ...restyled, value: { ...restyled.value, veiled } };
+      },
+    );
     const at = this.deps.clock.now().toISOString();
-    const { grid, cast, veiled } = saved.value;
-    if (saved.cast && cast)
-      this.deps.publisher.tokensRestyled({ campaignId, ...saved.cast, at, ...cast }, NO_VEIL);
+    const { grid, characters, veiled } = saved.value;
+    const outlet = { publisher: this.deps.characterPublisher, clock: this.deps.clock };
+    publishCharactersChange(outlet, campaignId, saved.characters, characters);
     if (saved.grid && grid) {
       const event = { campaignId, ...saved.grid, at, ...grid };
       this.deps.publisher.tokensRestyled(event, cutsOf(event, veiled.veil, tokenIdsSeenBy));
@@ -139,27 +148,44 @@ export class TokenAppearanceService {
 
 type Restyled = Readonly<{ tokenIds: string[]; style: TokenStyleDto }>;
 
-// Unlinked tokens take the whole style; linked ones their own part, their anchors the shared one.
+type RestyledParts = Readonly<{ grid: Restyled | null; characters: CharacterRow[] }>;
+
+// Unlinked tokens take the whole style; linked ones their own part, their characters the shared
+// one (the characters locked before any write).
 async function restyleIn(
-  locked: LockedGridMaybeCast<TokenWriteDaos>,
+  locked: LockedGridMaybeCharacters<TokenWriteDaos>,
   rows: readonly TokenRow[],
   style: TokenStyleDto,
-): Promise<CastAndGridChange<Readonly<{ grid: Restyled | null; cast: Restyled | null }>>> {
-  const { shared, own } = splitStyle(style);
-  const loose = rows.filter(({ token }) => token.anchorTokenId === null).map(idOf);
-  const linked = rows.filter(({ token }) => token.anchorTokenId !== null);
-  const anchors = Object.keys(shared).length > 0 ? linked.map(stateHolderIdOf) : [];
-  if (anchors.length > 0) requireCastLock(locked);
+): Promise<CharactersAndGridChange<RestyledParts>> {
+  const { shared } = splitStyle(style);
+  const linked = rows.filter(({ token }) => token.characterId !== null);
+  const sharedIds = Object.keys(shared).length > 0 ? linked.flatMap(characterIdOf) : [];
+  if (sharedIds.length > 0) requireCharactersLock(locked);
+  const grid = await restyleGrid(locked.daos, rows, linked, style);
+  const { campaignId } = locked.scene;
+  const look = toTokenStylePo(shared);
+  const characters = await restyleCharacters(locked.daos, campaignId, sharedIds, look);
+  return { value: { grid, characters }, grid: grid !== null, characters: characters.length > 0 };
+}
+
+// The grid's part: the whole style on the unlinked tokens, the own part on the linked ones.
+async function restyleGrid(
+  daos: TokenWriteDaos,
+  rows: readonly TokenRow[],
+  linked: readonly TokenRow[],
+  style: TokenStyleDto,
+): Promise<Restyled | null> {
+  const { own } = splitStyle(style);
+  const loose = rows.filter(({ token }) => token.characterId === null).map(idOf);
   const ownIds = Object.keys(own).length > 0 ? linked.map(idOf) : [];
-  const { tokens } = locked.daos;
-  if (loose.length > 0) await tokens.restyle(loose, toTokenStylePo(style));
-  if (ownIds.length > 0) await tokens.restyle(ownIds, toTokenStylePo(own));
-  if (anchors.length > 0) await tokens.restyle(anchors, toTokenStylePo(shared));
-  const gridIds = [...loose, ...ownIds];
-  const grid =
-    gridIds.length > 0 ? { tokenIds: gridIds, style: loose.length > 0 ? style : own } : null;
-  const cast = anchors.length > 0 ? { tokenIds: anchors, style: shared } : null;
-  return { value: { grid, cast }, grid: grid !== null, cast: cast !== null };
+  if (loose.length > 0) await daos.tokens.restyle(loose, toTokenStylePo(style));
+  if (ownIds.length > 0) await daos.tokens.restyle(ownIds, toTokenStylePo(own));
+  const tokenIds = [...loose, ...ownIds];
+  return tokenIds.length > 0 ? { tokenIds, style: loose.length > 0 ? style : own } : null;
+}
+
+function characterIdOf({ token }: TokenRow): string[] {
+  return token.characterId === null ? [] : [token.characterId];
 }
 
 function idOf({ token }: TokenRow): string {

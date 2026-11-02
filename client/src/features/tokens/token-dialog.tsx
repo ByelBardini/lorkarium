@@ -79,9 +79,9 @@ export type TokenDialogProps = Readonly<{
   /** The scene's cell: the sight is typed in its unit. */
   distance: SceneDistance;
   connected: boolean;
-  /** The player whose character the token is linked to: identity, control and bars are the
-   *  character's, in every grid (`null`/absent: a loose token). */
-  cardOwner?: string | null;
+  /** The name of the character the token is linked to: identity, control and bars are the
+   *  character's, in every grid (`null`/absent: a free token). */
+  characterName?: string | null;
   /** The master when absent. */
   viewer?: TokenDialogViewer;
   /** The tab it opens on ("Editar formas…" opens on "Formas"); `'basics'` when absent. */
@@ -247,7 +247,7 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
       </TabsList>
       <div className="px-6 py-6 md:min-h-0 md:flex-1 md:overflow-y-auto md:px-7">
         <TabsContent value="basics">
-          <SharedNote owner={props.cardOwner} />
+          <SharedNote characterName={props.characterName} />
           <TokenBasicsTab
             form={form}
             errors={errors}
@@ -257,7 +257,7 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
           />
         </TabsContent>
         <TabsContent value="bars">
-          <SharedNote owner={props.cardOwner} />
+          <SharedNote characterName={props.characterName} />
           <BarsEditor
             bars={form.bars}
             errors={errors.bars}
@@ -297,11 +297,11 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
 }
 
 // The fields of this tab are the character's: changing them changes it in every grid.
-function SharedNote({ owner }: Readonly<{ owner: string | null | undefined }>) {
-  if (!owner) return null;
+function SharedNote({ characterName }: Readonly<{ characterName: string | null | undefined }>) {
+  if (!characterName) return null;
   return (
     <p className="mb-4 border-l-2 border-primary pl-3 text-[13px] text-label">
-      {sharedFieldsNote(owner)}
+      {sharedFieldsNote(characterName)}
     </p>
   );
 }

@@ -4,14 +4,14 @@ Detalhe do hub [`tokens.md`](../tokens.md). O mestre esconde tokens dos jogadore
 
 ## Quem vê
 
-- O mestre e os **controladores** do token (o público `privileged` da redação; o do token ligado são os da âncora). O espectador no Controle continua inerte: não está no `sceneUserRoom`, então cai no "resto".
+- O mestre e os **controladores** do token (o público `privileged` da redação; o do token ligado são os do personagem). O espectador no Controle continua inerte: não está no `sceneUserRoom`, então cai no "resto".
 - O `hidden` vai igual aos dois públicos no `TokenDto` (`toTokenDto`): quem recebe o token pode saber que está escondido.
 
 ## Tabela e DAO
 
 - `tokens.hidden` (`boolean not null default false`), migração `0053_token_hidden`. O `copyScene` (Duplicar) copia como está; o `insertMany` grava o `hidden` da colagem (`newTokenRowOf`: o "Novo token" não manda e nasce visível; colar e o desfazer de uma exclusão levam o da origem).
 - `TokensDao.setHidden(sceneId, ids, hidden)` → os ids gravados (um `UPDATE` com `scene_id` no `WHERE`: id de outra cena não muda).
-- `TokensDao.veilOfScene(sceneId)` → `HiddenTokenPo[]` (`{ token: { id, col, row, width, height, facing, light* }, controllerIds }`): os escondidos da cena em **uma** consulta, controladores do ligado pelos da âncora (`CONTROLLERS_OF_HOLDER`). Roda só quando o comando precisa (abaixo).
+- `TokensDao.veilOfScene(sceneId)` → `HiddenTokenPo[]` (`{ token: { id, col, row, width, height, facing, light* }, controllerIds }`): os escondidos da cena em **uma** consulta, controladores do ligado pelos do personagem. Roda só quando o comando precisa (abaixo).
 
 ## O véu (`token-veil.mapper.ts`, puro)
 
@@ -30,7 +30,7 @@ Detalhe do hub [`tokens.md`](../tokens.md). O mestre esconde tokens dos jogadore
 
 ## Comando `token:setHiddenMany` (`token-visibility.service.ts`)
 
-- `TokenVisibilityService.setHiddenMany(userId, campaignId, { tokenIds, hidden, sceneId? })`: `requireMaster('hide tokens')` (antes de travar) → `inLockedGridWithCast` → `tokensIn` (id de outra mesa → `TOKEN_NOT_FOUND`, nenhum muda) → `changedVisibility` (`token-rules.bo.ts`: só os que mudam) → nada muda: versão atual, sem `bump` nem evento → `setHidden` → `veilOfScene` (o depois; o antes sai dele ± os mudados) → condições dos mudados → combate → `bump` → depois do commit `tokensHiddenChanged` e as luzes veladas. Diário: `lock → setHidden → veil → bump → commit → publish → publishLights`.
+- `TokenVisibilityService.setHiddenMany(userId, campaignId, { tokenIds, hidden, sceneId? })`: `requireMaster('hide tokens')` (antes de travar) → trava só o grid (esconder nunca toca personagem; soma a versão só se algum mudou) → `tokensIn` (id de outra mesa → `TOKEN_NOT_FOUND`, nenhum muda) → `changedVisibility` (`token-rules.bo.ts`: só os que mudam) → nada muda: versão atual, sem `bump` nem evento → `setHidden` → `veilOfScene` (o depois; o antes sai dele ± os mudados) → condições dos mudados → combate → `bump` → depois do commit `tokensHiddenChanged` e as luzes veladas. Diário: `lock → setHidden → veil → bump → commit → publish → publishLights`.
 - `hiddenCutsOf`: por público, quem continua vendo todos os mudados recebe `token:hiddenChanged { tokenIds, hidden }`; ao esconder, quem deixa de ver algum recebe `token:deletedMany { tokenIds: os que sumiram, combat cortado }`; ao revelar, quem passa a ver algum recebe `token:createdMany { tokens: todos os mudados como ele os vê, combat cortado }` (o reducer faz upsert, então o `hidden` dos que ele já via também atualiza).
 
 ## Snapshot (`BoardService.snapshotFor`, também o do `scene:watch`)
@@ -39,21 +39,20 @@ Detalhe do hub [`tokens.md`](../tokens.md). O mestre esconde tokens dos jogadore
 
 ## Eventos de token (fase 7)
 
-| Comando                                                                       | O que quem não vê o escondido recebe                                                                                                                                                             |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `token:move` / `moveMany`                                                     | `board:advanced` / o lote sem ele; luz acesa → `token:veiledLightsChanged` com o centro novo                                                                                                     |
-| `token:dragMany`                                                              | nada (sem versão) / o lote sem ele (`controlVeilOf` das linhas do `findDragGroup`)                                                                                                               |
-| `token:delete`                                                                | o escondido sai como `token:deletedMany { tokenIds: [id] }`: quem não o via recebe `board:advanced` (ou `{ tokenIds: [], combat }` havendo combate)                                              |
-| `token:deleteMany` / `createMany` / `addPlayers`                              | o lote sem ele e o combate cortado (`combatVeilOf`: com combate que tem tokens, + todos os escondidos da cena); colar com `hidden: true` → `board:advanced`                                      |
-| `token:setLayer`, `faceMany`, `restyleMany`, `resizeMany`                     | o lote sem ele; `faceMany`/`resizeMany` e o `lightLit` do `restyleMany` mandam a luz velada nova                                                                                                 |
-| `token:adjustBar`, `token:update`, `token:linkToCard`, `token:unlinkFromCard` | `board:advanced` (`changeSceneOf` + `changeVeilOf`); quem saiu do Controle de um escondido recebe `token:deleted` com o combate como passa a vê-lo; quem entrou recebe o `token:updated` inteiro |
-| `token:setMain`                                                               | `board:advanced`                                                                                                                                                                                 |
+| Comando                                                                                 | O que quem não vê o escondido recebe                                                                                                                                                             |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `token:move` / `moveMany`                                                               | `board:advanced` / o lote sem ele; luz acesa → `token:veiledLightsChanged` com o centro novo                                                                                                     |
+| `token:dragMany`                                                                        | nada (sem versão) / o lote sem ele (`controlVeilOf` das linhas do `findDragGroup`)                                                                                                               |
+| `token:delete`                                                                          | o escondido sai como `token:deletedMany { tokenIds: [id] }`: quem não o via recebe `board:advanced` (ou `{ tokenIds: [], combat }` havendo combate)                                              |
+| `token:deleteMany` / `createMany` / `addPlayers`                                        | o lote sem ele e o combate cortado (`combatVeilOf`: com combate que tem tokens, + todos os escondidos da cena); colar com `hidden: true` → `board:advanced`                                      |
+| `token:setLayer`, `faceMany`, `restyleMany`, `resizeMany`                               | o lote sem ele; `faceMany`/`resizeMany` e o `lightLit` do `restyleMany` mandam a luz velada nova                                                                                                 |
+| `token:adjustBar`, `token:update`, `token:linkToCharacter`, `token:unlinkFromCharacter` | `board:advanced` (`changeSceneOf` + `changeVeilOf`); quem saiu do Controle de um escondido recebe `token:deleted` com o combate como passa a vê-lo; quem entrou recebe o `token:updated` inteiro |
 
 Sem escondido tocado o véu é `NO_VEIL` e o diário dos services é o de sempre (o `veilOfScene` escreve `veil` no diário do fake só quando roda).
 
 ## Condições e combate (fase 8)
 
-- `ConditionsService`: `apply`, `remove`, `setRounds`, `setStacks` cortam por `tokenSeenBy` e `applyMany` por `entriesSeenBy('applied')`, com o véu da linha do token do grid (`heldBy`). Condição de token ligado vai à âncora no elenco, sem véu (fora do escopo do plano).
+- `ConditionsService`: `apply`, `remove`, `setRounds`, `setStacks` cortam por `tokenSeenBy` e `applyMany` por `entriesSeenBy('applied')`, com o véu da linha do token do grid (`heldBy`). Condição de token ligado vai ao personagem (`character:changed`, sem véu; ver [`../characters/condicoes.md`](../characters/condicoes.md)).
 - `CombatService`: o `combatIn` monta o véu pelo `controlOfScene` (que lê o `hidden`): `combat:started` e `combat:updated` por `combatEventSeenBy`, `combat:turnChanged` por `turnChangedSeenBy` (a vez numa entrada escondida = `currentCombatantId: null`; as `conditionChanges` dos escondidos não saem). Nenhuma consulta a mais.
 
 ## Armadilhas

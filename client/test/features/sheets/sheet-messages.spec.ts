@@ -27,8 +27,8 @@ describe('sheet messages', () => {
 
   it.each([
     [{ tokenId: null, memberId: null }, 'Ficha · sem dono, só mestres'],
-    [{ tokenId: 'anchor', memberId: 'bia' }, 'Ficha · de Bia (Lyra)'],
-    [{ tokenId: 'anchor', memberId: 'caio' }, 'Ficha · de um jogador'],
+    [{ tokenId: null, memberId: 'bia' }, 'Ficha · de Bia (Lyra)'],
+    [{ tokenId: null, memberId: 'caio' }, 'Ficha · de um jogador'],
     [{ tokenId: 'goblin', memberId: null }, 'Ficha · token Goblin'],
     [{ tokenId: 'lost', memberId: null }, 'Ficha · num token'],
   ])('says who holds %o: %s', (sheet, label) => {
@@ -37,7 +37,7 @@ describe('sheet messages', () => {
 
   it('a member without a character name is said by the nick alone', () => {
     const names = { ...NAMES, characterName: () => null };
-    expect(sheetHolderLabel({ tokenId: 'anchor', memberId: 'bia' }, names)).toBe('Ficha · de Bia');
+    expect(sheetHolderLabel({ tokenId: null, memberId: 'bia' }, names)).toBe('Ficha · de Bia');
   });
 
   it('words a refusal by its kind, else by the action', () => {

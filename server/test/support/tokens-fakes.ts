@@ -17,11 +17,10 @@ import type {
   CampaignsDao,
   CampaignTokenRightsPo,
 } from '../../src/modules/campaigns/campaigns.dao';
-import { composedTokenRow, type TokenIdentityPo } from '../../src/modules/tokens/linked-token';
+import { composedTokenRow } from '../../src/modules/tokens/linked-token';
 import { savedFormsOf } from '../../src/modules/tokens/token-forms.dao';
-import type { TokenAnchorsDao } from '../../src/modules/tokens/token-anchors.dao';
-import { MemberCardsDaoFake } from './member-cards-fakes';
-import type { MainTokenChoicePo, MainTokensDao } from '../../src/modules/tokens/main-tokens.dao';
+import { TokenCharacterLinkDaoFake } from './token-character-link-fakes';
+import { CharactersDaoFake } from './characters-fakes';
 import { AssetsDaoFake } from './assets-fakes';
 import { CombatDaoFake } from './combat-fakes';
 import { ConditionsDaoFake } from './conditions-fakes';
@@ -30,7 +29,7 @@ import { lyraPo, pvBar } from './tokens-factories';
 
 /** In-memory tokens of every scene. Writes go to `journal` ('save'), shared with the scenes fake,
  *  so a spec reads the whole order of a command. `rows` are as stored; the reads compose a linked
- *  token with its anchor, as the real DAO does.
+ *  token with its character (from `wearFrom`), as the real DAO does.
  *
  *  Example: `const tokens = new TokensDaoFake(scenes.journal, [lyraRow()])` */
 export class TokensDaoFake implements Pick<
@@ -39,7 +38,6 @@ export class TokensDaoFake implements Pick<
   | 'insertMany'
   | 'findInScene'
   | 'findManyInScene'
-  | 'findLinkedInScene'
   | 'listOfScene'
   | 'controlOfScene'
   | 'countOfScene'
@@ -58,6 +56,7 @@ export class TokensDaoFake implements Pick<
   | 'veilOfScene'
 > {
   private cascade: Pick<CombatDaoFake, 'dropToken'> | undefined;
+  private worn: Pick<CharactersDaoFake, 'rows'> | undefined;
   constructor(
     private readonly journal: string[],
     readonly rows: TokenRow[] = [],
@@ -101,21 +100,19 @@ export class TokensDaoFake implements Pick<
       .map((row) => this.composed(row));
   }
 
-  async findLinkedInScene(sceneId: string, anchorTokenId: string): Promise<TokenRow | undefined> {
-    const found = this.rows.find(
-      ({ token }) => token.sceneId === sceneId && token.anchorTokenId === anchorTokenId,
-    );
-    return found && this.composed(found);
+  /** The characters the linked tokens wear from now on (the reads compose with them). */
+  wearFrom(characters: Pick<CharactersDaoFake, 'rows'>): void {
+    this.worn = characters;
   }
 
-  /** The stored row of a token (a linked one without its anchor's state), or a broken test. */
+  /** The stored row of a token (a linked one without its character's state), or a broken test. */
   rowOf(tokenId: string): TokenRow {
     const found = this.rows.find(({ token }) => token.id === tokenId);
     if (!found) throw new Error(`TokensDaoFake has no token ${tokenId}`);
     return found;
   }
 
-  /** Writes the stored row of a token as the anchors fake changes it. */
+  /** Writes the stored row of a token as the link fake (or a spec) changes it. */
   store(tokenId: string, change: (found: TokenRow) => TokenRow): void {
     const index = this.rows.findIndex(({ token }) => token.id === tokenId);
     this.rows[index] = change(this.rowOf(tokenId));
@@ -196,7 +193,7 @@ export class TokensDaoFake implements Pick<
     return own.map(({ token, controllerIds }) => ({
       tokenId: token.id,
       controllerIds: [...controllerIds],
-      anchorTokenId: token.anchorTokenId,
+      characterId: token.characterId,
       hidden: token.hidden,
     }));
   }
@@ -248,8 +245,18 @@ export class TokensDaoFake implements Pick<
     }));
   }
 
-  async updateFields(tokenId: string, fields: Partial<TokenRow['token']>): Promise<void> {
-    this.replace(tokenId, (found) => ({ ...found, token: { ...found.token, ...fields } }));
+  async updateFields(
+    tokenId: string,
+    fields: Partial<TokenRow['token']>,
+    forms?: TokenUpdatePo['forms'],
+  ): Promise<void> {
+    this.replace(tokenId, (found) => ({
+      ...found,
+      token: { ...found.token, ...fields },
+      forms: forms
+        ? savedFormsOf(tokenId, forms, new Set(found.forms.map(({ id }) => id)))
+        : found.forms,
+    }));
   }
 
   async delete(tokenId: string): Promise<void> {
@@ -274,9 +281,9 @@ export class TokensDaoFake implements Pick<
   }
 
   private composed(row: TokenRow): TokenRow {
-    const anchorId = row.token.anchorTokenId;
-    const anchor = anchorId ? this.rows.find(({ token }) => token.id === anchorId) : undefined;
-    return composedTokenRow(row, anchor);
+    const characterId = row.token.characterId;
+    const worn = this.worn?.rows.find(({ character }) => character.id === characterId);
+    return composedTokenRow(row, characterId ? worn : undefined);
   }
 
   private changeToken(tokenId: string, fields: Partial<TokenRow['token']>): void {
@@ -292,112 +299,6 @@ export class TokensDaoFake implements Pick<
     const found = this.rows[index];
     if (!found) throw new Error(`TokensDaoFake has no token ${tokenId}`);
     this.rows[index] = change(found);
-  }
-}
-
-type SceneChoicePo = MainTokenChoicePo & Readonly<{ sceneId: string }>;
-
-/** In-memory main tokens, one per person per scene. Writes go to `journal` ('choose',
- *  'dropLostControl'), shared with the scenes fake, so a spec reads the whole order of a command.
- *
- *  Example: `const mainTokens = new MainTokensDaoFake(scenes.journal)` */
-export class MainTokensDaoFake implements Pick<
-  MainTokensDao,
-  'listOfScene' | 'choose' | 'dropLostControl'
-> {
-  readonly drops: Array<Readonly<{ tokenId: string; keptUserIds: readonly string[] }>> = [];
-
-  constructor(
-    private readonly journal: string[] = [],
-    readonly choices: SceneChoicePo[] = [],
-  ) {}
-
-  async listOfScene(sceneId: string): Promise<MainTokenChoicePo[]> {
-    return this.choices
-      .filter((choice) => choice.sceneId === sceneId)
-      .map(({ userId, tokenId }) => ({ userId, tokenId }));
-  }
-
-  async choose(sceneId: string, userId: string, tokenId: string): Promise<void> {
-    this.journal.push('choose');
-    const kept = this.choices.filter((c) => c.sceneId !== sceneId || c.userId !== userId);
-    this.choices.splice(0, this.choices.length, ...kept, { sceneId, userId, tokenId });
-  }
-
-  async dropLostControl(tokenId: string, keptUserIds: readonly string[]): Promise<void> {
-    this.journal.push('dropLostControl');
-    this.drops.push({ tokenId, keptUserIds: [...keptUserIds] });
-    const kept = this.choices.filter(
-      (c) => c.tokenId !== tokenId || keptUserIds.includes(c.userId),
-    );
-    this.choices.splice(0, this.choices.length, ...kept);
-  }
-}
-
-type AnchorWrites = Pick<
-  TokenAnchorsDao,
-  'linkToAnchor' | 'unlinkWith' | 'moveStateTo' | 'copyStateTo' | 'dropState'
->;
-
-/** The link writes over the tokens and conditions fakes; each writes its name to `journal`
- *  ('link', 'unlink', 'move bars', 'move conditions', 'move controllers', 'copy state',
- *  'drop state').
- *
- *  Example: `new TokenAnchorsDaoFake(scenes.journal, tokens, conditions)` */
-export class TokenAnchorsDaoFake implements AnchorWrites {
-  constructor(
-    private readonly journal: string[],
-    private readonly tokens: TokensDaoFake,
-    private readonly conditions: ConditionsDaoFake,
-  ) {}
-
-  async linkToAnchor(tokenId: string, anchorTokenId: string): Promise<void> {
-    this.journal.push('link');
-    this.tokens.store(tokenId, (row) => ({ ...row, token: { ...row.token, anchorTokenId } }));
-  }
-
-  async unlinkWith(tokenId: string, identity: TokenIdentityPo): Promise<void> {
-    this.journal.push('unlink');
-    this.tokens.store(tokenId, (row) => ({
-      ...row,
-      token: { ...row.token, ...identity, anchorTokenId: null },
-    }));
-  }
-
-  async moveStateTo(fromTokenId: string, toTokenId: string): Promise<void> {
-    const from = this.tokens.rowOf(fromTokenId);
-    this.journal.push('move bars', 'move conditions', 'move controllers');
-    const bars = from.bars.map((bar) => ({ ...bar, tokenId: toTokenId }));
-    this.tokens.store(toTokenId, (row) => ({ ...row, bars, controllerIds: from.controllerIds }));
-    this.tokens.store(fromTokenId, (row) => ({ ...row, bars: [], controllerIds: [] }));
-    this.conditions.active = this.conditions.active.map((condition) =>
-      condition.tokenId === fromTokenId ? { ...condition, tokenId: toTokenId } : condition,
-    );
-  }
-
-  async copyStateTo(fromTokenId: string, toTokenId: string): Promise<void> {
-    const from = this.tokens.rowOf(fromTokenId);
-    this.journal.push('copy state');
-    const bars = from.bars.map((bar) => ({
-      ...bar,
-      id: `${toTokenId}-${bar.id}`,
-      tokenId: toTokenId,
-    }));
-    this.tokens.store(toTokenId, (row) => ({ ...row, bars, controllerIds: from.controllerIds }));
-    const copies = this.conditions.active
-      .filter((condition) => condition.tokenId === fromTokenId)
-      .map((condition) => ({
-        ...condition,
-        id: `${toTokenId}-${condition.id}`,
-        tokenId: toTokenId,
-      }));
-    this.conditions.active = [...this.conditions.active, ...copies];
-  }
-
-  async dropState(tokenId: string): Promise<void> {
-    this.journal.push('drop state');
-    this.tokens.store(tokenId, (row) => ({ ...row, bars: [], controllerIds: [] }));
-    this.conditions.active = this.conditions.active.filter((c) => c.tokenId !== tokenId);
   }
 }
 
@@ -422,23 +323,29 @@ export class TableTokenRightsFake implements Pick<CampaignsDao, 'tokenRightsOf'>
   }
 }
 
-/** Runs the work on the fakes and writes 'commit' to the shared journal once it resolves. */
+/** Runs the work on the fakes and writes 'commit' to the shared journal once it resolves. The
+ *  tokens wear the characters of `characters` (none by default). */
 export class TokenTransactionRunnerFake {
   constructor(
     private readonly scenes: ScenesDaoFake,
     private readonly tokens: TokensDaoFake,
-    private readonly conditions: Pick<ConditionsDaoFake, 'listOfTokens'> = new ConditionsDaoFake(),
+    private readonly conditions: Pick<
+      ConditionsDaoFake,
+      'listOfTokens' | 'listOfHolders'
+    > = new ConditionsDaoFake(),
     private readonly combat: CombatDaoFake = new CombatDaoFake(),
     private readonly assets: AssetsDaoFake = new AssetsDaoFake(),
     private readonly walls: Pick<WallsDaoFake, 'listOfScene'> = new WallsDaoFake([]),
-    private readonly mainTokens: MainTokensDaoFake = new MainTokensDaoFake(),
-    private readonly memberCards: MemberCardsDaoFake = new MemberCardsDaoFake(),
-    private readonly anchors: AnchorWrites = new TokenAnchorsDaoFake(
+    private readonly characters: CharactersDaoFake = new CharactersDaoFake(scenes.journal),
+    private readonly characterLinks: TokenCharacterLinkDaoFake = new TokenCharacterLinkDaoFake(
       scenes.journal,
       tokens,
       new ConditionsDaoFake(),
+      characters,
     ),
-  ) {}
+  ) {
+    tokens.wearFrom(characters);
+  }
 
   readonly run: TokenTransactionRunner = async (work) => {
     this.tokens.cascadeDeletesTo(this.combat);
@@ -449,9 +356,8 @@ export class TokenTransactionRunnerFake {
       combat: this.combat,
       assets: this.assets,
       walls: this.walls,
-      mainTokens: this.mainTokens,
-      anchors: this.anchors,
-      memberCards: this.memberCards,
+      characters: this.characters,
+      characterLinks: this.characterLinks,
     });
     this.scenes.journal.push('commit');
     return result;

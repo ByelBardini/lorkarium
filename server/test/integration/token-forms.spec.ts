@@ -1,11 +1,12 @@
 import {
+  characterChangedEventDto,
   tokenFormChangedDto,
   tokensCreatedDto,
   type TokenDto,
   type TokenFormDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { castIdOf, gridState, linkToCard, tokenIn } from '../support/characters';
+import { gridState, linkToPlayerCharacter, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import {
@@ -200,10 +201,10 @@ describe('token:setForm over Socket.IO', () => {
     expect(tokenIn(state, lyraId)).toMatchObject({ activeFormId: wolf.id, width: 2, height: 2 });
   });
 
-  it('the Lyra linked to her card turns into the wolf on the Salão: the Estrada gets the image, its size stays', async () => {
+  it('the Lyra linked to her card turns into the wolf on the Salão: her character takes the image, the Estrada keeps its size and form', async () => {
     const { ana, bia, lyraId, wolfImage } = await lyraWithForms();
     const linked = await linkedOnTwoGrids(ana, bia, lyraId);
-    const { castId, estrada, lyraOfEstrada } = linked;
+    const { estrada, lyraOfEstrada } = linked;
     const anaEvents = recordEventsOf(ana);
     const wolf = wolfOf(tokenIn(await synced(bia, live.vharn), lyraId).forms);
 
@@ -214,23 +215,25 @@ describe('token:setForm over Socket.IO', () => {
     const heard = anaEvents.events
       .filter(({ name }) => name === 'token:formChanged')
       .map(({ payload }) => tokenFormChangedDto.parse(payload));
-    expect(heard.map(({ sceneId }) => sceneId)).toEqual([castId, linked.salao]);
-    expect(heard[0]).not.toHaveProperty('box');
+    expect(heard.map(({ sceneId }) => sceneId)).toEqual([linked.salao]);
+    const changed = characterChangedEventDto.parse(
+      await eventPayload(anaEvents, 'character:changed'),
+    );
+    expect(changed.characters[0]).toMatchObject({ imageAssetId: wolfImage, frame: 'round' });
     const onEstrada = tokenIn(await gridState(bia, live.vharn, estrada), lyraOfEstrada);
-    expect(onEstrada).toMatchObject({ imageAssetId: wolfImage, activeFormId: wolf.id, width: 1 });
+    expect(onEstrada).toMatchObject({ imageAssetId: wolfImage, activeFormId: null, width: 1 });
     expect(onEstrada.frame).toBe('round');
     const onSalao = tokenIn(await synced(bia, live.vharn), lyraId);
     expect(onSalao).toMatchObject({ width: 2, height: 2, activeFormId: wolf.id });
   });
 });
 
-// Lyra linked to Bia's card on the Salão (her forms then saved on the anchor) and on the public
-// Estrada, which everyone has open.
+// Lyra linked to Bia's card on the Salão (her forms then saved again on her own token) and on
+// the public Estrada, which everyone has open.
 async function linkedOnTwoGrids(ana: RealtimeClient, bia: RealtimeClient, lyraId: string) {
-  const castId = await castIdOf(live, live.ana, live.vharn);
   const salao = (await synced(ana, live.vharn)).scene.id;
   const forms = tokenIn(await synced(ana, live.vharn), lyraId).forms;
-  await linkToCard(ana, live.vharn, { tokenId: lyraId, memberId: live.bia.id });
+  await linkToPlayerCharacter(live, ana, live.vharn, { tokenId: lyraId, memberId: live.bia.id });
   const command = tokenCommandFor(live.vharn, live.bia.id);
   const update = { ...command, ...envelope(live.vharn.id), tokenId: lyraId, forms };
   delete (update as { col?: number }).col;
@@ -243,6 +246,6 @@ async function linkedOnTwoGrids(ana: RealtimeClient, bia: RealtimeClient, lyraId
   await send(ana, 'token:create', { ...command, sceneId: estrada, bars: [] });
   const lyraOfEstrada = (await createdTokenOf(anaEvents)).id;
   const link = { sceneId: estrada, tokenId: lyraOfEstrada, memberId: live.bia.id };
-  await linkToCard(ana, live.vharn, link);
-  return { castId, salao, estrada, lyraOfEstrada };
+  await linkToPlayerCharacter(live, ana, live.vharn, link);
+  return { salao, estrada, lyraOfEstrada };
 }

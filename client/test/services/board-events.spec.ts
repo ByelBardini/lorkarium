@@ -1,23 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { parseBoardEvent, parseVeiledLights } from '@/services/board-events';
+import { BOARD_EVENT_SPECS, parseBoardEvent, parseVeiledLights } from '@/services/board-events';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { path, SQUARE_ID, square } from '../support/drawing-fixtures';
 import { shapeOfEffectArea } from '@/lib/effect-area-shape';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import {
-  BIA_AT_TABLE,
   KAEL_ID,
   LYRA_ID,
   VHARN_GRID,
-  conditionDefinition,
-  memberCard,
   sceneUpdated,
   veiledLightsChanged,
 } from '../support/table-session-fixtures';
 import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wall-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch, veiledTorch } from '../support/light-fixtures';
 import { fireAura, goldAura } from '../support/aura-fixtures';
-import { castFormChangedAt, formChangedAt } from '../support/token-form-fixtures';
+import { formChangedAt, formSwitchedAt } from '../support/token-form-fixtures';
 
 describe('parseBoardEvent', () => {
   it('a valid scene:updated of the table is a sceneUpdated event', () => {
@@ -127,8 +124,8 @@ describe('parseBoardEvent', () => {
     });
   });
 
-  it('a token:formChanged of the cast, with no box, is a tokenFormChanged event too', () => {
-    const { payload } = castFormChangedAt(6, LYRA_ID);
+  it('a token:formChanged with no box (the size kept) is a tokenFormChanged event too', () => {
+    const { payload } = formSwitchedAt(6, LYRA_ID);
     expect(parseBoardEvent('token:formChanged', payload, VHARN.id)).toMatchObject({
       kind: 'event',
       event: { type: 'tokenFormChanged', payload: { tokenId: LYRA_ID } },
@@ -307,117 +304,14 @@ describe('parseBoardEvent', () => {
     });
   });
 
-  describe('token:mainChanged', () => {
-    const changed = {
-      ...VHARN_GRID,
-      version: 6,
-      at: '2026-10-21T12:00:00.000Z',
-      userId: BIA_AT_TABLE.userId,
-      tokenId: KAEL_ID,
-    };
-
-    it('a valid token:mainChanged of the table is a mainTokenChanged event', () => {
-      expect(parseBoardEvent('token:mainChanged', changed, VHARN.id)).toEqual({
-        kind: 'event',
-        event: { type: 'mainTokenChanged', payload: changed },
-      });
-    });
-
-    it('a token:mainChanged whose tokenId is not a uuid is invalid (resync)', () => {
-      const malformed = { ...changed, tokenId: 'kael' };
-      expect(parseBoardEvent('token:mainChanged', malformed, VHARN.id)).toEqual({
-        kind: 'invalid',
-      });
-    });
-  });
-
-  describe('member:cardChanged', () => {
-    const changed = {
-      ...VHARN_GRID,
-      version: 6,
-      at: '2026-10-22T12:00:00.000Z',
-      card: memberCard({ armorClass: 15 }),
-    };
-
-    it('a valid member:cardChanged of the table is a memberCardChanged event', () => {
-      expect(parseBoardEvent('member:cardChanged', changed, VHARN.id)).toEqual({
-        kind: 'event',
-        event: { type: 'memberCardChanged', payload: changed },
-      });
-    });
-
-    it('a member:cardChanged without the whole card is invalid (resync)', () => {
-      const malformed = { ...changed, card: { userId: BIA_AT_TABLE.userId, armorClass: 15 } };
-      expect(parseBoardEvent('member:cardChanged', malformed, VHARN.id)).toEqual({
-        kind: 'invalid',
-      });
-    });
-  });
-
-  describe('condition:changedMany', () => {
-    const changed = {
-      ...VHARN_GRID,
-      version: 6,
-      at: '2026-10-22T12:00:00.000Z',
-      changes: [{ tokenId: KAEL_ID, conditions: [] }],
-    };
-
-    it('a valid condition:changedMany of the table is a conditionsChanged event', () => {
-      expect(parseBoardEvent('condition:changedMany', changed, VHARN.id)).toEqual({
-        kind: 'event',
-        event: { type: 'conditionsChanged', payload: changed },
-      });
-    });
-
-    it('a condition:changedMany without the changes is invalid (resync)', () => {
-      const malformed: Record<string, unknown> = { ...changed };
-      delete malformed.changes;
-      expect(parseBoardEvent('condition:changedMany', malformed, VHARN.id)).toEqual({
-        kind: 'invalid',
-      });
-    });
-  });
-
-  describe('the table list of conditions', () => {
-    const base = { ...VHARN_GRID, version: 6, at: '2026-10-24T12:00:00.000Z' };
-    const edited = conditionDefinition({ description: 'Desvantagem em ataques.' });
-
-    it.each([
-      ['condition:definitionUpdated', 'conditionDefinitionUpdated', { definition: edited }],
-      ['condition:definitionDeleted', 'conditionDefinitionDeleted', { conditionId: edited.id }],
-      ['condition:defaultsRestored', 'conditionDefaultsRestored', { definitions: [edited] }],
-    ])('a valid %s of the table is a %s event', (name, type, fields) => {
-      const payload = { ...base, ...fields };
-      expect(parseBoardEvent(name, payload, VHARN.id)).toEqual({
-        kind: 'event',
-        event: { type, payload },
-      });
-    });
-
-    it('a condition:definitionUpdated whose definition has no description is invalid (resync)', () => {
-      const withoutDescription: Record<string, unknown> = { ...edited };
-      delete withoutDescription.description;
-      const payload = { ...base, definition: withoutDescription };
-      expect(parseBoardEvent('condition:definitionUpdated', payload, VHARN.id)).toEqual({
-        kind: 'invalid',
-      });
-    });
-
-    it('a condition:defaultsRestored with a definition without description is invalid (resync)', () => {
-      const withoutDescription: Record<string, unknown> = { ...edited };
-      delete withoutDescription.description;
-      const payload = { ...base, definitions: [withoutDescription] };
-      expect(parseBoardEvent('condition:defaultsRestored', payload, VHARN.id)).toEqual({
-        kind: 'invalid',
-      });
-    });
-
-    it('a condition:definitionDeleted whose conditionId is not a uuid is invalid (resync)', () => {
-      const payload = { ...base, conditionId: 'envenenado' };
-      expect(parseBoardEvent('condition:definitionDeleted', payload, VHARN.id)).toEqual({
-        kind: 'invalid',
-      });
-    });
+  // They name no grid: the table stream follows them (`character-follow.spec.ts`).
+  it.each([
+    'condition:defined',
+    'condition:definitionUpdated',
+    'condition:definitionDeleted',
+    'condition:defaultsRestored',
+  ])('%s is no board event: the table stream takes it', (name) => {
+    expect(BOARD_EVENT_SPECS[name]).toBeUndefined();
   });
 
   describe('hidden tokens', () => {

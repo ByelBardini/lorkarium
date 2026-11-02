@@ -20,6 +20,8 @@ export type BoardCommandFailure =
   | 'light_not_found'
   | 'light_limit'
   | 'member_not_found'
+  | 'character_not_found'
+  | 'sheet_not_found'
   | 'character_already_placed'
   | 'token_not_linked'
   | 'no_free_cells'
@@ -49,6 +51,10 @@ export type CommandAnswer =
 /** The grid a command acts on: the table and one of its scenes (the group grid or an open tab). */
 export type BoardScope = Readonly<{ campaignId: string; sceneId: string }>;
 
+/** A command of the table itself (a character's, the condition list's): no grid. A `BoardScope`
+ *  is one too, its grid left out. */
+export type TableScope = Readonly<{ campaignId: string }>;
+
 // Same patience as the join: past this the command counts as lost.
 const COMMAND_ACK_TIMEOUT_MS = 5000;
 
@@ -74,6 +80,8 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   LIGHT_NOT_FOUND: 'light_not_found',
   LIGHT_LIMIT: 'light_limit',
   MEMBER_NOT_FOUND: 'member_not_found',
+  CHARACTER_NOT_FOUND: 'character_not_found',
+  SHEET_NOT_FOUND: 'sheet_not_found',
   CHARACTER_ALREADY_PLACED: 'character_already_placed',
   TOKEN_NOT_LINKED: 'token_not_linked',
   NO_FREE_CELLS: 'no_free_cells',
@@ -113,7 +121,35 @@ export class BoardCommandSender {
    *  Example: `const answer = await sender.ask('token:addPlayers', scope, { center })` */
   async ask(event: string, scope: BoardScope, fields: object): Promise<CommandAnswer> {
     const { campaignId, sceneId } = scope;
-    const payload = { actionId: this.newActionId(), campaignId, sceneId, ...fields };
+    return this.emitCommand(event, {
+      actionId: this.newActionId(),
+      campaignId,
+      sceneId,
+      ...fields,
+    });
+  }
+
+  /** Sends a command of the table itself (a character's), which names no grid: the strict DTO
+   *  of such a command refuses a `sceneId`.
+   *
+   *  Example: `await sender.sendToTable('character:update', campaignId, { characterId, changes })` */
+  async sendToTable(
+    event: string,
+    campaignId: string,
+    fields: object,
+  ): Promise<BoardCommandResult> {
+    const answer = await this.askTable(event, campaignId, fields);
+    return answer.answered ? resultOf(answer.ack) : { ok: false, failure: 'offline' };
+  }
+
+  /** `ask` for a command of the table itself: its ack unread, and no `sceneId`.
+   *
+   *  Example: `const answer = await sender.askTable('condition:usage', campaignId, { conditionId })` */
+  askTable(event: string, campaignId: string, fields: object): Promise<CommandAnswer> {
+    return this.emitCommand(event, { actionId: this.newActionId(), campaignId, ...fields });
+  }
+
+  private async emitCommand(event: string, payload: object): Promise<CommandAnswer> {
     try {
       const ack = await this.transport.emitWithAck(event, payload, COMMAND_ACK_TIMEOUT_MS);
       return { answered: true, ack };

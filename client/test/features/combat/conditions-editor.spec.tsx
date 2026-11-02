@@ -1,6 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { TokenDto } from '@lorkarium/contracts';
+import type { ConditionDefinitionDto, TokenDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import { ConditionsEditor } from '@/features/combat/conditions-editor';
@@ -8,13 +8,14 @@ import {
   createBoardInteractionStore,
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
-import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createBoardStore, tableLinksOf, type BoardStore } from '@/stores/board-store';
+import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
+import { conditionDefinedAt, tableSynced } from '../../support/character-fixtures';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
   LYRA_ID,
   activeCondition,
-  eventAt,
   lyra,
   vharnBoard,
   VHARN_GRID,
@@ -67,11 +68,13 @@ const DEFINITIONS = [
 
 describe('ConditionsEditor', () => {
   let board: StoreApi<BoardStore>;
+  let table: StoreApi<CharactersStore>;
   let interaction: StoreApi<BoardInteractionStore>;
   let commands: TableBoardCommandsFake;
 
   beforeEach(() => {
-    board = createBoardStore(VHARN.id, () => undefined);
+    table = createCharactersStore(VHARN.id, () => undefined);
+    board = createBoardStore(VHARN.id, () => undefined, tableLinksOf(table));
     commands = new TableBoardCommandsFake();
     interaction = createBoardInteractionStore({
       scopeOf: () => VHARN_GRID,
@@ -79,6 +82,13 @@ describe('ConditionsEditor', () => {
       describeRefusal: String,
     });
   });
+
+  // The condition:defined event arrives before the ack, on the table stream the board wears.
+  function defineOnTable(definition: ConditionDefinitionDto): void {
+    table.getState().apply(tableSynced(4, [], [...DEFINITIONS]));
+    table.getState().apply(conditionDefinedAt(5, definition));
+    board.getState().relink();
+  }
 
   function renderEditor(
     token: TokenDto = lyra({ conditions: [ENVENENADO, CONCENTRANDO] }),
@@ -320,12 +330,7 @@ describe('ConditionsEditor', () => {
       maxStacks: null,
       imageAssetId: null,
     } as const;
-    act(() =>
-      board.getState().apply({
-        kind: 'boardEvent',
-        event: eventAt(5, { type: 'conditionDefined', payload: { definition } }),
-      }),
-    );
+    act(() => defineOnTable(definition));
     await act(async () => commands.release());
     expect(commands.sent.map(({ name }) => name)).toEqual(['defineCondition', 'applyCondition']);
     expect(commands.sentAs('applyCondition')[0]?.fields).toEqual({
@@ -372,12 +377,7 @@ describe('ConditionsEditor', () => {
       maxStacks: null,
       imageAssetId: null,
     } as const;
-    act(() =>
-      board.getState().apply({
-        kind: 'boardEvent',
-        event: eventAt(5, { type: 'conditionDefined', payload: { definition } }),
-      }),
-    );
+    act(() => defineOnTable(definition));
     await act(async () => commands.release());
     expect(commands.sentAs('defineCondition').map(({ fields }) => fields)).toEqual([
       { name: 'Inconsciente', tone: 'incapacitating', icon: 'circle-dot', look: 'unconscious' },

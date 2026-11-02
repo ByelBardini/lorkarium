@@ -1,37 +1,59 @@
-import type { SheetSummaryDto, SheetTemplateSummaryDto } from '@lorkarium/contracts';
+import type { SheetSummaryDto, SheetTemplateSummaryDto, TokenDto } from '@lorkarium/contracts';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { SheetRoom } from './sheet-room-context';
+import { isSpareSheet } from '@/lib/sheet-holder';
 
-/** The sheets of one token this reader may read, in order of creation (the server leaves out the
- *  ones they may not). */
+/** The sheets of one holder this reader may read, in order of creation (the server leaves out
+ *  the ones they may not). */
 export type TokenSheets =
   | Readonly<{ status: 'loading' }>
   | Readonly<{ status: 'ready'; sheets: readonly SheetSummaryDto[] }>;
 
+/** Whose sheets to read: a free token's, or a character's (a linked token's are its character's). */
+export type SheetsOwner = Readonly<{ tokenId: string }> | Readonly<{ characterId: string }>;
+
 const LOADING: TokenSheets = { status: 'loading' };
 const NONE: TokenSheets = { status: 'ready', sheets: [] };
 
-/** Reads the sheets of `tokenId` (the anchor for a character's token) and reads them again at
- *  each `sheet:changed` of the table: a sheet made, given, taken, renamed or made private shows
- *  at once. `null` (a player with no character yet) has none, and nothing is read.
+/** The owner whose sheets a token's menu shows: its character when linked, else the token.
  *
- *  Example: `const sheets = useTokenSheets(room, token.anchorTokenId ?? token.id)` */
-export function useTokenSheets(room: SheetRoom | null, tokenId: string | null): TokenSheets {
-  const [read, setRead] = useState<Readonly<{ tokenId: string; sheets: TokenSheets }> | null>(null);
+ *  Example: `sheetsOwnerOf(linkedLyra) // { characterId: LYRA_CHARACTER_ID }` */
+export function sheetsOwnerOf(token: Pick<TokenDto, 'id' | 'characterId'>): SheetsOwner {
+  return token.characterId ? { characterId: token.characterId } : { tokenId: token.id };
+}
+
+/** Reads the sheets of `owner` and reads them again at each `sheet:changed` of the table: a
+ *  sheet made, given, taken, renamed or made private shows at once. `null` has none, and nothing
+ *  is read.
+ *
+ *  Example: `const sheets = useTokenSheets(room, sheetsOwnerOf(token))` */
+export function useTokenSheets(room: SheetRoom | null, owner: SheetsOwner | null): TokenSheets {
+  const [read, setRead] = useState<Readonly<{ key: string; sheets: TokenSheets }> | null>(null);
   const change = useSheetChangesOf(room);
+  const kind = owner && ('tokenId' in owner ? 'token' : 'character');
+  const id = owner && ('tokenId' in owner ? owner.tokenId : owner.characterId);
   useEffect(() => {
-    if (!room || tokenId === null) return;
+    if (!room || !kind || !id) return;
     let current = true;
-    void room.sheetsApi.ofToken(room.campaign.id, tokenId).then((result) => {
+    void sheetsOf(room, kind, id).then((result) => {
       if (!current) return;
-      setRead({ tokenId, sheets: result.ok ? { status: 'ready', sheets: result.value } : NONE });
+      const sheets: TokenSheets = result.ok ? { status: 'ready', sheets: result.value } : NONE;
+      setRead({ key: `${kind}:${id}`, sheets });
     });
     return () => {
       current = false;
     };
-  }, [room, tokenId, change]);
-  if (tokenId === null) return NONE;
-  return read?.tokenId === tokenId ? read.sheets : LOADING;
+  }, [room, kind, id, change]);
+  if (!kind || !id) return NONE;
+  return read?.key === `${kind}:${id}` ? read.sheets : LOADING;
+}
+
+type SheetsAnswer = Awaited<ReturnType<SheetRoom['sheetsApi']['ofToken']>>;
+
+function sheetsOf(room: SheetRoom, kind: 'token' | 'character', id: string): Promise<SheetsAnswer> {
+  const campaignId = room.campaign.id;
+  if (kind === 'token') return room.sheetsApi.ofToken(campaignId, id);
+  return room.sheetsApi.ofCharacter(campaignId, id);
 }
 
 // The last `sheet:changed` of the room's table (a new object per event), or `null`.
@@ -74,7 +96,7 @@ export function useSheetLibrary(room: SheetRoom | null): SheetLibrary | null {
     void room.libraryApi.list(room.campaign.id).then((result) => {
       if (!current) return;
       if (!result.ok) return setLibrary(EMPTY_LIBRARY);
-      const spareSheets = (result.value.sheets ?? []).filter(({ tokenId }) => tokenId === null);
+      const spareSheets = (result.value.sheets ?? []).filter(isSpareSheet);
       setLibrary({ templates: result.value.sheetTemplates ?? [], spareSheets });
     });
     return () => {

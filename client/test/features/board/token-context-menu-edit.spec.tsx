@@ -12,7 +12,6 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
-import { createTablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
@@ -60,7 +59,6 @@ describe('TokenContextMenu, "Editar token…"', () => {
         <TokenContextMenu
           request={{ tokenId: token.id, x: 120, y: 80 }}
           board={board}
-          presence={createTablePresenceStore(VHARN.id)}
           interaction={interaction}
           onApplyCondition={() => undefined}
           onChangeImage={() => undefined}

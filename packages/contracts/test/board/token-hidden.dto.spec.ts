@@ -45,7 +45,7 @@ const WOLF = {
   canControl: true,
   bars: [],
   conditions: [],
-  anchorTokenId: null,
+  characterId: null,
   createdBy: null,
   forms: [],
   activeFormId: null,
@@ -75,8 +75,6 @@ const STATE = {
   veiledLights: [TORCH],
   combat: null,
   conditionDefinitions: [],
-  mainTokens: [],
-  memberCards: [],
 };
 
 describe('setTokensHiddenCommandDto', () => {

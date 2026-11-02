@@ -1,130 +1,77 @@
 import type { SheetHolderDto } from '@lorkarium/contracts';
-import type { ClockPort } from '../auth/clock.port';
-import type { UsersDao } from '../auth/users.dao';
-import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
-import type { MemberCardsDao } from '../member-cards/member-cards.dao';
-import { toMemberCardDto } from '../member-cards/member-cards.mapper';
-import type { MemberCardPo } from '../member-cards/member-cards.po';
-import type { BoardPublisherPort } from '../scenes/board-publisher.port';
-import { savedEventBase, type SavedVersion } from '../scenes/locked-cast';
-import type { SceneRow, ScenesDao } from '../scenes/scenes.dao';
-import { CharacterLinkBo } from '../tokens/character-link.bo';
-import { publishTokenChange } from '../tokens/token-veil';
-import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
-import { TokenNotFoundError } from '../tokens/tokens.error';
+import { CharacterNotFoundError } from '../characters/characters.error';
 import { SheetItemBo } from './sheet-item.bo';
-import type { SheetsDao, TokenPlacePo } from './sheets.dao';
+import type { CharacterPlacePo, SheetHolderPlacePo, SheetsDao } from './sheets.dao';
+import type { SheetPo } from './sheets.po';
 
-/** What resolving a holder reads and writes, on the sheet's transaction. */
+/** What resolving a holder reads, on the sheet's transaction (or snapshot). */
 export type SheetHolderDaos = Readonly<{
-  members: Pick<CampaignMembersDao, 'findMembership'>;
-  sheets: Pick<SheetsDao, 'placeOf'>;
-  scenes: Pick<ScenesDao, 'lockCastOf' | 'bumpVersion'>;
-  tokens: Pick<TokensDao, 'insert'>;
-  memberCards: Pick<MemberCardsDao, 'findOfMember' | 'save'>;
-  users: Pick<UsersDao, 'findById'>;
+  sheets: Pick<
+    SheetsDao,
+    'placeOf' | 'characterPlacesOf' | 'characterPlaceOfUser' | 'listOfToken' | 'listOfCharacter'
+  >;
 }>;
 
-/** The anchor a sheet given to a player created, with the cast version of its `token:created`,
- *  and the card that now points at it with the version of its `member:cardChanged`. */
-export type CreatedAnchor = Readonly<{
-  anchor: TokenRow;
-  createdIn: SavedVersion;
-  card: MemberCardPo;
-  cardIn: SavedVersion;
-}>;
-
-/** Where a sheet goes: the place of the token that holds it (`null` = nobody) and the anchor it
- *  had to create, if any. */
-export type ResolvedHolder = Readonly<{
-  place: TokenPlacePo | null;
-  created: CreatedAnchor | null;
-}>;
-
-export type SheetHolderServiceDeps = Readonly<{
-  publisher: Pick<BoardPublisherPort, 'tokenChanged' | 'veiledLightsChanged' | 'memberCardChanged'>;
-  clock: ClockPort;
-}>;
-
-const NOBODY: ResolvedHolder = { place: null, created: null };
-
-/** Who holds a sheet, resolved inside the sheet's transaction (the table already locked): a
- *  token gives it to its anchor when linked; a player gives it to their character's anchor, made
- *  in the cast from their card when they have none (as the first `token:linkToCard` does). The
- *  cast is locked before the card is read, as the board's link does.
+/** Who holds a sheet, resolved inside the sheet's transaction: a token of a grid keeps it, a
+ *  token linked to a character hands it to the character, a player hands it to their character
+ *  (every player has one). Nothing is created.
  *
- *  Example: `const { place, created } = await holders.resolve(daos, campaignId, { memberId: biaId })` */
+ *  Example: `const place = await holders.resolve(daos, campaignId, { memberId: biaId })` */
 export class SheetHolderService {
-  constructor(private readonly deps: SheetHolderServiceDeps) {}
-
+  /** `null` = nobody. A token of another table is TOKEN_NOT_FOUND; a member
+   *  without a character the table sees is MEMBER_NOT_FOUND. */
   async resolve(
     daos: SheetHolderDaos,
     campaignId: string,
     holder: SheetHolderDto | null,
-  ): Promise<ResolvedHolder> {
-    if (!holder) return NOBODY;
-    if ('tokenId' in holder)
-      return { place: await this.tokenPlaceOf(daos, campaignId, holder.tokenId), created: null };
-    return this.characterOf(daos, campaignId, holder.memberId);
+  ): Promise<SheetHolderPlacePo | null> {
+    if (!holder) return null;
+    const rules = new SheetItemBo(campaignId);
+    if ('memberId' in holder) {
+      const found = await daos.sheets.characterPlaceOfUser(campaignId, holder.memberId);
+      return { character: rules.requirePlayerCharacter(holder.memberId, found) };
+    }
+    const found = await daos.sheets.placeOf(campaignId, holder.tokenId);
+    const token = rules.requireGridToken(holder.tokenId, found);
+    if (!token.characterId) return { token };
+    return { character: await characterPlaceIn(daos, campaignId, token.characterId) };
   }
 
-  /** After the commit: the new anchor to the cast's rooms, then the card that points at it. */
-  publishCreated(campaignId: string, created: CreatedAnchor | null): void {
-    if (!created) return;
-    const { clock, publisher } = this.deps;
-    const token = { row: created.anchor, conditions: [] };
-    const base = savedEventBase(campaignId, created.createdIn, clock);
-    publishTokenChange(publisher, 'token:created', base, token, null);
-    const card = toMemberCardDto(created.card);
-    publisher.memberCardChanged({ ...savedEventBase(campaignId, created.cardIn, clock), card });
+  /** Where a saved sheet hangs now (`null` = nobody's).
+   *
+   *  Example: `const place = await holders.placeOfSheet(daos, sheet)` */
+  async placeOfSheet(daos: SheetHolderDaos, sheet: SheetPo): Promise<SheetHolderPlacePo | null> {
+    if (sheet.characterId)
+      return { character: await characterPlaceIn(daos, sheet.campaignId, sheet.characterId) };
+    if (!sheet.tokenId) return null;
+    const token = await daos.sheets.placeOf(sheet.campaignId, sheet.tokenId);
+    if (!token) throw new Error(`Sheet ${sheet.id} hangs on token ${sheet.tokenId}, not found`);
+    return { token };
   }
 
-  // The token that holds the sheet: the anchor of a linked token, the token itself otherwise.
-  private async tokenPlaceOf(
+  /** The sheets the holder keeps, in creation order.
+   *
+   *  Example: `await holders.sheetsOf(daos, campaignId, { character: lyraPlace })` */
+  async sheetsOf(
     daos: SheetHolderDaos,
     campaignId: string,
-    tokenId: string,
-  ): Promise<TokenPlacePo> {
-    const place = await daos.sheets.placeOf(campaignId, tokenId);
-    if (!place) throw new TokenNotFoundError(campaignId, tokenId);
-    if (!place.anchorTokenId) return place;
-    return this.tokenPlaceOf(daos, campaignId, place.anchorTokenId);
+    place: SheetHolderPlacePo,
+  ): Promise<SheetPo[]> {
+    if ('character' in place)
+      return daos.sheets.listOfCharacter(campaignId, place.character.characterId);
+    return daos.sheets.listOfToken(campaignId, place.token.tokenId);
   }
+}
 
-  private async characterOf(
-    daos: SheetHolderDaos,
-    campaignId: string,
-    memberId: string,
-  ): Promise<ResolvedHolder> {
-    const membership = await daos.members.findMembership(campaignId, memberId);
-    new CharacterLinkBo(campaignId).requirePlayer(memberId, membership?.role ?? null);
-    const cast = await daos.scenes.lockCastOf(campaignId);
-    if (!cast) throw new Error(`campaign ${campaignId} has no cast; every campaign has one`);
-    const card = await daos.memberCards.findOfMember(campaignId, memberId);
-    const anchorId = card?.anchorTokenId ?? null;
-    if (anchorId)
-      return { place: await this.tokenPlaceOf(daos, campaignId, anchorId), created: null };
-    const created = await this.newAnchor(daos, cast, memberId, card?.characterName ?? null);
-    return { place: await this.tokenPlaceOf(daos, campaignId, created.anchor.token.id), created };
-  }
-
-  // The anchor gets its own cast version for `token:created`; the card takes the next one.
-  private async newAnchor(
-    daos: SheetHolderDaos,
-    cast: SceneRow,
-    memberId: string,
-    characterName: string | null,
-  ): Promise<CreatedAnchor> {
-    const member = await daos.users.findById(memberId);
-    if (!member)
-      throw new Error(`member ${memberId} of campaign ${cast.campaignId} has no account`);
-    const identity = new SheetItemBo(cast.campaignId).anchorIdentityOf(characterName, member.name);
-    const token = { sceneId: cast.id, ...identity, width: 1, height: 1, col: 0, row: 0 };
-    const anchor = await daos.tokens.insert({ token, bars: [], controllerIds: [memberId] });
-    const createdIn = { sceneId: cast.id, version: await daos.scenes.bumpVersion(cast.id) };
-    const anchorTokenId = anchor.token.id;
-    const card = await daos.memberCards.save(cast.campaignId, memberId, { anchorTokenId });
-    const cardIn = { sceneId: cast.id, version: await daos.scenes.bumpVersion(cast.id) };
-    return { anchor, createdIn, card, cardIn };
-  }
+/** The character of the table, as a holder; another table's (or one gone) is CHARACTER_NOT_FOUND.
+ *
+ *  Example: `const lyra = await characterPlaceIn(daos, vharnId, lyraId)` */
+export async function characterPlaceIn(
+  daos: SheetHolderDaos,
+  campaignId: string,
+  characterId: string,
+): Promise<CharacterPlacePo> {
+  const [found] = await daos.sheets.characterPlacesOf(campaignId, [characterId]);
+  if (!found) throw new CharacterNotFoundError(campaignId, characterId);
+  return found;
 }

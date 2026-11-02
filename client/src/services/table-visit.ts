@@ -23,7 +23,6 @@ import {
   sessionMemberUpdatedDto,
   sheetChangedEventDto,
   tokensDraggedDto,
-  type ApiErrorDto,
   type BoardSyncAckDto,
   type LibraryServerEvents,
   type SessionJoinAckDto,
@@ -32,9 +31,11 @@ import {
 import type { z } from 'zod';
 import { BOARD_EVENT_SPECS, parseBoardEvent, parseVeiledLights } from './board-events';
 import type { RealtimeLifecycle, RealtimeTransport, Unsubscribe } from './realtime-transport';
+import { CharacterFollow } from './character-follow';
+import { syncFailureOf, type AckOutcome } from './sync-failure';
 import type {
-  BoardSyncFailure,
-  CastHandle,
+  CharacterListener,
+  CharactersHandle,
   GridListener,
   GridUpdate,
   GridWatchHandle,
@@ -54,14 +55,6 @@ const FAILURE_BY_CODE: Readonly<Record<string, TableSessionFailure>> = {
   TOO_MANY_TABLES: 'too_many_tables',
 };
 
-const BOARD_FAILURE_BY_CODE: Readonly<Record<string, BoardSyncFailure>> = {
-  CAMPAIGN_NOT_FOUND: 'not_found',
-  SCENE_NOT_FOUND: 'not_found',
-  UNAUTHENTICATED: 'unauthenticated',
-};
-
-type AckOutcome<Ack> = Ack | 'offline' | 'unexpected';
-
 type GridWatch = Readonly<{ sceneId: string; listener: GridListener }>;
 
 /** One open table over the shared connection: joins on every `connected`, then syncs the group
@@ -74,8 +67,7 @@ export class TableVisit {
   // Learned from each group snapshot and each activation; until then every event may be the group's.
   private groupSceneId: string | null = null;
   private readonly watches = new Map<string, GridWatch>();
-  // The table's cast: synced (never watched) after the group grid, its events only to it.
-  private cast: GridWatch | null = null;
+  private readonly characters: CharacterFollow;
   private readonly unsubscribes: Unsubscribe[] = [];
 
   constructor(
@@ -83,7 +75,9 @@ export class TableVisit {
     private readonly newActionId: () => string,
     private readonly campaignId: string,
     private readonly listener: TableSessionListener,
-  ) {}
+  ) {
+    this.characters = new CharacterFollow(transport, campaignId, ACK_TIMEOUT_MS);
+  }
 
   /** `alreadyConnected`: the connection another table opened is up, so no `connected` will come. */
   start(alreadyConnected: boolean): void {
@@ -91,6 +85,7 @@ export class TableVisit {
     this.unsubscribes.push(
       this.transport.onLifecycle((change) => this.onLifecycle(change)),
       ...this.tableEventSubscriptions(),
+      ...this.characters.subscriptions(),
       this.transport.on(BOARD_EVENTS.tokensDragged, (payload) => this.onTokensDragged(payload)),
       this.transport.on(BOARD_EVENTS.pinged, (payload) => this.onPinged(payload)),
       this.transport.on(BOARD_EVENTS.veiledLightsChanged, (payload) =>
@@ -107,6 +102,7 @@ export class TableVisit {
     if (this.closed) return;
     this.closed = true;
     this.watches.clear();
+    this.characters.stop();
     for (const unsubscribe of this.unsubscribes.splice(0)) unsubscribe();
     this.transport.emit(SESSION_EVENTS.leave, this.command());
   }
@@ -133,19 +129,10 @@ export class TableVisit {
     return { close: () => this.unwatch(watch), resync: () => void this.syncWatch(watch) };
   }
 
-  /** Follows the table's cast (the anchors of the characters): a `board:sync` of it now if the
-   *  table is joined, else after the join, and again after every reconnection. Every member is
-   *  in its rooms from the join, so there is nothing to watch. */
-  followCast(sceneId: string, listener: GridListener): CastHandle {
-    const cast: GridWatch = { sceneId, listener };
-    this.cast = cast;
-    if (this.joined) void this.syncCast(cast);
-    return { resync: () => void this.syncCast(cast) };
-  }
-
-  private async syncCast(cast: GridWatch): Promise<void> {
-    const ack = await this.ackOf(BOARD_EVENTS.sync, boardSyncAckDto, { sceneId: cast.sceneId });
-    if (!this.closed && this.cast === cast) cast.listener(snapshotUpdateOf(ack));
+  /** Follows the table stream (the characters and the condition list): a `character:sync` now
+   *  if the table is joined, else after the join, and again after every reconnection. */
+  followCharacters(listener: CharacterListener): CharactersHandle {
+    return this.characters.follow(listener, this.joined);
   }
 
   private async syncWatch(watch: GridWatch): Promise<void> {
@@ -187,7 +174,7 @@ export class TableVisit {
     if (this.away && !this.closed) this.sendActivity();
     if (this.closed) return;
     await this.syncBoard();
-    if (this.cast) void this.syncCast(this.cast);
+    void this.characters.sync();
     for (const watch of this.watches.values()) void this.syncWatch(watch);
   }
 
@@ -325,7 +312,6 @@ export class TableVisit {
   }
 
   private route(sceneId: string, update: GridUpdate): void {
-    if (this.cast?.sceneId === sceneId) return this.toCast(this.cast, update);
     if (this.groupSceneId === null || this.groupSceneId === sceneId) this.notify(update);
     const watch = this.watches.get(sceneId);
     if (watch) this.toWatch(watch, update);
@@ -333,7 +319,6 @@ export class TableVisit {
 
   private resyncGridOf(payload: unknown): void {
     const sceneId = sceneIdOf(payload);
-    if (this.cast?.sceneId === sceneId) return void this.syncCast(this.cast);
     const watch = this.watches.get(sceneId);
     if (watch) return void this.syncWatch(watch);
     void this.syncBoard();
@@ -348,10 +333,6 @@ export class TableVisit {
     if (!this.closed && this.watches.get(watch.sceneId) === watch) watch.listener(update);
   }
 
-  private toCast(cast: GridWatch, update: GridUpdate): void {
-    if (!this.closed) cast.listener(update);
-  }
-
   // An ack or event that lands after close() belongs to a visit the screen already left.
   private notify(update: TableSessionUpdate): void {
     if (!this.closed) this.listener(update);
@@ -360,12 +341,8 @@ export class TableVisit {
 
 function snapshotUpdateOf(ack: AckOutcome<BoardSyncAckDto>): GridUpdate {
   if (ack === 'offline' || ack === 'unexpected') return { kind: 'boardFailed', failure: ack };
-  if (!ack.ok) return { kind: 'boardFailed', failure: boardFailureOf(ack.error) };
+  if (!ack.ok) return { kind: 'boardFailed', failure: syncFailureOf(ack.error) };
   return { kind: 'board', state: ack.state };
-}
-
-function boardFailureOf(error: ApiErrorDto): BoardSyncFailure {
-  return BOARD_FAILURE_BY_CODE[error.code] ?? 'unexpected';
 }
 
 function sceneIdOf(payload: unknown): string {

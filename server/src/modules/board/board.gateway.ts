@@ -52,10 +52,8 @@ import {
   restyleTokensCommandDto,
   resizeTokensCommandDto,
   setTokenFormCommandDto,
-  setMainTokenCommandDto,
   startCombatCommandDto,
   updateTokenCommandDto,
-  updateMemberCardCommandDto,
   watchSceneCommandDto,
   type BoardSyncAckDto,
 } from '@lorkarium/contracts';
@@ -68,7 +66,6 @@ import type { CombatService } from '../combat/combat.service';
 import type { ConditionsService } from '../conditions/conditions.service';
 import type { DrawingsService } from '../drawings/drawings.service';
 import type { EffectAreasService } from '../effect-areas/effect-areas.service';
-import type { MemberCardsService } from '../member-cards/member-cards.service';
 import type { PingsService } from '../pings/pings.service';
 import { toSceneGrid } from '../scenes/scenes.mapper';
 import type { CreatedInScene } from '../scenes/locked-scene';
@@ -78,7 +75,6 @@ import type { ScenesService } from '../scenes/scenes.service';
 import type { TokenAppearanceService } from '../tokens/token-appearance.service';
 import type { TokenFormService } from '../tokens/token-form.service';
 import type { TokenVisibilityService } from '../tokens/token-visibility.service';
-import type { MainTokenService } from '../tokens/main-token.service';
 import type { TokenBatchService } from '../tokens/token-batch.service';
 import type { TokenLinkService } from '../tokens/token-link.service';
 import type { TokensService } from '../tokens/tokens.service';
@@ -92,7 +88,7 @@ import {
   type CommandOk,
   type Handler,
 } from './board-command-edge';
-import { bindCharacterCommands } from './character-commands';
+import { bindCharacterCommands, type CharacterCommandsDeps } from './character-commands';
 import { bindSheetCommands, type SheetCommandsDeps } from './sheet-commands';
 import {
   bindConditionCatalogCommands,
@@ -112,10 +108,9 @@ export type BoardGatewayDeps = Readonly<{
   tokenBatch: Pick<TokenBatchService, 'createMany' | 'deleteMany' | 'addPlayers'>;
   tokenAppearance: Pick<TokenAppearanceService, 'faceMany' | 'restyleMany' | 'resizeMany'>;
   tokenForm: Pick<TokenFormService, 'setForm'>;
-  mainToken: Pick<MainTokenService, 'choose'>;
   tokenVisibility: Pick<TokenVisibilityService, 'setHiddenMany'>;
   tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
-  memberCards: Pick<MemberCardsService, 'update'>;
+  characters: CharacterCommandsDeps['characters'];
   pings: Pick<PingsService, 'ping'>;
   conditions: Pick<
     ConditionsService,
@@ -181,7 +176,7 @@ type Creation<Command> = (
  *  Example: `realtime.onConnection(createBoardGateway({ board, scenes, tokens, realtime, log }))` */
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
   const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
-  const { effectAreas, walls, lights, mainToken, memberCards, tokenVisibility } = deps;
+  const { effectAreas, walls, lights, tokenVisibility } = deps;
   const { rate, tokenForm } = deps;
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
@@ -264,17 +259,12 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     );
     socket.on('token:setForm', mutate(setTokenFormCommandDto, tokenForm.setForm.bind(tokenForm)));
     socket.on('token:adjustBar', mutate(adjustBarCommandDto, tokens.adjustBar.bind(tokens)));
-    socket.on('token:setMain', mutate(setMainTokenCommandDto, mainToken.choose.bind(mainToken)));
     socket.on(
       'token:setHiddenMany',
       mutate(setTokensHiddenCommandDto, tokenVisibility.setHiddenMany.bind(tokenVisibility)),
     );
-    socket.on(
-      'member:updateCard',
-      mutate(updateMemberCardCommandDto, memberCards.update.bind(memberCards)),
-    );
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
-    bindCharacterCommands(socket, { mutate, write }, deps);
+    bindCharacterCommands(socket, { bind, mutate, write }, deps);
     bindSheetCommands(socket, mutate, deps);
     socket.on(
       'token:createMany',

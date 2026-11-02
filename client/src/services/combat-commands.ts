@@ -5,7 +5,12 @@ import {
   type DefineConditionCommandDto,
   type RegroupTargetDto,
 } from '@lorkarium/contracts';
-import type { BoardCommandResult, BoardCommandSender, BoardScope } from './board-command-sender';
+import type {
+  BoardCommandResult,
+  BoardCommandSender,
+  BoardScope,
+  TableScope,
+} from './board-command-sender';
 import {
   RealtimeConditionCatalogCommands,
   type ConditionCatalogCommands,
@@ -37,7 +42,7 @@ export type RegroupTarget = RegroupTargetDto;
  *  Example: `await commands.regroupTokens(scope, [wolfId], { kind: 'own' })` */
 export interface CombatCommands extends ConditionCatalogCommands {
   defineCondition(
-    scope: BoardScope,
+    scope: TableScope,
     definition: NewConditionDefinition,
   ): Promise<BoardCommandResult>;
   applyCondition(
@@ -115,29 +120,31 @@ export class RealtimeCombatCommands implements CombatCommands {
   }
 
   updateConditionDefinition(
-    scope: BoardScope,
+    scope: TableScope,
     edit: ConditionDefinitionEdit,
   ): Promise<BoardCommandResult> {
     return this.catalog.updateConditionDefinition(scope, edit);
   }
 
-  deleteConditionDefinition(scope: BoardScope, conditionId: string): Promise<BoardCommandResult> {
+  deleteConditionDefinition(scope: TableScope, conditionId: string): Promise<BoardCommandResult> {
     return this.catalog.deleteConditionDefinition(scope, conditionId);
   }
 
-  restoreDefaultConditions(scope: BoardScope): Promise<BoardCommandResult> {
+  restoreDefaultConditions(scope: TableScope): Promise<BoardCommandResult> {
     return this.catalog.restoreDefaultConditions(scope);
   }
 
-  conditionUsage(scope: BoardScope, conditionId: string): Promise<ConditionUsageResult> {
+  conditionUsage(scope: TableScope, conditionId: string): Promise<ConditionUsageResult> {
     return this.catalog.conditionUsage(scope, conditionId);
   }
 
   defineCondition(
-    scope: BoardScope,
+    scope: TableScope,
     definition: NewConditionDefinition,
   ): Promise<BoardCommandResult> {
-    return this.send(BOARD_EVENTS.defineCondition, scope, { ...definition });
+    return this.sender.sendToTable(BOARD_EVENTS.defineCondition, scope.campaignId, {
+      ...definition,
+    });
   }
 
   applyCondition(

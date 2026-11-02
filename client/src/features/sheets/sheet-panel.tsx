@@ -11,7 +11,8 @@ import type { SheetsApi } from '@/services/sheets-api';
 import { createSheetBridgeHost } from '@/sheet-sandbox/sheet-bridge-host';
 import { consoleEntryOf, type SheetConsoleSink } from '@/sheet-sandbox/sheet-console';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
-import type { BoardTokenSource, SheetTokenSource } from '@/sheet-sandbox/sheet-token-source';
+import { isSpareSheet } from '@/lib/sheet-holder';
+import type { SheetHolderSource, SheetTokenSource } from '@/sheet-sandbox/sheet-token-source';
 import type { SheetStoreState } from '@/stores/sheet-store';
 import { SheetConsoleButton } from './sheet-console-button';
 import { SheetFrameChrome } from './sheet-frame-chrome';
@@ -33,9 +34,9 @@ export type SheetPanelProps = Readonly<{
   /** "Ficha · Lyra". */
   title: string;
   store: StoreApi<SheetStoreState>;
-  /** The sheet's token in the room; `null` until the table and the sheet are known (and for a
-   *  sheet nobody holds, which the frame sees with `token: null`). */
-  tokens: BoardTokenSource | null;
+  /** The sheet's holder in the room (its token, or its character); `null` until the table and
+   *  the sheet are known (and for a sheet nobody holds, which the frame sees with `token: null`). */
+  tokens: SheetHolderSource | null;
   services: SheetPanelServices;
   compact?: boolean;
   onOpenWindow?: () => void;
@@ -56,13 +57,13 @@ export function SheetPanel(props: SheetPanelProps): React.JSX.Element {
   const status = useStore(store, (state) => state.status);
   const template = useStore(store, (state) => state.template);
   const canEdit = useStore(store, (state) => state.sheet?.canEdit ?? false);
-  const tokenId = useStore(store, (state) => state.sheet?.tokenId);
+  const holder = useStore(store, (state) => holderOf(state.sheet));
   const canManage = useStore(store, (state) => state.sheet?.canManage ?? false);
   useReadAgainOnMount(store);
   useReadAgainOnControlLoss(store, props.tokens);
   const sheetConsole = useTemplateConsole(template);
   const onConsole = useConsoleSink(canManage ? template : null, sheetConsole, props.services.now);
-  const connect = useBridgeOf(props, tokenId === null, onConsole);
+  const connect = useBridgeOf(props, holder === NOBODY, onConsole);
   return (
     <SheetFrameChrome
       title={props.title}
@@ -77,7 +78,7 @@ export function SheetPanel(props: SheetPanelProps): React.JSX.Element {
     >
       {status === 'ready' && template ? (
         <SheetSandboxView
-          key={holderKeyOf(tokenId, props.tokens)}
+          key={holderKeyOf(holder, props.tokens)}
           code={template}
           title={props.title}
           clock={props.services.clock}
@@ -91,11 +92,20 @@ export function SheetPanel(props: SheetPanelProps): React.JSX.Element {
   );
 }
 
+const NOBODY = 'nobody';
+
+// Who holds the sheet, as a key: `undefined` while the sheet is not read yet.
+function holderOf(sheet: SheetStoreState['sheet']): string | undefined {
+  if (!sheet) return undefined;
+  if (isSpareSheet(sheet)) return NOBODY;
+  return sheet.memberId !== null ? `character:${sheet.memberId}` : `token:${sheet.tokenId}`;
+}
+
 // The host never swaps its token source: a new holder (or the room's source arriving) is a new
 // frame, so the key names the source the bridge was built on.
-function holderKeyOf(tokenId: string | null | undefined, tokens: BoardTokenSource | null): string {
-  if (tokenId === null) return 'nobody';
-  return tokens && tokenId ? `token:${tokenId}` : 'waiting';
+function holderKeyOf(holder: string | undefined, tokens: SheetHolderSource | null): string {
+  if (holder === NOBODY) return NOBODY;
+  return tokens && holder ? holder : 'waiting';
 }
 
 // A new version of the template is a new frame: the old frame's lines are stale.
@@ -150,12 +160,12 @@ function useBridgeOf(
   );
 }
 
-const NO_TOKEN: BoardTokenSource = { current: () => null, subscribe: () => () => undefined };
+const NO_TOKEN: SheetHolderSource = { current: () => null, subscribe: () => () => undefined };
 
 // `null` only for a sheet nobody holds; a held one whose token is not here yet is loading.
 function tokenSourceOf(
   holderless: boolean,
-  tokens: BoardTokenSource | null,
+  tokens: SheetHolderSource | null,
 ): SheetTokenSource | null {
   if (holderless) return null;
   return tokens ?? NO_TOKEN;
@@ -172,7 +182,7 @@ function useReadAgainOnMount(store: StoreApi<SheetStoreState>): void {
 // answers the read again (404 for a `controllers` sheet, read-only for a `table` one).
 function useReadAgainOnControlLoss(
   store: StoreApi<SheetStoreState>,
-  tokens: BoardTokenSource | null,
+  tokens: SheetHolderSource | null,
 ): void {
   useEffect(() => {
     if (!tokens) return;

@@ -1,3 +1,4 @@
+import { CharacterPublisherFake } from '../../support/characters-fakes';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SceneWallsFake, WallsDaoFake } from '../../support/walls-fakes';
 import { northWallPo } from '../../support/walls-factories';
@@ -21,7 +22,6 @@ import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import {
   DragGroupsFake,
-  MainTokensDaoFake,
   TableTokenRightsFake,
   TokenTransactionRunnerFake,
   TokensDaoFake,
@@ -66,7 +66,6 @@ describe('TokensService', () => {
   let tokens: TokensDaoFake;
   let walls: WallsDaoFake;
   let combat: CombatDaoFake;
-  let mainTokens: MainTokensDaoFake;
   let publisher: BoardPublisherFake;
   let serviceDeps: TokensServiceDeps;
   let service: TokensService;
@@ -97,7 +96,6 @@ describe('TokensService', () => {
     );
     walls = new WallsDaoFake(scenes.journal);
     combat = new CombatDaoFake();
-    mainTokens = new MainTokensDaoFake(scenes.journal);
     const transaction = new TokenTransactionRunnerFake(
       scenes,
       tokens,
@@ -105,7 +103,6 @@ describe('TokensService', () => {
       combat,
       assets,
       walls,
-      mainTokens,
     );
     serviceDeps = {
       members,
@@ -113,6 +110,7 @@ describe('TokensService', () => {
       dragGroups: new DragGroupsFake(scenes, tokens),
       sceneWalls: new SceneWallsFake(),
       publisher,
+      characterPublisher: new CharacterPublisherFake(),
       clock: new ClockFake(NOW),
       barLimit: 99_999,
       tokenLimit: 500,
@@ -282,47 +280,6 @@ describe('TokensService', () => {
       bars: [PV],
     });
     expect(publisher.tokenChanges[0]).toMatchObject({ name: 'token:updated', controllerIds: [] });
-  });
-
-  describe('update and the main tokens', () => {
-    function lyraUpdate(controllerIds: string[]) {
-      const fields = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 } as const;
-      return { tokenId: LYRA_ID, ...fields, controllerIds, bars: [PV] };
-    }
-
-    beforeEach(() => {
-      tokens.rows[0] = lyraRow({ controllerIds: [BIA_ID, CAIO_ID] });
-    });
-
-    it('Ana taking Bia off the control of Lyra drops the main tokens of whoever left, before the bump', async () => {
-      await service.update(ANA_ID, VHARN_ID, lyraUpdate([CAIO_ID]));
-
-      expect(mainTokens.drops).toEqual([{ tokenId: LYRA_ID, keptUserIds: [CAIO_ID] }]);
-      expect(scenes.journal).toEqual([
-        'lock',
-        'save',
-        'dropLostControl',
-        'bump',
-        'commit',
-        'publish',
-      ]);
-    });
-
-    it('an empty control drops every main token of Lyra', async () => {
-      await service.update(ANA_ID, VHARN_ID, lyraUpdate([]));
-
-      expect(mainTokens.drops).toEqual([{ tokenId: LYRA_ID, keptUserIds: [] }]);
-    });
-
-    it('an update refused with OUT_OF_SCENE drops no main token', async () => {
-      tokens.rows[0] = lyraRow({ token: { ...lyraRow().token, col: 19 } });
-      const tooWide = { ...lyraUpdate([]), width: 2 };
-
-      await expect(service.update(ANA_ID, VHARN_ID, tooWide)).rejects.toMatchObject({
-        code: 'OUT_OF_SCENE',
-      });
-      expect(mainTokens.drops).toEqual([]);
-    });
   });
 
   it('resizing a token past the edge is refused with OUT_OF_SCENE', async () => {

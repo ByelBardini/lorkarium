@@ -1,24 +1,12 @@
-import { campaignResponseDto, type BoardStateDto, type TokenDto } from '@lorkarium/contracts';
+import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
 import { gridAck } from './grids';
 import { envelope, send, synced } from './live-table';
 import { recordEventsOf, type EventRecorder, type RealtimeClient } from './realtime-client';
-import type { SignedInUser } from './sign-in';
 import type { Table } from './tables';
+import { CharactersDao } from '../../src/modules/characters/characters.dao';
 import { createdTokenOf, tokenCommandFor, type TokenTableHarness } from './token-table';
 
-/** The id of `table`'s cast, from its detail as `user` sees it.
- *
- *  Example: `const castId = await castIdOf(live, live.ana, live.vharn)` */
-export async function castIdOf(
-  live: TokenTableHarness,
-  user: SignedInUser,
-  table: Table,
-): Promise<string> {
-  const response = await live.http(user, { method: 'GET', url: `/api/campaigns/${table.id}` });
-  return campaignResponseDto.parse(response.json()).campaign.castSceneId;
-}
-
-/** The snapshot of one grid (the cast too) as `client` sees it. */
+/** The snapshot of one grid as `client` sees it. */
 export async function gridState(
   client: RealtimeClient,
   table: Table,
@@ -77,11 +65,36 @@ export async function lyraPoisonedAtVharn(live: TokenTableHarness): Promise<
   return { ana, bia, caio, recorders, lyra };
 }
 
-/** `token:linkToCard` of `tokenId` to the card of `memberId`; the ack as it came. */
-export function linkToCard(
+/** `token:linkToCharacter` of `tokenId` to the character of the player `memberId` (read from the
+ *  database); the ack as it came.
+ *
+ *  Example: `await linkToPlayerCharacter(live, ana, live.vharn, { tokenId, memberId: live.bia.id })` */
+export async function linkToPlayerCharacter(
+  live: TokenTableHarness,
   client: RealtimeClient,
   table: Table,
   link: Readonly<{ tokenId: string; memberId: string; sceneId?: string }>,
 ): ReturnType<typeof send> {
-  return send(client, 'token:linkToCard', { ...envelope(table.id), ...link });
+  const { memberId, ...token } = link;
+  const found = await new CharactersDao(live.connection.db).findOfUser(table.id, memberId);
+  if (!found) throw new Error(`member ${memberId} has no character at ${table.id}; expected one`);
+  return linkToCharacter(client, table, { ...token, characterId: found.character.id });
+}
+
+/** `token:linkToCharacter` of `tokenId` to the character `characterId`; the ack as it came. */
+export function linkToCharacter(
+  client: RealtimeClient,
+  table: Table,
+  link: Readonly<{ tokenId: string; characterId: string; sceneId?: string }>,
+): ReturnType<typeof send> {
+  return send(client, 'token:linkToCharacter', { ...envelope(table.id), ...link });
+}
+
+/** `token:unlinkFromCharacter` of `tokenId`; the ack as it came. */
+export function unlinkFromCharacter(
+  client: RealtimeClient,
+  table: Table,
+  unlink: Readonly<{ tokenId: string; sceneId?: string }>,
+): ReturnType<typeof send> {
+  return send(client, 'token:unlinkFromCharacter', { ...envelope(table.id), ...unlink });
 }

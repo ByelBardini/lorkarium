@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { realtimeAckFailureDto } from '../http/realtime-ack.dto';
-import { boardCommandShape, boardEventShape } from './board-event.dto';
+import { boardCommandShape, boardEventShape, tableEventShape } from './board-event.dto';
 import { tokenIdGroupDto } from './token-id-group.dto';
 
 export const CONDITION_NAME_MAX_LENGTH = 32;
@@ -266,7 +266,7 @@ export const setConditionStacksCommandDto = z.strictObject({
 export type SetConditionStacksCommandDto = z.infer<typeof setConditionStacksCommandDto>;
 
 export const conditionDefinedDto = z.strictObject({
-  ...boardEventShape,
+  ...tableEventShape,
   definition: conditionDefinitionDto,
 });
 export type ConditionDefinedDto = z.infer<typeof conditionDefinedDto>;
@@ -297,21 +297,21 @@ export type ConditionRemovedDto = z.infer<typeof conditionRemovedDto>;
 
 /** `condition:definitionUpdated`: the definition as saved; every token holding it shows it so. */
 export const conditionDefinitionUpdatedDto = z.strictObject({
-  ...boardEventShape,
+  ...tableEventShape,
   definition: conditionDefinitionDto,
 });
 export type ConditionDefinitionUpdatedDto = z.infer<typeof conditionDefinitionUpdatedDto>;
 
 /** `condition:definitionDeleted`: the condition left the list and every token. */
 export const conditionDefinitionDeletedDto = z.strictObject({
-  ...boardEventShape,
+  ...tableEventShape,
   conditionId: z.uuid(),
 });
 export type ConditionDefinitionDeletedDto = z.infer<typeof conditionDefinitionDeletedDto>;
 
 /** `condition:defaultsRestored`: the default conditions that came back to the list. */
 export const conditionDefaultsRestoredDto = z.strictObject({
-  ...boardEventShape,
+  ...tableEventShape,
   definitions: z.array(conditionDefinitionDto),
 });
 export type ConditionDefaultsRestoredDto = z.infer<typeof conditionDefaultsRestoredDto>;

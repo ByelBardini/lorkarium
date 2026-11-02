@@ -31,11 +31,10 @@ export type CampaignView = Readonly<{
   members: readonly CampaignMemberRow[];
 }>;
 
-/** The view of the detail modal: the campaign view plus the id of the table's cast, the latest
- *  entry of any member and who has the table open right now. */
+/** The view of the detail modal: the campaign view plus the latest entry of any member and who
+ *  has the table open right now. */
 export type CampaignDetailView = CampaignView &
   Readonly<{
-    castSceneId: string;
     lastAccessAt: Date | null;
     onlineUserIds: ReadonlySet<string>;
   }>;
@@ -137,7 +136,6 @@ export function toCampaignDetailDto(view: CampaignDetailView): CampaignDetailDto
     members: sortedMembers(membersOfRecord(view.members), view.onlineUserIds),
     joinCode: access.canSeeJoinCode() ? view.campaign.joinCode : null,
     hasPassword: view.campaign.passwordHash !== null,
-    castSceneId: view.castSceneId,
     createdAt: view.campaign.createdAt.toISOString(),
     lastAccessAt: view.lastAccessAt?.toISOString() ?? null,
   };

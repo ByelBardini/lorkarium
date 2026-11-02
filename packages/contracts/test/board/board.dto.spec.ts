@@ -41,8 +41,6 @@ const STATE = {
   veiledLights: [],
   combat: null,
   conditionDefinitions: [],
-  mainTokens: [],
-  memberCards: [],
 };
 
 describe('boardStateDto', () => {

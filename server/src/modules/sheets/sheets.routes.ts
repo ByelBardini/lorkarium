@@ -1,6 +1,7 @@
 import {
   createSheetRequestDto,
   deleteSheetRequestDto,
+  setMainSheetCommandDto,
   sheetParamsDto,
   tokenSheetParamsDto,
   updateSheetRequestDto,
@@ -18,6 +19,7 @@ import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from
 import { ZodError } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
 import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
+import { CharacterError, CharacterNotFoundError } from '../characters/characters.error';
 import { LibraryError } from '../library/library.error';
 import type { LibraryRequester } from '../library/library.service';
 import { TokenError, TokenNotFoundError } from '../tokens/tokens.error';
@@ -35,6 +37,7 @@ const TEMPLATE = `${TEMPLATES}/:templateId`;
 const SHEETS = '/campaigns/:campaignId/sheets';
 const SHEET = `${SHEETS}/:sheetId`;
 const TOKEN_SHEETS = '/campaigns/:campaignId/tokens/:tokenId/sheets';
+const CHARACTER_SHEETS = '/campaigns/:campaignId/characters/:characterId/sheets';
 // The code of a template is at most 512 KiB of source (the values 256 KiB of JSON); escaping
 // may double either.
 const BODY_LIMIT = 2 * 1024 * 1024;
@@ -60,7 +63,7 @@ const PUBLIC_MESSAGE: Readonly<Record<SheetErrorCode, string | null>> = {
 export type SheetServices = Readonly<{ templates: SheetTemplatesService; sheets: SheetsService }>;
 
 /** The HTTP edge of the sheets, nested in the table (§2.6): the templates of the library and the
- *  sheets linked to tokens.
+ *  sheets held by tokens and characters.
  *
  *  Example: `await app.register(sheetsRoutes({ templates, sheets }), { prefix: '/api' })` */
 export function sheetsRoutes(services: SheetServices): (app: FastifyInstance) => Promise<void> {
@@ -89,6 +92,18 @@ function registerSheetReads(app: FastifyInstance, sheets: SheetsService): void {
     if (!parsed.success) throw new TokenNotFoundError(requester.campaignId, String(tokenId));
     return sheets.listOfToken(requester, parsed.data);
   });
+  app.get(CHARACTER_SHEETS, options, async (request): Promise<TokenSheetsResponseDto> => {
+    const requester = requesterOf(app, request);
+    return sheets.listOfCharacter(requester, characterIdOf(request, requester));
+  });
+}
+
+// The character's id has the shape of the one `character:setMainSheet` carries.
+function characterIdOf(request: FastifyRequest, requester: LibraryRequester): string {
+  const { characterId } = request.params as Readonly<Record<string, unknown>>;
+  const parsed = setMainSheetCommandDto.shape.characterId.safeParse(characterId);
+  if (parsed.success) return parsed.data;
+  throw new CharacterNotFoundError(requester.campaignId, String(characterId));
 }
 
 function registerSheetWrites(app: FastifyInstance, sheets: SheetsService): void {
@@ -180,6 +195,8 @@ function domainReplyOf(error: unknown): Readonly<{ status: number; body: ApiErro
     return { status: 404, body: { code: error.code, message: 'Folder not found' } };
   if (error instanceof TokenError)
     return { status: 404, body: { code: error.code, message: 'Token not found' } };
+  if (error instanceof CharacterError)
+    return { status: 404, body: { code: error.code, message: 'Character not found' } };
   return null;
 }
 

@@ -23,7 +23,7 @@ import {
   RoomTokenDialog,
   RoomTokenImageDialog,
 } from '@/features/tokens/room-token-dialog';
-import { CardLinkDialog, type CardLinkRequest } from '@/features/tokens/token-link-items';
+import { CharacterLinkDialog, type CharacterLinkRequest } from '@/features/tokens/token-link-items';
 import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
 import type { AssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
@@ -61,6 +61,7 @@ import type { LightColorStore } from '@/stores/light-color-store';
 import type { AuraMotionStore } from '@/stores/aura-motion-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
+import type { CharactersStore } from '@/stores/characters-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { SessionStore } from '@/stores/session-store';
 import {
@@ -160,7 +161,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [imageTokenId, setImageTokenId] = useState<string | null>(null);
   const [auraTokenId, setAuraTokenId] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<SelectionToDelete | null>(null);
-  const [cardLink, setCardLink] = useState<CardLinkRequest | null>(null);
+  const [characterLink, setCharacterLink] = useState<CharacterLinkRequest | null>(null);
   const [conditionTool] = useState(createConditionToolStore);
   const role = campaign.myRole;
   const isMaster = role === 'master';
@@ -329,22 +330,21 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               <TokenContextMenu
                 request={tokenMenu}
                 board={table.board}
-                presence={table.presence}
                 interaction={interaction}
                 onApplyCondition={setConditionTargets}
                 onChangeImage={setImageTokenId}
                 onChangeAura={setAuraTokenId}
                 onEditForms={(tokenId) => setTokenDialog({ tokenId, initialTab: 'forms' })}
                 onEditToken={(tokenId) => setTokenDialog({ tokenId })}
-                characters={{ cast: table.cast, onConfirmLink: setCardLink }}
+                characters={{ store: table.characters, onConfirmLink: setCharacterLink }}
                 onClose={() => setTokenMenu(null)}
               />
             )}
-            {cardLink && (
-              <CardLinkDialog
-                request={cardLink}
+            {characterLink && (
+              <CharacterLinkDialog
+                request={characterLink}
                 interaction={interaction}
-                onClose={() => setCardLink(null)}
+                onClose={() => setCharacterLink(null)}
               />
             )}
             {doorMenu && table && (
@@ -488,7 +488,7 @@ type ShownTab = Readonly<{
   table: Readonly<{
     presence: StoreApi<TablePresenceStore>;
     board: StoreApi<BoardStore>;
-    cast: StoreApi<BoardStore>;
+    characters: StoreApi<CharactersStore>;
     edits: StoreApi<TableEditStore>;
   }> | null;
   interaction: StoreApi<BoardInteractionStore>;

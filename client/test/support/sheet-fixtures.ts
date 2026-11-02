@@ -6,7 +6,6 @@ import type {
   SheetTemplateCodeDto,
   SheetWriteResponseDto,
 } from '@lorkarium/contracts';
-import { LYRA_ANCHOR_ID } from './cast-fixtures';
 import { BIA_AT_TABLE } from './table-session-fixtures';
 
 export const TORMENTA_TEMPLATE_ID = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d';
@@ -16,14 +15,14 @@ export const GOBLIN_SHEET_ID = '8e9f0a1b-2c3d-4e4f-8a5b-6c7d8e9f0a1b';
 export const SPARE_SHEET_ID = '9f0a1b2c-3d4e-4f5a-9b6c-7d8e9f0a1b2c';
 
 /** "Lyra de Vharn" (a "Ficha Tormenta" given to Bia) as Bia (a controller) reads it at version
- *  1: Força 14, on Lyra's anchor. */
+ *  1: Força 14, held by her character (no token: a character's sheet names its player). */
 export function lyraSheet(overrides: Partial<SheetDto> = {}): SheetDto {
   return {
     id: LYRA_SHEET_ID,
     name: 'Lyra de Vharn',
     folderId: null,
     templateId: TORMENTA_TEMPLATE_ID,
-    tokenId: LYRA_ANCHOR_ID,
+    tokenId: null,
     memberId: BIA_AT_TABLE.userId,
     visibility: 'controllers',
     values: { forca: 14 },

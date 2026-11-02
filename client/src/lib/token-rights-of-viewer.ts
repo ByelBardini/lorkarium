@@ -11,10 +11,14 @@ import {
 /** Both keys off: what a table answers until it says otherwise. */
 export const NO_TOKEN_KEYS: TableTokenRights = { create: false, delete: false };
 
+/** A token as its rights read it: its author and its link to a character (a linked token is
+ *  the master's, since editing it changes the character on every grid). */
+export type RightsToken = Readonly<{ createdBy: string | null; characterId: string | null }>;
+
 /** What one viewer may do with tokens on this table, by the game-core rule the server uses. */
 export type ViewerTokenRights = Readonly<{
   canCreate: boolean;
-  of: (token: OwnedToken) => TokenRights;
+  of: (token: RightsToken) => TokenRights;
 }>;
 
 /** The keys of the open table: the last `session:campaignUpdated`'s (kept by the open tables
@@ -53,8 +57,12 @@ export function viewerTokenRightsOf(
   if (!viewer) return { canCreate: false, of: () => NOTHING };
   return {
     canCreate: canCreateTokens(viewer, keys),
-    of: (token) => tokenRightsOf(viewer, keys, token),
+    of: (token) => tokenRightsOf(viewer, keys, ownedTokenOf(token)),
   };
+}
+
+function ownedTokenOf({ createdBy, characterId }: RightsToken): OwnedToken {
+  return { createdBy, characterId };
 }
 
 /** Whether a role may create tokens: creating asks only for the role, and the toolbar knows the

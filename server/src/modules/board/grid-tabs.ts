@@ -44,8 +44,7 @@ export async function watchGrid(
 }
 
 /** `scene:unwatch`: forgets the tab and leaves the grid's rooms, unless it is the group grid
- *  (not a tab: everyone at the table has it open) or was never a tab (the cast, which every
- *  member follows and no one watches).
+ *  (not a tab: everyone at the table has it open) or was never a tab.
  *
  *  Example: `await unwatchGrid(deps, socket, userId, { actionId, campaignId, sceneId: torreId })` */
 export async function unwatchGrid(

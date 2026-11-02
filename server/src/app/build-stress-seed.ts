@@ -5,7 +5,12 @@ import { Argon2PasswordHasher } from '../infrastructure/password-hasher/argon2-p
 import { UsersDao } from '../modules/auth/users.dao';
 import { CampaignJoinService } from '../modules/campaigns/campaign-join.service';
 import { CampaignMembersDao } from '../modules/campaigns/campaign-members.dao';
-import { createCampaignsModule } from '../modules/campaigns/campaigns.plugin';
+import {
+  createCampaignsModule,
+  memberRoleTransactionOver,
+} from '../modules/campaigns/campaigns.plugin';
+import type { CharacterPublisherPort } from '../modules/characters/character-publisher.port';
+import { createCharactersModule } from '../modules/characters/characters.plugin';
 import type { PresenceReaderPort } from '../modules/campaigns/presence-reader.port';
 import { CampaignsDao } from '../modules/campaigns/campaigns.dao';
 import type { MemberRoleChangedPort } from '../modules/campaigns/member-role-changed.port';
@@ -24,6 +29,7 @@ import type { StressSceneSeedService } from '../modules/dev-seed/stress-scene-se
 // The seed runs with no table open: every board event it causes goes nowhere.
 const SILENT_PUBLISHER = new Proxy({} as BoardPublisherPort, { get: () => () => undefined });
 const SILENT_LIBRARY = new Proxy({} as LibraryPublisherPort, { get: () => () => undefined });
+const SILENT_CHARACTERS: CharacterPublisherPort = { charactersChanged: () => undefined };
 const NO_AUDIENCE = new Proxy({} as SceneAudiencePort, { get: () => async () => undefined });
 const NOBODY_ONLINE: PresenceReaderPort = { onlineUserIdsOf: () => new Set() };
 const NO_LIVE_TABLE: MemberRoleChangedPort = { memberRoleChanged: async () => undefined };
@@ -51,12 +57,14 @@ export function buildStressSceneSeed(db: Database): StressSceneSeedService {
     presence: NOBODY_ONLINE,
   });
   const { memberships } = campaignsModule;
+  const characters = createCharactersModule({ db, members, publisher: SILENT_CHARACTERS, clock });
+  const transaction = memberRoleTransactionOver(db, characters.seatIn);
   return createDevSeedModule({
     users: new UsersDao(db),
     campaigns: campaignsModule.service,
     join: new CampaignJoinService({ campaigns, members, hasher, clock }),
     roles: new MemberRoleService({
-      ...{ campaigns, members, memberships },
+      ...{ campaigns, members, memberships, transaction },
       ...{ changed: NO_LIVE_TABLE, presence: NOBODY_ONLINE },
     }),
     scenes: createScenesModule({
@@ -66,6 +74,6 @@ export function buildStressSceneSeed(db: Database): StressSceneSeedService {
     }).service,
     walls: createWallsModule(board).service,
     lights: createLightsModule(board).service,
-    tokens: createTokensModule(board).batch,
+    tokens: createTokensModule({ ...board, characterPublisher: SILENT_CHARACTERS }).batch,
   }).stressScene;
 }

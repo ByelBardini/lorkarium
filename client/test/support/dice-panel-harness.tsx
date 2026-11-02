@@ -3,7 +3,6 @@ import { act, render } from '@testing-library/react';
 import { DicePanel } from '@/features/dice/dice-panel';
 import { ANA } from './auth-api-fake';
 import { VHARN } from './campaigns-api-fake';
-import { VHARN_CAST_ID } from './cast-fixtures';
 import { BIA_AT_TABLE, vharnState } from './table-session-fixtures';
 import type { TestDependencies } from './app-dependencies';
 
@@ -24,7 +23,6 @@ export function openVharnWithRoster(deps: TestDependencies): void {
     deps.openTables.getState().open({
       campaignId: VHARN.id,
       name: 'Vharn',
-      castSceneId: VHARN_CAST_ID,
       cover: VHARN.cover,
     });
   });

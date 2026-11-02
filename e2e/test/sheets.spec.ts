@@ -17,18 +17,13 @@ import {
 } from './support/sheets';
 import { adminCredentials, signIn } from './support/sign-in';
 import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
-import {
-  cardOf,
-  createTokenWithPvFor,
-  linkCenterTokenToCard,
-  openCard,
-} from './support/token-cards';
+import { cardOf, createCharacterTokenWithPv, openCard } from './support/token-cards';
 
 type SheetTable = Readonly<{ admin: Page; bia: Page; caio: Page | null; campaignId: string }>;
 
-/** Ana's table with Bia (and Caio, when asked) as players, and Bia's Lyra (PV 10 / 10) at the
- *  center cell, linked to Bia's card: the card lists the sheets of the character (the anchor), so
- *  a sheet on an unlinked token never shows there. Everyone in the room. */
+/** Ana's table with Bia (and Caio, when asked) as players, and Bia's character Lyra (PV 10 / 10)
+ *  on a token at the center cell: a sheet made on the linked token is the character's, so the
+ *  card lists it (a sheet on an unlinked token never shows there). Everyone in the room. */
 async function openSheetTable(
   newPlayerPage: () => Promise<Page>,
   withCaio: boolean,
@@ -46,8 +41,7 @@ async function openSheetTable(
     await joinByCodeAndEnter(caio, code, admin);
   }
   await enterFromTheList(admin, name);
-  await createTokenWithPvFor(admin, 'Lyra', 'Bia');
-  await linkCenterTokenToCard(admin, 'Lyra', 'Bia');
+  await createCharacterTokenWithPv(admin, 'Lyra', 'Bia');
   return { admin, bia, caio, campaignId: campaignIdOf(admin) };
 }
 
@@ -89,7 +83,7 @@ test('Ana makes a sheet on Lyra; Bia takes 5 PV, rolls the attack and keeps For�
   await expect(sheet.getByRole('heading', { name: 'Lyra' })).toBeVisible();
   await expect(sheet.locator('#pv')).toHaveText('10 / 10');
 
-  // "−5 PV" goes through `sheet:adjustBar` to the anchor: Ana's Lyra shows it.
+  // "−5 PV" goes through `sheet:adjustBar` to the character: Ana's Lyra shows it.
   await sheet.getByRole('button', { name: '−5 PV' }).click();
   await expect(sheet.locator('#pv')).toHaveText('5 / 10');
   await openCard(admin, 'Lyra');

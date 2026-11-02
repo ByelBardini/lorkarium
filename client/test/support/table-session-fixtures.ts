@@ -1,6 +1,5 @@
 import type {
   BoardPingedDto,
-  MemberCardDto,
   ActiveConditionDto,
   BoardStateDto,
   ConditionDefinitionDto,
@@ -237,8 +236,6 @@ export function vharnBoard(overrides: Partial<BoardStateDto> = {}): BoardStateDt
     veiledLights: [],
     combat: null,
     conditionDefinitions: [],
-    mainTokens: [],
-    memberCards: [],
     ...overrides,
   };
 }
@@ -314,7 +311,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
       },
     ],
     conditions: [],
-    anchorTokenId: null,
+    characterId: null,
     createdBy: null,
     ...overrides,
   };
@@ -485,18 +482,3 @@ type DistributiveOmit<E> = E extends { type: infer T; payload: infer P }
       payload: Omit<P, 'campaignId' | 'sceneId' | 'version' | 'at'> & { sceneId?: string };
     }
   : never;
-
-/** The card of Bia on VHARN, empty unless overridden.
- *
- *  Example: `memberCard({ armorClass: 15 })` */
-export function memberCard(overrides: Partial<MemberCardDto> = {}): MemberCardDto {
-  return {
-    userId: BIA_AT_TABLE.userId,
-    characterName: null,
-    armorClass: null,
-    difficultyClass: null,
-    noteOne: null,
-    noteTwo: null,
-    ...overrides,
-  };
-}

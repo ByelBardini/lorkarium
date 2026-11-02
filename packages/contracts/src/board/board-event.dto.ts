@@ -28,3 +28,14 @@ export const boardEventShape = {
  *  Example: `boardAdvancedDto.parse({ campaignId, sceneId, version: 8, at })` */
 export const boardAdvancedDto = z.strictObject(boardEventShape);
 export type BoardAdvancedDto = z.infer<typeof boardAdvancedDto>;
+
+/** Fields of every table-level event (the characters and the condition list): the table, the
+ *  version of its table stream (`campaigns.characters_version`, apart from the grids') and when
+ *  (§5.5). No `sceneId`: it belongs to no grid.
+ *
+ *  Example: `z.strictObject({ ...tableEventShape, characterId: z.uuid() })` */
+export const tableEventShape = {
+  campaignId: z.uuid(),
+  version: stateVersionDto,
+  at: z.iso.datetime(),
+};

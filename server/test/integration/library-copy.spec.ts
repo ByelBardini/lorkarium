@@ -7,7 +7,6 @@ import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
 import { DrawingsDao } from '../../src/modules/drawings/drawings.dao';
 import { EffectAreasDao } from '../../src/modules/effect-areas/effect-areas.dao';
 import { LightsDao } from '../../src/modules/lights/lights.dao';
-import { mainTokens } from '../../src/modules/tokens/main-tokens.po';
 import { TokensDao, type TokenRow } from '../../src/modules/tokens/tokens.dao';
 import type { TokenBarPo, TokenPo } from '../../src/modules/tokens/tokens.po';
 import { WallsDao } from '../../src/modules/walls/walls.dao';
@@ -122,7 +121,6 @@ async function fight(sceneId: string, lyra: TokenRow): Promise<void> {
   const [combatant] = await db.insert(combatants).values(entry).returning();
   if (!combatant) throw new Error('no combatant row');
   await db.insert(combatantTokens).values({ tokenId: lyra.token.id, combatantId: combatant.id });
-  await db.insert(mainTokens).values({ sceneId, userId: live.bia.id, tokenId: lyra.token.id });
 }
 
 describe('duplicating a grid of the library', () => {
@@ -207,12 +205,11 @@ describe('duplicating a grid of the library', () => {
     ]);
   });
 
-  it('leaves the combat and the main token behind', async () => {
+  it('leaves the combat behind', async () => {
     const copy = await duplicated(salaoId);
 
     const db = live.connection.db;
     expect(await db.select().from(combats).where(eq(combats.sceneId, copy.id))).toEqual([]);
-    expect(await db.select().from(mainTokens).where(eq(mainTokens.sceneId, copy.id))).toEqual([]);
   });
 
   it('leaves the original untouched: its tokens, its combat and the round of its condition', async () => {

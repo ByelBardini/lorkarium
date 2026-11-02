@@ -71,13 +71,27 @@ type FrameListeners = {
   unhandledrejection: Array<(event: SheetFrameRejectionEvent) => void>;
 };
 
+/** Another window as the frame reads it across origins: only its `parent`, itself at the top.
+ *
+ *  Example: `new FrameWindowRefFake('room window') // a top-level window outside the frame` */
+export class FrameWindowRefFake {
+  readonly parent: unknown;
+
+  constructor(
+    readonly name: string,
+    parent?: unknown,
+  ) {
+    this.parent = parent ?? this;
+  }
+}
+
 /** The sandboxed frame's `window` as the bootstrap sees it: `parent`, its `console`, the timer,
  *  the `message`, `error` and `unhandledrejection` listeners and the global the SDK is defined on.
  *  The timer is the spec's own `setTimeout`, so `vi.useFakeTimers()` drives it.
  *
  *  Example: `frame.handOff(port) // the host's first-load port arrives` */
 export class SheetFrameWindowFake implements SheetFrameScope {
-  readonly parent = { name: 'host window' };
+  readonly parent = new FrameWindowRefFake('host window');
   readonly console = new FrameConsoleFake();
   private readonly listeners: FrameListeners = { message: [], error: [], unhandledrejection: [] };
 

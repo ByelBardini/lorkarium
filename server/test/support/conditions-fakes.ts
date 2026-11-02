@@ -3,12 +3,16 @@ import type {
   ConditionDuration,
   ConditionsDao,
 } from '../../src/modules/conditions/conditions.dao';
-import type {
-  ConditionDefinitionPo,
-  NewConditionDefinition,
+import {
+  holderIdOf,
+  holderIdOfRow,
+  type ConditionDefinitionPo,
+  type ConditionHolder,
+  type NewConditionDefinition,
 } from '../../src/modules/conditions/conditions.po';
 import type { ConditionTransactionRunner } from '../../src/modules/conditions/conditions.service';
 import { AssetsDaoFake } from './assets-fakes';
+import { CharactersDaoFake } from './characters-fakes';
 import { CombatDaoFake } from './combat-fakes';
 import type { ScenesDaoFake } from './scenes-fakes';
 import type { TokensDaoFake } from './tokens-fakes';
@@ -31,11 +35,13 @@ export class ConditionsDaoFake implements Pick<
   | 'remove'
   | 'setRounds'
   | 'stacksOf'
-  | 'findActiveOnToken'
+  | 'findActiveOf'
   | 'setStacks'
   | 'capStacks'
   | 'listDefinitions'
   | 'listOfTokens'
+  | 'listOfCharacters'
+  | 'listOfHolders'
   | 'decrementRemaining'
   | 'deleteActive'
 > {
@@ -148,12 +154,13 @@ export class ConditionsDaoFake implements Pick<
     return true;
   }
 
-  /** The tokens holding it; the fake keeps no scene, so only the definition's table is checked. */
+  /** The tokens and characters holding it; the fake keeps no scene, so only the definition's
+   *  table is checked. */
   async countActiveOf(campaignId: string, conditionId: string): Promise<number> {
     const known = await this.findDefinitionInCampaign(campaignId, conditionId);
     if (!known) return 0;
     const holders = this.active.filter((a) => a.conditionId === conditionId);
-    return new Set(holders.map((a) => a.tokenId)).size;
+    return new Set(holders.map(holderIdOfRow)).size;
   }
 
   async findDefinitionInCampaign(
@@ -168,7 +175,7 @@ export class ConditionsDaoFake implements Pick<
   }
 
   async apply(
-    tokenId: string,
+    holder: ConditionHolder,
     conditionId: string,
     duration: ConditionDuration,
     stacks = 1,
@@ -176,12 +183,11 @@ export class ConditionsDaoFake implements Pick<
     this.journal.push('save');
     const definition = this.definitions.find((d) => d.id === conditionId);
     if (!definition) throw new Error(`ConditionsDaoFake has no definition ${conditionId}`);
-    const kept = this.active.filter(
-      (a) => !(a.tokenId === tokenId && a.conditionId === conditionId),
-    );
+    const kept = this.active.filter((a) => !(heldBy(a, holder) && a.conditionId === conditionId));
     const row = {
-      id: `${tokenId}-${conditionId}`,
-      tokenId,
+      id: `${holderIdOf(holder)}-${conditionId}`,
+      tokenId: 'tokenId' in holder ? holder.tokenId : null,
+      characterId: 'characterId' in holder ? holder.characterId : null,
       conditionId,
       name: definition.name,
       tone: definition.tone,
@@ -198,20 +204,20 @@ export class ConditionsDaoFake implements Pick<
     return row;
   }
 
-  async remove(tokenId: string, activeConditionId: string): Promise<boolean> {
+  async remove(holder: ConditionHolder, activeConditionId: string): Promise<boolean> {
     this.journal.push('save');
     const before = this.active.length;
-    this.active = this.active.filter((a) => !(a.tokenId === tokenId && a.id === activeConditionId));
+    this.active = this.active.filter((a) => !(heldBy(a, holder) && a.id === activeConditionId));
     return this.active.length < before;
   }
 
   async setRounds(
-    tokenId: string,
+    holder: ConditionHolder,
     activeConditionId: string,
     remainingRounds: number | null,
   ): Promise<ActiveConditionRow | undefined> {
     this.journal.push('save');
-    const found = this.active.find((a) => a.tokenId === tokenId && a.id === activeConditionId);
+    const found = await this.findActiveOf(holder, activeConditionId);
     if (!found) return undefined;
     const row = { ...found, remainingRounds };
     this.active = this.active.map((a) => (a === found ? row : a));
@@ -219,29 +225,27 @@ export class ConditionsDaoFake implements Pick<
   }
 
   async stacksOf(
-    tokenIds: readonly string[],
+    holders: readonly ConditionHolder[],
     conditionId: string,
   ): Promise<ReadonlyMap<string, number>> {
-    const held = this.active.filter(
-      (a) => a.conditionId === conditionId && tokenIds.includes(a.tokenId),
-    );
-    return new Map(held.map((a) => [a.tokenId, a.stacks]));
+    const held = (await this.listOfHolders(holders)).filter((a) => a.conditionId === conditionId);
+    return new Map(held.map((a) => [holderIdOfRow(a), a.stacks]));
   }
 
-  async findActiveOnToken(
-    tokenId: string,
+  async findActiveOf(
+    holder: ConditionHolder,
     activeConditionId: string,
   ): Promise<ActiveConditionRow | undefined> {
-    return this.active.find((a) => a.tokenId === tokenId && a.id === activeConditionId);
+    return this.active.find((a) => heldBy(a, holder) && a.id === activeConditionId);
   }
 
   async setStacks(
-    tokenId: string,
+    holder: ConditionHolder,
     activeConditionId: string,
     stacks: number,
   ): Promise<ActiveConditionRow | undefined> {
     this.journal.push('save');
-    const found = await this.findActiveOnToken(tokenId, activeConditionId);
+    const found = await this.findActiveOf(holder, activeConditionId);
     if (!found) return undefined;
     const row = { ...found, stacks };
     this.active = this.active.map((a) => (a === found ? row : a));
@@ -256,7 +260,15 @@ export class ConditionsDaoFake implements Pick<
   }
 
   async listOfTokens(tokenIds: readonly string[]): Promise<ActiveConditionRow[]> {
-    return this.active.filter((a) => tokenIds.includes(a.tokenId));
+    return this.listOfHolders(tokenIds.map((tokenId) => ({ tokenId })));
+  }
+
+  async listOfCharacters(characterIds: readonly string[]): Promise<ActiveConditionRow[]> {
+    return this.listOfHolders(characterIds.map((characterId) => ({ characterId })));
+  }
+
+  async listOfHolders(holders: readonly ConditionHolder[]): Promise<ActiveConditionRow[]> {
+    return this.active.filter((a) => holders.some((holder) => heldBy(a, holder)));
   }
 
   async decrementRemaining(activeConditionIds: readonly string[]): Promise<void> {
@@ -285,6 +297,8 @@ export class ConditionTransactionRunnerFake {
     private readonly combat: CombatDaoFake = new CombatDaoFake(),
     /** The table's images: a definition may only point at one of them. */
     private readonly assets: AssetsDaoFake = new AssetsDaoFake(),
+    /** The characters linked tokens wear: their conditions land there. */
+    private readonly characters: CharactersDaoFake = new CharactersDaoFake(scenes.journal),
   ) {}
 
   readonly run: ConditionTransactionRunner = async (work) => {
@@ -294,8 +308,15 @@ export class ConditionTransactionRunnerFake {
       conditions: this.conditions,
       combat: this.combat,
       assets: this.assets,
+      characters: this.characters,
     });
     this.scenes.journal.push('commit');
     return result;
   };
+}
+
+function heldBy(row: ActiveConditionRow, holder: ConditionHolder): boolean {
+  return 'tokenId' in holder
+    ? row.tokenId === holder.tokenId
+    : row.characterId === holder.characterId;
 }

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { HttpSheetsApi, fetchAssetBytes } from '@/services/sheets-api';
 import { AssetBytesReaderFake, FetchFake } from '../support/asset-bytes-fakes';
 import { VHARN } from '../support/campaigns-api-fake';
-import { LYRA_ANCHOR_ID } from '../support/cast-fixtures';
+import { LYRA_CHARACTER_ID } from '../support/character-fixtures';
+import { LYRA_ID } from '../support/table-session-fixtures';
 import { HttpTransportFake } from '../support/http-transport-fake';
 import {
   LYRA_SHEET_ID,
@@ -31,17 +32,29 @@ describe('sheets HTTP API', () => {
 
   it('reads the sheets of a token by the token route, as their summaries', async () => {
     const transport = new HttpTransportFake().respondWith(200, { sheets: [lyraSummary()] });
-    const result = await apiOver(transport).ofToken(VHARN.id, LYRA_ANCHOR_ID);
+    const result = await apiOver(transport).ofToken(VHARN.id, LYRA_ID);
     expect({ result, path: transport.requests[0]?.path }).toEqual({
       result: { ok: true, value: [lyraSummary()] },
-      path: `/campaigns/${VHARN.id}/tokens/${LYRA_ANCHOR_ID}/sheets`,
+      path: `/campaigns/${VHARN.id}/tokens/${LYRA_ID}/sheets`,
+    });
+  });
+
+  it('reads the sheets of a character by the character route, the same shape as a token', async () => {
+    const transport = new HttpTransportFake().respondWith(200, { sheets: [lyraSummary()] });
+    const result = await apiOver(transport).ofCharacter(VHARN.id, LYRA_CHARACTER_ID);
+    expect({ result, request: transport.requests[0] }).toMatchObject({
+      result: { ok: true, value: [lyraSummary()] },
+      request: {
+        method: 'GET',
+        path: `/campaigns/${VHARN.id}/characters/${LYRA_CHARACTER_ID}/sheets`,
+      },
     });
   });
 
   it('a token list with the values of a sheet is outside the DTO: unexpected', async () => {
     const leaked = { sheets: [{ ...lyraSummary(), values: { forca: 14 } }] };
     const transport = new HttpTransportFake().respondWith(200, leaked);
-    const result = await apiOver(transport).ofToken(VHARN.id, LYRA_ANCHOR_ID);
+    const result = await apiOver(transport).ofToken(VHARN.id, LYRA_ID);
     expect(result).toEqual({ ok: false, failure: { kind: 'unexpected' } });
   });
 

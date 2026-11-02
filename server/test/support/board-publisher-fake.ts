@@ -10,7 +10,6 @@ import type {
   ConditionDefinitionDeletedDto,
   ConditionDefaultsRestoredDto,
   ConditionRemovedDto,
-  ConditionsChangedDto,
   DrawingsCreatedDto,
   DrawingsDeletedDto,
   DrawingsMovedDto,
@@ -41,8 +40,6 @@ import type {
   TokensRestyledDto,
   TokensResizedDto,
   TokenFormChangedDto,
-  MainTokenChangedDto,
-  MemberCardChangedDto,
   TokenMovedDto,
 } from '@lorkarium/contracts';
 import type {
@@ -74,8 +71,6 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly tokensRestylings: TokensRestyledDto[] = [];
   readonly tokensResizes: TokensResizedDto[] = [];
   readonly tokenFormChanges: TokenFormChangedDto[] = [];
-  readonly mainTokenChanges: MainTokenChangedDto[] = [];
-  readonly memberCardChanges: MemberCardChangedDto[] = [];
   readonly tokensMoves: TokensMovedDto[] = [];
   readonly tokensCreations: TokensCreation[] = [];
   readonly tokensDeletes: TokensDeletedDto[] = [];
@@ -95,7 +90,6 @@ export class BoardPublisherFake implements BoardPublisherPort {
     | Readonly<{ name: 'condition:definitionDeleted'; event: ConditionDefinitionDeletedDto }>
     | Readonly<{ name: 'condition:defaultsRestored'; event: ConditionDefaultsRestoredDto }>
   > = [];
-  readonly conditionsChanges: ConditionsChangedDto[] = [];
   readonly drawingsCreates: DrawingsCreatedDto[] = [];
   readonly drawingsMoves: DrawingsMovedDto[] = [];
   readonly drawingsDeletes: DrawingsDeletedDto[] = [];
@@ -170,17 +164,6 @@ export class BoardPublisherFake implements BoardPublisherPort {
     this.journal.push('publish');
     this.remember('tokensDeleted', veil);
     this.tokensDeletes.push(event);
-  }
-
-  mainTokenChanged(event: MainTokenChangedDto, veil: VeilCuts<unknown>): void {
-    this.journal.push('publish');
-    this.remember('mainTokenChanged', veil);
-    this.mainTokenChanges.push(event);
-  }
-
-  memberCardChanged(event: MemberCardChangedDto): void {
-    this.journal.push('publish');
-    this.memberCardChanges.push(event);
   }
 
   tokensMoved(event: TokensMovedDto, veil: VeilCuts<unknown>): void {
@@ -365,11 +348,6 @@ export class BoardPublisherFake implements BoardPublisherPort {
     this.journal.push('publish');
     this.remember('conditionRemoved', veil);
     this.conditionEvents.push(event);
-  }
-
-  conditionsChanged(event: ConditionsChangedDto): void {
-    this.journal.push('publish');
-    this.conditionsChanges.push(event);
   }
 
   combatStarted(event: CombatStartedDto, veil: VeilCuts<unknown>): void {

@@ -8,7 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LYRA_ANCHOR_ID, linkedLyra } from '../../support/cast-fixtures';
+import { LYRA_CHARACTER_ID, linkedLyra } from '../../support/character-fixtures';
 import {
   GOBLIN_SHEET_ID,
   LYRA_SHEET_ID,
@@ -43,13 +43,13 @@ async function openMenu(name = 'Lyra'): Promise<void> {
 }
 
 describe('sheet items of a token', () => {
-  it('one sheet: "Abrir ficha" puts the tab "Ficha · <sheet name>" in the strip, read on the anchor', async () => {
+  it('one sheet: "Abrir ficha" puts the tab "Ficha · <sheet name>" in the strip, read on its character', async () => {
     const { deps, renderItems } = sheetRoom();
-    deps.sheetsApi.sheetsOfToken[LYRA_ANCHOR_ID] = [lyraSummary()];
+    deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary()];
     renderItems(<TokenMenu token={linkedLyra()} isMaster={false} />);
     await openMenu();
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Abrir ficha' }));
-    expect(deps.sheetsApi.ofTokenCalls).toEqual([LYRA_ANCHOR_ID]);
+    expect(deps.sheetsApi.ofCharacterCalls).toEqual([LYRA_CHARACTER_ID]);
     const tab = await screen.findByRole('tab', { name: 'Ficha · Lyra de Vharn' });
     expect(tab).toHaveAttribute('aria-selected', 'true');
     expect(deps.documentWorkspace.getState().sheets.map((sheet) => sheet.sheetId)).toEqual([
@@ -60,7 +60,7 @@ describe('sheet items of a token', () => {
 
   it('several sheets: "Fichas ▸" lists them by name and opens the one picked', async () => {
     const { deps, renderItems } = sheetRoom();
-    deps.sheetsApi.sheetsOfToken[LYRA_ANCHOR_ID] = [lyraSummary(), SPELLS];
+    deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary(), SPELLS];
     serverSheetIs(deps, SPELLS);
     renderItems(<TokenMenu token={linkedLyra()} isMaster={false} />);
     await openMenu();
@@ -75,7 +75,7 @@ describe('sheet items of a token', () => {
     const { deps, renderItems } = sheetRoom();
     const { unmount } = renderItems(<TokenMenu token={linkedLyra()} isMaster={false} />);
     await openMenu();
-    await waitFor(() => expect(deps.sheetsApi.ofTokenCalls).toHaveLength(1));
+    await waitFor(() => expect(deps.sheetsApi.ofCharacterCalls).toHaveLength(1));
     await act(() => Promise.resolve());
     expect(screen.queryAllByRole('menuitem')).toEqual([]);
     unmount();
@@ -108,7 +108,7 @@ describe('sheet items of a token', () => {
 
   it('one sheet: the master shows it to the whole table and takes it off the token', async () => {
     const { deps, renderItems } = sheetRoom();
-    deps.sheetsApi.sheetsOfToken[LYRA_ANCHOR_ID] = [lyraSummary()];
+    deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary()];
     deps.sheetsApi.updateResult = { ok: false, failure: { kind: 'offline' } };
     renderItems(<TokenMenu token={linkedLyra()} isMaster />);
     await openMenu();
@@ -126,7 +126,7 @@ describe('sheet items of a token', () => {
 
   it('several sheets: the master manages each one in its own submenu', async () => {
     const { deps, renderItems } = sheetRoom();
-    deps.sheetsApi.sheetsOfToken[LYRA_ANCHOR_ID] = [lyraSummary(), SPELLS];
+    deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary(), SPELLS];
     renderItems(<TokenMenu token={linkedLyra()} isMaster />);
     await openMenu();
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Ficha Magias de Lyra' }));
@@ -154,10 +154,22 @@ describe('sheet items of a token', () => {
     const { deps, renderItems } = sheetRoom();
     renderItems(<TokenMenu token={linkedLyra()} isMaster={false} />);
     await openMenu();
-    await waitFor(() => expect(deps.sheetsApi.ofTokenCalls).toHaveLength(1));
-    deps.sheetsApi.sheetsOfToken[LYRA_ANCHOR_ID] = [lyraSummary()];
+    await waitFor(() => expect(deps.sheetsApi.ofCharacterCalls).toHaveLength(1));
+    deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary()];
     emitSheetChanged(deps, LYRA_SHEET_ID, 2);
-    await waitFor(() => expect(deps.sheetsApi.ofTokenCalls).toHaveLength(2));
+    await waitFor(() => expect(deps.sheetsApi.ofCharacterCalls).toHaveLength(2));
     expect(await screen.findByRole('menuitem', { name: 'Abrir ficha' })).toBeInTheDocument();
+  });
+});
+
+describe('sheet items of a free token', () => {
+  it("reads the token's own sheets by the token route", async () => {
+    const { deps, renderItems } = sheetRoom();
+    deps.sheetsApi.sheetsOfToken[kael().id] = [lyraSummary()];
+    renderItems(<TokenMenu token={kael()} isMaster={false} />);
+    await openMenu('Kael');
+    expect(await screen.findByRole('menuitem', { name: 'Abrir ficha' })).toBeInTheDocument();
+    expect(deps.sheetsApi.ofTokenCalls).toEqual([kael().id]);
+    expect(deps.sheetsApi.ofCharacterCalls).toEqual([]);
   });
 });

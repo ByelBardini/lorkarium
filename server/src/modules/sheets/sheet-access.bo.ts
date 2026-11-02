@@ -1,44 +1,52 @@
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import { CharacterBo, type CharacterSeat } from '../characters/character.bo';
 import { TokenAccessBo, type TokenControl } from '../tokens/token-access.bo';
 import { SheetNotFoundError } from './sheets.error';
 
+/** Who holds a sheet, as its access reads it: a token with its control and whether the reader
+ *  sees where it stands (a grid by its visibility), or a character with whose it is. */
+export type SheetHolderReach =
+  Readonly<{ token: TokenControl; seen: boolean }> | Readonly<{ character: CharacterSeat }>;
+
 /** What the access reads of a sheet: which one, who besides the masters and the controllers of
- *  its token reads it, the token that holds it (the anchor of a character) with its control, and
- *  whether the reader sees where that token stands (the cast always; a grid by its visibility).
- *  `holder: null` is a sheet nobody holds. */
+ *  its holder reads it, and its holder (`null` = nobody holds it). */
 export type SheetReach = Readonly<{
   sheetId: string;
   visibility: 'controllers' | 'table';
-  holder: TokenControl | null;
-  holderSeen: boolean;
+  holder: SheetHolderReach | null;
 }>;
 
-/** What one member may do with one sheet: the masters and the token's controllers read and edit
- *  it; with `table` every member (spectators too) reads it; only the masters manage it. A sheet
- *  nobody holds is the masters' alone. A sheet that may not be read is SHEET_NOT_FOUND, never
- *  FORBIDDEN, so its existence never leaks.
+/** What the reader is to the holder of a sheet: whether they see it and control it. */
+type HolderRights = Readonly<{ seen: boolean; controlled: boolean }>;
+
+/** What one member may do with one sheet: the masters and the controllers of its holder read and
+ *  edit it; with `table` every member (spectators too) who sees the holder reads it; only the
+ *  masters manage it. A character holder is controlled by its player, its controllers and the
+ *  masters, and seen by the table only while its player plays (a stored one is the masters'). A
+ *  sheet nobody holds is the masters' alone. A sheet that may not be read is SHEET_NOT_FOUND,
+ *  never FORBIDDEN, so its existence never leaks.
  *
  *  Example: `new SheetAccessBo(access, reach).requireEdit('write values of') // FORBIDDEN for Caio on a table sheet` */
 export class SheetAccessBo {
-  private readonly token: TokenAccessBo | null;
+  private readonly holder: HolderRights | null;
 
   constructor(
     private readonly access: CampaignAccessBo,
     private readonly sheet: SheetReach,
   ) {
-    this.token = sheet.holder ? new TokenAccessBo(access, sheet.holder) : null;
+    this.holder = sheet.holder ? holderRightsOf(access, sheet.holder) : null;
   }
 
   canRead(): boolean {
-    if (!this.token) return this.access.isMaster();
-    if (!this.sheet.holderSeen) return false;
-    return this.token.canControl() || this.sheet.visibility === 'table';
+    if (!this.holder) return this.access.isMaster();
+    if (!this.holder.seen) return false;
+    return this.holder.controlled || this.sheet.visibility === 'table';
   }
 
-  /** Writes values and bars: what the reader already does by hand with the token. */
+  /** Writes values and bars: what the reader already does by hand with the holder. */
   canEdit(): boolean {
-    if (!this.token) return this.access.isMaster();
-    return this.canRead() && this.token.canControl();
+    if (!this.holder) return this.access.isMaster();
+    return this.canRead() && this.holder.controlled;
   }
 
   /** Name, folder, holder, visibility, template and deletion. */
@@ -56,7 +64,7 @@ export class SheetAccessBo {
     if (this.canEdit()) return;
     this.access.forbid(
       `${action} sheet ${this.sheet.sheetId}`,
-      'the master role or control of its token',
+      'the master role or control of its holder',
     );
   }
 
@@ -64,4 +72,13 @@ export class SheetAccessBo {
     this.requireRead();
     this.access.requireMaster(`${action} sheet ${this.sheet.sheetId}`);
   }
+}
+
+function holderRightsOf(access: CampaignAccessBo, holder: SheetHolderReach): HolderRights {
+  if ('token' in holder) {
+    const controlled = new TokenAccessBo(access, holder.token).canControl();
+    return { seen: holder.seen, controlled };
+  }
+  const character = new CharacterBo(access, holder.character);
+  return { seen: character.isSeen(), controlled: character.canControl() };
 }

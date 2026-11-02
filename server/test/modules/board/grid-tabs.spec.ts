@@ -7,7 +7,7 @@ import type { RealtimeSocket, RealtimeSocketData } from '../../../src/realtime/r
 import { sceneRoom } from '../../../src/realtime/rooms';
 import { BIA_ID, VHARN_ID } from '../../support/campaigns-factories';
 import { TORRE_ID } from '../../support/library-factories';
-import { VHARN_CAST_ID, VHARN_SCENE_ID } from '../../support/scenes-factories';
+import { VHARN_SCENE_ID } from '../../support/scenes-factories';
 
 /** The rooms and data of one connection; only what the tab handlers touch. */
 class GridTabsSocketFake {
@@ -81,12 +81,13 @@ describe('grid tabs of a connection', () => {
     expect(socket.data.watchedSceneIds.size).toBe(0);
   });
 
-  it('unwatching a grid never watched (the cast every member follows) keeps its rooms', async () => {
-    const castRoom = sceneRoom(VHARN_ID, VHARN_CAST_ID);
-    socket.rooms.add(castRoom);
+  it('unwatching a grid never watched keeps its rooms', async () => {
+    const neverWatchedId = '8e4d3c2b-1a0f-4e9d-a8b7-6f5e4d3c2b1a';
+    const room = sceneRoom(VHARN_ID, neverWatchedId);
+    socket.rooms.add(room);
 
-    const unwatchCast = { ...WATCH_TORRE, sceneId: VHARN_CAST_ID };
-    expect(await unwatchGrid(services.deps, asSocket(), BIA_ID, unwatchCast)).toEqual({ ok: true });
-    expect(socket.rooms.has(castRoom)).toBe(true);
+    const unwatch = { ...WATCH_TORRE, sceneId: neverWatchedId };
+    expect(await unwatchGrid(services.deps, asSocket(), BIA_ID, unwatch)).toEqual({ ok: true });
+    expect(socket.rooms.has(room)).toBe(true);
   });
 });
