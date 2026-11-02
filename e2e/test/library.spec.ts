@@ -97,12 +97,12 @@ test('the library between master and player: a private grid stays hidden, a publ
   await expect(gridTabsOf(bia).getByRole('tab')).toHaveText([/^Estrada\s*Grupo$/i]);
   await expect(boardOf(bia)).toHaveAccessibleName(/^Tabuleiro: Estrada/);
   await estradaLibrary.getByRole('button', { name: 'Fechar biblioteca' }).click();
-  await expectTabsOf(admin, [/^Estrada/], ['Torre']);
+  await expectTabsOf(admin, [/^Estrada/, 'Torre'], []);
 
   // An F5 keeps the tabs of each one.
   await admin.reload();
   await openRoomPeople(admin);
-  await expectTabsOf(admin, [/^Estrada/], ['Torre']);
+  await expectTabsOf(admin, [/^Estrada/, 'Torre'], []);
   await bia.reload();
   await openRoomPeople(bia);
   await expect(gridTabsOf(bia).getByRole('tab')).toHaveText([/^Estrada/]);
