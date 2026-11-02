@@ -73,6 +73,7 @@ export type TokenWriteDaos = Readonly<{
     | 'setBarValues'
     | 'replaceBars'
     | 'replaceControllers'
+    | 'replaceForms'
   >;
 }>;
 

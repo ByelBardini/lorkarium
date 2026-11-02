@@ -78,6 +78,7 @@ export function characterRow(overrides: Partial<CharacterRow> = {}): CharacterRo
   return {
     character: characterPo(),
     bars: [characterBarPo(), characterManaPo()],
+    forms: [],
     controllerIds: [BIA_ID],
     holderRole: 'player',
     conditions: [],

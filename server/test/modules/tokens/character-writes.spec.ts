@@ -56,7 +56,8 @@ describe('updateLinkedToken', () => {
     expect(lyra?.controllerIds).toEqual([CAIO_ID]);
     const own = table.tokens.rowOf(ESTRADA_LYRA_ID);
     expect(own.token).toMatchObject({ name: 'Lyra', width: 2, height: 2, flipX: true });
-    expect(own.forms).toHaveLength(3);
+    expect(lyra?.forms).toHaveLength(3);
+    expect(own.forms).toEqual([]);
   });
 });
 

@@ -33,6 +33,7 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
     table.characters.rows.push({
       character: bram,
       bars: [],
+      forms: [],
       controllerIds: [CAIO_ID],
       holderRole: 'player',
       conditions: [],

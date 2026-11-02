@@ -145,8 +145,8 @@ describe('TokenFormService.setForm', () => {
   describe('a token linked to a character', () => {
     beforeEach(() => {
       table.tokens.rows.push(linkedLyraRow());
-      const forms = lyraForms().map((form) => ({ ...form, tokenId: ESTRADA_LYRA_ID }));
-      table.tokens.store(ESTRADA_LYRA_ID, (row) => ({ ...row, forms }));
+      const lyra = table.characters.rows[0];
+      if (lyra) table.characters.rows[0] = { ...lyra, forms: lyraForms() };
     });
 
     const toWolfOnTorre = {

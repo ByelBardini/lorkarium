@@ -1,13 +1,13 @@
 import type { TokenFormDto } from '@lorkarium/contracts';
 import type { TokenAudience } from './token-access.bo';
-import type { TokenFormInputPo, TokenFormPo } from './tokens.po';
+import type { CharacterFormPo, TokenFormInputPo } from './tokens.po';
 
 /** The forms an audience receives: the whole list for the masters and the controllers, none for
  *  the rest (the list would reveal the forms not used yet; the shown one goes as `activeFormId`).
  *
  *  Example: `toTokenFormsDto(row.forms, access.audience())` */
 export function toTokenFormsDto(
-  forms: readonly TokenFormPo[],
+  forms: readonly CharacterFormPo[],
   audience: TokenAudience,
 ): TokenFormDto[] {
   if (audience !== 'privileged') return [];

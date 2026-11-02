@@ -148,9 +148,9 @@ export class TokensService {
     return saved.version;
   }
 
-  /** On a linked token, the name, initials, side, look, aura, bars and controllers go to its
-   *  character (a `character:changed`) and the rest, forms included, stays on the token (an event
-   *  of the grid). A new image or size, or dropping the shown form, leaves the token without it. */
+  /** On a linked token, the name, initials, side, look, aura, bars, controllers and forms go to
+   *  its character (a `character:changed`) and the rest stays on the token (an event of the grid).
+   *  A new image or size, or dropping the shown form, leaves the token without it. */
   async update(userId: string, campaignId: string, command: UpdateToken): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const authorship = await authorshipOf(this.deps.tokenRights, access);

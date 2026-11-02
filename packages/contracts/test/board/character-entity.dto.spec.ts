@@ -58,6 +58,7 @@ const lyra = {
   controllerIds: [BIA],
   canControl: true,
   mainSheetId: SHEET,
+  forms: [],
 } as const;
 
 const COMMAND = { actionId: ACTION, campaignId: VHARN, characterId: LYRA };

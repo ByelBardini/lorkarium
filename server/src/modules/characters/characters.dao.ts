@@ -1,10 +1,16 @@
-import { and, asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, notInArray, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { campaignMembers, type CampaignMemberPo } from '../campaigns/campaign-members.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { ConditionsDao, type ActiveConditionRow } from '../conditions/conditions.dao';
 import { scenes } from '../scenes/scenes.po';
-import type { BarValuesPo } from '../tokens/tokens.po';
+import { formRowsOf } from '../tokens/token-forms.dao';
+import {
+  tokenForms,
+  type BarValuesPo,
+  type CharacterFormPo,
+  type TokenFormInputPo,
+} from '../tokens/tokens.po';
 import {
   characterBars,
   characterControllers,
@@ -17,12 +23,13 @@ import {
   type NewCharacterPo,
 } from './characters.po';
 
-/** What a linked token wears of its character: the character, its bars by position, who
+/** What a linked token wears of its character: the character, its bars and forms by position, who
  *  controls it, and the role its player has at the table now (`null` = nobody's, or its player
  *  left). */
 export type WornCharacterRow = Readonly<{
   character: CharacterPo;
   bars: readonly CharacterBarPo[];
+  forms: readonly CharacterFormPo[];
   controllerIds: readonly string[];
   holderRole: CampaignMemberPo['role'] | null;
 }>;
@@ -49,6 +56,23 @@ const holderMembership = and(
 const CONTROLLER_IDS = sql<string[]>`coalesce((${sql.raw(
   `select array_agg(c.user_id::text order by c.user_id) from character_controllers AS c where c.character_id = "characters"."id"`,
 )}), '{}')`;
+
+// The same way: one json column, so the forms cost no statement of their own.
+const FORMS_OF_CHARACTER = sql<CharacterFormPo[]>`coalesce((${sql.raw(
+  `select json_agg(json_build_object('id', f.id, 'position', f.position, 'name', f.name, 'imageAssetId', f.image_asset_id, 'width', f.width, 'height', f.height, 'frame', f.frame) order by f.position) from token_forms AS f where f.character_id = "characters"."id"`,
+)}), '[]'::json)`;
+
+// Past every position a list can hold: the kept forms step aside before taking their new places.
+const FORM_POSITIONS_ASIDE = 1000;
+
+const FORM_COLUMNS_FROM_INSERT = {
+  position: sql`excluded.position`,
+  name: sql`excluded.name`,
+  imageAssetId: sql`excluded.image_asset_id`,
+  width: sql`excluded.width`,
+  height: sql`excluded.height`,
+  frame: sql`excluded.frame`,
+};
 
 /** The characters of a table. Every read filters by the campaign (§2.6); writes spanning tables
  *  (insert, replace) must run on a DAO built with a `tx`.
@@ -155,6 +179,29 @@ export class CharactersDao {
     await this.db.insert(characterControllers).values(rows);
   }
 
+  /** The forms of one character, replaced as a list, in the order given (their position), keeping
+   *  the ids it had. Only the forms that left are deleted: deleting one clears it from the tokens
+   *  that show it (FK set null), and the tokens of the other grids must keep the ones that stay.
+   *  Several statements: run it on the `tx` DAO.
+   *
+   *  Example: `await dao.replaceForms(lyraId, [human, wolf])` */
+  async replaceForms(characterId: string, forms: readonly TokenFormInputPo[]): Promise<void> {
+    const ofCharacter = eq(tokenForms.characterId, characterId);
+    const had = await this.db.select({ id: tokenForms.id }).from(tokenForms).where(ofCharacter);
+    const keptIds = new Set(had.map(({ id }) => id));
+    const stay = forms.map(({ id }) => id).filter((id) => keptIds.has(id));
+    const leaving =
+      stay.length === 0 ? ofCharacter : and(ofCharacter, notInArray(tokenForms.id, stay));
+    await this.db.delete(tokenForms).where(leaving);
+    if (forms.length === 0) return;
+    if (stay.length > 0) await this.setFormsAside(ofCharacter);
+    const rows = formRowsOf(forms, keptIds).map((form) => ({ ...form, characterId }));
+    await this.db.insert(tokenForms).values(rows).onConflictDoUpdate({
+      target: tokenForms.id,
+      set: FORM_COLUMNS_FROM_INSERT,
+    });
+  }
+
   /** The sheet the card and the dock open first; `null` = none. The sheet must be the
    *  character's (the composite key keeps it at the table).
    *
@@ -208,6 +255,14 @@ export class CharactersDao {
     return row?.version;
   }
 
+  // The unique position is checked row by row: swapping two forms in place would collide.
+  private async setFormsAside(ofCharacter: SQL): Promise<void> {
+    await this.db
+      .update(tokenForms)
+      .set({ position: sql`${tokenForms.position} + ${FORM_POSITIONS_ASIDE}` })
+      .where(ofCharacter);
+  }
+
   private async requireRow(saved: CharacterPo): Promise<CharacterRow> {
     const row = await this.findInCampaign(saved.campaignId, saved.id);
     if (!row) throw new Error(`character ${saved.id} vanished right after its insert`);
@@ -226,13 +281,14 @@ export class CharactersDao {
     }));
   }
 
-  // Two statements: the characters with their controllers and holder, then all their bars.
+  // Two statements: the characters with their controllers, forms and holder, then all their bars.
   private async wornWhere(where: SQL | undefined): Promise<WornCharacterRow[]> {
     const found = await this.db
       .select({
         character: characters,
         holderRole: campaignMembers.role,
         controllerIds: CONTROLLER_IDS,
+        forms: FORMS_OF_CHARACTER,
       })
       .from(characters)
       .leftJoin(campaignMembers, holderMembership)
@@ -240,9 +296,10 @@ export class CharactersDao {
       .orderBy(asc(characters.createdAt), asc(characters.id));
     if (found.length === 0) return [];
     const bars = await this.barsOf(found.map(({ character }) => character.id));
-    return found.map(({ character, holderRole, controllerIds }) => ({
+    return found.map(({ character, holderRole, controllerIds, forms }) => ({
       character,
       bars: bars.filter((bar) => bar.characterId === character.id),
+      forms,
       controllerIds,
       holderRole,
     }));

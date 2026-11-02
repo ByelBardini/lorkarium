@@ -7,6 +7,7 @@ import { initialsOf } from '@lorkarium/game-core';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import { toActiveConditionDto } from '../conditions/conditions.mapper';
 import { toTokenAuraDto } from '../tokens/token-aura.mapper';
+import { toTokenFormsDto } from '../tokens/token-form.mapper';
 import { toTokenBarDto } from '../tokens/tokens.mapper';
 import {
   CharacterBo,
@@ -34,8 +35,8 @@ export function toCharacterBo(access: CampaignAccessBo, row: CharacterRow): Char
   return new CharacterBo(access, toCharacterSeat(row));
 }
 
-/** A character as one audience may see it: `others` never receive a `controllers` bar, and the
- *  bars they do receive keep their position (the second does not become "the first"). Its
+/** A character as one audience may see it: `others` never receive a `controllers` bar nor the
+ *  forms, and the bars they do receive keep their position (the second does not become "the first"). Its
  *  conditions go to everyone, as a token's do.
  *
  *  Example: `toCharacterDto(row, toCharacterBo(access, row).audience())` */
@@ -51,6 +52,7 @@ export function toCharacterDto(row: CharacterRow, audience: CharacterAudience): 
     height: character.height,
     ...cardOf(row),
     bars: shown.map(toTokenBarDto),
+    forms: toTokenFormsDto(row.forms, audience),
     conditions: row.conditions.map(toActiveConditionDto),
     controllerIds: [...row.controllerIds],
     canControl: audience === 'privileged',

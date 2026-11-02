@@ -1,5 +1,9 @@
 import type { TokenIdentityPo } from '../../src/modules/tokens/linked-token';
-import type { TokenCharacterLinkDao } from '../../src/modules/tokens/token-character-link.dao';
+import type {
+  ReleasedForms,
+  TokenCharacterLinkDao,
+} from '../../src/modules/tokens/token-character-link.dao';
+import { savedFormsOf } from '../../src/modules/tokens/token-forms.dao';
 import type { CharactersDaoFake } from './characters-fakes';
 import type { ConditionsDaoFake } from './conditions-fakes';
 import type { TokensDaoFake } from './tokens-fakes';
@@ -30,12 +34,20 @@ export class TokenCharacterLinkDaoFake implements CharacterLinkWrites {
     this.dropOwnState(tokenId);
     this.tokens.store(tokenId, (row) => ({
       ...row,
-      token: { ...row.token, characterId },
+      token: { ...row.token, characterId, activeFormId: null },
+      forms: [],
     }));
   }
 
-  async release(tokenId: string, characterId: string, identity: TokenIdentityPo): Promise<void> {
+  async release(
+    tokenId: string,
+    characterId: string,
+    identity: TokenIdentityPo,
+    { forms, activeFormId }: ReleasedForms,
+  ): Promise<void> {
     this.journal.push('release');
+    const formCopies = savedFormsOf(tokenId, forms);
+    const shown = formCopies[forms.findIndex(({ id }) => id === activeFormId)]?.id ?? null;
     this.dropOwnState(tokenId);
     const worn = this.characters.rows.find(({ character }) => character.id === characterId);
     const bars = (worn?.bars ?? []).map((bar) => {
@@ -48,7 +60,8 @@ export class TokenCharacterLinkDaoFake implements CharacterLinkWrites {
     const controllerIds = [...(worn?.controllerIds ?? [])];
     this.tokens.store(tokenId, (row) => ({
       ...row,
-      token: { ...row.token, ...identity, characterId: null },
+      token: { ...row.token, ...identity, characterId: null, activeFormId: shown },
+      forms: formCopies,
       bars,
       controllerIds,
     }));

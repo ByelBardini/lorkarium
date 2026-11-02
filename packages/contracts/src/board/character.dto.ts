@@ -10,6 +10,7 @@ import {
   characterTextDto,
 } from './character-fields.dto';
 import { tokenAuraDto } from './token-aura.dto';
+import { tokenFormsDto } from './token-form.dto';
 import {
   MAX_BARS_PER_TOKEN,
   TOKEN_INITIALS_MAX_LENGTH,
@@ -75,6 +76,9 @@ export const characterDto = z.strictObject({
   noteOne: z.string().max(CHARACTER_NOTE_MAX).nullable(),
   noteTwo: z.string().max(CHARACTER_NOTE_MAX).nullable(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
+  /** The named forms its tokens share in every grid (the one shown is each token's), only for the
+   *  masters and its controllers; the others get `[]`, like a token. */
+  forms: tokenFormsDto,
   conditions: z.array(activeConditionDto),
   controllerIds: z.array(z.uuid()).max(32),
   /** The server's answer to "may this viewer change it" (its player or a master). */

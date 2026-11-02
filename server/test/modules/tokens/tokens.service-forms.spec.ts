@@ -157,10 +157,28 @@ describe('token:update with the forms of a token', () => {
     const torreUpdate = (overrides: Partial<UpdateToken>) =>
       lyraUpdate({ sceneId: VHARN_TORRE_ID, tokenId: ESTRADA_LYRA_ID, ...overrides });
 
-    it('the forms stay on the token of the grid, never on the character', async () => {
+    // Regression: a form saved on a linked token stayed on that grid alone (2026-11-02).
+    it('the forms go to the character, so every grid wears them; the token keeps none', async () => {
       await tokens.update(ANA_ID, VHARN_ID, torreUpdate({ forms: sentForms() }));
 
-      expect(table.tokens.rowOf(ESTRADA_LYRA_ID).forms).toHaveLength(3);
+      const lyra = table.characters.rows[0];
+      expect(lyra?.forms.map(({ name }) => name)).toEqual(['Elfa', 'Lobo atroz', 'Corvo']);
+      expect(table.tokens.rowOf(ESTRADA_LYRA_ID).forms).toEqual([]);
+    });
+
+    it('character:changed tells the list to the controllers and hides it from the others', async () => {
+      await tokens.update(ANA_ID, VHARN_ID, torreUpdate({ forms: sentForms() }));
+
+      const [changed] = table.characterPublisher.changes.at(-1)?.characters ?? [];
+      expect(changed?.privileged.forms).toHaveLength(3);
+      expect(changed?.others.forms).toEqual([]);
+    });
+
+    it('an update without forms leaves the list of the character alone', async () => {
+      await tokens.update(ANA_ID, VHARN_ID, torreUpdate({ forms: sentForms() }));
+      await tokens.update(ANA_ID, VHARN_ID, torreUpdate({ name: 'Lyra Vento' }));
+
+      expect(table.characters.rows[0]?.forms).toHaveLength(3);
     });
 
     it('the same size keeps the shown form of the token; a new size drops it', async () => {
@@ -168,8 +186,9 @@ describe('token:update with the forms of a token', () => {
       table.tokens.store(ESTRADA_LYRA_ID, (row) => ({
         ...row,
         token: { ...row.token, ...shown },
-        forms: lyraForms().map((form) => ({ ...form, tokenId: ESTRADA_LYRA_ID })),
       }));
+      const lyra = table.characters.rows[0];
+      if (lyra) table.characters.rows[0] = { ...lyra, forms: lyraForms() };
 
       await tokens.update(ANA_ID, VHARN_ID, torreUpdate({ name: 'Lyra Vento' }));
       expect(table.tokens.rowOf(ESTRADA_LYRA_ID).token.activeFormId).toBe(LYRA_WOLF_FORM_ID);

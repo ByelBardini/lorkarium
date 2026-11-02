@@ -4,7 +4,20 @@ import type { DatabaseExecutor } from '../../database/transaction';
 import { characterBars, characterControllers } from '../characters/characters.po';
 import { activeConditions } from '../conditions/conditions.po';
 import type { TokenIdentityPo } from './linked-token';
-import { tokenBars, tokenControllers, tokens } from './tokens.po';
+import { savedFormsOf } from './token-forms.dao';
+import {
+  tokenBars,
+  tokenControllers,
+  tokenForms,
+  tokens,
+  type TokenFormInputPo,
+} from './tokens.po';
+
+/** The forms a token showed while linked, and the one of them on it. */
+export type ReleasedForms = Readonly<{
+  forms: readonly TokenFormInputPo[];
+  activeFormId: string | null;
+}>;
 
 // The bar columns both tables share (all but the id and the holder), in the table's order.
 const sharedBarColumns: SQL = sql.join(
@@ -32,10 +45,11 @@ export class TokenCharacterLinkDao {
     return placed;
   }
 
-  /** The token wears the character from now on: its own bars, conditions and controllers go
-   *  (it shows the character's). */
+  /** The token wears the character from now on: its own bars, conditions, controllers and forms
+   *  go (it shows the character's), and it shows no form until one is chosen. */
   async adopt(tokenId: string, characterId: string): Promise<void> {
     await this.dropOwnState(tokenId);
+    await this.db.delete(tokenForms).where(eq(tokenForms.tokenId, tokenId));
     await this.db
       .update(tokens)
       .set({ characterId, updatedAt: sql`now()` })
@@ -43,10 +57,16 @@ export class TokenCharacterLinkDao {
   }
 
   /** The token stops wearing the character and keeps a copy of what it showed: the identity, the
-   *  bars (new ids, same positions), the controllers and the conditions (new ids, same rounds).
-   *  The character stays as it is. */
-  async release(tokenId: string, characterId: string, identity: TokenIdentityPo): Promise<void> {
+   *  bars (new ids, same positions), the controllers, the conditions (new ids, same rounds) and
+   *  the forms (new ids, the shown one pointed at its copy). The character stays as it is. */
+  async release(
+    tokenId: string,
+    characterId: string,
+    identity: TokenIdentityPo,
+    worn: ReleasedForms,
+  ): Promise<void> {
     await this.dropOwnState(tokenId);
+    const activeFormId = await this.copyForms(tokenId, worn);
     const to = sql`${tokenId}::uuid`;
     await this.db.execute(
       sql`INSERT INTO ${tokenBars} ("id", "token_id", ${sharedBarColumns}) SELECT gen_random_uuid(), ${to}, ${sharedBarColumns} FROM ${characterBars} WHERE ${characterBars.characterId} = ${characterId}`,
@@ -59,8 +79,16 @@ export class TokenCharacterLinkDao {
     await this.db.execute(copyRowsSql(activeConditions, fresh, held));
     await this.db
       .update(tokens)
-      .set({ ...identity, characterId: null, updatedAt: sql`now()` })
+      .set({ ...identity, characterId: null, activeFormId, updatedAt: sql`now()` })
       .where(eq(tokens.id, tokenId));
+  }
+
+  private async copyForms(tokenId: string, worn: ReleasedForms): Promise<string | null> {
+    const copies = savedFormsOf(tokenId, worn.forms);
+    if (copies.length === 0) return null;
+    await this.db.insert(tokenForms).values(copies);
+    const shown = worn.forms.findIndex(({ id }) => id === worn.activeFormId);
+    return copies[shown]?.id ?? null;
   }
 
   private async dropOwnState(tokenId: string): Promise<void> {

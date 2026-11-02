@@ -95,8 +95,8 @@ export const tokens = pgTable(
     // Who created it: a player edits and deletes only their own (game-core `token-rights`).
     // Null = made before authorship was kept, or the account is gone (only the master then).
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
-    // The form it shows now (always its own); losing the form, or changing
-    // the image or the size by hand, leaves it without one.
+    // The form it shows now, in this grid: one of its own, or of its character's when linked.
+    // Losing the form, or changing the image or the size by hand, leaves it without one.
     activeFormId: uuid('active_form_id').references((): AnyPgColumn => tokenForms.id, {
       onDelete: 'set null',
     }),
@@ -159,15 +159,17 @@ export const tokenBars = pgTable(
   (table) => [unique('token_bars_token_id_position_unique').on(table.tokenId, table.position)],
 );
 
-// The named forms of a token (a linked one keeps them on its anchor): the image and the size it
-// takes when switched to, position 0 the base. Losing the asset brings the initials back.
+// The named forms of a free token, or of a character (its tokens share them in every grid): the
+// image and the size it takes when switched to, position 0 the base. Losing the asset brings the
+// initials back.
 export const tokenForms = pgTable(
   'token_forms',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tokenId: uuid('token_id')
-      .notNull()
-      .references(() => tokens.id, { onDelete: 'cascade' }),
+    tokenId: uuid('token_id').references(() => tokens.id, { onDelete: 'cascade' }),
+    characterId: uuid('character_id').references((): AnyPgColumn => characters.id, {
+      onDelete: 'cascade',
+    }),
     position: integer('position').notNull(),
     name: text('name').notNull(),
     imageAssetId: uuid('image_asset_id').references(() => assets.id, { onDelete: 'set null' }),
@@ -177,6 +179,8 @@ export const tokenForms = pgTable(
   },
   (table) => [
     unique('token_forms_token_id_position_unique').on(table.tokenId, table.position),
+    unique('token_forms_character_id_position_unique').on(table.characterId, table.position),
+    check('token_forms_one_holder', sql`num_nonnulls(${table.tokenId}, ${table.characterId}) = 1`),
     check('token_forms_size_half_cells', halfCellSizeSql(table.width, table.height)),
   ],
 );
@@ -185,10 +189,13 @@ export type TokenPo = typeof tokens.$inferSelect;
 export type NewTokenPo = typeof tokens.$inferInsert;
 export type TokenBarPo = typeof tokenBars.$inferSelect;
 export type TokenBarInputPo = Omit<typeof tokenBars.$inferInsert, 'id' | 'tokenId' | 'position'>;
-export type TokenFormPo = typeof tokenForms.$inferSelect;
-/** A form as a write sends it, in list order; `id` is kept only when the token already has it. */
+/** A form without its holder: as a character keeps it. */
+export type CharacterFormPo = Omit<typeof tokenForms.$inferSelect, 'tokenId' | 'characterId'>;
+/** A form as a token reads it, its own or (linked) its character's. */
+export type TokenFormPo = CharacterFormPo & Readonly<{ tokenId: string }>;
+/** A form as a write sends it, in list order; `id` is kept only when the holder already has it. */
 export type TokenFormInputPo = Pick<
-  TokenFormPo,
+  CharacterFormPo,
   'id' | 'name' | 'imageAssetId' | 'width' | 'height' | 'frame'
 >;
 export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max' | 'temp'>;

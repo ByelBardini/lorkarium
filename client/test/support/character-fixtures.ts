@@ -48,6 +48,7 @@ export function lyraCharacter(overrides: Partial<CharacterDto> = {}): CharacterD
     noteOne: null,
     noteTwo: null,
     bars: [{ ...pv, id: LYRA_PV_ID, current: 25 }, inspiration],
+    forms: [],
     conditions: [],
     controllerIds: [BIA_AT_TABLE.userId],
     canControl: true,

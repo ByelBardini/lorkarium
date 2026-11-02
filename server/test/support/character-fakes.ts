@@ -36,6 +36,7 @@ export function lyraCharacterRow(): CharacterRow {
         ...{ color: 'gold', visibility: 'everyone' },
       }),
     ],
+    forms: [],
     controllerIds: [BIA_ID],
     holderRole: 'player',
     conditions: [],
