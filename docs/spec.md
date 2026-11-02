@@ -200,7 +200,7 @@ Cada token poderá possuir:
 
 - HP atual.
 - HP máximo.
-- HP temporário (previsto).
+- HP temporário (o `temp` de qualquer barra: a subtração gasta primeiro, a soma não o alcança).
 - Barra visual de HP.
 - Preferências de exibição da barra.
 

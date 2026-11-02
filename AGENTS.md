@@ -93,7 +93,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | board            | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas          | [`docs/context/board.md`](docs/context/board.md)                       |
 | library          | Biblioteca: grids, imagens, pastas, visibilidade, apresentação e ativação            | [`docs/context/library.md`](docs/context/library.md)                   |
 | documents        | Documentos ricos: abas, conteúdo, posse, versão, edição e imagens protegidas         | [`docs/context/documents.md`](docs/context/documents.md)               |
-| tokens           | Tokens: barras, controle, principal, cone, luz, aura, formas, invisível, elenco      | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
+| tokens           | Tokens: barras (temporário), controle, cone, luz, aura, formas, invisível, elenco    | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
 | characters       | Personagem da mesa: tabelas, regra, `character:*`, ciclo de vida, token ligado       | [`docs/context/characters.md`](docs/context/characters.md)             |
 | profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`           | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
 | combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada            | [`docs/context/combat.md`](docs/context/combat.md)                     |
