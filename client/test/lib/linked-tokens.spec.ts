@@ -64,19 +64,19 @@ describe('resolveLinkedTokens', () => {
     expect(token?.aura).toBeNull();
   });
 
-  it('keeps its own place, size, layer, facing, flips, forms, sight and light', () => {
+  it('keeps its own place, size, layer, facing, flips, form shown, sight and light', () => {
     const own = linkedLyra({
       col: 7,
       row: 2,
       layer: 'objects',
       facing: 90,
       flipX: true,
-      forms: [...LYRA_FORMS],
       activeFormId: WOLF_FORM_ID,
       light: TORCH,
       lightLit: false,
     });
-    const [token] = resolveLinkedTokens([own], [character]);
+    const sharing = { ...character, forms: [...LYRA_FORMS] };
+    const [token] = resolveLinkedTokens([own], [sharing]);
     expect(token).toMatchObject({
       id: own.id,
       col: 7,
@@ -93,6 +93,26 @@ describe('resolveLinkedTokens', () => {
       lightLit: false,
       characterId: LYRA_CHARACTER_ID,
     });
+  });
+
+  // Regression: a form saved on a linked token stayed on that grid alone (2026-11-02).
+  it('wears the forms of its character, whatever the snapshot of the grid brought', () => {
+    const sharing = lyraCharacter({ forms: [...LYRA_FORMS] });
+    const [token] = resolveLinkedTokens([linkedLyra({ forms: [] })], [sharing]);
+    expect(token?.forms).toBe(sharing.forms);
+  });
+
+  it('a form its character dropped is shown no more', () => {
+    const gone = linkedLyra({ activeFormId: WOLF_FORM_ID });
+    const [token] = resolveLinkedTokens([gone], [lyraCharacter({ forms: [] })]);
+    expect(token?.activeFormId).toBeNull();
+  });
+
+  it('who does not control the character keeps the form shown: their list is empty', () => {
+    const others = lyraCharacter({ forms: [], canControl: false });
+    const seen = linkedLyra({ activeFormId: WOLF_FORM_ID, canControl: false });
+    const [token] = resolveLinkedTokens([seen], [others]);
+    expect(token?.activeFormId).toBe(WOLF_FORM_ID);
   });
 
   it('a free token passes as it came, even with characters around', () => {
