@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { runInTransaction } from '../../src/database/transaction';
@@ -153,6 +153,41 @@ describe('ScenesDao on Postgres', () => {
     const sceneId = await activeSceneOf(vharnId);
     await connection.db.delete(campaigns).where(eq(campaigns.id, vharnId));
     expect(await scenesDao.findById(sceneId)).toBeUndefined();
+  });
+
+  describe('the share lock against a library edit', () => {
+    // The library edit locks the table and then the grid: holding the grid while waiting for the
+    // table deadlocks with it, and Postgres aborts one of the two (the PATCH answered a 500).
+    it('shareInCampaign waiting for the table holds no lock on the grid yet', async () => {
+      const torre = await scenesDao.insert({ campaignId: vharnId, name: 'Torre' });
+
+      const outcome = await runInTransaction(connection.db, async (tx) => {
+        await new CampaignsDao(tx).lockById(vharnId);
+        const watch = runInTransaction(connection.db, (share) =>
+          new ScenesDao(share).shareInCampaign(vharnId, torre.id),
+        );
+        await untilOneQueryWaitsForALock();
+        const grid = tx.select().from(scenes).where(eq(scenes.id, torre.id));
+        const taken = await grid.for('update', { noWait: true }).then(
+          () => 'free',
+          () => 'held',
+        );
+        return { taken, watch };
+      });
+
+      expect(outcome.taken).toBe('free');
+      expect((await outcome.watch)?.id).toBe(torre.id);
+    });
+
+    async function untilOneQueryWaitsForALock(): Promise<void> {
+      const waiting = sql`SELECT 1 FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+      for (let attempt = 0; attempt < 200; attempt += 1) {
+        if ((await connection.db.execute(waiting)).rows.length > 0) return;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      throw new Error('expected shareInCampaign to wait for the table lock, nothing waited in 2 s');
+    }
   });
 
   describe('background', () => {

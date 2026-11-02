@@ -128,13 +128,20 @@ export class ScenesDao {
     campaignId: string,
     sceneId: string,
   ): Promise<AddressedSceneRow | undefined> {
+    // Table first, in its own statement: a library edit locks the table and then the grid, and one
+    // query locks in an order of its own, which deadlocked against that edit.
+    await this.db
+      .select({ id: campaigns.id })
+      .from(campaigns)
+      .where(eq(campaigns.id, campaignId))
+      .for('share');
     const [row] = await this.db
       .select(addressedScene)
       .from(scenes)
       .innerJoin(campaigns, eq(campaigns.id, scenes.campaignId))
       .leftJoin(assets, backgroundOfScene)
       .where(gridOfCampaign(campaignId, sceneId))
-      .for('share', { of: [scenes, campaigns] });
+      .for('share', { of: scenes });
     return row;
   }
 
