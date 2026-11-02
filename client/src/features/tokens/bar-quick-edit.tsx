@@ -3,8 +3,8 @@ import { useId, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
-import { BAR_MAX_PROBLEM } from '@/features/tokens/token-messages';
-import { parseBarInput, parseBarMax } from '@/lib/bar-input';
+import { BAR_MAX_PROBLEM, BAR_TEMP_PROBLEM } from '@/features/tokens/token-messages';
+import { parseBarInput, parseBarMax, parseBarTemp } from '@/lib/bar-input';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 
 /** Whose bar it is: a token's on its grid, or a character's itself (the card, the dock without
@@ -23,9 +23,9 @@ export type BarQuickEditProps = Readonly<{
 const HOW_TO_WRITE = 'Escreva −7, +5 ou 12.';
 
 /** A bar that whoever controls the token or character edits in place (the party card and the dock): a double click (or
- *  Enter / Space on it) opens a balloon over it with "Atual" (−7 takes, +5 adds, 12 sets) and
- *  "Máx". Enter or leaving a field sends it; Esc closes without sending. Never opens while
- *  reconnecting.
+ *  Enter / Space on it) opens a balloon over it with "Atual" (−7 takes, the temp first; +5 adds;
+ *  12 sets), "Máx" and "Temp". Enter or leaving a field sends it; Esc closes without sending.
+ *  Never opens while reconnecting.
  *
  *  Example: `<BarQuickEdit target={{ tokenId: lyra.id }} bar={pv} name="PV de Lyra" interaction={interaction}>…</BarQuickEdit>` */
 export function BarQuickEdit({ target, bar, name, interaction, children }: BarQuickEditProps) {
@@ -54,7 +54,7 @@ export function BarQuickEdit({ target, bar, name, interaction, children }: BarQu
           {children}
         </div>
       </PopoverAnchor>
-      <PopoverContent side="top" aria-labelledby={titleId} className="w-56">
+      <PopoverContent side="top" aria-labelledby={titleId} className="w-64">
         <p
           id={titleId}
           className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase"
@@ -106,6 +106,12 @@ function BalloonFields({ bar, adjust, onDone }: BalloonFieldsProps) {
     adjust({ op: 'max', value });
     return null;
   };
+  const sendTemp = (text: string): string | null => {
+    const value = parseBarTemp(text);
+    if (value === null) return BAR_TEMP_PROBLEM;
+    adjust({ op: 'temp', value });
+    return null;
+  };
   return (
     <div className="flex gap-2">
       <BalloonField
@@ -116,12 +122,13 @@ function BalloonFields({ bar, adjust, onDone }: BalloonFieldsProps) {
         onDone={onDone}
       />
       <BalloonField label="Máx" initial={String(bar.max)} send={sendMax} onDone={onDone} />
+      <BalloonField label="Temp" initial={String(bar.temp)} send={sendTemp} onDone={onDone} />
     </div>
   );
 }
 
 type BalloonFieldProps = Readonly<{
-  label: 'Atual' | 'Máx';
+  label: 'Atual' | 'Máx' | 'Temp';
   initial: string;
   /** Sends the text; answers the problem to show, or `null` when it went. */
   send: (text: string) => string | null;

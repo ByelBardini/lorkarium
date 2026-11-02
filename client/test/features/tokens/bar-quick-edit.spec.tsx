@@ -23,6 +23,7 @@ describe('BarQuickEdit', () => {
   const balloon = () => screen.queryByRole('dialog', { name: 'PV' });
   const current = () => within(balloon() ?? document.body).getByRole('textbox', { name: 'Atual' });
   const max = () => within(balloon() ?? document.body).getByRole('textbox', { name: 'Máx' });
+  const temp = () => within(balloon() ?? document.body).getByRole('textbox', { name: 'Temp' });
   const sent = () => harness.commands.sentAs('adjustCharacterBar').map(({ fields }) => fields);
 
   async function retype(field: HTMLElement, text: string): Promise<void> {
@@ -42,6 +43,34 @@ describe('BarQuickEdit', () => {
       (current() as HTMLInputElement).selectionEnd,
     ]).toEqual([0, 2]);
     expect(max()).toHaveValue('28');
+  });
+
+  it('"Temp" opens on the temp of the bar, and Enter sends it as a new temp', async () => {
+    renderAsBia(cardBar({ id: PV_ID, temp: 3 }));
+    await userEvent.dblClick(trigger());
+    expect(temp()).toHaveValue('3');
+
+    await retype(temp(), '9{Enter}');
+
+    expect(sent()).toEqual([
+      { characterId: LYRA_CHARACTER_ID, barId: PV_ID, change: { op: 'temp', value: 9 } },
+    ]);
+    expect(balloon()).toBeNull();
+  });
+
+  it('an empty "Temp" empties it, and a broken one says why and sends nothing', async () => {
+    renderAsBia(cardBar({ id: PV_ID, temp: 3 }));
+    await userEvent.dblClick(trigger());
+
+    await retype(temp(), '-2{Enter}');
+    expect(sent()).toEqual([]);
+    expect(screen.getByText('De 0 a 99 999.')).toBeInTheDocument();
+
+    await userEvent.clear(temp());
+    await userEvent.keyboard('{Enter}');
+    expect(sent()).toEqual([
+      { characterId: LYRA_CHARACTER_ID, barId: PV_ID, change: { op: 'temp', value: 0 } },
+    ]);
   });
 
   it('"−7" and Enter take 7 and close the balloon', async () => {

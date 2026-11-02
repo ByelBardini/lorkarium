@@ -188,11 +188,11 @@ type BarRowFieldsProps = Readonly<{
   onChange: (bar: BarFormValues) => void;
 }>;
 
-// The label and the max, side by side; each error is tied to its own field.
+// The label, the max and the temp, side by side; each error is tied to its own field.
 function BarRowFields({ bar, index, name, errors, onChange }: BarRowFieldsProps) {
   const id = useId();
   return (
-    <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_6.5rem] gap-2">
+    <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] gap-2">
       <FieldWithError id={`${id}-label`} error={errors?.label}>
         <Input
           id={`${id}-label`}
@@ -206,27 +206,57 @@ function BarRowFields({ bar, index, name, errors, onChange }: BarRowFieldsProps)
           onChange={(event) => onChange({ ...bar, label: event.target.value })}
         />
       </FieldWithError>
-      <FieldWithError id={`${id}-max`} error={errors?.max}>
-        <div className="relative">
-          <span
-            aria-hidden="true"
-            className="absolute top-1/2 left-3 -translate-y-1/2 text-xs text-placeholder"
-          >
-            Máx
-          </span>
-          <Input
-            id={`${id}-max`}
-            inputMode="numeric"
-            value={bar.maxText}
-            aria-label={`Máximo de ${name}`}
-            aria-invalid={errors?.max ? true : undefined}
-            aria-describedby={errors?.max ? `${id}-max-error` : undefined}
-            className="h-10 pl-11 tabular-nums"
-            onChange={(event) => onChange({ ...bar, maxText: digitsOnly(event.target.value) })}
-          />
-        </div>
-      </FieldWithError>
+      <BarNumberField
+        id={`${id}-max`}
+        prefix="Máx"
+        label={`Máximo de ${name}`}
+        value={bar.maxText}
+        error={errors?.max}
+        onValue={(maxText) => onChange({ ...bar, maxText })}
+      />
+      <BarNumberField
+        id={`${id}-temp`}
+        prefix="Temp"
+        label={`Temporário de ${name}`}
+        value={bar.tempText}
+        error={errors?.temp}
+        onValue={(tempText) => onChange({ ...bar, tempText })}
+      />
     </div>
+  );
+}
+
+type BarNumberFieldProps = Readonly<{
+  id: string;
+  prefix: string;
+  label: string;
+  value: string;
+  error: string | undefined;
+  onValue: (digits: string) => void;
+}>;
+
+function BarNumberField({ id, prefix, label, value, error, onValue }: BarNumberFieldProps) {
+  return (
+    <FieldWithError id={id} error={error}>
+      <div className="relative">
+        <span
+          aria-hidden="true"
+          className="absolute top-1/2 left-3 -translate-y-1/2 text-xs text-placeholder"
+        >
+          {prefix}
+        </span>
+        <Input
+          id={id}
+          inputMode="numeric"
+          value={value}
+          aria-label={label}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className="h-10 pl-12 tabular-nums"
+          onChange={(event) => onValue(digitsOnly(event.target.value))}
+        />
+      </div>
+    </FieldWithError>
   );
 }
 
