@@ -5,8 +5,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  EMPTY_TRAY,
   appliedModeOf,
+  clearTray,
   isTrayEmpty,
   isTrayRollable,
   toRollParts,
@@ -97,7 +97,7 @@ function AudienceLine({ choice, onChoice }: ChoiceProps): React.JSX.Element {
       <Button
         variant="ghost"
         disabled={isTrayEmpty(choice.tray)}
-        onClick={() => onChoice({ ...choice, tray: EMPTY_TRAY, mode: 'normal' })}
+        onClick={() => onChoice(clearTray(choice))}
         className="text-muted-foreground"
       >
         Limpar

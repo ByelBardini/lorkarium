@@ -52,7 +52,8 @@ describe('DicePanel — the tray', () => {
     ]);
   });
 
-  it('a roll the server took empties the tray and keeps the mode and "Quem vê"', async () => {
+  // Regression: Desvantagem stuck after the roll and came back with the next die (2026-11-02).
+  it('a roll the server took empties the tray, puts Normal back and keeps "Quem vê"', async () => {
     renderDicePanel(deps);
     await user.click(screen.getByRole('button', { name: 'Adicionar d6' }));
     await user.click(screen.getByRole('radio', { name: 'Vantagem' }));
@@ -63,7 +64,28 @@ describe('DicePanel — the tray', () => {
     expect(screen.getByRole('button', { name: 'Rolar' })).toBeDisabled();
     expect(screen.getByRole('radio', { name: 'Só o mestre' })).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Adicionar d8' }));
-    expect(screen.getByRole('radio', { name: 'Vantagem' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Normal' })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Rolar' }));
+    expect(lastSent(deps)?.request.parts).toEqual([{ label: null, expression: '1d8' }]);
+  });
+
+  it('a roll the server refused keeps the tray and the mode', async () => {
+    deps.dice.answer = { ok: false, failure: { kind: 'offline' } };
+    renderDicePanel(deps);
+    await user.click(screen.getByRole('button', { name: 'Adicionar d6' }));
+    await user.click(screen.getByRole('radio', { name: 'Desvantagem' }));
+    await user.click(screen.getByRole('button', { name: 'Rolar' }));
+    expect(screen.getByRole('textbox', { name: 'Fórmula' })).toHaveValue('1d6');
+    expect(screen.getByRole('radio', { name: 'Desvantagem' })).toBeChecked();
+  });
+
+  it('taking the last die off forgets the mode: the next die rolls plain', async () => {
+    renderDicePanel(deps);
+    await user.click(screen.getByRole('radio', { name: 'Desvantagem' }));
+    await user.click(screen.getByRole('button', { name: 'Tirar um d20' }));
+    expect(screen.getByRole('radio', { name: 'Normal' })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Adicionar d20' }));
+    expect(screen.getByRole('radio', { name: 'Normal' })).toBeChecked();
   });
 
   it('the formula field has its placeholder and Enter in it rolls', async () => {

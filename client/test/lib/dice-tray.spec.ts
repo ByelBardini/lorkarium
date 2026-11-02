@@ -7,6 +7,7 @@ import {
   addModifier,
   appliedModeOf,
   chooseMode,
+  clearTray,
   isTrayEmpty,
   isTrayRollable,
   removeDie,
@@ -15,6 +16,7 @@ import {
   setLoose,
   toRollParts,
   trayAdvantageBlockOf,
+  withTray,
   trayDieCountsOf,
   trayModifierOf,
   trayProblemOf,
@@ -230,6 +232,38 @@ describe('trayModifierOf', () => {
 
   it('an unreadable text has no modifier to read', () => {
     expect(trayModifierOf(setLoose(EMPTY_TRAY, '1d+'))).toBeNull();
+  });
+});
+
+describe('clearTray', () => {
+  it('empties the tray and puts Normal back; "Quem vê" stays', () => {
+    const choice = {
+      tray: setLoose(EMPTY_TRAY, '1d20'),
+      mode: 'disadvantage',
+      secret: true,
+    } as const;
+    expect(clearTray(choice)).toEqual({ tray: EMPTY_TRAY, mode: 'normal', secret: true });
+  });
+});
+
+describe('withTray', () => {
+  const chosen = { tray: setLoose(EMPTY_TRAY, '1d20'), mode: 'advantage', secret: true } as const;
+
+  it('a tray that still has a die keeps the mode', () => {
+    expect(withTray(chosen, setLoose(EMPTY_TRAY, '2d20')).mode).toBe('advantage');
+  });
+
+  it('a tray with no die left forgets the mode, or the next die would bring it back', () => {
+    expect(withTray(chosen, EMPTY_TRAY)).toEqual({
+      tray: EMPTY_TRAY,
+      mode: 'normal',
+      secret: true,
+    });
+    expect(withTray(chosen, setLoose(EMPTY_TRAY, '+5')).mode).toBe('normal');
+  });
+
+  it('a formula still being typed keeps the mode', () => {
+    expect(withTray(chosen, setLoose(EMPTY_TRAY, '1d')).mode).toBe('advantage');
   });
 });
 

@@ -1,12 +1,13 @@
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
 import { SegmentField, type SegmentOption } from '@/components/segment-field';
 import {
-  EMPTY_TRAY,
   appliedModeOf,
   chooseMode,
+  clearTray,
   isTrayRollable,
   toRollParts,
   trayAdvantageBlockOf,
+  withTray,
   type DiceRollMode,
   type DiceTray,
   type TrayChoice,
@@ -28,13 +29,13 @@ export type DiceTrayEditorProps = Readonly<{
 
 /** "Montar rolagem": the dice by click with their count, the modifier and any die, the mode,
  *  "Fórmula", "Quem vê", the preview, "Rolar" and the bookmark. A roll the server took empties
- *  the tray (the mode and "Quem vê" stay).
+ *  the tray and puts the mode back on Normal ("Quem vê" stays).
  *
  *  Example: `<DiceTrayEditor choice={choice} onChoice={setChoice} roller={roller} saved={saved} />` */
 export function DiceTrayEditor(props: DiceTrayEditorProps): React.JSX.Element {
   const { choice, onChoice, roller } = props;
   const { tray } = choice;
-  const setTray = (next: DiceTray) => onChoice({ ...choice, tray: next });
+  const setTray = (next: DiceTray) => onChoice(withTray(choice, next));
   const roll = () => void rollTray(choice, onChoice, roller);
   return (
     <section aria-label="Montar rolagem" className="flex flex-col gap-4">
@@ -56,7 +57,7 @@ async function rollTray(
   if (parts === null || !isTrayRollable(choice.tray) || roller.busy) return;
   const visibility = choice.secret ? 'masters' : 'public';
   const ok = await roller.roll({ label: null, parts, visibility });
-  if (ok) onChoice({ ...choice, tray: EMPTY_TRAY });
+  if (ok) onChoice(clearTray(choice));
 }
 
 type ChoiceProps = Readonly<{ choice: TrayChoice; onChoice: (choice: TrayChoice) => void }>;
