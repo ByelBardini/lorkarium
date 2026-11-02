@@ -216,9 +216,10 @@ describe('CharactersDao on Postgres', () => {
       const before = await dao.findInCampaign(vharnId, lyraId);
       const pvId = before?.bars[0]?.id ?? '';
 
-      await dao.setBarValues(pvId, { current: 18, max: 30 });
+      await dao.setBarValues(pvId, { current: 18, max: 30, temp: 4 });
 
       const bars = (await dao.findInCampaign(vharnId, lyraId))?.bars;
+      expect(bars?.[0]?.temp).toBe(4);
       expect(bars?.map(({ label, current }) => [label, current])).toEqual([
         ['PV', 18],
         ['Mana', 4],

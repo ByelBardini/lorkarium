@@ -40,7 +40,7 @@ import {
   type FormsFormErrors,
   type FormsFormValues,
 } from './forms-form-state';
-import { BAR_MAX_PROBLEM, SIDE_OPTIONS } from './token-messages';
+import { BAR_MAX_PROBLEM, BAR_TEMP_PROBLEM, SIDE_OPTIONS } from './token-messages';
 
 /** Someone at the table who may control a token. */
 export type TokenPlayer = Readonly<{ userId: string; name: string }>;
@@ -110,6 +110,7 @@ const TOKEN_FIELDS_DTO = updateTokenCommandDto.omit({
 const BAR_ERROR: Readonly<Record<keyof BarFormErrors, string>> = {
   label: 'Dê um nome à barra.',
   max: BAR_MAX_PROBLEM,
+  temp: BAR_TEMP_PROBLEM,
 };
 
 /** The tabs of the dialog, in order (also the order a save looks for the first error). */
@@ -388,5 +389,5 @@ function errorsOf(issues: readonly { path: readonly PropertyKey[] }[]): TokenFor
 }
 
 function isBarField(key: unknown): key is keyof BarFormErrors {
-  return key === 'label' || key === 'max';
+  return key === 'label' || key === 'max' || key === 'temp';
 }

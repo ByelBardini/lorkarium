@@ -39,10 +39,10 @@ export class TokenCharacterLinkDaoFake implements CharacterLinkWrites {
     this.dropOwnState(tokenId);
     const worn = this.characters.rows.find(({ character }) => character.id === characterId);
     const bars = (worn?.bars ?? []).map((bar) => {
-      const { position, label, current, max, color, visibility, display } = bar;
+      const { position, label, current, max, temp, color, visibility, display } = bar;
       return {
         ...{ id: `${tokenId}-${bar.id}`, tokenId, position, label, current, max },
-        ...{ color, visibility, display },
+        ...{ temp, color, visibility, display },
       };
     });
     const controllerIds = [...(worn?.controllerIds ?? [])];

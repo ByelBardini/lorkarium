@@ -57,6 +57,7 @@ describe('toCharacterDto', () => {
         label: 'Mana',
         current: 4,
         max: 10,
+        temp: 0,
         color: 'steel',
         visibility: 'everyone',
         display: 'number',

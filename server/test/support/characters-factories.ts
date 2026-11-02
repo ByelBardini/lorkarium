@@ -49,6 +49,7 @@ export function characterBarPo(overrides: Partial<CharacterBarPo> = {}): Charact
     label: 'PV',
     current: 25,
     max: 30,
+    temp: 0,
     color: 'ember',
     visibility: 'controllers',
     display: 'number',

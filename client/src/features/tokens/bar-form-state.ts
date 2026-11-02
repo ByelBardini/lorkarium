@@ -5,35 +5,38 @@ import {
   type BarVisibilityDto,
   type TokenBarDto,
 } from '@lorkarium/contracts';
-import { parseBarMax } from '@/lib/bar-input';
+import { parseBarMax, parseBarTemp } from '@/lib/bar-input';
 import { BAR_PRESETS, type BarPreset } from './token-messages';
 
-/** One bar as set up in the dialog. The max is typed (`maxText`); the current is adjusted on the
+/** One bar as set up in the dialog. The max and the temp are typed (`maxText`, `tempText`); the current is adjusted on the
  *  card, so it travels as the token has it, and a new bar (`current: null`) is born full. `key`
  *  keeps React rows stable. */
 export type BarFormValues = Readonly<{
   key: string;
   label: string;
   maxText: string;
+  tempText: string;
   current: number | null;
   color: BarColorDto;
   visibility: BarVisibilityDto;
   display: BarDisplayDto;
 }>;
 
-export type BarFormErrors = Partial<Record<'label' | 'max', string>>;
+export type BarFormErrors = Partial<Record<'label' | 'max' | 'temp', string>>;
 
-/** A bar ready for the DTO: an unreadable max is `NaN`, which the DTO refuses on `max`. */
+/** A bar ready for the DTO: an unreadable max or temp is `NaN`, which the DTO refuses on it. */
 export type BarDraft = Readonly<{
   label: string;
   current: number;
   max: number;
+  temp: number;
   color: BarColorDto;
   visibility: BarVisibilityDto;
   display: BarDisplayDto;
 }>;
 
 const NEW_BAR_MAX = '10';
+const NEW_BAR_TEMP = '0';
 const SUGGESTIONS_SHOWN = 3;
 const OTHER_BAR: Omit<BarPreset, 'label'> = { color: 'steel', visibility: 'everyone' };
 
@@ -53,6 +56,7 @@ export function addBar(
     key: nextBarKey(),
     ...look,
     maxText: NEW_BAR_MAX,
+    tempText: NEW_BAR_TEMP,
     current: null,
     display: 'number',
   };
@@ -88,14 +92,15 @@ export function moveBar(
   return moved;
 }
 
-/** The bars of a token as the dialog opens them: their max as text, their current kept.
+/** The bars of a token as the dialog opens them: their max and temp as text, their current kept.
  *
  *  Example: `barFormsOf(token.bars)` */
 export function barFormsOf(bars: readonly TokenBarDto[]): readonly BarFormValues[] {
-  return bars.map(({ label, current, max, color, visibility, display }) => ({
+  return bars.map(({ label, current, max, temp, color, visibility, display }) => ({
     key: nextBarKey(),
     label,
     maxText: String(max),
+    tempText: String(temp),
     current,
     color,
     visibility,
@@ -107,18 +112,22 @@ export function barFormsOf(bars: readonly TokenBarDto[]): readonly BarFormValues
  *
  *  Example: `barDraftsOf(form.bars)` */
 export function barDraftsOf(bars: readonly BarFormValues[]): readonly BarDraft[] {
-  return bars.map(({ label, maxText, current, color, visibility, display }) => {
+  return bars.map(({ label, maxText, tempText, current, color, visibility, display }) => {
     const max = parseBarMax(maxText) ?? Number.NaN;
-    return { label, current: current ?? max, max, color, visibility, display };
+    const temp = parseBarTemp(tempText) ?? Number.NaN;
+    return { label, current: current ?? max, max, temp, color, visibility, display };
   });
 }
 
 /** What the sample and the preview draw, or `null` while the max cannot be read.
  *
- *  Example: `barSampleOf(bar) // { current: 45, max: 45 }` */
-export function barSampleOf(bar: BarFormValues): Readonly<{ current: number; max: number }> | null {
+ *  Example: `barSampleOf(bar) // { current: 45, max: 45, temp: 0 }` */
+export function barSampleOf(
+  bar: BarFormValues,
+): Readonly<{ current: number; max: number; temp: number }> | null {
   const max = parseBarMax(bar.maxText);
-  return max === null ? null : { current: bar.current ?? max, max };
+  if (max === null) return null;
+  return { current: bar.current ?? max, max, temp: parseBarTemp(bar.tempText) ?? 0 };
 }
 
 function nextBarKey(): string {

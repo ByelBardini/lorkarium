@@ -25,6 +25,7 @@ describe('addBar', () => {
       visibility: 'controllers',
       display: 'number',
       maxText: '10',
+      tempText: '0',
       current: null,
     });
   });
@@ -102,12 +103,12 @@ describe('barFormsOf', () => {
 
 describe('barSampleOf', () => {
   it('a new bar with a max of "45" is drawn full, 45 / 45', () => {
-    expect(barSampleOf(withMax(addBar([])[0], '45'))).toEqual({ current: 45, max: 45 });
+    expect(barSampleOf(withMax(addBar([])[0], '45'))).toEqual({ current: 45, max: 45, temp: 0 });
   });
 
   it('a bar of the token keeps its current against the max typed', () => {
     const [pv] = barFormsOf(lyra().bars);
-    expect(barSampleOf(withMax(pv, '60'))).toEqual({ current: 32, max: 60 });
+    expect(barSampleOf(withMax(pv, '60'))).toEqual({ current: 32, max: 60, temp: 0 });
   });
 
   it('an unreadable max draws nothing', () => {

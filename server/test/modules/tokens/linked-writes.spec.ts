@@ -24,6 +24,7 @@ const VIGOR: BarInputDto = {
   label: 'Vigor',
   current: 9,
   max: 9,
+  temp: 0,
   color: 'moss',
   visibility: 'everyone',
   display: 'number',

@@ -73,8 +73,8 @@ describe('createTokenCommandDto', () => {
       facing: 0,
       sightAngle: 360,
       bars: [
-        { ...PV, display: 'number' },
-        { ...INSPIRATION, display: 'number' },
+        { ...PV, temp: 0, display: 'number' },
+        { ...INSPIRATION, temp: 0, display: 'number' },
       ],
     });
   });
@@ -106,6 +106,12 @@ describe('createTokenCommandDto', () => {
     const at = (current: number) => ({ ...CREATE, bars: [{ ...PV, current }] });
     expect(issuePathsOf(at(-BAR_VALUE_LIMIT))).toEqual([]);
     expect(issuePathsOf(at(-BAR_VALUE_LIMIT - 1))).toEqual(['bars.0.current']);
+  });
+
+  it('a bar sent without a temp has none, and a negative one is refused on temp', () => {
+    const parsed = createTokenCommandDto.parse(CREATE);
+    expect(parsed.bars[0]?.temp).toBe(0);
+    expect(issuePathsOf({ ...CREATE, bars: [{ ...PV, temp: -1 }] })).toEqual(['bars.0.temp']);
   });
 
   it('a maximum of 0 is refused on max', () => {
@@ -160,6 +166,16 @@ describe('adjustBarCommandDto', () => {
     { op: 'max', value: 50 },
   ])('the change %o is accepted', (change) => {
     expect(adjustBarCommandDto.parse({ ...base, change }).change).toEqual(change);
+  });
+
+  it.each([-1, BAR_VALUE_LIMIT + 1, 2.5])('a new temp of %s is refused', (value) => {
+    const change = { op: 'temp', value };
+    expect(adjustBarCommandDto.safeParse({ ...base, change }).success).toBe(false);
+  });
+
+  it.each([0, BAR_VALUE_LIMIT])('a new temp of %s goes', (value) => {
+    const change = { op: 'temp', value };
+    expect(adjustBarCommandDto.safeParse({ ...base, change }).success).toBe(true);
   });
 
   it.each([0, BAR_VALUE_LIMIT + 1, 2.5])('a new maximum of %s is refused', (value) => {

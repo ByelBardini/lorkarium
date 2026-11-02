@@ -118,10 +118,11 @@ export function toEditedToken(row: TokenRow): EditedToken {
  *
  *  Example: `await tokens.insert({ token, bars: toBarInputsPo(command.bars), controllerIds })` */
 export function toBarInputsPo(bars: readonly BarInputDto[]): TokenBarInputPo[] {
-  return bars.map(({ label, current, max, color, visibility, display }) => ({
+  return bars.map(({ label, current, max, temp, color, visibility, display }) => ({
     label,
     current,
     max,
+    temp,
     color,
     visibility,
     display,
@@ -248,6 +249,6 @@ function definedLookOf(command: Partial<TokenLookPo>): Partial<TokenLookPo> {
  *
  *  Example: `row.bars.map(toTokenBarDto)` */
 export function toTokenBarDto(bar: Omit<TokenBarPo, 'tokenId'>): TokenBarDto {
-  const { id, position, label, current, max, color, visibility, display } = bar;
-  return { id, position, label, current, max, color, visibility, display };
+  const { id, position, label, current, max, temp, color, visibility, display } = bar;
+  return { id, position, label, current, max, temp, color, visibility, display };
 }

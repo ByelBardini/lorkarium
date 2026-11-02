@@ -27,6 +27,7 @@ export function savedRowOf(
   const bars: TokenBarPo[] = row.bars.map((bar, position) => ({
     ...bar,
     display: bar.display ?? BAR_DISPLAY_DEFAULT,
+    temp: bar.temp ?? 0,
     id: crypto.randomUUID(),
     tokenId: token.id,
     position,

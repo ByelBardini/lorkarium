@@ -222,12 +222,12 @@ export class TokensDaoFake implements Pick<
     return items.filter(({ tokenId }) => ids.has(tokenId));
   }
 
-  async setBarValues(barId: string, { current, max }: BarValuesPo): Promise<void> {
+  async setBarValues(barId: string, { current, max, temp }: BarValuesPo): Promise<void> {
     const owner = this.rows.find(({ bars }) => bars.some((bar) => bar.id === barId));
     if (!owner) throw new Error(`TokensDaoFake has no bar ${barId}`);
     this.replace(owner.token.id, (found) => ({
       ...found,
-      bars: found.bars.map((bar) => (bar.id === barId ? { ...bar, current, max } : bar)),
+      bars: found.bars.map((bar) => (bar.id === barId ? { ...bar, current, max, temp } : bar)),
     }));
   }
 

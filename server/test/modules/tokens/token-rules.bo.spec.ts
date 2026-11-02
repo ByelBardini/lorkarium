@@ -88,14 +88,24 @@ describe('TokenRulesBo', () => {
   });
 
   it('adjusting a bar applies the change to the current and may go negative', () => {
-    const bar = { current: 3, max: 10 };
-    expect(rules().adjustBar(bar, { op: 'add', amount: -10 })).toEqual({ current: -7, max: 10 });
-    expect(rules().adjustBar(bar, { op: 'set', value: 12 })).toEqual({ current: 12, max: 10 });
+    const bar = { current: 3, max: 10, temp: 0 };
+    expect(rules().adjustBar(bar, { op: 'add', amount: -10 })).toEqual({ ...bar, current: -7 });
+    expect(rules().adjustBar(bar, { op: 'set', value: 12 })).toEqual({ ...bar, current: 12 });
   });
 
   it('a new maximum keeps the current', () => {
-    const bar = { current: 32, max: 45 };
-    expect(rules().adjustBar(bar, { op: 'max', value: 60 })).toEqual({ current: 32, max: 60 });
+    const bar = { current: 32, max: 45, temp: 0 };
+    expect(rules().adjustBar(bar, { op: 'max', value: 60 })).toEqual({ ...bar, max: 60 });
+  });
+
+  it('a subtraction spends the temp first and an addition never reaches it', () => {
+    const bar = { current: 20, max: 45, temp: 5 };
+    expect(rules().adjustBar(bar, { op: 'add', amount: -8 })).toEqual({
+      ...bar,
+      current: 17,
+      temp: 0,
+    });
+    expect(rules().adjustBar(bar, { op: 'add', amount: 4 })).toEqual({ ...bar, current: 24 });
   });
 });
 

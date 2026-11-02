@@ -49,6 +49,7 @@ const GOBLIN: NewTokenDto = {
       label: 'PV',
       current: 7,
       max: 7,
+      temp: 0,
       color: 'ember',
       visibility: 'controllers',
       display: 'number',

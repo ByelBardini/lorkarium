@@ -86,6 +86,7 @@ export function barColumns() {
     label: text('label').notNull(),
     current: integer('current').notNull(),
     max: integer('max').notNull(),
+    temp: integer('temp').notNull().default(0),
     color: barColor('color').notNull(),
     visibility: barVisibility('visibility').notNull(),
     display: barDisplay('display').notNull().default('number'),

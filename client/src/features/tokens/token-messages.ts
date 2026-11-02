@@ -43,6 +43,7 @@ export const BAR_PRESETS = {
 } as const satisfies Readonly<Record<string, BarPreset>>;
 
 export const BAR_MAX_PROBLEM = 'De 1 a 99 999.';
+export const BAR_TEMP_PROBLEM = 'De 0 a 99 999.';
 
 /** "Excluir Kael? Isso não tem volta." */
 export function deleteTokenQuestion(name: string): string {

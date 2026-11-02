@@ -191,7 +191,7 @@ export type TokenFormInputPo = Pick<
   TokenFormPo,
   'id' | 'name' | 'imageAssetId' | 'width' | 'height' | 'frame'
 >;
-export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max'>;
+export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max' | 'temp'>;
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
 /** The seven aura columns, written always together (all null = no aura). */

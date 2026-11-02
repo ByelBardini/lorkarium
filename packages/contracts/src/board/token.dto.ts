@@ -77,12 +77,16 @@ export type SightDto = z.infer<typeof sightDto>;
 
 const barCurrentDto = z.number().int().min(-BAR_VALUE_LIMIT).max(BAR_VALUE_LIMIT);
 const barMaxDto = z.number().int().min(1).max(BAR_VALUE_LIMIT);
+const barTempDto = z.number().int().min(0).max(BAR_VALUE_LIMIT);
 
 /** A bar as the master writes it (create or edit); its position is its index in the list. */
 export const barInputDto = z.strictObject({
   label: z.string().trim().min(1).max(BAR_LABEL_MAX_LENGTH),
   current: barCurrentDto,
   max: barMaxDto,
+  /** The temporary value over the current: a subtraction spends it first, an addition never
+   *  reaches it. */
+  temp: barTempDto.default(0),
   color: barColorDto,
   visibility: barVisibilityDto,
   display: barDisplayDto.default('number'),
@@ -219,8 +223,9 @@ export type MoveTokenCommandDto = z.infer<typeof moveTokenCommandDto>;
 /** The cell a token is dragged over, or `null` when its drag ended without a move. */
 export const draggedCellDto = z.strictObject({ col: cellIndexDto, row: cellIndexDto }).nullable();
 
-/** "−7" subtracts, "+5" adds, "12" sets (the field is parsed on the client); `max` is the
- *  "Máx." field of the card, a new maximum that leaves the current alone. */
+/** "−7" subtracts (the temp first), "+5" adds, "12" sets (the field is parsed on the client);
+ *  `max` is the "Máx." field of the card, a new maximum that leaves the current alone, and `temp`
+ *  its "Temp" field, a new temporary value. */
 export const barChangeDto = z.discriminatedUnion('op', [
   z.strictObject({
     op: z.literal('add'),
@@ -232,6 +237,7 @@ export const barChangeDto = z.discriminatedUnion('op', [
   }),
   z.strictObject({ op: z.literal('set'), value: barCurrentDto }),
   z.strictObject({ op: z.literal('max'), value: barMaxDto }),
+  z.strictObject({ op: z.literal('temp'), value: barTempDto }),
 ]);
 export type BarChangeDto = z.infer<typeof barChangeDto>;
 

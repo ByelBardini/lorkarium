@@ -169,7 +169,15 @@ const GOBLIN_WITHOUT_LAYER = {
   col: 3,
   row: 4,
   bars: [
-    { label: 'PV', current: 7, max: 7, color: 'ember', visibility: 'everyone', display: 'number' },
+    {
+      label: 'PV',
+      current: 7,
+      max: 7,
+      temp: 0,
+      color: 'ember',
+      visibility: 'everyone',
+      display: 'number',
+    },
   ],
 } as const;
 const GOBLIN = { ...GOBLIN_WITHOUT_LAYER, layer: 'tokens' } as const;
