@@ -74,6 +74,30 @@ describe('TokensDao: a token linked to a character, on Postgres', () => {
     return saved.token.id;
   }
 
+  it('copyScene: the copy wears the same forms and shows the very form its original shows', async () => {
+    const characterId = await characterAt(vharnId, 'Lyra Vento');
+    const lyraId = await lyraWearing(characterId);
+    const size = { imageAssetId: null, width: 1, height: 1, frame: 'square' as const };
+    const sent = [
+      { ...size, id: crypto.randomUUID(), name: 'Elfa' },
+      { ...size, id: crypto.randomUUID(), name: 'Lobo' },
+    ];
+    await runInTransaction(connection.db, (tx) =>
+      new CharactersDao(tx).replaceForms(characterId, sent),
+    );
+    const forms = (await tokens.findInScene(salao, lyraId))?.forms ?? [];
+    await tokens.updateFields(lyraId, { activeFormId: forms[1]?.id ?? null });
+    const other = (await new ScenesDao(connection.db).insert({ campaignId: vharnId })).id;
+
+    const copies = await runInTransaction(connection.db, (tx) =>
+      new TokensDao(tx).copyScene(salao, other),
+    );
+
+    const copy = await tokens.findInScene(other, copies.get(lyraId) ?? '');
+    expect(copy?.forms.map(({ id }) => id)).toEqual(forms.map(({ id }) => id));
+    expect(copy?.token.activeFormId).toBe(forms[1]?.id);
+  });
+
   it('listOfScene, findInScene and findManyInScene dress the token in its character', async () => {
     const characterId = await characterAt(vharnId, 'Lyra Vento');
     const lyraId = await lyraWearing(characterId);

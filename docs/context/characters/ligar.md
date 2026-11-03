@@ -23,8 +23,8 @@ Detalhe do hub [`../characters.md`](../characters.md). Desde a Fase 8 o token de
 
 ## Service (`tokens/token-link.service.ts`, `TokenLinkService`)
 
-- `link(usuário, mesa, { sceneId?, tokenId, characterId })`: `memberAccessOf` + `requireMaster` (sem trava) → `inLockedCharactersAndGrid` (personagens → grid, sempre; o personagem é lido sob trava) → `tokenIn` → `requireFree` → `characterIn(daos, mesa, id)` (outra mesa → `CHARACTER_NOT_FOUND`) → `characterLinks.placedOn(grid, personagem)` → `requireNotPlaced` → `characterLinks.adopt` → relê o token composto + condições → `changeSceneOf` (véu se o controle mudou num oculto) → commit; **só o grid soma** (`characters: false`: o personagem não mudou, sem `character:changed`).
-- `unlink(usuário, mesa, { sceneId?, tokenId })`: mesmas travas → `tokenIn` (composto: a identidade já é a do personagem) → `linkedOf` → `characterLinks.release(token, personagem, identityOf(token))` → relê → só o grid soma.
+- `link(usuário, mesa, { sceneId?, tokenId, characterId })`: `memberAccessOf` + `requireMaster` (sem trava) → `inLockedCharactersAndGrid` (personagens → grid, sempre; o personagem é lido sob trava) → `tokenIn` → `requireFree` → `characterIn(daos, mesa, id)` (outra mesa → `CHARACTER_NOT_FOUND`) → `characterLinks.placedOn(grid, personagem)` → `requireNotPlaced` → `mergedFormsOf` + `characters.replaceForms` (só se o token traz formas que o personagem não tem) → `characterLinks.adopt` → relê o token composto + condições → `changeSceneOf` (véu se o controle mudou num oculto) → commit; **só o grid soma**, salvo quando o personagem ganhou formas (aí soma também e sai um `character:changed`).
+- `unlink(usuário, mesa, { sceneId?, tokenId })`: mesmas travas → `tokenIn` (composto: a identidade já é a do personagem) → `linkedOf` → `characterLinks.release(token, personagem, identityOf(token), { forms, activeFormId })` → relê → só o grid soma.
 - Recusa não grava, não soma nem publica (o ack de erro sai antes de qualquer evento).
 
 ## DAO (`tokens/token-character-link.dao.ts`, `TokenCharacterLinkDao`, no `tx`)
@@ -32,8 +32,8 @@ Detalhe do hub [`../characters.md`](../characters.md). Desde a Fase 8 o token de
 `TokenWriteDaos.characterLinks: Pick<TokenCharacterLinkDao, 'placedOn' | 'adopt' | 'release'>` (fiação no `tokens.plugin.ts`).
 
 - `placedOn(grid, personagem)` → `{ id }` do token do personagem no grid (o índice único `tokens_scene_id_character_id_unique` garante no máximo um).
-- `adopt(token, personagem)`: apaga as barras, os controladores e as condições **do token** (`active_conditions.token_id`) e grava `character_id`.
-- `release(token, personagem, identidade)`: apaga o que o token tinha, copia `character_bars` → `token_bars` (ids novos, mesma posição; colunas comuns lidas do PO), `character_controllers` → `token_controllers`, as condições do personagem (`active_conditions.character_id`) → linhas novas com `token_id` (ids novos, mesmas rodadas e stacks; `copyRowsSql`), grava a identidade e zera `character_id`/`anchor_token_id`. O personagem fica como estava.
+- `adopt(token, personagem)`: apaga as barras, os controladores, as condições (`active_conditions.token_id`) e as formas **do token** (a forma mostrada zera pelo FK) e grava `character_id`.
+- `release(token, personagem, identidade)`: apaga o que o token tinha, copia `character_bars` → `token_bars` (ids novos, mesma posição; colunas comuns lidas do PO), `character_controllers` → `token_controllers`, as condições do personagem (`active_conditions.character_id`) → linhas novas com `token_id` (ids novos, mesmas rodadas e stacks; `copyRowsSql`), copia as formas para o token (ids novos, a mostrada apontando para a cópia), grava a identidade e zera `character_id`/`anchor_token_id`. O personagem fica como estava.
 - Não mexe no `ConditionsDao` (da Fase 7): as condições do token/personagem são lidas e escritas por SQL aqui.
 
 ## "Adicionar jogadores" (`TokenBatchService.addPlayers`)

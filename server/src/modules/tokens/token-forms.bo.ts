@@ -59,6 +59,25 @@ export function requireForm<F extends FormRef>(
   return found;
 }
 
+/** A form as the merge compares it: two forms alike are one. */
+export type MergedForm = FormRef & Readonly<{ name: string }>;
+
+/** The list a character keeps after a free token with forms is linked to it: its own, in order,
+ *  then the token's that it lacks, up to `max` (the ones past it are dropped).
+ *
+ *  Example: `mergedFormsOf([human], [human, wolf], 8) // [human, wolf]` */
+export function mergedFormsOf<F extends MergedForm>(
+  kept: readonly F[],
+  arriving: readonly F[],
+  max: number,
+): F[] {
+  const merged = [...kept];
+  for (const form of arriving) {
+    if (merged.length < max && !merged.some((each) => isSameForm(each, form))) merged.push(form);
+  }
+  return merged;
+}
+
 /** The undo precondition of a form switch: no `expected` (a normal switch) always passes.
  *
  *  Example: `requireActiveForm(row.token.id, command.expect, row.token.activeFormId)` */
@@ -94,6 +113,12 @@ export function isShowing(shown: ShownForm, form: FormRef, box: TokenBox): boole
     shown.height === box.height;
   const sameLook = shown.imageAssetId === form.imageAssetId && shown.frame === form.frame;
   return shown.activeFormId === form.id && sameLook && sameBox;
+}
+
+function isSameForm(a: MergedForm, b: MergedForm): boolean {
+  const sameSize = a.width === b.width && a.height === b.height;
+  const sameLook = a.imageAssetId === b.imageAssetId && a.frame === b.frame;
+  return a.name === b.name && sameSize && sameLook;
 }
 
 function formText(formId: string | null): string {

@@ -329,6 +329,31 @@ describe('chat history store', () => {
       expect(broken.getState().conversations[0]?.messages).toHaveLength(1);
     });
 
+    it('the chosen voice survives a new store over the same storage (F5)', () => {
+      store.getState().setSpeakAsTokenId('token-1');
+      expect(store.getState().speakAsTokenId).toBe('token-1');
+      expect(storeOver(storage).getState().speakAsTokenId).toBe('token-1');
+    });
+
+    it('going back to oneself forgets the stored voice', () => {
+      store.getState().setSpeakAsTokenId('token-1');
+      store.getState().setSpeakAsTokenId(null);
+      expect(storeOver(storage).getState().speakAsTokenId).toBeNull();
+    });
+
+    it('a storage that throws keeps the voice in memory', () => {
+      const broken = storeOver(new StorageFake(true));
+      broken.getState().setSpeakAsTokenId('token-1');
+      expect(broken.getState().speakAsTokenId).toBe('token-1');
+    });
+
+    it('clear() forgets the voice too', () => {
+      store.getState().setSpeakAsTokenId('token-1');
+      store.getState().clear();
+      expect(store.getState().speakAsTokenId).toBeNull();
+      expect(storeOver(storage).getState().speakAsTokenId).toBeNull();
+    });
+
     it('clear() empties every conversation and forgets the storage key', () => {
       receive(chatSent());
       receive(chatSent({ messageId: chatMessageIdOf(2), channel: directBetween(ANA.id, BIA) }));

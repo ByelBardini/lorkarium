@@ -16,6 +16,7 @@ const SHARED_FIELDS = [
   'defeated',
   'aura',
   'bars',
+  'forms',
   'conditions',
   'controllerIds',
   'canControl',
@@ -39,8 +40,8 @@ const tokensMemo = new WeakMap<TokenDto[], ResolvedTokens>();
 const boardMemo = new WeakMap<BoardStateDto, ResolvedBoard>();
 
 /** The tokens of a grid with each linked one wearing its character's identity, look, aura,
- *  bars, conditions and control; position, size, layer, facing, flips, forms, sight and light stay
- *  the token's own. A free token, or one whose character is not known (still loading), passes
+ *  bars, forms, conditions and control; position, size, layer, facing, flips, the form shown, sight
+ *  and light stay the token's own (a form the character dropped is shown no more). A free token, or one whose character is not known (still loading), passes
  *  as it came. Nothing changed → the same array.
  *
  *  Example: `resolveLinkedTokens(grid.tokens, characters).find(({ id }) => id === lyraId)?.bars` */
@@ -86,8 +87,17 @@ function composedBoard(board: BoardStateDto, links: TableLinks): BoardStateDto {
 
 function withCharacterOf(token: TokenDto, characters: ReadonlyMap<string, CharacterDto>): TokenDto {
   const character = token.characterId ? characters.get(token.characterId) : undefined;
-  if (!character || sharesAll(token, character)) return token;
-  return { ...token, ...sharedOf(character) };
+  if (!character) return token;
+  const activeFormId = shownFormOf(token, character);
+  if (sharesAll(token, character) && activeFormId === token.activeFormId) return token;
+  return { ...token, ...sharedOf(character), activeFormId };
+}
+
+// Dropping a form in one grid clears it in the others with no event of theirs. Who does not
+// control the character gets no list to check it against.
+function shownFormOf({ activeFormId }: TokenDto, { canControl, forms }: CharacterDto) {
+  if (!canControl || forms.some((form) => form.id === activeFormId)) return activeFormId;
+  return null;
 }
 
 // By reference: once resolved, a token holds its character's arrays until either side changes.
@@ -97,7 +107,7 @@ function sharesAll(token: TokenDto, character: CharacterDto): boolean {
 
 function sharedOf(character: CharacterDto): Pick<TokenDto, SharedField> {
   const { name, initials, side, imageAssetId, frame, defeated, aura } = character;
-  const { bars, conditions, controllerIds, canControl } = character;
+  const { bars, forms, conditions, controllerIds, canControl } = character;
   return {
     name,
     initials,
@@ -107,6 +117,7 @@ function sharedOf(character: CharacterDto): Pick<TokenDto, SharedField> {
     defeated,
     aura,
     bars,
+    forms,
     conditions,
     controllerIds,
     canControl,

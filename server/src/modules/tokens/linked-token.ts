@@ -18,9 +18,9 @@ import type {
   TokenPo,
 } from './tokens.po';
 
-/** What a token linked to a character shows of it, besides the bars and the controllers: the
- *  place, size, layer, facing, flips, sight, light and forms stay its own. The aura is the
- *  character's too (the paladin's aura goes with him to every grid). */
+/** What a token linked to a character shows of it, besides the bars, the controllers and the
+ *  forms: the place, size, layer, facing, flips, sight, light and the form shown stay its own. The
+ *  aura is the character's too (the paladin's aura goes with him to every grid). */
 export type TokenIdentityPo = Pick<
   TokenPo,
   'name' | 'initials' | 'side' | 'imageAssetId' | 'frame' | 'defeated'
@@ -36,10 +36,10 @@ export function identityOf(token: TokenIdentityPo): TokenIdentityPo {
   return { name, initials, side, imageAssetId, frame, defeated, ...auraColumnsOf(token) };
 }
 
-/** A token as every reader sees it: linked, it wears its character's identity, bars and
- *  controllers over its own place, look settings and forms in the grid; unlinked (or with the
- *  character not found), it is itself. The bars keep the character's ids (a bar write lands on
- *  the character).
+/** A token as every reader sees it: linked, it wears its character's identity, bars, controllers
+ *  and forms over its own place, look settings and form shown in the grid; unlinked (or with the
+ *  character not found), it is itself. The bars and the forms keep the character's ids (a write
+ *  lands on the character).
  *
  *  Example: `composedTokenRow(lyraOfEstrada, lyra).bars // the character's PV` */
 export function composedTokenRow(row: TokenRow, character: WornCharacterRow | undefined): TokenRow {
@@ -49,7 +49,7 @@ export function composedTokenRow(row: TokenRow, character: WornCharacterRow | un
     token: { ...row.token, ...identityOf(character.character) },
     bars: character.bars.map((bar) => tokenBarOf(bar, tokenId)),
     controllerIds: character.controllerIds,
-    forms: row.forms,
+    forms: character.forms.map((form) => ({ ...form, tokenId })),
   };
 }
 
@@ -122,21 +122,19 @@ export function splitStyle<S extends SharedStyle>(
 }
 
 /** What a `token:update` of a linked token writes on its character: the identity, look and aura
- *  given, and the bars and controllers whole. */
+ *  given, the bars and controllers whole, and the forms whole when given. */
 export type SharedTokenUpdatePo = Readonly<{
   look: CharacterLookChangesPo;
   bars: readonly CharacterBarInputPo[];
   controllerIds: readonly string[];
-}>;
-
-/** What it writes on the token: size, sight, light, flips, the shown form and the forms. */
-export type OwnTokenUpdatePo = Readonly<{
-  fields: Partial<TokenFieldsPo>;
   forms?: readonly TokenFormInputPo[];
 }>;
 
-/** A `token:update` of a linked token, split: the identity, look, aura, bars and controllers go
- *  to its character, the rest (forms and shown form included) stays on the token.
+/** What it writes on the token: size, sight, light, flips and the shown form. */
+export type OwnTokenUpdatePo = Readonly<{ fields: Partial<TokenFieldsPo> }>;
+
+/** A `token:update` of a linked token, split: the identity, look, aura, bars, controllers and
+ *  forms go to its character, the rest (the shown form included) stays on the token.
  *
  *  Example: `const { shared, own } = splitUpdate(update)` */
 export function splitUpdate(
@@ -150,7 +148,7 @@ export function splitUpdate(
   const look = definedOf({ name, initials, side, imageAssetId, frame, ...aura, auraImageShape });
   const { bars, controllerIds } = update;
   const forms = update.forms === undefined ? {} : { forms: update.forms };
-  return { shared: { look, bars, controllerIds }, own: { fields: definedOf(own), ...forms } };
+  return { shared: { look, bars, controllerIds, ...forms }, own: { fields: definedOf(own) } };
 }
 
 function tokenBarOf(bar: CharacterBarPo, tokenId: string): TokenBarPo {

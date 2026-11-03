@@ -1,11 +1,14 @@
 import { changeSceneOf, publishTokenChange, type ChangeScene } from './token-veil';
-import type {
-  LinkTokenToCharacterCommandDto,
-  UnlinkTokenFromCharacterCommandDto,
+import {
+  TOKEN_FORMS_MAX,
+  type LinkTokenToCharacterCommandDto,
+  type UnlinkTokenFromCharacterCommandDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
+import type { CharacterPublisherPort } from '../characters/character-publisher.port';
+import type { CharacterRow } from '../characters/characters.dao';
 import {
   inLockedCharactersAndGrid,
   type CharactersAndGridChange,
@@ -16,7 +19,9 @@ import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { gridEventBase } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
 import { CharacterLinkBo } from './character-link.bo';
+import { publishCharactersChange } from './character-writes';
 import { characterIn, identityOf } from './linked-token';
+import { mergedFormsOf } from './token-forms.bo';
 import {
   tokenIn,
   withConditions,
@@ -25,6 +30,7 @@ import {
   type TokenWriteDaos,
 } from './token-transaction';
 import type { TokenRow } from './tokens.dao';
+import type { TokenFormInputPo } from './tokens.po';
 
 type Envelope = 'actionId' | 'campaignId';
 export type LinkTokenToCharacter = Omit<LinkTokenToCharacterCommandDto, Envelope>;
@@ -34,21 +40,30 @@ export type TokenLinkServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
   transaction: TokenTransactionRunner;
   publisher: BoardPublisherPort;
+  /** Where the forms a character took from a linked token are told (`character:changed`). */
+  characterPublisher: CharacterPublisherPort;
   clock: ClockPort;
 }>;
 
 type Locked = LockedGridMaybeCharacters<TokenWriteDaos>;
-type Relinked = Readonly<{ token: TokenWithConditions; veiled: ChangeScene }>;
+type Relinked = Readonly<{
+  token: TokenWithConditions;
+  veiled: ChangeScene;
+  /** The character that took the token's forms (`[]` when it took none). */
+  shared: readonly CharacterRow[];
+}>;
 
 /** Links a grid token to a character of the table and back, master only. The characters are
- *  locked before the grid; only the grid gets a version (the character does not change), and
- *  the token goes to the grid as `token:updated`, each audience its own.
+ *  locked before the grid; the grid gets a version, and the characters too only when the token
+ *  brought forms the character lacks. The token goes to the grid as `token:updated`, each audience
+ *  its own.
  *
  *  Example: `await tokenLink.link(ana.id, campaignId, { sceneId, tokenId: kaelId, characterId: lyraId })` */
 export class TokenLinkService {
   constructor(private readonly deps: TokenLinkServiceDeps) {}
 
-  /** The token wears the character: its own bars, conditions and controllers go.
+  /** The token wears the character: its own bars, conditions and controllers go, and the forms
+   *  the character lacks join its list (nobody loses a form by linking).
    *  CHARACTER_ALREADY_PLACED when the token already wears one or the grid already has the
    *  character's; CHARACTER_NOT_FOUND for a character of another table. */
   async link(userId: string, campaignId: string, command: LinkTokenToCharacter): Promise<number> {
@@ -62,8 +77,8 @@ export class TokenLinkService {
     return this.published(campaignId, saved);
   }
 
-  /** The token keeps a copy of what it showed (the character's identity, bars, controllers and
-   *  conditions) and stops wearing the character, which stays. TOKEN_NOT_LINKED otherwise. */
+  /** The token keeps a copy of what it showed (the character's identity, bars, controllers,
+   *  conditions and forms) and stops wearing the character, which stays. TOKEN_NOT_LINKED otherwise. */
   async unlink(
     userId: string,
     campaignId: string,
@@ -86,11 +101,17 @@ export class TokenLinkService {
   ): Promise<CharactersAndGridChange<Relinked>> {
     const found = await tokenIn(daos, scene, scene.campaignId, tokenId);
     rules.requireFree(found.token);
-    await characterIn(daos, scene.campaignId, characterId);
+    const worn = await characterIn(daos, scene.campaignId, characterId);
     const placed = await daos.characterLinks.placedOn(scene.id, characterId);
     rules.requireNotPlaced(tokenId, characterId, placed);
+    const merged = mergedFormsOf<TokenFormInputPo>(worn.forms, found.forms, TOKEN_FORMS_MAX);
+    const tookForms = merged.length > worn.forms.length;
+    if (tookForms) await daos.characters.replaceForms(characterId, merged);
     await daos.characterLinks.adopt(tokenId, characterId);
-    return relinked(daos, scene, found);
+    const change = await relinked(daos, scene, found);
+    if (!tookForms) return change;
+    const shared = [await characterIn(daos, scene.campaignId, characterId)];
+    return { ...change, value: { ...change.value, shared }, characters: true };
   }
 
   // The token as read is already composed: its identity is the character's.
@@ -101,14 +122,19 @@ export class TokenLinkService {
   ): Promise<CharactersAndGridChange<Relinked>> {
     const found = await tokenIn(daos, scene, scene.campaignId, tokenId);
     const characterId = rules.linkedOf(found.token);
-    await daos.characterLinks.release(tokenId, characterId, identityOf(found.token));
+    const { forms } = found;
+    const { activeFormId } = found.token;
+    const worn = { forms, activeFormId };
+    await daos.characterLinks.release(tokenId, characterId, identityOf(found.token), worn);
     return relinked(daos, scene, found);
   }
 
   private published(campaignId: string, saved: SavedInCharactersAndGrid<Relinked>): number {
+    const { token, veiled, shared } = saved.value;
+    const outlet = { publisher: this.deps.characterPublisher, clock: this.deps.clock };
+    publishCharactersChange(outlet, campaignId, saved.characters, shared);
     if (!saved.grid) return saved.version;
     const base = gridEventBase(campaignId, saved.grid, this.deps.clock);
-    const { token, veiled } = saved.value;
     publishTokenChange(this.deps.publisher, 'token:updated', base, token, veiled);
     return saved.version;
   }
@@ -123,5 +149,5 @@ async function relinked(
   const after = await tokenIn(daos, scene, scene.campaignId, before.token.id);
   const token = await withConditions(daos, after);
   const veiled = await changeSceneOf(daos, scene, before, after, false);
-  return { value: { token, veiled }, grid: true, characters: false };
+  return { value: { token, veiled, shared: [] }, grid: true, characters: false };
 }

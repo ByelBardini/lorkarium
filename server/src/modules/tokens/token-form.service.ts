@@ -55,8 +55,8 @@ type Switched = Readonly<{
 export class TokenFormService {
   constructor(private readonly deps: TokenFormServiceDeps) {}
 
-  /** The master, or a controller on any layer (like the look). The forms, the shown form and the
-   *  box are the token's own (an event of the grid); on a linked token the form's image and frame
+  /** The master, or a controller on any layer (like the look). The shown form and the box are the
+   *  token's own (an event of the grid); on a linked token the form's image and frame
    *  go to its character too, since the character lends them to every grid (a
    *  `character:changed`). Switching to the form already shown changes nothing: same version, no
    *  event. */

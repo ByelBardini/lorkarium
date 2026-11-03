@@ -23,6 +23,7 @@ export { CHAT_HISTORY_LIMIT } from '@/lib/chat-conversations';
 export type { ChatViewer } from '@/lib/chat-conversations';
 
 const CHAT_HISTORY_STORAGE_PREFIX = 'lorkarium.chat.';
+const SPEAK_AS_STORAGE_SUFFIX = '.speakAs';
 
 export type ChatMessageListener = (message: ChatMessage, key: ChatConversationKey) => void;
 
@@ -32,6 +33,9 @@ export type ChatHistoryState = Readonly<{
   conversations: readonly ChatConversation[];
   /** The conversation on screen; `null` while the chat is not shown (unread rises everywhere). */
   activeKey: ChatConversationKey | null;
+  /** The token chosen in "Falar como"; `null` is oneself. Whether it still speaks is the screen's
+   *  call: it must be on the grid shown and under the viewer's control. */
+  speakAsTokenId: string | null;
 }>;
 
 export type ChatHistoryStore = ChatHistoryState &
@@ -46,6 +50,7 @@ export type ChatHistoryStore = ChatHistoryState &
     /** The conversation now on screen (read at once), or `null` when the chat is hidden. */
     setActive: (key: ChatConversationKey | null) => void;
     markRead: (key: ChatConversationKey) => void;
+    setSpeakAsTokenId: (tokenId: string | null) => void;
     /** Leaving the table: forgets every conversation and the storage key. */
     clear: () => void;
     /** Hears each message as it enters (the announcer, the speech balloon), never the ones
@@ -107,6 +112,7 @@ export function createChatHistoryStore(deps: ChatHistoryDeps): StoreApi<ChatHist
     campaignId: deps.campaignId,
     conversations: readStored(deps),
     activeKey: null,
+    speakAsTokenId: readSpeakAs(deps),
     apply: (update, receivedAtMs) => {
       if (update.kind !== 'chatSent' || update.event.campaignId !== deps.campaignId) return;
       const message = { event: update.event, receivedAtMs };
@@ -123,9 +129,14 @@ export function createChatHistoryStore(deps: ChatHistoryDeps): StoreApi<ChatHist
       if (key !== null) save(deps, set, withRead(get().conversations, key));
     },
     markRead: (key) => save(deps, set, withRead(get().conversations, key)),
+    setSpeakAsTokenId: (tokenId) => {
+      set({ speakAsTokenId: tokenId });
+      writeSpeakAs(deps, tokenId);
+    },
     clear: () => {
-      set({ conversations: [EMPTY_TABLE_CONVERSATION], activeKey: null });
+      set({ conversations: [EMPTY_TABLE_CONVERSATION], activeKey: null, speakAsTokenId: null });
       removeStored(deps);
+      writeSpeakAs(deps, null);
     },
     onNewMessage: (listener) => {
       listeners.add(listener);
@@ -215,6 +226,25 @@ function writeStored(
   }));
   try {
     storage.setItem(chatHistoryStorageKey(campaignId), JSON.stringify({ conversations: stored }));
+  } catch {
+    // Keeps working in memory for this visit.
+  }
+}
+
+function readSpeakAs({ campaignId, storage }: ChatHistoryDeps): string | null {
+  try {
+    return storage.getItem(chatHistoryStorageKey(campaignId) + SPEAK_AS_STORAGE_SUFFIX);
+  } catch {
+    return null;
+  }
+}
+
+// Apart from the conversations: choosing a voice does not rewrite up to 300 messages per chat.
+function writeSpeakAs({ campaignId, storage }: ChatHistoryDeps, tokenId: string | null): void {
+  const key = chatHistoryStorageKey(campaignId) + SPEAK_AS_STORAGE_SUFFIX;
+  try {
+    if (tokenId === null) storage.removeItem(key);
+    else storage.setItem(key, tokenId);
   } catch {
     // Keeps working in memory for this visit.
   }

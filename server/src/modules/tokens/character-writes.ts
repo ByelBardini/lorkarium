@@ -15,7 +15,7 @@ export type CharacterChangeOutlet = Readonly<{
 }>;
 
 /** A `token:update` of a linked token, written where each part lives: the identity, look, aura,
- *  bars and controllers on its character, the size, sight, light and forms on the token. The
+ *  bars, controllers and forms on its character, the size, sight and light on the token. The
  *  update already carries the form the token keeps (`activeFormId`).
  *
  *  Example: `await updateLinkedToken(daos, lyraOfEstrada, lyra, update)` */
@@ -30,7 +30,8 @@ export async function updateLinkedToken(
   await daos.characters.update(characterId, shared.look);
   await daos.characters.replaceBars(characterId, shared.bars);
   await daos.characters.replaceControllers(characterId, shared.controllerIds);
-  await daos.tokens.updateFields(found.token.id, own.fields, own.forms);
+  if (shared.forms) await daos.characters.replaceForms(characterId, shared.forms);
+  await daos.tokens.updateFields(found.token.id, own.fields);
 }
 
 /** The same look on each listed character, and the characters as saved after it (in the order

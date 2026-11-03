@@ -5,6 +5,7 @@ import { batchColumn, updateManySql } from '../../database/update-many';
 import {
   tokenForms,
   tokens,
+  type CharacterFormPo,
   type TokenFormInputPo,
   type TokenFormPo,
   type TokenPo,
@@ -61,18 +62,16 @@ export function shownFormsSqlOf(saved: readonly Readonly<{ token: TokenPo }>[]):
   return updateManySql({ table: tokens, key: tokens.id, columns, rows, where: sql`true` });
 }
 
-/** The forms of a token as saved: each a new id, unless `keptIds` (the ids the token already had)
- *  holds it; an id of another token's form is never reused, so it cannot collide nor be taken.
+/** The forms of a holder as saved: each a new id, unless `keptIds` (the ids it already had) holds
+ *  it; an id of another holder's form is never reused, so it cannot collide nor be taken.
  *
- *  Example: `savedFormsOf(lyraId, command.forms, new Set([wolfId]))` */
-export function savedFormsOf(
-  tokenId: string,
+ *  Example: `formRowsOf(command.forms, new Set([wolfId]))` */
+export function formRowsOf(
   forms: readonly TokenFormInputPo[],
   keptIds: ReadonlySet<string> = new Set(),
-): TokenFormPo[] {
+): CharacterFormPo[] {
   return forms.map(({ id, name, imageAssetId, width, height, frame }, position) => ({
     id: keptIds.has(id) ? id : crypto.randomUUID(),
-    tokenId,
     position,
     name,
     imageAssetId,
@@ -80,6 +79,17 @@ export function savedFormsOf(
     height,
     frame,
   }));
+}
+
+/** The forms of a free token as saved (`formRowsOf`).
+ *
+ *  Example: `savedFormsOf(kaelId, command.forms, new Set([wolfId]))` */
+export function savedFormsOf(
+  tokenId: string,
+  forms: readonly TokenFormInputPo[],
+  keptIds: ReadonlySet<string> = new Set(),
+): TokenFormPo[] {
+  return formRowsOf(forms, keptIds).map((form) => ({ ...form, tokenId }));
 }
 
 /** The forms of tokens. Several statements: run it on a DAO built with the `tx`. */
@@ -100,16 +110,18 @@ export class TokenFormsDao {
   }
 
   /** Copies the forms of each `copy_map.old_id` token to its `new_id` with new ids, and points
-   *  each copy at the copy of the form its original shows (matched by position). */
+   *  each copy at the copy of the form its original shows (matched by position). A linked copy
+   *  shows the very form its original does: the character's forms are not copied. */
   async copyBy(map: SQL, mapName: SQL): Promise<void> {
     const source = sql`FROM ${tokenForms} JOIN ${map} ON ${tokenForms.tokenId} = ${mapName}.old_id`;
     const replaced = { id: sql`gen_random_uuid()`, tokenId: sql`${mapName}.new_id` };
     await this.db.execute(copyRowsSql(tokenForms, replaced, source));
-    await this.db.execute(sql`UPDATE tokens AS copy SET active_form_id = new_form.id
+    await this.db.execute(sql`UPDATE tokens AS copy
+      SET active_form_id = CASE WHEN old_form.character_id IS NULL THEN new_form.id ELSE old_form.id END
       FROM ${map}
       JOIN tokens AS original ON original.id = ${mapName}.old_id
       JOIN token_forms AS old_form ON old_form.id = original.active_form_id
-      JOIN token_forms AS new_form ON new_form.token_id = ${mapName}.new_id AND new_form.position = old_form.position
+      LEFT JOIN token_forms AS new_form ON new_form.token_id = ${mapName}.new_id AND new_form.position = old_form.position
       WHERE copy.id = ${mapName}.new_id`);
   }
 }

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ANA } from '../../support/auth-api-fake';
@@ -176,6 +176,20 @@ describe('SpeakAsMenu — speaking as a token', () => {
     await user.click(screen.getByRole('button', { name: 'Caio' }));
     await user.type(field(), 'Em particular.{Enter}');
     expect(deps.chat.sent.at(-1)?.request.speaker).toEqual({ kind: 'self' });
+  });
+
+  // Regression: leaving the Chat tab unmounts the panel, and the voice went back to "Você" (2026-11-02).
+  it('leaving the tab and coming back keeps the voice', async () => {
+    await choose(user, 'Kael');
+    cleanup();
+    renderChatPanel(deps);
+    expect(speakAs()).toHaveAccessibleName('Falar como: Kael');
+    await user.type(field(), 'Voltei.{Enter}');
+    expect(deps.chat.sent.at(-1)?.request.speaker).toEqual({
+      kind: 'token',
+      sceneId: VHARN_SCENE.id,
+      tokenId: KAEL_ID,
+    });
   });
 
   it('a token whose control was taken away puts "Você" back', async () => {

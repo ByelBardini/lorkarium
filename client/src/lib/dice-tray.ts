@@ -193,6 +193,23 @@ export function chooseMode(choice: TrayChoice, mode: DiceRollMode): TrayChoice {
   return { ...choice, tray, mode };
 }
 
+/** The tray changed by hand. With no die left the mode goes too: the panel already shows Normal,
+ *  and the next die must not bring back a mode nobody sees.
+ *
+ *  Example: `withTray({ tray: setLoose(EMPTY_TRAY, '1d20'), mode: 'advantage', secret: false }, EMPTY_TRAY).mode // 'normal'` */
+export function withTray(choice: TrayChoice, tray: DiceTray): TrayChoice {
+  const noDice = trayAdvantageBlockOf(tray) === 'no-dice';
+  return { ...choice, tray, mode: noDice ? 'normal' : choice.mode };
+}
+
+/** Starts the next roll over: an empty tray in Normal, since advantage is for one roll only.
+ *  "Quem vê" stays.
+ *
+ *  Example: `clearTray({ tray: setLoose(EMPTY_TRAY, '1d20'), mode: 'advantage', secret: true }) // { tray: EMPTY_TRAY, mode: 'normal', secret: true }` */
+export function clearTray(choice: TrayChoice): TrayChoice {
+  return { ...choice, tray: EMPTY_TRAY, mode: 'normal' };
+}
+
 /** The physics box's aspect of this window (width ÷ height), held to 0.5–3 like the command.
  *
  *  Example: `rollAspectOf({ width: 1920, height: 1080 }) // 1.777…` */

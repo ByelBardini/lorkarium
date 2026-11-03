@@ -14,10 +14,19 @@ import {
   lyraCharacterRow,
 } from '../../support/character-fakes';
 import { LYRA_CHARACTER_ID, characterPo } from '../../support/characters-factories';
-import { LYRA_ID } from '../../support/tokens-factories';
+import {
+  LYRA_ELF_FORM_ID,
+  LYRA_ID,
+  LYRA_WOLF_FORM_ID,
+  elfForm,
+  lyraForms,
+  wolfForm,
+} from '../../support/tokens-factories';
 
 const QUELM_CHARACTER_ID = '6e5d4c3b-2a19-4f8e-9d7c-6b5a4f3e2d1c';
 const ON_TORRE = { sceneId: VHARN_TORRE_ID };
+const KAEL_FORM_ID = '7e5d4c3b-2a19-4f8e-9d7c-6b5a4f3e2d1c';
+const KAEL_WOLF_FORM_ID = '8e5d4c3b-2a19-4f8e-9d7c-6b5a4f3e2d1c';
 
 describe('TokenLinkService', () => {
   let table: CharacterTableFake;
@@ -26,11 +35,12 @@ describe('TokenLinkService', () => {
   beforeEach(() => {
     table = new CharacterTableFake();
     table.tokens.rows.push(kaelRow());
-    const { members, publisher, clock } = table;
+    const { members, publisher, characterPublisher, clock } = table;
     service = new TokenLinkService({
       members,
       transaction: table.transaction.run,
       publisher,
+      characterPublisher,
       clock,
     });
   });
@@ -51,6 +61,31 @@ describe('TokenLinkService', () => {
         'publish',
       ]);
       expect(table.characterPublisher.changes).toEqual([]);
+    });
+
+    it('a token with forms hands the character the ones it lacks and shows none', async () => {
+      const lyra = table.characters.rows[0];
+      if (lyra) table.characters.rows[0] = { ...lyra, forms: [elfForm()] };
+      const sameElf = elfForm({ id: KAEL_FORM_ID, tokenId: KAEL_ID });
+      const wolf = wolfForm({ id: KAEL_WOLF_FORM_ID, tokenId: KAEL_ID, position: 1 });
+      table.tokens.store(KAEL_ID, (row) => ({
+        ...row,
+        token: { ...row.token, activeFormId: KAEL_WOLF_FORM_ID },
+        forms: [sameElf, wolf],
+      }));
+
+      await service.link(ANA_ID, VHARN_ID, {
+        ...{ ...ON_TORRE, tokenId: KAEL_ID, characterId: LYRA_CHARACTER_ID },
+      });
+
+      const forms = table.characters.rows[0]?.forms ?? [];
+      expect(forms.map(({ name }) => name)).toEqual(['Elfa', 'Lobo atroz']);
+      expect(forms[0]?.id).toBe(LYRA_ELF_FORM_ID);
+      expect(forms[1]?.id).not.toBe(KAEL_WOLF_FORM_ID);
+      expect(table.tokens.rowOf(KAEL_ID).forms).toEqual([]);
+      expect(table.tokens.rowOf(KAEL_ID).token.activeFormId).toBeNull();
+      const [changed] = table.characterPublisher.changes.at(-1)?.characters ?? [];
+      expect(changed?.privileged.forms).toHaveLength(2);
     });
 
     it('Kael adopts Lyra: her identity, bars and control; his own PV, control and Envenenado go', async () => {
@@ -140,6 +175,24 @@ describe('TokenLinkService', () => {
   describe('unlink', () => {
     beforeEach(() => {
       table.tokens.rows.push(linkedLyraRow());
+    });
+
+    it('the token keeps a copy of the forms, new ids, showing the copy of the one it showed', async () => {
+      const [lyra] = table.characters.rows;
+      if (!lyra) throw new Error('the table has no Lyra');
+      table.characters.rows[0] = { ...lyra, forms: lyraForms() };
+      table.tokens.store(ESTRADA_LYRA_ID, (row) => ({
+        ...row,
+        token: { ...row.token, activeFormId: LYRA_WOLF_FORM_ID },
+      }));
+
+      await service.unlink(ANA_ID, VHARN_ID, { ...ON_TORRE, tokenId: ESTRADA_LYRA_ID });
+
+      const { forms, token } = table.tokens.rowOf(ESTRADA_LYRA_ID);
+      expect(forms.map(({ name }) => name)).toEqual(['Elfa', 'Lobo atroz', 'Corvo']);
+      expect(forms.map(({ id }) => id)).not.toContain(LYRA_WOLF_FORM_ID);
+      expect(token.activeFormId).toBe(forms[1]?.id);
+      expect(table.characters.rows[0]?.forms).toHaveLength(3);
     });
 
     it('the token keeps a copy of what it wore: identity, bars (new ids), control and conditions', async () => {

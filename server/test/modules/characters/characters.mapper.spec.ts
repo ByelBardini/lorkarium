@@ -44,6 +44,7 @@ describe('toCharacterDto', () => {
       controllerIds: [BIA_ID],
       canControl: true,
       mainSheetId: null,
+      forms: [],
     });
   });
 

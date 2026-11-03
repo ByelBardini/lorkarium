@@ -23,7 +23,8 @@ import type {
 } from '../../src/modules/characters/characters.service';
 import type { SheetsDao } from '../../src/modules/sheets/sheets.dao';
 import type { SheetPo } from '../../src/modules/sheets/sheets.po';
-import type { BarValuesPo } from '../../src/modules/tokens/tokens.po';
+import { formRowsOf } from '../../src/modules/tokens/token-forms.dao';
+import type { BarValuesPo, TokenFormInputPo } from '../../src/modules/tokens/tokens.po';
 import { characterBarPo, characterPo } from './characters-factories';
 import { ConditionsDaoFake } from './conditions-fakes';
 
@@ -46,10 +47,11 @@ type FakeDaoMethods =
   | 'setUser'
   | 'setMainSheet'
   | 'replaceBars'
-  | 'replaceControllers';
+  | 'replaceControllers'
+  | 'replaceForms';
 
 /** In-memory characters and the characters' version of each table. Writes `lock characters`,
- *  `bump characters`, `update`, `set bar`, `insert`, `set user`, `bars` and `controllers` to `journal`
+ *  `bump characters`, `update`, `set bar`, `insert`, `set user`, `bars`, `forms` and `controllers` to `journal`
  *  (share it with the publisher fake to read the order). `holderRole` stays as given; an inserted
  *  character takes its player's role from `roles` (absent = none), and `setUser(null)` clears it.
  *
@@ -128,7 +130,8 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
     const character = characterPo({ ...row.character, id: crypto.randomUUID() });
     const bars = row.bars.map((bar, position) => barOf(character.id, bar, position));
     const holderRole = this.roles[character.userId ?? ''] ?? null;
-    const saved = { character, bars, controllerIds: [...row.controllerIds], holderRole };
+    const controllerIds = [...row.controllerIds];
+    const saved = { character, bars, forms: [], controllerIds, holderRole };
     this.rows.push(saved);
     const [held] = this.held([saved]);
     if (!held) throw new Error(`CharactersDaoFake lost ${character.id} right after its insert`);
@@ -172,6 +175,14 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
     this.journal.push('bars');
     const saved = bars.map((bar, position) => barOf(characterId, bar, position));
     this.replace(characterId, (row) => ({ ...row, bars: saved }));
+  }
+
+  async replaceForms(characterId: string, forms: readonly TokenFormInputPo[]): Promise<void> {
+    this.journal.push('forms');
+    this.replace(characterId, (row) => {
+      const keptIds = new Set(row.forms.map(({ id }) => id));
+      return { ...row, forms: formRowsOf(forms, keptIds) };
+    });
   }
 
   async replaceControllers(characterId: string, userIds: readonly string[]): Promise<void> {

@@ -106,6 +106,7 @@ describe('conditions on a token linked to a character', () => {
       table.characters.rows.push({
         character: quelms,
         bars: [],
+        forms: [],
         controllerIds: [],
         holderRole: null,
       });

@@ -3,6 +3,7 @@ import {
   activeFormAfterEdit,
   formBoxOf,
   isShowing,
+  mergedFormsOf,
   requireActiveForm,
   requireForm,
 } from '../../../src/modules/tokens/token-forms.bo';
@@ -11,7 +12,9 @@ import {
   LYRA_RAVEN_FORM_ID,
   LYRA_WOLF_FORM_ID,
   WOLF_IMAGE_ID,
+  elfForm,
   lyraForms,
+  ravenForm,
   wolfForm,
 } from '../../support/tokens-factories';
 
@@ -159,5 +162,32 @@ describe('isShowing', () => {
 
   it('another form shown is not', () => {
     expect(isShowing({ ...AS_WOLF, activeFormId: null }, wolfForm(), box)).toBe(false);
+  });
+});
+
+describe('mergedFormsOf', () => {
+  it("keeps the character's forms first and adds the ones it lacks", () => {
+    const merged = mergedFormsOf([elfForm()], [wolfForm(), ravenForm()], 8);
+    expect(merged.map(({ name }) => name)).toEqual(['Elfa', 'Lobo atroz', 'Corvo']);
+  });
+
+  it('a form alike is one, whatever its id; its own id stays', () => {
+    const merged = mergedFormsOf([elfForm()], [elfForm({ id: LYRA_RAVEN_FORM_ID })], 8);
+    expect(merged).toEqual([elfForm()]);
+  });
+
+  it('another name, image, size or frame is another form', () => {
+    const others = [
+      elfForm({ name: 'Outra' }),
+      elfForm({ imageAssetId: WOLF_IMAGE_ID }),
+      elfForm({ width: 2 }),
+      elfForm({ frame: 'round' }),
+    ];
+    expect(mergedFormsOf([elfForm()], others, 8)).toHaveLength(5);
+  });
+
+  it('stops at the limit: the ones past it are dropped', () => {
+    const merged = mergedFormsOf([elfForm()], [wolfForm(), ravenForm()], 2);
+    expect(merged.map(({ name }) => name)).toEqual(['Elfa', 'Lobo atroz']);
   });
 });

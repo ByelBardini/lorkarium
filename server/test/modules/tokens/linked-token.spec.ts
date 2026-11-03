@@ -206,14 +206,22 @@ describe('a token:update of a token linked to a character, split', () => {
 });
 
 describe('the forms of a token linked to a character', () => {
-  it('are its own, and so is the shown form: the character lends neither', () => {
-    const own = { ...linkedLyraRow({ activeFormId: LYRA_WOLF_FORM_ID }), forms: lyraForms() };
+  it("are the character's, with the token as their holder; the shown form stays the token's", () => {
+    const shown = linkedLyraRow({ activeFormId: LYRA_WOLF_FORM_ID });
 
-    const composed = composedTokenRow(own, lyraWithLook());
+    const composed = composedTokenRow(shown, { ...lyraWithLook(), forms: lyraForms() });
 
     expect(composed.forms.map(({ name }) => name)).toEqual(['Elfa', 'Lobo atroz', 'Corvo']);
+    expect(composed.forms.every(({ tokenId }) => tokenId === shown.token.id)).toBe(true);
     expect(composed.token.activeFormId).toBe(LYRA_WOLF_FORM_ID);
     expect(toTokenDto(composed, 'privileged').forms).toHaveLength(3);
+    expect(toTokenDto(composed, 'others').forms).toEqual([]);
+  });
+
+  it('a form left on the linked token itself is not worn', () => {
+    const own = { ...linkedLyraRow(), forms: lyraForms() };
+
+    expect(composedTokenRow(own, { ...lyraWithLook(), forms: [] }).forms).toEqual([]);
   });
 
   it('identityOf leaves the shown form out: an unlinked copy keeps its own', () => {
@@ -222,7 +230,7 @@ describe('the forms of a token linked to a character', () => {
     );
   });
 
-  it('splitUpdate keeps the forms and the shown form on the token, never on the character', () => {
+  it('splitUpdate sends the forms to the character and keeps the shown form on the token', () => {
     const forms = lyraForms();
     const update = {
       fields: { ...FIELDS, activeFormId: null },
@@ -233,7 +241,8 @@ describe('the forms of a token linked to a character', () => {
 
     const { shared, own } = splitUpdate(update);
 
-    expect(own.forms).toBe(forms);
+    expect(shared.forms).toBe(forms);
+    expect(own).not.toHaveProperty('forms');
     expect(own.fields).toEqual({ width: 2, height: 2, activeFormId: null });
     expect(shared.look).not.toHaveProperty('activeFormId');
   });

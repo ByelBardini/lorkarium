@@ -26,7 +26,7 @@ PO em `server/src/modules/characters/characters.po.ts`, exportados no `schema.ts
 - Barras da âncora → `character_bars` (mesma posição, visibilidade e exibição); controladores da âncora → `character_controllers`; sem âncora, o controlador é o próprio jogador. Condições da âncora: `character_id` = o personagem, `token_id` nulo.
 - `tokens.character_id` em todo token cujo `anchor_token_id` é a âncora (a âncora não ganha).
 - Fichas da âncora: `character_id` = o personagem, `token_id` nulo; `main_sheet_id` = a mais antiga (`created_at`, depois `id`).
-- **Formas ficam por token** (decisão do orquestrador): cada token ligado troca as formas próprias (que não apareciam) por uma cópia das da âncora com ids novos, e o `active_form_id` aponta para a cópia da forma que a âncora mostrava.
+- **Formas ficam por token** (decisão do orquestrador, revertida na `0079`: a lista passou ao personagem, ver [`../tokens/formas.md`](../tokens/formas.md)): cada token ligado troca as formas próprias (que não apareciam) por uma cópia das da âncora com ids novos, e o `active_form_id` aponta para a cópia da forma que a âncora mostrava.
 - `characters_version` começa em 0.
 
 Testes: integração `server/test/integration/characters-migration.spec.ts` (migra até a `0074`, semeia por SQL cru, aplica a `0075`): Lyra da Bia (ficha CA 15 + âncora PV 25/30 + Mana, Envenenado, controle [Bia], imagem, aura, 2×2), os tokens dela no Salão e na Estrada, as duas fichas e a principal, as formas copiadas; Caio sem nada ("Caio do Vale" → `CV`); Duda espectadora com ficha ("Mira", CD 12); Eli só com CA; Ana mestre sem nada; Gorm, âncora de quem saiu; Quelm isolada; versão 0; o índice único, os dois `one_holder` e o nome de 61 recusados.

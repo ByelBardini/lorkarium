@@ -143,7 +143,7 @@ export const tokenDto = z.strictObject({
   /** Who created it (`null` = before authorship was kept, or the account is gone); not a secret,
    *  every audience gets it. A player edits and deletes only their own (game-core `token-rights`). */
   createdBy: z.uuid().nullable(),
-  /** Its named forms (a linked token keeps its own), only for the masters and its controllers;
+  /** Its named forms (a linked token wears its character's), only for the masters and its controllers;
    *  the others get `[]` and just the `activeFormId` (the list would reveal the unused forms). */
   forms: tokenFormsDto,
   /** The form it shows now, or `null`: changing the image or the size by hand clears it. */

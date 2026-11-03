@@ -313,14 +313,8 @@ export class TokensDao {
     await this.hanging.replaceBarsAndControllers(tokenId, update.bars, update.controllerIds);
   }
 
-  /** Writes only the fields given, on the token alone (its bars and controllers stay), and its
-   *  forms when given (a linked token's own part of an update). Run it on the `tx` DAO. */
-  async updateFields(
-    tokenId: string,
-    fields: Partial<TokenFieldsPo>,
-    forms?: readonly TokenFormInputPo[],
-  ): Promise<void> {
-    if (forms) await this.forms.replace(tokenId, forms);
+  /** Writes only the fields given, on the token alone (a linked token's own part of an update). */
+  async updateFields(tokenId: string, fields: Partial<TokenFieldsPo>): Promise<void> {
     await this.db
       .update(tokens)
       .set({ ...fields, updatedAt: sql`now()` })

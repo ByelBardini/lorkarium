@@ -245,18 +245,8 @@ export class TokensDaoFake implements Pick<
     }));
   }
 
-  async updateFields(
-    tokenId: string,
-    fields: Partial<TokenRow['token']>,
-    forms?: TokenUpdatePo['forms'],
-  ): Promise<void> {
-    this.replace(tokenId, (found) => ({
-      ...found,
-      token: { ...found.token, ...fields },
-      forms: forms
-        ? savedFormsOf(tokenId, forms, new Set(found.forms.map(({ id }) => id)))
-        : found.forms,
-    }));
+  async updateFields(tokenId: string, fields: Partial<TokenRow['token']>): Promise<void> {
+    this.replace(tokenId, (found) => ({ ...found, token: { ...found.token, ...fields } }));
   }
 
   async delete(tokenId: string): Promise<void> {
