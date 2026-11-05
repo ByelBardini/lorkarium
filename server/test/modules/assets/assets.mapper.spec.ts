@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { storageKeyOf, toAssetDto, toNewAssetPo } from '../../../src/modules/assets/assets.mapper';
+import {
+  storageKeyOf,
+  toAssetDto,
+  toAssetOutlineDto,
+  toNewAssetPo,
+} from '../../../src/modules/assets/assets.mapper';
 import { LYRA_PORTRAIT_ID, lyraPortraitPo } from '../../support/assets-factories';
 import { BIA_ID, VHARN_ID } from '../../support/campaigns-factories';
 
@@ -8,7 +13,15 @@ const IMAGE = {
   mimeType: 'image/webp',
   width: 1024,
   height: 768,
+  outline: null,
 } as const;
+const TRIANGLE: readonly (readonly (readonly [number, number])[])[] = [
+  [
+    [0.5, 0],
+    [1, 1],
+    [0, 1],
+  ],
+];
 
 describe('assets mapper', () => {
   it('the storage key is assets/ and the id, never a file name', () => {
@@ -34,7 +47,26 @@ describe('assets mapper', () => {
       width: 1024,
       height: 768,
       storageKey: `assets/${LYRA_PORTRAIT_ID}`,
+      sightOutline: null,
     });
+  });
+
+  it('the new row keeps the outline traced from the image', () => {
+    const row = toNewAssetPo({
+      assetId: LYRA_PORTRAIT_ID,
+      campaignId: VHARN_ID,
+      ownerId: BIA_ID,
+      purpose: 'token',
+      image: { ...IMAGE, outline: TRIANGLE },
+    });
+
+    expect(row.sightOutline).toEqual([
+      [
+        [0.5, 0],
+        [1, 1],
+        [0, 1],
+      ],
+    ]);
   });
 
   it('the DTO carries id, type and pixels, without the key or the owner', () => {
@@ -44,5 +76,25 @@ describe('assets mapper', () => {
       width: 400,
       height: 400,
     });
+  });
+
+  it('the outline DTO carries the stored polygons', () => {
+    expect(toAssetOutlineDto(lyraPortraitPo({ sightOutline: TRIANGLE }))).toEqual({
+      outline: [
+        [
+          [0.5, 0],
+          [1, 1],
+          [0, 1],
+        ],
+      ],
+    });
+  });
+
+  it('the outline DTO of a fully transparent image keeps the empty list', () => {
+    expect(toAssetOutlineDto(lyraPortraitPo({ sightOutline: [] }))).toEqual({ outline: [] });
+  });
+
+  it('the outline DTO of an image without one is null', () => {
+    expect(toAssetOutlineDto(lyraPortraitPo({ sightOutline: null }))).toEqual({ outline: null });
   });
 });

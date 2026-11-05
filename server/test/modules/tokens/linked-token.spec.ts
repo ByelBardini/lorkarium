@@ -157,6 +157,23 @@ describe('the aura of a token linked to a character', () => {
     expect(own.fields).not.toHaveProperty('auraImageShape');
   });
 
+  it('splitUpdate keeps blocksSight on the token, per grid, never on the character', () => {
+    const update = { fields: { ...FIELDS, blocksSight: true }, bars: [], controllerIds: [] };
+
+    const { shared, own } = splitUpdate(update);
+
+    expect(own.fields.blocksSight).toBe(true);
+    expect(shared.look).not.toHaveProperty('blocksSight');
+  });
+
+  it('composedTokenRow keeps the blocksSight of the token: the character lends no such thing', () => {
+    const row = lyraRow({ token: lyraPo({ characterId: LYRA_CHARACTER_ID, blocksSight: true }) });
+
+    const composed = composedTokenRow(row, lyraCharacterRow());
+
+    expect(composed.token.blocksSight).toBe(true);
+  });
+
   it('identityOf carries the shape of a round image aura', () => {
     const round = fireAuraColumns({ auraKind: 'image', auraEffect: null, auraImageShape: 'round' });
 

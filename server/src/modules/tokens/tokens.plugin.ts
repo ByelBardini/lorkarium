@@ -1,4 +1,8 @@
-import { BAR_VALUE_LIMIT, TOKENS_PER_SCENE_MAX } from '@lorkarium/contracts';
+import {
+  BAR_VALUE_LIMIT,
+  TOKENS_PER_SCENE_MAX,
+  TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
+} from '@lorkarium/contracts';
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
@@ -64,7 +68,11 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
     );
   const { members, publisher, characterPublisher, clock, sceneWalls } = options;
   const dragGroups = new TokensDao(options.db);
-  const limits = { barLimit: BAR_VALUE_LIMIT, tokenLimit: TOKENS_PER_SCENE_MAX };
+  const limits = {
+    barLimit: BAR_VALUE_LIMIT,
+    tokenLimit: TOKENS_PER_SCENE_MAX,
+    blockerLimit: TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
+  };
   const deps = { members, transaction, publisher, characterPublisher, clock, ...limits };
   const tokenRights = new CampaignsDao(options.db);
   const tokenDeps = { ...deps, dragGroups, sceneWalls, tokenRights };

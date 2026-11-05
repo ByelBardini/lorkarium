@@ -1,6 +1,8 @@
+import { sightBlockerOf, type SightBlocker } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import {
   sceneWallsOf,
+  sightWallsOf,
   toNewWallPo,
   toWallDto,
   toWallMovePo,
@@ -121,5 +123,40 @@ describe('sceneWallsOf', () => {
     expect(known.placed.map(({ id }) => id)).toEqual([NORTH_WALL_ID, CELL_DOOR_ID]);
     expect(known.placed.map(({ wall }) => wall)).toEqual(known.walls);
     expect(known.placed[1]?.wall).toBe(known.walls[1]);
+  });
+});
+
+describe('sightWallsOf', () => {
+  const sceneWalls = [wallOfRow(northWallPo()), wallOfRow(cellDoorPo())];
+
+  function blockerAt(tokenId: string, col: number): SightBlocker {
+    const box = { x: col, y: 3, width: 1, height: 1 };
+    const pose = { facing: 0, flipX: false, flipY: false };
+    const token = {
+      tokenId,
+      box,
+      frame: 'square',
+      hasImage: false,
+      outline: null,
+      ...pose,
+    } as const;
+    return sightBlockerOf(token, { widthCells: 20, heightCells: 12 });
+  }
+
+  it('without a blocker hands back the very array, so the prepared walls are reused', () => {
+    expect(sightWallsOf(sceneWalls, [])).toBe(sceneWalls);
+  });
+
+  it('puts the scene walls first, the same instances in order, then those of each blocker', () => {
+    const first = blockerAt('statue-1', 3);
+    const second = blockerAt('statue-2', 9);
+
+    const walls = sightWallsOf(sceneWalls, [first, second]);
+
+    expect(walls).toHaveLength(4);
+    expect(walls[0]).toBe(sceneWalls[0]);
+    expect(walls[1]).toBe(sceneWalls[1]);
+    expect(walls[2]).toBe(first.walls[0]);
+    expect(walls[3]).toBe(second.walls[0]);
   });
 });

@@ -7,6 +7,7 @@ import type {
   NormalizeOutcome,
 } from '../../modules/assets/image-processor.port';
 import { framesWithin, frameHeightOf } from '../sharp-frames';
+import { ALPHA_GRID_MAX_SIDE, outlineOfAlpha, type TracedOutline } from './alpha-outline';
 import { keptAnimatedGif } from './animated-gif';
 
 // 100 megapixels: far above any map, far below a decompression bomb.
@@ -64,7 +65,14 @@ export class SharpImageProcessor implements ImageProcessorPort {
       .catch(() => null);
     if (!output) return null;
     const { data, info } = output;
-    return { bytes: new Uint8Array(data), mimeType, width: info.width, height: info.height };
+    const outline = options.outline === true ? await outlineOfKept(data) : null;
+    return {
+      bytes: new Uint8Array(data),
+      mimeType,
+      width: info.width,
+      height: info.height,
+      outline,
+    };
   }
 
   private async animated(bytes: Uint8Array, frames: number, options: NormalizeOptions) {
@@ -113,6 +121,25 @@ function resizeOf(options: NormalizeOptions, shortSide: number): ResizeOptions {
   }
   const side = Math.min(shortSide, maxSide);
   return { width: side, height: side, fit: 'cover', position: 'centre' };
+}
+
+// Read from the kept file, not the sent one: a crop or a rotation is already in it. An image with
+// no alpha gets a full one, so it comes out as its own rectangle.
+async function outlineOfKept(kept: Buffer): Promise<TracedOutline> {
+  const side = ALPHA_GRID_MAX_SIDE;
+  const { data, info } = await sharp(kept)
+    .ensureAlpha()
+    .extractChannel('alpha')
+    .resize({
+      width: side,
+      height: side,
+      fit: 'inside',
+      withoutEnlargement: true,
+      kernel: 'linear',
+    })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return outlineOfAlpha({ width: info.width, height: info.height, alpha: new Uint8Array(data) });
 }
 
 function expectedOf(options: NormalizeOptions): string {

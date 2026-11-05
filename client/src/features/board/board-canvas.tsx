@@ -27,6 +27,7 @@ import { useBoard, type BoardStore } from '@/stores/board-store';
 import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
 import { effectAreaStyleOf, type EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { wallStyleOf, type WallStyleStore } from '@/stores/wall-style-store';
+import { useTableSightOutlines } from './table-sight-outlines';
 import { useBoardSight } from './use-board-sight';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
@@ -132,6 +133,7 @@ function useBoardView({
   const areaStyle = useStore(effectAreaStyle, useShallow(effectAreaStyleOf));
   const nextWall = useStore(wallStyle, useShallow(wallStyleOf));
   const sight = useBoardSight(board, interaction);
+  const sightOutlines = useTableSightOutlines();
   return useMemo(() => {
     if (!scene) return null;
     const viewer = { userId: viewerId, isMaster };
@@ -144,6 +146,7 @@ function useBoardView({
       lights,
       veiledLights,
       sight,
+      sightOutlines,
     };
     return buildBoardView({ scene, ...extra, ...areas, ...local });
   }, [
@@ -163,6 +166,7 @@ function useBoardView({
     areaStyle,
     nextWall,
     sight,
+    sightOutlines,
   ]);
 }
 

@@ -1,7 +1,12 @@
 import type { LightDto, WallDto } from '@lorkarium/contracts';
 import { coneOf, lightRange, type SceneSize } from '@lorkarium/game-core';
 import { lightColorHex } from '@/lib/light-color';
-import { gameWallsOf } from '@/lib/wall-geometry';
+import {
+  NO_BLOCKERS,
+  blockerIgnoresOf,
+  wallsOnlyGeometryOf,
+  type SightGeometry,
+} from '@/lib/sight-geometry';
 import type { BoardViewTool } from './board-view';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 import { lightAreasOf, type LightAreas } from './light-areas';
@@ -34,7 +39,11 @@ export type LightViewInput = Readonly<{
   viewer: Readonly<{ isMaster: boolean }>;
   tool: BoardViewTool;
   selectedLightIds: readonly string[];
+  /** The sight walls and the blockers of the board (absent: `walls`). */
+  geometry?: SightGeometry;
 }>;
+
+const NO_GEOMETRY: SightGeometry = { walls: [], blockers: NO_BLOCKERS };
 
 /** The icons of the map lights, for the master only: a player never sees the icon, only what the
  *  light lights (through the fog).
@@ -43,7 +52,7 @@ export type LightViewInput = Readonly<{
 export function lightViewsOf(input: LightViewInput): LightView[] {
   if (!input.viewer.isMaster) return [];
   const tool = input.tool === 'lights';
-  const walls = tool ? gameWallsOf(input.walls) : [];
+  const geometry = tool ? (input.geometry ?? wallsOnlyGeometryOf(input.walls)) : NO_GEOMETRY;
   return input.lights.map((light) => ({
     id: light.id,
     x: light.x * CELL_WORLD_SIZE,
@@ -54,7 +63,7 @@ export function lightViewsOf(input: LightViewInput): LightView[] {
     angle: light.angle,
     emphasis: tool ? 'full' : 'faint',
     selected: input.selectedLightIds.includes(light.id),
-    areas: tool && light.lit ? areasOf(light, walls, input.scene) : null,
+    areas: tool && light.lit ? areasOf(light, geometry, input.scene) : null,
   }));
 }
 
@@ -73,11 +82,12 @@ export function topLightAt(
 
 function areasOf(
   light: LightDto,
-  walls: Parameters<typeof lightAreasOf>[1],
+  { walls, blockers }: SightGeometry,
   scene: SceneSize,
 ): LightAreas {
   const range = lightRange(light.bright, light.dim);
   const cone = coneOf(light.facing, light.angle);
-  const source = { center: { x: light.x, y: light.y }, range, cone };
+  const center = { x: light.x, y: light.y };
+  const source = { center, range, cone, ignores: blockerIgnoresOf(blockers, center) };
   return lightAreasOf(source, walls, scene);
 }

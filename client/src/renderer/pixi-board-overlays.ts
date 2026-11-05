@@ -7,11 +7,12 @@ import { PixiLightLayer } from './pixi-light-layer';
 import { PixiMarquee } from './pixi-marquee';
 import { PixiResizeHandles } from './pixi-resize-handles';
 import { PixiRuler } from './pixi-ruler';
+import { PixiSightBlockerLayer } from './pixi-sight-blocker-layer';
 import { PixiSightConeLayer } from './pixi-sight-cone-layer';
 import { PixiWallLayer } from './pixi-wall-layer';
 
 /** What the board draws above the fog, in drawing order: what the master's lights light, the
- *  outline of the field of view of the token selected alone, the walls,
+ *  outline of the field of view and the line of the blocker selected alone, the walls,
  *  the light icons and the doors, the handles of
  *  the selected token, the sketches of the tools (passed in), the ruler and the marquee. Redrawn on
  *  every camera change, since their lines keep their width on screen. Proven by the e2e.
@@ -21,6 +22,7 @@ export class PixiBoardOverlays {
   readonly walls = new PixiWallLayer();
   readonly lights = new PixiLightLayer();
   readonly sightCone = new PixiSightConeLayer();
+  readonly sightBlocker = new PixiSightBlockerLayer();
   readonly facingHandle: PixiFacingHandle;
   readonly resizeHandles: PixiResizeHandles;
   readonly ruler = new PixiRuler();
@@ -34,10 +36,12 @@ export class PixiBoardOverlays {
 
   /** The containers to add to the world above the fog, the tools' sketches in the middle. */
   containers(sketches: readonly Container[]): Container[] {
-    const { walls, lights, sightCone, resizeHandles, facingHandle, ruler, marquee } = this;
+    const { walls, lights, sightCone, sightBlocker } = this;
+    const { resizeHandles, facingHandle, ruler, marquee } = this;
     return [
       lights.areas,
       sightCone.shape,
+      sightBlocker.shape,
       walls.lines,
       lights.icons,
       walls.doors,
@@ -53,6 +57,7 @@ export class PixiBoardOverlays {
     this.walls.draw(view.walls, view.doors, zoom);
     this.lights.draw(view.lights, zoom);
     this.sightCone.draw(view.sightCone, zoom);
+    this.sightBlocker.draw(view.sightBlockerOutline, zoom);
     this.ruler.draw(view.ruler, zoom);
     this.resizeHandles.draw(view, zoom);
     this.facingHandle.draw(view, zoom);

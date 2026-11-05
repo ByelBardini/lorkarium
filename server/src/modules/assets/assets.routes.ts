@@ -7,6 +7,7 @@ import {
   importAssetRequestDto,
   uploadAssetQueryDto,
   type ApiErrorDto,
+  type AssetOutlineResponseDto,
   type AssetResponseDto,
 } from '@lorkarium/contracts';
 import type {
@@ -68,6 +69,7 @@ export function assetsRoutes(service: AssetsService): (app: FastifyInstance) => 
     app.setErrorHandler(replyWithApiError);
     registerSendRoutes(app, service);
     registerReadRoute(app, service);
+    registerOutlineRoute(app, service);
   };
 }
 
@@ -103,6 +105,16 @@ function registerReadRoute(app: FastifyInstance, service: AssetsService): void {
       .header('cache-control', opened.cacheControl ?? ASSET_CACHE_CONTROL)
       .header('x-content-type-options', 'nosniff')
       .send(opened.body);
+  });
+}
+
+function registerOutlineRoute(app: FastifyInstance, service: AssetsService): void {
+  const { requireAuth, userOf } = app.authGuards;
+  app.get('/assets/:assetId/outline', { preHandler: requireAuth }, async (request, reply) => {
+    const body = await service.outlineOf(userOf(request).id, assetIdOf(request));
+    return reply
+      .header('cache-control', ASSET_CACHE_CONTROL)
+      .send(body satisfies AssetOutlineResponseDto);
   });
 }
 

@@ -1,4 +1,8 @@
-import { TOKEN_LIMIT_CODE, boardCommandAckDto } from '@lorkarium/contracts';
+import {
+  TOKEN_BLOCKER_LIMIT_CODE,
+  TOKEN_LIMIT_CODE,
+  boardCommandAckDto,
+} from '@lorkarium/contracts';
 import type { RealtimeTransport } from './realtime-transport';
 
 export type BoardCommandFailure =
@@ -7,6 +11,7 @@ export type BoardCommandFailure =
   | 'scene_not_found'
   | 'token_not_found'
   | 'token_limit'
+  | 'token_blocker_limit'
   | 'out_of_scene'
   | 'drawing_not_found'
   | 'drawing_limit'
@@ -66,6 +71,7 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   BAR_NOT_FOUND: 'token_not_found',
   TOKEN_FORM_NOT_FOUND: 'token_not_found',
   [TOKEN_LIMIT_CODE]: 'token_limit',
+  [TOKEN_BLOCKER_LIMIT_CODE]: 'token_blocker_limit',
   OUT_OF_SCENE: 'out_of_scene',
   DRAWING_NOT_FOUND: 'drawing_not_found',
   DRAWING_LIMIT: 'drawing_limit',

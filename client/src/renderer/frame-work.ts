@@ -1,5 +1,5 @@
 /** What one frame redraws: the whole view, the zoom-bound overlays (walls, lights, ruler, cone,
- *  handles), the grid lines. */
+ *  blocker line, handles), the grid lines. */
 export type FrameJob = Readonly<{ view: boolean; overlays: boolean; grid: boolean }>;
 
 /** A camera change as the renderer sees it: whether the zoom moved, and whether the view left

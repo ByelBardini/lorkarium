@@ -14,6 +14,7 @@ import type { SceneWalls } from '../walls/walls.mapper';
 import {
   InvalidControllerError,
   OutOfSceneError,
+  TokenBlockerLimitError,
   TokenLimitError,
   WallBlockedError,
   type CellRef,
@@ -30,12 +31,14 @@ export type TokenRulesState = Readonly<{
   barLimit: number;
   /** Tokens a scene keeps at most (`TOKENS_PER_SCENE_MAX`, passed in like the bar limit). */
   tokenLimit: number;
+  /** Sight-blocking tokens a scene keeps at most (`TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX`). */
+  blockerLimit: number;
 }>;
 
 /** The rules of a token on its scene: it fits the scene, its controllers are members, and a bar
  *  moves by the shared game-core rule. No collision between tokens (spec §12).
  *
- *  Example: `new TokenRulesBo({ scene, memberIds, barLimit, tokenLimit }).place({ col: 3, row: 4 }, { width: 1, height: 1 })` */
+ *  Example: `new TokenRulesBo({ scene, memberIds, barLimit, tokenLimit, blockerLimit }).place({ col: 3, row: 4 }, { width: 1, height: 1 })` */
 export class TokenRulesBo {
   constructor(private readonly state: TokenRulesState) {}
 
@@ -47,6 +50,16 @@ export class TokenRulesBo {
     const total = stored + adding;
     if (total <= this.state.tokenLimit) return total;
     throw new TokenLimitError(stored, adding, this.state.tokenLimit);
+  }
+
+  /** The sight-blocking tokens of the scene once `adding` more turn on; past the limit the whole
+   *  command is TOKEN_BLOCKER_LIMIT.
+   *
+   *  Example: `rules.admitBlockers(await daos.tokens.countBlockersOfScene(scene.id), 1) // 12` */
+  admitBlockers(stored: number, adding: number): number {
+    const total = stored + adding;
+    if (total <= this.state.blockerLimit) return total;
+    throw new TokenBlockerLimitError(stored, adding, this.state.blockerLimit);
   }
 
   place(at: CellRef, size: SizeRef): CellRef {

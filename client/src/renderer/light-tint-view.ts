@@ -1,10 +1,10 @@
 import type { LightDto, SceneDto, TokenDto, VeiledLightDto, WallDto } from '@lorkarium/contracts';
 import { lightColorHex } from '@/lib/light-color';
 import { shiningLightsOf, type TokenLanding } from '@/lib/light-sources';
-import { gameWallsOf } from '@/lib/wall-geometry';
+import { wallsOnlyGeometryOf, type SightGeometry } from '@/lib/sight-geometry';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 import { lightAreasOf } from './light-areas';
-import { wallSetIdOf } from './world-area';
+import { ignoresIdOf, wallSetIdOf } from './world-area';
 
 /** One colored light: its tone and what it lights, in world px, cut by the walls. */
 export type LightTint = Readonly<{
@@ -32,6 +32,8 @@ export type LightTintInput = Readonly<{
   veiledLights?: readonly VeiledLightDto[];
   /** Where dragged tokens would land: their lights tint from there, like the fog. */
   landing: TokenLanding;
+  /** The sight walls and the blockers of the board, the same for every viewer (absent: `walls`). */
+  geometry?: SightGeometry;
 }>;
 
 // A change that leaves the colored lights and the walls alone hands back the last tint whole.
@@ -47,8 +49,8 @@ export function lightTintViewOf(input: LightTintInput): LightTintView | null {
   const { scene } = input;
   if (scene.vision !== 'dark') return null;
   const size = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-  const walls = gameWallsOf(input.walls);
-  const colored = shiningLightsOf(input, input.landing).flatMap(({ source, color }) => {
+  const { walls, blockers } = input.geometry ?? wallsOnlyGeometryOf(input.walls);
+  const colored = shiningLightsOf(input, input.landing, blockers).flatMap(({ source, color }) => {
     const hex = lightColorHex(color);
     return hex === null ? [] : [{ color: hex, source }];
   });
@@ -58,6 +60,7 @@ export function lightTintViewOf(input: LightTintInput): LightTintView | null {
     source.center,
     source.range,
     source.cone,
+    ignoresIdOf(source.ignores),
   ]);
   const key = JSON.stringify([size, wallSetIdOf(walls), lights]);
   if (lastTint?.key === key) return lastTint;

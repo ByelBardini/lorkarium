@@ -112,11 +112,12 @@ export function tokenViewsOf(input: TokenViewInput): TokenView[] {
   });
 }
 
-// The image stays: the canvas paints it black, so a cut-out PNG shows its outline.
+// The image stays: the canvas paints it black, so a cut-out PNG shows its outline. With no image
+// the token is the disc of initials whatever its frame, and so is its shade.
 function silhouetteOf(view: TokenView, token: TokenDto): TokenView {
   return {
     ...view,
-    silhouette: token.frame === 'round' ? 'round' : 'square',
+    silhouette: token.frame === 'square' && token.imageAssetId !== null ? 'square' : 'round',
     name: '',
     initials: '',
     bar: null,

@@ -1,4 +1,4 @@
-import type { AssetDto, AssetPurposeDto } from '@lorkarium/contracts';
+import type { AssetDto, AssetOutlineResponseDto, AssetPurposeDto } from '@lorkarium/contracts';
 import type { AssetPo, NewAssetPo } from './assets.po';
 import type { NormalizedImage } from './image-processor.port';
 
@@ -32,6 +32,7 @@ export function toNewAssetPo(stored: StoredImage): NewAssetPo {
     width: image.width,
     height: image.height,
     storageKey: storageKeyOf(assetId),
+    sightOutline: image.outline,
   };
 }
 
@@ -40,4 +41,11 @@ export function toNewAssetPo(stored: StoredImage): NewAssetPo {
  *  Example: `toAssetDto(row).width // 1400` */
 export function toAssetDto(row: AssetPo): AssetDto {
   return { id: row.id, mimeType: row.mimeType, width: row.width, height: row.height };
+}
+
+/** Asset row → its silhouette as the client sees it; `null` = none was traced.
+ *
+ *  Example: `toAssetOutlineDto(row).outline?.length // 1` */
+export function toAssetOutlineDto(row: AssetPo): AssetOutlineResponseDto {
+  return { outline: row.sightOutline };
 }

@@ -1,4 +1,10 @@
-import { assetResponseDto, type AssetDto, type AssetPurposeDto } from '@lorkarium/contracts';
+import {
+  assetOutlineResponseDto,
+  assetResponseDto,
+  type AssetDto,
+  type AssetPurposeDto,
+  type SightOutlineDto,
+} from '@lorkarium/contracts';
 import { callApi, callUpload, errorCodeOf, parseOk, retryAfterOf, type ApiCall } from './api-call';
 import type { HttpResponse, HttpTransport } from './http-transport';
 
@@ -20,11 +26,23 @@ export type AssetsFailureKind = AssetsFailure['kind'];
 export type AssetsResult =
   Readonly<{ ok: true; asset: AssetDto }> | Readonly<{ ok: false; failure: AssetsFailure }>;
 
+export type AssetOutlineResult =
+  | Readonly<{ ok: true; outline: SightOutlineDto | null }>
+  | Readonly<{ ok: false; failure: AssetsFailure }>;
+
+/** The silhouette of an image, as the sight of a blocking token reads it. Never throws. */
+export interface AssetOutlineApi {
+  outlineOf(assetId: string): Promise<AssetOutlineResult>;
+}
+
 /** Sending images to a table: the file itself or a link the server downloads. Never throws. */
 export interface AssetsApi {
   upload(campaignId: string, file: Blob, purpose: AssetPurposeDto): Promise<AssetsResult>;
   importLink(campaignId: string, url: string, purpose: AssetPurposeDto): Promise<AssetsResult>;
 }
+
+/** What the room does with images: sends them and reads their silhouettes. */
+export interface RoomAssetsApi extends AssetsApi, AssetOutlineApi {}
 
 const FAILURE_BY_STATUS: Readonly<Record<number, AssetsFailure>> = {
   400: { kind: 'invalid' },
@@ -51,7 +69,7 @@ export function assetUrlOf(assetId: string): string {
 /** `AssetsApi` over HTTP: validates every answer by the contracts DTO.
  *
  *  Example: `const result = await new HttpAssetsApi(transport).upload(campaignId, file, 'token')` */
-export class HttpAssetsApi implements AssetsApi {
+export class HttpAssetsApi implements RoomAssetsApi {
   constructor(private readonly transport: HttpTransport) {}
 
   async upload(campaignId: string, file: Blob, purpose: AssetPurposeDto): Promise<AssetsResult> {
@@ -66,6 +84,15 @@ export class HttpAssetsApi implements AssetsApi {
   ): Promise<AssetsResult> {
     const path = `/campaigns/${encodeURIComponent(campaignId)}/assets/import`;
     return answerOf(await callApi(this.transport, 'POST', path, { url, purpose }));
+  }
+
+  async outlineOf(assetId: string): Promise<AssetOutlineResult> {
+    const path = `/assets/${encodeURIComponent(assetId)}/outline`;
+    const call = await callApi(this.transport, 'GET', path);
+    if (call.kind === 'offline') return { ok: false, failure: { kind: 'offline' } };
+    if (call.kind === 'refused') return { ok: false, failure: failureOf(call.response) };
+    const parsed = parseOk(assetOutlineResponseDto, call.body, (body) => body.outline);
+    return parsed.ok ? { ok: true, outline: parsed.value } : parsed;
   }
 }
 

@@ -1,10 +1,10 @@
+import { ROUND_RADIUS_SHARE } from '@lorkarium/game-core';
 import { Container, Graphics, Sprite, type Texture } from 'pixi.js';
 import type { TokenArtView } from './board-view';
 import { artBox, flipSigns, type ArtImageSize } from './token-art';
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
-/** The ellipse the round frame crops to, as a share of each token side (the disc's radius). */
-export const ROUND_RADIUS_SHARE = 0.42;
+export { ROUND_RADIUS_SHARE };
 
 /** The image of one token: centered on it, turned by its facing (0 = as drawn, looking right),
  *  mirrored by the flips and, with the round frame, cropped to the circle. */

@@ -140,6 +140,7 @@ describe('the diary of a move under the veil', () => {
       clock: new ClockFake(new Date('2026-10-24T21:00:00Z')),
       barLimit: 999,
       tokenLimit: 500,
+      blockerLimit: 50,
       tokenRights: new TableTokenRightsFake(),
     });
   });

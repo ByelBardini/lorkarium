@@ -7,7 +7,8 @@ import type {
   SetDoorCommandDto,
   SetWallKindsCommandDto,
 } from '@lorkarium/contracts';
-import { doorSeenBy, type LightSource, type Wall } from '@lorkarium/game-core';
+import { doorSeenBy, type LightSource, type SightBlocker, type Wall } from '@lorkarium/game-core';
+import type { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -26,7 +27,7 @@ import {
 } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
-import { tokenEyeOf, tokenLightOf } from '../tokens/tokens.mapper';
+import { tokenBlockerOf, tokenEyeOf, tokenLightOf } from '../tokens/tokens.mapper';
 import { DoorAccessBo } from './door-access.bo';
 import type { SceneWallsService } from './scene-walls.service';
 import { WallRulesBo, type WallLimits } from './wall-rules.bo';
@@ -35,6 +36,7 @@ import { WallNotFoundError } from './walls.error';
 import {
   placedWallOf,
   positionOfWall,
+  sightWallsOf,
   toNewWallPo,
   toNewWallPoOf,
   toWallDto,
@@ -73,6 +75,8 @@ export type WallWriteDaos = GridLockDaos &
     tokens: Pick<TokensDao, 'listOfScene'>;
     /** The map lights that may show a player the door. */
     lights: Pick<LightsDao, 'listOfScene'>;
+    /** The outlines of the images of the tokens that block sight there. */
+    assets: Pick<AssetsDao, 'outlinesOf'>;
   }>;
 
 export type WallTransactionRunner = SceneTransaction<WallWriteDaos>;
@@ -292,8 +296,9 @@ export class WallsService {
   }
 }
 
-// The master never needs to see the door; a player looks through every token they control, and
-// sees what any lit map light or token of the scene shows them (the same rule as the client's).
+// The master never needs to see the door, nor anyone with the vision off; a player looks through
+// every token they control, and sees what any lit map light or token of the scene shows them,
+// with the tokens that block sight in the way (the same rule as the client's).
 async function doorSeen(
   locked: Locked,
   access: CampaignAccessBo,
@@ -301,19 +306,42 @@ async function doorSeen(
   walls: readonly Wall[],
   door: Wall,
 ): Promise<boolean> {
-  if (access.isMaster()) return true;
+  if (access.isMaster() || locked.scene.visionMode === 'off') return true;
   const rows = await locked.daos.tokens.listOfScene(locked.scene.id);
-  const eyes = rows.filter(({ controllerIds }) => controllerIds.includes(userId)).map(tokenEyeOf);
-  const lights = await lightsOfScene(locked, rows);
-  return doorSeenBy({ eyes, walls, mode: locked.scene.visionMode, lights }, door);
+  const blockers = await blockersOfScene(locked, rows);
+  const eyes = rows
+    .filter(({ controllerIds }) => controllerIds.includes(userId))
+    .map((row) => tokenEyeOf(row, blockers));
+  const lights = await lightsOfScene(locked, rows, blockers);
+  const sightWalls = sightWallsOf(walls, blockers);
+  return doorSeenBy({ eyes, walls: sightWalls, mode: locked.scene.visionMode, lights }, door);
+}
+
+// A hidden token does not block: cutting the sight would give its place away. Only the image on the
+// square frame has its outline read, and with none to read the DAO does not go to the database.
+async function blockersOfScene(
+  { daos, scene }: Locked,
+  rows: readonly TokenRow[],
+): Promise<SightBlocker[]> {
+  const shown = rows.filter(({ token }) => token.blocksSight && !token.hidden);
+  const traced = shown.flatMap(({ token }) => (token.frame === 'square' ? token.imageAssetId : []));
+  const assetIds = [...new Set(traced)].filter((id) => id !== null);
+  const outlines = await daos.assets.outlinesOf(scene.campaignId, assetIds);
+  return shown.map((row) => {
+    const outline = outlines.get(row.token.imageAssetId ?? '') ?? null;
+    return tokenBlockerOf(row, outline, scene);
+  });
 }
 
 async function lightsOfScene(
   { daos, scene }: Locked,
   rows: readonly TokenRow[],
+  blockers: readonly SightBlocker[],
 ): Promise<LightSource[]> {
-  const mapLights = (await daos.lights.listOfScene(scene.id)).map(lightSourceOfRow);
-  return [...mapLights, ...rows.map(tokenLightOf)].filter((light) => light !== null);
+  const stored = await daos.lights.listOfScene(scene.id);
+  const mapLights = stored.map((row) => lightSourceOfRow(row, blockers));
+  const tokenLights = rows.map((row) => tokenLightOf(row, blockers));
+  return [...mapLights, ...tokenLights].filter((light) => light !== null);
 }
 
 // Every id must be on the scene: the first one missing (another table's too) refuses them all.

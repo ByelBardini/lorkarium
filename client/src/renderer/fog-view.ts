@@ -1,11 +1,17 @@
 import type { LightDto, SceneDto, TokenDto, VeiledLightDto, WallDto } from '@lorkarium/contracts';
-import { type Eye, type LightSource, type SceneSize, type Wall } from '@lorkarium/game-core';
-import { eyeOfToken, type BoardSight } from '@/lib/board-sight';
+import {
+  type Eye,
+  type LightSource,
+  type SceneSize,
+  type SightBlocker,
+  type Wall,
+} from '@lorkarium/game-core';
+import { eyeOfToken, levelOf, type BoardSight } from '@/lib/board-sight';
 import { lightSourcesOf, type TokenLanding } from '@/lib/light-sources';
-import { gameWallsOf } from '@/lib/wall-geometry';
+import { wallsOnlyGeometryOf, type SightGeometry } from '@/lib/sight-geometry';
 import { CELL_WORLD_SIZE, type Point } from './camera';
 import { lightAreasOf } from './light-areas';
-import { rememberedWorldAreaOf, wallSetIdOf } from './world-area';
+import { ignoresIdOf, rememberedWorldAreaOf, wallSetIdOf } from './world-area';
 
 /** A rectangle in world px. */
 export type FogRect = Readonly<{ x: number; y: number; width: number; height: number }>;
@@ -14,8 +20,10 @@ type FogAreas = readonly (readonly Point[])[];
 /** The fog of this viewer, in world px: opaque black outside every `dim` area, darkened outside
  *  every `bright` area, with `holes` where the viewer's own tokens stand. What the lights light
  *  (`lit`, cut by the walls) opens the fog too, but only inside some eye's line of sight
- *  (`sightLines`, unlimited, cut by the walls): (∪ sight) ∩ (∪ light). `key` changes only when
- *  any of it does, so the canvas redraws it only then. */
+ *  (`sightLines`, unlimited, cut by the walls): (∪ sight) ∩ (∪ light). A blocker the viewer sees
+ *  shows its own body (`blockerHoles`), which is behind its own outline: on both sheets when seen,
+ *  on the opaque one (`dim`) alone as a silhouette. `key` changes only when any of it does, so the
+ *  canvas redraws it only then. */
 export type FogView = Readonly<{
   width: number;
   height: number;
@@ -24,6 +32,7 @@ export type FogView = Readonly<{
   holes: readonly FogRect[];
   lit: Readonly<{ bright: FogAreas; dim: FogAreas }>;
   sightLines: FogAreas;
+  blockerHoles: Readonly<{ bright: FogAreas; dim: FogAreas }>;
   key: string;
 }>;
 
@@ -37,10 +46,16 @@ export type FogViewInput = Readonly<{
   veiledLights?: readonly VeiledLightDto[];
   /** Where the viewer's tokens show and look (dragged, waiting, turned): the fog follows them. */
   landing: TokenLanding;
+  /** The sight walls and the blockers of the board (absent: `walls`). */
+  geometry?: SightGeometry;
 }>;
 
 type PlacedEye = Readonly<{ eye: Eye; hole: FogRect }>;
-type FogGeometry = Readonly<{ walls: readonly Wall[]; size: SceneSize }>;
+type FogGeometry = Readonly<{
+  walls: readonly Wall[];
+  blockers: readonly SightBlocker[];
+  size: SceneSize;
+}>;
 
 // A change that leaves the eyes, the walls and the lights alone (the ruler, a selection, a remote
 // drag of anyone else) asks again with the same key: the last fog is handed back whole.
@@ -57,9 +72,10 @@ export function fogViewOf(input: FogViewInput): FogView | null {
   const { sight, scene } = input;
   if (!sight.active) return null;
   const size = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-  const geometry = { walls: gameWallsOf(input.walls), size };
-  const placed = placedEyesOf(input);
-  const sources = sight.mode === 'dark' ? lightSourcesOf(input, input.landing) : [];
+  const geometry = { ...(input.geometry ?? wallsOnlyGeometryOf(input.walls)), size };
+  const placed = placedEyesOf(input, geometry.blockers);
+  const sources =
+    sight.mode === 'dark' ? lightSourcesOf(input, input.landing, geometry.blockers) : [];
   const key = keyOf(sight, placed, geometry, sources);
   if (lastFog?.key === key) return lastFog;
   lastFog = fogGeometryOf(sight, placed, geometry, sources, key);
@@ -80,12 +96,16 @@ function fogGeometryOf(
   const holes = placed.map(({ hole }) => hole);
   const width = geometry.size.widthCells * CELL_WORLD_SIZE;
   const height = geometry.size.heightCells * CELL_WORLD_SIZE;
-  return { width, height, ...own, holes, lit, sightLines, key };
+  const blockerHoles = blockerHolesOf(sight, geometry.blockers);
+  return { width, height, ...own, holes, lit, sightLines, blockerHoles, key };
 }
 
 // The viewer's own tokens (or the master's preview) in the pose they show: every one is an eye
 // (in its field) and a hole, with or without darkvision.
-function placedEyesOf({ sight, tokens, landing }: FogViewInput): PlacedEye[] {
+function placedEyesOf(
+  { sight, tokens, landing }: FogViewInput,
+  blockers: readonly SightBlocker[],
+): PlacedEye[] {
   const watched = tokens.filter(({ id }) => sight.eyeTokenIds.includes(id));
   return watched.map((token) => {
     const at = landing.get(token.id) ?? token;
@@ -95,7 +115,7 @@ function placedEyesOf({ sight, tokens, landing }: FogViewInput): PlacedEye[] {
       width: token.width * CELL_WORLD_SIZE,
       height: token.height * CELL_WORLD_SIZE,
     };
-    return { eye: eyeOfToken(token, landing), hole };
+    return { eye: eyeOfToken(token, landing, blockers), hole };
   });
 }
 
@@ -125,17 +145,49 @@ function litAreasOf(sources: readonly LightSource[], { walls, size }: FogGeometr
 }
 
 function areaOf(eye: Eye, { walls, size }: FogGeometry, reach: number): Point[] {
-  return rememberedWorldAreaOf(eye.center, walls, size, reach, eye.field ?? undefined);
+  const { center, field, ignores } = eye;
+  return rememberedWorldAreaOf(center, walls, size, reach, field ?? undefined, ignores);
+}
+
+function blockerHolesOf(
+  sight: BoardSight,
+  blockers: readonly SightBlocker[],
+): FogView['blockerHoles'] {
+  const bright: Point[][] = [];
+  const dim: Point[][] = [];
+  for (const { tokenId, polygons } of blockers) {
+    const level = levelOf(sight, tokenId);
+    if (level === 'hidden') continue;
+    const body = polygons.map((polygon) =>
+      polygon.map(({ x, y }) => ({ x: x * CELL_WORLD_SIZE, y: y * CELL_WORLD_SIZE })),
+    );
+    dim.push(...body);
+    if (level === 'seen') bright.push(...body);
+  }
+  return { bright, dim };
 }
 
 // The walls go in by the identity of their array: a door opening hands a new one.
 function keyOf(
   sight: BoardSight,
   placed: readonly PlacedEye[],
-  { walls, size }: FogGeometry,
+  { walls, blockers, size }: FogGeometry,
   sources: readonly LightSource[],
 ): string {
-  const eyes = placed.map(({ eye, hole }) => [eye.center, eye.range, eye.field, hole.x, hole.y]);
-  const lights = sources.map(({ center, range, cone }) => [center, range, cone]);
-  return JSON.stringify([sight.mode, size, eyes, wallSetIdOf(walls), lights]);
+  const eyes = placed.map(({ eye, hole }) => [
+    eye.center,
+    eye.range,
+    eye.field,
+    hole.x,
+    hole.y,
+    ignoresIdOf(eye.ignores),
+  ]);
+  const lights = sources.map(({ center, range, cone, ignores }) => [
+    center,
+    range,
+    cone,
+    ignoresIdOf(ignores),
+  ]);
+  const bodies = blockers.map(({ tokenId }) => levelOf(sight, tokenId));
+  return JSON.stringify([sight.mode, size, eyes, wallSetIdOf(walls), lights, bodies]);
 }

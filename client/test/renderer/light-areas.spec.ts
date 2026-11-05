@@ -7,6 +7,8 @@ import {
   type LightSource,
   type Wall,
 } from '@lorkarium/game-core';
+import { sightGeometryOf } from '@/lib/sight-geometry';
+import { statue } from '../support/sight-blocker-fixtures';
 import { describe, expect, it } from 'vitest';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { lightAreasOf } from '@/renderer/light-areas';
@@ -106,5 +108,30 @@ describe('lightAreasOf of a spotlight', () => {
 
     expect(lightAreasOf(spotlight(180), [], SCENE).dim).not.toBe(right.dim);
     expect(lightAreasOf(spotlight(0), [], SCENE).dim).toBe(right.dim);
+  });
+});
+
+describe('lightAreasOf of a light on a blocker', () => {
+  const SIZE_OF_THE_ROOM = { widthCells: 20, heightCells: 12 };
+  const BOARD = {
+    scene: SIZE_OF_THE_ROOM,
+    tokens: [statue({ col: 3, row: 3, width: 3, height: 3 })],
+    walls: [],
+  };
+
+  it('the light with the statue left out passes it, and the one without stops at it', () => {
+    const { walls, blockers } = sightGeometryOf(BOARD, new Map());
+    const center = { x: 4.5, y: 4.5 };
+    const range = lightRange(6, 0);
+
+    const cut = lightAreasOf({ center, range, cone: null }, walls, SIZE_OF_THE_ROOM);
+    const out = lightAreasOf(
+      { center, range, cone: null, ignores: blockers[0]?.walls ?? [] },
+      walls,
+      SIZE_OF_THE_ROOM,
+    );
+
+    expect(Math.max(...cut.bright.map(({ x }) => x))).toBeCloseTo(6 * CELL_WORLD_SIZE, 6);
+    expect(Math.max(...out.bright.map(({ x }) => x))).toBeCloseTo(10.5 * CELL_WORLD_SIZE, 6);
   });
 });

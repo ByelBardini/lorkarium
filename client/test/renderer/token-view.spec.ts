@@ -234,7 +234,7 @@ describe('tokenViewsOf', () => {
 
     it('the token in the penumbra is a silhouette with no name, bar, marks, facing, defeat nor hidden mark, and cannot be taken', () => {
       expect(views.find(({ id }) => id === KAEL_ID)).toMatchObject({
-        silhouette: 'square',
+        silhouette: 'round',
         defeated: false,
         hidden: false,
         name: '',
@@ -248,6 +248,15 @@ describe('tokenViewsOf', () => {
         draggable: false,
         aura: null,
       });
+    });
+
+    // Drawn as the disc of initials whatever its frame: a black square would show a shape it has not.
+    it('a token with no image on the square frame is a round silhouette', () => {
+      const plain = kael({ ...others, col: 8, row: 4, imageAssetId: null, frame: 'square' });
+      const seen = [lyra({ sight: { bright: 3, dim: 3 } }), plain];
+      const [, shade] = viewsOf({ tokens: seen, sight: sightOf(seen) });
+
+      expect(shade).toMatchObject({ silhouette: 'round', art: null });
     });
 
     it('a silhouette keeps its image, so the canvas paints the cut-out PNG black', () => {

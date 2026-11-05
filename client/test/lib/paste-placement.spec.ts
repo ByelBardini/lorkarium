@@ -37,6 +37,16 @@ describe('copiedOf', () => {
     expect(copied.effectAreas).toEqual(copiedOf([], [], [biaCone()]).effectAreas);
   });
 
+  it.each([true, false])(
+    'a copied token keeps blocksSight %s: the server zeroes it for a player',
+    (blocksSight) => {
+      const copied = copiedOf([lyra({ blocksSight })], []);
+
+      expect(copied.tokens[0]?.blocksSight).toBe(blocksSight);
+      expect(pastePlacement(copied, cell(3, 3), SCENE)?.tokens[0]?.blocksSight).toBe(blocksSight);
+    },
+  );
+
   it('a copied token keeps its image, frame, flips and facing', () => {
     const look = {
       imageAssetId: '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d',
@@ -72,6 +82,7 @@ describe('copiedOf', () => {
         sight: null,
         light: null,
         aura: null,
+        blocksSight: false,
         bars: [
           { label: 'PV', current: 32, max: 45, temp: 0, color: 'ember', visibility: 'controllers' },
           {

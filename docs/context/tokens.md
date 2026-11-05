@@ -2,19 +2,21 @@
 
 Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de cada um (a vida generalizada) e o que cada público recebe. Server em `server/src/modules/tokens/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts.md`](contracts.md) (`token.dto.ts`); regra da barra em [`game-core.md`](game-core.md). O client fica em [`client/board.md`](client/board.md).
 
-| Sub-arquivo                                  | O que cobre                                                                                            |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [`tokens/arraste.md`](tokens/arraste.md)     | Arraste ao vivo (`token:dragMany`): uma consulta, sem transação, ordem das prévias                     |
-| [`tokens/grupos.md`](tokens/grupos.md)       | Comandos de grupo: tudo ou nada, paredes no caminho, `expect`, redação do lote, camada                 |
-| [`tokens/invisivel.md`](tokens/invisivel.md) | Token invisível: `hidden`, o véu por público, `token:setHiddenMany`, luz velada, snapshot              |
-| [`tokens/aura.md`](tokens/aura.md)           | Aura do token: as sete colunas `aura_*`, os dois `CHECK`, mapper, restyle, personagem, forma da imagem |
-| [`tokens/autoria.md`](tokens/autoria.md)     | Autor (`created_by`) e as chaves dos jogadores: `TokenAuthorshipBo`, leitura das chaves, colar         |
-| [`tokens/aparencia.md`](tokens/aparencia.md) | Direção e aparência: `faceMany`, `restyleMany`, `resizeMany`, camada, `expect`, eventos                |
-| [`tokens/formas.md`](tokens/formas.md)       | Formas: `token_forms`, `active_form_id`, redação, troca à mão, `token:setForm`, ligado                 |
-| [`tokens/temp.md`](tokens/temp.md)           | Valor temporário da barra: a subtração gasta primeiro, a soma não alcança                              |
-| [`tokens/testes.md`](tokens/testes.md)       | Testes do módulo: unit × integração, specs por service e por grid                                      |
+| Sub-arquivo                                                  | O que cobre                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [`tokens/arraste.md`](tokens/arraste.md)                     | Arraste ao vivo (`token:dragMany`): uma consulta, sem transação, ordem das prévias                     |
+| [`tokens/grupos.md`](tokens/grupos.md)                       | Comandos de grupo: tudo ou nada, paredes no caminho, `expect`, redação do lote, camada                 |
+| [`tokens/invisivel.md`](tokens/invisivel.md)                 | Token invisível: `hidden`, o véu por público, `token:setHiddenMany`, luz velada, snapshot              |
+| [`tokens/aura.md`](tokens/aura.md)                           | Aura do token: as sete colunas `aura_*`, os dois `CHECK`, mapper, restyle, personagem, forma da imagem |
+| [`tokens/autoria.md`](tokens/autoria.md)                     | Autor (`created_by`) e as chaves dos jogadores: `TokenAuthorshipBo`, leitura das chaves, colar         |
+| [`tokens/aparencia.md`](tokens/aparencia.md)                 | Direção e aparência: `faceMany`, `restyleMany`, `resizeMany`, camada, `expect`, eventos                |
+| [`tokens/formas.md`](tokens/formas.md)                       | Formas: `token_forms`, `active_form_id`, redação, troca à mão, `token:setForm`, ligado                 |
+| [`tokens/temp.md`](tokens/temp.md)                           | Valor temporário da barra: a subtração gasta primeiro, a soma não alcança                              |
+| [`tokens/testes.md`](tokens/testes.md)                       | Testes do módulo: unit × integração, specs por service e por grid                                      |
+| [`tokens/bloqueio-de-visao.md`](tokens/bloqueio-de-visao.md) | Token que bloqueia a visão: `blocks_sight`, só o mestre, teto de 50 (`TOKEN_BLOCKER_LIMIT`)            |
+| [`tokens/armadilhas.md`](tokens/armadilhas.md)               | Armadilhas do módulo: migração, enum, `as const`, `CHECK`, nomes no Drizzle                            |
 
-## Tabelas (`tokens.po.ts`, migrações `0003_tokens`, `0006_token_layers`, `0012_token_appearance`, `0013_token_box`, `0014_token_box_drop_size`, `0018_token_sight`, `0021_bar_display`, `0022_token_defeated`, `0023_token_light`, `0026_token_light_color`, `0027_token_cones`, `0053_token_hidden`, `0058_token_aura`, `0061_aura_image_shape`, `0063_token_created_by` e `0065_token_forms`)
+## Tabelas (`tokens.po.ts`, migrações `0003_tokens`, `0006_token_layers`, `0012_token_appearance`, `0013_token_box`, `0014_token_box_drop_size`, `0018_token_sight`, `0021_bar_display`, `0022_token_defeated`, `0023_token_light`, `0026_token_light_color`, `0027_token_cones`, `0053_token_hidden`, `0058_token_aura`, `0061_aura_image_shape`, `0063_token_created_by`, `0065_token_forms` e `0081_token_blocks_sight`)
 
 - `tokens`: `id`, `scene_id` (cascade, indexado), `name`, `initials`, `side` (enum `token_side`), `width`, `height`, `col`, `row` (`double precision`, em casas, de meia em meia: `CHECK tokens_box_half_cells` — origem ≥ 0, lados de 0,5 a 10, todos múltiplos de 0,5), `layer` (enum `token_layer`: `tokens` | `objects` | `background`, padrão `tokens`; a `0006` pôs todo token que existia em `tokens`), `image_asset_id` (→ `assets`, **set null**: perder o asset devolve as iniciais), `frame` (enum `token_frame`: `square` | `round`, padrão `square`), `flip_x`, `flip_y` (padrão `false`), `facing` (`smallint`, padrão 0, `CHECK tokens_facing_range` 0–359), `defeated` (padrão `false`: a marca de abatido; só o `token:restyleMany` a muda — criar e colar nascem vivos), `created_by` (→ `users`, **set null**; o autor, [`tokens/autoria.md`](tokens/autoria.md)), timestamps. A camada, a aparência e a direção são do token inteiro e não são segredo: vão iguais a todos os públicos. `TokenLookPo` = imagem, borda e inverter (o que o `update` aceita); `TokenStylePo` = `TokenLookPo` + `defeated` (o do `restyle`); o `TokenFieldsPo` do `update` aceita a aparência parcial (campo ausente não é escrito).
 - `token_controllers`: PK (`token_id`, `user_id`), os dois cascade — o `TokenController` do §6.
@@ -41,7 +43,7 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 - `TokenAccessBo(campaignAccess, { tokenId, controllerIds })`: o mestre controla tudo; quem está em `controllerIds` controla o token. `requireControl(ação)` → `FORBIDDEN` citando quem, a ação e o token; `audience()` → `privileged` (mestre ou controlador) | `others`. `requireMove(ação, camada)` (mover e arrastar, um ou em grupo) = `requireControl` + a camada: quem não é mestre só move token da camada `tokens`; fora dela → `FORBIDDEN` citando quem, a ação, o token e a camada. Barras, condições e combate não olham a camada (só `requireControl`).
 - `TokenRulesBo({ scene, memberIds, barLimit })`: `place(célula, { width, height })` = `placeInScene(cena, célula, lados)` (função exportada; `tokenSize` + `footprintFits`; lado fora dos passos → `RangeError`; fora → `OutOfSceneError` `OUT_OF_SCENE` citando a célula, "size 1.5×1" e a cena; sem colisão, §12); `controllers(ids)` só aceita membros, sem repetir (`InvalidControllerError` `INVALID_CONTROLLER` citando quem não é); `adjustBar({ current, max }, ajuste)` pelo `adjustBarValues` do game-core com o `BAR_VALUE_LIMIT` (passado pelo plugin): `add`/`set` mexem no atual (−X gasta o `temp`), `max` só no máximo, `temp` só nele (a mesma permissão `requireControl`: o mestre e quem controla); `requireAt(tokenId, esperado?, atual)` — a precondição do desfazer: sem `expect` passa, casa diferente → `STALE_UNDO` citando o token, o esperado e o atual.
 - `requirePassage(tokenId, casas, tamanho, paredes)` — a passagem pelas paredes (spec §5.4): as casas são origem, curvas (o `path` do comando) e destino; cada curva precisa caber na cena (`place` → `OUT_OF_SCENE` citando a curva); os centros (`tokenCenter`) vão ao `blockedPassage` do game-core com as `PlacedWall` da cena (`placedWallOf`, `walls.mapper.ts`); um trecho barrado → `WALL_BLOCKED` (`WallBlockedError`) citando o token, o trecho ("(1.5, 5.5) → (4.5, 5.5)") e o id da parede. `TokenAccessBo.ignoresWalls()` = é mestre.
-- Erros (`tokens.error.ts`): `TOKEN_NOT_FOUND` (também para token de outra mesa), `BAR_NOT_FOUND`, `OUT_OF_SCENE`, `INVALID_CONTROLLER`, `WALL_BLOCKED`. Permissão de mesa (`FORBIDDEN`, `CAMPAIGN_NOT_FOUND`) vem do `CampaignAccessBo`.
+- Erros (`tokens.error.ts`): `TOKEN_NOT_FOUND` (também para token de outra mesa), `BAR_NOT_FOUND`, `OUT_OF_SCENE`, `INVALID_CONTROLLER`, `WALL_BLOCKED`, `TOKEN_BLOCKER_LIMIT` ([`tokens/bloqueio-de-visao.md`](tokens/bloqueio-de-visao.md)). Permissão de mesa (`FORBIDDEN`, `CAMPAIGN_NOT_FOUND`) vem do `CampaignAccessBo`.
 
 ## Redação por público
 
@@ -98,11 +100,6 @@ Ver [`tokens/testes.md`](tokens/testes.md).
 
 ## Armadilhas
 
-- Renomear coluna no PO faz o `drizzle-kit generate` perguntar "foi renomeada?" e ele falha sem TTY. Contorno: gerar com a coluna velha ainda no PO (adiciona as novas), escrever a cópia dos dados nessa migração e gerar de novo sem ela (só o `DROP`). O par `0013_token_box` + `0014_token_box_drop_size` é o exemplo.
-
-- O enum novo só vira `CREATE TYPE` na migração se for exportado em `server/src/database/schema.ts`; sem isso o `drizzle-kit generate` cria a coluna apontando para um tipo que não existe.
-- Um comando com `as const` no spec vira tupla `readonly` e não cabe no tipo do DTO (arrays mutáveis): tipe a fixture (`const NEW_TOKEN: CreateToken = …`).
-- Um `CHECK` aceita `NULL`: `a IS NULL AND b IS NULL OR (a BETWEEN 0 AND 100 AND b BETWEEN 0 AND 100)` deixa passar só um dos dois nulo (o segundo ramo vira `NULL`, não `false`). O `tokens_sight_range` nomeia `IS NOT NULL` nos dois no segundo ramo; o `tokens-dao.spec.ts` prova ("only the bright set").
-- Num `db.select({ … }).from(tokens)` o Drizzle tira o nome da tabela de **toda** coluna interpolada, também dentro de uma subconsulta `sql` (`"token_id" = "id"` vira o id da própria subconsulta): as subconsultas do `hangingOf` (`FORMS_OF_TOKEN`, `OWN_CONTROLLER_IDS`) escrevem os nomes por extenso com alias. No `UPDATE`/`execute` as colunas saem qualificadas.
+Em [`tokens/armadilhas.md`](tokens/armadilhas.md).
 
 Assets library_image são reservados à biblioteca/apresentação: requireAssetsOf recusa em tokens, formas, auras e condições (ASSET_NOT_FOUND antes de gravar). Ver [library/images.md](library/images.md).

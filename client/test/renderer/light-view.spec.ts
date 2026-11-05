@@ -1,7 +1,11 @@
+import type { LightDto, WallDto } from '@lorkarium/contracts';
 import { coneOf, insideCone, insidePolygon } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { lightViewsOf, topLightAt, type LightViewInput } from '@/renderer/light-view';
+import { sightGeometryOf } from '@/lib/sight-geometry';
+import { statue } from '../support/sight-blocker-fixtures';
+import { VHARN_SCENE } from '../support/table-session-fixtures';
 import { BRAZIER_ID, CORRIDOR_TORCH_ID, brazier, corridorTorch } from '../support/light-fixtures';
 import { northWall } from '../support/wall-fixtures';
 
@@ -124,5 +128,31 @@ describe('lightViewsOf of a spotlight', () => {
 
   it('a player still gets no light drawn', () => {
     expect(lightViewsOf(input({ lights: [SPOTLIGHT], viewer: { isMaster: false } }))).toEqual([]);
+  });
+});
+
+describe('lightViewsOf with a blocker', () => {
+  // The torch at (5, 5) in the lights tool; a statue at (7, 3), four cells tall, cuts its right.
+  const SCENE_DTO = { ...VHARN_SCENE, vision: 'dark' as const };
+  const STATUE = statue({ col: 7, row: 3, height: 4 });
+  const NO_WALL_DTOS: readonly WallDto[] = [];
+
+  function areaWith(light: LightDto) {
+    const tokens = [STATUE];
+    const geometry = sightGeometryOf({ scene: SCENE_DTO, tokens, walls: NO_WALL_DTOS }, new Map());
+    const [view] = lightViewsOf(input({ lights: [light], walls: NO_WALL_DTOS, geometry }));
+    return view?.areas?.dim ?? [];
+  }
+
+  it('what the torch lights stops at the statue', () => {
+    const beyond = { x: 9 * CELL, y: 5 * CELL };
+
+    expect(insidePolygon(beyond, areaWith(corridorTorch()))).toBe(false);
+  });
+
+  it('the torch inside the statue lights past it', () => {
+    const inside = corridorTorch({ x: 7.5, y: 5 });
+
+    expect(Math.max(...areaWith(inside).map(({ x }) => x))).toBeCloseTo(15.5 * CELL, 6);
   });
 });

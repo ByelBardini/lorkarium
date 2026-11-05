@@ -24,6 +24,11 @@ export const MAX_BARS_PER_TOKEN = 8;
 export const TOKENS_PER_SCENE_MAX = 500;
 /** The refusal code of a create or paste that would pass `TOKENS_PER_SCENE_MAX`, all or nothing. */
 export const TOKEN_LIMIT_CODE = 'TOKEN_LIMIT';
+/** Tokens of a scene that may block sight at most: with 48 vertices each, 2400 more wall segments,
+ *  below the 4000 of the walls. */
+export const TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX = 50;
+/** The refusal code of a command that would pass `TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX`. */
+export const TOKEN_BLOCKER_LIMIT_CODE = 'TOKEN_BLOCKER_LIMIT';
 /** The bar values stop at ±this (current) and the maximum goes up to it. */
 export const BAR_VALUE_LIMIT = 99_999;
 export const TOKEN_NAME_MAX_LENGTH = 60;
@@ -134,6 +139,9 @@ export const tokenDto = z.strictObject({
   aura: tokenAuraDto.nullable(),
   /** Hidden from the players: only the masters and its controllers ever receive it. */
   hidden: z.boolean(),
+  /** Cuts sight and light by the shape of its art, like a curtain; only the master sets it, and it
+   *  is no secret: the client draws the fog with it. */
+  blocksSight: z.boolean(),
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
   conditions: z.array(activeConditionDto),
@@ -170,6 +178,7 @@ export const createTokenCommandDto = z.strictObject({
   sight: sightDto.nullable().optional(),
   light: tokenLightDto.nullable().optional(),
   aura: tokenAuraDto.nullable().default(null),
+  blocksSight: z.boolean().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type CreateTokenCommandDto = z.infer<typeof createTokenCommandDto>;
@@ -189,6 +198,7 @@ export const updateTokenCommandDto = z.strictObject({
   sight: sightDto.nullable().optional(),
   light: tokenLightDto.nullable().optional(),
   aura: tokenAuraDto.nullable().optional(),
+  blocksSight: z.boolean().optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
   /** The forms replaced as a list, like the bars; absent keeps them. */
   forms: tokenFormsDto.optional(),

@@ -110,7 +110,27 @@ export {
   type SceneLight,
 } from './light.vo';
 export { lightLevelAt, lightSource, type LightSource } from './lighting';
-export { SIGHT_ARC_SAMPLES, insidePolygon, lineOfSight, sightArea } from './sight-area';
+export {
+  SIGHT_ARC_SAMPLES,
+  insidePolygon,
+  lineOfSight,
+  sightArea,
+  type WallsLeftOut,
+} from './sight-area';
+export {
+  SIGHT_OUTLINE_ISLANDS_MAX,
+  SIGHT_OUTLINE_POINTS_MAX,
+  sightOutline,
+  type SightOutline,
+  type SightOutlinePoint,
+} from './sight-outline.vo';
+export {
+  ROUND_RADIUS_SHARE,
+  blockersIgnoredAt,
+  sightBlockerOf,
+  type SightBlocker,
+  type SightBlockerToken,
+} from './sight-blocker';
 export {
   SIGHT_RANGE_MAX,
   doorSeenBy,

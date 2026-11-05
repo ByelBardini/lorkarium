@@ -1,3 +1,14 @@
+import type { TokenDto } from '@lorkarium/contracts';
+import { blockerIgnoresOf, sightGeometryOf } from '@/lib/sight-geometry';
+import {
+  OGRE_ID,
+  RIGHT_STRIP_OUTLINE,
+  STATUE_ID,
+  TRACED_ASSET_ID,
+  blockerBoard,
+  statue,
+  tracedOutlines,
+} from '../support/sight-blocker-fixtures';
 import { describe, expect, it } from 'vitest';
 import { lightSourcesOf, shiningLightsOf } from '@/lib/light-sources';
 import { brazier, corridorTorch, veiledTorch } from '../support/light-fixtures';
@@ -132,5 +143,98 @@ describe('lightSourcesOf with the lights of hidden tokens', () => {
     expect(lightSourcesOf(board)).toEqual([
       { center: { x: 4, y: 5 }, range: { bright: 6, dim: 0 }, cone: { facing: 90, angle: 60 } },
     ]);
+  });
+});
+
+describe('lightSourcesOf with blockers', () => {
+  const BIG_STATUE = statue({ col: 3, row: 3, width: 3, height: 3 });
+  const light = { bright: 4, dim: 0, color: null, angle: 360 };
+
+  function blockersOf(tokens: readonly TokenDto[]) {
+    return sightGeometryOf(blockerBoard(tokens), new Map()).blockers;
+  }
+
+  it('a map light inside a blocker leaves its very walls out', () => {
+    const blockers = blockersOf([BIG_STATUE]);
+    const board = { lights: [corridorTorch({ x: 4.5, y: 4.5 })], tokens: [BIG_STATUE] };
+
+    const [source] = lightSourcesOf(board, undefined, blockers);
+
+    expect(source?.ignores).toBe(blockers[0]?.walls);
+  });
+
+  it('a map light outside it leaves nothing out', () => {
+    const blockers = blockersOf([BIG_STATUE]);
+    const board = { lights: [corridorTorch({ x: 10, y: 10 })], tokens: [BIG_STATUE] };
+
+    expect(lightSourcesOf(board, undefined, blockers)[0]).not.toHaveProperty('ignores');
+  });
+
+  it('the light a blocker carries leaves itself out, with its center off its own shape', () => {
+    const carrier = statue({ light, lightLit: true, imageAssetId: TRACED_ASSET_ID });
+    const outlines = tracedOutlines(RIGHT_STRIP_OUTLINE);
+    const { blockers } = sightGeometryOf(blockerBoard([carrier]), outlines);
+
+    const [source] = lightSourcesOf({ lights: [], tokens: [carrier] }, undefined, blockers);
+
+    expect(source?.ignores).toBe(blockers[0]?.walls);
+  });
+
+  it('the light of a token on a blocker follows where the token shows', () => {
+    const blockers = blockersOf([BIG_STATUE]);
+    const carried = lyra({ col: 9, row: 9, light, lightLit: true });
+    const landing = new Map([[LYRA_ID, { col: 4, row: 4, facing: 0 }]]);
+    const board = { lights: [], tokens: [BIG_STATUE, carried] };
+
+    const [source] = lightSourcesOf(board, landing, blockers);
+
+    expect(source?.ignores).toBe(blockers[0]?.walls);
+  });
+
+  it('a veiled light inside a blocker gets out of it too', () => {
+    const blockers = blockersOf([BIG_STATUE]);
+    const board = {
+      lights: [],
+      tokens: [BIG_STATUE],
+      veiledLights: [veiledTorch({ x: 4.5, y: 4.5 })],
+    };
+
+    expect(lightSourcesOf(board, undefined, blockers)[0]?.ignores).toBe(blockers[0]?.walls);
+  });
+
+  it('with no blockers given, nothing changes', () => {
+    const board = { lights: [corridorTorch()], tokens: [] };
+
+    expect(lightSourcesOf(board)[0]).not.toHaveProperty('ignores');
+  });
+});
+
+describe('blockerIgnoresOf', () => {
+  it('two blockers on the same point give back the very same list, for the keys of the fog', () => {
+    const tokens = [
+      statue({ col: 3, row: 3, width: 3, height: 3 }),
+      statue({ id: OGRE_ID, col: 3, row: 3, width: 3, height: 3 }),
+    ];
+    const { blockers } = sightGeometryOf(blockerBoard(tokens), new Map());
+    const point = { x: 4.5, y: 4.5 };
+
+    const first = blockerIgnoresOf(blockers, point);
+
+    expect(first).toHaveLength(2);
+    expect(blockerIgnoresOf(blockers, { ...point })).toBe(first);
+  });
+
+  it('another token on the same point has its own list', () => {
+    const tokens = [statue(), statue({ id: OGRE_ID, col: 9, row: 9 })];
+    const { blockers } = sightGeometryOf(blockerBoard(tokens), new Map());
+    const point = { x: 15, y: 11 };
+
+    expect(blockerIgnoresOf(blockers, point, STATUE_ID)).toBe(blockers[0]?.walls);
+    expect(blockerIgnoresOf(blockers, point, OGRE_ID)).toBe(blockers[1]?.walls);
+    expect(blockerIgnoresOf(blockers, point)).toEqual([]);
+  });
+
+  it('with no blocker, the empty list', () => {
+    expect(blockerIgnoresOf([], { x: 1, y: 1 }, STATUE_ID)).toEqual([]);
   });
 });

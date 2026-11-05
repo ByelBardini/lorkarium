@@ -4,6 +4,7 @@ import { seenTokensOf, type BoardSight } from '@/lib/board-sight';
 import { canRunEntry, entryLabelOf, OUT_OF_SIGHT_LABEL } from '@/lib/combat-entries';
 import { playerIdsOf, watchesOnly } from '@/lib/table-role';
 import type { StoreApi } from 'zustand/vanilla';
+import type { SightOutlineStore } from '@/stores/sight-outline-store';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
 import type { TablePresenceStore } from '@/stores/table-presence-store';
@@ -25,6 +26,7 @@ export function useInteractionFollowsTable(
   table: FollowedTable | null,
   interaction: StoreApi<BoardInteractionStore>,
   role: CampaignRoleDto,
+  sightOutlines: StoreApi<SightOutlineStore>,
 ): void {
   const presence = table?.presence;
   const board = table?.board;
@@ -41,7 +43,8 @@ export function useInteractionFollowsTable(
       interaction.getState().followVision(next.board?.scene.vision);
       if (next.snapshots !== previous.snapshots) return interaction.getState().dropPreview();
       const players = playerIdsOf(presence.getState().members);
-      const sight = sightNowOf(next, interaction.getState(), players);
+      const { outlines } = sightOutlines.getState();
+      const sight = sightNowOf(next, interaction.getState(), players, outlines);
       const announcement = turnAnnouncement(previous.board, next.board, sight);
       if (!announcement) return;
       interaction.getState().say(announcement);
@@ -51,7 +54,7 @@ export function useInteractionFollowsTable(
       stopStatus();
       stopSnapshots();
     };
-  }, [presence, board, interaction, role]);
+  }, [presence, board, interaction, role, sightOutlines]);
 }
 
 // Never while something is dragged: the selection would jump under the pointer.

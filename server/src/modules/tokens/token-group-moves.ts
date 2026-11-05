@@ -9,7 +9,11 @@ import type { DragGroupPo, TokenMovePo, TokenRow } from './tokens.dao';
 import { TokenNotFoundError } from './tokens.error';
 
 /** `BAR_VALUE_LIMIT` and `TOKENS_PER_SCENE_MAX`, handed to the rule. */
-export type TokenLimits = Readonly<{ barLimit: number; tokenLimit: number }>;
+export type TokenLimits = Readonly<{
+  barLimit: number;
+  tokenLimit: number;
+  blockerLimit: number;
+}>;
 
 /** Where one token of a group goes: a cell to fit, or `null` (a drag that only lifts it). */
 export type GroupCell = Readonly<{
@@ -34,10 +38,10 @@ type Locked = LockedGrid<TokenWriteDaos>;
 export function tokenRulesOf(
   scene: Pick<ScenePo, 'widthCells' | 'heightCells'>,
   memberIds: readonly string[],
-  { barLimit, tokenLimit }: TokenLimits,
+  { barLimit, tokenLimit, blockerLimit }: TokenLimits,
 ): TokenRulesBo {
   const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-  return new TokenRulesBo({ scene: sceneSize, memberIds, barLimit, tokenLimit });
+  return new TokenRulesBo({ scene: sceneSize, memberIds, barLimit, tokenLimit, blockerLimit });
 }
 
 /** Every token of a group found, movable by the requester and fitting where it goes, before any

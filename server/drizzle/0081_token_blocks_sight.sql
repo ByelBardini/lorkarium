@@ -1,0 +1,1 @@
+ALTER TABLE "tokens" ADD COLUMN "blocks_sight" boolean DEFAULT false NOT NULL;

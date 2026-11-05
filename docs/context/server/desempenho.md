@@ -8,14 +8,18 @@ Detalhe do hub [`server.md`](../server.md).
 - `test/integration/query-budget.spec.ts` — o teto de consultas de cada comando quente (`BUDGET`); uma consulta a mais num DAO deixa o `it` vermelho. Quando um número baixa, o teto desce junto.
 - `test/bench/dice-physics.bench.ts` (`pnpm bench`) — o custo de CPU de uma onda de dados na física; números em [`../dice/fisica.md`](../dice/fisica.md) (Custo). O projeto `@lorkarium/server-integration` tem `benchmark: { include: [] }`: sem isso o bench do server rodava duas vezes.
 
-| Comando (cenário do spec)                      | Sem memória | Atual | Regras que seguram |
-| ---------------------------------------------- | ----------- | ----- | ------------------ |
-| `token:dragMany` de jogador (0 `begin`)        | 9           | 1     | 1, 2, 4            |
-| `token:move` de jogador numa cena com paredes  | 12          | 9     | 1, 2               |
-| o próximo `token:move` do mesmo jogador        | 12          | 8     | 1, 2, 3            |
-| `token:createMany` de 64                       | 394         | 9     | 1, 2, 7, 9         |
-| `combat:nextTurn` com 4 entradas e 3 condições | 19          | 10    | 1, 2, 8            |
-| `board:sync` (com `begin`/`commit` do retrato) | 16          | 15    | 1, 2, 10           |
+| Comando (cenário do spec)                       | Sem memória | Atual | Regras que seguram |
+| ----------------------------------------------- | ----------- | ----- | ------------------ |
+| `token:dragMany` de jogador (0 `begin`)         | 9           | 1     | 1, 2, 4            |
+| `token:move` de jogador numa cena com paredes   | 12          | 9     | 1, 2               |
+| o próximo `token:move` do mesmo jogador         | 12          | 8     | 1, 2, 3            |
+| `token:createMany` de 64                        | 394         | 9     | 1, 2, 7, 9         |
+| `combat:nextTurn` com 4 entradas e 3 condições  | 19          | 10    | 1, 2, 8            |
+| `board:sync` (com `begin`/`commit` do retrato)  | 16          | 15    | 1, 2, 10           |
+| `wall:setDoor` de jogador, sem bloqueador       | —           | 10    | —                  |
+| `wall:setDoor` de jogador, bloqueador c/ imagem | —           | 11    | —                  |
+| `wall:setDoor` do mestre, com bloqueador        | —           | 6     | —                  |
+| `wall:setDoor` de jogador com a visão `off`     | —           | 6     | —                  |
 
 Os números contam `begin`/`commit`. "Sem memória" é o custo medido antes das regras abaixo.
 
