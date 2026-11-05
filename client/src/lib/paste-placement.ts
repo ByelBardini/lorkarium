@@ -22,8 +22,9 @@ export type CopiedSelection = Readonly<{
 
 type Span = Readonly<{ min: number; max: number }>;
 
-/** The selection as the copy area keeps it: a token keeps name, side, size, bars, controllers
- *  and layer (a clean copy: no conditions), and, in the middle of a combat, the entry of its
+/** The selection as the copy area keeps it: a token keeps name, side, size, bars, controllers,
+ *  layer and whether it blocks sight (the server zeroes that for a player; a clean copy: no
+ *  conditions), and, in the middle of a combat, the entry of its
  *  original (`combatantId`), which the paste joins; a drawing its shape and style; an area of
  *  effect its shape and color (no id, no author).
  *
@@ -103,6 +104,7 @@ function newTokenOf(token: TokenDto, combatantId: string | undefined): NewTokenI
     sight: token.sight,
     light: token.light,
     aura: token.aura,
+    blocksSight: token.blocksSight,
   };
   const bars = token.bars.map(({ label, current, max, temp, color, visibility }) => ({
     label,
