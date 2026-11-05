@@ -44,3 +44,13 @@ export function requireSize(byteLength: number, limit: number): void {
   if (byteLength <= limit) return;
   throw new AssetTooLargeError(limit, byteLength);
 }
+
+// Only a token can stand in the way of a line of sight.
+const OUTLINED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['token']);
+
+/** Whether the silhouette of an image sent for `purpose` is traced and kept.
+ *
+ *  Example: `outlineFor('token') // true` */
+export function outlineFor(purpose: AssetPurpose): boolean {
+  return OUTLINED_PURPOSES.has(purpose);
+}

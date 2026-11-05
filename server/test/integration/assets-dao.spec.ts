@@ -102,4 +102,51 @@ describe('AssetsDao on Postgres', () => {
     await expect(repeated).rejects.toMatchObject({ cause: { code: '23505' } });
     expect(await connection.db.select().from(assets)).toHaveLength(1);
   });
+
+  describe('outlinesOf', () => {
+    const TRIANGLE: readonly (readonly (readonly [number, number])[])[] = [
+      [
+        [0.5, 0],
+        [1, 1],
+        [0, 1],
+      ],
+    ];
+
+    it('the jsonb of an outline comes back equal, by asset id', async () => {
+      const row = newAssetPo({ campaignId: vharnId, sightOutline: TRIANGLE });
+      const { id } = await dao.insert(row);
+
+      const outlines = await dao.outlinesOf(vharnId, [id]);
+
+      expect(outlines.get(id)).toEqual(TRIANGLE);
+    });
+
+    it('the empty list of a transparent image is not confused with null', async () => {
+      const { id } = await dao.insert(newAssetPo({ campaignId: vharnId, sightOutline: [] }));
+
+      expect((await dao.outlinesOf(vharnId, [id])).get(id)).toEqual([]);
+    });
+
+    it('a row inserted without the column is null, as the migration leaves the old ones', async () => {
+      const { id } = await dao.insert(newAssetPo({ campaignId: vharnId }));
+
+      const outlines = await dao.outlinesOf(vharnId, [id]);
+
+      expect(outlines.has(id)).toBe(true);
+      expect(outlines.get(id)).toBeNull();
+    });
+
+    it('an asset of another campaign is left out even when asked by id', async () => {
+      const mine = await dao.insert(newAssetPo({ campaignId: vharnId, sightOutline: TRIANGLE }));
+      const other = await dao.insert(newAssetPo({ campaignId: quelmId, sightOutline: TRIANGLE }));
+
+      const outlines = await dao.outlinesOf(vharnId, [mine.id, other.id]);
+
+      expect([...outlines.keys()]).toEqual([mine.id]);
+    });
+
+    it('no ids answer an empty map', async () => {
+      expect((await dao.outlinesOf(vharnId, [])).size).toBe(0);
+    });
+  });
 });

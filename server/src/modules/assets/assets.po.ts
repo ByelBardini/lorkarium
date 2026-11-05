@@ -1,6 +1,7 @@
 import {
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -44,6 +45,10 @@ export const assets = pgTable(
     width: integer('width').notNull(),
     height: integer('height').notNull(),
     storageKey: text('storage_key').notNull(),
+    // The art's cut-out in a unit square, traced at upload; null = sent before the feature or not a
+    // token image. An empty list = fully transparent (blocks by the footprint).
+    sightOutline:
+      jsonb('sight_outline').$type<readonly (readonly (readonly [number, number])[])[]>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

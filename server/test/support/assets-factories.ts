@@ -37,6 +37,7 @@ export function lyraPortraitPo(overrides: Partial<AssetPo> = {}): AssetPo {
     width: 400,
     height: 400,
     storageKey: `assets/${LYRA_PORTRAIT_ID}`,
+    sightOutline: null,
     createdAt: new Date('2026-10-17T12:00:00Z'),
     ...overrides,
   };

@@ -5,11 +5,12 @@ import {
   AURA_ANIMATION_LIMITS,
   type AssetDto,
   type AssetMimeTypeDto,
+  type AssetOutlineResponseDto,
   type AssetPurposeDto,
 } from '@lorkarium/contracts';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
-import { animationFor, requireSize, resizeFor } from './asset-upload.bo';
+import { animationFor, outlineFor, requireSize, resizeFor } from './asset-upload.bo';
 import type { AssetStoragePort, StoredObject } from './asset-storage.port';
 import type { AssetsDao } from './assets.dao';
 import {
@@ -20,7 +21,8 @@ import {
   LinkUnreachableError,
   UnsupportedImageError,
 } from './assets.error';
-import { storageKeyOf, toAssetDto, toNewAssetPo } from './assets.mapper';
+import { storageKeyOf, toAssetDto, toAssetOutlineDto, toNewAssetPo } from './assets.mapper';
+import type { AssetPo } from './assets.po';
 import type { FetchRefusal, ImageFetcherPort } from './image-fetcher.port';
 import type { ImageProcessorPort, NormalizedImage, NormalizeOptions } from './image-processor.port';
 
@@ -118,15 +120,7 @@ export class AssetsService {
   /** The bytes of an asset for a member of its campaign; anyone else, a missing row or a missing
    *  object all get the same `ASSET_NOT_FOUND` (criterion 14). */
   async open(userId: string, assetId: string): Promise<OpenedAsset> {
-    const row = await this.deps.assets.findById(assetId);
-    if (row === undefined) throw new AssetNotFoundError(assetId);
-    const membership = await this.deps.members.findMembership(row.campaignId, userId);
-    if (membership === undefined) throw new AssetNotFoundError(assetId);
-    if (
-      (row.purpose === 'library_image' || row.purpose === 'document_image') &&
-      !(await this.deps.readPolicy?.canRead(userId, row.campaignId, row.id))
-    )
-      throw new AssetNotFoundError(assetId);
+    const row = await this.readableRow(userId, assetId);
     const object = await this.deps.storage.open(row.storageKey);
     if (object === null) throw new AssetNotFoundError(assetId);
     return {
@@ -137,6 +131,27 @@ export class AssetsService {
         ? { cacheControl: 'private, no-store' }
         : {}),
     };
+  }
+
+  /** The silhouette of an asset, under the same guard as its bytes; it reads no object, so an old
+   *  row or a vanished file still answers.
+   *
+   *  Example: `(await assetsService.outlineOf(user.id, imageId)).outline // polygons, [] or null` */
+  async outlineOf(userId: string, assetId: string): Promise<AssetOutlineResponseDto> {
+    return toAssetOutlineDto(await this.readableRow(userId, assetId));
+  }
+
+  private async readableRow(userId: string, assetId: string): Promise<AssetPo> {
+    const row = await this.deps.assets.findById(assetId);
+    if (row === undefined) throw new AssetNotFoundError(assetId);
+    const membership = await this.deps.members.findMembership(row.campaignId, userId);
+    if (membership === undefined) throw new AssetNotFoundError(assetId);
+    if (
+      (row.purpose === 'library_image' || row.purpose === 'document_image') &&
+      !(await this.deps.readPolicy?.canRead(userId, row.campaignId, row.id))
+    )
+      throw new AssetNotFoundError(assetId);
+    return row;
   }
 
   // A link that answers with a web page (an image search result) is a wrong link, not a bad file.
@@ -164,7 +179,11 @@ export class AssetsService {
 function keptAs(purpose: AssetPurposeDto): NormalizeOptions {
   const resize = resizeFor(purpose, ASSET_MAX_SIDE);
   const animation = animationFor(purpose, AURA_ANIMATION_LIMITS);
-  return animation ? { ...resize, animation } : resize;
+  return {
+    ...resize,
+    ...(animation ? { animation } : {}),
+    ...(outlineFor(purpose) ? { outline: true } : {}),
+  };
 }
 
 function linkErrorOf(url: string, refusal: FetchRefusal): Error {

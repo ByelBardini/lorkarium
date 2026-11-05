@@ -35,4 +35,20 @@ export class AssetsDao {
       .from(assets)
       .where(and(eq(assets.campaignId, campaignId), inArray(assets.id, [...assetIds])));
   }
+
+  /** The silhouette of each asked asset that belongs to `campaignId`, by asset id; ids from
+   *  elsewhere are absent. No ids, no query.
+   *
+   *  Example: `(await dao.outlinesOf(campaignId, [imageId])).get(imageId) // polygons, [] or null` */
+  async outlinesOf(
+    campaignId: string,
+    assetIds: readonly string[],
+  ): Promise<ReadonlyMap<string, AssetPo['sightOutline']>> {
+    if (assetIds.length === 0) return new Map();
+    const rows = await this.db
+      .select({ id: assets.id, sightOutline: assets.sightOutline })
+      .from(assets)
+      .where(and(eq(assets.campaignId, campaignId), inArray(assets.id, [...assetIds])));
+    return new Map(rows.map((row) => [row.id, row.sightOutline]));
+  }
 }

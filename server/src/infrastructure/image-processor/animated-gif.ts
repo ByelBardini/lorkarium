@@ -26,7 +26,8 @@ export async function keptAnimatedGif(
   if (!output) return null;
   const { data, info } = output;
   const height = info.pageHeight ?? info.height;
-  return { bytes: new Uint8Array(data), mimeType: 'image/gif', width: info.width, height };
+  const kept = new Uint8Array(data);
+  return { bytes: kept, mimeType: 'image/gif', width: info.width, height, outline: null };
 }
 
 // A long GIF keeps every frame and loses resolution instead (100 frames of 16 MP → 400 px).

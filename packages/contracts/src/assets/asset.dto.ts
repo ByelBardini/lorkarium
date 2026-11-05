@@ -106,3 +106,39 @@ export type ImportAssetRequestDto = z.infer<typeof importAssetRequestDto>;
 export const assetIdParamsDto = z.strictObject({ assetId: z.uuid() });
 
 export type AssetIdParamsDto = z.infer<typeof assetIdParamsDto>;
+
+// Repeats the game-core's limits (`SIGHT_OUTLINE_*`): contracts depends only on zod.
+const OUTLINE_VERTICES_MAX = 48;
+const OUTLINE_ISLANDS_MAX = 4;
+const OUTLINE_POLYGON_POINTS_MIN = 3;
+
+const outlineCoordinateDto = z.number().min(0).max(1);
+const outlinePointDto = z.tuple([outlineCoordinateDto, outlineCoordinateDto]).readonly();
+const outlinePolygonDto = z.array(outlinePointDto).min(OUTLINE_POLYGON_POINTS_MIN).readonly();
+
+/** The silhouette of a token image: up to 4 polygons of `[x, y]` in a unit square (0 to 1), 48
+ *  vertices at most in total. An empty list = a fully transparent image.
+ *
+ *  Example: `sightOutlineDto.parse([[[0.5, 0], [1, 1], [0, 1]]]) // one triangle` */
+export const sightOutlineDto = z
+  .array(outlinePolygonDto)
+  .max(OUTLINE_ISLANDS_MAX)
+  .superRefine((polygons, context) => {
+    const vertices = polygons.reduce((total, polygon) => total + polygon.length, 0);
+    if (vertices <= OUTLINE_VERTICES_MAX) return;
+    context.addIssue({
+      code: 'custom',
+      message: `Outline has ${vertices} vertices: expected at most ${OUTLINE_VERTICES_MAX}.`,
+    });
+  })
+  .readonly();
+
+export type SightOutlineDto = z.infer<typeof sightOutlineDto>;
+
+/** Response of `GET /api/assets/:assetId/outline`; `null` = the image has no outline (sent before
+ *  the feature, or not a token image).
+ *
+ *  Example: `assetOutlineResponseDto.parse(body).outline?.length // 1` */
+export const assetOutlineResponseDto = z.strictObject({ outline: sightOutlineDto.nullable() });
+
+export type AssetOutlineResponseDto = z.infer<typeof assetOutlineResponseDto>;

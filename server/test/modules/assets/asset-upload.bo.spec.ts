@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { animationFor, resizeFor, requireSize } from '../../../src/modules/assets/asset-upload.bo';
+import {
+  animationFor,
+  outlineFor,
+  resizeFor,
+  requireSize,
+} from '../../../src/modules/assets/asset-upload.bo';
 import { AssetTooLargeError } from '../../../src/modules/assets/assets.error';
 
 const MIB = 1024 * 1024;
@@ -44,6 +49,19 @@ describe('animationFor', () => {
     'a %s image never animates (no budget)',
     (purpose) => {
       expect(animationFor(purpose, ANIMATION)).toBeNull();
+    },
+  );
+});
+
+describe('outlineFor', () => {
+  it('a token image gets its silhouette traced', () => {
+    expect(outlineFor('token')).toBe(true);
+  });
+
+  it.each(['background', 'cover', 'condition', 'aura', 'library_image', 'document_image'] as const)(
+    'a %s image is not traced',
+    (purpose) => {
+      expect(outlineFor(purpose)).toBe(false);
     },
   );
 });
