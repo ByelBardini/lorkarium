@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   BAR_VALUE_LIMIT,
   MAX_BARS_PER_TOKEN,
+  TOKEN_BLOCKER_LIMIT_CODE,
   TOKEN_LIMIT_CODE,
+  TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
   TOKENS_PER_SCENE_MAX,
   adjustBarCommandDto,
   createTokenCommandDto,
@@ -217,6 +219,7 @@ describe('tokenDto', () => {
       lightLit: true,
       aura: null,
       hidden: false,
+      blocksSight: false,
       canControl: false,
       bars: [bar(1), bar(2)],
       conditions: [],
@@ -350,6 +353,7 @@ describe('defeated', () => {
     lightLit: true,
     aura: null,
     hidden: false,
+    blocksSight: false,
     canControl: false,
     bars: [],
     conditions: [],
@@ -434,6 +438,7 @@ describe('the field of view and the lantern of a token', () => {
       lightLit: true,
       aura: null,
       hidden: false,
+      blocksSight: false,
       canControl: false,
       bars: [],
       conditions: [],
@@ -467,6 +472,62 @@ describe('the field of view and the lantern of a token', () => {
     expect(result.error?.issues.map((issue) => [issue.path.join('.'), issue.message])).toEqual([
       ['light.angle', 'light angle 0 is invalid; expected a whole number from 1 to 360'],
     ]);
+  });
+});
+
+describe('a token that blocks sight', () => {
+  const UPDATE = { ...CREATE, tokenId: TOKEN_ID } as Record<string, unknown>;
+  delete UPDATE.col;
+  delete UPDATE.row;
+
+  it('a create without the field leaves it absent, and with it keeps it', () => {
+    expect('blocksSight' in createTokenCommandDto.parse(CREATE)).toBe(false);
+    expect(createTokenCommandDto.parse({ ...CREATE, blocksSight: true }).blocksSight).toBe(true);
+  });
+
+  it('an update without the field leaves it absent: the server keeps the current one', () => {
+    expect('blocksSight' in updateTokenCommandDto.parse(UPDATE)).toBe(false);
+    expect(updateTokenCommandDto.parse({ ...UPDATE, blocksSight: false }).blocksSight).toBe(false);
+  });
+
+  it.each([
+    ['token:create', createTokenCommandDto, CREATE],
+    ['token:update', updateTokenCommandDto, UPDATE],
+  ])('%s with blocksSight "sim" is refused on the field', (_event, schema, command) => {
+    const result = schema.safeParse({ ...command, blocksSight: 'sim' });
+
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['blocksSight']);
+  });
+
+  it('a confirmed token without blocksSight is refused: the event always carries it', () => {
+    const token = {
+      ...createTokenCommandDto.parse(CREATE),
+      id: TOKEN_ID,
+      defeated: false,
+      sight: null,
+      light: null,
+      lightLit: true,
+      hidden: false,
+      canControl: false,
+      bars: [],
+      conditions: [],
+      characterId: null,
+      createdBy: null,
+      forms: [],
+      activeFormId: null,
+    } as Record<string, unknown>;
+    delete token.actionId;
+    delete token.campaignId;
+
+    const result = tokenDto.safeParse(token);
+
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['blocksSight']);
+  });
+
+  it('its ceiling is 50 per scene and its refusal travels with the code TOKEN_BLOCKER_LIMIT', () => {
+    expect(TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX).toBe(50);
+    const refusal = { code: TOKEN_BLOCKER_LIMIT_CODE, message: 'too many' };
+    expect(apiErrorDto.parse(refusal).code).toBe('TOKEN_BLOCKER_LIMIT');
   });
 });
 

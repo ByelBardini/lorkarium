@@ -279,6 +279,7 @@ export function lyra(overrides: Partial<TokenDto> = {}): TokenDto {
     flipY: false,
     facing: 0,
     sightAngle: 360,
+    blocksSight: false,
     defeated: false,
     sight: null,
     light: null,

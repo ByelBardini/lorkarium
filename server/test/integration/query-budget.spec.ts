@@ -1,7 +1,9 @@
 import { combatStartedDto, tokenCreatedDto, tokensCreatedDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { AssetsDao } from '../../src/modules/assets/assets.dao';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { WallsDao } from '../../src/modules/walls/walls.dao';
+import { newAssetPo } from '../support/assets-factories';
 import { envelope, eventPayload, send, synced } from '../support/live-table';
 import { recordEventsOf, type EventRecorder } from '../support/realtime-client';
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
@@ -15,9 +17,13 @@ const BUDGET = {
   createMany64: 9,
   nextTurn: 10,
   sync: 15,
+  setDoor: 10,
+  setDoorMaster: 6,
+  setDoorOff: 6,
 } as const;
 
 const BEGIN = /^begin/i;
+const READS_AN_ASSET = /from "assets"/;
 
 describe('the queries each hot board command costs', () => {
   const live = useTokenTable();
@@ -160,5 +166,96 @@ describe('the queries each hot board command costs', () => {
     expect(queries).toBeLessThanOrEqual(BUDGET.sync);
     expect(live.queries.matching(BEGIN)).toBe(1);
     expect(live.queries.matching(/^begin isolation level repeatable read read only$/i)).toBe(1);
+  });
+
+  describe('wall:setDoor and the tokens that block sight', () => {
+    const GRID = {
+      widthCells: 20,
+      heightCells: 12,
+      cellDistance: 1.5,
+      cellUnit: 'm',
+      gridVisible: true,
+      gridOpacity: 30,
+    };
+    // Beside Lyra at (3, 4), who sees 4 cells.
+    const DOOR = {
+      kind: 'door',
+      shape: 'line',
+      ...{ x: 5, y: 3, width: 0, height: 3 },
+      points: [
+        [0, 0],
+        [0, 3],
+      ],
+    };
+
+    async function doorOnVharn(
+      vision: 'dark' | 'off',
+    ): Promise<EventRecorder & { doorId: string }> {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const scene = { ...envelope(live.vharn.id), ...GRID, vision };
+      await send(ana.client, 'scene:configure', scene);
+      const sight = { bright: 4, dim: 0 };
+      await createdBy(ana, tokenCommandFor(live.vharn, live.bia.id, { sight }));
+      const walls = { ...envelope(live.vharn.id), walls: [DOOR] };
+      const ack = await send(ana.client, 'wall:createMany', walls);
+      const [doorId] = (ack as { createdIds: string[] }).createdIds;
+      if (!doorId) throw new Error('the door was not created');
+      return { ...ana, doorId };
+    }
+
+    // Far from the door, with an image: it costs its outline and hides nothing.
+    async function farStatueWithImage(ana: EventRecorder): Promise<void> {
+      const image = newAssetPo({ campaignId: live.vharn.id });
+      const { id } = await new AssetsDao(live.connection.db).insert(image);
+      const statue = { col: 15, row: 8, blocksSight: true, imageAssetId: id, name: 'Estátua' };
+      await createdBy(ana, tokenCommandFor(live.vharn, live.caio.id, statue));
+    }
+
+    function openDoor(doorId: string): object {
+      return { ...envelope(live.vharn.id), wallId: doorId, state: 'open' };
+    }
+
+    it(`a player's door with no blocker on the scene reads no asset and costs at most ${BUDGET.setDoor}`, async () => {
+      const { doorId } = await doorOnVharn('dark');
+      const bia = await live.atTable(live.bia, live.vharn);
+
+      const queries = await counted(() => send(bia, 'wall:setDoor', openDoor(doorId)));
+
+      expect(live.queries.matching(READS_AN_ASSET)).toBe(0);
+      expect(queries).toBeLessThanOrEqual(BUDGET.setDoor);
+    });
+
+    it(`a blocker with an image adds its one read of outlines, at most ${BUDGET.setDoor + 1}`, async () => {
+      const ana = await doorOnVharn('dark');
+      await farStatueWithImage(ana);
+      const bia = await live.atTable(live.bia, live.vharn);
+
+      const queries = await counted(() => send(bia, 'wall:setDoor', openDoor(ana.doorId)));
+
+      expect(live.queries.matching(READS_AN_ASSET)).toBe(1);
+      expect(queries).toBeLessThanOrEqual(BUDGET.setDoor + 1);
+    });
+
+    it(`the master reads no asset, even with a blocker, and costs at most ${BUDGET.setDoorMaster}`, async () => {
+      const ana = await doorOnVharn('dark');
+      await farStatueWithImage(ana);
+
+      const queries = await counted(() => send(ana.client, 'wall:setDoor', openDoor(ana.doorId)));
+
+      expect(live.queries.matching(READS_AN_ASSET)).toBe(0);
+      expect(queries).toBeLessThanOrEqual(BUDGET.setDoorMaster);
+    });
+
+    it(`with the vision off a player reads no asset nor token, and costs at most ${BUDGET.setDoorOff}`, async () => {
+      const ana = await doorOnVharn('off');
+      await farStatueWithImage(ana);
+      const bia = await live.atTable(live.bia, live.vharn);
+
+      const queries = await counted(() => send(bia, 'wall:setDoor', openDoor(ana.doorId)));
+
+      expect(live.queries.matching(READS_AN_ASSET)).toBe(0);
+      expect(live.queries.matching(/from "tokens"/)).toBe(0);
+      expect(queries).toBeLessThanOrEqual(BUDGET.setDoorOff);
+    });
   });
 });

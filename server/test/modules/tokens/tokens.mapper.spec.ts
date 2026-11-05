@@ -312,8 +312,44 @@ describe('tokens mapper', () => {
       createdBy: BIA_ID,
       characterId: null,
       controllerIds: row.controllerIds,
-      vision: { sight: { bright: 6, dim: 2 }, light: null, sightAngle: 90 },
+      vision: { sight: { bright: 6, dim: 2 }, light: null, sightAngle: 90, blocksSight: false },
     });
+  });
+
+  it.each(['privileged', 'others'] as const)(
+    'a token that blocks sight reaches the %s audience with blocksSight true',
+    (audience) => {
+      const row = lyraRow({ token: lyraPo({ blocksSight: true }) });
+
+      expect(toTokenDto(row, audience).blocksSight).toBe(true);
+    },
+  );
+
+  it('a token that does not block reaches the others with blocksSight false', () => {
+    expect(toTokenDto(lyraRow(), 'others').blocksSight).toBe(false);
+  });
+
+  it('the edit rule sees whether the saved token blocks sight', () => {
+    const row = lyraRow({ token: lyraPo({ blocksSight: true }) });
+
+    expect(toEditedToken(row).vision.blocksSight).toBe(true);
+  });
+
+  it.each([
+    ['true', true],
+    ['false', false],
+  ])('an update sending blocksSight %s writes it', (_shown, blocksSight) => {
+    const fields = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 } as const;
+    const update = toTokenUpdatePo({ ...fields, bars: [], controllerIds: [], blocksSight }, []);
+
+    expect(update.fields.blocksSight).toBe(blocksSight);
+  });
+
+  it('an update leaving blocksSight out does not write it', () => {
+    const fields = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 } as const;
+    const update = toTokenUpdatePo({ ...fields, bars: [], controllerIds: [] }, []);
+
+    expect(update.fields).not.toHaveProperty('blocksSight');
   });
 
   it('a campaign gone (no stored settings) gives a player no right to create', () => {

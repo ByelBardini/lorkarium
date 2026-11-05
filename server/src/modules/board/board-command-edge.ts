@@ -1,4 +1,8 @@
-import type { ApiErrorDto, BoardCommandAckDto } from '@lorkarium/contracts';
+import {
+  TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
+  type ApiErrorDto,
+  type BoardCommandAckDto,
+} from '@lorkarium/contracts';
 import type { FastifyBaseLogger } from 'fastify';
 import { ZodError, type z } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
@@ -51,6 +55,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   UNAUTHENTICATED: 'A valid session is required',
   TOKEN_NOT_FOUND: 'Token not found',
   TOKEN_LIMIT: 'This scene has too many tokens',
+  TOKEN_BLOCKER_LIMIT: `A scene keeps at most ${TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX} tokens that block sight`,
   ASSET_NOT_FOUND: 'Image not found',
   BAR_NOT_FOUND: 'Bar not found',
   OUT_OF_SCENE: 'It does not fit the scene there',

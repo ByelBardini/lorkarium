@@ -28,6 +28,7 @@ import type { NewTokenRow, TokenRow } from './tokens.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import { TokenRulesBo } from './token-rules.bo';
 import {
+  admitBlockersOf,
   audiencesOf,
   authorshipOf,
   combatOf,
@@ -68,6 +69,8 @@ export type TokenBatchServiceDeps = Readonly<{
   barLimit: number;
   /** `TOKENS_PER_SCENE_MAX`, handed to the rule. */
   tokenLimit: number;
+  /** `TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX`, handed to the rule. */
+  blockerLimit: number;
   /** The table settings a player's paste and batch delete read (the master's never do). */
   tokenRights: TokenRightsReader;
 }>;
@@ -97,6 +100,8 @@ export class TokenBatchService {
       const rules = this.rulesFor(scene, memberIds);
       const rows = copies.map((token) => newTokenRowOf(scene.id, rules, token, userId));
       rules.admit(await daos.tokens.countOfScene(scene.id), rows.length);
+      const blockers = copies.filter(({ blocksSight }) => blocksSight).length;
+      await admitBlockersOf(daos, scene.id, rules, blockers);
       await requireAssetsOf(daos, campaignId, copies.flatMap(lookAssetIdsOf));
       const created = await daos.tokens.insertMany(rows);
       const pasted = created.map(({ token }, index) => ({
@@ -233,8 +238,8 @@ export class TokenBatchService {
 
   private rulesFor(scene: ScenePo, memberIds: readonly string[]): TokenRulesBo {
     const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-    const { barLimit, tokenLimit } = this.deps;
-    return new TokenRulesBo({ scene: sceneSize, memberIds, barLimit, tokenLimit });
+    const { barLimit, tokenLimit, blockerLimit } = this.deps;
+    return new TokenRulesBo({ scene: sceneSize, memberIds, barLimit, tokenLimit, blockerLimit });
   }
 
   private now(): string {

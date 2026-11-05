@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { AssetsDao } from '../../src/modules/assets/assets.dao';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
+import { TokensDao } from '../../src/modules/tokens/tokens.dao';
 import { WallsDao } from '../../src/modules/walls/walls.dao';
+import { newAssetPo } from '../support/assets-factories';
+import { newGrid } from '../support/grids';
 import { recordEventsOf, type EventRecorder } from '../support/realtime-client';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import type { Table } from '../support/tables';
-import { tokenCommandFor, useTokenTable } from '../support/token-table';
+import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const GRID = {
   widthCells: 20,
@@ -330,5 +334,152 @@ describe('doors and the cone of sight over Socket.IO', () => {
 
     expect(away).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
     expect(aimed).toMatchObject({ ok: true });
+  });
+});
+
+describe('doors behind a token that blocks sight over Socket.IO', () => {
+  const live = useTokenTable();
+  // Lyra at (3, 4), center (3.5, 4.5), sees 4 cells; the door runs down x = 5, from y 3 to 6. The
+  // statue stands across the way, x from 4 to 5 and y from 1 to 9.
+  const STATUE = { name: 'Estátua', initials: 'ES', col: 4, row: 1, width: 1, height: 8 };
+  // An L along the top of the statue: the way to the door runs below it, through the empty part.
+  const L_OUTLINE: [number, number][][] = [
+    [
+      [0, 0],
+      [1, 0],
+      [1, 0.2],
+      [0.3, 0.2],
+      [0.3, 0.3],
+      [0, 0.3],
+    ],
+  ];
+  const OUT_OF_SIGHT = { ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) };
+  const SIGHT = { bright: 4, dim: 0 };
+
+  async function darkVharn(sight: object | null): Promise<{ doorId: string; ana: EventRecorder }> {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    await send(ana.client, 'scene:configure', {
+      ...envelope(live.vharn.id),
+      ...GRID,
+      vision: 'dark',
+    });
+    await send(ana.client, 'token:create', tokenCommandFor(live.vharn, live.bia.id, { sight }));
+    const walls = { ...envelope(live.vharn.id), walls: [DOOR] };
+    const ack = await send(ana.client, 'wall:createMany', walls);
+    const [doorId] = (ack as { createdIds: string[] }).createdIds;
+    if (!doorId) throw new Error('the door was not created');
+    return { doorId, ana };
+  }
+
+  async function statueOn(ana: EventRecorder, overrides: object = {}): Promise<string> {
+    const recorder = recordEventsOf(ana.client);
+    const statue = { ...STATUE, blocksSight: true, ...overrides };
+    await send(ana.client, 'token:create', tokenCommandFor(live.vharn, live.caio.id, statue));
+    return (await createdTokenOf(recorder)).id;
+  }
+
+  async function imageOf(tableId: string, sightOutline: [number, number][][]): Promise<string> {
+    const row = newAssetPo({ campaignId: tableId, sightOutline });
+    return (await new AssetsDao(live.connection.db).insert(row)).id;
+  }
+
+  function updateStatue(tokenId: string, overrides: object): object {
+    const { name, initials, width, height } = STATUE;
+    const fields = { name, initials, width, height, side: 'ally', controllerIds: [], bars: [] };
+    return { ...envelope(live.vharn.id), tokenId, ...fields, ...overrides };
+  }
+
+  async function biaOpens(doorId: string): Promise<unknown> {
+    const bia = await live.atTable(live.bia, live.vharn);
+    const command = { ...envelope(live.vharn.id), wallId: doorId, state: 'open' };
+    return send(bia, 'wall:setDoor', command);
+  }
+
+  it('the statue across the way is FORBIDDEN and no one hears an event', async () => {
+    const { doorId, ana } = await darkVharn(SIGHT);
+    await statueOn(ana);
+
+    expect(await biaOpens(doorId)).toEqual(OUT_OF_SIGHT);
+    await silence();
+    expect(ana.events.map(({ name }) => name)).not.toContain('wall:doorChanged');
+  });
+
+  it('once Ana turns the blocking off, Bia opens the door', async () => {
+    const { doorId, ana } = await darkVharn(SIGHT);
+    const statue = await statueOn(ana);
+    await send(ana.client, 'token:update', updateStatue(statue, { blocksSight: false }));
+
+    expect(await biaOpens(doorId)).toMatchObject({ ok: true });
+  });
+
+  it('once Ana moves the statue away, Bia opens the door', async () => {
+    const { doorId, ana } = await darkVharn(SIGHT);
+    const statue = await statueOn(ana);
+    const move = { ...envelope(live.vharn.id), tokenId: statue, col: 15, row: 1 };
+    await send(ana.client, 'token:move', move);
+
+    expect(await biaOpens(doorId)).toMatchObject({ ok: true });
+  });
+
+  it('an image in L lets the way run through its empty part; on the round frame, the disc blocks', async () => {
+    const { doorId, ana } = await darkVharn(SIGHT);
+    const imageAssetId = await imageOf(live.vharn.id, L_OUTLINE);
+    const statue = await statueOn(ana, { imageAssetId, frame: 'round' });
+
+    const round = await biaOpens(doorId);
+    await send(ana.client, 'token:update', updateStatue(statue, { frame: 'square' }));
+
+    expect(round).toEqual(OUT_OF_SIGHT);
+    expect(await biaOpens(doorId)).toMatchObject({ ok: true });
+  });
+
+  it('Lyra standing inside the shape opens the door on the other side', async () => {
+    const { doorId, ana } = await darkVharn(SIGHT);
+    await statueOn(ana, { col: 2, row: 3, width: 3, height: 3 });
+
+    expect(await biaOpens(doorId)).toMatchObject({ ok: true });
+  });
+
+  it('the torch behind the statue does not show the door; without the statue, it does', async () => {
+    const { doorId, ana } = await darkVharn(null);
+    const torch = { x: 8, y: 4.5, bright: 4, dim: 0 };
+    await send(ana.client, 'light:createMany', { ...envelope(live.vharn.id), lights: [torch] });
+    const statue = await statueOn(ana, { col: 6 });
+
+    const blocked = await biaOpens(doorId);
+    await send(ana.client, 'token:update', updateStatue(statue, { blocksSight: false }));
+
+    expect(blocked).toEqual(OUT_OF_SIGHT);
+    expect(await biaOpens(doorId)).toMatchObject({ ok: true });
+  });
+
+  it('a hidden statue does not block', async () => {
+    const { doorId, ana } = await darkVharn(SIGHT);
+    const tokenIds = [await statueOn(ana)];
+    const hide = { ...envelope(live.vharn.id), tokenIds, hidden: true };
+    await send(ana.client, 'token:setHiddenMany', hide);
+
+    expect(await biaOpens(doorId)).toMatchObject({ ok: true });
+  });
+
+  it('a blocker on another grid of the table does not count', async () => {
+    const { doorId, ana } = await darkVharn(SIGHT);
+    const torre = await newGrid(live, live.ana, live.vharn, 'Torre');
+    const statue = { ...STATUE, blocksSight: true, sceneId: torre };
+    const command = tokenCommandFor(live.vharn, live.caio.id, statue);
+    expect(await send(ana.client, 'token:create', command)).toMatchObject({ ok: true });
+
+    expect(await biaOpens(doorId)).toMatchObject({ ok: true });
+  });
+
+  it('the outline of an image of Quelm is never read: the statue blocks by its footprint', async () => {
+    const { doorId } = await darkVharn(SIGHT);
+    const imageAssetId = await imageOf(live.quelm.id, L_OUTLINE);
+    const scene = await new ScenesDao(live.connection.db).findActiveOf(live.vharn.id);
+    const look = { sceneId: scene!.id, side: 'neutral', imageAssetId, blocksSight: true } as const;
+    const statue = { token: { ...look, ...STATUE }, bars: [], controllerIds: [] };
+    await new TokensDao(live.connection.db).insertMany([statue]);
+
+    expect(await biaOpens(doorId)).toEqual(OUT_OF_SIGHT);
   });
 });

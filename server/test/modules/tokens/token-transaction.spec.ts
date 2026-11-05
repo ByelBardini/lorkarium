@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { requireAssetsOf } from '../../../src/modules/tokens/token-transaction';
+import { TokenRulesBo } from '../../../src/modules/tokens/token-rules.bo';
+import {
+  admitBlockersOf,
+  newTokenRowOf,
+  requireAssetsOf,
+} from '../../../src/modules/tokens/token-transaction';
+import type { NewTokenDto } from '@lorkarium/contracts';
+import { VHARN_SCENE_ID } from '../../support/scenes-factories';
+import { TokensDaoFake } from '../../support/tokens-fakes';
+import { lyraPo, lyraRow } from '../../support/tokens-factories';
 import { AssetsDaoFake } from '../../support/assets-fakes';
 import { lyraPortraitPo, LYRA_PORTRAIT_ID } from '../../support/assets-factories';
 import { VHARN_ID, QUELM_ID } from '../../support/campaigns-factories';
@@ -25,5 +34,62 @@ describe('board asset references', () => {
     await expect(requireAssetsOf({ assets }, VHARN_ID, [LYRA_PORTRAIT_ID])).rejects.toMatchObject({
       code: 'ASSET_NOT_FOUND',
     });
+  });
+});
+
+describe('a token that blocks sight in a transaction', () => {
+  const rules = new TokenRulesBo({
+    scene: { widthCells: 20, heightCells: 12 },
+    memberIds: [],
+    barLimit: 99_999,
+    tokenLimit: 500,
+    blockerLimit: 1,
+  });
+  const STATUE: NewTokenDto = {
+    name: 'Estátua',
+    initials: 'ES',
+    side: 'neutral',
+    width: 1,
+    height: 1,
+    col: 2,
+    row: 2,
+    layer: 'objects',
+    controllerIds: [],
+    imageAssetId: null,
+    frame: 'square',
+    flipX: false,
+    flipY: false,
+    facing: 0,
+    sightAngle: 360,
+    aura: null,
+    bars: [],
+    hidden: false,
+  };
+
+  it('a new row carries the blocksSight sent', () => {
+    const row = newTokenRowOf(VHARN_SCENE_ID, rules, { ...STATUE, blocksSight: true }, 'ana');
+
+    expect(row.token.blocksSight).toBe(true);
+  });
+
+  it('a new row without the field does not block', () => {
+    expect(newTokenRowOf(VHARN_SCENE_ID, rules, STATUE, 'ana').token.blocksSight).toBe(false);
+  });
+
+  it('nothing turning on neither reads the count nor refuses', async () => {
+    const tokens = new TokensDaoFake([], [lyraRow({ token: lyraPo({ blocksSight: true }) })]);
+
+    await admitBlockersOf({ tokens }, VHARN_SCENE_ID, rules, 0);
+
+    expect(tokens.blockerCounts).toEqual([]);
+  });
+
+  it('one turning on past the limit is refused by the count of that scene', async () => {
+    const tokens = new TokensDaoFake([], [lyraRow({ token: lyraPo({ blocksSight: true }) })]);
+
+    const admitting = admitBlockersOf({ tokens }, VHARN_SCENE_ID, rules, 1);
+
+    await expect(admitting).rejects.toMatchObject({ code: 'TOKEN_BLOCKER_LIMIT', stored: 1 });
+    expect(tokens.blockerCounts).toEqual([VHARN_SCENE_ID]);
   });
 });

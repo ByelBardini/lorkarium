@@ -60,6 +60,7 @@ import {
 } from './token-group-moves';
 import { activeFormAfterEdit, type ShownForm } from './token-forms.bo';
 import {
+  admitBlockersOf,
   authorshipOf,
   combatOf,
   newTokenRowOf,
@@ -105,6 +106,8 @@ export type TokensServiceDeps = Readonly<{
   barLimit: number;
   /** `TOKENS_PER_SCENE_MAX`, handed to the rule. */
   tokenLimit: number;
+  /** `TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX`, handed to the rule. */
+  blockerLimit: number;
   /** The table settings a player's create, edit and delete read (the master's never do). */
   tokenRights: TokenRightsReader;
 }>;
@@ -140,6 +143,7 @@ export class TokensService {
       const rules = tokenRulesOf(scene, memberIds, this.deps);
       const row = newTokenRowOf(scene.id, rules, { ...command, controllerIds }, userId);
       rules.admit(await daos.tokens.countOfScene(scene.id), 1);
+      await admitBlockersOf(daos, scene.id, rules, command.blocksSight ? 1 : 0);
       await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command));
       // A token just created carries no condition: nothing to read back for it.
       return { row: await daos.tokens.insert(row), conditions: [] };
@@ -160,6 +164,7 @@ export class TokensService {
       authorship.requireEdit(toEditedToken(found), command);
       const rules = tokenRulesOf(locked.scene, memberIds, this.deps);
       rules.place(found.token, command);
+      await admitBlockersOf(locked.daos, locked.scene.id, rules, blockersTurnedOn(found, command));
       const update = toTokenUpdatePo(command, rules.controllers(command.controllerIds));
       return this.updateIn(locked, found, withShownForm(found.token, update), command);
     });
@@ -433,6 +438,11 @@ export class TokensService {
 
 const MOVES_SEEN_BY = entriesSeenBy<TokensMovedDto>('moves');
 const DRAGS_SEEN_BY = entriesSeenBy<GridEvent<TokensDraggedDto>>('drags');
+
+// Sending true on a token that already blocks adds nothing to the count of the scene.
+function blockersTurnedOn(found: TokenRow, command: Pick<UpdateToken, 'blocksSight'>): number {
+  return command.blocksSight === true && !found.token.blocksSight ? 1 : 0;
+}
 
 // The update with the form the holder keeps: always written, since replacing the forms drops the
 // shown one (FK set null) even when its id stays in the list.

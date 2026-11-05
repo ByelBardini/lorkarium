@@ -14,6 +14,7 @@ export type TokenVision = Readonly<{
   sight: CellRange | null;
   light: LightRange | null;
   sightAngle: number;
+  blocksSight: boolean;
 }>;
 
 /** The vision a command sends; an absent field keeps what the token has. */
@@ -21,6 +22,7 @@ export type VisionChange = Readonly<{
   sight?: CellRange | null | undefined;
   light?: LightRange | null | undefined;
   sightAngle?: number | undefined;
+  blocksSight?: boolean | undefined;
 }>;
 
 /** What a create asks for, as far as authorship goes (absent layer = `tokens`). */
@@ -44,10 +46,15 @@ export type EditedToken = AuthoredToken & Readonly<{ vision: TokenVision }>;
 /** What an edit changes, as far as authorship goes. */
 export type TokenEdit = VisionChange & Readonly<{ controllerIds: readonly string[] }>;
 
-// The vision of a token nobody set: blind, no light, every side.
-const NEW_TOKEN_VISION: TokenVision = { sight: null, light: null, sightAngle: 360 };
-const VISION_FIELDS = ['sight', 'light', 'sightAngle'] as const;
-const NO_VISION = 'the master role (players never set sight or light)';
+// The vision of a token nobody set: blind, no light, every side, blocking nobody's.
+const NEW_TOKEN_VISION: TokenVision = {
+  sight: null,
+  light: null,
+  sightAngle: 360,
+  blocksSight: false,
+};
+const VISION_FIELDS = ['sight', 'light', 'sightAngle', 'blocksSight'] as const;
+const NO_VISION = 'the master role (players never set sight, light or what blocks sight)';
 // A player's copy lands like their new token: on Tokens, visible, blind, unlit, out of combat.
 const PLAYER_COPY = {
   layer: 'tokens',
@@ -56,6 +63,7 @@ const PLAYER_COPY = {
   sight: null,
   light: null,
   sightAngle: 360,
+  blocksSight: false,
 } as const;
 
 /** Who creates, edits and deletes tokens (spec §3.9): the master everything; a player by the two
@@ -162,11 +170,11 @@ function changedVisionField(current: TokenVision, change: VisionChange): string 
 }
 
 // Plain values from the wire or from the columns: compared field by field, in a fixed key order.
-function sameValue(a: CellRange | LightRange | number | null, b: typeof a): boolean {
+function sameValue(a: CellRange | LightRange | number | boolean | null, b: typeof a): boolean {
   return JSON.stringify(sortedEntries(a)) === JSON.stringify(sortedEntries(b));
 }
 
-function sortedEntries(value: object | number | null): unknown {
-  if (value === null || typeof value === 'number') return value;
+function sortedEntries(value: object | number | boolean | null): unknown {
+  if (value === null || typeof value !== 'object') return value;
   return Object.entries(value).sort(([a], [b]) => a.localeCompare(b));
 }

@@ -88,7 +88,7 @@ describe('the player creates, edits and deletes tokens by the table settings', (
       characterPublisher: new CharacterPublisherFake(),
       clock: new ClockFake(NOW),
     };
-    const limits = { barLimit: 99_999, tokenLimit: 500, tokenRights };
+    const limits = { barLimit: 99_999, tokenLimit: 500, blockerLimit: 50, tokenRights };
     const walls = {
       dragGroups: new DragGroupsFake(scenes, tokens),
       sceneWalls: new SceneWallsFake(),

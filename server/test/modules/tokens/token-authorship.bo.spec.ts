@@ -15,7 +15,7 @@ type Rights = Readonly<{ create: boolean; delete: boolean }>;
 const BOTH_ON: Rights = { create: true, delete: true };
 const BOTH_OFF: Rights = { create: false, delete: false };
 const LYRA_CHARACTER_ID = 'c0ffee00-1a2b-4c3d-8e5f-6a7b8c9d0e1f';
-const BLIND = { sight: null, light: null, sightAngle: 360 } as const;
+const BLIND = { sight: null, light: null, sightAngle: 360, blocksSight: false } as const;
 
 function authorshipOf(userId: string, role: Role, rights: Rights = BOTH_ON): TokenAuthorshipBo {
   return new TokenAuthorshipBo(
@@ -44,6 +44,40 @@ function forbiddenCiting(...parts: string[]) {
   const pattern = parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*');
   return expect.objectContaining({ code: 'FORBIDDEN', message: expect.stringMatching(pattern) });
 }
+
+describe('TokenAuthorshipBo and blocksSight', () => {
+  it('Bia creating with it is refused citing the field and the master role', () => {
+    const create = () => authorshipOf(BIA_ID, 'player').requireCreate({ blocksSight: true });
+
+    expect(create).toThrow(
+      forbiddenCiting(BIA_ID, 'create a token with blocksSight', 'the master role'),
+    );
+  });
+
+  it('Bia changing it on her own token is refused citing the token and the master role', () => {
+    const edit = () =>
+      authorshipOf(BIA_ID, 'player').requireEdit(tokenBy(BIA_ID), editOf({ blocksSight: true }));
+
+    expect(edit).toThrow(
+      forbiddenCiting(BIA_ID, `change the blocksSight of token ${LYRA_ID}`, 'the master role'),
+    );
+  });
+
+  it('Bia, controlling a linked token, changing it is refused too', () => {
+    const linked = tokenBy(null, { characterId: LYRA_CHARACTER_ID });
+    const edit = () =>
+      authorshipOf(BIA_ID, 'player', BOTH_OFF).requireEdit(linked, editOf({ blocksSight: true }));
+
+    expect(edit).toThrow(forbiddenCiting(`change the blocksSight of token ${LYRA_ID}`));
+  });
+
+  it('a copy pasted by Bia lands without it; the copy of the master keeps it', () => {
+    const copy = { blocksSight: true };
+
+    expect(authorshipOf(BIA_ID, 'player').copyOf(copy).blocksSight).toBe(false);
+    expect(authorshipOf(ANA_ID, 'master').copyOf(copy).blocksSight).toBe(true);
+  });
+});
 
 describe('TokenAuthorshipBo.requireCreate', () => {
   it('the master creates with both settings off, on any layer and with sight', () => {
@@ -175,6 +209,7 @@ describe('TokenAuthorshipBo.requireEdit', () => {
       sight: { bright: 6, dim: 2 },
       light: { bright: 4, dim: 4, color: 'torch', angle: 60 },
       sightAngle: 90,
+      blocksSight: false,
     } as const;
     const token = tokenBy(BIA_ID, { vision });
 
@@ -248,6 +283,7 @@ describe('TokenAuthorshipBo.copyOf', () => {
       sight: null,
       light: null,
       sightAngle: 360,
+      blocksSight: false,
       name: 'Lyra',
     });
   });

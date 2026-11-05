@@ -8,15 +8,21 @@ import type {
   UpdateTokenCommandDto,
 } from '@lorkarium/contracts';
 import {
+  blockersIgnoredAt,
   coneOf,
   eyeFieldOf,
   eyeOf,
   lightRange,
   lightSource,
+  sightBlockerOf,
+  sightOutline,
   sightRange,
   tokenCenter,
   type Eye,
   type LightSource,
+  type SceneSize,
+  type SightBlocker,
+  type SightOutline,
 } from '@lorkarium/game-core';
 import { cellsNumeric } from '../../database/cells-numeric';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
@@ -70,6 +76,7 @@ export function toTokenDto(
     lightLit: row.token.lightLit,
     aura: toTokenAuraDto(row.token),
     hidden: row.token.hidden,
+    blocksSight: row.token.blocksSight,
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],
@@ -110,6 +117,7 @@ export function toEditedToken(row: TokenRow): EditedToken {
     sight: sightOfToken(row.token),
     light: lightOfToken(row.token),
     sightAngle: row.token.sightAngle,
+    blocksSight: row.token.blocksSight,
   };
   return { ...toAuthoredToken(row), vision };
 }
@@ -142,6 +150,7 @@ type UpdatedFields = Pick<
   | 'sightAngle'
   | 'light'
   | 'aura'
+  | 'blocksSight'
   | 'forms'
   | keyof TokenLookPo
 >;
@@ -167,6 +176,7 @@ export function toTokenUpdatePo(
       ...(command.sightAngle === undefined ? {} : { sightAngle: command.sightAngle }),
       ...(command.light === undefined ? {} : toTokenLightPo(command.light)),
       ...(command.aura === undefined ? {} : toTokenAuraPo(command.aura)),
+      ...(command.blocksSight === undefined ? {} : { blocksSight: command.blocksSight }),
     },
     bars: toBarInputsPo(command.bars),
     controllerIds,
@@ -197,26 +207,58 @@ export function toTokenLightPo(light: TokenLightDto | null | undefined): TokenLi
 }
 
 /** The light a saved token gives off, from the center of its footprint and in the cone of its
- *  beam toward its facing; `null` without a light or with it out.
+ *  beam toward its facing; `null` without a light or with it out. It leaves out the `blockers` it
+ *  stands in and, always, the token itself.
  *
- *  Example: `rows.flatMap((row) => tokenLightOf(row) ?? [])` */
-export function tokenLightOf(row: TokenRow): LightSource | null {
+ *  Example: `rows.flatMap((row) => tokenLightOf(row, blockers) ?? [])` */
+export function tokenLightOf(
+  row: TokenRow,
+  blockers: readonly SightBlocker[] = [],
+): LightSource | null {
   const light = lightOfToken(row.token);
   const range = light ? lightRange(light.bright, light.dim) : null;
   const cone = coneOf(row.token.facing, row.token.lightAngle);
-  return lightSource(tokenCenter(row.token, row.token), range, row.token.lightLit, cone);
+  const center = tokenCenter(row.token, row.token);
+  const ignores = blockersIgnoredAt(center, blockers, row.token.id);
+  return lightSource(center, range, row.token.lightLit, cone, ignores);
 }
 
 /** The eye of a saved token: every token is one; without darkvision it sees only what is lit, and
- *  below 360° only in its field (the cone toward its facing plus the ring around it).
+ *  below 360° only in its field (the cone toward its facing plus the ring around it). It leaves out
+ *  the `blockers` it stands in and, always, the token itself.
  *
- *  Example: `rows.map(tokenEyeOf)` */
-export function tokenEyeOf(row: TokenRow): Eye {
+ *  Example: `rows.map((row) => tokenEyeOf(row, blockers))` */
+export function tokenEyeOf(row: TokenRow, blockers: readonly SightBlocker[] = []): Eye {
   const sight = sightOfToken(row.token);
   const range = sight ? sightRange(sight.bright, sight.dim) : null;
   const { col, row: tokenRow, width, height, facing, sightAngle } = row.token;
   const field = eyeFieldOf({ x: col, y: tokenRow, width, height }, facing, sightAngle);
-  return eyeOf(tokenCenter(row.token, row.token), range, field);
+  const center = tokenCenter(row.token, row.token);
+  return eyeOf(center, range, field, blockersIgnoredAt(center, blockers, row.token.id));
+}
+
+/** A saved token that blocks sight → its walls and polygons; `outline` is what its image's asset
+ *  stores. Stored data the game-core refuses is a broken table and throws citing the token.
+ *
+ *  Example: `tokenBlockerOf(row, outlines.get(row.token.imageAssetId ?? '') ?? null, scene)` */
+export function tokenBlockerOf(
+  row: TokenRow,
+  outline: SightOutline | null,
+  scene: SceneSize,
+): SightBlocker {
+  const { id: tokenId, col: x, row: y, width, height } = row.token;
+  const { imageAssetId, frame, facing, flipX, flipY } = row.token;
+  const box = { x, y, width, height };
+  const look = { frame, hasImage: imageAssetId !== null, facing, flipX, flipY };
+  return sightBlockerOf({ tokenId, box, ...look, outline: storedOutline(tokenId, outline) }, scene);
+}
+
+function storedOutline(tokenId: string, stored: SightOutline | null): SightOutline | null {
+  try {
+    return stored && sightOutline(stored);
+  } catch (cause) {
+    throw new Error(`token ${tokenId} has an outline saved broken: ${String(cause)}`, { cause });
+  }
 }
 
 function sightOfToken({ sightBright, sightDim }: TokenSightPo): SightDto | null {

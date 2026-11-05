@@ -15,6 +15,7 @@ export const LYRA_INSPIRATION_ID = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e';
 export const BRAM_ID = '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b';
 export const LOBO_ID = '7f6e5d4c-3b2a-4f1e-8d9c-0b1a2c3d4e5f';
 export const SOMBRA_ID = '8a7f6e5d-4c3b-4a2f-9e1d-1c2b3a4d5e6f';
+export const STATUE_ID = '9b8a7f6e-5d4c-4b3a-8f2e-2d3c4b5a6f7e';
 
 export const LYRA_ELF_FORM_ID = 'c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f';
 export const LYRA_WOLF_FORM_ID = 'd4e5f6a7-b8c9-4d0e-9f1a-3b4c5d6e7f8a';
@@ -58,6 +59,7 @@ export function lyraPo(overrides: Partial<TokenPo> = {}): TokenPo {
     auraOpacity: null,
     auraImageShape: null,
     hidden: false,
+    blocksSight: false,
     characterId: null,
     createdBy: null,
     activeFormId: null,
@@ -198,6 +200,20 @@ export function sombraRow(overrides: Partial<TokenRow> = {}): TokenRow {
     controllerIds: [],
     forms: [],
     ...overrides,
+  };
+}
+
+/** The Estátua, which blocks sight: 1×4 at (5, 3), between Lyra and the cell door, with no image.
+ *
+ *  Example: `statueRow({ col: 10 })` */
+export function statueRow(overrides: Partial<TokenPo> = {}): TokenRow {
+  const statue = { id: STATUE_ID, name: 'Estátua', initials: 'ES', side: 'neutral' as const };
+  const box = { col: 5, row: 3, width: 1, height: 4 };
+  return {
+    token: lyraPo({ ...statue, ...box, blocksSight: true, ...overrides }),
+    bars: [],
+    controllerIds: [],
+    forms: [],
   };
 }
 

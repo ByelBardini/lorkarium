@@ -87,6 +87,8 @@ export const tokens = pgTable(
     ...auraColumns(),
     // Hidden from the players: only the masters and its controllers ever receive it.
     hidden: boolean('hidden').notNull().default(false),
+    // Cuts sight and light like a curtain, by the art's shape (`docs/context/tokens/bloqueio-de-visao.md`).
+    blocksSight: boolean('blocks_sight').notNull().default(false),
     // The character this token is an instance of: it lends its identity, look, bars,
     // controllers, conditions and defeat mark. Losing the character unlinks the token.
     characterId: uuid('character_id').references((): AnyPgColumn => characters.id, {
@@ -226,4 +228,4 @@ export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width'
   Partial<TokenSightPo> &
   Partial<TokenLightPo> &
   Partial<TokenAuraPo> &
-  Partial<Pick<TokenPo, 'sightAngle' | 'activeFormId'>>;
+  Partial<Pick<TokenPo, 'sightAngle' | 'activeFormId' | 'blocksSight'>>;
