@@ -14,28 +14,37 @@ const CORNER_NUDGE = 1e-5;
 const HIT_TOLERANCE = 1e-9;
 const FULL_TURN = 2 * Math.PI;
 
+/** The walls a line of sight leaves out, by reference to the same objects as in its `walls`: the
+ *  door being looked at, or a list (the walls of a blocker). A filtered array would pay for another
+ *  preparation; this shares the one of the whole list. */
+export type WallsLeftOut = Wall | readonly Wall[];
+
 /** The polygon an eye sees: rays from the eye stop at the nearest wall that blocks sight or at
  *  the scene border, then at `reach` (cells; `Infinity` = up to the border). Vertices come in
  *  angle order, so the same input always gives the same polygon. Rays go to every wall vertex
  *  (and just past it), to wall crossings, to where walls leave the reach circle and to 64 arc
  *  samples (ncase's "Sight & Light"). A `field` also stops each ray at its edge for that angle
- *  (the cone, then the ring or the apex), so a cone stays one star-shaped polygon.
+ *  (the cone, then the ring or the apex), so a cone stays one star-shaped polygon. `ignores` (the
+ *  same objects as in `walls`) gives the polygon of the scene without them, over the same
+ *  preparation.
  *
- *  Example: `sightArea({ x: 10.5, y: 6.5 }, walls, { widthCells: 20, heightCells: 12 }, 3)` */
+ *  Example: `sightArea({ x: 10.5, y: 6.5 }, walls, { widthCells: 20, heightCells: 12 }, 3, undefined, statue.walls)` */
 export function sightArea(
   eye: Vector2,
   walls: readonly Wall[],
   scene: SceneSize,
   reach: number,
   field?: ViewField,
+  ignores?: readonly Wall[],
 ): Vector2[] {
   const prepared = preparedWalls(walls);
-  const near = sightBlockersNear(eye, prepared.sight, reach);
+  const skipped = skippedSegments(prepared.sight, walls, ignores);
+  const near = sightBlockersNear(eye, prepared.sight, reach, skipped);
   const border = sceneBorder(scene);
   const extra = field ? fieldOutlineAngles(field, eye) : [];
   const vertices = rayAngles(eye, near, prepared, border, reach, extra).map((angle) => {
     const limit = field ? Math.min(reach, fieldReachAt(field, eye, angle)) : reach;
-    return clampToScene(castRay(eye, angle, prepared.sight, border, limit), scene);
+    return clampToScene(castRay(eye, angle, prepared.sight, border, limit, skipped), scene);
   });
   return field ? withoutRepeats(vertices) : vertices;
 }
@@ -54,26 +63,57 @@ export function insidePolygon(point: Vector2, polygon: readonly Vector2[]): bool
 }
 
 /** Whether nothing that blocks sight lies between two points. An eye standing on a wall line sees
- *  both sides; a target on a wall line is behind it. `except` (one of `walls`) is left out: a door
- *  never hides itself. Only the segments in the buckets the leg crosses are tried.
+ *  both sides; a target on a wall line is behind it. `except` (one of `walls`, or a list of them) is
+ *  left out: a door never hides itself, nor a blocker. Only the segments in the buckets the leg
+ *  crosses are tried.
  *
  *  Example: `lineOfSight({ x: 1, y: 5 }, { x: 4, y: 5 }, [grateAtX2])` → `true` */
 export function lineOfSight(
   from: Vector2,
   to: Vector2,
   walls: readonly Wall[],
-  except?: Wall,
+  except?: WallsLeftOut,
 ): boolean {
   const { sight } = preparedWalls(walls);
   const leg = { from, to };
-  const skipped = except ? walls.indexOf(except) : -1;
   const touches = (i: number): boolean => {
     const segment = sight.segments[i];
-    return (
-      sight.wallIndexes[i] !== skipped && segment !== undefined && legTouchesSegment(leg, segment)
-    );
+    if (segment === undefined || !legTouchesSegment(leg, segment)) return false;
+    return except === undefined || !isLeftOut(except, walls[sight.wallIndexes[i] ?? -1]);
   };
   return !sight.someAlong(from, to, touches);
+}
+
+/** What a line leaves out once a light or an eye adds its own `ignores` to `except`. Nothing to add
+ *  gives `except` back, so the path with no blocker allocates nothing.
+ *
+ *  Example: `leftOutWith(door, eye.ignores)` → `[door, ...eye.ignores]` */
+export function leftOutWith(
+  except: WallsLeftOut | undefined,
+  ignores: readonly Wall[] | undefined,
+): WallsLeftOut | undefined {
+  if (!ignores || ignores.length === 0) return except;
+  if (except === undefined) return ignores;
+  return isWallList(except) ? [...except, ...ignores] : [except, ...ignores];
+}
+
+function isWallList(value: WallsLeftOut): value is readonly Wall[] {
+  return Array.isArray(value);
+}
+
+function isLeftOut(except: WallsLeftOut, owner: Wall | undefined): boolean {
+  if (owner === undefined) return false;
+  return isWallList(except) ? except.includes(owner) : except === owner;
+}
+
+// Which segments the eye leaves out; `null` with no list, the path that allocates nothing more.
+function skippedSegments(
+  sight: SegmentIndex,
+  walls: readonly Wall[],
+  ignores: readonly Wall[] | undefined,
+): readonly boolean[] | null {
+  if (!ignores || ignores.length === 0) return null;
+  return sight.wallIndexes.map((wallIndex) => isLeftOut(ignores, walls[wallIndex]));
 }
 
 function crossesRayRight(point: Vector2, a: Vector2, b: Vector2): boolean {
@@ -85,8 +125,15 @@ function crossesRayRight(point: Vector2, a: Vector2, b: Vector2): boolean {
 /** The sight-blocking segments in the reach box of an eye, in wall order, and which of them. */
 type NearBlockers = Readonly<{ segments: readonly Segment[]; near: readonly boolean[] }>;
 
-function sightBlockersNear(eye: Vector2, sight: SegmentIndex, reach: number): NearBlockers {
-  const near = sight.segments.map((segment) => withinReachBox(eye, segment, reach));
+function sightBlockersNear(
+  eye: Vector2,
+  sight: SegmentIndex,
+  reach: number,
+  skipped: readonly boolean[] | null,
+): NearBlockers {
+  const near = sight.segments.map(
+    (segment, index) => !skipped?.[index] && withinReachBox(eye, segment, reach),
+  );
   return { segments: sight.segments.filter((_, index) => near[index]), near };
 }
 
@@ -169,11 +216,13 @@ function castRay(
   sight: SegmentIndex,
   border: readonly Segment[],
   reach: number,
+  skipped: readonly boolean[] | null,
 ): Vector2 {
   const direction = { x: Math.cos(angle), y: Math.sin(angle) };
   const hitOf = (i: number): number => {
     const segment = sight.segments[i];
-    return segment ? rayHit(eye, direction, segment) : Number.POSITIVE_INFINITY;
+    if (!segment || skipped?.[i]) return Number.POSITIVE_INFINITY;
+    return rayHit(eye, direction, segment);
   };
   let nearest = sight.nearestAlong(eye, direction, reach, hitOf);
   for (const segment of border) nearest = Math.min(nearest, rayHit(eye, direction, segment));
