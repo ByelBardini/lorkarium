@@ -4,6 +4,7 @@ import type {
   TokenDto,
   TokenLayerDto,
   VeiledLightDto,
+  WallDto,
 } from '@lorkarium/contracts';
 import { assetUrlOf } from '@/services/assets-api';
 import {
@@ -17,6 +18,12 @@ import type { DrawingStyle } from '@/lib/drawing-style';
 import { DEFAULT_EFFECT_AREA_STYLE, type EffectAreaStyle } from '@/lib/effect-area-style';
 import { DEFAULT_WALL_STYLE, wallSketchPreviewOf, type WallStyle } from '@/lib/wall-style';
 import type { BoardSight } from '@/lib/board-sight';
+import {
+  NO_SIGHT_OUTLINES,
+  sightGeometryOf,
+  type SightGeometry,
+  type SightOutlines,
+} from '@/lib/sight-geometry';
 import { rulerLabel } from '@/lib/ruler-label';
 import { routePath, type TokenRoute } from '@/lib/token-route';
 import { CELL_WORLD_SIZE, type Point, type Size } from './camera';
@@ -37,6 +44,10 @@ import { shownCellsOf } from '@/lib/shown-cells';
 import { fogViewOf, type FogView } from './fog-view';
 import { lightTintViewOf, type LightTintView } from './light-tint-view';
 import { lightViewsOf, type LightView } from './light-view';
+import {
+  sightBlockerOutlineViewOf,
+  type SightBlockerOutlineView,
+} from './sight-blocker-outline-view';
 import { sightConeViewOf, type SightConeView } from './sight-cone-view';
 import { tokenViewsOf, type TokenView } from './token-view';
 import {
@@ -106,6 +117,8 @@ export type BoardView = Readonly<{
   lightTint: LightTintView | null;
   /** The master's outline of the field of view of the token selected alone (`sightConeViewOf`). */
   sightCone: SightConeView | null;
+  /** The master's dashed line around the blocker selected alone (`sightBlockerOutlineViewOf`). */
+  sightBlockerOutline: SightBlockerOutlineView | null;
   /** The master's map light icons (and, with the lights tool, what they light); none for a player. */
   lights: readonly LightView[];
   /** With the draw tool: how the sketch under the pointer looks; `null` with another tool. */
@@ -160,6 +173,8 @@ export type BoardViewInput = Omit<DrawingViewInput, 'picking' | 'readOnly'> &
     /** The lights of the hidden tokens this viewer does not receive: they light and tint like
      *  the others, with no token to draw (absent: none). */
     veiledLights?: readonly VeiledLightDto[];
+    /** The outlines known of the images of the blockers (absent: none yet, the rectangle). */
+    sightOutlines?: SightOutlines;
     /** The master's map lights picked with the lights tool. */
     selectedLightIds?: readonly string[];
     /** Where this viewer drags lights, until the server answers, by id. */
@@ -199,6 +214,8 @@ export type BoardViewInput = Omit<DrawingViewInput, 'picking' | 'readOnly'> &
 export function buildBoardView(input: BoardViewInput): BoardView {
   const { scene } = input;
   const cells = { widthCells: scene.widthCells, heightCells: scene.heightCells };
+  const landing = landingOf(input);
+  const geometry = sightGeometryOfView(input, landing);
   return {
     sceneSize: {
       width: cells.widthCells * CELL_WORLD_SIZE,
@@ -221,14 +238,15 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       effectAreaPreview: input.effectAreaPreview ?? {},
     }),
     ...wallsOf(input),
-    fog: fogOf(input),
+    fog: fogOf(input, geometry, landing),
     lightTint: lightTintViewOf({
       scene,
       walls: input.walls ?? [],
       lights: aimedLightsOf(input),
       tokens: input.tokens,
       veiledLights: input.veiledLights,
-      landing: landingOf(input),
+      landing,
+      geometry,
     }),
     sightCone: sightConeViewOf({
       viewer: input.viewer,
@@ -236,8 +254,10 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       tokens: input.tokens,
       walls: input.walls ?? [],
       selectedTokenIds: input.selectedTokenIds,
-      landing: landingOf(input),
+      landing,
+      geometry,
     }),
+    sightBlockerOutline: sightBlockerOutlineOf(input, geometry),
     lights: lightViewsOf({
       lights: previewedLightsOf(input),
       walls: input.walls ?? [],
@@ -245,6 +265,7 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       viewer: input.viewer,
       tool: input.tool,
       selectedLightIds: input.selectedLightIds ?? [],
+      geometry,
     }),
     sketch: sketchStyleOf(input),
     sketchStraight: input.tool === 'walls' && !erasingArea(input) && wallPreviewOf(input).straight,
@@ -254,6 +275,22 @@ export function buildBoardView(input: BoardViewInput): BoardView {
     tool: input.tool,
     layerMenu: input.canChooseLayer,
   };
+}
+
+// A constant, because the geometry remembers by the identity of the walls array.
+const NO_WALLS: readonly WallDto[] = [];
+
+function sightGeometryOfView(input: BoardViewInput, landing: TokenLanding): SightGeometry {
+  const { scene, tokens } = input;
+  const board = { scene, tokens, walls: input.walls ?? NO_WALLS };
+  return sightGeometryOf(board, input.sightOutlines ?? NO_SIGHT_OUTLINES, landing);
+}
+
+function sightBlockerOutlineOf(
+  { viewer, selectedTokenIds }: BoardViewInput,
+  { blockers }: SightGeometry,
+): SightBlockerOutlineView | null {
+  return sightBlockerOutlineViewOf({ viewer, blockers, selectedTokenIds });
 }
 
 function pickingDrawings(input: BoardViewInput): boolean {
@@ -277,11 +314,14 @@ function aimedLightsOf(input: BoardViewInput): readonly LightDto[] {
 }
 
 // The fog follows the tokens where they show: their eyes look from there.
-function fogOf(input: BoardViewInput): FogView | null {
+function fogOf(
+  input: BoardViewInput,
+  geometry: SightGeometry,
+  landing: TokenLanding,
+): FogView | null {
   if (!input.sight) return null;
   const { sight, scene, tokens } = input;
   const walls = input.walls ?? [];
-  const landing = landingOf(input);
   const { veiledLights } = input;
   return fogViewOf({
     sight,
@@ -291,6 +331,7 @@ function fogOf(input: BoardViewInput): FogView | null {
     lights: input.lights ?? [],
     veiledLights,
     landing,
+    geometry,
   });
 }
 

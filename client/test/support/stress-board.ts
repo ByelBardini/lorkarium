@@ -1,4 +1,4 @@
-import { AURA_EFFECTS } from '@lorkarium/contracts';
+import { AURA_EFFECTS, TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX } from '@lorkarium/contracts';
 import type {
   BoardStateDto,
   LightColorDto,
@@ -7,6 +7,8 @@ import type {
   TokenLayerDto,
   WallDto,
 } from '@lorkarium/contracts';
+import { SIGHT_OUTLINE_POINTS_MAX, sightOutline } from '@lorkarium/game-core';
+import type { SightOutlines } from '@/lib/sight-geometry';
 import { activeCondition, lyra, VHARN_SCENE, vharnBoard } from './table-session-fixtures';
 
 // The target scale of docs/context/client/performance.md (and of the server's stress seed, which
@@ -215,4 +217,76 @@ function stressLight(index: number): LightDto {
     facing: (index * 45) % 360,
     angle: index % 10 === 5 ? 90 : 360,
   };
+}
+
+// The ceiling of the table: 50 blockers, each one traced with all the vertices an outline may have.
+const BLOCKER_ASSET_ID = stressId(5, 100);
+const BLOCKER_RADIUS = 0.45;
+const OVERLAPPED_SIDE = 4;
+
+function ringPoint(vertex: number): readonly [number, number] {
+  const turn = (vertex / SIGHT_OUTLINE_POINTS_MAX) * 2 * Math.PI;
+  return [0.5 + BLOCKER_RADIUS * Math.cos(turn), 0.5 + BLOCKER_RADIUS * Math.sin(turn)];
+}
+
+/** The contour of every blocker of `stressBlockerBoardOf()`: one asset with 48 vertices.
+ *
+ *  Example: `sightNowOf({ board, dragged: {} }, idle, [], STRESS_BLOCKER_OUTLINES)` */
+export const STRESS_BLOCKER_OUTLINES: SightOutlines = new Map([
+  [
+    BLOCKER_ASSET_ID,
+    sightOutline([Array.from({ length: SIGHT_OUTLINE_POINTS_MAX }, (_, n) => ringPoint(n))]),
+  ],
+]);
+
+// One slot per room (the middle one of the three), never an eye nor a torch, spread over the
+// dungeon: the first is token 1, in the room and in the range of the viewer's first eye.
+function blockerIndexes(): readonly number[] {
+  const tokens = Array.from({ length: ROOMS * TOKENS_PER_ROOM }, (_, index) => index);
+  const free = tokens.filter(
+    (index) => index % TOKENS_PER_ROOM === 1 && index % PLAYER_TOKEN_STEP !== 0 && index % 10 !== 0,
+  );
+  const wanted = TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX;
+  return Array.from(
+    { length: wanted },
+    (_, nth) => free[Math.floor((nth * free.length) / wanted)] ?? 0,
+  );
+}
+
+/** The ids of the 50 blockers of `stressBlockerBoardOf()`; the first stands near the viewer's eye.
+ *
+ *  Example: `viewOf(board, { [stressBlockerIds()[0]]: cell(6, 6) })` */
+export function stressBlockerIds(): readonly string[] {
+  return blockerIndexes().map((index) => stressId(1, index));
+}
+
+/** `stressBoardOf()` with 50 of its tokens turned into blockers with an image on the square frame.
+ *  A variant of its own: the historic numbers of `performance.md` stay on the board without them.
+ *
+ *  Example: `sightGeometryOf(stressBlockerBoardOf(), STRESS_BLOCKER_OUTLINES).blockers` */
+export function stressBlockerBoardOf(): BoardStateDto {
+  const ids = new Set(stressBlockerIds());
+  const board = stressBoardOf();
+  const tokens = board.tokens.map((token) =>
+    ids.has(token.id)
+      ? { ...token, blocksSight: true, imageAssetId: BLOCKER_ASSET_ID, frame: 'square' as const }
+      : token,
+  );
+  return { ...board, tokens };
+}
+
+/** `stressBlockerBoardOf()` with two of the blockers, 4 × 4 cells, one over the other around the
+ *  viewer's first eye, which carries a torch: the eye and the light stand inside both, here and one
+ *  cell to the right.
+ *
+ *  Example: `viewOf(stressOverlappedBlockersBoardOf(), { [eyeId]: cell(3, 2) })` */
+export function stressOverlappedBlockersBoardOf(): BoardStateDto {
+  const overlapped = new Set(stressBlockerIds().slice(0, 2));
+  const board = stressBlockerBoardOf();
+  const tokens = board.tokens.map((token) =>
+    overlapped.has(token.id)
+      ? { ...token, col: 1, row: 0, width: OVERLAPPED_SIDE, height: OVERLAPPED_SIDE }
+      : token,
+  );
+  return { ...board, tokens };
 }

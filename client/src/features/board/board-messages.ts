@@ -1,4 +1,5 @@
 import {
+  TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
   TOKENS_PER_SCENE_MAX,
   type CampaignRoleDto,
   type TokenLayerDto,
@@ -60,6 +61,7 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   scene_not_found: 'Esse grid não está mais aberto pra você.',
   token_not_found: 'Isso não está mais na mesa.',
   token_limit: `A cena já tem o máximo de ${TOKENS_PER_SCENE_MAX} tokens.`,
+  token_blocker_limit: `A cena já tem o máximo de ${TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX} tokens que bloqueiam a visão.`,
   turn_changed: 'A vez já passou.',
   combat_active: 'Já há um combate nesta cena.',
   combat_inactive: 'Não há combate nesta cena.',

@@ -25,7 +25,7 @@ import {
 } from '@/features/tokens/room-token-dialog';
 import { CharacterLinkDialog, type CharacterLinkRequest } from '@/features/tokens/token-link-items';
 import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
-import type { AssetsApi } from '@/services/assets-api';
+import type { AssetsApi, RoomAssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import type { BoardScope, TableBoardCommands } from '@/services/table-board-commands';
 import type { PingCommands } from '@/services/table-pings';
@@ -88,6 +88,7 @@ import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
 import { usePlayerIdsOf } from './table-players';
+import { useRoomSightOutlines } from './table-sight-outlines';
 import { RoomContexts } from './room-contexts';
 import { useRoomTokenKeys } from './table-token-rights';
 import { useViewerRole } from './use-viewer-role';
@@ -112,7 +113,7 @@ export type PlayRoomPageProps = Readonly<{
   pings: PingCommands;
   /** The signed-in account (the color of one's own ping). */
   sessionStore: StoreApi<SessionStore>;
-  assets: AssetsApi;
+  assets: RoomAssetsApi;
   /** The delay before the hovered token's card shows. */
   interactionClock: InteractionClock;
   /** "Dados 3D" on this device: the rolls of the table thrown over the window. */
@@ -172,7 +173,12 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const { dicePreferences, createDiceRenderer, createDiceSound } = props;
   useDiceOverlay({ campaignId: campaign.id, openTables, dicePreferences, createDiceRenderer });
   useDiceSound({ campaignId: campaign.id, openTables, dicePreferences, createDiceSound });
-  useInteractionFollowsTable(table, interaction, role);
+  const sightOutlines = useRoomSightOutlines(
+    props.assets,
+    table?.board ?? null,
+    shown.group?.board ?? null,
+  );
+  useInteractionFollowsTable(table, interaction, role, sightOutlines);
   useViewerRole(table && shown.tabs ? { ...table, tabs: shown.tabs } : null, props.sessionStore);
   const players = usePlayerIdsOf(table?.presence ?? null);
   const commands = props.boardCommands;
@@ -227,7 +233,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
     props.chatWindowHost,
   );
   return (
-    <RoomContexts players={players} tokenKeys={tokenKeys}>
+    <RoomContexts players={players} tokenKeys={tokenKeys} sightOutlines={sightOutlines}>
       {openTable?.imagePresentation && (
         <RoomImagePresentation
           store={openTable.imagePresentation}

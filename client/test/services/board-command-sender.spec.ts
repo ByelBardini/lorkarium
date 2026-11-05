@@ -42,6 +42,7 @@ describe('BoardCommandSender', () => {
 
   it.each([
     ['TOKEN_LIMIT', 'token_limit'],
+    ['TOKEN_BLOCKER_LIMIT', 'token_blocker_limit'],
     ['FORBIDDEN', 'forbidden'],
     ['CAMPAIGN_NOT_FOUND', 'not_found'],
     ['SCENE_NOT_FOUND', 'scene_not_found'],

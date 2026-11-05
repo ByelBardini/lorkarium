@@ -35,7 +35,7 @@ import type { AccountLinksApi } from '@/services/account-links-api';
 import type { AccountSecurityApi } from '@/services/account-security-api';
 import type { UserAdminApi } from '@/services/user-admin-api';
 import type { AuthApi } from '@/services/auth-api';
-import type { AssetsApi } from '@/services/assets-api';
+import type { RoomAssetsApi } from '@/services/assets-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
 import type { LibraryApi } from '@/services/library-api';
 import type { ProfileApi } from '@/services/profile-api';
@@ -100,8 +100,8 @@ export type AppDependencies = Readonly<{
   imagePresentationApi: ImagePresentationApi;
   /** "Levar o grupo pra cá" (`scene:activate`). */
   sceneActivation: SceneActivation;
-  /** Images sent to a table (file or link). */
-  assets: AssetsApi;
+  /** Images sent to a table (file or link) and their silhouettes. */
+  assets: RoomAssetsApi;
   clipboard: Clipboard;
   /** Saves a text as a file on the person's machine (an exported sheet template). */
   fileDownload: FileDownload;

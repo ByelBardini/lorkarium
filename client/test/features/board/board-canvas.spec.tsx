@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import { BoardCanvas } from '@/features/board/board-canvas';
+import { TableSightOutlinesContext } from '@/features/board/table-sight-outlines';
 import type { BoardIntent } from '@/renderer/board-renderer';
 import {
   createBoardInteractionStore,
@@ -102,7 +103,7 @@ describe('BoardCanvas', () => {
     render(canvas());
     await act(() => Promise.resolve());
     const ogreView = () => renderers.latest().lastView?.tokens.find(({ id }) => id === OGRE_ID);
-    expect(ogreView()).toMatchObject({ silhouette: 'square', name: '' });
+    expect(ogreView()).toMatchObject({ silhouette: 'round', name: '' });
 
     act(() =>
       board.getState().apply({
@@ -155,5 +156,30 @@ describe('BoardCanvas', () => {
     });
     expect(renderers.latest().lastView?.tokens[0]).toMatchObject({ id: LYRA_ID, selected: true });
     expect(renderers.latest().lastView?.ghosts).toEqual([]);
+  });
+
+  it('the blocker selected by the master is drawn with the outline known in the room', async () => {
+    const imageAssetId = '11112222-3333-4444-8555-666677778888';
+    const triangle = [
+      [
+        [0.5, 0],
+        [1, 1],
+        [0, 1],
+      ],
+    ] as const;
+    const statue = lyra({ blocksSight: true, imageAssetId });
+    act(() => board.getState().apply({ kind: 'board', state: vharnBoard({ tokens: [statue] }) }));
+    render(
+      <TableSightOutlinesContext value={new Map([[imageAssetId, triangle]])}>
+        {canvas()}
+      </TableSightOutlinesContext>,
+    );
+    await act(() => Promise.resolve());
+
+    act(() => {
+      interaction.getState().select(LYRA_ID);
+    });
+
+    expect(renderers.latest().lastView?.sightBlockerOutline?.polygons[0]).toHaveLength(3);
   });
 });

@@ -3,6 +3,14 @@ import { coneOf, withinField } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import { sightConeViewOf, type SightConeInput } from '@/renderer/sight-cone-view';
+import { sightGeometryOf } from '@/lib/sight-geometry';
+import {
+  RIGHT_STRIP_OUTLINE,
+  STATUE_ID,
+  TRACED_ASSET_ID,
+  statue,
+  tracedOutlines,
+} from '../support/sight-blocker-fixtures';
 import { KAEL_ID, LYRA_ID, VHARN_SCENE, kael, lyra } from '../support/table-session-fixtures';
 import { northWall } from '../support/wall-fixtures';
 
@@ -122,5 +130,55 @@ describe('sightConeViewOf reuses the last view', () => {
     );
     expect(turned).not.toBe(still);
     expect(turned?.key).not.toBe(still?.key);
+  });
+});
+
+describe('sightConeViewOf with a blocker', () => {
+  // The field looks right from (5.5, 5.5); a statue at (8, 3), five cells tall, cuts it.
+  const STATUE = statue({ col: 8, row: 3, height: 5 });
+  const NO_WALL_DTOS: readonly WallDto[] = [];
+
+  function outlineWith(tokens: readonly TokenDto[]) {
+    const scene = { ...VHARN_SCENE, vision: 'dark' as const };
+    const geometry = sightGeometryOf({ scene, tokens, walls: NO_WALL_DTOS }, new Map());
+    return sightConeViewOf(input({ tokens: [...tokens], walls: NO_WALL_DTOS, geometry }));
+  }
+
+  it('the outline stops at the statue', () => {
+    const farthest = Math.max(...cells(outlineWith([NARROW, STATUE])).map(({ x }) => x));
+
+    expect(farthest).toBeLessThan(8.01);
+  });
+
+  it('a token standing inside the statue looks past it', () => {
+    const inside = lyra({ col: 8, row: 5, sightAngle: 90 });
+
+    const farthest = Math.max(...cells(outlineWith([inside, STATUE])).map(({ x }) => x));
+
+    expect(farthest).toBeCloseTo(VHARN_SCENE.widthCells, 6);
+  });
+
+  it('the blocker and a token at its place look differently: the key tells them', () => {
+    const traced = statue({ col: 5, row: 5, sightAngle: 90, imageAssetId: TRACED_ASSET_ID });
+    const twin = lyra({ col: 5, row: 5, sightAngle: 90 });
+    const scene = { ...VHARN_SCENE, vision: 'dark' as const };
+    const tokens = [twin, traced];
+    const outlines = tracedOutlines(RIGHT_STRIP_OUTLINE);
+    const geometry = sightGeometryOf({ scene, tokens, walls: NO_WALL_DTOS }, outlines);
+    const looking = (id: string) =>
+      sightConeViewOf(input({ tokens, walls: NO_WALL_DTOS, selectedTokenIds: [id], geometry }));
+
+    const byTwin = Math.max(...cells(looking(LYRA_ID)).map(({ x }) => x));
+    const byStatue = Math.max(...cells(looking(STATUE_ID)).map(({ x }) => x));
+
+    expect(byTwin).toBeLessThan(7);
+    expect(byStatue).toBeCloseTo(VHARN_SCENE.widthCells, 6);
+  });
+
+  it('a statue moved hands a new outline; the same pose, the very same one', () => {
+    const first = outlineWith([NARROW, STATUE]);
+
+    expect(outlineWith([NARROW, { ...STATUE }])).toBe(first);
+    expect(outlineWith([NARROW, { ...STATUE, col: 10 }])).not.toBe(first);
   });
 });

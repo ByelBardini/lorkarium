@@ -2,6 +2,8 @@ import { seenTokensOf } from '@/lib/board-sight';
 import type { SelectionToDelete } from './delete-selection-dialog';
 import { sightNowOf } from './use-board-sight';
 import { useTablePlayers } from './table-players';
+import { useTableSightOutlines } from './table-sight-outlines';
+import type { SightOutlines } from '@/lib/sight-geometry';
 import { watchesOnly } from '@/lib/table-role';
 import { viewerTokenRightsOf } from '@/lib/token-rights-of-viewer';
 import { useTableTokenKeys } from './table-token-rights';
@@ -51,6 +53,7 @@ const STEP: Readonly<Record<'up' | 'down' | 'left' | 'right', readonly [number, 
 export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.KeyboardEvent) => void {
   const { board, interaction, onOpen, onDeleteSelection } = deps;
   const players = useTablePlayers();
+  const outlines = useTableSightOutlines();
   const tokenKeys = useTableTokenKeys();
   return useCallback(
     (event) => {
@@ -58,14 +61,15 @@ export function useBoardKeyboard(deps: BoardKeyboardDeps): (event: React.Keyboar
       const key = boardKeyOf(event);
       if (!key) return;
       event.preventDefault();
-      runBoardKey(key, { board, interaction, onOpen, onDeleteSelection, players, tokenKeys });
+      const room = { players, outlines, tokenKeys };
+      runBoardKey(key, { board, interaction, onOpen, onDeleteSelection, ...room });
     },
-    [board, interaction, onOpen, onDeleteSelection, players, tokenKeys],
+    [board, interaction, onOpen, onDeleteSelection, players, outlines, tokenKeys],
   );
 }
 
 type KeyRunDeps = BoardKeyboardDeps &
-  Readonly<{ players: readonly string[]; tokenKeys: TableTokenRights }>;
+  Readonly<{ players: readonly string[]; outlines: SightOutlines; tokenKeys: TableTokenRights }>;
 
 // What a spectator's keys may still do: pick a token and open its card.
 const LOOKING_KEYS: readonly BoardKey[] = ['next', 'previous', 'open'];
@@ -78,7 +82,12 @@ function runBoardKey(key: BoardKey, deps: KeyRunDeps): void {
   if (state && watchesOnly(state.viewer.role) && !LOOKING_KEYS.includes(key)) return;
   if (key === 'delete') return deleteSelectedPieces(deps);
   // The keys only reach what this viewer sees whole.
-  const sight = sightNowOf(deps.board.getState(), deps.interaction.getState(), deps.players);
+  const sight = sightNowOf(
+    deps.board.getState(),
+    deps.interaction.getState(),
+    deps.players,
+    deps.outlines,
+  );
   const tokens = state ? seenTokensOf(state, sight) : [];
   const { selectedTokenIds } = deps.interaction.getState();
   const selected = tokens.filter(({ id }) => selectedTokenIds.includes(id));

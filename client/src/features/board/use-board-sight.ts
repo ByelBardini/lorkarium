@@ -9,6 +9,7 @@ import {
 } from '@/lib/board-sight';
 import type { TokenLanding } from '@/lib/light-sources';
 import { shownCellsOf } from '@/lib/shown-cells';
+import { sightGeometryOf, type SightGeometry, type SightOutlines } from '@/lib/sight-geometry';
 import {
   useBoardInteraction,
   type BoardInteractionState,
@@ -16,6 +17,7 @@ import {
 } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore, type BoardStoreState } from '@/stores/board-store';
 import { useTablePlayers } from './table-players';
+import { useTableSightOutlines } from './table-sight-outlines';
 
 const CLEAR_SIGHT: BoardSight = {
   active: false,
@@ -50,13 +52,16 @@ export type SightInteraction = Pick<
 
 /** What this viewer sees of the board right now, for code outside React (the keys). `playerIds`
  *  are the table's players (`playerIdsOf`, `useTablePlayers`): a spectator's eyes are their
- *  tokens; every caller passes them, or a spectator's consumers would disagree and redo the filter.
+ *  tokens; `outlines` are the room's (`useTableSightOutlines`, or the store's `getState().outlines`
+ *  above the room's contexts). Every caller passes both, or the consumers would disagree and redo
+ *  the filter.
  *
- *  Example: `seenTokensOf(board, sightNowOf(board.getState(), interaction.getState(), players))` */
+ *  Example: `seenTokensOf(board, sightNowOf(board.getState(), interaction.getState(), players, outlines))` */
 export function sightNowOf(
   table: SightTable,
   interaction: SightInteraction,
   playerIds: readonly string[],
+  outlines: SightOutlines,
 ): BoardSight {
   if (!table.board) return CLEAR_SIGHT;
   const { drag, preview, facingPreview } = interaction;
@@ -64,7 +69,7 @@ export function sightNowOf(
   const landing = shownCellsOf({ dragged, drag, preview, facingPreview, tokens: board.tokens });
   return rememberedSightOf(
     table.board,
-    { previewEyeIds: previewEyeIdsOf(interaction), playerIds },
+    { previewEyeIds: previewEyeIdsOf(interaction), playerIds, outlines },
     landing,
   );
 }
@@ -78,13 +83,19 @@ type SightParts = Readonly<{
   walls: BoardStateDto['walls'];
   lights: BoardStateDto['lights'];
   veiledLights: BoardStateDto['veiledLights'];
+  /** The sight walls and the blockers: a blocker that moves or an outline that arrives redo it. */
+  geometry: SightGeometry;
   previewKey: string;
   /** The players by their ids, only for a spectator (nobody else looks through them). */
   playersKey: string;
 }>;
 
-/** Who looks: the master's preview and the table's players. */
-type Watchers = Readonly<{ previewEyeIds: readonly string[] | null; playerIds: readonly string[] }>;
+/** Who looks, and the outlines the blockers among what they look at are cut by. */
+type Watchers = Readonly<{
+  previewEyeIds: readonly string[] | null;
+  playerIds: readonly string[];
+  outlines: SightOutlines;
+}>;
 
 type RememberedSight = Readonly<{
   parts: SightParts;
@@ -104,8 +115,8 @@ function rememberedSightOf(
   watchers: Watchers,
   landing: TokenLanding,
 ): BoardSight {
-  const { previewEyeIds, playerIds } = watchers;
-  const parts = partsOf(board, watchers);
+  const { previewEyeIds, playerIds, outlines } = watchers;
+  const parts = partsOf(board, watchers, sightGeometryOf(board, outlines, landing));
   const shapingKey = poseKeyOf(landing, poseShapingIdsOf(board, previewEyeIds, playerIds));
   const last = lastSight;
   if (last && sameParts(last.parts, parts) && last.shapingKey === shapingKey) {
@@ -122,7 +133,11 @@ function rememberedSightOf(
 
 // The roster hands a new array of players at every absence: the key is their ids, and only a
 // spectator's (a player's or the master's filter never reads them).
-function partsOf(board: BoardStateDto, { previewEyeIds, playerIds }: Watchers): SightParts {
+function partsOf(
+  board: BoardStateDto,
+  { previewEyeIds, playerIds }: Watchers,
+  geometry: SightGeometry,
+): SightParts {
   const { scene, viewer, tokens, walls, lights, veiledLights } = board;
   const spectator = viewer.role === 'spectator';
   return {
@@ -132,6 +147,7 @@ function partsOf(board: BoardStateDto, { previewEyeIds, playerIds }: Watchers): 
     walls,
     lights,
     veiledLights,
+    geometry,
     previewKey: JSON.stringify(previewEyeIds),
     playersKey: spectator ? [...playerIds].sort().join(',') : '',
   };
@@ -145,6 +161,7 @@ function sameParts(a: SightParts, b: SightParts): boolean {
     a.walls === b.walls &&
     a.lights === b.lights &&
     a.veiledLights === b.veiledLights &&
+    a.geometry === b.geometry &&
     a.previewKey === b.previewKey &&
     a.playersKey === b.playersKey
   );
@@ -182,13 +199,25 @@ export function useBoardSight(
   const preview = useBoardInteraction(interaction, (current) => current.preview);
   const facingPreview = useBoardInteraction(interaction, (current) => current.facingPreview);
   const players = useTablePlayers();
+  const outlines = useTableSightOutlines();
   return useMemo(
     () =>
       sightNowOf(
         { board: state, dragged },
         { sightPreview, selectedTokenIds, drag, preview, facingPreview },
         players,
+        outlines,
       ),
-    [state, dragged, sightPreview, selectedTokenIds, drag, preview, facingPreview, players],
+    [
+      state,
+      dragged,
+      sightPreview,
+      selectedTokenIds,
+      drag,
+      preview,
+      facingPreview,
+      players,
+      outlines,
+    ],
   );
 }

@@ -1,5 +1,6 @@
 import type { AssetDto, AssetPurposeDto } from '@lorkarium/contracts';
-import type { AssetsApi, AssetsResult } from '@/services/assets-api';
+import type { AssetOutlineResult, AssetsResult, RoomAssetsApi } from '@/services/assets-api';
+import { AssetOutlineApiFake } from './asset-outline-api-fake';
 
 export const LYRA_PORTRAIT: AssetDto = {
   id: '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d',
@@ -21,11 +22,12 @@ export type SentAsset =
 
 /** The assets API as the test plays the server: `sent` keeps every upload and link, `answerWith`
  *  sets the next answer (Lyra's portrait by default) and `hold()` keeps the next one pending
- *  until `release()`.
+ *  until `release()`; `outlines` plays the silhouettes of the images.
  *
  *  Example: `deps.assets.answerWith({ ok: false, failure: { kind: 'link_blocked' } })` */
-export class AssetsApiFake implements AssetsApi {
+export class AssetsApiFake implements RoomAssetsApi {
   readonly sent: SentAsset[] = [];
+  readonly outlines = new AssetOutlineApiFake();
   private answer: AssetsResult = { ok: true, asset: LYRA_PORTRAIT };
   private held: (() => void) | null = null;
   private holdNext = false;
@@ -49,6 +51,10 @@ export class AssetsApiFake implements AssetsApi {
 
   importLink(campaignId: string, url: string, purpose: AssetPurposeDto): Promise<AssetsResult> {
     return this.record({ kind: 'link', campaignId, url, purpose });
+  }
+
+  outlineOf(assetId: string): Promise<AssetOutlineResult> {
+    return this.outlines.outlineOf(assetId);
   }
 
   private record(sent: SentAsset): Promise<AssetsResult> {
