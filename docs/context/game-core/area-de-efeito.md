@@ -1,0 +1,24 @@
+# Game-core — área de efeito
+
+Índice: [`game-core.md`](../game-core.md).
+
+O gabarito visual de uma magia (sem automação, §12). Origem e tamanhos em casas fracionárias; a cor é uma `string` (a paleta é do DTO, o game-core não importa o contracts).
+
+| Forma (`kind`)                        | Origem `(x, y)`                                                                            | Tamanho                               | Direção (`facing`) |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------- | ------------------ |
+| `square`                              | canto de cima à esquerda, num cruzamento (inteiros)                                        | `width`, `height` inteiros de 1 a 100 | —                  |
+| `circle`                              | centro, num cruzamento                                                                     | `reach` inteiro de 1 a 100            | —                  |
+| `semicircle`                          | cruzamento                                                                                 | `reach`                               | 0, 90, 180, 270    |
+| `orthogonal_cone` (Cone horizontal)   | meio do lado da casa de onde sai (0/180: x inteiro e y em ,5; 90/270: x em ,5 e y inteiro) | `reach`                               | 0, 90, 180, 270    |
+| `diagonal_cone`                       | canto da casa de onde sai (cruzamento)                                                     | `reach`                               | 45, 135, 225, 315  |
+| `line`                                | centro da casa de onde sai (x e y em ,5)                                                   | `reach`                               | 0 a 359            |
+| `emanation`                           | a pegada do token: `x, y, width, height` em meias casas, lados 0,5–10                      | `reach`                               | —                  |
+| `smooth_circle` / `smooth_semicircle` | livre, ao centésimo                                                                        | `reach` de 0,5 a 100, ao centésimo    | — / 0 a 359        |
+
+- `effectArea(forma)` confere pela forma (direção antes da origem, depois raio e lados) e devolve congelado; erro é `RangeError` citando a forma, o valor e o esperado ("circle origin (2.5, 3) … grid intersection", "diagonal_cone facing 90 … 45, 135, 225 or 315", "reach 0 … whole cells from 1 to 100", "smooth_circle reach 0.3 … 0.5 to 100"). `EFFECT_AREA_REACH_MAX` = 100 (o `SCENE_CELLS_MAX`), `SMOOTH_REACH_MIN` = 0,5, `isSmoothArea`. Tipos: `SquareArea`, `RoundArea`, `AimedArea` (`AimedAreaKind`), `EmanationArea`.
+- `effectAreaOriginFits(cena, área)`: só a **origem** precisa estar em `[0, largura] × [0, altura]` (a borda conta, em centésimos); o resto é cortado, então uma emanação de token encostado na borda vale.
+- `effectAreaCells(cena, área)` — **regra do centro**: pinta a casa cujo centro cai dentro da forma, com `≤` e folga de 1e-9 (**a borda conta**: a emanação de um token em meia casa empata e a casa entra). Percorre só a caixa da forma cortada pela cena, em **ordem de leitura** (linha, depois coluna). Cone = raio + até 45° da direção (90° de abertura); semicírculo = raio + do lado da direção; linha = até 0,5 do eixo e avanço em (0, `reach`] (a casa de onde sai fica de fora); quadrado = centro dentro da caixa; emanação = distância até a pegada ≤ `reach` (a pegada inclusa). Forma perfeita → `[]`.
+- `effectAreaContains(área, ponto)` (o mesmo teste, serve ao hit-test do perfeito), `effectAreaBounds(área)` (a **menor** caixa da forma antes do corte, onde a seleção e as alças são desenhadas: nas formas de casa, a caixa das casas pintadas — o cone é só a cunha, não o círculo do raio; no círculo perfeito, o círculo; no semicírculo perfeito, só a metade; quadrado e emanação, a própria caixa / a pegada crescida do raio). Para percorrer casas, o `effectAreaCells` usa a caixa do raio inteiro (`reachBoxOf`, interna) e `distanceFromAreaOrigin(área, ponto)` (da origem, ou da borda da pegada na emanação, pelo `distanceToBox` do `view-field.ts`, a mesma régua do anel da visão).
+- `reachToward(área, ponto, passo)` — o raio que leva a borda ao ponteiro: forma de casa sempre em casas inteiras (mínimo 1), perfeita ao centésimo (`passo` 0) ou ao passo (0,5 com Shift, mínimo 0,5); teto 100.
+- `turnEffectArea(área, graus)` — cone horizontal e semicírculo de casa encaixam em 90°, o diagonal em 45 + 90k; os **cones giram em torno do centro da casa de onde saem** (o cone (5; 5,5) → 90 vira (4,5; 6)); semicírculo de casa mantém a origem; linha e semicírculo perfeito giram livres; sem direção, a mesma área.
+- `shiftEffectArea(área, dx, dy)` — forma de casa anda casas inteiras (a origem continua onde a forma nasce), a perfeita anda o delta ao centésimo; sair antes de (0, 0) lança o `RangeError` do `effectArea`.
