@@ -1,6 +1,6 @@
 # Client · shell, home e mesa
 
-A tela que a pessoa vê ao logar e a moldura que as telas logadas herdam. Plano de origem: `docs/plans/2026-10-14-tela-home.md`; mockup: `docs/pages/home/Home.dc.html` (base, não lei). Server e contrato em [`../campaigns.md`](../campaigns.md).
+A tela que a pessoa vê ao logar e a moldura que as telas logadas herdam. Mockup: `docs/pages/home/Home.dc.html` (base, não lei). Server e contrato em [`../campaigns.md`](../campaigns.md).
 
 ## Shell (`src/app/shell/`)
 
@@ -23,7 +23,7 @@ A tela que a pessoa vê ao logar e a moldura que as telas logadas herdam. Plano 
 - `home-error-screen.tsx` — offline: "Sem conexão" + mensagem; resto: "Não deu para carregar suas mesas."; "Tentar de novo" chama `useRevalidator().revalidate()`. O shell continua em volta.
 - `home-action.ts` — `homeAction(deps)`: corpo JSON `{ intent: 'create' | 'join', input }` revalidado pelo DTO; devolve `{ created }`, `{ joined }` ou `{ failure }`; `unauthenticated` vai ao login.
 - `home-dialogs.tsx` — monta só o diálogo aberto (cada abertura começa limpa). Entrar por código fecha o diálogo e navega para `/campaigns/:id`. Entrar pelo código é **assistir**: quem chega é espectador (o detalhe diz "Você assiste") até o mestre promover na aba "Na mesa" da sala (ver [`table-people.md`](table-people.md)); quem já é membro entra de novo com o mesmo papel.
-- "Nova mesa" (plano `2026-10-24-tela-detalhes-configuracoes-e-nova-mesa.md`; mockup `docs/pages/home/modal-nova-mesa/`):
+- "Nova mesa" (mockup `docs/pages/home/modal-nova-mesa/`):
   - `create-campaign-dialog.tsx` — `CreateCampaignDialog` (`md:max-w-4xl`): cada "rodada" tem um `useFetcher` com chave própria (`create-campaign-<n>`) e remonta por `key`; "Criar outra" abre a próxima rodada (form limpo, sem o resultado anterior). Guarda a senha digitada para mostrá-la uma vez no "Mesa criada" (o server não a devolve). O X "Fechar" e o Esc fecham nas duas etapas.
   - `create-campaign-form.tsx` — o `form` "Nova mesa" em grid: a partir de `md`, à esquerda a prévia (`CampaignPreviewCard`, avisos e tags vazios) e a "Capa" (`CoverPicker` sem imagem, dica "Dá para enviar uma imagem depois, nas configurações da mesa."), à direita os campos "Cancelar", "Criar mesa"/"Criando…" + `aria-busy`). Abaixo de `md`, uma coluna: campos, capa, prévia e os botões (a ordem do DOM é essa; no `md` a prévia sobe por `order`). Recusa em `Alert`.
   - `create-campaign-fields.tsx` — "Nome da mesa"; "Sistema (opcional)" com o grupo "Sugestões de sistema" (`SYSTEM_SUGGESTIONS`: botões `aria-pressed`, clicar no escolhido limpa; `rounded-md`, não pílula); "Status" (`SegmentField` com os 4 do contrato, ponto na cor do status, dica do `CAMPAIGN_STATUS_HINT`; padrão "Em construção"); "Sobre a mesa (opcional)" com o contador `n/500`; a caixa do switch "Pedir senha para entrar" — ligado, aparece "Senha da mesa" já focada; desligar apaga a senha digitada.

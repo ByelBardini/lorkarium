@@ -75,7 +75,7 @@ Só o mestre: `sheet-template:<id>`, filtro "Modelos de ficha", editor CodeMirro
 
 ## Fichas
 
-Plano [`fichas-na-biblioteca`](../../plans/2026-10-31-fichas-na-biblioteca.md); a ficha em si (aba, janela, ponte) em [`sheets.md`](sheets.md).
+A ficha em si (aba, janela, ponte) em [`sheets.md`](sheets.md).
 
 - **Itens:** `campaignLibraryDto.sheets` (o mestre recebe todas; o jogador as que lê) viram `SheetEntry` (`kind: 'sheet'`, `sheetKey(id)` = `sheet:<id>`, `sheetIdOf` volta; `src/lib/library-entries.ts`). Para o filtro de visibilidade, só a ficha com dono e `table` é pública. Ícone `ScrollTextIcon` (o do modelo é `FileCode2Icon`), sem cadeado; a descrição diz o dono por `sheetHolderLabel` (`sheet-messages.ts`): "Ficha · de Bia (Lyra)" (o apelido do membro da mesa + o nome do personagem, da `characters-store`), "Ficha · sem dono, só mestres", "Ficha · token Goblin" (o nome vem do elenco ou do grid do grupo; senão "Ficha · num token"). Os nomes vêm de `useSheetHolderNames(campaign.members, table)` (`use-sheet-holder-names.ts`), que também dá os `players` ("Bia (Lyra)") do "Dar a ▸" e do diálogo. O `libraryEntries(library, tipo, rótulo)` recebe a função da linha do dono.
 - **Filtro** "Fichas" (`sheet`) no "Tipo de item", para mestre e jogador.

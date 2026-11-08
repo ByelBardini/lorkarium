@@ -1,6 +1,6 @@
 # Client · tokens que bloqueiam a visão
 
-O lado do client do token com `blocksSight`: os contornos carregados por asset e a lista única de paredes de visão. A regra (forma por caso, pose, `ignores`, `blockersIgnoredAt`) mora no game-core ([`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md), Bloqueador); o traçado e a rota, em [`../assets/contorno.md`](../assets/contorno.md); o campo e o teto, em [`../tokens/bloqueio-de-visao.md`](../tokens/bloqueio-de-visao.md). Plano de origem: [`2026-11-04-tokens-bloqueiam-visao.md`](../../plans/2026-11-04-tokens-bloqueiam-visao.md).
+O lado do client do token com `blocksSight`: os contornos carregados por asset e a lista única de paredes de visão. A regra (forma por caso, pose, `ignores`, `blockersIgnoredAt`) mora no game-core ([`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md), Bloqueador); o traçado e a rota, em [`../assets/contorno.md`](../assets/contorno.md); o campo e o teto, em [`../tokens/bloqueio-de-visao.md`](../tokens/bloqueio-de-visao.md).
 
 O mestre sem prévia não é filtrado, mas o tingimento, as áreas da ferramenta Luzes e o contorno do cone são cortados para ele também: a geometria é uma só, de quem olhar.
 

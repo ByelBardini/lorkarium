@@ -1,6 +1,6 @@
 # Client · personagem da mesa (store, token ligado, card, dock, ligar)
 
-O personagem (`characterDto`, contrato em `packages/contracts/src/board/character.dto.ts`) é a fonte única de identidade, barras, condições e controle de todo token ligado a ele, em todo grid. Plano de origem: `docs/plans/2026-10-31-personagem.md` (Fases 10–13). No client não há mais elenco, âncora, Ficha da mesa nem token principal (Fase 13): o personagem e a lista de condições formam o **fluxo da mesa**, com uma versão só. Abas de grid em [`grid-tabs.md`](grid-tabs.md). Hub: [`../client.md`](../client.md).
+O personagem (`characterDto`, contrato em `packages/contracts/src/board/character.dto.ts`) é a fonte única de identidade, barras, condições e controle de todo token ligado a ele, em todo grid. No client não há mais elenco, âncora, Ficha da mesa nem token principal (Fase 13): o personagem e a lista de condições formam o **fluxo da mesa**, com uma versão só. Abas de grid em [`grid-tabs.md`](grid-tabs.md). Hub: [`../client.md`](../client.md).
 
 ## Rede (`src/services/character-follow.ts`)
 

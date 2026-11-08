@@ -10,7 +10,6 @@ Documentos livres de texto da biblioteca, independentes de sistema de RPG. O det
 - [Imagens](documents/imagens.md): preparação, referência confirmada e autorização dos bytes.
 - [Testes](documents/testes.md): provas e execução isolada.
 - [Cliente](client/documents.md): editor, rascunho e biblioteca.
-- Plano aprovado: [documentos na biblioteca](../plans/2026-10-29-documentos-na-biblioteca.md).
 
 ## Acesso
 

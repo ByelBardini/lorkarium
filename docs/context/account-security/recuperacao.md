@@ -1,6 +1,6 @@
 # Account security · recuperação por link ("Não fui eu")
 
-Detalhe do hub [`account-security.md`](../account-security.md). Os avisos de troca de senha, pedido de troca de e-mail e e-mail trocado levam um botão "Não fui eu" com um link de 7 dias para `/account/recover#token=…`. Quem usa o link desfaz o que houve, escolhe uma senha nova no mesmo passo e todos os aparelhos saem da conta. Plano de origem: `docs/plans/2026-10-24-emails-do-sistema.md` (fases 6–9).
+Detalhe do hub [`account-security.md`](../account-security.md). Os avisos de troca de senha, pedido de troca de e-mail e e-mail trocado levam um botão "Não fui eu" com um link de 7 dias para `/account/recover#token=…`. Quem usa o link desfaz o que houve, escolhe uma senha nova no mesmo passo e todos os aparelhos saem da conta.
 
 ## Tabela (`0044_account_recovery_tokens`)
 

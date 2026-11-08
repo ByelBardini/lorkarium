@@ -1,6 +1,6 @@
 # Client · sala de jogo e tabuleiro
 
-A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o resto flutua por cima. Plano de origem: `docs/plans/2026-10-15-tela-sala-de-jogo.md`; mockup: `docs/pages/mesa/Mesa.dc.html` (base, não lei). Server e contrato em [`../board.md`](../board.md).
+A tela de `/campaigns/:campaignId/table`: o tabuleiro ocupa a tela inteira e o resto flutua por cima. Mockup: `docs/pages/mesa/Mesa.dc.html` (base, não lei). Server e contrato em [`../board.md`](../board.md).
 
 ## Sala (`src/features/board/`)
 

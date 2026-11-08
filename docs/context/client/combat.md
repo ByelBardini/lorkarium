@@ -1,6 +1,6 @@
 # Client · combate e condições
 
-O tracker na aba "Combate" do painel da sala, as condições no detalhe do token e a vez no tabuleiro. Server e contrato em [`../combat.md`](../combat.md); a sala em [`board.md`](board.md); a lista "Na cena", a linha do token e o detalhe no rodapé em [`tokens.md`](tokens.md). Plano de origem: `docs/plans/2026-10-21-tela-tracker-de-combate.md`; mockup: `docs/pages/mesa/tracker/Tracker.dc.html` (base, não lei).
+O tracker na aba "Combate" do painel da sala, as condições no detalhe do token e a vez no tabuleiro. Server e contrato em [`../combat.md`](../combat.md); a sala em [`board.md`](board.md); a lista "Na cena", a linha do token e o detalhe no rodapé em [`tokens.md`](tokens.md). Mockup: `docs/pages/mesa/tracker/Tracker.dc.html` (base, não lei).
 
 ## Estado e comandos
 

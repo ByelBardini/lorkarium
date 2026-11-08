@@ -1,6 +1,6 @@
 # Client · diálogo do token ("Novo token" / "Editar token")
 
-O diálogo em que se cria e ajusta um token: a prévia ao lado (que é também o lugar da imagem), as abas "Básico", "Barras", "Formas" (só no Editar), "Visão e luz" e "Aura", e o rodapé. Abre o mestre e, pelas chaves da mesa, o jogador (modo jogador, abaixo; quem vê os botões em [`token-rights.md`](token-rights.md)); abre pelo "+" da barra de ferramentas (Novo) e pelo "Editar token" do detalhe do token no painel (Editar). O resto dos tokens na sala está em [`tokens.md`](tokens.md). Plano de origem: [`2026-10-19-tela-novo-token.md`](../../plans/2026-10-19-tela-novo-token.md); exemplo de base em `docs/pages/mesa/novo-token/`.
+O diálogo em que se cria e ajusta um token: a prévia ao lado (que é também o lugar da imagem), as abas "Básico", "Barras", "Formas" (só no Editar), "Visão e luz" e "Aura", e o rodapé. Abre o mestre e, pelas chaves da mesa, o jogador (modo jogador, abaixo; quem vê os botões em [`token-rights.md`](token-rights.md)); abre pelo "+" da barra de ferramentas (Novo) e pelo "Editar token" do detalhe do token no painel (Editar). O resto dos tokens na sala está em [`tokens.md`](tokens.md). Exemplo de base em `docs/pages/mesa/novo-token/`.
 
 ## A casca (`features/tokens/token-dialog.tsx`)
 

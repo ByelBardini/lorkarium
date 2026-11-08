@@ -1,6 +1,6 @@
 # Client · barra de título do app desktop
 
-Hub: [`../client.md`](../client.md). A casca (janela sem moldura, capability remota, marca no UA, splash): [`../desktop.md`](../desktop.md). Plano de origem: `docs/plans/2026-10-26-tela-barra-de-titulo.md`; mockup: `docs/pages/barra-de-titulo/TitleBar.dc.html` (base, não lei).
+Hub: [`../client.md`](../client.md). A casca (janela sem moldura, capability remota, marca no UA, splash): [`../desktop.md`](../desktop.md). Mockup: `docs/pages/barra-de-titulo/TitleBar.dc.html` (base, não lei).
 
 Na casca nova a janela não tem moldura e o client desenha a barra do topo. No navegador, e numa casca antiga (sem a marca ` LorkariumTitleBar/1` no UA), nada muda: `desktopWindow` é `null` e nenhuma barra nem IPC existe.
 

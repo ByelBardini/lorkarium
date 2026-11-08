@@ -1,6 +1,6 @@
 # Lights
 
-Luzes do mapa (a "Iluminação dinâmica" do §12): a tocha na parede, a fogueira, o braseiro. Só o mestre cria, move, ajusta, acende, apaga e exclui; o jogador nunca vê o ícone, só a área iluminada. Server em `server/src/modules/lights/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts/tabuleiro.md`](contracts/tabuleiro.md) (`light.dto.ts`); o alcance, o ponto e o nível de luz em [`game-core/visao-e-luz.md`](game-core/visao-e-luz.md). A luz **do token** (`light`, `lightLit`) mora em [`tokens.md`](tokens.md). Plano de origem: [`2026-10-18-iluminacao.md`](../plans/2026-10-18-iluminacao.md).
+Luzes do mapa (a "Iluminação dinâmica" do §12): a tocha na parede, a fogueira, o braseiro. Só o mestre cria, move, ajusta, acende, apaga e exclui; o jogador nunca vê o ícone, só a área iluminada. Server em `server/src/modules/lights/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts/tabuleiro.md`](contracts/tabuleiro.md) (`light.dto.ts`); o alcance, o ponto e o nível de luz em [`game-core/visao-e-luz.md`](game-core/visao-e-luz.md). A luz **do token** (`light`, `lightLit`) mora em [`tokens.md`](tokens.md).
 
 ## Tabela (`lights.po.ts`, migrações `0024_lights`, `0025_light_color` e `0028_light_cone`)
 

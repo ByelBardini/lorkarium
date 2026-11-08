@@ -1,6 +1,6 @@
 # Client · áreas de efeito
 
-As áreas de efeito (gabaritos de magia) na sala: estado confirmado, comandos, o desenho no tabuleiro, a ferramenta "Área de efeito" (M), a seleção, as alças e copiar/colar. Server e contrato em [`../effect-areas.md`](../effect-areas.md); a forma e as casas pintadas em [`../game-core.md`](../game-core.md) (Área de efeito); a sala e o renderer em [`board.md`](board.md). Plano de origem: `docs/plans/2026-10-18-areas-de-efeito.md`.
+As áreas de efeito (gabaritos de magia) na sala: estado confirmado, comandos, o desenho no tabuleiro, a ferramenta "Área de efeito" (M), a seleção, as alças e copiar/colar. Server e contrato em [`../effect-areas.md`](../effect-areas.md); a forma e as casas pintadas em [`../game-core.md`](../game-core.md) (Área de efeito); a sala e o renderer em [`board.md`](board.md).
 
 ## Estado e serviços
 

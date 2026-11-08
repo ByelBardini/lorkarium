@@ -1,6 +1,6 @@
 # Contorno da imagem (`assets.sight_outline`)
 
-A silhueta recortada de uma imagem de token, usada para o token bloquear a visão pela forma (plano `docs/plans/2026-11-04-tokens-bloqueiam-visao.md`). Só o traçado, o registro e a leitura moram aqui; a forma por caso, a pose e as paredes são do game-core (`sight-outline.vo.ts`, `sight-blocker.ts`, ver [`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md)).
+A silhueta recortada de uma imagem de token, usada para o token bloquear a visão pela forma. Só o traçado, o registro e a leitura moram aqui; a forma por caso, a pose e as paredes são do game-core (`sight-outline.vo.ts`, `sight-blocker.ts`, ver [`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md)).
 
 ## Formato
 

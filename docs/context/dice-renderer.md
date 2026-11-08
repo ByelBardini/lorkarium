@@ -11,7 +11,7 @@ O desenho 3D dos dados sobre a janela, em three.js. Vive em `packages/dice-rende
 
 ## Ponto de entrada (`src/index.ts`)
 
-- Valores: `ThreeDiceRenderer` (a classe), `createThreeDiceRenderer(options)` (faz o `import('three')` e devolve a classe pronta) e `playDiceThrow` (decodifica um arremesso e o prende no relógio local; serve para saber o `settleMs` sem desenhar). O plano chamava este último de `dicePlaybackOf`; o nome real é `playDiceThrow`.
+- Valores: `ThreeDiceRenderer` (a classe), `createThreeDiceRenderer(options)` (faz o `import('three')` e devolve a classe pronta) e `playDiceThrow` (decodifica um arremesso e o prende no relógio local; serve para saber o `settleMs` sem desenhar).
 - Tipos: `DiceRenderer`, `DiceRendererRoll`, `DiceRendererFactory`, `PlayingDiceThrow`, `DiceLook`, `ThreeDiceRendererOptions`, `DiceOverlayHost`, `DiceGl`, `DiceGlFactory`.
 - Nenhum arquivo importa `three` como valor fora do `import('three')` do `createThreeDiceRenderer`: os outros só têm `import type`. Importar o pacote não puxa o three; quem quer o three fora do bundle inicial importa o **pacote** por `import()` (o client faz isso por um módulo próprio, `app-dice-renderer.ts`, e o Vite gera `app-dice-renderer-*.js` + `three.module-*.js`).
 

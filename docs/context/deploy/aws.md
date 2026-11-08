@@ -41,7 +41,7 @@ IAM → _Users_ → `lorkarium-app`, sem acesso ao console. _Add permissions_ �
 
 Recomendado: um **segundo bucket** (`lorkarium-backups-<sufixo>`, mesma região, mesmo _Block Public Access_) com um usuário IAM próprio (`lorkarium-backup`, mesma política com o outro ARN). Assim a chave do app, que mora no container, não apaga backup.
 
-- Alternativa aceita pelo plano: o mesmo bucket com outro prefixo (`backups/`). Aí o usuário do app consegue apagar os dumps; restrinja o `Resource` do app a `…/assets/*` e `…/avatars/*` se for por esse caminho.
+- Alternativa aceita: o mesmo bucket com outro prefixo (`backups/`). Aí o usuário do app consegue apagar os dumps; restrinja o `Resource` do app a `…/assets/*` e `…/avatars/*` se for por esse caminho.
 - _Lifecycle rule_ no bucket de backups: expirar objetos depois de N dias (30, por exemplo), senão o custo só cresce.
 - A chave vai no Coolify (_S3 Storages_), não nas envs do app.
 

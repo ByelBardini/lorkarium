@@ -1,6 +1,6 @@
 # Client · luzes
 
-A iluminação na sala: as luzes do mapa no estado confirmado, os comandos, a luz do token (formulário e menu), a ferramenta "Luzes" (L, só o mestre), os ícones do mestre no tabuleiro, editar com desfazer e acender/apagar. Server e contrato em [`../lights.md`](../lights.md) e [`../contracts/tabuleiro.md`](../contracts/tabuleiro.md); a regra da luz no ponto e a visão com luz em [`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md); o filtro e a névoa em [`vision.md`](vision.md); a lanterna, o holofote, a abertura e a alça de mirar em [`cones.md`](cones.md). Plano de origem: [`2026-10-18-iluminacao.md`](../../plans/2026-10-18-iluminacao.md).
+A iluminação na sala: as luzes do mapa no estado confirmado, os comandos, a luz do token (formulário e menu), a ferramenta "Luzes" (L, só o mestre), os ícones do mestre no tabuleiro, editar com desfazer e acender/apagar. Server e contrato em [`../lights.md`](../lights.md) e [`../contracts/tabuleiro.md`](../contracts/tabuleiro.md); a regra da luz no ponto e a visão com luz em [`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md); o filtro e a névoa em [`vision.md`](vision.md); a lanterna, o holofote, a abertura e a alça de mirar em [`cones.md`](cones.md).
 
 ## Estado, eventos e comandos
 

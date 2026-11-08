@@ -1,6 +1,6 @@
 # Combat: a lista de condições no fluxo da mesa
 
-Detalhe do hub [`combat.md`](../combat.md) (Condições). Desde a limpeza do plano do personagem (`docs/plans/2026-10-31-personagem.md`, Fase 13) a lista de condições da mesa saiu do elenco e anda no **fluxo da mesa**: a mesma versão dos personagens (`campaigns.characters_version`, ver [`../characters.md`](../characters.md)).
+Detalhe do hub [`combat.md`](../combat.md) (Condições). A lista de condições da mesa fica fora do elenco e anda no **fluxo da mesa**: a mesma versão dos personagens (`campaigns.characters_version`, ver [`../characters.md`](../characters.md)).
 
 ## Escrita
 

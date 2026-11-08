@@ -1,6 +1,6 @@
 # Client · Links de conta (convite e nova senha)
 
-Hub: [`../client.md`](../client.md). As páginas públicas de quem recebeu um link do backoffice. Plano de origem: `docs/plans/2026-10-24-tela-backoffice-usuarios.md` (fases 12–13). Server: [`../account-links.md`](../account-links.md).
+Hub: [`../client.md`](../client.md). As páginas públicas de quem recebeu um link do backoffice. Server: [`../account-links.md`](../account-links.md).
 
 ## Rotas (`src/features/account-links/account-link-routes.tsx`)
 

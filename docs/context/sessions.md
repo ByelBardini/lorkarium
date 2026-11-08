@@ -1,6 +1,6 @@
 # Sessions
 
-Sessão ao vivo da mesa: a **própria mesa é a sessão** (não há tabela `sessions`). Quem é membro e abre a tela da mesa entra na sala Socket.IO dela e todos os presentes veem, ao vivo, quem está online. É a base por onde passam depois `token:*` e `combat:*`. Vive em `server/src/modules/sessions/`. Spec: §3.8, §5.2, §5.5, §5.6, §7.2, §7.3. Plano de origem: `docs/plans/2026-10-15-sessao-ao-vivo-presenca.md`.
+Sessão ao vivo da mesa: a **própria mesa é a sessão** (não há tabela `sessions`). Quem é membro e abre a tela da mesa entra na sala Socket.IO dela e todos os presentes veem, ao vivo, quem está online. É a base por onde passam depois `token:*` e `combat:*`. Vive em `server/src/modules/sessions/`. Spec: §3.8, §5.2, §5.5, §5.6, §7.2, §7.3.
 
 | Detalhe                                    | O que cobre                                            |
 | ------------------------------------------ | ------------------------------------------------------ |

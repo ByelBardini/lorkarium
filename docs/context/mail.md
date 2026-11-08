@@ -1,6 +1,6 @@
 # Mail
 
-Os e-mails que o Lorkarium manda às pessoas: um molde único (o de `docs/pages/mails/Emails.dc.html`), o catálogo de templates e a prévia no Mailpit. Plano de origem: `docs/plans/2026-10-24-emails-do-sistema.md`. Como o e-mail sai em cada ambiente (`MailerPort`, `SmtpMailer`/`LogMailer`, `SMTP_URL`, `APP_PUBLIC_URL`): [`server/mail.md`](server/mail.md). Quem dispara os avisos de segurança e a recuperação por link: [`account-security.md`](account-security.md).
+Os e-mails que o Lorkarium manda às pessoas: um molde único (o de `docs/pages/mails/Emails.dc.html`), o catálogo de templates e a prévia no Mailpit. Como o e-mail sai em cada ambiente (`MailerPort`, `SmtpMailer`/`LogMailer`, `SMTP_URL`, `APP_PUBLIC_URL`): [`server/mail.md`](server/mail.md). Quem dispara os avisos de segurança e a recuperação por link: [`account-security.md`](account-security.md).
 
 ## O molde (`server/src/lib/mail/`)
 

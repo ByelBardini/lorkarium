@@ -1,6 +1,6 @@
 # Client · desenhos, copiar/colar e desfazer
 
-Desenho no tabuleiro (mão livre, quadrado, círculo, triângulo), a área de cópia da mesa e a pilha de desfazer do usuário. Server e contrato em [`../drawings.md`](../drawings.md); a sala e o renderer em [`board.md`](board.md); tokens em [`tokens.md`](tokens.md). Planos de origem: `docs/plans/2026-10-16-desenho-copiar-desfazer.md` e `docs/plans/2026-10-21-camada-de-desenhos.md`.
+Desenho no tabuleiro (mão livre, quadrado, círculo, triângulo), a área de cópia da mesa e a pilha de desfazer do usuário. Server e contrato em [`../drawings.md`](../drawings.md); a sala e o renderer em [`board.md`](board.md); tokens em [`tokens.md`](tokens.md).
 
 **Camada própria.** O desenho não tem camada de token: fica numa só dele, acima de Fundo e Objetos e abaixo de Tokens, e **só a ferramenta Desenhar no modo Selecionar o pega**. Com Selecionar (V), o clique, o retângulo e o arraste nunca levam desenho; com Desenhar/Selecionar, os tokens e as áreas ficam inertes. A camada ativa do mestre não muda nada nos desenhos.
 

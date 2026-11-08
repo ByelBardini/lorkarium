@@ -1,6 +1,6 @@
 # Drawings
 
-Desenhos do tabuleiro (extensão do spec §3.3): mão livre, quadrado, círculo e triângulo, salvos na cena, com dono, vistos pela mesa toda. Server em `server/src/modules/drawings/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts.md`](contracts.md) (`drawing.dto.ts`); a caixa em [`game-core.md`](game-core.md) (Desenho). O client fica em [`client/drawings.md`](client/drawings.md). Planos de origem: `docs/plans/2026-10-16-desenho-copiar-desfazer.md` e `docs/plans/2026-10-21-camada-de-desenhos.md`.
+Desenhos do tabuleiro (extensão do spec §3.3): mão livre, quadrado, círculo e triângulo, salvos na cena, com dono, vistos pela mesa toda. Server em `server/src/modules/drawings/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts.md`](contracts.md) (`drawing.dto.ts`); a caixa em [`game-core.md`](game-core.md) (Desenho). O client fica em [`client/drawings.md`](client/drawings.md).
 
 ## Tabela (`drawings.po.ts`, migrações `0008_drawings` e `0029_drawings_drop_layer`)
 

@@ -1,6 +1,6 @@
 # Client · Backoffice (Usuários)
 
-Hub: [`../client.md`](../client.md). A tela em que o admin convida gente nova e cuida das contas. Plano de origem: `docs/plans/2026-10-24-tela-backoffice-usuarios.md` (fases 8–11); mockup: `docs/pages/backoffice/usuarios/Backoffice.dc.html` (base, não lei). Server: [`../user-admin.md`](../user-admin.md) e [`../account-links.md`](../account-links.md).
+Hub: [`../client.md`](../client.md). A tela em que o admin convida gente nova e cuida das contas. Mockup: `docs/pages/backoffice/usuarios/Backoffice.dc.html` (base, não lei). Server: [`../user-admin.md`](../user-admin.md) e [`../account-links.md`](../account-links.md).
 
 ## Rotas (`src/features/admin/admin-routes.tsx`)
 
@@ -10,7 +10,7 @@ Hub: [`../client.md`](../client.md). A tela em que o admin convida gente nova e 
 
 ## Moldura (`admin-layout.tsx`)
 
-Lateral `bg-panel` (240 px a partir de `md`; abaixo, faixa no topo): cristal + LORKARIUM + "BACKOFFICE" em dourado; `nav` "Backoffice" com **Usuários** e **E-mails** (`AdminNavLink` sobre o `NavLink`, ativo = traço dourado de 2 px à esquerda); no pé "Voltar para o app" (→ `/`) e quem está logado (`UserAvatar`, apelido, papel). As outras seções do mock (Visão geral, Mesas, Convites, Armazenamento, Registro, Configurações) só entram quando tiverem plano.
+Lateral `bg-panel` (240 px a partir de `md`; abaixo, faixa no topo): cristal + LORKARIUM + "BACKOFFICE" em dourado; `nav` "Backoffice" com **Usuários** e **E-mails** (`AdminNavLink` sobre o `NavLink`, ativo = traço dourado de 2 px à esquerda); no pé "Voltar para o app" (→ `/`) e quem está logado (`UserAvatar`, apelido, papel). As outras seções do mock (Visão geral, Mesas, Convites, Armazenamento, Registro, Configurações) ainda não existem.
 
 ## E-mails (`/admin/emails`)
 

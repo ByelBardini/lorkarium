@@ -1,6 +1,6 @@
 # Client · peças da mesa: capa, status, avisos, tags, prévia, edição e ao vivo
 
-O que o client tem para mostrar e editar a mesa com o contrato ampliado (plano `docs/plans/2026-10-24-tela-detalhes-configuracoes-e-nova-mesa.md`). As telas que usam isto (diálogo "Nova mesa" e visão geral do detalhe) ficam em [`home.md`](home.md); a página "Configurações da mesa", na sala, em [`campaign-settings.md`](campaign-settings.md). Contrato em [`../contracts.md`](../contracts.md).
+O que o client tem para mostrar e editar a mesa com o contrato ampliado. As telas que usam isto (diálogo "Nova mesa" e visão geral do detalhe) ficam em [`home.md`](home.md); a página "Configurações da mesa", na sala, em [`campaign-settings.md`](campaign-settings.md). Contrato em [`../contracts.md`](../contracts.md).
 
 ## Textos (`src/lib/`)
 

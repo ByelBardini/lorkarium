@@ -1,6 +1,6 @@
 # Client · fichas: arquivo `.lksheet` (exportar e importar modelo)
 
-Índice: [`sheets.md`](sheets.md). Editor: [`sheet-template-editor.md`](sheet-template-editor.md). Biblioteca: [`library.md`](library.md). Contrato do arquivo: [`../sheets/contratos.md`](../sheets/contratos.md) (Arquivo do modelo). Plano: [`exportar-importar-modelo-de-ficha`](../../plans/2026-10-31-exportar-importar-modelo-de-ficha.md).
+Índice: [`sheets.md`](sheets.md). Editor: [`sheet-template-editor.md`](sheet-template-editor.md). Biblioteca: [`library.md`](library.md). Contrato do arquivo: [`../sheets/contratos.md`](../sheets/contratos.md) (Arquivo do modelo).
 
 Só o mestre (o jogador nem vê modelos). Nada novo no servidor: exportar é um `GET …/sheet-templates/:t`, importar é o `POST …/sheet-templates` de sempre, e o arquivo cru nunca sai do client.
 

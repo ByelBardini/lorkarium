@@ -1,6 +1,6 @@
 # Tokens — patrulha
 
-Detalhe do hub [`../tokens.md`](../tokens.md): o token que anda sozinho por uma rota em loop (guarda de vigia, carroça, animal). Plano: `docs/plans/2026-11-08-patrulha-do-token.md`. A conta (ciclo, pose no instante, rota na cena) é do game-core ([`../game-core/patrulha.md`](../game-core/patrulha.md)); os DTOs em [`../contracts/patrulha.md`](../contracts/patrulha.md). **Nada no server mexe em token com o tempo:** o server guarda a linha do tempo (`started_at`, `step`) e cada tela calcula a casa de agora; o server só calcula a pose de agora quando um comando precisa dela (pausar, mover, a porta vista).
+Detalhe do hub [`../tokens.md`](../tokens.md): o token que anda sozinho por uma rota em loop (guarda de vigia, carroça, animal). A conta (ciclo, pose no instante, rota na cena) é do game-core ([`../game-core/patrulha.md`](../game-core/patrulha.md)); os DTOs em [`../contracts/patrulha.md`](../contracts/patrulha.md). **Nada no server mexe em token com o tempo:** o server guarda a linha do tempo (`started_at`, `step`) e cada tela calcula a casa de agora; o server só calcula a pose de agora quando um comando precisa dela (pausar, mover, a porta vista).
 
 ## Tabela (`token-patrols.po.ts`, migração `0082_token_patrols`)
 

@@ -309,7 +309,7 @@ O conteúdo usa JSON validado pelo servidor, com fontes locais, estilos, listas,
 
 **Abas (extensão de 31/10/2026).** Cada documento tem abas nomeadas (1–40 caracteres), cada uma com o próprio conteúdo e a própria versão: duas pessoas editando abas diferentes não conflitam, e só os comandos estruturais (criar, renomear, ocultar, reordenar, excluir) usam a versão do documento. Todo documento nasce com a aba "Geral", tem no máximo 200 abas e nunca fica sem nenhuma. Quem edita o documento cria, renomeia, reordena (pelo menu ou arrastando) e exclui abas; só o mestre marca uma aba como "só mestres". Essa aba e as imagens dela não chegam ao jogador por nenhuma via — nem na lista de abas, nem pelo id, nem pelos bytes —, e o jogador não tem como descobrir que ela existe; quando ele reordena as que vê, a oculta fica no mesmo lugar para o mestre. Leitores sem edição só trocam de aba.
 
-Contratos, limites, persistência e rotas: [context/documents.md](context/documents.md). Escopo aprovado: [plano de documentos](plans/2026-10-29-documentos-na-biblioteca.md). Sem fichas mecânicas de sistemas, colaboração CRDT/OT, histórico de versões ou persistência offline nesta entrega.
+Contratos, limites, persistência e rotas: [context/documents.md](context/documents.md). Sem fichas mecânicas de sistemas, colaboração CRDT/OT, histórico de versões ou persistência offline nesta entrega.
 
 ---
 
@@ -323,7 +323,7 @@ Extensão aprovada em 31/10/2026. O mestre (co-mestre incluso) escreve na biblio
 - **Limites.** Código até 512 KiB (HTML + CSS + JS); valores até 256 KiB, 1000 chaves, 8 níveis, chave de até 64 caracteres; até 10 rolagens em 10 s por ficha aberta. Valores sem versão esperada: a última escrita vence por chave, como as barras.
 - **Exportar e importar.** O mestre baixa um modelo num arquivo `.lksheet` (JSON versionado com o nome e o HTML, CSS e JS; nunca fichas, valores ou dono), sempre da versão **salva**, e o importa em outra mesa, que ganha um modelo **novo** na pasta escolhida depois de uma confirmação (nome editável, tamanho, aviso de código de terceiro). O arquivo é lido no client e vira o mesmo `POST …/sheet-templates` de sempre, que o servidor revalida; um arquivo de versão mais nova do formato é recusado com mensagem própria. O código importado roda na mesma sandbox, sem exceção nenhuma.
 
-Contratos, tabelas, rotas e provas: [context/sheets.md](context/sheets.md). Escopo aprovado: [plano de documentos com abas e fichas](plans/2026-10-31-documentos-com-abas-e-fichas.md). Fora desta entrega: API de chat, condições, combate ou mover token, rede dentro da ficha, modelo escrito por jogador, importação de fichas de outros VTTs e histórico de versões do modelo.
+Contratos, tabelas, rotas e provas: [context/sheets.md](context/sheets.md). Fora desta entrega: API de chat, condições, combate ou mover token, rede dentro da ficha, modelo escrito por jogador, importação de fichas de outros VTTs e histórico de versões do modelo.
 
 ## 4. Tecnologias
 

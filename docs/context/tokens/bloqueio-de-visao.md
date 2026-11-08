@@ -1,8 +1,8 @@
 # Tokens — bloqueio de visão
 
-Detalhe do hub [`../tokens.md`](../tokens.md). O interruptor "Bloqueia a visão": o token corta a visão e a luz como uma cortina, sem barrar a passagem. Plano em [`../../plans/2026-11-04-tokens-bloqueiam-visao.md`](../../plans/2026-11-04-tokens-bloqueiam-visao.md).
+Detalhe do hub [`../tokens.md`](../tokens.md). O interruptor "Bloqueia a visão": o token corta a visão e a luz como uma cortina, sem barrar a passagem.
 
-Esta página cobre o **campo, o teto e a porta vista** (Fases 5 e 6). A forma e a pose saem de `sight-blocker.ts` do game-core ([`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md)) e o contorno vem do asset ([`../assets/contorno.md`](../assets/contorno.md)). O uso no client entra nas fases seguintes do plano.
+Esta página cobre o **campo, o teto e a porta vista** (Fases 5 e 6). A forma e a pose saem de `sight-blocker.ts` do game-core ([`../game-core/visao-e-luz.md`](../game-core/visao-e-luz.md)) e o contorno vem do asset ([`../assets/contorno.md`](../assets/contorno.md)). O uso no client está em [`../client/sight-blockers.md`](../client/sight-blockers.md).
 
 ## Coluna (`0081_token_blocks_sight`)
 

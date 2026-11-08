@@ -1,6 +1,6 @@
 # Client · patrulha do token
 
-O token que anda sozinho por uma rota em loop (guarda de vigia, carroça). O server grava o início; cada tela calcula a casa de agora pelo game-core (`patrolPoseAt`), sem evento por passo. Plano: [`docs/plans/2026-11-08-patrulha-do-token.md`](../../plans/2026-11-08-patrulha-do-token.md); contrato em [`../contracts/patrulha.md`](../contracts/patrulha.md); a conta em [`../game-core/patrulha.md`](../game-core/patrulha.md).
+O token que anda sozinho por uma rota em loop (guarda de vigia, carroça). O server grava o início; cada tela calcula a casa de agora pelo game-core (`patrolPoseAt`), sem evento por passo. Contrato em [`../contracts/patrulha.md`](../contracts/patrulha.md); a conta em [`../game-core/patrulha.md`](../game-core/patrulha.md).
 
 ## Estado e relógio
 

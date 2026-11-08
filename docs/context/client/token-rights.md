@@ -1,6 +1,6 @@
 # Client · chaves de token da mesa (o jogador cria, edita e exclui os seus)
 
-Como a sala aplica as duas chaves da mesa ("Jogadores criam e editam tokens", "Jogadores excluem os próprios tokens"). A regra mora no game-core (`token-rights.ts`, ver [`../game-core.md`](../game-core.md)) e o server a usa para recusar; o client só esconde os botões com a mesma função. Plano de origem: [`2026-10-26-permissoes-de-token-dos-jogadores.md`](../../plans/2026-10-26-permissoes-de-token-dos-jogadores.md).
+Como a sala aplica as duas chaves da mesa ("Jogadores criam e editam tokens", "Jogadores excluem os próprios tokens"). A regra mora no game-core (`token-rights.ts`, ver [`../game-core.md`](../game-core.md)) e o server a usa para recusar; o client só esconde os botões com a mesma função.
 
 ## A regra no client
 

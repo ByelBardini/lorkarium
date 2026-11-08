@@ -1,6 +1,6 @@
 # Tokens — formas
 
-Formas nomeadas do token (imagem, borda e tamanho), trocadas no mapa em um clique: o druida em lobo, o NPC que revela o dragão. Barras, condições, controle, camada e posição ficam. Hub: [`../tokens.md`](../tokens.md); DTOs em [`../contracts/formas.md`](../contracts/formas.md); caixa no game-core (`formBoxIn`, [`../game-core.md`](../game-core.md)). Plano: `docs/plans/2026-10-27-formas-do-token.md`.
+Formas nomeadas do token (imagem, borda e tamanho), trocadas no mapa em um clique: o druida em lobo, o NPC que revela o dragão. Barras, condições, controle, camada e posição ficam. Hub: [`../tokens.md`](../tokens.md); DTOs em [`../contracts/formas.md`](../contracts/formas.md); caixa no game-core (`formBoxIn`, [`../game-core.md`](../game-core.md)).
 
 ## Banco (`tokens.po.ts`, migrações `0065_token_forms` e `0066_token_form_frame`)
 

@@ -1,6 +1,6 @@
 # Client · token invisível para os jogadores
 
-O mestre esconde tokens dos jogadores; o server nunca os manda a quem não pode vê-los (só o mestre e os controladores recebem o token com `hidden: true`). Plano de origem: [`2026-10-24-token-invisivel.md`](../../plans/2026-10-24-token-invisivel.md); contrato em [`../contracts/tabuleiro.md`](../contracts/tabuleiro.md) (último item); o resto dos tokens em [`tokens.md`](tokens.md).
+O mestre esconde tokens dos jogadores; o server nunca os manda a quem não pode vê-los (só o mestre e os controladores recebem o token com `hidden: true`). Contrato em [`../contracts/tabuleiro.md`](../contracts/tabuleiro.md) (último item); o resto dos tokens em [`tokens.md`](tokens.md).
 
 ## Eventos e estado
 
