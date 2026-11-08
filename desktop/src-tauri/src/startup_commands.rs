@@ -16,6 +16,8 @@ const STARTUP_EVENT: &str = "startup";
 // A slow or dead release server must never keep anyone from playing.
 const UPDATE_CHECK_TIMEOUT: Duration = Duration::from_secs(8);
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(5);
+// Time without a single byte, not a total: a slow connection that keeps receiving is never cut.
+const DOWNLOAD_STALL_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// What the startup commands share: where to go, whether the opening already ran and what to show
 /// when the site sent the window back to the splash.
@@ -134,7 +136,14 @@ impl<R: Runtime> UpdateSource for UpdaterSource<R> {
         if tauri::is_dev() {
             return Ok(None);
         }
-        let updater = self.app.updater().map_err(|problem| problem.to_string())?;
+        // The read timeout reaches the download too: a stalled connection once froze the splash on
+        // "Baixando atualização" for good, and only a manual reinstall got the player out.
+        let updater = self
+            .app
+            .updater_builder()
+            .configure_client(|client| client.read_timeout(DOWNLOAD_STALL_TIMEOUT))
+            .build()
+            .map_err(|problem| problem.to_string())?;
         let found = updater
             .check()
             .await
