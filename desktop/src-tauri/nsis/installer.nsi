@@ -434,7 +434,13 @@ Section Install
     !insertmacro NSIS_HOOK_PREINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  ; Lorkarium: the updater already closed the app, and the Restart Manager could wait forever on a
+  ; holder it cannot close (free-main-binary.nsh).
+  ${If} $UpdateMode = 1
+    !insertmacro LK_FREE_MAIN_BINARY
+  ${Else}
+    !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  ${EndIf}
 
   ; Copy main executable
   File "${MAINBINARYSRCPATH}"
@@ -576,6 +582,8 @@ Section Uninstall
   ; Delete the app directory and its content from disk
   ; Copy main executable
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
+  ; Lorkarium: the old binaries an update renamed aside (free-main-binary.nsh), or RMDir keeps the folder
+  Delete "$INSTDIR\${MAINBINARYNAME}.*.old"
 
   ; Delete resources
   {{#each resources}}
