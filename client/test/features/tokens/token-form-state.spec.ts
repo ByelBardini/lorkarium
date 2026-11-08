@@ -322,6 +322,17 @@ describe('the color of the light of the token', () => {
     });
   });
 
+  it('a token with a #336699 light is sent with the hex', () => {
+    const form = tokenFormOf(
+      lyra({ light: { bright: 4, dim: 4, color: '#336699', angle: 360 } }),
+      METERS,
+    );
+    expect(parseTokenForm(form, METERS)).toMatchObject({
+      ok: true,
+      token: { light: { bright: 4, dim: 4, color: '#336699', angle: 360 } },
+    });
+  });
+
   it('a new token starts with the neutral color', () => {
     expect(emptyTokenForm(METERS).lightColor).toBeNull();
   });

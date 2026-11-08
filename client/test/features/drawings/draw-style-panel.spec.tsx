@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { DrawStylePanel } from '@/features/drawings/draw-style-panel';
 import type { DrawMode } from '@/stores/board-tool-state';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
+import { pickCustomColor } from '../../support/pick-custom-color';
 import { StorageFake } from '../../support/storage-fake';
 
 function renderPanel(
@@ -46,6 +47,44 @@ describe('DrawStylePanel, the action', () => {
 
     expect(screen.queryByRole('radiogroup', { name: 'Forma' })).not.toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: 'Cor do traço' })).not.toBeInTheDocument();
+  });
+});
+
+describe('DrawStylePanel, the custom color', () => {
+  function colorTile(legend: string): HTMLElement {
+    const group = within(screen.getByRole('radiogroup', { name: legend }));
+    return group.getByRole('button', { name: /^Cor personalizada/ });
+  }
+
+  it('a hex on the stroke goes to the style and marks the tile, with no swatch checked', async () => {
+    const store = renderPanel();
+
+    await pickCustomColor(colorTile('Cor do traço'), '#336699');
+
+    expect(store.getState().stroke).toBe('#336699');
+    expect(colorTile('Cor do traço')).toHaveAccessibleName('Cor personalizada: #336699');
+    const stroke = within(screen.getByRole('radiogroup', { name: 'Cor do traço' }));
+    for (const radio of stroke.getAllByRole('radio')) expect(radio).not.toBeChecked();
+  });
+
+  it('a hex on the fill goes to the style, and "Nenhum" still takes it away', async () => {
+    const user = userEvent.setup();
+    const store = renderPanel();
+    await user.click(screen.getByRole('radio', { name: 'Quadrado' }));
+
+    await pickCustomColor(colorTile('Preenchimento'), '#aabbcc');
+    expect(store.getState().fill).toBe('#aabbcc');
+
+    await user.click(screen.getByRole('radio', { name: 'Nenhum' }));
+    expect(store.getState().fill).toBeNull();
+    expect(colorTile('Preenchimento')).toHaveAccessibleName('Cor personalizada');
+  });
+
+  it('with freehand only the tile of the fill is off: the stroke keeps its own', () => {
+    renderPanel();
+
+    expect(colorTile('Preenchimento')).toBeDisabled();
+    expect(colorTile('Cor do traço')).toBeEnabled();
   });
 });
 

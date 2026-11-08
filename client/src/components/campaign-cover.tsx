@@ -48,7 +48,7 @@ const GRID_STYLE: React.CSSProperties = {
 export type CampaignCoverProps = Readonly<{ cover: CampaignCoverDto; className?: string }>;
 
 /** Decorative cover of a campaign, hidden from assistive tech: the image the master sent, or one
- *  of the drawings in one of the `chart-1..4` tones.
+ *  of the drawings in one of the `chart-1..4` tones or a custom color.
  *
  *  Example: `<CampaignCover cover={campaign.cover} className="size-16" />` */
 export function CampaignCover({ cover, className }: CampaignCoverProps): React.JSX.Element {
@@ -68,9 +68,19 @@ export function CampaignCover({ cover, className }: CampaignCoverProps): React.J
 
 type DrawnCoverProps = Readonly<{ cover: DrawnCampaignCoverDto; className?: string }>;
 
+type ToneLook = Readonly<{ className?: string; style?: React.CSSProperties }>;
+
+// A custom tone has no utility class: the art paints with `currentColor`, so `color` is enough.
+function toneLookOf(tone: DrawnCampaignCoverDto['tone']): ToneLook {
+  return typeof tone === 'string'
+    ? { style: { color: tone } }
+    : { className: TONE_CLASS[tone - 1] };
+}
+
 // The data attributes name the drawing and the tone for tests: the art has no accessible text.
 function DrawnCover({ cover, className }: DrawnCoverProps): React.JSX.Element {
   const drawing = COVER_DRAWING_ART[cover.drawing] ?? COVER_DRAWING_ART[0];
+  const tone = toneLookOf(cover.tone);
   return (
     <div
       aria-hidden="true"
@@ -82,7 +92,8 @@ function DrawnCover({ cover, className }: DrawnCoverProps): React.JSX.Element {
       <svg
         viewBox="0 0 300 140"
         preserveAspectRatio="xMidYMid slice"
-        className={cn('absolute inset-0 size-full', TONE_CLASS[cover.tone - 1])}
+        style={tone.style}
+        className={cn('absolute inset-0 size-full', tone.className)}
       >
         <g fill="none" stroke="currentColor" strokeWidth="1.3">
           {drawing.paths.map((path, index) => (

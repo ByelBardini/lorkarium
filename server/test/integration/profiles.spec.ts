@@ -126,6 +126,36 @@ describe('profiles HTTP edge', () => {
       });
     });
 
+    it('a custom color reaches the profile and the /me of that account only', async () => {
+      const response = await patch(ana, { color: '#336699' });
+
+      expect(response.statusCode).toBe(200);
+      expect(profileResponseDto.parse(response.json()).profile).toMatchObject({
+        color: '#336699',
+        colorChoice: '#336699',
+      });
+      const me = await call(ana, { method: 'GET', url: '/auth/me' });
+      expect(meResponseDto.parse(me.json()).user?.color).toBe('#336699');
+      expect(await profileOf(bia)).toMatchObject({ colorChoice: null });
+    });
+
+    it('a custom color in capitals is kept in lowercase', async () => {
+      await patch(ana, { color: '#FFAA00' });
+
+      expect(await profileOf(ana)).toMatchObject({ colorChoice: '#ffaa00' });
+    });
+
+    it('a null color after a custom one goes back to the drawn one', async () => {
+      await patch(ana, { color: '#336699' });
+
+      await patch(ana, { color: null });
+
+      expect(await profileOf(ana)).toMatchObject({
+        color: memberColorOf(ana.id, null),
+        colorChoice: null,
+      });
+    });
+
     it('the /me that follows already carries the new nickname', async () => {
       await patch(ana, { name: 'Aninha' });
 
@@ -140,6 +170,8 @@ describe('profiles HTTP edge', () => {
       [{}],
       [{ name: '   ' }],
       [{ color: 'purple' }],
+      [{ color: '#fff' }],
+      [{ color: 'url(x)' }],
     ])('the body %j answers 400 INVALID_BODY and changes nothing', async (body) => {
       const response = await patch(ana, body);
 

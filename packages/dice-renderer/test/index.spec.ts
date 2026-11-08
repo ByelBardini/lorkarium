@@ -61,7 +61,7 @@ describe('@lorkarium/dice-renderer entry', () => {
 
   it('a profile color missing from look.colorHex is refused citing the color, the kind and the shape', () => {
     renderer = new ThreeDiceRenderer(three, {
-      look: { ...TEST_DICE_LOOK, colorHex: { ember: 0xe0704f } },
+      look: { ...TEST_DICE_LOOK, colorHex: () => undefined },
       view: new DiceOverlayHostFake(),
       createGl: () => new DiceGlFake(),
     });
@@ -69,6 +69,6 @@ describe('@lorkarium/dice-renderer entry', () => {
     const showing = (): void => renderer?.show(d20Roll());
 
     expect(showing).toThrow(RangeError);
-    expect(showing).toThrow(/"rose".*d20.*colorHex\.rose = 0xrrggbb/);
+    expect(showing).toThrow(/"rose".*d20.*colorHex\("rose"\) to return 0xrrggbb/);
   });
 });

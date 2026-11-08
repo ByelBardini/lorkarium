@@ -4,19 +4,30 @@ import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import type { TokenAuraDto } from '@lorkarium/contracts';
 import { AuraEditor } from '@/features/tokens/aura-editor';
-import { auraFormOf, type AuraFormErrors } from '@/features/tokens/aura-form-state';
+import {
+  auraFormOf,
+  type AuraFormErrors,
+  type AuraFormValues,
+} from '@/features/tokens/aura-form-state';
 import { AssetsApiFake } from '../../support/assets-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { fireAura, goldAura, runeAura } from '../../support/aura-fixtures';
+import { pickCustomColor } from '../../support/pick-custom-color';
 
 const METERS = { cellDistance: 1.5, cellUnit: 'm' };
 
 function Harness({
   aura = null,
   errors = {},
-}: Readonly<{ aura?: TokenAuraDto | null; errors?: AuraFormErrors }>) {
+  onForm,
+}: Readonly<{
+  aura?: TokenAuraDto | null;
+  errors?: AuraFormErrors;
+  onForm?: (form: AuraFormValues) => void;
+}>) {
   const [form, setForm] = useState(auraFormOf(aura, METERS));
   const images = { campaignId: VHARN.id, assets: new AssetsApiFake() };
+  onForm?.(form);
   return (
     <AuraEditor form={form} errors={errors} distance={METERS} images={images} onChange={setForm} />
   );
@@ -65,6 +76,31 @@ describe('AuraEditor', () => {
     for (const name of effects) expect(screen.getByRole('radio', { name })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Fogo' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Natural' })).toBeChecked();
+  });
+
+  it('a hex as the aura color goes to the form and marks the tile, with no swatch checked', async () => {
+    let form = auraFormOf(null, METERS);
+    render(<Harness aura={goldAura()} onForm={(next) => (form = next)} />);
+    const tile = screen.getByRole('button', { name: 'Cor personalizada' });
+
+    await pickCustomColor(tile, '#336699');
+
+    expect(form.color).toBe('#336699');
+    expect(screen.getByRole('button', { name: 'Cor personalizada: #336699' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Ouro' })).not.toBeChecked();
+  });
+
+  it('a hex as the effect color goes to the form, and "Natural" still turns it into null', async () => {
+    let form = auraFormOf(null, METERS);
+    render(<Harness aura={fireAura()} onForm={(next) => (form = next)} />);
+
+    await pickCustomColor(screen.getByRole('button', { name: 'Cor personalizada' }), '#aabbcc');
+    expect(form.effectColor).toBe('#aabbcc');
+    expect(screen.getByRole('radio', { name: 'Natural' })).not.toBeChecked();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Natural' }));
+    expect(form.effectColor).toBeNull();
+    expect(screen.getByRole('button', { name: 'Cor personalizada' })).toBeInTheDocument();
   });
 
   it('Imagem shows the picker, telling PNG, JPEG, WebP or GIF animado up to 20 MB', async () => {

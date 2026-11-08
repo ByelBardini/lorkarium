@@ -39,7 +39,7 @@
   padding-inline: clamp(20px, 4vw, 64px);
 }
 
-/* The landing's display type (approved board, docs/plans/assets/2026-10-31-landing-prancha.html):
+/* The landing's display type:
    Cinzel in capitals, the ember for headlines and the gold kept for the action. */
 @utility act-title {
   @apply font-wordmark font-bold text-ember uppercase;

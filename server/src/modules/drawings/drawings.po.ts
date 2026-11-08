@@ -1,27 +1,21 @@
+import { DRAWING_PALETTE, type DrawingColorDto } from '@lorkarium/contracts';
 import {
+  check,
   index,
   integer,
   jsonb,
   numeric,
   pgEnum,
   pgTable,
+  text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 import { users } from '../auth/users.po';
 import { scenes } from '../scenes/scenes.po';
 
 export const drawingKind = pgEnum('drawing_kind', ['freehand', 'rectangle', 'ellipse', 'triangle']);
-export const drawingColor = pgEnum('drawing_color', [
-  'gold',
-  'steel',
-  'ember',
-  'moss',
-  'ash',
-  'ink',
-  'bone',
-  'violet',
-]);
 export const strokeWidth = pgEnum('stroke_width', ['thin', 'medium', 'thick']);
 
 // Positions and sizes are fractional cells (never pixels), kept exact to 0.01 by numeric.
@@ -43,13 +37,17 @@ export const drawings = pgTable(
     height: numeric('height', { precision: 8, scale: 2 }).notNull(),
     // Freehand only: points relative to (x, y).
     points: jsonb('points').$type<[number, number][]>(),
-    stroke: drawingColor('stroke').notNull(),
+    stroke: text('stroke').$type<DrawingColorDto>().notNull(),
     // Fixed shapes only; null = no fill.
-    fill: drawingColor('fill'),
+    fill: text('fill').$type<DrawingColorDto>(),
     strokeWidth: strokeWidth('stroke_width').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('drawings_scene_id_idx').on(table.sceneId)],
+  (table) => [
+    index('drawings_scene_id_idx').on(table.sceneId),
+    check('drawings_stroke_color', paletteOrHexSql(table.stroke, DRAWING_PALETTE)),
+    check('drawings_fill_color', paletteOrHexSql(table.fill, DRAWING_PALETTE)),
+  ],
 );
 
 export type DrawingPo = typeof drawings.$inferSelect;

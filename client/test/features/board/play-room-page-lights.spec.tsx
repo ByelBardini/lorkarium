@@ -53,6 +53,14 @@ async function openRoomWith(
   return deps;
 }
 
+async function applyCustomColor(tile: string, color: string): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: tile }));
+  const code = await screen.findByLabelText('Código da cor');
+  await userEvent.clear(code);
+  await userEvent.type(code, color);
+  await userEvent.click(screen.getByRole('button', { name: 'Usar cor' }));
+}
+
 describe('play room: the lights tool', () => {
   it('the master presses L: "Luzes (L)" turns on, the "Luz" panel opens and the line says how', async () => {
     await openRoom();
@@ -109,6 +117,21 @@ describe('play room: the color of the next light', () => {
       ]),
     );
     expect(deps.lightColorStorage.values.get('lorkarium.lightColor')).toBe('infernal');
+  });
+
+  it('Ana picks #336699 in the panel and sends a light of that hex, remembered', async () => {
+    const deps = await openRoom();
+    await userEvent.keyboard('l');
+
+    await applyCustomColor('Cor personalizada', '#336699');
+    deps.boardRenderers.latest().emit({ kind: 'lightPlaced', x: 5.5, y: 3 });
+
+    await waitFor(() =>
+      expect(deps.boardCommands.sentAs('createLights').map(({ fields }) => fields)).toEqual([
+        { lights: [{ x: 5.5, y: 3, bright: 4, dim: 4, color: '#336699', facing: 0, angle: 360 }] },
+      ]),
+    );
+    expect(deps.lightColorStorage.values.get('lorkarium.lightColor')).toBe('#336699');
   });
 
   it('a room opened with "Infernal" remembered shows it checked', async () => {
@@ -187,6 +210,43 @@ describe('play room: editing map lights', () => {
     pick(deps, CORRIDOR_TORCH_ID, false);
     pick(deps, BRAZIER_ID, true);
 
+    const group = screen.getByRole('radiogroup', { name: 'Cor da luz' });
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+  });
+
+  it('#336699 with both picked sends one setLightColors of the two, each expecting its color', async () => {
+    const deps = await openRoomWith(testDependencies(), false, [
+      corridorTorch({ color: 'fire' }),
+      brazier(),
+    ]);
+    await userEvent.keyboard('l');
+    pick(deps, CORRIDOR_TORCH_ID, false);
+    pick(deps, BRAZIER_ID, true);
+
+    await applyCustomColor('Cor personalizada', '#336699');
+
+    await waitFor(() =>
+      expect(deps.boardCommands.sentAs('setLightColors').map(({ fields }) => fields)).toEqual([
+        {
+          changes: [
+            { lightId: CORRIDOR_TORCH_ID, color: '#336699', expect: { color: 'fire' } },
+            { lightId: BRAZIER_ID, color: '#336699', expect: { color: null } },
+          ],
+        },
+      ]),
+    );
+  });
+
+  it('a light of #336699 picked marks the custom tile and no palette color', async () => {
+    const deps = await openRoomWith(testDependencies(), false, [
+      corridorTorch({ color: '#336699' }),
+    ]);
+    await userEvent.keyboard('l');
+    pick(deps, CORRIDOR_TORCH_ID, false);
+
+    expect(
+      await screen.findByRole('button', { name: 'Cor personalizada: #336699' }),
+    ).toBeInTheDocument();
     const group = screen.getByRole('radiogroup', { name: 'Cor da luz' });
     expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
   });

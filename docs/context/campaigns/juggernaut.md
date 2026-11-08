@@ -1,6 +1,6 @@
 # Modo juggernaut
 
-Detalhe de [`../campaigns.md`](../campaigns.md) e [`papeis.md`](papeis.md). Um admin do Lorkarium (papel global `admin`, ver [`../auth.md`](../auth.md)) liga, **mesa a mesa**, um modo em que tem os poderes do dono: vira `master`, gere os mestres, exclui a mesa e ninguém o rebaixa. Acesso privilegiado de emergência ("break glass"): ativação explícita, aparece para a mesa enquanto online, vai ao log pino e cai quando a conta perde o admin. Plano de origem: `docs/plans/2026-10-26-co-mestres-e-juggernaut.md` (fases 5–8).
+Detalhe de [`../campaigns.md`](../campaigns.md) e [`papeis.md`](papeis.md). Um admin do Lorkarium (papel global `admin`, ver [`../auth.md`](../auth.md)) liga, **mesa a mesa**, um modo em que tem os poderes do dono: vira `master`, gere os mestres, exclui a mesa e ninguém o rebaixa. Acesso privilegiado de emergência ("break glass"): ativação explícita, aparece para a mesa enquanto online, vai ao log pino e cai quando a conta perde o admin.
 
 ## Gravado na linha do membro
 

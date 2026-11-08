@@ -24,6 +24,8 @@ export type StyleTileGroupProps<T extends string> = Readonly<{
   hint?: string;
   /** The legend only for screen readers, where a row has no room for it (the bars of a token). */
   legendHidden?: boolean;
+  /** Goes at the end of the row and is no radio: the arrows never reach it. */
+  trailing?: React.ReactNode;
 }>;
 
 const TILE_SHAPE = {
@@ -44,6 +46,7 @@ export function StyleTileGroup<T extends string>({
   disabled,
   hint,
   legendHidden,
+  trailing,
 }: StyleTileGroupProps<T>): React.JSX.Element {
   const groupId = useId();
   return (
@@ -84,6 +87,7 @@ export function StyleTileGroup<T extends string>({
             {tile.picture}
           </RadioGroupPrimitive.Item>
         ))}
+        {trailing}
       </RadioGroupPrimitive.Root>
       {hint && (
         <p id={`${groupId}-hint`} className="text-xs text-muted-foreground">

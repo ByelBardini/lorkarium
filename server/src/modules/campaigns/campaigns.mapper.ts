@@ -1,6 +1,9 @@
 import {
+  campaignCoverToneDto,
   contentWarningDto,
+  isHexColor,
   type CampaignCoverDto,
+  type CampaignCoverToneDto,
   type CampaignDetailDto,
   type CampaignInfoDto,
   type CampaignMemberDto,
@@ -98,8 +101,17 @@ function isContentWarning(warning: string): warning is ContentWarningDto {
 export function coverOf(campaign: CampaignPo): CampaignCoverDto {
   if (campaign.coverAssetId) return { kind: 'image', assetId: campaign.coverAssetId };
   const { coverDrawing: drawing, coverTone: tone } = campaign;
-  if (drawing !== null && tone !== null) return { kind: 'drawn', drawing, tone };
+  if (drawing !== null && tone !== null) {
+    return { kind: 'drawn', drawing, tone: coverToneOf(tone) };
+  }
   return { kind: 'drawn', ...defaultCoverOf(campaign.id) };
+}
+
+// The column holds the digit of a chart tone or a hex: the wire wants the digit back as a number.
+function coverToneOf(stored: string): CampaignCoverToneDto {
+  const tone = campaignCoverToneDto.safeParse(isHexColor(stored) ? stored : Number(stored));
+  if (tone.success) return tone.data;
+  throw new Error(`Invalid cover_tone ${JSON.stringify(stored)}: expected 1..4 or #rrggbb`);
 }
 
 /** View → DTO: the summary of a campaign assembled from its members instead of the listing query.
@@ -319,7 +331,7 @@ function coverColumnsOf(cover: CampaignCoverDto | undefined): CoverColumns {
   if (cover.kind === 'image') {
     return { coverDrawing: null, coverTone: null, coverAssetId: cover.assetId };
   }
-  return { coverDrawing: cover.drawing, coverTone: cover.tone, coverAssetId: null };
+  return { coverDrawing: cover.drawing, coverTone: String(cover.tone), coverAssetId: null };
 }
 
 /** Settings DTO → the columns to write; absent fields are left out, so they stay as they are.

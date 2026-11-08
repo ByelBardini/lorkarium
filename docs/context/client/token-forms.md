@@ -1,6 +1,6 @@
 # Client · formas do token: estado, comando, menu e teclas 1–8
 
-Trocar de forma no mapa (imagem, borda e tamanho guardados na forma; no ligado a lista é do personagem e a forma mostrada, do token). A aba "Formas" do Editar token, onde elas se cadastram, está em [`token-dialog.md`](token-dialog.md); o contrato em [`../contracts/formas.md`](../contracts/formas.md). Plano de origem: [`2026-10-27-formas-do-token.md`](../../plans/2026-10-27-formas-do-token.md). Hub: [`../client.md`](../client.md).
+Trocar de forma no mapa (imagem, borda e tamanho guardados na forma; no ligado a lista é do personagem e a forma mostrada, do token). A aba "Formas" do Editar token, onde elas se cadastram, está em [`token-dialog.md`](token-dialog.md); o contrato em [`../contracts/formas.md`](../contracts/formas.md). Hub: [`../client.md`](../client.md).
 
 ## Estado (`src/stores/`)
 

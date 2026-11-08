@@ -17,6 +17,7 @@ const CORNER_CONE = {
   color: 'ember',
 } as const;
 const GROWN_CONE = { ...CORNER_CONE, reach: 4 };
+const CUSTOM_CONE = { ...CORNER_CONE, color: '#336699' };
 
 describe('effect areas over Socket.IO', () => {
   const live = useTokenTable();
@@ -170,6 +171,48 @@ describe('effect areas over Socket.IO', () => {
     expect(bia.events.slice(before).map(({ name }) => name)).not.toContain(
       'effectArea:reshapedMany',
     );
+  });
+
+  it('a custom color reaches the table, comes in the sync and survives a restart', async () => {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    await send(bia, 'effectArea:createMany', createOn(live.vharn.id, [CUSTOM_CONE]));
+
+    expect(await createdOf(ana)).toMatchObject({ color: '#336699' });
+    await live.restart();
+    const caio = await live.atTable(live.caio, live.vharn);
+    expect((await synced(caio, live.vharn)).effectAreas).toEqual([
+      expect.objectContaining({ color: '#336699' }),
+    ]);
+  });
+
+  it('reshaping an area to a custom color is saved and reaches the table', async () => {
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    const area = await createdBy(bia.client, live.vharn.id);
+    const shape = { ...CUSTOM_CONE, color: '#AABBCC' };
+
+    await send(
+      bia.client,
+      'effectArea:reshapeMany',
+      reshapeOn(live.vharn.id, [{ effectAreaId: area.id, shape }]),
+    );
+
+    expect(await eventPayload(bia, 'effectArea:reshapedMany')).toMatchObject({
+      reshapes: [{ effectAreaId: area.id, shape: { color: '#aabbcc' } }],
+    });
+    expect((await synced(bia.client, live.vharn)).effectAreas).toEqual([
+      expect.objectContaining({ color: '#aabbcc' }),
+    ]);
+  });
+
+  it('an area with a custom color on Quelm is not in the snapshot of Vharn', async () => {
+    const caio = await live.atTable(live.caio, live.quelm);
+    await send(caio, 'effectArea:createMany', createOn(live.quelm.id, [CUSTOM_CONE]));
+
+    const ana = await live.atTable(live.ana, live.vharn);
+
+    expect((await synced(ana, live.vharn)).effectAreas).toEqual([]);
   });
 
   it('an area survives a restart of the server', async () => {

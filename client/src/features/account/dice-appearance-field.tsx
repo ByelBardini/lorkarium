@@ -1,7 +1,8 @@
-import type { MemberColor } from '@lorkarium/game-core';
+import type { MemberColorDto } from '@lorkarium/contracts';
 import type { ProfileDto } from '@lorkarium/contracts';
 import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
+import { CustomColorTile } from '@/components/color-picker/custom-color-tile';
 import { ImageSourceButtons } from '@/components/image-source-buttons';
 import type { ImageSender } from '@/components/use-image-sender';
 import { AVATAR_ACCEPT } from '@/lib/avatar-file';
@@ -54,7 +55,7 @@ export function DiceAppearanceField(props: DiceAppearanceFieldProps): React.JSX.
             textura, o dado usa a sua cor no mapa.
           </p>
           {textureId !== null && (
-            <NumberColorInput
+            <NumberColorField
               value={numberColor}
               onChange={(color) => draft.change({ diceNumberColor: color })}
             />
@@ -82,28 +83,22 @@ function textureSenderOf(
   };
 }
 
-type NumberColorInputProps = Readonly<{ value: string; onChange: (color: string) => void }>;
+type NumberColorFieldProps = Readonly<{ value: string; onChange: (color: string) => void }>;
 
-function NumberColorInput({ value, onChange }: NumberColorInputProps): React.JSX.Element {
-  const inputId = useId();
+function NumberColorField({ value, onChange }: NumberColorFieldProps): React.JSX.Element {
+  const labelId = useId();
   return (
-    <div className="flex items-center gap-3">
-      <input
-        id={inputId}
-        type="color"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="size-9 cursor-pointer rounded-md border border-input bg-transparent p-1"
-      />
-      <label htmlFor={inputId} className="text-[13px] font-medium text-label">
+    <div role="group" aria-labelledby={labelId} className="flex items-center gap-3">
+      <CustomColorTile value={value} onPick={onChange} className="size-9" />
+      <span id={labelId} className="text-[13px] font-medium text-label">
         Cor do número
-      </label>
+      </span>
     </div>
   );
 }
 
 type DicePreviewProps = Readonly<{
-  color: MemberColor;
+  color: MemberColorDto;
   textureId: string | null;
   numberColor: string;
 }>;

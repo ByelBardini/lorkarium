@@ -2,7 +2,7 @@
 
 Índice: [`game-core.md`](../game-core.md).
 
-A rota que um token repete sozinho (guarda de vigia, carroça, animal). Server e client fazem a mesma conta a partir do início gravado: sem evento por passo (plano `docs/plans/2026-11-08-patrulha-do-token.md`).
+A rota que um token repete sozinho (guarda de vigia, carroça, animal). Server e client fazem a mesma conta a partir do início gravado: sem evento por passo.
 
 ## VO (`token-patrol.vo.ts`)
 

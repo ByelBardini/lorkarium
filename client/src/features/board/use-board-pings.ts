@@ -1,8 +1,8 @@
-import type { CampaignRoleDto, SessionMemberDto } from '@lorkarium/contracts';
+import type { CampaignRoleDto, MemberColorDto, SessionMemberDto } from '@lorkarium/contracts';
 import { useCallback, useEffect } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { memberColorOf, type MemberColor } from '@lorkarium/game-core';
-import { MEMBER_COLOR_HEX } from '@/lib/member-color';
+import { memberColorOf } from '@lorkarium/game-core';
+import { memberColorNumber } from '@/lib/member-color';
 import { watchesOnly } from '@/lib/table-role';
 import type { BoardRenderer, PingMark } from '@/renderer/board-renderer';
 import type { BoardScope } from '@/services/board-command-sender';
@@ -71,12 +71,12 @@ function viewerColorOf(
   session: StoreApi<SessionStore>,
   viewerId: string,
   member: SessionMemberDto | undefined,
-): MemberColor {
+): MemberColorDto {
   const { session: state } = session.getState();
   if (state.status === 'authenticated' && state.user.id === viewerId) return state.user.color;
   return memberColorOf(viewerId, member?.color ?? null);
 }
 
-function pingMarkOf(label: string, color: MemberColor, { x, y }: PingPoint): PingMark {
-  return { x, y, label, color: MEMBER_COLOR_HEX[color] };
+function pingMarkOf(label: string, color: MemberColorDto, { x, y }: PingPoint): PingMark {
+  return { x, y, label, color: memberColorNumber(color) };
 }

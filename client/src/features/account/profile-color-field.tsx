@@ -1,5 +1,7 @@
+import type { MemberColorDto } from '@lorkarium/contracts';
 import { MEMBER_COLORS, type MemberColor } from '@lorkarium/game-core';
 import { useId } from 'react';
+import { CustomColorTile } from '@/components/color-picker/custom-color-tile';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { memberColorCss } from '@/lib/member-color';
 
@@ -15,12 +17,13 @@ const COLOR_NAME: Readonly<Record<MemberColor, string>> = {
 };
 
 export type ProfileColorFieldProps = Readonly<{
-  value: MemberColor;
-  onChange: (color: MemberColor) => void;
+  value: MemberColorDto;
+  onChange: (color: MemberColorDto) => void;
 }>;
 
 /** "Sua cor no mapa": the 8 ping colors as round radios (a design-system exception: the circle
- *  says "pick one"), each named for the screen reader.
+ *  says "pick one"), each named for the screen reader, then the tile of a custom color: a button,
+ *  so the arrows stay among the fixed colors and never open its popover.
  *
  *  Example: `<ProfileColorField value={draft.values.color} onChange={(color) => draft.change({ color })} />` */
 export function ProfileColorField({ value, onChange }: ProfileColorFieldProps): React.JSX.Element {
@@ -50,6 +53,7 @@ export function ProfileColorField({ value, onChange }: ProfileColorFieldProps): 
             className="size-8 border-2 border-transparent data-checked:border-foreground"
           />
         ))}
+        <CustomColorTile value={value} onPick={onChange} className="size-8" />
       </RadioGroup>
       <p id={hintId} className="text-[13px] text-placeholder">
         Pinta seu ping no mapa e suas iniciais. Sem escolha, vale a cor que o Lorkarium sorteou.

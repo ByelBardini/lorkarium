@@ -104,8 +104,13 @@ describe('effectAreaShapeDto — what is refused, citing the value', () => {
     expect(messagesOf(result).join('\n')).toMatch(message);
   });
 
+  it('a custom color is accepted and kept in lowercase', () => {
+    expect(effectAreaShapeDto.parse({ ...CIRCLE, color: '#FF0000' }).color).toBe('#ff0000');
+  });
+
   it.each([
-    ['a free hex', '#ff0000'],
+    ['a short hex', '#f00'],
+    ['a css function', 'url(x)'],
     ['a color name outside the palette', 'red'],
   ])('%s as the color is refused', (_scenario, color) => {
     expect(effectAreaShapeDto.safeParse({ ...CIRCLE, color }).success).toBe(false);

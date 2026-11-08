@@ -1,6 +1,6 @@
 # Deploy
 
-Runbook de produção: **Coolify** num VPS Linux (Traefik na frente), Postgres 17 como recurso _Database_ do Coolify, assets num bucket **S3 da AWS**, e-mail por SMTP de produção. Do zero ao ar sem abrir código. Spec §8.3, §5.7, §11 Fase 6, §12. Plano: [`docs/plans/2026-10-24-publicacao-coolify.md`](../plans/2026-10-24-publicacao-coolify.md).
+Runbook de produção: **Coolify** num VPS Linux (Traefik na frente), Postgres 17 como recurso _Database_ do Coolify, assets num bucket **S3 da AWS**, e-mail por SMTP de produção. Do zero ao ar sem abrir código. Spec §8.3, §5.7, §11 Fase 6, §12.
 
 | Sub-arquivo                      | O que tem                                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------------------------- |

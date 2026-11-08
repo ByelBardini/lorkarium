@@ -1,6 +1,6 @@
 # Chat
 
-O chat da sala: a Mesa (a mesa toda), o sussurro inline na Mesa, a conversa privada com uma pessoa e o grupo fixo. É **efêmero**, como os dados ([`dice.md`](dice.md)): não grava, não soma versão, não entra no snapshot; o histórico vive só no client, durante a visita à mesa. Os DTOs estão em [`contracts/chat.md`](contracts/chat.md). Plano de origem: `docs/plans/2026-10-27-tela-chat-da-mesa.md` (fases 2–4 = este server).
+O chat da sala: a Mesa (a mesa toda), o sussurro inline na Mesa, a conversa privada com uma pessoa e o grupo fixo. É **efêmero**, como os dados ([`dice.md`](dice.md)): não grava, não soma versão, não entra no snapshot; o histórico vive só no client, durante a visita à mesa. Os DTOs estão em [`contracts/chat.md`](contracts/chat.md).
 
 ## Regras de negócio
 
@@ -30,7 +30,7 @@ O chat da sala: a Mesa (a mesa toda), o sussurro inline na Mesa, a conversa priv
   - `chat-publisher.port.ts` — `ChatPublisherPort.sent(event, audience)`.
   - `chat.error.ts` — `ChatError` e as quatro recusas (tabela abaixo).
   - `chat.gateway.ts` — `createChatGateway` (`chat:send`); `chat.plugin.ts` — `createChatModule({ members, audience, tokens, publisher, clock, newId, realtime, rate, log })` → `{ gateway }`.
-- **Sem `chat-speaker.port.ts`** (o plano previa): o service usa a `GridAudiencePort` do `pings` (estar na sala do grid) e `Pick<TokensDao, 'findInScene'>`, como o `dice` usa `Pick<ProfilesDao, 'findById'>`. Uma porta a mais só embrulharia os dois.
+- **Sem `chat-speaker.port.ts`**: o service usa a `GridAudiencePort` do `pings` (estar na sala do grid) e `Pick<TokensDao, 'findInScene'>`, como o `dice` usa `Pick<ProfilesDao, 'findById'>`. Uma porta a mais só embrulharia os dois.
 - `server/src/app/wire-chat.ts` — `wireChat(realtime, { db, members, clock, log })`, chamado no `wireRealtime` do `build-app.ts` logo depois do `wireDice`: `SocketIoGridAudience`, `new TokensDao(db)`, `SocketIoChatPublisher`, `randomUUID` e um `CommandRateGuard` com `CHAT_RATE`.
 - `server/src/infrastructure/chat-publisher/socket-io-chat-publisher.ts` — `SocketIoChatPublisher.sent` (salas abaixo).
 

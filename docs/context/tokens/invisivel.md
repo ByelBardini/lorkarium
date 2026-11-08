@@ -1,6 +1,6 @@
 # Tokens: token invisível
 
-Detalhe do hub [`tokens.md`](../tokens.md). O mestre esconde tokens dos jogadores; o server **nunca envia** o token escondido a quem não pode vê-lo (snapshot e todo evento). Plano: `docs/plans/2026-10-24-token-invisivel.md`. Contrato: [`../contracts/tabuleiro.md`](../contracts/tabuleiro.md) (Token invisível). Client: [`../client/hidden-tokens.md`](../client/hidden-tokens.md).
+Detalhe do hub [`tokens.md`](../tokens.md). O mestre esconde tokens dos jogadores; o server **nunca envia** o token escondido a quem não pode vê-lo (snapshot e todo evento). Contrato: [`../contracts/tabuleiro.md`](../contracts/tabuleiro.md) (Token invisível). Client: [`../client/hidden-tokens.md`](../client/hidden-tokens.md).
 
 ## Quem vê
 

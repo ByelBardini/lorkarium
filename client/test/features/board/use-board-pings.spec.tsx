@@ -3,7 +3,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
 import { memberColorOf } from '@lorkarium/game-core';
-import { MEMBER_COLOR_HEX } from '@/lib/member-color';
+import { MEMBER_COLOR_HEX, memberColorNumber } from '@/lib/member-color';
 import type { OpenTable } from '@/stores/open-tables-store';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
@@ -58,10 +58,20 @@ describe('play room: pings', () => {
     expect(deps.pings.sent).toEqual([{ scope: VHARN_GRID, point: { x: 5.5, y: 2.2 } }]);
   });
 
+  it('a custom color of my account paints my ping with that hex', async () => {
+    act(() => deps.sessionStore.getState().signedIn({ ...ANA, color: '#336699' }));
+    deps.boardRenderers.latest().emit({ kind: 'pingRequested', x: 5.5, y: 2.2 });
+    await act(() => Promise.resolve());
+
+    expect(deps.boardRenderers.latest().pings).toEqual([
+      { x: 5.5, y: 2.2, label: 'Ana', color: 0x336699 },
+    ]);
+  });
+
   it("Bia's ping shows with her name and her color in the roster, and the status line announces it", () => {
     act(() => deps.tableSessionApi.emit({ kind: 'pinged', event: boardPinged() }));
 
-    const bias = { x: 5.5, y: 2.2, label: 'Bia', color: MEMBER_COLOR_HEX[BIA_AT_TABLE.color] };
+    const bias = { x: 5.5, y: 2.2, label: 'Bia', color: memberColorNumber(BIA_AT_TABLE.color) };
     expect(deps.boardRenderers.latest().pings).toEqual([bias]);
     expect(statusLine()).toHaveTextContent('Bia marcou um ponto (coluna 6, linha 3).');
   });
@@ -86,7 +96,7 @@ describe('play room: pings', () => {
         x: 5.5,
         y: 2.2,
         label: 'Alguém',
-        color: MEMBER_COLOR_HEX[memberColorOf(STRANGER_ID, null)],
+        color: memberColorNumber(memberColorOf(STRANGER_ID, null)),
       },
     ]);
     expect(statusLine()).toHaveTextContent('Alguém marcou um ponto (coluna 6, linha 3).');

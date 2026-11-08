@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paletteOrHexDto } from '../color/hex-color.dto';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { SCENE_CELLS_MAX } from './scene.dto';
 import { idGroupOf, strayExpectation, TOKEN_GROUP_MAX } from './token-id-group.dto';
@@ -10,8 +11,8 @@ export const DRAWINGS_PER_SCENE_MAX = 500;
 // Freehand points may sit this far outside their box: both are rounded to 0.01 cell.
 const BOX_TOLERANCE = 0.01;
 
-/** The eight drawing colors (bar colors plus ink, bone and violet), never a free hex. */
-export const drawingColorDto = z.enum([
+/** The eight fixed drawing colors: the bar colors plus ink, bone and violet. */
+export const DRAWING_PALETTE = [
   'gold',
   'steel',
   'ember',
@@ -20,7 +21,18 @@ export const drawingColorDto = z.enum([
   'ink',
   'bone',
   'violet',
-]);
+] as const;
+
+/** One name of the fixed palette, for the exhaustive readers.
+ *
+ *  Example: `drawingPaletteDto.parse('gold')` */
+export const drawingPaletteDto = z.enum(DRAWING_PALETTE);
+export type DrawingPaletteDto = z.infer<typeof drawingPaletteDto>;
+
+/** A drawing color: a name of the palette, which follows later tone adjustments, or a custom hex.
+ *
+ *  Example: `drawingColorDto.parse('#FFAA00') // '#ffaa00'` */
+export const drawingColorDto = paletteOrHexDto(DRAWING_PALETTE);
 export type DrawingColorDto = z.infer<typeof drawingColorDto>;
 
 export const strokeWidthDto = z.enum(['thin', 'medium', 'thick']);

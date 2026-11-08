@@ -1,4 +1,5 @@
 import { Container, Graphics, Text } from 'pixi.js';
+import { legibleInkOn } from '@/lib/color-contrast';
 import {
   CELL_WORLD_SIZE,
   worldToScreen,
@@ -19,7 +20,7 @@ const DOT_RADIUS = 6;
 const LABEL_GAP = 10;
 const EDGE_MARGIN = 24;
 const ARROW_SIZE = 14;
-// Design system tokens (client/src/index.css): dark text and outline, readable on any color.
+// Design system tokens (client/src/index.css): dark text and outline, readable on the palette.
 const INK_COLOR = 0x1b1f25;
 
 /** Makes the name plate of a ping, with (0, 0) at its bottom center. */
@@ -126,7 +127,16 @@ function arrowOf(color: number): Graphics {
     .stroke({ width: 2, color: INK_COLOR });
 }
 
-/** The real plate: the name in dark text on the ping color. Measures text, so it runs in the
+/** The ink of the name on a plate of this color: the board's dark one, or white on a custom color
+ *  too dark for it.
+ *
+ *  Example: `pingInkOn(0x101010) // 0xffffff` */
+export function pingInkOn(plate: number): number {
+  const background = `#${plate.toString(16).padStart(6, '0')}`;
+  return legibleInkOn(background) === '#ffffff' ? 0xffffff : INK_COLOR;
+}
+
+/** The real plate: the name in legible text on the ping color. Measures text, so it runs in the
  *  browser only (the spec hands the layer a fake maker). */
 export function pingLabelOf(label: string, color: number): Container {
   const text = new Text({
@@ -134,7 +144,7 @@ export function pingLabelOf(label: string, color: number): Container {
     resolution: zoomProofTextResolution(globalThis.devicePixelRatio),
     style: { fontFamily: 'Hanken Grotesk Variable, sans-serif', fontWeight: '700', fontSize: 15 },
   });
-  text.style.fill = INK_COLOR;
+  text.style.fill = pingInkOn(color);
   text.anchor.set(0.5, 1);
   text.position.set(0, -2);
   const plate = new Graphics()

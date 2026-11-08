@@ -34,6 +34,31 @@ describe('LightColorTiles', () => {
     expect(checkedNames()).toEqual([]);
   });
 
+  it('a custom #336699 checks no palette tile and marks the custom tile', () => {
+    renderTiles('#336699');
+
+    expect(checkedNames()).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Cor personalizada: #336699' })).toBeInTheDocument();
+  });
+
+  it('lights picked with different colors ("vários") offer the custom tile with no color on it', () => {
+    renderTiles(undefined);
+
+    expect(screen.getByRole('button', { name: 'Cor personalizada' })).toBeInTheDocument();
+  });
+
+  it('typing #336699 and "Usar cor" chooses the custom hex once', async () => {
+    const chosen = renderTiles(null);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cor personalizada' }));
+    const code = await screen.findByLabelText('Código da cor');
+    await userEvent.clear(code);
+    await userEvent.type(code, '#336699');
+    await userEvent.click(screen.getByRole('button', { name: 'Usar cor' }));
+
+    expect(chosen).toEqual(['#336699']);
+  });
+
   it('clicking "Neutra" from moon chooses neutral (null)', async () => {
     const chosen = renderTiles('moon');
 

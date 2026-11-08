@@ -9,7 +9,12 @@ import {
   STROKE_WIDTHS,
   type DrawingStyle,
 } from '@/lib/drawing-style';
-import { readStoredChoice, writeStoredChoice, type ChoiceStorage } from '@/lib/stored-choice';
+import {
+  readStoredChoice,
+  readStoredColor,
+  writeStoredChoice,
+  type ChoiceStorage,
+} from '@/lib/stored-choice';
 
 export type DrawingStyleStore = DrawingStyle &
   Readonly<{
@@ -79,10 +84,10 @@ function storedStyle(storage: ChoiceStorage): DrawingStyle {
   const fallback = DEFAULT_DRAWING_STYLE;
   const kinds = DRAWING_KINDS.map(({ kind }) => kind);
   const widths = STROKE_WIDTHS.map(({ width }) => width);
-  const fill = readStoredChoice(storage, KEY.fill, [...COLORS, NO_FILL], fallback.fill ?? NO_FILL);
+  const fill = readStoredColor(storage, KEY.fill, [...COLORS, NO_FILL], fallback.fill ?? NO_FILL);
   return {
     kind: readStoredChoice(storage, KEY.kind, kinds, fallback.kind),
-    stroke: readStoredChoice(storage, KEY.stroke, COLORS, fallback.stroke),
+    stroke: readStoredColor(storage, KEY.stroke, COLORS, fallback.stroke),
     fill: fill === NO_FILL ? null : fill,
     strokeWidth: readStoredChoice(storage, KEY.strokeWidth, widths, fallback.strokeWidth),
   };

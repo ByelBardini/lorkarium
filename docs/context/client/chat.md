@@ -1,6 +1,6 @@
 # Client — chat da mesa
 
-Índice: [`../client.md`](../client.md). Contrato (`chat:send`, `chat:sent`, limites): [`../contracts/chat.md`](../contracts/chat.md). Plano: `docs/plans/2026-10-27-tela-chat-da-mesa.md` (rede, store, conta pura e tela implementadas; janela em [`chat-janela.md`](chat-janela.md)).
+Índice: [`../client.md`](../client.md). Contrato (`chat:send`, `chat:sent`, limites): [`../contracts/chat.md`](../contracts/chat.md). A janela está em [`chat-janela.md`](chat-janela.md).
 
 Nada é gravado no server: o histórico vive só no client, por mesa aberta, no `sessionStorage` (como as rolagens). Quem chega depois começa vazio.
 

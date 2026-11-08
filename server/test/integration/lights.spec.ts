@@ -75,7 +75,7 @@ describe('map lights over Socket.IO', () => {
     expect((await synced(again, live.vharn)).lights.map(({ color }) => color)).toEqual(['arcane']);
   });
 
-  it('a light with a hex color is INVALID_BODY and no one hears an event', async () => {
+  it('a light with a short hex color is INVALID_BODY and no one hears an event', async () => {
     const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
     const ana = await live.atTable(live.ana, live.vharn);
 
@@ -202,6 +202,102 @@ describe('map lights over Socket.IO', () => {
     expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
     await silence();
     expect(ana.events.map(({ name }) => name)).not.toContain('light:colorsChanged');
+  });
+
+  describe('a custom color', () => {
+    const CUSTOM = '#336699';
+
+    async function paintedTorch(ana: RealtimeClient): Promise<LightDto> {
+      const torch = await createdBy(ana, live.vharn.id);
+      await send(ana, 'light:setColorMany', {
+        ...envelope(live.vharn.id),
+        changes: [{ lightId: torch.id, color: CUSTOM }],
+      });
+      return { ...torch, color: CUSTOM };
+    }
+
+    it('a light created with it reaches Bia with the hex', async () => {
+      const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+      const ana = await live.atTable(live.ana, live.vharn);
+
+      await send(
+        ana,
+        'light:createMany',
+        createOn(live.vharn.id, [{ ...WALL_TORCH, color: CUSTOM }]),
+      );
+
+      expect((await createdOf(bia)).map(({ color }) => color)).toEqual([CUSTOM]);
+    });
+
+    it('light:setColorMany in uppercase reaches the three in lowercase, with the version', async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+      const caio = recordEventsOf(await live.atTable(live.caio, live.vharn));
+      const torch = await createdBy(ana.client, live.vharn.id);
+
+      const ack = await send(ana.client, 'light:setColorMany', {
+        ...envelope(live.vharn.id),
+        changes: [{ lightId: torch.id, color: '#AABBCC' }],
+      });
+
+      expect(ack).toEqual({ ok: true, version: 2 });
+      for (const recorder of [ana, bia, caio]) {
+        expect(await eventPayload(recorder, 'light:colorsChanged')).toMatchObject({
+          version: 2,
+          changes: [{ lightId: torch.id, color: '#aabbcc' }],
+        });
+      }
+    });
+
+    it('the sync keeps it and it survives a restart', async () => {
+      const ana = await live.atTable(live.ana, live.vharn);
+      const painted = await paintedTorch(ana);
+      const bia = await live.atTable(live.bia, live.vharn);
+      expect((await synced(bia, live.vharn)).lights).toEqual([painted]);
+
+      await live.restart();
+
+      const again = await live.atTable(live.bia, live.vharn);
+      expect((await synced(again, live.vharn)).lights).toEqual([painted]);
+    });
+
+    it('does not reach another table: Quelm hears nothing and its sync has no light', async () => {
+      const caio = recordEventsOf(await live.atTable(live.caio, live.quelm));
+      const ana = await live.atTable(live.ana, live.vharn);
+
+      await paintedTorch(ana);
+
+      await silence();
+      expect(caio.events.map(({ name }) => name)).not.toContain('light:colorsChanged');
+      expect((await synced(caio.client, live.quelm)).lights).toEqual([]);
+    });
+
+    it('an undo expecting the hex passes, and expecting another one is STALE_UNDO', async () => {
+      const ana = await live.atTable(live.ana, live.vharn);
+      const { id: lightId } = await paintedTorch(ana);
+      const undo = (expected: string): object => ({
+        ...envelope(live.vharn.id),
+        changes: [{ lightId, color: null, expect: { color: expected } }],
+      });
+
+      const stale = await send(ana, 'light:setColorMany', undo('#336698'));
+      const fresh = await send(ana, 'light:setColorMany', undo(CUSTOM));
+
+      expect(stale).toEqual({ ok: false, error: expect.objectContaining({ code: 'STALE_UNDO' }) });
+      expect(fresh).toEqual({ ok: true, version: 3 });
+    });
+
+    it.each(['red', '#fff', 'url(x)'])('%s is INVALID_BODY', async (color) => {
+      const ana = await live.atTable(live.ana, live.vharn);
+      const torch = await createdBy(ana, live.vharn.id);
+
+      const ack = await send(ana, 'light:setColorMany', {
+        ...envelope(live.vharn.id),
+        changes: [{ lightId: torch.id, color }],
+      });
+
+      expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'INVALID_BODY' }) });
+    });
   });
 
   it('a light of Quelm in a color command of Vharn is LIGHT_NOT_FOUND', async () => {

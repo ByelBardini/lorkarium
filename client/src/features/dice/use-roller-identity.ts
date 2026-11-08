@@ -1,4 +1,5 @@
-import { memberColorOf, type MemberColor } from '@lorkarium/game-core';
+import type { MemberColorDto } from '@lorkarium/contracts';
+import { memberColorOf } from '@lorkarium/game-core';
 import type { StoreApi } from 'zustand/vanilla';
 import {
   createTablePresenceStore,
@@ -10,7 +11,7 @@ import { UNKNOWN_ROLLER } from './dice-messages';
 /** Who rolled, as the history and the notice draw them: the name and the avatar. */
 export type RollerIdentity = Readonly<{
   name: string;
-  color: MemberColor;
+  color: MemberColorDto;
   avatarId: string | null;
 }>;
 

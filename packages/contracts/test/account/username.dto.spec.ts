@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { memberColorDto, usernameDto } from '../../src/account/username.dto';
+import { memberColorDto, memberPaletteDto, usernameDto } from '../../src/account/username.dto';
 
 function messagesOf(input: unknown): string[] {
   const result = usernameDto.safeParse(input);
@@ -37,9 +37,9 @@ describe('usernameDto', () => {
   });
 });
 
-describe('memberColorDto', () => {
+describe('memberPaletteDto', () => {
   it('lists the 8 names in the order of the ping palette', () => {
-    expect(memberColorDto.options).toEqual([
+    expect(memberPaletteDto.options).toEqual([
       'gold',
       'steel',
       'ember',
@@ -52,6 +52,20 @@ describe('memberColorDto', () => {
   });
 
   it('a hex instead of a name is refused', () => {
-    expect(memberColorDto.safeParse('#e0b25c').success).toBe(false);
+    expect(memberPaletteDto.safeParse('#e0b25c').success).toBe(false);
+  });
+});
+
+describe('memberColorDto', () => {
+  it('a name of the palette stays a name', () => {
+    expect(memberColorDto.parse('rose')).toBe('rose');
+  });
+
+  it('a custom color is accepted in lowercase', () => {
+    expect(memberColorDto.parse('#FFAA00')).toBe('#ffaa00');
+  });
+
+  it.each(['red', '#fff', 'url(x)', ''])('%j is refused', (color) => {
+    expect(memberColorDto.safeParse(color).success).toBe(false);
   });
 });

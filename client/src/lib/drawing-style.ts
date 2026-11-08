@@ -1,4 +1,9 @@
-import type { DrawingColorDto, StrokeWidthDto } from '@lorkarium/contracts';
+import {
+  isHexColor,
+  type DrawingColorDto,
+  type DrawingPaletteDto,
+  type StrokeWidthDto,
+} from '@lorkarium/contracts';
 import type { DrawingKind } from './drawing-geometry';
 
 /** How the next drawing looks: its shape, stroke, fill (`null` = none) and line width. */
@@ -19,7 +24,7 @@ export const DEFAULT_DRAWING_STYLE: DrawingStyle = {
 /** The palette in order, with its name and color: the five bar colors of the design system
  *  (`chart-1..4` and ash) plus ink, bone and violet. Hex because the canvas cannot read CSS. */
 export const DRAWING_COLORS: ReadonlyArray<
-  Readonly<{ color: DrawingColorDto; label: string; hex: string }>
+  Readonly<{ color: DrawingPaletteDto; label: string; hex: string }>
 > = [
   { color: 'gold', label: 'Ouro', hex: '#c5a46d' },
   { color: 'steel', label: 'Aço', hex: '#8a9bb8' },
@@ -50,8 +55,20 @@ export const STROKE_WIDTHS: ReadonlyArray<
  *
  *  Example: `drawingColorValue('gold') // 0xc5a46d` */
 export function drawingColorValue(color: DrawingColorDto): number {
-  const hex = DRAWING_COLORS.find((entry) => entry.color === color)?.hex ?? '#c5a46d';
+  const hex = isHexColor(color) ? color : paletteHexOf(color);
   return Number.parseInt(hex.slice(1), 16);
+}
+
+function paletteHexOf(color: DrawingPaletteDto): string {
+  return DRAWING_COLORS.find((entry) => entry.color === color)?.hex ?? '#c5a46d';
+}
+
+/** The color as it is read aloud: the pt-BR name of the palette, or the hex of a custom one.
+ *
+ *  Example: `drawingColorLabel('#336699') // 'Cor personalizada #336699'` */
+export function drawingColorLabel(color: DrawingColorDto): string {
+  if (isHexColor(color)) return `Cor personalizada ${color}`;
+  return DRAWING_COLORS.find((entry) => entry.color === color)?.label ?? color;
 }
 
 /** The line width in world px (it scales with the zoom, like the rest of the map).

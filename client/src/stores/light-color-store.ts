@@ -1,7 +1,7 @@
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { LIGHT_COLOR_TONES, type LightColor } from '@/lib/light-color';
-import { readStoredChoice, writeStoredChoice, type ChoiceStorage } from '@/lib/stored-choice';
+import { readStoredColor, writeStoredChoice, type ChoiceStorage } from '@/lib/stored-choice';
 
 export type LightColorStore = Readonly<{
   color: LightColor;
@@ -10,10 +10,10 @@ export type LightColorStore = Readonly<{
 
 const KEY = 'lorkarium.lightColor';
 // The storage keeps strings: the neutral light is remembered by a word of its own.
-const NEUTRAL = 'none';
+const NEUTRAL = 'none' as const;
 
-/** The color of the next map light, remembered in the browser; a stored value outside the
- *  palette (or a storage that throws) starts neutral.
+/** The color of the next map light, remembered in the browser; a stored value that is neither a
+ *  palette name nor a custom hex (or a storage that throws) starts neutral.
  *
  *  Example: `createLightColorStore(window.localStorage).getState().setColor('moon')` */
 export function createLightColorStore(storage: ChoiceStorage): StoreApi<LightColorStore> {
@@ -37,7 +37,7 @@ export function useLightColor<T>(
 }
 
 function storedColor(storage: ChoiceStorage): LightColor {
-  const choices = [NEUTRAL, ...LIGHT_COLOR_TONES.map(({ color }) => color)];
-  const stored = readStoredChoice(storage, KEY, choices, NEUTRAL);
-  return LIGHT_COLOR_TONES.find(({ color }) => color === stored)?.color ?? null;
+  const names = [NEUTRAL, ...LIGHT_COLOR_TONES.map(({ color }) => color)];
+  const stored = readStoredColor(storage, KEY, names, NEUTRAL);
+  return stored === NEUTRAL ? null : stored;
 }

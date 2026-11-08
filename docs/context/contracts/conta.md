@@ -5,13 +5,13 @@ Hub: [`../contracts.md`](../contracts.md). DTOs de `packages/contracts/src/accou
 ## @ e cor (`username.dto.ts`)
 
 - `usernameDto` — o @: `trim` + minúsculas antes de validar; `USERNAME_MIN_LENGTH` 3 a `USERNAME_MAX_LENGTH` 20; só `a-z 0-9 . _`. As mensagens citam o valor e o tamanho ("expected 3 to 20 characters") ou o formato ("expected only a-z 0-9 . _"). Tipo `UsernameDto`.
-- `MEMBER_COLOR_NAMES` / `memberColorDto` / `MemberColorDto` — `gold`, `steel`, `ember`, `moss`, `violet`, `rose`, `teal`, `bone`. **Repete** o `MEMBER_COLORS` do game-core na mesma ordem (o contracts só depende do `zod`); um spec de cada lado prende a ordem. O hex é só do client.
+- `MEMBER_COLOR_NAMES` / `memberPaletteDto` / `MemberPaletteDto` (só os nomes, para os leitores exaustivos) e `memberColorDto` / `MemberColorDto` (a união `paletteOrHexDto`: nome ou `#rrggbb`, em minúsculas) — `gold`, `steel`, `ember`, `moss`, `violet`, `rose`, `teal`, `bone`. O `memberColorDto` é o tipo de todo campo que atravessa a rede (perfil, `/me`, roster, detalhe da mesa, aparência do dado, backoffice). **Repete** o `MEMBER_COLORS` do game-core na mesma ordem (o contracts só depende do `zod`); um spec de cada lado prende a ordem. O hex é só do client.
 
 ## Perfil (`profile.dto.ts`)
 
 - `PROFILE_NAME_MAX_LENGTH` (32), `PROFILE_BIO_MAX_LENGTH` (190); `profileNameDto` (aparado, 1–32) e `profileBioDto` (aparada, até 190, `''` → `null`, aceita `null`).
 - `profileDto` `{ id, username, name, color (efetiva), colorChoice (null = automática), bio | null, avatarId (uuid | null), diceTextureId (uuid | null = a cor do perfil), diceNumberColor (`#rrggbb` | null = contraste automático), memberSince (ISO) }` e `profileResponseDto` `{ profile }` (GET/PATCH do perfil e as rotas da foto e da textura).
-- `updateProfileRequestDto` `{ name?, color? (null volta à automática), bio?, diceNumberColor? (`diceNumberColorDto` ou null) }`: estrito (um `username` é recusado: o @ é imutável) e `{}` recusado com "expected at least one of name, color, bio, diceNumberColor" (`refine`, caminho vazio). Tipos `UpdateProfileRequestDto` / `UpdateProfileRequestInput`.
+- `updateProfileRequestDto` `{ name?, color? (nome da paleta, `#rrggbb` ou null, que volta à automática), bio?, diceNumberColor? (`diceNumberColorDto` ou null) }`: estrito (um `username` é recusado: o @ é imutável) e `{}` recusado com "expected at least one of name, color, bio, diceNumberColor" (`refine`, caminho vazio). Tipos `UpdateProfileRequestDto` / `UpdateProfileRequestInput`.
 
 ## Foto (`avatar.dto.ts`)
 
@@ -22,8 +22,15 @@ Hub: [`../contracts.md`](../contracts.md). DTOs de `packages/contracts/src/accou
 ## Textura do dado (`dice-texture.dto.ts`)
 
 - `DICE_TEXTURE_SIDE` (512: o server corta o centro num WebP 512 × 512 **parado**; o GIF fica com o primeiro quadro). Tamanho e tipos de entrada são os da foto (`AVATAR_MAX_BYTES`, `AVATAR_MIME_TYPES`).
-- `diceNumberColorDto` — a cor do número: aparada, em minúsculas antes de validar (`'#FFAA00'` → `'#ffaa00'`), só `#rrggbb`; a recusa cita o valor e "expected #rrggbb". Mora aqui (e não em `dice/`) porque o perfil a usa; o `diceAppearanceDto` de `dice/dice.dto.ts` a importa.
+- `diceNumberColorDto` — a cor do número: é o `hexColorDto` (`color/hex-color.dto.ts`). Mora aqui (e não em `dice/`) porque o perfil a usa; o `diceAppearanceDto` de `dice/dice.dto.ts` a importa.
 - `diceTextureLinkRequestDto` (= `avatarLinkRequestDto`, `{ url }`) — corpo de `POST /api/account/dice-texture/link`; `diceTextureParamsDto` `{ diceTextureId: uuid }` — params de `GET /api/dice-textures/:diceTextureId`.
+
+## Cores salvas (`saved-colors.dto.ts`)
+
+- `SAVED_COLORS_MAX` (24 por conta) e `SAVED_COLORS_LIMIT_CODE` (`'SAVED_COLORS_LIMIT'`, o 409 de salvar no limite).
+- `saveColorRequestDto` `{ color: hexColorDto }` — corpo de `POST /api/account/saved-colors`, estrito (um `userId` é recusado).
+- `savedColorParamsDto` `{ color }` — params de `DELETE /api/account/saved-colors/:color`: o hex **sem `#`** (na URL, `#` é fragmento), em qualquer caixa; sai como `#rrggbb` (`'aabbcc'` → `'#aabbcc'`). `'#aabbcc'` e `'xyz123'` são recusados citando o valor e "expected rrggbb".
+- `savedColorsResponseDto` `{ colors: HexColorDto[] }` (até 24) — resposta das três rotas, mais recente primeiro. Módulo em [`../saved-colors.md`](../saved-colors.md).
 
 ## Segurança (`account-security.dto.ts`)
 

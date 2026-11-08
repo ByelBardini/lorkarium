@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { recordEventsOf, type EventRecorder } from '../support/realtime-client';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
+import type { Table } from '../support/tables';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
+
+const CUSTOM_BAR = {
+  label: 'Fé',
+  current: 3,
+  max: 5,
+  color: '#336699',
+  visibility: 'everyone',
+} as const;
+
+function customBarCommand(table: Table, controllerId: string): object {
+  return tokenCommandFor(table, controllerId, { bars: [CUSTOM_BAR] });
+}
 
 describe('tokens over Socket.IO', () => {
   const live = useTokenTable();
@@ -26,6 +39,31 @@ describe('tokens over Socket.IO', () => {
     expect(forCaio.bars.map(({ label, position }) => [label, position])).toEqual([
       ['Inspiração', 1],
     ]);
+  });
+
+  it('a bar with a custom color reaches the other client, the sync and survives a restart', async () => {
+    const master = await live.atTable(live.ana, live.vharn);
+    const caio = recordEventsOf(await live.atTable(live.caio, live.vharn));
+
+    await send(master, 'token:create', customBarCommand(live.vharn, live.bia.id));
+
+    const created = await createdTokenOf(caio);
+    expect(created.bars.map(({ color }) => color)).toEqual(['#336699']);
+    await live.restart();
+    const state = await synced(await live.atTable(live.caio, live.vharn), live.vharn);
+    expect(state.tokens[0]?.bars.map(({ color }) => color)).toEqual(['#336699']);
+  });
+
+  it('a token with a custom bar on Quelm is not in the snapshot of Vharn', async () => {
+    const caio = await live.atTable(live.caio, live.quelm);
+    expect(await send(caio, 'token:create', customBarCommand(live.quelm, live.caio.id))).toEqual({
+      ok: true,
+      version: 1,
+    });
+
+    const ana = await live.atTable(live.ana, live.vharn);
+
+    expect((await synced(ana, live.vharn)).tokens).toEqual([]);
   });
 
   it('Bia moving Lyra reaches the three of them as token:moved one version later', async () => {

@@ -1,5 +1,7 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   integer,
   pgEnum,
   pgTable,
@@ -22,43 +24,50 @@ export const campaignStatus = pgEnum('campaign_status', [
   'finished',
 ]);
 
-export const campaigns = pgTable('campaigns', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  ownerId: uuid('owner_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  system: text('system'),
-  status: campaignStatus('status').notNull().default('building'),
-  description: text('description'),
-  visibility: campaignVisibility('visibility').notNull().default('private'),
-  // Canonical form (no hyphen, uppercase); the client formats it for display.
-  joinCode: text('join_code').notNull().unique(),
-  // Argon2id hash; `null` = the campaign asks for no password.
-  passwordHash: text('password_hash'),
-  // One scene per campaign for now; several scenes only change which one this points to.
-  activeSceneId: uuid('active_scene_id').references((): AnyPgColumn => scenes.id, {
-    onDelete: 'set null',
-  }),
-  // A drawn cover is the pair; both null = never chosen (the mapper draws `defaultCoverOf`).
-  coverDrawing: smallint('cover_drawing'),
-  coverTone: smallint('cover_tone'),
-  // An image cover wins over the drawn one; a deleted asset falls back to the drawing.
-  coverAssetId: uuid('cover_asset_id').references((): AnyPgColumn => assets.id, {
-    onDelete: 'set null',
-  }),
-  // Only the values of the contract's `contentWarningDto`; the mapper reads them back through it.
-  contentWarnings: text('content_warnings').array().notNull().default([]),
-  tags: text('tags').array().notNull().default([]),
-  // Table settings read on every token command: turning one off counts from the next command on.
-  playersCreateTokens: boolean('players_create_tokens').notNull().default(false),
-  playersDeleteTokens: boolean('players_delete_tokens').notNull().default(false),
-  // The version of the table's characters: every character:* event counts it, apart from the
-  // version of each grid (spec §5.5).
-  charactersVersion: integer('characters_version').notNull().default(0),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const campaigns = pgTable(
+  'campaigns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    system: text('system'),
+    status: campaignStatus('status').notNull().default('building'),
+    description: text('description'),
+    visibility: campaignVisibility('visibility').notNull().default('private'),
+    // Canonical form (no hyphen, uppercase); the client formats it for display.
+    joinCode: text('join_code').notNull().unique(),
+    // Argon2id hash; `null` = the campaign asks for no password.
+    passwordHash: text('password_hash'),
+    // One scene per campaign for now; several scenes only change which one this points to.
+    activeSceneId: uuid('active_scene_id').references((): AnyPgColumn => scenes.id, {
+      onDelete: 'set null',
+    }),
+    // A drawn cover is the pair; both null = never chosen (the mapper draws `defaultCoverOf`).
+    coverDrawing: smallint('cover_drawing'),
+    // The digit of a `chart-1..4` tone or a custom hex; the mapper turns the digit back into a number.
+    coverTone: text('cover_tone'),
+    // An image cover wins over the drawn one; a deleted asset falls back to the drawing.
+    coverAssetId: uuid('cover_asset_id').references((): AnyPgColumn => assets.id, {
+      onDelete: 'set null',
+    }),
+    // Only the values of the contract's `contentWarningDto`; the mapper reads them back through it.
+    contentWarnings: text('content_warnings').array().notNull().default([]),
+    tags: text('tags').array().notNull().default([]),
+    // Table settings read on every token command: turning one off counts from the next command on.
+    playersCreateTokens: boolean('players_create_tokens').notNull().default(false),
+    playersDeleteTokens: boolean('players_delete_tokens').notNull().default(false),
+    // The version of the table's characters: every character:* event counts it, apart from the
+    // version of each grid (spec §5.5).
+    charactersVersion: integer('characters_version').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('campaigns_cover_tone_value', sql`${table.coverTone} ~ '^([1-4]|#[0-9a-f]{6})$'`),
+  ],
+);
 
 export type CampaignPo = typeof campaigns.$inferSelect;
 export type NewCampaignPo = typeof campaigns.$inferInsert;

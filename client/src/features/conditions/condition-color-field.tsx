@@ -1,22 +1,31 @@
 import {
   CONDITION_COLORS,
+  isHexColor,
   type ConditionColorDto,
   type ConditionToneDto,
+  type HexColorDto,
 } from '@lorkarium/contracts';
 import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 import { useId } from 'react';
+import { CustomColorTile } from '@/components/color-picker/custom-color-tile';
 import { CONDITION_COLOR_ENTRIES, conditionColorOf } from '@/lib/condition-colors';
 import { cn } from '@/lib/utils';
 
 // Radix values are strings: the tone's swatch needs one no palette key takes.
 const BY_TONE = 'tone';
 const BY_TONE_LABEL = 'Pela natureza';
+// A custom color checks no swatch: Radix reads an empty value as nothing checked.
+const NO_SWATCH = '';
+// `--card` in client/src/index.css, where a condition's mark and tag are read.
+const CARD_COLOR: HexColorDto = '#15181d';
 
 type ColorSwatch = Readonly<{ value: string; label: string; style: React.CSSProperties }>;
 
 /** "Cor" of a condition: round swatches (the radio is the one round shape the design system
  *  keeps), "Pela natureza" first — the tone's color, dashed so it reads as "not a pick" — then the
- *  palette. Arrows move the pick; the chosen one is also named in text, never by color alone.
+ *  palette and the custom color tile, which warns about a color that reads badly on the card
+ *  without refusing it. Arrows move the pick among the swatches; the chosen one is also named in
+ *  text, never by color alone.
  *
  *  Example: `<ConditionColorField value={color} tone={tone} onChange={setColor} />` */
 export function ConditionColorField({
@@ -39,7 +48,7 @@ export function ConditionColorField({
       </legend>
       <RadioGroupPrimitive.Root
         aria-labelledby={legendId}
-        value={value ?? BY_TONE}
+        value={swatchValueOf(value)}
         orientation="horizontal"
         onValueChange={(next) => onChange(colorOfValue(next))}
         className="flex flex-wrap justify-center gap-2.5 p-0.5"
@@ -47,6 +56,12 @@ export function ConditionColorField({
         {swatchesOf(tone).map((swatch) => (
           <SwatchItem key={swatch.value} swatch={swatch} />
         ))}
+        <CustomColorTile
+          value={value}
+          onPick={onChange}
+          legibleOn={CARD_COLOR}
+          className="size-6 ring-offset-background"
+        />
       </RadioGroupPrimitive.Root>
     </fieldset>
   );
@@ -83,10 +98,16 @@ function swatchesOf(tone: ConditionToneDto): ColorSwatch[] {
   return [byTone, ...palette];
 }
 
+function swatchValueOf(value: ConditionColorDto | null): string {
+  if (value === null) return BY_TONE;
+  return isHexColor(value) ? NO_SWATCH : value;
+}
+
 function colorOfValue(value: string): ConditionColorDto | null {
   return CONDITION_COLORS.find((color) => color === value) ?? null;
 }
 
 function chosenLabelOf(value: ConditionColorDto | null): string {
-  return value === null ? BY_TONE_LABEL : CONDITION_COLOR_ENTRIES[value].label;
+  if (value === null) return BY_TONE_LABEL;
+  return isHexColor(value) ? value : CONDITION_COLOR_ENTRIES[value].label;
 }

@@ -2,7 +2,7 @@ import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import type { PingMark } from '@/renderer/board-renderer';
-import { PixiPingLayer } from '@/renderer/pixi-ping-layer';
+import { PixiPingLayer, pingInkOn } from '@/renderer/pixi-ping-layer';
 
 const FRAME = { camera: { offsetX: 0, offsetY: 0, zoom: 1 }, screen: { width: 800, height: 600 } };
 
@@ -24,6 +24,16 @@ function layerWith(reducedMotion = false) {
   const labels = new PingLabelFake();
   return { layer: new PixiPingLayer(() => reducedMotion, labels.make), labels };
 }
+
+describe('pingInkOn', () => {
+  it('a light plate keeps the dark ink of the board', () => {
+    expect(pingInkOn(0xe0b25c)).toBe(0x1b1f25);
+  });
+
+  it('a dark custom plate takes the white ink', () => {
+    expect(pingInkOn(0x101010)).toBe(0xffffff);
+  });
+});
 
 describe('PixiPingLayer', () => {
   it('a shown ping is alive, at its point in world px, with its name plate', () => {

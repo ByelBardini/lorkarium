@@ -18,4 +18,4 @@ O rodapé da aba Combate com a ficha de um token: o selecionado ou, sem seleçã
 
 ## Sem token principal
 
-- O `token:setMain`, o `token:mainChanged`, o `mainTokens` do board e o item "Tornar principal" saíram do client (Fase 13 do plano do personagem): o "principal" é só o token do personagem no grid aberto (`mainTokenIdOf`).
+- O `token:setMain`, o `token:mainChanged`, o `mainTokens` do board e o item "Tornar principal" não existem no client: o "principal" é só o token do personagem no grid aberto (`mainTokenIdOf`).

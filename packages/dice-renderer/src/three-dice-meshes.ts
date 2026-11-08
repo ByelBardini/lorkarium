@@ -1,5 +1,5 @@
 import type * as Three from 'three';
-import type { DieKind, MemberColor } from '@lorkarium/game-core';
+import type { DieKind } from '@lorkarium/game-core';
 import type { DiceAppearanceDto } from '@lorkarium/contracts';
 import { dieGeometryOf, type DieLabel } from './die-geometry';
 import { labelRightOf } from './dice-stage';
@@ -9,10 +9,10 @@ export type ThreeModule = typeof Three;
 /** How the roller's appearance becomes colors and images. Injected because the palette and
  *  the texture address belong to the page hosting the dice (the app, the landing).
  *
- *  Example: `{ colorHex: MEMBER_COLOR_HEX, numberColorOf: diceNumberColorOf, textureUrlOf: diceTextureUrlOf }` */
+ *  Example: `{ colorHex: memberColorNumber, numberColorOf: diceNumberColorOf, textureUrlOf: diceTextureUrlOf }` */
 export interface DiceLook {
-  /** The `0xrrggbb` of each profile color the page may receive. */
-  readonly colorHex: Readonly<Partial<Record<MemberColor, number>>>;
+  /** The `0xrrggbb` of a profile color, a name or a custom hex; `undefined` if the page has none. */
+  readonly colorHex: (color: DiceAppearanceDto['color']) => number | undefined;
   /** The `#rrggbb` of the numbers for an appearance. */
   readonly numberColorOf: (appearance: DiceAppearanceDto) => string;
   /** Where an uploaded texture is fetched from. */
@@ -134,11 +134,11 @@ export class ThreeDiceMeshes {
     return geometry;
   }
 
-  private colorHexOf(color: MemberColor, kinds: readonly DieKind[]): number {
-    const hex = this.look.colorHex[color];
+  private colorHexOf(color: DiceAppearanceDto['color'], kinds: readonly DieKind[]): number {
+    const hex = this.look.colorHex(color);
     if (hex !== undefined) return hex;
     throw new RangeError(
-      `Dice color "${color}" of ${kinds.join(', ')} has no hex in the look: expected colorHex.${color} = 0xrrggbb.`,
+      `Dice color "${color}" of ${kinds.join(', ')} has no hex in the look: expected colorHex("${color}") to return 0xrrggbb.`,
     );
   }
 

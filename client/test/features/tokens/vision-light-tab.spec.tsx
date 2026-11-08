@@ -146,6 +146,30 @@ describe('VisionLightTab, "Cor da luz"', () => {
 
     expect(screen.getByRole('status', { name: 'cor' })).toHaveTextContent('fire');
   });
+
+  const LIT = { bright: 4, dim: 4, angle: 360 };
+
+  it('#336699 and "Usar cor" turn the color of the form to the hex', async () => {
+    render(<Recorder initial={tokenFormOf(lyra({ light: { ...LIT, color: null } }), METERS)} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cor personalizada' }));
+    const code = await screen.findByLabelText('Código da cor');
+    await userEvent.clear(code);
+    await userEvent.type(code, '#336699');
+    await userEvent.click(screen.getByRole('button', { name: 'Usar cor' }));
+
+    expect(screen.getByRole('status', { name: 'cor' })).toHaveTextContent('#336699');
+  });
+
+  it('a token of #336699 opens marking the custom tile, and "Neutra" clears it', async () => {
+    const hexLight = lyra({ light: { ...LIT, color: '#336699' } });
+    render(<Recorder initial={tokenFormOf(hexLight, METERS)} />);
+
+    expect(screen.getByRole('button', { name: 'Cor personalizada: #336699' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'Neutra' }));
+
+    expect(screen.getByRole('status', { name: 'cor' })).toHaveTextContent('null');
+  });
 });
 
 describe('VisionLightTab, the unit', () => {

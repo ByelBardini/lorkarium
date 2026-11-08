@@ -1,6 +1,6 @@
 # Site (landing)
 
-A landing comercial do Lorkarium: um site estático em `site/` (`@lorkarium/site`) que apresenta o produto e leva a uma ação, **baixar o instalador para Windows**. Não fala com o server do app: sem sessão, sem Socket.IO. O app web segue no domínio `mesa.`; a landing fica no domínio raiz. Plano de origem: `docs/plans/2026-10-25-tela-landing-download.md`. Deploy: [`deploy.md`](deploy.md) (Landing); CI: [`ci.md`](ci.md).
+A landing comercial do Lorkarium: um site estático em `site/` (`@lorkarium/site`) que apresenta o produto e leva a uma ação, **baixar o instalador para Windows**. Não fala com o server do app: sem sessão, sem Socket.IO. O app web segue no domínio `mesa.`; a landing fica no domínio raiz. Deploy: [`deploy.md`](deploy.md) (Landing); CI: [`ci.md`](ci.md).
 
 ## Stack e comandos
 
@@ -13,7 +13,7 @@ A landing comercial do Lorkarium: um site estático em `site/` (`@lorkarium/site
 
 ## Direção visual
 
-Aprovada na prancha [`docs/plans/assets/2026-10-31-landing-prancha.html`](../plans/assets/2026-10-31-landing-prancha.html) (o cabeçalho dela guarda medidas e ritmo). Ideia que se repete: **a mesa de campanha** — o grid do tabuleiro e os três cristais da logo voltam em todo ato, e a página conta uma noite de jogo em atos.
+Ideia que se repete: **a mesa de campanha** — o grid do tabuleiro e os três cristais da logo voltam em todo ato, e a página conta uma noite de jogo em atos.
 
 - **Tipografia:** manchetes e títulos de ato em Cinzel 700 **caixa alta**; Cormorant itálico só como apoio (um trecho em ouro no parágrafo); corpo em Hanken.
 - **Cor:** a brasa (`ember`) é a cor quente das manchetes; o **ouro fica para a ação** (Baixar) e para detalhes (numeral do ato, traço, anel da vez). Nenhuma cor nova na marca.

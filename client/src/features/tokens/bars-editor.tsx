@@ -1,4 +1,4 @@
-import { MAX_BARS_PER_TOKEN, type BarColorDto } from '@lorkarium/contracts';
+import { BAR_PALETTE, MAX_BARS_PER_TOKEN, type BarPaletteDto } from '@lorkarium/contracts';
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -10,7 +10,8 @@ import {
 import { useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { StyleTileGroup, type StyleTile } from '@/features/drawings/style-tile-group';
+import { PaletteColorField } from '@/features/drawings/palette-color-field';
+import type { StyleTile } from '@/features/drawings/style-tile-group';
 import { BAR_COLOR_LABEL, barFill, barToneVar, formatBarValue } from '@/lib/bar-display';
 import { digitsOnly } from '@/lib/numeric-text';
 import { BarTrack } from './bar-track';
@@ -30,9 +31,7 @@ export type BarsEditorProps = Readonly<{
   onChange: (bars: readonly BarFormValues[]) => void;
 }>;
 
-const BAR_COLOR_TILES: readonly StyleTile<BarColorDto>[] = (
-  ['gold', 'steel', 'ember', 'moss', 'ash'] as const
-).map((color) => ({
+const BAR_COLOR_TILES: readonly StyleTile<BarPaletteDto>[] = BAR_PALETTE.map((color) => ({
   value: color,
   label: BAR_COLOR_LABEL[color],
   picture: (
@@ -45,7 +44,7 @@ const BAR_COLOR_TILES: readonly StyleTile<BarColorDto>[] = (
 }));
 
 /** "Barras" of the token dialog: one block per bar (↑↓, its color, label, max, "No token" on the
- *  first, the five colors, who sees the numbers, number or percent, and a sample), "Nova barra"
+ *  first, the five colors and the custom tile, who sees the numbers, number or percent, and a sample), "Nova barra"
  *  and the suggestions that add one bar at a time, up to `MAX_BARS_PER_TOKEN`. The current values
  *  are adjusted on the token card.
  *
@@ -291,12 +290,11 @@ function BarLook({ bar, name, onChange }: BarLookProps): React.JSX.Element {
   const VisibilityIcon = bar.visibility === 'everyone' ? EyeIcon : LockIcon;
   return (
     <div className="flex flex-wrap items-center gap-2.5 sm:pl-9">
-      <StyleTileGroup
+      <PaletteColorField
         legend={`Cor de ${name}`}
         legendHidden
         value={bar.color}
         tiles={BAR_COLOR_TILES}
-        shape="round"
         onChange={(color) => onChange({ ...bar, color })}
       />
       <Button

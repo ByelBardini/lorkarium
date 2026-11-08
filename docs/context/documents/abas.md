@@ -1,6 +1,6 @@
 # Documentos — abas
 
-Hub: [../documents.md](../documents.md). Plano: [documentos com abas e fichas](../../plans/2026-10-31-documentos-com-abas-e-fichas.md), Parte A.
+Hub: [../documents.md](../documents.md).
 
 ## Tabela (`0070_document_tabs`)
 

@@ -582,6 +582,55 @@
       "when": 1794115014156,
       "tag": "0082_token_patrols",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1794155538307,
+      "tag": "0083_saved_colors",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1794155734563,
+      "tag": "0084_drawing_colors_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1794156200855,
+      "tag": "0085_bar_colors_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1794156241550,
+      "tag": "0086_condition_colors_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1794156259359,
+      "tag": "0087_cover_tone_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1794156317285,
+      "tag": "0088_light_colors_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1794156355795,
+      "tag": "0089_member_colors_text",
+      "breakpoints": true
     }
   ]
 }

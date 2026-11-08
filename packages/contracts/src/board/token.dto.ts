@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paletteOrHexDto } from '../color/hex-color.dto';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { combatDto } from './combat.dto';
 import { activeConditionDto } from './condition.dto';
@@ -43,8 +44,19 @@ export type TokenSideDto = z.infer<typeof tokenSideDto>;
 export const tokenLayerDto = z.enum(['tokens', 'objects', 'background']);
 export type TokenLayerDto = z.infer<typeof tokenLayerDto>;
 
-/** The five bar colors of the design system (`chart-1..4` and ash), never a free hex. */
-export const barColorDto = z.enum(['gold', 'steel', 'ember', 'moss', 'ash']);
+/** The five fixed bar colors of the design system (`chart-1..4` and ash). */
+export const BAR_PALETTE = ['gold', 'steel', 'ember', 'moss', 'ash'] as const;
+
+/** One name of the fixed palette, for the exhaustive readers.
+ *
+ *  Example: `barPaletteDto.parse('gold')` */
+export const barPaletteDto = z.enum(BAR_PALETTE);
+export type BarPaletteDto = z.infer<typeof barPaletteDto>;
+
+/** A bar color: a name of the palette, which follows later tone adjustments, or a custom hex.
+ *
+ *  Example: `barColorDto.parse('#FFAA00') // '#ffaa00'` */
+export const barColorDto = paletteOrHexDto(BAR_PALETTE);
 export type BarColorDto = z.infer<typeof barColorDto>;
 
 /** "Todos veem" or "Só mestre e quem controla": the server omits a `controllers` bar for others. */

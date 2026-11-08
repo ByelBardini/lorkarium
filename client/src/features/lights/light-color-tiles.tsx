@@ -1,7 +1,9 @@
+import type { LightPaletteDto } from '@lorkarium/contracts';
+import { PaletteColorField } from '@/features/drawings/palette-color-field';
+import type { StyleTile } from '@/features/drawings/style-tile-group';
 import { LIGHT_COLOR_TONES, NEUTRAL_LIGHT_LABEL, type LightColor } from '@/lib/light-color';
-import { StyleTileGroup, type StyleTile } from '@/features/drawings/style-tile-group';
 
-type LightColorChoice = NonNullable<LightColor> | typeof NEUTRAL;
+type LightColorChoice = LightPaletteDto | typeof NEUTRAL;
 
 // A radio needs a string: the neutral light goes by a value of its own.
 const NEUTRAL = 'neutral';
@@ -30,23 +32,23 @@ const LIGHT_COLOR_TILES: readonly StyleTile<LightColorChoice>[] = [
 ];
 
 export type LightColorTilesProps = Readonly<{
-  /** `undefined` when the lights picked differ: no tile is checked ("vários"). */
+  /** `undefined` when the lights picked differ: no tile is checked ("vários"); a hex marks the
+   *  custom tile. */
   value: LightColor | undefined;
   onChange: (color: LightColor) => void;
 }>;
 
-/** "Cor da luz": Neutra and the seven colors of the palette as round swatches, for the lights
- *  panel and the token dialog.
+/** "Cor da luz": Neutra, the seven colors of the palette as round swatches and the custom color
+ *  tile, for the lights panel and the token dialog.
  *
  *  Example: `<LightColorTiles value={color} onChange={setColor} />` */
 export function LightColorTiles({ value, onChange }: LightColorTilesProps): React.JSX.Element {
   return (
-    <StyleTileGroup
+    <PaletteColorField
       legend="Cor da luz"
       value={value === undefined ? null : (value ?? NEUTRAL)}
       tiles={LIGHT_COLOR_TILES}
       onChange={(choice) => onChange(choice === NEUTRAL ? null : choice)}
-      shape="round"
     />
   );
 }

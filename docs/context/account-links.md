@@ -1,6 +1,6 @@
 # Account links (convite e nova senha)
 
-Os links de uso único do backoffice: o **convite** (7 dias; a pessoa escolhe o @ e a senha e a conta nasce logada) e o **link de nova senha** (1 h; um por conta). Vive em `server/src/modules/account-links/`. Quem lista e cuida das contas é o [`user-admin.md`](user-admin.md); as telas `/invite` e `/reset-password` estão em [`client/account-links.md`](client/account-links.md). Plano de origem: `docs/plans/2026-10-24-tela-backoffice-usuarios.md` (fases 5–7).
+Os links de uso único do backoffice: o **convite** (7 dias; a pessoa escolhe o @ e a senha e a conta nasce logada) e o **link de nova senha** (1 h; um por conta). Vive em `server/src/modules/account-links/`. Quem lista e cuida das contas é o [`user-admin.md`](user-admin.md); as telas `/invite` e `/reset-password` estão em [`client/account-links.md`](client/account-links.md).
 
 ## Estrutura
 

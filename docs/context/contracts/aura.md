@@ -7,7 +7,7 @@
 - `AURA_EFFECTS` — `fire`, `water`, `lightning`, `frost`, `radiant`, `shadow`, `poison`, `arcane`, nesta ordem (a do seletor). `auraEffectDto` é o enum; o shader e a cor natural moram só no client.
 - `AURA_RADIUS_MAX` (20), `AURA_OPACITY_MIN` (10), `AURA_OPACITY_MAX` (100) — repetidos do `aura.vo.ts` do game-core (o contracts só depende do zod).
 - `tokenAuraDto` — `z.discriminatedUnion('kind')` de três objetos estritos, todos com `radius` (casas além da borda, 0 a 20, decimal) e `opacity` (inteiro 10 a 100):
-  - `color` — `color: drawingColorDto` (obrigatória; a paleta dos desenhos, 8 tons);
+  - `color` — `color: drawingColorDto` (obrigatória; a paleta dos desenhos, 8 tons, ou `#rrggbb`);
   - `effect` — `effect: auraEffectDto` e `color: drawingColorDto | null` (`null` = cor natural do efeito);
   - `image` — `imageAssetId: uuid` (asset da mesa, finalidade `aura`; o server confere com o `requireAssetsOf`) e `shape: auraImageShapeDto.default('square')` (`AURA_IMAGE_SHAPES` = `square` | `round`: inteira na caixa ou cobrindo um círculo; ausente = `square`, então o client antigo segue válido e a saída sempre traz a forma).
     Campo de outro `kind` (efeito com `imageAssetId`) é recusado pelo objeto estrito.

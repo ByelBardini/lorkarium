@@ -1,3 +1,5 @@
+import { isHexColor, type HexColorDto } from '@lorkarium/contracts';
+
 /** The part of `localStorage` a remembered choice needs; injected so tests and blocked storage work. */
 export type ChoiceStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -11,11 +13,30 @@ export function readStoredChoice<Choice extends string>(
   choices: readonly Choice[],
   fallback: Choice,
 ): Choice {
+  const stored = storedTextOf(storage, key);
+  return choices.find((choice) => choice === stored) ?? fallback;
+}
+
+/** A remembered color: a name of `palette` or a custom hex, or `fallback` for anything else, so a
+ *  text edited in the storage never reaches a style.
+ *
+ *  Example: `readStoredColor(storage, 'lorkarium.stroke', ['gold', 'steel'], 'gold')` */
+export function readStoredColor<Name extends string>(
+  storage: ChoiceStorage,
+  key: string,
+  palette: readonly Name[],
+  fallback: Name | HexColorDto,
+): Name | HexColorDto {
+  const stored = storedTextOf(storage, key);
+  if (stored !== null && isHexColor(stored)) return stored;
+  return palette.find((name) => name === stored) ?? fallback;
+}
+
+function storedTextOf(storage: ChoiceStorage, key: string): string | null {
   try {
-    const stored = storage.getItem(key);
-    return choices.find((choice) => choice === stored) ?? fallback;
+    return storage.getItem(key);
   } catch {
-    return fallback;
+    return null;
   }
 }
 

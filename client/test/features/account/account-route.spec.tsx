@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
+import { pickCustomColor } from '../../support/pick-custom-color';
 import {
   ANA_PROFILE,
   UPLOADED_AVATAR_ID,
@@ -354,6 +355,11 @@ describe('account route (/account)', () => {
       deps.profileApi.profile = { ...ANA_PROFILE, diceTextureId: UPLOADED_DICE_TEXTURE_ID };
     }
 
+    function numberColorTile(): HTMLElement {
+      const field = within(diceField()).getByLabelText('Cor do número');
+      return within(field).getByRole('button', { name: /^Cor personalizada/ });
+    }
+
     it('"Dados 3D" sits in Minha conta and turns off at once, outside the bar of changes', async () => {
       await openAccount();
       const toggle = screen.getByRole('switch', { name: 'Dados 3D' });
@@ -397,7 +403,7 @@ describe('account route (/account)', () => {
       );
       expect(deps.profileApi.answers.callsOf('uploadDiceTexture')).toEqual([file]);
       expect(within(dicePreview()).getByTestId('dice-number')).toHaveAttribute('fill', '#ffffff');
-      expect(within(diceField()).getByLabelText('Cor do número')).toHaveValue('#ffffff');
+      expect(numberColorTile()).toHaveAccessibleName('Cor personalizada: #ffffff');
       expect(
         screen.queryByRole('region', { name: 'Alterações do perfil' }),
       ).not.toBeInTheDocument();
@@ -406,15 +412,19 @@ describe('account route (/account)', () => {
     it('"Cor do número" enters the bar of changes and is saved by the PATCH alone', async () => {
       withTexture();
       await openAccount();
-      fireEvent.change(within(diceField()).getByLabelText('Cor do número'), {
-        target: { value: '#ff3366' },
-      });
+      await pickCustomColor(numberColorTile(), '#ff3366');
       expect(within(dicePreview()).getByTestId('dice-number')).toHaveAttribute('fill', '#ff3366');
       const bar = screen.getByRole('region', { name: 'Alterações do perfil' });
       await userEvent.click(within(bar).getByRole('button', { name: 'Salvar alterações' }));
       expect(await screen.findByText('Tudo salvo.')).toBeInTheDocument();
       expect(deps.profileApi.answers.callsOf('update')).toEqual([{ diceNumberColor: '#ff3366' }]);
-      expect(within(diceField()).getByLabelText('Cor do número')).toHaveValue('#ff3366');
+      expect(numberColorTile()).toHaveAccessibleName('Cor personalizada: #ff3366');
+    });
+
+    it('"Cor do número" has no native color input left', async () => {
+      withTexture();
+      await openAccount();
+      expect(diceField().querySelector('input[type="color"]')).toBeNull();
     });
 
     it('"Tirar textura" goes back to the color, without "Cor do número" nor the bar', async () => {

@@ -1,9 +1,9 @@
 import {
   updateProfileRequestDto,
+  type MemberColorDto,
   type ProfileDto,
   type UpdateProfileRequestDto,
 } from '@lorkarium/contracts';
-import type { MemberColor } from '@lorkarium/game-core';
 import { useState } from 'react';
 import { FIELD_MESSAGES } from './account-messages';
 
@@ -11,7 +11,7 @@ import { FIELD_MESSAGES } from './account-messages';
  *  `diceNumberColor` is `null` while the number color is the automatic one. */
 export type ProfileDraftValues = Readonly<{
   name: string;
-  color: MemberColor;
+  color: MemberColorDto;
   bio: string;
   diceNumberColor: string | null;
 }>;

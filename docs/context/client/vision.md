@@ -1,8 +1,8 @@
 # Client · visão (quem vê o quê) e névoa
 
-O que cada viewer vê do tabuleiro: o modo de visão da cena, o alcance de cada token, o filtro que esconde e vira silhueta, a névoa, a rota que contorna parede e a prévia do mestre. A regra (área, linha de visão, nível de cada token, porta vista) mora no game-core ([`../game-core.md`](../game-core.md), Visão); paredes e portas em [`walls.md`](walls.md) e [`../walls.md`](../walls.md). Plano de origem: `docs/plans/2026-10-18-visao-e-paredes.md`. O campo de visão em cone (o olho, a lanterna, a pose com a direção) está em [`cones.md`](cones.md). O token que bloqueia a visão (a lista única de paredes, `ignores`, o corpo na névoa) está em [`sight-blockers.md`](sight-blockers.md).
+O que cada viewer vê do tabuleiro: o modo de visão da cena, o alcance de cada token, o filtro que esconde e vira silhueta, a névoa, a rota que contorna parede e a prévia do mestre. A regra (área, linha de visão, nível de cada token, porta vista) mora no game-core ([`../game-core.md`](../game-core.md), Visão); paredes e portas em [`walls.md`](walls.md) e [`../walls.md`](../walls.md). O campo de visão em cone (o olho, a lanterna, a pose com a direção) está em [`cones.md`](cones.md). O token que bloqueia a visão (a lista única de paredes, `ignores`, o corpo na névoa) está em [`sight-blockers.md`](sight-blockers.md).
 
-> **O client esconde, o server manda tudo** (decisão do plano): o jogador recebe todos os tokens e paredes, e pelo DevTools vê tudo. Esconder no server fica para um plano de endurecimento.
+> **O client esconde, o server manda tudo**: o jogador recebe todos os tokens e paredes, e pelo DevTools vê tudo.
 
 ## Formulários e unidade
 

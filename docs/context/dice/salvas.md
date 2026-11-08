@@ -1,6 +1,6 @@
 # Rolagens salvas
 
-Detalhe de [`../dice.md`](../dice.md). A combinação de peças da bandeja que a pessoa guarda com um nome ("Acerto", "Bênção") para rolar de novo. É **do membro e da mesa**: só o dono vê, edita e apaga; outra mesa, outra lista. Concatenar copia as peças (nunca referencia outra salva). Vive em `server/src/modules/saved-rolls/` (fases 11 e 12 do plano `docs/plans/2026-10-25-sistema-de-dados.md`).
+Detalhe de [`../dice.md`](../dice.md). A combinação de peças da bandeja que a pessoa guarda com um nome ("Acerto", "Bênção") para rolar de novo. É **do membro e da mesa**: só o dono vê, edita e apaga; outra mesa, outra lista. Concatenar copia as peças (nunca referencia outra salva). Vive em `server/src/modules/saved-rolls/`.
 
 ## Tabela (`saved-rolls.po.ts`, migração `0060_saved_rolls`)
 

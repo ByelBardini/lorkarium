@@ -2,6 +2,7 @@ import { CONDITION_COLORS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   CONDITION_COLOR_ENTRIES,
+  chosenConditionColorOf,
   conditionColorNumberOf,
   conditionColorOf,
   paletteColorAt,
@@ -71,6 +72,13 @@ describe('conditionColorOf', () => {
       expect(conditionColorOf('ember', tone)).toBe('#ec7a45');
     },
   );
+
+  it.each(['benefit', 'harm', 'incapacitating'] as const)(
+    'with a custom color, a %s condition is that color whatever its tone',
+    (tone) => {
+      expect(conditionColorOf('#336699', tone)).toBe('#336699');
+    },
+  );
 });
 
 describe('conditionColorNumberOf', () => {
@@ -82,6 +90,20 @@ describe('conditionColorNumberOf', () => {
     expect(conditionColorNumberOf(null, 'benefit')).toBe(0xc5a46d);
     expect(conditionColorNumberOf(null, 'incapacitating')).toBe(0xb5654f);
   });
+
+  it('a custom color as a number', () => {
+    expect(conditionColorNumberOf('#336699', 'harm')).toBe(0x336699);
+  });
+});
+
+describe('chosenConditionColorOf', () => {
+  it('a name of the palette is its hex', () => {
+    expect(chosenConditionColorOf('sky')).toBe('#5cbcee');
+  });
+
+  it('a custom color is itself', () => {
+    expect(chosenConditionColorOf('#336699')).toBe('#336699');
+  });
 });
 
 describe('paletteColorAt', () => {
@@ -91,5 +113,9 @@ describe('paletteColorAt', () => {
 
   it('a full alpha keeps the same channels', () => {
     expect(paletteColorAt('sky', 1)).toBe('rgb(92 188 238 / 1)');
+  });
+
+  it('a custom color gets the same channels-and-alpha form', () => {
+    expect(paletteColorAt('#336699', 0.15)).toBe('rgb(51 102 153 / 0.15)');
   });
 });

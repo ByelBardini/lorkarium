@@ -1,6 +1,6 @@
 # User admin (backoffice das contas)
 
-O backoffice sobre as contas: listar, trocar o papel, suspender e reativar, conferir e excluir. Vive em `server/src/modules/user-admin/` (lê e grava `users` do auth e as mesas que a conta é dona). Convites e links de nova senha são outro módulo: [`account-links.md`](account-links.md). A tela é [`client/backoffice.md`](client/backoffice.md). Plano de origem: `docs/plans/2026-10-24-tela-backoffice-usuarios.md` (fases 1–4).
+O backoffice sobre as contas: listar, trocar o papel, suspender e reativar, conferir e excluir. Vive em `server/src/modules/user-admin/` (lê e grava `users` do auth e as mesas que a conta é dona). Convites e links de nova senha são outro módulo: [`account-links.md`](account-links.md). A tela é [`client/backoffice.md`](client/backoffice.md).
 
 ## Estrutura
 

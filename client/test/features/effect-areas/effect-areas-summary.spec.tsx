@@ -33,6 +33,12 @@ describe('EffectAreasSummary', () => {
     ]);
   });
 
+  it('an area with a custom color reads as such, with its hex', () => {
+    renderSummary([biaCone({ color: '#336699' })]);
+
+    expect(itemsOfSummary()[0]).toContain('Cor personalizada #336699');
+  });
+
   it('an area whose author is gone reads "sem autor"', () => {
     renderSummary([biaCone({ authorId: null })]);
 

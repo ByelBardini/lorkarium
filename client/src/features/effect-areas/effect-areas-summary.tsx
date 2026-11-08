@@ -1,7 +1,7 @@
 import type { EffectAreaDto, SceneDto, SessionMemberDto } from '@lorkarium/contracts';
 import { facingVector } from '@lorkarium/game-core';
 import type { StoreApi } from 'zustand/vanilla';
-import { DRAWING_COLORS } from '@/lib/drawing-style';
+import { drawingColorLabel } from '@/lib/drawing-style';
 import { effectAreaSize } from '@/lib/effect-area-label';
 import { shapeOfEffectArea } from '@/lib/effect-area-shape';
 import { effectAreaKindLabel } from '@/lib/effect-area-style';
@@ -39,7 +39,7 @@ function describeArea(
   scene: SceneDto,
   members: readonly SessionMemberDto[],
 ): string {
-  const color = DRAWING_COLORS.find((entry) => entry.color === area.color)?.label ?? area.color;
+  const color = drawingColorLabel(area.color);
   const size = effectAreaSize(shapeOfEffectArea(area), scene);
   const author = members.find(({ userId }) => userId === area.authorId)?.name;
   const by = author ? `de ${author}` : 'sem autor';

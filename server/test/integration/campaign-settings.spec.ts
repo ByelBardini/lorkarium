@@ -175,6 +175,38 @@ describe('campaign settings HTTP edge', () => {
       });
     });
 
+    it('a custom cover tone is saved in lowercase and read back by the player', async () => {
+      const response = await call('PATCH', `/campaigns/${vharn.id}`, ana, {
+        cover: { kind: 'drawn', drawing: 2, tone: '#ABCDEF' },
+      });
+      expect(response.statusCode).toBe(200);
+      const read = await call('GET', `/campaigns/${vharn.id}`, bia);
+      expect(campaignResponseDto.parse(read.json()).campaign.cover).toEqual({
+        kind: 'drawn',
+        drawing: 2,
+        tone: '#abcdef',
+      });
+    });
+
+    it('a custom cover tone stays on its campaign: the other one keeps its own', async () => {
+      const cover = { kind: 'drawn', drawing: 0, tone: 2 } as const;
+      const quelm = await createCampaign(caio, { name: 'Quelm', cover });
+
+      await call('PATCH', `/campaigns/${vharn.id}`, ana, {
+        cover: { kind: 'drawn', drawing: 2, tone: '#336699' },
+      });
+
+      const read = await call('GET', `/campaigns/${quelm.id}`, caio);
+      expect(campaignResponseDto.parse(read.json()).campaign.cover).toEqual(cover);
+    });
+
+    it('a stranger cannot paint the cover of a campaign of someone else', async () => {
+      const response = await call('PATCH', `/campaigns/${vharn.id}`, caio, {
+        cover: { kind: 'drawn', drawing: 2, tone: '#336699' },
+      });
+      expect(errorOf(response)).toEqual({ status: 404, code: 'CAMPAIGN_NOT_FOUND' });
+    });
+
     it('the player sees the saved fields in the detail', async () => {
       await call('PATCH', `/campaigns/${vharn.id}`, ana, { name: 'Vharn', status: 'finished' });
       const response = await call('GET', `/campaigns/${vharn.id}`, bia);

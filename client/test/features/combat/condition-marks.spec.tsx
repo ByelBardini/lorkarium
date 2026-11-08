@@ -54,6 +54,17 @@ describe('ConditionMark', () => {
     expect(glyph).not.toHaveClass('text-primary');
   });
 
+  it('a custom color paints the ring and the glyph inline, as a palette color does', () => {
+    const ring = ringOf({ tone: 'harm', color: '#336699' });
+    expect(ring).toHaveStyle({ borderColor: '#336699' });
+    expect(glyphIn(ring)).toHaveStyle({ color: '#336699' });
+  });
+
+  it('an incapacitating condition in a custom color is a disc full of it', () => {
+    const ring = ringOf({ tone: 'incapacitating', color: '#336699' });
+    expect(ring).toHaveStyle({ borderColor: '#336699', backgroundColor: '#336699' });
+  });
+
   it('a benefit with a color still takes the color, not the gold of its tone', () => {
     const glyph = glyphIn(ringOf({ tone: 'benefit', color: 'sky' }));
     expect(glyph).toHaveStyle({ color: '#5cbcee' });

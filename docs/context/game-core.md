@@ -123,8 +123,8 @@ O gabarito visual de uma magia (formas, casas pintadas, raio, giro e deslocament
 
 - `stableHash(texto)` — hash `×31` sem sinal de 32 bits (`'ab'` → 3105); não é para segurança. Base da cor automática e da capa padrão.
 - `defaultCoverOf(campaignId)` (`campaign-cover.ts`) → `{ drawing, tone }`: a capa de quem nunca escolheu, `hash % COVER_DRAWINGS` (3) e `hash % COVER_TONES + 1` (4). O server devolve no `cover` da mesa sem escolha gravada; o client cai nela (`fallbackCoverOf`). O `campaignCoverDto` do contracts repete os limites 0..2 e 1..4.
-- `MEMBER_COLORS` — `gold`, `steel`, `ember`, `moss`, `violet`, `rose`, `teal`, `bone`, nesta ordem (a das cores do ping de sempre); `MemberColor` é a união dos nomes. O hex mora só no client (`lib/member-color.ts`); o contracts repete os nomes no `memberColorDto`.
-- `memberColorOf(userId, escolha)` — a escolhida ou, com `null`, `MEMBER_COLORS[stableHash(userId) % 8]`: quem nunca escolheu fica com a cor que o ping já dava. O server manda a efetiva; o client desenha.
+- `MEMBER_COLORS` — `gold`, `steel`, `ember`, `moss`, `violet`, `rose`, `teal`, `bone`, nesta ordem (a das cores do ping de sempre); `MemberColor` é a união dos nomes. O hex mora só no client (`lib/member-color.ts`); o contracts repete os nomes no `memberPaletteDto`.
+- `memberColorOf(userId, escolha)` — a escolhida ou, com `null`, `MEMBER_COLORS[stableHash(userId) % 8]`: quem nunca escolheu fica com a cor que o ping já dava. É genérica na escolha (`Choice extends string`), porque a escolha também pode ser um hex personalizado e o game-core não importa o contracts: devolve `Choice | MemberColor`, e com `null` literal só `MemberColor` (sobrecarga própria: a inferência de `null` cairia em `string`). O server manda a efetiva; o client desenha.
 
 ## Aura
 

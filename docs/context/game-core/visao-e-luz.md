@@ -1,6 +1,6 @@
 # Game-core — visão e luz
 
-Índice: [`game-core.md`](../game-core.md). Planos de origem: [`2026-10-18-iluminacao.md`](../../plans/2026-10-18-iluminacao.md) (a luz), [`2026-10-20-cone-de-visao-e-lanterna.md`](../../plans/2026-10-20-cone-de-visao-e-lanterna.md) (o cone) e [`2026-11-04-tokens-bloqueiam-visao.md`](../../plans/2026-11-04-tokens-bloqueiam-visao.md) (o bloqueador).
+Índice: [`game-core.md`](../game-core.md).
 
 ## Cone e campo
 

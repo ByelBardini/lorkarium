@@ -8,6 +8,8 @@ import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token
 
 const GOLD = { kind: 'color', radius: 2, color: 'gold', opacity: 50 } as const;
 const FIRE = { kind: 'effect', radius: 3, effect: 'fire', color: null, opacity: 100 } as const;
+const CUSTOM = { kind: 'color', radius: 2, color: '#336699', opacity: 50 } as const;
+const CUSTOM_FIRE = { ...FIRE, color: '#ffaa00' } as const;
 
 function without(command: object, keys: readonly string[]): Record<string, unknown> {
   return Object.fromEntries(Object.entries(command).filter(([key]) => !keys.includes(key)));
@@ -57,6 +59,39 @@ describe('token auras over Socket.IO', () => {
 
     const state = await synced(await live.atTable(live.caio, live.vharn), live.vharn);
     expect(tokenIn(state, lyraId).aura).toEqual(GOLD);
+  });
+
+  it.each([
+    ['a tint', CUSTOM],
+    ['the color of an effect', CUSTOM_FIRE],
+  ])(
+    'a custom color as %s reaches the table, the sync and survives a restart',
+    async (_case, aura) => {
+      const master = await live.atTable(live.ana, live.vharn);
+      const lyraId = await lyraOfBia(master);
+      const caio = recordEventsOf(await live.atTable(live.caio, live.vharn));
+
+      await send(
+        await live.atTable(live.bia, live.vharn),
+        'token:restyleMany',
+        restyleOf(lyraId, aura),
+      );
+
+      const event = tokensRestyledDto.parse(await eventPayload(caio, 'token:restyledMany'));
+      expect(event.style.aura).toEqual(aura);
+      await live.restart();
+      const state = await synced(await live.atTable(live.caio, live.vharn), live.vharn);
+      expect(tokenIn(state, lyraId).aura).toEqual(aura);
+    },
+  );
+
+  it('a token with a custom aura on Quelm is not in the snapshot of Vharn', async () => {
+    const caio = await live.atTable(live.caio, live.quelm);
+    await send(caio, 'token:create', tokenCommandFor(live.quelm, live.caio.id, { aura: CUSTOM }));
+
+    const ana = await live.atTable(live.ana, live.vharn);
+
+    expect((await synced(ana, live.vharn)).tokens).toEqual([]);
   });
 
   it('Ana creating a token with a fire aura and swapping it for gold by token:update', async () => {

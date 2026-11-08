@@ -1,6 +1,6 @@
 # Personagens
 
-O `Character` do spec §6 (o Actor do Foundry): a entidade da mesa por trás dos tokens ligados a ela. Um por jogador, criado ao virar jogador; guarda nome, iniciais, lado, imagem, borda, abatido, aura, tamanho padrão, CA, CD, duas anotações, barras, formas, condições, controle, as fichas e a ficha principal. O token ligado guarda o que é por grid (posição, tamanho, camada, direção, inverter, visão, cone, luz e a forma mostrada). Plano de origem: `docs/plans/2026-10-31-personagem.md` (entrega numa release só). Desde a Fase 13 não sobra nada do modelo velho: o elenco (`scenes.kind = 'cast'`) e suas âncoras, `tokens.anchor_token_id`, a Ficha da mesa (`member_cards`, `member:updateCard`) e o token principal (`main_tokens`, `token:setMain`) saíram — o "principal" é o token do meu personagem no grid aberto, calculado no client. Módulo `server/src/modules/characters/`.
+O `Character` do spec §6 (o Actor do Foundry): a entidade da mesa por trás dos tokens ligados a ela. Um por jogador, criado ao virar jogador; guarda nome, iniciais, lado, imagem, borda, abatido, aura, tamanho padrão, CA, CD, duas anotações, barras, formas, condições, controle, as fichas e a ficha principal. O token ligado guarda o que é por grid (posição, tamanho, camada, direção, inverter, visão, cone, luz e a forma mostrada). Não sobra nada do modelo velho: o elenco (`scenes.kind = 'cast'`) e suas âncoras, `tokens.anchor_token_id`, a Ficha da mesa (`member_cards`, `member:updateCard`) e o token principal (`main_tokens`, `token:setMain`) saíram — o "principal" é o token do meu personagem no grid aberto, calculado no client. Módulo `server/src/modules/characters/`.
 
 | Arquivo                                                    | O que cobre                                                                                                                                                                                  |
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -14,7 +14,7 @@ O `Character` do spec §6 (o Actor do Foundry): a entidade da mesa por trás dos
 
 `packages/contracts/src/board/character.dto.ts` (Fase 1; detalhe em [`contracts/tabuleiro.md`](contracts/tabuleiro.md)):
 
-- `characterDto` `{ id, campaignId, userId (uuid | null), name (≤ 60 = TOKEN_NAME_MAX_LENGTH, o nome que os tokens ligados vestem; o plano dizia 40), initials, side, imageAssetId, frame, defeated, aura, width, height, armorClass/difficultyClass (0–999 | null), noteOne/noteTwo (≤ 80 | null), bars, conditions, controllerIds, canControl, mainSheetId }`.
+- `characterDto` `{ id, campaignId, userId (uuid | null), name (≤ 60 = TOKEN_NAME_MAX_LENGTH, o nome que os tokens ligados vestem), initials, side, imageAssetId, frame, defeated, aura, width, height, armorClass/difficultyClass (0–999 | null), noteOne/noteTwo (≤ 80 | null), bars, conditions, controllerIds, canControl, mainSheetId }`.
 - Comandos: `updateCharacterCommandDto` (`character:update`), `adjustCharacterBarCommandDto` (`character:adjustBar`), `setMainSheetCommandDto` (`character:setMainSheet`), `linkTokenToCharacterCommandDto` (`token:linkToCharacter`), `unlinkTokenFromCharacterCommandDto`, `addPlayersCommandDto` (`token:addPlayers`), `characterSyncCommandDto` (`character:sync`). Campos e limites herdados da Ficha da mesa em `board/character-fields.dto.ts`.
 - Eventos: `characterChangedEventDto` (`character:changed`), `characterRemovedEventDto` (`character:removed`), ambos com `tableEventShape` `{ campaignId, version, at }` (sem `sceneId`); `characterSyncDto`/`characterSyncAckDto` `{ version, characters, conditionDefinitions }`; `CharacterClientEvents`/`CharacterServerEvents`.
 - **Fluxo da mesa:** a lista de condições (`condition:defined`, `condition:definitionUpdated`, `condition:definitionDeleted`, `condition:defaultsRestored`) anda na mesma versão (`campaigns.characters_version`) e no mesmo `character:sync` ([`combat/lista-da-mesa.md`](combat/lista-da-mesa.md)).
@@ -66,7 +66,7 @@ O `Character` do spec §6 (o Actor do Foundry): a entidade da mesa por trás dos
 
 ## Salas (`character-publisher.port.ts`, `infrastructure/character-publisher/`)
 
-- `CharacterPublisherPort.charactersChanged(CharactersChange { campaignId, version, at, characters: CharacterView[] })`. Adaptador `SocketIoCharacterPublisher` (em `src/infrastructure/`, como os outros publicadores; o plano dizia `src/realtime/`):
+- `CharacterPublisherPort.charactersChanged(CharactersChange { campaignId, version, at, characters: CharacterView[] })`. Adaptador `SocketIoCharacterPublisher` (em `src/infrastructure/`, como os outros publicadores):
   - `campaignMastersRoom`: `character:changed` com todos inteiros.
   - `campaignUserRoom(u)` de cada jogador/controlador (menos a sala dos mestres): os vistos pela mesa, inteiros os dele, redigidos os outros.
   - `campaignRoom` menos as salas acima (o resto, espectadores inclusive): os vistos pela mesa, redigidos.

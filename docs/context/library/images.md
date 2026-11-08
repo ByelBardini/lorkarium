@@ -51,7 +51,7 @@ Integração library-images.spec.ts: CRUD privado/público, bytes/cache, imagem 
 
 - Índice assets(campaign_id,id) precisa anteceder FK library_images_asset_fk; o SQL de criação precisa respeitar essa ordem.
 - No PowerShell, argumentos SeaweedFS como '-ip.bind=0.0.0.0' exigem aspas ou o endereço vira .bind=0.0.0.0.
-- Driver de camadas aponta policy fora de infrastructure; falso positivo: implementação de regra de domínio fica na biblioteca conforme plano, só orquestra DAOs/BO, sem lib externa.
+- Driver de camadas aponta policy fora de infrastructure; falso positivo: implementação de regra de domínio fica na biblioteca, só orquestra DAOs/BO, sem lib externa.
 - Driver testar aponta DAO/rotas sem unit espelho; cobertos pelas integrações HTTP/Postgres/sockets acima. Erros são provados nas recusas.
 
 ## Referências em documentos

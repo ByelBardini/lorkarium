@@ -1,6 +1,6 @@
 import { LIGHT_COLORS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { LIGHT_COLOR_TONES, lightColorHex } from '@/lib/light-color';
+import { LIGHT_COLOR_TONES, lightColorCss, lightColorHex } from '@/lib/light-color';
 
 describe('light color', () => {
   it('a fire light tints with 0xff6a2b', () => {
@@ -9,6 +9,22 @@ describe('light color', () => {
 
   it('a neutral light has no tint', () => {
     expect(lightColorHex(null)).toBeNull();
+  });
+
+  it('a custom #336699 light tints with 0x336699', () => {
+    expect(lightColorHex('#336699')).toBe(0x336699);
+  });
+
+  it('a custom #336699 light reads as #336699 on the panels', () => {
+    expect(lightColorCss('#336699')).toBe('#336699');
+  });
+
+  it('a moon light keeps the tone of the palette on the panels', () => {
+    expect(lightColorCss('moon')).toBe('#9ec3ff');
+  });
+
+  it('a neutral light has no tone on the panels', () => {
+    expect(lightColorCss(null)).toBeNull();
   });
 
   // Written by hand: a color added to the contract without a tone here breaks this test.

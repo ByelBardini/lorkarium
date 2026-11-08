@@ -1,6 +1,6 @@
 # Client — aba "Na mesa" (o quadro do grupo)
 
-A aba "Na mesa" do `RoomSidePanel`: os mestres numa seção compacta e um card por jogador com o **personagem** dele — retrato, barras, nome, o nick com o símbolo de presença, CA, CD, duas anotações e as fichas. Personagem (store, eventos, composição) em [`characters.md`](characters.md); presença em [`../sessions.md`](../sessions.md). Hub: [`../client.md`](../client.md). Plano de origem: `docs/plans/2026-10-22-tela-na-mesa.md`.
+A aba "Na mesa" do `RoomSidePanel`: os mestres numa seção compacta e um card por jogador com o **personagem** dele — retrato, barras, nome, o nick com o símbolo de presença, CA, CD, duas anotações e as fichas. Personagem (store, eventos, composição) em [`characters.md`](characters.md); presença em [`../sessions.md`](../sessions.md). Hub: [`../client.md`](../client.md).
 
 ## Estado e comando do personagem
 

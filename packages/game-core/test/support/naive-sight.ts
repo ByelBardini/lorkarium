@@ -1,6 +1,5 @@
-// The sight of the game-core before the walls were prepared (Fase 9 of
-// docs/plans/2026-10-22-desempenho-tabuleiro-e-server.md), kept as the oracle the prepared one must
-// match polygon for polygon. Not production code: only the specs import it.
+// The sight of the game-core before the walls were prepared, kept as the oracle the prepared one
+// must match polygon for polygon. Not production code: only the specs import it.
 import type { Vector2 } from '../../src/facing';
 import type { SceneSize } from '../../src/grid';
 import { legTouchesSegment } from '../../src/passage';

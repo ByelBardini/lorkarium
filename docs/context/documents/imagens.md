@@ -21,7 +21,7 @@ Inserir da biblioteca verifica que o item pertence à campanha e está autorizad
 ## Armadilhas
 
 - **Imagem compartilhada entre abas.** A mesma imagem em "Itens" e em "Segredos" são duas linhas; tirar de "Itens" só rebaixa a linha de "Itens" (preparada), e o jogador perde os bytes mesmo com "Segredos" ainda mostrando a imagem ao mestre. Não deduza a autorização de "existe linha confirmada do documento": sempre cruze com as abas que o leitor vê.
-- **Preparação também é por aba.** Uma preparação sem aba (como o plano previa, `tab_id` nulo) deixaria o dono ler, como editor, uma imagem que o mestre preparou para uma aba oculta; por isso a rota de imagem leva o `tabId` e a PK inclui a aba (sem nulos).
+- **Preparação também é por aba.** Uma preparação sem aba (`tab_id` nulo) deixaria o dono ler, como editor, uma imagem que o mestre preparou para uma aba oculta; por isso a rota de imagem leva o `tabId` e a PK inclui a aba (sem nulos).
 
 ## Provas
 

@@ -1,6 +1,6 @@
 # Site — Movimento
 
-Detalhe do hub [`site.md`](../site.md). Direção aprovada na prancha [`docs/plans/assets/2026-10-31-landing-prancha.html`](../../plans/assets/2026-10-31-landing-prancha.html).
+Detalhe do hub [`site.md`](../site.md).
 
 Nada de biblioteca de animação: portas finas sobre as APIs do navegador, scripts ligados no `<script>` do `index.astro`, todos com `MediaQueryMotionPreference` (`prefers-reduced-motion`).
 

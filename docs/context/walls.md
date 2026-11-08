@@ -1,6 +1,6 @@
 # Walls
 
-Paredes e portas da cena (antecipa o §12: visão individual, fog of war): bloqueiam a visão e a passagem do token do jogador; o mestre vê tudo e passa por qualquer parede. Server em `server/src/modules/walls/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts.md`](contracts.md) (`wall.dto.ts`); a geometria, a passagem e a visão em [`game-core.md`](game-core.md) (Parede, Passagem, Visão). O client fica em [`client/walls.md`](client/walls.md) e [`client/vision.md`](client/vision.md). Plano de origem: `docs/plans/2026-10-18-visao-e-paredes.md`.
+Paredes e portas da cena (antecipa o §12: visão individual, fog of war): bloqueiam a visão e a passagem do token do jogador; o mestre vê tudo e passa por qualquer parede. Server em `server/src/modules/walls/`; a borda Socket.IO é o gateway do `board` (ver [`board.md`](board.md)); DTOs em [`contracts.md`](contracts.md) (`wall.dto.ts`); a geometria, a passagem e a visão em [`game-core.md`](game-core.md) (Parede, Passagem, Visão). O client fica em [`client/walls.md`](client/walls.md) e [`client/vision.md`](client/vision.md).
 
 ## Tabela (`walls.po.ts`, migração `0016_walls`)
 
@@ -52,7 +52,7 @@ Paredes e portas da cena (antecipa o §12: visão individual, fog of war): bloqu
 ## Borda, eventos e snapshot
 
 - `walls.plugin.ts` (`createWallsModule({ db, publisher, clock })` → `{ service }`, com os dois limites do contracts), montado no `wireRealtime` do `build-app` e entregue ao `board`. O gateway liga os sete comandos (`create` para o `wall:createMany`, o `wall:eraseSegment` e o `wall:eraseArea`, `mutate` para os outros) e conhece `WallError` com os textos públicos de `WALL_NOT_FOUND`, `WALL_SEGMENT_NOT_FOUND` ("That piece of wall is not there"), `WALL_LIMIT`, `INVALID_DOOR` e `DOOR_LOCKED`.
-- `BoardPublisherPort.wallsCreated | wallsMoved | wallsDeleted | wallSegmentErased | wallAreaErased | wallKindsChanged | doorChanged`: o adaptador emite à `campaign:<id>` inteira, **sem redação** — o client do jogador precisa da geometria para a névoa e para dobrar a rota; quem não desenha as linhas para o jogador é o renderer (ver Fora do escopo do plano: o DevTools mostra tudo).
+- `BoardPublisherPort.wallsCreated | wallsMoved | wallsDeleted | wallSegmentErased | wallAreaErased | wallKindsChanged | doorChanged`: o adaptador emite à `campaign:<id>` inteira, **sem redação** — o client do jogador precisa da geometria para a névoa e para dobrar a rota; quem não desenha as linhas para o jogador é o renderer (o DevTools mostra tudo).
 - Snapshot: o `BoardService.snapshotFor` lê `WallsDao.listOfScene(scene)` e o `toBoardStateDto` põe as paredes em `walls` (iguais para todo público).
 
 ## Erros

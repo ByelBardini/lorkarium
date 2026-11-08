@@ -17,6 +17,7 @@ import { HttpAssetsApi } from '@/services/assets-api';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
 import { HttpLibraryApi } from '@/services/library-api';
 import { HttpProfileApi } from '@/services/profile-api';
+import { HttpSavedColorsApi } from '@/services/saved-colors-api';
 import { NavigatorClipboard } from '@/services/clipboard';
 import { BrowserFileDownload } from '@/services/file-download';
 import { DocumentFieldEditing } from '@/services/field-editing';
@@ -110,6 +111,7 @@ const router = createBrowserRouter(
     authApi: new HttpAuthApi(transport),
     campaignsApi: new HttpCampaignsApi(transport),
     profileApi: new HttpProfileApi(transport),
+    savedColorsApi: new HttpSavedColorsApi(transport),
     accountSecurityApi: new HttpAccountSecurityApi(transport),
     userAdminApi: new HttpUserAdminApi(transport),
     accountLinksApi: new HttpAccountLinksApi(transport),

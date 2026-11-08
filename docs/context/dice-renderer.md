@@ -1,6 +1,6 @@
 # Dice-renderer
 
-O desenho 3D dos dados sobre a janela, em three.js. Vive em `packages/dice-renderer/src/`, exportado por `@lorkarium/dice-renderer` (`src/index.ts`). É o **único** lugar do `three` no monorepo. Sem React e sem nada do client: o que é do app (paleta do perfil, cor dos números, endereço da textura) entra pela opção `look`. Usado pelo client por `import()` ([`client/dice.md`](client/dice.md), Dados 3D na janela) e, no plano da landing, pelo `site/` também por `import()`. Specs em `packages/dice-renderer/test/` (Vitest, `jsdom`, three real; sem WebGL). Regra pura dos dados (forma, poses, caixa, trajeto): [`game-core/dados.md`](game-core/dados.md); DTOs: [`contracts/dados.md`](contracts/dados.md).
+O desenho 3D dos dados sobre a janela, em three.js. Vive em `packages/dice-renderer/src/`, exportado por `@lorkarium/dice-renderer` (`src/index.ts`). É o **único** lugar do `three` no monorepo. Sem React e sem nada do client: o que é do app (paleta do perfil, cor dos números, endereço da textura) entra pela opção `look`. Usado pelo client por `import()` ([`client/dice.md`](client/dice.md), Dados 3D na janela) e pelo `site/`, também por `import()`. Specs em `packages/dice-renderer/test/` (Vitest, `jsdom`, three real; sem WebGL). Regra pura dos dados (forma, poses, caixa, trajeto): [`game-core/dados.md`](game-core/dados.md); DTOs: [`contracts/dados.md`](contracts/dados.md).
 
 ## Workspace
 
@@ -11,7 +11,7 @@ O desenho 3D dos dados sobre a janela, em three.js. Vive em `packages/dice-rende
 
 ## Ponto de entrada (`src/index.ts`)
 
-- Valores: `ThreeDiceRenderer` (a classe), `createThreeDiceRenderer(options)` (faz o `import('three')` e devolve a classe pronta) e `playDiceThrow` (decodifica um arremesso e o prende no relógio local; serve para saber o `settleMs` sem desenhar). O plano chamava este último de `dicePlaybackOf`; o nome real é `playDiceThrow`.
+- Valores: `ThreeDiceRenderer` (a classe), `createThreeDiceRenderer(options)` (faz o `import('three')` e devolve a classe pronta) e `playDiceThrow` (decodifica um arremesso e o prende no relógio local; serve para saber o `settleMs` sem desenhar).
 - Tipos: `DiceRenderer`, `DiceRendererRoll`, `DiceRendererFactory`, `PlayingDiceThrow`, `DiceLook`, `ThreeDiceRendererOptions`, `DiceOverlayHost`, `DiceGl`, `DiceGlFactory`.
 - Nenhum arquivo importa `three` como valor fora do `import('three')` do `createThreeDiceRenderer`: os outros só têm `import type`. Importar o pacote não puxa o three; quem quer o three fora do bundle inicial importa o **pacote** por `import()` (o client faz isso por um módulo próprio, `app-dice-renderer.ts`, e o Vite gera `app-dice-renderer-*.js` + `three.module-*.js`).
 
@@ -21,7 +21,7 @@ O desenho 3D dos dados sobre a janela, em three.js. Vive em `packages/dice-rende
 - `container` (o palco do Ato V da landing): o canvas entra **nele** (`position: absolute`, `inset: 0`) em vez do `body`, e o tamanho vem do `clientWidth`/`clientHeight` dele, não da janela. Sem ele, a sobreposição da janela inteira do app.
 - `zoom` (1 sem ele): multiplica o `diceStageScaleOf` — desenha o meio da caixa de quem rolou maior. Zoom não positivo → `RangeError` `The dice zoom must be a positive number, got 0`. A landing usa 1,8 com arremessos gravados que assentam no centro (ver [`dice/fisica.md`](dice/fisica.md), Rolagens gravadas).
 - `DiceLook` = `{ colorHex, numberColorOf, textureUrlOf }`:
-  - `colorHex: Partial<Record<MemberColor, number>>` — o `0xrrggbb` de cada cor de perfil que a página pode receber. O client passa o `MEMBER_COLOR_HEX` inteiro; a landing pode passar só as cores que usa. Cor ausente no `show` → `RangeError` `Dice color "rose" of d20 has no hex in the look: expected colorHex.rose = 0xrrggbb.` (cita a cor, os `kind` da rolagem e a forma esperada). A rolagem recusada **não** fica marcada como mostrada.
+  - `colorHex: (color: DiceAppearanceDto['color']) => number | undefined` — o `0xrrggbb` de uma cor de perfil, nome da paleta ou `#rrggbb` personalizado (por isso uma função, e não mais um mapa). O client passa o `memberColorNumber`, que atende tudo; a landing responde só as cores que usa. `undefined` no `show` → `RangeError` `Dice color "rose" of d20 has no hex in the look: expected colorHex("rose") to return 0xrrggbb.` (cita a cor, os `kind` da rolagem e a forma esperada). A rolagem recusada **não** fica marcada como mostrada.
   - `numberColorOf(appearance)` — o `#rrggbb` dos números (o client: `diceNumberColorOf`, contraste WCAG).
   - `textureUrlOf(textureId)` — de onde vem a textura enviada (o client: `diceTextureUrlOf`, `/api/dice-textures/<id>`).
 
@@ -54,4 +54,4 @@ Regra 11 de [`client/performance.md`](client/performance.md): sobreposição oci
 
 ## Armadilhas
 
-- `import` estático de valor do pacote (ou das contas do `look`, `MEMBER_COLOR_HEX`, `diceNumberColorOf`) no `client/src/main.tsx` funde o chunk compartilhado `member-color-*.js` (13 kB: as contas de dados do game-core) no `index-*.js` inicial. O `look` do app mora em `client/src/features/dice/app-dice-renderer.ts`, só alcançado por `import()`.
+- `import` estático de valor do pacote (ou das contas do `look`, `memberColorNumber`, `diceNumberColorOf`) no `client/src/main.tsx` funde o chunk compartilhado `member-color-*.js` (13 kB: as contas de dados do game-core) no `index-*.js` inicial. O `look` do app mora em `client/src/features/dice/app-dice-renderer.ts`, só alcançado por `import()`.

@@ -15,7 +15,11 @@ describe('APP_DICE_LOOK', () => {
       bone: 0xf0e6d2,
     }[color];
 
-    expect(APP_DICE_LOOK.colorHex[color]).toBe(expected);
+    expect(APP_DICE_LOOK.colorHex(color)).toBe(expected);
+  });
+
+  it('a custom profile color becomes the number of that hex', () => {
+    expect(APP_DICE_LOOK.colorHex('#336699')).toBe(0x336699);
   });
 
   it('numbers without texture take the dark or white that reads best on the profile color', () => {

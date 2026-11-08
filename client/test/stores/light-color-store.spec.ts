@@ -35,6 +35,22 @@ describe('light color store', () => {
     expect(createLightColorStore(storage).getState().color).toBeNull();
   });
 
+  it('choosing #336699 remembers it, and a new visit starts on #336699', () => {
+    const storage = new StorageFake();
+
+    createLightColorStore(storage).getState().setColor('#336699');
+
+    expect(storage.values.get(KEY)).toBe('#336699');
+    expect(createLightColorStore(storage).getState().color).toBe('#336699');
+  });
+
+  it.each(['#FFF', '#336699;x', 'url(x)'])('a stored %s, not a color, starts neutral', (stored) => {
+    const storage = new StorageFake();
+    storage.setItem(KEY, stored);
+
+    expect(createLightColorStore(storage).getState().color).toBeNull();
+  });
+
   it('a storage that throws starts neutral and keeps the choice in memory', () => {
     const store = createLightColorStore(new StorageFake(true));
 

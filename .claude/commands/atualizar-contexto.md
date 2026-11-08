@@ -15,6 +15,7 @@ Os arquivos de `docs/context/` existem para que um agente de IA planeje e codifi
 3. **Enxuto é requisito, não estilo.** Cada linha custa contexto do agente que vai ler. Se a informação é derivável em segundos abrindo o próprio arquivo de código, ela não entra.
 4. **Confirme no código antes de escrever.** Nada entra no contexto sem você ter verificado (Read/Grep) que existe de fato e onde está.
 5. **Teto de 200 linhas e 25 KB por arquivo.** Nenhum arquivo de `docs/context/` sai desta execução acima disso. Estourou, divide na subpasta da área e registra no índice do hub — arquivo gordo obriga o próximo agente a carregar o domínio inteiro para mexer numa tela.
+6. **Plano não se cita.** `docs/plans/` é temporário e fica fora do git. Nenhum arquivo de contexto leva link, caminho ou nome de plano, "Plano de origem", número de fase de plano, "o plano previa" ou "desvio do plano". O que valer de um plano entra como regra do que existe, com o porquê.
 
 ## Nome dos arquivos (os drivers dependem disto)
 
@@ -38,7 +39,7 @@ Os drivers de `/refatorar`, `/testar` e `/desenvolver-server` montam o `leia ant
 - Histórico de mudanças, datas, nomes de fases ou de branches.
 - O que é óbvio lendo o próprio arquivo (assinaturas completas, corpo de função).
 - Documentação de bibliotecas de terceiros.
-- Planos e trabalho futuro (isso mora em `docs/plans/` e no `docs/spec.md`).
+- Planos, nem por referência (regra 6), e trabalho futuro (mora no `docs/spec.md`).
 
 ## Passo a passo
 
@@ -75,6 +76,7 @@ Ao editar um arquivo existente:
 
 - Se algo documentado mudou ou foi removido no código, **corrija ou apague a entrada** — contexto desatualizado é pior que contexto ausente.
 - Não duplique: se a função já está listada, atualize a linha dela.
+- Achou citação a plano no arquivo, apague (regra 6); se ela carregava uma regra, fica só a regra.
 - Mantenha o formato do arquivo (template abaixo).
 
 ### 4. Sincronizar o `AGENTS.md`
@@ -95,6 +97,12 @@ find docs/context -name '*.md' | while read f; do
   l=$(wc -l < "$f"); c=$(wc -c < "$f")
   [ "$l" -gt 200 ] || [ "$c" -gt 25600 ] && echo "ESTOUROU: $f ($l linhas, $c bytes)"
 done
+```
+
+Confira também que nenhum plano foi citado — tem de sair vazio:
+
+```bash
+grep -rnE 'docs/plans|plans/20[0-9]{2}|[Pp]lanos? de origem|plano (previa|dizia|chamava)|[Dd]esvio do plano' docs/context
 ```
 
 Termine mostrando ao usuário: quais arquivos foram criados/atualizados e um resumo de uma linha por arquivo do que mudou.

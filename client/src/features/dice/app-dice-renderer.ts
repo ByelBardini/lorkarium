@@ -5,12 +5,12 @@ import {
 } from '@lorkarium/dice-renderer';
 import { diceNumberColorOf } from '@/lib/dice-number-color';
 import { diceTextureUrlOf } from '@/lib/dice-texture-url';
-import { MEMBER_COLOR_HEX } from '@/lib/member-color';
+import { memberColorNumber } from '@/lib/member-color';
 
 /** The app's dice: the profile palette, the contrast rule of the numbers and the uploaded
  *  textures under `/api`. */
 export const APP_DICE_LOOK: DiceLook = {
-  colorHex: MEMBER_COLOR_HEX,
+  colorHex: memberColorNumber,
   numberColorOf: diceNumberColorOf,
   textureUrlOf: diceTextureUrlOf,
 };

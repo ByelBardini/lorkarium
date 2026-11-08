@@ -1,4 +1,4 @@
-import type { AuraEffectDto, AuraImageShapeDto, DrawingColorDto } from '@lorkarium/contracts';
+import type { AuraEffectDto, AuraImageShapeDto, DrawingPaletteDto } from '@lorkarium/contracts';
 import {
   DropletsIcon,
   FlameIcon,
@@ -16,6 +16,7 @@ import { RangeField } from '@/components/range-field';
 import { SegmentField, type SegmentOption } from '@/components/segment-field';
 import { Slider } from '@/components/ui/slider';
 import { COLOR_TILES } from '@/features/drawings/color-tiles';
+import { PaletteColorField } from '@/features/drawings/palette-color-field';
 import { StyleTileGroup, type StyleTile } from '@/features/drawings/style-tile-group';
 import { AURA_EFFECT_NAMES } from '@/lib/aura-effects';
 import type { SceneDistance } from '@/lib/range-form';
@@ -76,7 +77,7 @@ const EFFECT_TILES: readonly StyleTile<AuraEffectDto>[] = AURA_EFFECT_NAMES.map(
 
 // The effect's color is a radio among the palette plus its natural tone, kept as `null`.
 const NATURAL = 'natural';
-type EffectTone = DrawingColorDto | typeof NATURAL;
+type EffectTone = DrawingPaletteDto | typeof NATURAL;
 
 const OPACITY_STEP = 5;
 
@@ -143,11 +144,10 @@ function AuraLook({ form, errors, images, onChange }: AuraLookProps) {
     );
   }
   return (
-    <StyleTileGroup
+    <PaletteColorField
       legend="Cor da aura"
       value={form.color}
       tiles={COLOR_TILES}
-      shape="round"
       onChange={(color) => onChange({ color })}
     />
   );
@@ -171,11 +171,10 @@ function EffectFields({
         shape="grid"
         onChange={(effect) => onChange({ effect })}
       />
-      <StyleTileGroup<EffectTone>
+      <PaletteColorField<EffectTone>
         legend="Cor do efeito"
         value={form.effectColor ?? NATURAL}
         tiles={[natural, ...COLOR_TILES]}
-        shape="round"
         onChange={(tone) => onChange({ effectColor: tone === NATURAL ? null : tone })}
       />
     </>

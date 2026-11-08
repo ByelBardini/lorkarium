@@ -49,6 +49,18 @@ describe('PixiConditionMarks colors', () => {
     expect(paintedColors(glyph, 'stroke')).toContain(EMBER);
   });
 
+  it('a custom color rings the badge and draws the glyph in it', () => {
+    const { disc, glyph } = badgeOf(drawn([mark('harm', '#336699')], ICONS_ZOOM));
+    expect(paintedColors(disc, 'stroke')).toEqual([0x336699]);
+    expect(paintedColors(glyph, 'stroke')).toContain(0x336699);
+  });
+
+  it('changing one custom color for a close one redraws the badges', () => {
+    const strip = drawn([mark('harm', '#336699')], ICONS_ZOOM);
+    strip.draw(goblinView({ conditions: [mark('harm', '#336698')] }), ICONS_ZOOM);
+    expect(paintedColors(badgeOf(strip).disc, 'stroke')).toEqual([0x336698]);
+  });
+
   it('a harm condition without a color keeps the copper of its tone', () => {
     const { disc, glyph } = badgeOf(drawn([mark('harm', null)], ICONS_ZOOM));
     expect(paintedColors(disc, 'stroke')).toEqual([COPPER]);

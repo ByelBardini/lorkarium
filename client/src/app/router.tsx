@@ -25,6 +25,7 @@ import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { exploreRoute } from '@/features/explore/explore-route';
 import { homeRoutes } from '@/features/home/home-route';
+import { SavedColorsProvider } from '@/components/color-picker/saved-colors-context';
 import { TextFieldMenu } from '@/features/text-field-menu/text-field-menu';
 import { AppUpdateNotice } from '@/features/app-update/app-update-notice';
 import { useTabActivity } from '@/features/sessions/use-tab-activity';
@@ -39,6 +40,7 @@ import type { RoomAssetsApi } from '@/services/assets-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
 import type { LibraryApi } from '@/services/library-api';
 import type { ProfileApi } from '@/services/profile-api';
+import type { SavedColorsApi } from '@/services/saved-colors-api';
 import type { SceneActivation } from '@/services/scene-activation';
 import type { Clipboard } from '@/services/clipboard';
 import type { FileDownload } from '@/services/file-download';
@@ -82,6 +84,8 @@ export type AppDependencies = Readonly<{
   campaignsApi: CampaignsApi;
   /** The person's own profile and photo ("Minha conta"). */
   profileApi: ProfileApi;
+  /** The colors the account saved to reuse in any color picker. */
+  savedColorsApi: SavedColorsApi;
   /** Password, e-mail, signed-in devices and 2FA ("Minha conta"). */
   accountSecurityApi: AccountSecurityApi;
   /** The backoffice over the accounts and the invitations (admins only). */
@@ -367,7 +371,7 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
       await navigate('/login', { replace: true });
     };
     return (
-      <>
+      <SavedColorsProvider api={deps.savedColorsApi} userId={session.user.id}>
         <AppShell
           railStore={railStore}
           openTables={openTables}
@@ -376,7 +380,7 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
           brandInTitleBar={desktopWindow !== null}
         />
         <DocumentWorkspaceHost deps={deps} />
-      </>
+      </SavedColorsProvider>
     );
   };
 }

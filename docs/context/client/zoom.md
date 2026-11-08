@@ -1,6 +1,6 @@
 # Client · zoom do tabuleiro
 
-Hub: [`../client.md`](../client.md). Como o zoom fica leve (assentamento, recorte pela faixa), como o tabuleiro volta quando a GPU derruba o contexto e os números de antes e depois. Plano de origem: `docs/plans/2026-11-07-zoom-do-tabuleiro.md`. As regras que seguram isso estão em [`performance.md`](performance.md) (5 e 13); os módulos, em [`board-renderer.md`](board-renderer.md).
+Hub: [`../client.md`](../client.md). Como o zoom fica leve (assentamento, recorte pela faixa), como o tabuleiro volta quando a GPU derruba o contexto e os números de antes e depois. As regras que seguram isso estão em [`performance.md`](performance.md) (5 e 13); os módulos, em [`board-renderer.md`](board-renderer.md).
 
 ## Assentamento do zoom (regra 13)
 

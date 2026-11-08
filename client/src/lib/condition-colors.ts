@@ -1,10 +1,15 @@
-import type { ConditionColorDto, ConditionToneDto } from '@lorkarium/contracts';
+import {
+  isHexColor,
+  type ConditionColorDto,
+  type ConditionPaletteDto,
+  type ConditionToneDto,
+} from '@lorkarium/contracts';
 
 type ConditionColorEntry = Readonly<{ hex: string; label: string }>;
 
 /** Each contract color key with its value and its name in pt-BR (the swatch's accessible name).
  *  Every hue reads at 4.5:1 or more on the card (`#15181D`), the panels and the board's badge. */
-export const CONDITION_COLOR_ENTRIES: Readonly<Record<ConditionColorDto, ConditionColorEntry>> = {
+export const CONDITION_COLOR_ENTRIES: Readonly<Record<ConditionPaletteDto, ConditionColorEntry>> = {
   gold: { hex: '#d9b45a', label: 'Ouro' },
   amber: { hex: '#e89b3c', label: 'Âmbar' },
   ember: { hex: '#ec7a45', label: 'Brasa' },
@@ -27,11 +32,18 @@ const TONE_HEX: Readonly<Record<ConditionToneDto, string>> = {
   incapacitating: '#b5654f',
 };
 
-/** The color a condition is painted with: its own from the palette, else its tone's.
+/** The value of a color the master chose: the palette's hex, or the custom one as it is.
+ *
+ *  Example: `chosenConditionColorOf('sky') // '#5cbcee'` */
+export function chosenConditionColorOf(color: ConditionColorDto): string {
+  return isHexColor(color) ? color : CONDITION_COLOR_ENTRIES[color].hex;
+}
+
+/** The color a condition is painted with: its own, else its tone's.
  *
  *  Example: `conditionColorOf(null, 'benefit') // '#c5a46d'` */
 export function conditionColorOf(color: ConditionColorDto | null, tone: ConditionToneDto): string {
-  return color === null ? TONE_HEX[tone] : CONDITION_COLOR_ENTRIES[color].hex;
+  return color === null ? TONE_HEX[tone] : chosenConditionColorOf(color);
 }
 
 /** The same color as a number, for the board's canvas.
@@ -44,7 +56,7 @@ export function conditionColorNumberOf(
   return Number.parseInt(conditionColorOf(color, tone).slice(1), 16);
 }
 
-/** A palette color at an alpha (0 to 1) as a CSS color, for borders and fills.
+/** A chosen color at an alpha (0 to 1) as a CSS color, for borders and fills.
  *
  *  Example: `paletteColorAt('sky', 0.15) // 'rgb(92 188 238 / 0.15)'` */
 export function paletteColorAt(color: ConditionColorDto, alpha: number): string {

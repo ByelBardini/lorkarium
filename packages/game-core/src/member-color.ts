@@ -16,10 +16,16 @@ export const MEMBER_COLORS = [
 
 export type MemberColor = (typeof MEMBER_COLORS)[number];
 
-/** The effective color of a person: the one they chose, or the one drawn from their id.
+/** The effective color of a person: the one they chose, or the one drawn from their id. Generic
+ *  because a choice can also be a custom color, whose shape belongs to the contracts.
  *
  *  Example: `memberColorOf(user.id, null) // 'teal'` */
-export function memberColorOf(userId: string, choice: MemberColor | null): MemberColor {
+export function memberColorOf(userId: string, choice: null): MemberColor;
+export function memberColorOf<Choice extends string>(
+  userId: string,
+  choice: Choice | null,
+): Choice | MemberColor;
+export function memberColorOf(userId: string, choice: string | null): string {
   if (choice !== null) return choice;
   return MEMBER_COLORS[stableHash(userId) % MEMBER_COLORS.length] ?? 'gold';
 }

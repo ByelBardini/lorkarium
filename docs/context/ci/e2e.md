@@ -44,6 +44,10 @@ Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do V
 - F5 da Bia no meio: ele aparece numa casa da rota e não na gravada (8, 9).
 - Prova de que morde: ignorar a pose da patrulha no `tokenViewOf` (`client/src/renderer/token-view.ts`) deixa o spec vermelho no "sai da partida em até 3 s".
 
+## Cores personalizadas
+
+`e2e/test/custom-colors.spec.ts` (grupo `scene`, ~30 s: `--project=scene --workers=1 custom-colors`): dois contextos, a Bia mestra da própria mesa e o Caio jogador. A Bia salva `#336699` no ladrilho "Cor personalizada" do preenchimento e desenha um quadrado, que o Caio vê azul no canvas (`b − r` por `meanChannelsAt`); o Caio abre o mesmo popover e lê "Nenhuma cor salva ainda." (a lista é da conta). Depois do F5 da Bia, a cor salva é usada no painel de luzes e tinge de azul o chão visto pelo token sem visão no escuro do Caio. A Bia exclui a cor: a lista esvazia, a luz segue azul para o Caio depois do F5 dele e o desenho segue na lista dele e azul no canvas da Bia, porque cada item guarda a própria cópia do hex. Prova de que morde: forçar outro tom no ramo hex de `drawingColorValue` ou de `lightColorCss` deixa o spec vermelho na asserção de cor. Ver [`../client/color-picker.md`](../client/color-picker.md).
+
 ## Documentos da biblioteca
 
 `library-documents.spec.ts` e `library-document-tabs.spec.ts` estão no grupo `library`, com os helpers em `e2e/test/support/documents.ts` (`createDocument`, `expandDocument`, `documentPanelOf`, `savedStatusOf`, `showDocumentTab`, `readDocument`, `changeDocument`, `tabIdOf`, `readTabContent` — o corpo vem de `GET …/tabs/:tabId`, nunca do detalhe — e `pastePortraitIntoDocument`). Fragmentar o primeiro por `--grep 'rich document'`, `'multiple document owners'`, `'document popup opens'` e `'concurrent remote'`, e o das abas por `'own text across a reload'`, `'masters-only tab'` e `'detached document window'`, sempre `--workers=1` e em processos sequenciais; depois rodar `library`, `library-images` e `character`. Cada boot limpa o mesmo banco `_e2e`, portanto nunca iniciar fragmentos simultâneos. Cenários em [../documents/testes.md](../documents/testes.md).

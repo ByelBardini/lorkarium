@@ -8,7 +8,7 @@ import type { LoadedDice } from '@/scripts/dice-act';
 const LANDING_DICE_ZOOM = 1.8;
 
 const LANDING_DICE_LOOK: DiceLook = {
-  colorHex: { ember: 0xe0704f },
+  colorHex: (color) => (color === 'ember' ? 0xe0704f : undefined),
   numberColorOf: () => '#1a1a1a',
   textureUrlOf: (textureId) => {
     throw new Error(`The landing has no uploaded dice textures, got "${textureId}"`);

@@ -35,11 +35,27 @@ describe('drawing style store', () => {
     expect(createDrawingStyleStore(storage).getState().fill).toBeNull();
   });
 
-  it('a value in the storage outside the palette falls back to the default', () => {
+  it('a custom stroke and fill come back from the storage on a new store', () => {
     const storage = new StorageFake();
-    storage.setItem('lorkarium.drawingStyle.stroke', '#ff0000');
+    const first = createDrawingStyleStore(storage).getState();
+    first.setStroke('#336699');
+    first.setFill('#aabbcc');
 
-    expect(createDrawingStyleStore(storage).getState().stroke).toBe('gold');
+    expect(createDrawingStyleStore(storage).getState()).toMatchObject({
+      stroke: '#336699',
+      fill: '#aabbcc',
+    });
+  });
+
+  it.each(['red', '#FFF', 'url(x)'])('%s in the storage falls back to the default', (text) => {
+    const storage = new StorageFake();
+    storage.setItem('lorkarium.drawingStyle.stroke', text);
+    storage.setItem('lorkarium.drawingStyle.fill', text);
+
+    expect(createDrawingStyleStore(storage).getState()).toMatchObject({
+      stroke: 'gold',
+      fill: null,
+    });
   });
 
   it('a storage that throws keeps the default and the choices in memory', () => {

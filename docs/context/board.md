@@ -1,6 +1,6 @@
 # Board
 
-O tabuleiro da mesa: as cenas (grids) e o que vive nelas — tokens, paredes, luzes, desenhos, áreas e combate. O server é a autoridade; o client manda comando e desenha o estado confirmado. Plano de origem: `docs/plans/2026-10-15-tela-sala-de-jogo.md`. DTOs em [`contracts.md`](contracts.md) (Tabuleiro).
+O tabuleiro da mesa: as cenas (grids) e o que vive nelas — tokens, paredes, luzes, desenhos, áreas e combate. O server é a autoridade; o client manda comando e desenha o estado confirmado. DTOs em [`contracts.md`](contracts.md) (Tabuleiro).
 
 ## Cena (`server/src/modules/scenes/`)
 
