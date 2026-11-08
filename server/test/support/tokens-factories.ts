@@ -6,6 +6,7 @@ import type {
   TokenFormPo,
   TokenPo,
 } from '../../src/modules/tokens/tokens.po';
+import type { TokenPatrolPo } from '../../src/modules/tokens/token-patrols.po';
 import { BIA_ID, CAIO_ID } from './campaigns-factories';
 import { VHARN_SCENE_ID } from './scenes-factories';
 
@@ -142,6 +143,7 @@ export function lyraRow(overrides: Partial<TokenRow> = {}): TokenRow {
     bars: [pvBar(), inspirationBar()],
     controllerIds: [BIA_ID],
     forms: [],
+    patrol: null,
     ...overrides,
   };
 }
@@ -155,6 +157,7 @@ export function bramRow(overrides: Partial<TokenRow> = {}): TokenRow {
     bars: [],
     controllerIds: [CAIO_ID],
     forms: [],
+    patrol: null,
     ...overrides,
   };
 }
@@ -178,6 +181,7 @@ export function loboRow(overrides: Partial<TokenRow> = {}): TokenRow {
     bars: [],
     controllerIds: [BIA_ID],
     forms: [],
+    patrol: null,
     ...overrides,
   };
 }
@@ -199,6 +203,7 @@ export function sombraRow(overrides: Partial<TokenRow> = {}): TokenRow {
     bars: [],
     controllerIds: [],
     forms: [],
+    patrol: null,
     ...overrides,
   };
 }
@@ -214,6 +219,7 @@ export function statueRow(overrides: Partial<TokenPo> = {}): TokenRow {
     bars: [],
     controllerIds: [],
     forms: [],
+    patrol: null,
   };
 }
 
@@ -255,4 +261,18 @@ export function ravenForm(overrides: Partial<TokenFormPo> = {}): TokenFormPo {
  *  Example: `lyraRow({ forms: lyraForms() })` */
 export function lyraForms(): TokenFormPo[] {
   return [elfForm(), wolfForm(), ravenForm()];
+}
+
+/** A 2 × 2 square circuit of Lyra from (0, 0), 1 cell/s, turning, paused at step 0.
+ *
+ *  Example: `lyraRow({ token: lyraPo({ col: 0, row: 0 }), patrol: squarePatrolPo({ startedAt }) })` */
+export function squarePatrolPo(overrides: Partial<TokenPatrolPo> = {}): TokenPatrolPo {
+  const path: [number, number][] = [
+    [0, 0],
+    [2, 0],
+    [2, 2],
+    [0, 2],
+  ];
+  const route = { tokenId: LYRA_ID, path, repeat: 'loop' as const, speed: '1.00', turns: true };
+  return { ...route, step: 0, startedAt: null, ...overrides };
 }

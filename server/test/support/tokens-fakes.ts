@@ -1,4 +1,5 @@
 import { WallsDaoFake } from './walls-fakes';
+import { TokenPatrolsDaoFake } from './token-patrols-fakes';
 import type { BarValuesPo, TokenLayerPo, TokenStylePo } from '../../src/modules/tokens/tokens.po';
 import type {
   DragGroupPo,
@@ -55,15 +56,20 @@ export class TokensDaoFake implements Pick<
   | 'deleteMany'
   | 'setHidden'
   | 'veilOfScene'
+  | 'patrols'
 > {
   /** The scenes whose blockers were counted: a command turning none on reads nothing. */
   readonly blockerCounts: string[] = [];
   private cascade: Pick<CombatDaoFake, 'dropToken'> | undefined;
   private worn: Pick<CharactersDaoFake, 'rows'> | undefined;
+  /** The patrols, kept on `rows` like the real DAO reads them with the token. */
+  readonly patrols: TokenPatrolsDaoFake;
   constructor(
     private readonly journal: string[],
     readonly rows: TokenRow[] = [],
-  ) {}
+  ) {
+    this.patrols = new TokenPatrolsDaoFake(journal, this);
+  }
 
   async insert(row: NewTokenRow): Promise<TokenRow> {
     this.journal.push('save');
@@ -79,6 +85,7 @@ export class TokensDaoFake implements Pick<
       bars,
       controllerIds: [...row.controllerIds],
       forms,
+      patrol: null,
     };
     this.rows.push(saved);
     return saved;
@@ -251,6 +258,7 @@ export class TokensDaoFake implements Pick<
       forms: update.forms
         ? savedFormsOf(tokenId, update.forms, new Set(found.forms.map(({ id }) => id)))
         : found.forms,
+      patrol: found.patrol,
     }));
   }
 

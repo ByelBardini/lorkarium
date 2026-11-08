@@ -52,6 +52,8 @@ import {
   restyleTokensCommandDto,
   resizeTokensCommandDto,
   setTokenFormCommandDto,
+  setTokenPatrolCommandDto,
+  setTokenPatrolsActiveCommandDto,
   startCombatCommandDto,
   updateTokenCommandDto,
   watchSceneCommandDto,
@@ -77,6 +79,7 @@ import type { TokenFormService } from '../tokens/token-form.service';
 import type { TokenVisibilityService } from '../tokens/token-visibility.service';
 import type { TokenBatchService } from '../tokens/token-batch.service';
 import type { TokenLinkService } from '../tokens/token-link.service';
+import type { TokenPatrolService } from '../tokens/token-patrol.service';
 import type { TokensService } from '../tokens/tokens.service';
 import type { LightsService } from '../lights/lights.service';
 import type { WallsService } from '../walls/walls.service';
@@ -110,6 +113,7 @@ export type BoardGatewayDeps = Readonly<{
   tokenForm: Pick<TokenFormService, 'setForm'>;
   tokenVisibility: Pick<TokenVisibilityService, 'setHiddenMany'>;
   tokenLink: Pick<TokenLinkService, 'link' | 'unlink'>;
+  tokenPatrol: Pick<TokenPatrolService, 'setPatrol' | 'setActiveMany'>;
   characters: CharacterCommandsDeps['characters'];
   pings: Pick<PingsService, 'ping'>;
   conditions: Pick<
@@ -177,7 +181,7 @@ type Creation<Command> = (
 export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSocket) => void {
   const { tokens, tokenBatch, tokenAppearance: appearance, conditions, combat, drawings } = deps;
   const { effectAreas, walls, lights, tokenVisibility } = deps;
-  const { rate, tokenForm } = deps;
+  const { rate, tokenForm, tokenPatrol: patrol } = deps;
   return (socket) => {
     const bind = <C extends CampaignCommand, A>(schema: z.ZodType<C>, handler: Handler<C, A>) =>
       onCommand({ deps, rate, socket }, schema, handler);
@@ -262,6 +266,11 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
     socket.on(
       'token:setHiddenMany',
       mutate(setTokensHiddenCommandDto, tokenVisibility.setHiddenMany.bind(tokenVisibility)),
+    );
+    socket.on('token:setPatrol', mutate(setTokenPatrolCommandDto, patrol.setPatrol.bind(patrol)));
+    socket.on(
+      'token:setPatrolActiveMany',
+      mutate(setTokenPatrolsActiveCommandDto, patrol.setActiveMany.bind(patrol)),
     );
     socket.on('token:delete', mutate(deleteTokenCommandDto, tokens.delete.bind(tokens)));
     bindCharacterCommands(socket, { bind, mutate, write }, deps);

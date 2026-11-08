@@ -19,6 +19,12 @@ export class InteractionClockFake implements InteractionClock {
     };
   };
 
+  /** The delays still waiting to run, in ms from now, soonest first. */
+  pending(): number[] {
+    const waiting = this.scheduled.filter(({ cancelled }) => !cancelled);
+    return waiting.map(({ at }) => at - this.nowMs).sort((left, right) => left - right);
+  }
+
   advance(ms: number): void {
     const until = this.nowMs + ms;
     for (let next = this.nextDue(until); next; next = this.nextDue(until)) {

@@ -32,6 +32,7 @@ import type {
   WallsMovedDto,
   TokensResizedDto,
   TokenFormChangedDto,
+  TokenPatrolsChangedDto,
   SceneUpdatedDto,
   TokenDeletedDto,
   TokenLayerChangedDto,
@@ -182,6 +183,13 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     veil: VeilCuts<GridEvent<TokenFormChangedDto>>,
   ): void {
     this.emitCuts('token:formChanged', event, veil);
+  }
+
+  tokenPatrolsChanged(
+    event: GridEvent<TokenPatrolsChangedDto>,
+    veil: VeilCuts<GridEvent<TokenPatrolsChangedDto>>,
+  ): void {
+    this.emitCuts('token:patrolsChanged', event, veil);
   }
 
   // A drawing is not a secret: the layer only decides who picks it up, not who sees it.
@@ -383,6 +391,7 @@ type VeiledEventName =
   | 'token:restyledMany'
   | 'token:resizedMany'
   | 'token:formChanged'
+  | 'token:patrolsChanged'
   | 'condition:applied'
   | 'condition:appliedMany'
   | 'condition:removed'

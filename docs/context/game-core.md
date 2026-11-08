@@ -9,6 +9,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/free-cells.ts` — as casas livres em volta de um ponto (onde nascem os tokens de "Adicionar jogadores")
 - `src/token-size.vo.ts` — largura e altura do token (VO)
 - `src/token-resize.ts` — a caixa do token (e de qualquer caixa com limites próprios) depois de arrastar uma alça
+- `src/token-patrol.vo.ts` — a patrulha do token (rota, circuito ou ida e volta, velocidade, virar) e os limites (VO); `src/token-patrol.ts` — o ciclo casa a casa, a pose no instante e a rota na cena. Detalhe em [`game-core/patrulha.md`](game-core/patrulha.md)
 - `src/token-form.ts` — `formBoxIn(cena, caixa, tamanho)`: a caixa do token ao trocar de forma; o canto de cima à esquerda fica e recua para dentro da cena só o que o tamanho novo pede (sem paredes nem colisão, §12); tamanho fora dos passos → `RangeError` do `tokenSize`; maior que a cena → `RangeError` citando "3×3" e "scene 2×2"
 - `src/token-initials.ts` — `initialsOf(nome)`: as iniciais do token (primeira letra das duas primeiras palavras que não são conectivo, ou as duas primeiras letras de uma palavra só; "Ogro das Cinzas" → "OC"). O server a usa no personagem criado ao virar jogador; o client (avatar, chat, formulário do token) importa a mesma daqui (não há cópia no client)
 - `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
@@ -88,6 +89,10 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `snapFacing(graus, passo)` — o múltiplo de `passo` mais perto (o Shift da alça, 45°): 22 → 0, 23 → 45, 350 → 0.
 - `turnFacing(atual, delta)` — gira e dá a volta (Q = −45, E = +45): 0 − 45 → 315.
 - `facingVector(direção)` — o vetor unitário (`Vector2`) da direção: 0 → `{ x: 1, y: 0 }`, 90 → `{ x: 0, y: 1 }`. É onde ficam a marca e a alça.
+
+## Patrulha
+
+`tokenPatrol` (2 a 32 pontos, 0,25 a 4 casas/s de 0,25 em 0,25), `patrolCycle` (circuito ou ida e volta sobre o `pathCells`), `patrolPoseAt` (a volta até o `step`, depois o ciclo em loop; passo `floor(t × velocidade)`; a casa é o destino do passo em andamento; direção do trecho; tempo negativo vale 0) e `patrolFits` (o primeiro ponto fora da cena) moram em [`game-core/patrulha.md`](game-core/patrulha.md).
 
 ## Área de efeito
 

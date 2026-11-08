@@ -18,6 +18,8 @@ import type {
 } from '@/renderer/board-renderer';
 import { buildBoardView, type BoardView } from '@/renderer/board-view';
 import { turnTokenIdsOf } from '@/lib/combat-entries';
+import { browserClock, type InteractionClock } from '@/lib/interaction-clock';
+import { posedTokenOf, shownVeiledLightsOf } from '@/lib/patrol-poses';
 import {
   singleSelectedOf,
   useBoardInteraction,
@@ -31,6 +33,9 @@ import { wallStyleOf, type WallStyleStore } from '@/stores/wall-style-store';
 import { useTableSightOutlines } from './table-sight-outlines';
 import { useBoardSight } from './use-board-sight';
 import { useMountedRenderer } from './use-mounted-renderer';
+import { usePatrolPoses } from './use-patrol-poses';
+import { createTokenPatrolEditor, type TokenPatrolEditor } from '@/stores/token-patrol-flow';
+import type { PatrolDraftView } from '@/renderer/patrol-path-view';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -51,6 +56,10 @@ export type BoardCanvasProps = Readonly<{
   wallStyle: StoreApi<WallStyleStore>;
   /** The clock (ms) that counts lost WebGL contexts; `performance.now` when left out. */
   lossClock?: () => number;
+  /** The timer of the patrols' steps; the browser's when left out. */
+  clock?: InteractionClock;
+  /** The master's patrol editor: its draft is drawn on the grid it belongs to. */
+  patrolEditor?: StoreApi<TokenPatrolEditor>;
 }>;
 
 const NO_TOKENS: readonly TokenDto[] = [];
@@ -120,14 +129,21 @@ function useBoardView({
   drawingStyle,
   effectAreaStyle,
   wallStyle,
+  clock,
+  patrolEditor,
 }: BoardCanvasProps): BoardView | null {
+  const patrolDraft = usePatrolDraft(patrolEditor, board);
+  const patrols = usePatrolPoses(board, clock ?? browserClock);
   const scene = useBoard(board, (state) => state.board?.scene ?? null);
   const tokens = useBoard(board, (state) => state.board?.tokens ?? NO_TOKENS);
   const drawings = useBoard(board, (state) => state.board?.drawings ?? NO_DRAWINGS);
   const effectAreas = useBoard(board, (state) => state.board?.effectAreas ?? NO_EFFECT_AREAS);
   const walls = useBoard(board, (state) => state.board?.walls ?? NO_WALLS);
   const lights = useBoard(board, (state) => state.board?.lights ?? NO_LIGHTS);
-  const veiledLights = useBoard(board, (state) => state.board?.veiledLights ?? NO_VEILED_LIGHTS);
+  // Walked along with a hidden patrol: the clock mirrors the board's own list otherwise.
+  const veiledLights = useBoard(board, (state) =>
+    state.board ? shownVeiledLightsOf(state.board.veiledLights, state.patrol) : NO_VEILED_LIGHTS,
+  );
   const viewerId = useBoard(board, (state) => state.board?.viewer.userId ?? '');
   const isMaster = useBoard(board, (state) => state.board?.viewer.role === 'master');
   const turnTokensKey = useBoard(board, (state) => turnTokensKeyOf(state.board));
@@ -145,7 +161,7 @@ function useBoardView({
   return useMemo(() => {
     if (!scene) return null;
     const viewer = { userId: viewerId, isMaster };
-    const extra = { tokens, drawings, viewer, currentTokenIds, dragged, drawingStyle: style };
+    const extra = { tokens, drawings, viewer, currentTokenIds, dragged, patrols, patrolDraft };
     const areas = {
       effectAreas,
       effectAreaStyle: areaStyle,
@@ -156,7 +172,7 @@ function useBoardView({
       sight,
       sightOutlines,
     };
-    return buildBoardView({ scene, ...extra, ...areas, ...local });
+    return buildBoardView({ scene, ...extra, drawingStyle: style, ...areas, ...local });
   }, [
     scene,
     tokens,
@@ -165,6 +181,8 @@ function useBoardView({
     walls,
     lights,
     veiledLights,
+    patrols,
+    patrolDraft,
     viewerId,
     isMaster,
     currentTokenIds,
@@ -178,6 +196,21 @@ function useBoardView({
   ]);
 }
 
+const NO_PATROL_EDITOR: StoreApi<TokenPatrolEditor> = createTokenPatrolEditor({
+  commands: { setTokenPatrol: () => Promise.resolve({ ok: false, failure: 'unexpected' }) },
+  fullNotice: '',
+});
+
+// The draft of the editor, only on the grid it was drawn on (a text key would lose the cells).
+function usePatrolDraft(
+  editor: StoreApi<TokenPatrolEditor> | undefined,
+  board: StoreApi<BoardStore>,
+): PatrolDraftView | null {
+  const draft = useStore(editor ?? NO_PATROL_EDITOR, (state) => state.draft);
+  const sceneId = useBoard(board, (state) => state.board?.scene.id ?? null);
+  return draft && draft.scope.sceneId === sceneId ? draft : null;
+}
+
 // A token picked in the panel may be off screen: bring it into view (a no-op when it is shown).
 // A marquee selection is already on screen, so only a single selection centers.
 function useCenterOnSelection(
@@ -189,8 +222,11 @@ function useCenterOnSelection(
   );
   useEffect(() => {
     if (!renderer || !selectedId) return;
-    const token = board.getState().board?.tokens.find(({ id }) => id === selectedId);
-    if (token) renderer.centerOn(cell(token.col, token.row));
+    const state = board.getState();
+    const token = state.board?.tokens.find(({ id }) => id === selectedId);
+    if (!token) return;
+    const shown = posedTokenOf(token, state.patrol.poses);
+    renderer.centerOn(cell(shown.col, shown.row));
   }, [board, renderer, selectedId]);
 }
 

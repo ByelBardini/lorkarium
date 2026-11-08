@@ -4,14 +4,17 @@ import { test } from 'vitest';
 import { DEFAULT_DRAWING_STYLE } from '@/lib/drawing-style';
 import { NO_SIGHT_OUTLINES, type SightOutlines } from '@/lib/sight-geometry';
 import { sightNowOf, type SightInteraction } from '@/features/board/use-board-sight';
+import { IDLE_PATROLS, patrolClockOf, type PatrolClock } from '@/lib/patrol-poses';
 import { buildBoardView, type BoardViewInput, type RulerState } from '@/renderer/board-view';
 import {
   STRESS_BLOCKER_OUTLINES,
+  STRESS_PATROL_STARTED_AT,
   stressBlockerBoardOf,
   stressBlockerIds,
   stressBoardOf,
   stressId,
   stressOverlappedBlockersBoardOf,
+  stressPatrolBoardOf,
 } from '../support/stress-board';
 
 // The situations of the budget in docs/context/client/performance.md, each one computing
@@ -136,6 +139,31 @@ test('buildBoardView with 50 blockers', { timeout: 300_000 }, async ({ bench }) 
     bench('blockers: eye and light inside 2 overlapped blockers walk one cell', () => {
       viewOf(OVERLAPPED, { [EYE_ID]: cell(2 + nextStep(), 2) }, OUTLINES);
     }),
+    { time: 500, iterations: 20 },
+  );
+});
+
+// 20 patrols on the stress scene stepping together, as the room's timer does: the clock worked
+// out at the next second (`patrolClockOf`, from the last one), the sight and the view with it.
+const PLAIN_PATROLS = stressPatrolBoardOf('plain');
+const SHAPING_PATROLS = stressPatrolBoardOf('shaping');
+const PATROLS_STARTED_MS = Date.parse(STRESS_PATROL_STARTED_AT);
+const lastPatrols = new Map<BoardStateDto, PatrolClock>();
+
+function patrolStepOf(board: BoardStateDto): unknown {
+  const serverNowMs = PATROLS_STARTED_MS + 1000 * nextStep();
+  const { tokens, veiledLights } = board;
+  const previous = lastPatrols.get(board) ?? IDLE_PATROLS;
+  const patrol = patrolClockOf({ tokens, veiledLights, serverNowMs }, previous);
+  lastPatrols.set(board, patrol);
+  const sight = sightNowOf({ board, dragged: {}, patrol }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
+  return buildBoardView({ ...inputOf(board, {}, sight, {}), patrols: patrol.poses });
+}
+
+test('buildBoardView while patrols walk', { timeout: 300_000 }, async ({ bench }) => {
+  await bench.compare(
+    bench('20 patrols that are no eye nor light take a step', () => patrolStepOf(PLAIN_PATROLS)),
+    bench('20 patrols of eyes or torches take a step', () => patrolStepOf(SHAPING_PATROLS)),
     { time: 500, iterations: 20 },
   );
 });

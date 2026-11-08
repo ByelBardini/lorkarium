@@ -1,10 +1,11 @@
-import type { BoardStateDto, TokenDto } from '@lorkarium/contracts';
+import type { BoardStateDto, TokenDto, VeiledLightDto } from '@lorkarium/contracts';
 import { cell } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { levelOf } from '@/lib/board-sight';
 import { startRoute } from '@/lib/token-route';
 import { sightNowOf, type SightInteraction } from '@/features/board/use-board-sight';
 import { NO_SIGHT_OUTLINES } from '@/lib/sight-geometry';
+import type { PatrolClock, PatrolPoses } from '@/lib/patrol-poses';
 import { playerIdsOf } from '@/lib/table-role';
 import type { TokenDrag } from '@/stores/board-interaction-store';
 import { createTablePresenceStore } from '@/stores/table-presence-store';
@@ -315,5 +316,61 @@ describe('sightNowOf for a spectator keys the players by their ids', () => {
     const first = sightNowOf(bia, IDLE, PLAYERS, NO_SIGHT_OUTLINES);
 
     expect(sightNowOf(bia, IDLE, [BIA_AT_TABLE.userId], NO_SIGHT_OUTLINES)).toBe(first);
+  });
+});
+
+describe('sightNowOf with patrols', () => {
+  const lyraAt9 = new Map([[LYRA_ID, { col: 9, row: 4, facing: 0, glideMs: 1000 }]]);
+
+  // The clock mirrors the board's own veiled lights when none walks, as the store keeps it.
+  function patrolAt(
+    poses: PatrolPoses,
+    veiledLights: VeiledLightDto[] = BOARD.veiledLights,
+  ): PatrolClock {
+    return { poses, veiledLights, nextChangeInMs: 500 };
+  }
+
+  it('with Lyra patrolling past (9, 4), Bia sees the ogre from where Lyra walks', () => {
+    const sight = sightNowOf(
+      { board: BOARD, dragged: {}, patrol: patrolAt(lyraAt9) },
+      IDLE,
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
+
+    expect(levelOf(sight, OGRE_ID)).toBe('seen');
+  });
+
+  it('the veiled torch of a hidden patrol lights the ogre from where its walk is now', () => {
+    const walked = [veiledTorch({ x: 11.5, y: 4.5, bright: 2, dim: 0 })];
+    const veiledLights = [veiledTorch({ x: 0.5, y: 0.5, bright: 2, dim: 0 })];
+    const sight = sightNowOf(
+      { board: { ...BOARD, veiledLights }, dragged: {}, patrol: patrolAt(new Map(), walked) },
+      IDLE,
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
+
+    expect(levelOf(sight, OGRE_ID)).toBe('seen');
+  });
+
+  it('a patrol step of a token that is nobody’s eye nor light keeps the eyes’ sight (only its level)', () => {
+    const ogreStep = (col: number) =>
+      new Map([[OGRE_ID, { col, row: 4, facing: 0, glideMs: 1000 }]]);
+    const first = sightNowOf(
+      { board: BOARD, dragged: {}, patrol: patrolAt(ogreStep(12)) },
+      IDLE,
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
+
+    const next = sightNowOf(
+      { board: BOARD, dragged: {}, patrol: patrolAt(ogreStep(13)) },
+      IDLE,
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
+
+    expect(next.eyes).toBe(first.eyes);
   });
 });

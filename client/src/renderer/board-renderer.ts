@@ -118,6 +118,10 @@ export type BoardHoverIntent =
  *  `x, y` (fractional cells) for everyone on this grid. */
 export type BoardPingIntent = Readonly<{ kind: 'pingRequested'; x: number; y: number }>;
 
+/** A press with the master's patrol editor open: the origin of the next point of the route, the
+ *  token centered on the press and snapped like a drop (never off the scene). */
+export type BoardPatrolIntent = Readonly<{ kind: 'patrolPointPicked'; cell: Cell }>;
+
 /** The GPU dropped the WebGL context: this renderer draws nothing more. Whoever hosts it
  *  destroys it and mounts a new one (at `camera()`), rebuilt from the stores. */
 export type BoardLostIntent = Readonly<{ kind: 'boardLost' }>;
@@ -127,6 +131,7 @@ export type BoardIntent =
   | Readonly<{ kind: 'cameraChanged'; zoom: number }>
   | BoardLostIntent
   | BoardPingIntent
+  | BoardPatrolIntent
   | BoardPointerIntent
   | BoardTokenIntent
   | BoardDrawingIntent

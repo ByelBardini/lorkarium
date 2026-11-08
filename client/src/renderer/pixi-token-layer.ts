@@ -60,7 +60,15 @@ type TokenSprite = Readonly<{
   /** Over the tokens of its layer: the strip and the name plate, which hang under the cell. */
   overlay: Container;
   nameTag: PixiNameTag;
-}> & { view: TokenView; from: Point; to: Point; startedMs: number; stripHeight: number };
+}> & {
+  view: TokenView;
+  from: Point;
+  to: Point;
+  startedMs: number;
+  /** How long the glide under way lasts: 150 ms, or a patrol's whole step. */
+  glideMs: number;
+  stripHeight: number;
+};
 
 /** Where the token images come from: a texture, or `null` while it loads (or failed). */
 export type TokenTextures = Pick<PixiTextureCache, 'textureOf'>;
@@ -196,7 +204,8 @@ export class PixiTokenLayer {
     if (sprite) this.moveSprite(sprite, sprite.to.x, sprite.to.y);
   }
 
-  /** Moves each gliding token a step along its 150 ms glide; call from the ticker. A token that
+  /** Moves each gliding token a step along its glide (150 ms, or a patrol's whole step, linear);
+   *  call from the ticker. A token that
    *  arrived leaves the set, so a still board costs nothing. Whether any token stepped: the frame
    *  must render it (its last step included, so the caller asks before anything else). */
   animate(nowMs: number): boolean {
@@ -204,7 +213,7 @@ export class PixiTokenLayer {
     for (const id of this.gliding) {
       const sprite = this.sprites.get(id);
       if (!sprite || id === this.dragging) continue;
-      const progress = Math.min(1, (nowMs - sprite.startedMs) / MOVE_ANIMATION_MS);
+      const progress = Math.min(1, (nowMs - sprite.startedMs) / sprite.glideMs);
       const x = sprite.from.x + (sprite.to.x - sprite.from.x) * progress;
       const y = sprite.from.y + (sprite.to.y - sprite.from.y) * progress;
       this.moveSprite(sprite, x, y);
@@ -225,7 +234,7 @@ export class PixiTokenLayer {
     const moved = known.to.x !== target.x || known.to.y !== target.y;
     // The glide is for moves; a resize (the size changed) follows the handle at once.
     const resized = known.view.width !== view.width || known.view.height !== view.height;
-    if (moved) this.glide(known, target, nowMs, this.reducedMotion() || resized);
+    if (moved) this.glide(known, target, nowMs, this.reducedMotion() || resized, view.glideMs);
     if (known.view.layer !== view.layer) {
       this.layers[view.layer].addChild(known.root);
       this.strips[view.layer].addChild(known.overlay);
@@ -236,10 +245,17 @@ export class PixiTokenLayer {
     this.draw(known, redraw);
   }
 
-  private glide(sprite: TokenSprite, target: Point, nowMs: number, instant: boolean): void {
+  private glide(
+    sprite: TokenSprite,
+    target: Point,
+    nowMs: number,
+    instant: boolean,
+    glideMs: number | null,
+  ): void {
     sprite.from = instant ? target : { x: sprite.root.x, y: sprite.root.y };
     sprite.to = target;
     sprite.startedMs = nowMs;
+    sprite.glideMs = glideMs ?? MOVE_ANIMATION_MS;
     if (instant && sprite.view.id !== this.dragging) this.moveSprite(sprite, target.x, target.y);
     if (!instant) this.gliding.add(sprite.view.id);
   }
@@ -308,6 +324,7 @@ export class PixiTokenLayer {
       from: at,
       to: at,
       startedMs: nowMs,
+      glideMs: MOVE_ANIMATION_MS,
       stripHeight: 0,
     };
     this.sprites.set(view.id, sprite);

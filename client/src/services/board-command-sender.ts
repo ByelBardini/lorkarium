@@ -1,6 +1,8 @@
 import {
   TOKEN_BLOCKER_LIMIT_CODE,
   TOKEN_LIMIT_CODE,
+  TOKEN_PATROL_LIMIT_CODE,
+  TOKEN_PATROL_NOT_FOUND_CODE,
   boardCommandAckDto,
 } from '@lorkarium/contracts';
 import type { RealtimeTransport } from './realtime-transport';
@@ -12,6 +14,9 @@ export type BoardCommandFailure =
   | 'token_not_found'
   | 'token_limit'
   | 'token_blocker_limit'
+  | 'token_patrol_not_found'
+  | 'token_patrol_limit'
+  | 'invalid_token_patrol'
   | 'out_of_scene'
   | 'drawing_not_found'
   | 'drawing_limit'
@@ -72,6 +77,10 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   TOKEN_FORM_NOT_FOUND: 'token_not_found',
   [TOKEN_LIMIT_CODE]: 'token_limit',
   [TOKEN_BLOCKER_LIMIT_CODE]: 'token_blocker_limit',
+  [TOKEN_PATROL_NOT_FOUND_CODE]: 'token_patrol_not_found',
+  [TOKEN_PATROL_LIMIT_CODE]: 'token_patrol_limit',
+  // The route passed the DTO but never leaves the token's cell (the game-core VO refused it).
+  INVALID_TOKEN_PATROL: 'invalid_token_patrol',
   OUT_OF_SCENE: 'out_of_scene',
   DRAWING_NOT_FOUND: 'drawing_not_found',
   DRAWING_LIMIT: 'drawing_limit',

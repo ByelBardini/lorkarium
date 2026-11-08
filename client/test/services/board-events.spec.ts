@@ -15,6 +15,11 @@ import { CELL_DOOR_ID, NORTH_WALL_ID, cellDoor, northWall } from '../support/wal
 import { CORRIDOR_TORCH_ID, corridorTorch, veiledTorch } from '../support/light-fixtures';
 import { fireAura, goldAura } from '../support/aura-fixtures';
 import { formChangedAt, formSwitchedAt } from '../support/token-form-fixtures';
+import {
+  PATROL_STARTED_AT as AT_OF_PATROL,
+  patrolsChangedAt,
+  squarePatrol,
+} from '../support/patrol-fixtures';
 
 describe('parseBoardEvent', () => {
   it('a valid scene:updated of the table is a sceneUpdated event', () => {
@@ -341,6 +346,50 @@ describe('parseBoardEvent', () => {
       const payload = { ...base, tokenIds: [LYRA_ID], hidden: 'yes' };
       expect(parseBoardEvent('token:hiddenChanged', payload, VHARN.id)).toEqual({
         kind: 'invalid',
+      });
+    });
+  });
+
+  describe('token patrols', () => {
+    const change = { tokenId: KAEL_ID, patrol: squarePatrol(), col: 0, row: 0, facing: 0 };
+
+    it('a valid token:patrolsChanged of the table is a tokenPatrolsChanged event', () => {
+      const payload = patrolsChangedAt(6, [change]);
+      expect(parseBoardEvent('token:patrolsChanged', payload, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type: 'tokenPatrolsChanged', payload },
+      });
+    });
+
+    it('a token:patrolsChanged of another table is not ours', () => {
+      const payload = { ...patrolsChangedAt(6, [change]), campaignId: QUELM.id };
+      expect(parseBoardEvent('token:patrolsChanged', payload, VHARN.id)).toEqual({
+        kind: 'other-table',
+      });
+    });
+
+    it('a token:patrolsChanged with a patrol of 33 points is invalid (resync)', () => {
+      const path = Array.from({ length: 33 }, (_, index): [number, number] => [index % 2, 0]);
+      const payload = patrolsChangedAt(6, [{ ...change, patrol: squarePatrol({ path }) }]);
+      expect(parseBoardEvent('token:patrolsChanged', payload, VHARN.id)).toEqual({
+        kind: 'invalid',
+      });
+    });
+
+    it('a token:moved that paused a patrol keeps the pause in its payload', () => {
+      const patrolPauses = [{ tokenId: KAEL_ID, col: 2, row: 0, facing: 0, step: 2 }];
+      const payload = {
+        ...VHARN_GRID,
+        version: 6,
+        at: AT_OF_PATROL,
+        tokenId: KAEL_ID,
+        col: 6,
+        row: 3,
+        patrolPauses,
+      };
+      expect(parseBoardEvent('token:moved', payload, VHARN.id)).toEqual({
+        kind: 'event',
+        event: { type: 'tokenMoved', payload },
       });
     });
   });

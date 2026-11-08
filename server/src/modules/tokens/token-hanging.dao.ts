@@ -34,7 +34,8 @@ export function savedRowOf(
   }));
   const forms = savedFormsOf(token.id, row.forms ?? []);
   const activeFormId = forms[row.activeFormIndex ?? -1]?.id ?? null;
-  return { token: { ...token, activeFormId }, bars, controllerIds: [...row.controllerIds], forms };
+  const controllerIds = [...row.controllerIds];
+  return { token: { ...token, activeFormId }, bars, controllerIds, forms, patrol: null };
 }
 
 /** What hangs on tokens (bars, controllers, forms, conditions), written for the `TokensDao`

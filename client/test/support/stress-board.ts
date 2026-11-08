@@ -290,3 +290,45 @@ export function stressOverlappedBlockersBoardOf(): BoardStateDto {
   );
   return { ...board, tokens };
 }
+
+/** When the patrols of `stressPatrolBoardOf()` started, by the server's clock. */
+export const STRESS_PATROL_STARTED_AT = '2026-11-08T12:00:00.000Z';
+
+const STRESS_PATROLS = 20;
+
+// Nobody's eye and no torch (`plain`), or an eye or a torch (`shaping`): what a step redoes.
+function patrolIndexes(kind: 'plain' | 'shaping'): readonly number[] {
+  const shaping = (index: number) => index % PLAYER_TOKEN_STEP === 0 || index % 10 === 0;
+  const all = Array.from({ length: ROOMS * TOKENS_PER_ROOM }, (_, index) => index);
+  return all.filter((index) => shaping(index) === (kind === 'shaping')).slice(0, STRESS_PATROLS);
+}
+
+/** `stressBoardOf()` with 20 tokens on a running patrol, each walking one cell to the right and
+ *  back at 1 cell/s from where it stands: all of them step together every second. `plain` patrols
+ *  tokens that are nobody's eye and carry no light; `shaping` eyes and torches. A variant of its
+ *  own, so the historic numbers stay on the board without patrols.
+ *
+ *  Example: `patrolClockOf({ ...stressPatrolBoardOf('plain'), serverNowMs }, IDLE_PATROLS)` */
+export function stressPatrolBoardOf(kind: 'plain' | 'shaping'): BoardStateDto {
+  const ids = new Set(patrolIndexes(kind).map((index) => stressId(1, index)));
+  const board = stressBoardOf();
+  const tokens = board.tokens.map((token) =>
+    ids.has(token.id) ? { ...token, patrol: stressPatrolOf(token) } : token,
+  );
+  return { ...board, tokens };
+}
+
+function stressPatrolOf({ col, row }: TokenDto): TokenDto['patrol'] {
+  const path: [number, number][] = [
+    [col, row],
+    [col + 1, row],
+  ];
+  return {
+    path,
+    repeat: 'bounce',
+    speed: 1,
+    turns: true,
+    step: 0,
+    startedAt: STRESS_PATROL_STARTED_AT,
+  };
+}

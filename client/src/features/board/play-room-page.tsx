@@ -95,6 +95,8 @@ import { useViewerRole } from './use-viewer-role';
 import { useBoardPings } from './use-board-pings';
 import { useEditShortcuts } from './use-edit-shortcuts';
 import { useRoomShortcuts } from './use-room-shortcuts';
+import { RoomPatrolPanel } from '@/features/tokens/patrol-panel';
+import { useRoomPatrolEditor } from '@/features/tokens/use-room-patrol-editor';
 
 export type PlayRoomPageProps = Readonly<{
   campaign: CampaignDetailDto;
@@ -182,6 +184,8 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   useViewerRole(table && shown.tabs ? { ...table, tabs: shown.tabs } : null, props.sessionStore);
   const players = usePlayerIdsOf(table?.presence ?? null);
   const commands = props.boardCommands;
+  const board = table?.board ?? null;
+  const patrol = useRoomPatrolEditor({ commands, board, interaction, scopeOf });
   const tokenKeys = useRoomTokenKeys(openTables, campaign);
   useEditShortcuts({
     scopeOf,
@@ -291,6 +295,8 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               lightColor={props.lightColor}
               conditionTool={conditionTool}
               onPing={ping}
+              clock={props.interactionClock}
+              patrolEditor={patrol.editor}
             />
             {tool === 'draw' && !focus && (
               <DrawStylePanel
@@ -299,6 +305,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                 onMode={interaction.getState().setDrawMode}
               />
             )}
+            {table && <RoomPatrolPanel editor={patrol.editor} presence={table.presence} />}
             {tool === 'area' && !focus && (
               <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />
             )}
@@ -342,6 +349,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                 onChangeAura={setAuraTokenId}
                 onEditForms={(tokenId) => setTokenDialog({ tokenId, initialTab: 'forms' })}
                 onEditToken={(tokenId) => setTokenDialog({ tokenId })}
+                onEditPatrol={patrol.open}
                 characters={{ store: table.characters, onConfirmLink: setCharacterLink }}
                 onClose={() => setTokenMenu(null)}
               />

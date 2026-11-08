@@ -41,6 +41,7 @@ export * from './board/token-aura.dto';
 export * from './board/token-resize.dto';
 export * from './board/token-form.dto';
 export * from './board/token-hidden.dto';
+export * from './board/token-patrol.dto';
 export * from './board/character.dto';
 export * from './board/character-fields.dto';
 export * from './board/token-id-group.dto';

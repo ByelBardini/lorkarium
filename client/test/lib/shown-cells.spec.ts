@@ -82,3 +82,44 @@ describe('shownCellsOf', () => {
     expect(shownCellsOf(NOTHING).size).toBe(0);
   });
 });
+
+describe('shownCellsOf with patrols', () => {
+  const patrols = new Map([[LYRA_ID, { col: 7, row: 2, facing: 270, glideMs: 1000 }]]);
+
+  it('a token on patrol shows on its patrol cell, looking where it walks', () => {
+    expect(shownCellsOf({ ...NOTHING, patrols })).toEqual(
+      new Map([[LYRA_ID, { col: 7, row: 2, facing: 270 }]]),
+    );
+  });
+
+  it('a patrol that does not turn keeps the token’s own facing (Bram looks down)', () => {
+    const still = new Map([[BRAM_ID, { col: 7, row: 2, facing: null, glideMs: 1000 }]]);
+
+    expect(shownCellsOf({ ...NOTHING, patrols: still }).get(BRAM_ID)).toEqual({
+      col: 7,
+      row: 2,
+      facing: 90,
+    });
+  });
+
+  it('the master dragging the patrolling Lyra wins over the patrol cell', () => {
+    const shown = shownCellsOf({ ...NOTHING, patrols, dragged: { [LYRA_ID]: { col: 9, row: 4 } } });
+
+    expect(shown.get(LYRA_ID)).toMatchObject({ col: 9, row: 4 });
+  });
+
+  it('Bia’s own drag of the patrolling Lyra wins over the patrol cell', () => {
+    const drag = { landing: [{ tokenId: LYRA_ID, col: 6, row: 4 }] };
+
+    expect(shownCellsOf({ ...NOTHING, patrols, drag }).get(LYRA_ID)).toMatchObject({
+      col: 6,
+      row: 4,
+    });
+  });
+
+  it('a turn before the ack wins over the patrol facing', () => {
+    const shown = shownCellsOf({ ...NOTHING, patrols, facingPreview: { [LYRA_ID]: 45 } });
+
+    expect(shown.get(LYRA_ID)).toEqual({ col: 7, row: 2, facing: 45 });
+  });
+});

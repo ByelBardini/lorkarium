@@ -173,6 +173,7 @@ Funcionalidades:
 - Vincular token a personagem.
 - Exibir barras de vida.
 - Exibir identificadores e condições.
+- Patrulha do token: o mestre desenha um caminho em loop que o token percorre sozinho para todos (pausa ao ser mexido à mão ou entrar no combate).
 
 A posição visual deverá ser derivada de coordenadas de mundo, não de coordenadas da tela.
 

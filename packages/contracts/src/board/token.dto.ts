@@ -9,6 +9,7 @@ import { cellIndexDto, tokenSideLengthDto } from './half-cell.dto';
 import { tokenAuraDto } from './token-aura.dto';
 import { tokenFormsDto } from './token-form.dto';
 import { tokenFrameDto } from './token-frame.dto';
+import { patrolPausesShape, tokenPatrolDto } from './token-patrol.dto';
 
 export {
   TOKEN_SIZE_MAX,
@@ -156,6 +157,9 @@ export const tokenDto = z.strictObject({
   forms: tokenFormsDto,
   /** The form it shows now, or `null`: changing the image or the size by hand clears it. */
   activeFormId: z.uuid().nullable(),
+  /** Its patrol route and timeline (`null` = none), the same for every audience that gets the
+   *  token: each client derives where it walks now from it. */
+  patrol: tokenPatrolDto.nullable(),
 });
 export type TokenDto = z.infer<typeof tokenDto>;
 
@@ -275,6 +279,7 @@ export const tokenMovedDto = z.strictObject({
   tokenId: z.uuid(),
   col: cellIndexDto,
   row: cellIndexDto,
+  ...patrolPausesShape,
 });
 export type TokenMovedDto = z.infer<typeof tokenMovedDto>;
 

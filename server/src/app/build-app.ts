@@ -288,7 +288,7 @@ function wireRealtime(
   const tokensModule = createTokensModule({ ...shared, sceneWalls, characterPublisher });
   const { service: tokens, batch: tokenBatch, appearance: tokenAppearance } = tokensModule;
   const { link: tokenLink, visibility: tokenVisibility } = tokensModule;
-  const { form: tokenForm } = tokensModule;
+  const { form: tokenForm, patrol: tokenPatrol } = tokensModule;
   const conditionsModule = createConditionsModule({ ...shared, characterPublisher });
   const { service: conditions, catalog: conditionCatalog } = conditionsModule;
   const combat = createCombatModule({ ...shared, characterPublisher }).service;
@@ -321,6 +321,7 @@ function wireRealtime(
     tokenForm,
     tokenVisibility,
     tokenLink,
+    tokenPatrol,
     characters: characters.service,
     pings,
     conditions,

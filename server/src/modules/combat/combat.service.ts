@@ -1,9 +1,17 @@
-import { controlVeilOf, cutsOf, type TokenVeil } from '../tokens/token-veil.mapper';
+import { controlVeilOf, cutsOf, pausesSeenBy, type TokenVeil } from '../tokens/token-veil.mapper';
+import {
+  pauseEnteringOf,
+  withPatrolPauses,
+  type EnteringPauses,
+} from '../tokens/token-patrol-pause';
+import { publishVeiledLights } from '../tokens/token-veil';
 import { combatEventSeenBy, turnChangedSeenBy } from './combat-veil.mapper';
 import type {
   EndCombatCommandDto,
   AddCombatantsCommandDto,
   CombatDto,
+  CombatStartedDto,
+  CombatUpdatedDto,
   ConditionChangeDto,
   MoveInTieCommandDto,
   RegroupTokensCommandDto,
@@ -27,7 +35,7 @@ import {
 import type { ActiveConditionRow, ConditionsDao } from '../conditions/conditions.dao';
 import { holderIdOf, holderIdOfRow, type ConditionHolder } from '../conditions/conditions.po';
 import { toActiveConditionDto } from '../conditions/conditions.mapper';
-import type { BoardPublisherPort } from '../scenes/board-publisher.port';
+import type { BoardPublisherPort, GridEvent } from '../scenes/board-publisher.port';
 import { gridEventBase, inLockedGrid, type SavedInScene } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
@@ -53,7 +61,7 @@ export type TurnCommand = Omit<TurnCommandDto, Envelope>;
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type CombatWriteDaos = Readonly<{
   scenes: Pick<ScenesDao, 'lockInCampaign' | 'bumpVersion'>;
-  tokens: Pick<TokensDao, 'controlOfScene'>;
+  tokens: Pick<TokensDao, 'controlOfScene' | 'veilOfScene' | 'patrols'>;
   combat: Pick<
     CombatDao,
     | 'start'
@@ -112,7 +120,9 @@ type TurnChange = Readonly<{ combat: CombatDto; conditionChanges: ConditionChang
 export class CombatService {
   constructor(private readonly deps: CombatServiceDeps) {}
 
+  /** The tokens that enter pause their patrols where they are now (`patrolPauses`). */
   async start(userId: string, campaignId: string, command: StartCombat): Promise<number> {
+    const now = this.deps.clock.now();
     const saved = await this.inCombat(
       userId,
       campaignId,
@@ -122,11 +132,15 @@ export class CombatService {
         const started = await daos.combat.start(scene.id, entries);
         const first = orderCombatants(started.combatants)[0]?.id ?? null;
         await daos.combat.setTurn(started.combat.id, 1, first);
-        return combatOf(daos, scene);
+        const paused = await pauseEnteringOf(daos, scene.id, entryTokenIdsOf(entries), now);
+        return { combat: await combatOf(daos, scene), paused };
       },
     );
-    const event = { ...gridEventBase(campaignId, saved, this.deps.clock), combat: saved.value };
-    this.deps.publisher.combatStarted(event, cutsOf(event, saved.veil, combatEventSeenBy));
+    const { combat, paused } = saved.value;
+    const base = gridEventBase(campaignId, saved, this.deps.clock);
+    const event = withPatrolPauses({ ...base, combat }, paused.patrolPauses);
+    this.deps.publisher.combatStarted(event, cutsOf(event, saved.veil, STARTED_SEEN_BY));
+    publishVeiledLights(this.deps.publisher, base, paused.lights);
     return saved.version;
   }
 
@@ -138,14 +152,17 @@ export class CombatService {
     return saved.version;
   }
 
+  /** The tokens that enter pause their patrols where they are now (`patrolPauses`). */
   addCombatants(userId: string, campaignId: string, command: AddCombatants): Promise<number> {
+    const now = this.deps.clock.now();
     return this.updated(
       userId,
       campaignId,
       command.sceneId,
-      async ({ daos, tokens, row, roster }) => {
+      async ({ daos, scene, tokens, row, roster }) => {
         const entries = roster.addCombatants(command.entries, idsOf(tokens));
         await daos.combat.addCombatants(combatIdOf(row), entries);
+        return pauseEnteringOf(daos, scene.id, entryTokenIdsOf(entries), now);
       },
     );
   }
@@ -237,19 +254,22 @@ export class CombatService {
     return saved.version;
   }
 
-  // A change to the combat that everyone sees as `combat:updated`.
+  // A change to the combat that everyone sees as `combat:updated` (with the patrols it paused).
   private async updated(
     userId: string,
     campaignId: string,
     sceneId: string | undefined,
-    work: (locked: InCombat) => Promise<void>,
+    work: (locked: InCombat) => Promise<EnteringPauses | void>,
   ): Promise<number> {
     const saved = await this.inCombat(userId, campaignId, sceneId, async (locked) => {
-      await work(locked);
-      return combatOf(locked.daos, locked.scene);
+      const paused = (await work(locked)) ?? NO_PAUSES;
+      return { combat: await combatOf(locked.daos, locked.scene), paused };
     });
-    const event = { ...gridEventBase(campaignId, saved, this.deps.clock), combat: saved.value };
-    this.deps.publisher.combatUpdated(event, cutsOf(event, saved.veil, combatEventSeenBy));
+    const { combat, paused } = saved.value;
+    const base = gridEventBase(campaignId, saved, this.deps.clock);
+    const event = withPatrolPauses({ ...base, combat }, paused.patrolPauses);
+    this.deps.publisher.combatUpdated(event, cutsOf(event, saved.veil, UPDATED_SEEN_BY));
+    publishVeiledLights(this.deps.publisher, base, paused.lights);
     return saved.version;
   }
 
@@ -293,6 +313,14 @@ export class CombatService {
     const event = { ...gridEventBase(campaignId, saved, this.deps.clock), ...saved.value };
     this.deps.publisher.combatTurnChanged(event, cutsOf(event, saved.veil, turnChangedSeenBy));
   }
+}
+
+const NO_PAUSES: EnteringPauses = { patrolPauses: [], lights: null };
+const STARTED_SEEN_BY = pausesSeenBy<GridEvent<CombatStartedDto>>(combatEventSeenBy);
+const UPDATED_SEEN_BY = pausesSeenBy<GridEvent<CombatUpdatedDto>>(combatEventSeenBy);
+
+function entryTokenIdsOf(entries: readonly Readonly<{ tokenIds: readonly string[] }>[]): string[] {
+  return entries.flatMap(({ tokenIds }) => tokenIds);
 }
 
 function controllersIn(tokens: readonly TokenControlPo[]): (tokenId: string) => readonly string[] {

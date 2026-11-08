@@ -50,6 +50,7 @@ export function composedTokenRow(row: TokenRow, character: WornCharacterRow | un
     bars: character.bars.map((bar) => tokenBarOf(bar, tokenId)),
     controllerIds: character.controllerIds,
     forms: character.forms.map((form) => ({ ...form, tokenId })),
+    patrol: row.patrol,
   };
 }
 

@@ -219,6 +219,58 @@ describe('PixiTokenLayer glides only the moved tokens', () => {
   });
 });
 
+describe('PixiTokenLayer glides a patrol step over the whole step', () => {
+  const CELL = 64;
+
+  function rootOf(layer: PixiTokenLayer): Container {
+    const root = layer.container.getChildByLabel('token:goblin', true);
+    if (!root) throw new Error('expected the sprite token:goblin on the layer, found none');
+    return root;
+  }
+
+  function stepAt1CellPerSecond(reducedMotion = false): PixiTokenLayer {
+    const { layer } = layerWith(reducedMotion);
+    layer.sync([goblinView({ col: 0 })], [], 0);
+    layer.sync([goblinView({ col: 1, glideMs: 1000 })], [], 0);
+    return layer;
+  }
+
+  it('at 1 cell/s the token is halfway after 500 ms', () => {
+    const layer = stepAt1CellPerSecond();
+
+    layer.animate(500);
+
+    expect(rootOf(layer).x).toBe(CELL / 2);
+    expect(layer.glidingCount()).toBe(1);
+  });
+
+  it('it arrives at 1000 ms and leaves the glide', () => {
+    const layer = stepAt1CellPerSecond();
+
+    layer.animate(1000);
+
+    expect(rootOf(layer).x).toBe(CELL);
+    expect(layer.glidingCount()).toBe(0);
+  });
+
+  it('a move with no patrol after it is back to the short 150 ms glide', () => {
+    const layer = stepAt1CellPerSecond();
+    layer.animate(1000);
+    layer.sync([goblinView({ col: 3 })], [], 1000);
+
+    layer.animate(1150);
+
+    expect(rootOf(layer).x).toBe(3 * CELL);
+  });
+
+  it('with reduced motion the patrol jumps from cell to cell', () => {
+    const layer = stepAt1CellPerSecond(true);
+
+    expect(rootOf(layer).x).toBe(CELL);
+    expect(layer.glidingCount()).toBe(0);
+  });
+});
+
 const GOLD_AURA = {
   look: { kind: 'color', color: 0xc5a46d },
   box: { x: -128, y: -128, width: 320, height: 320 },

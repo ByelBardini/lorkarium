@@ -227,6 +227,7 @@ describe('tokenDto', () => {
       createdBy: null,
       forms: [],
       activeFormId: null,
+      patrol: null,
     };
     expect(tokenDto.parse(token).bars.map((b) => b.position)).toEqual([1, 2]);
   });
@@ -361,6 +362,7 @@ describe('defeated', () => {
     createdBy: null,
     forms: [],
     activeFormId: null,
+    patrol: null,
   };
 
   // Only `token:restyleMany` marks a token: a new token (and a pasted copy) is never defeated.
@@ -446,6 +448,7 @@ describe('the field of view and the lantern of a token', () => {
       createdBy: null,
       forms: [],
       activeFormId: null,
+      patrol: null,
     } as Record<string, unknown>;
     delete token.actionId;
     delete token.campaignId;
@@ -515,6 +518,7 @@ describe('a token that blocks sight', () => {
       createdBy: null,
       forms: [],
       activeFormId: null,
+      patrol: null,
     } as Record<string, unknown>;
     delete token.actionId;
     delete token.campaignId;
@@ -528,6 +532,49 @@ describe('a token that blocks sight', () => {
     expect(TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX).toBe(50);
     const refusal = { code: TOKEN_BLOCKER_LIMIT_CODE, message: 'too many' };
     expect(apiErrorDto.parse(refusal).code).toBe('TOKEN_BLOCKER_LIMIT');
+  });
+});
+
+describe('tokenDto.patrol', () => {
+  const PATROL = {
+    path: [
+      [3, 4],
+      [8, 4],
+    ],
+    repeat: 'loop',
+    speed: 1,
+    turns: true,
+    step: 3,
+    startedAt: '2026-11-08T12:00:00.000Z',
+  };
+  const confirmed = {
+    ...createTokenCommandDto.parse(CREATE),
+    id: TOKEN_ID,
+    defeated: false,
+    sight: null,
+    light: null,
+    lightLit: true,
+    hidden: false,
+    blocksSight: false,
+    canControl: false,
+    bars: [],
+    conditions: [],
+    characterId: null,
+    createdBy: null,
+    forms: [],
+    activeFormId: null,
+  } as Record<string, unknown>;
+  delete confirmed.actionId;
+  delete confirmed.campaignId;
+
+  it('a running patrol travels with the token as sent', () => {
+    expect(tokenDto.parse({ ...confirmed, patrol: PATROL }).patrol).toEqual(PATROL);
+  });
+
+  it('a confirmed token without patrol is refused: the event always carries it', () => {
+    const result = tokenDto.safeParse(confirmed);
+
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['patrol']);
   });
 });
 

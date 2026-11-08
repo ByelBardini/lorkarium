@@ -161,7 +161,15 @@ export class PrimaryPress {
     if (route.kind === 'token') return this.pressToken(route.token, at);
     if (view && route.kind === 'drawing') return void sketches.press(view, screen, world);
     if (view && route.kind === 'effectArea') return void areas.press(view, screen, world);
+    if (view && route.kind === 'patrolPoint') return this.pickPatrolPoint(view, world);
     this.pressPointer(route, at);
+  }
+
+  // The token lands centered on the press, snapped like a drop; off the scene there is no point.
+  private pickPatrolPoint(view: BoardView, world: Point): void {
+    const size = view.patrolPath?.size;
+    const landing = size ? dropCellOf(view.grid.cells, size, world) : null;
+    if (landing) this.parts.onIntent({ kind: 'patrolPointPicked', cell: landing });
   }
 
   // Only a point of the scene: off it there is nothing to point at (and the server refuses it).

@@ -110,8 +110,9 @@ export type OpenTablesDeps = Readonly<{
   storage: TabStorage;
   /** The interaction of each grid tab (its commands, its refusal messages). */
   createInteraction: CreateTabInteraction;
-  /** Wall-clock milliseconds a roll or a chat message is received at (its `revealAtMs` survives
-   *  an F5); `Date.now` when absent. */
+  /** Wall-clock milliseconds a roll, a chat message or a board event is received at (its
+   *  `revealAtMs` survives an F5; the board guesses the server clock by it); `Date.now` when
+   *  absent. */
   wallClock?: () => number;
 }>;
 
@@ -244,6 +245,7 @@ class OpenTablesActions {
       table.campaignId,
       () => this.handles.get(table.campaignId)?.resync(),
       tableLinksOf(characters),
+      this.deps.wallClock,
     );
     const tabs = this.tabsOf(table.campaignId, board, characters);
     const edits = groupTabOf(tabs.getState()).edits;
@@ -344,6 +346,7 @@ class OpenTablesActions {
       watch: (sceneId, listener) => this.handleOf(campaignId).watch(sceneId, listener),
       storage: this.deps.storage,
       createInteraction: this.deps.createInteraction,
+      wallClock: this.deps.wallClock,
     });
   }
 

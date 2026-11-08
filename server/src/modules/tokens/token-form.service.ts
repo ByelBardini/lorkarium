@@ -1,4 +1,8 @@
-import type { SetTokenFormCommandDto, TokenFormChangedDto } from '@lorkarium/contracts';
+import type {
+  PatrolPauseDto,
+  SetTokenFormCommandDto,
+  TokenFormChangedDto,
+} from '@lorkarium/contracts';
 import type { TokenBox } from '@lorkarium/game-core';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
@@ -24,6 +28,7 @@ import {
   type TokenWriteDaos,
 } from './token-transaction';
 import { cutsOf, tokenSeenBy } from './token-veil.mapper';
+import { pausedIfOf, withPatrolPauses } from './token-patrol-pause';
 import { publishVeiledLights, veiledWriteOf, type VeiledWrite } from './token-veil';
 import type { TokenRow } from './tokens.dao';
 import type { TokenFormPo } from './tokens.po';
@@ -46,6 +51,8 @@ type Switched = Readonly<{
   /** The character of a linked token, with the form's image and frame (`[]` unlinked). */
   shared: CharacterRow[];
   veiled: VeiledWrite;
+  /** A new box pauses a running patrol where the token is now. */
+  patrolPauses: PatrolPauseDto[];
 }>;
 
 /** A token switching to one of its forms on the map: it takes the form's image, frame and size, and keeps
@@ -63,8 +70,9 @@ export class TokenFormService {
   async setForm(userId: string, campaignId: string, command: SetTokenForm): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const address = { campaignId, sceneId: command.sceneId, access };
+    const now = this.deps.clock.now();
     const saved = await inLockedGridWithCharacters(this.deps.transaction, address, (locked) =>
-      this.switchIn(locked, access, command),
+      this.switchIn(locked, access, command, now),
     );
     if (saved.value) this.publish(campaignId, saved, saved.value);
     return saved.version;
@@ -74,12 +82,15 @@ export class TokenFormService {
     locked: LockedGridMaybeCharacters<TokenWriteDaos>,
     access: CampaignAccessBo,
     command: SetTokenForm,
+    now: Date,
   ): Promise<CharactersAndGridChange<Switched | null>> {
     const { daos, scene } = locked;
-    const row = await tokenIn(daos, scene, scene.campaignId, command.tokenId);
-    tokenAccessOf(access, row).requireControl('setForm');
-    const form = requireForm(row.token.id, row.forms, command.formId);
-    requireActiveForm(row.token.id, command.expect, row.token.activeFormId);
+    const stored = await tokenIn(daos, scene, scene.campaignId, command.tokenId);
+    tokenAccessOf(access, stored).requireControl('setForm');
+    const form = requireForm(stored.token.id, stored.forms, command.formId);
+    requireActiveForm(stored.token.id, command.expect, stored.token.activeFormId);
+    const resized = form.width !== stored.token.width || form.height !== stored.token.height;
+    const { row, patrolPauses } = await pausedIfOf(daos, scene.id, stored, now, resized);
     const box = formBoxOf(scene, row.token, form);
     if (isShowing(row.token, form, box)) return { value: null, grid: false, characters: false };
     const character = await linkedCharacterIn(locked, row);
@@ -87,21 +98,22 @@ export class TokenFormService {
     const ids = character ? [character.character.id] : [];
     const look = { imageAssetId: form.imageAssetId, frame: form.frame };
     const shared = await restyleCharacters(daos, scene.campaignId, ids, look);
-    const value = { row, form, box, shared, veiled };
+    const value = { row, form, box, shared, veiled, patrolPauses };
     return { value, grid: true, characters: shared.length > 0 };
   }
 
   private publish(
     campaignId: string,
     saved: SavedInCharactersAndGrid<unknown>,
-    { row, form, box, shared, veiled }: Switched,
+    { row, form, box, shared, veiled, patrolPauses }: Switched,
   ): void {
     const look = lookOf(form);
     const outlet = { publisher: this.deps.characterPublisher, clock: this.deps.clock };
     publishCharactersChange(outlet, campaignId, saved.characters, shared);
     if (!saved.grid) return;
     const base = gridEventBase(campaignId, saved.grid, this.deps.clock);
-    const event: GridEvent<TokenFormChangedDto> = { ...base, ...look, tokenId: row.token.id, box };
+    const switched = { ...base, ...look, tokenId: row.token.id, box };
+    const event: GridEvent<TokenFormChangedDto> = withPatrolPauses(switched, patrolPauses);
     this.deps.publisher.tokenFormChanged(event, cutsOf(event, veiled.veil, tokenSeenBy));
     publishVeiledLights(this.deps.publisher, base, veiled.lights);
   }

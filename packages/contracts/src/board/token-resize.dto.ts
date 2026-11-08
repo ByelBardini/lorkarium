@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { tokenBoxShape } from './half-cell.dto';
 import { tokenGroupOf } from './token-id-group.dto';
+import { patrolPausesShape } from './token-patrol.dto';
 
 /** Where a token stands and how much it covers after a resize. */
 const tokenBoxDto = z.strictObject({ tokenId: z.uuid(), ...tokenBoxShape });
@@ -25,5 +26,6 @@ export type ResizeTokensCommandDto = z.infer<typeof resizeTokensCommandDto>;
 export const tokensResizedDto = z.strictObject({
   ...boardEventShape,
   resizes: z.array(tokenBoxDto),
+  ...patrolPausesShape,
 });
 export type TokensResizedDto = z.infer<typeof tokensResizedDto>;

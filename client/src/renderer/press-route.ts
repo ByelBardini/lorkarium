@@ -32,6 +32,8 @@ export type PressRoute =
   | Readonly<{ kind: 'drawing'; drawing: DrawingView }>
   | Readonly<{ kind: 'effectArea'; area: EffectAreaView }>
   | Readonly<{ kind: 'marquee' }>
+  /** The master's patrol editor is open: a press adds a point of the route. */
+  | Readonly<{ kind: 'patrolPoint' }>
   | Readonly<{ kind: 'pointer' }>;
 
 /** What a short right click opens: the master's door or light menu, or the menu of a token. */
@@ -49,6 +51,7 @@ export type HoverRoute = Readonly<{ tokenId: string | null; handle: ResizeHandle
  *
  *  Example: `pressRouteOf(view, world, camera.zoom).kind // 'token'` */
 export function pressRouteOf(view: BoardView, world: Point, zoom: number): PressRoute {
+  if (view.patrolPath?.draft) return { kind: 'patrolPoint' };
   if (view.tool === 'walls') return wallRouteOf(view, world);
   if (view.tool === 'draw') return drawRouteOf(view, world);
   if (view.tool === 'area') return { kind: 'areaSketch' };

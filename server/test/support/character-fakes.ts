@@ -53,6 +53,7 @@ export function linkedLyraRow(overrides: Partial<TokenRow['token']> = {}): Token
     bars: [],
     controllerIds: [],
     forms: [],
+    patrol: null,
   };
 }
 
@@ -67,7 +68,7 @@ export function kaelRow(): TokenRow {
     row: 2,
   });
   const pv = pvBar({ id: `${KAEL_ID}-pv`, tokenId: KAEL_ID, current: 10, max: 10 });
-  return { token, bars: [pv], controllerIds: [CAIO_ID], forms: [] };
+  return { token, bars: [pv], controllerIds: [CAIO_ID], forms: [], patrol: null };
 }
 
 /** Vharn with Ana master, Bia and Caio players; the Salão (group grid, version 4), the public

@@ -82,5 +82,6 @@ function chestOnObjects(conditions: TokenView['conditions']): TokenView {
     hidden: false,
     silhouette: null,
     aura: null,
+    glideMs: null,
   };
 }

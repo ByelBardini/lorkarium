@@ -4,6 +4,7 @@ import { useCallback, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { EditEntry } from '@/lib/edit-history';
+import { posedTokenOf } from '@/lib/patrol-poses';
 import type { BoardScope } from '@/services/board-command-sender';
 import type {
   GridListener,
@@ -91,6 +92,8 @@ export type SceneTabsDeps = Readonly<{
   watch: (sceneId: string, listener: GridListener) => GridWatchHandle;
   storage: TabStorage;
   createInteraction: CreateTabInteraction;
+  /** When each board event of a tab arrived, for its server clock; `Date.now` when absent. */
+  wallClock?: () => number;
 }>;
 
 type SetTabs = StoreApi<SceneTabsStore>['setState'];
@@ -232,6 +235,7 @@ class SceneTabsActions {
       this.deps.campaignId,
       () => this.watches.get(sceneId)?.resync(),
       tableLinksOf(this.deps.characters),
+      this.deps.wallClock,
     );
     const pings = createPingFeed();
     const handle = this.deps.watch(sceneId, (update) => {
@@ -320,7 +324,11 @@ class SceneTabsActions {
   }
 }
 
+// A patrolling token is undone back to where it showed, not to the origin saved with its patrol.
 function cellOfToken(board: StoreApi<BoardStore>, tokenId: string): Cell | null {
-  const token = board.getState().board?.tokens.find(({ id }) => id === tokenId);
-  return token ? { col: token.col, row: token.row } : null;
+  const { board: state, patrol } = board.getState();
+  const token = state?.tokens.find(({ id }) => id === tokenId);
+  if (!token) return null;
+  const { col, row } = posedTokenOf(token, patrol.poses);
+  return { col, row };
 }

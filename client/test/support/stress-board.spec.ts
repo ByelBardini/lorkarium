@@ -10,6 +10,7 @@ import {
   stressBlockerIds,
   stressBoardOf,
   stressOverlappedBlockersBoardOf,
+  stressPatrolBoardOf,
   stressToken,
 } from './stress-board';
 
@@ -118,5 +119,27 @@ describe('stressOverlappedBlockersBoardOf', () => {
     const eye = stressOverlappedBlockersBoardOf().tokens[0];
     expect(eye?.sight).not.toBeNull();
     expect(eye?.lightLit).toBe(true);
+  });
+});
+
+describe('stressPatrolBoardOf', () => {
+  const patrolling = (kind: 'plain' | 'shaping') =>
+    stressPatrolBoardOf(kind).tokens.filter(({ patrol }) => patrol !== null);
+
+  it('puts 20 tokens on a running patrol that the DTO accepts', () => {
+    expect(patrolling('plain')).toHaveLength(20);
+    expect(boardStateDto.safeParse(stressPatrolBoardOf('plain')).success).toBe(true);
+  });
+
+  it('plain patrols are nobody’s eye and carry no light', () => {
+    expect(patrolling('plain').some(({ sight, lightLit }) => sight !== null || lightLit)).toBe(
+      false,
+    );
+  });
+
+  it('shaping patrols are each an eye or a lit torch', () => {
+    expect(patrolling('shaping').every(({ sight, lightLit }) => sight !== null || lightLit)).toBe(
+      true,
+    );
   });
 });

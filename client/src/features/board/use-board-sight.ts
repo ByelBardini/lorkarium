@@ -8,6 +8,7 @@ import {
   type BoardSight,
 } from '@/lib/board-sight';
 import type { TokenLanding } from '@/lib/light-sources';
+import { shownVeiledLightsOf, type PatrolClock } from '@/lib/patrol-poses';
 import { shownCellsOf } from '@/lib/shown-cells';
 import { sightGeometryOf, type SightGeometry, type SightOutlines } from '@/lib/sight-geometry';
 import {
@@ -39,9 +40,10 @@ export function previewEyeIdsOf(
   return state.sightPreview ? state.selectedTokenIds : null;
 }
 
-/** The part of a table's board store the filter reads: the confirmed board and other people's
- *  drags. */
-export type SightTable = Pick<BoardStoreState, 'board' | 'dragged'>;
+/** The part of a table's board store the filter reads: the confirmed board, other people's drags
+ *  and the running patrols (absent: none walks). */
+export type SightTable = Pick<BoardStoreState, 'board' | 'dragged'> &
+  Partial<Pick<BoardStoreState, 'patrol'>>;
 
 /** The part of the interaction the filter reads: the master's preview, this viewer's drag and the
  *  move waiting for the server. */
@@ -65,13 +67,21 @@ export function sightNowOf(
 ): BoardSight {
   if (!table.board) return CLEAR_SIGHT;
   const { drag, preview, facingPreview } = interaction;
-  const { dragged, board } = table;
-  const landing = shownCellsOf({ dragged, drag, preview, facingPreview, tokens: board.tokens });
+  const { dragged, board, patrol } = table;
+  const patrols = patrol?.poses;
+  const { tokens } = board;
+  const landing = shownCellsOf({ patrols, dragged, drag, preview, facingPreview, tokens });
   return rememberedSightOf(
-    table.board,
+    walkedBoardOf(board, patrol),
     { previewEyeIds: previewEyeIdsOf(interaction), playerIds, outlines },
     landing,
   );
+}
+
+// The veiled light of a hidden patrol shines from where the walk is now.
+function walkedBoardOf(board: BoardStateDto, patrol: PatrolClock | undefined): BoardStateDto {
+  const veiledLights = shownVeiledLightsOf(board.veiledLights, patrol);
+  return veiledLights === board.veiledLights ? board : { ...board, veiledLights };
 }
 
 /** What the filter reads of the board: a drawing, a presence or a version bump hand a new board
@@ -182,7 +192,7 @@ function movedIdsOf(before: TokenLanding, after: TokenLanding): string[] {
 }
 
 /** The sight filter of the room, recomputed when the confirmed board, a drag (this viewer's, the
- *  move waiting for the server or other people's), a turn before the ack, the master's preview or
+ *  move waiting for the server or other people's), a patrol's step, a turn before the ack, the master's preview or
  *  the table's players (`TablePlayersContext`, for a spectator) change: the one filter the
  *  canvas, the list "Na cena" and the keys go through.
  *
@@ -193,6 +203,7 @@ export function useBoardSight(
 ): BoardSight {
   const state = useBoard(board, (current) => current.board);
   const dragged = useBoard(board, (current) => current.dragged);
+  const patrol = useBoard(board, (current) => current.patrol);
   const sightPreview = useBoardInteraction(interaction, (current) => current.sightPreview);
   const selectedTokenIds = useBoardInteraction(interaction, (current) => current.selectedTokenIds);
   const drag = useBoardInteraction(interaction, (current) => current.drag);
@@ -203,7 +214,7 @@ export function useBoardSight(
   return useMemo(
     () =>
       sightNowOf(
-        { board: state, dragged },
+        { board: state, dragged, patrol },
         { sightPreview, selectedTokenIds, drag, preview, facingPreview },
         players,
         outlines,
@@ -211,6 +222,7 @@ export function useBoardSight(
     [
       state,
       dragged,
+      patrol,
       sightPreview,
       selectedTokenIds,
       drag,

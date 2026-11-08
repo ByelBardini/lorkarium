@@ -7,6 +7,7 @@ import { lightsInBand } from './light-view';
 import { PixiFacingHandle } from './pixi-facing-handle';
 import { PixiLightLayer } from './pixi-light-layer';
 import { PixiMarquee } from './pixi-marquee';
+import { PixiPatrolPath } from './pixi-patrol-path';
 import { PixiResizeHandles } from './pixi-resize-handles';
 import { PixiRuler } from './pixi-ruler';
 import { PixiSightBlockerLayer } from './pixi-sight-blocker-layer';
@@ -16,7 +17,7 @@ import { doorsInBand, wallsInBand } from './wall-view';
 
 /** What the board draws above the fog, in drawing order: what the master's lights light, the
  *  outline of the field of view and the line of the blocker selected alone, the walls,
- *  the light icons and the doors, the handles of
+ *  the light icons and the doors, the master's patrol line, the handles of
  *  the selected token, the sketches of the tools (passed in), the ruler and the marquee. Redrawn
  *  when the view changes, the zoom settles or the camera leaves the grid band, since their lines
  *  keep their width on screen; a pan inside the band only moves the world. Walls, doors and
@@ -32,6 +33,7 @@ export class PixiBoardOverlays {
   readonly facingHandle: PixiFacingHandle;
   readonly resizeHandles: PixiResizeHandles;
   readonly ruler = new PixiRuler();
+  readonly patrolPath = new PixiPatrolPath();
   readonly marquee: PixiMarquee;
 
   constructor(onIntent: BoardIntentListener) {
@@ -43,7 +45,7 @@ export class PixiBoardOverlays {
   /** The containers to add to the world above the fog, the tools' sketches in the middle. */
   containers(sketches: readonly Container[]): Container[] {
     const { walls, lights, sightCone, sightBlocker } = this;
-    const { resizeHandles, facingHandle, ruler, marquee } = this;
+    const { resizeHandles, facingHandle, ruler, marquee, patrolPath } = this;
     return [
       lights.areas,
       sightCone.shape,
@@ -51,6 +53,7 @@ export class PixiBoardOverlays {
       walls.lines,
       lights.icons,
       walls.doors,
+      patrolPath.shape,
       resizeHandles.shape,
       facingHandle.shape,
       ...sketches,
@@ -67,6 +70,7 @@ export class PixiBoardOverlays {
     this.lights.draw(lightsInBand(view.lights, band), zoom);
     this.sightCone.draw(view.sightCone, zoom);
     this.sightBlocker.draw(view.sightBlockerOutline, zoom);
+    this.patrolPath.draw(view.patrolPath, zoom);
     this.ruler.draw(view.ruler, zoom);
     this.resizeHandles.draw(view, zoom);
     this.facingHandle.draw(view, zoom);
