@@ -1,6 +1,6 @@
 # Tokens — aura
 
-Detalhe do hub [`tokens.md`](../tokens.md): a aura em volta do token (cor, efeito pronto animado ou imagem da mesa, quadrada ou redonda), vista por todos. Plano de origem: `docs/plans/2026-10-25-auras-dos-tokens.md`. DTO em [`contracts/aura.md`](../contracts/aura.md) (`tokenAuraDto`); regra do raio e da opacidade em [`game-core.md`](../game-core.md) (`aura.vo.ts`); a imagem (GIF animado incluso) pela finalidade `aura` de [`assets.md`](../assets.md).
+Detalhe do hub [`tokens.md`](../tokens.md): a aura em volta do token (cor, efeito pronto animado ou imagem da mesa, quadrada ou redonda), vista por todos. DTO em [`contracts/aura.md`](../contracts/aura.md) (`tokenAuraDto`); regra do raio e da opacidade em [`game-core.md`](../game-core.md) (`aura.vo.ts`); a imagem (GIF animado incluso) pela finalidade `aura` de [`assets.md`](../assets.md).
 
 ## Tabela (`tokens.po.ts`, migrações `0058_token_aura` e `0061_aura_image_shape`)
 
@@ -10,7 +10,7 @@ Uma aura por token, em sete colunas da própria `tokens` (como a luz), sem tabel
 | --------------------- | ------------------------------------------------------- | --------------------------------------------------------------------- |
 | `aura_kind`           | enum `token_aura_kind` (`color` \| `effect` \| `image`) | nulo = sem aura                                                       |
 | `aura_radius`         | `numeric(6,2)`                                          | casas **além da borda** do token, de 0 (só a pegada) a 20             |
-| `aura_color`          | enum `drawing_color` (`drawings.po.ts`)                 | obrigatória na `color`; opcional na `effect` (nula = a cor natural)   |
+| `aura_color`          | `text` + `CHECK` paleta ou `#rrggbb` (`auraColorSql`)   | obrigatória na `color`; opcional na `effect` (nula = a cor natural)   |
 | `aura_effect`         | enum `aura_effect` (os 8 do `AURA_EFFECTS`)             | só e sempre na `effect`                                               |
 | `aura_image_asset_id` | `uuid` → `assets`, **set null**                         | só na `image`; apagar o asset zera só ela (o mapper lê como sem aura) |
 | `aura_opacity`        | `smallint`                                              | de 10 a 100 (%)                                                       |

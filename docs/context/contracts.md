@@ -5,7 +5,8 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 ## Estrutura
 
 - `src/auth/` — login e usuário autenticado
-- `src/account/` — perfil (@, apelido, cor, bio), foto, senha, e-mail, sessões e 2FA
+- `src/account/` — perfil (@, apelido, cor, bio), foto, senha, e-mail, sessões, 2FA e cores salvas
+- `src/color/` — `hex-color.dto.ts`: `hexColorDto` (`#rrggbb` opaco e minúsculo, tipo `` `#${string}` ``), `paletteOrHexDto(paleta)` e `isHexColor`. Cor personalizada só entra por aqui: a regex é o que impede injeção em `style` inline e SVG
 - `src/http/` — formas transversais da API HTTP (erro)
 - `src/campaigns/` — mesa (campanha): resumo, detalhe, criação e entrada por código
 - `src/sessions/` — sessão ao vivo da mesa (Socket.IO): comandos, eventos e acks
@@ -31,7 +32,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 ### Mesas (`campaigns/`)
 
 - `campaignRoleDto` (`'master' | 'player' | 'spectator'`, papel **por mesa**; o espectador só assiste — ver `docs/context/campaigns/papeis.md`), `campaignVisibilityDto` (`'public' | 'private'`), `campaignStatusDto` (`building` · `recruiting` · `ongoing` · `finished`; rótulo pt-BR e cor no client) e `contentWarningDto` (`adult` · `violence` · `horror` · `gore` · `strong-language` · `sensitive-themes`) com `contentWarningsDto` (sem repetir, na ordem) em `campaign.dto.ts`.
-- `campaign-cover.dto.ts` — `campaignCoverDto`, união por `kind`: `{ kind: 'drawn', drawing: 0..2, tone: 1..4 }` (`drawnCampaignCoverDto`) | `{ kind: 'image', assetId }`. Os limites repetem `COVER_DRAWINGS`/`COVER_TONES` do game-core, onde mora `defaultCoverOf(id)` (a capa de quem nunca escolheu).
+- `campaign-cover.dto.ts` — `campaignCoverDto`, união por `kind`: `{ kind: 'drawn', drawing: 0..2, tone: 1..4 | #rrggbb }` (`drawnCampaignCoverDto`; `campaignCoverToneDto` é o tom) | `{ kind: 'image', assetId }`. Os limites repetem `COVER_DRAWINGS`/`COVER_TONES` do game-core, onde mora `defaultCoverOf(id)` (a capa de quem nunca escolheu).
 - `campaign-tags.dto.ts` — `CAMPAIGN_TAGS_MAX` (8), `CAMPAIGN_TAG_MAX_LENGTH` (24), `campaignTagKey(tag)` (sem acento, caixa nem espaço nas pontas: a identidade da tag, também usada pelo client), `uniqueCampaignTags` e `campaignTagsDto` (apara, tira repetidas mantendo a 1ª grafia, **depois** limita a 8).
 - `campaignInfoDto` — a mesa sem o que depende de quem lê: `{ id, name, system | null, status, description | null, visibility, ownerId, masterName, memberCount, cover, contentWarnings, tags, playersCreateTokens, playersDeleteTokens }` (`ownerId` é o criador, o dono fixo, e `masterName` é o dele; payload do `session:campaignUpdated`; as duas chaves abrem criar/editar e excluir os próprios tokens aos jogadores, regra no `token-rights` do game-core).
 - `member-role.dto.ts`: `campaignMemberParamsDto { campaignId, userId }` e `updateMemberRoleRequestDto { role: 'master' | 'player' | 'spectator' }` (estritos; `master` só com poder de dono, regra no `assignableRolesOf` do game-core), de `PATCH /api/campaigns/:campaignId/members/:userId` (só mestre; a resposta é o `campaignMemberDto` puro, sem envelope; ver [`campaigns/papeis.md`](campaigns/papeis.md)).
@@ -90,7 +91,7 @@ Imagem, agregado e apresentação versionada: [contracts/biblioteca.md](contract
 
 ### Conta (`account/`)
 
-`usernameDto`, `memberColorDto`, perfil, foto, textura do dado (`diceNumberColorDto`), senha, e-mail, sessões ativas e 2FA: detalhe em [`contracts/conta.md`](contracts/conta.md).
+`usernameDto`, `memberColorDto`, perfil, foto, textura do dado (`diceNumberColorDto`), senha, e-mail, sessões ativas, 2FA e cores salvas: detalhe em [`contracts/conta.md`](contracts/conta.md).
 
 ### Backoffice (`admin/`) e links de conta (`account-links/`)
 
