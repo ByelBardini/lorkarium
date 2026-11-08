@@ -111,11 +111,9 @@ async function drawRoute(admin: Page, at: CellPoints): Promise<void> {
     const { x, y } = at(cell);
     await admin.mouse.click(x, y);
   }
-  await panel.getByRole('button', { name: 'Devagar' }).click();
-  await expect(panel.getByRole('button', { name: 'Devagar' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  const slow = panel.getByRole('button', { name: 'Devagar 0,5', exact: true });
+  await slow.click();
+  await expect(slow).toHaveAttribute('aria-pressed', 'true');
   await expect(panel).toContainText(/^.*3 pontos · \d+ casas por volta/);
   await panel.getByRole('button', { name: 'Salvar' }).click();
   await expect(panel).toBeHidden();
