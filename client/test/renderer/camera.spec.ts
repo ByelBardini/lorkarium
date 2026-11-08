@@ -9,6 +9,7 @@ import {
   screenToWorld,
   worldToScreen,
   zoomAt,
+  textResolutionFor,
   zoomProofTextResolution,
   type Camera,
 } from '@/renderer/camera';
@@ -104,5 +105,31 @@ describe('zoomProofTextResolution', () => {
 
   it('never goes under the deepest zoom, even on a screen reporting less than 1', () => {
     expect(zoomProofTextResolution(0.5)).toBe(ZOOM_LIMITS.max);
+  });
+});
+
+describe('textResolutionFor', () => {
+  it('small text keeps the zoom-proof resolution', () => {
+    expect(textResolutionFor(1.5, 15)).toBe(6);
+  });
+
+  // 384 px × 1.3 (the line) × 6 would be a 2995 px texture: 2048 / 499.2 = 4.1026.
+  it('big text drops the resolution just enough for a side of 2048 px', () => {
+    const resolution = textResolutionFor(1.5, 384);
+    expect(resolution).toBeCloseTo(4.1026, 4);
+    expect(384 * 1.3 * resolution).toBeCloseTo(2048, 6);
+  });
+
+  it('a screen reporting a density under 1 counts as 1, as before', () => {
+    expect(textResolutionFor(0.5, 15)).toBe(4);
+  });
+
+  it('text exactly at the limit is not cut', () => {
+    expect(textResolutionFor(1, 2048 / (1.3 * 4))).toBeCloseTo(4, 10);
+  });
+
+  it('a font size of zero or less throws, citing it', () => {
+    expect(() => textResolutionFor(1, 0)).toThrow(/0.*font size > 0/);
+    expect(() => textResolutionFor(1, -12)).toThrow(/-12.*font size > 0/);
   });
 });

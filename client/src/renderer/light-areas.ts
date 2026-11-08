@@ -19,8 +19,9 @@ export function lightAreasOf(
 ): LightAreas {
   const { bright, dim } = light.range;
   const field = light.cone ? { cone: light.cone, around: null } : undefined;
+  const { center, ignores } = light;
   return {
-    bright: rememberedWorldAreaOf(light.center, walls, scene, bright, field),
-    dim: rememberedWorldAreaOf(light.center, walls, scene, bright + dim, field),
+    bright: rememberedWorldAreaOf(center, walls, scene, bright, field, ignores),
+    dim: rememberedWorldAreaOf(center, walls, scene, bright + dim, field, ignores),
   };
 }

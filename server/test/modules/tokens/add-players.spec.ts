@@ -47,6 +47,7 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
       clock,
       barLimit: 99_999,
       tokenLimit: 500,
+      blockerLimit: 50,
       tokenRights: new TableTokenRightsFake(),
     });
   });

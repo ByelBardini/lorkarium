@@ -27,6 +27,7 @@ import { BarsEditor } from './bars-editor';
 import { FormsTab, type FormsUpdate } from './forms-tab';
 import { TokenBasicsTab } from './token-basics-tab';
 import {
+  blockerFrameOf,
   dialogTabsOf,
   emptyTokenForm,
   firstErrorTab,
@@ -63,6 +64,9 @@ export type TokenDialogViewer =
   | Readonly<{ mode: 'player'; userId: string; canDelete: boolean; canEdit: boolean }>;
 
 const MASTER: TokenDialogViewer = { mode: 'master' };
+
+// Said in "Visão e luz", beside the switch that caused it, instead of in the footer.
+const BLOCKER_LIMIT: BoardCommandFailure = 'token_blocker_limit';
 
 export type TokenDialogProps = Readonly<{
   /** The grid the token is on (or lands on). */
@@ -164,6 +168,7 @@ function useTokenDialog(props: TokenDialogProps): TokenDialogState {
     setSaving(false);
     if (result.ok) return onClose();
     setFailure(result.failure);
+    if (result.failure === BLOCKER_LIMIT) setTab('vision');
   };
   const save = (): void => {
     const parsed = parseTokenForm(form, distance, viewer.mode);
@@ -279,6 +284,10 @@ function TokenTabs({ props, dialog }: DialogPartProps): React.JSX.Element {
             form={form}
             errors={errors}
             distance={props.distance}
+            frame={blockerFrameOf(form, props.token)}
+            blockerRefusal={
+              dialog.failure === BLOCKER_LIMIT ? tokenCommandFailureMessage(BLOCKER_LIMIT) : null
+            }
             onChange={setForm}
           />
         </TabsContent>
@@ -338,7 +347,7 @@ function TokenDialogFooter({ props, dialog }: DialogPartProps): React.JSX.Elemen
   const canDelete = viewer.mode === 'master' || viewer.canDelete;
   return (
     <div className="flex shrink-0 flex-col border-t border-border">
-      {dialog.failure && (
+      {dialog.failure && dialog.failure !== BLOCKER_LIMIT && (
         <Alert variant="destructive" className="mx-6 mt-3 w-auto px-3.5 py-3 text-sm">
           {tokenCommandFailureMessage(dialog.failure)}
         </Alert>

@@ -41,7 +41,12 @@ describe('writes on a token linked to a character', () => {
     const { members, publisher, characterPublisher, clock } = table;
     const transaction = table.transaction.run;
     const dragGroups = new DragGroupsFake(table.scenes, table.tokens);
-    const limits = { barLimit: 99_999, tokenLimit: 500, tokenRights: new TableTokenRightsFake() };
+    const limits = {
+      barLimit: 99_999,
+      tokenLimit: 500,
+      blockerLimit: 50,
+      tokenRights: new TableTokenRightsFake(),
+    };
     const sceneWalls = new SceneWallsService();
     const outlets = { publisher, characterPublisher, clock };
     tokens = new TokensService({

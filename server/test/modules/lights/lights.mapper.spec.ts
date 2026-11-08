@@ -1,3 +1,4 @@
+import { sightBlockerOf, type SightBlocker } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import {
   coneOfLight,
@@ -66,6 +67,33 @@ describe('lights mapper', () => {
       center: { x: 5, y: 5 },
       range: { bright: 4, dim: 4 },
       cone: null,
+    });
+  });
+
+  describe('among tokens that block sight', () => {
+    // The torch of the corridor stands at (5, 5).
+    function blockerAt(x: number): SightBlocker {
+      const token = {
+        tokenId: 'statue',
+        box: { x, y: 4, width: 2, height: 2 },
+        frame: 'square',
+        hasImage: false,
+        outline: null,
+        facing: 0,
+        flipX: false,
+        flipY: false,
+      } as const;
+      return sightBlockerOf(token, { widthCells: 20, heightCells: 12 });
+    }
+
+    it('a torch inside a blocker leaves out its walls', () => {
+      const statue = blockerAt(4);
+
+      expect(lightSourceOfRow(corridorTorchPo(), [statue])?.ignores).toBe(statue.walls);
+    });
+
+    it('a torch outside every blocker has no such key', () => {
+      expect(lightSourceOfRow(corridorTorchPo(), [blockerAt(10)])).not.toHaveProperty('ignores');
     });
   });
 

@@ -1,5 +1,5 @@
 import { ColorMatrixFilter, Container, Graphics, Text } from 'pixi.js';
-import { zoomProofTextResolution } from './camera';
+import { textResolutionFor, zoomProofTextResolution } from './camera';
 import { dashedRingArcs } from './dashed-ring';
 import { hiddenMarkOf } from './token-hidden-mark';
 import type { TokenLookStyle } from './token-look';
@@ -74,7 +74,9 @@ export class PixiTokenLook {
     this.hiddenEye.clear();
     if (style.hiddenMark) drawHiddenEye(this.hiddenEye, box);
     this.sleep.visible = style.sleeping;
-    this.sleep.style.fontSize = Math.round(Math.max(10, box.height * 0.22));
+    const sleepSize = Math.round(Math.max(10, box.height * 0.22));
+    this.sleep.style.fontSize = sleepSize;
+    this.sleep.resolution = textResolutionFor(globalThis.devicePixelRatio, sleepSize);
     this.sleep.position.set(box.width, -box.height * 0.08);
   }
 }

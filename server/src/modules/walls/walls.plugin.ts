@@ -4,6 +4,7 @@ import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import type { MembershipReader } from '../campaigns/cached-memberships';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
+import { AssetsDao } from '../assets/assets.dao';
 import { LightsDao } from '../lights/lights.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { TokensDao } from '../tokens/tokens.dao';
@@ -34,6 +35,7 @@ export function createWallsModule(options: WallsModuleOptions): WallsModule {
         walls: new WallsDao(tx),
         tokens: new TokensDao(tx),
         lights: new LightsDao(tx),
+        assets: new AssetsDao(tx),
       }),
     );
   const service = new WallsService({

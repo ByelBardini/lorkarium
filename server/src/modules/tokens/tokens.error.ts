@@ -1,4 +1,4 @@
-import { TOKEN_LIMIT_CODE } from '@lorkarium/contracts';
+import { TOKEN_BLOCKER_LIMIT_CODE, TOKEN_LIMIT_CODE } from '@lorkarium/contracts';
 export type TokenErrorCode =
   | 'TOKEN_NOT_FOUND'
   | 'OUT_OF_SCENE'
@@ -9,7 +9,8 @@ export type TokenErrorCode =
   | 'TOKEN_NOT_LINKED'
   | 'NO_FREE_CELLS'
   | 'TOKEN_FORM_NOT_FOUND'
-  | typeof TOKEN_LIMIT_CODE;
+  | typeof TOKEN_LIMIT_CODE
+  | typeof TOKEN_BLOCKER_LIMIT_CODE;
 
 /** Every token refusal of its own; the gateway turns `code` into the ack error. */
 export class TokenError extends Error {
@@ -41,6 +42,20 @@ export class TokenLimitError extends TokenError {
     super(
       TOKEN_LIMIT_CODE,
       `the scene would have ${stored + adding} tokens (${stored} stored + ${adding} added); the limit is ${limit}`,
+    );
+  }
+}
+
+/** Turning on more sight-blocking tokens than a scene keeps. */
+export class TokenBlockerLimitError extends TokenError {
+  constructor(
+    readonly stored: number,
+    readonly adding: number,
+    readonly limit: number,
+  ) {
+    super(
+      TOKEN_BLOCKER_LIMIT_CODE,
+      `the scene would have ${stored + adding} sight-blocking tokens (${stored} stored + ${adding} added); the limit is ${limit}`,
     );
   }
 }

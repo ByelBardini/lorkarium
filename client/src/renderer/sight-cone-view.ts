@@ -1,9 +1,9 @@
 import type { SceneDto, TokenDto, WallDto } from '@lorkarium/contracts';
 import { eyeFieldOf, tokenCenter } from '@lorkarium/game-core';
 import type { TokenLanding } from '@/lib/light-sources';
-import { gameWallsOf } from '@/lib/wall-geometry';
+import { blockerIgnoresOf, wallsOnlyGeometryOf, type SightGeometry } from '@/lib/sight-geometry';
 import type { Point } from './camera';
-import { wallSetIdOf, worldAreaOf } from './world-area';
+import { ignoresIdOf, wallSetIdOf, worldAreaOf } from './world-area';
 
 /** The outline of the field of view of the token the master selected alone: its cone and ring up
  *  to its darkvision in the dark (the scene border by daylight or without darkvision), cut by the
@@ -18,6 +18,8 @@ export type SightConeInput = Readonly<{
   selectedTokenIds: readonly string[];
   /** Where tokens show and look (dragged, turned by the handle): the outline follows the pose. */
   landing: TokenLanding;
+  /** The sight walls and the blockers of the board (absent: `walls`). */
+  geometry?: SightGeometry;
 }>;
 
 // The same selection in the same pose hands back the last outline whole.
@@ -38,11 +40,19 @@ export function sightConeViewOf(input: SightConeInput): SightConeView | null {
   const { scene } = input;
   const size = { widthCells: scene.widthCells, heightCells: scene.heightCells };
   const center = tokenCenter(at, token);
-  const walls = gameWallsOf(input.walls);
+  const { walls, blockers } = input.geometry ?? wallsOnlyGeometryOf(input.walls);
+  const ignores = blockerIgnoresOf(blockers, center, token.id);
   const reach = outlineReachOf(token, scene.vision);
-  const key = JSON.stringify([size, center, field, reach, wallSetIdOf(walls)]);
+  const key = JSON.stringify([
+    size,
+    center,
+    field,
+    reach,
+    wallSetIdOf(walls),
+    ignoresIdOf(ignores),
+  ]);
   if (lastCone?.key === key) return lastCone;
-  lastCone = { outline: worldAreaOf(center, walls, size, reach, field), key };
+  lastCone = { outline: worldAreaOf(center, walls, size, reach, field, ignores), key };
   return lastCone;
 }
 

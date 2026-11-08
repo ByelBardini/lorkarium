@@ -2,6 +2,7 @@ import type { EffectAreaShapeDto } from '@lorkarium/contracts';
 import type { Cell, TokenBox } from '@lorkarium/game-core';
 import type { CellPoint } from '@/lib/drawing-geometry';
 import type { BoardView } from './board-view';
+import type { Camera } from './camera';
 import type { SpeechBalloon } from './speech-balloon';
 
 export type { SpeechBalloon } from './speech-balloon';
@@ -117,9 +118,14 @@ export type BoardHoverIntent =
  *  `x, y` (fractional cells) for everyone on this grid. */
 export type BoardPingIntent = Readonly<{ kind: 'pingRequested'; x: number; y: number }>;
 
+/** The GPU dropped the WebGL context: this renderer draws nothing more. Whoever hosts it
+ *  destroys it and mounts a new one (at `camera()`), rebuilt from the stores. */
+export type BoardLostIntent = Readonly<{ kind: 'boardLost' }>;
+
 /** What the board tells React: it never changes state itself. */
 export type BoardIntent =
   | Readonly<{ kind: 'cameraChanged'; zoom: number }>
+  | BoardLostIntent
   | BoardPingIntent
   | BoardPointerIntent
   | BoardTokenIntent
@@ -141,8 +147,11 @@ export type PingMark = Readonly<{ x: number; y: number; label: string; color: nu
  *
  *  Example: `const renderer = createBoardRenderer(onIntent); await renderer.mount(host); renderer.draw(view)` */
 export interface BoardRenderer {
-  /** Rejects when the browser cannot open a WebGL/canvas context. */
-  mount(host: HTMLElement): Promise<void>;
+  /** Rejects when the browser cannot open a WebGL/canvas context. With `camera`, it opens there
+   *  instead of fitting the scene (the board coming back after a lost context keeps the view). */
+  mount(host: HTMLElement, options?: BoardMountOptions): Promise<void>;
+  /** Where the view is now (offset and zoom), still readable after the context is lost. */
+  camera(): Camera;
   draw(view: BoardView): void;
   zoomBy(factor: number): void;
   fitScene(): void;
@@ -161,5 +170,7 @@ export interface BoardRenderer {
   /** Safe at any time, even before `mount` resolves. */
   destroy(): void;
 }
+
+export type BoardMountOptions = Readonly<{ camera?: Camera }>;
 
 export type CreateBoardRenderer = (onIntent: BoardIntentListener) => BoardRenderer;

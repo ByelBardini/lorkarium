@@ -8,7 +8,9 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createSightOutlineStore } from '@/stores/sight-outline-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
+import { AssetOutlineApiFake } from '../../support/asset-outline-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { VHARN_GRID, vharnState } from '../../support/table-session-fixtures';
@@ -17,6 +19,7 @@ describe('useInteractionFollowsTable and the role', () => {
   let presence: StoreApi<TablePresenceStore>;
   let board: StoreApi<BoardStore>;
   let interaction: StoreApi<BoardInteractionStore>;
+  const sightOutlines = createSightOutlineStore(new AssetOutlineApiFake());
 
   beforeEach(() => {
     presence = createTablePresenceStore(VHARN.id);
@@ -32,7 +35,7 @@ describe('useInteractionFollowsTable and the role', () => {
   function follow(role: CampaignRoleDto) {
     return renderHook(
       ({ current }: Readonly<{ current: CampaignRoleDto }>) =>
-        useInteractionFollowsTable({ presence, board }, interaction, current),
+        useInteractionFollowsTable({ presence, board }, interaction, current, sightOutlines),
       { initialProps: { current: role } },
     );
   }

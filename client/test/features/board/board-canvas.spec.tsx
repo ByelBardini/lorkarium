@@ -1,8 +1,10 @@
 import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import { BoardCanvas } from '@/features/board/board-canvas';
+import { TableSightOutlinesContext } from '@/features/board/table-sight-outlines';
 import type { BoardIntent } from '@/renderer/board-renderer';
 import {
   createBoardInteractionStore,
@@ -32,8 +34,10 @@ describe('BoardCanvas', () => {
   let board: StoreApi<BoardStore>;
   let intents: BoardIntent[];
   let interaction: StoreApi<BoardInteractionStore>;
+  let clock: number;
 
   beforeEach(() => {
+    clock = 0;
     renderers = new BoardRenderersFake();
     board = createBoardStore(VHARN.id, () => undefined);
     board.getState().apply({ kind: 'board', state: vharnBoard() });
@@ -56,6 +60,7 @@ describe('BoardCanvas', () => {
         drawingStyle={createDrawingStyleStore(new StorageFake())}
         effectAreaStyle={createEffectAreaStyleStore(new StorageFake())}
         wallStyle={createWallStyleStore(new StorageFake())}
+        lossClock={() => clock}
       />
     );
   }
@@ -102,7 +107,7 @@ describe('BoardCanvas', () => {
     render(canvas());
     await act(() => Promise.resolve());
     const ogreView = () => renderers.latest().lastView?.tokens.find(({ id }) => id === OGRE_ID);
-    expect(ogreView()).toMatchObject({ silhouette: 'square', name: '' });
+    expect(ogreView()).toMatchObject({ silhouette: 'round', name: '' });
 
     act(() =>
       board.getState().apply({
@@ -155,5 +160,97 @@ describe('BoardCanvas', () => {
     });
     expect(renderers.latest().lastView?.tokens[0]).toMatchObject({ id: LYRA_ID, selected: true });
     expect(renderers.latest().lastView?.ghosts).toEqual([]);
+  });
+
+  it('the blocker selected by the master is drawn with the outline known in the room', async () => {
+    const imageAssetId = '11112222-3333-4444-8555-666677778888';
+    const triangle = [
+      [
+        [0.5, 0],
+        [1, 1],
+        [0, 1],
+      ],
+    ] as const;
+    const statue = lyra({ blocksSight: true, imageAssetId });
+    act(() => board.getState().apply({ kind: 'board', state: vharnBoard({ tokens: [statue] }) }));
+    render(
+      <TableSightOutlinesContext value={new Map([[imageAssetId, triangle]])}>
+        {canvas()}
+      </TableSightOutlinesContext>,
+    );
+    await act(() => Promise.resolve());
+
+    act(() => {
+      interaction.getState().select(LYRA_ID);
+    });
+
+    expect(renderers.latest().lastView?.sightBlockerOutline?.polygons[0]).toHaveLength(3);
+  });
+
+  async function loseAt(seconds: number): Promise<void> {
+    clock = seconds * 1000;
+    renderers.latest().lose();
+    await act(() => Promise.resolve());
+  }
+
+  it('a lost context destroys the renderer and mounts a new one at its camera, with the same view', async () => {
+    render(canvas());
+    await act(() => Promise.resolve());
+    const first = renderers.latest();
+    first.cameraNow = { offsetX: -320, offsetY: 140, zoom: 2.5 };
+    await loseAt(0);
+    const second = renderers.latest();
+    expect(first.destroyed).toBe(true);
+    expect(second).not.toBe(first);
+    expect(second.mountedCamera).toEqual({ offsetX: -320, offsetY: 140, zoom: 2.5 });
+    expect(second.lastView).toBe(first.lastView);
+    expect(renderers.alive).toEqual([second]);
+  });
+
+  it('a lost context is not passed on to the room, and the status line says the board came back', async () => {
+    render(canvas());
+    await act(() => Promise.resolve());
+    await loseAt(0);
+    expect(intents).toEqual([]);
+    expect(interaction.getState().notice).toBe('O tabuleiro foi recarregado.');
+  });
+
+  it('three losses within 60 s give up; "Recarregar tabuleiro" mounts a fresh renderer', async () => {
+    render(canvas());
+    await act(() => Promise.resolve());
+    await loseAt(0);
+    await loseAt(20);
+    await loseAt(40);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Seu navegador não conseguiu abrir o tabuleiro.',
+    );
+    expect(renderers.alive).toEqual([]);
+    await userEvent.click(screen.getByRole('button', { name: 'Recarregar tabuleiro' }));
+    expect(renderers.made).toHaveLength(4);
+    expect(renderers.alive).toEqual([renderers.latest()]);
+    expect(renderers.latest().mounted).toBe(true);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('after "Recarregar tabuleiro" the budget starts over: the next loss remounts', async () => {
+    render(canvas());
+    await act(() => Promise.resolve());
+    for (const seconds of [0, 20, 40]) await loseAt(seconds);
+    await userEvent.click(screen.getByRole('button', { name: 'Recarregar tabuleiro' }));
+    await loseAt(41);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(renderers.alive).toEqual([renderers.latest()]);
+  });
+
+  it('unmounting in the middle of a remount leaves no renderer alive', async () => {
+    const { unmount } = render(canvas());
+    await act(() => Promise.resolve());
+    renderers.mountMode = 'hold';
+    await loseAt(0);
+    const remounting = renderers.latest();
+    unmount();
+    await remounting.finishMount();
+    expect(renderers.alive).toEqual([]);
+    expect(remounting.draws).toEqual([]);
   });
 });

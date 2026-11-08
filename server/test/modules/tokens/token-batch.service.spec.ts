@@ -103,6 +103,7 @@ describe('TokenBatchService', () => {
       clock: new ClockFake(NOW),
       barLimit: 99_999,
       tokenLimit: 500,
+      blockerLimit: 50,
       tokenRights: new TableTokenRightsFake(),
     });
   });

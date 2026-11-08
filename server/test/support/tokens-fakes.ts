@@ -41,6 +41,7 @@ export class TokensDaoFake implements Pick<
   | 'listOfScene'
   | 'controlOfScene'
   | 'countOfScene'
+  | 'countBlockersOfScene'
   | 'move'
   | 'moveMany'
   | 'faceMany'
@@ -55,6 +56,8 @@ export class TokensDaoFake implements Pick<
   | 'setHidden'
   | 'veilOfScene'
 > {
+  /** The scenes whose blockers were counted: a command turning none on reads nothing. */
+  readonly blockerCounts: string[] = [];
   private cascade: Pick<CombatDaoFake, 'dropToken'> | undefined;
   private worn: Pick<CharactersDaoFake, 'rows'> | undefined;
   constructor(
@@ -186,6 +189,12 @@ export class TokensDaoFake implements Pick<
 
   async countOfScene(sceneId: string): Promise<number> {
     return (await this.listOfScene(sceneId)).length;
+  }
+
+  async countBlockersOfScene(sceneId: string): Promise<number> {
+    this.blockerCounts.push(sceneId);
+    const inScene = this.rows.filter(({ token }) => token.sceneId === sceneId);
+    return inScene.filter(({ token }) => token.blocksSight).length;
   }
 
   async controlOfScene(sceneId: string): Promise<TokenControlPo[]> {

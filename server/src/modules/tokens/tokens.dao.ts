@@ -181,6 +181,16 @@ export class TokensDao {
     return row?.total ?? 0;
   }
 
+  /** How many tokens of the scene block sight, the hidden ones too (a hidden one blocks again as
+   *  soon as it is shown): the ceiling of turning one on. */
+  async countBlockersOfScene(sceneId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(tokens)
+      .where(and(eq(tokens.sceneId, sceneId), eq(tokens.blocksSight, true)));
+    return row?.total ?? 0;
+  }
+
   /** The asked tokens that are in `sceneId`, in one query; ids from elsewhere are skipped. */
   async findManyInScene(sceneId: string, tokenIds: readonly string[]): Promise<TokenRow[]> {
     if (tokenIds.length === 0) return [];

@@ -115,6 +115,49 @@ describe('PixiTokenLayer draws the condition images that arrive', () => {
   });
 });
 
+describe('PixiTokenLayer follows a settled zoom with the strips alone', () => {
+  // Far enough that the strip shows dots (the band whose height follows the zoom).
+  const FAR = 0.25;
+
+  function hordeWithConditions(count: number) {
+    return horde(count, () => ({ conditions: [{ ...BLINDED_X, imageUrl: null }] }));
+  }
+
+  it('300 tokens with dots, zoomed from 1 to 0.5, redraw 300 strips and no body', () => {
+    const { layer, probe } = layerWith();
+    layer.applyZoom(FAR * 2);
+    layer.sync(hordeWithConditions(300), [], 0);
+    probe.counts['strip.redraw'] = 0;
+    probe.counts['token.redraw'] = 0;
+
+    layer.applyZoom(FAR);
+
+    expect(probe.counts['strip.redraw']).toBe(300);
+    expect(probe.counts['token.redraw']).toBe(0);
+  });
+
+  it('the same zoom again redraws no strip', () => {
+    const { layer, probe } = layerWith();
+    layer.sync(hordeWithConditions(300), [], 0);
+    layer.applyZoom(FAR);
+    probe.counts['strip.redraw'] = 0;
+
+    layer.applyZoom(FAR);
+
+    expect(probe.counts['strip.redraw']).toBe(0);
+  });
+
+  it('a token without conditions counts no strip when the zoom settles', () => {
+    const { layer, probe } = layerWith();
+    layer.sync(horde(300), [], 0);
+    probe.counts['strip.redraw'] = 0;
+
+    layer.applyZoom(FAR);
+
+    expect(probe.counts['strip.redraw']).toBe(0);
+  });
+});
+
 describe('PixiTokenLayer glides only the moved tokens', () => {
   it('moving 1 of 300 redraws nothing and puts that one alone to glide', () => {
     const { layer, probe } = layerWith();

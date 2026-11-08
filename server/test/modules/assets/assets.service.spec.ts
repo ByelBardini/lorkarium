@@ -22,6 +22,13 @@ import {
 const NEW_ID = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 7, 7]);
 const MIB = 1024 * 1024;
+const TRIANGLE: readonly (readonly (readonly [number, number])[])[] = [
+  [
+    [0.5, 0],
+    [1, 1],
+    [0, 1],
+  ],
+];
 
 async function bytesOf(stream: Readable): Promise<number[]> {
   const chunks: Buffer[] = [];
@@ -164,7 +171,7 @@ describe('AssetsService', () => {
 
     expect(asset).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
-    expect(processor.resizes).toEqual([{ maxSide: 1024, square: false }]);
+    expect(processor.resizes).toEqual([{ maxSide: 1024, square: false, outline: true }]);
     expect(storage.objects.get(`assets/${NEW_ID}`)?.bytes).toEqual(processor.result.bytes);
     expect(assets.rows[0]).toMatchObject({ ownerId: BIA_ID, campaignId: VHARN_ID, sizeBytes: 6 });
   });
@@ -353,5 +360,86 @@ describe('AssetsService', () => {
     const upload = service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'token' });
 
     await expect(upload).rejects.toThrow('the image has 2000 pixels; expected png');
+  });
+
+  describe('the silhouette of a token image', () => {
+    it('an uploaded token asks for the outline and records what came back', async () => {
+      processor.result = { ...processor.result, outline: TRIANGLE };
+
+      await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'token' });
+
+      expect(processor.resizes[0]).toMatchObject({ outline: true });
+      expect(assets.rows[0]?.sightOutline).toEqual(TRIANGLE);
+    });
+
+    it('an imported token asks for the outline and records what came back', async () => {
+      processor.result = { ...processor.result, outline: TRIANGLE };
+
+      await service.importLink(BIA_ID, VHARN_ID, { url: 'https://x.com/a.png', purpose: 'token' });
+
+      expect(processor.resizes[0]).toMatchObject({ outline: true });
+      expect(assets.rows[0]?.sightOutline).toEqual(TRIANGLE);
+    });
+
+    it.each(['aura', 'background', 'cover', 'condition'] as const)(
+      'an uploaded %s does not ask for it and records none',
+      async (purpose) => {
+        await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose });
+
+        expect(processor.resizes[0]).not.toHaveProperty('outline');
+        expect(assets.rows[0]?.sightOutline).toBeNull();
+      },
+    );
+
+    it('an imported aura does not ask for it', async () => {
+      await service.importLink(BIA_ID, VHARN_ID, { url: 'https://x.com/a.gif', purpose: 'aura' });
+
+      expect(processor.resizes[0]).not.toHaveProperty('outline');
+    });
+
+    it('a member reads the outline of an asset of the table', async () => {
+      assets.rows.push(lyraPortraitPo({ sightOutline: TRIANGLE }));
+
+      expect(await service.outlineOf(BIA_ID, lyraPortraitPo().id)).toEqual({ outline: TRIANGLE });
+    });
+
+    it('an asset sent before the feature answers a null outline', async () => {
+      assets.rows.push(lyraPortraitPo({ sightOutline: null }));
+
+      expect(await service.outlineOf(BIA_ID, lyraPortraitPo().id)).toEqual({ outline: null });
+    });
+
+    it('someone outside the table gets ASSET_NOT_FOUND, not the outline', async () => {
+      assets.rows.push(lyraPortraitPo({ sightOutline: TRIANGLE }));
+
+      await expect(service.outlineOf(CAIO_ID, lyraPortraitPo().id)).rejects.toMatchObject({
+        code: 'ASSET_NOT_FOUND',
+      });
+    });
+
+    it('an id that does not exist gets the same ASSET_NOT_FOUND', async () => {
+      await expect(service.outlineOf(BIA_ID, QUELM_MAP_ID)).rejects.toMatchObject({
+        code: 'ASSET_NOT_FOUND',
+      });
+    });
+
+    it.each(['library_image', 'document_image'] as const)(
+      'a %s the read policy refuses gets ASSET_NOT_FOUND, like its bytes',
+      async (purpose) => {
+        assets.rows.push(lyraPortraitPo({ purpose }));
+        policy.allowed = false;
+
+        await expect(service.outlineOf(BIA_ID, lyraPortraitPo().id)).rejects.toMatchObject({
+          code: 'ASSET_NOT_FOUND',
+        });
+      },
+    );
+
+    it('a library image the read policy allows answers its null outline', async () => {
+      assets.rows.push(lyraPortraitPo({ purpose: 'library_image' }));
+      policy.allowed = true;
+
+      expect(await service.outlineOf(BIA_ID, lyraPortraitPo().id)).toEqual({ outline: null });
+    });
   });
 });

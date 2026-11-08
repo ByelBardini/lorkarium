@@ -27,9 +27,11 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar                     | [`effect-areas.md`](client/effect-areas.md)                   |
 | Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas                    | [`walls.md`](client/walls.md)                                 |
 | Visão: alcance do token, modo da cena, filtro, névoa, rota, prévia do mestre                | [`vision.md`](client/vision.md)                               |
+| Tokens que bloqueiam a visão: contornos por asset, lista única de paredes de visão          | [`sight-blockers.md`](client/sight-blockers.md)               |
 | Luzes: estado, comandos, luz do token, ferramenta (L), ícones, acender                      | [`lights.md`](client/lights.md)                               |
 | Cone: campo de visão, lanterna, holofote mirado, contorno do mestre                         | [`cones.md`](client/cones.md)                                 |
 | Desempenho: orçamento, regras que não podem ser desfeitas, cena de estresse, bench, painel  | [`performance.md`](client/performance.md)                     |
+| Zoom: assentamento do gesto, recorte pela faixa, perda de contexto WebGL, medições          | [`zoom.md`](client/zoom.md)                                   |
 | Biblioteca: rota, modal, árvore de pastas e grids, menu, painel e arrastar                  | [`library.md`](client/library.md)                             |
 | Documentos: editor rico, rascunhos, salvamento, posse e leitura protegida                   | [`documents.md`](client/documents.md)                         |
 | Fichas: `SheetsApi`, store, ponte do host, ficha na sala (aba/janela), editor de modelo     | [`sheets.md`](client/sheets.md)                               |

@@ -8,8 +8,9 @@ import type {
   WallDto,
 } from '@lorkarium/contracts';
 import { cell } from '@lorkarium/game-core';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
+import { Button } from '@/components/ui/button';
 import type {
   BoardIntentListener,
   BoardRenderer,
@@ -27,7 +28,9 @@ import { useBoard, type BoardStore } from '@/stores/board-store';
 import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
 import { effectAreaStyleOf, type EffectAreaStyleStore } from '@/stores/effect-area-style-store';
 import { wallStyleOf, type WallStyleStore } from '@/stores/wall-style-store';
+import { useTableSightOutlines } from './table-sight-outlines';
 import { useBoardSight } from './use-board-sight';
+import { useMountedRenderer } from './use-mounted-renderer';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -46,6 +49,8 @@ export type BoardCanvasProps = Readonly<{
   effectAreaStyle: StoreApi<EffectAreaStyleStore>;
   /** The kind and shape the walls tool sketches. */
   wallStyle: StoreApi<WallStyleStore>;
+  /** The clock (ms) that counts lost WebGL contexts; `performance.now` when left out. */
+  lossClock?: () => number;
 }>;
 
 const NO_TOKENS: readonly TokenDto[] = [];
@@ -67,9 +72,12 @@ const KEYBOARD_INSTRUCTIONS =
   'Esc tira a seleção.';
 
 const MOUNT_FAILED = 'Seu navegador não conseguiu abrir o tabuleiro.';
+const RELOAD_BOARD = 'Recarregar tabuleiro';
+const MONOTONIC_CLOCK = (): number => performance.now();
 
 /** Hosts the board renderer: React owns the element and the confirmed state; the renderer owns
- *  the pixels. One renderer per mount, destroyed on unmount (StrictMode mounts twice).
+ *  the pixels. One renderer per mount, destroyed on unmount (StrictMode mounts twice), rebuilt
+ *  at the same camera when the GPU drops the WebGL context.
  *
  *  Example: `<BoardCanvas board={board} interaction={interaction} createBoardRenderer={deps.createBoardRenderer} onIntent={onIntent} onRenderer={setRenderer} />` */
 export function BoardCanvas(props: BoardCanvasProps): React.JSX.Element {
@@ -77,12 +85,13 @@ export function BoardCanvas(props: BoardCanvasProps): React.JSX.Element {
   const view = useBoardView(props);
   const instructionsId = useId();
   const hostRef = useRef<HTMLDivElement>(null);
-  const { renderer, failed } = useMountedRenderer(hostRef, props);
+  const lossClock = props.lossClock ?? MONOTONIC_CLOCK;
+  const { renderer, failed, retry } = useMountedRenderer(hostRef, { ...props, lossClock });
   useEffect(() => {
     if (renderer && view) renderer.draw(view);
   }, [renderer, view]);
   useCenterOnSelection(props, renderer);
-  if (failed) return <MountFailure />;
+  if (failed) return <MountFailure onRetry={retry} />;
   const label = scene
     ? `Tabuleiro: ${scene.name}, ${scene.widthCells} × ${scene.heightCells} casas`
     : 'Tabuleiro';
@@ -132,6 +141,7 @@ function useBoardView({
   const areaStyle = useStore(effectAreaStyle, useShallow(effectAreaStyleOf));
   const nextWall = useStore(wallStyle, useShallow(wallStyleOf));
   const sight = useBoardSight(board, interaction);
+  const sightOutlines = useTableSightOutlines();
   return useMemo(() => {
     if (!scene) return null;
     const viewer = { userId: viewerId, isMaster };
@@ -144,6 +154,7 @@ function useBoardView({
       lights,
       veiledLights,
       sight,
+      sightOutlines,
     };
     return buildBoardView({ scene, ...extra, ...areas, ...local });
   }, [
@@ -163,6 +174,7 @@ function useBoardView({
     areaStyle,
     nextWall,
     sight,
+    sightOutlines,
   ]);
 }
 
@@ -182,44 +194,17 @@ function useCenterOnSelection(
   }, [board, renderer, selectedId]);
 }
 
-type MountedRenderer = Readonly<{ renderer: BoardRenderer | null; failed: boolean }>;
-
-function useMountedRenderer(
-  hostRef: React.RefObject<HTMLDivElement | null>,
-  { createBoardRenderer, onIntent, onRenderer }: BoardCanvasProps,
-): MountedRenderer {
-  const [renderer, setRenderer] = useState<BoardRenderer | null>(null);
-  const [failed, setFailed] = useState(false);
-  const intentRef = useRef(onIntent);
-  useEffect(() => {
-    intentRef.current = onIntent;
-  }, [onIntent]);
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    const created = createBoardRenderer((intent) => intentRef.current(intent));
-    let alive = true;
-    created.mount(host).then(
-      () => alive && setRenderer(created),
-      () => alive && setFailed(true),
-    );
-    // Destroyed even while `mount` is still pending: the adapter finishes init and then tears down.
-    return () => {
-      alive = false;
-      created.destroy();
-      setRenderer(null);
-    };
-  }, [createBoardRenderer, hostRef]);
-  useEffect(() => onRenderer(renderer), [renderer, onRenderer]);
-  return { renderer, failed };
-}
-
-function MountFailure(): React.JSX.Element {
+function MountFailure({ onRetry }: Readonly<{ onRetry: () => void }>): React.JSX.Element {
   return (
     <div className="absolute inset-0 grid place-items-center p-6">
-      <p role="alert" className="max-w-prose text-center text-sm text-destructive-text">
-        {MOUNT_FAILED}
-      </p>
+      <div className="flex flex-col items-center gap-3">
+        <p role="alert" className="max-w-prose text-center text-sm text-destructive-text">
+          {MOUNT_FAILED}
+        </p>
+        <Button variant="outline" onClick={onRetry}>
+          {RELOAD_BOARD}
+        </Button>
+      </div>
     </div>
   );
 }

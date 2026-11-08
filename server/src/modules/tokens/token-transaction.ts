@@ -40,6 +40,7 @@ export type TokenWriteDaos = Readonly<{
     | 'listOfScene'
     | 'insertMany'
     | 'countOfScene'
+    | 'countBlockersOfScene'
     | 'findInScene'
     | 'findManyInScene'
     | 'move'
@@ -154,10 +155,25 @@ function newTokenLookOf(token: NewTokenInput): Partial<NewTokenPo> {
   const { imageAssetId, frame, flipX, flipY, facing, sightAngle } = token;
   return {
     ...{ hidden: token.hidden ?? false, imageAssetId, frame, flipX, flipY, facing, sightAngle },
+    blocksSight: token.blocksSight ?? false,
     ...toTokenSightPo(token.sight),
     ...toTokenLightPo(token.light),
     ...toTokenAuraPo(token.aura),
   };
+}
+
+/** The ceiling of sight-blocking tokens, counted under the grid lock; a command that turns none on
+ *  reads nothing, so the tables that do not use them pay no query.
+ *
+ *  Example: `await admitBlockersOf(daos, scene.id, rules, command.blocksSight ? 1 : 0)` */
+export async function admitBlockersOf(
+  daos: Readonly<{ tokens: Pick<TokensDao, 'countBlockersOfScene'> }>,
+  sceneId: string,
+  rules: Pick<TokenRulesBo, 'admitBlockers'>,
+  adding: number,
+): Promise<void> {
+  if (adding === 0) return;
+  rules.admitBlockers(await daos.tokens.countBlockersOfScene(sceneId), adding);
 }
 
 /** Deleted tokens leave the combat in the same transaction: the entries they empty go and the turn

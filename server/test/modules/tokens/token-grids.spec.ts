@@ -95,7 +95,12 @@ describe('token commands on a grid that is not the group one', () => {
       characterPublisher: new CharacterPublisherFake(),
       clock: new ClockFake(NOW),
     };
-    const limits = { barLimit: 99_999, tokenLimit: 500, tokenRights: new TableTokenRightsFake() };
+    const limits = {
+      barLimit: 99_999,
+      tokenLimit: 500,
+      blockerLimit: 50,
+      tokenRights: new TableTokenRightsFake(),
+    };
     tokens = new TokensService({
       ...common,
       ...limits,

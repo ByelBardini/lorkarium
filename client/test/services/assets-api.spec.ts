@@ -49,6 +49,81 @@ describe('HttpAssetsApi', () => {
     ]);
   });
 
+  describe('outlineOf', () => {
+    const TRIANGLE = [
+      [
+        [0.5, 0],
+        [1, 1],
+        [0, 1],
+      ],
+    ];
+
+    it('reads the silhouette of the image from its route', async () => {
+      transport.respondWith(200, { outline: TRIANGLE });
+
+      const result = await api.outlineOf(ASSET.id);
+
+      expect(result).toEqual({ ok: true, outline: TRIANGLE });
+      expect(transport.requests).toEqual([
+        { method: 'GET', path: `/assets/${ASSET.id}/outline`, body: undefined },
+      ]);
+    });
+
+    it.each([
+      ['an older image', null],
+      ['a transparent image', []],
+    ])('answers %s as it came', async (_case, outline) => {
+      transport.respondWith(200, { outline });
+
+      expect(await api.outlineOf(ASSET.id)).toEqual({ ok: true, outline });
+    });
+
+    it.each([
+      [
+        'a point out of the unit square',
+        [
+          [
+            [1.5, 0],
+            [1, 1],
+            [0, 1],
+          ],
+        ],
+      ],
+      [
+        'a polygon of two points',
+        [
+          [
+            [0, 0],
+            [1, 1],
+          ],
+        ],
+      ],
+      ['a missing outline', undefined],
+    ])('refuses %s as unexpected', async (_case, outline) => {
+      transport.respondWith(200, { outline });
+
+      const result = await api.outlineOf(ASSET.id);
+
+      expect(result).toEqual({ ok: false, failure: { kind: 'unexpected' } });
+    });
+
+    it('an image of another table is not_found', async () => {
+      transport.respondWith(404, { code: 'ASSET_NOT_FOUND', message: 'x' });
+
+      const result = await api.outlineOf(ASSET.id);
+
+      expect(result).toEqual({ ok: false, failure: { kind: 'not_found' } });
+    });
+
+    it('the network down answers offline, it does not throw', async () => {
+      transport.failWithNetworkDown();
+
+      const result = await api.outlineOf(ASSET.id);
+
+      expect(result).toEqual({ ok: false, failure: { kind: 'offline' } });
+    });
+  });
+
   it.each([
     [413, 'ASSET_TOO_LARGE', 'too_large'],
     [415, 'UNSUPPORTED_IMAGE', 'unsupported'],

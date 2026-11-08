@@ -115,6 +115,7 @@ describe('TokensService', () => {
       clock: new ClockFake(NOW),
       barLimit: 99_999,
       tokenLimit: 500,
+      blockerLimit: 50,
       tokenRights: new TableTokenRightsFake(),
     };
     service = new TokensService(serviceDeps);

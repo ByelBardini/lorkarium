@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { levelOf } from '@/lib/board-sight';
 import { startRoute } from '@/lib/token-route';
 import { sightNowOf, type SightInteraction } from '@/features/board/use-board-sight';
+import { NO_SIGHT_OUTLINES } from '@/lib/sight-geometry';
 import { playerIdsOf } from '@/lib/table-role';
 import type { TokenDrag } from '@/stores/board-interaction-store';
 import { createTablePresenceStore } from '@/stores/table-presence-store';
@@ -69,9 +70,14 @@ function lyraDraggedTo(col: number, bendAt?: number): TokenDrag {
 
 describe('sightNowOf', () => {
   it('the light of a hidden wolf over the ogre lets Bia see him: veiled lights are part of the filter', () => {
-    const before = sightNowOf({ board: BOARD, dragged: {} }, IDLE, NO_PLAYERS);
+    const before = sightNowOf({ board: BOARD, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
     const veiledLights = [veiledTorch({ x: 11.5, y: 4.5, bright: 2, dim: 0 })];
-    const lit = sightNowOf({ board: { ...BOARD, veiledLights }, dragged: {} }, IDLE, NO_PLAYERS);
+    const lit = sightNowOf(
+      { board: { ...BOARD, veiledLights }, dragged: {} },
+      IDLE,
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
 
     expect(levelOf(before, OGRE_ID)).toBe('hidden');
     expect(levelOf(lit, OGRE_ID)).toBe('seen');
@@ -82,6 +88,7 @@ describe('sightNowOf', () => {
       { board: BOARD, dragged: { [LYRA_ID]: { col: 9, row: 4 } } },
       IDLE,
       NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
     );
 
     expect(levelOf(sight, OGRE_ID)).toBe('seen');
@@ -92,6 +99,7 @@ describe('sightNowOf', () => {
       { board: BOARD, dragged: {} },
       { ...IDLE, drag: lyraDraggedTo(9) },
       NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
     );
 
     expect(levelOf(sight, OGRE_ID)).toBe('seen');
@@ -99,37 +107,59 @@ describe('sightNowOf', () => {
 
   it('with Lyra dropped at (9, 4) and the server yet to answer, the ogre stays seen', () => {
     const preview = [{ tokenId: LYRA_ID, col: 9, row: 4 }];
-    const sight = sightNowOf({ board: BOARD, dragged: {} }, { ...IDLE, preview }, NO_PLAYERS);
+    const sight = sightNowOf(
+      { board: BOARD, dragged: {} },
+      { ...IDLE, preview },
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
 
     expect(levelOf(sight, OGRE_ID)).toBe('seen');
   });
 
   it('the same board, preview and shown cells give back the very same sight', () => {
     const table = { board: BOARD, dragged: { [LYRA_ID]: { col: 9, row: 4 } } };
-    const first = sightNowOf(table, IDLE, NO_PLAYERS);
+    const first = sightNowOf(table, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
 
-    expect(sightNowOf({ ...table, dragged: { ...table.dragged } }, { ...IDLE }, NO_PLAYERS)).toBe(
-      first,
-    );
+    expect(
+      sightNowOf(
+        { ...table, dragged: { ...table.dragged } },
+        { ...IDLE },
+        NO_PLAYERS,
+        NO_SIGHT_OUTLINES,
+      ),
+    ).toBe(first);
   });
 
   it('a drag whose route only bends, landing on the same cell, gives back the very same sight', () => {
     const table = { board: BOARD, dragged: {} };
-    const straight = sightNowOf(table, { ...IDLE, drag: lyraDraggedTo(9) }, NO_PLAYERS);
+    const straight = sightNowOf(
+      table,
+      { ...IDLE, drag: lyraDraggedTo(9) },
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
 
-    expect(sightNowOf(table, { ...IDLE, drag: lyraDraggedTo(9, 6) }, NO_PLAYERS)).toBe(straight);
+    expect(
+      sightNowOf(table, { ...IDLE, drag: lyraDraggedTo(9, 6) }, NO_PLAYERS, NO_SIGHT_OUTLINES),
+    ).toBe(straight);
   });
 
   it('a new cell in other people’s drags gives a new sight', () => {
     const at = (col: number) =>
-      sightNowOf({ board: BOARD, dragged: { [LYRA_ID]: { col, row: 4 } } }, IDLE, NO_PLAYERS);
+      sightNowOf(
+        { board: BOARD, dragged: { [LYRA_ID]: { col, row: 4 } } },
+        IDLE,
+        NO_PLAYERS,
+        NO_SIGHT_OUTLINES,
+      );
     const nine = at(9);
 
     expect(at(8)).not.toBe(nine);
   });
 
   it('without a board nothing is hidden', () => {
-    const sight = sightNowOf({ board: null, dragged: {} }, IDLE, NO_PLAYERS);
+    const sight = sightNowOf({ board: null, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
 
     expect(sight.active).toBe(false);
     expect(levelOf(sight, OGRE_ID)).toBe('seen');
@@ -140,15 +170,30 @@ describe('sightNowOf while Lyra turns', () => {
   const table = { board: BOARD, dragged: {} };
 
   it('another facing preview gives a new sight', () => {
-    const still = sightNowOf(table, IDLE, NO_PLAYERS);
-    const turning = sightNowOf(table, { ...IDLE, facingPreview: { [LYRA_ID]: 180 } }, NO_PLAYERS);
+    const still = sightNowOf(table, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
+    const turning = sightNowOf(
+      table,
+      { ...IDLE, facingPreview: { [LYRA_ID]: 180 } },
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
 
     expect(turning).not.toBe(still);
   });
 
   it('the same facing preview gives back the very same sight', () => {
-    const first = sightNowOf(table, { ...IDLE, facingPreview: { [LYRA_ID]: 180 } }, NO_PLAYERS);
-    const again = sightNowOf(table, { ...IDLE, facingPreview: { [LYRA_ID]: 180 } }, NO_PLAYERS);
+    const first = sightNowOf(
+      table,
+      { ...IDLE, facingPreview: { [LYRA_ID]: 180 } },
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
+    const again = sightNowOf(
+      table,
+      { ...IDLE, facingPreview: { [LYRA_ID]: 180 } },
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
 
     expect(again).toBe(first);
   });
@@ -161,36 +206,44 @@ describe('sightNowOf works the filter out again only when what it reads changes'
   const WALLED = { ...BOARD, tokens: [LYRA, OGRE, GOBLIN], walls: [northWall()] };
 
   it('a new drawing (a new board, the same tokens, walls and lights) gives back the very same sight', () => {
-    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE, NO_PLAYERS);
+    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
     const drawn = { ...WALLED, version: WALLED.version + 1, drawings: [] };
 
-    expect(sightNowOf({ board: drawn, dragged: {} }, IDLE, NO_PLAYERS)).toBe(before);
+    expect(sightNowOf({ board: drawn, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES)).toBe(
+      before,
+    );
   });
 
   it('a token moved gives a new sight', () => {
-    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE, NO_PLAYERS);
+    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
     const tokens = [LYRA, { ...OGRE, col: 4 }, GOBLIN];
 
-    expect(sightNowOf({ board: { ...WALLED, tokens }, dragged: {} }, IDLE, NO_PLAYERS)).not.toBe(
-      before,
-    );
+    expect(
+      sightNowOf(
+        { board: { ...WALLED, tokens }, dragged: {} },
+        IDLE,
+        NO_PLAYERS,
+        NO_SIGHT_OUTLINES,
+      ),
+    ).not.toBe(before);
   });
 
   it('a door opening (new walls) gives a new sight', () => {
-    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE, NO_PLAYERS);
+    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
     const walls = [northWall({ kind: 'grate' })];
 
-    expect(sightNowOf({ board: { ...WALLED, walls }, dragged: {} }, IDLE, NO_PLAYERS)).not.toBe(
-      before,
-    );
+    expect(
+      sightNowOf({ board: { ...WALLED, walls }, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES),
+    ).not.toBe(before);
   });
 
   it('someone dragging the goblin into the dark changes only its level', () => {
-    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE, NO_PLAYERS);
+    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
     const after = sightNowOf(
       { board: WALLED, dragged: { [GOBLIN_ID]: { col: 15, row: 4 } } },
       IDLE,
       NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
     );
 
     expect(levelOf(before, GOBLIN_ID)).toBe('seen');
@@ -215,14 +268,14 @@ describe('sightNowOf for a spectator keys the players by their ids', () => {
   const table = { board: DUDA_BOARD, dragged: {} };
 
   it('the same players in a new array give back the very same sight', () => {
-    const first = sightNowOf(table, IDLE, PLAYERS);
+    const first = sightNowOf(table, IDLE, PLAYERS, NO_SIGHT_OUTLINES);
 
-    expect(sightNowOf(table, IDLE, [...PLAYERS].reverse())).toBe(first);
+    expect(sightNowOf(table, IDLE, [...PLAYERS].reverse(), NO_SIGHT_OUTLINES)).toBe(first);
   });
 
   it('a player demoted (Caio out of the players) gives a new sight without his Kael as an eye', () => {
-    const both = sightNowOf(table, IDLE, PLAYERS);
-    const onlyBia = sightNowOf(table, IDLE, [BIA_AT_TABLE.userId]);
+    const both = sightNowOf(table, IDLE, PLAYERS, NO_SIGHT_OUTLINES);
+    const onlyBia = sightNowOf(table, IDLE, [BIA_AT_TABLE.userId], NO_SIGHT_OUTLINES);
 
     expect(onlyBia).not.toBe(both);
     expect(both.eyeTokenIds).toEqual([LYRA_ID, KAEL_ID]);
@@ -233,7 +286,12 @@ describe('sightNowOf for a spectator keys the players by their ids', () => {
     const presence = createTablePresenceStore(VHARN.id);
     const members = [ANA_AT_TABLE, { ...BIA_AT_TABLE, online: true }, CAIO_AT_TABLE, duda()];
     presence.getState().apply({ kind: 'state', state: vharnState({ members }) });
-    const before = sightNowOf(table, IDLE, playerIdsOf(presence.getState().members));
+    const before = sightNowOf(
+      table,
+      IDLE,
+      playerIdsOf(presence.getState().members),
+      NO_SIGHT_OUTLINES,
+    );
     const roster = presence.getState().members;
     presence.getState().apply({
       kind: 'memberActivity',
@@ -247,13 +305,15 @@ describe('sightNowOf for a spectator keys the players by their ids', () => {
     });
 
     expect(presence.getState().members).not.toBe(roster);
-    expect(sightNowOf(table, IDLE, playerIdsOf(presence.getState().members))).toBe(before);
+    expect(
+      sightNowOf(table, IDLE, playerIdsOf(presence.getState().members), NO_SIGHT_OUTLINES),
+    ).toBe(before);
   });
 
   it('for Bia, a player, other players never work the filter out again', () => {
     const bia = { board: BOARD, dragged: {} };
-    const first = sightNowOf(bia, IDLE, PLAYERS);
+    const first = sightNowOf(bia, IDLE, PLAYERS, NO_SIGHT_OUTLINES);
 
-    expect(sightNowOf(bia, IDLE, [BIA_AT_TABLE.userId])).toBe(first);
+    expect(sightNowOf(bia, IDLE, [BIA_AT_TABLE.userId], NO_SIGHT_OUTLINES)).toBe(first);
   });
 });

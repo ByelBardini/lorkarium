@@ -79,3 +79,48 @@ describe('rememberedWorldAreaOf', () => {
     expect(again).toEqual(first);
   });
 });
+
+describe('rememberedWorldAreaOf with walls left out', () => {
+  // A curtain across the way from (5.5, 5.5) to the right, at x = 8.
+  const CURTAIN = wall({
+    kind: 'curtain',
+    shape: 'line',
+    x: 8,
+    y: 0,
+    width: 0,
+    height: 12,
+    points: [
+      [0, 0],
+      [0, 12],
+    ],
+    doorState: null,
+  });
+  const WALLS = [CURTAIN];
+  const LEFT_OUT = [CURTAIN];
+
+  it('the area with the curtain left out goes past it, and the one without stops there', () => {
+    const cut = rememberedWorldAreaOf(CENTER, WALLS, SCENE, 8);
+    const through = rememberedWorldAreaOf(CENTER, WALLS, SCENE, 8, undefined, LEFT_OUT);
+
+    expect(Math.max(...cut.map(({ x }) => x))).toBeCloseTo(8 * CELL, 6);
+    expect(Math.max(...through.map(({ x }) => x))).toBeCloseTo(13.5 * CELL, 6);
+  });
+
+  it('the same list gives back the very same polygon', () => {
+    const first = rememberedWorldAreaOf(CENTER, WALLS, SCENE, 7, undefined, LEFT_OUT);
+
+    expect(rememberedWorldAreaOf(CENTER, WALLS, SCENE, 7, undefined, LEFT_OUT)).toBe(first);
+  });
+
+  it('an empty list is the same memory as no list', () => {
+    const first = rememberedWorldAreaOf(CENTER, WALLS, SCENE, 6);
+
+    expect(rememberedWorldAreaOf(CENTER, WALLS, SCENE, 6, undefined, [])).toBe(first);
+  });
+
+  it('worldAreaOf leaves the list out too', () => {
+    const through = worldAreaOf(CENTER, WALLS, SCENE, 8, undefined, LEFT_OUT);
+
+    expect(Math.max(...through.map(({ x }) => x))).toBeCloseTo(13.5 * CELL, 6);
+  });
+});

@@ -2,7 +2,7 @@ import { coneOf } from './cone.vo';
 import type { Vector2 } from './facing';
 import { lightLevelAt, type LightSource } from './lighting';
 import { REACH_MAX, assertReach } from './reach';
-import { lineOfSight } from './sight-area';
+import { leftOutWith, lineOfSight, type WallsLeftOut } from './sight-area';
 import { withinField, type FieldBox, type ViewField } from './view-field';
 import { wallSegments } from './wall-segments';
 import type { Wall } from './wall.vo';
@@ -20,8 +20,14 @@ export type SightRange = Readonly<{ bright: number; dim: number }>;
 
 /** A point that sees: the center of a token the viewer controls. `range` is its darkvision;
  *  `null` sees only what is lit (or everything by daylight). `field` limits everything it sees to
- *  its cone and ring; `null` sees every side. */
-export type Eye = Readonly<{ center: Vector2; range: SightRange | null; field: ViewField | null }>;
+ *  its cone and ring; `null` sees every side. `ignores` are the walls it sees through (those of the
+ *  blockers it stands in and its own, `blockersIgnoredAt`). */
+export type Eye = Readonly<{
+  center: Vector2;
+  range: SightRange | null;
+  field: ViewField | null;
+  ignores?: readonly Wall[];
+}>;
 
 /** Everything a level of sight depends on besides the target. */
 export type SightContext = Readonly<{
@@ -31,10 +37,13 @@ export type SightContext = Readonly<{
   lights: readonly LightSource[];
 }>;
 
-/** A token as sight sees it: its footprint in cells and whether it is scenery (Background layer). */
+/** A token as sight sees it: its footprint in cells and whether it is scenery (Background layer).
+ *  `ignores` are its own walls when it is a blocker: its body lies behind its outline, and it does
+ *  not hide itself from eyes or lights. */
 export type SightTarget = Readonly<{
   box: Readonly<{ x: number; y: number; width: number; height: number }>;
   scenery: boolean;
+  ignores?: readonly Wall[];
 }>;
 
 /** `seen` shows the token, `silhouette` a black shape with nothing else, `hidden` nothing. */
@@ -56,15 +65,18 @@ export function sightRange(bright: number, dim: number): SightRange {
 
 /** The eye of a token centered at `center`. Every token is an eye: without a range it sees only
  *  what is lit in the dark, and everything in line of sight by daylight. Without a `field` it sees
- *  every side.
+ *  every side. Empty `ignores` leave the eye as if none were given.
  *
  *  Example: `eyeOf({ x: 5.5, y: 5.5 }, null)` → `{ center: { x: 5.5, y: 5.5 }, range: null, field: null }` */
 export function eyeOf(
   center: Vector2,
   range: SightRange | null,
   field: ViewField | null = null,
+  ignores?: readonly Wall[],
 ): Eye {
-  return { center, range, field };
+  return ignores && ignores.length > 0
+    ? { center, range, field, ignores }
+    : { center, range, field };
 }
 
 /** The field of a token's eye: the cone it faces plus the ring around its footprint, or `null`
@@ -91,9 +103,10 @@ export function sightLevel(context: SightContext, target: SightTarget): SightLev
   if (context.mode === 'off') return 'seen';
   let best: SightLevel = 'hidden';
   for (const point of probesOf(target.box)) {
-    const lit = litLevel(point, context);
+    const lit = litLevel(point, context, target.ignores);
+    const probe = { scenery: target.scenery, lit, except: target.ignores };
     for (const eye of context.eyes) {
-      const level = levelAt(eye, point, context, { scenery: target.scenery, lit });
+      const level = levelAt(eye, point, context, probe);
       if (LEVEL_RANK[level] > LEVEL_RANK[best]) best = level;
       if (best === 'seen') return best;
     }
@@ -102,8 +115,8 @@ export function sightLevel(context: SightContext, target: SightTarget): SightLev
 }
 
 /** Whether any eye sees a door (bright or dim, by its own range or by light) through the other
- *  walls: the door hides neither itself nor itself from the light. `door` must be the same object
- *  as in `context.walls`, or not be there.
+ *  walls: the door hides neither itself nor itself from the light, and each eye and light keeps its
+ *  `ignores`. `door` must be the same object as in `context.walls`, or not be there.
  *
  *  Example: `doorSeenBy({ eyes: [blindEye], walls, mode: 'dark', lights: [torch] }, cellarDoor)` → `true` */
 export function doorSeenBy(context: SightContext, door: Wall): boolean {
@@ -115,8 +128,12 @@ export function doorSeenBy(context: SightContext, door: Wall): boolean {
   });
 }
 
-/** `except`: the wall left out of every line (the door being looked at). */
-type ProbeLight = Readonly<{ scenery: boolean; lit: SightLevel; except?: Wall }>;
+/** `except`: what is left out of every line (the door being looked at, the target's own walls). */
+type ProbeLight = Readonly<{
+  scenery: boolean;
+  lit: SightLevel;
+  except: WallsLeftOut | undefined;
+}>;
 
 function levelAt(eye: Eye, point: Vector2, context: SightContext, probe: ProbeLight): SightLevel {
   if (eye.field && !withinField(eye.field, eye.center, point)) return 'hidden';
@@ -124,12 +141,17 @@ function levelAt(eye: Eye, point: Vector2, context: SightContext, probe: ProbeLi
   const own = context.mode === 'daylight' ? 'seen' : rangeLevel(eye.range, distance);
   const level = LEVEL_RANK[probe.lit] > LEVEL_RANK[own] ? probe.lit : own;
   if (level === 'hidden') return 'hidden';
-  if (!lineOfSight(eye.center, point, context.walls, probe.except)) return 'hidden';
+  const leftOut = leftOutWith(probe.except, eye.ignores);
+  if (!lineOfSight(eye.center, point, context.walls, leftOut)) return 'hidden';
   return probe.scenery ? 'seen' : level;
 }
 
 // Daylight already lights everything, so lights only matter in the dark.
-function litLevel(point: Vector2, context: SightContext, except?: Wall): SightLevel {
+function litLevel(
+  point: Vector2,
+  context: SightContext,
+  except: WallsLeftOut | undefined,
+): SightLevel {
   if (context.mode !== 'dark') return 'hidden';
   return lightLevelAt(point, context.lights, context.walls, except);
 }

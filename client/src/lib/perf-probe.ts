@@ -1,30 +1,58 @@
-/** What the board redraws: the whole view, a token, the zoom-bound overlays, the grid lines. */
-export type PerfMetric = 'view.draw' | 'token.redraw' | 'overlays.draw' | 'grid.draw';
+/** What the board redraws (the whole view, a token, the zoom-bound overlays, the grid lines, a
+ *  condition strip) and the zoom events that reach it. */
+export type PerfMetric =
+  'view.draw' | 'token.redraw' | 'overlays.draw' | 'grid.draw' | 'zoom.event' | 'strip.redraw';
 
-const METRICS: readonly PerfMetric[] = ['view.draw', 'token.redraw', 'overlays.draw', 'grid.draw'];
+const METRICS: readonly PerfMetric[] = [
+  'view.draw',
+  'token.redraw',
+  'overlays.draw',
+  'grid.draw',
+  'zoom.event',
+  'strip.redraw',
+];
 
-/** The frames of the window and, per second since the last snapshot, each redraw. */
+/** A level measured now and then, not counted: the texture memory of the scene in MB. */
+export type PerfGauge = 'texture.mb';
+
+/** The frames of the window, per second since the last snapshot each redraw, and the last value
+ *  of each gauge (a gauge never measured is absent, not 0). */
 export type PerfSnapshot = Readonly<{
   fps: number;
   frameMs: Readonly<{ p50: number; p95: number; max: number }>;
   perSecond: Readonly<Record<PerfMetric, number>>;
+  gauges: Readonly<Partial<Record<PerfGauge, number>>>;
 }>;
 
 /** What the dev panel (`?perf=1`) reads from the renderer; production gets `NO_PERF_PROBE`. */
 export interface PerfProbe {
   frame(ms: number): void;
   count(metric: PerfMetric, amount?: number): void;
+  gauge(name: PerfGauge, value: number): void;
   snapshot(nowMs: number): PerfSnapshot;
 }
 
 function zeroCounts(): Record<PerfMetric, number> {
-  return { 'view.draw': 0, 'token.redraw': 0, 'overlays.draw': 0, 'grid.draw': 0 };
+  return {
+    'view.draw': 0,
+    'token.redraw': 0,
+    'overlays.draw': 0,
+    'grid.draw': 0,
+    'zoom.event': 0,
+    'strip.redraw': 0,
+  };
+}
+
+function assertGaugeValue(name: PerfGauge, value: number): void {
+  if (Number.isFinite(value) && value >= 0) return;
+  throw new Error(`${name}: expected a number ≥ 0 (número ≥ 0), got ${String(value)}`);
 }
 
 const EMPTY_SNAPSHOT: PerfSnapshot = {
   fps: 0,
   frameMs: { p50: 0, p95: 0, max: 0 },
   perSecond: zeroCounts(),
+  gauges: {},
 };
 
 /** The probe that keeps nothing: the renderer's default outside the dev panel.
@@ -33,15 +61,18 @@ const EMPTY_SNAPSHOT: PerfSnapshot = {
 export const NO_PERF_PROBE: PerfProbe = {
   frame: () => undefined,
   count: () => undefined,
+  gauge: () => undefined,
   snapshot: () => EMPTY_SNAPSHOT,
 };
 
-/** Keeps the last `windowSize` frame times and the redraws since the last snapshot.
+/** Keeps the last `windowSize` frame times, the redraws since the last snapshot and the last
+ *  value of each gauge.
  *
  *  Example: `const probe = new RecordingPerfProbe(); app.ticker.add((t) => probe.frame(t.deltaMS))` */
 export class RecordingPerfProbe implements PerfProbe {
   private readonly frames: number[] = [];
   private counts = zeroCounts();
+  private readonly gauges: Partial<Record<PerfGauge, number>> = {};
   private since: number | null = null;
 
   constructor(private readonly windowSize = 120) {}
@@ -55,13 +86,23 @@ export class RecordingPerfProbe implements PerfProbe {
     this.counts[metric] += amount;
   }
 
+  gauge(name: PerfGauge, value: number): void {
+    assertGaugeValue(name, value);
+    this.gauges[name] = value;
+  }
+
   snapshot(nowMs: number): PerfSnapshot {
     const seconds = this.since === null ? 1 : Math.max(nowMs - this.since, 1) / 1000;
     const perSecond = zeroCounts();
     for (const metric of METRICS) perSecond[metric] = this.counts[metric] / seconds;
     this.counts = zeroCounts();
     this.since = nowMs;
-    return { fps: fpsOf(this.frames), frameMs: frameSummaryOf(this.frames), perSecond };
+    return {
+      fps: fpsOf(this.frames),
+      frameMs: frameSummaryOf(this.frames),
+      perSecond,
+      gauges: { ...this.gauges },
+    };
   }
 }
 

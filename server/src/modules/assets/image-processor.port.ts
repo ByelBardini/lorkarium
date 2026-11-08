@@ -1,11 +1,17 @@
 import type { AssetMimeTypeDto } from '@lorkarium/contracts';
 
-/** The image as it is kept: decoded, re-encoded in its own format, without metadata. */
+/** The silhouette of a kept image: polygons of `[x, y]` in a unit square, where the image sits
+ *  contained. Empty = nothing in it is solid enough. */
+export type ImageOutline = readonly (readonly (readonly [number, number])[])[];
+
+/** The image as it is kept: decoded, re-encoded in its own format, without metadata. `outline` is
+ *  `null` unless it was asked for and the image is a still one. */
 export type NormalizedImage = Readonly<{
   bytes: Uint8Array;
   mimeType: AssetMimeTypeDto;
   width: number;
   height: number;
+  outline: ImageOutline | null;
 }>;
 
 /** Why bytes were not kept; `detail` cites what was received, for the log and the error. */
@@ -22,11 +28,13 @@ export type NormalizeOutcome =
 export type AnimationBudget = Readonly<{ maxFrames: number; maxDecodedPixels: number }>;
 
 /** How the image is kept: no side above `maxSide`; `square` cuts the centre square out of it;
- *  `animation` lets a GIF in and keeps it animated within the budget (absent: GIF is refused). */
+ *  `animation` lets a GIF in and keeps it animated within the budget (absent: GIF is refused);
+ *  `outline` also traces the silhouette of what was kept. */
 export type NormalizeOptions = Readonly<{
   maxSide: number;
   square?: boolean;
   animation?: AnimationBudget;
+  outline?: boolean;
 }>;
 
 /** Proves the bytes are a PNG, JPEG or WebP (or a GIF, when `animation` is given) and rewrites

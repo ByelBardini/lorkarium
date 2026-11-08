@@ -29,7 +29,48 @@ export type ReachSectionProps = Readonly<{
  *
  *  Example: `<ReachSection icon={<Eye />} title="Enxerga no escuro" hint={hint} on={sees} onSwitch={setSees} range={range} errors={errors} distance={scene} onRange={setRange} />` */
 export function ReachSection(props: ReachSectionProps): React.JSX.Element {
-  const { title, on, range, errors, distance, onRange } = props;
+  const { icon, title, hint, on, onSwitch, range, errors, distance, onRange } = props;
+  return (
+    <SwitchedSection icon={icon} title={title} hint={hint} on={on} onSwitch={onSwitch}>
+      <div className="grid grid-cols-2 gap-3">
+        <RangeField
+          label={`Plena até (${distance.cellUnit})`}
+          value={range.bright}
+          error={errors.bright}
+          distance={distance}
+          onChange={(bright) => onRange({ ...range, bright })}
+        />
+        <RangeField
+          label={`Penumbra até (${distance.cellUnit})`}
+          value={range.dim}
+          error={errors.dim}
+          distance={distance}
+          onChange={(dim) => onRange({ ...range, dim })}
+        />
+      </div>
+      {props.note && <p className="text-xs text-muted-foreground">{props.note}</p>}
+      {props.children}
+    </SwitchedSection>
+  );
+}
+
+export type SwitchedSectionProps = Readonly<{
+  icon: React.ReactNode;
+  /** The name of the switch and of the group. */
+  title: string;
+  hint: string;
+  on: boolean;
+  onSwitch: (on: boolean) => void;
+  /** Under the switch, only while on. */
+  children?: React.ReactNode;
+}>;
+
+/** A setting of the token that a switch turns on: a group with its icon, title, hint and switch
+ *  of the same name and, while on, what it opens.
+ *
+ *  Example: `<SwitchedSection icon={<EyeOff />} title="Bloqueia a visão" hint={hint} on={on} onSwitch={setOn} />` */
+export function SwitchedSection(props: SwitchedSectionProps): React.JSX.Element {
+  const { title, on } = props;
   const id = useId();
   return (
     <div
@@ -49,27 +90,8 @@ export function ReachSection(props: ReachSectionProps): React.JSX.Element {
         </div>
         <Switch aria-labelledby={`${id}-title`} checked={on} onCheckedChange={props.onSwitch} />
       </div>
-      {on && (
-        <div className="flex flex-col gap-3 sm:pl-[54px]">
-          <div className="grid grid-cols-2 gap-3">
-            <RangeField
-              label={`Plena até (${distance.cellUnit})`}
-              value={range.bright}
-              error={errors.bright}
-              distance={distance}
-              onChange={(bright) => onRange({ ...range, bright })}
-            />
-            <RangeField
-              label={`Penumbra até (${distance.cellUnit})`}
-              value={range.dim}
-              error={errors.dim}
-              distance={distance}
-              onChange={(dim) => onRange({ ...range, dim })}
-            />
-          </div>
-          {props.note && <p className="text-xs text-muted-foreground">{props.note}</p>}
-          {props.children}
-        </div>
+      {on && props.children && (
+        <div className="flex flex-col gap-3 empty:hidden sm:pl-[54px]">{props.children}</div>
       )}
     </div>
   );

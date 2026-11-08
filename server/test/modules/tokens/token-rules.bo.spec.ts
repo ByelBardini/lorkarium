@@ -20,8 +20,41 @@ const LIMIT = 99_999;
 const MEMBERS = [ANA_ID, BIA_ID];
 
 function rules(): TokenRulesBo {
-  return new TokenRulesBo({ scene: SCENE, memberIds: MEMBERS, barLimit: LIMIT, tokenLimit: 500 });
+  return new TokenRulesBo({
+    scene: SCENE,
+    memberIds: MEMBERS,
+    barLimit: LIMIT,
+    tokenLimit: 500,
+    blockerLimit: 50,
+  });
 }
+
+describe('TokenRulesBo.admitBlockers', () => {
+  it('the 50th sight-blocking token of a scene is admitted', () => {
+    expect(rules().admitBlockers(49, 1)).toBe(50);
+  });
+
+  it('the 51st is refused with TOKEN_BLOCKER_LIMIT citing 51, the parts and the limit of 50', () => {
+    expect(() => rules().admitBlockers(50, 1)).toThrow(
+      expect.objectContaining({
+        code: 'TOKEN_BLOCKER_LIMIT',
+        message:
+          'the scene would have 51 sight-blocking tokens (50 stored + 1 added); the limit is 50',
+      }),
+    );
+  });
+
+  it('a paste of 3 blockers on a scene of 48 is refused whole', () => {
+    expect(() => rules().admitBlockers(48, 3)).toThrow(
+      expect.objectContaining({
+        code: 'TOKEN_BLOCKER_LIMIT',
+        stored: 48,
+        adding: 3,
+        limit: 50,
+      }),
+    );
+  });
+});
 
 describe('TokenRulesBo.admit', () => {
   it('the 500th token of a scene is admitted', () => {

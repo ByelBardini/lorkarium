@@ -4,6 +4,7 @@ import {
   updateTokenCommandDto,
   type LightColorDto,
   type TokenDto,
+  type TokenFrameDto,
   type TokenSideDto,
 } from '@lorkarium/contracts';
 import { cellsText } from '@/lib/cells-text';
@@ -78,6 +79,10 @@ export type TokenFormValues = Readonly<{
   /** "Cor da luz": `null` is neutral. */
   lightColor: LightColorDto | null;
   bars: readonly BarFormValues[];
+  /** "Bloqueia a visão": the token cuts sight and light by its shape. */
+  blocksSight: boolean;
+  /** Only a switch the master touched is sent: untouched, the token keeps its own. */
+  blocksSightEdited: boolean;
   /** "Aura": the aura of the token in the unit of the scene. */
   aura: AuraFormValues;
   /** Only an aura the master touched is sent: untouched, the token keeps its own. */
@@ -221,6 +226,8 @@ export function emptyTokenForm(distance: SceneDistance): TokenFormValues {
     sight: defaultSightFields(distance),
     light: { on: false, bright: '', dim: '', saved: false },
     lightColor: null,
+    blocksSight: false,
+    blocksSightEdited: false,
     bars: [],
     aura: auraFormOf(null, distance),
     auraEdited: false,
@@ -246,7 +253,19 @@ export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenForm
   const look = { controllerIds, imageAssetId, bars, sight, light, lightColor, ...angles };
   const aura = { aura: auraFormOf(token.aura, distance), auraEdited: false };
   const forms = formsFormOf(token);
-  return { name, initials, initialsEdited, side, width, height, ...look, ...aura, forms };
+  const blocker = { blocksSight: token.blocksSight, blocksSightEdited: false };
+  return {
+    name,
+    initials,
+    initialsEdited,
+    side,
+    width,
+    height,
+    ...look,
+    ...blocker,
+    ...aura,
+    forms,
+  };
 }
 
 /** The name changed: the initials follow it until edited by hand. */
@@ -264,6 +283,15 @@ export function lightSwitchedOn(form: TokenFormValues, distance: SceneDistance):
   const torch = rangeFieldsOf(DEFAULT_LIGHT_REACH, distance);
   const typed = empty ? { bright: torch.bright, dim: torch.dim } : {};
   return { ...form, light: { ...light, ...typed, on: true } };
+}
+
+/** The frame the token would save: that of the form on the map, which "Formas" may have changed
+ *  in this dialog, or the token's own (the dialog edits no other; a new token is square).
+ *
+ *  Example: `blockerFrameOf(form, token) // 'round'` */
+export function blockerFrameOf(form: TokenFormValues, token: TokenDto | null): TokenFrameDto {
+  const shown = form.forms.list.find(({ id }) => id === token?.activeFormId);
+  return shown?.frame ?? token?.frame ?? 'square';
 }
 
 /** The aura changed in the "Aura" tab: from now on it is sent.
@@ -298,7 +326,8 @@ export function parseTokenForm(
   const player = mode === 'player';
   const look = player ? parseTokenFields(form, NO_RANGES) : parseTokenLook(form, distance);
   const aura = form.auraEdited ? withPart(look, auraPartOf(form, distance)) : look;
-  return form.forms.edited ? withPart(aura, formsPartOf(form.forms)) : aura;
+  const sent = withPart(aura, blockerPartOf(form));
+  return form.forms.edited ? withPart(sent, formsPartOf(form.forms)) : sent;
 }
 
 /** A tab parsed on its own (the aura, the forms): the fields it adds, or what is wrong. */
@@ -310,6 +339,10 @@ function withPart(look: TokenFormResult, part: PartResult): TokenFormResult {
   if (!part.ok) return { ok: false, errors: { ...(look.ok ? {} : look.errors), ...part.errors } };
   if (!look.ok) return look;
   return { ok: true, token: { ...look.token, ...part.edit } };
+}
+
+function blockerPartOf(form: TokenFormValues): PartResult {
+  return { ok: true, edit: form.blocksSightEdited ? { blocksSight: form.blocksSight } : {} };
 }
 
 // The aura is not in the DTO parse: its form already gives a valid aura or says what is wrong.

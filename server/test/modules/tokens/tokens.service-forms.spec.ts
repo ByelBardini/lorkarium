@@ -60,6 +60,7 @@ describe('token:update with the forms of a token', () => {
       clock,
       barLimit: 99_999,
       tokenLimit: 500,
+      blockerLimit: 50,
       tokenRights: new TableTokenRightsFake(),
     });
   });

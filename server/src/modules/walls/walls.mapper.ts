@@ -1,5 +1,5 @@
 import type { WallDto, WallShapeDto } from '@lorkarium/contracts';
-import { wall, type Wall } from '@lorkarium/game-core';
+import { wall, type SightBlocker, type Wall } from '@lorkarium/game-core';
 import type { WallPosition } from './wall-rules.bo';
 import type { NewWallPo, WallMovePo, WallPo } from './walls.po';
 
@@ -152,4 +152,16 @@ function roundedPoint([x, y]: WallPoint): WallPoint {
 
 function copyPoint([x, y]: readonly [number, number]): WallPoint {
   return [x, y];
+}
+
+/** The one list of walls that cut sight: the scene's first, the same instances, then those of each
+ *  blocker. No blocker hands back the very array, so the game-core reuses what it prepared for it.
+ *
+ *  Example: `doorSeenBy({ eyes, walls: sightWallsOf(known.walls, blockers), mode, lights }, door)` */
+export function sightWallsOf(
+  walls: readonly Wall[],
+  blockers: readonly SightBlocker[],
+): readonly Wall[] {
+  if (blockers.length === 0) return walls;
+  return [...walls, ...blockers.flatMap((blocker) => blocker.walls)];
 }

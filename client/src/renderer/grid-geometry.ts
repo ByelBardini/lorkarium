@@ -113,3 +113,28 @@ function bandCovers(scene: SceneSize, band: GridBand, visible: WorldRect): boole
     band.rowTo === scene.heightCells || visible.y + visible.height <= band.rowTo * CELL_WORLD_SIZE;
   return left && right && top && bottom;
 }
+
+/** `band` itself once it has no negative side; throws naming it otherwise.
+ *
+ *  Example: `const checked = bandOrThrow({ x: 0, y: 0, width: 640, height: 640 })` */
+export function bandOrThrow(band: WorldRect): WorldRect {
+  if (band.width >= 0 && band.height >= 0) return band;
+  const got = JSON.stringify(band);
+  throw new RangeError(`band must be a world rect with width >= 0 and height >= 0, got ${got}`);
+}
+
+/** Whether `point` lies in `band`, its edges included.
+ *
+ *  Example: `pointInBand({ x: 640, y: 0 }, { x: 0, y: 0, width: 640, height: 640 }) // true` */
+export function pointInBand(point: Point, band: WorldRect): boolean {
+  const insideX = point.x >= band.x && point.x <= band.x + band.width;
+  return insideX && point.y >= band.y && point.y <= band.y + band.height;
+}
+
+/** The items `keep` holds on to, or `items` itself when it holds on to all of them.
+ *
+ *  Example: `keptInBand(lights, (light) => pointInBand(light, band))` */
+export function keptInBand<T>(items: readonly T[], keep: (item: T) => boolean): readonly T[] {
+  const kept = items.filter(keep);
+  return kept.length === items.length ? items : kept;
+}

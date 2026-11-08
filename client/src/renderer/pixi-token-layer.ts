@@ -3,7 +3,7 @@ import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
 import type { BarColorDto, TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
 import { facingVector } from '@lorkarium/game-core';
 import type { GhostView, TokenView } from './board-view';
-import { type Point, zoomProofTextResolution } from './camera';
+import { type Point, textResolutionFor, zoomProofTextResolution } from './camera';
 import { PixiAuraFloors } from './pixi-aura-floors';
 import type { AuraImages, PixiTokenAura } from './pixi-token-aura';
 import { PixiConditionMarks } from './pixi-condition-marks';
@@ -134,7 +134,7 @@ export class PixiTokenLayer {
   }
 
   /** The strips follow the zoom (dots from afar, rounds up close); only a strip that changes
-   *  is drawn again. Call on every camera change. */
+   *  is drawn again. Call once the zoom settles (`FrameJob.zoom`), never per wheel tick. */
   applyZoom(zoom: number): void {
     if (zoom === this.zoom) return;
     this.zoom = zoom;
@@ -252,7 +252,8 @@ export class PixiTokenLayer {
       const art = sprite.view.art;
       drawToken(sprite, art ? (this.textures?.textureOf(art.url) ?? null) : null);
     }
-    const { height } = sprite.marks.draw(sprite.view, this.zoom);
+    const { band, height } = sprite.marks.draw(sprite.view, this.zoom);
+    if (band !== 'none') this.probe.count('strip.redraw');
     if (!redraw.nameTag && height === sprite.stripHeight) return;
     sprite.stripHeight = height;
     sprite.nameTag.draw(sprite.view, showsNameTag(sprite.view, this.hovered), height);
@@ -356,7 +357,9 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   if (view.facingMark) drawFacingMark(shape, view.facing, box);
   label.visible = !image;
   label.text = view.initials;
-  label.style.fontSize = Math.round(Math.min(box.width, box.height) * 0.3);
+  const fontSize = Math.round(Math.min(box.width, box.height) * 0.3);
+  label.style.fontSize = fontSize;
+  label.resolution = textResolutionFor(globalThis.devicePixelRatio, fontSize);
   label.position.set(center.x, center.y);
   drawDefeated(sprite, box, square);
 }

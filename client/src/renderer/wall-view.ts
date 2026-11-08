@@ -3,6 +3,7 @@ import { HIT_TOLERANCE } from '@/lib/drawing-geometry';
 import { wallSegmentsOf } from '@/lib/wall-geometry';
 import type { BoardViewTool } from './board-view';
 import { CELL_WORLD_SIZE, type Point } from './camera';
+import { bandOrThrow, keptInBand, pointInBand, type WorldRect } from './grid-geometry';
 
 /** What a press does with the walls tool: start a wall, drag the eraser box, or erase a wall (or a piece). */
 export type WallMode = 'draw' | 'eraseArea' | 'eraseWall' | 'eraseSegment';
@@ -165,4 +166,48 @@ export function dashesOf(
 
 function along({ from, to }: WallStroke, t: number): Point {
   return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
+}
+
+/** The walls with any piece in `band` (world px), each whole: a dashed line cut at the band would
+ *  start its dashes again mid-wall. Nothing out gives back `walls` itself, so nothing redraws.
+ *
+ *  Example: `wallsInBand(view.walls, grid.bandWorld() ?? visibleWorldRect(camera, screen))` */
+export function wallsInBand(walls: readonly WallView[], band: WorldRect): readonly WallView[] {
+  const checked = bandOrThrow(band);
+  return keptInBand(walls, ({ segments }) => segments.some((s) => strokeMeetsBand(s, checked)));
+}
+
+/** The door icons whose middle is in `band` (world px); nothing out gives back `doors` itself.
+ *
+ *  Example: `doorsInBand(view.doors, band).length` */
+export function doorsInBand(
+  doors: readonly DoorIconView[],
+  band: WorldRect,
+): readonly DoorIconView[] {
+  const checked = bandOrThrow(band);
+  return keptInBand(doors, (door) => pointInBand(door, checked));
+}
+
+type ClipSpan = Readonly<{ enter: number; leave: number }>;
+
+// Liang-Barsky: a diagonal passing by a corner of the band is out, though its box is not.
+function strokeMeetsBand({ from, to }: WallStroke, band: WorldRect): boolean {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const edges: readonly (readonly [number, number])[] = [
+    [-dx, from.x - band.x],
+    [dx, band.x + band.width - from.x],
+    [-dy, from.y - band.y],
+    [dy, band.y + band.height - from.y],
+  ];
+  return edges.reduce<ClipSpan | null>(clippedSpan, { enter: 0, leave: 1 }) !== null;
+}
+
+function clippedSpan(span: ClipSpan | null, [p, q]: readonly [number, number]): ClipSpan | null {
+  if (!span) return null;
+  if (p === 0) return q < 0 ? null : span;
+  const t = q / p;
+  const enter = p < 0 ? Math.max(span.enter, t) : span.enter;
+  const leave = p < 0 ? span.leave : Math.min(span.leave, t);
+  return enter <= leave ? { enter, leave } : null;
 }

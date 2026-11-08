@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { holdBackBrowserMenu } from '@/renderer/host-listeners';
+import { followContextLoss, holdBackBrowserMenu } from '@/renderer/host-listeners';
+import { CanvasEventsFake } from '../support/canvas-events-fake';
 
 const BOARD_RECT = { left: 100, top: 100, right: 500, bottom: 400, width: 400, height: 300 };
 
@@ -42,5 +43,35 @@ describe('holdBackBrowserMenu', () => {
   it('after the disposer runs, the browser menu is back', () => {
     holdBackBrowserMenu(boardHost())();
     expect(rightClickAt(200, 200).defaultPrevented).toBe(false);
+  });
+});
+
+describe('followContextLoss', () => {
+  it('a lost context calls onLost once and keeps the browser from giving the canvas up', () => {
+    const canvas = new CanvasEventsFake();
+    let losses = 0;
+    const dispose = followContextLoss(canvas, () => (losses += 1));
+    const event = canvas.loseContext();
+    expect(losses).toBe(1);
+    expect(event.defaultPrevented).toBe(true);
+    dispose();
+  });
+
+  it('after the disposer runs, a lost context calls nothing', () => {
+    const canvas = new CanvasEventsFake();
+    let losses = 0;
+    followContextLoss(canvas, () => (losses += 1))();
+    canvas.loseContext();
+    expect(losses).toBe(0);
+  });
+
+  it('two losses in a row call onLost twice', () => {
+    const canvas = new CanvasEventsFake();
+    let losses = 0;
+    const dispose = followContextLoss(canvas, () => (losses += 1));
+    canvas.loseContext();
+    canvas.loseContext();
+    expect(losses).toBe(2);
+    dispose();
   });
 });

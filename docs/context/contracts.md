@@ -54,7 +54,9 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `assetDto` `{ id, mimeType, width, height }` (o tamanho **depois** de normalizado) e `assetResponseDto` `{ asset }` — resposta dos dois `POST`.
 - `uploadAssetQueryDto` `{ purpose }` — query de `POST /api/campaigns/:campaignId/assets` (o corpo é o próprio arquivo).
 - `importAssetRequestDto` `{ url, purpose }` — corpo do `POST …/assets/import`: `url` aparada, até 2048 caracteres, só `http:`/`https:` (`ftp:`, `data:`, `javascript:` recusados citando o esquema e "http or https"; texto que não é link, citando o texto). Sem o global `URL` (o `lib` do contracts é só ES2023): o esquema sai por regex.
-- `assetIdParamsDto` `{ assetId: uuid }` — params de `GET /api/assets/:assetId`.
+- `assetIdParamsDto` `{ assetId: uuid }` — params de `GET /api/assets/:assetId` e de `GET /api/assets/:assetId/outline`.
+- `sightOutlineDto` / `SightOutlineDto` — a silhueta de uma imagem de token: até 4 polígonos, cada um com ao menos 3 pontos `[x, y]` de 0 a 1, 48 vértices no total (acima disso, a mensagem cita a conta e o limite). Repete os limites de `sight-outline.vo.ts` do game-core, porque o contracts só depende do `zod`; `[]` = toda transparente. Tudo `readonly`, também na saída do `parse` (congelada), para casar com o tipo do PO e do VO.
+- `assetOutlineResponseDto` / `AssetOutlineResponseDto` `{ outline: SightOutlineDto | null }` — resposta do `GET …/outline` (`null` = sem contorno; ver [`assets/contorno.md`](assets/contorno.md)).
 
 ### Sessão ao vivo (`sessions/`)
 
@@ -107,6 +109,8 @@ Imagem, agregado e apresentação versionada: [contracts/biblioteca.md](contract
 - `stateVersionDto` (inteiro ≥ 0) e `realtimeAckFailureDto` (`{ ok: false, error: ApiErrorDto }`): a versão e a falha de ack que sessão e tabuleiro compartilham.
 
 ### Tabuleiro (`board/`)
+
+**Token que bloqueia a visão** (`board/token.dto.ts`): `tokenDto.blocksSight` (booleano, obrigatório na saída, igual a todo público), `createTokenCommandDto`/`newTokenDto`/`updateTokenCommandDto` com `blocksSight` opcional (no `update`, ausente mantém; no `create`, ausente nasce falso), `TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX` (50) e `TOKEN_BLOCKER_LIMIT_CODE` (`'TOKEN_BLOCKER_LIMIT'`). Regra em [`tokens/bloqueio-de-visao.md`](tokens/bloqueio-de-visao.md).
 
 O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, aparência, grupo, condição, combate, desenho, área de efeito, parede, luz, `BOARD_EVENTS` e o snapshot) mora em [`contracts/tabuleiro.md`](contracts/tabuleiro.md). As condições (definição, ativa, descrição, cor, stacks, imagem, a lista da mesa e seus comandos) moram em [`contracts/condicoes.md`](contracts/condicoes.md). Fluxo em [`board.md`](board.md). O ping efêmero (`board:ping` / `board:pinged`, sem versão) mora em [`contracts/ping.md`](contracts/ping.md). A aura do token (`tokenAuraDto`, os 8 efeitos, a aura no token, no estilo e nos comandos do mestre) mora em [`contracts/aura.md`](contracts/aura.md). As formas do token (`tokenFormDto`, `token:setForm`, `token:formChanged`) e as peças de meia casa (`half-cell.dto.ts`) moram em [`contracts/formas.md`](contracts/formas.md).
 

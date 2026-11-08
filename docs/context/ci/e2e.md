@@ -22,6 +22,17 @@ Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do V
 - Local: o `webServer` reaproveita só o Vite da 5173. Um Vite antigo pode servir código velho.
 - Configs locais em outras portas, para rodar com um `pnpm dev` de pé ou ao lado de outra rodada: `playwright.tmp.config.ts` + `client/vite.e2e-tmp.config.ts` (client 5174, server 3334) e `playwright.dice.config.ts` + `client/vite.e2e-dice.config.ts` (5175, 3335). Nenhum dos dois reaproveita server; os dois herdam **todos** os `projects` do base, então passe `--project=<grupo>` (ver [`armadilhas.md`](armadilhas.md)).
 
+## Tokens que bloqueiam a visão
+
+`sight-blockers.spec.ts`, no grupo `vision`, dois contextos (Ana, o admin do e2e, e Bia), cada um dos dois testes com a própria mesa. Uma rodada leva ~45 s: `--project=vision --workers=1 sight-blockers`.
+
+- A cena, na cena padrão em Escuro: Lyra da Bia (10, 6), estátua (11, 6), porta na linha x = 13,5 de duas casas, ogro (14, 6), goblin (14, 5). A imagem da estátua é `cutOutBandPng` (`support/cut-out-png.ts`), um PNG gerado no teste com `node:zlib`, branco só no terço do meio e transparente no resto. A sombra dela cobre o ogro e as 3 sondas da porta, e deixa um canto do goblin de fora: **pelo retângulo da imagem o goblin também sumiria**, então é ele quem prova o recorte (trocar o contorno pelo retângulo na fonte derruba os dois testes nessa linha).
+- Feliz: a Ana liga "Bloqueia a visão" no "Editar token"; o ogro sai da lista "Na cena" e do canvas da Bia (pixel < 0,02), a Ana continua com ele, e o corpo da estátua aparece branco através da névoa.
+- Mover: a estátua desce 3 casas pelas setas, e o ogro volta nos dois.
+- Porta: com a estátua de volta, a Bia clica no lugar da porta e nada abre (o menu da Ana continua com "Abrir"); com a estátua fora, o mesmo clique dá "Porta aberta." e o menu da Ana mostra "Fechar".
+- Limite do e2e: a recusa acontece no client, que nem desenha a porta não vista. A do server (`FORBIDDEN`, `doors.spec.ts` na integração) foi conferida uma vez no fluxo real, forçando o client a mostrar a porta: a porta não abre, com a mensagem "Esse token não é seu.".
+- `hidden` e F5: "Invisível para os jogadores" tira a estátua e devolve o ogro; mostrada de novo, volta a bloquear; depois do F5 da Bia o corte continua pelo contorno (o goblin segue na lista) e, depois do F5 da Ana, o interruptor segue ligado.
+
 ## Documentos da biblioteca
 
 `library-documents.spec.ts` e `library-document-tabs.spec.ts` estão no grupo `library`, com os helpers em `e2e/test/support/documents.ts` (`createDocument`, `expandDocument`, `documentPanelOf`, `savedStatusOf`, `showDocumentTab`, `readDocument`, `changeDocument`, `tabIdOf`, `readTabContent` — o corpo vem de `GET …/tabs/:tabId`, nunca do detalhe — e `pastePortraitIntoDocument`). Fragmentar o primeiro por `--grep 'rich document'`, `'multiple document owners'`, `'document popup opens'` e `'concurrent remote'`, e o das abas por `'own text across a reload'`, `'masters-only tab'` e `'detached document window'`, sempre `--workers=1` e em processos sequenciais; depois rodar `library`, `library-images` e `character`. Cada boot limpa o mesmo banco `_e2e`, portanto nunca iniciar fragmentos simultâneos. Cenários em [../documents/testes.md](../documents/testes.md).

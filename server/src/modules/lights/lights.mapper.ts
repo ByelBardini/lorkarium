@@ -7,6 +7,7 @@ import type {
   LightRangeOfDto,
 } from '@lorkarium/contracts';
 import {
+  blockersIgnoredAt,
   lightConeOf,
   lightRange,
   lightSource,
@@ -14,6 +15,7 @@ import {
   type LightRange,
   type LightSource,
   type SceneLight,
+  type SightBlocker,
 } from '@lorkarium/game-core';
 import { cellsHundredth, cellsNumeric } from '../../database/cells-numeric';
 import type { LightColor, LightCone, LightPosition } from './light-rules.bo';
@@ -66,12 +68,17 @@ export function lightMovedTo(light: SceneLight, at: LightPosition): SceneLight {
 }
 
 /** The light a saved map light gives off from its point, in its cone (none at 360), or `null`
- *  when it is out.
+ *  when it is out. It leaves out the `blockers` it stands in.
  *
- *  Example: `rows.flatMap((row) => lightSourceOfRow(row) ?? [])` */
-export function lightSourceOfRow(row: LightPo): LightSource | null {
+ *  Example: `rows.flatMap((row) => lightSourceOfRow(row, blockers) ?? [])` */
+export function lightSourceOfRow(
+  row: LightPo,
+  blockers: readonly SightBlocker[] = [],
+): LightSource | null {
   const light = sceneLightOf(row);
-  return lightSource({ x: light.x, y: light.y }, light.range, light.lit, lightConeOf(light));
+  const center = { x: light.x, y: light.y };
+  const ignores = blockersIgnoredAt(center, blockers);
+  return lightSource(center, light.range, light.lit, lightConeOf(light), ignores);
 }
 
 /** A placement as sent → the row to insert, to the hundredth, lit and in its color.

@@ -74,6 +74,7 @@ export class ImageProcessorFake implements ImageProcessorPort {
     mimeType: 'image/png',
     width: 1024,
     height: 512,
+    outline: null,
   };
 
   constructor(private readonly journal: string[] = []) {}
@@ -102,7 +103,7 @@ export class ImageFetcherFake implements ImageFetcherPort {
 /** Asset rows in memory; writes 'insert' to the shared journal and records each lookup by id. */
 export class AssetsDaoFake implements Pick<
   AssetsDao,
-  'insert' | 'findById' | 'findInCampaign' | 'findManyInCampaign'
+  'insert' | 'findById' | 'findInCampaign' | 'findManyInCampaign' | 'outlinesOf'
 > {
   constructor(
     private readonly journal: string[] = [],
@@ -117,6 +118,7 @@ export class AssetsDaoFake implements Pick<
     const inserted: AssetPo = {
       id: row.id ?? `asset-${this.rows.length + 1}`,
       ownerId: null,
+      sightOutline: null,
       createdAt: FAKE_DATE,
       ...row,
     };
@@ -135,5 +137,13 @@ export class AssetsDaoFake implements Pick<
   async findManyInCampaign(campaignId: string, assetIds: readonly string[]): Promise<AssetPo[]> {
     this.lookups.push(assetIds);
     return this.rows.filter((row) => row.campaignId === campaignId && assetIds.includes(row.id));
+  }
+
+  async outlinesOf(
+    campaignId: string,
+    assetIds: readonly string[],
+  ): Promise<ReadonlyMap<string, AssetPo['sightOutline']>> {
+    const rows = await this.findManyInCampaign(campaignId, assetIds);
+    return new Map(rows.map((row) => [row.id, row.sightOutline]));
   }
 }
