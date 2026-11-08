@@ -33,6 +33,17 @@ Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do V
 - Limite do e2e: a recusa acontece no client, que nem desenha a porta não vista. A do server (`FORBIDDEN`, `doors.spec.ts` na integração) foi conferida uma vez no fluxo real, forçando o client a mostrar a porta: a porta não abre, com a mensagem "Esse token não é seu.".
 - `hidden` e F5: "Invisível para os jogadores" tira a estátua e devolve o ogro; mostrada de novo, volta a bloquear; depois do F5 da Bia o corte continua pelo contorno (o goblin segue na lista) e, depois do F5 da Ana, o interruptor segue ligado.
 
+## Patrulha do token
+
+`token-patrol.spec.ts`, no grupo `tokens`, Ana (o admin) e Bia, os dois contextos com `reducedMotion: 'reduce'` (o token pula de casa em casa, sem deslizar, então a casa na tela é a do passo). Uma rodada leva ~1,3 min: `--project=tokens --workers=1 token-patrol`. Ver [`../client/token-patrols.md`](../client/token-patrols.md).
+
+- Onde o Kael está: não há DOM da casa dele (o cartão mostra a casa **gravada**, que durante a patrulha é a origem da volta). O Kael tem o `fixtures/token.png` (bege) e a casa é lida no canvas: `r − b` da amostra de 6 × 6 px (`meanChannelsAt`) acima de 0,15 (o tabuleiro vazio fica perto de 0). Os pontos de tela de cada casa são lidos uma vez por página (`cellCenterOf`).
+- Feliz: a Ana abre "Patrulha…" no Kael (10, 6), clica (12, 6) e (12, 9), escolhe "Devagar" (2 s por casa), salva e liga "Patrulhando" ("Kael patrulhando."); na tela da Bia o Kael sai da partida em até 3 s e passa pelo canto e pelo fim.
+- Arrastar: a Ana espera o Kael no canto (12, 6) na volta seguinte e o arrasta para (8, 9) → "Patrulhando" com `aria-checked="false"`; na Bia ele fica em (8, 9) depois de 4 s, fora da rota, e o cartão diz "Coluna 9, linha 10". Antes de amostrar, a Ana clica numa casa vazia: com o Kael selecionado o traço dourado do mestre cairia sobre as casas da rota.
+- Religar: logo depois ele ainda está em (8, 9) (volta andando, sem salto), sai dela e chega ao fim da rota.
+- F5 da Bia no meio: ele aparece numa casa da rota e não na gravada (8, 9).
+- Prova de que morde: ignorar a pose da patrulha no `tokenViewOf` (`client/src/renderer/token-view.ts`) deixa o spec vermelho no "sai da partida em até 3 s".
+
 ## Documentos da biblioteca
 
 `library-documents.spec.ts` e `library-document-tabs.spec.ts` estão no grupo `library`, com os helpers em `e2e/test/support/documents.ts` (`createDocument`, `expandDocument`, `documentPanelOf`, `savedStatusOf`, `showDocumentTab`, `readDocument`, `changeDocument`, `tabIdOf`, `readTabContent` — o corpo vem de `GET …/tabs/:tabId`, nunca do detalhe — e `pastePortraitIntoDocument`). Fragmentar o primeiro por `--grep 'rich document'`, `'multiple document owners'`, `'document popup opens'` e `'concurrent remote'`, e o das abas por `'own text across a reload'`, `'masters-only tab'` e `'detached document window'`, sempre `--workers=1` e em processos sequenciais; depois rodar `library`, `library-images` e `character`. Cada boot limpa o mesmo banco `_e2e`, portanto nunca iniciar fragmentos simultâneos. Cenários em [../documents/testes.md](../documents/testes.md).

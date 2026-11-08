@@ -17,6 +17,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Formas, Visão e luz        | [`token-dialog.md`](client/token-dialog.md)                   |
 | Formas no mapa: `token:formChanged`, `setTokenForm`, desfazer, "Trocar forma", teclas 1–8   | [`token-forms.md`](client/token-forms.md)                     |
 | Chaves de token da mesa: o jogador cria, edita e exclui os seus                             | [`token-rights.md`](client/token-rights.md)                   |
+| Patrulha do token: relógio do server, poses por timer, traço, editor, menu "Patrulhando"    | [`token-patrols.md`](client/token-patrols.md)                 |
 | Auras dos tokens: estado e eventos, formulário (`AuraEditor`), onde se edita, desenho       | [`auras.md`](client/auras.md)                                 |
 | Rodapé do token (`TokenDock`): selecionado, token do meu personagem ou o personagem         | [`token-dock.md`](client/token-dock.md)                       |
 | Aba "Na mesa": mestres, card do personagem de cada jogador (barras, CA, fichas), ausência   | [`table-people.md`](client/table-people.md)                   |
