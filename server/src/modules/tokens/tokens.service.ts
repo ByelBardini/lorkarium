@@ -2,6 +2,7 @@ import {
   controlVeilOf,
   cutsOf,
   entriesSeenBy,
+  pausesSeenBy,
   tokenIdsSeenBy,
   tokenSeenBy,
   veilOf,
@@ -76,6 +77,13 @@ import {
   type TokenWriteDaos,
 } from './token-transaction';
 import { lookAssetIdsOf } from './token-aura.mapper';
+import {
+  pausePatrolsOf,
+  pausedIfOf,
+  pausedRowsOf,
+  posedNowOf,
+  withPatrolPauses,
+} from './token-patrol-pause';
 import type { TokenRow, TokenUpdatePo, TokensDao } from './tokens.dao';
 import type { BarValuesPo } from './tokens.po';
 import { BarNotFoundError } from './tokens.error';
@@ -159,9 +167,13 @@ export class TokensService {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const authorship = await authorshipOf(this.deps.tokenRights, access);
     const memberIds = await this.memberIdsOf(campaignId);
+    const now = this.deps.clock.now();
     const saved = await this.inSharedGrid(access, command.sceneId, async (locked) => {
-      const found = await tokenIn(locked.daos, locked.scene, campaignId, command.tokenId);
-      authorship.requireEdit(toEditedToken(found), command);
+      const stored = await tokenIn(locked.daos, locked.scene, campaignId, command.tokenId);
+      authorship.requireEdit(toEditedToken(stored), command);
+      const resized =
+        command.width !== stored.token.width || command.height !== stored.token.height;
+      const { row: found } = await pausedIfOf(locked.daos, locked.scene.id, stored, now, resized);
       const rules = tokenRulesOf(locked.scene, memberIds, this.deps);
       rules.place(found.token, command);
       await admitBlockersOf(locked.daos, locked.scene.id, rules, blockersTurnedOn(found, command));
@@ -179,22 +191,30 @@ export class TokensService {
     return saved.version;
   }
 
+  /** A running patrol pauses: the token moves from where it is now (the walls are checked from
+   *  there) and the event says where its patrol stopped. */
   async move(userId: string, campaignId: string, command: MoveToken): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const now = this.deps.clock.now();
     const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
-      const found = await tokenIn(daos, scene, campaignId, command.tokenId);
+      const posed = posedNowOf([await tokenIn(daos, scene, campaignId, command.tokenId)], now);
+      const [found] = posed.rows;
+      if (!found) throw new Error(`token ${command.tokenId} vanished while posed`);
       tokenAccessOf(access, found).requireMove('move', found.token.layer);
       const { col, row } = tokenRulesOf(scene, [], this.deps).place(command, found.token);
       const passage = { row: found, path: command.path, to: command };
       await requirePassages({ daos, scene }, access, [passage], this.passageDeps());
       await daos.tokens.move(found.token.id, col, row);
       const moved = { ...found, token: { ...found.token, col, row } };
-      return { col, row, veiled: await veiledWriteOf(daos, scene.id, [moved]) };
+      const pauses = await pausePatrolsOf(daos, scene.id, posed.steps, [moved]);
+      const veiled = await veiledWriteOf(daos, scene.id, pausedRowsOf([moved], pauses));
+      return { col, row, veiled, pauses };
     });
-    const { col, row, veiled } = saved.value;
+    const { col, row, veiled, pauses } = saved.value;
     const { sceneId, version } = saved;
-    const at = this.now();
-    const event = { campaignId, sceneId, version, at, tokenId: command.tokenId, col, row };
+    const at = now.toISOString();
+    const moved = { campaignId, sceneId, version, at, tokenId: command.tokenId, col, row };
+    const event = withPatrolPauses(moved, pauses);
     this.deps.publisher.tokenMoved(event, cutsOf(event, veiled.veil, tokenSeenBy));
     publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, veiled.lights);
     return saved.version;
@@ -207,10 +227,12 @@ export class TokensService {
    *  Example: `await tokensService.moveMany(user.id, campaignId, { moves: [{ tokenId, col, row }] })` */
   async moveMany(userId: string, campaignId: string, command: MoveTokens): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const now = this.deps.clock.now();
     const cells = command.moves.map(({ tokenId, col, row }) => ({ tokenId, cell: { col, row } }));
     const moves = command.moves.map(({ tokenId, col, row }) => ({ tokenId, col, row }));
     const saved = await this.inGrid(access, command.sceneId, async (locked) => {
-      const rows = await placedGroupOf(locked, access, cells, 'move', this.deps);
+      const posed = posedNowOf(await placedGroupOf(locked, access, cells, 'move', this.deps), now);
+      const { rows } = posed;
       const rules = tokenRulesOf(locked.scene, [], this.deps);
       rows.forEach((row, index) => {
         rules.requireAt(row.token.id, command.moves[index]?.expect, row.token);
@@ -221,11 +243,14 @@ export class TokensService {
       });
       await requirePassages(locked, access, passages, this.passageDeps());
       await locked.daos.tokens.moveMany(locked.scene.id, moves);
-      return veiledWriteOf(locked.daos, locked.scene.id, movedRowsOf(rows, moves));
+      const moved = movedRowsOf(rows, moves);
+      const pauses = await pausePatrolsOf(locked.daos, locked.scene.id, posed.steps, moved);
+      const veiled = await veiledWriteOf(locked.daos, locked.scene.id, pausedRowsOf(moved, pauses));
+      return { ...veiled, pauses };
     });
-    const at = this.now();
+    const at = now.toISOString();
     const { version, sceneId } = saved;
-    const event = { campaignId, sceneId, version, at, moves };
+    const event = withPatrolPauses({ campaignId, sceneId, version, at, moves }, saved.value.pauses);
     this.deps.publisher.tokensMoved(event, cutsOf(event, saved.value.veil, MOVES_SEEN_BY));
     publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, saved.value.lights);
     return saved.version;
@@ -436,7 +461,7 @@ export class TokensService {
   }
 }
 
-const MOVES_SEEN_BY = entriesSeenBy<TokensMovedDto>('moves');
+const MOVES_SEEN_BY = pausesSeenBy(entriesSeenBy<TokensMovedDto>('moves'));
 const DRAGS_SEEN_BY = entriesSeenBy<GridEvent<TokensDraggedDto>>('drags');
 
 // Sending true on a token that already blocks adds nothing to the count of the scene.

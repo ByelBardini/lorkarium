@@ -28,6 +28,7 @@ import {
 import type { ScenePo } from '../scenes/scenes.po';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { tokenBlockerOf, tokenEyeOf, tokenLightOf } from '../tokens/tokens.mapper';
+import { posedNowOf } from '../tokens/token-patrol-pause';
 import { DoorAccessBo } from './door-access.bo';
 import type { SceneWallsService } from './scene-walls.service';
 import { WallRulesBo, type WallLimits } from './wall-rules.bo';
@@ -192,7 +193,8 @@ export class WallsService {
       const known = await this.deps.sceneWalls.wallsOf(locked.scene.id, locked.daos.walls);
       const door = known.placed.find(({ id }) => id === command.wallId);
       if (!door) throw new WallNotFoundError(campaignId, command.wallId);
-      const seen = await doorSeen(locked, access, userId, known.walls, door.wall);
+      const viewer = { access, userId, now: this.deps.clock.now() };
+      const seen = await doorSeen(locked, viewer, known.walls, door.wall);
       new DoorAccessBo(access).requireSet(door, command.state, seen);
       await locked.daos.walls.setDoor(locked.scene.id, door.id, command.state);
     });
@@ -296,18 +298,21 @@ export class WallsService {
   }
 }
 
+/** Who asks to set a door, and when (a patrolling token's eye is where its timeline puts it). */
+type DoorViewer = Readonly<{ access: CampaignAccessBo; userId: string; now: Date }>;
+
 // The master never needs to see the door, nor anyone with the vision off; a player looks through
 // every token they control, and sees what any lit map light or token of the scene shows them,
 // with the tokens that block sight in the way (the same rule as the client's).
 async function doorSeen(
   locked: Locked,
-  access: CampaignAccessBo,
-  userId: string,
+  { access, userId, now }: DoorViewer,
   walls: readonly Wall[],
   door: Wall,
 ): Promise<boolean> {
   if (access.isMaster() || locked.scene.visionMode === 'off') return true;
-  const rows = await locked.daos.tokens.listOfScene(locked.scene.id);
+  // A patrolling token sees (and its torch shines) from where it is now, not where it started.
+  const { rows } = posedNowOf(await locked.daos.tokens.listOfScene(locked.scene.id), now);
   const blockers = await blockersOfScene(locked, rows);
   const eyes = rows
     .filter(({ controllerIds }) => controllerIds.includes(userId))

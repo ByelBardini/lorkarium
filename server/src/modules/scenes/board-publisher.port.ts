@@ -47,6 +47,7 @@ import type {
   TokensRestyledDto,
   TokensCreatedDto,
   TokensHiddenChangedDto,
+  TokenPatrolsChangedDto,
   VeiledLightDto,
 } from '@lorkarium/contracts';
 
@@ -169,6 +170,12 @@ export interface BoardPublisherPort {
   tokenFormChanged(
     event: GridEvent<TokenFormChangedDto>,
     veil: VeilCuts<GridEvent<TokenFormChangedDto>>,
+  ): void;
+  /** A route saved or taken away, patrols started or paused: the patrol is not a secret, but a
+   *  hidden token's goes only to who sees the token (the veil). */
+  tokenPatrolsChanged(
+    event: GridEvent<TokenPatrolsChangedDto>,
+    veil: VeilCuts<GridEvent<TokenPatrolsChangedDto>>,
   ): void;
   /** Drawings have no secret: the whole table gets the same events. */
   drawingsCreated(event: GridEvent<DrawingsCreatedDto>): void;

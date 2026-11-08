@@ -16,6 +16,7 @@ import {
   tokenGroupOf,
   tokenIdGroupDto,
 } from './token-id-group.dto';
+import { patrolPausesShape } from './token-patrol.dto';
 
 const tokenCellDto = z.strictObject({ tokenId: z.uuid(), col: cellIndexDto, row: cellIndexDto });
 export type TokenCellDto = z.infer<typeof tokenCellDto>;
@@ -122,7 +123,11 @@ export const tokensDeletedDto = z.strictObject({
 });
 export type TokensDeletedDto = z.infer<typeof tokensDeletedDto>;
 
-export const tokensMovedDto = z.strictObject({ ...boardEventShape, moves: z.array(tokenCellDto) });
+export const tokensMovedDto = z.strictObject({
+  ...boardEventShape,
+  moves: z.array(tokenCellDto),
+  ...patrolPausesShape,
+});
 export type TokensMovedDto = z.infer<typeof tokensMovedDto>;
 
 /** `token:draggedMany`: a preview, not a confirmed change, so it carries no version (§5.5 covers

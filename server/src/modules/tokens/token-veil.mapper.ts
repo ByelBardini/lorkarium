@@ -1,6 +1,7 @@
 import type { VeiledLightDto } from '@lorkarium/contracts';
 import { tokenCenter } from '@lorkarium/game-core';
 import type { TokenChangeVeil, VeilAudience, VeilCuts } from '../scenes/board-publisher.port';
+import { toTokenPatrolDto } from './token-patrol.mapper';
 import type { HiddenTokenPo, TokenRow } from './tokens.dao';
 
 /** A hidden token as the veil keeps it: who sees it and the light it gives off (lit, or `null`). */
@@ -46,11 +47,13 @@ export function joinedVeil(first: TokenVeil, second: TokenVeil): TokenVeil {
   return { tokens: [...first.tokens, ...second.tokens.filter(({ tokenId }) => !ids.has(tokenId))] };
 }
 
-/** A hidden token's light, from the center of its footprint, only while lit.
+/** A hidden token's light, from the center of its footprint, only while lit; a running patrol
+ *  adds its `walk` (the light moves with the token).
  *
  *  Example: `veiledTokenOf(wolfRow).light // { x: 4, y: 5, bright: 4, … }` */
-export function veiledTokenOf({ token, controllerIds }: HiddenTokenPo): VeiledToken {
-  return { tokenId: token.id, controllerIds: [...controllerIds], light: veiledLightOf(token) };
+export function veiledTokenOf({ token, controllerIds, patrol }: HiddenTokenPo): VeiledToken {
+  const light = veiledLightOf(token, patrol);
+  return { tokenId: token.id, controllerIds: [...controllerIds], light };
 }
 
 /** The audiences of a veil: the masters (who see all), each controller of a hidden token (they see
@@ -115,6 +118,21 @@ export function entriesSeenBy<Event>(key: EntriesKey<Event>): SeenBy<Event> {
   };
 }
 
+type Paused = Readonly<{ patrolPauses?: readonly Readonly<{ tokenId: string }>[] | undefined }>;
+
+/** `seenBy` that also drops the patrol pauses of the invisible tokens (gone when none is left):
+ *  where a hidden token's patrol stopped is as secret as where it stands.
+ *
+ *  Example: `cutsOf(event, veil, pausesSeenBy(entriesSeenBy('moves')))` */
+export function pausesSeenBy<Event extends Paused>(seenBy: SeenBy<Event>): SeenBy<Event> {
+  return (event, invisible) => {
+    const seen = seenBy(event, invisible);
+    if (!seen?.patrolPauses) return seen;
+    const kept = seen.patrolPauses.filter(({ tokenId }) => !invisible.has(tokenId));
+    return { ...seen, patrolPauses: kept.length > 0 ? kept : undefined };
+  };
+}
+
 /** A batch event that lists `tokenIds`, without the invisible ones; `null` when none is left.
  *
  *  Example: `cutsOf(layerEvent, veil, tokenIdsSeenBy)` */
@@ -144,11 +162,25 @@ export function invisibleTo(veil: TokenVeil, userId: string): ReadonlySet<string
   return new Set(unseen.map(({ tokenId }) => tokenId));
 }
 
-function veiledLightOf(token: HiddenTokenPo['token']): VeiledLightDto | null {
+function veiledLightOf(
+  token: HiddenTokenPo['token'],
+  patrol: HiddenTokenPo['patrol'],
+): VeiledLightDto | null {
   if (!token.lightLit || token.lightBright === null || token.lightDim === null) return null;
   const { x, y } = tokenCenter(token, token);
   const range = { bright: Number(token.lightBright), dim: Number(token.lightDim) };
-  return { x, y, ...range, color: token.lightColor, facing: token.facing, angle: token.lightAngle };
+  const { lightColor: color, facing, lightAngle: angle } = token;
+  const light = { x, y, ...range, color, facing, angle };
+  return patrol?.startedAt ? { ...light, walk: walkOf(token, patrol) } : light;
+}
+
+// Where the walk starts (the origin saved with the patrol) and the box the token walks with.
+function walkOf(
+  token: HiddenTokenPo['token'],
+  patrol: NonNullable<HiddenTokenPo['patrol']>,
+): NonNullable<VeiledLightDto['walk']> {
+  const { col, row, width, height } = token;
+  return { patrol: toTokenPatrolDto(patrol), col, row, width, height };
 }
 
 /** No veil for a token change: the adapter splits whole and redacted as always. */

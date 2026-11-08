@@ -141,6 +141,7 @@ import type {
   TokensHiddenChangedDto,
   VeiledLightsChangedDto,
 } from './token-hidden.dto';
+import type { TokenPatrolClientEvents, TokenPatrolServerEvents } from './token-patrol.dto';
 
 /** Board command and event names (spec §7.2). */
 export const BOARD_EVENTS = {
@@ -191,6 +192,9 @@ export const BOARD_EVENTS = {
   setTokensHidden: 'token:setHiddenMany',
   tokensHiddenChanged: 'token:hiddenChanged',
   veiledLightsChanged: 'token:veiledLightsChanged',
+  setTokenPatrol: 'token:setPatrol',
+  setTokenPatrolsActive: 'token:setPatrolActiveMany',
+  tokenPatrolsChanged: 'token:patrolsChanged',
   boardAdvanced: 'board:advanced',
   createDrawings: 'drawing:createMany',
   moveDrawings: 'drawing:moveMany',
@@ -272,12 +276,10 @@ export const BOARD_EVENTS = {
  *
  *  Example: `boardCommandDto.parse({ actionId: crypto.randomUUID(), campaignId })` */
 export const boardCommandDto = z.strictObject(boardCommandShape);
-
 export type BoardCommandDto = z.infer<typeof boardCommandDto>;
 
 /** Who the snapshot was redacted for. */
 export const boardViewerDto = z.strictObject({ userId: z.uuid(), role: campaignRoleDto });
-
 export type BoardViewerDto = z.infer<typeof boardViewerDto>;
 
 /** The whole board as one viewer may see it; answer to `board:sync`.
@@ -299,7 +301,6 @@ export const boardStateDto = z.strictObject({
   combat: combatDto.nullable(),
   conditionDefinitions: z.array(conditionDefinitionDto),
 });
-
 export type BoardStateDto = z.infer<typeof boardStateDto>;
 
 /** Answer to `board:sync`: the redacted snapshot or the API error. */
@@ -307,7 +308,6 @@ export const boardSyncAckDto = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true), state: boardStateDto }),
   realtimeAckFailureDto,
 ]);
-
 export type BoardSyncAckDto = z.infer<typeof boardSyncAckDto>;
 
 /** Answer to every board mutation: the version it produced, or the API error. A command that
@@ -321,7 +321,6 @@ export const boardCommandAckDto = z.discriminatedUnion('ok', [
   }),
   realtimeAckFailureDto,
 ]);
-
 export type BoardCommandAckDto = z.infer<typeof boardCommandAckDto>;
 
 /** `scene:watch` / `scene:unwatch`: open or close an extra tab of one grid. The watch answers
@@ -329,12 +328,10 @@ export type BoardCommandAckDto = z.infer<typeof boardCommandAckDto>;
  *
  *  Example: `watchSceneCommandDto.parse({ actionId, campaignId, sceneId: torreId })` */
 export const watchSceneCommandDto = z.strictObject({ ...boardCommandShape, sceneId: z.uuid() });
-
 export type WatchSceneCommandDto = z.infer<typeof watchSceneCommandDto>;
 
 /** Answer to `scene:unwatch`: a bare `ok` (idempotent) or the API error. */
 export const sceneUnwatchAckDto = sessionLeaveAckDto;
-
 export type SceneUnwatchAckDto = z.infer<typeof sceneUnwatchAckDto>;
 
 /** `scene:activate` (master): "Levar o grupo pra cá" — `sceneId` becomes the group grid and the
@@ -342,16 +339,13 @@ export type SceneUnwatchAckDto = z.infer<typeof sceneUnwatchAckDto>;
  *
  *  Example: `activateSceneCommandDto.parse({ actionId, campaignId, sceneId: estradaId })` */
 export const activateSceneCommandDto = z.strictObject({ ...boardCommandShape, sceneId: z.uuid() });
-
 export type ActivateSceneCommandDto = z.infer<typeof activateSceneCommandDto>;
 
 /** Answer to `scene:activate`: a bare `ok` (activating the group grid again changes nothing). */
 export const sceneActivateAckDto = sessionLeaveAckDto;
-
 export type SceneActivateAckDto = z.infer<typeof sceneActivateAckDto>;
 
 export const sceneUpdatedDto = z.strictObject({ ...boardEventShape, scene: sceneDto });
-
 export type SceneUpdatedDto = z.infer<typeof sceneUpdatedDto>;
 
 type BoardAck<Answer> = (answer: Answer) => void;
@@ -423,7 +417,8 @@ export type BoardClientEvents = {
   'combat:regroupTokens': Command<RegroupTokensCommandDto>;
   'combat:renameCombatant': Command<RenameCombatantCommandDto>;
   'board:ping': (command: PingCommandDto, ack: BoardAck<PingAckDto>) => void;
-} & CharacterClientEvents;
+} & CharacterClientEvents &
+  TokenPatrolClientEvents;
 
 /** Server → room board events, for the Socket.IO generics on both ends. */
 export type BoardServerEvents = {
@@ -476,7 +471,8 @@ export type BoardServerEvents = {
   'combat:turnChanged': (event: CombatTurnChangedDto) => void;
   'combat:ended': (event: CombatEndedDto) => void;
   'board:pinged': (event: BoardPingedDto) => void;
-} & CharacterServerEvents;
+} & CharacterServerEvents &
+  TokenPatrolServerEvents;
 
 /** Every client → server event of a table connection (session + board + dice + chat + sheets). */
 export type TableClientEvents = SessionClientEvents &

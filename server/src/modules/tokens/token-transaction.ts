@@ -56,6 +56,7 @@ export type TokenWriteDaos = Readonly<{
     | 'deleteMany'
     | 'setHidden'
     | 'veilOfScene'
+    | 'patrols'
   >;
   conditions: Pick<ConditionsDao, 'listOfHolders'>;
   combat: Pick<CombatDao, 'findOfScene' | 'setTurn' | 'removeCombatants' | 'linkTokens'>;

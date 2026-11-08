@@ -1,4 +1,10 @@
-import { TOKEN_BLOCKER_LIMIT_CODE, TOKEN_LIMIT_CODE } from '@lorkarium/contracts';
+import {
+  TOKEN_BLOCKER_LIMIT_CODE,
+  TOKEN_LIMIT_CODE,
+  TOKEN_PATROL_LIMIT_CODE,
+  TOKEN_PATROL_NOT_FOUND_CODE,
+} from '@lorkarium/contracts';
+
 export type TokenErrorCode =
   | 'TOKEN_NOT_FOUND'
   | 'OUT_OF_SCENE'
@@ -9,8 +15,11 @@ export type TokenErrorCode =
   | 'TOKEN_NOT_LINKED'
   | 'NO_FREE_CELLS'
   | 'TOKEN_FORM_NOT_FOUND'
+  | 'INVALID_TOKEN_PATROL'
   | typeof TOKEN_LIMIT_CODE
-  | typeof TOKEN_BLOCKER_LIMIT_CODE;
+  | typeof TOKEN_BLOCKER_LIMIT_CODE
+  | typeof TOKEN_PATROL_NOT_FOUND_CODE
+  | typeof TOKEN_PATROL_LIMIT_CODE;
 
 /** Every token refusal of its own; the gateway turns `code` into the ack error. */
 export class TokenError extends Error {
@@ -165,5 +174,39 @@ export class TokenFormNotFoundError extends TokenError {
       'TOKEN_FORM_NOT_FOUND',
       `token ${tokenId} has no form ${formId}; expected the id of one of its forms`,
     );
+  }
+}
+
+/** Starting the patrol of a token that has no route saved. */
+export class TokenPatrolNotFoundError extends TokenError {
+  constructor(readonly tokenId: string) {
+    super(
+      TOKEN_PATROL_NOT_FOUND_CODE,
+      `token ${tokenId} has no patrol; expected a token with a patrol route saved`,
+    );
+  }
+}
+
+/** Starting more patrols than a grid keeps running, all or nothing. */
+export class TokenPatrolLimitError extends TokenError {
+  constructor(
+    readonly running: number,
+    readonly adding: number,
+    readonly limit: number,
+  ) {
+    super(
+      TOKEN_PATROL_LIMIT_CODE,
+      `the scene would have ${running + adding} running patrols (${running} running + ${adding} started); the limit is ${limit}`,
+    );
+  }
+}
+
+/** A route the game-core refuses past the DTO: one that never leaves its first cell. */
+export class InvalidTokenPatrolError extends TokenError {
+  constructor(
+    readonly tokenId: string,
+    reason: string,
+  ) {
+    super('INVALID_TOKEN_PATROL', `the patrol of token ${tokenId} is invalid: ${reason}`);
   }
 }

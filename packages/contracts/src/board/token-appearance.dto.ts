@@ -4,6 +4,7 @@ import { facingDto } from './direction.dto';
 import { tokenFrameDto } from './token-frame.dto';
 import { tokenAuraDto } from './token-aura.dto';
 import { tokenGroupOf, tokenIdGroupDto } from './token-id-group.dto';
+import { patrolPausesShape } from './token-patrol.dto';
 
 const tokenFacingDto = z.strictObject({ tokenId: z.uuid(), facing: facingDto });
 export type TokenFacingDto = z.infer<typeof tokenFacingDto>;
@@ -28,6 +29,7 @@ export type FaceTokensCommandDto = z.infer<typeof faceTokensCommandDto>;
 export const tokensFacedDto = z.strictObject({
   ...boardEventShape,
   faces: z.array(tokenFacingDto),
+  ...patrolPausesShape,
 });
 export type TokensFacedDto = z.infer<typeof tokensFacedDto>;
 

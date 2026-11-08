@@ -4,6 +4,7 @@ import {
   cutsOf,
   entriesSeenBy,
   joinedVeil,
+  pausesSeenBy,
   tokenIdsSeenBy,
   tokenSeenBy,
   veilCutsOf,
@@ -22,6 +23,7 @@ import {
   lyraPo,
   lyraRow,
   sombraRow,
+  squarePatrolPo,
 } from '../../support/tokens-factories';
 
 const BASE = {
@@ -171,5 +173,71 @@ describe('the veiled lights', () => {
     expect(
       veilOf([lyraRow({ token: lyraPo({ lightBright: '4.00', lightDim: '4.00' }) })]).tokens,
     ).toEqual([]);
+  });
+});
+
+describe('the veil of a patrolling hidden token', () => {
+  const STARTED = new Date('2026-11-08T12:00:00.000Z');
+  const walkingLobo = () =>
+    loboRow({ patrol: squarePatrolPo({ tokenId: LOBO_ID, speed: '0.50', startedAt: STARTED }) });
+
+  it("the Lobo's torch walks with its patrol: the walk carries the patrol and the box it starts from", () => {
+    const light = veilOf([walkingLobo()]).tokens[0]?.light;
+
+    expect(light?.walk).toEqual({
+      patrol: {
+        path: squarePatrolPo().path,
+        repeat: 'loop',
+        speed: 0.5,
+        turns: true,
+        step: 0,
+        startedAt: '2026-11-08T12:00:00.000Z',
+      },
+      col: 3,
+      row: 4,
+      width: 2,
+      height: 2,
+    });
+  });
+
+  it('a paused patrol leaves the torch without a walk', () => {
+    const paused = loboRow({ patrol: squarePatrolPo({ tokenId: LOBO_ID }) });
+
+    expect(veilOf([paused]).tokens[0]?.light).not.toHaveProperty('walk');
+  });
+
+  it('a hidden token without light has no veiled light, patrol or not', () => {
+    const sombra = sombraRow({
+      patrol: squarePatrolPo({ tokenId: SOMBRA_ID, startedAt: STARTED }),
+    });
+
+    expect(veilOf([sombra]).tokens[0]?.light).toBeNull();
+  });
+
+  it('pausesSeenBy drops the pause of the hidden token and keeps the visible one', () => {
+    const pause = (tokenId: string) => ({ tokenId, col: 1, row: 1, facing: 0, step: 1 });
+    const moves = [LOBO_ID, LYRA_ID].map((tokenId) => ({ tokenId, col: 1, row: 1 }));
+    const event: TokensMovedDto = {
+      ...BASE,
+      moves,
+      patrolPauses: [pause(LOBO_ID), pause(LYRA_ID)],
+    };
+
+    const cut = pausesSeenBy(entriesSeenBy<TokensMovedDto>('moves'))(event, new Set([LOBO_ID]));
+
+    expect(cut?.patrolPauses).toEqual([pause(LYRA_ID)]);
+    expect(cut?.moves.map(({ tokenId }) => tokenId)).toEqual([LYRA_ID]);
+  });
+
+  it('pausesSeenBy leaves no pauses when only the hidden one paused', () => {
+    const moves = [LOBO_ID, LYRA_ID].map((tokenId) => ({ tokenId, col: 1, row: 1 }));
+    const patrolPauses = [{ tokenId: LOBO_ID, col: 1, row: 1, facing: 0, step: 1 }];
+
+    const cut = pausesSeenBy(entriesSeenBy<TokensMovedDto>('moves'))(
+      { ...BASE, moves, patrolPauses },
+      new Set([LOBO_ID]),
+    );
+
+    expect(cut?.patrolPauses).toBeUndefined();
   });
 });

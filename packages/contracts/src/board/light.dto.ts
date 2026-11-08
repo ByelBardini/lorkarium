@@ -2,8 +2,10 @@ import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { CONE_ANGLE_MAX, coneAngleDto, facingDto } from './direction.dto';
 import { REACH_MAX, reachSideDto } from './reach.dto';
+import { tokenBoxShape } from './half-cell.dto';
 import { SCENE_CELLS_MAX } from './scene.dto';
 import { idGroupOf, strayExpectation, TOKEN_GROUP_MAX } from './token-id-group.dto';
+import { tokenPatrolDto } from './token-patrol.dto';
 
 /** The longest bright or dim light, in cells (game-core `LIGHT_RANGE_MAX`). */
 export const LIGHT_RANGE_MAX = REACH_MAX;
@@ -65,9 +67,14 @@ export const lightPlacementDto = z.strictObject({
 });
 export type LightPlacementDto = z.infer<typeof lightPlacementDto>;
 
+/** How the light of a patrolling hidden token walks: its patrol and the box it starts from (the
+ *  origin saved with the patrol and the token's size), so the client moves the light with it. */
+const veiledLightWalkDto = z.strictObject({ patrol: tokenPatrolDto, ...tokenBoxShape });
+export type VeiledLightWalkDto = z.infer<typeof veiledLightWalkDto>;
+
 /** The lit light of a token this viewer may not see: only where it shines from (the token's
- *  center, in fractional cells), its range, color and cone. No id and no size, so it never
- *  tells which token it is.
+ *  center, in fractional cells), its range, color and cone. No id, so it never tells which token
+ *  it is; `walk` only when that token patrols (its size then travels, the walk needs it).
  *
  *  Example: `veiledLightDto.parse({ x: 4, y: 5, bright: 4, dim: 4, color: null, facing: 0, angle: 360 })` */
 export const veiledLightDto = z.strictObject({
@@ -75,6 +82,7 @@ export const veiledLightDto = z.strictObject({
   ...rangeShape,
   color: lightColorDto.nullable(),
   ...coneShape,
+  walk: veiledLightWalkDto.optional(),
 });
 export type VeiledLightDto = z.infer<typeof veiledLightDto>;
 

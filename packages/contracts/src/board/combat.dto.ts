@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { activeConditionDto } from './condition.dto';
 import { firstRepeated, tokenIdGroupDto } from './token-id-group.dto';
+import { patrolPausesShape } from './token-patrol.dto';
 
 /** The initiative range (the game-core `INITIATIVE_LIMIT`); `null` = not rolled yet. */
 export const INITIATIVE_MAX = 999;
@@ -152,10 +153,19 @@ export const nextTurnCommandDto = turnCommandDto;
 export const previousTurnCommandDto = turnCommandDto;
 export type TurnCommandDto = z.infer<typeof turnCommandDto>;
 
-export const combatStartedDto = z.strictObject({ ...boardEventShape, combat: combatDto });
+/** `patrolPauses`: the patrols of the tokens that entered the combat, which pause them. */
+export const combatStartedDto = z.strictObject({
+  ...boardEventShape,
+  combat: combatDto,
+  ...patrolPausesShape,
+});
 export type CombatStartedDto = z.infer<typeof combatStartedDto>;
 
-export const combatUpdatedDto = z.strictObject({ ...boardEventShape, combat: combatDto });
+export const combatUpdatedDto = z.strictObject({
+  ...boardEventShape,
+  combat: combatDto,
+  ...patrolPausesShape,
+});
 export type CombatUpdatedDto = z.infer<typeof combatUpdatedDto>;
 
 /** A token's conditions after the end of its turn (counted down, the expired gone). */

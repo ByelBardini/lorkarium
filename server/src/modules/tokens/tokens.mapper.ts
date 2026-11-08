@@ -31,6 +31,7 @@ import type { TokenAudience } from './token-access.bo';
 import { TokenAuthorshipBo, type AuthoredToken, type EditedToken } from './token-authorship.bo';
 import { toTokenAuraDto, toTokenAuraPo } from './token-aura.mapper';
 import { toTokenFormInputsPo, toTokenFormsDto } from './token-form.mapper';
+import { toTokenPatrolDto } from './token-patrol.mapper';
 import type { TokenRow, TokenUpdatePo } from './tokens.dao';
 import type {
   TokenBarInputPo,
@@ -84,6 +85,7 @@ export function toTokenDto(
     createdBy: row.token.createdBy,
     forms: toTokenFormsDto(row.forms, audience),
     activeFormId: row.token.activeFormId,
+    patrol: row.patrol && toTokenPatrolDto(row.patrol),
   };
 }
 

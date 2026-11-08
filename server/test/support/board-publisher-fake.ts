@@ -40,6 +40,7 @@ import type {
   TokensRestyledDto,
   TokensResizedDto,
   TokenFormChangedDto,
+  TokenPatrolsChangedDto,
   TokenMovedDto,
 } from '@lorkarium/contracts';
 import type {
@@ -71,6 +72,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly tokensRestylings: TokensRestyledDto[] = [];
   readonly tokensResizes: TokensResizedDto[] = [];
   readonly tokenFormChanges: TokenFormChangedDto[] = [];
+  readonly tokenPatrolChanges: TokenPatrolsChangedDto[] = [];
   readonly tokensMoves: TokensMovedDto[] = [];
   readonly tokensCreations: TokensCreation[] = [];
   readonly tokensDeletes: TokensDeletedDto[] = [];
@@ -128,6 +130,12 @@ export class BoardPublisherFake implements BoardPublisherPort {
 
   private remember(method: string, cuts: VeilCuts<unknown>): void {
     if (cuts.length > 0) this.veils.push({ method, cuts });
+  }
+
+  tokenPatrolsChanged(event: TokenPatrolsChangedDto, veil: VeilCuts<TokenPatrolsChangedDto>): void {
+    this.journal.push('publish');
+    this.remember('tokenPatrolsChanged', veil);
+    this.tokenPatrolChanges.push(event);
   }
 
   sceneUpdated(event: SceneUpdatedDto): void {

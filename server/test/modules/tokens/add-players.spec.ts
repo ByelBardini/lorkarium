@@ -146,7 +146,7 @@ describe('TokenBatchService.addPlayers ("Adicionar jogadores")', () => {
 
   it('a grid without room is NO_FREE_CELLS citing the grid and how many were left out', async () => {
     const goblin = lyraPo({ id: 'goblin', sceneId: CELA_ID, col: 1, row: 0 });
-    table.tokens.rows.push({ token: goblin, bars: [], controllerIds: [], forms: [] });
+    table.tokens.rows.push({ token: goblin, bars: [], controllerIds: [], forms: [], patrol: null });
 
     const adding = service.addPlayers(ANA_ID, VHARN_ID, {
       sceneId: CELA_ID,

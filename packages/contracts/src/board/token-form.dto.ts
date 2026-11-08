@@ -3,6 +3,7 @@ import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { tokenBoxShape, tokenSideLengthDto } from './half-cell.dto';
 import { tokenFrameDto } from './token-frame.dto';
 import { firstRepeated } from './token-id-group.dto';
+import { patrolPausesShape } from './token-patrol.dto';
 
 /** Forms one token (or its anchor) keeps at most: the keys 1–8 switch to them. */
 export const TOKEN_FORMS_MAX = 8;
@@ -60,5 +61,6 @@ export const tokenFormChangedDto = z.strictObject({
   imageAssetId: z.uuid().nullable(),
   frame: tokenFrameDto,
   box: z.strictObject(tokenBoxShape).optional(),
+  ...patrolPausesShape,
 });
 export type TokenFormChangedDto = z.infer<typeof tokenFormChangedDto>;

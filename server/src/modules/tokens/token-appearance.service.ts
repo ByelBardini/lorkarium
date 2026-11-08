@@ -1,8 +1,9 @@
-import { cutsOf, entriesSeenBy, tokenIdsSeenBy, veilOf } from './token-veil.mapper';
+import { cutsOf, entriesSeenBy, pausesSeenBy, tokenIdsSeenBy, veilOf } from './token-veil.mapper';
 import { publishVeiledLights, veiledWriteOf, type VeiledWrite } from './token-veil';
 import type { GridEvent } from '../scenes/board-publisher.port';
 import type {
   FaceTokensCommandDto,
+  PatrolPauseDto,
   ResizeTokensCommandDto,
   RestyleTokensCommandDto,
   TokenStyleDto,
@@ -27,6 +28,7 @@ import {
   type LockedGridMaybeCharacters,
 } from '../characters/locked-characters-grid';
 import { publishCharactersChange, restyleCharacters } from './character-writes';
+import { pausePatrolsOf, pausedRowsOf, posedNowOf, withPatrolPauses } from './token-patrol-pause';
 import {
   requireAssetsOf,
   tokenAccessOf,
@@ -58,25 +60,29 @@ export class TokenAppearanceService {
   constructor(private readonly deps: TokenAppearanceServiceDeps) {}
 
   /** Turning is moving: the master, or a controller of a token on the `tokens` layer. A turn with
-   *  `expect` (the undo) is `STALE_UNDO` once someone turned the token since. */
+   *  `expect` (the undo) is `STALE_UNDO` once someone turned the token since. A running patrol
+   *  pauses where the token is now. */
   async faceMany(userId: string, campaignId: string, command: FaceTokens): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const faces = command.faces.map(({ tokenId, facing }) => ({ tokenId, facing }));
     const address = { campaignId, sceneId: command.sceneId, access };
+    const now = this.deps.clock.now();
     const saved = await inLockedGrid(this.deps.transaction, address, async ({ daos, scene }) => {
       const ids = command.faces.map((face) => face.tokenId);
-      const rows = await tokensIn(daos, scene, campaignId, ids);
-      rows.forEach((row, index) => {
+      const posed = posedNowOf(await tokensIn(daos, scene, campaignId, ids), now);
+      posed.rows.forEach((row, index) => {
         tokenAccessOf(access, row).requireMove('turn', row.token.layer);
         requireFacing(row.token.id, command.faces[index]?.expect?.facing, row.token.facing);
       });
       await daos.tokens.faceMany(scene.id, faces);
-      const faced = rows.map((row, index) => withFields(row, { facing: faces[index]?.facing }));
-      return veiledWriteOf(daos, scene.id, faced);
+      const faced = posed.rows.map((row, index) =>
+        withFields(row, { facing: faces[index]?.facing }),
+      );
+      return pausedWriteOf(daos, scene.id, posed.steps, faced);
     });
-    const at = this.deps.clock.now().toISOString();
+    const at = now.toISOString();
     const { version, sceneId } = saved;
-    const event = { campaignId, sceneId, version, at, faces };
+    const event = withPatrolPauses({ campaignId, sceneId, version, at, faces }, saved.value.pauses);
     this.deps.publisher.tokensFaced(event, cutsOf(event, saved.value.veil, FACES_SEEN_BY));
     publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, saved.value.lights);
     return saved.version;
@@ -115,31 +121,30 @@ export class TokenAppearanceService {
   }
 
   /** The size is the controllers' to choose, on any layer (like the look). The box must fit the
-   *  scene, and a resize with `expect` (the undo) is `STALE_UNDO` once the box changed since. */
+   *  scene, and a resize with `expect` (the undo) is `STALE_UNDO` once the box changed since. A
+   *  running patrol pauses where the token is now. */
   async resizeMany(userId: string, campaignId: string, command: ResizeTokens): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const resizes = command.resizes.map(boxOf);
     const address = { campaignId, sceneId: command.sceneId, access };
+    const now = this.deps.clock.now();
     const saved = await inLockedGrid(this.deps.transaction, address, async ({ daos, scene }) => {
-      const rows = await tokensIn(
-        daos,
-        scene,
-        campaignId,
-        resizes.map((box) => box.tokenId),
-      );
-      rows.forEach((row, index) => {
+      const ids = resizes.map((box) => box.tokenId);
+      const posed = posedNowOf(await tokensIn(daos, scene, campaignId, ids), now);
+      posed.rows.forEach((row, index) => {
         tokenAccessOf(access, row).requireControl('resize');
         const resize = command.resizes[index];
         if (resize) placeInScene(scene, resize, resize);
         requireBox(row.token.id, resize?.expect, row.token);
       });
       await daos.tokens.resizeMany(scene.id, resizes);
-      const resized = rows.map((row, index) => withFields(row, resizes[index] ?? {}));
-      return veiledWriteOf(daos, scene.id, resized);
+      const resized = posed.rows.map((row, index) => withFields(row, resizes[index] ?? {}));
+      return pausedWriteOf(daos, scene.id, posed.steps, resized);
     });
-    const at = this.deps.clock.now().toISOString();
+    const at = now.toISOString();
     const { version, sceneId } = saved;
-    const event = { campaignId, sceneId, version, at, resizes };
+    const resizedEvent = { campaignId, sceneId, version, at, resizes };
+    const event = withPatrolPauses(resizedEvent, saved.value.pauses);
     this.deps.publisher.tokensResized(event, cutsOf(event, saved.value.veil, RESIZES_SEEN_BY));
     publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at }, saved.value.lights);
     return saved.version;
@@ -196,13 +201,24 @@ function boxOf({ tokenId, col, row, width, height }: TokenBoxPo): TokenBoxPo {
   return { tokenId, col, row, width, height };
 }
 
-const FACES_SEEN_BY = entriesSeenBy<GridEvent<TokensFacedDto>>('faces');
-const RESIZES_SEEN_BY = entriesSeenBy<GridEvent<TokensResizedDto>>('resizes');
+const FACES_SEEN_BY = pausesSeenBy(entriesSeenBy<GridEvent<TokensFacedDto>>('faces'));
+const RESIZES_SEEN_BY = pausesSeenBy(entriesSeenBy<GridEvent<TokensResizedDto>>('resizes'));
 
 // The row as the write left it (a light shines from where, and toward where, the token now is).
 function withFields(row: TokenRow, fields: Partial<TokenRow['token']>): TokenRow {
   const defined = Object.entries(fields).filter(([, value]) => value !== undefined);
   return { ...row, token: { ...row.token, ...Object.fromEntries(defined) } };
+}
+
+// The running patrols among the rows as the write left them pause, then the veil of the write.
+async function pausedWriteOf(
+  daos: TokenWriteDaos,
+  sceneId: string,
+  steps: ReadonlyMap<string, number>,
+  after: readonly TokenRow[],
+): Promise<VeiledWrite & Readonly<{ pauses: PatrolPauseDto[] }>> {
+  const pauses = await pausePatrolsOf(daos, sceneId, steps, after);
+  return { ...(await veiledWriteOf(daos, sceneId, pausedRowsOf(after, pauses))), pauses };
 }
 
 // The veil of a restyle; the veiled lights only when the light was lit or put out.

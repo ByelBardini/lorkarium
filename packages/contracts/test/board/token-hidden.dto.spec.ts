@@ -50,6 +50,7 @@ const WOLF = {
   createdBy: null,
   forms: [],
   activeFormId: null,
+  patrol: null,
 };
 const STATE = {
   campaignId: CAMPAIGN_ID,
@@ -176,6 +177,38 @@ describe('veiledLightDto', () => {
     ['no color field', { x: 4, y: 5, bright: 4, dim: 4, facing: 0, angle: 360 }],
   ])('%s is refused', (_case, light) => {
     expect(veiledLightDto.safeParse(light).success).toBe(false);
+  });
+
+  const WALK = {
+    patrol: {
+      path: [
+        [3, 4],
+        [8, 4],
+      ],
+      repeat: 'bounce',
+      speed: 2,
+      turns: true,
+      step: 0,
+      startedAt: AT,
+    },
+    col: 3,
+    row: 4,
+    width: 2,
+    height: 2,
+  };
+
+  it('the light of a patrolling hidden token carries its walk as sent', () => {
+    const light = { ...TORCH, walk: WALK };
+
+    expect(veiledLightDto.parse(light)).toEqual(light);
+  });
+
+  it.each([
+    ['the token id', { ...WALK, tokenId: WOLF_ID }],
+    ['no size', { patrol: WALK.patrol, col: 3, row: 4 }],
+    ['a patrol at speed 0.3', { ...WALK, patrol: { ...WALK.patrol, speed: 0.3 } }],
+  ])('a walk with %s is refused', (_case, walk) => {
+    expect(veiledLightDto.safeParse({ ...TORCH, walk }).success).toBe(false);
   });
 });
 

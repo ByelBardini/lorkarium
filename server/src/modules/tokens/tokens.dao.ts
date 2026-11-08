@@ -15,6 +15,13 @@ import {
 } from './token-forms.dao';
 import { TokenHangingDao, savedRowOf } from './token-hanging.dao';
 import {
+  PATROL_OF_TOKEN,
+  TokenPatrolsDao,
+  patrolPoOf,
+  type TokenPatrolWrites,
+} from './token-patrols.dao';
+import type { TokenPatrolPo } from './token-patrols.po';
+import {
   tokenBars,
   tokens,
   type NewTokenPo,
@@ -29,12 +36,14 @@ import {
   type TokenPo,
 } from './tokens.po';
 
-/** A token with what hangs on it: bars by position, who controls it and its forms by position. */
+/** A token with what hangs on it: bars by position, who controls it, its forms by position and
+ *  its patrol (`null` = none). */
 export type TokenRow = Readonly<{
   token: TokenPo;
   bars: readonly TokenBarPo[];
   controllerIds: readonly string[];
   forms: readonly TokenFormPo[];
+  patrol: TokenPatrolPo | null;
 }>;
 
 /** `activeFormIndex` is the position of the form it shows (a paste carries it), `null` = none. */
@@ -83,8 +92,13 @@ export type TokenControlPo = Readonly<{
   hidden: boolean;
 }>;
 
-/** A hidden token of a scene as the veil needs it: who sees it and where its light shines from. */
-export type HiddenTokenPo = Readonly<{ token: TokenPo; controllerIds: readonly string[] }>;
+/** A hidden token of a scene as the veil needs it: who sees it, where its light shines from and
+ *  the patrol it walks (its light walks along). */
+export type HiddenTokenPo = Readonly<{
+  token: TokenPo;
+  controllerIds: readonly string[];
+  patrol: TokenPatrolPo | null;
+}>;
 
 /** The active scene of a campaign (size and version) and the asked tokens found on it. */
 export type DragGroupPo = Readonly<{
@@ -101,8 +115,13 @@ export class TokensDao {
   private readonly forms: TokenFormsDao;
   private readonly hanging: TokenHangingDao;
   private readonly characters: CharactersDao;
+  /** The patrols of the scene's tokens (`token-patrols.dao.ts`), on the same executor. */
+  readonly patrols: TokenPatrolWrites;
+  private readonly patrolCopies: TokenPatrolsDao;
 
   constructor(private readonly db: DatabaseExecutor) {
+    this.patrolCopies = new TokenPatrolsDao(db);
+    this.patrols = this.patrolCopies;
     this.forms = new TokenFormsDao(db);
     this.hanging = new TokenHangingDao(db);
     this.characters = new CharactersDao(db);
@@ -135,8 +154,8 @@ export class TokensDao {
   }
 
   /** Copies every token of `fromSceneId` into `toSceneId` with new ids, and what hangs on each:
-   *  bars, controllers, forms (the shown one pointed at its copy) and conditions (out of any
-   *  combat: `appliedRound` null). The combat and the main token choices stay behind. Runs several statements: call it on the `tx` DAO.
+   *  bars, controllers, forms (the shown one pointed at its copy), conditions (out of any
+   *  combat: `appliedRound` null) and patrols (paused). The combat and the main token choices stay behind. Runs several statements: call it on the `tx` DAO.
    *  Returns the id of each copy by the id of its original. */
   async copyScene(fromSceneId: string, toSceneId: string): Promise<ReadonlyMap<string, string>> {
     const pairs = await this.db
@@ -151,6 +170,7 @@ export class TokensDao {
     await this.copyTokensBy(map, toSceneId);
     await this.hanging.copyBy(map, COPY_MAP);
     await this.forms.copyBy(map, COPY_MAP);
+    await this.patrolCopies.copyBy(map, COPY_MAP);
     return new Map(pairs.map(({ oldId, newId }) => [oldId, newId]));
   }
 
@@ -237,11 +257,12 @@ export class TokensDao {
   /** The hidden tokens of the scene (a linked one controlled by its character's controllers), in one
    *  query: what the veil of a snapshot or of the hidden lights needs. */
   async veilOfScene(sceneId: string): Promise<HiddenTokenPo[]> {
-    return this.db
-      .select({ token: tokens, controllerIds: HOLDER_CONTROLLER_IDS })
+    const found = await this.db
+      .select({ token: tokens, controllerIds: HOLDER_CONTROLLER_IDS, patrol: PATROL_OF_TOKEN })
       .from(tokens)
       .where(and(eq(tokens.sceneId, sceneId), eq(tokens.hidden, true)))
       .orderBy(asc(tokens.createdAt), asc(tokens.id));
+    return found.map((row) => ({ ...row, patrol: patrolPoOf(row.patrol) }));
   }
 
   /** Hides or shows the listed tokens; one of another scene is not written (§2.6). Returns the
@@ -396,7 +417,12 @@ export class TokensDao {
       .where(inArray(tokenBars.tokenId, ids))
       .orderBy(asc(tokenBars.position));
     const hanging = await this.db
-      .select({ tokenId: tokens.id, controllerIds: OWN_CONTROLLER_IDS, forms: FORMS_OF_TOKEN })
+      .select({
+        tokenId: tokens.id,
+        controllerIds: OWN_CONTROLLER_IDS,
+        forms: FORMS_OF_TOKEN,
+        patrol: PATROL_OF_TOKEN,
+      })
       .from(tokens)
       .where(inArray(tokens.id, ids));
     const byId = new Map(hanging.map((each) => [each.tokenId, each]));
@@ -405,6 +431,7 @@ export class TokensDao {
       bars: bars.filter((bar) => bar.tokenId === token.id),
       controllerIds: byId.get(token.id)?.controllerIds ?? [],
       forms: byId.get(token.id)?.forms ?? [],
+      patrol: patrolPoOf(byId.get(token.id)?.patrol ?? null),
     }));
   }
 }

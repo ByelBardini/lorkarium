@@ -1,4 +1,5 @@
 import {
+  TOKEN_PATROLS_RUNNING_MAX,
   TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
   type ApiErrorDto,
   type BoardCommandAckDto,
@@ -56,6 +57,9 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   TOKEN_NOT_FOUND: 'Token not found',
   TOKEN_LIMIT: 'This scene has too many tokens',
   TOKEN_BLOCKER_LIMIT: `A scene keeps at most ${TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX} tokens that block sight`,
+  TOKEN_PATROL_NOT_FOUND: 'This token has no patrol yet',
+  TOKEN_PATROL_LIMIT: `A grid keeps at most ${TOKEN_PATROLS_RUNNING_MAX} patrols running`,
+  INVALID_TOKEN_PATROL: 'A patrol route must leave its first cell',
   ASSET_NOT_FOUND: 'Image not found',
   BAR_NOT_FOUND: 'Bar not found',
   OUT_OF_SCENE: 'It does not fit the scene there',

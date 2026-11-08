@@ -1,6 +1,7 @@
 import {
   BAR_VALUE_LIMIT,
   TOKENS_PER_SCENE_MAX,
+  TOKEN_PATROLS_RUNNING_MAX,
   TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
 } from '@lorkarium/contracts';
 import type { Database } from '../../database/database';
@@ -23,6 +24,7 @@ import { TokenAppearanceService } from './token-appearance.service';
 import { TokenFormService } from './token-form.service';
 import { TokenBatchService } from './token-batch.service';
 import { TokenLinkService } from './token-link.service';
+import { TokenPatrolService } from './token-patrol.service';
 import { TokenVisibilityService } from './token-visibility.service';
 import type { TokenTransactionRunner } from './token-transaction';
 import { TokensService } from './tokens.service';
@@ -46,6 +48,7 @@ export type TokensModule = Readonly<{
   form: TokenFormService;
   link: TokenLinkService;
   visibility: TokenVisibilityService;
+  patrol: TokenPatrolService;
 }>;
 
 /** Wires the tokens module (one token, and the batches of a paste); its edge is the board
@@ -83,5 +86,6 @@ export function createTokensModule(options: TokensModuleOptions): TokensModule {
     form: new TokenFormService(deps),
     link: new TokenLinkService(deps),
     visibility: new TokenVisibilityService(deps),
+    patrol: new TokenPatrolService({ ...deps, runningLimit: TOKEN_PATROLS_RUNNING_MAX }),
   };
 }
