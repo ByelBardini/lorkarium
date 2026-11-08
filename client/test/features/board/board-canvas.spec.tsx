@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
+import type { TokenDto, VeiledLightDto } from '@lorkarium/contracts';
 import { BoardCanvas } from '@/features/board/board-canvas';
 import { TableSightOutlinesContext } from '@/features/board/table-sight-outlines';
 import type { BoardIntent } from '@/renderer/board-renderer';
@@ -18,9 +19,13 @@ import { StorageFake } from '../../support/storage-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { BoardRenderersFake } from '../../support/board-renderer-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
+import { InteractionClockFake } from '../../support/interaction-clock-fake';
+import { PATROL_STARTED_AT, squarePatrol } from '../../support/patrol-fixtures';
 import {
   BIA_AT_TABLE,
+  KAEL_ID,
   LYRA_ID,
+  kael,
   VHARN_SCENE,
   groupDraggedOver,
   lyra,
@@ -252,5 +257,60 @@ describe('BoardCanvas', () => {
     await remounting.finishMount();
     expect(renderers.alive).toEqual([]);
     expect(remounting.draws).toEqual([]);
+  });
+});
+
+describe('BoardCanvas walks the patrols', () => {
+  // The snapshot is stamped 2500 ms after the patrol started and arrives at once.
+  const SYNC_AT = '2026-11-08T12:00:02.500Z';
+
+  function patrolCanvas(tokens: TokenDto[], veiledLights: VeiledLightDto[] = []) {
+    const clock = new InteractionClockFake();
+    const renderers = new BoardRenderersFake();
+    const board = createBoardStore(VHARN.id, () => undefined, undefined, clock.now);
+    board
+      .getState()
+      .apply({ kind: 'board', state: vharnBoard({ at: SYNC_AT, tokens, veiledLights }) });
+    const interaction = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+    render(
+      <BoardCanvas
+        board={board}
+        createBoardRenderer={renderers.create}
+        interaction={interaction}
+        onIntent={() => undefined}
+        onRenderer={() => undefined}
+        drawingStyle={createDrawingStyleStore(new StorageFake())}
+        effectAreaStyle={createEffectAreaStyleStore(new StorageFake())}
+        wallStyle={createWallStyleStore(new StorageFake())}
+        clock={clock}
+      />,
+    );
+    return { clock, renderers };
+  }
+
+  const kaelOnPatrol = (): TokenDto =>
+    kael({ col: 0, row: 0, patrol: squarePatrol({ startedAt: PATROL_STARTED_AT }) });
+
+  it('Kael 2500 ms into his square is drawn on (2, 0), gliding steps of 1000 ms', async () => {
+    const { renderers } = patrolCanvas([kaelOnPatrol()]);
+    await act(() => Promise.resolve());
+
+    const drawn = renderers.latest().lastView?.tokens.find(({ id }) => id === KAEL_ID);
+
+    expect(drawn).toMatchObject({ col: 2, row: 0, glideMs: 1000 });
+  });
+
+  it('when his next step comes due, Kael is drawn on (2, 1)', async () => {
+    const { clock, renderers } = patrolCanvas([kaelOnPatrol()]);
+    await act(() => Promise.resolve());
+
+    act(() => clock.advance(500));
+
+    const drawn = renderers.latest().lastView?.tokens.find(({ id }) => id === KAEL_ID);
+    expect(drawn).toMatchObject({ col: 2, row: 1 });
   });
 });

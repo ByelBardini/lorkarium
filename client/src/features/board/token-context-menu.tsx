@@ -22,6 +22,7 @@ import { LAYER_LABEL } from './board-messages';
 import { useViewerTokenRights } from './table-token-rights';
 import { TokenFormItems } from './token-form-items';
 import { TokenHiddenItems } from './token-hidden-items';
+import { TokenPatrolItems } from './token-patrol-items';
 
 /** Where a token was right clicked: its id and the viewport point to open the menu at. */
 export type TokenMenuRequest = Readonly<{ tokenId: string; x: number; y: number }>;
@@ -46,6 +47,8 @@ export type TokenContextMenuProps = Readonly<{
     store: StoreApi<CharactersStore>;
     onConfirmLink: (request: CharacterLinkRequest) => void;
   }>;
+  /** The master's "Patrulha…": the token the patrol editor opens on. Absent: no patrol items. */
+  onEditPatrol?: (tokenId: string) => void;
   onClose: () => void;
 }>;
 
@@ -60,7 +63,8 @@ export const NEEDS_IMAGE_HINT = 'Ponha uma imagem primeiro.';
  *  (that token alone, with forms, for whoever controls it), "Imagem…",
  *  "Borda redonda" and the flips (these act on the whole selection when the token is in it, or on that
  *  token alone); the master also gets "Ligar a personagem ▸" / "Desligar do personagem" (with
- *  `characters`), "Tornar invisível" / "Tornar visível" and "Mover para camada". Closing (a choice, Esc, a click away)
+ *  `characters`), "Tornar invisível" / "Tornar visível", "Patrulha…" / "Patrulhando" (with
+ *  `onEditPatrol`) and "Mover para camada". Closing (a choice, Esc, a click away)
  *  tells `onClose`. Under a `SheetRoomProvider`, "Abrir ficha" (or "Fichas ▸") and the master's "Nova ficha ▸"
  *  (`TokenSheetItems`) come after the character items.
  *
@@ -130,6 +134,14 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
           </DropdownMenuCheckboxItem>
         )}
         {hiding.length > 0 && <TokenHiddenItems targets={hiding} interaction={interaction} />}
+        {hiding.length > 0 && props.onEditPatrol && (
+          <TokenPatrolItems
+            token={token}
+            targets={hiding}
+            interaction={interaction}
+            onEditPatrol={props.onEditPatrol}
+          />
+        )}
         <DropdownMenuSeparator />
         {token.canControl && (
           <DropdownMenuItem onSelect={() => props.onChangeAura(token.id)}>Aura…</DropdownMenuItem>

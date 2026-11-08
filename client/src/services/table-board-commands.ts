@@ -55,6 +55,7 @@ import {
   type TokenLinkCommands,
 } from './token-link-commands';
 import type { RealtimeTransport } from './realtime-transport';
+import { RealtimeTokenPatrolCommands, type TokenPatrolCommands } from './token-patrol-commands';
 import {
   RealtimeTokenAppearanceCommands,
   type TokenAppearanceCommands,
@@ -96,6 +97,7 @@ export interface TableBoardCommands
     WallCommands,
     LightCommands,
     TokenVisibilityCommands,
+    TokenPatrolCommands,
     CharacterCommands,
     TokenLinkCommands,
     TokenAppearanceCommands {
@@ -170,6 +172,9 @@ export class RealtimeTableBoardCommands
   private readonly characters: CharacterCommands;
   private readonly tokenLink: TokenLinkCommands;
   private readonly appearance: TokenAppearanceCommands;
+  private readonly patrols = new RealtimeTokenPatrolCommands(this.sender);
+  readonly setTokenPatrol = this.patrols.setTokenPatrol.bind(this.patrols);
+  readonly setTokenPatrolsActive = this.patrols.setTokenPatrolsActive.bind(this.patrols);
 
   constructor(transport: RealtimeTransport, newActionId: () => string) {
     super(new BoardCommandSender(transport, newActionId));

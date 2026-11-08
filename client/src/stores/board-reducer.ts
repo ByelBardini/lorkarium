@@ -22,13 +22,21 @@ import type {
   WallsMovedDto,
 } from '@lorkarium/contracts';
 import type { BoardEvent } from '@/services/board-events';
+import { patrolPausesOf, withPatrolChanges, withPatrolPauses } from './board-patrol-reducer';
 
-/** The board after one confirmed event, already checked to be `board.version + 1`.
+/** The board after one confirmed event, already checked to be `board.version + 1`. The patrols
+ *  it paused stop first, so what the event itself says of those tokens (a cell, a facing) wins.
  *
  *  Example: `applyBoardEvent(board, { type: 'tokenMoved', payload }).tokens` */
 export function applyBoardEvent(board: BoardStateDto, event: BoardEvent): BoardStateDto {
   const { version, at } = event.payload;
-  return { ...board, ...changesOf(board, event), version, at };
+  const paused = withPausedPatrols(board, event);
+  return { ...paused, ...changesOf(paused, event), version, at };
+}
+
+function withPausedPatrols(board: BoardStateDto, event: BoardEvent): BoardStateDto {
+  const tokens = withPatrolPauses(board.tokens, patrolPausesOf(event));
+  return tokens === board.tokens ? board : { ...board, tokens: [...tokens] };
 }
 
 function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateDto> {
@@ -67,6 +75,8 @@ function changesOf(board: BoardStateDto, event: BoardEvent): Partial<BoardStateD
       const { tokenIds, hidden } = event.payload;
       return { tokens: mapTokens(board.tokens, tokenIds, (token) => ({ ...token, hidden })) };
     }
+    case 'tokenPatrolsChanged':
+      return { tokens: withPatrolChanges(board.tokens, event.payload.changes) };
     // Only the version moves: what changed is hidden from this viewer.
     case 'boardAdvanced':
       return {};

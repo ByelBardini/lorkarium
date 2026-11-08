@@ -1,4 +1,5 @@
 import { seenTokensOf } from '@/lib/board-sight';
+import { posedTokenOf } from '@/lib/patrol-poses';
 import type { SelectionToDelete } from './delete-selection-dialog';
 import { sightNowOf } from './use-board-sight';
 import { useTablePlayers } from './table-players';
@@ -88,7 +89,9 @@ function runBoardKey(key: BoardKey, deps: KeyRunDeps): void {
     deps.players,
     deps.outlines,
   );
-  const tokens = state ? seenTokensOf(state, sight) : [];
+  // A patrolling token steps and turns from where it shows.
+  const { poses } = deps.board.getState().patrol;
+  const tokens = state ? seenTokensOf(state, sight).map((token) => posedTokenOf(token, poses)) : [];
   const { selectedTokenIds } = deps.interaction.getState();
   const selected = tokens.filter(({ id }) => selectedTokenIds.includes(id));
   if (key === 'next' || key === 'previous') return selectStep(tokens, key, deps.interaction);

@@ -1,4 +1,5 @@
 import {
+  TOKEN_PATROLS_RUNNING_MAX,
   TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
   TOKENS_PER_SCENE_MAX,
   type CampaignRoleDto,
@@ -62,6 +63,9 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
   token_not_found: 'Isso não está mais na mesa.',
   token_limit: `A cena já tem o máximo de ${TOKENS_PER_SCENE_MAX} tokens.`,
   token_blocker_limit: `A cena já tem o máximo de ${TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX} tokens que bloqueiam a visão.`,
+  token_patrol_not_found: 'Desenhe uma patrulha primeiro.',
+  invalid_token_patrol: 'A rota precisa sair da casa do token.',
+  token_patrol_limit: `Este grid já tem ${TOKEN_PATROLS_RUNNING_MAX} patrulhas ligadas.`,
   turn_changed: 'A vez já passou.',
   combat_active: 'Já há um combate nesta cena.',
   combat_inactive: 'Não há combate nesta cena.',

@@ -52,6 +52,7 @@ import type {
 } from '@/services/light-commands';
 import type { RegroupTarget } from '@/services/combat-commands';
 import type { AddPlayersResult } from '@/services/token-link-commands';
+import type { PatrolRoute } from '@/services/token-patrol-commands';
 
 /** `sceneId` is absent for a command of the table itself (the condition list's). */
 export type SentBoardCommand = Readonly<{
@@ -237,6 +238,22 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     lit: boolean,
   ): Promise<BoardCommandResult> {
     return this.record('setLightsLit', scope, { lightIds: [...lightIds], lit });
+  }
+
+  setTokenPatrol(
+    scope: BoardScope,
+    tokenId: string,
+    route: PatrolRoute | null,
+  ): Promise<BoardCommandResult> {
+    return this.record('setTokenPatrol', scope, { tokenId, patrol: route });
+  }
+
+  setTokenPatrolsActive(
+    scope: BoardScope,
+    ids: readonly string[],
+    active: boolean,
+  ): Promise<BoardCommandResult> {
+    return this.record('setTokenPatrolsActive', scope, { tokenIds: [...ids], active });
   }
 
   setTokensHidden(

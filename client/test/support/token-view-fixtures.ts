@@ -28,6 +28,7 @@ export function goblinView(overrides: Partial<TokenView> = {}): TokenView {
     hidden: false,
     silhouette: null,
     aura: null,
+    glideMs: null,
     ...overrides,
   };
 }

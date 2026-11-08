@@ -2,6 +2,8 @@ import {
   BOARD_EVENTS,
   boardAdvancedDto,
   tokensHiddenChangedDto,
+  tokenPatrolsChangedDto,
+  type TokenPatrolsChangedDto,
   veiledLightsChangedDto,
   type BoardAdvancedDto,
   type TokensHiddenChangedDto,
@@ -108,6 +110,8 @@ export type BoardEvent =
   /** The grid moved a version and nothing of it is for this viewer (it touched hidden tokens). */
   | Readonly<{ type: 'boardAdvanced'; payload: BoardAdvancedDto }>
   | Readonly<{ type: 'tokensHiddenChanged'; payload: TokensHiddenChangedDto }>
+  /** Routes saved or taken away, patrols started or paused, with the pose saved for each. */
+  | Readonly<{ type: 'tokenPatrolsChanged'; payload: TokenPatrolsChangedDto }>
   | Readonly<{ type: 'drawingsCreated'; payload: DrawingsCreatedDto }>
   | Readonly<{ type: 'drawingsMoved'; payload: DrawingsMovedDto }>
   | Readonly<{ type: 'drawingsDeleted'; payload: DrawingsDeletedDto }>
@@ -168,6 +172,7 @@ export const BOARD_EVENT_SPECS: Readonly<Record<string, BoardEventSpec>> = {
   [BOARD_EVENTS.tokensDeleted]: specOf('tokensDeleted', tokensDeletedDto),
   [BOARD_EVENTS.boardAdvanced]: specOf('boardAdvanced', boardAdvancedDto),
   [BOARD_EVENTS.tokensHiddenChanged]: specOf('tokensHiddenChanged', tokensHiddenChangedDto),
+  [BOARD_EVENTS.tokenPatrolsChanged]: specOf('tokenPatrolsChanged', tokenPatrolsChangedDto),
   [BOARD_EVENTS.drawingsCreated]: specOf('drawingsCreated', drawingsCreatedDto),
   [BOARD_EVENTS.drawingsMoved]: specOf('drawingsMoved', drawingsMovedDto),
   [BOARD_EVENTS.drawingsDeleted]: specOf('drawingsDeleted', drawingsDeletedDto),

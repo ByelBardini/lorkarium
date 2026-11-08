@@ -4,6 +4,8 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { BoardEvent } from '@/services/board-events';
 import type { BoardSyncFailure, TableSessionUpdate } from '@/services/table-session-api';
 import { boardWithTable, type TableLinks } from '@/lib/linked-tokens';
+import { IDLE_PATROLS, patrolClockOf, type PatrolClock } from '@/lib/patrol-poses';
+import { lowerOffsetOf, serverNowOf, serverOffsetOf } from '@/lib/server-time';
 import { applyBoardEvent } from './board-reducer';
 import type { CharactersStore } from './characters-store';
 
@@ -26,6 +28,12 @@ export type BoardStoreState = Readonly<{
   snapshots: number;
   /** Other people's drags: drawn over the confirmed cell until the move or the drag's end. */
   dragged: DraggedCells;
+  /** How far this wall clock runs ahead of the server's (`serverOffsetOf`): the lowest seen over
+   *  the snapshots and events of this table; `null` before the first. The patrols walk by it. */
+  serverOffsetMs: number | null;
+  /** The running patrols at the last step (`patrolClockOf`): where they show, the veiled lights
+   *  where they shine (the board's own array when none walks) and when the next step falls. */
+  patrol: PatrolClock;
 }>;
 
 export type BoardStore = BoardStoreState &
@@ -38,6 +46,8 @@ export type BoardStore = BoardStoreState &
     /** The table stream changed: the linked tokens and the table's list are read from it
      *  again. */
     relink: () => void;
+    /** A patrol's step came due (the room's timer): the poses are worked out again now. */
+    stepPatrols: () => void;
   }>;
 
 /** The table stream as it stands; `null` before its first sync (or for a board of no table). */
@@ -64,18 +74,26 @@ export function tableLinksOf(characters: StoreApi<CharactersStore>): LinksOf {
 /** A board store for one open table. A snapshot always replaces the board; an event applies only
  *  at `version + 1`, is a duplicate at or below it, and a gap asks `requestResync` once. With
  *  `linksOf`, the board shown is the grid's over the table (`boardWithTable`): the linked tokens
- *  wearing their characters, the conditions defined from the table stream's version.
+ *  wearing their characters, the conditions defined from the table stream's version. `wallClock`
+ *  (`Date.now` when absent) stamps when each snapshot and event arrived, for the server clock.
  *
  *  Example: `const board = createBoardStore(campaignId, () => handle.resync(), tableLinksOf(characters))` */
 export function createBoardStore(
   campaignId: string,
   requestResync: () => void,
   linksOf: LinksOf = UNLINKED,
+  wallClock: () => number = Date.now,
 ): StoreApi<BoardStore> {
   return createStore<BoardStore>()((set, get) => {
     const resyncOnce = (): Partial<BoardStoreState> => {
       if (!get().resyncAsked) requestResync();
       return { resyncAsked: true };
+    };
+    // The patrols follow every change of the tokens, the veiled lights or the server clock.
+    const settled = (next: Partial<BoardStoreState>, forced = false): Partial<BoardStoreState> => {
+      const before = get();
+      const patrol = patrolAfter(before, { ...before, ...next }, wallClock(), forced);
+      return patrol === before.patrol ? next : { ...next, patrol };
     };
     return {
       campaignId,
@@ -86,7 +104,13 @@ export function createBoardStore(
       resyncAsked: false,
       snapshots: 0,
       dragged: {},
-      apply: (update) => set(withLinks(nextState(get(), update, resyncOnce), linksOf)),
+      serverOffsetMs: null,
+      patrol: IDLE_PATROLS,
+      apply: (update) => {
+        const serverOffsetMs = offsetAfter(get(), update, wallClock());
+        const next = withLinks(nextState(get(), update, resyncOnce), linksOf);
+        set(settled({ ...next, serverOffsetMs }));
+      },
       retry: () => {
         set({ status: 'loading', failure: null });
         requestResync();
@@ -98,7 +122,11 @@ export function createBoardStore(
       relink: () => {
         const { board } = get();
         const linked = board && boardWithTable(board, linksOf());
-        if (linked !== board) set({ board: linked });
+        if (linked !== board) set(settled({ board: linked }));
+      },
+      stepPatrols: () => {
+        const next = settled({}, true);
+        if (next.patrol) set(next);
       },
     };
   });
@@ -128,6 +156,51 @@ function nextState(
   }
   const dragged = withoutDragOf(state.dragged, update.event);
   return { ...eventState(state, state.board, update.event, resyncOnce), dragged };
+}
+
+// Worked out again only when what it reads changed (or a step came due); an idle board keeps
+// its very clock, so no timer is asked again.
+function patrolAfter(
+  before: BoardStoreState,
+  after: BoardStoreState,
+  wallNowMs: number,
+  forced: boolean,
+): PatrolClock {
+  const { board, serverOffsetMs } = after;
+  if (!board || serverOffsetMs === null) return IDLE_PATROLS;
+  const same =
+    before.board?.tokens === board.tokens &&
+    before.board.veiledLights === board.veiledLights &&
+    before.serverOffsetMs === serverOffsetMs;
+  if (same && !forced) return before.patrol;
+  const { tokens, veiledLights } = board;
+  const serverNowMs = serverNowOf(serverOffsetMs, wallNowMs);
+  const patrol = patrolClockOf({ tokens, veiledLights, serverNowMs }, before.patrol);
+  return idleAgain(before.patrol, patrol) ? before.patrol : patrol;
+}
+
+function idleAgain(before: PatrolClock, after: PatrolClock): boolean {
+  const idle = before.nextChangeInMs === null && after.nextChangeInMs === null;
+  return idle && before.poses === after.poses && before.veiledLights === after.veiledLights;
+}
+
+// Only what this table's server stamped counts: a snapshot or one of its events.
+function offsetAfter(
+  state: BoardStoreState,
+  update: TableSessionUpdate,
+  receivedAtMs: number,
+): number | null {
+  const at = stampOf(state.campaignId, update);
+  if (at === null) return state.serverOffsetMs;
+  return lowerOffsetOf(state.serverOffsetMs, serverOffsetOf(at, receivedAtMs));
+}
+
+function stampOf(campaignId: string, update: TableSessionUpdate): string | null {
+  if (update.kind === 'board')
+    return update.state.campaignId === campaignId ? update.state.at : null;
+  if (update.kind !== 'boardEvent') return null;
+  const { payload } = update.event;
+  return payload.campaignId === campaignId ? payload.at : null;
 }
 
 function withLinks(next: Partial<BoardStoreState>, linksOf: LinksOf): Partial<BoardStoreState> {

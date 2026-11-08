@@ -12,6 +12,7 @@ import type {
 import type { Cell, TokenBox } from '@lorkarium/game-core';
 import { barFill, type BarFill } from '@/lib/bar-display';
 import { levelOf, type BoardSight } from '@/lib/board-sight';
+import type { PatrolPoses } from '@/lib/patrol-poses';
 import { tokenLooksOf } from '@/lib/condition-order';
 import { shownStacksOf } from '@/lib/condition-stacks';
 import { assetUrlOf } from '@/services/assets-api';
@@ -77,6 +78,9 @@ export type TokenView = Readonly<{
   silhouette: 'round' | 'square' | null;
   /** On the floor of its layer, under every token of it; `null` without aura or as a silhouette. */
   aura: AuraView | null;
+  /** How long its move to this cell glides: a patrol's whole step (`1000 / speed` ms); `null`
+   *  for the short glide of any other move. Never redraws the token. */
+  glideMs: number | null;
 }>;
 
 /** What the tokens of a view are built from (a part of the `BoardViewInput`). */
@@ -92,6 +96,8 @@ export type TokenViewInput = Readonly<{
   resizePreview: Readonly<Record<string, TokenBox>>;
   /** Where other people are dragging tokens, by id. */
   dragged: Readonly<Record<string, Cell>>;
+  /** Where the running patrols walk the tokens, by id (absent: none): below a drag or a resize. */
+  patrols?: PatrolPoses;
   /** Reconnecting: nothing is draggable. */
   readOnly: boolean;
   /** The tokens of the entry on turn in the combat; none out of combat. */
@@ -137,7 +143,9 @@ function silhouetteOf(view: TokenView, token: TokenDto): TokenView {
 function tokenViewOf(token: TokenDto, input: TokenViewInput): TokenView {
   const first = token.bars.find(({ position }) => position === 0);
   const box = input.resizePreview[token.id];
-  const at = box ?? input.dragged[token.id] ?? token;
+  const held = box ?? input.dragged[token.id];
+  const walking = held ? undefined : input.patrols?.get(token.id);
+  const at = held ?? walking ?? token;
   const pickable = token.layer === input.activeLayer;
   const width = box?.width ?? token.width;
   const height = box?.height ?? token.height;
@@ -158,12 +166,13 @@ function tokenViewOf(token: TokenDto, input: TokenViewInput): TokenView {
     onTurn: input.currentTokenIds.includes(token.id),
     ...conditionsOf(token),
     art: artOf(token),
-    facing: input.facingPreview[token.id] ?? token.facing,
+    facing: input.facingPreview[token.id] ?? walking?.facing ?? token.facing,
     facingMark: token.layer === 'tokens',
     defeated: token.defeated,
     hidden: token.hidden,
     silhouette: null,
     aura: auraViewOf({ ...token, col: at.col, row: at.row, width, height }),
+    glideMs: walking?.glideMs ?? null,
   };
 }
 

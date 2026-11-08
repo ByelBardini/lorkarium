@@ -1,4 +1,4 @@
-import type { WallDto } from '@lorkarium/contracts';
+import type { TokenDto, WallDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,9 @@ import { selectionMoveOf } from '@/lib/selection-move';
 import { shapeBox } from '@/lib/drawing-geometry';
 import { gameWallsOf } from '@/lib/wall-geometry';
 import { groupMemberOf } from '@/lib/token-group';
+import type { InteractionClock } from '@/lib/interaction-clock';
+import { posedTokenOf } from '@/lib/patrol-poses';
+import type { TokenPatrolEditor } from '@/stores/token-patrol-flow';
 import type { BoardInteractionStore, DragGroup } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { styleOf, type DrawingStyleStore } from '@/stores/drawing-style-store';
@@ -73,6 +76,10 @@ export type BoardAreaProps = Readonly<{
   conditionTool: StoreApi<ConditionToolStore>;
   /** Alt + click or a still hold asked to point at a spot (fractional cells). */
   onPing: (point: PingPoint) => void;
+  /** The timer of the patrols' steps (absent: the browser's). */
+  clock?: InteractionClock;
+  /** The master's patrol editor: its draft is drawn and a press adds its next point. */
+  patrolEditor?: StoreApi<TokenPatrolEditor>;
 }>;
 
 /** What fills the room behind the floating UI: the canvas once the board is ready, or why not.
@@ -122,6 +129,8 @@ function InteractiveCanvas({
   lightColor,
   conditionTool,
   onPing,
+  clock,
+  patrolEditor,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({
     board,
@@ -139,7 +148,12 @@ function InteractiveCanvas({
         effectAreaStyle={effectAreaStyle}
         wallStyle={wallStyle}
         createBoardRenderer={createBoardRenderer}
+        clock={clock}
+        patrolEditor={patrolEditor}
         onIntent={(intent) => {
+          if (intent.kind === 'patrolPointPicked') {
+            return patrolEditor?.getState().addPoint(intent.cell);
+          }
           if (intent.kind === 'tokenHovered') return onTokenHover(hoverRequestOf(intent));
           if (intent.kind === 'pingRequested') return onPing({ x: intent.x, y: intent.y });
           if (intent.kind === 'tokenDragged') onTokenHover(null);
@@ -257,7 +271,7 @@ function faceByHandle(
   intent: Extract<BoardIntent, { kind: 'tokenFaced' }>,
 ): void {
   const local = interaction.getState();
-  const token = board.getState().board?.tokens.find(({ id }) => id === intent.tokenId);
+  const token = shownTokenOf(board, intent.tokenId);
   if (!token || token.facing === intent.facing) return local.previewFacing(intent.tokenId, null);
   const turn = { tokenId: token.id, from: token.facing, to: intent.facing };
   void local.faceTokens([turn], facedAnnouncement(token.name, intent.facing));
@@ -269,7 +283,7 @@ function resizeByHandle(
   intent: Extract<BoardIntent, { kind: 'tokenResized' }>,
 ): void {
   const local = interaction.getState();
-  const token = board.getState().board?.tokens.find(({ id }) => id === intent.tokenId);
+  const token = shownTokenOf(board, intent.tokenId);
   const { col, row, width, height } = intent.box;
   const same = token?.col === col && token.row === row;
   if (!token || (same && token.width === width && token.height === height)) {
@@ -308,13 +322,20 @@ function dragGroupOf({ board, interaction }: IntentStores, anchorId: string): Dr
   };
   const ids = [anchorId, ...grouped.filter((id) => id !== anchorId && movable(id))];
   const members = ids.flatMap((id) => {
-    const token = state.tokens.find((candidate) => candidate.id === id);
+    const token = shownTokenOf(board, id);
     return token ? [groupMemberOf(token)] : [];
   });
   const { widthCells, heightCells } = state.scene;
   // The master passes every wall; a player's token is stopped by them.
   const walls = state.viewer.role === 'master' ? undefined : gameWallsOf(state.walls);
   return { members, scene: { widthCells, heightCells }, walls };
+}
+
+// A patrolling token is picked up, turned and resized from where it shows, not where it was saved.
+function shownTokenOf(board: StoreApi<BoardStore>, tokenId: string): TokenDto | null {
+  const { board: state, patrol } = board.getState();
+  const token = state?.tokens.find(({ id }) => id === tokenId);
+  return token ? posedTokenOf(token, patrol.poses) : null;
 }
 
 function dropAnnouncement(

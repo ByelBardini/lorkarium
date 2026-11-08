@@ -40,6 +40,7 @@ import {
 } from './effect-area-view';
 import type { EffectAreaSketchView } from './effect-area-gestures';
 import type { TokenLanding } from '@/lib/light-sources';
+import type { PatrolPoses } from '@/lib/patrol-poses';
 import { shownCellsOf } from '@/lib/shown-cells';
 import { fogViewOf, type FogView } from './fog-view';
 import { lightTintViewOf, type LightTintView } from './light-tint-view';
@@ -50,6 +51,7 @@ import {
 } from './sight-blocker-outline-view';
 import { sightConeViewOf, type SightConeView } from './sight-cone-view';
 import { tokenViewsOf, type TokenView } from './token-view';
+import { boardPatrolPathOf, type PatrolDraftView, type PatrolPathView } from './patrol-path-view';
 import {
   doorIconsOf,
   wallViewsOf,
@@ -121,6 +123,9 @@ export type BoardView = Readonly<{
   sightBlockerOutline: SightBlockerOutlineView | null;
   /** The master's map light icons (and, with the lights tool, what they light); none for a player. */
   lights: readonly LightView[];
+  /** The master's patrol line: the editor's draft, or the route of the token selected alone;
+   *  `null` for anyone else. With the draft a press adds a point instead of picking. */
+  patrolPath: PatrolPathView | null;
   /** With the draw tool: how the sketch under the pointer looks; `null` with another tool. */
   sketch: DrawingStyle | null;
   /** With the area tool: the shape and color of the next area; `null` with another tool. */
@@ -201,6 +206,10 @@ export type BoardViewInput = Omit<DrawingViewInput, 'picking' | 'readOnly'> &
     drag: DragRouteView | null;
     /** Where other people are dragging tokens, by id: drawn there instead of the confirmed cell. */
     dragged: Readonly<Record<string, Cell>>;
+    /** Where the running patrols walk the tokens now, by id (absent: none): the weakest source. */
+    patrols?: PatrolPoses;
+    /** The route the master's patrol editor is drawing (absent: the editor is closed). */
+    patrolDraft?: PatrolDraftView | null;
     /** Reconnecting: nothing is draggable. */
     readOnly: boolean;
     tool: BoardViewTool;
@@ -267,6 +276,7 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       selectedLightIds: input.selectedLightIds ?? [],
       geometry,
     }),
+    patrolPath: boardPatrolPathOf(input),
     sketch: sketchStyleOf(input),
     sketchStraight: input.tool === 'walls' && !erasingArea(input) && wallPreviewOf(input).straight,
     wallMode: input.wallMode ?? 'draw',
@@ -336,10 +346,10 @@ function fogOf(
 }
 
 // Where each token shows now and where it looks (this viewer's drag, the move waiting for the
-// server, other people's drags, a turn before the ack): its eyes and lights follow it.
+// server, other people's drags, a turn before the ack, a patrol): its eyes and lights follow it.
 function landingOf(input: BoardViewInput): TokenLanding {
-  const { dragged, drag, preview, facingPreview, tokens } = input;
-  return shownCellsOf({ dragged, drag, preview, facingPreview, tokens });
+  const { patrols, dragged, drag, preview, facingPreview, tokens } = input;
+  return shownCellsOf({ patrols, dragged, drag, preview, facingPreview, tokens });
 }
 
 function wallsOf(input: BoardViewInput): Pick<BoardView, 'walls' | 'doors'> {

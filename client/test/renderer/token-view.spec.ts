@@ -277,3 +277,28 @@ describe('tokenViewsOf', () => {
     });
   });
 });
+
+describe('tokenViewsOf with patrols', () => {
+  const patrols = new Map([[LYRA_ID, { col: 7, row: 2, facing: 270, glideMs: 500 }]]);
+
+  it('a token on patrol is drawn on its patrol cell, looking where it walks, gliding a whole step', () => {
+    expect(viewsOf({ patrols })[0]).toMatchObject({ col: 7, row: 2, facing: 270, glideMs: 500 });
+  });
+
+  it('a token off patrol keeps the short glide (null)', () => {
+    expect(viewsOf({ patrols })[0]?.glideMs).toBe(500);
+    expect(viewsOf()[0]?.glideMs).toBeNull();
+  });
+
+  it('someone dragging the patrolling token wins over the patrol, with the short glide', () => {
+    const view = viewsOf({ patrols, dragged: { [LYRA_ID]: cell(9, 4) } })[0];
+
+    expect(view).toMatchObject({ col: 9, row: 4, glideMs: null });
+  });
+
+  it('a patrol that does not turn keeps the token facing', () => {
+    const still = new Map([[LYRA_ID, { col: 7, row: 2, facing: null, glideMs: 1000 }]]);
+
+    expect(viewsOf({ patrols: still, tokens: [lyra({ facing: 90 })] })[0]?.facing).toBe(90);
+  });
+});

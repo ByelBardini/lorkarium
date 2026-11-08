@@ -1,3 +1,4 @@
+import { cell } from '@lorkarium/game-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_DRAWING_STYLE } from '@/lib/drawing-style';
 import { buildBoardView, type BoardView } from '@/renderer/board-view';
@@ -179,5 +180,46 @@ describe('PrimaryPress with the condition tool', () => {
 
     expect(parts.kinds()).toEqual(['conditionStamped']);
     expect(parts.log).toEqual([]);
+  });
+});
+
+describe('PrimaryPress with the patrol editor open', () => {
+  let parts: PressPartsFake;
+  let press: PrimaryPress;
+  const master = { userId: BIA_AT_TABLE.userId, isMaster: true };
+  const patrolDraft = { tokenId: LYRA_ID, path: [cell(3, 4)], repeat: 'loop' as const };
+
+  function editing(token = lyra()): PressContext {
+    return { view: boardView({ viewer: master, tokens: [token], patrolDraft }), zoom: 1 };
+  }
+
+  beforeEach(() => {
+    parts = new PressPartsFake();
+    press = new PrimaryPress(parts);
+  });
+
+  it('a press on (8.4, 4.6) adds the point (8, 4) for Lyra, picks no token and starts no marquee', () => {
+    press.down(editing(), pointAt(8.4, 4.6));
+
+    expect(parts.intents).toEqual([{ kind: 'patrolPointPicked', cell: cell(8, 4) }]);
+    expect(parts.log).toEqual([]);
+  });
+
+  it('a press over Lyra herself adds her own cell instead of grabbing her', () => {
+    press.down(editing(), pointAt(3.5, 4.5));
+
+    expect(parts.intents).toEqual([{ kind: 'patrolPointPicked', cell: cell(3, 4) }]);
+  });
+
+  it('a half-cell token snaps the point to half cells', () => {
+    press.down(editing(lyra({ width: 0.5, height: 0.5 })), pointAt(8.6, 4.6));
+
+    expect(parts.intents).toEqual([{ kind: 'patrolPointPicked', cell: cell(8.5, 4.5) }]);
+  });
+
+  it('a press off the scene adds nothing', () => {
+    press.down(editing(), pointAt(25, 4));
+
+    expect(parts.intents).toEqual([]);
   });
 });
