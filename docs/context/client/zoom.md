@@ -9,6 +9,7 @@ Hub: [`../client.md`](../client.md). Como o zoom fica leve (assentamento, recort
 - `FrameWork` guarda o zoom e o instante de cada `cameraChanged({ zoom, gridBandLeft, atMs })`; `take(agoraMs)` devolve `FrameJob { view, overlays, grid, zoom }`. `zoom: true` (assentou) marca sobreposições e grade; **qualquer** redesenho de sobreposições (vista nova, faixa saída) assenta junto, porque elas já saem no zoom atual. `pending()` fica `true` enquanto um zoom espera, para o `flush` voltar no próximo quadro.
 - No `flush`: `job.zoom` → `tokens.applyZoom` (as faixas de condição), a grade com a faixa recalculada do zero (`drawGrid(…, fresh)`: aproximar encolhe a faixa) e as sobreposições.
 - A intenção `cameraChanged` sai **uma vez por quadro** (`reportCamera` no `ticker`), não por evento de roda: cada uma é um `set` do Zustand, e a pinça manda vários eventos por quadro.
+- **Só o rótulo do zoom assina o `zoom`** (`ZoomLabel` em `board-toolbar.tsx`). O `reportCamera` roda dentro do quadro do ticker, então o React que ele dispara cai na **mesma tarefa** do redesenho assentado e do `render` do Pixi. Com a barra inteira assinando o `zoom`, os 15 `ToolButton` com tooltip redesenhavam a cada quadro do gesto (30–60 ms em dev), e cada assentamento virava uma long task. Componente novo que assine o `zoom` (ou outro campo que muda a cada quadro) fica pequeno e folha. Prova: `board-toolbar.spec.tsx`, "a zoom change draws only the zoom label again".
 
 ## Recorte pela faixa
 
@@ -40,6 +41,17 @@ Mesa de estresse (Bia, mestre), `pnpm dev`, pane do app 800 × 600, dpr 1. Gesto
 | quadro do roteiro p50 / p95 / máx | 27 / 44 / 71 | 14 / 30 / 49 |
 | long tasks (soma)                 | 6 (373 ms)   | 0            |
 | `zoom.event` / s                  | —            | 59–65        |
+
+- **Rótulo do zoom isolado** (relato: "piorou num PC mais fraco"), medido contra a `main` `b0895454`. Chromium do Playwright headless na GPU real (RTX 4060 Ti, D3D11), 1280 × 800, Mesa de estresse, Ctrl + roda por roteiro (trackpad: `deltaY 8` por quadro; mouse: 14 cliques de `deltaY 100` ou `125` para dentro e 14 para fora). Média de 3 rodadas (1×) ou 2 (CPU 4× pelo `Emulation.setCPUThrottlingRate`). O teste `deltaY 125` (≥ 1,25 por clique, sem assentamento) era o único caso em que o assentamento perdia para o renderer antigo; o perfil das long tasks mostrou `workLoopSync` em 30–60 ms de cada uma.
+
+| CPU 4×: FPS · p95 (ms)       | `main`    | rótulo isolado |
+| ---------------------------- | --------- | -------------- |
+| Trackpad, `deltaY 8`/quadro  | 4,5 · 583 | 14,9 · 258     |
+| Mouse, `deltaY 100` a 80 ms  | 4,6 · 583 | 29,9 · 108     |
+| Mouse, `deltaY 100` a 200 ms | 6,6 · 442 | 44,0 · 42      |
+| Mouse, `deltaY 125` a 80 ms  | 7,5 · 358 | 30,7 · 92      |
+
+Sem limitar a CPU, os dois ficam perto de 60 FPS; a correção zera as long tasks (era 0,3–1,3 por gesto). Script em scratchpad, não versionado: abre a mesa nas duas portas e dispara `WheelEvent` no canvas.
 
 - Memória de textura parada: **56,9 MB** (305 texturas). Uma de 2048² em resolução 0,32 (névoa/luz, 16 MB) e ~300 de texto de 512 × 256 em resolução 4 (0,5 MB cada, **~40 MB, ~71%**). Nenhum texto passa de 2048 px de lado: o `textResolutionFor` não alcança esses textos pequenos, e baixar a resolução das iniciais troca nitidez por memória (decisão de produto, não tomada).
 - `strip.redraw` ficou 0: o seed de estresse não tem condições.
