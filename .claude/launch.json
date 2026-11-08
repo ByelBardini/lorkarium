@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "app",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set PORT=3333&& pnpm dev"],
+      "port": 5173
+    },
+    {
       "name": "site",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@lorkarium/site", "dev", "--port", "4321"],

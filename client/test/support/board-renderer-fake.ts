@@ -1,9 +1,11 @@
 import { cell, type Cell } from '@lorkarium/game-core';
 import { act } from '@testing-library/react';
 import type { BoardView } from '@/renderer/board-view';
+import type { Camera } from '@/renderer/camera';
 import type {
   BoardIntent,
   BoardIntentListener,
+  BoardMountOptions,
   BoardRenderer,
   CreateBoardRenderer,
   PingMark,
@@ -13,7 +15,8 @@ import type {
 type MountMode = 'resolve' | 'hold' | 'reject';
 
 /** A renderer the test watches: `draws` keeps every view, `zooms` every zoomBy factor, `fits`
- *  counts fitScene; `emit(intent)` plays the canvas (inside `act`).
+ *  counts fitScene; `emit(intent)` plays the canvas (inside `act`), `lose()` the GPU dropping it;
+ *  `mountedCamera` is the camera `mount` got, `cameraNow` what `camera()` answers.
  *
  *  Example: `deps.boardRenderers.latest().emit({ kind: 'cameraChanged', zoom: 1.25 })` */
 export class BoardRendererFake implements BoardRenderer {
@@ -22,6 +25,10 @@ export class BoardRendererFake implements BoardRenderer {
   fits = 0;
   /** What `viewCenterCell()` answers. */
   centerCell: Cell | null = cell(0, 0);
+  /** What `camera()` answers. */
+  cameraNow: Camera = { offsetX: 0, offsetY: 0, zoom: 1 };
+  /** The camera handed to `mount` (`undefined`: none, fit the scene). */
+  mountedCamera: Camera | undefined;
   mounted = false;
   destroyed = false;
   private releaseMount: (() => void) | null = null;
@@ -31,7 +38,8 @@ export class BoardRendererFake implements BoardRenderer {
     private readonly mode: MountMode,
   ) {}
 
-  mount(): Promise<void> {
+  mount(_host: HTMLElement, options?: BoardMountOptions): Promise<void> {
+    this.mountedCamera = options?.camera;
     if (this.mode === 'reject') return Promise.reject(new Error('WebGL unavailable'));
     if (this.mode === 'resolve') return this.markMounted();
     return new Promise((resolve) => {
@@ -57,6 +65,10 @@ export class BoardRendererFake implements BoardRenderer {
 
   fitScene(): void {
     this.fits += 1;
+  }
+
+  camera(): Camera {
+    return this.cameraNow;
   }
 
   viewCenterCell(): Cell | null {
@@ -90,6 +102,11 @@ export class BoardRendererFake implements BoardRenderer {
 
   emit(intent: BoardIntent): void {
     act(() => this.onIntent(intent));
+  }
+
+  /** The WebGL context dropped by the GPU. */
+  lose(): void {
+    this.emit({ kind: 'boardLost' });
   }
 
   get lastView(): BoardView | undefined {
