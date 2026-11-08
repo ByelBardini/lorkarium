@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import type { ComponentProps } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import { BoardToolbar } from '@/features/board/board-toolbar';
 import {
@@ -15,6 +16,17 @@ import { BIA_AT_TABLE, LYRA_ID, VHARN_GRID } from '../../support/table-session-f
 import { cell } from '@lorkarium/game-core';
 import { boardCommandFailureMessage } from '@/features/board/board-messages';
 import { TableTokenKeysContext } from '@/features/board/table-token-rights';
+
+// Every tool button has one Tooltip: counting them counts the buttons drawn again.
+const tooltipRenders = vi.hoisted(() => ({ count: 0 }));
+vi.mock('@/components/ui/tooltip', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/components/ui/tooltip')>();
+  function CountedTooltip(props: ComponentProps<typeof original.Tooltip>) {
+    tooltipRenders.count += 1;
+    return <original.Tooltip {...props} />;
+  }
+  return { ...original, Tooltip: CountedTooltip };
+});
 
 describe('BoardToolbar', () => {
   let interaction: StoreApi<BoardInteractionStore>;
@@ -87,6 +99,16 @@ describe('BoardToolbar', () => {
     expect(renderer.zooms).toEqual([1.25, 0.8]);
     act(() => interaction.getState().pointer({ kind: 'cameraChanged', zoom: 1.25 }));
     expect(screen.getByText('125%')).toBeInTheDocument();
+  });
+
+  // A pinch reports the camera every frame: drawing the whole toolbar again each time put 30–60 ms
+  // of React into the frame that redraws the settled zoom (long tasks on the Mesa de estresse).
+  it('a zoom change draws only the zoom label again, not the tool buttons', () => {
+    renderToolbar();
+    tooltipRenders.count = 0;
+    act(() => interaction.getState().pointer({ kind: 'cameraChanged', zoom: 1.5 }));
+    expect(screen.getByText('150%')).toBeInTheDocument();
+    expect(tooltipRenders.count).toBe(0);
   });
 
   it('Enquadrar cena asks the renderer to fit the scene', async () => {

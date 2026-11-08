@@ -340,3 +340,4 @@ Var lkCheckBox
 !include "${__FILEDIR__}\page-home.nsh"
 !include "${__FILEDIR__}\page-done.nsh"
 !include "${__FILEDIR__}\page-uninstall.nsh"
+!include "${__FILEDIR__}\free-main-binary.nsh"

@@ -26,6 +26,7 @@ desktop/
     nsis/lorkarium-ui.nsh # installerHooks: janela escura, logo fixo, barra dourada, atalho pelo NSIS_HOOK_POSTINSTALL
     nsis/page-home.nsh    # tela única: Instalar / Atualizar / Reinstalar / Instalar mesmo assim (segue allowDowngrades)
     nsis/page-done.nsh    # "Tudo pronto." + Abrir o Lorkarium (RunMainBinary) / Fechar
+    nsis/free-main-binary.nsh # atualização (/UPDATE): libera o exe sem o Restart Manager (espera, encerra, renomeia para .old)
     nsis/page-uninstall.nsh # desinstalador: confirmação escura (+ "Apagar também os dados", o $DeleteAppDataCheckboxState do template), barra, despedida
     nsis/art/hero-<escala>.bmp # arte do instalador em 100/125/150/200% (paleta e logo de packages/brand), gerada pelo installer:art e versionada
     src/
@@ -98,7 +99,7 @@ site aberto → carga na origem do app falha (NavigationCompleted) → load_fail
 
 - `StartupGate` (`startup.rs`): o 1º `begin_startup` roda a abertura (`Run`); depois, com retorno pendente, entrega a visão uma vez (`Deliver`); sem pendente, nada (`AlreadyStarted`: recarga da splash não refaz o update). Retorno novo substitui o anterior. A navegação de volta sai do handler COM por `async_runtime::spawn`.
 - Eventos casca → splash: `StartupEvent` (`startup.rs`, serde `tag = "kind"`, kebab-case) no evento `startup`; a splash valida com `readShellEvent` e evento ilegível **mantém a tela** (casca × splash de versões diferentes).
-- **A checagem tem prazo e nunca bloqueia**: atualização falha, demora ou baixa pela metade → segue para o health (`update_problem` vai para o stderr). Só a checagem tem prazo; download começado vai até o fim.
+- **A checagem tem prazo e nunca bloqueia**: atualização falha, demora ou baixa pela metade → segue para o health (`update_problem` vai para o stderr). Só a checagem tem prazo total (8 s); download começado vai até o fim, a menos que **trave**: 20 s sem nenhum byte (`DOWNLOAD_STALL_TIMEOUT`, `read_timeout` do reqwest pelo `updater_builder().configure_client`) falha o download e o app segue para o site; a próxima abertura tenta de novo.
 - Progresso é emitido a cada 256 KiB (`PROGRESS_STEP`), não por chunk de rede. `total` nulo (sem `Content-Length`) → barra indeterminada; `downloaded > total` → 100.
 - **Por que o health é pelo Rust**: o `fetch` da splash seria de outra origem (`tauri.localhost`) e não leria o 503 sem CORS. O cliente HTTP é `reqwest` sem provedor TLS próprio (usa o `ring` do updater; evita compilar `aws-lc`).
 - `tauri::is_dev()` pula o updater (o dev não tem release para comparar).
@@ -141,6 +142,8 @@ Sem certificado de código: a 1ª instalação passa pelo SmartScreen ("Executar
 Um clique, janela escura, tela única (Instalar / Atualizar / Reinstalar / "Instalar mesmo assim"), só `nsDialogs` e `System::Call`. Detalhe, teste e armadilhas do NSIS: [`desktop/instalador.md`](desktop/instalador.md).
 
 ## Armadilhas
+
+- **Download do updater sem prazo prende a splash**: o reqwest não tem prazo por padrão, e uma conexão parada (sem cair) deixava "Baixando atualização" para sempre — o player só saía reinstalando pelo site. Por isso o `read_timeout` (prazo por leitura, não total: rede lenta que segue recebendo nunca é cortada). O `configure_client` recebe o `reqwest::ClientBuilder` do plugin: subir o reqwest de um lado só quebra a compilação.
 
 - **Escondido na bandeja o site continua vivo**: o Socket.IO segue ligado e a presença na mesa não cai (a aba do navegador minimizada faz o mesmo). Quem quiser sair da mesa usa o "Sair" da bandeja.
 

@@ -91,6 +91,27 @@ describe('NSIS installer template', () => {
     for (const macro of inserted) expect(defined, macro).toContain(macro);
   });
 
+  it('frees the main binary without the Restart Manager when the updater runs it', () => {
+    const install = template.slice(template.indexOf('Section Install'));
+    const updateBranch = install.slice(0, install.indexOf('SectionEnd'));
+    const defined = hookFiles().flatMap((name) =>
+      matchesOf(readText(`${NSIS_DIR}${name}`), /^!macro (LK_\w+)/gm),
+    );
+
+    expect(updateBranch).toMatch(
+      /\$\{If\} \$UpdateMode = 1\s+!insertmacro LK_FREE_MAIN_BINARY\s+\$\{Else\}\s+!insertmacro CheckIfAppIsRunning/,
+    );
+    expect(defined).toContain('LK_FREE_MAIN_BINARY');
+  });
+
+  it('removes the binaries an update renamed aside when uninstalling', () => {
+    const uninstall = template.slice(template.indexOf('Section Uninstall'));
+
+    expect(uninstall.slice(0, uninstall.indexOf('SectionEnd'))).toContain(
+      'Delete "$INSTDIR\\${MAINBINARYNAME}.*.old"',
+    );
+  });
+
   it('ships every hero bitmap the hooks embed', () => {
     const scales = matchesOf(readText(`${NSIS_DIR}lorkarium-ui.nsh`), /\\hero-(\d+)\.bmp/g);
 

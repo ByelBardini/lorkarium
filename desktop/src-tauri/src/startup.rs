@@ -148,7 +148,8 @@ fn wait_for_retry(emit: &mut impl FnMut(StartupEvent), event: StartupEvent) -> S
     StartupOutcome::WaitForRetry
 }
 
-// `Ok(true)`: installed, the app must restart. Only the check has a deadline; a started download runs to the end.
+// `Ok(true)`: installed, the app must restart. Only the check has a total deadline; a started download runs
+// to the end unless it stalls (the read timeout of the real updater, in startup_commands.rs, fails it).
 async fn update_within(
     update: &impl UpdateSource,
     deadline: Duration,

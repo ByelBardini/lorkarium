@@ -92,7 +92,6 @@ export function BoardToolbar({
   onNewToken,
 }: BoardToolbarProps): React.JSX.Element {
   const grid = useBoardInteraction(interaction, (state) => state.localGridVisible);
-  const zoom = useBoardInteraction(interaction, (state) => state.zoom);
   const previewing = useBoardInteraction(interaction, (state) => state.sightPreview);
   const actions = interaction.getState();
   const canConfigure = role === 'master';
@@ -122,9 +121,7 @@ export function BoardToolbar({
           disabled={!renderer}
           onClick={() => renderer?.zoomBy(ZOOM_STEP)}
         />
-        <span className="py-1 text-center text-[11px] text-muted-foreground tabular-nums">
-          {PERCENT.format(zoom)}
-        </span>
+        <ZoomLabel interaction={interaction} />
         <ToolButton
           label="Afastar (−)"
           icon={MinusIcon}
@@ -187,6 +184,17 @@ async function addPlayersHere(
     skipped: skipped.filter((name): name is string => name !== undefined),
   });
   if (notice) interaction.getState().say(notice);
+}
+
+// Its own component: the camera is reported every frame of a pinch, and drawing the whole
+// toolbar again each time put 30–60 ms of React into the frame of the settled zoom.
+function ZoomLabel({ interaction }: Pick<BoardToolbarProps, 'interaction'>) {
+  const zoom = useBoardInteraction(interaction, (state) => state.zoom);
+  return (
+    <span className="py-1 text-center text-[11px] text-muted-foreground tabular-nums">
+      {PERCENT.format(zoom)}
+    </span>
+  );
 }
 
 // Local like the grid: a weak PC stills the auras without touching anyone else's board.
