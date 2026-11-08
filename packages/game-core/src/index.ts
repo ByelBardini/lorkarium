@@ -16,6 +16,22 @@ export {
   type ResizeHandle,
   type TokenBox,
 } from './token-resize';
+export {
+  PATROL_POINTS_MAX,
+  PATROL_SPEED_MAX,
+  PATROL_SPEED_MIN,
+  PATROL_SPEED_STEP,
+  tokenPatrol,
+  type PatrolRepeat,
+  type TokenPatrol,
+} from './token-patrol.vo';
+export {
+  patrolCycle,
+  patrolFits,
+  patrolPoseAt,
+  type PatrolInstant,
+  type PatrolPose,
+} from './token-patrol';
 export { boxFits, drawingBox, translateBox, type DrawingBox } from './drawing-box.vo';
 export {
   adjustBarValues,
