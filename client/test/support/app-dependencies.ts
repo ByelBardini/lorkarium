@@ -42,6 +42,7 @@ import { PingCommandsFake } from './ping-commands-fake';
 import { ProfileApiFake } from './profile-api-fake';
 import { PageReloadFake, PublishedBuildFake } from './published-build-fake';
 import { RetryWaitFake } from './retry-wait-fake';
+import { SavedColorsApiFake } from './saved-colors-api-fake';
 import { SavedRollsApiFake } from './saved-rolls-api-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
@@ -51,6 +52,7 @@ export type TestDependencies = AppDependencies & {
   authApi: AuthApiFake;
   campaignsApi: CampaignsApiFake;
   profileApi: ProfileApiFake;
+  savedColorsApi: SavedColorsApiFake;
   accountSecurityApi: AccountSecurityApiFake;
   userAdminApi: UserAdminApiFake;
   accountLinksApi: AccountLinksApiFake;
@@ -155,6 +157,7 @@ export function testDependencies(): TestDependencies {
     authApi: new AuthApiFake(journal),
     campaignsApi: new CampaignsApiFake(),
     profileApi: new ProfileApiFake(),
+    savedColorsApi: new SavedColorsApiFake(),
     accountSecurityApi: new AccountSecurityApiFake(TEST_NOW),
     userAdminApi: new UserAdminApiFake(TEST_NOW),
     accountLinksApi: new AccountLinksApiFake(),
