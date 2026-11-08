@@ -42,6 +42,7 @@ export { twoFactorChallenges } from '../modules/auth/two-factor-challenges.po';
 export { invitations } from '../modules/account-links/invitations.po';
 export { passwordResets } from '../modules/account-links/password-resets.po';
 export { savedRollFolders, savedRolls } from '../modules/saved-rolls/saved-rolls.po';
+export { accountSavedColors } from '../modules/saved-colors/saved-colors.po';
 
 export { libraryImages } from '../modules/library/library-images.po';
 export { libraryImagePresentations } from '../modules/library/image-presentations.po';

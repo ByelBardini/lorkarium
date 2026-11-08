@@ -53,6 +53,7 @@ import { SceneWallsService } from '../modules/walls/scene-walls.service';
 import { createWallsModule } from '../modules/walls/walls.plugin';
 import { createScenesModule } from '../modules/scenes/scenes.plugin';
 import { createLibraryModule } from '../modules/library/library.plugin';
+import { createSavedColorsModule } from '../modules/saved-colors/saved-colors.plugin';
 import { createSavedRollsModule } from '../modules/saved-rolls/saved-rolls.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
 import { createCharactersModule } from '../modules/characters/characters.plugin';
@@ -191,6 +192,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   });
   await app.register(sheets.plugin, { prefix: API_PREFIX });
   await app.register(createSavedRollsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
+  await app.register(createSavedColorsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;
   const avatars = new SharpAvatarProcessor();
   // Capped at the photo's limit: a larger link is cut while it downloads, not after.
