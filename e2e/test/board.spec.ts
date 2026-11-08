@@ -60,7 +60,11 @@ test('the room fills the screen, the grid changes live for everyone, the camera 
   await expect(boardOf(bia)).toHaveAccessibleName('Tabuleiro: Cena 1, 30 × 20 casas');
 
   // A new grid keeps the camera where it was: frame the bigger scene before reading its zoom.
+  // The label follows the camera one frame later (`reportCamera` on the ticker): wait for it to
+  // leave the old fit, or the read catches the zoom of the 20 × 12 grid.
+  const oldFit = await zoomLabelOf(admin).textContent();
   await admin.getByRole('button', { name: 'Enquadrar cena (0)' }).click();
+  await expect(zoomLabelOf(admin)).not.toHaveText(oldFit ?? '');
   const before = await zoomLabelOf(admin).textContent();
   await adminBoard.hover();
   await admin.keyboard.down('Control');
