@@ -1,0 +1,1 @@
+ALTER TABLE "condition_definitions" ADD CONSTRAINT "condition_definitions_color" CHECK ("condition_definitions"."color" IN ('gold', 'amber', 'ember', 'crimson', 'rose', 'violet', 'indigo', 'sky', 'teal', 'moss', 'lime', 'bone') OR "condition_definitions"."color" ~ '^#[0-9a-f]{6}$');

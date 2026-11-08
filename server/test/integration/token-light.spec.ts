@@ -65,6 +65,31 @@ describe('token light over Socket.IO', () => {
     }
   });
 
+  it('Ana giving Lyra a #336699 light reaches Bia, the sync keeps it and Quelm has nothing', async () => {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const lyraId = await lyraOfBia(ana.client, null);
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    const custom = { bright: 4, dim: 4, color: '#336699' };
+
+    await send(ana.client, 'token:update', updateOf(lyraId, custom));
+
+    const { token } = tokenUpdatedDto.parse(await eventPayload(bia, 'token:updated'));
+    expect(token.light).toEqual({ ...custom, angle: 360 });
+    const again = await live.atTable(live.bia, live.vharn);
+    expect((await synced(again, live.vharn)).tokens[0]?.light?.color).toBe('#336699');
+    const caio = await live.atTable(live.caio, live.quelm);
+    expect((await synced(caio, live.quelm)).tokens).toEqual([]);
+  });
+
+  it('Ana giving Lyra a light of red is INVALID_BODY', async () => {
+    const ana = await live.atTable(live.ana, live.vharn);
+    const lyraId = await lyraOfBia(ana, null);
+
+    const ack = await send(ana, 'token:update', updateOf(lyraId, { ...FIRE, color: 'red' }));
+
+    expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'INVALID_BODY' }) });
+  });
+
   it('Ana taking the light away (light null) takes the color too', async () => {
     const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
     const lyraId = await lyraOfBia(ana.client, FIRE);

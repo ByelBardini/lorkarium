@@ -126,6 +126,55 @@ describe('condition:updateDefinition', () => {
     }
   });
 
+  it('Ana painting Envenenado with a custom color reaches the table, the snapshot and the Kael, and not Quelm', async () => {
+    const ana = await live.atTable(live.ana, live.vharn);
+    const kaelId = await kaelHeldByEnvenenadoAndCego(ana);
+    const biaEvents = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    const quelmMaster = await live.atTable(live.caio, live.quelm);
+    const quelmBefore = await synced(quelmMaster, live.quelm);
+    const quelmEvents = recordEventsOf(quelmMaster);
+    const envenenado = definitionId(await synced(ana, live.vharn), 'Envenenado');
+
+    await send(ana, 'condition:updateDefinition', {
+      ...envenenadoEdit(live.vharn, envenenado),
+      color: '#336699',
+    });
+
+    const updated = conditionDefinitionUpdatedDto.parse(
+      await eventPayload(biaEvents, 'condition:definitionUpdated'),
+    );
+    expect(updated.definition.color).toBe('#336699');
+    const state = await synced(biaEvents.client, live.vharn);
+    const painted = state.conditionDefinitions.find(({ id }) => id === envenenado);
+    const onKael = state.tokens.find(({ id }) => id === kaelId)?.conditions;
+    expect(painted?.color).toBe('#336699');
+    expect(onKael?.find(({ conditionId }) => conditionId === envenenado)?.color).toBe('#336699');
+    await silence();
+    expect(quelmEvents.events.map(({ name }) => name)).toEqual([]);
+    expect((await synced(quelmMaster, live.quelm)).conditionDefinitions).toEqual(
+      quelmBefore.conditionDefinitions,
+    );
+  });
+
+  it.each(['red', '#f00', 'url(x)'])(
+    'Ana painting Envenenado with %s is INVALID_BODY and changes nothing',
+    async (color) => {
+      const ana = await live.atTable(live.ana, live.vharn);
+      const before = await synced(ana, live.vharn);
+      const edit = envenenadoEdit(live.vharn, definitionId(before, 'Envenenado'));
+
+      const ack = await send(ana, 'condition:updateDefinition', { ...edit, color });
+
+      expect(ack).toEqual({
+        ok: false,
+        error: expect.objectContaining({ code: 'INVALID_BODY' }),
+      });
+      expect((await synced(ana, live.vharn)).conditionDefinitions).toEqual(
+        before.conditionDefinitions,
+      );
+    },
+  );
+
   it('the next board:sync of Bia has the description on the definition and on the Kael', async () => {
     const ana = await live.atTable(live.ana, live.vharn);
     await kaelHeldByEnvenenadoAndCego(ana);

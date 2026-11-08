@@ -1,0 +1,2 @@
+ALTER TABLE "campaigns" ALTER COLUMN "cover_tone" SET DATA TYPE text;--> statement-breakpoint
+ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_cover_tone_value" CHECK ("campaigns"."cover_tone" ~ '^([1-4]|#[0-9a-f]{6})$');

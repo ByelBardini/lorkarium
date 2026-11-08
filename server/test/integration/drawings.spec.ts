@@ -19,6 +19,9 @@ const CIRCLE = {
   strokeWidth: 'medium',
 };
 
+const CUSTOM_CIRCLE = { ...CIRCLE, stroke: '#336699', fill: '#FFAA00' };
+const CUSTOM_COLORS = { stroke: '#336699', fill: '#ffaa00' };
+
 describe('drawings over Socket.IO', () => {
   const live = useTokenTable();
 
@@ -81,6 +84,32 @@ describe('drawings over Socket.IO', () => {
     const again = await live.atTable(live.bia, live.vharn);
     expect((await synced(again, live.vharn)).drawings).toEqual([
       expect.objectContaining({ kind: 'ellipse', x: 4, y: 4, width: 2 }),
+    ]);
+  });
+
+  it('custom colors reach the table in lowercase, come in the sync and survive a restart', async () => {
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const bia = await live.atTable(live.bia, live.vharn);
+
+    await send(bia, 'drawing:createMany', createOn(live.vharn.id, [CUSTOM_CIRCLE]));
+
+    expect(await createdOf(ana)).toMatchObject(CUSTOM_COLORS);
+    await live.restart();
+    const caio = await live.atTable(live.caio, live.vharn);
+    expect((await synced(caio, live.vharn)).drawings).toEqual([
+      expect.objectContaining(CUSTOM_COLORS),
+    ]);
+  });
+
+  it('a drawing with a custom color on Quelm is not in the snapshot of Vharn', async () => {
+    const caio = await live.atTable(live.caio, live.quelm);
+    await send(caio, 'drawing:createMany', createOn(live.quelm.id, [CUSTOM_CIRCLE]));
+
+    const ana = await live.atTable(live.ana, live.vharn);
+
+    expect((await synced(ana, live.vharn)).drawings).toEqual([]);
+    expect((await synced(caio, live.quelm)).drawings).toEqual([
+      expect.objectContaining(CUSTOM_COLORS),
     ]);
   });
 

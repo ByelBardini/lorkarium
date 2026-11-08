@@ -1,13 +1,14 @@
-import type { MemberColor } from '@lorkarium/game-core';
+import { isHexColor, type MemberColorDto } from '@lorkarium/contracts';
 import { useId } from 'react';
 import { UserAvatar } from '@/components/user-avatar';
+import { legibleInkOn } from '@/lib/color-contrast';
 import { memberColorCss } from '@/lib/member-color';
 import { memberSinceLabel } from '@/lib/member-since';
 
 export type ProfilePreviewProps = Readonly<{
   name: string;
   username: string;
-  color: MemberColor;
+  color: MemberColorDto;
   avatarId: string | null;
   bio: string;
   memberSince: string;
@@ -38,14 +39,18 @@ export function ProfilePreview(props: ProfilePreviewProps): React.JSX.Element {
       </div>
       <p className="text-sm text-muted-foreground">{memberSinceLabel(props.memberSince)}</p>
       {bio && <p className="max-w-prose text-sm text-label">{bio}</p>}
-      <PingIllustration name={shownName} color={memberColorCss(props.color)} />
+      <PingIllustration name={shownName} color={props.color} />
     </aside>
   );
 }
 
 const GRID_LINES = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220];
 
-function PingIllustration({ name, color }: Readonly<{ name: string; color: string }>) {
+const PALETTE_PLATE_INK = '#0c0e11';
+
+function PingIllustration({ name, color }: Readonly<{ name: string; color: MemberColorDto }>) {
+  const tone = memberColorCss(color);
+  const ink = isHexColor(color) ? legibleInkOn(color) : PALETTE_PLATE_INK;
   return (
     <figure className="flex flex-col gap-2">
       <svg viewBox="0 0 240 120" aria-hidden="true" className="w-full bg-panel text-divider">
@@ -55,10 +60,10 @@ function PingIllustration({ name, color }: Readonly<{ name: string; color: strin
         {GRID_LINES.filter((at) => at < 120).map((at) => (
           <line key={`h${at}`} x1={0} y1={at} x2={240} y2={at} stroke="currentColor" />
         ))}
-        <circle cx={120} cy={60} r={22} fill="none" stroke={color} strokeWidth={2.5} />
-        <circle cx={120} cy={60} r={4} fill={color} />
-        <rect x={136} y={22} width={76} height={18} rx={2} fill={color} />
-        <text x={142} y={35} fontSize={11} fontWeight={600} fill="#0c0e11">
+        <circle cx={120} cy={60} r={22} fill="none" stroke={tone} strokeWidth={2.5} />
+        <circle cx={120} cy={60} r={4} fill={tone} />
+        <rect x={136} y={22} width={76} height={18} rx={2} fill={tone} />
+        <text x={142} y={35} fontSize={11} fontWeight={600} fill={ink}>
           {name.slice(0, 12)}
         </text>
       </svg>

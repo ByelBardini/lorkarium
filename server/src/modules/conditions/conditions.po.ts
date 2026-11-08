@@ -1,4 +1,8 @@
-import type { ConditionColorDto, ConditionIconDto } from '@lorkarium/contracts';
+import {
+  CONDITION_COLORS,
+  type ConditionColorDto,
+  type ConditionIconDto,
+} from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -11,6 +15,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 import { assets } from '../assets/assets.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { characters } from '../characters/characters.po';
@@ -33,7 +38,7 @@ export const conditionDefinitions = pgTable(
     // Text, not a pg enum: the closed list lives in the contract, so adding an icon needs no migration.
     icon: text('icon').$type<ConditionIconDto>().notNull().default('circle-dot'),
     look: conditionLook('look'),
-    // Text like `icon`: a key of the contract's closed palette; null = painted by its tone.
+    // A name of the contract's palette or a custom #rrggbb (the CHECK below); null = by its tone.
     color: text('color').$type<ConditionColorDto>(),
     // Free text from the master about what it does; '' = none. No rule reads it (spec §3.7).
     description: text('description').notNull().default(''),
@@ -49,6 +54,7 @@ export const conditionDefinitions = pgTable(
       table.campaignId,
       sql`lower(${table.name})`,
     ),
+    check('condition_definitions_color', paletteOrHexSql(table.color, CONDITION_COLORS)),
   ],
 );
 

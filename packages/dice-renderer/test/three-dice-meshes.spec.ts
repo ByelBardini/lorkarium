@@ -52,6 +52,25 @@ describe('ThreeDiceMeshes.rollObjects', () => {
     expect(materialOf(body!).color.getHex()).toBe(EMBER_HEX);
   });
 
+  it('a custom profile color becomes the color of the body', () => {
+    const appearance = { ...COLORED, color: '#336699' } as const;
+    const [die] = new ThreeDiceMeshes(three, document, TEST_DICE_LOOK).rollObjects(
+      ['d6'],
+      appearance,
+    ).dice;
+
+    expect(materialOf(meshesOf(die!)[0]!).color.getHex()).toBe(0x336699);
+  });
+
+  it('a color the look has no tone for is refused citing the value and the kinds', () => {
+    const appearance = { ...COLORED, color: '#123456' } as const;
+    const meshes = new ThreeDiceMeshes(three, document, TEST_DICE_LOOK);
+
+    expect(() => meshes.rollObjects(['d6', 'd20'], appearance)).toThrow(
+      'Dice color "#123456" of d6, d20 has no hex in the look: expected colorHex("#123456") to return 0xrrggbb.',
+    );
+  });
+
   it('each number faces out of its face: the plane +z is the label normal', () => {
     const [die] = new ThreeDiceMeshes(three, document, TEST_DICE_LOOK).rollObjects(
       ['d8'],

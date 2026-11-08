@@ -24,4 +24,22 @@ describe('CampaignCover', () => {
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelectorAll('path')).toHaveLength(3);
   });
+
+  it('a numeric tone keeps its chart class, with no inline color', () => {
+    const { container } = render(<CampaignCover cover={{ kind: 'drawn', drawing: 1, tone: 3 }} />);
+
+    const art = container.querySelector('svg');
+    expect(art).toHaveClass('text-chart-3');
+    expect(art?.style.color).toBe('');
+  });
+
+  it('a custom tone paints the art by inline color, with no chart class', () => {
+    const cover = { kind: 'drawn', drawing: 1, tone: '#336699' } as const;
+    const { container } = render(<CampaignCover cover={cover} />);
+
+    const art = container.querySelector('svg');
+    expect(art).toHaveStyle({ color: '#336699' });
+    expect(art?.getAttribute('class')).not.toMatch(/text-chart/);
+    expect(container.firstElementChild).toHaveAttribute('data-cover-tone', '#336699');
+  });
 });

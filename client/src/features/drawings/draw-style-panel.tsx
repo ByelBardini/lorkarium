@@ -1,4 +1,4 @@
-import type { DrawingColorDto, StrokeWidthDto } from '@lorkarium/contracts';
+import type { DrawingPaletteDto, StrokeWidthDto } from '@lorkarium/contracts';
 import { Circle, MousePointer2, Pencil, Square, Triangle, type LucideIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DrawingKind } from '@/lib/drawing-geometry';
@@ -6,6 +6,7 @@ import { DRAWING_KINDS, STROKE_WIDTHS } from '@/lib/drawing-style';
 import type { DrawMode } from '@/stores/board-tool-state';
 import { useDrawingStyle, type DrawingStyleStore } from '@/stores/drawing-style-store';
 import { COLOR_TILES } from './color-tiles';
+import { PaletteColorField } from './palette-color-field';
 import { StyleTileGroup, type StyleTile } from './style-tile-group';
 
 export type DrawStylePanelProps = Readonly<{
@@ -19,7 +20,7 @@ export const FILL_ONLY_FIXED_HINT = 'Só formas fixas têm preenchimento.';
 
 // "Nenhum" is a radio value like the colors; the store keeps it as `null`.
 const NO_FILL = 'none';
-type FillChoice = DrawingColorDto | typeof NO_FILL;
+type FillChoice = DrawingPaletteDto | typeof NO_FILL;
 
 const KIND_ICONS: Readonly<Record<DrawingKind, LucideIcon>> = {
   freehand: Pencil,
@@ -117,19 +118,17 @@ function DrawingStyleGroups({
         onChange={actions.setKind}
         shape="square"
       />
-      <StyleTileGroup
+      <PaletteColorField
         legend="Cor do traço"
         value={stroke}
         tiles={COLOR_TILES}
         onChange={actions.setStroke}
-        shape="round"
       />
-      <StyleTileGroup
+      <PaletteColorField<FillChoice>
         legend="Preenchimento"
         value={fill ?? NO_FILL}
         tiles={FILL_TILES}
         onChange={(choice) => actions.setFill(choice === NO_FILL ? null : choice)}
-        shape="round"
         disabled={freehand}
         hint={freehand ? FILL_ONLY_FIXED_HINT : undefined}
       />

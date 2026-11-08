@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paletteOrHexDto } from '../color/hex-color.dto';
 import { realtimeAckFailureDto } from '../http/realtime-ack.dto';
 import { boardCommandShape, boardEventShape, tableEventShape } from './board-event.dto';
 import { tokenIdGroupDto } from './token-id-group.dto';
@@ -78,9 +79,8 @@ export const CONDITION_ICONS = [
 export const conditionIconDto = z.enum(CONDITION_ICONS);
 export type ConditionIconDto = z.infer<typeof conditionIconDto>;
 
-/** The color the master picks for a condition, a closed palette (read on the dark board) so the
- *  client only ever paints a known color; the keys name the hue, the client holds the values.
- *  `null` = painted by its tone (gold for a benefit, the error color otherwise). */
+/** The fixed colors the master picks from for a condition (read on the dark board); the keys name
+ *  the hue, the client holds the values. */
 export const CONDITION_COLORS = [
   'gold',
   'amber',
@@ -95,7 +95,19 @@ export const CONDITION_COLORS = [
   'lime',
   'bone',
 ] as const;
-export const conditionColorDto = z.enum(CONDITION_COLORS);
+
+/** One name of the fixed palette, for the exhaustive readers.
+ *
+ *  Example: `conditionPaletteDto.parse('sky')` */
+export const conditionPaletteDto = z.enum(CONDITION_COLORS);
+export type ConditionPaletteDto = z.infer<typeof conditionPaletteDto>;
+
+/** A condition's color: a name of the palette or a custom hex, so the client only ever paints a
+ *  name it knows or a `#rrggbb` (it goes into the icon's SVG). `null` on a definition = painted by
+ *  its tone (gold for a benefit, the error color otherwise).
+ *
+ *  Example: `conditionColorDto.parse('#336699') // '#336699'` */
+export const conditionColorDto = paletteOrHexDto(CONDITION_COLORS);
 export type ConditionColorDto = z.infer<typeof conditionColorDto>;
 
 /** The image the master put in place of a condition's icon: an asset of the table (purpose

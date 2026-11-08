@@ -430,8 +430,34 @@ describe('the color of a condition', () => {
     expect(defineConditionCommandDto.parse({ ...define, color }).color).toBe(color);
   });
 
-  it.each(['#ff0000', 'red', ''])('a color outside the palette (%s) is refused', (color) => {
-    expect(defineConditionCommandDto.safeParse({ ...define, color }).success).toBe(false);
+  it('a custom color is accepted and kept normalized', () => {
+    expect(defineConditionCommandDto.parse({ ...define, color: '#FF0000' }).color).toBe('#ff0000');
+  });
+
+  // conditionIconSvg writes the color into an SVG: nothing but #rrggbb may get through.
+  it.each(['red', '', '#f00', 'ff0000', '#ff0000;x', 'url(x)', '#ff0000"/><script>'])(
+    'a color neither of the palette nor #rrggbb (%s) is refused',
+    (color) => {
+      expect(defineConditionCommandDto.safeParse({ ...define, color }).success).toBe(false);
+    },
+  );
+
+  it('a definition and an active condition carry a custom color', () => {
+    const definition = {
+      id: CONDITION_ID,
+      name: 'Queimando',
+      tone: 'harm',
+      icon: 'flame',
+      look: null,
+      color: '#336699',
+      description: '',
+      maxStacks: null,
+      imageAssetId: null,
+    };
+    const active = { ...definition, conditionId: CONDITION_ID, stacks: 1, remainingRounds: null };
+    expect(conditionDefinitionDto.parse(definition).color).toBe('#336699');
+    expect(activeConditionDto.parse(active).color).toBe('#336699');
+    expect(activeConditionDto.safeParse({ ...active, color: 'url(x)' }).success).toBe(false);
   });
 
   it('an update without the color is refused: it replaces the whole definition', () => {

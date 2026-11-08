@@ -572,6 +572,29 @@ describe('live table session over Socket.IO', () => {
       ]);
     });
 
+    it('Bia at VHARN hears the custom color of Ana', async () => {
+      const biaEvents = recordEventsOf(await connect(bia));
+      await joined(biaEvents.client, vharn.id);
+
+      await saveProfile(ana, { color: '#336699' });
+
+      await biaEvents.until(1);
+      expect(updatesOf(biaEvents.events)[0]?.member).toMatchObject({
+        userId: ana.id,
+        color: '#336699',
+      });
+    });
+
+    it('Caio, only at QUELM, hears nothing of a custom color of Ana', async () => {
+      const caioEvents = recordEventsOf(await connect(caio));
+      await joined(caioEvents.client, quelm.id);
+
+      await saveProfile(ana, { color: '#336699' });
+
+      await silence();
+      expect(updatesOf(caioEvents.events)).toEqual([]);
+    });
+
     it('a new photo of Ana reaches Bia at VHARN with its id', async () => {
       const biaEvents = recordEventsOf(await connect(bia));
       await joined(biaEvents.client, vharn.id);

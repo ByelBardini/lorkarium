@@ -105,8 +105,18 @@ describe('createDrawingsCommandDto', () => {
     expect(messagesOf(result).join()).toMatch(/point 3,0.5.*inside the 2×1 box/);
   });
 
-  it('a free hex color is refused: only the palette goes', () => {
-    expect(createWith({ ...SQUARE, stroke: '#ff0000' }).success).toBe(false);
+  it('a custom stroke and fill are accepted and kept in lowercase', () => {
+    const result = createWith({ ...SQUARE, stroke: '#FF0000', fill: '#336699' });
+
+    expect(result.data?.drawings[0]).toMatchObject({ stroke: '#ff0000', fill: '#336699' });
+  });
+
+  it.each(['red', '#f00', 'url(x)'])('%s as the stroke is refused', (stroke) => {
+    expect(createWith({ ...SQUARE, stroke }).success).toBe(false);
+  });
+
+  it.each(['red', '#f00', 'url(x)'])('%s as the fill is refused', (fill) => {
+    expect(createWith({ ...SQUARE, fill }).success).toBe(false);
   });
 
   it('a rectangle of width 0 is refused', () => {

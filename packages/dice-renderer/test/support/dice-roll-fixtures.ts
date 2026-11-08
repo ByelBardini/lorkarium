@@ -5,10 +5,16 @@ import type { DiceLook } from '../../src/three-dice-meshes';
 export const EMBER_HEX = 0xe0704f;
 export const ROSE_HEX = 0xe58fb4;
 
-/** The host's palette as the specs see it: two profile colors, white numbers, textures under
+const TEST_PALETTE: ReadonlyMap<string, number> = new Map([
+  ['ember', EMBER_HEX],
+  ['rose', ROSE_HEX],
+  ['#336699', 0x336699],
+]);
+
+/** The host's palette as the specs see it: two profile colors and a custom one, white numbers, textures under
  *  `/textures/`. */
 export const TEST_DICE_LOOK: DiceLook = {
-  colorHex: { ember: EMBER_HEX, rose: ROSE_HEX },
+  colorHex: (color) => TEST_PALETTE.get(color),
   numberColorOf: () => '#ffffff',
   textureUrlOf: (textureId) => `/textures/${textureId}`,
 };

@@ -1,6 +1,7 @@
 import type { EffectAreaKindDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import { COLOR_TILES } from '@/features/drawings/color-tiles';
+import { PaletteColorField } from '@/features/drawings/palette-color-field';
 import { StyleTileGroup, type StyleTile } from '@/features/drawings/style-tile-group';
 import { EFFECT_AREA_KINDS } from '@/lib/effect-area-style';
 import { useEffectAreaStyle, type EffectAreaStyleStore } from '@/stores/effect-area-style-store';
@@ -67,12 +68,11 @@ export function EffectAreaPanel({ effectAreaStyle }: EffectAreaPanelProps): Reac
         onChange={actions.setKind}
         shape="grid"
       />
-      <StyleTileGroup
+      <PaletteColorField
         legend="Cor"
         value={color}
         tiles={COLOR_TILES}
         onChange={actions.setColor}
-        shape="round"
       />
     </section>
   );

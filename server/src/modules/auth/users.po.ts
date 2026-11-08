@@ -1,21 +1,10 @@
+import { MEMBER_COLOR_NAMES, type HexColorDto, type MemberColorDto } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
 import { check, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 
 // Global account role; game master/player/spectator are per-campaign roles (spec §6).
 export const userRole = pgEnum('user_role', ['user', 'admin']);
-
-/** The 8 person colors by name (game-core `MEMBER_COLORS`, the same order; the mapper's types
- *  catch a drift). Null on the row = automatic, drawn from the id. */
-export const memberColor = pgEnum('member_color', [
-  'gold',
-  'steel',
-  'ember',
-  'moss',
-  'violet',
-  'rose',
-  'teal',
-  'bone',
-]);
 
 export const BIO_MAX_LENGTH = 190;
 
@@ -33,13 +22,14 @@ export const users = pgTable(
     emailIndex: text('email_index').notNull().unique(),
     passwordHash: text('password_hash').notNull(),
     role: userRole('role').notNull().default('user'),
-    color: memberColor('color'),
+    // A name of the palette or a custom hex; null = automatic, drawn from the id.
+    color: text('color').$type<MemberColorDto>(),
     bio: text('bio'),
     avatarId: uuid('avatar_id'),
     // The dice appearance (no FK: the texture is an object in the bucket, as the photo).
     // Null texture = the profile color; null number color = automatic contrast.
     diceTextureId: uuid('dice_texture_id'),
-    diceNumberColor: text('dice_number_color'),
+    diceNumberColor: text('dice_number_color').$type<HexColorDto>(),
     passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
     // Set by an admin (backoffice): no login and no session while it holds; null = active.
     suspendedAt: timestamp('suspended_at', { withTimezone: true }),
@@ -54,6 +44,7 @@ export const users = pgTable(
   },
   (table) => [
     check('users_bio_length', sql`char_length(${table.bio}) <= ${sql.raw(String(BIO_MAX_LENGTH))}`),
+    check('users_color_value', paletteOrHexSql(table.color, MEMBER_COLOR_NAMES)),
     check('users_dice_number_color_hex', sql`${table.diceNumberColor} ~ '^#[0-9a-f]{6}$'`),
     check(
       'users_terms_acceptance_pair',

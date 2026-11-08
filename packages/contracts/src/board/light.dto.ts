@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paletteOrHexDto } from '../color/hex-color.dto';
 import { boardCommandShape, boardEventShape } from './board-event.dto';
 import { CONE_ANGLE_MAX, coneAngleDto, facingDto } from './direction.dto';
 import { REACH_MAX, reachSideDto } from './reach.dto';
@@ -32,10 +33,16 @@ export const LIGHT_COLORS = [
   'infernal',
 ] as const;
 
-/** The color a light tints what it shines on, by palette name, never a free hex.
+/** One name of the light palette, for the exhaustive readers.
  *
- *  Example: `lightColorDto.parse('infernal')` */
-export const lightColorDto = z.enum(LIGHT_COLORS);
+ *  Example: `lightPaletteDto.parse('infernal')` */
+export const lightPaletteDto = z.enum(LIGHT_COLORS);
+export type LightPaletteDto = z.infer<typeof lightPaletteDto>;
+
+/** The color a light tints what it shines on: a name of the palette or a custom hex.
+ *
+ *  Example: `lightColorDto.parse('#FFAA00') // '#ffaa00'` */
+export const lightColorDto = paletteOrHexDto(LIGHT_COLORS);
 export type LightColorDto = z.infer<typeof lightColorDto>;
 
 /** The light a token gives off: its range, its color (absent is neutral) and how wide its beam

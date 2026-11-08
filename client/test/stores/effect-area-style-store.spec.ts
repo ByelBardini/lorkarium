@@ -23,10 +23,17 @@ describe('effect area style store', () => {
     });
   });
 
+  it('a custom color comes back from the storage on a new store', () => {
+    const storage = new StorageFake();
+    createEffectAreaStyleStore(storage).getState().setColor('#336699');
+
+    expect(createEffectAreaStyleStore(storage).getState().color).toBe('#336699');
+  });
+
   it('a stored value outside the lists falls back to the default', () => {
     const storage = new StorageFake();
     storage.setItem('lorkarium.effectAreaStyle.kind', 'hexagon');
-    storage.setItem('lorkarium.effectAreaStyle.color', '#ff0000');
+    storage.setItem('lorkarium.effectAreaStyle.color', 'url(x)');
 
     const style = createEffectAreaStyleStore(storage).getState();
 

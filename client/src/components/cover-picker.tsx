@@ -2,10 +2,13 @@ import type { CampaignCoverDto, DrawnCampaignCoverDto } from '@lorkarium/contrac
 import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 import { useId, useState } from 'react';
 import { CampaignCover } from '@/components/campaign-cover';
+import { CustomColorTile } from '@/components/color-picker/custom-color-tile';
 import { cn } from '@/lib/utils';
 
 // Index = the `drawing` of the cover (the order of the art in `CampaignCover`).
 const DRAWING_NAMES = ['Masmorra', 'Costa', 'Montanhas'] as const;
+
+type CoverTone = DrawnCampaignCoverDto['tone'];
 
 // Index + 1 = the `tone` of the cover (`chart-1..4`).
 const TONES = [
@@ -32,8 +35,9 @@ export type CoverPickerProps = Readonly<{
 }>;
 
 /** The campaign cover as two radio groups, a row of drawings and a row of tones (arrows move the
- *  choice), plus an optional image slot. With an image chosen, no drawing nor tone is checked;
- *  picking one goes back to the last drawn cover with that change.
+ *  choice), plus an optional image slot. After the tones, a tile opens the custom color. With an
+ *  image chosen, no drawing nor tone is checked; picking one goes back to the last drawn cover
+ *  with that change.
  *
  *  Example: `<CoverPicker value={draft.cover} onChange={(cover) => change({ cover })} />` */
 export function CoverPicker(props: CoverPickerProps): React.JSX.Element {
@@ -74,7 +78,7 @@ type GroupProps = Readonly<{
   onPick: (choice: number) => void;
 }>;
 
-function DrawingGroup(props: GroupProps & Readonly<{ tone: number }>): React.JSX.Element {
+function DrawingGroup(props: GroupProps & Readonly<{ tone: CoverTone }>): React.JSX.Element {
   return (
     <PickerGroup label="Desenho" {...props} value={props.cover?.drawing}>
       {DRAWING_NAMES.map((name, drawing) => (
@@ -97,9 +101,13 @@ function DrawingGroup(props: GroupProps & Readonly<{ tone: number }>): React.JSX
   );
 }
 
-function ToneGroup(props: GroupProps): React.JSX.Element {
+type ToneGroupProps = Omit<GroupProps, 'onPick'> & Readonly<{ onPick: (tone: CoverTone) => void }>;
+
+// A hex checks no radio and marks the tile; the tile is no radio, so the arrows never open it.
+function ToneGroup(props: ToneGroupProps): React.JSX.Element {
+  const tone = props.cover?.tone;
   return (
-    <PickerGroup label="Tom" {...props} value={props.cover?.tone}>
+    <PickerGroup label="Tom" {...props} value={typeof tone === 'number' ? tone : undefined}>
       {TONES.map(({ name, swatch }, index) => (
         <RadioGroupPrimitive.Item
           key={name}
@@ -113,6 +121,12 @@ function ToneGroup(props: GroupProps): React.JSX.Element {
           <span aria-hidden="true" className={cn('size-5 rounded-sm', swatch)} />
         </RadioGroupPrimitive.Item>
       ))}
+      <CustomColorTile
+        value={typeof tone === 'string' ? tone : null}
+        onPick={props.onPick}
+        disabled={props.disabled}
+        className="size-9 rounded-md"
+      />
     </PickerGroup>
   );
 }

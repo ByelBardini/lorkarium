@@ -94,6 +94,21 @@ describe('lightTintViewOf', () => {
     expect(recolored).not.toBe(same);
   });
 
+  it('a custom #336699 light tints with 0x336699', () => {
+    const view = lightTintViewOf(input({ lights: [corridorTorch({ color: '#336699' })] }));
+
+    expect(view?.tints.map(({ color }) => color)).toEqual([0x336699]);
+  });
+
+  it('#336699 and #336698, one digit apart, draw under different keys', () => {
+    const first = lightTintViewOf(input({ lights: [corridorTorch({ color: '#336699' })] }));
+    const nudged = lightTintViewOf(input({ lights: [corridorTorch({ color: '#336698' })] }));
+
+    expect(nudged?.key).not.toBe(first?.key);
+    expect(nudged).not.toBe(first);
+    expect(nudged?.tints.map(({ color }) => color)).toEqual([0x336698]);
+  });
+
   it('the light of a dragged Lyra tints from the cell where she would land', () => {
     const fire = lyra({
       col: 3,

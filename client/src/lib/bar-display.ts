@@ -1,4 +1,10 @@
-import type { BarColorDto, TokenBarDto } from '@lorkarium/contracts';
+import {
+  isHexColor,
+  type BarColorDto,
+  type BarPaletteDto,
+  type TokenBarDto,
+} from '@lorkarium/contracts';
+import { colorNumberOf } from './custom-color';
 
 export type BarFillState = 'normal' | 'negative' | 'over';
 
@@ -15,7 +21,7 @@ export type BarFill = Readonly<{
 type BarValue = Pick<TokenBarDto, 'current' | 'max' | 'temp'>;
 type ShownBar = Pick<TokenBarDto, 'current' | 'max' | 'temp' | 'display'>;
 
-const TONE_VAR: Readonly<Record<BarColorDto, string>> = {
+const TONE_VAR: Readonly<Record<BarPaletteDto, string>> = {
   gold: 'var(--chart-1)',
   steel: 'var(--chart-2)',
   ember: 'var(--chart-3)',
@@ -23,8 +29,17 @@ const TONE_VAR: Readonly<Record<BarColorDto, string>> = {
   ash: 'var(--chart-5)',
 };
 
+// The same tones as numbers: the canvas cannot read CSS variables.
+const TONE_NUMBER: Readonly<Record<BarPaletteDto, number>> = {
+  gold: 0xc5a46d,
+  steel: 0x8a9bb8,
+  ember: 0xb5654f,
+  moss: 0x7f9a7a,
+  ash: 0xa9a497,
+};
+
 /** The name of each bar color, as the bar editor offers it. */
-export const BAR_COLOR_LABEL: Readonly<Record<BarColorDto, string>> = {
+export const BAR_COLOR_LABEL: Readonly<Record<BarPaletteDto, string>> = {
   gold: 'Ouro',
   steel: 'Aço',
   ember: 'Brasa',
@@ -79,9 +94,16 @@ function signed(value: number): string {
   return value < 0 ? `${MINUS}${Math.abs(value)}` : String(value);
 }
 
-/** The CSS variable of a bar color, for an inline `style` (the canvas reads the hex itself).
+/** The CSS value of a bar color, for an inline `style`: the palette's variable or the custom hex.
  *
  *  Example: `<span style={{ background: barToneVar(bar.color) }} />` */
 export function barToneVar(color: BarColorDto): string {
-  return TONE_VAR[color];
+  return isHexColor(color) ? color : TONE_VAR[color];
+}
+
+/** A bar color as a number for the canvas.
+ *
+ *  Example: `barColorNumber('#336699') // 0x336699` */
+export function barColorNumber(color: BarColorDto): number {
+  return isHexColor(color) ? colorNumberOf(color) : TONE_NUMBER[color];
 }

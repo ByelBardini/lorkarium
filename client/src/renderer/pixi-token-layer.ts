@@ -1,6 +1,7 @@
 import { Container, Graphics, Text, type Texture } from 'pixi.js';
+import { barColorNumber } from '@/lib/bar-display';
 import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
-import type { BarColorDto, TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
+import type { TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
 import { facingVector } from '@lorkarium/game-core';
 import type { GhostView, TokenView } from './board-view';
 import { type Point, textResolutionFor, zoomProofTextResolution } from './camera';
@@ -35,13 +36,6 @@ const RING_COLOR: Readonly<Record<TokenSideDto, number>> = {
   ally: 0xd5d0c4,
   enemy: 0xb5654f,
   neutral: 0x8a9bb8,
-};
-const BAR_COLOR: Readonly<Record<BarColorDto, number>> = {
-  gold: 0xc5a46d,
-  steel: 0x8a9bb8,
-  ember: 0xb5654f,
-  moss: 0x7f9a7a,
-  ash: 0xa9a497,
 };
 const MOVE_ANIMATION_MS = 150;
 const SILHOUETTE = { color: 0x000000, alpha: 0.9 } as const;
@@ -455,7 +449,7 @@ function drawBar(shape: Graphics, view: TokenView, box: TokenShape): void {
   const top = box.height - BAR_HEIGHT - 3;
   const tones: Readonly<Record<BarTone, number>> = {
     track: BAR_TRACK_COLOR,
-    fill: BAR_COLOR[view.bar.color],
+    fill: barColorNumber(view.bar.color),
     negative: BAR_NEGATIVE_COLOR,
     over: BAR_OVER_COLOR,
     temp: BAR_TEMP_COLOR,

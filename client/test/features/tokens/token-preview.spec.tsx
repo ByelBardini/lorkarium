@@ -97,6 +97,17 @@ describe('TokenPreview', () => {
     expect(glow?.style.background).toContain('rgba(255, 59, 59, 0.22)');
   });
 
+  it('a custom #336699 light glows in that tone', () => {
+    const { container } = renderPreviewWith({
+      ...emptyTokenForm(METERS),
+      light: { on: true, bright: '6', dim: '12', saved: false },
+      lightColor: '#336699',
+    });
+
+    const glow = container.querySelector<HTMLElement>('[data-light-glow]');
+    expect(glow?.style.background).toContain('rgba(51, 102, 153, 0.22)');
+  });
+
   it('a neutral light glows in the gold of today', () => {
     const { container } = renderPreviewWith({
       ...emptyTokenForm(METERS),

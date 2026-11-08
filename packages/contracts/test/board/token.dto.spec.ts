@@ -148,10 +148,13 @@ describe('createTokenCommandDto', () => {
     expect(issuePathsOf({ ...CREATE, side: 'boss' })).toEqual(['side']);
   });
 
-  it('a color outside the five is refused', () => {
-    expect(issuePathsOf({ ...CREATE, bars: [{ ...PV, color: '#ff0000' }] })).toEqual([
-      'bars.0.color',
-    ]);
+  it('a custom hex is a bar color, normalized to lowercase', () => {
+    const parsed = createTokenCommandDto.parse({ ...CREATE, bars: [{ ...PV, color: '#FF0000' }] });
+    expect(parsed.bars[0]?.color).toBe('#ff0000');
+  });
+
+  it.each(['red', '#f00', 'url(x)', '#ff0000;x'])('the color %s is refused', (color) => {
+    expect(issuePathsOf({ ...CREATE, bars: [{ ...PV, color }] })).toEqual(['bars.0.color']);
   });
 
   it('canControl in a command is refused (the server decides it)', () => {

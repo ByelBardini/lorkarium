@@ -1,12 +1,18 @@
-import type { LightColorDto } from '@lorkarium/contracts';
+import {
+  isHexColor,
+  type HexColorDto,
+  type LightColorDto,
+  type LightPaletteDto,
+} from '@lorkarium/contracts';
+import { colorNumberOf } from './custom-color';
 
-/** A palette name, or `null` for a neutral light (it reveals without tinting). */
+/** A palette name, a custom hex, or `null` for a neutral light (it reveals without tinting). */
 export type LightColor = LightColorDto | null;
 
 /** The light palette in order, with its pt-BR name and tone: each one tuned to tint the map
  *  without hiding it. Hex because the canvas cannot read CSS. */
 export const LIGHT_COLOR_TONES: ReadonlyArray<
-  Readonly<{ color: LightColorDto; label: string; hex: string }>
+  Readonly<{ color: LightPaletteDto; label: string; hex: HexColorDto }>
 > = [
   { color: 'torch', label: 'Tocha', hex: '#ff9f43' },
   { color: 'candle', label: 'Vela', hex: '#ffd27a' },
@@ -24,13 +30,14 @@ export const NEUTRAL_LIGHT_LABEL = 'Neutra';
  *
  *  Example: `lightColorHex('fire') // 0xff6a2b` */
 export function lightColorHex(color: LightColor): number | null {
-  const tone = LIGHT_COLOR_TONES.find((entry) => entry.color === color);
-  return tone ? Number.parseInt(tone.hex.slice(1), 16) : null;
+  const tone = lightColorCss(color);
+  return tone === null ? null : colorNumberOf(tone);
 }
 
 /** The tone of a light as CSS, for the panels; `null` for a neutral light.
  *
  *  Example: `lightColorCss('moon') // '#9ec3ff'` */
-export function lightColorCss(color: LightColor): string | null {
+export function lightColorCss(color: LightColor): HexColorDto | null {
+  if (color === null || isHexColor(color)) return color;
   return LIGHT_COLOR_TONES.find((entry) => entry.color === color)?.hex ?? null;
 }

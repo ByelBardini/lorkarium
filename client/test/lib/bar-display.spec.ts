@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { BAR_COLOR_LABEL, barFill, barToneVar, formatBarValue } from '@/lib/bar-display';
+import {
+  BAR_COLOR_LABEL,
+  barColorNumber,
+  barFill,
+  barToneVar,
+  formatBarValue,
+} from '@/lib/bar-display';
 
 describe('barFill', () => {
   it('32 of 45 fills 71% and is normal', () => {
@@ -113,5 +119,20 @@ describe('bar colors', () => {
   ] as const)('%s is %s, named %s', (color, cssVar, label) => {
     expect(barToneVar(color)).toBe(cssVar);
     expect(BAR_COLOR_LABEL[color]).toBe(label);
+  });
+
+  it('a custom hex is its own tone', () => {
+    expect(barToneVar('#336699')).toBe('#336699');
+  });
+
+  it.each([
+    ['gold', 0xc5a46d],
+    ['steel', 0x8a9bb8],
+    ['ember', 0xb5654f],
+    ['moss', 0x7f9a7a],
+    ['ash', 0xa9a497],
+    ['#336699', 0x336699],
+  ] as const)('%s is the number %i on the canvas', (color, value) => {
+    expect(barColorNumber(color)).toBe(value);
   });
 });

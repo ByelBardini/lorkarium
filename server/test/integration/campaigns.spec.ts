@@ -171,6 +171,19 @@ describe('campaigns HTTP edge', () => {
       expect(created.lastAccessAt).toBeNull();
     });
 
+    it('a new campaign keeps a custom cover tone, read back from the database', async () => {
+      const cover = { kind: 'drawn', drawing: 1, tone: '#336699' } as const;
+      const created = await createCampaign(ana, { cover });
+      const response = await call('GET', `/campaigns/${created.id}`, ana);
+      expect(campaignResponseDto.parse(response.json()).campaign.cover).toEqual(cover);
+    });
+
+    it.each(['#fff', 'red', 5])('a new campaign with the cover tone %j is a 400', async (tone) => {
+      const cover = { kind: 'drawn', drawing: 1, tone };
+      const response = await call('POST', '/campaigns', ana, { name: 'Vharn', cover });
+      expect(response.statusCode).toBe(400);
+    });
+
     it('the last access of the detail is the latest entry of any member', async () => {
       const created = await createCampaign(ana);
       await call('POST', `/campaigns/${created.id}/enter`, ana);

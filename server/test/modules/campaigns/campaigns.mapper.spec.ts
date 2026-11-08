@@ -236,12 +236,36 @@ describe('the campaign settings in the mapper', () => {
   });
 
   it('a chosen drawing is the cover', () => {
-    const campaign = campaignPo({ coverDrawing: 2, coverTone: 4 });
+    const campaign = campaignPo({ coverDrawing: 2, coverTone: '4' });
     expect(coverOf(campaign)).toEqual({ kind: 'drawn', drawing: 2, tone: 4 });
   });
 
+  it('a stored digit comes back as the number of the tone', () => {
+    expect(coverOf(campaignPo({ coverDrawing: 1, coverTone: '3' }))).toEqual({
+      kind: 'drawn',
+      drawing: 1,
+      tone: 3,
+    });
+  });
+
+  it('a stored hex is the custom tone of the cover', () => {
+    expect(coverOf(campaignPo({ coverDrawing: 1, coverTone: '#336699' }))).toEqual({
+      kind: 'drawn',
+      drawing: 1,
+      tone: '#336699',
+    });
+  });
+
+  it.each(['9', '0', 'red', '#FFF', ''])(
+    'a stored cover_tone %j is corrupt: it throws citing the value and the shape',
+    (stored) => {
+      const campaign = campaignPo({ coverDrawing: 1, coverTone: stored });
+      expect(() => coverOf(campaign)).toThrow(`"${stored}": expected 1..4 or #rrggbb`);
+    },
+  );
+
   it('an image cover wins over a stored drawing', () => {
-    const campaign = campaignPo({ coverDrawing: 2, coverTone: 4, coverAssetId: COVER_ID });
+    const campaign = campaignPo({ coverDrawing: 2, coverTone: '4', coverAssetId: COVER_ID });
     expect(coverOf(campaign)).toEqual({ kind: 'image', assetId: COVER_ID });
   });
 
@@ -295,9 +319,18 @@ describe('the campaign settings in the mapper', () => {
     expect(toNewCampaignPo(input, owned)).toMatchObject({
       status: 'recruiting',
       coverDrawing: 1,
-      coverTone: 2,
+      coverTone: '2',
       coverAssetId: null,
     });
+  });
+
+  it('a new campaign keeps a custom tone as it came', () => {
+    const input = createCampaignRequestDto.parse({
+      name: 'Vharn',
+      cover: { kind: 'drawn', drawing: 1, tone: '#336699' },
+    });
+    const owned = { ownerId: ANA_ID, joinCode: 'VHRN7K2Q', passwordHash: null };
+    expect(toNewCampaignPo(input, owned)).toMatchObject({ coverDrawing: 1, coverTone: '#336699' });
   });
 
   it('a new campaign without a cover leaves the cover columns out', () => {
@@ -325,7 +358,7 @@ describe('the campaign settings in the mapper', () => {
     const image = patchOf({ cover: { kind: 'image', assetId: COVER_ID } }, at);
     const drawn = patchOf({ cover: { kind: 'drawn', drawing: 0, tone: 3 } }, at);
     expect(image).toMatchObject({ coverAssetId: COVER_ID, coverDrawing: null, coverTone: null });
-    expect(drawn).toMatchObject({ coverAssetId: null, coverDrawing: 0, coverTone: 3 });
+    expect(drawn).toMatchObject({ coverAssetId: null, coverDrawing: 0, coverTone: '3' });
   });
 
   it('a token setting sent alone writes only its column, plus the moment', () => {

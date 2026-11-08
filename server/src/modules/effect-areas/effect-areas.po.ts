@@ -1,3 +1,4 @@
+import { DRAWING_PALETTE, type DrawingColorDto } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -7,11 +8,12 @@ import {
   pgEnum,
   pgTable,
   smallint,
+  text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 import { users } from '../auth/users.po';
-import { drawingColor } from '../drawings/drawings.po';
 import { scenes } from '../scenes/scenes.po';
 
 export const effectAreaKind = pgEnum('effect_area_kind', [
@@ -46,12 +48,13 @@ export const effectAreas = pgTable(
     height: numeric('height', { precision: 8, scale: 2 }).notNull(),
     reach: numeric('reach', { precision: 8, scale: 2 }).notNull(),
     facing: smallint('facing').notNull().default(0),
-    color: drawingColor('color').notNull(),
+    color: text('color').$type<DrawingColorDto>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('effect_areas_scene_id_idx').on(table.sceneId),
     check('effect_areas_facing_range', sql`${table.facing} >= 0 AND ${table.facing} <= 359`),
+    check('effect_areas_color_value', paletteOrHexSql(table.color, DRAWING_PALETTE)),
     check(
       'effect_areas_sizes_range',
       sql`${table.x} >= 0 AND ${table.y} >= 0 AND ${table.width} >= 0 AND ${table.height} >= 0 AND ${table.reach} >= 0`,

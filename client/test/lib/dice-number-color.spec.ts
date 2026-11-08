@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MEMBER_COLORS } from '@lorkarium/game-core';
-import { contrastRatioOf, diceNumberColorOf } from '@/lib/dice-number-color';
+import { contrastRatioOf } from '@/lib/color-contrast';
+import { diceNumberColorOf } from '@/lib/dice-number-color';
 import { memberColorCss } from '@/lib/member-color';
 
 describe('diceNumberColorOf', () => {
@@ -14,6 +15,18 @@ describe('diceNumberColorOf', () => {
   it.each(MEMBER_COLORS)('without texture, the number on %s reads at contrast ≥ 4.5', (color) => {
     const number = diceNumberColorOf({ color, textureId: null, numberColor: null });
     expect(contrastRatioOf(number, memberColorCss(color))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('without texture, a dark custom color gets the light number', () => {
+    expect(diceNumberColorOf({ color: '#101010', textureId: null, numberColor: null })).toBe(
+      '#ffffff',
+    );
+  });
+
+  it('without texture, a light custom color gets the dark number', () => {
+    expect(diceNumberColorOf({ color: '#f0e6d2', textureId: null, numberColor: null })).toBe(
+      '#1a1a1a',
+    );
   });
 
   it('with a texture and no choice, the number is white', () => {

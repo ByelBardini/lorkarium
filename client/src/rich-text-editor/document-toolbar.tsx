@@ -24,6 +24,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { documentLinkDto } from '@lorkarium/contracts';
+import { useState } from 'react';
+import { CustomColorPanel } from '@/components/color-picker/custom-color-panel';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -274,9 +276,13 @@ function editLink(editor: Editor): void {
   else if (href && documentLinkDto.safeParse(href).success)
     editor.chain().focus().setLink({ href }).run();
 }
+// Where the preview starts on text without a color of its own: the app's `--foreground`.
+const DEFAULT_TEXT_COLOR = '#eae5da';
+
 function TextColor({ editor }: { editor: Editor }): React.JSX.Element {
+  const [open, setOpen] = useState(false);
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button type="button" variant="ghost" size="icon-sm" aria-label="Opções de cor do texto">
           <span
@@ -290,24 +296,20 @@ function TextColor({ editor }: { editor: Editor }): React.JSX.Element {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-48 p-3"
+        aria-label="Cor do texto"
+        className="w-72"
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           refocusEditor(editor);
         }}
       >
-        <label className="flex items-center justify-between gap-4 text-xs">
-          Cor do texto
-          <input
-            aria-label="Cor do texto"
-            type="color"
-            className="h-8 w-10 rounded-sm border border-input bg-card"
-            value={String(editor.getAttributes('textStyle').color ?? '#eae5da')}
-            onChange={(event) => {
-              editor.chain().focus().setColor(event.target.value).run();
-            }}
-          />
-        </label>
+        <CustomColorPanel
+          value={String(editor.getAttributes('textStyle').color ?? DEFAULT_TEXT_COLOR)}
+          onPick={(color) => {
+            setOpen(false);
+            editor.chain().focus().setColor(color).run();
+          }}
+        />
         <Button
           variant="ghost"
           size="sm"

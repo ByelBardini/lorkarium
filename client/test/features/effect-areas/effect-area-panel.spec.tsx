@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { EffectAreaPanel } from '@/features/effect-areas/effect-area-panel';
 import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
+import { pickCustomColor } from '../../support/pick-custom-color';
 import { StorageFake } from '../../support/storage-fake';
 
 function renderPanel() {
@@ -50,5 +51,16 @@ describe('EffectAreaPanel', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Musgo' }));
 
     expect(store.getState()).toMatchObject({ kind: 'diagonal_cone', color: 'moss' });
+  });
+
+  it('a hex goes to the style and marks the tile, with no swatch checked', async () => {
+    const store = renderPanel();
+    const colors = within(screen.getByRole('radiogroup', { name: 'Cor' }));
+
+    await pickCustomColor(colors.getByRole('button', { name: 'Cor personalizada' }), '#336699');
+
+    expect(store.getState().color).toBe('#336699');
+    expect(colors.getByRole('button', { name: 'Cor personalizada: #336699' })).toBeInTheDocument();
+    for (const radio of colors.getAllByRole('radio')) expect(radio).not.toBeChecked();
   });
 });

@@ -217,7 +217,7 @@ describe('CampaignsService', () => {
     expect(campaigns.rows[0]).toMatchObject({
       status: 'recruiting',
       coverDrawing: 2,
-      coverTone: 3,
+      coverTone: '3',
     });
     expect(detail).toMatchObject({ status: 'recruiting', cover });
   });

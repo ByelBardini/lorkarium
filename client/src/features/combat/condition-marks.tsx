@@ -1,6 +1,6 @@
 import type { ConditionColorDto, ConditionIconDto, ConditionToneDto } from '@lorkarium/contracts';
 import { useState } from 'react';
-import { CONDITION_COLOR_ENTRIES } from '@/lib/condition-colors';
+import { chosenConditionColorOf } from '@/lib/condition-colors';
 import { CONDITION_ICON_ENTRIES } from '@/lib/condition-icons';
 import { cn } from '@/lib/utils';
 import { assetUrlOf } from '@/services/assets-api';
@@ -35,7 +35,7 @@ export function ConditionGlyph(props: ConditionGlyphProps): React.JSX.Element {
   const Glyph = CONDITION_ICON_ENTRIES[icon].glyph;
   const size = props.className ?? 'size-4';
   if (color !== null) {
-    const style = { color: CONDITION_COLOR_ENTRIES[color].hex };
+    const style = { color: chosenConditionColorOf(color) };
     return (
       <Glyph aria-hidden="true" data-icon={icon} className={cn(size, 'shrink-0')} style={style} />
     );
@@ -97,7 +97,7 @@ function DarkGlyph({ icon }: Readonly<{ icon: ConditionIconDto }>): React.JSX.El
 // A runtime color goes by style: Tailwind cannot build a class from it (Armadilhas, conditions.md).
 function filledLookOf(color: ConditionColorDto | null): RingLook {
   if (color === null) return { className: 'border border-destructive bg-destructive' };
-  const hex = CONDITION_COLOR_ENTRIES[color].hex;
+  const hex = chosenConditionColorOf(color);
   return { className: 'border', style: { borderColor: hex, backgroundColor: hex } };
 }
 
@@ -110,6 +110,6 @@ function ringLookOf(
   const width = pictured && tone === 'incapacitating' ? 'border-2' : 'border';
   const base = cn('bg-background', width);
   if (color !== null)
-    return { className: base, style: { borderColor: CONDITION_COLOR_ENTRIES[color].hex } };
+    return { className: base, style: { borderColor: chosenConditionColorOf(color) } };
   return { className: cn(base, tone === 'benefit' ? 'border-primary' : 'border-destructive') };
 }

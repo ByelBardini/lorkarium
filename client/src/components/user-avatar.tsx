@@ -1,5 +1,7 @@
-import { initialsOf, type MemberColor } from '@lorkarium/game-core';
-import { useState } from 'react';
+import { isHexColor, type MemberColorDto } from '@lorkarium/contracts';
+import { initialsOf } from '@lorkarium/game-core';
+import { useState, type CSSProperties } from 'react';
+import { legibleInkOn } from '@/lib/color-contrast';
 import { memberColorCss } from '@/lib/member-color';
 import { cn } from '@/lib/utils';
 
@@ -9,7 +11,7 @@ export type UserAvatarProps = Readonly<{
   /** The nickname: its initials stand in when there is no photo. */
   name: string;
   /** The effective color: the background of the initials. */
-  color: MemberColor;
+  color: MemberColorDto;
   avatarId: string | null;
   size?: UserAvatarSize;
   /** Empty (the default) when the avatar sits beside the name; a name when it stands alone. */
@@ -38,8 +40,12 @@ export function UserAvatar(props: UserAvatarProps): React.JSX.Element {
       <span
         {...label}
         data-testid="avatar-initials"
-        style={{ backgroundColor: memberColorCss(color) }}
-        className={cn(frame, 'grid place-items-center font-brand font-semibold text-panel')}
+        style={initialsStyleOf(color)}
+        className={cn(
+          frame,
+          'grid place-items-center font-brand font-semibold',
+          !isHexColor(color) && 'text-panel',
+        )}
       >
         {initialsOf(name)}
       </span>
@@ -54,6 +60,12 @@ export function UserAvatar(props: UserAvatarProps): React.JSX.Element {
       className={cn(frame, 'bg-muted object-cover')}
     />
   );
+}
+
+// The palette is bright enough for the panel ink; a custom color can be anything.
+function initialsStyleOf(color: MemberColorDto): CSSProperties {
+  const backgroundColor = memberColorCss(color);
+  return isHexColor(color) ? { backgroundColor, color: legibleInkOn(color) } : { backgroundColor };
 }
 
 function avatarUrlOf(avatarId: string): string {

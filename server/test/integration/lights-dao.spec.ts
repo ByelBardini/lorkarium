@@ -12,7 +12,6 @@ import { newCampaignPo } from '../support/campaigns-factories';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const CHECK_VIOLATION = '23514';
-const INVALID_TEXT = '22P02';
 
 describe('LightsDao on Postgres', () => {
   let connection: DatabaseConnection;
@@ -65,6 +64,14 @@ describe('LightsDao on Postgres', () => {
     expect((await lights.listOfScene(sceneId)).map(({ color }) => color)).toEqual(['fire', null]);
   });
 
+  it('setColors saves a custom #336699 and reads it back', async () => {
+    const saved = await savedOne(wallTorch({ color: 'fire' }));
+
+    await lights.setColors(sceneId, [{ lightId: saved.id, color: '#336699' }]);
+
+    expect((await lights.listOfScene(sceneId))[0]?.color).toBe('#336699');
+  });
+
   it('moving, ranging and putting out a fire light keep its color', async () => {
     const saved = await savedOne(wallTorch({ color: 'fire' }));
 
@@ -75,12 +82,12 @@ describe('LightsDao on Postgres', () => {
     expect((await lights.listOfScene(sceneId))[0]?.color).toBe('fire');
   });
 
-  it('the light_color enum refuses red written straight to the table', async () => {
+  it('the CHECK refuses red written straight to the table', async () => {
     await expect(
       connection.db.execute(
         sql`INSERT INTO lights (scene_id, x, y, bright, dim, color) VALUES (${sceneId}, 1, 1, 1, 1, 'red')`,
       ),
-    ).rejects.toMatchObject({ cause: { code: INVALID_TEXT } });
+    ).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } });
   });
 
   it('a light inserted without lit is born lit, and the numerics come back as strings', async () => {

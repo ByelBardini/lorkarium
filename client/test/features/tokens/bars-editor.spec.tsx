@@ -17,6 +17,7 @@ function Harness({ start = [], errors }: HarnessProps): React.JSX.Element {
     <>
       <BarsEditor bars={bars} errors={errors} onChange={setBars} />
       <output aria-label="Ordem">{bars.map(({ label }) => label).join(',')}</output>
+      <output aria-label="Cores">{bars.map(({ color }) => color).join(',')}</output>
     </>
   );
 }
@@ -173,6 +174,42 @@ describe('BarsEditor, look of a bar', () => {
     expect(max).toHaveValue('4');
     await userEvent.clear(max);
     expect(within(row(0)).queryByText(/ \/ /)).not.toBeInTheDocument();
+  });
+});
+
+describe('BarsEditor, custom color', () => {
+  async function pickCustom(index: number, color: string): Promise<void> {
+    const user = userEvent.setup();
+    await user.click(within(row(index)).getByRole('button', { name: 'Cor personalizada' }));
+    const code = await screen.findByLabelText('Código da cor');
+    await user.clear(code);
+    await user.type(code, color);
+    await user.click(screen.getByRole('button', { name: 'Usar cor' }));
+  }
+
+  it('a hex applies to the bar of the tile, and leaves the other bar alone', async () => {
+    render(<Harness start={barsOf(2)} />);
+
+    await pickCustom(1, '#336699');
+
+    expect(screen.getByLabelText('Cores')).toHaveTextContent('ember,#336699');
+    expect(
+      within(row(1)).getByRole('button', { name: 'Cor personalizada: #336699' }),
+    ).toBeInTheDocument();
+    expect(within(row(0)).getByRole('radio', { name: 'Brasa' })).toBeChecked();
+  });
+
+  it('a bar with a hex checks none of the five, and a fixed color takes its place', async () => {
+    const [pv] = barsOf(1);
+    if (!pv) throw new Error('addBar gave no bar');
+    render(<Harness start={[{ ...pv, color: '#336699' }]} />);
+    const colors = within(row(0)).getAllByRole('radio');
+    expect(colors.filter((swatch) => swatch.getAttribute('aria-checked') === 'true')).toEqual([]);
+
+    await userEvent.click(within(row(0)).getByRole('radio', { name: 'Musgo' }));
+
+    expect(screen.getByLabelText('Cores')).toHaveTextContent('moss');
+    expect(within(row(0)).getByRole('button', { name: 'Cor personalizada' })).toBeInTheDocument();
   });
 });
 

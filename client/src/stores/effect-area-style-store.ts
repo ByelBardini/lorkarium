@@ -7,7 +7,12 @@ import {
   EFFECT_AREA_KINDS,
   type EffectAreaStyle,
 } from '@/lib/effect-area-style';
-import { readStoredChoice, writeStoredChoice, type ChoiceStorage } from '@/lib/stored-choice';
+import {
+  readStoredChoice,
+  readStoredColor,
+  writeStoredChoice,
+  type ChoiceStorage,
+} from '@/lib/stored-choice';
 
 export type EffectAreaStyleStore = EffectAreaStyle &
   Readonly<{
@@ -62,6 +67,6 @@ function storedStyle(storage: ChoiceStorage): EffectAreaStyle {
   const colors = DRAWING_COLORS.map(({ color }) => color);
   return {
     kind: readStoredChoice(storage, KEY.kind, kinds, fallback.kind),
-    color: readStoredChoice(storage, KEY.color, colors, fallback.color),
+    color: readStoredColor(storage, KEY.color, colors, fallback.color),
   };
 }

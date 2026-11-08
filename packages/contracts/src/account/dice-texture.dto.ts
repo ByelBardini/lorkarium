@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hexColorDto } from '../color/hex-color.dto';
 import { avatarLinkRequestDto } from './avatar.dto';
 
 /** Side in pixels of the stored dice texture: the server crops the center into a still 512 × 512
@@ -8,11 +9,7 @@ export const DICE_TEXTURE_SIDE = 512;
 /** The color of the numbers on one's dice: `#rrggbb`, kept in lowercase.
  *
  *  Example: `diceNumberColorDto.parse('#FFAA00') // '#ffaa00'` */
-export const diceNumberColorDto = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .regex(/^#[0-9a-f]{6}$/, { error: (issue) => `${String(issue.input)}: expected #rrggbb` });
+export const diceNumberColorDto = hexColorDto;
 
 export type DiceNumberColorDto = z.infer<typeof diceNumberColorDto>;
 

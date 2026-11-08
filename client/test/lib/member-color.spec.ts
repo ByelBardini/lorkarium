@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MEMBER_COLOR_HEX, memberColorCss } from '@/lib/member-color';
+import { MEMBER_COLOR_HEX, memberColorCss, memberColorNumber } from '@/lib/member-color';
 
 describe('MEMBER_COLOR_HEX', () => {
   it('each of the 8 names keeps the hex the ping always used', () => {
@@ -23,5 +23,19 @@ describe('memberColorCss', () => {
     ['bone', '#f0e6d2'],
   ] as const)('%s is written as %s', (color, expected) => {
     expect(memberColorCss(color)).toBe(expected);
+  });
+
+  it('a custom color is written as it came', () => {
+    expect(memberColorCss('#336699')).toBe('#336699');
+  });
+});
+
+describe('memberColorNumber', () => {
+  it('a name of the palette has the number of its tone', () => {
+    expect(memberColorNumber('gold')).toBe(0xe0b25c);
+  });
+
+  it('a custom color is read as a number', () => {
+    expect(memberColorNumber('#336699')).toBe(0x336699);
   });
 });

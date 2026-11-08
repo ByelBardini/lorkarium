@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paletteOrHexDto } from '../color/hex-color.dto';
 
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 20;
@@ -42,9 +43,17 @@ export const MEMBER_COLOR_NAMES = [
   'bone',
 ] as const;
 
-/** The stable name of a person's color (the ping and the initials); the hex lives in the client.
+/** One name of the fixed palette of a person's color, for the exhaustive readers.
  *
- *  Example: `memberColorDto.parse('rose') // 'rose'` */
-export const memberColorDto = z.enum(MEMBER_COLOR_NAMES);
+ *  Example: `memberPaletteDto.parse('rose') // 'rose'` */
+export const memberPaletteDto = z.enum(MEMBER_COLOR_NAMES);
+
+export type MemberPaletteDto = z.infer<typeof memberPaletteDto>;
+
+/** A person's color (the ping and the initials): a stable name, whose tone lives in the client, or
+ *  a custom hex.
+ *
+ *  Example: `memberColorDto.parse('#FFAA00') // '#ffaa00'` */
+export const memberColorDto = paletteOrHexDto(MEMBER_COLOR_NAMES);
 
 export type MemberColorDto = z.infer<typeof memberColorDto>;

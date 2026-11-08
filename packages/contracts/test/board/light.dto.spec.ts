@@ -13,6 +13,8 @@ import {
   setLightColorsCommandDto,
   setLightConesCommandDto,
   setLightsLitCommandDto,
+  tokenLightDto,
+  veiledLightDto,
 } from '../../src/board/light.dto';
 
 const GRID_ID = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
@@ -66,9 +68,45 @@ describe('lightPlacementDto, the light color', () => {
     expect(lightPlacementDto.parse({ ...TORCH, color: null }).color).toBeNull();
   });
 
-  it.each(['#ff0000', 'red'])('a color of %s is refused on color: only palette names', (color) => {
-    const result = lightPlacementDto.safeParse({ ...TORCH, color });
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['color']);
+  it('a torch of #ff0000 keeps the custom hex', () => {
+    expect(lightPlacementDto.parse({ ...TORCH, color: '#ff0000' }).color).toBe('#ff0000');
+  });
+
+  it('a torch of #FFAA00 is saved in lowercase', () => {
+    expect(lightPlacementDto.parse({ ...TORCH, color: '#FFAA00' }).color).toBe('#ffaa00');
+  });
+
+  it.each(['red', '#f00', 'url(x)', '#ff0000;x'])(
+    'a color of %s is refused on color: a palette name or #rrggbb',
+    (color) => {
+      const result = lightPlacementDto.safeParse({ ...TORCH, color });
+      expect(new Set(result.error?.issues.map((issue) => issue.path.join('.')))).toEqual(
+        new Set(['color']),
+      );
+    },
+  );
+});
+
+describe('tokenLightDto, the light color', () => {
+  it('a lantern of #336699 keeps the custom hex', () => {
+    const lantern = { bright: 4, dim: 4, color: '#336699', angle: 60 };
+    expect(tokenLightDto.parse(lantern).color).toBe('#336699');
+  });
+
+  it('a lantern of red is refused', () => {
+    expect(tokenLightDto.safeParse({ bright: 4, dim: 4, color: 'red' }).success).toBe(false);
+  });
+});
+
+describe('veiledLightDto, the light color', () => {
+  const VEILED = { x: 4, y: 5, bright: 4, dim: 4, facing: 0, angle: 360 };
+
+  it('the veiled light of #336699 keeps the custom hex', () => {
+    expect(veiledLightDto.parse({ ...VEILED, color: '#336699' }).color).toBe('#336699');
+  });
+
+  it('a veiled light of red is refused', () => {
+    expect(veiledLightDto.safeParse({ ...VEILED, color: 'red' }).success).toBe(false);
   });
 });
 
@@ -178,6 +216,22 @@ describe('setLightColorsCommandDto', () => {
     expect(setLightColorsCommandDto.parse(command)).toEqual(command);
   });
 
+  it('a fire torch turning #336699, with its undo precondition, is accepted as sent', () => {
+    const command = {
+      ...BASE,
+      changes: [{ lightId: TORCH_ID, color: '#336699', expect: { color: 'fire' } }],
+    };
+    expect(setLightColorsCommandDto.parse(command)).toEqual(command);
+  });
+
+  it('a #336699 torch undone to fire, expecting the hex, is accepted as sent', () => {
+    const command = {
+      ...BASE,
+      changes: [{ lightId: TORCH_ID, color: 'fire', expect: { color: '#336699' } }],
+    };
+    expect(setLightColorsCommandDto.parse(command)).toEqual(command);
+  });
+
   it('turning a light back to neutral (color null) is accepted', () => {
     const command = { ...BASE, changes: [{ lightId: TORCH_ID, color: null }] };
     expect(setLightColorsCommandDto.parse(command)).toEqual(command);
@@ -214,6 +268,11 @@ describe('lightColorsChangedDto', () => {
 
   it('the colors changed are accepted as sent', () => {
     const event = { ...EVENT, changes: [{ lightId: TORCH_ID, color: 'necrotic' }] };
+    expect(lightColorsChangedDto.parse(event)).toEqual(event);
+  });
+
+  it('a color changed to #336699 is accepted as sent', () => {
+    const event = { ...EVENT, changes: [{ lightId: TORCH_ID, color: '#336699' }] };
     expect(lightColorsChangedDto.parse(event)).toEqual(event);
   });
 

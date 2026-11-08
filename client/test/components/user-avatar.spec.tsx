@@ -23,6 +23,28 @@ describe('UserAvatar', () => {
     expect(screen.queryByTestId('avatar-photo')).toBeNull();
   });
 
+  it('a dark custom color paints the background and takes the light ink', () => {
+    render(<UserAvatar name="Ana Lima" color="#101010" avatarId={null} />);
+
+    const initials = screen.getByTestId('avatar-initials');
+    expect(initials).toHaveStyle({ backgroundColor: '#101010', color: '#ffffff' });
+    expect(initials).not.toHaveClass('text-panel');
+  });
+
+  it('a light custom color takes the dark ink', () => {
+    render(<UserAvatar name="Ana Lima" color="#f0e6d2" avatarId={null} />);
+
+    expect(screen.getByTestId('avatar-initials')).toHaveStyle({ color: '#1a1a1a' });
+  });
+
+  it('a color of the palette keeps the panel ink', () => {
+    render(<UserAvatar name="Ana Lima" color="gold" avatarId={null} />);
+
+    const initials = screen.getByTestId('avatar-initials');
+    expect(initials).toHaveClass('text-panel');
+    expect(initials.style.color).toBe('');
+  });
+
   it('a photo that fails to load falls back to the initials, still named by the alt', () => {
     render(<UserAvatar name="Bia" color="rose" avatarId={AVATAR_ID} alt="Foto de Bia" />);
 

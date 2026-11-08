@@ -18,9 +18,11 @@ import { users } from '../auth/users.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { tokenSheets } from '../sheets/sheets.po';
 import {
+  auraColorSql,
   auraColumns,
   auraFieldsSql,
   auraShapeSql,
+  barColorSql,
   barColumns,
   boxSizeColumns,
   halfCellSizeSql,
@@ -79,6 +81,7 @@ export const characters = pgTable(
     check('characters_difficulty_class_range', sql`${table.difficultyClass} BETWEEN 0 AND 999`),
     check('characters_aura_shape', auraShapeSql(table)),
     check('characters_aura_fields', auraFieldsSql(table)),
+    check('characters_aura_color_value', auraColorSql(table)),
     check('characters_size_half_cells', halfCellSizeSql(table.width, table.height)),
   ],
 );
@@ -95,6 +98,7 @@ export const characterBars = pgTable(
   },
   (table) => [
     unique('character_bars_character_id_position_unique').on(table.characterId, table.position),
+    check('character_bars_color_value', barColorSql(table.color)),
   ],
 );
 

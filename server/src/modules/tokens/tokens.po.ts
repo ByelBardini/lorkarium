@@ -1,3 +1,4 @@
+import { LIGHT_COLORS, type LightColorDto } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -15,15 +16,17 @@ import {
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 import { assets } from '../assets/assets.po';
 import { users } from '../auth/users.po';
 import { characters } from '../characters/characters.po';
-import { lightColorEnum } from '../lights/lights.po';
 import { scenes } from '../scenes/scenes.po';
 import {
+  auraColorSql,
   auraColumns,
   auraFieldsSql,
   auraShapeSql,
+  barColorSql,
   barColumns,
   boxSizeColumns,
   halfCellSizeSql,
@@ -34,7 +37,6 @@ import {
 
 export {
   auraEffect,
-  barColor,
   barDisplay,
   barVisibility,
   tokenAuraKind,
@@ -80,7 +82,7 @@ export const tokens = pgTable(
     lightDim: numeric('light_dim', { precision: 6, scale: 2 }),
     lightLit: boolean('light_lit').notNull().default(true),
     // Null is neutral; only a light with a range has a color (CHECK tokens_light_color).
-    lightColor: lightColorEnum('light_color'),
+    lightColor: text('light_color').$type<LightColorDto>(),
     // How wide the beam opens toward the facing (a lantern); 360 = every side, and no light
     // brings it back to 360.
     lightAngle: smallint('light_angle').notNull().default(360),
@@ -124,9 +126,11 @@ export const tokens = pgTable(
       'tokens_light_color',
       sql`${table.lightColor} IS NULL OR ${table.lightBright} IS NOT NULL`,
     ),
+    check('tokens_light_color_value', paletteOrHexSql(table.lightColor, LIGHT_COLORS)),
     // The aura rules, shared with the character (token-columns.po.ts).
     check('tokens_aura_shape', auraShapeSql(table)),
     check('tokens_aura_fields', auraFieldsSql(table)),
+    check('tokens_aura_color_value', auraColorSql(table)),
     check(
       'tokens_box_half_cells',
       sql`${table.col} >= 0 AND ${table.row} >= 0 AND ${table.width} BETWEEN 0.5 AND 10 AND ${table.height} BETWEEN 0.5 AND 10 AND (${table.col} * 2) = floor(${table.col} * 2) AND (${table.row} * 2) = floor(${table.row} * 2) AND (${table.width} * 2) = floor(${table.width} * 2) AND (${table.height} * 2) = floor(${table.height} * 2)`,
@@ -158,7 +162,10 @@ export const tokenBars = pgTable(
       .references(() => tokens.id, { onDelete: 'cascade' }),
     ...barColumns(),
   },
-  (table) => [unique('token_bars_token_id_position_unique').on(table.tokenId, table.position)],
+  (table) => [
+    unique('token_bars_token_id_position_unique').on(table.tokenId, table.position),
+    check('token_bars_color_value', barColorSql(table.color)),
+  ],
 );
 
 // The named forms of a free token, or of a character (its tokens share them in every grid): the

@@ -1,3 +1,9 @@
+import {
+  BAR_PALETTE,
+  DRAWING_PALETTE,
+  type BarColorDto,
+  type DrawingColorDto,
+} from '@lorkarium/contracts';
 import { sql, type SQL } from 'drizzle-orm';
 import {
   doublePrecision,
@@ -9,8 +15,8 @@ import {
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 import { assets } from '../assets/assets.po';
-import { drawingColor } from '../drawings/drawings.po';
 
 // The columns a token shares with a character, apart from tokens.po.ts because characters.po.ts
 // uses them when it loads and tokens.po.ts imports characters.po.ts (tokens.character_id): from
@@ -19,7 +25,6 @@ import { drawingColor } from '../drawings/drawings.po';
 export const tokenSide = pgEnum('token_side', ['ally', 'enemy', 'neutral']);
 // The order is the drawing order, top to bottom (`tokenLayerDto`).
 export const tokenLayer = pgEnum('token_layer', ['tokens', 'objects', 'background']);
-export const barColor = pgEnum('bar_color', ['gold', 'steel', 'ember', 'moss', 'ash']);
 export const barVisibility = pgEnum('bar_visibility', ['everyone', 'controllers']);
 export const barDisplay = pgEnum('bar_display', ['number', 'percent']);
 export const tokenFrame = pgEnum('token_frame', ['square', 'round']);
@@ -46,7 +51,7 @@ export function auraColumns() {
     // in its natural tone. Losing the image asset keeps the rest (the mapper reads it as none).
     auraKind: tokenAuraKind('aura_kind'),
     auraRadius: numeric('aura_radius', { precision: 6, scale: 2 }),
-    auraColor: drawingColor('aura_color'),
+    auraColor: text('aura_color').$type<DrawingColorDto>(),
     auraEffect: auraEffect('aura_effect'),
     auraImageAssetId: uuid('aura_image_asset_id').references(() => assets.id, {
       onDelete: 'set null',
@@ -76,6 +81,13 @@ export function auraFieldsSql(table: AuraColumnsOf): SQL {
   return sql`(${table.auraKind} IS DISTINCT FROM 'color' OR ${table.auraColor} IS NOT NULL) AND ((${table.auraEffect} IS NOT NULL) = (${table.auraKind} IS NOT DISTINCT FROM 'effect')) AND (${table.auraColor} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'color' OR ${table.auraKind} IS NOT DISTINCT FROM 'effect') AND (${table.auraImageAssetId} IS NULL OR ${table.auraKind} IS NOT DISTINCT FROM 'image') AND ((${table.auraImageShape} IS NOT NULL) = (${table.auraKind} IS NOT DISTINCT FROM 'image'))`;
 }
 
+/** The aura color, when there is one, is a name of the drawing palette or a custom hex.
+ *
+ *  Example: `check('tokens_aura_color_value', auraColorSql(table))` */
+export function auraColorSql(table: AuraColumnsOf): SQL {
+  return paletteOrHexSql(table.auraColor, DRAWING_PALETTE);
+}
+
 /** The columns of one bar (a token's, a character's) apart from its owner: position 0 is drawn on
  *  the token.
  *
@@ -87,10 +99,17 @@ export function barColumns() {
     current: integer('current').notNull(),
     max: integer('max').notNull(),
     temp: integer('temp').notNull().default(0),
-    color: barColor('color').notNull(),
+    color: text('color').$type<BarColorDto>().notNull(),
     visibility: barVisibility('visibility').notNull(),
     display: barDisplay('display').notNull().default('number'),
   };
+}
+
+/** The color of a bar is a name of the bar palette or a custom hex.
+ *
+ *  Example: `check('token_bars_color_value', barColorSql(table.color))` */
+export function barColorSql(color: AnyPgColumn): SQL {
+  return paletteOrHexSql(color, BAR_PALETTE);
 }
 
 /** The width × height of a token box, in cells, in steps of half a cell (default 1 × 1).

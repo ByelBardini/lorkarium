@@ -20,6 +20,10 @@ describe('memberColorOf', () => {
     expect(memberColorOf(ANA_ID, 'rose')).toBe('rose');
   });
 
+  it('a chosen custom color is kept as it came', () => {
+    expect(memberColorOf(ANA_ID, '#336699')).toBe('#336699');
+  });
+
   it('the palette has 8 names in the order gold, steel, ember, moss, violet, rose, teal, bone', () => {
     expect(MEMBER_COLORS).toEqual([
       'gold',

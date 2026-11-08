@@ -69,6 +69,21 @@ describe('dice:roll', () => {
     expect(events[0]!.total).toBe((events[0]!.parts[0]!.dice[0]?.value ?? 0) + 5);
   });
 
+  it('a roll of someone with a custom color carries that hex in the appearance', async () => {
+    const saved = await live.http(live.bia, {
+      method: 'PATCH',
+      url: '/api/account/profile',
+      payload: { color: '#336699' },
+    });
+    expect(saved.statusCode).toBe(200);
+    const bia = await live.atTable(live.bia, live.vharn);
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+
+    await roll(bia, rollOf(live.vharn));
+
+    expect((await fullRollOf(ana)).appearance.color).toBe('#336699');
+  });
+
   it('Bia rolls for the masters: Ana and Bia hear it whole, Caio and Duda only a notice', async () => {
     const clients = await vharnTable();
     const [ana, bia, caio, duda] = clients.map(recordEventsOf);

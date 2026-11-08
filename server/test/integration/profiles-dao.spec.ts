@@ -55,6 +55,13 @@ describe('ProfilesDao on Postgres', () => {
     expect(await profiles.findById(biaId)).toMatchObject({ name: 'Bia', color: null });
   });
 
+  it('a custom color is kept on that account only', async () => {
+    const row = await profiles.update(anaId, { color: '#336699' });
+
+    expect(row).toMatchObject({ color: '#336699' });
+    expect(await profiles.findById(biaId)).toMatchObject({ color: null });
+  });
+
   it('a bio above 190 characters is refused by the check of the table', async () => {
     await expect(profiles.update(anaId, { bio: 'x'.repeat(191) })).rejects.toMatchObject({
       cause: { code: '23514' },
@@ -89,7 +96,7 @@ describe('ProfilesDao on Postgres', () => {
 
   describe('the dice appearance', () => {
     it('a dice number color that is not #rrggbb is refused by the check of the table', async () => {
-      await expect(profiles.update(anaId, { diceNumberColor: 'red' })).rejects.toMatchObject({
+      await expect(profiles.update(anaId, { diceNumberColor: '#red' })).rejects.toMatchObject({
         cause: { code: '23514', constraint: 'users_dice_number_color_hex' },
       });
     });

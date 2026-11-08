@@ -1,3 +1,4 @@
+import { LIGHT_COLORS, type LightColorDto } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -5,25 +6,14 @@ import {
   index,
   integer,
   numeric,
-  pgEnum,
   pgTable,
   smallint,
+  text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 import { scenes } from '../scenes/scenes.po';
-
-/** The light palette by name (contracts `LIGHT_COLORS`; the mapper's types catch a drift); also
- *  the color of a token's light (`tokens.light_color`). */
-export const lightColorEnum = pgEnum('light_color', [
-  'torch',
-  'candle',
-  'fire',
-  'moon',
-  'arcane',
-  'necrotic',
-  'infernal',
-]);
 
 // A light on the map (a wall torch, a campfire): a point in fractional cells, exact to 0.01 by
 // numeric. Only the master touches it, so there is no author.
@@ -42,7 +32,7 @@ export const lights = pgTable(
     dim: numeric('dim', { precision: 6, scale: 2 }).notNull(),
     lit: boolean('lit').notNull().default(true),
     // Null is the neutral light: it reveals without tinting.
-    color: lightColorEnum('color'),
+    color: text('color').$type<LightColorDto>(),
     // Where it points, in degrees (0 = right, clockwise; game-core `Facing`), and how wide it
     // opens (game-core `ConeAngle`); 360 shines every side, the torch on the wall.
     facing: smallint('facing').notNull().default(0),
@@ -59,6 +49,7 @@ export const lights = pgTable(
     check('lights_position', sql`${table.x} >= 0 AND ${table.y} >= 0`),
     check('lights_facing', sql`${table.facing} BETWEEN 0 AND 359`),
     check('lights_angle', sql`${table.angle} BETWEEN 1 AND 360`),
+    check('lights_color_value', paletteOrHexSql(table.color, LIGHT_COLORS)),
   ],
 );
 
