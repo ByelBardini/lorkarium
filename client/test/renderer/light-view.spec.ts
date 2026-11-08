@@ -2,7 +2,13 @@ import type { LightDto, WallDto } from '@lorkarium/contracts';
 import { coneOf, insideCone, insidePolygon } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
-import { lightViewsOf, topLightAt, type LightViewInput } from '@/renderer/light-view';
+import {
+  lightViewsOf,
+  lightsInBand,
+  topLightAt,
+  type LightView,
+  type LightViewInput,
+} from '@/renderer/light-view';
 import { sightGeometryOf } from '@/lib/sight-geometry';
 import { statue } from '../support/sight-blocker-fixtures';
 import { VHARN_SCENE } from '../support/table-session-fixtures';
@@ -154,5 +160,61 @@ describe('lightViewsOf with a blocker', () => {
     const inside = corridorTorch({ x: 7.5, y: 5 });
 
     expect(Math.max(...areaWith(inside).map(({ x }) => x))).toBeCloseTo(15.5 * CELL, 6);
+  });
+});
+
+describe('lightsInBand', () => {
+  const BAND = { x: 0, y: 0, width: 640, height: 640 };
+  const square = (left: number, top: number, side: number) => [
+    { x: left, y: top },
+    { x: left + side, y: top },
+    { x: left + side, y: top + side },
+    { x: left, y: top + side },
+  ];
+  const lightOf = (id: string, x: number, y: number, areas: LightView['areas']): LightView => ({
+    id,
+    x,
+    y,
+    lit: areas !== null,
+    color: null,
+    facing: 0,
+    angle: 360,
+    emphasis: 'full',
+    selected: false,
+    areas,
+  });
+
+  it('keeps a light whose icon is out but whose dim area reaches into the band', () => {
+    const reaching = lightOf('reaching', 800, 300, {
+      bright: square(760, 260, 80),
+      dim: square(600, 100, 400),
+    });
+
+    expect(lightsInBand([reaching], BAND)).toEqual([reaching]);
+  });
+
+  it('drops a light whose icon and areas are all out of the band', () => {
+    const far = lightOf('far', 1000, 1000, {
+      bright: square(960, 960, 80),
+      dim: square(900, 900, 200),
+    });
+
+    expect(lightsInBand([far], BAND)).toEqual([]);
+  });
+
+  it('keeps a light that is out (no areas) with its icon in the band', () => {
+    const out = lightOf('out', 320, 320, null);
+
+    expect(lightsInBand([out], BAND)).toEqual([out]);
+  });
+
+  it('gives back the very same array when no light falls out', () => {
+    const lights = [lightOf('out', 320, 320, null)];
+
+    expect(lightsInBand(lights, BAND)).toBe(lights);
+  });
+
+  it('a band of negative width throws, naming the band', () => {
+    expect(() => lightsInBand([], { x: 0, y: 0, width: -2, height: 640 })).toThrow(/"width":-2/);
   });
 });

@@ -13,6 +13,20 @@ export function followHostSize(host: HTMLElement, app: Application): () => void 
   return () => observer.disconnect();
 }
 
+/** The GPU may drop the WebGL context (driver reset, too much memory): the board then draws
+ *  nothing. `preventDefault` tells the browser we handle it; `onLost` rebuilds the board.
+ *  Returns the disposer.
+ *
+ *  Example: `disposers.push(followContextLoss(app.canvas, () => onIntent({ kind: 'boardLost' })))` */
+export function followContextLoss(canvas: EventTarget, onLost: () => void): () => void {
+  const onContextLost = (event: Event): void => {
+    event.preventDefault();
+    onLost();
+  };
+  canvas.addEventListener('webglcontextlost', onContextLost);
+  return () => canvas.removeEventListener('webglcontextlost', onContextLost);
+}
+
 /** On the document: the right click that opens our token menu lands on the page, not the canvas.
  *  A text field keeps the browser menu. Returns the disposer.
  *

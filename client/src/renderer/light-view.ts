@@ -9,6 +9,7 @@ import {
 } from '@/lib/sight-geometry';
 import type { BoardViewTool } from './board-view';
 import { CELL_WORLD_SIZE, type Point } from './camera';
+import { bandOrThrow, keptInBand, pointInBand, type WorldRect } from './grid-geometry';
 import { lightAreasOf, type LightAreas } from './light-areas';
 
 /** How far from its point an icon takes the pointer, in screen px (the icon is drawn 16 px wide). */
@@ -78,6 +79,29 @@ export function topLightAt(
   const reach = LIGHT_ICON_REACH / zoom;
   const topFirst = [...lights].reverse();
   return topFirst.find(({ x, y }) => Math.hypot(world.x - x, world.y - y) <= reach) ?? null;
+}
+
+/** The lights with the icon or what they light in `band` (world px); an area counts by its box,
+ *  which keeps a few lights just off the band (cheap and safe). Nothing out gives back `lights`.
+ *
+ *  Example: `lightsInBand(view.lights, band).map(({ id }) => id)` */
+export function lightsInBand(lights: readonly LightView[], band: WorldRect): readonly LightView[] {
+  const checked = bandOrThrow(band);
+  return keptInBand(lights, (light) => lightMeetsBand(light, checked));
+}
+
+function lightMeetsBand(light: LightView, band: WorldRect): boolean {
+  if (pointInBand(light, band)) return true;
+  if (!light.areas) return false;
+  return boxMeetsBand(light.areas.dim, band) || boxMeetsBand(light.areas.bright, band);
+}
+
+function boxMeetsBand(polygon: readonly Point[], band: WorldRect): boolean {
+  if (polygon.length === 0) return false;
+  const xs = polygon.map(({ x }) => x);
+  const ys = polygon.map(({ y }) => y);
+  const crossesX = Math.min(...xs) <= band.x + band.width && Math.max(...xs) >= band.x;
+  return crossesX && Math.min(...ys) <= band.y + band.height && Math.max(...ys) >= band.y;
 }
 
 function areasOf(

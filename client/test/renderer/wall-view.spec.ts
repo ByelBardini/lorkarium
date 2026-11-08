@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   dashesOf,
   doorIconsOf,
+  doorsInBand,
   topWallAt,
   wallTargetAt,
   erasedStrokesOf,
   wallViewsOf,
+  wallsInBand,
+  type DoorIconView,
+  type WallStroke,
+  type WallView,
   type WallViewInput,
 } from '@/renderer/wall-view';
 import {
@@ -139,5 +144,92 @@ describe('erasedStrokesOf', () => {
   it('no target, or a mode that does not erase, lights up nothing', () => {
     expect(erasedStrokesOf(box(), null, 'eraseWall')).toEqual([]);
     expect(erasedStrokesOf(box(), target, 'eraseArea')).toEqual([]);
+  });
+});
+
+describe('wallsInBand', () => {
+  const BAND = { x: 0, y: 0, width: 640, height: 640 };
+  const wallOf = (id: string, segments: readonly WallStroke[]): WallView => ({
+    id,
+    kind: 'wall',
+    doorState: null,
+    segments,
+    emphasis: 'full',
+    selected: false,
+  });
+  const line = (fromX: number, fromY: number, toX: number, toY: number): WallStroke => ({
+    from: { x: fromX, y: fromY },
+    to: { x: toX, y: toY },
+  });
+  const inside = wallOf('inside', [line(64, 64, 320, 64)]);
+  const across = wallOf('across', [line(-100, 300, 900, 300)]);
+  const outside = wallOf('outside', [line(800, 800, 1200, 800)]);
+
+  it('keeps a wall inside and one crossing the band with no end in it, drops one all outside', () => {
+    expect(wallsInBand([inside, across, outside], BAND).map(({ id }) => id)).toEqual([
+      'inside',
+      'across',
+    ]);
+  });
+
+  it('keeps a wall of many pieces whole, all its pieces, when only its 3rd piece is in the band', () => {
+    const pieces = [
+      line(900, 900, 1200, 900),
+      line(1200, 900, 1200, 600),
+      line(1200, 600, 300, 600),
+    ];
+    const long = wallOf('long', pieces);
+
+    expect(wallsInBand([long, outside], BAND)).toEqual([long]);
+  });
+
+  it('keeps a wall touching the edge of the band', () => {
+    const touching = wallOf('touching', [line(640, 100, 900, 100)]);
+
+    expect(wallsInBand([touching], BAND)).toEqual([touching]);
+  });
+
+  it('drops a diagonal passing by the corner of the band without crossing it', () => {
+    const diagonal = wallOf('diagonal', [line(500, 900, 900, 500)]);
+
+    expect(wallsInBand([diagonal], BAND)).toEqual([]);
+  });
+
+  it('gives back the very same array when no wall falls out', () => {
+    const walls = [inside, across];
+
+    expect(wallsInBand(walls, BAND)).toBe(walls);
+  });
+
+  it('a band of negative width throws, naming the band', () => {
+    expect(() => wallsInBand([inside], { x: 0, y: 0, width: -1, height: 640 })).toThrow(
+      /"width":-1/,
+    );
+  });
+});
+
+describe('doorsInBand', () => {
+  const BAND = { x: 0, y: 0, width: 640, height: 640 };
+  const door = (wallId: string, x: number, y: number): DoorIconView => ({
+    wallId,
+    x,
+    y,
+    state: 'closed',
+  });
+
+  it('drops the icon of a door out of the band, keeps one on its edge', () => {
+    const doors = [door('in', 100, 100), door('edge', 640, 640), door('out', 700, 100)];
+
+    expect(doorsInBand(doors, BAND).map(({ wallId }) => wallId)).toEqual(['in', 'edge']);
+  });
+
+  it('gives back the very same array when no door falls out', () => {
+    const doors = [door('in', 100, 100)];
+
+    expect(doorsInBand(doors, BAND)).toBe(doors);
+  });
+
+  it('a band of negative height throws, naming the band', () => {
+    expect(() => doorsInBand([], { x: 0, y: 0, width: 640, height: -5 })).toThrow(/"height":-5/);
   });
 });

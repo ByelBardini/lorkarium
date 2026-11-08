@@ -2,6 +2,7 @@ import { Application, Container } from 'pixi.js';
 import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
 import type {
   BoardIntentListener,
+  BoardMountOptions,
   BoardRenderer,
   CreateBoardRenderer,
   PingMark,
@@ -34,7 +35,8 @@ import {
   type RightDrag,
 } from './camera-input';
 import { FrameWork } from './frame-work';
-import { followHostSize, holdBackBrowserMenu } from './host-listeners';
+import { followContextLoss, followHostSize, holdBackBrowserMenu } from './host-listeners';
+import { PixiTextureGauge } from './pixi-texture-gauge';
 import { cellAtWorld, visibleWorldRect } from './grid-geometry';
 import { DrawingGestures } from './drawing-gestures';
 import { EffectAreaGestures } from './effect-area-gestures';
@@ -85,9 +87,13 @@ export function createPixiBoardRenderer(
 class PixiBoardRenderer implements BoardRenderer {
   private app: Application | null = null;
   private destroyed = false;
-  private camera: Camera = { offsetX: 0, offsetY: 0, zoom: 1 };
+  private shown: Camera = { offsetX: 0, offsetY: 0, zoom: 1 };
   private view: BoardView | null = null;
   private framed = false;
+  // A board rebuilt after a lost context opens where the old one was, not fitted to the scene.
+  private openingCamera: Camera | null = null;
+  private cameraUnreported = false;
+  private readonly textureGauge: PixiTextureGauge;
   private rightDrag: RightDrag | null = null;
   private readonly hover = new HoverReport((intent) => this.onIntent(intent));
   private readonly drawings = new PixiDrawingLayer();
@@ -129,6 +135,7 @@ class PixiBoardRenderer implements BoardRenderer {
     private readonly auraMotion: () => boolean,
   ) {
     const beneath = this.effectAreas.under(this.drawings.layer);
+    this.textureGauge = new PixiTextureGauge(probe);
     const { textures, auraSources } = this;
     this.tokens = new PixiTokenLayer(prefersReducedMotion, beneath, textures, probe, auraSources);
     this.press = new PrimaryPress({
@@ -141,15 +148,36 @@ class PixiBoardRenderer implements BoardRenderer {
     });
   }
 
-  async mount(host: HTMLElement): Promise<void> {
+  async mount(host: HTMLElement, options?: BoardMountOptions): Promise<void> {
     const app = new Application();
     // WebGL even where WebGPU exists: the aura shaders are GLSL only (WebGPU would ask for WGSL).
-    const options = { resizeTo: host, background: PANEL_COLOR, antialias: true, autoDensity: true };
-    await app.init({ ...options, preference: 'webgl' });
+    const look = { resizeTo: host, background: PANEL_COLOR, antialias: true, autoDensity: true };
+    await app.init({ ...look, preference: 'webgl' });
     // Unmounted while `init` ran (StrictMode does it on purpose): tear down what init built.
     if (this.destroyed) return void app.destroy(true, { children: true });
     this.app = app;
+    this.openingCamera = options?.camera ?? null;
     host.appendChild(app.canvas);
+    this.layOut(app);
+    this.listen(host, app.canvas);
+    this.disposers.push(followHostSize(host, app));
+    this.disposers.push(followContextLoss(app.canvas, () => this.lose(app)));
+    this.startTicker(app);
+    app.renderer.on('resize', () => this.applyCamera(this.shown));
+    if (this.view) this.draw(this.view);
+  }
+
+  camera(): Camera {
+    return this.shown;
+  }
+
+  // Nothing draws on a lost context: the host rebuilds the board from the stores.
+  private lose(app: Application): void {
+    app.ticker.stop();
+    this.onIntent({ kind: 'boardLost' });
+  }
+
+  private layOut(app: Application): void {
     const { container: tokenLayer } = this.tokens;
     const sketches = [this.drawings.draft, this.effectAreas.draft];
     this.world.addChild(
@@ -163,8 +191,9 @@ class PixiBoardRenderer implements BoardRenderer {
       this.pings.world,
     );
     app.stage.addChild(this.world, this.speech.container, this.pings.edges);
-    this.listen(host, app.canvas);
-    this.disposers.push(followHostSize(host, app));
+  }
+
+  private startTicker(app: Application): void {
     app.ticker.remove(app.render, app);
     app.ticker.add((ticker) => {
       this.probe.frame(ticker.deltaMS);
@@ -172,14 +201,14 @@ class PixiBoardRenderer implements BoardRenderer {
       const now = performance.now();
       this.press.tick(this.pressContext(), now);
       this.flush();
+      this.reportCamera();
+      this.textureGauge.sample(now, app.renderer);
       const pinging = this.pings.animate(ticker.deltaMS, this.pingFrame());
-      const speaking = this.speech.animate({ camera: this.camera });
+      const speaking = this.speech.animate({ camera: this.shown });
       const auras = this.auraAnimator.animate(now, () => this.auraFrame());
       const moving = this.tokens.animate(now) || pinging || speaking || auras;
       if (moving || this.frame.renderDue()) app.render();
     });
-    app.renderer.on('resize', () => this.applyCamera(this.camera));
-    if (this.view) this.draw(this.view);
   }
 
   // Kept and marked: a burst of views in one frame is drawn once, by the ticker.
@@ -188,12 +217,13 @@ class PixiBoardRenderer implements BoardRenderer {
     this.frame.viewChanged();
     if (!this.app || this.framed) return;
     this.framed = true;
-    this.fitScene();
+    if (this.openingCamera) this.applyCamera(this.openingCamera);
+    else this.fitScene();
   }
 
   zoomBy(factor: number): void {
     const { width, height } = this.screenSize();
-    this.applyCamera(zoomAt(this.camera, factor, { x: width / 2, y: height / 2 }));
+    this.applyCamera(zoomAt(this.shown, factor, { x: width / 2, y: height / 2 }));
   }
 
   fitScene(): void {
@@ -203,14 +233,14 @@ class PixiBoardRenderer implements BoardRenderer {
 
   centerOn(target: Readonly<{ col: number; row: number }>): void {
     const center = tokenCenterOf({ ...target, width: 1, height: 1 });
-    const moved = centeredOn(this.camera, center, this.screenSize());
+    const moved = centeredOn(this.shown, center, this.screenSize());
     if (moved) this.applyCamera(moved);
   }
 
   viewCenterCell(): ReturnType<typeof cellAtWorld> {
     if (!this.view) return null;
     const { width, height } = this.screenSize();
-    const center = screenToWorld(this.camera, { x: width / 2, y: height / 2 });
+    const center = screenToWorld(this.shown, { x: width / 2, y: height / 2 });
     return cellAtWorld(this.view.grid.cells, center);
   }
 
@@ -235,35 +265,44 @@ class PixiBoardRenderer implements BoardRenderer {
     this.app = null;
   }
 
-  // Moving the world is cheap and happens now; what the move needs redrawn waits for the frame.
+  // Moving and scaling the world is cheap and happens now; what depends on the zoom (strips,
+  // overlays, grid) waits for the gesture to settle (`FrameWork.take`), never per wheel tick.
   private applyCamera(next: Camera): void {
     const scene = this.view?.sceneSize;
-    const zoomChanged = next.zoom !== this.camera.zoom;
-    this.camera = scene ? clampToScene(next, scene, this.screenSize()) : next;
-    this.world.position.set(this.camera.offsetX, this.camera.offsetY);
-    this.world.scale.set(this.camera.zoom);
-    if (zoomChanged) this.tokens.applyZoom(this.camera.zoom);
-    this.hover.camera(this.camera);
+    if (next.zoom !== this.shown.zoom) this.probe.count('zoom.event');
+    this.shown = scene ? clampToScene(next, scene, this.screenSize()) : next;
+    this.world.position.set(this.shown.offsetX, this.shown.offsetY);
+    this.world.scale.set(this.shown.zoom);
+    this.hover.camera(this.shown);
     const gridBandLeft = this.view
-      ? this.sceneGrid.leavesBand(this.view, this.camera, this.screenSize())
+      ? this.sceneGrid.leavesBand(this.view, this.shown, this.screenSize())
       : false;
-    this.frame.cameraChanged({ zoomChanged, gridBandLeft });
-    this.onIntent({ kind: 'cameraChanged', zoom: this.camera.zoom });
+    const { zoom } = this.shown;
+    this.frame.cameraChanged({ zoom, gridBandLeft, atMs: performance.now() });
+    this.cameraUnreported = true;
+  }
+
+  // One `cameraChanged` per frame: a pinch sends many wheel events, each a store update.
+  private reportCamera(): void {
+    if (!this.cameraUnreported) return;
+    this.cameraUnreported = false;
+    this.onIntent({ kind: 'cameraChanged', zoom: this.shown.zoom });
   }
 
   private flush(): void {
     const view = this.view;
     if (!this.app || !view || !this.frame.pending()) return;
-    const job = this.frame.take();
+    const job = this.frame.take(performance.now());
     if (job.view) this.drawView(view, this.app);
+    if (job.zoom) this.tokens.applyZoom(this.shown.zoom);
     if (job.grid) {
       this.probe.count('grid.draw');
-      this.sceneGrid.drawGrid(view, this.camera, this.screenSize());
+      this.sceneGrid.drawGrid(view, this.shown, this.screenSize(), job.zoom);
     }
-    if (job.overlays) {
-      this.probe.count('overlays.draw');
-      this.overlays.draw(view, this.camera.zoom);
-    }
+    if (!job.overlays) return;
+    this.probe.count('overlays.draw');
+    const band = this.sceneGrid.bandWorld() ?? visibleWorldRect(this.shown, this.screenSize());
+    this.overlays.draw(view, this.shown.zoom, band);
   }
 
   private textureArrived(url: string): void {
@@ -317,8 +356,8 @@ class PixiBoardRenderer implements BoardRenderer {
   private onWheel(event: WheelEvent): void {
     event.preventDefault();
     const intent = wheelIntent({ ...wheelFields(event), x: event.offsetX, y: event.offsetY });
-    if (intent.kind === 'pan') return this.applyCamera(panBy(this.camera, intent.dx, intent.dy));
-    this.applyCamera(zoomAt(this.camera, intent.factor, intent.at));
+    if (intent.kind === 'pan') return this.applyCamera(panBy(this.shown, intent.dx, intent.dy));
+    this.applyCamera(zoomAt(this.shown, intent.factor, intent.at));
   }
 
   private onPointerDown(event: PointerEvent, canvas: HTMLCanvasElement): void {
@@ -332,7 +371,7 @@ class PixiBoardRenderer implements BoardRenderer {
     if (this.rightDrag) {
       const { drag, pan } = moveRightDrag(this.rightDrag, pointOf(event));
       this.rightDrag = drag;
-      if (pan) this.applyCamera(panBy(this.camera, pan.dx, pan.dy));
+      if (pan) this.applyCamera(panBy(this.shown, pan.dx, pan.dy));
       if (pan) this.showCursor();
       return;
     }
@@ -349,7 +388,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private hoverAt(event: PointerEvent): string | null {
     const world = this.worldOf(event);
     if (!this.view) return null;
-    const { tokenId, handle } = hoverRouteOf(this.view, world, this.camera.zoom);
+    const { tokenId, handle } = hoverRouteOf(this.view, world, this.shown.zoom);
     this.tokens.hover(tokenId);
     const target = wallTargetAt(this.view.walls, world);
     this.overlays.walls.lightErase(erasedStrokesOf(this.view.walls, target, this.view.wallMode));
@@ -362,7 +401,7 @@ class PixiBoardRenderer implements BoardRenderer {
     const token = this.view?.tokens.find(({ id }) => id === tokenId);
     if (!token || !this.app) return null;
     const origin = this.app.canvas.getBoundingClientRect();
-    return { tokenId: token.id, rect: tokenScreenRect(token, this.camera, origin) };
+    return { tokenId: token.id, rect: tokenScreenRect(token, this.shown, origin) };
   }
 
   private onPointerUp(event: PointerEvent): void {
@@ -377,7 +416,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.rightDrag = null;
     this.showCursor();
     if (!drag || !this.view || endRightDrag(drag) !== 'context') return;
-    const menu = menuRouteOf(this.view, this.worldOf(event), this.camera.zoom);
+    const menu = menuRouteOf(this.view, this.worldOf(event), this.shown.zoom);
     const at = { x: event.clientX, y: event.clientY };
     if (menu?.kind === 'light') {
       this.onIntent({ kind: 'lightMenuRequested', lightId: menu.lightId, ...at });
@@ -407,7 +446,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private panWithKeys(elapsedMs: number): void {
     if (this.heldPanKeys.size === 0) return;
     const { dx, dy } = keyboardPan(this.heldPanKeys, elapsedMs);
-    this.applyCamera(panBy(this.camera, dx, dy));
+    this.applyCamera(panBy(this.shown, dx, dy));
   }
 
   private cellAt(event: PointerEvent): ReturnType<typeof cellAtWorld> {
@@ -416,7 +455,7 @@ class PixiBoardRenderer implements BoardRenderer {
   }
 
   private pressContext(): PressContext {
-    return { view: this.view, zoom: this.camera.zoom };
+    return { view: this.view, zoom: this.shown.zoom };
   }
 
   private pressPointOf(event: PointerEvent): PressPoint {
@@ -429,15 +468,15 @@ class PixiBoardRenderer implements BoardRenderer {
   private auraFrame(): AuraMotionFrame {
     const enabled = this.auraMotion();
     const playing = auraMotionOf({ enabled, reducedMotion: prefersReducedMotion() }) === 'playing';
-    return { visible: visibleWorldRect(this.camera, this.screenSize()), playing };
+    return { visible: visibleWorldRect(this.shown, this.screenSize()), playing };
   }
 
   private pingFrame(): PingFrame {
-    return { camera: this.camera, screen: this.screenSize() };
+    return { camera: this.shown, screen: this.screenSize() };
   }
 
   private worldOf(event: PointerEvent): Point {
-    return screenToWorld(this.camera, pointOf(event));
+    return screenToWorld(this.shown, pointOf(event));
   }
 
   private screenSize(): Size {

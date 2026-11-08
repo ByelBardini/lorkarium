@@ -11,6 +11,22 @@ export function zoomProofTextResolution(devicePixelRatio: number): number {
   return ZOOM_LIMITS.max * Math.max(1, devicePixelRatio);
 }
 
+// The tallest side a text texture may have: big initials at the zoom-proof resolution reached
+// thousands of px per side, the kind of GPU memory that ends in a lost context.
+const MAX_TEXT_TEXTURE_PX = 2048;
+// The height of one line of text, as a share of its font size.
+const TEXT_LINE_SHARE = 1.3;
+
+/** The zoom-proof resolution for text of `fontSize` world px, cut only as far as keeps its texture
+ *  within 2048 px a side: small text (names, conditions) stays at `zoomProofTextResolution`.
+ *
+ *  Example: `label.resolution = textResolutionFor(window.devicePixelRatio, 192)` */
+export function textResolutionFor(devicePixelRatio: number, fontSize: number): number {
+  if (!(fontSize > 0)) throw new Error(`got font size ${fontSize}; expected font size > 0`);
+  const fitting = MAX_TEXT_TEXTURE_PX / (fontSize * TEXT_LINE_SHARE);
+  return Math.min(zoomProofTextResolution(devicePixelRatio), fitting);
+}
+
 // Screen pixels left around the scene when it is framed.
 const FIT_MARGIN_PX = 32;
 

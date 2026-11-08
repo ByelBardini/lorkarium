@@ -32,19 +32,73 @@ describe('RecordingPerfProbe', () => {
       'token.redraw': 600,
       'overlays.draw': 0,
       'grid.draw': 0,
+      'zoom.event': 0,
+      'strip.redraw': 0,
     });
     expect(probe.snapshot(1500).perSecond['view.draw']).toBe(0);
   });
+
+  it('counts 3 zoom events in one second as 3 per second, and strip redraws apart', () => {
+    const probe = new RecordingPerfProbe();
+    probe.snapshot(0);
+    for (let tick = 0; tick < 3; tick += 1) probe.count('zoom.event');
+    probe.count('strip.redraw', 300);
+    const { perSecond } = probe.snapshot(1000);
+    expect(perSecond['zoom.event']).toBe(3);
+    expect(perSecond['strip.redraw']).toBe(300);
+  });
+
+  it('shows the gauge it was given', () => {
+    const probe = new RecordingPerfProbe();
+    probe.gauge('texture.mb', 41.5);
+    expect(probe.snapshot(1000).gauges).toEqual({ 'texture.mb': 41.5 });
+  });
+
+  it('keeps the last of two gauges, and keeps it across snapshots', () => {
+    const probe = new RecordingPerfProbe();
+    probe.gauge('texture.mb', 41.5);
+    probe.gauge('texture.mb', 12);
+    expect(probe.snapshot(1000).gauges['texture.mb']).toBe(12);
+    expect(probe.snapshot(2000).gauges['texture.mb']).toBe(12);
+  });
+
+  it('leaves a gauge never measured out of the snapshot instead of showing 0', () => {
+    const probe = new RecordingPerfProbe();
+    const { gauges } = probe.snapshot(1000);
+    expect(gauges).toEqual({});
+    expect('texture.mb' in gauges).toBe(false);
+  });
+
+  it.each([Number.NaN, -1, Number.POSITIVE_INFINITY])(
+    'refuses the gauge %s, naming it and the expected shape',
+    (value) => {
+      const probe = new RecordingPerfProbe();
+      expect(() => probe.gauge('texture.mb', value)).toThrow(
+        `texture.mb: expected a number ≥ 0 (número ≥ 0), got ${String(value)}`,
+      );
+      expect(probe.snapshot(1000).gauges).toEqual({});
+    },
+  );
 });
 
 describe('NO_PERF_PROBE', () => {
   it('keeps nothing: the snapshot is empty however much it was fed', () => {
     NO_PERF_PROBE.frame(16);
     NO_PERF_PROBE.count('view.draw', 5);
+    NO_PERF_PROBE.count('zoom.event', 5);
+    NO_PERF_PROBE.gauge('texture.mb', 41.5);
     expect(NO_PERF_PROBE.snapshot(1000)).toEqual({
       fps: 0,
       frameMs: { p50: 0, p95: 0, max: 0 },
-      perSecond: { 'view.draw': 0, 'token.redraw': 0, 'overlays.draw': 0, 'grid.draw': 0 },
+      perSecond: {
+        'view.draw': 0,
+        'token.redraw': 0,
+        'overlays.draw': 0,
+        'grid.draw': 0,
+        'zoom.event': 0,
+        'strip.redraw': 0,
+      },
+      gauges: {},
     });
   });
 });
