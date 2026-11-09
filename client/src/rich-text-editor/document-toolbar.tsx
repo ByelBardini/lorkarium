@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core';
+import { NodeSelection } from '@tiptap/pm/state';
 import { useEditorState } from '@tiptap/react';
 import {
   AlignLeftIcon,
@@ -107,6 +108,8 @@ export function DocumentToolbar({
   insertImage?: () => void;
 }): React.JSX.Element {
   useEditorState({ editor, selector: ({ editor: current }) => current.state });
+  const { selection } = editor.state;
+  const imageSelected = selection instanceof NodeSelection && selection.node.type.name === 'image';
   const command =
     (run: () => void): (() => void) =>
     () => {
@@ -191,7 +194,11 @@ export function DocumentToolbar({
         />
         <TextColor editor={editor} />
         <ToolbarDivider />
-        <ParagraphSettings editor={editor} />
+        {imageSelected ? (
+          <DocumentImageControls editor={editor} />
+        ) : (
+          <ParagraphSettings editor={editor} />
+        )}
         <LineHeightSelect editor={editor} />
         <ToolbarAction
           label="Lista com marcadores"
@@ -223,7 +230,6 @@ export function DocumentToolbar({
           disabled={!insertImage}
           shortcut={insertImage ? 'Ctrl+I' : undefined}
         />
-        <DocumentImageControls editor={editor} />
         <ToolbarAction
           label="Inserir tabela"
           icon={Table2Icon}
