@@ -336,5 +336,56 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
       );
       expect(removed.campaignId).toBe(quelm.id);
     });
+
+    it('a start past the route guard that meets a demotion is refused and leaves no seat', async () => {
+      const root = await account('Root', 'admin');
+      const vharn = await createTable(app, ana, 'Vharn');
+      let release: () => void = () => undefined;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const demotion = connection.db.transaction(async (tx) => {
+        await tx.update(users).set({ role: 'user' }).where(eq(users.id, root.id));
+        await held;
+      });
+      const start = call('POST', `/campaigns/${vharn.id}/juggernaut`, root.token);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      release();
+      await demotion;
+      expect(codeOf(await start)).toBe('FORBIDDEN');
+      expect((await call('GET', '/campaigns', root.token)).json()).toEqual({ campaigns: [] });
+    });
+  });
+
+  describe('a seat taken past the gate by the admin role', () => {
+    async function rootInsidePrivateTable(): Promise<{
+      root: SignedInUser;
+      vharn: Awaited<ReturnType<typeof createTable>>;
+    }> {
+      const root = await account('Root', 'admin');
+      const vharn = await createTable(app, ana, 'Vharn');
+      const joined = await call('POST', `/campaigns/${vharn.id}/join`, root.token, {});
+      expect(joined.statusCode).toBe(200);
+      return { root, vharn };
+    }
+
+    it('goes with the admin role: the table is 404 for them afterwards', async () => {
+      const { root, vharn } = await rootInsidePrivateTable();
+
+      await call('PATCH', `/admin/users/${root.id}`, admin.token, { role: 'user' });
+
+      expect(codeOf(await call('GET', `/campaigns/${vharn.id}`, root.token))).toBe(
+        'CAMPAIGN_NOT_FOUND',
+      );
+    });
+
+    it('stays when a master promoted them first', async () => {
+      const { root, vharn } = await rootInsidePrivateTable();
+      await call('PATCH', `/campaigns/${vharn.id}/members/${root.id}`, ana.token, {
+        role: 'player',
+      });
+
+      await call('PATCH', `/admin/users/${root.id}`, admin.token, { role: 'user' });
+
+      expect((await call('GET', `/campaigns/${vharn.id}`, root.token)).statusCode).toBe(200);
+    });
   });
 });

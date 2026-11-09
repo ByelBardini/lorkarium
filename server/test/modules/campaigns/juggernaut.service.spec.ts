@@ -17,7 +17,11 @@ import {
   campaignMemberPo,
   campaignPo,
 } from '../../support/campaigns-factories';
-import { JuggernautMembersFake, MemberRemovedFake } from '../../support/juggernaut-fakes';
+import {
+  AdminRoleLockFake,
+  JuggernautMembersFake,
+  MemberRemovedFake,
+} from '../../support/juggernaut-fakes';
 import { ForgottenMembershipsFake, MemberRoleChangedFake } from '../../support/member-role-fakes';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
 
@@ -30,6 +34,7 @@ describe('JuggernautService', () => {
   let members: JuggernautMembersFake;
   let changed: MemberRoleChangedFake;
   let removed: MemberRemovedFake;
+  let adminRoles: AdminRoleLockFake;
   let service: JuggernautService;
 
   beforeEach(() => {
@@ -58,9 +63,11 @@ describe('JuggernautService', () => {
       },
     });
     const memberships = new ForgottenMembershipsFake(members.writes);
+    adminRoles = new AdminRoleLockFake();
     service = new JuggernautService({
       campaigns,
       members,
+      transaction: (work) => work({ members, users: adminRoles }),
       memberships,
       changed,
       removed,
@@ -155,16 +162,43 @@ describe('JuggernautService', () => {
     expect(members.writes).toEqual([]);
   });
 
-  it('endAllOf turns it off at every table of Root, each with its own notice', async () => {
-    rootPlays();
-    await service.start(ROOT_ID, VHARN_ID);
-    await service.start(ROOT_ID, QUELM_ID);
-    members.writes.splice(0);
+  it('someone whose admin role is gone when the write locks it is FORBIDDEN and nothing is saved', async () => {
+    adminRoles.roles.set(ROOT_ID, 'user');
 
-    await service.endAllOf(ROOT_ID);
+    await expect(service.start(ROOT_ID, VHARN_ID)).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
-    expect(members.writes).toContain(`memberRoleChanged:${ROOT_ID}:player`);
-    expect(members.writes).toContain(`memberRemoved:${ROOT_ID}`);
-    expect(await members.juggernautCampaignIdsOf(ROOT_ID)).toEqual([]);
+    expect(members.writes).toEqual([]);
+  });
+
+  it('an account that no longer exists is FORBIDDEN too', async () => {
+    adminRoles.roles.set(ROOT_ID, undefined);
+
+    await expect(service.start(ROOT_ID, VHARN_ID)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  describe('announceRevoked, after the backoffice committed', () => {
+    const SEATS = [
+      { campaignId: VHARN_ID, restored: 'player' as const },
+      { campaignId: QUELM_ID, restored: null },
+    ];
+
+    it('forgets every seat, then each table hears its own outcome', async () => {
+      await service.announceRevoked(ROOT_ID, SEATS);
+
+      expect(members.writes).toEqual([
+        `forget:${VHARN_ID}:${ROOT_ID}`,
+        `forget:${QUELM_ID}:${ROOT_ID}`,
+        `memberRoleChanged:${ROOT_ID}:player`,
+        `memberRemoved:${ROOT_ID}`,
+      ]);
+    });
+
+    it('one table failing does not stop the others, and the failure still surfaces', async () => {
+      changed.memberRoleChanged = () => Promise.reject(new Error('socket gone'));
+
+      await expect(service.announceRevoked(ROOT_ID, SEATS)).rejects.toThrow('socket gone');
+
+      expect(removed.removed).toEqual([{ campaignId: QUELM_ID, userId: ROOT_ID }]);
+    });
   });
 });

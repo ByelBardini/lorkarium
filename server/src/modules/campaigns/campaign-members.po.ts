@@ -24,6 +24,9 @@ export const campaignMembers = pgTable(
     juggernautSince: timestamp('juggernaut_since', { withTimezone: true }),
     // The role to go back to when the mode ends; null with the mode on = not a member before.
     roleBeforeJuggernaut: campaignRole('role_before_juggernaut'),
+    // Set when the global admin role alone got this seat past the table's gate: it ends with the
+    // role, unless a master changed the seat since (docs/context/campaigns/papeis.md).
+    adminBypassSince: timestamp('admin_bypass_since', { withTimezone: true }),
   },
   (table) => [
     primaryKey({ columns: [table.campaignId, table.userId] }),

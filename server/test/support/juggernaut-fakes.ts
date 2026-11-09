@@ -3,16 +3,15 @@ import type {
   JuggernautEnd,
 } from '../../src/modules/campaigns/campaign-members.dao';
 import type { CampaignMemberPo } from '../../src/modules/campaigns/campaign-members.po';
+import type { UsersDao } from '../../src/modules/auth/users.dao';
+import type { UserPo } from '../../src/modules/auth/users.po';
 import type {
   MemberRemoval,
   MemberRemovedPort,
 } from '../../src/modules/campaigns/member-removed.port';
 import { CampaignMembersDaoFake } from './campaigns-fakes';
 
-type JuggernautWrites = Pick<
-  CampaignMembersDao,
-  'startJuggernaut' | 'endJuggernaut' | 'juggernautCampaignIdsOf'
->;
+type JuggernautWrites = Pick<CampaignMembersDao, 'startJuggernaut' | 'endJuggernaut'>;
 
 /** The members fake with the juggernaut columns, as the DAO writes them; each write goes to
  *  `writes` as `startJuggernaut:<campaignId>:<userId>` or `endJuggernaut:<campaignId>:<userId>`.
@@ -26,7 +25,13 @@ export class JuggernautMembersFake extends CampaignMembersDaoFake implements Jug
     const fresh = { campaignId, userId, joinedAt: at, lastEnteredAt: null };
     const row: CampaignMemberPo = before
       ? { ...before, role: 'master', ...this.modeKeptFrom(before, at) }
-      : { ...fresh, role: 'master', juggernautSince: at, roleBeforeJuggernaut: null };
+      : {
+          ...fresh,
+          role: 'master',
+          juggernautSince: at,
+          roleBeforeJuggernaut: null,
+          adminBypassSince: null,
+        };
     if (index >= 0) this.rows[index] = row;
     else this.rows.push(row);
     return row;
@@ -41,11 +46,6 @@ export class JuggernautMembersFake extends CampaignMembersDaoFake implements Jug
     if (restored === null) this.rows.splice(index, 1);
     else this.rows[index] = { ...row, role: restored, ...NO_MODE };
     return { restored };
-  }
-
-  async juggernautCampaignIdsOf(userId: string): Promise<string[]> {
-    const inMode = this.rows.filter((row) => row.userId === userId && row.juggernautSince);
-    return inMode.map((row) => row.campaignId);
   }
 
   private indexOf(campaignId: string, userId: string): number {
@@ -67,6 +67,18 @@ const NO_MODE: Pick<CampaignMemberPo, ModeColumns> = {
 
 function pickMode(row: CampaignMemberPo): Pick<CampaignMemberPo, ModeColumns> {
   return { juggernautSince: row.juggernautSince, roleBeforeJuggernaut: row.roleBeforeJuggernaut };
+}
+
+/** Answers each account's global role as the locked read does; everyone is an admin unless the
+ *  spec says otherwise.
+ *
+ *  Example: `new AdminRoleLockFake().roles.set(rootId, 'user')` */
+export class AdminRoleLockFake implements Pick<UsersDao, 'roleForShare'> {
+  readonly roles = new Map<string, UserPo['role'] | undefined>();
+
+  async roleForShare(userId: string): Promise<UserPo['role'] | undefined> {
+    return this.roles.has(userId) ? this.roles.get(userId) : 'admin';
+  }
 }
 
 /** Records each member taken out of a live table and writes `memberRemoved:<userId>` to

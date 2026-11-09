@@ -73,6 +73,7 @@ export function campaignMemberPo(overrides: Partial<CampaignMemberPo> = {}): Cam
     lastEnteredAt: null,
     juggernautSince: null,
     roleBeforeJuggernaut: null,
+    adminBypassSince: null,
     ...overrides,
   };
 }

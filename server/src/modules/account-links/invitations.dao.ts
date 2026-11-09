@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { users } from '../auth/users.po';
 import { invitations, type InvitationPo, type NewInvitationPo } from './invitations.po';
@@ -70,6 +70,13 @@ export class InvitationsDao {
       .where(eq(invitations.id, invitationId))
       .returning({ id: invitations.id });
     return deleted.length > 0;
+  }
+
+  /** Revokes the admin-role invitations of an account that lost the authority to issue them. */
+  async deleteAdminRoleIssuedBy(userId: string): Promise<void> {
+    await this.db
+      .delete(invitations)
+      .where(and(eq(invitations.invitedBy, userId), eq(invitations.role, 'admin')));
   }
 }
 
