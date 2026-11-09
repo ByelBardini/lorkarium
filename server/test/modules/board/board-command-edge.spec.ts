@@ -84,18 +84,19 @@ describe('onCommand', () => {
   });
 
   it('a command heavier than the whole bucket is RATE_LIMITED before any parse', async () => {
-    const drawings = Array.from({ length: 64 }, () => stroke(2000));
+    const drawings = Array.from({ length: 96 }, () => stroke(2000));
 
     expect((await send({ campaignId: OPEN_TABLE, drawings })).error?.code).toBe('RATE_LIMITED');
     expect(spy.parses).toBe(0);
   });
 
-  it('heavy commands drain the bucket by weight: full strokes run out before 40 commands', async () => {
-    const heavy = { campaignId: OPEN_TABLE, drawings: [stroke(2000)] };
+  it('heavy commands drain the bucket by weight: sixteen full strokes run out before 40 commands', async () => {
+    const drawings = Array.from({ length: 16 }, () => stroke(2000));
+    const heavy = { campaignId: OPEN_TABLE, drawings };
     const answers = [];
-    for (let sent = 0; sent < 9; sent += 1) answers.push(await send(heavy));
+    for (let sent = 0; sent < 5; sent += 1) answers.push(await send(heavy));
 
-    expect(answers.slice(0, 8).every((answer) => answer.ok)).toBe(true);
-    expect(answers[8]?.error?.code).toBe('RATE_LIMITED');
+    expect(answers.slice(0, 4).every((answer) => answer.ok)).toBe(true);
+    expect(answers[4]?.error?.code).toBe('RATE_LIMITED');
   });
 });

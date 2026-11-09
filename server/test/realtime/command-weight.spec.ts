@@ -1,3 +1,4 @@
+import { DRAWING_POINTS_MAX } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { COMMAND_BURST } from '../../src/realtime/command-rate.bo';
 import { commandCostOf } from '../../src/realtime/command-weight';
@@ -11,18 +12,27 @@ describe('commandCostOf', () => {
     expect(commandCostOf({ campaignId: 'x', tokenId: 'y', to: { col: 1, row: 2 } })).toBe(1);
   });
 
-  it('a full freehand stroke of 2000 points costs five', () => {
-    expect(commandCostOf({ drawings: [stroke(2000)] })).toBe(5);
+  it('sixteen full freehand strokes cost nine', () => {
+    const drawings = Array.from({ length: 16 }, () => stroke(DRAWING_POINTS_MAX));
+
+    expect(commandCostOf({ drawings })).toBe(9);
   });
 
-  it('the largest command the DTO admits costs more than any bucket holds', () => {
-    const drawings = Array.from({ length: 64 }, () => stroke(2000));
+  it('the largest command the DTO admits fits a full bucket', () => {
+    const drawings = Array.from({ length: 64 }, () => stroke(DRAWING_POINTS_MAX));
+
+    expect(commandCostOf({ drawings })).toBe(33);
+    expect(commandCostOf({ drawings })).toBeLessThanOrEqual(COMMAND_BURST);
+  });
+
+  it('a command past what the DTO admits can cost more than any bucket holds', () => {
+    const drawings = Array.from({ length: 96 }, () => stroke(DRAWING_POINTS_MAX));
 
     expect(commandCostOf({ drawings })).toBeGreaterThan(COMMAND_BURST);
   });
 
   it('counts wide payloads of objects, not only freehand points', () => {
-    const moves = Array.from({ length: 1000 }, () => ({ tokenId: 'x' }));
+    const moves = Array.from({ length: 8000 }, () => ({ tokenId: 'x' }));
 
     expect(commandCostOf({ moves })).toBe(3);
   });
