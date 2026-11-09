@@ -34,6 +34,22 @@ export {
 } from './token-patrol';
 export { boxFits, drawingBox, translateBox, type DrawingBox } from './drawing-box.vo';
 export {
+  MAP_NAME_MAX_LENGTH,
+  MAP_POLYGON_VERTICES_MAX,
+  MAP_POLYGON_VERTICES_MIN,
+  MAP_REGION_DESCRIPTION_MAX_LENGTH,
+  MAP_REGION_NAME_MAX_LENGTH,
+  MAP_REGIONS_MAX,
+  mapRegionGeometry,
+  polygonArea,
+  regionFocusPoint,
+  mapRegionParents,
+  regionsPaintOrder,
+  type MapPoint,
+  type MapRegionGeometry,
+  type PaintableMapRegion,
+} from './map-region.vo';
+export {
   adjustBarValues,
   applyBarChange,
   type BarAdjustment,
