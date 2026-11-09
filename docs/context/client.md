@@ -86,7 +86,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` e `DESKTOP_QUERY` (`md`); sem `matchMedia` (jsdom) responde `true`
 - `src/lib/board-shortcuts.ts`, `ruler-label.ts` — atalhos e régua da sala (ver [`client/board.md`](client/board.md))
 - `src/lib/table-roster.ts`, `member-presence.ts`, `idle-watch.ts`, `away-label.ts` — seções, presença, inatividade e "ausente há N min" da aba "Na mesa" (ver [`client/table-people.md`](client/table-people.md))
-- `src/lib/cells-text.ts` — `cellsText(1.5)` → `'1,5'`: casas com vírgula
+- `src/lib/cells-text.ts` — `cellsText(1.5)` → `'1,5'`: casas com vírgula; `positionText(4.015625)` → `'4,02'`: posição, até 2 decimais
 - `src/lib/token-side.ts` — `sideRingVar(lado)` → `var(--label)` / `var(--chart-3)` / `var(--chart-2)`: a cor do anel do token no DOM
 - `src/lib/safe-redirect.ts` — `safeRedirectTarget(next)`: só caminho interno; `//x`, `/\x`, URL absoluta, `javascript:`, vazio e `/login` viram `/`
 - `src/lib/greeting.ts` — `GREETINGS` (10 saudações) e `greetingFor(nome, sorteio ∈ [0, 1))`; fora do intervalo → `RangeError`

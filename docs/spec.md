@@ -120,6 +120,7 @@ Funcionalidades:
 - Alterar opacidade e aparência do grid.
 - Salvar posições dos tokens.
 - Reabrir cenas anteriormente configuradas.
+- Ligar o movimento livre em um grid (extensão aprovada, só o mestre): os tokens arrastados naquele grid caem onde forem soltos, em passos de 1/64 de casa, em vez de encaixar. As paredes continuam barrando o jogador, a régua mostra uma casa decimal, e ao desligar os tokens ficam onde estão e voltam a encaixar quando arrastados. Criar token e pontos de patrulha continuam encaixados.
 
 Inicialmente, somente grids quadrados serão implementados.
 
