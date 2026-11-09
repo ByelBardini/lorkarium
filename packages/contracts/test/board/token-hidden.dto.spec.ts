@@ -68,6 +68,7 @@ const STATE = {
     gridOpacity: 30,
     background: null,
     vision: 'off',
+    freeMovement: false,
   },
   tokens: [],
   drawings: [],

@@ -213,6 +213,7 @@ export const VHARN_SCENE: SceneDto = {
   gridOpacity: 30,
   background: null,
   vision: 'off',
+  freeMovement: false,
 };
 
 /** The scope of VHARN's group grid (`VHARN_SCENE`): where the room's commands go by default. */

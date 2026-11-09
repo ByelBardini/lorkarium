@@ -1,4 +1,4 @@
-import { cell } from '@lorkarium/game-core';
+import { cell, isPositionStep } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
 import {
@@ -14,6 +14,55 @@ const C = CELL_WORLD_SIZE;
 const SCENE = { widthCells: 20, heightCells: 12 };
 const ONE = { width: 1, height: 1 };
 const TWO = { width: 2, height: 2 };
+
+describe('dropCellOf on a free-movement grid', () => {
+  const free = (size: Parameters<typeof dropCellOf>[1], x: number, y: number) =>
+    dropCellOf(SCENE, size, { x, y }, true);
+
+  it('lands on the nearest multiple of 1/64 of a cell', () => {
+    expect(free(ONE, 100.4, 70)).toEqual(cell(1.0625, 0.59375));
+  });
+
+  it('with the mode off the same drop snaps as always', () => {
+    expect(dropCellOf(SCENE, ONE, { x: 100.4, y: 70 }, false)).toEqual(cell(1, 1));
+    expect(dropCellOf(SCENE, { width: 0.5, height: 0.5 }, { x: 100.4, y: 70 })).toEqual(
+      cell(1.5, 1),
+    );
+  });
+
+  it('a token pushed against the scene edge fits, touching it', () => {
+    expect(free(ONE, 20 * C - 1, 12 * C - 1)).toEqual(cell(19, 11));
+  });
+
+  it('a fractional token at the far edge stays on the step and inside the scene', () => {
+    const size = { width: 1.5, height: 2.5 };
+    expect(free(size, 20 * C - 0.3, 12 * C - 0.3)).toEqual(cell(18.5, 9.5));
+  });
+
+  it('at the top-left corner a pointer a hair past zero lands on a positive zero', () => {
+    const landing = free(ONE, C / 2 - 0.2, C / 2 - 0.2);
+    expect(landing).toEqual(cell(0, 0));
+    expect(Object.is(landing?.col, 0)).toBe(true);
+  });
+
+  it('with its center off the scene there is no landing', () => {
+    expect(free(ONE, 20 * C + 1, 70)).toBeNull();
+    expect(free(ONE, 70, -1)).toBeNull();
+  });
+
+  it('a token wider than the scene has no landing', () => {
+    expect(dropCellOf({ widthCells: 1, heightCells: 1 }, TWO, { x: 32, y: 32 }, true)).toBeNull();
+  });
+
+  it('every point of a drag lands on a position step inside the scene', () => {
+    const size = { width: 1.5, height: 0.5 };
+    for (let x = 48; x <= 20 * C - 48; x += 7.3) {
+      const col = free(size, x, 100.7)?.col ?? -1;
+      expect(isPositionStep(col), `at x = ${x}`).toBe(true);
+      expect(col + size.width).toBeLessThanOrEqual(20);
+    }
+  });
+});
 
 describe('dropCellOf', () => {
   it('a 1×1 token dropped inside cell (8, 6) lands on (8, 6)', () => {

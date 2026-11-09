@@ -11,6 +11,17 @@ describe('grid form', () => {
       cellUnit: 'm',
       gridVisible: true,
       gridOpacity: '30',
+      freeMovement: false,
+    });
+  });
+
+  it('carries freeMovement from the scene to the command, apart from the grid', () => {
+    const form = gridFormOf({ ...VHARN_SCENE, freeMovement: true });
+    expect(form.freeMovement).toBe(true);
+    expect(parseGridForm(form)).toEqual({
+      ok: true,
+      grid: VHARN_SCENE_GRID,
+      freeMovement: true,
     });
   });
 
@@ -19,6 +30,7 @@ describe('grid form', () => {
     expect(parseGridForm(form)).toEqual({
       ok: true,
       grid: { ...VHARN_SCENE_GRID, cellDistance: 2.5, cellUnit: 'ft' },
+      freeMovement: false,
     });
   });
 

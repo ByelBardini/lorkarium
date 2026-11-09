@@ -659,6 +659,13 @@
       "when": 1794240755557,
       "tag": "0093_scene_folder_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1794244586350,
+      "tag": "0094_free_movement",
+      "breakpoints": true
     }
   ]
 }

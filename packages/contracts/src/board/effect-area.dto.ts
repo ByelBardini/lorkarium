@@ -94,8 +94,8 @@ function originRuleOf(area: AreaFields): [CoordinateRule, string] {
     return [rule, across ? 'x whole and y on a half cell' : 'x on a half cell and y whole'];
   }
   if (area.kind === 'line') return [isHalf, 'a cell center (x and y on .5)'];
-  if (area.kind === 'emanation') return [isHalfStep, 'a token footprint on half cells'];
-  if (isSmooth(area.kind)) return [isHundredth, 'finite numbers ≥ 0 to the hundredth'];
+  if (area.kind === 'emanation' || isSmooth(area.kind))
+    return [isHundredth, 'finite numbers ≥ 0 to the hundredth'];
   return [Number.isInteger, 'a grid intersection (whole x and y)'];
 }
 

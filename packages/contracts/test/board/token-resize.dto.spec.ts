@@ -26,7 +26,7 @@ describe('resizeTokensCommandDto', () => {
   it.each([
     ['width', 10.5],
     ['height', 0],
-    ['col', 0.75],
+    ['col', 0.01],
   ])('%s %s is refused citing the value', (field, value) => {
     expect(messagesOf({ ...BASE, resizes: [{ ...LYRA_BOX, [field]: value }] })).toEqual([
       expect.stringContaining(`${value} is invalid`),

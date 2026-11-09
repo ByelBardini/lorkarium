@@ -42,6 +42,8 @@ export const scenes = pgTable(
       onDelete: 'set null',
     }),
     visionMode: sceneVision('vision_mode').notNull().default('off'),
+    // The token falls where it is dropped; only the client's gesture reads it (docs/context/tokens.md).
+    freeMovement: boolean('free_movement').notNull().default(false),
     visibility: sceneVisibility('visibility').notNull().default('private'),
     folderId: uuid('folder_id'),
     // The board state version (spec §5.5): persisted, so it survives a server restart.
@@ -71,5 +73,6 @@ export type SceneGridPo = Pick<
 >;
 /** What the library edits on a scene: an absent key stays. */
 export type SceneLibraryChangesPo = Partial<Pick<ScenePo, 'name' | 'folderId' | 'visibility'>>;
-/** What `scene:configure` saves: the grid, the background and the vision mode. */
-export type SceneConfigPo = SceneGridPo & Pick<ScenePo, 'backgroundAssetId' | 'visionMode'>;
+/** What `scene:configure` saves: the grid, the background, the vision and the movement mode. */
+export type SceneConfigPo = SceneGridPo &
+  Pick<ScenePo, 'backgroundAssetId' | 'visionMode' | 'freeMovement'>;

@@ -88,6 +88,36 @@ describe('pathCells', () => {
     expect(pathCells([cell(0, 0), cell(0.5, 0)])).toEqual([cell(0, 0), cell(0.5, 0)]);
   });
 
+  it('a leg to a fine position ends exactly on it', () => {
+    const cells = pathCells([cell(0, 0), cell(2.015625, 0)]);
+    expect(cells.at(-1)).toEqual(cell(2.015625, 0));
+  });
+
+  it('a leg from a fine position ends exactly on a whole cell', () => {
+    const cells = pathCells([cell(0.015625, 1.5), cell(2, 3.03125)]);
+    expect(cells.at(-1)).toEqual(cell(2, 3.03125));
+  });
+
+  it('a leg shorter than a cell is one step straight to the fine position', () => {
+    expect(pathCells([cell(1, 1), cell(1.015625, 1)])).toEqual([cell(1, 1), cell(1.015625, 1)]);
+  });
+
+  it('walking back from a fine position ends exactly on the start', () => {
+    const cells = pathCells([cell(2.015625, 0), cell(0, 0)]);
+    expect(cells.at(-1)).toEqual(cell(0, 0));
+  });
+
+  it('a small fine move on the shorter axis never overshoots its end, even at the scene edge', () => {
+    const cells = pathCells([cell(0.296875, 10), cell(0, 0)]);
+    expect(cells.every(({ col }) => col <= 0.296875)).toBe(true);
+    expect(cells.at(-1)).toEqual(cell(0, 0));
+  });
+
+  it('a leg of half cells walks half a cell at a time on its shorter axis', () => {
+    const cells = pathCells([cell(0, 0), cell(2, 1.5)]);
+    expect(cells).toEqual([cell(0, 0), cell(1, 1), cell(2, 1.5)]);
+  });
+
   it('one cell is the trail itself, and an empty path has none', () => {
     expect(pathCells([cell(5, 5)])).toEqual([cell(5, 5)]);
     expect(pathCells([])).toEqual([]);
@@ -112,5 +142,11 @@ describe('footprintFits', () => {
   it('a 1.5-wide token at 18.5 ends exactly on the edge, half a cell more spills', () => {
     expect(footprintFits(SCENE_20_BY_12, cell(18.5, 0), tokenSize(1.5, 0.5))).toBe(true);
     expect(footprintFits(SCENE_20_BY_12, cell(19, 0), tokenSize(1.5, 0.5))).toBe(false);
+  });
+
+  it('a token at a fine origin touching the edge fits, one step of 1/64 more spills', () => {
+    expect(footprintFits(SCENE_20_BY_12, cell(18.484375, 0), tokenSize(1.5, 1))).toBe(true);
+    expect(footprintFits(SCENE_20_BY_12, cell(18.5, 0), tokenSize(1.5, 1))).toBe(true);
+    expect(footprintFits(SCENE_20_BY_12, cell(18.515625, 0), tokenSize(1.5, 1))).toBe(false);
   });
 });

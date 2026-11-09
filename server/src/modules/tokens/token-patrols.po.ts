@@ -24,7 +24,7 @@ export const tokenPatrols = pgTable(
     tokenId: uuid('token_id')
       .primaryKey()
       .references(() => tokens.id, { onDelete: 'cascade' }),
-    // Token origins `[col, row][]`, in half cells, like `tokens.col`/`row` (2 to 32 points).
+    // Token origins `[col, row][]`, in steps of 1/64 of a cell, like `tokens.col`/`row` (2 to 32 points).
     path: jsonb('path').$type<[number, number][]>().notNull(),
     repeat: tokenPatrolRepeat('repeat').notNull(),
     // Cells per second, 0.25 to 4 in steps of 0.25 (game-core `tokenPatrol`).

@@ -1,0 +1,3 @@
+ALTER TABLE "tokens" DROP CONSTRAINT "tokens_box_half_cells";--> statement-breakpoint
+ALTER TABLE "scenes" ADD COLUMN "free_movement" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "tokens" ADD CONSTRAINT "tokens_box_steps" CHECK ("tokens"."col" >= 0 AND "tokens"."row" >= 0 AND "tokens"."width" BETWEEN 0.5 AND 10 AND "tokens"."height" BETWEEN 0.5 AND 10 AND ("tokens"."col" * 64) = floor("tokens"."col" * 64) AND ("tokens"."row" * 64) = floor("tokens"."row" * 64) AND ("tokens"."width" * 2) = floor("tokens"."width" * 2) AND ("tokens"."height" * 2) = floor("tokens"."height" * 2));

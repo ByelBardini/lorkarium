@@ -76,16 +76,16 @@ describe('setTokenPatrolCommandDto', () => {
     },
   );
 
-  it('a point at 1.25 is refused by the half cell', () => {
+  it('a point at 1.01 is refused by the 1/64 step', () => {
     expect(
       patrolMessagesOf({
         ...CORRIDOR,
         path: [
           [0, 0],
-          [1.25, 0],
+          [1.01, 0],
         ],
       }),
-    ).toEqual([expect.stringContaining('cell 1.25 is invalid')]);
+    ).toEqual([expect.stringContaining('cell 1.01 is invalid')]);
   });
 
   it('a forged userId is refused (who asks comes from the connection)', () => {

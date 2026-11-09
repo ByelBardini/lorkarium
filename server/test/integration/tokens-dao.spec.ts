@@ -180,7 +180,7 @@ describe('TokensDao on Postgres', () => {
   it.each([
     ['width', 0.25],
     ['height', 10.5],
-    ['col', 1.25],
+    ['col', 1.01],
   ])('a %s of %s is refused by the CHECK of the table', async (field, value) => {
     const odd = lyra({ token: { ...lyra().token, [field]: value } });
 

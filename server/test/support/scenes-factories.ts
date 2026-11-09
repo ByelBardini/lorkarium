@@ -20,6 +20,7 @@ export function scenePo(overrides: Partial<ScenePo> = {}): ScenePo {
     gridOpacity: 30,
     backgroundAssetId: null,
     visionMode: 'off',
+    freeMovement: false,
     visibility: 'private',
     folderId: null,
     version: 0,

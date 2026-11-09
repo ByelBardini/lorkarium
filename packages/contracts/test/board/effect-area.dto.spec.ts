@@ -50,6 +50,36 @@ describe('effectAreaShapeDto — the nine shapes', () => {
   });
 });
 
+describe('effectAreaShapeDto — the origin of an emanation', () => {
+  const EMANATION = {
+    kind: 'emanation',
+    x: 3,
+    y: 4,
+    width: 1,
+    height: 1,
+    reach: 2,
+    color: 'violet',
+  } as const;
+
+  it.each([
+    ['a hundredth on x', { x: 3.02, y: 4 }],
+    ['a hundredth on y', { x: 3, y: 4.37 }],
+    ['a half cell', { x: 3.5, y: 4.5 }],
+  ])('%s is accepted, for a token off the cell', (_scenario, origin) => {
+    expect(effectAreaShapeDto.parse({ ...EMANATION, ...origin })).toMatchObject(origin);
+  });
+
+  it('half a hundredth is refused citing the origin and the hundredth', () => {
+    const result = effectAreaShapeDto.safeParse({ ...EMANATION, x: 3.005 });
+    expect(messagesOf(result).join('\n')).toMatch(/emanation origin \(3\.005, 4\).*hundredth/);
+  });
+
+  it('a side on the hundredth is still refused by the half cell', () => {
+    const result = effectAreaShapeDto.safeParse({ ...EMANATION, width: 1.02 });
+    expect(messagesOf(result).join('\n')).toMatch(/emanation width 1\.02.*multiple of 0\.5/);
+  });
+});
+
 describe('effectAreaShapeDto — what is refused, citing the value', () => {
   it.each([
     [

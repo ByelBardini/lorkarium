@@ -136,11 +136,11 @@ describe('createTokenCommandDto', () => {
     expect(issuePathsOf({ ...CREATE, height })).toEqual(['height']);
   });
 
-  it('a half-cell position passes and a quarter cell is refused citing the value', () => {
-    expect(issuePathsOf({ ...CREATE, col: 1.5 })).toEqual([]);
-    const result = createTokenCommandDto.safeParse({ ...CREATE, row: 1.25 });
+  it('a position on the 1/64 step passes and a hundredth is refused citing the value', () => {
+    expect(issuePathsOf({ ...CREATE, col: 1.015625 })).toEqual([]);
+    const result = createTokenCommandDto.safeParse({ ...CREATE, row: 1.01 });
     expect(result.error?.issues.map(({ message }) => message)).toEqual([
-      expect.stringMatching(/1\.25.*multiple of 0\.5/),
+      expect.stringMatching(/1\.01.*multiple of 1\/64/),
     ]);
   });
 

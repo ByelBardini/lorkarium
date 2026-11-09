@@ -1,4 +1,5 @@
 import {
+  POSITION_STEP,
   cell,
   footprintFits,
   type Cell,
@@ -13,10 +14,17 @@ const DRAG_THRESHOLD_PX = 4;
 
 /** The cell a token of `size` lands on when released with its center at `world`: snapped to the
  *  grid (to half a cell on an axis whose side is fractional, so a 0.5 token fits half a cell), and
- *  `null` when it would not fit the scene (nothing is sent then).
+ *  `null` when it would not fit the scene (nothing is sent then). With `free` (a free-movement
+ *  grid) it lands where it was let go, on the nearest `POSITION_STEP`.
  *
- *  Example: `dropCellOf(scene, token, screenToWorld(camera, pointer))` */
-export function dropCellOf(scene: SceneSize, size: TokenSize, world: Point): Cell | null {
+ *  Example: `dropCellOf(scene, token, screenToWorld(camera, pointer), view.grid.freeMovement)` */
+export function dropCellOf(
+  scene: SceneSize,
+  size: TokenSize,
+  world: Point,
+  free = false,
+): Cell | null {
+  if (free) return freeDropOf(scene, size, world);
   const col = snapAxis(world.x / CELL_WORLD_SIZE - size.width / 2, size.width);
   const row = snapAxis(world.y / CELL_WORLD_SIZE - size.height / 2, size.height);
   if (col < 0 || row < 0) return null;
@@ -27,6 +35,24 @@ export function dropCellOf(scene: SceneSize, size: TokenSize, world: Point): Cel
 function snapAxis(start: number, side: number): number {
   const steps = Number.isInteger(side) ? 1 : 2;
   return Math.round(start * steps) / steps;
+}
+
+function freeDropOf(scene: SceneSize, size: TokenSize, world: Point): Cell | null {
+  const centerCol = world.x / CELL_WORLD_SIZE;
+  const centerRow = world.y / CELL_WORLD_SIZE;
+  if (centerCol < 0 || centerRow < 0) return null;
+  if (centerCol > scene.widthCells || centerRow > scene.heightCells) return null;
+  const col = freeAxis(centerCol - size.width / 2, scene.widthCells - size.width);
+  const row = freeAxis(centerRow - size.height / 2, scene.heightCells - size.height);
+  const landing = cell(col, row);
+  return footprintFits(scene, landing, size) ? landing : null;
+}
+
+// Rounded first, limited after: both limits are steps themselves (whole scene minus a side in half
+// cells), so the edge is never off the step. `Math.max` also turns a rounded -0 into 0.
+function freeAxis(start: number, limit: number): number {
+  const stepped = Math.round(start / POSITION_STEP) * POSITION_STEP;
+  return Math.max(0, Math.min(stepped, limit));
 }
 
 export type TokenPress = Readonly<{

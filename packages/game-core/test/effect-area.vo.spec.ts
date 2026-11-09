@@ -32,6 +32,10 @@ describe('effectArea — the shapes accepted', () => {
       { kind: 'emanation', x: 5, y: 4, width: 1, height: 1, reach: 2, color: 'violet' },
     ],
     [
+      'an emanation around a token off the cells, its origin to the hundredth',
+      { kind: 'emanation', x: 3.02, y: 4.5, width: 1, height: 1, reach: 2, color: 'violet' },
+    ],
+    [
       'a smooth circle centered anywhere to the hundredth',
       { kind: 'smooth_circle', x: 5.23, y: 4.87, reach: 2.27, color: 'gold' },
     ],
@@ -108,6 +112,16 @@ describe('effectArea — the shapes refused', () => {
       'an emanation with a side of a quarter cell',
       { kind: 'emanation', x: 5, y: 5, width: 0.25, height: 1, reach: 1, color: 'ember' },
       /emanation width 0\.25.*multiple of 0\.5 from 0\.5 to 10/,
+    ],
+    [
+      'an emanation with an origin past the hundredth',
+      { kind: 'emanation', x: 3.005, y: 4, width: 1, height: 1, reach: 1, color: 'ember' },
+      /emanation origin \(3\.005, 4\).*to the hundredth/,
+    ],
+    [
+      'an emanation with a side off the half cells, even to the hundredth',
+      { kind: 'emanation', x: 3.02, y: 4, width: 1.02, height: 1, reach: 1, color: 'ember' },
+      /emanation width 1\.02.*multiple of 0\.5 from 0\.5 to 10/,
     ],
     [
       'a line facing 360',

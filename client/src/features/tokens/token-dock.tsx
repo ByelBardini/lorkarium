@@ -4,7 +4,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { useBoardSight } from '@/features/board/use-board-sight';
 import { ConditionsEditor } from '@/features/combat/conditions-editor';
 import { seenTokensOf } from '@/lib/board-sight';
-import { cellsText } from '@/lib/cells-text';
+import { cellsText, positionText } from '@/lib/cells-text';
 import { facingLabel } from '@/lib/facing-label';
 import { mainTokenIdOf } from '@/lib/main-token';
 import {
@@ -107,7 +107,7 @@ function useDockedToken({ board, interaction, characters }: TokenDockProps): Doc
 // "Coluna 5, linha 6 · 1 × 1 casas · Olha para o leste": cells counted from 1, as a person
 // counts them (the status line says it the same way).
 function whereText({ col, row, width, height, facing }: TokenDto): string {
-  const cellAt = `Coluna ${cellsText(col + 1)}, linha ${cellsText(row + 1)}`;
+  const cellAt = `Coluna ${positionText(col + 1)}, linha ${positionText(row + 1)}`;
   return `${cellAt} · ${cellsText(width)} × ${cellsText(height)} casas · Olha para o ${facingLabel(facing)}`;
 }
 

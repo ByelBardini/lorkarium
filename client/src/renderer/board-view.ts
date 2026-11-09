@@ -100,7 +100,7 @@ export type BoardView = Readonly<{
   sceneSize: Size;
   /** Under the grid; `null` without a background. */
   background: SceneBackgroundView | null;
-  grid: Readonly<{ visible: boolean; opacity: number; cells: SceneSize }>;
+  grid: Readonly<{ visible: boolean; opacity: number; cells: SceneSize; freeMovement: boolean }>;
   ruler: RulerView | null;
   tokens: readonly TokenView[];
   ghosts: readonly GhostView[];
@@ -235,6 +235,7 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       visible: scene.gridVisible && input.localGridVisible,
       opacity: scene.gridOpacity / 100,
       cells,
+      freeMovement: scene.freeMovement,
     },
     ruler: rulerOf(input),
     tokens: tokenViewsOf(input),
@@ -412,7 +413,8 @@ function rulerOf({ drag, ruler, scene, tokens }: BoardViewInput): RulerView | nu
 
 function rulerAlong(path: readonly Cell[], size: TokenSizeOf, scene: SceneDto): RulerView {
   const points = path.map((point) => footprintCenter(point, size));
-  return { points, steps: [], label: rulerLabel(pathDistance(path), scene) };
+  const decimals = scene.freeMovement ? 1 : 2;
+  return { points, steps: [], label: rulerLabel(pathDistance(path), scene, decimals) };
 }
 
 function footprintCenter({ col, row }: Cell, size: TokenSizeOf): Point {

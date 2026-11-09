@@ -8,6 +8,19 @@ describe('rulerLabel', () => {
     expect(rulerLabel(3, METERS)).toBe('3 casas · 4,5 m');
   });
 
+  it('on a free-movement grid it reads one decimal', () => {
+    expect(rulerLabel(3.046875, METERS, 1)).toBe('3 casas · 4,6 m');
+  });
+
+  it('with one decimal a reading that rounds to 1 is singular', () => {
+    expect(rulerLabel(1.015625, METERS, 1)).toBe('1 casa · 1,5 m');
+    expect(rulerLabel(1, METERS, 1)).toBe('1 casa · 1,5 m');
+  });
+
+  it('without the free mode the two decimals of always stay', () => {
+    expect(rulerLabel(3.046875, METERS)).toBe('3,05 casas · 4,57 m');
+  });
+
   it('1 cell is singular', () => {
     expect(rulerLabel(1, METERS)).toBe('1 casa · 1,5 m');
   });

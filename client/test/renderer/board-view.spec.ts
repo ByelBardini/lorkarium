@@ -51,6 +51,7 @@ describe('buildBoardView', () => {
     expect(view.grid).toEqual({
       visible: true,
       opacity: 0.3,
+      freeMovement: false,
       cells: { widthCells: 20, heightCells: 12 },
     });
     expect(view.ruler).toBeNull();
@@ -68,6 +69,17 @@ describe('buildBoardView', () => {
       ruler: null,
     });
     expect(view.grid.visible).toBe(visible);
+  });
+
+  it('on a free-movement grid the ruler reads one decimal and the view carries the mode', () => {
+    const view = buildBoardView({
+      ...NO_TOKENS,
+      scene: { ...VHARN_SCENE, freeMovement: true },
+      localGridVisible: true,
+      ruler: { from: cell(0, 0), to: cell(3.046875, 0) },
+    });
+    expect(view.ruler?.label).toBe('3 casas · 4,6 m');
+    expect(view.grid.freeMovement).toBe(true);
   });
 
   it('a ruler from (0,0) to (3,2) is 3 cells, with the label in the scene unit', () => {

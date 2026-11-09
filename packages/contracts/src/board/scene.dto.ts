@@ -43,13 +43,14 @@ export const sceneDto = z.strictObject({
   ...sceneGridShape,
   background: sceneBackgroundDto.nullable(),
   vision: sceneVisionDto,
+  freeMovement: z.boolean(),
 });
 
 export type SceneDto = z.infer<typeof sceneDto>;
 
 /** Payload of `scene:configure`, sent by the master; who asks comes from the connection.
  *  `backgroundAssetId`: an asset of the campaign sets the background, `null` takes it away, absent
- *  keeps it. `vision` absent keeps the scene's mode.
+ *  keeps it. `vision` and `freeMovement` absent keep the scene's mode.
  *
  *  Example: `configureSceneCommandDto.parse({ actionId, campaignId, ...grid })` */
 export const configureSceneCommandDto = z.strictObject({
@@ -57,6 +58,7 @@ export const configureSceneCommandDto = z.strictObject({
   ...sceneGridShape,
   backgroundAssetId: z.uuid().nullable().optional(),
   vision: sceneVisionDto.optional(),
+  freeMovement: z.boolean().optional(),
 });
 
 export type ConfigureSceneCommandDto = z.infer<typeof configureSceneCommandDto>;

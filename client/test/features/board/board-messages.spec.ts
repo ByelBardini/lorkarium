@@ -13,6 +13,15 @@ import {
   tokenCommandFailureMessage,
 } from '@/features/board/board-messages';
 
+describe('a token off the cells is announced to the hundredth', () => {
+  it('selected and moved read short positions', () => {
+    expect(selectedAnnouncement('Kael', 3.015625, 2.5)).toBe(
+      'Kael selecionado, coluna 4,02, linha 3,5',
+    );
+    expect(movedAnnouncement('Kael', 3.015625, 2)).toBe('Kael foi para a coluna 4,02, linha 3');
+  });
+});
+
 describe('connectionStatusLine', () => {
   it.each([
     ['connecting', 'loading', 'Conectando à mesa…'],

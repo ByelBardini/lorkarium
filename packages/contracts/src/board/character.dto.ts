@@ -16,7 +16,7 @@ import {
   TOKEN_INITIALS_MAX_LENGTH,
   TOKEN_NAME_MAX_LENGTH,
   barChangeDto,
-  cellIndexDto,
+  halfCellDto,
   tokenBarDto,
   tokenFrameDto,
   tokenSideDto,
@@ -27,13 +27,16 @@ export { CHARACTER_NOTE_MAX, CHARACTER_STAT_MAX } from './character-fields.dto';
 /** A character's name is the name its linked tokens wear, so it has the token's limit. */
 export const CHARACTER_NAME_MAX = TOKEN_NAME_MAX_LENGTH;
 
+// Not `cellIndexDto`: tokens placed here are born snapped, even on a free-movement grid.
+const placementCenterDto = halfCellDto('cell', 0, Number.MAX_SAFE_INTEGER);
+
 /** `token:addPlayers` (master): puts in the grid a token linked to each player's character,
  *  in the free cells around `center` (the middle of the master's view).
  *
  *  Example: `addPlayersCommandDto.parse({ actionId, campaignId, sceneId, center: { col: 10, row: 6 } })` */
 export const addPlayersCommandDto = z.strictObject({
   ...boardCommandShape,
-  center: z.strictObject({ col: cellIndexDto, row: cellIndexDto }),
+  center: z.strictObject({ col: placementCenterDto, row: placementCenterDto }),
 });
 export type AddPlayersCommandDto = z.infer<typeof addPlayersCommandDto>;
 

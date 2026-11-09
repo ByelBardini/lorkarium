@@ -63,5 +63,6 @@ export function toSceneCopyPo(source: SceneRow, name: string): NewScenePo {
     gridOpacity: source.gridOpacity,
     backgroundAssetId: source.backgroundAssetId,
     visionMode: source.visionMode,
+    freeMovement: source.freeMovement,
   };
 }

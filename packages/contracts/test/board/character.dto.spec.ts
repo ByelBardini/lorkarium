@@ -16,6 +16,11 @@ describe('adding the players to a grid', () => {
     expect(addPlayersCommandDto.safeParse(off).success).toBe(false);
   });
 
+  it('token:addPlayers refuses a center on the 1/64 step: new tokens are born snapped', () => {
+    const fine = { ...ENVELOPE, center: { col: 10.015625, row: 6 } };
+    expect(addPlayersCommandDto.safeParse(fine).success).toBe(false);
+  });
+
   it('the addPlayers ack names the created tokens and the skipped players', () => {
     const ack = { ok: true, version: 5, createdIds: [LYRA], skippedMemberIds: [BIA] };
     expect(addPlayersAckDto.parse(ack)).toEqual(ack);

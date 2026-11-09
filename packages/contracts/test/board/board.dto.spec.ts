@@ -26,6 +26,7 @@ const SCENE = {
   gridOpacity: 30,
   background: null,
   vision: 'off',
+  freeMovement: false,
 };
 const STATE = {
   campaignId: CAMPAIGN_ID,

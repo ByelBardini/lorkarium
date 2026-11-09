@@ -145,6 +145,77 @@ describe('PrimaryPress ping', () => {
   });
 });
 
+describe('PrimaryPress dragging on a free-movement grid', () => {
+  const STEP = 1 / 64;
+  const scene = { ...VHARN_SCENE, freeMovement: true };
+  let parts: PressPartsFake;
+  let press: PrimaryPress;
+  const free: PressContext = { view: boardView({ scene }), zoom: 1 };
+
+  beforeEach(() => {
+    parts = new PressPartsFake();
+    press = new PrimaryPress(parts);
+    press.down(free, pointAt(3.5, 4.5));
+  });
+
+  const reported = () =>
+    parts.intents.flatMap((intent) => (intent.kind === 'tokenDragged' ? [intent.cell] : []));
+
+  it('two moves over different fine positions report both', () => {
+    press.move(free, pointAt(4.5 + STEP, 4.5));
+    press.move(free, pointAt(4.5 + 3 * STEP, 4.5));
+
+    expect(reported()).toEqual([cell(4 + STEP, 4), cell(4 + 3 * STEP, 4)]);
+  });
+
+  it('moves inside the same 1/64 of a cell report once', () => {
+    press.move(free, pointAt(4.5 + STEP, 4.5));
+    press.move(free, pointAt(4.5 + STEP + 0.001, 4.5));
+    press.move(free, pointAt(4.5 + STEP - 0.001, 4.5));
+
+    expect(reported()).toHaveLength(1);
+  });
+
+  it('the drop lands on the fine position', () => {
+    press.move(free, pointAt(4.5 + STEP, 4.5));
+    press.up(free, pointAt(4.5 + STEP, 4.5));
+
+    expect(parts.intents.at(-1)).toEqual({
+      kind: 'tokenDropped',
+      tokenId: LYRA_ID,
+      cell: cell(4 + STEP, 4),
+    });
+  });
+
+  it('a patrol point picked on the free grid is still born snapped', () => {
+    const viewer = { userId: BIA_AT_TABLE.userId, isMaster: true };
+    const patrolDraft = { tokenId: LYRA_ID, path: [cell(3, 4)], repeat: 'loop' as const };
+    const editing = { view: boardView({ scene, viewer, patrolDraft }), zoom: 1 };
+    const picking = new PrimaryPress(parts);
+
+    picking.down(editing, pointAt(8.4, 4.6));
+
+    expect(parts.intents.at(-1)).toEqual({ kind: 'patrolPointPicked', cell: cell(8, 4) });
+  });
+});
+
+describe('PrimaryPress on a grid that snaps', () => {
+  it('moves inside one cell report once', () => {
+    const parts = new PressPartsFake();
+    const press = new PrimaryPress(parts);
+    const select: PressContext = { view: boardView(), zoom: 1 };
+    press.down(select, pointAt(3.5, 4.5));
+
+    press.move(select, pointAt(5.5 + 1 / 64, 4.5));
+    press.move(select, pointAt(5.5 + 3 / 64, 4.5));
+
+    const dragged = parts.intents.filter(({ kind }) => kind === 'tokenDragged');
+    expect(dragged).toEqual([
+      { kind: 'tokenDragged', tokenId: LYRA_ID, origin: cell(3, 4), cell: cell(5, 4) },
+    ]);
+  });
+});
+
 describe('PrimaryPress with the condition tool', () => {
   let parts: PressPartsFake;
   let press: PrimaryPress;

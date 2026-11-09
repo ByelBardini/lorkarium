@@ -103,10 +103,12 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     grid: SceneGridDto,
     backgroundAssetId?: string | null,
     vision?: SceneVisionDto,
+    freeMovement?: boolean,
   ): Promise<BoardCommandResult> {
     const background = backgroundAssetId === undefined ? {} : { backgroundAssetId };
     const mode = vision === undefined ? {} : { vision };
-    return this.record('configureScene', scope, { ...grid, ...background, ...mode });
+    const movement = freeMovement === undefined ? {} : { freeMovement };
+    return this.record('configureScene', scope, { ...grid, ...background, ...mode, ...movement });
   }
 
   createToken(scope: BoardScope, token: NewToken): Promise<BoardCommandResult> {

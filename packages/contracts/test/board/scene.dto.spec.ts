@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { configureSceneCommandDto, sceneGridDto } from '../../src/board/scene.dto';
+import { configureSceneCommandDto, sceneDto, sceneGridDto } from '../../src/board/scene.dto';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const CAMPAIGN_ID = '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a';
@@ -94,6 +94,40 @@ describe('sceneGridDto', () => {
 
   it('a grid carrying the campaign id is refused (strict)', () => {
     expect(sceneGridDto.safeParse({ ...GRID, campaignId: CAMPAIGN_ID }).success).toBe(false);
+  });
+});
+
+describe('freeMovement', () => {
+  const SCENE = {
+    id: ACTION_ID,
+    name: 'Taverna',
+    ...GRID,
+    background: null,
+    vision: 'off',
+  };
+
+  it.each([true, false])('the scene carries freeMovement %s as sent', (freeMovement) => {
+    expect(sceneDto.parse({ ...SCENE, freeMovement }).freeMovement).toBe(freeMovement);
+  });
+
+  it('a scene without freeMovement is refused on freeMovement', () => {
+    expect(sceneDto.safeParse(SCENE).error?.issues.map(({ path }) => path)).toEqual([
+      ['freeMovement'],
+    ]);
+  });
+
+  it.each([true, false])('configure takes freeMovement %s as sent', (freeMovement) => {
+    expect(configureSceneCommandDto.parse({ ...COMMAND, freeMovement }).freeMovement).toBe(
+      freeMovement,
+    );
+  });
+
+  it('a configure without freeMovement leaves it undefined (the scene keeps its mode)', () => {
+    expect(configureSceneCommandDto.parse(COMMAND).freeMovement).toBeUndefined();
+  });
+
+  it('a configure with a text freeMovement is refused on freeMovement', () => {
+    expect(issuePathsOf({ ...COMMAND, freeMovement: 'yes' })).toEqual(['freeMovement']);
   });
 });
 
