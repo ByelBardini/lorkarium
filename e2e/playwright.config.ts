@@ -70,6 +70,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
     'library-images',
     'library-documents',
     'library-document-tabs',
+    'library-maps',
     'character',
     'characters',
   ],

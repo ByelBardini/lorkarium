@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { gridTabsOf, pickGrid } from './library';
+import { chooseNewItemKind, gridTabsOf, pickGrid } from './library';
 
 export type DocumentTabRecord = Readonly<{
   id: string;
@@ -36,7 +36,8 @@ export async function createDocument(page: Page, library: Locator, name: string)
   const created = page.waitForResponse(
     (response) => response.request().method() === 'POST' && response.url().endsWith('/documents'),
   );
-  await page.getByRole('menuitem', { name: 'Novo documento', exact: true }).click();
+  const dialog = await chooseNewItemKind(page, 'Documento');
+  await dialog.getByRole('button', { name: 'Criar', exact: true }).click();
   const response = await created;
   expect(response.status()).toBe(201);
   const answer: { document: DocumentRecord } = await response.json();

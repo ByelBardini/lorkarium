@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 import { test } from './support/player-pages';
 import { BIA } from './support/dev-players';
 import {
+  createBlankGrid,
   createFolder,
   createGrid,
   gridItemOf,
@@ -90,7 +91,8 @@ test('the library between master and player: a private grid stays hidden, a publ
     button: 'right',
     position: { x: 60, y: 16 },
   });
-  await admin.getByRole('menuitem', { name: 'Novo grid', exact: true }).click();
+  await admin.getByRole('menuitem', { name: 'Criar novo item', exact: true }).click();
+  await createBlankGrid(admin);
   await nameNewGrid(estradaLibrary, 'Estrada');
   await takeTheGroupTo(estradaLibrary, 'Estrada');
   await expect(gridNoticeOf(bia)).toHaveText('O mestre levou o grupo para Estrada.');

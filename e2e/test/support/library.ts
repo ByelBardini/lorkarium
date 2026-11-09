@@ -63,17 +63,33 @@ export function gridNoticeOf(page: Page): Locator {
   return page.getByRole('status', { name: 'Aviso dos grids' });
 }
 
-/** "Novo grid" of the header (in the folder picked, or the picked grid's), named by its "Nome"
- *  field (Enter saves).
+/** Picks the type on the "Novo item" dialog just opened; resolves to the dialog.
+ *
+ *  Example: `const dialog = await chooseNewItemKind(admin, 'Grid')` */
+export async function chooseNewItemKind(page: Page, kind: string): Promise<Locator> {
+  const dialog = page.getByRole('dialog', { name: 'Novo item', exact: true });
+  await dialog.getByRole('button', { name: kind, exact: true }).click();
+  return dialog;
+}
+
+/** "Novo item" → "Grid", on the dialog just opened and left without a name.
+ *
+ *  Example: `await createBlankGrid(admin)` */
+export async function createBlankGrid(page: Page): Promise<void> {
+  const dialog = await chooseNewItemKind(page, 'Grid');
+  await dialog.getByRole('button', { name: 'Criar', exact: true }).click();
+}
+
+/** A grid created at the root by the header, named by its "Nome" field (Enter saves).
  *
  *  Example: `await createGrid(library, 'Torre')` */
 export async function createGrid(library: Locator, name: string): Promise<void> {
   await library.getByRole('button', { name: 'Criar item' }).click();
-  await library.page().getByRole('menuitem', { name: 'Novo grid', exact: true }).click();
+  await createBlankGrid(library.page());
   await nameNewGrid(library, name);
 }
 
-/** Names the grid just created (a "Novo grid" of the header or of the tree menu): its "Nome" field
+/** Names the grid just created (by the header or by the tree menu): its "Nome" field
  *  takes the focus.
  *
  *  Example: `await nameNewGrid(library, 'Estrada')` */

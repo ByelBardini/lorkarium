@@ -8,7 +8,7 @@ import {
   type Response,
 } from '@playwright/test';
 import { cellCenterOf } from './board-cells';
-import { gridItemOf, gridTabsOf, openLibrary } from './library';
+import { chooseNewItemKind, gridItemOf, gridTabsOf, openLibrary } from './library';
 import { boardOf } from './tables';
 
 /** What the e2e needs of a new sheet, from the answer of `POST /api/campaigns/:c/sheets`: its id
@@ -26,7 +26,7 @@ export function campaignIdOf(page: Page): string {
   return id;
 }
 
-/** "Criar item" → "Novo modelo de ficha" in the library: the template is born with the starter
+/** "Novo item" → "Modelo de ficha" in the library: the template is born with the starter
  *  code of the client (name, PV, "Força", "−5 PV", "Rolar ataque"); only its name is typed, so
  *  the e2e never types into CodeMirror. Saves, then closes the library.
  *
@@ -34,7 +34,8 @@ export function campaignIdOf(page: Page): string {
 export async function createStarterTemplate(master: Page, name: string): Promise<void> {
   const library = await openLibrary(master);
   await library.getByRole('button', { name: 'Criar item' }).click();
-  await master.getByRole('menuitem', { name: 'Novo modelo de ficha' }).click();
+  const dialog = await chooseNewItemKind(master, 'Modelo de ficha');
+  await dialog.getByRole('button', { name: 'Criar', exact: true }).click();
   const editor = library.getByRole('region', { name: 'Editor do modelo' });
   const nameField = editor.getByRole('textbox', { name: 'Nome do modelo' });
   await expect(nameField).toHaveValue('Modelo sem nome');
@@ -71,7 +72,7 @@ export async function exportSheetTemplate(library: Locator, template: string): P
   return download;
 }
 
-/** "Criar item" → "Importar modelo de ficha" with a file on disk; stops at the confirmation (or
+/** "Novo item" → "Modelo de ficha" → "Importar de um arquivo"; stops at the confirmation (or
  *  the refusal) so the spec decides what to check.
  *
  *  Example: `await importSheetTemplate(library, await download.path())` */
@@ -79,7 +80,8 @@ export async function importSheetTemplate(library: Locator, filePath: string): P
   const page = library.page();
   const chooser = page.waitForEvent('filechooser');
   await library.getByRole('button', { name: 'Criar item' }).click();
-  await page.getByRole('menuitem', { name: 'Importar modelo de ficha' }).click();
+  const dialog = await chooseNewItemKind(page, 'Modelo de ficha');
+  await dialog.getByRole('button', { name: 'Importar de um arquivo', exact: true }).click();
   await (await chooser).setFiles(filePath);
 }
 
@@ -138,7 +140,7 @@ export async function setSheetVisibility(
   await expect(menu).toBeHidden();
 }
 
-/** The library's "Criar item" → "Nova ficha": the dialog's name, the first template and the
+/** The library's "Novo item" → "Ficha": the dialog's name, the first template and the
  *  `holderIndex`-th option of "Dono" (0 = "Ninguém (só mestres)"). The new sheet is picked
  *  ("Ficha escolhida"); the library stays open. Answers the sheet from the server.
  *
@@ -151,12 +153,11 @@ export async function createSheetInLibrary(
   const page = library.page();
   const created = page.waitForResponse(isSheetCreation);
   await library.getByRole('button', { name: 'Criar item' }).click();
-  await page.getByRole('menuitem', { name: 'Nova ficha', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Nova ficha', exact: true });
-  await dialog.getByRole('textbox', { name: 'Nome da ficha' }).fill(name);
+  const dialog = await chooseNewItemKind(page, 'Ficha');
+  await dialog.getByRole('textbox', { name: 'Nome', exact: true }).fill(name);
   await dialog.getByRole('combobox', { name: 'Dono' }).click();
   await page.getByRole('option').nth(holderIndex).click();
-  await dialog.getByRole('button', { name: 'Criar ficha', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Criar', exact: true }).click();
   await expect(dialog).toBeHidden();
   const sheet = await librarySheetOf(await created);
   await expect(library.getByRole('region', { name: 'Ficha escolhida' })).toContainText(name);
