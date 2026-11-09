@@ -19,6 +19,7 @@ const OTHER_ID = '9e2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e';
 const NO_TARGETS: MapLinkTargets = {
   groupSceneId: null,
   documents: new Map(),
+  documentTabs: new Map(),
   scenes: new Map(),
   maps: new Map(),
   images: new Map(),
@@ -227,6 +228,7 @@ describe('mapLinkTargetIdsOf', () => {
     const ids = mapLinkTargetIdsOf([documentRegion, documentRegion, sceneRegion, mapRegion]);
     expect(ids).toEqual({
       documents: [TARGET_ID],
+      documentTabs: [],
       scenes: [TARGET_ID],
       maps: [TARGET_ID],
       images: [],
@@ -235,6 +237,55 @@ describe('mapLinkTargetIdsOf', () => {
 
   it('skips a region without a link and a deleted target', () => {
     const ids = mapLinkTargetIdsOf([mapRegionPo(), mapRegionPo({ linkKind: 'image' })]);
-    expect(ids).toEqual({ documents: [], scenes: [], maps: [], images: [] });
+    expect(ids).toEqual({ documents: [], documentTabs: [], scenes: [], maps: [], images: [] });
+  });
+});
+
+describe('MapRegionProjectionBo: a link to a tab', () => {
+  const TAB_ID = '9c2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e';
+  const tabRegion = mapRegionPo({
+    linkKind: 'document',
+    targetDocumentId: TARGET_ID,
+    targetDocumentTabId: TAB_ID,
+  });
+  const withTab = (
+    documentVisibility: 'public' | 'private',
+    visibility: 'document' | 'masters',
+  ): MapLinkTargets => ({
+    ...documentAt(documentVisibility),
+    documentTabs: new Map([[TAB_ID, { name: 'Capítulo', documentId: TARGET_ID, visibility }]]),
+  });
+  const openTab = { ...open('document', 'Diário'), tabId: TAB_ID, tabName: 'Capítulo' };
+
+  it('Bia opens a visible tab of a document she reads, by its name', () => {
+    expect(linkFor('player', withTab('public', 'document'), tabRegion)).toEqual(openTab);
+  });
+
+  it('a masters-only tab is locked for Bia, even on a document she reads', () => {
+    expect(linkFor('player', withTab('public', 'masters'), tabRegion)).toEqual(LOCKED);
+  });
+
+  it('a masters-only tab is locked for the spectator too', () => {
+    expect(linkFor('spectator', withTab('public', 'masters'), tabRegion)).toEqual(LOCKED);
+  });
+
+  it('Ana opens the masters-only tab', () => {
+    expect(linkFor('master', withTab('private', 'masters'), tabRegion)).toEqual(openTab);
+  });
+
+  it('a visible tab of a document Bia cannot read stays locked', () => {
+    expect(linkFor('player', withTab('private', 'document'), tabRegion)).toEqual(LOCKED);
+  });
+
+  it('a document link with no tab says nothing about tabs', () => {
+    expect(linkFor('player', documentAt('public'), documentRegion)).toEqual(
+      open('document', 'Diário'),
+    );
+  });
+
+  it('asks for each tab once', () => {
+    expect(mapLinkTargetIdsOf([tabRegion, tabRegion, documentRegion]).documentTabs).toEqual([
+      TAB_ID,
+    ]);
   });
 });

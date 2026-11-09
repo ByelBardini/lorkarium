@@ -666,6 +666,13 @@
       "when": 1794244586350,
       "tag": "0094_free_movement",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1794266077813,
+      "tag": "0095_map_region_document_tab",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@ const OTHER_MAP_ID = '9f2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e';
 const NO_LINK = {
   linkKind: null,
   targetDocumentId: null,
+  targetDocumentTabId: null,
   targetSceneId: null,
   targetMapId: null,
   targetImageId: null,
@@ -141,5 +142,24 @@ describe('requireRegionShowable', () => {
     expect(() => requireRegionShowable(privateMap, visible)).toThrowError(
       expect.objectContaining({ code: 'MAP_REGION_NOT_SHOWABLE' }),
     );
+  });
+});
+
+describe('linkColumnsOf with a tab', () => {
+  it('keeps the tab of a document link', () => {
+    const columns = linkColumnsOf({ kind: 'document', id: OTHER_MAP_ID, tabId: MUNDO_MAP_ID });
+    expect(columns).toMatchObject({
+      targetDocumentId: OTHER_MAP_ID,
+      targetDocumentTabId: MUNDO_MAP_ID,
+    });
+  });
+
+  it('a document link with no tab clears the tab of the link it replaces', () => {
+    expect(linkColumnsOf({ kind: 'document', id: OTHER_MAP_ID }).targetDocumentTabId).toBeNull();
+  });
+
+  it('a link of another kind never carries a tab', () => {
+    const columns = linkColumnsOf({ kind: 'scene', id: OTHER_MAP_ID, tabId: MUNDO_MAP_ID });
+    expect(columns.targetDocumentTabId).toBeNull();
   });
 });

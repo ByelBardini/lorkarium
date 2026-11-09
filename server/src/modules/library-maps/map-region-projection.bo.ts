@@ -11,6 +11,7 @@ export type MapLinkKind = 'document' | 'scene' | 'map' | 'image';
 export type MapRegionLinkColumns = Readonly<{
   linkKind: MapLinkKind | null;
   targetDocumentId: string | null;
+  targetDocumentTabId: string | null;
   targetSceneId: string | null;
   targetMapId: string | null;
   targetImageId: string | null;
@@ -29,6 +30,8 @@ export type MapRegionFacts = MapRegionLinkColumns &
 
 type NamedTarget = Readonly<{ name: string }>;
 export type DocumentLinkTarget = DocumentAccessState & NamedTarget;
+export type DocumentTabLinkTarget = NamedTarget &
+  Readonly<{ documentId: string; visibility: 'document' | 'masters' }>;
 export type SceneLinkTarget = GridReach & NamedTarget;
 export type MapLinkTarget = LibraryMapExposure & NamedTarget;
 export type ImageLinkTarget = NamedTarget &
@@ -38,6 +41,7 @@ export type ImageLinkTarget = NamedTarget &
 export type MapLinkTargets = Readonly<{
   groupSceneId: string | null;
   documents: ReadonlyMap<string, DocumentLinkTarget>;
+  documentTabs: ReadonlyMap<string, DocumentTabLinkTarget>;
   scenes: ReadonlyMap<string, SceneLinkTarget>;
   maps: ReadonlyMap<string, MapLinkTarget>;
   images: ReadonlyMap<string, ImageLinkTarget>;
@@ -45,6 +49,7 @@ export type MapLinkTargets = Readonly<{
 
 export type MapLinkTargetIds = Readonly<{
   documents: readonly string[];
+  documentTabs: readonly string[];
   scenes: readonly string[];
   maps: readonly string[];
   images: readonly string[];
@@ -52,7 +57,14 @@ export type MapLinkTargetIds = Readonly<{
 
 export type ProjectedMapLink =
   | null
-  | Readonly<{ state: 'open'; kind: MapLinkKind; id: string; name: string }>
+  | Readonly<{
+      state: 'open';
+      kind: MapLinkKind;
+      id: string;
+      name: string;
+      tabId?: string;
+      tabName?: string;
+    }>
   | Readonly<{ state: 'locked' }>
   | Readonly<{ state: 'removed'; kind: MapLinkKind }>;
 
@@ -69,6 +81,7 @@ function distinctIds(ids: readonly (string | null)[]): string[] {
 export function mapLinkTargetIdsOf(regions: readonly MapRegionLinkColumns[]): MapLinkTargetIds {
   return {
     documents: distinctIds(regions.map(({ targetDocumentId }) => targetDocumentId)),
+    documentTabs: distinctIds(regions.map(({ targetDocumentTabId }) => targetDocumentTabId)),
     scenes: distinctIds(regions.map(({ targetSceneId }) => targetSceneId)),
     maps: distinctIds(regions.map(({ targetMapId }) => targetMapId)),
     images: distinctIds(regions.map(({ targetImageId }) => targetImageId)),
@@ -111,7 +124,21 @@ export class MapRegionProjectionBo {
     const id = targetIdOf(region, kind);
     if (id === null) return this.access.isMaster() ? { state: 'removed', kind } : null;
     const name = this.openableName(kind, id);
-    return name === undefined ? { state: 'locked' } : { state: 'open', kind, id, name };
+    if (name === undefined) return { state: 'locked' };
+    const open = { state: 'open', kind, id, name } as const;
+    const tabId = kind === 'document' ? region.targetDocumentTabId : null;
+    return tabId === null ? open : this.narrowedToTab(open, tabId);
+  }
+
+  // Reading the document is not enough: a masters-only tab stays locked, with nothing about it.
+  private narrowedToTab(
+    open: Extract<ProjectedMapLink, { state: 'open' }>,
+    tabId: string,
+  ): ProjectedMapLink {
+    const tab = this.targets.documentTabs.get(tabId);
+    if (!tab || (tab.visibility === 'masters' && !this.access.isMaster()))
+      return { state: 'locked' };
+    return { ...open, tabId, tabName: tab.name };
   }
 
   private openableName(kind: MapLinkKind, id: string): string | undefined {

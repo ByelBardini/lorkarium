@@ -90,12 +90,15 @@ describe('toMapAppearanceDto', () => {
       regionId: REINO_REGION_ID,
       regionName: 'Reino',
       regionHidden: true,
+      tabName: 'Capítulo 2',
+      tabVisibility: 'document',
     } as const;
     expect(toMapAppearanceDto(row)).toStrictEqual({
       mapId: MUNDO_MAP_ID,
       mapName: 'Mundo',
       regionId: REINO_REGION_ID,
       regionName: 'Reino',
+      tabName: 'Capítulo 2',
     });
   });
 });

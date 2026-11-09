@@ -11,6 +11,7 @@ import type {
 import type { MapAppearanceRow } from '../../src/modules/library-maps/library-map-regions.dao';
 import type {
   DocumentLinkTarget,
+  DocumentTabLinkTarget,
   ImageLinkTarget,
   MapLinkTarget,
   SceneLinkTarget,
@@ -52,12 +53,17 @@ const inCampaign = <Row extends InCampaign>(
 export class MapLinkTargetsDaoFake implements LinkTargetsDao {
   readonly lookups: string[] = [];
   readonly documents: (DocumentLinkTarget & InCampaign)[] = [];
+  readonly documentTabs: (DocumentTabLinkTarget & InCampaign)[] = [];
   readonly scenes: (SceneLinkTarget & InCampaign)[] = [];
   readonly maps: (MapLinkTarget & InCampaign)[] = [];
   readonly images: (ImageLinkTarget & InCampaign)[] = [];
 
   async documentsIn(campaignId: string, ids: readonly string[]) {
     return this.lookup('documents', inCampaign(this.documents, campaignId, ids), ids);
+  }
+
+  async documentTabsIn(campaignId: string, ids: readonly string[]) {
+    return this.lookup('documentTabs', inCampaign(this.documentTabs, campaignId, ids), ids);
   }
 
   async scenesIn(campaignId: string, ids: readonly string[]) {

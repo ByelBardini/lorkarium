@@ -160,6 +160,19 @@ describe('document workspace', () => {
     expect(editor.getState().draft).toBeNull();
     expect(host.last().closed).toBe(true);
   });
+  it('opens a document on the tab asked for, even before it has loaded', () => {
+    const { workspace, campaign, document } = setup();
+    const key = workspace.getState().open({ campaign, document, tabId: ITEMS_TAB_ID });
+    expect(workspace.getState().activeTabByDocument[key]).toBe(ITEMS_TAB_ID);
+    workspace.getState().clear();
+  });
+  it('asking for a tab of a document already open moves it there', () => {
+    const { workspace, campaign, document } = setup();
+    const key = workspace.getState().open({ campaign, document });
+    workspace.getState().open({ campaign, document, tabId: ITEMS_TAB_ID });
+    expect(workspace.getState().activeTabByDocument[key]).toBe(ITEMS_TAB_ID);
+    workspace.getState().clear();
+  });
   it('remembers the tab shown in each document and forgets it when the document closes', async () => {
     const { workspace, campaign, api } = setup();
     api.document = documentFixture({ tabs: threeTabs() });

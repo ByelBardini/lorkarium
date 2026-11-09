@@ -1,0 +1,4 @@
+ALTER TABLE "library_map_regions" ADD COLUMN "target_document_tab_id" uuid;--> statement-breakpoint
+ALTER TABLE "library_map_regions" ADD CONSTRAINT "library_map_regions_target_document_tab_fk" FOREIGN KEY ("campaign_id","target_document_tab_id") REFERENCES "public"."library_document_tabs"("campaign_id","id") ON DELETE SET NULL ("target_document_tab_id") ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "library_map_regions_target_document_tab_idx" ON "library_map_regions" USING btree ("campaign_id","target_document_tab_id");--> statement-breakpoint
+ALTER TABLE "library_map_regions" ADD CONSTRAINT "library_map_regions_link_tab" CHECK ("library_map_regions"."target_document_tab_id" IS NULL OR "library_map_regions"."link_kind" IS NOT DISTINCT FROM 'document');

@@ -60,6 +60,9 @@ export function mapLinkItemLabel(kind: MapRegionLinkKindDto, name: string): stri
  *  Example: `mapLinkStatusLabel({ state: 'removed', kind: 'map' }) // 'Link removido'` */
 export function mapLinkStatusLabel(link: MapRegionLinkDto): string {
   if (link === null) return 'Sem link';
-  if (link.state === 'open') return mapLinkItemLabel(link.kind, link.name);
+  if (link.state === 'open') {
+    const item = mapLinkItemLabel(link.kind, link.name);
+    return link.tabName ? `${item} › ${link.tabName}` : item;
+  }
   return link.state === 'removed' ? 'Link removido' : 'Item que você não pode ver';
 }

@@ -82,13 +82,20 @@ export type MapRegionGeometryDto = z.infer<typeof mapRegionGeometryDto>;
 export const mapRegionLinkKindDto = z.enum(['document', 'scene', 'map', 'image']);
 export type MapRegionLinkKindDto = z.infer<typeof mapRegionLinkKindDto>;
 
-/** The link as the master writes it; `null` in a body = no link.
+/** The link as the master writes it; `null` in a body = no link. `tabId` narrows a document link
+ *  to one of its tabs, and no other kind has tabs.
  *
- *  Example: `mapRegionLinkTargetDto.parse({ kind: 'document', id: diarioId })` */
-export const mapRegionLinkTargetDto = z.strictObject({
-  kind: mapRegionLinkKindDto,
-  id: z.uuid(),
-});
+ *  Example: `mapRegionLinkTargetDto.parse({ kind: 'document', id: diarioId, tabId: capituloId })` */
+export const mapRegionLinkTargetDto = z
+  .strictObject({
+    kind: mapRegionLinkKindDto,
+    id: z.uuid(),
+    tabId: z.uuid().optional(),
+  })
+  .refine(({ kind, tabId }) => tabId === undefined || kind === 'document', {
+    error: 'tabId only applies to a link of kind document',
+    path: ['tabId'],
+  });
 export type MapRegionLinkTargetDto = z.infer<typeof mapRegionLinkTargetDto>;
 
 /** The link as each reader receives it. `locked` has no field on purpose: a visible region whose
@@ -103,6 +110,8 @@ export const mapRegionLinkDto = z
       kind: mapRegionLinkKindDto,
       id: z.uuid(),
       name: z.string(),
+      tabId: z.uuid().optional(),
+      tabName: z.string().optional(),
     }),
     z.strictObject({ state: z.literal('locked') }),
     z.strictObject({ state: z.literal('removed'), kind: mapRegionLinkKindDto }),
@@ -154,12 +163,14 @@ export type LibraryMapDetailDto = z.infer<typeof libraryMapDetailDto>;
 export const mainMapResponseDto = z.strictObject({ map: libraryMapSummaryDto.nullable() });
 export type MainMapResponseDto = z.infer<typeof mainMapResponseDto>;
 
-/** One place on a map where a document appears: what it takes to open the map at the region. */
+/** One place on a map where a document appears: what it takes to open the map at the region.
+ *  `tabName` is the tab the region points at; `null` = the document as a whole. */
 export const mapAppearanceDto = z.strictObject({
   mapId: z.uuid(),
   mapName: mapNameDto,
   regionId: z.uuid(),
   regionName: mapRegionNameDto,
+  tabName: z.string().nullable(),
 });
 export type MapAppearanceDto = z.infer<typeof mapAppearanceDto>;
 

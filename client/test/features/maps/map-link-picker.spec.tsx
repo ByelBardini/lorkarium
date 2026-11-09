@@ -1,9 +1,16 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { MapRegionLinkDto, MapRegionLinkTargetDto } from '@lorkarium/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { MapLinkPicker } from '@/features/maps/map-link-picker';
-import { DOCUMENT_ID, documentFixture } from '../../support/documents-fixtures';
+import { VHARN } from '../../support/campaigns-api-fake';
+import { DocumentsApiFake } from '../../support/documents-api-fake';
+import {
+  DOCUMENT_ID,
+  documentFixture,
+  ITEMS_TAB_ID,
+  threeTabs,
+} from '../../support/documents-fixtures';
 import { PORTRAIT, vharnLibrary } from '../../support/library-fixtures';
 import { MUNDO_ID, REINO_ID, libraryMapSummary } from '../../support/library-map-fixtures';
 import { ESTRADA_SCENE } from '../../support/scene-tab-fixtures';
@@ -25,13 +32,19 @@ const OPEN_LINK: MapRegionLinkDto = {
   name: 'Crônica do Ossuário',
 };
 
-function renderPicker(link: MapRegionLinkDto = null, disabled = false) {
+function renderPicker(
+  link: MapRegionLinkDto = null,
+  disabled = false,
+  documents: DocumentsApiFake = new DocumentsApiFake(),
+) {
   const onChange = vi.fn<(target: MapRegionLinkTargetDto | null) => void>();
   render(
     <MapLinkPicker
+      campaignId={VHARN.id}
       mapId={MUNDO_ID}
       link={link}
       library={LIBRARY}
+      documents={documents}
       disabled={disabled}
       onChange={onChange}
     />,
@@ -114,6 +127,8 @@ describe('MapLinkPicker', () => {
     it('does not offer a filter for a kind with nothing to pick', () => {
       render(
         <MapLinkPicker
+          campaignId={VHARN.id}
+          documents={new DocumentsApiFake()}
           mapId={MUNDO_ID}
           link={null}
           library={{ ...LIBRARY, maps: [libraryMapSummary()], images: [] }}
@@ -228,5 +243,76 @@ describe('MapLinkPicker', () => {
     renderPicker(null, true);
     expect(screen.getByLabelText('Buscar item')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Mapa: Reino' })).toBeDisabled();
+  });
+});
+
+describe('MapLinkPicker: "Abrir em"', () => {
+  const withTabs = (): DocumentsApiFake => {
+    const documents = new DocumentsApiFake();
+    documents.document = documentFixture({ tabs: threeTabs() });
+    return documents;
+  };
+  const field = (): HTMLElement => screen.getByRole('combobox', { name: 'Abrir em' });
+  const LINK_TO_ITEMS: MapRegionLinkDto = {
+    state: 'open',
+    kind: 'document',
+    id: DOCUMENT_ID,
+    name: 'Crônica do Ossuário',
+    tabId: ITEMS_TAB_ID,
+    tabName: 'Itens',
+  };
+  const tabsLanded = (documents: DocumentsApiFake): Promise<void> =>
+    waitFor(() => expect(documents.detailCalls).toBe(1));
+  async function choose(option: string): Promise<void> {
+    await userEvent.click(field());
+    await userEvent.click(await screen.findByRole('option', { name: option }));
+  }
+
+  it('offers the document as a whole and each tab, naming the masters-only one', async () => {
+    const documents = withTabs();
+    renderPicker(OPEN_LINK, false, documents);
+    await tabsLanded(documents);
+    await userEvent.click(field());
+    await screen.findByRole('option', { name: 'Itens' });
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Documento inteiro',
+      'Geral',
+      'Itens',
+      'Segredos (só mestres)',
+    ]);
+  });
+
+  it('choosing a tab links to that tab of the same document', async () => {
+    const documents = withTabs();
+    const { onChange } = renderPicker(OPEN_LINK, false, documents);
+    await tabsLanded(documents);
+    await choose('Itens');
+    expect(onChange).toHaveBeenCalledWith({
+      kind: 'document',
+      id: DOCUMENT_ID,
+      tabId: ITEMS_TAB_ID,
+    });
+  });
+
+  it('going back to the whole document sends no tab', async () => {
+    const documents = withTabs();
+    const { onChange } = renderPicker(LINK_TO_ITEMS, false, documents);
+    await tabsLanded(documents);
+    expect(field()).toHaveTextContent('Itens');
+    await choose('Documento inteiro');
+    expect(onChange).toHaveBeenCalledWith({ kind: 'document', id: DOCUMENT_ID });
+  });
+
+  it('says so when the tabs cannot be read, and keeps the saved one', async () => {
+    const documents = withTabs();
+    documents.detailResult = { ok: false, failure: { kind: 'offline' } };
+    renderPicker(LINK_TO_ITEMS, false, documents);
+    expect(await screen.findByRole('alert')).toHaveTextContent('abas deste documento');
+    expect(field()).toHaveTextContent('Itens');
+  });
+
+  it('is not offered for a link of another kind', () => {
+    renderPicker({ state: 'open', kind: 'map', id: REINO_ID, name: 'Reino' });
+    expect(screen.queryByRole('combobox', { name: 'Abrir em' })).not.toBeInTheDocument();
   });
 });

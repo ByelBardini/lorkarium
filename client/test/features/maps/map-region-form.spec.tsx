@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { MapRegionDto } from '@lorkarium/contracts';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { DocumentsApiFake } from '../../support/documents-api-fake';
 import { MapRegionForm } from '@/features/maps/map-region-form';
 import { MapRegionShape } from '@/features/maps/map-region-shape';
 import type { LibraryMapsFailureKind } from '@/services/library-maps-api';
@@ -44,6 +45,7 @@ function renderForm({ region = mapRegion(), live = true }: FormScene = {}) {
           mapId={MUNDO_ID}
           region={current}
           library={LIBRARY}
+          documents={new DocumentsApiFake()}
           live={live}
           onRegionChanged={confirm}
           onRegionRemoved={onRegionRemoved}

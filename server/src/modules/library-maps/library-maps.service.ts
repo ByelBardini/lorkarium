@@ -50,7 +50,10 @@ export type LibraryMapDaos = Readonly<{
     LibraryMapRegionsDao,
     'insert' | 'listOfMap' | 'findInMap' | 'countOfMap' | 'update' | 'delete' | 'listAppearances'
   >;
-  linkTargets: Pick<MapLinkTargetsDao, 'documentsIn' | 'scenesIn' | 'mapsIn' | 'imagesIn'>;
+  linkTargets: Pick<
+    MapLinkTargetsDao,
+    'documentsIn' | 'documentTabsIn' | 'scenesIn' | 'mapsIn' | 'imagesIn'
+  >;
   documents: Pick<DocumentsDao, 'findInCampaign' | 'owners'>;
 }>;
 

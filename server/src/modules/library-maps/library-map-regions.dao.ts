@@ -1,6 +1,7 @@
 import { and, count, eq, sql, type SQL } from 'drizzle-orm';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { libraryDocumentTabs, type DocumentTabPo } from '../documents/document-tabs.po';
 import {
   libraryMapRegions,
   type MapRegionChangesPo,
@@ -19,6 +20,8 @@ export type MapAppearanceRow = Readonly<{
   regionId: string;
   regionName: string;
   regionHidden: boolean;
+  tabName: string | null;
+  tabVisibility: DocumentTabPo['visibility'] | null;
 }>;
 
 /** Every query filters by the campaign of the session and, for one region, by its map too: the
@@ -109,6 +112,8 @@ export class LibraryMapRegionsDao {
         regionId: libraryMapRegions.id,
         regionName: libraryMapRegions.name,
         regionHidden: libraryMapRegions.hidden,
+        tabName: libraryDocumentTabs.name,
+        tabVisibility: libraryDocumentTabs.visibility,
       })
       .from(libraryMapRegions)
       .innerJoin(
@@ -116,6 +121,13 @@ export class LibraryMapRegionsDao {
         and(
           eq(libraryMaps.id, libraryMapRegions.mapId),
           eq(libraryMaps.campaignId, libraryMapRegions.campaignId),
+        ),
+      )
+      .leftJoin(
+        libraryDocumentTabs,
+        and(
+          eq(libraryDocumentTabs.id, libraryMapRegions.targetDocumentTabId),
+          eq(libraryDocumentTabs.campaignId, libraryMapRegions.campaignId),
         ),
       )
       .where(

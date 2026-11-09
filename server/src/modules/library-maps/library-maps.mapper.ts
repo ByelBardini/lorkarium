@@ -57,6 +57,6 @@ export function toMapRegionDto({ region, link }: ProjectedMapRegion): MapRegionD
  *
  *  Example: `toMapAppearanceDto(row).regionName // 'Reino'` */
 export function toMapAppearanceDto(row: MapAppearanceRow): MapAppearanceDto {
-  const { mapId, mapName, regionId, regionName } = row;
-  return { mapId, mapName, regionId, regionName };
+  const { mapId, mapName, regionId, regionName, tabName } = row;
+  return { mapId, mapName, regionId, regionName, tabName };
 }

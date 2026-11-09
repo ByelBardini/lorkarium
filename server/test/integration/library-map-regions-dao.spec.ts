@@ -309,6 +309,8 @@ describe('LibraryMapRegionsDao on Postgres', () => {
           regionId: reino.id,
           regionName: 'Reino',
           regionHidden: true,
+          tabName: null,
+          tabVisibility: null,
         },
       ]);
     });

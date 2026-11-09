@@ -30,6 +30,8 @@ export type OpenDocument = Readonly<{
   campaign: CampaignDetailDto;
   document: DocumentSummaryDto;
   focusName?: boolean;
+  /** The tab to show; without it, the one last shown. */
+  tabId?: string | undefined;
 }>;
 export type OpenSheet = Readonly<{
   campaign: CampaignDetailDto;
@@ -133,6 +135,13 @@ export function activateDocumentTab(workspace: Workspace, key: string, tabId: st
  *  Example: `const key = openDocument(workspace, { campaign, document })` */
 export function openDocument(workspace: Workspace, input: OpenDocument): string {
   const key = documentWorkspaceKey(input.campaign.id, input.document.id);
+  // Set directly, unlike a click: a document still loading lists no tab to check it against, and
+  // the panel falls back to the first tab when this one is not there.
+  const { tabId } = input;
+  if (tabId !== undefined)
+    workspace.set((state) => ({
+      activeTabByDocument: { ...state.activeTabByDocument, [key]: tabId },
+    }));
   if (itemOf(workspace, key)) {
     patchDocument(workspace, key, {
       campaign: input.campaign,

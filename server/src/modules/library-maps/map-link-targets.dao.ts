@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { libraryDocumentTabs } from '../documents/document-tabs.po';
 import { libraryDocumentOwners, libraryDocuments } from '../documents/documents.po';
 import { libraryImagePresentations } from '../library/image-presentations.po';
 import { libraryImages } from '../library/library-images.po';
@@ -8,6 +9,7 @@ import { scenes } from '../scenes/scenes.po';
 import { libraryMaps } from './library-maps.po';
 import type {
   DocumentLinkTarget,
+  DocumentTabLinkTarget,
   ImageLinkTarget,
   MapLinkTarget,
   SceneLinkTarget,
@@ -50,6 +52,24 @@ export class MapLinkTargetsDao {
         and(eq(libraryDocuments.campaignId, campaignId), inArray(libraryDocuments.id, [...ids])),
       )
       .groupBy(libraryDocuments.id);
+  }
+
+  /** Example: `await targets.documentTabsIn(campaignId, [capituloId])` */
+  async documentTabsIn(
+    campaignId: string,
+    ids: readonly string[],
+  ): Promise<(DocumentTabLinkTarget & WithId)[]> {
+    if (ids.length === 0) return [];
+    const tabs = libraryDocumentTabs;
+    return this.db
+      .select({
+        id: tabs.id,
+        name: tabs.name,
+        documentId: tabs.documentId,
+        visibility: tabs.visibility,
+      })
+      .from(tabs)
+      .where(and(eq(tabs.campaignId, campaignId), inArray(tabs.id, [...ids])));
   }
 
   /** Example: `await targets.scenesIn(campaignId, [salaoId])` */
