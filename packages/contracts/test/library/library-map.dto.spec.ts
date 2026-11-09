@@ -99,8 +99,8 @@ describe('map region geometry', () => {
   it.each([
     [2, false],
     [3, true],
-    [128, true],
-    [129, false],
+    [1024, true],
+    [1025, false],
   ])('a polygon of %i vertices has success %s', (vertices, accepted) => {
     const body = { ...newRegion, geometry: polygonOf(vertices) };
     expect(createMapRegionRequestDto.safeParse(body).success).toBe(accepted);

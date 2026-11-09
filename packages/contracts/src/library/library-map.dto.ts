@@ -10,7 +10,7 @@ export const MAP_REGION_NAME_MAX_LENGTH = 60;
 export const MAP_REGION_DESCRIPTION_MAX_LENGTH = 500;
 export const MAP_REGIONS_MAX = 300;
 export const MAP_POLYGON_VERTICES_MIN = 3;
-export const MAP_POLYGON_VERTICES_MAX = 128;
+export const MAP_POLYGON_VERTICES_MAX = 1024;
 
 const LIBRARY_MAP_CHANGE_KEYS = ['name', 'folderId', 'visibility'] as const;
 const MAP_REGION_CHANGE_KEYS = [

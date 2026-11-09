@@ -18,7 +18,7 @@ export const MAP_REGION_NAME_MAX_LENGTH = 60;
 export const MAP_REGION_DESCRIPTION_MAX_LENGTH = 500;
 export const MAP_REGIONS_MAX = 300;
 export const MAP_POLYGON_VERTICES_MIN = 3;
-export const MAP_POLYGON_VERTICES_MAX = 128;
+export const MAP_POLYGON_VERTICES_MAX = 1024;
 
 // Over the rounding noise of collinear points (near 1e-17) and well under one pixel of the largest
 // map (1 / 8192², near 1.5e-8), so no region anybody can draw is refused.

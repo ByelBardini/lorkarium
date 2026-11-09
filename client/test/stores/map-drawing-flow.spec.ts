@@ -22,7 +22,7 @@ const C: MapPoint = { x: 0.5, y: 0.5 };
 const D: MapPoint = { x: 0.1, y: 0.5 };
 const FULL = { ok: false, failure: { kind: 'regions_full' } } as const;
 const OFFLINE = { ok: false, failure: { kind: 'offline' } } as const;
-const SAME_SPOT: SameMapSpot = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 0.01;
+const SAME_SPOT: SameMapSpot = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 0.002;
 
 function pointOnCircle(index: number): MapPoint {
   const angle = (index / MAP_POLYGON_VERTICES_MAX) * 2 * Math.PI;
@@ -200,7 +200,7 @@ describe('map drawing flow', () => {
       expect(store.getState().tool).toBe('pin');
     });
 
-    it('the 128th vertex closes the polygon: there is no room for another', async () => {
+    it('the last vertex allowed closes the polygon: there is no room for another', async () => {
       const points = Array.from({ length: MAP_POLYGON_VERTICES_MAX }, (_, at) => pointOnCircle(at));
       drawing(...points);
       await settle();
@@ -208,7 +208,7 @@ describe('map drawing flow', () => {
       expect(sentGeometry()).toEqual({ shape: 'polygon', points });
     });
 
-    it('the 127th vertex does not', async () => {
+    it('the vertex before the last allowed does not', async () => {
       const points = Array.from({ length: MAP_POLYGON_VERTICES_MAX - 1 }, (_, at) =>
         pointOnCircle(at),
       );
