@@ -50,14 +50,25 @@ describe('AccountRecoveryTokensDao', () => {
     });
   });
 
-  it("deleteAllOf(ana) deletes Ana's three links and none of Bia's", async () => {
-    await dao.insert(token({ id: '1'.repeat(64) }));
-    await dao.insert(token({ id: '2'.repeat(64), kind: 'cancel-email-change' }));
+  it("deleteIssuedSince keeps Ana's older link and every link of Bia", async () => {
+    const issuedAt = new Date('2026-10-24T12:00:00Z');
+    const older = new Date('2026-10-24T11:59:00Z');
+    await dao.insert(token({ id: '1'.repeat(64), createdAt: older }));
     await dao.insert(
-      token({ id: '3'.repeat(64), kind: 'revert-email-change', emailCipher: 'c', emailIndex: 'i' }),
+      token({ id: '2'.repeat(64), kind: 'cancel-email-change', createdAt: issuedAt }),
     );
-    await dao.insert(token({ id: '4'.repeat(64), userId: bia.id }));
-    expect(await dao.deleteAllOf(ana.id)).toBe(3);
+    await dao.insert(
+      token({
+        id: '3'.repeat(64),
+        kind: 'revert-email-change',
+        emailCipher: 'c',
+        emailIndex: 'i',
+        createdAt: new Date('2026-10-24T12:01:00Z'),
+      }),
+    );
+    await dao.insert(token({ id: '4'.repeat(64), userId: bia.id, createdAt: issuedAt }));
+    expect(await dao.deleteIssuedSince(ana.id, issuedAt)).toBe(2);
+    expect(await dao.findById('1'.repeat(64))).toBeDefined();
     expect(await dao.findById('4'.repeat(64))).toBeDefined();
   });
 

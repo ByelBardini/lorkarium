@@ -5,7 +5,12 @@ import {
 } from '../../../src/modules/account-links/password-resets.service';
 import { SecurityNoticesService } from '../../../src/modules/account-security/security-notices.service';
 import { PasswordResetsDaoFake } from '../../support/account-links-fakes';
-import { MailerFake, RecoveryIssuerFake } from '../../support/account-security-fakes';
+import {
+  EmailChangeRequestsDaoFake,
+  MailerFake,
+  RecoveryIssuerFake,
+} from '../../support/account-security-fakes';
+import { TwoFactorChallengesDaoFake } from '../../support/two-factor-fakes';
 import {
   AuthSessionsDaoFake,
   ClockFake,
@@ -26,6 +31,8 @@ describe('PasswordResetsService', () => {
   let resets: PasswordResetsDaoFake;
   let users: UsersDaoFake;
   let sessions: AuthSessionsDaoFake;
+  let emailChanges: EmailChangeRequestsDaoFake;
+  let challenges: TwoFactorChallengesDaoFake;
   let sessionEnded: SessionEndedFake;
   let mailer: MailerFake;
   let clock: ClockFake;
@@ -47,7 +54,9 @@ describe('PasswordResetsService', () => {
     clock = new ClockFake(NOW);
     journal = [];
     sessionEnded.whenEnded = (sessionId) => journal.push(`ended ${sessionId}`);
-    const daos: ResetCompletionDaos = { resets, users, sessions };
+    emailChanges = new EmailChangeRequestsDaoFake();
+    challenges = new TwoFactorChallengesDaoFake();
+    const daos: ResetCompletionDaos = { resets, users, sessions, emailChanges, challenges };
     service = new PasswordResetsService({
       resets,
       users,
@@ -110,6 +119,22 @@ describe('PasswordResetsService', () => {
       expect(resets.rows).toEqual([]);
       expect(journal).toEqual(['commit', 'ended sha:bia-1']);
       expect(mailer.to('bia@x.com').at(-1)?.subject).toBe('Sua senha do Lorkarium foi trocada');
+    });
+
+    it('ends the pending e-mail change and the 2FA challenges of the account, nobody else', async () => {
+      const pending = { emailCipher: 'x', emailIndex: 'y', expiresAt: NOW };
+      await emailChanges.replace({ id: 'sha:bia', userId: BIA_ID, ...pending });
+      await emailChanges.replace({ id: 'sha:admin', userId: ADMIN_ID, ...pending });
+      await challenges.insert({
+        id: 'sha:challenge',
+        userId: BIA_ID,
+        persistent: false,
+        expiresAt: NOW,
+      });
+      await service.issue(ADMIN_ID, BIA_ID);
+      await service.complete('token-1', 'senha-nova-da-bia', null);
+      expect(emailChanges.rows.map((row) => row.userId)).toEqual([ADMIN_ID]);
+      expect(challenges.rows.size).toBe(0);
     });
 
     it('an expired link is refused and the password stays', async () => {

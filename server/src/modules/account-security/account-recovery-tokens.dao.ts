@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, gte } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import {
   accountRecoveryTokens,
@@ -30,11 +30,13 @@ export class AccountRecoveryTokensDao {
     return deleted.length > 0;
   }
 
-  /** Every link of the account dies: returns how many there were. */
-  async deleteAllOf(userId: string): Promise<number> {
+  /** The links of the account issued at or after `since` die; returns how many there were. */
+  async deleteIssuedSince(userId: string, since: Date): Promise<number> {
     const deleted = await this.db
       .delete(accountRecoveryTokens)
-      .where(eq(accountRecoveryTokens.userId, userId))
+      .where(
+        and(eq(accountRecoveryTokens.userId, userId), gte(accountRecoveryTokens.createdAt, since)),
+      )
       .returning({ id: accountRecoveryTokens.id });
     return deleted.length;
   }

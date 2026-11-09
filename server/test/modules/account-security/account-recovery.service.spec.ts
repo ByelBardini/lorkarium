@@ -3,6 +3,7 @@ import {
   AccountRecoveryService,
   type RecoveryWriteDaos,
 } from '../../../src/modules/account-security/account-recovery.service';
+import { PasswordResetsDaoFake } from '../../support/account-links-fakes';
 import {
   AccountRecoveryTokensDaoFake,
   EmailChangeRequestsDaoFake,
@@ -29,6 +30,7 @@ describe('AccountRecoveryService', () => {
   let tokens: AccountRecoveryTokensDaoFake;
   let emailChanges: EmailChangeRequestsDaoFake;
   let challenges: TwoFactorChallengesDaoFake;
+  let resets: PasswordResetsDaoFake;
   let sessionEnded: SessionEndedFake;
   let clock: ClockFake;
   let journal: string[];
@@ -47,11 +49,12 @@ describe('AccountRecoveryService', () => {
     tokens = new AccountRecoveryTokensDaoFake();
     emailChanges = new EmailChangeRequestsDaoFake();
     challenges = new TwoFactorChallengesDaoFake();
+    resets = new PasswordResetsDaoFake();
     sessionEnded = new SessionEndedFake();
     clock = new ClockFake(NOW);
     journal = [];
     sessionEnded.whenEnded = (sessionId) => journal.push(`ended ${sessionId}`);
-    const daos: RecoveryWriteDaos = { tokens, users, emailChanges, sessions, challenges };
+    const daos: RecoveryWriteDaos = { tokens, users, emailChanges, sessions, challenges, resets };
     service = new AccountRecoveryService({
       tokens,
       emailChanges,
@@ -177,6 +180,43 @@ describe('AccountRecoveryService', () => {
       expect(emailChanges.rows).toEqual([]);
       expect(challenges.rows.size).toBe(0);
       expect(tokens.rows.size).toBe(0);
+    });
+
+    it('a link only ends the ones issued with or after it: the older one of the owner survives', async () => {
+      const owner = tokenOf(await service.issue(ANA_ID, 'revert-password-change'));
+      clock.current = new Date(NOW.getTime() + 60_000);
+      const invader = tokenOf(await service.issue(ANA_ID, 'revert-email-change', 'nova@x.com'));
+      await service.recover(invader, 'senha-do-invasor');
+      await service.recover(owner, 'senha-nova-da-ana');
+      expect(users.rows[0]?.passwordHash).toBe('hashed:senha-nova-da-ana');
+    });
+
+    it('the older link of the owner ends the newer one', async () => {
+      const owner = tokenOf(await service.issue(ANA_ID, 'revert-password-change'));
+      clock.current = new Date(NOW.getTime() + 60_000);
+      const invader = tokenOf(await service.issue(ANA_ID, 'revert-email-change', 'nova@x.com'));
+      await service.recover(owner, 'senha-nova-da-ana');
+      await expect(service.recover(invader, 'senha-do-invasor')).rejects.toMatchObject({
+        code: 'RECOVERY_TOKEN_INVALID',
+      });
+    });
+
+    it('drops the pending new-password link of the account, nobody else', async () => {
+      await resets.replace({
+        userId: ANA_ID,
+        tokenHash: 'sha:ana',
+        createdAt: NOW,
+        expiresAt: NOW,
+      });
+      await resets.replace({
+        userId: BIA_ID,
+        tokenHash: 'sha:bia',
+        createdAt: NOW,
+        expiresAt: NOW,
+      });
+      const token = tokenOf(await service.issue(ANA_ID, 'revert-password-change'));
+      await service.recover(token, 'senha-nova-da-ana');
+      expect(resets.rows.map((row) => row.userId)).toEqual([BIA_ID]);
     });
 
     it('an old address now owned by another account is EMAIL_TAKEN and the password stays', async () => {

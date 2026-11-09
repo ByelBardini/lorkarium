@@ -1,5 +1,6 @@
 import type { AccountRecoveryCheckResponseDto, AccountRecoveryKindDto } from '@lorkarium/contracts';
 import { isUniqueViolation } from '../../lib/postgres-error';
+import type { PasswordResetsDao } from '../account-links/password-resets.dao';
 import { toSealedEmail } from '../auth/auth.mapper';
 import type { AuthSessionsDao } from '../auth/auth-sessions.dao';
 import type { ClockPort } from '../auth/clock.port';
@@ -19,11 +20,12 @@ import type { EmailChangeRequestsDao } from './email-change-requests.dao';
 
 /** The DAOs a recovery transaction hands out, bound to the open `tx`. */
 export type RecoveryWriteDaos = Readonly<{
-  tokens: Pick<AccountRecoveryTokensDao, 'deleteById' | 'deleteAllOf'>;
+  tokens: Pick<AccountRecoveryTokensDao, 'deleteById' | 'deleteIssuedSince'>;
   users: Pick<UsersDao, 'findByEmailIndex' | 'updateEmail' | 'updatePassword'>;
   emailChanges: Pick<EmailChangeRequestsDao, 'deleteOfUser'>;
   sessions: Pick<AuthSessionsDao, 'deleteAllOf'>;
   challenges: Pick<TwoFactorChallengesDao, 'deleteAllOf'>;
+  resets: Pick<PasswordResetsDao, 'deleteOfUser'>;
 }>;
 
 export type RecoveryTransactionRunner = <T>(
@@ -45,7 +47,8 @@ export type AccountRecoveryDeps = Readonly<{
 
 /** "Não fui eu": the links of the security notices. Using one undoes what happened (the pending
  *  e-mail change, the finished one or the password), sets a new password and signs every device
- *  out, all in one transaction; every other link of the account dies with it. 2FA is untouched.
+ *  out, all in one transaction; the links issued with or after it die, the older ones outrank it
+ *  and stay. 2FA is untouched.
  *
  *  Example: `const link = await recovery.issue(userId, 'revert-password-change')` */
 export class AccountRecoveryService {
@@ -99,7 +102,9 @@ export class AccountRecoveryService {
     await daos.users.updatePassword(row.userId, passwordHash, this.deps.clock.now());
     const ended = await daos.sessions.deleteAllOf(row.userId);
     await daos.challenges.deleteAllOf(row.userId);
-    await daos.tokens.deleteAllOf(row.userId);
+    await daos.resets.deleteOfUser(row.userId);
+    // Only forward: a link sent to an address the invader set must not kill the owner's older one.
+    await daos.tokens.deleteIssuedSince(row.userId, row.createdAt);
     return ended;
   }
 
