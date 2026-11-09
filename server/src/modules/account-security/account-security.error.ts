@@ -61,7 +61,10 @@ export class EmailTakenError extends AccountSecurityError {
 }
 
 export class EmailTokenInvalidError extends AccountSecurityError {
-  constructor(readonly received: 'an unknown token' | 'an expired token') {
+  constructor(
+    readonly received:
+      'an unknown token' | 'an expired token' | 'a request older than the last password change',
+  ) {
     super(
       'EMAIL_TOKEN_INVALID',
       `a live e-mail confirmation token is required; received ${received}`,

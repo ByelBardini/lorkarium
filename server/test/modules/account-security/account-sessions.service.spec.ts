@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AccountSessionsService } from '../../../src/modules/account-security/account-sessions.service';
+import { EmailChangeRequestsDaoFake } from '../../support/account-security-fakes';
 import { AuthSessionsDaoFake, ClockFake, SessionEndedFake } from '../../support/auth-fakes';
 import { ANA_ID, authSessionPo } from '../../support/auth-factories';
 
@@ -29,13 +30,34 @@ const OF_BIA = authSessionPo({
 describe('AccountSessionsService', () => {
   let sessions: AuthSessionsDaoFake;
   let sessionEnded: SessionEndedFake;
+  let emailChanges: EmailChangeRequestsDaoFake;
   let service: AccountSessionsService;
+
+  function serviceOver(rows: AuthSessionsDaoFake): AccountSessionsService {
+    return new AccountSessionsService({
+      sessions: rows,
+      sessionEnded,
+      emailChanges,
+      clock: new ClockFake(NOW),
+    });
+  }
 
   beforeEach(() => {
     sessions = new AuthSessionsDaoFake([CURRENT, OTHER, EXPIRED, OF_BIA]);
     sessionEnded = new SessionEndedFake();
-    service = new AccountSessionsService({ sessions, sessionEnded, clock: new ClockFake(NOW) });
+    emailChanges = new EmailChangeRequestsDaoFake();
+    service = serviceOver(sessions);
   });
+
+  async function pendingChangeOf(userId: string): Promise<void> {
+    await emailChanges.replace({
+      id: `sha:${userId}`,
+      userId,
+      emailCipher: 'x',
+      emailIndex: 'y',
+      expiresAt: NOW,
+    });
+  }
 
   it('lists only the live sessions of the person, the current one marked', async () => {
     const listed = await service.list(ANA_ID, 'sha:atual');
@@ -76,8 +98,21 @@ describe('AccountSessionsService', () => {
 
   it('revoke-others with only the current session ends nothing', async () => {
     sessions = new AuthSessionsDaoFake([CURRENT]);
-    service = new AccountSessionsService({ sessions, sessionEnded, clock: new ClockFake(NOW) });
+    service = serviceOver(sessions);
     expect(await service.revokeOthers(ANA_ID, 'sha:atual')).toBe(0);
     expect(sessionEnded.ended).toEqual([]);
+  });
+
+  it('revoke-others ends the pending e-mail change of the person, nobody else', async () => {
+    await pendingChangeOf(ANA_ID);
+    await pendingChangeOf(BIA_ID);
+    await service.revokeOthers(ANA_ID, 'sha:atual');
+    expect(emailChanges.rows.map((row) => row.userId)).toEqual([BIA_ID]);
+  });
+
+  it('revoking one session keeps the pending e-mail change', async () => {
+    await pendingChangeOf(ANA_ID);
+    await service.revoke(ANA_ID, 'sha:atual', OTHER.publicId);
+    expect(emailChanges.rows.map((row) => row.userId)).toEqual([ANA_ID]);
   });
 });

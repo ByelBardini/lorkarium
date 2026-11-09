@@ -40,6 +40,12 @@ export class CampaignJoinBo {
     throw new CampaignNotFoundError({ publicCampaignId: this.state.campaignId });
   }
 
+  /** Whether only the admin role lets this reader in: a private table or one with a password. */
+  bypassesGate(): boolean {
+    const { readerIsAdmin, isPublic, hasPassword } = this.state;
+    return readerIsAdmin && (!isPublic || hasPassword);
+  }
+
   // A member re-joining is idempotent: the password is not asked again.
   needsPasswordCheck(): boolean {
     return !this.state.isMember && !this.state.readerIsAdmin && this.state.hasPassword;

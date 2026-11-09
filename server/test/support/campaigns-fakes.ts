@@ -150,7 +150,12 @@ export class CampaignMembersDaoFake implements Pick<
   ) {}
 
   async insert(member: NewCampaignMemberPo): Promise<CampaignMemberPo> {
-    const empty = { lastEnteredAt: null, juggernautSince: null, roleBeforeJuggernaut: null };
+    const empty = {
+      lastEnteredAt: null,
+      juggernautSince: null,
+      roleBeforeJuggernaut: null,
+      adminBypassSince: null,
+    };
     const row = { joinedAt: FAKE_DATE, ...empty, ...member };
     this.rows.push(row);
     return row;

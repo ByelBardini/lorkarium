@@ -7,7 +7,7 @@ Detalhe do hub [`account-security.md`](../account-security.md): a ordem de cada 
 - `list(userId, sessãoAtual)`: `AuthSessionsDao.listOf(userId, agora)` (só as que não venceram, `last_seen_at` desc) → `toAccountSessionDto` com `current` = linha cujo `id` (hash) é o da sessão do pedido. O hash nunca sai: a URL usa o `public_id`.
 - `deviceOf(userAgent)`: navegador por ordem (o app desktop primeiro — `LorkariumDesktop/<versão>`, que a casca Tauri acrescenta ao agente do WebView2, vira `lorkarium`, também com a marca ` LorkariumTitleBar/1` que a casca sem moldura põe depois; vem antes do Edge porque o WebView2 também diz `Edg/`, e `LorkariumDesktop` sem `/versão` não conta —, Edge e Opera antes do Chrome, Chrome antes do Safari, Safari só com `Version/…Safari/`), sistema (iOS antes do macOS, Android antes do Linux), formato `mobile` para iOS/Android ou `Mobi`, `desktop` para sistema conhecido, senão `other`. Agente vazio ou `curl/8` → tudo `other`. Sem versão, IP nem cidade.
 - `revoke`: `findOfUser(userId, publicId)` (de outra pessoa = não achada) → a atual é `CURRENT_SESSION` → `delete` → `sessionEnded(hash)` (os sockets daquela sessão caem).
-- `revokeOthers`: `deleteOthersOf(userId, atual)` devolve os hashes apagados → `sessionEnded` de cada → `{ revoked }`.
+- `revokeOthers`: `deleteOthersOf(userId, atual)` devolve os hashes apagados → apaga o pedido de troca de e-mail → `sessionEnded` de cada → `{ revoked }`.
 
 ## Senha
 
@@ -17,7 +17,7 @@ Detalhe do hub [`account-security.md`](../account-security.md): a ordem de cada 
 ## E-mail
 
 - `request(userId, dto, userAgent)`: senha atual → `EmailChangeBo.requestAt(novo, agora)` (igual ao atual = `EMAIL_UNCHANGED`; prazo 30 min) → índice já em uso = `EMAIL_TAKEN` → token novo (`SessionTokenPort`), grava `hash(token)` + novo cifrado + índice (substitui o pedido anterior) → **link** ao endereço novo (`${APP_PUBLIC_URL}/account/email/confirm#token=…`; falha aqui falha o pedido) → `recovery.issue('cancel-email-change')` → aviso ao antigo com o novo mascarado e o link → devolve o mascarado.
-- `confirm(token, userAgent)` (pública): `findById(hash)` ausente = `EMAIL_TOKEN_INVALID` (inexistente ou já usado) → `PendingEmailBo.requireLiveAt` (`agora ≥ expiresAt` = vencido, mesmo código) → abre o novo (`pending-email`) → `UsersDao.updateEmail(toSealedEmail(...))`; o `23505` do índice único (tomado entre o pedido e o clique) vira `EMAIL_TAKEN` → apaga o pedido → `recovery.issue('revert-email-change', antigo)` → aviso ao antigo com o link.
+- `confirm(token, userAgent)` (pública): `findById(hash)` ausente = `EMAIL_TOKEN_INVALID` (inexistente ou já usado) → `PendingEmailBo.requireLiveAt` (`agora ≥ expiresAt` = vencido, mesmo código) → conta achada; senha trocada depois do pedido (`password_changed_at ≥ created_at`) = o mesmo código → abre o novo (`pending-email`) → `UsersDao.updateEmail(toSealedEmail(...))`; o `23505` do índice único (tomado entre o pedido e o clique) vira `EMAIL_TAKEN` → apaga o pedido → `recovery.issue('revert-email-change', antigo)` → aviso ao antigo com o link.
 - `cancel`: apaga o pedido da pessoa (o link morre); idempotente.
 - `maskEmail('bianca@x.com')` → `b*****@x.com` (primeira letra e um `*` por letra da parte local).
 

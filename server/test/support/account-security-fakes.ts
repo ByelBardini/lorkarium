@@ -108,7 +108,7 @@ export class EmailChangeRequestsDaoFake implements Pick<
 /** In-memory account_recovery_tokens table keyed by the token hash. */
 export class AccountRecoveryTokensDaoFake implements Pick<
   AccountRecoveryTokensDao,
-  'insert' | 'findById' | 'deleteById' | 'deleteAllOf'
+  'insert' | 'findById' | 'deleteById' | 'deleteIssuedSince'
 > {
   readonly rows = new Map<string, AccountRecoveryTokenPo>();
 
@@ -129,10 +129,12 @@ export class AccountRecoveryTokensDaoFake implements Pick<
     return this.rows.delete(tokenId);
   }
 
-  async deleteAllOf(userId: string): Promise<number> {
-    const own = [...this.rows.values()].filter((row) => row.userId === userId);
-    for (const row of own) this.rows.delete(row.id);
-    return own.length;
+  async deleteIssuedSince(userId: string, since: Date): Promise<number> {
+    const newer = [...this.rows.values()].filter(
+      (row) => row.userId === userId && row.createdAt >= since,
+    );
+    for (const row of newer) this.rows.delete(row.id);
+    return newer.length;
   }
 }
 

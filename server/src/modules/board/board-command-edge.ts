@@ -1,6 +1,7 @@
 import {
   TOKEN_PATROLS_RUNNING_MAX,
   TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
+  boardCommandTableDto,
   type ApiErrorDto,
   type BoardCommandAckDto,
 } from '@lorkarium/contracts';
@@ -9,6 +10,7 @@ import { ZodError, type z } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
 import { answerAck, type AckOf } from '../../realtime/realtime-ack';
 import type { CommandRateGuard } from '../../realtime/command-rate-guard';
+import { commandCostOf } from '../../realtime/command-weight';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
 import { AssetError } from '../assets/assets.error';
 import { CombatError } from '../combat/combat.error';
@@ -81,6 +83,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   WALL_LIMIT: 'This scene has too many walls',
   INVALID_DOOR: 'Only a straight wall can be a door',
   WALL_BLOCKED: 'A wall blocks the way',
+  WALL_CHECKS_EXCEEDED: 'This would test too many walls at once',
   DOOR_LOCKED: 'The door is locked',
   WALL_SEGMENT_NOT_FOUND: 'That piece of wall is not there',
   LIGHT_NOT_FOUND: 'Light not found',
@@ -107,8 +110,9 @@ export async function versionOf(pending: Promise<number>): Promise<CommandOk> {
   return { ok: true, version: await pending };
 }
 
-/** The socket listener of one board command. The rate comes first: a flood is refused before it
- *  costs a session read or a parse.
+/** The socket listener of one board command. The rate comes first, charged by the payload's size,
+ *  so a flood is refused before it costs a session read or a parse; the table is then checked with
+ *  only its id read, and the full parse runs only for a connection that has that table open.
  *
  *  Example: `socket.on('board:sync', onCommand(context, boardCommandDto, handler))` */
 export function onCommand<Command extends CampaignCommand, Answer>(
@@ -122,9 +126,10 @@ export function onCommand<Command extends CampaignCommand, Answer>(
   };
   return (payload, ack) => {
     const work = async (): Promise<Answer> => {
-      rate.admit(socket);
-      const command = schema.parse(payload);
-      return handler(await openTableUserOf(deps, socket, command.campaignId), command);
+      rate.admit(socket, commandCostOf(payload));
+      const { campaignId } = boardCommandTableDto.parse(payload);
+      const userId = await openTableUserOf(deps, socket, campaignId);
+      return handler(userId, schema.parse(payload));
     };
     void answerAck(ack, work, failureOf, dropIfEnded);
   };

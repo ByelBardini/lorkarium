@@ -631,6 +631,13 @@
       "when": 1794156355795,
       "tag": "0089_member_colors_text",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1794193095108,
+      "tag": "0090_campaign_member_admin_bypass",
+      "breakpoints": true
     }
   ]
 }

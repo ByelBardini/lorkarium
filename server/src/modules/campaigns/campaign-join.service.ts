@@ -64,7 +64,9 @@ export class CampaignJoinService {
     if (route !== 'by-code') join.requirePublic();
     const decision = join.decide(await this.checkPassword(join, campaign, password));
     const membership =
-      decision === 'already-member' ? existing : await this.addSpectator(campaign, userId);
+      decision === 'already-member'
+        ? existing
+        : await this.addSpectator(campaign, userId, join.bypassesGate());
     return this.summaryOf(campaign, membership);
   }
 
@@ -85,7 +87,11 @@ export class CampaignJoinService {
     return matches ? 'matches' : 'mismatch';
   }
 
-  private async addSpectator(campaign: CampaignPo, userId: string): Promise<CampaignMemberPo> {
+  private async addSpectator(
+    campaign: CampaignPo,
+    userId: string,
+    bypassedGate: boolean,
+  ): Promise<CampaignMemberPo> {
     const joinedAt = this.deps.clock.now();
     try {
       return await this.deps.members.insert({
@@ -93,6 +99,7 @@ export class CampaignJoinService {
         userId,
         role: 'spectator',
         joinedAt,
+        adminBypassSince: bypassedGate ? joinedAt : null,
       });
     } catch (error) {
       // The table was deleted with its owner's account while this join waited on its lock.

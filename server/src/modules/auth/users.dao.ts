@@ -19,6 +19,19 @@ export class UsersDao {
     return row;
   }
 
+  /** The account's global role, read under a shared row lock: a role change in progress is waited
+   *  for, and one that comes later waits for the caller's transaction.
+   *
+   *  Example: `await new UsersDao(tx).roleForShare(rootId) // 'admin'` */
+  async roleForShare(userId: string): Promise<UserPo['role'] | undefined> {
+    const [row] = await this.db
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('share');
+    return row?.role;
+  }
+
   async findByUsername(username: string): Promise<UserPo | undefined> {
     const [row] = await this.db.select().from(users).where(eq(users.username, username));
     return row;

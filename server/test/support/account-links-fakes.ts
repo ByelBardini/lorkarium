@@ -19,6 +19,7 @@ export class InvitationsDaoFake implements Pick<
   | 'findByEmailIndex'
   | 'renew'
   | 'delete'
+  | 'deleteAdminRoleIssuedBy'
 > {
   rows: InvitationPo[] = [];
 
@@ -67,6 +68,10 @@ export class InvitationsDaoFake implements Pick<
     const before = this.rows.length;
     this.rows = this.rows.filter((row) => row.id !== invitationId);
     return this.rows.length < before;
+  }
+
+  async deleteAdminRoleIssuedBy(userId: string): Promise<void> {
+    this.rows = this.rows.filter((row) => row.invitedBy !== userId || row.role !== 'admin');
   }
 
   private listing(row: InvitationPo): InvitationListingRow {

@@ -9,10 +9,10 @@ Detalhe de [`../campaigns.md`](../campaigns.md) e [`papeis.md`](papeis.md). Um a
 
 ## Contrato (prefixo `/api`, `requireRole('admin')`: 401 `UNAUTHENTICATED` · 403 `FORBIDDEN_ROLE`)
 
-| Rota                                       | Saída                                                                                                                  | Erros                                                                 |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `POST /campaigns/:campaignId/juggernaut`   | 200 `campaignResponseDto` (o detalhe como o admin lê: `myRole: 'master'`, `juggernaut: true`, `joinCode`); idempotente | 400 `INVALID_PARAMS` · 404 `CAMPAIGN_NOT_FOUND` · 409 `ALREADY_OWNER` |
-| `DELETE /campaigns/:campaignId/juggernaut` | 200 `endJuggernautResponseDto` `{ myRole }` (o papel de antes; `null` = saiu da mesa); modo desligado → o papel atual  | 400 · 404 `CAMPAIGN_NOT_FOUND` (não membro)                           |
+| Rota                                       | Saída                                                                                                                  | Erros                                                                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `POST /campaigns/:campaignId/juggernaut`   | 200 `campaignResponseDto` (o detalhe como o admin lê: `myRole: 'master'`, `juggernaut: true`, `joinCode`); idempotente | 400 `INVALID_PARAMS` · 403 `FORBIDDEN` (perdeu o admin no meio) · 404 `CAMPAIGN_NOT_FOUND` · 409 `ALREADY_OWNER` |
+| `DELETE /campaigns/:campaignId/juggernaut` | 200 `endJuggernautResponseDto` `{ myRole }` (o papel de antes; `null` = saiu da mesa); modo desligado → o papel atual  | 400 · 404 `CAMPAIGN_NOT_FOUND` (não membro)                                                                      |
 
 - Vale para **qualquer** mesa, privada ou com senha. Cada chamada vai ao log como `{ adminId, campaignId, action: 'juggernaut:start' | 'juggernaut:end' }` "juggernaut" (nunca e-mail).
 - `campaignSummaryDto.juggernaut` (resumo e detalhe) diz se **quem lê** está no modo naquela mesa (`listOfUser` lê `juggernaut_since` da própria linha).
@@ -20,10 +20,10 @@ Detalhe de [`../campaigns.md`](../campaigns.md) e [`papeis.md`](papeis.md). Um a
 ## Regra e service
 
 - `juggernaut.bo.ts` — `JuggernautBo(campaignId, userId, seat | null)` (`JuggernautSeat` = `TableSeat` + `roleBefore`, montado por `toJuggernautBo(campaign, userId, membership)`): `start()` → `{ change: 'started', roleBefore }` · `unchanged` (já ligado) · o dono → `AlreadyOwnerError` (`ALREADY_OWNER`, 409, cita mesa e usuário); `end()` → `{ change: 'ended', restore }` · `{ change: 'unchanged', role }` (desligado) · não membro → `CAMPAIGN_NOT_FOUND`.
-- `juggernaut.service.ts` — `JuggernautService({ campaigns, members, memberships, changed, removed, detail, clock })`, persiste antes de avisar:
-  - `start(userId, campaignId)`: mesa (`findById`, sumida → `CAMPAIGN_NOT_FOUND`) → BO → `startJuggernaut` → `memberships.forget` → **só se era membro**, `changed.memberRoleChanged({ role: 'master', from })`; quem não era membro não é anunciado (offline não deixa rastro; aparece no `session:join`). Devolve `detail`.
+- `juggernaut.service.ts` — `JuggernautService({ campaigns, members, transaction, memberships, changed, removed, detail, clock })`, persiste antes de avisar:
+  - `start(userId, campaignId)`: mesa (`findById`, sumida → `CAMPAIGN_NOT_FOUND`) → BO → numa transação, `UsersDao.roleForShare` (a guarda da rota leu o papel antes: sem `admin` agora, 403 `FORBIDDEN`) e `startJuggernaut` → `memberships.forget` → **só se era membro**, `changed.memberRoleChanged({ role: 'master', from })`; quem não era membro não é anunciado (offline não deixa rastro; aparece no `session:join`). Devolve `detail`.
   - `end(userId, campaignId)`: BO → `endJuggernaut` → `forget` → com papel de antes `memberRoleChanged({ role, from: 'master' })` (fecha as abas privadas se o papel não é mestre); sem → `removed.memberRemoved({ campaignId, userId })`.
-  - `endAllOf(userId)`: `juggernautCampaignIdsOf` → `end` de cada (o backoffice chama ao tirar o admin, ver [`../user-admin.md`](../user-admin.md)).
+  - `announceRevoked(userId, assentos)`: o backoffice já revogou os assentos na transação do papel (ver [`../user-admin.md`](../user-admin.md)); aqui, `forget` de todos e o aviso de cada mesa, isolado das outras. A primeira falha é relançada no fim.
 - Porta `member-removed.port.ts` (`MemberRemovedPort.memberRemoved`), implementada pelo `TableSessionService` (ver [`../sessions.md`](../sessions.md)): a base do futuro "expulsar".
 - Fiação: `pluginWith({ changed, roleChanged, removed })` cria o service; `campaigns.juggernaut()` o entrega ao `wireBackoffice` (só existe depois do `pluginWith`).
 
@@ -36,6 +36,6 @@ Detalhe de [`../campaigns.md`](../campaigns.md) e [`papeis.md`](papeis.md). Um a
 
 ## Testes
 
-- Unit: `campaigns/juggernaut.bo.spec.ts`, `juggernaut.service.spec.ts` (fakes `JuggernautMembersFake` e `MemberRemovedFake` em `test/support/juggernaut-fakes.ts`), `campaigns.mapper.masters.spec.ts` (o `describe` do juggernaut), `sessions/table-presence.bo.spec.ts` (`lists`, `remove`), `sessions.mapper.spec.ts`, `sessions.service.member-role.spec.ts` (`memberRemoved`), `socket-io-session-publisher.spec.ts` (`memberRemoved`).
-- Integração: `juggernaut.spec.ts` (borda: privada com senha, 401/403/404/409, a trava, gerir mestres, excluir com a mesa aberta, desligar, isolamento), `juggernaut-live.spec.ts` (Socket.IO real: `memberJoined` com `juggernaut`, o oculto no `board:sync`, sem rastro, `removedFromTable` em duas abas, `CAMPAIGN_NOT_FOUND` depois), `campaign-members-dao.spec.ts`, `campaign-juggernaut-migration.spec.ts`, `user-admin.spec.ts` (o juggernaut cai com o papel).
+- Unit: `campaigns/juggernaut.bo.spec.ts`, `juggernaut.service.spec.ts` (fakes `JuggernautMembersFake`, `AdminRoleLockFake` e `MemberRemovedFake` em `test/support/juggernaut-fakes.ts`), `campaigns.mapper.masters.spec.ts` (o `describe` do juggernaut), `sessions/table-presence.bo.spec.ts` (`lists`, `remove`), `sessions.mapper.spec.ts`, `sessions.service.member-role.spec.ts` (`memberRemoved`), `socket-io-session-publisher.spec.ts` (`memberRemoved`).
+- Integração: `juggernaut.spec.ts` (borda: privada com senha, 401/403/404/409, a trava, gerir mestres, excluir com a mesa aberta, desligar, isolamento), `juggernaut-live.spec.ts` (Socket.IO real: `memberJoined` com `juggernaut`, o oculto no `board:sync`, sem rastro, `removedFromTable` em duas abas, `CAMPAIGN_NOT_FOUND` depois), `campaign-members-dao.spec.ts`, `campaign-juggernaut-migration.spec.ts`, `user-admin.spec.ts` (o juggernaut cai com o papel; o `start` que corre com o rebaixamento é recusado).
 - Admin nos specs: `live.signUp(nome)` e `update users set role = 'admin'` (o guard relê a conta a cada pedido). No dev, o admin é o do `ADMIN_EMAIL`/`ADMIN_PASSWORD` do env (seed no boot).

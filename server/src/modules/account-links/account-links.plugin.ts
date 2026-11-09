@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import type { AccountRecoveryService } from '../account-security/account-recovery.service';
+import { EmailChangeRequestsDao } from '../account-security/email-change-requests.dao';
 import type { SecurityNoticesService } from '../account-security/security-notices.service';
 import { AuthSessionsDao } from '../auth/auth-sessions.dao';
 import type { AuthService } from '../auth/auth.service';
@@ -11,6 +12,7 @@ import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { SessionTokenPort } from '../auth/session-token.port';
+import { TwoFactorChallengesDao } from '../auth/two-factor-challenges.dao';
 import { UsersDao } from '../auth/users.dao';
 import { accountLinksRoutes } from './account-links.routes';
 import { InvitationsDao } from './invitations.dao';
@@ -73,6 +75,8 @@ function createPasswordResets(options: AccountLinksModuleOptions): PasswordReset
         resets: new PasswordResetsDao(tx),
         users: new UsersDao(tx),
         sessions: new AuthSessionsDao(tx),
+        emailChanges: new EmailChangeRequestsDao(tx),
+        challenges: new TwoFactorChallengesDao(tx),
       }),
     );
   return new PasswordResetsService({

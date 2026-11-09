@@ -3,6 +3,7 @@ import type { Database } from '../../database/database';
 import { runInTransaction, type Transaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
+import { UsersDao } from '../auth/users.dao';
 import { AssetsDao } from '../assets/assets.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
@@ -15,7 +16,7 @@ import { CampaignMembersDao } from './campaign-members.dao';
 import { CampaignsDao } from './campaigns.dao';
 import { campaignsRoutes } from './campaigns.routes';
 import { CampaignsService, type CampaignTransactionRunner } from './campaigns.service';
-import { JuggernautService } from './juggernaut.service';
+import { JuggernautService, type JuggernautTransactionRunner } from './juggernaut.service';
 import type { MemberRemovedPort } from './member-removed.port';
 import type { MemberRoleChangedPort } from './member-role-changed.port';
 import { MemberRoleService, type MemberRoleTransactionRunner } from './member-role.service';
@@ -44,7 +45,7 @@ export type CampaignsModule = Readonly<{
    *  campaign, of a member's role, of a member taken out), and it is built after this module (it
    *  reads the members through `service`). */
   pluginWith: (outlets: CampaignOutlets) => (app: FastifyInstance) => Promise<void>;
-  /** Built with the edge: the backoffice turns off the juggernaut of an account losing admin. */
+  /** Built with the edge: the backoffice tells the tables about the seats it revoked. */
   juggernaut: () => JuggernautService;
   /** For other modules: the live session asks it who the members of a table are. */
   service: CampaignsService;
@@ -74,7 +75,12 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
     const transaction = memberRoleTransactionOver(options.db, seatIn);
     const roles = new MemberRoleService({ ...roleDeps, transaction, changed: roleChanged });
     const writes = { campaigns, members, memberships, clock, detail: service };
-    juggernaut = new JuggernautService({ ...writes, changed: roleChanged, removed });
+    juggernaut = new JuggernautService({
+      ...writes,
+      transaction: juggernautTransactionOver(options.db),
+      changed: roleChanged,
+      removed,
+    });
     return campaignsRoutes({ campaigns: service, join, settings, roles, juggernaut });
   };
   const juggernautOf = (): JuggernautService => {
@@ -93,6 +99,13 @@ function transactionOver(db: Database): CampaignTransactionRunner {
         scenes: new ScenesDao(tx),
         conditions: new ConditionsDao(tx),
       }),
+    );
+}
+
+function juggernautTransactionOver(db: Database): JuggernautTransactionRunner {
+  return (work) =>
+    runInTransaction(db, (tx) =>
+      work({ members: new CampaignMembersDao(tx), users: new UsersDao(tx) }),
     );
 }
 

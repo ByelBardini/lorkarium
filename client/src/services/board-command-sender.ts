@@ -91,6 +91,8 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
   INVALID_DOOR: 'invalid_door',
   DOOR_LOCKED: 'door_locked',
   WALL_BLOCKED: 'wall_blocked',
+  // Too heavy for the server to work out at once: the person sees "go slower", not a broken app.
+  WALL_CHECKS_EXCEEDED: 'rate_limited',
   WALL_SEGMENT_NOT_FOUND: 'wall_not_found',
   LIGHT_NOT_FOUND: 'light_not_found',
   LIGHT_LIMIT: 'light_limit',

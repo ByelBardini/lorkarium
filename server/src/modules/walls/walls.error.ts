@@ -6,7 +6,8 @@ export type WallErrorCode =
   | 'INVALID_DOOR'
   | 'DOOR_LOCKED'
   | 'OUT_OF_SCENE'
-  | 'WALL_SEGMENT_NOT_FOUND';
+  | 'WALL_SEGMENT_NOT_FOUND'
+  | 'WALL_CHECKS_EXCEEDED';
 
 /** Every wall refusal of its own; the gateway turns `code` into the ack error. */
 export class WallError extends Error {
@@ -36,6 +37,19 @@ export class WallLimitError extends WallError {
     readonly limit: number,
   ) {
     super('WALL_LIMIT', `the scene would have ${total} ${what}; expected at most ${limit}`);
+  }
+}
+
+/** A command whose wall tests would hold the event loop that every table shares for too long. */
+export class WallChecksExceededError extends WallError {
+  constructor(
+    readonly checks: number,
+    readonly limit: number,
+  ) {
+    super(
+      'WALL_CHECKS_EXCEEDED',
+      `the command needs ${checks} wall tests; expected at most ${limit}`,
+    );
   }
 }
 

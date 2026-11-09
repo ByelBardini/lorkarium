@@ -2,6 +2,7 @@ import type { AdminInvitationDto } from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
+import { InvitationsDao } from '../account-links/invitations.dao';
 import { PasswordResetsDao } from '../account-links/password-resets.dao';
 import type { SecurityNoticesService } from '../account-security/security-notices.service';
 import type { AssetStoragePort } from '../assets/asset-storage.port';
@@ -10,8 +11,9 @@ import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { MailerPort } from '../account-security/mailer.port';
-import type { JuggernautEnderPort } from './juggernaut-ender.port';
+import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { MailSamplesService } from './mail-samples.service';
+import type { RevokedSeatsPort } from './revoked-seats.port';
 import { UserAdminDao } from './user-admin.dao';
 import { userAdminRoutes } from './user-admin.routes';
 import { UserAdminService, type UserAdminTransactionRunner } from './user-admin.service';
@@ -22,8 +24,8 @@ export type UserAdminModuleOptions = Readonly<{
   invitations: Readonly<{ listPending(): Promise<AdminInvitationDto[]> }>;
   sessionEnded: SessionEndedPort;
   memberships: Readonly<{ forgetUser(userId: string): void }>;
-  /** The campaigns module's `JuggernautService`: taking the admin role turns its modes off. */
-  juggernauts: JuggernautEnderPort;
+  /** The campaigns module's `JuggernautService`: tells the tables what the demotion revoked. */
+  juggernauts: RevokedSeatsPort;
   storage: Pick<AssetStoragePort, 'remove'>;
   notices: Pick<SecurityNoticesService, 'send'>;
   cipher: DataCipherPort;
@@ -45,6 +47,8 @@ export function createUserAdminModule(
         accounts: new UserAdminDao(tx),
         sessions: new AuthSessionsDao(tx),
         passwordResets: new PasswordResetsDao(tx),
+        invitations: new InvitationsDao(tx),
+        adminSeats: new CampaignMembersDao(tx),
       }),
     );
   const { db, mailer, ...rest } = options;

@@ -21,6 +21,15 @@ function joinOf(
 }
 
 describe('CampaignJoinBo', () => {
+  it.each([
+    ['an admin at a private table', true, false, true, true],
+    ['an admin at a public table with a password', true, true, true, true],
+    ['an admin at a public open table', true, true, false, false],
+    ['someone else at a private table', false, false, true, false],
+  ])('bypassesGate: %s', (_case, readerIsAdmin, isPublic, hasPassword, expected) => {
+    expect(joinOf(false, hasPassword, isPublic, readerIsAdmin).bypassesGate()).toBe(expected);
+  });
+
   it.each([true, false])(
     'someone who is already a member gets already-member (campaign has password: %s)',
     (hasPassword) => {

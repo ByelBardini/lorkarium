@@ -371,16 +371,67 @@ describe('CampaignMembersDao on Postgres', () => {
       expect((await membersDao.findMembership(vharnId, rootId))?.role).toBe('player');
     });
 
-    it('juggernautCampaignIdsOf lists only the tables where his mode is on', async () => {
+    it('revokeAdminSeatsOf ends every mode, drops the bypass seats and keeps a seat of his own', async () => {
       const quelmId = await campaignMasteredBy(biaId, 'Quelm', 'QLM4X7PZ');
       const ermoId = await campaignMasteredBy(biaId, 'Ermo', 'RM0X7PZ2');
-      await membersDao.insert(newCampaignMemberPo({ campaignId: ermoId, userId: rootId }));
+      const sinoId = await campaignMasteredBy(biaId, 'Sino', 'SN0X7PZ2');
+      await membersDao.insert(newCampaignMemberPo({ campaignId: vharnId, userId: rootId }));
       await membersDao.startJuggernaut(vharnId, rootId, ON);
       await membersDao.startJuggernaut(quelmId, rootId, ON);
+      await membersDao.insert(newCampaignMemberPo({ campaignId: ermoId, userId: rootId }));
+      const marked = { role: 'spectator' as const, adminBypassSince: ON };
+      await membersDao.insert(
+        newCampaignMemberPo({ campaignId: sinoId, userId: rootId, ...marked }),
+      );
 
-      const ids = await membersDao.juggernautCampaignIdsOf(rootId);
+      const seats = await membersDao.revokeAdminSeatsOf(rootId);
 
-      expect([...ids].sort()).toEqual([vharnId, quelmId].sort());
+      const byCampaign = (a: { campaignId: string }, b: { campaignId: string }): number =>
+        a.campaignId.localeCompare(b.campaignId);
+      expect([...seats].sort(byCampaign)).toEqual(
+        [
+          { campaignId: vharnId, restored: 'player' },
+          { campaignId: quelmId, restored: null },
+          { campaignId: sinoId, restored: null },
+        ].sort(byCampaign),
+      );
+      expect(await membersDao.findMembership(vharnId, rootId)).toMatchObject({
+        role: 'player',
+        juggernautSince: null,
+      });
+      expect(await membersDao.findMembership(quelmId, rootId)).toBeUndefined();
+      expect(await membersDao.findMembership(sinoId, rootId)).toBeUndefined();
+      expect((await membersDao.findMembership(ermoId, rootId))?.role).toBe('player');
+    });
+
+    it('a juggernaut restored onto a bypass seat leaves the table', async () => {
+      const marked = { role: 'spectator' as const, adminBypassSince: ON };
+      await membersDao.insert(
+        newCampaignMemberPo({ campaignId: vharnId, userId: rootId, ...marked }),
+      );
+      await membersDao.startJuggernaut(vharnId, rootId, ON);
+
+      expect(await membersDao.revokeAdminSeatsOf(rootId)).toEqual([
+        { campaignId: vharnId, restored: null },
+      ]);
+      expect(await membersDao.findMembership(vharnId, rootId)).toBeUndefined();
+    });
+
+    it('revokeAdminSeatsOf never touches another account', async () => {
+      await membersDao.startJuggernaut(vharnId, rootId, ON);
+      expect(await membersDao.revokeAdminSeatsOf(biaId)).toEqual([]);
+      expect((await membersDao.findMembership(vharnId, rootId))?.role).toBe('master');
+    });
+
+    it('a master changing the role clears the bypass mark', async () => {
+      const marked = { role: 'spectator' as const, adminBypassSince: ON };
+      await membersDao.insert(
+        newCampaignMemberPo({ campaignId: vharnId, userId: rootId, ...marked }),
+      );
+
+      const row = await membersDao.updateRole(vharnId, rootId, 'player');
+
+      expect(row).toMatchObject({ role: 'player', adminBypassSince: null });
     });
 
     it('Postgres refuses a juggernaut instant on a player row (23514)', async () => {

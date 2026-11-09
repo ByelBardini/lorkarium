@@ -180,5 +180,21 @@ describe('EmailChangeService', () => {
         code: 'EMAIL_TOKEN_INVALID',
       });
     });
+
+    it('a password changed after the request ends it: EMAIL_TOKEN_INVALID and the e-mail stays', async () => {
+      users.rows[0] = { ...users.rows[0]!, passwordChangedAt: new Date('2026-10-14T12:05:00Z') };
+      clock.current = new Date('2026-10-14T12:10:00Z');
+      await expect(service.confirm('token-1', CHROME)).rejects.toMatchObject({
+        code: 'EMAIL_TOKEN_INVALID',
+        received: 'a request older than the last password change',
+      });
+      expect(users.rows[0]?.emailIndex).toBe('idx:email-index:ana@mesa.com');
+    });
+
+    it('a password changed before the request does not stop it', async () => {
+      users.rows[0] = { ...users.rows[0]!, passwordChangedAt: new Date('2026-10-14T11:59:59Z') };
+      await service.confirm('token-1', CHROME);
+      expect(users.rows[0]?.emailIndex).toBe('idx:email-index:bianca@x.com');
+    });
   });
 });

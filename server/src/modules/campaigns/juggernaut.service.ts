@@ -1,22 +1,31 @@
 import type { CampaignDetailDto, EndJuggernautResponseDto } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
+import type { UsersDao } from '../auth/users.dao';
 import type { CachedMemberships } from './cached-memberships';
 import type { CampaignRole } from './campaign-access.bo';
-import type { CampaignMembersDao } from './campaign-members.dao';
+import type { CampaignMembersDao, RevokedAdminSeat } from './campaign-members.dao';
 import type { CampaignsDao } from './campaigns.dao';
-import { CampaignNotFoundError } from './campaigns.error';
+import { CampaignNotFoundError, ForbiddenActionError } from './campaigns.error';
 import { toJuggernautBo } from './campaigns.mapper';
 import type { CampaignsService } from './campaigns.service';
 import type { JuggernautBo } from './juggernaut.bo';
 import type { MemberRemovedPort } from './member-removed.port';
 import type { MemberRoleChangedPort } from './member-role-changed.port';
 
+/** What turning the mode on writes with, bound to the open `tx`. */
+export type JuggernautStartDaos = Readonly<{
+  members: Pick<CampaignMembersDao, 'startJuggernaut'>;
+  users: Pick<UsersDao, 'roleForShare'>;
+}>;
+
+export type JuggernautTransactionRunner = <T>(
+  work: (daos: JuggernautStartDaos) => Promise<T>,
+) => Promise<T>;
+
 export type JuggernautServiceDeps = Readonly<{
   campaigns: Pick<CampaignsDao, 'findById'>;
-  members: Pick<
-    CampaignMembersDao,
-    'findMembership' | 'startJuggernaut' | 'endJuggernaut' | 'juggernautCampaignIdsOf'
-  >;
+  members: Pick<CampaignMembersDao, 'findMembership' | 'endJuggernaut'>;
+  transaction: JuggernautTransactionRunner;
   /** The remembered membership is dropped, so the next board command reads the new seat. */
   memberships: Pick<CachedMemberships, 'forget'>;
   changed: MemberRoleChangedPort;
@@ -41,7 +50,7 @@ export class JuggernautService {
   async start(userId: string, campaignId: string): Promise<CampaignDetailDto> {
     const decision = (await this.boOf(userId, campaignId)).start();
     if (decision.change === 'started') {
-      await this.deps.members.startJuggernaut(campaignId, userId, this.deps.clock.now());
+      await this.saveStart(userId, campaignId);
       this.deps.memberships.forget(campaignId, userId);
       const from = decision.roleBefore;
       if (from)
@@ -63,13 +72,28 @@ export class JuggernautService {
     return { myRole: decision.restore };
   }
 
-  /** Turns the mode off at every table of the user, each with its own notice: an account that
-   *  stops being admin keeps no privileged seat.
+  /** Tells each table about a seat the backoffice already revoked. One table failing does not stop
+   *  the others; the first failure is rethrown once all were told.
    *
-   *  Example: `await juggernaut.endAllOf(rootId)` */
-  async endAllOf(userId: string): Promise<void> {
-    const campaignIds = await this.deps.members.juggernautCampaignIdsOf(userId);
-    for (const campaignId of campaignIds) await this.end(userId, campaignId);
+   *  Example: `await juggernaut.announceRevoked(rootId, [{ campaignId, restored: 'player' }])` */
+  async announceRevoked(userId: string, seats: readonly RevokedAdminSeat[]): Promise<void> {
+    for (const { campaignId } of seats) this.deps.memberships.forget(campaignId, userId);
+    const told = await Promise.allSettled(
+      seats.map(({ campaignId, restored }) => this.announceEnd(campaignId, userId, restored)),
+    );
+    const failed = told.find((outcome) => outcome.status === 'rejected');
+    if (failed) throw failed.reason;
+  }
+
+  // The route guard read the role earlier: the shared lock settles it against a concurrent demotion,
+  // which then either refuses this start or, committing later, finds this seat to revoke.
+  private async saveStart(userId: string, campaignId: string): Promise<void> {
+    const at = this.deps.clock.now();
+    await this.deps.transaction(async ({ members, users }) => {
+      if ((await users.roleForShare(userId)) !== 'admin')
+        throw new ForbiddenActionError(campaignId, userId, 'start juggernaut mode', 'admin role');
+      await members.startJuggernaut(campaignId, userId, at);
+    });
   }
 
   private async boOf(userId: string, campaignId: string): Promise<JuggernautBo> {

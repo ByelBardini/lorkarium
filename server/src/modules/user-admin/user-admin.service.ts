@@ -4,6 +4,7 @@ import type {
   AdminUserDto,
   UserDeletionCheckDto,
 } from '@lorkarium/contracts';
+import type { InvitationsDao } from '../account-links/invitations.dao';
 import type { PasswordResetsDao } from '../account-links/password-resets.dao';
 import {
   accessRestoredMail,
@@ -18,8 +19,9 @@ import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { UserPo } from '../auth/users.po';
+import type { CampaignMembersDao, RevokedAdminSeat } from '../campaigns/campaign-members.dao';
 import { avatarKeyOf, diceTextureKeyOf } from '../profiles/profiles.mapper';
-import type { JuggernautEnderPort } from './juggernaut-ender.port';
+import type { RevokedSeatsPort } from './revoked-seats.port';
 import { deletionVerdict, requireOtherAccount } from './user-admin.bo';
 import type { AccountListingRow, UserAdminDao } from './user-admin.dao';
 import { OwnsSharedCampaignsError, UserNotFoundError } from './user-admin.error';
@@ -33,6 +35,8 @@ export type UserAdminWriteDaos = Readonly<{
   >;
   sessions: Pick<AuthSessionsDao, 'deleteAllOf'>;
   passwordResets: Pick<PasswordResetsDao, 'deleteOfUser'>;
+  invitations: Pick<InvitationsDao, 'deleteAdminRoleIssuedBy'>;
+  adminSeats: Pick<CampaignMembersDao, 'revokeAdminSeatsOf'>;
 }>;
 
 export type UserAdminTransactionRunner = <T>(
@@ -49,8 +53,8 @@ export type UserAdminDeps = Readonly<{
   sessionEnded: SessionEndedPort;
   /** Forgets every membership of a deleted account (`CachedMemberships.forgetUser`). */
   memberships: Readonly<{ forgetUser(userId: string): void }>;
-  /** An account losing the admin role loses every juggernaut mode with it. */
-  juggernauts: JuggernautEnderPort;
+  /** The tables hear about the seats an account lost with the admin role, after the commit. */
+  juggernauts: RevokedSeatsPort;
   storage: Pick<AssetStoragePort, 'remove'>;
   notices: Pick<SecurityNoticesService, 'send'>;
   cipher: DataCipherPort;
@@ -75,14 +79,24 @@ export class UserAdminService {
 
   async changeRole(actor: AdminActor, userId: string, role: UserPo['role']): Promise<AdminUserDto> {
     requireOtherAccount(actor.id, userId, 'change the role of');
-    const { before, after } = await this.deps.transaction(async ({ accounts }) => {
-      const found = await this.requireAccount(accounts, userId);
-      await accounts.setRole(userId, role);
-      return { before: found, after: { ...found, role } };
+    const { before, after, revoked } = await this.deps.transaction(async (daos) => {
+      const found = await this.requireAccount(daos.accounts, userId);
+      await daos.accounts.setRole(userId, role);
+      const revoked = role === 'admin' ? [] : await this.revokeAdminAuthority(daos, userId);
+      return { before: found, after: { ...found, role }, revoked };
     });
     if (before.role !== 'admin' && role === 'admin') await this.tellPromoted(after);
-    if (before.role === 'admin' && role !== 'admin') await this.deps.juggernauts.endAllOf(userId);
+    if (revoked.length > 0) await this.deps.juggernauts.announceRevoked(userId, revoked);
     return toAdminUserDto(after, this.deps.cipher);
+  }
+
+  // In the role's transaction: nothing the admin role gave can outlive a committed demotion.
+  private async revokeAdminAuthority(
+    daos: UserAdminWriteDaos,
+    userId: string,
+  ): Promise<RevokedAdminSeat[]> {
+    await daos.invitations.deleteAdminRoleIssuedBy(userId);
+    return daos.adminSeats.revokeAdminSeatsOf(userId);
   }
 
   /** Idempotent: suspending a suspended account changes nothing and tells nobody. */
@@ -95,6 +109,7 @@ export class UserAdminService {
       await daos.accounts.setSuspendedAt(userId, now);
       const ended = await daos.sessions.deleteAllOf(userId);
       await daos.passwordResets.deleteOfUser(userId);
+      await daos.invitations.deleteAdminRoleIssuedBy(userId);
       return { row: { ...found, suspendedAt: now }, ended };
     });
     if (outcome.ended) {
@@ -133,6 +148,8 @@ export class UserAdminService {
       if (verdict.kind === 'blocked')
         throw new OwnsSharedCampaignsError(userId, verdict.blockingCampaigns);
       const sessions = await daos.sessions.deleteAllOf(userId);
+      // Before the row goes: its foreign key would null who issued them.
+      await daos.invitations.deleteAdminRoleIssuedBy(userId);
       await daos.accounts.delete(userId);
       return { row: found, ended: sessions };
     });

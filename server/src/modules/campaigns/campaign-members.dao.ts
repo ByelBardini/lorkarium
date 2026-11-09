@@ -33,6 +33,9 @@ export type PublicCampaignRow = Readonly<{
  *  were not a member before and their row is gone. */
 export type JuggernautEnd = Readonly<{ restored: CampaignMemberPo['role'] | null }>;
 
+/** One seat that ended with the admin role: the role left there, or `null` when out of the table. */
+export type RevokedAdminSeat = JuggernautEnd & Readonly<{ campaignId: string }>;
+
 /** The most "Explorar mesas" lists at once, newest first. */
 export const PUBLIC_CAMPAIGNS_MAX = 200;
 
@@ -67,6 +70,12 @@ const masterIdsOfCampaign = sql<string[]>`array(
   select masters.user_id from campaign_members masters
   where masters.campaign_id = ${campaigns.id} and masters.role = 'master'
 )`;
+
+const JUGGERNAUT_ENDED = {
+  role: sql`${campaignMembers.roleBeforeJuggernaut}`,
+  juggernautSince: null,
+  roleBeforeJuggernaut: null,
+};
 
 export class CampaignMembersDao {
   constructor(private readonly db: DatabaseExecutor) {}
@@ -190,7 +199,7 @@ export class CampaignMembersDao {
   ): Promise<CampaignMemberPo | undefined> {
     const [row] = await this.db
       .update(campaignMembers)
-      .set({ role })
+      .set({ role, adminBypassSince: null })
       .where(and(eq(campaignMembers.campaignId, campaignId), eq(campaignMembers.userId, userId)))
       .returning();
     return row;
@@ -242,25 +251,37 @@ export class CampaignMembersDao {
     if (deleted.length > 0) return { restored: null };
     const [row] = await this.db
       .update(campaignMembers)
-      .set({
-        role: sql`${campaignMembers.roleBeforeJuggernaut}`,
-        juggernautSince: null,
-        roleBeforeJuggernaut: null,
-      })
+      .set(JUGGERNAUT_ENDED)
       .where(inMode)
       .returning({ role: campaignMembers.role });
     return row && { restored: row.role };
   }
 
-  /** The tables where the user has juggernaut mode on; only their own rows are read.
+  /** What only the global admin role gave, in the caller's transaction: every juggernaut mode ends
+   *  and the seats that role got past a table's gate go. A seat of the user's own stays.
    *
-   *  Example: `await dao.juggernautCampaignIdsOf(rootId) // [vharnId]` */
-  async juggernautCampaignIdsOf(userId: string): Promise<string[]> {
-    const rows = await this.db
-      .select({ campaignId: campaignMembers.campaignId })
-      .from(campaignMembers)
-      .where(and(eq(campaignMembers.userId, userId), isNotNull(campaignMembers.juggernautSince)));
-    return rows.map((row) => row.campaignId);
+   *  Example: `await dao.revokeAdminSeatsOf(rootId) // [{ campaignId: vharnId, restored: 'player' }]` */
+  async revokeAdminSeatsOf(userId: string): Promise<RevokedAdminSeat[]> {
+    const own = eq(campaignMembers.userId, userId);
+    const inMode = and(own, isNotNull(campaignMembers.juggernautSince));
+    const campaignId = campaignMembers.campaignId;
+    const newcomers = await this.db
+      .delete(campaignMembers)
+      .where(and(inMode, isNull(campaignMembers.roleBeforeJuggernaut)))
+      .returning({ campaignId });
+    const restored = await this.db
+      .update(campaignMembers)
+      .set(JUGGERNAUT_ENDED)
+      .where(inMode)
+      .returning({ campaignId, role: campaignMembers.role });
+    const bypassed = await this.db
+      .delete(campaignMembers)
+      .where(and(own, isNotNull(campaignMembers.adminBypassSince)))
+      .returning({ campaignId });
+    const left = [...newcomers, ...bypassed].map((seat) => ({ ...seat, restored: null }));
+    const kept = restored.map(({ role, ...seat }) => ({ ...seat, restored: role }));
+    // A juggernaut restored onto a bypass seat is out of the table: the later entry wins.
+    return [...new Map([...kept, ...left].map((seat) => [seat.campaignId, seat])).values()];
   }
 
   async markEntered(campaignId: string, userId: string, at: Date): Promise<void> {

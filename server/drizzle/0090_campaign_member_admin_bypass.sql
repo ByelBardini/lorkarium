@@ -1,0 +1,1 @@
+ALTER TABLE "campaign_members" ADD COLUMN "admin_bypass_since" timestamp with time zone;

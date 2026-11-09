@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
+import { PasswordResetsDao } from '../account-links/password-resets.dao';
 import { AuthSessionsDao } from '../auth/auth-sessions.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
@@ -75,7 +76,12 @@ export function createAccountSecurityModule(
   const { clock, sessionEnded } = options;
   const routes = accountSecurityRoutes({
     security: new AccountSecurityService({ ...options, ...parts, sessions }),
-    sessions: new AccountSessionsService({ sessions, sessionEnded, clock }),
+    sessions: new AccountSessionsService({
+      sessions,
+      emailChanges: parts.emailChanges,
+      sessionEnded,
+      clock,
+    }),
     emailChange: createEmailChange(options, parts),
   });
   const twoFactor = createAccountTwoFactor(options, parts);
@@ -114,6 +120,7 @@ function createAccountRecovery(
         emailChanges: new EmailChangeRequestsDao(tx),
         sessions: new AuthSessionsDao(tx),
         challenges: new TwoFactorChallengesDao(tx),
+        resets: new PasswordResetsDao(tx),
       }),
     );
   return new AccountRecoveryService({

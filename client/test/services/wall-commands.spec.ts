@@ -101,6 +101,7 @@ describe('RealtimeWallCommands', () => {
     ['DOOR_LOCKED', 'door_locked'],
     ['WALL_BLOCKED', 'wall_blocked'],
     ['WALL_SEGMENT_NOT_FOUND', 'wall_not_found'],
+    ['WALL_CHECKS_EXCEEDED', 'rate_limited'],
   ])('a refusal with %s is the %s failure', async (code, failure) => {
     const result = commands.setDoor(VHARN_GRID, WALL_ID, 'open');
     await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'wall:setDoor');

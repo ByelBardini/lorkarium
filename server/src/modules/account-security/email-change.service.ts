@@ -83,6 +83,7 @@ export class EmailChangeService {
     new PendingEmailBo(request).requireLiveAt(now);
     const row = await this.deps.users.findById(request.userId);
     if (!row) throw new EmailTokenInvalidError('an unknown token');
+    requireNewerThanPassword(request, row);
     const newEmail = this.deps.cipher.open('pending-email', request.emailCipher, request.userId);
     await this.swapEmail(row.id, newEmail);
     await this.deps.requests.deleteOfUser(row.id);
@@ -147,4 +148,11 @@ export class EmailChangeService {
   private emailOf(row: UserPo): string {
     return this.deps.cipher.open('user-email', row.emailCipher, row.id);
   }
+}
+
+// The request was authorized by the password of its time: a rotation since then ends it, so someone
+// locked out by that rotation cannot still take the address.
+function requireNewerThanPassword(request: EmailChangeRequestPo, row: UserPo): void {
+  if (row.passwordChangedAt === null || row.passwordChangedAt < request.createdAt) return;
+  throw new EmailTokenInvalidError('a request older than the last password change');
 }

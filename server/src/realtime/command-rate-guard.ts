@@ -24,10 +24,10 @@ export class CommandRateGuard {
     private readonly limits: CommandRateLimits = BOARD_RATE,
   ) {}
 
-  admit(socket: RealtimeSocket): void {
+  admit(socket: RealtimeSocket, cost = 1): void {
     const now = this.clock.now().getTime();
     const bucket = this.buckets.get(socket) ?? fullBucket(now, this.limits);
-    const outcome = new CommandRateBo(bucket, this.limits).take(now);
+    const outcome = new CommandRateBo(bucket, this.limits).take(now, cost);
     this.buckets.set(socket, outcome.bucket);
     if (!outcome.allowed) throw this.refusal(socket.id, outcome.retryAfterSeconds);
   }

@@ -167,6 +167,27 @@ describe('CampaignJoinService', () => {
       expect(members.rows[1]).toMatchObject({ userId: ANA_ID, role: 'spectator' });
     });
 
+    it('the seat an admin got past the gate is marked; the one anyone could take is not', async () => {
+      biasCampaign();
+      await service.joinPublic(ANA_ADMIN, 'vharn', {});
+      expect(members.rows[1]).toMatchObject({ userId: ANA_ID, adminBypassSince: NOW });
+    });
+
+    it('a public campaign without a password leaves the admin seat unmarked', async () => {
+      campaigns.rows.push(
+        campaignPo({ id: 'aberta', ownerId: BIA_ID, joinCode: 'ABRT2345', visibility: 'public' }),
+      );
+      members.rows.push(campaignMemberPo({ campaignId: 'aberta', userId: BIA_ID, role: 'master' }));
+      await service.joinPublic(ANA_ADMIN, 'aberta', {});
+      expect(members.rows.at(-1)).toMatchObject({ userId: ANA_ID, adminBypassSince: null });
+    });
+
+    it('joining by code is never marked', async () => {
+      biasCampaign();
+      await service.join(ANA_ID, { code: 'VHRN7K2Q' });
+      expect(members.rows[1]).toMatchObject({ userId: ANA_ID, adminBypassSince: null });
+    });
+
     it('an admin joins a protected campaign without the password, checking no hash', async () => {
       biasCampaign('hashed:sino');
       const summary = await service.joinPublic(ANA_ADMIN, 'vharn', {});

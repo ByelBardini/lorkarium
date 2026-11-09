@@ -4,7 +4,7 @@ import {
   UserAdminService,
   type UserAdminWriteDaos,
 } from '../../../src/modules/user-admin/user-admin.service';
-import { PasswordResetsDaoFake } from '../../support/account-links-fakes';
+import { InvitationsDaoFake, PasswordResetsDaoFake } from '../../support/account-links-fakes';
 import { MailerFake } from '../../support/account-security-fakes';
 import {
   AuthSessionsDaoFake,
@@ -14,8 +14,9 @@ import {
 } from '../../support/auth-fakes';
 import { authSessionPo, userPo } from '../../support/auth-factories';
 import {
-  JuggernautEnderFake,
+  AdminSeatsFake,
   MembershipsForgetFake,
+  RevokedSeatsFake,
   StorageRemoveFake,
   UserAdminDaoFake,
 } from '../../support/user-admin-fakes';
@@ -34,7 +35,9 @@ describe('UserAdminService', () => {
   let storage: StorageRemoveFake;
   let mailer: MailerFake;
   let journal: string[];
-  let juggernauts: JuggernautEnderFake;
+  let adminSeats: AdminSeatsFake;
+  let juggernauts: RevokedSeatsFake;
+  let invitations: InvitationsDaoFake;
   let service: UserAdminService;
 
   beforeEach(() => {
@@ -60,9 +63,17 @@ describe('UserAdminService', () => {
     storage = new StorageRemoveFake();
     mailer = new MailerFake();
     journal = [];
-    juggernauts = new JuggernautEnderFake(journal);
+    adminSeats = new AdminSeatsFake(journal);
+    juggernauts = new RevokedSeatsFake(journal);
+    invitations = new InvitationsDaoFake();
     sessionEnded.whenEnded = (sessionId) => journal.push(`ended ${sessionId}`);
-    const daos: UserAdminWriteDaos = { accounts, sessions, passwordResets: resets };
+    const daos: UserAdminWriteDaos = {
+      accounts,
+      sessions,
+      passwordResets: resets,
+      invitations,
+      adminSeats,
+    };
     service = new UserAdminService({
       accounts,
       invitations: { listPending: async () => [] },
@@ -134,34 +145,81 @@ describe('UserAdminService', () => {
     });
   });
 
-  describe('changeRole turns off the juggernaut of an account losing admin', () => {
-    it('admin → user turns it off at every table after the commit', async () => {
+  describe('changeRole ends what only the admin role gave', () => {
+    const SEATS = [{ campaignId: 'vharn', restored: 'player' as const }];
+
+    it('admin → user revokes the seats inside the transaction and announces after the commit', async () => {
       await service.changeRole(ADMIN, BIA_ID, 'admin');
       journal.splice(0);
+      adminSeats.seats = SEATS;
 
       await service.changeRole(ADMIN, BIA_ID, 'user');
 
-      expect(journal).toEqual(['commit', `endAllOf ${BIA_ID}`]);
+      expect(journal).toEqual([`revoke ${BIA_ID}`, 'commit', `announce ${BIA_ID}`]);
+      expect(juggernauts.announced).toEqual([{ userId: BIA_ID, seats: SEATS }]);
+    });
+
+    it('a failure revoking stops before the commit: nothing is announced', async () => {
+      adminSeats.revokeAdminSeatsOf = () => Promise.reject(new Error('lock timeout'));
+      await expect(service.changeRole(ADMIN, BIA_ID, 'user')).rejects.toThrow('lock timeout');
+      expect(journal).toEqual([]);
+    });
+
+    it('with no seat to revoke nobody is told', async () => {
+      await service.changeRole(ADMIN, BIA_ID, 'user');
+      expect(juggernauts.announced).toEqual([]);
     });
 
     it.each([
-      ['user → admin', 'user', 'admin'],
-      ['admin → admin', 'admin', 'admin'],
-      ['user → user', 'user', 'user'],
-    ] as const)('%s turns nothing off', async (_case, from, to) => {
+      ['user → admin', 'user'],
+      ['admin → admin', 'admin'],
+    ] as const)('%s revokes nothing', async (_case, from) => {
       if (from === 'admin') await service.changeRole(ADMIN, BIA_ID, 'admin');
 
-      await service.changeRole(ADMIN, BIA_ID, to);
+      await service.changeRole(ADMIN, BIA_ID, 'admin');
 
-      expect(juggernauts.ended).toEqual([]);
+      expect(adminSeats.revokedFor).toEqual([]);
     });
 
     it.each([
       ['SELF_ACTION', ADMIN.id],
       ['USER_NOT_FOUND', '99999999-9999-4999-8999-999999999999'],
-    ])('a refusal (%s) turns nothing off', async (code, userId) => {
+    ])('a refusal (%s) revokes nothing', async (code, userId) => {
       await expect(service.changeRole(ADMIN, userId, 'user')).rejects.toMatchObject({ code });
-      expect(juggernauts.ended).toEqual([]);
+      expect(adminSeats.revokedFor).toEqual([]);
+    });
+  });
+
+  describe('the admin invitations of an account losing its authority', () => {
+    beforeEach(async () => {
+      const sent = { emailCipher: 'c', sentAt: NOW, expiresAt: NOW };
+      const issued = (id: string, invitedBy: string, role: 'admin' | 'user') =>
+        invitations.insert({ id, tokenHash: id, emailIndex: id, invitedBy, role, ...sent });
+      await issued('by-bia-admin', BIA_ID, 'admin');
+      await issued('by-bia-user', BIA_ID, 'user');
+      await issued('by-lucas-admin', ADMIN.id, 'admin');
+    });
+
+    const left = (): string[] => invitations.rows.map((row) => row.id);
+
+    it('a demotion deletes the role=admin invitations it issued, nothing else', async () => {
+      await service.changeRole(ADMIN, BIA_ID, 'user');
+      expect(left()).toEqual(['by-bia-user', 'by-lucas-admin']);
+    });
+
+    it('a suspension deletes them', async () => {
+      await service.suspend(ADMIN, BIA_ID);
+      expect(left()).toEqual(['by-bia-user', 'by-lucas-admin']);
+    });
+
+    it('an account deletion deletes them', async () => {
+      await service.delete(ADMIN, BIA_ID);
+      expect(left()).toEqual(['by-bia-user', 'by-lucas-admin']);
+    });
+
+    it('being made admin deletes nothing', async () => {
+      await service.changeRole(ADMIN, BIA_ID, 'admin');
+      expect(left()).toHaveLength(3);
     });
   });
 

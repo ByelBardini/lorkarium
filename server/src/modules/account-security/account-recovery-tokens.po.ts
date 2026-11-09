@@ -8,7 +8,8 @@ export const accountRecoveryKind = pgEnum('account_recovery_kind', [
   'revert-password-change',
 ]);
 
-/** "Não fui eu" links of the security notices; several per account, all die when one is used. */
+/** "Não fui eu" links of the security notices; several per account. Using one ends it and the
+ *  newer ones; the older ones stay. */
 export const accountRecoveryTokens = pgTable(
   'account_recovery_tokens',
   {

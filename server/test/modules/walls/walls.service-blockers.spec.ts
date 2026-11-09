@@ -13,7 +13,7 @@ import { scenePo } from '../../support/scenes-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
 import { lyraPo, lyraRow, statueRow } from '../../support/tokens-factories';
 import { SceneWallsFake, WallsDaoFake, WallTransactionRunnerFake } from '../../support/walls-fakes';
-import { CELL_DOOR_ID, cellDoorPo } from '../../support/walls-factories';
+import { CELL_DOOR_ID, cellDoorPo, northWallPo } from '../../support/walls-factories';
 
 const OTHER_STATUE_ID = 'ab8a7f6e-5d4c-4b3a-8f2e-2d3c4b5a6f7e';
 const ROUND_IMAGE_ID = 'bc8a7f6e-5d4c-4b3a-8f2e-2d3c4b5a6f7e';
@@ -223,6 +223,28 @@ describe('WallsService.setDoor with tokens that block sight', () => {
   });
 
   describe('what it costs', () => {
+    function crowdedScene(lightCount: number): void {
+      for (let at = 0; at < 3999; at += 1) walls.rows.push(northWallPo({ id: `line-${at}` }));
+      for (let at = 0; at < lightCount; at += 1)
+        lights.rows.push(corridorTorchPo({ id: `l${at}` }));
+    }
+
+    it('past the budget of wall checks the door stays and the answer says why', async () => {
+      crowdedScene(84);
+
+      await expect(biaOpens()).rejects.toMatchObject({ code: 'WALL_CHECKS_EXCEEDED' });
+
+      expect(walls.rows[0]?.doorState).toBe('closed');
+    });
+
+    it('the master never spends the budget: no sight check runs', async () => {
+      crowdedScene(84);
+
+      await service.setDoor(ANA_ID, VHARN_ID, { wallId: CELL_DOOR_ID, state: 'open' });
+
+      expect(walls.rows[0]?.doorState).toBe('open');
+    });
+
     it('a scene without a blocker reads no outline', async () => {
       await expectOpened();
 

@@ -32,7 +32,7 @@ DTOs em [`contracts/dados.md`](contracts/dados.md). `dice:roll` (`diceRollComman
 
 ## Caminho do comando
 
-`dice.gateway` → `onCommand` do `board-command-edge.ts` (balde → DTO → sessão relida → mesa aberta na conexão → ack), **fora** da `CampaignCommandQueue`, porque nada é gravado → `DiceService.roll`: `memberAccessOf` sobre o `MembershipReader` em memória (o `CachedMemberships`; espectador `FORBIDDEN`, fora `CAMPAIGN_NOT_FOUND`) → `requireReadableDice` → `startDiceRoll` → ondas → `ProfilesDao.findById` (aparência pelo `memberColorOf`; a **única** consulta ao banco da rolagem) → mapper → publicador. `rollId` vem do `newId` e `at` do `ClockPort`.
+`dice.gateway` → `onCommand` do `board-command-edge.ts` (balde → id da mesa → sessão relida → mesa aberta na conexão → DTO → ack), **fora** da `CampaignCommandQueue`, porque nada é gravado → `DiceService.roll`: `memberAccessOf` sobre o `MembershipReader` em memória (o `CachedMemberships`; espectador `FORBIDDEN`, fora `CAMPAIGN_NOT_FOUND`) → `requireReadableDice` → `startDiceRoll` → ondas → `ProfilesDao.findById` (aparência pelo `memberColorOf`; a **única** consulta ao banco da rolagem) → mapper → publicador. `rollId` vem do `newId` e `at` do `ClockPort`.
 
 O `toAckError` do `board-command-edge.ts` responde por conta própria só ao `InvalidDiceExpressionError` (a mensagem do domínio) e ao `CommandRateLimitedError` (`RATE_LIMITED` + `retryAfterSeconds`). O `DiceError` não está no `isKnown`: uma subclasse nova de erro do dado cai em `INTERNAL_ERROR` ("unexpected error in the board gateway") até ganhar o seu ramo lá.
 

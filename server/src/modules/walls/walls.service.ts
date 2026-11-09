@@ -7,7 +7,13 @@ import type {
   SetDoorCommandDto,
   SetWallKindsCommandDto,
 } from '@lorkarium/contracts';
-import { doorSeenBy, type LightSource, type SightBlocker, type Wall } from '@lorkarium/game-core';
+import {
+  doorSeenBy,
+  preparedWalls,
+  type LightSource,
+  type SightBlocker,
+  type Wall,
+} from '@lorkarium/game-core';
 import type { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
@@ -31,6 +37,7 @@ import { tokenBlockerOf, tokenEyeOf, tokenLightOf } from '../tokens/tokens.mappe
 import { posedNowOf } from '../tokens/token-patrol-pause';
 import { DoorAccessBo } from './door-access.bo';
 import type { SceneWallsService } from './scene-walls.service';
+import { doorSightChecks, requireWallChecks } from './wall-checks.bo';
 import { WallRulesBo, type WallLimits } from './wall-rules.bo';
 import type { WallsDao } from './walls.dao';
 import { WallNotFoundError } from './walls.error';
@@ -319,6 +326,8 @@ async function doorSeen(
     .map((row) => tokenEyeOf(row, blockers));
   const lights = await lightsOfScene(locked, rows, blockers);
   const sightWalls = sightWallsOf(walls, blockers);
+  const segments = preparedWalls(sightWalls).sight.segments.length;
+  requireWallChecks(doorSightChecks({ eyes: eyes.length, lights: lights.length, segments }));
   return doorSeenBy({ eyes, walls: sightWalls, mode: locked.scene.visionMode, lights }, door);
 }
 

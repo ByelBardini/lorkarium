@@ -4,6 +4,7 @@ import type {
 } from '@lorkarium/contracts';
 import type { AccountRecoveryService } from '../account-security/account-recovery.service';
 import { passwordLinkMail } from '../account-security/admin-mail.mapper';
+import type { EmailChangeRequestsDao } from '../account-security/email-change-requests.dao';
 import { passwordChangedMail, recipientOf } from '../account-security/security-mail.mapper';
 import type { SecurityNoticesService } from '../account-security/security-notices.service';
 import { toUserAccessBo } from '../auth/auth.mapper';
@@ -13,6 +14,7 @@ import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { SessionTokenPort } from '../auth/session-token.port';
+import type { TwoFactorChallengesDao } from '../auth/two-factor-challenges.dao';
 import type { UsersDao } from '../auth/users.dao';
 import type { UserPo } from '../auth/users.po';
 import { linkExpiry, PASSWORD_RESET_TTL_MS, requireOtherAccount } from './account-link.bo';
@@ -26,6 +28,8 @@ export type ResetCompletionDaos = Readonly<{
   resets: Pick<PasswordResetsDao, 'delete'>;
   users: Pick<UsersDao, 'updatePassword'>;
   sessions: Pick<AuthSessionsDao, 'deleteAllOf'>;
+  emailChanges: Pick<EmailChangeRequestsDao, 'deleteOfUser'>;
+  challenges: Pick<TwoFactorChallengesDao, 'deleteAllOf'>;
 }>;
 
 export type ResetTransactionRunner = <T>(
@@ -81,6 +85,8 @@ export class PasswordResetsService {
     const ended = await this.deps.transaction(async (daos) => {
       if (!(await daos.resets.delete(reset.id))) throw new AccountLinkInvalidError('a used link');
       await daos.users.updatePassword(user.id, passwordHash, now);
+      await daos.emailChanges.deleteOfUser(user.id);
+      await daos.challenges.deleteAllOf(user.id);
       return daos.sessions.deleteAllOf(user.id);
     });
     for (const sessionId of ended) this.deps.sessionEnded.sessionEnded(sessionId);

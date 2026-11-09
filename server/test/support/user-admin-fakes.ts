@@ -1,5 +1,6 @@
-import type { JuggernautEnderPort } from '../../src/modules/user-admin/juggernaut-ender.port';
 import type { UserPo } from '../../src/modules/auth/users.po';
+import type { RevokedAdminSeat } from '../../src/modules/campaigns/campaign-members.dao';
+import type { RevokedSeatsPort } from '../../src/modules/user-admin/revoked-seats.port';
 import type {
   AccountListingRow,
   OwnedCampaignRow,
@@ -71,17 +72,33 @@ export class StorageRemoveFake {
   }
 }
 
-/** Records each account whose juggernaut mode was turned off everywhere and writes
- *  `endAllOf <userId>` to `journal` (share the transaction's journal to read "after the commit").
+/** The seats a transaction finds to revoke (`seats`, set by the spec); writes
+ *  `revoke <userId>` to `journal`, to read that it happened before the commit.
  *
- *  Example: `new JuggernautEnderFake(journal).ended // [biaId]` */
-export class JuggernautEnderFake implements JuggernautEnderPort {
-  readonly ended: string[] = [];
+ *  Example: `new AdminSeatsFake(journal).revokedFor // [biaId]` */
+export class AdminSeatsFake {
+  readonly revokedFor: string[] = [];
+  seats: RevokedAdminSeat[] = [];
 
   constructor(private readonly journal: string[]) {}
 
-  async endAllOf(userId: string): Promise<void> {
-    this.ended.push(userId);
-    this.journal.push(`endAllOf ${userId}`);
+  async revokeAdminSeatsOf(userId: string): Promise<RevokedAdminSeat[]> {
+    this.revokedFor.push(userId);
+    this.journal.push(`revoke ${userId}`);
+    return this.seats;
+  }
+}
+
+/** Records what the tables were told and writes `announce <userId>` to `journal`.
+ *
+ *  Example: `new RevokedSeatsFake(journal).announced // [{ userId, seats }]` */
+export class RevokedSeatsFake implements RevokedSeatsPort {
+  readonly announced: Array<{ userId: string; seats: readonly RevokedAdminSeat[] }> = [];
+
+  constructor(private readonly journal: string[]) {}
+
+  async announceRevoked(userId: string, seats: readonly RevokedAdminSeat[]): Promise<void> {
+    this.announced.push({ userId, seats });
+    this.journal.push(`announce ${userId}`);
   }
 }
