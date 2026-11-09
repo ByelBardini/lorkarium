@@ -1,9 +1,14 @@
-import { Extension, Node, mergeAttributes, type Extensions } from '@tiptap/core';
+import { Extension, Node, getStyleProperty, mergeAttributes, type Extensions } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle, FontFamily, FontSize, Color } from '@tiptap/extension-text-style';
 import TextAlign from '@tiptap/extension-text-align';
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
-import { documentLinkDto } from '@lorkarium/contracts';
+import {
+  DOCUMENT_FONT_SIZE_MAX,
+  DOCUMENT_FONT_SIZE_MIN,
+  documentLinkDto,
+} from '@lorkarium/contracts';
+import { hexFromTyped } from '@/lib/custom-color';
 import { documentFontOf, documentFontStack } from './document-fonts';
 
 const DocumentSpacing = Extension.create({
@@ -15,10 +20,12 @@ const DocumentSpacing = Extension.create({
         attributes: {
           indent: {
             default: null,
-            parseHTML: (element) =>
-              element.style.marginLeft
-                ? Math.min(6, Math.max(0, Math.round(parseFloat(element.style.marginLeft) / 24)))
-                : null,
+            parseHTML: (element) => {
+              const pixels = parseFloat(element.style.marginLeft);
+              return Number.isFinite(pixels)
+                ? Math.min(6, Math.max(0, Math.round(pixels / 24)))
+                : null;
+            },
             renderHTML: (attrs) =>
               attrs.indent ? { style: `margin-left: ${Number(attrs.indent) * 24}px` } : {},
           },
@@ -55,6 +62,52 @@ const DocumentFontFamily = FontFamily.extend({
         },
       },
     ];
+  },
+});
+
+function pastedFontSize(element: HTMLElement): string | null {
+  const size = /^(\d+(?:\.\d+)?|\.\d+)(px|pt)$/.exec(element.style.fontSize);
+  if (!size) return null;
+  const pixels = Math.round(Number(size[1]) * (size[2] === 'pt' ? 4 / 3 : 1));
+  return `${Math.min(DOCUMENT_FONT_SIZE_MAX, Math.max(DOCUMENT_FONT_SIZE_MIN, pixels))}px`;
+}
+
+function pastedColor(element: HTMLElement): string | null {
+  const inlineColor = getStyleProperty(element, 'color');
+  if (inlineColor?.startsWith('#')) {
+    const hex = hexFromTyped(inlineColor);
+    if (hex) return hex;
+  }
+  const rgb = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(element.style.color);
+  if (!rgb) return null;
+  return `#${rgb
+    .slice(1)
+    .map((channel) => Number(channel).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+const DocumentFontSize = FontSize.extend({
+  addGlobalAttributes() {
+    return (
+      this.parent?.().map(({ types, attributes }) => ({
+        types,
+        attributes: {
+          ...attributes,
+          fontSize: { ...attributes.fontSize, parseHTML: pastedFontSize },
+        },
+      })) ?? []
+    );
+  },
+});
+
+const DocumentColor = Color.extend({
+  addGlobalAttributes() {
+    return (
+      this.parent?.().map(({ types, attributes }) => ({
+        types,
+        attributes: { ...attributes, color: { ...attributes.color, parseHTML: pastedColor } },
+      })) ?? []
+    );
   },
 });
 
@@ -107,8 +160,8 @@ export function documentExtensions(assetUrl: (assetId: string) => string): Exten
     }),
     TextStyle,
     DocumentFontFamily,
-    FontSize,
-    Color,
+    DocumentFontSize,
+    DocumentColor,
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     DocumentSpacing,
     documentImage(assetUrl),

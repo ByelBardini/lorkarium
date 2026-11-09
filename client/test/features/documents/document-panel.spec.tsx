@@ -29,7 +29,7 @@ async function openDocument(changes: Parameters<typeof documentFixture>[0] = {})
   await waitFor(() => expect(document.body.style.pointerEvents).not.toBe('none'));
   return { deps, ...room };
 }
-// jsdom's Range has no layout, and ProseMirror scrolls an inserted image into view.
+// jsdom's Range has no layout, and ProseMirror scrolls inserted content into view.
 class RangeLayoutStub {
   install(): void {
     Object.assign(Range.prototype, {
@@ -86,6 +86,45 @@ describe('authorized document panel', () => {
       deps.interactionClock.advance(1000);
     });
     expect(deps.documentsApi.saves[0]?.name).toBe('Carta revista');
+  });
+  it('autosaves a pasted title styled by a word processor', async () => {
+    const layout = new RangeLayoutStub();
+    layout.install();
+    onTestFinished(() => layout.remove());
+    const { deps } = await openDocument();
+    const textbox = await screen.findByRole('textbox', { name: 'Conteúdo do documento' });
+    await act(async () => {
+      fireEvent.paste(textbox, {
+        clipboardData: {
+          getData: (type: string) =>
+            type === 'text/html'
+              ? '<h1 style="text-align:center"><span style="color:rgb(255, 204, 0);font-size:18pt"><strong>O Mundo de Lork</strong></span></h1>'
+              : '',
+        },
+      });
+    });
+
+    expect(textbox).toHaveTextContent('O Mundo de Lork');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await act(async () => {
+      deps.interactionClock.advance(1000);
+    });
+    expect(deps.documentsApi.tabSaves[0]?.tabId).toBe(GENERAL_TAB_ID);
+    expect(deps.documentsApi.tabBodies[GENERAL_TAB_ID]?.content.content).toContainEqual({
+      type: 'heading',
+      attrs: { level: 1, textAlign: 'center' },
+      content: [
+        {
+          type: 'text',
+          text: 'O Mundo de Lork',
+          marks: [
+            { type: 'textStyle', attrs: { color: '#ffcc00', fontSize: '24px' } },
+            { type: 'bold' },
+          ],
+        },
+        { type: 'text', text: 'A' },
+      ],
+    });
   });
   it('renders a public reader without an editing toolbar', async () => {
     await openDocument({

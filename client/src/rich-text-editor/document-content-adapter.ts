@@ -20,7 +20,7 @@ function cleanNode(node: JSONContent): JSONContent & { type: string } {
         NODE_ATTRIBUTES[node.type ?? '']?.includes(key) && value !== null && value !== '',
     ),
   );
-  const marks = cleanMarks(node.marks ?? []);
+  const marks = node.type === 'hardBreak' ? [] : cleanMarks(node.marks ?? []);
   return {
     type: node.type ?? '',
     ...(Object.keys(attributes).length ? { attrs: attributes } : {}),
