@@ -16,7 +16,7 @@ function at(ms: number): Date {
 
 function square(overrides: Partial<TokenPatrol> = {}): TokenPatrol {
   const path = [cell(0, 0), cell(2, 0), cell(2, 2), cell(0, 2)];
-  return tokenPatrol({ path, repeat: 'loop', speed: 1, turns: true, ...overrides });
+  return tokenPatrol({ path, repeat: 'loop', speed: 1, turns: true, gait: 'glide', ...overrides });
 }
 
 function timelineOf(overrides: Partial<PatrolTimeline> = {}): PatrolTimeline {
@@ -94,6 +94,7 @@ describe('TokenPatrolBo.save', () => {
       repeat: 'bounce',
       speed: 1,
       turns: true,
+      gait: 'glide',
     });
 
     expect(() => rule.save(big, route, at(0))).toThrow(
@@ -111,6 +112,7 @@ describe('TokenPatrolBo.save', () => {
       repeat: 'bounce',
       speed: 1,
       turns: true,
+      gait: 'glide',
     });
 
     expect(rule.save(big, route, at(0)).timeline?.patrol).toBe(route);

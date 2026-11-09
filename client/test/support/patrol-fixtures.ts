@@ -19,6 +19,7 @@ export function squarePatrol(overrides: Partial<TokenPatrolDto> = {}): TokenPatr
     repeat: 'loop',
     speed: 1,
     turns: true,
+    gait: 'glide',
     step: 0,
     startedAt: null,
     ...overrides,

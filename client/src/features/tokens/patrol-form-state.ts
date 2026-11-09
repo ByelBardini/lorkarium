@@ -51,7 +51,7 @@ export function patrolSummaryOf({ path, repeat, speed }: SummaryInput): string {
   const points = `${path.length} ${path.length === 1 ? 'ponto' : 'pontos'}`;
   const [first] = path;
   if (!first || path.every((point) => sameCell(point, first))) return points;
-  const cells = patrolCycle({ path, repeat, speed, turns: false }).length;
+  const cells = patrolCycle({ path, repeat }).length;
   return `${points} · ${cells} casas por volta · ${durationText(cells / speed)}`;
 }
 

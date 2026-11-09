@@ -26,8 +26,8 @@ export function toPatrolledToken({ token, patrol }: PatrolledTokenPo): Patrolled
 export function toPatrolTimeline(stored: TokenPatrolPo): PatrolTimeline {
   try {
     const path = stored.path.map(([col, row]) => cell(col, row));
-    const { repeat, turns } = stored;
-    const patrol = tokenPatrol({ path, repeat, speed: Number(stored.speed), turns });
+    const { repeat, turns, gait } = stored;
+    const patrol = tokenPatrol({ path, repeat, speed: Number(stored.speed), turns, gait });
     return { patrol, step: stored.step, startedAt: stored.startedAt };
   } catch (cause) {
     throw new Error(`token ${stored.tokenId} has a patrol saved broken: ${String(cause)}`, {
@@ -43,7 +43,7 @@ export function toPatrolTimeline(stored: TokenPatrolPo): PatrolTimeline {
 export function toTokenPatrol(tokenId: string, fields: TokenPatrolFieldsDto): TokenPatrol {
   const path = fields.path.map(([col, row]) => ({ col, row }));
   try {
-    return tokenPatrol({ path, repeat: fields.repeat, speed: fields.speed, turns: fields.turns });
+    return tokenPatrol({ ...fields, path });
   } catch (cause) {
     if (cause instanceof RangeError) throw new InvalidTokenPatrolError(tokenId, cause.message);
     throw cause;
@@ -56,18 +56,19 @@ export function toTokenPatrol(tokenId: string, fields: TokenPatrolFieldsDto): To
 export function toTokenPatrolPo(tokenId: string, timeline: PatrolTimeline): TokenPatrolPo {
   const { patrol, step, startedAt } = timeline;
   const path = patrol.path.map((point): [number, number] => [point.col, point.row]);
-  const { repeat, turns } = patrol;
-  return { tokenId, path, repeat, speed: cellsNumeric(patrol.speed), turns, step, startedAt };
+  const { repeat, turns, gait } = patrol;
+  return { tokenId, path, repeat, speed: cellsNumeric(patrol.speed), turns, gait, step, startedAt };
 }
 
 /** A stored patrol as every audience of the token gets it.
  *
  *  Example: `toTokenPatrolDto(row.patrol).startedAt // '2026-11-08T12:00:00.000Z'` */
 export function toTokenPatrolDto(stored: TokenPatrolPo): TokenPatrolDto {
-  const { path, repeat, turns, step, startedAt } = stored;
+  const { path, repeat, turns, gait, step, startedAt } = stored;
   const points = path.map(([col, row]): [number, number] => [col, row]);
   const started = startedAt && startedAt.toISOString();
-  return { path: points, repeat, speed: Number(stored.speed), turns, step, startedAt: started };
+  const speed = Number(stored.speed);
+  return { path: points, repeat, speed, turns, gait, step, startedAt: started };
 }
 
 /** A write → the entry of `token:patrolsChanged`: the patrol now and the pose saved with it.

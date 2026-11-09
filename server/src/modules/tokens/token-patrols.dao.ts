@@ -26,7 +26,7 @@ type PatrolJson = Omit<TokenPatrolPo, 'startedAt'> & Readonly<{ startedAt: strin
  *
  *  Example: `db.select({ token: tokens, patrol: PATROL_OF_TOKEN }).from(tokens)` */
 export const PATROL_OF_TOKEN = sql<PatrolJson | null>`${sql.raw(
-  `(select json_build_object('tokenId', p.token_id, 'path', p.path, 'repeat', p.repeat, 'speed', p.speed::text, 'turns', p.turns, 'step', p.step, 'startedAt', p.started_at) from token_patrols AS p where p.token_id = "tokens"."id")`,
+  `(select json_build_object('tokenId', p.token_id, 'path', p.path, 'repeat', p.repeat, 'speed', p.speed::text, 'turns', p.turns, 'gait', p.gait, 'step', p.step, 'startedAt', p.started_at) from token_patrols AS p where p.token_id = "tokens"."id")`,
 )}`;
 
 /** The `PATROL_OF_TOKEN` column → the row as the table keeps it.
@@ -52,10 +52,10 @@ export class TokenPatrolsDao {
   /** Saves the patrol of a token of the scene (replacing the one it had); a token of another
    *  scene gets none. */
   async save(sceneId: string, patrol: TokenPatrolPo): Promise<void> {
-    const { tokenId, repeat, speed, turns, step, startedAt } = patrol;
+    const { tokenId, repeat, speed, turns, gait, step, startedAt } = patrol;
     const path = JSON.stringify(patrol.path);
     await this.db.execute(
-      sql`INSERT INTO ${tokenPatrols} (token_id, path, repeat, speed, turns, step, started_at) SELECT ${tokens.id}, ${path}::jsonb, ${repeat}::token_patrol_repeat, ${speed}::numeric, ${turns}, ${step}, ${startedAt}::timestamptz FROM ${tokens} WHERE ${tokens.id} = ${tokenId} AND ${tokens.sceneId} = ${sceneId} ON CONFLICT (token_id) DO UPDATE SET path = excluded.path, repeat = excluded.repeat, speed = excluded.speed, turns = excluded.turns, step = excluded.step, started_at = excluded.started_at`,
+      sql`INSERT INTO ${tokenPatrols} (token_id, path, repeat, speed, turns, gait, step, started_at) SELECT ${tokens.id}, ${path}::jsonb, ${repeat}::token_patrol_repeat, ${speed}::numeric, ${turns}, ${gait}::token_patrol_gait, ${step}, ${startedAt}::timestamptz FROM ${tokens} WHERE ${tokens.id} = ${tokenId} AND ${tokens.sceneId} = ${sceneId} ON CONFLICT (token_id) DO UPDATE SET path = excluded.path, repeat = excluded.repeat, speed = excluded.speed, turns = excluded.turns, gait = excluded.gait, step = excluded.step, started_at = excluded.started_at`,
     );
   }
 

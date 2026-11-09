@@ -189,6 +189,7 @@ describe('veiledLightDto', () => {
       repeat: 'bounce',
       speed: 2,
       turns: true,
+      gait: 'glide',
       step: 0,
       startedAt: AT,
     },

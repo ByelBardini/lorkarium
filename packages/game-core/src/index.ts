@@ -22,6 +22,7 @@ export {
   PATROL_SPEED_MIN,
   PATROL_SPEED_STEP,
   tokenPatrol,
+  type PatrolGait,
   type PatrolRepeat,
   type TokenPatrol,
 } from './token-patrol.vo';

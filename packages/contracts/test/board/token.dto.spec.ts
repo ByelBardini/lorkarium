@@ -547,6 +547,7 @@ describe('tokenDto.patrol', () => {
     repeat: 'loop',
     speed: 1,
     turns: true,
+    gait: 'glide',
     step: 3,
     startedAt: '2026-11-08T12:00:00.000Z',
   };

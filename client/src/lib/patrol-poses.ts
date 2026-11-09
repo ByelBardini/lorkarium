@@ -2,12 +2,13 @@ import type { TokenDto, TokenPatrolDto, VeiledLightDto } from '@lorkarium/contra
 import { cell, patrolPoseAt, type PatrolPose, type TokenPatrol } from '@lorkarium/game-core';
 
 /** Where a patrolling token shows now: the cell of the step under way, where it looks (`null`:
- *  the patrol does not turn, the token keeps its own facing) and how long one step glides. */
+ *  the patrol does not turn, the token keeps its own facing) and how long one step glides
+ *  (`null`, the `step` gait: the short glide of any move, then it stands on the cell). */
 export type PatrolShownPose = Readonly<{
   col: number;
   row: number;
   facing: number | null;
-  glideMs: number;
+  glideMs: number | null;
 }>;
 
 /** The poses of the running patrols of a board, by token id. */
@@ -135,13 +136,13 @@ function patrolOf(patrol: TokenPatrolDto): TokenPatrol {
   const known = routes.get(patrol);
   if (known) return known;
   const path = patrol.path.map(([col, row]) => cell(col, row));
-  const route = { path, repeat: patrol.repeat, speed: patrol.speed, turns: patrol.turns };
+  const route = { ...patrol, path };
   routes.set(patrol, route);
   return route;
 }
 
 function shownPoseOf(pose: PatrolPose, patrol: TokenPatrolDto): PatrolShownPose {
-  const glideMs = MS_PER_SECOND / patrol.speed;
+  const glideMs = patrol.gait === 'step' ? null : MS_PER_SECOND / patrol.speed;
   return { col: pose.cell.col, row: pose.cell.row, facing: pose.facing, glideMs };
 }
 

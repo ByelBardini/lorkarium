@@ -19,6 +19,7 @@ const ROUTE: TokenPatrolFieldsDto = {
   repeat: 'bounce',
   speed: 1,
   turns: true,
+  gait: 'glide',
 };
 
 describe('token patrols over Socket.IO', () => {
@@ -307,6 +308,7 @@ describe('token patrols over Socket.IO', () => {
       await tokens.patrols.save(sceneId, {
         ...patrol,
         turns: true,
+        gait: 'glide',
         step: 0,
         startedAt: new Date(),
       });

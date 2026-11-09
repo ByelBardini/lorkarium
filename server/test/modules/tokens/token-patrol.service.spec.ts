@@ -36,6 +36,7 @@ const ROUTE: TokenPatrolFieldsDto = {
   repeat: 'loop',
   speed: 1,
   turns: true,
+  gait: 'glide',
 };
 
 /** Lyra on (0, 0) walking the square: running since 2.5 s ago, or paused. */

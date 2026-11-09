@@ -11,7 +11,7 @@ import {
 const SQUARE: readonly Cell[] = [cell(0, 0), cell(2, 0), cell(2, 2), cell(0, 2)];
 
 function patrolOf(path: readonly Cell[], speed = 1): TokenPatrol {
-  return { path, repeat: 'loop', speed, turns: true };
+  return { path, repeat: 'loop', speed, turns: true, gait: 'glide' };
 }
 
 function straightPath(points: number): Cell[] {
@@ -30,6 +30,7 @@ describe('tokenPatrol', () => {
       repeat: 'loop',
       speed: 1,
       turns: true,
+      gait: 'glide',
     });
   });
 

@@ -78,7 +78,13 @@ describe('PlayRoomPage, the patrol editor', () => {
 
     expect(deps.boardCommands.sentAs('setTokenPatrol')[0]?.fields).toEqual({
       tokenId: KAEL_ID,
-      patrol: { path: [cell(4, 4), cell(8, 4), cell(8, 8)], repeat: 'loop', speed: 1, turns: true },
+      patrol: {
+        path: [cell(4, 4), cell(8, 4), cell(8, 8)],
+        repeat: 'loop',
+        speed: 1,
+        turns: true,
+        gait: 'glide',
+      },
     });
     expect(screen.queryByRole('region', { name: 'Patrulha de Kael' })).not.toBeInTheDocument();
   });

@@ -23,6 +23,11 @@ export const TOKEN_PATROL_LIMIT_CODE = 'TOKEN_PATROL_LIMIT';
 export const tokenPatrolRepeatDto = z.enum(['loop', 'bounce']);
 export type TokenPatrolRepeatDto = z.infer<typeof tokenPatrolRepeatDto>;
 
+/** How the token shows between two cells: sliding for the whole step (`glide`), or a short move
+ *  and a stop on each cell (`step`). The timeline is the same: only the drawing changes. */
+export const tokenPatrolGaitDto = z.enum(['glide', 'step']);
+export type TokenPatrolGaitDto = z.infer<typeof tokenPatrolGaitDto>;
+
 /** A point of the route: a token origin `[col, row]`, in half cells like `col`/`row`. */
 const patrolPointDto = z.tuple([cellIndexDto, cellIndexDto]);
 
@@ -46,15 +51,16 @@ const patrolSpeedDto = z.union([z.number(), z.nan()]).superRefine((speed, contex
 });
 
 /** The patrol as the master edits it: the route (the first point is where the token stood when
- *  the editor opened), what it does at the end, how fast it walks and whether it turns to where
- *  it walks.
+ *  the editor opened), what it does at the end, how fast it walks, whether it turns to where it
+ *  walks and how it shows between two cells.
  *
- *  Example: `tokenPatrolFieldsDto.parse({ path: [[4, 4], [8, 4]], repeat: 'loop', speed: 1, turns: true })` */
+ *  Example: `tokenPatrolFieldsDto.parse({ path: [[4, 4], [8, 4]], repeat: 'loop', speed: 1, turns: true, gait: 'step' })` */
 export const tokenPatrolFieldsDto = z.strictObject({
   path: patrolPathDto,
   repeat: tokenPatrolRepeatDto,
   speed: patrolSpeedDto,
   turns: z.boolean(),
+  gait: tokenPatrolGaitDto,
 });
 export type TokenPatrolFieldsDto = z.infer<typeof tokenPatrolFieldsDto>;
 

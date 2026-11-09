@@ -673,6 +673,13 @@
       "when": 1794266077813,
       "tag": "0095_map_region_document_tab",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1794266598498,
+      "tag": "0096_token_patrol_gait",
+      "breakpoints": true
     }
   ]
 }

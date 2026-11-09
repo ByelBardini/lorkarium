@@ -28,6 +28,7 @@ describe('token-patrol.mapper', () => {
       repeat: 'loop',
       speed: 1.5,
       turns: true,
+      gait: 'glide',
       step: 3,
       startedAt: '2026-11-08T12:00:00.000Z',
     });
@@ -68,6 +69,7 @@ describe('token-patrol.mapper', () => {
       repeat: 'loop' as const,
       speed: 1,
       turns: true,
+      gait: 'glide' as const,
     };
 
     expect(() => toTokenPatrol(LYRA_ID, fields)).toThrow(
@@ -76,6 +78,25 @@ describe('token-patrol.mapper', () => {
         message: expect.stringContaining(`the patrol of token ${LYRA_ID} is invalid`),
       }),
     );
+  });
+
+  it('a patrol walked cell by cell keeps its gait from the command to the row and out again', () => {
+    const fields = {
+      path: [
+        [0, 0],
+        [3, 0],
+      ] as [number, number][],
+      repeat: 'loop' as const,
+      speed: 1,
+      turns: true,
+      gait: 'step' as const,
+    };
+    const patrol = toTokenPatrol(LYRA_ID, fields);
+    const stored = toTokenPatrolPo(LYRA_ID, { patrol, step: 0, startedAt: null });
+
+    expect(stored.gait).toBe('step');
+    expect(toPatrolTimeline(stored).patrol.gait).toBe('step');
+    expect(toTokenPatrolDto(stored).gait).toBe('step');
   });
 
   it('a timeline goes to the row with the speed to the hundredth', () => {

@@ -35,6 +35,19 @@ describe('patrolClockOf', () => {
     });
   });
 
+  it('a patrol walked cell by cell keeps the cell and the timing, without the whole-step glide', () => {
+    const stepping = kael({
+      col: 0,
+      row: 0,
+      patrol: squarePatrol({ gait: 'step', startedAt: PATROL_STARTED_AT }),
+    });
+
+    const clock = clockAt(2500, [stepping]);
+
+    expect(clock.poses.get(KAEL_ID)).toEqual({ col: 2, row: 0, facing: 0, glideMs: null });
+    expect(clock.nextChangeInMs).toBe(500);
+  });
+
   it('a paused patrol (no start) does not walk', () => {
     const paused = kael({ col: 0, row: 0, patrol: squarePatrol() });
 
