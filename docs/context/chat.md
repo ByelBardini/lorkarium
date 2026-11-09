@@ -65,7 +65,7 @@ A mensagem interna (no log) cita o valor recebido e a forma esperada; o ack leva
 
 ## Caminho do comando
 
-`chat.gateway` → `onCommand` do `board-command-edge.ts` (balde do chat → DTO → sessão relida → mesa aberta na conexão → ack), **fora** da `CampaignCommandQueue` (nada é gravado) → `ChatService.send`: `viewerAccessOf` sobre o `CachedMemberships` → `ChatMessageBo` → `findMembership` de cada destinatário (em memória depois da primeira leitura) → se token: `GridAudience.reaches` → `TokensDao.findInScene` (a **única** consulta possível ao banco) → `TokenAccessBo` → mapper → publicador.
+`chat.gateway` → `onCommand` do `board-command-edge.ts` (balde do chat → id da mesa → sessão relida → mesa aberta na conexão → DTO → ack), **fora** da `CampaignCommandQueue` (nada é gravado) → `ChatService.send`: `viewerAccessOf` sobre o `CachedMemberships` → `ChatMessageBo` → `findMembership` de cada destinatário (em memória depois da primeira leitura) → se token: `GridAudience.reaches` → `TokensDao.findInScene` (a **única** consulta possível ao banco) → `TokenAccessBo` → mapper → publicador.
 
 ## Balde
 
