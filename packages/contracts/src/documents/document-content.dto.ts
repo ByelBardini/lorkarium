@@ -5,6 +5,8 @@ export const DOCUMENT_CONTENT_MAX_NODES = 10_000;
 export const DOCUMENT_CONTENT_MAX_DEPTH = 16;
 export const DOCUMENT_CONTENT_MAX_TEXT = 100_000;
 export const DOCUMENT_CONTENT_MAX_IMAGES = 50;
+export const DOCUMENT_IMAGE_MIN_WIDTH = 32;
+export const DOCUMENT_IMAGE_MAX_WIDTH = 4096;
 // The three bundled with the app first; the rest are the usual Windows fonts, drawn by the
 // reader's own copy (another system falls back to a similar family).
 export const DOCUMENT_FONTS = [
@@ -116,7 +118,7 @@ const imageAttrsDto = z.strictObject({
   assetId: z.uuid(),
   alt: z.string().max(1000).optional(),
   align: z.enum(['left', 'center', 'right']).optional(),
-  width: z.number().int().min(32).max(4096).optional(),
+  width: z.number().int().min(DOCUMENT_IMAGE_MIN_WIDTH).max(DOCUMENT_IMAGE_MAX_WIDTH).optional(),
 });
 const cellAttrsDto = z.strictObject({
   colspan: z.literal(1).optional(),

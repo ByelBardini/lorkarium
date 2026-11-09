@@ -1,9 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Editor } from '@tiptap/core';
+import { Editor, type JSONContent } from '@tiptap/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { documentExtensions } from '@/rich-text-editor/document-extensions';
 import { DocumentToolbar } from '@/rich-text-editor/document-toolbar';
+import { documentContentFromEditor } from '@/rich-text-editor/document-content-adapter';
 import { applyTypedCustomColor } from '../support/pick-custom-color';
 
 // jsdom's Range has no layout, and ProseMirror scrolls the selection into view on focus.
@@ -14,11 +15,11 @@ function giveRangesAnEmptyLayout(): void {
   });
 }
 
-function letterEditor(): Editor {
+function letterEditor(content?: JSONContent): Editor {
   const editor = new Editor({
     element: document.body.appendChild(document.createElement('div')),
     extensions: documentExtensions((assetId) => `/api/assets/${assetId}`),
-    content: {
+    content: content ?? {
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Carta do rei' }] }],
     },
@@ -118,5 +119,68 @@ describe('DocumentToolbar, the text color', () => {
 
     await waitFor(() => expect(editor.view.dom).toHaveFocus());
     expect(textColorOf(editor)).toBeUndefined();
+  });
+});
+
+describe('DocumentToolbar, the selected image', () => {
+  let editor: Editor;
+  const assetId = '11111111-1111-4111-8111-111111111111';
+
+  beforeEach(() => {
+    giveRangesAnEmptyLayout();
+    editor = letterEditor({
+      type: 'doc',
+      content: [
+        { type: 'image', attrs: { assetId, alt: 'Primeira' } },
+        { type: 'image', attrs: { assetId, alt: 'Segunda' } },
+      ],
+    });
+    editor.commands.setNodeSelection(1);
+    editor.view.focus();
+    render(<DocumentToolbar editor={editor} />);
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    const range = Range.prototype as Partial<Range>;
+    delete range.getClientRects;
+    delete range.getBoundingClientRect;
+  });
+
+  it('changes only the selected image and keeps its layout in the saved content', async () => {
+    const width = screen.getByRole('spinbutton', { name: 'Largura da imagem em pixels' });
+    await userEvent.type(width, '240{Enter}');
+    await userEvent.click(screen.getByRole('button', { name: 'Alinhamento da imagem' }));
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'À direita' }));
+
+    expect(documentContentFromEditor(editor.getJSON()).content).toEqual([
+      { type: 'image', attrs: { assetId, alt: 'Primeira' } },
+      { type: 'image', attrs: { assetId, alt: 'Segunda', width: 240, align: 'right' } },
+    ]);
+    expect(screen.getByRole('img', { name: 'Segunda' })).toHaveStyle({
+      width: '240px',
+      height: 'auto',
+      marginLeft: 'auto',
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Alinhamento da imagem' }));
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Centralizado' }));
+    expect(screen.getByRole('img', { name: 'Segunda' })).toHaveStyle({ marginInline: 'auto' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Alinhamento da imagem' }));
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'À esquerda' }));
+    expect(documentContentFromEditor(editor.getJSON()).content[1]?.attrs?.align).toBe('left');
+  });
+
+  it('keeps the saved width for out-of-range input and accepts the original size', async () => {
+    await userEvent.type(screen.getByRole('spinbutton'), '240{Enter}');
+    const width = screen.getByRole('spinbutton');
+    await userEvent.clear(width);
+    await userEvent.type(width, '4097{Enter}');
+    expect(documentContentFromEditor(editor.getJSON()).content[1]?.attrs?.width).toBe(240);
+
+    await userEvent.clear(width);
+    await userEvent.keyboard('{Enter}');
+    expect(documentContentFromEditor(editor.getJSON()).content[1]?.attrs?.width).toBeUndefined();
   });
 });

@@ -38,6 +38,7 @@ import {
 import { captureDocumentSelection } from './document-selection';
 import { DocumentFontSize } from './document-font-size';
 import { DocumentFontPicker } from './document-font-picker';
+import { DocumentImageControls } from './document-image-controls';
 import { ToolbarMenuSelect, type ToolbarMenuOption } from './toolbar-menu-select';
 
 type ToolbarActionProps = {
@@ -222,6 +223,7 @@ export function DocumentToolbar({
           disabled={!insertImage}
           shortcut={insertImage ? 'Ctrl+I' : undefined}
         />
+        <DocumentImageControls editor={editor} />
         <ToolbarAction
           label="Inserir tabela"
           icon={Table2Icon}
