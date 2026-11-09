@@ -8,12 +8,14 @@ export const ATO_1: SceneFolderDto = {
   id: 'a1a1a1a1-b2b2-4c3c-8d4d-e5e5e5e5e5e5',
   name: 'Ato 1',
   parentId: null,
+  visibility: 'public',
 };
 
 export const CATACUMBAS: SceneFolderDto = {
   id: 'c3c3c3c3-d4d4-4e5e-8f6f-a7a7a7a7a7a7',
   name: 'Catacumbas',
   parentId: ATO_1.id,
+  visibility: 'public',
 };
 
 /** A grid as the library card of the master shows it, built from a board scene.
@@ -45,6 +47,8 @@ export function vharnLibrary(overrides: Partial<CampaignLibraryDto> = {}): Campa
   return {
     images: [],
     documents: [],
+    maps: [],
+    mainMapId: null,
     activeSceneId: VHARN_SCENE.id,
     folders: [ATO_1, CATACUMBAS],
     scenes: [
@@ -60,6 +64,7 @@ export const LUGARES_FIXOS: SceneFolderDto = {
   id: 'f1f1f1f1-a2a2-4b3b-8c4c-d5d5d5d5d5d5',
   name: 'Lugares fixos',
   parentId: null,
+  visibility: 'public',
 };
 
 /** A private grid of the master, deep in "Ato 1 › Catacumbas", with 14 tokens. */
@@ -101,6 +106,8 @@ export function playerLibrary(overrides: Partial<CampaignLibraryDto> = {}): Camp
   return {
     images: [],
     documents: [],
+    maps: [],
+    mainMapId: null,
     activeSceneId: master.activeSceneId,
     folders: [ATO_1],
     scenes,

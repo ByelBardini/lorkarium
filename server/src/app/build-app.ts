@@ -6,6 +6,10 @@ import { removedInOrder } from './member-outlets';
 import { createDocumentsModule, documentDaos } from '../modules/documents/documents.plugin';
 import { DocumentAssetReadPolicy } from '../modules/documents/document-asset-read-policy.service';
 import { AssetsDao } from '../modules/assets/assets.dao';
+import { CampaignMembersDao } from '../modules/campaigns/campaign-members.dao';
+import { LibraryMapReadPolicy } from '../modules/library-maps/library-map-read-policy.service';
+import { LibraryMapsDao } from '../modules/library-maps/library-maps.dao';
+import { createLibraryMapsModule } from '../modules/library-maps/library-maps.plugin';
 import cookie from '@fastify/cookie';
 import { AVATAR_MAX_BYTES } from '@lorkarium/contracts';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
@@ -144,9 +148,15 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const documentReadPolicy = new DocumentAssetReadPolicy((work) =>
     runInSnapshot(deps.db, (tx) => work(documentDaos(tx))),
   );
+  const mapReadPolicy = new LibraryMapReadPolicy((work) =>
+    runInSnapshot(deps.db, (tx) =>
+      work({ members: new CampaignMembersDao(tx), maps: new LibraryMapsDao(tx) }),
+    ),
+  );
   const readPolicy = {
     canRead: async (userId: string, campaignId: string, assetId: string): Promise<boolean> => {
       const row = await new AssetsDao(deps.db).findInCampaign(campaignId, assetId);
+      if (row?.purpose === 'library_map') return mapReadPolicy.canRead(userId, campaignId, assetId);
       if (row?.purpose === 'document_image')
         return documentReadPolicy.canRead(userId, campaignId, assetId);
       return (
@@ -175,6 +185,8 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
   const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
   await app.register(library.plugin, { prefix: API_PREFIX });
+  const libraryMaps = createLibraryMapsModule({ db: deps.db, publisher, clock });
+  await app.register(libraryMaps.plugin, { prefix: API_PREFIX });
   const documents = createDocumentsModule({
     db: deps.db,
     assets: assets.service,

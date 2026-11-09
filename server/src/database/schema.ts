@@ -45,6 +45,11 @@ export { accountSavedColors } from '../modules/saved-colors/saved-colors.po';
 
 export { libraryImages } from '../modules/library/library-images.po';
 export { libraryImagePresentations } from '../modules/library/image-presentations.po';
+export { libraryMaps } from '../modules/library-maps/library-maps.po';
+export {
+  libraryMapRegions,
+  mapRegionLinkKind,
+} from '../modules/library-maps/library-map-regions.po';
 export {
   libraryDocuments,
   libraryDocumentOwners,

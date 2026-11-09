@@ -12,7 +12,8 @@ export function toDocumentSummary(
   ownerIds: string[],
   access: CampaignAccessBo,
 ): DocumentSummaryDto {
-  const permissions = new DocumentAccessBo(access, { ...row, ownerIds });
+  // Only what the reader may do: whether they read it at all was decided before getting here.
+  const permissions = new DocumentAccessBo(access, { ...row, ownerIds, hiddenByFolder: false });
   return {
     id: row.id,
     name: row.name,
@@ -34,7 +35,7 @@ export function toDocumentDto(
   access: CampaignAccessBo,
   tabs: readonly DocumentTabSummaryPo[],
 ): DocumentDto {
-  const document = new DocumentAccessBo(access, { ...row, ownerIds });
+  const document = new DocumentAccessBo(access, { ...row, ownerIds, hiddenByFolder: false });
   return {
     ...toDocumentSummary(row, ownerIds, access),
     schemaVersion: 2,

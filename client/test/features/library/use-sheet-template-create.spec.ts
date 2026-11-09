@@ -30,10 +30,21 @@ function renderCreate(recorder: RecordingLibrarySubmit): SheetTemplateCreate {
 describe('useSheetTemplateCreate', () => {
   it('createSheetTemplate clears the filter first, then sends the starter code into the folder', () => {
     const recorder = new RecordingLibrarySubmit();
-    renderCreate(recorder).createSheetTemplate(FOLDER_ID);
+    renderCreate(recorder).createSheetTemplate(FOLDER_ID, '');
     expect(recorder.order).toEqual(['beforeCreate', 'submit']);
     expect(recorder.sent).toEqual([
       { intent: 'createSheetTemplate', template: { folderId: FOLDER_ID, ...STARTER_SHEET_SOURCE } },
+    ]);
+  });
+
+  it('createSheetTemplate sends the name typed', () => {
+    const recorder = new RecordingLibrarySubmit();
+    renderCreate(recorder).createSheetTemplate(null, 'Ficha Tormenta');
+    expect(recorder.sent).toEqual([
+      {
+        intent: 'createSheetTemplate',
+        template: { folderId: null, ...STARTER_SHEET_SOURCE, name: 'Ficha Tormenta' },
+      },
     ]);
   });
 

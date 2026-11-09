@@ -48,3 +48,27 @@ export function menuItemNames(menu: HTMLElement): string[] {
     .getAllByRole('menuitem')
     .map((item) => item.textContent ?? '');
 }
+
+/** The "Novo item" dialog once it is open.
+ *
+ *  Example: `expect(await newItemDialog()).toHaveAccessibleDescription('Vai para Ato 1.')` */
+export function newItemDialog(): Promise<HTMLElement> {
+  return screen.findByRole('dialog', { name: 'Novo item' });
+}
+
+/** Picks the type on the open "Novo item"; resolves to the dialog.
+ *
+ *  Example: `const dialog = await pickNewItemKind('Pasta')` */
+export async function pickNewItemKind(kind: string): Promise<HTMLElement> {
+  const dialog = await newItemDialog();
+  await userEvent.click(within(dialog).getByRole('button', { name: kind }));
+  return dialog;
+}
+
+/** The header's "Criar item" with the type already picked; resolves to the dialog.
+ *
+ *  Example: `const dialog = await startHeaderNewItem('Grid')` */
+export async function startHeaderNewItem(kind: string): Promise<HTMLElement> {
+  await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
+  return pickNewItemKind(kind);
+}

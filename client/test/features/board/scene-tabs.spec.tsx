@@ -6,8 +6,14 @@ import { fakeClientWidth } from '../../support/client-width-fake';
 import type { OpenTable } from '@/stores/open-tables-store';
 import { GROUP_TAB } from '@/stores/scene-tabs-store';
 import { detailOf, VHARN } from '../../support/campaigns-api-fake';
-import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
+import {
+  createDocumentWorkspaceStore,
+  type DocumentWorkspaceStore,
+} from '@/stores/document-workspace-store';
+import type { StoreApi } from 'zustand/vanilla';
 import { DocumentsApiFake } from '../../support/documents-api-fake';
+import { LibraryMapsApiFake } from '../../support/library-maps-api-fake';
+import { MUNDO_ID, libraryMapDetail } from '../../support/library-map-fixtures';
 import { SheetTemplatesApiFake } from '../../support/sheet-templates-api-fake';
 import { SheetsApiFake } from '../../support/sheets-api-fake';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
@@ -101,12 +107,7 @@ describe('SceneTabs in a narrow strip', () => {
     const api = new TableSessionApiFake();
     const table = openVharnTabs(api);
     openTorreTab(api, table);
-    const documents = createDocumentWorkspaceStore({
-      api: new DocumentsApiFake(),
-      sheetsApi: new SheetsApiFake(),
-      sheetTemplatesApi: new SheetTemplatesApiFake(),
-      clock: new InteractionClockFake(),
-    });
+    const documents = workspaceOfFakes();
     documents.getState().open({ campaign: detailOf(VHARN), document: documentFixture() });
     render(<SceneTabs tabs={table.tabs} documents={documents} campaignId={VHARN.id} />);
     await act(() => Promise.resolve());
@@ -140,17 +141,73 @@ describe('SceneTabs in a narrow strip', () => {
   });
 });
 
+function workspaceOfFakes(mapsApi = new LibraryMapsApiFake()): StoreApi<DocumentWorkspaceStore> {
+  return createDocumentWorkspaceStore({
+    api: new DocumentsApiFake(),
+    sheetsApi: new SheetsApiFake(),
+    sheetTemplatesApi: new SheetTemplatesApiFake(),
+    mapsApi,
+    clock: new InteractionClockFake(),
+  });
+}
+
+describe('SceneTabs with the map tab', () => {
+  it('shows the map after the grids, named after it, says it is a map and closes', async () => {
+    const api = new TableSessionApiFake();
+    const table = openVharnTabs(api);
+    const mapsApi = new LibraryMapsApiFake();
+    mapsApi.maps.set(MUNDO_ID, libraryMapDetail());
+    const documents = workspaceOfFakes(mapsApi);
+    const key = documents
+      .getState()
+      .openMap({ campaign: detailOf(VHARN), mapId: MUNDO_ID, mapName: 'Mundo' });
+    render(<SceneTabs tabs={table.tabs} documents={documents} campaignId={VHARN.id} />);
+    await act(() => Promise.resolve());
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Cena 1Grupo',
+      'Mundo',
+    ]);
+    const tab = screen.getByRole('tab', { name: 'Mundo' });
+    expect(tab).toHaveAttribute('aria-selected', 'true');
+    expect(tab).toHaveAccessibleDescription('Mapa');
+    expect(tab.querySelector('svg.lucide-map')).not.toBeNull();
+    expect(documents.getState().activeByCampaign[VHARN.id]).toBe(key);
+    await userEvent.click(screen.getByRole('button', { name: 'Fechar mapa Mundo' }));
+    expect(screen.queryByRole('tab', { name: 'Mundo' })).not.toBeInTheDocument();
+  });
+
+  function stripOverMap(mapIsMain: boolean) {
+    const table = openVharnTabs(new TableSessionApiFake());
+    const mapsApi = new LibraryMapsApiFake();
+    mapsApi.maps.set(MUNDO_ID, libraryMapDetail({ isMain: mapIsMain }));
+    const documents = workspaceOfFakes(mapsApi);
+    documents.getState().openMap({ campaign: detailOf(VHARN), mapId: MUNDO_ID, mapName: 'Mundo' });
+    render(<SceneTabs tabs={table.tabs} documents={documents} campaignId={VHARN.id} />);
+    return { documents };
+  }
+
+  it('the main map has no tab, and no grid reads as the one on screen', async () => {
+    stripOverMap(true);
+    await act(() => Promise.resolve());
+    expect(screen.queryByRole('tab', { name: 'Mundo' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Cena 1/ })).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('with the main map on screen, the tab of a grid takes the room back', async () => {
+    const { documents } = stripOverMap(true);
+    await act(() => Promise.resolve());
+    await userEvent.click(screen.getByRole('tab', { name: /Cena 1/ }));
+    expect(documents.getState().activeByCampaign[VHARN.id] ?? null).toBeNull();
+    expect(screen.getByRole('tab', { name: /Cena 1/ })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
 describe('SceneTabs with documents', () => {
   it('lists documents after the group and grid tabs and switches back without closing its draft', async () => {
     const api = new TableSessionApiFake();
     const table = openVharnTabs(api);
     openTorreTab(api, table);
-    const documents = createDocumentWorkspaceStore({
-      api: new DocumentsApiFake(),
-      sheetsApi: new SheetsApiFake(),
-      sheetTemplatesApi: new SheetTemplatesApiFake(),
-      clock: new InteractionClockFake(),
-    });
+    const documents = workspaceOfFakes();
     const key = documents
       .getState()
       .open({ campaign: detailOf(VHARN), document: documentFixture() });

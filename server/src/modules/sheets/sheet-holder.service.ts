@@ -1,7 +1,7 @@
 import type { SheetHolderDto } from '@lorkarium/contracts';
 import { CharacterNotFoundError } from '../characters/characters.error';
 import { SheetItemBo } from './sheet-item.bo';
-import type { CharacterPlacePo, SheetHolderPlacePo, SheetsDao } from './sheets.dao';
+import type { CharacterPlacePo, SheetHolderPlacePo, SheetRow, SheetsDao } from './sheets.dao';
 import type { SheetPo } from './sheets.po';
 
 /** What resolving a holder reads, on the sheet's transaction (or snapshot). */
@@ -56,7 +56,7 @@ export class SheetHolderService {
     daos: SheetHolderDaos,
     campaignId: string,
     place: SheetHolderPlacePo,
-  ): Promise<SheetPo[]> {
+  ): Promise<SheetRow[]> {
     if ('character' in place)
       return daos.sheets.listOfCharacter(campaignId, place.character.characterId);
     return daos.sheets.listOfToken(campaignId, place.token.tokenId);

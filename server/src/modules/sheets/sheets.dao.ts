@@ -1,5 +1,6 @@
-import { and, asc, count, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
+import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import type { CampaignRole } from '../campaigns/campaign-access.bo';
 import { campaigns } from '../campaigns/campaigns.po';
@@ -15,12 +16,20 @@ import {
   type SheetValuesPo,
 } from './sheets.po';
 
+/** A sheet as its gates read it: the row and whether a private folder above it hides it. */
+export type SheetRow = SheetPo & Readonly<{ hiddenByFolder: boolean }>;
+const SHEET_WITH_FOLDER = {
+  ...getTableColumns(tokenSheets),
+  hiddenByFolder: hiddenByFolderSql('"token_sheets"."folder_id"'),
+};
+
 /** Where a token of the table stands, as the sheet's access reads it: the grid it is on, whether that is the group's grid, the character it is linked to and who controls it. */
 export type TokenPlacePo = Readonly<{
   tokenId: string;
   characterId: string | null;
   sceneId: string;
   visibility: ScenePo['visibility'];
+  hiddenByFolder: boolean;
   isActive: boolean;
   controllerIds: readonly string[];
 }>;
@@ -59,33 +68,32 @@ export class SheetsDao {
     this.characters = new CharactersDao(db);
   }
 
-  async find(campaignId: string, sheetId: string): Promise<SheetPo | undefined> {
-    const [row] = await this.db.select().from(tokenSheets).where(this.oneOf(campaignId, sheetId));
+  async find(campaignId: string, sheetId: string): Promise<SheetRow | undefined> {
+    const [row] = await this.db
+      .select(SHEET_WITH_FOLDER)
+      .from(tokenSheets)
+      .where(this.oneOf(campaignId, sheetId));
     return row;
   }
 
   /** The sheets a token holds, in creation order. */
-  async listOfToken(campaignId: string, tokenId: string): Promise<SheetPo[]> {
+  async listOfToken(campaignId: string, tokenId: string): Promise<SheetRow[]> {
     const where = and(eq(tokenSheets.campaignId, campaignId), eq(tokenSheets.tokenId, tokenId));
-    return this.db.select().from(tokenSheets).where(where).orderBy(asc(tokenSheets.createdAt));
+    return this.ordered(where);
   }
 
   /** The sheets a character holds, in creation order. */
-  async listOfCharacter(campaignId: string, characterId: string): Promise<SheetPo[]> {
+  async listOfCharacter(campaignId: string, characterId: string): Promise<SheetRow[]> {
     const where = and(
       eq(tokenSheets.campaignId, campaignId),
       eq(tokenSheets.characterId, characterId),
     );
-    return this.db.select().from(tokenSheets).where(where).orderBy(asc(tokenSheets.createdAt));
+    return this.ordered(where);
   }
 
   /** Every sheet of the table, in creation order (the library). */
-  async listOfCampaign(campaignId: string): Promise<SheetPo[]> {
-    return this.db
-      .select()
-      .from(tokenSheets)
-      .where(eq(tokenSheets.campaignId, campaignId))
-      .orderBy(asc(tokenSheets.createdAt));
+  async listOfCampaign(campaignId: string): Promise<SheetRow[]> {
+    return this.ordered(eq(tokenSheets.campaignId, campaignId));
   }
 
   /** Every sheet of the template, held or not. */
@@ -98,8 +106,8 @@ export class SheetsDao {
     return row?.total ?? 0;
   }
 
-  async insert(input: NewSheetPo): Promise<SheetPo> {
-    const [saved] = await this.db.insert(tokenSheets).values(input).returning();
+  async insert(input: NewSheetPo): Promise<SheetRow> {
+    const [saved] = await this.db.insert(tokenSheets).values(input).returning(SHEET_WITH_FOLDER);
     if (!saved) throw new Error(`Sheet ${input.name} of campaign ${input.campaignId} not inserted`);
     return saved;
   }
@@ -110,7 +118,7 @@ export class SheetsDao {
     campaignId: string,
     sheetId: string,
     change: Readonly<{ set: SheetValuesPo; removed: readonly string[]; updatedAt: Date }>,
-  ): Promise<SheetPo> {
+  ): Promise<SheetRow> {
     const removed = sql`ARRAY[${sql.join(
       change.removed.map((key) => sql`${key}`),
       sql`, `,
@@ -122,7 +130,7 @@ export class SheetsDao {
     });
   }
 
-  async update(campaignId: string, sheetId: string, changes: SheetChangesPo): Promise<SheetPo> {
+  async update(campaignId: string, sheetId: string, changes: SheetChangesPo): Promise<SheetRow> {
     return this.updateOne(campaignId, sheetId, changes);
   }
 
@@ -159,6 +167,7 @@ export class SheetsDao {
         characterId: tokens.characterId,
         sceneId: scenes.id,
         visibility: scenes.visibility,
+        hiddenByFolder: hiddenByFolderSql('"scenes"."folder_id"'),
         isActive: sql<boolean>`coalesce(${campaigns.activeSceneId} = ${scenes.id}, false)`,
       })
       .from(tokens)
@@ -242,14 +251,22 @@ export class SheetsDao {
     campaignId: string,
     sheetId: string,
     changes: PgUpdateSetSource<typeof tokenSheets>,
-  ): Promise<SheetPo> {
+  ): Promise<SheetRow> {
     const [saved] = await this.db
       .update(tokenSheets)
       .set(changes)
       .where(this.oneOf(campaignId, sheetId))
-      .returning();
+      .returning(SHEET_WITH_FOLDER);
     if (!saved) throw new Error(`Sheet ${sheetId} of campaign ${campaignId} was not updated`);
     return saved;
+  }
+
+  private ordered(where: SQL | undefined): Promise<SheetRow[]> {
+    return this.db
+      .select(SHEET_WITH_FOLDER)
+      .from(tokenSheets)
+      .where(where)
+      .orderBy(asc(tokenSheets.createdAt));
   }
 }
 

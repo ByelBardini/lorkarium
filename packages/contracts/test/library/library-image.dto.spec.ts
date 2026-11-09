@@ -34,11 +34,8 @@ describe('library images contracts', () => {
   it('keeps legacy scenes strict and separate from the aggregate', () => {
     const legacy = { activeSceneId: null, folders: [], scenes: [] };
     expect(libraryDto.parse(legacy)).toEqual(legacy);
-    expect(campaignLibraryDto.parse({ ...legacy, images: [], documents: [] })).toEqual({
-      ...legacy,
-      images: [],
-      documents: [],
-    });
+    const aggregate = { ...legacy, images: [], documents: [], maps: [], mainMapId: null };
+    expect(campaignLibraryDto.parse(aggregate)).toEqual(aggregate);
     expect(libraryDto.safeParse({ ...legacy, images: [] }).success).toBe(false);
   });
   it('keeps static library images at 4096 pixels', () =>

@@ -1,6 +1,8 @@
 import {
+  createLibrarySceneRequestDto,
   createSceneFolderRequestDto,
   updateLibraryImageRequestDto,
+  updateLibraryMapRequestDto,
   updateLibrarySceneRequestDto,
   updateSceneFolderRequestDto,
   createDocumentRequestDto,
@@ -29,7 +31,11 @@ export const libraryIntentDto = z.discriminatedUnion('intent', [
     documentId: id,
     changes: deleteDocumentRequestDto,
   }),
-  z.strictObject({ intent: z.literal('createScene'), folderId: id.nullable() }),
+  z.strictObject({
+    intent: z.literal('createScene'),
+    folderId: id.nullable(),
+    name: createLibrarySceneRequestDto.shape.name,
+  }),
   z.strictObject({
     intent: z.literal('updateScene'),
     sceneId: id,
@@ -43,6 +49,14 @@ export const libraryIntentDto = z.discriminatedUnion('intent', [
     changes: updateLibraryImageRequestDto,
   }),
   z.strictObject({ intent: z.literal('removeImage'), imageId: id }),
+  z.strictObject({
+    intent: z.literal('updateMap'),
+    mapId: id,
+    changes: updateLibraryMapRequestDto,
+  }),
+  z.strictObject({ intent: z.literal('removeMap'), mapId: id }),
+  z.strictObject({ intent: z.literal('setMainMap'), mapId: id }),
+  z.strictObject({ intent: z.literal('unsetMainMap'), mapId: id }),
   z.strictObject({ intent: z.literal('activateScene'), sceneId: id }),
   z.strictObject({ intent: z.literal('createFolder'), folder: createSceneFolderRequestDto }),
   z.strictObject({

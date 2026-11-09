@@ -11,6 +11,8 @@ import type { DocumentWorkspaceEntry } from '@/stores/document-workspace-store';
 import { Button } from '@/components/ui/button';
 import { WorkspaceSheet } from '@/features/sheets/workspace-sheet';
 import { WorkspaceSheetTemplate } from '@/features/sheets/workspace-sheet-template';
+import { WorkspaceMap } from '@/features/maps/workspace-map';
+import { DocumentMapAppearances } from './document-map-appearances';
 import { DocumentPanel } from './document-panel';
 import { WorkspaceItemSurface } from './workspace-item-surface';
 
@@ -24,6 +26,7 @@ export function DocumentWorkspaceHost({
   const entries = useStore(deps.documentWorkspace, (state) => state.entries);
   const sheets = useStore(deps.documentWorkspace, (state) => state.sheets);
   const templates = useStore(deps.documentWorkspace, (state) => state.templates);
+  const maps = useStore(deps.documentWorkspace, (state) => state.maps);
   useClearOnAccountChange(deps);
   useForgetClosedTables(deps);
   return (
@@ -36,6 +39,9 @@ export function DocumentWorkspaceHost({
       ))}
       {templates.map((entry) => (
         <WorkspaceSheetTemplate key={entry.key} deps={deps} entry={entry} />
+      ))}
+      {maps.map((entry) => (
+        <WorkspaceMap key={entry.key} deps={deps} entry={entry} />
       ))}
       <WorkspaceNoticeLine workspace={deps.documentWorkspace} />
     </>
@@ -91,6 +97,8 @@ const EMPTY_LIBRARY: CampaignLibraryDto = {
   scenes: [],
   images: [],
   documents: [],
+  maps: [],
+  mainMapId: null,
 };
 
 function WorkspaceDocument({
@@ -99,7 +107,7 @@ function WorkspaceDocument({
 }: Readonly<{ deps: AppDependencies; entry: DocumentWorkspaceEntry }>): React.JSX.Element {
   useOpenTable(entry.campaign, deps.openTables);
   const { table, live } = useLibraryTable(deps.openTables, entry.campaign.id);
-  const { revision, role } = useDocumentReader(deps, entry, table);
+  const { revision, mapRevision, role } = useDocumentReader(deps, entry, table);
   const fetcher = useFetcher<LibraryOutcome>({ key: `document-workspace-${entry.key}` });
   const [library, setLibrary] = useState(EMPTY_LIBRARY);
   const reloadLibrary = useCallback(() => {
@@ -165,6 +173,15 @@ function WorkspaceDocument({
           onClose={surface.close}
           onOpenWindow={surface.openWindow}
           compact={surface.detached}
+          mapAppearances={
+            <DocumentMapAppearances
+              campaign={entry.campaign}
+              documentId={entry.document.id}
+              reader={deps.libraryMapsApi}
+              workspace={deps.documentWorkspace}
+              readVersion={`${revision}:${mapRevision}:${role}`}
+            />
+          }
         />
       )}
     </WorkspaceItemSurface>
@@ -173,12 +190,16 @@ function WorkspaceDocument({
 
 type ReaderTable = ReturnType<typeof useLibraryTable>['table'];
 
-// The library revision and the reader's live role: the panel checks access again with them.
+// The revisions and the reader's live role: the panel checks access again with them.
 function useDocumentReader(
   deps: AppDependencies,
   entry: DocumentWorkspaceEntry,
   table: ReaderTable,
-): Readonly<{ revision: number; role: DocumentWorkspaceEntry['campaign']['myRole'] }> {
+): Readonly<{
+  revision: number;
+  mapRevision: number;
+  role: DocumentWorkspaceEntry['campaign']['myRole'];
+}> {
   const subscribe = useCallback(
     (changed: () => void) => {
       const unsubscribeTabs = table?.tabs.subscribe(changed);
@@ -196,11 +217,15 @@ function useDocumentReader(
     subscribe,
     () => table?.tabs.getState().libraryRevision ?? 0,
   );
+  const mapRevision = useSyncExternalStore(
+    subscribe,
+    () => table?.tabs.getState().mapRevision ?? 0,
+  );
   const role = useSyncExternalStore(
     subscribe,
     () =>
       table?.presence.getState().members.find((member) => member.userId === userId)?.role ??
       entry.campaign.myRole,
   );
-  return { revision, role };
+  return { revision, mapRevision, role };
 }

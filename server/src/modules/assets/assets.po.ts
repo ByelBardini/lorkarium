@@ -20,6 +20,7 @@ export const assetPurpose = pgEnum('asset_purpose', [
   'aura',
   'library_image',
   'document_image',
+  'library_map',
 ]);
 // GIF is kept only for an aura (the processor refuses it for any other purpose).
 export const assetMimeType = pgEnum('asset_mime_type', [

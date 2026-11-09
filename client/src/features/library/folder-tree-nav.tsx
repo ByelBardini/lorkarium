@@ -1,5 +1,5 @@
 import type { SceneFolderDto } from '@lorkarium/contracts';
-import { useEffect, useRef, useId, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { LibraryEntry } from '@/lib/library-entries';
 import type { FolderTree } from '@/lib/folder-tree';
 import { LibraryTreeMenu, type TreeMaster } from './library-tree-menu';
@@ -27,7 +27,6 @@ export type LibraryTree = FolderTree<SceneFolderDto, LibraryEntry>;
 export type FolderTreeNavProps = Readonly<{
   /** The tree as shown: already filtered while `filtering`. */
   tree: LibraryTree;
-  newFolderRequest?: number;
   /** A search or filter is on: every folder left in the tree opens. */
   filtering: boolean;
   pickedKey: string | null;
@@ -51,17 +50,6 @@ export type FolderTreeNavProps = Readonly<{
  *  Example: `<FolderTreeNav tree={tree} filtering={false} pickedKey={key} onPick={view.pick} … master={null} />` */
 export function FolderTreeNav(props: FolderTreeNavProps): React.JSX.Element {
   const state = useTreeState(props);
-  const handledRequest = useRef(0);
-  useEffect(() => {
-    if (
-      !props.master ||
-      !props.newFolderRequest ||
-      handledRequest.current === props.newFolderRequest
-    )
-      return;
-    handledRequest.current = props.newFolderRequest;
-    state.controls.startNewFolder(props.master.newParentId);
-  }, [props.master, props.newFolderRequest, state.controls]);
   return (
     <div className="flex min-h-0 flex-col bg-panel">
       <TreeHeader master={props.master} onNewFolder={state.controls.startNewFolder} />
@@ -202,7 +190,6 @@ function TreeArea({ master, controls, focusItem, children }: TreeAreaProps): Rea
       master={master}
       disabled={controls.active}
       startRename={controls.startRename}
-      startNewFolder={controls.startNewFolder}
       focusItem={focusItem}
     >
       {children}

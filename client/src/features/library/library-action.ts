@@ -7,6 +7,7 @@ import type { SceneActivationResult } from '@/services/scene-activation';
 import type { DocumentsResult } from '@/services/documents-api';
 import { libraryIntentDto, type LibraryIntent, type LibraryOutcome } from './library-intents';
 import { libraryFailureMessage } from './library-messages';
+import { isMapIntent, runMapIntent } from './map-intent';
 import { isSheetIntent, runSheetIntent } from './sheet-intent';
 import { isSheetTemplateIntent, runSheetTemplateIntent } from './sheet-template-intent';
 
@@ -43,6 +44,7 @@ async function runIntent(
   if (isSheetTemplateIntent(intent))
     return runSheetTemplateIntent(deps.sheetTemplatesApi, campaignId, intent);
   if (isSheetIntent(intent)) return runSheetIntent(deps.sheetsApi, campaignId, intent);
+  if (isMapIntent(intent)) return runMapIntent(deps.libraryMapsApi, campaignId, intent);
   if (intent.intent === 'createDocument') {
     const result = await deps.documentsApi.create(campaignId, intent.changes);
     return result.ok
@@ -100,7 +102,7 @@ async function runSceneIntent(
   intent: Intent<'createScene' | 'updateScene' | 'duplicateScene' | 'removeScene'>,
 ): Promise<IntentAnswer> {
   if (intent.intent === 'createScene') {
-    const input = { folderId: intent.folderId };
+    const input = { folderId: intent.folderId, ...(intent.name ? { name: intent.name } : {}) };
     return fromLibrary(await libraryApi.createScene(campaignId, input), true);
   }
   if (intent.intent === 'updateScene') {

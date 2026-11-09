@@ -1,4 +1,5 @@
 import { ImagePresentationApiFake } from './image-presentation-api-fake';
+import { LibraryMapsApiFake } from './library-maps-api-fake';
 import { DocumentsApiFake } from './documents-api-fake';
 import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
 import type { AppDependencies } from '@/app/router';
@@ -57,6 +58,7 @@ export type TestDependencies = AppDependencies & {
   userAdminApi: UserAdminApiFake;
   accountLinksApi: AccountLinksApiFake;
   libraryApi: LibraryApiFake;
+  libraryMapsApi: LibraryMapsApiFake;
   documentsApi: DocumentsApiFake;
   sheetsApi: SheetsApiFake;
   sheetTemplatesApi: SheetTemplatesApiFake;
@@ -142,6 +144,7 @@ export function testDependencies(): TestDependencies {
   const documentsApi = new DocumentsApiFake();
   const sheetsApi = new SheetsApiFake();
   const sheetTemplatesApi = new SheetTemplatesApiFake();
+  const libraryMapsApi = new LibraryMapsApiFake();
   const sheetEditorLayoutStorage = new StorageFake();
   const boardRenderers = new BoardRenderersFake();
   const diceRenderers = new DiceRenderersFake();
@@ -162,11 +165,13 @@ export function testDependencies(): TestDependencies {
     userAdminApi: new UserAdminApiFake(TEST_NOW),
     accountLinksApi: new AccountLinksApiFake(),
     libraryApi: new LibraryApiFake(),
+    libraryMapsApi,
     documentsApi,
     documentWorkspace: createDocumentWorkspaceStore({
       api: documentsApi,
       sheetsApi,
       sheetTemplatesApi,
+      mapsApi: libraryMapsApi,
       clock: interactionClock,
     }),
     sheetsApi,

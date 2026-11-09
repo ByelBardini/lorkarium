@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ChatWindowPortal } from '@/features/chat/chat-window-portal';
 import { DetachedWindowFrame } from '@/features/chat/detached-window-frame';
 import { useChatWindow } from '@/features/chat/use-chat-window';
-import { workspaceItemTitle, type WorkspaceItem } from '@/stores/document-workspace-store';
+import { workspaceItemTitle, type WindowedWorkspaceItem } from '@/stores/document-workspace-store';
 
 /** Where the item's panel is drawn right now, and the two moves its header offers. */
 export type WorkspaceSurface = Readonly<{
@@ -23,7 +23,7 @@ export type WorkspaceSurface = Readonly<{
 
 export type WorkspaceItemSurfaceProps = Readonly<{
   deps: AppDependencies;
-  item: WorkspaceItem;
+  item: WindowedWorkspaceItem;
   /** "Documento aberto em outra janela." on the tab while the window has the item. */
   detachedLabel: string;
   /** Said above the panel in the room tab only (a refused library action). */

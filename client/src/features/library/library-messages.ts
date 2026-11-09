@@ -1,6 +1,7 @@
 import type { LibrarySceneDto } from '@lorkarium/contracts';
 import { editedLabel } from '@/lib/edited-label';
 import type { LibraryFailureKind } from '@/services/library-api';
+import type { LibraryMapsFailureKind } from '@/services/library-maps-api';
 
 const FAILURE_MESSAGES: Readonly<Record<LibraryFailureKind, string>> = {
   scene_is_active: 'O grupo está nesse grid. Leva o grupo pra outro antes.',
@@ -20,6 +21,27 @@ const FAILURE_MESSAGES: Readonly<Record<LibraryFailureKind, string>> = {
  *  Example: `libraryFailureMessage('folder_cycle')` */
 export function libraryFailureMessage(kind: LibraryFailureKind): string {
   return FAILURE_MESSAGES[kind];
+}
+
+const MAP_FAILURE_MESSAGES: Readonly<Record<LibraryMapsFailureKind, string>> = {
+  map_is_main: 'Escolha outro mapa principal antes de excluir este.',
+  regions_full: 'Esse mapa já tem o máximo de lugares.',
+  link_self: 'Um lugar não pode levar ao próprio mapa.',
+  link_target_not_found: 'Esse item não existe mais.',
+  region_not_showable: 'Há jogadores que não podem ver esse lugar.',
+  not_found: 'Esse mapa não existe mais.',
+  forbidden: FAILURE_MESSAGES.forbidden,
+  invalid: FAILURE_MESSAGES.invalid,
+  unauthenticated: FAILURE_MESSAGES.unauthenticated,
+  offline: FAILURE_MESSAGES.offline,
+  unexpected: FAILURE_MESSAGES.unexpected,
+};
+
+/** What the status line says for a refusal about a map.
+ *
+ *  Example: `libraryMapFailureMessage('map_is_main')` */
+export function libraryMapFailureMessage(kind: LibraryMapsFailureKind): string {
+  return MAP_FAILURE_MESSAGES[kind];
 }
 
 /** "1 grid", "3 grids".

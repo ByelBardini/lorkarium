@@ -1,0 +1,1 @@
+ALTER TABLE "scene_folders" ADD COLUMN "visibility" "scene_visibility" DEFAULT 'public' NOT NULL;

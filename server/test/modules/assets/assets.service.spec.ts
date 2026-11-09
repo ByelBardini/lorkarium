@@ -121,6 +121,59 @@ describe('AssetsService', () => {
     expect(assets.rows[0]?.purpose).toBe('library_image');
   });
 
+  it('a master uploads a map image with a proportional 8192 px static budget', async () => {
+    await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_map' });
+    expect(processor.resizes).toEqual([{ maxSide: 8192, square: false }]);
+    expect(assets.rows[0]).toMatchObject({ purpose: 'library_map', ownerId: ANA_ID });
+    expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it('a master imports a map image with the same 8192 px budget', async () => {
+    await service.importLink(ANA_ID, VHARN_ID, {
+      url: 'https://example.com/world.webp',
+      purpose: 'library_map',
+    });
+    expect(processor.resizes).toEqual([{ maxSide: 8192, square: false }]);
+    expect(assets.rows[0]?.purpose).toBe('library_map');
+  });
+
+  it('a player cannot upload a map image and processing never starts', async () => {
+    await expect(
+      service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_map' }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(journal).toEqual([]);
+  });
+
+  it('a player cannot import a map image and the remote link is never fetched', async () => {
+    await expect(
+      service.importLink(BIA_ID, VHARN_ID, {
+        url: 'https://example.com/world.webp',
+        purpose: 'library_map',
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(fetcher.fetched).toEqual([]);
+  });
+
+  it('a map image the policy refuses is ASSET_NOT_FOUND and its object is not opened', async () => {
+    assets.rows.push(lyraPortraitPo({ purpose: 'library_map' }));
+    storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
+    await expect(service.open(BIA_ID, lyraPortraitPo().id)).rejects.toMatchObject({
+      code: 'ASSET_NOT_FOUND',
+    });
+    expect(policy.checks).toEqual([
+      { userId: BIA_ID, campaignId: VHARN_ID, assetId: lyraPortraitPo().id },
+    ]);
+  });
+
+  it('a map image the policy allows returns its bytes with private no-store caching', async () => {
+    policy.allowed = true;
+    assets.rows.push(lyraPortraitPo({ purpose: 'library_map' }));
+    storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
+    const opened = await service.open(BIA_ID, lyraPortraitPo().id);
+    expect(opened.cacheControl).toBe('private, no-store');
+    expect(await bytesOf(opened.body)).toEqual([...PNG]);
+  });
+
   it('a policy refusal hides the dedicated asset even from a campaign member', async () => {
     assets.rows.push(lyraPortraitPo({ purpose: 'library_image' }));
     storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
@@ -423,7 +476,7 @@ describe('AssetsService', () => {
       });
     });
 
-    it.each(['library_image', 'document_image'] as const)(
+    it.each(['library_image', 'document_image', 'library_map'] as const)(
       'a %s the read policy refuses gets ASSET_NOT_FOUND, like its bytes',
       async (purpose) => {
         assets.rows.push(lyraPortraitPo({ purpose }));

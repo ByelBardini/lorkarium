@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createDocumentWorkspaceStore,
   documentWorkspaceKey,
+  mapWorkspaceKey,
   sheetTemplateWorkspaceKey,
   sheetWorkspaceKey,
   workspaceItemTitle,
@@ -21,17 +22,27 @@ import {
 } from '../support/sheet-fixtures';
 import { SheetTemplatesApiFake } from '../support/sheet-templates-api-fake';
 import { createSheetTemplateDraftStore } from '@/stores/sheet-template-draft-store';
+import { LibraryMapsApiFake } from '../support/library-maps-api-fake';
+import { MUNDO_ID, REINO_ID, libraryMapDetail } from '../support/library-map-fixtures';
 
 function setup() {
   const api = new DocumentsApiFake();
   const sheetsApi = new SheetsApiFake();
   const sheetTemplatesApi = new SheetTemplatesApiFake();
+  const mapsApi = new LibraryMapsApiFake();
   const clock = new InteractionClockFake();
-  const workspace = createDocumentWorkspaceStore({ api, sheetsApi, sheetTemplatesApi, clock });
+  const workspace = createDocumentWorkspaceStore({
+    api,
+    sheetsApi,
+    sheetTemplatesApi,
+    mapsApi,
+    clock,
+  });
   return {
     api,
     sheetsApi,
     sheetTemplatesApi,
+    mapsApi,
     clock,
     workspace,
     campaign: detailOf(VHARN),
@@ -265,6 +276,145 @@ describe('document workspace with sheets', () => {
     expect(workspace.getState().sheets.map((sheet) => sheet.campaign.id)).toEqual([QUELM.id]);
     workspace.getState().clear();
     expect(workspace.getState().sheets).toEqual([]);
+  });
+});
+
+const MUNDO = { mapId: MUNDO_ID, mapName: 'Mundo' } as const;
+const REINO = { mapId: REINO_ID, mapName: 'Reino' } as const;
+
+function setupWithMaps() {
+  const context = setup();
+  context.mapsApi.maps.set(MUNDO_ID, libraryMapDetail());
+  context.mapsApi.maps.set(REINO_ID, libraryMapDetail({ id: REINO_ID, name: 'Reino' }));
+  return context;
+}
+
+describe('document workspace with the map tab', () => {
+  it('opens a map as a tab named after it, and reads it', async () => {
+    const { workspace, campaign } = setupWithMaps();
+    const key = workspace.getState().openMap({ campaign, ...MUNDO });
+    expect(key).toBe(mapWorkspaceKey(campaign.id));
+    expect(workspace.getState().activeByCampaign[campaign.id]).toBe(key);
+    const [map] = workspace.getState().maps;
+    expect(map && workspaceItemTitle(map)).toBe('Mundo');
+    await vi.waitFor(() => expect(map?.view.getState().status).toBe('ready'));
+    workspace.getState().clear();
+  });
+  it('a second map reuses the tab of the table, the same view, with the new name', async () => {
+    const { workspace, campaign } = setupWithMaps();
+    const key = workspace.getState().openMap({ campaign, ...MUNDO });
+    const view = workspace.getState().maps[0]!.view;
+    await vi.waitFor(() => expect(view.getState().status).toBe('ready'));
+    workspace.getState().activate(campaign.id, null);
+    expect(workspace.getState().openMap({ campaign, ...REINO })).toBe(key);
+    expect(workspace.getState().maps).toHaveLength(1);
+    expect(workspace.getState().maps[0]?.view).toBe(view);
+    expect(workspace.getState().maps[0]?.mapName).toBe('Reino');
+    expect(workspace.getState().activeByCampaign[campaign.id]).toBe(key);
+    await vi.waitFor(() => expect(view.getState().map?.name).toBe('Reino'));
+    workspace.getState().clear();
+  });
+  describe('whether the tab shows the main map', () => {
+    it('whoever knows says so, and it holds from the first moment', () => {
+      const { workspace, campaign } = setupWithMaps();
+      workspace.getState().openMap({ campaign, ...MUNDO, showsMainMap: false });
+      expect(workspace.getState().maps[0]?.showsMainMap).toBe(false);
+      workspace.getState().clear();
+    });
+
+    it('not known yet counts as the main map, so no tab blinks before the read', () => {
+      const { workspace, campaign } = setupWithMaps();
+      workspace.getState().openMap({ campaign, ...MUNDO });
+      expect(workspace.getState().maps[0]?.showsMainMap).toBe(true);
+      workspace.getState().clear();
+    });
+
+    it('the read has the last word', async () => {
+      const { workspace, campaign } = setupWithMaps();
+      workspace.getState().openMap({ campaign, ...MUNDO, showsMainMap: true });
+      await vi.waitFor(() => expect(workspace.getState().maps[0]?.showsMainMap).toBe(false));
+      workspace.getState().clear();
+    });
+
+    it('following to the main map says so when it arrives', async () => {
+      const { workspace, campaign, mapsApi } = setupWithMaps();
+      mapsApi.maps.set(REINO_ID, libraryMapDetail({ id: REINO_ID, name: 'Reino', isMain: true }));
+      workspace.getState().openMap({ campaign, ...MUNDO, showsMainMap: false });
+      const view = workspace.getState().maps[0]!.view;
+      await vi.waitFor(() => expect(view.getState().status).toBe('ready'));
+      await view.getState().enter(REINO_ID);
+      expect(workspace.getState().maps[0]?.showsMainMap).toBe(true);
+      workspace.getState().clear();
+    });
+
+    it('asked again for the map on screen, keeps what the read already said', async () => {
+      const { workspace, campaign } = setupWithMaps();
+      workspace.getState().openMap({ campaign, ...MUNDO, showsMainMap: false });
+      const view = workspace.getState().maps[0]!.view;
+      await vi.waitFor(() => expect(view.getState().status).toBe('ready'));
+      workspace.getState().openMap({ campaign, mapId: MUNDO_ID, mapName: 'Mapa' });
+      expect(workspace.getState().maps[0]).toMatchObject({
+        mapName: 'Mundo',
+        showsMainMap: false,
+      });
+      workspace.getState().clear();
+    });
+  });
+
+  it('each table has its own map tab', () => {
+    const { workspace, campaign } = setupWithMaps();
+    workspace.getState().openMap({ campaign, ...MUNDO });
+    workspace.getState().openMap({ campaign: detailOf(QUELM), ...MUNDO });
+    expect(workspace.getState().maps).toHaveLength(2);
+    workspace.getState().removeCampaign(campaign.id);
+    expect(workspace.getState().maps.map((map) => map.campaign.id)).toEqual([QUELM.id]);
+    workspace.getState().clear();
+  });
+  it('a map has no window of its own', () => {
+    const { workspace, campaign } = setupWithMaps();
+    const key = workspace.getState().openMap({ campaign, ...MUNDO });
+    const host = new ChatWindowHostFake();
+    workspace.getState().openWindow(key, host);
+    expect(host.calls).toEqual([]);
+    expect(workspace.getState().maps[0]?.windowHandle).toBeNull();
+    workspace.getState().clear();
+  });
+  it('closing asks nothing, ends the view and returns the room to the grids', async () => {
+    const { workspace, campaign, mapsApi } = setupWithMaps();
+    const key = workspace.getState().openMap({ campaign, ...MUNDO });
+    const view = workspace.getState().maps[0]!.view;
+    await vi.waitFor(() => expect(view.getState().status).toBe('ready'));
+    expect(await workspace.getState().close(key)).toBe(true);
+    expect(workspace.getState().maps).toEqual([]);
+    expect(workspace.getState().activeByCampaign[campaign.id]).toBeNull();
+    mapsApi.maps.set(MUNDO_ID, libraryMapDetail({ version: 9, name: 'Depois' }));
+    await view.getState().load();
+    expect(view.getState().map?.name).toBe('Mundo');
+  });
+  it('a map the reader may no longer see closes and says why, by its latest name', async () => {
+    const { workspace, campaign, mapsApi } = setupWithMaps();
+    workspace.getState().openMap({ campaign, ...MUNDO });
+    const view = workspace.getState().maps[0]!.view;
+    await vi.waitFor(() => expect(view.getState().status).toBe('ready'));
+    mapsApi.maps.set(MUNDO_ID, libraryMapDetail({ version: 4, name: 'Novo Mundo' }));
+    await view.getState().load();
+    expect(workspace.getState().maps[0]?.mapName).toBe('Novo Mundo');
+    mapsApi.maps.delete(MUNDO_ID);
+    await view.getState().load();
+    expect(workspace.getState().maps).toEqual([]);
+    expect(workspace.getState().activeByCampaign[campaign.id]).toBeNull();
+    expect(workspace.getState().notice).toEqual({
+      campaignId: campaign.id,
+      message: 'O mapa Novo Mundo foi fechado: ele foi excluído ou você não pode mais vê-lo.',
+    });
+  });
+  it('setTarget reaches the map entry', () => {
+    const { workspace, campaign } = setupWithMaps();
+    const key = workspace.getState().openMap({ campaign, ...MUNDO });
+    const target = document.createElement('div');
+    workspace.getState().setTarget(key, target);
+    expect(workspace.getState().maps[0]?.target).toBe(target);
+    workspace.getState().clear();
   });
 });
 

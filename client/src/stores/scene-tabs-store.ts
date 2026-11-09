@@ -1,4 +1,9 @@
-import type { SceneActivatedDto, SceneClosedDto, SheetChangedEventDto } from '@lorkarium/contracts';
+import type {
+  LibraryMapRegionShownDto,
+  SceneActivatedDto,
+  SceneClosedDto,
+  SheetChangedEventDto,
+} from '@lorkarium/contracts';
 import type { Cell } from '@lorkarium/game-core';
 import { useCallback, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
@@ -52,9 +57,20 @@ export type SceneTabsState = Readonly<{
   notice: string | null;
   /** Grows at each `library:changed`: the library reads itself again when it changes. */
   libraryRevision: number;
+  /** Grows at each `library:mapChanged`: an open map reads itself again by its route. */
+  mapRevision: number;
+  /** Grows at each `scene:activated`: the room leaves the map tab for the group grid. */
+  sceneActivations: number;
+  /** The room already arrived at the main map. Not stored anywhere on purpose: it lives and dies
+   *  with the open table, so opening the table or reloading the page starts at the main map, and
+   *  coming back from another open table does not. */
+  arrivedAtHome: boolean;
   /** The last `sheet:changed` of the table: each one is a new object, so a subscriber sees them
    *  all, one by one. */
   sheetChange: SheetChangedEventDto | null;
+  /** The last `library:mapRegionShown` of the table: each one is a new object. Only a subscriber
+   *  reads it, at the moment it lands: shown to whoever was in the room then, and no one later. */
+  regionShown: LibraryMapRegionShownDto | null;
 }>;
 
 export type SceneTabsStore = SceneTabsState &
@@ -114,7 +130,11 @@ export function createSceneTabsStore(deps: SceneTabsDeps): StoreApi<SceneTabsSto
       visibleKey: GROUP_TAB,
       notice: null,
       libraryRevision: 0,
+      mapRevision: 0,
+      sceneActivations: 0,
+      arrivedAtHome: false,
       sheetChange: null,
+      regionShown: null,
       open: (sceneId) => actions.open(sceneId),
       show: (key) => actions.show(key),
       close: (sceneId) => actions.close(sceneId),
@@ -212,6 +232,8 @@ class SceneTabsActions {
     if (update.kind === 'sceneClosed') return this.onClosed(update.event);
     if (update.kind === 'pinged') return groupTabOf(this.get()).pings.push(update.event);
     if (update.kind === 'sheetChanged') return this.set({ sheetChange: update.event });
+    if (update.kind === 'mapChanged') return this.set({ mapRevision: this.get().mapRevision + 1 });
+    if (update.kind === 'mapRegionShown') return this.set({ regionShown: update.event });
     if (update.kind === 'libraryChanged') {
       this.set({ libraryRevision: this.get().libraryRevision + 1 });
     }
@@ -227,7 +249,8 @@ class SceneTabsActions {
   dispose(forget: boolean): void {
     for (const handle of this.watches.values()) handle.close();
     this.watches.clear();
-    if (forget) forgetSceneTabs(this.deps.storage, this.deps.campaignId);
+    if (!forget) return;
+    forgetSceneTabs(this.deps.storage, this.deps.campaignId);
   }
 
   private watchedTab(sceneId: string): SceneTab {
@@ -272,7 +295,7 @@ class SceneTabsActions {
     // That grid is the group's now: its extra tab would show the same board twice.
     if (this.has(event.sceneId)) this.drop(event.sceneId);
     this.arriving = event.sceneId;
-    this.set({ visibleKey: GROUP_TAB });
+    this.set({ visibleKey: GROUP_TAB, sceneActivations: this.get().sceneActivations + 1 });
     this.remember();
     this.followGroupGrid();
   }

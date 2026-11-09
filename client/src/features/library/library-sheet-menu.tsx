@@ -124,22 +124,6 @@ function VisibilityItems({ master, sheet, change }: ChangeProps): React.JSX.Elem
   );
 }
 
-/** "Nova ficha" (or "… aqui") of a folder or the root, when the library can make sheets.
- *
- *  Example: `<NewSheetItem master={master} folderId={ato1.id} label="Nova ficha aqui" />` */
-export function NewSheetItem({
-  master,
-  folderId,
-  label,
-}: Readonly<{ master: TreeMaster; folderId: string | null; label: string }>) {
-  if (!master.createSheet) return null;
-  return (
-    <ContextMenuItem disabled={!master.live} onSelect={() => master.createSheet?.(folderId)}>
-      {label}
-    </ContextMenuItem>
-  );
-}
-
 /** "Excluir Lyra de Vharn?": the sheet and its values go for everyone; its template stays.
  *
  *  Example: `<DeleteSheetTask master={master} sheet={sheet} onClose={close} />` */

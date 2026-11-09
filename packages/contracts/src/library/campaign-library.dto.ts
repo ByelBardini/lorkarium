@@ -1,11 +1,14 @@
 import { z } from 'zod';
 import { libraryDto } from './library.dto';
 import { libraryImageDto } from './library-image.dto';
+import { libraryMapSummaryDto } from './library-map.dto';
 import { documentSummaryDto } from '../documents/document.dto';
 import { sheetTemplateSummaryDto } from '../sheets/sheet-template.dto';
 import { sheetSummaryDto } from '../sheets/sheet.dto';
 export const campaignLibraryDto = libraryDto.extend({
   images: z.array(libraryImageDto),
+  maps: z.array(libraryMapSummaryDto),
+  mainMapId: z.uuid().nullable(),
   documents: z.array(documentSummaryDto),
   // Only masters receive it: the template code runs on every screen, so players never browse it.
   sheetTemplates: z.array(sheetTemplateSummaryDto).optional(),

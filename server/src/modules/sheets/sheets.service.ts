@@ -35,7 +35,7 @@ import type { SheetPublisherPort } from './sheet-publisher.port';
 import type { SheetTemplatesDao } from './sheet-templates.dao';
 import { toSheetTemplateCodeDto } from './sheet-templates.mapper';
 import type { SheetTemplatePo } from './sheet-templates.po';
-import type { SheetHolderPlacePo, SheetsDao } from './sheets.dao';
+import type { SheetHolderPlacePo, SheetRow, SheetsDao } from './sheets.dao';
 import {
   SheetActionReusedError,
   SheetNotFoundError,
@@ -50,7 +50,6 @@ import {
   toSheetReceiptDto,
   toValuesChange,
 } from './sheets.mapper';
-import type { SheetPo } from './sheets.po';
 
 export type SheetDaos = SheetHolderDaos &
   MainSheetDaos &
@@ -92,7 +91,7 @@ export type SheetsServiceDeps = Readonly<{
 /** One sheet loaded for a command: the row, its holder's place and what the requester may do. */
 type SheetScope = Readonly<{
   daos: SheetDaos;
-  sheet: SheetPo;
+  sheet: SheetRow;
   place: SheetHolderPlacePo | null;
   rules: SheetAccessBo;
 }>;
@@ -110,7 +109,7 @@ type ReceiptCommand = Readonly<{
   fingerprint: string;
   operation: SheetReceiptDto['operation'];
 }>;
-type Saved = Readonly<{ sheet: SheetPo; characters: SavedMainSheets | null }>;
+type Saved = Readonly<{ sheet: SheetRow; characters: SavedMainSheets | null }>;
 type WriteInput = UpdateSheetValuesRequestDto | UpdateSheetRequestDto;
 /** What a write is, for the receipt, what it takes of the requester (checked on a replay too)
  *  and whether the library shows what it changes. */

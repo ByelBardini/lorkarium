@@ -8,7 +8,8 @@ import {
   visibleTreeItems,
 } from '@/features/library/tree-navigation';
 import { folderTreeOf } from '@/lib/folder-tree';
-import { documentKey, libraryEntries, sheetKey } from '@/lib/library-entries';
+import { documentKey, libraryEntries, mapKey, sheetKey } from '@/lib/library-entries';
+import { libraryMapSummary } from '../../support/library-map-fixtures';
 import { lyraSummary } from '../../support/sheet-fixtures';
 import { documentFixture } from '../../support/documents-fixtures';
 import {
@@ -25,7 +26,8 @@ const OSSOS = {
   id: '0a0a0a0a-1b1b-4c2c-8d3d-4e4e4e4e4e4e',
   name: 'Ossos',
   parentId: CATACUMBAS.id,
-};
+  visibility: 'public',
+} as const;
 
 // Ato 1 (Estrada) › Catacumbas (Torre, Ossuário) › Ossos (empty); Lugares fixos; Cena 1 loose.
 function vharnTree(): LibraryTree {
@@ -128,6 +130,13 @@ describe('ancestorKeysOf', () => {
     const tree = folderTreeOf({ ...library, scenes: libraryEntries(library) }, null);
     expect(ancestorKeysOf(tree, sheetKey(lyraSummary().id))).toEqual([ATO_1.id, CATACUMBAS.id]);
     expect(ancestorKeysOf(tree, documentKey(documentFixture().id))).toEqual([ATO_1.id]);
+  });
+
+  it('lists the folders above a map, whose key is its tree id', () => {
+    const map = libraryMapSummary({ folderId: CATACUMBAS.id });
+    const library = masterLibrary({ maps: [map] });
+    const tree = folderTreeOf({ ...library, scenes: libraryEntries(library) }, null);
+    expect(ancestorKeysOf(tree, mapKey(map.id))).toEqual([ATO_1.id, CATACUMBAS.id]);
   });
 
   it('is empty for a root folder, "Sem pasta" and a key the tree lacks', () => {

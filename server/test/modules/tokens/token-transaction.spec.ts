@@ -19,6 +19,12 @@ describe('board asset references', () => {
       code: 'ASSET_NOT_FOUND',
     });
   });
+  it('refuses the image of a library map even when it belongs to the campaign', async () => {
+    const assets = new AssetsDaoFake([], [lyraPortraitPo({ purpose: 'library_map' })]);
+    await expect(requireAssetsOf({ assets }, VHARN_ID, [LYRA_PORTRAIT_ID])).rejects.toMatchObject({
+      code: 'ASSET_NOT_FOUND',
+    });
+  });
   it('keeps ordinary purposes reusable and ignores absent references', async () => {
     const assets = new AssetsDaoFake([], [lyraPortraitPo()]);
     await requireAssetsOf({ assets }, VHARN_ID, [

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { NO_FOLDER, folderForNew, sceneIdOf, sceneKey } from '@/features/library/library-view';
+import { mapKey } from '@/lib/library-entries';
 import { ATO_1, CATACUMBAS, OSSUARIO, masterLibrary } from '../../support/library-fixtures';
+import { libraryMapSummary } from '../../support/library-map-fixtures';
 import { VHARN_SCENE } from '../../support/table-session-fixtures';
 
 describe('sceneKey and sceneIdOf', () => {
@@ -23,6 +25,11 @@ describe('folderForNew', () => {
   it('creates in the folder of the grid picked', () => {
     expect(folderForNew(masterLibrary(), sceneKey(OSSUARIO.id))).toBe(CATACUMBAS.id);
     expect(folderForNew(masterLibrary(), sceneKey(VHARN_SCENE.id))).toBeNull();
+  });
+
+  it('creates in the folder of the map picked', () => {
+    const library = masterLibrary({ maps: [libraryMapSummary({ folderId: CATACUMBAS.id })] });
+    expect(folderForNew(library, mapKey(libraryMapSummary().id))).toBe(CATACUMBAS.id);
   });
 
   it('creates at the root with nothing, "Sem pasta" or a folder that is gone picked', () => {

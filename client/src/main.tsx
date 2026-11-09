@@ -1,4 +1,5 @@
 import { HttpImagePresentationApi } from '@/services/image-presentation-api';
+import { HttpLibraryMapsApi } from '@/services/library-maps-api';
 import { HttpDocumentsApi } from '@/services/documents-api';
 import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
 import { StrictMode } from 'react';
@@ -82,10 +83,12 @@ const imagePresentationApi = new HttpImagePresentationApi(transport);
 const documentsApi = new HttpDocumentsApi(transport);
 const sheetsApi = new HttpSheetsApi(transport, fetchAssetBytes());
 const sheetTemplatesApi = new HttpSheetTemplatesApi(transport);
+const libraryMapsApi = new HttpLibraryMapsApi(transport);
 const documentWorkspace = createDocumentWorkspaceStore({
   api: documentsApi,
   sheetsApi,
   sheetTemplatesApi,
+  mapsApi: libraryMapsApi,
   clock: browserClock,
 });
 const newActionId = (): string => crypto.randomUUID();
@@ -116,6 +119,7 @@ const router = createBrowserRouter(
     userAdminApi: new HttpUserAdminApi(transport),
     accountLinksApi: new HttpAccountLinksApi(transport),
     libraryApi: new HttpLibraryApi(transport),
+    libraryMapsApi,
     documentsApi,
     documentWorkspace,
     sheetsApi,

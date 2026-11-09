@@ -2,6 +2,7 @@ import {
   BOARD_EVENTS,
   CHAT_EVENTS,
   DICE_EVENTS,
+  LIBRARY_MAP_EVENTS,
   SESSION_EVENTS,
   SHEET_EVENTS,
   boardPingedDto,
@@ -10,6 +11,8 @@ import {
   diceRolledDto,
   diceRolledSecretlyDto,
   libraryChangedDto,
+  libraryMapChangedDto,
+  libraryMapRegionShownDto,
   imagePresentationChangedDto,
   sceneActivatedDto,
   sceneClosedDto,
@@ -229,6 +232,12 @@ export class TableVisit {
       ),
       this.onTableEvent(LIBRARY_CHANGED, libraryChangedDto, (event) =>
         this.notify({ kind: 'libraryChanged', event }),
+      ),
+      this.onTableEvent(LIBRARY_MAP_EVENTS.changed, libraryMapChangedDto, (event) =>
+        this.notify({ kind: 'mapChanged', event }),
+      ),
+      this.onTableEvent(LIBRARY_MAP_EVENTS.regionShown, libraryMapRegionShownDto, (event) =>
+        this.notify({ kind: 'mapRegionShown', event }),
       ),
       this.onTableEvent(SHEET_EVENTS.changed, sheetChangedEventDto, (event) =>
         this.notify({ kind: 'sheetChanged', event }),

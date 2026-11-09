@@ -42,6 +42,7 @@ export const NEW_FOLDER: SceneFolderDto = {
   id: '6e5d4c3b-2a1f-4e0d-9c8b-7a6f5e4d3c2b',
   name: 'Masmorra',
   parentId: null,
+  visibility: 'public',
 };
 
 /** Scripted `LibraryApi`: each method answers what the test set (or waits until released) and

@@ -6,7 +6,11 @@ import type {
   UpdateLibraryImageRequestDto,
   LibraryImageDto,
   ImagePresentationStateDto,
+  LibraryMapSummaryDto,
 } from '@lorkarium/contracts';
+import { LibraryMapAccessBo } from '../library-maps/library-map-access.bo';
+import type { LibraryMapsDao } from '../library-maps/library-maps.dao';
+import { toLibraryMapSummaryDto } from '../library-maps/library-maps.mapper';
 import type { ClockPort } from '../auth/clock.port';
 import type { AssetsDao } from '../assets/assets.dao';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -35,6 +39,7 @@ import type { SheetsDao } from '../sheets/sheets.dao';
 import { readableSheetSummaries } from '../sheets/sheets.mapper';
 import { toSheetTemplateSummaryDto } from '../sheets/sheet-templates.mapper';
 export type LibraryImageDaos = Readonly<{
+  maps?: Pick<LibraryMapsDao, 'listOfCampaign'>;
   sheetTemplates?: Pick<SheetTemplatesDao, 'listOfCampaign'>;
   sheets?: Pick<SheetsDao, 'listOfCampaign' | 'holdersOf'>;
   documents?: Pick<DocumentsDao, 'listOfCampaign' | 'ownersOfCampaign'>;
@@ -71,7 +76,7 @@ export class LibraryImageService {
       const folders = await daos.folders.listOfCampaign(requester.campaignId);
       const scenes = await daos.scenes.listOfCampaign(requester.campaignId);
       const images = (await daos.images.listOfCampaign(requester.campaignId)).filter(
-        (row) => access.isMaster() || row.image.visibility === 'public',
+        (row) => access.isMaster() || (row.image.visibility === 'public' && !row.hiddenByFolder),
       );
       const tree = new SceneLibraryBo({
         campaignId: requester.campaignId,
@@ -90,10 +95,12 @@ export class LibraryImageService {
         return [toDocumentSummary(row, owners, access)];
       });
       const sheets = await sheetsFor(daos, access);
+      const maps = await visibleMapsOf(daos, access);
       const visible = tree.visibleTo(new SceneAccessBo(access, campaign.activeSceneId), [
         ...images.map((row) => row.image.folderId),
         ...documents.map((document) => document.folderId),
         ...sheets.map((sheet) => sheet.folderId),
+        ...maps.map((map) => map.folderId),
       ]);
       return {
         activeSceneId: campaign.activeSceneId,
@@ -101,6 +108,8 @@ export class LibraryImageService {
         scenes: visible.scenes.map((row) => toLibrarySceneDto(row, access.isMaster())),
         images: images.map(toLibraryImageDto),
         documents,
+        maps,
+        mainMapId: maps.find((map) => map.isMain)?.id ?? null,
         ...(await sheetTemplatesFor(daos, access)),
         ...(daos.sheets ? { sheets } : {}),
       };
@@ -196,6 +205,15 @@ export class LibraryImageService {
     this.deps.publisher.imagePresentationChanged({ ...state, eventId: this.deps.newId() });
   }
 }
+async function visibleMapsOf(
+  daos: LibraryImageDaos,
+  access: CampaignAccessBo,
+): Promise<LibraryMapSummaryDto[]> {
+  const rows = (await daos.maps?.listOfCampaign(access.campaignIdOf())) ?? [];
+  const mapAccess = new LibraryMapAccessBo(access);
+  return rows.filter((row) => mapAccess.canSee(row.map)).map(toLibraryMapSummaryDto);
+}
+
 // Only masters get the templates (without their code): it runs on every screen of the table.
 async function sheetTemplatesFor(
   daos: LibraryImageDaos,

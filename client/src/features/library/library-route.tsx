@@ -55,6 +55,7 @@ function libraryScreen(deps: AppDependencies): () => React.JSX.Element | null {
         now={now}
         assets={deps.assets}
         api={deps.libraryApi}
+        mapsApi={deps.libraryMapsApi}
         presentations={deps.imagePresentationApi}
         documentsApi={deps.documentsApi}
         sheetTemplatesApi={deps.sheetTemplatesApi}

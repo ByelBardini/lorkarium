@@ -54,3 +54,27 @@ const OUTLINED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['token']);
 export function outlineFor(purpose: AssetPurpose): boolean {
   return OUTLINED_PURPOSES.has(purpose);
 }
+
+// Who may read these changes while the id stays the same, so the bytes go through a read policy,
+// are never cached and cannot become the art of something every member sees.
+const PROTECTED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
+  'library_image',
+  'document_image',
+  'library_map',
+]);
+
+/** Whether an image of `purpose` is reserved to its own feature and read through a policy.
+ *
+ *  Example: `isProtectedAssetPurpose('library_map') // true` */
+export function isProtectedAssetPurpose(purpose: AssetPurpose): boolean {
+  return PROTECTED_PURPOSES.has(purpose);
+}
+
+const MASTER_ONLY_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['library_image', 'library_map']);
+
+/** Whether only the master may send an image of `purpose`.
+ *
+ *  Example: `isMasterOnlyAssetPurpose('document_image') // false` */
+export function isMasterOnlyAssetPurpose(purpose: AssetPurpose): boolean {
+  return MASTER_ONLY_PURPOSES.has(purpose);
+}

@@ -1,5 +1,5 @@
 type LibraryDragged = Readonly<{
-  kind: 'folder' | 'scene' | 'image' | 'document' | 'sheet-template' | 'sheet';
+  kind: 'folder' | 'scene' | 'image' | 'map' | 'document' | 'sheet-template' | 'sheet';
   id: string;
 }>;
 import { useState, type DragEvent } from 'react';
@@ -7,6 +7,7 @@ import { canDrop } from '@/lib/folder-tree';
 import {
   documentIdOf,
   imageIdOf,
+  mapIdOf,
   sheetIdOf,
   sheetTemplateIdOf,
   type MixedLibrary,
@@ -68,7 +69,7 @@ export function useLibraryDrag({ library, enabled, submit }: DragOptions): Libra
 
 // Items are only dragged; folders (and "Sem pasta") also take drops.
 function isLeafKey(key: string): boolean {
-  return [sceneIdOf, imageIdOf, documentIdOf, sheetTemplateIdOf, sheetIdOf].some(
+  return [sceneIdOf, imageIdOf, mapIdOf, documentIdOf, sheetTemplateIdOf, sheetIdOf].some(
     (idOf) => idOf(key) !== null,
   );
 }
@@ -83,6 +84,8 @@ function sourceOf(
     return document.canManage ? sources({ kind: 'document', id: document.id }, document.name) : {};
   const image = library.images?.find(({ id }) => id === imageIdOf(key));
   if (image) return sources({ kind: 'image', id: image.id }, image.name);
+  const map = library.maps?.find(({ id }) => id === mapIdOf(key));
+  if (map) return sources({ kind: 'map', id: map.id }, map.name);
   const template = library.sheetTemplates?.find(({ id }) => id === sheetTemplateIdOf(key));
   if (template) return sources({ kind: 'sheet-template', id: template.id }, template.name);
   const sheet = library.sheets?.find(({ id }) => id === sheetIdOf(key));
@@ -131,6 +134,7 @@ function moveIntent(
 ): LibraryIntent | null {
   if (dragged.kind === 'sheet-template') return templateMove(library, dragged.id, folderId);
   if (dragged.kind === 'sheet') return sheetMove(library, dragged.id, folderId);
+  if (dragged.kind === 'map') return mapMove(library, dragged.id, folderId);
   if (dragged.kind === 'document') {
     const document = library.documents?.find(({ id }) => id === dragged.id);
     if (!document || !document.canManage || document.folderId === folderId) return null;
@@ -166,6 +170,21 @@ function templateMove(
   return { intent: 'updateSheetTemplate', templateId, changes };
 }
 
+function mapMove(
+  library: MixedLibrary,
+  mapId: string,
+  folderId: string | null,
+): LibraryIntent | null {
+  const map = library.maps?.find(({ id }) => id === mapId);
+  if (!map || map.folderId === folderId) return null;
+  return { intent: 'updateMap', mapId, changes: { folderId } };
+}
+
+function withMapMoved(library: MixedLibrary, mapId: string, folderId: string | null): MixedLibrary {
+  const maps = library.maps?.map((map) => (map.id === mapId ? { ...map, folderId } : map));
+  return { ...library, maps };
+}
+
 function sheetMove(
   library: MixedLibrary,
   sheetId: string,
@@ -184,6 +203,8 @@ export function withPendingMove(
   library: MixedLibrary,
   pending: LibraryIntent | null,
 ): MixedLibrary {
+  if (pending?.intent === 'updateMap' && pending.changes.folderId !== undefined)
+    return withMapMoved(library, pending.mapId, pending.changes.folderId);
   if (pending?.intent === 'updateSheet' && pending.changes.folderId !== undefined) {
     const folderId = pending.changes.folderId;
     const sheets = library.sheets?.map((sheet) =>

@@ -8,7 +8,13 @@ import { DataTransferFake } from '../../support/data-transfer-fake';
 import { readSheetTemplateFile } from '@/lib/sheet-template-file';
 import { ATO_1, CATACUMBAS, masterLibrary, playerLibrary } from '../../support/library-fixtures';
 import { openLibrary } from '../../support/library-harness';
-import { menuItemNames, openTreeMenu, treeItem, treeItemNames } from '../../support/library-tree';
+import {
+  menuItemNames,
+  openTreeMenu,
+  pickNewItemKind,
+  treeItem,
+  treeItemNames,
+} from '../../support/library-tree';
 import { TORMENTA_TEMPLATE_ID } from '../../support/sheet-fixtures';
 import {
   NEW_TEMPLATE_ID,
@@ -61,7 +67,7 @@ describe('sheet templates in the library', () => {
     expect(treeItem('Ficha Tormenta')).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('"Novo modelo de ficha" creates it born with a commented example of the SDK, and picks it', async () => {
+  it('"Modelo de ficha" of "Novo item" creates it born with a commented example of the SDK, and picks it', async () => {
     const deps = withTormenta();
     await openLibrary(deps);
     deps.libraryApi.answer('list', {
@@ -75,9 +81,11 @@ describe('sheet templates in the library', () => {
     });
     await userEvent.click(
       await within(await openTreeMenu(treeItem('Ato 1'))).findByRole('menuitem', {
-        name: 'Novo modelo de ficha aqui',
+        name: 'Criar novo item',
       }),
     );
+    const dialog = await pickNewItemKind('Modelo de ficha');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
     await waitFor(() => expect(deps.sheetTemplatesApi.creates).toHaveLength(1));
     const { input } = deps.sheetTemplatesApi.creates[0] ?? { input: null };
     expect(input?.folderId).toBe(ATO_1.id);

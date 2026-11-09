@@ -6,7 +6,12 @@ import { sheetTemplateFileText } from '@/lib/sheet-template-file';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ATO_1, masterLibrary } from '../../support/library-fixtures';
 import { openLibrary } from '../../support/library-harness';
-import { libraryTree, openTreeMenu, treeItem } from '../../support/library-tree';
+import {
+  libraryTree,
+  openTreeMenu,
+  startHeaderNewItem,
+  treeItem,
+} from '../../support/library-tree';
 import {
   ClaimedSizeFileFake,
   lksheetFile,
@@ -33,8 +38,8 @@ function listsTheImport(deps: TestDependencies, folderId: string | null = null):
 }
 
 async function importFromCreateMenu(file: File = lksheetFile()): Promise<void> {
-  await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
-  await userEvent.click(screen.getByRole('menuitem', { name: 'Importar modelo de ficha' }));
+  const dialog = await startHeaderNewItem('Modelo de ficha');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Importar de um arquivo' }));
   await userEvent.upload(fileInput(), file);
 }
 
@@ -43,7 +48,7 @@ async function confirmImport(): Promise<void> {
 }
 
 describe('importing a sheet template file into the library', () => {
-  it('"Criar item ▸ Importar modelo de ficha" creates the file’s code at the root and opens its editor', async () => {
+  it('"Novo item ▸ Modelo de ficha ▸ Importar" creates the file’s code at the root and opens its editor', async () => {
     const deps = testDependencies();
     await openLibrary(deps);
     await importFromCreateMenu();
@@ -71,11 +76,11 @@ describe('importing a sheet template file into the library', () => {
     expect(treeItem('Ficha Tormenta')).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('"Importar modelo aqui" on a folder creates the template in that folder', async () => {
+  it('"Importar modelo…" on a folder creates the template in that folder', async () => {
     const deps = testDependencies();
     await openLibrary(deps);
     const menu = await openTreeMenu(treeItem('Ato 1'));
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Importar modelo aqui' }));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Importar modelo…' }));
     await userEvent.upload(fileInput(), lksheetFile());
     listsTheImport(deps, ATO_1.id);
     await confirmImport();
@@ -83,12 +88,12 @@ describe('importing a sheet template file into the library', () => {
     expect(deps.sheetTemplatesApi.creates[0]?.input.folderId).toBe(ATO_1.id);
   });
 
-  it('"Importar modelo de ficha" on the tree area creates the template at the root', async () => {
+  it('"Importar modelo…" on the tree area creates the template at the root', async () => {
     const deps = testDependencies();
     await openLibrary(deps);
     const area = libraryTree().parentElement ?? libraryTree();
     const menu = await openTreeMenu(area);
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Importar modelo de ficha' }));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Importar modelo…' }));
     await userEvent.upload(fileInput(), lksheetFile());
     await confirmImport();
     await waitFor(() => expect(deps.sheetTemplatesApi.creates).toHaveLength(1));

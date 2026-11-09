@@ -1,4 +1,9 @@
-import type { CampaignDetailDto, DocumentSummaryDto, SheetSummaryDto } from '@lorkarium/contracts';
+import type {
+  CampaignDetailDto,
+  DocumentSummaryDto,
+  LibraryMapSummaryDto,
+  SheetSummaryDto,
+} from '@lorkarium/contracts';
 import { useNavigate } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import type { ChatWindowHost } from '@/services/chat-window-host';
@@ -15,6 +20,8 @@ type OpenerOptions = Readonly<{
 export type LibraryOpener = Readonly<{
   openDocument: (document: DocumentSummaryDto, focusName: boolean, detached: boolean) => void;
   openSheet: (sheet: Pick<SheetSummaryDto, 'id' | 'name'>, detached: boolean) => void;
+  /** A map only opens in the table's map tab: it has no window of its own. */
+  openMap: (map: Pick<LibraryMapSummaryDto, 'id' | 'name'>) => void;
 }>;
 
 /** Opens documents and sheets of the library in a room tab (and goes back to the room) or in a
@@ -42,6 +49,8 @@ export function useLibraryOpener(options: OpenerOptions): LibraryOpener {
         (state) => state.openSheet({ campaign, sheetId: sheet.id, sheetName: sheet.name }),
         detached,
       ),
+    openMap: (map) =>
+      show((state) => state.openMap({ campaign, mapId: map.id, mapName: map.name }), false),
   };
 }
 

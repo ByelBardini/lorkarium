@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { CampaignAccessBo } from '../../../src/modules/campaigns/campaign-access.bo';
-import { SceneAccessBo, type GridVisibility } from '../../../src/modules/scenes/scene-access.bo';
+import {
+  SceneAccessBo,
+  type GridReach,
+  type GridVisibility,
+} from '../../../src/modules/scenes/scene-access.bo';
 import { SceneNotFoundError } from '../../../src/modules/scenes/scenes.error';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, VHARN_ID } from '../../support/campaigns-factories';
@@ -13,9 +17,23 @@ function accessOf(userId: string, role: 'master' | 'player' | null): SceneAccess
   return new SceneAccessBo(campaign, VHARN_SCENE_ID);
 }
 
-function grid(id: string, visibility: GridVisibility): { id: string; visibility: GridVisibility } {
-  return { id, visibility };
+function grid(id: string, visibility: GridVisibility, hiddenByFolder = false): GridReach {
+  return { id, visibility, hiddenByFolder };
 }
+
+describe('a grid inside a private folder', () => {
+  it('Bia does not reach it even while it is public', () => {
+    expect(accessOf(BIA_ID, 'player').canSee(grid(OSSUARY_ID, 'public', true))).toBe(false);
+  });
+
+  it('Ana, the master, reaches it', () => {
+    expect(accessOf(ANA_ID, 'master').canSee(grid(OSSUARY_ID, 'public', true))).toBe(true);
+  });
+
+  it('Bia still reaches it when it is the group grid', () => {
+    expect(accessOf(BIA_ID, 'player').canSee(grid(VHARN_SCENE_ID, 'private', true))).toBe(true);
+  });
+});
 
 describe('SceneAccessBo.requireAct', () => {
   it('Ana, the master, acts in a private grid that is not the group one', () => {

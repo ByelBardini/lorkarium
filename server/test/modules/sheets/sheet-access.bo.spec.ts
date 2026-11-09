@@ -14,6 +14,7 @@ import { LYRA_SHEET_ID, lyraPlace } from '../../support/sheets-fakes';
 import { BRAM_ID } from '../../support/tokens-factories';
 
 const LYRA: SheetHolderReach = { character: lyraPlace() };
+const QUELM_READER_ID = '7c7c7c7c-7c7c-4c7c-8c7c-7c7c7c7c7c7c';
 
 function rulesOf(
   userId: string,
@@ -25,6 +26,7 @@ function rulesOf(
     sheetId: LYRA_SHEET_ID,
     visibility: 'controllers',
     holder: LYRA,
+    hiddenByFolder: false,
     ...reach,
   });
 }
@@ -37,6 +39,23 @@ const ALL = { read: true, edit: true, manage: true };
 const EDITS = { read: true, edit: true, manage: false };
 const READS = { read: true, edit: false, manage: false };
 const NOTHING = { read: false, edit: false, manage: false };
+
+describe('SheetAccessBo, a sheet inside a private folder', () => {
+  const hidden = { visibility: 'table', hiddenByFolder: true } as const;
+
+  it('Bia, who controls it, keeps reading and editing it', () => {
+    const rules = rulesOf(BIA_ID, 'player', hidden);
+    expect([rules.canRead(), rules.canEdit()]).toEqual([true, true]);
+  });
+
+  it('a player who only read it as the table loses it', () => {
+    expect(rulesOf(QUELM_READER_ID, 'player', hidden).canRead()).toBe(false);
+  });
+
+  it('the master keeps it', () => {
+    expect(rulesOf(ANA_ID, 'master', hidden).canRead()).toBe(true);
+  });
+});
 
 describe('SheetAccessBo, a sheet of a character', () => {
   it('the master reads, edits and manages it', () => {

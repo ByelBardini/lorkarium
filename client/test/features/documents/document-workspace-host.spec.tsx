@@ -10,6 +10,8 @@ import { documentFixture } from '../../support/documents-fixtures';
 import { vharnLibrary } from '../../support/library-fixtures';
 import { detailOf, VHARN } from '../../support/campaigns-api-fake';
 import { ANA } from '../../support/auth-api-fake';
+import { CAPITAL_REGION_ID, MUNDO_ID, mapChanged } from '../../support/library-map-fixtures';
+import { libraryChanged } from '../../support/scene-tab-fixtures';
 
 async function workspaceScreen() {
   const deps = testDependencies();
@@ -63,6 +65,27 @@ function DocumentTabTarget({ deps }: Readonly<{ deps: AppDependencies }>): React
   );
 }
 describe('persistent document workspace host', () => {
+  it('reads the maps the document appears in again when a map or the library changes', async () => {
+    const { deps } = await workspaceScreen();
+    const appearances = (): number =>
+      deps.libraryMapsApi.calls.filter(({ method }) => method === 'appearances').length;
+    const before = appearances();
+    expect(before).toBeGreaterThan(0);
+    deps.libraryMapsApi.answer('appearances', {
+      ok: true,
+      value: [
+        { mapId: MUNDO_ID, mapName: 'Mundo', regionId: CAPITAL_REGION_ID, regionName: 'Capital' },
+      ],
+    });
+    await act(async () => deps.tableSessionApi.emit({ kind: 'mapChanged', event: mapChanged() }));
+    expect(appearances()).toBe(before + 1);
+    expect(await screen.findByRole('button', { name: 'Mundo › Capital' })).toBeInTheDocument();
+    await act(async () =>
+      deps.tableSessionApi.emit({ kind: 'libraryChanged', event: libraryChanged() }),
+    );
+    expect(appearances()).toBe(before + 2);
+    act(() => deps.documentWorkspace.getState().clear());
+  });
   it('keeps one dirty editor when leaving its route and returning from another screen', async () => {
     const { deps, router, path } = await workspaceScreen();
     fireEvent.change(screen.getByRole('textbox', { name: 'Nome do documento' }), {

@@ -1,4 +1,5 @@
 import type { ImagePresentationChangedDto } from './image-presentation.dto';
+import type { LibraryMapServerEvents } from './library-map-events';
 import { z } from 'zod';
 import { sceneBackgroundDto } from '../board/scene.dto';
 
@@ -20,13 +21,15 @@ export type SceneVisibilityDto = z.infer<typeof sceneVisibilityDto>;
 const sceneNameDto = z.string().trim().min(1).max(SCENE_NAME_MAX_LENGTH);
 const sceneFolderNameDto = z.string().trim().min(1).max(SCENE_FOLDER_NAME_MAX_LENGTH);
 
-/** A folder of the library; `parentId: null` = the root.
+/** A folder of the library; `parentId: null` = the root. A private one hides what is inside it
+ *  (subfolders included) from who is not a master.
  *
- *  Example: `sceneFolderDto.parse({ id, name: 'Ato 1', parentId: null })` */
+ *  Example: `sceneFolderDto.parse({ id, name: 'Ato 1', parentId: null, visibility: 'public' })` */
 export const sceneFolderDto = z.strictObject({
   id: z.uuid(),
   name: z.string(),
   parentId: z.uuid().nullable(),
+  visibility: sceneVisibilityDto,
 });
 export type SceneFolderDto = z.infer<typeof sceneFolderDto>;
 
@@ -91,29 +94,31 @@ export type UpdateLibrarySceneRequestDto = z.infer<typeof updateLibrarySceneRequ
 export const librarySceneParamsDto = z.strictObject({ campaignId: z.uuid(), sceneId: z.uuid() });
 
 /** Body of `POST /campaigns/:campaignId/scene-folders`: the name is trimmed; no `parentId` (or
- *  `null`) = the root.
+ *  `null`) = the root; no `visibility` = public.
  *
  *  Example: `createSceneFolderRequestDto.parse({ name: 'Masmorra', parentId: ato1Id })` */
 export const createSceneFolderRequestDto = z.strictObject({
   name: sceneFolderNameDto,
   parentId: z.uuid().nullable().optional(),
+  visibility: sceneVisibilityDto.optional(),
 });
 export type CreateSceneFolderRequestDto = z.infer<typeof createSceneFolderRequestDto>;
 
-/** Body of `PATCH /campaigns/:campaignId/scene-folders/:folderId`: rename and/or move
- *  (`parentId: null` = the root); at least one key.
+/** Body of `PATCH /campaigns/:campaignId/scene-folders/:folderId`: rename, move
+ *  (`parentId: null` = the root) and/or publish or hide; at least one key.
  *
  *  Example: `updateSceneFolderRequestDto.parse({ parentId: null })` */
 export const updateSceneFolderRequestDto = z
   .strictObject({
     name: sceneFolderNameDto.optional(),
     parentId: z.uuid().nullable().optional(),
+    visibility: sceneVisibilityDto.optional(),
   })
   .superRefine((changes, context) => {
     if (Object.keys(changes).length > 0) return;
     context.addIssue({
       code: 'custom',
-      message: 'changes is empty; expected at least one of name, parentId',
+      message: 'changes is empty; expected at least one of name, parentId, visibility',
     });
   });
 export type UpdateSceneFolderRequestDto = z.infer<typeof updateSceneFolderRequestDto>;
@@ -158,7 +163,7 @@ export const sceneClosedDto = z.strictObject({
 export type SceneClosedDto = z.infer<typeof sceneClosedDto>;
 
 /** Every server → client event of the library. */
-export type LibraryServerEvents = {
+export type LibraryServerEvents = LibraryMapServerEvents & {
   'library:imagePresentationChanged': (event: ImagePresentationChangedDto) => void;
   'library:changed': (event: LibraryChangedDto) => void;
   'scene:activated': (event: SceneActivatedDto) => void;

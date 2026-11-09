@@ -18,6 +18,7 @@ export function sceneFolderPo(overrides: Partial<SceneFolderPo> = {}): SceneFold
     campaignId: VHARN_ID,
     parentId: null,
     name: 'Ato 1',
+    visibility: 'public',
     createdAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,
   };

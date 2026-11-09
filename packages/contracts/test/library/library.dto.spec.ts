@@ -78,8 +78,14 @@ describe('updateSceneFolderRequestDto', () => {
   it('an empty change is refused citing the keys it expects', () => {
     const result = updateSceneFolderRequestDto.safeParse({});
     expect(result.error?.issues.map((issue) => issue.message)).toEqual([
-      'changes is empty; expected at least one of name, parentId',
+      'changes is empty; expected at least one of name, parentId, visibility',
     ]);
+  });
+
+  it('visibility alone is a valid change of a folder', () => {
+    expect(updateSceneFolderRequestDto.parse({ visibility: 'private' })).toEqual({
+      visibility: 'private',
+    });
   });
 
   it('a parentId that is not a uuid is refused', () => {

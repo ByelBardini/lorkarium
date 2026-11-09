@@ -1,6 +1,7 @@
 import type {
   DocumentSummaryDto,
   LibraryImageDto,
+  LibraryMapSummaryDto,
   LibrarySceneDto,
   SceneFolderDto,
   SheetSummaryDto,
@@ -21,17 +22,14 @@ import {
   documentIdOf,
   imageIdOf,
   imageKey,
+  mapIdOf,
   sheetIdOf,
   sheetTemplateIdOf,
   type MixedLibrary,
 } from '@/lib/library-entries';
-import { DeleteSheetTask, NewSheetItem, SheetTreeItems } from './library-sheet-menu';
-import {
-  DeleteTemplateTask,
-  ImportTemplateItem,
-  NewTemplateItem,
-  TemplateItems,
-} from './library-template-menu-items';
+import { DeleteMapDialog, MapTreeItems } from './library-map-menu';
+import { DeleteSheetTask, SheetTreeItems } from './library-sheet-menu';
+import { CreateItems, DeleteTemplateTask, TemplateItems } from './library-template-menu-items';
 import type { LibraryOpener } from './use-library-opener';
 import type { SheetPlayer } from './use-sheet-holder-names';
 import { sceneIdOf, sceneKey } from './library-view';
@@ -46,20 +44,15 @@ export type TreeMaster = Readonly<{
   submit: LibrarySubmit;
   /** Where "Nova pasta" of the header creates (`null` = the root). */
   newParentId: string | null;
-  /** "Novo grid" in a folder (`null` = the root): the new grid gets picked. */
-  createGrid: (folderId: string | null) => void;
-  createImage?: (folderId: string | null) => void;
-  createDocument?: (folderId: string | null) => void;
+  /** "Criar novo item" in a folder (`null` = the root): opens the "Novo item" dialog. */
+  createItem: (folderId: string | null) => void;
   editDocument?: (documentId: string) => void;
-  /** "Novo modelo de ficha" in a folder (`null` = the root): the new template gets picked. */
-  createSheetTemplate?: (folderId: string | null) => void;
-  /** "Importar modelo de ficha" in a folder (`null` = the root): picks a `.lksheet` first. */
+  /** "Importar modelo…" in a folder (`null` = the root): picks a `.lksheet` first. */
   importSheetTemplate?: (folderId: string | null) => void;
   /** "Exportar modelo": downloads the saved version as a `.lksheet`. */
   exportSheetTemplate?: (templateId: string) => void;
-  /** "Nova ficha" in a folder (`null` = the root): asks name, template and holder first. */
-  createSheet?: (folderId: string | null) => void;
   openSheet?: LibraryOpener['openSheet'];
+  openMap: LibraryOpener['openMap'];
   /** Who "Dar a ▸" offers. */
   players?: readonly SheetPlayer[];
   /** Clears the search and the filter, so the item about to be created shows. */
@@ -71,7 +64,6 @@ export type LibraryTreeMenuProps = Readonly<{
   /** A name field is open: right click there is the browser's. */
   disabled: boolean;
   startRename: (key: string) => void;
-  startNewFolder: (parentId: string | null) => void;
   focusItem: (key: string) => void;
   /** The area of the tree: right click (or the menu key on an item) opens the menu. */
   children: ReactNode;
@@ -80,6 +72,7 @@ export type LibraryTreeMenuProps = Readonly<{
 type MenuTask =
   | Readonly<{ kind: 'deleteScene'; scene: LibrarySceneDto }>
   | Readonly<{ kind: 'deleteImage'; image: LibraryImageDto }>
+  | Readonly<{ kind: 'deleteMap'; map: LibraryMapSummaryDto }>
   | Readonly<{ kind: 'deleteDocument'; document: DocumentSummaryDto }>
   | Readonly<{ kind: 'deleteTemplate'; template: SheetTemplateSummaryDto }>
   | Readonly<{ kind: 'deleteSheet'; sheet: SheetSummaryDto }>
@@ -129,6 +122,16 @@ function TargetItems(props: MenuActions & Readonly<{ targetKey: string | null }>
   const { library } = props.master;
   const document = library.documents?.find(({ id }) => id === documentIdOf(props.targetKey));
   if (document) return <DocumentItems {...props} document={document} />;
+  const map = library.maps?.find(({ id }) => id === mapIdOf(props.targetKey));
+  if (map)
+    return (
+      <MapTreeItems
+        master={props.master}
+        map={map}
+        startRename={props.startRename}
+        askDelete={(asked) => props.setTask({ kind: 'deleteMap', map: asked })}
+      />
+    );
   const sheet = library.sheets?.find(({ id }) => id === sheetIdOf(props.targetKey));
   if (sheet)
     return (
@@ -149,39 +152,7 @@ function TargetItems(props: MenuActions & Readonly<{ targetKey: string | null }>
   if (scene) return <SceneItems {...props} scene={scene} />;
   const folder = library.folders.find(({ id }) => id === props.targetKey);
   if (folder) return <FolderItems {...props} folder={folder} />;
-  return <RootItems {...props} />;
-}
-
-function RootItems({ master, startNewFolder }: MenuActions): React.JSX.Element {
-  return (
-    <>
-      <ContextMenuItem disabled={!master.live} onSelect={() => master.createGrid(null)}>
-        Novo grid
-      </ContextMenuItem>
-      {master.createImage && (
-        <ContextMenuItem disabled={!master.live} onSelect={() => master.createImage?.(null)}>
-          Nova imagem
-        </ContextMenuItem>
-      )}
-      {master.createDocument && (
-        <ContextMenuItem disabled={!master.live} onSelect={() => master.createDocument?.(null)}>
-          Novo documento
-        </ContextMenuItem>
-      )}
-      <NewTemplateItem master={master} folderId={null} label="Novo modelo de ficha" />
-      <ImportTemplateItem master={master} folderId={null} label="Importar modelo de ficha" />
-      <NewSheetItem master={master} folderId={null} label="Nova ficha" />
-      <ContextMenuItem
-        disabled={!master.live}
-        onSelect={() => {
-          master.resetFilter();
-          startNewFolder(null);
-        }}
-      >
-        Nova pasta
-      </ContextMenuItem>
-    </>
-  );
+  return <CreateItems master={props.master} folderId={null} />;
 }
 
 function FolderItems(props: MenuActions & Readonly<{ folder: SceneFolderDto }>) {
@@ -189,32 +160,20 @@ function FolderItems(props: MenuActions & Readonly<{ folder: SceneFolderDto }>) 
   const off = !master.live;
   return (
     <>
-      <ContextMenuItem disabled={off} onSelect={() => master.createGrid(folder.id)}>
-        Novo grid aqui
-      </ContextMenuItem>
-      {master.createImage && (
-        <ContextMenuItem disabled={off} onSelect={() => master.createImage?.(folder.id)}>
-          Nova imagem aqui
-        </ContextMenuItem>
-      )}
-      {master.createDocument && (
-        <ContextMenuItem disabled={off} onSelect={() => master.createDocument?.(folder.id)}>
-          Novo documento aqui
-        </ContextMenuItem>
-      )}
-      <NewTemplateItem master={master} folderId={folder.id} label="Novo modelo de ficha aqui" />
-      <ImportTemplateItem master={master} folderId={folder.id} label="Importar modelo aqui" />
-      <NewSheetItem master={master} folderId={folder.id} label="Nova ficha aqui" />
+      <CreateItems master={master} folderId={folder.id} />
+      <ContextMenuSeparator />
       <ContextMenuItem
         disabled={off}
-        onSelect={() => {
-          master.resetFilter();
-          props.startNewFolder(folder.id);
-        }}
+        onSelect={() =>
+          void master.submit({
+            intent: 'updateFolder',
+            folderId: folder.id,
+            changes: { visibility: folder.visibility === 'private' ? 'public' : 'private' },
+          })
+        }
       >
-        Nova pasta aqui
+        {folder.visibility === 'private' ? 'Tornar pública' : 'Tornar privada'}
       </ContextMenuItem>
-      <ContextMenuSeparator />
       <ContextMenuItem disabled={off} onSelect={() => props.startRename(folder.id)}>
         Renomear
       </ContextMenuItem>
@@ -267,6 +226,8 @@ function SceneItems(props: MenuActions & Readonly<{ scene: LibrarySceneDto }>) {
 type TaskDialogProps = Readonly<{ master: TreeMaster; task: MenuTask; onClose: () => void }>;
 
 function TaskDialog({ master, task, onClose }: TaskDialogProps): React.JSX.Element | null {
+  if (task?.kind === 'deleteMap')
+    return <DeleteMapDialog map={task.map} submit={master.submit} onClose={onClose} />;
   if (task?.kind === 'deleteSheet')
     return <DeleteSheetTask master={master} sheet={task.sheet} onClose={onClose} />;
   if (task?.kind === 'deleteTemplate')
@@ -354,7 +315,7 @@ function DeleteFolderTask({ master, folder, onClose }: FolderTaskProps): React.J
   return (
     <DeleteConfirmDialog
       title={`Excluir a pasta ${folder.name}?`}
-      description={`Os grids, as imagens e as pastas de dentro vão para ${goesTo}. Nenhum item é apagado.`}
+      description={`Os grids, as imagens e as pastas de dentro vão para ${goesTo}. Nenhum item é apagado.${revealWarning(master.library, folder)}`}
       onConfirm={() => void master.submit({ intent: 'removeFolder', folderId: folder.id })}
       onClose={onClose}
     />
@@ -369,6 +330,18 @@ function MoveFolderTask({ master, folder, onClose }: FolderTaskProps): React.JSX
   return (
     <MoveFolderDialog folder={folder} library={master.library} onMove={move} onClose={onClose} />
   );
+}
+
+// What goes up stops being hidden, unless a private folder above still hides it.
+function revealWarning(library: MixedLibrary, folder: SceneFolderDto): string {
+  if (folder.visibility !== 'private' || isHiddenAbove(library, folder)) return '';
+  return ' Os itens públicos de dentro passam a aparecer para os jogadores.';
+}
+
+function isHiddenAbove(library: MixedLibrary, folder: SceneFolderDto): boolean {
+  const parent = library.folders.find(({ id }) => id === folder.parentId);
+  if (!parent) return false;
+  return parent.visibility === 'private' || isHiddenAbove(library, parent);
 }
 
 function parentName(library: MixedLibrary, folder: SceneFolderDto): string {

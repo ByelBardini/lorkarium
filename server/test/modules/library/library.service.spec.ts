@@ -210,8 +210,8 @@ describe('LibraryService', () => {
 
     expect(library.scenes.map(({ tokenCount }) => tokenCount)).toEqual([2, 5]);
     expect(library.folders).toEqual([
-      { id: ATO_1_ID, name: 'Ato 1', parentId: null },
-      { id: MASMORRA_ID, name: 'Masmorra', parentId: ATO_1_ID },
+      { id: ATO_1_ID, name: 'Ato 1', parentId: null, visibility: 'public' },
+      { id: MASMORRA_ID, name: 'Masmorra', parentId: ATO_1_ID, visibility: 'public' },
     ]);
   });
 

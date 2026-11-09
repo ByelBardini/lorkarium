@@ -1,5 +1,7 @@
 import type {
   LibraryChangedDto,
+  LibraryMapChangedDto,
+  LibraryMapRegionShownDto,
   SceneActivatedDto,
   ImagePresentationChangedDto,
 } from '@lorkarium/contracts';
@@ -19,6 +21,14 @@ export class SocketIoLibraryPublisher implements LibraryPublisherPort {
 
   libraryChanged(event: LibraryChangedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('library:changed', event);
+  }
+
+  libraryMapChanged(event: LibraryMapChangedDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('library:mapChanged', event);
+  }
+
+  mapRegionShown(event: LibraryMapRegionShownDto): void {
+    this.io.to(campaignRoom(event.campaignId)).emit('library:mapRegionShown', event);
   }
 
   sceneActivated(event: SceneActivatedDto): void {

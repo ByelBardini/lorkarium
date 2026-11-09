@@ -10,6 +10,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { campaigns } from '../campaigns/campaigns.po';
+import { sceneVisibility } from '../scenes/scene-visibility.po';
 
 // The folders of the scene library, nested. The (campaign_id, id) key lets the parent and the
 // scenes point at a folder of the same table only: a folder of another campaign is refused by
@@ -23,6 +24,8 @@ export const sceneFolders = pgTable(
       .references(() => campaigns.id, { onDelete: 'cascade' }),
     parentId: uuid('parent_id'),
     name: text('name').notNull(),
+    // Private hides the content, subfolders included, from who is not a master.
+    visibility: sceneVisibility('visibility').notNull().default('public'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -40,5 +43,5 @@ export const sceneFolders = pgTable(
 
 export type SceneFolderPo = typeof sceneFolders.$inferSelect;
 export type NewSceneFolderPo = typeof sceneFolders.$inferInsert;
-/** What renaming or moving a folder saves: an absent key stays, `parentId: null` = the root. */
-export type SceneFolderChangesPo = Partial<Pick<SceneFolderPo, 'name' | 'parentId'>>;
+/** What editing a folder saves: an absent key stays, `parentId: null` = the root. */
+export type SceneFolderChangesPo = Partial<Pick<SceneFolderPo, 'name' | 'parentId' | 'visibility'>>;

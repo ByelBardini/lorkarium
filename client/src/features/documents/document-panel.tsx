@@ -48,6 +48,8 @@ export type DocumentPanelProps = Readonly<{
   /** The tab shown, kept by the workspace; without it the panel remembers its own. */
   activeTabId?: string | null;
   onActivateTab?: (tabId: string) => void;
+  /** The "Aparece em" line: only the workspace, which can open a map, has one. */
+  mapAppearances?: React.ReactNode;
 }>;
 
 /** An authorized document with an in-memory versioned draft. Example: `<DocumentPanel {...props} />`. */
@@ -249,6 +251,7 @@ function DocumentPanelContent(
         onConfirmReload={askReload}
         onRetry={() => void state.flush()}
       />
+      {props.mapAppearances}
       <DocumentTabStrip
         tabs={document.tabs}
         activeTabId={activeTabId}
