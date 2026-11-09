@@ -61,6 +61,8 @@ export * from './chat/chat.dto';
 
 export * from './library/library-image.dto';
 export * from './library/image-presentation.dto';
+export * from './library/library-map.dto';
+export * from './library/library-map-events';
 export * from './library/campaign-library.dto';
 export * from './documents/document-content.dto';
 export * from './documents/document-tab.dto';
