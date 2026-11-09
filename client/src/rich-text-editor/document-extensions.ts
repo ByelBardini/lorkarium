@@ -1,4 +1,4 @@
-import { Extension, Node, getStyleProperty, mergeAttributes, type Extensions } from '@tiptap/core';
+import { Extension, getStyleProperty, type Extensions } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle, FontFamily, FontSize, Color } from '@tiptap/extension-text-style';
 import TextAlign from '@tiptap/extension-text-align';
@@ -10,6 +10,7 @@ import {
 } from '@lorkarium/contracts';
 import { hexFromTyped } from '@/lib/custom-color';
 import { documentFontOf, documentFontStack } from './document-fonts';
+import { documentImage } from './document-image';
 
 const DocumentSpacing = Extension.create({
   name: 'documentSpacing',
@@ -110,38 +111,6 @@ const DocumentColor = Color.extend({
     );
   },
 });
-
-function documentImage(assetUrl: (assetId: string) => string): Node {
-  return Node.create({
-    name: 'image',
-    group: 'block',
-    atom: true,
-    draggable: true,
-    addAttributes() {
-      return {
-        assetId: { default: null },
-        alt: { default: null },
-        align: { default: null },
-        width: { default: null },
-      };
-    },
-    parseHTML() {
-      return [];
-    },
-    renderHTML({ HTMLAttributes }) {
-      const { assetId, alt, align, width } = HTMLAttributes;
-      return [
-        'img',
-        mergeAttributes({
-          src: assetUrl(String(assetId)),
-          alt: alt ?? '',
-          draggable: 'true',
-          style: `max-width:100%;height:auto;${width ? `width:${Number(width)}px;` : ''}${align === 'center' ? 'margin-inline:auto;' : align === 'right' ? 'margin-left:auto;' : ''}`,
-        }),
-      ];
-    },
-  });
-}
 
 /** Configures only the supported document vocabulary. Example: documentExtensions(id => `/api/assets/${id}`). */
 export function documentExtensions(assetUrl: (assetId: string) => string): Extensions {

@@ -66,9 +66,43 @@ test('rich document formats a selection, expands a table, and survives reload', 
   await panel.getByRole('button', { name: 'Mais opções de formatação', exact: true }).click();
   await master.getByRole('menuitem', { name: 'Adicionar linha', exact: true }).click();
   await expect(editor.locator('tr')).toHaveCount(3);
+  await editor.locator('p').first().click();
+  await editor.press('End');
+  await editor.press('Enter');
   await pastePortraitIntoDocument(master);
-  await expect(editor.locator('img')).toHaveCount(1);
+  const image = editor.locator('img');
+  await image.click();
+  const width = panel.getByLabel('Largura da imagem em pixels');
+  await width.fill('160');
+  await width.press('Enter');
+  await panel.getByRole('button', { name: 'Alinhamento da imagem' }).click();
+  await master.getByRole('menuitemradio', { name: 'Centralizado' }).click();
+  const centerOffset = (locator = image) =>
+    locator.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const body = element.closest('.document-prose')!.getBoundingClientRect();
+      return Math.abs(rect.x + rect.width / 2 - (body.x + body.width / 2));
+    });
+  await expect.poll(() => centerOffset()).toBeLessThan(1);
+  await expect(editor.locator('[data-image-resize-corner]:visible')).toHaveCount(4);
+  const corner = editor.locator('[data-image-resize-corner="bottom-right"]');
+  const handle = (await corner.boundingBox())!;
+  const originalSize = (await image.boundingBox())!;
+  await master.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await master.mouse.down();
+  await master.mouse.move(handle.x + handle.width / 2 + 50, handle.y + handle.height / 2 + 5);
+  const previewSize = (await image.boundingBox())!;
+  expect(previewSize.width).toBeGreaterThan(originalSize.width);
+  expect(previewSize.height / previewSize.width).toBeCloseTo(
+    originalSize.height / originalSize.width,
+  );
+  await master.mouse.up();
+  await expect.poll(() => centerOffset()).toBeLessThan(1);
   await expect.poll(() => readTabContent(master, id, 'Geral')).toContain('24px');
+  await expect.poll(() => readTabContent(master, id, 'Geral')).toContain('"align":"center"');
+  await expect
+    .poll(() => readTabContent(master, id, 'Geral'))
+    .toContain(`"width":${previewSize.width}`);
   await expect(panel.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible();
   await master.screenshot({ path: testInfo.outputPath('document-toolbar-and-table.png') });
   await master.reload();
@@ -78,6 +112,9 @@ test('rich document formats a selection, expands a table, and survives reload', 
   await expect(restored.locator('strong')).toHaveText('Carta');
   await expect(restored.locator('tr')).toHaveCount(3);
   await expect(restored.locator('img')).toHaveCount(1);
+  await expect(restored.locator('img')).toHaveCSS('width', `${previewSize.width}px`);
+  await expect.poll(() => centerOffset(restored.locator('img'))).toBeLessThan(1);
+  await expect(restored.locator('[data-image-resize-corner]:visible')).toHaveCount(0);
   await expect
     .poll(() =>
       restored

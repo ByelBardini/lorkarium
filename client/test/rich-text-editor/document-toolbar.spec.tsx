@@ -148,6 +148,7 @@ describe('DocumentToolbar, the selected image', () => {
   });
 
   it('changes only the selected image and keeps its layout in the saved content', async () => {
+    expect(screen.queryByRole('button', { name: 'Opções de parágrafo' })).not.toBeInTheDocument();
     const width = screen.getByRole('spinbutton', { name: 'Largura da imagem em pixels' });
     await userEvent.type(width, '240{Enter}');
     await userEvent.click(screen.getByRole('button', { name: 'Alinhamento da imagem' }));
@@ -157,15 +158,13 @@ describe('DocumentToolbar, the selected image', () => {
       { type: 'image', attrs: { assetId, alt: 'Primeira' } },
       { type: 'image', attrs: { assetId, alt: 'Segunda', width: 240, align: 'right' } },
     ]);
-    expect(screen.getByRole('img', { name: 'Segunda' })).toHaveStyle({
-      width: '240px',
-      height: 'auto',
-      marginLeft: 'auto',
-    });
+    const image = screen.getByRole('img', { name: 'Segunda' });
+    expect(image).toHaveStyle({ width: '240px' });
+    expect(image.closest('.document-image')).toHaveAttribute('data-align', 'right');
 
     await userEvent.click(screen.getByRole('button', { name: 'Alinhamento da imagem' }));
     await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Centralizado' }));
-    expect(screen.getByRole('img', { name: 'Segunda' })).toHaveStyle({ marginInline: 'auto' });
+    expect(image.closest('.document-image')).toHaveAttribute('data-align', 'center');
 
     await userEvent.click(screen.getByRole('button', { name: 'Alinhamento da imagem' }));
     await userEvent.click(await screen.findByRole('menuitemradio', { name: 'À esquerda' }));
