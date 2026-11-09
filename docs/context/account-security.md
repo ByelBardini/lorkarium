@@ -31,6 +31,7 @@ Detalhe: [`account-security/fluxos.md`](account-security/fluxos.md) — ordem de
 | `POST /account/recovery/check` **(pública)** | 200 `{ recovery: { kind, email } }` (`email` mascarado ou `null`) | 400 · 404 `RECOVERY_TOKEN_INVALID` (inexistente, usado ou vencido) · 429 (10/min por IP)                  |
 | `POST /account/recovery` **(pública)**       | 204 + `lk_session` expirado; todas as sessões caem                | 400 · 404 `RECOVERY_TOKEN_INVALID` · 409 `EMAIL_TAKEN` (o e-mail antigo virou de outra conta) · 429       |
 
+- `revoke-others` também apaga o pedido de troca de e-mail pendente, que a sessão expulsa pode ter feito; encerrar **uma** sessão não apaga. `EMAIL_TOKEN_INVALID` vale ainda para o pedido feito antes da última troca de senha: a confirmação compara `users.password_changed_at` com o `created_at` do pedido.
 - As 4 rotas do 2FA têm 5/min por usuário, cada rota com seu contador (o `@fastify/rate-limit` cria um store por rota).
 - O error handler traduz `AccountSecurityError` e também `AuthError` (o código errado vem do `TwoFactorCheckService` do auth): aqui `TWO_FACTOR_CODE_INVALID` é **403** (a sessão vale; no login é 401). Mensagem pública fixa por código; a interna (ids, endereços) só no log.
 - Senha atual errada é sempre **403**: o client lê 401 como sessão caída.

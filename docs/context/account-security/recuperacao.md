@@ -6,7 +6,7 @@ Detalhe do hub [`account-security.md`](../account-security.md). Os avisos de tro
 
 - `account_recovery_tokens`: `id` = SHA-256 do token (PK; o token só viaja no e-mail), `user_id` → `users.id` **on delete cascade** (índice `account_recovery_tokens_user_id_idx`; vários links por conta), `kind` enum `account_recovery_kind` (`cancel-email-change` | `revert-email-change` | `revert-password-change`), `email_cipher`/`email_index` nulos, `expires_at`, `created_at`.
 - `CHECK account_recovery_tokens_email_only_on_revert`: o endereço existe **se e só se** `kind = 'revert-email-change'`. Ele é o e-mail **antigo**, selado como `user-email` com o id da conta como contexto (`toSealedEmail`), então a volta copia as duas colunas para `users` como estão.
-- DAO `AccountRecoveryTokensDao` (`insert`, `findById`, `deleteById` → `boolean`, `deleteAllOf(userId)` → contagem), sobre `DatabaseExecutor` (aceita `tx`).
+- DAO `AccountRecoveryTokensDao` (`insert`, `findById`, `deleteById` → `boolean`, `deleteIssuedSince(userId, desde)` → contagem), sobre `DatabaseExecutor` (aceita `tx`).
 
 ## Quem emite qual `kind`
 
@@ -21,7 +21,7 @@ Detalhe do hub [`account-security.md`](../account-security.md). Os avisos de tro
 ## `recover(token, senhaNova)`
 
 1. Fora da transação: acha o token pelo hash (ausente → `RECOVERY_TOKEN_INVALID`), `AccountRecoveryBo.requireUsable(agora)` (`agora ≥ expires_at` → o mesmo código) e o Argon2 da senha nova.
-2. Numa transação (`RecoveryTransactionRunner`, DAOs sobre o `tx`): `deleteById(hash)` é a posse do link (`false` = outro pedido usou antes → `RECOVERY_TOKEN_INVALID`) → `revert-email-change`: o índice antigo de outra conta → `EMAIL_TAKEN` (e o `23505` do `updateEmail` também), senão regrava `email_cipher`/`email_index` → apaga o pedido de troca pendente → `updatePassword(hash, agora)` → `AuthSessionsDao.deleteAllOf` (guarda os ids) → `TwoFactorChallengesDao.deleteAllOf` (um login do invasor pode estar na 2ª etapa) → `deleteAllOf` dos tokens da conta (é isso que faz o link do dono original ganhar quando o invasor trocou o e-mail duas vezes: usar o de A mata o de B).
+2. Numa transação (`RecoveryTransactionRunner`, DAOs sobre o `tx`): `deleteById(hash)` é a posse do link (`false` = outro pedido usou antes → `RECOVERY_TOKEN_INVALID`) → `revert-email-change`: o índice antigo de outra conta → `EMAIL_TAKEN` (e o `23505` do `updateEmail` também), senão regrava `email_cipher`/`email_index` → apaga o pedido de troca pendente → `updatePassword(hash, agora)` → `AuthSessionsDao.deleteAllOf` (guarda os ids) → `TwoFactorChallengesDao.deleteAllOf` (um login do invasor pode estar na 2ª etapa) → `PasswordResetsDao.deleteOfUser` (o link de nova senha pendente) → `deleteIssuedSince(conta, created_at do link)`: morrem só os links emitidos junto com ele ou depois. É o que faz o link do dono original ganhar quando o invasor trocou o e-mail duas vezes: usar o de A mata o de B; usar o de B, que pode ter ido a um endereço do invasor, não mata o de A.
 3. Depois do commit: `sessionEnded(id)` de cada sessão apagada. A rota expira o `lk_session` (`app.authGuards.clearSessionCookie`).
 
 O 2FA **não** é tocado: desligar por e-mail furaria o segundo fator (conta em que o invasor ligou o próprio 2FA fica com o admin). `EMAIL_TAKEN` desfaz tudo (o link continua valendo).
@@ -33,5 +33,5 @@ O 2FA **não** é tocado: desligar por e-mail furaria o segundo fator (conta em 
 ## Testes
 
 - Unit: `server/test/modules/account-security/account-recovery.{bo,service}.spec.ts` (fakes; a transação é um runner que escreve `commit` no diário, e o `sessionEnded` só aparece depois dele).
-- Integração: `account-recovery-dao.spec.ts` (hash, isolamento por conta, cascade, o `CHECK`) e `account-recovery.spec.ts` (links tirados do `MailerFake`: os três `kind`, precedência A→B→C, vencido, `EMAIL_TAKEN` desfeito, isolamento, 2FA mantido, 429 por IP).
+- Integração: `account-recovery-dao.spec.ts` (hash, isolamento por conta, cascade, o `CHECK`) e `account-recovery.spec.ts` (links tirados do `MailerFake`: os três `kind`, precedência A→B→C nos dois sentidos, vencido, `EMAIL_TAKEN` desfeito, isolamento, 2FA mantido, 429 por IP).
 - Client: `client/test/features/account/account-recovery-page.spec.tsx` e os casos de `checkRecovery`/`recover` em `client/test/services/account-security-api.spec.ts`.

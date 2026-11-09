@@ -4,7 +4,7 @@ Os links de uso único do backoffice: o **convite** (7 dias; a pessoa escolhe o 
 
 ## Estrutura
 
-- PO/DAO `invitations.{po,dao}.ts` (`insert`, `listPending` com o @ de quem convidou, `findListing`, `findByTokenHash`, `findByEmailIndex`, `renew` → `boolean`, `delete` → `boolean`) e `password-resets.{po,dao}.ts` (`replace` — upsert por `user_id` com `id` novo —, `findByTokenHash`, `delete` → `boolean`, `deleteOfUser`). Os dois sobre `DatabaseExecutor`.
+- PO/DAO `invitations.{po,dao}.ts` (`insert`, `listPending` com o @ de quem convidou, `findListing`, `findByTokenHash`, `findByEmailIndex`, `renew` → `boolean`, `delete` → `boolean`, `deleteAdminRoleIssuedBy`) e `password-resets.{po,dao}.ts` (`replace` — upsert por `user_id` com `id` novo —, `findByTokenHash`, `delete` → `boolean`, `deleteOfUser`). Os dois sobre `DatabaseExecutor`.
 - `account-link.bo.ts` — `INVITATION_TTL_MS` (7 dias), `PASSWORD_RESET_TTL_MS` (1 h), `linkExpiry`, `AccountLinkBo.requireUsableAt(agora)` (`agora ≥ expires_at` → `ACCOUNT_LINK_INVALID` citando id e prazo; vale em **todo** caminho: inspect, aceitar, concluir — CVE-2023-48220), `requireOtherAccount`.
 - `account-links.mapper.ts` — `invitationEmailOf`, `toAdminInvitationDto`, `termsAcceptanceAt(agora)` (`{ termsAcceptedAt, termsVersion: LEGAL_DOCUMENTS_VERSION }`), `toAccountLinkBo`, `linkOf(publicUrl, '/invite' | '/reset-password', token)` (token no fragmento, codificado).
 - `invitations.service.ts` (`listPending`, `invite`, `resend`, `cancel`, `inspect`, `accept`) e `password-resets.service.ts` (`issue`, `inspect`, `complete`).
@@ -38,8 +38,9 @@ Limites: emitir, reenviar e gerar link, 20 por 10 min **por admin** (`perUserRat
 - `inspect(token)`: o e-mail e `suggestedUsername` = `usernameFromEmail` contra os @ tomados (`usernamesStartingWith`).
 - `accept`: convite vivo → Argon2 **antes** da transação → na transação `delete` do convite (a posse; `false` = já usado → `ACCOUNT_LINK_INVALID`) → `users.insert` com `name = username`, o e-mail selado como `user-email`, o papel do convite e o aceite dos Termos de uso e da Política de privacidade (`termsAcceptanceAt(agora)`: `terms_accepted_at` e `terms_version` = a versão em vigor no server, nunca uma que o client diga; o client só manda `acceptedTerms: true`, a caixa que a pessoa marcou — o clickwrap, ver [`legal.md`](legal.md)) (`users_username_unique` → `USERNAME_TAKEN`, o índice do e-mail → `EMAIL_TAKEN`; os dois desfazem tudo e o convite continua valendo) → depois do commit `AuthService.startSession` (exposto pelo `createAuthModule` como `sessions`) e o cookie por `app.authGuards.setSessionCookie`.
 - `issue(admin, userId)`: não a si → conta existe → ativa (`requireActive`; suspensa = 409) → `replace` (um por conta) → e-mail "Crie uma senha nova no Lorkarium" → `{ link, expiresAt }`. A senha atual vale até a troca.
-- `complete(token, senha)`: link vivo → Argon2 → transação (`delete` do link como posse → `updatePassword(agora)` → `AuthSessionsDao.deleteAllOf`) → `sessionEnded` de cada → aviso "Sua senha do Lorkarium foi trocada" com o link "Não fui eu" (`AccountRecoveryService.issue`). O 2FA continua ligado.
+- `complete(token, senha)`: link vivo → Argon2 → transação (`delete` do link como posse → `updatePassword(agora)` → apaga o pedido de troca de e-mail e os desafios de 2FA pendentes → `AuthSessionsDao.deleteAllOf`) → `sessionEnded` de cada → aviso "Sua senha do Lorkarium foi trocada" com o link "Não fui eu" (`AccountRecoveryService.issue`). O 2FA continua ligado.
 - A suspensão (no `user-admin`) apaga o link de nova senha pendente.
+- Rebaixar, suspender ou excluir um admin apaga, na mesma transação, os convites `role = admin` que ele emitiu: o aceite só confia no papel gravado. Os convites de papel `user` ficam.
 
 ## Testes
 
