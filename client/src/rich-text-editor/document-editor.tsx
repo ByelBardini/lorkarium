@@ -53,6 +53,20 @@ export default function DocumentEditor(props: DocumentEditorProps) {
       }
     },
     editorProps: {
+      handleKeyDown: (view, event) => {
+        if (
+          !view.editable ||
+          !props.onInsertImage ||
+          !event.ctrlKey ||
+          event.altKey ||
+          event.shiftKey ||
+          event.metaKey ||
+          event.key.toLowerCase() !== 'i'
+        )
+          return false;
+        if (!event.repeat) openImagePicker();
+        return true;
+      },
       handleClick: (_view, _position, event) => {
         const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
         const href = link?.getAttribute('href');
@@ -117,6 +131,11 @@ export default function DocumentEditor(props: DocumentEditorProps) {
     editor.commands.setContent(props.content, { emitUpdate: false });
   }, [editor, props.content]);
 
+  function openImagePicker(): void {
+    const pick = props.onInsertImage;
+    if (pick) void insertImages(async () => [await pick()]);
+  }
+
   async function insertImages(load: () => Promise<(DocumentEditorImage | null)[]>): Promise<void> {
     if (!editor || !editor.isEditable) return;
     const bookmark = editor.state.selection.getBookmark();
@@ -150,13 +169,7 @@ export default function DocumentEditor(props: DocumentEditorProps) {
       {props.editable && (
         <DocumentToolbar
           editor={editor}
-          insertImage={
-            props.onInsertImage
-              ? () => {
-                  void insertImages(async () => [await props.onInsertImage!()]);
-                }
-              : undefined
-          }
+          insertImage={props.onInsertImage ? openImagePicker : undefined}
         />
       )}
       {notice && (

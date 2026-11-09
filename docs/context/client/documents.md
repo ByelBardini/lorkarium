@@ -13,6 +13,7 @@ Hub: [`../client.md`](../client.md). Contratos e autorização: [`../documents.m
 - Espaçamento compacto: entrelinha padrão 1,15 (`.document-prose` e `DEFAULT_LINE_HEIGHT` da toolbar andam juntos) e 0,35em entre blocos. A entrelinha por parágrafo/título (1 · 1,15 · 1,5 · 2) é um select sempre visível na toolbar; alinhamento e recuo ficam no popover “Opções de parágrafo”. O texto ocupa a largura do painel, com 24px no topo e 32px nas laterais (16px abaixo de 640px).
 - `document-content-adapter.ts` remove atributos de renderização/defaults nulos antes de validar pelo contrato compartilhado. O JSON persistido não inclui `src`, eventos ou atributos HTML arbitrários; imagem armazena somente `assetId` e apresentação permitida. O adaptador resolve a URL autenticada apenas no DOM.
 - Imagens HTML coladas são removidas antes do parser; URLs HTTP(S) são importadas por callback. Arquivos colados/soltos usam callback de envio. O texto colado segue o parser do subconjunto habilitado. Falha de imagem conserva texto e mostra aviso. Um bookmark guarda seleção durante o seletor/envio; respostas após desmontagem ou perda de edição não inserem imagem.
+- Ao selecionar uma imagem, a barra mostra a largura em pixels (campo vazio restaura o tamanho original) e o alinhamento à esquerda, centralizado ou à direita. A largura respeita a área disponível, mantém a proporção e é salva com o alinhamento na própria imagem.
 - `DocumentEditorMenu` oferece Recortar/Copiar/Colar/Selecionar tudo somente no contenteditable da casca desktop. Usa a seleção do editor e clipboard do projeto, sem ampliar o menu global de input/textarea. A colagem textual pelo menu insere nó de texto, sem interpretar HTML.
 - Limites de conteúdo pertencem ao contrato; erro de validação não envia conteúdo inválido e pede desfazer a alteração. Sem colaboração CRDT/OT, hotlink, HTML bruto ou mescla de célula.
 
@@ -31,6 +32,7 @@ Hub: [`../client.md`](../client.md). Contratos e autorização: [`../documents.m
 - Em timeout, relê o documento antes de repetir a tentativa idempotente. Conflito permanece suspenso através de invalidações; “Carregar versão atual” confirma descarte. Perda de edição conserva rascunho copiável e muda a leitura; 404/401 limpa todo o conteúdo. Resposta depois da saída não repõe o estado.
 - `features/documents/document-panel.tsx` carrega editor sob demanda, escoa pendências ao fechar/trocar e pede continuar ou descartar quando não consegue salvar. `beforeunload` só enquanto há rascunho. Logout/saída desmonta a instância. Compartilhamento e exclusão passam pelas actions da biblioteca; edição usa fluxo serializado próprio.
 - `DocumentImagePicker` (recebe o `tabId`) reutiliza `ImagePicker` com um adaptador para as rotas de imagem da aba; o seletor também aceita os itens autorizados da biblioteca. Uma falha mantém o texto e permite corrigir a origem.
+- Com foco no corpo editável, `Ctrl+I` abre o mesmo seletor do botão “Inserir imagem”, usando a seleção atual. O atalho tem precedência sobre o itálico do Tiptap, que continua disponível na toolbar.
 - Fakes: `DocumentsApiFake`, `documents-fixtures.ts` e `InteractionClockFake`. Specs de store/API/painel cobrem debounce, digitação durante envio, conflito repetido, timeout, leitura revogada, leitor e fechamento offline.
 
 ## Abas e janelas do documento
@@ -59,7 +61,7 @@ Hub: [`../client.md`](../client.md). Contratos e autorização: [`../documents.m
 - A seleção nativa pode anteceder a seleção ProseMirror por um evento. `captureDocumentSelection` usa a seleção dentro do editor antes de a toolbar tomar foco; a toolbar assina transações separadamente, sem refazer o editor inteiro a cada seleção.
 
 - A lista de um `<select>` nativo sai branca no Chromium, fora do tema escuro (com ou sem `style` nas `<option>`): escolhas da toolbar vão no `ToolbarMenuSelect`, nunca num `<select>`.
-- Span colado sem tamanho ou cor chega do Tiptap com `fontSize: ''`/`color: ''`, não `null`: o adaptador descarta `''` e textStyle vazio, senão a colagem falha no contrato e o documento para de salvar.
+- Na colagem rica, o Tiptap pode ler cores RGB, tamanhos em pontos, recuo `auto` e marcas em `<br>`. As extensões convertem cores RGB e tamanhos absolutos ao formato do contrato, ignorando estilos sem equivalente. O adaptador descarta valores vazios, `textStyle` vazio e marcas de quebras de linha. Sem essa normalização, até um título curto pode ser recusado e disparar o aviso de limites.
 
 - O `receipt.version` de `tab-content` é a versão **da aba**: o rascunho compara com `tab.version` para saber se a resposta repetida está velha. Se vier a do documento, todo salvamento de aba vira conflito.
 

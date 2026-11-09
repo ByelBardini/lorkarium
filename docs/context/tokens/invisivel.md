@@ -59,3 +59,4 @@ Sem escondido tocado o véu é `NO_VEIL` e o diário dos services é o de sempre
 ## Armadilhas
 
 - Num público que deixa de ver um escondido e continua vendo outro no **mesmo** comando (controlador de um só), o evento é o `token:deletedMany`; o `hidden` do que ele continua vendo só se atualiza no próximo snapshot (não cabem dois eventos na mesma versão).
+- O ack ao mestre pode chegar antes de `token:deletedMany` ao jogador. Nos specs, espere pelo evento no recorder original. Uma cópia feita com `slice` fica parada e perde eventos que chegam depois.

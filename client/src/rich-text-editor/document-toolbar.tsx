@@ -38,6 +38,7 @@ import {
 import { captureDocumentSelection } from './document-selection';
 import { DocumentFontSize } from './document-font-size';
 import { DocumentFontPicker } from './document-font-picker';
+import { DocumentImageControls } from './document-image-controls';
 import { ToolbarMenuSelect, type ToolbarMenuOption } from './toolbar-menu-select';
 
 type ToolbarActionProps = {
@@ -46,6 +47,7 @@ type ToolbarActionProps = {
   run: () => void;
   active?: boolean;
   disabled?: boolean;
+  shortcut?: string;
 };
 function ToolbarAction({
   label,
@@ -53,6 +55,7 @@ function ToolbarAction({
   run,
   active,
   disabled,
+  shortcut,
 }: ToolbarActionProps): React.JSX.Element {
   return (
     <Tooltip>
@@ -63,6 +66,7 @@ function ToolbarAction({
           size="icon-sm"
           aria-label={label}
           aria-pressed={active}
+          aria-keyshortcuts={shortcut?.replace('Ctrl+', 'Control+')}
           disabled={disabled}
           className="text-muted-foreground aria-pressed:bg-primary/10 aria-pressed:text-primary"
           onMouseDown={(event) => event.preventDefault()}
@@ -73,6 +77,7 @@ function ToolbarAction({
       </TooltipTrigger>
       <TooltipContent side="bottom" sideOffset={8}>
         {label}
+        {shortcut && <kbd>{shortcut}</kbd>}
       </TooltipContent>
     </Tooltip>
   );
@@ -216,7 +221,9 @@ export function DocumentToolbar({
           icon={ImagePlusIcon}
           run={() => insertImage?.()}
           disabled={!insertImage}
+          shortcut={insertImage ? 'Ctrl+I' : undefined}
         />
+        <DocumentImageControls editor={editor} />
         <ToolbarAction
           label="Inserir tabela"
           icon={Table2Icon}

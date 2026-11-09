@@ -81,6 +81,20 @@ describe('documentExtensions', () => {
       { type: 'text', text: 'B' },
     ]);
   });
+  it('keeps text and line breaks when pasted styling cannot be represented', () => {
+    const editor = editingLetter();
+    editor.commands.setContent(
+      '<p style="margin-left:auto"><span style="color:rgba(255, 0, 0, 0.5);font-size:1em"><strong>Primeira<br>Segunda</strong></span></p>',
+    );
+    expect(documentContentFromEditor(editor.getJSON()).content[0]).toEqual({
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Primeira', marks: [{ type: 'bold' }] },
+        { type: 'hardBreak' },
+        { type: 'text', text: 'Segunda', marks: [{ type: 'bold' }] },
+      ],
+    });
+  });
   it('adds a third table row while preserving the first cell text', () => {
     const editor = editingLetter();
     editor.commands.setContent({

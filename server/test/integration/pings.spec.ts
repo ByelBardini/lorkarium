@@ -1,5 +1,6 @@
 import { boardPingedDto, pingAckDto, type PingAckDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { ClockFake } from '../support/auth-fakes';
 import { gridAck, newGrid } from '../support/grids';
 import { envelope, eventPayload, silence, synced } from '../support/live-table';
 import {
@@ -10,7 +11,7 @@ import {
 import type { Table } from '../support/tables';
 import { useTokenTable } from '../support/token-table';
 
-const live = useTokenTable();
+const live = useTokenTable(new ClockFake(new Date()));
 
 type Emit = (event: string, payload: object) => Promise<unknown>;
 

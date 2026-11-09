@@ -1,4 +1,4 @@
-import { tokensCreatedDto, type BoardStateDto } from '@lorkarium/contracts';
+import { tokensCreatedDto, tokensDeletedDto, type BoardStateDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   expectNoTrace,
@@ -94,18 +94,16 @@ describe('token:setHiddenMany over Socket.IO', () => {
   it('the Lobo on the turn of the combat: Caio sees nobody on the turn and no entry of the Lobo', async () => {
     const table = await hiddenTable(live, false);
     await startCombat(table);
-    const before = table.caio.events.length;
 
-    await send(table.ana.client, 'token:setHiddenMany', hide(table));
+    expect(await send(table.ana.client, 'token:setHiddenMany', hide(table))).toMatchObject({
+      ok: true,
+    });
 
-    const deleted = (await eventPayload(
-      { ...table.caio, events: table.caio.events.slice(before) },
-      'token:deletedMany',
-    )) as {
-      combat: { currentCombatantId: string | null; combatants: { tokenIds: string[] }[] };
-    };
-    expect(deleted.combat.currentCombatantId).toBeNull();
-    expect(deleted.combat.combatants.map(({ tokenIds }) => tokenIds)).toEqual([[table.kaelId]]);
+    const deleted = tokensDeletedDto.parse(await eventPayload(table.caio, 'token:deletedMany'));
+    expect(deleted).toMatchObject({
+      tokenIds: [table.loboId],
+      combat: { currentCombatantId: null, combatants: [{ tokenIds: [table.kaelId] }] },
+    });
     expect(JSON.stringify(deleted.combat)).not.toContain(table.loboId);
   });
 
