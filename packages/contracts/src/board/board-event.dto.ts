@@ -11,6 +11,12 @@ export const boardCommandShape = {
   sceneId: z.uuid().optional(),
 };
 
+/** Only the table a command names, read before the full (and costlier) DTO of that command; the
+ *  other fields pass through unread.
+ *
+ *  Example: `boardCommandTableDto.parse(payload).campaignId` */
+export const boardCommandTableDto = z.object({ campaignId: z.uuid() });
+
 /** Fields of every board event: the table, the grid it happened on, the version it produced
  *  and when (§5.5). The client routes each event to the store of its grid by `sceneId`.
  *

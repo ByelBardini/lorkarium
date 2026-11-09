@@ -38,7 +38,8 @@ export function fullBucket(nowMs: number, limits: CommandRateLimits = BOARD_RATE
 
 /** Whether one more command of a connection passes the limit. The time comes in, so the rule
  *  has no clock; the bucket refills at `limits.perSecond` up to `limits.burst` (20 a second up to
- *  40 by default).
+ *  40 by default). A command costs `cost` tokens; one that cannot pay takes nothing, and one
+ *  costing more than `burst` never passes.
  *
  *  Example: `const outcome = new CommandRateBo(bucket, DICE_RATE).take(clock.now().getTime())` */
 export class CommandRateBo {
@@ -47,18 +48,18 @@ export class CommandRateBo {
     private readonly limits: CommandRateLimits = BOARD_RATE,
   ) {}
 
-  take(nowMs: number): CommandRateOutcome {
+  take(nowMs: number, cost = 1): CommandRateOutcome {
     const { burst, perSecond } = this.limits;
     const elapsedMs = Math.max(0, nowMs - this.bucket.updatedAtMs);
     const refilled = Math.min(burst, this.bucket.tokens + (elapsedMs * perSecond) / 1000);
-    if (refilled >= 1) {
+    if (refilled >= cost) {
       return {
         allowed: true,
-        bucket: { tokens: refilled - 1, updatedAtMs: nowMs },
+        bucket: { tokens: refilled - cost, updatedAtMs: nowMs },
         retryAfterSeconds: 0,
       };
     }
-    const waitMs = ((1 - refilled) * 1000) / perSecond;
+    const waitMs = ((cost - refilled) * 1000) / perSecond;
     return {
       allowed: false,
       bucket: { tokens: refilled, updatedAtMs: nowMs },

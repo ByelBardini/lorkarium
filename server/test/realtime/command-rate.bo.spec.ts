@@ -24,6 +24,24 @@ describe('CommandRateBo', () => {
     expect([COMMANDS_PER_SECOND, COMMAND_BURST]).toEqual([20, 40]);
   });
 
+  it('a command of cost 5 takes five tokens', () => {
+    const outcome = new CommandRateBo(fullBucket(T0)).take(T0, 5);
+    expect(outcome.allowed).toBe(true);
+    expect(outcome.bucket.tokens).toBe(COMMAND_BURST - 5);
+  });
+
+  it('a cost the bucket cannot pay now is refused without draining it, with when to retry', () => {
+    const emptied = burst(40).bucket;
+    const outcome = new CommandRateBo(emptied).take(T0, 40);
+    expect(outcome.allowed).toBe(false);
+    expect(outcome.bucket.tokens).toBe(emptied.tokens);
+    expect(outcome.retryAfterSeconds).toBe(2);
+  });
+
+  it('a cost larger than the whole bucket never passes', () => {
+    expect(new CommandRateBo(fullBucket(T0)).take(T0, COMMAND_BURST + 1).allowed).toBe(false);
+  });
+
   it('40 commands at once all pass', () => {
     expect(burst(40).allowed).toBe(true);
   });
