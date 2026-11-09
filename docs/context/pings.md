@@ -36,3 +36,7 @@ DTOs em [`contracts/ping.md`](contracts/ping.md): `board:ping` (`pingCommandDto`
 - E2E: `e2e/test/pings.spec.ts` (grupo `scene`, ver [`ci/e2e.md`](ci/e2e.md)).
 - Integração: `server/test/integration/pings.spec.ts` (`useTokenTable`, `socket.io-client` real): a Bia e o Caio ouvem o ping da Ana no grid do grupo e a Ana só recebe o ack; Torre privada aberta → a outra conexão da Ana ouve, a Bia não; a Bia na Torre privada → `SCENE_NOT_FOUND`; mesa fora da conexão → `CAMPAIGN_NOT_FOUND`; `userId` forjado e `x` acima do teto → `INVALID_BODY`; a Quelm não ouve nada (critério 14); 5 pings não mudam a versão do `board:sync`; o 39º de uma rajada (depois do join e de um sync) → `RATE_LIMITED`.
 - Unit: `server/test/modules/pings/pings.service.spec.ts`, com `GridAudienceFake` e `PingPublisherFake` (`server/test/support/pings-fakes.ts`), `MembershipReadsFake` e `ClockFake`.
+
+## Armadilhas
+
+- O teste do 39º ping usa `ClockFake` no app desde o join. Com o relógio real, 50 ms podem repor um comando enquanto o socket processa a rajada e mudar qual ping é recusado.
