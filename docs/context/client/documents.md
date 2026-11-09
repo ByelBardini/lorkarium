@@ -31,6 +31,7 @@ Hub: [`../client.md`](../client.md). Contratos e autorização: [`../documents.m
 - Em timeout, relê o documento antes de repetir a tentativa idempotente. Conflito permanece suspenso através de invalidações; “Carregar versão atual” confirma descarte. Perda de edição conserva rascunho copiável e muda a leitura; 404/401 limpa todo o conteúdo. Resposta depois da saída não repõe o estado.
 - `features/documents/document-panel.tsx` carrega editor sob demanda, escoa pendências ao fechar/trocar e pede continuar ou descartar quando não consegue salvar. `beforeunload` só enquanto há rascunho. Logout/saída desmonta a instância. Compartilhamento e exclusão passam pelas actions da biblioteca; edição usa fluxo serializado próprio.
 - `DocumentImagePicker` (recebe o `tabId`) reutiliza `ImagePicker` com um adaptador para as rotas de imagem da aba; o seletor também aceita os itens autorizados da biblioteca. Uma falha mantém o texto e permite corrigir a origem.
+- Com foco no corpo editável, `Ctrl+I` abre o mesmo seletor do botão “Inserir imagem”, usando a seleção atual. O atalho tem precedência sobre o itálico do Tiptap, que continua disponível na toolbar.
 - Fakes: `DocumentsApiFake`, `documents-fixtures.ts` e `InteractionClockFake`. Specs de store/API/painel cobrem debounce, digitação durante envio, conflito repetido, timeout, leitura revogada, leitor e fechamento offline.
 
 ## Abas e janelas do documento

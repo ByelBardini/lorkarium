@@ -231,4 +231,19 @@ describe('authorized document panel', () => {
       GENERAL_TAB_ID,
     ]);
   });
+  it('opens the image picker with Ctrl+I in the document body', async () => {
+    const layout = new RangeLayoutStub();
+    layout.install();
+    onTestFinished(() => layout.remove());
+    await openDocument();
+    const body = await screen.findByRole('textbox', { name: 'Conteúdo do documento' });
+    const italic = screen.getByRole('button', { name: 'Itálico' });
+    await act(async () => body.focus());
+    await userEvent.keyboard('{Control>}i{/Control}');
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Inserir imagem no documento' }),
+    ).toBeVisible();
+    expect(italic).toHaveAttribute('aria-pressed', 'false');
+  });
 });

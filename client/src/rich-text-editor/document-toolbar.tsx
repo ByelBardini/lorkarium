@@ -46,6 +46,7 @@ type ToolbarActionProps = {
   run: () => void;
   active?: boolean;
   disabled?: boolean;
+  shortcut?: string;
 };
 function ToolbarAction({
   label,
@@ -53,6 +54,7 @@ function ToolbarAction({
   run,
   active,
   disabled,
+  shortcut,
 }: ToolbarActionProps): React.JSX.Element {
   return (
     <Tooltip>
@@ -63,6 +65,7 @@ function ToolbarAction({
           size="icon-sm"
           aria-label={label}
           aria-pressed={active}
+          aria-keyshortcuts={shortcut?.replace('Ctrl+', 'Control+')}
           disabled={disabled}
           className="text-muted-foreground aria-pressed:bg-primary/10 aria-pressed:text-primary"
           onMouseDown={(event) => event.preventDefault()}
@@ -73,6 +76,7 @@ function ToolbarAction({
       </TooltipTrigger>
       <TooltipContent side="bottom" sideOffset={8}>
         {label}
+        {shortcut && <kbd>{shortcut}</kbd>}
       </TooltipContent>
     </Tooltip>
   );
@@ -216,6 +220,7 @@ export function DocumentToolbar({
           icon={ImagePlusIcon}
           run={() => insertImage?.()}
           disabled={!insertImage}
+          shortcut={insertImage ? 'Ctrl+I' : undefined}
         />
         <ToolbarAction
           label="Inserir tabela"
