@@ -25,6 +25,7 @@ import { StorageFake } from '../support/storage-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
 import { LYRA_SHEET_ID } from '../support/sheet-fixtures';
+import { mapChanged, mapRegionShown } from '../support/library-map-fixtures';
 import {
   LYRA_ID,
   VHARN_SCENE,
@@ -192,6 +193,41 @@ describe('scene tabs store', () => {
     const table = openVharn();
     api.emitTo(VHARN.id, { kind: 'libraryChanged', event: libraryChanged() });
     expect(tabsOf(table).getState().libraryRevision).toBe(1);
+  });
+
+  it('library:mapChanged grows the map revision and leaves the library one alone', () => {
+    const table = openVharn();
+    api.emitTo(VHARN.id, { kind: 'mapChanged', event: mapChanged() });
+    expect(tabsOf(table).getState().mapRevision).toBe(1);
+    expect(tabsOf(table).getState().libraryRevision).toBe(0);
+  });
+
+  it('library:mapRegionShown is kept as a new object per event, so each one is seen', () => {
+    const table = openVharn();
+    const seen: unknown[] = [];
+    tabsOf(table).subscribe((state, previous) => {
+      if (state.regionShown !== previous.regionShown) seen.push(state.regionShown);
+    });
+    api.emitTo(VHARN.id, { kind: 'mapRegionShown', event: mapRegionShown() });
+    api.emitTo(VHARN.id, { kind: 'mapRegionShown', event: mapRegionShown() });
+    expect(seen).toHaveLength(2);
+    expect(tabsOf(table).getState().mapRevision).toBe(0);
+  });
+
+  it('scene:activated counts every time the group is taken to a grid', () => {
+    const table = openVharn();
+    api.emitTo(VHARN.id, { kind: 'sceneActivated', event: sceneActivated() });
+    api.emitTo(VHARN.id, { kind: 'sceneActivated', event: sceneActivated() });
+    expect(tabsOf(table).getState().sceneActivations).toBe(2);
+  });
+
+  it('a table opens not having arrived at the main map', () => {
+    expect(tabsOf(openVharn()).getState().arrivedAtHome).toBe(false);
+  });
+
+  it('a reload (a new store over the same storage) has not arrived either', () => {
+    tabsOf(openVharn()).setState({ arrivedAtHome: true });
+    expect(tabsOf(openVharn()).getState().arrivedAtHome).toBe(false);
   });
 
   describe('after an F5', () => {

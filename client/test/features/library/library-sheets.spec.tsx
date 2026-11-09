@@ -8,7 +8,15 @@ import { charactersSynced, kaelCharacter } from '../../support/character-fixture
 import { DataTransferFake } from '../../support/data-transfer-fake';
 import { ATO_1, masterLibrary, playerLibrary } from '../../support/library-fixtures';
 import { openLibrary, type LibraryRoomOptions } from '../../support/library-harness';
-import { menuItemNames, openTreeMenu, treeItem, treeItemNames } from '../../support/library-tree';
+import {
+  menuItemNames,
+  newItemDialog,
+  openTreeMenu,
+  pickNewItemKind,
+  startHeaderNewItem,
+  treeItem,
+  treeItemNames,
+} from '../../support/library-tree';
 import {
   GOBLIN_SHEET_ID,
   LYRA_SHEET_ID,
@@ -221,8 +229,8 @@ describe('sheets in the library', () => {
 
 describe('a new sheet from the library', () => {
   async function fillNewSheet(name: string, holder: string): Promise<HTMLElement> {
-    const dialog = await screen.findByRole('dialog', { name: 'Nova ficha' });
-    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Nome da ficha' }), name);
+    const dialog = await newItemDialog();
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Nome' }), name);
     expect(within(dialog).getByRole('combobox', { name: 'Modelo' })).toHaveTextContent(
       'Ficha Tormenta',
     );
@@ -245,10 +253,9 @@ describe('a new sheet from the library', () => {
       ok: true,
       value: masterLibrary({ sheetTemplates: [tormentaSummary()], sheets: [CAIO_SHEET] }),
     });
-    await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Nova ficha' }));
+    await startHeaderNewItem('Ficha');
     const dialog = await fillNewSheet('Kael de Vharn', 'Caio (Kael)');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar ficha' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
     await waitFor(() => expect(deps.sheetsApi.creates).toHaveLength(1));
     expect(deps.sheetsApi.creates[0]).toEqual({
       actionId: expect.any(String),
@@ -260,13 +267,14 @@ describe('a new sheet from the library', () => {
     await waitFor(() => expect(treeItem('Kael de Vharn')).toHaveAttribute('aria-selected', 'true'));
   });
 
-  it('"Nova ficha aqui" of a folder makes it there, held by nobody', async () => {
+  it('"Criar novo item" of a folder makes it there, held by nobody', async () => {
     const deps = withSheets([]);
     await openWithHolders(deps);
     const menu = await openTreeMenu(treeItem('Ato 1'));
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Nova ficha aqui' }));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Criar novo item' }));
+    await pickNewItemKind('Ficha');
     const dialog = await fillNewSheet('Capitão', 'Ninguém (só mestres)');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar ficha' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
     await waitFor(() => expect(deps.sheetsApi.creates).toHaveLength(1));
     expect(deps.sheetsApi.creates[0]).toEqual({
       actionId: expect.any(String),
@@ -280,12 +288,10 @@ describe('a new sheet from the library', () => {
     const deps = withSheets([]);
     deps.sheetsApi.createResult = { ok: false, failure: { kind: 'member_not_found' } };
     await openWithHolders(deps);
-    await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Nova ficha' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Nova ficha' });
-    expect(within(dialog).getByRole('button', { name: 'Criar ficha' })).toBeDisabled();
+    const dialog = await startHeaderNewItem('Ficha');
+    expect(within(dialog).getByRole('button', { name: 'Criar' })).toBeDisabled();
     await fillNewSheet('Kael de Vharn', 'Caio (Kael)');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar ficha' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
     expect(await screen.findByText('Esse jogador não está mais na mesa.')).toBeInTheDocument();
   });
 });

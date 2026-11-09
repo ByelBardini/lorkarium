@@ -158,7 +158,7 @@ export class DocumentsService {
       const access = await this.steps.lockedAccess(daos, requester);
       await this.editedTab(await this.steps.scopeOf(daos, access, documentId), tabId);
       const row = await daos.images.findInCampaign(requester.campaignId, imageId);
-      if (!row || (!access.isMaster() && row.image.visibility !== 'public'))
+      if (!row || (!access.isMaster() && (row.image.visibility !== 'public' || row.hiddenByFolder)))
         throw new LibraryImageNotFoundError(requester.campaignId, imageId);
       await daos.assets.prepare(requester.campaignId, documentId, tabId, row.asset.id);
       return toAssetDto(row.asset);

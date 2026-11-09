@@ -1,4 +1,5 @@
 import type { SceneBackgroundDto, SceneVisionDto } from '@lorkarium/contracts';
+import { isProtectedAssetPurpose } from '../assets/asset-upload.bo';
 import type { AssetsDao } from '../assets/assets.dao';
 import { AssetNotFoundError } from '../assets/assets.error';
 import type { ClockPort } from '../auth/clock.port';
@@ -81,7 +82,12 @@ async function savedConfigOf(
     backgroundAssetId: background?.assetId ?? null,
     visionMode: request.vision ?? scene.visionMode,
   };
-  return { ...(await daos.scenes.update(scene.id, config)), ...pixelsOf(background) };
+  const { hiddenByFolder } = scene;
+  return {
+    ...(await daos.scenes.update(scene.id, config)),
+    ...pixelsOf(background),
+    hiddenByFolder,
+  };
 }
 
 // Only an asset of the scene's own campaign may become its background (§2.6).
@@ -93,8 +99,7 @@ async function backgroundFor(
   if (choice === undefined) return backgroundOfScene(scene);
   if (choice === null) return null;
   const asset = await assets.findInCampaign(scene.campaignId, choice);
-  if (!asset || asset.purpose === 'library_image' || asset.purpose === 'document_image')
-    throw new AssetNotFoundError(choice);
+  if (!asset || isProtectedAssetPurpose(asset.purpose)) throw new AssetNotFoundError(choice);
   return { assetId: asset.id, width: asset.width, height: asset.height };
 }
 

@@ -22,7 +22,7 @@ import type {
   CharacterWriteDaos,
 } from '../../src/modules/characters/characters.service';
 import type { SheetsDao } from '../../src/modules/sheets/sheets.dao';
-import type { SheetPo } from '../../src/modules/sheets/sheets.po';
+import type { SheetRow } from '../../src/modules/sheets/sheets.dao';
 import { formRowsOf } from '../../src/modules/tokens/token-forms.dao';
 import type { BarValuesPo, TokenFormInputPo } from '../../src/modules/tokens/tokens.po';
 import { characterBarPo, characterPo } from './characters-factories';
@@ -210,7 +210,7 @@ function barOf(characterId: string, bar: CharacterBarInputPo, position: number):
 
 /** No sheet at all: what a characters transaction reads when the spec gives it no sheets. */
 export class NoSheetsDaoFake implements Pick<SheetsDao, 'find'> {
-  async find(): Promise<SheetPo | undefined> {
+  async find(): Promise<SheetRow | undefined> {
     return undefined;
   }
 }

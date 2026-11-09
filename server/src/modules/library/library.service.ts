@@ -1,4 +1,5 @@
 import type { LibraryImagesDao } from './library-images.dao';
+import type { LibraryMapsDao } from '../library-maps/library-maps.dao';
 import type { DocumentsDao } from '../documents/documents.dao';
 import type { SheetTemplatesDao } from '../sheets/sheet-templates.dao';
 import type { SheetsDao } from '../sheets/sheets.dao';
@@ -50,6 +51,7 @@ export type LibraryWriteDaos = Readonly<{
   sheetTemplates?: Pick<SheetTemplatesDao, 'moveFromFolder'>;
   sheets?: Pick<SheetsDao, 'moveFromFolder'>;
   images?: Pick<LibraryImagesDao, 'moveFromFolder'>;
+  maps?: Pick<LibraryMapsDao, 'moveFromFolder'>;
   campaigns: Pick<CampaignsDao, 'lockById'>;
   folders: Pick<
     SceneFoldersDao,
@@ -107,7 +109,7 @@ type LibraryEdit = Readonly<{
 
 // Who loses a grid by an edit, taken out of its rooms once the edit is committed.
 type Eviction = Omit<GridEviction, 'campaignId' | 'at'>;
-type EvictingResult<T> = Readonly<{ value: T; eviction: Eviction | null }>;
+type EvictingResult<T> = Readonly<{ value: T; evictions: readonly Eviction[] }>;
 // A grid edited, with the version a new name bumped it to (`null` when the name stayed).
 type SceneEdit = Readonly<{ row: LibrarySceneRow; renamedVersion: number | null }>;
 
@@ -173,9 +175,10 @@ export class LibraryService {
     const renamedVersion =
       changes.name === undefined ? null : await daos.scenes.bumpVersion(sceneId);
     const row = await this.sceneRowOf(daos, requester, sceneId);
-    const hidden = changes.visibility === 'private' && sceneId !== groupSceneId;
-    const eviction = hidden ? ({ sceneId, audience: 'players', reason: 'private' } as const) : null;
-    return { value: { row, renamedVersion }, eviction };
+    const movedIntoPrivate = changes.folderId !== undefined && row.hiddenByFolder;
+    const hidden =
+      (changes.visibility === 'private' || movedIntoPrivate) && sceneId !== groupSceneId;
+    return { value: { row, renamedVersion }, evictions: hidden ? [playersOut(sceneId)] : [] };
   }
 
   private publishRename(campaignId: string, version: number, row: LibrarySceneRow): void {
@@ -192,7 +195,7 @@ export class LibraryService {
       const deleted = await daos.scenes.delete(requester.campaignId, sceneId);
       if (!deleted) throw this.sceneNotFound(requester, sceneId);
       const eviction = { sceneId, audience: 'everyone', reason: 'deleted' } as const;
-      return { value: undefined, eviction };
+      return { value: undefined, evictions: [eviction] };
     });
   }
 
@@ -219,29 +222,37 @@ export class LibraryService {
       const parentId = input.parentId ?? null;
       library.requireCreateIn(parentId);
       const { campaignId } = requester;
+      const visibility = input.visibility ?? 'public';
       return toSceneFolderDto(
-        await daos.folders.insert({ campaignId, name: input.name, parentId }),
+        await daos.folders.insert({ campaignId, name: input.name, parentId, visibility }),
       );
     });
   }
 
-  /** Renames and/or moves a folder; never into its own subtree nor past the depth limit. */
+  /** Renames, moves and/or publishes or hides a folder; never into its own subtree nor past the
+   *  depth limit. Who has open a grid the edit hid is taken out of it (`scene:closed`,
+   *  reason `private`). */
   async updateFolder(
     requester: LibraryRequester,
     folderId: string,
     changes: UpdateSceneFolderRequestDto,
   ): Promise<SceneFolderDto> {
-    return this.edit(requester, `edit folder ${folderId}`, async ({ daos, library }) => {
+    const action = `edit folder ${folderId}`;
+    return this.editAndEvict(requester, action, async ({ daos, library }) => {
       if (changes.parentId !== undefined) library.requireMove(folderId, changes.parentId);
       const { campaignId } = requester;
       const saved = await daos.folders.update(campaignId, folderId, changes);
       if (!saved) throw new FolderNotFoundError(campaignId, folderId);
-      return toSceneFolderDto(saved);
+      const mayHide = changes.visibility === 'private' || changes.parentId !== undefined;
+      const hiddenIds = mayHide
+        ? library.gridsHiddenBy(await daos.scenes.listOfCampaign(campaignId))
+        : [];
+      return { value: toSceneFolderDto(saved), evictions: hiddenIds.map(playersOut) };
     });
   }
 
-  /** Deletes a folder; its subfolders, grids, images, documents, sheet templates and sheets go up to its
-   *  parent, and none of them is deleted. */
+  /** Deletes a folder; its subfolders, grids, images, maps, documents, sheet templates and sheets
+   *  go up to its parent, and none of them is deleted. */
   async deleteFolder(requester: LibraryRequester, folderId: string): Promise<void> {
     await this.edit(requester, `delete folder ${folderId}`, async ({ daos, library }) => {
       const removal = library.removal(folderId);
@@ -249,6 +260,7 @@ export class LibraryService {
       await daos.folders.moveChildren(campaignId, removal.childFolderIds, removal.parentId);
       await daos.scenes.moveScenes(campaignId, removal.sceneIds, removal.parentId);
       await daos.images?.moveFromFolder(campaignId, folderId, removal.parentId);
+      await daos.maps?.moveFromFolder(campaignId, folderId, removal.parentId);
       await daos.documents?.moveFromFolder(campaignId, folderId, removal.parentId);
       await daos.sheetTemplates?.moveFromFolder(campaignId, folderId, removal.parentId);
       await daos.sheets?.moveFromFolder(campaignId, folderId, removal.parentId);
@@ -262,7 +274,7 @@ export class LibraryService {
     work: (edit: LibraryEdit) => Promise<T>,
   ): Promise<T> {
     return this.editAndEvict(requester, action, async (edit) => {
-      return { value: await work(edit), eviction: null };
+      return { value: await work(edit), evictions: [] };
     });
   }
 
@@ -276,7 +288,7 @@ export class LibraryService {
     const { userId, campaignId } = requester;
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster(action);
-    const { value, eviction } = await this.deps.transaction(async (daos) => {
+    const { value, evictions } = await this.deps.transaction(async (daos) => {
       const campaign = await daos.campaigns.lockById(campaignId);
       if (!campaign) throw new CampaignNotFoundError({ campaignId, userId });
       const groupSceneId = campaign.activeSceneId;
@@ -284,7 +296,8 @@ export class LibraryService {
       return work({ daos, library, groupSceneId });
     });
     const at = this.deps.clock.now().toISOString();
-    if (eviction) await this.deps.audience.evict({ ...eviction, campaignId, at });
+    for (const eviction of evictions)
+      await this.deps.audience.evict({ ...eviction, campaignId, at });
     this.deps.publisher.libraryChanged({ campaignId, at });
     return value;
   }
@@ -321,6 +334,10 @@ export class LibraryService {
   private sceneNotFound(requester: LibraryRequester, sceneId: string): SceneNotFoundError {
     return new SceneNotFoundError(requester.campaignId, sceneId, requester.userId);
   }
+}
+
+function playersOut(sceneId: string): Eviction {
+  return { sceneId, audience: 'players', reason: 'private' };
 }
 
 // One table after the other on the same `tx`; the order is the one the journal of the spec pins.

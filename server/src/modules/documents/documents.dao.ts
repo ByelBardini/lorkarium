@@ -1,4 +1,5 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, sql } from 'drizzle-orm';
+import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import {
   libraryDocuments,
@@ -11,16 +12,21 @@ import {
 } from './documents.po';
 
 export type DocumentSummaryPo = Omit<DocumentPo, 'createdBy' | 'createdAt'>;
+/** A document as its gates read it: the row and whether a private folder above it hides it. */
+export type DocumentRow = DocumentPo & Readonly<{ hiddenByFolder: boolean }>;
+const HIDDEN_BY_FOLDER = hiddenByFolderSql('"library_documents"."folder_id"');
 export class DocumentsDao {
   constructor(private readonly db: DatabaseExecutor) {}
-  async findInCampaign(campaignId: string, documentId: string): Promise<DocumentPo | undefined> {
+  async findInCampaign(campaignId: string, documentId: string): Promise<DocumentRow | undefined> {
     const [row] = await this.db
-      .select()
+      .select({ ...getTableColumns(libraryDocuments), hiddenByFolder: HIDDEN_BY_FOLDER })
       .from(libraryDocuments)
       .where(and(eq(libraryDocuments.campaignId, campaignId), eq(libraryDocuments.id, documentId)));
     return row;
   }
-  async listOfCampaign(campaignId: string): Promise<DocumentSummaryPo[]> {
+  async listOfCampaign(
+    campaignId: string,
+  ): Promise<(DocumentSummaryPo & Readonly<{ hiddenByFolder: boolean }>)[]> {
     const t = libraryDocuments;
     return this.db
       .select({
@@ -31,6 +37,7 @@ export class DocumentsDao {
         visibility: t.visibility,
         version: t.version,
         updatedAt: t.updatedAt,
+        hiddenByFolder: HIDDEN_BY_FOLDER,
       })
       .from(t)
       .where(eq(t.campaignId, campaignId))

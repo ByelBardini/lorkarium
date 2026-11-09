@@ -1,5 +1,12 @@
 import { useMemo, useRef } from 'react';
-import { ChevronDownIcon, FileCode2Icon, FileTextIcon, ScrollTextIcon, XIcon } from 'lucide-react';
+import {
+  ChevronDownIcon,
+  FileCode2Icon,
+  FileTextIcon,
+  MapIcon,
+  ScrollTextIcon,
+  XIcon,
+} from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,7 +67,9 @@ export function SceneTabs({ tabs, documents, campaignId }: SceneTabsProps): Reac
     moreWidth: MORE_BUTTON_WIDTH + STRIP_GAP,
     gap: TAB_GAP,
   });
-  const split = splitTabsToFit(keys, fit, [GROUP_TAB, activeDocument ?? visibleKey]);
+  // The main map can be what is active without being in the strip.
+  const pinned = activeDocument && keys.includes(activeDocument) ? activeDocument : visibleKey;
+  const split = splitTabsToFit(keys, fit, [GROUP_TAB, pinned]);
   const showScene = (key: string): void => {
     if (campaignId) documents?.getState().activate(campaignId, null);
     tabs.getState().show(key);
@@ -205,7 +214,7 @@ function DocumentTabItem({
       </button>
       <button
         type="button"
-        aria-label={entry.kind === 'document' ? `Fechar documento ${title}` : `Fechar ${title}`}
+        aria-label={`Fechar ${CLOSE_PREFIX[entry.kind]}${title}`}
         onClick={onClose}
         className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
       >
@@ -219,11 +228,20 @@ const KIND_NAME: Readonly<Record<WorkspaceItem['kind'], string>> = {
   document: 'Documento',
   sheet: 'Ficha',
   'sheet-template': 'Modelo de ficha',
+  map: 'Mapa',
+};
+// A sheet's and a template's title already say what they are ("Ficha · Lyra").
+const CLOSE_PREFIX: Readonly<Record<WorkspaceItem['kind'], string>> = {
+  document: 'documento ',
+  sheet: '',
+  'sheet-template': '',
+  map: 'mapa ',
 };
 const KIND_ICON = {
   document: FileTextIcon,
   sheet: ScrollTextIcon,
   'sheet-template': FileCode2Icon,
+  map: MapIcon,
 } as const;
 
 function WorkspaceItemIcon({ item }: Readonly<{ item: WorkspaceItem }>): React.JSX.Element {
@@ -231,7 +249,8 @@ function WorkspaceItemIcon({ item }: Readonly<{ item: WorkspaceItem }>): React.J
   return <Icon aria-hidden="true" className="size-3.5 shrink-0" />;
 }
 
-// The documents, the sheets, then the templates of this table, each list in the order opened.
+// The documents, the sheets, the templates, then the map of this table, each list in the order
+// opened. The main map is the home of the table, not something opened: the table's name is its tab.
 function useWorkspaceItemsOf(
   workspace: StoreApi<DocumentWorkspaceStore> | undefined,
   campaignId: string | undefined,
@@ -239,9 +258,13 @@ function useWorkspaceItemsOf(
   const documents = useDocumentWorkspaceSlice(workspace, (state) => state.entries, NO_ITEMS);
   const sheets = useDocumentWorkspaceSlice(workspace, (state) => state.sheets, NO_ITEMS);
   const templates = useDocumentWorkspaceSlice(workspace, (state) => state.templates, NO_ITEMS);
+  const maps = useDocumentWorkspaceSlice(workspace, (state) => state.maps, NO_ITEMS);
   return useMemo(
-    () => [...documents, ...sheets, ...templates].filter((item) => item.campaign.id === campaignId),
-    [documents, sheets, templates, campaignId],
+    () =>
+      [...documents, ...sheets, ...templates, ...maps].filter(
+        (item) => item.campaign.id === campaignId && !(item.kind === 'map' && item.showsMainMap),
+      ),
+    [documents, sheets, templates, maps, campaignId],
   );
 }
 

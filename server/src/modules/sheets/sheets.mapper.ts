@@ -9,7 +9,7 @@ import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import { SceneAccessBo } from '../scenes/scene-access.bo';
 import type { TokenControl } from '../tokens/token-access.bo';
 import { SheetAccessBo, type SheetHolderReach } from './sheet-access.bo';
-import type { SheetHolderPlacePo, SheetPlacesPo, TokenPlacePo } from './sheets.dao';
+import type { SheetHolderPlacePo, SheetPlacesPo, SheetRow, TokenPlacePo } from './sheets.dao';
 import type { SheetPo } from './sheets.po';
 
 /** The access of one reader to a sheet, from the row and the place of its holder (`null` = the
@@ -18,11 +18,18 @@ import type { SheetPo } from './sheets.po';
  *  Example: `toSheetAccessBo(access, sheet, { character: lyraPlace }).canEdit()` */
 export function toSheetAccessBo(
   access: CampaignAccessBo,
-  sheet: SheetPo,
+  sheet: SheetRow,
   place: SheetHolderPlacePo | null,
 ): SheetAccessBo {
   const holder = place ? toHolderReach(access, place) : null;
-  return new SheetAccessBo(access, { sheetId: sheet.id, visibility: sheet.visibility, holder });
+  const hiddenByFolder = sheet.hiddenByFolder || isHolderGridHidden(place);
+  const { id: sheetId, visibility } = sheet;
+  return new SheetAccessBo(access, { sheetId, visibility, holder, hiddenByFolder });
+}
+
+// The group grid stays in reach even inside a private folder, and so do the sheets on it.
+function isHolderGridHidden(place: SheetHolderPlacePo | null): boolean {
+  return place !== null && 'token' in place && place.token.hiddenByFolder && !place.token.isActive;
 }
 
 function toHolderReach(access: CampaignAccessBo, place: SheetHolderPlacePo): SheetHolderReach {
@@ -36,7 +43,8 @@ function toTokenControl(place: TokenPlacePo): TokenControl {
 
 function isTokenSeen(access: CampaignAccessBo, place: TokenPlacePo): boolean {
   const groupSceneId = place.isActive ? place.sceneId : null;
-  const grid = { id: place.sceneId, visibility: place.visibility };
+  // A private folder does not take a sheet from who controls its token: `isHolderGridHidden`.
+  const grid = { id: place.sceneId, visibility: place.visibility, hiddenByFolder: false };
   return new SceneAccessBo(access, groupSceneId).canSee(grid);
 }
 
@@ -89,7 +97,7 @@ export function toSheetDto(
  *  Example: `readableSheetSummaries(caioAccess, sheets, places) // only the table ones he sees` */
 export function readableSheetSummaries(
   access: CampaignAccessBo,
-  sheets: readonly SheetPo[],
+  sheets: readonly SheetRow[],
   places: SheetPlacesPo,
 ): SheetSummaryDto[] {
   return sheets.flatMap((sheet) => readableLineOf(access, sheet, holderPlaceIn(sheet, places)));
@@ -100,7 +108,7 @@ export function readableSheetSummaries(
  *  Example: `readableHolderSheets(caioAccess, lyraSheets, { character: lyraPlace })` */
 export function readableHolderSheets(
   access: CampaignAccessBo,
-  sheets: readonly SheetPo[],
+  sheets: readonly SheetRow[],
   place: SheetHolderPlacePo,
 ): SheetSummaryDto[] {
   return sheets.flatMap((sheet) => readableLineOf(access, sheet, place));
@@ -108,7 +116,7 @@ export function readableHolderSheets(
 
 function readableLineOf(
   access: CampaignAccessBo,
-  sheet: SheetPo,
+  sheet: SheetRow,
   place: SheetHolderPlacePo | null,
 ): SheetSummaryDto[] {
   if (!toSheetAccessBo(access, sheet, place).canRead()) return [];

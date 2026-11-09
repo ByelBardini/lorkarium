@@ -2,6 +2,7 @@ import type {
   DocumentSummaryDto,
   LibraryDto,
   LibraryImageDto,
+  LibraryMapSummaryDto,
   LibrarySceneDto,
   SheetSummaryDto,
   SheetTemplateSummaryDto,
@@ -9,6 +10,7 @@ import type {
 import { isSpareSheet } from './sheet-holder';
 
 export type ImageEntry = LibraryImageDto & Readonly<{ kind: 'image' }>;
+export type MapEntry = LibraryMapSummaryDto & Readonly<{ kind: 'map' }>;
 export type DocumentEntry = DocumentSummaryDto & Readonly<{ kind: 'document' }>;
 // A template is the masters' only: it sits in the tree as a private item.
 export type SheetTemplateEntry = SheetTemplateSummaryDto &
@@ -23,15 +25,17 @@ export type SheetEntry = Omit<SheetSummaryDto, 'visibility'> &
     holderLabel: string;
   }>;
 export type LibraryEntry =
-  LibrarySceneDto | ImageEntry | DocumentEntry | SheetTemplateEntry | SheetEntry;
+  LibrarySceneDto | ImageEntry | MapEntry | DocumentEntry | SheetTemplateEntry | SheetEntry;
 export type MixedLibrary = LibraryDto &
   Readonly<{
     images?: readonly LibraryImageDto[];
+    maps?: readonly LibraryMapSummaryDto[];
     documents?: readonly DocumentSummaryDto[];
     sheetTemplates?: readonly SheetTemplateSummaryDto[];
     sheets?: readonly SheetSummaryDto[];
   }>;
-export type LibraryTypeFilter = 'all' | 'grid' | 'image' | 'document' | 'sheet-template' | 'sheet';
+export type LibraryTypeFilter =
+  'all' | 'grid' | 'image' | 'map' | 'document' | 'sheet-template' | 'sheet';
 
 /** The tree's line about who holds a sheet. Example: `(sheet) => sheetHolderLabel(sheet, names)` */
 export type SheetHolderLabeler = (sheet: SheetSummaryDto) => string;
@@ -82,6 +86,18 @@ export function imageIdOf(key: string | null): string | null {
   return key?.startsWith('image:') ? key.slice(6) : null;
 }
 
+const MAP_KEY_PREFIX = 'map:';
+
+/** The tree item of a map. Example: `mapKey(map.id) // 'map:<id>'`. */
+export function mapKey(id: string): string {
+  return `${MAP_KEY_PREFIX}${id}`;
+}
+
+/** Reads a map selection. Example: `mapIdOf('map:m1') // 'm1'`. */
+export function mapIdOf(key: string | null): string | null {
+  return key?.startsWith(MAP_KEY_PREFIX) ? key.slice(MAP_KEY_PREFIX.length) : null;
+}
+
 /** Adapts mixed media to the existing structural tree. Example: `libraryEntries(library, 'image')`. */
 export function libraryEntries(
   library: MixedLibrary,
@@ -101,10 +117,15 @@ export function libraryEntries(
   return [
     ...(type === 'all' || type === 'grid' ? library.scenes : []),
     ...(type === 'all' || type === 'image' ? images : []),
+    ...(type === 'all' || type === 'map' ? mapEntries(library) : []),
     ...(type === 'all' || type === 'document' ? documents : []),
     ...(type === 'all' || type === 'sheet-template' ? templateEntries(library) : []),
     ...(type === 'all' || type === 'sheet' ? sheetEntries(library, holderLabel) : []),
   ];
+}
+
+function mapEntries(library: MixedLibrary): MapEntry[] {
+  return (library.maps ?? []).map((map) => ({ ...map, id: mapKey(map.id), kind: 'map' }));
 }
 
 function sheetEntries(library: MixedLibrary, holderLabel: SheetHolderLabeler): SheetEntry[] {

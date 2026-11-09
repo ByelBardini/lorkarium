@@ -27,7 +27,7 @@ export function toLibrarySceneDto(row: LibrarySceneRow, seesTokenCount: boolean)
  *
  *  Example: `toSceneFolderDto(row).parentId // null at the root` */
 export function toSceneFolderDto(row: SceneFolderPo): SceneFolderDto {
-  return { id: row.id, name: row.name, parentId: row.parentId };
+  return { id: row.id, name: row.name, parentId: row.parentId, visibility: row.visibility };
 }
 
 /** What the rule let a member see → the body of `GET …/scenes`.

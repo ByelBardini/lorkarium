@@ -63,7 +63,7 @@ export class SceneActivationService {
     if (previousId === sceneId) return null;
     await daos.campaigns.setActiveScene(campaignId, sceneId);
     const previous = previousId ? await daos.scenes.findInCampaign(campaignId, previousId) : null;
-    const playersKeepTabs = previous?.visibility === 'public';
+    const playersKeepTabs = previous?.visibility === 'public' && !previous.hiddenByFolder;
     return {
       campaignId,
       sceneId,

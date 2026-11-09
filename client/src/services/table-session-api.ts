@@ -15,6 +15,8 @@ import type {
   SessionRemovedFromTableDto,
   SessionCampaignUpdatedDto,
   LibraryChangedDto,
+  LibraryMapChangedDto,
+  LibraryMapRegionShownDto,
   ImagePresentationChangedDto,
   SceneActivatedDto,
   SceneClosedDto,
@@ -79,6 +81,10 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'sceneClosed'; event: SceneClosedDto }>
   /** Something in the library changed: read it again by its route. */
   | Readonly<{ kind: 'libraryChanged'; event: LibraryChangedDto }>
+  /** A map of the library was written (no content): whoever shows it reads it again by its route. */
+  | Readonly<{ kind: 'mapChanged'; event: LibraryMapChangedDto }>
+  /** The master took whoever is in the room to a place on a map (nothing of its content). */
+  | Readonly<{ kind: 'mapRegionShown'; event: LibraryMapRegionShownDto }>
   /** A sheet of the table changed (no values): whoever shows it reads it again by its route. */
   | Readonly<{ kind: 'sheetChanged'; event: SheetChangedEventDto }>
   | Readonly<{ kind: 'imagePresentationChanged'; event: ImagePresentationChangedDto }>;

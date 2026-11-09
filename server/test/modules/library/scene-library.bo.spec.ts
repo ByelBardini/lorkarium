@@ -15,8 +15,13 @@ function folder(id: string, parentId: string | null = null): LibraryFolderState 
   return { id, parentId };
 }
 
-function scene(id: string, folderId: string | null, visibility: 'private' | 'public') {
-  return { id, folderId, visibility } satisfies LibrarySceneState;
+function scene(
+  id: string,
+  folderId: string | null,
+  visibility: 'private' | 'public',
+  hiddenByFolder = false,
+) {
+  return { id, folderId, visibility, hiddenByFolder } satisfies LibrarySceneState;
 }
 
 // Ato 1 › Masmorra · Ato 2 (only private grids) · Mundo › Cidades · d1 › d2 › d3 › d4 › d5 · s1 › s2
@@ -48,6 +53,34 @@ const LIBRARY = new SceneLibraryBo({
   maxFolderDepth: SCENE_FOLDER_DEPTH_MAX,
   folders: FOLDERS,
   scenes: SCENES,
+});
+
+describe('SceneLibraryBo.gridsHiddenBy', () => {
+  const hiddenNow = (id: string) => ({ id, hiddenByFolder: true });
+
+  it('names a public grid the edit hid', () => {
+    expect(LIBRARY.gridsHiddenBy([hiddenNow(ESTRADA.id)])).toEqual([ESTRADA.id]);
+  });
+
+  it('leaves out a grid no player reached before', () => {
+    expect(LIBRARY.gridsHiddenBy([hiddenNow(CRIPTA.id)])).toEqual([]);
+  });
+
+  it('leaves out the group grid, which stays in reach', () => {
+    const group = scene('grupo', 'cidades', 'public');
+    const library = new SceneLibraryBo({
+      campaignId: VHARN_ID,
+      activeSceneId: group.id,
+      maxFolderDepth: SCENE_FOLDER_DEPTH_MAX,
+      folders: FOLDERS,
+      scenes: [group],
+    });
+    expect(library.gridsHiddenBy([hiddenNow(group.id)])).toEqual([]);
+  });
+
+  it('leaves out a public grid that stayed in reach', () => {
+    expect(LIBRARY.gridsHiddenBy([{ id: ESTRADA.id, hiddenByFolder: false }])).toEqual([]);
+  });
 });
 
 function accessOf(userId: string, role: 'master' | 'player'): SceneAccessBo {

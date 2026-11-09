@@ -1,4 +1,5 @@
 import {
+  MAP_NAME_MAX_LENGTH,
   SCENE_FOLDER_NAME_MAX_LENGTH,
   SCENE_NAME_MAX_LENGTH,
   SHEET_NAME_MAX_LENGTH,
@@ -14,11 +15,20 @@ import {
   FileTextIcon,
   FileCode2Icon,
   LockIcon,
+  MapIcon,
   ScrollTextIcon,
+  StarIcon,
   UsersIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { documentIdOf, imageIdOf, sheetIdOf, type LibraryEntry } from '@/lib/library-entries';
+import {
+  documentIdOf,
+  imageIdOf,
+  mapIdOf,
+  sheetIdOf,
+  type LibraryEntry,
+  type MapEntry,
+} from '@/lib/library-entries';
 import type { FolderNode } from '@/lib/folder-tree';
 import { cn } from '@/lib/utils';
 import { folderDescription, sceneDescription } from './library-messages';
@@ -95,8 +105,9 @@ export function FolderItem({
       itemKey={key}
       label={node.folder.name}
       level={node.depth}
-      description={folderDescription(node.sceneCount, node.holdsGroupGrid)}
+      description={folderLine(node)}
       count={node.sceneCount}
+      isPrivate={node.folder.visibility === 'private'}
       expanded={expandable ? open : undefined}
       icon={open ? <FolderOpenIcon aria-hidden="true" /> : <FolderIcon aria-hidden="true" />}
     >
@@ -112,6 +123,11 @@ export function FolderItem({
       )}
     </TreeRow>
   );
+}
+
+function folderLine(node: LibraryNode): string {
+  const line = folderDescription(node.sceneCount, node.holdsGroupGrid);
+  return node.folder.visibility === 'private' ? `${line} · privada` : line;
 }
 
 /** "Sem pasta", with the grids that have no folder while it is expanded.
@@ -164,6 +180,7 @@ function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Elem
             level={level}
             description={look.description}
             live={look.isGroupGrid}
+            mainMap={look.isMainMap}
             isPrivate={look.showsLock && scene.visibility === 'private'}
             icon={look.icon}
           />
@@ -177,6 +194,7 @@ type EntryLook = Readonly<{
   description: string;
   icon: ReactNode;
   isGroupGrid: boolean;
+  isMainMap?: boolean;
   /** Templates and sheets say who sees them in the description, without the lock. */
   showsLock: boolean;
 }>;
@@ -189,6 +207,7 @@ function entryLookOf(entry: LibraryEntry, context: TreeContext): EntryLook {
     isGroupGrid: false,
     showsLock,
   });
+  if ('kind' in entry && entry.kind === 'map') return mapLookOf(entry, shown);
   if ('kind' in entry && entry.kind === 'sheet')
     return look(entry.holderLabel, <ScrollTextIcon aria-hidden="true" />, false);
   if ('kind' in entry && entry.kind === 'sheet-template')
@@ -197,6 +216,16 @@ function entryLookOf(entry: LibraryEntry, context: TreeContext): EntryLook {
     return look(`Documento · ${shown}`, <FileTextIcon aria-hidden="true" />);
   if ('asset' in entry) return look(`Imagem · ${shown}`, <ImageIcon aria-hidden="true" />);
   return gridLookOf(entry, context);
+}
+
+function mapLookOf(map: MapEntry, shown: string): EntryLook {
+  return {
+    description: `Mapa · ${shown}${map.isMain ? ' · Principal' : ''}`,
+    icon: <MapIcon aria-hidden="true" />,
+    isGroupGrid: false,
+    isMainMap: map.isMain,
+    showsLock: true,
+  };
 }
 
 function gridLookOf(scene: LibrarySceneDto, context: TreeContext): EntryLook {
@@ -221,6 +250,8 @@ type TreeRowProps = Readonly<{
   count?: number;
   /** The group grid: marked with the people icon. */
   live?: boolean;
+  /** The table's main map: marked with the star. */
+  mainMap?: boolean;
   isPrivate?: boolean;
   /** `undefined` for an item that cannot expand (a grid, an empty folder). */
   expanded?: boolean;
@@ -307,6 +338,7 @@ function ItemName(props: TreeRowLineProps): React.JSX.Element {
     <>
       <span className="min-w-0 flex-1 truncate">{props.label}</span>
       {props.isPrivate && <LockIcon aria-hidden="true" className="opacity-50" />}
+      {props.mainMap && <StarIcon aria-hidden="true" className="text-primary" />}
       {props.live && <UsersIcon aria-hidden="true" className="text-primary" />}
       {props.count !== undefined && (
         <span aria-hidden="true" className="text-xs text-muted-foreground tabular-nums">
@@ -335,6 +367,7 @@ function ItemRename({ context, itemKey, label }: TreeRowLineProps): React.JSX.El
 }
 
 function renameFieldOf(itemKey: string): Readonly<{ label: string; maxLength: number }> {
+  if (mapIdOf(itemKey)) return { label: 'Nome do mapa', maxLength: MAP_NAME_MAX_LENGTH };
   if (sheetIdOf(itemKey)) return { label: 'Nome da ficha', maxLength: SHEET_NAME_MAX_LENGTH };
   if (documentIdOf(itemKey))
     return { label: 'Nome do documento', maxLength: SCENE_FOLDER_NAME_MAX_LENGTH };

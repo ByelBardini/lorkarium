@@ -325,6 +325,20 @@ Extensão aprovada em 31/10/2026. O mestre (co-mestre incluso) escreve na biblio
 
 Contratos, tabelas, rotas e provas: [context/sheets.md](context/sheets.md). Fora desta entrega: API de chat, condições, combate ou mover token, rede dentro da ficha, modelo escrito por jogador, importação de fichas de outros VTTs e histórico de versões do modelo.
 
+### 3.13. Mapas interativos na biblioteca
+
+Extensão aprovada em 09/11/2026. O mestre (co-mestre incluso) cria na biblioteca mapas com imagem própria (até 8192 px e 20 MiB) e desenha sobre eles **lugares**: polígonos ou pinos com nome, descrição, cor e, no pino, um ícone. Cada lugar pode levar a um documento, grid, imagem ou outro mapa. Ciclos entre mapas valem. Coordenadas normalizadas (0 a 1) sobre a imagem, e cada lugar grava ao confirmar.
+
+- **Explorar.** Um clique abre, ao lado do ponto, um cartão com nome, descrição e "Abrir"; o duplo clique abre o item. Grid abre em aba pessoal e nunca move o grupo; outro mapa abre na mesma aba, com trilha e voltar. "Lugares neste mapa" lista em hierarquia, cada lugar dentro da região que o contém, com busca.
+- **Spoilers.** Lugar oculto nunca chega ao jogador. Lugar visível com item que o jogador não pode abrir mostra "O mestre ainda não revelou isto", sem nome, tipo ou id do item. A permissão é sempre a do item ligado, calculada no servidor para cada leitor; o aviso por socket não leva nome nem forma.
+- **Principal.** Um mapa por mesa pode ser o Principal (garantido por índice único no banco): abre sozinho na chegada e volta ao clicar no nome da mesa. Enquanto for Principal, todos o veem, mesmo privado, e excluí-lo é recusado. Com o mapa aberto, ativar um grid leva a sala de volta a ele.
+- **Item excluído.** O lugar fica, sem link, e o mestre vê "Link removido".
+- **Mostrar a todos.** Evento efêmero que abre o mapa e centraliza o lugar para quem está na sala; recusado se os jogadores não puderem vê-lo.
+- **Aparece em.** O documento lista os lugares que levam a ele, filtrados pelo que o leitor pode ver.
+- **Limites.** Nome de 1 a 60 caracteres, descrição até 500, 300 lugares por mapa, polígono de 3 a 128 vértices.
+
+Contratos, tabelas, rotas e provas: [context/library-maps.md](context/library-maps.md). Fora desta entrega: camadas e grupos de marcadores, cursores e ping no mapa, janela separada no desktop, ficha como alvo de link, edição por jogadores, imagem em ladrilhos, troca da imagem de um mapa já criado, duplicar e exportar.
+
 ## 4. Tecnologias
 
 ### 4.1. Frontend

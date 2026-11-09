@@ -3,11 +3,17 @@ import { SceneNotFoundError } from './scenes.error';
 
 export type GridVisibility = 'private' | 'public';
 
-/** What decides who reaches a grid: which one it is and whether it is public. */
-export type GridReach = Readonly<{ id: string; visibility: GridVisibility }>;
+/** What decides who reaches a grid: which one it is, whether it is public and whether a private
+ *  folder above it hides it. */
+export type GridReach = Readonly<{
+  id: string;
+  visibility: GridVisibility;
+  hiddenByFolder: boolean;
+}>;
 
 /** Who sees and acts in each grid of the table: the master in any; a player in the group grid
- *  (even while private) and in public ones. `groupSceneId` is the table's active scene.
+ *  (even while private or in a private folder) and in public ones no private folder hides.
+ *  `groupSceneId` is the table's active scene.
  *
  *  Example: `new SceneAccessBo(campaignAccess, campaign.activeSceneId).requireAct(scene)` */
 export class SceneAccessBo {
@@ -27,12 +33,13 @@ export class SceneAccessBo {
    *  Example: `scenes.filter((scene) => access.canSee(scene))` */
   canSee(scene: GridReach): boolean {
     if (this.seesEveryGrid()) return true;
-    return scene.id === this.groupSceneId || scene.visibility === 'public';
+    if (scene.id === this.groupSceneId) return true;
+    return scene.visibility === 'public' && !scene.hiddenByFolder;
   }
 
   /** Refuses a grid a command may not name with SCENE_NOT_FOUND, never FORBIDDEN (critério 14).
    *
-   *  Example: `access.requireAct({ id: sceneId, visibility: 'private' })` */
+   *  Example: `access.requireAct({ id: sceneId, visibility: 'private', hiddenByFolder: false })` */
   requireAct(scene: GridReach): void {
     if (!this.canSee(scene)) this.refuse(scene);
   }

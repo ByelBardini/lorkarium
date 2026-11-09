@@ -1,0 +1,1 @@
+ALTER TABLE "library_map_regions" ADD COLUMN "icon" text DEFAULT 'pin' NOT NULL;

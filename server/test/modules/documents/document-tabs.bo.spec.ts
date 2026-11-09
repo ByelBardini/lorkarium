@@ -34,6 +34,7 @@ function tabsFor(
   const document = new DocumentAccessBo(access, {
     id: DOCUMENT_ID,
     visibility: 'public',
+    hiddenByFolder: false,
     ownerIds: [BIA_ID],
     version: 5,
   });

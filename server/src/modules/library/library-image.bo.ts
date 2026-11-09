@@ -11,6 +11,7 @@ export function canReadLibraryImage(
   isMaster: boolean,
   visibility: string | null,
   isCurrent: boolean,
+  hiddenByFolder: boolean,
 ): boolean {
-  return isMaster || visibility === 'public' || isCurrent;
+  return isMaster || (visibility === 'public' && !hiddenByFolder) || isCurrent;
 }

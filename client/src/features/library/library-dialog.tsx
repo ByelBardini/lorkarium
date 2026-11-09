@@ -16,6 +16,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { keepMovedFocus } from '@/lib/keep-moved-focus';
 import type { AssetsApi } from '@/services/assets-api';
 import type { LibraryApi } from '@/services/library-api';
+import type { LibraryMapsApi } from '@/services/library-maps-api';
 import type { ImagePresentationApi } from '@/services/image-presentation-api';
 import type { LibraryFailure, LibraryResult } from '@/services/library-api';
 import type { SessionStore } from '@/stores/session-store';
@@ -34,6 +35,7 @@ export type LibraryDialogProps = Readonly<{
   now: Date;
   assets: AssetsApi;
   api: LibraryApi;
+  mapsApi: LibraryMapsApi;
   presentations: ImagePresentationApi;
   documentsApi: DocumentsApi;
   sheetTemplatesApi?: SheetTemplatesApi;

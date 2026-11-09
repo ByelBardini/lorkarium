@@ -5,11 +5,14 @@ import {
   imageIdOf,
   imageKey,
   libraryEntries,
+  mapIdOf,
+  mapKey,
   sheetIdOf,
   sheetKey,
   sheetTemplateIdOf,
 } from '@/lib/library-entries';
 import { masterLibrary } from '../support/library-fixtures';
+import { libraryMapSummary } from '../support/library-map-fixtures';
 import { lyraSummary, spareSummary } from '../support/sheet-fixtures';
 
 const portrait = {
@@ -54,6 +57,23 @@ describe('mixed library entries', () => {
     expect(libraryEntries({ ...masterLibrary(), images: [image] }, 'image')).toEqual([
       { ...image, id: 'image:portrait', kind: 'image' },
     ]);
+  });
+  it('a map key reads back as a map and as nothing else', () => {
+    expect(mapIdOf(mapKey('m1'))).toBe('m1');
+    expect(imageIdOf(mapKey('m1'))).toBeNull();
+    expect(sheetIdOf(mapKey('m1'))).toBeNull();
+    expect(mapIdOf(imageKey('m1'))).toBeNull();
+    expect(mapIdOf(null)).toBeNull();
+  });
+  it('the map filter keeps only maps, under their own tree identity', () => {
+    const map = libraryMapSummary({ id: 'portrait' });
+    const library = { ...masterLibrary(), images: [portrait], maps: [map] };
+    expect(libraryEntries(library, 'map')).toEqual([{ ...map, id: 'map:portrait', kind: 'map' }]);
+  });
+  it('a map is one more item for "all" and none for the other filters', () => {
+    const library = { ...masterLibrary(), maps: [libraryMapSummary({ id: 'm1' })] };
+    expect(libraryEntries(library).map(({ id }) => id)).toContain(mapKey('m1'));
+    expect(libraryEntries(library, 'grid').map(({ id }) => id)).not.toContain(mapKey('m1'));
   });
   it('a sheet key never reads as a template key, nor the other way round', () => {
     expect(sheetIdOf(sheetKey('s1'))).toBe('s1');

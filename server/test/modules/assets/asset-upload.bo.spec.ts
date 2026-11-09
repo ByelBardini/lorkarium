@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   animationFor,
+  isMasterOnlyAssetPurpose,
+  isProtectedAssetPurpose,
   outlineFor,
   resizeFor,
   requireSize,
@@ -12,6 +14,7 @@ const LIMIT = 20 * MIB;
 const SIDES = {
   document_image: 4096,
   library_image: 4096,
+  library_map: 8192,
   background: 4096,
   token: 1024,
   cover: 1600,
@@ -29,6 +32,7 @@ describe('resizeFor', () => {
     ['token', 1024],
     ['background', 4096],
     ['library_image', 4096],
+    ['library_map', 8192],
     ['document_image', 4096],
     ['cover', 1600],
     ['aura', 512],
@@ -58,10 +62,44 @@ describe('outlineFor', () => {
     expect(outlineFor('token')).toBe(true);
   });
 
-  it.each(['background', 'cover', 'condition', 'aura', 'library_image', 'document_image'] as const)(
-    'a %s image is not traced',
+  it.each([
+    'background',
+    'cover',
+    'condition',
+    'aura',
+    'library_image',
+    'document_image',
+    'library_map',
+  ] as const)('a %s image is not traced', (purpose) => {
+    expect(outlineFor(purpose)).toBe(false);
+  });
+});
+
+describe('isProtectedAssetPurpose', () => {
+  it.each(['library_image', 'document_image', 'library_map'] as const)(
+    'a %s is read only through its policy',
     (purpose) => {
-      expect(outlineFor(purpose)).toBe(false);
+      expect(isProtectedAssetPurpose(purpose)).toBe(true);
+    },
+  );
+
+  it.each(['background', 'token', 'cover', 'condition', 'aura'] as const)(
+    'a %s is read by any member of the campaign',
+    (purpose) => {
+      expect(isProtectedAssetPurpose(purpose)).toBe(false);
+    },
+  );
+});
+
+describe('isMasterOnlyAssetPurpose', () => {
+  it.each(['library_image', 'library_map'] as const)('a %s is sent by the master', (purpose) => {
+    expect(isMasterOnlyAssetPurpose(purpose)).toBe(true);
+  });
+
+  it.each(['background', 'token', 'cover', 'condition', 'aura', 'document_image'] as const)(
+    'a %s is not reserved to the master',
+    (purpose) => {
+      expect(isMasterOnlyAssetPurpose(purpose)).toBe(false);
     },
   );
 });

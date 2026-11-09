@@ -4,7 +4,7 @@ Complementa [`library.md`](library.md). O contrato e a autorização ficam em [`
 
 ## Cadastro e painel
 
-- “Nova imagem” no cabeçalho ou no menu da raiz/pasta abre `LibraryImageForm`. Nome aparado (1–60), arquivo obrigatório, destino herdado da ação e visibilidade são validados pelo DTO compartilhado. A imagem nasce privada.
+- O card "Imagem" do diálogo "Novo item" (cabeçalho ou menu da raiz/pasta; ver [`library.md`](library.md)) mostra o `LibraryImageForm`. Enquanto salva, o diálogo não fecha nem troca de tipo (`onSavingChange`). Nome aparado (1–60), arquivo obrigatório, destino herdado da ação e visibilidade são validados pelo DTO compartilhado. A imagem nasce privada.
 - `ImagePicker` usa `purpose=library_image` e o fluxo existente de arquivo/link, com `onBusyChange` para impedir cadastro durante o envio. Campos e envio ficam bloqueados sem conexão. O upload e o cadastro têm estados próprios; falha no cadastro conserva nome, pasta, visibilidade e asset para repetir sem reenviar o arquivo.
 - O cadastro recebe o DTO confirmado; fecha o formulário, seleciona `image:<id>` e revalida a biblioteca. Erros da API permanecem visíveis, sem sucesso antecipado.
 - `ImageDetails` mostra prévia, nome e visibilidade. Mestre pode editar, mover, excluir e “Mostrar para todos”; jogador/espectador só abre prévia. O painel não tem seletor de pasta, ativação, duplicação ou metadados de tokens.

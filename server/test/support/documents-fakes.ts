@@ -4,6 +4,7 @@ import type {
   DocumentDaos,
   DocumentsServiceDeps,
 } from '../../src/modules/documents/document-writes.service';
+import type { DocumentRow } from '../../src/modules/documents/documents.dao';
 import type {
   DocumentActionPo,
   DocumentChangesPo,
@@ -76,8 +77,9 @@ export class DocumentsDaoFake implements DocumentOperations {
   ownerRows: Record<string, string[]> = {};
   actions: DocumentActionPo[] = [];
   constructor(readonly journal: string[]) {}
-  async findInCampaign(campaignId: string, documentId: string): Promise<DocumentPo | undefined> {
-    return this.rows.find((row) => row.campaignId === campaignId && row.id === documentId);
+  async findInCampaign(campaignId: string, documentId: string): Promise<DocumentRow | undefined> {
+    const found = this.rows.find((row) => row.campaignId === campaignId && row.id === documentId);
+    return found && Object.assign(found, { hiddenByFolder: false });
   }
   async insert(input: NewDocumentPo): Promise<DocumentPo> {
     const row = documentPo(input);

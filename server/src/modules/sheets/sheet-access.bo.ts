@@ -9,11 +9,13 @@ export type SheetHolderReach =
   Readonly<{ token: TokenControl; seen: boolean }> | Readonly<{ character: CharacterSeat }>;
 
 /** What the access reads of a sheet: which one, who besides the masters and the controllers of
- *  its holder reads it, and its holder (`null` = nobody holds it). */
+ *  its holder reads it, its holder (`null` = nobody holds it) and whether a private folder hides
+ *  it from who only reads it as the table. */
 export type SheetReach = Readonly<{
   sheetId: string;
   visibility: 'controllers' | 'table';
   holder: SheetHolderReach | null;
+  hiddenByFolder: boolean;
 }>;
 
 /** What the reader is to the holder of a sheet: whether they see it and control it. */
@@ -40,7 +42,8 @@ export class SheetAccessBo {
   canRead(): boolean {
     if (!this.holder) return this.access.isMaster();
     if (!this.holder.seen) return false;
-    return this.holder.controlled || this.sheet.visibility === 'table';
+    if (this.holder.controlled) return true;
+    return this.sheet.visibility === 'table' && !this.sheet.hiddenByFolder;
   }
 
   /** Writes values and bars: what the reader already does by hand with the holder. */

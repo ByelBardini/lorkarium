@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { campaignLibraryDto } from '../../src';
 
-const library = { activeSceneId: null, folders: [], scenes: [], images: [], documents: [] };
+const library = {
+  activeSceneId: null,
+  folders: [],
+  scenes: [],
+  images: [],
+  documents: [],
+  maps: [],
+  mainMapId: null,
+};
 const template = {
   id: '00000000-0000-4000-8000-000000000001',
   folderId: null,

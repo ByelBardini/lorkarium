@@ -638,6 +638,27 @@
       "when": 1794193095108,
       "tag": "0090_campaign_member_admin_bypass",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1794196097749,
+      "tag": "0091_library_maps",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1794200443316,
+      "tag": "0092_library_map_region_icon",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1794240755557,
+      "tag": "0093_scene_folder_visibility",
+      "breakpoints": true
     }
   ]
 }

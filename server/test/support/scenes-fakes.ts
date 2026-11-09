@@ -109,6 +109,7 @@ export class ScenesDaoFake implements Pick<
       ...row,
       backgroundWidth: pixels?.width ?? null,
       backgroundHeight: pixels?.height ?? null,
+      hiddenByFolder: false,
     };
   }
 

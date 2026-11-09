@@ -185,6 +185,8 @@ export class LibraryScenesDaoFake implements Pick<
  *  ('publish activated'), to prove the order. */
 export class LibraryPublisherFake implements LibraryPublisherPort {
   imagePresentationChanged(): void {}
+  libraryMapChanged(): void {}
+  mapRegionShown(): void {}
   readonly changes: LibraryChangedDto[] = [];
   readonly activations: SceneActivatedDto[] = [];
 

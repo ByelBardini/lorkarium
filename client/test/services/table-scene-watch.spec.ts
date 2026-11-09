@@ -26,6 +26,7 @@ import {
   vharnState,
 } from '../support/table-session-fixtures';
 import { LYRA_SHEET_ID } from '../support/sheet-fixtures';
+import { mapChanged, mapRegionShown } from '../support/library-map-fixtures';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const WATCH_TORRE = { actionId: ACTION_ID, campaignId: VHARN.id, sceneId: TORRE_SCENE.id };
@@ -195,6 +196,26 @@ describe('extra grid tabs of a table visit', () => {
     transport.serverEmits('library:changed', libraryChanged());
     expect(tableUpdates.filter(({ kind }) => kind === 'libraryChanged')).toEqual([
       { kind: 'libraryChanged', event: libraryChanged() },
+    ]);
+  });
+
+  it('library:mapChanged of this table reaches it; one of another table or with a name does not', async () => {
+    await joinedWithGroupBoard();
+    transport.serverEmits('library:mapChanged', mapChanged({ campaignId: QUELM.id }));
+    transport.serverEmits('library:mapChanged', { ...mapChanged(), name: 'Reino secreto' });
+    transport.serverEmits('library:mapChanged', mapChanged());
+    expect(tableUpdates.filter(({ kind }) => kind === 'mapChanged')).toEqual([
+      { kind: 'mapChanged', event: mapChanged() },
+    ]);
+  });
+
+  it('library:mapRegionShown of this table reaches it; one of another table or with a name does not', async () => {
+    await joinedWithGroupBoard();
+    transport.serverEmits('library:mapRegionShown', mapRegionShown({ campaignId: QUELM.id }));
+    transport.serverEmits('library:mapRegionShown', { ...mapRegionShown(), name: 'Capital' });
+    transport.serverEmits('library:mapRegionShown', mapRegionShown());
+    expect(tableUpdates.filter(({ kind }) => kind === 'mapRegionShown')).toEqual([
+      { kind: 'mapRegionShown', event: mapRegionShown() },
     ]);
   });
 

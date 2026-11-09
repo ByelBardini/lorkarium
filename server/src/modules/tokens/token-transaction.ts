@@ -1,4 +1,5 @@
 import type { ActiveConditionDto, CombatDto, NewTokenDto, TokenDto } from '@lorkarium/contracts';
+import { isProtectedAssetPurpose } from '../assets/asset-upload.bo';
 import type { AssetsDao } from '../assets/assets.dao';
 import { AssetNotFoundError } from '../assets/assets.error';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
@@ -267,7 +268,7 @@ export async function requireAssetsOf(
   if (wanted.length === 0) return;
   const found = new Set(
     (await daos.assets.findManyInCampaign(campaignId, wanted))
-      .filter((asset) => asset.purpose !== 'library_image' && asset.purpose !== 'document_image')
+      .filter((asset) => !isProtectedAssetPurpose(asset.purpose))
       .map((a) => a.id),
   );
   const missing = wanted.find((assetId) => !found.has(assetId));

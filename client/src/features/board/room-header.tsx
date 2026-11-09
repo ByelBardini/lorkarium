@@ -7,6 +7,7 @@ import { useTitleBarSlot } from '@/app/title-bar/title-bar-slot';
 import { CopyCodeButton } from '@/components/copy-code-button';
 import { Button } from '@/components/ui/button';
 import { TurnLine } from '@/features/combat/turn-line';
+import { RoomName } from '@/features/maps/room-name';
 import { useLeaveTable } from '@/features/sessions/use-leave-table';
 import { formatCampaignCode } from '@/lib/campaign-code';
 import { watchesOnly } from '@/lib/table-role';
@@ -78,7 +79,7 @@ export function RoomHeader({
         slot ? 'min-w-0 flex-1 pr-2' : 'h-12 border-b border-border bg-panel px-3',
       )}
     >
-      <h1 className="min-w-0 truncate font-display text-xl font-semibold">{campaign.name}</h1>
+      <RoomName campaign={campaign} tabs={tabs} workspace={documentWorkspace} />
       {watchesOnly(campaign.myRole) && <SpectatorBadge />}
       {presence && (
         <OnlineCount presence={presence} onShow={() => roomLayout.getState().showTab('people')} />

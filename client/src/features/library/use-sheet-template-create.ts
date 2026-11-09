@@ -3,8 +3,8 @@ import { STARTER_SHEET_SOURCE } from '@/features/sheets/sheet-template-starter';
 import type { LibrarySubmit } from './use-library-submit';
 
 export type SheetTemplateCreate = Readonly<{
-  /** "Novo modelo de ficha": a template in `folderId` born with the starter code. */
-  createSheetTemplate: (folderId: string | null) => void;
+  /** A template in `folderId` born with the starter code; `''` leaves the server's blank name. */
+  createSheetTemplate: (folderId: string | null, name: string) => void;
   /** A template with the code given (an imported file); resolves when the library was read again. */
   importSheetTemplate: (template: CreateSheetTemplateRequestDto) => Promise<void>;
 }>;
@@ -22,8 +22,12 @@ export function useSheetTemplateCreate(
     return submit({ intent: 'createSheetTemplate', template });
   };
   return {
-    createSheetTemplate: (folderId) =>
-      void importSheetTemplate({ folderId, ...STARTER_SHEET_SOURCE }),
+    createSheetTemplate: (folderId, name) =>
+      void importSheetTemplate({
+        folderId,
+        ...STARTER_SHEET_SOURCE,
+        ...(name === '' ? {} : { name }),
+      }),
     importSheetTemplate,
   };
 }

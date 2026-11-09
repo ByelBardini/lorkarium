@@ -1,7 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BIA, CAIO } from './support/dev-players';
-import { createFolder, createGrid, gridItemOf, openLibrary } from './support/library';
+import {
+  chooseNewItemKind,
+  createFolder,
+  createGrid,
+  gridItemOf,
+  openLibrary,
+} from './support/library';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
@@ -42,19 +48,18 @@ async function createImage(
     : null;
   if (folder) {
     await gridItemOf(library, folder).click({ button: 'right', position: { x: 50, y: 16 } });
-    await page.getByRole('menuitem', { name: 'Nova imagem aqui', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Criar novo item', exact: true }).click();
   } else {
     await library.getByRole('button', { name: 'Criar item' }).click();
-    await page.getByRole('menuitem', { name: 'Nova imagem', exact: true }).click();
   }
-  const form = page.getByRole('dialog', { name: 'Nova imagem', exact: true });
-  await form.getByLabel('Nome da imagem').fill(name);
+  const form = await chooseNewItemKind(page, 'Imagem');
+  await form.getByRole('textbox', { name: 'Nome', exact: true }).fill(name);
   await form.getByLabel('Arquivo de imagem').setInputFiles(file);
   await expect(form.getByRole('img', { name: 'Imagem escolhida' })).toBeVisible();
   const saved = page.waitForResponse(
     (answer) => answer.request().method() === 'POST' && answer.url().endsWith('/library-images'),
   );
-  await form.getByRole('button', { name: 'Salvar imagem', exact: true }).click();
+  await form.getByRole('button', { name: 'Criar', exact: true }).click();
   const response = await saved;
   expect(response.status()).toBe(201);
   const image: ImageRecord = await response.json();

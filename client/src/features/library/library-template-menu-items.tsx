@@ -1,41 +1,31 @@
 import type { SheetTemplateSummaryDto } from '@lorkarium/contracts';
-import { ContextMenuItem } from '@/components/ui/context-menu';
+import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { DeleteConfirmDialog } from './delete-scene-dialog';
 import type { MenuActions, TreeMaster } from './library-tree-menu';
 
-type NewTemplateItemProps = Readonly<{
-  master: TreeMaster;
-  folderId: string | null;
-  label: string;
-}>;
+type CreateItemsProps = Readonly<{ master: TreeMaster; folderId: string | null }>;
 
-/** "Novo modelo de ficha" in a folder (`null` = the root); absent when the master cannot create.
+/** What the root and a folder offer to create: "Novo item" there, or a `.lksheet` read into it.
  *
- *  Example: `<NewTemplateItem master={master} folderId={null} label="Novo modelo de ficha" />` */
-export function NewTemplateItem({ master, folderId, label }: NewTemplateItemProps) {
-  if (!master.createSheetTemplate) return null;
+ *  Example: `<CreateItems master={master} folderId={folder.id} />` */
+export function CreateItems({ master, folderId }: CreateItemsProps) {
   return (
-    <ContextMenuItem
-      disabled={!master.live}
-      onSelect={() => master.createSheetTemplate?.(folderId)}
-    >
-      {label}
-    </ContextMenuItem>
-  );
-}
-
-/** "Importar modelo de ficha" in a folder (`null` = the root): opens the `.lksheet` picker.
- *
- *  Example: `<ImportTemplateItem master={master} folderId={null} label="Importar modelo de ficha" />` */
-export function ImportTemplateItem({ master, folderId, label }: NewTemplateItemProps) {
-  if (!master.importSheetTemplate) return null;
-  return (
-    <ContextMenuItem
-      disabled={!master.live}
-      onSelect={() => master.importSheetTemplate?.(folderId)}
-    >
-      {label}
-    </ContextMenuItem>
+    <>
+      <ContextMenuItem disabled={!master.live} onSelect={() => master.createItem(folderId)}>
+        Criar novo item
+      </ContextMenuItem>
+      {master.importSheetTemplate && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            disabled={!master.live}
+            onSelect={() => master.importSheetTemplate?.(folderId)}
+          >
+            Importar modelo…
+          </ContextMenuItem>
+        </>
+      )}
+    </>
   );
 }
 

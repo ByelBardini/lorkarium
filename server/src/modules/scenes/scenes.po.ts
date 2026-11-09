@@ -8,18 +8,19 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { assets } from '../assets/assets.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { sceneFolders } from '../library/scene-folders.po';
+import { sceneVisibility } from './scene-visibility.po';
 
 // What the scene hides from players: nothing (off), past each token's sight (dark), or only
 // behind walls (daylight).
 export const sceneVision = pgEnum('scene_vision', ['off', 'dark', 'daylight']);
 
-// Who sees the scene in the library: only the master (private) or every member (public).
-export const sceneVisibility = pgEnum('scene_visibility', ['private', 'public']);
+export { sceneVisibility };
 
 export const scenes = pgTable(
   'scenes',
@@ -50,6 +51,8 @@ export const scenes = pgTable(
   },
   (table) => [
     index('scenes_campaign_id_idx').on(table.campaignId),
+    // Target of the composite FKs that keep a reference to a scene inside its campaign.
+    uniqueIndex('scenes_campaign_id_id_unique').on(table.campaignId, table.id),
     // The migration narrows it to SET NULL ("folder_id"): deleting a folder never touches
     // campaign_id, and a folder of another campaign is refused.
     foreignKey({

@@ -6,25 +6,10 @@ import { VHARN } from '../../support/campaigns-api-fake';
 import { NEW_FOLDER, NEW_GRID } from '../../support/library-api-fake';
 import { ATO_1, OSSUARIO, masterLibrary, playerLibrary } from '../../support/library-fixtures';
 import { openLibrary } from '../../support/library-harness';
-import { openCatacumbas, treeItem } from '../../support/library-tree';
+import { openCatacumbas, startHeaderNewItem, treeItem } from '../../support/library-tree';
 import { VHARN_SCENE } from '../../support/table-session-fixtures';
 
 describe('the actions of the library', () => {
-  it('the create dropdown offers grid, image and folder and starts a folder field', async () => {
-    await openLibrary(testDependencies());
-    await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
-    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
-      'Novo grid',
-      'Novo documento',
-      'Novo modelo de ficha',
-      'Importar modelo de ficha',
-      'Nova ficha',
-      'Nova imagem',
-      'Nova pasta',
-    ]);
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Nova pasta' }));
-    expect(screen.getByRole('textbox', { name: 'Nome da nova pasta' })).toHaveFocus();
-  });
   let deps: TestDependencies;
 
   beforeEach(() => {
@@ -42,6 +27,11 @@ describe('the actions of the library', () => {
   async function pickOssuario(): Promise<void> {
     await openCatacumbas();
     await userEvent.click(treeItem('Ossuário'));
+  }
+
+  async function createBlankGrid(): Promise<void> {
+    const dialog = await startHeaderNewItem('Grid');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
   }
 
   function statusLine(): HTMLElement {
@@ -65,8 +55,7 @@ describe('the actions of the library', () => {
         ok: true,
         value: withScene({ ...NEW_GRID, folderId: null }),
       });
-      await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
-      await userEvent.click(screen.getByRole('menuitem', { name: 'Novo grid' }));
+      await createBlankGrid();
       expect(deps.libraryApi.callsOf('createScene')).toEqual([[{ folderId: null }]]);
       const name = await within(panel()).findByRole('textbox', { name: 'Nome' });
       expect(name).toHaveValue('Grid sem nome');
@@ -78,8 +67,7 @@ describe('the actions of the library', () => {
     it('header creation with a grid selected still creates at root', async () => {
       await openLibrary(deps);
       await pickOssuario();
-      await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
-      await userEvent.click(screen.getByRole('menuitem', { name: 'Novo grid' }));
+      await createBlankGrid();
       expect(deps.libraryApi.callsOf('createScene')).toEqual([[{ folderId: null }]]);
     });
 

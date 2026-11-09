@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   documentIdOf,
   imageIdOf,
+  mapIdOf,
   sheetIdOf,
   sheetTemplateIdOf,
   type MixedLibrary,
@@ -20,6 +21,7 @@ const SCENE_KEY_PREFIX = 'scene:';
 export function sceneKey(sceneId: string): string {
   return sceneId.startsWith('image:') ||
     sceneId.startsWith('document:') ||
+    mapIdOf(sceneId) !== null ||
     sheetTemplateIdOf(sceneId) !== null ||
     sheetIdOf(sceneId) !== null
     ? sceneId
@@ -40,9 +42,11 @@ export function sceneIdOf(key: string | null): string | null {
  *  Example: `folderForNew(library, sceneKey(ossuarioId)) // catacumbasId` */
 export function folderForNew(
   library: LibraryContents<TreeFolder, TreeScene> &
-    Partial<Pick<MixedLibrary, 'images' | 'documents' | 'sheetTemplates' | 'sheets'>>,
+    Partial<Pick<MixedLibrary, 'images' | 'maps' | 'documents' | 'sheetTemplates' | 'sheets'>>,
   key: string | null,
 ): string | null {
+  const mapId = mapIdOf(key);
+  if (mapId) return library.maps?.find(({ id }) => id === mapId)?.folderId ?? null;
   const sheetId = sheetIdOf(key);
   if (sheetId) return library.sheets?.find(({ id }) => id === sheetId)?.folderId ?? null;
   const templateId = sheetTemplateIdOf(key);

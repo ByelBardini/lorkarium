@@ -1,5 +1,7 @@
 import type {
   LibraryChangedDto,
+  LibraryMapChangedDto,
+  LibraryMapRegionShownDto,
   SceneActivatedDto,
   ImagePresentationChangedDto,
 } from '@lorkarium/contracts';
@@ -9,5 +11,7 @@ import type {
 export interface LibraryPublisherPort {
   imagePresentationChanged(event: ImagePresentationChangedDto): void;
   libraryChanged(event: LibraryChangedDto): void;
+  libraryMapChanged(event: LibraryMapChangedDto): void;
+  mapRegionShown(event: LibraryMapRegionShownDto): void;
   sceneActivated(event: SceneActivatedDto): void;
 }

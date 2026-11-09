@@ -1,5 +1,6 @@
 import { ImagePresentationService } from './image-presentation.service';
 import { DocumentsDao } from '../documents/documents.dao';
+import { LibraryMapsDao } from '../library-maps/library-maps.dao';
 import { SheetTemplatesDao } from '../sheets/sheet-templates.dao';
 import { SheetsDao } from '../sheets/sheets.dao';
 import { randomUUID } from 'node:crypto';
@@ -57,6 +58,7 @@ export function createLibraryModule(options: LibraryModuleOptions): LibraryModul
         sheetTemplates: new SheetTemplatesDao(tx),
         sheets: new SheetsDao(tx),
         images: new LibraryImagesDao(tx),
+        maps: new LibraryMapsDao(tx),
         campaigns: new CampaignsDao(tx),
         folders: new SceneFoldersDao(tx),
         scenes: new ScenesDao(tx),
@@ -114,6 +116,7 @@ export function libraryImageDaos(
     members: new CampaignMembersDao(executor),
     assets: new AssetsDao(executor),
     images: new LibraryImagesDao(executor),
+    maps: new LibraryMapsDao(executor),
     presentations: new ImagePresentationsDao(executor),
     folders: new SceneFoldersDao(executor),
     scenes: new ScenesDao(executor),

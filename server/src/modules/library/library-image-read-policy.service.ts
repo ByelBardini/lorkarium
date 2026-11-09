@@ -23,6 +23,7 @@ export class LibraryImageReadPolicy implements AssetReadPolicyPort {
         false,
         image?.image.visibility ?? null,
         !!image && presentation?.imageId === image.image.id,
+        image?.hiddenByFolder ?? false,
       );
     });
   }

@@ -33,5 +33,11 @@ export function scenePo(overrides: Partial<ScenePo> = {}): ScenePo {
  *
  *  Example: `sceneRow({ backgroundAssetId: id, backgroundWidth: 1400, backgroundHeight: 700 })` */
 export function sceneRow(overrides: Partial<SceneRow> = {}): SceneRow {
-  return { ...scenePo(), backgroundWidth: null, backgroundHeight: null, ...overrides };
+  return {
+    ...scenePo(),
+    backgroundWidth: null,
+    backgroundHeight: null,
+    hiddenByFolder: false,
+    ...overrides,
+  };
 }

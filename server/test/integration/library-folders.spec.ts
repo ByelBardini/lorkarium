@@ -61,8 +61,8 @@ describe('the folders of the library over HTTP', () => {
 
     expect(masmorra.parentId).toBe(ato1.id);
     expect((await libraryOfAna()).folders).toEqual([
-      { id: ato1.id, name: 'Ato 1', parentId: null },
-      { id: masmorra.id, name: 'Masmorra', parentId: ato1.id },
+      { id: ato1.id, name: 'Ato 1', parentId: null, visibility: 'public' },
+      { id: masmorra.id, name: 'Masmorra', parentId: ato1.id, visibility: 'public' },
     ]);
   });
 
@@ -94,7 +94,9 @@ describe('the folders of the library over HTTP', () => {
 
     expect(response.statusCode).toBe(204);
     const library = await libraryOfAna();
-    expect(library.folders).toEqual([{ id: masmorra.id, name: 'Masmorra', parentId: null }]);
+    expect(library.folders).toEqual([
+      { id: masmorra.id, name: 'Masmorra', parentId: null, visibility: 'public' },
+    ]);
     const lifted = library.scenes.filter(({ id }) => grids.includes(id));
     expect(lifted.map(({ folderId }) => folderId)).toEqual([null, null, null]);
   });

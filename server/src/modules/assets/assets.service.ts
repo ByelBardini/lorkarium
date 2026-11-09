@@ -10,7 +10,14 @@ import {
 } from '@lorkarium/contracts';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
-import { animationFor, outlineFor, requireSize, resizeFor } from './asset-upload.bo';
+import {
+  animationFor,
+  isMasterOnlyAssetPurpose,
+  isProtectedAssetPurpose,
+  outlineFor,
+  requireSize,
+  resizeFor,
+} from './asset-upload.bo';
 import type { AssetStoragePort, StoredObject } from './asset-storage.port';
 import type { AssetsDao } from './assets.dao';
 import {
@@ -80,7 +87,7 @@ export class AssetsService {
     file: Readonly<{ bytes: Uint8Array; purpose: AssetPurposeDto }>,
   ): Promise<AssetDto> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    if (file.purpose === 'library_image') access.requireMaster('upload a library image');
+    if (isMasterOnlyAssetPurpose(file.purpose)) access.requireMaster(`upload a ${file.purpose}`);
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
     const normalized = await this.deps.processor.normalize(file.bytes, keptAs(file.purpose));
     if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
@@ -109,7 +116,7 @@ export class AssetsService {
     link: Readonly<{ url: string; purpose: AssetPurposeDto }>,
   ): Promise<AssetDto> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    if (link.purpose === 'library_image') access.requireMaster('import a library image');
+    if (isMasterOnlyAssetPurpose(link.purpose)) access.requireMaster(`import a ${link.purpose}`);
     const fetched = await this.deps.fetcher.fetch(link.url);
     if (!fetched.ok) throw linkErrorOf(link.url, fetched.refusal);
     requireSize(fetched.image.bytes.byteLength, ASSET_MAX_BYTES);
@@ -127,9 +134,7 @@ export class AssetsService {
       body: object.body,
       size: object.size,
       mimeType: row.mimeType,
-      ...(row.purpose === 'library_image' || row.purpose === 'document_image'
-        ? { cacheControl: 'private, no-store' }
-        : {}),
+      ...(isProtectedAssetPurpose(row.purpose) ? { cacheControl: 'private, no-store' } : {}),
     };
   }
 
@@ -147,7 +152,7 @@ export class AssetsService {
     const membership = await this.deps.members.findMembership(row.campaignId, userId);
     if (membership === undefined) throw new AssetNotFoundError(assetId);
     if (
-      (row.purpose === 'library_image' || row.purpose === 'document_image') &&
+      isProtectedAssetPurpose(row.purpose) &&
       !(await this.deps.readPolicy?.canRead(userId, row.campaignId, row.id))
     )
       throw new AssetNotFoundError(assetId);

@@ -1,5 +1,6 @@
 import { and, asc, count, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { copyRowsSql, uuidArray } from '../../database/copy-rows';
+import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { updateManySql, type UpdatedColumn } from '../../database/update-many';
 import { campaigns } from '../campaigns/campaigns.po';
@@ -103,7 +104,7 @@ export type HiddenTokenPo = Readonly<{
 /** The active scene of a campaign (size and version) and the asked tokens found on it. */
 export type DragGroupPo = Readonly<{
   scene: Pick<ScenePo, 'id' | 'widthCells' | 'heightCells' | 'version' | 'visibility'> &
-    Readonly<{ isActive: boolean }>;
+    Readonly<{ isActive: boolean; hiddenByFolder: boolean }>;
   tokens: readonly DragTokenPo[];
 }>;
 
@@ -455,6 +456,7 @@ const DRAG_COLUMNS = {
     heightCells: scenes.heightCells,
     version: scenes.version,
     visibility: scenes.visibility,
+    hiddenByFolder: hiddenByFolderSql('"scenes"."folder_id"'),
     isActive: IS_GROUP_GRID,
   },
   tokenId: tokens.id,

@@ -1,4 +1,4 @@
-import { imageIdOf, sheetIdOf } from '@/lib/library-entries';
+import { imageIdOf, mapIdOf, sheetIdOf } from '@/lib/library-entries';
 import { useState } from 'react';
 import type { LibraryIntent } from './library-intents';
 import { sceneIdOf } from './library-view';
@@ -51,6 +51,8 @@ export function useTreeEditing(
 }
 
 function renameIntent(key: string, name: string): LibraryIntent {
+  const mapId = mapIdOf(key);
+  if (mapId) return { intent: 'updateMap', mapId, changes: { name } };
   const sheetId = sheetIdOf(key);
   if (sheetId)
     return { intent: 'updateSheet', sheetId, changes: { actionId: crypto.randomUUID(), name } };

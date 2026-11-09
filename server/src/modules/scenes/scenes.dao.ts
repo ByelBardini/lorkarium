@@ -1,4 +1,5 @@
 import { and, asc, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
+import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets } from '../assets/assets.po';
 import { campaigns } from '../campaigns/campaigns.po';
@@ -14,7 +15,11 @@ import {
 /** The scene with the pixels of its background image (both `null` without one): the client
  *  derives the proportion from them. */
 export type SceneRow = ScenePo &
-  Readonly<{ backgroundWidth: number | null; backgroundHeight: number | null }>;
+  Readonly<{
+    backgroundWidth: number | null;
+    backgroundHeight: number | null;
+    hiddenByFolder: boolean;
+  }>;
 
 /** A scene as the library lists it: the row, its background pixels and how many tokens it has. */
 export type LibrarySceneRow = SceneRow & Readonly<{ tokenCount: number }>;
@@ -27,6 +32,7 @@ const sceneWithBackground = {
   ...getTableColumns(scenes),
   backgroundWidth: assets.width,
   backgroundHeight: assets.height,
+  hiddenByFolder: hiddenByFolderSql('"scenes"."folder_id"'),
 };
 
 // The background must be of the same campaign too: a stray id never shows another table's image.

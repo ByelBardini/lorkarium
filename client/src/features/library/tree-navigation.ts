@@ -1,5 +1,11 @@
 import type { FolderNode, FolderTree, TreeFolder, TreeScene } from '@/lib/folder-tree';
-import { documentIdOf, imageIdOf, sheetIdOf, sheetTemplateIdOf } from '@/lib/library-entries';
+import {
+  documentIdOf,
+  imageIdOf,
+  mapIdOf,
+  sheetIdOf,
+  sheetTemplateIdOf,
+} from '@/lib/library-entries';
 import { NO_FOLDER, sceneIdOf, sceneKey } from './library-view';
 
 /** One item the tree shows now, in the order the arrows walk them. */
@@ -48,9 +54,11 @@ export function ancestorKeysOf<F extends TreeFolder, S extends TreeScene>(
   return pathTo(tree.roots, (node) => node.scenes.some(({ id }) => id === sceneId)) ?? [];
 }
 
-// Images, documents, templates and sheets keep their prefixed key as their tree id.
+// Images, maps, documents, templates and sheets keep their prefixed key as their tree id.
 function isEntryKey(key: string): boolean {
-  return [imageIdOf, documentIdOf, sheetTemplateIdOf, sheetIdOf].some((idOf) => idOf(key) !== null);
+  return [imageIdOf, mapIdOf, documentIdOf, sheetTemplateIdOf, sheetIdOf].some(
+    (idOf) => idOf(key) !== null,
+  );
 }
 
 function pathTo<F extends TreeFolder, S extends TreeScene>(

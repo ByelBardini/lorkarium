@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
-import { NEW_FOLDER, NEW_GRID } from '../../support/library-api-fake';
+import { NEW_GRID } from '../../support/library-api-fake';
 import {
   ATO_1,
   CATACUMBAS,
@@ -16,6 +16,7 @@ import {
   menuItemNames,
   openCatacumbas,
   openTreeMenu,
+  pickNewItemKind,
   treeItem,
 } from '../../support/library-tree';
 import { VHARN_SCENE } from '../../support/table-session-fixtures';
@@ -47,13 +48,9 @@ describe('the context menu of the library tree', () => {
     it('a folder offers creating inside it, renaming, moving and deleting it', async () => {
       await openLibrary(deps);
       expect(menuItemNames(await openTreeMenu(treeItem('Ato 1')))).toEqual([
-        'Novo grid aqui',
-        'Nova imagem aqui',
-        'Novo documento aqui',
-        'Novo modelo de ficha aqui',
-        'Importar modelo aqui',
-        'Nova ficha aqui',
-        'Nova pasta aqui',
+        'Criar novo item',
+        'Importar modelo…',
+        'Tornar privada',
         'Renomear',
         'Mover para…',
         'Excluir pasta',
@@ -70,27 +67,12 @@ describe('the context menu of the library tree', () => {
       ]);
     });
 
-    it('"Sem pasta" and the empty area offer a grid and a folder at the root', async () => {
+    it('"Sem pasta" and the empty area offer creating at the root', async () => {
       await openLibrary(deps);
-      expect(menuItemNames(await openTreeMenu(treeItem('Sem pasta')))).toEqual([
-        'Novo grid',
-        'Nova imagem',
-        'Novo documento',
-        'Novo modelo de ficha',
-        'Importar modelo de ficha',
-        'Nova ficha',
-        'Nova pasta',
-      ]);
+      const atRoot = ['Criar novo item', 'Importar modelo…'];
+      expect(menuItemNames(await openTreeMenu(treeItem('Sem pasta')))).toEqual(atRoot);
       await userEvent.keyboard('{Escape}');
-      expect(menuItemNames(await openTreeMenu(treeArea()))).toEqual([
-        'Novo grid',
-        'Nova imagem',
-        'Novo documento',
-        'Novo modelo de ficha',
-        'Importar modelo de ficha',
-        'Nova ficha',
-        'Nova pasta',
-      ]);
+      expect(menuItemNames(await openTreeMenu(treeArea()))).toEqual(atRoot);
     });
 
     it('the menu key on the focused item opens the menu of that item', async () => {
@@ -103,7 +85,13 @@ describe('the context menu of the library tree', () => {
   });
 
   describe('creating', () => {
-    it('"Novo grid aqui" creates in that folder, opens it and picks the grid with its name focused', async () => {
+    async function createBlank(target: HTMLElement, kind: string): Promise<void> {
+      await choose(target, 'Criar novo item');
+      const dialog = await pickNewItemKind(kind);
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
+    }
+
+    it('a grid created on a folder goes there, opens it and is picked with its name focused', async () => {
       await openLibrary(deps);
       deps.libraryApi.answer('list', {
         ok: true,
@@ -111,53 +99,29 @@ describe('the context menu of the library tree', () => {
           scenes: [...masterLibrary().scenes, { ...NEW_GRID, folderId: LUGARES_FIXOS.id }],
         }),
       });
-      await choose(treeItem('Lugares fixos'), 'Novo grid aqui');
+      await createBlank(treeItem('Lugares fixos'), 'Grid');
       expect(deps.libraryApi.callsOf('createScene')).toEqual([[{ folderId: LUGARES_FIXOS.id }]]);
       expect(await within(panel()).findByRole('textbox', { name: 'Nome' })).toHaveFocus();
       expect(treeItem('Lugares fixos')).toHaveAttribute('aria-expanded', 'true');
       expect(treeItem('Grid sem nome')).toHaveAttribute('aria-selected', 'true');
     });
 
-    it('"Nova pasta aqui" names the folder inside the one clicked, which opens', async () => {
+    it('a grid and a folder created on the root go without folder', async () => {
       await openLibrary(deps);
-      deps.libraryApi.answer('list', {
-        ok: true,
-        value: masterLibrary({
-          folders: [...masterLibrary().folders, { ...NEW_FOLDER, parentId: ATO_1.id }],
-        }),
-      });
-      await choose(treeItem('Ato 1'), 'Nova pasta aqui');
-      const field = within(treeItem('Ato 1')).getByRole('textbox', { name: 'Nome da nova pasta' });
-      expect(field).toHaveFocus();
-      expect(treeItem('Ato 1')).toHaveAttribute('aria-expanded', 'true');
-      await userEvent.type(field, 'Masmorra{Enter}');
-      expect(deps.libraryApi.callsOf('createFolder')).toEqual([
-        [{ name: 'Masmorra', parentId: ATO_1.id }],
-      ]);
-      expect(await screen.findByRole('treeitem', { name: 'Masmorra' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      );
-    });
-
-    it('"Novo grid" and "Nova pasta" of the root create without folder', async () => {
-      await openLibrary(deps);
-      await choose(treeItem('Sem pasta'), 'Novo grid');
+      await createBlank(treeItem('Sem pasta'), 'Grid');
       expect(deps.libraryApi.callsOf('createScene')).toEqual([[{ folderId: null }]]);
-      await choose(treeArea(), 'Nova pasta');
-      await userEvent.type(
-        screen.getByRole('textbox', { name: 'Nome da nova pasta' }),
-        'Ato 3{Enter}',
-      );
+      await choose(treeArea(), 'Criar novo item');
+      const dialog = await pickNewItemKind('Pasta');
+      await userEvent.type(within(dialog).getByRole('textbox', { name: 'Nome' }), 'Ato 3{Enter}');
       expect(deps.libraryApi.callsOf('createFolder')).toEqual([
-        [{ name: 'Ato 3', parentId: null }],
+        [{ name: 'Ato 3', parentId: null, visibility: 'public' }],
       ]);
     });
 
     it('creating clears the search, so what is created shows', async () => {
       await openLibrary(deps);
       await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar item' }), 'estrada');
-      await choose(treeItem('Ato 1'), 'Nova pasta aqui');
+      await createBlank(treeItem('Ato 1'), 'Grid');
       expect(screen.getByRole('searchbox', { name: 'Buscar item' })).toHaveValue('');
       expect(within(treeItem('Ato 1')).getByRole('treeitem', { name: 'Catacumbas' })).toBeVisible();
     });
@@ -248,6 +212,36 @@ describe('the context menu of the library tree', () => {
   });
 
   describe('folders', () => {
+    it('"Tornar privada" hides the folder; a private one offers "Tornar pública"', async () => {
+      await openLibrary(deps);
+      await choose(treeItem('Ato 1'), 'Tornar privada');
+      expect(deps.libraryApi.callsOf('updateFolder')).toEqual([
+        [ATO_1.id, { visibility: 'private' }],
+      ]);
+    });
+
+    it('a private folder says so in its line and offers making it public', async () => {
+      const folders = masterLibrary().folders.map((folder) =>
+        folder.id === ATO_1.id ? { ...folder, visibility: 'private' as const } : folder,
+      );
+      deps.libraryApi.answer('list', { ok: true, value: masterLibrary({ folders }) });
+      await openLibrary(deps);
+      expect(treeItem('Ato 1')).toHaveAccessibleDescription(expect.stringContaining('privada'));
+      expect(menuItemNames(await openTreeMenu(treeItem('Ato 1')))).toContain('Tornar pública');
+    });
+
+    it('deleting a private folder warns that its public items start to show', async () => {
+      const folders = masterLibrary().folders.map((folder) =>
+        folder.id === ATO_1.id ? { ...folder, visibility: 'private' as const } : folder,
+      );
+      deps.libraryApi.answer('list', { ok: true, value: masterLibrary({ folders }) });
+      await openLibrary(deps);
+      await choose(treeItem('Ato 1'), 'Excluir pasta');
+      expect(screen.getByRole('alertdialog')).toHaveTextContent(
+        'Os itens públicos de dentro passam a aparecer para os jogadores.',
+      );
+    });
+
     it('"Mover para…" moves the folder, never into itself or a folder inside it', async () => {
       await openLibrary(deps);
       await choose(treeItem('Ato 1'), 'Mover para…');

@@ -84,6 +84,58 @@ describe('camera', () => {
   });
 });
 
+describe('zoom limits by parameter', () => {
+  const MAP_LIMITS = { min: 0.05, max: 8 };
+
+  it('zoomAt goes under the board floor and keeps the point under the cursor', () => {
+    const cursor = { x: 400, y: 300 };
+    const zoomed = zoomAt(CAMERA, 0.05, cursor, MAP_LIMITS);
+    expect(zoomed.zoom).toBeCloseTo(0.1);
+    expect(screenToWorld(zoomed, cursor).x).toBeCloseTo(screenToWorld(CAMERA, cursor).x);
+    expect(screenToWorld(zoomed, cursor).y).toBeCloseTo(screenToWorld(CAMERA, cursor).y);
+  });
+
+  it.each([
+    [0.001, 0.05],
+    [100, 8],
+  ])('zoomAt by %s stops at the given limit %s', (factor, limit) => {
+    expect(zoomAt(CAMERA, factor, { x: 0, y: 0 }, MAP_LIMITS).zoom).toBe(limit);
+  });
+
+  // 6400 world px in 636 px of room (700 − 2 × 32): 0.099, under the board floor of 0.25.
+  it('fitScene frames a scene the board floor would crop', () => {
+    const big = { width: 6400, height: 6400 };
+    expect(fitScene(big, VIEWPORT, MAP_LIMITS).zoom).toBeCloseTo(636 / 6400);
+  });
+
+  it('fitScene stops at the given floor and ceiling', () => {
+    const huge = { width: 64_000, height: 64_000 };
+    const tiny = { width: 64, height: 64 };
+    expect(fitScene(huge, VIEWPORT, MAP_LIMITS).zoom).toBe(0.05);
+    expect(fitScene(tiny, VIEWPORT, MAP_LIMITS).zoom).toBe(8);
+  });
+
+  it('without the parameter, fitScene still stops at the board ceiling of 4', () => {
+    expect(fitScene({ width: 64, height: 64 }, VIEWPORT).zoom).toBe(4);
+  });
+
+  it('limits with min equal to max pin the zoom', () => {
+    expect(zoomAt(CAMERA, 3, { x: 0, y: 0 }, { min: 1, max: 1 }).zoom).toBe(1);
+  });
+
+  it('zoomAt with min above max throws a RangeError citing both', () => {
+    const inverted = { min: 8, max: 0.05 };
+    expect(() => zoomAt(CAMERA, 1.1, { x: 0, y: 0 }, inverted)).toThrow(RangeError);
+    expect(() => zoomAt(CAMERA, 1.1, { x: 0, y: 0 }, inverted)).toThrow(/8.*0\.05.*min <= max/);
+  });
+
+  it('fitScene with min above max throws a RangeError citing both', () => {
+    const inverted = { min: 8, max: 0.05 };
+    expect(() => fitScene(SCENE_20_BY_12, VIEWPORT, inverted)).toThrow(RangeError);
+    expect(() => fitScene(SCENE_20_BY_12, VIEWPORT, inverted)).toThrow(/8.*0\.05.*min <= max/);
+  });
+});
+
 describe('centeredOn', () => {
   const viewport = { width: 800, height: 600 };
 

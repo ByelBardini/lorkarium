@@ -9,11 +9,15 @@ import {
 /** Where a folder sits in the tree (`parentId: null` = the root). */
 export type LibraryFolderState = Readonly<{ id: string; parentId: string | null }>;
 
+/** A grid as an edit leaves it: who reached it may have to be taken out. */
+export type GridAfterEdit = Readonly<{ id: string; hiddenByFolder: boolean }>;
+
 /** Where a grid sits in the tree and who may see it (`folderId: null` = no folder). */
 export type LibrarySceneState = Readonly<{
   id: string;
   folderId: string | null;
   visibility: GridVisibility;
+  hiddenByFolder: boolean;
 }>;
 
 export type LibraryState<F, S> = Readonly<{
@@ -107,6 +111,20 @@ export class SceneLibraryBo<
   requireDeletable(sceneId: string): void {
     if (sceneId !== this.state.activeSceneId) return;
     throw new SceneIsActiveError(this.state.campaignId, sceneId);
+  }
+
+  /** The public grids a private folder hid by this edit, never the group's: who has them open
+   *  must leave. `after` is the table as the edit left it.
+   *
+   *  Example: `library.gridsHiddenBy(await scenes.listOfCampaign(campaignId))` */
+  gridsHiddenBy(after: readonly GridAfterEdit[]): string[] {
+    const hiddenNow = new Set(after.filter((grid) => grid.hiddenByFolder).map(({ id }) => id));
+    const reached = this.state.scenes.filter(
+      (scene) => scene.visibility === 'public' && !scene.hiddenByFolder,
+    );
+    return reached
+      .filter(({ id }) => hiddenNow.has(id) && id !== this.state.activeSceneId)
+      .map(({ id }) => id);
   }
 
   /** The grids in reach of `access` and the folders that lead to one; the master sees all,

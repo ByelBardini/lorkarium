@@ -4,6 +4,8 @@ import { DocumentNotFoundError, DocumentVersionConflictError } from './documents
 export type DocumentAccessState = Readonly<{
   id: string;
   visibility: 'public' | 'private';
+  /** A private folder above it hides it from who neither masters nor owns it. */
+  hiddenByFolder: boolean;
   ownerIds: readonly string[];
   version: number;
 }>;
@@ -20,7 +22,9 @@ export class DocumentAccessBo {
     return this.access.campaignIdOf();
   }
   canRead(): boolean {
-    return this.document.visibility === 'public' || this.canEdit();
+    return (
+      (this.document.visibility === 'public' && !this.document.hiddenByFolder) || this.canEdit()
+    );
   }
   canEdit(): boolean {
     return (

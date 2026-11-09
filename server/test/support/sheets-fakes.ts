@@ -6,14 +6,10 @@ import type {
   CharacterPlacePo,
   SheetChangesPo,
   SheetPlacesPo,
+  SheetRow,
   TokenPlacePo,
 } from '../../src/modules/sheets/sheets.dao';
-import type {
-  NewSheetPo,
-  SheetActionPo,
-  SheetPo,
-  SheetValuesPo,
-} from '../../src/modules/sheets/sheets.po';
+import type { NewSheetPo, SheetActionPo, SheetValuesPo } from '../../src/modules/sheets/sheets.po';
 import type { SheetDaos, SheetsServiceDeps } from '../../src/modules/sheets/sheets.service';
 import { ClockFake } from './auth-fakes';
 import { ANA_ID } from './auth-factories';
@@ -49,7 +45,7 @@ export const QUELM_CHARACTER_ID = 'a5c6d7e8-f9a0-4b1c-8d3e-4f5a6b7c8d9e';
 
 /** "Lyra", the sheet Lyra (Bia's character) holds, run by Ficha Tormenta, at the root, only for
  *  its controllers, version 4. */
-export function sheetPo(overrides: Partial<SheetPo> = {}): SheetPo {
+export function sheetPo(overrides: Partial<SheetRow> = {}): SheetRow {
   return {
     id: LYRA_SHEET_ID,
     campaignId: VHARN_ID,
@@ -58,6 +54,7 @@ export function sheetPo(overrides: Partial<SheetPo> = {}): SheetPo {
     folderId: null,
     tokenId: null,
     characterId: LYRA_CHARACTER_ID,
+    hiddenByFolder: false,
     visibility: 'controllers',
     values: { forca: 14 },
     version: 4,
@@ -70,13 +67,13 @@ export function sheetPo(overrides: Partial<SheetPo> = {}): SheetPo {
 /** The token places of Vharn: Lyra on the Salão linked to
  *  her character, Bram unlinked on the Salão (Caio), the Lobo on the private Torre (Bia). */
 export function tablePlaces(): TokenPlacePo[] {
-  const salao = { sceneId: VHARN_SCENE_ID, isActive: true } as const;
+  const salao = { sceneId: VHARN_SCENE_ID, isActive: true, hiddenByFolder: false } as const;
   const shown = { ...salao, visibility: 'public' } as const;
   return [
     { tokenId: LYRA_ID, characterId: LYRA_CHARACTER_ID, ...shown, controllerIds: [BIA_ID] },
     { tokenId: BRAM_ID, characterId: null, ...shown, controllerIds: [CAIO_ID] },
     {
-      ...{ tokenId: LOBO_ID, characterId: null, sceneId: TORRE_ID },
+      ...{ tokenId: LOBO_ID, characterId: null, sceneId: TORRE_ID, hiddenByFolder: false },
       ...{ visibility: 'private', isActive: false, controllerIds: [BIA_ID] },
     },
   ];
@@ -109,7 +106,7 @@ type SheetOperations = SheetDaos['sheets'];
 /** In-memory sheets, receipts and token places, each per campaign; the character holders come
  *  from the characters fake. Writes go to the journal. */
 export class SheetsDaoFake implements SheetOperations {
-  rows: SheetPo[] = [];
+  rows: SheetRow[] = [];
   actions: SheetActionPo[] = [];
   readonly places = new Map<string, Map<string, TokenPlacePo>>([
     [VHARN_ID, new Map(tablePlaces().map((place) => [place.tokenId, place]))],
@@ -121,18 +118,18 @@ export class SheetsDaoFake implements SheetOperations {
     const quelmPlace = { ...tablePlaces()[1], tokenId: QUELM_TOKEN_ID } as TokenPlacePo;
     this.places.set(QUELM_ID, new Map([[QUELM_TOKEN_ID, quelmPlace]]));
   }
-  async find(campaignId: string, sheetId: string): Promise<SheetPo | undefined> {
+  async find(campaignId: string, sheetId: string): Promise<SheetRow | undefined> {
     return this.rows.find((row) => row.campaignId === campaignId && row.id === sheetId);
   }
-  async listOfToken(campaignId: string, tokenId: string): Promise<SheetPo[]> {
+  async listOfToken(campaignId: string, tokenId: string): Promise<SheetRow[]> {
     return this.rows.filter((row) => row.campaignId === campaignId && row.tokenId === tokenId);
   }
-  async listOfCharacter(campaignId: string, characterId: string): Promise<SheetPo[]> {
+  async listOfCharacter(campaignId: string, characterId: string): Promise<SheetRow[]> {
     return this.rows.filter(
       (row) => row.campaignId === campaignId && row.characterId === characterId,
     );
   }
-  async insert(input: NewSheetPo): Promise<SheetPo> {
+  async insert(input: NewSheetPo): Promise<SheetRow> {
     this.journal.push('insert');
     const taken = this.rows.some(({ id }) => id === LYRA_SHEET_ID);
     const id = input.id ?? (taken ? crypto.randomUUID() : LYRA_SHEET_ID);
@@ -146,14 +143,14 @@ export class SheetsDaoFake implements SheetOperations {
     campaignId: string,
     sheetId: string,
     change: Readonly<{ set: SheetValuesPo; removed: readonly string[]; updatedAt: Date }>,
-  ): Promise<SheetPo> {
+  ): Promise<SheetRow> {
     this.journal.push('patch values');
     const row = await this.required(campaignId, sheetId);
     const values: SheetValuesPo = { ...row.values, ...change.set };
     for (const key of change.removed) delete values[key];
     return Object.assign(row, { values, version: row.version + 1, updatedAt: change.updatedAt });
   }
-  async update(campaignId: string, sheetId: string, changes: SheetChangesPo): Promise<SheetPo> {
+  async update(campaignId: string, sheetId: string, changes: SheetChangesPo): Promise<SheetRow> {
     this.journal.push('update');
     return Object.assign(await this.required(campaignId, sheetId), changes);
   }
@@ -182,7 +179,7 @@ export class SheetsDaoFake implements SheetOperations {
     const row = await this.characters.findOfUser(campaignId, userId);
     return row && placeOfCharacter(row);
   }
-  async holdersOf(campaignId: string, sheets: readonly SheetPo[]): Promise<SheetPlacesPo> {
+  async holdersOf(campaignId: string, sheets: readonly SheetRow[]): Promise<SheetPlacesPo> {
     const tokenIds = sheets.flatMap(({ tokenId }) => (tokenId ? [tokenId] : []));
     const characterIds = sheets.flatMap(({ characterId }) => (characterId ? [characterId] : []));
     return {
@@ -203,7 +200,7 @@ export class SheetsDaoFake implements SheetOperations {
     this.journal.push('receipt');
     this.actions.push(row);
   }
-  private async required(campaignId: string, sheetId: string): Promise<SheetPo> {
+  private async required(campaignId: string, sheetId: string): Promise<SheetRow> {
     const row = await this.find(campaignId, sheetId);
     if (!row) throw new Error(`Missing sheet ${sheetId}`);
     return row;
@@ -276,7 +273,7 @@ export class SheetsHarness {
     return { campaignId: VHARN_ID, userId };
   }
   /** Lyra's sheet with `overrides`. */
-  withLyraSheet(overrides: Partial<SheetPo> = {}): this {
+  withLyraSheet(overrides: Partial<SheetRow> = {}): this {
     this.sheets.rows.push(sheetPo(overrides));
     return this;
   }

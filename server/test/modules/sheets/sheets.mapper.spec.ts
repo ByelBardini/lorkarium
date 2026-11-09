@@ -52,6 +52,25 @@ describe('sheets mapper', () => {
     });
   });
 
+  describe('a table sheet on a token whose grid is in a private folder', () => {
+    function onHiddenGrid(isActive: boolean) {
+      return { token: { ...placeOf(1).token, hiddenByFolder: true, isActive } };
+    }
+    const sheet = sheetPo({ visibility: 'table', characterId: null, tokenId: BRAM_ID });
+
+    it('is out of reach of who only reads it as the table', () => {
+      expect(toSheetAccessBo(bia, sheet, onHiddenGrid(false)).canRead()).toBe(false);
+    });
+
+    it('stays with Caio, who controls the token', () => {
+      expect(toSheetAccessBo(caio, sheet, onHiddenGrid(false)).canRead()).toBe(true);
+    });
+
+    it('stays in reach while that grid is the group grid', () => {
+      expect(toSheetAccessBo(bia, sheet, onHiddenGrid(true)).canRead()).toBe(true);
+    });
+  });
+
   it("the token on the private Torre, out of the group, is out of Bia's sight", () => {
     expect(toSheetAccessBo(bia, sheetPo(), placeOf(2)).canRead()).toBe(false);
   });

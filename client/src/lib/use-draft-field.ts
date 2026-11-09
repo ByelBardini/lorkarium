@@ -9,12 +9,14 @@ export type DraftFieldOptions = Readonly<{
   save: (draft: string) => Promise<boolean>;
 }>;
 
+type DraftElement = HTMLInputElement | HTMLTextAreaElement;
+
 export type DraftFieldBinding = Readonly<{
   value: string;
   onFocus: () => void;
-  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onChange: (event: ChangeEvent<DraftElement>) => void;
   onBlur: () => void;
-  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  onKeyDown: (event: KeyboardEvent<DraftElement>) => void;
 }>;
 
 type Draft = Readonly<{ base: string; text: string }>;
@@ -52,7 +54,7 @@ export function useDraftField({
   };
 }
 
-function keyOnField(event: KeyboardEvent<HTMLInputElement>, cancelled: { current: boolean }): void {
+function keyOnField(event: KeyboardEvent<DraftElement>, cancelled: { current: boolean }): void {
   if (event.key !== 'Enter' && event.key !== 'Escape') return;
   event.preventDefault();
   cancelled.current = event.key === 'Escape';

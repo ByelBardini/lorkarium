@@ -21,6 +21,7 @@ export const assetPurposeDto = z.enum([
   'condition',
   'aura',
   'library_image',
+  'library_map',
   'document_image',
 ]);
 
@@ -31,6 +32,8 @@ export const ASSET_MAX_SIDE: Readonly<Record<AssetPurposeDto, number>> = {
   background: 4096,
   library_image: 4096,
   document_image: 4096,
+  // A map is made to be zoomed into and is drawn as a plain image, never uploaded as a texture.
+  library_map: 8192,
   token: 1024,
   // The cover is at most a wide card or the detail banner; 1600 keeps it sharp on 2x screens.
   cover: 1600,

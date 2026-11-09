@@ -78,7 +78,9 @@ describe('the grids of the library over HTTP', () => {
       [library.activeSceneId, 0],
       [cripta.id, 3],
     ]);
-    expect(library.folders).toEqual([{ id: ato1, name: 'Ato 1', parentId: null }]);
+    expect(library.folders).toEqual([
+      { id: ato1, name: 'Ato 1', parentId: null, visibility: 'public' },
+    ]);
   });
 
   it('Bia sees only the group grid and the public ones, without counts nor private folders', async () => {

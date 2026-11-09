@@ -1,4 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
+import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets, type AssetPo } from '../assets/assets.po';
 import {
@@ -7,12 +8,21 @@ import {
   type NewLibraryImagePo,
   type LibraryImageChangesPo,
 } from './library-images.po';
-export type LibraryImageRow = Readonly<{ image: LibraryImagePo; asset: AssetPo }>;
+export type LibraryImageRow = Readonly<{
+  image: LibraryImagePo;
+  asset: AssetPo;
+  hiddenByFolder: boolean;
+}>;
+const IMAGE_WITH_ASSET = {
+  image: libraryImages,
+  asset: assets,
+  hiddenByFolder: hiddenByFolderSql('"library_images"."folder_id"'),
+};
 export class LibraryImagesDao {
   constructor(private readonly db: DatabaseExecutor) {}
   async listOfCampaign(campaignId: string): Promise<LibraryImageRow[]> {
     return this.db
-      .select({ image: libraryImages, asset: assets })
+      .select(IMAGE_WITH_ASSET)
       .from(libraryImages)
       .innerJoin(
         assets,
@@ -23,7 +33,7 @@ export class LibraryImagesDao {
   }
   async findInCampaign(campaignId: string, imageId: string): Promise<LibraryImageRow | undefined> {
     const [row] = await this.db
-      .select({ image: libraryImages, asset: assets })
+      .select(IMAGE_WITH_ASSET)
       .from(libraryImages)
       .innerJoin(
         assets,

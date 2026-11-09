@@ -39,6 +39,7 @@ import type { AuthApi } from '@/services/auth-api';
 import type { RoomAssetsApi } from '@/services/assets-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
 import type { LibraryApi } from '@/services/library-api';
+import type { LibraryMapsApi } from '@/services/library-maps-api';
 import type { ProfileApi } from '@/services/profile-api';
 import type { SavedColorsApi } from '@/services/saved-colors-api';
 import type { SceneActivation } from '@/services/scene-activation';
@@ -94,6 +95,8 @@ export type AppDependencies = Readonly<{
   accountLinksApi: AccountLinksApi;
   /** The grids and folders of a table (the library). */
   libraryApi: LibraryApi;
+  /** The maps of the library: their regions, the main map, showing a region to the room. */
+  libraryMapsApi: LibraryMapsApi;
   documentsApi: DocumentsApi;
   documentWorkspace: StoreApi<DocumentWorkspaceStore>;
   sheetsApi: SheetsApi;

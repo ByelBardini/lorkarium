@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils';
 import { useSession } from '@/stores/session-store';
 import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detail-dialog';
 import { PlayRoomPage } from '@/features/board/play-room-page';
+import { RoomMapFocus } from '@/features/maps/room-map-focus';
+import { MainMapReaderContext } from '@/features/maps/use-map-home';
 import { MemberRoleProvider } from '@/features/sessions/member-role-provider';
 import { SheetRoomProvider } from '@/features/sheets/sheet-room';
 import type { SheetRoomServices } from '@/features/sheets/sheet-room-context';
@@ -154,6 +156,7 @@ function tableRoute({
   documentWorkspace,
   sheetsApi,
   libraryApi,
+  libraryMapsApi,
 }: AppDependencies): () => React.JSX.Element {
   const sheetServices: SheetRoomServices = {
     sheetsApi,
@@ -173,39 +176,47 @@ function tableRoute({
     return (
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className={cn('flex min-h-0 flex-1 flex-col', covered && 'invisible')}>
-          <MemberRoleProvider changer={campaignsApi}>
-            <SheetRoomProvider campaign={campaign} services={sheetServices}>
-              <PlayRoomPage
-                key={campaign.id}
-                campaign={campaign}
-                openTables={openTables}
-                roomLayout={roomLayout}
-                drawingStyle={drawingStyle}
-                effectAreaStyle={effectAreaStyle}
-                wallStyle={wallStyle}
-                lightReach={lightReach}
-                lightColor={lightColor}
-                auraMotion={auraMotion}
-                clipboard={clipboard}
-                createBoardRenderer={createBoardRenderer}
-                boardCommands={boardCommands}
-                pings={pings}
-                sessionStore={sessionStore}
-                assets={assets}
-                interactionClock={interactionClock}
-                dicePreferences={dicePreferences}
-                createDiceRenderer={createDiceRenderer}
-                createDiceSound={createDiceSound}
-                dice={dice}
-                savedRolls={savedRolls}
-                diceClock={diceClock}
-                chat={chat}
-                chatWindowHost={chatWindowHost}
-                documentWorkspace={documentWorkspace}
-                covered={covered}
-              />
-            </SheetRoomProvider>
-          </MemberRoleProvider>
+          <MainMapReaderContext value={libraryMapsApi}>
+            <MemberRoleProvider changer={campaignsApi}>
+              <SheetRoomProvider campaign={campaign} services={sheetServices}>
+                <PlayRoomPage
+                  key={campaign.id}
+                  campaign={campaign}
+                  openTables={openTables}
+                  roomLayout={roomLayout}
+                  drawingStyle={drawingStyle}
+                  effectAreaStyle={effectAreaStyle}
+                  wallStyle={wallStyle}
+                  lightReach={lightReach}
+                  lightColor={lightColor}
+                  auraMotion={auraMotion}
+                  clipboard={clipboard}
+                  createBoardRenderer={createBoardRenderer}
+                  boardCommands={boardCommands}
+                  pings={pings}
+                  sessionStore={sessionStore}
+                  assets={assets}
+                  interactionClock={interactionClock}
+                  dicePreferences={dicePreferences}
+                  createDiceRenderer={createDiceRenderer}
+                  createDiceSound={createDiceSound}
+                  dice={dice}
+                  savedRolls={savedRolls}
+                  diceClock={diceClock}
+                  chat={chat}
+                  chatWindowHost={chatWindowHost}
+                  documentWorkspace={documentWorkspace}
+                  covered={covered}
+                />
+              </SheetRoomProvider>
+            </MemberRoleProvider>
+          </MainMapReaderContext>
+          <RoomMapFocus
+            campaign={campaign}
+            openTables={openTables}
+            workspace={documentWorkspace}
+            covered={covered}
+          />
         </div>
         <Outlet />
       </div>

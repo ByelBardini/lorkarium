@@ -16,7 +16,11 @@ import { LYRA_ID, lyraPo, lyraRow } from '../../support/tokens-factories';
 const LIMITS = { barLimit: 99_999, tokenLimit: 500, blockerLimit: 50 };
 const caio = new CampaignAccessBo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' });
 const ana = new CampaignAccessBo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' });
-const SCENE = { ...scenePo({ widthCells: 10, heightCells: 10 }), isActive: true };
+const SCENE = {
+  ...scenePo({ widthCells: 10, heightCells: 10 }),
+  isActive: true,
+  hiddenByFolder: false,
+};
 
 function dragged(controllerIds: readonly string[]) {
   const { id, layer, width, height, hidden } = lyraPo();

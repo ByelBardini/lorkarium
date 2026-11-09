@@ -93,6 +93,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | campaigns        | Mesas: criação, detalhe, config., código, papéis (dono, co-mestre, juggernaut)       | [`docs/context/campaigns.md`](docs/context/campaigns.md)               |
 | board            | Tabuleiro: cenas (grids), endereço `sceneId`, versão e salas por grid, abas          | [`docs/context/board.md`](docs/context/board.md)                       |
 | library          | Biblioteca: grids, imagens, pastas, visibilidade, apresentação e ativação            | [`docs/context/library.md`](docs/context/library.md)                   |
+| library-maps     | Mapas da biblioteca: tabelas, regiões, link sobrevivente, Principal, DAOs            | [`docs/context/library-maps.md`](docs/context/library-maps.md)         |
 | documents        | Documentos ricos: abas, conteúdo, posse, versão, edição e imagens protegidas         | [`docs/context/documents.md`](docs/context/documents.md)               |
 | tokens           | Barras, controle, cone, luz, aura, formas, invisível, bloqueio, elenco, patrulha     | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
 | characters       | Personagem da mesa: tabelas, regra, `character:*`, ciclo de vida, token ligado       | [`docs/context/characters.md`](docs/context/characters.md)             |

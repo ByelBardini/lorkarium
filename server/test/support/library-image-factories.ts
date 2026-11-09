@@ -10,6 +10,7 @@ const AT = new Date('2026-10-29T15:00:00Z');
 /** A private library record and its file. Example: `libraryImageRow().image.name`. */
 export function libraryImageRow(): LibraryImageRow {
   return {
+    hiddenByFolder: false,
     image: {
       id: LIBRARY_PORTRAIT_ID,
       campaignId: VHARN_ID,
