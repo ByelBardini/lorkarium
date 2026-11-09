@@ -336,7 +336,7 @@ Extensão aprovada em 09/11/2026. O mestre (co-mestre incluso) cria na bibliotec
 - **Item excluído.** O lugar fica, sem link, e o mestre vê "Link removido".
 - **Mostrar a todos.** Evento efêmero que abre o mapa e centraliza o lugar para quem está na sala; recusado se os jogadores não puderem vê-lo.
 - **Aparece em.** O documento lista os lugares que levam a ele, filtrados pelo que o leitor pode ver.
-- **Limites.** Nome de 1 a 60 caracteres, descrição até 500, 300 lugares por mapa, polígono de 3 a 128 vértices.
+- **Limites.** Nome de 1 a 60 caracteres, descrição até 500, 300 lugares por mapa, polígono de 3 a 1024 vértices.
 
 Contratos, tabelas, rotas e provas: [context/library-maps.md](context/library-maps.md). Fora desta entrega: camadas e grupos de marcadores, cursores e ping no mapa, janela separada no desktop, ficha como alvo de link, edição por jogadores, imagem em ladrilhos, troca da imagem de um mapa já criado, duplicar e exportar.
 

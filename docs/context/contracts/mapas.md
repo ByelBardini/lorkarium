@@ -4,12 +4,12 @@
 
 ## Limites
 
-`MAP_NAME_MAX_LENGTH` (60), `MAP_REGION_NAME_MAX_LENGTH` (60), `MAP_REGION_DESCRIPTION_MAX_LENGTH` (500), `MAP_REGIONS_MAX` (300), `MAP_POLYGON_VERTICES_MIN` (3) e `MAP_POLYGON_VERTICES_MAX` (128). Mesmos nomes e valores no `map-region.vo.ts` do game-core, porque o contracts só depende do `zod`. Nomes aparados, de 1 ao limite; descrição aparada, pode ser vazia.
+`MAP_NAME_MAX_LENGTH` (60), `MAP_REGION_NAME_MAX_LENGTH` (60), `MAP_REGION_DESCRIPTION_MAX_LENGTH` (500), `MAP_REGIONS_MAX` (300), `MAP_POLYGON_VERTICES_MIN` (3) e `MAP_POLYGON_VERTICES_MAX` (1024). Mesmos nomes e valores no `map-region.vo.ts` do game-core, porque o contracts só depende do `zod`. Nomes aparados, de 1 ao limite; descrição aparada, pode ser vazia.
 
 ## Geometria
 
 - `mapPointDto` `{ x, y }`, normalizado de 0 a 1: não varia com zoom nem tamanho de tela.
-- `mapRegionGeometryDto`, união por `shape`: `{ shape: 'polygon', points }` (3 a 128) | `{ shape: 'pin', point }`. Polígono de área zero passa aqui e é recusado pelo game-core.
+- `mapRegionGeometryDto`, união por `shape`: `{ shape: 'polygon', points }` (3 a 1024) | `{ shape: 'pin', point }`. Polígono de área zero passa aqui e é recusado pelo game-core.
 
 ## Link
 
