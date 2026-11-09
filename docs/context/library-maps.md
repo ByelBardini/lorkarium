@@ -13,7 +13,7 @@ Aqui: as tabelas, as FKs, os DAOs, a regra de quem vê, o Principal e as rotas d
 - Únicos: `library_maps_campaign_id_id_unique` (`campaign_id`, `id`), alvo das FKs compostas, e `library_maps_asset_unique` (`asset_id`): uma imagem serve a um mapa só.
 - **`library_maps_one_main_unique`**: índice único parcial em `campaign_id` `WHERE is_main`. É o banco que garante um só Principal por mesa, sem coluna em `campaigns`. O índice vale a cada comando (não é adiável): trocar o Principal é `clearMain` e depois `setMain`, nessa ordem e na mesma transação.
 
-**`library_map_regions`** (`library-map-regions.po.ts`): `id`, `campaign_id` (→ `campaigns`, cascade), `map_id`, `name` (`CHECK` 1 a 60), `description` (padrão `''`, `CHECK` até 500), `geometry` (jsonb `MapRegionGeometry`, validado pelo game-core antes de gravar; o banco não confere a forma), `color` (`CHECK` `^#[0-9a-f]{6}$`), `hidden` (padrão `false`), `link_kind` (enum `map_region_link_kind`: `document` | `scene` | `map` | `image`), `target_document_id`, `target_scene_id`, `target_map_id`, `target_image_id`, `created_at`, `updated_at`. Índices em (`campaign_id`, `map_id`) e em (`campaign_id`, alvo) para cada um dos quatro alvos: é por eles que o `SET NULL` e o "Aparece em" acham as regiões.
+**`library_map_regions`** (`library-map-regions.po.ts`): `id`, `campaign_id` (→ `campaigns`, cascade), `map_id`, `name` (`CHECK` 1 a 60), `description` (padrão `''`, `CHECK` até 500), `geometry` (jsonb `MapRegionGeometry`, validado pelo game-core antes de gravar; o banco não confere a forma), `color` (`CHECK` `^#[0-9a-f]{6}$`), `hidden` (padrão `false`), `link_kind` (enum `map_region_link_kind`: `document` | `scene` | `map` | `image`), `target_document_id`, `target_document_tab_id` (migração `0095`: uma aba daquele documento; nulo = o documento inteiro), `target_scene_id`, `target_map_id`, `target_image_id`, `created_at`, `updated_at`. Índices em (`campaign_id`, `map_id`) e em (`campaign_id`, coluna) para cada um dos quatro alvos e para a aba: é por eles que o `SET NULL` e o "Aparece em" acham as regiões.
 
 Também desta migração: `scenes_campaign_id_id_unique` (`scenes.po.ts`), o alvo da FK composta do grid, e `library_map` em `asset_purpose`. Enum e tabelas exportados em `server/src/database/schema.ts`; `truncateAllTables` inclui as duas.
 
@@ -27,22 +27,24 @@ Também desta migração: `scenes_campaign_id_id_unique` (`scenes.po.ts`), o alv
 
 - **`link_kind` sobrevive ao `SET NULL`.** Apagar o item ligado limpa só a coluna do alvo: a região fica, sem coluna extra e sem trigger, e o tipo continua dizendo o que havia ali. Nada apaga uma região por causa do alvo.
 - `CHECK` `library_map_regions_link_target`: no máximo um alvo (`num_nonnulls`), e cada alvo preenchido exige o `link_kind` dele. A comparação é `IS NOT DISTINCT FROM`, não `=`: alvo com `link_kind` nulo daria `NULL` no `=`, e `CHECK` que dá `NULL` passa.
+- **Aba do documento.** `library_map_regions_target_document_tab_fk`, (`campaign_id`, `target_document_tab_id`) → PK de `library_document_tabs`, `SET NULL ("target_document_tab_id")`: excluir a aba devolve o link ao documento inteiro. `CHECK` `library_map_regions_link_tab`: aba só com `link_kind = 'document'`. Que a aba seja daquele documento é conferido no service, com a mesa travada (`MAP_LINK_TARGET_NOT_FOUND`).
 - O banco aceita a região ligada ao próprio mapa: recusar é regra do caso de uso (ciclo entre mapas vale).
-- Trocar o link grava o `link_kind` e os quatro alvos juntos (`MapRegionChangesPo`); o alvo antigo que ficasse para trás cairia no `CHECK`.
+- Trocar o link grava o `link_kind`, os quatro alvos e a aba juntos (`MapRegionChangesPo`); o alvo antigo que ficasse para trás cairia no `CHECK`.
 
 ## FKs compostas (isolamento no banco)
 
 Pasta, imagem, mapa e alvo de outra mesa são recusados pelo próprio Postgres (`23503`), porque toda referência carrega o `campaign_id`.
 
-| FK                                       | Colunas → destino                                           | Ao apagar o destino               |
-| ---------------------------------------- | ----------------------------------------------------------- | --------------------------------- |
-| `library_maps_asset_fk`                  | (`campaign_id`, `asset_id`) → `assets`                      | bloqueia                          |
-| `library_maps_folder_fk`                 | (`campaign_id`, `folder_id`) → `scene_folders`              | `SET NULL ("folder_id")`          |
-| `library_map_regions_map_fk`             | (`campaign_id`, `map_id`) → `library_maps`                  | cascade                           |
-| `library_map_regions_target_document_fk` | (`campaign_id`, `target_document_id`) → `library_documents` | `SET NULL ("target_document_id")` |
-| `library_map_regions_target_scene_fk`    | (`campaign_id`, `target_scene_id`) → `scenes`               | `SET NULL ("target_scene_id")`    |
-| `library_map_regions_target_map_fk`      | (`campaign_id`, `target_map_id`) → `library_maps`           | `SET NULL ("target_map_id")`      |
-| `library_map_regions_target_image_fk`    | (`campaign_id`, `target_image_id`) → `library_images`       | `SET NULL ("target_image_id")`    |
+| FK                                           | Colunas → destino                                                   | Ao apagar o destino                   |
+| -------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------- |
+| `library_maps_asset_fk`                      | (`campaign_id`, `asset_id`) → `assets`                              | bloqueia                              |
+| `library_maps_folder_fk`                     | (`campaign_id`, `folder_id`) → `scene_folders`                      | `SET NULL ("folder_id")`              |
+| `library_map_regions_map_fk`                 | (`campaign_id`, `map_id`) → `library_maps`                          | cascade                               |
+| `library_map_regions_target_document_fk`     | (`campaign_id`, `target_document_id`) → `library_documents`         | `SET NULL ("target_document_id")`     |
+| `library_map_regions_target_document_tab_fk` | (`campaign_id`, `target_document_tab_id`) → `library_document_tabs` | `SET NULL ("target_document_tab_id")` |
+| `library_map_regions_target_scene_fk`        | (`campaign_id`, `target_scene_id`) → `scenes`                       | `SET NULL ("target_scene_id")`        |
+| `library_map_regions_target_map_fk`          | (`campaign_id`, `target_map_id`) → `library_maps`                   | `SET NULL ("target_map_id")`          |
+| `library_map_regions_target_image_fk`        | (`campaign_id`, `target_image_id`) → `library_images`               | `SET NULL ("target_image_id")`        |
 
 Apagar a pasta leva os mapas à raiz; subir ao pai é regra de quem apaga (`moveFromFolder` antes). Apagar um mapa leva as regiões dele e deixa "Link removido" nas regiões de outros mapas que apontavam para ele.
 
@@ -69,7 +71,7 @@ Recebem `db` ou `tx` pelo construtor. **Toda consulta filtra por `campaign_id`**
 - `countOfMap(campaignId, mapId)` → `number`
 - `update(campaignId, mapId, regionId, MapRegionChangesPo)` → `MapRegionPo | undefined`
 - `delete(campaignId, mapId, regionId)` → `boolean`
-- `listAppearances(campaignId, documentId)` → `MapAppearanceRow[]` (`mapId`, `mapName`, `mapVisibility`, `mapIsMain`, `regionId`, `regionName`, `regionHidden`; mapa a mapa, sem filtrar por leitor: oculta e mapa privado vêm junto)
+- `listAppearances(campaignId, documentId)` → `MapAppearanceRow[]` (`mapId`, `mapName`, `mapVisibility`, `mapIsMain`, `regionId`, `regionName`, `regionHidden`, e pelo `LEFT JOIN` da aba `tabName` e `tabVisibility`, nulos no documento inteiro; mapa a mapa, sem filtrar por leitor: oculta, mapa privado e aba `masters` vêm junto)
 
 ## Regra (sem banco)
 
@@ -122,5 +124,6 @@ Integração (Postgres descartável): `server/test/integration/library-maps.spec
 
 ## Armadilhas
 
+- **FK da aba não passa pelo documento, e o `CHECK` não olha `target_document_id`.** Ao apagar o documento, o `SET NULL` dele e a cascata das abas correm em ordem indefinida: um `CHECK` "aba exige documento" derrubaria a exclusão, e uma FK de (documento, aba) deixaria a aba para trás se o documento fosse limpo antes. A `0095` foi editada à mão para o `SET NULL` só da coluna da aba.
 - **`SET NULL` de FK composta.** O drizzle-kit gera `ON DELETE set null`, que anularia também o `campaign_id` (`NOT NULL`) e faria a exclusão falhar. A `0091` foi editada à mão nas cinco FKs com `SET NULL`; ver a mesma armadilha em [`library.md`](library.md).
 - **Índice antes da FK.** O drizzle-kit gera o `scenes_campaign_id_id_unique` depois das FKs, e a FK composta do grid falha sem ele. Na `0091` o `CREATE UNIQUE INDEX` foi movido para antes dos `ADD CONSTRAINT`.

@@ -14,8 +14,8 @@
 ## Link
 
 - `mapRegionLinkKindDto`: `document` · `scene` · `map` · `image`. Ficha fica de fora: depende de dono e sandbox.
-- `mapRegionLinkTargetDto` `{ kind, id }`: o link que o mestre escreve; `null` = sem link.
-- `mapRegionLinkDto`: o link que cada leitor recebe, `null` | `{ state: 'open', kind, id, name }` | `{ state: 'locked' }` | `{ state: 'removed', kind }`. O `locked` não tem campo nenhum, de propósito: o DTO estrito recusa `id`, `name` ou `kind` e o tipo privado não vaza nem por engano. `removed` só vai ao mestre.
+- `mapRegionLinkTargetDto` `{ kind, id, tabId? }`: o link que o mestre escreve; `null` = sem link. `tabId` só com `kind: 'document'` (`refine`).
+- `mapRegionLinkDto`: o link que cada leitor recebe, `null` | `{ state: 'open', kind, id, name, tabId?, tabName? }` | `{ state: 'locked' }` | `{ state: 'removed', kind }`. O `locked` não tem campo nenhum, de propósito: o DTO estrito recusa `id`, `name` ou `kind` e o tipo privado não vaza nem por engano. `removed` só vai ao mestre.
 
 ## Leitura
 
@@ -23,7 +23,7 @@
 - `libraryMapSummaryDto` `{ id, name, folderId | null, visibility, isMain, asset, version, updatedAt }`: a linha da biblioteca, sem regiões. `campaignLibraryDto` leva `maps` (estes resumos) e `mainMapId` (uuid | null), os dois obrigatórios.
 - `libraryMapDetailDto`: o resumo + `regions` (até 300), resposta do `GET …/library-maps/:mapId`.
 - `mainMapResponseDto` `{ map: resumo | null }`, do `GET …/library-maps/main` (`null` = mesa sem Principal).
-- `mapAppearanceDto` `{ mapId, mapName, regionId, regionName }` e `mapAppearancesResponseDto` `{ appearances }`, do "Aparece em" de um documento.
+- `mapAppearanceDto` `{ mapId, mapName, regionId, regionName, tabName | null }` e `mapAppearancesResponseDto` `{ appearances }`, do "Aparece em" de um documento.
 
 ## Corpos e params
 

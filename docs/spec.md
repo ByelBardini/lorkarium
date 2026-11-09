@@ -328,7 +328,7 @@ Contratos, tabelas, rotas e provas: [context/sheets.md](context/sheets.md). Fora
 
 ### 3.13. Mapas interativos na biblioteca
 
-Extensão aprovada em 09/11/2026. O mestre (co-mestre incluso) cria na biblioteca mapas com imagem própria (até 8192 px e 20 MiB) e desenha sobre eles **lugares**: polígonos ou pinos com nome, descrição, cor e, no pino, um ícone. Cada lugar pode levar a um documento, grid, imagem ou outro mapa. Ciclos entre mapas valem. Coordenadas normalizadas (0 a 1) sobre a imagem, e cada lugar grava ao confirmar.
+Extensão aprovada em 09/11/2026. O mestre (co-mestre incluso) cria na biblioteca mapas com imagem própria (até 8192 px e 20 MiB) e desenha sobre eles **lugares**: polígonos ou pinos com nome, descrição, cor e, no pino, um ícone. Cada lugar pode levar a um documento (inteiro ou a uma aba dele), grid, imagem ou outro mapa. Ciclos entre mapas valem. Coordenadas normalizadas (0 a 1) sobre a imagem, e cada lugar grava ao confirmar.
 
 - **Explorar.** Um clique abre, ao lado do ponto, um cartão com nome, descrição e "Abrir"; o duplo clique abre o item. Grid abre em aba pessoal e nunca move o grupo; outro mapa abre na mesma aba, com trilha e voltar. "Lugares neste mapa" lista em hierarquia, cada lugar dentro da região que o contém, com busca.
 - **Spoilers.** Lugar oculto nunca chega ao jogador. Lugar visível com item que o jogador não pode abrir mostra "O mestre ainda não revelou isto", sem nome, tipo ou id do item. A permissão é sempre a do item ligado, calculada no servidor para cada leitor; o aviso por socket não leva nome nem forma.

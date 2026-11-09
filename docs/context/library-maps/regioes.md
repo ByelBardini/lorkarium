@@ -24,7 +24,7 @@ Todas sob `/api`, exigem sessão (401 sem cookie). Id malformado na URL = não a
 
 `map-regions.bo.ts` tem a regra sem I/O: `requireRegionRoom` (a 300ª passa, a 301ª é `MAP_REGIONS_FULL`), `requireLinkNotSelf` (ciclo entre mapas vale), `validRegionGeometry`, `linkColumnsOf` e `requireRegionShowable`.
 
-- **Trocar o link grava sempre o tipo e os quatro alvos** (`linkColumnsOf`): um alvo antigo que ficasse para trás cairia no `CHECK`. `link: null` tira o link; chave ausente deixa como está.
+- **Trocar o link grava sempre o tipo, os quatro alvos e a aba** (`linkColumnsOf`): um alvo antigo que ficasse para trás cairia no `CHECK`. `link: null` tira o link; chave ausente deixa como está.
 - O alvo é conferido dentro da transação com a mesa travada, e toda exclusão de item da biblioteca também trava a mesa: o alvo que passou na conferência não some antes do `INSERT` (nada de `23503` em 500). Alvo de outra mesa não acha, como o inexistente (`MAP_LINK_TARGET_NOT_FOUND`).
 - A resposta é a mesma projeção do `GET`, lida no próprio `tx`.
 
@@ -38,6 +38,7 @@ Todas sob `/api`, exigem sessão (401 sem cookie). Id malformado na URL = não a
 | Sem link                                   | `link: null`                        | `link: null`                         |
 | Alvo que o leitor pode abrir               | `{ state: 'open', kind, id, name }` | `{ state: 'open', kind, id, name }`  |
 | Alvo que o leitor não pode abrir           | (o mestre sempre pode)              | `{ state: 'locked' }`, sem mais nada |
+| Link para aba `masters`                    | `open`, com `tabId` e `tabName`     | `{ state: 'locked' }`                |
 | Alvo apagado (`link_kind` com alvos nulos) | `{ state: 'removed', kind }`        | `link: null`                         |
 
 "Pode abrir" é a regra que já guarda cada item, nunca uma cópia dela:
@@ -50,8 +51,9 @@ Todas sob `/api`, exigem sessão (401 sem cookie). Id malformado na URL = não a
 | imagem    | `canReadLibraryImage`                                  | pública ou a que está sendo apresentada    |
 
 - **`locked` não leva id, nome nem tipo**, e `mapRegionDto` recusa campo a mais: a região visível não pode revelar o que há atrás dela.
+- **Ler o documento não basta para a aba** (`narrowedToTab`): link para aba `masters` sai `locked` para quem não é mestre, sem nada dela; aba legível soma `tabId` e `tabName` ao `open`.
 - **`toMapRegionDto` copia campo a campo**, para nada da linha (as colunas `target_*`, `link_kind`) sair por acidente.
-- **Uma consulta por tipo, não uma por região** (até 300): `mapLinkTargetIdsOf` junta os ids sem repetir e `MapLinkTargetsDao` (`map-link-targets.dao.ts`) responde `documentsIn` (com os donos, `array_agg` num `LEFT JOIN`), `scenesIn`, `mapsIn`, `imagesIn` (com a marca de apresentada, `LEFT JOIN`), todas filtradas por `campaign_id`. Tipo sem id não consulta nada; o `activeSceneId` só é lido se há link para grid.
+- **Uma consulta por tipo, não uma por região** (até 300): `mapLinkTargetIdsOf` junta os ids sem repetir e `MapLinkTargetsDao` (`map-link-targets.dao.ts`) responde `documentsIn` (com os donos, `array_agg` num `LEFT JOIN`), `scenesIn`, `mapsIn`, `documentTabsIn`, `imagesIn` (com a marca de apresentada, `LEFT JOIN`), todas filtradas por `campaign_id`. Tipo sem id não consulta nada; o `activeSceneId` só é lido se há link para grid.
 
 ## Eventos
 
@@ -70,10 +72,10 @@ Só é mostrável o que um jogador pode ver, senão o evento nomearia um lugar e
 
 ## "Aparece em"
 
-`MapAppearancesService` (`map-appearances.service.ts`): em snapshot, exige ler o documento (`DocumentAccessBo.requireRead`; quem não lê leva `DOCUMENT_NOT_FOUND`, nunca 403, mesmo com o documento em mapa público) e filtra `listAppearances` por `LibraryMapAccessBo.canSeeRegion`: o mestre vê tudo; os outros, só região visível em mapa público ou no Principal. A resposta traz só `mapId`, `mapName`, `regionId`, `regionName`.
+`MapAppearancesService` (`map-appearances.service.ts`): em snapshot, exige ler o documento (`DocumentAccessBo.requireRead`; quem não lê leva `DOCUMENT_NOT_FOUND`, nunca 403, mesmo com o documento em mapa público) e filtra `listAppearances` por `LibraryMapAccessBo.canSeeRegion`: o mestre vê tudo; os outros, só região visível em mapa público ou no Principal. Região ligada a aba `masters` só aparece para o mestre. A resposta traz só `mapId`, `mapName`, `regionId`, `regionName` e `tabName` (`null` = documento inteiro).
 
 ## Testes
 
 Unit em `server/test/modules/library-maps/`: `map-region-projection.bo.spec.ts`, `map-regions.bo.spec.ts`, `map-regions.service.spec.ts` (diário `lock → gravar → bump → commit → publish`), `map-region-show.service.spec.ts`, `map-appearances.service.spec.ts`; `library-maps.service.spec.ts` cobre a projeção no `detail`.
 
-Integração (Postgres descartável): `library-map-regions.spec.ts` (escrita, recusas, endereços, `library:mapChanged`), `library-map-region-spoilers.spec.ts` (**corpo JSON cru** sem id, nome ou `kind` em `locked`, região oculta ausente; o que abre para o jogador; o número de consultas não cresce com as regiões), `library-map-show.spec.ts` (Socket.IO real, aparições) e `map-link-targets-dao.spec.ts`. `MapRegionsOverHttp` (`server/test/support/library-map-regions-http.ts`) cria mapa, região e alvos pela borda ou direto na tabela, sobre o `useTokenTable()`.
+Integração (Postgres descartável): `library-map-regions.spec.ts` (escrita, recusas, endereços, `library:mapChanged`), `library-map-region-spoilers.spec.ts` (**corpo JSON cru** sem id, nome ou `kind` em `locked`, região oculta ausente; o que abre para o jogador; o número de consultas não cresce com as regiões), `library-map-show.spec.ts` (Socket.IO real, aparições), `library-map-region-tab-link.spec.ts` (excluir a aba volta ao documento inteiro, excluir o documento deixa "Link removido", a tabela recusa aba de outra mesa e aba em link de outro tipo, `tabName` nas aparições, `documentTabsIn` por mesa) e `map-link-targets-dao.spec.ts`. `MapRegionsOverHttp` (`server/test/support/library-map-regions-http.ts`) cria mapa, região e alvos pela borda ou direto na tabela, sobre o `useTokenTable()`.
